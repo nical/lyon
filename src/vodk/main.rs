@@ -1,9 +1,6 @@
 extern mod extra;
 
-use logic::entity::{EntityGroup, EntityID, EntityIndex};
 use json = io::json;
-use std::rc;
-use std::util::{swap};
 
 mod io {
     pub mod json;
@@ -35,18 +32,6 @@ impl json::TextStream for ~str {
 struct JSONPrettyPrinter {
     indentation: int,
 }
-
-/*
-
-{
-    foo: [
-        1,
-        2,
-        3
-    ]
-}
-
-*/
 
 impl JSONPrettyPrinter {
     fn new() -> JSONPrettyPrinter { JSONPrettyPrinter{ indentation: 0 }}
@@ -98,39 +83,15 @@ impl json::Handler for JSONPrettyPrinter {
     }
 }
 
-//Shows how to borrow a reference in a container
-//
-//struct Container {
-//    elements: ~[int],
-//}
-//
-//impl Container {
-//    fn get_mut<'l>(&'l mut self, idx: u32) -> &'l mut int { return &mut self.elements[idx]; }
-//    fn get<'l>(&'l self, idx: u32) -> &'l int { return &self.elements[idx]; }
-//    fn test() {
-//        let mut c = Container { elements: ~[42, 12, 5] };
-//        {
-//            let mut b0 : &mut int = c.get_mut(0);
-//            *b0 = 10;
-//        }
-//        let b1 = c.get(1);
-//        let b2 = c.get(2);
-//    }
-//}
-
 fn main() {
-    let mut test = ~"{a: 3.14, foo: [1,2,3,4,5], bar: true, baz: {plop:\"hello world! \", hey:null, x: false}}  ";
-    let mut test2 = test.clone();
+    let test = ~"{a: 3.14, foo: [1,2,3,4,5], bar: true, baz: {plop:\"hello world! \", hey:null, x: false}}  ";
 
-    let mut parser = JSONPrettyPrinter::new();
+    let mut prettifier = JSONPrettyPrinter::new();
     let mut validator = json::Validator::new();
     println(test);
 
-    json::parse_with_handler(&mut test   as &mut json::TextStream,
-                             &mut parser as &mut json::Handler);
-
-    json::parse_with_handler(&mut test2     as &mut json::TextStream,
-                             &mut validator as &mut json::Handler);
+    json::parse_with_handler(test.chars(), &mut prettifier as &mut json::Handler);
+    json::parse_with_handler(test.chars(), &mut validator as &mut json::Handler);
 
     match *validator.error() {
         Some(_) => {
