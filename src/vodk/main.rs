@@ -57,7 +57,7 @@ impl JSONPrettyPrinter {
     }
 }
 
-impl json::CustomParser for JSONPrettyPrinter {
+impl json::Handler for JSONPrettyPrinter {
     fn on_begin_object(&mut self, _namespace: &[json::NameSpace]) -> bool {
         self.print_indent();
         println("{");
@@ -126,11 +126,11 @@ fn main() {
     let mut validator = json::Validator::new();
     println(test);
 
-    json::parse(&mut test   as &mut json::TextStream,
-                &mut parser as &mut json::CustomParser);
+    json::parse_with_handler(&mut test   as &mut json::TextStream,
+                             &mut parser as &mut json::Handler);
 
-    json::parse(&mut test2     as &mut json::TextStream,
-                &mut validator as &mut json::CustomParser);
+    json::parse_with_handler(&mut test2     as &mut json::TextStream,
+                             &mut validator as &mut json::Handler);
 
     match *validator.error() {
         Some(_) => {
@@ -140,9 +140,4 @@ fn main() {
             println("validation suceeded");
         }
     }
-
-    println("");
-
-    //let id = EntityID::new(EntityGroup(1), EntityIndex(42));
-    //let id_copy = id;
 }
