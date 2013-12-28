@@ -2,8 +2,8 @@ use std::util::{swap};
 
 pub trait TextStream {
     fn next(&mut self) -> Option<char>;
-    fn front(&self) -> Option<char>;
-    fn empty(&self) -> bool;
+    fn front(&mut self) -> Option<char>;
+    fn empty(&mut self) -> bool;
 }
 
 pub enum Error {
@@ -83,8 +83,47 @@ pub trait Handler {
 }
 
 struct Adaptor<'l> {
-    src: &'l mut TextStream,
-    buffer: Option<char>,    
+    src: &'l mut Iterator<char>,
+    buffer: Option<char>,
+}
+
+impl<'l> Adaptor<'l> {
+    fn new<'l>(src: &'l mut Iterator<char>) -> Adaptor<'l> {
+        return Adaptor {
+            src: src,
+            buffer: None,
+        }
+    }
+}
+
+impl<'l> TextStream for Adaptor<'l> {
+    fn next(&mut self) -> Option<char> {
+        match self.buffer {
+            Some(s) => {
+                let c = s;
+                self.buffer = None;
+                return Some(s)
+            }
+            None => {
+                return self.src.next();
+            }
+        }
+    }
+    fn front(&mut self) -> Option<char> {
+        match self.buffer {
+            None => {
+                self.buffer = self.src.next()
+            }
+            _ => {}
+        }
+            return self.buffer;
+    }
+    fn empty(&mut self) -> bool {
+        match self.front() {
+            Some(_) => { false }
+            None => { true }
+        }
+    }
 }
 
 pub fn parse_with_handler(src: &mut TextStream, handler: &mut Handler) {
@@ -471,7 +510,7 @@ impl Clone for Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate, TextStream};
+    use super::{validate, TextStream, Adaptor};
 
     #[test]
     fn test_single_valid() {
@@ -494,8 +533,11 @@ mod tests {
     #[test]
     fn test_long_valid() {
         let mut t1 = ~"{a: 3.14, foo: [1,2,3,4,5], bar: true, baz: {plop:\"hello world! \", hey:null, x: false}}  ";
-        assert!(validate(&mut t1 as &mut TextStream));
+        let mut chars = t1.chars();
+        let mut adaptor = Adaptor::new(&mut chars as &mut Iterator<char>);
+        assert!(validate(&mut adaptor as &mut TextStream));
     }
+
     #[test]
     fn test_invalid() {
         assert!(!validate(&mut ~"[" as &mut TextStream));

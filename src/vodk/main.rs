@@ -22,12 +22,12 @@ impl json::TextStream for ~str {
         return Some(self.shift_char());
     }
 
-    fn front(&self) -> Option<char> {
+    fn front(&mut self) -> Option<char> {
         if self.empty() { return None; }
         return Some(self[0] as char);
     }
 
-    fn empty(&self) -> bool {
+    fn empty(&mut self) -> bool {
         return self.len() == 0;
     }
 }
