@@ -5,29 +5,12 @@ use json = io::json;
 mod io {
     pub mod json;
 }
-mod util {
-    pub mod rand;
-}
-mod logic {
-    pub mod entity;
-}
-
-impl json::TextStream for ~str {
-
-    fn next(&mut self) -> Option<char> {
-        if self.empty() { return None; }
-        return Some(self.shift_char());
-    }
-
-    fn front(&mut self) -> Option<char> {
-        if self.empty() { return None; }
-        return Some(self[0] as char);
-    }
-
-    fn empty(&mut self) -> bool {
-        return self.len() == 0;
-    }
-}
+//mod util {
+//    pub mod rand;
+//}
+//mod logic {
+//    pub mod entity;
+//}
 
 struct JSONPrettyPrinter {
     indentation: int,
@@ -84,7 +67,7 @@ impl json::Handler for JSONPrettyPrinter {
 }
 
 fn main() {
-    let test = ~"{a: 3.14, foo: [1,2,3,4,5], bar: true, baz: {plop:\"hello world! \", hey:null, x: false}}  ";
+    let test = ~"{a: 3.14, \"foo\": [1,2,3,4,5], \"bar\": true, \"baz\": {\"plop\":\"hello world! \", \"hey\":null, \"x\": false}}  ";
 
     let mut prettifier = JSONPrettyPrinter::new();
     let mut validator = json::Validator::new();

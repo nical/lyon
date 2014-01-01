@@ -43,29 +43,37 @@ static CONTAINER_ARRAY: ContainerType = 1;
 static CONTAINER_OBJECT: ContainerType = 2;
 static CONTAINER_ROOT: ContainerType = 3;
 
-pub struct Tokenizer2<'l, T> {
+pub struct Tokenizer<T> {
     priv src: T,
-    priv front: char,
-    priv finished: bool
+    priv front: Option<char>,
+    priv finished: bool,
 }
 
-impl<'l, T: Iterator<char>> Tokenizer2<'l, T> {
-    pub fn new<'l, T>(s: T) -> Tokenizer2<'l, T> {
-        return Tokenizer2 {
+impl<T: Iterator<char>> Tokenizer<T> {
+    pub fn new<T>(s: T) -> Tokenizer<T> {
+        return Tokenizer {
             src: s,
-            front: ' ',
+            front: None,
             finished: false,
         }
     }
 
-    fn front_char(&self) -> Option<char> { Some(self.front) }
+    fn front_char(&mut self) -> Option<char> {
+        if self.finished { return None; }
+        match self.front {
+            None => { return self.next_char(); }
+            _ => {}
+        }
+        return self.front;
+    }
 
     fn next_char(&mut self) -> Option<char> {
-        match self.src.next() {
-            Some(c) => { self.front = c; }
+        self.front = self.src.next();
+        match self.front {
             None => { self.finished = true; }
+            _ => {}
         }
-        return self.front_char();
+        return self.front;
     }
 
     fn tokenize(&mut self) -> Token {
@@ -84,28 +92,28 @@ impl<'l, T: Iterator<char>> Tokenizer2<'l, T> {
             Some(s) => { s == '\"' },
             None => { false },
         };
-        if is_string { self.next_char(); } // skip the first '"'
+
         loop {
             if is_string {
                 match self.next_char() {
-                    Some('\"') => { return TOKEN_VALUE(VALUE_STRING(buffer)); },
+                    Some('\"') => { self.next_char(); return TOKEN_VALUE(VALUE_STRING(buffer)); },
                     Some(s) => { buffer.push_char(s); },
-                    None => { return TOKEN_ERROR; },
+                    None => { self.next_char(); return TOKEN_ERROR; },
                 }
             } else {
                 if buffer.len() == 0 {
-                    match self.next_char() {
-                        Some(',')  => return TOKEN_COMA,
-                        Some(':')  => return TOKEN_COLON,
-                        Some('{')  => return TOKEN_BEGIN_OBJECT,
-                        Some('}')  => return TOKEN_END_OBJECT,
-                        Some('[')  => return TOKEN_BEGIN_ARRAY,
-                        Some(']')  => return TOKEN_END_ARRAY,
-                        Some(' ')  => return str_to_token_value(buffer),
-                        Some('\t') => return str_to_token_value(buffer),
-                        Some('\n') => return str_to_token_value(buffer),
-                        Some(s)    => buffer.push_char(s),
-                        None       => return  str_to_token_value(buffer),
+                    match self.front_char() {
+                        Some(',')  => { self.next_char(); return TOKEN_COMA; }
+                        Some(':')  => { self.next_char(); return TOKEN_COLON; }
+                        Some('{')  => { self.next_char(); return TOKEN_BEGIN_OBJECT; }
+                        Some('}')  => { self.next_char(); return TOKEN_END_OBJECT; }
+                        Some('[')  => { self.next_char(); return TOKEN_BEGIN_ARRAY; }
+                        Some(']')  => { self.next_char(); return TOKEN_END_ARRAY; }
+                        Some(' ')  => { self.next_char(); return str_to_token_value(buffer); }
+                        Some('\t') => { self.next_char(); return str_to_token_value(buffer); }
+                        Some('\n') => { self.next_char(); return str_to_token_value(buffer); }
+                        Some(s)    => { self.next_char(); buffer.push_char(s); }
+                        None       => { self.next_char(); return  str_to_token_value(buffer); }
                     }                
                 } else {
                     match self.front_char() {
@@ -125,8 +133,8 @@ impl<'l, T: Iterator<char>> Tokenizer2<'l, T> {
     }
 }
 
-impl<'l, T: Iterator<char>> Iterator<Token> for  Tokenizer2<'l, T> {
-    fn next<'l>(&'l mut self) -> Option<Token> {
+impl<T: Iterator<char>> Iterator<Token> for  Tokenizer<T> {
+    fn next(&mut self) -> Option<Token> {
         if self.finished {
             return None;
         }
@@ -138,31 +146,29 @@ impl<'l, T: Iterator<char>> Iterator<Token> for  Tokenizer2<'l, T> {
         }
         return Some(result);
     }
-
-
 }
 
-
-pub struct Tokenizer<'l> {
-    src: &'l mut TextStream,
-    finished: bool
-}
-
-impl<'l> Tokenizer<'l> {
-    pub fn new<'l>(s: &'l mut TextStream) -> Tokenizer<'l> {
-        return Tokenizer {
-            src: s,
-            finished: false,
-        }
+pub fn tokenize<T: Iterator<char>>(src: T) -> Tokenizer<T> {
+    return Tokenizer {
+        src: src,
+        front: None,
+        finished: false,
     }
 }
 
-impl<'l> Iterator<Token> for Tokenizer<'l> {
+pub struct Parser<T> {
+    priv src: T,
+    priv namespace: ~[NameSpace],
+    priv expected: ExpectedToken,
+    priv finished: bool,
+}
+
+impl<T: Iterator<Token>> Iterator<Token> for Parser<T> {
     fn next<'l>(&'l mut self) -> Option<Token> {
         if self.finished {
             return None;
         }
-        let result = tokenize(self.src);
+        let result = self.parse();
         match result {
             TOKEN_END => { self.finished = true; }
             TOKEN_ERROR => { self.finished = true; }
@@ -172,84 +178,7 @@ impl<'l> Iterator<Token> for Tokenizer<'l> {
     }
 }
 
-
-pub fn tokenize(src: &mut TextStream) -> Token {
-    // skip white spaces
-    loop {
-        match src.front() {
-            Some(' ')  => { src.next(); }
-            Some('\t') => { src.next(); }
-            Some('\n') => { src.next(); }
-            Some(_)    => { break; },
-            None       => { return TOKEN_END; }
-        }
-    }
-
-    let mut buffer : ~str = ~"";
-
-    let is_string = match src.front() {
-        Some(s) => { s == '\"' },
-        None => { false },
-    };
-
-    if is_string { src.next(); } // skip the first '"'
-
-    loop {
-        if is_string {
-            match src.next() {
-                Some('\"') => { return TOKEN_VALUE(VALUE_STRING(buffer)); },
-                Some(s) => { buffer.push_char(s); },
-                None => { return TOKEN_ERROR; },
-            }
-        } else {
-            if buffer.len() == 0 {
-                match src.next() {
-                    Some(',')  => return TOKEN_COMA,
-                    Some(':')  => return TOKEN_COLON,
-                    Some('{')  => return TOKEN_BEGIN_OBJECT,
-                    Some('}')  => return TOKEN_END_OBJECT,
-                    Some('[')  => return TOKEN_BEGIN_ARRAY,
-                    Some(']')  => return TOKEN_END_ARRAY,
-                    Some(' ')  => return str_to_token_value(buffer),
-                    Some('\t') => return str_to_token_value(buffer),
-                    Some('\n') => return str_to_token_value(buffer),
-                    Some(s)    => buffer.push_char(s),
-                    None       => return  str_to_token_value(buffer),
-                }                
-            } else {
-                match src.front() {
-                    Some(s) => {
-                        match s {
-                            ',' | ':' | '{' | '}' | '[' | ']' |
-                            ' ' | '\t' | '\n' => return str_to_token_value(buffer),
-                            _ => buffer.push_char(s),
-                        }
-                    },
-                    None => return str_to_token_value(buffer),
-                }
-                src.next();
-            }
-        }
-    }
-}
-
-pub struct Parser<'l> {
-    priv src: &'l mut Iterator<Token>,
-    priv namespace: ~[NameSpace],
-    priv expected: ExpectedToken,
-    priv finished: bool,
-}
-
-impl<'l> Parser<'l> {
-    pub fn new<'l>(s: &'l mut Iterator<Token>) -> Parser<'l> {
-        return Parser {
-            src: s,
-            namespace: ~[],
-            expected: EXPECT_VALUE|EXPECT_END,
-            finished: false,
-        }
-    }
-
+impl<T: Iterator<Token>> Parser<T> {
     pub fn namespace<'l>(&'l self) -> &'l [NameSpace] {
         return self.namespace.slice(0,self.namespace.len());
     }
@@ -260,7 +189,6 @@ impl<'l> Parser<'l> {
                             None => { TOKEN_END }
                             Some(t) => { t }
                         };
-            println("Parseer.parse: "+token_to_str(&token));
             let container = if self.namespace.len() == 0 { CONTAINER_ROOT }
                             else {
                                 match self.namespace[self.namespace.len()-1] {
@@ -352,24 +280,14 @@ impl<'l> Parser<'l> {
     }
 }
 
-impl<'l> Iterator<Token> for Parser<'l> {
-    fn next<'l>(&'l mut self) -> Option<Token> {
-        println("Parser::next");
-        if self.finished {
-            println("Parser: finished");
-            return None;
-        }
-        let result = self.parse();
-        match result {
-            TOKEN_END => { self.finished = true; }
-            TOKEN_ERROR => { self.finished = true; }
-            _ => {}
-        }
-        println(" -> Parser: "+token_to_str(&result));
-        return Some(result);
+pub fn parse_iter<T>(src: T) -> Parser<T> {
+    return Parser {
+        src: src,
+        namespace: ~[],
+        expected: EXPECT_VALUE|EXPECT_END,
+        finished: false,
     }
 }
-
 
 fn is_expected(token: &Token, expected: ExpectedToken, container: ContainerType) -> bool {
     return match *token {
@@ -385,16 +303,6 @@ fn is_expected(token: &Token, expected: ExpectedToken, container: ContainerType)
                           _ => { false }
     }
 }
-
-fn is_value(token: &Token) -> bool {
-    match *token {
-        TOKEN_VALUE(_)     => true,
-        TOKEN_BEGIN_OBJECT => true,
-        TOKEN_BEGIN_ARRAY  => true,
-        _                  => false,
-    }
-}
-
 
 pub fn token_to_str(token: &Token) -> ~str {
     return match *token {
@@ -417,7 +325,6 @@ pub fn token_to_str(token: &Token) -> ~str {
 }
 
 fn str_to_token_value(src: &str) -> Token {
-    //println("str_to_token("+src+")");
     match src {
         "true"  => TOKEN_VALUE(VALUE_BOOLEAN(true)),
         "false" => TOKEN_VALUE(VALUE_BOOLEAN(false)),
@@ -442,14 +349,8 @@ pub trait Handler {
 }
 
 pub fn parse_with_handler<T:Iterator<char>>(src: T, handler: &mut Handler) {
-    //let mut tokenizer = Tokenizer2::new<'l, T>(src);
-    let mut tokenizer = Tokenizer2 {
-        src: src,
-        front: ' ',
-        finished: false,
-    };
-
-    let mut parser = Parser::new(&mut tokenizer as &mut Iterator<Token>);
+    let mut tokenizer = tokenize(src);
+    let mut parser = parse_iter(tokenizer);
     loop {
         let token = match parser.next() {
                         Some(t) => { t }
@@ -487,56 +388,6 @@ pub fn parse_with_handler<T:Iterator<char>>(src: T, handler: &mut Handler) {
         }
         if !status {
             return;
-        }
-    }
-}
-
-pub trait TextStream {
-    fn next(&mut self) -> Option<char>;
-    fn front(&mut self) -> Option<char>;
-    fn empty(&mut self) -> bool;
-}
-
-struct Adaptor<'l, T> {
-    src: T,
-    buffer: Option<char>,
-}
-
-impl<'l, T> Adaptor<'l, T> {
-    fn new<'l>(src: T) -> Adaptor<'l, T> {
-        return Adaptor {
-            src: src,
-            buffer: None,
-        }
-    }
-}
-
-impl<'l, T: Iterator<char>> TextStream for Adaptor<'l, T> {
-    fn next(&mut self) -> Option<char> {
-        match self.buffer {
-            Some(s) => {
-                let c = s;
-                self.buffer = None;
-                return Some(s)
-            }
-            None => {
-                return self.src.next();
-            }
-        }
-    }
-    fn front(&mut self) -> Option<char> {
-        match self.buffer {
-            None => {
-                self.buffer = self.src.next()
-            }
-            _ => {}
-        }
-            return self.buffer;
-    }
-    fn empty(&mut self) -> bool {
-        match self.front() {
-            Some(_) => { false }
-            None => { true }
         }
     }
 }
@@ -608,7 +459,7 @@ impl Clone for NameSpace {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate, TextStream, Adaptor};
+    use super::{validate};
 
     #[test]
     fn test_single_valid() {
@@ -624,13 +475,13 @@ mod tests {
         assert!(validate("[]".chars()));
         assert!(validate("[1,2,3,4]".chars()));
         assert!(validate("{}".chars()));
-        assert!(validate("{foo: null}".chars()));
+        assert!(validate("{\"foo\": null}".chars()));
         assert!(validate("[[[null]]]".chars()));
     }
 
     #[test]
     fn test_long_valid() {
-        let mut t1 = ~"{a: 3.14, foo: [1,2,3,4,5], bar: true, baz: {plop:\"hello world! \", hey:null, x: false}}  ";
+        let mut t1 = ~"{a: 3.14, \"foo\": [1,2,3,4,5], \"bar\": true, \"baz\": {\"plop\":\"hello world! \", \"hey\":null, \"x\": false}}  ";
         assert!(validate(t1.chars()));
     }
 
@@ -640,4 +491,5 @@ mod tests {
         assert!(!validate("[{}".chars()));
         assert!(!validate("\"unterminated string".chars()));
     }
+
 }
