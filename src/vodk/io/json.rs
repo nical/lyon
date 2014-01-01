@@ -1,4 +1,3 @@
-use std::util::{swap};
 
 pub enum Error {
     ERROR_UNKNOWN,
@@ -50,14 +49,6 @@ pub struct Tokenizer<T> {
 }
 
 impl<T: Iterator<char>> Tokenizer<T> {
-    pub fn new<T>(s: T) -> Tokenizer<T> {
-        return Tokenizer {
-            src: s,
-            front: None,
-            finished: false,
-        }
-    }
-
     fn front_char(&mut self) -> Option<char> {
         if self.finished { return None; }
         match self.front {
@@ -200,7 +191,6 @@ impl<T: Iterator<Token>> Parser<T> {
                 println(format!("unexpected Token (expecting {})", self.expected));
                 return TOKEN_ERROR; //ERROR_UNEXPECTED_TOKEN(token.clone());
             }
-            let res: bool;
             match token {
                 TOKEN_BEGIN_OBJECT => {
                     self.namespace.push(NAME_STRING(~""));
@@ -238,7 +228,6 @@ impl<T: Iterator<Token>> Parser<T> {
                                 self.expected = EXPECT_COLON;
                             } else {
                                 fail!("unexpected string should have been caught already");
-                                return TOKEN_ERROR;
                             }
                         }
                         val => {
@@ -349,8 +338,7 @@ pub trait Handler {
 }
 
 pub fn parse_with_handler<T:Iterator<char>>(src: T, handler: &mut Handler) {
-    let mut tokenizer = tokenize(src);
-    let mut parser = parse_iter(tokenizer);
+    let mut parser = parse_iter(tokenize(src));
     loop {
         let token = match parser.next() {
                         Some(t) => { t }
