@@ -264,7 +264,7 @@ impl<T: Iterator<Token>> Parser<T> {
                             self.expected = EXPECT_VALUE|EXPECT_END;
                             *i += 1;
                         }
-                        NAME_STRING(ref mut s) => {
+                        NAME_STRING(_) => {
                             self.expected = EXPECT_NAME|EXPECT_END;
                         }
                     }
