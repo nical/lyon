@@ -26,40 +26,39 @@ impl JSONPrettyPrinter {
 }
 
 impl json::Handler for JSONPrettyPrinter {
-    fn on_begin_object(&mut self, _namespace: &[json::NameSpace]) -> bool {
+    fn on_begin_object(&mut self, _namespace: &[json::Namespace]) -> bool {
         self.print_indent();
         println("{");
         self.indentation += 1;
         return true;
     }
-    fn on_end_object(&mut self, _namespace: &[json::NameSpace]) -> bool {
+    fn on_end_object(&mut self, _namespace: &[json::Namespace]) -> bool {
         self.indentation -= 1;
         println("");
         self.print_indent();
         print("}");
         return true;
     }
-    fn on_begin_array(&mut self, _namespace: &[json::NameSpace]) -> bool {
+    fn on_begin_array(&mut self, _namespace: &[json::Namespace]) -> bool {
         self.print_indent();
         println("[");
         self.indentation += 1;
         return true;
     }
-    fn on_end_array(&mut self, _namespace: &[json::NameSpace]) -> bool {
+    fn on_end_array(&mut self, _namespace: &[json::Namespace]) -> bool {
         println("");
         self.print_indent();
         print("]");
         return true;
     }
-    fn on_value(&mut self, _namespace: &[json::NameSpace], _value: &json::Value) -> bool {
+    fn on_value(&mut self, _namespace: &[json::Namespace], _value: &json::Value) -> bool {
         self.print_indent();
         println("<value>");
         return true;
     }
-    fn on_end(&mut self) -> bool {
+    fn on_end(&mut self) {
         self.print_indent();
         println("[end]");
-        return true;
     }
     fn on_error(&mut self, _error: json::Error) {
         println("[error]");
@@ -76,7 +75,7 @@ fn main() {
     json::parse_with_handler(test.chars(), &mut prettifier as &mut json::Handler);
     json::parse_with_handler(test.chars(), &mut validator as &mut json::Handler);
 
-    match *validator.error() {
+    match *validator.get_error() {
         Some(_) => {
             println("validation failed");
         }

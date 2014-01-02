@@ -18,14 +18,26 @@ pub enum Token {
     TOKEN_ERROR,
 }
 
-pub enum Value {
-    VALUE_NULL,
-    VALUE_BOOLEAN(bool),
-    VALUE_NUMBER(f64),
-    VALUE_STRING(~str),
+pub enum ParserEvent {
+    PARSER_BEGIN_OBJECT,
+    PARSER_END_OBJECT,
+    PARSER_BEGIN_ARRAY,
+    PARSER_END_ARRAY,
+    PARSER_VALUE(Value),
+    PARSER_ERROR,
 }
 
-pub enum NameSpace {
+/**
+ * A basic json value (excludes dictionaries and arrays)
+ */
+pub enum Value {
+    NULL,
+    BOOLEAN(bool),
+    NUMBER(f64),
+    STRING(~str),
+}
+
+pub enum Namespace {
     NAME_STRING(~str),
     NAME_INDEX(uint),
 }
@@ -42,6 +54,9 @@ static CONTAINER_ARRAY: ContainerType = 1;
 static CONTAINER_OBJECT: ContainerType = 2;
 static CONTAINER_ROOT: ContainerType = 3;
 
+/**
+ * A Token iterator that consumes a char iterator.
+ */
 pub struct Tokenizer<T> {
     priv src: T,
     priv front: Option<char>,
@@ -87,7 +102,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
         loop {
             if is_string {
                 match self.next_char() {
-                    Some('\"') => { self.next_char(); return TOKEN_VALUE(VALUE_STRING(buffer)); },
+                    Some('\"') => { self.next_char(); return TOKEN_VALUE(STRING(buffer)); },
                     Some(s) => { buffer.push_char(s); },
                     None => { self.next_char(); return TOKEN_ERROR; },
                 }
@@ -139,6 +154,9 @@ impl<T: Iterator<char>> Iterator<Token> for  Tokenizer<T> {
     }
 }
 
+/**
+ * Returns a Tokenizer to consume a given char iterator.
+ */
 pub fn tokenize<T: Iterator<char>>(src: T) -> Tokenizer<T> {
     return Tokenizer {
         src: src,
@@ -147,39 +165,32 @@ pub fn tokenize<T: Iterator<char>>(src: T) -> Tokenizer<T> {
     }
 }
 
+/**
+ * A ParserEvent iterator that consumes a TokenIterator.
+ */ 
 pub struct Parser<T> {
     priv src: T,
-    priv namespace: ~[NameSpace],
+    priv namespace: ~[Namespace],
     priv expected: ExpectedToken,
     priv finished: bool,
 }
 
-impl<T: Iterator<Token>> Iterator<Token> for Parser<T> {
-    fn next<'l>(&'l mut self) -> Option<Token> {
+impl<T: Iterator<Token>> Iterator<ParserEvent> for Parser<T> {
+    /**
+     * Consume one or several Tokens and produces a ParserEvent, while keeping
+     * track of the current position in the json structure (Namespace).
+     * Most of the parsing logic is here.
+     */
+    fn next(&mut self) -> Option<ParserEvent> {
         if self.finished {
             return None;
         }
-        let result = self.parse();
-        match result {
-            TOKEN_END => { self.finished = true; }
-            TOKEN_ERROR => { self.finished = true; }
-            _ => {}
-        }
-        return Some(result);
-    }
-}
 
-impl<T: Iterator<Token>> Parser<T> {
-    pub fn namespace<'l>(&'l self) -> &'l [NameSpace] {
-        return self.namespace.slice(0,self.namespace.len());
-    }
-
-    fn parse<'l>(&'l mut self) -> Token {
         loop {
             let token = match self.src.next() {
-                            None => { TOKEN_END }
-                            Some(t) => { t }
-                        };
+                None => { TOKEN_END }
+                Some(t) => { t }
+            };
             let container = if self.namespace.len() == 0 { CONTAINER_ROOT }
                             else {
                                 match self.namespace[self.namespace.len()-1] {
@@ -189,40 +200,41 @@ impl<T: Iterator<Token>> Parser<T> {
                             };
             if !is_expected(&token, self.expected, container) {
                 println(format!("unexpected Token (expecting {})", self.expected));
-                return TOKEN_ERROR; //ERROR_UNEXPECTED_TOKEN(token.clone());
+                self.finished = true;
+                return Some(PARSER_ERROR); //ERROR_UNEXPECTED_TOKEN(token.clone());
             }
             match token {
                 TOKEN_BEGIN_OBJECT => {
                     self.namespace.push(NAME_STRING(~""));
                     self.expected = EXPECT_NAME|EXPECT_END;
                     // TODO: namespace change must apply after returned value
-                    return TOKEN_BEGIN_OBJECT;
+                    return Some(PARSER_BEGIN_OBJECT);
                 }
                 TOKEN_END_OBJECT => {
                     self.namespace.pop();
                     self.expected = if self.namespace.len() == 0 { EXPECT_END }
                                      else { EXPECT_COMA|EXPECT_END };
-                    return TOKEN_END_OBJECT;
+                    return Some(PARSER_END_OBJECT);
                 }
                 TOKEN_BEGIN_ARRAY => {
                     //res =parser.on_begin_array(state.namespace.slice(0,state.namespace.len()));
                     self.namespace.push(NAME_INDEX(0));
                     self.expected = EXPECT_VALUE|EXPECT_END;
-                    return TOKEN_BEGIN_ARRAY; // TODO
+                    return Some(PARSER_BEGIN_ARRAY); // TODO
                 }
                 TOKEN_END_ARRAY => {
                     self.namespace.pop();
                     self.expected = if self.namespace.len() == 0 { EXPECT_END }
                                      else { EXPECT_COMA|EXPECT_END };
-                    return TOKEN_END_ARRAY;
+                    return Some(PARSER_END_ARRAY);
                 }
                 TOKEN_VALUE(ref v) => {
                     match v {
-                        &VALUE_STRING(ref s) => {
+                        &STRING(ref s) => {
                             if self.expected&EXPECT_VALUE != 0 {
                                 self.expected = if self.namespace.len() == 0 { EXPECT_END }
                                                  else { EXPECT_COMA|EXPECT_END };
-                                return TOKEN_VALUE(VALUE_STRING(s.clone()));
+                                return Some(PARSER_VALUE(STRING(s.clone())));
                             } else if self.expected&EXPECT_NAME != 0 {
                                 self.namespace[self.namespace.len()-1] = NAME_STRING(s.clone());
                                 self.expected = EXPECT_COLON;
@@ -233,16 +245,18 @@ impl<T: Iterator<Token>> Parser<T> {
                         val => {
                             self.expected = if self.namespace.len() == 0 { EXPECT_END }
                                              else { EXPECT_COMA|EXPECT_END };
-                            return TOKEN_VALUE((*val).clone());
+                            return Some(PARSER_VALUE((*val).clone()));
                         }
                     }
                 }
                 TOKEN_END => {
                     if self.namespace.len() > 0 {
                         println(format!("error: unexpected end with namspace.len() = {}", self.namespace.len()));
-                        return TOKEN_ERROR;// TODO(ERROR_UNTERMINATED_JSON);
+                        self.finished = true;
+                        return Some(PARSER_ERROR);// TODO(ERROR_UNTERMINATED_JSON);
                     }
-                    return TOKEN_END;
+                    self.finished = true;
+                    return None;
                 }
                 TOKEN_COLON => {
                     self.expected = EXPECT_VALUE;
@@ -260,15 +274,27 @@ impl<T: Iterator<Token>> Parser<T> {
                 }
                 TOKEN_ERROR => {
                     println("Tokenizer return TOKEN_ERROR");
-                    // right now unterminated strings is the only thing the tokenizer
-                    // is able to detect
-                    return TOKEN_ERROR; // TODO return the error type!
+                    self.finished = true;
+                    return Some(PARSER_ERROR); // TODO return the error type!
                 }
             }
         }
     }
 }
 
+impl<T: Iterator<Token>> Parser<T> {
+    /**
+     * Return the current namespace, i.e. the current position within the json
+     * structure.
+     */
+    pub fn namespace<'l>(&'l self) -> &'l [Namespace] {
+        return self.namespace.slice(0,self.namespace.len());
+    }
+}
+
+/**
+ * Return a Parser to consume a given Token iterator,
+ */
 pub fn parse_iter<T>(src: T) -> Parser<T> {
     return Parser {
         src: src,
@@ -280,7 +306,7 @@ pub fn parse_iter<T>(src: T) -> Parser<T> {
 
 fn is_expected(token: &Token, expected: ExpectedToken, container: ContainerType) -> bool {
     return match *token {
-        TOKEN_VALUE(VALUE_STRING(_)) => { expected&EXPECT_VALUE != 0 || expected&EXPECT_NAME != 0 }
+        TOKEN_VALUE(STRING(_)) => { expected&EXPECT_VALUE != 0 || expected&EXPECT_NAME != 0 }
         TOKEN_VALUE(_)      => { expected&EXPECT_VALUE != 0 }
         TOKEN_END           => { expected&EXPECT_END != 0 && container==CONTAINER_ROOT }
         TOKEN_END_ARRAY     => { expected&EXPECT_END != 0 && container==CONTAINER_ARRAY }
@@ -303,11 +329,11 @@ pub fn token_to_str(token: &Token) -> ~str {
           TOKEN_END_ARRAY => ~"]",
                 TOKEN_END => ~"<end>",
        TOKEN_VALUE(ref v) => match *v {
-                                VALUE_STRING(ref s) => ~"\"" + s.clone() + "\"",
-                                    VALUE_NUMBER(n) => format!("{}", n as f64),
-                                         VALUE_NULL => ~"<null>",
-                                   VALUE_BOOLEAN(b) => if b {~"<true>"}
-                                                       else {~"<false>"},
+                                STRING(ref s) => ~"\"" + s.clone() + "\"",
+                                    NUMBER(n) => format!("{}", n as f64),
+                                         NULL => ~"null",
+                                   BOOLEAN(b) => if b {~"true"}
+                                                       else {~"false"},
                              },
               TOKEN_ERROR =>  ~"<error>",
     }
@@ -315,62 +341,72 @@ pub fn token_to_str(token: &Token) -> ~str {
 
 fn str_to_token_value(src: &str) -> Token {
     match src {
-        "true"  => TOKEN_VALUE(VALUE_BOOLEAN(true)),
-        "false" => TOKEN_VALUE(VALUE_BOOLEAN(false)),
-        "null"  => TOKEN_VALUE(VALUE_NULL),
+        "true"  => TOKEN_VALUE(BOOLEAN(true)),
+        "false" => TOKEN_VALUE(BOOLEAN(false)),
+        "null"  => TOKEN_VALUE(NULL),
         _       => {
             match (from_str::<f64>(src)) {
-                Some(f) => TOKEN_VALUE(VALUE_NUMBER(f)),
-                None    => TOKEN_VALUE(VALUE_STRING(src.to_owned())),
+                Some(f) => TOKEN_VALUE(NUMBER(f)),
+                // TODO: this is actually more permissive than what the spec allows
+                None    => TOKEN_VALUE(STRING(src.to_owned())),
             }
         }
     }
 }
 
+/**
+ * A convenient way to register callbacks to parser events.
+ * Handler implementations can be used with parse_with_handler.
+ * Returning false in a callback stops the parsing. 
+ */
 pub trait Handler {
-    fn on_begin_object(&mut self, namespace: &[NameSpace]) -> bool;
-    fn on_end_object(&mut self, namespace: &[NameSpace]) -> bool;
-    fn on_begin_array(&mut self, namespace: &[NameSpace]) -> bool;
-    fn on_end_array(&mut self, namespace: &[NameSpace]) -> bool;
-    fn on_value(&mut self, namespace: &[NameSpace], value: &Value) -> bool;
-    fn on_end(&mut self) -> bool;
-    fn on_error(&mut self, error: Error);
+    fn on_begin_object(&mut self, _namespace: &[Namespace]) -> bool { true }
+    fn on_end_object(&mut self, _namespace: &[Namespace]) -> bool { true }
+    fn on_begin_array(&mut self, _namespace: &[Namespace]) -> bool { true }
+    fn on_end_array(&mut self, _namespace: &[Namespace]) -> bool { true }
+    /// Called when parsing encounters a basic value (number, boolean, null or string).
+    fn on_value(&mut self, _namespace: &[Namespace], _value: &Value) -> bool { true }
+    /// Called when parsing ends normally.
+    fn on_end(&mut self) {}
+    /// Called when parsing ends with an error.
+    fn on_error(&mut self, _error: Error) {}
 }
 
+/**
+ * Parse a stream of characters and appropriately calls the handler's methods
+ * when parser events are received.
+ * Consumes characters until the stream ends, an error is raised or one of the
+ * handler's callbacks returns false.
+ */
 pub fn parse_with_handler<T:Iterator<char>>(src: T, handler: &mut Handler) {
     let mut parser = parse_iter(tokenize(src));
     loop {
         let token = match parser.next() {
-                        Some(t) => { t }
-                        None => { return; }
-                    };
+            Some(t) => { t }
+            None => {
+                handler.on_end();
+                return;
+            }
+        };
         let status;
         match token {
-            TOKEN_BEGIN_OBJECT => {
+            PARSER_BEGIN_OBJECT => {
                 status = handler.on_begin_object(parser.namespace());
             }
-            TOKEN_END_OBJECT => {
+            PARSER_END_OBJECT => {
                 status = handler.on_end_object(parser.namespace());
             }
-            TOKEN_BEGIN_ARRAY => {
+            PARSER_BEGIN_ARRAY => {
                 status = handler.on_begin_array(parser.namespace());
             }
-            TOKEN_END_ARRAY => {
+            PARSER_END_ARRAY => {
                 status = handler.on_end_array(parser.namespace());
             }
-            TOKEN_VALUE(ref v) => {
+            PARSER_VALUE(ref v) => {
                 status = handler.on_value(parser.namespace(), v);
             }
-            TOKEN_END => {
-                handler.on_end();
-                status = false;
-            }
-            TOKEN_ERROR => {
+            PARSER_ERROR => {
                 handler.on_error(ERROR_UNKNOWN); // TODO
-                status = false;
-            }
-            ref unexpected => {
-                handler.on_error(ERROR_UNEXPECTED_TOKEN(unexpected.clone()));
                 status = false;
             }
         }
@@ -380,29 +416,29 @@ pub fn parse_with_handler<T:Iterator<char>>(src: T, handler: &mut Handler) {
     }
 }
 
+/**
+ * A simple Handler that only keeps track of whether parsing has failed.
+ */
 pub struct Validator {
     error: Option<Error>
 }
 
 impl Validator {
     pub fn new() -> Validator { Validator { error: None } }
-    pub fn error<'l>(&'l self) -> &'l Option<Error> { &'l self.error }
+    pub fn get_error<'l>(&'l self) -> &'l Option<Error> { &'l self.error }
     pub fn is_valid(&self) -> bool { match self.error { Some(_) => false, None => true } }
 }
 
 impl Handler for Validator {
-    fn on_begin_object(&mut self, _namespace: &[NameSpace]) -> bool { true }
-    fn on_end_object(&mut self, _namespace: &[NameSpace]) -> bool { true }
-    fn on_begin_array(&mut self, _namespace: &[NameSpace]) -> bool { true }
-    fn on_end_array(&mut self, _namespace: &[NameSpace]) -> bool { true }
-    fn on_value(&mut self, _namespace: &[NameSpace], _value: &Value) -> bool { true }
-    fn on_end(&mut self) -> bool { true }
     fn on_error(&mut self, error: Error) {
         println("Validator: Error found");
         self.error = Some(error);
     }
 }
 
+/**
+ * Return true if the json source (char iterator) passed as parameter is valid.
+ */
 pub fn validate<T:Iterator<char>>(src: T) -> bool {
     let mut validator = Validator::new();
     parse_with_handler(src, &mut validator as &mut Handler);
@@ -428,19 +464,39 @@ impl Clone for Token {
 impl Clone for Value {
     fn clone(&self) -> Value {
         match *self {
-            VALUE_STRING(ref s) => VALUE_STRING(s.clone()),
-            VALUE_BOOLEAN(b) => VALUE_BOOLEAN(b),
-            VALUE_NUMBER(n) => VALUE_NUMBER(n),
-            VALUE_NULL => VALUE_NULL,
+            STRING(ref s) => STRING(s.clone()),
+            BOOLEAN(b) => BOOLEAN(b),
+            NUMBER(n) => NUMBER(n),
+            NULL => NULL,
         }
     }
 }
 
-impl Clone for NameSpace {
-    fn clone(&self) -> NameSpace {
+impl Clone for Namespace {
+    fn clone(&self) -> Namespace {
         match *self {
             NAME_INDEX(i) => { return NAME_INDEX(i); }
             NAME_STRING(ref s) => { return NAME_STRING(s.clone()); }
+        }
+    }
+}
+
+impl ToStr for Namespace {
+    fn to_str(&self) -> ~str {
+        match *self {
+            NAME_STRING(ref s) => { s.clone() }
+            NAME_INDEX(i) => { i.to_str() }
+        }
+    }
+}
+
+impl ToStr for Value {
+    fn to_str(&self) -> ~str {
+        match *self {
+            NULL => { ~"null" }
+            BOOLEAN(b) => { if b { ~"true" } else { ~"false" } }
+            NUMBER(n) => { n.to_str() }
+            STRING(ref s) => { s.clone() }
         }
     }
 }
@@ -469,8 +525,17 @@ mod tests {
 
     #[test]
     fn test_long_valid() {
-        let mut t1 = ~"{a: 3.14, \"foo\": [1,2,3,4,5], \"bar\": true, \"baz\": {\"plop\":\"hello world! \", \"hey\":null, \"x\": false}}  ";
-        assert!(validate(t1.chars()));
+        let src = ~"{
+            \"a\": 3.14,
+            \"foo\": [1,2,3,4,5],
+            \"bar\": true,
+            \"baz\": {
+                \"plop\":\"hello world! \",
+                \"hey\":null,
+                \"x\": false
+            }
+        }  ";
+        assert!(validate(src.chars()));
     }
 
     #[test]
@@ -479,5 +544,4 @@ mod tests {
         assert!(!validate("[{}".chars()));
         assert!(!validate("\"unterminated string".chars()));
     }
-
 }
