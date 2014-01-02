@@ -171,6 +171,7 @@ pub fn tokenize<T: Iterator<char>>(src: T) -> Tokenizer<T> {
 pub struct Parser<T> {
     priv src: T,
     priv namespace: ~[Namespace],
+    priv pending_namespace: Option<Namespace>,
     priv expected: ExpectedToken,
     priv finished: bool,
 }
@@ -185,6 +186,12 @@ impl<T: Iterator<Token>> Iterator<ParserEvent> for Parser<T> {
         if self.finished {
             return None;
         }
+
+        match self.pending_namespace {
+            Some(ref s) => { self.namespace.push(s.clone()); }
+            None => {}
+        }
+        self.pending_namespace = None;
 
         loop {
             let token = match self.src.next() {
@@ -205,9 +212,8 @@ impl<T: Iterator<Token>> Iterator<ParserEvent> for Parser<T> {
             }
             match token {
                 TOKEN_BEGIN_OBJECT => {
-                    self.namespace.push(NAME_STRING(~""));
+                    self.pending_namespace = Some(NAME_STRING(~""));
                     self.expected = EXPECT_NAME|EXPECT_END;
-                    // TODO: namespace change must apply after returned value
                     return Some(PARSER_BEGIN_OBJECT);
                 }
                 TOKEN_END_OBJECT => {
@@ -217,10 +223,9 @@ impl<T: Iterator<Token>> Iterator<ParserEvent> for Parser<T> {
                     return Some(PARSER_END_OBJECT);
                 }
                 TOKEN_BEGIN_ARRAY => {
-                    //res =parser.on_begin_array(state.namespace.slice(0,state.namespace.len()));
-                    self.namespace.push(NAME_INDEX(0));
+                    self.pending_namespace = Some(NAME_INDEX(0));
                     self.expected = EXPECT_VALUE|EXPECT_END;
-                    return Some(PARSER_BEGIN_ARRAY); // TODO
+                    return Some(PARSER_BEGIN_ARRAY);
                 }
                 TOKEN_END_ARRAY => {
                     self.namespace.pop();
@@ -299,8 +304,113 @@ pub fn parse_iter<T>(src: T) -> Parser<T> {
     return Parser {
         src: src,
         namespace: ~[],
+        pending_namespace: None,
         expected: EXPECT_VALUE|EXPECT_END,
         finished: false,
+    }
+}
+
+/**
+ * Char iterator that consumes ParserEvents.
+ * Output a well formatted json.
+ */
+pub struct Writer<T> {
+    src: Parser<T>,
+    indentation: uint,
+    buffer: ~str,
+    first_element: bool,
+    indentation_pattern: ~str,
+    line_break_pattern: ~str,
+}
+
+impl<T: Iterator<Token>> Writer<T> {
+    fn handle_name(&mut self) {
+        if self.src.namespace().len() == 0 { return; }
+        let mut res: ~str;
+        match self.src.namespace()[self.src.namespace().len()-1] {
+            NAME_STRING(ref s) => {
+                res = ~"\""+*s+"\": ";
+            }
+            _ => { return; }
+        }
+        self.accumulate(res);
+    }
+
+    fn accumulate_indentation(&mut self) {
+        let mut res = self.line_break_pattern.clone();
+        self.indentation.times( || {
+            res = res + self.indentation_pattern;
+        });
+        self.accumulate(res);
+    }
+
+    fn accumulate(&mut self, text: &str) {
+        self.buffer = self.buffer+text;
+    }
+}
+
+impl<T: Iterator<Token>> Iterator<char> for Writer<T> {
+    fn next(&mut self) -> Option<char> {
+        loop {
+            if self.buffer.len() > 0 {
+                return Some(self.buffer.shift_char());
+            }
+            let evt = match self.src.next() {
+                None => { return None; }
+                Some(s) => { s }
+            };
+            match evt {
+                PARSER_BEGIN_OBJECT => {
+                    if !self.first_element { self.accumulate(","); }
+                    self.first_element = true;
+                    self.accumulate_indentation();
+                    self.indentation += 1;
+                    self.handle_name();
+                    self.accumulate("{");
+                }
+                PARSER_END_OBJECT => {
+                    self.first_element = false;
+                    self.indentation -= 1;
+                    self.accumulate_indentation();
+                    self.accumulate("}");
+                }
+                PARSER_BEGIN_ARRAY => {
+                    if !self.first_element { self.accumulate(","); }
+                    self.first_element = true;
+                    self.accumulate_indentation();
+                    self.indentation += 1;
+                    self.handle_name();
+                    self.accumulate("[");
+                }
+                PARSER_END_ARRAY => {
+                    self.first_element = false;
+                    self.indentation -= 1;
+                    self.accumulate_indentation();
+                    self.accumulate("]");
+                }
+                PARSER_VALUE(ref v) => {
+                    if !self.first_element { self.accumulate(","); }
+                    self.first_element = false;
+                    self.accumulate_indentation();
+                    self.handle_name();
+                    self.accumulate(v.to_str());
+                }
+                PARSER_ERROR => {
+                    return None
+                }
+            }
+        }
+    }
+}
+
+pub fn writer<T: Iterator<Token>>(src: Parser<T>, indent: ~str, line_break: ~str) -> Writer<T> {
+    return Writer {
+        src: src,
+        indentation: 0,
+        indentation_pattern: indent,
+        line_break_pattern: line_break,
+        buffer: ~"",
+        first_element: true,
     }
 }
 
@@ -496,14 +606,14 @@ impl ToStr for Value {
             NULL => { ~"null" }
             BOOLEAN(b) => { if b { ~"true" } else { ~"false" } }
             NUMBER(n) => { n.to_str() }
-            STRING(ref s) => { s.clone() }
+            STRING(ref s) => { ~"\""+*s+"\"" }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{validate};
+    use super::{validate, writer, tokenize, parse_iter};
 
     #[test]
     fn test_single_valid() {
@@ -526,7 +636,7 @@ mod tests {
     #[test]
     fn test_long_valid() {
         let src = ~"{
-            \"a\": 3.14,
+            \"pi\": 3.14,
             \"foo\": [1,2,3,4,5],
             \"bar\": true,
             \"baz\": {
@@ -543,5 +653,26 @@ mod tests {
         assert!(!validate("[".chars()));
         assert!(!validate("[{}".chars()));
         assert!(!validate("\"unterminated string".chars()));
+    }
+
+    #[test]
+    fn test_writer() {
+        let src = ~"{
+            \"pi\": 3.14,
+            \"foo\": [1,2,3,4,5],
+            \"bar\": true,
+            \"baz\": {
+                \"plop\":\"hello world! \",
+                \"hey\":null,
+                \"x\": false
+            }
+        }  ";
+
+        let mut writer1 = writer(parse_iter(tokenize(src.chars())), ~"  ", ~"\n");
+        let formatted: ~str = FromIterator::from_iterator(&mut writer1);
+
+        let mut writer2 = writer(parse_iter(tokenize(formatted.chars())), ~"  ", ~"\n");
+        let formatted2: ~str = FromIterator::from_iterator(&mut writer2);
+        assert_eq!(formatted, formatted2);
     }
 }

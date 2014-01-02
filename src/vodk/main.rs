@@ -1,5 +1,4 @@
 extern mod extra;
-
 use json = io::json;
 
 mod io {
@@ -12,68 +11,26 @@ mod io {
 //    pub mod entity;
 //}
 
-struct JSONPrettyPrinter {
-    indentation: int,
-}
-
-impl JSONPrettyPrinter {
-    fn new() -> JSONPrettyPrinter { JSONPrettyPrinter{ indentation: 0 }}
-    fn print_indent(&self) {
-        for _n in range(0,self.indentation) {
-            print("    ");
-        }
-    }
-}
-
-impl json::Handler for JSONPrettyPrinter {
-    fn on_begin_object(&mut self, _namespace: &[json::Namespace]) -> bool {
-        self.print_indent();
-        println("{");
-        self.indentation += 1;
-        return true;
-    }
-    fn on_end_object(&mut self, _namespace: &[json::Namespace]) -> bool {
-        self.indentation -= 1;
-        println("");
-        self.print_indent();
-        print("}");
-        return true;
-    }
-    fn on_begin_array(&mut self, _namespace: &[json::Namespace]) -> bool {
-        self.print_indent();
-        println("[");
-        self.indentation += 1;
-        return true;
-    }
-    fn on_end_array(&mut self, _namespace: &[json::Namespace]) -> bool {
-        println("");
-        self.print_indent();
-        print("]");
-        return true;
-    }
-    fn on_value(&mut self, _namespace: &[json::Namespace], _value: &json::Value) -> bool {
-        self.print_indent();
-        println("<value>");
-        return true;
-    }
-    fn on_end(&mut self) {
-        self.print_indent();
-        println("[end]");
-    }
-    fn on_error(&mut self, _error: json::Error) {
-        println("[error]");
-    }
-}
 
 fn main() {
-    let test = ~"{a: 3.14, \"foo\": [1,2,3,4,5], \"bar\": true, \"baz\": {\"plop\":\"hello world! \", \"hey\":null, \"x\": false}}  ";
+    let src = ~"
+    {
+        \"pi\": 3.14,
+        \"foo\": [[1],2,3,4,5],
+        \"bar\": true,
+        \"baz\": {
+            \"plop\": \"hello world! \",
+            \"hey\": null,
+            \"x\": false
+        }
+    }  ";
 
-    let mut prettifier = JSONPrettyPrinter::new();
     let mut validator = json::Validator::new();
-    println(test);
+    println(src);
 
-    json::parse_with_handler(test.chars(), &mut prettifier as &mut json::Handler);
-    json::parse_with_handler(test.chars(), &mut validator as &mut json::Handler);
+    println(" --------------- ");
+
+    json::parse_with_handler(src.chars(), &mut validator as &mut json::Handler);
 
     match *validator.get_error() {
         Some(_) => {
@@ -82,5 +39,11 @@ fn main() {
         None => {
             println("validation suceeded");
         }
+    }
+
+    println(" --------------- ");
+
+    for c in json::writer(json::parse_iter(json::tokenize(src.chars())), ~"  ", ~"\n") {
+        print(c.to_str());
     }
 }
