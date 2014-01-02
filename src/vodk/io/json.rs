@@ -314,16 +314,16 @@ pub fn parse_iter<T>(src: T) -> Parser<T> {
  * Char iterator that consumes ParserEvents.
  * Output a well formatted json.
  */
-pub struct Writer<T> {
+pub struct Writer<'l, T> {
     src: Parser<T>,
     indentation: uint,
     buffer: ~str,
     first_element: bool,
-    indentation_pattern: ~str,
-    line_break_pattern: ~str,
+    indentation_pattern: &'l str,
+    line_break_pattern: &'l str,
 }
 
-impl<T: Iterator<Token>> Writer<T> {
+impl<'l, T: Iterator<Token>> Writer<'l, T> {
     fn handle_name(&mut self) {
         if self.src.namespace().len() == 0 { return; }
         let mut res: ~str;
@@ -337,7 +337,7 @@ impl<T: Iterator<Token>> Writer<T> {
     }
 
     fn accumulate_indentation(&mut self) {
-        let mut res = self.line_break_pattern.clone();
+        let mut res : ~str = self.line_break_pattern.to_owned();
         self.indentation.times( || {
             res = res + self.indentation_pattern;
         });
@@ -349,7 +349,7 @@ impl<T: Iterator<Token>> Writer<T> {
     }
 }
 
-impl<T: Iterator<Token>> Iterator<char> for Writer<T> {
+impl<'l, T: Iterator<Token>> Iterator<char> for Writer<'l, T> {
     fn next(&mut self) -> Option<char> {
         loop {
             if self.buffer.len() > 0 {
@@ -403,7 +403,7 @@ impl<T: Iterator<Token>> Iterator<char> for Writer<T> {
     }
 }
 
-pub fn writer<T: Iterator<Token>>(src: Parser<T>, indent: ~str, line_break: ~str) -> Writer<T> {
+pub fn writer<'l, T: Iterator<Token>>(src: Parser<T>, indent: &'l str, line_break: &'l str) -> Writer<'l, T> {
     return Writer {
         src: src,
         indentation: 0,
@@ -668,11 +668,13 @@ mod tests {
             }
         }  ";
 
-        let mut writer1 = writer(parse_iter(tokenize(src.chars())), ~"  ", ~"\n");
-        let formatted: ~str = FromIterator::from_iterator(&mut writer1);
+        let formatted: ~str = FromIterator::from_iterator(
+            &mut writer(parse_iter(tokenize(src.chars())), "  ", "\n")
+        );
 
-        let mut writer2 = writer(parse_iter(tokenize(formatted.chars())), ~"  ", ~"\n");
-        let formatted2: ~str = FromIterator::from_iterator(&mut writer2);
+        let formatted2: ~str = FromIterator::from_iterator(&mut
+            writer(parse_iter(tokenize(formatted.chars())), "  ", "\n")
+        );
         assert_eq!(formatted, formatted2);
     }
 }

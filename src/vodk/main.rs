@@ -11,7 +11,6 @@ mod io {
 //    pub mod entity;
 //}
 
-
 fn main() {
     let src = ~"
     {
@@ -43,7 +42,7 @@ fn main() {
 
     println(" --------------- ");
 
-    for c in json::writer(json::parse_iter(json::tokenize(src.chars())), ~"  ", ~"\n") {
+    for c in json::writer(json::parse_iter(json::tokenize(src.chars())), "  ", "\n") {
         print(c.to_str());
     }
 }
