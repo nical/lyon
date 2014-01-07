@@ -7,9 +7,9 @@ mod io {
 //mod util {
 //    pub mod rand;
 //}
-//mod logic {
-//    pub mod entity;
-//}
+mod logic {
+    pub mod entity;
+}
 
 fn main() {
     let src = ~"
