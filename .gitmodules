@@ -1,0 +1,6 @@
+[submodule "extern/glfw-rs"]
+	path = extern/glfw-rs
+	url = https://github.com/bjz/glfw-rs
+[submodule "extern/gl-rs"]
+	path = extern/gl-rs
+	url = https://github.com/bjz/gl-rs
