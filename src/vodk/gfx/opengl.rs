@@ -65,8 +65,13 @@ impl gpu::RenderingContext for RenderingContextGL {
     }
 
     fn is_supported(&mut self, f: gpu::Feature) -> bool {
-        // TODO
-        return false;
+        match f {
+            gpu::FRAGMENT_SHADING => true,
+            gpu::VERTEX_SHADING => true,
+            gpu::GEOMETRY_SHADING => false,
+            gpu::RENDER_TO_TEXTURE => false,
+            gpu::MULTIPLE_RENDER_TARGETS => false,
+        }
     }
 
     fn set_viewport(&mut self, x:i32, y:i32, w:i32, h:i32) {
@@ -180,20 +185,16 @@ impl gpu::RenderingContext for RenderingContextGL {
             });
             gl::CompileShader(shader.handle);
 
-            let mut buffer: ~str = str::raw::from_utf8_owned(~[0, ..512]);
+            let mut buffer = ~[0 as u8, ..512];
             let mut length: i32 = 0;
-            buffer.with_c_str(|mut c_buffer| unsafe {
-                gl::GetShaderInfoLog(shader.handle, 512, &mut length, cast::transmute(c_buffer));
-            });
-            if (length > 0) {
-                println!("Shader {} compilation - {}\n", shader.handle, buffer);
-            }
+            gl::GetShaderInfoLog(shader.handle, 512, &mut length,
+                                 cast::transmute(buffer.unsafe_mut_ref(0)));
 
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
-            if (status != gl::TRUE as i32) {
+            if status != gl::TRUE as i32 {
                 println("error while compiling shader\n");
-                return gpu::COMPILE_ERROR(buffer);
+                return gpu::COMPILE_ERROR(str::raw::from_utf8_owned(buffer));
             }
             return gpu::COMPILE_SUCCESS;
         }
@@ -202,21 +203,16 @@ impl gpu::RenderingContext for RenderingContextGL {
     fn link_shader_program(&mut self, p: gpu::ShaderProgram) -> gpu::ProgramResult {
         unsafe {
             gl::LinkProgram(p.handle);
-            let mut buffer: ~str = str::raw::from_utf8_owned(~[0, ..512]);
+            let mut buffer = ~[0 as u8, ..512];
             let mut length = 0;
-            buffer.with_c_str(|mut c_buffer| unsafe {
-                gl::GetProgramInfoLog(p.handle, 512, &mut length, cast::transmute(c_buffer));
-            });
-
-            if length > 0 {
-                println!("Program {} link - {}\n", p.handle, buffer);
-            }
+            gl::GetProgramInfoLog(p.handle, 512, &mut length,
+                                  cast::transmute(buffer.unsafe_mut_ref(0)));
 
             gl::ValidateProgram(p.handle);
             let mut status = 0;
             gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, cast::transmute(&status));
             if (status == gl::FALSE) {
-                return gpu::LINK_ERROR(format!("Error validating gpu::Shader {}\n", p.handle));
+                return gpu::LINK_ERROR(str::raw::from_utf8_owned(buffer));
             }
             return gpu::LINK_SUCCESS;
         }
