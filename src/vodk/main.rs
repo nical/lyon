@@ -1,8 +1,15 @@
 extern mod extra;
+extern mod gl;
+
 use json = io::json;
+
 
 mod io {
     pub mod json;
+}
+pub mod gfx {
+    pub mod renderer;
+    pub mod opengl;
 }
 //mod util {
 //    pub mod rand;
@@ -23,6 +30,8 @@ fn main() {
             \"x\": false
         }
     }  ";
+
+    let shader = gfx::renderer::Shader { handle: 0 };
 
     let mut validator = json::Validator::new();
     println(src);
