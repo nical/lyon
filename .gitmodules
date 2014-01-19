@@ -4,3 +4,6 @@
 [submodule "extern/gl-rs"]
 	path = extern/gl-rs
 	url = https://github.com/bjz/gl-rs
+[submodule "extern/rust-lua"]
+	path = extern/rust-lua
+	url = https://github.com/kballard/rust-lua.git
