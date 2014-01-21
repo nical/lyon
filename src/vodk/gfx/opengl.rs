@@ -287,7 +287,7 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn get_uniform_location(&mut self, shader: gpu::Shader, name: &str) -> i32 {
         let mut location: i32 = 0;
-        name.with_c_str(|c_name| unsafe {
+        name.   _c_str(|c_name| unsafe {
             location = gl::GetUniformLocation(shader.handle, c_name);
         });
         return location;
@@ -356,25 +356,29 @@ impl gpu::RenderingContext for RenderingContextGL {
         gl::UseProgram(program.handle);
 
         let mut num_tex = 0;
-        for input in inputs {
-            //match input.value {
-            //    gpu::INPUT_FLOATS(ref f) => {
-            //        //match f.len() {
-            //        //    1 => { gl::Uniform1f(input.location, f[0]); }
-            //        //    2 => { gl::Uniform2f(input.location, f[0], f[1]); }
-            //        //    3 => { gl::Uniform3f(input.location, f[0], f[1], f[2]); }
-            //        //    4 => { gl::Uniform4f(input.location, f[0], f[1], f[2], f[3]); }
-            //        //    x => { println!("Warning, trying to send {} float uniforms", x); }
-            //        //}
-            //    }
-            //    gpu::INPUT_TEXTURE(tex) => {
-            //        gl::ActiveTexture(gl_texture_unit(num_tex));
-            //        gl::BindTexture(gl::TEXTURE_2D, tex.handle);
-            //        gl::Uniform1i(input.location, num_tex as i32);
-            //        num_tex += 1;
-            //    }
-            //    // TODO matrices
-            //}
+        loop {
+            let input = match inputs.next() {
+                Some(i) => i,
+                None => break,
+            };
+            match input.value {
+                gpu::INPUT_FLOATS(ref f) => {
+                    match f.len() {
+                        1 => { gl::Uniform1f(input.location, f[0]); }
+                        2 => { gl::Uniform2f(input.location, f[0], f[1]); }
+                        3 => { gl::Uniform3f(input.location, f[0], f[1], f[2]); }
+                        4 => { gl::Uniform4f(input.location, f[0], f[1], f[2], f[3]); }
+                        x => { println!("Warning, trying to send {} float uniforms", x); }
+                    }
+                }
+                gpu::INPUT_TEXTURE(tex) => {
+                    gl::ActiveTexture(gl_texture_unit(num_tex));
+                    gl::BindTexture(gl::TEXTURE_2D, tex.handle);
+                    gl::Uniform1i(input.location, num_tex as i32);
+                    num_tex += 1;
+                }
+                // TODO matrices
+            }
         }
 
         if geom.elements.handle != 0 {
@@ -388,3 +392,21 @@ impl gpu::RenderingContext for RenderingContextGL {
         }
     }
 }
+
+static SOLID_COLOR_FRAGMENT_SHADER : &'static str = &"
+uniform vec4 u_color
+precision lowp float;
+void main() {
+    gl_FragColor = u_color;
+}
+";
+
+static BASIC_VERTEX_SHADER : &'static str = &"
+attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  gl_Position = vec4(position, 0.0, 1.0);
+  v_texCoord = (vec2(1.0, 1.0) + position) / 2.0;
+}
+";
+

@@ -1,3 +1,4 @@
+extern mod native;
 extern mod extra;
 extern mod gl;
 
@@ -10,15 +11,27 @@ mod io {
 pub mod gfx {
     pub mod renderer;
     pub mod opengl;
+    pub mod window;
 }
 //mod util {
 //    pub mod rand;
 //}
-//mod logic {
-//    pub mod entity;
-//}
+mod logic {
+    pub mod entity;
+}
+
+
+#[start]
+fn start(argc: int, argv: **u8) -> int {
+    native::start(argc, argv, main)
+}
 
 fn main() {
+    foo();
+    gfx::window::main_loop();
+}
+
+fn foo() {
     let src = ~"
     {
         \"pi\": 3.14,

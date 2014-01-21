@@ -1,3 +1,4 @@
+use std::hashmap::HashMap;
 
 pub enum Error {
     ERROR_UNKNOWN,
@@ -413,6 +414,34 @@ pub fn writer<'l, T: Iterator<Token>>(src: Parser<T>, indent: &'l str, line_brea
         first_element: true,
     }
 }
+
+pub type Dictionary = HashMap<~str, ~Data>;
+pub type Array = ~[Data];
+
+pub enum Data {
+    VALUE(Value),
+    DICTIONARY(Dictionary),
+    ARRAY(Array),
+}
+
+/*
+pub fn build<T:Iterator<ParserEvent>>(src: &T) -> ~Data {
+    let mut result: ~Data = ~VALUE(NULL);
+    let mut current: &Data;
+    loop {
+        let evt = match src.next() {
+            None => { return None; }
+            Some(s) => { s }
+        };
+        match evt {
+            PARSER_BEGIN_OBJECT => {
+
+            }
+        }
+    }
+    return result;
+}
+*/
 
 fn is_expected(token: &Token, expected: ExpectedToken, container: ContainerType) -> bool {
     return match *token {
