@@ -225,7 +225,7 @@ impl gpu::RenderingContext for RenderingContextGL {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             if status != gl::TRUE as i32 {
-                println("error while compiling shader\n");
+                println!("error while compiling shader\n");
                 return Err(str::raw::from_utf8_owned(buffer));
             }
             return Ok(shader);
@@ -287,7 +287,7 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn get_uniform_location(&mut self, shader: gpu::Shader, name: &str) -> i32 {
         let mut location: i32 = 0;
-        name.   _c_str(|c_name| unsafe {
+        name.with_c_str(|c_name| unsafe {
             location = gl::GetUniformLocation(shader.handle, c_name);
         });
         return location;
