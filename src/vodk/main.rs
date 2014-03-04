@@ -1,6 +1,6 @@
-extern mod native;
-extern mod extra;
-extern mod gl;
+extern crate native;
+extern crate extra;
+extern crate gl;
 
 
 pub mod gfx {
