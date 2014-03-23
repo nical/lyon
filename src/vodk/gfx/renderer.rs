@@ -93,6 +93,8 @@ pub trait RenderingContext {
     fn flush(&mut self);
     fn set_viewport(&mut self, x:i32, y:i32, w:i32, h:i32);
     fn set_clear_color(&mut self, r: f32, g: f32, b: f32, a: f32);
+    fn clear(&mut self);
+
     fn make_current(&mut self) -> bool;
     fn check_error(&mut self) -> Option<~str>;
 

@@ -1,8 +1,10 @@
 use gl;
+use glfw;
 use gpu = gfx::renderer;
 use std::str;
 use std::cast;
 use std::libc::c_void;
+use std::rc::Rc;
 
 fn gl_format(format: gpu::PixelFormat) -> u32 {
     match format {
@@ -68,10 +70,22 @@ fn frame_buffer_error(error: u32) -> ~str {
     }
 }
 
-struct RenderingContextGL {
+pub struct RenderingContextGL {
+    //window: Rc<glfw::Window>,
     current_texture: gpu::Texture,
     current_vbo: gpu::VertexBuffer,
     current_program: gpu::ShaderProgram,
+}
+
+impl RenderingContextGL {
+    pub fn new(/*window: Rc<glfw::Window>*/) -> RenderingContextGL {
+        RenderingContextGL {
+            //window: window,
+            current_texture: gpu::Texture { handle: 0 },
+            current_vbo: gpu::VertexBuffer { handle: 0 },
+            current_program: gpu::ShaderProgram { handle: 0 },
+        }
+    }
 }
 
 impl gpu::RenderingContext for RenderingContextGL {
@@ -110,6 +124,10 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn set_clear_color(&mut self, r: f32, g: f32, b: f32, a: f32) {
         gl::ClearColor(r,g,b,a);
+    }
+
+    fn clear(&mut self) {
+        gl::Clear(gl::COLOR_BUFFER_BIT);
     }
 
     fn create_texture(&mut self) -> gpu::Texture {
@@ -225,7 +243,7 @@ impl gpu::RenderingContext for RenderingContextGL {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             if status != gl::TRUE as i32 {
-                println("error while compiling shader\n");
+                println!("error while compiling shader\n");
                 return Err(str::raw::from_utf8_owned(buffer));
             }
             return Ok(shader);
@@ -287,7 +305,7 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn get_uniform_location(&mut self, shader: gpu::Shader, name: &str) -> i32 {
         let mut location: i32 = 0;
-        name.   _c_str(|c_name| unsafe {
+        name.with_c_str(|c_name| unsafe {
             location = gl::GetUniformLocation(shader.handle, c_name);
         });
         return location;
