@@ -7,6 +7,7 @@ pub mod gfx {
     pub mod renderer;
     pub mod opengl;
     pub mod window;
+    pub mod shaders;
 }
 mod logic {
     pub mod entity;
