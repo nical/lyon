@@ -39,11 +39,7 @@ pub struct ComponentID {
 }
 
 pub struct Entity {
-    parent: EntityID,
-    first_child: EntityID,
-    next_sibbling: EntityID,
-    main_components: [ComponentID, ..4],
-    transform: Transform,
+    components: ~[ComponentID],
     free_list: u16,
 }
 
@@ -91,16 +87,7 @@ impl EntityManager {
     pub fn add_empty(&mut self) -> EntityID {
         return self.add(
             Entity {
-                parent: EntityID::null(),
-                first_child: EntityID::null(),
-                next_sibbling: EntityID::null(),
-                main_components: [
-                    ComponentID::null(),
-                    ComponentID::null(),
-                    ComponentID::null(),
-                    ComponentID::null(),
-                ],
-                transform: Transform::identity(),
+                components: ~[],
                 free_list: FREE_LIST_NONE,
             }
         );
@@ -108,16 +95,7 @@ impl EntityManager {
 
     pub fn remove(&mut self, id: EntityID) {
         *self.borrow_mut(id) = Entity {
-            parent: EntityID::null(),
-            first_child: EntityID::null(),
-            next_sibbling: EntityID::null(),
-            main_components: [
-                ComponentID::null(),
-                ComponentID::null(),
-                ComponentID::null(),
-                ComponentID::null(),
-            ],
-            transform: Transform::identity(),
+            components: ~[],
             free_list: self.free_list,
         };
         self.free_list = id.index;
@@ -148,12 +126,12 @@ fn test_entity_manager_basic() {
     }
     for i in range(0, 10) {
         let mut e = em.borrow_mut(id[i]);
-        e.main_components[0] = ComponentID { system: 42, index: i as ComponentIndex };
+        e.components.push(ComponentID { system: 42, index: i as ComponentIndex });
         assert!(id[i].index != ENTITY_NONE);
     }
     for i in range(0, 10) {
         let e = em.borrow(id[i]);
-        assert_eq!(e.main_components[0].index, i as ComponentIndex);
+        assert_eq!(e.components[0].index, i as ComponentIndex);
     }
 
     em.remove(id[3]);
