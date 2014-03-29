@@ -86,7 +86,7 @@ pub fn main_loop() {
             |e| { fail!("Failed to compile the vertex shader: {}", e); return; }
         );
 
-        ctx.compile_shader(fs, shaders::SOLID_COLOR_FRAGMENT_SHADER).map_err(
+        ctx.compile_shader(fs, shaders::TEX_COORDS_FRAGMENT_SHADER).map_err(
             |e| { fail!("Failed to compile the fragment shader: {}", e); return; }
         );
 
@@ -109,7 +109,6 @@ pub fn main_loop() {
                 ],
                 first: 0,
                 count: 6,
-                use_indices: false,
             }
         )];
 
@@ -124,9 +123,13 @@ pub fn main_loop() {
                 |e| { fail!("Rendering error: {}", e); return; }
             );
 
-            // TODO move into RenderingContext
             window.swap_buffers();
         }
+
+        ctx.destroy_shader(vs);
+        ctx.destroy_shader(fs);
+        ctx.destroy_shader_program(program);
+        ctx.destroy_geometry(geom);
     });
 }
 

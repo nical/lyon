@@ -102,8 +102,10 @@ pub struct Error {
 }
 
 #[deriving(Eq, Clone, Show)]
-pub struct ErrorCode(u32);
-pub type Status = Result<(), Error>;
+pub type ErrorCode = u32;
+pub type RendererResult = Result<(), Error>;
+
+pub type ShaderInputLocation = i32;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
@@ -137,9 +139,9 @@ pub struct DrawCommand {
     geometry: Geometry,
     first: u32,
     count: u32,
-    use_indices: bool,
 }
 
+#[deriving(Eq, Clone, Show)]
 pub enum RenderingCommand {
     OpDraw(DrawCommand),
     OpFlush,
@@ -157,13 +159,14 @@ pub trait RenderingContext {
 
     fn make_current(&mut self) -> bool;
     fn check_error(&mut self) -> Option<~str>;
+    fn get_error_str(&mut self, err: ErrorCode) -> &'static str;
 
     fn create_texture(&mut self) -> Texture;
     fn destroy_texture(&mut self, tex: Texture);
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags);
     fn upload_texture_data(&mut self, dest: Texture,
                            data: &[u8], format: PixelFormat,
-                           w:u32, h:u32, stride: u32) -> Status;
+                           w:u32, h:u32, stride: u32) -> RendererResult;
     /**
      * Specifies the texture's size and format
      * Does not need to be called if some data will be uploaded
@@ -171,45 +174,46 @@ pub trait RenderingContext {
      */
     fn allocate_texture(&mut self, dest: Texture,
                         format: PixelFormat,
-                        w:u32, h:u32, stride: u32) -> Status;
+                        w:u32, h:u32, stride: u32) -> RendererResult;
+
+    fn read_back_texture(&mut self, tex: Texture,
+                         x:u32, y:u32, w: u32, h: u32,
+                         format: PixelFormat,
+                         dest: &[u8]) -> RendererResult;
 
     fn create_shader(&mut self, t: ShaderType) -> Shader;
     fn destroy_shader(&mut self, s: Shader);
-    fn compile_shader(&mut self, shader: Shader, src: &str) -> Status;
+    fn compile_shader(&mut self, shader: Shader, src: &str) -> RendererResult;
 
     fn create_shader_program(&mut self) -> ShaderProgram;
     fn destroy_shader_program(&mut self, s: ShaderProgram);
-    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader]) -> Status;
+    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader]) -> RendererResult;
 
     fn create_vertex_buffer(&mut self) -> VertexBuffer;
     fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer);
     fn upload_vertex_data(&mut self, buffer: VertexBuffer,
-                          data: &[f32], update: UpdateHint) -> Status;
+                          data: &[f32], update: UpdateHint) -> RendererResult;
     fn allocate_vertex_buffer(&mut self, dest: VertexBuffer,
-                              size: u32, update: UpdateHint) -> Status;
+                              size: u32, update: UpdateHint) -> RendererResult;
 
     fn create_geometry(&mut self) -> Geometry;
     fn destroy_geometry(&mut self, geom: Geometry);
     fn define_geometry(&mut self, geom: Geometry,
                        attributes: &[VertexAttribute],
-                       indices: Option<VertexBuffer>) -> Status;
+                       indices: Option<VertexBuffer>) -> RendererResult;
 
     fn get_shader_input_location(&mut self, program: ShaderProgram,
-                                 name: &str) -> i32;
+                                 name: &str) -> ShaderInputLocation;
     fn get_vertex_attribute_location(&mut self, program: ShaderProgram,
-                                     name: &str) -> i32;
+                                     name: &str) -> ShaderInputLocation;
 
     fn create_render_target(&mut self,
                             color_attachments: &[Texture],
                             depth: Option<Texture>,
-                            stencil: Option<Texture>) -> Result<RenderTarget, ~str>;
+                            stencil: Option<Texture>) -> Result<RenderTarget, Error>;
     fn destroy_render_target(&mut self, fbo: RenderTarget);
 
     fn get_default_render_target(&mut self) -> RenderTarget;
 
-    fn render(&mut self, commands: &[RenderingCommand]) -> Status;
-}
-
-impl RenderTarget {
-    fn default() -> RenderTarget { RenderTarget { handle: 0 } }
+    fn render(&mut self, commands: &[RenderingCommand]) -> RendererResult;
 }

@@ -7,14 +7,16 @@ use std::libc::c_void;
 use std::rc::Rc;
 use std::mem::size_of;
 
+use super::renderer::*;
+
 macro_rules! check_err (
     ($($arg:tt)*) => (
         if !self.ignore_errors {
             match gl::GetError() {
                 gl::NONE => {}
                 e => {
-                    return Err(gpu::Error{
-                        code: gpu::ErrorCode(e),
+                    return Err(Error{
+                        code: e,
                         detail: Some(format!($($arg)*))
                     });
                 }
@@ -23,117 +25,27 @@ macro_rules! check_err (
     )
 )
 
-fn gl_format(format: gpu::PixelFormat) -> u32 {
-    match format {
-        gpu::FORMAT_R8G8B8A8 => gl::RGBA,
-        gpu::FORMAT_R8G8B8X8 => gl::RGB,
-        gpu::FORMAT_B8G8R8A8 => gl::BGRA,
-        gpu::FORMAT_B8G8R8X8 => gl::BGR,
-        gpu::FORMAT_A8 => gl::RED,
-    }
-}
-
-fn gl_shader_type(target: gpu::ShaderType) -> u32 {
-    match target {
-        gpu::VERTEX_SHADER => gl::VERTEX_SHADER,
-        gpu::FRAGMENT_SHADER => gl::FRAGMENT_SHADER,
-        gpu::GEOMETRY_SHADER => gl::GEOMETRY_SHADER,
-    }
-}
-
-fn gl_draw_mode(flags: gpu::RenderFlags) -> u32 {
-    if flags & gpu::LINES != 0 {
-        return if flags & gpu::STRIP != 0 { gl::LINE_STRIP }
-               else if flags & gpu::LOOP != 0 { gl::LINE_LOOP }
-               else { gl::LINES }
-    }
-    return if flags & gpu::STRIP != 0 { gl::TRIANGLE_STRIP }
-           else { gl::TRIANGLES }
-}
-
-fn gl_update_hint(hint: gpu::UpdateHint) -> u32 {
-    match hint {
-        gpu::STATIC_UPDATE => gl::STATIC_DRAW,
-        gpu::STREAM_UPDATE => gl::STREAM_DRAW,
-        gpu::DYNAMIC_UPDATE => gl::DYNAMIC_DRAW,
-    }
-}
-
-fn gl_attribue_type(attribute: gpu::AttributeType) -> u32 {
-    match attribute {
-        gpu::F32 => gl::FLOAT,
-        gpu::F64 => gl::DOUBLE,
-        gpu::I32 => gl::INT,
-        gpu::U32 => gl::UNSIGNED_INT,
-    }
-}
-
-fn gl_texture_unit(unit: u32) -> u32 {
-    return gl::TEXTURE0 + unit;
-}
-
-fn gl_attachement(i: u32) -> u32 {
-    return gl::COLOR_ATTACHMENT0 + i;
-}
-
-fn gl_bool(b: bool) -> u8 {
-    return if b { gl::TRUE } else { gl::FALSE };
-}
-
-fn frame_buffer_error(error: u32) -> ~str {
-    match error {
-        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => ~"Missing attachment.",
-        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => ~"Incomplete attachment.",
-        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => ~"Incomplete draw buffer.",
-        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => ~"Incomplete multisample.",
-        gl::FRAMEBUFFER_UNSUPPORTED => ~"Unsupported.",
-        _ => ~"Unknown Error",
-    }
-}
-
 pub struct RenderingContextGL {
     //window: Rc<glfw::Window>,
-    current_texture: gpu::Texture,
-    current_vbo: gpu::VertexBuffer,
-    current_render_target: gpu::RenderTarget,
-    current_program: gpu::ShaderProgram,
+    current_texture: Texture,
+    current_render_target: RenderTarget,
+    current_program: ShaderProgram,
+    current_geometry: Geometry,
     ignore_errors: bool,
-}
-
-fn gl_error_str(err: u32) -> ~str {
-    match gl::GetError() {
-        gl::NO_ERROR            => { ~"" }
-        gl::INVALID_ENUM        => { ~"Invalid enum" },
-        gl::INVALID_VALUE       => { ~"Invalid value" },
-        gl::INVALID_OPERATION   => { ~"Invalid operation" },
-        gl::OUT_OF_MEMORY       => { ~"Out of memory" },
-        _ => { ~"Unknown error" }
-    }
-}
-
-fn print_gl_error(msg: &str) {
-    match gl::GetError() {
-        gl::NO_ERROR            => {}
-        gl::INVALID_ENUM        => { println!("{}: Invalid enum.", msg); },
-        gl::INVALID_VALUE       => { println!("{}: Invalid value., ", msg); },
-        gl::INVALID_OPERATION   => { println!("{}: Invalid operation.", msg); },
-        gl::OUT_OF_MEMORY       => { println!("{}: Out of memory.", msg); },
-        _ => { println!("Unknown error."); }
-    }
 }
 
 impl RenderingContextGL {
     pub fn new() -> RenderingContextGL {
         RenderingContextGL {
-            current_texture: gpu::Texture { handle: 0 },
-            current_vbo: gpu::VertexBuffer { handle: 0 },
-            current_program: gpu::ShaderProgram { handle: 0 },
-            current_render_target: gpu::RenderTarget { handle: 0 },
+            current_texture: Texture { handle: 0 },
+            current_program: ShaderProgram { handle: 0 },
+            current_render_target: RenderTarget { handle: 0 },
+            current_geometry: Geometry { handle: 0 },
             ignore_errors: false,
         }
     }
 
-    fn use_render_target(&mut self, fbo: gpu::RenderTarget) {
+    fn use_render_target(&mut self, fbo: RenderTarget) {
         if self.current_render_target == fbo {
             return;
         }
@@ -141,37 +53,32 @@ impl RenderingContextGL {
         self.current_render_target = fbo;
     }
 
-    fn bind_vertex_buffer(&mut self, vbo: gpu::VertexBuffer) {
-        if self.current_vbo == vbo {
-            return;
-        }
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo.handle);
-        self.current_vbo = vbo;
-    }
-
-    fn render_command(&mut self, command: &gpu::RenderingCommand) -> gpu::Status {
+    fn render_command(&mut self, command: &RenderingCommand) -> RendererResult {
         match *command {
-            gpu::OpFlush => { gl::Flush(); }
-            gpu::OpClear => { gl::Clear(gl::COLOR_BUFFER_BIT); }
-            gpu::OpDraw(ref draw) => {
-                gl::UseProgram(draw.shader_program.handle);
-                check_err!("glUseProgram({})",draw.shader_program.handle);
+            OpFlush => { gl::Flush(); }
+            OpClear => { gl::Clear(gl::COLOR_BUFFER_BIT); }
+            OpDraw(ref draw) => {
+                if self.current_program != draw.shader_program {
+                    self.current_program = draw.shader_program;
+                    gl::UseProgram(draw.shader_program.handle);
+                    check_err!("glUseProgram({})",draw.shader_program.handle);
+                }
                 let mut num_tex = 0;
                 for input in draw.shader_inputs.iter() {
                     match input.value {
-                        gpu::INPUT_FLOATS(ref f) => {
+                        INPUT_FLOATS(ref f) => {
                             match f.len() {
                                 1 => { gl::Uniform1f(input.location, f[0]); }
                                 2 => { gl::Uniform2f(input.location, f[0], f[1]); }
                                 3 => { gl::Uniform3f(input.location, f[0], f[1], f[2]); }
                                 4 => { gl::Uniform4f(input.location, f[0], f[1], f[2], f[3]); }
-                                x => { return Err(gpu::Error{
-                                    code: gpu::ErrorCode(0),
+                                x => { return Err(Error{
+                                    code: 0,
                                     detail: Some(~"Unsupported unform size > 4") });
                                 }
                             }
                         }
-                        gpu::INPUT_TEXTURE(tex) => {
+                        INPUT_TEXTURE(tex) => {
                             gl::ActiveTexture(gl_texture_unit(num_tex));
                             check_err!("glActiveTexture({})", gl_texture_unit(num_tex));
                             gl::BindTexture(gl::TEXTURE_2D, tex.handle);
@@ -184,9 +91,12 @@ impl RenderingContextGL {
                     }
                 }
 
-                gl::BindVertexArray(draw.geometry.handle);
+                if (draw.geometry != self.current_geometry) {
+                    self.current_geometry = draw.geometry;
+                    gl::BindVertexArray(draw.geometry.handle);
+                };
 
-                if draw.flags & gpu::INDEXED != 0 {
+                if draw.flags & INDEXED != 0 {
                     unsafe {
                         gl::DrawElements(gl_draw_mode(draw.flags),
                                          draw.count as i32,
@@ -209,16 +119,16 @@ impl RenderingContextGL {
     }
 }
 
-impl gpu::RenderingContext for RenderingContextGL {
+impl RenderingContext for RenderingContextGL {
     fn make_current(&mut self) -> bool {
         return true; // TODO
     }
 
     fn reset_state(&mut self) {
         self.current_render_target = self.get_default_render_target();
-        self.current_texture = gpu::Texture { handle: 0 };
-        self.current_program = gpu::ShaderProgram { handle: 0 };
-        self.current_vbo = gpu::VertexBuffer { handle: 0 };
+        self.current_texture = Texture { handle: 0 };
+        self.current_program = ShaderProgram { handle: 0 };
+        self.current_geometry = Geometry { handle: 0 };
     }
 
     fn check_error(&mut self) -> Option<~str> {
@@ -232,14 +142,18 @@ impl gpu::RenderingContext for RenderingContextGL {
         }
     }
 
-    fn is_supported(&mut self, f: gpu::Feature) -> bool {
+    fn get_error_str(&mut self, err: ErrorCode) -> &'static str {
+        return gl_error_str(err);
+    }
+
+    fn is_supported(&mut self, f: Feature) -> bool {
         match f {
-            gpu::FRAGMENT_SHADING => true,
-            gpu::VERTEX_SHADING => true,
-            gpu::GEOMETRY_SHADING => false,
-            gpu::RENDER_TO_TEXTURE => false,
-            gpu::MULTIPLE_RENDER_TARGETS => false,
-            gpu::INSTANCED_RENDERING => false,
+            FRAGMENT_SHADING => true,
+            VERTEX_SHADING => true,
+            GEOMETRY_SHADING => false,
+            RENDER_TO_TEXTURE => false,
+            MULTIPLE_RENDER_TARGETS => false,
+            INSTANCED_RENDERING => false,
         }
     }
 
@@ -259,52 +173,52 @@ impl gpu::RenderingContext for RenderingContextGL {
         gl::Clear(gl::COLOR_BUFFER_BIT);
     }
 
-    fn create_texture(&mut self) -> gpu::Texture {
+    fn create_texture(&mut self) -> Texture {
         let mut tex = 0;
         unsafe {
             gl::GenTextures(1, &mut tex);
         }
-        return gpu::Texture { handle: tex };
+        return Texture { handle: tex };
     }
 
-    fn destroy_texture(&mut self, tex: gpu::Texture) {
+    fn destroy_texture(&mut self, tex: Texture) {
         unsafe {
             gl::DeleteTextures(1, &tex.handle);
         }
     }
 
-    fn set_texture_flags(&mut self, tex: gpu::Texture, flags: gpu::TextureFlags) {
+    fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags) {
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
-        if flags&gpu::TEXTURE_REPEAT_S != 0 {
+        if flags&TEXTURE_REPEAT_S != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
         }
-        if flags&gpu::TEXTURE_REPEAT_T != 0 {
+        if flags&TEXTURE_REPEAT_T != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
         }
-        if flags&gpu::TEXTURE_CLAMP_S != 0 {
+        if flags&TEXTURE_CLAMP_S != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
         }
-        if flags&gpu::TEXTURE_CLAMP_T != 0 {
+        if flags&TEXTURE_CLAMP_T != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
         }
-        if flags&gpu::TEXTURE_MIN_FILTER_LINEAR != 0 {
+        if flags&TEXTURE_MIN_FILTER_LINEAR != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
         }
-        if flags&gpu::TEXTURE_MAG_FILTER_LINEAR != 0 {
+        if flags&TEXTURE_MAG_FILTER_LINEAR != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
-        if flags&gpu::TEXTURE_MIN_FILTER_NEAREST != 0 {
+        if flags&TEXTURE_MIN_FILTER_NEAREST != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
         }
-        if flags&gpu::TEXTURE_MAG_FILTER_NEAREST != 0 {
+        if flags&TEXTURE_MAG_FILTER_NEAREST != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
         }
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    fn upload_texture_data(&mut self, dest: gpu::Texture,
-                           data: &[u8], format: gpu::PixelFormat,
-                           w:u32, h:u32, stride: u32) -> gpu::Status {
+    fn upload_texture_data(&mut self, dest: Texture,
+                           data: &[u8], format: PixelFormat,
+                           w:u32, h:u32, stride: u32) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
         let fmt = gl_format(format);
         unsafe {
@@ -317,9 +231,9 @@ impl gpu::RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn allocate_texture(&mut self, dest: gpu::Texture,
-                    format: gpu::PixelFormat,
-                    w:u32, h:u32, stride: u32) -> gpu::Status {
+    fn allocate_texture(&mut self, dest: Texture,
+                    format: PixelFormat,
+                    w:u32, h:u32, stride: u32) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
         let fmt = gl_format(format);
         unsafe {
@@ -332,23 +246,38 @@ impl gpu::RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn create_shader(&mut self, t: gpu::ShaderType) -> gpu::Shader {
-        return gpu::Shader { handle: gl::CreateShader(gl_shader_type(t)) };
+    fn read_back_texture(&mut self, tex: Texture,
+                         x: u32, y:u32, w: u32, h: u32,
+                         format: PixelFormat,
+                         dest: &[u8]) -> RendererResult {
+        gl::BindTexture(gl::TEXTURE_2D, tex.handle);
+        unsafe {
+            gl::ReadPixels(x as i32, y as i32, w as i32, h as i32,
+                           gl_format(format), gl::UNSIGNED_BYTE,
+                           cast::transmute(dest.unsafe_ref(0)));
+            check_err!("glReadPixels({}, {}, {}, {}, {}, GL_UNSIGNED_BYTE, <array of lenght {}>)",
+                       x, y, w, h, gl_format(format), dest.len());
+        }
+        return Ok(());
     }
 
-    fn destroy_shader(&mut self, s: gpu::Shader) {
+    fn create_shader(&mut self, t: ShaderType) -> Shader {
+        return Shader { handle: gl::CreateShader(gl_shader_type(t)) };
+    }
+
+    fn destroy_shader(&mut self, s: Shader) {
         gl::DeleteShader(s.handle);
     }
 
-    fn create_shader_program(&mut self) -> gpu::ShaderProgram {
-        return gpu::ShaderProgram { handle: gl::CreateProgram() };
+    fn create_shader_program(&mut self) -> ShaderProgram {
+        return ShaderProgram { handle: gl::CreateProgram() };
     }
 
-    fn destroy_shader_program(&mut self, p: gpu::ShaderProgram) {
+    fn destroy_shader_program(&mut self, p: ShaderProgram) {
         gl::DeleteProgram(p.handle);
     }
 
-    fn compile_shader(&mut self, shader: gpu::Shader, src: &str) -> gpu::Status {
+    fn compile_shader(&mut self, shader: Shader, src: &str) -> RendererResult {
         unsafe {
             src.with_c_str(|mut c_src| {
                 let len = src.len() as i32;
@@ -364,8 +293,8 @@ impl gpu::RenderingContext for RenderingContextGL {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             if status != gl::TRUE as i32 {
-                return Err( gpu::Error {
-                    code: gpu::ErrorCode(0),
+                return Err( Error {
+                    code: 0,
                     detail: Some(str::raw::from_utf8_owned(buffer)),
                 });
             }
@@ -373,8 +302,8 @@ impl gpu::RenderingContext for RenderingContextGL {
         }
     }
 
-    fn link_shader_program(&mut self, p: gpu::ShaderProgram,
-                           shaders: &[gpu::Shader]) -> gpu::Status {
+    fn link_shader_program(&mut self, p: ShaderProgram,
+                           shaders: &[Shader]) -> RendererResult {
         unsafe {
             for s in shaders.iter() {
                 gl::AttachShader(p.handle, s.handle);
@@ -390,8 +319,8 @@ impl gpu::RenderingContext for RenderingContextGL {
             let mut status = 0;
             gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, cast::transmute(&status));
             if (status != gl::TRUE) {
-                return Err( gpu::Error {
-                    code: gpu::ErrorCode(0),
+                return Err( Error {
+                    code: 0,
                     detail: Some(str::raw::from_utf8_owned(buffer)),
                 });
             }
@@ -399,22 +328,22 @@ impl gpu::RenderingContext for RenderingContextGL {
         }
     }
 
-    fn create_vertex_buffer(&mut self) -> gpu::VertexBuffer {
+    fn create_vertex_buffer(&mut self) -> VertexBuffer {
         let mut b: u32 = 0;
         unsafe {
             gl::GenBuffers(1, &mut b);
         }
-        return gpu::VertexBuffer { handle: b };
+        return VertexBuffer { handle: b };
     }
 
-    fn destroy_vertex_buffer(&mut self, buffer: gpu::VertexBuffer) {
+    fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer) {
         unsafe {
             gl::DeleteBuffers(1, &buffer.handle);
         }
     }
 
-    fn upload_vertex_data(&mut self, buffer: gpu::VertexBuffer,
-                          data: &[f32], update: gpu::UpdateHint) -> gpu::Status {
+    fn upload_vertex_data(&mut self, buffer: VertexBuffer,
+                          data: &[f32], update: UpdateHint) -> RendererResult {
 
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, buffer.handle);
@@ -430,8 +359,8 @@ impl gpu::RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn allocate_vertex_buffer(&mut self, buffer: gpu::VertexBuffer,
-                              size: u32, update: gpu::UpdateHint) -> gpu::Status {
+    fn allocate_vertex_buffer(&mut self, buffer: VertexBuffer,
+                              size: u32, update: UpdateHint) -> RendererResult {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, buffer.handle);
             check_err!("glBindBuffer(GL_ARRAY_BUFFER, {})", buffer.handle);
@@ -445,23 +374,23 @@ impl gpu::RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn create_geometry(&mut self) -> gpu::Geometry {
+    fn create_geometry(&mut self) -> Geometry {
         let mut b: u32 = 0;
         unsafe {
             gl::GenVertexArrays(1, &mut b);
         }
-        return gpu::Geometry { handle: b };
+        return Geometry { handle: b };
     }
 
-    fn destroy_geometry(&mut self, obj: gpu::Geometry) {
+    fn destroy_geometry(&mut self, obj: Geometry) {
         unsafe {
             gl::DeleteVertexArrays(1, &obj.handle);
         }
     }
 
-    fn define_geometry(&mut self, geom: gpu::Geometry,
-                       attributes: &[gpu::VertexAttribute],
-                       elements: Option<gpu::VertexBuffer>) -> gpu::Status {
+    fn define_geometry(&mut self, geom: Geometry,
+                       attributes: &[VertexAttribute],
+                       elements: Option<VertexBuffer>) -> RendererResult {
         gl::BindVertexArray(geom.handle);
 
         let mut i :u32 = 0;
@@ -491,8 +420,8 @@ impl gpu::RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn get_shader_input_location(&mut self, program: gpu::ShaderProgram,
-                                 name: &str) -> i32 {
+    fn get_shader_input_location(&mut self, program: ShaderProgram,
+                                 name: &str) -> ShaderInputLocation {
         let mut location: i32 = 0;
         name.with_c_str(|c_name| unsafe {
             location = gl::GetUniformLocation(program.handle, c_name);
@@ -500,8 +429,8 @@ impl gpu::RenderingContext for RenderingContextGL {
         return location;
     }
 
-    fn get_vertex_attribute_location(&mut self, program: gpu::ShaderProgram,
-                                     name: &str) -> i32 {
+    fn get_vertex_attribute_location(&mut self, program: ShaderProgram,
+                                     name: &str) -> ShaderInputLocation {
         let mut location: i32 = 0;
         name.with_c_str(|c_name| unsafe {
             location = gl::GetAttribLocation(program.handle, c_name);
@@ -510,9 +439,9 @@ impl gpu::RenderingContext for RenderingContextGL {
     }
 
     fn create_render_target(&mut self,
-                            color_attachments: &[gpu::Texture],
-                            depth: Option<gpu::Texture>,
-                            stencil: Option<gpu::Texture>) -> Result<gpu::RenderTarget, ~str> {
+                            color_attachments: &[Texture],
+                            depth: Option<Texture>,
+                            stencil: Option<Texture>) -> Result<RenderTarget, Error> {
         let mut fbo: u32 = 0;
         unsafe {
             gl::GenFramebuffers(1, &mut fbo);
@@ -525,16 +454,18 @@ impl gpu::RenderingContext for RenderingContextGL {
                                      gl::TEXTURE_2D,
                                      color_attachments[i].handle,
                                      0);
+            check_err!("glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, {}, GL_TEXTURE_2D, {}, 0)",
+                       gl_attachement(i as u32), color_attachments[i].handle);
         }
         let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         if (status != gl::FRAMEBUFFER_COMPLETE) {
-            return Err(frame_buffer_error(status));
+            return Err(Error{code: status, detail: None });
         }
-        return Ok(gpu::RenderTarget{ handle: fbo });
+        return Ok(RenderTarget{ handle: fbo });
     }
 
-    fn destroy_render_target(&mut self, fbo: gpu::RenderTarget) {
+    fn destroy_render_target(&mut self, fbo: RenderTarget) {
         if self.current_render_target == fbo {
             let rt = self.get_default_render_target();
             self.use_render_target(rt);
@@ -544,11 +475,11 @@ impl gpu::RenderingContext for RenderingContextGL {
         }
     }
 
-    fn get_default_render_target(&mut self) -> gpu::RenderTarget {
-        return gpu::RenderTarget { handle: 0 };
+    fn get_default_render_target(&mut self) -> RenderTarget {
+        return RenderTarget { handle: 0 };
     }
 
-    fn render(&mut self, commands: &[gpu::RenderingCommand]) -> gpu::Status {
+    fn render(&mut self, commands: &[RenderingCommand]) -> RendererResult {
         for command in commands.iter() {
             match self.render_command(command) {
                 Ok(()) => {}
@@ -559,3 +490,75 @@ impl gpu::RenderingContext for RenderingContextGL {
     }
 }
 
+fn gl_format(format: PixelFormat) -> u32 {
+    match format {
+        FORMAT_R8G8B8A8 => gl::RGBA,
+        FORMAT_R8G8B8X8 => gl::RGB,
+        FORMAT_B8G8R8A8 => gl::BGRA,
+        FORMAT_B8G8R8X8 => gl::BGR,
+        FORMAT_A8 => gl::RED,
+    }
+}
+
+fn gl_shader_type(target: ShaderType) -> u32 {
+    match target {
+        VERTEX_SHADER => gl::VERTEX_SHADER,
+        FRAGMENT_SHADER => gl::FRAGMENT_SHADER,
+        GEOMETRY_SHADER => gl::GEOMETRY_SHADER,
+    }
+}
+
+fn gl_draw_mode(flags: RenderFlags) -> u32 {
+    if flags & LINES != 0 {
+        return if flags & STRIP != 0 { gl::LINE_STRIP }
+               else if flags & LOOP != 0 { gl::LINE_LOOP }
+               else { gl::LINES }
+    }
+    return if flags & STRIP != 0 { gl::TRIANGLE_STRIP }
+           else { gl::TRIANGLES }
+}
+
+fn gl_update_hint(hint: UpdateHint) -> u32 {
+    match hint {
+        STATIC_UPDATE => gl::STATIC_DRAW,
+        STREAM_UPDATE => gl::STREAM_DRAW,
+        DYNAMIC_UPDATE => gl::DYNAMIC_DRAW,
+    }
+}
+
+fn gl_attribue_type(attribute: AttributeType) -> u32 {
+    match attribute {
+        F32 => gl::FLOAT,
+        F64 => gl::DOUBLE,
+        I32 => gl::INT,
+        U32 => gl::UNSIGNED_INT,
+    }
+}
+
+fn gl_texture_unit(unit: u32) -> u32 {
+    return gl::TEXTURE0 + unit;
+}
+
+fn gl_attachement(i: u32) -> u32 {
+    return gl::COLOR_ATTACHMENT0 + i;
+}
+
+fn gl_bool(b: bool) -> u8 {
+    return if b { gl::TRUE } else { gl::FALSE };
+}
+
+pub fn gl_error_str(err: u32) -> &'static str {
+    return match err {
+        gl::NO_ERROR            => { "(No error)" }
+        gl::INVALID_ENUM        => { "Invalid enum" },
+        gl::INVALID_VALUE       => { "Invalid value" },
+        gl::INVALID_OPERATION   => { "Invalid operation" },
+        gl::OUT_OF_MEMORY       => { "Out of memory" },
+        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => "Missing attachment.",
+        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => "Incomplete attachment.",
+        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => "Incomplete draw buffer.",
+        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => "Incomplete multisample.",
+        gl::FRAMEBUFFER_UNSUPPORTED => "Unsupported.",
+        _ => { "Unknown error" }
+    }
+}
