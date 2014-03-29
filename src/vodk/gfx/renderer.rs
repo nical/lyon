@@ -14,6 +14,17 @@ pub static TEXTURE_MAG_FILTER_NEAREST: TextureFlags = 128;
 pub static TEXTURE_SAMPLE_NEAREST    : TextureFlags = 192;
 pub static TEXTURE_FLAGS_DEFAULT     : TextureFlags = TEXTURE_CLAMP|TEXTURE_FILTER_LINEAR;
 
+pub type RenderFlags = u32;
+pub static ENABLE_Z_TEST         : RenderFlags = 1 >> 0;
+pub static ENABLE_STENCIL_TEST   : RenderFlags = 1 >> 1;
+pub static LINES                 : RenderFlags = 1 >> 2;
+pub static STRIP                 : RenderFlags = 1 >> 3;
+pub static LOOP                  : RenderFlags = 1 >> 4;
+pub static INDEXED               : RenderFlags = 1 >> 5;
+pub static TRIANGLE_STRIP        : RenderFlags = STRIP;
+pub static LINE_STRIP            : RenderFlags = LINES | STRIP;
+pub static LINE_LOOP             : RenderFlags = LINES | LOOP;
+
 #[deriving(Eq, Clone, Show)]
 pub enum BackendType {
     GL_BACKEND,
@@ -25,15 +36,6 @@ pub enum ShaderType {
     FRAGMENT_SHADER,
     VERTEX_SHADER,
     GEOMETRY_SHADER,
-}
-
-#[deriving(Eq, Clone, Show)]
-pub enum DrawMode {
-    LINES,
-    LINE_LOOP,
-    LINE_STRIP,
-    TRIANGLES,
-    TRIANGLE_STRIP
 }
 
 #[deriving(Eq, Clone, Show)]
@@ -93,13 +95,15 @@ pub struct Geometry { handle: Handle }
 #[deriving(Eq, Clone, Show)]
 pub struct RenderTarget { handle: Handle }
 
+#[deriving(Eq, Clone, Show)]
 pub struct Error {
     code: ErrorCode,
     detail: Option<~str>,
 }
 
+#[deriving(Eq, Clone, Show)]
 pub struct ErrorCode(u32);
-pub type Status = Result<(), ErrorCode>;
+pub type Status = Result<(), Error>;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
@@ -126,7 +130,7 @@ pub struct ShaderInput {
 
 #[deriving(Eq, Clone, Show)]
 pub struct DrawCommand {
-    mode: DrawMode,
+    flags: RenderFlags,
     target: RenderTarget,
     shader_program: ShaderProgram,
     shader_inputs: ~[ShaderInput],
@@ -159,7 +163,7 @@ pub trait RenderingContext {
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags);
     fn upload_texture_data(&mut self, dest: Texture,
                            data: &[u8], format: PixelFormat,
-                           w:u32, h:u32, stride: u32) -> bool;
+                           w:u32, h:u32, stride: u32) -> Status;
     /**
      * Specifies the texture's size and format
      * Does not need to be called if some data will be uploaded
@@ -167,20 +171,20 @@ pub trait RenderingContext {
      */
     fn allocate_texture(&mut self, dest: Texture,
                         format: PixelFormat,
-                        w:u32, h:u32, stride: u32) -> bool;
+                        w:u32, h:u32, stride: u32) -> Status;
 
     fn create_shader(&mut self, t: ShaderType) -> Shader;
     fn destroy_shader(&mut self, s: Shader);
-    fn compile_shader(&mut self, shader: Shader, src: &str) -> Result<(), ~str>;
+    fn compile_shader(&mut self, shader: Shader, src: &str) -> Status;
 
     fn create_shader_program(&mut self) -> ShaderProgram;
     fn destroy_shader_program(&mut self, s: ShaderProgram);
-    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader]) -> Result<(), ~str>;
+    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader]) -> Status;
 
     fn create_vertex_buffer(&mut self) -> VertexBuffer;
     fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer);
     fn upload_vertex_data(&mut self, buffer: VertexBuffer,
-                          data: &[f32], update: UpdateHint);
+                          data: &[f32], update: UpdateHint) -> Status;
     fn allocate_vertex_buffer(&mut self, dest: VertexBuffer,
                               size: u32, update: UpdateHint) -> Status;
 
@@ -203,7 +207,7 @@ pub trait RenderingContext {
 
     fn get_default_render_target(&mut self) -> RenderTarget;
 
-    fn render(&mut self, commands: &[RenderingCommand]);
+    fn render(&mut self, commands: &[RenderingCommand]) -> Status;
 }
 
 impl RenderTarget {

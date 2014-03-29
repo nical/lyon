@@ -17,9 +17,8 @@ pub fn main_loop() {
         glfw::window_hint(glfw::OpenglForwardCompat(true));
         glfw::window_hint(glfw::OpenglDebugContext(true));
 
-        let window = //Rc::new(
-            glfw::Window::create(800, 600, "vodk.", glfw::Windowed).unwrap();
-        //);
+        let window = glfw::Window::create(800, 600, "vodk.", glfw::Windowed).unwrap();
+
         //let window = window_rc.borrow();
         window.set_sticky_keys(true);
 
@@ -62,12 +61,11 @@ pub fn main_loop() {
             0.0, 1.0,
         ];
         let quad = ctx.create_vertex_buffer();
-        match ctx.check_error() {
-            Some(err) => { println!("A error {}", err); }
-            None => {}
-        }
 
-        ctx.upload_vertex_data(quad, vertices, gpu::STATIC_UPDATE);
+        ctx.upload_vertex_data(quad, vertices, gpu::STATIC_UPDATE).map_err(
+            |e| { fail!("Failed to upload the vertex data: {}", e); return; }
+        );
+
         let geom = ctx.create_geometry();
         ctx.define_geometry(geom, [
             gpu::VertexAttribute {
@@ -79,35 +77,28 @@ pub fn main_loop() {
                 offset: 0,
                 normalize: false,
             }
-        ], None);
-
-        match ctx.check_error() {
-            Some(err) => { println!("B rendering error {}", err); }
-            None => {}
-        }
+        ], None).map_err(|e| { fail!("{}", e); return; } );
 
         let vs = ctx.create_shader(gpu::VERTEX_SHADER);
         let fs = ctx.create_shader(gpu::FRAGMENT_SHADER);
 
-        match ctx.compile_shader(vs, shaders::BASIC_VERTEX_SHADER) {
-            Err(e) => { fail!("Failed to compile the vertex shader: {}", e); }
-            _ => {}
-        }
-        match ctx.compile_shader(fs, shaders::SOLID_COLOR_FRAGMENT_SHADER) {
-            Err(e) => { fail!("Failed to compile the fragment shader: {}", e); }
-            _ => {}
-        }
+        ctx.compile_shader(vs, shaders::BASIC_VERTEX_SHADER).map_err(
+            |e| { fail!("Failed to compile the vertex shader: {}", e); return; }
+        );
+
+        ctx.compile_shader(fs, shaders::SOLID_COLOR_FRAGMENT_SHADER).map_err(
+            |e| { fail!("Failed to compile the fragment shader: {}", e); return; }
+        );
 
         let program = ctx.create_shader_program();
-        match ctx.link_shader_program(program, [vs, fs]) {
-            Err(e) => { fail!("Failed to link the shader program: {}", e); }
-            _ => {}
-        }
+        ctx.link_shader_program(program, [vs, fs]).map_err(
+            |e| { fail!("Failed to link the shader program: {}", e); return; }
+        );
 
         let cmd = ~[gpu::OpDraw(
             gpu::DrawCommand {
                 target: ctx.get_default_render_target(),
-                mode: gpu::TRIANGLES,
+                flags: 0,
                 geometry: geom,
                 shader_program: program,
                 shader_inputs: ~[
@@ -128,15 +119,10 @@ pub fn main_loop() {
                 handle_window_event(&window, event);
             }
             ctx.clear();
-            match ctx.check_error() {
-                Some(err) => { println!("rendering error {}", err); }
-                None => {}
-            }
-            ctx.render(cmd);
-            match ctx.check_error() {
-                Some(err) => { println!("rendering error {}", err); }
-                None => {}
-            }
+
+            ctx.render(cmd).map_err(
+                |e| { fail!("Rendering error: {}", e); return; }
+            );
 
             // TODO move into RenderingContext
             window.swap_buffers();
