@@ -11,32 +11,17 @@ pub struct EntityID {
     index: EntityIndex,
 }
 
-// TODO preper constant
-static ENTITY_NONE: EntityIndex = 9999 as EntityIndex;
-static FREE_LIST_NONE: FreeList = 9999 as FreeList;
-static SYSTEM_NONE: SystemIndex = 9999 as SystemIndex;
-static COMPONENT_NONE: ComponentIndex = 9999 as ComponentIndex;
-
-#[deriving(Clone)]
-pub struct Transform {
-    x: f32, y:f32, z: f32,
-    yaw: f32, pitch: f32, roll: f32,
-}
-
-impl Transform {
-    fn identity() -> Transform {
-        Transform {
-            x: 0.0, y: 0.0, z: 0.0,
-            pitch: 0.0, yaw: 0.0, roll: 0.0,
-        }
-    }
-}
-
 #[deriving(Clone)]
 pub struct ComponentID {
     system: SystemIndex,
     index: ComponentIndex,
 }
+
+// TODO proper constant
+static ENTITY_NONE: EntityIndex = 9999 as EntityIndex;
+static FREE_LIST_NONE: FreeList = 9999 as FreeList;
+static SYSTEM_NONE: SystemIndex = 9999 as SystemIndex;
+static COMPONENT_NONE: ComponentIndex = 9999 as ComponentIndex;
 
 pub struct Entity {
     components: ~[ComponentID],
@@ -51,7 +36,7 @@ impl EntityID {
     pub fn index(self) -> EntityIndex { self.index }
 
     pub fn is_null(self) -> bool {
-        return self.index == ENTITY_NONE; 
+        return self.index == ENTITY_NONE;
     }
 }
 
@@ -113,42 +98,5 @@ impl EntityManager {
     pub fn borrow_mut<'l>(&'l mut self, id: EntityID) -> &'l mut Entity {
         assert!(self.entities[id.index()].free_list == FREE_LIST_NONE);
         return &'l mut self.entities[id.index()];
-    }
-}
-
-
-#[test]
-fn test_entity_manager_basic() {
-    let mut em = EntityManager::new();
-    let mut id : ~[EntityID] = ~[];
-    for i in range(0, 10) {
-        id.push(em.add_empty());
-    }
-    for i in range(0, 10) {
-        let mut e = em.borrow_mut(id[i]);
-        e.components.push(ComponentID { system: 42, index: i as ComponentIndex });
-        assert!(id[i].index != ENTITY_NONE);
-    }
-    for i in range(0, 10) {
-        let e = em.borrow(id[i]);
-        assert_eq!(e.components[0].index, i as ComponentIndex);
-    }
-
-    em.remove(id[3]);
-    em.remove(id[0]);
-    em.remove(id[4]);
-
-    for i in range(0, 10) {
-        if i == 0 || i == 3 || i == 4 { continue; }
-        let e = em.borrow(id[i]);
-        assert_eq!(e.main_components[0].index, i as ComponentIndex);
-    }
-
-    id[4] = em.add_empty();
-    id[0] = em.add_empty();
-    id[3] = em.add_empty();
-
-    for i in range(0, 10) {
-        let e = em.borrow(id[i]);
     }
 }

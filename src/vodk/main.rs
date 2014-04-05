@@ -10,9 +10,14 @@ pub mod gfx {
     pub mod opengl;
     pub mod window;
     pub mod shaders;
+    pub mod mesh_utils;
+    pub mod geom;
 }
-mod logic {
+pub mod logic {
     pub mod entity;
+}
+pub mod base {
+	pub mod containers;
 }
 
 #[start]

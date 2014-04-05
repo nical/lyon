@@ -173,12 +173,14 @@ impl RenderingContext for RenderingContextGL {
         gl::Clear(gl::COLOR_BUFFER_BIT);
     }
 
-    fn create_texture(&mut self) -> Texture {
+    fn create_texture(&mut self, flags: TextureFlags) -> Texture {
         let mut tex = 0;
         unsafe {
             gl::GenTextures(1, &mut tex);
         }
-        return Texture { handle: tex };
+        let tex = Texture { handle: tex };
+        self.set_texture_flags(tex, flags);
+        return tex;
     }
 
     fn destroy_texture(&mut self, tex: Texture) {
@@ -232,8 +234,7 @@ impl RenderingContext for RenderingContextGL {
     }
 
     fn allocate_texture(&mut self, dest: Texture,
-                    format: PixelFormat,
-                    w:u32, h:u32, stride: u32) -> RendererResult {
+                        w:u32, h:u32, format: PixelFormat) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
         let fmt = gl_format(format);
         unsafe {
@@ -448,15 +449,44 @@ impl RenderingContext for RenderingContextGL {
         }
 
         gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+        check_err!("glBindFrameBuffer(GL_FRAMEBUFFER, {})", fbo);
+
         for i in range(0,color_attachments.len()) {
-            gl::FramebufferTexture2D(gl::DRAW_FRAMEBUFFER,
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER,
                                      gl_attachement(i as u32),
                                      gl::TEXTURE_2D,
                                      color_attachments[i].handle,
                                      0);
-            check_err!("glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, {}, GL_TEXTURE_2D, {}, 0)",
+            check_err!("glFramebufferTexture2D(GL_FRAMEBUFFER, {}, GL_TEXTURE_2D, {}, 0)",
                        gl_attachement(i as u32), color_attachments[i].handle);
         }
+
+        match depth {
+            Some(d) => {
+                gl::FramebufferTexture2D(gl::FRAMEBUFFER,
+                                         gl::DEPTH_ATTACHMENT,
+                                         gl::TEXTURE_2D,
+                                         d.handle,
+                                         0);
+                check_err!("glFramebufferTexture2D(GL_FRAMEBUFFER, G:_DEPTH_ATTACHMENT, GL_TEXTURE_2D, {}, 0)",
+                           d.handle);
+            }
+            _ => {}
+        }
+
+        match stencil {
+            Some(s) => {
+                gl::FramebufferTexture2D(gl::FRAMEBUFFER,
+                                         gl::STENCIL_ATTACHMENT,
+                                         gl::TEXTURE_2D,
+                                         s.handle,
+                                         0);
+                check_err!("glFramebufferTexture2D(GL_FRAMEBUFFER, G:_DEPTH_ATTACHMENT, GL_TEXTURE_2D, {}, 0)",
+                           s.handle);
+            }
+            _ => {}
+        }
+
         let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         if (status != gl::FRAMEBUFFER_COMPLETE) {

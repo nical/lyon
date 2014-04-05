@@ -161,7 +161,7 @@ pub trait RenderingContext {
     fn check_error(&mut self) -> Option<~str>;
     fn get_error_str(&mut self, err: ErrorCode) -> &'static str;
 
-    fn create_texture(&mut self) -> Texture;
+    fn create_texture(&mut self, flags: TextureFlags) -> Texture;
     fn destroy_texture(&mut self, tex: Texture);
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags);
     fn upload_texture_data(&mut self, dest: Texture,
@@ -173,8 +173,7 @@ pub trait RenderingContext {
      * through upload_texture_data.
      */
     fn allocate_texture(&mut self, dest: Texture,
-                        format: PixelFormat,
-                        w:u32, h:u32, stride: u32) -> RendererResult;
+                        w:u32, h:u32, format: PixelFormat) -> RendererResult;
 
     fn read_back_texture(&mut self, tex: Texture,
                          x:u32, y:u32, w: u32, h: u32,

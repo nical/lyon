@@ -1,8 +1,12 @@
 use gl;
 use glfw;
 use gfx::opengl;
-use gpu = gfx::renderer;
+use gfx::renderer;
 use gfx::shaders;
+use gfx::mesh_utils::{
+    generate_grid_indices, generate_grid_vertices, num_indices_for_grid, num_vertices_for_grid,
+    PER_GRID_INDICES,
+};
 use std::rc::Rc;
 use std::libc;
 
@@ -13,7 +17,6 @@ pub fn main_loop() {
         glfw::window_hint(glfw::Resizable(true));
 
         glfw::window_hint(glfw::ContextVersion(3, 0));
-        //glfw::window_hint::opengl_profile(glfw::OpenGlCoreProfile);
         glfw::window_hint(glfw::OpenglForwardCompat(true));
         glfw::window_hint(glfw::OpenglDebugContext(true));
 
@@ -46,11 +49,36 @@ pub fn main_loop() {
         window.make_context_current();
         gl::load_with(glfw::get_proc_address);
 
-        let mut ctx = ~opengl::RenderingContextGL::new() as ~gpu::RenderingContext;
+        let mut ctx = ~opengl::RenderingContextGL::new() as ~renderer::RenderingContext;
         ctx.set_clear_color(1.0, 0.0, 0.0, 1.0);
 
         // TODO move into RenderingContext
         window.make_context_current();
+
+        let grid_w: u32 = 32;
+        let grid_h: u32 = 32;
+        let vertex_stride = 5;
+        let mut grid_vertices = Vec::from_fn( (grid_w*grid_h*vertex_stride) as uint, |idx|{ 0.0f32 });
+        let mut grid_indices = Vec::from_fn(
+            num_indices_for_grid(grid_w, grid_h, PER_GRID_INDICES) as uint,
+            |idx|{ 0u32 }
+        );
+
+        generate_grid_indices(grid_w, grid_h, PER_GRID_INDICES, 
+                              grid_indices.as_mut_slice(),
+                              0, vertex_stride);
+        generate_grid_vertices(grid_w, grid_h, grid_vertices.as_mut_slice(),
+                               vertex_stride as uint, true,
+            |x, y, vertex| {
+                vertex[0] = x as f32;
+                vertex[1] = y as f32;
+                vertex[2] = 0.0;
+                // tex coordinates
+                vertex[3] = x as f32 / grid_w as f32;
+                vertex[4] = x as f32 / grid_h as f32;
+            }
+        );
+
 
         let vertices : ~[f32] = ~[
             0.0, 0.0,
@@ -62,15 +90,15 @@ pub fn main_loop() {
         ];
         let quad = ctx.create_vertex_buffer();
 
-        ctx.upload_vertex_data(quad, vertices, gpu::STATIC_UPDATE).map_err(
+        ctx.upload_vertex_data(quad, vertices, renderer::STATIC_UPDATE).map_err(
             |e| { fail!("Failed to upload the vertex data: {}", e); return; }
         );
 
         let geom = ctx.create_geometry();
         ctx.define_geometry(geom, [
-            gpu::VertexAttribute {
+            renderer::VertexAttribute {
                 buffer: quad,
-                attrib_type: gpu::F32,
+                attrib_type: renderer::F32,
                 components: 2,
                 location: 0,
                 stride: 0,
@@ -79,8 +107,8 @@ pub fn main_loop() {
             }
         ], None).map_err(|e| { fail!("{}", e); return; } );
 
-        let vs = ctx.create_shader(gpu::VERTEX_SHADER);
-        let fs = ctx.create_shader(gpu::FRAGMENT_SHADER);
+        let vs = ctx.create_shader(renderer::VERTEX_SHADER);
+        let fs = ctx.create_shader(renderer::FRAGMENT_SHADER);
 
         ctx.compile_shader(vs, shaders::BASIC_VERTEX_SHADER).map_err(
             |e| { fail!("Failed to compile the vertex shader: {}", e); return; }
@@ -95,22 +123,36 @@ pub fn main_loop() {
             |e| { fail!("Failed to link the shader program: {}", e); return; }
         );
 
-        let cmd = ~[gpu::OpDraw(
-            gpu::DrawCommand {
+        let cmd = ~[renderer::OpDraw(
+            renderer::DrawCommand {
                 target: ctx.get_default_render_target(),
                 flags: 0,
                 geometry: geom,
                 shader_program: program,
                 shader_inputs: ~[
-                    gpu::ShaderInput {
+                    renderer::ShaderInput {
                         location: ctx.get_shader_input_location(program, "u_color"),
-                        value: gpu::INPUT_FLOATS(~[0.0, 0.5, 1.0, 1.0])
+                        value: renderer::INPUT_FLOATS(~[0.0, 0.5, 1.0, 1.0])
                     }
                 ],
                 first: 0,
                 count: 6,
             }
         )];
+
+        let texture_1 = ctx.create_texture(renderer::TEXTURE_FLAGS_DEFAULT);
+        ctx.allocate_texture(texture_1, 512, 512, renderer::FORMAT_R8G8B8A8);
+        let intermediate_target = ctx.create_render_target([texture_1], None, None).map_err(
+            |e| {
+                fail!("Failed to ceate a render target: {} - {}",
+                      ctx.get_error_str(e.code),
+                      match e.detail {
+                        Some(s) => s,
+                        None => ~"",
+                      });
+                return;
+            }
+        );
 
         while !window.should_close() {
             glfw::poll_events();
