@@ -17,7 +17,7 @@ pub static TEXTURE_FLAGS_DEFAULT     : TextureFlags = TEXTURE_CLAMP|TEXTURE_FILT
 #[deriving(Eq, Clone, Show)]
 pub enum BackendType {
     GL_BACKEND,
-    INVALID_NACKEND,
+    INVALID_BACKEND,
 }
 
 #[deriving(Eq, Clone, Show)]
@@ -70,46 +70,46 @@ pub enum UpdateHint {
     DYNAMIC_UPDATE
 }
 
-type Handle = u32;
+pub type Handle = u32;
 
 #[deriving(Eq, Clone, Show)]
-pub struct Shader { handle: Handle }
+pub struct Shader { pub handle: Handle }
 
 #[deriving(Eq, Clone, Show)]
-pub struct ShaderProgram { handle: Handle }
+pub struct ShaderProgram { pub handle: Handle }
 
 #[deriving(Eq, Clone, Show)]
-pub struct Texture { handle: Handle }
+pub struct Texture { pub handle: Handle }
 
 /// Equivalent of a Buffer object in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct VertexBuffer { handle: Handle }
+pub struct VertexBuffer { pub handle: Handle }
 
 /// Equivalent of a VAO in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct Geometry { handle: Handle }
+pub struct Geometry { pub handle: Handle }
 
 /// Equivalent of a FBO in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct RenderTarget { handle: Handle }
+pub struct RenderTarget { pub handle: Handle }
 
 pub struct Error {
-    code: ErrorCode,
-    detail: Option<~str>,
+    pub code: ErrorCode,
+    pub detail: Option<~str>,
 }
 
-pub struct ErrorCode(u32);
+pub struct ErrorCode(pub u32);
 pub type Status = Result<(), ErrorCode>;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
-    buffer: VertexBuffer,
-    attrib_type: AttributeType,
-    location: u16,
-    stride: u16,
-    offset: u16,
-    components: u8,
-    normalize: bool,
+    pub buffer: VertexBuffer,
+    pub attrib_type: AttributeType,
+    pub location: u16,
+    pub stride: u16,
+    pub offset: u16,
+    pub components: u8,
+    pub normalize: bool,
 }
 
 #[deriving(Eq, Clone, Show)]
@@ -120,20 +120,20 @@ pub enum ShaderInputValue {
 
 #[deriving(Eq, Clone, Show)]
 pub struct ShaderInput {
-    location: i32,
-    value: ShaderInputValue,
+    pub location: i32,
+    pub value: ShaderInputValue,
 }
 
 #[deriving(Eq, Clone, Show)]
 pub struct DrawCommand {
-    mode: DrawMode,
-    target: RenderTarget,
-    shader_program: ShaderProgram,
-    shader_inputs: ~[ShaderInput],
-    geometry: Geometry,
-    first: u32,
-    count: u32,
-    use_indices: bool,
+    pub mode: DrawMode,
+    pub target: RenderTarget,
+    pub shader_program: ShaderProgram,
+    pub shader_inputs: ~[ShaderInput],
+    pub geometry: Geometry,
+    pub first: u32,
+    pub count: u32,
+    pub use_indices: bool,
 }
 
 pub enum RenderingCommand {
@@ -204,8 +204,4 @@ pub trait RenderingContext {
     fn get_default_render_target(&mut self) -> RenderTarget;
 
     fn render(&mut self, commands: &[RenderingCommand]);
-}
-
-impl RenderTarget {
-    fn default() -> RenderTarget { RenderTarget { handle: 0 } }
 }

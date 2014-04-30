@@ -3,7 +3,6 @@ use glfw;
 use gpu = gfx::renderer;
 use std::str;
 use std::cast;
-use std::libc::c_void;
 use std::rc::Rc;
 use std::mem::size_of;
 
@@ -77,14 +76,14 @@ fn frame_buffer_error(error: u32) -> ~str {
 
 pub struct RenderingContextGL {
     //window: Rc<glfw::Window>,
-    current_texture: gpu::Texture,
-    current_vbo: gpu::VertexBuffer,
-    current_render_target: gpu::RenderTarget,
-    current_program: gpu::ShaderProgram,
+    pub current_texture: gpu::Texture,
+    pub current_vbo: gpu::VertexBuffer,
+    pub current_render_target: gpu::RenderTarget,
+    pub current_program: gpu::ShaderProgram,
 }
 
 fn gl_error_str(err: u32) -> ~str {
-    match gl::GetError() {
+    match err {
         gl::NO_ERROR            => { ~"" }
         gl::INVALID_ENUM        => { ~"Invalid enum" },
         gl::INVALID_VALUE       => { ~"Invalid value" },
@@ -366,7 +365,7 @@ impl gpu::RenderingContext for RenderingContextGL {
             gl::ValidateProgram(p.handle);
             let mut status = 0;
             gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, cast::transmute(&status));
-            if (status == gl::FALSE) {
+            if status == gl::FALSE {
                 return Err(str::raw::from_utf8_owned(buffer));
             }
             return Ok(());
@@ -508,7 +507,7 @@ impl gpu::RenderingContext for RenderingContextGL {
         }
         let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-        if (status != gl::FRAMEBUFFER_COMPLETE) {
+        if status != gl::FRAMEBUFFER_COMPLETE {
             return Err(frame_buffer_error(status));
         }
         return Ok(gpu::RenderTarget{ handle: fbo });

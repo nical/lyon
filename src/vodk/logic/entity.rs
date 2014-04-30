@@ -1,5 +1,6 @@
 use std::num;
-
+use std::vec;
+/*
 // | Group | Index |
 type EntityIndex = u16;
 type SystemIndex = u16;
@@ -62,13 +63,13 @@ impl ComponentID {
 }
 
 pub struct EntityManager {
-    entities: ~[Entity],
+    entities: Vec<Entity>,
     free_list: u16,
 }
 
 impl EntityManager {
     pub fn new() -> EntityManager {
-        EntityManager{ entities: ~[], free_list: FREE_LIST_NONE }
+        EntityManager{ entities: Vec::new(), free_list: FREE_LIST_NONE }
     }
 
     pub fn add(&mut self, e: Entity) -> EntityID {
@@ -77,7 +78,7 @@ impl EntityManager {
             return EntityID{index: (self.entities.len()-1) as u16};
         } else {
             let index = self.free_list;
-            let next_free_list = self.entities[index].free_list;
+            let next_free_list = self.entities.get(index).free_list;
             self.entities[self.free_list] = e;
             self.free_list = next_free_list;
             return EntityID { index: index };
@@ -152,3 +153,4 @@ fn test_entity_manager_basic() {
         let e = em.borrow(id[i]);
     }
 }
+*/
