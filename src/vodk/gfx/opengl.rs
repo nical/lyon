@@ -3,7 +3,6 @@ use glfw;
 use gpu = gfx::renderer;
 use std::str;
 use std::cast;
-use std::rc::Rc;
 use std::mem::size_of;
 
 fn gl_format(format: gpu::PixelFormat) -> u32 {
@@ -114,76 +113,12 @@ impl RenderingContextGL {
         }
     }
 
-    fn use_render_target(&mut self, fbo: gpu::RenderTarget) {
-        if self.current_render_target == fbo {
-            return;
-        }
-        gl::BindFramebuffer(gl::FRAMEBUFFER, fbo.handle);
-        self.current_render_target = fbo;
-    }
-
     fn bind_vertex_buffer(&mut self, vbo: gpu::VertexBuffer) {
         if self.current_vbo == vbo {
             return;
         }
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo.handle);
         self.current_vbo = vbo;
-    }
-
-    fn unbind_vertex_buffer(&mut self, buffer: gpu::VertexBuffer) {
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-    }
-
-    fn render_command(&mut self, command: &gpu::RenderingCommand) {
-        match *command {
-            gpu::OpFlush => { gl::Flush(); }
-            gpu::OpClear => { gl::Clear(gl::COLOR_BUFFER_BIT); }
-            gpu::OpDraw(ref draw) => {
-                gl::UseProgram(draw.shader_program.handle);
-
-                print_gl_error("after use program");
-
-                let mut num_tex = 0;
-                for input in draw.shader_inputs.iter() {
-                    match input.value {
-                        gpu::INPUT_FLOATS(ref f) => {
-                            match f.len() {
-                                1 => { gl::Uniform1f(input.location, f[0]); }
-                                2 => { gl::Uniform2f(input.location, f[0], f[1]); }
-                                3 => { gl::Uniform3f(input.location, f[0], f[1], f[2]); }
-                                4 => { gl::Uniform4f(input.location, f[0], f[1], f[2], f[3]); }
-                                x => { println!("Warning, trying to send {} float uniforms", x); }
-                            }
-                        }
-                        gpu::INPUT_TEXTURE(tex) => {
-                            gl::ActiveTexture(gl_texture_unit(num_tex));
-                            gl::BindTexture(gl::TEXTURE_2D, tex.handle);
-                            gl::Uniform1i(input.location, num_tex as i32);
-                            print_gl_error("after uniform tex");
-                            num_tex += 1;
-                        }
-                        // TODO matrices
-                    }
-                }
-
-                gl::BindVertexArray(draw.geometry.handle);
-
-                if draw.use_indices {
-                    unsafe {
-                        gl::DrawElements(gl_draw_mode(draw.mode),
-                                         draw.count as i32,
-                                         gl::UNSIGNED_INT,
-                                         cast::transmute(0));
-                    }
-                } else {
-                    print_gl_error("before DrawElements");
-                    gl::DrawArrays(gl_draw_mode(draw.mode),
-                                   draw.first as i32,
-                                   draw.count as i32);
-                    print_gl_error("after DrawElements");
-                }
-            }
-        }
     }
 }
 
@@ -282,8 +217,10 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn upload_texture_data(&mut self, dest: gpu::Texture,
                            data: &[u8], format: gpu::PixelFormat,
-                           w:u32, h:u32, stride: u32) -> bool {
+                           w:u32, h:u32) -> bool {
+        print_gl_error("upload_texture_data before bind");
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
+        print_gl_error("upload_texture_data after bind");
         let fmt = gl_format(format);
         unsafe {
             gl::TexImage2D(
@@ -291,14 +228,18 @@ impl gpu::RenderingContext for RenderingContextGL {
                 0, fmt, gl::UNSIGNED_BYTE, cast::transmute(data.unsafe_ref(0))
             );
         }
+        
+        print_gl_error("upload_texture_data after TexImage2D");
         gl::BindTexture(gl::TEXTURE_2D, 0);
         return true;
     }
 
     fn allocate_texture(&mut self, dest: gpu::Texture,
-                    format: gpu::PixelFormat,
-                    w:u32, h:u32, stride: u32) -> bool {
+                        format: gpu::PixelFormat,
+                        w:u32, h:u32) -> bool {
+        print_gl_error("upload_texture_data before bind");
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
+        print_gl_error("upload_texture_data after bind");
         let fmt = gl_format(format);
         unsafe {
             gl::TexImage2D(
@@ -306,6 +247,7 @@ impl gpu::RenderingContext for RenderingContextGL {
                 0, fmt, gl::UNSIGNED_BYTE, cast::transmute(0)
             );
         }
+        print_gl_error("upload_texture_data after TexImage2D");
         gl::BindTexture(gl::TEXTURE_2D, 0);
         return true;
     }
@@ -328,7 +270,7 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn compile_shader(&mut self, shader: gpu::Shader, src: &str) -> Result<(), ~str> {
         unsafe {
-            src.with_c_str(|mut c_src| {
+            src.with_c_str(|c_src| {
                 let len = src.len() as i32;
                 gl::ShaderSource(shader.handle, 1, &c_src, &len);
             });
@@ -350,10 +292,22 @@ impl gpu::RenderingContext for RenderingContextGL {
     }
 
     fn link_shader_program(&mut self, p: gpu::ShaderProgram,
-                           shaders: &[gpu::Shader]) -> Result<(), ~str> {
+                           shaders: &[gpu::Shader],
+                           attrib_locations: Option<&[(&str, u32)]>) -> Result<(), ~str> {
         unsafe {
             for s in shaders.iter() {
                 gl::AttachShader(p.handle, s.handle);
+            }
+
+            match attrib_locations {
+                Some(ref attribs) => {
+                    for &(ref name, loc) in attribs.iter() {
+                        name.with_c_str(|c_name| {
+                            gl::BindAttribLocation(p.handle, loc, c_name);
+                        });
+                    }
+                }
+                _ => {}
             }
 
             gl::LinkProgram(p.handle);
@@ -388,9 +342,7 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn upload_vertex_data(&mut self, buffer: gpu::VertexBuffer,
                           data: &[f32], update: gpu::UpdateHint) {
-
-        println!("upload_vertex_data {}", buffer.handle);
-        unsafe {
+       unsafe {
             print_gl_error("upload vertex data - before bind");
             gl::BindBuffer(gl::ARRAY_BUFFER, buffer.handle);
             print_gl_error("upload vertex data - after bind");
@@ -411,7 +363,6 @@ impl gpu::RenderingContext for RenderingContextGL {
 
     fn allocate_vertex_buffer(&mut self, buffer: gpu::VertexBuffer,
                               size: u32, update: gpu::UpdateHint) -> gpu::Status {
-        println!("upload_vertex_data {}", buffer.handle);
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, buffer.handle);
             gl::BufferData(gl::ARRAY_BUFFER, size as i64,
@@ -499,11 +450,13 @@ impl gpu::RenderingContext for RenderingContextGL {
 
         gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
         for i in range(0,color_attachments.len()) {
-            gl::FramebufferTexture2D(gl::DRAW_FRAMEBUFFER,
-                                     gl_attachement(i as u32),
-                                     gl::TEXTURE_2D,
-                                     color_attachments[i].handle,
-                                     0);
+            gl::FramebufferTexture2D(
+                gl::DRAW_FRAMEBUFFER,
+                gl_attachement(i as u32),
+                gl::TEXTURE_2D,
+                color_attachments[i].handle,
+                0
+            );
         }
         let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -516,21 +469,81 @@ impl gpu::RenderingContext for RenderingContextGL {
     fn destroy_render_target(&mut self, fbo: gpu::RenderTarget) {
         if self.current_render_target == fbo {
             let rt = self.get_default_render_target();
-            self.use_render_target(rt);
+            self.set_render_target(rt);
         }
         unsafe {
             gl::DeleteFramebuffers(1, &fbo.handle);
         }
     }
 
+    fn set_render_target(&mut self, target: gpu::RenderTarget) {
+        if self.current_render_target == target {
+            return;
+        }
+        gl::BindFramebuffer(gl::FRAMEBUFFER, target.handle);
+        self.current_render_target = target;
+    }
+
     fn get_default_render_target(&mut self) -> gpu::RenderTarget {
         return gpu::RenderTarget { handle: 0 };
     }
 
-    fn render(&mut self, commands: &[gpu::RenderingCommand]) {
-        for command in commands.iter() {
-            self.render_command(command);
+    fn set_shader_input_float(&mut self, location: i32, input: &[f32]) {
+        match input.len() {
+            1 => { gl::Uniform1f(location, input[0]); }
+            2 => { gl::Uniform2f(location, input[0], input[1]); }
+            3 => { gl::Uniform3f(location, input[0], input[1], input[2]); }
+            4 => { gl::Uniform4f(location, input[0], input[1], input[2], input[3]); }
+            _ => { fail!("trying to send an invalid number of float uniforms"); }
+        }
+    }
+
+    fn set_shader_input_int(&mut self, location: i32, input: &[i32]) {
+        match input.len() {
+            1 => { gl::Uniform1i(location, input[0]); }
+            2 => { gl::Uniform2i(location, input[0], input[1]); }
+            3 => { gl::Uniform3i(location, input[0], input[1], input[2]); }
+            4 => { gl::Uniform4i(location, input[0], input[1], input[2], input[3]); }
+            _ => { fail!("trying to send an invalid number of float uniforms"); }
+        }
+    }
+
+    fn set_shader_input_matrix(&mut self, location: i32, input: &[f32], dimension: u32, transpose: bool) {
+        unsafe {
+            match dimension {
+                2 => { gl::UniformMatrix2fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                3 => { gl::UniformMatrix3fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                4 => { gl::UniformMatrix4fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                _ => { fail!("Invalid matrix dimension"); }
+            }
+        }
+    }
+
+    fn set_shader_input_texture(&mut self, location: i32, texture_unit: u32, tex: gpu::Texture) {
+        gl::ActiveTexture(gl_texture_unit(texture_unit));
+        gl::BindTexture(gl::TEXTURE_2D, tex.handle);
+        gl::Uniform1i(location, texture_unit as i32);
+    }
+
+    fn set_shader(&mut self, program: gpu::ShaderProgram) {
+        gl::UseProgram(program.handle);
+    }
+
+    fn draw(&mut self, mode: gpu::DrawMode, geom: gpu::GeometryRange) {
+        gl::BindVertexArray(geom.geometry.handle);
+        if geom.indexed {
+            unsafe {
+                gl::DrawElements(gl_draw_mode(mode),
+                                 geom.to as i32,
+                                 gl::UNSIGNED_INT,
+                                 cast::transmute(0));
+            }
+        } else {
+            print_gl_error("before DrawElements");
+            gl::DrawArrays(gl_draw_mode(mode),
+                           geom.from as i32,
+                           geom.to as i32);
+            print_gl_error("after DrawElements");
         }
     }
 }
-

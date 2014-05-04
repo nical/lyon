@@ -1,6 +1,6 @@
+/*
 use std::num;
 use std::vec;
-/*
 // | Group | Index |
 type EntityIndex = u16;
 type SystemIndex = u16;

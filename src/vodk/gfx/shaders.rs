@@ -7,11 +7,21 @@ void main() {
 }
 ";
 
+pub static TEXTURED_FRAGMENT_SHADER : &'static str = &"
+//precision lowp float;
+uniform vec4 u_color;
+uniform sampler2D u_texture_0;
+varying vec2 v_tex_coords;
+void main() {
+    gl_FragColor = texture2D(u_texture_0, v_tex_coords);
+}
+";
+
 pub static BASIC_VERTEX_SHADER : &'static str = &"
 attribute vec2 a_position;
-varying vec2 v_texCoord;
+varying vec2 v_tex_coords;
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
-  v_texCoord = (vec2(1.0, 1.0) + a_position) / 2.0;
+  v_tex_coords = a_position;
 }
 ";
