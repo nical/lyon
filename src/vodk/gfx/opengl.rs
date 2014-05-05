@@ -71,10 +71,13 @@ impl RenderingContext for RenderingContextGL {
     }
 
     fn is_supported(&mut self, f: Feature) -> bool {
+        // TODO
         match f {
             FRAGMENT_SHADING => true,
             VERTEX_SHADING => true,
             GEOMETRY_SHADING => false,
+            COMPUTE => false,
+            DEPTH_TEXTURE => false,
             RENDER_TO_TEXTURE => false,
             MULTIPLE_RENDER_TARGETS => false,
             INSTANCED_RENDERING => false,
@@ -115,28 +118,28 @@ impl RenderingContext for RenderingContextGL {
 
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags) {
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
-        if flags&TEXTURE_REPEAT_S != 0 {
+        if flags&REPEAT_S != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
         }
-        if flags&TEXTURE_REPEAT_T != 0 {
+        if flags&REPEAT_T != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
         }
-        if flags&TEXTURE_CLAMP_S != 0 {
+        if flags&CLAMP_S != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
         }
-        if flags&TEXTURE_CLAMP_T != 0 {
+        if flags&CLAMP_T != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
         }
-        if flags&TEXTURE_MIN_FILTER_LINEAR != 0 {
+        if flags&MIN_FILTER_LINEAR != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
         }
-        if flags&TEXTURE_MAG_FILTER_LINEAR != 0 {
+        if flags&MAG_FILTER_LINEAR != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
-        if flags&TEXTURE_MIN_FILTER_NEAREST != 0 {
+        if flags&MIN_FILTER_NEAREST != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
         }
-        if flags&TEXTURE_MAG_FILTER_NEAREST != 0 {
+        if flags&MAG_FILTER_NEAREST != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
         }
         gl::BindTexture(gl::TEXTURE_2D, 0);
@@ -232,7 +235,7 @@ impl RenderingContext for RenderingContextGL {
 
     fn link_shader_program(&mut self, p: gpu::ShaderProgram,
                            shaders: &[gpu::Shader],
-                           attrib_locations: Option<&[(&str, u32)]>) -> RendererResult {
+                           attrib_locations: Option<&[(&str, VertexAttributeLocation)]>) -> RendererResult {
         unsafe {
             for s in shaders.iter() {
                 gl::AttachShader(p.handle, s.handle);
@@ -241,8 +244,14 @@ impl RenderingContext for RenderingContextGL {
             match attrib_locations {
                 Some(ref attribs) => {
                     for &(ref name, loc) in attribs.iter() {
+                        if loc < 0 {
+                            return Err(Error {
+                                code: 0,
+                                detail: Some(~"Invalid negative vertex attribute location")
+                            });
+                        }
                         name.with_c_str(|c_name| {
-                            gl::BindAttribLocation(p.handle, loc, c_name);
+                            gl::BindAttribLocation(p.handle, loc as u32, c_name);
                         });
                     }
                 }
@@ -363,18 +372,18 @@ impl RenderingContext for RenderingContextGL {
 
     fn get_shader_input_location(&mut self, program: ShaderProgram,
                                  name: &str) -> ShaderInputLocation {
-        let mut location: i32 = 0;
+        let mut location = 0;
         name.with_c_str(|c_name| unsafe {
-            location = gl::GetUniformLocation(program.handle, c_name);
+            location = gl::GetUniformLocation(program.handle, c_name) as ShaderInputLocation;
         });
         return location;
     }
 
     fn get_vertex_attribute_location(&mut self, program: ShaderProgram,
-                                     name: &str) -> ShaderInputLocation {
-        let mut location: i32 = 0;
+                                     name: &str) -> VertexAttributeLocation {
+        let mut location = 0;
         name.with_c_str(|c_name| unsafe {
-            location = gl::GetAttribLocation(program.handle, c_name);
+            location = gl::GetAttribLocation(program.handle, c_name) as VertexAttributeLocation;
         });
         return location;
     }
@@ -463,40 +472,40 @@ impl RenderingContext for RenderingContextGL {
         self.current_render_target = target;
     }
 
-    fn set_shader_input_float(&mut self, location: i32, input: &[f32]) {
+    fn set_shader_input_float(&mut self, location: ShaderInputLocation, input: &[f32]) {
         match input.len() {
-            1 => { gl::Uniform1f(location, input[0]); }
-            2 => { gl::Uniform2f(location, input[0], input[1]); }
-            3 => { gl::Uniform3f(location, input[0], input[1], input[2]); }
-            4 => { gl::Uniform4f(location, input[0], input[1], input[2], input[3]); }
+            1 => { gl::Uniform1f(location as i32, input[0]); }
+            2 => { gl::Uniform2f(location as i32, input[0], input[1]); }
+            3 => { gl::Uniform3f(location as i32, input[0], input[1], input[2]); }
+            4 => { gl::Uniform4f(location as i32, input[0], input[1], input[2], input[3]); }
             _ => { fail!("trying to send an invalid number of float uniforms"); }
         }
     }
 
-    fn set_shader_input_int(&mut self, location: i32, input: &[i32]) {
+    fn set_shader_input_int(&mut self, location: ShaderInputLocation, input: &[i32]) {
         match input.len() {
-            1 => { gl::Uniform1i(location, input[0]); }
-            2 => { gl::Uniform2i(location, input[0], input[1]); }
-            3 => { gl::Uniform3i(location, input[0], input[1], input[2]); }
-            4 => { gl::Uniform4i(location, input[0], input[1], input[2], input[3]); }
+            1 => { gl::Uniform1i(location as i32, input[0]); }
+            2 => { gl::Uniform2i(location as i32, input[0], input[1]); }
+            3 => { gl::Uniform3i(location as i32, input[0], input[1], input[2]); }
+            4 => { gl::Uniform4i(location as i32, input[0], input[1], input[2], input[3]); }
             _ => { fail!("trying to send an invalid number of float uniforms"); }
         }
     }
-    fn set_shader_input_matrix(&mut self, location: i32, input: &[f32], dimension: u32, transpose: bool) {
+    fn set_shader_input_matrix(&mut self, location: ShaderInputLocation, input: &[f32], dimension: u32, transpose: bool) {
         unsafe {
             match dimension {
-                2 => { gl::UniformMatrix2fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
-                3 => { gl::UniformMatrix3fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
-                4 => { gl::UniformMatrix4fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                2 => { gl::UniformMatrix2fv(location as i32, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                3 => { gl::UniformMatrix3fv(location as i32, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                4 => { gl::UniformMatrix4fv(location as i32, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
                 _ => { fail!("Invalid matrix dimension"); }
             }
         }
     }
 
-    fn set_shader_input_texture(&mut self, location: i32, texture_unit: u32, tex: gpu::Texture) {
+    fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, tex: gpu::Texture) {
         gl::ActiveTexture(gl_texture_unit(texture_unit));
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
-        gl::Uniform1i(location, texture_unit as i32);
+        gl::Uniform1i(location as i32, texture_unit as i32);
     }
 
     fn set_shader(&mut self, program: gpu::ShaderProgram) -> RendererResult {
@@ -547,11 +556,11 @@ fn print_gl_error(msg: &str) {
 
 fn gl_format(format: PixelFormat) -> u32 {
     match format {
-        FORMAT_R8G8B8A8 => gl::RGBA,
-        FORMAT_R8G8B8X8 => gl::RGB,
-        FORMAT_B8G8R8A8 => gl::BGRA,
-        FORMAT_B8G8R8X8 => gl::BGR,
-        FORMAT_A8 => gl::RED,
+        R8G8B8A8 => gl::RGBA,
+        R8G8B8X8 => gl::RGB,
+        B8G8R8A8 => gl::BGRA,
+        B8G8R8X8 => gl::BGR,
+        A8 => gl::RED,
     }
 }
 
@@ -560,6 +569,7 @@ fn gl_shader_type(target: ShaderType) -> u32 {
         VERTEX_SHADER => gl::VERTEX_SHADER,
         FRAGMENT_SHADER => gl::FRAGMENT_SHADER,
         GEOMETRY_SHADER => gl::GEOMETRY_SHADER,
+        COMPUTE_SHADER => gl::COMPUTE_SHADER,
     }
 }
 
@@ -575,9 +585,9 @@ fn gl_draw_mode(flags: RenderFlags) -> u32 {
 
 fn gl_update_hint(hint: UpdateHint) -> u32 {
     match hint {
-        STATIC_UPDATE => gl::STATIC_DRAW,
-        STREAM_UPDATE => gl::STREAM_DRAW,
-        DYNAMIC_UPDATE => gl::DYNAMIC_DRAW,
+        STATIC => gl::STATIC_DRAW,
+        STREAM => gl::STREAM_DRAW,
+        DYNAMIC => gl::DYNAMIC_DRAW,
     }
 }
 

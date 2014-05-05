@@ -33,7 +33,7 @@ pub fn main_loop() {
 
     let quad = ctx.create_vertex_buffer();
 
-    ctx.upload_vertex_data(quad, vertices, renderer::STATIC_UPDATE).map_err(
+    ctx.upload_vertex_data(quad, vertices, renderer::STATIC).map_err(
         |e| { fail!("Failed to upload the vertex data: {}", e); return; }
     );
 
@@ -70,12 +70,12 @@ pub fn main_loop() {
     let u_texture_0 = ctx.get_shader_input_location(program, "u_texture_0");
     println!("u_color: {}, u_texture_0: {}", u_color, u_texture_0);
 
-    let texture_0 = ctx.create_texture(renderer::TEXTURE_CLAMP|renderer::TEXTURE_FILTER_NEAREST);
-    ctx.allocate_texture(texture_0, 800, 600, renderer::FORMAT_R8G8B8A8);
+    let texture_0 = ctx.create_texture(renderer::CLAMP|renderer::FILTER_NEAREST);
+    ctx.allocate_texture(texture_0, 800, 600, renderer::R8G8B8A8);
 
     let checker_data : Vec<u8> = Vec::from_fn(64*64*4, |i|{ (((i / 4) % 2)*255) as u8 });
-    let checker = ctx.create_texture(renderer::TEXTURE_REPEAT|renderer::TEXTURE_FILTER_NEAREST);
-    ctx.upload_texture_data(checker, checker_data.as_slice(), 64, 64, renderer::FORMAT_R8G8B8A8);
+    let checker = ctx.create_texture(renderer::REPEAT|renderer::FILTER_NEAREST);
+    ctx.upload_texture_data(checker, checker_data.as_slice(), 64, 64, renderer::R8G8B8A8);
 
     let intermediate_target = ctx.create_render_target([texture_0], None, None).map_err(
         |e| {
@@ -115,13 +115,6 @@ pub fn main_loop() {
             |e| { fail!("Rendering error: {}", e); return; }
         );
 
-
-        match ctx.check_error() {
-            Some(err) => { println!("rendering error {}", err); }
-            None => {}
-        }
-
-        // TODO move into RenderingContext
         window.swap_buffers();
     }
 }

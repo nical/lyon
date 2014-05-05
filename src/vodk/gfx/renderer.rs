@@ -1,18 +1,18 @@
 
 pub type TextureFlags = i32;
-pub static TEXTURE_REPEAT_S          : TextureFlags = 1;
-pub static TEXTURE_REPEAT_T          : TextureFlags = 2;
-pub static TEXTURE_REPEAT            : TextureFlags = 3;
-pub static TEXTURE_CLAMP_S           : TextureFlags = 4;
-pub static TEXTURE_CLAMP_T           : TextureFlags = 8;
-pub static TEXTURE_CLAMP             : TextureFlags = 12;
-pub static TEXTURE_MIN_FILTER_LINEAR : TextureFlags = 16;
-pub static TEXTURE_MAG_FILTER_LINEAR : TextureFlags = 32;
-pub static TEXTURE_FILTER_LINEAR     : TextureFlags = TEXTURE_MIN_FILTER_LINEAR|TEXTURE_MAG_FILTER_LINEAR;
-pub static TEXTURE_MIN_FILTER_NEAREST: TextureFlags = 64;
-pub static TEXTURE_MAG_FILTER_NEAREST: TextureFlags = 128;
-pub static TEXTURE_FILTER_NEAREST    : TextureFlags = TEXTURE_MIN_FILTER_NEAREST|TEXTURE_MAG_FILTER_NEAREST;
-pub static TEXTURE_FLAGS_DEFAULT     : TextureFlags = TEXTURE_CLAMP|TEXTURE_FILTER_LINEAR;
+pub static REPEAT_S          : TextureFlags = 1;
+pub static REPEAT_T          : TextureFlags = 2;
+pub static REPEAT            : TextureFlags = 3;
+pub static CLAMP_S           : TextureFlags = 4;
+pub static CLAMP_T           : TextureFlags = 8;
+pub static CLAMP             : TextureFlags = 12;
+pub static MIN_FILTER_LINEAR : TextureFlags = 16;
+pub static MAG_FILTER_LINEAR : TextureFlags = 32;
+pub static FILTER_LINEAR     : TextureFlags = MIN_FILTER_LINEAR|MAG_FILTER_LINEAR;
+pub static MIN_FILTER_NEAREST: TextureFlags = 64;
+pub static MAG_FILTER_NEAREST: TextureFlags = 128;
+pub static FILTER_NEAREST    : TextureFlags = MIN_FILTER_NEAREST|MAG_FILTER_NEAREST;
+pub static FLAGS_DEFAULT     : TextureFlags = CLAMP|FILTER_LINEAR;
 
 pub type RenderFlags = u32;
 pub static ENABLE_Z_TEST         : RenderFlags = 1 >> 0;
@@ -27,16 +27,11 @@ pub static LINE_LOOP             : RenderFlags = LINES | LOOP;
 pub static RENDER_DEFAULT        : RenderFlags = 0;
 
 #[deriving(Eq, Clone, Show)]
-pub enum BackendType {
-    GL_BACKEND,
-    INVALID_BACKEND,
-}
-
-#[deriving(Eq, Clone, Show)]
 pub enum ShaderType {
     FRAGMENT_SHADER,
     VERTEX_SHADER,
     GEOMETRY_SHADER,
+    COMPUTE_SHADER,
 }
 
 #[deriving(Eq, Clone, Show)]
@@ -44,6 +39,8 @@ pub enum Feature {
     FRAGMENT_SHADING,
     VERTEX_SHADING,
     GEOMETRY_SHADING,
+    COMPUTE,
+    DEPTH_TEXTURE,
     RENDER_TO_TEXTURE,
     MULTIPLE_RENDER_TARGETS,
     INSTANCED_RENDERING,
@@ -59,18 +56,18 @@ pub enum AttributeType {
 
 #[deriving(Eq, Clone, Show)]
 pub enum PixelFormat {
-    FORMAT_R8G8B8A8,
-    FORMAT_R8G8B8X8,
-    FORMAT_B8G8R8A8,
-    FORMAT_B8G8R8X8,
-    FORMAT_A8,
+    R8G8B8A8,
+    R8G8B8X8,
+    B8G8R8A8,
+    B8G8R8X8,
+    A8,
 }
 
 #[deriving(Eq, Clone, Show)]
 pub enum UpdateHint {
-    STATIC_UPDATE,
-    STREAM_UPDATE,
-    DYNAMIC_UPDATE
+    STATIC,
+    STREAM,
+    DYNAMIC
 }
 
 pub type Handle = u32;
@@ -111,7 +108,9 @@ pub struct Error {
 
 pub type RendererResult = Result<(), Error>;
 
-pub type ShaderInputLocation = i32;
+pub type ShaderInputLocation = i16;
+pub type VertexAttributeLocation = i16;
+
 #[deriving(Eq, Clone, Show)]
 pub type ErrorCode = u32;
 
@@ -119,7 +118,7 @@ pub type ErrorCode = u32;
 pub struct VertexAttribute {
     pub buffer: VertexBuffer,
     pub attrib_type: AttributeType,
-    pub location: i16,
+    pub location: VertexAttributeLocation,
     pub stride: u16,
     pub offset: u16,
     pub components: u8,
@@ -127,27 +126,6 @@ pub struct VertexAttribute {
 }
 
 type TextureUnit = u32;
-
-#[deriving(Eq, Clone, Show)]
-pub enum ShaderInputValue<'l> {
-    INPUT_FLOATS(&'l [f32]),
-    INPUT_MAT3(&'l [f32]),
-    INPUT_MAT4(&'l [f32]),
-    INPUT_TEXTURE(Texture, TextureUnit),
-}
-
-#[deriving(Eq, Clone, Show)]
-pub struct ShaderInput<'l> {
-    pub location: i32,
-    pub value: ShaderInputValue<'l>,
-}
-
-pub enum ShaderConstant<'l> {
-    FloatsInput(&'l [f32]),
-    MatrixInput(&'l [f32], bool),
-    TextureInput(Texture),
-    IntInput(Texture),
-}
 
 pub trait RenderingContext {
     fn is_supported(&mut self, f: Feature) -> bool;
@@ -187,7 +165,7 @@ pub trait RenderingContext {
     fn create_shader_program(&mut self) -> ShaderProgram;
     fn destroy_shader_program(&mut self, s: ShaderProgram);
     fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader],
-                           attrib_locations: Option<&[(&str, u32)]>)  -> RendererResult;
+                           attrib_locations: Option<&[(&str, VertexAttributeLocation)]>)  -> RendererResult;
 
     fn create_vertex_buffer(&mut self) -> VertexBuffer;
     fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer);
@@ -205,7 +183,7 @@ pub trait RenderingContext {
     fn get_shader_input_location(&mut self, program: ShaderProgram,
                                  name: &str) -> ShaderInputLocation;
     fn get_vertex_attribute_location(&mut self, program: ShaderProgram,
-                                     name: &str) -> ShaderInputLocation;
+                                     name: &str) -> VertexAttributeLocation;
 
     fn create_render_target(&mut self,
                             color_attachments: &[Texture],
@@ -219,10 +197,10 @@ pub trait RenderingContext {
 
     fn set_shader(&mut self, program: ShaderProgram) -> RendererResult;
 
-    fn set_shader_input_float(&mut self, location: i32, input: &[f32]);
-    fn set_shader_input_int(&mut self, location: i32, input: &[i32]);
-    fn set_shader_input_matrix(&mut self, location: i32, input: &[f32], dimension: u32, transpose: bool);
-    fn set_shader_input_texture(&mut self, location: i32, texture_unit: u32, input: Texture);
+    fn set_shader_input_float(&mut self, location: ShaderInputLocation, input: &[f32]);
+    fn set_shader_input_int(&mut self, location: ShaderInputLocation, input: &[i32]);
+    fn set_shader_input_matrix(&mut self, location: ShaderInputLocation, input: &[f32], dimension: u32, transpose: bool);
+    fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, input: Texture);
 
     fn draw(&mut self, geom: GeometryRange, flags: RenderFlags) -> RendererResult;
 }
