@@ -1,5 +1,5 @@
-#[crate_id = "vodk#0.1"];
-#[feature(macro_rules, globs)];
+#![crate_id = "vodk#0.1"]
+#![feature(macro_rules, globs)]
 
 extern crate native;
 extern crate gl;
@@ -18,6 +18,12 @@ pub mod logic {
 }
 pub mod base {
 	pub mod containers;
+}
+pub mod data {
+    pub mod layout;
+}
+pub mod kiwi {
+    pub mod graph;
 }
 
 #[start]

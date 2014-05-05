@@ -3,8 +3,6 @@ use glfw;
 use gpu = gfx::renderer;
 use std::str;
 use std::cast;
-use std::libc::c_void;
-use std::rc::Rc;
 use std::mem::size_of;
 
 use super::renderer::*;
@@ -26,7 +24,6 @@ macro_rules! check_err (
 )
 
 pub struct RenderingContextGL {
-    //window: Rc<glfw::Window>,
     current_texture: Texture,
     current_render_target: RenderTarget,
     current_program: ShaderProgram,
@@ -43,79 +40,6 @@ impl RenderingContextGL {
             current_geometry: Geometry { handle: 0 },
             ignore_errors: false,
         }
-    }
-
-    fn use_render_target(&mut self, fbo: RenderTarget) {
-        if self.current_render_target == fbo {
-            return;
-        }
-        gl::BindFramebuffer(gl::FRAMEBUFFER, fbo.handle);
-        self.current_render_target = fbo;
-    }
-
-    fn render_command(&mut self, command: &RenderingCommand) -> RendererResult {
-        match *command {
-            OpFlush => { gl::Flush(); }
-            OpClear => { gl::Clear(gl::COLOR_BUFFER_BIT); }
-            OpDraw(ref draw) => {
-                if self.current_program != draw.shader_program {
-                    self.current_program = draw.shader_program;
-                    gl::UseProgram(draw.shader_program.handle);
-                    check_err!("glUseProgram({})",draw.shader_program.handle);
-                }
-                let mut num_tex = 0;
-                for input in draw.shader_inputs.iter() {
-                    match input.value {
-                        INPUT_FLOATS(ref f) => {
-                            match f.len() {
-                                1 => { gl::Uniform1f(input.location, f[0]); }
-                                2 => { gl::Uniform2f(input.location, f[0], f[1]); }
-                                3 => { gl::Uniform3f(input.location, f[0], f[1], f[2]); }
-                                4 => { gl::Uniform4f(input.location, f[0], f[1], f[2], f[3]); }
-                                x => { return Err(Error{
-                                    code: 0,
-                                    detail: Some(~"Unsupported unform size > 4") });
-                                }
-                            }
-                        }
-                        INPUT_TEXTURE(tex) => {
-                            gl::ActiveTexture(gl_texture_unit(num_tex));
-                            check_err!("glActiveTexture({})", gl_texture_unit(num_tex));
-                            gl::BindTexture(gl::TEXTURE_2D, tex.handle);
-                            check_err!("glBindTexture(GL_TEXTURE_2D, {})", tex.handle);
-                            gl::Uniform1i(input.location, num_tex as i32);
-                            check_err!("glUniform1i({}, {})", input.location, num_tex);
-                            num_tex += 1;
-                        }
-                        // TODO matrices
-                    }
-                }
-
-                if (draw.geometry != self.current_geometry) {
-                    self.current_geometry = draw.geometry;
-                    gl::BindVertexArray(draw.geometry.handle);
-                };
-
-                if draw.flags & INDEXED != 0 {
-                    unsafe {
-                        gl::DrawElements(gl_draw_mode(draw.flags),
-                                         draw.count as i32,
-                                         gl::UNSIGNED_INT,
-                                         cast::transmute(0));
-                        check_err!("glDrawElements({}, {}, GL_UNSIGNED_INT, 0)",
-                                   gl_draw_mode(draw.flags), draw.count);
-
-                    }
-                } else {
-                    gl::DrawArrays(gl_draw_mode(draw.flags),
-                                   draw.first as i32,
-                                   draw.count as i32);
-                    check_err!("glDrawArrays({}, {}, {})",
-                               gl_draw_mode(draw.flags), draw.first, draw.count);
-                }
-            }
-        }
-        return Ok(());
     }
 }
 
@@ -218,10 +142,10 @@ impl RenderingContext for RenderingContextGL {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    fn upload_texture_data(&mut self, dest: Texture,
-                           data: &[u8], format: PixelFormat,
-                           w:u32, h:u32, stride: u32) -> RendererResult {
+    fn upload_texture_data(&mut self, dest: Texture, data: &[u8],
+                           w:u32, h:u32, format: PixelFormat) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
+
         let fmt = gl_format(format);
         unsafe {
             gl::TexImage2D(
@@ -229,6 +153,7 @@ impl RenderingContext for RenderingContextGL {
                 0, fmt, gl::UNSIGNED_BYTE, cast::transmute(data.unsafe_ref(0))
             );
         }
+
         gl::BindTexture(gl::TEXTURE_2D, 0);
         return Ok(());
     }
@@ -236,6 +161,7 @@ impl RenderingContext for RenderingContextGL {
     fn allocate_texture(&mut self, dest: Texture,
                         w:u32, h:u32, format: PixelFormat) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
+        print_gl_error("upload_texture_data after bind");
         let fmt = gl_format(format);
         unsafe {
             gl::TexImage2D(
@@ -243,6 +169,7 @@ impl RenderingContext for RenderingContextGL {
                 0, fmt, gl::UNSIGNED_BYTE, cast::transmute(0)
             );
         }
+        print_gl_error("upload_texture_data after TexImage2D");
         gl::BindTexture(gl::TEXTURE_2D, 0);
         return Ok(());
     }
@@ -280,7 +207,7 @@ impl RenderingContext for RenderingContextGL {
 
     fn compile_shader(&mut self, shader: Shader, src: &str) -> RendererResult {
         unsafe {
-            src.with_c_str(|mut c_src| {
+            src.with_c_str(|c_src| {
                 let len = src.len() as i32;
                 gl::ShaderSource(shader.handle, 1, &c_src, &len);
             });
@@ -303,11 +230,23 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn link_shader_program(&mut self, p: ShaderProgram,
-                           shaders: &[Shader]) -> RendererResult {
+    fn link_shader_program(&mut self, p: gpu::ShaderProgram,
+                           shaders: &[gpu::Shader],
+                           attrib_locations: Option<&[(&str, u32)]>) -> RendererResult {
         unsafe {
             for s in shaders.iter() {
                 gl::AttachShader(p.handle, s.handle);
+            }
+
+            match attrib_locations {
+                Some(ref attribs) => {
+                    for &(ref name, loc) in attribs.iter() {
+                        name.with_c_str(|c_name| {
+                            gl::BindAttribLocation(p.handle, loc, c_name);
+                        });
+                    }
+                }
+                _ => {}
             }
 
             gl::LinkProgram(p.handle);
@@ -319,6 +258,7 @@ impl RenderingContext for RenderingContextGL {
             gl::ValidateProgram(p.handle);
             let mut status = 0;
             gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, cast::transmute(&status));
+
             if (status != gl::TRUE) {
                 return Err( Error {
                     code: 0,
@@ -452,22 +392,26 @@ impl RenderingContext for RenderingContextGL {
         check_err!("glBindFrameBuffer(GL_FRAMEBUFFER, {})", fbo);
 
         for i in range(0,color_attachments.len()) {
-            gl::FramebufferTexture2D(gl::FRAMEBUFFER,
-                                     gl_attachement(i as u32),
-                                     gl::TEXTURE_2D,
-                                     color_attachments[i].handle,
-                                     0);
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl_attachement(i as u32),
+                gl::TEXTURE_2D,
+                color_attachments[i].handle,
+                0
+            );
             check_err!("glFramebufferTexture2D(GL_FRAMEBUFFER, {}, GL_TEXTURE_2D, {}, 0)",
                        gl_attachement(i as u32), color_attachments[i].handle);
         }
 
         match depth {
             Some(d) => {
-                gl::FramebufferTexture2D(gl::FRAMEBUFFER,
-                                         gl::DEPTH_ATTACHMENT,
-                                         gl::TEXTURE_2D,
-                                         d.handle,
-                                         0);
+                gl::FramebufferTexture2D(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    d.handle,
+                    0
+                );
                 check_err!("glFramebufferTexture2D(GL_FRAMEBUFFER, G:_DEPTH_ATTACHMENT, GL_TEXTURE_2D, {}, 0)",
                            d.handle);
             }
@@ -476,11 +420,13 @@ impl RenderingContext for RenderingContextGL {
 
         match stencil {
             Some(s) => {
-                gl::FramebufferTexture2D(gl::FRAMEBUFFER,
-                                         gl::STENCIL_ATTACHMENT,
-                                         gl::TEXTURE_2D,
-                                         s.handle,
-                                         0);
+                gl::FramebufferTexture2D(
+                    gl::FRAMEBUFFER,
+                    gl::STENCIL_ATTACHMENT,
+                    gl::TEXTURE_2D,
+                    s.handle,
+                    0
+                );
                 check_err!("glFramebufferTexture2D(GL_FRAMEBUFFER, G:_DEPTH_ATTACHMENT, GL_TEXTURE_2D, {}, 0)",
                            s.handle);
             }
@@ -489,7 +435,7 @@ impl RenderingContext for RenderingContextGL {
 
         let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-        if (status != gl::FRAMEBUFFER_COMPLETE) {
+        if status != gl::FRAMEBUFFER_COMPLETE {
             return Err(Error{code: status, detail: None });
         }
         return Ok(RenderTarget{ handle: fbo });
@@ -498,7 +444,7 @@ impl RenderingContext for RenderingContextGL {
     fn destroy_render_target(&mut self, fbo: RenderTarget) {
         if self.current_render_target == fbo {
             let rt = self.get_default_render_target();
-            self.use_render_target(rt);
+            self.set_render_target(rt);
         }
         unsafe {
             gl::DeleteFramebuffers(1, &fbo.handle);
@@ -509,16 +455,95 @@ impl RenderingContext for RenderingContextGL {
         return RenderTarget { handle: 0 };
     }
 
-    fn render(&mut self, commands: &[RenderingCommand]) -> RendererResult {
-        for command in commands.iter() {
-            match self.render_command(command) {
-                Ok(()) => {}
-                Err(e) => { return Err(e); }
+    fn set_render_target(&mut self, target: gpu::RenderTarget) {
+        if self.current_render_target == target {
+            return;
+        }
+        gl::BindFramebuffer(gl::FRAMEBUFFER, target.handle);
+        self.current_render_target = target;
+    }
+
+    fn set_shader_input_float(&mut self, location: i32, input: &[f32]) {
+        match input.len() {
+            1 => { gl::Uniform1f(location, input[0]); }
+            2 => { gl::Uniform2f(location, input[0], input[1]); }
+            3 => { gl::Uniform3f(location, input[0], input[1], input[2]); }
+            4 => { gl::Uniform4f(location, input[0], input[1], input[2], input[3]); }
+            _ => { fail!("trying to send an invalid number of float uniforms"); }
+        }
+    }
+
+    fn set_shader_input_int(&mut self, location: i32, input: &[i32]) {
+        match input.len() {
+            1 => { gl::Uniform1i(location, input[0]); }
+            2 => { gl::Uniform2i(location, input[0], input[1]); }
+            3 => { gl::Uniform3i(location, input[0], input[1], input[2]); }
+            4 => { gl::Uniform4i(location, input[0], input[1], input[2], input[3]); }
+            _ => { fail!("trying to send an invalid number of float uniforms"); }
+        }
+    }
+    fn set_shader_input_matrix(&mut self, location: i32, input: &[f32], dimension: u32, transpose: bool) {
+        unsafe {
+            match dimension {
+                2 => { gl::UniformMatrix2fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                3 => { gl::UniformMatrix3fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                4 => { gl::UniformMatrix4fv(location, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                _ => { fail!("Invalid matrix dimension"); }
             }
+        }
+    }
+
+    fn set_shader_input_texture(&mut self, location: i32, texture_unit: u32, tex: gpu::Texture) {
+        gl::ActiveTexture(gl_texture_unit(texture_unit));
+        gl::BindTexture(gl::TEXTURE_2D, tex.handle);
+        gl::Uniform1i(location, texture_unit as i32);
+    }
+
+    fn set_shader(&mut self, program: gpu::ShaderProgram) -> RendererResult {
+        if self.current_program != program {
+            self.current_program = program;
+            gl::UseProgram(program.handle);
+            check_err!("glUseProgram({})", program.handle);
         }
         return Ok(());
     }
+
+    fn draw(&mut self, geom: gpu::GeometryRange, flags: RenderFlags) -> RendererResult {
+
+        if (geom.geometry != self.current_geometry) {
+            self.current_geometry = geom.geometry;
+            gl::BindVertexArray(geom.geometry.handle);
+            check_err!("glBindVertexArray({})", geom.geometry.handle);
+        };
+
+        if flags & INDEXED != 0 {
+            unsafe {
+                gl::DrawElements(gl_draw_mode(flags),
+                                 geom.to as i32,
+                                 gl::UNSIGNED_INT,
+                                 cast::transmute(0));
+            }
+        } else {
+            gl::DrawArrays(gl_draw_mode(flags),
+                           geom.from as i32,
+                           geom.to as i32);
+            check_err!("glDrawElements(...)");
+        }
+        Ok(())
+    }
 }
+
+fn print_gl_error(msg: &str) {
+    match gl::GetError() {
+        gl::NO_ERROR            => {}
+        gl::INVALID_ENUM        => { println!("{}: Invalid enum.", msg); },
+        gl::INVALID_VALUE       => { println!("{}: Invalid value., ", msg); },
+        gl::INVALID_OPERATION   => { println!("{}: Invalid operation.", msg); },
+        gl::OUT_OF_MEMORY       => { println!("{}: Out of memory.", msg); },
+        _ => { println!("Unknown error."); }
+    }
+}
+
 
 fn gl_format(format: PixelFormat) -> u32 {
     match format {
@@ -577,7 +602,7 @@ fn gl_bool(b: bool) -> u8 {
     return if b { gl::TRUE } else { gl::FALSE };
 }
 
-pub fn gl_error_str(err: u32) -> &'static str {
+pub fn gl_error_str(err: ErrorCode) -> &'static str {
     return match err {
         gl::NO_ERROR            => { "(No error)" }
         gl::INVALID_ENUM        => { "Invalid enum" },

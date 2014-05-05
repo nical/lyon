@@ -8,10 +8,10 @@ pub static TEXTURE_CLAMP_T           : TextureFlags = 8;
 pub static TEXTURE_CLAMP             : TextureFlags = 12;
 pub static TEXTURE_MIN_FILTER_LINEAR : TextureFlags = 16;
 pub static TEXTURE_MAG_FILTER_LINEAR : TextureFlags = 32;
-pub static TEXTURE_FILTER_LINEAR     : TextureFlags = 48;
+pub static TEXTURE_FILTER_LINEAR     : TextureFlags = TEXTURE_MIN_FILTER_LINEAR|TEXTURE_MAG_FILTER_LINEAR;
 pub static TEXTURE_MIN_FILTER_NEAREST: TextureFlags = 64;
 pub static TEXTURE_MAG_FILTER_NEAREST: TextureFlags = 128;
-pub static TEXTURE_SAMPLE_NEAREST    : TextureFlags = 192;
+pub static TEXTURE_FILTER_NEAREST    : TextureFlags = TEXTURE_MIN_FILTER_NEAREST|TEXTURE_MAG_FILTER_NEAREST;
 pub static TEXTURE_FLAGS_DEFAULT     : TextureFlags = TEXTURE_CLAMP|TEXTURE_FILTER_LINEAR;
 
 pub type RenderFlags = u32;
@@ -24,11 +24,12 @@ pub static INDEXED               : RenderFlags = 1 >> 5;
 pub static TRIANGLE_STRIP        : RenderFlags = STRIP;
 pub static LINE_STRIP            : RenderFlags = LINES | STRIP;
 pub static LINE_LOOP             : RenderFlags = LINES | LOOP;
+pub static RENDER_DEFAULT        : RenderFlags = 0;
 
 #[deriving(Eq, Clone, Show)]
 pub enum BackendType {
     GL_BACKEND,
-    INVALID_NACKEND,
+    INVALID_BACKEND,
 }
 
 #[deriving(Eq, Clone, Show)]
@@ -72,80 +73,80 @@ pub enum UpdateHint {
     DYNAMIC_UPDATE
 }
 
-type Handle = u32;
+pub type Handle = u32;
 
 #[deriving(Eq, Clone, Show)]
-pub struct Shader { handle: Handle }
+pub struct Shader { pub handle: Handle }
 
 #[deriving(Eq, Clone, Show)]
-pub struct ShaderProgram { handle: Handle }
+pub struct ShaderProgram { pub handle: Handle }
 
 #[deriving(Eq, Clone, Show)]
-pub struct Texture { handle: Handle }
+pub struct Texture { pub handle: Handle }
 
 /// Equivalent of a Buffer object in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct VertexBuffer { handle: Handle }
+pub struct VertexBuffer { pub handle: Handle }
 
 /// Equivalent of a VAO in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct Geometry { handle: Handle }
+pub struct Geometry { pub handle: Handle }
+
+pub struct GeometryRange {
+    pub geometry: Geometry,
+    pub from: u32,
+    pub to: u32,
+    pub indexed: bool,
+}
 
 /// Equivalent of a FBO in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct RenderTarget { handle: Handle }
+pub struct RenderTarget { pub handle: Handle }
 
 #[deriving(Eq, Clone, Show)]
 pub struct Error {
-    code: ErrorCode,
-    detail: Option<~str>,
+    pub code: ErrorCode,
+    pub detail: Option<~str>,
 }
 
-#[deriving(Eq, Clone, Show)]
-pub type ErrorCode = u32;
 pub type RendererResult = Result<(), Error>;
 
 pub type ShaderInputLocation = i32;
+#[deriving(Eq, Clone, Show)]
+pub type ErrorCode = u32;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
-    buffer: VertexBuffer,
-    attrib_type: AttributeType,
-    location: u16,
-    stride: u16,
-    offset: u16,
-    components: u8,
-    normalize: bool,
+    pub buffer: VertexBuffer,
+    pub attrib_type: AttributeType,
+    pub location: i16,
+    pub stride: u16,
+    pub offset: u16,
+    pub components: u8,
+    pub normalize: bool,
+}
+
+type TextureUnit = u32;
+
+#[deriving(Eq, Clone, Show)]
+pub enum ShaderInputValue<'l> {
+    INPUT_FLOATS(&'l [f32]),
+    INPUT_MAT3(&'l [f32]),
+    INPUT_MAT4(&'l [f32]),
+    INPUT_TEXTURE(Texture, TextureUnit),
 }
 
 #[deriving(Eq, Clone, Show)]
-pub enum ShaderInputValue {
-    INPUT_FLOATS(~[f32]),
-    INPUT_TEXTURE(Texture),
+pub struct ShaderInput<'l> {
+    pub location: i32,
+    pub value: ShaderInputValue<'l>,
 }
 
-#[deriving(Eq, Clone, Show)]
-pub struct ShaderInput {
-    location: i32,
-    value: ShaderInputValue,
-}
-
-#[deriving(Eq, Clone, Show)]
-pub struct DrawCommand {
-    flags: RenderFlags,
-    target: RenderTarget,
-    shader_program: ShaderProgram,
-    shader_inputs: ~[ShaderInput],
-    geometry: Geometry,
-    first: u32,
-    count: u32,
-}
-
-#[deriving(Eq, Clone, Show)]
-pub enum RenderingCommand {
-    OpDraw(DrawCommand),
-    OpFlush,
-    OpClear,
+pub enum ShaderConstant<'l> {
+    FloatsInput(&'l [f32]),
+    MatrixInput(&'l [f32], bool),
+    TextureInput(Texture),
+    IntInput(Texture),
 }
 
 pub trait RenderingContext {
@@ -164,9 +165,8 @@ pub trait RenderingContext {
     fn create_texture(&mut self, flags: TextureFlags) -> Texture;
     fn destroy_texture(&mut self, tex: Texture);
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags);
-    fn upload_texture_data(&mut self, dest: Texture,
-                           data: &[u8], format: PixelFormat,
-                           w:u32, h:u32, stride: u32) -> RendererResult;
+    fn upload_texture_data(&mut self, dest: Texture, data: &[u8],
+                           w:u32, h:u32, format: PixelFormat) -> RendererResult;
     /**
      * Specifies the texture's size and format
      * Does not need to be called if some data will be uploaded
@@ -186,7 +186,8 @@ pub trait RenderingContext {
 
     fn create_shader_program(&mut self) -> ShaderProgram;
     fn destroy_shader_program(&mut self, s: ShaderProgram);
-    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader]) -> RendererResult;
+    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader],
+                           attrib_locations: Option<&[(&str, u32)]>)  -> RendererResult;
 
     fn create_vertex_buffer(&mut self) -> VertexBuffer;
     fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer);
@@ -212,7 +213,16 @@ pub trait RenderingContext {
                             stencil: Option<Texture>) -> Result<RenderTarget, Error>;
     fn destroy_render_target(&mut self, fbo: RenderTarget);
 
+    fn set_render_target(&mut self, target: RenderTarget);
+
     fn get_default_render_target(&mut self) -> RenderTarget;
 
-    fn render(&mut self, commands: &[RenderingCommand]) -> RendererResult;
+    fn set_shader(&mut self, program: ShaderProgram) -> RendererResult;
+
+    fn set_shader_input_float(&mut self, location: i32, input: &[f32]);
+    fn set_shader_input_int(&mut self, location: i32, input: &[i32]);
+    fn set_shader_input_matrix(&mut self, location: i32, input: &[f32], dimension: u32, transpose: bool);
+    fn set_shader_input_texture(&mut self, location: i32, texture_unit: u32, input: Texture);
+
+    fn draw(&mut self, geom: GeometryRange, flags: RenderFlags) -> RendererResult;
 }

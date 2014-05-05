@@ -1,5 +1,6 @@
+/*
 use std::num;
-
+use std::vec;
 // | Group | Index |
 type EntityIndex = u16;
 type SystemIndex = u16;
@@ -47,13 +48,13 @@ impl ComponentID {
 }
 
 pub struct EntityManager {
-    entities: ~[Entity],
+    entities: Vec<Entity>,
     free_list: u16,
 }
 
 impl EntityManager {
     pub fn new() -> EntityManager {
-        EntityManager{ entities: ~[], free_list: FREE_LIST_NONE }
+        EntityManager{ entities: Vec::new(), free_list: FREE_LIST_NONE }
     }
 
     pub fn add(&mut self, e: Entity) -> EntityID {
@@ -62,7 +63,7 @@ impl EntityManager {
             return EntityID{index: (self.entities.len()-1) as u16};
         } else {
             let index = self.free_list;
-            let next_free_list = self.entities[index].free_list;
+            let next_free_list = self.entities.get(index).free_list;
             self.entities[self.free_list] = e;
             self.free_list = next_free_list;
             return EntityID { index: index };
@@ -100,3 +101,41 @@ impl EntityManager {
         return &'l mut self.entities[id.index()];
     }
 }
+
+
+#[test]
+fn test_entity_manager_basic() {
+    let mut em = EntityManager::new();
+    let mut id : ~[EntityID] = ~[];
+    for i in range(0, 10) {
+        id.push(em.add_empty());
+    }
+    for i in range(0, 10) {
+        let mut e = em.borrow_mut(id[i]);
+        e.components.push(ComponentID { system: 42, index: i as ComponentIndex });
+        assert!(id[i].index != ENTITY_NONE);
+    }
+    for i in range(0, 10) {
+        let e = em.borrow(id[i]);
+        assert_eq!(e.components[0].index, i as ComponentIndex);
+    }
+
+    em.remove(id[3]);
+    em.remove(id[0]);
+    em.remove(id[4]);
+
+    for i in range(0, 10) {
+        if i == 0 || i == 3 || i == 4 { continue; }
+        let e = em.borrow(id[i]);
+        assert_eq!(e.main_components[0].index, i as ComponentIndex);
+    }
+
+    id[4] = em.add_empty();
+    id[0] = em.add_empty();
+    id[3] = em.add_empty();
+
+    for i in range(0, 10) {
+        let e = em.borrow(id[i]);
+    }
+}
+*/
