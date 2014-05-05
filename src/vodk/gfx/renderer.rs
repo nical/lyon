@@ -154,9 +154,8 @@ pub trait RenderingContext {
                         w:u32, h:u32, format: PixelFormat) -> RendererResult;
 
     fn read_back_texture(&mut self, tex: Texture,
-                         x:u32, y:u32, w: u32, h: u32,
                          format: PixelFormat,
-                         dest: &[u8]) -> RendererResult;
+                         dest: &mut [u8]) -> RendererResult;
 
     fn create_shader(&mut self, t: ShaderType) -> Shader;
     fn destroy_shader(&mut self, s: Shader);

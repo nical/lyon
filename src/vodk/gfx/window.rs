@@ -77,6 +77,13 @@ pub fn main_loop() {
     let checker = ctx.create_texture(renderer::REPEAT|renderer::FILTER_NEAREST);
     ctx.upload_texture_data(checker, checker_data.as_slice(), 64, 64, renderer::R8G8B8A8);
 
+    let mut checker_read_back : Vec<u8> = Vec::from_fn(64*64*4, |i|{ 1 as u8 });
+    assert!(checker_data != checker_read_back);
+    ctx.read_back_texture(checker, renderer::R8G8B8A8,
+                          checker_read_back.as_mut_slice());
+
+    assert_eq!(checker_data, checker_read_back);
+
     let intermediate_target = ctx.create_render_target([texture_0], None, None).map_err(
         |e| {
             fail!("Failed to ceate a render target: {} - {}",
@@ -118,4 +125,3 @@ pub fn main_loop() {
         window.swap_buffers();
     }
 }
-

@@ -49,6 +49,12 @@ impl RenderingContext for RenderingContextGL {
     }
 
     fn reset_state(&mut self) {
+        gl::BindTexture(gl::TEXTURE_2D, 0);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+        gl::UseProgram(0);
+        gl::BindVertexArray(0);
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl::ClearColor(0.0, 0.0, 0.0, 0.0);
         self.current_render_target = self.get_default_render_target();
         self.current_texture = Texture { handle: 0 };
         self.current_program = ShaderProgram { handle: 0 };
@@ -178,16 +184,13 @@ impl RenderingContext for RenderingContextGL {
     }
 
     fn read_back_texture(&mut self, tex: Texture,
-                         x: u32, y:u32, w: u32, h: u32,
                          format: PixelFormat,
-                         dest: &[u8]) -> RendererResult {
+                         dest: &mut [u8]) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
         unsafe {
-            gl::ReadPixels(x as i32, y as i32, w as i32, h as i32,
-                           gl_format(format), gl::UNSIGNED_BYTE,
-                           cast::transmute(dest.unsafe_ref(0)));
-            check_err!("glReadPixels({}, {}, {}, {}, {}, GL_UNSIGNED_BYTE, <array of lenght {}>)",
-                       x, y, w, h, gl_format(format), dest.len());
+            gl::GetTexImage(gl::TEXTURE_2D, 0, gl_format(format), 
+                            gl::UNSIGNED_BYTE, cast::transmute(dest.unsafe_ref(0)));
+            check_err!("glGetTexImage(...) on texture {}", tex.handle);
         }
         return Ok(());
     }

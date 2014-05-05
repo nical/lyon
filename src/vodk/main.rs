@@ -12,6 +12,7 @@ pub mod gfx {
     pub mod shaders;
     pub mod mesh_utils;
     pub mod geom;
+    pub mod test_renderer;
 }
 pub mod logic {
     pub mod entity;
@@ -20,18 +21,13 @@ pub mod base {
 	pub mod containers;
 }
 pub mod data {
-    pub mod layout;
+    //pub mod layout;
 }
 pub mod kiwi {
-    pub mod graph;
-}
-
-#[start]
-fn start(argc: int, argv: **u8) -> int {
-    return native::start(argc, argv, main);
+    //pub mod graph;
 }
 
 fn main() {
     std::io::println("vodk!");
-    gfx::window::main_loop();
+    //gfx::window::main_loop();
 }
