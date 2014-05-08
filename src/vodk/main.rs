@@ -4,6 +4,7 @@
 extern crate native;
 extern crate gl;
 extern crate glfw;
+extern crate time;
 
 pub mod gfx {
     pub mod renderer;

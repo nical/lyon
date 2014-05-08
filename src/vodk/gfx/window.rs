@@ -5,14 +5,15 @@ use gfx::opengl;
 use gfx::renderer;
 use gfx::shaders;
 
+use time;
+use std::io::timer::sleep;
+
 pub fn main_loop() {
 
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    // Choose a GL profile that is compatible with OS X 10.7+
     glfw.window_hint(glfw::ContextVersion(3, 1));
     glfw.window_hint(glfw::OpenglForwardCompat(true));
-    //glfw.window_hint(glfw::OpenglProfile(glfw::OpenGlCoreProfile));
 
     let (window, _) = glfw.create_window(800, 600, "OpenGL", glfw::Windowed)
         .expect("Failed to create GLFW window.");
@@ -91,8 +92,13 @@ pub fn main_loop() {
 
     let screen = ctx.get_default_render_target();
 
+    let mut avg_frame_time : u64 = 0;
+    let mut frame_count : u64 = 0;
+    let mut previous_time = time::precise_time_ns();
     while !window.should_close() {
         //glfw.poll_events();
+        let frame_start_time = time::precise_time_ns();
+        let elapsed_time = frame_start_time - previous_time;
 
         ctx.set_render_target(screen);
 
@@ -116,6 +122,22 @@ pub fn main_loop() {
         );
 
         window.swap_buffers();
+
+        previous_time = frame_start_time;
+        
+        let frame_time = time::precise_time_ns() - frame_start_time;
+        frame_count += 1;
+        avg_frame_time += frame_time;
+
+        if (frame_count % 60 == 0) {
+            println!("avg frame time: {}ms", avg_frame_time/(60*1000000));
+            avg_frame_time = 0;
+        }
+        // glfw is already throttling to 60fps for us
+        // let sleep_time : i64 = 16000000 - frame_time as i64;
+        // if (sleep_time > 0) {
+        //     sleep(sleep_time as u64/1000000 );
+        // }
     }
 
     ctx.destroy_geometry(geom);
@@ -126,3 +148,4 @@ pub fn main_loop() {
     ctx.destroy_shader(fs);
     ctx.destroy_texture(checker);
 }
+
