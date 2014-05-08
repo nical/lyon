@@ -17,10 +17,8 @@ pub fn test() {
     let (window, _) = glfw.create_window(800, 600, "OpenGL", glfw::Windowed)
         .expect("Failed to create GLFW window.");
 
-    // It is essential to make the context current before calling gl::load_with.
     window.make_current();
 
-    // Load the OpenGL function pointers
     gl::load_with(|s| glfw.get_proc_address(s));
 
     let mut gl = opengl::RenderingContextGL::new();
@@ -69,7 +67,7 @@ fn test_render_to_texture(ctx: &mut renderer::RenderingContext) {
 
     ctx.set_render_target(rt);
 
-    ctx.clear();
+    ctx.clear(renderer::COLOR);
 
     let mut read_back : Vec<u8> = Vec::from_fn((w*h*4) as uint, |i|{ 1 as u8 });
     ctx.read_back_texture(target_texture, renderer::R8G8B8A8,

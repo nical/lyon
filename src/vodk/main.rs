@@ -29,5 +29,5 @@ pub mod kiwi {
 
 fn main() {
     std::io::println("vodk!");
-    //gfx::window::main_loop();
+    gfx::window::main_loop();
 }

@@ -1,30 +1,37 @@
 
-pub type TextureFlags = i32;
-pub static REPEAT_S          : TextureFlags = 1;
-pub static REPEAT_T          : TextureFlags = 2;
-pub static REPEAT            : TextureFlags = 3;
-pub static CLAMP_S           : TextureFlags = 4;
-pub static CLAMP_T           : TextureFlags = 8;
-pub static CLAMP             : TextureFlags = 12;
-pub static MIN_FILTER_LINEAR : TextureFlags = 16;
-pub static MAG_FILTER_LINEAR : TextureFlags = 32;
-pub static FILTER_LINEAR     : TextureFlags = MIN_FILTER_LINEAR|MAG_FILTER_LINEAR;
-pub static MIN_FILTER_NEAREST: TextureFlags = 64;
-pub static MAG_FILTER_NEAREST: TextureFlags = 128;
-pub static FILTER_NEAREST    : TextureFlags = MIN_FILTER_NEAREST|MAG_FILTER_NEAREST;
-pub static FLAGS_DEFAULT     : TextureFlags = CLAMP|FILTER_LINEAR;
+use std::cast;
+use std::mem;
 
-pub type RenderFlags = u32;
-pub static ENABLE_Z_TEST         : RenderFlags = 1 >> 0;
-pub static ENABLE_STENCIL_TEST   : RenderFlags = 1 >> 1;
-pub static LINES                 : RenderFlags = 1 >> 2;
-pub static STRIP                 : RenderFlags = 1 >> 3;
-pub static LOOP                  : RenderFlags = 1 >> 4;
-pub static INDEXED               : RenderFlags = 1 >> 5;
-pub static TRIANGLE_STRIP        : RenderFlags = STRIP;
-pub static LINE_STRIP            : RenderFlags = LINES | STRIP;
-pub static LINE_LOOP             : RenderFlags = LINES | LOOP;
-pub static RENDER_DEFAULT        : RenderFlags = 0;
+pub type TextureFlags = i32;
+pub static REPEAT_S          : TextureFlags = 1 << 0;
+pub static REPEAT_T          : TextureFlags = 1 << 1;
+pub static REPEAT            : TextureFlags = 1 << REPEAT_S | REPEAT_T;
+pub static CLAMP_S           : TextureFlags = 1 << 2;
+pub static CLAMP_T           : TextureFlags = 1 << 3;
+pub static CLAMP             : TextureFlags = 1 << CLAMP_S | CLAMP_T;
+pub static MIN_FILTER_LINEAR : TextureFlags = 1 << 4;
+pub static MAG_FILTER_LINEAR : TextureFlags = 1 << 5;
+pub static FILTER_LINEAR     : TextureFlags = MIN_FILTER_LINEAR | MAG_FILTER_LINEAR;
+pub static MIN_FILTER_NEAREST: TextureFlags = 1 << 6;
+pub static MAG_FILTER_NEAREST: TextureFlags = 1 << 7;
+pub static FILTER_NEAREST    : TextureFlags = MIN_FILTER_NEAREST | MAG_FILTER_NEAREST;
+pub static FLAGS_DEFAULT     : TextureFlags = CLAMP | FILTER_LINEAR;
+
+// TODO this mixes flags that are about the geometry and flags that are about
+// pipeline features. Should proably sperate it.
+pub type GeometryFlags = u32;
+pub static TRIANGLES             : GeometryFlags = 1 << 3;
+pub static LINES                 : GeometryFlags = 1 << 4;
+pub static STRIP                 : GeometryFlags = 1 << 5;
+pub static LOOP                  : GeometryFlags = 1 << 5;
+pub static TRIANGLE_STRIP        : GeometryFlags = TRIANGLES | STRIP;
+pub static LINE_STRIP            : GeometryFlags = LINES | STRIP;
+pub static LINE_LOOP             : GeometryFlags = LINES | LOOP;
+
+pub type TargetTypes = u32;
+pub static COLOR  : TargetTypes = 1;
+pub static DEPTH  : TargetTypes = 2;
+pub static STENCIL: TargetTypes = 3;
 
 #[deriving(Eq, Clone, Show)]
 pub enum ShaderType {
@@ -70,6 +77,14 @@ pub enum UpdateHint {
     DYNAMIC
 }
 
+#[deriving(Eq, Clone, Show)]
+pub enum BufferType {
+    VERTEX_BUFFER,
+    INDEX_BUFFER,
+    UNIFORM_BUFFER,
+    TRANSFORM_FEEDBACK_BUFFER,
+}
+
 pub type Handle = u32;
 
 #[deriving(Eq, Clone, Show)]
@@ -83,17 +98,22 @@ pub struct Texture { pub handle: Handle }
 
 /// Equivalent of a Buffer object in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct VertexBuffer { pub handle: Handle }
+pub struct Buffer { pub handle: Handle }
 
 /// Equivalent of a VAO in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct Geometry { pub handle: Handle }
+pub struct Geometry {
+    pub handle: Handle,
+    // To work around some drivers not storing the index buffer
+    // binding in the VAO state
+    pub ibo: Handle
+}
 
 pub struct GeometryRange {
     pub geometry: Geometry,
     pub from: u32,
     pub to: u32,
-    pub indexed: bool,
+    pub flags: GeometryFlags,
 }
 
 /// Equivalent of a FBO in OpenGL
@@ -116,7 +136,7 @@ pub type ErrorCode = u32;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
-    pub buffer: VertexBuffer,
+    pub buffer: Buffer,
     pub attrib_type: AttributeType,
     pub location: VertexAttributeLocation,
     pub stride: u16,
@@ -132,7 +152,7 @@ pub trait RenderingContext {
     fn flush(&mut self);
     fn set_viewport(&mut self, x:i32, y:i32, w:i32, h:i32);
     fn set_clear_color(&mut self, r: f32, g: f32, b: f32, a: f32);
-    fn clear(&mut self);
+    fn clear(&mut self, targets: TargetTypes);
 
     fn reset_state(&mut self);
 
@@ -166,18 +186,17 @@ pub trait RenderingContext {
     fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader],
                            attrib_locations: Option<&[(&str, VertexAttributeLocation)]>)  -> RendererResult;
 
-    fn create_vertex_buffer(&mut self) -> VertexBuffer;
-    fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer);
-    fn upload_vertex_data(&mut self, buffer: VertexBuffer,
-                          data: &[f32], update: UpdateHint) -> RendererResult;
-    fn allocate_vertex_buffer(&mut self, dest: VertexBuffer,
-                              size: u32, update: UpdateHint) -> RendererResult;
+    fn create_buffer(&mut self) -> Buffer;
+    fn destroy_buffer(&mut self, buffer: Buffer);
+    fn upload_buffer(&mut self, buffer: Buffer, buf_type: BufferType,
+                     update: UpdateHint, data: &[u8]) -> RendererResult;
+    fn allocate_buffer(&mut self, dest: Buffer, buf_type: BufferType,
+                       update: UpdateHint, size: u32) -> RendererResult;
 
-    fn create_geometry(&mut self) -> Geometry;
     fn destroy_geometry(&mut self, geom: Geometry);
-    fn define_geometry(&mut self, geom: Geometry,
+    fn create_geometry(&mut self,
                        attributes: &[VertexAttribute],
-                       indices: Option<VertexBuffer>) -> RendererResult;
+                       indices: Option<Buffer>) -> Result<Geometry, Error>;
 
     fn get_shader_input_location(&mut self, program: ShaderProgram,
                                  name: &str) -> ShaderInputLocation;
@@ -201,5 +220,23 @@ pub trait RenderingContext {
     fn set_shader_input_matrix(&mut self, location: ShaderInputLocation, input: &[f32], dimension: u32, transpose: bool);
     fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, input: Texture);
 
-    fn draw(&mut self, geom: GeometryRange, flags: RenderFlags) -> RendererResult;
+    fn draw(&mut self, geom: GeometryRange, targets: TargetTypes) -> RendererResult;
+}
+
+pub fn as_bytes<'l, T>(src: &'l [T]) -> &'l [u8] {
+    unsafe {
+        return cast::transmute((
+            src.as_ptr() as *T,
+            src.len() * mem::size_of::<T>()
+        ));
+    }
+}
+
+pub fn as_mut_bytes<'l, T>(src: &'l mut [T]) -> &'l mut [u8] {
+    unsafe {
+        return cast::transmute((
+            src.as_ptr() as *T,
+            src.len() * mem::size_of::<T>()
+        ));
+    }
 }

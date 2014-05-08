@@ -23,21 +23,27 @@ macro_rules! check_err (
     )
 )
 
+type DriverBugs = u64;
+pub static DRIVER_DEFAULT : DriverBugs = 0;
+pub static MISSING_INDEX_BUFFER_VAO : DriverBugs = 1;
+
 pub struct RenderingContextGL {
-    current_texture: Texture,
+    workaround: DriverBugs,
     current_render_target: RenderTarget,
     current_program: ShaderProgram,
     current_geometry: Geometry,
+    current_target_types: TargetTypes,
     ignore_errors: bool,
 }
 
 impl RenderingContextGL {
     pub fn new() -> RenderingContextGL {
         RenderingContextGL {
-            current_texture: Texture { handle: 0 },
+            workaround: DRIVER_DEFAULT,
             current_program: ShaderProgram { handle: 0 },
             current_render_target: RenderTarget { handle: 0 },
-            current_geometry: Geometry { handle: 0 },
+            current_geometry: Geometry { handle: 0, ibo: 0 },
+            current_target_types: 0,
             ignore_errors: false,
         }
     }
@@ -56,9 +62,8 @@ impl RenderingContext for RenderingContextGL {
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         gl::ClearColor(0.0, 0.0, 0.0, 0.0);
         self.current_render_target = self.get_default_render_target();
-        self.current_texture = Texture { handle: 0 };
         self.current_program = ShaderProgram { handle: 0 };
-        self.current_geometry = Geometry { handle: 0 };
+        self.current_geometry = Geometry { handle: 0, ibo: 0 };
     }
 
     fn check_error(&mut self) -> Option<~str> {
@@ -102,8 +107,8 @@ impl RenderingContext for RenderingContextGL {
         gl::ClearColor(r,g,b,a);
     }
 
-    fn clear(&mut self) {
-        gl::Clear(gl::COLOR_BUFFER_BIT);
+    fn clear(&mut self, buffers: TargetTypes) {
+        gl::Clear(gl_clear_targets(buffers));
     }
 
     fn create_texture(&mut self, flags: TextureFlags) -> Texture {
@@ -123,6 +128,7 @@ impl RenderingContext for RenderingContextGL {
     }
 
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags) {
+        if flags == 0 { return; }
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
         if flags&REPEAT_S != 0 {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
@@ -281,58 +287,50 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn create_vertex_buffer(&mut self) -> VertexBuffer {
+    fn create_buffer(&mut self) -> Buffer {
         let mut b: u32 = 0;
         unsafe {
             gl::GenBuffers(1, &mut b);
         }
-        return VertexBuffer { handle: b };
+        return Buffer { handle: b };
     }
 
-    fn destroy_vertex_buffer(&mut self, buffer: VertexBuffer) {
+    fn destroy_buffer(&mut self, buffer: Buffer) {
         unsafe {
             gl::DeleteBuffers(1, &buffer.handle);
         }
     }
 
-    fn upload_vertex_data(&mut self, buffer: VertexBuffer,
-                          data: &[f32], update: UpdateHint) -> RendererResult {
+    fn upload_buffer(&mut self, buffer: Buffer, buf_type: BufferType,
+                     update: UpdateHint, data: &[u8]) -> RendererResult {
 
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, buffer.handle);
-            check_err!("glBindBuffer({}, {})", gl::ARRAY_BUFFER, buffer.handle);
-            gl::BufferData(gl::ARRAY_BUFFER, (data.len() * size_of::<f32>()) as i64,
+            let gl_buf_type = gl_buffer_type(buf_type);
+            gl::BindBuffer(gl_buf_type, buffer.handle);
+            check_err!("glBindBuffer({}, {})", buf_type, buffer.handle);
+            gl::BufferData(gl_buf_type, data.len() as i64,
                            cast::transmute(data.unsafe_ref(0)),
                            gl_update_hint(update));
-            check_err!("glBufferData(GL_ARRAY_BUFFER, {}, {}, {})",
-                        (data.len() * size_of::<f32>()) as i64,
-                        data.unsafe_ref(0),
+            check_err!("glBufferData({}, {}, {}, {})", buf_type,
+                        data.len(), data.unsafe_ref(0),
                         gl_update_hint(update));
         }
         return Ok(());
     }
 
-    fn allocate_vertex_buffer(&mut self, buffer: VertexBuffer,
-                              size: u32, update: UpdateHint) -> RendererResult {
+    fn allocate_buffer(&mut self, buffer: Buffer, buf_type: BufferType,
+                       update: UpdateHint, size: u32) -> RendererResult {
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, buffer.handle);
-            check_err!("glBindBuffer(GL_ARRAY_BUFFER, {})", buffer.handle);
-
-            gl::BufferData(gl::ARRAY_BUFFER, size as i64,
+            let gl_buf_type = gl_buffer_type(buf_type);
+            gl::BindBuffer(gl_buf_type, buffer.handle);
+            check_err!("glBindBuffer({}, {})", buf_type, buffer.handle);
+            gl::BufferData(gl_buf_type, size as i64,
                            cast::transmute(0),
                            gl_update_hint(update));
-            check_err!("glBufferData(GL_ARRAY_BUFFER, {}, 0, {})",
+            check_err!("glBufferData({}, {}, 0, {})", buf_type,
                        size, gl_update_hint(update));
         }
         return Ok(());
-    }
-
-    fn create_geometry(&mut self) -> Geometry {
-        let mut b: u32 = 0;
-        unsafe {
-            gl::GenVertexArrays(1, &mut b);
-        }
-        return Geometry { handle: b };
     }
 
     fn destroy_geometry(&mut self, obj: Geometry) {
@@ -341,10 +339,14 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn define_geometry(&mut self, geom: Geometry,
-                       attributes: &[VertexAttribute],
-                       elements: Option<VertexBuffer>) -> RendererResult {
-        gl::BindVertexArray(geom.handle);
+    fn create_geometry(&mut self, attributes: &[VertexAttribute],
+                       elements: Option<Buffer>) -> Result<Geometry, Error> {
+        let mut handle: u32 = 0;
+        unsafe {
+            gl::GenVertexArrays(1, &mut handle);
+        }
+
+        gl::BindVertexArray(handle);
 
         let mut i :u32 = 0;
         for attr in attributes.iter() {
@@ -356,21 +358,31 @@ impl RenderingContext for RenderingContextGL {
                                     gl_bool(attr.normalize),
                                     attr.stride as i32,
                                     cast::transmute(attr.offset as uint));
+            check_err!("glVertexAttribPointer(...)");
             gl::EnableVertexAttribArray(i);
+            check_err!("glEnableVertexAttribArray({})", i);
             }
             i += 1;
         }
 
-        match elements {
-            Some(elts) => {
-                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, elts.handle);
-            }
-            None => {}
+        let ibo =  match elements {
+            Some(elts) => { elts.handle }
+            None => { 0 }
+        };
+        // The OpenGL spec indicates that the index buffer binding
+        // is part of the VAO state, but some drivers don't follow
+        // this, so we'll have to store the ibo in the Geometry to
+        // rebind it when rendering
+        if ibo != 0 {
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
         }
 
         gl::BindVertexArray(0);
 
-        return Ok(());
+        return Ok(Geometry {
+            handle: handle,
+            ibo: ibo
+        });
     }
 
     fn get_shader_input_location(&mut self, program: ShaderProgram,
@@ -509,6 +521,7 @@ impl RenderingContext for RenderingContextGL {
         gl::ActiveTexture(gl_texture_unit(texture_unit));
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
         gl::Uniform1i(location as i32, texture_unit as i32);
+        //gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
     fn set_shader(&mut self, program: gpu::ShaderProgram) -> RendererResult {
@@ -520,7 +533,14 @@ impl RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn draw(&mut self, geom: gpu::GeometryRange, flags: RenderFlags) -> RendererResult {
+    fn draw(&mut self, geom: gpu::GeometryRange, targets: TargetTypes) -> RendererResult {
+        if (targets & DEPTH != 0) && (self.current_target_types & DEPTH == 0) {
+            gl::Enable(gl::DEPTH_TEST);
+            self.current_target_types |= DEPTH;
+        } else if (targets & DEPTH == 0) && (self.current_target_types & DEPTH != 0) {
+            gl::Disable(gl::DEPTH_TEST);
+            self.current_target_types &= (COLOR|STENCIL);
+        }
 
         if (geom.geometry != self.current_geometry) {
             self.current_geometry = geom.geometry;
@@ -528,18 +548,22 @@ impl RenderingContext for RenderingContextGL {
             check_err!("glBindVertexArray({})", geom.geometry.handle);
         };
 
-        if flags & INDEXED != 0 {
+        if geom.geometry.ibo != 0 {
+            if self.workaround & MISSING_INDEX_BUFFER_VAO != 0 {
+                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, geom.geometry.ibo);
+            }
             unsafe {
-                gl::DrawElements(gl_draw_mode(flags),
+                gl::DrawElements(gl_draw_mode(geom.flags),
                                  geom.to as i32,
-                                 gl::UNSIGNED_INT,
+                                 gl::UNSIGNED_SHORT,
                                  cast::transmute(0));
             }
+            check_err!("glDrawElements(...)");
         } else {
-            gl::DrawArrays(gl_draw_mode(flags),
+            gl::DrawArrays(gl_draw_mode(geom.flags),
                            geom.from as i32,
                            geom.to as i32);
-            check_err!("glDrawElements(...)");
+            check_err!("glDrawArrays(...)");
         }
         Ok(())
     }
@@ -576,7 +600,7 @@ fn gl_shader_type(target: ShaderType) -> u32 {
     }
 }
 
-fn gl_draw_mode(flags: RenderFlags) -> u32 {
+fn gl_draw_mode(flags: GeometryFlags) -> u32 {
     if flags & LINES != 0 {
         return if flags & STRIP != 0 { gl::LINE_STRIP }
                else if flags & LOOP != 0 { gl::LINE_LOOP }
@@ -584,6 +608,15 @@ fn gl_draw_mode(flags: RenderFlags) -> u32 {
     }
     return if flags & STRIP != 0 { gl::TRIANGLE_STRIP }
            else { gl::TRIANGLES }
+}
+
+fn gl_buffer_type(t: BufferType) -> u32 {
+    return match t {
+        VERTEX_BUFFER => gl::ARRAY_BUFFER,
+        INDEX_BUFFER => gl::ELEMENT_ARRAY_BUFFER,
+        UNIFORM_BUFFER => gl::UNIFORM_BUFFER,
+        TRANSFORM_FEEDBACK_BUFFER => gl::TRANSFORM_FEEDBACK_BUFFER,
+    }
 }
 
 fn gl_update_hint(hint: UpdateHint) -> u32 {
@@ -609,6 +642,14 @@ fn gl_texture_unit(unit: u32) -> u32 {
 
 fn gl_attachement(i: u32) -> u32 {
     return gl::COLOR_ATTACHMENT0 + i;
+}
+
+fn gl_clear_targets(t: TargetTypes) -> u32 {
+    let mut res = 0;
+    if t & COLOR != 0 { res |= gl::COLOR_BUFFER_BIT; }
+    if t & DEPTH != 0 { res |= gl::DEPTH_BUFFER_BIT; }
+    if t & STENCIL != 0 { res |= gl::STENCIL_BUFFER_BIT; }
+    return res;
 }
 
 fn gl_bool(b: bool) -> u8 {

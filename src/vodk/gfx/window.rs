@@ -26,21 +26,27 @@ pub fn main_loop() {
     let mut ctx = ~opengl::RenderingContextGL::new() as ~renderer::RenderingContext;
     ctx.set_clear_color(1.0, 0.0, 0.0, 1.0);
 
-    let vertices : ~[f32] = ~[
-        0.0, 0.0,  1.0, 0.0,  1.0, 1.0,
-        0.0, 0.0,  1.0, 1.0,  0.0, 1.0,
-    ];
+    let vertices : &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
+    let indices : &[u16] = &[0, 1, 2, 0, 2, 3];
 
-    let quad = ctx.create_vertex_buffer();
+    let vertices2 : &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  
+                                0.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
 
-    ctx.upload_vertex_data(quad, vertices, renderer::STATIC).map_err(
+    let quad_vertices = ctx.create_buffer();
+    let quad_indices = ctx.create_buffer();
+
+    ctx.upload_buffer(quad_vertices, renderer::VERTEX_BUFFER, renderer::STATIC, 
+                      renderer::as_bytes(vertices)).map_err(
+        |e| { fail!("Failed to upload the vertex data: {}", e); return; }
+    );
+    ctx.upload_buffer(quad_indices, renderer::INDEX_BUFFER, renderer::STATIC,
+                      renderer::as_bytes(indices)).map_err(
         |e| { fail!("Failed to upload the vertex data: {}", e); return; }
     );
 
-    let geom = ctx.create_geometry();
-    ctx.define_geometry(geom, [
+    let geom_res = ctx.create_geometry([
         renderer::VertexAttribute {
-            buffer: quad,
+            buffer: quad_vertices,
             attrib_type: renderer::F32,
             components: 2,
             location: 0,
@@ -48,7 +54,12 @@ pub fn main_loop() {
             offset: 0,
             normalize: false,
         }
-    ], None);
+    ], Some(quad_indices));
+
+    let geom = match geom_res {
+        Ok(g) => g,
+        Err(e) => fail!("Failed to create a Geometry object: {}", e),
+    };
 
     let vs = ctx.create_shader(renderer::VERTEX_SHADER);
     let fs = ctx.create_shader(renderer::FRAGMENT_SHADER);
@@ -70,31 +81,13 @@ pub fn main_loop() {
     let u_texture_0 = ctx.get_shader_input_location(program, "u_texture_0");
     println!("u_color: {}, u_texture_0: {}", u_color, u_texture_0);
 
-    let texture_0 = ctx.create_texture(renderer::CLAMP|renderer::FILTER_NEAREST);
-    ctx.allocate_texture(texture_0, 800, 600, renderer::R8G8B8A8);
-
-    let checker_data : Vec<u8> = Vec::from_fn(64*64*4, |i|{ (((i / 4) % 2)*255) as u8 });
+    let w = 32;
+    let h = 32;
+    let checker_data : Vec<u8> = Vec::from_fn(w*h*4, |i|{
+        (((i / 4 + (i/(4*h))) % 2)*255) as u8
+    });
     let checker = ctx.create_texture(renderer::REPEAT|renderer::FILTER_NEAREST);
-    ctx.upload_texture_data(checker, checker_data.as_slice(), 64, 64, renderer::R8G8B8A8);
-
-    let mut checker_read_back : Vec<u8> = Vec::from_fn(64*64*4, |i|{ 1 as u8 });
-    assert!(checker_data != checker_read_back);
-    ctx.read_back_texture(checker, renderer::R8G8B8A8,
-                          checker_read_back.as_mut_slice());
-
-    assert_eq!(checker_data, checker_read_back);
-
-    let intermediate_target = ctx.create_render_target([texture_0], None, None).map_err(
-        |e| {
-            fail!("Failed to ceate a render target: {} - {}",
-                  ctx.get_error_str(e.code),
-                  match e.detail {
-                    Some(s) => s,
-                    None => ~"",
-                  });
-            return;
-        }
-    );
+    ctx.upload_texture_data(checker, checker_data.as_slice(), w as u32, h as u32, renderer::R8G8B8A8);
 
     let screen = ctx.get_default_render_target();
 
@@ -103,7 +96,7 @@ pub fn main_loop() {
 
         ctx.set_render_target(screen);
 
-        ctx.clear();
+        ctx.clear(renderer::COLOR);
 
         ctx.set_shader(program);
 
@@ -115,13 +108,21 @@ pub fn main_loop() {
                 geometry: geom,
                 from: 0,
                 to: 6,
-                indexed: false,
+                flags: renderer::TRIANGLES
             },
-            renderer::RENDER_DEFAULT
+            renderer::COLOR
         ).map_err(
             |e| { fail!("Rendering error: {}", e); return; }
         );
 
         window.swap_buffers();
     }
+
+    ctx.destroy_geometry(geom);
+    ctx.destroy_buffer(quad_vertices);
+    ctx.destroy_buffer(quad_indices);
+    ctx.destroy_shader_program(program);
+    ctx.destroy_shader(vs);
+    ctx.destroy_shader(fs);
+    ctx.destroy_texture(checker);
 }
