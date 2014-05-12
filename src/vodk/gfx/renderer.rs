@@ -179,6 +179,7 @@ pub trait RenderingContext {
 
     fn create_shader(&mut self, t: ShaderType) -> Shader;
     fn destroy_shader(&mut self, s: Shader);
+    // TODO: take an array of strings as the source
     fn compile_shader(&mut self, shader: Shader, src: &str) -> RendererResult;
 
     fn create_shader_program(&mut self) -> ShaderProgram;
@@ -221,6 +222,8 @@ pub trait RenderingContext {
     fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, input: Texture);
 
     fn draw(&mut self, geom: GeometryRange, targets: TargetTypes) -> RendererResult;
+
+    // TODO: blending
 }
 
 pub fn as_bytes<'l, T>(src: &'l [T]) -> &'l [u8] {

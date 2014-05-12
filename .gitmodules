@@ -7,3 +7,6 @@
 [submodule "extern/rust-lua"]
 	path = extern/rust-lua
 	url = https://github.com/kballard/rust-lua.git
+[submodule "extern/png"]
+	path = extern/png
+	url = https://github.com/mozilla-servo/rust-png

@@ -1,9 +1,13 @@
 #!/bin/sh
+mkdir -p lib
+rm lib/*
+
 echo " -- Building glfw-rs..."
-mkdir -p glfw-rs/lib
-rm glfw-rs/lib/*
-rustc --out-dir glfw-rs/lib glfw-rs/src/lib/lib.rs
+rustc --out-dir lib/ glfw-rs/src/lib/lib.rs
+
 echo " -- Building gl-rs..."
-mkdir -p gl-rs/lib
-rm gl-rs/lib/*
-rustc --out-dir gl-rs/lib gl-rs/src/gl/lib.rs
+rustc --out-dir lib gl-rs/src/gl/lib.rs
+
+echo " -- Building png..."
+rustc --out-dir lib --opt-level=3 png/lib.rs -L png/
+cp png/libshim.a lib/

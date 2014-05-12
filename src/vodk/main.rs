@@ -5,6 +5,7 @@ extern crate native;
 extern crate gl;
 extern crate glfw;
 extern crate time;
+extern crate png;
 
 pub mod gfx {
     pub mod renderer;
@@ -13,6 +14,7 @@ pub mod gfx {
     pub mod shaders;
     pub mod mesh_utils;
     pub mod geom;
+    pub mod text;
     pub mod test_renderer;
 }
 pub mod logic {

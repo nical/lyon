@@ -38,6 +38,9 @@ pub struct RenderingContextGL {
 
 impl RenderingContextGL {
     pub fn new() -> RenderingContextGL {
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA,gl::ONE);
+
         RenderingContextGL {
             workaround: DRIVER_DEFAULT,
             current_program: ShaderProgram { handle: 0 },
@@ -64,6 +67,9 @@ impl RenderingContext for RenderingContextGL {
         self.current_render_target = self.get_default_render_target();
         self.current_program = ShaderProgram { handle: 0 };
         self.current_geometry = Geometry { handle: 0, ibo: 0 };
+
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA,gl::ONE);
     }
 
     fn check_error(&mut self) -> Option<~str> {
@@ -348,7 +354,6 @@ impl RenderingContext for RenderingContextGL {
 
         gl::BindVertexArray(handle);
 
-        let mut i :u32 = 0;
         for attr in attributes.iter() {
             gl::BindBuffer(gl::ARRAY_BUFFER, attr.buffer.handle);
             unsafe {
@@ -359,10 +364,9 @@ impl RenderingContext for RenderingContextGL {
                                     attr.stride as i32,
                                     cast::transmute(attr.offset as uint));
             check_err!("glVertexAttribPointer(...)");
-            gl::EnableVertexAttribArray(i);
-            check_err!("glEnableVertexAttribArray({})", i);
+            gl::EnableVertexAttribArray(attr.location as u32);
+            check_err!("glEnableVertexAttribArray({})", attr.location);
             }
-            i += 1;
         }
 
         let ibo =  match elements {
