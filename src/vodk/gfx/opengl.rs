@@ -223,12 +223,17 @@ impl RenderingContext for RenderingContextGL {
         gl::DeleteProgram(p.handle);
     }
 
-    fn compile_shader(&mut self, shader: Shader, src: &str) -> RendererResult {
+    fn compile_shader(&mut self, shader: Shader, src: &[&str]) -> RendererResult {
         unsafe {
-            src.with_c_str(|c_src| {
-                let len = src.len() as i32;
-                gl::ShaderSource(shader.handle, 1, &c_src, &len);
-            });
+            let mut lines: Vec<*i8> = Vec::new();
+            let mut lines_len: Vec<i32> = Vec::new();
+
+            for line in src.iter() {
+                lines.push(cast::transmute(line.as_ptr()));
+            }
+
+            gl::ShaderSource(shader.handle, 1, lines.as_ptr(), lines_len.as_ptr());
+
             gl::CompileShader(shader.handle);
 
             let mut buffer = ~[0 as u8, ..512];

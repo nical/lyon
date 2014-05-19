@@ -131,11 +131,11 @@ pub fn main_loop() {
     let text_fs = ctx.create_shader(renderer::FRAGMENT_SHADER);
     let text_program = ctx.create_shader_program();
 
-    ctx.compile_shader(text_fs, shaders::TEXT_FRAGMENT_SHADER).map_err(
+    ctx.compile_shader(text_fs, &[shaders::TEXT_FRAGMENT_SHADER]).map_err(
         |e| { fail!("Failed to compile the fragment shader: {}", e); return; }
     );
 
-    ctx.compile_shader(text_vs, shaders::TEXT_VERTEX_SHADER).map_err(
+    ctx.compile_shader(text_vs, &[shaders::TEXT_VERTEX_SHADER]).map_err(
         |e| { fail!("Failed to compile the vertex shader: {}", e); return; }
     );
 
@@ -167,11 +167,11 @@ pub fn main_loop() {
     let program = ctx.create_shader_program();
     let uniforms = UniformLayout::new(ctx, program);
 
-    ctx.compile_shader(fs, shaders::TEXTURED_FRAGMENT_SHADER).map_err(
+    ctx.compile_shader(fs, &[shaders::TEXTURED_FRAGMENT_SHADER]).map_err(
         |e| { fail!("Failed to compile the fragment shader: {}", e); return; }
     );
 
-    ctx.compile_shader(vs, shaders::BASIC_VERTEX_SHADER).map_err(
+    ctx.compile_shader(vs, &[shaders::BASIC_VERTEX_SHADER]).map_err(
         |e| { fail!("Failed to compile the vertex shader: {}", e); return; }
     );
 

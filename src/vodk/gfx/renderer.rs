@@ -180,7 +180,7 @@ pub trait RenderingContext {
     fn create_shader(&mut self, t: ShaderType) -> Shader;
     fn destroy_shader(&mut self, s: Shader);
     // TODO: take an array of strings as the source
-    fn compile_shader(&mut self, shader: Shader, src: &str) -> RendererResult;
+    fn compile_shader(&mut self, shader: Shader, src: &[&str]) -> RendererResult;
 
     fn create_shader_program(&mut self) -> ShaderProgram;
     fn destroy_shader_program(&mut self, s: ShaderProgram);
