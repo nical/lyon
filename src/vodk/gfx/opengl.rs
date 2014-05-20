@@ -233,7 +233,6 @@ impl RenderingContext for RenderingContextGL {
             }
 
             gl::ShaderSource(shader.handle, 1, lines.as_ptr(), lines_len.as_ptr());
-
             gl::CompileShader(shader.handle);
 
             let mut buffer = ~[0 as u8, ..512];

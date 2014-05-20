@@ -17,6 +17,9 @@ struct UniformLayout {
     pub u_texture_1 : renderer::ShaderInputLocation,
     pub u_texture_2 : renderer::ShaderInputLocation,
     pub u_texture_3 : renderer::ShaderInputLocation,
+    pub u_model_mat : renderer::ShaderInputLocation,
+    pub u_view_mat : renderer::ShaderInputLocation,
+    pub u_proj_mat : renderer::ShaderInputLocation,
 }
 
 impl UniformLayout {
@@ -27,6 +30,9 @@ impl UniformLayout {
             u_texture_1: ctx.get_shader_input_location(p, "u_texture_1"),
             u_texture_2: ctx.get_shader_input_location(p, "u_texture_2"),
             u_texture_3: ctx.get_shader_input_location(p, "u_texture_3"),
+            u_model_mat: ctx.get_shader_input_location(p, "u_model_mat"),
+            u_view_mat:  ctx.get_shader_input_location(p, "u_view_mat"),
+            u_proj_mat:  ctx.get_shader_input_location(p, "u_proj_mat"),
         }
     }
 }
@@ -49,16 +55,100 @@ pub fn main_loop() {
     let mut ctx = ~opengl::RenderingContextGL::new() as ~renderer::RenderingContext;
     ctx.set_clear_color(1.0, 0.0, 0.0, 1.0);
 
-    let vertices : &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
-    let indices : &[u16] = &[0, 1, 2, 0, 2, 3];
+    let vertices: &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
+    let indices: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-    let vertices2 : &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  
+    let vertices2: &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,
                                 0.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
+
+    let cube_vertices: &[f32] = &[
+      // Front face     |     normals     | tex coords
+      -1.0, -1.0, 1.0,    0.0, 0.0, 1.0,    1.0, 0.0,
+       1.0, -1.0, 1.0,    0.0, 0.0, 1.0,    1.0, 1.0,
+       1.0,  1.0, 1.0,    0.0, 0.0, 1.0,    0.0, 1.0,
+      -1.0,  1.0, 1.0,    0.0, 0.0, 1.0,    0.0, 0.0,
+      // Back face
+      -1.0, -1.0, -1.0,   0.0, 0.0, -1.0,   1.0, 0.0,
+      -1.0,  1.0, -1.0,   0.0, 0.0, -1.0,   1.0, 1.0,
+       1.0,  1.0, -1.0,   0.0, 0.0, -1.0,   0.0, 1.0,
+       1.0, -1.0, -1.0,   0.0, 0.0, -1.0,   0.0, 0.0,
+      // Top face
+      -1.0, 1.0, -1.0,    0.0, 1.0, 1.0,    1.0, 0.0,
+      -1.0, 1.0,  1.0,    0.0, 1.0, 1.0,    1.0, 1.0,
+       1.0, 1.0,  1.0,    0.0, 1.0, 1.0,    0.0, 1.0,
+       1.0, 1.0, -1.0,    0.0, 1.0, 1.0,    0.0, 0.0,
+      // Bottom face
+      -1.0, -1.0, -1.0,   0.0, -1.0, 1.0,   1.0, 0.0,
+       1.0, -1.0, -1.0,   0.0, -1.0, 1.0,   1.0, 1.0,
+       1.0, -1.0,  1.0,   0.0, -1.0, 1.0,   0.0, 1.0,
+      -1.0, -1.0,  1.0,   0.0, -1.0, 1.0,   0.0, 0.0,
+      // Right face
+       1.0, -1.0, -1.0,   1.0, 0.0, 1.0,    1.0, 0.0,
+       1.0,  1.0, -1.0,   1.0, 0.0, 1.0,    1.0, 1.0,
+       1.0,  1.0,  1.0,   1.0, 0.0, 1.0,    0.0, 1.0,
+       1.0, -1.0,  1.0,   1.0, 0.0, 1.0,    0.0, 0.0,
+      // Left face
+      -1.0, -1.0, -1.0,   -1.0, 0.0, 1.0,   1.0, 0.0,
+      -1.0, -1.0,  1.0,   -1.0, 0.0, 1.0,   1.0, 1.0,
+      -1.0,  1.0,  1.0,   -1.0, 0.0, 1.0,   0.0, 1.0,
+      -1.0,  1.0, -1.0,   -1.0, 0.0, 1.0,   0.0, 0.0
+    ];
+
+    let cube_indices: &[u16] = &[
+      0, 1, 2, 0, 2, 3,         // Front face
+      4, 5, 6, 4, 6, 7,         // Back face
+      8, 9, 10, 8, 10, 11,      // Top face
+      12, 13, 14, 12, 14, 15,   // Bottom face
+      16, 17, 18, 16, 18, 19,   // Right face
+      20, 21, 22, 20, 22, 23    // Left face
+    ];
+
+    let cube_vbo = ctx.create_buffer();
+    let cube_ibo = ctx.create_buffer();
+
+    ctx.upload_buffer(cube_vbo, renderer::VERTEX_BUFFER, renderer::STATIC,
+                      renderer::as_bytes(cube_vertices));
+    ctx.upload_buffer(cube_ibo, renderer::VERTEX_BUFFER, renderer::STATIC,
+                      renderer::as_bytes(cube_indices));
+
+    let POS = 0;
+    let NORMALS = 1;
+    let TEX_COORDS = 2;
+
+    let cube_geom = ctx.create_geometry([
+        renderer::VertexAttribute {
+            buffer: cube_vbo,
+            attrib_type: renderer::F32,
+            components: 3,
+            location: POS,
+            stride: 32,
+            offset: 0,
+            normalize: false,
+        },
+        renderer::VertexAttribute {
+            buffer: cube_vbo,
+            attrib_type: renderer::F32,
+            components: 3,
+            location: NORMALS,
+            stride: 32,
+            offset: 12,
+            normalize: false,
+        },
+        renderer::VertexAttribute {
+            buffer: cube_vbo,
+            attrib_type: renderer::F32,
+            components: 2,
+            location: TEX_COORDS,
+            stride: 32,
+            offset: 24,
+            normalize: false,
+        },
+    ], Some(cube_ibo));
 
     let quad_vertices = ctx.create_buffer();
     let quad_indices = ctx.create_buffer();
 
-    ctx.upload_buffer(quad_vertices, renderer::VERTEX_BUFFER, renderer::STATIC, 
+    ctx.upload_buffer(quad_vertices, renderer::VERTEX_BUFFER, renderer::STATIC,
                       renderer::as_bytes(vertices)).map_err(
         |e| { fail!("Failed to upload the vertex data: {}", e); return; }
     );
@@ -171,7 +261,7 @@ pub fn main_loop() {
         |e| { fail!("Failed to compile the fragment shader: {}", e); return; }
     );
 
-    ctx.compile_shader(vs, &[shaders::BASIC_VERTEX_SHADER]).map_err(
+    ctx.compile_shader(vs, &[shaders::BASIC_VERTEX_SHADER_2D]).map_err(
         |e| { fail!("Failed to compile the vertex shader: {}", e); return; }
     );
 
@@ -239,7 +329,7 @@ pub fn main_loop() {
         window.swap_buffers();
 
         previous_time = frame_start_time;
-        
+
         let frame_time = time::precise_time_ns() - frame_start_time;
         frame_count += 1;
         avg_frame_time += frame_time;
