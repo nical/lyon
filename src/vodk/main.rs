@@ -27,7 +27,7 @@ pub mod data {
     //pub mod layout;
 }
 pub mod kiwi {
-    //pub mod graph;
+    pub mod graph;
 }
 
 fn main() {
