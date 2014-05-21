@@ -9,6 +9,7 @@ enum DataType {
     Type(DataTypeID),
 }
 
+#[deriving(Show)]
 struct PortDescriptor {
     data_type: DataType,
 }
@@ -26,6 +27,7 @@ struct Node {
     valid: bool,
 }
 
+#[deriving(Show)]
 struct Connection {
     port: u16,
     other_node: u16,
@@ -86,6 +88,7 @@ impl Graph {
             });
             node2.inputs.sort_by(|a,b|{a.port.cmp(&b.port)});
         }
+        assert!(self.are_connected(n1, p1, n2, p2));
         return true;
     }
 
@@ -106,7 +109,7 @@ impl Graph {
         }
 
         let mut connected2 = false;
-        for p in node2.outputs.iter() {
+        for p in node2.inputs.iter() {
             if p.port == p2 && p.other_node == n1.handle && p.other_port == p1 {
                 connected2 = true;
             }
@@ -132,6 +135,9 @@ impl Graph {
         // look for the connections in n's inputs
         let mut i = 0;
         loop {
+            if i >= self.nodes.get(n_handle).inputs.len() {
+                break;
+            }
             let inputs_i = *self.nodes.get(n_handle).inputs.get(i);
             if inputs_i.port == p {
                 let input_node = inputs_i.other_node as uint;
@@ -163,6 +169,9 @@ impl Graph {
         // look for the connections in n's outputs
         let mut i = 0;
         loop {
+            if i >= self.nodes.get(n_handle).outputs.len() {
+                break;
+            }
             let outputs_i = *self.nodes.get(n_handle).outputs.get(i);
             if outputs_i.port == p {
                 let output_node = outputs_i.other_node as uint;
@@ -189,7 +198,7 @@ impl Graph {
     pub fn add(&mut self, id: NodeTypeID) -> NodeID {
         let mut i = 0;
         for ref n in self.nodes.iter() {
-            if n.valid { break; }
+            if !n.valid { break; }
             i += 1;
         }
         if i == self.nodes.len() {
@@ -357,12 +366,29 @@ mod tests {
         assert!(g.connect(n1, 1, n3, 0));
 
         assert!(g.are_connected(n1, 0, n2, 0));
-        assert!(g.are_connected(n1, 0, n3, 0));
+        assert!(g.are_connected(n1, 1, n3, 0));
 
         g.disconnect_input(n2, 0);
         g.disconnect_input(n3, 0);
 
         assert!(!g.are_connected(n1, 0, n2, 0));
+        assert!(!g.are_connected(n1, 1, n3, 0));
+
+        assert!(g.connect(n1, 0, n2, 0));
+        assert!(g.connect(n2, 0, n3, 1));
+
+        assert!(g.are_connected(n1, 0, n2, 0));
+        assert!(g.are_connected(n2, 0, n3, 1));
+
         assert!(!g.are_connected(n1, 0, n3, 0));
+        // not connected, shoud do nothing
+        g.disconnect_output(n1, 0);
+        g.disconnect_output(n2, 0);
+
+        assert!(!g.are_connected(n1, 0, n2, 0));
+        assert!(!g.are_connected(n2, 0, n3, 1));
+
+        assert!(!g.are_connected(n1, 0, n2, 0));
+        assert!(!g.are_connected(n2, 1, n3, 1));
     }
 }
