@@ -4,28 +4,9 @@ use std::ops;
 use std::fmt;
 use std::kinds::Copy;
 
-#[deriving(Eq)]
-struct Vector2D<T, Unit> {
-    x: T,
-    y: T,
-}
-
-#[deriving(Eq)]
-struct Vector3D<T, Unit> {
-    x: T,
-    y: T,
-    z: T,
-}
-
-#[deriving(Eq)]
-pub struct Vector4D<T, Unit> {
-    pub x: T,
-    pub y: T,
-    pub z: T,
-    pub w: T,
-}
-
+#[deriving(Eq, Show)]
 pub struct Untyped;
+
 pub type Vec2 = Vector2D<f32, Untyped>;
 pub type Vec3 = Vector3D<f32, Untyped>;
 pub type Vec4 = Vector4D<f32, Untyped>;
@@ -34,6 +15,63 @@ pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D { x: x, y: y } }
 pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 { Vector3D { x: x, y: y, z: z } }
 pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w } }
 
+pub type Mat4 = Matrix4D<f32, Untyped>;
+pub type Mat3 = Matrix3D<f32, Untyped>;
+pub type Mat2 = Matrix2D<f32, Untyped>;
+
+pub mod Mat4 {
+    use super::{Mat4, Matrix4D};
+    pub fn identity() -> Mat4 {
+        Matrix4D {
+            _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
+            _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
+            _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
+            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+        }
+    }
+}
+
+pub mod Mat3 {
+    use super::{Mat3, Matrix3D};
+    pub fn identity() -> Mat3 {
+        Matrix3D {
+            _11: 1.0, _21: 0.0, _31: 0.0,
+            _12: 0.0, _22: 1.0, _32: 0.0,
+            _13: 0.0, _23: 0.0, _33: 1.0,
+        }
+    }
+}
+
+pub mod Mat2 {
+    use super::{Mat2, Matrix2D};
+    pub fn identity() -> Mat2 {
+        Matrix2D {
+            _11: 1.0, _21: 0.0,
+            _12: 0.0, _22: 1.0,
+        }
+    }
+}
+
+#[deriving(Eq, Show)]
+struct Vector2D<T, Unit> {
+    x: T,
+    y: T,
+}
+
+#[deriving(Eq, Show)]
+struct Vector3D<T, Unit> {
+    x: T,
+    y: T,
+    z: T,
+}
+
+#[deriving(Eq, Show)]
+pub struct Vector4D<T, Unit> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
+    pub w: T,
+}
 
 impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
     pub fn new(x: T, y: T, z: T, w: T) -> Vector4D<T,U> {
@@ -56,9 +94,15 @@ impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
         }
     }
 
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+        unsafe {
+            return cast::transmute((&'l self.x as *T, 4 as uint ));
+        }
+    }
+
     #[inline]
-    pub fn dot(&self, other: &Vector4D<T,U>) -> T {
-        return self.x*other.x + self.y*other.y + self.z*other.z + self.w*other.w;
+    pub fn dot(&self, rhs: &Vector4D<T,U>) -> T {
+        return self.x*rhs.x + self.y*rhs.y + self.z*rhs.z + self.w*rhs.w;
     }
 
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
@@ -77,12 +121,12 @@ impl<T: ops::Add<T,T>, U>
     for Vector4D<T,U> {
 
     #[inline]
-    fn add(&self, other: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn add(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
         return Vector4D {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-            w: self.w + other.w
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+            w: self.w + rhs.w
         };
     }
 }
@@ -92,12 +136,12 @@ impl<T: ops::Sub<T,T>, U>
     for Vector4D<T,U> {
 
     #[inline]
-    fn sub(&self, other: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn sub(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
         return Vector4D {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-            w: self.w - other.w
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+            w: self.w - rhs.w
         };
     }
 }
@@ -107,12 +151,12 @@ impl<T: ops::Mul<T,T>, U>
     for Vector4D<T,U> {
 
     #[inline]
-    fn mul(&self, other: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn mul(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
         return Vector4D {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
-            w: self.w * other.w
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
+            w: self.w * rhs.w
         };
     }
 }
@@ -150,21 +194,27 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector3D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 4 as uint ));
+            return cast::transmute((&'l self.x as *T, 3 as uint ));
+        }
+    }
+
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+        unsafe {
+            return cast::transmute((&'l self.x as *T, 3 as uint ));
         }
     }
 
     #[inline]
-    pub fn dot(&self, other: &Vector3D<T,U>) -> T {
-        return self.x*other.x + self.y*other.y + self.z*other.z;
+    pub fn dot(&self, rhs: &Vector3D<T,U>) -> T {
+        return self.x*rhs.x + self.y*rhs.y + self.z*rhs.z;
     }
 
     #[inline]
-    pub fn cross(&self, other: &Vector3D<T,U>) -> Vector3D<T,U> {
+    pub fn cross(&self, rhs: &Vector3D<T,U>) -> Vector3D<T,U> {
         return Vector3D {
-            x: (self.y * other.z) - (self.z * other.y),
-            y: (self.z * other.x) - (self.x * other.z),
-            z: (self.x * other.y) - (self.y * other.x)
+            x: (self.y * rhs.z) - (self.z * rhs.y),
+            y: (self.z * rhs.x) - (self.x * rhs.z),
+            z: (self.x * rhs.y) - (self.y * rhs.x)
         }
     }
 
@@ -193,11 +243,11 @@ impl<T: ops::Add<T,T>, U>
     for Vector3D<T,U> {
 
     #[inline]
-    fn add(&self, other: &Vector3D<T,U>) -> Vector3D<T, U> {
+    fn add(&self, rhs: &Vector3D<T,U>) -> Vector3D<T, U> {
         return Vector3D {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
         };
     }
 }
@@ -207,11 +257,11 @@ impl<T: ops::Sub<T,T>, U>
     for Vector3D<T,U> {
 
     #[inline]
-    fn sub(&self, other: &Vector3D<T,U>) -> Vector3D<T, U> {
+    fn sub(&self, rhs: &Vector3D<T,U>) -> Vector3D<T, U> {
         return Vector3D {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
         };
     }
 }
@@ -221,11 +271,11 @@ impl<T: ops::Mul<T,T>, U>
     for Vector3D<T,U> {
 
     #[inline]
-    fn mul(&self, other: &Vector3D<T,U>) -> Vector3D<T, U> {
+    fn mul(&self, rhs: &Vector3D<T,U>) -> Vector3D<T, U> {
         return Vector3D {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
         };
     }
 }
@@ -262,18 +312,22 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector2D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 4 as uint ));
+            return cast::transmute((&'l self.x as *T, 2 as uint ));
+        }
+    }
+
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+        unsafe {
+            return cast::transmute((&'l self.x as *T, 2 as uint ));
         }
     }
 
     #[inline]
-    pub fn dot(&self, other: &Vector2D<T,U>) -> T {
-        return self.x*other.x + self.y*other.y;
+    pub fn dot(&self, rhs: &Vector2D<T,U>) -> T {
+        return self.x*rhs.x + self.y*rhs.y;
     }
 
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
-    pub fn xz(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.z } }
-    pub fn yz(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.z } }
     pub fn yx(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.x } }
 }
 
@@ -282,10 +336,10 @@ impl<T: ops::Add<T,T>, U>
     for Vector2D<T,U> {
 
     #[inline]
-    fn add(&self, other: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn add(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
         return Vector2D {
-            x: self.x + other.x,
-            y: self.y + other.y,
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
         };
     }
 }
@@ -295,10 +349,10 @@ impl<T: ops::Sub<T,T>, U>
     for Vector2D<T,U> {
 
     #[inline]
-    fn sub(&self, other: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn sub(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
         return Vector2D {
-            x: self.x - other.x,
-            y: self.y - other.y,
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
         };
     }
 }
@@ -308,10 +362,10 @@ impl<T: ops::Mul<T,T>, U>
     for Vector2D<T,U> {
 
     #[inline]
-    fn mul(&self, other: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn mul(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
         return Vector2D {
-            x: self.x * other.x,
-            y: self.y * other.y,
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
         };
     }
 }
@@ -329,17 +383,187 @@ impl<T : ops::Neg<T>, U>
     }
 }
 
-//impl<T: fmt::Show, U> fmt::Show for Vector2D<T, U> {
-//    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//        write!(f, "[{} {}]", self.x, self.y)
-//    }
-//}
+#[deriving(Eq)]
+pub struct Matrix2D<T, Unit> {
+    _11: T, _21: T,
+    _12: T, _22: T,
+}
+
+#[deriving(Eq)]
+pub struct Matrix3D<T, Unit> {
+    _11: T, _21: T, _31: T,
+    _12: T, _22: T, _32: T,
+    _13: T, _23: T, _33: T,
+}
+
+#[deriving(Eq)]
+pub struct Matrix4D<T, Unit> {
+    _11: T, _21: T, _31: T, _41: T,
+    _12: T, _22: T, _32: T, _42: T,
+    _13: T, _23: T, _33: T, _43: T,
+    _14: T, _24: T, _34: T, _44: T,
+}
+
+
+
+impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix2D<T, U> {
+
+    pub fn from_slice(from: &[T]) -> Matrix2D<T,U> {
+        assert!(from.len() >= 4);
+        return Matrix2D {
+            _11: from[0], _21: from[1],
+            _12: from[2], _22: from[3],
+        };
+    }
+
+    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+        unsafe {
+            return cast::transmute((&'l self._11 as *T, 4 as uint ));
+        }
+    }
+
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+        unsafe {
+            return cast::transmute((&'l self._11 as *T, 4 as uint ));
+        }
+    }
+}
+
+
+impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
+
+    pub fn from_slice(from: &[T]) -> Matrix3D<T,U> {
+        assert_eq!(from.len(), 9);
+        return Matrix3D {
+            _11: from[0], _21: from[1], _31: from[2],
+            _12: from[3], _22: from[4], _32: from[5],
+            _13: from[6], _23: from[7], _33: from[8],
+        };
+    }
+
+    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+        unsafe {
+            return cast::transmute((&'l self._11 as *T, 9 as uint ));
+        }
+    }
+
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+        unsafe {
+            return cast::transmute((&'l self._11 as *T, 9 as uint ));
+        }
+    }
+
+    pub fn transform(&self, p: &Vector3D<T,U>) -> Vector3D<T,U> {
+        Vector3D {
+            x: p.x * self._11 + p.y * self._21 + p.z * self._31,
+            y: p.x * self._12 + p.y * self._22 + p.z * self._32,
+            z: p.x * self._13 + p.y * self._23 + p.z * self._33,
+        }
+    }
+}
+
+impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
+
+    pub fn from_slice(from: &[T]) -> Matrix2D<T,U> {
+        assert!(from.len() >= 16);
+        return Matrix2D {
+            _11: from[0], _21: from[1],
+            _12: from[2], _22: from[3],
+        };
+    }
+
+    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+        unsafe {
+            return cast::transmute((&'l self._11 as *T, 16 as uint ));
+        }
+    }
+
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+        unsafe {
+            return cast::transmute((&'l self._11 as *T, 16 as uint ));
+        }
+    }
+
+    pub fn transform(&self, p: &Vector4D<T,U>) -> Vector4D<T,U> {
+        Vector4D {
+            x: p.x * self._11 + p.y * self._21 + p.z * self._31 + p.w * self._41,
+            y: p.x * self._12 + p.y * self._22 + p.z * self._32 + p.w * self._42,
+            z: p.x * self._13 + p.y * self._23 + p.z * self._33 + p.w * self._43,
+            w: p.x * self._14 + p.y * self._24 + p.z * self._34 + p.w * self._44,
+        }
+    }
+}
+
+impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
+    ops::Mul<Matrix4D<T,U>, Matrix4D<T,U>>
+    for Matrix4D<T,U> {
+
+    #[inline]
+    fn mul(&self, rhs: &Matrix4D<T,U>) -> Matrix4D<T, U> {
+        return Matrix4D {
+            _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31 + self._14 * rhs._41,
+            _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31 + self._24 * rhs._41,
+            _31: self._31 * rhs._11 + self._32 * rhs._21 + self._33 * rhs._31 + self._34 * rhs._41,
+            _41: self._41 * rhs._11 + self._42 * rhs._21 + self._43 * rhs._31 + self._44 * rhs._41,
+            _12: self._11 * rhs._12 + self._12 * rhs._22 + self._13 * rhs._32 + self._14 * rhs._42,
+            _22: self._21 * rhs._12 + self._22 * rhs._22 + self._23 * rhs._32 + self._24 * rhs._42,
+            _32: self._31 * rhs._12 + self._32 * rhs._22 + self._33 * rhs._32 + self._34 * rhs._42,
+            _42: self._41 * rhs._12 + self._42 * rhs._22 + self._43 * rhs._32 + self._44 * rhs._42,
+            _13: self._11 * rhs._13 + self._12 * rhs._23 + self._13 * rhs._33 + self._14 * rhs._43,
+            _23: self._21 * rhs._13 + self._22 * rhs._23 + self._23 * rhs._33 + self._24 * rhs._43,
+            _33: self._31 * rhs._13 + self._32 * rhs._23 + self._33 * rhs._33 + self._34 * rhs._43,
+            _43: self._41 * rhs._13 + self._42 * rhs._23 + self._43 * rhs._33 + self._44 * rhs._43,
+            _14: self._11 * rhs._14 + self._12 * rhs._24 + self._13 * rhs._34 + self._14 * rhs._44,
+            _24: self._21 * rhs._14 + self._22 * rhs._24 + self._23 * rhs._34 + self._24 * rhs._44,
+            _34: self._31 * rhs._14 + self._32 * rhs._24 + self._33 * rhs._34 + self._34 * rhs._44,
+            _44: self._41 * rhs._14 + self._42 * rhs._24 + self._43 * rhs._34 + self._44 * rhs._44,
+        };
+    }
+}
+
+impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
+    ops::Mul<Matrix3D<T,U>, Matrix3D<T,U>>
+    for Matrix3D<T,U> {
+
+    #[inline]
+    fn mul(&self, rhs: &Matrix3D<T,U>) -> Matrix3D<T, U> {
+        return Matrix3D {
+            _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31,
+            _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31,
+            _31: self._31 * rhs._11 + self._32 * rhs._21 + self._33 * rhs._31,
+            _12: self._11 * rhs._12 + self._12 * rhs._22 + self._13 * rhs._32,
+            _22: self._21 * rhs._12 + self._22 * rhs._22 + self._23 * rhs._32,
+            _32: self._31 * rhs._12 + self._32 * rhs._22 + self._33 * rhs._32,
+            _13: self._11 * rhs._13 + self._12 * rhs._23 + self._13 * rhs._33,
+            _23: self._21 * rhs._13 + self._22 * rhs._23 + self._23 * rhs._33,
+            _33: self._31 * rhs._13 + self._32 * rhs._23 + self._33 * rhs._33,
+        };
+    }
+}
+
+impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
+    ops::Mul<Matrix2D<T,U>, Matrix2D<T,U>>
+    for Matrix2D<T,U> {
+
+    #[inline]
+    fn mul(&self, rhs: &Matrix2D<T,U>) -> Matrix2D<T, U> {
+        return Matrix2D {
+            _11: self._11 * rhs._11 + self._12 * rhs._21,
+            _21: self._21 * rhs._11 + self._22 * rhs._21,
+            _12: self._11 * rhs._12 + self._12 * rhs._22,
+            _22: self._21 * rhs._12 + self._22 * rhs._22,
+        };
+    }
+}
+
 
 #[test]
 fn test_vec4() {
     let p1 = vec4(1.0, 2.0, 3.0, 4.0);
     let p2 = -p1;
     let p3 = p1 + p2;
-    let d = p1.dot(p2);
-    let p4 = p1.cross(p2);
+    let d = p1.dot(&p2);
+    let m1 = Mat4::identity();
+    let p5 = m1.transform(&p1);
+    assert_eq!(p1, p5);
 }
