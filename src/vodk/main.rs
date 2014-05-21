@@ -30,6 +30,10 @@ pub mod kiwi {
     //pub mod graph;
 }
 
+pub mod math {
+    pub mod vector;
+}
+
 fn main() {
     std::io::println("vodk!");
     gfx::window::main_loop();
