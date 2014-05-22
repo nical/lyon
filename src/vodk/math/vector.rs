@@ -3,6 +3,9 @@ use std::cast;
 use std::ops;
 //use std::fmt;
 use std::kinds::Copy;
+use std::num;
+
+pub static EPSILON: f32 = 0.001;
 
 #[deriving(Eq, Show)]
 pub struct Untyped;
@@ -19,6 +22,7 @@ pub type Mat4 = Matrix4D<f32, Untyped>;
 pub type Mat3 = Matrix3D<f32, Untyped>;
 pub type Mat2 = Matrix2D<f32, Untyped>;
 
+#[allow(dead_code)]
 pub mod Mat4 {
     use super::{Mat4, Matrix4D};
     pub fn identity() -> Mat4 {
@@ -31,11 +35,33 @@ pub mod Mat4 {
 
     }
 
+    pub fn perspective(fovy: f32, aspect: f32, near: f32, far: f32, mat: &mut Mat4) {
+        let f = 1.0 / (fovy / 2.0).tan();
+        let nf: f32 = 1.0 / (near - far);
+        mat._11 = f / aspect;
+        mat._21 = 0.0;
+        mat._31 = 0.0;
+        mat._41 = 0.0;
+        mat._12 = 0.0;
+        mat._22 = f;
+        mat._32 = 0.0;
+        mat._42 = 0.0;
+        mat._13 = 0.0;
+        mat._23 = 0.0;
+        mat._33 = (far + near) * nf;
+        mat._43 = -1.0;
+        mat._14 = 0.0;
+        mat._24 = 0.0;
+        mat._34 = (2.0 * far * near) * nf;
+        mat._44 = 0.0;
+    }
+
     pub fn from_slice(s: &[f32]) -> Mat4 {
         return Matrix4D::from_slice(s);
     }
 }
 
+#[allow(dead_code)]
 pub mod Mat3 {
     use super::{Mat3, Matrix3D};
     pub fn identity() -> Mat3 {
@@ -51,6 +77,7 @@ pub mod Mat3 {
     }
 }
 
+#[allow(dead_code)]
 pub mod Mat2 {
     use super::{Mat2, Matrix2D};
     pub fn identity() -> Mat2 {
@@ -86,6 +113,7 @@ pub struct Vector4D<T, Unit = Untyped> {
     pub w: T,
 }
 
+#[allow(dead_code)]
 impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector4D<T,U> {
         assert!(from.len() >= 4);
@@ -125,6 +153,7 @@ impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
     pub fn yxz(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.x, z: self.z } }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Add<T,T>, U>
     ops::Add<Vector4D<T,U>, Vector4D<T,U>>
     for Vector4D<T,U> {
@@ -140,6 +169,7 @@ impl<T: ops::Add<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Sub<T,T>, U>
     ops::Sub<Vector4D<T,U>, Vector4D<T,U>>
     for Vector4D<T,U> {
@@ -155,6 +185,7 @@ impl<T: ops::Sub<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Mul<T,T>, U>
     ops::Mul<Vector4D<T,U>, Vector4D<T,U>>
     for Vector4D<T,U> {
@@ -170,6 +201,7 @@ impl<T: ops::Mul<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T : ops::Neg<T>, U>
     ops::Neg<Vector4D<T,U>>
     for Vector4D<T,U> {
@@ -186,7 +218,7 @@ impl<T : ops::Neg<T>, U>
 }
 
 
-
+#[allow(dead_code)]
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector3D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector3D<T,U> {
         assert!(from.len() >= 3);
@@ -243,6 +275,7 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector3D<T, U> {
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Add<T,T>, U>
     ops::Add<Vector3D<T,U>, Vector3D<T,U>>
     for Vector3D<T,U> {
@@ -257,6 +290,7 @@ impl<T: ops::Add<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Sub<T,T>, U>
     ops::Sub<Vector3D<T,U>, Vector3D<T,U>>
     for Vector3D<T,U> {
@@ -271,6 +305,7 @@ impl<T: ops::Sub<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Mul<T,T>, U>
     ops::Mul<Vector3D<T,U>, Vector3D<T,U>>
     for Vector3D<T,U> {
@@ -285,6 +320,7 @@ impl<T: ops::Mul<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T : ops::Neg<T>, U>
     ops::Neg<Vector3D<T,U>>
     for Vector3D<T,U> {
@@ -301,7 +337,7 @@ impl<T : ops::Neg<T>, U>
 
 
 
-
+#[allow(dead_code)]
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector2D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector2D<T,U> {
         assert!(from.len() >= 2);
@@ -332,6 +368,7 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector2D<T, U> {
     pub fn yx(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.x } }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Add<T,T>, U>
     ops::Add<Vector2D<T,U>, Vector2D<T,U>>
     for Vector2D<T,U> {
@@ -345,6 +382,7 @@ impl<T: ops::Add<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Sub<T,T>, U>
     ops::Sub<Vector2D<T,U>, Vector2D<T,U>>
     for Vector2D<T,U> {
@@ -358,6 +396,7 @@ impl<T: ops::Sub<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Mul<T,T>, U>
     ops::Mul<Vector2D<T,U>, Vector2D<T,U>>
     for Vector2D<T,U> {
@@ -371,6 +410,7 @@ impl<T: ops::Mul<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T : ops::Neg<T>, U>
     ops::Neg<Vector2D<T,U>>
     for Vector2D<T,U> {
@@ -438,7 +478,7 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix2D<T, U> {
     }
 }
 
-
+#[allow(dead_code)]
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
 
     pub fn from_slice(from: &[T]) -> Matrix3D<T,U> {
@@ -483,6 +523,7 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
     }
 }
 
+#[allow(dead_code)]
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
 
     pub fn from_slice(from: &[T]) -> Matrix4D<T,U> {
@@ -533,6 +574,65 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
     }
 }
 
+impl<U> Matrix4D<f32,U> {
+    fn rotate(&mut self, rad: f32, axis: &[f32]) {
+        let x = axis[0];
+        let y = axis[1];
+        let z = axis[2];
+        let len = (x * x + y * y + z * z).sqrt();
+
+        if len.abs() < EPSILON { return; }
+
+        let len = 1.0 / len;
+        let x = x * len;
+        let y = y * len;
+        let z = z * len;
+
+        let s = rad.sin();
+        let c = rad.cos();
+        let t = 1.0 - c;
+
+        let a00 = self._11;
+        let a01 = self._21;
+        let a02 = self._31;
+        let a03 = self._41;
+        let a10 = self._12;
+        let a11 = self._22;
+        let a12 = self._32;
+        let a13 = self._42;
+        let a20 = self._13;
+        let a21 = self._23;
+        let a22 = self._33;
+        let a23 = self._43;
+
+        // Construct the elements of the rotation matrix
+        let b00 = x * x * t + c;
+        let b01 = y * x * t + z * s;
+        let b02 = z * x * t - y * s;
+        let b10 = x * y * t - z * s;
+        let b11 = y * y * t + c;
+        let b12 = z * y * t + x * s;
+        let b20 = x * z * t + y * s;
+        let b21 = y * z * t - x * s;
+        let b22 = z * z * t + c;
+
+        // Perform rotation-specific matrix multiplication
+        self._11 = a00 * b00 + a10 * b01 + a20 * b02;
+        self._21 = a01 * b00 + a11 * b01 + a21 * b02;
+        self._31 = a02 * b00 + a12 * b01 + a22 * b02;
+        self._41 = a03 * b00 + a13 * b01 + a23 * b02;
+        self._12 = a00 * b10 + a10 * b11 + a20 * b12;
+        self._22 = a01 * b10 + a11 * b11 + a21 * b12;
+        self._32 = a02 * b10 + a12 * b11 + a22 * b12;
+        self._42 = a03 * b10 + a13 * b11 + a23 * b12;
+        self._13 = a00 * b20 + a10 * b21 + a20 * b22;
+        self._23 = a01 * b20 + a11 * b21 + a21 * b22;
+        self._33 = a02 * b20 + a12 * b21 + a22 * b22;
+        self._43 = a03 * b20 + a13 * b21 + a23 * b22;
+    }
+}
+
+#[allow(dead_code)]
 impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     ops::Mul<Matrix4D<T,U>, Matrix4D<T,U>>
     for Matrix4D<T,U> {
@@ -560,6 +660,7 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     ops::Mul<Matrix3D<T,U>, Matrix3D<T,U>>
     for Matrix3D<T,U> {
@@ -580,6 +681,7 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     }
 }
 
+#[allow(dead_code)]
 impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     ops::Mul<Matrix2D<T,U>, Matrix2D<T,U>>
     for Matrix2D<T,U> {

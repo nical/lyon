@@ -55,6 +55,7 @@ struct NodeTypeID { handle: i32 }
 #[deriving(Eq, Clone, Show)]
 struct DataTypeID { handle: u32 }
 
+#[allow(dead_code)]
 impl Graph {
     pub fn new(type_system: Rc<TypeSystem>) -> Graph {
         Graph {
@@ -238,6 +239,7 @@ impl Graph {
     }
 }
 
+#[allow(dead_code)]
 impl Node {
     fn new(t: NodeTypeID) -> Node {
         Node {
@@ -249,6 +251,7 @@ impl Node {
     }
 }
 
+#[allow(dead_code)]
 impl TypeSystem {
     pub fn new() -> TypeSystem {
         TypeSystem {
@@ -279,6 +282,7 @@ impl TypeSystem {
     }
 }
 
+#[allow(dead_code)]
 impl NodeDescriptor {
     // TODO: return a slice
     fn get_input_types(&self, port: PortIndex) -> Vec<DataTypeID> {
@@ -324,7 +328,7 @@ impl NodeDescriptor {
             }
         }
         return true;
-    } 
+    }
 }
 
 #[cfg(test)]
