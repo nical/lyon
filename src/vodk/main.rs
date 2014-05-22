@@ -1,5 +1,6 @@
 #![crate_id = "vodk#0.1"]
 #![feature(macro_rules, globs)]
+#![feature(default_type_params)]
 
 extern crate native;
 extern crate gl;

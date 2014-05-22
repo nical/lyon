@@ -1,7 +1,7 @@
 
 use std::cast;
 use std::ops;
-use std::fmt;
+//use std::fmt;
 use std::kinds::Copy;
 
 #[deriving(Eq, Show)]
@@ -28,6 +28,11 @@ pub mod Mat4 {
             _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
             _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
         }
+
+    }
+
+    pub fn from_slice(s: &[f32]) -> Mat4 {
+        return Matrix4D::from_slice(s);
     }
 }
 
@@ -40,6 +45,10 @@ pub mod Mat3 {
             _13: 0.0, _23: 0.0, _33: 1.0,
         }
     }
+
+    pub fn from_slice(s: &[f32]) -> Mat3 {
+        return Matrix3D::from_slice(s);
+    }
 }
 
 pub mod Mat2 {
@@ -50,23 +59,27 @@ pub mod Mat2 {
             _12: 0.0, _22: 1.0,
         }
     }
+
+    pub fn from_slice(s: &[f32]) -> Mat2 {
+        return Matrix2D::from_slice(s);
+    }
 }
 
 #[deriving(Eq, Show)]
-struct Vector2D<T, Unit> {
-    x: T,
-    y: T,
+pub struct Vector2D<T, Unit = Untyped> {
+    pub x: T,
+    pub y: T,
 }
 
 #[deriving(Eq, Show)]
-struct Vector3D<T, Unit> {
-    x: T,
-    y: T,
-    z: T,
+pub struct Vector3D<T, Unit = Untyped> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
 #[deriving(Eq, Show)]
-pub struct Vector4D<T, Unit> {
+pub struct Vector4D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
     pub z: T,
@@ -74,10 +87,6 @@ pub struct Vector4D<T, Unit> {
 }
 
 impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
-    pub fn new(x: T, y: T, z: T, w: T) -> Vector4D<T,U> {
-        Vector4D { x: x, y: y, z: z, w: w }
-    }
-
     pub fn from_slice(from: &[T]) -> Vector4D<T,U> {
         assert!(from.len() >= 4);
         return Vector4D {
@@ -179,10 +188,6 @@ impl<T : ops::Neg<T>, U>
 
 
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector3D<T, U> {
-    pub fn new(x: T, y: T, z: T) -> Vector3D<T,U> {
-        Vector3D { x: x, y: y, z: z}
-    }
-
     pub fn from_slice(from: &[T]) -> Vector3D<T,U> {
         assert!(from.len() >= 3);
         return Vector3D {
@@ -298,10 +303,6 @@ impl<T : ops::Neg<T>, U>
 
 
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector2D<T, U> {
-    pub fn new(x: T, y: T, z: T) -> Vector2D<T,U> {
-        Vector2D { x: x, y: y}
-    }
-
     pub fn from_slice(from: &[T]) -> Vector2D<T,U> {
         assert!(from.len() >= 2);
         return Vector2D {
@@ -385,23 +386,23 @@ impl<T : ops::Neg<T>, U>
 
 #[deriving(Eq)]
 pub struct Matrix2D<T, Unit> {
-    _11: T, _21: T,
-    _12: T, _22: T,
+    pub _11: T, pub _21: T,
+    pub _12: T, pub _22: T,
 }
 
 #[deriving(Eq)]
 pub struct Matrix3D<T, Unit> {
-    _11: T, _21: T, _31: T,
-    _12: T, _22: T, _32: T,
-    _13: T, _23: T, _33: T,
+    pub _11: T, pub _21: T, pub _31: T,
+    pub _12: T, pub _22: T, pub _32: T,
+    pub _13: T, pub _23: T, pub _33: T,
 }
 
 #[deriving(Eq)]
 pub struct Matrix4D<T, Unit> {
-    _11: T, _21: T, _31: T, _41: T,
-    _12: T, _22: T, _32: T, _42: T,
-    _13: T, _23: T, _33: T, _43: T,
-    _14: T, _24: T, _34: T, _44: T,
+    pub _11: T, pub _21: T, pub _31: T, pub _41: T,
+    pub _12: T, pub _22: T, pub _32: T, pub _42: T,
+    pub _13: T, pub _23: T, pub _33: T, pub _43: T,
+    pub _14: T, pub _24: T, pub _34: T, pub _44: T,
 }
 
 
@@ -426,6 +427,14 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix2D<T, U> {
         unsafe {
             return cast::transmute((&'l self._11 as *T, 4 as uint ));
         }
+    }
+
+    pub fn row_1<'l>(&'l self) -> &'l Vector2D<T,U> {
+        unsafe { cast::transmute(&'l self._11 as *T) }
+    }
+
+    pub fn row_2<'l>(&'l self) -> &'l Vector2D<T,U> {
+        unsafe { cast::transmute(&'l self._12 as *T) }
     }
 }
 
@@ -460,15 +469,29 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
             z: p.x * self._13 + p.y * self._23 + p.z * self._33,
         }
     }
+
+    pub fn row_1<'l>(&'l self) -> &'l Vector3D<T,U> {
+        unsafe { cast::transmute(&'l self._11 as *T) }
+    }
+
+    pub fn row_2<'l>(&'l self) -> &'l Vector3D<T,U> {
+        unsafe { cast::transmute(&'l self._12 as *T) }
+    }
+
+    pub fn row_3<'l>(&'l self) -> &'l Vector3D<T,U> {
+        unsafe { cast::transmute(&'l self._13 as *T) }
+    }
 }
 
 impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
 
-    pub fn from_slice(from: &[T]) -> Matrix2D<T,U> {
+    pub fn from_slice(from: &[T]) -> Matrix4D<T,U> {
         assert!(from.len() >= 16);
-        return Matrix2D {
-            _11: from[0], _21: from[1],
-            _12: from[2], _22: from[3],
+        return Matrix4D {
+            _11: from[0],  _21: from[1],  _31: from[2],  _41: from[3],
+            _12: from[4],  _22: from[5],  _32: from[6],  _42: from[7],
+            _13: from[8],  _23: from[9],  _33: from[10], _43: from[11],
+            _14: from[12], _24: from[13], _34: from[14], _44: from[15],
         };
     }
 
@@ -491,6 +514,22 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
             z: p.x * self._13 + p.y * self._23 + p.z * self._33 + p.w * self._43,
             w: p.x * self._14 + p.y * self._24 + p.z * self._34 + p.w * self._44,
         }
+    }
+
+    pub fn row_1<'l>(&'l self) -> &'l Vector4D<T,U> {
+        unsafe { cast::transmute(&'l self._11 as *T) }
+    }
+
+    pub fn row_2<'l>(&'l self) -> &'l Vector4D<T,U> {
+        unsafe { cast::transmute(&'l self._12 as *T) }
+    }
+
+    pub fn row_3<'l>(&'l self) -> &'l Vector4D<T,U> {
+        unsafe { cast::transmute(&'l self._13 as *T) }
+    }
+
+    pub fn row_4<'l>(&'l self) -> &'l Vector4D<T,U> {
+        unsafe { cast::transmute(&'l self._14 as *T) }
     }
 }
 
@@ -555,7 +594,6 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
         };
     }
 }
-
 
 #[test]
 fn test_vec4() {
