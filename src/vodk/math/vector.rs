@@ -5,7 +5,7 @@ use std::ops;
 use std::kinds::Copy;
 use std::num;
 
-pub static EPSILON: f32 = 0.001;
+pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
 
 #[deriving(Eq, Show)]
@@ -162,30 +162,28 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
     pub fn yxz(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.x, z: self.z } }
 }
 
-impl<T: Float, U> Eq for Vector4D<T, U> {
+impl<T: Float+EpsilonEq, U> Eq for Vector4D<T, U> {
     fn eq(&self, rhs:&Vector4D<T,U>) -> bool {
         let d = *self - *rhs;
-        return d.x.abs() <= Float::epsilon()
-            && d.y.abs() <= Float::epsilon()
-            && d.z.abs() <= Float::epsilon()
-            && d.w.abs() <= Float::epsilon();
+        return self.x.epsilon_eq(&rhs.x)
+            && self.y.epsilon_eq(&rhs.y)
+            && self.z.epsilon_eq(&rhs.z)
+            && self.w.epsilon_eq(&rhs.w);
     }
 }
 
-impl<T: Float, U> Eq for Vector3D<T, U> {
+impl<T: Float+EpsilonEq, U> Eq for Vector3D<T, U> {
     fn eq(&self, rhs:&Vector3D<T,U>) -> bool {
-        let d = *self - *rhs;
-        return d.x.abs() <= Float::epsilon()
-            && d.y.abs() <= Float::epsilon()
-            && d.z.abs() <= Float::epsilon();
+        return self.x.epsilon_eq(&rhs.x)
+            && self.y.epsilon_eq(&rhs.y)
+            && self.z.epsilon_eq(&rhs.z);
     }
 }
 
-impl<T: Float, U> Eq for Vector2D<T, U> {
+impl<T: Float+EpsilonEq, U> Eq for Vector2D<T, U> {
     fn eq(&self, rhs:&Vector2D<T,U>) -> bool {
-        let d = *self - *rhs;
-        return d.x.abs() <= Float::epsilon()
-            && d.y.abs() <= Float::epsilon();
+        return self.x.epsilon_eq(&rhs.x)
+            && self.y.epsilon_eq(&rhs.y);
     }
 }
 
@@ -761,6 +759,22 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     }
 }
 
+pub trait EpsilonEq {
+    fn epsilon_eq(&self, rhs: &Self) -> bool;
+}
+
+impl EpsilonEq for f32 {
+    fn epsilon_eq(&self, rhs: &f32) -> bool {
+        return *self - *rhs <= EPSILON;
+    }
+}
+
+impl EpsilonEq for f64 {
+    fn epsilon_eq(&self, rhs: &f64) -> bool {
+        return *self - *rhs <= EPSILON as f64;
+    }
+}
+
 #[test]
 fn test_vec4() {
     let p1 = vec4(1.0, 2.0, 3.0, 0.0);
@@ -772,8 +786,6 @@ fn test_vec4() {
     let mut m1 = Mat4::identity();
     m1.rotate(PI, &vec3(1.0, 0.0, 0.0));
     let p6 = m1.transform(&p1);
-    let p7 = vec4(1.0, -2.0, -3.0, 0.0);
-    println!("p6:{} p7:{} p6-p7: {}", p6, p7, p6 - p7);
-    assert!(p1 == p5);
-    assert!(p6 == p7);
+    assert_eq!(p1, p5);
+    assert_eq!(p6, vec4(1.0, -2.0, -3.0, 0.0));
 }
