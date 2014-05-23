@@ -25,7 +25,7 @@ pub type Mat2 = Matrix2D<f32, Untyped>;
 
 #[allow(dead_code)]
 pub mod Mat4 {
-    use super::{Mat4, Matrix4D};
+    use super::{Mat4, Matrix4D, Vec3};
     pub fn identity() -> Mat4 {
         Matrix4D {
             _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
@@ -59,6 +59,24 @@ pub mod Mat4 {
 
     pub fn from_slice(s: &[f32]) -> Mat4 {
         return Matrix4D::from_slice(s);
+    }
+
+    pub fn scale(s: &Vec3) -> Mat4 {
+        let mut m = identity();
+        m.scale(s);
+        return m;
+    }
+
+    pub fn rotation(rad: f32, s: &Vec3) -> Mat4 {
+        let mut m = identity();
+        m.rotate(rad, s);
+        return m;
+    }
+
+    pub fn translation(v: &Vec3) -> Mat4 {
+        let mut m = identity();
+        m.translate(v);
+        return m;
     }
 }
 
@@ -160,6 +178,7 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
     pub fn yzx(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.z, z: self.x } }
     pub fn xzy(&self) -> Vector3D<T,U> { Vector3D { x: self.x, y:self.z, z: self.y } }
     pub fn yxz(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.x, z: self.z } }
+    pub fn wxyz(&self) -> Vector4D<T,U> { Vector4D { x: self.w, y:self.x, z: self.y, w:self.z } }
 }
 
 impl<T: Float+EpsilonEq, U> Eq for Vector4D<T, U> {
@@ -618,7 +637,7 @@ impl<T: Copy + Num, U> Matrix4D<T, U> {
 }
 
 impl<U> Matrix4D<f32,U> {
-    fn rotate(&mut self, rad: f32, axis: &Vec3) {
+    pub fn rotate(&mut self, rad: f32, axis: &Vec3) {
         let len = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
 
         if len.abs() < EPSILON { return; }
@@ -671,14 +690,14 @@ impl<U> Matrix4D<f32,U> {
         self._43 = a03 * b20 + a13 * b21 + a23 * b22;
     }
 
-    fn translate(&mut self, v: &Vec3) {
+    pub fn translate(&mut self, v: &Vec3) {
         self._14 = self._11 * v.x + self._12 * v.y + self._13 * v.z + self._14;
         self._24 = self._21 * v.x + self._22 * v.y + self._23 * v.z + self._24;
         self._34 = self._31 * v.x + self._32 * v.y + self._33 * v.z + self._34;
         self._44 = self._41 * v.x + self._42 * v.y + self._43 * v.z + self._44;
     }
 
-    fn scale(&mut self, v: &Vec3) {
+    pub fn scale(&mut self, v: &Vec3) {
         self._11 = self._11 * v.x;
         self._21 = self._21 * v.x;
         self._31 = self._31 * v.x;
@@ -691,6 +710,63 @@ impl<U> Matrix4D<f32,U> {
         self._23 = self._23 * v.z;
         self._33 = self._33 * v.z;
         self._43 = self._43 * v.z;
+    }
+
+    pub fn invert(&self, out: &mut Matrix4D<f32,U>) {
+        let a00 = self._11;
+        let a01 = self._21;
+        let a02 = self._31;
+        let a03 = self._41;
+        let a10 = self._12;
+        let a11 = self._22;
+        let a12 = self._32;
+        let a13 = self._42;
+        let a20 = self._13;
+        let a21 = self._23;
+        let a22 = self._33;
+        let a23 = self._43;
+        let a30 = self._14;
+        let a31 = self._24;
+        let a32 = self._34;
+        let a33 = self._44;
+
+        let b00 = a00 * a11 - a01 * a10;
+        let b01 = a00 * a12 - a02 * a10;
+        let b02 = a00 * a13 - a03 * a10;
+        let b03 = a01 * a12 - a02 * a11;
+        let b04 = a01 * a13 - a03 * a11;
+        let b05 = a02 * a13 - a03 * a12;
+        let b06 = a20 * a31 - a21 * a30;
+        let b07 = a20 * a32 - a22 * a30;
+        let b08 = a20 * a33 - a23 * a30;
+        let b09 = a21 * a32 - a22 * a31;
+        let b10 = a21 * a33 - a23 * a31;
+        let b11 = a22 * a33 - a23 * a32;
+
+        let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+        if det.abs() < EPSILON {
+            fail!(); // TODO
+        }
+
+        let det = 1.0 / det;
+
+        out._11 = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+        out._21 = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+        out._31 = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+        out._41 = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+        out._12 = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+        out._22 = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+        out._32 = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+        out._42 = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+        out._13 = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+        out._23 = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+        out._33 = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+        out._43 = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+        out._14 = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+        out._24 = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+        out._34 = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+        out._44 = (a20 * b03 - a21 * b01 + a22 * b00) * det;
     }
 }
 
