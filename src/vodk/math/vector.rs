@@ -6,6 +6,7 @@ use std::kinds::Copy;
 use std::num;
 
 pub static EPSILON: f32 = 0.001;
+pub static PI: f32 = 3.14159265359;
 
 #[deriving(Eq, Show)]
 pub struct Untyped;
@@ -92,20 +93,20 @@ pub mod Mat2 {
     }
 }
 
-#[deriving(Eq, Show)]
+#[deriving(Show)]
 pub struct Vector2D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
 }
 
-#[deriving(Eq, Show)]
+#[deriving(Show)]
 pub struct Vector3D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
     pub z: T,
 }
 
-#[deriving(Eq, Show)]
+#[deriving(Show)]
 pub struct Vector4D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
@@ -114,7 +115,7 @@ pub struct Vector4D<T, Unit = Untyped> {
 }
 
 #[allow(dead_code)]
-impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
+impl<T: Copy + Float, U> Vector4D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector4D<T,U> {
         assert!(from.len() >= 4);
         return Vector4D {
@@ -142,6 +143,14 @@ impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
         return self.x*rhs.x + self.y*rhs.y + self.z*rhs.z + self.w*rhs.w;
     }
 
+    pub fn length(&self) -> T {
+        return self.square_length().sqrt();
+    }
+
+    pub fn square_length(&self) -> T {
+        return self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w;
+    }
+
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
     pub fn xz(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.z } }
     pub fn yz(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.z } }
@@ -152,6 +161,34 @@ impl<T: Copy + Add<T,T> + Mul<T,T>, U> Vector4D<T, U> {
     pub fn xzy(&self) -> Vector3D<T,U> { Vector3D { x: self.x, y:self.z, z: self.y } }
     pub fn yxz(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.x, z: self.z } }
 }
+
+impl<T: Float, U> Eq for Vector4D<T, U> {
+    fn eq(&self, rhs:&Vector4D<T,U>) -> bool {
+        let d = *self - *rhs;
+        return d.x.abs() <= Float::epsilon()
+            && d.y.abs() <= Float::epsilon()
+            && d.z.abs() <= Float::epsilon()
+            && d.w.abs() <= Float::epsilon();
+    }
+}
+
+impl<T: Float, U> Eq for Vector3D<T, U> {
+    fn eq(&self, rhs:&Vector3D<T,U>) -> bool {
+        let d = *self - *rhs;
+        return d.x.abs() <= Float::epsilon()
+            && d.y.abs() <= Float::epsilon()
+            && d.z.abs() <= Float::epsilon();
+    }
+}
+
+impl<T: Float, U> Eq for Vector2D<T, U> {
+    fn eq(&self, rhs:&Vector2D<T,U>) -> bool {
+        let d = *self - *rhs;
+        return d.x.abs() <= Float::epsilon()
+            && d.y.abs() <= Float::epsilon();
+    }
+}
+
 
 #[allow(dead_code)]
 impl<T: ops::Add<T,T>, U>
@@ -219,7 +256,7 @@ impl<T : ops::Neg<T>, U>
 
 
 #[allow(dead_code)]
-impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector3D<T, U> {
+impl<T: Copy + Float, U> Vector3D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector3D<T,U> {
         assert!(from.len() >= 3);
         return Vector3D {
@@ -253,6 +290,14 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector3D<T, U> {
             y: (self.z * rhs.x) - (self.x * rhs.z),
             z: (self.x * rhs.y) - (self.y * rhs.x)
         }
+    }
+
+    pub fn length(&self) -> T {
+        return self.square_length().sqrt();
+    }
+
+    pub fn square_length(&self) -> T {
+        return self.x * self.x + self.y * self.y + self.z * self.z;
     }
 
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
@@ -338,7 +383,7 @@ impl<T : ops::Neg<T>, U>
 
 
 #[allow(dead_code)]
-impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Vector2D<T, U> {
+impl<T: Copy + Num, U> Vector2D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector2D<T,U> {
         assert!(from.len() >= 2);
         return Vector2D {
@@ -447,7 +492,7 @@ pub struct Matrix4D<T, Unit> {
 
 
 
-impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix2D<T, U> {
+impl<T: Copy + Num, U> Matrix2D<T, U> {
 
     pub fn from_slice(from: &[T]) -> Matrix2D<T,U> {
         assert!(from.len() >= 4);
@@ -524,7 +569,7 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
 }
 
 #[allow(dead_code)]
-impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
+impl<T: Copy + Num, U> Matrix4D<T, U> {
 
     pub fn from_slice(from: &[T]) -> Matrix4D<T,U> {
         assert!(from.len() >= 16);
@@ -575,18 +620,15 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix4D<T, U> {
 }
 
 impl<U> Matrix4D<f32,U> {
-    fn rotate(&mut self, rad: f32, axis: &[f32]) {
-        let x = axis[0];
-        let y = axis[1];
-        let z = axis[2];
-        let len = (x * x + y * y + z * z).sqrt();
+    fn rotate(&mut self, rad: f32, axis: &Vec3) {
+        let len = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
 
         if len.abs() < EPSILON { return; }
 
         let len = 1.0 / len;
-        let x = x * len;
-        let y = y * len;
-        let z = z * len;
+        let x = axis.x * len;
+        let y = axis.y * len;
+        let z = axis.z * len;
 
         let s = rad.sin();
         let c = rad.cos();
@@ -629,6 +671,28 @@ impl<U> Matrix4D<f32,U> {
         self._23 = a01 * b20 + a11 * b21 + a21 * b22;
         self._33 = a02 * b20 + a12 * b21 + a22 * b22;
         self._43 = a03 * b20 + a13 * b21 + a23 * b22;
+    }
+
+    fn translate(&mut self, v: &Vec3) {
+        self._14 = self._11 * v.x + self._12 * v.y + self._13 * v.z + self._14;
+        self._24 = self._21 * v.x + self._22 * v.y + self._23 * v.z + self._24;
+        self._34 = self._31 * v.x + self._32 * v.y + self._33 * v.z + self._34;
+        self._44 = self._41 * v.x + self._42 * v.y + self._43 * v.z + self._44;
+    }
+
+    fn scale(&mut self, v: &Vec3) {
+        self._11 = self._11 * v.x;
+        self._21 = self._21 * v.x;
+        self._31 = self._31 * v.x;
+        self._41 = self._41 * v.x;
+        self._12 = self._12 * v.y;
+        self._22 = self._22 * v.y;
+        self._32 = self._32 * v.y;
+        self._42 = self._42 * v.y;
+        self._13 = self._13 * v.z;
+        self._23 = self._23 * v.z;
+        self._33 = self._33 * v.z;
+        self._43 = self._43 * v.z;
     }
 }
 
@@ -699,11 +763,17 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
 
 #[test]
 fn test_vec4() {
-    let p1 = vec4(1.0, 2.0, 3.0, 4.0);
+    let p1 = vec4(1.0, 2.0, 3.0, 0.0);
     let p2 = -p1;
     let p3 = p1 + p2;
     let d = p1.dot(&p2);
     let m1 = Mat4::identity();
     let p5 = m1.transform(&p1);
-    assert_eq!(p1, p5);
+    let mut m1 = Mat4::identity();
+    m1.rotate(PI, &vec3(1.0, 0.0, 0.0));
+    let p6 = m1.transform(&p1);
+    let p7 = vec4(1.0, -2.0, -3.0, 0.0);
+    println!("p6:{} p7:{} p6-p7: {}", p6, p7, p6 - p7);
+    assert!(p1 == p5);
+    assert!(p6 == p7);
 }
