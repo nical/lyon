@@ -255,27 +255,22 @@ impl RenderingContext for RenderingContextGL {
 
     fn link_shader_program(&mut self, p: gpu::ShaderProgram,
                            shaders: &[gpu::Shader],
-                           attrib_locations: Option<&[(&str, VertexAttributeLocation)]>) -> RendererResult {
+                           attrib_locations: &[(&str, VertexAttributeLocation)]) -> RendererResult {
         unsafe {
             for s in shaders.iter() {
                 gl::AttachShader(p.handle, s.handle);
             }
 
-            match attrib_locations {
-                Some(ref attribs) => {
-                    for &(ref name, loc) in attribs.iter() {
-                        if loc < 0 {
-                            return Err(Error {
-                                code: 0,
-                                detail: Some(~"Invalid negative vertex attribute location")
-                            });
-                        }
-                        name.with_c_str(|c_name| {
-                            gl::BindAttribLocation(p.handle, loc as u32, c_name);
-                        });
-                    }
+            for &(ref name, loc) in attrib_locations.iter() {
+                if loc < 0 {
+                    return Err(Error {
+                        code: 0,
+                        detail: Some(~"Invalid negative vertex attribute location")
+                    });
                 }
-                _ => {}
+                name.with_c_str(|c_name| {
+                    gl::BindAttribLocation(p.handle, loc as u32, c_name);
+                });
             }
 
             gl::LinkProgram(p.handle);

@@ -50,14 +50,15 @@ static a_tex_coords: renderer::VertexAttributeLocation = 2;
 
 #[deriving(Show)]
 struct UniformLayout {
-    pub u_color : renderer::ShaderInputLocation,
-    pub u_texture_0 : renderer::ShaderInputLocation,
-    pub u_texture_1 : renderer::ShaderInputLocation,
-    pub u_texture_2 : renderer::ShaderInputLocation,
-    pub u_texture_3 : renderer::ShaderInputLocation,
-    pub u_model_mat : renderer::ShaderInputLocation,
-    pub u_view_mat : renderer::ShaderInputLocation,
-    pub u_proj_mat : renderer::ShaderInputLocation,
+    pub u_resolution: renderer::ShaderInputLocation,
+    pub u_color: renderer::ShaderInputLocation,
+    pub u_texture_0: renderer::ShaderInputLocation,
+    pub u_texture_1: renderer::ShaderInputLocation,
+    pub u_texture_2: renderer::ShaderInputLocation,
+    pub u_texture_3: renderer::ShaderInputLocation,
+    pub u_model_mat: renderer::ShaderInputLocation,
+    pub u_view_mat: renderer::ShaderInputLocation,
+    pub u_proj_mat: renderer::ShaderInputLocation,
 }
 
 impl UniformLayout {
@@ -71,6 +72,7 @@ impl UniformLayout {
             u_model_mat: ctx.get_shader_input_location(p, "u_model_mat"),
             u_view_mat:  ctx.get_shader_input_location(p, "u_view_mat"),
             u_proj_mat:  ctx.get_shader_input_location(p, "u_proj_mat"),
+            u_resolution: ctx.get_shader_input_location(p, "u_resolution"),
         }
     }
 }
@@ -89,19 +91,39 @@ fn setup_shader(ctx: &mut renderer::RenderingContext,
         |e| { fail!("Failed to compile the fragment shader: {}", e); return; }
     );
 
-    ctx.link_shader_program(program, [vs, fs],
-        Some(&[
-            ("a_position", a_position),
-            ("a_normals", a_normals),
-            ("a_tex_coords", a_tex_coords)
-        ])
-    ).map_err(
+    ctx.link_shader_program(program, [vs, fs], &[
+        ("a_position", a_position),
+        ("a_normals", a_normals),
+        ("a_tex_coords", a_tex_coords)
+    ]).map_err(
         |e| { fail!("Failed to link the text's shader program: {}", e); return; }
     );
 
     let uniforms = UniformLayout::new(ctx, program);
-
+    ctx.destroy_shader(vs);
+    ctx.destroy_shader(fs);
     return (program, uniforms);
+}
+
+fn quad(
+    x: f32, y: f32, w: f32, h: f32,
+    vertices: &mut [f32], indices: &mut [u16],
+    vertex_stride: uint, vertex_offset: u16
+) {
+    vertices[0] = x;
+    vertices[1] = y;
+    vertices[vertex_stride + 0] = x;
+    vertices[vertex_stride + 1] = y + h;
+    vertices[vertex_stride * 2 + 0] = x + w;
+    vertices[vertex_stride * 2 + 1] = y + h;
+    vertices[vertex_stride * 3 + 0] = x + w;
+    vertices[vertex_stride * 3 + 1] = y;
+    indices[0] = vertex_offset;
+    indices[1] = vertex_offset + 1;
+    indices[2] = vertex_offset + 2;
+    indices[3] = vertex_offset;
+    indices[4] = vertex_offset + 2;
+    indices[5] = vertex_offset + 3;
 }
 
 fn main() {
@@ -111,12 +133,6 @@ fn main() {
 
     let mut ctx = window.create_rendering_context();
     ctx.set_clear_color(0.8, 0.8, 0.8, 1.0);
-
-    let vertices: &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
-    let indices: &[u16] = &[0, 1, 2, 0, 2, 3];
-
-    let vertices2: &[f32] = &[ 0.0, 0.0,  1.0, 0.0,  1.0, 1.0,
-                                0.0, 0.0,  1.0, 1.0,  0.0, 1.0 ];
 
     let cube_vertices: &[f32] = &[
       // Front face     |     normals     | tex coords
@@ -203,29 +219,46 @@ fn main() {
         Err(e) => fail!(e),
     };
 
-    let quad_vertices = ctx.create_buffer();
-    let quad_indices = ctx.create_buffer();
+    let quad_vertices: &[f32] = &[
+          0.0,   0.0,   0.0, 0.0,
+        200.0,   0.0,   1.0, 0.0,
+        200.0, 200.0,   1.0, 1.0,
+          0.0, 200.0,   0.0, 1.0,
+    ];
+    let quad_indices: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-    ctx.upload_buffer(quad_vertices, renderer::VERTEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(vertices)).map_err(
+    let quad_vbo = ctx.create_buffer();
+    let quad_ibo = ctx.create_buffer();
+
+    ctx.upload_buffer(quad_vbo, renderer::VERTEX_BUFFER, renderer::STATIC,
+                      renderer::as_bytes(quad_vertices)).map_err(
         |e| { fail!("Failed to upload the vertex data: {}", e); return; }
     );
-    ctx.upload_buffer(quad_indices, renderer::INDEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(indices)).map_err(
+    ctx.upload_buffer(quad_ibo, renderer::INDEX_BUFFER, renderer::STATIC,
+                      renderer::as_bytes(quad_indices)).map_err(
         |e| { fail!("Failed to upload the vertex data: {}", e); return; }
     );
 
     let geom_res = ctx.create_geometry([
         renderer::VertexAttribute {
-            buffer: quad_vertices,
+            buffer: quad_vbo,
             attrib_type: renderer::F32,
             components: 2,
-            location: 0,
-            stride: 0,
+            location: a_position,
+            stride: 16,
             offset: 0,
             normalize: false,
+        },
+        renderer::VertexAttribute {
+            buffer: quad_vbo,
+            attrib_type: renderer::F32,
+            components: 2,
+            location: a_tex_coords,
+            stride: 16,
+            offset: 8,
+            normalize: false,
         }
-    ], Some(quad_indices));
+    ], Some(quad_ibo));
 
     let geom = match geom_res {
         Ok(g) => g,
@@ -298,12 +331,12 @@ fn main() {
         renderer::R8G8B8A8
     );
 
-    let checker = create_checker_texture(32, 32, ctx);
+    let checker = create_checker_texture(10, 10, ctx);
 
     let screen = ctx.get_default_render_target();
 
-    let mut avg_frame_time : u64 = 0;
-    let mut frame_count : u64 = 0;
+    let mut avg_frame_time: u64 = 0;
+    let mut frame_count: u64 = 0;
     let mut previous_time = time::precise_time_ns();
     let mut i = 0;
     while !window.should_close() {
@@ -318,12 +351,12 @@ fn main() {
         ctx.set_shader(program_tex_2d);
 
         ctx.set_shader_input_texture(uniforms_2d.u_texture_0, 0, checker);
+        ctx.set_shader_input_float(uniforms_2d.u_resolution, [800.0, 600.0]);
 
         ctx.draw(
             renderer::GeometryRange {
                 geometry: geom,
-                from: 0,
-                to: 6,
+                from: 0, to: 6,
                 flags: renderer::TRIANGLES
             },
             renderer::COLOR
@@ -338,8 +371,7 @@ fn main() {
         ctx.draw(
             renderer::GeometryRange {
                 geometry: text_geom,
-                from: 0,
-                to: (text.len()*6) as u32,
+                from: 0, to: (text.len()*6) as u32,
                 flags: renderer::TRIANGLES
             },
             renderer::COLOR
@@ -377,9 +409,6 @@ fn main() {
         window.swap_buffers();
 
         previous_time = frame_start_time;
-
-
-
         let frame_time = time::precise_time_ns() - frame_start_time;
         frame_count += 1;
         avg_frame_time += frame_time;
@@ -389,20 +418,20 @@ fn main() {
             avg_frame_time = 0;
         }
         // glfw is already throttling to 60fps for us
-        // let sleep_time : i64 = 16000000 - frame_time as i64;
+        // let sleep_time: i64 = 16000000 - frame_time as i64;
         // if (sleep_time > 0) {
         //     sleep(sleep_time as u64/1000000 );
         // }
     }
 
     ctx.destroy_geometry(geom);
-    ctx.destroy_buffer(quad_vertices);
-    ctx.destroy_buffer(quad_indices);
+    ctx.destroy_buffer(quad_vbo);
+    ctx.destroy_buffer(quad_ibo);
     ctx.destroy_texture(checker);
 }
 
 fn create_checker_texture(w: uint, h: uint, ctx: &mut renderer::RenderingContext) -> renderer::Texture {
-    let checker_data : Vec<u8> = Vec::from_fn(w*h*4, |i|{
+    let checker_data: Vec<u8> = Vec::from_fn(w*h*4, |i|{
         (((i / 4 + (i/(4*h))) % 2)*255) as u8
     });
     let checker = ctx.create_texture(renderer::REPEAT|renderer::FILTER_NEAREST);

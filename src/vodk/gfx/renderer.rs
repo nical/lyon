@@ -185,7 +185,7 @@ pub trait RenderingContext {
     fn create_shader_program(&mut self) -> ShaderProgram;
     fn destroy_shader_program(&mut self, s: ShaderProgram);
     fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader],
-                           attrib_locations: Option<&[(&str, VertexAttributeLocation)]>)  -> RendererResult;
+                           attrib_locations: &[(&str, VertexAttributeLocation)])  -> RendererResult;
 
     fn create_buffer(&mut self) -> Buffer;
     fn destroy_buffer(&mut self, buffer: Buffer);

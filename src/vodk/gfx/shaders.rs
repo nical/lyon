@@ -27,22 +27,22 @@ void main() {
 ";
 
 pub static TEXTURED_FRAGMENT_SHADER : &'static str = &"
-//precision lowp float;
 uniform vec4 u_color;
 uniform sampler2D u_texture_0;
 varying vec2 v_tex_coords;
 void main() {
     gl_FragColor = texture2D(u_texture_0, v_tex_coords);
-    //gl_FragColor = vec4(0.0, v_tex_coords, 1.0);
 }
 ";
 
 pub static BASIC_VERTEX_SHADER_2D : &'static str = &"
 attribute vec2 a_position;
+attribute vec2 a_tex_coords;
+uniform vec2 u_resolution;
 varying vec2 v_tex_coords;
 void main() {
-  gl_Position = vec4(a_position, 0.0, 1.0);
-  v_tex_coords = vec2(a_position.x, 1.0 - a_position.y);
+  gl_Position = vec4((a_position - u_resolution/2.0) / u_resolution, 0.0, 1.0);
+  v_tex_coords = a_tex_coords;
 }
 ";
 
