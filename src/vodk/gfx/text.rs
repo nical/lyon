@@ -26,6 +26,7 @@ pub fn text_buffer(text: &str,
     let mut y = y_offset;
 
     let mut i: uint = 0;
+    let margin = 0.001;
 
     for c in text.chars() {
         if c != ' ' && c != '\n' {
@@ -33,32 +34,32 @@ pub fn text_buffer(text: &str,
             out[i  ] = x;
             out[i+1] = y;
             out[i+2] = tex_s;
-            out[i+3] = tex_t;
+            out[i+3] = tex_t - margin;
 
             out[i+4] = x;
             out[i+5] = y + char_h;
             out[i+6] = tex_s;
-            out[i+7] = tex_t - dt;
+            out[i+7] = tex_t - dt + margin;
 
             out[i+8] = x + char_w;
             out[i+9] = y + char_h;
             out[i+10] = tex_s + ds;
-            out[i+11] = tex_t - dt;
+            out[i+11] = tex_t - dt + margin;
 
             out[i+12] = x;
             out[i+13] = y;
             out[i+14] = tex_s;
-            out[i+15] = tex_t;
+            out[i+15] = tex_t - margin;
 
             out[i+16] = x + char_w;
             out[i+17] = y + char_h;
             out[i+18] = tex_s + ds;
-            out[i+19] = tex_t - dt;
+            out[i+19] = tex_t - dt + margin;
 
             out[i+20] = x + char_w;
             out[i+21] = y;
             out[i+22] = tex_s + ds;
-            out[i+23] = tex_t;
+            out[i+23] = tex_t - margin;
         }
 
         if c == '\n' {

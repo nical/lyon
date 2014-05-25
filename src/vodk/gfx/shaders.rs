@@ -14,9 +14,8 @@ uniform vec4 u_color;
 uniform sampler2D u_texture_0;
 varying vec2 v_tex_coords;
 void main() {
-    gl_FragColor = u_color * texture2D(u_texture_0, v_tex_coords).r;
-    //gl_FragColor = vec4(v_tex_coords, 0.0, 1.0);
-    //gl_FragColor = u_color;
+    gl_FragColor = u_color;
+    gl_FragColor.a = texture2D(u_texture_0, v_tex_coords).r * 2.0;
 }
 ";
 
@@ -58,14 +57,16 @@ varying vec3 v_normals;
 varying vec2 v_tex_coords;
 void main() {
     v_tex_coords = a_tex_coords;
-    u_normals = v_normals;
+    v_normals = a_normals;
     gl_Position = u_proj_mat * u_view_mat * u_model_mat * vec4(a_position, 1.0);
 }
 ";
 
 pub static NORMALS_FRAGMENT_SHADER : &'static str = &"
+varying vec3 v_normals;
 varying vec2 v_tex_coords;
 void main() {
-    gl_FragColor = vec4(0.0, v_tex_coords, 1.0);
+    vec3 normals = v_normals * 0.5 + vec3(0.5, 0.5, 0.5);
+    gl_FragColor = vec4(normals, 1.0);
 }
 ";

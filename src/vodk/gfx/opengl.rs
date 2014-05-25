@@ -39,7 +39,7 @@ pub struct RenderingContextGL {
 impl RenderingContextGL {
     pub fn new() -> RenderingContextGL {
         gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA,gl::ONE);
+        gl::BlendFunc(gl::SRC_ALPHA,gl::ONE_MINUS_SRC_ALPHA);
 
         RenderingContextGL {
             workaround: DRIVER_DEFAULT,
@@ -230,6 +230,7 @@ impl RenderingContext for RenderingContextGL {
 
             for line in src.iter() {
                 lines.push(cast::transmute(line.as_ptr()));
+                lines_len.push(line.len() as i32);
             }
 
             gl::ShaderSource(shader.handle, 1, lines.as_ptr(), lines_len.as_ptr());

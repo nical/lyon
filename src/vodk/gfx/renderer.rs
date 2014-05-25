@@ -29,9 +29,9 @@ pub static LINE_STRIP            : GeometryFlags = LINES | STRIP;
 pub static LINE_LOOP             : GeometryFlags = LINES | LOOP;
 
 pub type TargetTypes = u32;
-pub static COLOR  : TargetTypes = 1;
-pub static DEPTH  : TargetTypes = 2;
-pub static STENCIL: TargetTypes = 3;
+pub static COLOR  : TargetTypes = 1 << 0;
+pub static DEPTH  : TargetTypes = 1 << 1;
+pub static STENCIL: TargetTypes = 1 << 2;
 
 #[deriving(Eq, Clone, Show)]
 pub enum ShaderType {
