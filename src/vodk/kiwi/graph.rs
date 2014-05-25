@@ -1,5 +1,6 @@
 use std::vec;
 use std::rc::Rc;
+use std::default::Default;
 
 type DataTypeList = Vec<DataTypeID>;
 
@@ -329,6 +330,49 @@ impl NodeDescriptor {
         }
         return true;
     }
+}
+
+struct NodeAttributeVector<T> {
+    data: Vec<T>
+}
+
+impl<T: Default> NodeAttributeVector<T> {
+
+    pub fn new() -> NodeAttributeVector<T> {
+        NodeAttributeVector {
+            data: Vec::new()
+        }
+    }
+
+    pub fn set(&mut self, id: NodeID, val: T) {
+        while self.data.len() <= id.handle as uint {
+            self.data.push(Default::default());
+        }
+        *self.data.get_mut(id.handle as uint) = val;
+    }
+
+    pub fn get<'l>(&'l self, id: NodeID) -> &'l T {
+        return self.data.get(id.handle as uint);
+    }
+
+    pub fn get_mut<'l> (&'l mut self, id: NodeID) -> &'l mut T {
+        while self.data.len() <= id.handle as uint {
+            self.data.push(Default::default());
+        }
+        return self.data.get_mut(id.handle as uint);
+    }
+
+    pub fn erase(&mut self, id: NodeID) {
+        if self.data.len() <= id.handle as uint {
+            return;
+        }
+
+        *self.data.get_mut(id.handle as uint) = Default::default();
+    }
+
+    pub fn len(&self) -> uint { self.data.len() }
+
+    pub fn clear(&mut self) { self.data.clear(); }
 }
 
 #[cfg(test)]
