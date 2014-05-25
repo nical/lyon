@@ -236,14 +236,14 @@ impl RenderingContext for RenderingContextGL {
             gl::ShaderSource(shader.handle, 1, lines.as_ptr(), lines_len.as_ptr());
             gl::CompileShader(shader.handle);
 
-            let mut buffer : Vec<u8> = Vec::from_fn(512, |i|{0});
-            let mut length: i32 = 0;
-            gl::GetShaderInfoLog(shader.handle, 512, &mut length,
-                                 mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
-
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             if status != gl::TRUE as i32 {
+                let mut buffer : Vec<u8> = Vec::from_fn(512, |i|{0});
+                let mut length: i32 = 0;
+                gl::GetShaderInfoLog(shader.handle, 512, &mut length,
+                                     mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
+
                 return Err( Error {
                     code: 0,
                     detail: Some(str::raw::from_utf8_owned(buffer)),
@@ -274,16 +274,16 @@ impl RenderingContext for RenderingContextGL {
             }
 
             gl::LinkProgram(p.handle);
-            let mut buffer :Vec<u8> = Vec::from_fn(512, |_|{0});
-            let mut length = 0;
-            gl::GetProgramInfoLog(p.handle, 512, &mut length,
-                                  mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
-
             gl::ValidateProgram(p.handle);
-            let mut status = 0;
-            gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, mem::transmute(&status));
+            let mut status: i32 = 0;
+            gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, &mut status);
 
-            if (status != gl::TRUE) {
+            if (status != gl::TRUE as i32) {
+                let mut buffer :Vec<u8> = Vec::from_fn(512, |_|{0});
+                let mut length = 0;
+                gl::GetProgramInfoLog(p.handle, 512, &mut length,
+                                      mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
+
                 return Err( Error {
                     code: 0,
                     detail: Some(str::raw::from_utf8_owned(buffer)),
