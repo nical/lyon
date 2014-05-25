@@ -4,6 +4,8 @@ use gpu = gfx::renderer;
 use std::str;
 use std::mem;
 use std::mem::size_of;
+use glfw;
+use std::rc::Rc;
 
 use super::renderer::*;
 
@@ -28,6 +30,7 @@ pub static DRIVER_DEFAULT : DriverBugs = 0;
 pub static MISSING_INDEX_BUFFER_VAO : DriverBugs = 1;
 
 pub struct RenderingContextGL {
+    window: Rc<glfw::Window>,
     workaround: DriverBugs,
     current_render_target: RenderTarget,
     current_program: ShaderProgram,
@@ -37,11 +40,12 @@ pub struct RenderingContextGL {
 }
 
 impl RenderingContextGL {
-    pub fn new() -> RenderingContextGL {
+    pub fn new(window: Rc<glfw::Window>) -> RenderingContextGL {
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC_ALPHA,gl::ONE_MINUS_SRC_ALPHA);
 
         RenderingContextGL {
+            window: window,
             workaround: DRIVER_DEFAULT,
             current_program: ShaderProgram { handle: 0 },
             current_render_target: RenderTarget { handle: 0 },
@@ -54,7 +58,12 @@ impl RenderingContextGL {
 
 impl RenderingContext for RenderingContextGL {
     fn make_current(&mut self) -> bool {
-        return true; // TODO
+        (self.window.deref() as &glfw::Context).make_current();
+        return true;
+    }
+
+    fn swap_buffers(&mut self) {
+        (self.window.deref() as &glfw::Context).swap_buffers();
     }
 
     fn reset_state(&mut self) {

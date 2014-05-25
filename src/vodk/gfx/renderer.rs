@@ -156,6 +156,7 @@ pub trait RenderingContext {
     fn reset_state(&mut self);
 
     fn make_current(&mut self) -> bool;
+    fn swap_buffers(&mut self);
     fn check_error(&mut self) -> Option<String>;
     fn get_error_str(&mut self, err: ErrorCode) -> &'static str;
 

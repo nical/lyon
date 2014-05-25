@@ -406,7 +406,7 @@ fn main() {
         );
 
         i+=1;
-        window.swap_buffers();
+        ctx.swap_buffers();
 
         previous_time = frame_start_time;
         let frame_time = time::precise_time_ns() - frame_start_time;
