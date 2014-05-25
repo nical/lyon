@@ -129,7 +129,7 @@ fn quad(
 fn main() {
     std::io::println("vodk!");
 
-    let mut window = gfx::window::Window::create(800, 600, &"vodk");
+    let mut window = gfx::window::Window::create(800, 600, "vodk");
 
     let mut ctx = window.create_rendering_context();
     ctx.set_clear_color(0.8, 0.8, 0.8, 1.0);
@@ -265,7 +265,7 @@ fn main() {
         Err(e) => fail!("Failed to create a Geometry object: {}", e),
     };
 
-    let text = &"vodk! - Hello World";
+    let text = "vodk! - Hello World";
     let mut text_vertices = Vec::from_fn(
         text.len()*24,
         |_|{ 0.0 as f32 }

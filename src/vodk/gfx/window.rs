@@ -33,8 +33,8 @@ impl Window {
         };
     }
 
-    pub fn create_rendering_context(&mut self) -> ~renderer::RenderingContext {
-        return ~opengl::RenderingContextGL::new() as ~renderer::RenderingContext;
+    pub fn create_rendering_context(&mut self) -> Box<renderer::RenderingContext> {
+        return box opengl::RenderingContextGL::new() as Box<renderer::RenderingContext>;
     }
 
     pub fn swap_buffers(&mut self) {

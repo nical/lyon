@@ -1,5 +1,4 @@
 
-use std::cast;
 use std::mem;
 
 pub type TextureFlags = i32;
@@ -123,7 +122,7 @@ pub struct RenderTarget { pub handle: Handle }
 #[deriving(Eq, Clone, Show)]
 pub struct Error {
     pub code: ErrorCode,
-    pub detail: Option<~str>,
+    pub detail: Option<String>,
 }
 
 pub type RendererResult = Result<(), Error>;
@@ -157,7 +156,7 @@ pub trait RenderingContext {
     fn reset_state(&mut self);
 
     fn make_current(&mut self) -> bool;
-    fn check_error(&mut self) -> Option<~str>;
+    fn check_error(&mut self) -> Option<String>;
     fn get_error_str(&mut self, err: ErrorCode) -> &'static str;
 
     fn create_texture(&mut self, flags: TextureFlags) -> Texture;
@@ -228,7 +227,7 @@ pub trait RenderingContext {
 
 pub fn as_bytes<'l, T>(src: &'l [T]) -> &'l [u8] {
     unsafe {
-        return cast::transmute((
+        return mem::transmute((
             src.as_ptr() as *T,
             src.len() * mem::size_of::<T>()
         ));
@@ -237,7 +236,7 @@ pub fn as_bytes<'l, T>(src: &'l [T]) -> &'l [u8] {
 
 pub fn as_mut_bytes<'l, T>(src: &'l mut [T]) -> &'l mut [u8] {
     unsafe {
-        return cast::transmute((
+        return mem::transmute((
             src.as_ptr() as *T,
             src.len() * mem::size_of::<T>()
         ));

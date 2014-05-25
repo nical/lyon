@@ -1,5 +1,5 @@
 
-pub static TEXT_VERTEX_SHADER: &'static str = &"
+pub static TEXT_VERTEX_SHADER: &'static str = "
 attribute vec2 a_position;
 attribute vec2 a_tex_coords;
 varying vec2 v_tex_coords;
@@ -9,7 +9,7 @@ void main() {
 }
 ";
 
-pub static TEXT_FRAGMENT_SHADER : &'static str = &"
+pub static TEXT_FRAGMENT_SHADER : &'static str = "
 uniform vec4 u_color;
 uniform sampler2D u_texture_0;
 varying vec2 v_tex_coords;
@@ -19,14 +19,14 @@ void main() {
 }
 ";
 
-pub static SOLID_COLOR_FRAGMENT_SHADER : &'static str = &"
+pub static SOLID_COLOR_FRAGMENT_SHADER : &'static str = "
 uniform vec4 u_color;
 void main() {
     gl_FragColor = u_color;
 }
 ";
 
-pub static TEXTURED_FRAGMENT_SHADER : &'static str = &"
+pub static TEXTURED_FRAGMENT_SHADER : &'static str = "
 uniform vec4 u_color;
 uniform sampler2D u_texture_0;
 varying vec2 v_tex_coords;
@@ -35,7 +35,7 @@ void main() {
 }
 ";
 
-pub static BASIC_VERTEX_SHADER_2D : &'static str = &"
+pub static BASIC_VERTEX_SHADER_2D : &'static str = "
 attribute vec2 a_position;
 attribute vec2 a_tex_coords;
 uniform vec2 u_resolution;
@@ -46,7 +46,7 @@ void main() {
 }
 ";
 
-pub static BASIC_VERTEX_SHADER_3D : &'static str = &"
+pub static BASIC_VERTEX_SHADER_3D : &'static str = "
 attribute vec3 a_position;
 attribute vec3 a_normals;
 attribute vec2 a_tex_coords;
@@ -62,7 +62,7 @@ void main() {
 }
 ";
 
-pub static NORMALS_FRAGMENT_SHADER : &'static str = &"
+pub static NORMALS_FRAGMENT_SHADER : &'static str = "
 varying vec3 v_normals;
 varying vec2 v_tex_coords;
 void main() {

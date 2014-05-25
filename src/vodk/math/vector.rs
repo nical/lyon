@@ -1,5 +1,5 @@
 
-use std::cast;
+use std::mem;
 use std::ops;
 //use std::fmt;
 use std::kinds::Copy;
@@ -146,13 +146,13 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 4 as uint ));
+            return mem::transmute((&'l self.x as *T, 4 as uint ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 4 as uint ));
+            return mem::transmute((&'l self.x as *T, 4 as uint ));
         }
     }
 
@@ -285,13 +285,13 @@ impl<T: Copy + Float, U> Vector3D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 3 as uint ));
+            return mem::transmute((&'l self.x as *T, 3 as uint ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 3 as uint ));
+            return mem::transmute((&'l self.x as *T, 3 as uint ));
         }
     }
 
@@ -411,13 +411,13 @@ impl<T: Copy + Num, U> Vector2D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 2 as uint ));
+            return mem::transmute((&'l self.x as *T, 2 as uint ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
         unsafe {
-            return cast::transmute((&'l self.x as *T, 2 as uint ));
+            return mem::transmute((&'l self.x as *T, 2 as uint ));
         }
     }
 
@@ -521,22 +521,22 @@ impl<T: Copy + Num, U> Matrix2D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self._11 as *T, 4 as uint ));
+            return mem::transmute((&'l self._11 as *T, 4 as uint ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
         unsafe {
-            return cast::transmute((&'l self._11 as *T, 4 as uint ));
+            return mem::transmute((&'l self._11 as *T, 4 as uint ));
         }
     }
 
     pub fn row_1<'l>(&'l self) -> &'l Vector2D<T,U> {
-        unsafe { cast::transmute(&'l self._11 as *T) }
+        unsafe { mem::transmute(&'l self._11 as *T) }
     }
 
     pub fn row_2<'l>(&'l self) -> &'l Vector2D<T,U> {
-        unsafe { cast::transmute(&'l self._12 as *T) }
+        unsafe { mem::transmute(&'l self._12 as *T) }
     }
 }
 
@@ -554,13 +554,13 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self._11 as *T, 9 as uint ));
+            return mem::transmute((&'l self._11 as *T, 9 as uint ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
         unsafe {
-            return cast::transmute((&'l self._11 as *T, 9 as uint ));
+            return mem::transmute((&'l self._11 as *T, 9 as uint ));
         }
     }
 
@@ -573,15 +573,15 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
     }
 
     pub fn row_1<'l>(&'l self) -> &'l Vector3D<T,U> {
-        unsafe { cast::transmute(&'l self._11 as *T) }
+        unsafe { mem::transmute(&'l self._11 as *T) }
     }
 
     pub fn row_2<'l>(&'l self) -> &'l Vector3D<T,U> {
-        unsafe { cast::transmute(&'l self._12 as *T) }
+        unsafe { mem::transmute(&'l self._12 as *T) }
     }
 
     pub fn row_3<'l>(&'l self) -> &'l Vector3D<T,U> {
-        unsafe { cast::transmute(&'l self._13 as *T) }
+        unsafe { mem::transmute(&'l self._13 as *T) }
     }
 }
 
@@ -600,13 +600,13 @@ impl<T: Copy + Num, U> Matrix4D<T, U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [T] {
         unsafe {
-            return cast::transmute((&'l self._11 as *T, 16 as uint ));
+            return mem::transmute((&'l self._11 as *T, 16 as uint ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
         unsafe {
-            return cast::transmute((&'l self._11 as *T, 16 as uint ));
+            return mem::transmute((&'l self._11 as *T, 16 as uint ));
         }
     }
 
@@ -620,19 +620,19 @@ impl<T: Copy + Num, U> Matrix4D<T, U> {
     }
 
     pub fn row_1<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { cast::transmute(&'l self._11 as *T) }
+        unsafe { mem::transmute(&'l self._11 as *T) }
     }
 
     pub fn row_2<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { cast::transmute(&'l self._12 as *T) }
+        unsafe { mem::transmute(&'l self._12 as *T) }
     }
 
     pub fn row_3<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { cast::transmute(&'l self._13 as *T) }
+        unsafe { mem::transmute(&'l self._13 as *T) }
     }
 
     pub fn row_4<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { cast::transmute(&'l self._14 as *T) }
+        unsafe { mem::transmute(&'l self._14 as *T) }
     }
 }
 

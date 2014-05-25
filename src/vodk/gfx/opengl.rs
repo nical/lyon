@@ -2,7 +2,7 @@ use gl;
 use glfw;
 use gpu = gfx::renderer;
 use std::str;
-use std::cast;
+use std::mem;
 use std::mem::size_of;
 
 use super::renderer::*;
@@ -72,14 +72,14 @@ impl RenderingContext for RenderingContextGL {
         gl::BlendFunc(gl::SRC_ALPHA,gl::ONE);
     }
 
-    fn check_error(&mut self) -> Option<~str> {
+    fn check_error(&mut self) -> Option<String> {
         match gl::GetError() {
             gl::NO_ERROR            => None,
-            gl::INVALID_ENUM        => Some(~"Invalid enum."),
-            gl::INVALID_VALUE       => Some(~"Invalid value."),
-            gl::INVALID_OPERATION   => Some(~"Invalid operation."),
-            gl::OUT_OF_MEMORY       => Some(~"Out of memory."),
-            _ => Some(~"Unknown error."),
+            gl::INVALID_ENUM        => Some("Invalid enum.".to_owned()),
+            gl::INVALID_VALUE       => Some("Invalid value.".to_owned()),
+            gl::INVALID_OPERATION   => Some("Invalid operation.".to_owned()),
+            gl::OUT_OF_MEMORY       => Some("Out of memory.".to_owned()),
+            _ => Some("Unknown error.".to_owned()),
         }
     }
 
@@ -171,7 +171,7 @@ impl RenderingContext for RenderingContextGL {
         unsafe {
             gl::TexImage2D(
                 gl::TEXTURE_2D, 0, fmt as i32, w as i32, h as i32,
-                0, fmt, gl::UNSIGNED_BYTE, cast::transmute(data.unsafe_ref(0))
+                0, fmt, gl::UNSIGNED_BYTE, mem::transmute(data.unsafe_ref(0))
             );
         }
 
@@ -187,7 +187,7 @@ impl RenderingContext for RenderingContextGL {
         unsafe {
             gl::TexImage2D(
                 gl::TEXTURE_2D, 0, fmt as i32, w as i32, h as i32,
-                0, fmt, gl::UNSIGNED_BYTE, cast::transmute(0)
+                0, fmt, gl::UNSIGNED_BYTE, mem::transmute(0)
             );
         }
         print_gl_error("upload_texture_data after TexImage2D");
@@ -201,7 +201,7 @@ impl RenderingContext for RenderingContextGL {
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
         unsafe {
             gl::GetTexImage(gl::TEXTURE_2D, 0, gl_format(format), 
-                            gl::UNSIGNED_BYTE, cast::transmute(dest.unsafe_ref(0)));
+                            gl::UNSIGNED_BYTE, mem::transmute(dest.unsafe_ref(0)));
             check_err!("glGetTexImage(...) on texture {}", tex.handle);
         }
         return Ok(());
@@ -229,17 +229,17 @@ impl RenderingContext for RenderingContextGL {
             let mut lines_len: Vec<i32> = Vec::new();
 
             for line in src.iter() {
-                lines.push(cast::transmute(line.as_ptr()));
+                lines.push(mem::transmute(line.as_ptr()));
                 lines_len.push(line.len() as i32);
             }
 
             gl::ShaderSource(shader.handle, 1, lines.as_ptr(), lines_len.as_ptr());
             gl::CompileShader(shader.handle);
 
-            let mut buffer = ~[0 as u8, ..512];
+            let mut buffer : Vec<u8> = Vec::from_fn(512, |i|{0});
             let mut length: i32 = 0;
             gl::GetShaderInfoLog(shader.handle, 512, &mut length,
-                                 cast::transmute(buffer.unsafe_mut_ref(0)));
+                                 mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
 
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
@@ -265,7 +265,7 @@ impl RenderingContext for RenderingContextGL {
                 if loc < 0 {
                     return Err(Error {
                         code: 0,
-                        detail: Some(~"Invalid negative vertex attribute location")
+                        detail: Some("Invalid negative vertex attribute location".to_owned())
                     });
                 }
                 name.with_c_str(|c_name| {
@@ -274,14 +274,14 @@ impl RenderingContext for RenderingContextGL {
             }
 
             gl::LinkProgram(p.handle);
-            let mut buffer = ~[0 as u8, ..512];
+            let mut buffer :Vec<u8> = Vec::from_fn(512, |_|{0});
             let mut length = 0;
             gl::GetProgramInfoLog(p.handle, 512, &mut length,
-                                  cast::transmute(buffer.unsafe_mut_ref(0)));
+                                  mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
 
             gl::ValidateProgram(p.handle);
             let mut status = 0;
-            gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, cast::transmute(&status));
+            gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, mem::transmute(&status));
 
             if (status != gl::TRUE) {
                 return Err( Error {
@@ -315,7 +315,7 @@ impl RenderingContext for RenderingContextGL {
             gl::BindBuffer(gl_buf_type, buffer.handle);
             check_err!("glBindBuffer({}, {})", buf_type, buffer.handle);
             gl::BufferData(gl_buf_type, data.len() as i64,
-                           cast::transmute(data.unsafe_ref(0)),
+                           mem::transmute(data.unsafe_ref(0)),
                            gl_update_hint(update));
             check_err!("glBufferData({}, {}, {}, {})", buf_type,
                         data.len(), data.unsafe_ref(0),
@@ -331,7 +331,7 @@ impl RenderingContext for RenderingContextGL {
             gl::BindBuffer(gl_buf_type, buffer.handle);
             check_err!("glBindBuffer({}, {})", buf_type, buffer.handle);
             gl::BufferData(gl_buf_type, size as i64,
-                           cast::transmute(0),
+                           mem::transmute(0),
                            gl_update_hint(update));
             check_err!("glBufferData({}, {}, 0, {})", buf_type,
                        size, gl_update_hint(update));
@@ -362,7 +362,7 @@ impl RenderingContext for RenderingContextGL {
                                     gl_attribue_type(attr.attrib_type),
                                     gl_bool(attr.normalize),
                                     attr.stride as i32,
-                                    cast::transmute(attr.offset as uint));
+                                    mem::transmute(attr.offset as uint));
             check_err!("glVertexAttribPointer(...)");
             gl::EnableVertexAttribArray(attr.location as u32);
             check_err!("glEnableVertexAttribArray({})", attr.location);
@@ -513,9 +513,9 @@ impl RenderingContext for RenderingContextGL {
     fn set_shader_input_matrix(&mut self, location: ShaderInputLocation, input: &[f32], dimension: u32, transpose: bool) {
         unsafe {
             match dimension {
-                2 => { gl::UniformMatrix2fv(location as i32, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
-                3 => { gl::UniformMatrix3fv(location as i32, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
-                4 => { gl::UniformMatrix4fv(location as i32, 1, gl_bool(transpose), cast::transmute(input.unsafe_ref(0))); }
+                2 => { gl::UniformMatrix2fv(location as i32, 1, gl_bool(transpose), mem::transmute(input.unsafe_ref(0))); }
+                3 => { gl::UniformMatrix3fv(location as i32, 1, gl_bool(transpose), mem::transmute(input.unsafe_ref(0))); }
+                4 => { gl::UniformMatrix4fv(location as i32, 1, gl_bool(transpose), mem::transmute(input.unsafe_ref(0))); }
                 _ => { fail!("Invalid matrix dimension"); }
             }
         }
@@ -560,7 +560,7 @@ impl RenderingContext for RenderingContextGL {
                 gl::DrawElements(gl_draw_mode(geom.flags),
                                  geom.to as i32,
                                  gl::UNSIGNED_SHORT,
-                                 cast::transmute(0));
+                                 mem::transmute(0));
             }
             check_err!("glDrawElements(...)");
         } else {
