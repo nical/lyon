@@ -179,12 +179,20 @@ fn main() {
     let cube_vbo = ctx.create_buffer();
     let cube_ibo = ctx.create_buffer();
 
-    ctx.upload_buffer(cube_vbo, renderer::VERTEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(cube_vertices));
-    ctx.upload_buffer(cube_ibo, renderer::VERTEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(cube_indices));
+    ctx.upload_buffer(
+        cube_vbo,
+        renderer::VERTEX_BUFFER,
+        renderer::STATIC,
+        renderer::as_bytes(cube_vertices)
+    ).ok().expect("cube vbo upload");
+    ctx.upload_buffer(
+        cube_ibo,
+        renderer::INDEX_BUFFER,
+        renderer::STATIC,
+        renderer::as_bytes(cube_indices)
+    ).ok().expect("cube ibo upload");
 
-    let cube_geom_res = ctx.create_geometry([
+    let cube_geom = ctx.create_geometry([
         renderer::VertexAttribute {
             buffer: cube_vbo,
             attrib_type: renderer::F32,
@@ -211,13 +219,9 @@ fn main() {
             stride: 32,
             offset: 24,
             normalize: false,
-        },
-    ], Some(cube_ibo));
-
-    let cube_geom = match cube_geom_res {
-        Ok(geom) => geom,
-        Err(e) => fail!(e),
-    };
+        }],
+        Some(cube_ibo)
+    ).ok().expect("cube geom definition");
 
     let quad_vertices: &[f32] = &[
           0.0,   0.0,   0.0, 0.0,
@@ -230,16 +234,21 @@ fn main() {
     let quad_vbo = ctx.create_buffer();
     let quad_ibo = ctx.create_buffer();
 
-    ctx.upload_buffer(quad_vbo, renderer::VERTEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(quad_vertices)).map_err(
-        |e| { fail!("Failed to upload the vertex data: {}", e); return; }
-    );
-    ctx.upload_buffer(quad_ibo, renderer::INDEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(quad_indices)).map_err(
-        |e| { fail!("Failed to upload the vertex data: {}", e); return; }
-    );
+    ctx.upload_buffer(
+        quad_vbo,
+        renderer::VERTEX_BUFFER,
+        renderer::STATIC,
+        renderer::as_bytes(quad_vertices)
+    ).ok().expect("vbo upload");
 
-    let geom_res = ctx.create_geometry([
+    ctx.upload_buffer(
+        quad_ibo,
+        renderer::INDEX_BUFFER,
+        renderer::STATIC,
+        renderer::as_bytes(quad_indices)
+    ).ok().expect("ibo upload");
+
+    let geom = ctx.create_geometry([
         renderer::VertexAttribute {
             buffer: quad_vbo,
             attrib_type: renderer::F32,
@@ -257,13 +266,9 @@ fn main() {
             stride: 16,
             offset: 8,
             normalize: false,
-        }
-    ], Some(quad_ibo));
-
-    let geom = match geom_res {
-        Ok(g) => g,
-        Err(e) => fail!("Failed to create a Geometry object: {}", e),
-    };
+        }],
+        Some(quad_ibo)
+    ).ok().expect("geom creation");
 
     let text = "vodk! - Hello World";
     let mut text_vertices = Vec::from_fn(
@@ -272,12 +277,14 @@ fn main() {
     );
     text::text_buffer(text, 0.0, -0.5, 0.04, 0.08, text_vertices.as_mut_slice());
     let text_vbo = ctx.create_buffer();
-    ctx.upload_buffer(text_vbo, renderer::VERTEX_BUFFER, renderer::STATIC,
-                      renderer::as_bytes(text_vertices.as_slice())).map_err(
-        |e| { fail!("Failed to upload the text's vertex data: {}", e); return; }
-    );
+    ctx.upload_buffer(
+        text_vbo,
+        renderer::VERTEX_BUFFER,
+        renderer::STATIC,
+        renderer::as_bytes(text_vertices.as_slice())
+    ).ok().expect("text vbo upload");
 
-    let text_geom_res = ctx.create_geometry([
+    let text_geom = ctx.create_geometry([
         renderer::VertexAttribute {
             buffer: text_vbo,
             attrib_type: renderer::F32,
@@ -297,12 +304,7 @@ fn main() {
             normalize: false,
         }],
         None
-    );
-
-    let text_geom = match text_geom_res {
-        Ok(geom) => geom,
-        Err(e) => fail!("Failed to upload the text's geometry {}", e),
-    };
+    ).ok().expect("text geom creation");
 
     let (text_program, text_uniforms) = setup_shader(ctx,
         shaders::TEXT_VERTEX_SHADER,
@@ -348,7 +350,7 @@ fn main() {
 
         ctx.clear(renderer::COLOR|renderer::DEPTH);
 
-        ctx.set_shader(program_tex_2d);
+        ctx.set_shader(program_tex_2d).ok().expect("set texturing shader");
 
         ctx.set_shader_input_texture(uniforms_2d.u_texture_0, 0, checker);
         ctx.set_shader_input_float(uniforms_2d.u_resolution, [800.0, 600.0]);
@@ -360,11 +362,9 @@ fn main() {
                 flags: renderer::TRIANGLES
             },
             renderer::COLOR
-        ).map_err(
-            |e| { fail!("Rendering error: {}", e); return; }
-        );
+        ).ok().expect("draw(checker texture)");
 
-        ctx.set_shader(text_program);
+        ctx.set_shader(text_program).ok().expect("set text shader");
         ctx.set_shader_input_float(text_uniforms.u_color, [1.0, 0.0, 0.0, 1.0]);
         ctx.set_shader_input_texture(text_uniforms.u_texture_0, 0, ascii_tex);
 
@@ -375,9 +375,7 @@ fn main() {
                 flags: renderer::TRIANGLES
             },
             renderer::COLOR
-        ).map_err(
-            |e| { fail!("Rendering error: {}", e); return; }
-        );
+        ).ok().expect("draw(text)");
 
         let mut proj_mat = vector::Mat4::identity();
         vector::Mat4::perspective(45.0, 1.5, 0.5, 1000.0, &mut proj_mat);
@@ -388,7 +386,7 @@ fn main() {
         view_mat.translate(&vector::vec3(0.0, 0.0, -10.0));
         view_mat.rotate(vector::PI * (i as f32 * 0.01).sin(), &vector::vec3(0.0, 1.0, 0.0));
 
-        ctx.set_shader(program_3d);
+        ctx.set_shader(program_3d).ok().expect("set 3d shader");
         ctx.set_shader_input_matrix(uniforms_3d.u_model_mat, model_mat.as_slice(), 4, false);
         ctx.set_shader_input_matrix(uniforms_3d.u_view_mat, view_mat.as_slice(), 4, false);
         ctx.set_shader_input_matrix(uniforms_3d.u_proj_mat, proj_mat.as_slice(), 4, false);
@@ -401,9 +399,7 @@ fn main() {
                 flags: renderer::TRIANGLES
             },
             renderer::COLOR|renderer::DEPTH
-        ).map_err(
-            |e| { fail!("Rendering error: {}", e); return; }
-        );
+        ).ok().expect("draw(cube)");
 
         i+=1;
         ctx.swap_buffers();
@@ -414,14 +410,14 @@ fn main() {
         avg_frame_time += frame_time;
 
         if frame_count % 60 == 0 {
-            println!("avg frame time: {}ms", avg_frame_time/(60*1000000));
+            println!("avg frame time: {}ms", avg_frame_time as f64/(60.0*1000000.0));
             avg_frame_time = 0;
         }
-        // glfw is already throttling to 60fps for us
-        // let sleep_time: i64 = 16000000 - frame_time as i64;
-        // if (sleep_time > 0) {
-        //     sleep(sleep_time as u64/1000000 );
-        // }
+
+        let sleep_time: i64 = 16000000 - frame_time as i64;
+        if (sleep_time > 0) {
+            sleep(sleep_time as u64/1000000 );
+        }
     }
 
     ctx.destroy_geometry(geom);
