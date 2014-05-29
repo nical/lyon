@@ -84,11 +84,11 @@ impl RenderingContext for RenderingContextGL {
     fn check_error(&mut self) -> Option<String> {
         match gl::GetError() {
             gl::NO_ERROR            => None,
-            gl::INVALID_ENUM        => Some("Invalid enum.".to_owned()),
-            gl::INVALID_VALUE       => Some("Invalid value.".to_owned()),
-            gl::INVALID_OPERATION   => Some("Invalid operation.".to_owned()),
-            gl::OUT_OF_MEMORY       => Some("Out of memory.".to_owned()),
-            _ => Some("Unknown error.".to_owned()),
+            gl::INVALID_ENUM        => Some("Invalid enum.".to_string()),
+            gl::INVALID_VALUE       => Some("Invalid value.".to_string()),
+            gl::INVALID_OPERATION   => Some("Invalid operation.".to_string()),
+            gl::OUT_OF_MEMORY       => Some("Out of memory.".to_string()),
+            _ => Some("Unknown error.".to_string()),
         }
     }
 
@@ -274,7 +274,7 @@ impl RenderingContext for RenderingContextGL {
                 if loc < 0 {
                     return Err(Error {
                         code: 0,
-                        detail: Some("Invalid negative vertex attribute location".to_owned())
+                        detail: Some("Invalid negative vertex attribute location".to_string())
                     });
                 }
                 name.with_c_str(|c_name| {
