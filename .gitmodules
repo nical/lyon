@@ -3,10 +3,10 @@
 	url = https://github.com/kballard/rust-lua.git
 [submodule "extern/gl"]
 	path = extern/gl
-	url = git@github.com:nical/gl-rs.git
+	url = https://github.com/nical/gl-rs
 [submodule "extern/glfw"]
 	path = extern/glfw
-	url = git@github.com:nical/glfw-rs.git
+	url = https://github.com/nical/glfw-rs
 [submodule "extern/png"]
 	path = extern/png
 	url = https://github.com/nical/rust-png
