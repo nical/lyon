@@ -1,6 +1,7 @@
 use std::vec;
 use std::rc::Rc;
 use std::default::Default;
+use std::slice;
 
 type DataTypeList = Vec<DataTypeID>;
 
@@ -24,6 +25,7 @@ struct NodeDescriptor {
 struct Node {
     inputs: Vec<Connection>,
     outputs: Vec<Connection>,
+    generics: Vec<Option<DataTypeID>>,
     node_type: NodeTypeID,
     valid: bool,
 }
@@ -66,12 +68,17 @@ impl Graph {
     }
 
     pub fn connect(&mut self, n1: NodeID, p1: PortIndex, n2: NodeID, p2: PortIndex) -> bool {
-        if !self.can_connect(n1, p1, n2, p2) {
-            return false;
-        }
         if self.are_connected(n1, p1, n2, p2) {
             return true;
         }
+        let c_type = self.type_system.can_connect_instances(
+            self.get_node(n1), p1,
+            self.get_node(n2), p2
+        );
+        if c_type.is_none() {
+            return false;
+        }
+        let c_type = c_type.unwrap();
         {
             let mut node1 = self.nodes.get_mut(n1.handle as uint);
             node1.outputs.push(Connection {
@@ -80,6 +87,10 @@ impl Graph {
                 other_port: p2
             });
             node1.outputs.sort_by(|a,b|{a.port.cmp(&b.port)});
+            match self.type_system.get(node1.node_type).outputs.get(p1 as uint).data_type {
+                Generic(g) => { *node1.generics.get_mut(g as uint) = Some(c_type); }
+                _ => {}
+            }
         }
         {
             let mut node2 = self.nodes.get_mut(n2.handle as uint);
@@ -89,13 +100,17 @@ impl Graph {
                 other_port: p1,
             });
             node2.inputs.sort_by(|a,b|{a.port.cmp(&b.port)});
+            match self.type_system.get(node2.node_type).inputs.get(p2 as uint).data_type {
+                Generic(g) => { *node2.generics.get_mut(g as uint) = Some(c_type); }
+                _ => {}
+            }
         }
         assert!(self.are_connected(n1, p1, n2, p2));
         return true;
     }
 
     pub fn are_connected(&self, n1: NodeID, p1: PortIndex, n2: NodeID, p2: PortIndex) -> bool {
-        if self.nodes.len() <= n1.handle as uint 
+        if self.nodes.len() <= n1.handle as uint
             || self.nodes.len() <= n2.handle as uint {
             return false;
         }
@@ -122,11 +137,18 @@ impl Graph {
         return connected1;
     }
 
+    fn get_node<'l>(&'l self, id: NodeID) -> &'l Node {
+        return self.nodes.get(id.handle as uint);
+    }
+
     pub fn can_connect(&self, n1: NodeID, p1: PortIndex, n2: NodeID, p2: PortIndex) -> bool {
         if !self.contains(n1) || !self.contains(n2) {
             return false;
         }
-        return self.type_system.can_connect(self, n1, p1, n2, p2);
+        return self.type_system.can_connect_instances(
+            self.get_node(n1), p1,
+            self.get_node(n2), p2
+        ).is_some();
     }
 
     pub fn disconnect_input(&mut self, n: NodeID, p: PortID) {
@@ -246,6 +268,7 @@ impl Node {
         Node {
             inputs: Vec::new(),
             outputs: Vec::new(),
+            generics: Vec::new(),
             node_type: t,
             valid: true,
         }
@@ -270,40 +293,95 @@ impl TypeSystem {
         return self.descriptors.get(type_id.handle as uint);
     }
 
-    pub fn can_connect(
-        &self, graph: &Graph,
-        n1: NodeID, p1: PortIndex,
-        n2: NodeID, p2: PortIndex
+    pub fn can_connect_types(
+        &self,
+        o_node: NodeTypeID, o_port: PortIndex,
+        i_node: NodeTypeID, i_port: PortIndex
     ) -> bool {
-        let nt_1 = graph.nodes.get(n1.handle as uint).node_type;
-        let nt_2 = graph.nodes.get(n2.handle as uint).node_type;
-        let pt_1 = self.descriptors.get(nt_1.handle as uint).inputs.get(p1 as uint).data_type;
-        let pt_2 = self.descriptors.get(nt_2.handle as uint).inputs.get(p2 as uint).data_type;
-        return pt_1 == pt_2;
+        let o_types = self.get(o_node).get_output_types(o_port);
+        let i_types = self.get(i_node).get_input_types(i_port);
+        return intersect_types(i_types, o_types).len() > 0;
+    }
+
+    pub fn can_connect_instances(
+        &self,
+        o_node: &Node, o_port: PortIndex,
+        i_node: &Node, i_port: PortIndex
+    ) -> Option<DataTypeID> {
+        let o_desc = self.get(o_node.node_type);
+        let i_desc = self.get(i_node.node_type);
+
+        let o_types = self.get_output_types(o_node, o_desc, o_port);
+        let i_types = self.get_input_types(i_node, i_desc, i_port);
+
+        let common = intersect_types(o_types, i_types);
+        return if common.len() == 1 { Some(*common.get(0)) }
+               else { None };
+    }
+
+    fn get_input_types<'l>(
+        &self, node: &'l Node,
+        desc: &'l NodeDescriptor,
+        port: PortIndex
+    ) -> &'l [DataTypeID] {
+        if desc.inputs.len() <= port as uint {
+            return &[];
+        }
+        match desc.inputs.get(port as uint).data_type {
+            Type(ref t) => { return slice::ref_slice(t); }
+            Generic(g) => {
+                match *node.generics.get(g as uint) {
+                    Some(ref t) => { return slice::ref_slice(t); }
+                    None => {
+                        return desc.generics.get(g as uint).as_slice();
+                    }
+                }
+            }
+        }
+    }
+
+    fn get_output_types<'l>(
+        &self, node: &'l Node,
+        desc: &'l NodeDescriptor,
+        port: PortIndex
+    ) -> &'l [DataTypeID] {
+        if desc.outputs.len() <= port as uint {
+            return &[];
+        }
+        match desc.outputs.get(port as uint).data_type {
+            Type(ref t) => { return slice::ref_slice(t); }
+            Generic(g) => {
+                match *node.generics.get(g as uint) {
+                    Some(ref t) => { return slice::ref_slice(t); }
+                    None => {
+                        return desc.generics.get(g as uint).as_slice();
+                    }
+                }
+            }
+        }
     }
 }
 
 #[allow(dead_code)]
 impl NodeDescriptor {
-    // TODO: return a slice
-    fn get_input_types(&self, port: PortIndex) -> Vec<DataTypeID> {
+
+    fn get_input_types<'l>(&'l self, port: PortIndex) -> &'l [DataTypeID] {
         if port as uint >= self.inputs.len() {
-            return Vec::new();
+            return &[];
         }
         match self.inputs.get(port as uint).data_type {
-            Type(t) => { return vec!(t); },
-            Generic(g) => { return self.generics.get(g as uint).clone(); }
+            Type(ref t) => { return slice::ref_slice(t); },
+            Generic(g) => { return self.generics.get(g as uint).as_slice(); }
         }
     }
 
-    // TODO: return a slice
-    fn get_output_types(&self, port: PortIndex) -> Vec<DataTypeID> {
+    fn get_output_types<'l>(&'l self, port: PortIndex) -> &'l [DataTypeID] {
         if port as uint >= self.outputs.len() {
-            return Vec::new();
+            return &[];
         }
         match self.outputs.get(port as uint).data_type {
-            Type(t) => { return vec!(t); },
-            Generic(g) => { return self.generics.get(g as uint).clone(); }
+            Type(ref t) => { return slice::ref_slice(t); },
+            Generic(g) => { return self.generics.get(g as uint).as_slice(); }
         }
     }
 
@@ -311,7 +389,7 @@ impl NodeDescriptor {
         for input in self.inputs.iter() {
             match input.data_type {
                 Generic(g) => {
-                    if g as uint <= self.generics.len() {
+                    if g as uint >= self.generics.len() {
                         return false;
                     }
                 }
@@ -321,7 +399,7 @@ impl NodeDescriptor {
         for output in self.outputs.iter() {
             match output.data_type {
                 Generic(g) => {
-                    if g as uint <= self.generics.len() {
+                    if g as uint >= self.generics.len() {
                         return false;
                     }
                 }
@@ -379,7 +457,7 @@ impl<T: Default> NodeAttributeVector<T> {
 mod tests {
     use super::{
         Graph, NodeDescriptor, DataTypeID,
-        TypeSystem, PortDescriptor, Type,
+        TypeSystem, PortDescriptor, Type, Generic,
     };
     use std::rc::Rc;
 
@@ -388,7 +466,7 @@ mod tests {
         let mut types = TypeSystem::new();
 
         let INT = DataTypeID{ handle: 0};
-        //let FLOAT = DataTypeID{ handle: 1};
+        let FLOAT = DataTypeID{ handle: 1};
 
         let t1 = types.add(NodeDescriptor {
             generics: Vec::new(),
@@ -398,23 +476,43 @@ mod tests {
             ),
             outputs: vec!(
                 PortDescriptor { data_type: Type(INT) },
+                PortDescriptor { data_type: Type(FLOAT) },
             ),
         });
+
+        let t2 = types.add(NodeDescriptor {
+            generics: vec!(vec!(INT, FLOAT)),
+            inputs: vec!(
+                PortDescriptor { data_type: Generic(0) },
+                PortDescriptor { data_type: Generic(0) },
+            ),
+            outputs: vec!(
+                PortDescriptor { data_type: Generic(0) },
+            ),
+        });
+
+        assert!(types.can_connect_types(t1, 0, t1, 0));
+        assert!(!types.can_connect_types(t1, 1, t1, 0));
+        assert!(types.can_connect_types(t2, 0, t2, 0));
+        assert!(types.can_connect_types(t1, 0, t2, 0));
+        assert!(types.can_connect_types(t1, 1, t2, 0));
 
         let mut g = Graph::new(Rc::new(types));
 
         let n1 = g.add(t1);
         let n2 = g.add(t1);
         let n3 = g.add(t1);
+        let n4 = g.add(t2);
+        let n5 = g.add(t2);
 
         assert!(!g.are_connected(n1, 0, n2, 0));
         assert!(!g.are_connected(n1, 0, n3, 0));
 
         assert!(g.connect(n1, 0, n2, 0));
-        assert!(g.connect(n1, 1, n3, 0));
+        assert!(g.connect(n1, 0, n3, 0));
 
         assert!(g.are_connected(n1, 0, n2, 0));
-        assert!(g.are_connected(n1, 1, n3, 0));
+        assert!(g.are_connected(n1, 0, n3, 0));
 
         g.disconnect_input(n2, 0);
         g.disconnect_input(n3, 0);
@@ -439,4 +537,16 @@ mod tests {
         assert!(!g.are_connected(n1, 0, n2, 0));
         assert!(!g.are_connected(n2, 1, n3, 1));
     }
+}
+
+fn intersect_types(a: &[DataTypeID], b:&[DataTypeID]) -> Vec<DataTypeID> {
+    let mut result: Vec<DataTypeID> = Vec::new();
+    for i in a.iter() {
+        for j in b.iter() {
+            if *i == *j {
+                result.push(*i);
+            }
+        }
+    }
+    return result;
 }

@@ -1,28 +1,16 @@
 #[cfg(test)]
 mod test {
 
-use gl;
-use glfw;
-use glfw::Context;
 use gfx::opengl;
 use gfx::renderer;
 use gfx::shaders;
+use gfx::window;
 
 #[test]
 pub fn test() {
-    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-    glfw.window_hint(glfw::ContextVersion(3, 1));
-    glfw.window_hint(glfw::OpenglForwardCompat(true));
+    let mut window = window::Window::create(800, 600, "vodk");
+    let mut ctx = window.create_rendering_context();
 
-    let (window, _) = glfw.create_window(800, 600, "OpenGL", glfw::Windowed)
-        .expect("Failed to create GLFW window.");
-
-    window.make_current();
-
-    gl::load_with(|s| glfw.get_proc_address(s));
-
-    let mut gl = opengl::RenderingContextGL::new();
-    let mut ctx = &mut gl as &mut renderer::RenderingContext;
     test_texture_upload_readback(ctx);
     ctx.reset_state();
     test_render_to_texture(ctx);
