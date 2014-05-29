@@ -1,12 +1,12 @@
-[submodule "extern/glfw-rs"]
-	path = extern/glfw-rs
-	url = https://github.com/bjz/glfw-rs
-[submodule "extern/gl-rs"]
-	path = extern/gl-rs
-	url = https://github.com/bjz/gl-rs
 [submodule "extern/rust-lua"]
 	path = extern/rust-lua
 	url = https://github.com/kballard/rust-lua.git
+[submodule "extern/gl"]
+	path = extern/gl
+	url = git@github.com:nical/gl-rs.git
+[submodule "extern/glfw"]
+	path = extern/glfw
+	url = git@github.com:nical/glfw-rs.git
 [submodule "extern/png"]
 	path = extern/png
-	url = https://github.com/mozilla-servo/rust-png
+	url = git@github.com:nical/rust-png.git
