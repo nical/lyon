@@ -4,6 +4,7 @@ use glfw::Context;
 use gfx::opengl;
 use gfx::renderer;
 use std::rc::Rc;
+use io::inputs;
 
 use time;
 use std::io::timer::sleep;
@@ -47,9 +48,8 @@ impl Window {
     }
 
     pub fn create_rendering_context(&mut self) -> Box<renderer::RenderingContext> {
-        // It is essential to make the context current before calling gl::load_with.
+        // make the context current before calling gl::load_with.
         self.glfw_win.make_current();
-        // Load the OpenGL function pointers
         gl::load_with(|s| self.glfw.get_proc_address(s));
 
         let win = self.glfw_win.clone();
@@ -66,45 +66,41 @@ impl Window {
 
     pub fn poll_events(&self) {
         self.glfw.poll_events();
-        for event in glfw::flush_messages(&self.events) {
-            //handle_window_event(&window, event);
+        let mut inputs: Vec<inputs::Event> = Vec::new();
+        for (_, event) in glfw::flush_messages(&self.events) {
+            inputs.push(from_glfw_event(event));
         }
-
     }
 }
 
-
-pub trait InputEventListener {
-    fn on_event(&self, InputEvent);
+fn from_glfw_mouse_button(b: glfw::MouseButton) -> inputs::MouseButton {
+    match b {
+        glfw::MouseButtonLeft => inputs::MouseButtonLeft,
+        glfw::MouseButtonMiddle => inputs::MouseButtonMiddle,
+        glfw::MouseButtonRight => inputs::MouseButtonRight,
+        _ => inputs::MouseButtonLeft,
+    }
 }
 
-pub type Key = glfw::Key;
-
-pub enum Action {
-    Press,
-    Release,
-    Repeat,
+fn from_glfw_action(a: glfw::Action) -> inputs::Action {
+    match a {
+        glfw::Press => inputs::Press,
+        glfw::Release => inputs::Release,
+        glfw::Repeat => inputs::Repeat,
+    }
 }
 
-pub enum MouseButton {
-    MouseButtonLeft,
-    MouseButtonRight,
-    MouseButtonMiddle,
+fn from_glfw_event(e: glfw::WindowEvent) -> inputs::Event {
+    match e {
+        glfw::PosEvent(x, y) => inputs::CursorPosEvent(x, y),
+        glfw::MouseButtonEvent(button, action, _) => inputs::MouseButtonEvent(
+            from_glfw_mouse_button(button),
+            from_glfw_action(action)
+        ),
+        glfw::FocusEvent(focus) => inputs::FocusEvent(focus),
+        glfw::CloseEvent => inputs::CloseEvent,
+        glfw::ScrollEvent(dx, dy) => inputs::ScrollEvent(dx as f32, dy as f32),
+        glfw::FramebufferSizeEvent(w, h) => inputs::FramebufferSizeEvent(w, h),
+        _ => inputs::DummyEvent,
+    }
 }
-
-pub enum InputEvent {
-    CursorPosEvent(i32, i32),
-    MouseButtonEvent(MouseButton, bool),
-    ScrollEvent(i32, i32),
-    FocusEvent(bool),
-    CloseEvent,
-    FrameBufferSizeEvent(i32, i32),
-}
-
-pub type EventMask = u32;
-pub static CURSOR_POS_EVENT: EventMask = 1 << 0;
-pub static MOUSE_BUTTON_EVENT: EventMask = 1 << 0;
-pub static SCROLL_EVENT: EventMask = 1 << 0;
-pub static FOCUS_EVENT: EventMask = 1 << 0;
-pub static CLOSE_EVENT: EventMask = 1 << 0;
-pub static FRAME_BUFFER_SIZE_EVENT: EventMask = 1 << 0;
