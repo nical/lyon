@@ -3,7 +3,6 @@ use glfw;
 use gpu = gfx::renderer;
 use std::str;
 use std::mem;
-use std::mem::size_of;
 use glfw;
 use std::rc::Rc;
 
@@ -84,11 +83,11 @@ impl RenderingContext for RenderingContextGL {
     fn check_error(&mut self) -> Option<String> {
         match gl::GetError() {
             gl::NO_ERROR            => None,
-            gl::INVALID_ENUM        => Some("Invalid enum.".to_owned()),
-            gl::INVALID_VALUE       => Some("Invalid value.".to_owned()),
-            gl::INVALID_OPERATION   => Some("Invalid operation.".to_owned()),
-            gl::OUT_OF_MEMORY       => Some("Out of memory.".to_owned()),
-            _ => Some("Unknown error.".to_owned()),
+            gl::INVALID_ENUM        => Some("Invalid enum.".to_string()),
+            gl::INVALID_VALUE       => Some("Invalid value.".to_string()),
+            gl::INVALID_OPERATION   => Some("Invalid operation.".to_string()),
+            gl::OUT_OF_MEMORY       => Some("Out of memory.".to_string()),
+            _ => Some("Unknown error.".to_string()),
         }
     }
 
@@ -248,7 +247,7 @@ impl RenderingContext for RenderingContextGL {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             if status != gl::TRUE as i32 {
-                let mut buffer : Vec<u8> = Vec::from_fn(512, |i|{0});
+                let mut buffer : Vec<u8> = Vec::from_fn(512, |_|{0});
                 let mut length: i32 = 0;
                 gl::GetShaderInfoLog(shader.handle, 512, &mut length,
                                      mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
@@ -274,7 +273,7 @@ impl RenderingContext for RenderingContextGL {
                 if loc < 0 {
                     return Err(Error {
                         code: 0,
-                        detail: Some("Invalid negative vertex attribute location".to_owned())
+                        detail: Some("Invalid negative vertex attribute location".to_string())
                     });
                 }
                 name.with_c_str(|c_name| {
@@ -287,7 +286,7 @@ impl RenderingContext for RenderingContextGL {
             let mut status: i32 = 0;
             gl::GetProgramiv(p.handle, gl::VALIDATE_STATUS, &mut status);
 
-            if (status != gl::TRUE as i32) {
+            if status != gl::TRUE as i32 {
                 let mut buffer :Vec<u8> = Vec::from_fn(512, |_|{0});
                 let mut length = 0;
                 gl::GetProgramInfoLog(p.handle, 512, &mut length,
@@ -552,10 +551,10 @@ impl RenderingContext for RenderingContextGL {
             self.current_target_types |= DEPTH;
         } else if (targets & DEPTH == 0) && (self.current_target_types & DEPTH != 0) {
             gl::Disable(gl::DEPTH_TEST);
-            self.current_target_types &= (COLOR|STENCIL);
+            self.current_target_types &= COLOR | STENCIL;
         }
 
-        if (geom.geometry != self.current_geometry) {
+        if geom.geometry != self.current_geometry {
             self.current_geometry = geom.geometry;
             gl::BindVertexArray(geom.geometry.handle);
             check_err!("glBindVertexArray({})", geom.geometry.handle);
