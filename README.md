@@ -15,14 +15,20 @@ First build
 
 ### Dependancies
 
-Vodk currently depends on:
+Vodk currently depends on this Rust crates.
 
--   https://github.com/bjz/glfw-rs
--   https://github.com/bjz/gl-rs
--   https://github.com/mozilla-servo/rust-png
+-    https://github.com/nical/gl-rs
+-    https://github.com/nical/glfw-rs
+-    https://github.com/nical/rust-png
+-    ~~https://github.com/kballard/rust-lua.git~~ not yet.
+
+And the 3.x version of `glfw` downloadable
+[here](http://www.glfw.org/download.html).
+
+#### Building deps
 
 To build for the first time, you will have to fetch and build every
-dependancies of vodk.rs
+dependancies of vodk.rs, that what `SETUP.sh` and `BUILD.sh` do.
 
 ~~~~ {.bash}
 cd extern
@@ -37,13 +43,15 @@ Building Vodk
 
     ./BUILD.sh
 
-Troubleshooting
----------------
+Troubleshooting(s)
+------------------
 
-### Linking with `glfw-rs`
+### Linking with `glfw`
 
-If linking `glfw-rs` fails, it probably means you don't have the right
+If linking with `glfw` fails, it probably means you don't have the right
 version of glfw installed, probably because your distro packages
-an older version. Download the glfw sources from http://www.glfw.org/ .
+an older version like Ubuntu 14.04 LTS.
+
+Download the glfw sources from [glfw](http://www.glfw.org/).
 (On Linux, build with the cmake argument `-DCMAKE_C_FLAGS=-fPIC`).
 
