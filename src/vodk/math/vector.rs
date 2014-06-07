@@ -22,6 +22,8 @@ pub type Mat4 = Matrix4D<f32, Untyped>;
 pub type Mat3 = Matrix3D<f32, Untyped>;
 pub type Mat2 = Matrix2D<f32, Untyped>;
 
+pub type Rect = Rectangle2D<f32, Untyped>;
+
 #[allow(dead_code)]
 pub mod Mat4 {
     use super::{Mat4, Matrix4D, Vec3};
@@ -129,6 +131,13 @@ pub struct Vector4D<T, Unit = Untyped> {
     pub y: T,
     pub z: T,
     pub w: T,
+}
+
+pub struct Rectangle2D<T, Unit = Untyped> {
+    pub x: T,
+    pub y: T,
+    pub w: T,
+    pub h: T,
 }
 
 #[allow(dead_code)]
@@ -830,6 +839,21 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
             _12: self._11 * rhs._12 + self._12 * rhs._22,
             _22: self._21 * rhs._12 + self._22 * rhs._22,
         };
+    }
+}
+
+impl<T: Num+Copy, U> Rectangle2D<T,U> {
+    pub fn origin(&self) -> Vector2D<T, U> { Vector2D { x: self.x, y: self.y } }
+    pub fn size(&self) -> Vector2D<T, U> { Vector2D { x: self.w, y: self.h } }
+    pub fn move_by(&mut self, v: Vector2D<T, U>) {
+        self.x = self.x + v.x;
+        self.y = self.y + v.y;
+    }
+    pub fn scale_by(&mut self, v: T) {
+        self.x = self.x * v;
+        self.y = self.y * v;
+        self.w = self.w * v;
+        self.h = self.h * v;
     }
 }
 

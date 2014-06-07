@@ -1,4 +1,6 @@
 
+use gfx::ui;
+
 pub fn tex_coords_from_ascii(c: u8) -> (f32, f32) {
     return (
         (c%16) as f32 / 16.0,
@@ -15,15 +17,17 @@ pub fn count_non_space(text: &str) -> uint {
     })
 }
 
-pub fn text_buffer(text: &str,
-               x_offset: f32, y_offset: f32,
-               char_w: f32, char_h: f32,
-               out: &mut [f32]) {
+pub fn text_buffer(
+    text: &str,
+    x_pos: f32, y_pos: f32,
+    char_w: f32, char_h: f32,
+    out: &mut [f32]
+) {
     let ds = 1.0/16.0;
     let dt = 1.0/16.0;
 
-    let mut x = x_offset;
-    let mut y = y_offset;
+    let mut x = x_pos;
+    let mut y = y_pos;
 
     let mut i: uint = 0;
     let margin = 0.001;
@@ -37,12 +41,12 @@ pub fn text_buffer(text: &str,
             out[i+3] = tex_t - margin;
 
             out[i+4] = x;
-            out[i+5] = y + char_h;
+            out[i+5] = y - char_h;
             out[i+6] = tex_s;
             out[i+7] = tex_t - dt + margin;
 
             out[i+8] = x + char_w;
-            out[i+9] = y + char_h;
+            out[i+9] = y - char_h;
             out[i+10] = tex_s + ds;
             out[i+11] = tex_t - dt + margin;
 
@@ -52,7 +56,7 @@ pub fn text_buffer(text: &str,
             out[i+15] = tex_t - margin;
 
             out[i+16] = x + char_w;
-            out[i+17] = y + char_h;
+            out[i+17] = y - char_h;
             out[i+18] = tex_s + ds;
             out[i+19] = tex_t - dt + margin;
 
@@ -63,8 +67,8 @@ pub fn text_buffer(text: &str,
         }
 
         if c == '\n' {
-            x = x_offset;
-            y -= char_h;
+            x = x_pos;
+            y += char_h;
         } else {
             x += char_w;
         }

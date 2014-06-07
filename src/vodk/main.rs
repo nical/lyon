@@ -107,12 +107,14 @@ impl app::Application for TestApp {
         ctx.set_render_target(screen);
         ctx.clear(renderer::COLOR|renderer::DEPTH);
 
+        let resolution = &[self.width as f32, self.height as f32];
+
         let mut i = 0;
         let &(shader, uniforms) = self.shaders.get(i);
         let dc = self.draw_calls.get(i);
         ctx.set_shader(shader).ok().expect("set ui shader");
         ctx.set_shader_input_texture(uniforms.u_texture_0, 0, *self.textures.get(0));
-        ctx.set_shader_input_float(uniforms.u_resolution, [self.width as f32, self.height as f32]);
+        ctx.set_shader_input_float(uniforms.u_resolution, resolution);
         ctx.draw(dc.geom, dc.first, dc.count, dc.flags, renderer::ALPHA_BLENDING, dc.targets).ok().expect("draw(ui)");
 
         i+=1;
@@ -128,6 +130,7 @@ impl app::Application for TestApp {
         let dc = self.draw_calls.get(i);
         ctx.set_shader(shader).ok().expect("set text shader");
         ctx.set_shader_input_float(uniforms.u_color, [1.0, 0.0, 0.0, 1.0]);
+        ctx.set_shader_input_float(uniforms.u_resolution, resolution);
         ctx.set_shader_input_texture(uniforms.u_texture_0, 0, *self.textures.get(1));
         ctx.draw(dc.geom, dc.first, dc.count, dc.flags, renderer::ALPHA_BLENDING, dc.targets).ok().expect("draw(text)");
 
@@ -212,26 +215,26 @@ impl TestApp {
             );
             ui::push_rect(
                 &mut ui_batch,
-                ui::Rect { x: 500.0, y: 0.0, w: 100.0, h: 100.0 },
-                Some(ui::Rect { x: 0.0, y: 0.0, w: 1.0, h: 1.0 }),
+                ui::rect(500.0, 0.0, 100.0, 100.0),
+                Some(ui::rect(0.0, 0.0, 1.0, 1.0)),
                 None
             );
             ui::push_circle(
                 &mut ui_batch,
                 300.0, 300.0, 100.0, 33,
-                Some(ui::Rect { x: 0.0, y: 0.0, w: 1.0, h: 1.0 }),
+                Some(ui::rect(0.0, 0.0, 1.0, 1.0)),
                 None
             );
             ui::push_circle(
                 &mut ui_batch,
                 600.0, 300.0, 50.0, 33,
-                Some(ui::Rect { x: 0.0, y: 0.0, w: 1.0, h: 1.0 }),
+                Some(ui::rect(0.0, 0.0, 1.0, 1.0)),
                 None
             );
             ui::push_rect(
                 &mut ui_batch,
-                ui::Rect { x: -0.0, y: 0.0, w: 100.0, h: 100.0 },
-                Some(ui::Rect { x: 0.0, y: 0.0, w: 1.0, h: 1.0 }),
+                ui::rect(-0.0, 0.0, 100.0, 100.0),
+                Some(ui::rect(0.0, 0.0, 1.0, 1.0 )),
                 None
             );
 
@@ -404,12 +407,12 @@ impl TestApp {
             Some(quad_ibo)
         ).ok().expect("geom creation");
 
-        let text = "vodk! - Hello World";
+        let text = "vodk! - Hello World\n--test--";
         let mut text_vertices = Vec::from_fn(
             text.len()*24,
             |_|{ 0.0 as f32 }
         );
-        text::text_buffer(text, 0.0, -0.5, 0.04, 0.08, text_vertices.as_mut_slice());
+        text::text_buffer(text, 400.0, 300.0, 32.0, 32.0, text_vertices.as_mut_slice());
         let text_vbo = ctx.create_buffer(renderer::VERTEX_BUFFER);
         ctx.upload_buffer(
             text_vbo,
@@ -468,7 +471,7 @@ impl TestApp {
         );
 
         self.shaders.push(setup_shader(ctx,
-            shaders::TEXT_VERTEX_SHADER,
+            shaders::BASIC_VERTEX_SHADER_2D,
             shaders::TEXT_FRAGMENT_SHADER
         ));
         self.draw_calls.push(
