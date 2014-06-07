@@ -15,6 +15,7 @@ use gfx::window;
 use math::vector;
 use math::units::pixels;
 use math::units::texels;
+use math::units::world;
 use io::inputs;
 use gfx::locations::*;
 use gfx::ui;
@@ -142,13 +143,13 @@ impl app::Application for TestApp {
         let &(shader, uniforms) = self.shaders.get(i);
         let dc = self.draw_calls.get(i);
         ctx.set_shader(shader).ok().expect("set 3d shader");
-        let mut proj_mat = vector::Mat4::identity();
-        vector::Mat4::perspective(45.0, self.width as f32 / self.height as f32, 0.5, 1000.0, &mut proj_mat);
+        let mut proj_mat = world::Mat4::identity();
+        world::Mat4::perspective(45.0, self.width as f32 / self.height as f32, 0.5, 1000.0, &mut proj_mat);
 
-        let model_mat = vector::Mat4::identity();
-        let mut view_mat = vector::Mat4::identity();
-        view_mat.translate(&vector::vec3(0.0, 0.0, -10.0));
-        view_mat.rotate(vector::PI * (frame_count as f32 * 0.01).sin(), &vector::vec3(0.0, 1.0, 0.0));
+        let model_mat = world::Mat4::identity();
+        let mut view_mat = world::Mat4::identity();
+        view_mat.translate(&world::vec3(0.0, 0.0, -10.0));
+        view_mat.rotate(vector::PI * (frame_count as f32 * 0.01).sin(), &world::vec3(0.0, 1.0, 0.0));
 
         ctx.set_shader_input_matrix(uniforms.u_model_mat, model_mat.as_slice(), 4, false);
         ctx.set_shader_input_matrix(uniforms.u_view_mat, view_mat.as_slice(), 4, false);

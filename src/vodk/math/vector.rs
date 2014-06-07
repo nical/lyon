@@ -644,7 +644,7 @@ impl<T: Copy + Num, U> Matrix4D<T, U> {
 }
 
 impl<U> Matrix4D<f32,U> {
-    pub fn rotate(&mut self, rad: f32, axis: &Vec3) {
+    pub fn rotate(&mut self, rad: f32, axis: &Vector3D<f32, U>) {
         let len = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
 
         if len.abs() < EPSILON { return; }
@@ -697,14 +697,14 @@ impl<U> Matrix4D<f32,U> {
         self._43 = a03 * b20 + a13 * b21 + a23 * b22;
     }
 
-    pub fn translate(&mut self, v: &Vec3) {
+    pub fn translate(&mut self, v: &Vector3D<f32, U>) {
         self._14 = self._11 * v.x + self._12 * v.y + self._13 * v.z + self._14;
         self._24 = self._21 * v.x + self._22 * v.y + self._23 * v.z + self._24;
         self._34 = self._31 * v.x + self._32 * v.y + self._33 * v.z + self._34;
         self._44 = self._41 * v.x + self._42 * v.y + self._43 * v.z + self._44;
     }
 
-    pub fn scale(&mut self, v: &Vec3) {
+    pub fn scale(&mut self, v: &Vector3D<f32, U>) {
         self._11 = self._11 * v.x;
         self._21 = self._21 * v.x;
         self._31 = self._31 * v.x;

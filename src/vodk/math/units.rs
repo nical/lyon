@@ -38,14 +38,39 @@ macro_rules! declare_unit (
                         _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
                     }
                 }
+
+                pub fn perspective(
+                    fovy: f32, aspect: f32,
+                    near: f32, far: f32,
+                    mat: &mut Mat4
+                ) {
+                    let f = 1.0 / (fovy / 2.0).tan();
+                    let nf: f32 = 1.0 / (near - far);
+                    mat._11 = f / aspect;
+                    mat._21 = 0.0;
+                    mat._31 = 0.0;
+                    mat._41 = 0.0;
+                    mat._12 = 0.0;
+                    mat._22 = f;
+                    mat._32 = 0.0;
+                    mat._42 = 0.0;
+                    mat._13 = 0.0;
+                    mat._23 = 0.0;
+                    mat._33 = (far + near) * nf;
+                    mat._43 = -1.0;
+                    mat._14 = 0.0;
+                    mat._24 = 0.0;
+                    mat._34 = (2.0 * far * near) * nf;
+                    mat._44 = 0.0;
+                }
             }
         }
     )
 )
 
-// In texture space (0 .. 1)
+// In texture space (0 .. 1) origin: top-left
 declare_unit!(texels)
-// In ui units (0 .. X)
+// In ui units (0 .. X) origin: top-left
 declare_unit!(pixels)
-// In world space
-declare_unit!(game)
+// In world space (-X .. Y)
+declare_unit!(world)
