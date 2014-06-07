@@ -13,9 +13,11 @@ use gfx::shaders;
 use gfx::text;
 use gfx::window;
 use math::vector;
+use math::units::pixels;
+use math::units::texels;
 use io::inputs;
-use gfx::ui;
 use gfx::locations::*;
+use gfx::ui;
 
 use std::io::timer::sleep;
 
@@ -35,7 +37,7 @@ pub mod logic {
     pub mod entity;
 }
 pub mod base {
-	pub mod containers;
+    pub mod containers;
 }
 
 pub mod kiwi {
@@ -44,6 +46,7 @@ pub mod kiwi {
 
 pub mod math {
     pub mod vector;
+    pub mod units;
 }
 
 pub mod io {
@@ -215,26 +218,26 @@ impl TestApp {
             );
             ui::push_rect(
                 &mut ui_batch,
-                ui::rect(500.0, 0.0, 100.0, 100.0),
-                Some(ui::rect(0.0, 0.0, 1.0, 1.0)),
+                pixels::rect(500.0, 0.0, 100.0, 100.0),
+                Some(texels::rect(0.0, 0.0, 1.0, 1.0)),
                 None
             );
             ui::push_circle(
                 &mut ui_batch,
                 300.0, 300.0, 100.0, 33,
-                Some(ui::rect(0.0, 0.0, 1.0, 1.0)),
+                Some(texels::rect(0.0, 0.0, 1.0, 1.0)),
                 None
             );
             ui::push_circle(
                 &mut ui_batch,
                 600.0, 300.0, 50.0, 33,
-                Some(ui::rect(0.0, 0.0, 1.0, 1.0)),
+                Some(texels::rect(0.0, 0.0, 1.0, 1.0)),
                 None
             );
             ui::push_rect(
                 &mut ui_batch,
-                ui::rect(-0.0, 0.0, 100.0, 100.0),
-                Some(ui::rect(0.0, 0.0, 1.0, 1.0 )),
+                pixels::rect(-0.0, 0.0, 100.0, 100.0),
+                Some(texels::rect(0.0, 0.0, 1.0, 1.0 )),
                 None
             );
 
