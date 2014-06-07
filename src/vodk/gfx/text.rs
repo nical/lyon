@@ -1,8 +1,10 @@
 
 use gfx::ui;
+use math::units::pixels;
+use math::units::texels;
 
-pub fn tex_coords_from_ascii(c: u8) -> (f32, f32) {
-    return (
+pub fn tex_coords_from_ascii(c: u8) -> texels::Vec2 {
+    return texels::vec2(
         (c%16) as f32 / 16.0,
         (c/16+1) as f32 / 16.0
     );
@@ -17,63 +19,77 @@ pub fn count_non_space(text: &str) -> uint {
     })
 }
 
-pub fn text_buffer(
+pub fn text_to_vertices(
     text: &str,
-    x_pos: f32, y_pos: f32,
-    char_w: f32, char_h: f32,
-    out: &mut [f32]
-) {
-    let ds = 1.0/16.0;
-    let dt = 1.0/16.0;
+    pos: pixels::Vec2,          // position of the beginning of the text run;
+    char_size: pixels::Vec2,
+    char_margin: pixels::Vec2,  // separation between letters
+    source_rect: texels::Rect,  // region of the font texture to sample from
+    vertex_stride: uint,        // in bytes
+    tex_coords_offset: uint,    // in bytes
+    out: &mut [f32]             // output
+) -> uint {                     // returns the number of vertices added
+    let ds = 1.0/16.0 * source_rect.w;
+    let dt = 1.0/16.0 * source_rect.h;
 
-    let mut x = x_pos;
-    let mut y = y_pos;
+    let stride = vertex_stride / 4;
+    let tc = tex_coords_offset / 4;
+
+    let mut x = pos.x;
+    let mut y = pos.y;
 
     let mut i: uint = 0;
-    let margin = 0.001;
 
     for c in text.chars() {
         if c != ' ' && c != '\n' {
-            let (tex_s, tex_t) = tex_coords_from_ascii(c as u8);
-            out[i  ] = x;
-            out[i+1] = y;
-            out[i+2] = tex_s;
-            out[i+3] = tex_t - margin;
+            let tex_coords = tex_coords_from_ascii(c as u8);
+            let tex_s = tex_coords.x * source_rect.w + source_rect.x;
+            let tex_t = tex_coords.y * source_rect.h + source_rect.y;
+            out[i] = x;
+            out[i + 1 ] = y;
+            out[i + tc]     = tex_s;
+            out[i + tc + 1] = tex_t;
 
-            out[i+4] = x;
-            out[i+5] = y - char_h;
-            out[i+6] = tex_s;
-            out[i+7] = tex_t - dt + margin;
+            i += stride;
+            out[i] = x;
+            out[i + 1] = y - char_size.y;
+            out[i + tc] = tex_s;
+            out[i + tc + 1] = tex_t - dt;
 
-            out[i+8] = x + char_w;
-            out[i+9] = y - char_h;
-            out[i+10] = tex_s + ds;
-            out[i+11] = tex_t - dt + margin;
+            i += stride;
+            out[i] = x + char_size.x;
+            out[i + 1] = y - char_size.y;
+            out[i + tc] = tex_s + ds;
+            out[i + tc + 1] = tex_t - dt;
 
-            out[i+12] = x;
-            out[i+13] = y;
-            out[i+14] = tex_s;
-            out[i+15] = tex_t - margin;
+            i += stride;
+            out[i] = x;
+            out[i + 1] = y;
+            out[i + tc] = tex_s;
+            out[i + tc + 1] = tex_t;
 
-            out[i+16] = x + char_w;
-            out[i+17] = y - char_h;
-            out[i+18] = tex_s + ds;
-            out[i+19] = tex_t - dt + margin;
+            i += stride;
+            out[i] = x + char_size.x;
+            out[i + 1] = y - char_size.y;
+            out[i + tc] = tex_s + ds;
+            out[i + tc + 1] = tex_t - dt;
 
-            out[i+20] = x + char_w;
-            out[i+21] = y;
-            out[i+22] = tex_s + ds;
-            out[i+23] = tex_t - margin;
+            i += stride;
+            out[i] = x + char_size.x;
+            out[i + 1] = y;
+            out[i + tc] = tex_s + ds;
+            out[i + tc + 1] = tex_t;
+
+            i += stride;
         }
 
         if c == '\n' {
-            x = x_pos;
-            y += char_h;
+            x = pos.x;
+            y += char_size.y + char_margin.y;
         } else {
-            x += char_w;
+            x += char_size.x + char_margin.x;
         }
-
-        i += 24;
     }
+    return i / stride;
 }
 

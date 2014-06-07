@@ -177,6 +177,8 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
         return self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w;
     }
 
+    pub fn to_tuple(&self) -> (T, T, T, T) { (self.x, self.y, self.z, self.w) }
+
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
     pub fn xz(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.z } }
     pub fn yz(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.z } }
@@ -324,6 +326,8 @@ impl<T: Copy + Float, U> Vector3D<T, U> {
         return self.x * self.x + self.y * self.y + self.z * self.z;
     }
 
+    pub fn to_tuple(&self) -> (T, T, T) { (self.x, self.y, self.z) }
+
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
     pub fn xz(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.z } }
     pub fn yz(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.z } }
@@ -427,6 +431,8 @@ impl<T: Copy + Num, U> Vector2D<T, U> {
             return mem::transmute((&'l self.x as *T, 2 as uint ));
         }
     }
+
+    pub fn to_tuple(&self) -> (T, T) { (self.x, self.y) }
 
     #[inline]
     pub fn dot(&self, rhs: &Vector2D<T,U>) -> T {

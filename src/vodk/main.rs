@@ -416,7 +416,14 @@ impl TestApp {
             text.len()*24,
             |_|{ 0.0 as f32 }
         );
-        text::text_buffer(text, 400.0, 300.0, 32.0, 32.0, text_vertices.as_mut_slice());
+        text::text_to_vertices(text,
+            pixels::vec2(400.0, 300.0),
+            pixels::vec2(32.0, 32.0),
+            pixels::vec2(-10.0, 10.0),
+            texels::rect(0.0, 0.0, 1.0, 1.0),
+            16, 8, // vertex stride in bytes, tex coords offset in bytes
+            text_vertices.as_mut_slice()
+        );
         let text_vbo = ctx.create_buffer(renderer::VERTEX_BUFFER);
         ctx.upload_buffer(
             text_vbo,
