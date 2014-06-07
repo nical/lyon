@@ -3,9 +3,9 @@ use glfw;
 use gpu = gfx::renderer;
 use std::str;
 use std::mem;
-use glfw;
 use std::rc::Rc;
 
+use data;
 use super::renderer::*;
 
 macro_rules! check_err (
@@ -35,14 +35,12 @@ pub struct RenderingContextGL {
     current_program: ShaderProgram,
     current_geometry: Geometry,
     current_target_types: TargetTypes,
+    current_blend_mode: BlendMode,
     ignore_errors: bool,
 }
 
 impl RenderingContextGL {
     pub fn new(window: Rc<glfw::Window>) -> RenderingContextGL {
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA,gl::ONE_MINUS_SRC_ALPHA);
-
         RenderingContextGL {
             window: window,
             workaround: DRIVER_DEFAULT,
@@ -50,7 +48,34 @@ impl RenderingContextGL {
             current_render_target: RenderTarget { handle: 0 },
             current_geometry: Geometry { handle: 0, ibo: 0 },
             current_target_types: 0,
+            current_blend_mode: NO_BLENDING,
             ignore_errors: false,
+        }
+    }
+
+    fn update_targets(&mut self, targets: TargetTypes) {
+        if (targets & DEPTH != 0) && (self.current_target_types & DEPTH == 0) {
+            gl::Enable(gl::DEPTH_TEST);
+            self.current_target_types |= DEPTH;
+        } else if (targets & DEPTH == 0) && (self.current_target_types & DEPTH != 0) {
+            gl::Disable(gl::DEPTH_TEST);
+            self.current_target_types &= COLOR | STENCIL;
+        }
+    }
+
+    fn update_blend_mode(&mut self, blend: BlendMode) {
+        if blend == self.current_blend_mode {
+            return;
+        }
+        if blend == NO_BLENDING {
+            gl::Disable(gl::BLEND);
+        } else {
+            gl::Enable(gl::BLEND);
+            if blend == ALPHA_BLENDING {
+                gl::BlendFunc(gl::SRC_ALPHA,gl::ONE_MINUS_SRC_ALPHA);
+            } else {
+                fail!("Unimplemented");
+            }
         }
     }
 }
@@ -301,12 +326,15 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn create_buffer(&mut self) -> Buffer {
+    fn create_buffer(&mut self, buffer_type: BufferType) -> Buffer {
         let mut b: u32 = 0;
         unsafe {
             gl::GenBuffers(1, &mut b);
         }
-        return Buffer { handle: b };
+        return Buffer {
+            handle: b,
+            buffer_type: buffer_type
+        };
     }
 
     fn destroy_buffer(&mut self, buffer: Buffer) {
@@ -545,39 +573,80 @@ impl RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn draw(&mut self, geom: gpu::GeometryRange, targets: TargetTypes) -> RendererResult {
-        if (targets & DEPTH != 0) && (self.current_target_types & DEPTH == 0) {
-            gl::Enable(gl::DEPTH_TEST);
-            self.current_target_types |= DEPTH;
-        } else if (targets & DEPTH == 0) && (self.current_target_types & DEPTH != 0) {
-            gl::Disable(gl::DEPTH_TEST);
-            self.current_target_types &= COLOR | STENCIL;
-        }
+    fn draw(&mut self,
+        geom: Geometry,
+        first: u32,
+        count: u32,
+        flags: GeometryFlags,
+        blend: BlendMode,
+        targets: TargetTypes
+    ) -> RendererResult {
+        self.update_targets(targets);
+        self.update_blend_mode(blend);
 
-        if geom.geometry != self.current_geometry {
-            self.current_geometry = geom.geometry;
-            gl::BindVertexArray(geom.geometry.handle);
-            check_err!("glBindVertexArray({})", geom.geometry.handle);
+        if geom != self.current_geometry {
+            self.current_geometry = geom;
+            gl::BindVertexArray(geom.handle);
+            check_err!("glBindVertexArray({})", geom.handle);
         };
 
-        if geom.geometry.ibo != 0 {
+        if geom.ibo != 0 {
             if self.workaround & MISSING_INDEX_BUFFER_VAO != 0 {
-                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, geom.geometry.ibo);
+                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, geom.ibo);
             }
             unsafe {
-                gl::DrawElements(gl_draw_mode(geom.flags),
-                                 geom.to as i32,
-                                 gl::UNSIGNED_SHORT,
-                                 mem::transmute(0));
+                gl::DrawElements(
+                    gl_draw_mode(flags),
+                    count as i32,
+                    gl::UNSIGNED_SHORT,
+                    mem::transmute(0)
+                );
             }
             check_err!("glDrawElements(...)");
         } else {
-            gl::DrawArrays(gl_draw_mode(geom.flags),
-                           geom.from as i32,
-                           geom.to as i32);
+            gl::DrawArrays(
+                gl_draw_mode(flags),
+                first as i32,
+                count as i32
+            );
             check_err!("glDrawArrays(...)");
         }
         Ok(())
+    }
+
+    fn multi_draw(&mut self,
+        geom: Geometry,
+        indirect_buffer: Buffer,
+        flags: GeometryFlags,
+        targets: TargetTypes,
+        commands: &[DrawCommand]
+    ) -> RendererResult {
+        self.update_targets(targets);
+
+        gl::BindBuffer(gl::DRAW_INDIRECT_BUFFER, indirect_buffer.handle);
+
+        if geom.ibo != 0 {
+            unsafe {
+                gl::MultiDrawElementsIndirect(
+                    gl_draw_mode(flags),
+                    gl::UNSIGNED_SHORT,
+                    mem::transmute(commands.as_ptr()),
+                    commands.len() as i32,
+                    mem::size_of::<DrawCommand>() as i32
+                );
+            }
+        } else {
+            unsafe {
+                gl::MultiDrawArraysIndirect(
+                    gl_draw_mode(flags),
+                    mem::transmute(commands.as_ptr()),
+                    commands.len() as i32,
+                    mem::size_of::<DrawCommand>() as i32
+                );
+            }
+        }
+
+        fail!("Not implemented");
     }
 }
 
@@ -628,6 +697,7 @@ fn gl_buffer_type(t: BufferType) -> u32 {
         INDEX_BUFFER => gl::ELEMENT_ARRAY_BUFFER,
         UNIFORM_BUFFER => gl::UNIFORM_BUFFER,
         TRANSFORM_FEEDBACK_BUFFER => gl::TRANSFORM_FEEDBACK_BUFFER,
+        DRAW_INDIRECT_BUFFER => gl::DRAW_INDIRECT_BUFFER,
     }
 }
 
@@ -641,10 +711,11 @@ fn gl_update_hint(hint: UpdateHint) -> u32 {
 
 fn gl_attribue_type(attribute: AttributeType) -> u32 {
     match attribute {
-        F32 => gl::FLOAT,
-        F64 => gl::DOUBLE,
-        I32 => gl::INT,
-        U32 => gl::UNSIGNED_INT,
+        data::F32 => gl::FLOAT,
+        data::F64 => gl::DOUBLE,
+        data::I32 => gl::INT,
+        data::U32 => gl::UNSIGNED_INT,
+        _ => 0,
     }
 }
 
@@ -682,4 +753,11 @@ pub fn gl_error_str(err: ErrorCode) -> &'static str {
         gl::FRAMEBUFFER_UNSUPPORTED => "Unsupported.",
         _ => { "Unknown error" }
     }
+}
+
+struct DrawArraysIndirectCommand {
+    count: u32,
+    primitive_count: u32,
+    first_vertex: u32,
+    base_instance: u32,
 }

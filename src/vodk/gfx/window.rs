@@ -25,20 +25,17 @@ impl Window {
         let (glfw_win, events) = glfw.create_window(w, h, "OpenGL", glfw::Windowed)
             .expect("Failed to create GLFW window.");
 
-        glfw_win.set_pos_polling(true);
-        glfw_win.set_all_polling(true);
         glfw_win.set_size_polling(true);
         glfw_win.set_close_polling(true);
         glfw_win.set_refresh_polling(true);
         glfw_win.set_focus_polling(true);
-        glfw_win.set_iconify_polling(true);
         glfw_win.set_framebuffer_size_polling(true);
-        glfw_win.set_key_polling(true);
-        glfw_win.set_char_polling(true);
         glfw_win.set_mouse_button_polling(true);
         glfw_win.set_cursor_pos_polling(true);
-        glfw_win.set_cursor_enter_polling(true);
         glfw_win.set_scroll_polling(true);
+        //glfw_win.set_key_polling(true);
+        //glfw_win.set_char_polling(true);
+        //glfw_win.set_cursor_enter_polling(true);
 
         return Window {
             glfw_win: Rc::new(glfw_win),
@@ -64,11 +61,10 @@ impl Window {
         return self.glfw_win.should_close();
     }
 
-    pub fn poll_events(&self) {
+    pub fn poll_events(&self, evts: &mut Vec<inputs::Event>) {
         self.glfw.poll_events();
-        let mut inputs: Vec<inputs::Event> = Vec::new();
         for (_, event) in glfw::flush_messages(&self.events) {
-            inputs.push(from_glfw_event(event));
+            evts.push(from_glfw_event(event));
         }
     }
 }
@@ -92,7 +88,7 @@ fn from_glfw_action(a: glfw::Action) -> inputs::Action {
 
 fn from_glfw_event(e: glfw::WindowEvent) -> inputs::Event {
     match e {
-        glfw::PosEvent(x, y) => inputs::CursorPosEvent(x, y),
+        glfw::CursorPosEvent(x, y) => inputs::CursorPosEvent(x as f32, y as f32),
         glfw::MouseButtonEvent(button, action, _) => inputs::MouseButtonEvent(
             from_glfw_mouse_button(button),
             from_glfw_action(action)

@@ -3,20 +3,23 @@ pub trait EventListener {
     fn on_event(&self, Event);
 }
 
+#[deriving(Show, Eq)]
 pub enum Action {
     Press,
     Release,
     Repeat,
 }
 
+#[deriving(Show, Eq)]
 pub enum MouseButton {
     MouseButtonLeft,
     MouseButtonRight,
     MouseButtonMiddle,
 }
 
+#[deriving(Show, Eq)]
 pub enum Event {
-    CursorPosEvent(i32, i32),
+    CursorPosEvent(f32, f32),
     MouseButtonEvent(MouseButton, Action),
     ScrollEvent(f32, f32),
     FocusEvent(bool),

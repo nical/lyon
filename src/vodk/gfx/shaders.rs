@@ -41,7 +41,8 @@ attribute vec2 a_tex_coords;
 uniform vec2 u_resolution;
 varying vec2 v_tex_coords;
 void main() {
-  gl_Position = vec4((a_position - u_resolution/2.0) / u_resolution, 0.0, 1.0);
+  vec2 pos = vec2(a_position.x - u_resolution.x, u_resolution.y - a_position.y) / u_resolution;
+  gl_Position = vec4(pos, 0.0, 1.0);
   v_tex_coords = a_tex_coords;
 }
 ";

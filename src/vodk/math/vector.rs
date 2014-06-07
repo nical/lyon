@@ -3,7 +3,6 @@ use std::mem;
 use std::ops;
 //use std::fmt;
 use std::kinds::Copy;
-use std::num;
 
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
@@ -183,7 +182,6 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
 
 impl<T: Float+EpsilonEq, U> Eq for Vector4D<T, U> {
     fn eq(&self, rhs:&Vector4D<T,U>) -> bool {
-        let d = *self - *rhs;
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y)
             && self.z.epsilon_eq(&rhs.z)

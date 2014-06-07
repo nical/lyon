@@ -1,5 +1,6 @@
 
 use std::mem;
+use data;
 
 pub type TextureFlags = i32;
 pub static REPEAT_S          : TextureFlags = 1 << 0;
@@ -52,13 +53,7 @@ pub enum Feature {
     INSTANCED_RENDERING,
 }
 
-#[deriving(Eq, Clone, Show)]
-pub enum AttributeType {
-    F32,
-    F64,
-    I32,
-    U32,
-}
+pub type AttributeType = data::Type;
 
 #[deriving(Eq, Clone, Show)]
 pub enum PixelFormat {
@@ -81,7 +76,29 @@ pub enum BufferType {
     VERTEX_BUFFER,
     INDEX_BUFFER,
     UNIFORM_BUFFER,
+    DRAW_INDIRECT_BUFFER,
     TRANSFORM_FEEDBACK_BUFFER,
+}
+
+#[deriving(Eq, Clone, Show)]
+pub enum BlendMode {
+    NO_BLENDING,
+    ALPHA_BLENDING,
+    ADD_BLENDING,
+    SUB_BLENDING,
+    MUL_BLENDING,
+}
+
+#[deriving(Eq, Clone, Show)]
+pub struct VertexRange {
+    pub first: u32,
+    pub count: u32,
+}
+
+#[deriving(Eq, Clone, Show)]
+pub struct IndexRange {
+    pub first: u32,
+    pub count: u32,
 }
 
 pub type Handle = u32;
@@ -97,7 +114,10 @@ pub struct Texture { pub handle: Handle }
 
 /// Equivalent of a Buffer object in OpenGL
 #[deriving(Eq, Clone, Show)]
-pub struct Buffer { pub handle: Handle }
+pub struct Buffer {
+    pub handle: Handle,
+    pub buffer_type: BufferType
+}
 
 /// Equivalent of a VAO in OpenGL
 #[deriving(Eq, Clone, Show)]
@@ -106,13 +126,6 @@ pub struct Geometry {
     // To work around some drivers not storing the index buffer
     // binding in the VAO state
     pub ibo: Handle
-}
-
-pub struct GeometryRange {
-    pub geometry: Geometry,
-    pub from: u32,
-    pub to: u32,
-    pub flags: GeometryFlags,
 }
 
 /// Equivalent of a FBO in OpenGL
@@ -186,7 +199,7 @@ pub trait RenderingContext {
     fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader],
                            attrib_locations: &[(&str, VertexAttributeLocation)])  -> RendererResult;
 
-    fn create_buffer(&mut self) -> Buffer;
+    fn create_buffer(&mut self, buffer_type: BufferType) -> Buffer;
     fn destroy_buffer(&mut self, buffer: Buffer);
     fn upload_buffer(&mut self, buffer: Buffer, buf_type: BufferType,
                      update: UpdateHint, data: &[u8]) -> RendererResult;
@@ -220,9 +233,22 @@ pub trait RenderingContext {
     fn set_shader_input_matrix(&mut self, location: ShaderInputLocation, input: &[f32], dimension: u32, transpose: bool);
     fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, input: Texture);
 
-    fn draw(&mut self, geom: GeometryRange, targets: TargetTypes) -> RendererResult;
+    fn draw(&mut self,
+        geom: Geometry,
+        first: u32,
+        count: u32,
+        flags: GeometryFlags,
+        blend: BlendMode,
+        targets: TargetTypes
+    ) -> RendererResult;
 
-    // TODO: blending
+    fn multi_draw(&mut self,
+        geom: Geometry,
+        indirect_buffer: Buffer,
+        flags: GeometryFlags,
+        targets: TargetTypes,
+        commands: &[DrawCommand]
+    ) -> RendererResult;
 }
 
 pub fn as_bytes<'l, T>(src: &'l [T]) -> &'l [u8] {
@@ -241,4 +267,59 @@ pub fn as_mut_bytes<'l, T>(src: &'l mut [T]) -> &'l mut [u8] {
             src.len() * mem::size_of::<T>()
         ));
     }
+}
+
+pub struct BufferData {
+    data: Vec<u8>,
+}
+
+impl BufferData {
+    pub fn new<T>(size: uint) -> BufferData {
+        BufferData {
+            data: Vec::from_fn(size * mem::size_of::<T>(), |_|{ 0 })
+        }
+    }
+
+    pub fn from_vec<T>(src_vec: Vec<T>) -> BufferData {
+        unsafe {
+            let (len, cap, ptr) : (uint, uint, *u8) = mem::transmute(src_vec);
+            BufferData {
+                data: mem::transmute((
+                    len * mem::size_of::<T>(),
+                    cap * mem::size_of::<T>(),
+                    ptr
+                ))
+            }
+        }
+    }
+
+    pub fn get_slice<T: Copy>(&self) -> &[T] {
+        unsafe {
+            return mem::transmute((
+                self.data.as_ptr() as *T,
+                self.data.len() / mem::size_of::<T>()
+            ));
+        }
+    }
+
+    pub fn get_mut_slice<T: Copy>(&mut self) -> &[T] {
+        unsafe {
+            return mem::transmute((
+                self.data.as_ptr() as *T,
+                self.data.len() / mem::size_of::<T>()
+            ));
+        }
+    }
+
+    pub fn byte_len(&self) -> uint {
+        return self.data.len();
+    }
+}
+
+pub struct DrawCommand {
+    primitive_count: u32,
+    instance_count: u32,
+    first_index: u32,
+    base_vertex: u32,
+    base_instance: u32,
 }
