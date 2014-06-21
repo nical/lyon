@@ -318,9 +318,12 @@ pub fn push_circle(
         }
     }
     for i in range(1, (n_points-1) as u16) {
-        batch.push_index(batch.vertex_cursor as u16);
-        batch.push_index(batch.vertex_cursor as u16 + i);
-        batch.push_index(batch.vertex_cursor as u16 + i + 1);
+        let cursor = batch.vertex_cursor as u16;
+        batch.push_index(cursor);
+        let cursor = batch.vertex_cursor as u16 + i;
+        batch.push_index(cursor);
+        let cursor = batch.vertex_cursor as u16 + i + 1;
+        batch.push_index(cursor);
     }
     batch.vertex_cursor += n_points as uint;
 }

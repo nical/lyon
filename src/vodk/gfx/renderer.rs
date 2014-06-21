@@ -33,7 +33,7 @@ pub static COLOR  : TargetTypes = 1 << 0;
 pub static DEPTH  : TargetTypes = 1 << 1;
 pub static STENCIL: TargetTypes = 1 << 2;
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub enum ShaderType {
     FRAGMENT_SHADER,
     VERTEX_SHADER,
@@ -41,7 +41,7 @@ pub enum ShaderType {
     COMPUTE_SHADER,
 }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub enum Feature {
     FRAGMENT_SHADING,
     VERTEX_SHADING,
@@ -55,7 +55,7 @@ pub enum Feature {
 
 pub type AttributeType = data::Type;
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub enum PixelFormat {
     R8G8B8A8,
     R8G8B8X8,
@@ -64,14 +64,14 @@ pub enum PixelFormat {
     A8,
 }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub enum UpdateHint {
     STATIC,
     STREAM,
     DYNAMIC
 }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub enum BufferType {
     VERTEX_BUFFER,
     INDEX_BUFFER,
@@ -80,7 +80,7 @@ pub enum BufferType {
     TRANSFORM_FEEDBACK_BUFFER,
 }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub enum BlendMode {
     NO_BLENDING,
     ALPHA_BLENDING,
@@ -89,13 +89,13 @@ pub enum BlendMode {
     MUL_BLENDING,
 }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct VertexRange {
     pub first: u32,
     pub count: u32,
 }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct IndexRange {
     pub first: u32,
     pub count: u32,
@@ -103,24 +103,24 @@ pub struct IndexRange {
 
 pub type Handle = u32;
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct Shader { pub handle: Handle }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct ShaderProgram { pub handle: Handle }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct Texture { pub handle: Handle }
 
 /// Equivalent of a Buffer object in OpenGL
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct Buffer {
     pub handle: Handle,
     pub buffer_type: BufferType
 }
 
 /// Equivalent of a VAO in OpenGL
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct Geometry {
     pub handle: Handle,
     // To work around some drivers not storing the index buffer
@@ -129,10 +129,10 @@ pub struct Geometry {
 }
 
 /// Equivalent of a FBO in OpenGL
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct RenderTarget { pub handle: Handle }
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub struct Error {
     pub code: ErrorCode,
     pub detail: Option<String>,
@@ -143,7 +143,7 @@ pub type RendererResult = Result<(), Error>;
 pub type ShaderInputLocation = i16;
 pub type VertexAttributeLocation = i16;
 
-#[deriving(Eq, Clone, Show)]
+#[deriving(PartialEq, Clone, Show)]
 pub type ErrorCode = u32;
 
 #[deriving(Clone, Show)]

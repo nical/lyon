@@ -7,7 +7,7 @@ use std::kinds::Copy;
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
 
-#[deriving(Eq, Show)]
+#[deriving(PartialEq, Show)]
 pub struct Untyped;
 
 pub type Vec2 = Vector2D<f32, Untyped>;
@@ -191,7 +191,7 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
     pub fn wxyz(&self) -> Vector4D<T,U> { Vector4D { x: self.w, y:self.x, z: self.y, w:self.z } }
 }
 
-impl<T: Float+EpsilonEq, U> Eq for Vector4D<T, U> {
+impl<T: Float+EpsilonEq, U> PartialEq for Vector4D<T, U> {
     fn eq(&self, rhs:&Vector4D<T,U>) -> bool {
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y)
@@ -200,7 +200,7 @@ impl<T: Float+EpsilonEq, U> Eq for Vector4D<T, U> {
     }
 }
 
-impl<T: Float+EpsilonEq, U> Eq for Vector3D<T, U> {
+impl<T: Float+EpsilonEq, U> PartialEq for Vector3D<T, U> {
     fn eq(&self, rhs:&Vector3D<T,U>) -> bool {
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y)
@@ -208,7 +208,7 @@ impl<T: Float+EpsilonEq, U> Eq for Vector3D<T, U> {
     }
 }
 
-impl<T: Float+EpsilonEq, U> Eq for Vector2D<T, U> {
+impl<T: Float+EpsilonEq, U> PartialEq for Vector2D<T, U> {
     fn eq(&self, rhs:&Vector2D<T,U>) -> bool {
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y);
@@ -499,20 +499,20 @@ impl<T : ops::Neg<T>, U>
     }
 }
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 pub struct Matrix2D<T, Unit> {
     pub _11: T, pub _21: T,
     pub _12: T, pub _22: T,
 }
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 pub struct Matrix3D<T, Unit> {
     pub _11: T, pub _21: T, pub _31: T,
     pub _12: T, pub _22: T, pub _32: T,
     pub _13: T, pub _23: T, pub _33: T,
 }
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 pub struct Matrix4D<T, Unit> {
     pub _11: T, pub _21: T, pub _31: T, pub _41: T,
     pub _12: T, pub _22: T, pub _32: T, pub _42: T,
