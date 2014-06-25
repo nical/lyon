@@ -7,6 +7,8 @@ extern crate gl;
 extern crate glfw;
 extern crate time;
 extern crate png;
+extern crate libc;
+extern crate core;
 
 use gfx::renderer;
 use gfx::shaders;
@@ -19,6 +21,7 @@ use math::units::world;
 use io::inputs;
 use gfx::locations::*;
 use gfx::ui;
+use gfx::scenegraph;
 
 use std::io::timer::sleep;
 
@@ -33,6 +36,7 @@ pub mod gfx {
     pub mod test_renderer;
     pub mod ui;
     pub mod locations;
+    pub mod scenegraph;
 }
 pub mod logic {
     pub mod entity;
@@ -546,6 +550,8 @@ fn setup_shader(
 
 fn main() {
     std::io::println("vodk!");
+
+    scenegraph::test_cow_scene_graph();
 
     let mut window = gfx::window::Window::create(800, 600, "vodk");
     let ctx = window.create_rendering_context();
