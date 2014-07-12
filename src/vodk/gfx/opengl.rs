@@ -196,15 +196,20 @@ impl RenderingContext for RenderingContextGL {
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    fn upload_texture_data(&mut self, dest: Texture, data: &[u8],
-                           w:u32, h:u32, format: PixelFormat) -> RendererResult {
+    fn upload_texture_data(&mut self,
+        dest: Texture,
+        data: &BufferData,
+        w:u32, h:u32,
+        format: PixelFormat
+    ) -> RendererResult {
         gl::BindTexture(gl::TEXTURE_2D, dest.handle);
 
         let fmt = gl_format(format);
         unsafe {
             gl::TexImage2D(
                 gl::TEXTURE_2D, 0, fmt as i32, w as i32, h as i32,
-                0, fmt, gl::UNSIGNED_BYTE, mem::transmute(data.unsafe_ref(0))
+                0, fmt, gl_data_type_from_format(format),
+                mem::transmute(data.as_byte_slice().unsafe_ref(0))
             );
         }
 
@@ -343,18 +348,21 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn upload_buffer(&mut self, buffer: Buffer, buf_type: BufferType,
-                     update: UpdateHint, data: &[u8]) -> RendererResult {
+    fn upload_buffer(&mut self,
+        buffer: Buffer, buf_type: BufferType,
+        update: UpdateHint,
+        data: &BufferData
+    ) -> RendererResult {
 
         unsafe {
             let gl_buf_type = gl_buffer_type(buf_type);
             gl::BindBuffer(gl_buf_type, buffer.handle);
             check_err!("glBindBuffer({}, {})", buf_type, buffer.handle);
-            gl::BufferData(gl_buf_type, data.len() as i64,
-                           mem::transmute(data.unsafe_ref(0)),
+            gl::BufferData(gl_buf_type, data.byte_len() as i64,
+                           mem::transmute(data.as_byte_slice().unsafe_ref(0)),
                            gl_update_hint(update));
             check_err!("glBufferData({}, {}, {}, {})", buf_type,
-                        data.len(), data.unsafe_ref(0),
+                        data.len(), data.as_byte_slice().unsafe_ref(0),
                         gl_update_hint(update));
         }
         return Ok(());
@@ -392,10 +400,11 @@ impl RenderingContext for RenderingContextGL {
 
         for attr in attributes.iter() {
             gl::BindBuffer(gl::ARRAY_BUFFER, attr.buffer.handle);
+            println!("num components: {}", data::num_components(attr.attrib_type));
             unsafe {
             gl::VertexAttribPointer(attr.location as u32,
-                                    attr.components as i32,
-                                    gl_attribue_type(attr.attrib_type),
+                                    data::num_components(attr.attrib_type) as i32,
+                                    gl_data_type(attr.attrib_type),
                                     gl_bool(attr.normalize),
                                     attr.stride as i32,
                                     mem::transmute(attr.offset as uint));
@@ -669,6 +678,7 @@ fn gl_format(format: PixelFormat) -> u32 {
         B8G8R8A8 => gl::BGRA,
         B8G8R8X8 => gl::BGR,
         A8 => gl::RED,
+        A_F32 => gl::RED,
     }
 }
 
@@ -709,16 +719,6 @@ fn gl_update_hint(hint: UpdateHint) -> u32 {
     }
 }
 
-fn gl_attribue_type(attribute: AttributeType) -> u32 {
-    match attribute {
-        data::F32 => gl::FLOAT,
-        data::F64 => gl::DOUBLE,
-        data::I32 => gl::INT,
-        data::U32 => gl::UNSIGNED_INT,
-        _ => 0,
-    }
-}
-
 fn gl_texture_unit(unit: u32) -> u32 {
     return gl::TEXTURE0 + unit;
 }
@@ -737,6 +737,27 @@ fn gl_clear_targets(t: TargetTypes) -> u32 {
 
 fn gl_bool(b: bool) -> u8 {
     return if b { gl::TRUE } else { gl::FALSE };
+}
+
+fn gl_data_type(t: data::Type) -> u32 {
+    match data::scalar_type_of(t) {
+        data::F32 => gl::FLOAT,
+        data::F64 => gl::DOUBLE,
+        data::U32 => gl::UNSIGNED_INT,
+        data::I32 => gl::INT,
+        data::U16 => gl::UNSIGNED_SHORT,
+        data::I16 => gl::SHORT,
+        data::U8 =>  gl::UNSIGNED_BYTE,
+        data::I8 =>  gl::BYTE,
+        _ => 0
+    }
+}
+
+fn gl_data_type_from_format(fmt: PixelFormat) -> u32 {
+    match fmt {
+        A_F32 => gl::FLOAT,
+        _ => gl::UNSIGNED_BYTE,
+    }
 }
 
 pub fn gl_error_str(err: ErrorCode) -> &'static str {

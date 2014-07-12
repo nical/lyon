@@ -1,8 +1,10 @@
 
 use std::mem;
 use std::ops;
+use std::num;
 //use std::fmt;
 use std::kinds::Copy;
+use std::fmt::Show;
 
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
@@ -24,38 +26,36 @@ pub type Mat2 = Matrix2D<f32, Untyped>;
 
 pub type Rect = Rectangle2D<f32, Untyped>;
 
+pub trait ScalarMul<T> {
+    fn scalar_mul(&self, scalar: T) -> Self;
+    fn scalar_mul_in_place(&mut self, scalar: T);
+}
+
+pub trait VecMath<T>: Add<Self,Self>
+                    + Sub<Self,Self>
+                    + Neg<Self>
+                    + Mul<Self,Self>
+                    + Div<Self,Self>
+                    + ScalarMul<T>
+                    + num::Zero {
+    fn mix(a: &Self, b: &Self) -> Self;
+    fn clamp(a: &Self, b: &Self) -> Self;
+    fn lerp(a: &Self, b: &Self, x: T) -> Self;
+    fn dot(a: &Self, b: &Self) -> T;
+    fn length(a: &Self) -> T;
+}
+
 #[allow(dead_code)]
 pub mod Mat4 {
     use super::{Mat4, Matrix4D, Vec3};
-    pub fn identity() -> Mat4 {
-        Matrix4D {
-            _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
-            _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
-            _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
-            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
-        }
+    use std::num::One;
+    pub fn identity() -> Mat4 { One::one() }
 
-    }
-
-    pub fn perspective(fovy: f32, aspect: f32, near: f32, far: f32, mat: &mut Mat4) {
-        let f = 1.0 / (fovy / 2.0).tan();
-        let nf: f32 = 1.0 / (near - far);
-        mat._11 = f / aspect;
-        mat._21 = 0.0;
-        mat._31 = 0.0;
-        mat._41 = 0.0;
-        mat._12 = 0.0;
-        mat._22 = f;
-        mat._32 = 0.0;
-        mat._42 = 0.0;
-        mat._13 = 0.0;
-        mat._23 = 0.0;
-        mat._33 = (far + near) * nf;
-        mat._43 = -1.0;
-        mat._14 = 0.0;
-        mat._24 = 0.0;
-        mat._34 = (2.0 * far * near) * nf;
-        mat._44 = 0.0;
+    pub fn perspective(
+        fovy: f32, aspect: f32, near: f32, far: f32,
+        mat: &mut Mat4
+    ) {
+        Matrix4D::perspective(fovy, aspect, near, far, mat);
     }
 
     pub fn from_slice(s: &[f32]) -> Mat4 {
@@ -84,13 +84,9 @@ pub mod Mat4 {
 #[allow(dead_code)]
 pub mod Mat3 {
     use super::{Mat3, Matrix3D};
-    pub fn identity() -> Mat3 {
-        Matrix3D {
-            _11: 1.0, _21: 0.0, _31: 0.0,
-            _12: 0.0, _22: 1.0, _32: 0.0,
-            _13: 0.0, _23: 0.0, _33: 1.0,
-        }
-    }
+    use std::num::One;
+
+    pub fn identity() -> Mat3 { One::one() }
 
     pub fn from_slice(s: &[f32]) -> Mat3 {
         return Matrix3D::from_slice(s);
@@ -100,32 +96,29 @@ pub mod Mat3 {
 #[allow(dead_code)]
 pub mod Mat2 {
     use super::{Mat2, Matrix2D};
-    pub fn identity() -> Mat2 {
-        Matrix2D {
-            _11: 1.0, _21: 0.0,
-            _12: 0.0, _22: 1.0,
-        }
-    }
+    use std::num::One;
+
+    pub fn identity() -> Mat2 { One::one() }
 
     pub fn from_slice(s: &[f32]) -> Mat2 {
         return Matrix2D::from_slice(s);
     }
 }
 
-#[deriving(Show)]
+#[deriving(Show, Zero)]
 pub struct Vector2D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Zero)]
 pub struct Vector3D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
     pub z: T,
 }
 
-#[deriving(Show)]
+#[deriving(Show, Zero)]
 pub struct Vector4D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
@@ -133,6 +126,7 @@ pub struct Vector4D<T, Unit = Untyped> {
     pub w: T,
 }
 
+#[deriving(Show)]
 pub struct Rectangle2D<T, Unit = Untyped> {
     pub x: T,
     pub y: T,
@@ -265,6 +259,46 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
+impl<T: ops::Mul<T,T>, U>
+    ScalarMul<T>
+    for Vector4D<T,U> {
+
+    #[inline]
+    fn scalar_mul(&self, rhs: T) -> Vector4D<T, U> {
+        return Vector4D {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+            w: self.w * rhs
+        };
+    }
+
+    #[inline]
+    fn scalar_mul_in_place(&mut self, rhs: T) {
+        self.x = self.x * rhs;
+        self.y = self.y * rhs;
+        self.z = self.z * rhs;
+        self.w = self.w * rhs;
+    }
+}
+
+#[allow(dead_code)]
+impl<T: ops::Div<T,T>, U>
+    ops::Div<Vector4D<T,U>, Vector4D<T,U>>
+    for Vector4D<T,U> {
+
+    #[inline]
+    fn div(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
+        return Vector4D {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+            z: self.z / rhs.z,
+            w: self.w / rhs.w
+        };
+    }
+}
+
+#[allow(dead_code)]
 impl<T : ops::Neg<T>, U>
     ops::Neg<Vector4D<T,U>>
     for Vector4D<T,U> {
@@ -279,7 +313,6 @@ impl<T : ops::Neg<T>, U>
         };
     }
 }
-
 
 #[allow(dead_code)]
 impl<T: Copy + Float, U> Vector3D<T, U> {
@@ -348,6 +381,36 @@ impl<T: Copy + Float, U> Vector3D<T, U> {
     }
 }
 
+impl<T: Copy+FloatMath+Show, U> Matrix4D<T,U> {
+    pub fn perspective(
+        fovy: T, aspect: T, near: T, far: T,
+        mat: &mut Matrix4D<T,U>
+    ) {
+        let zero: T = num::Zero::zero();
+        let one: T = num::One::one();
+        let two: T = one + one;
+        let f = one / (fovy / two).tan();
+        let nf: T = one / (near - far);
+
+        mat._11 = f / aspect;
+        mat._21 = zero;
+        mat._31 = zero;
+        mat._41 = zero;
+        mat._12 = zero;
+        mat._22 = f;
+        mat._32 = zero;
+        mat._42 = zero;
+        mat._13 = zero;
+        mat._23 = zero;
+        mat._33 = (far + near) * nf;
+        mat._43 = -one;
+        mat._14 = zero;
+        mat._24 = zero;
+        mat._34 = (two * far * near) * nf;
+        mat._44 = zero;
+    }
+}
+
 #[allow(dead_code)]
 impl<T: ops::Add<T,T>, U>
     ops::Add<Vector3D<T,U>, Vector3D<T,U>>
@@ -394,6 +457,29 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
+impl<T: ops::Mul<T,T>, U>
+    ScalarMul<T>
+    for Vector3D<T,U> {
+
+    #[inline]
+    fn scalar_mul(&self, rhs: T) -> Vector3D<T, U> {
+        return Vector3D {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+        };
+    }
+
+    #[inline]
+    fn scalar_mul_in_place(&mut self, rhs: T) {
+        self.x = self.x * rhs;
+        self.y = self.y * rhs;
+        self.z = self.z * rhs;
+    }
+}
+
+
+#[allow(dead_code)]
 impl<T : ops::Neg<T>, U>
     ops::Neg<Vector3D<T,U>>
     for Vector3D<T,U> {
@@ -411,7 +497,7 @@ impl<T : ops::Neg<T>, U>
 
 
 #[allow(dead_code)]
-impl<T: Copy + Num, U> Vector2D<T, U> {
+impl<T: Copy + Num + Float, U> Vector2D<T, U> {
     pub fn from_slice(from: &[T]) -> Vector2D<T,U> {
         assert!(from.len() >= 2);
         return Vector2D {
@@ -437,6 +523,16 @@ impl<T: Copy + Num, U> Vector2D<T, U> {
     #[inline]
     pub fn dot(&self, rhs: &Vector2D<T,U>) -> T {
         return self.x*rhs.x + self.y*rhs.y;
+    }
+
+    #[inline]
+    pub fn length(&self) -> T {
+        return self.square_length().sqrt();
+    }
+
+    #[inline]
+    pub fn square_length(&self) -> T {
+        return self.x * self.x + self.y * self.y;
     }
 
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
@@ -486,6 +582,41 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
+impl<T: ops::Mul<T,T>, U>
+    ScalarMul<T>
+    for Vector2D<T,U> {
+
+    #[inline]
+    fn scalar_mul(&self, rhs: T) -> Vector2D<T, U> {
+        return Vector2D {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        };
+    }
+
+    #[inline]
+    fn scalar_mul_in_place(&mut self, rhs: T) {
+        self.x = self.x * rhs;
+        self.y = self.y * rhs;
+    }
+}
+
+
+#[allow(dead_code)]
+impl<T: ops::Div<T,T>, U>
+    ops::Div<Vector2D<T,U>, Vector2D<T,U>>
+    for Vector2D<T,U> {
+
+    #[inline]
+    fn div(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
+        return Vector2D {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+        };
+    }
+}
+
+#[allow(dead_code)]
 impl<T : ops::Neg<T>, U>
     ops::Neg<Vector2D<T,U>>
     for Vector2D<T,U> {
@@ -499,20 +630,20 @@ impl<T : ops::Neg<T>, U>
     }
 }
 
-#[deriving(PartialEq)]
+#[deriving(PartialEq, Show)]
 pub struct Matrix2D<T, Unit> {
     pub _11: T, pub _21: T,
     pub _12: T, pub _22: T,
 }
 
-#[deriving(PartialEq)]
+#[deriving(PartialEq, Show)]
 pub struct Matrix3D<T, Unit> {
     pub _11: T, pub _21: T, pub _31: T,
     pub _12: T, pub _22: T, pub _32: T,
     pub _13: T, pub _23: T, pub _33: T,
 }
 
-#[deriving(PartialEq)]
+#[deriving(PartialEq, Show)]
 pub struct Matrix4D<T, Unit> {
     pub _11: T, pub _21: T, pub _31: T, pub _41: T,
     pub _12: T, pub _22: T, pub _32: T, pub _42: T,
@@ -550,6 +681,20 @@ impl<T: Copy + Num, U> Matrix2D<T, U> {
 
     pub fn row_2<'l>(&'l self) -> &'l Vector2D<T,U> {
         unsafe { mem::transmute(&'l self._12 as *T) }
+    }
+}
+
+impl<T: num::One+num::Zero+Copy, U>
+    num::One
+    for Matrix2D<T,U> {
+    #[inline]
+    fn one() -> Matrix2D<T,U> {
+        let one : T = num::One::one();
+        let zero : T = num::Zero::zero();
+        Matrix2D {
+            _11: one,  _21: zero,
+            _12: zero, _22: one,
+        }
     }
 }
 
@@ -595,6 +740,21 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
 
     pub fn row_3<'l>(&'l self) -> &'l Vector3D<T,U> {
         unsafe { mem::transmute(&'l self._13 as *T) }
+    }
+}
+
+impl<T: num::One+num::Zero+Copy, U>
+    num::One
+    for Matrix3D<T,U> {
+    #[inline]
+    fn one() -> Matrix3D<T,U> {
+        let one : T = num::One::one();
+        let zero : T = num::Zero::zero();
+        Matrix3D {
+            _11: one,  _21: zero, _31: zero,
+            _12: zero, _22: one,  _32: zero,
+            _13: zero, _23: zero, _33: one,
+        }
     }
 }
 
@@ -808,6 +968,22 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
             _34: self._31 * rhs._14 + self._32 * rhs._24 + self._33 * rhs._34 + self._34 * rhs._44,
             _44: self._41 * rhs._14 + self._42 * rhs._24 + self._43 * rhs._34 + self._44 * rhs._44,
         };
+    }
+}
+
+impl<T: num::One+num::Zero+Copy, U>
+    num::One
+    for Matrix4D<T,U> {
+    #[inline]
+    fn one() -> Matrix4D<T,U> {
+        let one : T = num::One::one();
+        let zero : T = num::Zero::zero();
+        Matrix4D {
+            _11: one,  _21: zero, _31: zero, _41: zero,
+            _12: zero, _22: one,  _32: zero, _42: zero,
+            _13: zero, _23: zero, _33: one,  _43: zero,
+            _14: zero, _24: zero, _34: zero, _44: one,
+        }
     }
 }
 

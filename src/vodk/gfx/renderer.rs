@@ -2,6 +2,8 @@
 use std::mem;
 use data;
 
+pub type BufferData<'l> = data::DynamicallyTypedSlice<'l>;
+
 pub type TextureFlags = i32;
 pub static REPEAT_S          : TextureFlags = 1 << 0;
 pub static REPEAT_T          : TextureFlags = 1 << 1;
@@ -62,6 +64,7 @@ pub enum PixelFormat {
     B8G8R8A8,
     B8G8R8X8,
     A8,
+    A_F32,
 }
 
 #[deriving(PartialEq, Clone, Show)]
@@ -148,12 +151,11 @@ pub type ErrorCode = u32;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
-    pub buffer: Buffer,
+    pub buffer: Buffer, // TODO: move out of this struct
     pub attrib_type: AttributeType,
     pub location: VertexAttributeLocation,
     pub stride: u16,
     pub offset: u16,
-    pub components: u8,
     pub normalize: bool,
 }
 
@@ -176,8 +178,12 @@ pub trait RenderingContext {
     fn create_texture(&mut self, flags: TextureFlags) -> Texture;
     fn destroy_texture(&mut self, tex: Texture);
     fn set_texture_flags(&mut self, tex: Texture, flags: TextureFlags);
-    fn upload_texture_data(&mut self, dest: Texture, data: &[u8],
-                           w:u32, h:u32, format: PixelFormat) -> RendererResult;
+    fn upload_texture_data(&mut self,
+        dest: Texture,
+        data: &BufferData,
+        w:u32, h:u32,
+        format: PixelFormat
+    ) -> RendererResult;
     /**
      * Specifies the texture's size and format
      * Does not need to be called if some data will be uploaded
@@ -201,8 +207,12 @@ pub trait RenderingContext {
 
     fn create_buffer(&mut self, buffer_type: BufferType) -> Buffer;
     fn destroy_buffer(&mut self, buffer: Buffer);
-    fn upload_buffer(&mut self, buffer: Buffer, buf_type: BufferType,
-                     update: UpdateHint, data: &[u8]) -> RendererResult;
+    fn upload_buffer(&mut self,
+        buffer: Buffer,
+        buf_type: BufferType,
+        update: UpdateHint,
+        data: &BufferData
+    ) -> RendererResult;
     fn allocate_buffer(&mut self, dest: Buffer, buf_type: BufferType,
                        update: UpdateHint, size: u32) -> RendererResult;
 
@@ -266,53 +276,6 @@ pub fn as_mut_bytes<'l, T>(src: &'l mut [T]) -> &'l mut [u8] {
             src.as_ptr() as *T,
             src.len() * mem::size_of::<T>()
         ));
-    }
-}
-
-pub struct BufferData {
-    data: Vec<u8>,
-}
-
-impl BufferData {
-    pub fn new<T>(size: uint) -> BufferData {
-        BufferData {
-            data: Vec::from_fn(size * mem::size_of::<T>(), |_|{ 0 })
-        }
-    }
-
-    pub fn from_vec<T>(src_vec: Vec<T>) -> BufferData {
-        unsafe {
-            let (len, cap, ptr) : (uint, uint, *u8) = mem::transmute(src_vec);
-            BufferData {
-                data: mem::transmute((
-                    len * mem::size_of::<T>(),
-                    cap * mem::size_of::<T>(),
-                    ptr
-                ))
-            }
-        }
-    }
-
-    pub fn get_slice<T: Copy>(&self) -> &[T] {
-        unsafe {
-            return mem::transmute((
-                self.data.as_ptr() as *T,
-                self.data.len() / mem::size_of::<T>()
-            ));
-        }
-    }
-
-    pub fn get_mut_slice<T: Copy>(&mut self) -> &[T] {
-        unsafe {
-            return mem::transmute((
-                self.data.as_ptr() as *T,
-                self.data.len() / mem::size_of::<T>()
-            ));
-        }
-    }
-
-    pub fn byte_len(&self) -> uint {
-        return self.data.len();
     }
 }
 

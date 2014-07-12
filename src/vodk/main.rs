@@ -22,6 +22,7 @@ use io::inputs;
 use gfx::locations::*;
 use gfx::ui;
 use gfx::scenegraph;
+use gfx::tesselation;
 
 use std::io::timer::sleep;
 
@@ -35,8 +36,10 @@ pub mod gfx {
     pub mod text;
     pub mod test_renderer;
     pub mod ui;
+    pub mod color;
     pub mod locations;
     pub mod scenegraph;
+    pub mod tesselation;
 }
 pub mod logic {
     pub mod entity;
@@ -60,6 +63,32 @@ pub mod io {
 
 pub mod app;
 pub mod data;
+
+#[deriving(Show)]
+struct Pos2DTex2D {
+    x: f32,
+    y: f32,
+        s: f32,
+    t: f32,
+}
+
+static vec2_vec2_slice_type : &'static[data::Type] = &[data::VEC2, data::VEC2];
+static u8_slice_type : &'static[data::Type] = &[data::U8];
+static u16_slice_type : &'static[data::Type] = &[data::U16];
+
+impl Pos2DTex2D {
+    fn dynamically_typed_slice<'l>(data: &'l[Pos2DTex2D]) -> data::DynamicallyTypedSlice<'l> {
+        data::DynamicallyTypedSlice::new(data, vec2_vec2_slice_type)
+    }
+}
+
+fn dynamically_typed_byte_slice<'l>(data: &'l[u8]) -> data::DynamicallyTypedSlice<'l> {
+    data::DynamicallyTypedSlice::new(data, u8_slice_type)
+}
+
+fn index_buffer_slice<'l>(data: &'l[u16]) -> data::DynamicallyTypedSlice<'l> {
+    data::DynamicallyTypedSlice::new(data, u16_slice_type)
+}
 
 struct TestApp {
     shaders: Vec<(renderer::ShaderProgram, UniformLayout)>,
@@ -149,7 +178,6 @@ impl app::Application for TestApp {
         ctx.set_shader(shader).ok().expect("set 3d shader");
         let mut proj_mat = world::Mat4::identity();
         world::Mat4::perspective(45.0, self.width as f32 / self.height as f32, 0.5, 1000.0, &mut proj_mat);
-
         let model_mat = world::Mat4::identity();
         let mut view_mat = world::Mat4::identity();
         view_mat.translate(&world::vec3(0.0, 0.0, -10.0));
@@ -198,8 +226,7 @@ impl TestApp {
         let ui_attribs = &[
             renderer::VertexAttribute {
                 buffer: ui_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_position,
                 stride: 16,
                 offset: 0,
@@ -207,8 +234,7 @@ impl TestApp {
             },
             renderer::VertexAttribute {
                 buffer: ui_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_tex_coords,
                 stride: 16,
                 offset: 8,
@@ -255,13 +281,13 @@ impl TestApp {
             ui_vbo,
             renderer::VERTEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(ui_vertices)
+            &data::DynamicallyTypedSlice::new(ui_vertices, &[data::VEC2, data::VEC2])
         );
         ctx.upload_buffer(
             ui_ibo,
             renderer::INDEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(ui_indices)
+            &index_buffer_slice(ui_indices)
         );
 
         let ui_geom = ctx.create_geometry(ui_attribs, Some(ui_ibo)).ok().expect("ui_geom");
@@ -328,20 +354,19 @@ impl TestApp {
             cube_vbo,
             renderer::VERTEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(cube_vertices)
+            &data::DynamicallyTypedSlice::new(cube_vertices, &[data::VEC3, data::VEC3, data::VEC2])
         ).ok().expect("cube vbo upload");
         ctx.upload_buffer(
             cube_ibo,
             renderer::INDEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(cube_indices)
+            &index_buffer_slice(cube_indices)
         ).ok().expect("cube ibo upload");
 
         let cube_geom = ctx.create_geometry([
             renderer::VertexAttribute {
                 buffer: cube_vbo,
-                attrib_type: data::F32,
-                components: 3,
+                attrib_type: data::VEC3,
                 location: a_position,
                 stride: 32,
                 offset: 0,
@@ -349,8 +374,7 @@ impl TestApp {
             },
             renderer::VertexAttribute {
                 buffer: cube_vbo,
-                attrib_type: data::F32,
-                components: 3,
+                attrib_type: data::VEC3,
                 location: a_normals,
                 stride: 32,
                 offset: 12,
@@ -358,8 +382,7 @@ impl TestApp {
             },
             renderer::VertexAttribute {
                 buffer: cube_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_tex_coords,
                 stride: 32,
                 offset: 24,
@@ -368,12 +391,13 @@ impl TestApp {
             Some(cube_ibo)
         ).ok().expect("cube geom definition");
 
-        let quad_vertices: &[f32] = &[
-              0.0,   0.0,   0.0, 0.0,
-            200.0,   0.0,   1.0, 0.0,
-            200.0, 200.0,   1.0, 1.0,
-              0.0, 200.0,   0.0, 1.0,
+        let quad_vertices: &[Pos2DTex2D] = & [
+            Pos2DTex2D { x:   0.0, y:   0.0,    s: 0.0, t: 0.0 },
+            Pos2DTex2D { x: 200.0, y:   0.0,    s: 1.0, t: 0.0 },
+            Pos2DTex2D { x: 200.0, y: 200.0,    s: 1.0, t: 1.0 },
+            Pos2DTex2D { x:   0.0, y: 200.0,    s: 0.0, t: 1.0 },
         ];
+
         let quad_indices: &[u16] = &[0, 1, 2, 0, 2, 3];
 
         let quad_vbo = ctx.create_buffer(renderer::VERTEX_BUFFER);
@@ -383,21 +407,20 @@ impl TestApp {
             quad_vbo,
             renderer::VERTEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(quad_vertices)
+            &Pos2DTex2D::dynamically_typed_slice(quad_vertices)
         ).ok().expect("vbo upload");
 
         ctx.upload_buffer(
             quad_ibo,
             renderer::INDEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(quad_indices)
+            &index_buffer_slice(quad_indices)
         ).ok().expect("ibo upload");
 
         let geom = ctx.create_geometry([
             renderer::VertexAttribute {
                 buffer: quad_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_position,
                 stride: 16,
                 offset: 0,
@@ -405,8 +428,7 @@ impl TestApp {
             },
             renderer::VertexAttribute {
                 buffer: quad_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_tex_coords,
                 stride: 16,
                 offset: 8,
@@ -433,14 +455,13 @@ impl TestApp {
             text_vbo,
             renderer::VERTEX_BUFFER,
             renderer::STATIC,
-            renderer::as_bytes(text_vertices.as_slice())
+            &data::DynamicallyTypedSlice::new(text_vertices.as_mut_slice(), &[data::VEC2, data::VEC2])
         ).ok().expect("text vbo upload");
 
         let text_geom = ctx.create_geometry([
             renderer::VertexAttribute {
                 buffer: text_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_position,
                 stride: 4*4,
                 offset: 0,
@@ -448,8 +469,7 @@ impl TestApp {
             },
             renderer::VertexAttribute {
                 buffer: text_vbo,
-                attrib_type: data::F32,
-                components: 2,
+                attrib_type: data::VEC2,
                 location: a_tex_coords,
                 stride: 4*4,
                 offset: 2*4,
@@ -465,7 +485,8 @@ impl TestApp {
 
         let ascii_tex = ctx.create_texture(renderer::REPEAT|renderer::FILTER_LINEAR);
         ctx.upload_texture_data(
-            ascii_tex, ascii_atlas.pixels.as_slice(),
+            ascii_tex,
+            &dynamically_typed_byte_slice(ascii_atlas.pixels.as_slice()),
             ascii_atlas.width, ascii_atlas.height,
             renderer::R8G8B8A8
         ).ok().expect("Ascii atlas texture upload");
@@ -592,6 +613,7 @@ fn main() {
     }
 
     app.shut_down();
+    tesselation::test_path();
 }
 
 fn create_checker_texture(w: uint, h: uint, ctx: &mut renderer::RenderingContext) -> renderer::Texture {
@@ -601,7 +623,7 @@ fn create_checker_texture(w: uint, h: uint, ctx: &mut renderer::RenderingContext
     let checker = ctx.create_texture(renderer::REPEAT|renderer::FILTER_NEAREST);
     ctx.upload_texture_data(
         checker,
-        checker_data.as_slice(),
+        &dynamically_typed_byte_slice(checker_data.as_slice()),
         w as u32, h as u32,
         renderer::R8G8B8A8
     ).ok().expect("checker texture upload");

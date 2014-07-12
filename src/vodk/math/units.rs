@@ -4,7 +4,9 @@ macro_rules! declare_unit (
         pub mod $module {
             use math::vector;
 
+            #[deriving(Show)]
             pub struct Unit;
+
             pub type Rect = vector::Rectangle2D<f32, Unit>;
             pub type Vec2 = vector::Vector2D<f32, Unit>;
             pub type Vec3 = vector::Vector3D<f32, Unit>;
@@ -30,38 +32,33 @@ macro_rules! declare_unit (
             pub mod Mat4 {
                 use super::Mat4;
                 use math::vector;
-                pub fn identity() -> Mat4 {
-                    vector::Matrix4D {
-                        _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
-                        _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
-                        _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
-                        _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
-                    }
-                }
+                use std::num::One;
+                pub fn identity() -> Mat4 { One::one() }
 
                 pub fn perspective(
                     fovy: f32, aspect: f32,
                     near: f32, far: f32,
                     mat: &mut Mat4
                 ) {
-                    let f = 1.0 / (fovy / 2.0).tan();
-                    let nf: f32 = 1.0 / (near - far);
-                    mat._11 = f / aspect;
-                    mat._21 = 0.0;
-                    mat._31 = 0.0;
-                    mat._41 = 0.0;
-                    mat._12 = 0.0;
-                    mat._22 = f;
-                    mat._32 = 0.0;
-                    mat._42 = 0.0;
-                    mat._13 = 0.0;
-                    mat._23 = 0.0;
-                    mat._33 = (far + near) * nf;
-                    mat._43 = -1.0;
-                    mat._14 = 0.0;
-                    mat._24 = 0.0;
-                    mat._34 = (2.0 * far * near) * nf;
-                    mat._44 = 0.0;
+                    vector::Matrix4D::perspective(fovy, aspect, near, far, mat);
+                    //let f = 1.0 / (fovy / 2.0).tan();
+                    //let nf: f32 = 1.0 / (near - far);
+                    //mat._11 = f / aspect;
+                    //mat._21 = 0.0;
+                    //mat._31 = 0.0;
+                    //mat._41 = 0.0;
+                    //mat._12 = 0.0;
+                    //mat._22 = f;
+                    //mat._32 = 0.0;
+                    //mat._42 = 0.0;
+                    //mat._13 = 0.0;
+                    //mat._23 = 0.0;
+                    //mat._33 = (far + near) * nf;
+                    //mat._43 = -1.0;
+                    //mat._14 = 0.0;
+                    //mat._24 = 0.0;
+                    //mat._34 = (2.0 * far * near) * nf;
+                    //mat._44 = 0.0;
                 }
             }
         }
