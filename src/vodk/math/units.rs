@@ -12,6 +12,7 @@ macro_rules! declare_unit (
             pub type Vec3 = vector::Vector3D<f32, Unit>;
             pub type Vec4 = vector::Vector4D<f32, Unit>;
             pub type Mat4 = vector::Matrix4D<f32, Unit>;
+            pub type Mat3 = vector::Matrix3D<f32, Unit>;
 
             pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
                 vector::Rectangle2D { x: x, y: y, w: w, h: h }
@@ -41,25 +42,14 @@ macro_rules! declare_unit (
                     mat: &mut Mat4
                 ) {
                     vector::Matrix4D::perspective(fovy, aspect, near, far, mat);
-                    //let f = 1.0 / (fovy / 2.0).tan();
-                    //let nf: f32 = 1.0 / (near - far);
-                    //mat._11 = f / aspect;
-                    //mat._21 = 0.0;
-                    //mat._31 = 0.0;
-                    //mat._41 = 0.0;
-                    //mat._12 = 0.0;
-                    //mat._22 = f;
-                    //mat._32 = 0.0;
-                    //mat._42 = 0.0;
-                    //mat._13 = 0.0;
-                    //mat._23 = 0.0;
-                    //mat._33 = (far + near) * nf;
-                    //mat._43 = -1.0;
-                    //mat._14 = 0.0;
-                    //mat._24 = 0.0;
-                    //mat._34 = (2.0 * far * near) * nf;
-                    //mat._44 = 0.0;
                 }
+            }
+
+            pub mod Mat3 {
+                use super::Mat3;
+                use math::vector;
+                use std::num::One;
+                pub fn identity() -> Mat3 { One::one() }
             }
         }
     )

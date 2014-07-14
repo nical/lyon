@@ -17,10 +17,10 @@ pub static SIZE_64: Type = 64  << 8;
 pub static SIZE_128:Type = 128 << 8;
 
 pub static NUM_COMPONENTS_MASK: Type = 0xFF0000;
-pub static X2:      Type = 2 << 16;
-pub static X3:      Type = 3 << 16;
-pub static X4:      Type = 4 << 16;
-pub static X8:      Type = 8 << 16;
+pub static X2:      Type = 1 << 16;
+pub static X3:      Type = 2 << 16;
+pub static X4:      Type = 3 << 16;
+pub static X8:      Type = 7 << 16;
 pub static X16:     Type = 16 << 16;
 
 pub static F32:     Type = FLOAT | SIZE_32;
@@ -42,7 +42,7 @@ pub fn base_type(t: Type) -> Type { t & BASE_TYPE_MASK }
 
 pub fn scalar_type_of(t: Type) -> Type { t & (BASE_TYPE_MASK|TYPE_SIZE_MASK) }
 
-pub fn num_components(t: Type) -> u32 { (t & NUM_COMPONENTS_MASK) >> 16 }
+pub fn num_components(t: Type) -> u32 { ((t & NUM_COMPONENTS_MASK) >> 16) + 1}
 
 pub fn size_of(t: Type) -> u32 { num_components(t) * ((t & TYPE_SIZE_MASK) >> 8) }
 
@@ -62,12 +62,12 @@ pub fn struct_type_of<T: StructDataType>() -> &'static[Type] {
 pub trait DataType {
     fn data_type() -> TypeResult<Self>;
 }
-pub struct TypeResult<T> { data_type: Type }
+pub struct TypeResult<T> { pub data_type: Type }
 
 pub trait StructDataType {
     fn data_type() -> StructTypeResult<Self>;
 }
-pub struct StructTypeResult<T> { data_type: &'static[Type] }
+pub struct StructTypeResult<T> { pub data_type: &'static[Type] }
 
 
 static f32_data_type: &'static[Type] = &[F32];

@@ -137,7 +137,7 @@ pub struct RenderTarget { pub handle: Handle }
 
 #[deriving(PartialEq, Clone, Show)]
 pub struct Error {
-    pub code: ErrorCode,
+    pub code: String,
     pub detail: Option<String>,
 }
 

@@ -1,11 +1,12 @@
 use std::ops;
 use math::vector::ScalarMul;
 
+#[deriving(Show)]
 pub struct Rgba<T> {
-    r: T,
-    g: T,
-    b: T,
-    a: T,
+    pub r: T,
+    pub g: T,
+    pub b: T,
+    pub a: T,
 }
 
 #[allow(dead_code)]

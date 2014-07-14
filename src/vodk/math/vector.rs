@@ -730,6 +730,13 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
         }
     }
 
+    pub fn transform_2d(&self, p: &Vector2D<T,U>) -> Vector2D<T,U> {
+        Vector2D {
+            x: p.x * self._11 + p.y * self._21 + self._31,
+            y: p.x * self._12 + p.y * self._22 + self._32,
+        }
+    }
+
     pub fn row_1<'l>(&'l self) -> &'l Vector3D<T,U> {
         unsafe { mem::transmute(&'l self._11 as *T) }
     }

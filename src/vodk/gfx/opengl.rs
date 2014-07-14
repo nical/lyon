@@ -15,7 +15,7 @@ macro_rules! check_err (
                 gl::NONE => {}
                 e => {
                     return Err(Error{
-                        code: e,
+                        code: gl_error_str(e).to_string(),
                         detail: Some(format!($($arg)*))
                     });
                 }
@@ -283,7 +283,7 @@ impl RenderingContext for RenderingContextGL {
                                      mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
 
                 return Err( Error {
-                    code: 0,
+                    code: "Shader compilation error".to_string(),
                     detail: Some(str::raw::from_utf8_owned(buffer)),
                 });
             }
@@ -302,7 +302,7 @@ impl RenderingContext for RenderingContextGL {
             for &(ref name, loc) in attrib_locations.iter() {
                 if loc < 0 {
                     return Err(Error {
-                        code: 0,
+                        code: "Shader link error".to_string(),
                         detail: Some("Invalid negative vertex attribute location".to_string())
                     });
                 }
@@ -323,7 +323,7 @@ impl RenderingContext for RenderingContextGL {
                                       mem::transmute(buffer.as_mut_slice().unsafe_mut_ref(0)));
 
                 return Err( Error {
-                    code: 0,
+                    code: "Shader link error".to_string(),
                     detail: Some(str::raw::from_utf8_owned(buffer)),
                 });
             }
@@ -402,12 +402,14 @@ impl RenderingContext for RenderingContextGL {
             gl::BindBuffer(gl::ARRAY_BUFFER, attr.buffer.handle);
             println!("num components: {}", data::num_components(attr.attrib_type));
             unsafe {
-            gl::VertexAttribPointer(attr.location as u32,
-                                    data::num_components(attr.attrib_type) as i32,
-                                    gl_data_type(attr.attrib_type),
-                                    gl_bool(attr.normalize),
-                                    attr.stride as i32,
-                                    mem::transmute(attr.offset as uint));
+            gl::VertexAttribPointer(
+                attr.location as u32,
+                data::num_components(attr.attrib_type) as i32,
+                gl_data_type(attr.attrib_type),
+                gl_bool(attr.normalize),
+                attr.stride as i32,
+                mem::transmute(attr.offset as uint)
+            );
             check_err!("glVertexAttribPointer(...)");
             gl::EnableVertexAttribArray(attr.location as u32);
             check_err!("glEnableVertexAttribArray({})", attr.location);
@@ -509,7 +511,7 @@ impl RenderingContext for RenderingContextGL {
         let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         if status != gl::FRAMEBUFFER_COMPLETE {
-            return Err(Error{code: status, detail: None });
+            return Err(Error{code: gl_error_str(status).to_string(), detail: None });
         }
         return Ok(RenderTarget{ handle: fbo });
     }
@@ -593,11 +595,11 @@ impl RenderingContext for RenderingContextGL {
         self.update_targets(targets);
         self.update_blend_mode(blend);
 
-        if geom != self.current_geometry {
+        //if geom != self.current_geometry {
             self.current_geometry = geom;
             gl::BindVertexArray(geom.handle);
             check_err!("glBindVertexArray({})", geom.handle);
-        };
+        //  };
 
         if geom.ibo != 0 {
             if self.workaround & MISSING_INDEX_BUFFER_VAO != 0 {
