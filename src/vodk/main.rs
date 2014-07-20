@@ -200,8 +200,8 @@ impl app::Application for TestApp {
         ctx.set_shader_input_matrix(uniforms.u_model_mat, model_mat.as_slice(), 4, false);
         ctx.set_shader_input_matrix(uniforms.u_view_mat, view_mat.as_slice(), 4, false);
         ctx.set_shader_input_matrix(uniforms.u_proj_mat, proj_mat.as_slice(), 4, false);
-
         ctx.draw(dc.geom, dc.first, dc.count, dc.flags, renderer::ALPHA_BLENDING, dc.targets).ok().expect("draw(checker texture)");
+
         ctx.swap_buffers();
     }
 
@@ -233,32 +233,37 @@ impl TestApp {
 
         let path_vbo = ctx.create_buffer(renderer::VERTEX_BUFFER);
         let path_ibo = ctx.create_buffer(renderer::INDEX_BUFFER);
+        let path = &[
+                world::vec2(-500.0, -500.0),
+                world::vec2(-300.0, -500.0),
+                world::vec2(-300.0, -300.0),
+                world::vec2( 100.0, -300.0),
+                world::vec2( 100.0, -500.0),
+                world::vec2( 150.0, -300.0),
+                world::vec2( 200.0, -500.0),
+                world::vec2( 200.0,  200.0),
+                world::vec2( 200.0,  500.0),
+                world::vec2(-500.0,  200.0)
+        ];
         let mut path_vertices = [
             tesselation::Pos2DNormal2DColorExtrusion {
                 pos: world::vec2(0.0, 0.0),
                 normal: world::vec2(0.0, 0.0),
                 color: Rgba { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-                extrude_ss: 0.0,
-                extrude_ws: 0.0,
+                extrusion: 0.0,
             },
-            .. 16
+            .. 40 // n_points * 4
         ];
-        let mut path_indices = [0 as u16, .. 72];
-        let path = &[
-                world::vec2(10.0,  10.0),
-                world::vec2(500.0, 10.0),
-                world::vec2(500.0, 500.0),
-                world::vec2(10.0,  500.0)
-        ];
+        let mut path_indices = [0 as u16, .. 180]; // n_points*18
 
         tesselation::path_to_line_vbo(
             path.as_slice(),
             true,
             tesselation::VERTEX_ANTIALIASING|tesselation::CONVEX_SHAPE,
-            |_| { 50.0 },
+            |_| { 10.0 },
             |_, ptype| { match ptype {
-                tesselation::AntialiasPoint => Rgba { r: 0.8, g: 0.0, b: 0.0, a: 1.0 },
-                _ => Rgba { r: 0.0, g: 1.0, b: 0.0, a: 1.0 },
+                tesselation::AntialiasPoint => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 0.0 },
+                _ => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 1.0 },
             }},
             world::Mat3::identity(),
             path_vertices.as_mut_slice()
@@ -271,12 +276,12 @@ impl TestApp {
             path_indices.as_mut_slice()
         );
 
-        for v in path_vertices.slice(0, path.len() * 4).iter() {
-            println!("{}", v);
-        }
-        for i in range(0, path.len() * 6) {
-            println!("({} {} {})", path_indices[i*3], path_indices[i*3+1], path_indices[i*3+2]);
-        }
+        //for v in path_vertices.slice(0, path.len() * 4).iter() {
+        //    println!("{}", v);
+        //}
+        //for i in range(0, path.len() * 6) {
+        //    println!("({} {} {})", path_indices[i*3], path_indices[i*3+1], path_indices[i*3+2]);
+        //}
 
         ctx.upload_buffer(
             path_vbo,
@@ -293,7 +298,7 @@ impl TestApp {
         ).ok().expect("path ibo upload");
 
         let stride = mem::size_of::<tesselation::Pos2DNormal2DColorExtrusion>() as u16;
-        assert!(stride == 40);
+        assert!(stride == 36);
         let path_geom = match ctx.create_geometry(&[
             renderer::VertexAttribute {
                 buffer: path_vbo,
@@ -312,13 +317,8 @@ impl TestApp {
             },
             renderer::VertexAttribute {
                 buffer: path_vbo,
-                attrib_type: data::F32, location: a_extrude_world_space,
+                attrib_type: data::F32, location: a_extrusion,
                 stride: stride, offset: 32, normalize: false,
-            },
-            renderer::VertexAttribute {
-                buffer: path_vbo,
-                attrib_type: data::F32, location: a_extrude_screen_space,
-                stride: stride, offset: 36, normalize: false,
             }
         ], Some(path_ibo)) {
             Err(e) => { fail!("{}", e); }
@@ -333,7 +333,7 @@ impl TestApp {
             DrawCall {
                 geom: path_geom,
                 first: 0,
-                count: 24*3,
+                count: (path.len()*6*3)  as u32,
                 flags: renderer::TRIANGLES,
                 targets: renderer::COLOR,
             }
@@ -680,8 +680,7 @@ fn setup_shader(
         ("a_normal", a_normal),
         ("a_tex_coords", a_tex_coords),
         ("a_color", a_color),
-        ("a_extrude_world_space", a_extrude_world_space),
-        ("a_extrude_screen_space", a_extrude_screen_space),
+        ("a_extrusion", a_extrusion),
     ]).map_err(
         |e| { fail!("Failed to link the text's shader program: {}", e); return; }
     );
@@ -736,7 +735,6 @@ fn main() {
     }
 
     app.shut_down();
-    tesselation::test_path();
 }
 
 fn create_checker_texture(w: uint, h: uint, ctx: &mut renderer::RenderingContext) -> renderer::Texture {

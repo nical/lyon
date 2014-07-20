@@ -6,24 +6,9 @@ use gfx::locations::*;
 use gfx::renderer;
 use gfx::color::Rgba;
 use data;
+use std::num;
 
-// in:
-//  * Iterator<(Pos: Lerp, Attrib: Lerp)>
-// out:
-//  * vbo: |Pos, Attrib|
-//  * ibo: |u16|
-
-// vertex layout:
-//
-// |  Pos   |   rgba         | extrude_vec | extrude_ws | extrude_ss
-//  f32 f32   f32 f32 f32 f32    f32  f32       f32          f32
-//
-// 2-0---1-3  0 1 5, 0 5 4, 2 0 4, 2 4 6, 1 3 7, 1 7 5
-// | |   | |
-// | |   | |
-// | |   | |
-// | |   | |
-// 6-4---5-7 
+fn abs<T: num::Signed>(a:T) -> T { a.abs() }
 
 pub type TesselationFlags = u32;
 pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
@@ -39,8 +24,7 @@ pub struct Pos2DNormal2DColorExtrusion {
     pub pos: world::Vec2,
     pub normal: world::Vec2,
     pub color: Rgba<f32>,
-    pub extrude_ws : f32,
-    pub extrude_ss : f32,
+    pub extrusion : f32,
 }
 
 static vec2_vec2_vec4_f_f_data_type : &'static[data::Type] = &[
@@ -64,6 +48,33 @@ pub enum PointType {
     AntialiasPoint,
 }
 
+fn line_intersection<U>(
+    a1: vector::Vector2D<f32, U>,
+    a2: vector::Vector2D<f32, U>,
+    b1: vector::Vector2D<f32, U>,
+    b2: vector::Vector2D<f32, U>
+) -> Option<vector::Vector2D<f32 ,U>> {
+    let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
+    if det*det < 0.00001 {
+        // The lines are very close to parallel
+        return None;
+    }
+    let inv_det = 1.0 / det;
+    let a = a1.x * a2.y - a1.y * a2.x;
+    let b = b1.x * b2.y - b1.y * b2.x;
+    return Some(vector::Vector2D {
+        x: (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
+        y: (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
+    });
+}
+
+// vertex layout:
+//
+// |  Pos   |    rgba         |  normal  | aa extrusion |
+//  f32 f32   f32 f32 f32 f32   f32  f32       f32
+// XXX - use 32bit rgba instead!
+
+
 pub fn path_to_line_vbo(
     path: &[world::Vec2],
     is_closed: bool,
@@ -78,10 +89,14 @@ pub fn path_to_line_vbo(
         fail!("invalid path");
     }
 
-    let mut n1 = if is_closed { normal(path[0] - path[path.len() - 1]) }
-                 else { normal(path[1] - path[0]) };
-
     let stride = if vertex_antialiasing { 4 } else { 2 };
+
+    // P1------>PX-------->P2
+    let mut p1 = if is_closed { path[path.len() - 1] }
+                  else { path[0] + path[0] - path[1] };
+    let mut px = path[0];
+    let mut n1 = normal(px - p1);
+    // With the line equation y = a * x + b
 
     for i in range(0, path.len()) {
         let mut pos = transform.transform_2d(&path[i]);
@@ -89,44 +104,66 @@ pub fn path_to_line_vbo(
         let color = color_fn(i, BorderPoint);
         let color_aa = color_fn(i, AntialiasPoint);
 
-        let n2 = if i < path.len() - 1 {
-            normal(path[i + 1] - path[i])
-        } else {
-            if is_closed { normal(path[0] - path[i]) }
-            else { normal(path[i] - path[i - 1]) }
-        };
-        let mut normal = n1 + n2;
-        normal.x *= 0.5;
-        normal.y *= 0.5;
-        println!(" ---- n1: {} n2: {}", n1, n2);
-        normal = transform.transform_2d(&normal);
-        n1 = n2;
-        let line_width = line_width_fn(i);
+        // Compute the normal at the intersection point px
+        let mut p2 = if i < path.len() - 1 { path[i + 1] }
+                      else if is_closed { path[0] }
+                      else { path[i] + path[i] - path[i - 1] };
+        let mut n2 = normal(p2 - px);
+        // Segment P1-->PX
+        let pn1  = p1 + n1; // p1 extruded along the normal n1
+        let pn1x = px + n1; // px extruded along the normal n1
+        // Segment PX-->P2
+        let pn2  = p2 + n2;
+        let pn2x = px + n2;
 
-        vbo[i * stride].pos = pos;
+        let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
+            Some(v) => { v }
+            None => {
+                if (n1 - n2).square_length() < 0.00001 {
+                    px + n1
+                } else {
+                    // TODO: the angle is very narrow, use rounded corner instead
+                    // Arbitrarily, just take a normal that is almost zero but not quite
+                    // to avoid running into issues if we divide by its length.
+                    // This is wrong but it will do until rounded corners are implemented.
+                    //world::vec2(0.0, 0.1);
+                    fail!("Not implemented yet");
+                }
+            }
+        };
+        let normal = transform.transform_2d(&(inter - px));
+
+        // Shift towards the next point; some values don't need to be recomputed
+        // since the segment 1 is the segment 2 of the previous iteration.
+        // TODO: more stuff could be cached in line_intersection.
+        p1 = px;
+        px = p2;
+        n1 = n2;
+
+        let line_width = line_width_fn(i);
+        let aa_width = 1.0;
+        let extrusion_ws = normal.times(line_width);
+
+        vbo[i * stride].pos = pos + extrusion_ws;
         vbo[i * stride].normal = normal;
         vbo[i * stride].color = color;
-        vbo[i * stride].extrude_ws = line_width;
-        vbo[i * stride].extrude_ss = -0.5;
+        vbo[i * stride].extrusion = -aa_width;
 
-        vbo[i * stride + 1].pos = pos;
+        vbo[i * stride + 1].pos = pos - extrusion_ws;
         vbo[i * stride + 1].normal = normal;
         vbo[i * stride + 1].color = color;
-        vbo[i * stride + 1].extrude_ws = -line_width;
-        vbo[i * stride + 1].extrude_ss = 0.5;
+        vbo[i * stride + 1].extrusion = aa_width;
 
         if (vertex_antialiasing) {
-            vbo[i * stride + 2].pos = pos;
+            vbo[i * stride + 2].pos = pos + extrusion_ws;
             vbo[i * stride + 2].normal = normal;
             vbo[i * stride + 2].color = color_aa;
-            vbo[i * stride + 2].extrude_ws = line_width;
-            vbo[i * stride + 2].extrude_ss = 0.5;
+            vbo[i * stride + 2].extrusion = aa_width;
 
-            vbo[i * stride + 3].pos = pos;
+            vbo[i * stride + 3].pos = pos - extrusion_ws;
             vbo[i * stride + 3].normal = normal;
             vbo[i * stride + 3].color = color_aa;
-            vbo[i * stride + 3].extrude_ws = -line_width;
-            vbo[i * stride + 3].extrude_ss = -0.5;
+            vbo[i * stride + 3].extrusion = -aa_width;
         }
     }
 }
@@ -204,42 +241,5 @@ pub fn path_to_line_ibo(
             ibo[i * index_stride + 16] = base_vertex + 3;
             ibo[i * index_stride + 17] = base_vertex + 1;
         }
-    }
-}
-
-pub fn test_path() {
-    let path : Vec<world::Vec2> = vec!(
-            world::vec2(0.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 1.0),
-            world::vec2(0.0, 1.0)
-    );
-    let is_closed = true;
-
-    let mut vbo : Vec<Pos2DNormal2DColorExtrusion> = Vec::from_fn(path.len()*4, |_|{
-        Pos2DNormal2DColorExtrusion {
-            pos: world::vec2(0.0, 0.0),
-            normal: world::vec2(0.0, 0.0),
-            color: Rgba { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-            extrude_ss: 0.0,
-            extrude_ws: 0.0,
-        }
-    });
-
-    path_to_line_vbo(
-        path.as_slice(),
-        is_closed,
-        VERTEX_ANTIALIASING|CONVEX_SHAPE,
-        |_| { 10.0 },
-        |_, ptype| { match ptype {
-            AntialiasPoint => Rgba { r: 0.5, g: 0.5, b: 0.5, a: 0.0 },
-            _ => Rgba { r: 0.5, g: 0.5, b: 0.5, a: 1.0 },
-        }},
-        world::Mat3::identity(),
-        vbo.as_mut_slice()
-    );
-
-    for l in vbo.iter() {
-        println!(" {}", l.normal);
     }
 }

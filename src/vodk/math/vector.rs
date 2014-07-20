@@ -535,6 +535,10 @@ impl<T: Copy + Num + Float, U> Vector2D<T, U> {
         return self.x * self.x + self.y * self.y;
     }
 
+    pub fn times(&self, f: T) -> Vector2D<T,U> {
+        Vector2D { x: self.x * f, y: self.y * f }
+    }
+
     pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
     pub fn yx(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.x } }
 }
@@ -681,6 +685,13 @@ impl<T: Copy + Num, U> Matrix2D<T, U> {
 
     pub fn row_2<'l>(&'l self) -> &'l Vector2D<T,U> {
         unsafe { mem::transmute(&'l self._12 as *T) }
+    }
+
+    pub fn transform(&self, v: &Vector2D<T,U>) -> Vector2D<T,U> {
+        Vector2D {
+            x: v.x * self._11 + v.y * self._21,
+            y: v.x * self._12 + v.y * self._22,
+        }
     }
 }
 

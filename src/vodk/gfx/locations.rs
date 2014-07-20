@@ -5,8 +5,7 @@ pub static a_normal:    renderer::VertexAttributeLocation = 1;
 pub static a_tex_coords: renderer::VertexAttributeLocation = 2;
 pub static a_color:      renderer::VertexAttributeLocation = 3;
 // for antialiased shape rendering
-pub static a_extrude_world_space:  renderer::VertexAttributeLocation = 4;
-pub static a_extrude_screen_space: renderer::VertexAttributeLocation = 5;
+pub static a_extrusion: renderer::VertexAttributeLocation = 4;
 
 #[deriving(Show)]
 pub struct UniformLayout {
