@@ -1,8 +1,18 @@
 
+// Math module providing simple vector and matrix types and operations.
+// This module is meant to make strongly typed units easy.
+//
+// Ideally this could be replaced by cgmath-rs but there are a few issues
+// around introducing strongly typed units that make it inconvenient
+// (see cgmath_glue.rs).
+
+// TODO:
+// * support operations against Float32<U> instead of f32
+
 use std::mem;
 use std::ops;
 use std::num;
-//use std::fmt;
+
 use std::kinds::Copy;
 use std::fmt::Show;
 
@@ -12,19 +22,19 @@ pub static PI: f32 = 3.14159265359;
 #[deriving(PartialEq, Show)]
 pub struct Untyped;
 
-pub type Vec2 = Vector2D<f32, Untyped>;
-pub type Vec3 = Vector3D<f32, Untyped>;
-pub type Vec4 = Vector4D<f32, Untyped>;
+pub type Vec2 = Vector2D<Untyped>;
+pub type Vec3 = Vector3D<Untyped>;
+pub type Vec4 = Vector4D<Untyped>;
 
 pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D { x: x, y: y } }
 pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 { Vector3D { x: x, y: y, z: z } }
 pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w } }
 
-pub type Mat4 = Matrix4D<f32, Untyped>;
-pub type Mat3 = Matrix3D<f32, Untyped>;
-pub type Mat2 = Matrix2D<f32, Untyped>;
+pub type Mat4 = Matrix4D<Untyped>;
+pub type Mat3 = Matrix3D<Untyped>;
+pub type Mat2 = Matrix2D<Untyped>;
 
-pub type Rect = Rectangle2D<f32, Untyped>;
+pub type Rect = Rectangle2D<Untyped>;
 
 pub trait ScalarMul<T> {
     fn scalar_mul(&self, scalar: T) -> Self;
@@ -41,8 +51,8 @@ pub trait VecMath<T>: Add<Self,Self>
     fn mix(a: &Self, b: &Self) -> Self;
     fn clamp(a: &Self, b: &Self) -> Self;
     fn lerp(a: &Self, b: &Self, x: T) -> Self;
-    fn dot(a: &Self, b: &Self) -> T;
-    fn length(a: &Self) -> T;
+    fn dot(a: &Self, b: &Self) -> f32;
+    fn length(a: &Self) -> f32;
 }
 
 #[allow(dead_code)]
@@ -105,38 +115,38 @@ pub mod Mat2 {
     }
 }
 
-#[deriving(Show, Zero)]
-pub struct Vector2D<T, Unit = Untyped> {
-    pub x: T,
-    pub y: T,
+#[deriving(Clone, Show, Zero)]
+pub struct Vector2D<Unit = Untyped> {
+    pub x: f32,
+    pub y: f32,
 }
 
-#[deriving(Show, Zero)]
-pub struct Vector3D<T, Unit = Untyped> {
-    pub x: T,
-    pub y: T,
-    pub z: T,
+#[deriving(Clone, Show, Zero)]
+pub struct Vector3D<Unit = Untyped> {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
-#[deriving(Show, Zero)]
-pub struct Vector4D<T, Unit = Untyped> {
-    pub x: T,
-    pub y: T,
-    pub z: T,
-    pub w: T,
+#[deriving(Clone, Show, Zero)]
+pub struct Vector4D<Unit = Untyped> {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
 }
 
-#[deriving(Show)]
-pub struct Rectangle2D<T, Unit = Untyped> {
-    pub x: T,
-    pub y: T,
-    pub w: T,
-    pub h: T,
+#[deriving(Clone, Show)]
+pub struct Rectangle2D<Unit = Untyped> {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
 }
 
 #[allow(dead_code)]
-impl<T: Copy + Float, U> Vector4D<T, U> {
-    pub fn from_slice(from: &[T]) -> Vector4D<T,U> {
+impl<U> Vector4D<U> {
+    pub fn from_slice(from: &[f32]) -> Vector4D<U> {
         assert!(from.len() >= 4);
         return Vector4D {
             x: from[0],
@@ -146,47 +156,47 @@ impl<T: Copy + Float, U> Vector4D<T, U> {
         };
     }
 
-    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+    pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&'l self.x as *T, 4 as uint ));
+            return mem::transmute((&self.x as *const f32, 4 as uint ));
         }
     }
 
-    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&'l self.x as *T, 4 as uint ));
+            return mem::transmute((&mut self.x as *mut f32, 4 as uint ));
         }
     }
 
     #[inline]
-    pub fn dot(&self, rhs: &Vector4D<T,U>) -> T {
+    pub fn dot(&self, rhs: &Vector4D<U>) -> f32 {
         return self.x*rhs.x + self.y*rhs.y + self.z*rhs.z + self.w*rhs.w;
     }
 
-    pub fn length(&self) -> T {
+    pub fn length(&self) -> f32 {
         return self.square_length().sqrt();
     }
 
-    pub fn square_length(&self) -> T {
+    pub fn square_length(&self) -> f32 {
         return self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w;
     }
 
-    pub fn to_tuple(&self) -> (T, T, T, T) { (self.x, self.y, self.z, self.w) }
+    pub fn to_tuple(&self) -> (f32, f32, f32, f32) { (self.x, self.y, self.z, self.w) }
 
-    pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
-    pub fn xz(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.z } }
-    pub fn yz(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.z } }
-    pub fn yx(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.x } }
-    pub fn xyz(&self) -> Vector3D<T,U> { Vector3D { x: self.x, y:self.y, z: self.z } }
-    pub fn zxy(&self) -> Vector3D<T,U> { Vector3D { x: self.z, y:self.x, z: self.y } }
-    pub fn yzx(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.z, z: self.x } }
-    pub fn xzy(&self) -> Vector3D<T,U> { Vector3D { x: self.x, y:self.z, z: self.y } }
-    pub fn yxz(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.x, z: self.z } }
-    pub fn wxyz(&self) -> Vector4D<T,U> { Vector4D { x: self.w, y:self.x, z: self.y, w:self.z } }
+    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y } }
+    pub fn xz(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.z } }
+    pub fn yz(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.z } }
+    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x } }
+    pub fn xyz(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.y, z: self.z } }
+    pub fn zxy(&self) -> Vector3D<U> { Vector3D { x: self.z, y:self.x, z: self.y } }
+    pub fn yzx(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.z, z: self.x } }
+    pub fn xzy(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.z, z: self.y } }
+    pub fn yxz(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.x, z: self.z } }
+    pub fn wxyz(&self) -> Vector4D<U> { Vector4D { x: self.w, y:self.x, z: self.y, w:self.z } }
 }
 
-impl<T: Float+EpsilonEq, U> PartialEq for Vector4D<T, U> {
-    fn eq(&self, rhs:&Vector4D<T,U>) -> bool {
+impl<U> PartialEq for Vector4D<U> {
+    fn eq(&self, rhs:&Vector4D<U>) -> bool {
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y)
             && self.z.epsilon_eq(&rhs.z)
@@ -194,16 +204,16 @@ impl<T: Float+EpsilonEq, U> PartialEq for Vector4D<T, U> {
     }
 }
 
-impl<T: Float+EpsilonEq, U> PartialEq for Vector3D<T, U> {
-    fn eq(&self, rhs:&Vector3D<T,U>) -> bool {
+impl<U> PartialEq for Vector3D<U> {
+    fn eq(&self, rhs:&Vector3D<U>) -> bool {
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y)
             && self.z.epsilon_eq(&rhs.z);
     }
 }
 
-impl<T: Float+EpsilonEq, U> PartialEq for Vector2D<T, U> {
-    fn eq(&self, rhs:&Vector2D<T,U>) -> bool {
+impl<U> PartialEq for Vector2D<U> {
+    fn eq(&self, rhs:&Vector2D<U>) -> bool {
         return self.x.epsilon_eq(&rhs.x)
             && self.y.epsilon_eq(&rhs.y);
     }
@@ -211,12 +221,10 @@ impl<T: Float+EpsilonEq, U> PartialEq for Vector2D<T, U> {
 
 
 #[allow(dead_code)]
-impl<T: ops::Add<T,T>, U>
-    ops::Add<Vector4D<T,U>, Vector4D<T,U>>
-    for Vector4D<T,U> {
+impl<U> ops::Add<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 
     #[inline]
-    fn add(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn add(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -227,12 +235,10 @@ impl<T: ops::Add<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Sub<T,T>, U>
-    ops::Sub<Vector4D<T,U>, Vector4D<T,U>>
-    for Vector4D<T,U> {
+impl<U> ops::Sub<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 
     #[inline]
-    fn sub(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn sub(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -243,12 +249,10 @@ impl<T: ops::Sub<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>, U>
-    ops::Mul<Vector4D<T,U>, Vector4D<T,U>>
-    for Vector4D<T,U> {
+impl<U> ops::Mul<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn mul(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
@@ -259,12 +263,10 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>, U>
-    ScalarMul<T>
-    for Vector4D<T,U> {
+impl<U> ScalarMul<f32> for Vector4D<U> {
 
     #[inline]
-    fn scalar_mul(&self, rhs: T) -> Vector4D<T, U> {
+    fn scalar_mul(&self, rhs: f32) -> Vector4D<U> {
         return Vector4D {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -274,7 +276,7 @@ impl<T: ops::Mul<T,T>, U>
     }
 
     #[inline]
-    fn scalar_mul_in_place(&mut self, rhs: T) {
+    fn scalar_mul_in_place(&mut self, rhs: f32) {
         self.x = self.x * rhs;
         self.y = self.y * rhs;
         self.z = self.z * rhs;
@@ -283,12 +285,10 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Div<T,T>, U>
-    ops::Div<Vector4D<T,U>, Vector4D<T,U>>
-    for Vector4D<T,U> {
+impl<U> ops::Div<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 
     #[inline]
-    fn div(&self, rhs: &Vector4D<T,U>) -> Vector4D<T, U> {
+    fn div(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
@@ -299,12 +299,10 @@ impl<T: ops::Div<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T : ops::Neg<T>, U>
-    ops::Neg<Vector4D<T,U>>
-    for Vector4D<T,U> {
+impl<U> ops::Neg<Vector4D<U>> for Vector4D<U> {
 
     #[inline]
-    fn neg(&self) -> Vector4D<T, U> {
+    fn neg(&self) -> Vector4D<U> {
         return Vector4D {
             x: -self.x,
             y: -self.y,
@@ -315,8 +313,8 @@ impl<T : ops::Neg<T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: Copy + Float, U> Vector3D<T, U> {
-    pub fn from_slice(from: &[T]) -> Vector3D<T,U> {
+impl<U> Vector3D<U> {
+    pub fn from_slice(from: &[f32]) -> Vector3D<U> {
         assert!(from.len() >= 3);
         return Vector3D {
             x: from[0],
@@ -325,25 +323,25 @@ impl<T: Copy + Float, U> Vector3D<T, U> {
         };
     }
 
-    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+    pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&'l self.x as *T, 3 as uint ));
+            return mem::transmute((&self.x as *const f32, 3 as uint ));
         }
     }
 
-    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&'l self.x as *T, 3 as uint ));
+            return mem::transmute((&mut self.x as *mut f32, 3 as uint ));
         }
     }
 
     #[inline]
-    pub fn dot(&self, rhs: &Vector3D<T,U>) -> T {
+    pub fn dot(&self, rhs: &Vector3D<U>) -> f32 {
         return self.x*rhs.x + self.y*rhs.y + self.z*rhs.z;
     }
 
     #[inline]
-    pub fn cross(&self, rhs: &Vector3D<T,U>) -> Vector3D<T,U> {
+    pub fn cross(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: (self.y * rhs.z) - (self.z * rhs.y),
             y: (self.z * rhs.x) - (self.x * rhs.z),
@@ -351,27 +349,27 @@ impl<T: Copy + Float, U> Vector3D<T, U> {
         }
     }
 
-    pub fn length(&self) -> T {
+    pub fn length(&self) -> f32 {
         return self.square_length().sqrt();
     }
 
-    pub fn square_length(&self) -> T {
+    pub fn square_length(&self) -> f32 {
         return self.x * self.x + self.y * self.y + self.z * self.z;
     }
 
-    pub fn to_tuple(&self) -> (T, T, T) { (self.x, self.y, self.z) }
+    pub fn to_tuple(&self) -> (f32, f32, f32) { (self.x, self.y, self.z) }
 
-    pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
-    pub fn xz(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.z } }
-    pub fn yz(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.z } }
-    pub fn yx(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.x } }
-    pub fn xyz(&self) -> Vector3D<T,U> { Vector3D { x: self.x, y:self.y, z: self.z } }
-    pub fn zxy(&self) -> Vector3D<T,U> { Vector3D { x: self.z, y:self.x, z: self.y } }
-    pub fn yzx(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.z, z: self.x } }
-    pub fn xzy(&self) -> Vector3D<T,U> { Vector3D { x: self.x, y:self.z, z: self.y } }
-    pub fn yxz(&self) -> Vector3D<T,U> { Vector3D { x: self.y, y:self.x, z: self.z } }
+    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y } }
+    pub fn xz(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.z } }
+    pub fn yz(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.z } }
+    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x } }
+    pub fn xyz(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.y, z: self.z } }
+    pub fn zxy(&self) -> Vector3D<U> { Vector3D { x: self.z, y:self.x, z: self.y } }
+    pub fn yzx(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.z, z: self.x } }
+    pub fn xzy(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.z, z: self.y } }
+    pub fn yxz(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.x, z: self.z } }
 
-    pub fn to_vec4(&self, w: T) -> Vector4D<T, U> {
+    pub fn to_vec4(&self, w: f32) -> Vector4D<U> {
         Vector4D {
             x: self.x,
             y: self.y,
@@ -381,43 +379,38 @@ impl<T: Copy + Float, U> Vector3D<T, U> {
     }
 }
 
-impl<T: Copy+FloatMath+Show, U> Matrix4D<T,U> {
+impl<U> Matrix4D<U> {
     pub fn perspective(
-        fovy: T, aspect: T, near: T, far: T,
-        mat: &mut Matrix4D<T,U>
+        fovy: f32, aspect: f32, near: f32, far: f32,
+        mat: &mut Matrix4D<U>
     ) {
-        let zero: T = num::Zero::zero();
-        let one: T = num::One::one();
-        let two: T = one + one;
-        let f = one / (fovy / two).tan();
-        let nf: T = one / (near - far);
+        let f = 1.0 / (fovy / 2.0).tan();
+        let nf: f32 = 1.0 / (near - far);
 
         mat._11 = f / aspect;
-        mat._21 = zero;
-        mat._31 = zero;
-        mat._41 = zero;
-        mat._12 = zero;
+        mat._21 = 0.0;
+        mat._31 = 0.0;
+        mat._41 = 0.0;
+        mat._12 = 0.0;
         mat._22 = f;
-        mat._32 = zero;
-        mat._42 = zero;
-        mat._13 = zero;
-        mat._23 = zero;
+        mat._32 = 0.0;
+        mat._42 = 0.0;
+        mat._13 = 0.0;
+        mat._23 = 0.0;
         mat._33 = (far + near) * nf;
-        mat._43 = -one;
-        mat._14 = zero;
-        mat._24 = zero;
-        mat._34 = (two * far * near) * nf;
-        mat._44 = zero;
+        mat._43 = -1.0;
+        mat._14 = 0.0;
+        mat._24 = 0.0;
+        mat._34 = (2.0 * far * near) * nf;
+        mat._44 = 0.0;
     }
 }
 
 #[allow(dead_code)]
-impl<T: ops::Add<T,T>, U>
-    ops::Add<Vector3D<T,U>, Vector3D<T,U>>
-    for Vector3D<T,U> {
+impl<U> ops::Add<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
 
     #[inline]
-    fn add(&self, rhs: &Vector3D<T,U>) -> Vector3D<T, U> {
+    fn add(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -427,12 +420,10 @@ impl<T: ops::Add<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Sub<T,T>, U>
-    ops::Sub<Vector3D<T,U>, Vector3D<T,U>>
-    for Vector3D<T,U> {
+impl<U> ops::Sub<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
 
     #[inline]
-    fn sub(&self, rhs: &Vector3D<T,U>) -> Vector3D<T, U> {
+    fn sub(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -442,12 +433,10 @@ impl<T: ops::Sub<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>, U>
-    ops::Mul<Vector3D<T,U>, Vector3D<T,U>>
-    for Vector3D<T,U> {
+impl<U> ops::Mul<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Vector3D<T,U>) -> Vector3D<T, U> {
+    fn mul(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
@@ -457,12 +446,10 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>, U>
-    ScalarMul<T>
-    for Vector3D<T,U> {
+impl<U> ScalarMul<f32> for Vector3D<U> {
 
     #[inline]
-    fn scalar_mul(&self, rhs: T) -> Vector3D<T, U> {
+    fn scalar_mul(&self, rhs: f32) -> Vector3D<U> {
         return Vector3D {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -471,7 +458,7 @@ impl<T: ops::Mul<T,T>, U>
     }
 
     #[inline]
-    fn scalar_mul_in_place(&mut self, rhs: T) {
+    fn scalar_mul_in_place(&mut self, rhs: f32) {
         self.x = self.x * rhs;
         self.y = self.y * rhs;
         self.z = self.z * rhs;
@@ -480,12 +467,10 @@ impl<T: ops::Mul<T,T>, U>
 
 
 #[allow(dead_code)]
-impl<T : ops::Neg<T>, U>
-    ops::Neg<Vector3D<T,U>>
-    for Vector3D<T,U> {
+impl<U> ops::Neg<Vector3D<U>> for Vector3D<U> {
 
     #[inline]
-    fn neg(&self) -> Vector3D<T, U> {
+    fn neg(&self) -> Vector3D<U> {
         return Vector3D {
             x: -self.x,
             y: -self.y,
@@ -497,8 +482,8 @@ impl<T : ops::Neg<T>, U>
 
 
 #[allow(dead_code)]
-impl<T: Copy + Num + Float, U> Vector2D<T, U> {
-    pub fn from_slice(from: &[T]) -> Vector2D<T,U> {
+impl<U> Vector2D<U> {
+    pub fn from_slice(from: &[f32]) -> Vector2D<U> {
         assert!(from.len() >= 2);
         return Vector2D {
             x: from[0],
@@ -506,50 +491,48 @@ impl<T: Copy + Num + Float, U> Vector2D<T, U> {
         };
     }
 
-    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+    pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&'l self.x as *T, 2 as uint ));
+            return mem::transmute((&self.x as *const f32, 2 as uint ));
         }
     }
 
-    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&'l self.x as *T, 2 as uint ));
+            return mem::transmute((&mut self.x as *mut f32, 2 as uint ));
         }
     }
 
-    pub fn to_tuple(&self) -> (T, T) { (self.x, self.y) }
+    pub fn to_tuple(&self) -> (f32, f32) { (self.x, self.y) }
 
     #[inline]
-    pub fn dot(&self, rhs: &Vector2D<T,U>) -> T {
+    pub fn dot(&self, rhs: &Vector2D<U>) -> f32 {
         return self.x*rhs.x + self.y*rhs.y;
     }
 
     #[inline]
-    pub fn length(&self) -> T {
+    pub fn length(&self) -> f32 {
         return self.square_length().sqrt();
     }
 
     #[inline]
-    pub fn square_length(&self) -> T {
+    pub fn square_length(&self) -> f32 {
         return self.x * self.x + self.y * self.y;
     }
 
-    pub fn times(&self, f: T) -> Vector2D<T,U> {
+    pub fn times(&self, f: f32) -> Vector2D<U> {
         Vector2D { x: self.x * f, y: self.y * f }
     }
 
-    pub fn xy(&self) -> Vector2D<T,U> { Vector2D { x: self.x, y:self.y } }
-    pub fn yx(&self) -> Vector2D<T,U> { Vector2D { x: self.y, y:self.x } }
+    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y } }
+    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x } }
 }
 
 #[allow(dead_code)]
-impl<T: ops::Add<T,T>, U>
-    ops::Add<Vector2D<T,U>, Vector2D<T,U>>
-    for Vector2D<T,U> {
+impl<U> ops::Add<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 
     #[inline]
-    fn add(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn add(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -558,12 +541,10 @@ impl<T: ops::Add<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Sub<T,T>, U>
-    ops::Sub<Vector2D<T,U>, Vector2D<T,U>>
-    for Vector2D<T,U> {
+impl<U> ops::Sub<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 
     #[inline]
-    fn sub(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn sub(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -572,12 +553,10 @@ impl<T: ops::Sub<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>, U>
-    ops::Mul<Vector2D<T,U>, Vector2D<T,U>>
-    for Vector2D<T,U> {
+impl<U> ops::Mul<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn mul(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
@@ -586,12 +565,10 @@ impl<T: ops::Mul<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>, U>
-    ScalarMul<T>
-    for Vector2D<T,U> {
+impl<U> ScalarMul<f32> for Vector2D<U> {
 
     #[inline]
-    fn scalar_mul(&self, rhs: T) -> Vector2D<T, U> {
+    fn scalar_mul(&self, rhs: f32) -> Vector2D<U> {
         return Vector2D {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -599,7 +576,7 @@ impl<T: ops::Mul<T,T>, U>
     }
 
     #[inline]
-    fn scalar_mul_in_place(&mut self, rhs: T) {
+    fn scalar_mul_in_place(&mut self, rhs: f32) {
         self.x = self.x * rhs;
         self.y = self.y * rhs;
     }
@@ -607,12 +584,10 @@ impl<T: ops::Mul<T,T>, U>
 
 
 #[allow(dead_code)]
-impl<T: ops::Div<T,T>, U>
-    ops::Div<Vector2D<T,U>, Vector2D<T,U>>
-    for Vector2D<T,U> {
+impl<U> ops::Div<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 
     #[inline]
-    fn div(&self, rhs: &Vector2D<T,U>) -> Vector2D<T, U> {
+    fn div(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
@@ -621,12 +596,10 @@ impl<T: ops::Div<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T : ops::Neg<T>, U>
-    ops::Neg<Vector2D<T,U>>
-    for Vector2D<T,U> {
+impl<U> ops::Neg<Vector2D<U>> for Vector2D<U> {
 
     #[inline]
-    fn neg(&self) -> Vector2D<T, U> {
+    fn neg(&self) -> Vector2D<U> {
         return Vector2D {
             x: -self.x,
             y: -self.y,
@@ -634,32 +607,32 @@ impl<T : ops::Neg<T>, U>
     }
 }
 
-#[deriving(PartialEq, Show)]
-pub struct Matrix2D<T, Unit> {
-    pub _11: T, pub _21: T,
-    pub _12: T, pub _22: T,
+#[deriving(Clone, PartialEq, Show)]
+pub struct Matrix2D<Unit> {
+    pub _11: f32, pub _21: f32,
+    pub _12: f32, pub _22: f32,
 }
 
-#[deriving(PartialEq, Show)]
-pub struct Matrix3D<T, Unit> {
-    pub _11: T, pub _21: T, pub _31: T,
-    pub _12: T, pub _22: T, pub _32: T,
-    pub _13: T, pub _23: T, pub _33: T,
+#[deriving(Clone, PartialEq, Show)]
+pub struct Matrix3D<Unit> {
+    pub _11: f32, pub _21: f32, pub _31: f32,
+    pub _12: f32, pub _22: f32, pub _32: f32,
+    pub _13: f32, pub _23: f32, pub _33: f32,
 }
 
-#[deriving(PartialEq, Show)]
-pub struct Matrix4D<T, Unit> {
-    pub _11: T, pub _21: T, pub _31: T, pub _41: T,
-    pub _12: T, pub _22: T, pub _32: T, pub _42: T,
-    pub _13: T, pub _23: T, pub _33: T, pub _43: T,
-    pub _14: T, pub _24: T, pub _34: T, pub _44: T,
+#[deriving(Clone, PartialEq, Show)]
+pub struct Matrix4D<Unit> {
+    pub _11: f32, pub _21: f32, pub _31: f32, pub _41: f32,
+    pub _12: f32, pub _22: f32, pub _32: f32, pub _42: f32,
+    pub _13: f32, pub _23: f32, pub _33: f32, pub _43: f32,
+    pub _14: f32, pub _24: f32, pub _34: f32, pub _44: f32,
 }
 
 
 
-impl<T: Copy + Num, U> Matrix2D<T, U> {
+impl<U> Matrix2D<U> {
 
-    pub fn from_slice(from: &[T]) -> Matrix2D<T,U> {
+    pub fn from_slice(from: &[f32]) -> Matrix2D<U> {
         assert!(from.len() >= 4);
         return Matrix2D {
             _11: from[0], _21: from[1],
@@ -667,27 +640,27 @@ impl<T: Copy + Num, U> Matrix2D<T, U> {
         };
     }
 
-    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+    pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&'l self._11 as *T, 4 as uint ));
+            return mem::transmute((&self._11 as *const f32, 4 as uint ));
         }
     }
 
-    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&'l self._11 as *T, 4 as uint ));
+            return mem::transmute((&mut self._11 as *mut f32, 4 as uint ));
         }
     }
 
-    pub fn row_1<'l>(&'l self) -> &'l Vector2D<T,U> {
-        unsafe { mem::transmute(&'l self._11 as *T) }
+    pub fn row_1<'l>(&'l self) -> &'l Vector2D<U> {
+        unsafe { mem::transmute(&self._11 as *const f32) }
     }
 
-    pub fn row_2<'l>(&'l self) -> &'l Vector2D<T,U> {
-        unsafe { mem::transmute(&'l self._12 as *T) }
+    pub fn row_2<'l>(&'l self) -> &'l Vector2D<U> {
+        unsafe { mem::transmute(&self._12 as *const f32) }
     }
 
-    pub fn transform(&self, v: &Vector2D<T,U>) -> Vector2D<T,U> {
+    pub fn transform(&self, v: &Vector2D<U>) -> Vector2D<U> {
         Vector2D {
             x: v.x * self._11 + v.y * self._21,
             y: v.x * self._12 + v.y * self._22,
@@ -695,24 +668,22 @@ impl<T: Copy + Num, U> Matrix2D<T, U> {
     }
 }
 
-impl<T: num::One+num::Zero+Copy, U>
+impl<U>
     num::One
-    for Matrix2D<T,U> {
+    for Matrix2D<U> {
     #[inline]
-    fn one() -> Matrix2D<T,U> {
-        let one : T = num::One::one();
-        let zero : T = num::Zero::zero();
+    fn one() -> Matrix2D<U> {
         Matrix2D {
-            _11: one,  _21: zero,
-            _12: zero, _22: one,
+            _11: 1.0, _21: 0.0,
+            _12: 0.0, _22: 1.0,
         }
     }
 }
 
 #[allow(dead_code)]
-impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
+impl<U> Matrix3D<U> {
 
-    pub fn from_slice(from: &[T]) -> Matrix3D<T,U> {
+    pub fn from_slice(from: &[f32]) -> Matrix3D<U> {
         assert_eq!(from.len(), 9);
         return Matrix3D {
             _11: from[0], _21: from[1], _31: from[2],
@@ -721,19 +692,19 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
         };
     }
 
-    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+    pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&'l self._11 as *T, 9 as uint ));
+            return mem::transmute((&self._11 as *const f32, 9 as uint ));
         }
     }
 
-    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&'l self._11 as *T, 9 as uint ));
+            return mem::transmute((&mut self._11 as *mut f32, 9 as uint ));
         }
     }
 
-    pub fn transform(&self, p: &Vector3D<T,U>) -> Vector3D<T,U> {
+    pub fn transform(&self, p: &Vector3D<U>) -> Vector3D<U> {
         Vector3D {
             x: p.x * self._11 + p.y * self._21 + p.z * self._31,
             y: p.x * self._12 + p.y * self._22 + p.z * self._32,
@@ -741,45 +712,41 @@ impl<T: Copy + Add<T,T> + Sub<T,T> + Mul<T,T>, U> Matrix3D<T, U> {
         }
     }
 
-    pub fn transform_2d(&self, p: &Vector2D<T,U>) -> Vector2D<T,U> {
+    pub fn transform_2d(&self, p: &Vector2D<U>) -> Vector2D<U> {
         Vector2D {
             x: p.x * self._11 + p.y * self._21 + self._31,
             y: p.x * self._12 + p.y * self._22 + self._32,
         }
     }
 
-    pub fn row_1<'l>(&'l self) -> &'l Vector3D<T,U> {
-        unsafe { mem::transmute(&'l self._11 as *T) }
+    pub fn row_1<'l>(&'l self) -> &'l Vector3D<U> {
+        unsafe { mem::transmute(&self._11 as *const f32) }
     }
 
-    pub fn row_2<'l>(&'l self) -> &'l Vector3D<T,U> {
-        unsafe { mem::transmute(&'l self._12 as *T) }
+    pub fn row_2<'l>(&'l self) -> &'l Vector3D<U> {
+        unsafe { mem::transmute(&self._12 as *const f32) }
     }
 
-    pub fn row_3<'l>(&'l self) -> &'l Vector3D<T,U> {
-        unsafe { mem::transmute(&'l self._13 as *T) }
+    pub fn row_3<'l>(&'l self) -> &'l Vector3D<U> {
+        unsafe { mem::transmute(&self._13 as *const f32) }
     }
 }
 
-impl<T: num::One+num::Zero+Copy, U>
-    num::One
-    for Matrix3D<T,U> {
+impl<U> num::One for Matrix3D<U> {
     #[inline]
-    fn one() -> Matrix3D<T,U> {
-        let one : T = num::One::one();
-        let zero : T = num::Zero::zero();
+    fn one() -> Matrix3D<U> {
         Matrix3D {
-            _11: one,  _21: zero, _31: zero,
-            _12: zero, _22: one,  _32: zero,
-            _13: zero, _23: zero, _33: one,
+            _11: 1.0, _21: 0.0, _31: 0.0,
+            _12: 0.0, _22: 1.0, _32: 0.0,
+            _13: 0.0, _23: 0.0, _33: 1.0,
         }
     }
 }
 
 #[allow(dead_code)]
-impl<T: Copy + Num, U> Matrix4D<T, U> {
+impl<U> Matrix4D<U> {
 
-    pub fn from_slice(from: &[T]) -> Matrix4D<T,U> {
+    pub fn from_slice(from: &[f32]) -> Matrix4D<U> {
         assert!(from.len() >= 16);
         return Matrix4D {
             _11: from[0],  _21: from[1],  _31: from[2],  _41: from[3],
@@ -789,19 +756,19 @@ impl<T: Copy + Num, U> Matrix4D<T, U> {
         };
     }
 
-    pub fn as_slice<'l>(&'l self) -> &'l [T] {
+    pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&'l self._11 as *T, 16 as uint ));
+            return mem::transmute((&self._11 as *const f32, 16 as uint ));
         }
     }
 
-    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [T] {
+    pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&'l self._11 as *T, 16 as uint ));
+            return mem::transmute((&mut self._11 as *mut f32, 16 as uint ));
         }
     }
 
-    pub fn transform(&self, p: &Vector4D<T,U>) -> Vector4D<T,U> {
+    pub fn transform(&self, p: &Vector4D<U>) -> Vector4D<U> {
         Vector4D {
             x: p.x * self._11 + p.y * self._21 + p.z * self._31 + p.w * self._41,
             y: p.x * self._12 + p.y * self._22 + p.z * self._32 + p.w * self._42,
@@ -810,25 +777,25 @@ impl<T: Copy + Num, U> Matrix4D<T, U> {
         }
     }
 
-    pub fn row_1<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { mem::transmute(&'l self._11 as *T) }
+    pub fn row_1<'l>(&'l self) -> &'l Vector4D<U> {
+        unsafe { mem::transmute(&self._11 as *const f32) }
     }
 
-    pub fn row_2<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { mem::transmute(&'l self._12 as *T) }
+    pub fn row_2<'l>(&'l self) -> &'l Vector4D<U> {
+        unsafe { mem::transmute(&self._12 as *const f32) }
     }
 
-    pub fn row_3<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { mem::transmute(&'l self._13 as *T) }
+    pub fn row_3<'l>(&'l self) -> &'l Vector4D<U> {
+        unsafe { mem::transmute(&self._13 as *const f32) }
     }
 
-    pub fn row_4<'l>(&'l self) -> &'l Vector4D<T,U> {
-        unsafe { mem::transmute(&'l self._14 as *T) }
+    pub fn row_4<'l>(&'l self) -> &'l Vector4D<U> {
+        unsafe { mem::transmute(&self._14 as *const f32) }
     }
 }
 
-impl<U> Matrix4D<f32,U> {
-    pub fn rotate(&mut self, rad: f32, axis: &Vector3D<f32, U>) {
+impl<U> Matrix4D<U> {
+    pub fn rotate(&mut self, rad: f32, axis: &Vector3D<U>) {
         let len = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
 
         if len.abs() < EPSILON { return; }
@@ -881,14 +848,14 @@ impl<U> Matrix4D<f32,U> {
         self._43 = a03 * b20 + a13 * b21 + a23 * b22;
     }
 
-    pub fn translate(&mut self, v: &Vector3D<f32, U>) {
+    pub fn translate(&mut self, v: &Vector3D<U>) {
         self._14 = self._11 * v.x + self._12 * v.y + self._13 * v.z + self._14;
         self._24 = self._21 * v.x + self._22 * v.y + self._23 * v.z + self._24;
         self._34 = self._31 * v.x + self._32 * v.y + self._33 * v.z + self._34;
         self._44 = self._41 * v.x + self._42 * v.y + self._43 * v.z + self._44;
     }
 
-    pub fn scale(&mut self, v: &Vector3D<f32, U>) {
+    pub fn scale(&mut self, v: &Vector3D<U>) {
         self._11 = self._11 * v.x;
         self._21 = self._21 * v.x;
         self._31 = self._31 * v.x;
@@ -903,7 +870,7 @@ impl<U> Matrix4D<f32,U> {
         self._43 = self._43 * v.z;
     }
 
-    pub fn invert(&self, out: &mut Matrix4D<f32,U>) {
+    pub fn invert(&self, out: &mut Matrix4D<U>) {
         let a00 = self._11;
         let a01 = self._21;
         let a02 = self._31;
@@ -962,12 +929,10 @@ impl<U> Matrix4D<f32,U> {
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
-    ops::Mul<Matrix4D<T,U>, Matrix4D<T,U>>
-    for Matrix4D<T,U> {
+impl<U> ops::Mul<Matrix4D<U>, Matrix4D<U>> for Matrix4D<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Matrix4D<T,U>) -> Matrix4D<T, U> {
+    fn mul(&self, rhs: &Matrix4D<U>) -> Matrix4D<U> {
         return Matrix4D {
             _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31 + self._14 * rhs._41,
             _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31 + self._24 * rhs._41,
@@ -989,29 +954,23 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     }
 }
 
-impl<T: num::One+num::Zero+Copy, U>
-    num::One
-    for Matrix4D<T,U> {
+impl<U> num::One for Matrix4D<U> {
     #[inline]
-    fn one() -> Matrix4D<T,U> {
-        let one : T = num::One::one();
-        let zero : T = num::Zero::zero();
+    fn one() -> Matrix4D<U> {
         Matrix4D {
-            _11: one,  _21: zero, _31: zero, _41: zero,
-            _12: zero, _22: one,  _32: zero, _42: zero,
-            _13: zero, _23: zero, _33: one,  _43: zero,
-            _14: zero, _24: zero, _34: zero, _44: one,
+            _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
+            _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
+            _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
+            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
         }
     }
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
-    ops::Mul<Matrix3D<T,U>, Matrix3D<T,U>>
-    for Matrix3D<T,U> {
+impl<U> ops::Mul<Matrix3D<U>, Matrix3D<U>> for Matrix3D<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Matrix3D<T,U>) -> Matrix3D<T, U> {
+    fn mul(&self, rhs: &Matrix3D<U>) -> Matrix3D<U> {
         return Matrix3D {
             _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31,
             _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31,
@@ -1027,12 +986,10 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
-    ops::Mul<Matrix2D<T,U>, Matrix2D<T,U>>
-    for Matrix2D<T,U> {
+impl<U> ops::Mul<Matrix2D<U>, Matrix2D<U>> for Matrix2D<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Matrix2D<T,U>) -> Matrix2D<T, U> {
+    fn mul(&self, rhs: &Matrix2D<U>) -> Matrix2D<U> {
         return Matrix2D {
             _11: self._11 * rhs._11 + self._12 * rhs._21,
             _21: self._21 * rhs._11 + self._22 * rhs._21,
@@ -1042,18 +999,73 @@ impl<T: ops::Mul<T,T> + ops::Add<T,T>, U>
     }
 }
 
-impl<T: Num+Copy, U> Rectangle2D<T,U> {
-    pub fn origin(&self) -> Vector2D<T, U> { Vector2D { x: self.x, y: self.y } }
-    pub fn size(&self) -> Vector2D<T, U> { Vector2D { x: self.w, y: self.h } }
-    pub fn move_by(&mut self, v: Vector2D<T, U>) {
+impl<U> Rectangle2D<U> {
+    pub fn new(x: f32, y: f32, w: f32, h:f32) -> Rectangle2D<U> {
+        let mut rect = Rectangle2D { x: x, y: y, w: w, h: h };
+        rect.ensure_invariant();
+        return rect;
+    }
+
+    pub fn origin(&self) -> Vector2D<U> { Vector2D { x: self.x, y: self.y } }
+
+    pub fn size(&self) -> Vector2D<U> { Vector2D { x: self.w, y: self.h } }
+
+    pub fn move_by(&mut self, v: Vector2D<U>) {
         self.x = self.x + v.x;
         self.y = self.y + v.y;
     }
-    pub fn scale_by(&mut self, v: T) {
+
+    pub fn scale_by(&mut self, v: f32) {
         self.x = self.x * v;
         self.y = self.y * v;
         self.w = self.w * v;
         self.h = self.h * v;
+        self.ensure_invariant();
+    }
+
+    pub fn top_left(&self) -> Vector2D<U> {
+        Vector2D {
+            x: self.x,
+            y: self.y,
+        }
+    }
+    pub fn top_right(&self) -> Vector2D<U> {
+        Vector2D {
+            x: self.x + self.w,
+            y: self.y,
+        }
+    }
+
+    pub fn bottom_right(&self) -> Vector2D<U> {
+        Vector2D {
+            x: self.x + self.w,
+            y: self.y + self.h,
+        }
+    }
+
+    pub fn bottom_left(&self) -> Vector2D<U> {
+        Vector2D {
+            x: self.x,
+            y: self.y + self.h,
+        }
+    }
+
+    pub fn x_most(&self) -> f32 { self.x + self.w }
+
+    pub fn y_most(&self) -> f32 { self.y + self.h }
+
+    pub fn contains(&self, other: &Rectangle2D<U>) -> bool {
+        return self.x <= other.x &&
+               self.y <= self.y &&
+               self.x_most() >= other.x_most() &&
+               self.y_most() >= other.y_most();
+    }
+
+    pub fn ensure_invariant(&mut self) {
+        self.x = self.x.min(self.x + self.w);
+        self.y = self.y.min(self.y + self.h);
+        self.w = self.w.abs();
+        self.h = self.h.abs();
     }
 }
 

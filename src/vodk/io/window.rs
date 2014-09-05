@@ -1,10 +1,8 @@
 use gl;
 use glfw;
 use glfw::Context;
-use gfx::opengl;
-use gfx::renderer;
 use std::rc::Rc;
-use io::inputs;
+use super::inputs;
 
 use time;
 use std::io::timer::sleep;
@@ -16,7 +14,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn create(w: u32, h: u32, title: &str) -> Window {
+    pub fn new(w: u32, h: u32, title: &str) -> Window {
         let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
         glfw.window_hint(glfw::ContextVersion(3, 1));
@@ -44,13 +42,11 @@ impl Window {
         };
     }
 
-    pub fn create_rendering_context(&mut self) -> Box<renderer::RenderingContext> {
+    pub fn init_opengl(&mut self) -> bool {
         // make the context current before calling gl::load_with.
         self.glfw_win.make_current();
         gl::load_with(|s| self.glfw.get_proc_address(s));
-
-        let win = self.glfw_win.clone();
-        return box opengl::RenderingContextGL::new(win) as Box<renderer::RenderingContext>;
+        return true;
     }
 
     pub fn swap_buffers(&mut self) {

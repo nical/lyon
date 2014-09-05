@@ -19,19 +19,19 @@ pub fn test() {
     window.swap_buffers();
 }
 
-fn test_texture_upload_readback(ctx: &mut renderer::RenderingContext) {
+fn test_texture_upload_readback(ctx: &mut gpu::RenderingContext) {
     println!("test test_texture_upload_readback...");
     let checker_data : Vec<u8> = Vec::from_fn(64*64*4, |i|{ (((i / 4) % 2)*255) as u8 });
 
-    let checker = ctx.create_texture(renderer::REPEAT|renderer::FILTER_NEAREST);
+    let checker = ctx.create_texture(gpu::REPEAT|gpu::FILTER_NEAREST);
 
-    ctx.upload_texture_data(checker, checker_data.as_slice(), 64, 64, renderer::R8G8B8A8);
+    ctx.upload_texture_data(checker, checker_data.as_slice(), 64, 64, gpu::R8G8B8A8);
 
     let mut checker_read_back : Vec<u8> = Vec::from_fn(64*64*4, |i|{ 1 as u8 });
 
     assert!(checker_data != checker_read_back);
 
-    ctx.read_back_texture(checker, renderer::R8G8B8A8,
+    ctx.read_back_texture(checker, gpu::R8G8B8A8,
                           checker_read_back.as_mut_slice());
 
     assert_eq!(checker_data, checker_read_back);
@@ -39,15 +39,15 @@ fn test_texture_upload_readback(ctx: &mut renderer::RenderingContext) {
     ctx.destroy_texture(checker);
 }
 
-fn test_render_to_texture(ctx: &mut renderer::RenderingContext) {
+fn test_render_to_texture(ctx: &mut gpu::RenderingContext) {
     println!("test test_render_to_texture...");
     let w = 256;
     let h = 256;
 
     ctx.set_clear_color(0.0, 1.0, 0.0, 1.0);
 
-    let target_texture = ctx.create_texture(renderer::CLAMP|renderer::FILTER_NEAREST);
-    ctx.allocate_texture(target_texture, w, h, renderer::R8G8B8A8);
+    let target_texture = ctx.create_texture(gpu::CLAMP|gpu::FILTER_NEAREST);
+    ctx.allocate_texture(target_texture, w, h, gpu::R8G8B8A8);
     let rt = match ctx.create_render_target([target_texture], None, None) {
         Ok(target) => target,
         Err(_) => fail!()
@@ -55,10 +55,10 @@ fn test_render_to_texture(ctx: &mut renderer::RenderingContext) {
 
     ctx.set_render_target(rt);
 
-    ctx.clear(renderer::COLOR);
+    ctx.clear(gpu::COLOR);
 
     let mut read_back : Vec<u8> = Vec::from_fn((w*h*4) as uint, |i|{ 1 as u8 });
-    ctx.read_back_texture(target_texture, renderer::R8G8B8A8,
+    ctx.read_back_texture(target_texture, gpu::R8G8B8A8,
                           read_back.as_mut_slice());
 
     for j in range(0, h) {

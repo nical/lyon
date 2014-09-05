@@ -1,24 +1,22 @@
 use gl;
 use glfw;
-use gpu = gfx::renderer;
+use super::context::*;
+
 use std::str;
 use std::mem;
-use std::rc::Rc;
+use libc::c_void;
 
 use data;
-use super::renderer::*;
 
 macro_rules! check_err (
     ($($arg:tt)*) => (
-        if !self.ignore_errors {
-            match gl::GetError() {
-                gl::NONE => {}
-                e => {
-                    return Err(Error{
-                        code: gl_error_str(e).to_string(),
-                        detail: Some(format!($($arg)*))
-                    });
-                }
+        match gl::GetError() {
+            gl::NONE => {}
+            e => {
+                return Err(Error{
+                    code: gl_error_str(e).to_string(),
+                    detail: Some(format!($($arg)*))
+                });
             }
         }
     )
@@ -29,10 +27,9 @@ pub static DRIVER_DEFAULT : DriverBugs = 0;
 pub static MISSING_INDEX_BUFFER_VAO : DriverBugs = 1;
 
 pub struct RenderingContextGL {
-    window: Rc<glfw::Window>,
     workaround: DriverBugs,
     current_render_target: RenderTarget,
-    current_program: ShaderProgram,
+    current_program: Shader,
     current_geometry: Geometry,
     current_target_types: TargetTypes,
     current_blend_mode: BlendMode,
@@ -40,11 +37,10 @@ pub struct RenderingContextGL {
 }
 
 impl RenderingContextGL {
-    pub fn new(window: Rc<glfw::Window>) -> RenderingContextGL {
+    pub fn new() -> RenderingContextGL {
         RenderingContextGL {
-            window: window,
             workaround: DRIVER_DEFAULT,
-            current_program: ShaderProgram { handle: 0 },
+            current_program: Shader { handle: 0 },
             current_render_target: RenderTarget { handle: 0 },
             current_geometry: Geometry { handle: 0, ibo: 0 },
             current_target_types: 0,
@@ -81,15 +77,6 @@ impl RenderingContextGL {
 }
 
 impl RenderingContext for RenderingContextGL {
-    fn make_current(&mut self) -> bool {
-        (self.window.deref() as &glfw::Context).make_current();
-        return true;
-    }
-
-    fn swap_buffers(&mut self) {
-        (self.window.deref() as &glfw::Context).swap_buffers();
-    }
-
     fn reset_state(&mut self) {
         gl::BindTexture(gl::TEXTURE_2D, 0);
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -98,27 +85,27 @@ impl RenderingContext for RenderingContextGL {
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
         gl::ClearColor(0.0, 0.0, 0.0, 0.0);
         self.current_render_target = self.get_default_render_target();
-        self.current_program = ShaderProgram { handle: 0 };
+        self.current_program = Shader { handle: 0 };
         self.current_geometry = Geometry { handle: 0, ibo: 0 };
 
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC_ALPHA,gl::ONE);
     }
 
-    fn check_error(&mut self) -> Option<String> {
-        match gl::GetError() {
-            gl::NO_ERROR            => None,
-            gl::INVALID_ENUM        => Some("Invalid enum.".to_string()),
-            gl::INVALID_VALUE       => Some("Invalid value.".to_string()),
-            gl::INVALID_OPERATION   => Some("Invalid operation.".to_string()),
-            gl::OUT_OF_MEMORY       => Some("Out of memory.".to_string()),
-            _ => Some("Unknown error.".to_string()),
-        }
-    }
+    //fn check_error(&mut self) -> Option<String> {
+    //    match gl::GetError() {
+    //        gl::NO_ERROR            => None,
+    //        gl::INVALID_ENUM        => Some("Invalid enum.".to_string()),
+    //        gl::INVALID_VALUE       => Some("Invalid value.".to_string()),
+    //        gl::INVALID_OPERATION   => Some("Invalid operation.".to_string()),
+    //        gl::OUT_OF_MEMORY       => Some("Out of memory.".to_string()),
+    //        _ => Some("Unknown error.".to_string()),
+    //    }
+    //}
 
-    fn get_error_str(&mut self, err: ErrorCode) -> &'static str {
-        return gl_error_str(err);
-    }
+    //fn get_error_str(&mut self, err: ErrorCode) -> &'static str {
+    //    return gl_error_str(err);
+    //}
 
     fn is_supported(&mut self, f: Feature) -> bool {
         // TODO
@@ -225,7 +212,7 @@ impl RenderingContext for RenderingContextGL {
         unsafe {
             gl::TexImage2D(
                 gl::TEXTURE_2D, 0, fmt as i32, w as i32, h as i32,
-                0, fmt, gl::UNSIGNED_BYTE, mem::transmute(0)
+                0, fmt, gl::UNSIGNED_BYTE, 0 as *const c_void
             );
         }
         print_gl_error("upload_texture_data after TexImage2D");
@@ -245,25 +232,25 @@ impl RenderingContext for RenderingContextGL {
         return Ok(());
     }
 
-    fn create_shader(&mut self, t: ShaderType) -> Shader {
-        return Shader { handle: gl::CreateShader(gl_shader_type(t)) };
+    fn create_shader_stage(&mut self, t: ShaderType) -> ShaderStage {
+        return ShaderStage { handle: gl::CreateShader(gl_shader_type(t)) };
     }
 
-    fn destroy_shader(&mut self, s: Shader) {
+    fn destroy_shader_stage(&mut self, s: ShaderStage) {
         gl::DeleteShader(s.handle);
     }
 
-    fn create_shader_program(&mut self) -> ShaderProgram {
-        return ShaderProgram { handle: gl::CreateProgram() };
+    fn create_shader(&mut self) -> Shader {
+        return Shader { handle: gl::CreateProgram() };
     }
 
-    fn destroy_shader_program(&mut self, p: ShaderProgram) {
+    fn destroy_shader(&mut self, p: Shader) {
         gl::DeleteProgram(p.handle);
     }
 
-    fn compile_shader(&mut self, shader: Shader, src: &[&str]) -> RendererResult {
+    fn compile_shader_stage(&mut self, shader: ShaderStage, src: &[&str]) -> RendererResult {
         unsafe {
-            let mut lines: Vec<*i8> = Vec::new();
+            let mut lines: Vec<*const i8> = Vec::new();
             let mut lines_len: Vec<i32> = Vec::new();
 
             for line in src.iter() {
@@ -291,11 +278,11 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn link_shader_program(&mut self, p: gpu::ShaderProgram,
-                           shaders: &[gpu::Shader],
-                           attrib_locations: &[(&str, VertexAttributeLocation)]) -> RendererResult {
+    fn link_shader(&mut self, p: Shader,
+                   stages: &[ShaderStage],
+                   attrib_locations: &[(&str, VertexAttributeLocation)]) -> RendererResult {
         unsafe {
-            for s in shaders.iter() {
+            for s in stages.iter() {
                 gl::AttachShader(p.handle, s.handle);
             }
 
@@ -375,7 +362,7 @@ impl RenderingContext for RenderingContextGL {
             gl::BindBuffer(gl_buf_type, buffer.handle);
             check_err!("glBindBuffer({}, {})", buf_type, buffer.handle);
             gl::BufferData(gl_buf_type, size as i64,
-                           mem::transmute(0),
+                           0 as *const c_void,
                            gl_update_hint(update));
             check_err!("glBufferData({}, {}, 0, {})", buf_type,
                        size, gl_update_hint(update));
@@ -436,7 +423,7 @@ impl RenderingContext for RenderingContextGL {
         });
     }
 
-    fn get_shader_input_location(&mut self, program: ShaderProgram,
+    fn get_shader_input_location(&mut self, program: Shader,
                                  name: &str) -> ShaderInputLocation {
         let mut location = 0;
         name.with_c_str(|c_name| unsafe {
@@ -445,7 +432,7 @@ impl RenderingContext for RenderingContextGL {
         return location;
     }
 
-    fn get_vertex_attribute_location(&mut self, program: ShaderProgram,
+    fn get_vertex_attribute_location(&mut self, program: Shader,
                                      name: &str) -> VertexAttributeLocation {
         let mut location = 0;
         name.with_c_str(|c_name| unsafe {
@@ -530,7 +517,7 @@ impl RenderingContext for RenderingContextGL {
         return RenderTarget { handle: 0 };
     }
 
-    fn set_render_target(&mut self, target: gpu::RenderTarget) {
+    fn set_render_target(&mut self, target: RenderTarget) {
         if self.current_render_target == target {
             return;
         }
@@ -568,14 +555,14 @@ impl RenderingContext for RenderingContextGL {
         }
     }
 
-    fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, tex: gpu::Texture) {
+    fn set_shader_input_texture(&mut self, location: ShaderInputLocation, texture_unit: u32, tex: Texture) {
         gl::ActiveTexture(gl_texture_unit(texture_unit));
         gl::BindTexture(gl::TEXTURE_2D, tex.handle);
         gl::Uniform1i(location as i32, texture_unit as i32);
         //gl::BindTexture(gl::TEXTURE_2D, 0);
     }
 
-    fn set_shader(&mut self, program: gpu::ShaderProgram) -> RendererResult {
+    fn set_shader(&mut self, program: Shader) -> RendererResult {
         if self.current_program != program {
             self.current_program = program;
             gl::UseProgram(program.handle);
@@ -586,8 +573,7 @@ impl RenderingContext for RenderingContextGL {
 
     fn draw(&mut self,
         geom: Geometry,
-        first: u32,
-        count: u32,
+        range: Range,
         flags: GeometryFlags,
         blend: BlendMode,
         targets: TargetTypes
@@ -601,26 +587,31 @@ impl RenderingContext for RenderingContextGL {
             check_err!("glBindVertexArray({})", geom.handle);
         //  };
 
-        if geom.ibo != 0 {
-            if self.workaround & MISSING_INDEX_BUFFER_VAO != 0 {
-                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, geom.ibo);
-            }
-            unsafe {
-                gl::DrawElements(
+        match range {
+            VertexRange(first, count) => {
+                gl::DrawArrays(
                     gl_draw_mode(flags),
-                    count as i32,
-                    gl::UNSIGNED_SHORT,
-                    mem::transmute(0)
+                    first as i32,
+                    count as i32
                 );
+                check_err!("glDrawArrays(...)");
             }
-            check_err!("glDrawElements(...)");
-        } else {
-            gl::DrawArrays(
-                gl_draw_mode(flags),
-                first as i32,
-                count as i32
-            );
-            check_err!("glDrawArrays(...)");
+            IndexRange(first, count) => {
+                assert!(geom.ibo != 0);
+
+                if self.workaround & MISSING_INDEX_BUFFER_VAO != 0 {
+                    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, geom.ibo);
+                }
+                unsafe {
+                    gl::DrawElements(
+                        gl_draw_mode(flags),
+                        count as i32,
+                        gl::UNSIGNED_SHORT,
+                        0 as *const c_void
+                    );
+                }
+                check_err!("glDrawElements(...)");
+            }
         }
         Ok(())
     }

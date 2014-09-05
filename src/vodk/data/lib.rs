@@ -106,7 +106,7 @@ impl<'l> DynamicallyTypedSlice<'l> {
         DynamicallyTypedSlice {
             data: unsafe {
                 mem::transmute((
-                    data.as_ptr() as *T,
+                    data.as_ptr() as *mut T,
                     data.len() * mem::size_of::<T>()
                 ))
             },
@@ -119,7 +119,7 @@ impl<'l> DynamicallyTypedSlice<'l> {
         DynamicallyTypedSlice {
             data: unsafe {
                 mem::transmute((
-                    data.as_ptr() as *T,
+                    data.as_ptr() as *mut T,
                     data.len() * mem::size_of::<T>()
                 ))
             },
@@ -136,7 +136,7 @@ impl<'l> DynamicallyTypedSlice<'l> {
         assert!(mem::size_of::<T>() == self.stride);
         return unsafe {
             mem::transmute((
-                self.data.as_ptr() as *T,
+                self.data.as_ptr() as *const T,
                 self.data.len() / self.stride,
             ))
         };
@@ -146,7 +146,7 @@ impl<'l> DynamicallyTypedSlice<'l> {
         assert!(mem::size_of::<T>() == self.stride);
         return unsafe {
             mem::transmute((
-                self.data.as_ptr() as *T,
+                self.data.as_ptr() as *mut T,
                 self.data.len() / self.stride,
             ))
         };

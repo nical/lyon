@@ -1,0 +1,20 @@
+[package]
+
+name = "gpu"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+
+[[lib]]
+name = "gpu"
+path = "./standalone_lib.rs"
+
+[dependencies.data]
+path = "../data/"
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs.git"
+
+[dependencies.glfw]
+git = "https://github.com/bjz/glfw-rs.git"

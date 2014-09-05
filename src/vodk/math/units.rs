@@ -4,18 +4,18 @@ macro_rules! declare_unit (
         pub mod $module {
             use math::vector;
 
-            #[deriving(Show)]
+            #[deriving(Clone, Show)]
             pub struct Unit;
 
-            pub type Rect = vector::Rectangle2D<f32, Unit>;
-            pub type Vec2 = vector::Vector2D<f32, Unit>;
-            pub type Vec3 = vector::Vector3D<f32, Unit>;
-            pub type Vec4 = vector::Vector4D<f32, Unit>;
-            pub type Mat4 = vector::Matrix4D<f32, Unit>;
-            pub type Mat3 = vector::Matrix3D<f32, Unit>;
-            pub type Mat2 = vector::Matrix2D<f32, Unit>;
+            pub type Rectangle = vector::Rectangle2D<Unit>;
+            pub type Vec2 = vector::Vector2D<Unit>;
+            pub type Vec3 = vector::Vector3D<Unit>;
+            pub type Vec4 = vector::Vector4D<Unit>;
+            pub type Mat4 = vector::Matrix4D<Unit>;
+            pub type Mat3 = vector::Matrix3D<Unit>;
+            pub type Mat2 = vector::Matrix2D<Unit>;
 
-            pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
+            pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rectangle {
                 vector::Rectangle2D { x: x, y: y, w: w, h: h }
             }
 

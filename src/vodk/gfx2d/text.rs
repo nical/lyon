@@ -1,5 +1,4 @@
 
-use gfx::ui;
 use math::units::pixels;
 use math::units::texels;
 
@@ -24,7 +23,7 @@ pub fn text_to_vertices(
     pos: pixels::Vec2,          // position of the beginning of the text run;
     char_size: pixels::Vec2,
     char_margin: pixels::Vec2,  // separation between letters
-    source_rect: texels::Rect,  // region of the font texture to sample from
+    source_rect: texels::Rectangle,  // region of the font texture to sample from
     vertex_stride: uint,        // in bytes
     tex_coords_offset: uint,    // in bytes
     out: &mut [f32]             // output

@@ -2,11 +2,12 @@
 use math::vector;
 use math::units::world;
 use math::units::texels;
-use gfx::locations::*;
-use gfx::renderer;
-use gfx::color::Rgba;
+use gfx2d::color::Rgba;
+use gfx2d::shapes;
 use data;
 use std::num;
+
+static PI: f32 = 3.1415;
 
 fn abs<T: num::Signed>(a:T) -> T { a.abs() }
 
@@ -49,11 +50,11 @@ pub enum PointType {
 }
 
 fn line_intersection<U>(
-    a1: vector::Vector2D<f32, U>,
-    a2: vector::Vector2D<f32, U>,
-    b1: vector::Vector2D<f32, U>,
-    b2: vector::Vector2D<f32, U>
-) -> Option<vector::Vector2D<f32 ,U>> {
+    a1: vector::Vector2D<U>,
+    a2: vector::Vector2D<U>,
+    b1: vector::Vector2D<U>,
+    b2: vector::Vector2D<U>
+) -> Option<vector::Vector2D<U>> {
     let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
     if det*det < 0.00001 {
         // The lines are very close to parallel
@@ -242,4 +243,238 @@ pub fn path_to_line_ibo(
             ibo[i * index_stride + 17] = base_vertex + 1;
         }
     }
+}
+
+pub struct VertexStream<'l, T: 'l> {
+    pub vertices: &'l mut[T],
+    pub indices: &'l mut[u16],
+    pub vertex_cursor: uint,
+    pub index_cursor: uint,
+    pub base_vertex: u16,
+}
+
+pub struct Range {
+    first_vertex: u16,
+    vertex_count: u16,
+    first_index: u16,
+    index_count: u16,
+}
+
+impl<'l, T: Copy> VertexStream<'l, T> {
+    pub fn push_vertex(&mut self, vertex: &T) {
+        self.vertices[self.vertex_cursor] = *vertex;
+        self.vertex_cursor += 1;
+    }
+
+    pub fn push_index(&mut self, idx: u16) {
+        self.indices[self.index_cursor] = idx + self.base_vertex;
+        self.index_cursor += 1;
+    }
+
+    pub fn push_quad(&mut self, a: &T, b: &T, c: &T, d: &T) {
+        let cursor = self.vertex_cursor as u16;
+        self.push_vertex(a);
+        self.push_vertex(b);
+        self.push_vertex(c);
+        self.push_vertex(d);
+        self.push_index(cursor);
+        self.push_index(cursor + 1);
+        self.push_index(cursor + 2);
+        self.push_index(cursor);
+        self.push_index(cursor + 2);
+        self.push_index(cursor + 3);
+    }
+
+    pub fn push_triangle(&mut self, a: &T, b: &T, c: &T) {
+        let cursor = self.vertex_cursor as u16;
+        self.push_vertex(a);
+        self.push_vertex(b);
+        self.push_vertex(c);
+        self.push_index(cursor);
+        self.push_index(cursor + 1);
+        self.push_index(cursor + 2);
+    }
+}
+
+pub fn fill_rectangle<'l, T: VertexType2D>(
+    stream: &mut VertexStream<'l, T>,
+    rectangle: &world::Rectangle,
+    transform: &world::Mat3,
+    fill: FillStyle<'l>,
+) -> Range {
+    let first_vertex = stream.vertex_cursor as u16;
+    let first_index = stream.vertex_cursor as u16;
+    let uv_rect = texels::rect(0.0, 0.0, 1.0, 1.0);
+
+    let mut a: T = VertexType2D::from_pos(&transform.transform_2d(&rectangle.top_left()));
+    let mut b: T = VertexType2D::from_pos(&transform.transform_2d(&rectangle.top_right()));
+    let mut c: T = VertexType2D::from_pos(&transform.transform_2d(&rectangle.bottom_right()));
+    let mut d: T = VertexType2D::from_pos(&transform.transform_2d(&rectangle.bottom_left()));
+
+    match fill {
+        NoFill => {}
+        FillColor(color) => {
+            a.set_color(color);
+            b.set_color(color);
+            c.set_color(color);
+            d.set_color(color);
+        }
+        FillTexture(uv_transform) => {
+            a.set_uv(&uv_transform.transform_2d(&uv_rect.top_left()));
+            b.set_uv(&uv_transform.transform_2d(&uv_rect.top_right()));
+            c.set_uv(&uv_transform.transform_2d(&uv_rect.bottom_right()));
+            d.set_uv(&uv_transform.transform_2d(&uv_rect.bottom_left()));
+        }
+    }
+    stream.push_quad(&a, &b, &c, &d);
+    return Range {
+        first_vertex: first_vertex,
+        vertex_count: stream.vertex_cursor as u16 - first_vertex,
+        first_index: first_index,
+        index_count: stream.index_cursor as u16 - first_index,
+    };
+}
+
+pub fn fill_circle<'l, T: VertexType2D>(
+    stream: &mut VertexStream<'l, T>,
+    circle: &shapes::Circle,
+    num_points: u32,
+    transform: &world::Mat3,
+    fill: FillStyle<'l>,
+) -> Range {
+    let first_vertex = stream.vertex_cursor as u16;
+    let first_index = stream.index_cursor as u16;
+    let pos = transform.transform_2d(&world::vec2(
+        circle.center.x,
+        circle.center.y
+    ));
+
+    stream.push_vertex(
+        &match fill {
+            NoFill => VertexType2D::from_pos(&pos),
+            FillColor(color) => VertexType2D::from_pos_color(&pos, color),
+            FillTexture(uv_transform) => {
+                VertexType2D::from_pos_uv(&pos,
+                    &uv_transform.transform_2d(&texels::vec2(0.5, 0.5))
+                )
+            }
+        }
+    );
+
+    for i in range(0, num_points+1) {
+        let dx = (i as f32 / num_points as f32 * 2.0 * PI).cos();
+        let dy = (i as f32 / num_points as f32 * 2.0 * PI).sin();
+
+        let pos = transform.transform_2d(&world::vec2(
+            circle.center.x + circle.radius * dx,
+            circle.center.y + circle.radius * dy
+        ));
+
+        stream.push_vertex(
+            &match fill {
+                NoFill => VertexType2D::from_pos(&pos),
+                FillColor(color) => VertexType2D::from_pos_color(&pos, color),
+                FillTexture(uv_transform) => {
+                    VertexType2D::from_pos_uv(&pos,
+                        &uv_transform.transform_2d(&texels::vec2(
+                            0.5 + dx * 0.5,
+                            0.5 + dy * 0.5
+                        ))
+                    )
+                }
+            }
+        );
+
+        stream.push_index(first_vertex);
+        stream.push_index(first_vertex + i as u16);
+        stream.push_index(first_vertex + i as u16 + 1);
+    }
+    return Range {
+        first_vertex: first_vertex,
+        vertex_count: stream.vertex_cursor as u16 - first_vertex,
+        first_index: first_index,
+        index_count: stream.index_cursor as u16 - first_index,
+    };
+}
+
+pub fn fill_grid<'l, T: VertexType2D>(
+    stream: &mut VertexStream<'l, T>,
+    columns: &[f32],
+    lines: &[f32],
+    transform: &world::Mat3,
+    fill: FillStyle<'l>,
+    uv_grid: Option<(&'l[f32], &'l[f32])>
+) -> Range {
+    assert!(columns.len() >= 2)
+    assert!(lines.len() >= 2)
+
+    let first_vertex = stream.vertex_cursor as u16;
+    let first_index = stream.index_cursor as u16;
+
+    for j in range(0, lines.len()) {
+        for i in range(0, columns.len()) {
+            let pos = transform.transform_2d(&world::vec2(columns[i],lines[j]));
+            stream.push_vertex(&match fill {
+                NoFill => VertexType2D::from_pos(&pos),
+                FillColor(color) => VertexType2D::from_pos_color(&pos, color),
+                FillTexture(uv_transform) => {
+                    let uv = match uv_grid {
+                        Some((uv_lines, uv_columns)) => {
+                            texels::vec2(uv_columns[i], uv_lines[j])
+                        }
+                        None => {
+                            texels::vec2(
+                                (columns[i] - columns[0]) / (columns[columns.len()-1] - columns[0]),
+                                (lines[i] - lines[0]) / (lines[lines.len()-1] - lines[0])
+                            )
+                        }
+                    };
+                    VertexType2D::from_pos_uv(&pos, &uv_transform.transform_2d(&uv))
+                }
+            });
+        }
+    }
+
+    let stride = lines.len() as u16;
+    for j in range(0, lines.len() as u16 - 1) {
+        for i in range(0, columns.len() as u16 - 1) {
+            stream.push_index(first_index + j * stride + i);
+            stream.push_index(first_index + j * stride + (i+1));
+            stream.push_index(first_index + (j+1) * stride + (i+1));
+
+            stream.push_index(first_index + j * stride + i);
+            stream.push_index(first_index + (j+1) * stride + (i+1));
+            stream.push_index(first_index + (j+1) * stride + i);
+        }
+    }
+
+
+    return Range {
+        first_vertex: first_vertex,
+        vertex_count: stream.vertex_cursor as u16 - first_vertex,
+        first_index: first_index,
+        index_count: stream.index_cursor as u16 - first_index,
+    };
+}
+
+pub trait VertexType2D: Copy {
+    fn from_pos(pos: &world::Vec2) -> Self;
+    fn from_pos_uv(pos: &world::Vec2, uv: &texels::Vec2) -> Self;
+    fn from_pos_color(pos: &world::Vec2, uv: &Rgba<u8>) -> Self;
+    fn new() -> Self;
+    fn set_pos(&mut self, &world::Vec2);
+    fn set_uv(&mut self, &texels::Vec2);
+    fn set_color(&mut self, &Rgba<u8>);
+}
+
+pub enum FillStyle<'l> {
+    FillTexture(&'l texels::Mat3),
+    FillColor(&'l Rgba<u8>),
+    NoFill,
+}
+
+enum StrokeStyle<'l> {
+    StrokeTexture(f32, &'l texels::Mat3),
+    StrokeColor(f32, &'l Rgba<u8>),
+    NoStroke,
 }

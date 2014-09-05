@@ -7,10 +7,10 @@ pub type BufferData<'l> = data::DynamicallyTypedSlice<'l>;
 pub type TextureFlags = i32;
 pub static REPEAT_S          : TextureFlags = 1 << 0;
 pub static REPEAT_T          : TextureFlags = 1 << 1;
-pub static REPEAT            : TextureFlags = 1 << REPEAT_S | REPEAT_T;
+pub static REPEAT            : TextureFlags = 1 << (REPEAT_S | REPEAT_T) as uint;
 pub static CLAMP_S           : TextureFlags = 1 << 2;
 pub static CLAMP_T           : TextureFlags = 1 << 3;
-pub static CLAMP             : TextureFlags = 1 << CLAMP_S | CLAMP_T;
+pub static CLAMP             : TextureFlags = 1 << (CLAMP_S | CLAMP_T) as uint;
 pub static MIN_FILTER_LINEAR : TextureFlags = 1 << 4;
 pub static MAG_FILTER_LINEAR : TextureFlags = 1 << 5;
 pub static FILTER_LINEAR     : TextureFlags = MIN_FILTER_LINEAR | MAG_FILTER_LINEAR;
@@ -105,12 +105,13 @@ pub struct IndexRange {
 }
 
 pub type Handle = u32;
+pub static INVALID_HANDLE: Handle = 0;
+
+#[deriving(PartialEq, Clone, Show)]
+pub struct ShaderStage { pub handle: Handle }
 
 #[deriving(PartialEq, Clone, Show)]
 pub struct Shader { pub handle: Handle }
-
-#[deriving(PartialEq, Clone, Show)]
-pub struct ShaderProgram { pub handle: Handle }
 
 #[deriving(PartialEq, Clone, Show)]
 pub struct Texture { pub handle: Handle }
@@ -134,6 +135,17 @@ pub struct Geometry {
 /// Equivalent of a FBO in OpenGL
 #[deriving(PartialEq, Clone, Show)]
 pub struct RenderTarget { pub handle: Handle }
+
+impl Texture { pub fn invalid_handle() -> Texture { Texture { handle: INVALID_HANDLE } } }
+impl Shader { pub fn invalid_handle() -> Shader { Shader { handle: INVALID_HANDLE } } }
+impl Buffer { pub fn invalid_handle() -> Buffer { Buffer { handle: INVALID_HANDLE, buffer_type: VERTEX_BUFFER } } }
+impl Geometry { pub fn invalid_handle() -> Geometry { Geometry { handle: INVALID_HANDLE, ibo: INVALID_HANDLE } } }
+impl ShaderStage { pub fn invalid_handle() -> ShaderStage { ShaderStage { handle: INVALID_HANDLE } } }
+
+pub enum Range {
+    VertexRange(u16, u16),
+    IndexRange(u16, u16),
+}
 
 #[deriving(PartialEq, Clone, Show)]
 pub struct Error {
@@ -159,8 +171,6 @@ pub struct VertexAttribute {
     pub normalize: bool,
 }
 
-type TextureUnit = u32;
-
 pub trait RenderingContext {
     fn is_supported(&mut self, f: Feature) -> bool;
     fn flush(&mut self);
@@ -170,10 +180,7 @@ pub trait RenderingContext {
 
     fn reset_state(&mut self);
 
-    fn make_current(&mut self) -> bool;
-    fn swap_buffers(&mut self);
-    fn check_error(&mut self) -> Option<String>;
-    fn get_error_str(&mut self, err: ErrorCode) -> &'static str;
+    //fn get_error_str(&mut self, err: ErrorCode) -> &'static str;
 
     fn create_texture(&mut self, flags: TextureFlags) -> Texture;
     fn destroy_texture(&mut self, tex: Texture);
@@ -196,14 +203,14 @@ pub trait RenderingContext {
                          format: PixelFormat,
                          dest: &mut [u8]) -> RendererResult;
 
-    fn create_shader(&mut self, t: ShaderType) -> Shader;
-    fn destroy_shader(&mut self, s: Shader);
-    fn compile_shader(&mut self, shader: Shader, src: &[&str]) -> RendererResult;
+    fn create_shader_stage(&mut self, t: ShaderType) -> ShaderStage;
+    fn destroy_shader_stage(&mut self, s: ShaderStage);
+    fn compile_shader_stage(&mut self, shader: ShaderStage, src: &[&str]) -> RendererResult;
 
-    fn create_shader_program(&mut self) -> ShaderProgram;
-    fn destroy_shader_program(&mut self, s: ShaderProgram);
-    fn link_shader_program(&mut self, p: ShaderProgram, shaders: &[Shader],
-                           attrib_locations: &[(&str, VertexAttributeLocation)])  -> RendererResult;
+    fn create_shader(&mut self) -> Shader;
+    fn destroy_shader(&mut self, s: Shader);
+    fn link_shader(&mut self, p: Shader, stages: &[ShaderStage],
+                   attrib_locations: &[(&str, VertexAttributeLocation)])  -> RendererResult;
 
     fn create_buffer(&mut self, buffer_type: BufferType) -> Buffer;
     fn destroy_buffer(&mut self, buffer: Buffer);
@@ -221,9 +228,9 @@ pub trait RenderingContext {
                        attributes: &[VertexAttribute],
                        indices: Option<Buffer>) -> Result<Geometry, Error>;
 
-    fn get_shader_input_location(&mut self, program: ShaderProgram,
+    fn get_shader_input_location(&mut self, program: Shader,
                                  name: &str) -> ShaderInputLocation;
-    fn get_vertex_attribute_location(&mut self, program: ShaderProgram,
+    fn get_vertex_attribute_location(&mut self, program: Shader,
                                      name: &str) -> VertexAttributeLocation;
 
     fn create_render_target(&mut self,
@@ -236,7 +243,7 @@ pub trait RenderingContext {
 
     fn get_default_render_target(&mut self) -> RenderTarget;
 
-    fn set_shader(&mut self, program: ShaderProgram) -> RendererResult;
+    fn set_shader(&mut self, program: Shader) -> RendererResult;
 
     fn set_shader_input_float(&mut self, location: ShaderInputLocation, input: &[f32]);
     fn set_shader_input_int(&mut self, location: ShaderInputLocation, input: &[i32]);
@@ -245,8 +252,7 @@ pub trait RenderingContext {
 
     fn draw(&mut self,
         geom: Geometry,
-        first: u32,
-        count: u32,
+        range: Range,
         flags: GeometryFlags,
         blend: BlendMode,
         targets: TargetTypes
@@ -259,24 +265,6 @@ pub trait RenderingContext {
         targets: TargetTypes,
         commands: &[DrawCommand]
     ) -> RendererResult;
-}
-
-pub fn as_bytes<'l, T>(src: &'l [T]) -> &'l [u8] {
-    unsafe {
-        return mem::transmute((
-            src.as_ptr() as *T,
-            src.len() * mem::size_of::<T>()
-        ));
-    }
-}
-
-pub fn as_mut_bytes<'l, T>(src: &'l mut [T]) -> &'l mut [u8] {
-    unsafe {
-        return mem::transmute((
-            src.as_ptr() as *T,
-            src.len() * mem::size_of::<T>()
-        ));
-    }
 }
 
 pub struct DrawCommand {

@@ -1,0 +1,12 @@
+[package]
+
+name = "kiwi"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+
+[[lib]]
+name = "kiwi"
+path = "./lib.rs"
+
