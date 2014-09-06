@@ -349,41 +349,46 @@ pub fn fill_circle<'l, T: VertexType2D>(
         circle.center.y
     ));
 
-    stream.push_vertex(
-        &match fill {
-            NoFill => VertexType2D::from_pos(&pos),
-            FillColor(color) => VertexType2D::from_pos_color(&pos, color),
-            FillTexture(uv_transform) => {
-                VertexType2D::from_pos_uv(&pos,
-                    &uv_transform.transform_2d(&texels::vec2(0.5, 0.5))
-                )
-            }
+    let mut center: T = VertexType2D::from_pos(
+        &transform.transform_2d(&world::vec2(
+            circle.center.x,
+            circle.center.y
+        )
+    ));
+
+    match fill {
+        NoFill => {}
+        FillColor(color) => { center.set_color(color) }
+        FillTexture(uv_transform) => {
+            center.set_uv(&uv_transform.transform_2d(&texels::vec2(0.5, 0.5)))
         }
-    );
+    }
+    stream.push_vertex(&center);
 
     for i in range(0, num_points+1) {
         let dx = (i as f32 / num_points as f32 * 2.0 * PI).cos();
         let dy = (i as f32 / num_points as f32 * 2.0 * PI).sin();
 
-        let pos = transform.transform_2d(&world::vec2(
-            circle.center.x + circle.radius * dx,
-            circle.center.y + circle.radius * dy
+        let mut vertex: T = VertexType2D::from_pos(
+            &transform.transform_2d(&world::vec2(
+                circle.center.x + circle.radius * dx,
+                circle.center.y + circle.radius * dy
+            )
         ));
 
-        stream.push_vertex(
-            &match fill {
-                NoFill => VertexType2D::from_pos(&pos),
-                FillColor(color) => VertexType2D::from_pos_color(&pos, color),
-                FillTexture(uv_transform) => {
-                    VertexType2D::from_pos_uv(&pos,
-                        &uv_transform.transform_2d(&texels::vec2(
-                            0.5 + dx * 0.5,
-                            0.5 + dy * 0.5
-                        ))
-                    )
-                }
+        match fill {
+            NoFill => {}
+            FillColor(color) => { vertex.set_color(color) }
+            FillTexture(uv_transform) => {
+                vertex.set_uv(
+                    &uv_transform.transform_2d(&texels::vec2(
+                        0.5 + dx * 0.5,
+                        0.5 + dy * 0.5
+                    ))
+                );
             }
-        );
+        }
+        stream.push_vertex(&vertex);
 
         stream.push_index(first_vertex);
         stream.push_index(first_vertex + i as u16);
@@ -413,41 +418,86 @@ pub fn fill_grid<'l, T: VertexType2D>(
 
     for j in range(0, lines.len()) {
         for i in range(0, columns.len()) {
-            let pos = transform.transform_2d(&world::vec2(columns[i],lines[j]));
-            stream.push_vertex(&match fill {
-                NoFill => VertexType2D::from_pos(&pos),
-                FillColor(color) => VertexType2D::from_pos_color(&pos, color),
+            let mut vertex: T = VertexType2D::from_pos(
+                &transform.transform_2d(&world::vec2(columns[i],lines[j]))
+            );
+
+            match fill {
+                NoFill => {},
+                FillColor(color) => { vertex.set_color(color) }
                 FillTexture(uv_transform) => {
                     let uv = match uv_grid {
-                        Some((uv_lines, uv_columns)) => {
-                            texels::vec2(uv_columns[i], uv_lines[j])
+                        Some((uv_columns, uv_lines)) => {
+                            uv_transform.transform_2d(&texels::vec2(
+                                uv_columns[i], uv_lines[j]
+                            ))
                         }
                         None => {
-                            texels::vec2(
+                            uv_transform.transform_2d(&texels::vec2(
                                 (columns[i] - columns[0]) / (columns[columns.len()-1] - columns[0]),
                                 (lines[i] - lines[0]) / (lines[lines.len()-1] - lines[0])
-                            )
+                            ))
                         }
                     };
-                    VertexType2D::from_pos_uv(&pos, &uv_transform.transform_2d(&uv))
+                    vertex.set_uv(&uv);
                 }
-            });
+            }
+            stream.push_vertex(&vertex);
         }
     }
 
     let stride = lines.len() as u16;
     for j in range(0, lines.len() as u16 - 1) {
         for i in range(0, columns.len() as u16 - 1) {
-            stream.push_index(first_index + j * stride + i);
-            stream.push_index(first_index + j * stride + (i+1));
-            stream.push_index(first_index + (j+1) * stride + (i+1));
+            stream.push_index(first_vertex + j     * stride + i);
+            stream.push_index(first_vertex + j     * stride + (i+1));
+            stream.push_index(first_vertex + (j+1) * stride + (i+1));
 
-            stream.push_index(first_index + j * stride + i);
-            stream.push_index(first_index + (j+1) * stride + (i+1));
-            stream.push_index(first_index + (j+1) * stride + i);
+            stream.push_index(first_vertex + j     * stride + i);
+            stream.push_index(first_vertex + (j+1) * stride + (i+1));
+            stream.push_index(first_vertex + (j+1) * stride + i);
         }
     }
 
+    return Range {
+        first_vertex: first_vertex,
+        vertex_count: stream.vertex_cursor as u16 - first_vertex,
+        first_index: first_index,
+        index_count: stream.index_cursor as u16 - first_index,
+    };
+}
+
+pub fn fill_convex_path<'l, T: VertexType2D>(
+    stream: &mut VertexStream<'l, T>,
+    path: &[world::Vec2],
+    aabb: &world::Rectangle,
+    transform: &world::Mat3,
+    fill: FillStyle<'l>,
+) -> Range {
+    let first_vertex = stream.vertex_cursor as u16;
+    let first_index = stream.index_cursor as u16;
+
+    for i in range(0, path.len()) {
+        let mut vertex: T = VertexType2D::from_pos(&transform.transform_2d(&path[i]));
+
+        match fill {
+            NoFill => {},
+            FillColor(color) => { vertex.set_color(color) }
+            FillTexture(uv_transform) => {
+                vertex.set_uv(&uv_transform.transform_2d(&texels::vec2(
+                    (path[i].x - aabb.x) / aabb.w,
+                    (path[i].y - aabb.y) / aabb.h
+                )));
+            }
+        }
+        stream.push_vertex(&vertex);
+    }
+
+    for i in range(2, path.len() as u16) {
+        stream.push_index(first_vertex);
+        stream.push_index(first_vertex + i);
+        stream.push_index(first_vertex + i - 1);
+    }
 
     return Range {
         first_vertex: first_vertex,
@@ -459,9 +509,6 @@ pub fn fill_grid<'l, T: VertexType2D>(
 
 pub trait VertexType2D: Copy {
     fn from_pos(pos: &world::Vec2) -> Self;
-    fn from_pos_uv(pos: &world::Vec2, uv: &texels::Vec2) -> Self;
-    fn from_pos_color(pos: &world::Vec2, uv: &Rgba<u8>) -> Self;
-    fn new() -> Self;
     fn set_pos(&mut self, &world::Vec2);
     fn set_uv(&mut self, &texels::Vec2);
     fn set_color(&mut self, &Rgba<u8>);
