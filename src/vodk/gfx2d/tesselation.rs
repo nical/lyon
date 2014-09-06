@@ -507,36 +507,110 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
     };
 }
 
-pub fn stroke_path(
+pub fn extrude_along_normals(
+    path: &[world::Vec2],
+    i: uint,
+    amount: f32,
+    is_closed: bool
+) -> world::Vec2 {
+
+    let p1 = if i > 0 { path[i - 1] }
+             else if is_closed { path[path.len()-1] }
+             else { path[0] + path[0] - path[1] };
+
+    let px = path[i];
+
+    let p2 = if i < path.len() - 1 { path[i + 1] }
+             else if is_closed { path[0] }
+             else { path[i] + path[i] - path[i - 1] };
+
+    let n1 = normal(px - p1).times(amount);
+    let n2 = normal(p2 - px).times(amount);
+
+    // Segment P1-->PX
+    let pn1  = p1 + n1; // p1 extruded along the normal n1
+    let pn1x = px + n1; // px extruded along the normal n1
+    // Segment PX-->P2
+    let pn2  = p2 + n2;
+    let pn2x = px + n2;
+
+    let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
+        Some(v) => { v }
+        None => {
+            if (n1 - n2).square_length() < 0.00001 {
+                px + n1
+            } else {
+                // TODO: the angle is very narrow, use rounded corner instead
+                fail!("Not implemented yet");
+            }
+        }
+    };
+    return inter;
+}
+
+pub fn stroke_path<'l, T: VertexType2D>(
     stream: &mut VertexStream<'l, T>,
     path: &[world::Vec2],
     aabb: &world::Rectangle,
     transform: &world::Mat3,
     style: StrokeStyle<'l>,
+    thickness: f32,
+    flags: StrokeFlags
 ) -> Range {
     let first_vertex = stream.vertex_cursor as u16;
     let first_index = stream.index_cursor as u16;
 
-    for i in range(0, path.len()) {
-        let mut vertex: T = VertexType2D::from_pos(&transform.transform_2d(&path[i]));
+    let is_closed = flags & STROKE_CLOSED != 0;
 
-        match fill {
-            NoFill => {},
-            FillColor(color) => { vertex.set_color(color) }
-            FillTexture(uv_transform) => {
-                vertex.set_uv(&uv_transform.transform_2d(&texels::vec2(
-                    (path[i].x - aabb.x) / aabb.w,
-                    (path[i].y - aabb.y) / aabb.h
-                )));
-            }
+    for i in range(0, path.len()) {
+        let mut p1 = path[i];
+        let mut p2 = path[i];
+
+        if flags & STROKE_INWARD == 0 && flags & STROKE_OUTWARD == 0 {
+            p1 = extrude_along_normals(path, i, thickness * 0.5, is_closed);
+            p2 = extrude_along_normals(path, i, -thickness * 0.5, is_closed);
+        } else if flags & STROKE_OUTWARD != 0 {
+            p1 = extrude_along_normals(path, i, thickness, is_closed);
+        } else if flags & STROKE_INWARD != 0 {
+            p2 = extrude_along_normals(path, i, -thickness, is_closed);
+        } else {
+            fail!("unreached");
         }
-        stream.push_vertex(&vertex);
+
+        let mut v1: T = VertexType2D::from_pos(&transform.transform_2d(&p1));
+        let mut v2: T = VertexType2D::from_pos(&transform.transform_2d(&p2));
+
+        match style {
+            NoStroke => {},
+            StrokeColor(color) => {
+                v1.set_color(color);
+                v2.set_color(color);
+            }
+            StrokeTexture(uv_transform) => { fail!("TODO"); }
+        }
+        stream.push_vertex(&v1);
+        stream.push_vertex(&v2);
     }
 
-    for i in range(2, path.len() as u16) {
+    for i in range(1, path.len() as u16) {
+        stream.push_index(first_vertex + i*2 - 2);
+        stream.push_index(first_vertex + i*2 - 1);
+        stream.push_index(first_vertex + i*2);
+
+        stream.push_index(first_vertex + i*2 - 1);
+        stream.push_index(first_vertex + i*2);
+        stream.push_index(first_vertex + i*2 + 1);
+    }
+
+    if is_closed {
+        let i = path.len() as u16 - 1;
+        stream.push_index(first_vertex + i*2);
+        stream.push_index(first_vertex + i*2 + 1);
         stream.push_index(first_vertex);
-        stream.push_index(first_vertex + i);
-        stream.push_index(first_vertex + i - 1);
+
+        stream.push_index(first_vertex + i*2 + 1);
+        stream.push_index(first_vertex);
+        stream.push_index(first_vertex + 1);
     }
 
     return Range {
@@ -561,13 +635,13 @@ pub enum FillStyle<'l> {
 }
 
 pub type StrokeFlags = u16;
-static STROKE_DEFAULT   = 0;
-static STROKE_INWARD    = 1 << 0;
-static STROKE_OUTWARD   = 1 << 1;
-static STROKE_CLOSED    = 1 << 2;
+pub static STROKE_DEFAULT : StrokeFlags = 0;
+pub static STROKE_INWARD  : StrokeFlags = 1 << 0;
+pub static STROKE_OUTWARD : StrokeFlags = 1 << 1;
+pub static STROKE_CLOSED  : StrokeFlags = 1 << 2;
 
-enum StrokeStyle<'l> {
-    StrokeTexture(f32, &'l texels::Mat3),
-    StrokeColor(f32, &'l Rgba<u8>),
+pub enum StrokeStyle<'l> {
+    StrokeTexture(&'l texels::Mat3),
+    StrokeColor(&'l Rgba<u8>),
     NoStroke,
 }
