@@ -18,6 +18,7 @@ use math::units::texels;
 use math::vector;
 use gfx2d::tesselation;
 use gfx2d::shapes;
+use gfx2d::bezier::BezierSegment;
 use gfx2d::color::Rgba;
 use std::mem;
 use containers::copy_on_write;
@@ -187,6 +188,25 @@ impl app::App for TestApp {
                 tesselation::NoStroke,
                 30.0,
                 tesselation::STROKE_CLOSED
+            );
+
+            let bezier_curve = BezierSegment {
+                p0: world::vec2(10.0, 800.0),
+                p1: world::vec2(400.0, 800.0),
+                p2: world::vec2(400.0, 1100.0),
+                p3: world::vec2(800.0, 1100.0)
+            };
+            let mut bezier_linearized = [world::vec2(0.0, 0.0), ..16];
+            bezier_curve.linearize(bezier_linearized.as_mut_slice());
+
+            tesselation::stroke_path(
+                &mut vertex_stream,
+                bezier_linearized.as_slice(),
+                &world::rect(1000.0, 500.0, 300.0, 400.0),
+                &world::Mat3::identity(),
+                tesselation::NoStroke,
+                20.0,
+                tesselation::STROKE_DEFAULT
             );
         }
 
