@@ -1,0 +1,24 @@
+[package]
+
+name = "playground"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+
+
+[dependencies.io]
+path = "../io/"
+
+[dependencies.gpu]
+path = "../gpu/"
+
+
+[[lib]]
+name = "app"
+path = "./app.rs"
+
+[[bin]]
+name = "basic_test"
+path = "./basic_test.rs"
+

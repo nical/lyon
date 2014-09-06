@@ -1,0 +1,14 @@
+[package]
+
+name = "geom"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+
+[[lib]]
+name = "geom"
+path = "./lib.rs"
+
+[dependencies.containers]
+path = "../containers/"
