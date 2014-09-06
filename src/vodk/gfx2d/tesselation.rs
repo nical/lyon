@@ -507,6 +507,46 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
     };
 }
 
+pub fn stroke_path(
+    stream: &mut VertexStream<'l, T>,
+    path: &[world::Vec2],
+    aabb: &world::Rectangle,
+    transform: &world::Mat3,
+    style: StrokeStyle<'l>,
+) -> Range {
+    let first_vertex = stream.vertex_cursor as u16;
+    let first_index = stream.index_cursor as u16;
+
+    for i in range(0, path.len()) {
+        let mut vertex: T = VertexType2D::from_pos(&transform.transform_2d(&path[i]));
+
+        match fill {
+            NoFill => {},
+            FillColor(color) => { vertex.set_color(color) }
+            FillTexture(uv_transform) => {
+                vertex.set_uv(&uv_transform.transform_2d(&texels::vec2(
+                    (path[i].x - aabb.x) / aabb.w,
+                    (path[i].y - aabb.y) / aabb.h
+                )));
+            }
+        }
+        stream.push_vertex(&vertex);
+    }
+
+    for i in range(2, path.len() as u16) {
+        stream.push_index(first_vertex);
+        stream.push_index(first_vertex + i);
+        stream.push_index(first_vertex + i - 1);
+    }
+
+    return Range {
+        first_vertex: first_vertex,
+        vertex_count: stream.vertex_cursor as u16 - first_vertex,
+        first_index: first_index,
+        index_count: stream.index_cursor as u16 - first_index,
+    };
+}
+
 pub trait VertexType2D: Copy {
     fn from_pos(pos: &world::Vec2) -> Self;
     fn set_pos(&mut self, &world::Vec2);
@@ -519,6 +559,12 @@ pub enum FillStyle<'l> {
     FillColor(&'l Rgba<u8>),
     NoFill,
 }
+
+pub type StrokeFlags = u16;
+static STROKE_DEFAULT   = 0;
+static STROKE_INWARD    = 1 << 0;
+static STROKE_OUTWARD   = 1 << 1;
+static STROKE_CLOSED    = 1 << 2;
 
 enum StrokeStyle<'l> {
     StrokeTexture(f32, &'l texels::Mat3),
