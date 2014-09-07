@@ -7,6 +7,8 @@ use core::clone::Clone;
 use libc::funcs::c95::stdlib::{malloc, free};
 use std::mem;
 
+use containers::id;
+
 /// vector of Copy-on-write atomically reference counted values.
 /// Nodes are stored in a vector and refered to using an id equivalent to their
 /// position in the vector.
@@ -29,16 +31,7 @@ struct UnsafeArc<T> {
     ptr: *mut UnsafeArcInner<T>
 }
 
-#[deriving(Clone, Show)]
-pub struct Id<T> {
-    pub handle: u32,
-    pub gen: u32,
-}
-
-impl<T> PartialEq for Id<T> {
-    fn eq(&self, other: &Id<T>) -> bool { self.handle == other.handle && self.gen == other.gen }
-    fn ne(&self, other: &Id<T>) -> bool { self.handle != other.handle || self.gen != other.gen }
-}
+pub type Id<T> = id::GenId<T, u32, u32>;
 
 impl<T: Clone> UnsafeArcInner<T> {
     fn new(data: T, gen: u32) -> UnsafeArcInner<T> {
@@ -198,7 +191,7 @@ impl<T: Clone> CwArcTable<T> {
     }
 
     pub fn snapshot(&mut self) -> CwArcTable<T> {
-        let mut clone: CwArcTable<T> = CwArcTable {
+        let clone: CwArcTable<T> = CwArcTable {
             data: self.data.clone(),
             free_slots: self.free_slots.clone(),
             next_node_gen: self.next_node_gen + 1000,

@@ -12,6 +12,7 @@
 use std::mem;
 use std::ops;
 use std::num;
+use std::default::Default;
 
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
@@ -27,34 +28,20 @@ pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D { x: x, y: y } }
 pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 { Vector3D { x: x, y: y, z: z } }
 pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w } }
 
-pub type Mat4 = Matrix4D<Untyped>;
-pub type Mat3 = Matrix3D<Untyped>;
-pub type Mat2 = Matrix2D<Untyped>;
+pub type Mat4 = Matrix4x4<Untyped>;
+pub type Mat3 = Matrix3x3<Untyped>;
+pub type Mat2 = Matrix2x2<Untyped>;
 
-pub type Rect = Rectangle2D<Untyped>;
+pub type Rect = Rectangle<Untyped>;
 
 pub trait ScalarMul<T> {
     fn scalar_mul(&self, scalar: T) -> Self;
     fn scalar_mul_in_place(&mut self, scalar: T);
 }
 
-pub trait VecMath<T>: Add<Self,Self>
-                    + Sub<Self,Self>
-                    + Neg<Self>
-                    + Mul<Self,Self>
-                    + Div<Self,Self>
-                    + ScalarMul<T>
-                    + num::Zero {
-    fn mix(a: &Self, b: &Self) -> Self;
-    fn clamp(a: &Self, b: &Self) -> Self;
-    fn lerp(a: &Self, b: &Self, x: T) -> Self;
-    fn dot(a: &Self, b: &Self) -> f32;
-    fn length(a: &Self) -> f32;
-}
-
 #[allow(dead_code)]
 pub mod Mat4 {
-    use super::{Mat4, Matrix4D, Vec3};
+    use super::{Mat4, Matrix4x4, Vec3};
     use std::num::One;
     pub fn identity() -> Mat4 { One::one() }
 
@@ -62,11 +49,11 @@ pub mod Mat4 {
         fovy: f32, aspect: f32, near: f32, far: f32,
         mat: &mut Mat4
     ) {
-        Matrix4D::perspective(fovy, aspect, near, far, mat);
+        Matrix4x4::perspective(fovy, aspect, near, far, mat);
     }
 
     pub fn from_slice(s: &[f32]) -> Mat4 {
-        return Matrix4D::from_slice(s);
+        return Matrix4x4::from_slice(s);
     }
 
     pub fn scale(s: &Vec3) -> Mat4 {
@@ -90,25 +77,25 @@ pub mod Mat4 {
 
 #[allow(dead_code)]
 pub mod Mat3 {
-    use super::{Mat3, Matrix3D};
+    use super::{Mat3, Matrix3x3};
     use std::num::One;
 
     pub fn identity() -> Mat3 { One::one() }
 
     pub fn from_slice(s: &[f32]) -> Mat3 {
-        return Matrix3D::from_slice(s);
+        return Matrix3x3::from_slice(s);
     }
 }
 
 #[allow(dead_code)]
 pub mod Mat2 {
-    use super::{Mat2, Matrix2D};
+    use super::{Mat2, Matrix2x2};
     use std::num::One;
 
     pub fn identity() -> Mat2 { One::one() }
 
     pub fn from_slice(s: &[f32]) -> Mat2 {
-        return Matrix2D::from_slice(s);
+        return Matrix2x2::from_slice(s);
     }
 }
 
@@ -134,11 +121,27 @@ pub struct Vector4D<Unit = Untyped> {
 }
 
 #[deriving(Clone, Show)]
-pub struct Rectangle2D<Unit = Untyped> {
+pub struct Rectangle<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
     pub w: f32,
     pub h: f32,
+}
+
+impl<U> Default for Vector2D<U> {
+    fn default() -> Vector2D<U> { Vector2D { x: 0.0, y: 0.0 } }
+}
+
+impl<U> Default for Vector3D<U> {
+    fn default() -> Vector3D<U> { Vector3D { x: 0.0, y: 0.0, z: 0.0 } }
+}
+
+impl<U> Default for Vector4D<U> {
+    fn default() -> Vector4D<U> { Vector4D { x: 0.0, y: 0.0, z: 0.0, w: 0.0 } }
+}
+
+impl<U> Default for Rectangle<U> {
+    fn default() -> Rectangle<U> { Rectangle { x: 0.0, y: 0.0, w: 0.0, h: 0.0 } }
 }
 
 #[allow(dead_code)]
@@ -376,10 +379,10 @@ impl<U> Vector3D<U> {
     }
 }
 
-impl<U> Matrix4D<U> {
+impl<U> Matrix4x4<U> {
     pub fn perspective(
         fovy: f32, aspect: f32, near: f32, far: f32,
-        mat: &mut Matrix4D<U>
+        mat: &mut Matrix4x4<U>
     ) {
         let f = 1.0 / (fovy / 2.0).tan();
         let nf: f32 = 1.0 / (near - far);
@@ -605,20 +608,20 @@ impl<U> ops::Neg<Vector2D<U>> for Vector2D<U> {
 }
 
 #[deriving(Clone, PartialEq, Show)]
-pub struct Matrix2D<Unit> {
+pub struct Matrix2x2<Unit> {
     pub _11: f32, pub _21: f32,
     pub _12: f32, pub _22: f32,
 }
 
 #[deriving(Clone, PartialEq, Show)]
-pub struct Matrix3D<Unit> {
+pub struct Matrix3x3<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32,
     pub _12: f32, pub _22: f32, pub _32: f32,
     pub _13: f32, pub _23: f32, pub _33: f32,
 }
 
 #[deriving(Clone, PartialEq, Show)]
-pub struct Matrix4D<Unit> {
+pub struct Matrix4x4<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32, pub _41: f32,
     pub _12: f32, pub _22: f32, pub _32: f32, pub _42: f32,
     pub _13: f32, pub _23: f32, pub _33: f32, pub _43: f32,
@@ -627,11 +630,11 @@ pub struct Matrix4D<Unit> {
 
 
 
-impl<U> Matrix2D<U> {
+impl<U> Matrix2x2<U> {
 
-    pub fn from_slice(from: &[f32]) -> Matrix2D<U> {
+    pub fn from_slice(from: &[f32]) -> Matrix2x2<U> {
         assert!(from.len() >= 4);
-        return Matrix2D {
+        return Matrix2x2 {
             _11: from[0], _21: from[1],
             _12: from[2], _22: from[3],
         };
@@ -657,32 +660,42 @@ impl<U> Matrix2D<U> {
         unsafe { mem::transmute(&self._12 as *const f32) }
     }
 
+    #[inline]
     pub fn transform(&self, v: &Vector2D<U>) -> Vector2D<U> {
         Vector2D {
             x: v.x * self._11 + v.y * self._21,
             y: v.x * self._12 + v.y * self._22,
         }
     }
-}
 
-impl<U>
-    num::One
-    for Matrix2D<U> {
     #[inline]
-    fn one() -> Matrix2D<U> {
-        Matrix2D {
+    pub fn identity() -> Matrix2x2<U> {
+        Matrix2x2 {
             _11: 1.0, _21: 0.0,
             _12: 0.0, _22: 1.0,
         }
     }
+
+    #[inline]
+    pub fn set_indentity(&mut self) {
+        self._11 = 1.0; self._21 = 0.0;
+        self._12 = 0.0; self._22 = 1.0;
+    }
+}
+
+impl<U>
+    num::One
+    for Matrix2x2<U> {
+    #[inline]
+    fn one() -> Matrix2x2<U> { Matrix2x2::identity() }
 }
 
 #[allow(dead_code)]
-impl<U> Matrix3D<U> {
+impl<U> Matrix3x3<U> {
 
-    pub fn from_slice(from: &[f32]) -> Matrix3D<U> {
+    pub fn from_slice(from: &[f32]) -> Matrix3x3<U> {
         assert_eq!(from.len(), 9);
-        return Matrix3D {
+        return Matrix3x3 {
             _11: from[0], _21: from[1], _31: from[2],
             _12: from[3], _22: from[4], _32: from[5],
             _13: from[6], _23: from[7], _33: from[8],
@@ -716,6 +729,31 @@ impl<U> Matrix3D<U> {
         }
     }
 
+    pub fn scale(&mut self, v: &Vector2D<U>) {
+        self._11 = self._11 * v.x;
+        self._21 = self._21 * v.x;
+        self._31 = self._31 * v.x;
+        self._12 = self._12 * v.y;
+        self._22 = self._22 * v.y;
+        self._32 = self._32 * v.y;
+    }
+
+    pub fn rotation(rad: f32) -> Matrix3x3<U> {
+        return Matrix3x3 {
+            _11: rad.cos(), _21: -rad.sin(), _31: 0.0,
+            _12: rad.sin(), _22: rad.cos(),  _32: 0.0,
+            _13: 0.0,       _23: 0.0,        _33: 1.0,
+        }
+    }
+
+    pub fn translation(v: &Vector2D<U>) -> Matrix3x3<U> {
+        return Matrix3x3 {
+            _11: 1.0, _21: 1.0, _31: v.x,
+            _12: 0.0, _22: 1.0, _32: v.y,
+            _13: 0.0, _23: 0.0, _33: 1.0,
+        }
+    }
+
     pub fn row_1<'l>(&'l self) -> &'l Vector3D<U> {
         unsafe { mem::transmute(&self._11 as *const f32) }
     }
@@ -727,25 +765,35 @@ impl<U> Matrix3D<U> {
     pub fn row_3<'l>(&'l self) -> &'l Vector3D<U> {
         unsafe { mem::transmute(&self._13 as *const f32) }
     }
-}
 
-impl<U> num::One for Matrix3D<U> {
     #[inline]
-    fn one() -> Matrix3D<U> {
-        Matrix3D {
+    pub fn identity() -> Matrix3x3<U> {
+        Matrix3x3 {
             _11: 1.0, _21: 0.0, _31: 0.0,
             _12: 0.0, _22: 1.0, _32: 0.0,
             _13: 0.0, _23: 0.0, _33: 1.0,
         }
     }
+
+    #[inline]
+    pub fn set_indentity(&mut self) {
+        self._11 = 1.0; self._21 = 0.0; self._31 = 0.0;
+        self._12 = 0.0; self._22 = 1.0; self._32 = 0.0;
+        self._13 = 0.0; self._23 = 0.0; self._33 = 1.0;
+    }
+}
+
+impl<U> num::One for Matrix3x3<U> {
+    #[inline]
+    fn one() -> Matrix3x3<U> { Matrix3x3::identity() }
 }
 
 #[allow(dead_code)]
-impl<U> Matrix4D<U> {
+impl<U> Matrix4x4<U> {
 
-    pub fn from_slice(from: &[f32]) -> Matrix4D<U> {
+    pub fn from_slice(from: &[f32]) -> Matrix4x4<U> {
         assert!(from.len() >= 16);
-        return Matrix4D {
+        return Matrix4x4 {
             _11: from[0],  _21: from[1],  _31: from[2],  _41: from[3],
             _12: from[4],  _22: from[5],  _32: from[6],  _42: from[7],
             _13: from[8],  _23: from[9],  _33: from[10], _43: from[11],
@@ -789,9 +837,36 @@ impl<U> Matrix4D<U> {
     pub fn row_4<'l>(&'l self) -> &'l Vector4D<U> {
         unsafe { mem::transmute(&self._14 as *const f32) }
     }
+
+    #[inline]
+    pub fn identity() -> Matrix4x4<U> {
+        Matrix4x4 {
+            _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
+            _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
+            _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
+            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+        }
+    }
+
+    pub fn translation(v: &Vector3D<U>) -> Matrix4x4<U> {
+        return Matrix4x4 {
+            _11: 1.0, _21: 1.0, _31: 0.0, _41: v.x,
+            _12: 0.0, _22: 1.0, _32: 0.0, _42: v.y,
+            _13: 0.0, _23: 0.0, _33: 1.0, _43: v.z,
+            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+        }
+    }
+
+    #[inline]
+    pub fn set_indentity(&mut self) {
+        self._11 = 1.0; self._21 = 0.0; self._31 = 0.0; self._41 = 0.0;
+        self._12 = 0.0; self._22 = 1.0; self._32 = 0.0; self._42 = 0.0;
+        self._13 = 0.0; self._23 = 0.0; self._33 = 1.0; self._43 = 0.0;
+        self._14 = 0.0; self._24 = 0.0; self._34 = 0.0; self._44 = 1.0;
+    }
 }
 
-impl<U> Matrix4D<U> {
+impl<U> Matrix4x4<U> {
     pub fn rotate(&mut self, rad: f32, axis: &Vector3D<U>) {
         let len = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
 
@@ -867,7 +942,7 @@ impl<U> Matrix4D<U> {
         self._43 = self._43 * v.z;
     }
 
-    pub fn invert(&self, out: &mut Matrix4D<U>) {
+    pub fn invert(&self, out: &mut Matrix4x4<U>) {
         let a00 = self._11;
         let a01 = self._21;
         let a02 = self._31;
@@ -926,11 +1001,11 @@ impl<U> Matrix4D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Matrix4D<U>, Matrix4D<U>> for Matrix4D<U> {
+impl<U> ops::Mul<Matrix4x4<U>, Matrix4x4<U>> for Matrix4x4<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Matrix4D<U>) -> Matrix4D<U> {
-        return Matrix4D {
+    fn mul(&self, rhs: &Matrix4x4<U>) -> Matrix4x4<U> {
+        return Matrix4x4 {
             _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31 + self._14 * rhs._41,
             _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31 + self._24 * rhs._41,
             _31: self._31 * rhs._11 + self._32 * rhs._21 + self._33 * rhs._31 + self._34 * rhs._41,
@@ -951,24 +1026,17 @@ impl<U> ops::Mul<Matrix4D<U>, Matrix4D<U>> for Matrix4D<U> {
     }
 }
 
-impl<U> num::One for Matrix4D<U> {
+impl<U> num::One for Matrix4x4<U> {
     #[inline]
-    fn one() -> Matrix4D<U> {
-        Matrix4D {
-            _11: 1.0, _21: 0.0, _31: 0.0, _41: 0.0,
-            _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
-            _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
-            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
-        }
-    }
+    fn one() -> Matrix4x4<U> { Matrix4x4::identity() }
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Matrix3D<U>, Matrix3D<U>> for Matrix3D<U> {
+impl<U> ops::Mul<Matrix3x3<U>, Matrix3x3<U>> for Matrix3x3<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Matrix3D<U>) -> Matrix3D<U> {
-        return Matrix3D {
+    fn mul(&self, rhs: &Matrix3x3<U>) -> Matrix3x3<U> {
+        return Matrix3x3 {
             _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31,
             _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31,
             _31: self._31 * rhs._11 + self._32 * rhs._21 + self._33 * rhs._31,
@@ -983,11 +1051,11 @@ impl<U> ops::Mul<Matrix3D<U>, Matrix3D<U>> for Matrix3D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Matrix2D<U>, Matrix2D<U>> for Matrix2D<U> {
+impl<U> ops::Mul<Matrix2x2<U>, Matrix2x2<U>> for Matrix2x2<U> {
 
     #[inline]
-    fn mul(&self, rhs: &Matrix2D<U>) -> Matrix2D<U> {
-        return Matrix2D {
+    fn mul(&self, rhs: &Matrix2x2<U>) -> Matrix2x2<U> {
+        return Matrix2x2 {
             _11: self._11 * rhs._11 + self._12 * rhs._21,
             _21: self._21 * rhs._11 + self._22 * rhs._21,
             _12: self._11 * rhs._12 + self._12 * rhs._22,
@@ -996,9 +1064,9 @@ impl<U> ops::Mul<Matrix2D<U>, Matrix2D<U>> for Matrix2D<U> {
     }
 }
 
-impl<U> Rectangle2D<U> {
-    pub fn new(x: f32, y: f32, w: f32, h:f32) -> Rectangle2D<U> {
-        let mut rect = Rectangle2D { x: x, y: y, w: w, h: h };
+impl<U> Rectangle<U> {
+    pub fn new(x: f32, y: f32, w: f32, h:f32) -> Rectangle<U> {
+        let mut rect = Rectangle { x: x, y: y, w: w, h: h };
         rect.ensure_invariant();
         return rect;
     }
@@ -1051,7 +1119,7 @@ impl<U> Rectangle2D<U> {
 
     pub fn y_most(&self) -> f32 { self.y + self.h }
 
-    pub fn contains(&self, other: &Rectangle2D<U>) -> bool {
+    pub fn contains(&self, other: &Rectangle<U>) -> bool {
         return self.x <= other.x &&
                self.y <= self.y &&
                self.x_most() >= other.x_most() &&

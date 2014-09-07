@@ -1,11 +1,12 @@
-use super::id::Id;
+use super::id::FromIndex;
+use super::id::ToIndex;
 
 pub struct ItemVector<T, ID> {
     data: Vec<T>,
     removed_items: Vec<ID>,
 }
 
-impl<T, ID: Id+Copy> ItemVector<T, ID> {
+impl<T, ID: FromIndex+ToIndex+Copy> ItemVector<T, ID> {
     pub fn new() -> ItemVector<T, ID> {
         ItemVector {
             data: Vec::new(),
@@ -25,7 +26,7 @@ impl<T, ID: Id+Copy> ItemVector<T, ID> {
             }
             None => {
                 self.data.push(item);
-                return Id::from_index(self.data.len() - 1);
+                return FromIndex::from_index(self.data.len() - 1);
             }
         }
     }
