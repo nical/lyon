@@ -1,4 +1,4 @@
-use std::ty::Unsafe;
+//use std::ty::Unsafe;
 use std::sync::atomics;
 
 use std::vec::{Vec};
@@ -109,19 +109,15 @@ impl<T: Clone> UnsafeArc<T> {
 
 impl<T: Clone> Clone for UnsafeArc<T> {
     fn clone(&self) -> UnsafeArc<T> {
-        unsafe {
-            self.add_ref();
-            UnsafeArc { ptr: self.ptr }
-        }
+        self.add_ref();
+        UnsafeArc { ptr: self.ptr }
     }
 }
 
 #[unsafe_destructor]
 impl<T: Clone> Drop for UnsafeArc<T> {
     fn drop(&mut self) {
-        unsafe {
-            self.release_ref();
-        }
+        self.release_ref();
     }
 }
 
@@ -136,28 +132,26 @@ impl<T: Clone> CwArcTable<T> {
     }
 
     pub fn add(&mut self, data: T) -> Id<T> {
-        unsafe {
-            let new_node = UnsafeArc::new(data, self.next_node_gen);
-            let node_id;
-            if !self.free_slots.is_empty() {
-                // Re-use availale slot...
-                *self.data.get_mut(self.free_slots.len()-1) = new_node;
-                let idx = self.free_slots.pop().unwrap();
-                node_id = Id {
-                    handle: idx as u32,
-                    gen: self.next_node_gen,
-                };
-            } else {
-                // ...or push to the end of the vector.
-                self.data.push(new_node);
-                node_id = Id {
-                    handle: self.data.len() as u32 - 1,
-                    gen: self.next_node_gen,
-                };
-            }
-            self.next_node_gen += 1;
-            return node_id;
+        let new_node = UnsafeArc::new(data, self.next_node_gen);
+        let node_id;
+        if !self.free_slots.is_empty() {
+            // Re-use availale slot...
+            *self.data.get_mut(self.free_slots.len()-1) = new_node;
+            let idx = self.free_slots.pop().unwrap();
+            node_id = Id {
+                handle: idx as u32,
+                gen: self.next_node_gen,
+            };
+        } else {
+            // ...or push to the end of the vector.
+            self.data.push(new_node);
+            node_id = Id {
+                handle: self.data.len() as u32 - 1,
+                gen: self.next_node_gen,
+            };
         }
+        self.next_node_gen += 1;
+        return node_id;
     }
 
     // Adds this node to the list of available slots.
@@ -177,7 +171,7 @@ impl<T: Clone> CwArcTable<T> {
 
     pub fn unchecked_get<'l>(&'l self, index: u32) -> &'l T {
         unsafe {
-            &(*self.data.get(index as uint).ptr).data
+            &(*self.data[index as uint].ptr).data
         }
     }
 
@@ -189,11 +183,11 @@ impl<T: Clone> CwArcTable<T> {
     pub fn unchecked_get_mut<'l>(&'l mut self, index: u32) -> &'l mut T {
         unsafe {
             // If we are holding the only ref, no need to copy.
-            if self.data.get_mut(index as uint).ref_count() == 1 {
-                return &mut (*self.data.get_mut(index as uint).ptr).data;
+            if self.data[index as uint].ref_count() == 1 {
+                return &mut (*self.data[index as uint].ptr).data;
             }
             // "copy on write" scenario.
-            let mut node_ref = self.data.get_mut(index as uint);
+            let node_ref = self.data.get_mut(index as uint);
             *node_ref = node_ref.deep_clone();
             return &mut (*node_ref.ptr).data;
         }
@@ -204,17 +198,15 @@ impl<T: Clone> CwArcTable<T> {
     }
 
     pub fn snapshot(&mut self) -> CwArcTable<T> {
-        unsafe {
-            let mut clone: CwArcTable<T> = CwArcTable {
-                data: self.data.clone(),
-                free_slots: self.free_slots.clone(),
-                next_node_gen: self.next_node_gen + 1000,
-            };
-            return clone;
-        }
+        let mut clone: CwArcTable<T> = CwArcTable {
+            data: self.data.clone(),
+            free_slots: self.free_slots.clone(),
+            next_node_gen: self.next_node_gen + 1000,
+        };
+        return clone;
     }
 
     pub fn get_gen(&self, index: u32) -> u32 {
-        return self.data.get(index as uint).inner().gen;
+        return self.data[index as uint].inner().gen;
     }
 }

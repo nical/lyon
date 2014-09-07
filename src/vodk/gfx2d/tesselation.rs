@@ -86,7 +86,7 @@ pub fn path_to_line_vbo(
     vbo: &mut [Pos2DNormal2DColorExtrusion],
 ) {
     let vertex_antialiasing = (flags & VERTEX_ANTIALIASING) != 0;
-    if (path.len() < 2) {
+    if path.len() < 2 {
         fail!("invalid path");
     }
 
@@ -97,19 +97,18 @@ pub fn path_to_line_vbo(
                   else { path[0] + path[0] - path[1] };
     let mut px = path[0];
     let mut n1 = normal(px - p1);
-    // With the line equation y = a * x + b
 
     for i in range(0, path.len()) {
-        let mut pos = transform.transform_2d(&path[i]);
+        let pos = transform.transform_2d(&path[i]);
 
         let color = color_fn(i, BorderPoint);
         let color_aa = color_fn(i, AntialiasPoint);
 
         // Compute the normal at the intersection point px
-        let mut p2 = if i < path.len() - 1 { path[i + 1] }
-                      else if is_closed { path[0] }
-                      else { path[i] + path[i] - path[i - 1] };
-        let mut n2 = normal(p2 - px);
+        let p2 = if i < path.len() - 1 { path[i + 1] }
+                  else if is_closed { path[0] }
+                  else { path[i] + path[i] - path[i - 1] };
+        let n2 = normal(p2 - px);
         // Segment P1-->PX
         let pn1  = p1 + n1; // p1 extruded along the normal n1
         let pn1x = px + n1; // px extruded along the normal n1
@@ -155,7 +154,7 @@ pub fn path_to_line_vbo(
         vbo[i * stride + 1].color = color;
         vbo[i * stride + 1].extrusion = aa_width;
 
-        if (vertex_antialiasing) {
+        if vertex_antialiasing {
             vbo[i * stride + 2].pos = pos + extrusion_ws;
             vbo[i * stride + 2].normal = normal;
             vbo[i * stride + 2].color = color_aa;
@@ -196,7 +195,7 @@ pub fn path_to_line_ibo(
         ibo[i * index_stride + 4] = base_vertex + (idx + 1) * vertex_stride + 1;
         ibo[i * index_stride + 5] = base_vertex + (idx + 1) * vertex_stride;
 
-        if (vertex_antialiasing) {
+        if vertex_antialiasing {
             ibo[i * index_stride + 6] = base_vertex + idx * vertex_stride + 2;
             ibo[i * index_stride + 7] = base_vertex + idx * vertex_stride + 0;
             ibo[i * index_stride + 8] = base_vertex + (idx + 1) * vertex_stride;
@@ -225,7 +224,7 @@ pub fn path_to_line_ibo(
         ibo[i * index_stride + 4] = base_vertex + 1;
         ibo[i * index_stride + 5] = base_vertex + 0;
 
-        if (vertex_antialiasing) {
+        if vertex_antialiasing {
             ibo[i * index_stride + 6] = base_vertex + idx * vertex_stride + 2;
             ibo[i * index_stride + 7] = base_vertex + idx * vertex_stride + 0;
             ibo[i * index_stride + 8] = base_vertex + 0;

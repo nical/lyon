@@ -13,6 +13,7 @@ pub static ANIM_TRANSFORM: NodeFlags    = 1 << 3 + 1;
 pub static ANIM_GEOMETRY: NodeFlags     = 1 << 4 + 1;
 pub static IS_OPAQUE: NodeFlags         = 1 << 5;
 pub static FORCE_INTERMEDIATE_SURFACE: NodeFlags = 1 << 6;
+pub static CLIP: NodeFlags              = 1 << 7;
 
 /// Track the changes that were made to a given node to help with managing
 /// caches.
@@ -68,7 +69,7 @@ pub struct NodeData {
     pub transform: world::Mat4,
     pub shape: NodeShape,
     pub material: NodeMaterial,
-    pub clip: Option<world::Rectangle>,
+    pub bounding_box: world::Rectangle,
     pub flags: NodeFlags,
 }
 

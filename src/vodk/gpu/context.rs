@@ -1,5 +1,4 @@
 
-use std::mem;
 use data;
 
 pub type BufferData<'l> = data::DynamicallyTypedSlice<'l>;

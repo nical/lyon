@@ -1,10 +1,5 @@
 
 use math::vector::Vector2D;
-use math::units::world;
-use math::units::texels;
-use gfx2d::color::Rgba;
-use gfx2d::shapes;
-use data;
 
 pub struct BezierSegment<T> {
     pub p0: Vector2D<T>,
@@ -33,3 +28,4 @@ impl<T> BezierSegment<T> {
              + self.p3.times(t3);
     }
 }
+ 

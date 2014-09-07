@@ -83,7 +83,7 @@ impl tesselation::VertexType2D for Pos2DTex2D {
     }
     fn set_pos(&mut self, pos: &world::Vec2) { self.x = pos.x; self.y = pos.y; }
     fn set_uv(&mut self, uv: &texels::Vec2) { self.u = uv.x; self.v = uv.y; }
-    fn set_color(&mut self, color: &Rgba<u8>) { fail!() }
+    fn set_color(&mut self, _color: &Rgba<u8>) { fail!() }
 }
 
 static vec2_vec2_slice_type : &'static[data::Type] = &[data::VEC2, data::VEC2];
@@ -101,16 +101,13 @@ fn index_buffer_slice<'l>(data: &'l[u16]) -> data::DynamicallyTypedSlice<'l> {
 
 impl app::App for TestApp {
 
-    fn new(window: &mut Window, ctx: &mut gpu::RenderingContext) -> TestApp {
+    fn new(_window: &mut Window, ctx: &mut gpu::RenderingContext) -> TestApp {
         ctx.set_clear_color(0.9, 0.9, 0.9, 1.0);
 
         let vbo = ctx.create_buffer(gpu::VERTEX_BUFFER);
         let ibo = ctx.create_buffer(gpu::INDEX_BUFFER);
 
-        let mut vertices = [
-            Pos2DTex2D { x: 0.0, y: 0.0, u: 0.0, v: 0.0 },
-            .. 256
-        ];
+        let mut vertices = [Pos2DTex2D { x: 0.0, y: 0.0, u: 0.0, v: 0.0 }, .. 256];
         let mut indices = [0 as u16, .. 512];
 
         {
@@ -260,7 +257,7 @@ impl app::App for TestApp {
         }
     }
 
-    fn update(&mut self, dt: f32, window: &mut Window, ctx: &mut gpu::RenderingContext) {
+    fn update(&mut self, dt: f32, _window: &mut Window, ctx: &mut gpu::RenderingContext) {
         let screen = ctx.get_default_render_target();
         ctx.set_render_target(screen);
         ctx.clear(gpu::COLOR);
@@ -276,11 +273,11 @@ impl app::App for TestApp {
         ).ok().expect("draw");
     }
 
-    fn shut_down(&mut self, window: &mut Window, ctx: &mut gpu::RenderingContext) {
+    fn shut_down(&mut self, _window: &mut Window, _ctx: &mut gpu::RenderingContext) {
         println!(" -- shut_down");
     }
 
-    fn handle_events(&mut self, events: &[inputs::Event]) {
+    fn handle_events(&mut self, _events: &[inputs::Event]) {
     }
 
     fn should_close(&mut self) -> bool { self.should_close }

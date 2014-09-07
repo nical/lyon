@@ -66,14 +66,12 @@ macro_rules! declare_unit (
 
             pub mod Mat3 {
                 use super::Mat3;
-                use math::vector;
                 use std::num::One;
                 pub fn identity() -> Mat3 { One::one() }
             }
 
             pub mod Mat2 {
                 use super::Mat2;
-                use math::vector;
                 use std::num::One;
                 pub fn identity() -> Mat2 { One::one() }
             }

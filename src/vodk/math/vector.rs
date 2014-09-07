@@ -13,9 +13,6 @@ use std::mem;
 use std::ops;
 use std::num;
 
-use std::kinds::Copy;
-use std::fmt::Show;
-
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
 

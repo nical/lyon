@@ -33,7 +33,7 @@ impl<T: Copy> PodFreeListVector<T> {
             return (self.data.len()-1) as Index;
         } else {
             let index = self.free_list;
-            let next_free_list = self.data.get(index as uint).free_list;
+            let next_free_list = self.data[index as uint].free_list;
             self.data.get_mut(self.free_list as uint).payload = val;
             self.free_list = next_free_list;
             return index;
@@ -50,12 +50,12 @@ impl<T: Copy> PodFreeListVector<T> {
     }
 
     pub fn borrow<'l>(&'l self, id: Index) -> &'l T {
-        assert!(self.data.get(id as uint).free_list == FREE_LIST_NONE);
-        return &self.data.get(id as uint).payload;
+        assert!(self.data[id as uint].free_list == FREE_LIST_NONE);
+        return &self.data[id as uint].payload;
     }
 
     pub fn borrow_mut<'l>(&'l mut self, idx: Index) -> &'l mut T {
-        assert!(self.data.get(idx as uint).free_list == FREE_LIST_NONE);
+        assert!(self.data[idx as uint].free_list == FREE_LIST_NONE);
         return &mut self.data.get_mut(idx as uint).payload;
     }
 }

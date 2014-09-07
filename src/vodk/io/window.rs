@@ -20,7 +20,7 @@ impl Window {
         glfw.window_hint(glfw::ContextVersion(3, 1));
         glfw.window_hint(glfw::OpenglForwardCompat(true));
 
-        let (glfw_win, events) = glfw.create_window(w, h, "OpenGL", glfw::Windowed)
+        let (glfw_win, events) = glfw.create_window(w, h, title, glfw::Windowed)
             .expect("Failed to create GLFW window.");
 
         glfw_win.set_size_polling(true);
