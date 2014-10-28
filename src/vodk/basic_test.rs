@@ -28,13 +28,7 @@ pub mod gfx2d;
 
 pub mod io;
 
-pub mod containers {
-    pub mod copy_on_write;
-    pub mod item_vector;
-    pub mod id_lookup_table;
-    pub mod freelist_vector;
-    pub mod id;
-}
+pub mod containers;
 
 pub mod playground {
     pub mod app;

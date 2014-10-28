@@ -30,13 +30,7 @@ pub mod io {
     pub mod inputs;
 }
 
-pub mod containers {
-    pub mod copy_on_write;
-    pub mod item_vector;
-    pub mod id_lookup_table;
-    pub mod freelist_vector;
-    pub mod id;
-}
+pub mod containers;
 
 pub mod playground {
     pub mod app;
@@ -56,24 +50,7 @@ struct TestApp {
     time: f32,
 }
 
-#[deriving(Show)]
-#[repr(C)]
-struct Pos2DTex2D {
-    x: f32,
-    y: f32,
-    s: f32,
-    t: f32,
-}
-
-static vec2_vec2_slice_type : &'static[data::Type] = &[data::VEC2, data::VEC2];
 static u16_slice_type : &'static[data::Type] = &[data::U16];
-
-impl Pos2DTex2D {
-    fn dynamically_typed_slice<'l>(data: &'l[Pos2DTex2D]) -> data::DynamicallyTypedSlice<'l> {
-        data::DynamicallyTypedSlice::new(data, vec2_vec2_slice_type)
-    }
-}
-
 fn index_buffer_slice<'l>(data: &'l[u16]) -> data::DynamicallyTypedSlice<'l> {
     data::DynamicallyTypedSlice::new(data, u16_slice_type)
 }
@@ -192,13 +169,11 @@ impl app::App for TestApp {
 
         self.time += dt;
         ctx.set_shader(self.shader).ok().expect("set 3d shader");
-        let mut proj_mat = world::Mat4::identity();
-        world::Mat4::perspective(
+        let mut proj_mat = world::Mat4::perspective(
             45.0,
             self.resolution[0] / self.resolution[1],
             0.5,
             1000.0,
-            &mut proj_mat
         );
         let model_mat = world::Mat4::identity();
         let mut view_mat = world::Mat4::identity();

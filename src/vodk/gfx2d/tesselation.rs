@@ -140,7 +140,7 @@ pub fn path_to_line_vbo(
         px = p2;
         n1 = n2;
 
-        let line_width = line_width_fn(i);
+        let line_width = line_width_fn(i) / 2.0;
         let aa_width = 1.0;
         let extrusion_ws = normal.times(line_width);
 

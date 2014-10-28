@@ -41,14 +41,7 @@ pub mod playground {
     pub mod basic_shaders;
 }
 
-pub mod containers {
-    pub mod copy_on_write;
-    pub mod item_vector;
-    pub mod id_lookup_table;
-    pub mod freelist_vector;
-    pub mod id;
-}
-
+pub mod containers;
 
 struct TestApp {
     resolution: [f32, ..2],
@@ -89,17 +82,27 @@ impl app::App for TestApp {
 
         let path_vbo = ctx.create_buffer(gpu::VERTEX_BUFFER);
         let path_ibo = ctx.create_buffer(gpu::INDEX_BUFFER);
+        //let path = &[
+        //        world::vec2(-500.0, -500.0),
+        //        world::vec2(-300.0, -500.0),
+        //        world::vec2(-300.0, -300.0),
+        //        world::vec2( 100.0, -300.0),
+        //        world::vec2( 100.0, -500.0),
+        //        world::vec2( 150.0, -300.0),
+        //        world::vec2( 200.0, -500.0),
+        //        world::vec2( 200.0,  200.0),
+        //        world::vec2( 200.0,  500.0),
+        //        world::vec2(-500.0,  200.0)
+        //];
         let path = &[
-                world::vec2(-500.0, -500.0),
-                world::vec2(-300.0, -500.0),
-                world::vec2(-300.0, -300.0),
-                world::vec2( 100.0, -300.0),
-                world::vec2( 100.0, -500.0),
-                world::vec2( 150.0, -300.0),
-                world::vec2( 200.0, -500.0),
-                world::vec2( 200.0,  200.0),
-                world::vec2( 200.0,  500.0),
-                world::vec2(-500.0,  200.0)
+                world::vec2(-200.0,  -200.0),
+                world::vec2(-200.0,   200.0),
+                world::vec2( 200.0,   200.0),
+                world::vec2( 200.0,  -200.0),
+                world::vec2(  25.0,  -200.0),
+                world::vec2(  25.0,  -100.0),
+                world::vec2( -25.0,  -100.0),
+                world::vec2( -25.0,  -200.0),
         ];
         let mut path_vertices = [
             tesselation::Pos2DNormal2DColorExtrusion {
@@ -116,12 +119,12 @@ impl app::App for TestApp {
             path.as_slice(),
             true,
             tesselation::VERTEX_ANTIALIASING|tesselation::CONVEX_SHAPE,
-            |_| { 10.0 },
+            |_| { 50.0 },
             |_, ptype| { match ptype {
                 tesselation::AntialiasPoint => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 0.0 },
                 _ => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 1.0 },
             }},
-            world::Mat3::identity(),
+            world::Mat3::rotation(1.0),
             path_vertices.as_mut_slice()
         );
         tesselation::path_to_line_ibo(

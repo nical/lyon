@@ -8,6 +8,14 @@ pub trait ToIndex {
     fn to_index(&self) -> uint;
 }
 
+pub trait Generation {
+    fn get_gen(&self) -> u32;
+}
+
+pub trait Invalid {
+    fn is_valid(&self) -> bool;
+}
+
 #[deriving(Clone, Show)]
 pub struct GenId<T, H, G> {
     pub handle: H,
@@ -17,6 +25,10 @@ pub struct GenId<T, H, G> {
 #[deriving(Clone, Show)]
 pub struct Id<T, H> {
     pub handle: H,
+}
+
+impl<T, H, G: Generation> Invalid for GenId<T, H, G> {
+    fn is_valid(&self) -> bool { self.get_gen() != 0 }
 }
 
 impl<T, H: PartialEq, G: PartialEq> PartialEq for GenId<T, H, G> {
@@ -60,3 +72,15 @@ impl FromIndex for uint { fn from_index(idx: uint) -> uint { idx } }
 impl<T, H:FromIndex> FromIndex for Id<T, H> {
     fn from_index(idx: uint) -> Id<T, H> { Id { handle: FromIndex::from_index(idx) } }
 }
+
+impl Generation for u8  { fn get_gen(&self) -> u32 { *self as u32 } }
+impl Generation for u16  { fn get_gen(&self) -> u32 { *self as u32 } }
+impl Generation for u32  { fn get_gen(&self) -> u32 { *self as u32 } }
+impl Generation for u64  { fn get_gen(&self) -> u32 { *self as u32 } }
+
+impl<T, H, G: Generation> Generation for GenId<T, H, G>  { fn get_gen(&self) -> u32 { self.gen.get_gen() } }
+
+//impl<T, H> Generation for GenId<T, H, u8>  { fn get_gen(&self) -> u32 { self.gen as u32 } }
+//impl<T, H> Generation for GenId<T, H, u16> { fn get_gen(&self) -> u32 { self.gen as u32 } }
+//impl<T, H> Generation for GenId<T, H, u32> { fn get_gen(&self) -> u32 { self.gen as u32 } }
+//impl<T, H> Generation for GenId<T, H, u64> { fn get_gen(&self) -> u32 { self.gen as u32 } }

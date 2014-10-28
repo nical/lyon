@@ -44,14 +44,7 @@ pub mod playground {
     pub mod basic_shaders;
 }
 
-pub mod containers {
-    pub mod copy_on_write;
-    pub mod item_vector;
-    pub mod id_lookup_table;
-    pub mod freelist_vector;
-    pub mod id;
-}
-
+pub mod containers;
 
 struct TestApp {
     resolution: [f32, ..2],

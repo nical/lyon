@@ -57,27 +57,20 @@ macro_rules! declare_unit (
                 pub fn identity() -> Mat4 { Matrix4x4::identity() }
                 pub fn perspective(
                     fovy: f32, aspect: f32,
-                    near: f32, far: f32,
-                    mat: &mut Mat4
-                ) {
-                    Matrix4x4::perspective(fovy, aspect, near, far, mat);
+                    near: f32, far: f32
+                ) -> Mat4 {
+                    let mut mat = identity();
+                    Matrix4x4::perspective(fovy, aspect, near, far, &mut mat);
+                    return mat;
                 }
 
-                pub fn scale(s: &Vec3) -> Mat4 {
-                    let mut m = identity();
-                    m.scale(s);
-                    return m;
-                }
+                pub fn scale(s: &Vec3) -> Mat4 { Matrix4x4::scale(s) }
+
+                pub fn translation(v: &Vec3) -> Mat4 { Matrix4x4::translation(v) }
 
                 pub fn rotation(rad: f32, s: &Vec3) -> Mat4 {
                     let mut m = identity();
                     m.rotate(rad, s);
-                    return m;
-                }
-
-                pub fn translation(v: &Vec3) -> Mat4 {
-                    let mut m = identity();
-                    m.translate(v);
                     return m;
                 }
             }
@@ -86,21 +79,14 @@ macro_rules! declare_unit (
                 use super::Mat3;
                 use super::Vec2;
                 use math::vector::Matrix3x3;
+
                 pub fn identity() -> Mat3 { Matrix3x3::identity() }
 
-                pub fn scale(s: &Vec2) -> Mat3 {
-                    let mut m = identity();
-                    m.scale(s);
-                    return m;
-                }
+                pub fn scale(s: &Vec2) -> Mat3 { Matrix3x3::scale(s) }
 
-                pub fn rotation(rad: f32) -> Mat3 {
-                    return Matrix3x3::rotation(rad);
-                }
+                pub fn rotation(rad: f32) -> Mat3 { Matrix3x3::rotation(rad) }
 
-                pub fn translation(v: &Vec2) -> Mat3 {
-                    return Matrix3x3::translation(v);
-                }
+                pub fn translation(v: &Vec2) -> Mat3 { Matrix3x3::translation(v) }
             }
 
             pub mod Mat2 {

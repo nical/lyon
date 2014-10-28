@@ -21,7 +21,7 @@ pub struct CwArcTable<T> {
     next_node_gen: u32,
 }
 
-pub struct UnsafeArcInner<T> {
+struct UnsafeArcInner<T> {
     ref_count: atomics::AtomicInt,
     data: T,
     gen: u32,
@@ -48,6 +48,7 @@ impl<T: Clone> UnsafeArc<T> {
     fn new(data: T, gen: u32) -> UnsafeArc<T> {
         unsafe {
             let result = UnsafeArc {
+                // TODO use an external allocator instead of malloc
                 ptr: mem::transmute(malloc(mem::size_of::<UnsafeArcInner<T>>() as u64))
             };
             (*result.ptr) = UnsafeArcInner::new(data, gen);

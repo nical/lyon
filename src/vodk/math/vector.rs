@@ -39,66 +39,6 @@ pub trait ScalarMul<T> {
     fn scalar_mul_in_place(&mut self, scalar: T);
 }
 
-#[allow(dead_code)]
-pub mod Mat4 {
-    use super::{Mat4, Matrix4x4, Vec3};
-    use std::num::One;
-    pub fn identity() -> Mat4 { One::one() }
-
-    pub fn perspective(
-        fovy: f32, aspect: f32, near: f32, far: f32,
-        mat: &mut Mat4
-    ) {
-        Matrix4x4::perspective(fovy, aspect, near, far, mat);
-    }
-
-    pub fn from_slice(s: &[f32]) -> Mat4 {
-        return Matrix4x4::from_slice(s);
-    }
-
-    pub fn scale(s: &Vec3) -> Mat4 {
-        let mut m = identity();
-        m.scale(s);
-        return m;
-    }
-
-    pub fn rotation(rad: f32, s: &Vec3) -> Mat4 {
-        let mut m = identity();
-        m.rotate(rad, s);
-        return m;
-    }
-
-    pub fn translation(v: &Vec3) -> Mat4 {
-        let mut m = identity();
-        m.translate(v);
-        return m;
-    }
-}
-
-#[allow(dead_code)]
-pub mod Mat3 {
-    use super::{Mat3, Matrix3x3};
-    use std::num::One;
-
-    pub fn identity() -> Mat3 { One::one() }
-
-    pub fn from_slice(s: &[f32]) -> Mat3 {
-        return Matrix3x3::from_slice(s);
-    }
-}
-
-#[allow(dead_code)]
-pub mod Mat2 {
-    use super::{Mat2, Matrix2x2};
-    use std::num::One;
-
-    pub fn identity() -> Mat2 { One::one() }
-
-    pub fn from_slice(s: &[f32]) -> Mat2 {
-        return Matrix2x2::from_slice(s);
-    }
-}
-
 #[deriving(Clone, Show, Zero)]
 pub struct Vector2D<Unit = Untyped> {
     pub x: f32,
@@ -729,7 +669,7 @@ impl<U> Matrix3x3<U> {
         }
     }
 
-    pub fn scale(&mut self, v: &Vector2D<U>) {
+    pub fn scale_by(&mut self, v: &Vector2D<U>) {
         self._11 = self._11 * v.x;
         self._21 = self._21 * v.x;
         self._31 = self._31 * v.x;
@@ -738,11 +678,11 @@ impl<U> Matrix3x3<U> {
         self._32 = self._32 * v.y;
     }
 
-    pub fn rotation(rad: f32) -> Matrix3x3<U> {
+    pub fn scale(v: &Vector2D<U>) -> Matrix3x3<U> {
         return Matrix3x3 {
-            _11: rad.cos(), _21: -rad.sin(), _31: 0.0,
-            _12: rad.sin(), _22: rad.cos(),  _32: 0.0,
-            _13: 0.0,       _23: 0.0,        _33: 1.0,
+            _11: v.x,  _21: 0.0,  _31: 0.0,
+            _12: 0.0,  _22: v.y,  _32: 0.0,
+            _13: 0.0,  _23: 0.0,  _33: 1.0,
         }
     }
 
@@ -751,6 +691,14 @@ impl<U> Matrix3x3<U> {
             _11: 1.0, _21: 1.0, _31: v.x,
             _12: 0.0, _22: 1.0, _32: v.y,
             _13: 0.0, _23: 0.0, _33: 1.0,
+        }
+    }
+
+    pub fn rotation(rad: f32) -> Matrix3x3<U> {
+        return Matrix3x3 {
+            _11: rad.cos(), _21: -rad.sin(), _31: 0.0,
+            _12: rad.sin(), _22: rad.cos(),  _32: 0.0,
+            _13: 0.0,       _23: 0.0,        _33: 1.0,
         }
     }
 
@@ -848,6 +796,15 @@ impl<U> Matrix4x4<U> {
         }
     }
 
+    pub fn scale(v: &Vector3D<U>) -> Matrix4x4<U> {
+        return Matrix4x4 {
+            _11: v.x, _21: 1.0, _31: 0.0, _41: 0.0,
+            _12: 0.0, _22: v.y, _32: 0.0, _42: 0.0,
+            _13: 0.0, _23: 0.0, _33: v.z, _43: 0.0,
+            _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+        }
+    }
+
     pub fn translation(v: &Vector3D<U>) -> Matrix4x4<U> {
         return Matrix4x4 {
             _11: 1.0, _21: 1.0, _31: 0.0, _41: v.x,
@@ -927,7 +884,7 @@ impl<U> Matrix4x4<U> {
         self._44 = self._41 * v.x + self._42 * v.y + self._43 * v.z + self._44;
     }
 
-    pub fn scale(&mut self, v: &Vector3D<U>) {
+    pub fn scale_by(&mut self, v: &Vector3D<U>) {
         self._11 = self._11 * v.x;
         self._21 = self._21 * v.x;
         self._31 = self._31 * v.x;

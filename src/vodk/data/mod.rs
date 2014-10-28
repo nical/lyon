@@ -2,41 +2,41 @@ use std::mem;
 
 pub type Type = u32;
 
-pub static BASE_TYPE_MASK: Type = 0xFF;
-pub static FLOAT:   Type = 1 << 0;
-pub static INT:     Type = 1 << 1;
-pub static UNSIGNED:Type = 1 << 2;
-pub static BOOL:    Type = 1 << 3;
-pub static STRING:  Type = 1 << 4;
+pub const BASE_TYPE_MASK: Type = 0xFF;
+pub const FLOAT:   Type = 1 << 0;
+pub const INT:     Type = 1 << 1;
+pub const UNSIGNED:Type = 1 << 2;
+pub const BOOL:    Type = 1 << 3;
+pub const STRING:  Type = 1 << 4;
 
-pub static TYPE_SIZE_MASK: Type = 0xFF00;
-pub static SIZE_8:  Type = 8   << 8;
-pub static SIZE_16: Type = 16  << 8;
-pub static SIZE_32: Type = 32  << 8;
-pub static SIZE_64: Type = 64  << 8;
-pub static SIZE_128:Type = 128 << 8;
+pub const TYPE_SIZE_MASK: Type = 0xFF00;
+pub const SIZE_8:  Type = 8   << 8;
+pub const SIZE_16: Type = 16  << 8;
+pub const SIZE_32: Type = 32  << 8;
+pub const SIZE_64: Type = 64  << 8;
+pub const SIZE_128:Type = 128 << 8;
 
-pub static NUM_COMPONENTS_MASK: Type = 0xFF0000;
-pub static X2:      Type = 1 << 16;
-pub static X3:      Type = 2 << 16;
-pub static X4:      Type = 3 << 16;
-pub static X8:      Type = 7 << 16;
-pub static X16:     Type = 16 << 16;
+pub const NUM_COMPONENTS_MASK: Type = 0xFF0000;
+pub const X2:      Type = 1 << 16;
+pub const X3:      Type = 2 << 16;
+pub const X4:      Type = 3 << 16;
+pub const X8:      Type = 7 << 16;
+pub const X16:     Type = 16 << 16;
 
-pub static F32:     Type = FLOAT | SIZE_32;
-pub static F64:     Type = FLOAT | SIZE_64;
-pub static I8:      Type = INT | SIZE_8;
-pub static I16:     Type = INT | SIZE_16;
-pub static I32:     Type = INT | SIZE_32;
-pub static I64:     Type = INT | SIZE_64;
-pub static U8:      Type = INT | UNSIGNED | SIZE_8;
-pub static U16:     Type = INT | UNSIGNED | SIZE_16;
-pub static U32:     Type = INT | UNSIGNED | SIZE_32;
-pub static U64:     Type = INT | UNSIGNED | SIZE_64;
-pub static VEC2:    Type = F32 | X2;
-pub static VEC3:    Type = F32 | X3;
-pub static VEC4:    Type = F32 | X4;
-pub static MAT4:    Type = F32 | X16;
+pub const F32:     Type = FLOAT | SIZE_32;
+pub const F64:     Type = FLOAT | SIZE_64;
+pub const I8:      Type = INT | SIZE_8;
+pub const I16:     Type = INT | SIZE_16;
+pub const I32:     Type = INT | SIZE_32;
+pub const I64:     Type = INT | SIZE_64;
+pub const U8:      Type = INT | UNSIGNED | SIZE_8;
+pub const U16:     Type = INT | UNSIGNED | SIZE_16;
+pub const U32:     Type = INT | UNSIGNED | SIZE_32;
+pub const U64:     Type = INT | UNSIGNED | SIZE_64;
+pub const VEC2:    Type = F32 | X2;
+pub const VEC3:    Type = F32 | X3;
+pub const VEC4:    Type = F32 | X4;
+pub const MAT4:    Type = F32 | X16;
 
 pub fn base_type(t: Type) -> Type { t & BASE_TYPE_MASK }
 
@@ -70,13 +70,13 @@ pub trait StructDataType {
 pub struct StructTypeResult<T> { pub data_type: &'static[Type] }
 
 
-static f32_data_type: &'static[Type] = &[F32];
-static u32_data_type: &'static[Type] = &[U32];
-static i32_data_type: &'static[Type] = &[I32];
-static u16_data_type: &'static[Type] = &[U16];
-static i16_data_type: &'static[Type] = &[I16];
-static u8_data_type:  &'static[Type] = &[U8];
-static i8_data_type:  &'static[Type] = &[I8];
+const f32_data_type: &'static[Type] = &[F32];
+const u32_data_type: &'static[Type] = &[U32];
+const i32_data_type: &'static[Type] = &[I32];
+const u16_data_type: &'static[Type] = &[U16];
+const i16_data_type: &'static[Type] = &[I16];
+const u8_data_type:  &'static[Type] = &[U8];
+const i8_data_type:  &'static[Type] = &[I8];
 
 impl StructDataType for f32 { fn data_type() -> StructTypeResult<f32> { StructTypeResult{data_type: f32_data_type } } }
 impl StructDataType for u32 { fn data_type() -> StructTypeResult<u32> { StructTypeResult{data_type: u32_data_type } } }
@@ -92,8 +92,6 @@ impl DataType for u16 { fn data_type() -> TypeResult<u16> { TypeResult{data_type
 impl DataType for i16 { fn data_type() -> TypeResult<i16> { TypeResult{data_type: I16 } } }
 impl DataType for u8  { fn data_type() -> TypeResult<u8>  { TypeResult{data_type: U8 } } }
 impl DataType for i8  { fn data_type() -> TypeResult<i8>  { TypeResult{data_type: I8 } } }
-
-
 
 pub struct DynamicallyTypedSlice<'l> {
     data: &'l mut[u8],

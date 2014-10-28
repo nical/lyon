@@ -6,6 +6,6 @@ authors = [
     "Nicolas Silva <nical.silva@gmail.com>",
 ]
 
-[[lib]]
+[lib]
 name = "data"
 path = "./lib.rs"

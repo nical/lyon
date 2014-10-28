@@ -203,6 +203,21 @@ for each node N and each batch B(N.geometry_root) {
 }
 */
 
+/*
+pub struct ChangeSet {
+    changed_nodes: Vec<NodeId>,
+    removed_nodes: Vec<NodeId>,
+}
+
+pub struct Renderer {
+    scenegraph: SceneGraph,
+    backend_data: AttributeVector<BackendData, NodeId>,
+}
+
+pub struct BackendData {
+    texture_id: u32,
+    range_id: u32,
+}
 pub struct Range {
     pub first: u16,
     pub count: u16,
@@ -223,6 +238,7 @@ pub struct Batch {
     stride: u32,
     geom: gpu::Geometry,
 }
+*/
 
 //impl Batch {
 //    pub fn get_vertex_stream<'l, T>(
