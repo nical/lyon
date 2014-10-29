@@ -303,7 +303,7 @@ impl RenderingContext for RenderingContextGL {
         };
     }
 
-    fn destroy_buffer(&mut self, buffer: Buffer) {
+    fn destroy_buffer(&mut self, buffer: BufferObject) {
         unsafe {
             gl::DeleteBuffers(1, &buffer.handle);
         }
@@ -361,7 +361,6 @@ impl RenderingContext for RenderingContextGL {
 
         for attr in attributes.iter() {
             gl::BindBuffer(gl::ARRAY_BUFFER, attr.buffer.handle);
-            println!("num components: {}", data::num_components(attr.attrib_type));
             unsafe {
             gl::VertexAttribPointer(
                 attr.location as u32,
@@ -804,7 +803,6 @@ struct DrawArraysIndirectCommand {
 }
 
 pub struct OpenGLDeviceBackend {
-    workaround: DriverBugs,
     current_render_target: RenderTargetObject,
     current_program: ShaderPipelineObject,
     current_geometry: GeometryObject,
@@ -828,124 +826,30 @@ impl OpenGLDeviceBackend {
         return from_gl_error(gl_error);
     }
 
-    fn copy_buffer_to_texture(
-        &mut self,
-        buffer: BufferObject,
-        texture: TextureObject
-    ) -> ResultCode {
-        unsafe {
-            let mut width: i32 = 0;
-            let mut height: i32 = 0;
-            let mut format: i32 = 0;
-
-            gl::BindTexture(gl::TEXTURE_2D, texture.handle);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-            gl::GetTexLevelParameteriv(
-                gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH,
-                &mut width
-            );
-            gl::GetTexLevelParameteriv(
-                gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT,
-                &mut height
-            );
-            gl::GetTexLevelParameteriv(
-                gl::TEXTURE_2D, 0, gl::TEXTURE_INTERNAL_FORMAT,
-                &mut format
-            );
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-
-            gl::BindBuffer(gl::PIXEL_UNPACK_BUFFER, buffer.handle);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-            // TODO: support other formats
-            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, width, height,
-                            gl::RGBA, gl::UNSIGNED_BYTE, 0 as *const c_void);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-
-            gl::BindBuffer(gl::PIXEL_UNPACK_BUFFER, 0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
+    fn update_targets(&mut self, targets: TargetTypes) {
+        if (targets & DEPTH != 0) && (self.current_target_types & DEPTH == 0) {
+            gl::Enable(gl::DEPTH_TEST);
+            self.current_target_types |= DEPTH;
+        } else if (targets & DEPTH == 0) && (self.current_target_types & DEPTH != 0) {
+            gl::Disable(gl::DEPTH_TEST);
+            self.current_target_types &= COLOR | STENCIL;
         }
-        return OK;
     }
 
-    fn copy_texture_to_buffer(
-        &mut self,
-        texture: TextureObject,
-        buffer: BufferObject
-    ) -> ResultCode {
-        unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, texture.handle);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-            gl::BindBuffer(gl::PIXEL_PACK_BUFFER, buffer.handle);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-            gl::GetTexImage(
-                gl::TEXTURE_2D, 0,              // TODO: mip levels
-                gl::RGBA, gl::UNSIGNED_BYTE,    // TODO: support more formats
-                0 as *mut c_void                // offset in the buffer
-            );
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-
-            gl::BindBuffer(gl::PIXEL_PACK_BUFFER, 0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
+    fn update_blend_mode(&mut self, blend: BlendMode) {
+        if blend == self.current_blend_mode {
+            return;
         }
-        return OK;
-    }
-
-    fn copy_buffer_to_buffer(
-        &mut self,
-        src_buffer: BufferObject,
-        dest_buffer: BufferObject,
-        src_offset: u16,
-        dest_offset: u16,
-        size: u16,
-    ) -> ResultCode {
-        unsafe {
-            gl::BindBuffer(gl::COPY_READ_BUFFER, src_buffer.handle);
-            gl::BindBuffer(gl::COPY_WRITE_BUFFER, dest_buffer.handle);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-
-            gl::CopyBufferSubData(
-                gl::COPY_READ_BUFFER, gl::COPY_WRITE_BUFFER,
-                src_offset as i64,
-                dest_offset as i64,
-                size as i64
-            );
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
-            }
-
-            gl::BindBuffer(gl::COPY_READ_BUFFER, 0);
-            gl::BindBuffer(gl::COPY_WRITE_BUFFER, 0);
-            match self.check_errors() {
-                OK => {}
-                error => { return error; }
+        if blend == NO_BLENDING {
+            gl::Disable(gl::BLEND);
+        } else {
+            gl::Enable(gl::BLEND);
+            if blend == ALPHA_BLENDING {
+                gl::BlendFunc(gl::SRC_ALPHA,gl::ONE_MINUS_SRC_ALPHA);
+            } else {
+                fail!("Unimplemented");
             }
         }
-        return OK;
     }
 }
 
@@ -966,44 +870,8 @@ impl DeviceBackend for OpenGLDeviceBackend {
         };
     }
 
-    fn execute_command_list(
-        &mut self,
-        commands: &[Command]
-    ) -> ResultCode {
-        for cmd in commands.iter() {
-            let result = match *cmd {
-                SetViewport(x, y, w, h) => {
-                    gl::Viewport(
-                        x as i32, y as i32,
-                        w as i32, h as i32
-                    );
-                    OK
-                }
-                SetClearColor(r, g, b, a) => {
-                    gl::ClearColor(r, g, b, a);
-                    OK
-                }
-                Clear(targets) => {
-                    gl::Clear(gl_clear_targets(targets));
-                    OK
-                }
-                Flush => {
-                    gl::Flush();
-                    OK
-                }
-                CopyBufferToTexture(buffer, texture) => {
-                    self.copy_buffer_to_texture(buffer, texture)
-                }
-                CopyTextureToBuffer(texture, buffer) => {
-                    self.copy_texture_to_buffer(texture, buffer)
-                }
-                _ => { UNKNOWN_COMMAND_ERROR }
-            };
-            if result != OK {
-                return result;
-            }
-        }
-        return OK;
+    fn set_viewport(&mut self, x:i32, y:i32, w:i32, h:i32) {
+        gl::Viewport(x,y,w,h);
     }
 
     fn create_texture(
@@ -1044,8 +912,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         descriptor: &ShaderStageDescriptor,
         shader: &mut ShaderStageObject
     ) -> ResultCode {
-        shader.handle = 0;
-        gl::CreateShader(gl_shader_type(descriptor.stage_type));
+        shader.handle = gl::CreateShader(gl_shader_type(descriptor.stage_type));
         unsafe {
             let mut lines: Vec<*const i8> = Vec::new();
             let mut lines_len: Vec<i32> = Vec::new();
@@ -1055,8 +922,23 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 lines_len.push(line.len() as i32);
             }
 
-            gl::ShaderSource(shader.handle, 1, lines.as_ptr(), lines_len.as_ptr());
+            gl::ShaderSource(
+                shader.handle,
+                lines.len() as i32,
+                lines.as_ptr(),
+                lines_len.as_ptr()
+            );
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+
             gl::CompileShader(shader.handle);
+
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
         }
         return OK;
     }
@@ -1064,16 +946,26 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderStageResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode {
         unsafe {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
             if status != gl::TRUE as i32 {
                 let mut buffer = [0u8, ..512];
                 let mut length: i32 = 0;
-                gl::GetShaderInfoLog(shader.handle, 512, &mut length,
-                                     mem::transmute(buffer.as_mut_ptr()));
+                gl::GetShaderInfoLog(
+                    shader.handle, 512, &mut length,
+                    mem::transmute(buffer.as_mut_ptr())
+                );
+                match self.check_errors() {
+                    OK => {}
+                    error => { return error; }
+                }
                 result.code = SHADER_COMPILATION_ERROR;
                 result.details = raw::from_buf(buffer.as_ptr());
                 return SHADER_COMPILATION_ERROR;
@@ -1119,7 +1011,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderPipelineResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode {
         if shader.handle == 0 {
             return INVALID_OBJECT_HANDLE_ERROR;
@@ -1156,18 +1048,11 @@ impl DeviceBackend for OpenGLDeviceBackend {
         buffer: &mut BufferObject,
     ) -> ResultCode {
         unsafe {
-            println!("    glGenBuffers");
-
             gl::GenBuffers(1, &mut buffer.handle);
             match self.check_errors() {
                 OK => {}
                 error => { return error; }
             }
-
-            println!("    glBindBuffer type: {}, handle: {}",
-                descriptor.buffer_type,
-                buffer.handle
-            );
 
             buffer.size = descriptor.size;
             buffer.buffer_type = descriptor.buffer_type;
@@ -1184,11 +1069,6 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 OK => {}
                 error => { return error; }
             }
-
-            println!("    glBufferData handle: {}, size: {}, update: {}",
-                buffer.handle, descriptor.size,
-                descriptor.update_hint
-            );
 
             gl::BufferData(
                 gl_buffer_type(descriptor.buffer_type),
@@ -1218,7 +1098,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
     unsafe fn map_buffer(
         &mut self,
         buffer: BufferObject,
-        target: BufferType,
+        _target: BufferType, // TODO: use this ot buffer.buffer_type?
         flags: MapFlags,
         data: *mut *mut u8
     ) -> ResultCode {
@@ -1452,12 +1332,191 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn get_default_render_target(&mut self) -> RenderTargetObject {
         RenderTargetObject { handle: 0 }
     }
+
+    fn copy_buffer_to_texture(
+        &mut self,
+        buffer: BufferObject,
+        texture: TextureObject
+    ) -> ResultCode {
+        unsafe {
+            let mut width: i32 = 0;
+            let mut height: i32 = 0;
+            let mut format: i32 = 0;
+
+            gl::BindTexture(gl::TEXTURE_2D, texture.handle);
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+            gl::GetTexLevelParameteriv(
+                gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH,
+                &mut width
+            );
+            gl::GetTexLevelParameteriv(
+                gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT,
+                &mut height
+            );
+            gl::GetTexLevelParameteriv(
+                gl::TEXTURE_2D, 0, gl::TEXTURE_INTERNAL_FORMAT,
+                &mut format
+            );
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+
+            gl::BindBuffer(gl::PIXEL_UNPACK_BUFFER, buffer.handle);
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+            // TODO: support other formats
+            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, width, height,
+                            gl::RGBA, gl::UNSIGNED_BYTE, 0 as *const c_void);
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+
+            gl::BindBuffer(gl::PIXEL_UNPACK_BUFFER, 0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+        return OK;
+    }
+
+    fn copy_texture_to_buffer(
+        &mut self,
+        texture: TextureObject,
+        buffer: BufferObject
+    ) -> ResultCode {
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, texture.handle);
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+            gl::BindBuffer(gl::PIXEL_PACK_BUFFER, buffer.handle);
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+            gl::GetTexImage(
+                gl::TEXTURE_2D, 0,              // TODO: mip levels
+                gl::RGBA, gl::UNSIGNED_BYTE,    // TODO: support more formats
+                0 as *mut c_void                // offset in the buffer
+            );
+            match self.check_errors() {
+                OK => {}
+                error => { return error; }
+            }
+
+            gl::BindBuffer(gl::PIXEL_PACK_BUFFER, 0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+        return OK;
+    }
+
+    fn copy_buffer_to_buffer(
+        &mut self,
+        src_buffer: BufferObject,
+        dest_buffer: BufferObject,
+        src_offset: u16,
+        dest_offset: u16,
+        size: u16
+    ) -> ResultCode {
+        gl::BindBuffer(gl::COPY_READ_BUFFER, src_buffer.handle);
+        gl::BindBuffer(gl::COPY_WRITE_BUFFER, dest_buffer.handle);
+        match self.check_errors() {
+            OK => {}
+            error => { return error; }
+        }
+
+        gl::CopyBufferSubData(
+            gl::COPY_READ_BUFFER, gl::COPY_WRITE_BUFFER,
+            src_offset as i64,
+            dest_offset as i64,
+            size as i64
+        );
+        match self.check_errors() {
+            OK => {}
+            error => { return error; }
+        }
+
+        gl::BindBuffer(gl::COPY_READ_BUFFER, 0);
+        gl::BindBuffer(gl::COPY_WRITE_BUFFER, 0);
+        match self.check_errors() {
+            OK => {}
+            error => { return error; }
+        }
+        return OK;
+    }
+
+    fn set_shader(&mut self, shader: ShaderPipelineObject) -> ResultCode {
+        if self.current_program == shader {
+            return OK;
+        }
+        self.current_program = shader;
+        gl::UseProgram(shader.handle);
+        return self.check_errors();
+    }
+
+    fn draw(&mut self,
+        geom: GeometryObject,
+        range: Range,
+        flags: GeometryFlags,
+        blend: BlendMode,
+        targets: TargetTypes
+    ) -> ResultCode {
+        self.update_targets(targets);
+        self.update_blend_mode(blend);
+
+        //if geom != self.current_geometry {
+            self.current_geometry = geom;
+            gl::BindVertexArray(geom.handle);
+        //  };
+
+        match range {
+            VertexRange(first, count) => {
+                gl::DrawArrays(
+                    gl_draw_mode(flags),
+                    first as i32,
+                    count as i32
+                );
+                return self.check_errors();
+            }
+            IndexRange(first, count) => {
+                unsafe {
+                    gl::DrawElements(
+                        gl_draw_mode(flags),
+                        count as i32,
+                        gl::UNSIGNED_SHORT,
+                        (first / 2) as *const c_void // /2 because offset in bytes with u16
+                    );
+                }
+                return self.check_errors();
+            }
+        }
+    }
+
+    fn flush(&mut self) -> ResultCode {
+        gl::Flush();
+        return self.check_errors();
+    }
+
+    fn clear(&mut self, targets: TargetTypes) -> ResultCode {
+        gl::Clear(gl_clear_targets(targets));
+        return OK;
+    }
+
+    fn set_clear_color(&mut self, r:f32, g: f32, b: f32, a: f32) {
+        println!("device.set_clear_color({}, {}, {}, {}) -> ()", r, g, b, a);
+        gl::ClearColor(r, g, b, a);
+    }
 }
 
 pub fn create_device() -> Device<OpenGLDeviceBackend> {
     Device {
         backend: OpenGLDeviceBackend {
-            workaround: DRIVER_DEFAULT,
             current_program: ShaderPipelineObject { handle: 0 },
             current_render_target: RenderTargetObject { handle: 0 },
             current_geometry: GeometryObject { handle: 0 },
@@ -1472,7 +1531,6 @@ pub fn create_debug_device(err_flags: ErrorFlags) -> Device<LoggingProxy<OpenGLD
     Device {
         backend: LoggingProxy {
             backend: OpenGLDeviceBackend {
-                workaround: DRIVER_DEFAULT,
                 current_program: ShaderPipelineObject { handle: 0 },
                 current_render_target: RenderTargetObject { handle: 0 },
                 current_geometry: GeometryObject { handle: 0 },

@@ -143,6 +143,7 @@ impl Buffer { pub fn invalid_handle() -> Buffer { Buffer { handle: INVALID_HANDL
 impl Geometry { pub fn invalid_handle() -> Geometry { Geometry { handle: INVALID_HANDLE, ibo: INVALID_HANDLE } } }
 impl ShaderStage { pub fn invalid_handle() -> ShaderStage { ShaderStage { handle: INVALID_HANDLE } } }
 
+#[deriving(Clone, Show)]
 pub enum Range {
     VertexRange(u16, u16),
     IndexRange(u16, u16),
@@ -164,7 +165,7 @@ pub type ErrorCode = u32;
 
 #[deriving(Clone, Show)]
 pub struct VertexAttribute {
-    pub buffer: Buffer, // TODO: move out of this struct
+    pub buffer: BufferObject,
     pub attrib_type: AttributeType,
     pub location: VertexAttributeLocation,
     pub stride: u16,
@@ -212,7 +213,7 @@ pub trait RenderingContext {
                    attrib_locations: &[(&str, VertexAttributeLocation)])  -> RendererResult;
 
     fn create_buffer(&mut self, buffer_type: BufferType) -> Buffer;
-    fn destroy_buffer(&mut self, buffer: Buffer);
+    fn destroy_buffer(&mut self, buffer: BufferObject);
     fn upload_buffer(&mut self,
         buffer: Buffer,
         buf_type: BufferType,
@@ -266,24 +267,25 @@ pub trait RenderingContext {
     ) -> RendererResult;
 }
 
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct SyncObject { pub handle: u32 }
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct BufferObject {
     pub handle: u32,
     pub size: u32,
     pub buffer_type: BufferType
 }
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct TextureObject { pub handle: u32 }
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct GeometryObject { pub handle: u32 }
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct ShaderStageObject { pub handle: u32 }
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct ShaderPipelineObject { pub handle: u32 }
-#[deriving(Show)]
+#[deriving(Show, Clone, PartialEq)]
 pub struct RenderTargetObject { pub handle: u32 }
+
 pub type BufferFlags = u32;
 
 impl SyncObject { pub fn new() -> SyncObject { SyncObject { handle: 0 } } }
@@ -312,19 +314,21 @@ pub const IGNORE_ERRORS : ErrorFlags = 0;
 pub const LOG_ERRORS    : ErrorFlags = 1;
 pub const CRASH_ERRORS  : ErrorFlags = 2;
 
-pub type ResultCode = u32;
-pub const OK                            : ResultCode = 0;
-pub const UNKNOWN_ERROR                 : ResultCode = 1;
-pub const UNKNOWN_COMMAND_ERROR         : ResultCode = 2;
-pub const INVALID_ARGUMENT_ERROR        : ResultCode = 3;
-pub const OUT_OF_MEMORY_ERROR           : ResultCode = 4;
-pub const INVALID_OBJECT_HANDLE_ERROR   : ResultCode = 5;
-pub const SHADER_COMPILATION_ERROR      : ResultCode = 6;
-pub const SHADER_LINK_ERROR             : ResultCode = 7;
-pub const DEVICE_LOST_ERROR             : ResultCode = 8;
-pub const RT_MISSING_ATTACHMENT_ERROR   : ResultCode = 16;
-pub const RT_INCOMPLETE_ATTACHMENT_ERROR: ResultCode = 17;
-pub const RT_UNSUPPORTED_ERROR          : ResultCode = 18;
+#[deriving(Clone, PartialEq, Show)]
+pub enum ResultCode {
+    OK,
+    UNKNOWN_ERROR,
+    UNKNOWN_COMMAND_ERROR,
+    INVALID_ARGUMENT_ERROR,
+    OUT_OF_MEMORY_ERROR,
+    INVALID_OBJECT_HANDLE_ERROR,
+    SHADER_COMPILATION_ERROR,
+    SHADER_LINK_ERROR,
+    DEVICE_LOST_ERROR,
+    RT_MISSING_ATTACHMENT_ERROR,
+    RT_INCOMPLETE_ATTACHMENT_ERROR,
+    RT_UNSUPPORTED_ERROR,
+}
 
 #[deriving(Show)]
 pub struct TextureDescriptor {
@@ -344,8 +348,8 @@ pub struct BufferDescriptor {
 
 #[deriving(Show)]
 pub struct GeometryDescriptor<'l> {
+    pub attributes: &'l[VertexAttribute],
     pub index_buffer: Option<Buffer>,
-    pub attributes: &'l[VertexAttribute]
 }
 
 #[deriving(Show)]
@@ -355,15 +359,13 @@ pub struct ShaderStageDescriptor<'l> {
 }
 
 #[deriving(Show)]
-pub struct ShaderStageResult {
+pub struct ShaderBuildResult {
     pub code: ResultCode,
     pub details: String,
 }
 
-#[deriving(Show)]
-pub struct ShaderPipelineResult {
-    pub code: ResultCode,
-    pub details: String,
+impl ShaderBuildResult {
+    pub fn new() -> ShaderBuildResult { ShaderBuildResult { code: OK, details: String::new() } }
 }
 
 #[deriving(Show)]
@@ -379,28 +381,10 @@ pub struct RenderTargetDescriptor<'l> {
     pub stencil: Option<TextureObject>
 }
 
-#[deriving(Show)]
+#[deriving(Clone, Show)]
 pub struct DrawCommand {
-    pub first: u16,
-    pub count: u16,
-}
-
-#[deriving(Show)]
-pub enum Command {
-    CopyBufferToBuffer(BufferObject, BufferObject),
-    CopyBufferToTexture(BufferObject, TextureObject),
-    CopyTextureToBuffer(TextureObject, BufferObject),
-    CopyTextureToTexture(TextureObject, TextureObject),
-    SetGeometry(GeometryObject),
-    SetShaderPipeline(ShaderPipelineObject),
-    SetRenderTarget(RenderTargetObject),
-    Draw(DrawCommand),
-    SetViewport(u16, u16, u16, u16),
-    Wait(SyncObject),
-    Signal(SyncObject),
-    SetClearColor(f32, f32, f32, f32),
-    Clear(TargetTypes),
-    Flush,
+    pub range: Range,
+    pub flags: GeometryFlags,
 }
 
 pub trait DeviceBackend {
@@ -409,10 +393,7 @@ pub trait DeviceBackend {
         feature: Feature
     ) -> bool;
 
-    fn execute_command_list(
-        &mut self,
-        commands: &[Command]
-    ) -> ResultCode;
+    fn set_viewport(&mut self, x:i32, y:i32, w:i32, h:i32);
 
     fn create_texture(&mut self,
         descriptor: &TextureDescriptor,
@@ -439,7 +420,7 @@ pub trait DeviceBackend {
     fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderStageResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode;
 
     fn destroy_shader_stage(
@@ -456,7 +437,7 @@ pub trait DeviceBackend {
     fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderPipelineResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode;
 
     fn destroy_shader_pipeline(
@@ -523,6 +504,46 @@ pub trait DeviceBackend {
     );
 
     fn get_default_render_target(&mut self) -> RenderTargetObject;
+
+    fn copy_buffer_to_texture(
+        &mut self,
+        buffer: BufferObject,
+        texture: TextureObject
+    ) -> ResultCode;
+
+    fn copy_texture_to_buffer(
+        &mut self,
+        texture: TextureObject,
+        buffer: BufferObject
+    ) -> ResultCode;
+
+    fn copy_buffer_to_buffer(
+        &mut self,
+        src_buffer: BufferObject,
+        dest_buffer: BufferObject,
+        src_offset: u16,
+        dest_offset: u16,
+        size: u16
+    ) -> ResultCode;
+
+    fn set_shader(
+        &mut self,
+        pipeline: ShaderPipelineObject
+    ) -> ResultCode;
+
+    fn draw(&mut self,
+        geom: GeometryObject,
+        range: Range,
+        flags: GeometryFlags,
+        blend: BlendMode,
+        targets: TargetTypes
+    ) -> ResultCode;
+
+    fn flush(&mut self) -> ResultCode;
+
+    fn clear(&mut self, targets: TargetTypes) -> ResultCode;
+
+    fn set_clear_color(&mut self, r:f32, g: f32, b: f32, a: f32);
 }
 
 impl<Backend: DeviceBackend> Device<Backend> {
@@ -533,11 +554,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
         return self.backend.is_supported(feature);
     }
 
-    pub fn execute_command_list(
-        &mut self,
-        commands: &[Command]
-    ) -> ResultCode {
-        return self.backend.execute_command_list(commands);
+    pub fn set_viewport(&mut self, x:i32, y:i32, w:i32, h:i32) {
+        self.backend.set_viewport(x, y, w, h);
     }
 
     pub fn create_texture(&mut self,
@@ -573,7 +591,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderStageResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode {
         return self.backend.get_shader_stage_result(shader, result);
     }
@@ -596,7 +614,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderPipelineResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode {
         return self.backend.get_shader_pipeline_result(shader, result);
     }
@@ -703,6 +721,51 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn get_default_render_target(&mut self) -> RenderTargetObject {
         return self.backend.get_default_render_target();
     }
+
+    pub fn copy_buffer_to_texture(
+        &mut self,
+        buffer: BufferObject,
+        texture: TextureObject
+    ) -> ResultCode {
+        return self.backend.copy_buffer_to_texture(buffer, texture);
+    }
+
+    pub fn copy_texture_to_buffer(
+        &mut self,
+        texture: TextureObject,
+        buffer: BufferObject
+    ) -> ResultCode {
+        return self.backend.copy_texture_to_buffer(texture, buffer);
+    }
+
+    pub fn set_shader(
+        &mut self,
+        pipeline: ShaderPipelineObject
+    ) -> ResultCode {
+        return self.backend.set_shader(pipeline);
+    }
+
+    pub fn draw(&mut self,
+        geom: GeometryObject,
+        range: Range,
+        flags: GeometryFlags,
+        blend: BlendMode,
+        targets: TargetTypes
+    ) -> ResultCode {
+        return self.backend.draw(geom, range, flags, blend, targets);
+    }
+
+    pub fn flush(&mut self) -> ResultCode {
+        return self.backend.flush();
+    }
+
+    pub fn clear(&mut self, targets: TargetTypes) -> ResultCode {
+        return self.backend.clear(targets);
+    }
+
+    pub fn set_clear_color(&mut self, r:f32, g: f32, b: f32, a: f32) {
+        self.backend.set_clear_color(r, g, b, a);
+    }
 }
 
 pub struct LoggingProxy<Backend> {
@@ -720,14 +783,13 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         return result;
     }
 
-    fn execute_command_list(
+    fn set_viewport(
         &mut self,
-        commands: &[Command]
-    ) -> ResultCode {
-        println!("device.execute_command_list({})", commands);
-        let result = self.backend.execute_command_list(commands);
-        println!("-> {}", result);
-        return result;
+        x: i32, y: i32,
+        w: i32, h: i32
+    ) {
+        println!("device.set_viewport({}, {}, {}, {})", x, y, w, h);
+        self.backend.set_viewport(x, y, w, h);
     }
 
     fn create_texture(&mut self,
@@ -773,7 +835,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderStageResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode {
         println!("device.get_shader_stage_result({}, [out])", shader);
         let result = self.backend.get_shader_stage_result(shader, result);
@@ -803,7 +865,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderPipelineResult,
+        result: &mut ShaderBuildResult,
     ) -> ResultCode {
         println!("device.get_shader_pipeline_result({}, [out])", shader);
         let result = self.backend.get_shader_pipeline_result(shader, result);
@@ -925,5 +987,91 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         let result = self.backend.get_default_render_target();
         println!("-> {}", result);
         return result;
+    }
+
+    fn copy_buffer_to_texture(
+        &mut self,
+        buffer: BufferObject,
+        texture: TextureObject
+    ) -> ResultCode {
+        println!("device.copy_buffer_to_texture({}, {})", buffer, texture);
+        let result = self.backend.copy_buffer_to_texture(buffer, texture);
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn copy_texture_to_buffer(
+        &mut self,
+        texture: TextureObject,
+        buffer: BufferObject
+    ) -> ResultCode {
+        println!("device.copy_texture_to_buffer({}, {})", texture, buffer);
+        let result = self.backend.copy_texture_to_buffer(texture, buffer);
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn copy_buffer_to_buffer(
+        &mut self,
+        src_buffer: BufferObject,
+        dest_buffer: BufferObject,
+        src_offset: u16,
+        dest_offset: u16,
+        size: u16
+    ) -> ResultCode {
+        println!(
+            "device.copy_buffer_to_buffer({}, {}, {}, {}, {})",
+            src_buffer, dest_buffer, src_offset, dest_offset, size
+        );
+        let result = self.backend.copy_buffer_to_buffer(
+            src_buffer, dest_buffer, src_offset, dest_offset, size
+        );
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn set_shader(
+        &mut self,
+        pipeline: ShaderPipelineObject
+    ) -> ResultCode {
+        println!("device.set_shader({})", pipeline);
+        let result = self.backend.set_shader(pipeline);
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn draw(&mut self,
+        geom: GeometryObject,
+        range: Range,
+        flags: GeometryFlags,
+        blend: BlendMode,
+        targets: TargetTypes
+    ) -> ResultCode {
+        println!(
+            "device.draw({}, {}, {}, {}, {})",
+            geom, range, flags, blend, targets
+        );
+        let result = self.backend.draw(geom, range, flags, blend, targets);
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn flush(&mut self) -> ResultCode {
+        println!("device.flush()");
+        let result = self.backend.flush();
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn clear(&mut self, targets: TargetTypes) -> ResultCode {
+        println!("device.clear({})", targets);
+        let result = self.backend.clear(targets);
+        println!("-> {}", result);
+        return result;
+    }
+
+    fn set_clear_color(&mut self, r:f32, g: f32, b: f32, a: f32) {
+        println!("device.set_clear_color({}, {}, {}, {}) -> ()", r, g, b, a);
+        self.backend.set_clear_color(r, g, b, a);
     }
 }
