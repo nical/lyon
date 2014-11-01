@@ -202,13 +202,13 @@ impl DeviceBackend for OpenGLDeviceBackend {
         }
 
         for &(ref name, loc) in descriptor.attrib_locations.iter() {
-            if loc < 0 {
+            if loc.index < 0 {
                 gl::DeleteProgram(pipeline.handle);
                 return Err(INVALID_ARGUMENT_ERROR);
             }
             unsafe {
                 name.with_c_str(|c_name| {
-                    gl::BindAttribLocation(pipeline.handle, loc as u32, c_name);
+                    gl::BindAttribLocation(pipeline.handle, loc.index as u32, c_name);
                 });
             }
         }
@@ -434,14 +434,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
         name: &str
     ) -> VertexAttributeLocation {
         if shader.handle == 0 {
-            return -1;
+            return VertexAttributeLocation { index: -1 };
         }
         let mut location = 0;
         name.with_c_str(|c_name| unsafe {
-            location = gl::GetAttribLocation(shader.handle, c_name) as VertexAttributeLocation;
+            location = gl::GetAttribLocation(shader.handle, c_name);
         });
         self.check_errors();
-        return VertexAttributeLocation { index: location };
+        return VertexAttributeLocation { index: location as i16 };
     }
 
     fn create_render_target(
