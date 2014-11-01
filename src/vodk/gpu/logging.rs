@@ -1,4 +1,6 @@
-use super::context::*;
+use super::device::*;
+use super::constants::*;
+use super::objects::*;
 
 pub struct LoggingProxy<Backend> {
     pub backend: Backend,
@@ -168,17 +170,6 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     ) -> ResultCode {
         println!("device.create_geometry({}, [out])", descriptor);
         let result = self.backend.create_geometry(descriptor, geometry);
-        println!("-> {}", result);
-        return result;
-    }
-
-    fn get_shader_input_location(
-        &mut self,
-        shader: ShaderPipelineObject,
-        name: &str
-    ) -> ShaderInputLocation {
-        println!("device.get_shader_input_location({}, {})", shader, name);
-        let result = self.backend.get_shader_input_location(shader, name);
         println!("-> {}", result);
         return result;
     }

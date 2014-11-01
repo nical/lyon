@@ -4,6 +4,8 @@ extern crate gl;
 extern crate libc;
 extern crate data;
 
-pub mod context;
-pub mod logging;
+pub mod device;
+pub mod objects;
+pub mod constants;
 pub mod opengl;
+pub mod logging;

@@ -8,7 +8,9 @@ extern crate time;
 
 
 use data::*;
-use gpu::context::*;
+use gpu::device::*;
+use gpu::constants::*;
+use gpu::objects::*;
 use gpu::opengl;
 
 use std::io::timer::sleep;
