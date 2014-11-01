@@ -4,197 +4,15 @@ use super::constants::*;
 use super::objects::*;
 use super::logging::LoggingProxy;
 
-use std::str;
 use std::string::raw;
 use std::mem;
 use libc::c_void;
 
 use data;
 
-pub type DriverBugs = u64;
-pub const DRIVER_DEFAULT : DriverBugs = 0;
-pub const MISSING_INDEX_BUFFER_VAO : DriverBugs = 1;
-
-fn print_gl_error(msg: &str) {
-    match gl::GetError() {
-        gl::NO_ERROR            => {}
-        gl::INVALID_ENUM        => { println!("{}: Invalid enum.", msg); },
-        gl::INVALID_VALUE       => { println!("{}: Invalid value., ", msg); },
-        gl::INVALID_OPERATION   => { println!("{}: Invalid operation.", msg); },
-        gl::OUT_OF_MEMORY       => { println!("{}: Out of memory.", msg); },
-        _ => { println!("Unknown error."); }
-    }
-}
-
-fn gl_format(format: PixelFormat) -> u32 {
-    match format {
-        R8G8B8A8 => gl::RGBA,
-        R8G8B8X8 => gl::RGB,
-        B8G8R8A8 => gl::BGRA,
-        B8G8R8X8 => gl::BGR,
-        A8 => gl::RED,
-        A_F32 => gl::RED,
-    }
-}
-
-fn gl_shader_type(target: ShaderType) -> u32 {
-    match target {
-        VERTEX_SHADER => gl::VERTEX_SHADER,
-        FRAGMENT_SHADER => gl::FRAGMENT_SHADER,
-        GEOMETRY_SHADER => gl::GEOMETRY_SHADER,
-        COMPUTE_SHADER => gl::COMPUTE_SHADER,
-    }
-}
-
-fn gl_draw_mode(flags: GeometryFlags) -> u32 {
-    if flags & LINES != 0 {
-        return if flags & STRIP != 0 { gl::LINE_STRIP }
-               else if flags & LOOP != 0 { gl::LINE_LOOP }
-               else { gl::LINES }
-    }
-    return if flags & STRIP != 0 { gl::TRIANGLE_STRIP }
-           else { gl::TRIANGLES }
-}
-
-fn gl_buffer_type(t: BufferType) -> u32 {
-    return match t {
-        VERTEX_BUFFER => gl::ARRAY_BUFFER,
-        INDEX_BUFFER => gl::ELEMENT_ARRAY_BUFFER,
-        UNIFORM_BUFFER => gl::UNIFORM_BUFFER,
-        TRANSFORM_FEEDBACK_BUFFER => gl::TRANSFORM_FEEDBACK_BUFFER,
-        DRAW_INDIRECT_BUFFER => gl::DRAW_INDIRECT_BUFFER,
-    }
-}
-
-fn gl_update_hint(hint: UpdateHint) -> u32 {
-    match hint {
-        STATIC_UPDATE => gl::STATIC_DRAW,
-        STREAM_UPDATE => gl::STREAM_DRAW,
-        DYNAMIC_UPDATE => gl::DYNAMIC_DRAW,
-    }
-}
-
-fn gl_access_flags(flags: MapFlags) -> u32 {
-    return match flags {
-        READ_MAP => { gl::READ_ONLY }
-        WRITE_MAP => { gl::WRITE_ONLY }
-        _ => { gl::READ_WRITE }
-    };
-}
-
-fn gl_texture_unit(unit: u32) -> u32 {
-    return gl::TEXTURE0 + unit;
-}
-
-fn gl_attachement(i: u32) -> u32 {
-    return gl::COLOR_ATTACHMENT0 + i;
-}
-
-fn gl_clear_targets(t: TargetTypes) -> u32 {
-    let mut res = 0;
-    if t & COLOR != 0 { res |= gl::COLOR_BUFFER_BIT; }
-    if t & DEPTH != 0 { res |= gl::DEPTH_BUFFER_BIT; }
-    if t & STENCIL != 0 { res |= gl::STENCIL_BUFFER_BIT; }
-    return res;
-}
-
-fn gl_bool(b: bool) -> u8 {
-    return if b { gl::TRUE } else { gl::FALSE };
-}
-
-fn gl_data_type(t: data::Type) -> u32 {
-    match data::scalar_type_of(t) {
-        data::F32 => gl::FLOAT,
-        data::F64 => gl::DOUBLE,
-        data::U32 => gl::UNSIGNED_INT,
-        data::I32 => gl::INT,
-        data::U16 => gl::UNSIGNED_SHORT,
-        data::I16 => gl::SHORT,
-        data::U8 =>  gl::UNSIGNED_BYTE,
-        data::I8 =>  gl::BYTE,
-        _ => 0
-    }
-}
-
-fn gl_data_type_from_format(fmt: PixelFormat) -> u32 {
-    match fmt {
-        A_F32 => gl::FLOAT,
-        _ => gl::UNSIGNED_BYTE,
-    }
-}
-
-pub fn gl_error_str(err: u32) -> &'static str {
-    return match err {
-        gl::NO_ERROR            => { "(No error)" }
-        gl::INVALID_ENUM        => { "Invalid enum" },
-        gl::INVALID_VALUE       => { "Invalid value" },
-        gl::INVALID_OPERATION   => { "Invalid operation" },
-        gl::OUT_OF_MEMORY       => { "Out of memory" },
-        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => "Missing attachment.",
-        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => "Incomplete attachment.",
-        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => "Incomplete draw buffer.",
-        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => "Incomplete multisample.",
-        gl::FRAMEBUFFER_UNSUPPORTED => "Unsupported.",
-        _ => { "Unknown error" }
-    }
-}
-
-fn from_gl_error(err: u32) -> ResultCode {
-    match err {
-        gl::NO_ERROR            => { OK }
-        gl::INVALID_ENUM        => { INVALID_ARGUMENT_ERROR }
-        gl::INVALID_VALUE       => { INVALID_ARGUMENT_ERROR }
-        gl::INVALID_OPERATION   => { INVALID_ARGUMENT_ERROR }
-        gl::OUT_OF_MEMORY       => { OUT_OF_MEMORY_ERROR }
-        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => { RT_MISSING_ATTACHMENT_ERROR }
-        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => { RT_INCOMPLETE_ATTACHMENT_ERROR }
-        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => { UNKNOWN_ERROR }  // TODO
-        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => { UNKNOWN_ERROR }, // TODO
-        gl::FRAMEBUFFER_UNSUPPORTED => { RT_UNSUPPORTED_ERROR }
-        _ => { UNKNOWN_ERROR }
-    }
-}
-
-fn set_texture_flags(tex_handle: u32, flags: TextureFlags) {
-    if flags == 0 { return; }
-    gl::BindTexture(gl::TEXTURE_2D, tex_handle);
-    if flags&REPEAT_S != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-    }
-    if flags&REPEAT_T != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
-    }
-    if flags&CLAMP_S != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-    }
-    if flags&CLAMP_T != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-    }
-    if flags&MIN_FILTER_LINEAR != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-    }
-    if flags&MAG_FILTER_LINEAR != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-    }
-    if flags&MIN_FILTER_NEAREST != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-    }
-    if flags&MAG_FILTER_NEAREST != 0 {
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-    }
-    gl::BindTexture(gl::TEXTURE_2D, 0);
-}
-
-struct DrawArraysIndirectCommand {
-    count: u32,
-    primitive_count: u32,
-    first_vertex: u32,
-    base_instance: u32,
-}
-
 pub struct OpenGLDeviceBackend {
     current_render_target: RenderTargetObject,
-    current_program: ShaderPipelineObject,
+    current_shader_pipeline: ShaderPipelineObject,
     current_geometry: GeometryObject,
     current_target_types: TargetTypes,
     current_blend_mode: BlendMode,
@@ -407,14 +225,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
             gl::ValidateProgram(shader.handle);
             match self.check_errors() {
                 OK => {}
-                error => { println!("validate error {}", error); }
+                error => { return error; }
             }
 
             let mut status: i32 = 0;
             gl::GetProgramiv(shader.handle, gl::VALIDATE_STATUS, &mut status);
             match self.check_errors() {
                 OK => {}
-                error => { println!("GetProgramiv error {}", error); }
+                error => { return error; }
             }
 
             if status == gl::TRUE as i32 {
@@ -888,14 +706,11 @@ impl DeviceBackend for OpenGLDeviceBackend {
     }
 
     fn set_shader(&mut self, shader: ShaderPipelineObject) -> ResultCode {
-        println!("current_program: {}", self.current_program);
         self.check_errors();
-        println!("meh");
-        if self.current_program == shader {
-            println!("skip");
+        if self.current_shader_pipeline == shader {
             return OK;
         }
-        self.current_program = shader;
+        self.current_shader_pipeline = shader;
         gl::UseProgram(shader.handle);
         return self.check_errors();
     }
@@ -958,7 +773,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
 pub fn create_device() -> Device<OpenGLDeviceBackend> {
     Device {
         backend: OpenGLDeviceBackend {
-            current_program: ShaderPipelineObject { handle: 0 },
+            current_shader_pipeline: ShaderPipelineObject { handle: 0 },
             current_render_target: RenderTargetObject { handle: 0 },
             current_geometry: GeometryObject { handle: 0 },
             current_target_types: 0,
@@ -972,7 +787,7 @@ pub fn create_debug_device(err_flags: ErrorFlags) -> Device<LoggingProxy<OpenGLD
     Device {
         backend: LoggingProxy {
             backend: OpenGLDeviceBackend {
-                current_program: ShaderPipelineObject { handle: 0 },
+                current_shader_pipeline: ShaderPipelineObject { handle: 0 },
                 current_render_target: RenderTargetObject { handle: 0 },
                 current_geometry: GeometryObject { handle: 0 },
                 current_target_types: 0,
@@ -982,3 +797,165 @@ pub fn create_debug_device(err_flags: ErrorFlags) -> Device<LoggingProxy<OpenGLD
         }
     }
 }
+
+// ----------- private
+
+fn gl_format(format: PixelFormat) -> u32 {
+    match format {
+        R8G8B8A8 => gl::RGBA,
+        R8G8B8X8 => gl::RGB,
+        B8G8R8A8 => gl::BGRA,
+        B8G8R8X8 => gl::BGR,
+        A8 => gl::RED,
+        A_F32 => gl::RED,
+    }
+}
+
+fn gl_shader_type(target: ShaderType) -> u32 {
+    match target {
+        VERTEX_SHADER => gl::VERTEX_SHADER,
+        FRAGMENT_SHADER => gl::FRAGMENT_SHADER,
+        GEOMETRY_SHADER => gl::GEOMETRY_SHADER,
+        COMPUTE_SHADER => gl::COMPUTE_SHADER,
+    }
+}
+
+fn gl_draw_mode(flags: GeometryFlags) -> u32 {
+    if flags & LINES != 0 {
+        return if flags & STRIP != 0 { gl::LINE_STRIP }
+               else if flags & LOOP != 0 { gl::LINE_LOOP }
+               else { gl::LINES }
+    }
+    return if flags & STRIP != 0 { gl::TRIANGLE_STRIP }
+           else { gl::TRIANGLES }
+}
+
+fn gl_buffer_type(t: BufferType) -> u32 {
+    return match t {
+        VERTEX_BUFFER => gl::ARRAY_BUFFER,
+        INDEX_BUFFER => gl::ELEMENT_ARRAY_BUFFER,
+        UNIFORM_BUFFER => gl::UNIFORM_BUFFER,
+        TRANSFORM_FEEDBACK_BUFFER => gl::TRANSFORM_FEEDBACK_BUFFER,
+        DRAW_INDIRECT_BUFFER => gl::DRAW_INDIRECT_BUFFER,
+    }
+}
+
+fn gl_update_hint(hint: UpdateHint) -> u32 {
+    match hint {
+        STATIC_UPDATE => gl::STATIC_DRAW,
+        STREAM_UPDATE => gl::STREAM_DRAW,
+        DYNAMIC_UPDATE => gl::DYNAMIC_DRAW,
+    }
+}
+
+fn gl_access_flags(flags: MapFlags) -> u32 {
+    return match flags {
+        READ_MAP => { gl::READ_ONLY }
+        WRITE_MAP => { gl::WRITE_ONLY }
+        _ => { gl::READ_WRITE }
+    };
+}
+
+fn gl_texture_unit(unit: u32) -> u32 {
+    return gl::TEXTURE0 + unit;
+}
+
+fn gl_attachement(i: u32) -> u32 {
+    return gl::COLOR_ATTACHMENT0 + i;
+}
+
+fn gl_clear_targets(t: TargetTypes) -> u32 {
+    let mut res = 0;
+    if t & COLOR != 0 { res |= gl::COLOR_BUFFER_BIT; }
+    if t & DEPTH != 0 { res |= gl::DEPTH_BUFFER_BIT; }
+    if t & STENCIL != 0 { res |= gl::STENCIL_BUFFER_BIT; }
+    return res;
+}
+
+fn gl_bool(b: bool) -> u8 {
+    return if b { gl::TRUE } else { gl::FALSE };
+}
+
+fn gl_data_type(t: data::Type) -> u32 {
+    match data::scalar_type_of(t) {
+        data::F32 => gl::FLOAT,
+        data::F64 => gl::DOUBLE,
+        data::U32 => gl::UNSIGNED_INT,
+        data::I32 => gl::INT,
+        data::U16 => gl::UNSIGNED_SHORT,
+        data::I16 => gl::SHORT,
+        data::U8 =>  gl::UNSIGNED_BYTE,
+        data::I8 =>  gl::BYTE,
+        _ => 0
+    }
+}
+
+fn gl_data_type_from_format(fmt: PixelFormat) -> u32 {
+    match fmt {
+        A_F32 => gl::FLOAT,
+        _ => gl::UNSIGNED_BYTE,
+    }
+}
+
+pub fn gl_error_str(err: u32) -> &'static str {
+    return match err {
+        gl::NO_ERROR            => { "(No error)" }
+        gl::INVALID_ENUM        => { "Invalid enum" },
+        gl::INVALID_VALUE       => { "Invalid value" },
+        gl::INVALID_OPERATION   => { "Invalid operation" },
+        gl::OUT_OF_MEMORY       => { "Out of memory" },
+        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => "Missing attachment.",
+        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => "Incomplete attachment.",
+        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => "Incomplete draw buffer.",
+        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => "Incomplete multisample.",
+        gl::FRAMEBUFFER_UNSUPPORTED => "Unsupported.",
+        _ => { "Unknown error" }
+    }
+}
+
+fn from_gl_error(err: u32) -> ResultCode {
+    match err {
+        gl::NO_ERROR            => { OK }
+        gl::INVALID_ENUM        => { INVALID_ARGUMENT_ERROR }
+        gl::INVALID_VALUE       => { INVALID_ARGUMENT_ERROR }
+        gl::INVALID_OPERATION   => { INVALID_ARGUMENT_ERROR }
+        gl::OUT_OF_MEMORY       => { OUT_OF_MEMORY_ERROR }
+        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => { RT_MISSING_ATTACHMENT_ERROR }
+        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => { RT_INCOMPLETE_ATTACHMENT_ERROR }
+        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => { UNKNOWN_ERROR }  // TODO
+        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => { UNKNOWN_ERROR }, // TODO
+        gl::FRAMEBUFFER_UNSUPPORTED => { RT_UNSUPPORTED_ERROR }
+        _ => { UNKNOWN_ERROR }
+    }
+}
+
+fn set_texture_flags(tex_handle: u32, flags: TextureFlags) {
+    if flags == 0 { return; }
+    gl::BindTexture(gl::TEXTURE_2D, tex_handle);
+    if flags&REPEAT_S != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+    }
+    if flags&REPEAT_T != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+    }
+    if flags&CLAMP_S != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+    }
+    if flags&CLAMP_T != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+    }
+    if flags&MIN_FILTER_LINEAR != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+    }
+    if flags&MAG_FILTER_LINEAR != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+    }
+    if flags&MIN_FILTER_NEAREST != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+    }
+    if flags&MAG_FILTER_NEAREST != 0 {
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+    }
+    gl::BindTexture(gl::TEXTURE_2D, 0);
+}
+
