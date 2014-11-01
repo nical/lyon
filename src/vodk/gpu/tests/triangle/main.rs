@@ -43,13 +43,9 @@ fn main() {
     window.set_scroll_polling(true);
 
     window.make_current();
-    gl::load_with(|s| glfw.get_proc_address(s));
+    gl::load_with(|s| window.get_proc_address(s));
 
     let mut ctx = opengl::create_debug_device(LOG_ERRORS|CRASH_ERRORS);
-
-    let mut avg_frame_time: u64 = 0;
-    let mut frame_count: u64 = 0;
-    let mut previous_time = time::precise_time_ns();
 
     // interesting stuff starts here
 
@@ -193,10 +189,14 @@ fn main() {
     assert!(u_dynamic.index >= 0);
     ctx.set_uniform_block(pipeline, u_dynamic, ubo_binding_index);
 
+
+    //let mut avg_frame_time: u64 = 0;
+    //let mut frame_count: u64 = 0;
+    let mut previous_time = time::precise_time_ns();
     let mut time: f32 = 0.0;
     while !window.should_close() {
         glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&events) {
+        for (_, _event) in glfw::flush_messages(&events) {
             // handle events
         }
 
@@ -217,8 +217,8 @@ fn main() {
 
         previous_time = frame_start_time;
         let frame_time = time::precise_time_ns() - frame_start_time;
-        frame_count += 1;
-        avg_frame_time += frame_time;
+        //frame_count += 1;
+        //avg_frame_time += frame_time;
 
         let sleep_time: i64 = 16000000 - frame_time as i64;
         if sleep_time > 0 {

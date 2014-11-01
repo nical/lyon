@@ -136,9 +136,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         data: *mut *mut u8
     ) -> ResultCode {
         println!("device.map_buffer({}, {}, [out])", buffer, flags);
-        let result = unsafe {
-            self.backend.map_buffer(buffer, flags, data)
-        };
+        let result = self.backend.map_buffer(buffer, flags, data);
         println!("-> {}", result);
         return result;
     }

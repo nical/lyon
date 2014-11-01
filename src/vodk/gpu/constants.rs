@@ -1,4 +1,4 @@
-use data;
+#![allow(non_camel_case_types)]
 
 pub type TextureFlags = i32;
 pub const REPEAT_S          : TextureFlags = 1 << 0;

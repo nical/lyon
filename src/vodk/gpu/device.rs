@@ -47,6 +47,7 @@ pub struct ShaderStageDescriptor<'l> {
     pub src: &'l[&'l str],
 }
 
+// TODO: remove
 #[deriving(Show)]
 pub struct ShaderBuildResult {
     pub code: ResultCode,
@@ -357,7 +358,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
             binding_index
         );
     }
-    
+
     pub fn get_uniform_block_location(
         &mut self,
         shader: ShaderPipelineObject,

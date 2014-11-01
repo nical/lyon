@@ -122,7 +122,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         &mut self,
         descriptor: &ShaderStageDescriptor,
     ) -> Result<ShaderStageObject, ResultCode> {
-        let mut shader = ShaderStageObject {
+        let shader = ShaderStageObject {
             handle: gl::CreateShader(gl_shader_type(descriptor.stage_type))
         };
         unsafe {
@@ -194,7 +194,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         &mut self,
         descriptor: &ShaderPipelineDescriptor,
     ) -> Result<ShaderPipelineObject, ResultCode> {
-        let mut pipeline = ShaderPipelineObject {
+        let pipeline = ShaderPipelineObject {
             handle: gl::CreateProgram()
         };
         for stage in descriptor.stages.iter() {
