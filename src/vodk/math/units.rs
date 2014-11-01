@@ -2,7 +2,7 @@
 macro_rules! declare_unit (
     ($module:ident) => (
         pub mod $module {
-            use math::vector;
+            use vector;
 
             #[deriving(Clone, Show)]
             pub struct Unit;
@@ -53,7 +53,7 @@ macro_rules! declare_unit (
             pub mod Mat4 {
                 use super::Mat4;
                 use super::Vec3;
-                use math::vector::Matrix4x4;
+                use vector::Matrix4x4;
                 pub fn identity() -> Mat4 { Matrix4x4::identity() }
                 pub fn perspective(
                     fovy: f32, aspect: f32,
@@ -78,7 +78,7 @@ macro_rules! declare_unit (
             pub mod Mat3 {
                 use super::Mat3;
                 use super::Vec2;
-                use math::vector::Matrix3x3;
+                use vector::Matrix3x3;
 
                 pub fn identity() -> Mat3 { Matrix3x3::identity() }
 
@@ -91,7 +91,7 @@ macro_rules! declare_unit (
 
             pub mod Mat2 {
                 use super::Mat2;
-                use math::vector::Matrix2x2;
+                use vector::Matrix2x2;
                 pub fn identity() -> Mat2 { Matrix2x2::identity() }
             }
         }

@@ -1,0 +1,11 @@
+[package]
+
+name = "math"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+
+[lib]
+name = "math"
+path = "./lib.rs"
