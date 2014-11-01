@@ -129,15 +129,16 @@ fn main() {
         src: &[shaders::BASIC_VERTEX]
     };
 
-    let mut shader_result = ShaderBuildResult::new();
     let vertex_shader = ctx.create_shader_stage(&vertex_stage_desc).ok().unwrap();
 
-    if ctx.get_shader_stage_result(vertex_shader, &mut shader_result) != OK {
-        fail!(
-            "{}\nshader build failed with error {}\n",
-            shaders::BASIC_VERTEX,
-            shader_result.details
-        );
+    match ctx.get_shader_stage_result(vertex_shader) {
+        Err((_code, msg)) => {
+            fail!(
+                "{}\nshader build failed - {}\n",
+                shaders::BASIC_VERTEX, msg
+            );
+        }
+        _ => {}
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
@@ -145,12 +146,14 @@ fn main() {
         src: &[shaders::BASIC_FRAGMENT]
     };
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
-    if ctx.get_shader_stage_result(fragment_shader, &mut shader_result) != OK {
-        fail!(
-            "{}\nshader build failed - {}\n",
-            shaders::BASIC_FRAGMENT,
-            shader_result.details
-        );
+    match ctx.get_shader_stage_result(fragment_shader) {
+        Err((_code, msg)) => {
+            fail!(
+                "{}\nshader build failed - {}\n",
+                shaders::BASIC_FRAGMENT, msg
+            );
+        }
+        _ => {}
     }
 
     let pipeline_desc = ShaderPipelineDescriptor {
@@ -165,8 +168,11 @@ fn main() {
     };
     let pipeline = ctx.create_shader_pipeline(&pipeline_desc).ok().unwrap();
     
-    if ctx.get_shader_pipeline_result(pipeline, &mut shader_result) != OK {
-        fail!("Pipline link failed - {}\n", shader_result.details);
+    match ctx.get_shader_pipeline_result(pipeline) {
+        Err((_code, msg)) => {
+            fail!("Pipline link failed - {}\n", msg);
+        }
+        _ => {}
     }
 
     ctx.set_clear_color(0.9, 0.9, 0.9, 1.0);

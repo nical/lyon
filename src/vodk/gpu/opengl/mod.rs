@@ -158,18 +158,16 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode {
+    ) -> Result<(), (ResultCode, String)> {
         unsafe {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err((error,"".to_string())); }
             }
             if status == gl::TRUE as i32 {
-                result.code = OK;
-                return OK;
+                return Ok(());
             }
             let mut buffer = [0u8, ..512];
             let mut length: i32 = 0;
@@ -177,9 +175,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 shader.handle, 512, &mut length,
                 mem::transmute(buffer.as_mut_ptr())
             );
-            result.code = SHADER_COMPILATION_ERROR;
-            result.details = raw::from_buf(buffer.as_ptr());
-            return SHADER_COMPILATION_ERROR;
+            return Err((SHADER_COMPILATION_ERROR, raw::from_buf(buffer.as_ptr())));
         }
     }
 
@@ -220,28 +216,27 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode {
+    ) -> Result<(), (ResultCode, String)> {
         if shader.handle == 0 {
-            return INVALID_OBJECT_HANDLE_ERROR;
+            return Err((INVALID_OBJECT_HANDLE_ERROR, String::new()));
         }
 
         unsafe {
             gl::ValidateProgram(shader.handle);
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err((error, String::new())); }
             }
 
             let mut status: i32 = 0;
             gl::GetProgramiv(shader.handle, gl::VALIDATE_STATUS, &mut status);
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err((error, String::new())); }
             }
 
             if status == gl::TRUE as i32 {
-                return OK;
+                return Ok(());
             }
 
             let mut buffer = [0u8, ..512];
@@ -251,9 +246,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 mem::transmute(buffer.as_mut_ptr())
             );
 
-            result.code = SHADER_LINK_ERROR;
-            result.details = raw::from_buf(buffer.as_ptr());
-            return SHADER_LINK_ERROR;
+            return Err((SHADER_LINK_ERROR, raw::from_buf(buffer.as_ptr())));
         }
     }
 

@@ -67,10 +67,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode {
-        println!("device.get_shader_stage_result({}, [out])", shader);
-        let result = self.backend.get_shader_stage_result(shader, result);
+    ) -> Result<(),(ResultCode, String)> {
+        println!("device.get_shader_stage_result({})", shader);
+        let result = self.backend.get_shader_stage_result(shader);
         println!("-> {}", result);
         return result;
     }
@@ -96,10 +95,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode {
-        println!("device.get_shader_pipeline_result({}, [out])", shader);
-        let result = self.backend.get_shader_pipeline_result(shader, result);
+    ) -> Result<(), (ResultCode, String)> {
+        println!("device.get_shader_pipeline_result({})", shader);
+        let result = self.backend.get_shader_pipeline_result(shader);
         println!("-> {}", result);
         return result;
     }

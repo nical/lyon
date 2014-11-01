@@ -47,17 +47,6 @@ pub struct ShaderStageDescriptor<'l> {
     pub src: &'l[&'l str],
 }
 
-// TODO: remove
-#[deriving(Show)]
-pub struct ShaderBuildResult {
-    pub code: ResultCode,
-    pub details: String,
-}
-
-impl ShaderBuildResult {
-    pub fn new() -> ShaderBuildResult { ShaderBuildResult { code: OK, details: String::new() } }
-}
-
 #[deriving(Show)]
 pub struct ShaderPipelineDescriptor<'l> {
     pub stages: &'l[ShaderStageObject],
@@ -129,9 +118,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode {
-        return self.backend.get_shader_stage_result(shader, result);
+    ) -> Result<(), (ResultCode, String)> {
+        return self.backend.get_shader_stage_result(shader);
     }
 
     pub fn destroy_shader_stage(
@@ -151,9 +139,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode {
-        return self.backend.get_shader_pipeline_result(shader, result);
+    ) -> Result<(), (ResultCode, String)> {
+        return self.backend.get_shader_pipeline_result(shader);
     }
 
     pub fn destroy_shader_pipeline(
@@ -428,8 +415,7 @@ pub trait DeviceBackend {
     fn get_shader_stage_result(
         &mut self,
         shader: ShaderStageObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode;
+    ) -> Result<(), (ResultCode, String)>;
 
     fn destroy_shader_stage(
         &mut self,
@@ -444,8 +430,7 @@ pub trait DeviceBackend {
     fn get_shader_pipeline_result(
         &mut self,
         shader: ShaderPipelineObject,
-        result: &mut ShaderBuildResult,
-    ) -> ResultCode;
+    ) -> Result<(), (ResultCode, String)>;
 
     fn destroy_shader_pipeline(
         &mut self,
