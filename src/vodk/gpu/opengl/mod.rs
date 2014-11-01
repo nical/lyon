@@ -1,5 +1,6 @@
 use gl;
 use super::context::*;
+use super::logging::LoggingProxy;
 
 use std::str;
 use std::string::raw;
@@ -535,11 +536,12 @@ impl RenderingContext for RenderingContextGL {
     }
 
     fn set_shader(&mut self, program: Shader) -> RendererResult {
-        if self.current_program != program {
+        //if self.current_program != program {
+            println!("current_program: {}", self.current_program);
             self.current_program = program;
             gl::UseProgram(program.handle);
             check_err!("glUseProgram({})", program.handle);
-        }
+        //}
         return Ok(());
     }
 
@@ -955,24 +957,20 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 OK => {}
                 error => { return error; }
             }
-            if status != gl::TRUE as i32 {
-                let mut buffer = [0u8, ..512];
-                let mut length: i32 = 0;
-                gl::GetShaderInfoLog(
-                    shader.handle, 512, &mut length,
-                    mem::transmute(buffer.as_mut_ptr())
-                );
-                match self.check_errors() {
-                    OK => {}
-                    error => { return error; }
-                }
-                result.code = SHADER_COMPILATION_ERROR;
-                result.details = raw::from_buf(buffer.as_ptr());
-                return SHADER_COMPILATION_ERROR;
+            if status == gl::TRUE as i32 {
+                result.code = OK;
+                return OK;
             }
+            let mut buffer = [0u8, ..512];
+            let mut length: i32 = 0;
+            gl::GetShaderInfoLog(
+                shader.handle, 512, &mut length,
+                mem::transmute(buffer.as_mut_ptr())
+            );
+            result.code = SHADER_COMPILATION_ERROR;
+            result.details = raw::from_buf(buffer.as_ptr());
+            return SHADER_COMPILATION_ERROR;
         }
-        result.code = OK;
-        return OK;
     }
 
     fn destroy_shader_stage(
@@ -1019,20 +1017,33 @@ impl DeviceBackend for OpenGLDeviceBackend {
 
         unsafe {
             gl::ValidateProgram(shader.handle);
+            match self.check_errors() {
+                OK => {}
+                error => { println!("validate error {}", error); }
+            }
+
             let mut status: i32 = 0;
             gl::GetProgramiv(shader.handle, gl::VALIDATE_STATUS, &mut status);
-
-            if status != gl::TRUE as i32 {
-                let mut buffer = [0u8, ..512];
-                let mut length: i32 = 0;
-                gl::GetProgramInfoLog(shader.handle, 512, &mut length,
-                                      mem::transmute(buffer.as_mut_ptr()));
-
-                result.code = SHADER_LINK_ERROR;
-                result.details = raw::from_buf(buffer.as_ptr());
+            match self.check_errors() {
+                OK => {}
+                error => { println!("GetProgramiv error {}", error); }
             }
+
+            if status == gl::TRUE as i32 {
+                return OK;
+            }
+
+            let mut buffer = [0u8, ..512];
+            let mut length: i32 = 0;
+            gl::GetProgramInfoLog(
+                shader.handle, 512, &mut length,
+                mem::transmute(buffer.as_mut_ptr())
+            );
+
+            result.code = SHADER_LINK_ERROR;
+            result.details = raw::from_buf(buffer.as_ptr());
+            return SHADER_LINK_ERROR;
         }
-        return OK;
     }
 
     fn destroy_shader_pipeline(
@@ -1098,7 +1109,6 @@ impl DeviceBackend for OpenGLDeviceBackend {
     unsafe fn map_buffer(
         &mut self,
         buffer: BufferObject,
-        _target: BufferType, // TODO: use this ot buffer.buffer_type?
         flags: MapFlags,
         data: *mut *mut u8
     ) -> ResultCode {
@@ -1451,8 +1461,66 @@ impl DeviceBackend for OpenGLDeviceBackend {
         return OK;
     }
 
+    fn bind_uniform_buffer(
+        &mut self,
+        binding_index: UniformBindingIndex,
+        ubo: BufferObject,
+        range: Option<(u16, u16)>
+    ) -> ResultCode {
+
+        match range {
+            Some((start, size)) => {
+                gl::BindBufferRange(
+                    gl::UNIFORM_BUFFER,
+                    binding_index as u32,
+                    ubo.handle,
+                    start as i64,
+                    size as i64
+                );
+            }
+            None => {
+                gl::BindBufferBase(
+                    gl::UNIFORM_BUFFER,
+                    binding_index as u32,
+                    ubo.handle
+                );
+            }
+        }
+        return self.check_errors();
+    }
+
+    fn set_uniform_block(
+        &mut self,
+        shader: ShaderPipelineObject,
+        block_index: UniformBlockLocation,
+        binding_index: UniformBindingIndex,
+    ) -> ResultCode {
+        gl::UniformBlockBinding(
+            shader.handle,
+            block_index.index as u32,
+            binding_index as u32
+        );
+        return self.check_errors();
+    }
+
+    fn get_uniform_block_location(
+        &mut self,
+        shader: ShaderPipelineObject,
+        name: &str
+    ) -> UniformBlockLocation {
+        let mut result = UniformBlockLocation { index: -1 };
+        name.with_c_str(|c_name| unsafe {
+            result.index = gl::GetUniformBlockIndex(shader.handle, c_name) as i16;
+        });
+        return result;
+    }
+
     fn set_shader(&mut self, shader: ShaderPipelineObject) -> ResultCode {
+        println!("current_program: {}", self.current_program);
+        self.check_errors();
+        println!("meh");
         if self.current_program == shader {
+            println!("skip");
             return OK;
         }
         self.current_program = shader;
@@ -1470,10 +1538,10 @@ impl DeviceBackend for OpenGLDeviceBackend {
         self.update_targets(targets);
         self.update_blend_mode(blend);
 
-        //if geom != self.current_geometry {
+        if geom != self.current_geometry {
             self.current_geometry = geom;
             gl::BindVertexArray(geom.handle);
-        //  };
+        };
 
         match range {
             VertexRange(first, count) => {
@@ -1490,7 +1558,8 @@ impl DeviceBackend for OpenGLDeviceBackend {
                         gl_draw_mode(flags),
                         count as i32,
                         gl::UNSIGNED_SHORT,
-                        (first / 2) as *const c_void // /2 because offset in bytes with u16
+                        // /2 because offset in bytes with u16
+                        (first / 2) as *const c_void
                     );
                 }
                 return self.check_errors();
@@ -1505,12 +1574,12 @@ impl DeviceBackend for OpenGLDeviceBackend {
 
     fn clear(&mut self, targets: TargetTypes) -> ResultCode {
         gl::Clear(gl_clear_targets(targets));
-        return OK;
+        return self.check_errors();
     }
 
     fn set_clear_color(&mut self, r:f32, g: f32, b: f32, a: f32) {
-        println!("device.set_clear_color({}, {}, {}, {}) -> ()", r, g, b, a);
         gl::ClearColor(r, g, b, a);
+        self.check_errors();
     }
 }
 

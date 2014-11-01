@@ -63,61 +63,59 @@ fn main() {
         update_hint: STATIC_UPDATE,
     };
 
-    let mut res;
 
+    // interesting stuff starts here
+
+    let mut res;
     let mut vbo = BufferObject::new();
     res = ctx.create_buffer(&vbo_desc, &mut vbo);
     assert!(res == OK);
 
-    {
-        let mut mapped_vbo: &mut [Vertex] = [];
-        res = ctx.map_buffer(vbo, VERTEX_BUFFER, WRITE_MAP, &mut mapped_vbo);
-        assert!(res == OK);
-     
-        mapped_vbo[0] = Vertex {
-            x: -1.0, y: -1.0, z: 0.0,
-            u: 0.0, v: 0.0
-        };
-        mapped_vbo[1] = Vertex {
-            x: 0.0, y: 1.0, z: 0.0,
-            u: 0.5, v: 1.0
-        };
-        mapped_vbo[2] = Vertex {
-            x: 1.0, y: -1.0, z: 0.0,
-            u: 1.0, v: 0.0
-        };
-
-        ctx.unmap_buffer(vbo);
-    }
-
-    {
-        let mut mapped_vbo: &mut [Vertex] = [];
-        res = ctx.map_buffer(vbo, VERTEX_BUFFER, READ_MAP, &mut mapped_vbo);
-        assert!(res == OK);
-        assert_eq!(mapped_vbo[0],
-            Vertex {
+    res = ctx.with_write_only_mapped_buffer(
+        vbo, |mapped_vbo| {
+            mapped_vbo[0] = Vertex {
                 x: -1.0, y: -1.0, z: 0.0,
                 u: 0.0, v: 0.0
-            }
-        );
-        assert_eq!(mapped_vbo[1],
-            Vertex {
+            };
+            mapped_vbo[1] = Vertex {
                 x: 0.0, y: 1.0, z: 0.0,
                 u: 0.5, v: 1.0
-            }
-        );
-        assert_eq!(mapped_vbo[2],
-            Vertex {
+            };
+            mapped_vbo[2] = Vertex {
                 x: 1.0, y: -1.0, z: 0.0,
                 u: 1.0, v: 0.0
-            }
-        );
+            };
+        }
+    );
+    assert_eq!(res, OK);
 
-        let mut ibo = BufferObject::new();
-        res = ctx.create_buffer(&ibo_desc, &mut ibo);
-        assert!(res == OK);
-        ctx.unmap_buffer(vbo);
-    }
+    res = ctx.with_read_only_mapped_buffer::<Vertex>(
+        vbo, |mapped_vbo| {
+            assert_eq!(mapped_vbo[0],
+                Vertex {
+                    x: -1.0, y: -1.0, z: 0.0,
+                    u: 0.0, v: 0.0
+                }
+            );
+            assert_eq!(mapped_vbo[1],
+                Vertex {
+                    x: 0.0, y: 1.0, z: 0.0,
+                    u: 0.5, v: 1.0
+                }
+            );
+            assert_eq!(mapped_vbo[2],
+                Vertex {
+                    x: 1.0, y: -1.0, z: 0.0,
+                    u: 1.0, v: 0.0
+                }
+            );
+        }
+    );
+    assert_eq!(res, OK);
+
+    let mut ibo = BufferObject::new();
+    res = ctx.create_buffer(&ibo_desc, &mut ibo);
+    assert_eq!(res, OK);
 
     let geom_desc = GeometryDescriptor {
         attributes: &[
@@ -140,6 +138,7 @@ fn main() {
         ],
         index_buffer: None
     };
+
     let mut geom = GeometryObject::new();
     res = ctx.create_geometry(&geom_desc, &mut geom);
     assert_eq!(res, OK);
@@ -149,7 +148,7 @@ fn main() {
 
     let vertex_stage_desc = ShaderStageDescriptor {
         stage_type: VERTEX_SHADER,
-        src: &[shaders::vs::BASIC_VERTEX]
+        src: &[shaders::BASIC_VERTEX]
     };
 
     let mut shader_result = ShaderBuildResult::new();
@@ -158,7 +157,7 @@ fn main() {
     if ctx.get_shader_stage_result(vertex_shader, &mut shader_result) != OK {
         fail!(
             "{}\nshader build failed with error {}\n",
-            shaders::vs::BASIC_VERTEX,
+            shaders::BASIC_VERTEX,
             shader_result.details
         );
     }
@@ -167,18 +166,25 @@ fn main() {
     assert_eq!(res, OK);
     if ctx.get_shader_stage_result(vertex_shader, &mut shader_result) != OK {
         fail!(
-            "{}\nshader build failed with error {}\n",
-            shaders::fs::BASIC_FRAGMENT,
+            "{}\nshader build failed - {}\n",
+            shaders::BASIC_VERTEX,
             shader_result.details
         );
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
         stage_type: FRAGMENT_SHADER,
-        src: &[shaders::fs::BASIC_FRAGMENT]
+        src: &[shaders::BASIC_FRAGMENT]
     };
     res = ctx.create_shader_stage(&fragment_stage_desc, &mut fragment_shader);
     assert_eq!(res, OK);
+    if ctx.get_shader_stage_result(fragment_shader, &mut shader_result) != OK {
+        fail!(
+            "{}\nshader build failed - {}\n",
+            shaders::BASIC_FRAGMENT,
+            shader_result.details
+        );
+    }
 
     let pipeline_desc = ShaderPipelineDescriptor {
         stages: &[
@@ -198,12 +204,33 @@ fn main() {
     assert_eq!(res, OK);
     
     if ctx.get_shader_pipeline_result(pipeline, &mut shader_result) != OK {
-        fail!("Pipline link failed with error {}\n", shader_result.details);
+        fail!("Pipline link failed - {}\n", shader_result.details);
     }
 
     ctx.set_clear_color(0.9, 0.9, 0.9, 1.0);
     ctx.set_viewport(0, 0, 800, 600);
 
+    let dyn_ubo_desc = BufferDescriptor {
+        buffer_type: UNIFORM_BUFFER,
+        update_hint: DYNAMIC_UPDATE,
+        size: 4,
+    };
+
+    let mut dyn_ubo = BufferObject::new();
+    res = ctx.create_buffer(&dyn_ubo_desc, &mut dyn_ubo);
+
+    res = ctx.with_write_only_mapped_buffer(
+        dyn_ubo, |mapped_ubo| { mapped_ubo[0] = 0.5f32; }
+    );
+    assert_eq!(res, OK);
+
+    let ubo_binding_index = 0;
+    ctx.bind_uniform_buffer(ubo_binding_index, dyn_ubo, None);
+    let u_dynamic = ctx.get_uniform_block_location(pipeline, "u_dynamic");
+    assert!(u_dynamic.index >= 0);
+    ctx.set_uniform_block(pipeline, u_dynamic, ubo_binding_index);
+
+    let mut time: f32 = 0.0;
     while !window.should_close() {
         glfw.poll_events();
         for (_, event) in glfw::flush_messages(&events) {
@@ -213,14 +240,15 @@ fn main() {
         let frame_start_time = time::precise_time_ns();
         let elapsed_time = frame_start_time - previous_time;
 
-        res = ctx.clear(COLOR);
-        assert_eq!(res, OK);
-        res = ctx.set_shader(pipeline);
-        assert_eq!(res, OK);
-        res = ctx.draw(geom, VertexRange(0, 3), TRIANGLES, NO_BLENDING, COLOR);
-        assert_eq!(res, OK);
-        res = ctx.flush();
-        assert_eq!(res, OK);
+        time += elapsed_time as f32;
+        res = ctx.with_write_only_mapped_buffer(
+            dyn_ubo, |mapped_ubo| { mapped_ubo[0] = time * 0.000000001; }
+        );
+
+        assert_eq!(OK, ctx.clear(COLOR));
+        assert_eq!(OK, ctx.set_shader(pipeline));
+        assert_eq!(OK, ctx.draw(geom, VertexRange(0, 3), TRIANGLES, NO_BLENDING, COLOR));
+        assert_eq!(OK, ctx.flush());
 
         window.swap_buffers();
 
@@ -237,23 +265,24 @@ fn main() {
 }
 
 pub mod shaders {
-    pub mod vs {
-        pub const BASIC_VERTEX: &'static str = "
-            attribute vec3 a_position;
-            attribute vec2 a_uv;
-            varying vec2 v_uv;
-            void main() {
-                gl_Position = vec4(a_position, 1.0);
-                v_uv = a_uv;
-            }
-        ";
-    }
-    pub mod fs {
-        pub const BASIC_FRAGMENT: &'static str = "
-            varying vec2 v_uv;
-            void main() {
-                gl_Color = vec4(v_uv, 1.0, 1.0);
-            }
-        ";
-    }
+    pub const BASIC_VERTEX: &'static str = "
+        attribute vec3 a_position;
+        attribute vec2 a_uv;
+        varying vec2 v_uv;
+        void main() {
+            gl_Position = vec4(a_position, 1.0);
+            v_uv = a_uv;
+        }
+    ";
+    pub const BASIC_FRAGMENT: &'static str = "
+        #version 150
+        layout(std140)
+        uniform u_dynamic {
+            float time;
+        };
+        varying vec2 v_uv;
+        void main() {
+            gl_FragColor = vec4(v_uv, 0.5+0.5*sin(time), 1.0);
+        }
+    ";
 }
