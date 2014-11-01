@@ -351,10 +351,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
         shader: ShaderPipelineObject,
         name: &str
     ) -> UniformBlockLocation {
-        return self.backend.get_uniform_block_location(
-            shader,
-            name
-        );
+        return self.backend.get_uniform_block_location(shader, name);
     }
 
     pub fn draw(&mut self,
@@ -387,12 +384,14 @@ pub trait DeviceBackend {
         feature: Feature
     ) -> bool;
 
-    fn set_viewport(&mut self,
+    fn set_viewport(
+        &mut self,
         x:i32, y:i32,
         w:i32, h:i32
     );
 
-    fn create_texture(&mut self,
+    fn create_texture(
+        &mut self,
         descriptor: &TextureDescriptor,
     ) -> Result<TextureObject, ResultCode>;
 
