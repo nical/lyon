@@ -7,12 +7,11 @@ use std::mem;
 
 pub type AttributeType = data::Type;
 pub type UniformBindingIndex = i32;
-// TODO: wrap in a struct
-pub type VertexAttributeLocation = i16;
-pub type ShaderInputLocation = i16;
 
 #[deriving(Show, Clone, PartialEq)]
 pub struct UniformBlockLocation { pub index: i16 }
+#[deriving(Show, Clone, PartialEq)]
+pub struct VertexAttributeLocation { pub index: i16 }
 
 #[deriving(Clone, Show)]
 pub enum Range {

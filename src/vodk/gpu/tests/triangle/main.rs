@@ -101,12 +101,15 @@ fn main() {
         }
     );
 
+    let a_position = VertexAttributeLocation { index: 0 };
+    let a_uv = VertexAttributeLocation { index: 1 };
+
     let geom_desc = GeometryDescriptor {
         attributes: &[
             VertexAttribute {
                 buffer: vbo,
                 attrib_type: VEC3,
-                location: 0,
+                location: a_position,
                 stride: 20,
                 offset: 0,
                 normalize: false
@@ -114,7 +117,7 @@ fn main() {
             VertexAttribute {
                 buffer: vbo,
                 attrib_type: VEC2,
-                location: 1,
+                location: a_uv,
                 stride: 20,
                 offset: 12,
                 normalize: false
@@ -160,8 +163,8 @@ fn main() {
             fragment_shader
         ],
         attrib_locations: &[
-            ("a_position", 0),
-            ("a_uv", 1)
+            ("a_position", a_position),
+            ("a_uv", a_uv)
         ]
     };
     let pipeline = ctx.create_shader_pipeline(&pipeline_desc).ok().unwrap();

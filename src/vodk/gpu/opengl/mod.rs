@@ -393,7 +393,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             }
             unsafe {
                 gl::VertexAttribPointer(
-                    attr.location as u32,
+                    attr.location.index as u32,
                     data::num_components(attr.attrib_type) as i32,
                     gl_data_type(attr.attrib_type),
                     gl_bool(attr.normalize),
@@ -404,7 +404,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                     OK => {}
                     error => { return Err(error); }
                 }
-                gl::EnableVertexAttribArray(attr.location as u32);
+                gl::EnableVertexAttribArray(attr.location.index as u32);
                 match self.check_errors() {
                     OK => {}
                     error => { return Err(error); }
@@ -441,7 +441,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             location = gl::GetAttribLocation(shader.handle, c_name) as VertexAttributeLocation;
         });
         self.check_errors();
-        return location;
+        return VertexAttributeLocation { index: location };
     }
 
     fn create_render_target(
