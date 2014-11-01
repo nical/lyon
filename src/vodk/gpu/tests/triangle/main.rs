@@ -6,11 +6,9 @@ extern crate gpu;
 extern crate data;
 extern crate time;
 
-
 use data::*;
 use gpu::device::*;
 use gpu::constants::*;
-use gpu::objects::*;
 use gpu::opengl;
 
 use std::io::timer::sleep;
@@ -53,27 +51,17 @@ fn main() {
     let mut frame_count: u64 = 0;
     let mut previous_time = time::precise_time_ns();
 
+    // interesting stuff starts here
+
     let vbo_desc = BufferDescriptor {
         size: 3*5*4,
         buffer_type: VERTEX_BUFFER,
         update_hint: STATIC_UPDATE,
     };
 
-    let ibo_desc = BufferDescriptor {
-        size: 3*2,
-        buffer_type: INDEX_BUFFER,
-        update_hint: STATIC_UPDATE,
-    };
+    let vbo = ctx.create_buffer(&vbo_desc).ok().unwrap();
 
-
-    // interesting stuff starts here
-
-    let mut res;
-    let mut vbo = BufferObject::new();
-    res = ctx.create_buffer(&vbo_desc, &mut vbo);
-    assert!(res == OK);
-
-    res = ctx.with_write_only_mapped_buffer(
+    ctx.with_write_only_mapped_buffer(
         vbo, |mapped_vbo| {
             mapped_vbo[0] = Vertex {
                 x: -1.0, y: -1.0, z: 0.0,
@@ -89,9 +77,8 @@ fn main() {
             };
         }
     );
-    assert_eq!(res, OK);
 
-    res = ctx.with_read_only_mapped_buffer::<Vertex>(
+    ctx.with_read_only_mapped_buffer::<Vertex>(
         vbo, |mapped_vbo| {
             assert_eq!(mapped_vbo[0],
                 Vertex {
@@ -113,11 +100,6 @@ fn main() {
             );
         }
     );
-    assert_eq!(res, OK);
-
-    let mut ibo = BufferObject::new();
-    res = ctx.create_buffer(&ibo_desc, &mut ibo);
-    assert_eq!(res, OK);
 
     let geom_desc = GeometryDescriptor {
         attributes: &[
@@ -141,12 +123,7 @@ fn main() {
         index_buffer: None
     };
 
-    let mut geom = GeometryObject::new();
-    res = ctx.create_geometry(&geom_desc, &mut geom);
-    assert_eq!(res, OK);
-
-    let mut vertex_shader = ShaderStageObject::new();
-    let mut fragment_shader = ShaderStageObject::new();
+    let geom = ctx.create_geometry(&geom_desc).ok().unwrap();
 
     let vertex_stage_desc = ShaderStageDescriptor {
         stage_type: VERTEX_SHADER,
@@ -154,21 +131,11 @@ fn main() {
     };
 
     let mut shader_result = ShaderBuildResult::new();
-    res = ctx.create_shader_stage(&vertex_stage_desc, &mut vertex_shader);
-    assert_eq!(res, OK);
+    let vertex_shader = ctx.create_shader_stage(&vertex_stage_desc).ok().unwrap();
+
     if ctx.get_shader_stage_result(vertex_shader, &mut shader_result) != OK {
         fail!(
             "{}\nshader build failed with error {}\n",
-            shaders::BASIC_VERTEX,
-            shader_result.details
-        );
-    }
-
-    res = ctx.create_shader_stage(&vertex_stage_desc, &mut vertex_shader);
-    assert_eq!(res, OK);
-    if ctx.get_shader_stage_result(vertex_shader, &mut shader_result) != OK {
-        fail!(
-            "{}\nshader build failed - {}\n",
             shaders::BASIC_VERTEX,
             shader_result.details
         );
@@ -178,8 +145,7 @@ fn main() {
         stage_type: FRAGMENT_SHADER,
         src: &[shaders::BASIC_FRAGMENT]
     };
-    res = ctx.create_shader_stage(&fragment_stage_desc, &mut fragment_shader);
-    assert_eq!(res, OK);
+    let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
     if ctx.get_shader_stage_result(fragment_shader, &mut shader_result) != OK {
         fail!(
             "{}\nshader build failed - {}\n",
@@ -198,12 +164,7 @@ fn main() {
             ("a_uv", 1)
         ]
     };
-    let mut pipeline = ShaderPipelineObject::new();
-    res = ctx.create_shader_pipeline(
-        &pipeline_desc,
-        &mut pipeline
-    );
-    assert_eq!(res, OK);
+    let pipeline = ctx.create_shader_pipeline(&pipeline_desc).ok().unwrap();
     
     if ctx.get_shader_pipeline_result(pipeline, &mut shader_result) != OK {
         fail!("Pipline link failed - {}\n", shader_result.details);
@@ -218,13 +179,10 @@ fn main() {
         size: 4,
     };
 
-    let mut dyn_ubo = BufferObject::new();
-    res = ctx.create_buffer(&dyn_ubo_desc, &mut dyn_ubo);
-
-    res = ctx.with_write_only_mapped_buffer(
+    let dyn_ubo = ctx.create_buffer(&dyn_ubo_desc).ok().unwrap();
+    ctx.with_write_only_mapped_buffer(
         dyn_ubo, |mapped_ubo| { mapped_ubo[0] = 0.5f32; }
     );
-    assert_eq!(res, OK);
 
     let ubo_binding_index = 0;
     ctx.bind_uniform_buffer(ubo_binding_index, dyn_ubo, None);
@@ -243,14 +201,14 @@ fn main() {
         let elapsed_time = frame_start_time - previous_time;
 
         time += elapsed_time as f32;
-        res = ctx.with_write_only_mapped_buffer(
+        ctx.with_write_only_mapped_buffer(
             dyn_ubo, |mapped_ubo| { mapped_ubo[0] = time * 0.000000001; }
         );
 
-        assert_eq!(OK, ctx.clear(COLOR));
-        assert_eq!(OK, ctx.set_shader(pipeline));
-        assert_eq!(OK, ctx.draw(geom, VertexRange(0, 3), TRIANGLES, NO_BLENDING, COLOR));
-        assert_eq!(OK, ctx.flush());
+        ctx.clear(COLOR);
+        ctx.set_shader(pipeline);
+        ctx.draw(geom, VertexRange(0, 3), TRIANGLES, NO_BLENDING, COLOR);
+        ctx.flush();
 
         window.swap_buffers();
 

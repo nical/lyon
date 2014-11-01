@@ -28,10 +28,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
 
     fn create_texture(&mut self,
         descriptor: &TextureDescriptor,
-        output: &mut TextureObject
-    ) -> ResultCode {
+    ) -> Result<TextureObject, ResultCode> {
         println!("device.create_texture({})", descriptor);
-        let result = self.backend.create_texture(descriptor, output);
+        let result = self.backend.create_texture(descriptor);
         println!("-> {}", result);
         return result;
     }
@@ -58,10 +57,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn create_shader_stage(
         &mut self,
         descriptor: &ShaderStageDescriptor,
-        output: &mut ShaderStageObject
-    ) -> ResultCode {
+    ) -> Result<ShaderStageObject, ResultCode> {
         println!("device.create_shader_stage({})", descriptor);
-        let result = self.backend.create_shader_stage(descriptor, output);
+        let result = self.backend.create_shader_stage(descriptor);
         println!("-> {}", result);
         return result;
     }
@@ -88,10 +86,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn create_shader_pipeline(
         &mut self,
         descriptor: &ShaderPipelineDescriptor,
-        output: &mut ShaderPipelineObject
-    ) -> ResultCode {
-        println!("device.create_shader_pipeline({}, [out])", descriptor);
-        let result = self.backend.create_shader_pipeline(descriptor, output);
+    ) -> Result<ShaderPipelineObject, ResultCode> {
+        println!("device.create_shader_pipeline({})", descriptor);
+        let result = self.backend.create_shader_pipeline(descriptor);
         println!("-> {}", result);
         return result;
     }
@@ -118,10 +115,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn create_buffer(
         &mut self,
         descriptor: &BufferDescriptor,
-        buffer: &mut BufferObject,
-    ) -> ResultCode {
+    ) -> Result<BufferObject, ResultCode> {
         println!("device.create_buffer({}, [out])", descriptor);
-        let result = self.backend.create_buffer(descriptor, buffer);
+        let result = self.backend.create_buffer(descriptor);
         println!("-> {}", result);
         return result;
     }
@@ -166,10 +162,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn create_geometry(
         &mut self,
         descriptor: &GeometryDescriptor,
-        geometry: &mut GeometryObject
-    ) -> ResultCode {
-        println!("device.create_geometry({}, [out])", descriptor);
-        let result = self.backend.create_geometry(descriptor, geometry);
+    ) -> Result<GeometryObject, ResultCode> {
+        println!("device.create_geometry({})", descriptor);
+        let result = self.backend.create_geometry(descriptor);
         println!("-> {}", result);
         return result;
     }
@@ -188,10 +183,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
     fn create_render_target(
         &mut self,
         descriptor: &RenderTargetDescriptor,
-        target: &mut RenderTargetObject,
-    ) -> ResultCode {
-        println!("device.create_render_target({}, [out])", descriptor);
-        let result = self.backend.create_render_target(descriptor, target);
+    ) -> Result<RenderTargetObject, ResultCode> {
+        println!("device.create_render_target({})", descriptor);
+        let result = self.backend.create_render_target(descriptor);
         println!("-> {}", result);
         return result;
     }

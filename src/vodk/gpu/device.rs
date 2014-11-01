@@ -100,9 +100,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
 
     pub fn create_texture(&mut self,
         descriptor: &TextureDescriptor,
-        output: &mut TextureObject
-    ) -> ResultCode {
-        return self.backend.create_texture(descriptor, output);
+    ) -> Result<TextureObject, ResultCode> {
+        return self.backend.create_texture(descriptor);
     }
 
     pub fn destroy_texture(
@@ -123,9 +122,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn create_shader_stage(
         &mut self,
         descriptor: &ShaderStageDescriptor,
-        output: &mut ShaderStageObject
-    ) -> ResultCode {
-        return self.backend.create_shader_stage(descriptor, output);
+    ) -> Result<ShaderStageObject, ResultCode> {
+        return self.backend.create_shader_stage(descriptor);
     }
 
     pub fn get_shader_stage_result(
@@ -146,9 +144,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn create_shader_pipeline(
         &mut self,
         descriptor: &ShaderPipelineDescriptor,
-        output: &mut ShaderPipelineObject
-    ) -> ResultCode {
-        return self.backend.create_shader_pipeline(descriptor, output);
+    ) -> Result<ShaderPipelineObject, ResultCode> {
+        return self.backend.create_shader_pipeline(descriptor);
     }
 
     pub fn get_shader_pipeline_result(
@@ -169,9 +166,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn create_buffer(
         &mut self,
         descriptor: &BufferDescriptor,
-        buffer: &mut BufferObject,
-    ) -> ResultCode {
-        return self.backend.create_buffer(descriptor, buffer);
+    ) -> Result<BufferObject, ResultCode> {
+        return self.backend.create_buffer(descriptor);
     }
 
     pub fn destroy_buffer(
@@ -284,9 +280,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn create_geometry(
         &mut self,
         descriptor: &GeometryDescriptor,
-        geometry: &mut GeometryObject
-    ) -> ResultCode {
-        return self.backend.create_geometry(descriptor, geometry);
+    ) -> Result<GeometryObject, ResultCode> {
+        return self.backend.create_geometry(descriptor);
     }
 
     pub fn get_vertex_attribute_location(
@@ -300,9 +295,8 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn create_render_target(
         &mut self,
         descriptor: &RenderTargetDescriptor,
-        target: &mut RenderTargetObject,
-    ) -> ResultCode {
-        return self.backend.create_render_target(descriptor, target);
+    ) -> Result<RenderTargetObject, ResultCode> {
+        return self.backend.create_render_target(descriptor);
     }
 
     pub fn destroy_render_target(
@@ -413,8 +407,7 @@ pub trait DeviceBackend {
 
     fn create_texture(&mut self,
         descriptor: &TextureDescriptor,
-        output: &mut TextureObject
-    ) -> ResultCode;
+    ) -> Result<TextureObject, ResultCode>;
 
     fn destroy_texture(
         &mut self,
@@ -430,8 +423,7 @@ pub trait DeviceBackend {
     fn create_shader_stage(
         &mut self,
         descriptor: &ShaderStageDescriptor,
-        shader: &mut ShaderStageObject
-    ) -> ResultCode;
+    ) -> Result<ShaderStageObject, ResultCode>;
 
     fn get_shader_stage_result(
         &mut self,
@@ -447,8 +439,7 @@ pub trait DeviceBackend {
     fn create_shader_pipeline(
         &mut self,
         descriptor: &ShaderPipelineDescriptor,
-        shader: &mut ShaderPipelineObject
-    ) -> ResultCode;
+    ) -> Result<ShaderPipelineObject, ResultCode>;
 
     fn get_shader_pipeline_result(
         &mut self,
@@ -464,8 +455,7 @@ pub trait DeviceBackend {
     fn create_buffer(
         &mut self,
         descriptor: &BufferDescriptor,
-        buffer: &mut BufferObject,
-    ) -> ResultCode;
+    ) -> Result<BufferObject, ResultCode>;
 
     fn destroy_buffer(
         &mut self,
@@ -492,8 +482,7 @@ pub trait DeviceBackend {
     fn create_geometry(
         &mut self,
         descriptor: &GeometryDescriptor,
-        geometry: &mut GeometryObject
-    ) -> ResultCode;
+    ) -> Result<GeometryObject, ResultCode>;
 
     fn get_vertex_attribute_location(
         &mut self,
@@ -504,8 +493,7 @@ pub trait DeviceBackend {
     fn create_render_target(
         &mut self,
         descriptor: &RenderTargetDescriptor,
-        target: &mut RenderTargetObject,
-    ) -> ResultCode;
+    ) -> Result<RenderTargetObject, ResultCode>;
 
     fn destroy_render_target(
         &mut self,

@@ -12,7 +12,7 @@ use data;
 
 pub struct OpenGLDeviceBackend {
     current_render_target: RenderTargetObject,
-    current_shader_pipeline: ShaderPipelineObject,
+    current_shader: ShaderPipelineObject,
     current_geometry: GeometryObject,
     current_target_types: TargetTypes,
     current_blend_mode: BlendMode,
@@ -21,6 +21,9 @@ pub struct OpenGLDeviceBackend {
 
 impl OpenGLDeviceBackend {
     fn check_errors(&mut self) -> ResultCode {
+        if self.error_flags & IGNORE_ERRORS != 0 {
+            return OK;
+        }
         let gl_error = gl::GetError();
         if gl_error == gl::NO_ERROR {
             return OK;
@@ -72,8 +75,8 @@ impl DeviceBackend for OpenGLDeviceBackend {
             GEOMETRY_SHADING => false,
             COMPUTE => false,
             DEPTH_TEXTURE => false,
-            RENDER_TO_TEXTURE => false,
-            MULTIPLE_RENDER_TARGETS => false,
+            RENDER_TO_TEXTURE => true,
+            MULTIPLE_RENDER_TARGETS => true,
             INSTANCED_RENDERING => false,
         };
     }
@@ -85,13 +88,13 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn create_texture(
         &mut self,
         descriptor: &TextureDescriptor,
-        texture: &mut TextureObject
-    ) -> ResultCode {
+    ) -> Result<TextureObject, ResultCode> {
+        let mut texture = TextureObject::new();
         unsafe {
             gl::GenTextures(1, &mut texture.handle);
         }
         set_texture_flags(texture.handle, descriptor.flags);
-        return OK;
+        return Ok(texture);
     }
 
     fn destroy_texture(
@@ -118,9 +121,10 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn create_shader_stage(
         &mut self,
         descriptor: &ShaderStageDescriptor,
-        shader: &mut ShaderStageObject
-    ) -> ResultCode {
-        shader.handle = gl::CreateShader(gl_shader_type(descriptor.stage_type));
+    ) -> Result<ShaderStageObject, ResultCode> {
+        let mut shader = ShaderStageObject {
+            handle: gl::CreateShader(gl_shader_type(descriptor.stage_type))
+        };
         unsafe {
             let mut lines: Vec<*const i8> = Vec::new();
             let mut lines_len: Vec<i32> = Vec::new();
@@ -138,17 +142,17 @@ impl DeviceBackend for OpenGLDeviceBackend {
             );
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
 
             gl::CompileShader(shader.handle);
 
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
         }
-        return OK;
+        return Ok(shader);
     }
 
     fn get_shader_stage_result(
@@ -189,9 +193,10 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn create_shader_pipeline(
         &mut self,
         descriptor: &ShaderPipelineDescriptor,
-        pipeline: &mut ShaderPipelineObject
-    ) -> ResultCode {
-        pipeline.handle = gl::CreateProgram();
+    ) -> Result<ShaderPipelineObject, ResultCode> {
+        let mut pipeline = ShaderPipelineObject {
+            handle: gl::CreateProgram()
+        };
         for stage in descriptor.stages.iter() {
             gl::AttachShader(pipeline.handle, stage.handle);
         }
@@ -199,7 +204,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         for &(ref name, loc) in descriptor.attrib_locations.iter() {
             if loc < 0 {
                 gl::DeleteProgram(pipeline.handle);
-                return INVALID_ARGUMENT_ERROR;
+                return Err(INVALID_ARGUMENT_ERROR);
             }
             unsafe {
                 name.with_c_str(|c_name| {
@@ -209,7 +214,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         }
 
         gl::LinkProgram(pipeline.handle);
-        return OK;
+        return Ok(pipeline);
     }
 
     fn get_shader_pipeline_result(
@@ -262,21 +267,23 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn create_buffer(
         &mut self,
         descriptor: &BufferDescriptor,
-        buffer: &mut BufferObject,
-    ) -> ResultCode {
+    ) -> Result<BufferObject, ResultCode> {
         unsafe {
+            let mut buffer = BufferObject::new();
             gl::GenBuffers(1, &mut buffer.handle);
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
 
             buffer.size = descriptor.size;
             buffer.buffer_type = descriptor.buffer_type;
 
             if descriptor.size == 0 {
-                return OK;
+                return Ok(buffer);
             }
+
+            // allocate the buffer
 
             gl::BindBuffer(
                 gl_buffer_type(descriptor.buffer_type),
@@ -284,7 +291,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             );
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
 
             gl::BufferData(
@@ -295,11 +302,10 @@ impl DeviceBackend for OpenGLDeviceBackend {
             );
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
+            return Ok(buffer);
         }
-
-        return OK;
     }
 
     fn destroy_buffer(
@@ -363,28 +369,27 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn create_geometry(
         &mut self,
         descriptor: &GeometryDescriptor,
-        output: &mut GeometryObject
-    ) -> ResultCode {
+    ) -> Result<GeometryObject, ResultCode> {
         let mut handle: u32 = 0;
         unsafe {
             gl::GenVertexArrays(1, &mut handle);
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
         }
 
         gl::BindVertexArray(handle);
         match self.check_errors() {
             OK => {}
-            error => { return error; }
+            error => { return Err(error); }
         }
 
         for attr in descriptor.attributes.iter() {
             gl::BindBuffer(gl::ARRAY_BUFFER, attr.buffer.handle);
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
             unsafe {
                 gl::VertexAttribPointer(
@@ -397,12 +402,12 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 );
                 match self.check_errors() {
                     OK => {}
-                    error => { return error; }
+                    error => { return Err(error); }
                 }
                 gl::EnableVertexAttribArray(attr.location as u32);
                 match self.check_errors() {
                     OK => {}
-                    error => { return error; }
+                    error => { return Err(error); }
                 }
             }
         }
@@ -412,7 +417,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo.handle);
                 match self.check_errors() {
                     OK => {}
-                    error => { return error; }
+                    error => { return Err(error); }
                 }
             }
             None => {}
@@ -420,10 +425,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
 
         gl::BindVertexArray(0);
 
-        *output = GeometryObject {
-            handle: handle,
-        };
-        return OK;
+        return Ok(GeometryObject { handle: handle });
     }
 
     fn get_vertex_attribute_location(
@@ -445,8 +447,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn create_render_target(
         &mut self,
         descriptor: &RenderTargetDescriptor,
-        target: &mut RenderTargetObject,
-    ) -> ResultCode {
+    ) -> Result<RenderTargetObject, ResultCode> {
         let mut fbo: u32 = 0;
         unsafe {
             gl::GenFramebuffers(1, &mut fbo);
@@ -455,7 +456,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
         match self.check_errors() {
             OK => {}
-            error => { return error; }
+            error => { return Err(error); }
         }
 
         for i in range(0, descriptor.color_attachments.len()) {
@@ -468,7 +469,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             );
             match self.check_errors() {
                 OK => {}
-                error => { return error; }
+                error => { return Err(error); }
             }
         }
 
@@ -483,7 +484,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 );
                 match self.check_errors() {
                     OK => {}
-                    error => { return error; }
+                    error => { return Err(error); }
                 }
             }
             _ => {}
@@ -500,7 +501,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 );
                 match self.check_errors() {
                     OK => {}
-                    error => { return error; }
+                    error => { return Err(error); }
                 }
             }
             _ => {}
@@ -512,11 +513,10 @@ impl DeviceBackend for OpenGLDeviceBackend {
             unsafe {
                 gl::DeleteFramebuffers(1, &fbo);
             }
-            return from_gl_error(status);
+            return Err(from_gl_error(status));
         }
 
-        target.handle = fbo;
-        return OK;
+        return Ok(RenderTargetObject { handle: fbo });
     }
 
     fn destroy_render_target(
@@ -707,10 +707,10 @@ impl DeviceBackend for OpenGLDeviceBackend {
 
     fn set_shader(&mut self, shader: ShaderPipelineObject) -> ResultCode {
         self.check_errors();
-        if self.current_shader_pipeline == shader {
+        if self.current_shader == shader {
             return OK;
         }
-        self.current_shader_pipeline = shader;
+        self.current_shader = shader;
         gl::UseProgram(shader.handle);
         return self.check_errors();
     }
@@ -773,7 +773,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
 pub fn create_device() -> Device<OpenGLDeviceBackend> {
     Device {
         backend: OpenGLDeviceBackend {
-            current_shader_pipeline: ShaderPipelineObject { handle: 0 },
+            current_shader: ShaderPipelineObject { handle: 0 },
             current_render_target: RenderTargetObject { handle: 0 },
             current_geometry: GeometryObject { handle: 0 },
             current_target_types: 0,
@@ -783,17 +783,15 @@ pub fn create_device() -> Device<OpenGLDeviceBackend> {
     }
 }
 
-pub fn create_debug_device(err_flags: ErrorFlags) -> Device<LoggingProxy<OpenGLDeviceBackend>> {
+pub fn create_debug_device(err_flags: ErrorFlags) -> Device<OpenGLDeviceBackend> {
     Device {
-        backend: LoggingProxy {
-            backend: OpenGLDeviceBackend {
-                current_shader_pipeline: ShaderPipelineObject { handle: 0 },
-                current_render_target: RenderTargetObject { handle: 0 },
-                current_geometry: GeometryObject { handle: 0 },
-                current_target_types: 0,
-                current_blend_mode: NO_BLENDING,
-                error_flags: err_flags,
-            }
+        backend: OpenGLDeviceBackend {
+            current_shader: ShaderPipelineObject { handle: 0 },
+            current_render_target: RenderTargetObject { handle: 0 },
+            current_geometry: GeometryObject { handle: 0 },
+            current_target_types: 0,
+            current_blend_mode: NO_BLENDING,
+            error_flags: err_flags,
         }
     }
 }
