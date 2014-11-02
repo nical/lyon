@@ -776,15 +776,17 @@ pub fn create_device() -> Device<OpenGLDeviceBackend> {
     }
 }
 
-pub fn create_debug_device(err_flags: ErrorFlags) -> Device<OpenGLDeviceBackend> {
+pub fn create_debug_device(err_flags: ErrorFlags) -> Device<LoggingProxy<OpenGLDeviceBackend>> {
     Device {
-        backend: OpenGLDeviceBackend {
-            current_shader: ShaderPipelineObject { handle: 0 },
-            current_render_target: RenderTargetObject { handle: 0 },
-            current_geometry: GeometryObject { handle: 0 },
-            current_target_types: 0,
-            current_blend_mode: NO_BLENDING,
-            error_flags: err_flags,
+        backend: LoggingProxy {
+            backend: OpenGLDeviceBackend {
+                current_shader: ShaderPipelineObject { handle: 0 },
+                current_render_target: RenderTargetObject { handle: 0 },
+                current_geometry: GeometryObject { handle: 0 },
+                current_target_types: 0,
+                current_blend_mode: NO_BLENDING,
+                error_flags: err_flags,
+            }
         }
     }
 }

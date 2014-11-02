@@ -2,8 +2,8 @@
 use math::vector;
 use math::units::world;
 use math::units::texels;
-use gfx2d::color::Rgba;
-use gfx2d::shapes;
+use super::color::Rgba;
+use super::shapes;
 use data;
 use std::num;
 
@@ -20,6 +20,7 @@ pub struct FlattenedPath {
     is_closed: bool,
 }
 
+#[repr(C)]
 #[deriving(Show)]
 pub struct Pos2DNormal2DColorExtrusion {
     pub pos: world::Vec2,

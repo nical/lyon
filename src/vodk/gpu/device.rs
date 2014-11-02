@@ -181,7 +181,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
             }
             *data = mem::transmute((
                 ptr,
-                buffer.size as uint
+                buffer.size as uint / mem::size_of::<T>()
             ));
         }
         return OK;

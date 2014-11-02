@@ -1,0 +1,19 @@
+[package]
+
+name = "gfx2d"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+
+[lib]
+name = "gfx2d"
+path = "./lib.rs"
+
+[dependencies.data]
+path = "../data/"
+
+[dependencies.math]
+path = "../math/"
+
+

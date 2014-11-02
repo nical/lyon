@@ -19,11 +19,6 @@ use glfw::Context;
 use math::units::world;
 use math::vector;
 
-// pub mod math {
-//     pub mod units;
-//     pub mod vector;
-// }
-
 struct TransformsBlock {
   model: world::Mat4,
   view: world::Mat4,
