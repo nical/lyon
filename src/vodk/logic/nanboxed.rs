@@ -24,6 +24,7 @@ pub const VOID_TAG_BIT:     Mask = VOID_VALUE as Mask << TAG_OFFSET;
 pub type ByteOffset = uint;
 pub const TAG_OFFSET: ByteOffset = 47;
 
+#[repr(C)]
 #[deriving(Clone, PartialEq, Eq, Show)]
 pub struct Value {
     payload: u64,
