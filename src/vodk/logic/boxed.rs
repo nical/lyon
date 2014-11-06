@@ -158,7 +158,7 @@ mod test {
 
     #[test]
     fn int_value() {
-        let val = 0x0ffffff as i32;
+        let val = -0xeffffff as i32;
         let a = Value::int32(val);
         assert_eq!(a.get_type(), INT32_VALUE);
         assert!(a.is_int32());
