@@ -1,5 +1,5 @@
 use std::mem;
-use nanboxing;
+use nanboxed;
 
 
 // how about
@@ -104,12 +104,10 @@ impl ByteCodeBuilder {
         self.byte_code.push(to);
     }
 
-    pub fn constant(&mut self, to: u8, val: nanboxing::Value) {
+    pub fn constant(&mut self, to: u8, val: nanboxed::Value) {
         self.byte_code.push(OP_CONST);
         self.byte_code.push(to);
         let val_bytes = val.get_bytes();
-
-
 
         println!("pack val {}", val);
         println!("val bytes {}", val.get_bytes().as_slice());

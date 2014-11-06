@@ -144,7 +144,8 @@ impl<T: Iterator<char>> Tokenizer<T> {
                else { None };
     }
 
-    fn error(&self, err: ErrorType) -> Error {
+    fn error(&mut self, err: ErrorType) -> Error {
+        self.finished = true;
         Error {
             line: self.line,
             column: self.column,
@@ -234,10 +235,6 @@ impl<T: Iterator<char>> Tokenizer<T> {
         }
     }
 
-    fn as_keyword(&mut self, word: &str) -> Option<Token> {
-        return None;
-    }
-
     fn parse_word(&mut self) -> Result<Token, Error> {
         let mut first_char = true;
         loop {
@@ -289,7 +286,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
     }
 
     fn parse_number(&mut self) -> Result<Token, Error> {
-        let mut res = self.parse_integer();
+        let res = self.parse_integer();
         let mut fres = res as f64;
         let mut is_int = true;
 
@@ -469,6 +466,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
     #[test]

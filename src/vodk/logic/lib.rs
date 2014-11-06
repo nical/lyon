@@ -1,7 +1,7 @@
 #![feature(macro_rules, globs)]
 #![allow(dead_code)]
 
-mod nanboxing;
+mod nanboxed;
 mod bytecode;
 mod tokenizer;
-mod basic_interpreter;
+mod interpreter1;

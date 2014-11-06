@@ -1,5 +1,5 @@
 
-use nanboxing::*;
+use nanboxed::*;
 use bytecode::*;
 
 use std::mem;
@@ -97,13 +97,11 @@ pub fn exec(
                 registers[code[pc+2] as uint] = registers[code[pc+1] as uint];
                 pc += MOVE_OP_SIZE;
             }
-            unknow_op => {
+            _ => {
                 return Err(InvalidOpCode(op));
             }
         }
     }
-
-    return Ok(());
 }
 
 fn unpack<T>(ptr: &u8) -> &T {
@@ -113,8 +111,9 @@ fn unpack<T>(ptr: &u8) -> &T {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use nanboxing::*;
+    use nanboxed::*;
     use bytecode;
     use super::{exec};
 
@@ -122,7 +121,7 @@ mod tests {
 
     #[test]
     fn empty_script() {
-        let mut registers: &mut [Value] = &mut [];
+        let registers: &mut [Value] = &mut [];
         let mut builder = bytecode::ByteCodeBuilder::new();
         builder.exit();
         let script = builder.end();
@@ -132,7 +131,7 @@ mod tests {
 
     #[test]
     fn empty_simple_addtion() {
-        let mut registers = &mut [
+        let registers = &mut [
             Value::void(), ..3
         ];
         let mut builder = bytecode::ByteCodeBuilder::new();
