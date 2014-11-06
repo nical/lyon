@@ -3,5 +3,5 @@
 
 mod nanboxing;
 mod bytecode;
-mod parser;
+mod tokenizer;
 mod basic_interpreter;
