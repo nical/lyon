@@ -128,6 +128,9 @@ impl Value {
         if self.is_float32() {
             return unsafe { Some(self.get_float32_unchecked()) };
         }
+        if self.is_int32() {
+            return unsafe { Some(self.get_int32_unchecked() as f32) };
+        }
         return None;
     }
 

@@ -1,8 +1,9 @@
 #![feature(macro_rules, globs)]
 #![allow(dead_code)]
 
-mod boxed;
-mod nanboxed;
-mod bytecode;
-mod tokenizer;
-mod interpreter1;
+pub mod boxed;
+pub mod nanboxed;
+pub mod bytecode;
+pub mod tokenizer;
+pub mod interpreter1;
+pub mod ssa;

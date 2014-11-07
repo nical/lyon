@@ -12,7 +12,7 @@ pub enum InterpreterError {
     UnknowError
 }
 
-type InstructionPointer = uint;
+pub type InstructionPointer = uint;
 
 pub fn exec(
     script: &Script,
