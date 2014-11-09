@@ -14,76 +14,167 @@ pub enum InterpreterError {
 
 type ProgramCounter = uint;
 
-fn float32_add(a: f32, b: f32) -> f32 { a + b }
-fn float32_sub(a: f32, b: f32) -> f32 { a - b }
-fn float32_mul(a: f32, b: f32) -> f32 { a * b }
-fn float32_div(a: f32, b: f32) -> f32 { a / b }
+unsafe fn int32_add(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::int32(a.get_int32_unchecked() + b.get_int32_unchecked())
+}
+unsafe fn int32_sub(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::int32(a.get_int32_unchecked() - b.get_int32_unchecked())
+}
+unsafe fn int32_mul(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::int32(a.get_int32_unchecked() * b.get_int32_unchecked())
+}
+unsafe fn int32_div(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::int32(a.get_int32_unchecked() / b.get_int32_unchecked())
+}
+unsafe fn int32_mod(a: boxed::Value, m: boxed::Value) -> boxed::Value {
+    let va = a.get_int32_unchecked();
+    let vm = m.get_int32_unchecked();
+    return boxed::Value::int32((va % vm + vm) % vm);
+}
+unsafe fn int32_cmp_eq(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_int32_unchecked() == b.get_int32_unchecked())
+}
+unsafe fn int32_cmp_lt(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_int32_unchecked() < b.get_int32_unchecked())
+}
+unsafe fn int32_cmp_gt(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_int32_unchecked() > b.get_int32_unchecked())
+}
+unsafe fn int32_cmp_lte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_int32_unchecked() <= b.get_int32_unchecked())
+}
+unsafe fn int32_cmp_gte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_int32_unchecked() >= b.get_int32_unchecked())
+}
 
-fn float32_cmp_eq(a: f32, b: f32) -> bool { a == b }
-fn float32_cmp_lt(a: f32, b: f32) -> bool { a < b }
-fn float32_cmp_gt(a: f32, b: f32) -> bool { a > b }
-fn float32_cmp_lte(a: f32, b: f32) -> bool { a <= b }
-fn float32_cmp_gte(a: f32, b: f32) -> bool { a >= b }
 
-fn int32_add(a: i32, b: i32) -> i32 { a + b }
-fn int32_sub(a: i32, b: i32) -> i32 { a - b }
-fn int32_mul(a: i32, b: i32) -> i32 { a * b }
-fn int32_div(a: i32, b: i32) -> i32 { a / b }
-fn int32_mod(a: i32, m: i32) -> i32 { (a % m + m) % m }
+unsafe fn float32_add(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::float32(a.get_float32_unchecked() + b.get_float32_unchecked())
+}
+unsafe fn float32_sub(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::float32(a.get_float32_unchecked() - b.get_float32_unchecked())
+}
+unsafe fn float32_mul(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::float32(a.get_float32_unchecked() * b.get_float32_unchecked())
+}
+unsafe fn float32_div(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::float32(a.get_float32_unchecked() / b.get_float32_unchecked())
+}
+unsafe fn float32_mod(a: boxed::Value, m: boxed::Value) -> boxed::Value {
+    let va = a.get_float32_unchecked();
+    let vm = m.get_float32_unchecked();
+    return boxed::Value::float32((va % vm + vm) % vm);
+}
+unsafe fn float32_cmp_eq(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a == b)
+}
+unsafe fn float32_cmp_lt(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_float32_unchecked() < b.get_float32_unchecked())
+}
+unsafe fn float32_cmp_gt(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_float32_unchecked() > b.get_float32_unchecked())
+}
+unsafe fn float32_cmp_lte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_float32_unchecked() <= b.get_float32_unchecked())
+}
+unsafe fn float32_cmp_gte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.get_float32_unchecked() >= b.get_float32_unchecked())
+}
 
-fn int32_cmp_eq(a: i32, b: i32) -> bool { a == b }
-fn int32_cmp_lt(a: i32, b: i32) -> bool { a < b }
-fn int32_cmp_gt(a: i32, b: i32) -> bool { a > b }
-fn int32_cmp_lte(a: i32, b: i32) -> bool { a <= b }
-fn int32_cmp_gte(a: i32, b: i32) -> bool { a >= b }
+unsafe fn boxed_add(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    if a.get_type() == boxed::INT32_VALUE && b.get_type() == boxed::INT32_VALUE {
+        return int32_add(a, b);
+    }
+    return boxed::Value::float32(a.to_float32() + b.to_float32());
+}
+unsafe fn boxed_sub(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    if a.get_type() == boxed::INT32_VALUE && b.get_type() == boxed::INT32_VALUE {
+        return int32_add(a, b);
+    }
+    return boxed::Value::float32(a.to_float32() - b.to_float32());
+}
+unsafe fn boxed_mul(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    if a.get_type() == boxed::INT32_VALUE && b.get_type() == boxed::INT32_VALUE {
+        return int32_mul(a, b);
+    }
+    return boxed::Value::float32(a.to_float32() * b.to_float32());
+}
+unsafe fn boxed_div(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    if a.get_type() == boxed::INT32_VALUE && b.get_type() == boxed::INT32_VALUE {
+        return int32_div(a, b);
+    }
+    return boxed::Value::float32(a.to_float32() / b.to_float32());
+}
+unsafe fn boxed_mod(a: boxed::Value, m: boxed::Value) -> boxed::Value {
+    let va = a.to_float32();
+    let vm = m.to_float32();
+    return boxed::Value::float32((va % vm + vm) % vm);
+}
+unsafe fn boxed_cmp_eq(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a == b)
+}
+unsafe fn boxed_cmp_lt(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.to_float32() < b.to_float32())
+}
+unsafe fn boxed_cmp_gt(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.to_float32() > b.to_float32())
+}
+unsafe fn boxed_cmp_lte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.to_float32() <= b.to_float32())
+}
+unsafe fn boxed_cmp_gte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
+    boxed::Value::boolean(a.to_float32() >= b.to_float32())
+}
 
 pub struct Interpreter {
     // TODO: don't separate registers.
-    float32_registers: [f32, ..64],
-    int32_registers: [i32, ..64],
-    boolean_registers: [bool, ..64],
-    boxed_registers: [boxed::Value, ..64],
-    float_binary_functions: [fn(a: f32, b: f32) -> f32, ..4],
-    float_cmp_functions: [fn(a: f32, b: f32) -> bool, ..5],
-    int_binary_functions: [fn(a: i32, b: i32) -> i32, ..5],
-    int_cmp_functions: [fn(a: i32, b: i32) -> bool, ..5],
+    registers: [boxed::Value, ..64],
+    functions: [unsafe fn(a: boxed::Value, b: boxed::Value) -> boxed::Value, ..30],
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            float32_registers: [0.0, ..64],
-            int32_registers: [0, ..64],
-            boolean_registers: [false, ..64],
-            boxed_registers: [boxed::Value::void(), ..64],
-            float_binary_functions: [
+            registers: [boxed::Value::void(), ..64],
+            functions: [
+                boxed_add,
+                boxed_sub,
+                boxed_mul,
+                boxed_div,
+                boxed_mod,
+                boxed_cmp_eq,
+                boxed_cmp_lt,
+                boxed_cmp_gt,
+                boxed_cmp_lte,
+                boxed_cmp_gte,
+
                 float32_add,
                 float32_sub,
                 float32_mul,
                 float32_div,
-            ],
-            float_cmp_functions: [
+                float32_mod,
                 float32_cmp_eq,
                 float32_cmp_lt,
                 float32_cmp_gt,
                 float32_cmp_lte,
                 float32_cmp_gte,
-            ],
-            int_binary_functions: [
+
                 int32_add,
                 int32_sub,
                 int32_mul,
                 int32_div,
                 int32_mod,
-            ],
-            int_cmp_functions: [
                 int32_cmp_eq,
                 int32_cmp_lt,
                 int32_cmp_gt,
                 int32_cmp_lte,
                 int32_cmp_gte,
-            ]
+            ],
         }
+    }
+
+    pub fn get_register(&self, code: &[u8],  offset: uint) -> boxed::Value {
+        return self.registers[code[offset + 1] as uint];
     }
 
     pub fn exec(
@@ -92,116 +183,48 @@ impl Interpreter {
     ) -> Result<(), InterpreterError> {
         unsafe {
         let mut pc: ProgramCounter = 0;
-        let code = &script.bytecode;
+        let code = script.bytecode.as_slice();
 
         loop {
+            println!(" -- pc: {} ", pc);
+
             let op = code[pc];
-            let operator = (op & OP_MASK) as uint;
-            match operator as u8 {
+            match op {
                 OP_NULL => { pc += 1; }
                 OP_EXIT => { return Ok(()); }
                 OP_JMP => { pc = code[pc+1] as uint; }
-                OP_ADD...OP_DIV => {
-                    let operator = operator - OP_ADD as uint;
-                    match op & OP_TYPE_MASK {
-                        OP_TYPE_INT32 => {
-                            self.int32_registers[pc] = self.int_binary_functions[operator](
-                                self.int32_registers[code[pc+1] as uint],
-                                self.int32_registers[code[pc+2] as uint]
-                            );
-                        }
-                        OP_TYPE_FLOAT32 => {
-                            self.float32_registers[pc] = self.float_binary_functions[operator](
-                                self.float32_registers[code[pc+1] as uint],
-                                self.float32_registers[code[pc+2] as uint]
-                            );
-                        }
-                        0 => {
-                            let a = self.boxed_registers[code[pc+1] as uint];
-                            let b = self.boxed_registers[code[pc+2] as uint];
-                            if a.is_int32() && b.is_int32() {
-                                self.boxed_registers[pc] = boxed::Value::int32(
-                                    self.int_binary_functions[operator](
-                                        a.get_int32_unchecked(),
-                                        b.get_int32_unchecked()
-                                    )
-                                );
-                            } else {
-                                let fa = a.get_float32().unwrap();
-                                let fb = b.get_float32().unwrap();
-                                self.boxed_registers[pc] = boxed::Value::float32(
-                                    self.float_binary_functions[operator](fa, fb)
-                                );
-                            }
-                        }
-                        _ => { fail!(); }
-                    }
-                    pc += 3;
+                OP_ADD...OP_GTE_I32 => {
+                    println!("op {} (${}, ${})", op, code[pc+2], code[pc+3]);
+                    self.registers[code[pc+1] as uint] = self.functions[(op - OP_ADD) as uint](
+                        self.get_register(code, code[pc+2] as uint),
+                        self.get_register(code, code[pc+3] as uint)
+                    );
+                    pc += 4;
                 }
-                OP_EQ...OP_GTE => {
-                    let operator = operator - OP_EQ as uint;
-                    match op & OP_TYPE_MASK {
-                        OP_TYPE_INT32 => {
-                            self.boolean_registers[pc] = self.int_cmp_functions[operator](
-                                self.int32_registers[code[pc+1] as uint],
-                                self.int32_registers[code[pc+2] as uint]
-                            );
-                        }
-                        OP_TYPE_FLOAT32 => {
-                            self.boolean_registers[pc] = self.float_cmp_functions[operator](
-                                self.float32_registers[code[pc+1] as uint],
-                                self.float32_registers[code[pc+2] as uint]
-                            );
-                        }
-                        0 => {
-                            let a = self.boxed_registers[code[pc+1] as uint];
-                            let b = self.boxed_registers[code[pc+2] as uint];
-                            if a.is_int32() && b.is_int32() {
-                                self.boolean_registers[pc] = self.int_cmp_functions[operator](
-                                    a.get_int32_unchecked(),
-                                    b.get_int32_unchecked()
-                                );
-                            } else {
-                                let fa = a.get_float32().unwrap();
-                                let fb = b.get_float32().unwrap();
-                                self.boolean_registers[pc] = self.float_cmp_functions[operator as uint](fa, fb);
-                            }
-                        }
-                        _ => { fail!() }
-                    }
-                    pc += 3;
+                OP_CONST_I32 => {
+                    self.registers[code[pc+1] as uint] = boxed::Value::int32(*unpack::<i32>(&code[pc+2]));
+                    pc += 6;
                 }
-                OP_CONST => {
-                    match op & OP_TYPE_MASK {
-                        OP_TYPE_INT32 => {
-                            self.int32_registers[pc] = *unpack::<i32>(&code[pc+1]);
-                            pc += 5;
-                        }
-                        OP_TYPE_FLOAT32 => {
-                            self.float32_registers[pc] = *unpack::<f32>(&code[pc+1]);
-                            pc += 5;
-                        }
-                        0 => {
-                            self.boxed_registers[pc] = *unpack::<boxed::Value>(&code[pc+1]);
-                            pc += 9;
-                        }
-                        _ => { fail!() }
+                OP_CONST_F32 => {
+                    self.registers[code[pc+1] as uint] = boxed::Value::float32(*unpack::<f32>(&code[pc+2]));
+                    pc += 6;
+                }
+                OP_CONST_BOXED => {
+                    self.registers[code[pc+1] as uint] = *unpack::<boxed::Value>(&code[pc+2]);
+                    pc += 10;
+                }
+                OP_BRANCH => {
+                    let cond = self.get_register(code, code[pc+1] as uint).to_i32();
+                    if cond != 0 {
+                        pc = code[pc+2] as uint;
+                    } else {
+                        pc += 3;
                     }
                 }
                 OP_DBG => {
-                    let addr = code[pc+1] as uint;  
-                    match op & OP_TYPE_MASK {
-                        OP_TYPE_INT32 => {
-                            println!("dbg: int32 register {} = {}", addr, self.int32_registers[addr]);
-                        }
-                        OP_TYPE_FLOAT32 => {
-                            println!("dbg: float32 register {} = {}", addr, self.float32_registers[addr]);
-                        }
-                        0 => {
-                            println!("dbg: boxed register {} = {}", addr, self.boxed_registers[addr]);
-                        }
-                        _ => { fail!() }
-                    }
+                    let addr = code[pc+1] as uint;
+                    let val = self.get_register(code, addr);
+                    println!("dbg - register[{}] = {}", addr, val);
                     pc += 2;
                 }
                 _ => { fail!(); }
@@ -222,39 +245,25 @@ fn unpack<T>(ptr: &u8) -> &T {
 
 pub struct Script {
     pub bytecode: Vec<u8>,
-    pub register_versions: Vec<u8>,
 }
 
 #[cfg(test)]
 mod test {
     use ssa::bytecode::*;
     use super::*;
+    use ssa::emitter::*;
 
     #[test]
     fn simple_addition() {
         let mut code: Vec<u8> = Vec::new();
-        /* 0*/code.push(OP_NULL);
-        /* 1*/code.push(OP_CONST|OP_TYPE_INT32);
-        /* 2*/code.push(42);
-        /* 3*/code.push(0);
-        /* 4*/code.push(0);
-        /* 5*/code.push(0);
-        /* 6*/code.push(OP_CONST|OP_TYPE_INT32);
-        /* 7*/code.push(8);
-        /* 8*/code.push(0);
-        /* 9*/code.push(0);
-        /*10*/code.push(0);
-        /*11*/code.push(OP_ADD|OP_TYPE_INT32);
-        /*12*/code.push(1);
-        /*13*/code.push(6);
-        /*14*/code.push(OP_DBG|OP_TYPE_INT32); // should print 50
-        /*15*/code.push(11);
-        /*16*/code.push(OP_EXIT);
 
-        let script = Script {
-            bytecode: code,
-            register_versions: Vec::new(),
-        };
+        let mut emitter = Emitter::new();
+        let a = emitter.int32_constant(42, register(0));
+        let b = emitter.int32_constant(8, register(1));
+        let res = emitter.operator(OP_ADD, a, b, register(2));
+        emitter.debug(res);
+        emitter.exit();
+        let script = emitter.end();
 
         let mut interpreter = Interpreter::new();
         interpreter.exec(&script);

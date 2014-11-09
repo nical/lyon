@@ -1,11 +1,6 @@
 use std::mem;
 use nanboxed;
 
-
-// how about
-// OP_ADD(r1, r2), OP_STORE(result)
-// OP_CMP(r1, r2), OP_JUMP(to)
-
 pub type ByteCode = u8;
 
 // binary ops
