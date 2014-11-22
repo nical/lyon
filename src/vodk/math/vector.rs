@@ -11,7 +11,8 @@
 
 use std::mem;
 use std::ops;
-use std::num;
+use std::num::Float;
+use std::num::FloatMath;
 use std::default::Default;
 
 pub static EPSILON: f32 = 0.000001;
@@ -623,13 +624,6 @@ impl<U> Matrix2x2<U> {
     }
 }
 
-impl<U>
-    num::One
-    for Matrix2x2<U> {
-    #[inline]
-    fn one() -> Matrix2x2<U> { Matrix2x2::identity() }
-}
-
 #[allow(dead_code)]
 impl<U> Matrix3x3<U> {
 
@@ -729,11 +723,6 @@ impl<U> Matrix3x3<U> {
         self._12 = 0.0; self._22 = 1.0; self._32 = 0.0;
         self._13 = 0.0; self._23 = 0.0; self._33 = 1.0;
     }
-}
-
-impl<U> num::One for Matrix3x3<U> {
-    #[inline]
-    fn one() -> Matrix3x3<U> { Matrix3x3::identity() }
 }
 
 #[allow(dead_code)]
@@ -933,7 +922,7 @@ impl<U> Matrix4x4<U> {
         let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
 
         if det.abs() < EPSILON {
-            fail!(); // TODO
+            panic!(); // TODO
         }
 
         let det = 1.0 / det;
@@ -981,11 +970,6 @@ impl<U> ops::Mul<Matrix4x4<U>, Matrix4x4<U>> for Matrix4x4<U> {
             _44: self._41 * rhs._14 + self._42 * rhs._24 + self._43 * rhs._34 + self._44 * rhs._44,
         };
     }
-}
-
-impl<U> num::One for Matrix4x4<U> {
-    #[inline]
-    fn one() -> Matrix4x4<U> { Matrix4x4::identity() }
 }
 
 #[allow(dead_code)]

@@ -5,11 +5,9 @@ use math::units::texels;
 use super::color::Rgba;
 use super::shapes;
 use data;
-use std::num;
+use std::num::FloatMath;
 
 static PI: f32 = 3.1415;
-
-fn abs<T: num::Signed>(a:T) -> T { a.abs() }
 
 pub type TesselationFlags = u32;
 pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
@@ -45,9 +43,9 @@ fn normal(v: world::Vec2) -> world::Vec2 {
 }
 
 pub enum PointType {
-    BorderPoint,
-    InteriorPoint,
-    AntialiasPoint,
+    Border,
+    Interior,
+    Antialias,
 }
 
 fn line_intersection<U>(
@@ -88,7 +86,7 @@ pub fn path_to_line_vbo(
 ) {
     let vertex_antialiasing = (flags & VERTEX_ANTIALIASING) != 0;
     if path.len() < 2 {
-        fail!("invalid path");
+        panic!("invalid path");
     }
 
     let stride = if vertex_antialiasing { 4 } else { 2 };
@@ -102,8 +100,8 @@ pub fn path_to_line_vbo(
     for i in range(0, path.len()) {
         let pos = transform.transform_2d(&path[i]);
 
-        let color = color_fn(i, BorderPoint);
-        let color_aa = color_fn(i, AntialiasPoint);
+        let color = color_fn(i, PointType::Border);
+        let color_aa = color_fn(i, PointType::Antialias);
 
         // Compute the normal at the intersection point px
         let p2 = if i < path.len() - 1 { path[i + 1] }
@@ -128,7 +126,7 @@ pub fn path_to_line_vbo(
                     // to avoid running into issues if we divide by its length.
                     // This is wrong but it will do until rounded corners are implemented.
                     //world::vec2(0.0, 0.1);
-                    fail!("Not implemented yet");
+                    panic!("Not implemented yet");
                 }
             }
         };
@@ -312,14 +310,14 @@ pub fn fill_rectangle<'l, T: VertexType2D>(
     let mut d: T = VertexType2D::from_pos(&transform.transform_2d(&rectangle.bottom_left()));
 
     match fill {
-        NoFill => {}
-        FillColor(color) => {
+        FillStyle::None => {}
+        FillStyle::Color(color) => {
             a.set_color(color);
             b.set_color(color);
             c.set_color(color);
             d.set_color(color);
         }
-        FillTexture(uv_transform) => {
+        FillStyle::Texture(uv_transform) => {
             a.set_uv(&uv_transform.transform_2d(&uv_rect.top_left()));
             b.set_uv(&uv_transform.transform_2d(&uv_rect.top_right()));
             c.set_uv(&uv_transform.transform_2d(&uv_rect.bottom_right()));
@@ -344,10 +342,6 @@ pub fn fill_circle<'l, T: VertexType2D>(
 ) -> Range {
     let first_vertex = stream.vertex_cursor as u16;
     let first_index = stream.index_cursor as u16;
-    let pos = transform.transform_2d(&world::vec2(
-        circle.center.x,
-        circle.center.y
-    ));
 
     let mut center: T = VertexType2D::from_pos(
         &transform.transform_2d(&world::vec2(
@@ -357,9 +351,9 @@ pub fn fill_circle<'l, T: VertexType2D>(
     ));
 
     match fill {
-        NoFill => {}
-        FillColor(color) => { center.set_color(color) }
-        FillTexture(uv_transform) => {
+        FillStyle::None => {}
+        FillStyle::Color(color) => { center.set_color(color) }
+        FillStyle::Texture(uv_transform) => {
             center.set_uv(&uv_transform.transform_2d(&texels::vec2(0.5, 0.5)))
         }
     }
@@ -377,9 +371,9 @@ pub fn fill_circle<'l, T: VertexType2D>(
         ));
 
         match fill {
-            NoFill => {}
-            FillColor(color) => { vertex.set_color(color) }
-            FillTexture(uv_transform) => {
+            FillStyle::None => {}
+            FillStyle::Color(color) => { vertex.set_color(color) }
+            FillStyle::Texture(uv_transform) => {
                 vertex.set_uv(
                     &uv_transform.transform_2d(&texels::vec2(
                         0.5 + dx * 0.5,
@@ -423,9 +417,9 @@ pub fn fill_grid<'l, T: VertexType2D>(
             );
 
             match fill {
-                NoFill => {},
-                FillColor(color) => { vertex.set_color(color) }
-                FillTexture(uv_transform) => {
+                FillStyle::None => {},
+                FillStyle::Color(color) => { vertex.set_color(color) }
+                FillStyle::Texture(uv_transform) => {
                     let uv = match uv_grid {
                         Some((uv_columns, uv_lines)) => {
                             uv_transform.transform_2d(&texels::vec2(
@@ -481,9 +475,9 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
         let mut vertex: T = VertexType2D::from_pos(&transform.transform_2d(&path[i]));
 
         match fill {
-            NoFill => {},
-            FillColor(color) => { vertex.set_color(color) }
-            FillTexture(uv_transform) => {
+            FillStyle::None => {},
+            FillStyle::Color(color) => { vertex.set_color(color) }
+            FillStyle::Texture(uv_transform) => {
                 vertex.set_uv(&uv_transform.transform_2d(&texels::vec2(
                     (path[i].x - aabb.x) / aabb.w,
                     (path[i].y - aabb.y) / aabb.h
@@ -541,7 +535,7 @@ pub fn extrude_along_normals(
                 px + n1
             } else {
                 // TODO: the angle is very narrow, use rounded corner instead
-                fail!("Not implemented yet");
+                panic!("Not implemented yet");
             }
         }
     };
@@ -574,19 +568,19 @@ pub fn stroke_path<'l, T: VertexType2D>(
         } else if flags & STROKE_INWARD != 0 {
             p2 = extrude_along_normals(path, i, -thickness, is_closed);
         } else {
-            fail!("unreached");
+            panic!("unreached");
         }
 
         let mut v1: T = VertexType2D::from_pos(&transform.transform_2d(&p1));
         let mut v2: T = VertexType2D::from_pos(&transform.transform_2d(&p2));
 
         match style {
-            NoStroke => {},
-            StrokeColor(color) => {
+            StrokeStyle::None => {},
+            StrokeStyle::Color(color) => {
                 v1.set_color(color);
                 v2.set_color(color);
             }
-            StrokeTexture(uv_transform) => { fail!("TODO"); }
+            StrokeStyle::Texture(uv_transform) => { panic!("TODO"); }
         }
         stream.push_vertex(&v1);
         stream.push_vertex(&v2);
@@ -629,9 +623,9 @@ pub trait VertexType2D: Copy {
 }
 
 pub enum FillStyle<'l> {
-    FillTexture(&'l texels::Mat3),
-    FillColor(&'l Rgba<u8>),
-    NoFill,
+    Texture(&'l texels::Mat3),
+    Color(&'l Rgba<u8>),
+    None,
 }
 
 pub type StrokeFlags = u16;
@@ -641,7 +635,7 @@ pub static STROKE_OUTWARD : StrokeFlags = 1 << 1;
 pub static STROKE_CLOSED  : StrokeFlags = 1 << 2;
 
 pub enum StrokeStyle<'l> {
-    StrokeTexture(&'l texels::Mat3),
-    StrokeColor(&'l Rgba<u8>),
-    NoStroke,
+    Texture(&'l texels::Mat3),
+    Color(&'l Rgba<u8>),
+    None,
 }
