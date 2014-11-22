@@ -80,28 +80,28 @@ impl Graph {
         }
         let c_type = c_type.unwrap();
         {
-            let mut node1 = self.nodes.get_mut(n1.handle as uint);
+            let mut node1 = &mut self.nodes[n1.handle as uint];
             node1.outputs.push(Connection {
                 port: p1,
                 other_node: n2.handle,
                 other_port: p2
             });
             node1.outputs.sort_by(|a,b|{a.port.cmp(&b.port)});
-            match self.type_system.get(node1.node_type).outputs.get(p1 as uint).data_type {
-                Generic(g) => { *node1.generics.get_mut(g as uint) = Some(c_type); }
+            match self.type_system.get(node1.node_type).outputs[p1 as uint].data_type {
+                DataType::Generic(g) => { node1.generics[g as uint] = Some(c_type); }
                 _ => {}
             }
         }
         {
-            let mut node2 = self.nodes.get_mut(n2.handle as uint);
+            let mut node2 = &mut self.nodes[n2.handle as uint];
             node2.inputs.push(Connection {
                 port: p2,
                 other_node: n1.handle,
                 other_port: p1,
             });
             node2.inputs.sort_by(|a,b|{a.port.cmp(&b.port)});
-            match self.type_system.get(node2.node_type).inputs.get(p2 as uint).data_type {
-                Generic(g) => { *node2.generics.get_mut(g as uint) = Some(c_type); }
+            match self.type_system.get(node2.node_type).inputs[p2 as uint].data_type {
+                DataType::Generic(g) => { node2.generics[g as uint] = Some(c_type); }
                 _ => {}
             }
         }
@@ -115,8 +115,8 @@ impl Graph {
             return false;
         }
 
-        let node1 = self.nodes.get(n1.handle as uint);
-        let node2 = self.nodes.get(n2.handle as uint);
+        let node1 = &self.nodes[n1.handle as uint];
+        let node2 = &self.nodes[n2.handle as uint];
 
         let mut connected1 = false;
         for p in node1.outputs.iter() {
@@ -138,7 +138,7 @@ impl Graph {
     }
 
     fn get_node<'l>(&'l self, id: NodeID) -> &'l Node {
-        return self.nodes.get(id.handle as uint);
+        return &self.nodes[id.handle as uint];
     }
 
     pub fn can_connect(&self, n1: NodeID, p1: PortIndex, n2: NodeID, p2: PortIndex) -> bool {
@@ -153,32 +153,32 @@ impl Graph {
 
     pub fn disconnect_input(&mut self, n: NodeID, p: PortID) {
         let n_handle = n.handle as uint;
-        if !self.nodes.get(n_handle).valid {
+        if !self.nodes[n_handle].valid {
             return;
         }
         // look for the connections in n's inputs
         let mut i = 0;
         loop {
-            if i >= self.nodes.get(n_handle).inputs.len() {
+            if i >= self.nodes[n_handle].inputs.len() {
                 break;
             }
-            let inputs_i = *self.nodes.get(n_handle).inputs.get(i);
+            let inputs_i = self.nodes[n_handle].inputs[i];
             if inputs_i.port == p {
                 let input_node = inputs_i.other_node as uint;
                 {
-                    let outputs = &mut self.nodes.get_mut(input_node).outputs;
+                    let outputs = &mut self.nodes[input_node].outputs;
                     // look for the corresponding connection in the othe node's outputs
                     let mut j = 0;
                     loop {
-                        if outputs.get(j).other_node == n.handle
-                            && outputs.get(j).other_port == p {
+                        if outputs[j].other_node == n.handle
+                            && outputs[j].other_port == p {
                             outputs.remove(j);
                             break;
                         }
                         j += 1;
                     }
                 }
-                self.nodes.get_mut(n_handle).inputs.remove(i);
+                self.nodes[n_handle].inputs.remove(i);
             } else {
                 i += 1;
             }
@@ -187,32 +187,32 @@ impl Graph {
 
     pub fn disconnect_output(&mut self, n: NodeID, p: PortID) {
         let n_handle = n.handle as uint;
-        if !self.nodes.get(n_handle).valid {
+        if !self.nodes[n_handle].valid {
             return;
         }
         // look for the connections in n's outputs
         let mut i = 0;
         loop {
-            if i >= self.nodes.get(n_handle).outputs.len() {
+            if i >= self.nodes[n_handle].outputs.len() {
                 break;
             }
-            let outputs_i = *self.nodes.get(n_handle).outputs.get(i);
+            let outputs_i = self.nodes[n_handle].outputs[i];
             if outputs_i.port == p {
                 let output_node = outputs_i.other_node as uint;
                 {
-                    let inputs = &mut self.nodes.get_mut(output_node).inputs;
+                    let inputs = &mut self.nodes[output_node].inputs;
                     // look for the corresponding connection in the othe node's outputs
                     let mut j = 0;
                     loop {
-                        if inputs.get(j).other_node == n.handle
-                            && inputs.get(j).other_port == p {
+                        if inputs[j].other_node == n.handle
+                            && inputs[j].other_port == p {
                             inputs.remove(j);
                             break;
                         }
                         j += 1;
                     }
                 }
-                self.nodes.get_mut(n_handle).outputs.remove(i);
+                self.nodes[n_handle].outputs.remove(i);
             } else {
                 i += 1;
             }
@@ -228,7 +228,7 @@ impl Graph {
         if i == self.nodes.len() {
             self.nodes.push(Node::new(id));
         } else {
-            *self.nodes.get_mut(i) = Node::new(id);
+            self.nodes[i] = Node::new(id);
         }
         return NodeID { handle: i as u16 };
     }
@@ -238,27 +238,27 @@ impl Graph {
             return;
         }
         loop {
-            if self.nodes.get(id.handle as uint).inputs.len() > 0 {
+            if self.nodes[id.handle as uint].inputs.len() > 0 {
                 self.disconnect_input(id, 0);
             } else {
                 break;
             }
         }
         loop {
-            if self.nodes.get(id.handle as uint).outputs.len() > 0 {
+            if self.nodes[id.handle as uint].outputs.len() > 0 {
                 self.disconnect_output(id, 0);
             } else {
                 break;
             }
         }
-        self.nodes.get_mut(id.handle as uint).valid = false;
+        self.nodes[id.handle as uint].valid = false;
     }
 
     pub fn contains(&self, id: NodeID) -> bool {
         if self.nodes.len() <= id.handle as uint {
             return false;
         }
-        return self.nodes.get(id.handle as uint).valid;
+        return self.nodes[id.handle as uint].valid;
     }
 }
 
@@ -284,13 +284,13 @@ impl TypeSystem {
     }
 
     pub fn add(&mut self, desc: NodeDescriptor) -> NodeTypeID {
-        if !desc.is_valid() { fail!("Invalid node descriptor"); }
+        if !desc.is_valid() { panic!("Invalid node descriptor"); }
         self.descriptors.push(desc);
         return NodeTypeID { handle: self.descriptors.len() as i32 - 1 };
     }
 
     pub fn get<'l>(&'l self, type_id: NodeTypeID) -> &'l NodeDescriptor {
-        return self.descriptors.get(type_id.handle as uint);
+        return &self.descriptors[type_id.handle as uint];
     }
 
     pub fn can_connect_types(
@@ -315,7 +315,7 @@ impl TypeSystem {
         let i_types = self.get_input_types(i_node, i_desc, i_port);
 
         let common = intersect_types(o_types, i_types);
-        return if common.len() == 1 { Some(*common.get(0)) }
+        return if common.len() == 1 { Some(common[0]) }
                else { None };
     }
 
@@ -327,13 +327,13 @@ impl TypeSystem {
         if desc.inputs.len() <= port as uint {
             return &[];
         }
-        match desc.inputs.get(port as uint).data_type {
-            Type(ref t) => { return slice::ref_slice(t); }
-            Generic(g) => {
-                match *node.generics.get(g as uint) {
+        match desc.inputs[port as uint].data_type {
+            DataType::Type(ref t) => { return slice::ref_slice(t); }
+            DataType::Generic(g) => {
+                match node.generics[g as uint] {
                     Some(ref t) => { return slice::ref_slice(t); }
                     None => {
-                        return desc.generics.get(g as uint).as_slice();
+                        return desc.generics[g as uint].as_slice();
                     }
                 }
             }
@@ -348,13 +348,13 @@ impl TypeSystem {
         if desc.outputs.len() <= port as uint {
             return &[];
         }
-        match desc.outputs.get(port as uint).data_type {
-            Type(ref t) => { return slice::ref_slice(t); }
-            Generic(g) => {
-                match *node.generics.get(g as uint) {
+        match desc.outputs[port as uint].data_type {
+            DataType::Type(ref t) => { return slice::ref_slice(t); }
+            DataType::Generic(g) => {
+                match node.generics[g as uint] {
                     Some(ref t) => { return slice::ref_slice(t); }
                     None => {
-                        return desc.generics.get(g as uint).as_slice();
+                        return desc.generics[g as uint].as_slice();
                     }
                 }
             }
@@ -369,9 +369,9 @@ impl NodeDescriptor {
         if port as uint >= self.inputs.len() {
             return &[];
         }
-        match self.inputs.get(port as uint).data_type {
-            Type(ref t) => { return slice::ref_slice(t); },
-            Generic(g) => { return self.generics.get(g as uint).as_slice(); }
+        match self.inputs[port as uint].data_type {
+            DataType::Type(ref t) => { return slice::ref_slice(t); },
+            DataType::Generic(g) => { return self.generics[g as uint].as_slice(); }
         }
     }
 
@@ -379,16 +379,16 @@ impl NodeDescriptor {
         if port as uint >= self.outputs.len() {
             return &[];
         }
-        match self.outputs.get(port as uint).data_type {
-            Type(ref t) => { return slice::ref_slice(t); },
-            Generic(g) => { return self.generics.get(g as uint).as_slice(); }
+        match self.outputs[port as uint].data_type {
+            DataType::Type(ref t) => { return slice::ref_slice(t); },
+            DataType::Generic(g) => { return self.generics[g as uint].as_slice(); }
         }
     }
 
     fn is_valid(&self) -> bool {
         for input in self.inputs.iter() {
             match input.data_type {
-                Generic(g) => {
+                DataType::Generic(g) => {
                     if g as uint >= self.generics.len() {
                         return false;
                     }
@@ -398,7 +398,7 @@ impl NodeDescriptor {
         }
         for output in self.outputs.iter() {
             match output.data_type {
-                Generic(g) => {
+                DataType::Generic(g) => {
                     if g as uint >= self.generics.len() {
                         return false;
                     }
@@ -426,18 +426,18 @@ impl<T: Default> NodeAttributeVector<T> {
         while self.data.len() <= id.handle as uint {
             self.data.push(Default::default());
         }
-        *self.data.get_mut(id.handle as uint) = val;
+        self.data[id.handle as uint] = val;
     }
 
     pub fn get<'l>(&'l self, id: NodeID) -> &'l T {
-        return self.data.get(id.handle as uint);
+        return &self.data[id.handle as uint];
     }
 
     pub fn get_mut<'l> (&'l mut self, id: NodeID) -> &'l mut T {
         while self.data.len() <= id.handle as uint {
             self.data.push(Default::default());
         }
-        return self.data.get_mut(id.handle as uint);
+        return &mut self.data[id.handle as uint];
     }
 
     pub fn erase(&mut self, id: NodeID) {
@@ -445,7 +445,7 @@ impl<T: Default> NodeAttributeVector<T> {
             return;
         }
 
-        *self.data.get_mut(id.handle as uint) = Default::default();
+        self.data[id.handle as uint] = Default::default();
     }
 
     pub fn len(&self) -> uint { self.data.len() }
@@ -457,7 +457,7 @@ impl<T: Default> NodeAttributeVector<T> {
 mod tests {
     use super::{
         Graph, NodeDescriptor, DataTypeID,
-        TypeSystem, PortDescriptor, Type, Generic,
+        TypeSystem, PortDescriptor, DataType,
     };
     use std::rc::Rc;
 
@@ -465,29 +465,29 @@ mod tests {
     fn simple_graph() {
         let mut types = TypeSystem::new();
 
-        let INT = DataTypeID{ handle: 0};
-        let FLOAT = DataTypeID{ handle: 1};
+        let INT = DataTypeID { handle: 0};
+        let FLOAT = DataTypeID { handle: 1};
 
         let t1 = types.add(NodeDescriptor {
             generics: Vec::new(),
             inputs: vec!(
-                PortDescriptor { data_type: Type(INT) },
-                PortDescriptor { data_type: Type(INT) },
+                PortDescriptor { data_type: DataType::Type(INT) },
+                PortDescriptor { data_type: DataType::Type(INT) },
             ),
             outputs: vec!(
-                PortDescriptor { data_type: Type(INT) },
-                PortDescriptor { data_type: Type(FLOAT) },
+                PortDescriptor { data_type: DataType::Type(INT) },
+                PortDescriptor { data_type: DataType::Type(FLOAT) },
             ),
         });
 
         let t2 = types.add(NodeDescriptor {
             generics: vec!(vec!(INT, FLOAT)),
             inputs: vec!(
-                PortDescriptor { data_type: Generic(0) },
-                PortDescriptor { data_type: Generic(0) },
+                PortDescriptor { data_type: DataType::Generic(0) },
+                PortDescriptor { data_type: DataType::Generic(0) },
             ),
             outputs: vec!(
-                PortDescriptor { data_type: Generic(0) },
+                PortDescriptor { data_type: DataType::Generic(0) },
             ),
         });
 
@@ -502,8 +502,8 @@ mod tests {
         let n1 = g.add(t1);
         let n2 = g.add(t1);
         let n3 = g.add(t1);
-        let n4 = g.add(t2);
-        let n5 = g.add(t2);
+        let __ = g.add(t2);
+        let __ = g.add(t2);
 
         assert!(!g.are_connected(n1, 0, n2, 0));
         assert!(!g.are_connected(n1, 0, n3, 0));
@@ -527,7 +527,7 @@ mod tests {
         assert!(g.are_connected(n2, 0, n3, 1));
 
         assert!(!g.are_connected(n1, 0, n3, 0));
-        // not connected, shoud do nothing
+        // not connected, should do nothing
         g.disconnect_output(n1, 0);
         g.disconnect_output(n2, 0);
 
