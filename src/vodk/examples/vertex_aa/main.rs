@@ -86,14 +86,14 @@ fn main() {
     let vbo_desc = BufferDescriptor {
         size: (n_points * vertices_per_point *
               mem::size_of::<tesselation::Pos2DNormal2DColorExtrusion>()) as u32,
-        buffer_type: VERTEX_BUFFER,
-        update_hint: STATIC_UPDATE,
+        buffer_type: BufferType::VERTEX,
+        update_hint: UpdateHint::STATIC,
     };
 
     let ibo_desc = BufferDescriptor {
         size: (mem::size_of::<u16>()  * n_indices) as u32,
-        buffer_type: INDEX_BUFFER,
-        update_hint: STATIC_UPDATE,
+        buffer_type: BufferType::INDEX,
+        update_hint: UpdateHint::STATIC,
     };
 
     let vbo = ctx.create_buffer(&vbo_desc).ok().unwrap();
@@ -107,7 +107,7 @@ fn main() {
             tesselation::VERTEX_ANTIALIASING|tesselation::CONVEX_SHAPE,
             |_| { 50.0 },
             |_, ptype| { match ptype {
-                tesselation::AntialiasPoint => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 0.0 },
+                tesselation::PointType::Antialias => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 0.0 },
                 _ => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 1.0 },
             }},
             world::Mat3::rotation(1.0),
@@ -163,23 +163,23 @@ fn main() {
     let geom = ctx.create_geometry(&geom_desc).ok().unwrap();
 
     let vertex_stage_desc = ShaderStageDescriptor {
-        stage_type: VERTEX_SHADER,
+        stage_type: ShaderType::VERTEX_SHADER,
         src: &[shaders::VERTEX]
     };
 
     let vertex_shader = ctx.create_shader_stage(&vertex_stage_desc).ok().unwrap();
     match ctx.get_shader_stage_result(vertex_shader) {
-        Err((_code, msg)) => { fail!("{}\nshader build failed - {}\n", shaders::VERTEX, msg); }
+        Err((_code, msg)) => { panic!("{}\nshader build failed - {}\n", shaders::VERTEX, msg); }
         _ => {}
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
-        stage_type: FRAGMENT_SHADER,
+        stage_type: ShaderType::FRAGMENT_SHADER,
         src: &[shaders::PIXEL]
     };
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
     match ctx.get_shader_stage_result(fragment_shader) {
-        Err((_code, msg)) => { fail!("{}\nshader build failed - {}\n", shaders::PIXEL, msg); }
+        Err((_code, msg)) => { panic!("{}\nshader build failed - {}\n", shaders::PIXEL, msg); }
         _ => {}
     }
 
@@ -194,9 +194,9 @@ fn main() {
     };
 
     let pipeline = ctx.create_shader_pipeline(&pipeline_desc).ok().unwrap();
-    
+
     match ctx.get_shader_pipeline_result(pipeline) {
-        Err((_code, msg)) => { fail!("Shader link failed - {}\n", msg); }
+        Err((_code, msg)) => { panic!("Shader link failed - {}\n", msg); }
         _ => {}
     }
 
@@ -204,14 +204,14 @@ fn main() {
     ctx.set_viewport(0, 0, win_width as i32, win_height as i32);
 
     let transforms_ubo_desc = BufferDescriptor {
-        buffer_type: UNIFORM_BUFFER,
-        update_hint: DYNAMIC_UPDATE,
+        buffer_type: BufferType::UNIFORM,
+        update_hint: UpdateHint::DYNAMIC,
         size: mem::size_of::<gpu::std140::Mat3>() as u32 * 2,
     };
 
     let static_ubo_desc = BufferDescriptor {
-        buffer_type: UNIFORM_BUFFER,
-        update_hint: DYNAMIC_UPDATE,
+        buffer_type: BufferType::UNIFORM,
+        update_hint: UpdateHint::DYNAMIC,
         size: mem::size_of::<texels::Vec2>() as u32,
     };
 
@@ -264,7 +264,7 @@ fn main() {
         ctx.draw(
             geom,
             IndexRange(0, n_indices as u16),
-            TRIANGLES, NO_BLENDING, COLOR|DEPTH
+            TRIANGLES, BlendMode::NONE, COLOR|DEPTH
         );
 
         window.swap_buffers();

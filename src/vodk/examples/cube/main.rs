@@ -19,6 +19,8 @@ use glfw::Context;
 use math::units::world;
 use math::vector;
 
+use std::num::FloatMath;
+
 struct TransformsBlock {
   model: world::Mat4,
   view: world::Mat4,
@@ -98,14 +100,14 @@ fn main() {
 
     let vbo_desc = BufferDescriptor {
         size: 8*4*4*6,
-        buffer_type: VERTEX_BUFFER,
-        update_hint: STATIC_UPDATE,
+        buffer_type: BufferType::VERTEX,
+        update_hint: UpdateHint::STATIC,
     };
 
     let ibo_desc = BufferDescriptor {
         size: 8*4*4*6,
-        buffer_type: INDEX_BUFFER,
-        update_hint: STATIC_UPDATE,
+        buffer_type: BufferType::INDEX,
+        update_hint: UpdateHint::STATIC,
     };
 
     let vbo = ctx.create_buffer(&vbo_desc).ok().unwrap();
@@ -171,7 +173,7 @@ fn main() {
     let vertex_shader = ctx.create_shader_stage(&vertex_stage_desc).ok().unwrap();
     match ctx.get_shader_stage_result(vertex_shader) {
         Err((_code, msg)) => {
-            fail!("{}\nshader build failed - {}\n", shaders::VERTEX, msg);
+            panic!("{}\nshader build failed - {}\n", shaders::VERTEX, msg);
         }
         _ => {}
     }
@@ -183,7 +185,7 @@ fn main() {
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
     match ctx.get_shader_stage_result(fragment_shader) {
         Err((_code, msg)) => {
-            fail!("{}\nshader build failed - {}\n", shaders::FRAGMENT, msg);
+            panic!("{}\nshader build failed - {}\n", shaders::FRAGMENT, msg);
         }
         _ => {}
     }
@@ -198,10 +200,10 @@ fn main() {
     };
 
     let pipeline = ctx.create_shader_pipeline(&pipeline_desc).ok().unwrap();
-    
+
     match ctx.get_shader_pipeline_result(pipeline) {
         Err((_code, msg)) => {
-            fail!("Shader link failed - {}\n", msg);
+            panic!("Shader link failed - {}\n", msg);
         }
         _ => {}
     }
@@ -210,8 +212,8 @@ fn main() {
     ctx.set_viewport(0, 0, win_width as i32, win_height as i32);
 
     let ubo_desc = BufferDescriptor {
-        buffer_type: UNIFORM_BUFFER,
-        update_hint: DYNAMIC_UPDATE,
+        buffer_type: BufferType::UNIFORM,
+        update_hint: UpdateHint::DYNAMIC,
         size: 4*16*3,
     };
 
@@ -260,8 +262,8 @@ fn main() {
         ctx.set_shader(pipeline);
         ctx.draw(
             geom,
-            IndexRange(0, cube_indices.len() as u16),
-            TRIANGLES, NO_BLENDING, COLOR|DEPTH
+            Range::IndexRange(0, cube_indices.len() as u16),
+            TRIANGLES, BlendMode::NONE, COLOR|DEPTH
         );
 
         window.swap_buffers();
@@ -285,7 +287,7 @@ layout(std140)
 uniform u_transforms {
   mat4 model;
   mat4 view;
-  mat4 projection;    
+  mat4 projection;
 };
 attribute vec3 a_position;
 attribute vec3 a_normal;
