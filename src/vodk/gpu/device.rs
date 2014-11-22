@@ -2,7 +2,6 @@ use super::objects::*;
 use super::constants::*;
 use data;
 
-use libc::c_void;
 use std::mem;
 
 pub type AttributeType = data::Type;
@@ -173,18 +172,18 @@ impl<Backend: DeviceBackend> Device<Backend> {
         unsafe {
             let mut ptr = 0 as *mut u8;
             let result = self.backend.map_buffer(buffer, flags, &mut ptr);
-            if result != OK {
+            if result != ResultCode::OK {
                 return result;
             }
             if ptr == 0 as *mut u8 {
-                return UNKNOWN_ERROR;
+                return ResultCode::UNKNOWN_ERROR;
             }
             *data = mem::transmute((
                 ptr,
                 buffer.size as uint / mem::size_of::<T>()
             ));
         }
-        return OK;
+        return ResultCode::OK;
     }
 
     pub fn unmap_buffer(
@@ -199,20 +198,20 @@ impl<Backend: DeviceBackend> Device<Backend> {
         buffer: BufferObject,
         cb: |&mut[T]|
     ) -> ResultCode {
-        let mut mapped_data: &mut[T] = [];
+        let mut mapped_data: &mut[T] = [].as_mut_slice();
         unsafe {
             let result = self.map_buffer(
                 buffer,
                 READ_MAP|WRITE_MAP,
                 &mut mapped_data
             );
-            if result != OK { return result; }
+            if result != ResultCode::OK { return result; }
         }
 
         cb(mapped_data);
 
         self.unmap_buffer(buffer);
-        return OK;
+        return ResultCode::OK;
     }
 
     pub fn with_read_only_mapped_buffer<T>(
@@ -220,20 +219,20 @@ impl<Backend: DeviceBackend> Device<Backend> {
         buffer: BufferObject,
         cb: |&[T]|
     ) -> ResultCode {
-        let mut mapped_data: &mut[T] = [];
+        let mut mapped_data: &mut[T] = [].as_mut_slice();
         unsafe {
             let result = self.map_buffer(
                 buffer,
                 READ_MAP,
                 &mut mapped_data
             );
-            if result != OK { return result; }
+            if result != ResultCode::OK { return result; }
         }
 
         cb(mapped_data);
 
         self.unmap_buffer(buffer);
-        return OK;
+        return ResultCode::OK;
     }
 
     pub fn with_write_only_mapped_buffer<T>(
@@ -241,20 +240,20 @@ impl<Backend: DeviceBackend> Device<Backend> {
         buffer: BufferObject,
         cb: |&mut[T]|
     ) -> ResultCode {
-        let mut mapped_data: &mut[T] = [];
+        let mut mapped_data: &mut[T] = [].as_mut_slice();
         unsafe {
             let result = self.map_buffer(
                 buffer,
                 WRITE_MAP,
                 &mut mapped_data
             );
-            if result != OK { return result; }
+            if result != ResultCode::OK { return result; }
         }
 
         cb(mapped_data);
 
         self.unmap_buffer(buffer);
-        return OK;
+        return ResultCode::OK;
     }
 
     pub fn destroy_geometry(

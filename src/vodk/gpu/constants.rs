@@ -50,9 +50,9 @@ pub enum Feature {
 }
 
 pub enum FeatureSupport {
-    SUPPORTED_FEATURE,
-    FALLBACK_FEATURE,
-    UNSUPPORTED_FEATURE,
+    SUPPORTED,
+    FALLBACK,
+    UNSUPPORTED,
 }
 
 #[deriving(PartialEq, Clone, Show)]
@@ -67,27 +67,27 @@ pub enum PixelFormat {
 
 #[deriving(PartialEq, Clone, Show)]
 pub enum UpdateHint {
-    STATIC_UPDATE,
-    STREAM_UPDATE,
-    DYNAMIC_UPDATE,
+    STATIC,
+    STREAM,
+    DYNAMIC,
 }
 
 #[deriving(PartialEq, Clone, Show)]
 pub enum BufferType {
-    VERTEX_BUFFER,
-    INDEX_BUFFER,
-    UNIFORM_BUFFER,
-    DRAW_INDIRECT_BUFFER,
-    TRANSFORM_FEEDBACK_BUFFER,
+    VERTEX,
+    INDEX,
+    UNIFORM,
+    DRAW_INDIRECT,
+    TRANSFORM_FEEDBACK,
 }
 
 #[deriving(PartialEq, Clone, Show)]
 pub enum BlendMode {
-    NO_BLENDING,
-    ALPHA_BLENDING,
-    ADD_BLENDING,
-    SUB_BLENDING,
-    MUL_BLENDING,
+    NONE,
+    ALPHA,
+    ADD,
+    SUB,
+    MUL,
 }
 
 #[deriving(Clone, PartialEq, Show)]

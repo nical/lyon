@@ -1,4 +1,4 @@
-use super::constants::{BufferType, VERTEX_BUFFER};
+use super::constants::{BufferType};
 
 #[deriving(Show, Clone, PartialEq)]
 pub struct SyncObject { pub handle: u32 }
@@ -26,7 +26,7 @@ impl ShaderStageObject { pub fn new() -> ShaderStageObject { ShaderStageObject {
 impl ShaderPipelineObject { pub fn new() -> ShaderPipelineObject { ShaderPipelineObject { handle: 0 } } }
 impl BufferObject {
     pub fn new() -> BufferObject {
-        BufferObject { handle: 0, size: 0, buffer_type: VERTEX_BUFFER }
+        BufferObject { handle: 0, size: 0, buffer_type: BufferType::VERTEX }
     }
 }
 
