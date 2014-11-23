@@ -186,15 +186,12 @@ impl Interpreter {
         let code = script.bytecode.as_slice();
 
         loop {
-            println!(" -- pc: {} ", pc);
-
             let op = code[pc];
             match op {
                 OP_NULL => { pc += 1; }
                 OP_EXIT => { return Ok(()); }
                 OP_JMP => { pc = code[pc+1] as uint; }
                 OP_ADD...OP_GTE_I32 => {
-                    println!("op {} (${}, ${})", op, code[pc+2], code[pc+3]);
                     self.registers[code[pc+1] as uint] = self.functions[(op - OP_ADD) as uint](
                         self.get_register(code, code[pc+2] as uint),
                         self.get_register(code, code[pc+3] as uint)
@@ -214,7 +211,7 @@ impl Interpreter {
                     pc += 10;
                 }
                 OP_BRANCH => {
-                    let cond = self.get_register(code, code[pc+1] as uint).to_i32();
+                    let cond = self.get_register(code, code[pc+1] as uint).to_int32();
                     if cond != 0 {
                         pc = code[pc+2] as uint;
                     } else {
@@ -224,14 +221,12 @@ impl Interpreter {
                 OP_DBG => {
                     let addr = code[pc+1] as uint;
                     let val = self.get_register(code, addr);
-                    println!("dbg - register[{}] = {}", addr, val);
+                    println!(" -- dbg: {}", val);
                     pc += 2;
                 }
-                _ => { fail!(); }
+                _ => { panic!(); }
             }
         }
-
-        return Ok(());
     } // unsafe
     }
 }

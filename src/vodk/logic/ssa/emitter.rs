@@ -61,11 +61,11 @@ impl Emitter {
         self.code.push(bytecode::OP_NULL);
     }
 
-    pub fn mov(&mut self, from: u8, to: u8, register: Register) -> CodeOffset {
+    pub fn mov(&mut self, from: CodeOffset, to: Register) -> CodeOffset {
         let offset = self.code.len() as u8;
-        self.code.push(bytecode::OP_DIV);
-        self.code.push(register.index);
-        self.code.push(from);
+        self.code.push(bytecode::OP_MOVE);
+        self.code.push(from.offset);
+        self.code.push(to.index);
         CodeOffset {
             offset: offset,
         }

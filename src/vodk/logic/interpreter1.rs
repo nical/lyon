@@ -32,7 +32,7 @@ pub fn exec(
                 match registers[cond].get_boolean() {
                     Some(true) => { pc = code[pc+2] as uint; }
                     Some(false) => { pc += 3; }
-                    None => { return Err(IncompatibleTypes(op, registers[cond].get_type(), BOOLEAN_VALUE)); }
+                    None => { return Err(InterpreterError::IncompatibleTypes(op, registers[cond].get_type(), BOOLEAN_VALUE)); }
                 }
             }
             OP_ADD | OP_SUB | OP_DIV | OP_MUL => {
@@ -44,7 +44,7 @@ pub fn exec(
                 let vb = registers[b];
 
                 if va.get_type() != NUMBER_VALUE && vb.get_type() != NUMBER_VALUE {
-                    return Err(IncompatibleTypes(op, va.get_type(), vb.get_type()));
+                    return Err(InterpreterError::IncompatibleTypes(op, va.get_type(), vb.get_type()));
                 }
 
                 registers[dst] = match op {
@@ -55,7 +55,7 @@ pub fn exec(
                     OP_EQ  => { Value::boolean(va.get_number().unwrap() == vb.get_number().unwrap()) }
                     OP_GT  => { Value::boolean(va.get_number().unwrap() > vb.get_number().unwrap()) }
                     OP_GTE => { Value::boolean(va.get_number().unwrap() >= vb.get_number().unwrap()) }
-                    _ => { fail!() }
+                    _ => { panic!() }
                 };
 
                 pc += BINARY_OP_SIZE;
@@ -69,7 +69,7 @@ pub fn exec(
                 registers[dst] = match op {
                     OP_INC => {
                         if va.get_type() != NUMBER_VALUE {
-                            return Err(IncompatibleTypes(op, va.get_type(), NUMBER_VALUE));
+                            return Err(InterpreterError::IncompatibleTypes(op, va.get_type(), NUMBER_VALUE));
                         }
                         Value::number(va.get_number().unwrap() + 1.0)
                     }
@@ -79,10 +79,10 @@ pub fn exec(
                         } else if va.get_type() == NUMBER_VALUE {
                             Value::boolean(va.get_number().unwrap() as i64 == 0)
                         } else {
-                            return Err(IncompatibleTypes(op, va.get_type(), BOOLEAN_VALUE));
+                            return Err(InterpreterError::IncompatibleTypes(op, va.get_type(), BOOLEAN_VALUE));
                         }
                     }
-                    _ => { fail!() }
+                    _ => { panic!() }
                 };
 
                 pc += UNARY_OP_SIZE;
@@ -98,7 +98,7 @@ pub fn exec(
                 pc += MOVE_OP_SIZE;
             }
             _ => {
-                return Err(InvalidOpCode(op));
+                return Err(InterpreterError::InvalidOpCode(op));
             }
         }
     }
@@ -143,7 +143,7 @@ mod tests {
         let status = exec(&script, registers.as_mut_slice(), 0);
         match status {
             Ok(()) => {}
-            Err(e) => { fail!("exec failed with error {}", e); }
+            Err(e) => { panic!("exec failed with error {}", e); }
         }
         let result = registers[2].get_number().unwrap();
         assert!(fuzzy_eq(result, 15.0));

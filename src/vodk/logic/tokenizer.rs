@@ -1,4 +1,4 @@
-use std::num;
+use std::num::Float;
 use std::char;
 use std::str;
 
@@ -155,7 +155,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
 
     fn parse(&mut self) -> Result<Token, Error> {
         self.parse_whitespace();
-        if self.finished { return Ok(EndOfStream); }
+        if self.finished { return Ok(Token::EndOfStream); }
         match self.ch {
             '0'...'9' => {
                 return self.parse_number();
@@ -173,7 +173,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
             '\"' => {
                 return self.parse_str()
             }
-            _ => { return Err(self.error(InvalidCharacter)); }
+            _ => { return Err(self.error(ErrorType::InvalidCharacter)); }
         }
     }
 
@@ -189,49 +189,49 @@ impl<T: Iterator<char>> Tokenizer<T> {
         let first = self.ch;
         self.bump();
         return match (first, self.ch)  {
-            ('=','=') => { self.bump(); Ok(CmpEqual) }
-            ('!','=') => { self.bump(); Ok(CmpNotEqual) }
-            ('<','=') => { self.bump(); Ok(CmpInferiorEqual) }
-            ('>','=') => { self.bump(); Ok(CmpSuperiorEqual) }
-            ('+','=') => { self.bump(); Ok(InPlaceAdd) }
-            ('-','=') => { self.bump(); Ok(InPlaceSub) }
-            ('*','=') => { self.bump(); Ok(InPlaceMul) }
-            ('/','=') => { self.bump(); Ok(InPlaceDiv) }
-            (':',':') => { self.bump(); Ok(NamespaceSeparator) }
-            ('=','>') => { self.bump(); Ok(FatArrow) }
-            ('-','>') => { self.bump(); Ok(Arrow) }
-            ('.','.') => { self.bump(); Ok(DotDot) }
-            ('|','|') => { self.bump(); Ok(Or) }
-            ('&','&') => { self.bump(); Ok(And) }
-            ('>','>') => { self.bump(); Ok(ShiftRight) }
-            ('<','<') => { self.bump(); Ok(ShiftLeft) }
-            ('|', _ ) => Ok(Pipe),
-            ('&', _ ) => Ok(Amperstand),
-            ('+', _ ) => Ok(Add),
-            ('-', _ ) => Ok(Sub),
-            ('*', _ ) => Ok(Mul),
-            ('/', _ ) => Ok(Div),
-            (',', _ ) => Ok(Comma),
-            (';', _ ) => Ok(Semicolon),
-            (':', _ ) => Ok(Colon),
-            ('<', _ ) => Ok(Inferior),
-            ('>', _ ) => Ok(Superior),
-            ('.', _ ) => Ok(Dot),
-            ('?', _ ) => Ok(Interrogation),
-            ('!', _ ) => Ok(Not),
-            ('#', _ ) => Ok(Sharp),
-            ('@', _ ) => Ok(At),
-            ('^', _ ) => Ok(Exponent),
-            ('%', _ ) => Ok(Modulo),
-            ('$', _ ) => Ok(Dollar),
-            ('{', _ ) => Ok(OpenCurlyBracket),
-            ('}', _ ) => Ok(CloseCurlyBracket),
-            ('(', _ ) => Ok(OpenParenthese),
-            (')', _ ) => Ok(CloseParenthese),
-            ('[', _ ) => Ok(OpenSquareBracket),
-            (']', _ ) => Ok(CloseSquareBracket),
+            ('=','=') => { self.bump(); Ok(Token::CmpEqual) }
+            ('!','=') => { self.bump(); Ok(Token::CmpNotEqual) }
+            ('<','=') => { self.bump(); Ok(Token::CmpInferiorEqual) }
+            ('>','=') => { self.bump(); Ok(Token::CmpSuperiorEqual) }
+            ('+','=') => { self.bump(); Ok(Token::InPlaceAdd) }
+            ('-','=') => { self.bump(); Ok(Token::InPlaceSub) }
+            ('*','=') => { self.bump(); Ok(Token::InPlaceMul) }
+            ('/','=') => { self.bump(); Ok(Token::InPlaceDiv) }
+            (':',':') => { self.bump(); Ok(Token::NamespaceSeparator) }
+            ('=','>') => { self.bump(); Ok(Token::FatArrow) }
+            ('-','>') => { self.bump(); Ok(Token::Arrow) }
+            ('.','.') => { self.bump(); Ok(Token::DotDot) }
+            ('|','|') => { self.bump(); Ok(Token::Or) }
+            ('&','&') => { self.bump(); Ok(Token::And) }
+            ('>','>') => { self.bump(); Ok(Token::ShiftRight) }
+            ('<','<') => { self.bump(); Ok(Token::ShiftLeft) }
+            ('|', _ ) => Ok(Token::Pipe),
+            ('&', _ ) => Ok(Token::Amperstand),
+            ('+', _ ) => Ok(Token::Add),
+            ('-', _ ) => Ok(Token::Sub),
+            ('*', _ ) => Ok(Token::Mul),
+            ('/', _ ) => Ok(Token::Div),
+            (',', _ ) => Ok(Token::Comma),
+            (';', _ ) => Ok(Token::Semicolon),
+            (':', _ ) => Ok(Token::Colon),
+            ('<', _ ) => Ok(Token::Inferior),
+            ('>', _ ) => Ok(Token::Superior),
+            ('.', _ ) => Ok(Token::Dot),
+            ('?', _ ) => Ok(Token::Interrogation),
+            ('!', _ ) => Ok(Token::Not),
+            ('#', _ ) => Ok(Token::Sharp),
+            ('@', _ ) => Ok(Token::At),
+            ('^', _ ) => Ok(Token::Exponent),
+            ('%', _ ) => Ok(Token::Modulo),
+            ('$', _ ) => Ok(Token::Dollar),
+            ('{', _ ) => Ok(Token::OpenCurlyBracket),
+            ('}', _ ) => Ok(Token::CloseCurlyBracket),
+            ('(', _ ) => Ok(Token::OpenParenthese),
+            (')', _ ) => Ok(Token::CloseParenthese),
+            ('[', _ ) => Ok(Token::OpenSquareBracket),
+            (']', _ ) => Ok(Token::CloseSquareBracket),
             // TODO: := $ ~
-            _ => { Err(self.error(InternalError)) }
+            _ => { Err(self.error(ErrorType::InternalError)) }
         }
     }
 
@@ -254,35 +254,35 @@ impl<T: Iterator<char>> Tokenizer<T> {
 
         {
             let word = self.string_buffer.as_slice();
-            if word == "struct" { return Ok(Struct); }
-            if word == "enum"   { return Ok(Enum); }
-            if word == "let"    { return Ok(Let); }
-            if word == "fn"     { return Ok(Function); }
-            if word == "return" { return Ok(Return); }
-            if word == "loop"   { return Ok(Loop); }
-            if word == "for"    { return Ok(For); }
-            if word == "in"     { return Ok(In); }
-            if word == "break"  { return Ok(Break); }
-            if word == "if"     { return Ok(If); }
-            if word == "else"   { return Ok(Else); }
-            if word == "match"  { return Ok(Match); }
-            if word == "for"    { return Ok(For); }
-            if word == "mod"    { return Ok(Module); }
-            if word == "use"    { return Ok(Use); }
-            if word == "mut"    { return Ok(Mut); }
-            if word == "impl"   { return Ok(Impl); }
-            if word == "self"   { return Ok(This); }
-            if word == "as"     { return Ok(As); }
-            if word == "void"   { return Ok(Void); }
-            if word == "uint32" { return Ok(UInt32Type); }
-            if word == "int32"  { return Ok(Int32Type); }
-            if word == "float32"{ return Ok(Float32Type); }
-            if word == "byte"   { return Ok(ByteType); }
-            if word == "bool"   { return Ok(BooleanType); }
-            if word == "str"    { return Ok(StringType); }
+            if word == "struct" { return Ok(Token::Struct); }
+            if word == "enum"   { return Ok(Token::Enum); }
+            if word == "let"    { return Ok(Token::Let); }
+            if word == "fn"     { return Ok(Token::Function); }
+            if word == "return" { return Ok(Token::Return); }
+            if word == "loop"   { return Ok(Token::Loop); }
+            if word == "for"    { return Ok(Token::For); }
+            if word == "in"     { return Ok(Token::In); }
+            if word == "break"  { return Ok(Token::Break); }
+            if word == "if"     { return Ok(Token::If); }
+            if word == "else"   { return Ok(Token::Else); }
+            if word == "match"  { return Ok(Token::Match); }
+            if word == "for"    { return Ok(Token::For); }
+            if word == "mod"    { return Ok(Token::Module); }
+            if word == "use"    { return Ok(Token::Use); }
+            if word == "mut"    { return Ok(Token::Mut); }
+            if word == "impl"   { return Ok(Token::Impl); }
+            if word == "self"   { return Ok(Token::This); }
+            if word == "as"     { return Ok(Token::As); }
+            if word == "void"   { return Ok(Token::Void); }
+            if word == "uint32" { return Ok(Token::UInt32Type); }
+            if word == "int32"  { return Ok(Token::Int32Type); }
+            if word == "float32"{ return Ok(Token::Float32Type); }
+            if word == "byte"   { return Ok(Token::ByteType); }
+            if word == "bool"   { return Ok(Token::BooleanType); }
+            if word == "str"    { return Ok(Token::StringType); }
         }
 
-        return Ok(Identifier(self.string_buffer.clone()));
+        return Ok(Token::Identifier(self.string_buffer.clone()));
     }
 
     fn parse_number(&mut self) -> Result<Token, Error> {
@@ -300,7 +300,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
             is_int = false;
         }
 
-        return if is_int { Ok(IntNumber(res)) } else { Ok(FloatNumber(fres)) };
+        return if is_int { Ok(Token::IntNumber(res)) } else { Ok(Token::FloatNumber(fres)) };
     }
 
     fn parse_integer(&mut self) -> u64 {
@@ -354,7 +354,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
         // Make sure a digit follows the exponent place.
         match self.ch {
             '0'...'9' => (),
-            _ => return Err(self.error(InvalidNumber))
+            _ => return Err(self.error(ErrorType::InvalidNumber))
         }
         while !self.eof() {
             match self.ch {
@@ -368,7 +368,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
             }
         }
 
-        let exp = num::pow(10_f64, exp);
+        let exp = 10_f64.powi(exp as i32);
         if neg_exp {
             res /= exp;
         } else {
@@ -391,7 +391,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
                 'd' | 'D' => n * 16 + 13,
                 'e' | 'E' => n * 16 + 14,
                 'f' | 'F' => n * 16 + 15,
-                _ => return Err(self.error(InvalidEscape))
+                _ => return Err(self.error(ErrorType::InvalidEscape))
             };
 
             i += 1u;
@@ -399,7 +399,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
 
         // Error out if we didn't parse 4 digits.
         if i != 4 {
-            return Err(self.error(InvalidEscape));
+            return Err(self.error(ErrorType::InvalidEscape));
         }
 
         Ok(n)
@@ -412,7 +412,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
         loop {
             self.bump();
             if self.eof() {
-                return Err(self.error(EOFWhileParsingString));
+                return Err(self.error(ErrorType::EOFWhileParsingString));
             }
 
             if escape {
@@ -426,29 +426,29 @@ impl<T: Iterator<char>> Tokenizer<T> {
                     'r' => res.push('\r'),
                     't' => res.push('\t'),
                     'u' => match try!(self.decode_hex_escape()) {
-                        0xDC00...0xDFFF => return Err(self.error(LoneLeadingSurrogateInHexEscape)),
+                        0xDC00...0xDFFF => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
 
                         // Non-BMP characters are encoded as a sequence of
                         // two hex escapes, representing UTF-16 surrogates.
                         n1 @ 0xD800...0xDBFF => {
                             match (self.next_char(), self.next_char()) {
                                 (Some('\\'), Some('u')) => (),
-                                _ => return Err(self.error(UnexpectedEndOfHexEscape)),
+                                _ => return Err(self.error(ErrorType::UnexpectedEndOfHexEscape)),
                             }
 
                             let buf = [n1, try!(self.decode_hex_escape())];
                             match str::utf16_items(buf.as_slice()).next() {
                                 Some(str::ScalarValue(c)) => res.push(c),
-                                _ => return Err(self.error(LoneLeadingSurrogateInHexEscape)),
+                                _ => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
                             }
                         }
 
                         n => match char::from_u32(n as u32) {
                             Some(c) => res.push(c),
-                            None => return Err(self.error(InvalidUnicodeCodePoint)),
+                            None => return Err(self.error(ErrorType::InvalidUnicodeCodePoint)),
                         },
                     },
-                    _ => return Err(self.error(InvalidEscape)),
+                    _ => return Err(self.error(ErrorType::InvalidEscape)),
                 }
                 escape = false;
             } else if self.ch == '\\' {
@@ -457,7 +457,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
                 match self.ch {
                     '"' => {
                         self.bump();
-                        return Ok(StringLiteral(res));
+                        return Ok(Token::StringLiteral(res));
                     },
                     c => res.push(c),
                 }

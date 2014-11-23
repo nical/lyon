@@ -119,23 +119,23 @@ impl Value {
 
     pub fn get_unpacked(&self) -> UnpackedValue {
         match self.get_number() {
-            Some(num) => { return NumberValue(num); }
+            Some(num) => { return UnpackedValue::NumberValue(num); }
             _ => {}
         }
 
         match self.get_ptr() {
-            Some(p) => { return PointerValue(p); }
+            Some(p) => { return UnpackedValue::PointerValue(p); }
             _ => {}
         }
 
         match self.get_boolean() {
-            Some(b) => { return BooleanValue(b); }
+            Some(b) => { return UnpackedValue::BooleanValue(b); }
             _ => {}
         }
 
-        if self.is_void() { return VoidValue; }
+        if self.is_void() { return UnpackedValue::VoidValue; }
 
-        fail!("invalid value");
+        panic!("invalid value");
     }
 
     pub fn get_bytes(&self) -> [u8, ..8] {
@@ -176,7 +176,7 @@ mod test {
         assert_eq!(t.get_boolean(), Some(true));
         match t.get_unpacked() {
             BooleanValue(true) => {}
-            _ => { fail!(); }
+            _ => { panic!(); }
         }
 
         let f = Value::boolean(false);
@@ -189,7 +189,7 @@ mod test {
         assert_eq!(f.get_boolean(), Some(false));
         match f.get_unpacked() {
             BooleanValue(false) => {}
-            _ => { fail!(); }
+            _ => { panic!(); }
         }
     }
 
@@ -204,7 +204,7 @@ mod test {
         assert!(!a.is_ptr());
         match a.get_unpacked() {
             VoidValue => {}
-            _ => { fail!(); }
+            _ => { panic!(); }
         }
     }
 

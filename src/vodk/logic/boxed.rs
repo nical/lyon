@@ -155,7 +155,7 @@ impl Value {
 }
 
 impl fmt::Show for Value {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::FormatError> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.write_str("boxed::Value{ ");
         unsafe {
             match self.get_type() {
