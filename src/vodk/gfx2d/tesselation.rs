@@ -1,9 +1,10 @@
-
-use math::vector;
 use math::units::world;
 use math::units::texels;
-use super::color::Rgba;
-use super::shapes;
+use geom_utils::{extrude_along_tangent, tangent, line_intersection};
+use style::{FillStyle, StrokeStyle, StrokeFlags};
+use style;
+use color::Rgba;
+use shapes;
 use data;
 use std::num::FloatMath;
 
@@ -12,11 +13,6 @@ static PI: f32 = 3.1415;
 pub type TesselationFlags = u32;
 pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
 pub static CONVEX_SHAPE: TesselationFlags = 2;
-
-pub struct FlattenedPath {
-    points: Vec<world::Vec2>,
-    is_closed: bool,
-}
 
 #[repr(C)]
 #[deriving(Show)]
@@ -27,45 +23,10 @@ pub struct Pos2DNormal2DColorExtrusion {
     pub extrusion : f32,
 }
 
-static vec2_vec2_vec4_f_f_data_type : &'static[data::Type] = &[
-    data::VEC2, data::VEC2, data::VEC4, data::F32, data::F32
-];
-
-impl data::StructDataType for Pos2DNormal2DColorExtrusion {
-    fn data_type() -> data::StructTypeResult<Pos2DNormal2DColorExtrusion> {
-        data::StructTypeResult { data_type: vec2_vec2_vec4_f_f_data_type }
-    }
-}
-
-fn normal(v: world::Vec2) -> world::Vec2 {
-    let l = v.length();
-    return world::vec2(-v.y / l, v.x / l);
-}
-
 pub enum PointType {
     Border,
     Interior,
     Antialias,
-}
-
-fn line_intersection<U>(
-    a1: vector::Vector2D<U>,
-    a2: vector::Vector2D<U>,
-    b1: vector::Vector2D<U>,
-    b2: vector::Vector2D<U>
-) -> Option<vector::Vector2D<U>> {
-    let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
-    if det*det < 0.00001 {
-        // The lines are very close to parallel
-        return None;
-    }
-    let inv_det = 1.0 / det;
-    let a = a1.x * a2.y - a1.y * a2.x;
-    let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(vector::Vector2D {
-        x: (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
-        y: (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
-    });
 }
 
 // vertex layout:
@@ -95,7 +56,7 @@ pub fn path_to_line_vbo(
     let mut p1 = if is_closed { path[path.len() - 1] }
                   else { path[0] + path[0] - path[1] };
     let mut px = path[0];
-    let mut n1 = normal(px - p1);
+    let mut n1 = tangent(px - p1);
 
     for i in range(0, path.len()) {
         let pos = transform.transform_2d(&path[i]);
@@ -107,7 +68,7 @@ pub fn path_to_line_vbo(
         let p2 = if i < path.len() - 1 { path[i + 1] }
                   else if is_closed { path[0] }
                   else { path[i] + path[i] - path[i - 1] };
-        let n2 = normal(p2 - px);
+        let n2 = tangent(p2 - px);
         // Segment P1-->PX
         let pn1  = p1 + n1; // p1 extruded along the normal n1
         let pn1x = px + n1; // px extruded along the normal n1
@@ -301,7 +262,7 @@ pub fn fill_rectangle<'l, T: VertexType2D>(
     fill: FillStyle<'l>,
 ) -> Range {
     let first_vertex = stream.vertex_cursor as u16;
-    let first_index = stream.vertex_cursor as u16;
+    let first_index = stream.index_cursor as u16;
     let uv_rect = texels::rect(0.0, 0.0, 1.0, 1.0);
 
     let mut a: T = VertexType2D::from_pos(&transform.transform_2d(&rectangle.top_left()));
@@ -501,47 +462,6 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
     };
 }
 
-pub fn extrude_along_normals(
-    path: &[world::Vec2],
-    i: uint,
-    amount: f32,
-    is_closed: bool
-) -> world::Vec2 {
-
-    let p1 = if i > 0 { path[i - 1] }
-             else if is_closed { path[path.len()-1] }
-             else { path[0] + path[0] - path[1] };
-
-    let px = path[i];
-
-    let p2 = if i < path.len() - 1 { path[i + 1] }
-             else if is_closed { path[0] }
-             else { path[i] + path[i] - path[i - 1] };
-
-    let n1 = normal(px - p1).times(amount);
-    let n2 = normal(p2 - px).times(amount);
-
-    // Segment P1-->PX
-    let pn1  = p1 + n1; // p1 extruded along the normal n1
-    let pn1x = px + n1; // px extruded along the normal n1
-    // Segment PX-->P2
-    let pn2  = p2 + n2;
-    let pn2x = px + n2;
-
-    let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
-        Some(v) => { v }
-        None => {
-            if (n1 - n2).square_length() < 0.00001 {
-                px + n1
-            } else {
-                // TODO: the angle is very narrow, use rounded corner instead
-                panic!("Not implemented yet");
-            }
-        }
-    };
-    return inter;
-}
-
 pub fn stroke_path<'l, T: VertexType2D>(
     stream: &mut VertexStream<'l, T>,
     path: &[world::Vec2],
@@ -554,19 +474,19 @@ pub fn stroke_path<'l, T: VertexType2D>(
     let first_vertex = stream.vertex_cursor as u16;
     let first_index = stream.index_cursor as u16;
 
-    let is_closed = flags & STROKE_CLOSED != 0;
+    let is_closed = flags & style::STROKE_CLOSED != 0;
 
     for i in range(0, path.len()) {
         let mut p1 = path[i];
         let mut p2 = path[i];
 
-        if flags & STROKE_INWARD == 0 && flags & STROKE_OUTWARD == 0 {
-            p1 = extrude_along_normals(path, i, thickness * 0.5, is_closed);
-            p2 = extrude_along_normals(path, i, -thickness * 0.5, is_closed);
-        } else if flags & STROKE_OUTWARD != 0 {
-            p1 = extrude_along_normals(path, i, thickness, is_closed);
-        } else if flags & STROKE_INWARD != 0 {
-            p2 = extrude_along_normals(path, i, -thickness, is_closed);
+        if flags & style::STROKE_INWARD == 0 && flags & style::STROKE_OUTWARD == 0 {
+            p1 = extrude_along_tangent(path, i, thickness * 0.5, is_closed);
+            p2 = extrude_along_tangent(path, i, -thickness * 0.5, is_closed);
+        } else if flags & style::STROKE_OUTWARD != 0 {
+            p1 = extrude_along_tangent(path, i, thickness, is_closed);
+        } else if flags & style::STROKE_INWARD != 0 {
+            p2 = extrude_along_tangent(path, i, -thickness, is_closed);
         } else {
             panic!("unreached");
         }
@@ -580,7 +500,7 @@ pub fn stroke_path<'l, T: VertexType2D>(
                 v1.set_color(color);
                 v2.set_color(color);
             }
-            StrokeStyle::Texture(uv_transform) => { panic!("TODO"); }
+            StrokeStyle::Texture(_uv_transform) => { panic!("TODO"); }
         }
         stream.push_vertex(&v1);
         stream.push_vertex(&v2);
@@ -622,20 +542,4 @@ pub trait VertexType2D: Copy {
     fn set_color(&mut self, &Rgba<u8>);
 }
 
-pub enum FillStyle<'l> {
-    Texture(&'l texels::Mat3),
-    Color(&'l Rgba<u8>),
-    None,
-}
 
-pub type StrokeFlags = u16;
-pub static STROKE_DEFAULT : StrokeFlags = 0;
-pub static STROKE_INWARD  : StrokeFlags = 1 << 0;
-pub static STROKE_OUTWARD : StrokeFlags = 1 << 1;
-pub static STROKE_CLOSED  : StrokeFlags = 1 << 2;
-
-pub enum StrokeStyle<'l> {
-    Texture(&'l texels::Mat3),
-    Color(&'l Rgba<u8>),
-    None,
-}
