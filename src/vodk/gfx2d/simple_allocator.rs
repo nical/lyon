@@ -1,6 +1,3 @@
-// Similar to tesselation.rs but outputs just triangle vertices rather than vertices + indices.
-// This will probably go away.
-
 use range::Range;
 
 #[deriving(Clone, Show, PartialEq)]
@@ -9,18 +6,18 @@ pub struct BlockId {
     gen: u16,
 }
 
-pub struct AllocatorBlock {
+#[deriving(Clone, Show, PartialEq)]
+pub enum BlockState {
+    Used,
+    Unused,
+}
+
+struct AllocatorBlock {
     range: Range,
     prev: Option<uint>,
     next: Option<uint>,
     state: BlockState,
     gen: u16,
-}
-
-#[deriving(Clone, Show, PartialEq)]
-pub enum BlockState {
-    Used,
-    Unused,
 }
 
 pub struct AllocatorHelper {
@@ -55,7 +52,7 @@ impl AllocatorHelper {
         left_state: BlockState,
         right_state: BlockState
     ) -> (BlockId, BlockId) {
-        assert!(self.has_id(id));
+        assert!(self.contains_block_id(id));
         let next = self.blocks[id.index].next;
         let first = self.blocks[id.index].range.first;
         let new_count = self.blocks[id.index].range.count - at;
@@ -97,7 +94,7 @@ impl AllocatorHelper {
     }
 
     pub fn merge_next(&mut self, id: BlockId, state: BlockState) -> BlockId {
-        assert!(self.has_id(id));
+        assert!(self.contains_block_id(id));
         let next = self.blocks[id.index].next;
         let next = next.unwrap();
         let next_next = self.blocks[next].next;
@@ -115,7 +112,18 @@ impl AllocatorHelper {
         };
     }
 
-    pub fn find_available_block(&mut self, size: u16) -> Option<BlockId> {
+    pub fn clear(&mut self) -> BlockId {
+        loop {
+            if self.first == self.last {
+                break;
+            }
+            let first = self.get_first();
+            self.merge_next(first, BlockState::Unused);
+        }
+        return self.get_first();
+    }
+
+    pub fn find_available_block(&self, size: u16) -> Option<BlockId> {
         let mut it = self.first;
         loop {
             if self.blocks[it].state == BlockState::Unused
@@ -134,30 +142,30 @@ impl AllocatorHelper {
         return None;
     }
 
-    pub fn first(&self) -> BlockId {
+    pub fn get_first(&self) -> BlockId {
         BlockId { index: self.first, gen: self.blocks[self.first].gen }
     }
 
-    pub fn last(&self) -> BlockId {
+    pub fn get_last(&self) -> BlockId {
         BlockId { index: self.last, gen: self.blocks[self.last].gen }
     }
 
-    pub fn get_state(&self, id: BlockId) -> BlockState {
-        assert!(self.has_id(id));
+    pub fn get_block_state(&self, id: BlockId) -> BlockState {
+        assert!(self.contains_block_id(id));
         self.blocks[id.index].state
     }
 
-    pub fn set_state(&mut self, id: BlockId, state:BlockState) {
-        assert!(self.has_id(id));
+    pub fn set_block_state(&mut self, id: BlockId, state:BlockState) {
+        assert!(self.contains_block_id(id));
         self.blocks[id.index].state = state;
     }
 
-    pub fn get_range(&self, id: BlockId) -> Range {
-        assert!(self.has_id(id));
+    pub fn get_block_range(&self, id: BlockId) -> Range {
+        assert!(self.contains_block_id(id));
         self.blocks[id.index].range
     }
 
-    pub fn has_id(&self, id: BlockId) -> bool {
+    pub fn contains_block_id(&self, id: BlockId) -> bool {
         id.index < self.blocks.len() && self.blocks[id.index].gen == id.gen
     }
 
@@ -187,24 +195,56 @@ impl AllocatorHelper {
         }
         return None;
     }
+
+    pub fn blocks<'l>(&'l mut self) -> BlockIterator<'l> {
+        return BlockIterator {
+            allocator: self,
+            current: Some(self.get_first())
+        };
+    }
+}
+
+pub struct BlockIterator<'l> {
+    allocator: &'l AllocatorHelper,
+    current: Option<BlockId>,
+}
+
+impl<'l> Iterator<BlockId> for BlockIterator<'l> {
+    fn next(&mut self) -> Option<BlockId> {
+        let current = self.current;
+        if let Some(id) = current {
+            self.current = self.allocator.get_next(id);
+        }
+        return current;
+    }
 }
 
 #[test]
-fn allocator_test() {
+fn test_allocator() {
     let mut alloc = AllocatorHelper::new(Range::new(0, 100), BlockState::Unused);
-    assert_eq!(alloc.first(), alloc.last());
-    let a0 = alloc.first();
-    assert!(alloc.has_id(a0));
-    assert_eq!(alloc.get_state(a0), BlockState::Unused);
+    assert_eq!(alloc.get_first(), alloc.get_last());
+    let a0 = alloc.get_first();
+    let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
+    assert_eq!(ids, vec!(a0));
+    assert!(alloc.contains_block_id(a0));
+    assert_eq!(alloc.get_block_state(a0), BlockState::Unused);
+
     let (a1,b1) = alloc.split(a0, 50, BlockState::Used, BlockState::Unused);
-    assert!(!alloc.has_id(a0));
+    assert!(!alloc.contains_block_id(a0));
     assert!(a1 != b1);
-    assert_eq!(alloc.get_state(a1), BlockState::Used);
-    assert_eq!(alloc.get_state(b1), BlockState::Unused);
-    assert_eq!(alloc.get_range(a1), Range::new(0, 50));
-    assert_eq!(alloc.get_range(b1), Range::new(50, 50));
+    assert_eq!(alloc.get_block_state(a1), BlockState::Used);
+    assert_eq!(alloc.get_block_state(b1), BlockState::Unused);
+    assert_eq!(alloc.get_block_range(a1), Range::new(0, 50));
+    assert_eq!(alloc.get_block_range(b1), Range::new(50, 50));
+    let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
+    assert_eq!(ids, vec!(a1, b1));
+
     let a2 = alloc.merge_next(a1, BlockState::Unused);
-    assert!(!alloc.has_id(a1));
-    assert!(!alloc.has_id(b1));
-    assert_eq!(alloc.get_range(a2), Range::new(0, 100));
+    assert!(!alloc.contains_block_id(a1));
+    assert!(!alloc.contains_block_id(b1));
+    let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
+    assert_eq!(ids, vec!(a2));
+    assert_eq!(alloc.get_block_range(a2), Range::new(0, 100));
+
+    let a3 = alloc.clear();
 }
