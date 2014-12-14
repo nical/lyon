@@ -1,5 +1,5 @@
 
-#[deriving(Show, PartialEq)]
+#[deriving(Copy, Show, PartialEq)]
 pub struct Range {
     pub first: u16,
     pub count: u16,
@@ -40,6 +40,10 @@ impl Range {
 
     pub fn is_left_of(&self, other: &Range) -> bool {
         self.first < other.first
+    }
+
+    pub fn right_most(&self) -> u16 {
+        self.first + self.count
     }
 }
 

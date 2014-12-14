@@ -9,7 +9,7 @@ pub struct GeomAllocatorHelper {
     indices: AllocatorHelper,
 }
 
-#[deriving(Clone, Show, PartialEq)]
+#[deriving(Copy, Clone, Show, PartialEq)]
 pub struct GeomDataId {
     vertices: BlockId,
     indices: BlockId,
@@ -25,10 +25,10 @@ impl GeomAllocatorHelper {
 
     pub fn can_add(&self, num_vertices: u16, num_indices: u16) -> bool {
         return match (
-            self.vertices.find_available_block(num_vertices),
-            self.indices.find_available_block(num_indices)
+            self.vertices.find_available_block(num_vertices).is_some(),
+            self.indices.find_available_block(num_indices).is_some()
         ) {
-            (Some(vertex_id), Some(index_id)) => { true }
+            (true, true) => { true }
             _ => { false }
         }
     }
@@ -122,6 +122,8 @@ fn test_batch_allocator_simple() {
     let a = batch.add(32, 10).unwrap();
     let b = batch.add(18, 20).unwrap();
     assert!(a != b);
+    assert!(batch.contains_id(a));
+    assert!(batch.contains_id(b));
     assert_eq!(batch.get_vertex_range(a), Range::new(1, 32));
     assert_eq!(batch.get_vertex_range(b), Range::new(33, 18));
     assert_eq!(batch.get_index_range(a), Range::new(0, 10));
@@ -143,6 +145,15 @@ fn test_batch_allocator_simple() {
 
     let d = batch.add(50, 25).unwrap();
     assert!(batch.contains_id(d));
+
     batch.clear();
     assert!(!batch.contains_id(d));
+    assert!(batch.can_add(0,0));
+
+    assert!(batch.can_add(1023, 1024));
+    let e = batch.add(1023, 1024).unwrap();
+    assert!(batch.contains_id(e));
+
+    assert!(!batch.can_add(1,1));
+    assert!(!batch.can_add(0,0));
 }

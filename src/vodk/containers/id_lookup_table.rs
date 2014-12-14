@@ -34,7 +34,7 @@ impl IdLookupTable {
         }
         let idx = self.free_list as uint;
         self.free_list = self.index_to_data[idx];
-        *self.index_to_data.get_mut(idx) = self.data_to_index.len() as Index;
+        self.index_to_data[idx] = self.data_to_index.len() as Index;
         self.data_to_index.push(idx as Index);
         return idx as Index;
     }
@@ -45,10 +45,10 @@ impl IdLookupTable {
             self.data_to_index.pop();
         } else {
             let moved = self.data_to_index.pop().unwrap();
-            *self.index_to_data.get_mut(moved as uint) = o as Index;
-            *self.data_to_index.get_mut(o) = moved;
+            self.index_to_data[moved as uint] = o as Index;
+            self.data_to_index[o] = moved;
         }
-        *self.index_to_data.get_mut(idx as uint) = self.free_list;
+        self.index_to_data[idx as uint] = self.free_list;
         self.free_list = idx;
     }
 
@@ -81,10 +81,10 @@ impl IdLookupTable {
 
     pub fn swap_offsets(&mut self, o1: Index, o2: Index) {
         let temp = self.data_to_index[o1 as uint];
-        *self.data_to_index.get_mut(o1 as uint) = self.data_to_index[o2 as uint];
-        *self.data_to_index.get_mut(o2 as uint) = temp;
-        *self.index_to_data.get_mut(self.data_to_index[o2 as uint] as uint) = o1;
-        *self.index_to_data.get_mut(self.data_to_index[o1 as uint] as uint) = o2;
+        self.data_to_index[o1 as uint] = self.data_to_index[o2 as uint];
+        self.data_to_index[o2 as uint] = temp;
+        self.index_to_data[self.data_to_index[o2 as uint] as uint] = o1;
+        self.index_to_data[self.data_to_index[o1 as uint] as uint] = o2;
     }
 }
 

@@ -1,12 +1,12 @@
 use range::Range;
 
-#[deriving(Clone, Show, PartialEq)]
+#[deriving(Copy, Clone, Show, PartialEq)]
 pub struct BlockId {
     index: uint,
     gen: u16,
 }
 
-#[deriving(Clone, Show, PartialEq)]
+#[deriving(Copy, Clone, Show, PartialEq)]
 pub enum BlockState {
     Used,
     Unused,
@@ -196,10 +196,49 @@ impl AllocatorHelper {
         return None;
     }
 
+    pub fn enclosing_used_range(&self) -> Range {
+        let mut it = self.first;
+        let mut first;
+        loop {
+            first = self.blocks[it].range.first;
+            if self.blocks[it].state == BlockState::Used {
+                break;
+            }
+            if let Some(idx) = self.blocks[it].next {
+                it = idx;
+            } else {
+                break;
+            }
+        }
+        let mut it = self.last;
+        let mut last;
+        loop {
+            last = self.blocks[it].range.right_most();
+            if self.blocks[it].state == BlockState::Used {
+                break;
+            }
+            if let Some(idx) = self.blocks[it].prev {
+                it = idx;
+            } else {
+                break;
+            }
+        }
+        return Range { first: first, count: last - first };
+    }
+
     pub fn blocks<'l>(&'l mut self) -> BlockIterator<'l> {
         return BlockIterator {
             allocator: self,
-            current: Some(self.get_first())
+            current: Some(self.get_first()),
+            filter: None,
+        };
+    }
+
+    pub fn blocks_with_state<'l>(&'l mut self, filter: BlockState) -> BlockIterator<'l> {
+        return BlockIterator {
+            allocator: self,
+            current: Some(self.get_first()),
+            filter: Some(filter),
         };
     }
 }
@@ -207,15 +246,30 @@ impl AllocatorHelper {
 pub struct BlockIterator<'l> {
     allocator: &'l AllocatorHelper,
     current: Option<BlockId>,
+    filter: Option<BlockState>,
 }
 
 impl<'l> Iterator<BlockId> for BlockIterator<'l> {
     fn next(&mut self) -> Option<BlockId> {
-        let current = self.current;
-        if let Some(id) = current {
-            self.current = self.allocator.get_next(id);
+        loop {
+            let current = self.current;
+            let mut done = true;
+            if let Some(id) = current {
+                self.current = self.allocator.get_next(id);
+                if let Some(filter) = self.filter {
+                    if filter != self.allocator.get_block_state(id) {
+                        done = false;
+                    }
+                }
+            }
+            if done {
+                return current;
+            }
         }
-        return current;
+    }
+
+    fn size_hint(&self) -> (uint, Option<uint>) {
+        (0, Some(self.allocator.blocks.len()))
     }
 }
 
@@ -229,7 +283,7 @@ fn test_allocator() {
     assert!(alloc.contains_block_id(a0));
     assert_eq!(alloc.get_block_state(a0), BlockState::Unused);
 
-    let (a1,b1) = alloc.split(a0, 50, BlockState::Used, BlockState::Unused);
+    let (a1, b1) = alloc.split(a0, 50, BlockState::Used, BlockState::Unused);
     assert!(!alloc.contains_block_id(a0));
     assert!(a1 != b1);
     assert_eq!(alloc.get_block_state(a1), BlockState::Used);
@@ -238,6 +292,10 @@ fn test_allocator() {
     assert_eq!(alloc.get_block_range(b1), Range::new(50, 50));
     let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
     assert_eq!(ids, vec!(a1, b1));
+    let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks_with_state(BlockState::Used));
+    assert_eq!(ids, vec!(a1));
+    let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks_with_state(BlockState::Unused));
+    assert_eq!(ids, vec!(b1));
 
     let a2 = alloc.merge_next(a1, BlockState::Unused);
     assert!(!alloc.contains_block_id(a1));
@@ -246,5 +304,6 @@ fn test_allocator() {
     assert_eq!(ids, vec!(a2));
     assert_eq!(alloc.get_block_range(a2), Range::new(0, 100));
 
-    let a3 = alloc.clear();
+    alloc.clear();
+    alloc.clear();
 }

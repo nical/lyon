@@ -24,7 +24,7 @@ pub const ARRAY_PTR:        ValueType = (ARRAY_TYPE_BITS >> 56) as u8;
 pub const STRUCT_PTR:       ValueType = (STRUCT_TYPE_BITS >> 56) as u8;
 
 #[repr(C)]
-#[deriving(Clone, PartialEq)]
+#[deriving(Copy, Clone, PartialEq)]
 pub struct Value {
     payload: u64,
 }

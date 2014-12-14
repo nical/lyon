@@ -5,13 +5,13 @@ use std::slice;
 
 type DataTypeList = Vec<DataTypeID>;
 
-#[deriving(PartialEq, Show)]
+#[deriving(Copy, PartialEq, Show)]
 enum DataType {
     Generic(u32),
     Type(DataTypeID),
 }
 
-#[deriving(Show)]
+#[deriving(Copy, Show)]
 struct PortDescriptor {
     data_type: DataType,
 }
@@ -30,7 +30,7 @@ struct Node {
     valid: bool,
 }
 
-#[deriving(Show)]
+#[deriving(Copy, Show)]
 struct Connection {
     port: u16,
     other_node: u16,
@@ -49,13 +49,13 @@ struct Graph {
 type PortIndex = u16;
 type PortID = u16; // TODO
 
-#[deriving(PartialEq, Clone, Show)]
+#[deriving(Copy, PartialEq, Clone, Show)]
 struct NodeID { handle: u16 }
 
-#[deriving(PartialEq, Clone, Show)]
+#[deriving(Copy, PartialEq, Clone, Show)]
 struct NodeTypeID { handle: i32 }
 
-#[deriving(PartialEq, Clone, Show)]
+#[deriving(Copy, PartialEq, Clone, Show)]
 struct DataTypeID { handle: u32 }
 
 #[allow(dead_code)]

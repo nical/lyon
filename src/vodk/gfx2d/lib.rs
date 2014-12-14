@@ -1,4 +1,4 @@
-#![feature(macro_rules, globs, default_type_params, if_let)]
+#![feature(macro_rules, globs, default_type_params)]
 
 extern crate math;
 extern crate data;

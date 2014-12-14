@@ -34,14 +34,14 @@ impl<T: Copy> PodFreeListVector<T> {
         } else {
             let index = self.free_list;
             let next_free_list = self.data[index as uint].free_list;
-            self.data.get_mut(self.free_list as uint).payload = val;
+            self.data[self.free_list as uint].payload = val;
             self.free_list = next_free_list;
             return index;
         }
     }
 
     pub fn remove(&mut self, idx: Index) {
-        self.data.get_mut(idx as uint).free_list = self.free_list;
+        self.data[idx as uint].free_list = self.free_list;
         self.free_list = idx;
     }
 
@@ -56,7 +56,7 @@ impl<T: Copy> PodFreeListVector<T> {
 
     pub fn borrow_mut<'l>(&'l mut self, idx: Index) -> &'l mut T {
         assert!(self.data[idx as uint].free_list == FREE_LIST_NONE);
-        return &mut self.data.get_mut(idx as uint).payload;
+        return &mut self.data[idx as uint].payload;
     }
 }
 

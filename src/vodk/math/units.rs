@@ -4,7 +4,7 @@ macro_rules! declare_unit (
         pub mod $module {
             use vector;
 
-            #[deriving(Clone, Show)]
+            #[deriving(Copy, Clone, Show)]
             pub struct Unit;
 
             pub type Rectangle = vector::Rectangle<Unit>;

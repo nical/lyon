@@ -15,7 +15,7 @@ pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
 pub static CONVEX_SHAPE: TesselationFlags = 2;
 
 #[repr(C)]
-#[deriving(Show)]
+#[deriving(Copy, Show)]
 pub struct Pos2DNormal2DColorExtrusion {
     pub pos: world::Vec2,
     pub normal: world::Vec2,

@@ -25,7 +25,7 @@ pub type ByteOffset = uint;
 pub const TAG_OFFSET: ByteOffset = 47;
 
 #[repr(C)]
-#[deriving(Clone, PartialEq, Eq, Show)]
+#[deriving(Copy, Clone, PartialEq, Eq, Show)]
 pub struct Value {
     payload: u64,
 }
@@ -34,7 +34,7 @@ pub struct Structure {
     foo: u32,
 }
 
-#[deriving(Clone, Show)]
+#[deriving(Copy, Clone, Show)]
 pub enum UnpackedValue {
     NumberValue(f64),
     PointerValue(*mut Structure),

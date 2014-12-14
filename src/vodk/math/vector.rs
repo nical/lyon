@@ -18,7 +18,7 @@ use std::default::Default;
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
 
-#[deriving(PartialEq, Show)]
+#[deriving(Copy, PartialEq, Show)]
 pub struct Untyped;
 
 pub type Vec2 = Vector2D<Untyped>;
@@ -40,20 +40,20 @@ pub trait ScalarMul<T> {
     fn scalar_mul_in_place(&mut self, scalar: T);
 }
 
-#[deriving(Clone, Show, Zero)]
+#[deriving(Copy, Clone, Show, Zero)]
 pub struct Vector2D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
 }
 
-#[deriving(Clone, Show, Zero)]
+#[deriving(Copy, Clone, Show, Zero)]
 pub struct Vector3D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-#[deriving(Clone, Show, Zero)]
+#[deriving(Copy, Clone, Show, Zero)]
 pub struct Vector4D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
@@ -61,7 +61,7 @@ pub struct Vector4D<Unit = Untyped> {
     pub w: f32,
 }
 
-#[deriving(Clone, Show)]
+#[deriving(Copy, Clone, Show)]
 pub struct Rectangle<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
@@ -548,20 +548,20 @@ impl<U> ops::Neg<Vector2D<U>> for Vector2D<U> {
     }
 }
 
-#[deriving(Clone, PartialEq, Show)]
+#[deriving(Copy, Clone, PartialEq, Show)]
 pub struct Matrix2x2<Unit> {
     pub _11: f32, pub _21: f32,
     pub _12: f32, pub _22: f32,
 }
 
-#[deriving(Clone, PartialEq, Show)]
+#[deriving(Copy, Clone, PartialEq, Show)]
 pub struct Matrix3x3<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32,
     pub _12: f32, pub _22: f32, pub _32: f32,
     pub _13: f32, pub _23: f32, pub _33: f32,
 }
 
-#[deriving(Clone, PartialEq, Show)]
+#[deriving(Copy, Clone, PartialEq, Show)]
 pub struct Matrix4x4<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32, pub _41: f32,
     pub _12: f32, pub _22: f32, pub _32: f32, pub _42: f32,

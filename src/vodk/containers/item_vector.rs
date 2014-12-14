@@ -14,14 +14,14 @@ impl<T, ID: FromIndex+ToIndex+Copy> ItemVector<T, ID> {
         }
     }
 
-    pub fn get(&self, id: ID) -> &T { return self.data.get(id.to_index()); }
+    pub fn get(&self, id: ID) -> &T { return &self.data[id.to_index()]; }
 
-    pub fn get_mut(&mut self, id: ID) -> &mut T { return self.data.get_mut(id.to_index()); }
+    pub fn get_mut(&mut self, id: ID) -> &mut T { return &mut self.data[id.to_index()]; }
 
     pub fn add(&mut self, item: T) -> ID {
         match self.removed_items.pop() {
             Some(id) => {
-                *self.data.get_mut(id.to_index()) = item;
+                self.data[id.to_index()] = item;
                 return id;
             }
             None => {
