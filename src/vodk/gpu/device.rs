@@ -7,12 +7,12 @@ use std::mem;
 pub type AttributeType = data::Type;
 pub type UniformBindingIndex = i32;
 
-#[deriving(Show, Clone, PartialEq)]
+#[deriving(Show, Copy, Clone, PartialEq)]
 pub struct UniformBlockLocation { pub index: i16 }
-#[deriving(Show, Clone, PartialEq)]
+#[deriving(Show, Copy, Clone, PartialEq)]
 pub struct VertexAttributeLocation { pub index: i16 }
 
-#[deriving(Clone, Show)]
+#[deriving(Copy, Clone, Show)]
 pub enum Range {
     VertexRange(u16, u16),
     IndexRange(u16, u16),
@@ -27,7 +27,7 @@ pub struct TextureDescriptor {
     pub flags: TextureFlags,
 }
 
-#[deriving(Show)]
+#[deriving(Copy, Show)]
 pub struct BufferDescriptor {
     pub size: u32,
     pub update_hint: UpdateHint,
@@ -59,7 +59,7 @@ pub struct RenderTargetDescriptor<'l> {
     pub stencil: Option<TextureObject>
 }
 
-#[deriving(Clone, Show)]
+#[deriving(Copy, Clone, Show)]
 pub struct VertexAttribute {
     pub buffer: BufferObject,
     pub attrib_type: AttributeType,

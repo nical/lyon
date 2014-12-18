@@ -30,8 +30,8 @@ struct TransformsBlock {
 fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    glfw.window_hint(glfw::ContextVersion(3, 1));
-    glfw.window_hint(glfw::OpenglForwardCompat(true));
+    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 1));
+    glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
 
     let win_width = 800;
     let win_height = 600;
@@ -39,7 +39,7 @@ fn main() {
     let (window, events) = glfw.create_window(
         win_width, win_height,
         "Cube test",
-        glfw::Windowed
+        glfw::WindowMode::Windowed
     ).expect("Failed to create the window.");
 
     window.set_size_polling(true);
@@ -166,7 +166,7 @@ fn main() {
     let geom = ctx.create_geometry(&geom_desc).ok().unwrap();
 
     let vertex_stage_desc = ShaderStageDescriptor {
-        stage_type: VERTEX_SHADER,
+        stage_type: ShaderType::VERTEX_SHADER,
         src: &[shaders::VERTEX]
     };
 
@@ -179,7 +179,7 @@ fn main() {
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
-        stage_type: FRAGMENT_SHADER,
+        stage_type: ShaderType::FRAGMENT_SHADER,
         src: &[shaders::FRAGMENT]
     };
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();

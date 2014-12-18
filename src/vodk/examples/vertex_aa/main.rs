@@ -41,8 +41,8 @@ fn to_std_140_mat3<T>(from: &vector::Matrix3x3<T>) -> gpu::std140::Mat3 {
 fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    glfw.window_hint(glfw::ContextVersion(3, 1));
-    glfw.window_hint(glfw::OpenglForwardCompat(true));
+    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 1));
+    glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
 
     let win_width = 800;
     let win_height = 600;
@@ -50,7 +50,7 @@ fn main() {
     let (window, events) = glfw.create_window(
         win_width, win_height,
         "Cube test",
-        glfw::Windowed
+        glfw::WindowMode::Windowed
     ).expect("Failed to create the window.");
 
     window.set_size_polling(true);
@@ -263,7 +263,7 @@ fn main() {
         ctx.clear(COLOR|DEPTH);
         ctx.draw(
             geom,
-            IndexRange(0, n_indices as u16),
+            Range::IndexRange(0, n_indices as u16),
             TRIANGLES, BlendMode::NONE, COLOR|DEPTH
         );
 
