@@ -4,7 +4,7 @@ use bytecode::*;
 
 use std::mem;
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub enum InterpreterError {
     InvalidOpCode(u8),
     IncompatibleTypes(ByteCode, ValueType, ValueType),
@@ -12,7 +12,7 @@ pub enum InterpreterError {
     UnknowError
 }
 
-pub type InstructionPointer = uint;
+pub type InstructionPointer = usize;
 
 pub fn exec(
     script: &Script,
@@ -26,19 +26,19 @@ pub fn exec(
         match op {
             OP_EXIT => { return Ok(()); }
             OP_NULL => { pc += 1 }
-            OP_JMP => { pc = code[pc+1] as uint }
+            OP_JMP => { pc = code[pc+1] as usize }
             OP_BRANCH => {
-                let cond = code[pc+1] as uint;
+                let cond = code[pc+1] as usize;
                 match registers[cond].get_boolean() {
-                    Some(true) => { pc = code[pc+2] as uint; }
+                    Some(true) => { pc = code[pc+2] as usize; }
                     Some(false) => { pc += 3; }
                     None => { return Err(InterpreterError::IncompatibleTypes(op, registers[cond].get_type(), BOOLEAN_VALUE)); }
                 }
             }
             OP_ADD | OP_SUB | OP_DIV | OP_MUL => {
-                let a = code[pc+1] as uint;
-                let b = code[pc+2] as uint;
-                let dst = code[pc+3] as uint;
+                let a = code[pc+1] as usize;
+                let b = code[pc+2] as usize;
+                let dst = code[pc+3] as usize;
 
                 let va = registers[a];
                 let vb = registers[b];
@@ -61,8 +61,8 @@ pub fn exec(
                 pc += BINARY_OP_SIZE;
             }
             OP_NOT | OP_INC => {
-                let a = code[pc+1] as uint;
-                let dst = code[pc+2] as uint;
+                let a = code[pc+1] as usize;
+                let dst = code[pc+2] as usize;
 
                 let va = registers[a];
 
@@ -88,13 +88,13 @@ pub fn exec(
                 pc += UNARY_OP_SIZE;
             }
             OP_CONST => {
-                let dst = code[pc+1] as uint;
+                let dst = code[pc+1] as usize;
                 let val = *unpack::<Value>(&code[pc+2]);
                 registers[dst] = val;
                 pc += 10;
             }
             OP_MOVE => {
-                registers[code[pc+2] as uint] = registers[code[pc+1] as uint];
+                registers[code[pc+2] as usize] = registers[code[pc+1] as usize];
                 pc += MOVE_OP_SIZE;
             }
             _ => {

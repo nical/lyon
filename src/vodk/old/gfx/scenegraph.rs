@@ -17,20 +17,20 @@ pub struct SceneGraph<T> {
     transaction_id: u64,
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct Node<T> {
     children: Vec<Id<Node<T>>>,
     parent: Id<Node<T>>,
     payload: T,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub enum RendererMsg {
     Transaction(SceneGraph<SceneGraphData>),
     Stop,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub enum RendererReply {
     AfterTransaction(u64),
     AfterStop,
@@ -107,7 +107,7 @@ impl<T: Clone> SceneGraph<T> {
         return Id { handle: 0, gen: self.nodes.get_gen(0) };
     }
 
-    pub fn len(&self) -> uint {
+    pub fn len(&self) -> usize {
         return self.nodes.len();
     }
 }

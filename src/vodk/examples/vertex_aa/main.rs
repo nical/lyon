@@ -24,7 +24,7 @@ use math::units::world;
 use math::units::texels;
 use math::vector;
 
-#[deriving(Show)]
+#[derive(Show)]
 struct TransformsBlock {
   model: gpu::std140::Mat3,
   view:  gpu::std140::Mat3,

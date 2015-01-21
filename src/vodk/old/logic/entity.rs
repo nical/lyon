@@ -7,12 +7,12 @@ type SystemIndex = u16;
 type ComponentIndex = u16;
 type FreeList = u16;
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct EntityID {
     index: EntityIndex,
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct ComponentID {
     system: SystemIndex,
     index: ComponentIndex,

@@ -18,7 +18,7 @@ impl IdLookupTable {
         }
     }
 
-    pub fn with_capacity(capacity: uint) -> IdLookupTable {
+    pub fn with_capacity(capacity: usize) -> IdLookupTable {
         IdLookupTable {
             data_to_index: Vec::with_capacity(capacity),
             index_to_data: Vec::with_capacity(capacity),
@@ -32,7 +32,7 @@ impl IdLookupTable {
             self.data_to_index.push((self.index_to_data.len()-1) as Index);
             return (self.index_to_data.len()-1) as Index;
         }
-        let idx = self.free_list as uint;
+        let idx = self.free_list as usize;
         self.free_list = self.index_to_data[idx];
         self.index_to_data[idx] = self.data_to_index.len() as Index;
         self.data_to_index.push(idx as Index);
@@ -40,15 +40,15 @@ impl IdLookupTable {
     }
 
     pub fn remove(&mut self, idx: Index) {
-        let o = self.index_to_data[idx as uint] as uint;
+        let o = self.index_to_data[idx as usize] as usize;
         if o == self.data_to_index.len()-1 {
             self.data_to_index.pop();
         } else {
             let moved = self.data_to_index.pop().unwrap();
-            self.index_to_data[moved as uint] = o as Index;
+            self.index_to_data[moved as usize] = o as Index;
             self.data_to_index[o] = moved;
         }
-        self.index_to_data[idx as uint] = self.free_list;
+        self.index_to_data[idx as usize] = self.free_list;
         self.free_list = idx;
     }
 
@@ -58,13 +58,13 @@ impl IdLookupTable {
         self.index_to_data.clear();
     }
 
-    pub fn lookup(&self, idx: Index) -> Index { self.index_to_data[idx as uint] }
+    pub fn lookup(&self, idx: Index) -> Index { self.index_to_data[idx as usize] }
 
-    pub fn index_for_offset(&self, idx: Index) -> Index { self.data_to_index[idx as uint] }
+    pub fn index_for_offset(&self, idx: Index) -> Index { self.data_to_index[idx as usize] }
 
-    pub fn len(&self) -> uint { self.data_to_index.len() }
+    pub fn len(&self) -> usize { self.data_to_index.len() }
 
-    pub fn reserve(&mut self, size: uint) {
+    pub fn reserve(&mut self, size: usize) {
         self.index_to_data.reserve(size);
         self.data_to_index.reserve(size);
     }
@@ -80,11 +80,11 @@ impl IdLookupTable {
     }
 
     pub fn swap_offsets(&mut self, o1: Index, o2: Index) {
-        let temp = self.data_to_index[o1 as uint];
-        self.data_to_index[o1 as uint] = self.data_to_index[o2 as uint];
-        self.data_to_index[o2 as uint] = temp;
-        self.index_to_data[self.data_to_index[o2 as uint] as uint] = o1;
-        self.index_to_data[self.data_to_index[o1 as uint] as uint] = o2;
+        let temp = self.data_to_index[o1 as usize];
+        self.data_to_index[o1 as usize] = self.data_to_index[o2 as usize];
+        self.data_to_index[o2 as usize] = temp;
+        self.index_to_data[self.data_to_index[o2 as usize] as usize] = o1;
+        self.index_to_data[self.data_to_index[o1 as usize] as usize] = o2;
     }
 }
 

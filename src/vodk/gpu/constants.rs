@@ -3,10 +3,10 @@
 pub type TextureFlags = i32;
 pub const REPEAT_S          : TextureFlags = 1 << 0;
 pub const REPEAT_T          : TextureFlags = 1 << 1;
-pub const REPEAT            : TextureFlags = 1 << (REPEAT_S | REPEAT_T) as uint;
+pub const REPEAT            : TextureFlags = 1 << (REPEAT_S | REPEAT_T) as usize;
 pub const CLAMP_S           : TextureFlags = 1 << 2;
 pub const CLAMP_T           : TextureFlags = 1 << 3;
-pub const CLAMP             : TextureFlags = 1 << (CLAMP_S | CLAMP_T) as uint;
+pub const CLAMP             : TextureFlags = 1 << (CLAMP_S | CLAMP_T) as usize;
 pub const MIN_FILTER_LINEAR : TextureFlags = 1 << 4;
 pub const MAG_FILTER_LINEAR : TextureFlags = 1 << 5;
 pub const FILTER_LINEAR     : TextureFlags = MIN_FILTER_LINEAR | MAG_FILTER_LINEAR;
@@ -29,7 +29,7 @@ pub const COLOR  : TargetTypes = 1 << 0;
 pub const DEPTH  : TargetTypes = 1 << 1;
 pub const STENCIL: TargetTypes = 1 << 2;
 
-#[deriving(PartialEq, Copy, Clone, Show)]
+#[derive(PartialEq, Copy, Clone, Show)]
 pub enum ShaderType {
     FRAGMENT_SHADER,
     VERTEX_SHADER,
@@ -37,7 +37,7 @@ pub enum ShaderType {
     COMPUTE_SHADER,
 }
 
-#[deriving(PartialEq, Copy, Clone, Show)]
+#[derive(PartialEq, Copy, Clone, Show)]
 pub enum Feature {
     FRAGMENT_SHADING,
     VERTEX_SHADING,
@@ -55,7 +55,7 @@ pub enum FeatureSupport {
     UNSUPPORTED,
 }
 
-#[deriving(PartialEq, Copy, Clone, Show)]
+#[derive(PartialEq, Copy, Clone, Show)]
 pub enum PixelFormat {
     R8G8B8A8,
     R8G8B8X8,
@@ -65,14 +65,14 @@ pub enum PixelFormat {
     A_F32,
 }
 
-#[deriving(PartialEq, Copy, Clone, Show)]
+#[derive(PartialEq, Copy, Clone, Show)]
 pub enum UpdateHint {
     STATIC,
     STREAM,
     DYNAMIC,
 }
 
-#[deriving(PartialEq, Copy, Clone, Show)]
+#[derive(PartialEq, Copy, Clone, Show)]
 pub enum BufferType {
     VERTEX,
     INDEX,
@@ -81,7 +81,7 @@ pub enum BufferType {
     TRANSFORM_FEEDBACK,
 }
 
-#[deriving(PartialEq, Copy, Clone, Show)]
+#[derive(PartialEq, Copy, Clone, Show)]
 pub enum BlendMode {
     NONE,
     ALPHA,
@@ -90,7 +90,7 @@ pub enum BlendMode {
     MUL,
 }
 
-#[deriving(Copy, Clone, PartialEq, Show)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Show)]
 pub enum ResultCode {
     OK,
     UNKNOWN_ERROR,

@@ -71,7 +71,7 @@ pub static a_color:      gpu::VertexAttributeLocation = 3;
 // for antialiased shape rendering
 pub static a_extrusion:  gpu::VertexAttributeLocation = 4;
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct UniformLayout {
     pub u_resolution: gpu::ShaderInputLocation,
     pub u_color: gpu::ShaderInputLocation,

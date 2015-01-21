@@ -17,15 +17,15 @@ pub const NAN_MASK:         Mask = 0b1111111111111000000000000000000000000000000
 pub const TAG_MASK:         Mask = 0b0000000000000111100000000000000000000000000000000000000000000000;
 pub const VAL_MASK:         Mask = 0b0000000000000000011111111111111111111111111111111111111111111111;
 
-pub const PTR_TAG_BIT:      Mask = POINTER_VALUE as Mask << TAG_OFFSET;
-pub const BOOL_TAG_BIT:     Mask = BOOLEAN_VALUE as Mask << TAG_OFFSET;
-pub const VOID_TAG_BIT:     Mask = VOID_VALUE as Mask << TAG_OFFSET;
+pub const PTR_TAG_BIT:      Mask = ((POINTER_VALUE as Mask) << TAG_OFFSET) as Mask;
+pub const BOOL_TAG_BIT:     Mask = ((BOOLEAN_VALUE as Mask) << TAG_OFFSET) as Mask;
+pub const VOID_TAG_BIT:     Mask = ((VOID_VALUE as Mask) << TAG_OFFSET) as Mask;
 
-pub type ByteOffset = uint;
+pub type ByteOffset = usize;
 pub const TAG_OFFSET: ByteOffset = 47;
 
 #[repr(C)]
-#[deriving(Copy, Clone, PartialEq, Eq, Show)]
+#[derive(Copy, Clone, PartialEq, Eq, Show)]
 pub struct Value {
     payload: u64,
 }
@@ -34,7 +34,7 @@ pub struct Structure {
     foo: u32,
 }
 
-#[deriving(Copy, Clone, Show)]
+#[derive(Copy, Clone, Show)]
 pub enum UnpackedValue {
     NumberValue(f64),
     PointerValue(*mut Structure),
@@ -138,7 +138,7 @@ impl Value {
         panic!("invalid value");
     }
 
-    pub fn get_bytes(&self) -> [u8, ..8] {
+    pub fn get_bytes(&self) -> [u8; 8] {
         return unsafe { mem::transmute(self.payload) };
     }
 }

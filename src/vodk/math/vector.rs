@@ -12,13 +12,12 @@
 use std::mem;
 use std::ops;
 use std::num::Float;
-use std::num::FloatMath;
 use std::default::Default;
 
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
 
-#[deriving(Copy, PartialEq, Show)]
+#[derive(Copy, PartialEq, Show)]
 pub struct Untyped;
 
 pub type Vec2 = Vector2D<Untyped>;
@@ -40,20 +39,20 @@ pub trait ScalarMul<T> {
     fn scalar_mul_in_place(&mut self, scalar: T);
 }
 
-#[deriving(Copy, Clone, Show, Zero)]
+#[derive(Copy, Clone, Show)]
 pub struct Vector2D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
 }
 
-#[deriving(Copy, Clone, Show, Zero)]
+#[derive(Copy, Clone, Show)]
 pub struct Vector3D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-#[deriving(Copy, Clone, Show, Zero)]
+#[derive(Copy, Clone, Show)]
 pub struct Vector4D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
@@ -61,7 +60,7 @@ pub struct Vector4D<Unit = Untyped> {
     pub w: f32,
 }
 
-#[deriving(Copy, Clone, Show)]
+#[derive(Copy, Clone, Show)]
 pub struct Rectangle<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
@@ -99,13 +98,13 @@ impl<U> Vector4D<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self.x as *const f32, 4 as uint ));
+            return mem::transmute((&self.x as *const f32, 4 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self.x as *mut f32, 4 as uint ));
+            return mem::transmute((&mut self.x as *mut f32, 4 as usize ));
         }
     }
 
@@ -162,10 +161,12 @@ impl<U> PartialEq for Vector2D<U> {
 
 
 #[allow(dead_code)]
-impl<U> ops::Add<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
+impl<U> ops::Add<Vector4D<U>> for Vector4D<U> {
+
+    type Output = Vector4D<U>;
 
     #[inline]
-    fn add(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
+    fn add(self, rhs: Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -176,10 +177,12 @@ impl<U> ops::Add<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Sub<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
+impl<U> ops::Sub<Vector4D<U>> for Vector4D<U> {
+
+    type Output = Vector4D<U>;
 
     #[inline]
-    fn sub(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
+    fn sub(self, rhs: Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -190,10 +193,12 @@ impl<U> ops::Sub<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
+impl<U> ops::Mul<Vector4D<U>> for Vector4D<U> {
+
+    type Output = Vector4D<U>;
 
     #[inline]
-    fn mul(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
+    fn mul(self, rhs: Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
@@ -226,10 +231,12 @@ impl<U> ScalarMul<f32> for Vector4D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Div<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
+impl<U> ops::Div<Vector4D<U>> for Vector4D<U> {
+
+    type Output = Vector4D<U>;
 
     #[inline]
-    fn div(&self, rhs: &Vector4D<U>) -> Vector4D<U> {
+    fn div(self, rhs: Vector4D<U>) -> Vector4D<U> {
         return Vector4D {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
@@ -240,10 +247,12 @@ impl<U> ops::Div<Vector4D<U>, Vector4D<U>> for Vector4D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Neg<Vector4D<U>> for Vector4D<U> {
+impl<U> ops::Neg for Vector4D<U> {
+
+    type Output = Vector4D<U>;
 
     #[inline]
-    fn neg(&self) -> Vector4D<U> {
+    fn neg(self) -> Vector4D<U> {
         return Vector4D {
             x: -self.x,
             y: -self.y,
@@ -266,13 +275,13 @@ impl<U> Vector3D<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self.x as *const f32, 3 as uint ));
+            return mem::transmute((&self.x as *const f32, 3 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self.x as *mut f32, 3 as uint ));
+            return mem::transmute((&mut self.x as *mut f32, 3 as usize ));
         }
     }
 
@@ -348,10 +357,12 @@ impl<U> Matrix4x4<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Add<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
+impl<U> ops::Add<Vector3D<U>> for Vector3D<U> {
+
+    type Output = Vector3D<U>;
 
     #[inline]
-    fn add(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
+    fn add(self, rhs: Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -361,10 +372,12 @@ impl<U> ops::Add<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Sub<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
+impl<U> ops::Sub<Vector3D<U>> for Vector3D<U> {
+
+    type Output = Vector3D<U>;
 
     #[inline]
-    fn sub(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
+    fn sub(self, rhs: Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -374,10 +387,12 @@ impl<U> ops::Sub<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Vector3D<U>, Vector3D<U>> for Vector3D<U> {
+impl<U> ops::Mul<Vector3D<U>> for Vector3D<U> {
+
+    type Output = Vector3D<U>;
 
     #[inline]
-    fn mul(&self, rhs: &Vector3D<U>) -> Vector3D<U> {
+    fn mul(self, rhs: Vector3D<U>) -> Vector3D<U> {
         return Vector3D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
@@ -408,10 +423,12 @@ impl<U> ScalarMul<f32> for Vector3D<U> {
 
 
 #[allow(dead_code)]
-impl<U> ops::Neg<Vector3D<U>> for Vector3D<U> {
+impl<U> ops::Neg for Vector3D<U> {
+
+    type Output = Vector3D<U>;
 
     #[inline]
-    fn neg(&self) -> Vector3D<U> {
+    fn neg(self) -> Vector3D<U> {
         return Vector3D {
             x: -self.x,
             y: -self.y,
@@ -434,13 +451,13 @@ impl<U> Vector2D<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self.x as *const f32, 2 as uint ));
+            return mem::transmute((&self.x as *const f32, 2 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self.x as *mut f32, 2 as uint ));
+            return mem::transmute((&mut self.x as *mut f32, 2 as usize ));
         }
     }
 
@@ -470,10 +487,12 @@ impl<U> Vector2D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Add<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
+impl<U> ops::Add<Vector2D<U>> for Vector2D<U> {
+
+    type Output = Vector2D<U>;
 
     #[inline]
-    fn add(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
+    fn add(self, rhs: Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -482,10 +501,12 @@ impl<U> ops::Add<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Sub<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
+impl<U> ops::Sub<Vector2D<U>> for Vector2D<U> {
+
+    type Output = Vector2D<U>;
 
     #[inline]
-    fn sub(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
+    fn sub(self, rhs: Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
@@ -494,10 +515,12 @@ impl<U> ops::Sub<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
+impl<U> ops::Mul<Vector2D<U>> for Vector2D<U> {
+
+    type Output = Vector2D<U>;
 
     #[inline]
-    fn mul(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
+    fn mul(self, rhs: Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
@@ -525,10 +548,12 @@ impl<U> ScalarMul<f32> for Vector2D<U> {
 
 
 #[allow(dead_code)]
-impl<U> ops::Div<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
+impl<U> ops::Div<Vector2D<U>> for Vector2D<U> {
+
+    type Output = Vector2D<U>;
 
     #[inline]
-    fn div(&self, rhs: &Vector2D<U>) -> Vector2D<U> {
+    fn div(self, rhs: Vector2D<U>) -> Vector2D<U> {
         return Vector2D {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
@@ -537,10 +562,12 @@ impl<U> ops::Div<Vector2D<U>, Vector2D<U>> for Vector2D<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Neg<Vector2D<U>> for Vector2D<U> {
+impl<U> ops::Neg for Vector2D<U> {
+
+    type Output = Vector2D<U>;
 
     #[inline]
-    fn neg(&self) -> Vector2D<U> {
+    fn neg(self) -> Vector2D<U> {
         return Vector2D {
             x: -self.x,
             y: -self.y,
@@ -548,20 +575,20 @@ impl<U> ops::Neg<Vector2D<U>> for Vector2D<U> {
     }
 }
 
-#[deriving(Copy, Clone, PartialEq, Show)]
+#[derive(Copy, Clone, PartialEq, Show)]
 pub struct Matrix2x2<Unit> {
     pub _11: f32, pub _21: f32,
     pub _12: f32, pub _22: f32,
 }
 
-#[deriving(Copy, Clone, PartialEq, Show)]
+#[derive(Copy, Clone, PartialEq, Show)]
 pub struct Matrix3x3<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32,
     pub _12: f32, pub _22: f32, pub _32: f32,
     pub _13: f32, pub _23: f32, pub _33: f32,
 }
 
-#[deriving(Copy, Clone, PartialEq, Show)]
+#[derive(Copy, Clone, PartialEq, Show)]
 pub struct Matrix4x4<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32, pub _41: f32,
     pub _12: f32, pub _22: f32, pub _32: f32, pub _42: f32,
@@ -583,13 +610,13 @@ impl<U> Matrix2x2<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self._11 as *const f32, 4 as uint ));
+            return mem::transmute((&self._11 as *const f32, 4 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self._11 as *mut f32, 4 as uint ));
+            return mem::transmute((&mut self._11 as *mut f32, 4 as usize ));
         }
     }
 
@@ -638,13 +665,13 @@ impl<U> Matrix3x3<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self._11 as *const f32, 9 as uint ));
+            return mem::transmute((&self._11 as *const f32, 9 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self._11 as *mut f32, 9 as uint ));
+            return mem::transmute((&mut self._11 as *mut f32, 9 as usize ));
         }
     }
 
@@ -740,13 +767,13 @@ impl<U> Matrix4x4<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self._11 as *const f32, 16 as uint ));
+            return mem::transmute((&self._11 as *const f32, 16 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self._11 as *mut f32, 16 as uint ));
+            return mem::transmute((&mut self._11 as *mut f32, 16 as usize ));
         }
     }
 
@@ -947,10 +974,12 @@ impl<U> Matrix4x4<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Matrix4x4<U>, Matrix4x4<U>> for Matrix4x4<U> {
+impl<U> ops::Mul<Matrix4x4<U>> for Matrix4x4<U> {
+
+    type Output = Matrix4x4<U>;
 
     #[inline]
-    fn mul(&self, rhs: &Matrix4x4<U>) -> Matrix4x4<U> {
+    fn mul(self, rhs: Matrix4x4<U>) -> Matrix4x4<U> {
         return Matrix4x4 {
             _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31 + self._14 * rhs._41,
             _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31 + self._24 * rhs._41,
@@ -973,10 +1002,12 @@ impl<U> ops::Mul<Matrix4x4<U>, Matrix4x4<U>> for Matrix4x4<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Matrix3x3<U>, Matrix3x3<U>> for Matrix3x3<U> {
+impl<U> ops::Mul<Matrix3x3<U>> for Matrix3x3<U> {
+
+    type Output = Matrix3x3<U>;
 
     #[inline]
-    fn mul(&self, rhs: &Matrix3x3<U>) -> Matrix3x3<U> {
+    fn mul(self, rhs: Matrix3x3<U>) -> Matrix3x3<U> {
         return Matrix3x3 {
             _11: self._11 * rhs._11 + self._12 * rhs._21 + self._13 * rhs._31,
             _21: self._21 * rhs._11 + self._22 * rhs._21 + self._23 * rhs._31,
@@ -992,10 +1023,12 @@ impl<U> ops::Mul<Matrix3x3<U>, Matrix3x3<U>> for Matrix3x3<U> {
 }
 
 #[allow(dead_code)]
-impl<U> ops::Mul<Matrix2x2<U>, Matrix2x2<U>> for Matrix2x2<U> {
+impl<U> ops::Mul<Matrix2x2<U>> for Matrix2x2<U> {
+
+    type Output = Matrix2x2<U>;
 
     #[inline]
-    fn mul(&self, rhs: &Matrix2x2<U>) -> Matrix2x2<U> {
+    fn mul(self, rhs: Matrix2x2<U>) -> Matrix2x2<U> {
         return Matrix2x2 {
             _11: self._11 * rhs._11 + self._12 * rhs._21,
             _21: self._21 * rhs._11 + self._22 * rhs._21,

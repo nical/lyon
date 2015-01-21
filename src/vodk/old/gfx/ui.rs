@@ -43,9 +43,9 @@ pub struct WidgetTree {
 pub struct IndexedBatch<'l> {
     pub vertices: &'l mut[f32],
     pub indices: &'l mut[u16],
-    pub vertex_cursor: uint, // number of vertices added (!= num of floats)
-    pub index_cursor: uint,
-    pub vertex_stride: uint, // num
+    pub vertex_cursor: usize, // number of vertices added (!= num of floats)
+    pub index_cursor: usize,
+    pub vertex_stride: usize, // num
     pub attributes: &'l [renderer::VertexAttribute],
     pub base_vertex: u16,
 }
@@ -53,7 +53,7 @@ pub struct IndexedBatch<'l> {
 impl<'l> IndexedBatch<'l> {
     pub fn new(
         vertices: &'l mut [f32], indices: &'l mut[u16],
-        base_vertex: u16, vertex_stride: uint,
+        base_vertex: u16, vertex_stride: usize,
         attrib: &'l [renderer::VertexAttribute]
     ) -> IndexedBatch<'l> {
         IndexedBatch {
@@ -166,8 +166,8 @@ pub struct Item {
     pub shape: ItemShape,
     pub tex: Option<texels::Rect>,
     pub color: Option<Color>,
-    pub first_index: uint,
-    pub first_vertex: uint,
+    pub first_index: usize,
+    pub first_vertex: usize,
 }
 
 pub fn push_rect(
@@ -185,7 +185,7 @@ pub fn push_rect(
     let first_vertex = batch.vertex_cursor;
 
     for attrib in batch.attributes.iter() {
-        let i = attrib.offset as uint / 4;
+        let i = attrib.offset as usize / 4;
         match attrib.location {
             a_position => {
                 *v0.get_mut(i  ) = rect.x;
@@ -260,12 +260,12 @@ pub fn push_rect(
 fn set_circle_coordinates(
     batch: &mut IndexedBatch,
     x: f32, y: f32, r: f32, n_points: u32,
-    stride: uint, offset: uint
+    stride: usize, offset: usize
 ) {
     let step = 2.0 * PI / (n_points-2) as f32;
     batch.vertices[offset] = x;
     batch.vertices[offset + 1] = y;
-    for i in range(1, n_points as uint) {
+    for i in range(1, n_points as usize) {
         batch.vertices[offset + i * stride] = x + (step * i as f32).cos() * r;
         batch.vertices[offset + i * stride + 1] = y + (step * i as f32).sin() * r;
     }
@@ -283,7 +283,7 @@ pub fn push_circle(
     println!("first index: {}, first vertex: {}, stride: {}", first_index, first_vertex, stride);
 
     for attrib in batch.attributes.iter() {
-        let offset = first_vertex + attrib.offset as uint / 4;
+        let offset = first_vertex + attrib.offset as usize / 4;
         match attrib.location {
             a_position => {
                 set_circle_coordinates(batch, x, y, r, n_points, stride, offset);
@@ -304,7 +304,7 @@ pub fn push_circle(
             a_color => {
                 match color {
                     Some(c) => {
-                        for i in range(0, (n_points+1) as uint) {
+                        for i in range(0, (n_points+1) as usize) {
                             batch.vertices[offset + i * stride] = c.r;
                             batch.vertices[offset + i * stride + 1] = c.g;
                             batch.vertices[offset + i * stride + 2] = c.b;
@@ -325,5 +325,5 @@ pub fn push_circle(
         let cursor = batch.vertex_cursor as u16 + i + 1;
         batch.push_index(cursor);
     }
-    batch.vertex_cursor += n_points as uint;
+    batch.vertex_cursor += n_points as usize;
 }

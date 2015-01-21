@@ -7,7 +7,7 @@ pub static a_color:      renderer::VertexAttributeLocation = 3;
 // for antialiased shape rendering
 pub static a_extrusion: renderer::VertexAttributeLocation = 4;
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct UniformLayout {
     pub u_resolution: renderer::ShaderInputLocation,
     pub u_color: renderer::ShaderInputLocation,

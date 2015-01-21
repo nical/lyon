@@ -34,7 +34,7 @@ macro_rules! declare_unit (
 declare_unit!(world, f32)
 declare_unit!(pixels, f64)
 
-#[deriving(Show)]
+#[derive(Show)]
 struct Float32<U> {
     val: f32
 }
@@ -153,8 +153,8 @@ impl<U> Float for Float32<U> {
     fn is_finite(self) -> bool { self.val.is_finite() }
     fn is_normal(self) -> bool { self.val.is_normal() }
     fn classify(self) -> std::num::FPCategory { self.val.classify() }
-    fn mantissa_digits(unused_self: Option<Float32<U>>) -> uint { Float::mantissa_digits(option_float()) }
-    fn digits(unused_self: Option<Float32<U>>) -> uint { Float::digits(option_float()) }
+    fn mantissa_digits(unused_self: Option<Float32<U>>) -> usize { Float::mantissa_digits(option_float()) }
+    fn digits(unused_self: Option<Float32<U>>) -> usize { Float::digits(option_float()) }
     fn epsilon() -> Float32<U> { float_unit(Float::epsilon()) }
     fn min_exp(unused_self: Option<Float32<U>>) -> int { Float::min_exp(option_float()) }
     fn max_exp(unused_self: Option<Float32<U>>) -> int { Float::max_exp(option_float()) }

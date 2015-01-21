@@ -1,25 +1,24 @@
-#![feature(macro_rules, globs)]
 
 extern crate glfw;
 extern crate gl;
 extern crate gpu;
 extern crate data;
-extern crate time;
 extern crate math;
+extern crate time;
 
 use data::*;
 use gpu::device::*;
 use gpu::constants::*;
 use gpu::opengl;
 
+use std::num::Float;
 use std::io::timer::sleep;
 use std::time::duration::Duration;
+use std::mem;
 use glfw::Context;
 
 use math::units::world;
 use math::vector;
-
-use std::num::FloatMath;
 
 struct TransformsBlock {
   model: world::Mat4,
@@ -28,7 +27,7 @@ struct TransformsBlock {
 }
 
 fn main() {
-    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
     glfw.window_hint(glfw::WindowHint::ContextVersion(3, 1));
     glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
@@ -36,7 +35,7 @@ fn main() {
     let win_width = 800;
     let win_height = 600;
 
-    let (window, events) = glfw.create_window(
+    let (mut window, mut events) = glfw.create_window(
         win_width, win_height,
         "Cube test",
         glfw::WindowMode::Windowed
@@ -52,7 +51,9 @@ fn main() {
     window.set_scroll_polling(true);
 
     window.make_current();
-    gl::load_with(|s| window.get_proc_address(s));
+    unsafe {
+        gl::load_with(|s| mem::transmute(window.get_proc_address(s))); // TODO
+    }
 
     let mut ctx = opengl::create_debug_device(LOG_ERRORS|CRASH_ERRORS);
 
@@ -114,7 +115,7 @@ fn main() {
     let ibo = ctx.create_buffer(&ibo_desc).ok().unwrap();
 
     ctx.with_write_only_mapped_buffer(
-      vbo, |mapped_vbo| {
+      vbo, &|mapped_vbo| {
           for i in range(0, cube_vertices.len()) {
             mapped_vbo[i] = cube_vertices[i];
           }
@@ -122,7 +123,7 @@ fn main() {
     );
 
     ctx.with_write_only_mapped_buffer(
-      ibo, |mapped_ibo| {
+      ibo, &|mapped_ibo| {
           for i in range(0, cube_indices.len()) {
             mapped_ibo[i] = cube_indices[i];
           }
@@ -240,7 +241,7 @@ fn main() {
 
         time += elapsed_time as f32;
         ctx.with_write_only_mapped_buffer::<TransformsBlock>(
-            ubo, |mapped_ubo| {
+            ubo, &|mapped_ubo| {
                 mapped_ubo[0].projection = world::Mat4::perspective(
                     45.0,
                     win_width as f32 / win_height as f32,
@@ -272,7 +273,6 @@ fn main() {
         let frame_time = time::precise_time_ns() - frame_start_time;
         //frame_count += 1;
         //avg_frame_time += frame_time;
-
         let sleep_time: i64 = 16000000 - frame_time as i64;
         if sleep_time > 0 {
             sleep(Duration::milliseconds(sleep_time/1000000));

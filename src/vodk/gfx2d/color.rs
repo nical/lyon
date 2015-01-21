@@ -1,7 +1,7 @@
 use std::ops;
 use math::vector::ScalarMul;
 
-#[deriving(Copy, Clone, Show)]
+#[derive(Copy, Clone, Show)]
 pub struct Rgba<T> {
     pub r: T,
     pub g: T,
@@ -10,12 +10,12 @@ pub struct Rgba<T> {
 }
 
 #[allow(dead_code)]
-impl<T: ops::Add<T,T>>
-    ops::Add<Rgba<T>, Rgba<T>>
-    for Rgba<T> {
+impl<T: ops::Add<T>> ops::Add<Rgba<T>> for Rgba<T> {
+
+    type Output = Rgba<T>;
 
     #[inline]
-    fn add(&self, rhs: &Rgba<T>) -> Rgba<T> {
+    fn add(self, rhs: Rgba<T>) -> Rgba<T> {
         return Rgba {
             r: self.r + rhs.r,
             g: self.g + rhs.g,
@@ -26,12 +26,12 @@ impl<T: ops::Add<T,T>>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Sub<T,T>>
-    ops::Sub<Rgba<T>, Rgba<T>>
-    for Rgba<T> {
+impl<T: ops::Sub<T>> ops::Sub<Rgba<T>> for Rgba<T> {
+
+    type Output = Rgba<T>;
 
     #[inline]
-    fn sub(&self, rhs: &Rgba<T>) -> Rgba<T> {
+    fn sub(self, rhs: Rgba<T>) -> Rgba<T> {
         return Rgba {
             r: self.r - rhs.r,
             g: self.g - rhs.g,
@@ -42,9 +42,7 @@ impl<T: ops::Sub<T,T>>
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T,T>>
-    ScalarMul<T>
-    for Rgba<T> {
+impl<T: ops::Mul<T>> ScalarMul<T> for Rgba<T> {
 
     #[inline]
     fn scalar_mul(&self, rhs: T) -> Rgba<T> {

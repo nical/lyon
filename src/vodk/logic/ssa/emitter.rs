@@ -4,10 +4,12 @@ use boxed;
 
 use std::mem;
 
+#[derive(Copy)]
 pub struct CodeOffset {
     offset: u8,
 }
 
+#[derive(Copy)]
 pub struct Register {
     index: u8,
 }
@@ -106,7 +108,7 @@ impl Emitter {
         self.code.push(bytecode::OP_CONST_I32);
         self.code.push(register.index);
         unsafe {
-            let val_bytes: &[u8, ..4] = mem::transmute(&val);
+            let val_bytes: &[u8; 4] = mem::transmute(&val);
 
             self.code.push(val_bytes[0]);
             self.code.push(val_bytes[1]);
@@ -123,7 +125,7 @@ impl Emitter {
         self.code.push(bytecode::OP_CONST_I32);
         self.code.push(register.index);
         unsafe {
-            let val_bytes: &[u8, ..4] = mem::transmute(&val);
+            let val_bytes: &[u8; 4] = mem::transmute(&val);
 
             self.code.push(val_bytes[0]);
             self.code.push(val_bytes[1]);

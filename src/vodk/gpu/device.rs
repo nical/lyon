@@ -7,18 +7,18 @@ use std::mem;
 pub type AttributeType = data::Type;
 pub type UniformBindingIndex = i32;
 
-#[deriving(Show, Copy, Clone, PartialEq)]
+#[derive(Show, Copy, Clone, PartialEq)]
 pub struct UniformBlockLocation { pub index: i16 }
-#[deriving(Show, Copy, Clone, PartialEq)]
+#[derive(Show, Copy, Clone, PartialEq)]
 pub struct VertexAttributeLocation { pub index: i16 }
 
-#[deriving(Copy, Clone, Show)]
+#[derive(Copy, Clone, Show)]
 pub enum Range {
     VertexRange(u16, u16),
     IndexRange(u16, u16),
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct TextureDescriptor {
     pub format: PixelFormat,
     pub width: u16,
@@ -27,39 +27,39 @@ pub struct TextureDescriptor {
     pub flags: TextureFlags,
 }
 
-#[deriving(Copy, Show)]
+#[derive(Copy, Show)]
 pub struct BufferDescriptor {
     pub size: u32,
     pub update_hint: UpdateHint,
     pub buffer_type: BufferType,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct GeometryDescriptor<'l> {
     pub attributes: &'l[VertexAttribute],
     pub index_buffer: Option<BufferObject>,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct ShaderStageDescriptor<'l> {
     pub stage_type: ShaderType,
     pub src: &'l[&'l str],
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct ShaderPipelineDescriptor<'l> {
     pub stages: &'l[ShaderStageObject],
     pub attrib_locations: &'l[(&'l str, VertexAttributeLocation)],
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 pub struct RenderTargetDescriptor<'l> {
     pub color_attachments: &'l[TextureObject],
     pub depth: Option<TextureObject>,
     pub stencil: Option<TextureObject>
 }
 
-#[deriving(Copy, Clone, Show)]
+#[derive(Copy, Clone, Show)]
 pub struct VertexAttribute {
     pub buffer: BufferObject,
     pub attrib_type: AttributeType,
@@ -180,7 +180,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
             }
             *data = mem::transmute((
                 ptr,
-                buffer.size as uint / mem::size_of::<T>()
+                buffer.size as usize / mem::size_of::<T>()
             ));
         }
         return ResultCode::OK;
@@ -196,7 +196,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn with_mapped_buffer<T>(
         &mut self,
         buffer: BufferObject,
-        cb: |&mut[T]|
+        cb: &Fn(&mut[T])
     ) -> ResultCode {
         let mut mapped_data: &mut[T] = [].as_mut_slice();
         unsafe {
@@ -217,7 +217,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn with_read_only_mapped_buffer<T>(
         &mut self,
         buffer: BufferObject,
-        cb: |&[T]|
+        cb: &Fn(&[T])
     ) -> ResultCode {
         let mut mapped_data: &mut[T] = [].as_mut_slice();
         unsafe {
@@ -238,7 +238,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
     pub fn with_write_only_mapped_buffer<T>(
         &mut self,
         buffer: BufferObject,
-        cb: |&mut[T]|
+        cb: &Fn(&mut[T])
     ) -> ResultCode {
         let mut mapped_data: &mut[T] = [].as_mut_slice();
         unsafe {

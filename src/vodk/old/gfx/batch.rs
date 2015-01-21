@@ -1,7 +1,7 @@
 
 pub struct BatchingContext {
-    pub vertex_cursor: uint, // in vertices
-    pub index_cursor: uint,  // in indices
+    pub vertex_cursor: usize, // in vertices
+    pub index_cursor: usize,  // in indices
     pub base_vertex: u16,
 }
 
@@ -26,8 +26,8 @@ impl<T: VertexType> BatchingContext<VertexType> {
 
     /// Returns the offset of a vertex (with base_vertex taken into account) from
     /// the offset of an index.
-    pub fn lookup_vertex(&self, ibo: &[u16], offset: uint) -> uint {
-        return (ibo[offset] - base_vertex) as uint;
+    pub fn lookup_vertex(&self, ibo: &[u16], offset: usize) -> usize {
+        return (ibo[offset] - base_vertex) as usize;
     }
 }
 

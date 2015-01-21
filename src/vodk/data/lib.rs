@@ -98,7 +98,7 @@ impl DataType for i8  { fn data_type() -> TypeResult<i8>  { TypeResult{data_type
 pub struct DynamicallyTypedSlice<'l> {
     data: &'l mut[u8],
     desc: &'l[Type],
-    stride: uint,
+    stride: usize,
 }
 
 impl<'l> DynamicallyTypedSlice<'l> {
@@ -128,8 +128,8 @@ impl<'l> DynamicallyTypedSlice<'l> {
         }
     }
 
-    pub fn get_type<'l>(&'l self) -> &'l[Type] {
-        self.desc.as_slice()
+    pub fn get_type(&'l self) -> &'l[Type] {
+        &self.desc[]
     }
 
     pub fn as_slice<T>(&'l self) -> &'l[T] {
@@ -153,14 +153,14 @@ impl<'l> DynamicallyTypedSlice<'l> {
     }
 
     pub fn as_byte_slice(&'l self) -> &'l[u8] {
-        return self.data.as_slice();
+        return &self.data[];
     }
 
     pub fn as_mut_byte_slice(&'l mut self) -> &'l mut[u8] {
         return self.data.as_mut_slice();
     }
 
-    pub fn len(&self) -> uint { self.data.len() / self. stride as uint }
+    pub fn len(&self) -> usize { self.data.len() / self. stride as usize }
 
-    pub fn byte_len(&self) -> uint { self.data.len() }
+    pub fn byte_len(&self) -> usize { self.data.len() }
 }

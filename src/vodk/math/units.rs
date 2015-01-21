@@ -4,7 +4,7 @@ macro_rules! declare_unit (
         pub mod $module {
             use vector;
 
-            #[deriving(Copy, Clone, Show)]
+            #[derive(Copy, Clone, Show)]
             pub struct Unit;
 
             pub type Rectangle = vector::Rectangle<Unit>;
@@ -96,11 +96,11 @@ macro_rules! declare_unit (
             }
         }
     )
-)
+);
 
 // In texture space (0 .. 1) origin: top-left
-declare_unit!(texels)
+declare_unit!(texels);
 // In ui units (0 .. X) origin: top-left
-declare_unit!(pixels)
+declare_unit!(pixels);
 // In world space (-X .. Y)
-declare_unit!(world)
+declare_unit!(world);

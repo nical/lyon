@@ -57,16 +57,16 @@ fn test_render_to_texture(ctx: &mut gpu::RenderingContext) {
 
     ctx.clear(gpu::COLOR);
 
-    let mut read_back : Vec<u8> = Vec::from_fn((w*h*4) as uint, |i|{ 1 as u8 });
+    let mut read_back : Vec<u8> = Vec::from_fn((w*h*4) as usize, |i|{ 1 as u8 });
     ctx.read_back_texture(target_texture, gpu::R8G8B8A8,
                           read_back.as_mut_slice());
 
     for j in range(0, h) {
         for i in range(0, w) {
-            assert_eq!(*read_back.get(((i+j*h)*4    ) as uint), 0);
-            assert_eq!(*read_back.get(((i+j*h)*4 + 1) as uint), 255);
-            assert_eq!(*read_back.get(((i+j*h)*4 + 2) as uint), 0);
-            assert_eq!(*read_back.get(((i+j*h)*4 + 3) as uint), 255);
+            assert_eq!(*read_back.get(((i+j*h)*4    ) as usize), 0);
+            assert_eq!(*read_back.get(((i+j*h)*4 + 1) as usize), 255);
+            assert_eq!(*read_back.get(((i+j*h)*4 + 2) as usize), 0);
+            assert_eq!(*read_back.get(((i+j*h)*4 + 3) as usize), 255);
         }
     }
 

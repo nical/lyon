@@ -66,7 +66,7 @@ pub mod io {
 pub mod app;
 pub mod data;
 
-#[deriving(Show)]
+#[derive(Show)]
 struct Pos2DTex2D {
     x: f32,
     y: f32,
@@ -652,7 +652,7 @@ fn main() {
     app.shut_down();
 }
 
-fn create_checker_texture(w: uint, h: uint, ctx: &mut renderer::RenderingContext) -> renderer::Texture {
+fn create_checker_texture(w: usize, h: usize, ctx: &mut renderer::RenderingContext) -> renderer::Texture {
     let checker_data: Vec<u8> = Vec::from_fn(w*h*4, |i|{
         (((i / 4 + (i/(4*h))) % 2)*255) as u8
     });

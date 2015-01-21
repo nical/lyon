@@ -1,17 +1,16 @@
-use std::vec;
 use std::rc::Rc;
 use std::default::Default;
 use std::slice;
 
 type DataTypeList = Vec<DataTypeID>;
 
-#[deriving(Copy, PartialEq, Show)]
+#[derive(Copy, PartialEq, Show)]
 enum DataType {
     Generic(u32),
     Type(DataTypeID),
 }
 
-#[deriving(Copy, Show)]
+#[derive(Copy, Show)]
 struct PortDescriptor {
     data_type: DataType,
 }
@@ -30,7 +29,7 @@ struct Node {
     valid: bool,
 }
 
-#[deriving(Copy, Show)]
+#[derive(Copy, Show)]
 struct Connection {
     port: u16,
     other_node: u16,
@@ -49,13 +48,13 @@ struct Graph {
 type PortIndex = u16;
 type PortID = u16; // TODO
 
-#[deriving(Copy, PartialEq, Clone, Show)]
+#[derive(Copy, PartialEq, Clone, Show)]
 struct NodeID { handle: u16 }
 
-#[deriving(Copy, PartialEq, Clone, Show)]
+#[derive(Copy, PartialEq, Clone, Show)]
 struct NodeTypeID { handle: i32 }
 
-#[deriving(Copy, PartialEq, Clone, Show)]
+#[derive(Copy, PartialEq, Clone, Show)]
 struct DataTypeID { handle: u32 }
 
 #[allow(dead_code)]
@@ -80,28 +79,28 @@ impl Graph {
         }
         let c_type = c_type.unwrap();
         {
-            let mut node1 = &mut self.nodes[n1.handle as uint];
+            let mut node1 = &mut self.nodes[n1.handle as usize];
             node1.outputs.push(Connection {
                 port: p1,
                 other_node: n2.handle,
                 other_port: p2
             });
             node1.outputs.sort_by(|a,b|{a.port.cmp(&b.port)});
-            match self.type_system.get(node1.node_type).outputs[p1 as uint].data_type {
-                DataType::Generic(g) => { node1.generics[g as uint] = Some(c_type); }
+            match self.type_system.get(node1.node_type).outputs[p1 as usize].data_type {
+                DataType::Generic(g) => { node1.generics[g as usize] = Some(c_type); }
                 _ => {}
             }
         }
         {
-            let mut node2 = &mut self.nodes[n2.handle as uint];
+            let mut node2 = &mut self.nodes[n2.handle as usize];
             node2.inputs.push(Connection {
                 port: p2,
                 other_node: n1.handle,
                 other_port: p1,
             });
             node2.inputs.sort_by(|a,b|{a.port.cmp(&b.port)});
-            match self.type_system.get(node2.node_type).inputs[p2 as uint].data_type {
-                DataType::Generic(g) => { node2.generics[g as uint] = Some(c_type); }
+            match self.type_system.get(node2.node_type).inputs[p2 as usize].data_type {
+                DataType::Generic(g) => { node2.generics[g as usize] = Some(c_type); }
                 _ => {}
             }
         }
@@ -110,13 +109,13 @@ impl Graph {
     }
 
     pub fn are_connected(&self, n1: NodeID, p1: PortIndex, n2: NodeID, p2: PortIndex) -> bool {
-        if self.nodes.len() <= n1.handle as uint
-            || self.nodes.len() <= n2.handle as uint {
+        if self.nodes.len() <= n1.handle as usize
+            || self.nodes.len() <= n2.handle as usize {
             return false;
         }
 
-        let node1 = &self.nodes[n1.handle as uint];
-        let node2 = &self.nodes[n2.handle as uint];
+        let node1 = &self.nodes[n1.handle as usize];
+        let node2 = &self.nodes[n2.handle as usize];
 
         let mut connected1 = false;
         for p in node1.outputs.iter() {
@@ -138,7 +137,7 @@ impl Graph {
     }
 
     fn get_node<'l>(&'l self, id: NodeID) -> &'l Node {
-        return &self.nodes[id.handle as uint];
+        return &self.nodes[id.handle as usize];
     }
 
     pub fn can_connect(&self, n1: NodeID, p1: PortIndex, n2: NodeID, p2: PortIndex) -> bool {
@@ -152,7 +151,7 @@ impl Graph {
     }
 
     pub fn disconnect_input(&mut self, n: NodeID, p: PortID) {
-        let n_handle = n.handle as uint;
+        let n_handle = n.handle as usize;
         if !self.nodes[n_handle].valid {
             return;
         }
@@ -164,7 +163,7 @@ impl Graph {
             }
             let inputs_i = self.nodes[n_handle].inputs[i];
             if inputs_i.port == p {
-                let input_node = inputs_i.other_node as uint;
+                let input_node = inputs_i.other_node as usize;
                 {
                     let outputs = &mut self.nodes[input_node].outputs;
                     // look for the corresponding connection in the othe node's outputs
@@ -186,7 +185,7 @@ impl Graph {
     }
 
     pub fn disconnect_output(&mut self, n: NodeID, p: PortID) {
-        let n_handle = n.handle as uint;
+        let n_handle = n.handle as usize;
         if !self.nodes[n_handle].valid {
             return;
         }
@@ -198,7 +197,7 @@ impl Graph {
             }
             let outputs_i = self.nodes[n_handle].outputs[i];
             if outputs_i.port == p {
-                let output_node = outputs_i.other_node as uint;
+                let output_node = outputs_i.other_node as usize;
                 {
                     let inputs = &mut self.nodes[output_node].inputs;
                     // look for the corresponding connection in the othe node's outputs
@@ -238,27 +237,27 @@ impl Graph {
             return;
         }
         loop {
-            if self.nodes[id.handle as uint].inputs.len() > 0 {
+            if self.nodes[id.handle as usize].inputs.len() > 0 {
                 self.disconnect_input(id, 0);
             } else {
                 break;
             }
         }
         loop {
-            if self.nodes[id.handle as uint].outputs.len() > 0 {
+            if self.nodes[id.handle as usize].outputs.len() > 0 {
                 self.disconnect_output(id, 0);
             } else {
                 break;
             }
         }
-        self.nodes[id.handle as uint].valid = false;
+        self.nodes[id.handle as usize].valid = false;
     }
 
     pub fn contains(&self, id: NodeID) -> bool {
-        if self.nodes.len() <= id.handle as uint {
+        if self.nodes.len() <= id.handle as usize {
             return false;
         }
-        return self.nodes[id.handle as uint].valid;
+        return self.nodes[id.handle as usize].valid;
     }
 }
 
@@ -290,7 +289,7 @@ impl TypeSystem {
     }
 
     pub fn get<'l>(&'l self, type_id: NodeTypeID) -> &'l NodeDescriptor {
-        return &self.descriptors[type_id.handle as uint];
+        return &self.descriptors[type_id.handle as usize];
     }
 
     pub fn can_connect_types(
@@ -324,16 +323,16 @@ impl TypeSystem {
         desc: &'l NodeDescriptor,
         port: PortIndex
     ) -> &'l [DataTypeID] {
-        if desc.inputs.len() <= port as uint {
+        if desc.inputs.len() <= port as usize {
             return &[];
         }
-        match desc.inputs[port as uint].data_type {
+        match desc.inputs[port as usize].data_type {
             DataType::Type(ref t) => { return slice::ref_slice(t); }
             DataType::Generic(g) => {
-                match node.generics[g as uint] {
+                match node.generics[g as usize] {
                     Some(ref t) => { return slice::ref_slice(t); }
                     None => {
-                        return desc.generics[g as uint].as_slice();
+                        return &desc.generics[g as usize][];
                     }
                 }
             }
@@ -345,16 +344,16 @@ impl TypeSystem {
         desc: &'l NodeDescriptor,
         port: PortIndex
     ) -> &'l [DataTypeID] {
-        if desc.outputs.len() <= port as uint {
+        if desc.outputs.len() <= port as usize {
             return &[];
         }
-        match desc.outputs[port as uint].data_type {
+        match desc.outputs[port as usize].data_type {
             DataType::Type(ref t) => { return slice::ref_slice(t); }
             DataType::Generic(g) => {
-                match node.generics[g as uint] {
+                match node.generics[g as usize] {
                     Some(ref t) => { return slice::ref_slice(t); }
                     None => {
-                        return desc.generics[g as uint].as_slice();
+                        return &desc.generics[g as usize][];
                     }
                 }
             }
@@ -366,22 +365,22 @@ impl TypeSystem {
 impl NodeDescriptor {
 
     fn get_input_types<'l>(&'l self, port: PortIndex) -> &'l [DataTypeID] {
-        if port as uint >= self.inputs.len() {
+        if port as usize >= self.inputs.len() {
             return &[];
         }
-        match self.inputs[port as uint].data_type {
+        match self.inputs[port as usize].data_type {
             DataType::Type(ref t) => { return slice::ref_slice(t); },
-            DataType::Generic(g) => { return self.generics[g as uint].as_slice(); }
+            DataType::Generic(g) => { return &self.generics[g as usize][]; }
         }
     }
 
     fn get_output_types<'l>(&'l self, port: PortIndex) -> &'l [DataTypeID] {
-        if port as uint >= self.outputs.len() {
+        if port as usize >= self.outputs.len() {
             return &[];
         }
-        match self.outputs[port as uint].data_type {
+        match self.outputs[port as usize].data_type {
             DataType::Type(ref t) => { return slice::ref_slice(t); },
-            DataType::Generic(g) => { return self.generics[g as uint].as_slice(); }
+            DataType::Generic(g) => { return &self.generics[g as usize][]; }
         }
     }
 
@@ -389,7 +388,7 @@ impl NodeDescriptor {
         for input in self.inputs.iter() {
             match input.data_type {
                 DataType::Generic(g) => {
-                    if g as uint >= self.generics.len() {
+                    if g as usize >= self.generics.len() {
                         return false;
                     }
                 }
@@ -399,7 +398,7 @@ impl NodeDescriptor {
         for output in self.outputs.iter() {
             match output.data_type {
                 DataType::Generic(g) => {
-                    if g as uint >= self.generics.len() {
+                    if g as usize >= self.generics.len() {
                         return false;
                     }
                 }
@@ -423,32 +422,32 @@ impl<T: Default> NodeAttributeVector<T> {
     }
 
     pub fn set(&mut self, id: NodeID, val: T) {
-        while self.data.len() <= id.handle as uint {
+        while self.data.len() <= id.handle as usize {
             self.data.push(Default::default());
         }
-        self.data[id.handle as uint] = val;
+        self.data[id.handle as usize] = val;
     }
 
     pub fn get<'l>(&'l self, id: NodeID) -> &'l T {
-        return &self.data[id.handle as uint];
+        return &self.data[id.handle as usize];
     }
 
     pub fn get_mut<'l> (&'l mut self, id: NodeID) -> &'l mut T {
-        while self.data.len() <= id.handle as uint {
+        while self.data.len() <= id.handle as usize {
             self.data.push(Default::default());
         }
-        return &mut self.data[id.handle as uint];
+        return &mut self.data[id.handle as usize];
     }
 
     pub fn erase(&mut self, id: NodeID) {
-        if self.data.len() <= id.handle as uint {
+        if self.data.len() <= id.handle as usize {
             return;
         }
 
-        self.data[id.handle as uint] = Default::default();
+        self.data[id.handle as usize] = Default::default();
     }
 
-    pub fn len(&self) -> uint { self.data.len() }
+    pub fn len(&self) -> usize { self.data.len() }
 
     pub fn clear(&mut self) { self.data.clear(); }
 }

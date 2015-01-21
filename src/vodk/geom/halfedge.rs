@@ -6,8 +6,8 @@ pub struct GeomId<T> {
 }
 
 impl<T> Id for GeomId<T> {
-    fn to_index(&self) -> uint { self.handle as uint }
-    fn from_index(idx: uint) -> GeomId<T> { GeomId { handle: idx as u16 } }
+    fn to_index(&self) -> usize { self.handle as usize }
+    fn from_index(idx: usize) -> GeomId<T> { GeomId { handle: idx as u16 } }
 }
 
 struct VertexHandle;

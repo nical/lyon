@@ -6,7 +6,6 @@ use style;
 use color::Rgba;
 use shapes;
 use data;
-use std::num::FloatMath;
 
 static PI: f32 = 3.1415;
 
@@ -15,7 +14,7 @@ pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
 pub static CONVEX_SHAPE: TesselationFlags = 2;
 
 #[repr(C)]
-#[deriving(Copy, Show)]
+#[derive(Copy, Show)]
 pub struct Pos2DNormal2DColorExtrusion {
     pub pos: world::Vec2,
     pub normal: world::Vec2,
@@ -40,8 +39,8 @@ pub fn path_to_line_vbo(
     path: &[world::Vec2],
     is_closed: bool,
     flags: TesselationFlags,
-    line_width_fn: |uint| -> f32,
-    color_fn: |uint, PointType| -> Rgba<f32>,
+    line_width_fn: &Fn(usize) -> f32,
+    color_fn: &Fn(usize, PointType) -> Rgba<f32>,
     transform: world::Mat3,
     vbo: &mut [Pos2DNormal2DColorExtrusion],
 ) {
@@ -144,8 +143,8 @@ pub fn path_to_line_ibo(
 
     let vertex_antialiasing = (flags & VERTEX_ANTIALIASING) != 0;
     let vertex_stride : u16 = if vertex_antialiasing { 4 } else { 2 };
-    let index_stride = 6 * (vertex_stride as uint - 1);
-    for i in range(0, num_points as uint - 1) {
+    let index_stride = 6 * (vertex_stride as usize - 1);
+    for i in range(0, num_points as usize - 1) {
         let idx = i as u16;
         ibo[i * index_stride    ] = base_vertex + idx * vertex_stride;
         ibo[i * index_stride + 1] = base_vertex + idx * vertex_stride + 1;
@@ -174,7 +173,7 @@ pub fn path_to_line_ibo(
         }
     }
     if is_closed {
-        let i = num_points as uint - 1;
+        let i = num_points as usize - 1;
         let idx = i as u16;
         ibo[i * index_stride    ] = base_vertex + idx * vertex_stride + 0;
         ibo[i * index_stride + 1] = base_vertex + idx * vertex_stride + 1;
@@ -207,8 +206,8 @@ pub fn path_to_line_ibo(
 pub struct VertexStream<'l, T: 'l> {
     pub vertices: &'l mut[T],
     pub indices: &'l mut[u16],
-    pub vertex_cursor: uint,
-    pub index_cursor: uint,
+    pub vertex_cursor: usize,
+    pub index_cursor: usize,
     pub base_vertex: u16,
 }
 
@@ -365,8 +364,8 @@ pub fn fill_grid<'l, T: VertexType2D>(
     fill: FillStyle<'l>,
     uv_grid: Option<(&'l[f32], &'l[f32])>
 ) -> Range {
-    assert!(columns.len() >= 2)
-    assert!(lines.len() >= 2)
+    assert!(columns.len() >= 2);
+    assert!(lines.len() >= 2);
 
     let first_vertex = stream.vertex_cursor as u16;
     let first_index = stream.index_cursor as u16;

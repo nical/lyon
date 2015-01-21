@@ -1,6 +1,7 @@
 use std::num::Float;
 use std::char;
-use std::str;
+use unicode::str as unicode_str;
+use unicode::str::Utf16Item;
 
 pub struct Tokenizer<T> {
     stream: T,
@@ -11,7 +12,7 @@ pub struct Tokenizer<T> {
     finished: bool,
 }
 
-#[deriving(Clone, Show, PartialEq)]
+#[derive(Clone, Show, PartialEq)]
 pub enum ErrorType {
     EndOfStreamWhileParsingScope,
     InvalidCharacter,
@@ -26,14 +27,14 @@ pub enum ErrorType {
     InternalError,
 }
 
-#[deriving(Clone, Show, PartialEq)]
+#[derive(Clone, Show, PartialEq)]
 pub struct Error {
     pub error: ErrorType,
     pub line: u32,
     pub column: u32,
 }
 
-#[deriving(Clone, Show, PartialEq)]
+#[derive(Clone, Show, PartialEq)]
 pub enum Token {
     Identifier(String),
     StringLiteral(String),
@@ -59,7 +60,7 @@ pub enum Token {
     Module,
     Use,
     Void,
-    UInt32Type,
+    Uint32Type,
     Int32Type,
     Float32Type,
     ByteType,
@@ -111,7 +112,8 @@ pub enum Token {
     EndOfStream,
 }
 
-impl<T: Iterator<char>> Tokenizer<T> {
+impl<T: Iterator<Item=char>> Tokenizer<T> {
+
     pub fn new(stream: T) -> Tokenizer<T> {
         Tokenizer {
             stream: stream,
@@ -253,7 +255,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
         }
 
         {
-            let word = self.string_buffer.as_slice();
+            let word = &self.string_buffer[];
             if word == "struct" { return Ok(Token::Struct); }
             if word == "enum"   { return Ok(Token::Enum); }
             if word == "let"    { return Ok(Token::Let); }
@@ -274,7 +276,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
             if word == "self"   { return Ok(Token::This); }
             if word == "as"     { return Ok(Token::As); }
             if word == "void"   { return Ok(Token::Void); }
-            if word == "uint32" { return Ok(Token::UInt32Type); }
+            if word == "usize32" { return Ok(Token::Uint32Type); }
             if word == "int32"  { return Ok(Token::Int32Type); }
             if word == "float32"{ return Ok(Token::Float32Type); }
             if word == "byte"   { return Ok(Token::ByteType); }
@@ -328,7 +330,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
             match self.ch {
                 c @ '0' ... '9' => {
                     dec /= 10.0;
-                    res += (((c as int) - ('0' as int)) as f64) * dec;
+                    res += (((c as isize) - ('0' as isize)) as f64) * dec;
                     self.bump();
                 }
                 _ => break,
@@ -360,7 +362,7 @@ impl<T: Iterator<char>> Tokenizer<T> {
             match self.ch {
                 c @ '0'...'9' => {
                     exp *= 10;
-                    exp += (c as uint) - ('0' as uint);
+                    exp += (c as usize) - ('0' as usize);
 
                     self.bump();
                 }
@@ -437,8 +439,8 @@ impl<T: Iterator<char>> Tokenizer<T> {
                             }
 
                             let buf = [n1, try!(self.decode_hex_escape())];
-                            match str::utf16_items(buf.as_slice()).next() {
-                                Some(str::ScalarValue(c)) => res.push(c),
+                             match unicode_str::utf16_items(&buf).next() {
+                                Some(Utf16Item::ScalarValue(c)) => res.push(c),
                                 _ => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
                             }
                         }
@@ -471,7 +473,7 @@ mod test {
     use super::*;
     #[test]
     fn tokenize_simple() {
-        let src = "struct foo { bar: int32, baz: bool }";
+        let src = "struct foo { bar: isize32, baz: bool }";
         let mut tok = Tokenizer::new(src.chars());
         assert_eq!(tok.parse(), Ok(Struct));
         assert_eq!(tok.parse(), Ok(Identifier(String::from_str("foo"))));

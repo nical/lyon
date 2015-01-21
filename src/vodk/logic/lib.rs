@@ -1,5 +1,6 @@
-#![feature(macro_rules, globs)]
 #![allow(dead_code)]
+
+extern crate unicode;
 
 pub mod boxed;
 pub mod nanboxed;

@@ -20,7 +20,7 @@ impl<T: Copy> PodFreeListVector<T> {
         }
     }
 
-    pub fn with_capacity(capacity: uint) -> PodFreeListVector<T> {
+    pub fn with_capacity(capacity: usize) -> PodFreeListVector<T> {
         PodFreeListVector {
             data: Vec::with_capacity(capacity),
             free_list: FREE_LIST_NONE
@@ -33,15 +33,15 @@ impl<T: Copy> PodFreeListVector<T> {
             return (self.data.len()-1) as Index;
         } else {
             let index = self.free_list;
-            let next_free_list = self.data[index as uint].free_list;
-            self.data[self.free_list as uint].payload = val;
+            let next_free_list = self.data[index as usize].free_list;
+            self.data[self.free_list as usize].payload = val;
             self.free_list = next_free_list;
             return index;
         }
     }
 
     pub fn remove(&mut self, idx: Index) {
-        self.data[idx as uint].free_list = self.free_list;
+        self.data[idx as usize].free_list = self.free_list;
         self.free_list = idx;
     }
 
@@ -50,13 +50,13 @@ impl<T: Copy> PodFreeListVector<T> {
     }
 
     pub fn borrow<'l>(&'l self, id: Index) -> &'l T {
-        assert!(self.data[id as uint].free_list == FREE_LIST_NONE);
-        return &self.data[id as uint].payload;
+        assert!(self.data[id as usize].free_list == FREE_LIST_NONE);
+        return &self.data[id as usize].payload;
     }
 
     pub fn borrow_mut<'l>(&'l mut self, idx: Index) -> &'l mut T {
-        assert!(self.data[idx as uint].free_list == FREE_LIST_NONE);
-        return &mut self.data[idx as uint].payload;
+        assert!(self.data[idx as usize].free_list == FREE_LIST_NONE);
+        return &mut self.data[idx as usize].payload;
     }
 }
 

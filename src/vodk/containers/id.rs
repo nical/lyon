@@ -1,11 +1,11 @@
 use std::default::Default;
 
 pub trait FromIndex {
-    fn from_index(idx: uint) -> Self;
+    fn from_index(idx: usize) -> Self;
 }
 
 pub trait ToIndex {
-    fn to_index(&self) -> uint;
+    fn to_index(&self) -> usize;
 }
 
 pub trait Generation {
@@ -16,13 +16,13 @@ pub trait Invalid {
     fn is_valid(&self) -> bool;
 }
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct GenId<T, H, G> {
     pub handle: H,
     pub gen: G,
 }
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct Id<T, H> {
     pub handle: H,
 }
@@ -49,28 +49,28 @@ impl<T, H: Default> Default for Id<T, H> {
     fn default() -> Id<T,H> { Id { handle: Default::default() } }
 }
 
-impl ToIndex for u8 { fn to_index(&self) -> uint { *self as uint } }
-impl ToIndex for u16 { fn to_index(&self) -> uint { *self as uint } }
-impl ToIndex for u32 { fn to_index(&self) -> uint { *self as uint } }
-impl ToIndex for u64 { fn to_index(&self) -> uint { *self as uint } }
-impl ToIndex for uint { fn to_index(&self) -> uint { *self } }
+impl ToIndex for u8 { fn to_index(&self) -> usize { *self as usize } }
+impl ToIndex for u16 { fn to_index(&self) -> usize { *self as usize } }
+impl ToIndex for u32 { fn to_index(&self) -> usize { *self as usize } }
+impl ToIndex for u64 { fn to_index(&self) -> usize { *self as usize } }
+impl ToIndex for usize { fn to_index(&self) -> usize { *self } }
 
 impl<T, H:ToIndex, G> ToIndex for GenId<T, H, G> {
-    fn to_index(&self) -> uint { self.handle.to_index() }
+    fn to_index(&self) -> usize { self.handle.to_index() }
 }
 
 impl<T, H:ToIndex> ToIndex for Id<T, H> {
-    fn to_index(&self) -> uint { self.handle.to_index() }
+    fn to_index(&self) -> usize { self.handle.to_index() }
 }
 
-impl FromIndex for u8 { fn from_index(idx: uint) -> u8 { idx as u8 } }
-impl FromIndex for u16 { fn from_index(idx: uint) -> u16 { idx as u16 } }
-impl FromIndex for u32 { fn from_index(idx: uint) -> u32 { idx as u32 } }
-impl FromIndex for u64 { fn from_index(idx: uint) -> u64 { idx as u64 } }
-impl FromIndex for uint { fn from_index(idx: uint) -> uint { idx } }
+impl FromIndex for u8 { fn from_index(idx: usize) -> u8 { idx as u8 } }
+impl FromIndex for u16 { fn from_index(idx: usize) -> u16 { idx as u16 } }
+impl FromIndex for u32 { fn from_index(idx: usize) -> u32 { idx as u32 } }
+impl FromIndex for u64 { fn from_index(idx: usize) -> u64 { idx as u64 } }
+impl FromIndex for usize { fn from_index(idx: usize) -> usize { idx } }
 
 impl<T, H:FromIndex> FromIndex for Id<T, H> {
-    fn from_index(idx: uint) -> Id<T, H> { Id { handle: FromIndex::from_index(idx) } }
+    fn from_index(idx: usize) -> Id<T, H> { Id { handle: FromIndex::from_index(idx) } }
 }
 
 impl Generation for u8  { fn get_gen(&self) -> u32 { *self as u32 } }

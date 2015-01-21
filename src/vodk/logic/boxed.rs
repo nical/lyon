@@ -24,7 +24,7 @@ pub const ARRAY_PTR:        ValueType = (ARRAY_TYPE_BITS >> 56) as u8;
 pub const STRUCT_PTR:       ValueType = (STRUCT_TYPE_BITS >> 56) as u8;
 
 #[repr(C)]
-#[deriving(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Value {
     payload: u64,
 }
@@ -130,7 +130,7 @@ impl Value {
         return None;
     }
 
-    pub fn get_bytes(&self) -> [u8, ..8] {
+    pub fn get_bytes(&self) -> [u8; 8] {
         return unsafe { mem::transmute(self.payload) };
     }
 
@@ -160,11 +160,13 @@ impl fmt::Show for Value {
         unsafe {
             match self.get_type() {
                 FLOAT32_VALUE => {
-                    fmt.write_le_f32(self.get_float32_unchecked());
+                    // TODO
+                    //fmt.write_le_f32(self.get_float32_unchecked());
                     fmt.write_str(" float32 }");
                 }
                 INT32_VALUE => {
-                    fmt.write_int(self.get_int32_unchecked() as int);
+                    // TODO
+                    //fmt.write_int(self.get_int32_unchecked() as isize);
                     fmt.write_str(" int32 }");
                 }
                 VOID_VALUE => {

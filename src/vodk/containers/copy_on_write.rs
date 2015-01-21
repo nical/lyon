@@ -165,7 +165,7 @@ impl<T: Clone> CwArcTable<T> {
 
     pub fn unchecked_get<'l>(&'l self, index: u32) -> &'l T {
         unsafe {
-            &(*self.data[index as uint].ptr).data
+            &(*self.data[index as usize].ptr).data
         }
     }
 
@@ -177,17 +177,17 @@ impl<T: Clone> CwArcTable<T> {
     pub fn unchecked_get_mut<'l>(&'l mut self, index: u32) -> &'l mut T {
         unsafe {
             // If we are holding the only ref, no need to copy.
-            if self.data[index as uint].ref_count() == 1 {
-                return &mut (*self.data[index as uint].ptr).data;
+            if self.data[index as usize].ref_count() == 1 {
+                return &mut (*self.data[index as usize].ptr).data;
             }
             // "copy on write" scenario.
-            let node_ref = self.data.get_mut(index as uint);
+            let node_ref = self.data.get_mut(index as usize);
             *node_ref = node_ref.deep_clone();
             return &mut (*node_ref.ptr).data;
         }
     }
 
-    pub fn len(&self) -> uint {
+    pub fn len(&self) -> usize {
         return self.data.len() - self.free_slots.len();
     }
 
@@ -201,6 +201,6 @@ impl<T: Clone> CwArcTable<T> {
     }
 
     pub fn get_gen(&self, index: u32) -> u32 {
-        return self.data[index as uint].inner().gen;
+        return self.data[index as usize].inner().gen;
     }
 }

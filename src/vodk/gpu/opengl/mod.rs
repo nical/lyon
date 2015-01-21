@@ -4,9 +4,9 @@ use super::constants::*;
 use super::objects::*;
 use super::logging::LoggingProxy;
 
-use std::string::raw;
 use std::mem;
 use libc::c_void;
+use std::ffi::CString;
 
 use data;
 
@@ -175,13 +175,17 @@ impl DeviceBackend for OpenGLDeviceBackend {
             if status == gl::TRUE as i32 {
                 return Ok(());
             }
-            let mut buffer = [0u8, ..512];
+            let mut buffer = [0u8; 512];
             let mut length: i32 = 0;
             gl::GetShaderInfoLog(
                 shader.handle, 512, &mut length,
                 mem::transmute(buffer.as_mut_ptr())
             );
-            return Err((ResultCode::SHADER_COMPILATION_ERROR, raw::from_buf(buffer.as_ptr())));
+            let err_msg = match String::from_utf8(buffer.to_vec()) {
+                Ok(msg) => { msg }
+                Err(_) => { "Unknown shader error".to_string() }
+            };
+            return Err((ResultCode::SHADER_COMPILATION_ERROR, err_msg));
         }
     }
 
@@ -211,9 +215,13 @@ impl DeviceBackend for OpenGLDeviceBackend {
                     gl::DeleteProgram(pipeline.handle);
                     return Err(ResultCode::INVALID_ARGUMENT_ERROR);
                 }
-                name.with_c_str(|c_name| {
-                    gl::BindAttribLocation(pipeline.handle, loc.index as u32, c_name);
-                });
+                let c_name = CString::from_slice(name.as_bytes());
+                unsafe {
+                    gl::BindAttribLocation(
+                        pipeline.handle, loc.index as u32,
+                        c_name.as_bytes_with_nul().as_ptr() as *const i8
+                    );
+                }
             }
 
             gl::LinkProgram(pipeline.handle);
@@ -246,14 +254,18 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 return Ok(());
             }
 
-            let mut buffer = [0u8, ..512];
+            let mut buffer = [0u8; 512];
             let mut length: i32 = 0;
             gl::GetProgramInfoLog(
                 shader.handle, 512, &mut length,
                 mem::transmute(buffer.as_mut_ptr())
             );
 
-            return Err((ResultCode::SHADER_LINK_ERROR, raw::from_buf(buffer.as_ptr())));
+            let err_msg = match String::from_utf8(buffer.to_vec()) {
+                Ok(msg) => { msg }
+                Err(_) => { "Unknown shader error".to_string() }
+            };
+            return Err((ResultCode::SHADER_LINK_ERROR, err_msg));
         }
     }
 
@@ -400,7 +412,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                     gl_data_type(attr.attrib_type),
                     gl_bool(attr.normalize),
                     attr.stride as i32,
-                    mem::transmute(attr.offset as uint)
+                    mem::transmute(attr.offset as usize)
                 );
                 match self.check_errors() {
                     ResultCode::OK => {}
@@ -438,10 +450,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
         if shader.handle == 0 {
             return VertexAttributeLocation { index: -1 };
         }
-        let mut location = 0;
-        name.with_c_str(|c_name| unsafe {
-            location = gl::GetAttribLocation(shader.handle, c_name);
-        });
+        let c_name = CString::from_slice(name.as_bytes());
+        let location = unsafe {
+            gl::GetAttribLocation(
+                shader.handle,
+                c_name.as_bytes_with_nul().as_ptr() as *const i8
+            )
+        };
+
         self.check_errors();
         return VertexAttributeLocation { index: location as i16 };
     }
@@ -704,9 +720,13 @@ impl DeviceBackend for OpenGLDeviceBackend {
         name: &str
     ) -> UniformBlockLocation {
         let mut result = UniformBlockLocation { index: -1 };
-        name.with_c_str(|c_name| unsafe {
-            result.index = gl::GetUniformBlockIndex(shader.handle, c_name) as i16;
-        });
+        let c_name = CString::from_slice(name.as_bytes());
+        unsafe {
+            result.index = gl::GetUniformBlockIndex(
+                shader.handle,
+                c_name.as_bytes_with_nul().as_ptr() as *const i8
+            ) as i16;
+        }
         return result;
     }
 

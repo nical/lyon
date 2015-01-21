@@ -15,7 +15,7 @@ use std::io::timer::sleep;
 use std::time::duration::Duration;
 use glfw::Context;
 
-#[deriving(Show, PartialEq)]
+#[derive(Show, PartialEq)]
 struct Vertex {
     x: f32,
     y: f32,

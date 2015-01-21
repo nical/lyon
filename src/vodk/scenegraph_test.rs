@@ -56,7 +56,7 @@ struct TestApp {
     time: f32,
 }
 
-#[deriving(Show)]
+#[derive(Show)]
 #[repr(C)]
 struct Pos2DTex2D {
     x: f32,

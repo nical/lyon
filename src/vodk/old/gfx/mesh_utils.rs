@@ -42,7 +42,7 @@ pub fn generate_grid_indices(grid_w: u32, grid_h: u32, grid: GridType,
 }
 
 pub fn generate_grid_vertices(grid_w: u32, grid_h: u32,
-                              vertices: &mut [f32], vertex_stride: uint,
+                              vertices: &mut [f32], vertex_stride: usize,
                               use_indices: bool,
                               vertex_cb: |x: u32, y:u32, vertex_slice: &mut[f32]|) {
     let mut v = 0;

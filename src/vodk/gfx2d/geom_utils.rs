@@ -28,7 +28,7 @@ pub fn tangent(v: world::Vec2) -> world::Vec2 {
 
 pub fn extrude_along_tangent(
     path: &[world::Vec2],
-    i: uint,
+    i: usize,
     amount: f32,
     is_closed: bool
 ) -> world::Vec2 {

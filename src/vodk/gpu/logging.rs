@@ -11,9 +11,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         feature: Feature
     ) -> bool {
-        println!("device.is_supported({})", feature);
+        println!("device.is_supported({:?})", feature);
         let result = self.backend.is_supported(feature);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -22,16 +22,16 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         x: i32, y: i32,
         w: i32, h: i32
     ) {
-        println!("device.set_viewport({}, {}, {}, {})", x, y, w, h);
+        println!("device.set_viewport({:?}, {:?}, {:?}, {:?})", x, y, w, h);
         self.backend.set_viewport(x, y, w, h);
     }
 
     fn create_texture(&mut self,
         descriptor: &TextureDescriptor,
     ) -> Result<TextureObject, ResultCode> {
-        println!("device.create_texture({})", descriptor);
+        println!("device.create_texture({:?})", descriptor);
         let result = self.backend.create_texture(descriptor);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -39,7 +39,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         texture: TextureObject
     ) {
-        println!("device.destroy_texture({})", texture);
+        println!("device.destroy_texture({:?})", texture);
         self.backend.destroy_texture(texture);
     }
 
@@ -48,9 +48,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         texture: TextureObject,
         flags: TextureFlags
     ) -> ResultCode {
-        println!("device.set_texture_flags({}, {})", texture, flags);
+        println!("device.set_texture_flags({:?}, {:?})", texture, flags);
         let result = self.backend.set_texture_flags(texture, flags);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -58,9 +58,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         descriptor: &ShaderStageDescriptor,
     ) -> Result<ShaderStageObject, ResultCode> {
-        println!("device.create_shader_stage({})", descriptor);
+        println!("device.create_shader_stage({:?})", descriptor);
         let result = self.backend.create_shader_stage(descriptor);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -68,9 +68,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         shader: ShaderStageObject,
     ) -> Result<(),(ResultCode, String)> {
-        println!("device.get_shader_stage_result({})", shader);
+        println!("device.get_shader_stage_result({:?})", shader);
         let result = self.backend.get_shader_stage_result(shader);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -78,7 +78,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         stage: ShaderStageObject
     ) {
-        println!("device.destroy_shader_stage({})", stage);
+        println!("device.destroy_shader_stage({:?})", stage);
         self.backend.destroy_shader_stage(stage);
     }
 
@@ -86,9 +86,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         descriptor: &ShaderPipelineDescriptor,
     ) -> Result<ShaderPipelineObject, ResultCode> {
-        println!("device.create_shader_pipeline({})", descriptor);
+        println!("device.create_shader_pipeline({:?})", descriptor);
         let result = self.backend.create_shader_pipeline(descriptor);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -96,9 +96,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         shader: ShaderPipelineObject,
     ) -> Result<(), (ResultCode, String)> {
-        println!("device.get_shader_pipeline_result({})", shader);
+        println!("device.get_shader_pipeline_result({:?})", shader);
         let result = self.backend.get_shader_pipeline_result(shader);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -106,7 +106,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         shader: ShaderPipelineObject
     ) {
-        println!("device.destroy_shader_pipeline({})", shader);
+        println!("device.destroy_shader_pipeline({:?})", shader);
         self.backend.destroy_shader_pipeline(shader);
     }
 
@@ -114,9 +114,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         descriptor: &BufferDescriptor,
     ) -> Result<BufferObject, ResultCode> {
-        println!("device.create_buffer({}, [out])", descriptor);
+        println!("device.create_buffer({:?}, [out])", descriptor);
         let result = self.backend.create_buffer(descriptor);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -133,9 +133,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         flags: MapFlags,
         data: *mut *mut u8
     ) -> ResultCode {
-        println!("device.map_buffer({}, {}, [out])", buffer, flags);
+        println!("device.map_buffer({:?}, {:?}, [out])", buffer, flags);
         let result = self.backend.map_buffer(buffer, flags, data);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -143,7 +143,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         buffer: BufferObject
     ) {
-        println!("device.unmap_buffer({})", buffer);
+        println!("device.unmap_buffer({:?})", buffer);
         self.backend.unmap_buffer(buffer);
     }
 
@@ -151,7 +151,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         geom: GeometryObject
     ) {
-        println!("device.destroy_geometry({})", geom);
+        println!("device.destroy_geometry({:?})", geom);
         self.backend.destroy_geometry(geom);
     }
 
@@ -159,9 +159,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         descriptor: &GeometryDescriptor,
     ) -> Result<GeometryObject, ResultCode> {
-        println!("device.create_geometry({})", descriptor);
+        println!("device.create_geometry({:?})", descriptor);
         let result = self.backend.create_geometry(descriptor);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -170,9 +170,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         shader: ShaderPipelineObject,
         name: &str
     ) -> VertexAttributeLocation {
-        println!("get_vertex_attribute_location({}, {})", shader, name);
+        println!("get_vertex_attribute_location({:?}, {:?})", shader, name);
         let result = self.backend.get_vertex_attribute_location(shader, name);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -180,9 +180,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         descriptor: &RenderTargetDescriptor,
     ) -> Result<RenderTargetObject, ResultCode> {
-        println!("device.create_render_target({})", descriptor);
+        println!("device.create_render_target({:?})", descriptor);
         let result = self.backend.create_render_target(descriptor);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -190,14 +190,14 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         target: RenderTargetObject
     ) {
-        println!("device.destroy_render_target({})", target);
+        println!("device.destroy_render_target({:?})", target);
         self.backend.destroy_render_target(target);
     }
 
     fn get_default_render_target(&mut self) -> RenderTargetObject {
         println!("device.get_default_render_target()");
         let result = self.backend.get_default_render_target();
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -206,9 +206,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         buffer: BufferObject,
         texture: TextureObject
     ) -> ResultCode {
-        println!("device.copy_buffer_to_texture({}, {})", buffer, texture);
+        println!("device.copy_buffer_to_texture({:?}, {:?})", buffer, texture);
         let result = self.backend.copy_buffer_to_texture(buffer, texture);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -217,9 +217,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         texture: TextureObject,
         buffer: BufferObject
     ) -> ResultCode {
-        println!("device.copy_texture_to_buffer({}, {})", texture, buffer);
+        println!("device.copy_texture_to_buffer({:?}, {:?})", texture, buffer);
         let result = self.backend.copy_texture_to_buffer(texture, buffer);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -232,13 +232,13 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         size: u16
     ) -> ResultCode {
         println!(
-            "device.copy_buffer_to_buffer({}, {}, {}, {}, {})",
+            "device.copy_buffer_to_buffer({:?}, {:?}, {:?}, {:?}, {:?})",
             src_buffer, dest_buffer, src_offset, dest_offset, size
         );
         let result = self.backend.copy_buffer_to_buffer(
             src_buffer, dest_buffer, src_offset, dest_offset, size
         );
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -249,7 +249,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         range: Option<(u16, u16)>
     ) -> ResultCode {
         println!(
-            "device.bind_uniform_buffer({}, {}, {})",
+            "device.bind_uniform_buffer({:?}, {:?}, {:?})",
             binding_index, ubo, range
         );
         let result = self.backend.bind_uniform_buffer(
@@ -257,7 +257,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
             ubo,
             range
         );
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -268,7 +268,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         binding_index: UniformBindingIndex,
     ) -> ResultCode {
         println!(
-            "device.set_uniform_block({}, {}, {})",
+            "device.set_uniform_block({:?}, {:?}, {:?})",
             shader, block_index, binding_index
         );
         let result = self.backend.set_uniform_block(
@@ -276,7 +276,7 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
             block_index,
             binding_index
         );
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
     
@@ -286,14 +286,14 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         name: &str
     ) -> UniformBlockLocation {
         println!(
-            "device.get_uniform_block_location({}, {})",
+            "device.get_uniform_block_location({:?}, {:?})",
             shader, name
         );
         let result = self.backend.get_uniform_block_location(
             shader,
             name
         );
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -301,9 +301,9 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         &mut self,
         pipeline: ShaderPipelineObject
     ) -> ResultCode {
-        println!("device.set_shader({})", pipeline);
+        println!("device.set_shader({:?})", pipeline);
         let result = self.backend.set_shader(pipeline);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
@@ -315,30 +315,30 @@ impl<Backend: DeviceBackend> DeviceBackend for LoggingProxy<Backend> {
         targets: TargetTypes
     ) -> ResultCode {
         println!(
-            "device.draw({}, {}, {}, {}, {})",
+            "device.draw({:?}, {:?}, {:?}, {:?}, {:?})",
             geom, range, flags, blend, targets
         );
         let result = self.backend.draw(geom, range, flags, blend, targets);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
     fn flush(&mut self) -> ResultCode {
         println!("device.flush()");
         let result = self.backend.flush();
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
     fn clear(&mut self, targets: TargetTypes) -> ResultCode {
-        println!("device.clear({})", targets);
+        println!("device.clear({:?})", targets);
         let result = self.backend.clear(targets);
-        println!("-> {}", result);
+        println!("-> {:?}", result);
         return result;
     }
 
     fn set_clear_color(&mut self, r:f32, g: f32, b: f32, a: f32) {
-        println!("device.set_clear_color({}, {}, {}, {}) -> ()", r, g, b, a);
+        println!("device.set_clear_color({:?}, {:?}, {:?}, {:?}) -> ()", r, g, b, a);
         self.backend.set_clear_color(r, g, b, a);
     }
 }

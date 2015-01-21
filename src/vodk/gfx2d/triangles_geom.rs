@@ -21,7 +21,7 @@ pub trait VertexType2D: Copy+Default {
 
 pub struct TriangleStream<'l, T: 'l> {
     pub vertices: &'l mut[T],
-    pub vertex_cursor: uint,
+    pub vertex_cursor: usize,
 }
 
 impl<'l, T: Copy> TriangleStream<'l, T> {

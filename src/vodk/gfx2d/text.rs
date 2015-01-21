@@ -9,7 +9,7 @@ pub fn tex_coords_from_ascii(c: u8) -> texels::Vec2 {
     );
 }
 
-pub fn count_non_space(text: &str) -> uint {
+pub fn count_non_space(text: &str) -> usize {
     return text.chars().fold(0, |accum, c| {
         match c {
             ' '|'\n' => accum,
@@ -24,10 +24,10 @@ pub fn text_to_vertices(
     char_size: pixels::Vec2,
     char_margin: pixels::Vec2,  // separation between letters
     source_rect: texels::Rectangle,  // region of the font texture to sample from
-    vertex_stride: uint,        // in bytes
-    tex_coords_offset: uint,    // in bytes
+    vertex_stride: usize,        // in bytes
+    tex_coords_offset: usize,    // in bytes
     out: &mut [f32]             // output
-) -> uint {                     // returns the number of vertices added
+) -> usize {                     // returns the number of vertices added
     let ds = 1.0/16.0 * source_rect.w;
     let dt = 1.0/16.0 * source_rect.h;
 
@@ -37,7 +37,7 @@ pub fn text_to_vertices(
     let mut x = pos.x;
     let mut y = pos.y;
 
-    let mut i: uint = 0;
+    let mut i: usize = 0;
 
     for c in text.chars() {
         if c != ' ' && c != '\n' {

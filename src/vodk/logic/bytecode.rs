@@ -30,7 +30,7 @@ pub struct Script {
     pub byte_code: Vec<u8>,
 }
 
-pub type OpCodeSize = uint;
+pub type OpCodeSize = usize;
 pub const BINARY_OP_SIZE: OpCodeSize = 4;   // op | src1 | src2 | dst
 pub const UNARY_OP_SIZE: OpCodeSize = 3;    // op | src1  dst
 pub const MOVE_OP_SIZE: OpCodeSize = 3;     // op | src | dst
@@ -104,8 +104,8 @@ impl ByteCodeBuilder {
         self.byte_code.push(to);
         let val_bytes = val.get_bytes();
 
-        println!("pack val {}", val);
-        println!("val bytes {}", val.get_bytes().as_slice());
+        println!("pack val {:?}", val);
+        println!("val bytes {:?}", val.get_bytes().as_slice());
 
         self.byte_code.push(val_bytes[0]);
         self.byte_code.push(val_bytes[1]);

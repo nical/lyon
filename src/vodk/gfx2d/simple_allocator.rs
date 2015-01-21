@@ -1,12 +1,12 @@
 use range::Range;
 
-#[deriving(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Show, PartialEq)]
 pub struct BlockId {
-    index: uint,
+    index: usize,
     gen: u16,
 }
 
-#[deriving(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Show, PartialEq)]
 pub enum BlockState {
     Used,
     Unused,
@@ -23,8 +23,8 @@ struct AllocatorBlock {
 pub struct AllocatorHelper {
     blocks: Vec<AllocatorBlock>,
     available_slots: Vec<uint>,
-    first: uint,
-    last: uint,
+    first: usize,
+    last: usize,
     next_gen: u16,
 }
 
@@ -249,7 +249,10 @@ pub struct BlockIterator<'l> {
     filter: Option<BlockState>,
 }
 
-impl<'l> Iterator<BlockId> for BlockIterator<'l> {
+impl<'l> Iterator for BlockIterator<'l> {
+
+    type Item = BlockId;
+
     fn next(&mut self) -> Option<BlockId> {
         loop {
             let current = self.current;

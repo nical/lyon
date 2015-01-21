@@ -27,16 +27,16 @@ pub static CHANGE_MATERIAL: ChangeFlags     = 1 << 5;
 pub static CHANGE_NODE_FLAGS: ChangeFlags   = 1 << 6;
 pub static CHANGE_NEW: ChangeFlags          = 1 << 7;
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct MaterialId { handle: u32 }
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct TextureId { handle: u32 }
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct MeshId { handle: u32 }
 
 pub type NodeId = Option<copy_on_write::Id<Node>>;
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub enum NodeMaterial {
     SolidColor(Rgba<u8>),
     LinearGradient(world::Vec2, Rgba<u8>, world::Vec2, Rgba<u8>),
@@ -45,7 +45,7 @@ pub enum NodeMaterial {
     NoMaterial,
 }
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub enum NodeShape {
     CircleNode(shapes::Circle),
     EllipsisNode(shapes::Ellipsis),
@@ -55,7 +55,7 @@ pub enum NodeShape {
     NoShape,
 }
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct Node {
     pub data: NodeData,
     pub parent: NodeId,
@@ -64,7 +64,7 @@ pub struct Node {
     pub changes: ChangeFlags,
 }
 
-#[deriving(Clone, Show)]
+#[derive(Clone, Show)]
 pub struct NodeData {
     pub transform: world::Mat4,
     pub shape: NodeShape,

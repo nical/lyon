@@ -35,7 +35,7 @@ impl<T, ID: FromIndex+ToIndex+Copy> ItemVector<T, ID> {
         self.removed_items.push(id);
     }
 
-    pub fn len(&self) -> uint { self.data.len() - self.removed_items.len() }
+    pub fn len(&self) -> usize { self.data.len() - self.removed_items.len() }
 
     pub fn clear(&mut self) {
         self.data.clear();

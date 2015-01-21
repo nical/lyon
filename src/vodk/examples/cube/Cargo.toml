@@ -21,3 +21,6 @@ path = "../../math/"
 
 [dependencies.gpu]
 path = "../../gpu/"
+
+[dependencies]
+time = "*"

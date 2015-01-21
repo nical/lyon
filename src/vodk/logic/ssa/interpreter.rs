@@ -4,7 +4,7 @@ use ssa::bytecode::*;
 
 use std::mem;
 
-#[deriving(Clone, Show)]
+#[derive(Copy, Clone, Show)]
 pub enum InterpreterError {
     InvalidOpCode(u8),
     IncompatibleTypes(ByteCode, boxed::ValueType, boxed::ValueType),
@@ -12,7 +12,7 @@ pub enum InterpreterError {
     UnknowError
 }
 
-type ProgramCounter = uint;
+type ProgramCounter = usize;
 
 unsafe fn int32_add(a: boxed::Value, b: boxed::Value) -> boxed::Value {
     boxed::Value::int32(a.get_int32_unchecked() + b.get_int32_unchecked())
@@ -128,14 +128,14 @@ unsafe fn boxed_cmp_gte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
 
 pub struct Interpreter {
     // TODO: don't separate registers.
-    registers: [boxed::Value, ..64],
-    functions: [unsafe fn(a: boxed::Value, b: boxed::Value) -> boxed::Value, ..30],
+    registers: [boxed::Value; 64],
+    functions: [unsafe fn(a: boxed::Value, b: boxed::Value) -> boxed::Value; 30],
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            registers: [boxed::Value::void(), ..64],
+            registers: [boxed::Value::void(); 64],
             functions: [
                 boxed_add,
                 boxed_sub,
@@ -173,8 +173,8 @@ impl Interpreter {
         }
     }
 
-    pub fn get_register(&self, code: &[u8],  offset: uint) -> boxed::Value {
-        return self.registers[code[offset + 1] as uint];
+    pub fn get_register(&self, code: &[u8],  offset: usize) -> boxed::Value {
+        return self.registers[code[offset + 1] as usize];
     }
 
     pub fn exec(
@@ -183,45 +183,45 @@ impl Interpreter {
     ) -> Result<(), InterpreterError> {
         unsafe {
         let mut pc: ProgramCounter = 0;
-        let code = script.bytecode.as_slice();
+        let code = &script.bytecode[];
 
         loop {
             let op = code[pc];
             match op {
                 OP_NULL => { pc += 1; }
                 OP_EXIT => { return Ok(()); }
-                OP_JMP => { pc = code[pc+1] as uint; }
+                OP_JMP => { pc = code[pc+1] as usize; }
                 OP_ADD...OP_GTE_I32 => {
-                    self.registers[code[pc+1] as uint] = self.functions[(op - OP_ADD) as uint](
-                        self.get_register(code, code[pc+2] as uint),
-                        self.get_register(code, code[pc+3] as uint)
+                    self.registers[code[pc+1] as usize] = self.functions[(op - OP_ADD) as usize](
+                        self.get_register(code, code[pc+2] as usize),
+                        self.get_register(code, code[pc+3] as usize)
                     );
                     pc += 4;
                 }
                 OP_CONST_I32 => {
-                    self.registers[code[pc+1] as uint] = boxed::Value::int32(*unpack::<i32>(&code[pc+2]));
+                    self.registers[code[pc+1] as usize] = boxed::Value::int32(*unpack::<i32>(&code[pc+2]));
                     pc += 6;
                 }
                 OP_CONST_F32 => {
-                    self.registers[code[pc+1] as uint] = boxed::Value::float32(*unpack::<f32>(&code[pc+2]));
+                    self.registers[code[pc+1] as usize] = boxed::Value::float32(*unpack::<f32>(&code[pc+2]));
                     pc += 6;
                 }
                 OP_CONST_BOXED => {
-                    self.registers[code[pc+1] as uint] = *unpack::<boxed::Value>(&code[pc+2]);
+                    self.registers[code[pc+1] as usize] = *unpack::<boxed::Value>(&code[pc+2]);
                     pc += 10;
                 }
                 OP_BRANCH => {
-                    let cond = self.get_register(code, code[pc+1] as uint).to_int32();
+                    let cond = self.get_register(code, code[pc+1] as usize).to_int32();
                     if cond != 0 {
-                        pc = code[pc+2] as uint;
+                        pc = code[pc+2] as usize;
                     } else {
                         pc += 3;
                     }
                 }
                 OP_DBG => {
-                    let addr = code[pc+1] as uint;
+                    let addr = code[pc+1] as usize;
                     let val = self.get_register(code, addr);
-                    println!(" -- dbg: {}", val);
+                    println!(" -- dbg: {:?}", val);
                     pc += 2;
                 }
                 _ => { panic!(); }
