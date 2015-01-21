@@ -10,7 +10,7 @@ pub struct Rgba<T> {
 }
 
 #[allow(dead_code)]
-impl<T: ops::Add<T>> ops::Add<Rgba<T>> for Rgba<T> {
+impl<T: Copy+ops::Add<T, Output=T>> ops::Add<Rgba<T>> for Rgba<T> {
 
     type Output = Rgba<T>;
 
@@ -26,7 +26,7 @@ impl<T: ops::Add<T>> ops::Add<Rgba<T>> for Rgba<T> {
 }
 
 #[allow(dead_code)]
-impl<T: ops::Sub<T>> ops::Sub<Rgba<T>> for Rgba<T> {
+impl<T: Copy+ops::Sub<T, Output=T>> ops::Sub<Rgba<T>> for Rgba<T> {
 
     type Output = Rgba<T>;
 
@@ -42,7 +42,7 @@ impl<T: ops::Sub<T>> ops::Sub<Rgba<T>> for Rgba<T> {
 }
 
 #[allow(dead_code)]
-impl<T: ops::Mul<T>> ScalarMul<T> for Rgba<T> {
+impl<T: Copy+ops::Mul<T, Output=T>> ScalarMul<T> for Rgba<T> {
 
     #[inline]
     fn scalar_mul(&self, rhs: T) -> Rgba<T> {

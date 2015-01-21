@@ -10,8 +10,8 @@ path = "./main.rs"
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
 
-[dependencies.glfw]
-git = "https://github.com/bjz/glfw-rs"
+[dependencies.glutin]
+git = "https://github.com/tomaka/glutin"
 
 [dependencies.data]
 path = "../../data/"

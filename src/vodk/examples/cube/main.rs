@@ -1,5 +1,4 @@
-
-extern crate glfw;
+extern crate glutin;
 extern crate gl;
 extern crate gpu;
 extern crate data;
@@ -15,7 +14,6 @@ use std::num::Float;
 use std::io::timer::sleep;
 use std::time::duration::Duration;
 use std::mem;
-use glfw::Context;
 
 use math::units::world;
 use math::vector;
@@ -27,33 +25,14 @@ struct TransformsBlock {
 }
 
 fn main() {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let win_width: u32 = 800;
+    let win_height: u32 = 600;
 
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 1));
-    glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
+    let window = glutin::Window::new().unwrap();
 
-    let win_width = 800;
-    let win_height = 600;
+    unsafe { window.make_current() };
 
-    let (mut window, mut events) = glfw.create_window(
-        win_width, win_height,
-        "Cube test",
-        glfw::WindowMode::Windowed
-    ).expect("Failed to create the window.");
-
-    window.set_size_polling(true);
-    window.set_close_polling(true);
-    window.set_refresh_polling(true);
-    window.set_focus_polling(true);
-    window.set_framebuffer_size_polling(true);
-    window.set_mouse_button_polling(true);
-    window.set_cursor_pos_polling(true);
-    window.set_scroll_polling(true);
-
-    window.make_current();
-    unsafe {
-        gl::load_with(|s| mem::transmute(window.get_proc_address(s))); // TODO
-    }
+    gl::load_with(|symbol| window.get_proc_address(symbol));
 
     let mut ctx = opengl::create_debug_device(LOG_ERRORS|CRASH_ERRORS);
 
@@ -231,10 +210,6 @@ fn main() {
     let mut previous_time = time::precise_time_ns();
     let mut time: f32 = 0.0;
     while !window.should_close() {
-        glfw.poll_events();
-        for (_, _event) in glfw::flush_messages(&events) {
-            // handle events
-        }
 
         let frame_start_time = time::precise_time_ns();
         let elapsed_time = frame_start_time - previous_time;

@@ -1,7 +1,5 @@
-#![feature(macro_rules, globs)]
-
-extern crate glfw;
 extern crate gl;
+extern crate glutin;
 extern crate data;
 extern crate gpu;
 extern crate gfx2d;
@@ -18,7 +16,6 @@ use gfx2d::color::Rgba;
 use std::mem;
 use std::io::timer::sleep;
 use std::time::duration::Duration;
-use glfw::Context;
 
 use math::units::world;
 use math::units::texels;
@@ -39,31 +36,19 @@ fn to_std_140_mat3<T>(from: &vector::Matrix3x3<T>) -> gpu::std140::Mat3 {
 }
 
 fn main() {
-    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let win_width: u32 = 800;
+    let win_height: u32 = 600;
 
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 1));
-    glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
+    let window = glutin::WindowBuilder::new()
+        .with_title(format!("Vertex AA test"))
+        .with_dimensions(800,600)
+        .with_gl_version((3,3))
+        .with_vsync()
+        .build().unwrap();
 
-    let win_width = 800;
-    let win_height = 600;
+    unsafe { window.make_current() };
 
-    let (window, events) = glfw.create_window(
-        win_width, win_height,
-        "Cube test",
-        glfw::WindowMode::Windowed
-    ).expect("Failed to create the window.");
-
-    window.set_size_polling(true);
-    window.set_close_polling(true);
-    window.set_refresh_polling(true);
-    window.set_focus_polling(true);
-    window.set_framebuffer_size_polling(true);
-    window.set_mouse_button_polling(true);
-    window.set_cursor_pos_polling(true);
-    window.set_scroll_polling(true);
-
-    window.make_current();
-    gl::load_with(|s| window.get_proc_address(s));
+    gl::load_with(|symbol| window.get_proc_address(symbol));
 
     let mut ctx = opengl::create_debug_device(LOG_ERRORS|CRASH_ERRORS);
 
@@ -100,13 +85,13 @@ fn main() {
     let ibo = ctx.create_buffer(&ibo_desc).ok().unwrap();
 
     ctx.with_write_only_mapped_buffer(
-      vbo, |mapped_vbo| {
+      vbo, &|mapped_vbo| {
         tesselation::path_to_line_vbo(
             path.as_slice(),
             true,
             tesselation::VERTEX_ANTIALIASING|tesselation::CONVEX_SHAPE,
-            |_| { 50.0 },
-            |_, ptype| { match ptype {
+            &|_| { 50.0 },
+            &|_, ptype| { match ptype {
                 tesselation::PointType::Antialias => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 0.0 },
                 _ => Rgba { r: 0.0, g: 0.0, b: 0.3, a: 1.0 },
             }},
@@ -117,7 +102,7 @@ fn main() {
     );
 
     ctx.with_write_only_mapped_buffer(
-      ibo, |mapped_ibo| {
+      ibo, &|mapped_ibo| {
         tesselation::path_to_line_ibo(
             path.len() as u32,
             true,
@@ -217,7 +202,7 @@ fn main() {
 
     let transforms_ubo = ctx.create_buffer(&transforms_ubo_desc).ok().unwrap();
     ctx.with_write_only_mapped_buffer::<TransformsBlock>(
-      transforms_ubo, |mapped_data| {
+      transforms_ubo, &|mapped_data| {
         mapped_data[0].model = to_std_140_mat3(&world::Mat3::identity());
         mapped_data[0].view = to_std_140_mat3(&world::Mat3::identity());
       }
@@ -225,7 +210,7 @@ fn main() {
 
     let static_ubo = ctx.create_buffer(&static_ubo_desc).ok().unwrap();
     ctx.with_write_only_mapped_buffer::<texels::Vec2>(
-      static_ubo, |mapped_data| {
+      static_ubo, &|mapped_data| {
         mapped_data[0].x = win_width as f32;
         mapped_data[0].y = win_height as f32;
       }
@@ -251,11 +236,6 @@ fn main() {
     let mut previous_time = time::precise_time_ns();
     let mut time: f32 = 0.0;
     while !window.should_close() {
-        glfw.poll_events();
-        for (_, _event) in glfw::flush_messages(&events) {
-            // handle events
-        }
-
         let frame_start_time = time::precise_time_ns();
         let elapsed_time = frame_start_time - previous_time;
         time += elapsed_time as f32;
@@ -283,7 +263,7 @@ fn main() {
 
 pub mod shaders {
 pub const VERTEX: &'static str = "
-#version 150
+#version 140
 attribute vec2 a_position;
 attribute vec2 a_normal;
 attribute vec4 a_color;

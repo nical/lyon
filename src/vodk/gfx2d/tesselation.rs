@@ -6,6 +6,7 @@ use style;
 use color::Rgba;
 use shapes;
 use data;
+use std::num::Float;
 
 static PI: f32 = 3.1415;
 
