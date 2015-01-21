@@ -3,7 +3,6 @@ extern crate gl;
 extern crate gpu;
 extern crate data;
 extern crate math;
-extern crate time;
 
 use data::*;
 use gpu::device::*;
@@ -28,7 +27,12 @@ fn main() {
     let win_width: u32 = 800;
     let win_height: u32 = 600;
 
-    let window = glutin::Window::new().unwrap();
+    let window = glutin::WindowBuilder::new()
+        .with_title(format!("Vertex AA test"))
+        .with_dimensions(800,600)
+        .with_gl_version((3,3))
+        .with_vsync()
+        .build().unwrap();
 
     unsafe { window.make_current() };
 
@@ -205,16 +209,9 @@ fn main() {
     assert!(u_transforms.index >= 0);
     ctx.set_uniform_block(pipeline, u_transforms, ubo_binding_index);
 
-    //let mut avg_frame_time: u64 = 0;
-    //let mut frame_count: u64 = 0;
-    let mut previous_time = time::precise_time_ns();
-    let mut time: f32 = 0.0;
+    let mut frame_count: u64 = 0;
     while !window.should_close() {
-
-        let frame_start_time = time::precise_time_ns();
-        let elapsed_time = frame_start_time - previous_time;
-
-        time += elapsed_time as f32;
+        frame_count+=1;
         ctx.with_write_only_mapped_buffer::<TransformsBlock>(
             ubo, &|mapped_ubo| {
                 mapped_ubo[0].projection = world::Mat4::perspective(
@@ -227,7 +224,7 @@ fn main() {
                 *view = world::Mat4::identity();
                 view.translate(&world::vec3(0.0, 0.0, -10.0));
                 view.rotate(
-                    vector::PI * (time * 0.000000001).sin(),
+                    vector::PI * (frame_count as f32 * 0.01).sin(),
                     &world::vec3(0.0, 1.0, 0.0)
                 );
                 mapped_ubo[0].model = world::Mat4::identity();
@@ -243,15 +240,6 @@ fn main() {
         );
 
         window.swap_buffers();
-
-        previous_time = frame_start_time;
-        let frame_time = time::precise_time_ns() - frame_start_time;
-        //frame_count += 1;
-        //avg_frame_time += frame_time;
-        let sleep_time: i64 = 16000000 - frame_time as i64;
-        if sleep_time > 0 {
-            sleep(Duration::milliseconds(sleep_time/1000000));
-        }
     }
 }
 
