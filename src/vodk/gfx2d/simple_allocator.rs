@@ -1,4 +1,5 @@
 use range::Range;
+use std::iter::FromIterator;
 
 #[derive(Copy, Clone, Show, PartialEq)]
 pub struct BlockId {
@@ -14,15 +15,15 @@ pub enum BlockState {
 
 struct AllocatorBlock {
     range: Range,
-    prev: Option<uint>,
-    next: Option<uint>,
+    prev: Option<usize>,
+    next: Option<usize>,
     state: BlockState,
     gen: u16,
 }
 
 pub struct AllocatorHelper {
     blocks: Vec<AllocatorBlock>,
-    available_slots: Vec<uint>,
+    available_slots: Vec<usize>,
     first: usize,
     last: usize,
     next_gen: u16,
@@ -271,7 +272,7 @@ impl<'l> Iterator for BlockIterator<'l> {
         }
     }
 
-    fn size_hint(&self) -> (uint, Option<uint>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         (0, Some(self.allocator.blocks.len()))
     }
 }

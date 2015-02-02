@@ -1,8 +1,8 @@
-extern crate gl;
-extern crate glfw;
-extern crate time;
-//extern crate data;
-//extern crate libc;
+#![feature(unboxed_closures)]
 
-pub mod inputs;
-pub mod window;
+extern crate gfx2d;
+
+pub mod identifier;
+pub mod loader;
+pub mod drive;
+pub mod resource_manager;

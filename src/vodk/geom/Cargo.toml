@@ -12,3 +12,10 @@ path = "./lib.rs"
 
 [dependencies.containers]
 path = "../containers/"
+
+[dependencies.data]
+path = "../data/"
+
+[dependencies.math]
+path = "../math/"
+

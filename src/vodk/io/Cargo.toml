@@ -13,8 +13,5 @@ path = "./lib.rs"
 [dependencies.data]
 path = "../data/"
 
-[dependencies.gl]
-git = "https://github.com/bjz/gl-rs.git"
-
-[dependencies.glfw]
-git = "https://github.com/bjz/glfw-rs.git"
+[dependencies.gfx2d]
+path = "../gfx2d/"

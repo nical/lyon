@@ -1,5 +1,3 @@
-#![feature(macro_rules, globs, default_type_params)]
-
 extern crate math;
 extern crate data;
 
@@ -11,3 +9,5 @@ pub mod batch;
 pub mod range;
 pub mod style;
 pub mod geom_utils;
+pub mod image;
+pub mod triangulation;
