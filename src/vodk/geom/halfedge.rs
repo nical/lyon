@@ -1,21 +1,21 @@
 #[derive(Copy, Clone, Show, PartialEq, Eq)]
 pub struct EdgeId {
-    pub index: u32,
+    pub handle: u16,
 }
 
 #[derive(Copy, Clone, Show, PartialEq, Eq)]
 pub struct FaceId {
-    pub index: u32,
+    pub handle: u16,
 }
 
 #[derive(Copy, Clone, Show, PartialEq, Eq)]
 pub struct VertexId {
-    pub index: u32,
+    pub handle: u16,
 }
 
-impl EdgeId { pub fn is_valid(self) -> bool { self.index != 0 } }
-impl FaceId { pub fn is_valid(self) -> bool { self.index != 0 } }
-impl VertexId { pub fn is_valid(self) -> bool { self.index != 0 } }
+impl EdgeId { pub fn is_valid(self) -> bool { self.handle != 0 } }
+impl FaceId { pub fn is_valid(self) -> bool { self.handle != 0 } }
+impl VertexId { pub fn is_valid(self) -> bool { self.handle != 0 } }
 
 #[derive(Copy, Clone, Show, PartialEq)]
 pub struct HalfEdge {
@@ -46,32 +46,32 @@ impl ConnectivityKernel {
 
     pub fn vertex(&self, id: VertexId) -> &Vertex {
         assert!(id.is_valid());
-        &self.vertices[id.index as usize - 1]
+        &self.vertices[id.handle as usize - 1]
     }
 
     fn vertex_mut(&mut self, id: VertexId) -> &mut Vertex {
         assert!(id.is_valid());
-        &mut self.vertices[id.index as usize - 1]
+        &mut self.vertices[id.handle as usize - 1]
     }
     
     pub fn face(&self, id: FaceId) -> &Face {
         assert!(id.is_valid());
-        &self.faces[id.index as usize - 1]
+        &self.faces[id.handle as usize - 1]
     }
 
     fn face_mut(&mut self, id: FaceId) -> &mut Face {
         assert!(id.is_valid());
-        &mut self.faces[id.index as usize - 1]
+        &mut self.faces[id.handle as usize - 1]
     }
     
     pub fn edge(&self, id: EdgeId) -> &HalfEdge {
         assert!(id.is_valid());
-        &self.edges[id.index as usize - 1]
+        &self.edges[id.handle as usize - 1]
     }
 
     fn edge_mut(&mut self, id: EdgeId) -> &mut HalfEdge {
         assert!(id.is_valid());
-        &mut self.edges[id.index as usize - 1]
+        &mut self.edges[id.handle as usize - 1]
     }
 
     pub fn edges(&self) -> &[HalfEdge] { &self.edges[] }
@@ -80,11 +80,11 @@ impl ConnectivityKernel {
 
     pub fn vertices(&self) -> &[Vertex] { &self.vertices[] }
 
-    pub fn first_edge(&self) -> EdgeId { EdgeId { index: 1 } }
+    pub fn first_edge(&self) -> EdgeId { EdgeId { handle: 1 } }
 
-    pub fn first_face(&self) -> FaceId { FaceId { index: 1 } }
+    pub fn first_face(&self) -> FaceId { FaceId { handle: 1 } }
 
-    pub fn first_vertex(&self) -> VertexId { VertexId { index: 1 } }
+    pub fn first_vertex(&self) -> VertexId { VertexId { handle: 1 } }
 
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
@@ -113,9 +113,9 @@ impl ConnectivityKernel {
         //     a ---[id]------------> new_vertex ---[new_edge]--> b
         //     a <--[new_opposite]--- new_vertex <--[opposite]--- b
 
-        let new_vertex = VertexId { index: self.vertices.len() as u32 + 1 };
-        let new_edge = EdgeId { index: self.vertices.len() as u32 + 1 };
-        let new_opposite = EdgeId { index: self.vertices.len() as u32 + 2 };
+        let new_vertex = VertexId { handle: self.vertices.len() as u16 + 1 };
+        let new_edge = EdgeId { handle: self.vertices.len() as u16 + 1 };
+        let new_opposite = EdgeId { handle: self.vertices.len() as u16 + 2 };
 
         self.vertices.push(Vertex {
             first_edge: new_edge,
@@ -174,10 +174,10 @@ impl ConnectivityKernel {
 
         let va = self.edge(self.edge(a).prev).vertex;
         let vb = self.edge(self.edge(b).prev).vertex;
-        let new_edge = EdgeId { index: self.edges.len() as u32 + 1 }; // va -> vb
-        let new_opposite_edge = EdgeId { index: self.edges.len() as u32 + 2 }; // vb -> va
+        let new_edge = EdgeId { handle: self.edges.len() as u16 + 1 }; // va -> vb
+        let new_opposite_edge = EdgeId { handle: self.edges.len() as u16 + 2 }; // vb -> va
 
-        let new_face = FaceId { index: self.faces.len() as u32 };
+        let new_face = FaceId { handle: self.faces.len() as u16 };
         self.faces.push(Face { first_edge: a });
 
         let mut it = a;
@@ -250,22 +250,22 @@ impl ConnectivityKernel {
     }
 
     /// constructor
-    pub fn from_loop(n_vertices: u32) -> ConnectivityKernel {
+    pub fn from_loop(n_vertices: u16) -> ConnectivityKernel {
         assert!(n_vertices >= 3);
         let mut vertices = Vec::new();
         let mut edges = Vec::new();
         for i in range(0, n_vertices) {
-            vertices.push(Vertex { first_edge: EdgeId { index:(i%n_vertices) + 1 } });
+            vertices.push(Vertex { first_edge: EdgeId { handle:(i%n_vertices) + 1 } });
             edges.push(HalfEdge {
-                vertex: VertexId { index: ((i + 1) % n_vertices) + 1 },
-                opposite: EdgeId { index: 0 },
-                face: FaceId { index: 1 },
-                next: EdgeId { index: ((i + 1) % n_vertices) + 1 },
-                prev: EdgeId { index: modulo(i as i32 - 1, n_vertices as i32) as u32 + 1 },
+                vertex: VertexId { handle: ((i + 1) % n_vertices) + 1 },
+                opposite: EdgeId { handle: 0 },
+                face: FaceId { handle: 1 },
+                next: EdgeId { handle: ((i + 1) % n_vertices) + 1 },
+                prev: EdgeId { handle: modulo(i as i32 - 1, n_vertices as i32) as u16 + 1 },
             });
         }
         return ConnectivityKernel {
-            faces: vec!(Face { first_edge: EdgeId { index: 1 } }),
+            faces: vec!(Face { first_edge: EdgeId { handle: 1 } }),
             vertices: vertices,
             edges: edges,
         };
@@ -310,7 +310,7 @@ impl<'l> Iterator for ReverseFaceEdgeIterator<'l> {
     }
 }
 
-/// Iterates over the half edges around a vertex.
+/// Iterates over the half edges that point to a vertex.
 pub struct VertexEdgeIterator<'l> {
     data: &'l ConnectivityKernel,
     current_edge: EdgeId,
@@ -321,7 +321,15 @@ impl<'l> Iterator for VertexEdgeIterator<'l> {
     type Item = EdgeId;
 
     fn next(&mut self) -> Option<EdgeId> {
-        panic!("TODO");
+        if !self.current_edge.is_valid() {
+            return None;
+        }
+        let temp = self.current_edge;
+        self.current_edge = self.data.edge(self.data.edge(self.current_edge).next).opposite;
+        if self.current_edge == self.first_edge {
+            self.current_edge = EdgeId { handle: 0 };
+        }
+        return Some(temp);
     }
 }
 
@@ -335,7 +343,7 @@ fn test_from_loop() {
         let kernel = ConnectivityKernel::from_loop(n);
         let face = kernel.first_face();
 
-        assert_eq!(kernel.count_edges_around_face(face), n);
+        assert_eq!(kernel.count_edges_around_face(face) as u16, n);
 
         for e in kernel.edges.iter() {
             assert_eq!(e.face, face);
@@ -344,14 +352,14 @@ fn test_from_loop() {
 
         let mut i = 1;
         for e in kernel.walk_edges_around_face(face) {
-            assert!((e.index as usize - 1) < kernel.edges.len());
+            assert!((e.handle as usize - 1) < kernel.edges.len());
             i += 1;
         }
         assert_eq!(i, n);
 
         let mut i = 1;
         for e in kernel.walk_edges_around_face_reverse(face) {
-            assert!((e.index as usize - 1) < kernel.edges.len());
+            assert!((e.handle as usize - 1) < kernel.edges.len());
             i += 1;
         }
         assert_eq!(i, n);
@@ -390,9 +398,9 @@ fn test_split_face() {
     // x<-----e3--x
 
     let e5 = kernel.edge(e4).next;
-    assert_eq!(e5.index, 5);
+    assert_eq!(e5.handle, 5);
     let e6 = kernel.edge(e2).next;
-    assert_eq!(e6.index, 6);
+    assert_eq!(e6.handle, 6);
 
     assert_eq!(kernel.edge(e6).next, e1);
     assert_eq!(kernel.edge(e5).next, e3);
