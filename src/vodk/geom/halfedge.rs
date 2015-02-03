@@ -42,19 +42,42 @@ pub struct ConnectivityKernel {
     faces: Vec<Face>
 }
 
-
 impl ConnectivityKernel {
-    pub fn get_vertex(&self, id: VertexId) -> &Vertex { &self.vertices[id.index as usize - 1] }
-    fn get_mut_vertex(&mut self, id: VertexId) -> &mut Vertex { &mut self.vertices[id.index as usize - 1] }
+
+    pub fn get_vertex(&self, id: VertexId) -> &Vertex {
+        assert!(id.is_valid());
+        &self.vertices[id.index as usize - 1]
+    }
+
+    fn get_mut_vertex(&mut self, id: VertexId) -> &mut Vertex {
+        assert!(id.is_valid());
+        &mut self.vertices[id.index as usize - 1]
+    }
     
-    pub fn get_face(&self, id: FaceId) -> &Face { &self.faces[id.index as usize - 1] }
-    fn get_mut_face(&mut self, id: FaceId) -> &mut Face { &mut self.faces[id.index as usize - 1] }
+    pub fn get_face(&self, id: FaceId) -> &Face {
+        assert!(id.is_valid());
+        &self.faces[id.index as usize - 1]
+    }
+
+    fn get_mut_face(&mut self, id: FaceId) -> &mut Face {
+        assert!(id.is_valid());
+        &mut self.faces[id.index as usize - 1]
+    }
     
-    pub fn get_edge(&self, id: EdgeId) -> &HalfEdge { &self.edges[id.index as usize - 1] }
-    fn get_mut_edge(&mut self, id: EdgeId) -> &mut HalfEdge { &mut self.edges[id.index as usize - 1] }
+    pub fn get_edge(&self, id: EdgeId) -> &HalfEdge {
+        assert!(id.is_valid());
+        &self.edges[id.index as usize - 1]
+    }
+
+    fn get_mut_edge(&mut self, id: EdgeId) -> &mut HalfEdge {
+        assert!(id.is_valid());
+        &mut self.edges[id.index as usize - 1]
+    }
 
     pub fn edges(&self) -> &[HalfEdge] { &self.edges[] }
+
     pub fn faces(&self) -> &[Face] { &self.faces[] }
+
     pub fn vertices(&self) -> &[Vertex] { &self.vertices[] }
 
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
@@ -121,16 +144,79 @@ impl ConnectivityKernel {
         return new_vertex;
     }
 
-    /// Split a face in two along the given vertices
-    pub fn split_face(&mut self, face: FaceId, a: VertexId, b: VertexId) -> FaceId {
-        panic!("not implemented");
+    /// Split a face in two along the vertices vertices
+    pub fn split_face(&mut self, a: EdgeId, b: EdgeId) -> FaceId {
+        //
+        // a_prev--> va -a------>
+        //          | ^
+        //   f1     n |
+        //          | |
+        //          | o     f2
+        //          v |
+        // <------b- vb <--b_prev
+        // ______________________
+        //
+        // f1: original_face
+        // f2: new_face
+        // n: new_edge
+        // o: new_opposite_edge
+
+        let original_face = self.get_edge(a).face;
+        assert_eq!(original_face, self.get_edge(b).face);
+        assert!(self.get_edge(a).next != b);
+        assert!(self.get_edge(a).prev != b);
+
+        let va = self.get_edge(self.get_edge(a).prev).vertex;
+        let vb = self.get_edge(self.get_edge(b).prev).vertex;
+        let new_edge = EdgeId { index: self.edges.len() as u32 + 1 }; // va -> vb
+        let new_opposite_edge = EdgeId { index: self.edges.len() as u32 + 2 }; // vb -> va
+
+        let new_face = FaceId { index: self.faces.len() as u32 };
+        self.faces.push(Face { first_edge: a });
+
+        let mut it = a;
+        loop {
+            if it == b { break; }
+            let edge = &mut self.get_mut_edge(it);
+            edge.face = new_face;
+            it = edge.next;
+        }
+
+        let a_prev = self.get_edge(a).prev;
+        let b_prev = self.get_edge(b).prev;
+
+        // new_edge
+        self.edges.push(HalfEdge {
+            next: b,
+            prev: a_prev,
+            opposite: new_opposite_edge,
+            face: original_face,
+            vertex: vb,
+        });
+
+        // new_opposite_edge
+        self.edges.push(HalfEdge {
+            next: a,
+            prev: b_prev,
+            opposite: new_edge,
+            face: new_face,
+            vertex: va,
+        });
+
+        self.get_mut_edge(a_prev).next = new_edge;
+        self.get_mut_edge(a).prev = new_opposite_edge;
+        self.get_mut_edge(b_prev).next = new_opposite_edge;
+        self.get_mut_edge(b).prev = new_edge;
+
+
+        return new_face;
     }
 
     pub fn join_vertices(&mut self, a: VertexId, b: VertexId) {
         panic!("not implemented");
     }
 
-    /// Merge b into a (remving b)
+    /// Merge b into a (removing b)
     pub fn merge_vertices(&mut self, a: VertexId, b: VertexId) {
         panic!("not implemented");
     }
@@ -141,6 +227,20 @@ impl ConnectivityKernel {
 
     pub fn extrude_face(&mut self, id: FaceId, face_per_edge: bool) {
         panic!("not implemented");
+    }
+
+    pub fn count_edges_around_face(&self, face: FaceId) -> u32 {
+        let face = self.get_face(face);
+        let stop = self.get_edge(face.first_edge).prev;
+        let mut it = face.first_edge;
+        let mut count: u32 = 1;
+        loop {
+            if it == stop { break; }
+            count += 1;
+            it = self.get_edge(it).next;
+            if count > 10 { panic!(); }
+        }
+        return count;
     }
 
     /// constructor
@@ -219,26 +319,32 @@ impl<'l> Iterator for VertexEdgeIterator<'l> {
     }
 }
 
+/// A modulo that behaves properly with negative values.
+fn modulo(v: i32, m: i32) -> i32 { (v%m+m)%m }
+
 #[test]
 fn test_from_loop() {
     for n in range(3, 10) {
         println!(" -- testing a loop with {} vertices", n);
         let kernel = ConnectivityKernel::from_loop(n);
-        assert_eq!(kernel.faces().to_vec(), vec!(Face {first_edge: EdgeId { index: 1 }}));
+        let face = FaceId { index: 1};
+
+        assert_eq!(kernel.count_edges_around_face(face), n);
+
         for e in kernel.edges.iter() {
             assert_eq!(e.face, FaceId { index: 1 });
             assert_eq!(e.opposite, EdgeId { index: 0 });
         }
 
         let mut i = 1;
-        for e in kernel.walk_edges_around_face(FaceId { index: 1}) {
+        for e in kernel.walk_edges_around_face(face) {
             assert!((e.index as usize - 1) < kernel.edges.len());
             i += 1;
         }
         assert_eq!(i, n);
 
         let mut i = 1;
-        for e in kernel.walk_edges_around_face_reverse(FaceId { index: 1}) {
+        for e in kernel.walk_edges_around_face_reverse(face) {
             assert!((e.index as usize - 1) < kernel.edges.len());
             i += 1;
         }
@@ -246,5 +352,47 @@ fn test_from_loop() {
     }
 }
 
-/// A modulo that behaves properly with negative values.
-fn modulo(v: i32, m: i32) -> i32 { (v%m+m)%m }
+#[test]
+fn test_split_face() {
+    let mut kernel = ConnectivityKernel::from_loop(4);
+    let f1 = FaceId { index: 1 };
+    let e1 = kernel.get_face(f1).first_edge;
+    let e2 = kernel.get_edge(e1).next;
+    let e3 = kernel.get_edge(e2).next;
+    let e4 = kernel.get_edge(e3).next;
+    assert_eq!(kernel.get_edge(e4).next, e1);
+    assert_eq!(kernel.count_edges_around_face(f1), 4);
+
+    // x---e1---->x
+    // ^          |
+    // |          |
+    // |          e2
+    // e4   f1    |
+    // |          |
+    // |          v
+    // x<-----e3--x
+
+    let f2 = kernel.split_face(e1, e3);
+
+    // x---e1---->x
+    // ^ \ ^   f2 |
+    // | e5 \     |
+    // |   \ \    e2
+    // e4   \ \   |
+    // |     \ e6 |
+    // | f1   v \ v
+    // x<-----e3--x
+
+    let e5 = kernel.get_edge(e4).next;
+    assert_eq!(e5.index, 5);
+    let e6 = kernel.get_edge(e2).next;
+    assert_eq!(e6.index, 6);
+
+    assert_eq!(kernel.get_edge(e6).next, e1);
+    assert_eq!(kernel.get_edge(e5).next, e3);
+    assert_eq!(kernel.get_edge(e6).prev, e2);
+    assert_eq!(kernel.get_edge(e5).prev, e4);
+
+    assert_eq!(kernel.count_edges_around_face(f1), 3);
+    assert_eq!(kernel.count_edges_around_face(f2), 3);
+}
