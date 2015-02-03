@@ -44,32 +44,32 @@ pub struct ConnectivityKernel {
 
 impl ConnectivityKernel {
 
-    pub fn get_vertex(&self, id: VertexId) -> &Vertex {
+    pub fn vertex(&self, id: VertexId) -> &Vertex {
         assert!(id.is_valid());
         &self.vertices[id.index as usize - 1]
     }
 
-    fn get_mut_vertex(&mut self, id: VertexId) -> &mut Vertex {
+    fn vertex_mut(&mut self, id: VertexId) -> &mut Vertex {
         assert!(id.is_valid());
         &mut self.vertices[id.index as usize - 1]
     }
     
-    pub fn get_face(&self, id: FaceId) -> &Face {
+    pub fn face(&self, id: FaceId) -> &Face {
         assert!(id.is_valid());
         &self.faces[id.index as usize - 1]
     }
 
-    fn get_mut_face(&mut self, id: FaceId) -> &mut Face {
+    fn face_mut(&mut self, id: FaceId) -> &mut Face {
         assert!(id.is_valid());
         &mut self.faces[id.index as usize - 1]
     }
     
-    pub fn get_edge(&self, id: EdgeId) -> &HalfEdge {
+    pub fn edge(&self, id: EdgeId) -> &HalfEdge {
         assert!(id.is_valid());
         &self.edges[id.index as usize - 1]
     }
 
-    fn get_mut_edge(&mut self, id: EdgeId) -> &mut HalfEdge {
+    fn edge_mut(&mut self, id: EdgeId) -> &mut HalfEdge {
         assert!(id.is_valid());
         &mut self.edges[id.index as usize - 1]
     }
@@ -80,21 +80,27 @@ impl ConnectivityKernel {
 
     pub fn vertices(&self) -> &[Vertex] { &self.vertices[] }
 
+    pub fn first_edge(&self) -> EdgeId { EdgeId { index: 1 } }
+
+    pub fn first_face(&self) -> FaceId { FaceId { index: 1 } }
+
+    pub fn first_vertex(&self) -> VertexId { VertexId { index: 1 } }
+
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
-        let edge = self.get_face(id).first_edge;
+        let edge = self.face(id).first_edge;
         return FaceEdgeIterator {
             data: self,
             current_edge: edge,
-            last_edge: self.get_edge(edge).prev,
+            last_edge: self.edge(edge).prev,
         }
     }
 
     pub fn walk_edges_around_face_reverse<'l>(&'l self, id: FaceId) -> ReverseFaceEdgeIterator<'l> {
-        let edge = self.get_face(id).first_edge;
+        let edge = self.face(id).first_edge;
         return ReverseFaceEdgeIterator {
             data: self,
             current_edge: edge,
-            last_edge: self.get_edge(edge).next,
+            last_edge: self.edge(edge).next,
         }
     }
 
@@ -116,7 +122,7 @@ impl ConnectivityKernel {
         });
 
         // new_edge
-        let edge = *self.get_edge(id);
+        let edge = *self.edge(id);
         self.edges.push(HalfEdge {
             vertex: edge.vertex,
             opposite: edge.opposite,
@@ -126,7 +132,7 @@ impl ConnectivityKernel {
         });
 
         // new_opposite
-        let opposite = *self.get_edge(edge.opposite);
+        let opposite = *self.edge(edge.opposite);
         self.edges.push(HalfEdge {
             vertex: opposite.vertex,
             opposite: id,
@@ -136,10 +142,10 @@ impl ConnectivityKernel {
         });
 
         // patch up existing edges
-        self.get_mut_edge(id).vertex = new_vertex;
-        self.get_mut_edge(id).next = new_edge;
-        self.get_mut_edge(edge.opposite).vertex = new_vertex;
-        self.get_mut_edge(edge.opposite).next = new_opposite;
+        self.edge_mut(id).vertex = new_vertex;
+        self.edge_mut(id).next = new_edge;
+        self.edge_mut(edge.opposite).vertex = new_vertex;
+        self.edge_mut(edge.opposite).next = new_opposite;
 
         return new_vertex;
     }
@@ -161,13 +167,13 @@ impl ConnectivityKernel {
         // n: new_edge
         // o: new_opposite_edge
 
-        let original_face = self.get_edge(a).face;
-        assert_eq!(original_face, self.get_edge(b).face);
-        assert!(self.get_edge(a).next != b);
-        assert!(self.get_edge(a).prev != b);
+        let original_face = self.edge(a).face;
+        assert_eq!(original_face, self.edge(b).face);
+        assert!(self.edge(a).next != b);
+        assert!(self.edge(a).prev != b);
 
-        let va = self.get_edge(self.get_edge(a).prev).vertex;
-        let vb = self.get_edge(self.get_edge(b).prev).vertex;
+        let va = self.edge(self.edge(a).prev).vertex;
+        let vb = self.edge(self.edge(b).prev).vertex;
         let new_edge = EdgeId { index: self.edges.len() as u32 + 1 }; // va -> vb
         let new_opposite_edge = EdgeId { index: self.edges.len() as u32 + 2 }; // vb -> va
 
@@ -177,13 +183,13 @@ impl ConnectivityKernel {
         let mut it = a;
         loop {
             if it == b { break; }
-            let edge = &mut self.get_mut_edge(it);
+            let edge = &mut self.edge_mut(it);
             edge.face = new_face;
             it = edge.next;
         }
 
-        let a_prev = self.get_edge(a).prev;
-        let b_prev = self.get_edge(b).prev;
+        let a_prev = self.edge(a).prev;
+        let b_prev = self.edge(b).prev;
 
         // new_edge
         self.edges.push(HalfEdge {
@@ -203,10 +209,10 @@ impl ConnectivityKernel {
             vertex: va,
         });
 
-        self.get_mut_edge(a_prev).next = new_edge;
-        self.get_mut_edge(a).prev = new_opposite_edge;
-        self.get_mut_edge(b_prev).next = new_opposite_edge;
-        self.get_mut_edge(b).prev = new_edge;
+        self.edge_mut(a_prev).next = new_edge;
+        self.edge_mut(a).prev = new_opposite_edge;
+        self.edge_mut(b_prev).next = new_opposite_edge;
+        self.edge_mut(b).prev = new_edge;
 
 
         return new_face;
@@ -230,14 +236,14 @@ impl ConnectivityKernel {
     }
 
     pub fn count_edges_around_face(&self, face: FaceId) -> u32 {
-        let face = self.get_face(face);
-        let stop = self.get_edge(face.first_edge).prev;
+        let face = self.face(face);
+        let stop = self.edge(face.first_edge).prev;
         let mut it = face.first_edge;
         let mut count: u32 = 1;
         loop {
             if it == stop { break; }
             count += 1;
-            it = self.get_edge(it).next;
+            it = self.edge(it).next;
             if count > 10 { panic!(); }
         }
         return count;
@@ -280,7 +286,7 @@ impl<'l> Iterator for FaceEdgeIterator<'l> {
         if self.current_edge == self.last_edge {
             return None;
         }
-        self.current_edge = self.data.get_edge(self.current_edge).next;
+        self.current_edge = self.data.edge(self.current_edge).next;
         return Some(self.current_edge);
     }
 }
@@ -299,7 +305,7 @@ impl<'l> Iterator for ReverseFaceEdgeIterator<'l> {
         if self.current_edge == self.last_edge {
             return None;
         }
-        self.current_edge = self.data.get_edge(self.current_edge).prev;
+        self.current_edge = self.data.edge(self.current_edge).prev;
         return Some(self.current_edge);
     }
 }
@@ -327,13 +333,13 @@ fn test_from_loop() {
     for n in range(3, 10) {
         println!(" -- testing a loop with {} vertices", n);
         let kernel = ConnectivityKernel::from_loop(n);
-        let face = FaceId { index: 1};
+        let face = kernel.first_face();
 
         assert_eq!(kernel.count_edges_around_face(face), n);
 
         for e in kernel.edges.iter() {
-            assert_eq!(e.face, FaceId { index: 1 });
-            assert_eq!(e.opposite, EdgeId { index: 0 });
+            assert_eq!(e.face, face);
+            assert!(!e.opposite.is_valid());
         }
 
         let mut i = 1;
@@ -355,12 +361,12 @@ fn test_from_loop() {
 #[test]
 fn test_split_face() {
     let mut kernel = ConnectivityKernel::from_loop(4);
-    let f1 = FaceId { index: 1 };
-    let e1 = kernel.get_face(f1).first_edge;
-    let e2 = kernel.get_edge(e1).next;
-    let e3 = kernel.get_edge(e2).next;
-    let e4 = kernel.get_edge(e3).next;
-    assert_eq!(kernel.get_edge(e4).next, e1);
+    let f1 = kernel.first_face();
+    let e1 = kernel.face(f1).first_edge;
+    let e2 = kernel.edge(e1).next;
+    let e3 = kernel.edge(e2).next;
+    let e4 = kernel.edge(e3).next;
+    assert_eq!(kernel.edge(e4).next, e1);
     assert_eq!(kernel.count_edges_around_face(f1), 4);
 
     // x---e1---->x
@@ -383,15 +389,15 @@ fn test_split_face() {
     // | f1   v \ v
     // x<-----e3--x
 
-    let e5 = kernel.get_edge(e4).next;
+    let e5 = kernel.edge(e4).next;
     assert_eq!(e5.index, 5);
-    let e6 = kernel.get_edge(e2).next;
+    let e6 = kernel.edge(e2).next;
     assert_eq!(e6.index, 6);
 
-    assert_eq!(kernel.get_edge(e6).next, e1);
-    assert_eq!(kernel.get_edge(e5).next, e3);
-    assert_eq!(kernel.get_edge(e6).prev, e2);
-    assert_eq!(kernel.get_edge(e5).prev, e4);
+    assert_eq!(kernel.edge(e6).next, e1);
+    assert_eq!(kernel.edge(e5).next, e3);
+    assert_eq!(kernel.edge(e6).prev, e2);
+    assert_eq!(kernel.edge(e5).prev, e4);
 
     assert_eq!(kernel.count_edges_around_face(f1), 3);
     assert_eq!(kernel.count_edges_around_face(f2), 3);
