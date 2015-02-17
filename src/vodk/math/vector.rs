@@ -40,20 +40,20 @@ pub trait ScalarMul<T> {
 }
 
 #[derive(Copy, Clone, Show)]
-pub struct Vector2D<Unit = Untyped> {
+pub struct Vector2D<Unit> {
     pub x: f32,
     pub y: f32,
 }
 
 #[derive(Copy, Clone, Show)]
-pub struct Vector3D<Unit = Untyped> {
+pub struct Vector3D<Unit> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
 #[derive(Copy, Clone, Show)]
-pub struct Vector4D<Unit = Untyped> {
+pub struct Vector4D<Unit> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
@@ -61,7 +61,7 @@ pub struct Vector4D<Unit = Untyped> {
 }
 
 #[derive(Copy, Clone, Show)]
-pub struct Rectangle<Unit = Untyped> {
+pub struct Rectangle<Unit> {
     pub x: f32,
     pub y: f32,
     pub w: f32,
