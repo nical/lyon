@@ -461,25 +461,25 @@ pub fn triangulate<T: Copy+Show>(
 
 #[test]
 fn test_triangulate() {
-    {
-        println!("\n\n -- path 1");
-        // y monotone.
-        let path = &[
+    let paths : &[&[world::Vec2]] = &[
+        &[
+            world::vec2(1.0, 2.0),
+            world::vec2(1.5, 3.0),
+            world::vec2(0.0, 4.0),
+        ],
+        &[
             world::vec2(1.0, 2.0),
             world::vec2(1.5, 3.0),
             world::vec2(0.0, 4.0),
             world::vec2(-1.0, 1.0),
-        ];
-
-        let indices = &mut [0 as u16; 6];
-
-        triangulate(path, indices);
-    }
-
-    {
-        println!("\n\n -- path 2");
-        // y monotone.
-        let path = &[
+        ],
+        &[
+            world::vec2(1.0, 2.0),
+            world::vec2(1.5, 3.0),
+            world::vec2(0.0, 4.0),
+            world::vec2(-1.0, 1.0),
+        ],
+        &[
             world::vec2(0.0, 0.0),
             world::vec2(3.0, 0.0),
             world::vec2(2.0, 1.0),
@@ -487,33 +487,16 @@ fn test_triangulate() {
             world::vec2(2.0, 3.0),
             world::vec2(0.0, 2.0),
             world::vec2(1.0, 1.0),
-        ];
-
-        let indices = &mut [0 as u16; 15];
-
-        triangulate(path, indices);
-    }
-
-    {
-        println!("\n\n -- path 3");
-        // not monotone, needs 1 split.
-        let path = &[
+        ],
+        &[
             world::vec2(0.0, 0.0),
             world::vec2(1.0, 1.0),// <
             world::vec2(2.0, 0.0),//  |
             world::vec2(2.0, 4.0),//  |
             world::vec2(1.0, 3.0),// <
             world::vec2(0.0, 4.0),
-        ];
-
-        let indices = &mut [0 as u16; 12];
-
-        triangulate(path, indices);
-    }
-
-    {
-        println!("\n\n -- path 4");
-        let path = &[
+        ],
+        &[
             world::vec2(0.0, 2.0),
             world::vec2(1.0, 2.0),
             world::vec2(0.0, 1.0),
@@ -524,10 +507,26 @@ fn test_triangulate() {
             world::vec2(2.0, 1.0),// 7
             world::vec2(3.0, 3.0),
             world::vec2(2.0, 4.0)
-        ];
+        ],
+        &[
+            world::vec2(0.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(2.0, 0.0),
+            world::vec2(3.0, 0.0),
+            world::vec2(3.0, 1.0),
+            world::vec2(3.0, 2.0),
+            world::vec2(3.0, 3.0),
+            world::vec2(2.0, 3.0),
+            world::vec2(1.0, 3.0),
+            world::vec2(0.0, 3.0),
+            world::vec2(0.0, 2.0),
+            world::vec2(0.0, 1.0),
+        ],
+    ];
 
-        let indices = &mut [0 as u16; 24];
-
-        triangulate(path, indices);
+    let indices = &mut [0 as u16; 1024];
+    for i in 0 .. paths.len() {
+        println!("\n\n -- path {}", i);
+        triangulate(&paths[i][], indices);
     }
 }
