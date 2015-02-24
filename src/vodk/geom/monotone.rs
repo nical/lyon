@@ -58,14 +58,13 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
         } else {
             return VertexType::Start;
         }
-        return VertexType::End;
     }
 
     return if prev.y < next.y { VertexType::Right } else { VertexType::Left };
 }
 
 pub fn find(slice: &[EdgeId], item: EdgeId) -> Option<usize> {
-    for i in range(0, slice.len()) {
+    for i in 0 .. slice.len() {
         if slice[i] == item { return Some(i); }
     }
     return None;
@@ -88,12 +87,15 @@ pub fn sweep_status_push<T:Copy>(
 }
 
 pub fn split_face(kernel: &mut ConnectivityKernel, a: EdgeId, b: EdgeId) {
-//    loop {
-//        if kernel.edge(a).face == kernel.edge(b).face  {
-//            a = kernel.
-//        }
-//        
-//    }
+    // TODO[nical] This currently doesn't work if one of the vertex was already
+    // split, because it may now belong to another face.
+
+    //loop {
+    //    if kernel.edge(a).face == kernel.edge(b).face  {
+    //        a = kernel.
+    //    }
+    //    
+    //}
     kernel.split_face(a,b);
 }
 
@@ -244,53 +246,53 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
 
     let first_edge = kernel.face(face).first_edge;
     println!(" -- first edge of this face is {}", first_edge.as_index());
-    let mut circ_up = DirectedEdgeCirculator::new(kernel, first_edge, Direction::Forward);
-    let mut circ_down = circ_up.clone();
+    let mut up = DirectedEdgeCirculator::new(kernel, first_edge, Direction::Forward);
+    let mut down = up.clone();
     loop {
-        circ_down = circ_down.next();
-        if path[circ_up.vertex_id().as_index()].y != path[circ_down.vertex_id().as_index()].y {
+        down = down.next();
+        if path[up.vertex_id().as_index()].y != path[down.vertex_id().as_index()].y {
             break;
         }
     }
 
-    if path[circ_up.vertex_id().as_index()].y < path[circ_down.vertex_id().as_index()].y {
-        circ_up.set_direction(Direction::Backward);
+    if path[up.vertex_id().as_index()].y < path[down.vertex_id().as_index()].y {
+        up.set_direction(Direction::Backward);
     } else {
-        circ_down.set_direction(Direction::Backward);
+        down.set_direction(Direction::Backward);
     }
 
     // find the bottom-most vertex (with the highest y value)
-    let mut big_y = path[circ_down.vertex_id().as_index()].y;
+    let mut big_y = path[down.vertex_id().as_index()].y;
     loop {
-        assert_eq!(circ_down.face_id(), face);
-        println!(" circulating down edge {} vertex {}", circ_down.edge_id().as_index(), circ_down.vertex_id().as_index());
-        circ_down = circ_down.next();
-        let new_y = path[circ_down.vertex_id().as_index()].y;
+        assert_eq!(down.face_id(), face);
+        println!(" circulating down edge {} vertex {}", down.edge_id().as_index(), down.vertex_id().as_index());
+        down = down.next();
+        let new_y = path[down.vertex_id().as_index()].y;
         if new_y < big_y {
-            circ_down = circ_down.prev();
+            down = down.prev();
             break;
         }
         big_y = new_y;
     }
 
     // find the top-most vertex (with the smallest y value)
-    let mut small_y = path[circ_up.vertex_id().as_index()].y;
+    let mut small_y = path[up.vertex_id().as_index()].y;
     loop {
-        assert_eq!(circ_up.face_id(), face);
-        println!(" circulating up edge {} vertex {}", circ_up.edge_id().as_index(), circ_up.vertex_id().as_index());
-        circ_up = circ_up.next();
-        let new_y = path[circ_up.vertex_id().as_index()].y;
+        assert_eq!(up.face_id(), face);
+        println!(" circulating up edge {} vertex {}", up.edge_id().as_index(), up.vertex_id().as_index());
+        up = up.next();
+        let new_y = path[up.vertex_id().as_index()].y;
         if new_y > small_y {
-            circ_up = circ_up.prev();
+            up = up.prev();
             break;
         }
         small_y = new_y;
     }
 
     println!(" -- start vertex {} end {} (end edge {})",
-        circ_up.vertex_id().as_index(),
-        circ_down.vertex_id().as_index(),
-        circ_down.edge_id().as_index()
+        up.vertex_id().as_index(),
+        down.vertex_id().as_index(),
+        down.edge_id().as_index()
     );
 
     // keep track of how many indicies we add.
@@ -300,32 +302,39 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
     let mut vertex_stack: Vec<DirectedEdgeCirculator> = Vec::new();
     // now that we have the top-most vertex, we will circulate simulataneously
     // from the left and right chains until we reach the bottom-most vertex
-    let mut main_chain = circ_up.clone();
-    let mut opposite_chain = circ_up.clone();
-    main_chain.set_direction(Direction::Forward);
-    opposite_chain.set_direction(Direction::Backward);
 
-    main_chain = main_chain.next();
-    opposite_chain = opposite_chain.next();
+    // main chain
+    let mut m = up.clone();
 
-    if path[main_chain.vertex_id().as_index()].y > path[opposite_chain.vertex_id().as_index()].y {
-        swap(&mut main_chain, &mut opposite_chain);
+    // opposite chain
+    let mut o = up.clone();
+    m.set_direction(Direction::Forward);
+    o.set_direction(Direction::Backward);
+
+    m = m.next();
+    o = o.next();
+
+    if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y {
+        swap(&mut m, &mut o);
     }
 
-    vertex_stack.push(main_chain.prev());
-    println!(" -- push first vertex {} to stack", main_chain.prev().vertex_id().as_index());
+    vertex_stack.push(m.prev());
+    println!(" -- push first vertex {} to stack", m.prev().vertex_id().as_index());
 
-    let mut p = main_chain;
-    let mut m = main_chain;
-    let mut o = opposite_chain;
-    let mut i = 0;
+    // previous
+    let mut p = m;
+
     loop {
+        // walk edges from top to bottom, alternating between the left and 
+        // right chains. The chain we are currently iterating over is the
+        // main chain (m) and the other one the opposite chain (o).
+        // p is the previous iteration, regardless of whcih chain it is on.
         println!("\n ** main vertex: {} opposite vertex {} ",
             m.vertex_id().as_index(),
             o.vertex_id().as_index()
         );
 
-        if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y || m == circ_down {
+        if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y || m == down {
             println!(" ** swap");
             swap(&mut m, &mut o);
         }
@@ -366,38 +375,36 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
             }
 
             loop {
-                if vertex_stack.len() >= 1 {
-                    let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
-                    let id_2 = last_popped.unwrap().vertex_id(); // TODO we popped it
-                    let mut id_3 = m.vertex_id();
-
-                    if m.direction() == Direction::Backward {
-                        swap(&mut id_1, &mut id_3);
-                    }
-
-                    let v1 = path[id_1.as_index()];
-                    let v2 = path[id_2.as_index()];
-                    let v3 = path[id_3.as_index()];
-                    println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
-                    if directed_angle(v1 - v2, v3 - v2) > PI {
-                        // can make a triangle
-                        indices[index_cursor  ] = id_1.as_index() as u16;
-                        indices[index_cursor+1] = id_2.as_index() as u16;
-                        indices[index_cursor+2] = id_3.as_index() as u16;
-                        index_cursor += 3;
-
-                        last_popped = vertex_stack.pop();
-
-                        println!(" ===== A - make a triangle {} {} {}",
-                            id_1.as_index(), id_2.as_index(), id_3.as_index()
-                        );
-                    } else {
-                        break;   
-                    }
-                } else {
+                if vertex_stack.len() < 1 {
                     break;
                 }
-                // continue as long as we manage to make some triangles from the stack
+                let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
+                let id_2 = last_popped.unwrap().vertex_id();
+                let mut id_3 = m.vertex_id();
+
+                if m.direction() == Direction::Backward {
+                    swap(&mut id_1, &mut id_3);
+                }
+
+                let v1 = path[id_1.as_index()];
+                let v2 = path[id_2.as_index()];
+                let v3 = path[id_3.as_index()];
+                println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
+                if directed_angle(v1 - v2, v3 - v2) > PI {
+                    // can make a triangle
+                    indices[index_cursor  ] = id_1.as_index() as u16;
+                    indices[index_cursor+1] = id_2.as_index() as u16;
+                    indices[index_cursor+2] = id_3.as_index() as u16;
+                    index_cursor += 3;
+
+                    last_popped = vertex_stack.pop();
+
+                    println!(" ===== A - make a triangle {} {} {}",
+                        id_1.as_index(), id_2.as_index(), id_3.as_index()
+                    );
+                } else {
+                    break;   
+                }
             } // loop 2
 
             if let Some(item) = last_popped {
@@ -409,12 +416,10 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
 
         }
 
-
-
-        if m == circ_down {
-            println!(" ** main = circ_down");
-            if o == circ_down {
-                println!(" ** opposite = circ_down");
+        if m == down {
+            println!(" ** main = down");
+            if o == down {
+                println!(" ** opposite = down");
                 break;
             }
         }
@@ -423,124 +428,8 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
         p = m;
         m = m.next();
         assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
-        i += 1;
-        if i > 30 { panic!("infinite loop"); }
     }
-/*
-    loop {
-        println!("\n -- triangulation loop main: {} opposite {} stack.len: {}",
-            main_chain.vertex_id().as_index(),
-            opposite_chain.vertex_id().as_index(),
-            vertex_stack.len()
-        );
 
-        if path[main_chain.vertex_id().as_index()].y >= path[opposite_chain.vertex_id().as_index()].y {
-            println!(" -- swap main -> opposite");
-            swap(&mut main_chain, &mut opposite_chain);
-        }
-
-        if vertex_stack.len() > 0 && main_chain.direction() != vertex_stack[vertex_stack.len()-1].direction() {
-            println!(" -- changing chain");
-            for i in 0..vertex_stack.len() - 1 {
-                let id_1 = vertex_stack[i].vertex_id();
-                let id_2 = vertex_stack[i+1].vertex_id();
-                let id_opp = main_chain.vertex_id();
-
-                indices[index_cursor  ] = id_opp.as_index() as u16;
-                indices[index_cursor+1] = id_1.as_index() as u16;
-                indices[index_cursor+2] = id_2.as_index() as u16;
-                index_cursor += 3;
-
-                println!(" ==== X - make a triangle {} {} {}",
-                    id_opp.as_index(), id_1.as_index(), id_2.as_index()
-                );
-            }
-            
-            println!(" -- clear stack");
-            vertex_stack.clear();
-
-//            if main_chain == circ_down && opposite_chain == circ_down {
-//                println!(" -- end");
-//                // both chains have reached the bottom-most vertex, we are done.
-//                break;
-//            }
-
-            println!(" -- push vertirces {} and {} to the stack",
-                previous.vertex_id().as_index(), main_chain.vertex_id().as_index()
-            );
-            vertex_stack.push(previous);
-            vertex_stack.push(main_chain);
-
-        } else {
-
-            let mut last_popped = vertex_stack.pop();
-            if let Some(item) = last_popped {
-                println!(" -- popped {} from the stack", item.vertex_id().as_index());
-            }
-
-            loop {
-                if vertex_stack.len() >= 1 {
-                    let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
-                    let id_2 = last_popped.unwrap().vertex_id(); // TODO we popped it
-                    let mut id_3 = main_chain.vertex_id();
-
-                    if main_chain.direction() == Direction::Backward {
-                        swap(&mut id_1, &mut id_3);
-                    }
-
-                    let v1 = path[id_1.as_index()];
-                    let v2 = path[id_2.as_index()];
-                    let v3 = path[id_3.as_index()];
-                    println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
-                    if directed_angle(v1 - v2, v3 - v2) > PI {
-                        // can make a triangle
-                        indices[index_cursor  ] = id_1.as_index() as u16;
-                        indices[index_cursor+1] = id_2.as_index() as u16;
-                        indices[index_cursor+2] = id_3.as_index() as u16;
-                        index_cursor += 3;
-
-                        last_popped = vertex_stack.pop();
-
-                        println!(" ===== A - make a triangle {} {} {}",
-                            id_1.as_index(), id_2.as_index(), id_3.as_index()
-                        );
-                    } else {
-                        break;   
-                    }
-                } else {
-                    break;
-                }
-                // continue as long as we manage to make some triangles from the stack
-            } // loop 2
-
-            if let Some(item) = last_popped {
-                println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
-                vertex_stack.push(item);
-            }
-            vertex_stack.push(main_chain);
-            println!(" -- C - push vertex {} to stack", main_chain.vertex_id().as_index());
-
-        }
-
-        if main_chain == circ_down {
-            if opposite_chain == circ_down {
-                // TODO[nical]
-                // fill remaining triangles until the stack is empty
-
-                // both chains have reached the bottom-most vertex, we are done.
-                println!(" -- end");
-                break;                
-            }
-            println!(" -- yayaya");
-            println!(" -- swap main -> opposite");
-            swap(&mut main_chain, &mut opposite_chain);
-        }
-
-        previous = main_chain;
-        println!(" -- advance main chain");
-        main_chain = main_chain.next();
-    }
-*/
     return index_cursor;
 }
 
@@ -641,5 +530,4 @@ fn test_triangulate() {
 
         triangulate(path, indices);
     }
-    panic!("end");
 }

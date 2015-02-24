@@ -266,20 +266,20 @@ impl ConnectivityKernel {
         return new_face;
     }
 
-    pub fn join_vertices(&mut self, a: VertexId, b: VertexId) {
+    pub fn join_vertices(&mut self, _: VertexId, _: VertexId) {
         panic!("not implemented");
     }
 
     /// Merge b into a (removing b)
-    pub fn merge_vertices(&mut self, a: VertexId, b: VertexId) {
+    pub fn merge_vertices(&mut self, _: VertexId, _: VertexId) {
         panic!("not implemented");
     }
 
-    pub fn extrude_edge(&mut self, id: EdgeId) {
+    pub fn extrude_edge(&mut self, _: EdgeId) {
         panic!("not implemented");
     }
 
-    pub fn extrude_face(&mut self, id: FaceId, face_per_edge: bool) {
+    pub fn extrude_face(&mut self, _: FaceId, _face_per_edge: bool) {
         panic!("not implemented");
     }
 
