@@ -1,4 +1,7 @@
-// Implementation inspired by the course at http://research.engineering.wustl.edu/~pless/546/lectures/l7.html
+// Implementation inspired by Computational Geometry, Algorithms And Applications 3rd edition.
+//
+// Note that a lot of the code/comments/names in this module assume a coordinate
+// system where y pointing downwards
 
 use halfedge::*;
 use math::vector::*;
@@ -21,6 +24,13 @@ enum VertexType {
 }
 
 /// Angle between v1 and v2 (oriented clockwise with y pointing downward)
+/// (equivalent to counter-clockwise if y points upward)
+/// ex: directed_angle([0,1], [1,0]) = 3/2 Pi rad = 270 deg
+///     x       __
+///   0-->     /  \
+///  y|       |  x--> v2
+///   v        \ |v1   
+///              v
 pub fn directed_angle<T>(v1: Vector2D<T>, v2: Vector2D<T>) -> f32 {
     let a = (v2.y).atan2(v2.x) - (v1.y).atan2(v1.x);
     return if a < 0.0 { a + 2.0 * PI } else { a };
@@ -32,10 +42,10 @@ pub fn deg(rad: f32) -> f32 {
 
 fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vector2D<T>) -> VertexType {
     // assuming clockwise path winding order
-    let interrior_angle = directed_angle(next - current, prev - current);
+    let interrior_angle = directed_angle(prev - current, next - current);
 
     if current.y > prev.y && current.y >= next.y {
-        if interrior_angle >= PI {
+        if interrior_angle <= PI {
             return VertexType::Merge;
         } else {
             return VertexType::End;
@@ -43,7 +53,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
     }
 
     if current.y < prev.y && current.y <= next.y {
-        if interrior_angle >= PI {
+        if interrior_angle <= PI {
             return VertexType::Split;
         } else {
             return VertexType::Start;
@@ -62,8 +72,29 @@ pub fn find(slice: &[EdgeId], item: EdgeId) -> Option<usize> {
 }
 pub fn sort_x<T: Copy>(slice: &mut[EdgeId], kernel: &ConnectivityKernel, path: &[Vector2D<T>]) {
     slice.sort_by(|a, b| {
-        path[kernel.edge(*a).vertex.as_index()].y.partial_cmp(&path[kernel.edge(*b).vertex.as_index()].y).unwrap()
+        path[kernel.edge(*a).vertex.as_index()].y.partial_cmp(&path[kernel.edge(*b).vertex.as_index()].y).unwrap().reverse()
     });    
+}
+
+pub fn sweep_status_push<T:Copy>(
+    kernel: &ConnectivityKernel,
+    path: &[Vector2D<T>],
+    sweep: &mut Vec<EdgeId>,
+    e: &EdgeId
+) {
+    println!(" -- insert {} in sweep status", e.as_index());
+    sweep.push(*e);
+    sort_x(&mut sweep[], kernel, path);
+}
+
+pub fn split_face(kernel: &mut ConnectivityKernel, a: EdgeId, b: EdgeId) {
+//    loop {
+//        if kernel.edge(a).face == kernel.edge(b).face  {
+//            a = kernel.
+//        }
+//        
+//    }
+    kernel.split_face(a,b);
 }
 
 pub fn y_monotone_decomposition<T: Copy+Show>(
@@ -99,69 +130,58 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
         let previous_vertex = path[kernel.edge(edge.prev).vertex.as_index()];
         let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
         let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
-        println!(" vertex {} type {:?}", edge.vertex.as_index(), vertex_type);
+        println!(" vertex {} (edge {}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
+
         match vertex_type {
             VertexType::Start => {
-                // Insert this vertex and its edges into the sweep line status.
-                sweep_status.push(*e);
-                sweep_status.push(edge.next);
-                sort_x(&mut sweep_status[], kernel, path);
-                // Set the helper of the left edge to current_vertex.
-                if let Some((prev_helper, VertexType::Merge)) = helper.insert(e.as_index(), (*e, VertexType::Start)) {
-                    kernel.split_face(prev_helper, *e);
-                }
+                sweep_status_push(kernel, path, &mut sweep_status, e);
+                println!("set {} as helper of {}", e.as_index(), e.as_index());
+                helper.insert(e.as_index(), (*e, VertexType::Start));
             }
             VertexType::End => {
-                // Delete both edges from the sweep line status.
-                sweep_status.retain(|item|{ *item != *e && *item != edge.next });
+                if let Some(&(h, VertexType::Merge)) = helper.get(&edge.prev.as_index()) {
+                    kernel.split_face(edge.prev, h);
+                } 
+                sweep_status.retain(|item|{ *item != edge.prev });
             }
             VertexType::Split => {
-                // Search the sweep line status to find the edge e lying immediately to the left of v.
-                for i in range(0, sweep_status.len()) {
-                    // the sweep status is sorted by increasing x.
+                for i in 0 .. sweep_status.len() {
+                    println!(" --- A look for vertex right of e x={} vertex={}",
+                        path[kernel.edge(sweep_status[i]).vertex.as_index()].x,
+                        kernel.edge(sweep_status[i]).vertex.as_index()
+                    );
                     if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
-                        let (h,_) = helper[sweep_status[i-1].as_index()];
-                        // Add a diagonal connecting v to helper(e).
-                        kernel.split_face(*e, h);
+                        if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
+                            kernel.split_face(*e, helper_edge);
+                        }
+                        helper.insert(sweep_status[i].as_index(), (*e, VertexType::Split));
+                        println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         break;
                     }
                 }
-
-                // Add the two edges incident to v in the sweep line status, and make v the
-                sweep_status.push(*e);
-                sweep_status.push(edge.next);
-                sort_x(&mut sweep_status[], kernel, path);
-                // helper of the left-most of these two edges and make v the new helper of e.
-                if let Some((prev_helper, VertexType::Merge)) = helper.insert(edge.next.as_index(), (*e, VertexType::Split)) {
-                    kernel.split_face(prev_helper, *e);
-                }
+                sweep_status_push(kernel, path, &mut sweep_status, e);
+                helper.insert(e.as_index(), (*e, VertexType::Split));
+                println!("set {} as helper of {}", e.as_index(), e.as_index());
             }
             VertexType::Merge => {
-                // Find the two edges incident to this vertex in the sweep line status (they must be adjacent).
-                // Delete them both.
-                sweep_status.retain(|item|{ *item != *e && *item != edge.next });
-                // Search the sweep line status to find the edge lying immediately to the left of v.
-                for i in range(0, sweep_status.len()) {
-                    // the sweep status is sorted by increasing x.
-                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
-                        if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i-1].as_index(), (*e, VertexType::Merge)) {
-                            kernel.split_face(prev_helper, *e);
-                        }
-                        break;
-                    }
+                if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
+                    kernel.split_face(*e, h);
                 }
-            }
-            VertexType::Right => {
-                // look for the previous edge in the sweep status and replace it with the next edge
-                for i in range(0, sweep_status.len()) {
-                    if sweep_status[i] == *e {
-                        sweep_status[i] = edge.next;
-                        break;
-                    }
-                }
-                for i in range(0, sweep_status.len()) {
+                for i in 0 .. sweep_status.len() {
+                    println!(" --- B look for vertex right of e x={} vertex={}",
+                        path[kernel.edge(sweep_status[i]).vertex.as_index()].x,
+                        kernel.edge(sweep_status[i]).vertex.as_index()
+                    );
                     if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
-                        if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i-1].as_index(), (*e, VertexType::Right)) {
+                        println!(" --- D set {} as helper of {}",
+                            edge.vertex.as_index(),
+                            sweep_status[i].as_index()
+                        );
+                        println!("set {} as helper of {}", sweep_status[i].as_index(), e.as_index());
+                        if let Some((prev_helper, VertexType::Merge)) = helper.insert(
+                            sweep_status[i].as_index(),
+                            (*e, VertexType::Merge)
+                        ) {
                             kernel.split_face(prev_helper, *e);
                         }
                         break;
@@ -169,16 +189,26 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                 }
             }
             VertexType::Left => {
-                // look for the next edge in the sweep status and replace it with the previous edge
-                for i in range(0, sweep_status.len()) {
-                    if sweep_status[i] == edge.next {
-                        sweep_status[i] = *e;
+                for i in 0 .. sweep_status.len() {
+                    println!(" --- X look for vertex right of e x={} vertex={}", path[kernel.edge(sweep_status[i]).vertex.as_index()].x, kernel.edge(sweep_status[i]).vertex.as_index());
+                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
+                        println!(" --- meh {} x={}", kernel.edge(sweep_status[i]).vertex.as_index(), path[kernel.edge(sweep_status[i]).vertex.as_index()].x);
+                        println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
+                        if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i].as_index(), (*e, VertexType::Right)) {
+                            kernel.split_face(prev_helper, *e);
+                        }
                         break;
                     }
                 }
-                if let Some((prev_helper, VertexType::Merge)) = helper.insert(e.as_index(), (*e, VertexType::Left)) {
-                    kernel.split_face(prev_helper, *e);
+            }
+            VertexType::Right => {
+                if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
+                    kernel.split_face(*e, h);
                 }
+                sweep_status.retain(|item|{ *item != edge.prev });
+                sweep_status_push(kernel, path, &mut sweep_status, e);
+                println!("set {} as helper of {}", e.as_index(), e.as_index());
+                helper.insert(e.as_index(), (*e, VertexType::Left));
             }
         }
     }
@@ -191,7 +221,12 @@ pub fn is_y_monotone<T:Copy+Show>(kernel: &ConnectivityKernel, path: &[Vector2D<
         let previous_vertex = path[kernel.edge(edge.prev).vertex.as_index()];
         let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
-            VertexType::Split | VertexType::Merge => { return false; }
+            VertexType::Split | VertexType::Merge => {
+                println!("mot y monotone because of vertices {} {} {} edge {} {} {}",
+                    kernel.edge(edge.prev).vertex.as_index(), edge.vertex.as_index(), kernel.edge(edge.next).vertex.as_index(), 
+                    edge.prev.as_index(), e.as_index(), edge.next.as_index());
+                return false;
+            }
             _ => {}
         }
     }
@@ -211,7 +246,12 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
     println!(" -- first edge of this face is {}", first_edge.as_index());
     let mut circ_up = DirectedEdgeCirculator::new(kernel, first_edge, Direction::Forward);
     let mut circ_down = circ_up.clone();
-    circ_down = circ_down.next();
+    loop {
+        circ_down = circ_down.next();
+        if path[circ_up.vertex_id().as_index()].y != path[circ_down.vertex_id().as_index()].y {
+            break;
+        }
+    }
 
     if path[circ_up.vertex_id().as_index()].y < path[circ_down.vertex_id().as_index()].y {
         circ_up.set_direction(Direction::Backward);
@@ -223,6 +263,7 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
     let mut big_y = path[circ_down.vertex_id().as_index()].y;
     loop {
         assert_eq!(circ_down.face_id(), face);
+        println!(" circulating down edge {} vertex {}", circ_down.edge_id().as_index(), circ_down.vertex_id().as_index());
         circ_down = circ_down.next();
         let new_y = path[circ_down.vertex_id().as_index()].y;
         if new_y < big_y {
@@ -236,6 +277,7 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
     let mut small_y = path[circ_up.vertex_id().as_index()].y;
     loop {
         assert_eq!(circ_up.face_id(), face);
+        println!(" circulating up edge {} vertex {}", circ_up.edge_id().as_index(), circ_up.vertex_id().as_index());
         circ_up = circ_up.next();
         let new_y = path[circ_up.vertex_id().as_index()].y;
         if new_y > small_y {
@@ -245,9 +287,10 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
         small_y = new_y;
     }
 
-    println!(" -- start vertex {} end {}",
+    println!(" -- start vertex {} end {} (end edge {})",
         circ_up.vertex_id().as_index(),
-        circ_down.vertex_id().as_index()
+        circ_down.vertex_id().as_index(),
+        circ_down.edge_id().as_index()
     );
 
     // keep track of how many indicies we add.
@@ -272,27 +315,30 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
     vertex_stack.push(main_chain.prev());
     println!(" -- push first vertex {} to stack", main_chain.prev().vertex_id().as_index());
 
-    let mut previous = main_chain;
-
+    let mut p = main_chain;
+    let mut m = main_chain;
+    let mut o = opposite_chain;
+    let mut i = 0;
     loop {
-        println!("\n -- triangulation loop main: {} opposite {} stack.len: {}",
-            main_chain.vertex_id().as_index(),
-            opposite_chain.vertex_id().as_index(),
-            vertex_stack.len()
+        println!("\n ** main vertex: {} opposite vertex {} ",
+            m.vertex_id().as_index(),
+            o.vertex_id().as_index()
         );
 
-        if path[main_chain.vertex_id().as_index()].y > path[opposite_chain.vertex_id().as_index()].y {
-            println!(" -- swap main -> opposite");
-            swap(&mut main_chain, &mut opposite_chain);
+        if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y || m == circ_down {
+            println!(" ** swap");
+            swap(&mut m, &mut o);
         }
 
-        if vertex_stack.len() > 0 && main_chain.direction() != vertex_stack[vertex_stack.len()-1].direction() {
+        println!(" ** do stuff with vertex {}", m.vertex_id().as_index());
+
+        if vertex_stack.len() > 0 && m.direction() != vertex_stack[vertex_stack.len()-1].direction() {
             println!(" -- changing chain");
             for i in 0..vertex_stack.len() - 1 {
                 let id_1 = vertex_stack[i].vertex_id();
                 let id_2 = vertex_stack[i+1].vertex_id();
-                let id_opp = main_chain.vertex_id();
-                
+                let id_opp = m.vertex_id();
+
                 indices[index_cursor  ] = id_opp.as_index() as u16;
                 indices[index_cursor+1] = id_1.as_index() as u16;
                 indices[index_cursor+2] = id_2.as_index() as u16;
@@ -307,80 +353,194 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
             vertex_stack.clear();
 
             println!(" -- push vertirces {} and {} to the stack",
+                p.vertex_id().as_index(), m.vertex_id().as_index()
+            );
+            vertex_stack.push(p);
+            vertex_stack.push(m);
+
+        } else {
+
+            let mut last_popped = vertex_stack.pop();
+            if let Some(item) = last_popped {
+                println!(" -- popped {} from the stack", item.vertex_id().as_index());
+            }
+
+            loop {
+                if vertex_stack.len() >= 1 {
+                    let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
+                    let id_2 = last_popped.unwrap().vertex_id(); // TODO we popped it
+                    let mut id_3 = m.vertex_id();
+
+                    if m.direction() == Direction::Backward {
+                        swap(&mut id_1, &mut id_3);
+                    }
+
+                    let v1 = path[id_1.as_index()];
+                    let v2 = path[id_2.as_index()];
+                    let v3 = path[id_3.as_index()];
+                    println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
+                    if directed_angle(v1 - v2, v3 - v2) > PI {
+                        // can make a triangle
+                        indices[index_cursor  ] = id_1.as_index() as u16;
+                        indices[index_cursor+1] = id_2.as_index() as u16;
+                        indices[index_cursor+2] = id_3.as_index() as u16;
+                        index_cursor += 3;
+
+                        last_popped = vertex_stack.pop();
+
+                        println!(" ===== A - make a triangle {} {} {}",
+                            id_1.as_index(), id_2.as_index(), id_3.as_index()
+                        );
+                    } else {
+                        break;   
+                    }
+                } else {
+                    break;
+                }
+                // continue as long as we manage to make some triangles from the stack
+            } // loop 2
+
+            if let Some(item) = last_popped {
+                println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
+                vertex_stack.push(item);
+            }
+            vertex_stack.push(m);
+            println!(" -- C - push vertex {} to stack", m.vertex_id().as_index());
+
+        }
+
+
+
+        if m == circ_down {
+            println!(" ** main = circ_down");
+            if o == circ_down {
+                println!(" ** opposite = circ_down");
+                break;
+            }
+        }
+
+        println!(" ** advance");
+        p = m;
+        m = m.next();
+        assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
+        i += 1;
+        if i > 30 { panic!("infinite loop"); }
+    }
+/*
+    loop {
+        println!("\n -- triangulation loop main: {} opposite {} stack.len: {}",
+            main_chain.vertex_id().as_index(),
+            opposite_chain.vertex_id().as_index(),
+            vertex_stack.len()
+        );
+
+        if path[main_chain.vertex_id().as_index()].y >= path[opposite_chain.vertex_id().as_index()].y {
+            println!(" -- swap main -> opposite");
+            swap(&mut main_chain, &mut opposite_chain);
+        }
+
+        if vertex_stack.len() > 0 && main_chain.direction() != vertex_stack[vertex_stack.len()-1].direction() {
+            println!(" -- changing chain");
+            for i in 0..vertex_stack.len() - 1 {
+                let id_1 = vertex_stack[i].vertex_id();
+                let id_2 = vertex_stack[i+1].vertex_id();
+                let id_opp = main_chain.vertex_id();
+
+                indices[index_cursor  ] = id_opp.as_index() as u16;
+                indices[index_cursor+1] = id_1.as_index() as u16;
+                indices[index_cursor+2] = id_2.as_index() as u16;
+                index_cursor += 3;
+
+                println!(" ==== X - make a triangle {} {} {}",
+                    id_opp.as_index(), id_1.as_index(), id_2.as_index()
+                );
+            }
+            
+            println!(" -- clear stack");
+            vertex_stack.clear();
+
+//            if main_chain == circ_down && opposite_chain == circ_down {
+//                println!(" -- end");
+//                // both chains have reached the bottom-most vertex, we are done.
+//                break;
+//            }
+
+            println!(" -- push vertirces {} and {} to the stack",
                 previous.vertex_id().as_index(), main_chain.vertex_id().as_index()
             );
             vertex_stack.push(previous);
             vertex_stack.push(main_chain);
 
-            println!(" -- advance main chain");
-            previous = main_chain;
-            main_chain = main_chain.next();
+        } else {
 
-            continue;
-        }
-
-        let mut last_popped = vertex_stack.pop();
-        if let Some(item) = last_popped {
-            println!(" -- popped {} from the stack", item.vertex_id().as_index());
-        }
-
-        loop {
-            if vertex_stack.len() >= 1 {
-                let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
-                let id_2 = last_popped.unwrap().vertex_id(); // TODO we popped it
-                let mut id_3 = main_chain.vertex_id();
-
-                if main_chain.direction() == Direction::Backward {
-                    swap(&mut id_1, &mut id_3);
-                }
-
-                let v1 = path[id_1.as_index()];
-                let v2 = path[id_2.as_index()];
-                let v3 = path[id_3.as_index()];
-                println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
-                if directed_angle(v1 - v2, v3 - v2) > PI {
-                    // can make a triangle
-                    indices[index_cursor  ] = id_1.as_index() as u16;
-                    indices[index_cursor+1] = id_2.as_index() as u16;
-                    indices[index_cursor+2] = id_3.as_index() as u16;
-                    index_cursor += 3;
-
-                    last_popped = vertex_stack.pop();
-
-                    println!(" ===== A - make a triangle {} {} {}",
-                        id_1.as_index(), id_2.as_index(), id_3.as_index()
-                    );
-                } else {
-                    break;   
-                }
-            } else {
-                break;
+            let mut last_popped = vertex_stack.pop();
+            if let Some(item) = last_popped {
+                println!(" -- popped {} from the stack", item.vertex_id().as_index());
             }
-            // continue as long as we manage to make some triangles from the stack
-        } // loop 2
 
-        if let Some(item) = last_popped {
-            println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
-            vertex_stack.push(item);
+            loop {
+                if vertex_stack.len() >= 1 {
+                    let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
+                    let id_2 = last_popped.unwrap().vertex_id(); // TODO we popped it
+                    let mut id_3 = main_chain.vertex_id();
+
+                    if main_chain.direction() == Direction::Backward {
+                        swap(&mut id_1, &mut id_3);
+                    }
+
+                    let v1 = path[id_1.as_index()];
+                    let v2 = path[id_2.as_index()];
+                    let v3 = path[id_3.as_index()];
+                    println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
+                    if directed_angle(v1 - v2, v3 - v2) > PI {
+                        // can make a triangle
+                        indices[index_cursor  ] = id_1.as_index() as u16;
+                        indices[index_cursor+1] = id_2.as_index() as u16;
+                        indices[index_cursor+2] = id_3.as_index() as u16;
+                        index_cursor += 3;
+
+                        last_popped = vertex_stack.pop();
+
+                        println!(" ===== A - make a triangle {} {} {}",
+                            id_1.as_index(), id_2.as_index(), id_3.as_index()
+                        );
+                    } else {
+                        break;   
+                    }
+                } else {
+                    break;
+                }
+                // continue as long as we manage to make some triangles from the stack
+            } // loop 2
+
+            if let Some(item) = last_popped {
+                println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
+                vertex_stack.push(item);
+            }
+            vertex_stack.push(main_chain);
+            println!(" -- C - push vertex {} to stack", main_chain.vertex_id().as_index());
+
         }
-        vertex_stack.push(main_chain);
-        println!(" -- C - push vertex {} to stack", main_chain.vertex_id().as_index());
 
-        if main_chain == circ_down && opposite_chain == circ_down {
-            println!(" -- end");
+        if main_chain == circ_down {
+            if opposite_chain == circ_down {
+                // TODO[nical]
+                // fill remaining triangles until the stack is empty
 
-            // TODO[nical]
-            // fill remaining triangles until the stack is empty
-
-            // both chains have reached the bottom-most vertex, we are done.
-            break;
+                // both chains have reached the bottom-most vertex, we are done.
+                println!(" -- end");
+                break;                
+            }
+            println!(" -- yayaya");
+            println!(" -- swap main -> opposite");
+            swap(&mut main_chain, &mut opposite_chain);
         }
 
-        println!(" -- advance main chain");
         previous = main_chain;
+        println!(" -- advance main chain");
         main_chain = main_chain.next();
     }
-
+*/
     return index_cursor;
 }
 
@@ -469,10 +629,10 @@ fn test_triangulate() {
             world::vec2(1.0, 2.0),
             world::vec2(0.0, 1.0),
             world::vec2(2.0, 0.0),
-            world::vec2(3.0, 1.0),
+            world::vec2(3.0, 1.0),// 4
             world::vec2(4.0, 0.0),
             world::vec2(3.0, 2.0),
-            world::vec2(2.0, 1.0),
+            world::vec2(2.0, 1.0),// 7
             world::vec2(3.0, 3.0),
             world::vec2(2.0, 4.0)
         ];

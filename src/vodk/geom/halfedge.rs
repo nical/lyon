@@ -34,7 +34,7 @@ impl VertexId {
 pub struct HalfEdge {
     pub next: EdgeId, // next HalfEdge around the face
     pub prev: EdgeId, // previous HalfEdge around the face
-    pub vertex: VertexId, // vertex this edge points to
+    pub vertex: VertexId, // vertex this edge origins from
     pub opposite: EdgeId,
     pub face: FaceId,
 }
@@ -189,7 +189,7 @@ impl ConnectivityKernel {
     }
 
     /// Split a face in two along the vertices that a_prev and b_prev point to
-    pub fn split_face(&mut self, a_prev: EdgeId, b_prev: EdgeId) -> FaceId {
+    pub fn split_face(&mut self, a_next: EdgeId, b_next: EdgeId) -> FaceId {
         //
         // a_prev--> va -a_next->
         //          | ^
@@ -205,18 +205,21 @@ impl ConnectivityKernel {
         // n: new_edge
         // o: new_opposite_edge
 
-        println!(" ++++ split vertices {} {}", self.edge(a_prev).vertex.as_index(), self.edge(b_prev).vertex.as_index());
+        println!(" ++++ split vertices {} {} edge {} {}",
+            self.edge(a_next).vertex.as_index(), self.edge(b_next).vertex.as_index(),
+            a_next.as_index(), b_next.as_index()
+        );
 
-        let a_next = self.edge(a_prev).next;
-        let b_next = self.edge(b_prev).next;
+        let a_prev = self.edge(a_next).prev;
+        let b_prev = self.edge(b_next).prev;
 
         let original_face = self.edge(a_prev).face;
         assert_eq!(original_face, self.edge(b_prev).face);
         assert!(self.edge(a_next).next != b_next);
         assert!(a_prev != b_next);
 
-        let va = self.edge(a_prev).vertex;
-        let vb = self.edge(b_prev).vertex;
+        let va = self.edge(a_next).vertex;
+        let vb = self.edge(b_next).vertex;
         let new_edge = EdgeId { handle: self.edges.len() as u16 + 1 }; // va -> vb
         let new_opposite_edge = EdgeId { handle: self.edges.len() as u16 + 2 }; // vb -> va
 
@@ -234,7 +237,7 @@ impl ConnectivityKernel {
             prev: a_prev,
             opposite: new_opposite_edge,
             face: original_face,
-            vertex: vb,
+            vertex: va,
         });
 
         // new_opposite_edge
@@ -243,7 +246,7 @@ impl ConnectivityKernel {
             prev: b_prev,
             opposite: new_edge,
             face: new_face,
-            vertex: va,
+            vertex: vb,
         });
 
         self.edge_mut(a_prev).next = new_edge;
@@ -302,7 +305,7 @@ impl ConnectivityKernel {
         for i in range(0, n_vertices) {
             vertices.push(Vertex { first_edge: EdgeId { handle:(i%n_vertices) + 1 } });
             edges.push(HalfEdge {
-                vertex: VertexId { handle: ((i + 1) % n_vertices) + 1 },
+                vertex: VertexId { handle: (i % n_vertices) + 1 },
                 opposite: EdgeId { handle: 0 },
                 face: FaceId { handle: 1 },
                 next: EdgeId { handle: ((i + 1) % n_vertices) + 1 },
@@ -618,7 +621,7 @@ fn test_split_face_1() {
     // |          v
     // x<-----e3--x
 
-    let f2 = kernel.split_face(e2, e4);
+    let f2 = kernel.split_face(e3, e1);
 
     // x---e1---->x
     // ^ \ ^   f1 |
@@ -660,7 +663,7 @@ fn test_split_face_1() {
 
 #[test]
 fn test_split_face_2() {
-    let mut kernel = ConnectivityKernel::from_loop(4);
+    let mut kernel = ConnectivityKernel::from_loop(10);
     let f1 = kernel.first_face();
 
     let e1 = kernel.face(f1).first_edge;
