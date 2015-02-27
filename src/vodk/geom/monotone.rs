@@ -107,6 +107,20 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
 ) {
     let mut sorted_edges: Vec<EdgeId> = FromIterator::from_iter(kernel.walk_edges_around_face(face_id));
 
+    // also add holes in the sorted edge list
+    let mut hole = kernel.face(face_id).first_interrior;
+    loop {
+        if !hole.is_valid() {
+            break;
+        }
+
+        for e in kernel.walk_edges_around_face(hole) {
+            sorted_edges.push(e);
+        }
+
+        hole = kernel.face(hole).next_sibbling;
+    }
+
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
         if path[kernel.edge(*a).vertex.as_index()].y > path[kernel.edge(*b).vertex.as_index()].y {
@@ -237,13 +251,47 @@ pub fn is_y_monotone<T:Copy+Show>(kernel: &ConnectivityKernel, path: &[Vector2D<
     return true;
 }
 
+// TODO[nical] there's probably a general Writer thingy in std
+pub trait TriangleStream {
+    fn write(&mut self, a: u16, b: u16, c: u16);
+    fn count(&self) -> usize;
+}
+
+pub struct SliceTriangleStream<'l> {
+    indices: &'l mut[u16],
+    offset: usize,
+}
+
+impl<'l> TriangleStream for SliceTriangleStream<'l> {
+    fn write(&mut self, a: u16, b: u16, c: u16) {
+        assert!(a != b);
+        assert!(b != c);
+        assert!(c != a);
+        self.indices[self.offset] = a;
+        self.indices[self.offset+1] = b;
+        self.indices[self.offset+3] = c;
+        self.offset += 3;
+    }
+
+    fn count(&self) -> usize { self.offset as usize / 3 }
+}
+
+impl<'l> SliceTriangleStream<'l> {
+    pub fn new(buffer: &'l mut[u16]) -> SliceTriangleStream {
+        SliceTriangleStream {
+            indices: buffer,
+            offset: 0,
+        }
+    }
+}
+
 // Returns the number of indices added
-pub fn y_monotone_triangulation<T: Copy+Show>(
+pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
     kernel: &ConnectivityKernel,
     face: FaceId,
     path: &[Vector2D<T>],
-    indices: &mut[u16],
-) -> usize {
+    triangles: &mut Triangles,
+) {
     println!(" ------- y_monotone_triangulation face {} path.len: {}", face.as_index(), path.len());
 
     let first_edge = kernel.face(face).first_edge;
@@ -297,7 +345,7 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
         down.edge_id().as_index()
     );
 
-    // keep track of how many indicies we add.
+    // keep track of how many indices we add.
     let mut index_cursor = 0;
 
     // vertices already visited, waiting to be connected
@@ -350,10 +398,11 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
                 let id_2 = vertex_stack[i+1].vertex_id();
                 let id_opp = m.vertex_id();
 
-                indices[index_cursor  ] = id_opp.as_index() as u16;
-                indices[index_cursor+1] = id_1.as_index() as u16;
-                indices[index_cursor+2] = id_2.as_index() as u16;
-                index_cursor += 3;
+                triangles.write(
+                    id_opp.as_index() as u16,
+                    id_1.as_index() as u16,
+                    id_2.as_index() as u16
+                );
 
                 println!(" ==== X - make a triangle {} {} {}",
                     id_opp.as_index(), id_1.as_index(), id_2.as_index()
@@ -393,11 +442,11 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
                 let v3 = path[id_3.as_index()];
                 println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
                 if directed_angle(v1 - v2, v3 - v2) > PI {
-                    // can make a triangle
-                    indices[index_cursor  ] = id_1.as_index() as u16;
-                    indices[index_cursor+1] = id_2.as_index() as u16;
-                    indices[index_cursor+2] = id_3.as_index() as u16;
-                    index_cursor += 3;
+                    triangles.write(
+                        id_1.as_index() as u16,
+                        id_2.as_index() as u16,
+                        id_3.as_index() as u16
+                    );
 
                     last_popped = vertex_stack.pop();
 
@@ -431,14 +480,12 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
         m = m.next();
         assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
     }
-
-    return index_cursor;
 }
 
 #[derive(Copy)]
 pub struct TriangulationDescriptor<'l, T> {
     vertices: &'l[Vector2D<T>],
-    holes: Option<&'l[&'l[Vector2D<T>]]>,
+    holes: &'l[&'l[Vector2D<T>]],
 }
 
 
@@ -447,7 +494,6 @@ pub fn triangulate<T: Copy+Show>(
     inputs: TriangulationDescriptor<T>,
     indices: &mut[u16]
 ) -> usize {
-    assert!(inputs.holes.is_none(), "TODO[nical] unimplemented");
 
     let path = inputs.vertices;
     // num triangles = num vertices - 2
@@ -458,20 +504,25 @@ pub fn triangulate<T: Copy+Show>(
     let mut kernel = ConnectivityKernel::from_loop(path.len() as u16);
     let mut new_faces: Vec<FaceId> = vec!(first_face);
 
+    for hole in inputs.holes.iter() {
+        kernel.add_hole(first_face, hole.len() as u16);
+    }
+
     y_monotone_decomposition(&mut kernel, first_face, path, &mut new_faces);
 
     let indices_len = indices.len();
-    let mut index_cursor: usize = 0;
+    let mut triangles = SliceTriangleStream::new(&mut indices[]);
     for &f in new_faces.iter() {
         assert!(is_y_monotone(&kernel, path, f));
-        index_cursor += y_monotone_triangulation(
+        y_monotone_triangulation(
             &kernel, f,
-            path, &mut indices[index_cursor..indices_len]
+            path,
+            &mut triangles
         );
     }
 
-    assert_eq!(index_cursor, (path.len() - 2) * 3);
-    return index_cursor;
+    assert_eq!(triangles.count(), path.len() - 2);
+    return triangles.count() * 3;
 }
 
 #[test]
@@ -544,7 +595,7 @@ fn test_triangulate() {
         println!("\n\n -- path {}", i);
         let desc = TriangulationDescriptor {
             vertices: &paths[i][],
-            holes: None,
+            holes: &[],
         };
         triangulate(desc, indices);
     }
@@ -573,7 +624,7 @@ fn test_triangulate_holes() {
         let &(path, holes) = &paths[i];
         let desc = TriangulationDescriptor {
             vertices: &path[],
-            holes: Some(holes),
+            holes: holes,
         };
         triangulate(desc, indices);
     }
