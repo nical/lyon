@@ -86,7 +86,7 @@ pub fn sweep_status_push<T:Copy>(
     sort_x(&mut sweep[], kernel, path);
 }
 
-pub fn split_face(kernel: &mut ConnectivityKernel, a: EdgeId, b: EdgeId) {
+pub fn split_face(kernel: &mut ConnectivityKernel, a: EdgeId, b: EdgeId) -> FaceId {
     // TODO[nical] This currently doesn't work if one of the vertex was already
     // split, because it may now belong to another face.
 
@@ -96,14 +96,16 @@ pub fn split_face(kernel: &mut ConnectivityKernel, a: EdgeId, b: EdgeId) {
     //    }
     //    
     //}
-    kernel.split_face(a,b);
+    return kernel.split_face(a,b);
 }
 
 pub fn y_monotone_decomposition<T: Copy+Show>(
     kernel: &mut ConnectivityKernel,
-    path: &[Vector2D<T>]
+    face_id: FaceId,
+    path: &[Vector2D<T>],
+    new_faces: &mut Vec<FaceId>
 ) {
-    let mut sorted_edges: Vec<EdgeId> = FromIterator::from_iter(kernel.edge_ids());
+    let mut sorted_edges: Vec<EdgeId> = FromIterator::from_iter(kernel.walk_edges_around_face(face_id));
 
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
@@ -142,7 +144,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::End => {
                 if let Some(&(h, VertexType::Merge)) = helper.get(&edge.prev.as_index()) {
-                    kernel.split_face(edge.prev, h);
+                    new_faces.push(kernel.split_face(edge.prev, h));
                 } 
                 sweep_status.retain(|item|{ *item != edge.prev });
             }
@@ -154,7 +156,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                     );
                     if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
                         if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
-                            kernel.split_face(*e, helper_edge);
+                            new_faces.push(kernel.split_face(*e, helper_edge));
                         }
                         helper.insert(sweep_status[i].as_index(), (*e, VertexType::Split));
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
@@ -167,7 +169,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::Merge => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
-                    kernel.split_face(*e, h);
+                    new_faces.push(kernel.split_face(*e, h));
                 }
                 for i in 0 .. sweep_status.len() {
                     println!(" --- B look for vertex right of e x={} vertex={}",
@@ -184,7 +186,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                             sweep_status[i].as_index(),
                             (*e, VertexType::Merge)
                         ) {
-                            kernel.split_face(prev_helper, *e);
+                            new_faces.push(kernel.split_face(prev_helper, *e));
                         }
                         break;
                     }
@@ -197,7 +199,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                         println!(" --- meh {} x={}", kernel.edge(sweep_status[i]).vertex.as_index(), path[kernel.edge(sweep_status[i]).vertex.as_index()].x);
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i].as_index(), (*e, VertexType::Right)) {
-                            kernel.split_face(prev_helper, *e);
+                            new_faces.push(kernel.split_face(prev_helper, *e));
                         }
                         break;
                     }
@@ -205,7 +207,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::Right => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
-                    kernel.split_face(*e, h);
+                    new_faces.push(kernel.split_face(*e, h));
                 }
                 sweep_status.retain(|item|{ *item != edge.prev });
                 sweep_status_push(kernel, path, &mut sweep_status, e);
@@ -224,7 +226,7 @@ pub fn is_y_monotone<T:Copy+Show>(kernel: &ConnectivityKernel, path: &[Vector2D<
         let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
-                println!("mot y monotone because of vertices {} {} {} edge {} {} {}",
+                println!("not y monotone because of vertices {} {} {} edge {} {} {}",
                     kernel.edge(edge.prev).vertex.as_index(), edge.vertex.as_index(), kernel.edge(edge.next).vertex.as_index(), 
                     edge.prev.as_index(), e.as_index(), edge.next.as_index());
                 return false;
@@ -433,21 +435,34 @@ pub fn y_monotone_triangulation<T: Copy+Show>(
     return index_cursor;
 }
 
+#[derive(Copy)]
+pub struct TriangulationDescriptor<'l, T> {
+    vertices: &'l[Vector2D<T>],
+    holes: Option<&'l[&'l[Vector2D<T>]]>,
+}
+
+
 /// Returns the number of indices added for convenience
 pub fn triangulate<T: Copy+Show>(
-    path: &[Vector2D<T>],
+    inputs: TriangulationDescriptor<T>,
     indices: &mut[u16]
 ) -> usize {
+    assert!(inputs.holes.is_none(), "TODO[nical] unimplemented");
+
+    let path = inputs.vertices;
     // num triangles = num vertices - 2
     assert!(indices.len() / 3 >= path.len() - 2);
 
-    let mut kernel = ConnectivityKernel::from_loop(path.len() as u16);
+    let first_face = FaceId { handle: 1 };
 
-    y_monotone_decomposition(&mut kernel, path);
+    let mut kernel = ConnectivityKernel::from_loop(path.len() as u16);
+    let mut new_faces: Vec<FaceId> = vec!(first_face);
+
+    y_monotone_decomposition(&mut kernel, first_face, path, &mut new_faces);
 
     let indices_len = indices.len();
     let mut index_cursor: usize = 0;
-    for f in kernel.face_ids() {
+    for &f in new_faces.iter() {
         assert!(is_y_monotone(&kernel, path, f));
         index_cursor += y_monotone_triangulation(
             &kernel, f,
@@ -527,6 +542,40 @@ fn test_triangulate() {
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. paths.len() {
         println!("\n\n -- path {}", i);
-        triangulate(&paths[i][], indices);
+        let desc = TriangulationDescriptor {
+            vertices: &paths[i][],
+            holes: None,
+        };
+        triangulate(desc, indices);
     }
+}
+
+#[test]
+fn test_triangulate_holes() {
+    let paths : &[(&[world::Vec2], &[&[world::Vec2]])] = &[
+        (
+            &[
+                world::vec2(-10.0, 5.0),
+                world::vec2(0.0, -5.0),
+                world::vec2(10.0, 5.0),
+            ],
+            &[&[
+                world::vec2(-4.0, 2.0),
+                world::vec2(0.0, -2.0),
+                world::vec2(4.0, 2.0),
+            ]]
+        )
+    ];
+
+    let indices = &mut [0 as u16; 1024];
+    for i in 0 .. paths.len() {
+        println!("\n\n -- path {}", i);
+        let &(path, holes) = &paths[i];
+        let desc = TriangulationDescriptor {
+            vertices: &path[],
+            holes: Some(holes),
+        };
+        triangulate(desc, indices);
+    }
+
 }

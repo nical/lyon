@@ -302,22 +302,40 @@ impl ConnectivityKernel {
         assert!(n_vertices >= 3);
         let mut vertices = Vec::new();
         let mut edges = Vec::new();
-        for i in range(0, n_vertices) {
-            vertices.push(Vertex { first_edge: EdgeId { handle:(i%n_vertices) + 1 } });
+        for i in (0 .. n_vertices) {
+            vertices.push(Vertex { first_edge: EdgeId { handle: i + 1 } });
             edges.push(HalfEdge {
-                vertex: VertexId { handle: (i % n_vertices) + 1 },
-                opposite: EdgeId { handle: 0 },
+                vertex: VertexId { handle: i + 1 },
+                opposite: EdgeId { handle: n_vertices + i + 1 },
                 face: FaceId { handle: 1 },
                 next: EdgeId { handle: ((i + 1) % n_vertices) + 1 },
                 prev: EdgeId { handle: modulo(i as i32 - 1, n_vertices as i32) as u16 + 1 },
             });
         }
+        for i in n_vertices .. n_vertices * 2 {
+            vertices.push(Vertex { first_edge: EdgeId { handle: i + 1 } });
+            edges.push(HalfEdge {
+                vertex: VertexId { handle: i + 1 },
+                opposite: EdgeId { handle: i - n_vertices + 1 },
+                face: FaceId { handle: 2 },
+                next: EdgeId { handle: ((i - n_vertices + 1) % n_vertices) + n_vertices + 1 },
+                prev: EdgeId { handle: modulo(i as i32 - 1, n_vertices as i32) as u16 + n_vertices + 1 },
+            });
+        }
+
         return ConnectivityKernel {
-            faces: vec!(Face {
-                first_edge: EdgeId { handle: 1 },
-                first_interrior: FaceId { handle: 0 },
-                next_sibbling: FaceId { handle: 0 },
-            }),
+            faces: vec!(
+                Face {
+                    first_edge: EdgeId { handle: 1 },
+                    first_interrior: FaceId { handle: 0 },
+                    next_sibbling: FaceId { handle: 0 },
+                },
+                Face {
+                    first_edge: EdgeId { handle: n_vertices+1 },
+                    first_interrior: FaceId { handle: 0 },
+                    next_sibbling: FaceId { handle: 0 },
+                }
+            ),
             vertices: vertices,
             edges: edges,
         };
@@ -580,11 +598,6 @@ fn test_from_loop() {
 
         assert_eq!(kernel.count_edges_around_face(face) as u16, n);
 
-        for e in kernel.edges.iter() {
-            assert_eq!(e.face, face);
-            assert!(!e.opposite.is_valid());
-        }
-
         let mut i = 1;
         for e in kernel.walk_edges_around_face(face) {
             assert!((e.handle as usize - 1) < kernel.edges.len());
@@ -592,11 +605,29 @@ fn test_from_loop() {
         }
         assert_eq!(i, n);
 
+        for e in kernel.edge_ids() {
+            println!(" -- test edge {}", e.as_index());
+            assert_eq!(kernel.edge(kernel.edge(e).opposite).opposite, e);
+            assert_eq!(kernel.edge(kernel.edge(e).next).prev, e);
+            assert_eq!(kernel.edge(kernel.edge(e).prev).next, e);
+        }
+
         let mut i = 1;
         for e in kernel.walk_edges_around_face_reverse(face) {
             assert!((e.handle as usize - 1) < kernel.edges.len());
+            assert_eq!(kernel.edge(e).face, face);
             i += 1;
         }
+
+        let face2 = kernel.edge(kernel.edge(kernel.face(face).first_edge).opposite).face;
+        let mut i = 1;
+        for e in kernel.walk_edges_around_face_reverse(face2) {
+            assert!((e.handle as usize - 1) < kernel.edges.len());
+            assert_eq!(kernel.edge(e).face, face2);
+            i += 1;
+        }
+
+        assert!(face2 != face);
         assert_eq!(i, n);
     }
 }
