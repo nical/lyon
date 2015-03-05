@@ -86,16 +86,27 @@ pub fn sweep_status_push<T:Copy>(
     sort_x(&mut sweep[], kernel, path);
 }
 
-pub fn split_face(kernel: &mut ConnectivityKernel, a: EdgeId, b: EdgeId) -> FaceId {
-    // TODO[nical] This currently doesn't work if one of the vertex was already
-    // split, because it may now belong to another face.
-
-    //loop {
-    //    if kernel.edge(a).face == kernel.edge(b).face  {
-    //        a = kernel.
-    //    }
-    //    
-    //}
+pub fn split_face(kernel: &mut ConnectivityKernel, mut a: EdgeId, mut b: EdgeId) -> FaceId {
+    println!(" -- split face {:?} {:?}", a, b);
+    let first_a = a;
+    let first_b = b;
+    let mut ok = false;
+    loop {
+        loop {
+            if kernel.edge(a).face == kernel.edge(b).face  {
+                println!(" -- ok ");
+                ok = true;
+                break;
+            }
+            a = kernel.next_edge_around_vertex(a);
+            println!(" -- bump a ");
+            if a == first_a { break; }
+        }
+        if ok { break; }
+        b = kernel.next_edge_around_vertex(b);
+        println!(" -- bump b ");
+        assert!(b != first_b);
+    }
     return kernel.split_face(a,b);
 }
 
@@ -106,6 +117,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
     new_faces: &mut Vec<FaceId>
 ) {
     let mut sorted_edges: Vec<EdgeId> = FromIterator::from_iter(kernel.walk_edges_around_face(face_id));
+    println!("  A sorted edges: {:?}", sorted_edges);
 
     // also add holes in the sorted edge list
     let mut hole = kernel.face(face_id).first_interrior;
@@ -115,11 +127,14 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
         }
 
         for e in kernel.walk_edges_around_face(hole) {
+            println!(" -- walk_edges_around_face hole ");
             sorted_edges.push(e);
         }
 
-        hole = kernel.face(hole).next_sibbling;
+        hole = kernel.face(hole).next_sibling;
     }
+
+    println!("  B sorted edges: {:?}", sorted_edges);
 
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
@@ -158,7 +173,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::End => {
                 if let Some(&(h, VertexType::Merge)) = helper.get(&edge.prev.as_index()) {
-                    new_faces.push(kernel.split_face(edge.prev, h));
+                    new_faces.push(split_face(kernel, edge.prev, h));
                 } 
                 sweep_status.retain(|item|{ *item != edge.prev });
             }
@@ -170,7 +185,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                     );
                     if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
                         if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
-                            new_faces.push(kernel.split_face(*e, helper_edge));
+                            new_faces.push(split_face(kernel, *e, helper_edge));
                         }
                         helper.insert(sweep_status[i].as_index(), (*e, VertexType::Split));
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
@@ -183,7 +198,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::Merge => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
-                    new_faces.push(kernel.split_face(*e, h));
+                    new_faces.push(split_face(kernel, *e, h));
                 }
                 for i in 0 .. sweep_status.len() {
                     println!(" --- B look for vertex right of e x={} vertex={}",
@@ -200,7 +215,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                             sweep_status[i].as_index(),
                             (*e, VertexType::Merge)
                         ) {
-                            new_faces.push(kernel.split_face(prev_helper, *e));
+                            new_faces.push(split_face(kernel, prev_helper, *e));
                         }
                         break;
                     }
@@ -213,7 +228,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                         println!(" --- meh {} x={}", kernel.edge(sweep_status[i]).vertex.as_index(), path[kernel.edge(sweep_status[i]).vertex.as_index()].x);
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i].as_index(), (*e, VertexType::Right)) {
-                            new_faces.push(kernel.split_face(prev_helper, *e));
+                            new_faces.push(split_face(kernel, prev_helper, *e));
                         }
                         break;
                     }
@@ -221,7 +236,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::Right => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
-                    new_faces.push(kernel.split_face(*e, h));
+                    new_faces.push(split_face(kernel, *e, h));
                 }
                 sweep_status.retain(|item|{ *item != edge.prev });
                 sweep_status_push(kernel, path, &mut sweep_status, e);
@@ -264,6 +279,7 @@ pub struct SliceTriangleStream<'l> {
 
 impl<'l> TriangleStream for SliceTriangleStream<'l> {
     fn write(&mut self, a: u16, b: u16, c: u16) {
+        println!(" ++ add a triangle {} {} {}", a, b, c);
         assert!(a != b);
         assert!(b != c);
         assert!(c != a);
@@ -344,9 +360,6 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
         down.vertex_id().as_index(),
         down.edge_id().as_index()
     );
-
-    // keep track of how many indices we add.
-    let mut index_cursor = 0;
 
     // vertices already visited, waiting to be connected
     let mut vertex_stack: Vec<DirectedEdgeCirculator> = Vec::new();
@@ -485,9 +498,38 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
 #[derive(Copy)]
 pub struct TriangulationDescriptor<'l, T> {
     vertices: &'l[Vector2D<T>],
-    holes: &'l[&'l[Vector2D<T>]],
+    holes: &'l[u16],
 }
 
+pub fn triangulate_faces<T:Copy+Show>(
+    kernel: &mut ConnectivityKernel,
+    faces: &[FaceId],
+    vertices: &[Vector2D<T>],
+    indices: &mut[u16]
+) -> usize {
+    let mut new_faces: Vec<FaceId> = vec!();
+    for &f in faces.iter() {
+        new_faces.push(f);
+    }
+
+    for f in faces.iter() {
+        y_monotone_decomposition(kernel, *f, vertices, &mut new_faces);
+    }
+
+    let indices_len = indices.len();
+    let mut triangles = SliceTriangleStream::new(&mut indices[]);
+    for &f in new_faces.iter() {
+        assert!(is_y_monotone(kernel, vertices, f));
+        y_monotone_triangulation(
+            kernel, f,
+            vertices,
+            &mut triangles
+        );
+    }
+
+    assert_eq!(triangles.count(), vertices.len() - 2);
+    return triangles.count() * 3;
+}
 
 /// Returns the number of indices added for convenience
 pub fn triangulate<T: Copy+Show>(
@@ -501,11 +543,13 @@ pub fn triangulate<T: Copy+Show>(
 
     let first_face = FaceId { handle: 1 };
 
+    //let loop_len = if inputs.holes.len() > 0 { }
+
     let mut kernel = ConnectivityKernel::from_loop(path.len() as u16);
     let mut new_faces: Vec<FaceId> = vec!(first_face);
 
     for hole in inputs.holes.iter() {
-        kernel.add_hole(first_face, hole.len() as u16);
+        //kernel.add_hole(first_face, hole.len() as u16);
     }
 
     y_monotone_decomposition(&mut kernel, first_face, path, &mut new_faces);
@@ -523,6 +567,21 @@ pub fn triangulate<T: Copy+Show>(
 
     assert_eq!(triangles.count(), path.len() - 2);
     return triangles.count() * 3;
+}
+
+#[cfg(test)]
+fn make_kernel(path: &[world::Vec2]) -> ConnectivityKernel {
+    return ConnectivityKernel::from_loop(path.len() as u16);
+}
+
+#[cfg(test)]
+fn make_kernel_with_holes(path: &[world::Vec2], separators: &[u16]) -> ConnectivityKernel {
+    let mut kernel = ConnectivityKernel::from_loop(separators[0]);
+    let main_face = kernel.first_face();
+    for i in 0 .. separators.len() - 1 {
+        let (_, _, vertices) = kernel.add_hole(main_face, separators[i]);
+    }
+    return kernel;
 }
 
 #[test]
@@ -603,30 +662,30 @@ fn test_triangulate() {
 
 #[test]
 fn test_triangulate_holes() {
-    let paths : &[(&[world::Vec2], &[&[world::Vec2]])] = &[
+    let paths : &[(&[world::Vec2], &[u16])] = &[
         (
             &[
+                // outer
                 world::vec2(-10.0, 5.0),
                 world::vec2(0.0, -5.0),
                 world::vec2(10.0, 5.0),
-            ],
-            &[&[
-                world::vec2(-4.0, 2.0),
-                world::vec2(0.0, -2.0),
+                // hole
                 world::vec2(4.0, 2.0),
-            ]]
+                world::vec2(0.0, -2.0),
+                world::vec2(-4.0, 2.0),
+            ],
+            &[ 3, 3 ]
         )
     ];
 
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. paths.len() {
         println!("\n\n -- path {}", i);
-        let &(path, holes) = &paths[i];
-        let desc = TriangulationDescriptor {
-            vertices: &path[],
-            holes: holes,
-        };
-        triangulate(desc, indices);
+        let &(vertices, separators) = &paths[i];
+
+        let mut kernel = make_kernel_with_holes(vertices, separators);
+        let face = kernel.first_face();
+        triangulate_faces(&mut kernel, &[face], vertices, indices);
     }
 
 }
