@@ -86,7 +86,12 @@ pub fn sweep_status_push<T:Copy>(
     sort_x(&mut sweep[], kernel, path);
 }
 
-pub fn split_face(kernel: &mut ConnectivityKernel, mut a: EdgeId, mut b: EdgeId) -> FaceId {
+pub fn split_face(
+    kernel: &mut ConnectivityKernel,
+    mut a: EdgeId,
+    mut b: EdgeId,
+    new_faces: &mut Vec<FaceId>
+) {
     println!(" -- split face {:?} {:?}", a, b);
     let first_a = a;
     let first_b = b;
@@ -99,15 +104,15 @@ pub fn split_face(kernel: &mut ConnectivityKernel, mut a: EdgeId, mut b: EdgeId)
                 break;
             }
             a = kernel.next_edge_around_vertex(a);
-            println!(" -- bump a ");
             if a == first_a { break; }
         }
         if ok { break; }
         b = kernel.next_edge_around_vertex(b);
-        println!(" -- bump b ");
         assert!(b != first_b);
     }
-    return kernel.split_face(a,b);
+    if let Some(new_face) = kernel.split_face(a, b) {
+        new_faces.push(new_face);
+    }
 }
 
 pub fn y_monotone_decomposition<T: Copy+Show>(
@@ -126,15 +131,14 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             break;
         }
 
-        for e in kernel.walk_edges_around_face(hole) {
+        let hole_opposite = kernel.edge(kernel.face(hole).first_edge).opposite;
+        for e in kernel.walk_edges(hole_opposite) {
             println!(" -- walk_edges_around_face hole ");
             sorted_edges.push(e);
         }
 
         hole = kernel.face(hole).next_sibling;
     }
-
-    println!("  B sorted edges: {:?}", sorted_edges);
 
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
@@ -152,6 +156,8 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
         }
         return Ordering::Equal;
     });
+
+    println!("  B sorted edges: {:?}", sorted_edges);
 
     // list of edges that intercept the sweep line, sorted by increasing x coordinate
     let mut sweep_status: Vec<EdgeId> = vec!();
@@ -173,7 +179,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::End => {
                 if let Some(&(h, VertexType::Merge)) = helper.get(&edge.prev.as_index()) {
-                    new_faces.push(split_face(kernel, edge.prev, h));
+                    split_face(kernel, edge.prev, h, new_faces);
                 } 
                 sweep_status.retain(|item|{ *item != edge.prev });
             }
@@ -185,7 +191,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                     );
                     if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
                         if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
-                            new_faces.push(split_face(kernel, *e, helper_edge));
+                            split_face(kernel, *e, helper_edge, new_faces);
                         }
                         helper.insert(sweep_status[i].as_index(), (*e, VertexType::Split));
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
@@ -198,7 +204,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::Merge => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
-                    new_faces.push(split_face(kernel, *e, h));
+                    split_face(kernel, *e, h, new_faces);
                 }
                 for i in 0 .. sweep_status.len() {
                     println!(" --- B look for vertex right of e x={} vertex={}",
@@ -215,7 +221,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                             sweep_status[i].as_index(),
                             (*e, VertexType::Merge)
                         ) {
-                            new_faces.push(split_face(kernel, prev_helper, *e));
+                            split_face(kernel, prev_helper, *e, new_faces);
                         }
                         break;
                     }
@@ -228,7 +234,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                         println!(" --- meh {} x={}", kernel.edge(sweep_status[i]).vertex.as_index(), path[kernel.edge(sweep_status[i]).vertex.as_index()].x);
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i].as_index(), (*e, VertexType::Right)) {
-                            new_faces.push(split_face(kernel, prev_helper, *e));
+                            split_face(kernel, prev_helper, *e, new_faces);
                         }
                         break;
                     }
@@ -236,7 +242,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             }
             VertexType::Right => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
-                    new_faces.push(split_face(kernel, *e, h));
+                    split_face(kernel, *e, h, new_faces);
                 }
                 sweep_status.retain(|item|{ *item != edge.prev });
                 sweep_status_push(kernel, path, &mut sweep_status, e);

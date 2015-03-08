@@ -161,6 +161,15 @@ impl ConnectivityKernel {
         }
     }
 
+    pub fn walk_edges<'l>(&'l self, first: EdgeId) -> FaceEdgeIterator<'l> {
+        return FaceEdgeIterator {
+            kernel: self,
+            current_edge: first,
+            last_edge: self.edge(first).prev,
+            done: false,
+        }
+    }
+
     pub fn walk_edges_around_face_reverse<'l>(&'l self, id: FaceId) -> ReverseFaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
         return ReverseFaceEdgeIterator {
@@ -191,7 +200,6 @@ impl ConnectivityKernel {
         for e in self.walk_edges_around_face(face) {
             println!("assert edge {:?}", e);
             self.assert_edge_invariants(e);
-            //assert_eq!(self.edge(e).face, face);
         }
     }
 
@@ -242,7 +250,7 @@ impl ConnectivityKernel {
     }
 
     /// Split a face in two along the vertices that a_prev and b_prev point to
-    pub fn split_face(&mut self, a_next: EdgeId, b_next: EdgeId) -> FaceId {
+    pub fn split_face(&mut self, a_next: EdgeId, b_next: EdgeId) -> Option<FaceId> {
         //
         // a_prev--> va -a_next->
         //          | ^
@@ -258,6 +266,32 @@ impl ConnectivityKernel {
         // n: new_edge
         // o: new_opposite_edge
 
+        let original_face = self.edge(a_next).face;
+
+        let a_opposite_face = self.edge(self.edge(a_next).opposite).face;
+        let b_opposite_face = self.edge(self.edge(b_next).opposite).face;
+        let mut add_face = true;
+        let mut it = self.face(original_face).first_interrior;
+        let mut prev_it = no_face();
+        loop {
+            if it == no_face() {
+                break;
+            }
+            let next = self.face(it).next_sibling;
+            if it == a_opposite_face || it == b_opposite_face {
+                println!(" ---- Don't add a face!");
+                add_face = false;
+                // remove the hole from this face
+                if prev_it == no_face() {
+                    self.face_mut(original_face).first_interrior = next;
+                } else {
+                    self.face_mut(prev_it).next_sibling = next;
+                }
+                break;
+            }
+            prev_it = it;
+            it = next;
+        }
 
         println!(" ++++ split vertices {} {} edge {} {}",
             self.edge(a_next).vertex.as_index(), self.edge(b_next).vertex.as_index(),
@@ -266,8 +300,6 @@ impl ConnectivityKernel {
 
         let a_prev = self.edge(a_next).prev;
         let b_prev = self.edge(b_next).prev;
-
-        let original_face = self.edge(a_prev).face;
 
         println!(" precondition ");
         self.assert_face_invariants(original_face);
@@ -287,7 +319,8 @@ impl ConnectivityKernel {
             next_sibling: no_face(),
         });
 
-        let new_face = face_id(self.faces.len() as Index - 1);
+        let opposite_face = if add_face { face_id(self.faces.len() as Index - 1) }
+                            else { original_face };
 
         // new_edge
         self.edges.push(HalfEdge {
@@ -303,7 +336,7 @@ impl ConnectivityKernel {
             next: a_next,
             prev: b_prev,
             opposite: new_edge,
-            face: new_face,
+            face: opposite_face,
             vertex: vb,
         });
 
@@ -316,7 +349,7 @@ impl ConnectivityKernel {
         let mut it = new_opposite_edge;
         loop {
             let edge = &mut self.edge_mut(it);
-            edge.face = new_face;
+            edge.face = opposite_face;
             it = edge.next;
             if it == new_opposite_edge { break; }
         }
@@ -324,10 +357,14 @@ impl ConnectivityKernel {
         println!("original_face");
         self.assert_face_invariants(original_face);
 
-        println!("new_face");
-        self.assert_face_invariants(new_face);
+        println!("opposite_face");
+        self.assert_face_invariants(opposite_face);
 
-        return new_face;
+        return if add_face {
+            Some(opposite_face)
+        } else {
+            None
+        };
     }
 
     pub fn join_vertices(&mut self, _: VertexId, _: VertexId) {
@@ -392,7 +429,9 @@ impl ConnectivityKernel {
                 prev: edge_id(edge_offset + n_vertices + modulo(i as i32 - 1, n_vertices as i32) as Index),
             });
         }
+
         self.face_mut(face1).first_edge = edge_id(edge_offset);
+
         if !is_hole {
             self.face_mut(face2).first_edge = edge_id(edge_offset + n_vertices);
         }
@@ -778,7 +817,7 @@ fn test_split_face_1() {
     // |          v
     // x<-----e3--x
 
-    let f2 = kernel.split_face(e3, e1);
+    let f2 = kernel.split_face(e3, e1).unwrap();
 
     // x---e1---->x
     // ^ \ ^   f1 |
@@ -829,7 +868,7 @@ fn test_split_face_2() {
     let e4 = kernel.edge(e3).next;
     let e5 = kernel.edge(e4).next;
 
-    let f2 = kernel.split_face(e4, e2);
+    let f2 = kernel.split_face(e4, e2).unwrap();
 
     for e in kernel.walk_edges_around_face(f2) {
         assert_eq!(kernel.edge(e).face, f2);
