@@ -110,6 +110,7 @@ pub fn split_face(
         b = kernel.next_edge_around_vertex(b);
         assert!(b != first_b);
     }
+
     if let Some(new_face) = kernel.split_face(a, b) {
         new_faces.push(new_face);
     }
@@ -125,20 +126,26 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
     println!("  A sorted edges: {:?}", sorted_edges);
 
     // also add holes in the sorted edge list
-    let mut hole = kernel.face(face_id).first_interrior;
-    loop {
-        if !hole.is_valid() {
-            break;
-        }
-
-        let hole_opposite = kernel.edge(kernel.face(hole).first_edge).opposite;
-        for e in kernel.walk_edges(hole_opposite) {
+    for inner in kernel.face(face_id).inner_edges.iter() {
+        for e in kernel.walk_edges(*inner) {
             println!(" -- walk_edges_around_face hole ");
             sorted_edges.push(e);
         }
-
-        hole = kernel.face(hole).next_sibling;
     }
+//    let mut hole = kernel.face(face_id).first_interrior;
+//    loop {
+//        if !hole.is_valid() {
+//            break;
+//        }
+//
+//        let hole_opposite = kernel.edge(kernel.face(hole).first_edge).opposite;
+//        for e in kernel.walk_edges(hole_opposite) {
+//            println!(" -- walk_edges_around_face hole ");
+//            sorted_edges.push(e);
+//        }
+//
+//        hole = kernel.face(hole).next_sibling;
+//    }
 
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
@@ -169,7 +176,9 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
         let previous_vertex = path[kernel.edge(edge.prev).vertex.as_index()];
         let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
         let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
-        println!(" vertex {} (edge {}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
+        println!("\n vertex {} (edge {}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
+        println!(" prev vertex {} (edge {}) ", kernel.edge(edge.prev).vertex.as_index(), edge.prev.as_index());
+        println!(" next vertex {} (edge {}) ", kernel.edge(edge.next).vertex.as_index(), edge.next.as_index());
 
         match vertex_type {
             VertexType::Start => {
@@ -189,7 +198,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
                         path[kernel.edge(sweep_status[i]).vertex.as_index()].x,
                         kernel.edge(sweep_status[i]).vertex.as_index()
                     );
-                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
+                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x >= current_vertex.x {
                         if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
                             split_face(kernel, *e, helper_edge, new_faces);
                         }
@@ -387,12 +396,17 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
         swap(&mut m, &mut o);
     }
 
-    vertex_stack.push(m.prev());
-    println!(" -- push first vertex {} to stack", m.prev().vertex_id().as_index());
+    //vertex_stack.push(m.prev());
+    //vertex_stack.push(m);
+    //println!(" -- push first vertex {} to stack", m.prev().vertex_id().as_index());
+    //println!(" -- push second vertex {} to stack", m.vertex_id().as_index());
 
+    m = m.prev();
     // previous
     let mut p = m;
 
+    let initial_triangle_count = triangles.count();
+    let mut i: i32 = 0;
     loop {
         // walk edges from top to bottom, alternating between the left and 
         // right chains. The chain we are currently iterating over is the
@@ -408,82 +422,83 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
             swap(&mut m, &mut o);
         }
 
-        println!(" ** do stuff with vertex {}", m.vertex_id().as_index());
-
-        if vertex_stack.len() > 0 && m.direction() != vertex_stack[vertex_stack.len()-1].direction() {
-            println!(" -- changing chain");
-            for i in 0..vertex_stack.len() - 1 {
-                let id_1 = vertex_stack[i].vertex_id();
-                let id_2 = vertex_stack[i+1].vertex_id();
-                let id_opp = m.vertex_id();
-
-                triangles.write(
-                    id_opp.as_index() as u16,
-                    id_1.as_index() as u16,
-                    id_2.as_index() as u16
-                );
-
-                println!(" ==== X - make a triangle {} {} {}",
-                    id_opp.as_index(), id_1.as_index(), id_2.as_index()
-                );
-            }
-            
-            println!(" -- clear stack");
-            vertex_stack.clear();
-
-            println!(" -- push vertirces {} and {} to the stack",
-                p.vertex_id().as_index(), m.vertex_id().as_index()
-            );
-            vertex_stack.push(p);
+        if i < 2 {
+            println!(" -- push first vertex {} to stack", m.prev().vertex_id().as_index());
             vertex_stack.push(m);
-
         } else {
+            println!(" ** do stuff with vertex {}", m.vertex_id().as_index());
 
-            let mut last_popped = vertex_stack.pop();
-            if let Some(item) = last_popped {
-                println!(" -- popped {} from the stack", item.vertex_id().as_index());
-            }
+            if vertex_stack.len() > 0 && m.direction() != vertex_stack[vertex_stack.len()-1].direction() {
+                println!(" -- changing chain");
+                for i in 0..vertex_stack.len() - 1 {
+                    let id_1 = vertex_stack[i].vertex_id();
+                    let id_2 = vertex_stack[i+1].vertex_id();
+                    let id_opp = m.vertex_id();
 
-            loop {
-                if vertex_stack.len() < 1 {
-                    break;
-                }
-                let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
-                let id_2 = last_popped.unwrap().vertex_id();
-                let mut id_3 = m.vertex_id();
-
-                if m.direction() == Direction::Backward {
-                    swap(&mut id_1, &mut id_3);
-                }
-
-                let v1 = path[id_1.as_index()];
-                let v2 = path[id_2.as_index()];
-                let v3 = path[id_3.as_index()];
-                println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
-                if directed_angle(v1 - v2, v3 - v2) > PI {
                     triangles.write(
+                        id_opp.as_index() as u16,
                         id_1.as_index() as u16,
-                        id_2.as_index() as u16,
-                        id_3.as_index() as u16
+                        id_2.as_index() as u16
                     );
-
-                    last_popped = vertex_stack.pop();
-
-                    println!(" ===== A - make a triangle {} {} {}",
-                        id_1.as_index(), id_2.as_index(), id_3.as_index()
-                    );
-                } else {
-                    break;   
                 }
-            } // loop 2
 
-            if let Some(item) = last_popped {
-                println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
-                vertex_stack.push(item);
+                println!(" -- clear stack");
+                vertex_stack.clear();
+
+                println!(" -- push vertirces {} and {} to the stack",
+                    p.vertex_id().as_index(), m.vertex_id().as_index()
+                );
+                vertex_stack.push(p);
+                vertex_stack.push(m);
+
+            } else {
+
+                let mut last_popped = vertex_stack.pop();
+                if let Some(item) = last_popped {
+                    println!(" -- popped {} from the stack", item.vertex_id().as_index());
+                }
+
+                loop {
+                    if vertex_stack.len() < 1 {
+                        break;
+                    }
+                    let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
+                    let id_2 = last_popped.unwrap().vertex_id();
+                    let mut id_3 = m.vertex_id();
+
+                    if m.direction() == Direction::Backward {
+                        swap(&mut id_1, &mut id_3);
+                    }
+
+                    let v1 = path[id_1.as_index()];
+                    let v2 = path[id_2.as_index()];
+                    let v3 = path[id_3.as_index()];
+                    println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
+                    if directed_angle(v1 - v2, v3 - v2) > PI {
+                        triangles.write(
+                            id_1.as_index() as u16,
+                            id_2.as_index() as u16,
+                            id_3.as_index() as u16
+                        );
+
+                        last_popped = vertex_stack.pop();
+
+                        println!(" ===== A - make a triangle {} {} {}",
+                            id_1.as_index(), id_2.as_index(), id_3.as_index()
+                        );
+                    } else {
+                        break;
+                    }
+                } // loop 2
+
+                if let Some(item) = last_popped {
+                    println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
+                    vertex_stack.push(item);
+                }
+                vertex_stack.push(m);
+                println!(" -- C - push vertex {} to stack", m.vertex_id().as_index());
+
             }
-            vertex_stack.push(m);
-            println!(" -- C - push vertex {} to stack", m.vertex_id().as_index());
-
         }
 
         if m == down {
@@ -495,10 +510,13 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
         }
 
         println!(" ** advance");
+        i += 1;
         p = m;
         m = m.next();
         assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
     }
+    let num_triangles = triangles.count() - initial_triangle_count;
+    assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
 }
 
 #[derive(Copy)]
@@ -533,7 +551,8 @@ pub fn triangulate_faces<T:Copy+Show>(
         );
     }
 
-    assert_eq!(triangles.count(), vertices.len() - 2);
+//    TODO this is not true for shapes with holes
+//    assert_eq!(triangles.count(), vertices.len() - 2);
     return triangles.count() * 3;
 }
 
@@ -580,19 +599,14 @@ fn make_kernel(path: &[world::Vec2]) -> ConnectivityKernel {
     return ConnectivityKernel::from_loop(path.len() as u16);
 }
 
-#[cfg(test)]
-fn make_kernel_with_holes(path: &[world::Vec2], separators: &[u16]) -> ConnectivityKernel {
-    let mut kernel = ConnectivityKernel::from_loop(separators[0]);
-    let main_face = kernel.first_face();
-    for i in 0 .. separators.len() - 1 {
-        let (_, _, vertices) = kernel.add_hole(main_face, separators[i]);
-    }
-    return kernel;
-}
-
 #[test]
 fn test_triangulate() {
     let paths : &[&[world::Vec2]] = &[
+        &[
+            world::vec2(-10.0, 5.0),
+            world::vec2(0.0, -5.0),
+            world::vec2(10.0, 5.0),
+        ],
         &[
             world::vec2(1.0, 2.0),
             world::vec2(1.5, 3.0),
@@ -672,16 +686,30 @@ fn test_triangulate_holes() {
         (
             &[
                 // outer
-                world::vec2(-10.0, 5.0),
+                world::vec2(-11.0, 5.0),
                 world::vec2(0.0, -5.0),
                 world::vec2(10.0, 5.0),
                 // hole
                 world::vec2(4.0, 2.0),
                 world::vec2(0.0, -2.0),
-                world::vec2(-4.0, 2.0),
+                world::vec2(-5.0, 2.0),
             ],
             &[ 3, 3 ]
-        )
+        ),
+        (
+            &[
+                // outer
+                world::vec2(-10.0, -10.0),
+                world::vec2( 10.0, -10.0),
+                world::vec2( 10.0,  10.0),
+                world::vec2(-10.0,  10.0),
+                // hole
+                world::vec2(4.0, 2.0),
+                world::vec2(0.0, -2.0),
+                world::vec2(-4.0, 2.0),
+            ],
+            &[ 4, 3 ]
+        ),
     ];
 
     let indices = &mut [0 as u16; 1024];
@@ -689,9 +717,13 @@ fn test_triangulate_holes() {
         println!("\n\n -- path {}", i);
         let &(vertices, separators) = &paths[i];
 
-        let mut kernel = make_kernel_with_holes(vertices, separators);
-        let face = kernel.first_face();
-        triangulate_faces(&mut kernel, &[face], vertices, indices);
+        let mut kernel = ConnectivityKernel::from_loop(separators[0]);
+        let main_face = kernel.first_face();
+        for i in 1 .. separators.len() {
+            kernel.add_hole(main_face, separators[i]);
+        }
+
+        triangulate_faces(&mut kernel, &[main_face], vertices, indices);
     }
 
 }
