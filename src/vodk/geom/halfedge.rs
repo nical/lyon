@@ -1,14 +1,18 @@
 use std::cmp::PartialEq;
 
 pub type Index = u16;
+use std::marker::PhantomData;
 
-#[derive(Copy, Clone, Show, PartialEq, Eq)]
-pub struct Id<T> { pub handle: Index }
-#[derive(Copy, Clone, Show, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Id<T> {
+    pub handle: Index,
+    _marker: PhantomData<T>
+}
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Vertex_;
-#[derive(Copy, Clone, Show, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Edge_;
-#[derive(Copy, Clone, Show, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Face_;
 
 pub type VertexId = Id<Vertex_>;
@@ -30,19 +34,19 @@ impl VertexId {
     pub fn as_index(self) -> usize { self.handle as usize - 1 }
 }
 
-pub fn no_edge() -> EdgeId { EdgeId { handle: 0 } }
+pub fn no_edge() -> EdgeId { EdgeId { handle: 0, _marker: PhantomData } }
 
-pub fn no_face() -> FaceId { FaceId { handle: 0 } }
+pub fn no_face() -> FaceId { FaceId { handle: 0, _marker: PhantomData } }
 
-pub fn no_vertex() -> VertexId { VertexId { handle: 0 } }
+pub fn no_vertex() -> VertexId { VertexId { handle: 0, _marker: PhantomData } }
 
-pub fn edge_id(index: Index) -> EdgeId { EdgeId { handle: index + 1 } }
+pub fn edge_id(index: Index) -> EdgeId { EdgeId { handle: index + 1, _marker: PhantomData } }
 
-pub fn face_id(index: Index) -> FaceId { FaceId { handle: index + 1 } }
+pub fn face_id(index: Index) -> FaceId { FaceId { handle: index + 1, _marker: PhantomData } }
 
-pub fn vertex_id(index: Index) -> VertexId { VertexId { handle: index + 1 } }
+pub fn vertex_id(index: Index) -> VertexId { VertexId { handle: index + 1, _marker: PhantomData } }
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct IdRange<T> {
     pub first: Id<T>,
     pub count: Index,
@@ -55,7 +59,7 @@ impl<T: Copy> IdRange<T> {
 
     pub fn get(&self, i: u16) -> Id<T> {
         assert!(i < self.count);
-        return Id { handle: self.first.handle + i };
+        return Id { handle: self.first.handle + i, _marker: PhantomData };
     }
 }
 
@@ -63,7 +67,7 @@ pub type VertexIdRange = IdRange<Vertex_>;
 pub type EdgeIdRange = IdRange<Edge_>;
 pub type FaceIdRange = IdRange<Face_>;
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct HalfEdge {
     pub next: EdgeId, // next HalfEdge around the face
     pub prev: EdgeId, // previous HalfEdge around the face
@@ -72,13 +76,13 @@ pub struct HalfEdge {
     pub face: FaceId,
 }
 
-#[derive(Clone, Show, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Face {
     pub first_edge: EdgeId,
     pub inner_edges: Vec<EdgeId>,
 }
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vertex {
     pub first_edge: EdgeId,
 }
@@ -129,9 +133,9 @@ impl ConnectivityKernel {
 
     pub fn first_edge(&self) -> EdgeId { edge_id(0) }
 
-    pub fn first_face(&self) -> FaceId { FaceId { handle: 1 } }
+    pub fn first_face(&self) -> FaceId { face_id(0) }
 
-    pub fn first_vertex(&self) -> VertexId { VertexId { handle: 1 } }
+    pub fn first_vertex(&self) -> VertexId { vertex_id(0) }
 
     pub fn vertex_ids(&self) -> VertexIdIterator {
         VertexIdIterator {
@@ -216,7 +220,7 @@ impl ConnectivityKernel {
         //     a ---[id]------------> new_vertex ---[new_edge]--> b
         //     a <--[new_opposite]--- new_vertex <--[opposite]--- b
 
-        let new_vertex = VertexId { handle: self.vertices.len() as Index + 1 };
+        let new_vertex = vertex_id(self.vertices.len() as Index);
         let new_edge = edge_id(self.vertices.len() as Index);
         let new_opposite = edge_id(self.vertices.len() as Index + 1);
 
@@ -604,52 +608,52 @@ impl<'l> Iterator for VertexEdgeIterator<'l> {
     }
 }
 
-pub struct VertexIdIterator<'l> {
+pub struct VertexIdIterator {
     current: Index,
     stop: Index,
 }
 
-impl<'l> Iterator for VertexIdIterator<'l> {
+impl<'l> Iterator for VertexIdIterator {
     type Item = VertexId;
 
     fn next(&mut self) -> Option<VertexId> {
         if self.current == self.stop { return None; }
         self.current += 1;
-        return Some(VertexId { handle: self.current - 1 });
+        return Some(VertexId { handle: self.current - 1, _marker: PhantomData });
     }
 }
 
-pub struct EdgeIdIterator<'l> {
+pub struct EdgeIdIterator {
     current: Index,
     stop: Index,
 }
 
-impl<'l> Iterator for EdgeIdIterator<'l> {
+impl<'l> Iterator for EdgeIdIterator {
     type Item = EdgeId;
 
     fn next(&mut self) -> Option<EdgeId> {
         if self.current == self.stop { return None; }
         self.current += 1;
-        return Some(EdgeId { handle: self.current - 1 });
+        return Some(EdgeId { handle: self.current - 1, _marker: PhantomData });
     }
 }
 
-pub struct FaceIdIterator<'l> {
+pub struct FaceIdIterator {
     current: Index,
     stop: Index,
 }
 
-impl<'l> Iterator for FaceIdIterator<'l> {
+impl<'l> Iterator for FaceIdIterator {
     type Item = FaceId;
 
     fn next(&mut self) -> Option<FaceId> {
         if self.current == self.stop { return None; }
         self.current += 1;
-        return Some(FaceId { handle: self.current - 1 });
+        return Some(FaceId { handle: self.current - 1, _marker: PhantomData });
     }
 }
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
     Forward,
     Backward,

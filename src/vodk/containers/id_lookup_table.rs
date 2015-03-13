@@ -95,13 +95,13 @@ mod tests {
     fn check_lookup_table(table: &mut IdLookupTable) {
         assert_eq!(table.len(), 0);
 
-        for i in range(0, 100) {
+        for i in 0 .. 100 {
             table.add();
             assert_eq!(table.lookup(table.index_for_offset(i as Index)), i as Index);
             assert_eq!(table.len(), i+1);
         }
 
-        for i in range(0, table.len()-1) {
+        for i in 0 .. table.len()-1 {
             assert_eq!(table.lookup(table.index_for_offset(i as Index)), i as Index);
         }
 
@@ -111,13 +111,13 @@ mod tests {
         table.remove(5);
         table.remove(25);
 
-        for i in range(0, table.len()-1) {
+        for i in 0 .. table.len()-1 {
             assert_eq!(table.lookup(table.index_for_offset(i as Index)), i as Index);
         }
 
-        for _ in range(0u32, 10) {
+        for _ in 0u32 .. 10 {
             table.add();
-            for i in range(0, table.len()-1) {
+            for i in 0 .. table.len()-1 {
                 assert_eq!(table.lookup(table.index_for_offset(i as Index)), i as Index);
             }
         }

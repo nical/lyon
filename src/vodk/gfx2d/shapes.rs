@@ -1,18 +1,18 @@
 use math::units::world;
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub struct Circle {
     pub center: world::Vec2,
     pub radius: f32,
 }
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub struct Ellipsis {
     pub center: world::Vec2,
     pub radius: world::Vec2,
 }
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub struct RoundedRectangle {
     pub rectangle: world::Rectangle,
     pub top_left_radius: f32,

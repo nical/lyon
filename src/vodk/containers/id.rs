@@ -1,4 +1,5 @@
 use std::default::Default;
+use std::marker::PhantomData;
 
 pub trait FromIndex {
     fn from_index(idx: usize) -> Self;
@@ -16,15 +17,17 @@ pub trait Invalid {
     fn is_valid(&self) -> bool;
 }
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub struct GenId<T, H, G> {
     pub handle: H,
     pub gen: G,
+    pub _marker: PhantomData<T>
 }
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub struct Id<T, H> {
     pub handle: H,
+    pub _marker: PhantomData<T>
 }
 
 impl<T, H, G: Generation> Invalid for GenId<T, H, G> {
@@ -42,11 +45,17 @@ impl<T, H: PartialEq> PartialEq for Id<T, H> {
 }
 
 impl<T, H: Default, G: Default> Default for GenId<T, H, G> {
-    fn default() -> GenId<T,H,G> { GenId { handle: Default::default(), gen: Default::default() } }
+    fn default() -> GenId<T,H,G> {
+        GenId {
+            handle: Default::default(),
+            gen: Default::default(),
+            _marker: PhantomData
+        }
+    }
 }
 
 impl<T, H: Default> Default for Id<T, H> {
-    fn default() -> Id<T,H> { Id { handle: Default::default() } }
+    fn default() -> Id<T,H> { Id { handle: Default::default(), _marker: PhantomData } }
 }
 
 impl ToIndex for u8 { fn to_index(&self) -> usize { *self as usize } }
@@ -70,7 +79,7 @@ impl FromIndex for u64 { fn from_index(idx: usize) -> u64 { idx as u64 } }
 impl FromIndex for usize { fn from_index(idx: usize) -> usize { idx } }
 
 impl<T, H:FromIndex> FromIndex for Id<T, H> {
-    fn from_index(idx: usize) -> Id<T, H> { Id { handle: FromIndex::from_index(idx) } }
+    fn from_index(idx: usize) -> Id<T, H> { Id { handle: FromIndex::from_index(idx), _marker: PhantomData } }
 }
 
 impl Generation for u8  { fn get_gen(&self) -> u32 { *self as u32 } }

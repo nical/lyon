@@ -10,7 +10,7 @@ use gpu::constants::*;
 use gpu::opengl;
 
 use std::num::Float;
-use std::io::timer::sleep;
+//use std::io::timer::sleep;
 use std::time::duration::Duration;
 use std::mem;
 
@@ -214,12 +214,15 @@ fn main() {
         frame_count+=1;
         ctx.with_write_only_mapped_buffer::<TransformsBlock>(
             ubo, &|mapped_ubo| {
-                mapped_ubo[0].projection = world::Mat4::perspective(
+                let mut perspective_mat = world::Mat4::identity();
+                world::Mat4::perspective(
                     45.0,
                     win_width as f32 / win_height as f32,
                     0.5,
                     1000.0,
+                    &mut perspective_mat
                 );
+                mapped_ubo[0].projection = perspective_mat;
                 let view = &mut mapped_ubo[0].view;
                 *view = world::Mat4::identity();
                 view.translate(&world::vec3(0.0, 0.0, -10.0));

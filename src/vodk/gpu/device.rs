@@ -12,13 +12,13 @@ pub struct UniformBlockLocation { pub index: i16 }
 #[derive(Show, Copy, Clone, PartialEq)]
 pub struct VertexAttributeLocation { pub index: i16 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub enum Range {
     VertexRange(u16, u16),
     IndexRange(u16, u16),
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct TextureDescriptor {
     pub format: PixelFormat,
     pub width: u16,
@@ -27,39 +27,39 @@ pub struct TextureDescriptor {
     pub flags: TextureFlags,
 }
 
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 pub struct BufferDescriptor {
     pub size: u32,
     pub update_hint: UpdateHint,
     pub buffer_type: BufferType,
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct GeometryDescriptor<'l> {
     pub attributes: &'l[VertexAttribute],
     pub index_buffer: Option<BufferObject>,
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct ShaderStageDescriptor<'l> {
     pub stage_type: ShaderType,
     pub src: &'l[&'l str],
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct ShaderPipelineDescriptor<'l> {
     pub stages: &'l[ShaderStageObject],
     pub attrib_locations: &'l[(&'l str, VertexAttributeLocation)],
 }
 
-#[derive(Show)]
+#[derive(Debug)]
 pub struct RenderTargetDescriptor<'l> {
     pub color_attachments: &'l[TextureObject],
     pub depth: Option<TextureObject>,
     pub stencil: Option<TextureObject>
 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub struct VertexAttribute {
     pub buffer: BufferObject,
     pub attrib_type: AttributeType,

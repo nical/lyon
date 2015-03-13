@@ -15,7 +15,7 @@ pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
 pub static CONVEX_SHAPE: TesselationFlags = 2;
 
 #[repr(C)]
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 pub struct Pos2DNormal2DColorExtrusion {
     pub pos: world::Vec2,
     pub normal: world::Vec2,
@@ -58,7 +58,7 @@ pub fn path_to_line_vbo(
     let mut px = path[0];
     let mut n1 = tangent(px - p1);
 
-    for i in range(0, path.len()) {
+    for i in 0 .. path.len() {
         let pos = transform.transform_2d(&path[i]);
 
         let color = color_fn(i, PointType::Border);
@@ -145,7 +145,7 @@ pub fn path_to_line_ibo(
     let vertex_antialiasing = (flags & VERTEX_ANTIALIASING) != 0;
     let vertex_stride : u16 = if vertex_antialiasing { 4 } else { 2 };
     let index_stride = 6 * (vertex_stride as usize - 1);
-    for i in range(0, num_points as usize - 1) {
+    for i in 0 .. num_points as usize - 1 {
         let idx = i as u16;
         ibo[i * index_stride    ] = base_vertex + idx * vertex_stride;
         ibo[i * index_stride + 1] = base_vertex + idx * vertex_stride + 1;
@@ -320,7 +320,7 @@ pub fn fill_circle<'l, T: VertexType2D>(
     }
     stream.push_vertex(&center);
 
-    for i in range(0, num_points+1) {
+    for i in 0 .. num_points+1 {
         let dx = (i as f32 / num_points as f32 * 2.0 * PI).cos();
         let dy = (i as f32 / num_points as f32 * 2.0 * PI).sin();
 
@@ -371,8 +371,8 @@ pub fn fill_grid<'l, T: VertexType2D>(
     let first_vertex = stream.vertex_cursor as u16;
     let first_index = stream.index_cursor as u16;
 
-    for j in range(0, lines.len()) {
-        for i in range(0, columns.len()) {
+    for j in 0 .. lines.len() {
+        for i in 0 .. columns.len() {
             let mut vertex: T = VertexType2D::from_pos(
                 &transform.transform_2d(&world::vec2(columns[i],lines[j]))
             );
@@ -402,8 +402,8 @@ pub fn fill_grid<'l, T: VertexType2D>(
     }
 
     let stride = lines.len() as u16;
-    for j in range(0, lines.len() as u16 - 1) {
-        for i in range(0, columns.len() as u16 - 1) {
+    for j in 0 .. lines.len() as u16 - 1 {
+        for i in 0 .. columns.len() as u16 - 1 {
             stream.push_index(first_vertex + j     * stride + i);
             stream.push_index(first_vertex + j     * stride + (i+1));
             stream.push_index(first_vertex + (j+1) * stride + (i+1));
@@ -432,7 +432,7 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
     let first_vertex = stream.vertex_cursor as u16;
     let first_index = stream.index_cursor as u16;
 
-    for i in range(0, path.len()) {
+    for i in 0 .. path.len() {
         let mut vertex: T = VertexType2D::from_pos(&transform.transform_2d(&path[i]));
 
         match fill {
@@ -448,7 +448,7 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
         stream.push_vertex(&vertex);
     }
 
-    for i in range(2, path.len() as u16) {
+    for i in 2 .. path.len() as u16 {
         stream.push_index(first_vertex);
         stream.push_index(first_vertex + i);
         stream.push_index(first_vertex + i - 1);
@@ -476,7 +476,7 @@ pub fn stroke_path<'l, T: VertexType2D>(
 
     let is_closed = flags & style::STROKE_CLOSED != 0;
 
-    for i in range(0, path.len()) {
+    for i in 0 .. path.len() {
         let mut p1 = path[i];
         let mut p2 = path[i];
 
@@ -506,7 +506,7 @@ pub fn stroke_path<'l, T: VertexType2D>(
         stream.push_vertex(&v2);
     }
 
-    for i in range(1, path.len() as u16) {
+    for i in 1 .. path.len() as u16 {
         stream.push_index(first_vertex + i*2 - 2);
         stream.push_index(first_vertex + i*2 - 1);
         stream.push_index(first_vertex + i*2);

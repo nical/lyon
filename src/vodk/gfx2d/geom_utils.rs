@@ -15,10 +15,10 @@ pub fn line_intersection<U>(
     let inv_det = 1.0 / det;
     let a = a1.x * a2.y - a1.y * a2.x;
     let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(vector::Vector2D {
-        x: (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
-        y: (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
-    });
+    return Some(vector::Vector2D::new(
+        (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
+        (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
+    ));
 }
 
 pub fn tangent(v: world::Vec2) -> world::Vec2 {

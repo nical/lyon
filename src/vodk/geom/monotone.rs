@@ -9,13 +9,13 @@ use std::num::Float;
 use std::cmp::{Ordering, PartialOrd};
 use std::iter::FromIterator;
 use std::collections::HashMap;
-use std::fmt::Show;
 use std::mem::swap;
+use std::fmt::Debug;
 
 #[cfg(test)]
 use math::units::world;
 
-#[derive(Show, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum VertexType {
     Start,
     End,
@@ -83,7 +83,7 @@ pub fn sweep_status_push<T:Copy>(
     sweep: &mut Vec<EdgeId>,
     e: &EdgeId
 ) {
-    println!(" -- insert {} in sweep status", e.as_index());
+    println!(" -- insert {:?} in sweep status", e.as_index());
     sweep.push(*e);
     sort_x(&mut sweep[], kernel, path);
 }
@@ -118,7 +118,7 @@ pub fn split_face(
     }
 }
 
-pub fn y_monotone_decomposition<T: Copy+Show>(
+pub fn y_monotone_decomposition<T: Copy+Debug>(
     kernel: &mut ConnectivityKernel,
     face_id: FaceId,
     path: &[Vector2D<T>],
@@ -164,14 +164,14 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
         let previous_vertex = path[kernel.edge(edge.prev).vertex.as_index()];
         let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
         let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
-        println!("\n vertex {} (edge {}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
-        println!(" prev vertex {} (edge {}) ", kernel.edge(edge.prev).vertex.as_index(), edge.prev.as_index());
-        println!(" next vertex {} (edge {}) ", kernel.edge(edge.next).vertex.as_index(), edge.next.as_index());
+        println!("\n vertex {:?} (edge {:?}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
+        println!(" prev vertex {:?} (edge {:?}) ", kernel.edge(edge.prev).vertex.as_index(), edge.prev.as_index());
+        println!(" next vertex {:?} (edge {:?}) ", kernel.edge(edge.next).vertex.as_index(), edge.next.as_index());
 
         match vertex_type {
             VertexType::Start => {
                 sweep_status_push(kernel, path, &mut sweep_status, e);
-                println!("set {} as helper of {}", e.as_index(), e.as_index());
+                println!("set {:?} as helper of {:?}", e.as_index(), e.as_index());
                 helper.insert(e.as_index(), (*e, VertexType::Start));
             }
             VertexType::End => {
@@ -250,7 +250,7 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
     }
 }
 
-pub fn is_y_monotone<T:Copy+Show>(kernel: &ConnectivityKernel, path: &[Vector2D<T>], face: FaceId) -> bool {
+pub fn is_y_monotone<T:Copy+Debug>(kernel: &ConnectivityKernel, path: &[Vector2D<T>], face: FaceId) -> bool {
     for e in kernel.walk_edges_around_face(face) {
         let edge = kernel.edge(e);
         let current_vertex = path[edge.vertex.as_index()];
@@ -305,7 +305,7 @@ impl<'l> SliceTriangleStream<'l> {
 }
 
 // Returns the number of indices added
-pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
+pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
     kernel: &ConnectivityKernel,
     face: FaceId,
     path: &[Vector2D<T>],
@@ -502,7 +502,7 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
     assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
 }
 
-pub fn triangulate_faces<T:Copy+Show>(
+pub fn triangulate_faces<T:Copy+Debug>(
     kernel: &mut ConnectivityKernel,
     faces: &[FaceId],
     vertices: &[Vector2D<T>],
@@ -602,7 +602,7 @@ fn test_triangulate() {
 
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. paths.len() {
-        println!("\n\n -- path {}", i);
+        println!("\n\n -- path {:?}", i);
         let mut kernel = ConnectivityKernel::from_loop(paths[i].len() as u16);
         let main_face = kernel.first_face();
         triangulate_faces(&mut kernel, &[main_face], &paths[i][], indices);
@@ -643,7 +643,7 @@ fn test_triangulate_holes() {
 
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. paths.len() {
-        println!("\n\n -- path {}", i);
+        println!("\n\n -- path {:?}", i);
         let &(vertices, separators) = &paths[i];
 
         let mut kernel = ConnectivityKernel::from_loop(separators[0]);

@@ -9,7 +9,7 @@ pub struct GeomAllocatorHelper {
     indices: AllocatorHelper,
 }
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct GeomDataId {
     vertices: BlockId,
     indices: BlockId,

@@ -1,4 +1,4 @@
-#![feature(macro_rules, globs, slicing_syntax)]
+#![feature(macro_rules, globs)]
 
 extern crate gl;
 extern crate libc;

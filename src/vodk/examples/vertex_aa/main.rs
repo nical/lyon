@@ -14,7 +14,6 @@ use gfx2d::tesselation;
 use gfx2d::color::Rgba;
 
 use std::mem;
-use std::io::timer::sleep;
 use std::time::duration::Duration;
 
 use math::units::world;
@@ -231,15 +230,7 @@ fn main() {
 
     ctx.set_shader(pipeline);
 
-    //let mut avg_frame_time: u64 = 0;
-    //let mut frame_count: u64 = 0;
-    let mut previous_time = time::precise_time_ns();
-    let mut time: f32 = 0.0;
     while !window.should_close() {
-        let frame_start_time = time::precise_time_ns();
-        let elapsed_time = frame_start_time - previous_time;
-        time += elapsed_time as f32;
-
         ctx.clear(COLOR|DEPTH);
         ctx.draw(
             geom,
@@ -248,16 +239,6 @@ fn main() {
         );
 
         window.swap_buffers();
-
-        previous_time = frame_start_time;
-        let frame_time = time::precise_time_ns() - frame_start_time;
-        //frame_count += 1;
-        //avg_frame_time += frame_time;
-
-        let sleep_time: i64 = 16000000 - frame_time as i64;
-        if sleep_time > 0 {
-            sleep(Duration::milliseconds(sleep_time/1000000));
-        }
     }
 }
 

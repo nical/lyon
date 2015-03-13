@@ -1,13 +1,13 @@
 use range::Range;
 use std::iter::FromIterator;
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BlockId {
     index: usize,
     gen: u16,
 }
 
-#[derive(Copy, Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockState {
     Used,
     Unused,

@@ -1,7 +1,7 @@
 use std::ops;
 use math::vector::ScalarMul;
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub struct Rgba<T> {
     pub r: T,
     pub g: T,

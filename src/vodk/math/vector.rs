@@ -91,6 +91,16 @@ impl<U> Default for Rectangle<U> {
 
 #[allow(dead_code)]
 impl<U> Vector4D<U> {
+    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Vector4D<U> {
+        Vector4D {
+            x: x,
+            y: y,
+            z: z,
+            w: w,
+            _unit: PhantomData
+        }
+    }
+
     pub fn from_slice(from: &[f32]) -> Vector4D<U> {
         assert!(from.len() >= 4);
         return Vector4D {
@@ -276,6 +286,15 @@ impl<U> ops::Neg for Vector4D<U> {
 
 #[allow(dead_code)]
 impl<U> Vector3D<U> {
+    pub fn new(x: f32, y: f32, z: f32) -> Vector3D<U> {
+        Vector3D {
+            x: x,
+            y: y,
+            z: z,
+            _unit: PhantomData
+        }
+    }
+
     pub fn from_slice(from: &[f32]) -> Vector3D<U> {
         assert!(from.len() >= 3);
         return Vector3D {
@@ -467,6 +486,14 @@ impl<U> ops::Neg for Vector3D<U> {
 
 #[allow(dead_code)]
 impl<U> Vector2D<U> {
+    pub fn new(x: f32, y: f32) -> Vector2D<U> {
+        Vector2D {
+            x: x,
+            y: y,
+            _unit: PhantomData
+        }
+    }
+
     pub fn from_slice(from: &[f32]) -> Vector2D<U> {
         assert!(from.len() >= 2);
         return Vector2D {

@@ -1,5 +1,5 @@
 
-#[derive(Copy, Clone, Show, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Format {
     R8G8B8A8,
     R8G8B8X8,
