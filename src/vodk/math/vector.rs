@@ -44,7 +44,7 @@ pub trait ScalarMul<T> {
 pub struct Vector2D<Unit> {
     pub x: f32,
     pub y: f32,
-    pub _unit: PhantomData<Unit>,
+    _unit: PhantomData<Unit>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -52,7 +52,7 @@ pub struct Vector3D<Unit> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub _unit: PhantomData<Unit>,
+    _unit: PhantomData<Unit>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -61,7 +61,7 @@ pub struct Vector4D<Unit> {
     pub y: f32,
     pub z: f32,
     pub w: f32,
-    pub _unit: PhantomData<Unit>,
+    _unit: PhantomData<Unit>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -70,7 +70,7 @@ pub struct Rectangle<Unit> {
     pub y: f32,
     pub w: f32,
     pub h: f32,
-    pub _unit: PhantomData<Unit>,
+    _unit: PhantomData<Unit>,
 }
 
 impl<U> Default for Vector2D<U> {
@@ -364,6 +364,22 @@ impl<U> Vector3D<U> {
 }
 
 impl<U> Matrix4x4<U> {
+
+    pub fn new(
+        a11: f32, a21: f32, a31: f32, a41: f32,
+        a12: f32, a22: f32, a32: f32, a42: f32,
+        a13: f32, a23: f32, a33: f32, a43: f32,
+        a14: f32, a24: f32, a34: f32, a44: f32
+    ) -> Matrix4x4<U> {
+        Matrix4x4 {
+            _11: a11, _21: a21, _31: a31, _41: a41,
+            _12: a12, _22: a22, _32: a32, _42: a42,
+            _13: a13, _23: a23, _33: a33, _43: a43,
+            _14: a14, _24: a24, _34: a34, _44: a44,
+            _unit: PhantomData
+        }
+    }
+
     pub fn perspective(
         fovy: f32, aspect: f32, near: f32, far: f32,
         mat: &mut Matrix4x4<U>
@@ -639,7 +655,7 @@ impl<U> ops::Neg for Vector2D<U> {
 pub struct Matrix2x2<Unit> {
     pub _11: f32, pub _21: f32,
     pub _12: f32, pub _22: f32,
-    pub _unit: PhantomData<Unit>
+    _unit: PhantomData<Unit>
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -647,7 +663,7 @@ pub struct Matrix3x3<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32,
     pub _12: f32, pub _22: f32, pub _32: f32,
     pub _13: f32, pub _23: f32, pub _33: f32,
-    pub _unit: PhantomData<Unit>
+    _unit: PhantomData<Unit>
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -656,12 +672,19 @@ pub struct Matrix4x4<Unit> {
     pub _12: f32, pub _22: f32, pub _32: f32, pub _42: f32,
     pub _13: f32, pub _23: f32, pub _33: f32, pub _43: f32,
     pub _14: f32, pub _24: f32, pub _34: f32, pub _44: f32,
-    pub _unit: PhantomData<Unit>
+    _unit: PhantomData<Unit>
 }
 
 
 
 impl<U> Matrix2x2<U> {
+    pub fn new(a11: f32, a21: f32, a12: f32, a22: f32) -> Matrix2x2<U> {
+        Matrix2x2 {
+            _11: a11, _21: a21,
+            _12: a12, _22: a22,
+            _unit: PhantomData
+        }
+    }
 
     pub fn from_slice(from: &[f32]) -> Matrix2x2<U> {
         assert!(from.len() >= 4);
@@ -719,6 +742,19 @@ impl<U> Matrix2x2<U> {
 
 #[allow(dead_code)]
 impl<U> Matrix3x3<U> {
+
+    pub fn new(
+        a11: f32, a21: f32, a31: f32,
+        a12: f32, a22: f32, a32: f32,
+        a13: f32, a23: f32, a33: f32
+    ) -> Matrix3x3<U> {
+        Matrix3x3 {
+            _11: a11, _21: a21, _31: a31,
+            _12: a12, _22: a22, _32: a32,
+            _13: a13, _23: a23, _33: a33,
+            _unit: PhantomData
+        }
+    }
 
     pub fn from_slice(from: &[f32]) -> Matrix3x3<U> {
         assert_eq!(from.len(), 9);

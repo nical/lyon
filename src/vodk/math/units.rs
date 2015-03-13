@@ -17,27 +17,26 @@ macro_rules! declare_unit (
             pub type Mat2 = vector::Matrix2x2<Unit>;
 
             pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rectangle {
-                vector::Rectangle { x: x, y: y, w: w, h: h, _unit: PhantomData }
+                vector::Rectangle::new(x, y, w, h)
             }
 
             pub fn vec2(x: f32, y: f32) -> Vec2 {
-                vector::Vector2D { x: x, y: y, _unit: PhantomData }
+                vector::Vector2D::new(x, y)
             }
 
             pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
-                vector::Vector3D { x: x, y: y, z: z, _unit: PhantomData }
+                vector::Vector3D::new(x, y, z)
             }
 
             pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
-                vector::Vector4D { x: x, y: y, z: z, w: w, _unit: PhantomData }
+                vector::Vector4D::new(x, y, z, w)
             }
 
             pub fn mat2(a11: f32, a21: f32, a12: f32, a22:f32) -> Mat2 {
-                vector::Matrix2x2 {
-                    _11: a11, _21: a21,
-                    _12: a12, _22: a22,
-                    _unit: PhantomData
-                }
+                vector::Matrix2x2::new(
+                    a11, a21,
+                    a12, a22
+                )
             }
 
             pub fn mat3(
@@ -45,12 +44,11 @@ macro_rules! declare_unit (
                 a12: f32, a22: f32, a32: f32,
                 a13: f32, a23: f32, a33: f32
             ) -> Mat3 {
-                vector::Matrix3x3 {
-                    _11: a11, _21: a21, _31: a31,
-                    _12: a12, _22: a22, _32: a32,
-                    _13: a13, _23: a23, _33: a33,
-                    _unit: PhantomData
-                }
+                vector::Matrix3x3::new(
+                    a11, a21, a31,
+                    a12, a22, a32,
+                    a13, a23, a33
+                )
             }
 
 //            pub mod Mat4 {

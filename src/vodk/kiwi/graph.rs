@@ -4,13 +4,13 @@ use std::slice;
 
 type DataTypeList = Vec<DataTypeID>;
 
-#[derive(Copy, PartialEq, Show)]
+#[derive(Copy, PartialEq, Debug)]
 enum DataType {
     Generic(u32),
     Type(DataTypeID),
 }
 
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 struct PortDescriptor {
     data_type: DataType,
 }
@@ -29,7 +29,7 @@ struct Node {
     valid: bool,
 }
 
-#[derive(Copy, Show)]
+#[derive(Copy, Debug)]
 struct Connection {
     port: u16,
     other_node: u16,
@@ -48,13 +48,13 @@ struct Graph {
 type PortIndex = u16;
 type PortID = u16; // TODO
 
-#[derive(Copy, PartialEq, Clone, Show)]
+#[derive(Copy, PartialEq, Clone, Debug)]
 struct NodeID { handle: u16 }
 
-#[derive(Copy, PartialEq, Clone, Show)]
+#[derive(Copy, PartialEq, Clone, Debug)]
 struct NodeTypeID { handle: i32 }
 
-#[derive(Copy, PartialEq, Clone, Show)]
+#[derive(Copy, PartialEq, Clone, Debug)]
 struct DataTypeID { handle: u32 }
 
 #[allow(dead_code)]
@@ -469,25 +469,25 @@ mod tests {
 
         let t1 = types.add(NodeDescriptor {
             generics: Vec::new(),
-            inputs: vec!(
+            inputs: vec![
                 PortDescriptor { data_type: DataType::Type(INT) },
                 PortDescriptor { data_type: DataType::Type(INT) },
-            ),
-            outputs: vec!(
+            ],
+            outputs: vec![
                 PortDescriptor { data_type: DataType::Type(INT) },
                 PortDescriptor { data_type: DataType::Type(FLOAT) },
-            ),
+            ],
         });
 
         let t2 = types.add(NodeDescriptor {
-            generics: vec!(vec!(INT, FLOAT)),
-            inputs: vec!(
+            generics: vec![vec![INT, FLOAT]],
+            inputs: vec![
                 PortDescriptor { data_type: DataType::Generic(0) },
                 PortDescriptor { data_type: DataType::Generic(0) },
-            ),
-            outputs: vec!(
+            ],
+            outputs: vec![
                 PortDescriptor { data_type: DataType::Generic(0) },
-            ),
+            ],
         });
 
         assert!(types.can_connect_types(t1, 0, t1, 0));

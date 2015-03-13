@@ -32,13 +32,13 @@ pub struct AllocatorHelper {
 impl AllocatorHelper {
     pub fn new(range: Range, state: BlockState) -> AllocatorHelper {
         AllocatorHelper {
-            blocks: vec!(AllocatorBlock {
+            blocks: vec![AllocatorBlock {
                 range: range,
                 prev: None,
                 next: None,
                 state: state,
                 gen: 1,
-            }),
+            }],
             available_slots: Vec::new(),
             first: 0,
             last: 0,
@@ -283,7 +283,7 @@ fn test_allocator() {
     assert_eq!(alloc.get_first(), alloc.get_last());
     let a0 = alloc.get_first();
     let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
-    assert_eq!(ids, vec!(a0));
+    assert_eq!(ids, vec![a0]);
     assert!(alloc.contains_block_id(a0));
     assert_eq!(alloc.get_block_state(a0), BlockState::Unused);
 
@@ -295,17 +295,17 @@ fn test_allocator() {
     assert_eq!(alloc.get_block_range(a1), Range::new(0, 50));
     assert_eq!(alloc.get_block_range(b1), Range::new(50, 50));
     let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
-    assert_eq!(ids, vec!(a1, b1));
+    assert_eq!(ids, vec![a1, b1]);
     let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks_with_state(BlockState::Used));
-    assert_eq!(ids, vec!(a1));
+    assert_eq!(ids, vec![a1]);
     let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks_with_state(BlockState::Unused));
-    assert_eq!(ids, vec!(b1));
+    assert_eq!(ids, vec![b1]);
 
     let a2 = alloc.merge_next(a1, BlockState::Unused);
     assert!(!alloc.contains_block_id(a1));
     assert!(!alloc.contains_block_id(b1));
     let ids: Vec<BlockId> = FromIterator::from_iter(alloc.blocks());
-    assert_eq!(ids, vec!(a2));
+    assert_eq!(ids, vec![a2]);
     assert_eq!(alloc.get_block_range(a2), Range::new(0, 100));
 
     alloc.clear();

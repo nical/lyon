@@ -85,7 +85,7 @@ pub fn sweep_status_push<T:Copy>(
 ) {
     println!(" -- insert {:?} in sweep status", e.as_index());
     sweep.push(*e);
-    sort_x(&mut sweep[], kernel, path);
+    sort_x(&mut sweep[..], kernel, path);
 }
 
 pub fn split_face(
@@ -155,7 +155,7 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
     println!("  B sorted edges: {:?}", sorted_edges);
 
     // list of edges that intercept the sweep line, sorted by increasing x coordinate
-    let mut sweep_status: Vec<EdgeId> = vec!();
+    let mut sweep_status: Vec<EdgeId> = vec![];
     let mut helper: HashMap<usize, (EdgeId, VertexType)> = HashMap::new();
 
     for e in sorted_edges.iter() {
@@ -508,7 +508,7 @@ pub fn triangulate_faces<T:Copy+Debug>(
     vertices: &[Vector2D<T>],
     indices: &mut[u16]
 ) -> usize {
-    let mut new_faces: Vec<FaceId> = vec!();
+    let mut new_faces: Vec<FaceId> = vec![];
     for &f in faces.iter() {
         new_faces.push(f);
     }
@@ -517,7 +517,7 @@ pub fn triangulate_faces<T:Copy+Debug>(
         y_monotone_decomposition(kernel, *f, vertices, &mut new_faces);
     }
 
-    let mut triangles = SliceTriangleStream::new(&mut indices[]);
+    let mut triangles = SliceTriangleStream::new(&mut indices[..]);
     for &f in new_faces.iter() {
         assert!(is_y_monotone(kernel, vertices, f));
         y_monotone_triangulation(
@@ -605,7 +605,7 @@ fn test_triangulate() {
         println!("\n\n -- path {:?}", i);
         let mut kernel = ConnectivityKernel::from_loop(paths[i].len() as u16);
         let main_face = kernel.first_face();
-        triangulate_faces(&mut kernel, &[main_face], &paths[i][], indices);
+        triangulate_faces(&mut kernel, &[main_face], &paths[i][..], indices);
     }
 }
 

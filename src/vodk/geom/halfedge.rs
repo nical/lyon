@@ -125,11 +125,11 @@ impl ConnectivityKernel {
         &mut self.edges[id.handle as usize - 1]
     }
 
-    pub fn edges(&self) -> &[HalfEdge] { &self.edges[] }
+    pub fn edges(&self) -> &[HalfEdge] { &self.edges[..] }
 
-    pub fn faces(&self) -> &[Face] { &self.faces[] }
+    pub fn faces(&self) -> &[Face] { &self.faces[..] }
 
-    pub fn vertices(&self) -> &[Vertex] { &self.vertices[] }
+    pub fn vertices(&self) -> &[Vertex] { &self.vertices[..] }
 
     pub fn first_edge(&self) -> EdgeId { edge_id(0) }
 
@@ -316,7 +316,7 @@ impl ConnectivityKernel {
 
         self.faces.push(Face {
             first_edge: new_opposite_edge,
-            inner_edges: vec!(),
+            inner_edges: vec![],
         });
 
         let opposite_face = if add_face { face_id(self.faces.len() as Index - 1) }
@@ -496,23 +496,23 @@ impl ConnectivityKernel {
         let back_face = face_id(1);
 
         let mut kernel = ConnectivityKernel {
-            faces: vec!(),
-            vertices: vec!(),
-            edges: vec!(),
+            faces: vec![],
+            vertices: vec![],
+            edges: vec![],
         };
 
         let (first_inner_edge, first_outer_edge) = kernel.add_loop(n_vertices, main_face, back_face);
 
-        kernel.faces = vec!(
+        kernel.faces = vec![
             Face {
                 first_edge: first_inner_edge,
-                inner_edges: vec!(),
+                inner_edges: vec![],
             },
             Face {
                 first_edge: first_outer_edge,
-                inner_edges: vec!(),
+                inner_edges: vec![],
             }
-        );
+        ];
 
         kernel.assert_face_invariants(main_face);
         kernel.assert_face_invariants(back_face);
@@ -528,7 +528,7 @@ impl ConnectivityKernel {
 
         self.faces.push(Face {
             first_edge: exterior,
-            inner_edges: vec!(),
+            inner_edges: vec![],
         });
 
         self.face_mut(face).inner_edges.push(exterior);
