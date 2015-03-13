@@ -1,4 +1,5 @@
 use std::cmp::PartialEq;
+use std::ops;
 
 pub type Index = u16;
 use std::marker::PhantomData;
@@ -537,6 +538,33 @@ impl ConnectivityKernel {
     }
 }
 
+impl ops::Index<EdgeId> for ConnectivityKernel {
+    type Output = HalfEdge;
+    fn index<'l>(&'l self, id: &EdgeId) -> &'l HalfEdge { self.edge(*id) }
+}
+
+impl ops::IndexMut<EdgeId> for ConnectivityKernel {
+    fn index_mut<'l>(&'l mut self, id: &EdgeId) -> &'l mut HalfEdge { self.edge_mut(*id) }
+}
+
+impl ops::Index<VertexId> for ConnectivityKernel {
+    type Output = Vertex;
+    fn index<'l>(&'l self, id: &VertexId) -> &'l Vertex { self.vertex(*id) }
+}
+
+impl ops::IndexMut<VertexId> for ConnectivityKernel {
+    fn index_mut<'l>(&'l mut self, id: &VertexId) -> &'l mut Vertex { self.vertex_mut(*id) }
+}
+
+impl ops::Index<FaceId> for ConnectivityKernel {
+    type Output = Face;
+    fn index<'l>(&'l self, id: &FaceId) -> &'l Face { self.face(*id) }
+}
+
+impl ops::IndexMut<FaceId> for ConnectivityKernel {
+    fn index_mut<'l>(&'l mut self, id: &FaceId) -> &'l mut Face { self.face_mut(*id) }
+}
+
 /// Iterates over the half edges around a face.
 pub struct FaceEdgeIterator<'l> {
     kernel: &'l ConnectivityKernel,
@@ -905,27 +933,27 @@ fn test_split_face_1() {
     assert!(f1 != f2);
     assert!(kernel.face(f1).first_edge != kernel.face(f2).first_edge);
 
-    assert_eq!(kernel.edge(kernel.face(f1).first_edge).face, f1);
-    assert_eq!(kernel.edge(kernel.face(f2).first_edge).face, f2);
+    assert_eq!(kernel.edge(kernel[f1].first_edge).face, f1);
+    assert_eq!(kernel.edge(kernel[f2].first_edge).face, f2);
 
-    let e5 = kernel.edge(e4).next;
-    let e6 = kernel.edge(e2).next;
+    let e5 = kernel[e4].next;
+    let e6 = kernel[e2].next;
 
-    assert_eq!(kernel.edge(e6).next, e1);
-    assert_eq!(kernel.edge(e1).prev, e6);
-    assert_eq!(kernel.edge(e5).next, e3);
-    assert_eq!(kernel.edge(e3).prev, e5);
-    assert_eq!(kernel.edge(e6).prev, e2);
-    assert_eq!(kernel.edge(e2).next, e6);
-    assert_eq!(kernel.edge(e5).prev, e4);
-    assert_eq!(kernel.edge(e4).next, e5);
+    assert_eq!(kernel[e6].next, e1);
+    assert_eq!(kernel[e1].prev, e6);
+    assert_eq!(kernel[e5].next, e3);
+    assert_eq!(kernel[e3].prev, e5);
+    assert_eq!(kernel[e6].prev, e2);
+    assert_eq!(kernel[e2].next, e6);
+    assert_eq!(kernel[e5].prev, e4);
+    assert_eq!(kernel[e4].next, e5);
 
-    assert_eq!(kernel.edge(e1).face, f1);
-    assert_eq!(kernel.edge(e2).face, f1);
-    assert_eq!(kernel.edge(e6).face, f1);
-    assert_eq!(kernel.edge(e3).face, f2);
-    assert_eq!(kernel.edge(e4).face, f2);
-    assert_eq!(kernel.edge(e5).face, f2);
+    assert_eq!(kernel[e1].face, f1);
+    assert_eq!(kernel[e2].face, f1);
+    assert_eq!(kernel[e6].face, f1);
+    assert_eq!(kernel[e3].face, f2);
+    assert_eq!(kernel[e4].face, f2);
+    assert_eq!(kernel[e5].face, f2);
 
     assert_eq!(kernel.count_edges_around_face(f1), 3);
     assert_eq!(kernel.count_edges_around_face(f2), 3);
@@ -936,19 +964,19 @@ fn test_split_face_2() {
     let mut kernel = ConnectivityKernel::from_loop(10);
     let f1 = kernel.first_face();
 
-    let e1 = kernel.face(f1).first_edge;
-    let e2 = kernel.edge(e1).next;
-    let e3 = kernel.edge(e2).next;
-    let e4 = kernel.edge(e3).next;
+    let e1 = kernel[f1].first_edge;
+    let e2 = kernel[e1].next;
+    let e3 = kernel[e2].next;
+    let e4 = kernel[e3].next;
 
     let f2 = kernel.split_face(e4, e2).unwrap();
 
     for e in kernel.walk_edges_around_face(f2) {
-        assert_eq!(kernel.edge(e).face, f2);
+        assert_eq!(kernel[e].face, f2);
     }
 
     for e in kernel.walk_edges_around_face(f1) {
-        assert_eq!(kernel.edge(e).face, f1);
+        assert_eq!(kernel[e].face, f1);
     }
 
     for dir in [Direction::Forward, Direction::Backward].iter() {

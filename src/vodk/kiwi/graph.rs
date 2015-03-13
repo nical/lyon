@@ -57,7 +57,6 @@ struct NodeTypeID { handle: i32 }
 #[derive(Copy, PartialEq, Clone, Debug)]
 struct DataTypeID { handle: u32 }
 
-#[allow(dead_code)]
 impl Graph {
     pub fn new(type_system: Rc<TypeSystem>) -> Graph {
         Graph {
@@ -261,7 +260,6 @@ impl Graph {
     }
 }
 
-#[allow(dead_code)]
 impl Node {
     fn new(t: NodeTypeID) -> Node {
         Node {
@@ -274,7 +272,6 @@ impl Node {
     }
 }
 
-#[allow(dead_code)]
 impl TypeSystem {
     pub fn new() -> TypeSystem {
         TypeSystem {
@@ -332,7 +329,7 @@ impl TypeSystem {
                 match node.generics[g as usize] {
                     Some(ref t) => { return slice::ref_slice(t); }
                     None => {
-                        return &desc.generics[g as usize][];
+                        return &desc.generics[g as usize][..];
                     }
                 }
             }
@@ -353,7 +350,7 @@ impl TypeSystem {
                 match node.generics[g as usize] {
                     Some(ref t) => { return slice::ref_slice(t); }
                     None => {
-                        return &desc.generics[g as usize][];
+                        return &desc.generics[g as usize][..];
                     }
                 }
             }
@@ -361,7 +358,6 @@ impl TypeSystem {
     }
 }
 
-#[allow(dead_code)]
 impl NodeDescriptor {
 
     fn get_input_types<'l>(&'l self, port: PortIndex) -> &'l [DataTypeID] {
@@ -370,7 +366,7 @@ impl NodeDescriptor {
         }
         match self.inputs[port as usize].data_type {
             DataType::Type(ref t) => { return slice::ref_slice(t); },
-            DataType::Generic(g) => { return &self.generics[g as usize][]; }
+            DataType::Generic(g) => { return &self.generics[g as usize][..]; }
         }
     }
 
@@ -380,7 +376,7 @@ impl NodeDescriptor {
         }
         match self.outputs[port as usize].data_type {
             DataType::Type(ref t) => { return slice::ref_slice(t); },
-            DataType::Generic(g) => { return &self.generics[g as usize][]; }
+            DataType::Generic(g) => { return &self.generics[g as usize][..]; }
         }
     }
 

@@ -73,7 +73,7 @@ pub fn find(slice: &[EdgeId], item: EdgeId) -> Option<usize> {
 }
 pub fn sort_x<T: Copy>(slice: &mut[EdgeId], kernel: &ConnectivityKernel, path: &[Vector2D<T>]) {
     slice.sort_by(|a, b| {
-        path[kernel.edge(*a).vertex.as_index()].y.partial_cmp(&path[kernel.edge(*b).vertex.as_index()].y).unwrap().reverse()
+        path[kernel[*a].vertex.as_index()].y.partial_cmp(&path[kernel[*b].vertex.as_index()].y).unwrap().reverse()
     });    
 }
 
@@ -100,7 +100,7 @@ pub fn split_face(
     let mut ok = false;
     loop {
         loop {
-            if kernel.edge(a).face == kernel.edge(b).face  {
+            if kernel[a].face == kernel[b].face  {
                 println!(" -- ok ");
                 ok = true;
                 break;
@@ -137,16 +137,16 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
 
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
-        if path[kernel.edge(*a).vertex.as_index()].y > path[kernel.edge(*b).vertex.as_index()].y {
+        if path[kernel[*a].vertex.as_index()].y > path[kernel[*b].vertex.as_index()].y {
             return Ordering::Greater;
         }
-        if path[kernel.edge(*a).vertex.as_index()].y < path[kernel.edge(*b).vertex.as_index()].y {
+        if path[kernel[*a].vertex.as_index()].y < path[kernel[*b].vertex.as_index()].y {
             return Ordering::Less;
         }
-        if path[kernel.edge(*a).vertex.as_index()].x < path[kernel.edge(*b).vertex.as_index()].x {
+        if path[kernel[*a].vertex.as_index()].x < path[kernel[*b].vertex.as_index()].x {
             return Ordering::Greater;
         }
-        if path[kernel.edge(*a).vertex.as_index()].x > path[kernel.edge(*b).vertex.as_index()].x {
+        if path[kernel[*a].vertex.as_index()].x > path[kernel[*b].vertex.as_index()].x {
             return Ordering::Less;
         }
         return Ordering::Equal;
@@ -159,14 +159,14 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
     let mut helper: HashMap<usize, (EdgeId, VertexType)> = HashMap::new();
 
     for e in sorted_edges.iter() {
-        let edge = *kernel.edge(*e);
+        let edge = kernel[*e];
         let current_vertex = path[edge.vertex.as_index()];
-        let previous_vertex = path[kernel.edge(edge.prev).vertex.as_index()];
-        let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
+        let previous_vertex = path[kernel[edge.prev].vertex.as_index()];
+        let next_vertex = path[kernel[edge.next].vertex.as_index()];
         let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
         println!("\n vertex {:?} (edge {:?}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
-        println!(" prev vertex {:?} (edge {:?}) ", kernel.edge(edge.prev).vertex.as_index(), edge.prev.as_index());
-        println!(" next vertex {:?} (edge {:?}) ", kernel.edge(edge.next).vertex.as_index(), edge.next.as_index());
+        println!(" prev vertex {:?} (edge {:?}) ", kernel[edge.prev].vertex.as_index(), edge.prev.as_index());
+        println!(" next vertex {:?} (edge {:?}) ", kernel[edge.next].vertex.as_index(), edge.next.as_index());
 
         match vertex_type {
             VertexType::Start => {
@@ -183,10 +183,10 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
             VertexType::Split => {
                 for i in 0 .. sweep_status.len() {
                     println!(" --- A look for vertex right of e x={} vertex={}",
-                        path[kernel.edge(sweep_status[i]).vertex.as_index()].x,
-                        kernel.edge(sweep_status[i]).vertex.as_index()
+                        path[kernel[sweep_status[i]].vertex.as_index()].x,
+                        kernel[sweep_status[i]].vertex.as_index()
                     );
-                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x >= current_vertex.x {
+                    if path[kernel[sweep_status[i]].vertex.as_index()].x >= current_vertex.x {
                         if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
                             split_face(kernel, *e, helper_edge, new_faces);
                         }
@@ -205,10 +205,10 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
                 }
                 for i in 0 .. sweep_status.len() {
                     println!(" --- B look for vertex right of e x={} vertex={}",
-                        path[kernel.edge(sweep_status[i]).vertex.as_index()].x,
-                        kernel.edge(sweep_status[i]).vertex.as_index()
+                        path[kernel[sweep_status[i]].vertex.as_index()].x,
+                        kernel[sweep_status[i]].vertex.as_index()
                     );
-                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
+                    if path[kernel[sweep_status[i]].vertex.as_index()].x > current_vertex.x {
                         println!(" --- D set {} as helper of {}",
                             edge.vertex.as_index(),
                             sweep_status[i].as_index()
@@ -226,9 +226,9 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
             }
             VertexType::Left => {
                 for i in 0 .. sweep_status.len() {
-                    println!(" --- X look for vertex right of e x={} vertex={}", path[kernel.edge(sweep_status[i]).vertex.as_index()].x, kernel.edge(sweep_status[i]).vertex.as_index());
-                    if path[kernel.edge(sweep_status[i]).vertex.as_index()].x > current_vertex.x {
-                        println!(" --- meh {} x={}", kernel.edge(sweep_status[i]).vertex.as_index(), path[kernel.edge(sweep_status[i]).vertex.as_index()].x);
+                    println!(" --- X look for vertex right of e x={} vertex={}", path[kernel[sweep_status[i]].vertex.as_index()].x, kernel[sweep_status[i]].vertex.as_index());
+                    if path[kernel[sweep_status[i]].vertex.as_index()].x > current_vertex.x {
+                        println!(" --- meh {} x={}", kernel[sweep_status[i]].vertex.as_index(), path[kernel[sweep_status[i]].vertex.as_index()].x);
                         println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i].as_index(), (*e, VertexType::Right)) {
                             split_face(kernel, prev_helper, *e, new_faces);
@@ -252,14 +252,14 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
 
 pub fn is_y_monotone<T:Copy+Debug>(kernel: &ConnectivityKernel, path: &[Vector2D<T>], face: FaceId) -> bool {
     for e in kernel.walk_edges_around_face(face) {
-        let edge = kernel.edge(e);
+        let edge = kernel[e];
         let current_vertex = path[edge.vertex.as_index()];
-        let previous_vertex = path[kernel.edge(edge.prev).vertex.as_index()];
-        let next_vertex = path[kernel.edge(edge.next).vertex.as_index()];
+        let previous_vertex = path[kernel[edge.prev].vertex.as_index()];
+        let next_vertex = path[kernel[edge.next].vertex.as_index()];
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
                 println!("not y monotone because of vertices {} {} {} edge {} {} {}",
-                    kernel.edge(edge.prev).vertex.as_index(), edge.vertex.as_index(), kernel.edge(edge.next).vertex.as_index(), 
+                    kernel[edge.prev].vertex.as_index(), edge.vertex.as_index(), kernel[edge.next].vertex.as_index(), 
                     edge.prev.as_index(), e.as_index(), edge.next.as_index());
                 return false;
             }
@@ -313,7 +313,7 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
 ) {
     println!(" ------- y_monotone_triangulation face {} path.len: {}", face.as_index(), path.len());
 
-    let first_edge = kernel.face(face).first_edge;
+    let first_edge = kernel[face].first_edge;
     println!(" -- first edge of this face is {}", first_edge.as_index());
     let mut up = DirectedEdgeCirculator::new(kernel, first_edge, Direction::Forward);
     let mut down = up.clone();
