@@ -13,20 +13,21 @@ use std::mem;
 use std::ops;
 use std::num::Float;
 use std::default::Default;
+use std::marker::PhantomData;
 
 pub static EPSILON: f32 = 0.000001;
 pub static PI: f32 = 3.14159265359;
 
-#[derive(Copy, PartialEq, Show)]
+#[derive(Copy, PartialEq, Debug)]
 pub struct Untyped;
 
 pub type Vec2 = Vector2D<Untyped>;
 pub type Vec3 = Vector3D<Untyped>;
 pub type Vec4 = Vector4D<Untyped>;
 
-pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D { x: x, y: y } }
-pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 { Vector3D { x: x, y: y, z: z } }
-pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w } }
+pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D { x: x, y: y, _unit: PhantomData } }
+pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 { Vector3D { x: x, y: y, z: z, _unit: PhantomData } }
+pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w, _unit: PhantomData } }
 
 pub type Mat4 = Matrix4x4<Untyped>;
 pub type Mat3 = Matrix3x3<Untyped>;
@@ -39,49 +40,53 @@ pub trait ScalarMul<T> {
     fn scalar_mul_in_place(&mut self, scalar: T);
 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vector2D<Unit> {
     pub x: f32,
     pub y: f32,
+    pub _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vector3D<Unit> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub struct Vector4D<Unit> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
     pub w: f32,
+    pub _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub struct Rectangle<Unit> {
     pub x: f32,
     pub y: f32,
     pub w: f32,
     pub h: f32,
+    pub _unit: PhantomData<Unit>,
 }
 
 impl<U> Default for Vector2D<U> {
-    fn default() -> Vector2D<U> { Vector2D { x: 0.0, y: 0.0 } }
+    fn default() -> Vector2D<U> { Vector2D { x: 0.0, y: 0.0, _unit: PhantomData } }
 }
 
 impl<U> Default for Vector3D<U> {
-    fn default() -> Vector3D<U> { Vector3D { x: 0.0, y: 0.0, z: 0.0 } }
+    fn default() -> Vector3D<U> { Vector3D { x: 0.0, y: 0.0, z: 0.0, _unit: PhantomData } }
 }
 
 impl<U> Default for Vector4D<U> {
-    fn default() -> Vector4D<U> { Vector4D { x: 0.0, y: 0.0, z: 0.0, w: 0.0 } }
+    fn default() -> Vector4D<U> { Vector4D { x: 0.0, y: 0.0, z: 0.0, w: 0.0, _unit: PhantomData } }
 }
 
 impl<U> Default for Rectangle<U> {
-    fn default() -> Rectangle<U> { Rectangle { x: 0.0, y: 0.0, w: 0.0, h: 0.0 } }
+    fn default() -> Rectangle<U> { Rectangle { x: 0.0, y: 0.0, w: 0.0, h: 0.0, _unit: PhantomData } }
 }
 
 #[allow(dead_code)]
@@ -92,7 +97,8 @@ impl<U> Vector4D<U> {
             x: from[0],
             y: from[1],
             z: from[2],
-            w: from[3]
+            w: from[3],
+            _unit: PhantomData,
         };
     }
 
@@ -123,16 +129,16 @@ impl<U> Vector4D<U> {
 
     pub fn to_tuple(&self) -> (f32, f32, f32, f32) { (self.x, self.y, self.z, self.w) }
 
-    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y } }
-    pub fn xz(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.z } }
-    pub fn yz(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.z } }
-    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x } }
-    pub fn xyz(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.y, z: self.z } }
-    pub fn zxy(&self) -> Vector3D<U> { Vector3D { x: self.z, y:self.x, z: self.y } }
-    pub fn yzx(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.z, z: self.x } }
-    pub fn xzy(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.z, z: self.y } }
-    pub fn yxz(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.x, z: self.z } }
-    pub fn wxyz(&self) -> Vector4D<U> { Vector4D { x: self.w, y:self.x, z: self.y, w:self.z } }
+    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y, _unit: PhantomData } }
+    pub fn xz(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.z, _unit: PhantomData } }
+    pub fn yz(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.z, _unit: PhantomData } }
+    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x, _unit: PhantomData } }
+    pub fn xyz(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.y, z: self.z, _unit: PhantomData } }
+    pub fn zxy(&self) -> Vector3D<U> { Vector3D { x: self.z, y:self.x, z: self.y, _unit: PhantomData } }
+    pub fn yzx(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.z, z: self.x, _unit: PhantomData } }
+    pub fn xzy(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.z, z: self.y, _unit: PhantomData } }
+    pub fn yxz(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.x, z: self.z, _unit: PhantomData } }
+    pub fn wxyz(&self) -> Vector4D<U> { Vector4D { x: self.w, y:self.x, z: self.y, w:self.z, _unit: PhantomData } }
 }
 
 impl<U> PartialEq for Vector4D<U> {
@@ -171,7 +177,8 @@ impl<U> ops::Add<Vector4D<U>> for Vector4D<U> {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
             z: self.z + rhs.z,
-            w: self.w + rhs.w
+            w: self.w + rhs.w,
+            _unit: PhantomData
         };
     }
 }
@@ -187,7 +194,8 @@ impl<U> ops::Sub<Vector4D<U>> for Vector4D<U> {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             z: self.z - rhs.z,
-            w: self.w - rhs.w
+            w: self.w - rhs.w,
+            _unit: PhantomData
         };
     }
 }
@@ -203,7 +211,8 @@ impl<U> ops::Mul<Vector4D<U>> for Vector4D<U> {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
             z: self.z * rhs.z,
-            w: self.w * rhs.w
+            w: self.w * rhs.w,
+            _unit: PhantomData
         };
     }
 }
@@ -217,7 +226,8 @@ impl<U> ScalarMul<f32> for Vector4D<U> {
             x: self.x * rhs,
             y: self.y * rhs,
             z: self.z * rhs,
-            w: self.w * rhs
+            w: self.w * rhs,
+            _unit: PhantomData
         };
     }
 
@@ -241,7 +251,8 @@ impl<U> ops::Div<Vector4D<U>> for Vector4D<U> {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
             z: self.z / rhs.z,
-            w: self.w / rhs.w
+            w: self.w / rhs.w,
+            _unit: PhantomData
         };
     }
 }
@@ -257,7 +268,8 @@ impl<U> ops::Neg for Vector4D<U> {
             x: -self.x,
             y: -self.y,
             z: -self.z,
-            w: -self.w
+            w: -self.w,
+            _unit: PhantomData
         };
     }
 }
@@ -270,6 +282,7 @@ impl<U> Vector3D<U> {
             x: from[0],
             y: from[1],
             z: from[2],
+            _unit: PhantomData
         };
     }
 
@@ -295,7 +308,8 @@ impl<U> Vector3D<U> {
         return Vector3D {
             x: (self.y * rhs.z) - (self.z * rhs.y),
             y: (self.z * rhs.x) - (self.x * rhs.z),
-            z: (self.x * rhs.y) - (self.y * rhs.x)
+            z: (self.x * rhs.y) - (self.y * rhs.x),
+            _unit: PhantomData
         }
     }
 
@@ -309,15 +323,15 @@ impl<U> Vector3D<U> {
 
     pub fn to_tuple(&self) -> (f32, f32, f32) { (self.x, self.y, self.z) }
 
-    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y } }
-    pub fn xz(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.z } }
-    pub fn yz(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.z } }
-    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x } }
-    pub fn xyz(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.y, z: self.z } }
-    pub fn zxy(&self) -> Vector3D<U> { Vector3D { x: self.z, y:self.x, z: self.y } }
-    pub fn yzx(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.z, z: self.x } }
-    pub fn xzy(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.z, z: self.y } }
-    pub fn yxz(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.x, z: self.z } }
+    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y, _unit: PhantomData } }
+    pub fn xz(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.z, _unit: PhantomData } }
+    pub fn yz(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.z, _unit: PhantomData } }
+    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x, _unit: PhantomData } }
+    pub fn xyz(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.y, z: self.z, _unit: PhantomData } }
+    pub fn zxy(&self) -> Vector3D<U> { Vector3D { x: self.z, y:self.x, z: self.y, _unit: PhantomData } }
+    pub fn yzx(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.z, z: self.x, _unit: PhantomData } }
+    pub fn xzy(&self) -> Vector3D<U> { Vector3D { x: self.x, y:self.z, z: self.y, _unit: PhantomData } }
+    pub fn yxz(&self) -> Vector3D<U> { Vector3D { x: self.y, y:self.x, z: self.z, _unit: PhantomData } }
 
     pub fn to_vec4(&self, w: f32) -> Vector4D<U> {
         Vector4D {
@@ -325,6 +339,7 @@ impl<U> Vector3D<U> {
             y: self.y,
             z: self.z,
             w: w,
+            _unit: PhantomData
         }
     }
 }
@@ -354,6 +369,12 @@ impl<U> Matrix4x4<U> {
         mat._34 = (2.0 * far * near) * nf;
         mat._44 = 0.0;
     }
+
+    pub fn rotation(rad: f32, s: &Vector3D<U>) -> Matrix4x4<U> {
+        let mut m: Matrix4x4<U> = Matrix4x4::identity();
+        m.rotate(rad, s);
+        return m;
+    }
 }
 
 #[allow(dead_code)]
@@ -367,6 +388,7 @@ impl<U> ops::Add<Vector3D<U>> for Vector3D<U> {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
             z: self.z + rhs.z,
+            _unit: PhantomData
         };
     }
 }
@@ -382,6 +404,7 @@ impl<U> ops::Sub<Vector3D<U>> for Vector3D<U> {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             z: self.z - rhs.z,
+            _unit: PhantomData
         };
     }
 }
@@ -397,6 +420,7 @@ impl<U> ops::Mul<Vector3D<U>> for Vector3D<U> {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
             z: self.z * rhs.z,
+            _unit: PhantomData
         };
     }
 }
@@ -410,6 +434,7 @@ impl<U> ScalarMul<f32> for Vector3D<U> {
             x: self.x * rhs,
             y: self.y * rhs,
             z: self.z * rhs,
+            _unit: PhantomData
         };
     }
 
@@ -433,6 +458,7 @@ impl<U> ops::Neg for Vector3D<U> {
             x: -self.x,
             y: -self.y,
             z: -self.z,
+            _unit: PhantomData
         };
     }
 }
@@ -446,6 +472,7 @@ impl<U> Vector2D<U> {
         return Vector2D {
             x: from[0],
             y: from[1],
+            _unit: PhantomData
         };
     }
 
@@ -479,11 +506,11 @@ impl<U> Vector2D<U> {
     }
 
     pub fn times(&self, f: f32) -> Vector2D<U> {
-        Vector2D { x: self.x * f, y: self.y * f }
+        Vector2D { x: self.x * f, y: self.y * f, _unit: PhantomData }
     }
 
-    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y } }
-    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x } }
+    pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y, _unit: PhantomData } }
+    pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x, _unit: PhantomData } }
 }
 
 #[allow(dead_code)]
@@ -496,6 +523,7 @@ impl<U> ops::Add<Vector2D<U>> for Vector2D<U> {
         return Vector2D {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+            _unit: PhantomData
         };
     }
 }
@@ -510,6 +538,7 @@ impl<U> ops::Sub<Vector2D<U>> for Vector2D<U> {
         return Vector2D {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
+            _unit: PhantomData
         };
     }
 }
@@ -524,6 +553,7 @@ impl<U> ops::Mul<Vector2D<U>> for Vector2D<U> {
         return Vector2D {
             x: self.x * rhs.x,
             y: self.y * rhs.y,
+            _unit: PhantomData
         };
     }
 }
@@ -536,6 +566,7 @@ impl<U> ScalarMul<f32> for Vector2D<U> {
         return Vector2D {
             x: self.x * rhs,
             y: self.y * rhs,
+            _unit: PhantomData
         };
     }
 
@@ -557,6 +588,7 @@ impl<U> ops::Div<Vector2D<U>> for Vector2D<U> {
         return Vector2D {
             x: self.x / rhs.x,
             y: self.y / rhs.y,
+            _unit: PhantomData
         };
     }
 }
@@ -571,29 +603,33 @@ impl<U> ops::Neg for Vector2D<U> {
         return Vector2D {
             x: -self.x,
             y: -self.y,
+            _unit: PhantomData
         };
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Show)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Matrix2x2<Unit> {
     pub _11: f32, pub _21: f32,
     pub _12: f32, pub _22: f32,
+    pub _unit: PhantomData<Unit>
 }
 
-#[derive(Copy, Clone, PartialEq, Show)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Matrix3x3<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32,
     pub _12: f32, pub _22: f32, pub _32: f32,
     pub _13: f32, pub _23: f32, pub _33: f32,
+    pub _unit: PhantomData<Unit>
 }
 
-#[derive(Copy, Clone, PartialEq, Show)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Matrix4x4<Unit> {
     pub _11: f32, pub _21: f32, pub _31: f32, pub _41: f32,
     pub _12: f32, pub _22: f32, pub _32: f32, pub _42: f32,
     pub _13: f32, pub _23: f32, pub _33: f32, pub _43: f32,
     pub _14: f32, pub _24: f32, pub _34: f32, pub _44: f32,
+    pub _unit: PhantomData<Unit>
 }
 
 
@@ -605,6 +641,7 @@ impl<U> Matrix2x2<U> {
         return Matrix2x2 {
             _11: from[0], _21: from[1],
             _12: from[2], _22: from[3],
+            _unit: PhantomData
         };
     }
 
@@ -633,6 +670,7 @@ impl<U> Matrix2x2<U> {
         Vector2D {
             x: v.x * self._11 + v.y * self._21,
             y: v.x * self._12 + v.y * self._22,
+            _unit: PhantomData
         }
     }
 
@@ -641,6 +679,7 @@ impl<U> Matrix2x2<U> {
         Matrix2x2 {
             _11: 1.0, _21: 0.0,
             _12: 0.0, _22: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -660,6 +699,7 @@ impl<U> Matrix3x3<U> {
             _11: from[0], _21: from[1], _31: from[2],
             _12: from[3], _22: from[4], _32: from[5],
             _13: from[6], _23: from[7], _33: from[8],
+            _unit: PhantomData
         };
     }
 
@@ -680,6 +720,7 @@ impl<U> Matrix3x3<U> {
             x: p.x * self._11 + p.y * self._21 + p.z * self._31,
             y: p.x * self._12 + p.y * self._22 + p.z * self._32,
             z: p.x * self._13 + p.y * self._23 + p.z * self._33,
+            _unit: PhantomData
         }
     }
 
@@ -687,6 +728,7 @@ impl<U> Matrix3x3<U> {
         Vector2D {
             x: p.x * self._11 + p.y * self._21 + self._31,
             y: p.x * self._12 + p.y * self._22 + self._32,
+            _unit: PhantomData
         }
     }
 
@@ -704,6 +746,7 @@ impl<U> Matrix3x3<U> {
             _11: v.x,  _21: 0.0,  _31: 0.0,
             _12: 0.0,  _22: v.y,  _32: 0.0,
             _13: 0.0,  _23: 0.0,  _33: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -712,6 +755,7 @@ impl<U> Matrix3x3<U> {
             _11: 1.0, _21: 1.0, _31: v.x,
             _12: 0.0, _22: 1.0, _32: v.y,
             _13: 0.0, _23: 0.0, _33: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -720,6 +764,7 @@ impl<U> Matrix3x3<U> {
             _11: rad.cos(), _21: -rad.sin(), _31: 0.0,
             _12: rad.sin(), _22: rad.cos(),  _32: 0.0,
             _13: 0.0,       _23: 0.0,        _33: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -741,6 +786,7 @@ impl<U> Matrix3x3<U> {
             _11: 1.0, _21: 0.0, _31: 0.0,
             _12: 0.0, _22: 1.0, _32: 0.0,
             _13: 0.0, _23: 0.0, _33: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -762,6 +808,7 @@ impl<U> Matrix4x4<U> {
             _12: from[4],  _22: from[5],  _32: from[6],  _42: from[7],
             _13: from[8],  _23: from[9],  _33: from[10], _43: from[11],
             _14: from[12], _24: from[13], _34: from[14], _44: from[15],
+            _unit: PhantomData
         };
     }
 
@@ -783,6 +830,7 @@ impl<U> Matrix4x4<U> {
             y: p.x * self._12 + p.y * self._22 + p.z * self._32 + p.w * self._42,
             z: p.x * self._13 + p.y * self._23 + p.z * self._33 + p.w * self._43,
             w: p.x * self._14 + p.y * self._24 + p.z * self._34 + p.w * self._44,
+            _unit: PhantomData
         }
     }
 
@@ -809,6 +857,7 @@ impl<U> Matrix4x4<U> {
             _12: 0.0, _22: 1.0, _32: 0.0, _42: 0.0,
             _13: 0.0, _23: 0.0, _33: 1.0, _43: 0.0,
             _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -818,6 +867,7 @@ impl<U> Matrix4x4<U> {
             _12: 0.0, _22: v.y, _32: 0.0, _42: 0.0,
             _13: 0.0, _23: 0.0, _33: v.z, _43: 0.0,
             _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -827,6 +877,7 @@ impl<U> Matrix4x4<U> {
             _12: 0.0, _22: 1.0, _32: 0.0, _42: v.y,
             _13: 0.0, _23: 0.0, _33: 1.0, _43: v.z,
             _14: 0.0, _24: 0.0, _34: 0.0, _44: 1.0,
+            _unit: PhantomData
         }
     }
 
@@ -997,6 +1048,7 @@ impl<U> ops::Mul<Matrix4x4<U>> for Matrix4x4<U> {
             _24: self._21 * rhs._14 + self._22 * rhs._24 + self._23 * rhs._34 + self._24 * rhs._44,
             _34: self._31 * rhs._14 + self._32 * rhs._24 + self._33 * rhs._34 + self._34 * rhs._44,
             _44: self._41 * rhs._14 + self._42 * rhs._24 + self._43 * rhs._34 + self._44 * rhs._44,
+            _unit: PhantomData
         };
     }
 }
@@ -1018,6 +1070,7 @@ impl<U> ops::Mul<Matrix3x3<U>> for Matrix3x3<U> {
             _13: self._11 * rhs._13 + self._12 * rhs._23 + self._13 * rhs._33,
             _23: self._21 * rhs._13 + self._22 * rhs._23 + self._23 * rhs._33,
             _33: self._31 * rhs._13 + self._32 * rhs._23 + self._33 * rhs._33,
+            _unit: PhantomData
         };
     }
 }
@@ -1034,20 +1087,21 @@ impl<U> ops::Mul<Matrix2x2<U>> for Matrix2x2<U> {
             _21: self._21 * rhs._11 + self._22 * rhs._21,
             _12: self._11 * rhs._12 + self._12 * rhs._22,
             _22: self._21 * rhs._12 + self._22 * rhs._22,
+            _unit: PhantomData
         };
     }
 }
 
 impl<U> Rectangle<U> {
     pub fn new(x: f32, y: f32, w: f32, h:f32) -> Rectangle<U> {
-        let mut rect = Rectangle { x: x, y: y, w: w, h: h };
+        let mut rect = Rectangle { x: x, y: y, w: w, h: h, _unit: PhantomData };
         rect.ensure_invariant();
         return rect;
     }
 
-    pub fn origin(&self) -> Vector2D<U> { Vector2D { x: self.x, y: self.y } }
+    pub fn origin(&self) -> Vector2D<U> { Vector2D { x: self.x, y: self.y, _unit: PhantomData } }
 
-    pub fn size(&self) -> Vector2D<U> { Vector2D { x: self.w, y: self.h } }
+    pub fn size(&self) -> Vector2D<U> { Vector2D { x: self.w, y: self.h, _unit: PhantomData } }
 
     pub fn move_by(&mut self, v: Vector2D<U>) {
         self.x = self.x + v.x;
@@ -1066,12 +1120,14 @@ impl<U> Rectangle<U> {
         Vector2D {
             x: self.x,
             y: self.y,
+            _unit: PhantomData
         }
     }
     pub fn top_right(&self) -> Vector2D<U> {
         Vector2D {
             x: self.x + self.w,
             y: self.y,
+            _unit: PhantomData
         }
     }
 
@@ -1079,6 +1135,7 @@ impl<U> Rectangle<U> {
         Vector2D {
             x: self.x + self.w,
             y: self.y + self.h,
+            _unit: PhantomData
         }
     }
 
@@ -1086,6 +1143,7 @@ impl<U> Rectangle<U> {
         Vector2D {
             x: self.x,
             y: self.y + self.h,
+            _unit: PhantomData
         }
     }
 

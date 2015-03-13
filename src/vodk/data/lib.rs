@@ -49,118 +49,118 @@ pub fn size_of(t: Type) -> u32 { num_components(t) * ((t & TYPE_SIZE_MASK) >> 8)
 // TODO:
 // pub fn size_of_struct(t: &[Type]) -> u32
 
-pub fn type_of<T: DataType>() -> Type {
-    let wrapper: TypeResult<T> = DataType::data_type();
-    return wrapper.data_type;
-}
-
-pub fn struct_type_of<T: StructDataType>() -> &'static[Type] {
-    let wrapper: StructTypeResult<T> = StructDataType::data_type();
-    return wrapper.data_type;
-}
-
-pub trait DataType {
-    fn data_type() -> TypeResult<Self>;
-}
-pub struct TypeResult<T> { pub data_type: Type }
-
-pub trait StructDataType {
-    fn data_type() -> StructTypeResult<Self>;
-}
-pub struct StructTypeResult<T> { pub data_type: &'static[Type] }
-
-
-const F32_DATA_TYPE: &'static[Type] = &[F32];
-const U32_DATA_TYPE: &'static[Type] = &[U32];
-const I32_DATA_TYPE: &'static[Type] = &[I32];
-const U16_DATA_TYPE: &'static[Type] = &[U16];
-const I16_DATA_TYPE: &'static[Type] = &[I16];
-const U8_DATA_TYPE:  &'static[Type] = &[U8];
-const I8_DATA_TYPE:  &'static[Type] = &[I8];
-
-impl StructDataType for f32 { fn data_type() -> StructTypeResult<f32> { StructTypeResult{data_type: F32_DATA_TYPE } } }
-impl StructDataType for u32 { fn data_type() -> StructTypeResult<u32> { StructTypeResult{data_type: U32_DATA_TYPE } } }
-impl StructDataType for i32 { fn data_type() -> StructTypeResult<i32> { StructTypeResult{data_type: I32_DATA_TYPE } } }
-impl StructDataType for u16 { fn data_type() -> StructTypeResult<u16> { StructTypeResult{data_type: U16_DATA_TYPE } } }
-impl StructDataType for i16 { fn data_type() -> StructTypeResult<i16> { StructTypeResult{data_type: I16_DATA_TYPE } } }
-impl StructDataType for u8  { fn data_type() -> StructTypeResult<u8>  { StructTypeResult{data_type: U8_DATA_TYPE } } }
-impl StructDataType for i8  { fn data_type() -> StructTypeResult<i8>  { StructTypeResult{data_type: I8_DATA_TYPE } } }
-impl DataType for f32 { fn data_type() -> TypeResult<f32> { TypeResult{data_type: F32 } } }
-impl DataType for u32 { fn data_type() -> TypeResult<u32> { TypeResult{data_type: U32 } } }
-impl DataType for i32 { fn data_type() -> TypeResult<i32> { TypeResult{data_type: I32 } } }
-impl DataType for u16 { fn data_type() -> TypeResult<u16> { TypeResult{data_type: U16 } } }
-impl DataType for i16 { fn data_type() -> TypeResult<i16> { TypeResult{data_type: I16 } } }
-impl DataType for u8  { fn data_type() -> TypeResult<u8>  { TypeResult{data_type: U8 } } }
-impl DataType for i8  { fn data_type() -> TypeResult<i8>  { TypeResult{data_type: I8 } } }
-
-
-
-pub struct DynamicallyTypedSlice<'l> {
-    data: &'l mut[u8],
-    desc: &'l[Type],
-    stride: usize,
-}
-
-impl<'l> DynamicallyTypedSlice<'l> {
-    pub fn new<T>(data: &'l[T], desc: &'l[Type]) -> DynamicallyTypedSlice<'l> {
-        DynamicallyTypedSlice {
-            data: unsafe {
-                mem::transmute((
-                    data.as_ptr() as *mut T,
-                    data.len() * mem::size_of::<T>()
-                ))
-            },
-            desc: desc,
-            stride: mem::size_of::<T>(),
-        }
-    }
-
-    pub fn from_slice<T: StructDataType>(data: &'l[T]) -> DynamicallyTypedSlice<'l> {
-        DynamicallyTypedSlice {
-            data: unsafe {
-                mem::transmute((
-                    data.as_ptr() as *mut T,
-                    data.len() * mem::size_of::<T>()
-                ))
-            },
-            desc: struct_type_of::<T>(),
-            stride: mem::size_of::<T>(),
-        }
-    }
-
-    pub fn get_type(&'l self) -> &'l[Type] {
-        &self.desc[]
-    }
-
-    pub fn as_slice<T>(&'l self) -> &'l[T] {
-        assert!(mem::size_of::<T>() == self.stride);
-        return unsafe {
-            mem::transmute((
-                self.data.as_ptr() as *const T,
-                self.data.len() / self.stride,
-            ))
-        };
-    }
-
-    pub fn as_mut_slice<T>(&'l mut self) -> &'l mut[T] {
-        assert!(mem::size_of::<T>() == self.stride);
-        return unsafe {
-            mem::transmute((
-                self.data.as_ptr() as *mut T,
-                self.data.len() / self.stride,
-            ))
-        };
-    }
-
-    pub fn as_byte_slice(&'l self) -> &'l[u8] {
-        return &self.data[];
-    }
-
-    pub fn as_mut_byte_slice(&'l mut self) -> &'l mut[u8] {
-        return self.data.as_mut_slice();
-    }
-
-    pub fn len(&self) -> usize { self.data.len() / self. stride as usize }
-
-    pub fn byte_len(&self) -> usize { self.data.len() }
-}
+//pub fn type_of<T: DataType>() -> Type {
+//    let wrapper: TypeResult<T> = DataType::data_type();
+//    return wrapper.data_type;
+//}
+//
+//pub fn struct_type_of<T: StructDataType>() -> &'static[Type] {
+//    let wrapper: StructTypeResult<T> = StructDataType::data_type();
+//    return wrapper.data_type;
+//}
+//
+//pub trait DataType {
+//    fn data_type() -> TypeResult<z>;
+//}
+//pub struct TypeResult<T> { pub data_type: Type }
+//
+//pub trait StructDataType {
+//    fn data_type() -> StructTypeResult<Self>;
+//}
+//pub struct StructTypeResult<T> { pub data_type: &'static[Type] }
+//
+//
+//const F32_DATA_TYPE: &'static[Type] = &[F32];
+//const U32_DATA_TYPE: &'static[Type] = &[U32];
+//const I32_DATA_TYPE: &'static[Type] = &[I32];
+//const U16_DATA_TYPE: &'static[Type] = &[U16];
+//const I16_DATA_TYPE: &'static[Type] = &[I16];
+//const U8_DATA_TYPE:  &'static[Type] = &[U8];
+//const I8_DATA_TYPE:  &'static[Type] = &[I8];
+//
+//impl StructDataType for f32 { fn data_type() -> StructTypeResult<f32> { StructTypeResult{data_type: F32_DATA_TYPE } } }
+//impl StructDataType for u32 { fn data_type() -> StructTypeResult<u32> { StructTypeResult{data_type: U32_DATA_TYPE } } }
+//impl StructDataType for i32 { fn data_type() -> StructTypeResult<i32> { StructTypeResult{data_type: I32_DATA_TYPE } } }
+//impl StructDataType for u16 { fn data_type() -> StructTypeResult<u16> { StructTypeResult{data_type: U16_DATA_TYPE } } }
+//impl StructDataType for i16 { fn data_type() -> StructTypeResult<i16> { StructTypeResult{data_type: I16_DATA_TYPE } } }
+//impl StructDataType for u8  { fn data_type() -> StructTypeResult<u8>  { StructTypeResult{data_type: U8_DATA_TYPE } } }
+//impl StructDataType for i8  { fn data_type() -> StructTypeResult<i8>  { StructTypeResult{data_type: I8_DATA_TYPE } } }
+//impl DataType for f32 { fn data_type() -> TypeResult<f32> { TypeResult{data_type: F32 } } }
+//impl DataType for u32 { fn data_type() -> TypeResult<u32> { TypeResult{data_type: U32 } } }
+//impl DataType for i32 { fn data_type() -> TypeResult<i32> { TypeResult{data_type: I32 } } }
+//impl DataType for u16 { fn data_type() -> TypeResult<u16> { TypeResult{data_type: U16 } } }
+//impl DataType for i16 { fn data_type() -> TypeResult<i16> { TypeResult{data_type: I16 } } }
+//impl DataType for u8  { fn data_type() -> TypeResult<u8>  { TypeResult{data_type: U8 } } }
+//impl DataType for i8  { fn data_type() -> TypeResult<i8>  { TypeResult{data_type: I8 } } }
+//
+//
+//
+//pub struct DynamicallyTypedSlice<'l> {
+//    data: &'l mut[u8],
+//    desc: &'l[Type],
+//    stride: usize,
+//}
+//
+//impl<'l> DynamicallyTypedSlice<'l> {
+//    pub fn new<T>(data: &'l[T], desc: &'l[Type]) -> DynamicallyTypedSlice<'l> {
+//        DynamicallyTypedSlice {
+//            data: unsafe {
+//                mem::transmute((
+//                    data.as_ptr() as *mut T,
+//                    data.len() * mem::size_of::<T>()
+//                ))
+//            },
+//            desc: desc,
+//            stride: mem::size_of::<T>(),
+//        }
+//    }
+//
+//    pub fn from_slice<T: StructDataType>(data: &'l[T]) -> DynamicallyTypedSlice<'l> {
+//        DynamicallyTypedSlice {
+//            data: unsafe {
+//                mem::transmute((
+//                    data.as_ptr() as *mut T,
+//                    data.len() * mem::size_of::<T>()
+//                ))
+//            },
+//            desc: struct_type_of::<T>(),
+//            stride: mem::size_of::<T>(),
+//        }
+//    }
+//
+//    pub fn get_type(&'l self) -> &'l[Type] {
+//        &self.desc[]
+//    }
+//
+//    pub fn as_slice<T>(&'l self) -> &'l[T] {
+//        assert!(mem::size_of::<T>() == self.stride);
+//        return unsafe {
+//            mem::transmute((
+//                self.data.as_ptr() as *const T,
+//                self.data.len() / self.stride,
+//            ))
+//        };
+//    }
+//
+//    pub fn as_mut_slice<T>(&'l mut self) -> &'l mut[T] {
+//        assert!(mem::size_of::<T>() == self.stride);
+//        return unsafe {
+//            mem::transmute((
+//                self.data.as_ptr() as *mut T,
+//                self.data.len() / self.stride,
+//            ))
+//        };
+//    }
+//
+//    pub fn as_byte_slice(&'l self) -> &'l[u8] {
+//        return &self.data[];
+//    }
+//
+//    pub fn as_mut_byte_slice(&'l mut self) -> &'l mut[u8] {
+//        return self.data.as_mut_slice();
+//    }
+//
+//    pub fn len(&self) -> usize { self.data.len() / self. stride as usize }
+//
+//    pub fn byte_len(&self) -> usize { self.data.len() }
+//}

@@ -2,9 +2,10 @@
 macro_rules! declare_unit (
     ($module:ident) => (
         pub mod $module {
+            use std::marker::PhantomData;
             use vector;
 
-            #[derive(Copy, Clone, Show)]
+            #[derive(Copy, Clone, Debug)]
             pub struct Unit;
 
             pub type Rectangle = vector::Rectangle<Unit>;
@@ -16,25 +17,26 @@ macro_rules! declare_unit (
             pub type Mat2 = vector::Matrix2x2<Unit>;
 
             pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rectangle {
-                vector::Rectangle { x: x, y: y, w: w, h: h }
+                vector::Rectangle { x: x, y: y, w: w, h: h, _unit: PhantomData }
             }
 
             pub fn vec2(x: f32, y: f32) -> Vec2 {
-                vector::Vector2D { x: x, y: y }
+                vector::Vector2D { x: x, y: y, _unit: PhantomData }
             }
 
             pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
-                vector::Vector3D { x: x, y: y, z: z }
+                vector::Vector3D { x: x, y: y, z: z, _unit: PhantomData }
             }
 
             pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
-                vector::Vector4D { x: x, y: y, z: z, w: w }
+                vector::Vector4D { x: x, y: y, z: z, w: w, _unit: PhantomData }
             }
 
             pub fn mat2(a11: f32, a21: f32, a12: f32, a22:f32) -> Mat2 {
                 vector::Matrix2x2 {
                     _11: a11, _21: a21,
-                    _12: a12, _22: a22
+                    _12: a12, _22: a22,
+                    _unit: PhantomData
                 }
             }
 
@@ -47,53 +49,54 @@ macro_rules! declare_unit (
                     _11: a11, _21: a21, _31: a31,
                     _12: a12, _22: a22, _32: a32,
                     _13: a13, _23: a23, _33: a33,
+                    _unit: PhantomData
                 }
             }
 
-            pub mod Mat4 {
-                use super::Mat4;
-                use super::Vec3;
-                use vector::Matrix4x4;
-                pub fn identity() -> Mat4 { Matrix4x4::identity() }
-                pub fn perspective(
-                    fovy: f32, aspect: f32,
-                    near: f32, far: f32
-                ) -> Mat4 {
-                    let mut mat = identity();
-                    Matrix4x4::perspective(fovy, aspect, near, far, &mut mat);
-                    return mat;
-                }
-
-                pub fn scale(s: &Vec3) -> Mat4 { Matrix4x4::scale(s) }
-
-                pub fn translation(v: &Vec3) -> Mat4 { Matrix4x4::translation(v) }
-
-                pub fn rotation(rad: f32, s: &Vec3) -> Mat4 {
-                    let mut m = identity();
-                    m.rotate(rad, s);
-                    return m;
-                }
-            }
-
-            pub mod Mat3 {
-                use super::Mat3;
-                use super::Vec2;
-                use vector::Matrix3x3;
-
-                pub fn identity() -> Mat3 { Matrix3x3::identity() }
-
-                pub fn scale(s: &Vec2) -> Mat3 { Matrix3x3::scale(s) }
-
-                pub fn rotation(rad: f32) -> Mat3 { Matrix3x3::rotation(rad) }
-
-                pub fn translation(v: &Vec2) -> Mat3 { Matrix3x3::translation(v) }
-            }
-
-            pub mod Mat2 {
-                use super::Mat2;
-                use vector::Matrix2x2;
-                pub fn identity() -> Mat2 { Matrix2x2::identity() }
-            }
+//            pub mod Mat4 {
+//                use super::Mat4;
+//                use super::Vec3;
+//                use vector::Matrix4x4;
+//                pub fn identity() -> Mat4 { Matrix4x4::identity() }
+//                pub fn perspective(
+//                    fovy: f32, aspect: f32,
+//                    near: f32, far: f32
+//                ) -> Mat4 {
+//                    let mut mat = identity();
+//                    Matrix4x4::perspective(fovy, aspect, near, far, &mut mat);
+//                    return mat;
+//                }
+//
+//                pub fn scale(s: &Vec3) -> Mat4 { Matrix4x4::scale(s) }
+//
+//                pub fn translation(v: &Vec3) -> Mat4 { Matrix4x4::translation(v) }
+//
+//                pub fn rotation(rad: f32, s: &Vec3) -> Mat4 {
+//                    let mut m = identity();
+//                    m.rotate(rad, s);
+//                    return m;
+//                }
+//            }
+//
+//            pub mod Mat3 {
+//                use super::Mat3;
+//                use super::Vec2;
+//                use vector::Matrix3x3;
+//
+//                pub fn identity() -> Mat3 { Matrix3x3::identity() }
+//
+//                pub fn scale(s: &Vec2) -> Mat3 { Matrix3x3::scale(s) }
+//
+//                pub fn rotation(rad: f32) -> Mat3 { Matrix3x3::rotation(rad) }
+//
+//                pub fn translation(v: &Vec2) -> Mat3 { Matrix3x3::translation(v) }
+//            }
+//
+//            pub mod Mat2 {
+//                use super::Mat2;
+//                use vector::Matrix2x2;
+//                pub fn identity() -> Mat2 { Matrix2x2::identity() }
+//            }
         }
     )
 );
