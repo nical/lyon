@@ -269,7 +269,7 @@ pub fn is_y_monotone<T:Copy+Show>(kernel: &ConnectivityKernel, path: &[Vector2D<
     return true;
 }
 
-// TODO[nical] there's probably a general Writer thingy in std
+// TODO[nical] there's probably a generic Writer thingy in std
 pub trait TriangleStream {
     fn write(&mut self, a: u16, b: u16, c: u16);
     fn count(&self) -> usize;

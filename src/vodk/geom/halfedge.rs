@@ -839,6 +839,35 @@ fn test_from_loop() {
 }
 
 #[test]
+fn test_hole() {
+    let mut kernel = ConnectivityKernel::from_loop(5);
+    let f1 = kernel.first_face();
+    kernel.add_hole(f1, 3);
+
+    assert_eq!(kernel.edge(edge_id(0)).face, f1);
+    assert_eq!(kernel.edge(edge_id(1)).face, f1);
+    assert_eq!(kernel.edge(edge_id(2)).face, f1);
+    assert_eq!(kernel.edge(edge_id(3)).face, f1);
+    assert_eq!(kernel.edge(edge_id(4)).face, f1);
+
+    assert!(kernel.edge(edge_id(5)).face != f1);
+    assert!(kernel.edge(edge_id(6)).face != f1);
+    assert!(kernel.edge(edge_id(7)).face != f1);
+    assert!(kernel.edge(edge_id(8)).face != f1);
+    assert!(kernel.edge(edge_id(9)).face != f1);
+
+    assert_eq!(kernel.edge(edge_id(10)).face, f1);
+    assert_eq!(kernel.edge(edge_id(11)).face, f1);
+    assert_eq!(kernel.edge(edge_id(12)).face, f1);
+
+    assert!(kernel.edge(edge_id(13)).face != f1);
+    assert!(kernel.edge(edge_id(14)).face != f1);
+    assert!(kernel.edge(edge_id(15)).face != f1);
+
+    assert_eq!(kernel.edge(kernel.edge(edge_id(13)).opposite).face, f1);
+}
+
+#[test]
 fn test_split_face_1() {
     let mut kernel = ConnectivityKernel::from_loop(4);
     let f1 = kernel.first_face();
