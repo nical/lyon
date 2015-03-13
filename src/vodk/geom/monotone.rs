@@ -9,9 +9,11 @@ use std::num::Float;
 use std::cmp::{Ordering, PartialOrd};
 use std::iter::FromIterator;
 use std::collections::HashMap;
-use math::units::world;
 use std::fmt::Show;
 use std::mem::swap;
+
+#[cfg(test)]
+use math::units::world;
 
 #[derive(Show, Copy, Clone)]
 enum VertexType {
@@ -132,20 +134,6 @@ pub fn y_monotone_decomposition<T: Copy+Show>(
             sorted_edges.push(e);
         }
     }
-//    let mut hole = kernel.face(face_id).first_interrior;
-//    loop {
-//        if !hole.is_valid() {
-//            break;
-//        }
-//
-//        let hole_opposite = kernel.edge(kernel.face(hole).first_edge).opposite;
-//        for e in kernel.walk_edges(hole_opposite) {
-//            println!(" -- walk_edges_around_face hole ");
-//            sorted_edges.push(e);
-//        }
-//
-//        hole = kernel.face(hole).next_sibling;
-//    }
 
     // sort indices by increasing y coordinate of the corresponding vertex
     sorted_edges.sort_by(|a, b| {
@@ -396,11 +384,6 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
         swap(&mut m, &mut o);
     }
 
-    //vertex_stack.push(m.prev());
-    //vertex_stack.push(m);
-    //println!(" -- push first vertex {} to stack", m.prev().vertex_id().as_index());
-    //println!(" -- push second vertex {} to stack", m.vertex_id().as_index());
-
     m = m.prev();
     // previous
     let mut p = m;
@@ -519,12 +502,6 @@ pub fn y_monotone_triangulation<T: Copy+Show, Triangles: TriangleStream>(
     assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
 }
 
-#[derive(Copy)]
-pub struct TriangulationDescriptor<'l, T> {
-    vertices: &'l[Vector2D<T>],
-    holes: &'l[u16],
-}
-
 pub fn triangulate_faces<T:Copy+Show>(
     kernel: &mut ConnectivityKernel,
     faces: &[FaceId],
@@ -540,7 +517,6 @@ pub fn triangulate_faces<T:Copy+Show>(
         y_monotone_decomposition(kernel, *f, vertices, &mut new_faces);
     }
 
-    let indices_len = indices.len();
     let mut triangles = SliceTriangleStream::new(&mut indices[]);
     for &f in new_faces.iter() {
         assert!(is_y_monotone(kernel, vertices, f));
@@ -551,52 +527,7 @@ pub fn triangulate_faces<T:Copy+Show>(
         );
     }
 
-//    TODO this is not true for shapes with holes
-//    assert_eq!(triangles.count(), vertices.len() - 2);
     return triangles.count() * 3;
-}
-
-/// Returns the number of indices added for convenience
-pub fn triangulate<T: Copy+Show>(
-    inputs: TriangulationDescriptor<T>,
-    indices: &mut[u16]
-) -> usize {
-
-    let path = inputs.vertices;
-    // num triangles = num vertices - 2
-    assert!(indices.len() / 3 >= path.len() - 2);
-
-    let first_face = FaceId { handle: 1 };
-
-    //let loop_len = if inputs.holes.len() > 0 { }
-
-    let mut kernel = ConnectivityKernel::from_loop(path.len() as u16);
-    let mut new_faces: Vec<FaceId> = vec!(first_face);
-
-    for hole in inputs.holes.iter() {
-        //kernel.add_hole(first_face, hole.len() as u16);
-    }
-
-    y_monotone_decomposition(&mut kernel, first_face, path, &mut new_faces);
-
-    let indices_len = indices.len();
-    let mut triangles = SliceTriangleStream::new(&mut indices[]);
-    for &f in new_faces.iter() {
-        assert!(is_y_monotone(&kernel, path, f));
-        y_monotone_triangulation(
-            &kernel, f,
-            path,
-            &mut triangles
-        );
-    }
-
-    assert_eq!(triangles.count(), path.len() - 2);
-    return triangles.count() * 3;
-}
-
-#[cfg(test)]
-fn make_kernel(path: &[world::Vec2]) -> ConnectivityKernel {
-    return ConnectivityKernel::from_loop(path.len() as u16);
 }
 
 #[test]
@@ -672,11 +603,9 @@ fn test_triangulate() {
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. paths.len() {
         println!("\n\n -- path {}", i);
-        let desc = TriangulationDescriptor {
-            vertices: &paths[i][],
-            holes: &[],
-        };
-        triangulate(desc, indices);
+        let mut kernel = ConnectivityKernel::from_loop(paths[i].len() as u16);
+        let main_face = kernel.first_face();
+        triangulate_faces(&mut kernel, &[main_face], &paths[i][], indices);
     }
 }
 

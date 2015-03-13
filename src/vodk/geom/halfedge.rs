@@ -417,7 +417,6 @@ impl ConnectivityKernel {
         // TODO[nical] factor the code with add_loop
         assert!(face1 != face2);
         let edge_offset = self.edges.len() as Index;
-        let vertex_offset = self.vertices.len() as Index;
         let first_inner_edge = edge_id(self.edges.len() as Index);
         let n_vertices = vertices.len() as Index;
 
@@ -521,14 +520,14 @@ impl ConnectivityKernel {
         let new_face = face_id(self.faces.len() as Index);
         println!(" add a loop with {} vertices ", n_vertices);
 
-        let (inner_edge, outer_edge) = self.add_loop(n_vertices, face, new_face);
+        let (exterior, _) = self.add_loop(n_vertices, face, new_face);
 
         self.faces.push(Face {
-            first_edge: inner_edge,
+            first_edge: exterior,
             inner_edges: vec!(),
         });
 
-        self.face_mut(face).inner_edges.push(inner_edge);
+        self.face_mut(face).inner_edges.push(exterior);
 
         return new_face;
     }
@@ -798,7 +797,7 @@ fn modulo(v: i32, m: i32) -> i32 { (v%m+m)%m }
 
 #[test]
 fn test_from_loop() {
-    for n in range(3, 10) {
+    for n in 3 .. 10 {
         let kernel = ConnectivityKernel::from_loop(n);
         let face = kernel.first_face();
 
@@ -821,11 +820,9 @@ fn test_from_loop() {
             assert_eq!(kernel.edge(kernel.edge(e).prev).next, e);
         }
 
-        let mut i = 0;
         for e in kernel.walk_edges_around_face_reverse(face) {
             assert!((e.handle as usize - 1) < kernel.edges.len());
             assert_eq!(kernel.edge(e).face, face);
-            i += 1;
         }
 
         let face2 = kernel.edge(kernel.edge(kernel.face(face).first_edge).opposite).face;
@@ -910,7 +907,6 @@ fn test_split_face_2() {
     let e2 = kernel.edge(e1).next;
     let e3 = kernel.edge(e2).next;
     let e4 = kernel.edge(e3).next;
-    let e5 = kernel.edge(e4).next;
 
     let f2 = kernel.split_face(e4, e2).unwrap();
 
