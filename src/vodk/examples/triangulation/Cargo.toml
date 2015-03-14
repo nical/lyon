@@ -1,0 +1,30 @@
+[package]
+name = "triangulation_example"
+version = "0.0.1"
+authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+
+[[bin]]
+name = "vertex_aa_example"
+path = "./main.rs"
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs"
+
+[dependencies.glutin]
+git = "https://github.com/tomaka/glutin"
+
+[dependencies.data]
+path = "../../data/"
+
+[dependencies.math]
+path = "../../math/"
+
+[dependencies.gpu]
+path = "../../gpu/"
+
+[dependencies.gfx2d]
+path = "../../gfx2d/"
+
+[dependencies.geom]
+path = "../../geom/"
+
