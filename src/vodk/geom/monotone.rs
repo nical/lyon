@@ -101,7 +101,6 @@ pub fn split_face(
     loop {
         loop {
             if kernel[a].face == kernel[b].face  {
-                println!(" -- ok ");
                 ok = true;
                 break;
             }
@@ -288,7 +287,7 @@ impl<'l> TriangleStream for SliceTriangleStream<'l> {
         assert!(c != a);
         self.indices[self.offset] = a;
         self.indices[self.offset+1] = b;
-        self.indices[self.offset+3] = c;
+        self.indices[self.offset+2] = c;
         self.offset += 3;
     }
 
@@ -550,12 +549,6 @@ fn test_triangulate() {
             world::vec2(-1.0, 1.0),
         ],
         &[
-            world::vec2(1.0, 2.0),
-            world::vec2(1.5, 3.0),
-            world::vec2(0.0, 4.0),
-            world::vec2(-1.0, 1.0),
-        ],
-        &[
             world::vec2(0.0, 0.0),
             world::vec2(3.0, 0.0),
             world::vec2(2.0, 1.0),
@@ -605,7 +598,10 @@ fn test_triangulate() {
         println!("\n\n -- path {:?}", i);
         let mut kernel = ConnectivityKernel::from_loop(paths[i].len() as u16);
         let main_face = kernel.first_face();
-        triangulate_faces(&mut kernel, &[main_face], &paths[i][..], indices);
+        let n_indices = triangulate_faces(&mut kernel, &[main_face], &paths[i][..], indices);
+        for n in 0 .. n_indices/3 {
+            println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
+        }
     }
 }
 
@@ -638,6 +634,25 @@ fn test_triangulate_holes() {
                 world::vec2(-4.0, 2.0),
             ],
             &[ 4, 3 ]
+        ),
+        (
+            &[
+                // outer
+                world::vec2(-10.0, -10.0),
+                world::vec2( 10.0, -10.0),
+                world::vec2( 10.0,  10.0),
+                world::vec2(-10.0,  10.0),
+                // hole 1
+                world::vec2(-8.0, 8.0),
+                world::vec2(4.0, 8.0),
+                world::vec2(-4.0, -8.0),
+                world::vec2(-8.0, -8.0),
+                // hole 2
+                world::vec2(-2.0, -8.0),
+                world::vec2(6.0, 7.0),
+                world::vec2(8.0, -8.0),
+            ],
+            &[ 4, 4, 3 ]
         ),
     ];
 
