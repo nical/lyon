@@ -60,7 +60,7 @@ impl<T: Copy> IdRange<T> {
     }
 
     pub fn get(&self, i: u16) -> Id<T> {
-        assert!(i < self.count);
+        debug_assert!(i < self.count);
         return Id { handle: self.first.handle + i, _marker: PhantomData };
     }
 }
@@ -98,32 +98,32 @@ pub struct ConnectivityKernel {
 impl ConnectivityKernel {
 
     pub fn vertex(&self, id: VertexId) -> &Vertex {
-        assert!(id.is_valid());
+        debug_assert!(id.is_valid());
         &self.vertices[id.handle as usize]
     }
 
     fn vertex_mut(&mut self, id: VertexId) -> &mut Vertex {
-        assert!(id.is_valid());
+        debug_assert!(id.is_valid());
         &mut self.vertices[id.handle as usize]
     }
     
     pub fn face(&self, id: FaceId) -> &Face {
-        assert!(id.is_valid());
+        debug_assert!(id.is_valid());
         &self.faces[id.handle as usize]
     }
 
     fn face_mut(&mut self, id: FaceId) -> &mut Face {
-        assert!(id.is_valid());
+        debug_assert!(id.is_valid());
         &mut self.faces[id.handle as usize]
     }
     
     pub fn edge(&self, id: EdgeId) -> &HalfEdge {
-        assert!(id.is_valid());
+        debug_assert!(id.is_valid());
         &self.edges[id.handle as usize]
     }
 
     fn edge_mut(&mut self, id: EdgeId) -> &mut HalfEdge {
-        assert!(id.is_valid());
+        debug_assert!(id.is_valid());
         &mut self.edges[id.handle as usize]
     }
 
@@ -194,21 +194,21 @@ impl ConnectivityKernel {
         return self.edge(self.edge(id).opposite).next;
     }
 
-    pub fn assert_edge_invariants(&self, id: EdgeId) {
-        assert_eq!(self.edge(self.edge(id).opposite).opposite, id);
-        assert_eq!(self.edge(self.edge(id).next).prev, id);
-        assert_eq!(self.edge(self.edge(id).prev).next, id);
-        assert_eq!(
+    pub fn debug_assert_edge_invariants(&self, id: EdgeId) {
+        debug_assert_eq!(self.edge(self.edge(id).opposite).opposite, id);
+        debug_assert_eq!(self.edge(self.edge(id).next).prev, id);
+        debug_assert_eq!(self.edge(self.edge(id).prev).next, id);
+        debug_assert_eq!(
             self.edge(id).vertex,
             self.edge(self.edge(self.edge(id).opposite).next).vertex
         );
-        assert_eq!(self.edge(id).face, self.edge(self.edge(id).next).face);
-        assert_eq!(self.edge(id).face, self.edge(self.edge(id).prev).face);
+        debug_assert_eq!(self.edge(id).face, self.edge(self.edge(id).next).face);
+        debug_assert_eq!(self.edge(id).face, self.edge(self.edge(id).prev).face);
     }
 
-    pub fn assert_face_invariants(&self, face: FaceId) {
+    pub fn debug_assert_face_invariants(&self, face: FaceId) {
         for e in self.walk_edges_around_face(face) {
-            self.assert_edge_invariants(e);
+            self.debug_assert_edge_invariants(e);
         }
     }
 
@@ -294,11 +294,11 @@ impl ConnectivityKernel {
         let a_prev = self.edge(a_next).prev;
         let b_prev = self.edge(b_next).prev;
 
-        self.assert_face_invariants(original_face);
+        self.debug_assert_face_invariants(original_face);
 
-        assert_eq!(original_face, self.edge(b_prev).face);
-        assert!(self.edge(a_next).next != b_next);
-        assert!(a_prev != b_next);
+        debug_assert_eq!(original_face, self.edge(b_prev).face);
+        debug_assert!(self.edge(a_next).next != b_next);
+        debug_assert!(a_prev != b_next);
 
         let va = self.edge(a_next).vertex;
         let vb = self.edge(b_next).vertex;
@@ -345,8 +345,8 @@ impl ConnectivityKernel {
             if it == new_opposite_edge { break; }
         }
 
-        self.assert_face_invariants(original_face);
-        self.assert_face_invariants(opposite_face);
+        self.debug_assert_face_invariants(original_face);
+        self.debug_assert_face_invariants(opposite_face);
 
         return if add_face {
             Some(opposite_face)
@@ -502,8 +502,8 @@ impl ConnectivityKernel {
             }
         ];
 
-        kernel.assert_face_invariants(main_face);
-        kernel.assert_face_invariants(back_face);
+        kernel.debug_assert_face_invariants(main_face);
+        kernel.debug_assert_face_invariants(back_face);
 
         return kernel;
     }

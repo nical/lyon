@@ -107,7 +107,7 @@ pub fn split_face(
         }
         if ok { break; }
         b = kernel.next_edge_around_vertex(b);
-        assert!(b != first_b);
+        debug_assert!(b != first_b);
     }
 
     if let Some(new_face) = kernel.split_face(a, b) {
@@ -252,9 +252,9 @@ pub struct SliceTriangleStream<'l> {
 
 impl<'l> TriangleStream for SliceTriangleStream<'l> {
     fn write(&mut self, a: u16, b: u16, c: u16) {
-        assert!(a != b);
-        assert!(b != c);
-        assert!(c != a);
+        debug_assert!(a != b);
+        debug_assert!(b != c);
+        debug_assert!(c != a);
         self.indices[self.offset] = a;
         self.indices[self.offset+1] = b;
         self.indices[self.offset+2] = c;
@@ -299,7 +299,7 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
     // find the bottom-most vertex (with the highest y value)
     let mut big_y = path[down.vertex_id().as_index()].y;
     loop {
-        assert_eq!(down.face_id(), face);
+        debug_assert_eq!(down.face_id(), face);
         down = down.next();
         let new_y = path[down.vertex_id().as_index()].y;
         if new_y < big_y {
@@ -312,7 +312,7 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
     // find the top-most vertex (with the smallest y value)
     let mut small_y = path[up.vertex_id().as_index()].y;
     loop {
-        assert_eq!(up.face_id(), face);
+        debug_assert_eq!(up.face_id(), face);
         up = up.next();
         let new_y = path[up.vertex_id().as_index()].y;
         if new_y > small_y {
@@ -428,10 +428,10 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
         i += 1;
         p = m;
         m = m.next();
-        assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
+        debug_assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
     }
     let num_triangles = triangles.count() - initial_triangle_count;
-    assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
+    debug_assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
 }
 
 pub fn triangulate_faces<T:Copy+Debug>(
@@ -451,7 +451,7 @@ pub fn triangulate_faces<T:Copy+Debug>(
 
     let mut triangles = SliceTriangleStream::new(&mut indices[..]);
     for &f in new_faces.iter() {
-        assert!(is_y_monotone(kernel, vertices, f));
+        debug_assert!(is_y_monotone(kernel, vertices, f));
         y_monotone_triangulation(
             kernel, f,
             vertices,
@@ -605,5 +605,4 @@ fn test_triangulate_holes() {
             println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
         }
     }
-    panic!();
 }
