@@ -1,6 +1,10 @@
-use std::cmp::PartialEq;
 use std::ops;
 use std::u16;
+
+use iterators::{
+    FaceEdgeIterator, ReverseFaceEdgeIterator, DirectedEdgeCirculator,
+    IdRangeIterator, Direction
+};
 
 pub type Index = u16;
 use std::marker::PhantomData;
@@ -21,26 +25,17 @@ pub type VertexId = Id<Vertex_>;
 pub type EdgeId = Id<Edge_>;
 pub type FaceId = Id<Face_>;
 
-impl EdgeId {
+impl<T> Id<T> {
     pub fn is_valid(self) -> bool { self.handle != u16::MAX }
     pub fn as_index(self) -> usize { self.handle as usize }
+    pub fn from_usize(idx: usize) -> Id<T> { Id { handle: idx as u16, _marker: PhantomData } }
 }
 
-impl FaceId {
-    pub fn is_valid(self) -> bool { self.handle != u16::MAX }
-    pub fn as_index(self) -> usize { self.handle as usize }
-}
+pub fn no_edge() -> EdgeId { edge_id(u16::MAX) }
 
-impl VertexId {
-    pub fn is_valid(self) -> bool { self.handle != u16::MAX }
-    pub fn as_index(self) -> usize { self.handle as usize }
-}
+pub fn no_face() -> FaceId { face_id(u16::MAX) }
 
-pub fn no_edge() -> EdgeId { EdgeId { handle: u16::MAX, _marker: PhantomData } }
-
-pub fn no_face() -> FaceId { FaceId { handle: u16::MAX, _marker: PhantomData } }
-
-pub fn no_vertex() -> VertexId { VertexId { handle: u16::MAX, _marker: PhantomData } }
+pub fn no_vertex() -> VertexId { vertex_id(u16::MAX) }
 
 pub fn edge_id(index: Index) -> EdgeId { EdgeId { handle: index, _marker: PhantomData } }
 
@@ -55,11 +50,11 @@ pub struct IdRange<T> {
 }
 
 impl<T: Copy> IdRange<T> {
-    pub fn iter(&self) -> IdRangeIterator<T> {
-        return IdRangeIterator { range: *self };
+    pub fn iter(self) -> IdRangeIterator<T> {
+        return IdRangeIterator::new(self);
     }
 
-    pub fn get(&self, i: u16) -> Id<T> {
+    pub fn get(self, i: u16) -> Id<T> {
         debug_assert!(i < self.count);
         return Id { handle: self.first.handle + i, _marker: PhantomData };
     }
@@ -139,55 +134,40 @@ impl ConnectivityKernel {
 
     pub fn first_vertex(&self) -> VertexId { vertex_id(0) }
 
-    pub fn vertex_ids(&self) -> VertexIdIterator {
-        VertexIdIterator {
-            current: 0,
-            stop: self.vertices.len() as Index,
-        }
-    }
-
-    pub fn edge_ids(&self) -> EdgeIdIterator {
-        EdgeIdIterator {
-            current: 0,
-            stop: self.edges.len() as Index,
-        }
-    }
-
-    pub fn face_ids(&self) -> FaceIdIterator {
-        FaceIdIterator {
-            current: 0,
-            stop: self.faces.len() as Index,
-        }
-    }
+//    pub fn vertex_ids(&self) -> VertexIdIterator {
+//        VertexIdIterator {
+//            current: 0,
+//            stop: self.vertices.len() as Index,
+//        }
+//    }
+//
+//    pub fn edge_ids(&self) -> EdgeIdIterator {
+//        EdgeIdIterator {
+//            current: 0,
+//            stop: self.edges.len() as Index,
+//        }
+//    }
+//
+//    pub fn face_ids(&self) -> FaceIdIterator {
+//        FaceIdIterator {
+//            current: 0,
+//            stop: self.faces.len() as Index,
+//        }
+//    }
 
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
         let prev = self.edge(edge).prev;
-        return FaceEdgeIterator {
-            kernel: self,
-            current_edge: edge,
-            last_edge: prev,
-            done: false,
-        }
+        FaceEdgeIterator::new(self, edge, prev)
     }
 
     pub fn walk_edges<'l>(&'l self, first: EdgeId) -> FaceEdgeIterator<'l> {
-        return FaceEdgeIterator {
-            kernel: self,
-            current_edge: first,
-            last_edge: self.edge(first).prev,
-            done: false,
-        }
+        FaceEdgeIterator::new(self, first, self.edge(first).prev)
     }
 
     pub fn walk_edges_around_face_reverse<'l>(&'l self, id: FaceId) -> ReverseFaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
-        return ReverseFaceEdgeIterator {
-            kernel: self,
-            current_edge: edge,
-            last_edge: self.edge(edge).next,
-            done: false,
-        }
+        ReverseFaceEdgeIterator::new(self, edge, self.edge(edge).next)
     }
 
     pub fn next_edge_around_vertex(&self, id: EdgeId) -> EdgeId {
@@ -551,268 +531,6 @@ impl ops::IndexMut<FaceId> for ConnectivityKernel {
     fn index_mut<'l>(&'l mut self, id: &FaceId) -> &'l mut Face { self.face_mut(*id) }
 }
 
-/// Iterates over the half edges around a face.
-pub struct FaceEdgeIterator<'l> {
-    kernel: &'l ConnectivityKernel,
-    current_edge: EdgeId,
-    last_edge: EdgeId,
-    done: bool,
-}
-
-impl<'l> Iterator for FaceEdgeIterator<'l> {
-    type Item = EdgeId;
-
-    fn next(&mut self) -> Option<EdgeId> {
-        let res = self.current_edge;
-        if self.done {
-            return None;
-        }
-        if self.current_edge == self.last_edge {
-            self.done = true;
-        }
-        self.current_edge = self.kernel.edge(self.current_edge).next;
-        return Some(res);
-    }
-}
-
-/// Iterates over the half edges around a face in reverse order.
-pub struct ReverseFaceEdgeIterator<'l> {
-    kernel: &'l ConnectivityKernel,
-    current_edge: EdgeId,
-    last_edge: EdgeId,
-    done: bool,
-}
-
-impl<'l> Iterator for ReverseFaceEdgeIterator<'l> {
-    type Item = EdgeId;
-
-    fn next(&mut self) -> Option<EdgeId> {
-        let res = self.current_edge;
-        if self.done {
-            return None;
-        }
-        if self.current_edge == self.last_edge {
-            self.done = true;
-        }
-        self.current_edge = self.kernel.edge(self.current_edge).prev;
-        return Some(res);
-    }
-}
-
-/// Iterates over the half edges that point to a vertex.
-pub struct VertexEdgeIterator<'l> {
-    kernel: &'l ConnectivityKernel,
-    current_edge: EdgeId,
-    first_edge: EdgeId,
-}
-
-impl<'l> Iterator for VertexEdgeIterator<'l> {
-    type Item = EdgeId;
-
-    fn next(&mut self) -> Option<EdgeId> {
-        if !self.current_edge.is_valid() {
-            return None;
-        }
-        let temp = self.current_edge;
-        self.current_edge = self.kernel.edge(self.kernel.edge(self.current_edge).next).opposite;
-        if self.current_edge == self.first_edge {
-            self.current_edge = no_edge();
-        }
-        return Some(temp);
-    }
-}
-
-pub struct VertexIdIterator {
-    current: Index,
-    stop: Index,
-}
-
-impl<'l> Iterator for VertexIdIterator {
-    type Item = VertexId;
-
-    fn next(&mut self) -> Option<VertexId> {
-        if self.current == self.stop { return None; }
-        let res = self.current;
-        self.current += 1;
-        return Some(vertex_id(res));
-    }
-}
-
-pub struct EdgeIdIterator {
-    current: Index,
-    stop: Index,
-}
-
-impl<'l> Iterator for EdgeIdIterator {
-    type Item = EdgeId;
-
-    fn next(&mut self) -> Option<EdgeId> {
-        if self.current == self.stop { return None; }
-        let res = self.current;
-        self.current += 1;
-        return Some(edge_id(res));
-    }
-}
-
-pub struct FaceIdIterator {
-    current: Index,
-    stop: Index,
-}
-
-impl<'l> Iterator for FaceIdIterator {
-    type Item = FaceId;
-
-    fn next(&mut self) -> Option<FaceId> {
-        if self.current == self.stop { return None; }
-        let res = self.current;
-        self.current += 1;
-        return Some(face_id(res));
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Direction {
-    Forward,
-    Backward,
-}
-
-impl Direction {
-    pub fn reverse(self) -> Direction {
-        match self {
-            Direction::Forward => Direction::Backward,
-            Direction::Backward => Direction::Forward,
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct EdgeCirculator<'l> {
-    kernel: &'l ConnectivityKernel,
-    edge: EdgeId,
-}
-
-impl<'l> EdgeCirculator<'l> {
-    pub fn new(kernel: &'l ConnectivityKernel, edge: EdgeId) -> EdgeCirculator{
-        EdgeCirculator {
-            kernel: kernel,
-            edge: edge,
-        }
-    }
-
-    pub fn edge(&'l self) -> &'l HalfEdge { self.kernel.edge(self.edge) }
-
-    pub fn next(self) -> EdgeCirculator<'l> {
-        EdgeCirculator {
-            kernel: self.kernel,
-            edge: self.edge().next,
-        }
-    }
-
-    pub fn prev(self) -> EdgeCirculator<'l> {
-        EdgeCirculator {
-            kernel: self.kernel,
-            edge: self.edge().prev,
-        }
-    }
-
-    pub fn advance(self, direction: Direction) -> EdgeCirculator<'l> {
-        match direction {
-            Direction::Forward => self.next(),
-            Direction::Backward => self.prev(),
-        }
-    }
-
-    pub fn edge_id(&self) -> EdgeId { self.edge }
-
-    pub fn vertex_id(&self) -> VertexId { self.edge().vertex }
-
-    pub fn face_id(&self) -> FaceId { self.edge().face }
-}
-
-impl<'l> PartialEq<EdgeCirculator<'l>> for EdgeCirculator<'l> {
-    fn eq(&self, other: &EdgeCirculator) -> bool {
-        return self.edge.eq(&other.edge);
-    }
-    fn ne(&self, other: &EdgeCirculator) -> bool {
-        return self.edge.ne(&other.edge);
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct DirectedEdgeCirculator<'l> {
-    circulator: EdgeCirculator<'l>,
-    direction: Direction,
-}
-
-impl<'l> DirectedEdgeCirculator<'l> {
-    pub fn new(kernel: &'l ConnectivityKernel, edge: EdgeId, direction: Direction) -> DirectedEdgeCirculator {
-        DirectedEdgeCirculator {
-            circulator: EdgeCirculator::new(kernel, edge),
-            direction: direction,
-        }
-    }
-
-    pub fn edge(&'l self) -> &'l HalfEdge { self.circulator.edge() }
-
-    pub fn next(self) -> DirectedEdgeCirculator<'l> {
-        DirectedEdgeCirculator {
-            circulator: self.circulator.advance(self.direction),
-            direction: self.direction,
-        }
-    }
-
-    pub fn prev(self) -> DirectedEdgeCirculator<'l> {
-        DirectedEdgeCirculator {
-            circulator: self.circulator.advance(self.direction.reverse()),
-            direction: self.direction,
-        }
-    }
-
-    pub fn advance(self, direction: Direction) -> DirectedEdgeCirculator<'l> {
-        match self.direction == direction {
-            true => self.next(),
-            false => self.prev(),
-        }
-    }
-
-    pub fn edge_id(&self) -> EdgeId { self.circulator.edge }
-
-    pub fn vertex_id(&self) -> VertexId { self.circulator.vertex_id() }
-
-    pub fn face_id(&self) -> FaceId { self.circulator.face_id() }
-
-    pub fn direction(&self) -> Direction { self.direction }
-
-    pub fn set_direction(&mut self, direction: Direction) { self.direction = direction; }
-}
-
-impl<'l> PartialEq<DirectedEdgeCirculator<'l>> for DirectedEdgeCirculator<'l> {
-    fn eq(&self, other: &DirectedEdgeCirculator) -> bool {
-        return self.circulator.edge.eq(&other.circulator.edge);
-    }
-    fn ne(&self, other: &DirectedEdgeCirculator) -> bool {
-        return self.circulator.edge.ne(&other.circulator.edge);
-    }
-}
-
-#[derive(Clone)]
-pub struct IdRangeIterator<T> {
-    range: IdRange<T>
-}
-
-impl<T:Copy> Iterator for IdRangeIterator<T> {
-    type Item = IdRange<T>;
-    fn next(&mut self) -> Option<IdRange<T>> {
-        if self.range.count == 0 {
-            return None;
-        }
-        let res = self.range;
-        self.range.count -= 1;
-        self.range.first.handle += 1;
-        return Some(res);
-    }
-}
-
 /// A modulo that behaves properly with negative values.
 fn modulo(v: i32, m: i32) -> i32 { (v%m+m)%m }
 
@@ -836,7 +554,8 @@ fn test_from_loop() {
         }
         assert_eq!(i, n);
 
-        for e in kernel.edge_ids() {
+        for i in  0 .. (kernel.edges.len() as u16) {
+            let e = edge_id(i);
             assert_eq!(kernel.edge(kernel.edge(e).opposite).opposite, e);
             assert_eq!(kernel.edge(kernel.edge(e).next).prev, e);
             assert_eq!(kernel.edge(kernel.edge(e).prev).next, e);

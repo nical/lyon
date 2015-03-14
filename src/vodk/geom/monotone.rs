@@ -4,6 +4,7 @@
 // system where y pointing downwards
 
 use halfedge::*;
+use iterators::{Direction, DirectedEdgeCirculator};
 use math::vector::*;
 use std::num::Float;
 use std::cmp::{Ordering, PartialOrd};
