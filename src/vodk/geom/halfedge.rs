@@ -208,7 +208,6 @@ impl ConnectivityKernel {
 
     pub fn assert_face_invariants(&self, face: FaceId) {
         for e in self.walk_edges_around_face(face) {
-            println!("assert edge {:?}", e);
             self.assert_edge_invariants(e);
         }
     }
@@ -282,13 +281,9 @@ impl ConnectivityKernel {
         let b_opposite_face = self.edge(self.edge(b_next).opposite).face;
         let mut add_face = true;
 
-        println!("-- faces: original {:?} opposite_a {:?} opposite_b {:?}", original_face, a_opposite_face, b_opposite_face);
-
         for i in 0 .. self.face(original_face).inner_edges.len() {
             let opposite = self.edge(self.edge(self.face(original_face).inner_edges[i]).opposite).face;
-            println!("-- testing inner opp face: {:?}", opposite);
             if opposite == a_opposite_face || opposite == b_opposite_face {
-                println!(" ---- Don't add a face!");
                 add_face = false;
                 // remove the hole from this face
                 self.face_mut(original_face).inner_edges.remove(i);
@@ -296,15 +291,9 @@ impl ConnectivityKernel {
             }
         }
 
-        println!(" ++++ split vertices {} {} edge {} {}",
-            self.edge(a_next).vertex.as_index(), self.edge(b_next).vertex.as_index(),
-            a_next.as_index(), b_next.as_index()
-        );
-
         let a_prev = self.edge(a_next).prev;
         let b_prev = self.edge(b_next).prev;
 
-        println!(" precondition ");
         self.assert_face_invariants(original_face);
 
         assert_eq!(original_face, self.edge(b_prev).face);
@@ -356,10 +345,7 @@ impl ConnectivityKernel {
             if it == new_opposite_edge { break; }
         }
 
-        println!("original_face");
         self.assert_face_invariants(original_face);
-
-        println!("opposite_face");
         self.assert_face_invariants(opposite_face);
 
         return if add_face {
@@ -524,7 +510,6 @@ impl ConnectivityKernel {
 
     pub fn add_hole(&mut self, face: FaceId, n_vertices: Index) -> FaceId {
         let new_face = face_id(self.faces.len() as Index);
-        println!(" add a loop with {} vertices ", n_vertices);
 
         let (exterior, _) = self.add_loop(n_vertices, face, new_face);
 
@@ -840,7 +825,6 @@ fn test_from_loop() {
 
         assert_eq!(kernel.count_edges_around_face(face) as Index, n);
 
-        println!(" -- A ");
         let mut i = 0;
         for e in kernel.walk_edges_around_face(face) {
             assert!((e.as_index()) < kernel.edges.len());
@@ -852,21 +836,17 @@ fn test_from_loop() {
         }
         assert_eq!(i, n);
 
-        println!(" -- B ");
         for e in kernel.edge_ids() {
-            println!(" -- edge {:?} ", e);
             assert_eq!(kernel.edge(kernel.edge(e).opposite).opposite, e);
             assert_eq!(kernel.edge(kernel.edge(e).next).prev, e);
             assert_eq!(kernel.edge(kernel.edge(e).prev).next, e);
         }
-        println!(" -- C ");
 
         for e in kernel.walk_edges_around_face_reverse(face) {
             assert!((e.as_index()) < kernel.edges.len());
             assert_eq!(kernel.edge(e).face, face);
         }
 
-        println!(" -- D ");
         let face2 = kernel.edge(kernel.edge(kernel.face(face).first_edge).opposite).face;
         let mut i = 0;
         for e in kernel.walk_edges_around_face_reverse(face2) {

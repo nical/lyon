@@ -83,7 +83,6 @@ pub fn sweep_status_push<T:Copy>(
     sweep: &mut Vec<EdgeId>,
     e: &EdgeId
 ) {
-    println!(" -- insert {:?} in sweep status", e.as_index());
     sweep.push(*e);
     sort_x(&mut sweep[..], kernel, path);
 }
@@ -94,7 +93,6 @@ pub fn split_face(
     mut b: EdgeId,
     new_faces: &mut Vec<FaceId>
 ) {
-    println!(" -- split face {:?} {:?}", a, b);
     let first_a = a;
     let first_b = b;
     let mut ok = false;
@@ -124,12 +122,10 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
     new_faces: &mut Vec<FaceId>
 ) {
     let mut sorted_edges: Vec<EdgeId> = FromIterator::from_iter(kernel.walk_edges_around_face(face_id));
-    println!("  A sorted edges: {:?}", sorted_edges);
 
     // also add holes in the sorted edge list
     for inner in kernel.face(face_id).inner_edges.iter() {
         for e in kernel.walk_edges(*inner) {
-            println!(" -- walk_edges_around_face hole ");
             sorted_edges.push(e);
         }
     }
@@ -151,8 +147,6 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
         return Ordering::Equal;
     });
 
-    println!("  B sorted edges: {:?}", sorted_edges);
-
     // list of edges that intercept the sweep line, sorted by increasing x coordinate
     let mut sweep_status: Vec<EdgeId> = vec![];
     let mut helper: HashMap<usize, (EdgeId, VertexType)> = HashMap::new();
@@ -163,14 +157,10 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
         let previous_vertex = path[kernel[edge.prev].vertex.as_index()];
         let next_vertex = path[kernel[edge.next].vertex.as_index()];
         let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
-        println!("\n vertex {:?} (edge {:?}) type {:?}", edge.vertex.as_index(), e.as_index(), vertex_type);
-        println!(" prev vertex {:?} (edge {:?}) ", kernel[edge.prev].vertex.as_index(), edge.prev.as_index());
-        println!(" next vertex {:?} (edge {:?}) ", kernel[edge.next].vertex.as_index(), edge.next.as_index());
 
         match vertex_type {
             VertexType::Start => {
                 sweep_status_push(kernel, path, &mut sweep_status, e);
-                println!("set {:?} as helper of {:?}", e.as_index(), e.as_index());
                 helper.insert(e.as_index(), (*e, VertexType::Start));
             }
             VertexType::End => {
@@ -181,38 +171,23 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
             }
             VertexType::Split => {
                 for i in 0 .. sweep_status.len() {
-                    println!(" --- A look for vertex right of e x={} vertex={}",
-                        path[kernel[sweep_status[i]].vertex.as_index()].x,
-                        kernel[sweep_status[i]].vertex.as_index()
-                    );
                     if path[kernel[sweep_status[i]].vertex.as_index()].x >= current_vertex.x {
                         if let Some(&(helper_edge,_)) = helper.get(&sweep_status[i].as_index()) {
                             split_face(kernel, *e, helper_edge, new_faces);
                         }
                         helper.insert(sweep_status[i].as_index(), (*e, VertexType::Split));
-                        println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         break;
                     }
                 }
                 sweep_status_push(kernel, path, &mut sweep_status, e);
                 helper.insert(e.as_index(), (*e, VertexType::Split));
-                println!("set {} as helper of {}", e.as_index(), e.as_index());
             }
             VertexType::Merge => {
                 if let Some((h, VertexType::Merge)) = helper.remove(&edge.prev.as_index()) {
                     split_face(kernel, *e, h, new_faces);
                 }
                 for i in 0 .. sweep_status.len() {
-                    println!(" --- B look for vertex right of e x={} vertex={}",
-                        path[kernel[sweep_status[i]].vertex.as_index()].x,
-                        kernel[sweep_status[i]].vertex.as_index()
-                    );
                     if path[kernel[sweep_status[i]].vertex.as_index()].x > current_vertex.x {
-                        println!(" --- D set {} as helper of {}",
-                            edge.vertex.as_index(),
-                            sweep_status[i].as_index()
-                        );
-                        println!("set {} as helper of {}", sweep_status[i].as_index(), e.as_index());
                         if let Some((prev_helper, VertexType::Merge)) = helper.insert(
                             sweep_status[i].as_index(),
                             (*e, VertexType::Merge)
@@ -225,10 +200,7 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
             }
             VertexType::Left => {
                 for i in 0 .. sweep_status.len() {
-                    println!(" --- X look for vertex right of e x={} vertex={}", path[kernel[sweep_status[i]].vertex.as_index()].x, kernel[sweep_status[i]].vertex.as_index());
                     if path[kernel[sweep_status[i]].vertex.as_index()].x > current_vertex.x {
-                        println!(" --- meh {} x={}", kernel[sweep_status[i]].vertex.as_index(), path[kernel[sweep_status[i]].vertex.as_index()].x);
-                        println!("set {} as helper of {}", e.as_index(), sweep_status[i].as_index());
                         if let Some((prev_helper, VertexType::Merge)) = helper.insert(sweep_status[i].as_index(), (*e, VertexType::Right)) {
                             split_face(kernel, prev_helper, *e, new_faces);
                         }
@@ -242,7 +214,6 @@ pub fn y_monotone_decomposition<T: Copy+Debug>(
                 }
                 sweep_status.retain(|item|{ *item != edge.prev });
                 sweep_status_push(kernel, path, &mut sweep_status, e);
-                println!("set {} as helper of {}", e.as_index(), e.as_index());
                 helper.insert(e.as_index(), (*e, VertexType::Left));
             }
         }
@@ -257,9 +228,9 @@ pub fn is_y_monotone<T:Copy+Debug>(kernel: &ConnectivityKernel, path: &[Vector2D
         let next_vertex = path[kernel[edge.next].vertex.as_index()];
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
-                println!("not y monotone because of vertices {} {} {} edge {} {} {}",
-                    kernel[edge.prev].vertex.as_index(), edge.vertex.as_index(), kernel[edge.next].vertex.as_index(), 
-                    edge.prev.as_index(), e.as_index(), edge.next.as_index());
+                //println!("not y monotone because of vertices {} {} {} edge {} {} {}",
+                //    kernel[edge.prev].vertex.as_index(), edge.vertex.as_index(), kernel[edge.next].vertex.as_index(), 
+                //    edge.prev.as_index(), e.as_index(), edge.next.as_index());
                 return false;
             }
             _ => {}
@@ -281,7 +252,6 @@ pub struct SliceTriangleStream<'l> {
 
 impl<'l> TriangleStream for SliceTriangleStream<'l> {
     fn write(&mut self, a: u16, b: u16, c: u16) {
-        println!(" ++ add a triangle {} {} {}", a, b, c);
         assert!(a != b);
         assert!(b != c);
         assert!(c != a);
@@ -310,10 +280,7 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
     path: &[Vector2D<T>],
     triangles: &mut Triangles,
 ) {
-    println!(" ------- y_monotone_triangulation face {} path.len: {}", face.as_index(), path.len());
-
     let first_edge = kernel[face].first_edge;
-    println!(" -- first edge of this face is {}", first_edge.as_index());
     let mut up = DirectedEdgeCirculator::new(kernel, first_edge, Direction::Forward);
     let mut down = up.clone();
     loop {
@@ -333,7 +300,6 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
     let mut big_y = path[down.vertex_id().as_index()].y;
     loop {
         assert_eq!(down.face_id(), face);
-        println!(" circulating down edge {} vertex {}", down.edge_id().as_index(), down.vertex_id().as_index());
         down = down.next();
         let new_y = path[down.vertex_id().as_index()].y;
         if new_y < big_y {
@@ -347,7 +313,6 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
     let mut small_y = path[up.vertex_id().as_index()].y;
     loop {
         assert_eq!(up.face_id(), face);
-        println!(" circulating up edge {} vertex {}", up.edge_id().as_index(), up.vertex_id().as_index());
         up = up.next();
         let new_y = path[up.vertex_id().as_index()].y;
         if new_y > small_y {
@@ -356,12 +321,6 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
         }
         small_y = new_y;
     }
-
-    println!(" -- start vertex {} end {} (end edge {})",
-        up.vertex_id().as_index(),
-        down.vertex_id().as_index(),
-        down.edge_id().as_index()
-    );
 
     // vertices already visited, waiting to be connected
     let mut vertex_stack: Vec<DirectedEdgeCirculator> = Vec::new();
@@ -394,24 +353,14 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
         // right chains. The chain we are currently iterating over is the
         // main chain (m) and the other one the opposite chain (o).
         // p is the previous iteration, regardless of whcih chain it is on.
-        println!("\n ** main vertex: {} opposite vertex {} ",
-            m.vertex_id().as_index(),
-            o.vertex_id().as_index()
-        );
-
         if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y || m == down {
-            println!(" ** swap");
             swap(&mut m, &mut o);
         }
 
         if i < 2 {
-            println!(" -- push first vertex {} to stack", m.prev().vertex_id().as_index());
             vertex_stack.push(m);
         } else {
-            println!(" ** do stuff with vertex {}", m.vertex_id().as_index());
-
             if vertex_stack.len() > 0 && m.direction() != vertex_stack[vertex_stack.len()-1].direction() {
-                println!(" -- changing chain");
                 for i in 0..vertex_stack.len() - 1 {
                     let id_1 = vertex_stack[i].vertex_id();
                     let id_2 = vertex_stack[i+1].vertex_id();
@@ -424,21 +373,14 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
                     );
                 }
 
-                println!(" -- clear stack");
                 vertex_stack.clear();
 
-                println!(" -- push vertirces {} and {} to the stack",
-                    p.vertex_id().as_index(), m.vertex_id().as_index()
-                );
                 vertex_stack.push(p);
                 vertex_stack.push(m);
 
             } else {
 
                 let mut last_popped = vertex_stack.pop();
-                if let Some(item) = last_popped {
-                    println!(" -- popped {} from the stack", item.vertex_id().as_index());
-                }
 
                 loop {
                     if vertex_stack.len() < 1 {
@@ -455,7 +397,6 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
                     let v1 = path[id_1.as_index()];
                     let v2 = path[id_2.as_index()];
                     let v3 = path[id_3.as_index()];
-                    println!(" -- trying triangle {} {} {}", id_1.as_index(), id_2.as_index(), id_3.as_index());
                     if directed_angle(v1 - v2, v3 - v2) > PI {
                         triangles.write(
                             id_1.as_index() as u16,
@@ -465,33 +406,25 @@ pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
 
                         last_popped = vertex_stack.pop();
 
-                        println!(" ===== A - make a triangle {} {} {}",
-                            id_1.as_index(), id_2.as_index(), id_3.as_index()
-                        );
                     } else {
                         break;
                     }
                 } // loop 2
 
                 if let Some(item) = last_popped {
-                    println!(" -- push last popped vertex {} to stack", item.vertex_id().as_index());
                     vertex_stack.push(item);
                 }
                 vertex_stack.push(m);
-                println!(" -- C - push vertex {} to stack", m.vertex_id().as_index());
 
             }
         }
 
         if m == down {
-            println!(" ** main = down");
             if o == down {
-                println!(" ** opposite = down");
                 break;
             }
         }
 
-        println!(" ** advance");
         i += 1;
         p = m;
         m = m.next();
@@ -667,7 +600,10 @@ fn test_triangulate_holes() {
             kernel.add_hole(main_face, separators[i]);
         }
 
-        triangulate_faces(&mut kernel, &[main_face], vertices, indices);
+        let n_indices = triangulate_faces(&mut kernel, &[main_face], vertices, indices);
+        for n in 0 .. n_indices/3 {
+            println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
+        }
     }
-
+    panic!();
 }
