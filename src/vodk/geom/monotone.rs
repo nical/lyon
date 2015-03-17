@@ -75,9 +75,9 @@ fn sweep_status_push<T:Copy>(
     kernel: &ConnectivityKernel,
     path: &[Vector2D<T>],
     sweep: &mut Vec<EdgeId>,
-    e: &EdgeId
+    e: EdgeId
 ) {
-    sweep.push(*e);
+    sweep.push(e);
     sort_x(&mut sweep[..], kernel, path);
 }
 
@@ -151,7 +151,7 @@ impl DecompositionContext {
         self.sorted_edges.extend(kernel.walk_edges_around_face(face_id));
 
         // also add holes in the sorted edge list
-        for inner in kernel.face(face_id).inner_edges.iter() {
+        for inner in &kernel.face(face_id).inner_edges {
             for e in kernel.walk_edges(*inner) {
                 self.sorted_edges.push(e);
             }
@@ -174,8 +174,8 @@ impl DecompositionContext {
             return Ordering::Equal;
         });
 
-        for e in self.sorted_edges.iter() {
-            let edge = kernel[*e];
+        for &e in &self.sorted_edges {
+            let edge = kernel[e];
             let current_vertex = path[edge.vertex.as_index()];
             let previous_vertex = path[kernel[edge.prev].vertex.as_index()];
             let next_vertex = path[kernel[edge.next].vertex.as_index()];
@@ -184,7 +184,7 @@ impl DecompositionContext {
             match vertex_type {
                 VertexType::Start => {
                     sweep_status_push(kernel, path, &mut self.sweep_status, e);
-                    self.helper.insert(e.as_index(), (*e, VertexType::Start));
+                    self.helper.insert(e.as_index(), (e, VertexType::Start));
                 }
                 VertexType::End => {
                     if let Some(&(h, VertexType::Merge)) = self.helper.get(&edge.prev.as_index()) {
@@ -196,26 +196,26 @@ impl DecompositionContext {
                     for i in 0 .. self.sweep_status.len() {
                         if path[kernel[self.sweep_status[i]].vertex.as_index()].x >= current_vertex.x {
                             if let Some(&(helper_edge,_)) = self.helper.get(&self.sweep_status[i].as_index()) {
-                                split_face(kernel, *e, helper_edge, new_faces);
+                                split_face(kernel, e, helper_edge, new_faces);
                             }
-                            self.helper.insert(self.sweep_status[i].as_index(), (*e, VertexType::Split));
+                            self.helper.insert(self.sweep_status[i].as_index(), (e, VertexType::Split));
                             break;
                         }
                     }
                     sweep_status_push(kernel, path, &mut self.sweep_status, e);
-                    self.helper.insert(e.as_index(), (*e, VertexType::Split));
+                    self.helper.insert(e.as_index(), (e, VertexType::Split));
                 }
                 VertexType::Merge => {
                     if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.as_index()) {
-                        split_face(kernel, *e, h, new_faces);
+                        split_face(kernel, e, h, new_faces);
                     }
                     for i in 0 .. self.sweep_status.len() {
                         if path[kernel[self.sweep_status[i]].vertex.as_index()].x > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 self.sweep_status[i].as_index(),
-                                (*e, VertexType::Merge)
+                                (e, VertexType::Merge)
                             ) {
-                                split_face(kernel, prev_helper, *e, new_faces);
+                                split_face(kernel, prev_helper, e, new_faces);
                             }
                             break;
                         }
@@ -225,9 +225,9 @@ impl DecompositionContext {
                     for i in 0 .. self.sweep_status.len() {
                         if path[kernel[self.sweep_status[i]].vertex.as_index()].x > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
-                                self.sweep_status[i].as_index(), (*e, VertexType::Right)
+                                self.sweep_status[i].as_index(), (e, VertexType::Right)
                             ) {
-                                split_face(kernel, prev_helper, *e, new_faces);
+                                split_face(kernel, prev_helper, e, new_faces);
                             }
                             break;
                         }
@@ -235,11 +235,11 @@ impl DecompositionContext {
                 }
                 VertexType::Right => {
                     if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.as_index()) {
-                        split_face(kernel, *e, h, new_faces);
+                        split_face(kernel, e, h, new_faces);
                     }
                     self.sweep_status.retain(|item|{ *item != edge.prev });
                     sweep_status_push(kernel, path, &mut self.sweep_status, e);
-                    self.helper.insert(e.as_index(), (*e, VertexType::Left));
+                    self.helper.insert(e.as_index(), (e, VertexType::Left));
                 }
             }
         }
@@ -468,17 +468,17 @@ pub fn triangulate_faces<T:Copy+Debug>(
     indices: &mut[u16]
 ) -> usize {
     let mut new_faces: Vec<FaceId> = vec![];
-    for &f in faces.iter() {
+    for &f in faces {
         new_faces.push(f);
     }
 
     let mut ctx = DecompositionContext::new();
-    for f in faces.iter() {
+    for f in faces {
         ctx.y_monotone_decomposition(kernel, *f, vertices, &mut new_faces);
     }
 
     let mut triangles = SliceTriangleStream::new(&mut indices[..]);
-    for &f in new_faces.iter() {
+    for f in new_faces {
         debug_assert!(is_y_monotone(kernel, vertices, f));
         y_monotone_triangulation(
             kernel, f,
