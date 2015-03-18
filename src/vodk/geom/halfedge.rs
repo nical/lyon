@@ -134,27 +134,6 @@ impl ConnectivityKernel {
 
     pub fn first_vertex(&self) -> VertexId { vertex_id(0) }
 
-//    pub fn vertex_ids(&self) -> VertexIdIterator {
-//        VertexIdIterator {
-//            current: 0,
-//            stop: self.vertices.len() as Index,
-//        }
-//    }
-//
-//    pub fn edge_ids(&self) -> EdgeIdIterator {
-//        EdgeIdIterator {
-//            current: 0,
-//            stop: self.edges.len() as Index,
-//        }
-//    }
-//
-//    pub fn face_ids(&self) -> FaceIdIterator {
-//        FaceIdIterator {
-//            current: 0,
-//            stop: self.faces.len() as Index,
-//        }
-//    }
-
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
         let prev = self.edge(edge).prev;

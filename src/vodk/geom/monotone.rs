@@ -4,6 +4,7 @@
 // system where y pointing downwards
 
 use halfedge::*;
+use attribute_vector::*;
 use iterators::{Direction, DirectedEdgeCirculator};
 use math::vector::*;
 use std::num::Float;
@@ -38,12 +39,8 @@ pub fn directed_angle<T>(v1: Vector2D<T>, v2: Vector2D<T>) -> f32 {
     return if a < 0.0 { a + 2.0 * PI } else { a };
 }
 
-pub fn deg(rad: f32) -> f32 {
-    return rad / PI * 180.0;
-}
-
 fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vector2D<T>) -> VertexType {
-    // assuming clockwise path winding order
+    // assuming clockwise vertex_positions winding order
     let interrior_angle = directed_angle(prev - current, next - current);
 
     if current.y > prev.y && current.y >= next.y {
@@ -65,23 +62,20 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
     return if prev.y < next.y { VertexType::Right } else { VertexType::Left };
 }
 
-fn sort_x<T: Copy>(slice: &mut[EdgeId], kernel: &ConnectivityKernel, path: &[Vector2D<T>]) {
-    slice.sort_by(|a, b| {
-        path[kernel[*a].vertex.as_index()].y.partial_cmp(&path[kernel[*b].vertex.as_index()].y).unwrap().reverse()
-    });    
-}
 
-fn sweep_status_push<T:Copy>(
-    kernel: &ConnectivityKernel,
-    path: &[Vector2D<T>],
-    sweep: &mut Vec<EdgeId>,
+fn sweep_status_push<'l, T:Copy>(
+    kernel: &'l ConnectivityKernel,
+    vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+    sweep: &'l mut Vec<EdgeId>,
     e: EdgeId
 ) {
     sweep.push(e);
-    sort_x(&mut sweep[..], kernel, path);
+    sweep.sort_by(|a, b| {
+        vertex_positions[kernel[*a].vertex].y.partial_cmp(&vertex_positions[kernel[*b].vertex].y).unwrap().reverse()
+    });    
 }
 
-pub fn split_face(
+fn split_face(
     kernel: &mut ConnectivityKernel,
     mut a: EdgeId,
     mut b: EdgeId,
@@ -140,12 +134,12 @@ impl DecompositionContext {
         self.helper.clear();
     }
 
-    pub fn y_monotone_decomposition<T: Copy+Debug>(
+    pub fn y_monotone_decomposition<'l, T: Copy+Debug>(
         &mut self,
-        kernel: &mut ConnectivityKernel,
+        kernel: &'l mut ConnectivityKernel,
         face_id: FaceId,
-        path: &[Vector2D<T>],
-        new_faces: &mut Vec<FaceId>
+        vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+        new_faces: &'l mut Vec<FaceId>
     ) {
         self.clear();
         self.sorted_edges.extend(kernel.walk_edges_around_face(face_id));
@@ -159,16 +153,16 @@ impl DecompositionContext {
 
         // sort indices by increasing y coordinate of the corresponding vertex
         self.sorted_edges.sort_by(|a, b| {
-            if path[kernel[*a].vertex.as_index()].y > path[kernel[*b].vertex.as_index()].y {
+            if vertex_positions[kernel[*a].vertex].y > vertex_positions[kernel[*b].vertex].y {
                 return Ordering::Greater;
             }
-            if path[kernel[*a].vertex.as_index()].y < path[kernel[*b].vertex.as_index()].y {
+            if vertex_positions[kernel[*a].vertex].y < vertex_positions[kernel[*b].vertex].y {
                 return Ordering::Less;
             }
-            if path[kernel[*a].vertex.as_index()].x < path[kernel[*b].vertex.as_index()].x {
+            if vertex_positions[kernel[*a].vertex].x < vertex_positions[kernel[*b].vertex].x {
                 return Ordering::Greater;
             }
-            if path[kernel[*a].vertex.as_index()].x > path[kernel[*b].vertex.as_index()].x {
+            if vertex_positions[kernel[*a].vertex].x > vertex_positions[kernel[*b].vertex].x {
                 return Ordering::Less;
             }
             return Ordering::Equal;
@@ -176,14 +170,14 @@ impl DecompositionContext {
 
         for &e in &self.sorted_edges {
             let edge = kernel[e];
-            let current_vertex = path[edge.vertex.as_index()];
-            let previous_vertex = path[kernel[edge.prev].vertex.as_index()];
-            let next_vertex = path[kernel[edge.next].vertex.as_index()];
+            let current_vertex = vertex_positions[edge.vertex];
+            let previous_vertex = vertex_positions[kernel[edge.prev].vertex];
+            let next_vertex = vertex_positions[kernel[edge.next].vertex];
             let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
 
             match vertex_type {
                 VertexType::Start => {
-                    sweep_status_push(kernel, path, &mut self.sweep_status, e);
+                    sweep_status_push(kernel, vertex_positions, &mut self.sweep_status, e);
                     self.helper.insert(e.as_index(), (e, VertexType::Start));
                 }
                 VertexType::End => {
@@ -194,7 +188,7 @@ impl DecompositionContext {
                 }
                 VertexType::Split => {
                     for i in 0 .. self.sweep_status.len() {
-                        if path[kernel[self.sweep_status[i]].vertex.as_index()].x >= current_vertex.x {
+                        if vertex_positions[kernel[self.sweep_status[i]].vertex].x >= current_vertex.x {
                             if let Some(&(helper_edge,_)) = self.helper.get(&self.sweep_status[i].as_index()) {
                                 split_face(kernel, e, helper_edge, new_faces);
                             }
@@ -202,7 +196,7 @@ impl DecompositionContext {
                             break;
                         }
                     }
-                    sweep_status_push(kernel, path, &mut self.sweep_status, e);
+                    sweep_status_push(kernel, vertex_positions, &mut self.sweep_status, e);
                     self.helper.insert(e.as_index(), (e, VertexType::Split));
                 }
                 VertexType::Merge => {
@@ -210,7 +204,7 @@ impl DecompositionContext {
                         split_face(kernel, e, h, new_faces);
                     }
                     for i in 0 .. self.sweep_status.len() {
-                        if path[kernel[self.sweep_status[i]].vertex.as_index()].x > current_vertex.x {
+                        if vertex_positions[kernel[self.sweep_status[i]].vertex].x > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 self.sweep_status[i].as_index(),
                                 (e, VertexType::Merge)
@@ -223,7 +217,7 @@ impl DecompositionContext {
                 }
                 VertexType::Left => {
                     for i in 0 .. self.sweep_status.len() {
-                        if path[kernel[self.sweep_status[i]].vertex.as_index()].x > current_vertex.x {
+                        if vertex_positions[kernel[self.sweep_status[i]].vertex].x > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 self.sweep_status[i].as_index(), (e, VertexType::Right)
                             ) {
@@ -238,7 +232,7 @@ impl DecompositionContext {
                         split_face(kernel, e, h, new_faces);
                     }
                     self.sweep_status.retain(|item|{ *item != edge.prev });
-                    sweep_status_push(kernel, path, &mut self.sweep_status, e);
+                    sweep_status_push(kernel, vertex_positions, &mut self.sweep_status, e);
                     self.helper.insert(e.as_index(), (e, VertexType::Left));
                 }
             }
@@ -247,12 +241,16 @@ impl DecompositionContext {
 }
 
 
-pub fn is_y_monotone<T:Copy+Debug>(kernel: &ConnectivityKernel, path: &[Vector2D<T>], face: FaceId) -> bool {
+pub fn is_y_monotone<'l, T:Copy+Debug>(
+    kernel: &'l ConnectivityKernel,
+    vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+    face: FaceId
+) -> bool {
     for e in kernel.walk_edges_around_face(face) {
         let edge = kernel[e];
-        let current_vertex = path[edge.vertex.as_index()];
-        let previous_vertex = path[kernel[edge.prev].vertex.as_index()];
-        let next_vertex = path[kernel[edge.next].vertex.as_index()];
+        let current_vertex = vertex_positions[edge.vertex];
+        let previous_vertex = vertex_positions[kernel[edge.prev].vertex];
+        let next_vertex = vertex_positions[kernel[edge.next].vertex];
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
                 //println!("not y monotone because of vertices {} {} {} edge {} {} {}",
@@ -268,7 +266,7 @@ pub fn is_y_monotone<T:Copy+Debug>(kernel: &ConnectivityKernel, path: &[Vector2D
 
 // TODO[nical] there's probably a generic Writer thingy in std
 pub trait TriangleStream {
-    fn write(&mut self, a: u16, b: u16, c: u16);
+    fn write(&mut self, a: VertexId, b: VertexId, c: VertexId);
     fn count(&self) -> usize;
 }
 
@@ -278,13 +276,13 @@ pub struct SliceTriangleStream<'l> {
 }
 
 impl<'l> TriangleStream for SliceTriangleStream<'l> {
-    fn write(&mut self, a: u16, b: u16, c: u16) {
+    fn write(&mut self, a: VertexId, b: VertexId, c: VertexId) {
         debug_assert!(a != b);
         debug_assert!(b != c);
         debug_assert!(c != a);
-        self.indices[self.offset] = a;
-        self.indices[self.offset+1] = b;
-        self.indices[self.offset+2] = c;
+        self.indices[self.offset] = a.as_index() as u16;
+        self.indices[self.offset+1] = b.as_index() as u16;
+        self.indices[self.offset+2] = c.as_index() as u16;
         self.offset += 3;
     }
 
@@ -300,165 +298,164 @@ impl<'l> SliceTriangleStream<'l> {
     }
 }
 
-// Returns the number of indices added
-pub fn y_monotone_triangulation<T: Copy+Debug, Triangles: TriangleStream>(
-    kernel: &ConnectivityKernel,
-    face: FaceId,
-    path: &[Vector2D<T>],
-    triangles: &mut Triangles,
-) {
-    let first_edge = kernel[face].first_edge;
-    let mut up = DirectedEdgeCirculator::new(kernel, first_edge, Direction::Forward);
-    let mut down = up.clone();
-    loop {
-        down = down.next();
-        if path[up.vertex_id().as_index()].y != path[down.vertex_id().as_index()].y {
-            break;
-        }
-    }
+struct TriangulationContext;
 
-    if path[up.vertex_id().as_index()].y < path[down.vertex_id().as_index()].y {
-        up.set_direction(Direction::Backward);
-    } else {
-        down.set_direction(Direction::Backward);
-    }
+impl TriangulationContext {
+    pub fn new() -> TriangulationContext { TriangulationContext }
 
-    // find the bottom-most vertex (with the highest y value)
-    let mut big_y = path[down.vertex_id().as_index()].y;
-    loop {
-        debug_assert_eq!(down.face_id(), face);
-        down = down.next();
-        let new_y = path[down.vertex_id().as_index()].y;
-        if new_y < big_y {
-            down = down.prev();
-            break;
-        }
-        big_y = new_y;
-    }
-
-    // find the top-most vertex (with the smallest y value)
-    let mut small_y = path[up.vertex_id().as_index()].y;
-    loop {
-        debug_assert_eq!(up.face_id(), face);
-        up = up.next();
-        let new_y = path[up.vertex_id().as_index()].y;
-        if new_y > small_y {
-            up = up.prev();
-            break;
-        }
-        small_y = new_y;
-    }
-
-    // vertices already visited, waiting to be connected
-    let mut vertex_stack: Vec<DirectedEdgeCirculator> = Vec::new();
-    // now that we have the top-most vertex, we will circulate simulataneously
-    // from the left and right chains until we reach the bottom-most vertex
-
-    // main chain
-    let mut m = up.clone();
-
-    // opposite chain
-    let mut o = up.clone();
-    m.set_direction(Direction::Forward);
-    o.set_direction(Direction::Backward);
-
-    m = m.next();
-    o = o.next();
-
-    if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y {
-        swap(&mut m, &mut o);
-    }
-
-    m = m.prev();
-    // previous
-    let mut p = m;
-
-    let initial_triangle_count = triangles.count();
-    let mut i: i32 = 0;
-    loop {
-        // walk edges from top to bottom, alternating between the left and 
-        // right chains. The chain we are currently iterating over is the
-        // main chain (m) and the other one the opposite chain (o).
-        // p is the previous iteration, regardless of whcih chain it is on.
-        if path[m.vertex_id().as_index()].y > path[o.vertex_id().as_index()].y || m == down {
-            swap(&mut m, &mut o);
-        }
-
-        if i < 2 {
-            vertex_stack.push(m);
-        } else {
-            if vertex_stack.len() > 0 && m.direction() != vertex_stack[vertex_stack.len()-1].direction() {
-                for i in 0..vertex_stack.len() - 1 {
-                    let id_1 = vertex_stack[i].vertex_id();
-                    let id_2 = vertex_stack[i+1].vertex_id();
-                    let id_opp = m.vertex_id();
-
-                    triangles.write(
-                        id_opp.as_index() as u16,
-                        id_1.as_index() as u16,
-                        id_2.as_index() as u16
-                    );
-                }
-
-                vertex_stack.clear();
-
-                vertex_stack.push(p);
-                vertex_stack.push(m);
-
-            } else {
-
-                let mut last_popped = vertex_stack.pop();
-
-                loop {
-                    if vertex_stack.len() < 1 {
-                        break;
-                    }
-                    let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
-                    let id_2 = last_popped.unwrap().vertex_id();
-                    let mut id_3 = m.vertex_id();
-
-                    if m.direction() == Direction::Backward {
-                        swap(&mut id_1, &mut id_3);
-                    }
-
-                    let v1 = path[id_1.as_index()];
-                    let v2 = path[id_2.as_index()];
-                    let v3 = path[id_3.as_index()];
-                    if directed_angle(v1 - v2, v3 - v2) > PI {
-                        triangles.write(
-                            id_1.as_index() as u16,
-                            id_2.as_index() as u16,
-                            id_3.as_index() as u16
-                        );
-
-                        last_popped = vertex_stack.pop();
-
-                    } else {
-                        break;
-                    }
-                } // loop 2
-
-                if let Some(item) = last_popped {
-                    vertex_stack.push(item);
-                }
-                vertex_stack.push(m);
-
-            }
-        }
-
-        if m == down {
-            if o == down {
+    // Returns the number of indices added
+    pub fn y_monotone_triangulation<'l, T: Copy+Debug, Triangles: TriangleStream>(
+        &mut self,
+        kernel: &'l ConnectivityKernel,
+        face: FaceId,
+        vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+        triangles: &'l mut Triangles,
+    ) {
+        let mut up = DirectedEdgeCirculator::new(kernel, kernel[face].first_edge, Direction::Forward);
+        let mut down = up.clone();
+        loop {
+            down = down.next();
+            if vertex_positions[up.vertex_id()].y != vertex_positions[down.vertex_id()].y {
                 break;
             }
         }
 
-        i += 1;
-        p = m;
+        if vertex_positions[up.vertex_id()].y < vertex_positions[down.vertex_id()].y {
+            up.set_direction(Direction::Backward);
+        } else {
+            down.set_direction(Direction::Backward);
+        }
+
+        // find the bottom-most vertex (with the highest y value)
+        let mut big_y = vertex_positions[down.vertex_id()].y;
+        loop {
+            debug_assert_eq!(down.face_id(), face);
+            down = down.next();
+            let new_y = vertex_positions[down.vertex_id()].y;
+            if new_y < big_y {
+                down = down.prev();
+                break;
+            }
+            big_y = new_y;
+        }
+
+        // find the top-most vertex (with the smallest y value)
+        let mut small_y = vertex_positions[up.vertex_id()].y;
+        loop {
+            debug_assert_eq!(up.face_id(), face);
+            up = up.next();
+            let new_y = vertex_positions[up.vertex_id()].y;
+            if new_y > small_y {
+                up = up.prev();
+                break;
+            }
+            small_y = new_y;
+        }
+
+        // now that we have the top-most vertex, we will circulate simulataneously
+        // from the left and right chains until we reach the bottom-most vertex
+
+        // main chain
+        let mut m = up.clone();
+
+        // opposite chain
+        let mut o = up.clone();
+        m.set_direction(Direction::Forward);
+        o.set_direction(Direction::Backward);
+
         m = m.next();
-        debug_assert!(path[m.vertex_id().as_index()].y >= path[p.vertex_id().as_index()].y);
+        o = o.next();
+
+        if vertex_positions[m.vertex_id()].y > vertex_positions[o.vertex_id()].y {
+            swap(&mut m, &mut o);
+        }
+
+        m = m.prev();
+        // previous
+        let mut p = m;
+
+        // vertices already visited, waiting to be connected
+        let mut vertex_stack: Vec<DirectedEdgeCirculator> = Vec::new();
+
+        let initial_triangle_count = triangles.count();
+        let mut i: i32 = 0;
+        loop {
+            // walk edges from top to bottom, alternating between the left and 
+            // right chains. The chain we are currently iterating over is the
+            // main chain (m) and the other one the opposite chain (o).
+            // p is the previous iteration, regardless of whcih chain it is on.
+            if vertex_positions[m.vertex_id()].y > vertex_positions[o.vertex_id()].y || m == down {
+                swap(&mut m, &mut o);
+            }
+
+            if i < 2 {
+                vertex_stack.push(m);
+            } else {
+                if vertex_stack.len() > 0 && m.direction() != vertex_stack[vertex_stack.len()-1].direction() {
+                    for i in 0..vertex_stack.len() - 1 {
+                        let id_1 = vertex_stack[i].vertex_id();
+                        let id_2 = vertex_stack[i+1].vertex_id();
+                        let id_opp = m.vertex_id();
+
+                        triangles.write(id_opp, id_1, id_2);
+                    }
+
+                    vertex_stack.clear();
+
+                    vertex_stack.push(p);
+                    vertex_stack.push(m);
+
+                } else {
+
+                    let mut last_popped = vertex_stack.pop();
+
+                    loop {
+                        if vertex_stack.len() < 1 {
+                            break;
+                        }
+                        let mut id_1 = vertex_stack[vertex_stack.len()-1].vertex_id();
+                        let id_2 = last_popped.unwrap().vertex_id();
+                        let mut id_3 = m.vertex_id();
+
+                        if m.direction() == Direction::Backward {
+                            swap(&mut id_1, &mut id_3);
+                        }
+
+                        let v1 = vertex_positions[id_1];
+                        let v2 = vertex_positions[id_2];
+                        let v3 = vertex_positions[id_3];
+                        if directed_angle(v1 - v2, v3 - v2) > PI {
+                            triangles.write(id_1, id_2, id_3);
+
+                            last_popped = vertex_stack.pop();
+
+                        } else {
+                            break;
+                        }
+                    } // loop 2
+
+                    if let Some(item) = last_popped {
+                        vertex_stack.push(item);
+                    }
+                    vertex_stack.push(m);
+
+                }
+            }
+
+            if m == down {
+                if o == down {
+                    break;
+                }
+            }
+
+            i += 1;
+            p = m;
+            m = m.next();
+            debug_assert!(vertex_positions[m.vertex_id()].y >= vertex_positions[p.vertex_id()].y);
+        }
+        let num_triangles = triangles.count() - initial_triangle_count;
+        debug_assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
     }
-    let num_triangles = triangles.count() - initial_triangle_count;
-    debug_assert_eq!(num_triangles, kernel.count_edges_around_face(face) as usize - 2);
 }
 
 pub fn triangulate_faces<T:Copy+Debug>(
@@ -471,18 +468,19 @@ pub fn triangulate_faces<T:Copy+Debug>(
     for &f in faces {
         new_faces.push(f);
     }
-
+    let vertices_attr = AttributeSlice::new(vertices);
     let mut ctx = DecompositionContext::new();
     for f in faces {
-        ctx.y_monotone_decomposition(kernel, *f, vertices, &mut new_faces);
+        ctx.y_monotone_decomposition(kernel, *f, vertices_attr, &mut new_faces);
     }
 
     let mut triangles = SliceTriangleStream::new(&mut indices[..]);
+    let mut triangulator = TriangulationContext::new();
     for f in new_faces {
-        debug_assert!(is_y_monotone(kernel, vertices, f));
-        y_monotone_triangulation(
+        debug_assert!(is_y_monotone(kernel, vertices_attr, f));
+        triangulator.y_monotone_triangulation(
             kernel, f,
-            vertices,
+            vertices_attr,
             &mut triangles
         );
     }
@@ -492,7 +490,7 @@ pub fn triangulate_faces<T:Copy+Debug>(
 
 #[test]
 fn test_triangulate() {
-    let paths : &[&[world::Vec2]] = &[
+    let vertex_positionss : &[&[world::Vec2]] = &[
         &[
             world::vec2(-10.0, 5.0),
             world::vec2(0.0, -5.0),
@@ -555,11 +553,11 @@ fn test_triangulate() {
     ];
 
     let indices = &mut [0 as u16; 1024];
-    for i in 0 .. paths.len() {
-        println!("\n\n -- path {:?}", i);
-        let mut kernel = ConnectivityKernel::from_loop(paths[i].len() as u16);
+    for i in 0 .. vertex_positionss.len() {
+        println!("\n\n -- vertex_positions {:?}", i);
+        let mut kernel = ConnectivityKernel::from_loop(vertex_positionss[i].len() as u16);
         let main_face = kernel.first_face();
-        let n_indices = triangulate_faces(&mut kernel, &[main_face], &paths[i][..], indices);
+        let n_indices = triangulate_faces(&mut kernel, &[main_face], &vertex_positionss[i][..], indices);
         for n in 0 .. n_indices/3 {
             println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
         }
@@ -568,7 +566,7 @@ fn test_triangulate() {
 
 #[test]
 fn test_triangulate_holes() {
-    let paths : &[(&[world::Vec2], &[u16])] = &[
+    let vertex_positionss : &[(&[world::Vec2], &[u16])] = &[
         (
             &[
                 // outer
@@ -618,9 +616,9 @@ fn test_triangulate_holes() {
     ];
 
     let indices = &mut [0 as u16; 1024];
-    for i in 0 .. paths.len() {
-        println!("\n\n -- path {:?}", i);
-        let &(vertices, separators) = &paths[i];
+    for i in 0 .. vertex_positionss.len() {
+        println!("\n\n -- vertex_positions {:?}", i);
+        let &(vertices, separators) = &vertex_positionss[i];
 
         let mut kernel = ConnectivityKernel::from_loop(separators[0]);
         let main_face = kernel.first_face();
