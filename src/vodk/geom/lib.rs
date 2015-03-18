@@ -4,4 +4,4 @@ extern crate data;
 pub mod halfedge;
 pub mod monotone;
 pub mod iterators;
-pub mod attribute_vector;
+pub mod id_vector;

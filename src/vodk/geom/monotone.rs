@@ -4,7 +4,7 @@
 // system where y pointing downwards
 
 use halfedge::*;
-use attribute_vector::*;
+use id_vector::*;
 use iterators::{Direction, DirectedEdgeCirculator};
 use math::vector::*;
 use std::num::Float;
@@ -65,7 +65,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
 
 fn sweep_status_push<'l, T:Copy>(
     kernel: &'l ConnectivityKernel,
-    vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+    vertex_positions: IdSlice<'l, Vector2D<T>, Vertex_>,
     sweep: &'l mut Vec<EdgeId>,
     e: EdgeId
 ) {
@@ -138,7 +138,7 @@ impl DecompositionContext {
         &mut self,
         kernel: &'l mut ConnectivityKernel,
         face_id: FaceId,
-        vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+        vertex_positions: IdSlice<'l, Vector2D<T>, Vertex_>,
         new_faces: &'l mut Vec<FaceId>
     ) {
         self.clear();
@@ -243,7 +243,7 @@ impl DecompositionContext {
 
 pub fn is_y_monotone<'l, T:Copy+Debug>(
     kernel: &'l ConnectivityKernel,
-    vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+    vertex_positions: IdSlice<'l, Vector2D<T>, Vertex_>,
     face: FaceId
 ) -> bool {
     for e in kernel.walk_edges_around_face(face) {
@@ -308,7 +308,7 @@ impl TriangulationContext {
         &mut self,
         kernel: &'l ConnectivityKernel,
         face: FaceId,
-        vertex_positions: AttributeSlice<'l, Vector2D<T>, Vertex_>,
+        vertex_positions: IdSlice<'l, Vector2D<T>, Vertex_>,
         triangles: &'l mut Triangles,
     ) {
         let mut up = DirectedEdgeCirculator::new(kernel, kernel[face].first_edge, Direction::Forward);
@@ -468,7 +468,7 @@ pub fn triangulate_faces<T:Copy+Debug>(
     for &f in faces {
         new_faces.push(f);
     }
-    let vertices_attr = AttributeSlice::new(vertices);
+    let vertices_attr = IdSlice::new(vertices);
     let mut ctx = DecompositionContext::new();
     for f in faces {
         ctx.y_monotone_decomposition(kernel, *f, vertices_attr, &mut new_faces);
