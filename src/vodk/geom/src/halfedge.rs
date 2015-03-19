@@ -37,10 +37,13 @@ pub fn no_face() -> FaceId { face_id(u16::MAX) }
 
 pub fn no_vertex() -> VertexId { vertex_id(u16::MAX) }
 
+/// Create an EdgeId from an index (the offset in the ConnectivityKernel's half edge vector)
 pub fn edge_id(index: Index) -> EdgeId { EdgeId { handle: index, _marker: PhantomData } }
 
+/// Create a FaceId from an index (the offset in the ConnectivityKernel's face vector)
 pub fn face_id(index: Index) -> FaceId { FaceId { handle: index, _marker: PhantomData } }
 
+/// Create a VertexId from an index (the offset in the ConnectivityKernel's vertex vector)
 pub fn vertex_id(index: Index) -> VertexId { VertexId { handle: index, _marker: PhantomData } }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -60,73 +63,90 @@ impl<T: Copy> IdRange<T> {
     }
 }
 
+/// A range of Id pointing to contiguous vertices.
 pub type VertexIdRange = IdRange<Vertex_>;
+
+/// A range of Id pointing to contiguous half edges.
 pub type EdgeIdRange = IdRange<Edge_>;
+
+/// A range of Id pointing to contiguous faces.
 pub type FaceIdRange = IdRange<Face_>;
 
+/// The structure holding the data specific to each half edge.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct HalfEdge {
-    pub next: EdgeId, // next HalfEdge around the face
-    pub prev: EdgeId, // previous HalfEdge around the face
+pub struct HalfEdgeData {
+    pub next: EdgeId, // next half edge around the face
+    pub prev: EdgeId, // previous half edge around the face
     pub vertex: VertexId, // vertex this edge origins from
     pub opposite: EdgeId,
     pub face: FaceId,
 }
 
+/// The structure holding the data specific to each face.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Face {
+pub struct FaceData {
     pub first_edge: EdgeId,
     pub inner_edges: Vec<EdgeId>,
 }
 
+/// The structure holding the data specific to each vertex.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Vertex {
+pub struct VertexData {
     pub first_edge: EdgeId,
 }
 
+/// The data structure that contains a mesh's connectivity information
+///
+/// It does not contain other attributes such as positions. Use IdVector for that.
 pub struct ConnectivityKernel {
-    edges: Vec<HalfEdge>,
-    vertices: Vec<Vertex>,
-    faces: Vec<Face>
+    edges: Vec<HalfEdgeData>,
+    vertices: Vec<VertexData>,
+    faces: Vec<FaceData>
 }
 
 impl ConnectivityKernel {
 
-    pub fn vertex(&self, id: VertexId) -> &Vertex {
+    /// VertexData getter. You can also use the indexing operator.
+    pub fn vertex(&self, id: VertexId) -> &VertexData {
         debug_assert!(id.is_valid());
         &self.vertices[id.handle as usize]
     }
 
-    fn vertex_mut(&mut self, id: VertexId) -> &mut Vertex {
+    /// VertexData mutable getter. You can also use the indexing operator.
+    fn vertex_mut(&mut self, id: VertexId) -> &mut VertexData {
         debug_assert!(id.is_valid());
         &mut self.vertices[id.handle as usize]
     }
     
-    pub fn face(&self, id: FaceId) -> &Face {
+    /// Face getter. You can also use the indexing operator.
+    pub fn face(&self, id: FaceId) -> &FaceData {
         debug_assert!(id.is_valid());
         &self.faces[id.handle as usize]
     }
 
-    fn face_mut(&mut self, id: FaceId) -> &mut Face {
+    /// Face mutable getter. You can also use the indexing operator.
+    fn face_mut(&mut self, id: FaceId) -> &mut FaceData {
         debug_assert!(id.is_valid());
         &mut self.faces[id.handle as usize]
     }
     
-    pub fn edge(&self, id: EdgeId) -> &HalfEdge {
+    /// Half edge getter. You can also use the indexing operator.
+    pub fn edge(&self, id: EdgeId) -> &HalfEdgeData {
         debug_assert!(id.is_valid());
         &self.edges[id.handle as usize]
     }
 
-    fn edge_mut(&mut self, id: EdgeId) -> &mut HalfEdge {
+    /// Half edge mutable getter. You can also use the indexing operator.
+    fn edge_mut(&mut self, id: EdgeId) -> &mut HalfEdgeData {
         debug_assert!(id.is_valid());
         &mut self.edges[id.handle as usize]
     }
 
-    pub fn edges(&self) -> &[HalfEdge] { &self.edges[..] }
+    pub fn edges(&self) -> &[HalfEdgeData] { &self.edges[..] }
 
-    pub fn faces(&self) -> &[Face] { &self.faces[..] }
+    pub fn faces(&self) -> &[FaceData] { &self.faces[..] }
 
-    pub fn vertices(&self) -> &[Vertex] { &self.vertices[..] }
+    pub fn vertices(&self) -> &[VertexData] { &self.vertices[..] }
 
     pub fn first_edge(&self) -> EdgeId { edge_id(0) }
 
@@ -190,13 +210,13 @@ impl ConnectivityKernel {
         let new_edge = edge_id(self.vertices.len() as Index);
         let new_opposite = edge_id(self.vertices.len() as Index + 1);
 
-        self.vertices.push(Vertex {
+        self.vertices.push(VertexData {
             first_edge: new_edge,
         });
 
         // new_edge
         let edge = *self.edge(id);
-        self.edges.push(HalfEdge {
+        self.edges.push(HalfEdgeData {
             vertex: edge.vertex,
             opposite: edge.opposite,
             face: edge.face,
@@ -206,7 +226,7 @@ impl ConnectivityKernel {
 
         // new_opposite
         let opposite = *self.edge(edge.opposite);
-        self.edges.push(HalfEdge {
+        self.edges.push(HalfEdgeData {
             vertex: opposite.vertex,
             opposite: id,
             face: opposite.face,
@@ -270,7 +290,7 @@ impl ConnectivityKernel {
         let new_edge = edge_id(self.edges.len() as Index); // va -> vb
         let new_opposite_edge = edge_id(self.edges.len() as Index + 1); // vb -> va
 
-        self.faces.push(Face {
+        self.faces.push(FaceData {
             first_edge: new_opposite_edge,
             inner_edges: vec![],
         });
@@ -279,7 +299,7 @@ impl ConnectivityKernel {
                             else { original_face };
 
         // new_edge
-        self.edges.push(HalfEdge {
+        self.edges.push(HalfEdgeData {
             next: b_next,
             prev: a_prev,
             opposite: new_opposite_edge,
@@ -288,7 +308,7 @@ impl ConnectivityKernel {
         });
 
         // new_opposite_edge
-        self.edges.push(HalfEdge {
+        self.edges.push(HalfEdgeData {
             next: a_next,
             prev: b_prev,
             opposite: new_edge,
@@ -320,23 +340,27 @@ impl ConnectivityKernel {
         };
     }
 
+    /// Not implemented yet.
     pub fn join_vertices(&mut self, _: VertexId, _: VertexId) {
         panic!("not implemented");
     }
 
-    /// Merge b into a (removing b)
+    /// Not implemented yet.
     pub fn merge_vertices(&mut self, _: VertexId, _: VertexId) {
         panic!("not implemented");
     }
 
+    /// Not implemented yet.
     pub fn extrude_edge(&mut self, _: EdgeId) {
         panic!("not implemented");
     }
 
+    /// Not implemented yet.
     pub fn extrude_face(&mut self, _: FaceId, _face_per_edge: bool) {
         panic!("not implemented");
     }
 
+    /// Returns the number of edges around the face in O(n).
     pub fn count_edges_around_face(&self, face: FaceId) -> u32 {
         let face = self.face(face);
         let stop = self.edge(face.first_edge).prev;
@@ -350,15 +374,22 @@ impl ConnectivityKernel {
         return count;
     }
 
-    pub fn add_face(&mut self, face: Face) -> FaceId {
+    /// Insert a Face in the kernel
+    ///
+    /// Note that this does not set the HalfEdgeData.face member of the edges in the loop 
+    /// that face.first_edge points to. This step has to be done manually if needed.
+    pub fn add_face(&mut self, face: FaceData) -> FaceId {
         let id = face_id(self.faces().len() as Index);
         self.faces.push(face);
         return id;
     }
 
+    /// Insert a Vertex in the kernel
+    ///
+    /// The vertex is not connected to any edge.
     pub fn add_vertex(&mut self) -> VertexId {
         let id = vertex_id(self.vertices().len() as Index);
-        self.vertices.push(Vertex { first_edge: no_edge() });
+        self.vertices.push(VertexData { first_edge: no_edge() });
         return id;
     }
 
@@ -379,7 +410,7 @@ impl ConnectivityKernel {
 
         for i in (0 .. n_vertices) {
             self.vertex_mut(vertices[i as usize]).first_edge = edge_id(edge_offset + i);
-            self.edges.push(HalfEdge {
+            self.edges.push(HalfEdgeData {
                 vertex: vertices[i as usize],
                 opposite: edge_id(edge_offset + n_vertices * 2 - i - 1),
                 face: face1,
@@ -391,7 +422,7 @@ impl ConnectivityKernel {
         let first_outer_edge = edge_id(self.edges.len() as Index);
         for i in (0 .. n_vertices) {
             let inv_i = n_vertices - i - 1;
-            self.edges.push(HalfEdge {
+            self.edges.push(HalfEdgeData {
                 vertex: vertices[((inv_i + 1)%n_vertices) as usize],
                 opposite: edge_id(edge_offset + inv_i),
                 face: face2,
@@ -403,6 +434,7 @@ impl ConnectivityKernel {
         return (first_inner_edge, first_outer_edge);
     }
 
+    // Add a loop of vertices and edges
     pub fn add_loop(
         &mut self,
         n_vertices: Index,
@@ -417,8 +449,8 @@ impl ConnectivityKernel {
         let vertex_offset = self.vertices.len() as Index;
         let first_inner_edge = edge_id(self.edges.len() as Index);
         for i in (0 .. n_vertices) {
-            self.vertices.push(Vertex { first_edge: edge_id(edge_offset + i) });
-            self.edges.push(HalfEdge {
+            self.vertices.push(VertexData { first_edge: edge_id(edge_offset + i) });
+            self.edges.push(HalfEdgeData {
                 vertex: vertex_id(vertex_offset + i),
                 opposite: edge_id(edge_offset + n_vertices * 2 - i - 1),
                 face: face1,
@@ -430,7 +462,7 @@ impl ConnectivityKernel {
         let first_outer_edge = edge_id(self.edges.len() as Index);
         for i in (0 .. n_vertices) {
             let inv_i = n_vertices - i - 1;
-            self.edges.push(HalfEdge {
+            self.edges.push(HalfEdgeData {
                 vertex: vertex_id(vertex_offset + (inv_i + 1)%n_vertices),
                 opposite: edge_id(edge_offset + inv_i),
                 face: face2,
@@ -442,7 +474,7 @@ impl ConnectivityKernel {
         return (first_inner_edge, first_outer_edge);
     }
 
-    /// constructor
+    /// Create a ConnectivityKernel initialized with a loop
     pub fn from_loop(n_vertices: Index) -> ConnectivityKernel {
         assert!(n_vertices >= 3);
         let main_face = face_id(0);
@@ -457,11 +489,11 @@ impl ConnectivityKernel {
         let (first_inner_edge, first_outer_edge) = kernel.add_loop(n_vertices, main_face, back_face);
 
         kernel.faces = vec![
-            Face {
+            FaceData {
                 first_edge: first_inner_edge,
                 inner_edges: vec![],
             },
-            Face {
+            FaceData {
                 first_edge: first_outer_edge,
                 inner_edges: vec![],
             }
@@ -473,12 +505,13 @@ impl ConnectivityKernel {
         return kernel;
     }
 
+    /// Add a loop of vertices and edges creating a hole in an existing face.
     pub fn add_hole(&mut self, face: FaceId, n_vertices: Index) -> FaceId {
         let new_face = face_id(self.faces.len() as Index);
 
         let (exterior, _) = self.add_loop(n_vertices, face, new_face);
 
-        self.faces.push(Face {
+        self.faces.push(FaceData {
             first_edge: exterior,
             inner_edges: vec![],
         });
@@ -490,30 +523,30 @@ impl ConnectivityKernel {
 }
 
 impl ops::Index<EdgeId> for ConnectivityKernel {
-    type Output = HalfEdge;
-    fn index<'l>(&'l self, id: &EdgeId) -> &'l HalfEdge { self.edge(*id) }
+    type Output = HalfEdgeData;
+    fn index<'l>(&'l self, id: &EdgeId) -> &'l HalfEdgeData { self.edge(*id) }
 }
 
 impl ops::IndexMut<EdgeId> for ConnectivityKernel {
-    fn index_mut<'l>(&'l mut self, id: &EdgeId) -> &'l mut HalfEdge { self.edge_mut(*id) }
+    fn index_mut<'l>(&'l mut self, id: &EdgeId) -> &'l mut HalfEdgeData { self.edge_mut(*id) }
 }
 
 impl ops::Index<VertexId> for ConnectivityKernel {
-    type Output = Vertex;
-    fn index<'l>(&'l self, id: &VertexId) -> &'l Vertex { self.vertex(*id) }
+    type Output = VertexData;
+    fn index<'l>(&'l self, id: &VertexId) -> &'l VertexData { self.vertex(*id) }
 }
 
 impl ops::IndexMut<VertexId> for ConnectivityKernel {
-    fn index_mut<'l>(&'l mut self, id: &VertexId) -> &'l mut Vertex { self.vertex_mut(*id) }
+    fn index_mut<'l>(&'l mut self, id: &VertexId) -> &'l mut VertexData { self.vertex_mut(*id) }
 }
 
 impl ops::Index<FaceId> for ConnectivityKernel {
-    type Output = Face;
-    fn index<'l>(&'l self, id: &FaceId) -> &'l Face { self.face(*id) }
+    type Output = FaceData;
+    fn index<'l>(&'l self, id: &FaceId) -> &'l FaceData { self.face(*id) }
 }
 
 impl ops::IndexMut<FaceId> for ConnectivityKernel {
-    fn index_mut<'l>(&'l mut self, id: &FaceId) -> &'l mut Face { self.face_mut(*id) }
+    fn index_mut<'l>(&'l mut self, id: &FaceId) -> &'l mut FaceData { self.face_mut(*id) }
 }
 
 /// A modulo that behaves properly with negative values.

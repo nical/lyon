@@ -10,5 +10,5 @@ authors = [
 name = "container"
 path = "./lib.rs"
 
-[dependencies.data]
+[dependencies.vodk_data]
 path = "../data/"

@@ -1,5 +1,5 @@
 use halfedge::{
-    ConnectivityKernel, HalfEdge,
+    ConnectivityKernel, HalfEdgeData,
     EdgeId, FaceId, VertexId, Id, IdRange,
     no_edge,
 };
@@ -184,7 +184,7 @@ impl<'l> EdgeCirculator<'l> {
         }
     }
 
-    pub fn edge(&'l self) -> &'l HalfEdge { self.kernel.edge(self.edge) }
+    pub fn edge(&'l self) -> &'l HalfEdgeData { self.kernel.edge(self.edge) }
 
     pub fn next(self) -> EdgeCirculator<'l> {
         EdgeCirculator {
@@ -237,7 +237,7 @@ impl<'l> DirectedEdgeCirculator<'l> {
         }
     }
 
-    pub fn edge(&'l self) -> &'l HalfEdge { self.circulator.edge() }
+    pub fn edge(&'l self) -> &'l HalfEdgeData { self.circulator.edge() }
 
     pub fn next(self) -> DirectedEdgeCirculator<'l> {
         DirectedEdgeCirculator {
