@@ -1,6 +1,6 @@
 use super::objects::*;
 use super::constants::*;
-use vodkdata as data;
+use vodk_data as data;
 
 use std::mem;
 

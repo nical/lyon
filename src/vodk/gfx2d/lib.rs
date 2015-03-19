@@ -1,5 +1,5 @@
-extern crate vodkmath;
-extern crate vodkdata;
+extern crate vodk_math;
+extern crate vodk_data;
 
 pub mod simple_allocator;
 pub mod tesselation;

@@ -8,7 +8,7 @@ use std::mem;
 use libc::c_void;
 use std::ffi::CString;
 
-use vodkdata as data;
+use vodk_data as data;
 
 pub struct OpenGLDeviceBackend {
     current_render_target: RenderTargetObject,

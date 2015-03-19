@@ -2,7 +2,7 @@
 
 extern crate gl;
 extern crate libc;
-extern crate vodkdata;
+extern crate vodk_data;
 
 pub mod device;
 pub mod objects;

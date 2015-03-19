@@ -1,20 +1,20 @@
 extern crate glutin;
 extern crate gl;
 extern crate vodk_gpu;
-extern crate vodkdata;
-extern crate vodkmath;
+extern crate vodk_data;
+extern crate vodk_math;
 extern crate gfx2d;
 
 use vodk_gpu::std140;
 use vodk_gpu::device::*;
 use vodk_gpu::constants::*;
 use vodk_gpu::opengl;
-use vodkdata as data;
+use vodk_data as data;
 use gfx2d::tesselation;
 use gfx2d::color::Rgba;
-use vodkmath::units::world;
-use vodkmath::units::texels;
-use vodkmath::matrix;
+use vodk_math::units::world;
+use vodk_math::units::texels;
+use vodk_math::matrix;
 
 use std::mem;
 

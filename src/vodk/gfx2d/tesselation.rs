@@ -1,11 +1,11 @@
-use vodkmath::units::world;
-use vodkmath::units::texels;
+use vodk_math::units::world;
+use vodk_math::units::texels;
 use geom_utils::{extrude_along_tangent, tangent, line_intersection};
 use style::{FillStyle, StrokeStyle, StrokeFlags};
 use style;
 use color::Rgba;
 use shapes;
-use vodkdata as data;
+use vodk_data as data;
 use std::num::Float;
 
 static PI: f32 = 3.1415;

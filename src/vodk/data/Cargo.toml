@@ -11,5 +11,5 @@ include = [ "Cargo.toml", "src/*.rs" ]
 
 [lib]
 
-name = "vodkdata"
+name = "vodk_data"
 path = "src/lib.rs"

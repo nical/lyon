@@ -1,12 +1,12 @@
 extern crate glutin;
 extern crate gl;
 extern crate vodk_gpu;
-extern crate vodkdata;
-extern crate vodkmath;
+extern crate vodk_data;
+extern crate vodk_math;
 extern crate gfx2d;
 extern crate geom;
 
-use vodkdata as data;
+use vodk_data as data;
 use gpu::device::*;
 use gpu::constants::*;
 use gpu::opengl;

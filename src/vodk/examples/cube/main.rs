@@ -1,17 +1,17 @@
 extern crate glutin;
 extern crate gl;
 extern crate vodk_gpu;
-extern crate vodkdata;
-extern crate vodkmath;
+extern crate vodk_data;
+extern crate vodk_math;
 
 use vodk_gpu::device::*;
 use vodk_gpu::constants::*;
 use vodk_gpu::opengl;
-use vodkdata as data;
+use vodk_data as data;
 
 use std::num::Float;
 
-use vodkmath::units::world;
+use vodk_math::units::world;
 
 struct TransformsBlock {
   model: world::Mat4,

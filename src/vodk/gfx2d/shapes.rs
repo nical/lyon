@@ -1,4 +1,4 @@
-use vodkmath::units::world;
+use vodk_math::units::world;
 
 #[derive(Clone, Debug)]
 pub struct Circle {
