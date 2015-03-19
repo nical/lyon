@@ -121,17 +121,17 @@ fn split_face(
 
 
 pub struct DecompositionContext {
-    sorted_edges_storage: Option<VecStorage>,
+    sorted_edges_storage: VecStorage,
     // list of edges that intercept the sweep line, sorted by increasing x coordinate
-    sweep_status_storage: Option<VecStorage>,
+    sweep_status_storage: VecStorage,
     helper: HashMap<usize, (EdgeId, VertexType)>,
 }
 
 impl DecompositionContext {
     pub fn new() -> DecompositionContext {
         DecompositionContext {
-            sorted_edges_storage: None,
-            sweep_status_storage: None,
+            sorted_edges_storage: VecStorage::new(),
+            sweep_status_storage: VecStorage::new(),
             helper: HashMap::new(),
         }
     }
@@ -140,8 +140,8 @@ impl DecompositionContext {
         let edges_vec: Vec<EdgeId> = Vec::with_capacity(edges);
         let sweep_vec: Vec<EdgeId> = Vec::with_capacity(sweep);
         DecompositionContext {
-            sorted_edges_storage: Some(VecStorage::from_vec(edges_vec)),
-            sweep_status_storage: Some(VecStorage::from_vec(sweep_vec)),
+            sorted_edges_storage: VecStorage::from_vec(edges_vec),
+            sweep_status_storage: VecStorage::from_vec(sweep_vec),
             helper: HashMap::with_capacity(helpers),
         }
     }
@@ -159,20 +159,15 @@ impl DecompositionContext {
             return Err(DecompositionError::MissingFace);
         }
 
-        let mut temp_edges_storage = None;
-        swap(&mut self.sorted_edges_storage, &mut temp_edges_storage);
-        let mut sorted_edges: Vec<EdgeId> = match temp_edges_storage {
-            Some(storage) => { storage.into_vec::<EdgeId>() }
-            None => { Vec::with_capacity(64) }
-        };
-        sorted_edges.extend(kernel.walk_edges_around_face(face_id));
+        let mut storage = VecStorage::new();
+        swap(&mut self.sweep_status_storage, &mut storage);
+        let mut sweep_status: Vec<EdgeId> = storage.into_vec::<EdgeId>();
 
-        let mut temp_sweep_storage = None;
-        swap(&mut self.sweep_status_storage, &mut temp_sweep_storage);
-        let mut sweep_status = match temp_sweep_storage {
-            Some(storage) => { storage.into_vec::<EdgeId>() }
-            None => { Vec::with_capacity(16) }
-        };
+        let mut storage = VecStorage::new();
+        swap(&mut self.sorted_edges_storage, &mut storage);
+        let mut sorted_edges: Vec<EdgeId> = storage.into_vec();
+
+        sorted_edges.extend(kernel.walk_edges_around_face(face_id));
 
         // also add holes in the sorted edge list
         for inner in &kernel.face(face_id).inner_edges {
@@ -269,8 +264,8 @@ impl DecompositionContext {
         }
 
         // Keep the buffers to avoid reallocating it next time, if possible.
-        self.sweep_status_storage = Some(VecStorage::from_vec(sweep_status));
-        self.sorted_edges_storage = Some(VecStorage::from_vec(sorted_edges));
+        self.sweep_status_storage = VecStorage::from_vec(sweep_status);
+        self.sorted_edges_storage = VecStorage::from_vec(sorted_edges);
 
         return Ok(());
     }
@@ -335,11 +330,15 @@ impl<'l> SliceTriangleStream<'l> {
 }
 
 struct TriangulationContext {
-    vertex_stack_storage: Option<VecStorage>,
+    vertex_stack_storage: VecStorage,
 }
 
 impl TriangulationContext {
-    pub fn new() -> TriangulationContext { TriangulationContext { vertex_stack_storage: None } }
+    pub fn new() -> TriangulationContext {
+        TriangulationContext {
+            vertex_stack_storage: VecStorage::new()
+        }
+    }
 
     // Returns the number of indices added
     pub fn y_monotone_triangulation<'l, T: Copy+Debug, Triangles: TriangleStream>(
@@ -417,12 +416,9 @@ impl TriangulationContext {
         let mut p = m;
 
         // vertices already visited, waiting to be connected
-        let mut temp_storage = None;
-        swap(&mut temp_storage, &mut self.vertex_stack_storage);
-        let mut vertex_stack: Vec<DirectedEdgeCirculator> = match temp_storage {
-            Some(storage) => { storage.into_vec::<DirectedEdgeCirculator>() }
-            None => { Vec::with_capacity(16) }
-        };
+        let mut storage = VecStorage::new();
+        swap(&mut storage, &mut self.vertex_stack_storage);
+        let mut vertex_stack: Vec<DirectedEdgeCirculator> = storage.into_vec();
 
         let initial_triangle_count = triangles.count();
         let mut i: i32 = 0;
@@ -504,7 +500,7 @@ impl TriangulationContext {
         debug_assert_eq!(num_triangles, kernel.count_edges_around_face(face_id) as usize - 2);
 
         // Keep the buffer to avoid reallocating it next time, if possible.
-        self.vertex_stack_storage = Some(VecStorage::from_vec(vertex_stack));
+        self.vertex_stack_storage = VecStorage::from_vec(vertex_stack);
         return Ok(());
     }
 }
