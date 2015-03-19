@@ -1,12 +1,12 @@
 [package]
 
 name = "kiwi"
-version = "0.1.0"
+version = "0.0.2"
 authors = [
-    "Nicolas Silva <nical.silva@gmail.com>",
+    "Nicolas Silva <nical@fastmail.com>",
 ]
 
 [[lib]]
 name = "kiwi"
-path = "./lib.rs"
+path = "src/lib.rs"
 
