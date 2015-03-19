@@ -5,7 +5,8 @@ use std::num::Float;
 use std::default::Default;
 use std::marker::PhantomData;
 
-use common::*;
+use common::Untyped;
+use constants::*;
 
 pub type Vec2 = Vector2D<Untyped>;
 pub type Vec3 = Vector3D<Untyped>;

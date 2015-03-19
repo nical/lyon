@@ -6,16 +6,17 @@
 use halfedge::*;
 use id_vector::*;
 use iterators::{Direction, DirectedEdgeCirculator};
-use math::vector::*;
 use std::num::Float;
 use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::mem::swap;
 use std::fmt::Debug;
 use super::mem::VecStorage;
+use vodk_math::vector::*;
+use vodk_math::constants::PI;
 
 #[cfg(test)]
-use math::units::world;
+use vodk_math::units::world;
 
 #[derive(Debug, Copy, Clone)]
 enum VertexType {

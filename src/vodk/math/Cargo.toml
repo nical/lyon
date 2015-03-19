@@ -1,7 +1,7 @@
 [package]
 
 name = "vodk_math"
-version = "0.0.1"
+version = "0.0.2"
 description = "Yet another math vector and matrix library."
 license = "MIT"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]

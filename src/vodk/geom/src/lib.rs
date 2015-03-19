@@ -1,7 +1,7 @@
 #![feature(unique)]
 
-extern crate math;
-extern crate data;
+extern crate vodk_data;
+extern crate vodk_math;
 
 pub mod halfedge;
 pub mod monotone;

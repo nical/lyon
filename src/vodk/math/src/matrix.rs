@@ -5,7 +5,8 @@ use std::num::Float;
 use std::marker::PhantomData;
 
 use vector::{Vector2D, Vector3D, Vector4D};
-use common::*;
+use common::Untyped;
+use constants::*;
 
 pub type Mat4 = Matrix4x4<Untyped>;
 pub type Mat3 = Matrix3x3<Untyped>;
