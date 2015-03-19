@@ -6,12 +6,16 @@ use std::mem::{forget, transmute, size_of};
 /// # Examples
 ///
 /// ```
-/// //use geom::mem;
+/// use geom::mem::VecStorage;
 ///
 /// let mut v = vec![1u16, 2, 3, 4, 5];
-/// let mut storage = mem::VecStorage::from_vec(v);
+/// let mut storage = VecStorage::from_vec(v);
 /// // v is now gone into the void.
+/// 
 /// let mut v: Vec<f32> = storage.into_vec();
+/// 
+/// assert_eq!(v.len(), 0);
+/// assert!(v.capacity() > 0);
 /// 
 /// ```
 
@@ -38,8 +42,7 @@ impl VecStorage {
 
     /// Consumes a Vec and creates a VecStorage that holds the Vec's buffer.
     ///
-    /// The vector is cleared so so that the data it contains is dropped before the
-    /// vector is consumed.
+    /// The vector is cleared and its data is dropped before the it is consumed.
     pub fn from_vec<T>(mut vector: Vec<T>) -> VecStorage {
         vector.clear();
         let capacity = vector.capacity() * size_of::<T>();
