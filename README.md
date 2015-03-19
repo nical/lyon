@@ -5,7 +5,7 @@ Rust experiments, mostly around game programming related stuff.
 
 Compatible with rust:
 
-    rustc 0.11.0-pre (0935beb 2014-05-29 14:41:42 -0700)
+    rustc 1.0.0-dev (built 2015-03-09)
 
 Building
 ========
