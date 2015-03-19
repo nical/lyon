@@ -1,9 +1,24 @@
 use std::ptr::{Unique, write_bytes};
 use std::mem::{forget, transmute, size_of};
 
+/// An Owned buffer that can be recycled into a Vec to help with avoiding allocations.
+///
+/// # Examples
+///
+/// ```
+/// //use geom::mem;
+///
+/// let mut v = vec![1u16, 2, 3, 4, 5];
+/// let mut storage = mem::VecStorage::from_vec(v);
+/// // v is now gone into the void.
+/// let mut v: Vec<f32> = storage.into_vec();
+/// 
+/// ```
+
+
 /// Holds memory that was allocated by a Vec and can be reused by another Vec.
 ///
-/// This is useful to avoid reallocating temporary vectors 
+/// This is useful to avoid reallocating temporary vectors.
 pub struct VecStorage {
     ptr: Unique<u8>,
     cap: usize,
