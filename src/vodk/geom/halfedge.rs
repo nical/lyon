@@ -134,6 +134,12 @@ impl ConnectivityKernel {
 
     pub fn first_vertex(&self) -> VertexId { vertex_id(0) }
 
+    pub fn contain_egde(&self, id: EdgeId) -> bool { id.as_index() < self.edges.len() }
+
+    pub fn contain_face(&self, id: FaceId) -> bool { id.as_index() < self.faces.len() }
+
+    pub fn contain_vertex(&self, id: VertexId) -> bool { id.as_index() < self.vertices.len() }
+
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
         let prev = self.edge(edge).prev;
