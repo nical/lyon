@@ -26,7 +26,7 @@ impl ShaderStageObject { pub fn new() -> ShaderStageObject { ShaderStageObject {
 impl ShaderPipelineObject { pub fn new() -> ShaderPipelineObject { ShaderPipelineObject { handle: 0 } } }
 impl BufferObject {
     pub fn new() -> BufferObject {
-        BufferObject { handle: 0, size: 0, buffer_type: BufferType::VERTEX }
+        BufferObject { handle: 0, size: 0, buffer_type: BufferType::Vertex }
     }
 }
 

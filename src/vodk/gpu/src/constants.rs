@@ -29,30 +29,41 @@ pub const COLOR  : TargetTypes = 1 << 0;
 pub const DEPTH  : TargetTypes = 1 << 1;
 pub const STENCIL: TargetTypes = 1 << 2;
 
+pub type MapFlags = u8;
+pub const READ_MAP      : MapFlags = 1;
+pub const WRITE_MAP     : MapFlags = 2;
+pub const PERSISTENT_MAP: MapFlags = 3;
+pub const COHERENT_MAP  : MapFlags = 4;
+
+pub type ErrorFlags = u8;
+pub const IGNORE_ERRORS : ErrorFlags = 0;
+pub const LOG_ERRORS    : ErrorFlags = 1;
+pub const CRASH_ERRORS  : ErrorFlags = 2;
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum ShaderType {
-    FRAGMENT_SHADER,
-    VERTEX_SHADER,
-    GEOMETRY_SHADER,
-    COMPUTE_SHADER,
+    Fragment,
+    Vertex,
+    Geometry,
+    Compute,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Feature {
-    FRAGMENT_SHADING,
-    VERTEX_SHADING,
-    GEOMETRY_SHADING,
-    COMPUTE,
-    DEPTH_TEXTURE,
-    RENDER_TO_TEXTURE,
-    MULTIPLE_RENDER_TARGETS,
-    INSTANCED_RENDERING,
+    FragmentShading,
+    VertexShading,
+    GeometryShading,
+    Compute,
+    DepthTexture,
+    RenderToTexture,
+    MultipleRenderTargets,
+    InstancedRendering,
 }
 
 pub enum FeatureSupport {
-    SUPPORTED,
-    FALLBACK,
-    UNSUPPORTED,
+    Supported,
+    Fallback,
+    Unsupported,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -67,52 +78,41 @@ pub enum PixelFormat {
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum UpdateHint {
-    STATIC,
-    STREAM,
-    DYNAMIC,
+    Static,
+    Stream,
+    Dynamic,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum BufferType {
-    VERTEX,
-    INDEX,
-    UNIFORM,
-    DRAW_INDIRECT,
-    TRANSFORM_FEEDBACK,
+    Vertex,
+    Index,
+    Uniform,
+    DrawIndirect,
+    TransformFeedback,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum BlendMode {
-    NONE,
-    ALPHA,
-    ADD,
-    SUB,
-    MUL,
+    None,
+    Alpha,
+    Add,
+    Sub,
+    Mul,
 }
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
 pub enum ResultCode {
-    OK,
-    UNKNOWN_ERROR,
-    UNKNOWN_COMMAND_ERROR,
-    INVALID_ARGUMENT_ERROR,
-    OUT_OF_MEMORY_ERROR,
-    INVALID_OBJECT_HANDLE_ERROR,
-    SHADER_COMPILATION_ERROR,
-    SHADER_LINK_ERROR,
-    DEVICE_LOST_ERROR,
-    RT_MISSING_ATTACHMENT_ERROR,
-    RT_INCOMPLETE_ATTACHMENT_ERROR,
-    RT_UNSUPPORTED_ERROR,
+    Ok,
+    UnknownError,
+    UnknownCommand,
+    InvalidArgument,
+    OutOfMemory,
+    InvalidObjectHandle,
+    ShaderCompilationFailed,
+    ShaderLinkFailed,
+    DeviceLost,
+    RtMissingAttachment,
+    RtIncompleteAttachment,
+    RtUnsupported,
 }
-
-pub type MapFlags = u8;
-pub const READ_MAP      : MapFlags = 1;
-pub const WRITE_MAP     : MapFlags = 2;
-pub const PERSISTENT_MAP: MapFlags = 3;
-pub const COHERENT_MAP  : MapFlags = 4;
-
-pub type ErrorFlags = u8;
-pub const IGNORE_ERRORS : ErrorFlags = 0;
-pub const LOG_ERRORS    : ErrorFlags = 1;
-pub const CRASH_ERRORS  : ErrorFlags = 2;

@@ -1,15 +1,15 @@
 use super::objects::*;
 use super::constants::*;
-use data;
+use vodkdata as data;
 
 use std::mem;
 
 pub type AttributeType = data::Type;
 pub type UniformBindingIndex = i32;
 
-#[derive(Show, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct UniformBlockLocation { pub index: i16 }
-#[derive(Show, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct VertexAttributeLocation { pub index: i16 }
 
 #[derive(Copy, Clone, Debug)]
@@ -172,18 +172,18 @@ impl<Backend: DeviceBackend> Device<Backend> {
         unsafe {
             let mut ptr = 0 as *mut u8;
             let result = self.backend.map_buffer(buffer, flags, &mut ptr);
-            if result != ResultCode::OK {
+            if result != ResultCode::Ok {
                 return result;
             }
             if ptr == 0 as *mut u8 {
-                return ResultCode::UNKNOWN_ERROR;
+                return ResultCode::UnknownError;
             }
             *data = mem::transmute((
                 ptr,
                 buffer.size as usize / mem::size_of::<T>()
             ));
         }
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     pub fn unmap_buffer(
@@ -205,13 +205,13 @@ impl<Backend: DeviceBackend> Device<Backend> {
                 READ_MAP|WRITE_MAP,
                 &mut mapped_data
             );
-            if result != ResultCode::OK { return result; }
+            if result != ResultCode::Ok { return result; }
         }
 
         cb(mapped_data);
 
         self.unmap_buffer(buffer);
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     pub fn with_read_only_mapped_buffer<T>(
@@ -226,13 +226,13 @@ impl<Backend: DeviceBackend> Device<Backend> {
                 READ_MAP,
                 &mut mapped_data
             );
-            if result != ResultCode::OK { return result; }
+            if result != ResultCode::Ok { return result; }
         }
 
         cb(mapped_data);
 
         self.unmap_buffer(buffer);
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     pub fn with_write_only_mapped_buffer<T>(
@@ -247,13 +247,13 @@ impl<Backend: DeviceBackend> Device<Backend> {
                 WRITE_MAP,
                 &mut mapped_data
             );
-            if result != ResultCode::OK { return result; }
+            if result != ResultCode::Ok { return result; }
         }
 
         cb(mapped_data);
 
         self.unmap_buffer(buffer);
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     pub fn destroy_geometry(

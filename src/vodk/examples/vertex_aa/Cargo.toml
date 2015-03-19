@@ -13,17 +13,14 @@ git = "https://github.com/bjz/gl-rs"
 [dependencies.glutin]
 git = "https://github.com/tomaka/glutin"
 
-[dependencies.data]
+[dependencies.vodk_data]
 path = "../../data/"
 
-[dependencies.math]
+[dependencies.vodk_math]
 path = "../../math/"
 
-[dependencies.gpu]
+[dependencies.vodk_gpu]
 path = "../../gpu/"
 
 [dependencies.gfx2d]
 path = "../../gfx2d/"
-
-[dependencies]
-time = "*"

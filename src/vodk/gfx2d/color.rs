@@ -1,5 +1,5 @@
 use std::ops;
-use math::vector::ScalarMul;
+use vodkmath::vector::ScalarMul;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rgba<T> {

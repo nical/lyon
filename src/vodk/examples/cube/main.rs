@@ -1,21 +1,17 @@
 extern crate glutin;
 extern crate gl;
-extern crate gpu;
-extern crate data;
-extern crate math;
+extern crate vodk_gpu;
+extern crate vodkdata;
+extern crate vodkmath;
 
-use data::*;
-use gpu::device::*;
-use gpu::constants::*;
-use gpu::opengl;
+use vodk_gpu::device::*;
+use vodk_gpu::constants::*;
+use vodk_gpu::opengl;
+use vodkdata as data;
 
 use std::num::Float;
-//use std::io::timer::sleep;
-use std::time::duration::Duration;
-use std::mem;
 
-use math::units::world;
-use math::vector;
+use vodkmath::units::world;
 
 struct TransformsBlock {
   model: world::Mat4,
@@ -84,14 +80,14 @@ fn main() {
 
     let vbo_desc = BufferDescriptor {
         size: 8*4*4*6,
-        buffer_type: BufferType::VERTEX,
-        update_hint: UpdateHint::STATIC,
+        buffer_type: BufferType::Vertex,
+        update_hint: UpdateHint::Static,
     };
 
     let ibo_desc = BufferDescriptor {
         size: 8*4*4*6,
-        buffer_type: BufferType::INDEX,
-        update_hint: UpdateHint::STATIC,
+        buffer_type: BufferType::Index,
+        update_hint: UpdateHint::Static,
     };
 
     let vbo = ctx.create_buffer(&vbo_desc).ok().unwrap();
@@ -99,7 +95,7 @@ fn main() {
 
     ctx.with_write_only_mapped_buffer(
       vbo, &|mapped_vbo| {
-          for i in range(0, cube_vertices.len()) {
+          for i in 0 .. cube_vertices.len() {
             mapped_vbo[i] = cube_vertices[i];
           }
       }
@@ -107,7 +103,7 @@ fn main() {
 
     ctx.with_write_only_mapped_buffer(
       ibo, &|mapped_ibo| {
-          for i in range(0, cube_indices.len()) {
+          for i in 0 .. cube_indices.len() {
             mapped_ibo[i] = cube_indices[i];
           }
       }
@@ -150,7 +146,7 @@ fn main() {
     let geom = ctx.create_geometry(&geom_desc).ok().unwrap();
 
     let vertex_stage_desc = ShaderStageDescriptor {
-        stage_type: ShaderType::VERTEX_SHADER,
+        stage_type: ShaderType::Vertex,
         src: &[shaders::VERTEX]
     };
 
@@ -163,7 +159,7 @@ fn main() {
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
-        stage_type: ShaderType::FRAGMENT_SHADER,
+        stage_type: ShaderType::Fragment,
         src: &[shaders::FRAGMENT]
     };
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
@@ -196,8 +192,8 @@ fn main() {
     ctx.set_viewport(0, 0, win_width as i32, win_height as i32);
 
     let ubo_desc = BufferDescriptor {
-        buffer_type: BufferType::UNIFORM,
-        update_hint: UpdateHint::DYNAMIC,
+        buffer_type: BufferType::Uniform,
+        update_hint: UpdateHint::Dynamic,
         size: 4*16*3,
     };
 
@@ -227,7 +223,7 @@ fn main() {
                 *view = world::Mat4::identity();
                 view.translate(&world::vec3(0.0, 0.0, -10.0));
                 view.rotate(
-                    vector::PI * (frame_count as f32 * 0.01).sin(),
+                    3.14159265358979323846264338327950288 * (frame_count as f32 * 0.01).sin(),
                     &world::vec3(0.0, 1.0, 0.0)
                 );
                 mapped_ubo[0].model = world::Mat4::identity();
@@ -239,7 +235,7 @@ fn main() {
         ctx.draw(
             geom,
             Range::IndexRange(0, cube_indices.len() as u16),
-            TRIANGLES, BlendMode::NONE, COLOR|DEPTH
+            TRIANGLES, BlendMode::None, COLOR|DEPTH
         );
 
         window.swap_buffers();

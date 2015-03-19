@@ -1,4 +1,4 @@
-use math::units::texels;
+use vodkmath::units::texels;
 use color::Rgba;
 
 pub enum FillStyle<'l> {

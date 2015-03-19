@@ -10,10 +10,10 @@ authors = [
 name = "gfx2d"
 path = "./lib.rs"
 
-[dependencies.data]
+[dependencies.vodk_data]
 path = "../data/"
 
-[dependencies.math]
+[dependencies.vodk_math]
 path = "../math/"
 
 

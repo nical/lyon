@@ -8,7 +8,7 @@ use std::mem;
 use libc::c_void;
 use std::ffi::CString;
 
-use data;
+use vodkdata as data;
 
 pub struct OpenGLDeviceBackend {
     current_render_target: RenderTargetObject,
@@ -22,11 +22,11 @@ pub struct OpenGLDeviceBackend {
 impl OpenGLDeviceBackend {
     fn check_errors(&mut self) -> ResultCode {
         if self.error_flags & IGNORE_ERRORS != 0 {
-            return ResultCode::OK;
+            return ResultCode::Ok;
         }
         let gl_error = unsafe { gl::GetError() };
         if gl_error == gl::NO_ERROR {
-            return ResultCode::OK;
+            return ResultCode::Ok;
         }
         if self.error_flags & LOG_ERRORS != 0 {
             println!("GL Error: 0x{:x} ({})", gl_error, gl_error_str(gl_error));
@@ -54,11 +54,11 @@ impl OpenGLDeviceBackend {
             if blend == self.current_blend_mode {
                 return;
             }
-            if blend == BlendMode::NONE {
+            if blend == BlendMode::None {
                 gl::Disable(gl::BLEND);
             } else {
                 gl::Enable(gl::BLEND);
-                if blend == BlendMode::ALPHA {
+                if blend == BlendMode::Alpha {
                     gl::BlendFunc(gl::SRC_ALPHA,gl::ONE_MINUS_SRC_ALPHA);
                 } else {
                     panic!("Unimplemented");
@@ -74,14 +74,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
         feature: Feature
     ) -> bool {
         return match feature {
-            Feature::FRAGMENT_SHADING => true,
-            Feature::VERTEX_SHADING => true,
-            Feature::GEOMETRY_SHADING => false,
-            Feature::COMPUTE => false,
-            Feature::DEPTH_TEXTURE => false,
-            Feature::RENDER_TO_TEXTURE => true,
-            Feature::MULTIPLE_RENDER_TARGETS => true,
-            Feature::INSTANCED_RENDERING => false,
+            Feature::FragmentShading => true,
+            Feature::VertexShading => true,
+            Feature::GeometryShading => false,
+            Feature::Compute => false,
+            Feature::DepthTexture => false,
+            Feature::RenderToTexture => true,
+            Feature::MultipleRenderTargets => true,
+            Feature::InstancedRendering => false,
         };
     }
 
@@ -119,9 +119,9 @@ impl DeviceBackend for OpenGLDeviceBackend {
     ) -> ResultCode {
         if texture.handle != 0 {
             set_texture_flags(texture.handle, flags);
-            return ResultCode::OK;
+            return ResultCode::Ok;
         }
-        return ResultCode::INVALID_OBJECT_HANDLE_ERROR;
+        return ResultCode::InvalidObjectHandle;
     }
 
     fn create_shader_stage(
@@ -147,14 +147,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 lines_len.as_ptr()
             );
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
 
             gl::CompileShader(shader.handle);
 
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
             return Ok(shader);
@@ -169,7 +169,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             let mut status : i32 = 0;
             gl::GetShaderiv(shader.handle, gl::COMPILE_STATUS, &mut status);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err((error,"".to_string())); }
             }
             if status == gl::TRUE as i32 {
@@ -185,7 +185,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 Ok(msg) => { msg }
                 Err(_) => { "Unknown shader error".to_string() }
             };
-            return Err((ResultCode::SHADER_COMPILATION_ERROR, err_msg));
+            return Err((ResultCode::ShaderCompilationFailed, err_msg));
         }
     }
 
@@ -213,7 +213,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             for &(ref name, loc) in descriptor.attrib_locations.iter() {
                 if loc.index < 0 {
                     gl::DeleteProgram(pipeline.handle);
-                    return Err(ResultCode::INVALID_ARGUMENT_ERROR);
+                    return Err(ResultCode::InvalidArgument);
                 }
                 let c_name = CString::from_slice(name.as_bytes());
                 unsafe {
@@ -234,19 +234,19 @@ impl DeviceBackend for OpenGLDeviceBackend {
         shader: ShaderPipelineObject,
     ) -> Result<(), (ResultCode, String)> {
         if shader.handle == 0 {
-            return Err((ResultCode::INVALID_OBJECT_HANDLE_ERROR, String::new()));
+            return Err((ResultCode::InvalidObjectHandle, String::new()));
         }
         unsafe {
             gl::ValidateProgram(shader.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err((error, String::new())); }
             }
 
             let mut status: i32 = 0;
             gl::GetProgramiv(shader.handle, gl::VALIDATE_STATUS, &mut status);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err((error, String::new())); }
             }
 
@@ -265,7 +265,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 Ok(msg) => { msg }
                 Err(_) => { "Unknown shader error".to_string() }
             };
-            return Err((ResultCode::SHADER_LINK_ERROR, err_msg));
+            return Err((ResultCode::ShaderLinkFailed, err_msg));
         }
     }
 
@@ -286,7 +286,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             let mut buffer = BufferObject::new();
             gl::GenBuffers(1, &mut buffer.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
 
@@ -304,7 +304,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 buffer.handle
             );
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
 
@@ -315,7 +315,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 gl_update_hint(descriptor.update_hint)
             );
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
             return Ok(buffer);
@@ -339,14 +339,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
         data: *mut *mut u8
     ) -> ResultCode {
         if buffer.handle == 0 {
-            return ResultCode::INVALID_OBJECT_HANDLE_ERROR;
+            return ResultCode::InvalidObjectHandle;
         }
 
         let gl_target = gl_buffer_type(buffer.buffer_type);
 
         gl::BindBuffer(gl_target, buffer.handle);
         match self.check_errors() {
-            ResultCode::OK => {}
+            ResultCode::Ok => {}
             error => { return error; }
         }
 
@@ -355,11 +355,11 @@ impl DeviceBackend for OpenGLDeviceBackend {
             gl_access_flags(flags)
         ) as *mut u8;
         match self.check_errors() {
-            ResultCode::OK => {}
+            ResultCode::Ok => {}
             error => { return error; }
         }
 
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     fn unmap_buffer(
@@ -390,20 +390,20 @@ impl DeviceBackend for OpenGLDeviceBackend {
             let mut handle: u32 = 0;
             gl::GenVertexArrays(1, &mut handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
 
             gl::BindVertexArray(handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
 
             for attr in descriptor.attributes.iter() {
                 gl::BindBuffer(gl::ARRAY_BUFFER, attr.buffer.handle);
                 match self.check_errors() {
-                    ResultCode::OK => {}
+                    ResultCode::Ok => {}
                     error => { return Err(error); }
                 }
                 gl::VertexAttribPointer(
@@ -415,12 +415,12 @@ impl DeviceBackend for OpenGLDeviceBackend {
                     mem::transmute(attr.offset as usize)
                 );
                 match self.check_errors() {
-                    ResultCode::OK => {}
+                    ResultCode::Ok => {}
                     error => { return Err(error); }
                 }
                 gl::EnableVertexAttribArray(attr.location.index as u32);
                 match self.check_errors() {
-                    ResultCode::OK => {}
+                    ResultCode::Ok => {}
                     error => { return Err(error); }
                 }
             }
@@ -429,7 +429,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 Some(ibo) => {
                     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo.handle);
                     match self.check_errors() {
-                        ResultCode::OK => {}
+                        ResultCode::Ok => {}
                         error => { return Err(error); }
                     }
                 }
@@ -472,7 +472,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return Err(error); }
             }
 
@@ -485,7 +485,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                     0
                 );
                 match self.check_errors() {
-                    ResultCode::OK => {}
+                    ResultCode::Ok => {}
                     error => { return Err(error); }
                 }
             }
@@ -500,7 +500,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                         0
                     );
                     match self.check_errors() {
-                        ResultCode::OK => {}
+                        ResultCode::Ok => {}
                         error => { return Err(error); }
                     }
                 }
@@ -517,7 +517,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                         0
                     );
                     match self.check_errors() {
-                        ResultCode::OK => {}
+                        ResultCode::Ok => {}
                         error => { return Err(error); }
                     }
                 }
@@ -561,7 +561,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
 
             gl::BindTexture(gl::TEXTURE_2D, texture.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
             gl::GetTexLevelParameteriv(
@@ -577,27 +577,27 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 &mut format
             );
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
 
             gl::BindBuffer(gl::PIXEL_UNPACK_BUFFER, buffer.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
             // TODO: support other formats
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, width, height,
                             gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(0 as *const c_void));
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
 
             gl::BindBuffer(gl::PIXEL_UNPACK_BUFFER, 0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     fn copy_texture_to_buffer(
@@ -608,12 +608,12 @@ impl DeviceBackend for OpenGLDeviceBackend {
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, texture.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
             gl::BindBuffer(gl::PIXEL_PACK_BUFFER, buffer.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
             gl::GetTexImage(
@@ -622,14 +622,14 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 mem::transmute(0 as *mut c_void)// offset in the buffer
             );
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
 
             gl::BindBuffer(gl::PIXEL_PACK_BUFFER, 0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
         }
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     fn copy_buffer_to_buffer(
@@ -644,7 +644,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             gl::BindBuffer(gl::COPY_READ_BUFFER, src_buffer.handle);
             gl::BindBuffer(gl::COPY_WRITE_BUFFER, dest_buffer.handle);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
 
@@ -655,18 +655,18 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 size as i64
             );
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
 
             gl::BindBuffer(gl::COPY_READ_BUFFER, 0);
             gl::BindBuffer(gl::COPY_WRITE_BUFFER, 0);
             match self.check_errors() {
-                ResultCode::OK => {}
+                ResultCode::Ok => {}
                 error => { return error; }
             }
         }
-        return ResultCode::OK;
+        return ResultCode::Ok;
     }
 
     fn bind_uniform_buffer(
@@ -733,7 +733,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
     fn set_shader(&mut self, shader: ShaderPipelineObject) -> ResultCode {
         self.check_errors();
         if self.current_shader == shader {
-            return ResultCode::OK;
+            return ResultCode::Ok;
         }
         self.current_shader = shader;
         unsafe {
@@ -810,7 +810,7 @@ pub fn create_device() -> Device<OpenGLDeviceBackend> {
             current_render_target: RenderTargetObject { handle: 0 },
             current_geometry: GeometryObject { handle: 0 },
             current_target_types: 0,
-            current_blend_mode: BlendMode::NONE,
+            current_blend_mode: BlendMode::None,
             error_flags: IGNORE_ERRORS,
         }
     }
@@ -824,7 +824,7 @@ pub fn create_debug_device(err_flags: ErrorFlags) -> Device<LoggingProxy<OpenGLD
                 current_render_target: RenderTargetObject { handle: 0 },
                 current_geometry: GeometryObject { handle: 0 },
                 current_target_types: 0,
-                current_blend_mode: BlendMode::NONE,
+                current_blend_mode: BlendMode::None,
                 error_flags: err_flags,
             }
         }
@@ -846,10 +846,10 @@ fn gl_format(format: PixelFormat) -> u32 {
 
 fn gl_shader_type(target: ShaderType) -> u32 {
     match target {
-        ShaderType::VERTEX_SHADER => gl::VERTEX_SHADER,
-        ShaderType::FRAGMENT_SHADER => gl::FRAGMENT_SHADER,
-        ShaderType::GEOMETRY_SHADER => gl::GEOMETRY_SHADER,
-        ShaderType::COMPUTE_SHADER => gl::COMPUTE_SHADER,
+        ShaderType::Vertex => gl::VERTEX_SHADER,
+        ShaderType::Fragment => gl::FRAGMENT_SHADER,
+        ShaderType::Geometry => gl::GEOMETRY_SHADER,
+        ShaderType::Compute => gl::COMPUTE_SHADER,
     }
 }
 
@@ -865,19 +865,19 @@ fn gl_draw_mode(flags: GeometryFlags) -> u32 {
 
 fn gl_buffer_type(t: BufferType) -> u32 {
     return match t {
-        BufferType::VERTEX => gl::ARRAY_BUFFER,
-        BufferType::INDEX => gl::ELEMENT_ARRAY_BUFFER,
-        BufferType::UNIFORM => gl::UNIFORM_BUFFER,
-        BufferType::TRANSFORM_FEEDBACK => gl::TRANSFORM_FEEDBACK_BUFFER,
-        BufferType::DRAW_INDIRECT => gl::DRAW_INDIRECT_BUFFER,
+        BufferType::Vertex => gl::ARRAY_BUFFER,
+        BufferType::Index => gl::ELEMENT_ARRAY_BUFFER,
+        BufferType::Uniform => gl::UNIFORM_BUFFER,
+        BufferType::TransformFeedback => gl::TRANSFORM_FEEDBACK_BUFFER,
+        BufferType::DrawIndirect => gl::DRAW_INDIRECT_BUFFER,
     }
 }
 
 fn gl_update_hint(hint: UpdateHint) -> u32 {
     match hint {
-        UpdateHint::STATIC => gl::STATIC_DRAW,
-        UpdateHint::STREAM => gl::STREAM_DRAW,
-        UpdateHint::DYNAMIC => gl::DYNAMIC_DRAW,
+        UpdateHint::Static => gl::STATIC_DRAW,
+        UpdateHint::Stream => gl::STREAM_DRAW,
+        UpdateHint::Dynamic => gl::DYNAMIC_DRAW,
     }
 }
 
@@ -948,17 +948,17 @@ pub fn gl_error_str(err: u32) -> &'static str {
 
 fn from_gl_error(err: u32) -> ResultCode {
     match err {
-        gl::NO_ERROR            => { ResultCode::OK }
-        gl::INVALID_ENUM        => { ResultCode::INVALID_ARGUMENT_ERROR }
-        gl::INVALID_VALUE       => { ResultCode::INVALID_ARGUMENT_ERROR }
-        gl::INVALID_OPERATION   => { ResultCode::INVALID_ARGUMENT_ERROR }
-        gl::OUT_OF_MEMORY       => { ResultCode::OUT_OF_MEMORY_ERROR }
-        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => { ResultCode::RT_MISSING_ATTACHMENT_ERROR }
-        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => { ResultCode::RT_INCOMPLETE_ATTACHMENT_ERROR }
-        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => { ResultCode::UNKNOWN_ERROR }  // TODO
-        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => { ResultCode::UNKNOWN_ERROR }, // TODO
-        gl::FRAMEBUFFER_UNSUPPORTED => { ResultCode::RT_UNSUPPORTED_ERROR }
-        _ => { ResultCode::UNKNOWN_ERROR }
+        gl::NO_ERROR            => { ResultCode::Ok }
+        gl::INVALID_ENUM        => { ResultCode::InvalidArgument }
+        gl::INVALID_VALUE       => { ResultCode::InvalidArgument }
+        gl::INVALID_OPERATION   => { ResultCode::InvalidArgument }
+        gl::OUT_OF_MEMORY       => { ResultCode::OutOfMemory }
+        gl::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT => { ResultCode::RtMissingAttachment }
+        gl::FRAMEBUFFER_INCOMPLETE_ATTACHMENT => { ResultCode::RtIncompleteAttachment }
+        gl::FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER => { ResultCode::UnknownError }  // TODO
+        gl::FRAMEBUFFER_INCOMPLETE_MULTISAMPLE => { ResultCode::UnknownError }, // TODO
+        gl::FRAMEBUFFER_UNSUPPORTED => { ResultCode::RtUnsupported }
+        _ => { ResultCode::UnknownError }
     }
 }
 

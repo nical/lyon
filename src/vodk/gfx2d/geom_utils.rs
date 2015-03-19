@@ -1,5 +1,5 @@
-use math::units::world;
-use math::vector;
+use vodkmath::units::world;
+use vodkmath::vector;
 
 pub fn line_intersection<U>(
     a1: vector::Vector2D<U>,

@@ -1,8 +1,8 @@
-#![feature(macro_rules, globs)]
+#![feature(macro_rules)]
 
 extern crate gl;
 extern crate libc;
-extern crate data;
+extern crate vodkdata;
 
 pub mod device;
 pub mod objects;

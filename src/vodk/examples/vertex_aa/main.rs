@@ -1,33 +1,31 @@
-extern crate gl;
 extern crate glutin;
-extern crate data;
-extern crate gpu;
+extern crate gl;
+extern crate vodk_gpu;
+extern crate vodkdata;
+extern crate vodkmath;
 extern crate gfx2d;
-extern crate math;
-extern crate time;
 
-use data::*;
-use gpu::device::*;
-use gpu::constants::*;
-use gpu::opengl;
+use vodk_gpu::std140;
+use vodk_gpu::device::*;
+use vodk_gpu::constants::*;
+use vodk_gpu::opengl;
+use vodkdata as data;
 use gfx2d::tesselation;
 use gfx2d::color::Rgba;
+use vodkmath::units::world;
+use vodkmath::units::texels;
+use vodkmath::matrix;
 
 use std::mem;
-use std::time::duration::Duration;
 
-use math::units::world;
-use math::units::texels;
-use math::vector;
-
-#[derive(Show)]
+#[derive(Debug)]
 struct TransformsBlock {
-  model: gpu::std140::Mat3,
-  view:  gpu::std140::Mat3,
+  model: std140::Mat3,
+  view:  std140::Mat3,
 }
 
-fn to_std_140_mat3<T>(from: &vector::Matrix3x3<T>) -> gpu::std140::Mat3 {
-    return gpu::std140::Mat3 {
+fn to_std_140_mat3<T>(from: &matrix::Matrix3x3<T>) -> std140::Mat3 {
+    return std140::Mat3 {
         _11: from._11, _21: from._21, _31: from._31, _pad1: 0,
         _12: from._12, _22: from._22, _32: from._32, _pad2: 0,
         _13: from._13, _23: from._23, _33: from._33, _pad3: 0,
@@ -70,14 +68,14 @@ fn main() {
     let vbo_desc = BufferDescriptor {
         size: (n_points * vertices_per_point *
               mem::size_of::<tesselation::Pos2DNormal2DColorExtrusion>()) as u32,
-        buffer_type: BufferType::VERTEX,
-        update_hint: UpdateHint::STATIC,
+        buffer_type: BufferType::Vertex,
+        update_hint: UpdateHint::Static,
     };
 
     let ibo_desc = BufferDescriptor {
         size: (mem::size_of::<u16>()  * n_indices) as u32,
-        buffer_type: BufferType::INDEX,
-        update_hint: UpdateHint::STATIC,
+        buffer_type: BufferType::Index,
+        update_hint: UpdateHint::Static,
     };
 
     let vbo = ctx.create_buffer(&vbo_desc).ok().unwrap();
@@ -86,7 +84,7 @@ fn main() {
     ctx.with_write_only_mapped_buffer(
       vbo, &|mapped_vbo| {
         tesselation::path_to_line_vbo(
-            path.as_slice(),
+            &path[..],
             true,
             tesselation::VERTEX_ANTIALIASING|tesselation::CONVEX_SHAPE,
             &|_| { 50.0 },
@@ -147,7 +145,7 @@ fn main() {
     let geom = ctx.create_geometry(&geom_desc).ok().unwrap();
 
     let vertex_stage_desc = ShaderStageDescriptor {
-        stage_type: ShaderType::VERTEX_SHADER,
+        stage_type: ShaderType::Vertex,
         src: &[shaders::VERTEX]
     };
 
@@ -158,7 +156,7 @@ fn main() {
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
-        stage_type: ShaderType::FRAGMENT_SHADER,
+        stage_type: ShaderType::Fragment,
         src: &[shaders::PIXEL]
     };
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
@@ -188,14 +186,14 @@ fn main() {
     ctx.set_viewport(0, 0, win_width as i32, win_height as i32);
 
     let transforms_ubo_desc = BufferDescriptor {
-        buffer_type: BufferType::UNIFORM,
-        update_hint: UpdateHint::DYNAMIC,
-        size: mem::size_of::<gpu::std140::Mat3>() as u32 * 2,
+        buffer_type: BufferType::Uniform,
+        update_hint: UpdateHint::Dynamic,
+        size: mem::size_of::<std140::Mat3>() as u32 * 2,
     };
 
     let static_ubo_desc = BufferDescriptor {
-        buffer_type: BufferType::UNIFORM,
-        update_hint: UpdateHint::DYNAMIC,
+        buffer_type: BufferType::Uniform,
+        update_hint: UpdateHint::Dynamic,
         size: mem::size_of::<texels::Vec2>() as u32,
     };
 
@@ -235,7 +233,7 @@ fn main() {
         ctx.draw(
             geom,
             Range::IndexRange(0, n_indices as u16),
-            TRIANGLES, BlendMode::NONE, COLOR|DEPTH
+            TRIANGLES, BlendMode::None, COLOR|DEPTH
         );
 
         window.swap_buffers();

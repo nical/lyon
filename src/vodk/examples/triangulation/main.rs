@@ -1,12 +1,12 @@
-extern crate gl;
 extern crate glutin;
-extern crate data;
-extern crate gpu;
+extern crate gl;
+extern crate vodk_gpu;
+extern crate vodkdata;
+extern crate vodkmath;
 extern crate gfx2d;
-extern crate math;
 extern crate geom;
 
-use data::*;
+use vodkdata as data;
 use gpu::device::*;
 use gpu::constants::*;
 use gpu::opengl;
@@ -91,14 +91,14 @@ fn main() {
 
     let vbo_desc = BufferDescriptor {
         size: (path.len()  * mem::size_of::<PosColor>()) as u32,
-        buffer_type: BufferType::VERTEX,
-        update_hint: UpdateHint::STATIC,
+        buffer_type: BufferType::Vertex,
+        update_hint: UpdateHint::Static,
     };
 
     let ibo_desc = BufferDescriptor {
         size: (mem::size_of::<u16>()  * n_indices) as u32,
-        buffer_type: BufferType::INDEX,
-        update_hint: UpdateHint::STATIC,
+        buffer_type: BufferType::Index,
+        update_hint: UpdateHint::Static,
     };
 
     let vbo = ctx.create_buffer(&vbo_desc).ok().unwrap();
@@ -146,7 +146,7 @@ fn main() {
     let geom = ctx.create_geometry(&geom_desc).ok().unwrap();
 
     let vertex_stage_desc = ShaderStageDescriptor {
-        stage_type: ShaderType::VERTEX_SHADER,
+        stage_type: ShaderType::Vertex,
         src: &[shaders::VERTEX]
     };
 
@@ -157,7 +157,7 @@ fn main() {
     }
 
     let fragment_stage_desc = ShaderStageDescriptor {
-        stage_type: ShaderType::FRAGMENT_SHADER,
+        stage_type: ShaderType::Fragment,
         src: &[shaders::PIXEL]
     };
     let fragment_shader = ctx.create_shader_stage(&fragment_stage_desc).ok().unwrap();
@@ -187,14 +187,14 @@ fn main() {
     ctx.set_viewport(0, 0, win_width as i32, win_height as i32);
 
     let transforms_ubo_desc = BufferDescriptor {
-        buffer_type: BufferType::UNIFORM,
-        update_hint: UpdateHint::DYNAMIC,
+        buffer_type: BufferType::Uniform,
+        update_hint: UpdateHint::Dynamic,
         size: mem::size_of::<gpu::std140::Mat3>() as u32 * 2,
     };
 
     let static_ubo_desc = BufferDescriptor {
-        buffer_type: BufferType::UNIFORM,
-        update_hint: UpdateHint::DYNAMIC,
+        buffer_type: BufferType::Uniform,
+        update_hint: UpdateHint::Dynamic,
         size: mem::size_of::<texels::Vec2>() as u32,
     };
 
