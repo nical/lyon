@@ -5,7 +5,7 @@ authors = ["Nicolas Silva <nical.silva@gmail.com>"]
 
 [[bin]]
 name = "vertex_aa_example"
-path = "./main.rs"
+path = "./triangulation_example.rs"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
@@ -13,13 +13,13 @@ git = "https://github.com/bjz/gl-rs"
 [dependencies.glutin]
 git = "https://github.com/tomaka/glutin"
 
-[dependencies.data]
+[dependencies.vodk_data]
 path = "../../data/"
 
-[dependencies.math]
+[dependencies.vodk_math]
 path = "../../math/"
 
-[dependencies.gpu]
+[dependencies.vodk_gpu]
 path = "../../gpu/"
 
 [dependencies.gfx2d]

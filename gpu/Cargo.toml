@@ -12,8 +12,8 @@ include = [ "Cargo.toml", "src/*.rs" ]
 name = "vodk_gpu"
 path = "src/lib.rs"
 
-[dependencies]
-vodk_data = "*"
+[dependencies.vodk_data]
+path = "../data"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"

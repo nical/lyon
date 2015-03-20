@@ -6,16 +6,15 @@ extern crate vodk_math;
 extern crate gfx2d;
 extern crate geom;
 
-use vodk_data as data;
-use gpu::device::*;
-use gpu::constants::*;
-use gpu::opengl;
+use vodk_gpu::std140;
+use vodk_gpu::device::*;
+use vodk_gpu::constants::*;
+use vodk_gpu::opengl;
+use vodk_data::*;
+use vodk_math::units::world;
+use vodk_math::units::texels;
+use vodk_math::matrix;
 use gfx2d::color::Rgba;
-
-use math::units::world;
-use math::units::texels;
-use math::vector;
-
 use geom::halfedge::*;
 use geom::monotone::*;
 
@@ -29,12 +28,12 @@ struct PosColor {
 
 #[derive(Debug)]
 struct TransformsBlock {
-  model: gpu::std140::Mat3,
-  view:  gpu::std140::Mat3,
+  model: std140::Mat3,
+  view:  std140::Mat3,
 }
 
-fn to_std_140_mat3<T>(from: &vector::Matrix3x3<T>) -> gpu::std140::Mat3 {
-    return gpu::std140::Mat3 {
+fn to_std_140_mat3<T>(from: &matrix::Matrix3x3<T>) -> std140::Mat3 {
+    return std140::Mat3 {
         _11: from._11, _21: from._21, _31: from._31, _pad1: 0,
         _12: from._12, _22: from._22, _32: from._32, _pad2: 0,
         _13: from._13, _23: from._23, _33: from._33, _pad3: 0,
@@ -131,12 +130,12 @@ fn main() {
         attributes: &[
             VertexAttribute {
                 buffer: vbo,
-                attrib_type: data::VEC2, location: a_position,
+                attrib_type: VEC2, location: a_position,
                 stride: stride, offset: 0, normalize: false,
             },
             VertexAttribute {
                 buffer: vbo,
-                attrib_type: data::VEC4, location: a_color,
+                attrib_type: VEC4, location: a_color,
                 stride: stride, offset: 8, normalize: false,
             },
         ],
@@ -189,7 +188,7 @@ fn main() {
     let transforms_ubo_desc = BufferDescriptor {
         buffer_type: BufferType::Uniform,
         update_hint: UpdateHint::Dynamic,
-        size: mem::size_of::<gpu::std140::Mat3>() as u32 * 2,
+        size: mem::size_of::<std140::Mat3>() as u32 * 2,
     };
 
     let static_ubo_desc = BufferDescriptor {
@@ -234,7 +233,7 @@ fn main() {
         ctx.draw(
             geom,
             Range::IndexRange(0, n_indices as u16),
-            TRIANGLES, BlendMode::NONE, COLOR|DEPTH
+            TRIANGLES, BlendMode::None, COLOR|DEPTH
         );
 
         window.swap_buffers();

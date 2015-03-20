@@ -1,7 +1,7 @@
 [package]
 name = "gpu_cube_example"
 version = "0.0.1"
-authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+authors = ["Nicolas Silva <nical@fastmail.com>"]
 
 [[bin]]
 name = "cube_example"
