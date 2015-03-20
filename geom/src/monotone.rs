@@ -1,7 +1,56 @@
-// Implementation inspired by Computational Geometry, Algorithms And Applications 3rd edition.
-//
-// Note that a lot of the code/comments/names in this module assume a coordinate
-// system where y pointing downwards
+//!
+//! Y-monotone decomposition and triangulation of shapes.
+//! 
+//! This module provides the tools to generate triangles from arbitrary shapes with connectivity
+//! information (using a half-edge connectivity kernel).
+//!
+//! The implementation inspired by the book Computational Geometry, Algorithms And Applications 3rd edition.
+//!
+//! Note that a lot of the comments and variable names in this module assume a coordinate
+//! system where y is pointing downwards
+//!
+//!
+//! # Examples
+//!
+//! ```ignore
+//! extern crate vodk_math;
+//! extern crate geom;
+//! use geom::halfedge::{ ConnectivityKernel, FaceId };
+//! use geom::id_vector::*;
+//! use geom::monotone::*;
+//! use vodk_math::units::world;
+//!
+//! fn triangulate_faces(
+//!     kernel: &mut ConnectivityKernel,
+//!     faces: &[FaceId],
+//!     vertices: &[world::Vec2],
+//!     out_triangles: &mut TriangleStream
+//! ) -> usize {
+//!     let mut new_faces: Vec<FaceId> = vec![];
+//!     for &f in faces {
+//!         new_faces.push(f);
+//!     }
+//!     let vertex_positions = IdSlice::new(vertices);
+//!     let mut ctx = DecompositionContext::new();
+//!     for f in faces {
+//!         let res = ctx.y_monotone_decomposition(kernel, *f, vertex_positions, &mut new_faces);
+//!         assert_eq!(res, Ok(()));
+//!     }
+//! 
+//!     let mut ctx = TriangulationContext::new();
+//!     for f in new_faces {
+//!         debug_assert!(is_y_monotone(kernel, vertex_positions, f));
+//!         let res = ctx.y_monotone_triangulation(
+//!             kernel, f,
+//!             vertex_positions,
+//!             out_triangles
+//!         );
+//!         assert_eq!(res, Ok(()));
+//!     }
+//! }
+//!
+//! ```
+//!
 
 use halfedge::*;
 use id_vector::*;
@@ -43,8 +92,10 @@ pub enum TriangulationError {
     MissingFace,
 }
 
-/// Angle between v1 and v2 (oriented clockwise with y pointing downward)
+/// Angle between vectors v1 and v2 (oriented clockwise with y pointing downward).
+///
 /// (equivalent to counter-clockwise if y points upward)
+///
 /// ex: directed_angle([0,1], [1,0]) = 3/2 Pi rad = 270 deg
 ///     x       __
 ///   0-->     /  \
@@ -120,7 +171,11 @@ fn split_face(
     }
 }
 
-
+/// Can perform y-monotone decomposition on a connectivity kernel.
+///
+/// This object holds on to the memory that was allocated during previous
+/// decompositions in order to avoid allocating during the next decompositions
+/// if possible.
 pub struct DecompositionContext {
     sorted_edges_storage: VecStorage,
     // list of edges that intercept the sweep line, sorted by increasing x coordinate
@@ -129,6 +184,7 @@ pub struct DecompositionContext {
 }
 
 impl DecompositionContext {
+    /// Constructor
     pub fn new() -> DecompositionContext {
         DecompositionContext {
             sorted_edges_storage: VecStorage::new(),
@@ -137,6 +193,7 @@ impl DecompositionContext {
         }
     }
 
+    /// Constructor which pre-allocates memory
     pub fn with_capacity(edges: usize, sweep: usize, helpers: usize) -> DecompositionContext {
         let edges_vec: Vec<EdgeId> = Vec::with_capacity(edges);
         let sweep_vec: Vec<EdgeId> = Vec::with_capacity(sweep);
@@ -147,6 +204,9 @@ impl DecompositionContext {
         }
     }
 
+    /// Applies an y_monotone decomposition of a face in a connectivity kernel.
+    ///
+    /// This operation will add faces and edges to the connectivity kernel.
     pub fn y_monotone_decomposition<'l,
         U: Copy+Debug,
         P: Attribute<Vector2D<U>>,
@@ -271,7 +331,7 @@ impl DecompositionContext {
     }
 }
 
-
+/// Returns true if the face is y-monotone in O(n).
 pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Attribute<Vector2D<U>>>(
     kernel: &'l ConnectivityKernel,
     vertex_positions: IdSlice<'l, Pos, Vertex_>,
@@ -295,12 +355,13 @@ pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Attribute<Vector2D<U>>>(
     return true;
 }
 
-// TODO[nical] there's probably a generic Writer thingy in std
+/// Writes triangles as indices.
 pub trait TriangleStream {
     fn write(&mut self, a: VertexId, b: VertexId, c: VertexId);
     fn count(&self) -> usize;
 }
 
+/// Writes triangles as indices in a &[u16].
 pub struct SliceTriangleStream<'l> {
     indices: &'l mut[u16],
     offset: usize,
@@ -329,18 +390,27 @@ impl<'l> SliceTriangleStream<'l> {
     }
 }
 
-struct TriangulationContext {
+/// Can perform y-monotone triangulation on a connectivity kernel.
+///
+/// This object holds on to the memory that was allocated during previous
+/// triangulations, in order to avoid allocating during the next triangulations
+/// if possible.
+pub struct TriangulationContext {
     vertex_stack_storage: VecStorage,
 }
 
 impl TriangulationContext {
+    /// Constructor.
     pub fn new() -> TriangulationContext {
         TriangulationContext {
             vertex_stack_storage: VecStorage::new()
         }
     }
 
-    // Returns the number of indices added
+    /// Computes an y-monotone triangulation of a face in the connectivity kernel,
+    /// outputing triangles by pack of 3 vertex indices in a TriangleStream.
+    ///
+    /// Returns the number of indices that were added to the stream.
     pub fn y_monotone_triangulation<'l,
         U: Copy+Debug,
         P: Attribute<Vector2D<U>>,
@@ -509,7 +579,8 @@ impl TriangulationContext {
     }
 }
 
-pub fn triangulate_faces<T:Copy+Debug>(
+#[test]
+fn triangulate_faces<T:Copy+Debug>(
     kernel: &mut ConnectivityKernel,
     faces: &[FaceId],
     vertices: &[Vector2D<T>],
@@ -519,20 +590,20 @@ pub fn triangulate_faces<T:Copy+Debug>(
     for &f in faces {
         new_faces.push(f);
     }
-    let vertices_attr = IdSlice::new(vertices);
+    let vertex_positions = IdSlice::new(vertices);
     let mut ctx = DecompositionContext::new();
     for f in faces {
-        let res = ctx.y_monotone_decomposition(kernel, *f, vertices_attr, &mut new_faces);
+        let res = ctx.y_monotone_decomposition(kernel, *f, vertex_positions, &mut new_faces);
         assert_eq!(res, Ok(()));
     }
 
     let mut triangles = SliceTriangleStream::new(&mut indices[..]);
     let mut triangulator = TriangulationContext::new();
     for f in new_faces {
-        debug_assert!(is_y_monotone(kernel, vertices_attr, f));
+        debug_assert!(is_y_monotone(kernel, vertex_positions, f));
         let res = triangulator.y_monotone_triangulation(
             kernel, f,
-            vertices_attr,
+            vertex_positions,
             &mut triangles
         );
         assert_eq!(res, Ok(()));
