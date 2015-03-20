@@ -2,6 +2,8 @@ use std::ops;
 use std::u16;
 
 use id_vector::IdVector;
+use traits::*;
+use vodk_math::vector::{ Vector2D, Vector3D, Vector4D };
 
 use iterators::{
     FaceEdgeIterator, ReverseFaceEdgeIterator, DirectedEdgeCirculator,
@@ -28,24 +30,42 @@ pub type EdgeId = Id<Edge_>;
 pub type FaceId = Id<Face_>;
 
 impl<T> Id<T> {
+    /// Returns true if the id is not the special value.
+    #[inline]
     pub fn is_valid(self) -> bool { self.handle != u16::MAX }
+
+    /// Returns an usize for use with standard arrays.
+    #[inline]
     pub fn as_index(self) -> usize { self.handle as usize }
+
+    /// Create an id from an usize index.
+    #[inline]
     pub fn from_usize(idx: usize) -> Id<T> { Id { handle: idx as u16, _marker: PhantomData } }
 }
 
+/// Id with a special value, not referencing any edge.
+
+#[inline]
 pub fn no_edge() -> EdgeId { edge_id(u16::MAX) }
 
+/// Id with a special value, not referencing any face.
+#[inline]
 pub fn no_face() -> FaceId { face_id(u16::MAX) }
 
+/// Id with a special value, not referencing any vertex.
+#[inline]
 pub fn no_vertex() -> VertexId { vertex_id(u16::MAX) }
 
 /// Create an EdgeId from an index (the offset in the ConnectivityKernel's half edge vector)
+#[inline]
 pub fn edge_id(index: Index) -> EdgeId { EdgeId { handle: index, _marker: PhantomData } }
 
 /// Create a FaceId from an index (the offset in the ConnectivityKernel's face vector)
+#[inline]
 pub fn face_id(index: Index) -> FaceId { FaceId { handle: index, _marker: PhantomData } }
 
 /// Create a VertexId from an index (the offset in the ConnectivityKernel's vertex vector)
+#[inline]
 pub fn vertex_id(index: Index) -> VertexId { VertexId { handle: index, _marker: PhantomData } }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -119,7 +139,7 @@ impl ConnectivityKernel {
         debug_assert!(id.is_valid());
         &mut self.vertices[id.handle as usize]
     }
-    
+
     /// Face getter. You can also use the indexing operator.
     pub fn face(&self, id: FaceId) -> &FaceData {
         debug_assert!(id.is_valid());
@@ -131,7 +151,7 @@ impl ConnectivityKernel {
         debug_assert!(id.is_valid());
         &mut self.faces[id.handle as usize]
     }
-    
+
     /// Half edge getter. You can also use the indexing operator.
     pub fn edge(&self, id: EdgeId) -> &HalfEdgeData {
         debug_assert!(id.is_valid());
@@ -156,11 +176,11 @@ impl ConnectivityKernel {
 
     pub fn first_vertex(&self) -> VertexId { vertex_id(0) }
 
-    pub fn contain_egde(&self, id: EdgeId) -> bool { id.as_index() < self.edges.len() }
+    pub fn contains_egde(&self, id: EdgeId) -> bool { id.as_index() < self.edges.len() }
 
-    pub fn contain_face(&self, id: FaceId) -> bool { id.as_index() < self.faces.len() }
+    pub fn contains_face(&self, id: FaceId) -> bool { id.as_index() < self.faces.len() }
 
-    pub fn contain_vertex(&self, id: VertexId) -> bool { id.as_index() < self.vertices.len() }
+    pub fn contains_vertex(&self, id: VertexId) -> bool { id.as_index() < self.vertices.len() }
 
     pub fn walk_edges_around_face<'l>(&'l self, id: FaceId) -> FaceEdgeIterator<'l> {
         let edge = self.face(id).first_edge;
@@ -377,10 +397,33 @@ impl ConnectivityKernel {
     }
 
     /// Insert a Face in the kernel
+    pub fn add_edge(&mut self) -> EdgeId {
+        let id = edge_id(self.edges().len() as Index);
+        self.edges.push(HalfEdgeData {
+            next: no_edge(),
+            prev: no_edge(),
+            opposite: no_edge(),
+            face: no_face(),
+            vertex: no_vertex(),
+        });
+        return id;
+    }
+
+    /// Insert a Face in the kernel
+    pub fn add_face(&mut self) -> FaceId {
+        let id = face_id(self.faces().len() as Index);
+        self.faces.push(FaceData {
+            first_edge: no_edge(),
+            inner_edges: vec![],
+        });
+        return id;
+    }
+
+    /// Insert a Face in the kernel
     ///
-    /// Note that this does not set the HalfEdgeData.face member of the edges in the loop 
+    /// Note that this does not set the HalfEdgeData.face member of the edges in the loop
     /// that face.first_edge points to. This step has to be done manually if needed.
-    pub fn add_face(&mut self, face: FaceData) -> FaceId {
+    pub fn add_face_with_connections(&mut self, face: FaceData) -> FaceId {
         let id = face_id(self.faces().len() as Index);
         self.faces.push(face);
         return id;
@@ -612,8 +655,60 @@ impl<V, E, F> Mesh<V, E, F> {
 
     pub fn face_mut(&mut self, id: FaceId) -> &mut F { &mut self.face_attributes[id] }
 
+    pub fn add_edge(&mut self, data: E) -> EdgeId {
+        let id = self.kernel.add_edge();
+        self.edge_attributes[id] = data;
+        return id;
+    }
 
+    pub fn add_vertex(&mut self, data: V) -> VertexId {
+        let id = self.kernel.add_vertex();
+        self.vertex_attributes[id] = data;
+        return id;
+    }
+
+    pub fn add_face(&mut self, data: F) -> FaceId {
+        let id = self.kernel.add_face();
+        self.face_attributes[id] = data;
+        return id;
+    }
 }
+
+impl<U:Copy, V:Position2D<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn position2d(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).position() }
+    pub fn position2d_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).position_mut() }
+}
+
+impl<U:Copy, V:Position3D<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn position3d(&self, id: VertexId) -> &Vector3D<U> { self.vertex(id).position() }
+    pub fn position3d_mut(&mut self, id: VertexId) -> &mut Vector3D<U> { self.vertex_mut(id).position_mut() }
+}
+
+impl<U:Copy, V:Position4D<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn position3d(&self, id: VertexId) -> &Vector4D<U> { self.vertex(id).position() }
+    pub fn position3d_mut(&mut self, id: VertexId) -> &mut Vector4D<U> { self.vertex_mut(id).position_mut() }
+}
+
+impl<U:Copy, V:Normal2D<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn normal2d(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).normal() }
+    pub fn normal2d_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).normal_mut() }
+}
+
+impl<U:Copy, V:Normal3D<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn normal3d(&self, id: VertexId) -> &Vector3D<U> { self.vertex(id).normal() }
+    pub fn normal3d_mut(&mut self, id: VertexId) -> &mut Vector3D<U> { self.vertex_mut(id).normal_mut() }
+}
+
+impl<U:Copy, V:Normal4D<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn normal3d(&self, id: VertexId) -> &Vector4D<U> { self.vertex(id).normal() }
+    pub fn normal3d_mut(&mut self, id: VertexId) -> &mut Vector4D<U> { self.vertex_mut(id).normal_mut() }
+}
+
+impl<U:Copy, V:TextureCoordinates<Unit = U>, E, F> Mesh<V, E, F> {
+    pub fn uv(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).uv() }
+    pub fn uv_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).uv_mut() }
+}
+
 
 #[test]
 fn test_from_loop() {

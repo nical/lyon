@@ -63,7 +63,7 @@ use std::fmt::Debug;
 use super::mem::VecStorage;
 use vodk_math::vector::*;
 use vodk_math::constants::PI;
-use traits::{ Attribute };
+use traits::{ Position2D };
 
 #[cfg(test)]
 use vodk_math::units::world;
@@ -131,7 +131,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
 }
 
 
-fn sweep_status_push<'l, U:Copy, Pos: Attribute<Vector2D<U>>>(
+fn sweep_status_push<'l, U:Copy, Pos: Position2D<Unit=U>>(
     kernel: &'l ConnectivityKernel,
     vertex_positions: IdSlice<'l, Pos, Vertex_>,
     sweep: &'l mut Vec<EdgeId>,
@@ -139,8 +139,8 @@ fn sweep_status_push<'l, U:Copy, Pos: Attribute<Vector2D<U>>>(
 ) {
     sweep.push(e);
     sweep.sort_by(|a, b| {
-        vertex_positions[kernel[*a].vertex].get().y.partial_cmp(&vertex_positions[kernel[*b].vertex].get().y).unwrap().reverse()
-    });    
+        vertex_positions[kernel[*a].vertex].y().partial_cmp(&vertex_positions[kernel[*b].vertex].y()).unwrap().reverse()
+    });
 }
 
 fn split_face(
@@ -209,7 +209,7 @@ impl DecompositionContext {
     /// This operation will add faces and edges to the connectivity kernel.
     pub fn y_monotone_decomposition<'l,
         U: Copy+Debug,
-        P: Attribute<Vector2D<U>>,
+        P: Position2D<Unit = U>,
     >(
         &mut self,
         kernel: &'l mut ConnectivityKernel,
@@ -219,7 +219,7 @@ impl DecompositionContext {
     ) -> Result<(), DecompositionError> {
         self.helper.clear();
 
-        if !kernel.contain_face(face_id) {
+        if !kernel.contains_face(face_id) {
             return Err(DecompositionError::MissingFace);
         }
 
@@ -242,12 +242,12 @@ impl DecompositionContext {
 
         // sort indices by increasing y coordinate of the corresponding vertex
         sorted_edges.sort_by(|a, b| {
-            let ay = vertex_positions[kernel[*a].vertex].get().y;
-            let by = vertex_positions[kernel[*b].vertex].get().y;
+            let ay = vertex_positions[kernel[*a].vertex].y();
+            let by = vertex_positions[kernel[*b].vertex].y();
             if ay > by { return Ordering::Greater; }
             if ay < by { return Ordering::Less; }
-            let ax = vertex_positions[kernel[*a].vertex].get().x;
-            let bx = vertex_positions[kernel[*b].vertex].get().x;
+            let ax = vertex_positions[kernel[*a].vertex].x();
+            let bx = vertex_positions[kernel[*b].vertex].x();
             if ax < bx { return Ordering::Greater; }
             if ax > bx { return Ordering::Less; }
             return Ordering::Equal;
@@ -255,9 +255,9 @@ impl DecompositionContext {
 
         for &e in &sorted_edges {
             let edge = kernel[e];
-            let current_vertex = *vertex_positions[edge.vertex].get();
-            let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].get();
-            let next_vertex = *vertex_positions[kernel[edge.next].vertex].get();
+            let current_vertex = *vertex_positions[edge.vertex].position();
+            let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].position();
+            let next_vertex = *vertex_positions[kernel[edge.next].vertex].position();
             let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
 
             match vertex_type {
@@ -273,7 +273,7 @@ impl DecompositionContext {
                 }
                 VertexType::Split => {
                     for i in 0 .. sweep_status.len() {
-                        if vertex_positions[kernel[sweep_status[i]].vertex].get().x >= current_vertex.x {
+                        if vertex_positions[kernel[sweep_status[i]].vertex].x() >= current_vertex.x {
                             if let Some(&(helper_edge,_)) = self.helper.get(&sweep_status[i].as_index()) {
                                 split_face(kernel, e, helper_edge, new_faces);
                             }
@@ -289,7 +289,7 @@ impl DecompositionContext {
                         split_face(kernel, e, h, new_faces);
                     }
                     for i in 0 .. sweep_status.len() {
-                        if vertex_positions[kernel[sweep_status[i]].vertex].get().x > current_vertex.x {
+                        if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 sweep_status[i].as_index(),
                                 (e, VertexType::Merge)
@@ -302,7 +302,7 @@ impl DecompositionContext {
                 }
                 VertexType::Left => {
                     for i in 0 .. sweep_status.len() {
-                        if vertex_positions[kernel[sweep_status[i]].vertex].get().x > current_vertex.x {
+                        if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 sweep_status[i].as_index(), (e, VertexType::Right)
                             ) {
@@ -332,16 +332,16 @@ impl DecompositionContext {
 }
 
 /// Returns true if the face is y-monotone in O(n).
-pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Attribute<Vector2D<U>>>(
+pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Position2D<Unit = U>>(
     kernel: &'l ConnectivityKernel,
     vertex_positions: IdSlice<'l, Pos, Vertex_>,
     face: FaceId
 ) -> bool {
     for e in kernel.walk_edges_around_face(face) {
         let edge = kernel[e];
-        let current_vertex = *vertex_positions[edge.vertex].get();
-        let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].get();
-        let next_vertex = *vertex_positions[kernel[edge.next].vertex].get();
+        let current_vertex = *vertex_positions[edge.vertex].position();
+        let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].position();
+        let next_vertex = *vertex_positions[kernel[edge.next].vertex].position();
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
                 println!("not y monotone because of vertices {} {} {} edge {} {} {}",
@@ -413,7 +413,7 @@ impl TriangulationContext {
     /// Returns the number of indices that were added to the stream.
     pub fn y_monotone_triangulation<'l,
         U: Copy+Debug,
-        P: Attribute<Vector2D<U>>,
+        P: Position2D<Unit = U>,
         Triangles: TriangleStream
     >(
         &mut self,
@@ -422,7 +422,7 @@ impl TriangulationContext {
         vertex_positions: IdSlice<'l, P, Vertex_>,
         triangles: &'l mut Triangles,
     ) -> Result<(), TriangulationError> {
-        if !kernel.contain_face(face_id) {
+        if !kernel.contains_face(face_id) {
             return Err(TriangulationError::MissingFace);
         }
 
@@ -430,23 +430,23 @@ impl TriangulationContext {
         let mut down = up.clone();
         loop {
             down = down.next();
-            if vertex_positions[up.vertex_id()].get().y != vertex_positions[down.vertex_id()].get().y {
+            if vertex_positions[up.vertex_id()].y() != vertex_positions[down.vertex_id()].y() {
                 break;
             }
         }
 
-        if vertex_positions[up.vertex_id()].get().y < vertex_positions[down.vertex_id()].get().y {
+        if vertex_positions[up.vertex_id()].y() < vertex_positions[down.vertex_id()].y() {
             up.set_direction(Direction::Backward);
         } else {
             down.set_direction(Direction::Backward);
         }
 
         // find the bottom-most vertex (with the highest y value)
-        let mut big_y = vertex_positions[down.vertex_id()].get().y;
+        let mut big_y = vertex_positions[down.vertex_id()].y();
         loop {
             debug_assert_eq!(down.face_id(), face_id);
             down = down.next();
-            let new_y = vertex_positions[down.vertex_id()].get().y;
+            let new_y = vertex_positions[down.vertex_id()].y();
             if new_y < big_y {
                 down = down.prev();
                 break;
@@ -455,11 +455,11 @@ impl TriangulationContext {
         }
 
         // find the top-most vertex (with the smallest y value)
-        let mut small_y = vertex_positions[up.vertex_id()].get().y;
+        let mut small_y = vertex_positions[up.vertex_id()].y();
         loop {
             debug_assert_eq!(up.face_id(), face_id);
             up = up.next();
-            let new_y = vertex_positions[up.vertex_id()].get().y;
+            let new_y = vertex_positions[up.vertex_id()].y();
             if new_y > small_y {
                 up = up.prev();
                 break;
@@ -481,7 +481,7 @@ impl TriangulationContext {
         m = m.next();
         o = o.next();
 
-        if vertex_positions[m.vertex_id()].get().y > vertex_positions[o.vertex_id()].get().y {
+        if vertex_positions[m.vertex_id()].y() > vertex_positions[o.vertex_id()].y() {
             swap(&mut m, &mut o);
         }
 
@@ -497,11 +497,11 @@ impl TriangulationContext {
         let initial_triangle_count = triangles.count();
         let mut i: i32 = 0;
         loop {
-            // walk edges from top to bottom, alternating between the left and 
+            // walk edges from top to bottom, alternating between the left and
             // right chains. The chain we are currently iterating over is the
             // main chain (m) and the other one the opposite chain (o).
             // p is the previous iteration, regardless of whcih chain it is on.
-            if vertex_positions[m.vertex_id()].get().y > vertex_positions[o.vertex_id()].get().y || m == down {
+            if vertex_positions[m.vertex_id()].y() > vertex_positions[o.vertex_id()].y() || m == down {
                 swap(&mut m, &mut o);
             }
 
@@ -538,9 +538,9 @@ impl TriangulationContext {
                             swap(&mut id_1, &mut id_3);
                         }
 
-                        let v1 = *vertex_positions[id_1].get();
-                        let v2 = *vertex_positions[id_2].get();
-                        let v3 = *vertex_positions[id_3].get();
+                        let v1 = *vertex_positions[id_1].position();
+                        let v2 = *vertex_positions[id_2].position();
+                        let v3 = *vertex_positions[id_3].position();
                         if directed_angle(v1 - v2, v3 - v2) > PI {
                             triangles.write(id_1, id_2, id_3);
 
@@ -568,7 +568,7 @@ impl TriangulationContext {
             i += 1;
             p = m;
             m = m.next();
-            debug_assert!(vertex_positions[m.vertex_id()].get().y >= vertex_positions[p.vertex_id()].get().y);
+            debug_assert!(vertex_positions[m.vertex_id()].y() >= vertex_positions[p.vertex_id()].y());
         }
         let num_triangles = triangles.count() - initial_triangle_count;
         debug_assert_eq!(num_triangles, kernel.count_edges_around_face(face_id) as usize - 2);
@@ -579,7 +579,7 @@ impl TriangulationContext {
     }
 }
 
-#[test]
+#[cfg(test)]
 fn triangulate_faces<T:Copy+Debug>(
     kernel: &mut ConnectivityKernel,
     faces: &[FaceId],

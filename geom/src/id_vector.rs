@@ -63,7 +63,7 @@ impl<T:Default, ID:Copy> IdVector<T, ID> {
     pub fn with_length(size: u16) -> IdVector<T, ID> {
         let mut result: IdVector<T,ID> = IdVector::new();
         result.resize(size);
-        return result;        
+        return result;
     }
 }
 
@@ -81,7 +81,7 @@ pub struct IdSlice<'l, T:'l, ID:Copy> {
     _idtype: PhantomData<ID>
 }
 
-impl<'l, T:'l, ID:Copy> Copy for IdSlice<'l, T, ID> {} 
+impl<'l, T:'l, ID:Copy> Copy for IdSlice<'l, T, ID> {}
 
 impl<'l, T:'l, ID:Copy> IdSlice<'l, T, ID> {
     pub fn new(slice: &'l[T]) -> IdSlice<'l, T, ID> {
