@@ -1,6 +1,8 @@
 use std::ops;
 use std::u16;
 
+use id_vector::IdVector;
+
 use iterators::{
     FaceEdgeIterator, ReverseFaceEdgeIterator, DirectedEdgeCirculator,
     IdRangeIterator, Direction
@@ -505,6 +507,22 @@ impl ConnectivityKernel {
         return kernel;
     }
 
+    pub fn new() -> ConnectivityKernel {
+        ConnectivityKernel {
+            edges: Vec::new(),
+            vertices: Vec::new(),
+            faces: Vec::new(),
+        }
+    }
+
+    pub fn with_capacitites(v: u16, e: u16, f: u16) -> ConnectivityKernel {
+        ConnectivityKernel {
+            edges: Vec::with_capacity(v as usize),
+            vertices: Vec::with_capacity(e as usize),
+            faces: Vec::with_capacity(f as usize),
+        }
+    }
+
     /// Add a loop of vertices and edges creating a hole in an existing face.
     pub fn add_hole(&mut self, face: FaceId, n_vertices: Index) -> FaceId {
         let new_face = face_id(self.faces.len() as Index);
@@ -551,6 +569,51 @@ impl ops::IndexMut<FaceId> for ConnectivityKernel {
 
 /// A modulo that behaves properly with negative values.
 fn modulo(v: i32, m: i32) -> i32 { (v%m+m)%m }
+
+/// Convenience class that wraps a mesh's connectivity kernel and attribute data
+pub struct Mesh<VertexAttribute, EdgeAttribute, FaceAttribute> {
+    kernel: ConnectivityKernel,
+    vertex_attributes: IdVector<VertexAttribute, Vertex_>,
+    edge_attributes: IdVector<EdgeAttribute, Edge_>,
+    face_attributes: IdVector<FaceAttribute, Face_>,
+}
+
+impl<V, E, F> Mesh<V, E, F> {
+
+    pub fn new() -> Mesh<V, E, F> {
+        Mesh {
+            kernel: ConnectivityKernel::new(),
+            vertex_attributes: IdVector::new(),
+            edge_attributes: IdVector::new(),
+            face_attributes: IdVector::new(),
+        }
+    }
+
+    pub fn with_capacitites(v: u16, e: u16, f: u16) -> Mesh<V, E, F> {
+        Mesh {
+            kernel: ConnectivityKernel::with_capacitites(v, e, f),
+            vertex_attributes: IdVector::with_capacity(v),
+            edge_attributes: IdVector::with_capacity(e),
+            face_attributes: IdVector::with_capacity(f),
+        }
+    }
+
+    pub fn connectivity_kernel(&self) -> &ConnectivityKernel { &self.kernel }
+
+    pub fn vertex(&self, id: VertexId) -> &V { &self.vertex_attributes[id] }
+
+    pub fn vertex_mut(&mut self, id: VertexId) -> &mut V { &mut self.vertex_attributes[id] }
+
+    pub fn egde(&self, id: EdgeId) -> &E { &self.edge_attributes[id] }
+
+    pub fn egde_mut(&mut self, id: EdgeId) -> &mut E { &mut self.edge_attributes[id] }
+
+    pub fn face(&self, id: FaceId) -> &F { &self.face_attributes[id] }
+
+    pub fn face_mut(&mut self, id: FaceId) -> &mut F { &mut self.face_attributes[id] }
+
+
+}
 
 #[test]
 fn test_from_loop() {
