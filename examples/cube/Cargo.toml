@@ -5,7 +5,7 @@ authors = ["Nicolas Silva <nical@fastmail.com>"]
 
 [[bin]]
 name = "cube_example"
-path = "./main.rs"
+path = "./cube_example.rs"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"

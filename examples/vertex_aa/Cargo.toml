@@ -1,11 +1,11 @@
 [package]
 name = "vertex_aa_example"
 version = "0.0.1"
-authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+authors = ["Nicolas Silva <nical@fastmail.com>"]
 
 [[bin]]
 name = "vertex_aa_example"
-path = "./main.rs"
+path = "./vertex_aa_example.rs"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
