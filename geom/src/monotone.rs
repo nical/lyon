@@ -143,7 +143,7 @@ fn sweep_status_push<'l, U:Copy, Pos: Position2D<Unit=U>>(
     });
 }
 
-fn split_face(
+fn connect(
     kernel: &mut ConnectivityKernel,
     mut a: EdgeId,
     mut b: EdgeId,
@@ -166,7 +166,7 @@ fn split_face(
         debug_assert!(b != first_b);
     }
 
-    if let Some(new_face) = kernel.split_face(a, b) {
+    if let Some(new_face) = kernel.connect(a, b) {
         new_faces.push(new_face);
     }
 }
@@ -267,7 +267,7 @@ impl DecompositionContext {
                 }
                 VertexType::End => {
                     if let Some(&(h, VertexType::Merge)) = self.helper.get(&edge.prev.as_index()) {
-                        split_face(kernel, edge.prev, h, new_faces);
+                        connect(kernel, edge.prev, h, new_faces);
                     } 
                     sweep_status.retain(|item|{ *item != edge.prev });
                 }
@@ -275,7 +275,7 @@ impl DecompositionContext {
                     for i in 0 .. sweep_status.len() {
                         if vertex_positions[kernel[sweep_status[i]].vertex].x() >= current_vertex.x {
                             if let Some(&(helper_edge,_)) = self.helper.get(&sweep_status[i].as_index()) {
-                                split_face(kernel, e, helper_edge, new_faces);
+                                connect(kernel, e, helper_edge, new_faces);
                             }
                             self.helper.insert(sweep_status[i].as_index(), (e, VertexType::Split));
                             break;
@@ -286,7 +286,7 @@ impl DecompositionContext {
                 }
                 VertexType::Merge => {
                     if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.as_index()) {
-                        split_face(kernel, e, h, new_faces);
+                        connect(kernel, e, h, new_faces);
                     }
                     for i in 0 .. sweep_status.len() {
                         if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
@@ -294,7 +294,7 @@ impl DecompositionContext {
                                 sweep_status[i].as_index(),
                                 (e, VertexType::Merge)
                             ) {
-                                split_face(kernel, prev_helper, e, new_faces);
+                                connect(kernel, prev_helper, e, new_faces);
                             }
                             break;
                         }
@@ -306,7 +306,7 @@ impl DecompositionContext {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 sweep_status[i].as_index(), (e, VertexType::Right)
                             ) {
-                                split_face(kernel, prev_helper, e, new_faces);
+                                connect(kernel, prev_helper, e, new_faces);
                             }
                             break;
                         }
@@ -314,7 +314,7 @@ impl DecompositionContext {
                 }
                 VertexType::Right => {
                     if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.as_index()) {
-                        split_face(kernel, e, h, new_faces);
+                        connect(kernel, e, h, new_faces);
                     }
                     sweep_status.retain(|item|{ *item != edge.prev });
                     sweep_status_push(kernel, vertex_positions, &mut sweep_status, e);
@@ -678,7 +678,7 @@ fn test_triangulate() {
 
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. vertex_positionss.len() {
-        println!("\n\n -- vertex_positions {:?}", i);
+        println!("\n\n -- shape {:?}", i);
         let mut kernel = ConnectivityKernel::from_loop(vertex_positionss[i].len() as u16);
         let main_face = kernel.first_face();
         let n_indices = triangulate_faces(&mut kernel, &[main_face], &vertex_positionss[i][..], indices);
@@ -741,7 +741,7 @@ fn test_triangulate_holes() {
 
     let indices = &mut [0 as u16; 1024];
     for i in 0 .. vertex_positionss.len() {
-        println!("\n\n -- vertex_positions {:?}", i);
+        println!("\n\n -- shape {:?}", i);
         let &(vertices, separators) = &vertex_positionss[i];
 
         let mut kernel = ConnectivityKernel::from_loop(separators[0]);
@@ -751,6 +751,41 @@ fn test_triangulate_holes() {
         }
 
         let n_indices = triangulate_faces(&mut kernel, &[main_face], vertices, indices);
+        for n in 0 .. n_indices/3 {
+            println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
+        }
+    }
+}
+
+#[test]
+fn test_triangulate_degenerate() {
+    let vertex_positionss : &[&[world::Vec2]] = &[
+        &[  // duplicate point
+            world::vec2(0.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(1.0, 1.0),
+        ],
+// TODO: this case isn't handled properly: not y-monoton after decomposition
+//        &[  // points in the same line
+//            world::vec2(0.0, 0.0),
+//            world::vec2(0.0, 1.0),
+//            world::vec2(0.0, 2.0),
+//        ],
+// TODO: this case isn't handled, it outputs incorrect triangles.
+//        &[  // wrong winding order
+//            world::vec2(10.0, 5.0),
+//            world::vec2(0.0, -5.0),
+//            world::vec2(-10.0, 5.0),
+//        ],
+    ];
+
+    let indices = &mut [0 as u16; 1024];
+    for i in 0 .. vertex_positionss.len() {
+        println!("\n\n -- shape {:?}", i);
+        let mut kernel = ConnectivityKernel::from_loop(vertex_positionss[i].len() as u16);
+        let main_face = kernel.first_face();
+        let n_indices = triangulate_faces(&mut kernel, &[main_face], &vertex_positionss[i][..], indices);
         for n in 0 .. n_indices/3 {
             println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
         }

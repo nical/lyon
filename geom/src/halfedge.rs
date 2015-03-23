@@ -107,8 +107,10 @@ pub struct HalfEdgeData {
 /// The structure holding the data specific to each face.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FaceData {
-    pub first_edge: EdgeId,
     pub inner_edges: Vec<EdgeId>,
+    pub first_edge: EdgeId,
+    pub next_face: FaceId, // intrusive linked list
+    pub prev_face: FaceId, // intrusive linked list
 }
 
 /// The structure holding the data specific to each vertex.
@@ -123,7 +125,9 @@ pub struct VertexData {
 pub struct ConnectivityKernel {
     edges: Vec<HalfEdgeData>,
     vertices: Vec<VertexData>,
-    faces: Vec<FaceData>
+    faces: Vec<FaceData>,
+    first_face: FaceId,
+    face_freelist: FaceId,
 }
 
 impl ConnectivityKernel {
@@ -172,7 +176,7 @@ impl ConnectivityKernel {
 
     pub fn first_edge(&self) -> EdgeId { edge_id(0) }
 
-    pub fn first_face(&self) -> FaceId { face_id(0) }
+    pub fn first_face(&self) -> FaceId { self.first_face }
 
     pub fn first_vertex(&self) -> VertexId { vertex_id(0) }
 
@@ -265,8 +269,10 @@ impl ConnectivityKernel {
         return new_vertex;
     }
 
-    /// Split a face in two along the vertices that a_prev and b_prev point to
-    pub fn split_face(&mut self, a_next: EdgeId, b_next: EdgeId) -> Option<FaceId> {
+    /// Connect vertices that a_prev and b_prev originate from.
+    ///
+    /// This may create a new face, in which case the new face's id is returned.
+    pub fn connect(&mut self, a_next: EdgeId, b_next: EdgeId) -> Option<FaceId> {
         //
         // a_prev--> va -a_next->
         //          | ^
@@ -312,12 +318,7 @@ impl ConnectivityKernel {
         let new_edge = edge_id(self.edges.len() as Index); // va -> vb
         let new_opposite_edge = edge_id(self.edges.len() as Index + 1); // vb -> va
 
-        self.faces.push(FaceData {
-            first_edge: new_opposite_edge,
-            inner_edges: vec![],
-        });
-
-        let opposite_face = if add_face { face_id(self.faces.len() as Index - 1) }
+        let opposite_face = if add_face { self.add_face_with_edge(new_opposite_edge) }
                             else { original_face };
 
         // new_edge
@@ -409,24 +410,62 @@ impl ConnectivityKernel {
         return id;
     }
 
-    /// Insert a Face in the kernel
-    pub fn add_face(&mut self) -> FaceId {
-        let id = face_id(self.faces().len() as Index);
-        self.faces.push(FaceData {
-            first_edge: no_edge(),
-            inner_edges: vec![],
-        });
-        return id;
+    /// Insert a Face in the kernel.
+    pub fn add_face(&mut self) -> FaceId { self.add_face_with_edge(no_edge()) }
+
+    /// Insert a Face in the kernel.
+    pub fn add_face_with_edge(&mut self, first_edge: EdgeId) -> FaceId {
+        let first_face = self.first_face;
+        let new_id = if self.face_freelist != no_face() {
+            let id = self.face_freelist;
+            let freelist_next = self.face(id).next_face;
+            *self.face_mut(id) = FaceData {
+                first_edge: first_edge,
+                inner_edges: vec![],
+                next_face: self.first_face,
+                prev_face: no_face(),
+            };
+            if freelist_next.is_valid() {
+                self.face_mut(freelist_next).prev_face = no_face();
+            }
+            self.face_freelist = freelist_next;
+
+            id
+        } else {
+            let id = face_id(self.faces().len() as Index);
+            self.faces.push(FaceData {
+                first_edge: first_edge,
+                inner_edges: vec![],
+                next_face: self.first_face,
+                prev_face: no_face(),
+            });
+
+            id
+        };
+
+        if first_face != no_face() {
+            self.face_mut(first_face).prev_face = new_id;
+        }
+        self.first_face = new_id;
+        return new_id;
     }
 
-    /// Insert a Face in the kernel
-    ///
-    /// Note that this does not set the HalfEdgeData.face member of the edges in the loop
-    /// that face.first_edge points to. This step has to be done manually if needed.
-    pub fn add_face_with_connections(&mut self, face: FaceData) -> FaceId {
-        let id = face_id(self.faces().len() as Index);
-        self.faces.push(face);
-        return id;
+
+    /// Remove a face, without removing its half edges.
+    fn remove_face(&mut self, id: FaceId) {
+        let prev = self.face(id).prev_face;
+        if prev.is_valid() {
+            self.face_mut(prev).next_face = self.face(id).next_face;
+        } else {
+            self.first_face = no_face();
+        }
+        *self.face_mut(id) = FaceData {
+            first_edge: no_edge(),
+            inner_edges: vec![],
+            next_face: self.face_freelist,
+            prev_face: no_face(),
+        };
+        self.face_freelist = id;
     }
 
     /// Insert a Vertex in the kernel
@@ -529,6 +568,8 @@ impl ConnectivityKernel {
             faces: vec![],
             vertices: vec![],
             edges: vec![],
+            first_face: face_id(0),
+            face_freelist: no_face(),
         };
 
         let (first_inner_edge, first_outer_edge) = kernel.add_loop(n_vertices, main_face, back_face);
@@ -537,10 +578,14 @@ impl ConnectivityKernel {
             FaceData {
                 first_edge: first_inner_edge,
                 inner_edges: vec![],
+                next_face: face_id(1),
+                prev_face: no_face(),
             },
             FaceData {
                 first_edge: first_outer_edge,
                 inner_edges: vec![],
+                next_face: no_face(),
+                prev_face: face_id(0),
             }
         ];
 
@@ -555,6 +600,8 @@ impl ConnectivityKernel {
             edges: Vec::new(),
             vertices: Vec::new(),
             faces: Vec::new(),
+            first_face: no_face(),
+            face_freelist: no_face(),
         }
     }
 
@@ -563,20 +610,18 @@ impl ConnectivityKernel {
             edges: Vec::with_capacity(v as usize),
             vertices: Vec::with_capacity(e as usize),
             faces: Vec::with_capacity(f as usize),
+            first_face: no_face(),
+            face_freelist: no_face(),
         }
     }
 
     /// Add a loop of vertices and edges creating a hole in an existing face.
     pub fn add_hole(&mut self, face: FaceId, n_vertices: Index) -> FaceId {
-        let new_face = face_id(self.faces.len() as Index);
+        let new_face = self.add_face();
 
         let (exterior, _) = self.add_loop(n_vertices, face, new_face);
 
-        self.faces.push(FaceData {
-            first_edge: exterior,
-            inner_edges: vec![],
-        });
-
+        self.face_mut(new_face).first_edge = exterior;
         self.face_mut(face).inner_edges.push(exterior);
 
         return new_face;
@@ -785,7 +830,7 @@ fn test_hole() {
 }
 
 #[test]
-fn test_split_face_1() {
+fn test_connect_1() {
     let mut kernel = ConnectivityKernel::from_loop(4);
     let f1 = kernel.first_face();
     let e1 = kernel.face(f1).first_edge;
@@ -804,7 +849,7 @@ fn test_split_face_1() {
     // |          v
     // x<-----e3--x
 
-    let f2 = kernel.split_face(e3, e1).unwrap();
+    let f2 = kernel.connect(e3, e1).unwrap();
 
     // x---e1---->x
     // ^ \ ^   f1 |
@@ -845,7 +890,7 @@ fn test_split_face_1() {
 }
 
 #[test]
-fn test_split_face_2() {
+fn test_connect_2() {
     let mut kernel = ConnectivityKernel::from_loop(10);
     let f1 = kernel.first_face();
 
@@ -854,7 +899,7 @@ fn test_split_face_2() {
     let e3 = kernel[e2].next;
     let e4 = kernel[e3].next;
 
-    let f2 = kernel.split_face(e4, e2).unwrap();
+    let f2 = kernel.connect(e4, e2).unwrap();
 
     for e in kernel.walk_edges_around_face(f2) {
         assert_eq!(kernel[e].face, f2);
@@ -877,4 +922,44 @@ fn test_split_face_2() {
             }
         }
     }
+}
+
+#[test]
+fn test_face_list() {
+    let mut kernel = ConnectivityKernel::new();
+
+    assert_eq!(kernel.first_face(), no_face());
+
+    let f1 = kernel.add_face();
+    let f2 = kernel.add_face();
+    let f3 = kernel.add_face();
+    kernel.remove_face(f1);
+    kernel.remove_face(f2);
+    kernel.remove_face(f3);
+
+    assert_eq!(kernel.first_face(), no_face());
+
+    let f1 = kernel.add_face();
+    let f2 = kernel.add_face();
+    let f3 = kernel.add_face();
+    kernel.remove_face(f3);
+    kernel.remove_face(f2);
+    kernel.remove_face(f1);
+
+    assert_eq!(kernel.first_face(), no_face());
+
+    let f1 = kernel.add_face();
+    let f2 = kernel.add_face();
+    let f3 = kernel.add_face();
+    kernel.remove_face(f2);
+    let f4 = kernel.add_face();
+    kernel.remove_face(f1);
+    kernel.remove_face(f3);
+    let f5 = kernel.add_face();
+    let f6 = kernel.add_face();
+    kernel.remove_face(f5);
+    kernel.remove_face(f4);
+    kernel.remove_face(f6);
+
+    assert_eq!(kernel.first_face(), no_face());
 }
