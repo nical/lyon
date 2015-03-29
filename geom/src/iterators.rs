@@ -1,20 +1,21 @@
 use halfedge::{
     ConnectivityKernel, HalfEdgeData,
     EdgeId, FaceId, VertexId, Id, IdRange,
-    no_edge,
+    NO_EDGE,
 };
 
 use std::cmp::PartialEq;
+use std::mem::transmute;
 
 /// Iterates over the half edges around a face.
-pub struct FaceEdgeIterator<'l> {
+pub struct EdgeIdLoop<'l> {
     kernel: &'l ConnectivityKernel,
     current_edge: EdgeId,
     last_edge: EdgeId,
     done: bool,
 }
 
-impl<'l> Iterator for FaceEdgeIterator<'l> {
+impl<'l> Iterator for EdgeIdLoop<'l> {
     type Item = EdgeId;
 
     fn next(&mut self) -> Option<EdgeId> {
@@ -25,18 +26,63 @@ impl<'l> Iterator for FaceEdgeIterator<'l> {
         if self.current_edge == self.last_edge {
             self.done = true;
         }
+        if self.current_edge == NO_EDGE {
+            return None;
+        }
         self.current_edge = self.kernel.edge(self.current_edge).next;
         return Some(res);
     }
 }
 
-impl<'l> FaceEdgeIterator<'l> {
+impl<'l> EdgeIdLoop<'l> {
     pub fn new(
         kernel: &'l ConnectivityKernel,
         first: EdgeId,
         last: EdgeId,
-    ) -> FaceEdgeIterator<'l> {
-        FaceEdgeIterator {
+    ) -> EdgeIdLoop<'l> {
+        EdgeIdLoop {
+            kernel: kernel,
+            current_edge: first,
+            last_edge: last,
+            done: false,
+        }
+    }
+}
+
+/// Iterates over the half edges around a face.
+pub struct MutEdgeLoop<'l> {
+    kernel: &'l mut ConnectivityKernel,
+    current_edge: EdgeId,
+    last_edge: EdgeId,
+    done: bool,
+}
+
+impl<'l> Iterator for MutEdgeLoop<'l> {
+    type Item = &'l mut HalfEdgeData;
+
+    fn next(&mut self) -> Option<&'l mut HalfEdgeData> {
+        let res = self.current_edge;
+        if self.done {
+            return None;
+        }
+        if self.current_edge == self.last_edge {
+            self.done = true;
+        }
+        if self.current_edge == NO_EDGE {
+            return None;
+        }
+        self.current_edge = self.kernel.edge(self.current_edge).next;
+        return unsafe { Some(transmute(self.kernel.edge_mut(res))) }; // TODO could remove transmute
+    }
+}
+
+impl<'l> MutEdgeLoop<'l> {
+    pub fn new(
+        kernel: &'l mut ConnectivityKernel,
+        first: EdgeId,
+        last: EdgeId,
+    ) -> MutEdgeLoop<'l> {
+        MutEdgeLoop {
             kernel: kernel,
             current_edge: first,
             last_edge: last,
@@ -46,14 +92,14 @@ impl<'l> FaceEdgeIterator<'l> {
 }
 
 /// Iterates over the half edges around a face in reverse order.
-pub struct ReverseFaceEdgeIterator<'l> {
+pub struct ReverseEdgeIdLoop<'l> {
     kernel: &'l ConnectivityKernel,
     current_edge: EdgeId,
     last_edge: EdgeId,
     done: bool,
 }
 
-impl<'l> Iterator for ReverseFaceEdgeIterator<'l> {
+impl<'l> Iterator for ReverseEdgeIdLoop<'l> {
     type Item = EdgeId;
 
     fn next(&mut self) -> Option<EdgeId> {
@@ -69,13 +115,13 @@ impl<'l> Iterator for ReverseFaceEdgeIterator<'l> {
     }
 }
 
-impl<'l> ReverseFaceEdgeIterator<'l> {
+impl<'l> ReverseEdgeIdLoop<'l> {
     pub fn new(
         kernel: &'l ConnectivityKernel,
         first: EdgeId,
         last: EdgeId,
-    ) -> ReverseFaceEdgeIterator<'l> {
-        ReverseFaceEdgeIterator {
+    ) -> ReverseEdgeIdLoop<'l> {
+        ReverseEdgeIdLoop {
             kernel: kernel,
             current_edge: first,
             last_edge: last,
@@ -101,7 +147,7 @@ impl<'l> Iterator for VertexEdgeIterator<'l> {
         let temp = self.current_edge;
         self.current_edge = self.kernel.edge(self.kernel.edge(self.current_edge).next).opposite;
         if self.current_edge == self.first_edge {
-            self.current_edge = no_edge();
+            self.current_edge = NO_EDGE;
         }
         return Some(temp);
     }
@@ -286,12 +332,12 @@ pub struct IdRangeIterator<T> {
 }
 
 impl<T:Copy> Iterator for IdRangeIterator<T> {
-    type Item = IdRange<T>;
-    fn next(&mut self) -> Option<IdRange<T>> {
+    type Item = Id<T>;
+    fn next(&mut self) -> Option<Id<T>> {
         if self.range.count == 0 {
             return None;
         }
-        let res = self.range;
+        let res = self.range.first;
         self.range.count -= 1;
         self.range.first = Id::from_usize(self.range.first.as_index() + 1);
         return Some(res);

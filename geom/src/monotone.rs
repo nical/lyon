@@ -231,13 +231,11 @@ impl DecompositionContext {
         swap(&mut self.sorted_edges_storage, &mut storage);
         let mut sorted_edges: Vec<EdgeId> = storage.into_vec();
 
-        sorted_edges.extend(kernel.walk_edges_around_face(face_id));
+        sorted_edges.extend(kernel.walk_edge_ids_around_face(face_id));
 
         // also add holes in the sorted edge list
-        for inner in &kernel.face(face_id).inner_edges {
-            for e in kernel.walk_edges(*inner) {
-                sorted_edges.push(e);
-            }
+        for &inner in &kernel.face(face_id).inner_edges {
+            sorted_edges.extend(kernel.walk_edge_ids(inner));
         }
 
         // sort indices by increasing y coordinate of the corresponding vertex
@@ -337,7 +335,7 @@ pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Position2D<Unit = U>>(
     vertex_positions: IdSlice<'l, Pos, Vertex_>,
     face: FaceId
 ) -> bool {
-    for e in kernel.walk_edges_around_face(face) {
+    for e in kernel.walk_edge_ids_around_face(face) {
         let edge = kernel[e];
         let current_vertex = *vertex_positions[edge.vertex].position();
         let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].position();
@@ -614,7 +612,7 @@ fn triangulate_faces<T:Copy+Debug>(
 
 #[test]
 fn test_triangulate() {
-    let vertex_positionss : &[&[world::Vec2]] = &[
+    let vertex_positions : &[&[world::Vec2]] = &[
         &[
             world::vec2(-10.0, 5.0),
             world::vec2(0.0, -5.0),
@@ -677,11 +675,19 @@ fn test_triangulate() {
     ];
 
     let indices = &mut [0 as u16; 1024];
-    for i in 0 .. vertex_positionss.len() {
+    for i in 0 .. vertex_positions.len() {
         println!("\n\n -- shape {:?}", i);
-        let mut kernel = ConnectivityKernel::from_loop(vertex_positionss[i].len() as u16);
-        let main_face = kernel.first_face();
-        let n_indices = triangulate_faces(&mut kernel, &[main_face], &vertex_positionss[i][..], indices);
+        let n_vertices = vertex_positions[i].len() as u16;
+
+        let mut kernel = ConnectivityKernel::new();
+
+        let mut vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let f1 = kernel.add_face();
+        let f2 = kernel.add_face();
+
+        kernel.add_loop_with_vertices(vertex_ids.iter(), f1, f2);
+
+        let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
             println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
         }
@@ -690,7 +696,7 @@ fn test_triangulate() {
 
 #[test]
 fn test_triangulate_holes() {
-    let vertex_positionss : &[(&[world::Vec2], &[u16])] = &[
+    let vertex_positions : &[(&[world::Vec2], &[u16])] = &[
         (
             &[
                 // outer
@@ -698,9 +704,9 @@ fn test_triangulate_holes() {
                 world::vec2(0.0, -5.0),
                 world::vec2(10.0, 5.0),
                 // hole
-                world::vec2(4.0, 2.0),
-                world::vec2(0.0, -2.0),
                 world::vec2(-5.0, 2.0),
+                world::vec2(0.0, -2.0),
+                world::vec2(4.0, 2.0),
             ],
             &[ 3, 3 ]
         ),
@@ -712,9 +718,9 @@ fn test_triangulate_holes() {
                 world::vec2( 10.0,  10.0),
                 world::vec2(-10.0,  10.0),
                 // hole
-                world::vec2(4.0, 2.0),
-                world::vec2(0.0, -2.0),
                 world::vec2(-4.0, 2.0),
+                world::vec2(0.0, -2.0),
+                world::vec2(4.0, 2.0),
             ],
             &[ 4, 3 ]
         ),
@@ -726,31 +732,38 @@ fn test_triangulate_holes() {
                 world::vec2( 10.0,  10.0),
                 world::vec2(-10.0,  10.0),
                 // hole 1
-                world::vec2(-8.0, 8.0),
-                world::vec2(4.0, 8.0),
-                world::vec2(-4.0, -8.0),
                 world::vec2(-8.0, -8.0),
+                world::vec2(-4.0, -8.0),
+                world::vec2(4.0, 8.0),
+                world::vec2(-8.0, 8.0),
                 // hole 2
-                world::vec2(-2.0, -8.0),
-                world::vec2(6.0, 7.0),
                 world::vec2(8.0, -8.0),
+                world::vec2(6.0, 7.0),
+                world::vec2(-2.0, -8.0),
             ],
             &[ 4, 4, 3 ]
         ),
     ];
 
     let indices = &mut [0 as u16; 1024];
-    for i in 0 .. vertex_positionss.len() {
+    for i in 0 .. vertex_positions.len() {
         println!("\n\n -- shape {:?}", i);
-        let &(vertices, separators) = &vertex_positionss[i];
+        let &(vertices, separators) = &vertex_positions[i];
+        let n_vertices = separators[0] as u16;
 
-        let mut kernel = ConnectivityKernel::from_loop(separators[0]);
-        let main_face = kernel.first_face();
+        let mut kernel = ConnectivityKernel::new();
+
+        let mut vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let f1 = kernel.add_face();
+        let f2 = kernel.add_face();
+
+        kernel.add_loop_with_vertices(vertex_ids.iter(), f1, f2);
+
         for i in 1 .. separators.len() {
-            kernel.add_hole(main_face, separators[i]);
+            kernel.add_hole(f1, separators[i]);
         }
 
-        let n_indices = triangulate_faces(&mut kernel, &[main_face], vertices, indices);
+        let n_indices = triangulate_faces(&mut kernel, &[f1], vertices, indices);
         for n in 0 .. n_indices/3 {
             println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
         }
@@ -759,7 +772,7 @@ fn test_triangulate_holes() {
 
 #[test]
 fn test_triangulate_degenerate() {
-    let vertex_positionss : &[&[world::Vec2]] = &[
+    let vertex_positions : &[&[world::Vec2]] = &[
         &[  // duplicate point
             world::vec2(0.0, 0.0),
             world::vec2(1.0, 0.0),
@@ -781,11 +794,21 @@ fn test_triangulate_degenerate() {
     ];
 
     let indices = &mut [0 as u16; 1024];
-    for i in 0 .. vertex_positionss.len() {
+    for i in 0 .. vertex_positions.len() {
         println!("\n\n -- shape {:?}", i);
-        let mut kernel = ConnectivityKernel::from_loop(vertex_positionss[i].len() as u16);
-        let main_face = kernel.first_face();
-        let n_indices = triangulate_faces(&mut kernel, &[main_face], &vertex_positionss[i][..], indices);
+
+        let mut kernel = ConnectivityKernel::new();
+
+        let mut vertex_ids = Vec::new();
+        for _ in 0..vertex_positions[i].len() {
+            vertex_ids.push(kernel.add_vertex());
+        }
+        let f1 = kernel.add_face();
+        let f2 = kernel.add_face();
+
+        kernel.add_loop_with_vertices(vertex_ids.clone().into_iter(), f1, f2);
+
+        let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
             println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
         }
