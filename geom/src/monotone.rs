@@ -158,11 +158,11 @@ fn connect(
                 ok = true;
                 break;
             }
-            a = kernel.next_edge_around_vertex(a);
+            a = kernel.next_edge_id_around_vertex(a);
             if a == first_a { break; }
         }
         if ok { break; }
-        b = kernel.next_edge_around_vertex(b);
+        b = kernel.next_edge_id_around_vertex(b);
         debug_assert!(b != first_b);
     }
 
@@ -682,7 +682,7 @@ fn test_triangulate() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let mut vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
@@ -754,7 +754,7 @@ fn test_triangulate_holes() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let mut vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
@@ -800,14 +800,12 @@ fn test_triangulate_degenerate() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let mut vertex_ids = Vec::new();
-        for _ in 0..vertex_positions[i].len() {
-            vertex_ids.push(kernel.add_vertex());
-        }
+        let n_vertices = vertex_positions[i].len() as Index;
+        let vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop_with_vertices(vertex_ids.clone().into_iter(), f1, f2);
+        kernel.add_loop_with_vertices(vertex_ids.iter(), f1, f2);
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {

@@ -1,5 +1,5 @@
 use halfedge::{
-    ConnectivityKernel, HalfEdgeData,
+    ConnectivityKernel, HalfEdge,
     EdgeId, FaceId, VertexId, Id, IdRange,
     NO_EDGE,
 };
@@ -58,9 +58,9 @@ pub struct MutEdgeLoop<'l> {
 }
 
 impl<'l> Iterator for MutEdgeLoop<'l> {
-    type Item = &'l mut HalfEdgeData;
+    type Item = &'l mut HalfEdge;
 
-    fn next(&mut self) -> Option<&'l mut HalfEdgeData> {
+    fn next(&mut self) -> Option<&'l mut HalfEdge> {
         let res = self.current_edge;
         if self.done {
             return None;
@@ -230,7 +230,7 @@ impl<'l> EdgeCirculator<'l> {
         }
     }
 
-    pub fn edge(&'l self) -> &'l HalfEdgeData { self.kernel.edge(self.edge) }
+    pub fn edge(&'l self) -> &'l HalfEdge { self.kernel.edge(self.edge) }
 
     pub fn next(self) -> EdgeCirculator<'l> {
         EdgeCirculator {
@@ -283,7 +283,7 @@ impl<'l> DirectedEdgeCirculator<'l> {
         }
     }
 
-    pub fn edge(&'l self) -> &'l HalfEdgeData { self.circulator.edge() }
+    pub fn edge(&'l self) -> &'l HalfEdge { self.circulator.edge() }
 
     pub fn next(self) -> DirectedEdgeCirculator<'l> {
         DirectedEdgeCirculator {
