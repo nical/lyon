@@ -166,8 +166,9 @@ fn connect(
         debug_assert!(b != first_b);
     }
 
-    if let Some(new_face) = kernel.connect(a, b) {
-        new_faces.push(new_face);
+    let a_prev = kernel[a].prev;
+    if let Some(face) = kernel.connect_edges(a_prev, b, None) {
+        new_faces.push(face);
     }
 }
 
@@ -569,7 +570,7 @@ impl TriangulationContext {
             debug_assert!(vertex_positions[m.vertex_id()].y() >= vertex_positions[p.vertex_id()].y());
         }
         let num_triangles = triangles.count() - initial_triangle_count;
-        debug_assert_eq!(num_triangles, kernel.count_edges_around_face(face_id) as usize - 2);
+        debug_assert_eq!(num_triangles, kernel.walk_edge_ids_around_face(face_id).count() as usize - 2);
 
         // Keep the buffer to avoid reallocating it next time, if possible.
         self.vertex_stack_storage = VecStorage::from_vec(vertex_stack);
