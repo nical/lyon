@@ -17,3 +17,5 @@ include = [
 name = "kiwi"
 path = "src/lib.rs"
 
+[dependencies.vodk_id]
+path = "../id/"
