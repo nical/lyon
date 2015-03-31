@@ -16,7 +16,7 @@
 //! extern crate vodk_math;
 //! extern crate geom;
 //! use geom::halfedge::{ ConnectivityKernel, FaceId };
-//! use geom::id_vector::*;
+//! use vodk_id::id_vector::*;
 //! use geom::monotone::*;
 //! use vodk_math::units::world;
 //!
@@ -53,7 +53,6 @@
 //!
 
 use halfedge::*;
-use id_vector::*;
 use iterators::{Direction, DirectedEdgeCirculator};
 use std::num::Float;
 use std::cmp::{Ordering, PartialOrd};
@@ -63,6 +62,8 @@ use std::fmt::Debug;
 use super::mem::VecStorage;
 use vodk_math::vector::*;
 use vodk_math::constants::PI;
+use vodk_id::*;
+use vodk_id::id_vector::*;
 use traits::{ Position2D };
 
 #[cfg(test)]
@@ -133,7 +134,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
 
 fn sweep_status_push<'l, U:Copy, Pos: Position2D<Unit=U>>(
     kernel: &'l ConnectivityKernel,
-    vertex_positions: IdSlice<'l, Pos, Vertex_>,
+    vertex_positions: IdSlice<'l, VertexId, Pos>,
     sweep: &'l mut Vec<EdgeId>,
     e: EdgeId
 ) {
@@ -215,7 +216,7 @@ impl DecompositionContext {
         &mut self,
         kernel: &'l mut ConnectivityKernel,
         face_id: FaceId,
-        vertex_positions: IdSlice<'l, P, Vertex_>,
+        vertex_positions: IdSlice<'l, VertexId, P>,
         new_faces: &'l mut Vec<FaceId>
     ) -> Result<(), DecompositionError> {
         self.helper.clear();
@@ -262,10 +263,10 @@ impl DecompositionContext {
             match vertex_type {
                 VertexType::Start => {
                     sweep_status_push(kernel, vertex_positions, &mut sweep_status, e);
-                    self.helper.insert(e.as_index(), (e, VertexType::Start));
+                    self.helper.insert(e.to_index(), (e, VertexType::Start));
                 }
                 VertexType::End => {
-                    if let Some(&(h, VertexType::Merge)) = self.helper.get(&edge.prev.as_index()) {
+                    if let Some(&(h, VertexType::Merge)) = self.helper.get(&edge.prev.to_index()) {
                         connect(kernel, edge.prev, h, new_faces);
                     } 
                     sweep_status.retain(|item|{ *item != edge.prev });
@@ -273,24 +274,24 @@ impl DecompositionContext {
                 VertexType::Split => {
                     for i in 0 .. sweep_status.len() {
                         if vertex_positions[kernel[sweep_status[i]].vertex].x() >= current_vertex.x {
-                            if let Some(&(helper_edge,_)) = self.helper.get(&sweep_status[i].as_index()) {
+                            if let Some(&(helper_edge,_)) = self.helper.get(&sweep_status[i].to_index()) {
                                 connect(kernel, e, helper_edge, new_faces);
                             }
-                            self.helper.insert(sweep_status[i].as_index(), (e, VertexType::Split));
+                            self.helper.insert(sweep_status[i].to_index(), (e, VertexType::Split));
                             break;
                         }
                     }
                     sweep_status_push(kernel, vertex_positions, &mut sweep_status, e);
-                    self.helper.insert(e.as_index(), (e, VertexType::Split));
+                    self.helper.insert(e.to_index(), (e, VertexType::Split));
                 }
                 VertexType::Merge => {
-                    if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.as_index()) {
+                    if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.to_index()) {
                         connect(kernel, e, h, new_faces);
                     }
                     for i in 0 .. sweep_status.len() {
                         if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
-                                sweep_status[i].as_index(),
+                                sweep_status[i].to_index(),
                                 (e, VertexType::Merge)
                             ) {
                                 connect(kernel, prev_helper, e, new_faces);
@@ -303,7 +304,7 @@ impl DecompositionContext {
                     for i in 0 .. sweep_status.len() {
                         if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
-                                sweep_status[i].as_index(), (e, VertexType::Right)
+                                sweep_status[i].to_index(), (e, VertexType::Right)
                             ) {
                                 connect(kernel, prev_helper, e, new_faces);
                             }
@@ -312,12 +313,12 @@ impl DecompositionContext {
                     }
                 }
                 VertexType::Right => {
-                    if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.as_index()) {
+                    if let Some((h, VertexType::Merge)) = self.helper.remove(&edge.prev.to_index()) {
                         connect(kernel, e, h, new_faces);
                     }
                     sweep_status.retain(|item|{ *item != edge.prev });
                     sweep_status_push(kernel, vertex_positions, &mut sweep_status, e);
-                    self.helper.insert(e.as_index(), (e, VertexType::Left));
+                    self.helper.insert(e.to_index(), (e, VertexType::Left));
                 }
             }
         }
@@ -333,7 +334,7 @@ impl DecompositionContext {
 /// Returns true if the face is y-monotone in O(n).
 pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Position2D<Unit = U>>(
     kernel: &'l ConnectivityKernel,
-    vertex_positions: IdSlice<'l, Pos, Vertex_>,
+    vertex_positions: IdSlice<'l, VertexId, Pos>,
     face: FaceId
 ) -> bool {
     for e in kernel.walk_edge_ids_around_face(face) {
@@ -344,8 +345,8 @@ pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Position2D<Unit = U>>(
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
                 println!("not y monotone because of vertices {} {} {} edge {} {} {}",
-                    kernel[edge.prev].vertex.as_index(), edge.vertex.as_index(), kernel[edge.next].vertex.as_index(), 
-                    edge.prev.as_index(), e.as_index(), edge.next.as_index());
+                    kernel[edge.prev].vertex.to_index(), edge.vertex.to_index(), kernel[edge.next].vertex.to_index(), 
+                    edge.prev.to_index(), e.to_index(), edge.next.to_index());
                 return false;
             }
             _ => {}
@@ -371,9 +372,9 @@ impl<'l> TriangleStream for SliceTriangleStream<'l> {
         debug_assert!(a != b);
         debug_assert!(b != c);
         debug_assert!(c != a);
-        self.indices[self.offset] = a.as_index() as u16;
-        self.indices[self.offset+1] = b.as_index() as u16;
-        self.indices[self.offset+2] = c.as_index() as u16;
+        self.indices[self.offset] = a.to_index() as u16;
+        self.indices[self.offset+1] = b.to_index() as u16;
+        self.indices[self.offset+2] = c.to_index() as u16;
         self.offset += 3;
     }
 
@@ -418,7 +419,7 @@ impl TriangulationContext {
         &mut self,
         kernel: &'l ConnectivityKernel,
         face_id: FaceId,
-        vertex_positions: IdSlice<'l, P, Vertex_>,
+        vertex_positions: IdSlice<'l, VertexId, P>,
         triangles: &'l mut Triangles,
     ) -> Result<(), TriangulationError> {
         if !kernel.contains_face(face_id) {

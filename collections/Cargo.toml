@@ -12,3 +12,6 @@ path = "./lib.rs"
 
 [dependencies.vodk_data]
 path = "../data/"
+
+[dependencies.vodk_id]
+path = "../id/"

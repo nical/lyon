@@ -1,13 +1,13 @@
 use std::ops;
 use std::u16;
 
-use id_vector::IdVector;
 use traits::*;
 use vodk_math::vector::{ Vector2D, Vector3D, Vector4D };
+use vodk_id::*;
+use vodk_id::id_vector::IdVector;
 
 use iterators::{
     EdgeIdLoop, ReverseEdgeIdLoop, MutEdgeLoop,
-    IdRangeIterator
 };
 
 #[cfg(test)]
@@ -17,35 +17,29 @@ pub type Index = u16;
 use std::marker::PhantomData;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Id<T> {
-    handle: Index,
-    _marker: PhantomData<T>
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Vertex_;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Edge_;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Face_;
 
-pub type VertexId = Id<Vertex_>;
-pub type EdgeId = Id<Edge_>;
-pub type FaceId = Id<Face_>;
+pub type VertexId = Id<Vertex_, Index>;
+pub type EdgeId = Id<Edge_, Index>;
+pub type FaceId = Id<Face_, Index>;
 
-impl<T> Id<T> {
-    /// Returns true if the id is not the special value.
-    #[inline]
-    pub fn is_valid(self) -> bool { self.handle != u16::MAX }
-
-    /// Returns an usize for use with standard arrays.
-    #[inline]
-    pub fn as_index(self) -> usize { self.handle as usize }
-
-    /// Create an id from an usize index.
-    #[inline]
-    pub fn from_usize(idx: usize) -> Id<T> { Id { handle: idx as u16, _marker: PhantomData } }
-}
+//impl<T> Id<T> {
+//    /// Returns true if the id is not the special value.
+//    #[inline]
+//    pub fn is_valid(self) -> bool { self.handle != u16::MAX }
+//
+//    /// Returns an usize for use with standard arrays.
+//    #[inline]
+//    pub fn to_index(self) -> usize { self.handle as usize }
+//
+//    /// Create an id from an usize index.
+//    #[inline]
+//    pub fn from_usize(idx: usize) -> Id<T> { Id { handle: idx as u16, _marker: PhantomData } }
+//}
 
 pub const NO_EDGE: EdgeId = EdgeId { handle: u16::MAX, _marker: PhantomData };
 pub const NO_FACE: FaceId = FaceId { handle: u16::MAX, _marker: PhantomData };
@@ -53,41 +47,24 @@ pub const NO_VERTEX: VertexId = VertexId { handle: u16::MAX, _marker: PhantomDat
 
 /// Create an EdgeId from an index (the offset in the ConnectivityKernel's half edge vector)
 #[inline]
-pub fn edge_id(index: Index) -> EdgeId { EdgeId { handle: index, _marker: PhantomData } }
+pub fn edge_id(index: Index) -> EdgeId { EdgeId::new(index) }
 
 /// Create a FaceId from an index (the offset in the ConnectivityKernel's face vector)
 #[inline]
-pub fn face_id(index: Index) -> FaceId { FaceId { handle: index, _marker: PhantomData } }
+pub fn face_id(index: Index) -> FaceId { FaceId::new(index) }
 
 /// Create a VertexId from an index (the offset in the ConnectivityKernel's vertex vector)
 #[inline]
-pub fn vertex_id(index: Index) -> VertexId { VertexId { handle: index, _marker: PhantomData } }
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct IdRange<T> {
-    pub first: Id<T>,
-    pub count: Index,
-}
-
-impl<T: Copy> IdRange<T> {
-    pub fn iter(self) -> IdRangeIterator<T> {
-        return IdRangeIterator::new(self);
-    }
-
-    pub fn get(self, i: Index) -> Id<T> {
-        debug_assert!(i < self.count);
-        return Id { handle: self.first.handle + i, _marker: PhantomData };
-    }
-}
+pub fn vertex_id(index: Index) -> VertexId { VertexId::new(index) }
 
 /// A range of Id pointing to contiguous vertices.
-pub type VertexIdRange = IdRange<Vertex_>;
+pub type VertexIdRange = IdRange<Vertex_, Index>;
 
 /// A range of Id pointing to contiguous half edges.
-pub type EdgeIdRange = IdRange<Edge_>;
+pub type EdgeIdRange = IdRange<Edge_, Index>;
 
 /// A range of Id pointing to contiguous faces.
-pub type FaceIdRange = IdRange<Face_>;
+pub type FaceIdRange = IdRange<Face_, Index>;
 
 /// The structure holding the data specific to each half edge.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -251,11 +228,11 @@ impl ConnectivityKernel {
 
     pub fn first_vertex(&self) -> VertexId { self.first_vertex }
 
-    pub fn contains_egde(&self, id: EdgeId) -> bool { id.as_index() < self.edges.len() }
+    pub fn contains_egde(&self, id: EdgeId) -> bool { id.to_index() < self.edges.len() }
 
-    pub fn contains_face(&self, id: FaceId) -> bool { id.as_index() < self.faces.len() }
+    pub fn contains_face(&self, id: FaceId) -> bool { id.to_index() < self.faces.len() }
 
-    pub fn contains_vertex(&self, id: VertexId) -> bool { id.as_index() < self.vertices.len() }
+    pub fn contains_vertex(&self, id: VertexId) -> bool { id.to_index() < self.vertices.len() }
 
     pub fn walk_edge_ids_around_face<'l>(&'l self, id: FaceId) -> EdgeIdLoop<'l> {
         let edge = self.face(id).first_edge;
@@ -464,14 +441,14 @@ impl ConnectivityKernel {
         let no_edge = NO_EDGE;
         let new_id = if self.edge_freelist != no_edge {
             let id = self.edge_freelist;
-            let freelist_next = self.edges[id.as_index()].list_next;
-            self.edges[id.as_index()] = Wrapper {
+            let freelist_next = self.edges[id.to_index()].list_next;
+            self.edges[id.to_index()] = Wrapper {
                 data: data,
                 list_next: first_edge,
                 list_prev: no_edge
             };
             if freelist_next.is_valid() {
-                self.edges[freelist_next.as_index()].list_prev = no_edge;
+                self.edges[freelist_next.to_index()].list_prev = no_edge;
             }
             self.edge_freelist = freelist_next;
 
@@ -487,20 +464,20 @@ impl ConnectivityKernel {
             id
         };
         if first_edge != no_edge {
-            self.edges[first_edge.as_index()].list_prev = new_id;
+            self.edges[first_edge.to_index()].list_prev = new_id;
         }
         self.first_edge = new_id;
         return new_id;
     }
 
     fn remove_edge(&mut self, id: EdgeId) {
-        let prev = self.edges[id.as_index()].list_prev;
+        let prev = self.edges[id.to_index()].list_prev;
         if prev.is_valid() {
-            self.edges[prev.as_index()].list_next = self.edges[id.as_index()].list_next;
+            self.edges[prev.to_index()].list_next = self.edges[id.to_index()].list_next;
         } else {
             self.first_edge = NO_EDGE;
         }
-        self.edges[id.as_index()] = Wrapper {
+        self.edges[id.to_index()] = Wrapper {
             data: EMPTY_EDGE,
             list_next: self.edge_freelist,
             list_prev: NO_EDGE,
@@ -517,7 +494,7 @@ impl ConnectivityKernel {
         let new_id = if self.face_freelist != NO_FACE {
             let id = self.face_freelist;
             let freelist_next = self.face_internal(id).list_next;
-            self.faces[id.as_index()] = Wrapper {
+            self.faces[id.to_index()] = Wrapper {
                 data: Face {
                     first_edge: first_edge,
                     inner_edges: vec![],
@@ -781,9 +758,9 @@ impl ops::IndexMut<FaceId> for ConnectivityKernel {
 /// Convenience class that wraps a mesh's connectivity kernel and attribute data
 pub struct Mesh<VertexAttribute, EdgeAttribute, FaceAttribute> {
     kernel: ConnectivityKernel,
-    vertex_attributes: IdVector<VertexAttribute, Vertex_>,
-    edge_attributes: IdVector<EdgeAttribute, Edge_>,
-    face_attributes: IdVector<FaceAttribute, Face_>,
+    vertex_attributes: IdVector<VertexId, VertexAttribute>,
+    edge_attributes: IdVector<EdgeId, EdgeAttribute>,
+    face_attributes: IdVector<FaceId, FaceAttribute>,
 }
 
 impl<V, E, F> Mesh<V, E, F> {
@@ -1003,7 +980,7 @@ fn test_from_loop() {
 
         let mut i = 0;
         for e in kernel.walk_edge_ids_around_face(face) {
-            assert!((e.as_index()) < kernel.edges.len());
+            assert!((e.to_index()) < kernel.edges.len());
             assert_eq!(
                 kernel.edge(e).vertex,
                 kernel.edge(kernel.edge(kernel.edge(e).opposite).next).vertex
@@ -1020,14 +997,14 @@ fn test_from_loop() {
         }
 
         for e in kernel.walk_edge_ids_around_face_reverse(face) {
-            assert!((e.as_index()) < kernel.edges.len());
+            assert!((e.to_index()) < kernel.edges.len());
             assert_eq!(kernel.edge(e).face, face);
         }
 
         let face2 = kernel.edge(kernel.edge(kernel.face(face).first_edge).opposite).face;
         let mut i = 0;
         for e in kernel.walk_edge_ids_around_face_reverse(face2) {
-            assert!((e.as_index()) < kernel.edges.len());
+            assert!((e.to_index()) < kernel.edges.len());
             assert_eq!(kernel.edge(e).face, face2);
             i += 1;
         }

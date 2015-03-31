@@ -1,8 +1,10 @@
 use halfedge::{
     ConnectivityKernel, HalfEdge,
-    EdgeId, FaceId, VertexId, Id, IdRange,
+    EdgeId, FaceId, VertexId,
     NO_EDGE,
 };
+
+use vodk_id::*;
 
 use std::cmp::PartialEq;
 use std::mem::transmute;
@@ -326,26 +328,3 @@ impl<'l> PartialEq<DirectedEdgeCirculator<'l>> for DirectedEdgeCirculator<'l> {
     }
 }
 
-#[derive(Clone)]
-pub struct IdRangeIterator<T> {
-    range: IdRange<T>
-}
-
-impl<T:Copy> Iterator for IdRangeIterator<T> {
-    type Item = Id<T>;
-    fn next(&mut self) -> Option<Id<T>> {
-        if self.range.count == 0 {
-            return None;
-        }
-        let res = self.range.first;
-        self.range.count -= 1;
-        self.range.first = Id::from_usize(self.range.first.as_index() + 1);
-        return Some(res);
-    }
-}
-
-impl<T:Copy> IdRangeIterator<T> {
-    pub fn new(range: IdRange<T>) -> IdRangeIterator<T> {
-        IdRangeIterator { range: range }
-    }
-}

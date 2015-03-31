@@ -13,3 +13,6 @@ path = "../data/"
 
 [dependencies.vodk_math]
 path = "../math/"
+
+[dependencies.vodk_id]
+path = "../id/"

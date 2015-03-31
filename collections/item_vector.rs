@@ -1,5 +1,4 @@
-use super::id::FromIndex;
-use super::id::ToIndex;
+use vodk_id::{ FromIndex, ToIndex };
 
 pub struct ItemVector<T, ID> {
     data: Vec<T>,
