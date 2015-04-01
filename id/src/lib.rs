@@ -1,3 +1,5 @@
+#![feature(core)]
+
 use std::default::Default;
 use std::marker::PhantomData;
 use std::num::Int;

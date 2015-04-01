@@ -198,7 +198,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
         buffer: BufferObject,
         cb: &Fn(&mut[T])
     ) -> ResultCode {
-        let mut mapped_data: &mut[T] = [].as_mut_slice();
+        let mut mapped_data: &mut[T] = &mut[];
         unsafe {
             let result = self.map_buffer(
                 buffer,
@@ -219,7 +219,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
         buffer: BufferObject,
         cb: &Fn(&[T])
     ) -> ResultCode {
-        let mut mapped_data: &mut[T] = [].as_mut_slice();
+        let mut mapped_data: &mut[T] = &mut[];
         unsafe {
             let result = self.map_buffer(
                 buffer,
@@ -240,7 +240,7 @@ impl<Backend: DeviceBackend> Device<Backend> {
         buffer: BufferObject,
         cb: &Fn(&mut[T])
     ) -> ResultCode {
-        let mut mapped_data: &mut[T] = [].as_mut_slice();
+        let mut mapped_data: &mut[T] = &mut[];
         unsafe {
             let result = self.map_buffer(
                 buffer,

@@ -27,20 +27,6 @@ pub type VertexId = Id<Vertex_, Index>;
 pub type EdgeId = Id<Edge_, Index>;
 pub type FaceId = Id<Face_, Index>;
 
-//impl<T> Id<T> {
-//    /// Returns true if the id is not the special value.
-//    #[inline]
-//    pub fn is_valid(self) -> bool { self.handle != u16::MAX }
-//
-//    /// Returns an usize for use with standard arrays.
-//    #[inline]
-//    pub fn to_index(self) -> usize { self.handle as usize }
-//
-//    /// Create an id from an usize index.
-//    #[inline]
-//    pub fn from_usize(idx: usize) -> Id<T> { Id { handle: idx as u16, _marker: PhantomData } }
-//}
-
 pub const NO_EDGE: EdgeId = EdgeId { handle: u16::MAX, _marker: PhantomData };
 pub const NO_FACE: FaceId = FaceId { handle: u16::MAX, _marker: PhantomData };
 pub const NO_VERTEX: VertexId = VertexId { handle: u16::MAX, _marker: PhantomData };
@@ -730,29 +716,29 @@ impl ConnectivityKernel {
 
 impl ops::Index<EdgeId> for ConnectivityKernel {
     type Output = HalfEdge;
-    fn index<'l>(&'l self, id: &EdgeId) -> &'l HalfEdge { self.edge(*id) }
+    fn index<'l>(&'l self, id: EdgeId) -> &'l HalfEdge { self.edge(id) }
 }
 
 impl ops::IndexMut<EdgeId> for ConnectivityKernel {
-    fn index_mut<'l>(&'l mut self, id: &EdgeId) -> &'l mut HalfEdge { self.edge_mut(*id) }
+    fn index_mut<'l>(&'l mut self, id: EdgeId) -> &'l mut HalfEdge { self.edge_mut(id) }
 }
 
 impl ops::Index<VertexId> for ConnectivityKernel {
     type Output = Vertex;
-    fn index<'l>(&'l self, id: &VertexId) -> &'l Vertex { self.vertex(*id) }
+    fn index<'l>(&'l self, id: VertexId) -> &'l Vertex { self.vertex(id) }
 }
 
 impl ops::IndexMut<VertexId> for ConnectivityKernel {
-    fn index_mut<'l>(&'l mut self, id: &VertexId) -> &'l mut Vertex { self.vertex_mut(*id) }
+    fn index_mut<'l>(&'l mut self, id: VertexId) -> &'l mut Vertex { self.vertex_mut(id) }
 }
 
 impl ops::Index<FaceId> for ConnectivityKernel {
     type Output = Face;
-    fn index<'l>(&'l self, id: &FaceId) -> &'l Face { self.face(*id) }
+    fn index<'l>(&'l self, id: FaceId) -> &'l Face { self.face(id) }
 }
 
 impl ops::IndexMut<FaceId> for ConnectivityKernel {
-    fn index_mut<'l>(&'l mut self, id: &FaceId) -> &'l mut Face { self.face_mut(*id) }
+    fn index_mut<'l>(&'l mut self, id: FaceId) -> &'l mut Face { self.face_mut(id) }
 }
 
 /// Convenience class that wraps a mesh's connectivity kernel and attribute data

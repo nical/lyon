@@ -215,7 +215,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                     gl::DeleteProgram(pipeline.handle);
                     return Err(ResultCode::InvalidArgument);
                 }
-                let c_name = CString::from_slice(name.as_bytes());
+                let c_name = CString::new(name.as_bytes()).unwrap();
                 unsafe {
                     gl::BindAttribLocation(
                         pipeline.handle, loc.index as u32,
@@ -450,7 +450,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         if shader.handle == 0 {
             return VertexAttributeLocation { index: -1 };
         }
-        let c_name = CString::from_slice(name.as_bytes());
+        let c_name = CString::new(name.as_bytes()).unwrap();
         let location = unsafe {
             gl::GetAttribLocation(
                 shader.handle,
@@ -476,7 +476,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                 error => { return Err(error); }
             }
 
-            for i in range(0, descriptor.color_attachments.len()) {
+            for i in 0..descriptor.color_attachments.len() {
                 gl::FramebufferTexture2D(
                     gl::FRAMEBUFFER,
                     gl_attachement(i as u32),
@@ -720,7 +720,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
         name: &str
     ) -> UniformBlockLocation {
         let mut result = UniformBlockLocation { index: -1 };
-        let c_name = CString::from_slice(name.as_bytes());
+        let c_name = CString::new(name.as_bytes()).unwrap();
         unsafe {
             result.index = gl::GetUniformBlockIndex(
                 shader.handle,

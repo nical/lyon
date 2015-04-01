@@ -36,9 +36,9 @@ impl<ID:Identifier, Data> IdVector<ID, Data> {
 
     pub fn len(&self) -> usize { self.data.len() }
 
-    pub fn at_index(&self, idx: usize) -> &Data { &self.data[idx] }
+    pub fn nth(&self, idx: usize) -> &Data { &self.data[idx] }
 
-    pub fn at_index_mut(&mut self, idx: usize) -> &mut Data { &mut self.data[idx] }
+    pub fn nth_mut(&mut self, idx: usize) -> &mut Data { &mut self.data[idx] }
 
     pub fn iter<'l>(&'l self) -> slice::Iter<'l, Data> { self.data.iter() }
 
@@ -79,11 +79,11 @@ impl<Data:Default, ID:Identifier> IdVector<ID, Data> {
 
 impl<ID:Identifier, Data> ops::Index<ID> for IdVector<ID, Data> {
     type Output = Data;
-    fn index<'l>(&'l self, id: &ID) -> &'l Data { &self.data[id.to_index()] }
+    fn index<'l>(&'l self, id: ID) -> &'l Data { &self.data[id.to_index()] }
 }
 
 impl<ID:Identifier, Data> ops::IndexMut<ID> for IdVector<ID, Data> {
-    fn index_mut<'l>(&'l mut self, id: &ID) -> &'l mut Data { &mut self.data[id.to_index()] }
+    fn index_mut<'l>(&'l mut self, id: ID) -> &'l mut Data { &mut self.data[id.to_index()] }
 }
 
 
@@ -110,7 +110,7 @@ impl<'l, Data, ID:Identifier> IdSlice<'l, ID, Data> where Data:'l {
 
 impl<'l, ID:Identifier, Data> ops::Index<ID> for IdSlice<'l, ID, Data> where Data:'l {
     type Output = Data;
-    fn index<'a>(&'a self, id: &ID) -> &'a Data { &self.slice[id.to_index()] }
+    fn index<'a>(&'a self, id: ID) -> &'a Data { &self.slice[id.to_index()] }
 }
 
 
@@ -134,10 +134,10 @@ impl<'l, ID:Identifier, Data:'l> MutIdSlice<'l, ID, Data>{
 
 impl<'l, ID:Identifier, Data:'l> ops::Index<ID> for MutIdSlice<'l, ID, Data> {
     type Output = Data;
-    fn index<'a>(&'a self, id: &ID) -> &'a Data { &self.slice[id.to_index()] }
+    fn index<'a>(&'a self, id: ID) -> &'a Data { &self.slice[id.to_index()] }
 }
 
 impl<'l, ID:Identifier, Data:'l> ops::IndexMut<ID> for MutIdSlice<'l, ID, Data> {
-    fn index_mut<'a>(&'a mut self, id: &ID) -> &'a mut Data { &mut self.slice[id.to_index()] }
+    fn index_mut<'a>(&'a mut self, id: ID) -> &'a mut Data { &mut self.slice[id.to_index()] }
 }
 

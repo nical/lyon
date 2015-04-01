@@ -236,7 +236,7 @@ impl Graph {
         return if i == self.nodes.len() {
             self.nodes.push(Node::new(id))
         } else {
-            *self.nodes.at_index_mut(i) = Node::new(id);
+            *self.nodes.nth_mut(i) = Node::new(id);
             node_id(i as u16)
         };
     }
