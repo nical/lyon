@@ -1,4 +1,3 @@
-use std::num::Float;
 use std::char;
 use unicode::str as unicode_str;
 use unicode::str::Utf16Item;
@@ -12,7 +11,7 @@ pub struct Tokenizer<T> {
     finished: bool,
 }
 
-#[derive(Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorType {
     EndOfStreamWhileParsingScope,
     InvalidCharacter,
@@ -27,14 +26,14 @@ pub enum ErrorType {
     InternalError,
 }
 
-#[derive(Clone, Show, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Error {
     pub error: ErrorType,
     pub line: u32,
     pub column: u32,
 }
 
-#[derive(Clone, Show, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Identifier(String),
     StringLiteral(String),
@@ -255,7 +254,7 @@ impl<T: Iterator<Item=char>> Tokenizer<T> {
         }
 
         {
-            let word = &self.string_buffer[];
+            let word = &self.string_buffer[..];
             if word == "struct" { return Ok(Token::Struct); }
             if word == "enum"   { return Ok(Token::Enum); }
             if word == "let"    { return Ok(Token::Let); }
@@ -343,7 +342,7 @@ impl<T: Iterator<Item=char>> Tokenizer<T> {
     fn parse_exponent(&mut self, mut res: f64) -> Result<f64, Error> {
         self.bump();
 
-        let mut exp = 0u;
+        let mut exp = 0;
         let mut neg_exp = false;
 
         if self.ch == '+' {
@@ -381,7 +380,7 @@ impl<T: Iterator<Item=char>> Tokenizer<T> {
     }
 
     fn decode_hex_escape(&mut self) -> Result<u16, Error> {
-        let mut i = 0u;
+        let mut i = 0;
         let mut n = 0u16;
         while i < 4 && !self.eof() {
             self.bump();
@@ -396,7 +395,7 @@ impl<T: Iterator<Item=char>> Tokenizer<T> {
                 _ => return Err(self.error(ErrorType::InvalidEscape))
             };
 
-            i += 1u;
+            i += 1;
         }
 
         // Error out if we didn't parse 4 digits.

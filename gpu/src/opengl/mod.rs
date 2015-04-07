@@ -5,7 +5,6 @@ use super::objects::*;
 use super::logging::LoggingProxy;
 
 use std::mem;
-use libc::c_void;
 use std::ffi::CString;
 
 use vodk_data as data;
@@ -311,7 +310,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             gl::BufferData(
                 gl_buffer_type(descriptor.buffer_type),
                 descriptor.size as i64,
-                mem::transmute(0 as *const c_void), // :(
+                mem::transmute(0 as usize), // :(
                 gl_update_hint(descriptor.update_hint)
             );
             match self.check_errors() {
@@ -588,7 +587,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             }
             // TODO: support other formats
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, width, height,
-                            gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(0 as *const c_void));
+                            gl::RGBA, gl::UNSIGNED_BYTE, mem::transmute(0 as usize));
             match self.check_errors() {
                 ResultCode::Ok => {}
                 error => { return error; }
@@ -619,7 +618,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
             gl::GetTexImage(
                 gl::TEXTURE_2D, 0,              // TODO: mip levels
                 gl::RGBA, gl::UNSIGNED_BYTE,    // TODO: support more formats
-                mem::transmute(0 as *mut c_void)// offset in the buffer
+                mem::transmute(0 as usize)// offset in the buffer
             );
             match self.check_errors() {
                 ResultCode::Ok => {}
@@ -773,7 +772,7 @@ impl DeviceBackend for OpenGLDeviceBackend {
                         count as i32,
                         gl::UNSIGNED_SHORT,
                         // /2 because offset in bytes with u16
-                        mem::transmute((first / 2) as *const c_void)
+                        mem::transmute((first / 2) as usize)
                     );
                     return self.check_errors();
                 }

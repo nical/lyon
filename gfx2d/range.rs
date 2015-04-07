@@ -1,5 +1,5 @@
 
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Range {
     pub first: u16,
     pub count: u16,

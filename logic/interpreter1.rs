@@ -4,7 +4,7 @@ use bytecode::*;
 
 use std::mem;
 
-#[derive(Clone, Show)]
+#[derive(Clone, Debug)]
 pub enum InterpreterError {
     InvalidOpCode(u8),
     IncompatibleTypes(ByteCode, ValueType, ValueType),

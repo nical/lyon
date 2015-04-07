@@ -1,5 +1,4 @@
 use range::Range;
-use std::iter::FromIterator;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BlockId {

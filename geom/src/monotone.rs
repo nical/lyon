@@ -54,7 +54,6 @@
 
 use halfedge::*;
 use iterators::{Direction, DirectedEdgeCirculator};
-use std::num::Float;
 use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::mem::swap;
@@ -79,14 +78,14 @@ enum VertexType {
     Right,
 }
 
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DecompositionError {
     OpenPath,
     InvertedWindingOrder,
     MissingFace,
 }
 
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TriangulationError {
     NotMonotone,
     InvalidPath,

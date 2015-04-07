@@ -4,7 +4,7 @@ use ssa::bytecode::*;
 
 use std::mem;
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub enum InterpreterError {
     InvalidOpCode(u8),
     IncompatibleTypes(ByteCode, boxed::ValueType, boxed::ValueType),
@@ -183,7 +183,7 @@ impl Interpreter {
     ) -> Result<(), InterpreterError> {
         unsafe {
         let mut pc: ProgramCounter = 0;
-        let code = &script.bytecode[];
+        let code = &script.bytecode[..];
 
         loop {
             let op = code[pc];

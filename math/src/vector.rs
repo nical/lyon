@@ -1,7 +1,6 @@
 
 use std::mem;
 use std::ops;
-use std::num::Float;
 use std::default::Default;
 use std::marker::PhantomData;
 

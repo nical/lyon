@@ -1,8 +1,9 @@
-#![feature(core)]
+extern crate num;
 
 use std::default::Default;
 use std::marker::PhantomData;
-use std::num::Int;
+use num::traits::{ One, Zero, Bounded };
+use std::ops::Sub;
 
 pub mod id_vector;
 
@@ -22,7 +23,7 @@ pub trait Invalid {
     fn is_valid(&self) -> bool;
 }
 
-pub trait IntegerHandle : Int + FromIndex + ToIndex {}
+pub trait IntegerHandle : Copy + Sub<Output=Self> + PartialEq + PartialOrd + One + Zero + Bounded + FromIndex + ToIndex {}
 
 pub trait Identifier: Copy + FromIndex + ToIndex + Invalid {
     type Handle: IntegerHandle;
@@ -69,11 +70,11 @@ impl<T: Copy, H: IntegerHandle> IdRange<T, H> {
 impl<T:Copy, H:IntegerHandle> Iterator for IdRangeIterator<T, H> {
     type Item = Id<T, H>;
     fn next(&mut self) -> Option<Id<T, H>> {
-        if self.range.count == Int::zero() {
+        if self.range.count == num::zero() {
             return None;
         }
         let res = self.range.first;
-        self.range.count = self.range.count - Int::one();
+        self.range.count = self.range.count - num::one();
         self.range.first = FromIndex::from_index(self.range.first.to_index() + 1);
         return Some(res);
     }
@@ -94,7 +95,7 @@ impl<T: Copy, H: IntegerHandle> Identifier for Id<T, H> {
 }
 
 impl<T: Copy, H: IntegerHandle> Invalid for Id<T, H> {
-    fn is_valid(&self) -> bool { self.handle != Int::max_value() }
+    fn is_valid(&self) -> bool { self.handle != Bounded::max_value() }
 }
 
 

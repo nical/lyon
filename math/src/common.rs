@@ -1,4 +1,4 @@
 
-#[derive(Copy, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Untyped;
 

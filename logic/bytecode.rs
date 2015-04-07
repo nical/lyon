@@ -105,7 +105,7 @@ impl ByteCodeBuilder {
         let val_bytes = val.get_bytes();
 
         println!("pack val {:?}", val);
-        println!("val bytes {:?}", val.get_bytes().as_slice());
+        println!("val bytes {:?}", &val.get_bytes()[..]);
 
         self.byte_code.push(val_bytes[0]);
         self.byte_code.push(val_bytes[1]);

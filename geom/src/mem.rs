@@ -1,4 +1,4 @@
-use std::ptr::{Unique, write_bytes};
+use std::ptr::{ write_bytes };
 use std::mem::{forget, transmute, size_of};
 
 /// An Owned buffer that can be recycled into a Vec to help with avoiding allocations.
@@ -24,7 +24,7 @@ use std::mem::{forget, transmute, size_of};
 ///
 /// This is useful to avoid reallocating temporary vectors.
 pub struct VecStorage {
-    ptr: Unique<u8>,
+    ptr: *mut u8,
     cap: usize,
 }
 
@@ -50,7 +50,7 @@ impl VecStorage {
             let p = vector.as_mut_ptr();
             forget(vector);
             return VecStorage {
-                ptr: Unique::new(transmute(p)),
+                ptr: transmute(p),
                 cap: capacity,
             };
         }
@@ -61,8 +61,7 @@ impl VecStorage {
     /// The length of the new vector is 0 and the capacity is self.capacity() / size_of::<T>().
     pub fn into_vec<T>(self) -> Vec<T> {
         unsafe {
-            let vector = Vec::from_raw_parts(transmute(self.ptr.get()), 0,
-            self.cap / size_of::<T>());
+            let vector = Vec::from_raw_parts(transmute(self.ptr), 0, self.cap / size_of::<T>());
             forget(self);
             return vector;
         }
@@ -75,7 +74,16 @@ impl VecStorage {
     pub fn zero_out(&mut self) {
         if self.cap == 0 { return; }
         unsafe {
-            write_bytes(self.ptr.get_mut(), 0, self.cap);
+            write_bytes(self.ptr, 0, self.cap);
+        }
+    }
+}
+
+impl Drop for VecStorage {
+    fn drop(&mut self) {
+        unsafe {
+            // let a vector acquire the buffer and drop it
+            let _ : Vec<u8> = Vec::from_raw_parts(transmute(self.ptr), 0, self.cap);
         }
     }
 }

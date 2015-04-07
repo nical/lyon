@@ -87,13 +87,20 @@ impl<ID:Identifier, Data> ops::IndexMut<ID> for IdVector<ID, Data> {
 }
 
 
-
 pub struct IdSlice<'l, ID:Identifier, Data> where Data:'l {
     slice: &'l[Data],
     _idtype: PhantomData<ID>
 }
 
 impl<'l, Data, ID:Identifier> Copy for IdSlice<'l, ID, Data> where Data:'l {}
+impl<'l, Data, ID:Identifier> Clone for IdSlice<'l, ID, Data> where Data:'l {
+    fn clone(&self) -> IdSlice<'l, ID, Data> {
+        IdSlice {
+            slice: self.slice,
+            _idtype: PhantomData,
+        }
+    }
+}
 
 impl<'l, Data, ID:Identifier> IdSlice<'l, ID, Data> where Data:'l {
     pub fn new(slice: &'l[Data]) -> IdSlice<'l, ID, Data> {

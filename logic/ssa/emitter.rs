@@ -4,12 +4,12 @@ use boxed;
 
 use std::mem;
 
-#[derive(Copy)]
+#[derive(Copy, Clone, Debug)]
 pub struct CodeOffset {
     offset: u8,
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone, Debug)]
 pub struct Register {
     index: u8,
 }

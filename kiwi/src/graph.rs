@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::default::Default;
-use std::slice;
 use std::ops;
 
 use vodk_id::*;
@@ -8,13 +7,13 @@ use vodk_id::id_vector::IdVector;
 
 type DataTypeList = Vec<DataTypeId>;
 
-#[derive(Copy, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum DataType {
     Generic(u32),
     Type(DataTypeId),
 }
 
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 struct PortDescriptor {
     data_type: DataType,
 }
@@ -33,7 +32,7 @@ struct Node {
     valid: bool,
 }
 
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 struct Connection {
     port: u16,
     other_node: NodeId,
@@ -272,11 +271,11 @@ impl Graph {
 
 //impl ops::Index<NodeId> for Graph {
 //    type Output = Node;
-//    fn index<'l>(&'l self, id: &NodeId) -> &'l Node { &self.nodes[*id] }
+//    fn index<'l>(&'l self, id: NodeId) -> &'l Node { &self.nodes[id] }
 //}
 //
 //impl ops::IndexMut<NodeId> for Graph {
-//    fn index_mut<'l>(&'l mut self, id: &NodeId) -> &'l mut Node { &mut self.nodes[*id] }
+//    fn index_mut<'l>(&'l mut self, id: NodeId) -> &'l mut Node { &mut self.nodes[id] }
 //}
 
 
@@ -343,10 +342,10 @@ impl TypeSystem {
             return &[];
         }
         match desc.inputs[port as usize].data_type {
-            DataType::Type(ref t) => { return slice::ref_slice(t); }
+            DataType::Type(ref t) => { return ref_slice(t); }
             DataType::Generic(g) => {
                 match node.generics[g as usize] {
-                    Some(ref t) => { return slice::ref_slice(t); }
+                    Some(ref t) => { return ref_slice(t); }
                     None => {
                         return &desc.generics[g as usize][..];
                     }
@@ -364,10 +363,10 @@ impl TypeSystem {
             return &[];
         }
         match desc.outputs[port as usize].data_type {
-            DataType::Type(ref t) => { return slice::ref_slice(t); }
+            DataType::Type(ref t) => { return ref_slice(t); }
             DataType::Generic(g) => {
                 match node.generics[g as usize] {
-                    Some(ref t) => { return slice::ref_slice(t); }
+                    Some(ref t) => { return ref_slice(t); }
                     None => {
                         return &desc.generics[g as usize][..];
                     }
@@ -379,11 +378,11 @@ impl TypeSystem {
 
 impl ops::Index<NodeTypeId> for TypeSystem {
     type Output = NodeDescriptor;
-    fn index<'l>(&'l self, id: &NodeTypeId) -> &'l NodeDescriptor { &self.descriptors[*id] }
+    fn index<'l>(&'l self, id: NodeTypeId) -> &'l NodeDescriptor { &self.descriptors[id] }
 }
 
 impl ops::IndexMut<NodeTypeId> for TypeSystem {
-    fn index_mut<'l>(&'l mut self, id: &NodeTypeId) -> &'l mut NodeDescriptor { &mut self.descriptors[*id] }
+    fn index_mut<'l>(&'l mut self, id: NodeTypeId) -> &'l mut NodeDescriptor { &mut self.descriptors[id] }
 }
 
 impl NodeDescriptor {
@@ -393,7 +392,7 @@ impl NodeDescriptor {
             return &[];
         }
         match self.inputs[port as usize].data_type {
-            DataType::Type(ref t) => { return slice::ref_slice(t); },
+            DataType::Type(ref t) => { return ref_slice(t); },
             DataType::Generic(g) => { return &self.generics[g as usize][..]; }
         }
     }
@@ -403,7 +402,7 @@ impl NodeDescriptor {
             return &[];
         }
         match self.outputs[port as usize].data_type {
-            DataType::Type(ref t) => { return slice::ref_slice(t); },
+            DataType::Type(ref t) => { return ref_slice(t); },
             DataType::Generic(g) => { return &self.generics[g as usize][..]; }
         }
     }
@@ -529,4 +528,10 @@ fn intersect_types(a: &[DataTypeId], b:&[DataTypeId]) -> Vec<DataTypeId> {
         }
     }
     return result;
+}
+
+pub fn ref_slice<'a, A>(s: &'a A) -> &'a [A] {
+    unsafe {
+        ::std::slice::from_raw_parts(s, 1)
+    }
 }

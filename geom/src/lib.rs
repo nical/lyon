@@ -1,5 +1,3 @@
-#![feature(unique)]
-
 extern crate vodk_data;
 extern crate vodk_math;
 extern crate vodk_id;

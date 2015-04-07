@@ -5,8 +5,6 @@ use style::{FillStyle, StrokeStyle, StrokeFlags};
 use style;
 use color::Rgba;
 use shapes;
-use vodk_data as data;
-use std::num::Float;
 
 static PI: f32 = 3.1415;
 
@@ -15,7 +13,7 @@ pub static VERTEX_ANTIALIASING: TesselationFlags = 1;
 pub static CONVEX_SHAPE: TesselationFlags = 2;
 
 #[repr(C)]
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Pos2DNormal2DColorExtrusion {
     pub pos: world::Vec2,
     pub normal: world::Vec2,

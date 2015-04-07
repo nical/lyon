@@ -27,7 +27,7 @@ pub struct TextureDescriptor {
     pub flags: TextureFlags,
 }
 
-#[derive(Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct BufferDescriptor {
     pub size: u32,
     pub update_hint: UpdateHint,

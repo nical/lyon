@@ -154,7 +154,7 @@ impl Value {
     }
 }
 
-impl fmt::Show for Value {
+impl fmt::Debug for Value {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.write_str("boxed::Value{ ");
         unsafe {

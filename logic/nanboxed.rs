@@ -25,7 +25,7 @@ pub type ByteOffset = usize;
 pub const TAG_OFFSET: ByteOffset = 47;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq, Show)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Value {
     payload: u64,
 }
@@ -34,7 +34,7 @@ pub struct Structure {
     foo: u32,
 }
 
-#[derive(Copy, Clone, Show)]
+#[derive(Copy, Clone, Debug)]
 pub enum UnpackedValue {
     NumberValue(f64),
     PointerValue(*mut Structure),
@@ -58,10 +58,8 @@ impl Value {
     }
 
     pub fn ptr(val: *mut Structure) -> Value {
-        unsafe {
-            Value {
-                payload: NAN_MASK | PTR_TAG_BIT | mem::transmute(val)
-            }
+        Value {
+            payload: NAN_MASK | PTR_TAG_BIT | (val as u64)
         }
     }
 

@@ -1,7 +1,6 @@
 
 use std::mem;
 use std::ops;
-use std::num::Float;
 use std::marker::PhantomData;
 
 use vector::{Vector2D, Vector3D, Vector4D};
