@@ -1,6 +1,6 @@
 use std::char;
-use unicode::str as unicode_str;
-use unicode::str::Utf16Item;
+//use unicode::str as unicode_str;
+//use unicode::str::Utf16Item;
 
 pub struct Tokenizer<T> {
     stream: T,
@@ -426,29 +426,29 @@ impl<T: Iterator<Item=char>> Tokenizer<T> {
                     'n' => res.push('\n'),
                     'r' => res.push('\r'),
                     't' => res.push('\t'),
-                    'u' => match try!(self.decode_hex_escape()) {
-                        0xDC00...0xDFFF => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
-
-                        // Non-BMP characters are encoded as a sequence of
-                        // two hex escapes, representing UTF-16 surrogates.
-                        n1 @ 0xD800...0xDBFF => {
-                            match (self.next_char(), self.next_char()) {
-                                (Some('\\'), Some('u')) => (),
-                                _ => return Err(self.error(ErrorType::UnexpectedEndOfHexEscape)),
-                            }
-
-                            let buf = [n1, try!(self.decode_hex_escape())];
-                             match unicode_str::utf16_items(&buf).next() {
-                                Some(Utf16Item::ScalarValue(c)) => res.push(c),
-                                _ => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
-                            }
-                        }
-
-                        n => match char::from_u32(n as u32) {
-                            Some(c) => res.push(c),
-                            None => return Err(self.error(ErrorType::InvalidUnicodeCodePoint)),
-                        },
-                    },
+//                    'u' => match try!(self.decode_hex_escape()) {
+//                        0xDC00...0xDFFF => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
+//
+//                        // Non-BMP characters are encoded as a sequence of
+//                        // two hex escapes, representing UTF-16 surrogates.
+//                        n1 @ 0xD800...0xDBFF => {
+//                            match (self.next_char(), self.next_char()) {
+//                                (Some('\\'), Some('u')) => (),
+//                                _ => return Err(self.error(ErrorType::UnexpectedEndOfHexEscape)),
+//                            }
+//
+//                            let buf = [n1, try!(self.decode_hex_escape())];
+//                             match unicode_str::utf16_items(&buf).next() {
+//                                Some(Utf16Item::ScalarValue(c)) => res.push(c),
+//                                _ => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
+//                            }
+//                        }
+//
+//                        n => match char::from_u32(n as u32) {
+//                            Some(c) => res.push(c),
+//                            None => return Err(self.error(ErrorType::InvalidUnicodeCodePoint)),
+//                        },
+//                    },
                     _ => return Err(self.error(ErrorType::InvalidEscape)),
                 }
                 escape = false;
