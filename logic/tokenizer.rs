@@ -426,29 +426,31 @@ impl<T: Iterator<Item=char>> Tokenizer<T> {
                     'n' => res.push('\n'),
                     'r' => res.push('\r'),
                     't' => res.push('\t'),
-//                    'u' => match try!(self.decode_hex_escape()) {
-//                        0xDC00...0xDFFF => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
-//
-//                        // Non-BMP characters are encoded as a sequence of
-//                        // two hex escapes, representing UTF-16 surrogates.
-//                        n1 @ 0xD800...0xDBFF => {
-//                            match (self.next_char(), self.next_char()) {
-//                                (Some('\\'), Some('u')) => (),
-//                                _ => return Err(self.error(ErrorType::UnexpectedEndOfHexEscape)),
-//                            }
-//
-//                            let buf = [n1, try!(self.decode_hex_escape())];
-//                             match unicode_str::utf16_items(&buf).next() {
-//                                Some(Utf16Item::ScalarValue(c)) => res.push(c),
-//                                _ => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
-//                            }
-//                        }
-//
-//                        n => match char::from_u32(n as u32) {
-//                            Some(c) => res.push(c),
-//                            None => return Err(self.error(ErrorType::InvalidUnicodeCodePoint)),
-//                        },
-//                    },
+                    'u' => match try!(self.decode_hex_escape()) {
+                        0xDC00...0xDFFF => return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape)),
+
+                        // Non-BMP characters are encoded as a sequence of
+                        // two hex escapes, representing UTF-16 surrogates.
+                        n1 @ 0xD800...0xDBFF => {
+                            match (self.next_char(), self.next_char()) {
+                                (Some('\\'), Some('u')) => (),
+                                _ => return Err(self.error(ErrorType::UnexpectedEndOfHexEscape)),
+                            }
+
+                            let n2 = try!(self.decode_hex_escape());
+                            if n2 < 0xDC00 || n2 > 0xDFFF {
+                                return Err(self.error(ErrorType::LoneLeadingSurrogateInHexEscape));
+                            }
+                            let c = (((n1 - 0xD800) as u32) << 10 |
+                                     (n2 - 0xDC00) as u32) + 0x1_0000;
+                            res.push(char::from_u32(c).unwrap());
+                        }
+
+                        n => match char::from_u32(n as u32) {
+                            Some(c) => res.push(c),
+                            None => return Err(self.error(ErrorType::InvalidUnicodeCodePoint)),
+                        },
+                    },
                     _ => return Err(self.error(ErrorType::InvalidEscape)),
                 }
                 escape = false;
