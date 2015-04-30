@@ -102,15 +102,16 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> IdList<ID, Data, C> {
 
     /// Count the elements in O(N).
     pub fn count(&self) -> usize {
-        let none = C::none();
-        let mut it = self.first;
+        let mut it = self.first_id();
         let mut i = 0;
         loop {
-            if it == none {
-                return i;
+            match it {
+                Some(current_id) => {
+                    it = self.next_id(current_id);
+                    i += 1;
+                }
+                None => { return i; }
             }
-            it = self.next_id(it);
-            i += 1;
         }
     }
 
@@ -119,16 +120,17 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> IdList<ID, Data, C> {
         if id.to_index() >= self.data.len() {
             return false;
         }
-        let none = C::none();
-        let mut it = self.first;
+        let mut it = self.first_id();
         loop {
-            if it == id {
-                return true;
+            match it {
+                Some(current_id) => {
+                    if current_id == id { return true; }
+                    it = self.next_id(current_id);
+                }
+                None => {
+                    return false;
+                }
             }
-            if it == none {
-                return false;
-            }
-            it = self.next_id(it);
         }
     }
 
@@ -144,19 +146,23 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> IdList<ID, Data, C> {
     }
 
     /// Return the next id in the list.
-    pub fn next_id(&self, id: ID) -> ID {
+    pub fn next_id(&self, id: ID) -> Option<ID> {
         assert!(self.has_id(id));
-        self.data[id.to_index()].list_next
+        let next = self.data[id.to_index()].list_next;
+        return if next == C::none() { None } else { Some(next) };
     }
 
     /// Return the previous id in the list.
-    pub fn previous_id(&self, id: ID) -> ID {
+    pub fn previous_id(&self, id: ID) -> Option<ID> {
         assert!(self.has_id(id));
-        self.data[id.to_index()].list_prev
+        let prev = self.data[id.to_index()].list_prev;
+        return if prev == C::none() { None } else { Some(prev) };
     }
 
     /// Return the first id in the list.
-    pub fn first_id(&self) -> ID { self.first }
+    pub fn first_id(&self) -> Option<ID> {
+        return if self.first == C::none() { None } else { Some(self.first) };
+    }
 }
 
 impl<ID:Identifier, Data, C: IdCheck<ID>> ops::Index<ID> for IdList<ID, Data, C> {
@@ -176,24 +182,7 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> ops::IndexMut<ID> for IdList<ID, Data,
     }
 }
 
-/*
-pub struct IdListIterator<'l, ID: Identifier, Data, C:IdCheck<ID>> where ID:'l {
-    list: &'l IdList<ID, Data, C>,
-    current: ID,
-}
 
-impl<'l, ID: Identifier, Data:'l, C:IdCheck<ID>> Iterator for IdListIterator<'l, ID, Data, C>  {
-    type Item = &'l Data;
-    fn next(&'l mut self) -> Option<&'l Data> {
-        if self.current == C::none() {
-            return None;
-        }
-        let wrapper = &self.list.data[self.current];
-        self.current = wrapper.next;
-        return Some(wrapper.payload);
-    }
-}
-*/
 
 #[cfg(test)]
 use super::Id;
@@ -217,6 +206,7 @@ fn vector_list() {
     let mut list: TestIdList = TestIdList::with_capacity(10);
     assert!(list.is_empty());
     assert_eq!(list.count(), 0);
+    assert!(list.first_id().is_none());
 
     let a1 = list.add(1);
     let a2 = list.add(2);
@@ -230,6 +220,7 @@ fn vector_list() {
     assert!(list.has_id(a3));
     assert!(!list.is_empty());
     assert_eq!(list.count(), 3);
+    assert_eq!(list.first_id(), Some(a3));
 
     list.remove(a2);
 
@@ -238,12 +229,14 @@ fn vector_list() {
     assert!(list.has_id(a1));
     assert!(list.has_id(a3));
     assert_eq!(list.count(), 2);
+    assert_eq!(list.first_id(), Some(a3));
     
     list.remove(a1);
 
     assert_eq!(list[a3], 3);
     assert!(list.has_id(a3));
     assert_eq!(list.count(), 1);
+    assert_eq!(list.first_id(), Some(a3));
 
     let a4 = list.add(4);
 
@@ -252,6 +245,7 @@ fn vector_list() {
     assert!(list.has_id(a3));
     assert!(list.has_id(a4));
     assert_eq!(list.count(), 2);
+    assert_eq!(list.first_id(), Some(a4));
 
     list.remove(a4);
     list.remove(a3);
@@ -262,4 +256,5 @@ fn vector_list() {
     assert!(!list.has_id(a3));
     assert!(!list.has_id(a4));
     assert!(list.is_empty());
+    assert!(list.first_id().is_none());
 }

@@ -115,9 +115,9 @@ impl ConnectivityKernel {
         return kernel;
     }
 
-    pub fn first_edge(&self) -> EdgeId { self.edges.first_id() }
+    pub fn first_edge(&self) -> Option<EdgeId> { self.edges.first_id() }
 
-    pub fn first_face(&self) -> FaceId { self.faces.first_id() }
+    pub fn first_face(&self) -> Option<FaceId> { self.faces.first_id() }
 
     pub fn contains_edge(&self, id: EdgeId) -> bool { self.edges.has_id(id) }
 
@@ -678,7 +678,7 @@ fn test_from_loop() {
     for n in 3 .. 10 {
         println!(" --- test {} ", n);
         let kernel = ConnectivityKernel::from_loop(vertex_range(0, n).iter());
-        let face = kernel.first_face();
+        let face = kernel.first_face().unwrap();
 
         assert_eq!(kernel.walk_edge_ids_around_face(face).count() as Index, n);
 
@@ -722,7 +722,7 @@ fn test_from_loop() {
 fn test_hole() {
     let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 4).iter());
 
-    let f1 = kernel.first_face();
+    let f1 = kernel.first_face().unwrap();
     kernel.add_hole(f1, vertex_range(4, 3).iter());
 
     assert_eq!(kernel[f1].inner_edges.len(), 1);
@@ -743,7 +743,7 @@ fn test_hole() {
 #[test]
 fn test_connect_1() {
     let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 4).iter());
-    let f1 = kernel.first_face();
+    let f1 = kernel.first_face().unwrap();
     let e1 = kernel[f1].first_edge;
     let e2 = kernel[e1].next;
     let e3 = kernel[e2].next;
@@ -805,7 +805,7 @@ fn test_connect_1() {
 #[test]
 fn test_connect_2() {
     let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 10).iter());
-    let f1 = kernel.first_face();
+    let f1 = kernel.first_face().unwrap();
 
     let e1 = kernel[f1].first_edge;
     let e2 = kernel[e1].next;
@@ -841,7 +841,7 @@ fn test_connect_2() {
 fn test_face_list() {
     let mut kernel = ConnectivityKernel::new();
 
-    assert_eq!(kernel.first_face(), NO_FACE);
+    assert_eq!(kernel.first_face(), None);
 
     let f1 = kernel.add_face();
     let f2 = kernel.add_face();
@@ -850,7 +850,7 @@ fn test_face_list() {
     kernel.remove_face(f2);
     kernel.remove_face(f3);
 
-    assert_eq!(kernel.first_face(), NO_FACE);
+    assert_eq!(kernel.first_face(), None);
 
     let f1 = kernel.add_face();
     let f2 = kernel.add_face();
@@ -859,7 +859,7 @@ fn test_face_list() {
     kernel.remove_face(f2);
     kernel.remove_face(f1);
 
-    assert_eq!(kernel.first_face(), NO_FACE);
+    assert_eq!(kernel.first_face(), None);
 
     let f1 = kernel.add_face();
     let f2 = kernel.add_face();
@@ -874,5 +874,5 @@ fn test_face_list() {
     kernel.remove_face(f4);
     kernel.remove_face(f6);
 
-    assert_eq!(kernel.first_face(), NO_FACE);
+    assert_eq!(kernel.first_face(), None);
 }
