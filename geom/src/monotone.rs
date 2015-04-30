@@ -235,7 +235,7 @@ impl DecompositionContext {
         sorted_edges.extend(kernel.walk_edge_ids_around_face(face_id));
 
         // also add holes in the sorted edge list
-        for &inner in &kernel.face(face_id).inner_edges {
+        for &inner in &kernel[face_id].inner_edges {
             sorted_edges.extend(kernel.walk_edge_ids(inner));
         }
 

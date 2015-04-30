@@ -18,9 +18,9 @@ impl<ID:Identifier, Data> IdVector<ID, Data> {
         }
     }
 
-    pub fn with_capacity(size: usize) -> IdVector<ID, Data> {
+    pub fn with_capacity(size: u16) -> IdVector<ID, Data> {
         IdVector {
-            data: Vec::with_capacity(size),
+            data: Vec::with_capacity(size as usize),
             _idtype: PhantomData
         }
     }

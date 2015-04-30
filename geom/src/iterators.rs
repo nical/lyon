@@ -31,7 +31,7 @@ impl<'l> Iterator for EdgeIdLoop<'l> {
         if self.current_edge == NO_EDGE {
             return None;
         }
-        self.current_edge = self.kernel.edge(self.current_edge).next;
+        self.current_edge = self.kernel[self.current_edge].next;
         return Some(res);
     }
 }
@@ -73,8 +73,8 @@ impl<'l> Iterator for MutEdgeLoop<'l> {
         if self.current_edge == NO_EDGE {
             return None;
         }
-        self.current_edge = self.kernel.edge(self.current_edge).next;
-        return unsafe { Some(transmute(self.kernel.edge_mut(res))) }; // TODO could remove transmute
+        self.current_edge = self.kernel[self.current_edge].next;
+        return unsafe { Some(transmute(&mut self.kernel[res])) }; // TODO could remove transmute
     }
 }
 
@@ -112,7 +112,7 @@ impl<'l> Iterator for ReverseEdgeIdLoop<'l> {
         if self.current_edge == self.last_edge {
             self.done = true;
         }
-        self.current_edge = self.kernel.edge(self.current_edge).prev;
+        self.current_edge = self.kernel[self.current_edge].prev;
         return Some(res);
     }
 }
@@ -147,7 +147,7 @@ impl<'l> Iterator for VertexEdgeIterator<'l> {
             return None;
         }
         let temp = self.current_edge;
-        self.current_edge = self.kernel.edge(self.kernel.edge(self.current_edge).next).opposite;
+        self.current_edge = self.kernel[self.kernel[self.current_edge].next].opposite;
         if self.current_edge == self.first_edge {
             self.current_edge = NO_EDGE;
         }
@@ -232,7 +232,7 @@ impl<'l> EdgeCirculator<'l> {
         }
     }
 
-    pub fn edge(&'l self) -> &'l HalfEdge { self.kernel.edge(self.edge) }
+    pub fn edge(&'l self) -> &'l HalfEdge { &self.kernel[self.edge] }
 
     pub fn next(self) -> EdgeCirculator<'l> {
         EdgeCirculator {

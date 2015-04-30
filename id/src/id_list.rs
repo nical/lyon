@@ -33,7 +33,7 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> IdList<ID, Data, C> {
     }
 
     /// Create an empty list with a preallocated buffer.
-    pub fn with_capacity(size: u16) -> IdList<ID, Data, C> {
+    pub fn with_capacity(size: usize) -> IdList<ID, Data, C> {
         IdList {
             data: Vec::with_capacity(size as usize),
             first: C::none(),
@@ -154,19 +154,24 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> IdList<ID, Data, C> {
         assert!(self.has_id(id));
         self.data[id.to_index()].list_prev
     }
+
+    /// Return the first id in the list.
+    pub fn first_id(&self) -> ID { self.first }
 }
 
 impl<ID:Identifier, Data, C: IdCheck<ID>> ops::Index<ID> for IdList<ID, Data, C> {
     type Output = Data;
     fn index<'l>(&'l self, id: ID) -> &'l Data {
-        debug_assert!(self.has_id(id));
+        // Enabling assertion is very expensive
+        //debug_assert!(self.has_id(id));
         &self.data[id.to_index()].payload
     }
 }
 
 impl<ID:Identifier, Data, C: IdCheck<ID>> ops::IndexMut<ID> for IdList<ID, Data, C> {
     fn index_mut<'l>(&'l mut self, id: ID) -> &'l mut Data {
-        debug_assert!(self.has_id(id));
+        // Enabling assertion is very expensive
+        //debug_assert!(self.has_id(id));
         &mut self.data[id.to_index()].payload
     }
 }
