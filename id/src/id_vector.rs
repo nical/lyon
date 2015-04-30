@@ -18,9 +18,9 @@ impl<ID:Identifier, Data> IdVector<ID, Data> {
         }
     }
 
-    pub fn with_capacity(size: u16) -> IdVector<ID, Data> {
+    pub fn with_capacity(size: usize) -> IdVector<ID, Data> {
         IdVector {
-            data: Vec::with_capacity(size as usize),
+            data: Vec::with_capacity(size),
             _idtype: PhantomData
         }
     }
@@ -147,4 +147,3 @@ impl<'l, ID:Identifier, Data:'l> ops::Index<ID> for MutIdSlice<'l, ID, Data> {
 impl<'l, ID:Identifier, Data:'l> ops::IndexMut<ID> for MutIdSlice<'l, ID, Data> {
     fn index_mut<'a>(&'a mut self, id: ID) -> &'a mut Data { &mut self.slice[id.to_index()] }
 }
-

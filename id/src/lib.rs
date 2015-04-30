@@ -5,6 +5,7 @@ use num::traits::{ One, Zero, Bounded };
 use std::ops::{ Add, Sub };
 
 pub mod id_vector;
+pub mod id_list;
 
 pub trait FromIndex {
     fn from_index(idx: usize) -> Self;
@@ -25,7 +26,7 @@ pub trait IntegerHandle : Copy
                         + Bounded
                         + FromIndex + ToIndex {}
 
-pub trait Identifier: Copy + FromIndex + ToIndex {
+pub trait Identifier: Copy + FromIndex + ToIndex + PartialEq {
     type Handle: IntegerHandle;
 }
 
@@ -87,7 +88,7 @@ impl<T:Copy, H:Copy> Id<T, H> {
     pub fn new(idx: H) -> Id<T, H> { Id { handle: idx, _marker: PhantomData } }
 }
 
-impl<T: Copy, H: IntegerHandle> Identifier for Id<T, H> {
+impl<T: Copy+PartialEq, H: IntegerHandle> Identifier for Id<T, H> {
     type Handle = H;
 }
 

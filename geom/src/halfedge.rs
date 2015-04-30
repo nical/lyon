@@ -426,17 +426,16 @@ impl ConnectivityKernel {
 
     fn add_edge(&mut self, data: HalfEdge) -> EdgeId {
         let first_edge = self.first_edge;
-        let no_edge = NO_EDGE;
-        let new_id = if self.edge_freelist != no_edge {
+        let new_id = if self.edge_freelist != NO_EDGE {
             let id = self.edge_freelist;
             let freelist_next = self.edges[id.to_index()].list_next;
             self.edges[id.to_index()] = Wrapper {
                 data: data,
                 list_next: first_edge,
-                list_prev: no_edge
+                list_prev: NO_EDGE
             };
             if is_valid(freelist_next) {
-                self.edges[freelist_next.to_index()].list_prev = no_edge;
+                self.edges[freelist_next.to_index()].list_prev = NO_EDGE;
             }
             self.edge_freelist = freelist_next;
 
@@ -446,12 +445,12 @@ impl ConnectivityKernel {
             self.edges.push(Wrapper {
                 data: data,
                 list_next: first_edge,
-                list_prev: no_edge,
+                list_prev: NO_EDGE,
             });
 
             id
         };
-        if first_edge != no_edge {
+        if first_edge != NO_EDGE {
             self.edges[first_edge.to_index()].list_prev = new_id;
         }
         self.first_edge = new_id;
