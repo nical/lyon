@@ -7,3 +7,4 @@ pub mod halfedge;
 pub mod monotone;
 pub mod iterators;
 pub mod mem;
+pub mod id_internals;

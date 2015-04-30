@@ -4,7 +4,7 @@ use halfedge::{
     NO_EDGE,
 };
 
-use vodk_id::*;
+use id_internals::is_valid;
 
 use std::cmp::PartialEq;
 use std::mem::transmute;
@@ -143,7 +143,7 @@ impl<'l> Iterator for VertexEdgeIterator<'l> {
     type Item = EdgeId;
 
     fn next(&mut self) -> Option<EdgeId> {
-        if !self.current_edge.is_valid() {
+        if !is_valid(self.current_edge) {
             return None;
         }
         let temp = self.current_edge;

@@ -1,6 +1,9 @@
 use std::ops;
 use std::u16;
 
+pub use id_internals::Index;
+
+use id_internals::is_valid;
 use traits::*;
 use vodk_math::vector::{ Vector2D, Vector3D, Vector4D };
 use vodk_id::*;
@@ -13,7 +16,6 @@ use iterators::{
 #[cfg(test)]
 use iterators::{ DirectedEdgeCirculator, Direction };
 
-pub type Index = u16;
 use std::marker::PhantomData;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -164,47 +166,47 @@ impl ConnectivityKernel {
 
     /// Vertex getter. You can also use the indexing operator.
     pub fn vertex(&self, id: VertexId) -> &Vertex {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &self.vertices[id.handle as usize]
     }
 
     /// Vertex mutable getter. You can also use the indexing operator.
     fn vertex_mut(&mut self, id: VertexId) -> &mut Vertex {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &mut self.vertices[id.handle as usize]
     }
 
     /// Face getter. You can also use the indexing operator.
     pub fn face(&self, id: FaceId) -> &Face {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &self.faces[id.handle as usize].data
     }
 
     /// Face mutable getter. You can also use the indexing operator.
     fn face_mut(&mut self, id: FaceId) -> &mut Face {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &mut self.faces[id.handle as usize].data
     }
 
     fn face_internal(&self, id: FaceId) -> &Wrapper<Face, FaceId> {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &self.faces[id.handle as usize]
     }
 
     fn face_internal_mut(&mut self, id: FaceId) -> &mut Wrapper<Face, FaceId> {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &mut self.faces[id.handle as usize]
     }
 
     /// Half edge getter. You can also use the indexing operator.
     pub fn edge(&self, id: EdgeId) -> &HalfEdge {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &self.edges[id.handle as usize].data
     }
 
     /// Half edge mutable getter. You can also use the indexing operator.
     pub fn edge_mut(&mut self, id: EdgeId) -> &mut HalfEdge {
-        debug_assert!(id.is_valid());
+        debug_assert!(is_valid(id));
         &mut self.edges[id.handle as usize].data
     }
 
@@ -222,7 +224,7 @@ impl ConnectivityKernel {
 
     pub fn walk_edge_ids_around_face<'l>(&'l self, id: FaceId) -> EdgeIdLoop<'l> {
         let edge = self.face(id).first_edge;
-        let prev = if edge.is_valid() { self.edge(edge).prev } else { NO_EDGE };
+        let prev = if is_valid(edge) { self.edge(edge).prev } else { NO_EDGE };
         EdgeIdLoop::new(self, edge, prev)
     }
 
@@ -264,7 +266,7 @@ impl ConnectivityKernel {
     /// Run a few debug-only assertions to check the state of a given face,
     /// and the edges in its loop.
     pub fn debug_assert_face_invariants(&self, face: FaceId) {
-        if !face.is_valid() {
+        if !is_valid(face) {
             return;
         }
         for e in self.walk_edge_ids_around_face(face) {
@@ -433,7 +435,7 @@ impl ConnectivityKernel {
                 list_next: first_edge,
                 list_prev: no_edge
             };
-            if freelist_next.is_valid() {
+            if is_valid(freelist_next) {
                 self.edges[freelist_next.to_index()].list_prev = no_edge;
             }
             self.edge_freelist = freelist_next;
@@ -458,7 +460,7 @@ impl ConnectivityKernel {
 
     fn remove_edge(&mut self, id: EdgeId) {
         let prev = self.edges[id.to_index()].list_prev;
-        if prev.is_valid() {
+        if is_valid(prev) {
             self.edges[prev.to_index()].list_next = self.edges[id.to_index()].list_next;
         } else {
             self.first_edge = NO_EDGE;
@@ -488,7 +490,7 @@ impl ConnectivityKernel {
                 list_next: self.first_face,
                 list_prev: NO_FACE,
             };
-            if freelist_next.is_valid() {
+            if is_valid(freelist_next) {
                 self.face_internal_mut(freelist_next).list_prev = NO_FACE;
             }
             self.face_freelist = freelist_next;
@@ -519,7 +521,7 @@ impl ConnectivityKernel {
     /// Remove a face, without removing the half edges in its loop.
     pub fn remove_face(&mut self, id: FaceId) {
         let prev = self.face_internal_mut(id).list_prev;
-        if prev.is_valid() {
+        if is_valid(prev) {
             self.face_internal_mut(prev).list_next = self.face_internal(id).list_next;
         } else {
             self.first_face = NO_FACE;
@@ -657,10 +659,10 @@ impl ConnectivityKernel {
         // close the loop
         self.connect_edges(edge, first_edge, Some(f2));
 
-        if f1.is_valid() {
+        if is_valid(f1) {
             self.face_mut(f1).first_edge = first_edge;
         }
-        if f2.is_valid() {
+        if is_valid(f2) {
             self.face_mut(f2).first_edge = self.edge(first_edge).opposite;
         }
 
@@ -836,7 +838,6 @@ impl<U:Copy, V:TextureCoordinates<Unit = U>, E, F> Mesh<V, E, F> {
     pub fn uv(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).uv() }
     pub fn uv_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).uv_mut() }
 }
-
 
 #[test]
 fn test_add_segment() {

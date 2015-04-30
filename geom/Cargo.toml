@@ -4,7 +4,7 @@ name = "geom"
 version = "0.0.1"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 
-[[lib]]
+[lib]
 name = "geom"
 path = "src/lib.rs"
 

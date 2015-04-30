@@ -1,9 +1,8 @@
 extern crate num;
 
-use std::default::Default;
 use std::marker::PhantomData;
 use num::traits::{ One, Zero, Bounded };
-use std::ops::Sub;
+use std::ops::{ Add, Sub };
 
 pub mod id_vector;
 
@@ -19,13 +18,14 @@ pub trait Generation {
     fn get_gen(&self) -> u32;
 }
 
-pub trait Invalid {
-    fn is_valid(&self) -> bool;
-}
+pub trait IntegerHandle : Copy
+                        + Sub<Output=Self>
+                        + Add<Output=Self>
+                        + PartialEq + PartialOrd
+                        + Bounded
+                        + FromIndex + ToIndex {}
 
-pub trait IntegerHandle : Copy + Sub<Output=Self> + PartialEq + PartialOrd + One + Zero + Bounded + FromIndex + ToIndex {}
-
-pub trait Identifier: Copy + FromIndex + ToIndex + Invalid {
+pub trait Identifier: Copy + FromIndex + ToIndex {
     type Handle: IntegerHandle;
 }
 
@@ -53,9 +53,6 @@ pub struct IdRangeIterator<T, H> {
     range: IdRange<T, H>
 }
 
-
-
-
 impl<T: Copy, H: IntegerHandle> IdRange<T, H> {
     pub fn iter(self) -> IdRangeIterator<T, H> {
         return IdRangeIterator::new(self);
@@ -67,7 +64,7 @@ impl<T: Copy, H: IntegerHandle> IdRange<T, H> {
     }
 }
 
-impl<T:Copy, H:IntegerHandle> Iterator for IdRangeIterator<T, H> {
+impl<T:Copy, H:IntegerHandle+One+Zero> Iterator for IdRangeIterator<T, H> {
     type Item = Id<T, H>;
     fn next(&mut self) -> Option<Id<T, H>> {
         if self.range.count == num::zero() {
@@ -94,33 +91,9 @@ impl<T: Copy, H: IntegerHandle> Identifier for Id<T, H> {
     type Handle = H;
 }
 
-impl<T: Copy, H: IntegerHandle> Invalid for Id<T, H> {
-    fn is_valid(&self) -> bool { self.handle != Bounded::max_value() }
-}
-
-
-
-impl<T, H, G: Generation> Invalid for GenId<T, H, G> {
-    fn is_valid(&self) -> bool { self.get_gen() != 0 }
-}
-
 impl<T, H: PartialEq, G: PartialEq> PartialEq for GenId<T, H, G> {
     fn eq(&self, other: &GenId<T, H, G>) -> bool { self.handle == other.handle && self.gen == other.gen }
     fn ne(&self, other: &GenId<T, H, G>) -> bool { self.handle != other.handle || self.gen != other.gen }
-}
-
-impl<T, H: Default, G: Default> Default for GenId<T, H, G> {
-    fn default() -> GenId<T,H,G> {
-        GenId {
-            handle: Default::default(),
-            gen: Default::default(),
-            _marker: PhantomData
-        }
-    }
-}
-
-impl<T, H: Default> Default for Id<T, H> {
-    fn default() -> Id<T,H> { Id { handle: Default::default(), _marker: PhantomData } }
 }
 
 impl<T, H:IntegerHandle, G> ToIndex for GenId<T, H, G> {
@@ -153,11 +126,6 @@ impl Generation for u32  { fn get_gen(&self) -> u32 { *self as u32 } }
 impl Generation for u64  { fn get_gen(&self) -> u32 { *self as u32 } }
 
 impl<T, H, G: Generation> Generation for GenId<T, H, G>  { fn get_gen(&self) -> u32 { self.gen.get_gen() } }
-
-//impl<T, H> Generation for GenId<T, H, u8>  { fn get_gen(&self) -> u32 { self.gen as u32 } }
-//impl<T, H> Generation for GenId<T, H, u16> { fn get_gen(&self) -> u32 { self.gen as u32 } }
-//impl<T, H> Generation for GenId<T, H, u32> { fn get_gen(&self) -> u32 { self.gen as u32 } }
-//impl<T, H> Generation for GenId<T, H, u64> { fn get_gen(&self) -> u32 { self.gen as u32 } }
 
 impl IntegerHandle for u8 {}
 impl IntegerHandle for u16 {}
