@@ -682,11 +682,11 @@ fn test_triangulate() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let vertex_ids = vertex_range(0, n_vertices);
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop_with_vertices(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_ids.iter(), f1, f2);
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
@@ -754,14 +754,16 @@ fn test_triangulate_holes() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let vertex_ids = vertex_range(0, n_vertices);
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop_with_vertices(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_ids.iter(), f1, f2);
 
+        let mut vertex_count = n_vertices;
         for i in 1 .. separators.len() {
-            kernel.add_hole(f1, separators[i]);
+            kernel.add_hole(f1, vertex_range(vertex_count, separators[i]).iter());
+            vertex_count += separators[i];
         }
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], vertices, indices);
@@ -780,7 +782,7 @@ fn test_triangulate_degenerate() {
             world::vec2(1.0, 0.0),
             world::vec2(1.0, 1.0),
         ],
-// TODO: this case isn't handled properly: not y-monoton after decomposition
+// TODO: this case isn't handled properly: not y-monotone after decomposition
 //        &[  // points in the same line
 //            world::vec2(0.0, 0.0),
 //            world::vec2(0.0, 1.0),
@@ -801,11 +803,11 @@ fn test_triangulate_degenerate() {
         let mut kernel = ConnectivityKernel::new();
 
         let n_vertices = vertex_positions[i].len() as Index;
-        let vertex_ids = kernel.add_vertices_with_offsets(0, n_vertices).ok().unwrap();
+        let vertex_ids = vertex_range(0, n_vertices);
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop_with_vertices(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_ids.iter(), f1, f2);
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
