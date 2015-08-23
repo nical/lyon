@@ -9,3 +9,6 @@ authors = [
 [lib]
 name = "logic"
 path = "./lib.rs"
+
+[dependencies]
+libc = "0.1.10"

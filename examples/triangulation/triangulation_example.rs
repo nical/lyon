@@ -1,3 +1,4 @@
+extern crate svg;
 extern crate glutin;
 extern crate gl;
 extern crate vodk_gpu;
@@ -15,13 +16,19 @@ use vodk_math::units::world;
 use vodk_math::units::texels;
 use vodk_math::matrix;
 use gfx2d::color::Rgba;
-use geom::halfedge::*;
+use geom::half_edge::*;
 use geom::monotone::*;
 
+use glutin::GlRequest;
+use glutin::Api;
+use svg::{Event, Tag};
+use svg::path::{Command, Data};
+
+use std::path::Path;
 use std::mem;
 
-#[derive(Copy, Debug)]
-struct PosColor {
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
     pos: world::Vec2,
     color: Rgba<f32>,
 }
@@ -40,14 +47,76 @@ fn to_std_140_mat3<T>(from: &matrix::Matrix3x3<T>) -> std140::Mat3 {
     }
 }
 
+fn to_vec2(parameters: &Vec<f64>) -> world::Vec2 {
+    return world::vec2(parameters[0] as f32 * 0.01, parameters[1] as f32 * 0.01);
+}
+
+fn load_svg(file_path: &str) -> Vec<Vertex> {
+    let file = svg::open(&Path::new(file_path)).unwrap();
+    let mut path: Vec<Vertex> = Vec::new();
+    let bleue = Rgba { r: 0.0, g:0.0, b:1.0, a: 1.0 };
+
+    let mut cursor = world::vec2(0.0, 0.0);
+    for event in file.parse() {
+        match event {
+            Event::Tag(Tag::Path(_, attributes)) => {
+                let data = attributes.get("d").unwrap();
+                let data = Data::parse(data).unwrap();
+                for command in data.iter() {
+                    match *command {
+                        Command::MoveTo(ref positioning, ref parameters) => {
+                            println!("Move to {:?} {:?}", parameters, positioning);
+                            let param = to_vec2(parameters);
+                            cursor =  match *positioning {
+                                svg::path::Positioning::Relative => { cursor + param }
+                                svg::path::Positioning::Absolute => { param }
+                            };
+                            path.push(Vertex { pos: cursor, color: bleue });
+                        },
+                        Command::LineTo(ref positioning, ref parameters) => {
+                            let param = to_vec2(parameters);
+                            cursor =  match *positioning {
+                                svg::path::Positioning::Relative => { cursor + param }
+                                svg::path::Positioning::Absolute => { param }
+                            };
+                            path.push(Vertex { pos: cursor, color: bleue });
+
+                            println!("Line to {:?}. {:?}", parameters, positioning);
+                        },
+                        Command::CurveTo(ref positioning, ref parameters) => {
+                            println!("Curve to {:?}. {:?}", parameters, positioning);
+                        },
+                        Command::SmoothCurveTo(ref positioning, ref parameters) => {
+                            println!("Smooth curve to {:?} {:?}.", parameters, positioning);
+                        },
+                        Command::ClosePath => {
+                            println!("Close the path.");
+                            return path;
+                        },
+                        _ => {
+                            println!("Not sure what to do.");
+                            return path;
+                        }
+                    }
+                }
+
+            }
+            _ => {}
+        }
+    }
+    return path;
+}
+
 fn main() {
+    let svg_path = load_svg("rust-logo-blk.svg");
+
     let win_width: u32 = 800;
     let win_height: u32 = 600;
 
     let window = glutin::WindowBuilder::new()
         .with_title(format!("Triangulation test"))
         .with_dimensions(800,600)
-        .with_gl_version((3,3))
+        .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
         .with_vsync()
         .build().unwrap();
 
@@ -59,37 +128,39 @@ fn main() {
 
     let red = Rgba { r: 1.0, g:0.0, b:0.0, a: 1.0 };
 
-    let path = &[
-        PosColor { pos: world::vec2(0.0, 0.4), color: red },
-        PosColor { pos: world::vec2(0.2, 0.4), color: red },
-        PosColor { pos: world::vec2(0.0, 0.2), color: red },
-        PosColor { pos: world::vec2(0.4, 0.0), color: red },
-        PosColor { pos: world::vec2(0.6, 0.2), color: red },// 4
-        PosColor { pos: world::vec2(0.8, 0.0), color: red },
-        PosColor { pos: world::vec2(0.6, 0.4), color: red },
-        PosColor { pos: world::vec2(0.4, 0.2), color: red },// 7
-        PosColor { pos: world::vec2(0.6, 0.6), color: red },
-        PosColor { pos: world::vec2(0.4, 0.8), color: red }
-    ];
+    let path = &svg_path[..];
+    println!("path: {:?}", path);
+//    let path = &[
+//        Vertex { pos: world::vec2(0.0, 0.4), color: red },
+//        Vertex { pos: world::vec2(0.2, 0.4), color: red },
+//        Vertex { pos: world::vec2(0.0, 0.2), color: red },
+//        Vertex { pos: world::vec2(0.4, 0.0), color: red },
+//        Vertex { pos: world::vec2(0.6, 0.2), color: red },// 4
+//        Vertex { pos: world::vec2(0.8, 0.0), color: red },
+//        Vertex { pos: world::vec2(0.6, 0.4), color: red },
+//        Vertex { pos: world::vec2(0.4, 0.2), color: red },// 7
+//        Vertex { pos: world::vec2(0.6, 0.6), color: red },
+//        Vertex { pos: world::vec2(0.4, 0.8), color: red }
+//    ];
+
+    let n_points = path.len();
 
     let mut positions: Vec<world::Vec2> = vec![];
-    for i in 0..path.len() {
+    for i in 0..n_points {
         positions.push(path[i].pos);
     }
 
     let indices = &mut [0 as u16; 1024];
 
-    let mut kernel = ConnectivityKernel::from_loop(path.len() as u16);
-    let main_face = kernel.first_face();
+    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, n_points as u16).iter());
+    let main_face = kernel.first_face().unwrap();
     let n_indices = triangulate_faces(&mut kernel, &[main_face], &positions[..], indices);
     for n in 0 .. n_indices/3 {
         println!(" ===> {} {} {}", indices[n*3], indices[n*3+1], indices[n*3+2] );
     }
 
-    let n_points = path.len();
-
     let vbo_desc = BufferDescriptor {
-        size: (path.len()  * mem::size_of::<PosColor>()) as u32,
+        size: (n_points  * mem::size_of::<Vertex>()) as u32,
         buffer_type: BufferType::Vertex,
         update_hint: UpdateHint::Static,
     };
@@ -105,7 +176,7 @@ fn main() {
 
     ctx.with_write_only_mapped_buffer(
       vbo, &|mapped_vbo| {
-        for i in 0..path.len() {
+        for i in 0..n_points {
             mapped_vbo[i] = path[i];
         }
       }
@@ -125,7 +196,7 @@ fn main() {
     let a_color = VertexAttributeLocation { index: 2 };
     let a_extrusion = VertexAttributeLocation { index: 3 };
 
-    let stride = mem::size_of::<PosColor>() as u16;
+    let stride = mem::size_of::<Vertex>() as u16;
     let geom_desc = GeometryDescriptor{
         attributes: &[
             VertexAttribute {
@@ -228,7 +299,19 @@ fn main() {
 
     ctx.set_shader(pipeline);
 
-    while !window.should_close() {
+    loop {
+        // polling and handling the events received by the window
+        let mut should_close = false;
+        for event in window.poll_events() {
+            should_close |= match event {
+                glutin::Event::Closed => { true }
+                _ => { false }
+            }
+        }
+        if should_close {
+            break;
+        }
+
         ctx.clear(COLOR|DEPTH);
         ctx.draw(
             geom,

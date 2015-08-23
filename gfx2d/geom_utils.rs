@@ -1,12 +1,12 @@
 use vodk_math::units::world;
-use vodk_math::vector;
+use vodk_math::vec2::Vector2D;
 
 pub fn line_intersection<U>(
-    a1: vector::Vector2D<U>,
-    a2: vector::Vector2D<U>,
-    b1: vector::Vector2D<U>,
-    b2: vector::Vector2D<U>
-) -> Option<vector::Vector2D<U>> {
+    a1: Vector2D<U>,
+    a2: Vector2D<U>,
+    b1: Vector2D<U>,
+    b2: Vector2D<U>
+) -> Option<Vector2D<U>> {
     let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
     if det*det < 0.00001 {
         // The lines are very close to parallel
@@ -15,7 +15,7 @@ pub fn line_intersection<U>(
     let inv_det = 1.0 / det;
     let a = a1.x * a2.y - a1.y * a2.x;
     let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(vector::Vector2D::new(
+    return Some(Vector2D::new(
         (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
         (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
     ));

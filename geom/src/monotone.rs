@@ -52,18 +52,18 @@
 //! ```
 //!
 
-use halfedge::*;
-use iterators::{Direction, DirectedEdgeCirculator};
 use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::mem::swap;
 use std::fmt::Debug;
+use half_edge::kernel::*;
+use half_edge::iterators::{Direction, DirectedEdgeCirculator};
+use half_edge::traits::{ Position2D };
 use super::mem::VecStorage;
-use vodk_math::vector::*;
+use vodk_math::vec2::*;
 use vodk_math::constants::PI;
 use vodk_id::*;
 use vodk_id::id_vector::*;
-use traits::{ Position2D };
 
 #[cfg(test)]
 use vodk_math::units::world;
@@ -578,8 +578,8 @@ impl TriangulationContext {
     }
 }
 
-#[cfg(test)]
-fn triangulate_faces<T:Copy+Debug>(
+//#[cfg(test)]
+pub fn triangulate_faces<T:Copy+Debug>(
     kernel: &mut ConnectivityKernel,
     faces: &[FaceId],
     vertices: &[Vector2D<T>],
@@ -599,7 +599,10 @@ fn triangulate_faces<T:Copy+Debug>(
     let mut triangles = SliceTriangleStream::new(&mut indices[..]);
     let mut triangulator = TriangulationContext::new();
     for f in new_faces {
-        debug_assert!(is_y_monotone(kernel, vertex_positions, f));
+        //debug_assert!(is_y_monotone(kernel, vertex_positions, f));
+        if !is_y_monotone(kernel, vertex_positions, f) {
+            continue;
+        }
         let res = triangulator.y_monotone_triangulation(
             kernel, f,
             vertex_positions,

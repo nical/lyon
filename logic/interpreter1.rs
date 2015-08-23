@@ -125,25 +125,23 @@ mod tests {
         let mut builder = bytecode::ByteCodeBuilder::new();
         builder.exit();
         let script = builder.end();
-        let status = exec(&script, registers.as_mut_slice(), 0);
+        let status = exec(&script, registers, 0);
         assert!(status.is_ok());
     }
 
     #[test]
     fn empty_simple_addtion() {
-        let registers = &mut [
-            Value::void(), ..3
-        ];
+        let registers = &mut [Value::void(); 3];
         let mut builder = bytecode::ByteCodeBuilder::new();
         builder.constant(0, Value::number(5.0));
         builder.constant(1, Value::number(10.0));
         builder.add(0, 1, 2);
         builder.exit();
         let script = builder.end();
-        let status = exec(&script, registers.as_mut_slice(), 0);
+        let status = exec(&script, registers, 0);
         match status {
             Ok(()) => {}
-            Err(e) => { panic!("exec failed with error {}", e); }
+            Err(e) => { panic!("exec failed with error {:?}", e); }
         }
         let result = registers[2].get_number().unwrap();
         assert!(fuzzy_eq(result, 15.0));

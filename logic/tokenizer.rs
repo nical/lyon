@@ -474,20 +474,20 @@ mod test {
     use super::*;
     #[test]
     fn tokenize_simple() {
-        let src = "struct foo { bar: isize32, baz: bool }";
+        let src = "struct foo { bar: int32, baz: bool }";
         let mut tok = Tokenizer::new(src.chars());
-        assert_eq!(tok.parse(), Ok(Struct));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("foo"))));
-        assert_eq!(tok.parse(), Ok(OpenCurlyBracket));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("bar"))));
-        assert_eq!(tok.parse(), Ok(Colon));
-        assert_eq!(tok.parse(), Ok(Int32Type));
-        assert_eq!(tok.parse(), Ok(Comma));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("baz"))));
-        assert_eq!(tok.parse(), Ok(Colon));
-        assert_eq!(tok.parse(), Ok(BooleanType));
-        assert_eq!(tok.parse(), Ok(CloseCurlyBracket));
-        assert_eq!(tok.parse(), Ok(EndOfStream));
+        assert_eq!(tok.parse(), Ok(Token::Struct));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("foo"))));
+        assert_eq!(tok.parse(), Ok(Token::OpenCurlyBracket));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("bar"))));
+        assert_eq!(tok.parse(), Ok(Token::Colon));
+        assert_eq!(tok.parse(), Ok(Token::Int32Type));
+        assert_eq!(tok.parse(), Ok(Token::Comma));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("baz"))));
+        assert_eq!(tok.parse(), Ok(Token::Colon));
+        assert_eq!(tok.parse(), Ok(Token::BooleanType));
+        assert_eq!(tok.parse(), Ok(Token::CloseCurlyBracket));
+        assert_eq!(tok.parse(), Ok(Token::EndOfStream));
         assert!(tok.eof());
 
         let src = "
@@ -496,27 +496,27 @@ mod test {
         }
         ";
         let mut tok = Tokenizer::new(src.chars());
-        assert_eq!(tok.parse(), Ok(Function));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("add"))));
-        assert_eq!(tok.parse(), Ok(OpenParenthese));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("a"))));
-        assert_eq!(tok.parse(), Ok(Colon));
-        assert_eq!(tok.parse(), Ok(Float32Type));
-        assert_eq!(tok.parse(), Ok(Comma));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("b"))));
-        assert_eq!(tok.parse(), Ok(Colon));
-        assert_eq!(tok.parse(), Ok(Float32Type));
-        assert_eq!(tok.parse(), Ok(CloseParenthese));
-        assert_eq!(tok.parse(), Ok(Arrow));
-        assert_eq!(tok.parse(), Ok(Float32Type));
-        assert_eq!(tok.parse(), Ok(OpenCurlyBracket));
-        assert_eq!(tok.parse(), Ok(Return));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("a"))));
-        assert_eq!(tok.parse(), Ok(Add));
-        assert_eq!(tok.parse(), Ok(Identifier(String::from_str("b"))));
-        assert_eq!(tok.parse(), Ok(Semicolon));
-        assert_eq!(tok.parse(), Ok(CloseCurlyBracket));
-        assert_eq!(tok.parse(), Ok(EndOfStream));
+        assert_eq!(tok.parse(), Ok(Token::Function));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("add"))));
+        assert_eq!(tok.parse(), Ok(Token::OpenParenthese));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("a"))));
+        assert_eq!(tok.parse(), Ok(Token::Colon));
+        assert_eq!(tok.parse(), Ok(Token::Float32Type));
+        assert_eq!(tok.parse(), Ok(Token::Comma));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("b"))));
+        assert_eq!(tok.parse(), Ok(Token::Colon));
+        assert_eq!(tok.parse(), Ok(Token::Float32Type));
+        assert_eq!(tok.parse(), Ok(Token::CloseParenthese));
+        assert_eq!(tok.parse(), Ok(Token::Arrow));
+        assert_eq!(tok.parse(), Ok(Token::Float32Type));
+        assert_eq!(tok.parse(), Ok(Token::OpenCurlyBracket));
+        assert_eq!(tok.parse(), Ok(Token::Return));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("a"))));
+        assert_eq!(tok.parse(), Ok(Token::Add));
+        assert_eq!(tok.parse(), Ok(Token::Identifier(String::from("b"))));
+        assert_eq!(tok.parse(), Ok(Token::Semicolon));
+        assert_eq!(tok.parse(), Ok(Token::CloseCurlyBracket));
+        assert_eq!(tok.parse(), Ok(Token::EndOfStream));
         assert!(tok.eof());
     }
 }

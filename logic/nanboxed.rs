@@ -156,7 +156,7 @@ mod test {
         assert!(!a.is_void());
         assert!(!a.is_ptr());
         match a.get_unpacked() {
-            NumberValue(num) => { assert!(fuzzy_eq(num, 42.0)) }
+            UnpackedValue::NumberValue(num) => { assert!(fuzzy_eq(num, 42.0)) }
             _ => {}
         }
         assert!(fuzzy_eq(a.get_number().unwrap(), 42.0));
@@ -173,7 +173,7 @@ mod test {
         assert!(!t.is_ptr());
         assert_eq!(t.get_boolean(), Some(true));
         match t.get_unpacked() {
-            BooleanValue(true) => {}
+            UnpackedValue::BooleanValue(true) => {}
             _ => { panic!(); }
         }
 
@@ -186,7 +186,7 @@ mod test {
         assert_eq!(f.get_type(), BOOLEAN_VALUE);
         assert_eq!(f.get_boolean(), Some(false));
         match f.get_unpacked() {
-            BooleanValue(false) => {}
+            UnpackedValue::BooleanValue(false) => {}
             _ => { panic!(); }
         }
     }
@@ -201,7 +201,7 @@ mod test {
         assert!(!a.is_number());
         assert!(!a.is_ptr());
         match a.get_unpacked() {
-            VoidValue => {}
+            UnpackedValue::VoidValue => {}
             _ => { panic!(); }
         }
     }

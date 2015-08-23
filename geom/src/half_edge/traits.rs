@@ -1,5 +1,7 @@
 
-use vodk_math::vector::{ Vector2D, Vector3D, Vector4D };
+use vodk_math::vec2::Vector2D;
+use vodk_math::vec3::Vector3D;
+use vodk_math::vec4::Vector4D;
 
 //pub trait Attribute<AttributeType, AttributeName> {
 pub trait Attribute<AttributeType> {

@@ -438,8 +438,8 @@ pub fn fill_convex_path<'l, T: VertexType2D>(
             FillStyle::Color(color) => { vertex.set_color(color) }
             FillStyle::Texture(uv_transform) => {
                 vertex.set_uv(&uv_transform.transform_2d(&texels::vec2(
-                    (path[i].x - aabb.x) / aabb.w,
-                    (path[i].y - aabb.y) / aabb.h
+                    (path[i].x - aabb.x) / aabb.width,
+                    (path[i].y - aabb.y) / aabb.height
                 )));
             }
         }

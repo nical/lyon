@@ -2,34 +2,36 @@
 macro_rules! declare_unit (
     ($module:ident) => (
         pub mod $module {
-            use vector;
+            use vec2;
+            use vec3;
+            use vec4;
             use matrix;
 
             #[derive(Copy, Clone, Debug)]
             pub struct Unit;
 
-            pub type Rectangle = vector::Rectangle<Unit>;
-            pub type Vec2 = vector::Vector2D<Unit>;
-            pub type Vec3 = vector::Vector3D<Unit>;
-            pub type Vec4 = vector::Vector4D<Unit>;
+            pub type Rectangle = vec2::Rectangle<Unit>;
+            pub type Vec2 = vec2::Vector2D<Unit>;
+            pub type Vec3 = vec3::Vector3D<Unit>;
+            pub type Vec4 = vec4::Vector4D<Unit>;
             pub type Mat4 = matrix::Matrix4x4<Unit>;
             pub type Mat3 = matrix::Matrix3x3<Unit>;
             pub type Mat2 = matrix::Matrix2x2<Unit>;
 
             pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rectangle {
-                vector::Rectangle::new(x, y, w, h)
+                vec2::Rectangle::new(x, y, w, h)
             }
 
             pub fn vec2(x: f32, y: f32) -> Vec2 {
-                vector::Vector2D::new(x, y)
+                vec2::Vector2D::new(x, y)
             }
 
             pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
-                vector::Vector3D::new(x, y, z)
+                vec3::Vector3D::new(x, y, z)
             }
 
             pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
-                vector::Vector4D::new(x, y, z, w)
+                vec4::Vector4D::new(x, y, z, w)
             }
 
             pub fn mat2(a11: f32, a21: f32, a12: f32, a22:f32) -> Mat2 {

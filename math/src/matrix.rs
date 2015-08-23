@@ -3,7 +3,9 @@ use std::mem;
 use std::ops;
 use std::marker::PhantomData;
 
-use vector::{Vector2D, Vector3D, Vector4D};
+use vec2::Vector2D;
+use vec3::Vector3D;
+use vec4::Vector4D;
 use common::Untyped;
 use constants::*;
 

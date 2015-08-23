@@ -135,7 +135,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            registers: [boxed::Value::void(); 64],
+            registers: unsafe { mem::transmute([boxed::VOID; 64]) },
             functions: [
                 boxed_add,
                 boxed_sub,

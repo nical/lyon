@@ -1,10 +1,10 @@
-use halfedge::{
+use half_edge::kernel::{
     ConnectivityKernel, HalfEdge,
     EdgeId, FaceId, VertexId,
     NO_EDGE,
 };
 
-use id_internals::is_valid;
+use half_edge::id_internals::is_valid;
 
 use std::cmp::PartialEq;
 use std::mem::transmute;
