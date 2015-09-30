@@ -36,7 +36,7 @@
 //!         let res = ctx.y_monotone_decomposition(kernel, *f, vertex_positions, &mut new_faces);
 //!         assert_eq!(res, Ok(()));
 //!     }
-//! 
+//!
 //!     let mut ctx = TriangulationContext::new();
 //!     for f in new_faces {
 //!         debug_assert!(is_y_monotone(kernel, vertex_positions, f));
@@ -61,7 +61,7 @@ use half_edge::iterators::{Direction, DirectedEdgeCirculator};
 use half_edge::traits::{ Position2D };
 use super::mem::VecStorage;
 use vodk_math::vec2::*;
-use vodk_math::constants::PI;
+use std::f32::consts::PI;
 use vodk_id::*;
 use vodk_id::id_vector::*;
 
@@ -100,7 +100,7 @@ pub enum TriangulationError {
 ///     x       __
 ///   0-->     /  \
 ///  y|       |  x--> v2
-///   v        \ |v1   
+///   v        \ |v1
 ///              v
 pub fn directed_angle<T>(v1: Vector2D<T>, v2: Vector2D<T>) -> f32 {
     let a = (v2.y).atan2(v2.x) - (v1.y).atan2(v1.x);
@@ -111,8 +111,14 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
     // assuming clockwise vertex_positions winding order
     let interrior_angle = directed_angle(prev - current, next - current);
 
+    // If the interrior angle is exactly 0 we'll have degenerate (invisible 0-area) triangles
+    // which is yucks but we can live with it for the sake of being robust against degenerate
+    // inputs. So special-case them so that they don't get considered as Merge ot Split vertices
+    // otherwise there can be no monotone decomposition of a shape where all points are on the
+    // same line.
+
     if current.y > prev.y && current.y >= next.y {
-        if interrior_angle <= PI {
+        if interrior_angle <= PI && interrior_angle != 0.0 {
             return VertexType::Merge;
         } else {
             return VertexType::End;
@@ -120,7 +126,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
     }
 
     if current.y < prev.y && current.y <= next.y {
-        if interrior_angle <= PI {
+        if interrior_angle <= PI && interrior_angle != 0.0 {
             return VertexType::Split;
         } else {
             return VertexType::Start;
@@ -267,7 +273,7 @@ impl DecompositionContext {
                 VertexType::End => {
                     if let Some(&(h, VertexType::Merge)) = self.helper.get(&edge.prev.to_index()) {
                         connect(kernel, edge.prev, h, new_faces);
-                    } 
+                    }
                     sweep_status.retain(|item|{ *item != edge.prev });
                 }
                 VertexType::Split => {
@@ -343,8 +349,8 @@ pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Position2D<Unit = U>>(
         let next_vertex = *vertex_positions[kernel[edge.next].vertex].position();
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
-                println!("not y monotone because of vertices {} {} {} edge {} {} {}",
-                    kernel[edge.prev].vertex.to_index(), edge.vertex.to_index(), kernel[edge.next].vertex.to_index(), 
+                println!("not y monotone because of vertices {} {} {} edges {} {} {}",
+                    kernel[edge.prev].vertex.to_index(), edge.vertex.to_index(), kernel[edge.next].vertex.to_index(),
                     edge.prev.to_index(), e.to_index(), edge.next.to_index());
                 return false;
             }
@@ -432,6 +438,10 @@ impl TriangulationContext {
             if vertex_positions[up.vertex_id()].y() != vertex_positions[down.vertex_id()].y() {
                 break;
             }
+            if down == up {
+                // Avoid an infnite loop in the degenerate case where all vertices are in the same position.
+                break;
+            }
         }
 
         if vertex_positions[up.vertex_id()].y() < vertex_positions[down.vertex_id()].y() {
@@ -442,6 +452,7 @@ impl TriangulationContext {
 
         // find the bottom-most vertex (with the highest y value)
         let mut big_y = vertex_positions[down.vertex_id()].y();
+        let guard = down;
         loop {
             debug_assert_eq!(down.face_id(), face_id);
             down = down.next();
@@ -451,10 +462,16 @@ impl TriangulationContext {
                 break;
             }
             big_y = new_y;
+            if down == guard {
+                // We have looped through all vertices already because of
+                // a degenerate input, avoid looping infinitely.
+                break;
+            }
         }
 
         // find the top-most vertex (with the smallest y value)
         let mut small_y = vertex_positions[up.vertex_id()].y();
+        let guard = up;
         loop {
             debug_assert_eq!(up.face_id(), face_id);
             up = up.next();
@@ -464,6 +481,11 @@ impl TriangulationContext {
                 break;
             }
             small_y = new_y;
+            if up == guard {
+                // We have looped through all vertices already because of
+                // a degenerate input, avoid looping infinitely.
+                break;
+            }
         }
 
         // now that we have the top-most vertex, we will circulate simulataneously
@@ -499,7 +521,7 @@ impl TriangulationContext {
             // walk edges from top to bottom, alternating between the left and
             // right chains. The chain we are currently iterating over is the
             // main chain (m) and the other one the opposite chain (o).
-            // p is the previous iteration, regardless of whcih chain it is on.
+            // p is the previous iteration, regardless of which chain it is on.
             if vertex_positions[m.vertex_id()].y() > vertex_positions[o.vertex_id()].y() || m == down {
                 swap(&mut m, &mut o);
             }
@@ -599,7 +621,7 @@ pub fn triangulate_faces<T:Copy+Debug>(
     let mut triangles = SliceTriangleStream::new(&mut indices[..]);
     let mut triangulator = TriangulationContext::new();
     for f in new_faces {
-        //debug_assert!(is_y_monotone(kernel, vertex_positions, f));
+        debug_assert!(is_y_monotone(kernel, vertex_positions, f));
         if !is_y_monotone(kernel, vertex_positions, f) {
             continue;
         }
@@ -783,14 +805,42 @@ fn test_triangulate_degenerate() {
             world::vec2(0.0, 0.0),
             world::vec2(1.0, 0.0),
             world::vec2(1.0, 0.0),
+        ],
+        &[  // duplicate point
+            world::vec2(0.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(1.0, 0.0),
             world::vec2(1.0, 1.0),
         ],
-// TODO: this case isn't handled properly: not y-monotone after decomposition
-//        &[  // points in the same line
-//            world::vec2(0.0, 0.0),
-//            world::vec2(0.0, 1.0),
-//            world::vec2(0.0, 2.0),
-//        ],
+        &[  // duplicate point
+            world::vec2(0.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(1.0, 0.0),
+            world::vec2(1.0, 1.0),
+        ],
+        &[  // points in the same line
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 1.0),
+            world::vec2(0.0, 2.0),
+        ],
+        &[  // points in the same line
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 2.0),
+            world::vec2(0.0, 1.0),
+        ],
+        &[  // all points at the same place
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 0.0),
+        ],
+        &[  // all points at the same place
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 0.0),
+            world::vec2(0.0, 0.0),
+        ],
+
 // TODO: this case isn't handled, it outputs incorrect triangles.
 //        &[  // wrong winding order
 //            world::vec2(10.0, 5.0),

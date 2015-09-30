@@ -2,37 +2,81 @@ use std::rc::Rc;
 use std::slice;
 use std::mem;
 use std::fmt;
+use std::ops;
+use std::marker::PhantomData;
 use libc::funcs::c95::stdlib::{ malloc, free };
 
 type Mask = u64;
 const DATA_32_MASK:      Mask = 0b0000000000000000000000000000000011111111111111111111111111111111;
 const PTR_DATA_MASK:     Mask = 0b0000000000000000011111111111111111111111111111111111111111111111;
+const TAG_16_MASK:       Mask = 0b1111111111111111000000000000000000000000000000000000000000000000;
 const TYPE_MASK:         Mask = 0b1111111100000000000000000000000000000000000000000000000000000000;
 const OWNED_BIT:         Mask = 0b0000000010000000000000000000000000000000000000000000000000000000;
 const PTR_TYPE_BITS:     Mask = 0b1000000000000000000000000000000000000000000000000000000000000000;
-const STRUCT_TYPE_BITS:  Mask = 0b0100000000000000000000000000000000000000000000000000000000000000;
+const STRUCT_TYPE_BITS:  Mask = 0b1100000000000000000000000000000000000000000000000000000000000000;
 const ARRAY_TYPE_BITS:   Mask = 0b1010000000000000000000000000000000000000000000000000000000000000;
 const MAP_TYPE_BITS:     Mask = 0b1001000000000000000000000000000000000000000000000000000000000000;
-const VOID_TYPE_BITS:    Mask = 0b0000000100000000000000000000000000000000000000000000000000000000;
-const INT32_TYPE_BITS:   Mask = 0b0000001000000000000000000000000000000000000000000000000000000000;
+const STR_TYPE_BITS:     Mask = 0b1000100000000000000000000000000000000000000000000000000000000000;
 const FLOAT32_TYPE_BITS: Mask = 0b0000010000000000000000000000000000000000000000000000000000000000;
+const INT32_TYPE_BITS:   Mask = 0b0000001000000000000000000000000000000000000000000000000000000000;
 
 pub type ValueType = u8;
-pub const VOID_VALUE:       ValueType = (VOID_TYPE_BITS >> 56) as u8;
-pub const POINTER_VALUE:    ValueType = (PTR_TYPE_BITS >> 56) as u8;
+pub const VOID_VALUE:       ValueType = 0;
 pub const FLOAT32_VALUE:    ValueType = (FLOAT32_TYPE_BITS >> 56) as u8;
 pub const INT32_VALUE:      ValueType = (INT32_TYPE_BITS >> 56) as u8;
+pub const POINTER_VALUE:    ValueType = (PTR_TYPE_BITS >> 56) as u8;
 pub const ARRAY_PTR:        ValueType = (ARRAY_TYPE_BITS >> 56) as u8;
 pub const STRUCT_PTR:       ValueType = (STRUCT_TYPE_BITS >> 56) as u8;
+pub const STRING_PTR:       ValueType = (STR_TYPE_BITS >> 56) as u8;
 
-pub const VOID: u64 = VOID_TYPE_BITS;
+pub const VOID: u64 = 0;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(PartialEq)]
+pub struct TaggedPtr<T> {
+    payload: u64,
+    _phantom: PhantomData<T>
+}
+
+impl<T> TaggedPtr<T> {
+    pub fn new(ptr: *mut T, tag: u16) -> TaggedPtr<T> {
+        unsafe {
+            let cast: u64 = mem::transmute(ptr);
+            return TaggedPtr {
+                payload: cast | (tag as u64) << 48,
+                _phantom: PhantomData
+            }
+        }
+    }
+
+    pub fn get(&self) -> &T { unsafe { mem::transmute(self.payload & PTR_DATA_MASK) } }
+    pub fn tag(&self) -> u16 { unsafe { ((self.payload & TAG_16_MASK) >> 48) as u16 } }
+}
+
+#[repr(C)]
+#[derive(Copy, PartialEq)]
 pub struct Value {
     payload: u64,
 }
 
+/// An owned vector of Value objects
+pub struct Array {
+    data: *mut ArrayData,
+}
+
+/// Header of an array's buffer. The payload is placed directly after in memory.
+pub struct ArrayData {
+    len : u32,
+    cap : u32,
+    type_info: u64,
+}
+
+/// An owned Reference to a run-time defined structure based on Value objects.
+pub struct Struct {
+    data: *mut StructData,
+}
+
+/// Header of an structure's buffer. The payload is placed directly after in memory.
 pub struct StructData {
     type_info: Rc<StructTypeInfo>
 }
@@ -41,26 +85,12 @@ pub type StructMemberId = u32;
 
 pub struct StructMemberInfo {
     name: Option<String>,
-    value_type: Option<ValueType>,
+    value_type: Option<ValueType>, // TODO - richer type info like TypeInfo*
     default_value: Option<Value>,
 }
 
 pub struct StructTypeInfo {
     members: Vec<StructMemberInfo>,
-}
-
-pub struct ArrayData {
-    len : u32,
-    cap : u32,
-    type_info: u64,
-}
-
-pub struct Array {
-    data: *mut ArrayData,
-}
-
-pub struct Struct {
-    data: *mut StructData,
 }
 
 impl Array {
@@ -74,8 +104,25 @@ impl Array {
 
     pub fn push(&mut self, value: Value) -> u32 { self.mut_data().push(value) }
 
+    pub fn into_value(self) -> Value {
+        unsafe {
+            let cast: u64 = mem::transmute(self.data);
+            let val = Value {
+                payload: cast | ARRAY_TYPE_BITS | OWNED_BIT
+            };
+            mem::forget(self);
+            return val;
+        }
+    }
+
     fn data(&self) -> &ArrayData { unsafe { mem::transmute(self.data) } }
     fn mut_data(&mut self) -> &mut ArrayData { unsafe { mem::transmute(self.data) } }
+}
+
+impl Drop for Array {
+    fn drop(&mut self) {
+        ArrayData::deallocate(self.data);
+    }
 }
 
 impl Struct {
@@ -89,21 +136,32 @@ impl Struct {
 
     pub fn type_info(&self) -> &StructTypeInfo { self.data().type_info() }
 
+    pub fn into_value(self) -> Value {
+        unsafe {
+            let cast: u64 = mem::transmute(self.data);
+            let val = Value {
+                payload: cast | STRUCT_TYPE_BITS | OWNED_BIT
+            };
+            mem::forget(self);
+            return val;
+        }
+    }
+
     fn data(&self) -> &StructData { unsafe { mem::transmute(self.data) } }
 
     fn mut_data(&mut self) -> &mut StructData { unsafe { mem::transmute(self.data) } }
 }
 
-impl Drop for Array {
+impl Drop for Struct {
     fn drop(&mut self) {
-        ArrayData::deallocate(self.data);
+        StructData::deallocate(self.data);
     }
 }
 
 impl Value {
     pub fn void() -> Value {
         Value {
-            payload: VOID_TYPE_BITS
+            payload: VOID
         }
     }
 
@@ -136,6 +194,16 @@ impl Value {
         }
     }
 
+    pub fn default(typ: ValueType) -> Value {
+        return match typ {
+            FLOAT32_VALUE => Value::float32(0.0),
+            INT32_VALUE => Value::int32(0),
+            ARRAY_PTR => Value::array(&[]),
+            STRUCT_PTR => Value::void(),
+            _ => Value::void(),
+        };
+    }
+
     pub fn borrowed_ptr<T>(val: *mut T) -> Value {
         Value {
             payload: unsafe { mem::transmute(val) }
@@ -158,26 +226,38 @@ impl Value {
     }
 
     pub fn is_float32(&self) -> bool {
-        return self.get_type() == FLOAT32_VALUE ;
+        return self.payload & TYPE_MASK == FLOAT32_TYPE_BITS ;
     }
 
     pub fn is_int32(&self) -> bool {
-        return self.get_type() == INT32_VALUE ;
+        return self.payload & TYPE_MASK == INT32_TYPE_BITS ;
     }
 
     pub fn is_pointer(&self) -> bool {
-        return self.get_type() == POINTER_VALUE;
-    }
-
-    pub fn is_void(&self) -> bool {
-        return self.payload & VOID_TYPE_BITS != 0;
+        return self.payload & PTR_TYPE_BITS == PTR_TYPE_BITS;
     }
 
     pub fn is_array(&self) -> bool {
-        return self.payload & ARRAY_TYPE_BITS != 0;
+        return self.payload & TYPE_MASK == ARRAY_TYPE_BITS;
+    }
+
+    pub fn is_struct(&self) -> bool {
+        return self.payload & TYPE_MASK == STRUCT_TYPE_BITS;
+    }
+
+    pub fn is_string(&self) -> bool {
+        return self.payload & TYPE_MASK == STR_TYPE_BITS;
+    }
+
+    pub fn is_void(&self) -> bool {
+        return self.payload == VOID;
     }
 
     unsafe fn get_array_unchecked(&self) -> *mut ArrayData {
+        return mem::transmute(self.payload & PTR_DATA_MASK);
+    }
+
+    unsafe fn get_struct_unchecked(&self) -> *mut StructData {
         return mem::transmute(self.payload & PTR_DATA_MASK);
     }
 
@@ -278,11 +358,36 @@ impl Value {
 
         if self.is_array() {
             unsafe {
-                ArrayData::deallocate(self.get_array_unchecked())
+                ArrayData::deallocate(self.get_array_unchecked());
+            }
+        } else if self.is_struct() {
+            unsafe {
+                StructData::deallocate(self.get_struct_unchecked());
             }
         }
 
         self.payload = VOID;
+    }
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Value {
+        if self.payload & PTR_TYPE_BITS == 0 {
+            return Value {
+                payload: self.payload
+            };
+        }
+
+        if self.is_array() {
+            unsafe {
+                let cast: u64 = mem::transmute(ArrayData::clone(self.get_array_unchecked()));
+                return Value {
+                    payload: cast | ARRAY_TYPE_BITS | OWNED_BIT
+                };
+            }
+        }
+
+        panic!("TODO");
     }
 }
 
@@ -387,7 +492,27 @@ impl ArrayData {
             free(mem::transmute(array));
         }
     }
+
+    fn clone(array: *mut ArrayData) -> *mut ArrayData {
+        unsafe {
+            let new_array = ArrayData::allocate((*array).len);
+            for val in (*array).get_slice() {
+                (*new_array).push(val.clone());
+            }
+            return new_array;
+        }
+    }
 }
+
+impl ops::Index<u32> for Array {
+    type Output = Value;
+    fn index<'l>(&'l self, id: u32) -> &'l Value { self.data().get(id) }
+}
+
+impl ops::IndexMut<u32> for Array {
+    fn index_mut<'l>(&'l mut self, id: u32) -> &'l mut Value { self.mut_data().get_mut(id) }
+}
+
 
 impl StructData {
     pub fn members(&self) -> &[Value] {
@@ -415,9 +540,11 @@ impl StructData {
         if id as usize >= self.type_info.members.len() {
             panic!("Struct member index out of bounds.");
         }
-        if let Some(ty) = self.type_info.members[id as usize].value_type {
-            if ty != val.get_type() {
-                panic!("Incompatible type in struct member assignment.");
+        if val.get_type() != VOID_VALUE {
+            if let Some(ty) = self.type_info.members[id as usize].value_type {
+                if ty != val.get_type() {
+                    panic!("Incompatible type in struct member assignment. Got {} expected {}", val.get_type(), ty);
+                }
             }
         }
         unsafe {
@@ -450,10 +577,9 @@ impl StructData {
             };
             let mut i: isize = 0;
             for ref m in (*header_ptr).type_info().members.iter() {
-                (*header_ptr).set(i as u32,
+                *(*header_ptr).mut_payload().offset(i) =
                     if let Some(ref val) = m.default_value { *val }
-                    else { Value::void() }
-                );
+                    else { Value::void() };
                 i += 1;
             }
             return header_ptr;
@@ -468,6 +594,10 @@ impl StructData {
             free(mem::transmute(structure));
         }
     }
+}
+
+impl StructTypeInfo {
+    pub fn member(&self, m: StructMemberId) -> &StructMemberInfo { &self.members[m as usize] }
 }
 
 #[cfg(test)]
@@ -540,6 +670,8 @@ mod test {
         arr.push(Value::int32(1));
         arr.push(Value::int32(2));
         arr.push(Value::int32(3));
+
+        assert_eq!(arr[0], Value::int32(0));
     }
 
     #[test]
@@ -547,34 +679,60 @@ mod test {
         let Vec3 = Rc::new(StructTypeInfo {
             members: vec![
                 StructMemberInfo {
-                    name: Some("x".to_string()),
+                    name: Some(String::from("x")),
                     value_type: Some(FLOAT32_VALUE),
                     default_value: Some(Value::float32(0.0))
                 },
                 StructMemberInfo {
-                    name: Some("y".to_string()),
+                    name: Some(String::from("y")),
                     value_type: Some(FLOAT32_VALUE),
                     default_value: Some(Value::float32(0.0))
                 },
                 StructMemberInfo {
-                    name: Some("z".to_string()),
+                    name: Some(String::from("z")),
                     value_type: Some(FLOAT32_VALUE),
                     default_value: Some(Value::float32(0.0))
                 },
             ]
         });
+        const X: StructMemberId = 0;
+        const Y: StructMemberId = 1;
+        const Z: StructMemberId = 2;
+
+        let FooBar = Rc::new(StructTypeInfo {
+            members: vec![
+                StructMemberInfo {
+                    name: Some(String::from("position")),
+                    value_type: Some(STRUCT_PTR),
+                    default_value: None
+                },
+                StructMemberInfo {
+                    name: Some(String::from("speed")),
+                    value_type: Some(STRUCT_PTR),
+                    default_value: None
+                }
+            ]
+        });
+
 
         let mut a = Struct::new(Vec3.clone());
-        assert_eq!(a.get(0), &Value::float32(0.0));
-        assert_eq!(a.get(1), &Value::float32(0.0));
-        assert_eq!(a.get(2), &Value::float32(0.0));
+        assert_eq!(a.get(X), &Value::float32(0.0));
+        assert_eq!(a.get(Y), &Value::float32(0.0));
+        assert_eq!(a.get(Z), &Value::float32(0.0));
 
-        assert_eq!(a.type_info().members[0].name, Some("x".to_string()));
-        assert_eq!(a.type_info().members[1].name, Some("y".to_string()));
-        assert_eq!(a.type_info().members[2].name, Some("z".to_string()));
+        assert_eq!(a.type_info().member(X).name, Some(String::from("x")));
+        assert_eq!(a.type_info().member(Y).name, Some(String::from("y")));
+        assert_eq!(a.type_info().member(Z).name, Some(String::from("z")));
 
-        a.set(0, Value::float32(42.0));
-        assert_eq!(a.get(0), &Value::float32(42.0));
+        a.set(X, Value::float32(42.0));
+        assert_eq!(a.get(X), &Value::float32(42.0));
+
+        let mut foobar = Struct::new(FooBar.clone());
+        foobar.set(0, a.into_value());
+
+        assert!(foobar.get(0).is_struct());
+        assert!(foobar.get(1).is_void());
+
+        foobar.set(1, Struct::new(Vec3.clone()).into_value());
     }
 }
-

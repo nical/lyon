@@ -19,7 +19,7 @@ pub fn register(index: u8) -> Register { Register { index: index } }
 pub struct Emitter {
     code: Vec<u8>
 }
-
+/*
 impl Emitter {
     pub fn new() -> Emitter {
         Emitter {
@@ -137,3 +137,4 @@ impl Emitter {
         }
     }
 }
+*/

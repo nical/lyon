@@ -5,3 +5,4 @@ extern crate vodk_id;
 pub mod half_edge;
 pub mod monotone;
 pub mod mem;
+pub mod path;

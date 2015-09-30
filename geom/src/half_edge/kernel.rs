@@ -11,9 +11,6 @@ use vodk_id::*;
 use vodk_id::id_list::IdList;
 
 
-#[cfg(test)]
-use iterators::{ DirectedEdgeCirculator, Direction };
-
 use std::marker::PhantomData;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -711,6 +708,8 @@ fn test_connect_1() {
 
 #[test]
 fn test_connect_2() {
+    use super::iterators::{ DirectedEdgeCirculator, Direction };
+
     let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 10).iter());
     let f1 = kernel.first_face().unwrap();
 

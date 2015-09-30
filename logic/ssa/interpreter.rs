@@ -126,6 +126,11 @@ unsafe fn boxed_cmp_gte(a: boxed::Value, b: boxed::Value) -> boxed::Value {
     boxed::Value::boolean(a.to_float32() >= b.to_float32())
 }
 
+type Register = u64;
+unsafe fn as_boxed(reg: *mut Register) -> *mut boxed::Value { mem::transmute(reg) }
+unsafe fn as_unboxed<T>(reg: *mut Register) -> *mut T { mem::transmute(reg) }
+
+/*
 pub struct Interpreter {
     // TODO: don't separate registers.
     registers: [boxed::Value; 64],
@@ -230,7 +235,7 @@ impl Interpreter {
     } // unsafe
     }
 }
-
+*/
 fn unpack<T>(ptr: &u8) -> &T {
     unsafe {
         let casted_ptr: &T = mem::transmute(ptr);
@@ -242,6 +247,154 @@ pub struct Script {
     pub bytecode: Vec<u8>,
 }
 
+pub type Word = u32;
+
+
+fn _f32_max(a: f32, b: f32) -> f32 { if a > b { a } else { b } }
+fn _f32_min(a: f32, b: f32) -> f32 { if a > b { b } else { a } }
+fn _i32_max(a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+fn _i32_min(a: i32, b: i32) -> i32 { if a > b { b } else { a } }
+
+unsafe fn as_word<T>(a: &T) -> &Word { mem::transmute(a) }
+unsafe fn as_f32(a: *mut Word) -> *mut f32 { mem::transmute(a) }
+unsafe fn as_i32(a: *mut Word) -> *mut i32 { mem::transmute(a) }
+fn bool_word(a: bool) -> Word { if a { 1 } else {0} }
+fn word_bool(a: Word) -> bool { a != 0 }
+
+
+unsafe fn op_f32_add(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = *as_f32(a) + *as_f32(b); }
+unsafe fn op_f32_sub(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = *as_f32(a) - *as_f32(b); }
+unsafe fn op_f32_mul(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = *as_f32(a) * *as_f32(b); }
+unsafe fn op_f32_div(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = *as_f32(a) / *as_f32(b); }
+unsafe fn op_f32_mod(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = *as_f32(a) % *as_f32(b); }
+unsafe fn op_f32_min(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = _f32_min(*as_f32(a), *as_f32(b)); }
+unsafe fn op_f32_max(a: *mut Word, b: *mut Word, result: *mut Word) { *as_f32(result) = _f32_max(*as_f32(a), *as_f32(b)); }
+unsafe fn op_f32_cmp_eq(a: *mut Word, b: *mut Word, result: *mut Word)  { *as_i32(result) = if *as_f32(a) == *as_f32(b) { 1 } else { 0 }; }
+unsafe fn op_f32_cmp_lt(a: *mut Word, b: *mut Word, result: *mut Word)  { *as_i32(result) = if *as_f32(a) <  *as_f32(b) { 1 } else { 0 }; }
+unsafe fn op_f32_cmp_gt(a: *mut Word, b: *mut Word, result: *mut Word)  { *as_i32(result) = if *as_f32(a) >  *as_f32(b) { 1 } else { 0 }; }
+unsafe fn op_f32_cmp_lte(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = if *as_f32(a) <= *as_f32(b) { 1 } else { 0 }; }
+unsafe fn op_f32_cmp_gte(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = if *as_f32(a) >= *as_f32(b) { 1 } else { 0 }; }
+unsafe fn op_i32_add(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = *as_i32(a) + *as_i32(b); }
+unsafe fn op_i32_sub(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = *as_i32(a) - *as_i32(b); }
+unsafe fn op_i32_mul(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = *as_i32(a) * *as_i32(b); }
+unsafe fn op_i32_div(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = *as_i32(a) / *as_i32(b); }
+unsafe fn op_i32_mod(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = *as_i32(a) % *as_i32(b); }
+unsafe fn op_i32_min(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = _i32_min(*as_i32(a), *as_i32(b)); }
+unsafe fn op_i32_max(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = _i32_max(*as_i32(a), *as_i32(b)); }
+unsafe fn op_i32_cmp_eq(a: *mut Word, b: *mut Word, result: *mut Word)  { *as_i32(result) = if *as_i32(a) == *as_i32(b) { 1 } else { 0 }; }
+unsafe fn op_i32_cmp_lt(a: *mut Word, b: *mut Word, result: *mut Word)  { *as_i32(result) = if *as_i32(a) <  *as_i32(b) { 1 } else { 0 }; }
+unsafe fn op_i32_cmp_gt(a: *mut Word, b: *mut Word, result: *mut Word)  { *as_i32(result) = if *as_i32(a) >  *as_i32(b) { 1 } else { 0 }; }
+unsafe fn op_i32_cmp_lte(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = if *as_i32(a) <= *as_i32(b) { 1 } else { 0 }; }
+unsafe fn op_i32_cmp_gte(a: *mut Word, b: *mut Word, result: *mut Word) { *as_i32(result) = if *as_i32(a) >= *as_i32(b) { 1 } else { 0 }; }
+unsafe fn op_bool_and(a: *mut Word, b: *mut Word, result: *mut Word) { *result = bool_word(word_bool(*a) && word_bool(*b)); }
+unsafe fn op_bool_or(a: *mut Word, b: *mut Word, result: *mut Word) { *result = bool_word(word_bool(*a) || word_bool(*b)); }
+
+unsafe fn op_i32_f32_cast(a: *mut Word, result: *mut Word) { *as_f32(result) = *as_i32(a) as f32; }
+unsafe fn op_f32_i32_cast(a: *mut Word, result: *mut Word) { *as_i32(result) = *as_f32(a) as i32; }
+unsafe fn op_bool_not(a: *mut Word, result: *mut Word) { *result = bool_word(!word_bool(*a)); }
+unsafe fn op_swap_words(a: *mut Word, b: *mut Word) { let tmp = *a; *a = *b; *b = tmp; }
+unsafe fn op_cp_word(src: *mut Word, dst: *mut Word) { *dst = *src; }
+
+unsafe fn op_clear_word(a: *mut Word) { *as_i32(a) = 0; }
+
+pub type UnsafeFunctionPtr = *mut u64;
+unsafe fn as_op_2_1(f: UnsafeFunctionPtr ) -> fn(*mut Word, *mut Word, *mut Word) { mem::transmute(f) }
+unsafe fn as_op_1_1(f: UnsafeFunctionPtr ) -> fn(*mut Word, *mut Word) { mem::transmute(f) }
+unsafe fn as_op_1(f: UnsafeFunctionPtr ) -> fn(*mut Word, *mut Word) { mem::transmute(f) }
+
+struct ExecContext {
+    ops_3: Vec<unsafe fn(*mut Word, *mut Word, *mut Word)>,
+    ops_2: Vec<unsafe fn(*mut Word, *mut Word)>,
+    ops_1: Vec<unsafe fn(*mut Word)>,
+    registers: Vec<Word>,
+}
+
+impl ExecContext {
+    pub fn new(num_registers: usize) -> ExecContext {
+        ExecContext {
+            ops_3: vec![
+                op_f32_add,
+                op_f32_sub,
+                op_f32_mul,
+                op_f32_div,
+                op_f32_mod,
+                op_f32_min,
+                op_f32_max,
+                op_f32_cmp_eq,
+                op_f32_cmp_lt,
+                op_f32_cmp_gt,
+                op_f32_cmp_lte,
+                op_f32_cmp_gte,
+                op_i32_add,
+                op_i32_sub,
+                op_i32_mul,
+                op_i32_div,
+                op_i32_mod,
+                op_i32_min,
+                op_i32_max,
+                op_i32_cmp_eq,
+                op_i32_cmp_lt,
+                op_i32_cmp_gt,
+                op_i32_cmp_lte,
+                op_i32_cmp_gte,
+                op_bool_and,
+                op_bool_or,
+            ],
+            ops_2: vec![
+                op_i32_f32_cast,
+                op_f32_i32_cast,
+                op_bool_not,
+                op_swap_words,
+                op_cp_word,
+            ],
+            ops_1: vec![
+                op_clear_word,
+            ],
+            registers: vec![0 ; num_registers],
+        }
+    }
+
+    pub fn exec(&mut self, code: &[u8], start: ProgramCounter) -> Result<(), ()> {
+        unsafe {
+        let mut pc: ProgramCounter = start;
+            loop {
+                let op = code[pc];
+                match op {
+                    OP_NULL => { pc += 1; }
+                    OP_EXIT => { return Ok(()); }
+                    OP_JMP => { pc = code[pc+1] as usize; }
+                    OP_3 ... OP_3_SENTINEL => {
+                         self.ops_3[(op - OP_3) as usize](
+                            &mut self.registers[pc+1],
+                            &mut self.registers[pc+2],
+                            &mut self.registers[pc+3]
+                        );
+                        pc += 4;
+                    }
+                    OP_2 ... OP_2_SENTINEL => {
+                        self.ops_2[(op - OP_2) as usize](
+                            &mut self.registers[pc+1],
+                            &mut self.registers[pc+2]
+                        );
+                        pc += 3;
+                    }
+                    OP_1 ... OP_1_SENTINEL => {
+                        self.ops_1[(op - OP_2) as usize](
+                            &mut self.registers[pc+1],
+                        );
+                        pc += 1;
+                    }
+                    OP_CONST_32 => {
+                        self.registers[pc+1] = *as_word(&code[pc+5]);
+                        pc += 6;
+                    }
+                    _ => { return Err(()); }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use ssa::bytecode::*;
@@ -251,7 +404,7 @@ mod test {
     #[test]
     fn simple_addition() {
         let mut code: Vec<u8> = Vec::new();
-
+/*
         let mut emitter = Emitter::new();
         let a = emitter.int32_constant(42, register(0));
         let b = emitter.int32_constant(8, register(1));
@@ -262,5 +415,6 @@ mod test {
 
         let mut interpreter = Interpreter::new();
         interpreter.exec(&script);
+*/
     }
 }
