@@ -113,7 +113,7 @@ impl PathBuilder {
         vertices: &VertexAttributeVector<T>,
         mut face_in: FaceId,
         mut face_out: FaceId
-    ) {
+    ) -> kernel::EdgeId {
         let winding = winding_order(self.view(), vertices);
         if winding == WindingOrder::CounterClockwise {
             swap(&mut face_in, &mut face_out);
@@ -127,32 +127,13 @@ impl PathBuilder {
                 PathOp::MoveTo => {
                     prev_vertex = params[0];
                 }
-                PathOp::LineTo => {
+                PathOp::LineTo | PathOp::CubicBezierTo | PathOp::BezierTo => {
                     if current_edge != kernel::NO_EDGE {
                         current_edge = kernel.extrude_vertex(current_edge, params[0]);
                     } else {
                         debug_assert!(prev_vertex != kernel::NO_VERTEX);
                         current_edge = kernel.add_segment(prev_vertex, params[0], face_in);
                     }
-                }
-                PathOp::CubicBezierTo => {
-                    if current_edge != kernel::NO_EDGE {
-                        current_edge = kernel.extrude_vertex(current_edge, params[0]);
-                    } else {
-                        debug_assert!(prev_vertex != kernel::NO_VERTEX);
-                        current_edge = kernel.add_segment(prev_vertex, params[0], face_in);
-                    }
-                    current_edge = kernel.extrude_vertex(current_edge, params[1]);
-                }
-                PathOp::BezierTo => {
-                    if current_edge != kernel::NO_EDGE {
-                        current_edge = kernel.extrude_vertex(current_edge, params[0]);
-                    } else {
-                        debug_assert!(prev_vertex != kernel::NO_VERTEX);
-                        current_edge = kernel.add_segment(prev_vertex, params[0], face_in);
-                    }
-                    current_edge = kernel.extrude_vertex(current_edge, params[1]);
-                    current_edge = kernel.extrude_vertex(current_edge, params[2]);
                 }
                 PathOp::Close => {
                     kernel.connect_edges(current_edge, first_edge, Some(face_out));
@@ -162,6 +143,8 @@ impl PathBuilder {
                 first_edge = current_edge;
             }
         }
+
+        return first_edge;
     }
 }
 
@@ -191,7 +174,6 @@ pub fn winding_order<'l, T:Copy>(
                 second = vertex;
             }
             vertex_count += 1;
-            println!(" -- vertex {:?}", p.handle);
         }
         if op == PathOp::Close {
             if first != prev {
@@ -254,13 +236,12 @@ fn assert_path_ops(path: PathView, expected: &[(PathOp, &[VertexId])]) {
 }
 
 #[test]
-fn test_simple_paths() {
+fn test_simple_paths_winding() {
     use vodk_math::units::world;
 
     //let mut kernel = ConnectivityKernel::new();
     let mut vertices = VertexAttributeVector::new();
     let a = vertices.push(world::vec2(0.0, 0.0));
-    println!("a: {}", a.handle);
     let b = vertices.push(world::vec2(1.0, 0.0));
     let c = vertices.push(world::vec2(1.0, 1.0));
     let d = vertices.push(world::vec2(0.0, 1.0));
@@ -373,4 +354,53 @@ fn test_simple_paths() {
     ]);
     assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
 
+
+    // Simple bezier
+    let mut builder = PathBuilder::new();
+    builder.begin(a);
+    builder.bezier_to(b, c, d);
+    builder.close();
+    assert_path_ops(builder.view(),&[
+        (PathOp::MoveTo, &[a]),
+        (PathOp::BezierTo, &[b, c, d]),
+        (PathOp::Close, &[])
+    ]);
+    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+
+
+    // Simple bezier
+    let mut builder = PathBuilder::new();
+    builder.begin(a);
+    builder.bezier_to(b, c, a);
+    builder.close();
+    assert_path_ops(builder.view(),&[
+        (PathOp::MoveTo, &[a]),
+        (PathOp::BezierTo, &[b, c, a]),
+        (PathOp::Close, &[])
+    ]);
+    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+}
+
+#[test]
+fn test_simple_paths_kernel() {
+    use vodk_math::units::world;
+
+    let mut kernel = ConnectivityKernel::new();
+    let mut vertices = VertexAttributeVector::new();
+
+    let a = vertices.push(world::vec2(0.0, 0.0));
+    let b = vertices.push(world::vec2(1.0, 0.0));
+    let c = vertices.push(world::vec2(1.0, 1.0));
+    let d = vertices.push(world::vec2(0.0, 1.0));
+
+    let face = kernel.add_face();
+
+    // Simple closed triangle path.
+    let mut builder = PathBuilder::new();
+    builder.begin(a);
+    builder.line_to(b);
+    builder.line_to(c);
+    builder.close();
+    let edge = builder.apply_to_kernel(&mut kernel, &vertices, face, kernel::NO_FACE);
+    assert_eq!(kernel.walk_edge_ids(edge).count(), 3);
 }
