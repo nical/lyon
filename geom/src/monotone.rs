@@ -1,6 +1,6 @@
 //!
 //! Y-monotone decomposition and triangulation of shapes.
-//! 
+//!
 //! This module provides the tools to generate triangles from arbitrary shapes with connectivity
 //! information (using a half-edge connectivity kernel).
 //!
@@ -59,7 +59,7 @@ use std::fmt::Debug;
 use half_edge::kernel::*;
 use half_edge::iterators::{Direction, DirectedEdgeCirculator};
 use half_edge::traits::{ Position2D };
-use super::mem::VecStorage;
+use super::mem::Allocation;
 use vodk_math::vec2::*;
 use std::f32::consts::PI;
 use vodk_id::*;
@@ -184,9 +184,9 @@ fn connect(
 /// decompositions in order to avoid allocating during the next decompositions
 /// if possible.
 pub struct DecompositionContext {
-    sorted_edges_storage: VecStorage,
+    sorted_edges_storage: Allocation,
     // list of edges that intercept the sweep line, sorted by increasing x coordinate
-    sweep_status_storage: VecStorage,
+    sweep_status_storage: Allocation,
     helper: HashMap<usize, (EdgeId, VertexType)>,
 }
 
@@ -194,8 +194,8 @@ impl DecompositionContext {
     /// Constructor
     pub fn new() -> DecompositionContext {
         DecompositionContext {
-            sorted_edges_storage: VecStorage::new(),
-            sweep_status_storage: VecStorage::new(),
+            sorted_edges_storage: Allocation::empty(),
+            sweep_status_storage: Allocation::empty(),
             helper: HashMap::new(),
         }
     }
@@ -205,8 +205,8 @@ impl DecompositionContext {
         let edges_vec: Vec<EdgeId> = Vec::with_capacity(edges);
         let sweep_vec: Vec<EdgeId> = Vec::with_capacity(sweep);
         DecompositionContext {
-            sorted_edges_storage: VecStorage::from_vec(edges_vec),
-            sweep_status_storage: VecStorage::from_vec(sweep_vec),
+            sorted_edges_storage: Allocation::from_vec(edges_vec),
+            sweep_status_storage: Allocation::from_vec(sweep_vec),
             helper: HashMap::with_capacity(helpers),
         }
     }
@@ -230,11 +230,11 @@ impl DecompositionContext {
             return Err(DecompositionError::MissingFace);
         }
 
-        let mut storage = VecStorage::new();
+        let mut storage = Allocation::empty();
         swap(&mut self.sweep_status_storage, &mut storage);
         let mut sweep_status: Vec<EdgeId> = storage.into_vec::<EdgeId>();
 
-        let mut storage = VecStorage::new();
+        let mut storage = Allocation::empty();
         swap(&mut self.sorted_edges_storage, &mut storage);
         let mut sorted_edges: Vec<EdgeId> = storage.into_vec();
 
@@ -329,8 +329,8 @@ impl DecompositionContext {
         }
 
         // Keep the buffers to avoid reallocating it next time, if possible.
-        self.sweep_status_storage = VecStorage::from_vec(sweep_status);
-        self.sorted_edges_storage = VecStorage::from_vec(sorted_edges);
+        self.sweep_status_storage = Allocation::from_vec(sweep_status);
+        self.sorted_edges_storage = Allocation::from_vec(sorted_edges);
 
         return Ok(());
     }
@@ -401,14 +401,14 @@ impl<'l> SliceTriangleStream<'l> {
 /// triangulations, in order to avoid allocating during the next triangulations
 /// if possible.
 pub struct TriangulationContext {
-    vertex_stack_storage: VecStorage,
+    vertex_stack_storage: Allocation,
 }
 
 impl TriangulationContext {
     /// Constructor.
     pub fn new() -> TriangulationContext {
         TriangulationContext {
-            vertex_stack_storage: VecStorage::new()
+            vertex_stack_storage: Allocation::empty()
         }
     }
 
@@ -511,7 +511,7 @@ impl TriangulationContext {
         let mut p = m;
 
         // vertices already visited, waiting to be connected
-        let mut storage = VecStorage::new();
+        let mut storage = Allocation::empty();
         swap(&mut storage, &mut self.vertex_stack_storage);
         let mut vertex_stack: Vec<DirectedEdgeCirculator> = storage.into_vec();
 
@@ -595,7 +595,7 @@ impl TriangulationContext {
         debug_assert_eq!(num_triangles, kernel.walk_edge_ids_around_face(face_id).count() as usize - 2);
 
         // Keep the buffer to avoid reallocating it next time, if possible.
-        self.vertex_stack_storage = VecStorage::from_vec(vertex_stack);
+        self.vertex_stack_storage = Allocation::from_vec(vertex_stack);
         return Ok(());
     }
 }
