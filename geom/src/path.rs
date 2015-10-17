@@ -45,77 +45,14 @@ impl PathObject {
     pub fn iter<'l>(&'l self) -> PathIter<'l> { PathIter { path: &self.data[..] } }
 
     pub fn winding_order(&self) -> WindingOrder { self.winding }
-}
 
-impl<'l> PathView<'l> {
-    pub fn iter(&'l self) -> PathIter<'l> { PathIter { path: self.path } }
-}
-
-pub type VertexAttributeVector<T> = IdVector<VertexId, Vector2D<T>>;
-
-impl PathBuilder {
-    pub fn new() -> PathBuilder { PathBuilder { path: Vec::new() } }
-
-    fn push_vertex(&mut self, id: VertexId) {
-        self.path.push(
-            unsafe { transmute(id) }
-        );
-    }
-    fn push_op(&mut self, op: PathOp) {
-        self.path.push(
-            unsafe { transmute(op) }
-        );
-    }
-
-    pub fn begin(&mut self, to: VertexId) {
-        debug_assert!(self.path.is_empty());
-        self.push_op(PathOp::MoveTo);
-        self.push_vertex(to);
-    }
-
-    pub fn line_to(&mut self, to: VertexId) {
-        self.push_op(PathOp::LineTo);
-        self.push_vertex(to);
-    }
-
-    pub fn bezier_to(&mut self, cp1: VertexId, cp2: VertexId, to: VertexId) {
-        self.push_op(PathOp::BezierTo);
-        self.push_vertex(cp1);
-        self.push_vertex(cp2);
-        self.push_vertex(to);
-    }
-
-    pub fn cubic_bezier_to(&mut self, cp: VertexId, to: VertexId) {
-        self.push_op(PathOp::CubicBezierTo);
-        self.push_vertex(cp);
-        self.push_vertex(to);
-    }
-
-    pub fn close(&mut self) {
-        self.push_op(PathOp::Close);
-    }
-
-    pub fn clear(&mut self) {
-        self.path.clear();
-    }
-
-    pub fn iter<'l>(&'l self) -> PathIter<'l> {
-        PathIter { path: &self.path[..] }
-    }
-
-    pub fn view<'l>(&'l self) -> PathView<'l> {
-        PathView { path: &self.path[..] }
-    }
-
-    pub fn apply_to_kernel<T:Copy+Debug>(
+    pub fn apply_to_kernel(
         &self,
         kernel: &mut ConnectivityKernel,
-        vertices: &VertexAttributeVector<T>,
         mut face_in: FaceId,
         mut face_out: FaceId
     ) -> kernel::EdgeId {
-        let winding = winding_order(self.view(), vertices);
-        if winding == WindingOrder::CounterClockwise {
+        if self.winding == WindingOrder::CounterClockwise {
             swap(&mut face_in, &mut face_out);
         }
 
@@ -145,6 +82,82 @@ impl PathBuilder {
         }
 
         return first_edge;
+    }
+
+}
+
+impl<'l> PathView<'l> {
+    pub fn iter(&'l self) -> PathIter<'l> { PathIter { path: self.path } }
+}
+
+pub type VertexAttributeVector<T> = IdVector<VertexId, Vector2D<T>>;
+
+impl PathBuilder {
+    pub fn begin(at: VertexId) -> PathBuilder {
+        let mut builder = PathBuilder { path: Vec::new() };
+        debug_assert!(builder.path.is_empty());
+        builder.push_op(PathOp::MoveTo);
+        builder.push_vertex(at);
+        return builder;
+    }
+
+    pub fn line_to(mut self, to: VertexId) -> PathBuilder {
+        self.push_op(PathOp::LineTo);
+        self.push_vertex(to);
+        return self;
+    }
+
+    pub fn bezier_to(mut self, cp1: VertexId, cp2: VertexId, to: VertexId) -> PathBuilder {
+        self.push_op(PathOp::BezierTo);
+        self.push_vertex(cp1);
+        self.push_vertex(cp2);
+        self.push_vertex(to);
+        return self;
+    }
+
+    pub fn cubic_bezier_to(mut self, cp: VertexId, to: VertexId) -> PathBuilder {
+        self.push_op(PathOp::CubicBezierTo);
+        self.push_vertex(cp);
+        self.push_vertex(to);
+        return self;
+    }
+
+    pub fn close(mut self) -> PathBuilder {
+        self.push_op(PathOp::Close);
+        return self;
+    }
+
+    pub fn clear(&mut self) {
+        self.path.clear();
+    }
+
+    pub fn iter<'l>(&'l self) -> PathIter<'l> {
+        PathIter { path: &self.path[..] }
+    }
+
+    pub fn view<'l>(&'l self) -> PathView<'l> {
+        PathView { path: &self.path[..] }
+    }
+
+    pub fn into_path<T: Copy>(self, vertices: &VertexAttributeVector<T>) -> PathObject {
+        let winding = winding_order(self.view(), vertices);
+        PathObject {
+            data: self.path,
+            winding: winding,
+        }
+    }
+
+
+    fn push_vertex(&mut self, id: VertexId) {
+        self.path.push(
+            unsafe { transmute(id) }
+        );
+    }
+
+    fn push_op(&mut self, op: PathOp) {
+        self.path.push(
+            unsafe { transmute(op) }
+        );
     }
 }
 
@@ -247,29 +260,19 @@ fn test_simple_paths_winding() {
     let d = vertices.push(world::vec2(0.0, 1.0));
 
     // Simple closed triangle path.
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.line_to(b);
-    builder.line_to(c);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).line_to(b).line_to(c).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::LineTo, &[b]),
         (PathOp::LineTo, &[c]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
 
 
     // Closed path with finishes with the first point explicitly.
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.line_to(b);
-    builder.line_to(c);
-    builder.line_to(d);
-    builder.line_to(a);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).line_to(b).line_to(c).line_to(d).line_to(a).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::LineTo, &[b]),
         (PathOp::LineTo, &[c]),
@@ -277,108 +280,83 @@ fn test_simple_paths_winding() {
         (PathOp::LineTo, &[a]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
 
 
     // Same as previous path but does not LinTo back to a (so closing the path
     // has to account for an extra line).
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.line_to(b);
-    builder.line_to(c);
-    builder.line_to(d);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).line_to(b).line_to(c).line_to(d).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::LineTo, &[b]),
         (PathOp::LineTo, &[c]),
         (PathOp::LineTo, &[d]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
 
 
     // Same path with reverse winding order.
-    let mut builder = PathBuilder::new();
-    builder.begin(d);
-    builder.line_to(c);
-    builder.line_to(b);
-    builder.line_to(a);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(d).line_to(c).line_to(b).line_to(a).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[d]),
         (PathOp::LineTo, &[c]),
         (PathOp::LineTo, &[b]),
         (PathOp::LineTo, &[a]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::CounterClockwise);
+    assert_eq!(path.winding_order(), WindingOrder::CounterClockwise);
 
 
     // Non-closed path.
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.line_to(b);
-    builder.line_to(c);
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).line_to(b).line_to(c).into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::LineTo, &[b]),
         (PathOp::LineTo, &[c]),
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Unknown);
+    assert_eq!(path.winding_order(), WindingOrder::Unknown);
 
 
     // Just one segment with a close operation at the end. Can't actually close the
     // path because you need at least 3 points.
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.line_to(b);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).line_to(b).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::LineTo, &[b]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Unknown);
+    assert_eq!(path.winding_order(), WindingOrder::Unknown);
 
 
     // Simple Cubic bezier
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.cubic_bezier_to(b, c);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).cubic_bezier_to(b, c).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::CubicBezierTo, &[b, c]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
 
 
     // Simple bezier
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.bezier_to(b, c, d);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).bezier_to(b, c, d).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::BezierTo, &[b, c, d]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
 
 
     // Simple bezier
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.bezier_to(b, c, a);
-    builder.close();
-    assert_path_ops(builder.view(),&[
+    let path = PathBuilder::begin(a).bezier_to(b, c, a).close().into_path(&vertices);
+    assert_path_ops(path.view(),&[
         (PathOp::MoveTo, &[a]),
         (PathOp::BezierTo, &[b, c, a]),
         (PathOp::Close, &[])
     ]);
-    assert_eq!(winding_order(builder.view(), &vertices), WindingOrder::Clockwise);
+    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
 }
 
 #[test]
@@ -396,11 +374,7 @@ fn test_simple_paths_kernel() {
     let face = kernel.add_face();
 
     // Simple closed triangle path.
-    let mut builder = PathBuilder::new();
-    builder.begin(a);
-    builder.line_to(b);
-    builder.line_to(c);
-    builder.close();
-    let edge = builder.apply_to_kernel(&mut kernel, &vertices, face, kernel::NO_FACE);
+    let path = PathBuilder::begin(a).line_to(b).line_to(c).close().into_path(&vertices);
+    let edge = path.apply_to_kernel(&mut kernel, face, kernel::NO_FACE);
     assert_eq!(kernel.walk_edge_ids(edge).count(), 3);
 }
