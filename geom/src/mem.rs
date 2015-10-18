@@ -6,13 +6,13 @@ use std::mem::{forget, transmute, size_of};
 /// # Examples
 ///
 /// ```
-/// use geom::mem::Allocation;
+/// use geom::mem::*;
 ///
 /// let mut v = vec![1u16, 2, 3, 4, 5];
-/// let mut storage = Allocation::from_vec(v);
+/// let mut storage = recycle_vec(v);
 /// // v is now gone into the void.
 ///
-/// let mut v: Vec<f32> = storage.into_vec();
+/// let mut v: Vec<f32> = create_vec_from(storage);
 ///
 /// assert_eq!(v.len(), 0);
 /// assert!(v.capacity() > 0);
@@ -25,13 +25,42 @@ use std::mem::{forget, transmute, size_of};
 /// This is useful to avoid reallocating temporary vectors.
 pub struct Allocation {
     ptr: *mut u8,
-    cap: usize,
+    size: usize,
 }
 
 pub fn pre_allocate(size: usize) -> Allocation {
     let alloc: Vec<u8> = Vec::with_capacity(size);
-    return Allocation::from_vec(alloc);
+    return recycle_vec(alloc);
 }
+
+/// Consumes a Vec and creates an allocation that holds the Vec's memory.
+///
+/// The vector is cleared and its data is dropped before the it is consumed.
+pub fn recycle_vec<T>(mut vector: Vec<T>) -> Allocation {
+    vector.clear();
+    let size = vector.capacity() * size_of::<T>();
+    unsafe {
+        let p = vector.as_mut_ptr();
+        forget(vector);
+        return Allocation {
+            ptr: transmute(p),
+            size: size,
+        };
+    }
+}
+
+/// Creates a Vec using this allocation.
+///
+/// The length of the new vector is 0 and the size is self.size() / size_of::<T>().
+pub fn create_vec_from<T>(alloc: Allocation) -> Vec<T> {
+    unsafe {
+        let vector = Vec::from_raw_parts(transmute(alloc.ptr), 0, alloc.size / size_of::<T>());
+        forget(alloc);
+        return vector;
+    }
+}
+
+
 
 impl Allocation {
     /// Creates an empty Allocation.
@@ -39,52 +68,20 @@ impl Allocation {
         unsafe {
             Allocation {
                 ptr: transmute(0 as usize),
-                cap: 0
+                size: 0
             }
         }
     }
 
-    /// Consumes a Vec and creates a Allocation that holds the Vec's buffer.
-    ///
-    /// The vector is cleared and its data is dropped before the it is consumed.
-    pub fn from_vec<T>(mut vector: Vec<T>) -> Allocation {
-        vector.clear();
-        let capacity = vector.capacity() * size_of::<T>();
-        unsafe {
-            let p = vector.as_mut_ptr();
-            forget(vector);
-            return Allocation {
-                ptr: transmute(p),
-                cap: capacity,
-            };
-        }
-    }
-
-    /// Creates a Vec recycling this vector storage.
-    ///
-    /// The length of the new vector is 0 and the capacity is self.capacity() / size_of::<T>().
-    pub fn into_vec<T>(self) -> Vec<T> {
-        unsafe {
-            let vector = Vec::from_raw_parts(transmute(self.ptr), 0, self.cap / size_of::<T>());
-            forget(self);
-            return vector;
-        }
-    }
-
     /// Returns the size of the buffer in bytes.
-    pub fn capacity(&self) -> usize { self.cap }
+    pub fn size(&self) -> usize { self.size }
 
     /// Fills the buffer with the byte pattern.
-    pub fn poison(&mut self, pattern: u8) {
-        if self.cap == 0 { return; }
+    pub fn fill(&mut self, pattern: u8) {
+        if self.size == 0 { return; }
         unsafe {
-            write_bytes(self.ptr, pattern, self.cap);
+            write_bytes(self.ptr, pattern, self.size);
         }
-    }
-
-    /// Fills the buffer with zeros.
-    pub fn zero_out(&mut self) {
-        self.poison(0);
     }
 }
 
@@ -92,7 +89,7 @@ impl Drop for Allocation {
     fn drop(&mut self) {
         unsafe {
             // let a vector acquire the buffer and drop it
-            let _ : Vec<u8> = Vec::from_raw_parts(transmute(self.ptr), 0, self.cap);
+            let _ : Vec<u8> = Vec::from_raw_parts(transmute(self.ptr), 0, self.size);
         }
     }
 }

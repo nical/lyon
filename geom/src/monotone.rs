@@ -59,7 +59,7 @@ use std::fmt::Debug;
 use half_edge::kernel::*;
 use half_edge::iterators::{Direction, DirectedEdgeCirculator};
 use half_edge::traits::{ Position2D };
-use super::mem::Allocation;
+use mem::*;
 use vodk_math::vec2::*;
 use std::f32::consts::PI;
 use vodk_id::*;
@@ -205,8 +205,8 @@ impl DecompositionContext {
         let edges_vec: Vec<EdgeId> = Vec::with_capacity(edges);
         let sweep_vec: Vec<EdgeId> = Vec::with_capacity(sweep);
         DecompositionContext {
-            sorted_edges_storage: Allocation::from_vec(edges_vec),
-            sweep_status_storage: Allocation::from_vec(sweep_vec),
+            sorted_edges_storage: recycle_vec(edges_vec),
+            sweep_status_storage: recycle_vec(sweep_vec),
             helper: HashMap::with_capacity(helpers),
         }
     }
@@ -232,11 +232,11 @@ impl DecompositionContext {
 
         let mut storage = Allocation::empty();
         swap(&mut self.sweep_status_storage, &mut storage);
-        let mut sweep_status: Vec<EdgeId> = storage.into_vec::<EdgeId>();
+        let mut sweep_status: Vec<EdgeId> = create_vec_from(storage);
 
         let mut storage = Allocation::empty();
         swap(&mut self.sorted_edges_storage, &mut storage);
-        let mut sorted_edges: Vec<EdgeId> = storage.into_vec();
+        let mut sorted_edges: Vec<EdgeId> = create_vec_from(storage);
 
         sorted_edges.extend(kernel.walk_edge_ids_around_face(face_id));
 
@@ -329,8 +329,8 @@ impl DecompositionContext {
         }
 
         // Keep the buffers to avoid reallocating it next time, if possible.
-        self.sweep_status_storage = Allocation::from_vec(sweep_status);
-        self.sorted_edges_storage = Allocation::from_vec(sorted_edges);
+        self.sweep_status_storage = recycle_vec(sweep_status);
+        self.sorted_edges_storage = recycle_vec(sorted_edges);
 
         return Ok(());
     }
@@ -513,7 +513,7 @@ impl TriangulationContext {
         // vertices already visited, waiting to be connected
         let mut storage = Allocation::empty();
         swap(&mut storage, &mut self.vertex_stack_storage);
-        let mut vertex_stack: Vec<DirectedEdgeCirculator> = storage.into_vec();
+        let mut vertex_stack: Vec<DirectedEdgeCirculator> = create_vec_from(storage);
 
         let initial_triangle_count = triangles.count();
         let mut i: i32 = 0;
@@ -595,7 +595,7 @@ impl TriangulationContext {
         debug_assert_eq!(num_triangles, kernel.walk_edge_ids_around_face(face_id).count() as usize - 2);
 
         // Keep the buffer to avoid reallocating it next time, if possible.
-        self.vertex_stack_storage = Allocation::from_vec(vertex_stack);
+        self.vertex_stack_storage = recycle_vec(vertex_stack);
         return Ok(());
     }
 }

@@ -7,7 +7,7 @@ use vodk_id::id_vector::IdVector;
 
 use vodk_math::vec2::*;
 use monotone::directed_angle;
-use mem::{ Allocation, pre_allocate };
+use mem::*;
 
 use std::slice;
 
@@ -77,7 +77,7 @@ impl Path {
 
     pub fn winding_order(&self) -> WindingOrder { self.winding }
 
-    pub fn recycle(self) -> Allocation { Allocation::from_vec(self.data) }
+    pub fn recycle(self) -> Allocation { recycle_vec(self.data) }
 
     pub fn apply_to_kernel(
         &self,
@@ -133,7 +133,8 @@ enum EdgeType {
 
 impl PathBuilder {
     pub fn with_alloc(alloc: Allocation, begin: VertexId) -> PathBuilder {
-        let mut builder = PathBuilder { path: alloc.into_vec() };
+        println!("with alloc {}", alloc.size());
+        let mut builder = PathBuilder { path: create_vec_from(alloc) };
         debug_assert!(builder.path.is_empty());
         builder.push_op(OpType::MoveTo);
         builder.push_vertex(begin);
@@ -435,10 +436,11 @@ fn test_path_recycle() {
     let d = vertices.push(world::vec2(0.0, 1.0));
 
     let alloc = pre_allocate(128);
+    assert_eq!(alloc.size(), 128);
 
     // Simple closed triangle path.
     let alloc = PathBuilder::with_alloc(alloc, a).line_to(b).line_to(c).close().into_path(&vertices).recycle();
     let alloc = PathBuilder::with_alloc(alloc, a).line_to(b).line_to(c).close().into_path(&vertices).recycle();
     let alloc = PathBuilder::with_alloc(alloc, a).line_to(b).line_to(c).close().into_path(&vertices).recycle();
-    assert_eq!(alloc.capacity(), 128);
+    assert_eq!(alloc.size(), 128);
 }
