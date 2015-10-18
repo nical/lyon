@@ -93,3 +93,26 @@ impl Drop for Allocation {
         }
     }
 }
+
+#[cfg(test)]
+struct A { drop: *mut u32 }
+#[cfg(test)]
+impl Drop for A {
+    fn drop(&mut self) {
+        unsafe { *self.drop += 1; }
+    }
+}
+
+#[test]
+fn test_alloc_drop() {
+    let mut drop_count: u32 = 0;
+    let mut v = Vec::new();
+    v.push(A { drop: &mut drop_count });
+    v.push(A { drop: &mut drop_count });
+    v.push(A { drop: &mut drop_count });
+    v.push(A { drop: &mut drop_count });
+    v.push(A { drop: &mut drop_count });
+    assert_eq!(drop_count, 0);
+    let alloc = recycle_vec(v);
+    assert_eq!(drop_count, 5);
+}
