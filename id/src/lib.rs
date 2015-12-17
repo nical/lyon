@@ -1,11 +1,9 @@
-extern crate num;
-
 use std::marker::PhantomData;
-//use num::traits::{ One, Zero };
 use std::ops::{ Add, Sub };
 
 pub mod id_vector;
 pub mod id_list;
+
 
 // --------------------------------------------------------------------------------------------- Id
 
@@ -40,6 +38,7 @@ impl<T, H:ToIndex> ToIndex for Id<T, H> {
 impl<T, H:Copy+FromIndex> FromIndex for Id<T, H> {
     fn from_index(idx: usize) -> Id<T, H> { Id::new(FromIndex::from_index(idx)) }
 }
+
 
 // ---------------------------------------------------------------------------------------- IdRange
 
@@ -79,32 +78,7 @@ impl<T, H:IntegerHandle> Iterator for IdRange<T, H> {
     }
 }
 
-/*/
-// TODO: we don't really need this, can implement Iterator on IdRange directly
-#[derive(Clone)]
-pub struct IdRangeIterator<T, H:IntegerHandle> {
-    range: IdRange<T, H>
-}
 
-impl<T, H:IntegerHandle+One+Zero> Iterator for IdRangeIterator<T, H> {
-    type Item = Id<T, H>;
-    fn next(&mut self) -> Option<Id<T, H>> {
-        if self.range.count == num::zero() {
-            return None;
-        }
-        let res = self.range.first;
-        self.range.count = self.range.count - num::one();
-        self.range.first = FromIndex::from_index(self.range.first.to_index() + 1);
-        return Some(res);
-    }
-}
-
-impl<T, H:IntegerHandle> IdRangeIterator<T, H> {
-    pub fn new(range: IdRange<T, H>) -> IdRangeIterator<T, H> {
-        IdRangeIterator { range: range }
-    }
-}
-*/
 // ------------------------------------------------------------------------------------------ GenId
 // TODO: remove it or implement traits manually
 
@@ -174,16 +148,17 @@ impl IntegerHandle for usize {}
 // ------------------------------------------------------------------------------------------ tests
 
 #[test]
-fn test_simple_id() {
+fn test_copy_id() {
     #[derive(Debug)]
     struct Foo;
 
-    let a: Id<Foo, u32> = Id::new(0);
     // check that Id is Copy
+    let a: Id<Foo, u32> = Id::new(0);
     let b = a;
     let c = a;
     assert_eq!(b, c);
 
+    // check that IdRange is Copy
     let r1 = IdRange {
         first: a,
         count: 10,

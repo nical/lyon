@@ -13,6 +13,3 @@ include = [ "Cargo.toml", "src/*.rs" ]
 
 name = "vodk_id"
 path = "src/lib.rs"
-
-[dependencies]
-num = "0.1.27"
