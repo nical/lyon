@@ -27,87 +27,9 @@ use svg::path::{Command, Data};
 use std::path::Path;
 use std::mem;
 
-#[derive(Copy, Clone, Debug)]
-struct Vertex {
-    pos: world::Vec2,
-    color: Rgba<f32>,
-}
 
-#[derive(Debug)]
-struct TransformsBlock {
-  model: std140::Mat3,
-  view:  std140::Mat3,
-}
 
-fn to_std_140_mat3<T>(from: &matrix::Matrix3x3<T>) -> std140::Mat3 {
-    return std140::Mat3 {
-        _11: from._11, _21: from._21, _31: from._31, _pad1: 0,
-        _12: from._12, _22: from._22, _32: from._32, _pad2: 0,
-        _13: from._13, _23: from._23, _33: from._33, _pad3: 0,
-    }
-}
-
-fn to_vec2(parameters: &Vec<f64>) -> world::Vec2 {
-    return world::vec2(parameters[0] as f32 * 0.01, parameters[1] as f32 * 0.01);
-}
-
-fn load_svg(file_path: &str) -> Vec<Vertex> {
-    let file = svg::open(&Path::new(file_path)).unwrap();
-    let mut path: Vec<Vertex> = Vec::new();
-    let bleue = Rgba { r: 0.0, g:0.0, b:1.0, a: 1.0 };
-
-    let mut cursor = world::vec2(0.0, 0.0);
-    for event in file.parse() {
-        match event {
-            Event::Tag(Tag::Path(_, attributes)) => {
-                let data = attributes.get("d").unwrap();
-                let data = Data::parse(data).unwrap();
-                for command in data.iter() {
-                    match *command {
-                        Command::MoveTo(ref positioning, ref parameters) => {
-                            println!("Move to {:?} {:?}", parameters, positioning);
-                            let param = to_vec2(parameters);
-                            cursor =  match *positioning {
-                                svg::path::Positioning::Relative => { cursor + param }
-                                svg::path::Positioning::Absolute => { param }
-                            };
-                            path.push(Vertex { pos: cursor, color: bleue });
-                        },
-                        Command::LineTo(ref positioning, ref parameters) => {
-                            let param = to_vec2(parameters);
-                            cursor =  match *positioning {
-                                svg::path::Positioning::Relative => { cursor + param }
-                                svg::path::Positioning::Absolute => { param }
-                            };
-                            path.push(Vertex { pos: cursor, color: bleue });
-
-                            println!("Line to {:?}. {:?}", parameters, positioning);
-                        },
-                        Command::CurveTo(ref positioning, ref parameters) => {
-                            println!("Curve to {:?}. {:?}", parameters, positioning);
-                        },
-                        Command::SmoothCurveTo(ref positioning, ref parameters) => {
-                            println!("Smooth curve to {:?} {:?}.", parameters, positioning);
-                        },
-                        Command::ClosePath => {
-                            println!("Close the path.");
-                            return path;
-                        },
-                        _ => {
-                            println!("Not sure what to do.");
-                            return path;
-                        }
-                    }
-                }
-
-            }
-            _ => {}
-        }
-    }
-    return path;
-}
-
-fn main() {
+pub fn main() {
     let svg_path = load_svg("rust-logo-blk.svg");
 
     let win_width: u32 = 800;
@@ -323,6 +245,87 @@ fn main() {
     }
 }
 
+
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    pos: world::Vec2,
+    color: Rgba<f32>,
+}
+
+#[derive(Debug)]
+struct TransformsBlock {
+  model: std140::Mat3,
+  view:  std140::Mat3,
+}
+
+fn to_std_140_mat3<T>(from: &matrix::Matrix3x3<T>) -> std140::Mat3 {
+    return std140::Mat3 {
+        _11: from._11, _21: from._21, _31: from._31, _pad1: 0,
+        _12: from._12, _22: from._22, _32: from._32, _pad2: 0,
+        _13: from._13, _23: from._23, _33: from._33, _pad3: 0,
+    }
+}
+
+fn to_vec2(parameters: &Vec<f64>) -> world::Vec2 {
+    return world::vec2(parameters[0] as f32 * 0.01, parameters[1] as f32 * 0.01);
+}
+
+fn load_svg(file_path: &str) -> Vec<Vertex> {
+    let file = svg::open(&Path::new(file_path)).unwrap();
+    let mut path: Vec<Vertex> = Vec::new();
+    let bleue = Rgba { r: 0.0, g:0.0, b:1.0, a: 1.0 };
+
+    let mut cursor = world::vec2(0.0, 0.0);
+    for event in file.parse() {
+        match event {
+            Event::Tag(Tag::Path(_, attributes)) => {
+                let data = attributes.get("d").unwrap();
+                let data = Data::parse(data).unwrap();
+                for command in data.iter() {
+                    match *command {
+                        Command::MoveTo(ref positioning, ref parameters) => {
+                            println!("Move to {:?} {:?}", parameters, positioning);
+                            let param = to_vec2(parameters);
+                            cursor =  match *positioning {
+                                svg::path::Positioning::Relative => { cursor + param }
+                                svg::path::Positioning::Absolute => { param }
+                            };
+                            path.push(Vertex { pos: cursor, color: bleue });
+                        },
+                        Command::LineTo(ref positioning, ref parameters) => {
+                            let param = to_vec2(parameters);
+                            cursor =  match *positioning {
+                                svg::path::Positioning::Relative => { cursor + param }
+                                svg::path::Positioning::Absolute => { param }
+                            };
+                            path.push(Vertex { pos: cursor, color: bleue });
+
+                            println!("Line to {:?}. {:?}", parameters, positioning);
+                        },
+                        Command::CurveTo(ref positioning, ref parameters) => {
+                            println!("Curve to {:?}. {:?}", parameters, positioning);
+                        },
+                        Command::SmoothCurveTo(ref positioning, ref parameters) => {
+                            println!("Smooth curve to {:?} {:?}.", parameters, positioning);
+                        },
+                        Command::ClosePath => {
+                            println!("Close the path.");
+                            return path;
+                        },
+                        _ => {
+                            println!("Not sure what to do.");
+                            return path;
+                        }
+                    }
+                }
+
+            }
+            _ => {}
+        }
+    }
+    return path;
+}
+
 pub mod shaders {
 pub const VERTEX: &'static str = "
 #version 140
@@ -353,4 +356,3 @@ void main() {
 }
 ";
 }
-

@@ -1,18 +1,14 @@
 [package]
 
-name = "vodk_id"
+name = "vodk_alloc"
+description = "A simple tool to help recycling memory."
 version = "0.0.1"
-description = "Tiny library providing id types and an id-based vector."
 license = "MIT"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/vodk.rs"
 include = [ "Cargo.toml", "src/*.rs" ]
 
-
 [lib]
 
-name = "vodk_id"
+name = "vodk_alloc"
 path = "src/lib.rs"
-
-[dependencies]
-num = "0.1.27"

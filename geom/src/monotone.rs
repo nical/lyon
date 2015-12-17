@@ -56,12 +56,14 @@ use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::mem::swap;
 use std::fmt::Debug;
+use std::f32::consts::PI;
+
 use half_edge::kernel::*;
 use half_edge::iterators::{Direction, DirectedEdgeCirculator};
 use half_edge::traits::{ Position2D };
-use mem::*;
+
+use vodk_alloc::*;
 use vodk_math::vec2::*;
-use std::f32::consts::PI;
 use vodk_id::*;
 use vodk_id::id_vector::*;
 
@@ -205,8 +207,8 @@ impl DecompositionContext {
         let edges_vec: Vec<EdgeId> = Vec::with_capacity(edges);
         let sweep_vec: Vec<EdgeId> = Vec::with_capacity(sweep);
         DecompositionContext {
-            sorted_edges_storage: recycle_vec(edges_vec),
-            sweep_status_storage: recycle_vec(sweep_vec),
+            sorted_edges_storage: vec::recycle(edges_vec),
+            sweep_status_storage: vec::recycle(sweep_vec),
             helper: HashMap::with_capacity(helpers),
         }
     }
@@ -329,8 +331,8 @@ impl DecompositionContext {
         }
 
         // Keep the buffers to avoid reallocating it next time, if possible.
-        self.sweep_status_storage = recycle_vec(sweep_status);
-        self.sorted_edges_storage = recycle_vec(sorted_edges);
+        self.sweep_status_storage = vec::recycle(sweep_status);
+        self.sorted_edges_storage = vec::recycle(sorted_edges);
 
         return Ok(());
     }
@@ -595,7 +597,7 @@ impl TriangulationContext {
         debug_assert_eq!(num_triangles, kernel.walk_edge_ids_around_face(face_id).count() as usize - 2);
 
         // Keep the buffer to avoid reallocating it next time, if possible.
-        self.vertex_stack_storage = recycle_vec(vertex_stack);
+        self.vertex_stack_storage = vec::recycle(vertex_stack);
         return Ok(());
     }
 }
@@ -707,11 +709,10 @@ fn test_triangulate() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let vertex_ids = vertex_range(0, n_vertices);
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_range(0, n_vertices), f1, f2);
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
@@ -779,15 +780,14 @@ fn test_triangulate_holes() {
 
         let mut kernel = ConnectivityKernel::new();
 
-        let vertex_ids = vertex_range(0, n_vertices);
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_range(0, n_vertices), f1, f2);
 
         let mut vertex_count = n_vertices;
         for i in 1 .. separators.len() {
-            kernel.add_hole(f1, vertex_range(vertex_count, separators[i]).iter());
+            kernel.add_hole(f1, vertex_range(vertex_count, separators[i]));
             vertex_count += separators[i];
         }
 
@@ -840,7 +840,15 @@ fn test_triangulate_degenerate() {
             world::vec2(0.0, 0.0),
             world::vec2(0.0, 0.0),
         ],
-
+// TODO: Unsupported, need to separate the shape into several shapes without self-intersection
+//        &[  // self-intersection
+//            world::vec2(0.0, 0.0),
+//            world::vec2(1.0, 0.0),
+//            world::vec2(1.0, 1.0),
+//            world::vec2(0.0, 1.0),
+//            world::vec2(3.0, 0.0),
+//            world::vec2(3.0, 1.0),
+//        ],
 // TODO: this case isn't handled, it outputs incorrect triangles.
 //        &[  // wrong winding order
 //            world::vec2(10.0, 5.0),
@@ -856,11 +864,10 @@ fn test_triangulate_degenerate() {
         let mut kernel = ConnectivityKernel::new();
 
         let n_vertices = vertex_positions[i].len() as Index;
-        let vertex_ids = vertex_range(0, n_vertices);
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_range(0, n_vertices), f1, f2);
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {

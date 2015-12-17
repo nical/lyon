@@ -8,6 +8,9 @@ authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 name = "geom"
 path = "src/lib.rs"
 
+[dependencies.vodk_alloc]
+path = "../alloc/"
+
 [dependencies.vodk_data]
 path = "../data/"
 
@@ -16,3 +19,7 @@ path = "../math/"
 
 [dependencies.vodk_id]
 path = "../id/"
+
+[dependencies.euclid]
+path = "../../euclid"
+features = ["rustc_stable"]

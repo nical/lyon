@@ -119,4 +119,3 @@ impl<U> TextureCoordinates for Vector2D<U> {
     fn uv(&self) -> &Vector2D<U> { self }
     fn uv_mut(&mut self) -> &mut Vector2D<U> { self }
 }
-

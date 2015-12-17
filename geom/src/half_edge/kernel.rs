@@ -1,5 +1,6 @@
 use std::ops;
 use std::u16;
+use std::marker::PhantomData;
 
 pub use half_edge::id_internals::Index;
 
@@ -11,13 +12,11 @@ use vodk_id::*;
 use vodk_id::id_list::IdList;
 
 
-use std::marker::PhantomData;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Vertex_;
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Edge_;
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Face_;
 
 pub type VertexId = Id<Vertex_, Index>;
@@ -554,7 +553,7 @@ fn test_add_loop_with_vertices() {
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_ids.iter(), f1, f2);
+        kernel.add_loop(vertex_ids, f1, f2);
 
         kernel.debug_assert_face_invariants(f1);
         kernel.debug_assert_face_invariants(f2);
@@ -581,7 +580,7 @@ fn test_add_loop_with_vertices() {
 fn test_from_loop() {
     for n in 3 .. 10 {
         println!(" --- test {} ", n);
-        let kernel = ConnectivityKernel::from_loop(vertex_range(0, n).iter());
+        let kernel = ConnectivityKernel::from_loop(vertex_range(0, n));
         let face = kernel.first_face().unwrap();
 
         assert_eq!(kernel.walk_edge_ids_around_face(face).count() as Index, n);
@@ -624,10 +623,10 @@ fn test_from_loop() {
 
 #[test]
 fn test_hole() {
-    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 4).iter());
+    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 4));
 
     let f1 = kernel.first_face().unwrap();
-    kernel.add_hole(f1, vertex_range(4, 3).iter());
+    kernel.add_hole(f1, vertex_range(4, 3));
 
     assert_eq!(kernel[f1].inner_edges.len(), 1);
     let inner1 = kernel[f1].inner_edges[0];
@@ -646,7 +645,7 @@ fn test_hole() {
 
 #[test]
 fn test_connect_1() {
-    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 4).iter());
+    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 4));
     let f1 = kernel.first_face().unwrap();
     let e1 = kernel[f1].first_edge;
     let e2 = kernel[e1].next;
@@ -710,7 +709,7 @@ fn test_connect_1() {
 fn test_connect_2() {
     use super::iterators::{ DirectedEdgeCirculator, Direction };
 
-    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 10).iter());
+    let mut kernel = ConnectivityKernel::from_loop(vertex_range(0, 10));
     let f1 = kernel.first_face().unwrap();
 
     let e1 = kernel[f1].first_edge;
