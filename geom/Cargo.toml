@@ -14,9 +14,6 @@ path = "../alloc/"
 [dependencies.vodk_data]
 path = "../data/"
 
-[dependencies.vodk_math]
-path = "../math/"
-
 [dependencies.vodk_id]
 path = "../id/"
 

@@ -75,7 +75,9 @@ impl<U> Vector4D<U> {
         return self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w;
     }
 
-    pub fn to_tuple(&self) -> (f32, f32, f32, f32) { (self.x, self.y, self.z, self.w) }
+    pub fn tuple(&self) -> (f32, f32, f32, f32) { (self.x, self.y, self.z, self.w) }
+
+    pub fn array(&self) -> [f32; 4] { [self.x, self.y, self.z, self.w] }
 
     pub fn xy(&self) -> Vector2D<U> { Vector2D::new(self.x, self.y) }
     pub fn xz(&self) -> Vector2D<U> { Vector2D::new(self.x, self.z) }

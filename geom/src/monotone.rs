@@ -18,12 +18,11 @@
 //! use geom::halfedge::{ ConnectivityKernel, FaceId };
 //! use vodk_id::id_vector::*;
 //! use geom::monotone::*;
-//! use vodk_math::units::world;
 //!
 //! fn triangulate_faces(
 //!     kernel: &mut ConnectivityKernel,
 //!     faces: &[FaceId],
-//!     vertices: &[world::Vec2],
+//!     vertices: &[Vec2],
 //!     out_triangles: &mut TriangleStream
 //! ) -> usize {
 //!     let mut new_faces: Vec<FaceId> = vec![];
@@ -55,20 +54,15 @@
 use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::mem::swap;
-use std::fmt::Debug;
 use std::f32::consts::PI;
 
 use half_edge::kernel::*;
 use half_edge::iterators::{Direction, DirectedEdgeCirculator};
-use half_edge::traits::{ Position2D };
+use half_edge::vectors::{ Position2D, Vec2, X, Y, vec2_sub };
 
 use vodk_alloc::*;
-use vodk_math::vec2::*;
 use vodk_id::*;
 use vodk_id::id_vector::*;
-
-#[cfg(test)]
-use vodk_math::units::world;
 
 #[derive(Debug, Copy, Clone)]
 enum VertexType {
@@ -104,14 +98,14 @@ pub enum TriangulationError {
 ///  y|       |  x--> v2
 ///   v        \ |v1
 ///              v
-pub fn directed_angle<T>(v1: Vector2D<T>, v2: Vector2D<T>) -> f32 {
-    let a = (v2.y).atan2(v2.x) - (v1.y).atan2(v1.x);
+pub fn directed_angle(v1: [f32; 2], v2: [f32; 2]) -> f32 {
+    let a = (v2[Y]).atan2(v2[X]) - (v1[Y]).atan2(v1[X]);
     return if a < 0.0 { a + 2.0 * PI } else { a };
 }
 
-fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vector2D<T>) -> VertexType {
+fn get_vertex_type(prev: [f32; 2], current: [f32; 2], next: [f32; 2]) -> VertexType {
     // assuming clockwise vertex_positions winding order
-    let interrior_angle = directed_angle(prev - current, next - current);
+    let interrior_angle = directed_angle(vec2_sub(prev, current), vec2_sub(next, current));
 
     // If the interrior angle is exactly 0 we'll have degenerate (invisible 0-area) triangles
     // which is yucks but we can live with it for the sake of being robust against degenerate
@@ -119,7 +113,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
     // otherwise there can be no monotone decomposition of a shape where all points are on the
     // same line.
 
-    if current.y > prev.y && current.y >= next.y {
+    if current[Y] > prev[Y] && current[Y] >= next[Y] {
         if interrior_angle <= PI && interrior_angle != 0.0 {
             return VertexType::Merge;
         } else {
@@ -127,7 +121,7 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
         }
     }
 
-    if current.y < prev.y && current.y <= next.y {
+    if current[Y] < prev[Y] && current[Y] <= next[Y] {
         if interrior_angle <= PI && interrior_angle != 0.0 {
             return VertexType::Split;
         } else {
@@ -135,11 +129,11 @@ fn get_vertex_type<T: Copy>(prev: Vector2D<T>, current: Vector2D<T>, next: Vecto
         }
     }
 
-    return if prev.y < next.y { VertexType::Right } else { VertexType::Left };
+    return if prev[Y] < next[Y] { VertexType::Right } else { VertexType::Left };
 }
 
 
-fn sweep_status_push<'l, U:Copy, Pos: Position2D<Unit=U>>(
+fn sweep_status_push<'l, Pos: Position2D>(
     kernel: &'l ConnectivityKernel,
     vertex_positions: IdSlice<'l, VertexId, Pos>,
     sweep: &'l mut Vec<EdgeId>,
@@ -217,8 +211,7 @@ impl DecompositionContext {
     ///
     /// This operation will add faces and edges to the connectivity kernel.
     pub fn y_monotone_decomposition<'l,
-        U: Copy+Debug,
-        P: Position2D<Unit = U>,
+        P: Position2D,
     >(
         &mut self,
         kernel: &'l mut ConnectivityKernel,
@@ -262,9 +255,9 @@ impl DecompositionContext {
 
         for &e in &sorted_edges {
             let edge = kernel[e];
-            let current_vertex = *vertex_positions[edge.vertex].position();
-            let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].position();
-            let next_vertex = *vertex_positions[kernel[edge.next].vertex].position();
+            let current_vertex = vertex_positions[edge.vertex].position();
+            let previous_vertex = vertex_positions[kernel[edge.prev].vertex].position();
+            let next_vertex = vertex_positions[kernel[edge.next].vertex].position();
             let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
 
             match vertex_type {
@@ -280,7 +273,7 @@ impl DecompositionContext {
                 }
                 VertexType::Split => {
                     for i in 0 .. sweep_status.len() {
-                        if vertex_positions[kernel[sweep_status[i]].vertex].x() >= current_vertex.x {
+                        if vertex_positions[kernel[sweep_status[i]].vertex].x() >= current_vertex[X] {
                             if let Some(&(helper_edge,_)) = self.helper.get(&sweep_status[i].to_index()) {
                                 connect(kernel, e, helper_edge, new_faces);
                             }
@@ -296,7 +289,7 @@ impl DecompositionContext {
                         connect(kernel, e, h, new_faces);
                     }
                     for i in 0 .. sweep_status.len() {
-                        if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
+                        if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex[X] {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 sweep_status[i].to_index(),
                                 (e, VertexType::Merge)
@@ -309,7 +302,7 @@ impl DecompositionContext {
                 }
                 VertexType::Left => {
                     for i in 0 .. sweep_status.len() {
-                        if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex.x {
+                        if vertex_positions[kernel[sweep_status[i]].vertex].x() > current_vertex[X] {
                             if let Some((prev_helper, VertexType::Merge)) = self.helper.insert(
                                 sweep_status[i].to_index(), (e, VertexType::Right)
                             ) {
@@ -339,16 +332,16 @@ impl DecompositionContext {
 }
 
 /// Returns true if the face is y-monotone in O(n).
-pub fn is_y_monotone<'l, U:Copy+Debug, Pos: Position2D<Unit = U>>(
+pub fn is_y_monotone<'l, Pos: Position2D>(
     kernel: &'l ConnectivityKernel,
     vertex_positions: IdSlice<'l, VertexId, Pos>,
     face: FaceId
 ) -> bool {
     for e in kernel.walk_edge_ids_around_face(face) {
         let edge = kernel[e];
-        let current_vertex = *vertex_positions[edge.vertex].position();
-        let previous_vertex = *vertex_positions[kernel[edge.prev].vertex].position();
-        let next_vertex = *vertex_positions[kernel[edge.next].vertex].position();
+        let current_vertex = vertex_positions[edge.vertex].position();
+        let previous_vertex = vertex_positions[kernel[edge.prev].vertex].position();
+        let next_vertex = vertex_positions[kernel[edge.next].vertex].position();
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
                 println!("not y monotone because of vertices {} {} {} edges {} {} {}",
@@ -419,8 +412,7 @@ impl TriangulationContext {
     ///
     /// Returns the number of indices that were added to the stream.
     pub fn y_monotone_triangulation<'l,
-        U: Copy+Debug,
-        P: Position2D<Unit = U>,
+        P: Position2D,
         Triangles: TriangleStream
     >(
         &mut self,
@@ -561,10 +553,10 @@ impl TriangulationContext {
                             swap(&mut id_1, &mut id_3);
                         }
 
-                        let v1 = *vertex_positions[id_1].position();
-                        let v2 = *vertex_positions[id_2].position();
-                        let v3 = *vertex_positions[id_3].position();
-                        if directed_angle(v1 - v2, v3 - v2) > PI {
+                        let v1 = vertex_positions[id_1].position();
+                        let v2 = vertex_positions[id_2].position();
+                        let v3 = vertex_positions[id_3].position();
+                        if directed_angle(vec2_sub(v1, v2), vec2_sub(v3, v2)) > PI {
                             triangles.write(id_1, id_2, id_3);
 
                             last_popped = vertex_stack.pop();
@@ -603,10 +595,10 @@ impl TriangulationContext {
 }
 
 //#[cfg(test)]
-pub fn triangulate_faces<T:Copy+Debug>(
+pub fn triangulate_faces(
     kernel: &mut ConnectivityKernel,
     faces: &[FaceId],
-    vertices: &[Vector2D<T>],
+    vertices: &[Vec2],
     indices: &mut[u16]
 ) -> usize {
     let mut new_faces: Vec<FaceId> = vec![];
@@ -640,65 +632,65 @@ pub fn triangulate_faces<T:Copy+Debug>(
 
 #[test]
 fn test_triangulate() {
-    let vertex_positions : &[&[world::Vec2]] = &[
+    let vertex_positions : &[&[Vec2]] = &[
         &[
-            world::vec2(-10.0, 5.0),
-            world::vec2(0.0, -5.0),
-            world::vec2(10.0, 5.0),
+            [-10.0, 5.0],
+            [0.0, -5.0],
+            [10.0, 5.0],
         ],
         &[
-            world::vec2(1.0, 2.0),
-            world::vec2(1.5, 3.0),
-            world::vec2(0.0, 4.0),
+            [1.0, 2.0],
+            [1.5, 3.0],
+            [0.0, 4.0],
         ],
         &[
-            world::vec2(1.0, 2.0),
-            world::vec2(1.5, 3.0),
-            world::vec2(0.0, 4.0),
-            world::vec2(-1.0, 1.0),
+            [1.0, 2.0],
+            [1.5, 3.0],
+            [0.0, 4.0],
+            [-1.0, 1.0],
         ],
         &[
-            world::vec2(0.0, 0.0),
-            world::vec2(3.0, 0.0),
-            world::vec2(2.0, 1.0),
-            world::vec2(3.0, 2.0),
-            world::vec2(2.0, 3.0),
-            world::vec2(0.0, 2.0),
-            world::vec2(1.0, 1.0),
+            [0.0, 0.0],
+            [3.0, 0.0],
+            [2.0, 1.0],
+            [3.0, 2.0],
+            [2.0, 3.0],
+            [0.0, 2.0],
+            [1.0, 1.0],
         ],
         &[
-            world::vec2(0.0, 0.0),
-            world::vec2(1.0, 1.0),// <
-            world::vec2(2.0, 0.0),//  |
-            world::vec2(2.0, 4.0),//  |
-            world::vec2(1.0, 3.0),// <
-            world::vec2(0.0, 4.0),
+            [0.0, 0.0],
+            [1.0, 1.0],// <
+            [2.0, 0.0],//  |
+            [2.0, 4.0],//  |
+            [1.0, 3.0],// <
+            [0.0, 4.0],
         ],
         &[
-            world::vec2(0.0, 2.0),
-            world::vec2(1.0, 2.0),
-            world::vec2(0.0, 1.0),
-            world::vec2(2.0, 0.0),
-            world::vec2(3.0, 1.0),// 4
-            world::vec2(4.0, 0.0),
-            world::vec2(3.0, 2.0),
-            world::vec2(2.0, 1.0),// 7
-            world::vec2(3.0, 3.0),
-            world::vec2(2.0, 4.0)
+            [0.0, 2.0],
+            [1.0, 2.0],
+            [0.0, 1.0],
+            [2.0, 0.0],
+            [3.0, 1.0],// 4
+            [4.0, 0.0],
+            [3.0, 2.0],
+            [2.0, 1.0],// 7
+            [3.0, 3.0],
+            [2.0, 4.0]
         ],
         &[
-            world::vec2(0.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(2.0, 0.0),
-            world::vec2(3.0, 0.0),
-            world::vec2(3.0, 1.0),
-            world::vec2(3.0, 2.0),
-            world::vec2(3.0, 3.0),
-            world::vec2(2.0, 3.0),
-            world::vec2(1.0, 3.0),
-            world::vec2(0.0, 3.0),
-            world::vec2(0.0, 2.0),
-            world::vec2(0.0, 1.0),
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [3.0, 0.0],
+            [3.0, 1.0],
+            [3.0, 2.0],
+            [3.0, 3.0],
+            [2.0, 3.0],
+            [1.0, 3.0],
+            [0.0, 3.0],
+            [0.0, 2.0],
+            [0.0, 1.0],
         ],
     ];
 
@@ -723,50 +715,50 @@ fn test_triangulate() {
 
 #[test]
 fn test_triangulate_holes() {
-    let vertex_positions : &[(&[world::Vec2], &[u16])] = &[
+    let vertex_positions : &[(&[Vec2], &[u16])] = &[
         (
             &[
                 // outer
-                world::vec2(-11.0, 5.0),
-                world::vec2(0.0, -5.0),
-                world::vec2(10.0, 5.0),
+                [-11.0, 5.0],
+                [0.0, -5.0],
+                [10.0, 5.0],
                 // hole
-                world::vec2(-5.0, 2.0),
-                world::vec2(0.0, -2.0),
-                world::vec2(4.0, 2.0),
+                [-5.0, 2.0],
+                [0.0, -2.0],
+                [4.0, 2.0],
             ],
             &[ 3, 3 ]
         ),
         (
             &[
                 // outer
-                world::vec2(-10.0, -10.0),
-                world::vec2( 10.0, -10.0),
-                world::vec2( 10.0,  10.0),
-                world::vec2(-10.0,  10.0),
+                [-10.0, -10.0],
+                [ 10.0, -10.0],
+                [ 10.0,  10.0],
+                [-10.0,  10.0],
                 // hole
-                world::vec2(-4.0, 2.0),
-                world::vec2(0.0, -2.0),
-                world::vec2(4.0, 2.0),
+                [-4.0, 2.0],
+                [0.0, -2.0],
+                [4.0, 2.0],
             ],
             &[ 4, 3 ]
         ),
         (
             &[
                 // outer
-                world::vec2(-10.0, -10.0),
-                world::vec2( 10.0, -10.0),
-                world::vec2( 10.0,  10.0),
-                world::vec2(-10.0,  10.0),
+                [-10.0, -10.0],
+                [ 10.0, -10.0],
+                [ 10.0,  10.0],
+                [-10.0,  10.0],
                 // hole 1
-                world::vec2(-8.0, -8.0),
-                world::vec2(-4.0, -8.0),
-                world::vec2(4.0, 8.0),
-                world::vec2(-8.0, 8.0),
+                [-8.0, -8.0],
+                [-4.0, -8.0],
+                [4.0, 8.0],
+                [-8.0, 8.0],
                 // hole 2
-                world::vec2(8.0, -8.0),
-                world::vec2(6.0, 7.0),
-                world::vec2(-2.0, -8.0),
+                [8.0, -8.0],
+                [6.0, 7.0],
+                [-2.0, -8.0],
             ],
             &[ 4, 4, 3 ]
         ),
@@ -800,60 +792,60 @@ fn test_triangulate_holes() {
 
 #[test]
 fn test_triangulate_degenerate() {
-    let vertex_positions : &[&[world::Vec2]] = &[
+    let vertex_positions : &[&[Vec2]] = &[
         &[  // duplicate point
-            world::vec2(0.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 0.0),
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.0],
         ],
         &[  // duplicate point
-            world::vec2(0.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 1.0),
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
         ],
         &[  // duplicate point
-            world::vec2(0.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 0.0),
-            world::vec2(1.0, 1.0),
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
         ],
         &[  // points in the same line
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 1.0),
-            world::vec2(0.0, 2.0),
+            [0.0, 0.0],
+            [0.0, 1.0],
+            [0.0, 2.0],
         ],
         &[  // points in the same line
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 2.0),
-            world::vec2(0.0, 1.0),
+            [0.0, 0.0],
+            [0.0, 2.0],
+            [0.0, 1.0],
         ],
         &[  // all points at the same place
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 0.0),
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [0.0, 0.0],
         ],
         &[  // all points at the same place
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 0.0),
-            world::vec2(0.0, 0.0),
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [0.0, 0.0],
         ],
 // TODO: Unsupported, need to separate the shape into several shapes without self-intersection
 //        &[  // self-intersection
-//            world::vec2(0.0, 0.0),
-//            world::vec2(1.0, 0.0),
-//            world::vec2(1.0, 1.0),
-//            world::vec2(0.0, 1.0),
-//            world::vec2(3.0, 0.0),
-//            world::vec2(3.0, 1.0),
+//            [0.0, 0.0],
+//            [1.0, 0.0],
+//            [1.0, 1.0],
+//            [0.0, 1.0],
+//            [3.0, 0.0],
+//            [3.0, 1.0],
 //        ],
 // TODO: this case isn't handled, it outputs incorrect triangles.
 //        &[  // wrong winding order
-//            world::vec2(10.0, 5.0),
-//            world::vec2(0.0, -5.0),
-//            world::vec2(-10.0, 5.0),
+//            [10.0, 5.0],
+//            [0.0, -5.0],
+//            [-10.0, 5.0],
 //        ],
     ];
 

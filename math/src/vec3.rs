@@ -81,7 +81,9 @@ impl<U> Vector3D<U> {
         return self.x * self.x + self.y * self.y + self.z * self.z;
     }
 
-    pub fn to_tuple(&self) -> (f32, f32, f32) { (self.x, self.y, self.z) }
+    pub fn tuple(&self) -> (f32, f32, f32) { (self.x, self.y, self.z) }
+
+    pub fn array(&self) -> [f32; 3] { [self.x, self.y, self.z] }
 
     pub fn xy(&self) -> Vector2D<U> { Vector2D::new(self.x, self.y) }
     pub fn xz(&self) -> Vector2D<U> { Vector2D::new(self.x, self.z) }

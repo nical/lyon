@@ -106,7 +106,9 @@ impl<U> Vector2D<U> {
         }
     }
 
-    pub fn to_tuple(&self) -> (f32, f32) { (self.x, self.y) }
+    pub fn array(&self) -> [f32; 2] { [self.x, self.y] }
+
+    pub fn tuple(&self) -> (f32, f32) { (self.x, self.y) }
 
     #[inline]
     pub fn dot(&self, rhs: &Vector2D<U>) -> f32 {

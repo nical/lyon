@@ -1,13 +1,14 @@
 use std::f32::consts::PI;
 use std::mem::{ swap, transmute };
-use std::fmt::Debug;
+//use std::fmt::Debug;
+
+use vodk_id::id_vector::IdVector;
+use vodk_alloc::*;
+
 use half_edge::kernel::{ ConnectivityKernel, vertex_id, EdgeId, VertexId, FaceId };
 use half_edge::kernel;
-use vodk_id::id_vector::IdVector;
-
 use monotone::directed_angle;
-use vodk_math::vec2::*;
-use vodk_alloc::*;
+use half_edge::vectors::{ Vec2, vec2_sub };
 
 use std::slice;
 
@@ -122,12 +123,12 @@ impl Path {
 
 }
 
-pub type VertexAttributeVector<T> = IdVector<VertexId, Vector2D<T>>;
+pub type VertexAttributeVector = IdVector<VertexId, Vec2>;
 pub type EdgeAttributeVector = IdVector<EdgeId, EdgeType>;
 
 enum EdgeType {
     Line,
-    CubicBezier(VertexId),
+    QuadraticBezier(VertexId),
     Bezier(VertexId, VertexId),
 }
 
@@ -183,7 +184,7 @@ impl PathBuilder {
         PathIter { path: &self.path[..] }
     }
 
-    pub fn into_path<T: Copy>(self, vertices: &VertexAttributeVector<T>) -> Path {
+    pub fn into_path(self, vertices: &VertexAttributeVector) -> Path {
         let winding = compute_winding_order(self.iter(), vertices);
         Path {
             data: self.path,
@@ -204,21 +205,21 @@ impl PathBuilder {
     }
 }
 
-pub struct PathBuilder2<Unit> {
+pub struct PathBuilder2 {
     builder: PathBuilder,
-    vertices: VertexAttributeVector<Unit>,
+    vertices: VertexAttributeVector,
 }
 
 
-impl<Unit: Copy> PathBuilder2<Unit> {
-    pub fn with_alloc(alloc: Allocation, begin: VertexId) -> PathBuilder2<Unit> {
+impl PathBuilder2 {
+    pub fn with_alloc(alloc: Allocation, begin: VertexId) -> PathBuilder2 {
         return PathBuilder2 {
             builder: PathBuilder::with_alloc(alloc, begin),
             vertices: VertexAttributeVector::new(),
         };
     }
 
-    pub fn begin(v: Vector2D<Unit>) -> PathBuilder2<Unit> {
+    pub fn begin(v: Vec2) -> PathBuilder2 {
         // TODO: clean this up
         let mut builder = PathBuilder2 {
             builder: PathBuilder { path: Vec::with_capacity(32) },
@@ -230,13 +231,13 @@ impl<Unit: Copy> PathBuilder2<Unit> {
         return builder;
     }
 
-    pub fn line_to(mut self, to: Vector2D<Unit>) -> PathBuilder2<Unit> {
+    pub fn line_to(mut self, to: Vec2) -> PathBuilder2 {
         let id = self.vertices.push(to);
         self.builder = self.builder.line_to(id);
         return self;
     }
 
-    pub fn bezier_to(mut self, cp1: Vector2D<Unit>, cp2: Vector2D<Unit>, to: Vector2D<Unit>) -> PathBuilder2<Unit> {
+    pub fn bezier_to(mut self, cp1: Vec2, cp2: Vec2, to: Vec2) -> PathBuilder2 {
         let id1 = self.vertices.push(cp1);
         let id2 = self.vertices.push(cp2);
         let id3 = self.vertices.push(to);
@@ -244,14 +245,14 @@ impl<Unit: Copy> PathBuilder2<Unit> {
         return self;
     }
 
-    pub fn quadratic_bezier_to(mut self, cp: Vector2D<Unit>, to: Vector2D<Unit>) -> PathBuilder2<Unit> {
+    pub fn quadratic_bezier_to(mut self, cp: Vec2, to: Vec2) -> PathBuilder2 {
         let id1 = self.vertices.push(cp);
         let id2 = self.vertices.push(to);
         self.builder = self.builder.quadratic_bezier_to(id1, id2);
         return self;
     }
 
-    pub fn close(mut self) -> PathBuilder2<Unit> {
+    pub fn close(mut self) -> PathBuilder2 {
         self.builder = self.builder.close();
         return self;
     }
@@ -265,27 +266,27 @@ impl<Unit: Copy> PathBuilder2<Unit> {
         self.builder.iter()
     }
 
-    pub fn into_path(self) -> (Path, VertexAttributeVector<Unit>) {
+    pub fn into_path(self) -> (Path, VertexAttributeVector) {
         return (self.builder.into_path(&self.vertices), self.vertices);
     }
 }
 
-pub fn compute_winding_order<'l, IT:Iterator<Item = PathOperation>, T:Copy>(
+pub fn compute_winding_order<'l, IT:Iterator<Item = PathOperation>>(
     path: IT,
-    vertices: &'l VertexAttributeVector<T>
+    vertices: &'l VertexAttributeVector
 ) -> WindingOrder {
     let mut accum_angle = 0.0;
     let mut vertex_count = 0;
-    let mut prev = Vector2D::new(0.0, 0.0);
-    let mut prev_prev = Vector2D::new(0.0, 0.0);
-    let mut first = Vector2D::new(0.0, 0.0);
-    let mut second = Vector2D::new(0.0, 0.0);
+    let mut prev: Vec2 = [0.0, 0.0];
+    let mut prev_prev: Vec2 = [0.0, 0.0];
+    let mut first: Vec2 = [0.0, 0.0];
+    let mut second: Vec2 = [0.0, 0.0];
     let mut is_closed = false;
     for op in path {
         for &p in op.params() {
             let vertex = vertices[p];
             if vertex_count >= 2 {
-                accum_angle += directed_angle(prev_prev - prev, vertex - prev);
+                accum_angle += directed_angle(vec2_sub(prev_prev, prev), vec2_sub(vertex, prev));
                 prev_prev = prev;
                 prev = vertex
             } else if vertex_count == 0 {
@@ -298,11 +299,11 @@ pub fn compute_winding_order<'l, IT:Iterator<Item = PathOperation>, T:Copy>(
             vertex_count += 1;
         }
         if op == Close {
-            if first != prev {
-                accum_angle += directed_angle(prev_prev - prev, first - prev);
+            if vertex_count > 2 {
+                accum_angle += directed_angle(vec2_sub(prev_prev, prev), vec2_sub(first, prev));
                 vertex_count += 1;
             }
-            accum_angle += directed_angle(prev - first, second - first);
+            accum_angle += directed_angle(vec2_sub(prev, first), vec2_sub(second, first));
             is_closed = true;
         }
     }
@@ -402,14 +403,12 @@ fn test_path_op() {
 
 #[test]
 fn test_simple_paths_winding() {
-    use vodk_math::units::world;
 
-    //let mut kernel = ConnectivityKernel::new();
     let mut vertices = VertexAttributeVector::new();
-    let a = vertices.push(world::vec2(0.0, 0.0));
-    let b = vertices.push(world::vec2(1.0, 0.0));
-    let c = vertices.push(world::vec2(1.0, 1.0));
-    let d = vertices.push(world::vec2(0.0, 1.0));
+    let a = vertices.push([0.0, 0.0]);
+    let b = vertices.push([1.0, 0.0]);
+    let c = vertices.push([1.0, 1.0]);
+    let d = vertices.push([0.0, 1.0]);
 
     // Simple closed triangle path.
     let path = PathBuilder::begin(a).line_to(b).line_to(c).close().into_path(&vertices);
@@ -451,7 +450,7 @@ fn test_simple_paths_winding() {
     assert_eq!(path.winding_order(), WindingOrder::Unknown);
 
 
-    // Simple Cubic bezier
+    // Simple Quadratic bezier
     let path = PathBuilder::begin(a).quadratic_bezier_to(b, c).close().into_path(&vertices);
     assert_path_ops(&path, &[MoveTo(a), QuadraticBezierTo(b, c), Close]);
     assert_eq!(path.winding_order(), WindingOrder::Clockwise);
@@ -471,16 +470,14 @@ fn test_simple_paths_winding() {
 
 #[test]
 fn test_simple_paths_kernel() {
-    use vodk_math::units::world;
-
     let mut kernel = ConnectivityKernel::new();
     let mut vertices = VertexAttributeVector::new();
     let mut edges = EdgeAttributeVector::new();
 
-    let a = vertices.push(world::vec2(0.0, 0.0));
-    let b = vertices.push(world::vec2(1.0, 0.0));
-    let c = vertices.push(world::vec2(1.0, 1.0));
-    let d = vertices.push(world::vec2(0.0, 1.0));
+    let a = vertices.push([0.0, 0.0]);
+    let b = vertices.push([1.0, 0.0]);
+    let c = vertices.push([1.0, 1.0]);
+    let d = vertices.push([0.0, 1.0]);
 
     let face = kernel.add_face();
 
@@ -492,16 +489,14 @@ fn test_simple_paths_kernel() {
 
 #[test]
 fn test_simple_quadratic_paths_kernel() {
-    use vodk_math::units::world;
-
     let mut kernel = ConnectivityKernel::new();
     let mut vertices = VertexAttributeVector::new();
     let mut edges = EdgeAttributeVector::new();
 
-    let a = vertices.push(world::vec2(0.0, 0.0));
-    let b = vertices.push(world::vec2(1.0, 0.0));
-    let c = vertices.push(world::vec2(1.0, 1.0));
-    let d = vertices.push(world::vec2(0.0, 1.0));
+    let a = vertices.push([0.0, 0.0]);
+    let b = vertices.push([1.0, 0.0]);
+    let c = vertices.push([1.0, 1.0]);
+    let d = vertices.push([0.0, 1.0]);
 
     let face = kernel.add_face();
 
@@ -513,13 +508,9 @@ fn test_simple_quadratic_paths_kernel() {
 
 #[test]
 fn test_simple_quadratic_paths_kernel2() {
-    use vodk_math::units::world;
-
     let (path, vertices) =
-        PathBuilder2::begin(world::vec2(0.0, 0.0))
-        .quadratic_bezier_to(world::vec2(0.5, 0.0), world::vec2(0.7, 0.5))
-        .line_to(world::vec2(-0.1, 0.5))
-        .quadratic_bezier_to(world::vec2(-0.1, 0.2), world::vec2(-0.5, 0.0))
+        PathBuilder2::begin([0.0, 0.0]).quadratic_bezier_to([0.5, 0.0], [0.7, 0.5])
+        .line_to([-0.1, 0.5]).quadratic_bezier_to([-0.1, 0.2], [-0.5, 0.0])
         .close().into_path();
 
     let mut edges = EdgeAttributeVector::new();
@@ -533,13 +524,11 @@ fn test_simple_quadratic_paths_kernel2() {
 
 #[test]
 fn test_path_recycle() {
-    use vodk_math::units::world;
-
     let mut vertices = VertexAttributeVector::new();
-    let a = vertices.push(world::vec2(0.0, 0.0));
-    let b = vertices.push(world::vec2(1.0, 0.0));
-    let c = vertices.push(world::vec2(1.0, 1.0));
-    let d = vertices.push(world::vec2(0.0, 1.0));
+    let a = vertices.push([0.0, 0.0]);
+    let b = vertices.push([1.0, 0.0]);
+    let c = vertices.push([1.0, 1.0]);
+    let _ = vertices.push([0.0, 1.0]);
 
     let alloc = Allocation::allocate_bytes(128);
     assert_eq!(alloc.size(), 128);

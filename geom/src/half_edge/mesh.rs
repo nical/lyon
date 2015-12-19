@@ -1,8 +1,5 @@
 use half_edge::kernel::*;
-use half_edge::traits::*;
-use vodk_math::vec2::Vector2D;
-use vodk_math::vec3::Vector3D;
-use vodk_math::vec4::Vector4D;
+use half_edge::vectors::*;
 use vodk_id::id_vector::IdVector;
 
 /// Convenience class that wraps a mesh's connectivity kernel and attribute data
@@ -60,37 +57,30 @@ impl<V, E, F> Mesh<V, E, F> {
     }
 }
 
-impl<U:Copy, V:Position2D<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn position2d(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).position() }
-    pub fn position2d_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).position_mut() }
+impl<V:Position2D, E, F> Mesh<V, E, F> {
+    pub fn position2d(&self, id: VertexId) -> Vec2 { self.vertex(id).position() }
 }
 
-impl<U:Copy, V:Position3D<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn position3d(&self, id: VertexId) -> &Vector3D<U> { self.vertex(id).position() }
-    pub fn position3d_mut(&mut self, id: VertexId) -> &mut Vector3D<U> { self.vertex_mut(id).position_mut() }
+impl<V:Position3D, E, F> Mesh<V, E, F> {
+    pub fn position3d(&self, id: VertexId) -> Vec3 { self.vertex(id).position() }
 }
 
-impl<U:Copy, V:Position4D<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn position3d(&self, id: VertexId) -> &Vector4D<U> { self.vertex(id).position() }
-    pub fn position3d_mut(&mut self, id: VertexId) -> &mut Vector4D<U> { self.vertex_mut(id).position_mut() }
+impl<V:Position4D, E, F> Mesh<V, E, F> {
+    pub fn position3d(&self, id: VertexId) -> Vec4 { self.vertex(id).position() }
 }
 
-impl<U:Copy, V:Normal2D<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn normal2d(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).normal() }
-    pub fn normal2d_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).normal_mut() }
+impl<V:Normal2D, E, F> Mesh<V, E, F> {
+    pub fn normal2d(&self, id: VertexId) -> Vec2 { self.vertex(id).normal() }
 }
 
-impl<U:Copy, V:Normal3D<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn normal3d(&self, id: VertexId) -> &Vector3D<U> { self.vertex(id).normal() }
-    pub fn normal3d_mut(&mut self, id: VertexId) -> &mut Vector3D<U> { self.vertex_mut(id).normal_mut() }
+impl<V:Normal3D, E, F> Mesh<V, E, F> {
+    pub fn normal3d(&self, id: VertexId) -> Vec3 { self.vertex(id).normal() }
 }
 
-impl<U:Copy, V:Normal4D<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn normal3d(&self, id: VertexId) -> &Vector4D<U> { self.vertex(id).normal() }
-    pub fn normal3d_mut(&mut self, id: VertexId) -> &mut Vector4D<U> { self.vertex_mut(id).normal_mut() }
+impl<V:Normal4D, E, F> Mesh<V, E, F> {
+    pub fn normal4d(&self, id: VertexId) -> Vec4 { self.vertex(id).normal() }
 }
 
-impl<U:Copy, V:TextureCoordinates<Unit = U>, E, F> Mesh<V, E, F> {
-    pub fn uv(&self, id: VertexId) -> &Vector2D<U> { self.vertex(id).uv() }
-    pub fn uv_mut(&mut self, id: VertexId) -> &mut Vector2D<U> { self.vertex_mut(id).uv_mut() }
+impl<V:TextureCoordinates, E, F> Mesh<V, E, F> {
+    pub fn uv(&self, id: VertexId) -> Vec2 { self.vertex(id).uv() }
 }

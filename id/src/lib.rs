@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::ops::{ Add, Sub };
+use std::ops::Add;
 
 pub mod id_vector;
 pub mod id_list;
@@ -106,10 +106,8 @@ pub trait ToIndex { fn to_index(&self) -> usize; }
 pub trait Generation { fn get_gen(&self) -> u32; }
 
 pub trait IntegerHandle : Copy + Clone
-                        + Sub<Output=Self>
                         + Add<Output=Self>
                         + PartialEq + PartialOrd
-                        //+ Bounded
                         + FromIndex + ToIndex {}
 
 pub trait Identifier: Copy + FromIndex + ToIndex + PartialEq {
