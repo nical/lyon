@@ -1,14 +1,13 @@
 use std::f32::consts::PI;
 use std::mem::{ swap, transmute };
-//use std::fmt::Debug;
 
 use vodk_id::id_vector::IdVector;
 use vodk_alloc::*;
 
+use half_edge::vectors::{ Vec2, vec2_sub };
 use half_edge::kernel::{ ConnectivityKernel, vertex_id, EdgeId, VertexId, FaceId };
 use half_edge::kernel;
-use monotone::directed_angle;
-use half_edge::vectors::{ Vec2, vec2_sub };
+use tesselation::monotone::directed_angle;
 
 use std::slice;
 
@@ -277,10 +276,10 @@ pub fn compute_winding_order<'l, IT:Iterator<Item = PathOperation>>(
 ) -> WindingOrder {
     let mut accum_angle = 0.0;
     let mut vertex_count = 0;
-    let mut prev: Vec2 = [0.0, 0.0];
-    let mut prev_prev: Vec2 = [0.0, 0.0];
-    let mut first: Vec2 = [0.0, 0.0];
-    let mut second: Vec2 = [0.0, 0.0];
+    let mut prev = [0.0, 0.0];
+    let mut prev_prev = [0.0, 0.0];
+    let mut first = [0.0, 0.0];
+    let mut second = [0.0, 0.0];
     let mut is_closed = false;
     for op in path {
         for &p in op.params() {
