@@ -46,30 +46,44 @@ impl<ID:Identifier, Data, C: IdCheck<ID>> IdList<ID, Data, C> {
     pub fn add(&mut self, elt: Data) -> ID {
         let none = C::none();
         let first = self.first;
-        let new_id = if self.freelist != none {
-            let id = self.freelist;
-            let freelist_next = self.data[id.to_index()].list_next;
-            self.data[id.to_index()] = IdListWrapper {
-                payload: elt,
-                list_next: first,
-                list_prev: C::none(),
-            };
-            if freelist_next != none {
-                self.data[freelist_next.to_index()].list_prev = none;
-            }
-            self.freelist = freelist_next;
+        if self.freelist == none {
+            return self.push(elt);
+        }
 
-            id
-        } else {
-            let id: ID = FromIndex::from_index(self.data.len());
-            self.data.push( IdListWrapper {
-                payload: elt,
-                list_next: first,
-                list_prev: C::none(),
-            });
-
-            id
+        let new_id = self.freelist;
+        let freelist_next = self.data[new_id.to_index()].list_next;
+        self.data[new_id.to_index()] = IdListWrapper {
+            payload: elt,
+            list_next: first,
+            list_prev: C::none(),
         };
+        if freelist_next != none {
+            self.data[freelist_next.to_index()].list_prev = none;
+        }
+        self.freelist = freelist_next;
+
+        if first != none {
+            self.data[first.to_index()].list_prev = new_id;
+        }
+        self.first = new_id;
+
+        return new_id;
+    }
+
+    /// Add an element to the list at the end of the vector storage (without attempting
+    /// to occupy a slot from the free-list).
+    /// This means that repeated calls to push without calls to add or remove will produce
+    /// contiguous indices.
+    pub fn push(&mut self, elt: Data) -> ID {
+        let none = C::none();
+        let first = self.first;
+        let new_id: ID = FromIndex::from_index(self.data.len());
+        self.data.push( IdListWrapper {
+            payload: elt,
+            list_next: first,
+            list_prev: none,
+        });
+
         if first != none {
             self.data[first.to_index()].list_prev = new_id;
         }
@@ -230,7 +244,7 @@ fn vector_list() {
     assert!(list.has_id(a3));
     assert_eq!(list.count(), 2);
     assert_eq!(list.first_id(), Some(a3));
-    
+
     list.remove(a1);
 
     assert_eq!(list[a3], 3);

@@ -86,9 +86,9 @@ impl Path {
         mut face_in: FaceId,
         mut face_out: FaceId
     ) -> kernel::EdgeId {
-        if self.winding == WindingOrder::CounterClockwise {
-            swap(&mut face_in, &mut face_out);
-        }
+        //if self.winding == WindingOrder::CounterClockwise {
+        //    swap(&mut face_in, &mut face_out);
+        //}
 
         let mut current_edge = kernel::NO_EDGE;
         let mut first_edge = kernel::NO_EDGE;
@@ -109,7 +109,13 @@ impl Path {
                     }
                 }
                 Close => {
-                    kernel.connect_edges(current_edge, first_edge, Some(face_out));
+                    let mut a = current_edge;
+                    let mut b = first_edge;
+                    if self.winding == WindingOrder::CounterClockwise {
+                        a = kernel[first_edge].opposite;
+                        b = kernel[current_edge].opposite;
+                    }
+                    kernel.connect_edges(a, b, Some(face_out));
                 }
             }
             if first_edge == kernel::NO_EDGE {

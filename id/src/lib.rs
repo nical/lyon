@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::ops::Add;
 
 pub mod id_vector;
+pub mod sparse_id_vector;
 pub mod id_list;
 
 
@@ -76,6 +77,12 @@ impl<T, H:IntegerHandle> Iterator for IdRange<T, H> {
         self.first = FromIndex::from_index(self.first.to_index() + 1);
         return Some(res);
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        return (self.count.to_index(), Some(self.count.to_index()));
+    }
+
+    fn count(self) -> usize { self.count.to_index() }
 }
 
 

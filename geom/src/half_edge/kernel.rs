@@ -4,13 +4,12 @@ use std::marker::PhantomData;
 
 pub use half_edge::id_internals::Index;
 
-use half_edge::id_internals::{ is_valid, MagicValueMax };
+use half_edge::id_internals::{ is_valid };
 use half_edge::iterators::{
     EdgeIdLoop, ReverseEdgeIdLoop, MutEdgeLoop,
 };
 use vodk_id::*;
-use vodk_id::id_list::IdList;
-
+use vodk_id::sparse_id_vector::SparseIdVector;
 
 #[derive(Debug)]
 pub struct Vertex_;
@@ -53,9 +52,9 @@ pub type FaceIdRange = IdRange<Face_, Index>;
 pub struct HalfEdge {
     pub next: EdgeId, // next half edge around the face
     pub prev: EdgeId, // previous half edge around the face
-    pub vertex: VertexId, // vertex this edge origins from
-    pub opposite: EdgeId,
-    pub face: FaceId,
+    pub opposite: EdgeId, // oppositely oriented adjacent half edge
+    pub vertex: VertexId, // vertex this edge originates from
+    pub face: FaceId, // adjacent face
 }
 
 /// The structure holding the data specific to each face.
@@ -69,8 +68,8 @@ pub struct Face {
 ///
 /// It does not contain other attributes such as positions. Use IdVector for that.
 pub struct ConnectivityKernel {
-    edges: IdList<EdgeId, HalfEdge, MagicValueMax<Edge_>>,
-    faces: IdList<FaceId, Face, MagicValueMax<Face_>>,
+    edges: SparseIdVector<EdgeId, HalfEdge>,
+    faces: SparseIdVector<FaceId, Face>,
 }
 
 impl ConnectivityKernel {
@@ -78,21 +77,21 @@ impl ConnectivityKernel {
     /// Create an empty kernel.
     pub fn new() -> ConnectivityKernel {
         ConnectivityKernel {
-            edges: IdList::new(),
-            faces: IdList::new(),
+            edges: SparseIdVector::new(),
+            faces: SparseIdVector::new(),
         }
     }
 
     /// Create an empty kernel and preallocate memory for vertices, edges and faces.
     pub fn with_capacities(e: u16, f: u16) -> ConnectivityKernel {
         ConnectivityKernel {
-            edges: IdList::with_capacity(e as usize),
-            faces: IdList::with_capacity(f as usize),
+            edges: SparseIdVector::with_capacity(e),
+            faces: SparseIdVector::with_capacity(f),
         }
     }
 
     /// Create a ConnectivityKernel initialized with a loop
-    pub fn from_loop<I: Iterator<Item=VertexId>>(vertices: I) -> ConnectivityKernel {
+    pub fn from_loop<I: Iterator<Item=VertexId>+Clone>(vertices: I) -> ConnectivityKernel {
         let (lower, upper) = vertices.size_hint();
         let capacity = if let Some(size) = upper { size } else { lower } as u16;
         let mut kernel = ConnectivityKernel::with_capacities(capacity*2, 2);
@@ -100,7 +99,7 @@ impl ConnectivityKernel {
         let back_face = kernel.add_face();
         let main_face = kernel.add_face();
 
-        kernel.add_loop(vertices, main_face, back_face);
+        kernel.add_loop(vertices, Some(main_face), Some(back_face));
 
         kernel.debug_assert_face_invariants(main_face);
         kernel.debug_assert_face_invariants(back_face);
@@ -140,21 +139,32 @@ impl ConnectivityKernel {
     }
 
     /// Return the next edge id when circulating around a vertex.
-    pub fn next_edge_id_around_vertex(&self, id: EdgeId) -> EdgeId {
-        return self[self[id].opposite].next;
+    /// TODO: needs tests
+    pub fn next_edge_id_around_vertex(&self, id: EdgeId) -> Option<EdgeId> {
+        let opposite = self[id].opposite;
+        if !is_valid(opposite) {
+            return None;
+        }
+        let next = self[opposite].next;
+        if !is_valid(next) {
+            return None;
+        }
+        return Some(next);
     }
 
     /// Run a few debug-only assertions to check the state of a given edge.
     pub fn debug_assert_edge_invariants(&self, id: EdgeId) {
-        debug_assert_eq!(self[self[id].opposite].opposite, id);
         debug_assert_eq!(self[self[id].next].prev, id);
         debug_assert_eq!(self[self[id].prev].next, id);
-        debug_assert_eq!(
-            self[id].vertex,
-            self[self[self[id].opposite].next].vertex
-        );
         debug_assert_eq!(self[id].face, self[self[id].next].face);
         debug_assert_eq!(self[id].face, self[self[id].prev].face);
+        if is_valid(self[id].opposite) {
+            debug_assert_eq!(self[self[id].opposite].opposite, id);
+            debug_assert_eq!(
+                self[id].vertex,
+                self[self[self[id].opposite].next].vertex
+            );
+        }
     }
 
     /// Run a few debug-only assertions to check the state of a given face,
@@ -171,37 +181,41 @@ impl ConnectivityKernel {
     /// Insert new_vertex on this edge.
     pub fn split_edge(&mut self, id: EdgeId, new_vertex: VertexId) {
         // from:
-        //     a ---[id]----------------------------------------> b
-        //     a <----------------------------------[opposite]--- b
+        //     a ---[id]-----------------------------------------> b
+        //     a <----------------------------------[opposite]---- b
         // to:
-        //     a ---[id]------------> new_vertex ---[new_edge]--> b
-        //     a <--[new_opposite]--- new_vertex <--[opposite]--- b
+        //     a ---[id]------------> new_vertex --[new_edge]----> b
+        //     a <--[new_opposite]--- new_vertex <-[opposite]----- b
+
+        debug_assert!(is_valid(id));
+        debug_assert!(is_valid(new_vertex));
+
+        let edge = self[id];
+        let opposite_edge = edge.opposite;
 
         // new_edge
-        let edge = self[id];
         let new_edge = self.add_edge(HalfEdge {
-            vertex: edge.vertex,
-            opposite: edge.opposite,
+            vertex: new_vertex,
+            opposite: opposite_edge,
             face: edge.face,
             next: edge.next,
             prev: id,
         });
+        // patch up existing edges
+        self[id].next = new_edge;
 
         // new_opposite
-        let opposite = self[edge.opposite];
-        let new_opposite = self.add_edge(HalfEdge {
-            vertex: opposite.vertex,
-            opposite: id,
-            face: opposite.face,
-            next: opposite.next,
-            prev: edge.opposite,
-        });
-
-        // patch up existing edges
-        self[id].vertex = new_vertex;
-        self[id].next = new_edge;
-        self[edge.opposite].vertex = new_vertex;
-        self[edge.opposite].next = new_opposite;
+        if is_valid(opposite_edge) {
+            let opposite = self[opposite_edge];
+            let new_opposite = self.add_edge(HalfEdge {
+                vertex: new_vertex,
+                opposite: id,
+                face: opposite.face,
+                next: opposite.next,
+                prev: opposite_edge,
+            });
+            self[opposite_edge].next = new_opposite;
+        }
     }
 
     /// Connect edges e1 and e2 such that e1->[new edge]->e2.
@@ -233,18 +247,23 @@ impl ConnectivityKernel {
 
         // Check whether we are connecting to a hole in the face, in which case
         // we should not add a face.
-        for i in 0 .. self[original_face].inner_edges.len() {
-            for e in self.walk_edge_ids(self[original_face].inner_edges[i]) {
-                if e == e1 || e == e2 {
-                    // connecting to one of the inner loops
-                    add_face = false;
-                    // remove the hole from this face
+        // TODO: need to figure out a way to require original_face to be valid. right now
+        // this can happen if we try to create a path with inverse winding order and swap
+        // the inner and outer faces to accomodate for that.
+        if is_valid(original_face) {
+            for i in 0 .. self[original_face].inner_edges.len() {
+                for e in self.walk_edge_ids(self[original_face].inner_edges[i]) {
+                    if e == e1 || e == e2 {
+                        // connecting to one of the inner loops
+                        add_face = false;
+                        // remove the hole from this face
+                        break;
+                    }
+                }
+                if !add_face {
+                    self[original_face].inner_edges.remove(i);
                     break;
                 }
-            }
-            if !add_face {
-                self[original_face].inner_edges.remove(i);
-                break;
             }
         }
 
@@ -252,6 +271,9 @@ impl ConnectivityKernel {
         let e2_prev = self[e2].prev;
         let v1 = self[e1_next].vertex;
         let v2 = self[e2].vertex;
+
+        debug_assert!(is_valid(e1_next));
+        debug_assert!(is_valid(e2_prev));
 
         let new_edge = self.add_edge(HalfEdge {
             next: e2,
@@ -273,9 +295,11 @@ impl ConnectivityKernel {
         self[e2].prev = new_edge;
         self[e1_next].prev = new_opposite_edge;
         self[e2_prev].next = new_opposite_edge;
-        self[original_face].first_edge = new_edge;
 
-        self.debug_assert_face_invariants(original_face);
+        if is_valid(original_face) {
+            self[original_face].first_edge = new_edge;
+            self.debug_assert_face_invariants(original_face);
+        }
 
         if add_face {
             let opposite_face = match maybe_new_face {
@@ -311,7 +335,9 @@ impl ConnectivityKernel {
     fn add_edge(&mut self, data: HalfEdge) -> EdgeId { self.edges.add(data) }
 
     /// Remove a half-edge from the kernel.
-    fn remove_edge(&mut self, id: EdgeId) { self.edges.remove(id); }
+    //fn remove_edge(&mut self, id: EdgeId) {
+    //    self.edges.remove(id);
+    //}
 
     /// Insert a Face in the kernel.
     pub fn add_face(&mut self) -> FaceId { self.add_face_with_edge(NO_EDGE) }
@@ -325,39 +351,77 @@ impl ConnectivityKernel {
     }
 
     /// Remove a face, without removing the half edges in its loop.
-    pub fn remove_face(&mut self, id: FaceId) {
-        self.faces.remove(id);
-    }
+    //pub fn remove_face(&mut self, id: FaceId) {
+    //    self.faces.remove(id);
+    //}
 
-    /// Extrude the vertex that the edge passed as parameter points to, adding a vertex and
-    /// two edges to the kernel.
-    pub fn extrude_vertex(&mut self, id: EdgeId, vertex: VertexId) -> EdgeId {
-        let edge_data = self[id];
-        let opposite_data = self[edge_data.opposite];
-        let v1 = opposite_data.vertex;
+    /// Extrude the vertex that the edge passed as parameter points to, adding one or two
+    /// half edges to the kernel.
+    ///
+    /// The original edge *must* have a next vertex
+    pub fn extrude_vertex(&mut self, edge: EdgeId, to: VertexId) -> EdgeId {
+        //              to
+        //              ^|
+        //      new_edge||(new_opposite)
+        //              |v
+        // ----edge---> v1 (------->)
 
+        debug_assert!(is_valid(edge));
+        debug_assert!(is_valid(to));
+
+        let edge_data = self[edge];
+        debug_assert!(is_valid(edge_data.next));
+        let v1 = self[edge_data.next].vertex;
         let new_edge = self.add_edge(HalfEdge {
-            next: NO_EDGE,
-            prev: id,
-            opposite: NO_EDGE,
+            next: NO_EDGE, // will be new_oppsite
+            prev: edge,
+            opposite: NO_EDGE, // will be new_oppsite
             face: edge_data.face,
             vertex: v1,
         });
-        let new_opposite = self.add_edge(HalfEdge {
-            next: edge_data.next,
-            prev: new_edge,
-            opposite: new_edge,
-            face: edge_data.face,
-            vertex: vertex,
-        });
-        {
-            let edge = &mut self[new_edge];
-            edge.opposite = new_opposite;
-            edge.next = new_opposite;
-        }
-        self[edge_data.next].prev = new_opposite;
-        self[id].next = new_edge;
 
+        if is_valid(edge_data.next) {
+            let new_opposite = self.add_edge(HalfEdge {
+                next: edge_data.next,
+                prev: new_edge,
+                opposite: new_edge,
+                face: edge_data.face,
+                vertex: to,
+            });
+
+            {
+                let new_edge_data = &mut self[new_edge];
+                new_edge_data.opposite = new_opposite;
+                new_edge_data.next = new_opposite;
+            }
+
+            self[edge_data.next].prev = new_opposite;
+        }
+
+        self[edge].next = new_edge;
+
+        return new_edge;
+    }
+
+    /// Similar to extrude_vertex, but accepts edges that don't have a next edge.
+    pub fn extrude_vertex2(&mut self, edge: EdgeId, from: VertexId, to: VertexId) -> EdgeId {
+        //
+        // ---edge---> from --new_edge--> to
+        //
+
+        let edge_data = self[edge];
+        if is_valid(edge_data.next) {
+            debug_assert_eq!(self[self[edge].next].vertex, from);
+            return self.extrude_vertex(edge, to);
+        }
+        let new_edge = self.add_edge(HalfEdge {
+            next: NO_EDGE,
+            prev: edge,
+            opposite: NO_EDGE,
+            face: edge_data.face,
+            vertex: from,
+        });
+        self[edge].next = new_edge;
         return new_edge;
     }
 
@@ -389,44 +453,88 @@ impl ConnectivityKernel {
     }
 
     // Add a loop of edges, using existing vertices.
-    pub fn add_loop<IT:Iterator<Item=VertexId>>(
+    pub fn add_loop<IT:Iterator<Item=VertexId>+Clone>(
         &mut self,
-        mut vertices: IT,
-        f1: FaceId,
-        f2: FaceId
+        vertices: IT,
+        inner_face: Option<FaceId>,
+        outer_face: Option<FaceId>
     ) -> EdgeId {
-        let v1 = vertices.next().unwrap();
-        let v2 = vertices.next().unwrap();
-        let first_edge = self.add_segment(v1, v2, f1);
-        let mut edge = first_edge;
-        for vertex in vertices {
-            edge = self.extrude_vertex(edge, vertex);
-        }
-        // close the loop
-        self.connect_edges(edge, first_edge, Some(f2));
+        let add_inner_loop = inner_face.is_some();
+        let add_outer_loop = outer_face.is_some();
+        debug_assert!(add_inner_loop || add_outer_loop);
 
-        if is_valid(f1) {
-            self[f1].first_edge = first_edge;
-        }
-        if is_valid(f2) {
-            self[f2].first_edge = self[first_edge].opposite;
+        let num_vertices = if let (min_size, Some(max_size)) = vertices.size_hint() {
+            if min_size == max_size { max_size }
+            else { vertices.clone().count() }
+        } else {
+            vertices.clone().count()
+        } as Index;
+
+        debug_assert!(num_vertices > 1);
+
+        let base_edge: Index = self.edges.len() as Index;
+
+        let first_inner_edge = edge_id(base_edge);
+        let first_outer_edge = edge_id(base_edge + num_vertices);
+
+        if add_inner_loop {
+            let face = inner_face.unwrap();
+            debug_assert!(is_valid(face));
+            let mut i = 0;
+            for vertex in vertices {
+                debug_assert!(is_valid(vertex));
+                let next_edge = edge_id(base_edge + modulo(i as i32 + 1, num_vertices as i32) as Index);
+                let prev_edge = edge_id(base_edge + modulo(i as i32 - 1, num_vertices as i32) as Index);
+                let opposite = if add_outer_loop { edge_id(base_edge + 2 * num_vertices - 1 - i) }
+                               else { NO_EDGE };
+                let id = self.edges.push(HalfEdge {
+                    vertex: vertex,
+                    next: next_edge,
+                    prev: prev_edge,
+                    opposite: opposite,
+                    face: face,
+                });
+                debug_assert_eq!(id, edge_id(base_edge + i));
+                i += 1;
+            }
+            self[face].first_edge = first_inner_edge;
         }
 
+        if add_outer_loop {
+            let face = outer_face.unwrap();
+            debug_assert!(is_valid(face));
+            for i in 0..num_vertices {
+                let next_edge = edge_id(base_edge + num_vertices + modulo(i as i32 + 1, num_vertices as i32) as Index);
+                let prev_edge = edge_id(base_edge + num_vertices + modulo(i as i32 - 1, num_vertices as i32) as Index);
+                let opposite = if add_inner_loop { edge_id(base_edge + num_vertices - 1 - i) }
+                               else { NO_EDGE };
+                let vertex = self[self[opposite].next].vertex;
+                let id = self.edges.push(HalfEdge {
+                    vertex: vertex,
+                    next: next_edge,
+                    prev: prev_edge,
+                    opposite: opposite,
+                    face: face,
+                });
+                debug_assert_eq!(id, edge_id(base_edge + num_vertices + i));
+            }
+            // If outer_face already has edges, we assume that the loop is a hole in f2
+            let face_data = &mut self[face];
+            if is_valid(face_data.first_edge) {
+                face_data.inner_edges.push(first_outer_edge);
+            } else {
+                face_data.first_edge = first_outer_edge;
+            }
+        }
+
+        let first_edge = if add_inner_loop { first_inner_edge } else { first_outer_edge };
         return first_edge;
     }
 
-    /// Add a loop of vertices and edges creating a hole in an existing face.
-    pub fn add_hole<I:Iterator<Item=VertexId>>(&mut self, outer_face: FaceId, vertices: I) -> FaceId {
+    /// Add a loop of edges adn a face, creating a hole in an existing face.
+    pub fn add_hole<I:Iterator<Item=VertexId>+Clone>(&mut self, outer_face: FaceId, vertices: I) -> FaceId {
         let hole_face = self.add_face();
-        let hole_loop = self.add_loop(vertices, hole_face, NO_FACE);
-
-        let opp = self[hole_loop].opposite;
-        for edge in self.walk_edges_mut(opp) {
-            edge.face = outer_face;
-        }
-
-        self.set_hole(outer_face, hole_loop);
-
+        let _ = self.add_loop(vertices, Some(hole_face), Some(outer_face));
         return hole_face;
     }
 
@@ -460,6 +568,9 @@ pub fn vertex_range(first: u16, count: u16) -> VertexIdRange {
         count: count
     };
 }
+
+/// Well behaved i32 modulo (doesn't mess up with negative values).
+fn modulo(a: i32, m: i32) -> i32 { (a % m + m) % m }
 
 #[test]
 fn test_add_segment() {
@@ -553,10 +664,12 @@ fn test_add_loop_with_vertices() {
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_ids, f1, f2);
+        kernel.add_loop(vertex_ids, Some(f1), Some(f2));
 
         kernel.debug_assert_face_invariants(f1);
         kernel.debug_assert_face_invariants(f2);
+
+        assert_eq!(kernel.walk_edge_ids_around_face(f1).count(), n_vertices as usize);
 
         let mut edge = NO_EDGE;
         for e in kernel.walk_edge_ids_around_face(f1) {
@@ -588,15 +701,11 @@ fn test_from_loop() {
         let mut i = 0;
         for e in kernel.walk_edge_ids_around_face(face) {
             assert!(kernel.contains_edge(e));
-            assert_eq!(
-                kernel[e].vertex,
-                kernel[kernel[kernel[e].opposite].next].vertex
-            );
             i += 1;
         }
         assert_eq!(i, n);
 
-        for i in  0 .. (kernel.edges.count() as u16) {
+        for i in  0 .. (kernel.edges.len() as u16) {
             let e = edge_id(i);
             assert_eq!(kernel[kernel[e].opposite].opposite, e);
             assert_eq!(kernel[kernel[e].next].prev, e);
@@ -742,42 +851,42 @@ fn test_connect_2() {
     }
 }
 
-#[test]
-fn test_face_list() {
-    let mut kernel = ConnectivityKernel::new();
-
-    assert_eq!(kernel.first_face(), None);
-
-    let f1 = kernel.add_face();
-    let f2 = kernel.add_face();
-    let f3 = kernel.add_face();
-    kernel.remove_face(f1);
-    kernel.remove_face(f2);
-    kernel.remove_face(f3);
-
-    assert_eq!(kernel.first_face(), None);
-
-    let f1 = kernel.add_face();
-    let f2 = kernel.add_face();
-    let f3 = kernel.add_face();
-    kernel.remove_face(f3);
-    kernel.remove_face(f2);
-    kernel.remove_face(f1);
-
-    assert_eq!(kernel.first_face(), None);
-
-    let f1 = kernel.add_face();
-    let f2 = kernel.add_face();
-    let f3 = kernel.add_face();
-    kernel.remove_face(f2);
-    let f4 = kernel.add_face();
-    kernel.remove_face(f1);
-    kernel.remove_face(f3);
-    let f5 = kernel.add_face();
-    let f6 = kernel.add_face();
-    kernel.remove_face(f5);
-    kernel.remove_face(f4);
-    kernel.remove_face(f6);
-
-    assert_eq!(kernel.first_face(), None);
-}
+//#[test]
+//fn test_face_list() {
+//    let mut kernel = ConnectivityKernel::new();
+//
+//    assert_eq!(kernel.first_face(), None);
+//
+//    let f1 = kernel.add_face();
+//    let f2 = kernel.add_face();
+//    let f3 = kernel.add_face();
+//    kernel.remove_face(f1);
+//    kernel.remove_face(f2);
+//    kernel.remove_face(f3);
+//
+//    assert_eq!(kernel.first_face(), None);
+//
+//    let f1 = kernel.add_face();
+//    let f2 = kernel.add_face();
+//    let f3 = kernel.add_face();
+//    kernel.remove_face(f3);
+//    kernel.remove_face(f2);
+//    kernel.remove_face(f1);
+//
+//    assert_eq!(kernel.first_face(), None);
+//
+//    let f1 = kernel.add_face();
+//    let f2 = kernel.add_face();
+//    let f3 = kernel.add_face();
+//    kernel.remove_face(f2);
+//    let f4 = kernel.add_face();
+//    kernel.remove_face(f1);
+//    kernel.remove_face(f3);
+//    let f5 = kernel.add_face();
+//    let f6 = kernel.add_face();
+//    kernel.remove_face(f5);
+//    kernel.remove_face(f4);
+//    kernel.remove_face(f6);
+//
+//    assert_eq!(kernel.first_face(), None);
+//}

@@ -153,6 +153,7 @@ fn connect(
 ) {
     let first_a = a;
     let first_b = b;
+    // Look for a and b such that they share the same face.
     let mut ok = false;
     loop {
         loop {
@@ -160,15 +161,22 @@ fn connect(
                 ok = true;
                 break;
             }
-            a = kernel.next_edge_id_around_vertex(a);
+            a = kernel.next_edge_id_around_vertex(a).unwrap();
+            debug_assert_eq!(kernel[a].vertex, kernel[first_a].vertex);
             if a == first_a { break; }
         }
         if ok { break; }
-        b = kernel.next_edge_id_around_vertex(b);
+        b = kernel.next_edge_id_around_vertex(b).unwrap();
+        debug_assert_eq!(kernel[b].vertex, kernel[first_b].vertex);
         debug_assert!(b != first_b);
     }
 
     let a_prev = kernel[a].prev;
+
+    println!(" > connect {} {}",
+        kernel[a_prev].vertex.to_index(),
+        kernel[b].vertex.to_index()
+    );
     if let Some(face) = kernel.connect_edges(a_prev, b, None) {
         new_faces.push(face);
     }
@@ -259,7 +267,9 @@ impl DecompositionContext {
             let previous_vertex = vertex_positions[kernel[edge.prev].vertex].position();
             let next_vertex = vertex_positions[kernel[edge.next].vertex].position();
             let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
-
+            //println!(" ** current vertex: {} edge {} type {:?}",
+            //    edge.vertex.to_index(), e.to_index(), vertex_type
+            //);
             match vertex_type {
                 VertexType::Start => {
                     sweep_status_push(kernel, vertex_positions, &mut sweep_status, e);
@@ -267,7 +277,7 @@ impl DecompositionContext {
                 }
                 VertexType::End => {
                     if let Some(&(h, VertexType::Merge)) = self.helper.get(&edge.prev.to_index()) {
-                        connect(kernel, edge.prev, h, new_faces);
+                        connect(kernel, e, h, new_faces);
                     }
                     sweep_status.retain(|item|{ *item != edge.prev });
                 }
@@ -344,9 +354,14 @@ pub fn is_y_monotone<'l, Pos: Position2D>(
         let next_vertex = vertex_positions[kernel[edge.next].vertex].position();
         match get_vertex_type(previous_vertex, current_vertex, next_vertex) {
             VertexType::Split | VertexType::Merge => {
-                println!("not y monotone because of vertices {} {} {} edges {} {} {}",
+                println!("not y monotone because of vertices {} {} {} edges {} {} {} \n --- shape: ",
                     kernel[edge.prev].vertex.to_index(), edge.vertex.to_index(), kernel[edge.next].vertex.to_index(),
-                    edge.prev.to_index(), e.to_index(), edge.next.to_index());
+                    edge.prev.to_index(), e.to_index(), edge.next.to_index()
+                );
+                for e in kernel.walk_edge_ids_around_face(face) {
+                    println!(" vertex {}  edge {}", kernel[e].vertex.to_index(), e.to_index());
+                }
+                println!(" ---");
                 return false;
             }
             _ => {}
@@ -704,7 +719,7 @@ fn test_triangulate() {
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_range(0, n_vertices), f1, f2);
+        kernel.add_loop(vertex_range(0, n_vertices), Some(f1), None);
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
@@ -762,6 +777,25 @@ fn test_triangulate_holes() {
             ],
             &[ 4, 4, 3 ]
         ),
+        (
+            &[
+                // outer
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [2.0, 1.0],
+                [3.0, 1.0],
+                [4.0, 0.0],
+                [5.0, 0.0],
+                [3.0, 4.0],
+                [2.0, 4.0],
+                // hole 1
+                //[2.0, 2.0],
+                //[3.0, 2.0],
+                //[2.5, 3.0],
+            ],
+            //&[8, 3]
+            &[8]
+        ),
     ];
 
     let indices = &mut [0 as u16; 1024];
@@ -775,7 +809,7 @@ fn test_triangulate_holes() {
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_range(0, n_vertices), f1, f2);
+        kernel.add_loop(vertex_range(0, n_vertices), Some(f1), Some(f2));
 
         let mut vertex_count = n_vertices;
         for i in 1 .. separators.len() {
@@ -859,7 +893,7 @@ fn test_triangulate_degenerate() {
         let f1 = kernel.add_face();
         let f2 = kernel.add_face();
 
-        kernel.add_loop(vertex_range(0, n_vertices), f1, f2);
+        kernel.add_loop(vertex_range(0, n_vertices), Some(f1), Some(f2));
 
         let n_indices = triangulate_faces(&mut kernel, &[f1], &vertex_positions[i][..], indices);
         for n in 0 .. n_indices/3 {
