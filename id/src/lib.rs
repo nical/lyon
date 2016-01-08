@@ -49,6 +49,10 @@ pub struct IdRange<T, H> {
     pub count: H,
 }
 
+impl<T, H:IntegerHandle> IdRange<T, H> {
+    pub fn len(&self) -> usize { self.count.to_index() }
+}
+
 impl<T, H:Copy> Copy for IdRange<T, H> {}
 
 impl<T, H:Copy> Clone for IdRange<T, H> { fn clone(&self) -> IdRange<T, H> { *self } }

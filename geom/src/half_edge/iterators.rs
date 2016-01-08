@@ -1,6 +1,7 @@
 use half_edge::kernel::{
     ConnectivityKernel, HalfEdge,
     EdgeId, FaceId, VertexId,
+    EdgeContainer, GetNext, GetPrev,
     NO_EDGE,
 };
 
@@ -10,14 +11,14 @@ use std::cmp::PartialEq;
 use std::mem::transmute;
 
 /// Iterates over the half edges around a face.
-pub struct EdgeIdLoop<'l> {
-    kernel: &'l ConnectivityKernel,
+pub struct EdgeIdLoop<'l, Kernel:'l> {
+    kernel: &'l Kernel,
     current_edge: EdgeId,
     last_edge: EdgeId,
     done: bool,
 }
 
-impl<'l> Iterator for EdgeIdLoop<'l> {
+impl<'l, Kernel: EdgeContainer> Iterator for EdgeIdLoop<'l, Kernel> where Kernel::EdgeType: GetNext {
     type Item = EdgeId;
 
     fn next(&mut self) -> Option<EdgeId> {
@@ -31,23 +32,35 @@ impl<'l> Iterator for EdgeIdLoop<'l> {
         if self.current_edge == NO_EDGE {
             return None;
         }
-        self.current_edge = self.kernel[self.current_edge].next;
+        self.current_edge = self.kernel.edge(self.current_edge).next();
         return Some(res);
     }
 }
 
-impl<'l> EdgeIdLoop<'l> {
+impl<'l, Kernel> EdgeIdLoop<'l, Kernel> {
     pub fn new(
-        kernel: &'l ConnectivityKernel,
+        kernel: &'l Kernel,
         first: EdgeId,
         last: EdgeId,
-    ) -> EdgeIdLoop<'l> {
+    ) -> EdgeIdLoop<'l, Kernel> {
         EdgeIdLoop {
             kernel: kernel,
             current_edge: first,
             last_edge: last,
             done: false,
         }
+    }
+}
+
+pub fn iter_edge_loop<'l, Container: EdgeContainer>(container: &'l Container, edge_loop: EdgeId)
+-> EdgeIdLoop<'l, Container>
+where Container::EdgeType: GetNext+GetPrev
+{
+    EdgeIdLoop {
+        kernel: container,
+        current_edge: edge_loop,
+        last_edge: container.edge(edge_loop).prev(),
+        done: false,
     }
 }
 
@@ -327,4 +340,3 @@ impl<'l> PartialEq<DirectedEdgeCirculator<'l>> for DirectedEdgeCirculator<'l> {
         return self.circulator.edge.ne(&other.circulator.edge);
     }
 }
-

@@ -1,15 +1,16 @@
 use std::f32::consts::PI;
-use std::mem::{ swap, transmute };
+use half_edge::vectors::{ Vec2, vec2_sub, vec2_almost_eq, Position2D };
+use half_edge::kernel::{ ConnectivityKernel, EdgeId, FaceId, vertex_range, VertexIdRange };
+use tesselation::monotone::{
+    directed_angle,
+    is_y_monotone,
+    DecompositionContext,
+    TriangulationContext,
+};
+use tesselation::vertex_builder::{ VertexBufferBuilder };
+use tesselation::bezier::{ separate_bezier_faces, triangulate_quadratic_bezier };
 
-use vodk_id::id_vector::IdVector;
-use vodk_alloc::*;
-
-use half_edge::vectors::{ Vec2, vec2_sub };
-use half_edge::kernel::{ ConnectivityKernel, vertex_id, EdgeId, VertexId, FaceId };
-use half_edge::kernel;
-use tesselation::monotone::directed_angle;
-
-use std::slice;
+use vodk_id::id_vector::IdSlice;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindingOrder {
@@ -18,529 +19,254 @@ pub enum WindingOrder {
     Unknown,
 }
 
-#[repr(u16)]
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum OpType {
-    MoveTo,
-    LineTo,
-    QuadraticBezierTo,
-    BezierTo,
-    Close,
+pub enum PointType {
+    Normal,
+    Control,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum PathOperation {
-    MoveTo(VertexId),
-    LineTo(VertexId),
-    QuadraticBezierTo(VertexId, VertexId),
-    BezierTo(VertexId, VertexId, VertexId),
-    Close,
+pub struct PointData {
+    pub position: Vec2,
+    pub point_type: PointType,
 }
 
-pub use self::PathOperation::*;
+impl Position2D for PointData { fn position(&self) -> Vec2 { self.position } }
 
-impl PathOperation {
-    fn op_type(&self) -> OpType {
-        return match self {
-            &MoveTo(_) => OpType::MoveTo,
-            &LineTo(_) => OpType::LineTo,
-            &QuadraticBezierTo(_, _) => OpType::QuadraticBezierTo,
-            &BezierTo(_, _, _) => OpType::BezierTo,
-            &Close => OpType::Close,
-        };
-    }
-
-    pub fn params<'l>(&'l self) -> &'l[VertexId] {
-        return unsafe { match self {
-            &MoveTo(ref to) => { slice::from_raw_parts(to, 1) }
-            &LineTo(ref to) => { slice::from_raw_parts(to, 1) }
-            &QuadraticBezierTo(ref to, _) => { slice::from_raw_parts(to, 2) }
-            &BezierTo(ref to, _, _) => { slice::from_raw_parts(to, 3) }
-            &Close => { &[] }
-        }}
-    }
+pub struct PathBuilder<'l> {
+    vertices: &'l mut Vec<PointData>,
+    last_position: [f32; 2],
+    accum_angle: f32,
+    offset: u16,
 }
 
-pub struct PathBuilder {
-    path: Vec<u16>,
+pub struct PathInfo {
+    pub vertices: VertexIdRange,
+    pub winding: WindingOrder
 }
 
-pub struct Path {
-    data: Vec<u16>,
-    winding: WindingOrder,
-}
-
-/// A slightly more compact representation of a sequence of immutable path operations
-/// than just a simple vector, with the winding order pre-computed
-impl Path {
-    pub fn iter<'l>(&'l self) -> PathIter<'l> { PathIter { path: &self.data[..] } }
-
-    pub fn winding_order(&self) -> WindingOrder { self.winding }
-
-    pub fn recycle(self) -> Allocation { vec::recycle(self.data) }
-
-    pub fn apply_to_kernel(
-        &self,
-        kernel: &mut ConnectivityKernel,
-        edge_attributes: &mut EdgeAttributeVector,
-        mut face_in: FaceId,
-        mut face_out: FaceId
-    ) -> kernel::EdgeId {
-        //if self.winding == WindingOrder::CounterClockwise {
-        //    swap(&mut face_in, &mut face_out);
-        //}
-
-        let mut current_edge = kernel::NO_EDGE;
-        let mut first_edge = kernel::NO_EDGE;
-        let mut prev_vertex = kernel::NO_VERTEX;
-        for op in self.iter() {
-            match op {
-                MoveTo(to) => {
-                    prev_vertex = to;
-                }
-                LineTo(to)
-                | QuadraticBezierTo(_, to)
-                | BezierTo(_, _, to) => {
-                    if current_edge != kernel::NO_EDGE {
-                        current_edge = kernel.extrude_vertex(current_edge, to);
-                    } else {
-                        debug_assert!(prev_vertex != kernel::NO_VERTEX);
-                        current_edge = kernel.add_segment(prev_vertex, to, face_in);
-                    }
-                }
-                Close => {
-                    let mut a = current_edge;
-                    let mut b = first_edge;
-                    if self.winding == WindingOrder::CounterClockwise {
-                        a = kernel[first_edge].opposite;
-                        b = kernel[current_edge].opposite;
-                    }
-                    kernel.connect_edges(a, b, Some(face_out));
-                }
-            }
-            if first_edge == kernel::NO_EDGE {
-                first_edge = current_edge;
-            }
+impl<'l> PathBuilder<'l> {
+    pub fn begin(storage: &'l mut Vec<PointData>, pos: Vec2) -> PathBuilder {
+        let offset = storage.len() as u16;
+        storage.push(PointData { position: pos, point_type: PointType::Normal });
+        PathBuilder {
+            vertices: storage,
+            last_position: [::std::f32::NAN, ::std::f32::NAN],
+            accum_angle: 0.0,
+            offset: offset,
         }
-
-        return first_edge;
     }
 
-}
-
-pub type VertexAttributeVector = IdVector<VertexId, Vec2>;
-pub type EdgeAttributeVector = IdVector<EdgeId, EdgeType>;
-
-enum EdgeType {
-    Line,
-    QuadraticBezier(VertexId),
-    Bezier(VertexId, VertexId),
-}
-
-impl PathBuilder {
-    pub fn with_alloc(alloc: Allocation, begin: VertexId) -> PathBuilder {
-        println!("with alloc {}", alloc.size());
-        let mut builder = PathBuilder { path: create_vec_from(alloc) };
-        debug_assert!(builder.path.is_empty());
-        builder.push_op(OpType::MoveTo);
-        builder.push_vertex(begin);
-        return builder;
-    }
-
-    pub fn begin(at: VertexId) -> PathBuilder {
-        let mut builder = PathBuilder { path: Vec::with_capacity(32) };
-        debug_assert!(builder.path.is_empty());
-        builder.push_op(OpType::MoveTo);
-        builder.push_vertex(at);
-        return builder;
-    }
-
-    pub fn line_to(mut self, to: VertexId) -> PathBuilder {
-        self.push_op(OpType::LineTo);
-        self.push_vertex(to);
+    pub fn line_to(mut self, to: Vec2) -> PathBuilder<'l> {
+        self.push(to, PointType::Normal);
         return self;
     }
 
-    pub fn bezier_to(mut self, cp1: VertexId, cp2: VertexId, to: VertexId) -> PathBuilder {
-        self.push_op(OpType::BezierTo);
-        self.push_vertex(cp1);
-        self.push_vertex(cp2);
-        self.push_vertex(to);
+    pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
+        self.push(ctrl, PointType::Control);
+        self.push(to, PointType::Normal);
         return self;
     }
 
-    pub fn quadratic_bezier_to(mut self, cp: VertexId, to: VertexId) -> PathBuilder {
-        self.push_op(OpType::QuadraticBezierTo);
-        self.push_vertex(cp);
-        self.push_vertex(to);
+    pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+        self.push(ctrl1, PointType::Control);
+        self.push(ctrl2, PointType::Control);
+        self.push(to, PointType::Normal);
         return self;
     }
 
-    pub fn close(mut self) -> PathBuilder {
-        self.push_op(OpType::Close);
-        return self;
-    }
+    pub fn close(mut self) -> PathInfo {
+        let offset = self.offset as usize;
+        let last = self.vertices.len() - 1;
+        // If the first and last vertices are the same, remove the last vertex.
+        let last = if vec2_almost_eq(self.vertices[last].position,self.vertices[offset].position) {
+            self.vertices.pop();
+            last - 1
+        } else { last };
 
-    pub fn clear(&mut self) {
-        self.path.clear();
-    }
+        let vertex_count = last - offset + 1;
+        let winding = if vertex_count > 2 {
+            self.accum_angle += directed_angle(
+                vec2_sub(self.vertices[last - 1].position, self.vertices[last].position),
+                vec2_sub(self.vertices[offset].position, self.vertices[last].position)
+            );
+            self.accum_angle += directed_angle(
+                vec2_sub(self.vertices[last].position, self.vertices[offset].position),
+                vec2_sub(self.vertices[offset + 1].position, self.vertices[offset].position)
+            );
 
-    pub fn iter<'l>(&'l self) -> PathIter<'l> {
-        PathIter { path: &self.path[..] }
-    }
+            if self.accum_angle > ((vertex_count-1) as f32) * PI {
+                WindingOrder::Clockwise
+            } else {
+                WindingOrder::CounterClockwise
+            }
+        } else {
+            WindingOrder::Unknown
+        };
 
-    pub fn into_path(self, vertices: &VertexAttributeVector) -> Path {
-        let winding = compute_winding_order(self.iter(), vertices);
-        Path {
-            data: self.path,
+        return PathInfo {
+            vertices: vertex_range(self.offset, vertex_count as u16),
             winding: winding,
-        }
+        };
     }
 
-    fn push_vertex(&mut self, id: VertexId) {
-        self.path.push(
-            unsafe { transmute(id) }
+    fn push(&mut self, point: Vec2, ptype: PointType) {
+        if point == self.last_position {
+            return;
+        }
+        self.vertices.push(PointData{ position: point, point_type: ptype });
+        self.update_angle();
+        self.last_position = point;
+    }
+
+    fn update_angle(&mut self) {
+        if self.vertices.len() - (self.offset as usize) > 2 {
+            let last = self.vertices.len() - 1;
+            self.accum_angle += directed_angle(
+                vec2_sub(self.vertices[last - 2].position, self.vertices[last - 1].position),
+                vec2_sub(self.vertices[last].position, self.vertices[last - 1].position)
+            );
+        }
+    }
+}
+
+impl PathInfo {
+    pub fn apply_to_kernel(&self,
+        kernel: &mut ConnectivityKernel,
+        face_in: Option<FaceId>,
+        face_out: Option<FaceId>
+    ) -> EdgeId {
+        return match self.winding {
+            WindingOrder::Clockwise => { kernel.add_loop(self.vertices, face_in, face_out) }
+            WindingOrder::CounterClockwise => { kernel.add_loop(self.vertices, face_out, face_in) }
+            _ => { panic!("Not implemented yet!"); }
+        }
+    }
+}
+
+pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
+    path: PathInfo,
+    holes: &[PathInfo],
+    points: &'l Vec<PointData>,
+    output: &mut Output
+) {
+    output.begin_geometry();
+
+    let mut kernel = ConnectivityKernel::new();
+
+    let face = kernel.add_face();
+    path.apply_to_kernel(&mut kernel, Some(face), None);
+    for hole in holes {
+        hole.apply_to_kernel(&mut kernel, None, Some(face));
+    }
+
+    for v in points {
+        output.push_vertex(v.position());
+    }
+
+    let vertex_positions = IdSlice::new(points);
+    let mut monotone_faces: Vec<FaceId> = vec![face];
+    let mut beziers: Vec<[Vec2; 3]> = vec![];
+
+    let first_edge = kernel[face].first_edge;
+    separate_bezier_faces(
+        &mut kernel,
+        first_edge,
+        vertex_positions,
+        &mut beziers
+    );
+
+    let mut ctx = DecompositionContext::new();
+    let res = ctx.y_monotone_decomposition(
+        &mut kernel,
+        face,
+        vertex_positions,
+        &mut monotone_faces
+    );
+    assert_eq!(res, Ok(()));
+
+    let mut triangulator = TriangulationContext::new();
+    for f in monotone_faces {
+        assert!(is_y_monotone(&kernel, vertex_positions, f));
+        let res = triangulator.y_monotone_triangulation(
+            &kernel, f,
+            vertex_positions,
+            output
         );
+        assert_eq!(res, Ok(()));
     }
 
-    fn push_op(&mut self, op: OpType) {
-        self.path.push(
-            unsafe { transmute(op) }
-        );
-    }
-}
-
-pub struct PathBuilder2 {
-    builder: PathBuilder,
-    vertices: VertexAttributeVector,
-}
-
-
-impl PathBuilder2 {
-    pub fn with_alloc(alloc: Allocation, begin: VertexId) -> PathBuilder2 {
-        return PathBuilder2 {
-            builder: PathBuilder::with_alloc(alloc, begin),
-            vertices: VertexAttributeVector::new(),
-        };
-    }
-
-    pub fn begin(v: Vec2) -> PathBuilder2 {
-        // TODO: clean this up
-        let mut builder = PathBuilder2 {
-            builder: PathBuilder { path: Vec::with_capacity(32) },
-            vertices: VertexAttributeVector::with_capacity(32),
-        };
-        let id = builder.vertices.push(v);
-        builder.builder.push_op(OpType::MoveTo);
-        builder.builder.push_vertex(id);
-        return builder;
-    }
-
-    pub fn line_to(mut self, to: Vec2) -> PathBuilder2 {
-        let id = self.vertices.push(to);
-        self.builder = self.builder.line_to(id);
-        return self;
-    }
-
-    pub fn bezier_to(mut self, cp1: Vec2, cp2: Vec2, to: Vec2) -> PathBuilder2 {
-        let id1 = self.vertices.push(cp1);
-        let id2 = self.vertices.push(cp2);
-        let id3 = self.vertices.push(to);
-        self.builder = self.builder.bezier_to(id1, id2, id3);
-        return self;
-    }
-
-    pub fn quadratic_bezier_to(mut self, cp: Vec2, to: Vec2) -> PathBuilder2 {
-        let id1 = self.vertices.push(cp);
-        let id2 = self.vertices.push(to);
-        self.builder = self.builder.quadratic_bezier_to(id1, id2);
-        return self;
-    }
-
-    pub fn close(mut self) -> PathBuilder2 {
-        self.builder = self.builder.close();
-        return self;
-    }
-
-    pub fn clear(&mut self) {
-        self.builder.clear();
-        self.vertices.clear();
-    }
-
-    pub fn iter<'l>(&'l self) -> PathIter<'l> {
-        self.builder.iter()
-    }
-
-    pub fn into_path(self) -> (Path, VertexAttributeVector) {
-        return (self.builder.into_path(&self.vertices), self.vertices);
-    }
-}
-
-pub fn compute_winding_order<'l, IT:Iterator<Item = PathOperation>>(
-    path: IT,
-    vertices: &'l VertexAttributeVector
-) -> WindingOrder {
-    let mut accum_angle = 0.0;
-    let mut vertex_count = 0;
-    let mut prev = [0.0, 0.0];
-    let mut prev_prev = [0.0, 0.0];
-    let mut first = [0.0, 0.0];
-    let mut second = [0.0, 0.0];
-    let mut is_closed = false;
-    for op in path {
-        for &p in op.params() {
-            let vertex = vertices[p];
-            if vertex_count >= 2 {
-                accum_angle += directed_angle(vec2_sub(prev_prev, prev), vec2_sub(vertex, prev));
-                prev_prev = prev;
-                prev = vertex
-            } else if vertex_count == 0 {
-                prev_prev = vertex;
-                first = vertex;
-            } else if vertex_count == 1 {
-                prev = vertex;
-                second = vertex;
-            }
-            vertex_count += 1;
-        }
-        if op == Close {
-            if vertex_count > 2 {
-                accum_angle += directed_angle(vec2_sub(prev_prev, prev), vec2_sub(first, prev));
-                vertex_count += 1;
-            }
-            accum_angle += directed_angle(vec2_sub(prev, first), vec2_sub(second, first));
-            is_closed = true;
-        }
-    }
-
-    if !is_closed || vertex_count < 3 {
-        return WindingOrder::Unknown;
-    }
-
-    //println!("accum: {} vertex_count: {}", accum_angle, vertex_count);
-    return if accum_angle > ((vertex_count-1) as f32) * PI { WindingOrder::Clockwise }
-           else { WindingOrder::CounterClockwise };
-}
-
-pub struct PathIter<'l> {
-    path: &'l[u16]
-}
-
-impl<'l> Iterator for PathIter<'l> {
-    type Item = PathOperation;
-    fn next(&mut self) -> Option<PathOperation> {
-        if self.path.len() == 0 { return None; }
-        let op = unsafe {
-            transmute(self.path[0])
-        };
-
-        let result;
-        let advance;
-        match op {
-            OpType::Close => {
-                result = Close;
-                advance = 1;
-            }
-            OpType::MoveTo => {
-                result = MoveTo(vertex_id(self.path[1]));
-                advance = 2;
-            }
-            OpType::LineTo => {
-                result = LineTo(vertex_id(self.path[1]));
-                advance = 2;
-            }
-            OpType::QuadraticBezierTo => {
-                result = QuadraticBezierTo(
-                    vertex_id(self.path[1]),
-                    vertex_id(self.path[2])
-                );
-                advance = 3;
-            }
-            OpType::BezierTo => {
-                result = BezierTo(
-                    vertex_id(self.path[1]),
-                    vertex_id(self.path[2]),
-                    vertex_id(self.path[3])
-                );
-                advance = 4;
-            }
-        }
-        self.path = &self.path[advance..];
-        return Some(result);
+    for b in beziers {
+        println!(" -- adding bezier loop");
+        let from = b[0];
+        let ctrl = b[1];
+        let to = b[2];
+        triangulate_quadratic_bezier(from, ctrl, to, 16, output);
     }
 }
 
 
-#[cfg(test)]
-fn assert_path_ops(path: &Path, expected: &[PathOperation]) {
-    let mut i = 0;
-    for op in path.iter() {
-        assert_eq!(op, expected[i]);
-        i += 1;
-    }
-    assert_eq!(i, expected.len());
+#[test]
+fn test_path_builder_simple() {
+    let mut storage = vec![];
+    // clockwise
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .line_to([1.0, 0.0]).line_to([1.0, 1.0]).close();
+    assert_eq!(path.vertices, vertex_range(0, 3));
+    assert_eq!(path.winding, WindingOrder::Clockwise);
+    assert_eq!(storage[0].position, [0.0, 0.0]);
+    assert_eq!(storage[1].position, [1.0, 0.0]);
+    assert_eq!(storage[2].position, [1.0, 1.0]);
+    assert_eq!(storage[0].point_type, PointType::Normal);
+    assert_eq!(storage[1].point_type, PointType::Normal);
+    assert_eq!(storage[2].point_type, PointType::Normal);
+
+    // counter-clockwise
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .line_to([1.0, 1.0]).line_to([1.0, 0.0]).close();
+    assert_eq!(path.vertices, vertex_range(3, 3));
+    assert_eq!(path.winding, WindingOrder::CounterClockwise);
+
+    // line_to back to the first vertex (should ignore the last vertex)
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .line_to([1.0, 1.0]).line_to([1.0, 0.0]).line_to([0.0, 0.0]).close();
+    assert_eq!(path.vertices, vertex_range(6, 3));
+    assert_eq!(path.winding, WindingOrder::CounterClockwise);
 }
 
 #[test]
-fn test_path_op() {
-    let a = vertex_id(0);
-    let b = vertex_id(1);
-    let c = vertex_id(2);
-
-    let move_to = MoveTo(a);
-    let line_to = LineTo(a);
-    let quadratic_to = QuadraticBezierTo(a, b);
-    let bezier_to = BezierTo(a, b, c);
-    let close = Close;
-
-    assert_eq!(move_to.params(), &[a]);
-    assert_eq!(line_to.params(), &[a]);
-    assert_eq!(quadratic_to.params(), &[a, b]);
-    assert_eq!(bezier_to.params(), &[a, b, c]);
-    assert_eq!(close.params(), &[]);
-
-    assert_eq!(move_to.op_type(), OpType::MoveTo);
-    assert_eq!(line_to.op_type(), OpType::LineTo);
-    assert_eq!(quadratic_to.op_type(), OpType::QuadraticBezierTo);
-    assert_eq!(bezier_to.op_type(), OpType::BezierTo);
-    assert_eq!(close.op_type(), OpType::Close);
-}
-
-#[test]
-fn test_simple_paths_winding() {
-
-    let mut vertices = VertexAttributeVector::new();
-    let a = vertices.push([0.0, 0.0]);
-    let b = vertices.push([1.0, 0.0]);
-    let c = vertices.push([1.0, 1.0]);
-    let d = vertices.push([0.0, 1.0]);
-
-    // Simple closed triangle path.
-    let path = PathBuilder::begin(a).line_to(b).line_to(c).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), LineTo(b), LineTo(c), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
-
-
-    // Closed path with finishes with the first point explicitly.
-    let path = PathBuilder::begin(a)
-        .line_to(b).line_to(c).line_to(d).line_to(a).close()
-        .into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), LineTo(b), LineTo(c), LineTo(d), LineTo(a), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
-
-
-    // Same as previous path but does not LinTo back to a (so closing the path
-    // has to account for an extra line).
-    let path = PathBuilder::begin(a).line_to(b).line_to(c).line_to(d).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), LineTo(b), LineTo(c), LineTo(d), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
-
-
-    // Same path with reverse winding order.
-    let path = PathBuilder::begin(d).line_to(c).line_to(b).line_to(a).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(d), LineTo(c), LineTo(b), LineTo(a), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::CounterClockwise);
-
-
-    // Non-closed path.
-    let path = PathBuilder::begin(a).line_to(b).line_to(c).into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), LineTo(b), LineTo(c)]);
-    assert_eq!(path.winding_order(), WindingOrder::Unknown);
-
-
-    // Just one segment with a close operation at the end. Can't actually close the
-    // path because you need at least 3 points.
-    let path = PathBuilder::begin(a).line_to(b).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), LineTo(b), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Unknown);
-
-
-    // Simple Quadratic bezier
-    let path = PathBuilder::begin(a).quadratic_bezier_to(b, c).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), QuadraticBezierTo(b, c), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
-
-
-    // Simple bezier
-    let path = PathBuilder::begin(a).bezier_to(b, c, d).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), BezierTo(b, c, d), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
-
-
-    // Simple bezier
-    let path = PathBuilder::begin(a).bezier_to(b, c, a).close().into_path(&vertices);
-    assert_path_ops(&path, &[MoveTo(a), BezierTo(b, c, a), Close]);
-    assert_eq!(path.winding_order(), WindingOrder::Clockwise);
-}
-
-#[test]
-fn test_simple_paths_kernel() {
+fn test_path_builder_simple_bezier() {
     let mut kernel = ConnectivityKernel::new();
-    let mut vertices = VertexAttributeVector::new();
-    let mut edges = EdgeAttributeVector::new();
+    let mut storage = vec![];
 
-    let a = vertices.push([0.0, 0.0]);
-    let b = vertices.push([1.0, 0.0]);
-    let c = vertices.push([1.0, 1.0]);
-    let d = vertices.push([0.0, 1.0]);
+    // clockwise
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .quadratic_bezier_to([1.0, 0.0], [1.0, 1.0]).close();
+    assert_eq!(path.vertices, vertex_range(0, 3));
+    assert_eq!(path.winding, WindingOrder::Clockwise);
 
+    // counter-clockwise
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .quadratic_bezier_to([1.0, 1.0], [1.0, 0.0]).close();
+    assert_eq!(path.vertices, vertex_range(3, 3));
+    assert_eq!(path.winding, WindingOrder::CounterClockwise);
+}
+
+#[test]
+fn test_apply_to_kernel_simple() {
+    let mut kernel = ConnectivityKernel::new();
+    let mut storage = vec![];
+
+    // clockwise
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .line_to([1.0, 0.0]).line_to([1.0, 1.0]).close();
     let face = kernel.add_face();
-
-    // Simple closed triangle path.
-    let path = PathBuilder::begin(a).line_to(b).line_to(c).close().into_path(&vertices);
-    let edge = path.apply_to_kernel(&mut kernel, &mut edges, face, kernel::NO_FACE);
+    let edge = path.apply_to_kernel(&mut kernel, Some(face), None);
     assert_eq!(kernel.walk_edge_ids(edge).count(), 3);
-}
 
-#[test]
-fn test_simple_quadratic_paths_kernel() {
-    let mut kernel = ConnectivityKernel::new();
-    let mut vertices = VertexAttributeVector::new();
-    let mut edges = EdgeAttributeVector::new();
-
-    let a = vertices.push([0.0, 0.0]);
-    let b = vertices.push([1.0, 0.0]);
-    let c = vertices.push([1.0, 1.0]);
-    let d = vertices.push([0.0, 1.0]);
-
+    // counter-clockwise
+    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
+        .line_to([1.0, 1.0]).line_to([1.0, 0.0]).close();
     let face = kernel.add_face();
-
-    // Simple closed triangle path.
-    let path = PathBuilder::begin(a).quadratic_bezier_to(b, c).line_to(d).close().into_path(&vertices);
-    let edge = path.apply_to_kernel(&mut kernel, &mut edges, face, kernel::NO_FACE);
+    let edge = path.apply_to_kernel(&mut kernel, Some(face), None);
     assert_eq!(kernel.walk_edge_ids(edge).count(), 3);
-}
-
-#[test]
-fn test_simple_quadratic_paths_kernel2() {
-    let (path, vertices) =
-        PathBuilder2::begin([0.0, 0.0]).quadratic_bezier_to([0.5, 0.0], [0.7, 0.5])
-        .line_to([-0.1, 0.5]).quadratic_bezier_to([-0.1, 0.2], [-0.5, 0.0])
-        .close().into_path();
-
-    let mut edges = EdgeAttributeVector::new();
-    let mut kernel = ConnectivityKernel::new();
-    let face = kernel.add_face();
-
-    // Simple closed triangle path.
-    let edge = path.apply_to_kernel(&mut kernel, &mut edges, face, kernel::NO_FACE);
-    assert_eq!(kernel.walk_edge_ids(edge).count(), 4);
-}
-
-#[test]
-fn test_path_recycle() {
-    let mut vertices = VertexAttributeVector::new();
-    let a = vertices.push([0.0, 0.0]);
-    let b = vertices.push([1.0, 0.0]);
-    let c = vertices.push([1.0, 1.0]);
-    let _ = vertices.push([0.0, 1.0]);
-
-    let alloc = Allocation::allocate_bytes(128);
-    assert_eq!(alloc.size(), 128);
-
-    // Simple closed triangle path.
-    let alloc = PathBuilder::with_alloc(alloc, a).line_to(b).line_to(c).close().into_path(&vertices).recycle();
-    let alloc = PathBuilder::with_alloc(alloc, a).line_to(b).line_to(c).close().into_path(&vertices).recycle();
-    let alloc = PathBuilder::with_alloc(alloc, a).line_to(b).line_to(c).close().into_path(&vertices).recycle();
-    assert_eq!(alloc.size(), 128);
 }

@@ -11,8 +11,12 @@ pub type Vec2 = [f32; 2];
 pub type Vec3 = [f32; 3];
 pub type Vec4 = [f32; 4];
 
+pub fn vec2_square_len(a: Vec2) -> f32 { a[X]*a[X] + a[Y]*a[Y] }
 pub fn vec2_add(a: Vec2, b: Vec2) -> Vec2 { [a[X]+b[X], a[Y]+b[Y]] }
 pub fn vec2_sub(a: Vec2, b: Vec2) -> Vec2 { [a[X]-b[X], a[Y]-b[Y]] }
+pub fn vec2_mul(a: Vec2, b: f32) -> Vec2 { [a[X]*b, a[Y]*b] }
+pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool { vec2_square_len(vec2_sub(a, b)) < 0.000001 }
+pub fn vec2_cross(a: Vec2, b: Vec2) -> f32 { a[X]*b[Y] - a[Y]*b[X] }
 
 //pub trait Attribute<AttributeType, AttributeName> {
 pub trait Attribute<AttributeType> {
