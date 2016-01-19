@@ -200,7 +200,7 @@ impl ConnectivityKernel {
 
     /// Run a few debug-only assertions to check the state of a given edge.
     pub fn debug_assert_edge_invariants(&self, id: EdgeId) {
-        return;
+        //return;
         debug_assert!(is_valid(self[id].face));
         debug_assert_eq!(self[self[id].next].prev, id);
         debug_assert_eq!(self[self[id].prev].next, id);
@@ -350,6 +350,105 @@ impl ConnectivityKernel {
 
         if add_face {
             let opposite_face = self.add_face_with_edge(e1_next);
+            let mut it = new_opposite_edge;
+            loop {
+                let edge = &mut self[it];
+                edge.face = opposite_face;
+                it = edge.next;
+                println!(" -> new face loop {}", it.handle);
+                if it == new_opposite_edge { break; }
+            }
+            self.debug_assert_face_invariants(opposite_face);
+            return Some(opposite_face);
+        }
+
+        return None;
+    }
+
+    /// Connect edges e1 and e2 .
+    ///
+    /// This operation may add a new face. If so, the face's id is returned.
+    /// If a face id is provided as parameter, and a face must be added, the
+    /// provided face will be used instead of creating a new one.
+    pub fn connect_edges2(
+        &mut self,
+        e1: EdgeId,
+        e2: EdgeId,
+    ) -> Option<FaceId> {
+        //
+        // -e1prev-> v1 --e1----->
+        //           |^
+        //           n|
+        //           ||   new_face
+        //           |o
+        //           v|
+        //    <--e2- v2 <--e2_prev-
+        // ______________________
+        //
+        // n: new_edge (returned)
+        // o: new_opposite_edge
+
+        debug_assert!(is_valid(e1));
+        debug_assert!(is_valid(e2));
+
+        let mut add_face = true;
+        let original_face = self[e1].face;
+
+        debug_assert!(is_valid(original_face));
+
+        // Check whether we are connecting to a hole in the face, in which case
+        // we should not add a face.
+        for i in 0 .. self[original_face].inner_edges.len() {
+            for e in self.walk_edge_ids(self[original_face].inner_edges[i]) {
+                if e == e1 || e == e2 {
+                    // connecting to one of the inner loops
+                    add_face = false;
+                    // remove the hole from this face
+                    break;
+                }
+            }
+            if !add_face {
+                self[original_face].inner_edges.remove(i);
+                break;
+            }
+        }
+
+        let e1_prev = self[e1].prev;
+        let e2_prev = self[e2].prev;
+        let v1 = self[e1].vertex;
+        let v2 = self[e2].vertex;
+
+        debug_assert!(is_valid(e1_prev));
+        debug_assert!(is_valid(e2_prev));
+
+        let new_edge = self.add_edge(HalfEdge {
+            next: e2,
+            prev: e1_prev,
+            opposite: NO_EDGE,
+            face: original_face,
+            vertex: v1
+        });
+        let new_opposite_edge = self.add_edge(HalfEdge {
+            next: e1,
+            prev: e2_prev,
+            opposite: new_edge,
+            face: original_face, // may become opposite_face
+            vertex: v2
+        });
+        self[new_edge].opposite = new_opposite_edge;
+
+        println!(" connect_edges({}, {}) -> {}", e1.handle, e2.handle, new_edge.handle);
+
+        self[e1].prev = new_opposite_edge;
+        self[e2].prev = new_edge;
+        self[e1_prev].next = new_edge;
+        self[e2_prev].next = new_opposite_edge;
+
+        self[original_face].first_edge = new_edge;
+        self.debug_assert_face_invariants(original_face);
+
+        if add_face {
+            let opposite_face = self.add_face_with_edge(new_opposite_edge);
             let mut it = new_opposite_edge;
             loop {
                 let edge = &mut self[it];

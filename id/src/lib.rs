@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::ops::Add;
+use std::hash::{ Hash, Hasher };
 
 pub mod id_vector;
 pub mod sparse_id_vector;
@@ -8,10 +9,15 @@ pub mod id_list;
 
 // --------------------------------------------------------------------------------------------- Id
 
-#[derive(Debug)]
 pub struct Id<T, H> {
     pub handle: H,
     pub _marker: PhantomData<T>
+}
+
+impl<T, H: std::fmt::Display> std::fmt::Debug for Id<T, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Id#{}", self.handle)
+    }
 }
 
 impl<T, H:Copy> Copy for Id<T, H> {}
@@ -40,10 +46,15 @@ impl<T, H:Copy+FromIndex> FromIndex for Id<T, H> {
     fn from_index(idx: usize) -> Id<T, H> { Id::new(FromIndex::from_index(idx)) }
 }
 
+impl<T, Handle: Hash> Hash for Id<T, Handle> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+    }
+}
+
 
 // ---------------------------------------------------------------------------------------- IdRange
 
-#[derive(Debug)]
 pub struct IdRange<T, H> {
     pub first: Id<T, H>,
     pub count: H,
@@ -51,6 +62,12 @@ pub struct IdRange<T, H> {
 
 impl<T, H:IntegerHandle> IdRange<T, H> {
     pub fn len(&self) -> usize { self.count.to_index() }
+}
+
+impl<T, H: std::fmt::Display> std::fmt::Debug for IdRange<T, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Id#[{}..{}]", self.first.handle, self.count)
+    }
 }
 
 impl<T, H:Copy> Copy for IdRange<T, H> {}
@@ -93,10 +110,16 @@ impl<T, H:IntegerHandle> Iterator for IdRange<T, H> {
 // ------------------------------------------------------------------------------------------ GenId
 // TODO: remove it or implement traits manually
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct GenId<T, H:Copy, G> {
     pub id: Id<T, H>,
     pub gen: G,
+}
+
+impl<T, H: Copy+std::fmt::Display, G: std::fmt::Display> std::fmt::Debug for GenId<T, H, G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "GenId#{}({})", self.id.handle, self.gen)
+    }
 }
 
 impl<T, H:IntegerHandle, G: PartialEq> PartialEq for GenId<T, H, G> {

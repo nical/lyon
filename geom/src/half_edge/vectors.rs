@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 
 pub static X: usize = 0;
 pub static Y: usize = 1;
@@ -15,8 +16,50 @@ pub fn vec2_square_len(a: Vec2) -> f32 { a[X]*a[X] + a[Y]*a[Y] }
 pub fn vec2_add(a: Vec2, b: Vec2) -> Vec2 { [a[X]+b[X], a[Y]+b[Y]] }
 pub fn vec2_sub(a: Vec2, b: Vec2) -> Vec2 { [a[X]-b[X], a[Y]-b[Y]] }
 pub fn vec2_mul(a: Vec2, b: f32) -> Vec2 { [a[X]*b, a[Y]*b] }
-pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool { vec2_square_len(vec2_sub(a, b)) < 0.000001 }
 pub fn vec2_cross(a: Vec2, b: Vec2) -> f32 { a[X]*b[Y] - a[Y]*b[X] }
+
+pub fn f32_almost_eq(a: f32, b:f32) -> bool { (a - b).abs() < 0.000001 }
+pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool {
+    vec2_square_len(vec2_sub(a, b)) < 0.000001
+}
+
+
+/// Angle between vectors v1 and v2 (oriented clockwise with y pointing downward).
+///
+/// (equivalent to counter-clockwise if y points upward)
+///
+/// ex: directed_angle([0,1], [1,0]) = 3/2 Pi rad
+///     x       __
+///   0-->     /  \
+///  y|       |  x--> v2
+///   v        \ |v1
+///              v
+pub fn directed_angle(v1: Vec2, v2: Vec2) -> f32 {
+    let a = (v2.y()).atan2(v2.x()) - (v1.y()).atan2(v1.x());
+    return if a < 0.0 { a + 2.0 * PI } else { a };
+}
+
+#[test]
+pub fn test_directed_angle() {
+    assert!(f32_almost_eq(directed_angle([1.0, 1.0], [1.0, 1.0]), 0.0));
+    assert!(f32_almost_eq(directed_angle([1.0, 0.0], [0.0, 1.0]), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle([1.0, 0.0], [-1.0, 0.0]), PI));
+    assert!(f32_almost_eq(directed_angle([1.0, 0.0], [0.0, -1.0]), PI * 1.5));
+
+    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [1.0, 0.0]), PI * 0.25));
+    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [1.0, 1.0]), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [-1.0, 1.0]), PI));
+    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [-1.0, -1.0]), PI * 1.5));
+
+    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [3.0, 0.0]), PI * 0.25));
+    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [3.0, 3.0]), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [-3.0, 3.0]), PI));
+    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [-3.0, -3.0]), PI * 1.5));
+
+    assert!(f32_almost_eq(directed_angle([-1.0, 0.0], [1.0, 0.0]), PI));
+    assert!(f32_almost_eq(directed_angle([-1.0, 0.0], [0.0, 1.0]), PI * 1.5));
+    assert!(f32_almost_eq(directed_angle([-1.0, 0.0], [0.0, -1.0]), PI * 0.5));
+}
 
 //pub trait Attribute<AttributeType, AttributeName> {
 pub trait Attribute<AttributeType> {

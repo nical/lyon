@@ -1,8 +1,7 @@
 use std::f32::consts::PI;
-use half_edge::vectors::{ Vec2, vec2_sub, vec2_almost_eq, Position2D };
+use half_edge::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Position2D };
 use half_edge::kernel::{ ConnectivityKernel, EdgeId, FaceId, vertex_range, VertexIdRange };
 use tesselation::monotone::{
-    directed_angle,
     is_y_monotone,
     DecompositionContext,
     TriangulationContext,
