@@ -60,10 +60,6 @@ pub struct IdRange<T, H> {
     pub count: H,
 }
 
-impl<T, H:IntegerHandle> IdRange<T, H> {
-    pub fn len(&self) -> usize { self.count.to_index() }
-}
-
 impl<T, H: std::fmt::Display> std::fmt::Debug for IdRange<T, H> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Id#[{}..{}]", self.first.handle, self.count)
@@ -81,9 +77,35 @@ impl<T, H:PartialEq> PartialEq for IdRange<T, H> {
 impl<T, H:Copy+Eq> Eq for IdRange<T, H> {}
 
 impl<T, H:IntegerHandle> IdRange<T, H> {
+    pub fn len(self) -> usize { self.count.to_index() }
+
+    pub fn is_empty(self) -> bool { self.len() == 0 }
+
     pub fn get(self, i: H) -> Id<T, H> {
         debug_assert!(i < self.count);
         return Id { handle: self.first.handle + i, _marker: PhantomData };
+    }
+
+    /// Return a range with the front element popped, or None if the range is empty.
+    pub fn shrinked_left(self) -> Option<IdRange<T, H>> {
+        if self.is_empty() {
+            return None;
+        }
+        return Some(IdRange{
+            count: FromIndex::from_index(self.count.to_index() - 1),
+            first: FromIndex::from_index(self.first.to_index() + 1),
+        });
+    }
+
+    /// Return a range with the back element popped, or None if the range is empty.
+    pub fn shrinked_right(self) -> Option<IdRange<T, H>> {
+        if self.is_empty() {
+            return None;
+        }
+        return Some(IdRange{
+            first: self.first,
+            count: FromIndex::from_index(self.count.to_index() - 1),
+        });
     }
 }
 
@@ -105,6 +127,55 @@ impl<T, H:IntegerHandle> Iterator for IdRange<T, H> {
 
     fn count(self) -> usize { self.count.to_index() }
 }
+
+pub struct ReverseIdRange<T, H> {
+    range: IdRange<T, H>,
+}
+
+impl<T, H: std::fmt::Display> std::fmt::Debug for ReverseIdRange<T, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "ReverseId#[{}..{}]", self.range.first.handle, self.range.count)
+    }
+}
+
+impl<T, H:Copy> Copy for ReverseIdRange<T, H> {}
+
+impl<T, H:Copy> Clone for ReverseIdRange<T, H> { fn clone(&self) -> ReverseIdRange<T, H> { *self } }
+
+impl<T, H:PartialEq> PartialEq for ReverseIdRange<T, H> {
+    fn eq(&self, other: &ReverseIdRange<T,H>) -> bool { self.range.eq(&other.range) }
+}
+
+impl<T, H:Copy+Eq> Eq for ReverseIdRange<T, H> {}
+
+impl<T, H:IntegerHandle> ReverseIdRange<T, H> {
+
+    pub fn new(range: IdRange<T, H>) -> ReverseIdRange<T, H> { ReverseIdRange { range: range } }
+
+    pub fn len(&self) -> usize { self.range.len() }
+
+    pub fn is_empty(self) -> bool { self.len() == 0 }
+
+    pub fn get(self, i: H) -> Id<T, H> { self.range.get(i) }
+}
+
+impl<T, H:IntegerHandle> Iterator for ReverseIdRange<T, H> {
+    type Item = Id<T, H>;
+    fn next(&mut self) -> Option<Id<T, H>> {
+        if self.range.count.to_index() == 0 {
+            return None;
+        }
+        self.range.count = FromIndex::from_index(self.range.count.to_index() - 1);
+        return Some(FromIndex::from_index(self.range.first.to_index() + self.range.count.to_index()));
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
+    }
+
+    fn count(self) -> usize { self.range.count() }
+}
+
 
 
 // ------------------------------------------------------------------------------------------ GenId

@@ -1,17 +1,35 @@
-use half_edge::vectors::{ Vec2 };
-use half_edge::kernel::{ VertexId, vertex_id };
+use half_edge::kernel::{ VertexId, VertexIdRange, vertex_id };
 
-use vodk_id::Id;
+use vodk_id::{ Id, IdRange };
+
+pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
+    IdRange {
+        first: Id::new(from),
+        count: to - from,
+    }
+}
 
 #[derive(Debug)]
 pub struct Point_;
 pub type PointId = Id<Point_, u16>;
 pub fn point_id(idx: u16) -> PointId { PointId::new(idx) }
 
-pub enum Direction {
-    Forward,
-    Backward,
-}
+pub use half_edge::iterators::{Direction };
+
+//#[derive(Copy, Clone, Debug)]
+//pub enum Direction {
+//    Forward,
+//    Backward,
+//}
+//
+//impl Direction {
+//    pub fn reverse(self) -> Direction {
+//        match self {
+//            Direction::Forward => { Direction::Backward }
+//            Direction::Backward => { Direction::Forward }
+//        }
+//    }
+//}
 
 pub trait AbstractPolygon {
     type PointId: Copy + Eq + ::std::fmt::Debug;
@@ -24,19 +42,19 @@ pub trait AbstractPolygon {
 
     fn previous(&self, point: Self::PointId) -> Self::PointId;
 
+    fn advance(&self, point: Self::PointId, dir: Direction) -> Self::PointId {
+        return match dir {
+            Direction::Forward => { self.next(point) }
+            Direction::Backward => { self.previous(point) }
+        };
+    }
+
     fn next_vertex(&self, point: Self::PointId) -> VertexId {
         self.vertex(self.next(point))
     }
 
     fn previous_vertex(&self, point: Self::PointId) -> VertexId {
         self.vertex(self.previous(point))
-    }
-
-    fn advance(&self, point: Self::PointId, dir: Direction) -> Self::PointId {
-        return match dir {
-            Direction::Forward => { self.next(point) }
-            Direction::Backward => { self.previous(point) }
-        };
     }
 
     // number of vertices on the loop containing point
@@ -81,6 +99,13 @@ impl<'l> PolygonView<'l> {
     pub fn circulator(self) -> PolygonCirculator<'l> {
         self.circulator_at(point_id(0))
     }
+
+    pub fn point_ids(self) -> IdRange<Point_, u16> {
+        IdRange {
+            first: point_id(0),
+            count: self.vertices.len() as u16
+        }
+    }
 }
 
 impl<'l> AbstractPolygon for PolygonView<'l> {
@@ -104,7 +129,7 @@ impl<'l> AbstractPolygon for PolygonView<'l> {
 
     fn num_vertices_on_loop(&self, _point: PointId) -> usize { self.num_vertices() }
 
-    fn get_sub_polygon<'m>(&'m self, id: PolygonId) -> Option<PolygonView<'m>> { None }
+    fn get_sub_polygon<'m>(&'m self, _: PolygonId) -> Option<PolygonView<'m>> { None }
 }
 
 #[derive(Clone)]
@@ -115,6 +140,15 @@ pub struct Polygon {
 impl Polygon {
     pub fn new() -> Polygon { Polygon { vertices: Vec::new() } }
 
+    pub fn from_vertices<It: Iterator<Item=VertexId>>(it: It) -> Polygon {
+        let (lower_bound, _) = it.size_hint();
+        let mut v = Vec::with_capacity(lower_bound);
+        v.extend(it);
+        Polygon {
+            vertices: v
+        }
+    }
+
     pub fn is_empty(&self) -> bool { self.vertices.is_empty() }
 
     pub fn into_complex_polygon(self) -> ComplexPolygon {
@@ -124,9 +158,25 @@ impl Polygon {
         }
     }
 
-    pub fn push_vertex(&mut self, v: VertexId) -> usize {
+    /// Add vertex to the end
+    pub fn push_vertex(&mut self, v: VertexId) -> PointId {
         self.vertices.push(v);
-        return self.vertices.len();
+        return Id::new(self.vertices.len() as u16 - 1);
+    }
+
+    /// Add vertex to the end
+    pub fn remove_vertex(&mut self, v: PointId) -> VertexId {
+        self.vertices.remove(v.handle as usize)
+    }
+
+    /// Retains only the elements specified by the predicate (seimilar to std::vec::Vec::retain).
+    pub fn retain_vertices<F>(&mut self, f: F) where F: FnMut(&VertexId) -> bool {
+        self.vertices.retain(f)
+    }
+
+    /// Insert a vertex for a given point_id shifting all elements after that position to the right.
+    pub fn insert_vertex(&mut self, point: PointId, new_vertex: VertexId) {
+        self.vertices.insert(point.handle as usize, new_vertex);
     }
 
     pub fn view<'l>(&'l self) -> PolygonView<'l> {
@@ -164,7 +214,7 @@ impl AbstractPolygon for Polygon {
 
     fn num_vertices_on_loop(&self, _point: PointId) -> usize { self.num_vertices() }
 
-    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonView<'l>> { None }
+    fn get_sub_polygon<'l>(&'l self, _: PolygonId) -> Option<PolygonView<'l>> { None }
 }
 
 pub struct ComplexPolygon {
@@ -195,14 +245,50 @@ impl ComplexPolygon {
         ComplexPolygonCirculator {
             circulator: PolygonCirculator {
                 polygon: self.polygon(point.polygon_id).view(),
-                point: point.vertex,
+                point: point.point,
             },
             polygon_id: point.polygon_id,
         }
     }
 
     pub fn circulator<'l>(&'l self, id: PolygonId) -> ComplexPolygonCirculator<'l> {
-        self.circulator_at(ComplexPointId { vertex: point_id(0), polygon_id: id })
+        self.circulator_at(ComplexPointId { point: point_id(0), polygon_id: id })
+    }
+
+    pub fn point_ids(&self, p: PolygonId) -> ComplexPointIdRange {
+        ComplexPointIdRange {
+            range: IdRange {
+                first: point_id(0),
+                count: self.polygon(p).num_vertices() as u16
+            },
+            polygon_id: p,
+        }
+    }
+
+    pub fn polygon_ids(&self) -> IdRange<Polygon_, u16> {
+        IdRange {
+            first: polygon_id(0),
+            count: self.holes.len() as u16,
+        }
+    }
+}
+
+pub struct ComplexPointIdRange {
+    range: IdRange<Point_, u16>,
+    polygon_id: PolygonId,
+}
+
+impl Iterator for ComplexPointIdRange {
+    type Item = ComplexPointId;
+    fn next(&mut self) -> Option<ComplexPointId> {
+        return if let Some(next) = self.range.next() {
+            Some(ComplexPointId {
+                point: next,
+                polygon_id: self.polygon_id
+            })
+        } else {
+            None
+        };
     }
 }
 
@@ -210,23 +296,23 @@ impl AbstractPolygon for ComplexPolygon {
     type PointId = ComplexPointId;
 
     fn first_point(&self) -> ComplexPointId {
-        ComplexPointId { vertex: self.main.first_point(), polygon_id: polygon_id(0) }
+        ComplexPointId { point: self.main.first_point(), polygon_id: polygon_id(0) }
     }
 
     fn vertex(&self, id: ComplexPointId) -> VertexId {
-        self.polygon(id.polygon_id).vertex(id.vertex)
+        self.polygon(id.polygon_id).vertex(id.point)
     }
 
     fn next(&self, id: ComplexPointId) -> ComplexPointId {
         ComplexPointId {
-            vertex: self.polygon(id.polygon_id).next(id.vertex),
+            point: self.polygon(id.polygon_id).next(id.point),
             polygon_id: id.polygon_id
         }
     }
 
     fn previous(&self, id: ComplexPointId) -> ComplexPointId {
         ComplexPointId {
-            vertex: self.polygon(id.polygon_id).previous(id.vertex),
+            point: self.polygon(id.polygon_id).previous(id.point),
             polygon_id: id.polygon_id
         }
     }
@@ -306,7 +392,7 @@ pub struct ComplexPolygonCirculator<'l> {
 impl<'l> ComplexPolygonCirculator<'l> {
     pub fn point(self) -> ComplexPointId {
         ComplexPointId {
-            vertex: self.circulator.point,
+            point: self.circulator.point,
             polygon_id: self.polygon_id
         }
     }
@@ -380,9 +466,9 @@ pub struct Polygon_;
 pub type PolygonId = Id<Polygon_, u16>;
 pub fn polygon_id(idx: u16) -> PolygonId { PolygonId::new(idx) }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ComplexPointId {
-    pub vertex: PointId,
+    pub point: PointId,
     pub polygon_id: PolygonId,
 }
 
@@ -402,6 +488,6 @@ fn test_simple_polygon() {
     println!("{}", v.handle);
   }
 
-  let poly = poly.into_complex_polygon();
+  let _ = poly.into_complex_polygon();
 }
 

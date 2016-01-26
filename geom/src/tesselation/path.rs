@@ -3,13 +3,20 @@ use half_edge::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Positi
 use half_edge::kernel::{ ConnectivityKernel, EdgeId, FaceId, vertex_range, VertexIdRange };
 use tesselation::monotone::{
     is_y_monotone,
+    is_y_monotone_polygon,
     DecompositionContext,
     TriangulationContext,
+    DecompositionContext2,
+    TriangulationContext2,
 };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
-use tesselation::bezier::{ separate_bezier_faces, triangulate_quadratic_bezier };
+use tesselation::bezier::{ separate_bezier_faces, separate_bezier_faces2, triangulate_quadratic_bezier };
+
+use tesselation::polygon::*;
+use tesselation::polygon_partition::{ partition_polygon, Diagonals };
 
 use vodk_id::id_vector::IdSlice;
+use vodk_id::ReverseIdRange;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindingOrder {
@@ -140,6 +147,14 @@ impl PathInfo {
             _ => { panic!("Not implemented yet!"); }
         }
     }
+
+    pub fn create_polygon(&self) -> Polygon {
+        return match self.winding {
+            WindingOrder::Clockwise => { Polygon::from_vertices(self.vertices) }
+            WindingOrder::CounterClockwise => { Polygon::from_vertices(ReverseIdRange::new(self.vertices)) }
+            _ => { panic!("Not implemented yet!"); }
+        }
+    }
 }
 
 pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
@@ -188,6 +203,74 @@ pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         assert!(is_y_monotone(&kernel, vertex_positions, f));
         let res = triangulator.y_monotone_triangulation(
             &kernel, f,
+            vertex_positions,
+            output
+        );
+        assert_eq!(res, Ok(()));
+    }
+
+    for b in beziers {
+        println!(" -- adding bezier loop");
+        let from = b[0];
+        let ctrl = b[1];
+        let to = b[2];
+        triangulate_quadratic_bezier(from, ctrl, to, 16, output);
+    }
+}
+
+pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
+    path: PathInfo,
+    holes: &[PathInfo],
+    points: &'l Vec<PointData>,
+    output: &mut Output
+) {
+    output.begin_geometry();
+
+    let mut polygon = ComplexPolygon{
+        main: path.create_polygon(),
+        holes: vec![],
+    };
+
+    for hole in holes {
+        // TODO: right now this requires the winding order to be ccw for the holes
+        polygon.holes.push(Polygon::from_vertices(hole.vertices));
+        assert_eq!(hole.winding, WindingOrder::CounterClockwise);
+    }
+
+    for v in points {
+        output.push_vertex(v.position());
+    }
+
+    let vertex_positions = IdSlice::new(points);
+    let mut beziers: Vec<[Vec2; 3]> = vec![];
+
+    separate_bezier_faces2(
+        &mut polygon.main,
+        vertex_positions,
+        &mut beziers
+    );
+
+    let mut diagonals = Diagonals::new();
+    let mut ctx = DecompositionContext2::new();
+
+    println!(" ---- num points {}", polygon.num_vertices());
+
+    let res = ctx.y_monotone_polygon_decomposition(
+        &polygon,
+        vertex_positions,
+        &mut diagonals
+    );
+    assert_eq!(res, Ok(()));
+
+    let mut monotone_polygons = Vec::new();
+    partition_polygon(&polygon, vertex_positions, &mut diagonals, &mut monotone_polygons);
+    println!(" -- there are {} monotone polygons", monotone_polygons.len());
+
+    let mut triangulator = TriangulationContext2::new();
+    for monotone_poly in monotone_polygons {
+        assert!(is_y_monotone_polygon(monotone_poly.view(), vertex_positions));
+        let res = triangulator.y_monotone_triangulation(
+            monotone_poly.view(),
             vertex_positions,
             output
         );

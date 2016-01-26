@@ -57,10 +57,12 @@ use std::mem::swap;
 use std::f32::consts::PI;
 
 use half_edge::kernel::*;
-use half_edge::iterators::{Direction, DirectedEdgeCirculator};
+use half_edge::iterators::{ DirectedEdgeCirculator};
 use half_edge::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
 
 use tesselation::vertex_builder::{ VertexBufferBuilder };
+use tesselation::polygon::*;
+use tesselation::polygon_partition::{ Diagonals, partition_polygon };
 
 use vodk_alloc::*;
 use vodk_id::*;
@@ -208,6 +210,53 @@ impl<'l, P: 'l+Position2D> SweepLineBuilder<'l, P> {
     }
 }
 
+struct SweepLineBuilder2<'l, P:'l+Position2D> {
+    polygon: &'l ComplexPolygon,
+    vertices: IdSlice<'l, VertexId, P>,
+    current_vertex: Vec2
+}
+
+impl<'l, P: 'l+Position2D> SweepLineBuilder2<'l, P> {
+    fn vertex_position(&self, e: ComplexPointId) -> Vec2 {
+        return self.vertices[self.polygon.vertex(e)].position();
+    }
+
+    fn add(&self, sweep_line: &mut Vec<ComplexPointId>, e: ComplexPointId) {
+        sweep_line.push(e);
+        // sort from left to right (increasing x values)
+        sweep_line.sort_by(|ea, eb| {
+            let a1 = self.vertex_position(*ea);
+            let a2 = self.vertex_position(self.polygon.next(*ea));
+            let b1 = self.vertex_position(*eb);
+            let b2 = self.vertex_position(self.polygon.next(*eb));
+            let xa = intersect_segment_with_horizontal(a1, a2, self.current_vertex.y());
+            let xb = intersect_segment_with_horizontal(b1, b2, self.current_vertex.y());
+            return xa.partial_cmp(&xb).unwrap();
+        });
+        println!(" sweep status is: {:?}", sweep_line);
+    }
+
+    fn remove(&self, sweep_line: &mut Vec<ComplexPointId>, e: ComplexPointId) {
+        println!(" remove {:?} from sweep line", e);
+        sweep_line.retain(|item|{ *item != e });
+    }
+
+    // Search the sweep status to find the edge directly to the right of the current vertex.
+    fn find_right_of_current_vertex(&self, sweep_line: &Vec<ComplexPointId>) -> ComplexPointId {
+        for &e in sweep_line {
+            let a = self.vertex_position(e);
+            let b = self.vertex_position(self.polygon.next(e));
+            let x = intersect_segment_with_horizontal(a, b, self.current_vertex.y());
+            println!(" -- split: search sweep status {:?} x: {}", e, x);
+
+            if x >= self.current_vertex.x() {
+                return e;
+            }
+        }
+        panic!("Could not find the edge directly right of e on the sweep line");
+    }
+}
+
 
 fn connect<Faces: Write<FaceId>>(
     kernel: &mut ConnectivityKernel,
@@ -264,6 +313,15 @@ fn connect_with_helper_if_merge_vertex(current_edge: EdgeId,
         println!("   right: removed helper from edge {}", helper_edge.handle);
         connections.push((h, current_edge));
         println!("connection {}->{}", current_edge.handle, h.handle);
+    }
+}
+
+fn connect_with_helper_if_merge_vertex2(current_edge: ComplexPointId,
+                                       helper_edge: ComplexPointId,
+                                       helpers: &mut HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
+                                       diagonals: &mut Diagonals<ComplexPolygon>) {
+    if let Some(&(h, VertexType::Merge)) = helpers.get(&helper_edge) {
+        diagonals.add_diagonal(h, current_edge);
     }
 }
 
@@ -417,7 +475,7 @@ impl DecompositionContext {
         }
 
         //let mut replaced_edges: HashMap<u16, EdgeId> = HashMap::new();
-        for (mut a, mut b) in connections {
+        for (a, b) in connections {
             //if let Some(new_a) = replaced_edges.remove(&a.handle) {
             //    a = new_a;
             //}
@@ -427,6 +485,136 @@ impl DecompositionContext {
             //let a_prev = kernel[a].prev;
             connect(kernel, a, b, new_faces);
             //replaced_edges.insert(a.handle, kernel[a_prev].next);
+        }
+
+        // Keep the buffers to avoid reallocating it next time, if possible.
+        self.sweep_state_storage = vec::recycle(sweep_state);
+        self.sorted_edges_storage = vec::recycle(sorted_edges);
+
+        return Ok(());
+    }
+}
+
+/// Can perform y-monotone decomposition on a connectivity kernel.
+///
+/// This object holds on to the memory that was allocated during previous
+/// decompositions in order to avoid allocating during the next decompositions
+/// if possible.
+pub struct DecompositionContext2 {
+    sorted_edges_storage: Allocation,
+    // list of edges that intercept the sweep line, sorted by increasing x coordinate
+    sweep_state_storage: Allocation,
+    helper: HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
+}
+
+impl DecompositionContext2 {
+    pub fn new() -> DecompositionContext2 {
+        DecompositionContext2 {
+            sorted_edges_storage: Allocation::empty(),
+            sweep_state_storage: Allocation::empty(),
+            helper: HashMap::new(),
+        }
+    }
+
+    /// Applies an y_monotone decomposition of a face in a connectivity kernel.
+    ///
+    /// This operation will add faces and edges to the connectivity kernel.
+    pub fn y_monotone_polygon_decomposition<'l,
+        P: Position2D
+    >(
+        &mut self,
+        polygon: &'l ComplexPolygon,
+        vertex_positions: IdSlice<'l, VertexId, P>,
+        diagonals: &'l mut Diagonals<ComplexPolygon>
+    ) -> Result<(), DecompositionError> {
+        self.helper.clear();
+
+        let mut storage = Allocation::empty();
+        swap(&mut self.sweep_state_storage, &mut storage);
+        let mut sweep_state: Vec<ComplexPointId> = create_vec_from(storage);
+
+        let mut storage = Allocation::empty();
+        swap(&mut self.sorted_edges_storage, &mut storage);
+        let mut sorted_edges: Vec<ComplexPointId> = create_vec_from(storage);
+
+        sorted_edges.extend(polygon.point_ids(polygon_id(0)));
+        for hole in polygon.polygon_ids() {
+            sorted_edges.extend(polygon.point_ids(hole));
+        }
+
+        println!("Unsorted edges: {:?}", sorted_edges);
+
+        // sort indices by increasing y coordinate of the corresponding vertex
+        sorted_edges.sort_by(|a, b| {
+            let va = vertex_positions[polygon.vertex(*a)].position();
+            let vb = vertex_positions[polygon.vertex(*b)].position();
+            if va.y() > vb.y() { return Ordering::Greater; }
+            if va.y() < vb.y() { return Ordering::Less; }
+            if va.x() > vb.x() { return Ordering::Greater; }
+            if va.x() < vb.x() { return Ordering::Less; }
+            return Ordering::Equal;
+        });
+
+        for &e in &sorted_edges {
+            //let edge = kernel[e];
+            let prev = polygon.previous(e);
+            let next = polygon.next(e);
+            let current_vertex = vertex_positions[polygon.vertex(e)].position();
+            let previous_vertex = vertex_positions[polygon.vertex(prev)].position();
+            let next_vertex = vertex_positions[polygon.vertex(next)].position();
+            let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
+            let sweep_line = SweepLineBuilder2 {
+                polygon: polygon,
+                vertices: vertex_positions,
+                current_vertex: current_vertex,
+            };
+
+            match vertex_type {
+                VertexType::Start => {
+                    sweep_line.add(&mut sweep_state, e);
+                    self.helper.insert(e, (e, vertex_type));
+                }
+                VertexType::End => {
+                    connect_with_helper_if_merge_vertex2(e, prev, &mut self.helper, diagonals);
+                    sweep_line.remove(&mut sweep_state, prev);
+                }
+                VertexType::Split => {
+                    let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
+                    if let Some(&(helper_edge,_)) = self.helper.get(&ej) {
+                        diagonals.add_diagonal(e, helper_edge);
+                        println!("connection {:?}->{:?}", e, helper_edge);
+                    } else {
+                        panic!();
+                    }
+                    self.helper.insert(ej, (e, vertex_type));
+
+                    sweep_line.add(&mut sweep_state, e);
+                    self.helper.insert(e, (e, vertex_type));
+                }
+                VertexType::Merge => {
+                    connect_with_helper_if_merge_vertex2(e, prev, &mut self.helper, diagonals);
+                    sweep_line.remove(&mut sweep_state, prev);
+
+                    let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
+                    connect_with_helper_if_merge_vertex2(e, ej, &mut self.helper, diagonals);
+                    self.helper.insert(ej, (e, vertex_type));
+                }
+                VertexType::Right => {
+                    // TODO remove helper(edge.prev) ?
+                    connect_with_helper_if_merge_vertex2(e, prev, &mut self.helper, diagonals);
+                    self.helper.remove(&prev);
+                    sweep_line.remove(&mut sweep_state, prev);
+
+                    sweep_line.add(&mut sweep_state, e);
+                    self.helper.insert(e, (e, vertex_type));
+                }
+                VertexType::Left => {
+                    let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
+                    connect_with_helper_if_merge_vertex2(e, ej, &mut self.helper, diagonals);
+
+                    self.helper.insert(ej, (e, vertex_type));
+                }
+            }
         }
 
         // Keep the buffers to avoid reallocating it next time, if possible.
@@ -461,6 +649,26 @@ pub fn is_y_monotone<'l, Pos: Position2D>(
                     );
                 }
                 println!(" ---");
+                return false;
+            }
+            _ => {}
+        }
+    }
+    return true;
+}
+
+/// Returns true if the face is y-monotone in O(n).
+pub fn is_y_monotone_polygon<'l, Pos: Position2D>(
+    polygon: PolygonView<'l>,
+    vertex_positions: IdSlice<'l, VertexId, Pos>,
+) -> bool {
+    for point in polygon.point_ids() {
+        let previous = vertex_positions[polygon.previous_vertex(point)].position();
+        let current = vertex_positions[polygon.vertex(point)].position();
+        let next = vertex_positions[polygon.next_vertex(point)].position();
+
+        match get_vertex_type(previous, current, next) {
+            VertexType::Split | VertexType::Merge => {
                 return false;
             }
             _ => {}
@@ -710,6 +918,224 @@ impl TriangulationContext {
     }
 }
 
+/// Can perform y-monotone triangulation on a connectivity kernel.
+///
+/// This object holds on to the memory that was allocated during previous
+/// triangulations, in order to avoid allocating during the next triangulations
+/// if possible.
+pub struct TriangulationContext2 {
+    vertex_stack_storage: Allocation,
+}
+
+impl TriangulationContext2 {
+    /// Constructor.
+    pub fn new() -> TriangulationContext2 {
+        TriangulationContext2 {
+            vertex_stack_storage: Allocation::empty()
+        }
+    }
+
+    /// Computes an y-monotone triangulation of a face in the connectivity kernel,
+    /// outputing triangles by pack of 3 vertex indices in a TriangleStream.
+    ///
+    /// Returns the number of indices that were added to the stream.
+    pub fn y_monotone_triangulation<'l,
+        P: Position2D,
+        Output: VertexBufferBuilder<Vec2>
+    >(
+        &mut self,
+        polygon: PolygonView<'l>,
+        vertex_positions: IdSlice<'l, VertexId, P>,
+        output: &mut Output,
+    ) -> Result<(), TriangulationError> {
+
+        // for convenience
+        let vertex = |circ: Circulator| { vertex_positions[polygon.vertex(circ.point)].position() };
+        let next = |circ: Circulator| { Circulator { point: polygon.advance(circ.point, circ.direction), direction: circ.direction } };
+        let previous = |circ: Circulator| { Circulator { point: polygon.advance(circ.point, circ.direction.reverse()), direction: circ.direction } };
+
+        #[derive(Copy, Clone, Debug, PartialEq)]
+        struct Circulator {
+            point: PointId,
+            direction: Direction,
+        }
+
+        let mut up = Circulator { point: polygon.first_point(), direction: Direction::Forward };
+        let mut down = up.clone();
+
+        loop {
+            down = next(down);
+            if vertex(up).y() != vertex(down).y() {
+                break;
+            }
+            if down == up {
+                // Avoid an infnite loop in the degenerate case where all vertices are in the same position.
+                break;
+            }
+        }
+
+        up.direction = if vertex(up).y() > vertex(down).y() { Direction::Forward }
+                       else { Direction::Backward };
+
+        down.direction = up.direction.reverse();
+
+        // Find the bottom-most vertex (with the highest y value)
+        let mut big_y = vertex(down).y();
+        let guard = down;
+        loop {
+            println!(" - searching down {:?} {:?}", down.point, vertex(down));
+            down = next(down);
+            let new_y = vertex(down).y();
+            if new_y < big_y {
+                down = previous(down);
+                break;
+            }
+            big_y = new_y;
+            if down == guard {
+                // We have looped through all vertices already because of
+                // a degenerate input, avoid looping infinitely.
+                break;
+            }
+        }
+        // find the top-most vertex (with the smallest y value)
+        let mut small_y = vertex(up).y();
+        let guard = up;
+        loop {
+            println!(" - searching up {:?} {:?}", up.point, vertex(up));
+            up = next(up);
+            let new_y = vertex(up).y();
+            if new_y > small_y {
+                up = previous(up);
+                break;
+            }
+            small_y = new_y;
+            if up == guard {
+                // We have looped through all vertices already because of
+                // a degenerate input, avoid looping infinitely.
+                break;
+            }
+        }
+
+        // now that we have the top-most vertex, we will circulate simulataneously
+        // from the left and right chains until we reach the bottom-most vertex
+
+        // main chain
+        let mut m = up.clone();
+
+        // opposite chain
+        let mut o = up.clone();
+        m.direction = Direction::Forward;
+        o.direction = Direction::Backward;
+
+        m = next(m);
+        o = next(o);
+
+        if vertex(m).y() > vertex(o).y() {
+            swap(&mut m, &mut o);
+        }
+
+        m = previous(m);
+        // previous
+        let mut p = m;
+
+        // vertices already visited, waiting to be connected
+        let mut storage = Allocation::empty();
+        swap(&mut storage, &mut self.vertex_stack_storage);
+        let mut vertex_stack: Vec<Circulator> = create_vec_from(storage);
+
+        let mut triangle_count = 0;
+        let mut i: i32 = 0;
+
+        println!(" -- up: {:?}  down: {:?}", up.point, down.point);
+
+        loop {
+            println!("   -- m: {:?}  o: {:?}", m.point, o.point);
+            // walk edges from top to bottom, alternating between the left and
+            // right chains. The chain we are currently iterating over is the
+            // main chain (m) and the other one the opposite chain (o).
+            // p is the previous iteration, regardless of which chain it is on.
+            if vertex(m).y() > vertex(o).y() || m == down {
+                swap(&mut m, &mut o);
+            }
+
+            if i < 2 {
+                vertex_stack.push(m);
+            } else {
+                if vertex_stack.len() > 0 && m.direction != vertex_stack[vertex_stack.len()-1].direction {
+                    for i in 0..vertex_stack.len() - 1 {
+                        let id_1 = polygon.vertex(vertex_stack[i].point);
+                        let id_2 = polygon.vertex(vertex_stack[i+1].point);
+                        let id_opp = polygon.vertex(m.point);
+
+                        output.push_indices(id_opp.handle, id_1.handle, id_2.handle);
+                        triangle_count += 1;
+                    }
+
+                    vertex_stack.clear();
+
+                    vertex_stack.push(p);
+                    vertex_stack.push(m);
+
+                } else {
+
+                    let mut last_popped = vertex_stack.pop();
+
+                    loop {
+                        if vertex_stack.len() < 1 {
+                            break;
+                        }
+                        let mut id_1 = polygon.vertex(vertex_stack[vertex_stack.len()-1].point);
+                        let id_2 = polygon.vertex(last_popped.unwrap().point);
+                        let mut id_3 = polygon.vertex(m.point);
+
+                        if m.direction == Direction::Backward {
+                            swap(&mut id_1, &mut id_3);
+                        }
+
+                        let v1 = vertex_positions[id_1].position();
+                        let v2 = vertex_positions[id_2].position();
+                        let v3 = vertex_positions[id_3].position();
+                        if directed_angle(vec2_sub(v1, v2), vec2_sub(v3, v2)) > PI {
+                            output.push_indices(id_1.handle, id_2.handle, id_3.handle);
+                            triangle_count += 1;
+
+                            last_popped = vertex_stack.pop();
+
+                        } else {
+                            break;
+                        }
+                    } // loop 2
+
+                    if let Some(item) = last_popped {
+                        vertex_stack.push(item);
+                    }
+                    vertex_stack.push(m);
+
+                }
+            }
+
+            if m.point == down.point {
+                if o.point == down.point {
+                    break;
+                }
+            }
+
+            i += 1;
+            p = m;
+            m = next(m);
+            if vertex(m).y() < vertex(p).y() {
+                println!("   !!! m: {:?}  o: {:?}", m.point, o.point);
+            }
+            debug_assert!(vertex(m).y() >= vertex(p).y());
+        }
+        debug_assert_eq!(triangle_count, polygon.num_vertices() as usize - 2);
+
+        // Keep the buffer to avoid reallocating it next time, if possible.
+        self.vertex_stack_storage = vec::recycle(vertex_stack);
+        return Ok(());
+    }
+}
+
 #[cfg(test)]
 pub fn triangulate_faces<T:Position2D, Output: VertexBufferBuilder<Vec2>>(
     kernel: &mut ConnectivityKernel,
@@ -759,26 +1185,47 @@ fn test_shape_with_holes(vertices: &[Vec2], separators: &[u16], angle: f32) {
 
     println!("transformed_vertices: {:?}", transformed_vertices);
 
-    let n_vertices = separators[0] as u16;
+    let mut polygon = ComplexPolygon {
+        main: Polygon::from_vertices(vertex_id_range(0, separators[0])),
+        holes: Vec::new(),
+    };
 
-    let mut kernel = ConnectivityKernel::new();
-
-    let f1 = kernel.add_face();
-    let f2 = kernel.add_face();
-
-    kernel.add_loop(vertex_range(0, n_vertices), Some(f1), Some(f2));
-
-    let mut vertex_count = n_vertices;
-    for i in 1 .. separators.len() {
-        kernel.add_hole(f1, vertex_range(vertex_count, separators[i]));
-        vertex_count += separators[i];
+    let mut vertex_count = separators[0] as u16;
+    for i in 1..separators.len() {
+        let from = separators[i] as u16;
+        let to = vertex_count + separators[i] as u16;
+        polygon.holes.push(Polygon::from_vertices(vertex_id_range(from, to)));
+        vertex_count = to;
     }
 
+    let vertex_positions = IdSlice::new(vertices);
+    let mut ctx = DecompositionContext2::new();
+    let mut diagonals = Diagonals::new();
+    let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut diagonals);
+    assert_eq!(res, Ok(()));
+
+    let mut y_monotone_polygons = Vec::new();
+    partition_polygon(&polygon, vertex_positions, &mut diagonals, &mut y_monotone_polygons);
+
+    let mut triangulator = TriangulationContext2::new();
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
-    triangulate_faces(
-        &mut kernel, &[f1], &transformed_vertices[..],
-        &mut simple_vertex_builder(&mut buffers)
-    );
+
+    for poly in y_monotone_polygons {
+        println!("\n\n -- Triangulating polygon with vertices {:?}", poly.vertices);
+        let mut i = 0;
+        for &p in &poly.vertices {
+            println!("     -> point {} vertex {:?} position {:?}", i, p, vertex_positions[p].position());
+            i += 1;
+        }
+        assert!(is_y_monotone_polygon(poly.view(), vertex_positions));
+        let res = triangulator.y_monotone_triangulation(
+            poly.view(),
+            vertex_positions,
+            &mut simple_vertex_builder(&mut buffers)
+        );
+        assert_eq!(res, Ok(()));
+    }
+
     for n in 0 .. buffers.indices.len()/3 {
         println!(" ===> {} {} {}", buffers.indices[n*3], buffers.indices[n*3+1], buffers.indices[n*3+2]);
     }
@@ -790,7 +1237,6 @@ fn test_shape(vertices: &[Vec2], angle: f32) {
 }
 
 #[test]
-#[ignore]
 fn test_triangulate() {
     let vertex_positions : &[&[Vec2]] = &[
         &[
@@ -865,7 +1311,6 @@ fn test_triangulate() {
 }
 
 #[test]
-#[ignore]
 fn test_triangulate_holes() {
     let vertex_positions : &[(&[Vec2], &[u16])] = &[
         (
@@ -941,14 +1386,14 @@ fn test_triangulate_holes() {
             println!("\n\n\n   -- shape {} angle {:?}", i, angle);
             test_shape_with_holes(vertices, separators, angle);
             angle += 0.005;
+            //break;
         }
     }
 }
 
 #[test]
-#[ignore]
 fn test_triangulate_degenerate() {
-    let mut vertex_positions : &[&[Vec2]] = &[
+    let vertex_positions : &[&[Vec2]] = &[
         &[  // duplicate point
             [0.0, 0.0],
             [1.0, 0.0],
@@ -1025,7 +1470,7 @@ fn test_triangulate_degenerate() {
 #[test]
 #[ignore]
 fn test_triangulate_failures() {
-    // Test cases that are know to fail but we want to make work eventually.
+    // Test cases that are known to fail but we want to make work eventually.
     let vertex_positions : &[(&[Vec2], &[u16])] = &[
         // This path goes somthing like A,B,A,...
         (

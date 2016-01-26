@@ -1,11 +1,9 @@
 use tesselation::polygon::*;
 
 use half_edge::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
-use half_edge::kernel::{ VertexId, vertex_id };
+use half_edge::kernel::{ VertexId };
 
 use vodk_id::id_vector::IdSlice;
-
-use std::f32::consts::PI;
 
 struct Diagonal<Poly: AbstractPolygon> {
     from: Poly::PointId,
@@ -34,6 +32,38 @@ impl<Poly: AbstractPolygon> Diagonals<Poly> {
 
     pub fn is_empty(&self) -> bool { self.diagonals.is_empty() }
 
+    pub fn clear_flags(&mut self) {
+        for diag in &mut self.diagonals {
+            diag.processed_face = false;
+            diag.processed_opposite_face = false;
+        }
+    }
+}
+
+/// Apply a partition defined by diagonals to a polygon and provide the result by populating
+/// an array of simple polygons.
+///
+/// This function can't produce complex polygons so the result might come accross as surprising
+/// if the input polygon has holes that are not connected with the contour through diagonals.
+/// More generally this is intended for use to apply the y-monotone decomposition of a polygon,
+/// which we know to produce a valid input for teh partition.
+pub fn partition_polygon<Poly: AbstractPolygon, V: Position2D>(
+    polygon: &Poly,
+    vertices: IdSlice<VertexId, V>,
+    diagonals: &mut Diagonals<Poly>,
+    output: &mut Vec<Polygon>
+) {
+    diagonals.clear_flags();
+    for i in 0..diagonals.diagonals.len() {
+        let from = diagonals.diagonals[i].from;
+        let to = diagonals.diagonals[i].to;
+        if !diagonals.diagonals[i].processed_face {
+            output.push(gen_polygon(polygon, vertices, diagonals, from, to));
+        }
+        if !diagonals.diagonals[i].processed_opposite_face {
+            output.push(gen_polygon(polygon, vertices, diagonals, to, from));
+        }
+    }
 }
 
 fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
@@ -139,16 +169,7 @@ fn test_gen_polygon_no_diagonal() {
         [1.0, 1.0],
     ];
 
-    let poly = Polygon {
-        vertices: vec![
-            vertex_id(0),
-            vertex_id(1),
-            vertex_id(2),
-            vertex_id(3),
-            vertex_id(4),
-            vertex_id(5),
-        ]
-    };
+    let poly = Polygon::from_vertices(vertex_id_range(0, 6));
 
     let mut diagonals = Diagonals::new();
 
@@ -178,16 +199,7 @@ fn test_gen_polygon_simple() {
         [1.0, 1.0],
     ];
 
-    let poly = Polygon {
-        vertices: vec![
-            vertex_id(0),
-            vertex_id(1),
-            vertex_id(2),
-            vertex_id(3),
-            vertex_id(4),
-            vertex_id(5),
-        ]
-    };
+    let poly = Polygon::from_vertices(vertex_id_range(0, 6));
 
     let mut diagonals = Diagonals::new();
     diagonals.add_diagonal(point_id(2), point_id(4));
@@ -217,16 +229,7 @@ fn test_gen_polygon_two_diagonals() {
         [1.0, 1.0],
     ];
 
-    let poly = Polygon {
-        vertices: vec![
-            vertex_id(0),
-            vertex_id(1),
-            vertex_id(2),
-            vertex_id(3),
-            vertex_id(4),
-            vertex_id(5),
-        ]
-    };
+    let poly = Polygon::from_vertices(vertex_id_range(0, 6));
 
     let mut diagonals = Diagonals::new();
     diagonals.add_diagonal(point_id(2), point_id(5));
@@ -273,18 +276,7 @@ fn test_gen_polygon_only_diagonals() {
         [1.0, 0.0],
     ];
 
-    let poly = Polygon {
-        vertices: vec![
-            vertex_id(0),
-            vertex_id(1),
-            vertex_id(2),
-            vertex_id(3),
-            vertex_id(4),
-            vertex_id(5),
-            vertex_id(6),
-            vertex_id(7),
-        ]
-    };
+    let poly = Polygon::from_vertices(vertex_id_range(0, 8));
 
     let mut diagonals = Diagonals::new();
     diagonals.add_diagonal(point_id(1), point_id(3));
@@ -308,7 +300,7 @@ fn test_gen_polygon_with_holes() {
     use half_edge::kernel::vertex_id;
 
     fn point(poly: PolygonId, idx: u16) -> ComplexPointId {
-        ComplexPointId { vertex: point_id(idx), polygon_id: poly }
+        ComplexPointId { point: point_id(idx), polygon_id: poly }
     }
 
     fn a(idx: u16) -> ComplexPointId { point( polygon_id(0), idx) }
@@ -354,10 +346,10 @@ fn test_gen_polygon_with_holes() {
         [2.0, 3.0],// v(12):c(3)
     ];
     let poly = ComplexPolygon {
-        main: Polygon { vertices: vec![ v(0), v(1), v(2), v(3), v(4), ], },
+        main: Polygon::from_vertices(vertex_id_range(0, 5)),
         holes: vec![
-            Polygon { vertices: vec![v(5), v(6), v(7), v(8)] },
-            Polygon { vertices: vec![v(9), v(10), v(11), v(12)] },
+            Polygon::from_vertices(vertex_id_range(5, 9)),
+            Polygon::from_vertices(vertex_id_range(9, 13)),
         ]
     };
 
@@ -372,4 +364,73 @@ fn test_gen_polygon_with_holes() {
     assert!(diagonals.diagonals[0].processed_opposite_face);
     assert!(diagonals.diagonals[1].processed_face);
     assert!(diagonals.diagonals[1].processed_opposite_face);
+}
+
+#[test]
+fn test_partition_polygon_diagonals() {
+    // The shape looks like this:
+    //
+    //  0   1   2
+    //   +--+--+
+    //   | / \ |
+    //   |/   \|
+    // 7 +     + 3
+    //   |\   /|
+    //   | \ / |
+    //   +--+--+
+    //  6   5   4
+    //
+    // And we want to check gen_polygon behaves properly for the losange inside, composed
+    // of diagonals only.
+
+    let positions: &[Vec2] = &[
+        [0.0, 0.0],
+        [0.0,-1.0],
+        [0.0,-2.0],
+        [1.0,-2.0],
+        [2.0,-2.0],
+        [2.0,-1.0],
+        [2.0, 0.0],
+        [1.0, 0.0],
+    ];
+
+    let poly = Polygon::from_vertices(vertex_id_range(0, 8));
+
+    let mut diagonals = Diagonals::new();
+    diagonals.add_diagonal(point_id(1), point_id(3));
+    diagonals.add_diagonal(point_id(7), point_id(1));
+    diagonals.add_diagonal(point_id(7), point_id(5));
+    diagonals.add_diagonal(point_id(3), point_id(5));
+
+    let vertices = IdSlice::new(positions);
+
+    let mut partition = Vec::new();
+
+    partition_polygon(&poly, vertices, &mut diagonals, &mut partition);
+    assert_eq!(partition.len(), 5);
+}
+
+#[test]
+fn test_partition_polygon_no_diagonals() {
+    let positions: &[Vec2] = &[
+        [0.0, 0.0],
+        [0.0,-1.0],
+        [0.0,-2.0],
+        [1.0,-2.0],
+        [2.0,-2.0],
+        [2.0,-1.0],
+        [2.0, 0.0],
+        [1.0, 0.0],
+    ];
+
+    let poly = Polygon::from_vertices(vertex_id_range(0, 8));
+
+    let mut no_diagonals = Diagonals::new();
+
+    let vertices = IdSlice::new(positions);
+
+    let mut partition = Vec::new();
+
+    partition_polygon(&poly, vertices, &mut no_diagonals, &mut partition);
+    assert_eq!(partition.len(), 0);
 }
