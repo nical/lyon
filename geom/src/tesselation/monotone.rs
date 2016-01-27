@@ -247,7 +247,7 @@ impl<'l, P: 'l+Position2D> SweepLineBuilder2<'l, P> {
             let a = self.vertex_position(e);
             let b = self.vertex_position(self.polygon.next(e));
             let x = intersect_segment_with_horizontal(a, b, self.current_vertex.y());
-            println!(" -- split: search sweep status {:?} x: {}", e, x);
+            println!(" -- search sweep status {:?} x: {}", e, x);
 
             if x >= self.current_vertex.x() {
                 return e;
@@ -322,6 +322,8 @@ fn connect_with_helper_if_merge_vertex2(current_edge: ComplexPointId,
                                        diagonals: &mut Diagonals<ComplexPolygon>) {
     if let Some(&(h, VertexType::Merge)) = helpers.get(&helper_edge) {
         diagonals.add_diagonal(h, current_edge);
+        println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
+        println!(" **** connection {:?}->{:?}", h, current_edge);
     }
 }
 
@@ -537,9 +539,9 @@ impl DecompositionContext2 {
         swap(&mut self.sorted_edges_storage, &mut storage);
         let mut sorted_edges: Vec<ComplexPointId> = create_vec_from(storage);
 
-        sorted_edges.extend(polygon.point_ids(polygon_id(0)));
-        for hole in polygon.polygon_ids() {
-            sorted_edges.extend(polygon.point_ids(hole));
+        for sub_poly in polygon.polygon_ids() {
+            println!(" -_-_-_-_-_-_-");
+            sorted_edges.extend(polygon.point_ids(sub_poly));
         }
 
         println!("Unsorted edges: {:?}", sorted_edges);
@@ -568,7 +570,7 @@ impl DecompositionContext2 {
                 vertices: vertex_positions,
                 current_vertex: current_vertex,
             };
-
+            println!("\n ============= point {:?}   type {:?}", e, vertex_type);
             match vertex_type {
                 VertexType::Start => {
                     sweep_line.add(&mut sweep_state, e);
@@ -582,7 +584,7 @@ impl DecompositionContext2 {
                     let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
                     if let Some(&(helper_edge,_)) = self.helper.get(&ej) {
                         diagonals.add_diagonal(e, helper_edge);
-                        println!("connection {:?}->{:?}", e, helper_edge);
+                        println!(" **** connection {:?}->{:?}", e, helper_edge);
                     } else {
                         panic!();
                     }
@@ -592,9 +594,11 @@ impl DecompositionContext2 {
                     self.helper.insert(e, (e, vertex_type));
                 }
                 VertexType::Merge => {
+                    println!(" - ");
                     connect_with_helper_if_merge_vertex2(e, prev, &mut self.helper, diagonals);
                     sweep_line.remove(&mut sweep_state, prev);
 
+                    println!(" - ");
                     let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
                     connect_with_helper_if_merge_vertex2(e, ej, &mut self.helper, diagonals);
                     self.helper.insert(ej, (e, vertex_type));
@@ -948,6 +952,7 @@ impl TriangulationContext2 {
         vertex_positions: IdSlice<'l, VertexId, P>,
         output: &mut Output,
     ) -> Result<(), TriangulationError> {
+        println!(" ------ monotone triangulation, polygon with {} vertices", polygon.num_vertices());
 
         // for convenience
         let vertex = |circ: Circulator| { vertex_positions[polygon.vertex(circ.point)].position() };
@@ -983,7 +988,6 @@ impl TriangulationContext2 {
         let mut big_y = vertex(down).y();
         let guard = down;
         loop {
-            println!(" - searching down {:?} {:?}", down.point, vertex(down));
             down = next(down);
             let new_y = vertex(down).y();
             if new_y < big_y {
@@ -1001,7 +1005,6 @@ impl TriangulationContext2 {
         let mut small_y = vertex(up).y();
         let guard = up;
         loop {
-            println!(" - searching up {:?} {:?}", up.point, vertex(up));
             up = next(up);
             let new_y = vertex(up).y();
             if new_y > small_y {

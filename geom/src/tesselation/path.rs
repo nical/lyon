@@ -182,30 +182,16 @@ pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     let mut beziers: Vec<[Vec2; 3]> = vec![];
 
     let first_edge = kernel[face].first_edge;
-    separate_bezier_faces(
-        &mut kernel,
-        first_edge,
-        vertex_positions,
-        &mut beziers
-    );
+    separate_bezier_faces(&mut kernel, first_edge, vertex_positions, &mut beziers);
 
     let mut ctx = DecompositionContext::new();
-    let res = ctx.y_monotone_decomposition(
-        &mut kernel,
-        face,
-        vertex_positions,
-        &mut monotone_faces
-    );
+    let res = ctx.y_monotone_decomposition(&mut kernel, face, vertex_positions, &mut monotone_faces);
     assert_eq!(res, Ok(()));
 
     let mut triangulator = TriangulationContext::new();
     for f in monotone_faces {
         assert!(is_y_monotone(&kernel, vertex_positions, f));
-        let res = triangulator.y_monotone_triangulation(
-            &kernel, f,
-            vertex_positions,
-            output
-        );
+        let res = triangulator.y_monotone_triangulation(&kernel, f, vertex_positions, output);
         assert_eq!(res, Ok(()));
     }
 
@@ -232,9 +218,11 @@ pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
     };
 
     for hole in holes {
-        // TODO: right now this requires the winding order to be ccw for the holes
-        polygon.holes.push(Polygon::from_vertices(hole.vertices));
-        assert_eq!(hole.winding, WindingOrder::CounterClockwise);
+        if hole.winding == WindingOrder::CounterClockwise {
+            polygon.holes.push(Polygon::from_vertices(hole.vertices));
+        } else {
+            polygon.holes.push(Polygon::from_vertices(ReverseIdRange::new(hole.vertices)));
+        }
     }
 
     for v in points {
@@ -244,22 +232,14 @@ pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
     let vertex_positions = IdSlice::new(points);
     let mut beziers: Vec<[Vec2; 3]> = vec![];
 
-    separate_bezier_faces2(
-        &mut polygon.main,
-        vertex_positions,
-        &mut beziers
-    );
+    separate_bezier_faces2(&mut polygon.main, vertex_positions, &mut beziers);
 
     let mut diagonals = Diagonals::new();
     let mut ctx = DecompositionContext2::new();
 
     println!(" ---- num points {}", polygon.num_vertices());
 
-    let res = ctx.y_monotone_polygon_decomposition(
-        &polygon,
-        vertex_positions,
-        &mut diagonals
-    );
+    let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut diagonals);
     assert_eq!(res, Ok(()));
 
     let mut monotone_polygons = Vec::new();
@@ -269,11 +249,7 @@ pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
     let mut triangulator = TriangulationContext2::new();
     for monotone_poly in monotone_polygons {
         assert!(is_y_monotone_polygon(monotone_poly.view(), vertex_positions));
-        let res = triangulator.y_monotone_triangulation(
-            monotone_poly.view(),
-            vertex_positions,
-            output
-        );
+        let res = triangulator.y_monotone_triangulation(monotone_poly.view(), vertex_positions, output);
         assert_eq!(res, Ok(()));
     }
 

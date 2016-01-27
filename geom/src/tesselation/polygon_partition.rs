@@ -53,10 +53,12 @@ pub fn partition_polygon<Poly: AbstractPolygon, V: Position2D>(
     diagonals: &mut Diagonals<Poly>,
     output: &mut Vec<Polygon>
 ) {
+    println!(" ------ polygon partition, {} diagonals", diagonals.diagonals.len());
     diagonals.clear_flags();
     for i in 0..diagonals.diagonals.len() {
         let from = diagonals.diagonals[i].from;
         let to = diagonals.diagonals[i].to;
+        println!("     -- diagonal, {:?} -> {:?}", from, to);
         if !diagonals.diagonals[i].processed_face {
             output.push(gen_polygon(polygon, vertices, diagonals, from, to));
         }

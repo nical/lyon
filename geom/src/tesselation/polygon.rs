@@ -268,7 +268,7 @@ impl ComplexPolygon {
     pub fn polygon_ids(&self) -> IdRange<Polygon_, u16> {
         IdRange {
             first: polygon_id(0),
-            count: self.holes.len() as u16,
+            count: self.holes.len() as u16 + 1,
         }
     }
 }
