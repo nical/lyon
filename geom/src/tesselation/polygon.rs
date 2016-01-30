@@ -1,6 +1,10 @@
 use half_edge::kernel::{ VertexId, VertexIdRange, vertex_id };
+use half_edge::vectors::{ Vec2, vec2_sub, directed_angle, Position2D };
 
+use vodk_id::id_vector::IdSlice;
 use vodk_id::{ Id, IdRange };
+use tesselation::path::WindingOrder;
+use std::f32::consts::PI;
 
 pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
     IdRange {
@@ -334,7 +338,7 @@ impl AbstractPolygon for ComplexPolygon {
             return Some(self.main.view());
         }
 
-        if id.handle < self.holes.len() as u16 {
+        if id.handle <= self.holes.len() as u16 {
             return Some(self.holes[id.handle as usize - 1].view());
         }
 
@@ -472,6 +476,30 @@ pub struct ComplexPointId {
     pub polygon_id: PolygonId,
 }
 
+pub fn compute_winding_order<'l, Pos: Position2D>(
+    poly: PolygonView<'l>,
+    vertices: IdSlice<VertexId, Pos>
+) -> Option<WindingOrder> {
+    if poly.num_vertices() < 3 {
+        return None;
+    }
+
+    let mut angle = 0.0;
+    for it in poly.point_ids() {
+        let a = vertices[poly.previous_vertex(it)].position();
+        let b = vertices[poly.vertex(it)].position();
+        let c = vertices[poly.next_vertex(it)].position();
+
+        angle += directed_angle(vec2_sub(a, b), vec2_sub(c, b));
+    }
+
+    return if angle > ((poly.num_vertices()-1) as f32) * PI {
+        Some(WindingOrder::Clockwise)
+    } else {
+        Some(WindingOrder::CounterClockwise)
+    };
+}
+
 #[test]
 fn test_simple_polygon() {
   let poly = Polygon {
@@ -491,3 +519,35 @@ fn test_simple_polygon() {
   let _ = poly.into_complex_polygon();
 }
 
+#[test]
+fn test_winding_order()
+{
+    let positions: &[Vec2] = &[
+        [0.0, 0.0],
+        [0.0,-1.0],
+        [0.0,-2.0],
+        [1.0,-2.0],
+        [2.0,-2.0],
+        [2.0,-1.0],
+        [2.0, 0.0],
+        [1.0, 0.0],
+    ];
+    let vertices = IdSlice::new(positions);
+    let poly = Polygon::from_vertices(vertex_id_range(0, 8));
+    assert_eq!(compute_winding_order(poly.view(), vertices), Some(WindingOrder::Clockwise));
+
+    let positions: &[Vec2] = &[
+        [1.0, 0.0],
+        [2.0, 0.0],
+        [2.0,-1.0],
+        [2.0,-2.0],
+        [1.0,-2.0],
+        [0.0,-2.0],
+        [0.0,-1.0],
+        [0.0, 0.0],
+    ];
+    let vertices = IdSlice::new(positions);
+    let poly = Polygon::from_vertices(vertex_id_range(0, 8));
+    assert_eq!(compute_winding_order(poly.view(), vertices), Some(WindingOrder::CounterClockwise));
+
+}

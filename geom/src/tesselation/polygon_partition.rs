@@ -75,6 +75,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
     first_point: Poly::PointId,
     second_point: Poly::PointId,
 ) -> Polygon {
+    println!(" ------------ gen polygon");
     let mut new_poly = Polygon::new();
     let mut prev = first_point;
     let mut it = second_point;
@@ -148,7 +149,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
             // back to where we began, the work is done.
             break;
         }
-
+        println!(" -- {:?}", it);
         counter += 1;
         if counter > polygon.num_vertices() * 2 {
             panic!("infinite loop ?");

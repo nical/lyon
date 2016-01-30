@@ -77,6 +77,10 @@ impl<T, H:PartialEq> PartialEq for IdRange<T, H> {
 impl<T, H:Copy+Eq> Eq for IdRange<T, H> {}
 
 impl<T, H:IntegerHandle> IdRange<T, H> {
+    pub fn new(first: H, count: H) -> IdRange<T, H> {
+        IdRange { first: Id::new(first), count: count }
+    }
+
     pub fn len(self) -> usize { self.count.to_index() }
 
     pub fn is_empty(self) -> bool { self.len() == 0 }
@@ -270,4 +274,12 @@ fn test_copy_id() {
     let r2 = r1;
     let r3 = r1;
     assert_eq!(r2, r3);
+}
+
+#[test]
+fn test_reverese_id_range() {
+    use std::iter::FromIterator;
+    fn range(first:u16, count:u16) -> IdRange<u16, u16> { IdRange::new(first, count) }
+    let v: Vec<Id<u16, u16>> = Vec::from_iter(ReverseIdRange::new(range(1, 5)));
+    assert_eq!(v, vec![Id::new(5), Id::new(4), Id::new(3), Id::new(2), Id::new(1)]);
 }

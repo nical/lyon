@@ -62,6 +62,7 @@ use half_edge::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
 
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
+use tesselation::path::WindingOrder;
 use tesselation::polygon_partition::{ Diagonals, partition_polygon };
 
 use vodk_alloc::*;
@@ -92,7 +93,7 @@ pub enum TriangulationError {
     MissingFace,
 }
 
-fn is_below(a: Vec2, b: [f32;2]) -> bool { a.y() > b.y() || (a.y() == b.y() && a.x() > b.x()) }
+fn is_below(a: Vec2, b: Vec2) -> bool { a.y() > b.y() || (a.y() == b.y() && a.x() > b.x()) }
 
 fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
     // assuming clockwise vertex_positions winding order
@@ -540,9 +541,15 @@ impl DecompositionContext2 {
         let mut sorted_edges: Vec<ComplexPointId> = create_vec_from(storage);
 
         for sub_poly in polygon.polygon_ids() {
-            println!(" -_-_-_-_-_-_-");
+            println!(" +++++ sub poly {:?}", sub_poly);
+            if sub_poly != polygon_id(0) {
+                let winding = compute_winding_order(polygon.get_sub_polygon(sub_poly).unwrap(), vertex_positions);
+                debug_assert_eq!(winding, Some(WindingOrder::CounterClockwise)
+                );
+            }
             sorted_edges.extend(polygon.point_ids(sub_poly));
         }
+        debug_assert!(sorted_edges.len() == polygon.num_vertices());
 
         println!("Unsorted edges: {:?}", sorted_edges);
 
@@ -979,18 +986,18 @@ impl TriangulationContext2 {
             }
         }
 
-        up.direction = if vertex(up).y() > vertex(down).y() { Direction::Forward }
+        up.direction = if is_below(vertex(up), vertex(down)) { Direction::Forward }
                        else { Direction::Backward };
 
         down.direction = up.direction.reverse();
 
         // Find the bottom-most vertex (with the highest y value)
-        let mut big_y = vertex(down).y();
+        let mut big_y = vertex(down);
         let guard = down;
         loop {
             down = next(down);
-            let new_y = vertex(down).y();
-            if new_y < big_y {
+            let new_y = vertex(down);
+            if is_below(big_y, new_y) {
                 down = previous(down);
                 break;
             }
@@ -1002,12 +1009,12 @@ impl TriangulationContext2 {
             }
         }
         // find the top-most vertex (with the smallest y value)
-        let mut small_y = vertex(up).y();
+        let mut small_y = vertex(up);
         let guard = up;
         loop {
             up = next(up);
-            let new_y = vertex(up).y();
-            if new_y > small_y {
+            let new_y = vertex(up);
+            if is_below(new_y, small_y) {
                 up = previous(up);
                 break;
             }
@@ -1033,7 +1040,7 @@ impl TriangulationContext2 {
         m = next(m);
         o = next(o);
 
-        if vertex(m).y() > vertex(o).y() {
+        if is_below(vertex(m), vertex(o)) {
             swap(&mut m, &mut o);
         }
 
@@ -1057,7 +1064,7 @@ impl TriangulationContext2 {
             // right chains. The chain we are currently iterating over is the
             // main chain (m) and the other one the opposite chain (o).
             // p is the previous iteration, regardless of which chain it is on.
-            if vertex(m).y() > vertex(o).y() || m == down {
+            if is_below(vertex(m), vertex(o)) || m == down {
                 swap(&mut m, &mut o);
             }
 
@@ -1129,7 +1136,7 @@ impl TriangulationContext2 {
             if vertex(m).y() < vertex(p).y() {
                 println!("   !!! m: {:?}  o: {:?}", m.point, o.point);
             }
-            debug_assert!(vertex(m).y() >= vertex(p).y());
+            debug_assert!(!is_below(vertex(p), vertex(m)));
         }
         debug_assert_eq!(triangle_count, polygon.num_vertices() as usize - 2);
 
@@ -1195,9 +1202,9 @@ fn test_shape_with_holes(vertices: &[Vec2], separators: &[u16], angle: f32) {
 
     let mut vertex_count = separators[0] as u16;
     for i in 1..separators.len() {
-        let from = separators[i] as u16;
+        let from = vertex_count as u16;
         let to = vertex_count + separators[i] as u16;
-        polygon.holes.push(Polygon::from_vertices(vertex_id_range(from, to)));
+        polygon.holes.push(Polygon::from_vertices(ReverseIdRange::new(vertex_id_range(from, to))));
         vertex_count = to;
     }
 
@@ -1213,6 +1220,7 @@ fn test_shape_with_holes(vertices: &[Vec2], separators: &[u16], angle: f32) {
     let mut triangulator = TriangulationContext2::new();
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
 
+    println!("\n\n -- There are {:?} monotone polygons", y_monotone_polygons.len());
     for poly in y_monotone_polygons {
         println!("\n\n -- Triangulating polygon with vertices {:?}", poly.vertices);
         let mut i = 0;
@@ -1382,19 +1390,19 @@ fn test_triangulate_holes() {
         ),
     ];
 
-    for i in 0 .. vertex_positions.len() {
+    let mut angle = 0.0;
+    while angle < 2.0*PI {
+        for i in 0 .. vertex_positions.len() {
         let &(vertices, separators) = &vertex_positions[i];
-        let mut angle = 0.0;
-        while angle < 2.0*PI {
             println!("\n\n\n   -- shape {} angle {:?}", i, angle);
             test_shape_with_holes(vertices, separators, angle);
-            angle += 0.005;
-            //break;
         }
+        angle += 0.005;
     }
 }
 
 #[test]
+#[ignore]
 fn test_triangulate_degenerate() {
     let vertex_positions : &[&[Vec2]] = &[
         &[  // duplicate point
@@ -1460,13 +1468,13 @@ fn test_triangulate_degenerate() {
         ],
     ];
 
-    for i in 0 .. vertex_positions.len() {
-        let mut angle = 0.0;
-        while angle < 2.0*PI {
+    let mut angle = 0.0;
+    while angle < 2.0*PI {
+        for i in 0 .. vertex_positions.len() {
             println!("\n\n\n   -- shape {} angle {:?}", i, angle);
             test_shape(&vertex_positions[i][..], angle);
-            angle += 0.005;
         }
+        angle += 0.005;
     }
 }
 
