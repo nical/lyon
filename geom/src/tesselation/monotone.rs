@@ -1402,7 +1402,6 @@ fn test_triangulate_holes() {
 }
 
 #[test]
-#[ignore]
 fn test_triangulate_degenerate() {
     let vertex_positions : &[&[Vec2]] = &[
         &[  // duplicate point
