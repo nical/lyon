@@ -1,39 +1,18 @@
-use half_edge::kernel::{ VertexId, VertexIdRange, vertex_id };
-use half_edge::vectors::{ Vec2, vec2_sub, directed_angle, Position2D };
 
 use vodk_id::id_vector::IdSlice;
 use vodk_id::{ Id, IdRange };
-use tesselation::path::WindingOrder;
-use std::f32::consts::PI;
 
-pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
-    IdRange {
-        first: Id::new(from),
-        count: to - from,
-    }
-}
+use tesselation::path::WindingOrder;
+use tesselation::vectors::{ Vec2, vec2_sub, directed_angle, Position2D };
+use tesselation::{ Direction, vertex_id, vertex_id_range, VertexId, VertexIdRange };
+
+use std::f32::consts::PI;
 
 #[derive(Debug)]
 pub struct Point_;
 pub type PointId = Id<Point_, u16>;
 pub fn point_id(idx: u16) -> PointId { PointId::new(idx) }
 
-pub use half_edge::iterators::{Direction };
-
-//#[derive(Copy, Clone, Debug)]
-//pub enum Direction {
-//    Forward,
-//    Backward,
-//}
-//
-//impl Direction {
-//    pub fn reverse(self) -> Direction {
-//        match self {
-//            Direction::Forward => { Direction::Backward }
-//            Direction::Backward => { Direction::Forward }
-//        }
-//    }
-//}
 
 pub trait AbstractPolygon {
     type PointId: Copy + Eq + ::std::fmt::Debug;

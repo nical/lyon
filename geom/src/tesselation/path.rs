@@ -1,13 +1,9 @@
 use std::f32::consts::PI;
-use half_edge::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Position2D };
-use half_edge::kernel::{ EdgeId, FaceId, vertex_range, VertexIdRange };
-use tesselation::monotone::{
-    is_y_monotone,
-    DecompositionContext,
-    TriangulationContext,
-};
+use tesselation::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Position2D };
+use tesselation::{ vertex_id, vertex_id_range, VertexId, VertexIdRange };
+use tesselation::monotone::{ is_y_monotone, DecompositionContext, TriangulationContext, };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
-use tesselation::bezier::{ separate_bezier_faces, separate_bezier_faces2, triangulate_quadratic_bezier };
+use tesselation::bezier::{ separate_bezier_faces, triangulate_quadratic_bezier };
 
 use tesselation::polygon::*;
 use tesselation::polygon_partition::{ partition_polygon, Diagonals };
@@ -107,7 +103,7 @@ impl<'l> PathBuilder<'l> {
         };
 
         return PathInfo {
-            vertices: vertex_range(self.offset, vertex_count as u16),
+            vertices: vertex_id_range(self.offset, self.offset + vertex_count as u16),
             winding: winding,
         };
     }
@@ -170,7 +166,7 @@ pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     let vertex_positions = IdSlice::new(points);
     let mut beziers: Vec<[Vec2; 3]> = vec![];
 
-    separate_bezier_faces2(&mut polygon.main, vertex_positions, &mut beziers);
+    separate_bezier_faces(&mut polygon.main, vertex_positions, &mut beziers);
 
     let mut diagonals = Diagonals::new();
     let mut ctx = DecompositionContext::new();
@@ -207,7 +203,7 @@ fn test_path_builder_simple() {
     // clockwise
     let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
         .line_to([1.0, 0.0]).line_to([1.0, 1.0]).close();
-    assert_eq!(path.vertices, vertex_range(0, 3));
+    assert_eq!(path.vertices, vertex_id_range(0, 3));
     assert_eq!(path.winding, WindingOrder::Clockwise);
     assert_eq!(storage[0].position, [0.0, 0.0]);
     assert_eq!(storage[1].position, [1.0, 0.0]);
@@ -219,13 +215,13 @@ fn test_path_builder_simple() {
     // counter-clockwise
     let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
         .line_to([1.0, 1.0]).line_to([1.0, 0.0]).close();
-    assert_eq!(path.vertices, vertex_range(3, 3));
+    assert_eq!(path.vertices, vertex_id_range(3, 6));
     assert_eq!(path.winding, WindingOrder::CounterClockwise);
 
     // line_to back to the first vertex (should ignore the last vertex)
     let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
         .line_to([1.0, 1.0]).line_to([1.0, 0.0]).line_to([0.0, 0.0]).close();
-    assert_eq!(path.vertices, vertex_range(6, 3));
+    assert_eq!(path.vertices, vertex_id_range(6, 9));
     assert_eq!(path.winding, WindingOrder::CounterClockwise);
 }
 
@@ -236,12 +232,12 @@ fn test_path_builder_simple_bezier() {
     // clockwise
     let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
         .quadratic_bezier_to([1.0, 0.0], [1.0, 1.0]).close();
-    assert_eq!(path.vertices, vertex_range(0, 3));
+    assert_eq!(path.vertices, vertex_id_range(0, 3));
     assert_eq!(path.winding, WindingOrder::Clockwise);
 
     // counter-clockwise
     let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
         .quadratic_bezier_to([1.0, 1.0], [1.0, 0.0]).close();
-    assert_eq!(path.vertices, vertex_range(3, 3));
+    assert_eq!(path.vertices, vertex_id_range(3, 6));
     assert_eq!(path.winding, WindingOrder::CounterClockwise);
 }

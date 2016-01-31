@@ -1,7 +1,7 @@
-use tesselation::polygon::*;
 
-use half_edge::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
-use half_edge::kernel::{ VertexId };
+use tesselation::{ VertexId, vertex_id, vertex_id_range };
+use tesselation::polygon::*;
+use tesselation::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
 
 use vodk_id::id_vector::IdSlice;
 
@@ -161,8 +161,6 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
 
 #[test]
 fn test_gen_polygon_no_diagonal() {
-    use half_edge::kernel::vertex_id;
-
     let positions: &[Vec2] = &[
         [0.0, 0.0],
         [1.0,-1.0],
@@ -191,8 +189,6 @@ fn test_gen_polygon_no_diagonal() {
 
 #[test]
 fn test_gen_polygon_simple() {
-    use half_edge::kernel::vertex_id;
-
     let positions: &[Vec2] = &[
         [0.0, 0.0],
         [1.0,-1.0],
@@ -221,8 +217,6 @@ fn test_gen_polygon_simple() {
 
 #[test]
 fn test_gen_polygon_two_diagonals() {
-    use half_edge::kernel::vertex_id;
-
     let positions: &[Vec2] = &[
         [0.0, 0.0],
         [1.0,-1.0],
@@ -251,8 +245,6 @@ fn test_gen_polygon_two_diagonals() {
 
 #[test]
 fn test_gen_polygon_only_diagonals() {
-    use half_edge::kernel::vertex_id;
-
     // The shape looks like this:
     //
     //  0   1   2
@@ -300,8 +292,6 @@ fn test_gen_polygon_only_diagonals() {
 
 #[test]
 fn test_gen_polygon_with_holes() {
-    use half_edge::kernel::vertex_id;
-
     fn point(poly: PolygonId, idx: u16) -> ComplexPointId {
         ComplexPointId { point: point_id(idx), polygon_id: poly }
     }

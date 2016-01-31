@@ -1,5 +1,5 @@
 use half_edge::kernel::*;
-use half_edge::vectors::*;
+use tesselation::vectors::*;
 use vodk_id::id_vector::IdVector;
 
 /// Convenience class that wraps a mesh's connectivity kernel and attribute data

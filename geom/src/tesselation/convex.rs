@@ -2,7 +2,7 @@
 use std::f32::consts::PI;
 
 use tesselation::vertex_builder::VertexBufferBuilder;
-use half_edge::vectors::{ vec2_add, vec2_mul, Vec2};
+use tesselation::vectors::{ vec2_add, vec2_mul, Vec2};
 
 pub type Index = u16;
 

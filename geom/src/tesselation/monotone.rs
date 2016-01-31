@@ -14,10 +14,8 @@ use std::collections::HashMap;
 use std::mem::swap;
 use std::f32::consts::PI;
 
-use half_edge::kernel::*;
-use half_edge::iterators::{ DirectedEdgeCirculator};
-use half_edge::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
-
+use tesselation::{ VertexId, VertexIdRange, vertex_id_range, Direction };
+use tesselation::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
 use tesselation::path::WindingOrder;
