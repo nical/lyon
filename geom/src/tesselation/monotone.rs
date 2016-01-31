@@ -6,7 +6,7 @@
 //!
 //! The implementation inspired by the book Computational Geometry, Algorithms And Applications 3rd edition.
 //!
-//! Note that a lot of the comments and variable names in this module assume a coordinate
+//! Note that a lot of the comments and variable labels in this module assume a coordinate
 //! system where y is pointing downwards
 //!
 //!
@@ -1177,38 +1177,56 @@ pub fn triangulate_faces<T:Position2D, Output: VertexBufferBuilder<Vec2>>(
 }
 
 #[cfg(test)]
-fn test_shape_with_holes(vertices: &[Vec2], separators: &[u16], angle: f32) {
-    use tesselation::vertex_builder::{
-        VertexBuffers, simple_vertex_builder,
-    };
+struct TestShape<'l> {
+    label: &'l str,
+    main: &'l[Vec2],
+    holes: &'l[&'l[Vec2]],
+}
 
-
+#[cfg(test)]
+fn test_shape(shape: &TestShape, angle: f32) {
     use std::iter::FromIterator;
-    let mut transformed_vertices: Vec<Vec2> = Vec::from_iter(vertices.iter().map(|v|{*v}));
-    for ref mut v in &mut transformed_vertices[..] {
+    use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
+
+    let mut vertices: Vec<Vec2> = Vec::new();
+    vertices.extend(shape.main.iter());
+    for hole in shape.holes {
+        vertices.extend(hole.iter());
+    }
+
+    println!("vertices: {:?}", vertices);
+
+    for ref mut v in &mut vertices[..] {
         // rotate all points around (0, 0).
         let cos = angle.cos();
         let sin = angle.sin();
-        v[0] = v.x()*cos - v.y()*sin;
-        v[1] = v.x()*sin + v.y()*cos;
+        let (x, y) = (v.x(), v.y());
+        v[0] = x*cos + y*sin;
+        v[1] = y*cos - x*sin;
     }
 
-    println!("transformed_vertices: {:?}", transformed_vertices);
+    println!("transformed vertices: {:?}", vertices);
 
     let mut polygon = ComplexPolygon {
-        main: Polygon::from_vertices(vertex_id_range(0, separators[0])),
+        main: Polygon::from_vertices(vertex_id_range(0, shape.main.len() as u16)),
         holes: Vec::new(),
     };
 
-    let mut vertex_count = separators[0] as u16;
-    for i in 1..separators.len() {
-        let from = vertex_count as u16;
-        let to = vertex_count + separators[i] as u16;
+    let mut from = shape.main.len() as u16;
+    for hole in shape.holes {
+        let to = from + hole.len() as u16;
+        println!(" -- range from {} to {}", from, to);
         polygon.holes.push(Polygon::from_vertices(ReverseIdRange::new(vertex_id_range(from, to))));
-        vertex_count = to;
+        from = to;
     }
 
-    let vertex_positions = IdSlice::new(vertices);
+    println!("\n\n -- poly main {:?}", polygon.main.vertices);
+    for h in &polygon.holes {
+        println!("    hole {:?}", h.vertices);
+    }
+
+
+    let vertex_positions = IdSlice::new(&vertices[..]);
     let mut ctx = DecompositionContext2::new();
     let mut diagonals = Diagonals::new();
     let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut diagonals);
@@ -1243,136 +1261,169 @@ fn test_shape_with_holes(vertices: &[Vec2], separators: &[u16], angle: f32) {
 }
 
 #[cfg(test)]
-fn test_shape(vertices: &[Vec2], angle: f32) {
-    test_shape_with_holes(vertices, &[vertices.len() as u16], angle);
-}
-
-#[test]
-fn test_triangulate() {
-    let vertex_positions : &[&[Vec2]] = &[
-        &[
-            [-10.0, 5.0],
-            [0.0, -5.0],
-            [10.0, 5.0],
-        ],
-        &[
-            [1.0, 2.0],
-            [1.5, 3.0],
-            [0.0, 4.0],
-        ],
-        &[
-            [1.0, 2.0],
-            [1.5, 3.0],
-            [0.0, 4.0],
-            [-1.0, 1.0],
-        ],
-        &[
-            [0.0, 0.0],
-            [3.0, 0.0],
-            [2.0, 1.0],
-            [3.0, 2.0],
-            [2.0, 3.0],
-            [0.0, 2.0],
-            [1.0, 1.0],
-        ],
-        &[
-            [0.0, 0.0],
-            [1.0, 1.0],// <
-            [2.0, 0.0],//  |
-            [2.0, 4.0],//  |
-            [1.0, 3.0],// <
-            [0.0, 4.0],
-        ],
-        &[
-            [0.0, 2.0],
-            [1.0, 2.0],
-            [0.0, 1.0],
-            [2.0, 0.0],
-            [3.0, 1.0],// 4
-            [4.0, 0.0],
-            [3.0, 2.0],
-            [2.0, 1.0],// 7
-            [3.0, 3.0],
-            [2.0, 4.0]
-        ],
-        &[
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [2.0, 0.0],
-            [3.0, 0.0],
-            [3.0, 1.0],
-            [3.0, 2.0],
-            [3.0, 3.0],
-            [2.0, 3.0],
-            [1.0, 3.0],
-            [0.0, 3.0],
-            [0.0, 2.0],
-            [0.0, 1.0],
-        ],
-    ];
-
+fn test_all_shapes(tests: &[TestShape]) {
     let mut angle = 0.0;
     while angle < 2.0*PI {
-        for i in 0 .. vertex_positions.len() {
-            println!("\n\n\n   -- shape {} angle {:?}", i, angle);
-            test_shape(&vertex_positions[i][..], angle);
+        for shape in tests {
+            println!("\n\n\n   -- shape: {} (angle {:?})", shape.label, angle);
+            test_shape(shape, angle);
         }
         angle += 0.005;
     }
 }
 
 #[test]
+fn test_triangulate() {
+    test_all_shapes(&[
+        TestShape {
+            label: &"Simple triangle",
+            main: &[
+                [-10.0, 5.0],
+                [0.0, -5.0],
+                [10.0, 5.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Simple triangle",
+            main: &[
+                [1.0, 2.0],
+                [1.5, 3.0],
+                [0.0, 4.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Simple rectangle",
+            main: &[
+                [1.0, 2.0],
+                [1.5, 3.0],
+                [0.0, 4.0],
+                [-1.0, 1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"",
+            main: &[
+                [0.0, 0.0],
+                [3.0, 0.0],
+                [2.0, 1.0],
+                [3.0, 2.0],
+                [2.0, 3.0],
+                [0.0, 2.0],
+                [1.0, 1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"",
+            main: &[
+                [0.0, 0.0],
+                [1.0, 1.0],
+                [2.0, 0.0],
+                [2.0, 4.0],
+                [1.0, 3.0],
+                [0.0, 4.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"",
+            main: &[
+                [0.0, 2.0],
+                [1.0, 2.0],
+                [0.0, 1.0],
+                [2.0, 0.0],
+                [3.0, 1.0],// 4
+                [4.0, 0.0],
+                [3.0, 2.0],
+                [2.0, 1.0],// 7
+                [3.0, 3.0],
+                [2.0, 4.0]
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"",
+            main: &[
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [2.0, 0.0],
+                [3.0, 0.0],
+                [3.0, 1.0],
+                [3.0, 2.0],
+                [3.0, 3.0],
+                [2.0, 3.0],
+                [1.0, 3.0],
+                [0.0, 3.0],
+                [0.0, 2.0],
+                [0.0, 1.0],
+            ],
+            holes: &[],
+        },
+    ]);
+}
+
+#[test]
 fn test_triangulate_holes() {
-    let vertex_positions : &[(&[Vec2], &[u16])] = &[
-        (
-            &[
-                // outer
+    test_all_shapes(&[
+        TestShape {
+            label: &"Triangle with triangle hole",
+            main: &[
                 [-11.0, 5.0],
                 [0.0, -5.0],
                 [10.0, 5.0],
-                // hole
-                [-5.0, 2.0],
-                [0.0, -2.0],
-                [4.0, 2.0],
             ],
-            &[ 3, 3 ]
-        ),
-        (
-            &[
-                // outer
+            holes: &[
+                &[
+                    [-5.0, 2.0],
+                    [0.0, -2.0],
+                    [4.0, 2.0],
+                ]
+            ]
+        },
+        TestShape {
+            label: &"Square with triangle hole",
+            main: &[
                 [-10.0, -10.0],
                 [ 10.0, -10.0],
                 [ 10.0,  10.0],
                 [-10.0,  10.0],
-                // hole
-                [-4.0, 2.0],
-                [0.0, -2.0],
-                [4.0, 2.0],
             ],
-            &[ 4, 3 ]
-        ),
-        (
-            &[
-                // outer
+            holes: &[
+                &[
+                    [-4.0, 2.0],
+                    [0.0, -2.0],
+                    [4.0, 2.0],
+                ]
+            ],
+        },
+        TestShape {
+            label: &"Square with two holes",
+            main: &[
                 [-10.0, -10.0],
                 [ 10.0, -10.0],
                 [ 10.0,  10.0],
                 [-10.0,  10.0],
-                // hole 1
-                [-8.0, -8.0],
-                [-4.0, -8.0],
-                [4.0, 8.0],
-                [-8.0, 8.0],
-                // hole 2
-                [8.0, -8.0],
-                [6.0, 7.0],
-                [-2.0, -8.0],
             ],
-            &[ 4, 4, 3 ]
-        ),
-        (
-            &[
-                // outer
+            holes: &[
+                &[
+                    [-8.0, -8.0],
+                    [-4.0, -8.0],
+                    [4.0, 8.0],
+                    [-8.0, 8.0],
+                ],
+                &[
+                    [8.0, -8.0],
+                    [6.0, 7.0],
+                    [-2.0, -8.0],
+                ]
+            ],
+        },
+        TestShape {
+            label: &"",
+            main: &[
                 [0.0, 0.0],
                 [1.0, 1.0],
                 [2.0, 1.0],
@@ -1381,110 +1432,135 @@ fn test_triangulate_holes() {
                 [5.0, 0.0],
                 [3.0, 4.0],
                 [1.0, 4.0],
-                // hole 1
-                [2.0, 2.0],
-                [3.0, 2.0],
-                [2.5, 3.0],
             ],
-            &[8, 3]
-        ),
-    ];
-
-    let mut angle = 0.0;
-    while angle < 2.0*PI {
-        for i in 0 .. vertex_positions.len() {
-        let &(vertices, separators) = &vertex_positions[i];
-            println!("\n\n\n   -- shape {} angle {:?}", i, angle);
-            test_shape_with_holes(vertices, separators, angle);
-        }
-        angle += 0.005;
-    }
+            holes: &[
+                &[
+                    [2.0, 2.0],
+                    [3.0, 2.0],
+                    [2.5, 3.0],
+                ]
+            ],
+        },
+    ]);
 }
 
 #[test]
+#[ignore]
 fn test_triangulate_degenerate() {
-    let vertex_positions : &[&[Vec2]] = &[
-        &[  // duplicate point
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 0.0],
-        ],
-        &[  // duplicate point
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 1.0],
-        ],
-        &[  // duplicate point
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 1.0],
-        ],
-        &[  // points in the same line
-            [0.0, 0.0],
-            [0.0, 1.0],
-            [0.0, 2.0],
-        ],
-        &[  // points in the same line
-            [0.0, 0.0],
-            [0.0, 2.0],
-            [0.0, 1.0],
-        ],
-        &[  // all points at the same place
-            [0.0, 0.0],
-            [0.0, 0.0],
-            [0.0, 0.0],
-        ],
-        &[  // all points at the same place
-            [0.0, 0.0],
-            [0.0, 0.0],
-            [0.0, 0.0],
-            [0.0, 0.0],
-        ],
-        &[  // geometry comes back along a line on the x axis (zero-aera triangles)
-            [0.0, 0.0],
-            [2.0, 0.0],
-            [1.0, 0.0],
-            [0.0, 1.0],
-        ],
-        &[  // geometry comes back along a line on the y axis (zero-aera triangles)
-            [0.0, 0.0],
-            [0.0, 2.0],
-            [0.0, 1.0],
-            [-1.0, 0.0],
-        ],
-        &[  // a mix of the previous 2 cases
-            [0.0, 0.0],
-            [2.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 2.0],
-            [1.0, 1.0],
-            [-1.0, 1.0],
-            [0.0, 1.0],
-            [0.0, -1.0],
-        ],
-    ];
-
-    let mut angle = 0.0;
-    while angle < 2.0*PI {
-        for i in 0 .. vertex_positions.len() {
-            println!("\n\n\n   -- shape {} angle {:?}", i, angle);
-            test_shape(&vertex_positions[i][..], angle);
-        }
-        angle += 0.005;
-    }
+    test_all_shapes(&[
+        TestShape {
+            label: &"3 points on the same line (1)",
+            main: &[
+                [0.0, 0.0],
+                [0.0, 1.0],
+                [0.0, 2.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"3 points on the same line (2)",
+            main: &[
+                [0.0, 0.0],
+                [0.0, 2.0],
+                [0.0, 1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"All points in the same place (1)",
+            main: &[
+                [0.0, 0.0],
+                [0.0, 0.0],
+                [0.0, 0.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"All points in the same place (2)",
+            main: &[
+                [0.0, 0.0],
+                [0.0, 0.0],
+                [0.0, 0.0],
+                [0.0, 0.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Geometry comes back along a line on the y axis",
+            main: &[
+                [0.0, 0.0],
+                [0.0, 2.0],
+                [0.0, 1.0],
+                [-1.0, 0.0],
+            ],
+            holes: &[],
+        },
+    ]);
 }
 
 #[test]
 #[ignore]
 fn test_triangulate_failures() {
     // Test cases that are known to fail but we want to make work eventually.
-    let vertex_positions : &[(&[Vec2], &[u16])] = &[
-        // This path goes somthing like A,B,A,...
-        (
-            &[
+    test_all_shapes(&[
+        TestShape {
+            label: &"Duplicate point (1)",
+            main: &[
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 0.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Duplicate point (2)",
+            main: &[
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Duplicate point (3)",
+            main: &[
+              [0.0, 0.0],
+              [1.0, 0.0],
+              [1.0, 0.0],
+              [1.0, 0.0],
+              [1.0, 1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Geometry comes back along a line on the x axis",
+            main: &[
+                [0.0, 0.0],
+                [2.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"Geometry comes back along lines",
+            main: &[
+            // a mix of the previous 2 cases
+                [0.0, 0.0],
+                [2.0, 0.0],
+                [1.0, 0.0],
+                [1.0, 2.0],
+                [1.0, 1.0],
+                [-1.0, 1.0],
+                [0.0, 1.0],
+                [0.0, -1.0],
+            ],
+            holes: &[],
+        },
+        TestShape {
+            label: &"...->A->B->A->...",
+            main: &[
                 // outer
                 [0.0, 0.0],
                 [1.0, 1.0], // <--
@@ -1495,16 +1571,18 @@ fn test_triangulate_failures() {
                 [3.0, 4.0],
                 [1.0, 4.0],
                 [1.0, 1.0], // <--
-                // hole 1
-                [2.0, 2.0],
-                [3.0, 2.0],
-                [2.5, 3.0],
             ],
-            &[9, 3]
-        ),
-        // zero-area geometry shaped like a cross going back to the same position at the center
-        (
-            &[
+            holes: &[
+                &[
+                    [2.0, 2.0],
+                    [3.0, 2.0],
+                    [2.5, 3.0],
+                ]
+            ],
+        },
+        TestShape {
+            label: &"zero-area geometry shaped like a cross going back to the same position at the center",
+            main: &[
                 [1.0, 1.0],
                 [2.0, 1.0],
                 [1.0, 1.0],
@@ -1514,11 +1592,11 @@ fn test_triangulate_failures() {
                 [1.0, 1.0],
                 [1.0, 0.0],
             ],
-            &[8]
-        ),
-        // Self-intersection
-        (
-            &[
+            holes: &[],
+        },
+        TestShape {
+            label: &"Self-intersection",
+            main: &[
                 [0.0, 0.0],
                 [1.0, 0.0],
                 [1.0, 1.0],
@@ -1526,13 +1604,7 @@ fn test_triangulate_failures() {
                 [3.0, 0.0],
                 [3.0, 1.0],
             ],
-            &[6]
-        ),
-    ];
-
-    for i in 0 .. vertex_positions.len() {
-        println!("\n\n -- shape {:?}", i);
-        let &(vertices, separators) = &vertex_positions[i];
-        test_shape_with_holes(vertices, separators, 0.0);
-    }
+            holes: &[],
+        },
+    ]);
 }

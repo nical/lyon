@@ -149,7 +149,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
             // back to where we began, the work is done.
             break;
         }
-        println!(" -- {:?}", it);
+        println!(" -- {:?} : {:?} : {:?}", it, polygon.vertex(it), vertices[polygon.vertex(it)].position());
         counter += 1;
         if counter > polygon.num_vertices() * 2 {
             panic!("infinite loop ?");
