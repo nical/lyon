@@ -1,13 +1,10 @@
 use std::f32::consts::PI;
 use half_edge::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Position2D };
-use half_edge::kernel::{ ConnectivityKernel, EdgeId, FaceId, vertex_range, VertexIdRange };
+use half_edge::kernel::{ EdgeId, FaceId, vertex_range, VertexIdRange };
 use tesselation::monotone::{
     is_y_monotone,
-    is_y_monotone_polygon,
     DecompositionContext,
     TriangulationContext,
-    DecompositionContext2,
-    TriangulationContext2,
 };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::bezier::{ separate_bezier_faces, separate_bezier_faces2, triangulate_quadratic_bezier };
@@ -136,18 +133,6 @@ impl<'l> PathBuilder<'l> {
 }
 
 impl PathInfo {
-    pub fn apply_to_kernel(&self,
-        kernel: &mut ConnectivityKernel,
-        face_in: Option<FaceId>,
-        face_out: Option<FaceId>
-    ) -> EdgeId {
-        return match self.winding {
-            WindingOrder::Clockwise => { kernel.add_loop(self.vertices, face_in, face_out) }
-            WindingOrder::CounterClockwise => { kernel.add_loop(self.vertices, face_out, face_in) }
-            _ => { panic!("Not implemented yet!"); }
-        }
-    }
-
     pub fn create_polygon(&self) -> Polygon {
         return match self.winding {
             WindingOrder::Clockwise => { Polygon::from_vertices(self.vertices) }
@@ -158,53 +143,6 @@ impl PathInfo {
 }
 
 pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
-    path: PathInfo,
-    holes: &[PathInfo],
-    points: &'l Vec<PointData>,
-    output: &mut Output
-) {
-    output.begin_geometry();
-
-    let mut kernel = ConnectivityKernel::new();
-
-    let face = kernel.add_face();
-    path.apply_to_kernel(&mut kernel, Some(face), None);
-    for hole in holes {
-        hole.apply_to_kernel(&mut kernel, None, Some(face));
-    }
-
-    for v in points {
-        output.push_vertex(v.position());
-    }
-
-    let vertex_positions = IdSlice::new(points);
-    let mut monotone_faces: Vec<FaceId> = vec![face];
-    let mut beziers: Vec<[Vec2; 3]> = vec![];
-
-    let first_edge = kernel[face].first_edge;
-    separate_bezier_faces(&mut kernel, first_edge, vertex_positions, &mut beziers);
-
-    let mut ctx = DecompositionContext::new();
-    let res = ctx.y_monotone_decomposition(&mut kernel, face, vertex_positions, &mut monotone_faces);
-    assert_eq!(res, Ok(()));
-
-    let mut triangulator = TriangulationContext::new();
-    for f in monotone_faces {
-        assert!(is_y_monotone(&kernel, vertex_positions, f));
-        let res = triangulator.y_monotone_triangulation(&kernel, f, vertex_positions, output);
-        assert_eq!(res, Ok(()));
-    }
-
-    for b in beziers {
-        println!(" -- adding bezier loop");
-        let from = b[0];
-        let ctrl = b[1];
-        let to = b[2];
-        triangulate_quadratic_bezier(from, ctrl, to, 16, output);
-    }
-}
-
-pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
     path: PathInfo,
     holes: &[PathInfo],
     points: &'l Vec<PointData>,
@@ -235,7 +173,7 @@ pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
     separate_bezier_faces2(&mut polygon.main, vertex_positions, &mut beziers);
 
     let mut diagonals = Diagonals::new();
-    let mut ctx = DecompositionContext2::new();
+    let mut ctx = DecompositionContext::new();
 
     println!(" ---- num points {}", polygon.num_vertices());
 
@@ -246,9 +184,9 @@ pub fn triangulate_path_fill2<'l, Output: VertexBufferBuilder<Vec2>>(
     partition_polygon(&polygon, vertex_positions, &mut diagonals, &mut monotone_polygons);
     println!(" -- there are {} monotone polygons", monotone_polygons.len());
 
-    let mut triangulator = TriangulationContext2::new();
+    let mut triangulator = TriangulationContext::new();
     for monotone_poly in monotone_polygons {
-        assert!(is_y_monotone_polygon(monotone_poly.view(), vertex_positions));
+        assert!(is_y_monotone(monotone_poly.view(), vertex_positions));
         let res = triangulator.y_monotone_triangulation(monotone_poly.view(), vertex_positions, output);
         assert_eq!(res, Ok(()));
     }
@@ -293,7 +231,6 @@ fn test_path_builder_simple() {
 
 #[test]
 fn test_path_builder_simple_bezier() {
-    let mut kernel = ConnectivityKernel::new();
     let mut storage = vec![];
 
     // clockwise
@@ -307,24 +244,4 @@ fn test_path_builder_simple_bezier() {
         .quadratic_bezier_to([1.0, 1.0], [1.0, 0.0]).close();
     assert_eq!(path.vertices, vertex_range(3, 3));
     assert_eq!(path.winding, WindingOrder::CounterClockwise);
-}
-
-#[test]
-fn test_apply_to_kernel_simple() {
-    let mut kernel = ConnectivityKernel::new();
-    let mut storage = vec![];
-
-    // clockwise
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([1.0, 0.0]).line_to([1.0, 1.0]).close();
-    let face = kernel.add_face();
-    let edge = path.apply_to_kernel(&mut kernel, Some(face), None);
-    assert_eq!(kernel.walk_edge_ids(edge).count(), 3);
-
-    // counter-clockwise
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([1.0, 1.0]).line_to([1.0, 0.0]).close();
-    let face = kernel.add_face();
-    let edge = path.apply_to_kernel(&mut kernel, Some(face), None);
-    assert_eq!(kernel.walk_edge_ids(edge).count(), 3);
 }
