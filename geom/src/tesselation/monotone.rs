@@ -26,7 +26,7 @@ use vodk_id::*;
 use vodk_id::id_vector::*;
 
 #[derive(Debug, Copy, Clone)]
-enum VertexType {
+pub enum VertexType {
     Start,
     End,
     Split,
@@ -51,7 +51,7 @@ pub enum TriangulationError {
 
 fn is_below(a: Vec2, b: Vec2) -> bool { a.y() > b.y() || (a.y() == b.y() && a.x() > b.x()) }
 
-fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
+pub fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
     // assuming clockwise vertex_positions winding order
     let interrior_angle = directed_angle(vec2_sub(prev, current), vec2_sub(next, current));
 
