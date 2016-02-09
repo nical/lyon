@@ -1,22 +1,15 @@
 use std::f32::consts::PI;
-use tesselation::{ vertex_id, vertex_id_range, VertexId, VertexIdRange };
-use tesselation::polygon::*;
-use tesselation::polygon_partition::{ partition_polygon, Diagonals };
-use tesselation::vectors::{ Vec2, vec2_sub, vec2_add, vec2_almost_eq, directed_angle, Position2D };
-use tesselation::vertex_builder::{ VertexBufferBuilder };
-use tesselation::bezier::{ separate_bezier_faces, triangulate_quadratic_bezier };
-use tesselation::monotone::{
-    is_y_monotone, get_vertex_type, VertexType, DecompositionContext, TriangulationContext,
-};
+use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
+use tesselation::vectors::{ Vec2, vec2_sub, vec2_add, vec2_almost_eq, directed_angle, Position2D, Rect };
+use tesselation::monotone::{ get_vertex_type, VertexType, };
 
-use vodk_id::id_vector::IdSlice;
-use vodk_id::ReverseIdRange;
+use vodk_id::{ Id, IdSlice, IdRange, ToIndex };
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum WindingOrder {
-    Clockwise,
-    CounterClockwise,
-}
+#[derive(Debug)]
+pub struct Path_;
+pub type PathId = Id<Path_, u16>;
+pub type PathIdRange = IdRange<Path_, u16>;
+pub fn path_id(idx: u16) -> PathId { PathId::new(idx) }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum PointType {
@@ -24,25 +17,7 @@ pub enum PointType {
     Control,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Rect {
-    pub origin: Vec2,
-    pub size: Vec2,
-}
-
-impl Rect {
-    pub fn top_left(&self) -> Vec2 { self.origin }
-    pub fn bottom_right(&self) -> Vec2 { vec2_add(self.origin, self.size) }
-    pub fn x_most(&self) -> f32 { self.bottom_right().x() }
-    pub fn y_most(&self) -> f32 { self.bottom_right().y() }
-    pub fn contains(&self, p: Vec2) -> bool {
-        let bottom_right = self.bottom_right();
-        let top_left = self.top_left();
-        return top_left.x() <= p.x() && top_left.y() <= p.y() &&
-               bottom_right.x() >= p.x() && bottom_right.y() >= p.y();
-    }
-}
-
+#[derive(Copy, Clone, Debug)]
 pub struct PointData {
     pub position: Vec2,
     pub point_type: PointType,
@@ -50,8 +25,90 @@ pub struct PointData {
 
 impl Position2D for PointData { fn position(&self) -> Vec2 { self.position } }
 
+#[derive(Clone, Debug)]
+pub struct ComplexPath {
+    vertices: Vec<PointData>,
+    sub_paths: Vec<PathInfo>,
+}
+
+impl ComplexPath {
+    pub fn new() -> ComplexPath {
+        ComplexPath { vertices: Vec::new(), sub_paths: Vec::new() }
+    }
+
+    pub fn vertices(&self) -> IdSlice<VertexId, PointData> { IdSlice::new(&self.vertices[..]) }
+
+    pub fn sub_path(&self, id: PathId) -> PathSlice {
+        PathSlice {
+            vertices: &self.vertices[..],
+            info: &self.sub_paths[id.handle.to_index()]
+        }
+    }
+
+    pub fn path_ids(&self) -> PathIdRange {
+        IdRange::new(0, self.sub_paths.len() as u16)
+    }
+
+    pub fn slice(&self) -> ComplexPathSlice {
+        ComplexPathSlice {
+            vertices: &self.vertices[..],
+            sub_paths: &self.sub_paths[..],
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ComplexPathSlice<'l> {
+    vertices: &'l[PointData],
+    sub_paths: &'l[PathInfo],
+}
+
+impl<'l> ComplexPathSlice<'l> {
+
+    pub fn vertices(&self) -> IdSlice<VertexId, PointData> { IdSlice::new(&self.vertices[..]) }
+
+    pub fn sub_path(&self, id: PathId) -> PathSlice {
+        PathSlice {
+            vertices: self.vertices,
+            info: &self.sub_paths[id.handle.to_index()]
+        }
+    }
+
+    pub fn path_ids(&self) -> PathIdRange {
+        IdRange::new(0, self.sub_paths.len() as u16)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct PathSlice<'l> {
+    vertices: &'l[PointData],
+    info: &'l PathInfo,
+}
+
+impl<'l> PathSlice<'l> {
+    pub fn vertices(self) -> &'l[PointData] {
+        let range = self.info.range;
+        let from = range.first.to_index();
+        let count = range.count as usize;
+        return &self.vertices[from..from+count];
+    }
+
+    pub fn info(self) -> &'l PathInfo { self.info }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct PathInfo {
+    pub aabb: Rect,
+    pub range: VertexIdRange,
+    pub winding_order: Option<WindingOrder>,
+    pub is_convex: Option<bool>,
+    pub is_y_monotone: Option<bool>,
+    pub has_beziers: Option<bool>,
+    pub is_closed: bool,
+}
+
 pub struct PathBuilder<'l> {
-    vertices: &'l mut Vec<PointData>,
+    path: &'l mut ComplexPath,
     last_position: Vec2,
     top_left: Vec2,
     bottom_right: Vec2,
@@ -65,27 +122,12 @@ pub struct PathBuilder<'l> {
     has_beziers: bool,
 }
 
-#[derive(PartialEq, Debug)]
-pub struct ShapeInfo {
-    pub winding_order: WindingOrder,
-    pub is_convex: bool,
-    pub is_y_monotone: bool,
-    pub has_beziers: bool,
-}
-
-#[derive(PartialEq, Debug)]
-pub struct PathInfo {
-    pub vertices: VertexIdRange,
-    pub shape: Option<ShapeInfo>,
-    pub aabb: Rect,
-}
-
 impl<'l> PathBuilder<'l> {
-    pub fn begin(storage: &'l mut Vec<PointData>, pos: Vec2) -> PathBuilder {
-        let offset = storage.len() as u16;
-        storage.push(PointData { position: pos, point_type: PointType::Normal });
+    pub fn begin(path: &'l mut ComplexPath, pos: Vec2) -> PathBuilder {
+        let offset = path.vertices.len() as u16;
+        path.vertices.push(PointData { position: pos, point_type: PointType::Normal });
         PathBuilder {
-            vertices: storage,
+            path: path,
             last_position: [::std::f32::NAN, ::std::f32::NAN],
             accum_angle: 0.0,
             top_left: [0.0, 0.0],
@@ -119,59 +161,81 @@ impl<'l> PathBuilder<'l> {
         return self;
     }
 
-    pub fn close(mut self) -> PathInfo {
+    pub fn end(self) -> PathId { self.finish(false) }
+
+    pub fn close(self) -> PathId { self.finish(true) }
+
+    fn finish(mut self, mut closed: bool) -> PathId {
         let offset = self.offset as usize;
-        let last = self.vertices.len() - 1;
+        let last = self.path.vertices.len() - 1;
         // If the first and last vertices are the same, remove the last vertex.
-        let last = if vec2_almost_eq(self.vertices[last].position,self.vertices[offset].position) {
-            self.vertices.pop();
+        let last = if vec2_almost_eq(self.path.vertices[last].position,
+                                     self.path.vertices[offset].position) {
+            self.path.vertices.pop();
+            closed = true;
             last - 1
         } else { last };
 
         let vertex_count = last - offset + 1;
+
+        let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
+        let aabb = Rect {
+            origin: self.top_left,
+            size: vec2_sub(self.bottom_right, self.top_left)
+        };
+
         let shape_info = if vertex_count > 2 {
-            let a = self.vertices[last - 1].position;
-            let b = self.vertices[last].position;
-            let c = self.vertices[offset].position;
-            let d = self.vertices[offset+1].position;
+            let a = self.path.vertices[last - 1].position;
+            let b = self.path.vertices[last].position;
+            let c = self.path.vertices[offset].position;
+            let d = self.path.vertices[offset+1].position;
 
             self.update_angle(a, b, c);
             self.update_angle(b, c, d);
 
             if self.accum_angle > ((vertex_count-1) as f32) * PI {
-                Some(ShapeInfo {
-                    winding_order: WindingOrder::Clockwise,
-                    is_convex: self.convex_if_cw,
-                    is_y_monotone: self.y_monotone_if_cw,
-                    has_beziers: self.has_beziers,
-                })
+                PathInfo {
+                    range: vertex_range,
+                    aabb: aabb,
+                    winding_order: Some(WindingOrder::Clockwise),
+                    is_convex: Some(self.convex_if_cw),
+                    is_y_monotone: Some(self.y_monotone_if_cw),
+                    has_beziers: Some(self.has_beziers),
+                    is_closed: closed,
+                }
             } else {
-                Some(ShapeInfo {
-                    winding_order: WindingOrder::CounterClockwise,
-                    is_convex: self.convex_if_ccw,
-                    is_y_monotone: self.y_monotone_if_ccw,
-                    has_beziers: self.has_beziers,
-                })
+                PathInfo {
+                    range: vertex_range,
+                    aabb: aabb,
+                    winding_order: Some(WindingOrder::CounterClockwise),
+                    is_convex: Some(self.convex_if_ccw),
+                    is_y_monotone: Some(self.y_monotone_if_ccw),
+                    has_beziers: Some(self.has_beziers),
+                    is_closed: closed,
+                }
             }
         } else {
-            None
-        };
-
-        return PathInfo {
-            vertices: vertex_id_range(self.offset, self.offset + vertex_count as u16),
-            shape: shape_info,
-            aabb: Rect {
-                origin: self.top_left,
-                size: vec2_sub(self.bottom_right, self.top_left)
+            PathInfo {
+                range: vertex_range,
+                aabb: aabb,
+                winding_order: None,
+                is_convex: None,
+                is_y_monotone: None,
+                has_beziers: Some(self.has_beziers),
+                is_closed: false,
             }
         };
+
+        let index = path_id(self.path.sub_paths.len() as u16);
+        self.path.sub_paths.push(shape_info);
+        return index;
     }
 
     fn push(&mut self, point: Vec2, ptype: PointType) {
         if point == self.last_position {
             return;
         }
-        if self.vertices.len() == 0 {
+        if self.path.vertices.len() == 0 {
             self.top_left = point;
             self.bottom_right = point;
         } else {
@@ -180,12 +244,12 @@ impl<'l> PathBuilder<'l> {
             if point.x() > self.bottom_right.x() { self.bottom_right[0] = point.x(); }
             if point.y() > self.bottom_right.y() { self.bottom_right[1] = point.y(); }
         }
-        self.vertices.push(PointData{ position: point, point_type: ptype });
-        let idx = self.vertices.len() - 1;
+        self.path.vertices.push(PointData{ position: point, point_type: ptype });
+        let idx = self.path.vertices.len() - 1;
         if idx - self.offset as usize > 2 {
-            let a = self.vertices[idx-2].position;
-            let b = self.vertices[idx-1].position;
-            let c = self.vertices[idx  ].position;
+            let a = self.path.vertices[idx-2].position;
+            let b = self.path.vertices[idx-1].position;
+            let c = self.path.vertices[idx  ].position;
             self.update_angle(a, b, c);
         }
         self.last_position = point;
@@ -208,188 +272,123 @@ impl<'l> PathBuilder<'l> {
     }
 }
 
-pub fn triangulate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
-    path: PathInfo,
-    holes: &[PathInfo],
-    points: &'l Vec<PointData>,
-    output: &mut Output
-) {
-    output.begin_geometry();
-
-    let main_poly = match path.shape.unwrap().winding_order {
-        WindingOrder::Clockwise => { Polygon::from_vertices(path.vertices) }
-        WindingOrder::CounterClockwise => { Polygon::from_vertices(ReverseIdRange::new(path.vertices)) }
-    };
-
-    let mut polygon = ComplexPolygon{
-        main: main_poly,
-        holes: vec![],
-    };
-
-    for ref hole in holes {
-        assert!(hole.shape.is_some());
-        if let Some(ref shape) = hole.shape {
-            if shape.winding_order == WindingOrder::CounterClockwise {
-                polygon.holes.push(Polygon::from_vertices(hole.vertices));
-            } else {
-                polygon.holes.push(Polygon::from_vertices(ReverseIdRange::new(hole.vertices)));
-            }
-        }
-    }
-
-    for v in points {
-        output.push_vertex(v.position());
-    }
-
-    let vertex_positions = IdSlice::new(points);
-    let mut beziers: Vec<[Vec2; 3]> = vec![];
-
-    separate_bezier_faces(&mut polygon.main, vertex_positions, &mut beziers);
-
-    let mut diagonals = Diagonals::new();
-    let mut ctx = DecompositionContext::new();
-
-    let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut diagonals);
-    assert_eq!(res, Ok(()));
-
-    let mut monotone_polygons = Vec::new();
-    partition_polygon(&polygon, vertex_positions, &mut diagonals, &mut monotone_polygons);
-
-    let mut triangulator = TriangulationContext::new();
-    for monotone_poly in monotone_polygons {
-        assert!(is_y_monotone(monotone_poly.view(), vertex_positions));
-        let res = triangulator.y_monotone_triangulation(monotone_poly.view(), vertex_positions, output);
-        assert_eq!(res, Ok(()));
-    }
-
-    for b in beziers {
-        let from = b[0];
-        let ctrl = b[1];
-        let to = b[2];
-        triangulate_quadratic_bezier(from, ctrl, to, 16, output);
-    }
-}
-
-
 #[test]
 fn test_path_builder_simple() {
-    let mut storage = vec![];
+    let mut path = ComplexPath::new();
     // clockwise
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([1.0, 0.0]).line_to([1.0, 1.0]).close();
-    assert_eq!(path.vertices, vertex_id_range(0, 3));
-    assert_eq!(storage[0].position, [0.0, 0.0]);
-    assert_eq!(storage[1].position, [1.0, 0.0]);
-    assert_eq!(storage[2].position, [1.0, 1.0]);
-    assert_eq!(storage[0].point_type, PointType::Normal);
-    assert_eq!(storage[1].point_type, PointType::Normal);
-    assert_eq!(storage[2].point_type, PointType::Normal);
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::Clockwise,
-        is_convex: true,
-        is_y_monotone: true,
-        has_beziers: false
-    }));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .line_to([1.0, 0.0])
+            .line_to([1.0, 1.0])
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(path.vertices[0].position, [0.0, 0.0]);
+        assert_eq!(path.vertices[1].position, [1.0, 0.0]);
+        assert_eq!(path.vertices[2].position, [1.0, 1.0]);
+        assert_eq!(path.vertices[0].point_type, PointType::Normal);
+        assert_eq!(path.vertices[1].point_type, PointType::Normal);
+        assert_eq!(path.vertices[2].point_type, PointType::Normal);
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
+        assert_eq!(info.is_convex, Some(true));
+        assert_eq!(info.is_y_monotone, Some(true));
+    }
 
     // counter-clockwise
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([1.0, 1.0]).line_to([1.0, 0.0]).close();
-    assert_eq!(path.vertices, vertex_id_range(3, 6));
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::CounterClockwise,
-        is_convex: true,
-        is_y_monotone: true,
-        has_beziers: false
-    }));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .line_to([1.0, 1.0])
+            .line_to([1.0, 0.0])
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(3, 6));
+        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
+        assert_eq!(info.is_convex, Some(true));
+        assert_eq!(info.is_y_monotone, Some(true));
+    }
 
     // line_to back to the first vertex (should ignore the last vertex)
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([1.0, 1.0]).line_to([1.0, 0.0]).line_to([0.0, 0.0]).close();
-    assert_eq!(path.vertices, vertex_id_range(6, 9));
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::CounterClockwise,
-        is_convex: true,
-        is_y_monotone: true,
-        has_beziers: false
-    }));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .line_to([1.0, 1.0])
+            .line_to([1.0, 0.0])
+            .line_to([0.0, 0.0])
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(6, 9));
+        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
+        assert_eq!(info.is_convex, Some(true));
+        assert_eq!(info.is_y_monotone, Some(true));
+    }
 }
 
 #[test]
 fn test_path_builder_simple_bezier() {
-    let mut storage = vec![];
+    let mut path = ComplexPath::new();
 
     // clockwise
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .quadratic_bezier_to([1.0, 0.0], [1.0, 1.0]).close();
-    assert_eq!(path.vertices, vertex_id_range(0, 3));
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::Clockwise,
-        is_convex: true,
-        is_y_monotone: true,
-        has_beziers: true
-    }));
-    assert!(path.aabb.contains([0.0, 0.0]));
-    assert!(path.aabb.contains([1.0, 0.0]));
-    assert!(path.aabb.contains([1.0, 1.0]));
-    assert!(!path.aabb.contains([2.0, 1.0]));
-    assert!(!path.aabb.contains([0.0, -1.0]));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .quadratic_bezier_to([1.0, 0.0], [1.0, 1.0])
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
+        assert_eq!(info.is_convex, Some(true));
+        assert_eq!(info.is_y_monotone, Some(true));
+    }
 
     // counter-clockwise
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .quadratic_bezier_to([1.0, 1.0], [1.0, 0.0]).close();
-    assert_eq!(path.vertices, vertex_id_range(3, 6));
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::CounterClockwise,
-        is_convex: true,
-        is_y_monotone: true,
-        has_beziers: true
-    }));
-    assert!(path.aabb.contains([0.0, 0.0]));
-    assert!(path.aabb.contains([1.0, 0.0]));
-    assert!(path.aabb.contains([1.0, 1.0]));
-    assert!(!path.aabb.contains([2.0, 1.0]));
-    assert!(!path.aabb.contains([0.0, -1.0]));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .quadratic_bezier_to([1.0, 1.0], [1.0, 0.0])
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(3, 6));
+        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
+        assert_eq!(info.is_convex, Some(true));
+        assert_eq!(info.is_y_monotone, Some(true));
+    }
 
     // a slightly more elaborate path
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([0.1, 0.0])
-        .line_to([0.2, 0.1])
-        .line_to([0.3, 0.1])
-        .line_to([0.4, 0.0])
-        .line_to([0.5, 0.0])
-        .quadratic_bezier_to([0.5, 0.4], [0.3, 0.4])
-        .line_to([0.1, 0.4])
-        .quadratic_bezier_to([-0.2, 0.1], [-0.1, 0.0]) // TODO
-        .close();
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::Clockwise,
-        is_convex: false,
-        is_y_monotone: false,
-        has_beziers: true
-    }));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .line_to([0.1, 0.0])
+            .line_to([0.2, 0.1])
+            .line_to([0.3, 0.1])
+            .line_to([0.4, 0.0])
+            .line_to([0.5, 0.0])
+            .quadratic_bezier_to([0.5, 0.4], [0.3, 0.4])
+            .line_to([0.1, 0.4])
+            .quadratic_bezier_to([-0.2, 0.1], [-0.1, 0.0]) // TODO
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.aabb, Rect { origin: [-0.2, 0.0], size: [0.7, 0.4] });
+        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
+        assert_eq!(info.is_convex, Some(false));
+        assert_eq!(info.is_y_monotone, Some(false));
+    }
 
     // simple non-convex but y-monotone path
-    let path = PathBuilder::begin(&mut storage, [0.0, 0.0])
-        .line_to([2.0, 1.0])
-        .line_to([1.0, 2.0])
-        .line_to([2.0, 3.0])
-        .line_to([0.0, 4.0])
-        .line_to([-2.0, 3.0])
-        .line_to([-1.0, 2.0])
-        .line_to([-2.0, 1.0])
-        .close();
-    assert_eq!(path.shape, Some(ShapeInfo {
-        winding_order: WindingOrder::Clockwise,
-        is_convex: false,
-        is_y_monotone: true,
-        has_beziers: false
-    }));
-    assert!(path.aabb.contains([2.0, 1.0]));
-    assert!(path.aabb.contains([1.0, 2.0]));
-    assert!(path.aabb.contains([2.0, 3.0]));
-    assert!(path.aabb.contains([0.0, 4.0]));
-    assert!(path.aabb.contains([-2.0, 3.0]));
-    assert!(path.aabb.contains([-1.0, 2.0]));
-    assert!(path.aabb.contains([-2.0, 1.0]));
-    assert!(!path.aabb.contains([0.0, -0.1]));
+    {
+        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
+            .line_to([2.0, 1.0])
+            .line_to([1.0, 2.0])
+            .line_to([2.0, 3.0])
+            .line_to([0.0, 4.0])
+            .line_to([-2.0, 3.0])
+            .line_to([-1.0, 2.0])
+            .line_to([-2.0, 1.0])
+            .close();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.aabb, Rect { origin: [-2.0, 0.0], size: [4.0, 4.0] });
+        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
+        assert_eq!(info.is_convex, Some(false));
+        assert_eq!(info.is_y_monotone, Some(true));
+    }
 }

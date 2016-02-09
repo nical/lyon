@@ -3,10 +3,17 @@ pub mod monotone;
 pub mod convex;
 pub mod path;
 pub mod polygon;
-pub mod polygon_partition;
+pub mod connection;
+pub mod intersection;
 pub mod bezier;
 pub mod vertex_builder;
 pub mod vectors;
+pub mod tesselation;
+pub mod path_to_polygon;
+
+pub use tesselation::vectors::Vec2;
+
+pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 
 use vodk_id::{Id, IdRange};
 
@@ -28,6 +35,12 @@ pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
         first: Id::new(from),
         count: to - from,
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum WindingOrder {
+    Clockwise,
+    CounterClockwise,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

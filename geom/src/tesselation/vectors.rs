@@ -13,6 +13,7 @@ pub type Vec3 = [f32; 3];
 pub type Vec4 = [f32; 4];
 
 pub fn vec2_square_len(a: Vec2) -> f32 { a[X]*a[X] + a[Y]*a[Y] }
+pub fn vec2_len(a: Vec2) -> f32 { vec2_square_len(a).sqrt() }
 pub fn vec2_add(a: Vec2, b: Vec2) -> Vec2 { [a[X]+b[X], a[Y]+b[Y]] }
 pub fn vec2_sub(a: Vec2, b: Vec2) -> Vec2 { [a[X]-b[X], a[Y]-b[Y]] }
 pub fn vec2_mul(a: Vec2, b: f32) -> Vec2 { [a[X]*b, a[Y]*b] }
@@ -154,3 +155,23 @@ impl Position3D for Vec3 { fn position(&self) -> Vec3 { *self } }
 impl Position4D for Vec4 { fn position(&self) -> Vec4 { *self } }
 
 impl TextureCoordinates for Vec2 { fn uv(&self) -> Vec2 { *self } }
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Rect {
+    pub origin: Vec2,
+    pub size: Vec2,
+}
+
+impl Rect {
+    pub fn top_left(&self) -> Vec2 { self.origin }
+    pub fn bottom_right(&self) -> Vec2 { vec2_add(self.origin, self.size) }
+    pub fn x_most(&self) -> f32 { self.bottom_right().x() }
+    pub fn y_most(&self) -> f32 { self.bottom_right().y() }
+    pub fn contains(&self, p: Vec2) -> bool {
+        let bottom_right = self.bottom_right();
+        let top_left = self.top_left();
+        return top_left.x() <= p.x() && top_left.y() <= p.y() &&
+               bottom_right.x() >= p.x() && bottom_right.y() >= p.y();
+    }
+}
+

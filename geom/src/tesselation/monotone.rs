@@ -14,16 +14,14 @@ use std::collections::HashMap;
 use std::mem::swap;
 use std::f32::consts::PI;
 
-use tesselation::{ VertexId, VertexIdRange, vertex_id_range, Direction };
+use tesselation::{ VertexId, Direction, WindingOrder, error };
 use tesselation::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
-use tesselation::path::WindingOrder;
-use tesselation::polygon_partition::{ Diagonals, partition_polygon };
+use tesselation::connection::{ Connections };
 
 use vodk_alloc::*;
 use vodk_id::*;
-use vodk_id::id_vector::*;
 
 #[derive(Debug, Copy, Clone)]
 pub enum VertexType {
@@ -47,6 +45,7 @@ pub enum TriangulationError {
     NotMonotone,
     InvalidPath,
     MissingFace,
+    TriangleCount,
 }
 
 fn is_below(a: Vec2, b: Vec2) -> bool { a.y() > b.y() || (a.y() == b.y() && a.x() > b.x()) }
@@ -144,9 +143,9 @@ impl<'l, P: 'l+Position2D> SweepLineBuilder<'l, P> {
 fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
                                        helper_edge: ComplexPointId,
                                        helpers: &mut HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
-                                       diagonals: &mut Diagonals<ComplexPolygon>) {
+                                       connections: &mut Connections<ComplexPolygon>) {
     if let Some(&(h, VertexType::Merge)) = helpers.get(&helper_edge) {
-        diagonals.add_diagonal(h, current_edge);
+        connections.add_connection(h, current_edge);
         //println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
         //println!(" **** connection {:?}->{:?}", h, current_edge);
     }
@@ -182,7 +181,7 @@ impl DecompositionContext {
         &mut self,
         polygon: &'l ComplexPolygon,
         vertex_positions: IdSlice<'l, VertexId, P>,
-        diagonals: &'l mut Diagonals<ComplexPolygon>
+        connections: &'l mut Connections<ComplexPolygon>
     ) -> Result<(), DecompositionError> {
         self.helper.clear();
 
@@ -197,8 +196,7 @@ impl DecompositionContext {
         for sub_poly in polygon.polygon_ids() {
             if sub_poly != polygon_id(0) {
                 let winding = compute_winding_order(polygon.get_sub_polygon(sub_poly).unwrap(), vertex_positions);
-                debug_assert_eq!(winding, Some(WindingOrder::CounterClockwise)
-                );
+                debug_assert_eq!(winding, Some(WindingOrder::CounterClockwise));
             }
             sorted_edges.extend(polygon.point_ids(sub_poly));
         }
@@ -234,13 +232,13 @@ impl DecompositionContext {
                     self.helper.insert(e, (e, vertex_type));
                 }
                 VertexType::End => {
-                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, diagonals);
+                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     sweep_line.remove(&mut sweep_state, prev);
                 }
                 VertexType::Split => {
                     let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
                     if let Some(&(helper_edge,_)) = self.helper.get(&ej) {
-                        diagonals.add_diagonal(e, helper_edge);
+                        connections.add_connection(e, helper_edge);
                         //println!(" **** connection {:?}->{:?}", e, helper_edge);
                     } else {
                         panic!();
@@ -251,16 +249,15 @@ impl DecompositionContext {
                     self.helper.insert(e, (e, vertex_type));
                 }
                 VertexType::Merge => {
-                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, diagonals);
+                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     sweep_line.remove(&mut sweep_state, prev);
 
                     let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
-                    connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, diagonals);
+                    connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
                     self.helper.insert(ej, (e, vertex_type));
                 }
                 VertexType::Right => {
-                    // TODO remove helper(edge.prev) ?
-                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, diagonals);
+                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     self.helper.remove(&prev);
                     sweep_line.remove(&mut sweep_state, prev);
 
@@ -269,7 +266,7 @@ impl DecompositionContext {
                 }
                 VertexType::Left => {
                     let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
-                    connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, diagonals);
+                    connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
 
                     self.helper.insert(ej, (e, vertex_type));
                 }
@@ -286,7 +283,7 @@ impl DecompositionContext {
 
 /// Returns true if the face is y-monotone in O(n).
 pub fn is_y_monotone<'l, Pos: Position2D>(
-    polygon: PolygonView<'l>,
+    polygon: PolygonSlice<'l>,
     vertex_positions: IdSlice<'l, VertexId, Pos>,
 ) -> bool {
     for point in polygon.point_ids() {
@@ -366,7 +363,7 @@ impl TriangulationContext {
         Output: VertexBufferBuilder<Vec2>
     >(
         &mut self,
-        polygon: PolygonView<'l>,
+        polygon: PolygonSlice<'l>,
         vertex_positions: IdSlice<'l, VertexId, P>,
         output: &mut Output,
     ) -> Result<(), TriangulationError> {
@@ -544,7 +541,9 @@ impl TriangulationContext {
             m = next(m);
             debug_assert!(!is_below(vertex(p), vertex(m)));
         }
-        debug_assert_eq!(triangle_count, polygon.num_vertices() as usize - 2);
+        if triangle_count != polygon.num_vertices() as usize - 2 {
+            return error(TriangulationError::TriangleCount);
+        }
 
         // Keep the buffer to avoid reallocating it next time, if possible.
         self.vertex_stack_storage = vec::recycle(vertex_stack);
@@ -561,7 +560,8 @@ struct TestShape<'l> {
 
 #[cfg(test)]
 fn test_shape(shape: &TestShape, angle: f32) {
-    use std::iter::FromIterator;
+    use tesselation::{ vertex_id_range, };
+    use tesselation::connection::apply_connections;
     use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 
     let mut vertices: Vec<Vec2> = Vec::new();
@@ -584,32 +584,32 @@ fn test_shape(shape: &TestShape, angle: f32) {
     println!("transformed vertices: {:?}", vertices);
 
     let mut polygon = ComplexPolygon {
-        main: Polygon::from_vertices(vertex_id_range(0, shape.main.len() as u16)),
-        holes: Vec::new(),
+        sub_polygons: vec![Polygon::from_vertices(vertex_id_range(0, shape.main.len() as u16))],
     };
 
     let mut from = shape.main.len() as u16;
     for hole in shape.holes {
         let to = from + hole.len() as u16;
         println!(" -- range from {} to {}", from, to);
-        polygon.holes.push(Polygon::from_vertices(ReverseIdRange::new(vertex_id_range(from, to))));
+        polygon.sub_polygons.push(Polygon::from_vertices(ReverseIdRange::new(vertex_id_range(from, to))));
         from = to;
     }
 
-    println!("\n\n -- poly main {:?}", polygon.main.vertices);
-    for h in &polygon.holes {
+    println!("\n\n -- poly main {:?}", polygon.sub_polygons[0].vertices);
+    for h in &polygon.sub_polygons[1..] {
         println!("    hole {:?}", h.vertices);
     }
 
 
     let vertex_positions = IdSlice::new(&vertices[..]);
     let mut ctx = DecompositionContext::new();
-    let mut diagonals = Diagonals::new();
-    let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut diagonals);
+    let mut connections = Connections::new();
+    let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut connections);
     assert_eq!(res, Ok(()));
 
     let mut y_monotone_polygons = Vec::new();
-    partition_polygon(&polygon, vertex_positions, &mut diagonals, &mut y_monotone_polygons);
+    let res = apply_connections(&polygon, vertex_positions, &mut connections, &mut y_monotone_polygons);
+    assert!(res.is_ok());
 
     let mut triangulator = TriangulationContext::new();
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
@@ -622,9 +622,9 @@ fn test_shape(shape: &TestShape, angle: f32) {
             println!("     -> point {} vertex {:?} position {:?}", i, p, vertex_positions[p].position());
             i += 1;
         }
-        assert!(is_y_monotone(poly.view(), vertex_positions));
+        assert!(is_y_monotone(poly.slice(), vertex_positions));
         let res = triangulator.y_monotone_triangulation(
-            poly.view(),
+            poly.slice(),
             vertex_positions,
             &mut simple_vertex_builder(&mut buffers)
         );

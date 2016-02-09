@@ -2,9 +2,8 @@
 use vodk_id::id_vector::IdSlice;
 use vodk_id::{ Id, IdRange };
 
-use tesselation::path::WindingOrder;
-use tesselation::vectors::{ Vec2, vec2_sub, directed_angle, Position2D };
-use tesselation::{ Direction, vertex_id, vertex_id_range, VertexId, VertexIdRange };
+use tesselation::vectors::{ Vec2, vec2_sub, directed_angle, Position2D, Rect };
+use tesselation::{ Direction, WindingOrder, vertex_id, vertex_id_range, VertexId };
 
 use std::f32::consts::PI;
 
@@ -13,6 +12,33 @@ pub struct Point_;
 pub type PointId = Id<Point_, u16>;
 pub fn point_id(idx: u16) -> PointId { PointId::new(idx) }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Operator {
+    Add,
+    Remove,
+    EvenOdd,
+}
+
+#[derive(Clone, Debug)]
+pub struct PolygonInfo {
+    pub aabb: Option<Rect>,
+    pub is_convex: Option<bool>,
+    pub is_y_monotone: Option<bool>,
+    pub has_beziers: Option<bool>,
+    pub op: Operator,
+}
+
+impl ::std::default::Default for PolygonInfo {
+    fn default() -> PolygonInfo {
+        PolygonInfo {
+            aabb: None,
+            is_convex: None,
+            is_y_monotone: None,
+            has_beziers: None,
+            op: Operator::Add,
+        }
+    }
+}
 
 pub trait AbstractPolygon {
     type PointId: Copy + Eq + ::std::fmt::Debug;
@@ -46,7 +72,7 @@ pub trait AbstractPolygon {
     // number of vertices total
     fn num_vertices(&self) -> usize;
 
-    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonView<'l>>;
+    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonSlice<'l>>;
 }
 
 pub trait AbstractCirculator {
@@ -62,15 +88,18 @@ pub trait AbstractCirculator {
 }
 
 #[derive(Copy, Clone)]
-pub struct PolygonView<'l> {
-    vertices: &'l [VertexId]
+pub struct PolygonSlice<'l> {
+    vertices: &'l [VertexId],
+    info: &'l PolygonInfo,
 }
 
-impl<'l> PolygonView<'l> {
+impl<'l> PolygonSlice<'l> {
     pub fn iter_from(self, point: PointId) -> PolygonIterator<'l>
     {
         self.circulator_at(point).iter()
     }
+
+    pub fn info(self) -> &'l PolygonInfo { self.info }
 
     pub fn circulator_at(self, point: PointId) -> PolygonCirculator<'l> {
         PolygonCirculator {
@@ -91,7 +120,7 @@ impl<'l> PolygonView<'l> {
     }
 }
 
-impl<'l> AbstractPolygon for PolygonView<'l> {
+impl<'l> AbstractPolygon for PolygonSlice<'l> {
     type PointId = PointId;
 
     fn first_point(&self) -> PointId { point_id(0) }
@@ -112,23 +141,30 @@ impl<'l> AbstractPolygon for PolygonView<'l> {
 
     fn num_vertices_on_loop(&self, _point: PointId) -> usize { self.num_vertices() }
 
-    fn get_sub_polygon<'m>(&'m self, _: PolygonId) -> Option<PolygonView<'m>> { None }
+    fn get_sub_polygon<'m>(&'m self, _: PolygonId) -> Option<PolygonSlice<'m>> { None }
 }
 
 #[derive(Clone)]
 pub struct Polygon {
     pub vertices: Vec<VertexId>,
+    pub info: PolygonInfo,
 }
 
 impl Polygon {
-    pub fn new() -> Polygon { Polygon { vertices: Vec::new() } }
+    pub fn new() -> Polygon {
+        Polygon {
+            vertices: Vec::new(),
+            info: PolygonInfo::default(),
+        }
+    }
 
     pub fn from_vertices<It: Iterator<Item=VertexId>>(it: It) -> Polygon {
         let (lower_bound, _) = it.size_hint();
         let mut v = Vec::with_capacity(lower_bound);
         v.extend(it);
         Polygon {
-            vertices: v
+            vertices: v,
+            info: PolygonInfo::default(),
         }
     }
 
@@ -136,8 +172,7 @@ impl Polygon {
 
     pub fn into_complex_polygon(self) -> ComplexPolygon {
         ComplexPolygon {
-            main: self,
-            holes: Vec::new()
+            sub_polygons: Vec::new()
         }
     }
 
@@ -162,8 +197,8 @@ impl Polygon {
         self.vertices.insert(point.handle as usize, new_vertex);
     }
 
-    pub fn view<'l>(&'l self) -> PolygonView<'l> {
-        PolygonView { vertices: &self.vertices[..] }
+    pub fn slice<'l>(&'l self) -> PolygonSlice<'l> {
+        PolygonSlice { vertices: &self.vertices[..], info: &self.info }
     }
 
     pub fn iter_from<'l>(&'l self, point: PointId) -> PolygonIterator<'l> {
@@ -172,7 +207,7 @@ impl Polygon {
 
     pub fn circulator_at<'l>(&'l self, point: PointId) -> PolygonCirculator<'l> {
         PolygonCirculator {
-            polygon: self.view(),
+            polygon: self.slice(),
             point: point
         }
     }
@@ -189,45 +224,41 @@ impl AbstractPolygon for Polygon {
 
     fn vertex(&self, point: PointId) -> VertexId { self.vertices[point.handle as usize] }
 
-    fn next(&self, point: PointId) -> PointId { self.view().next(point) }
+    fn next(&self, point: PointId) -> PointId { self.slice().next(point) }
 
-    fn previous(&self, point: PointId) -> PointId { self.view().previous(point) }
+    fn previous(&self, point: PointId) -> PointId { self.slice().previous(point) }
 
     fn num_vertices(&self) -> usize { self.vertices.len() }
 
     fn num_vertices_on_loop(&self, _point: PointId) -> usize { self.num_vertices() }
 
-    fn get_sub_polygon<'l>(&'l self, _: PolygonId) -> Option<PolygonView<'l>> { None }
+    fn get_sub_polygon<'l>(&'l self, _: PolygonId) -> Option<PolygonSlice<'l>> { None }
 }
 
 pub struct ComplexPolygon {
-    pub main: Polygon,
-    pub holes: Vec<Polygon>
+    pub sub_polygons: Vec<Polygon>
 }
 
 impl ComplexPolygon {
     pub fn new() -> ComplexPolygon {
         ComplexPolygon {
-            main: Polygon::new(),
-            holes: Vec::new(),
+            sub_polygons: Vec::new(),
         }
     }
 
-    pub fn add_hole(&mut self, hole: Polygon) {
-        self.holes.push(hole);
+    pub fn add_hole(&mut self, mut hole: Polygon) {
+        hole.info.op = Operator::Remove;
+        self.sub_polygons.push(hole);
     }
 
     pub fn polygon(&self, id: PolygonId) -> &Polygon {
-        if id.handle == 0 {
-            return &self.main;
-        }
-        return &self.holes[id.handle as usize - 1];
+        return &self.sub_polygons[id.handle as usize];
     }
 
     pub fn circulator_at<'l>(&'l self, point: ComplexPointId) -> ComplexPolygonCirculator<'l> {
         ComplexPolygonCirculator {
             circulator: PolygonCirculator {
-                polygon: self.polygon(point.polygon_id).view(),
+                polygon: self.polygon(point.polygon_id).slice(),
                 point: point.point,
             },
             polygon_id: point.polygon_id,
@@ -251,7 +282,7 @@ impl ComplexPolygon {
     pub fn polygon_ids(&self) -> IdRange<Polygon_, u16> {
         IdRange {
             first: polygon_id(0),
-            count: self.holes.len() as u16 + 1,
+            count: self.sub_polygons.len() as u16,
         }
     }
 }
@@ -279,7 +310,7 @@ impl AbstractPolygon for ComplexPolygon {
     type PointId = ComplexPointId;
 
     fn first_point(&self) -> ComplexPointId {
-        ComplexPointId { point: self.main.first_point(), polygon_id: polygon_id(0) }
+        ComplexPointId { point: self.sub_polygons[0].first_point(), polygon_id: polygon_id(0) }
     }
 
     fn vertex(&self, id: ComplexPointId) -> VertexId {
@@ -301,8 +332,8 @@ impl AbstractPolygon for ComplexPolygon {
     }
 
     fn num_vertices(&self) -> usize {
-        let mut result = self.main.num_vertices();
-        for hole in &self.holes {
+        let mut result = 0;
+        for hole in &self.sub_polygons {
             result += hole.num_vertices();
         }
         return result;
@@ -312,13 +343,9 @@ impl AbstractPolygon for ComplexPolygon {
         self.polygon(point.polygon_id).num_vertices()
     }
 
-    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonView<'l>> {
-        if id.handle == 0 {
-            return Some(self.main.view());
-        }
-
-        if id.handle <= self.holes.len() as u16 {
-            return Some(self.holes[id.handle as usize - 1].view());
+    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonSlice<'l>> {
+        if id.handle <= self.sub_polygons.len() as u16 {
+            return Some(self.sub_polygons[id.handle as usize].slice());
         }
 
         return None;
@@ -327,7 +354,7 @@ impl AbstractPolygon for ComplexPolygon {
 
 #[derive(Copy, Clone)]
 pub struct PolygonCirculator<'l> {
-    polygon: PolygonView<'l>,
+    polygon: PolygonSlice<'l>,
     point: PointId,
 }
 
@@ -403,7 +430,7 @@ impl<'l> ComplexPolygonCirculator<'l> {
 
 #[derive(Copy, Clone)]
 pub struct PolygonIterator<'l> {
-    polygon: PolygonView<'l>,
+    polygon: PolygonSlice<'l>,
     first: u16,
     count: u16,
 }
@@ -456,7 +483,7 @@ pub struct ComplexPointId {
 }
 
 pub fn compute_winding_order<'l, Pos: Position2D>(
-    poly: PolygonView<'l>,
+    poly: PolygonSlice<'l>,
     vertices: IdSlice<VertexId, Pos>
 ) -> Option<WindingOrder> {
     if poly.num_vertices() < 3 {
@@ -488,7 +515,8 @@ fn test_simple_polygon() {
         vertex_id(2),
         vertex_id(3),
         vertex_id(4),
-    ]
+    ],
+    info: PolygonInfo::default(),
   };
 
   for v in poly.circulator_at(point_id(1)).iter() {
@@ -513,7 +541,7 @@ fn test_winding_order()
     ];
     let vertices = IdSlice::new(positions);
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
-    assert_eq!(compute_winding_order(poly.view(), vertices), Some(WindingOrder::Clockwise));
+    assert_eq!(compute_winding_order(poly.slice(), vertices), Some(WindingOrder::Clockwise));
 
     let positions: &[Vec2] = &[
         [1.0, 0.0],
@@ -527,6 +555,6 @@ fn test_winding_order()
     ];
     let vertices = IdSlice::new(positions);
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
-    assert_eq!(compute_winding_order(poly.view(), vertices), Some(WindingOrder::CounterClockwise));
+    assert_eq!(compute_winding_order(poly.slice(), vertices), Some(WindingOrder::CounterClockwise));
 
 }
