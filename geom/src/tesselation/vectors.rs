@@ -158,32 +158,34 @@ impl TextureCoordinates for Vec2 { fn uv(&self) -> Vec2 { *self } }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Rect {
-    pub origin: Vec2,
-    pub size: Vec2,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Rect {
-    pub fn top_left(&self) -> Vec2 { self.origin }
+    pub fn top_left(&self) -> Vec2 { [self.x, self.y] }
 
-    pub fn top_right(&self) -> Vec2 { [self.origin.x() + self.size.x(), self.origin.y()] }
+    pub fn top_right(&self) -> Vec2 { [self.x_most(), self.y] }
 
-    pub fn bottom_right(&self) -> Vec2 { vec2_add(self.origin, self.size) }
+    pub fn bottom_right(&self) -> Vec2 { [self.x_most(), self.y_most()] }
 
-    pub fn bottom_left(&self) -> Vec2 { [self.origin.x(), self.origin.y() + self.size.y()] }
+    pub fn bottom_left(&self) -> Vec2 { [self.x, self.y_most()] }
 
-    pub fn x_most(&self) -> f32 { self.bottom_right().x() }
+    pub fn x_most(&self) -> f32 { self.x + self.width }
 
-    pub fn y_most(&self) -> f32 { self.bottom_right().y() }
+    pub fn y_most(&self) -> f32 { self.y + self.height }
+
+    pub fn is_empty(&self) -> bool { self.x == 0.0 || self.y == 0.0 }
 
     pub fn contains(&self, p: Vec2) -> bool {
-        let bottom_right = self.bottom_right();
-        let top_left = self.top_left();
-        return top_left.x() <= p.x() && top_left.y() <= p.y() &&
-               bottom_right.x() >= p.x() && bottom_right.y() >= p.y();
+        return self.x <= p.x() && self.y <= p.y() && self.x_most() >= p.x() && self.y_most() >= p.y();
     }
 
-    //pub fn intersects(&self, other: &Rect) -> bool {
-    //    // TODO
-    //}
+    pub fn intersects(&self, other: &Rect) -> bool {
+        return self.x < other.x_most() && other.x < self.x_most() &&
+            self.y < other.y_most() && other.y < self.y_most();
+    }
 }
 

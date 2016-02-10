@@ -206,8 +206,9 @@ impl<'l> PathBuilder<'l> {
 
         let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
         let aabb = Rect {
-            origin: self.top_left,
-            size: vec2_sub(self.bottom_right, self.top_left)
+            x: self.top_left.x(), y: self.top_left.y(),
+            width: self.bottom_right.x() - self.top_left.x(),
+            height: self.bottom_right.y() - self.top_left.y(),
         };
 
         let shape_info = if vertex_count > 2 {
@@ -315,7 +316,7 @@ fn test_path_builder_simple() {
         assert_eq!(path.vertices[1].point_type, PointType::Normal);
         assert_eq!(path.vertices[2].point_type, PointType::Normal);
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -329,7 +330,7 @@ fn test_path_builder_simple() {
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
-        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
         assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -344,7 +345,7 @@ fn test_path_builder_simple() {
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(6, 9));
-        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
         assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -362,7 +363,7 @@ fn test_path_builder_simple_bezier() {
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -375,7 +376,7 @@ fn test_path_builder_simple_bezier() {
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
-        assert_eq!(info.aabb, Rect { origin: [0.0, 0.0], size: [1.0, 1.0] });
+        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
         assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -394,7 +395,7 @@ fn test_path_builder_simple_bezier() {
             .quadratic_bezier_to([-0.2, 0.1], [-0.1, 0.0]) // TODO
             .close();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect { origin: [-0.2, 0.0], size: [0.7, 0.4] });
+        assert_eq!(info.aabb, Rect { x: -0.2, y: 0.0, width: 0.7, height: 0.4 });
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(false));
         assert_eq!(info.is_y_monotone, Some(false));
@@ -412,7 +413,7 @@ fn test_path_builder_simple_bezier() {
             .line_to([-2.0, 1.0])
             .close();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect { origin: [-2.0, 0.0], size: [4.0, 4.0] });
+        assert_eq!(info.aabb, Rect { x: -2.0, y: 0.0, width: 4.0, height: 4.0 });
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(false));
         assert_eq!(info.is_y_monotone, Some(true));
