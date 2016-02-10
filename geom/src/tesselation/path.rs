@@ -1,7 +1,8 @@
 use std::f32::consts::PI;
 use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
-use tesselation::vectors::{ Vec2, vec2_sub, vec2_add, vec2_almost_eq, directed_angle, Position2D, Rect };
+use tesselation::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Position2D, Rect };
 use tesselation::monotone::{ get_vertex_type, VertexType, };
+use tesselation::bezier::*;
 
 use vodk_id::{ Id, IdSlice, IdRange, ToIndex };
 
@@ -120,6 +121,7 @@ pub struct PathBuilder<'l> {
     y_monotone_if_cw: bool,
     y_monotone_if_ccw: bool,
     has_beziers: bool,
+    flatten: bool,
 }
 
 impl<'l> PathBuilder<'l> {
@@ -138,7 +140,13 @@ impl<'l> PathBuilder<'l> {
             y_monotone_if_cw: true,
             y_monotone_if_ccw: true,
             has_beziers: false,
+            flatten: false,
         }
+    }
+
+    pub fn flattened(mut self) -> PathBuilder<'l> {
+        self.flatten = true;
+        return self;
     }
 
     pub fn line_to(mut self, to: Vec2) -> PathBuilder<'l> {
@@ -147,17 +155,35 @@ impl<'l> PathBuilder<'l> {
     }
 
     pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
-        self.push(ctrl, PointType::Control);
-        self.push(to, PointType::Normal);
-        self.has_beziers = true;
+        if self.flatten {
+            let num_points = 16;
+            let from = self.last_position;
+            for i in 0..num_points {
+                let t = (i+1) as f32 / num_points as f32;
+                self.push(sample_quadratic_bezier(from, ctrl, to, t), PointType::Normal);
+            }
+        } else {
+            self.push(ctrl, PointType::Control);
+            self.push(to, PointType::Normal);
+            self.has_beziers = true;
+        }
         return self;
     }
 
     pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
-        self.push(ctrl1, PointType::Control);
-        self.push(ctrl2, PointType::Control);
-        self.push(to, PointType::Normal);
-        self.has_beziers = true;
+        if self.flatten {
+            let num_points = 16;
+            let from = self.last_position;
+            for i in 0..num_points {
+                let t = (i+1) as f32 / num_points as f32;
+                self.push(sample_cubic_bezier(from, ctrl1, ctrl2, to, t), PointType::Normal);
+            }
+        } else {
+            self.push(ctrl1, PointType::Control);
+            self.push(ctrl2, PointType::Control);
+            self.push(to, PointType::Normal);
+            self.has_beziers = true;
+        }
         return self;
     }
 

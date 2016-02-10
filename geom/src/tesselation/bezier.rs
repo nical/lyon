@@ -12,12 +12,15 @@ pub fn separate_bezier_faces<Output: Write<[Vec2; 3]>>(
     vertices: IdSlice<VertexId, PointData>,
     out_beziers: &mut Output
 ) {
+    if polygon.info().has_beziers == Some(false) {
+        return;
+    }
+
     let start = point_id(0);
     let mut it = start;
     loop {
         let next = polygon.next(it);
         if vertices[polygon.vertex(it)].point_type == PointType::Control {
-            let ctrl = it;
             let prev = polygon.previous(it);
             if vertices[polygon.vertex(next)].point_type == PointType::Normal {
                 let va = vertices[polygon.previous_vertex(it)].position;
@@ -48,10 +51,10 @@ pub fn separate_bezier_faces<Output: Write<[Vec2; 3]>>(
     }
 }
 
-pub fn triangulate_quadratic_bezier<Geometry: VertexBufferBuilder<[f32; 2]>>(
-    from: [f32; 2],
-    ctrl: [f32; 2],
-    to: [f32; 2],
+pub fn triangulate_quadratic_bezier<Geometry: VertexBufferBuilder<Vec2>>(
+    from: Vec2,
+    ctrl: Vec2,
+    to: Vec2,
     num_points: u32,
     output: &mut Geometry
 ) {
@@ -85,4 +88,26 @@ pub fn triangulate_quadratic_bezier<Geometry: VertexBufferBuilder<[f32; 2]>>(
         );
         output.push_vertex(new_vertex);
     }
+}
+
+pub fn sample_quadratic_bezier(from: Vec2, ctrl: Vec2, to: Vec2, t: f32) -> Vec2 {
+    let t2 = t*t;
+    let one_t = 1.0 - t;
+    let one_t2 = one_t * one_t;
+    return vec2_add(
+        vec2_add(vec2_mul(from, one_t2), vec2_mul(ctrl, 2.0*one_t*t)),
+        vec2_mul(to, t2)
+    );
+}
+
+pub fn sample_cubic_bezier(from: Vec2, ctrl1: Vec2, ctrl2: Vec2, to: Vec2, t: f32) -> Vec2 {
+    let t2 = t*t;
+    let t3 = t2*t;
+    let one_t = 1.0 - t;
+    let     one_t2 = one_t*one_t;
+    let one_t3 = one_t2*one_t;
+    return vec2_add(
+        vec2_add(vec2_mul(from, one_t3), vec2_mul(ctrl1, 3.0*one_t2*t)),
+        vec2_add(vec2_mul(ctrl2, 3.0*one_t*t2), vec2_mul(to, t3))
+    );
 }

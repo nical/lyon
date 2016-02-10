@@ -55,6 +55,12 @@ pub fn apply_connections<Poly: AbstractPolygon, V: Position2D>(
     connections: &mut Connections<Poly>,
     output: &mut Vec<Polygon>
 ) -> Result<(), Error> {
+    let mut info = if let Some(slice) = polygon.as_slice() { slice.info().clone() }
+                   else { PolygonInfo::default() };
+    if info.is_convex == Some(false) { info.is_convex = None; }
+    if info.is_y_monotone == Some(false) { info.is_y_monotone = None; }
+    if info.has_beziers == Some(true) { info.is_y_monotone = None; }
+
     //println!(" ------ polygon partition, {} connections", connections.connections.len());
     connections.clear_flags();
     for i in 0..connections.connections.len() {
@@ -62,10 +68,14 @@ pub fn apply_connections<Poly: AbstractPolygon, V: Position2D>(
         let to = connections.connections[i].to;
         //println!("     -- connection, {:?} -> {:?}", from, to);
         if !connections.connections[i].processed_face {
-            output.push(try!{ gen_polygon(polygon, vertices, connections, from, to) });
+            let mut p = try!{ gen_polygon(polygon, vertices, connections, from, to) };
+            p.info = info.clone();
+            output.push(p);
         }
         if !connections.connections[i].processed_opposite_face {
-            output.push(try!{ gen_polygon(polygon, vertices, connections, to, from) });
+            let mut p = try!{ gen_polygon(polygon, vertices, connections, to, from) };
+            p.info = info.clone();
+            output.push(p);
         }
     }
     return Ok(());
@@ -402,7 +412,7 @@ fn test_apply_connections_connections() {
 
     let mut partition = Vec::new();
 
-    apply_connections(&poly, vertices, &mut connections, &mut partition);
+    apply_connections(&poly, vertices, &mut connections, &mut partition).unwrap();
     assert_eq!(partition.len(), 5);
 }
 
@@ -427,6 +437,6 @@ fn test_apply_connections_no_connections() {
 
     let mut partition = Vec::new();
 
-    apply_connections(&poly, vertices, &mut no_connections, &mut partition);
+    apply_connections(&poly, vertices, &mut no_connections, &mut partition).unwrap();
     assert_eq!(partition.len(), 0);
 }
