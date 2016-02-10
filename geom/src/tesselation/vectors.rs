@@ -173,6 +173,8 @@ impl Rect {
 
     pub fn bottom_left(&self) -> Vec2 { [self.x, self.y_most()] }
 
+    pub fn size(&self) -> Vec2 { [self.width, self.height] }
+
     pub fn x_most(&self) -> f32 { self.x + self.width }
 
     pub fn y_most(&self) -> f32 { self.y + self.height }
@@ -187,5 +189,27 @@ impl Rect {
         return self.x < other.x_most() && other.x < self.x_most() &&
             self.y < other.y_most() && other.y < self.y_most();
     }
+
+    pub fn inflate(&mut self, d: f32) {
+        self.x -= d;
+        self.y -= d;
+        self.width += 2.0*d;
+        self.height += 2.0*d;
+    }
+
+    pub fn deflate(&mut self, d: f32) { self.inflate(-d); }
+
+    pub fn translate(&mut self, v: Vec2) {
+        self.x += v.x();
+        self.y += v.y();
+    }
+
+    pub fn scale(&mut self, s: Vec2) {
+        self.x *= s.x();
+        self.y *= s.y();
+    }
 }
 
+impl ::std::default::Default for Rect {
+    fn default() -> Rect { Rect { x: 0.0, y: 0.0, width: 0.0, height: 0.0 } }
+}
