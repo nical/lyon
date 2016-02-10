@@ -17,10 +17,10 @@ pub struct Mat3 {
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub struct Mat4 {
-    pub _11: f32, pub _21: f32, pub _31: f32, pub _pad1: u32,
-    pub _12: f32, pub _22: f32, pub _32: f32, pub _pad2: u32,
-    pub _13: f32, pub _23: f32, pub _33: f32, pub _pad3: u32,
-    pub _14: f32, pub _24: f32, pub _34: f32, pub _pad4: u32,
+    pub _11: f32, pub _21: f32, pub _31: f32, pub _41: u32,
+    pub _12: f32, pub _22: f32, pub _32: f32, pub _42: u32,
+    pub _13: f32, pub _23: f32, pub _33: f32, pub _43: u32,
+    pub _14: f32, pub _24: f32, pub _34: f32, pub _44: u32,
 }
 
 pub type Float = f32;
