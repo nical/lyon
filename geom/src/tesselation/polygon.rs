@@ -2,11 +2,12 @@
 use vodk_id::id_vector::IdSlice;
 use vodk_id::{ Id, IdRange };
 
-use tesselation::vectors::{ Vec2, vec2_sub, directed_angle, Position2D, Rect };
-use tesselation::{ Direction, WindingOrder, vertex_id, vertex_id_range, VertexId };
+use tesselation::vectors::{ vec2_sub, directed_angle, Position2D, Rect };
+use tesselation::{ Direction, WindingOrder, VertexId };
 
 use std::f32::consts::PI;
 use std::iter::{ FromIterator };
+
 
 #[derive(Debug)]
 pub struct Point_;
@@ -432,6 +433,12 @@ pub fn compute_winding_order<'l, Pos: Position2D>(
         Some(WindingOrder::CounterClockwise)
     };
 }
+
+
+#[cfg(test)]
+use tesselation::vectors::Vec2;
+#[cfg(test)]
+use tesselation::{ vertex_id, vertex_id_range };
 
 #[test]
 fn test_simple_polygon() {

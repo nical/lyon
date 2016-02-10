@@ -1,7 +1,7 @@
 
-use tesselation::{ VertexId, vertex_id, vertex_id_range, error };
+use tesselation::{ VertexId, error };
 use tesselation::polygon::*;
-use tesselation::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
+use tesselation::vectors::{ Position2D, vec2_sub, directed_angle };
 use vodk_id::id_vector::IdSlice;
 
 struct Connection<Poly: AbstractPolygon> {
@@ -171,6 +171,11 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
 
     return Ok(new_poly);
 }
+
+#[cfg(test)]
+use tesselation::{ vertex_id, vertex_id_range };
+#[cfg(test)]
+use tesselation::vectors::{ Vec2 };
 
 #[test]
 fn test_gen_polygon_no_connection() {

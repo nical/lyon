@@ -164,14 +164,26 @@ pub struct Rect {
 
 impl Rect {
     pub fn top_left(&self) -> Vec2 { self.origin }
+
+    pub fn top_right(&self) -> Vec2 { [self.origin.x() + self.size.x(), self.origin.y()] }
+
     pub fn bottom_right(&self) -> Vec2 { vec2_add(self.origin, self.size) }
+
+    pub fn bottom_left(&self) -> Vec2 { [self.origin.x(), self.origin.y() + self.size.y()] }
+
     pub fn x_most(&self) -> f32 { self.bottom_right().x() }
+
     pub fn y_most(&self) -> f32 { self.bottom_right().y() }
+
     pub fn contains(&self, p: Vec2) -> bool {
         let bottom_right = self.bottom_right();
         let top_left = self.top_left();
         return top_left.x() <= p.x() && top_left.y() <= p.y() &&
                bottom_right.x() >= p.x() && bottom_right.y() >= p.y();
     }
+
+    //pub fn intersects(&self, other: &Rect) -> bool {
+    //    // TODO
+    //}
 }
 

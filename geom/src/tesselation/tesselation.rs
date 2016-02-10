@@ -1,11 +1,16 @@
+use tesselation::{ VertexId };
 use tesselation::polygon::*;
 use tesselation::path::*;
-use tesselation::vectors::{ Vec2, Position2D };
+use tesselation::vectors::{ Vec2, Position2D, vec2_sub, vec2_cross };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::connection::{ Connections, apply_connections };
-use tesselation::bezier::{ separate_bezier_faces, triangulate_quadratic_bezier };
+use tesselation::bezier::{ triangulate_quadratic_bezier };
 use tesselation::monotone::{ is_y_monotone, DecompositionContext, TriangulationContext, };
 use tesselation::path_to_polygon::*;
+use tesselation::monotone::{ Write };
+
+use vodk_id::id_vector::IdSlice;
+
 
 pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     path: ComplexPathSlice<'l>,
@@ -75,5 +80,50 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     }
 
     return Ok(());
+}
+
+// TODO: merge this with the polygon generation instead of removing points after the fact.
+fn separate_bezier_faces<Output: Write<[Vec2; 3]>>(
+    polygon: &mut Polygon,
+    vertices: IdSlice<VertexId, PointData>,
+    out_beziers: &mut Output
+) {
+    if polygon.info().has_beziers == Some(false) {
+        return;
+    }
+
+    let start = point_id(0);
+    let mut it = start;
+    loop {
+        let next = polygon.next(it);
+        if vertices[polygon.vertex(it)].point_type == PointType::Control {
+            let prev = polygon.previous(it);
+            if vertices[polygon.vertex(next)].point_type == PointType::Normal {
+                let va = vertices[polygon.previous_vertex(it)].position;
+                let vb = vertices[polygon.vertex(it)].position;
+                let vc = vertices[polygon.next_vertex(it)].position;
+
+                if vec2_cross(vec2_sub(vc, va), vec2_sub(vb, va)) < 0.0 {
+                    // The control point is outside the shape, just need to cut this triangle out.
+                    polygon.remove_vertex(it);
+
+                    it = polygon.next(prev);
+                } else {
+                    // The control point is inside the shape. The loop already wraps around it so
+                    // no need to extract this triangle out of the loop.
+                    it = next;
+                }
+                out_beziers.write([va, vb, vc]);
+            } else {
+                panic!("Only support quadratic bezier curves for now");
+            }
+        } else {
+            it = next;
+        }
+
+        if it == start {
+            return;
+        }
+    }
 }
 

@@ -1,6 +1,9 @@
-use tesselation::{ VertexId, vertex_id, vertex_id_range };
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
+use tesselation::{ VertexId };
 use tesselation::polygon::*;
-use tesselation::vectors::{ Position2D, Vec2, vec2_sub, vec2_len, directed_angle };
+use tesselation::vectors::{ Position2D, /*Vec2, vec2_sub, vec2_len*/ };
 use vodk_id::id_vector::IdSlice;
 
 #[derive(Debug)]
@@ -58,6 +61,8 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
     first_point: Poly::PointId,
     second_point: Poly::PointId,
 ) -> Result<Polygon, Error> {
+    panic!("TODO");
+/*
     let mut new_poly = Polygon::new();
     let mut prev = first_point;
     let mut it = second_point;
@@ -99,4 +104,5 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
     }
 
     Err(Error)
+*/
 }
