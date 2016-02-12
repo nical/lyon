@@ -11,8 +11,6 @@ pub mod vectors;
 pub mod tesselation;
 pub mod path_to_polygon;
 
-pub use vodk_math::vec2::Vec2;
-
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 
 use vodk_id::{Id, IdRange};

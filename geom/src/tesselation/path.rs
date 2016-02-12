@@ -1,10 +1,10 @@
 use std::f32::consts::PI;
 use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
-use tesselation::vectors::{ directed_angle, Position2D };
+use tesselation::vectors::{ Position2D };
 use tesselation::monotone::{ get_vertex_type, VertexType, };
 use tesselation::bezier::*;
 
-use vodk_math::vec2::{Vec2, vec2, Rect};
+use vodk_math::{ Vec2, vec2, Rect };
 
 use vodk_id::{ Id, IdSlice, IdRange, ToIndex };
 
@@ -208,8 +208,8 @@ impl<'l> PathBuilder<'l> {
 
         let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
         let aabb = Rect::new(
-            self.top_left.x(), self.top_left.y(),
-            self.bottom_right.x() - self.top_left.x(), self.bottom_right.y() - self.top_left.y(),
+            self.top_left.x, self.top_left.y,
+            self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y,
         );
 
         let shape_info = if vertex_count > 2 {
@@ -285,7 +285,7 @@ impl<'l> PathBuilder<'l> {
     }
 
     fn update_angle(&mut self, a: Vec2, b: Vec2, c: Vec2) {
-        let angle = directed_angle(a - b, c - b);
+        let angle = (a - b).directed_angle(c - b);
         self.accum_angle += angle;
         if angle < PI {
             self.convex_if_cw = false;

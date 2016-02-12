@@ -15,14 +15,14 @@ use std::mem::swap;
 use std::f32::consts::PI;
 
 use tesselation::{ VertexId, Direction, WindingOrder, error };
-use tesselation::vectors::{ Position2D, directed_angle };
+use tesselation::vectors::{ Position2D };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
 use tesselation::connection::{ Connections };
 
 use vodk_alloc::*;
 use vodk_id::*;
-use vodk_math::vec2::{Vector2D, Vec2};
+use vodk_math::{ Vector2D, Vec2 };
 
 #[derive(Debug, Copy, Clone)]
 pub enum VertexType {
@@ -53,7 +53,7 @@ fn is_below(a: Vec2, b: Vec2) -> bool { a.y > b.y || (a.y == b.y && a.x > b.x) }
 
 pub fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
     // assuming clockwise vertex_positions winding order
-    let interrior_angle = directed_angle(prev - current, next - current);
+    let interrior_angle = (prev - current).directed_angle(next - current);
 
     // If the interrior angle is exactly 0 we'll have degenerate (invisible 0-area) triangles
     // which is yucks but we can live with it for the sake of being robust against degenerate
@@ -512,7 +512,7 @@ impl TriangulationContext {
                         let v1 = vertex_positions[id_1].position();
                         let v2 = vertex_positions[id_2].position();
                         let v3 = vertex_positions[id_3].position();
-                        if directed_angle(v1 - v2, v3 - v2) > PI {
+                        if (v1 - v2).directed_angle(v3 - v2) > PI {
                             output.push_indices(id_1.handle, id_2.handle, id_3.handle);
                             triangle_count += 1;
 
@@ -554,7 +554,7 @@ impl TriangulationContext {
 
 
 #[cfg(test)]
-use vodk_math::vec2::{ vec2 };
+use vodk_math::{ vec2 };
 
 #[cfg(test)]
 struct TestShape<'l> {

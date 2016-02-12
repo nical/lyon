@@ -4,7 +4,7 @@
 use tesselation::{ VertexId };
 use tesselation::polygon::*;
 use tesselation::vectors::{ Position2D, /*Vec2, vec2_sub, vec2_len*/ };
-use vodk_id::id_vector::IdSlice;
+use vodk_id::IdSlice;
 
 #[derive(Debug)]
 pub struct Error; // placeholder

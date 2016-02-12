@@ -1,9 +1,9 @@
 
 use tesselation::{ VertexId, error };
 use tesselation::polygon::*;
-use tesselation::vectors::{ Position2D, directed_angle };
+use tesselation::vectors::{ Position2D };
 
-use vodk_id::id_vector::IdSlice;
+use vodk_id::IdSlice;
 
 struct Connection<Poly: AbstractPolygon> {
     from: Poly::PointId,
@@ -109,8 +109,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
         let mut selected = None;
         // find the best connection (if any) by keeping track of the lowest angle
         let center_to_origin = origin - center;
-        let mut angle = directed_angle(
-            center_to_origin,
+        let mut angle = center_to_origin.directed_angle(
             vertices[polygon.vertex(poly_next)].position() - center
         );
         //println!("\n -- next {:?} start with angle {}", poly_next, angle);
@@ -125,8 +124,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
                 continue;
             }
 
-            let diag_angle = directed_angle(
-                center_to_origin,
+            let diag_angle = center_to_origin.directed_angle(
                 vertices[polygon.vertex(diag_next)].position() - center
             );
 
@@ -177,7 +175,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
 use tesselation::{ vertex_id, vertex_id_range };
 
 #[cfg(test)]
-use vodk_math::vec2::{ Vec2, vec2 };
+use vodk_math::{ Vec2, vec2 };
 
 #[test]
 fn test_gen_polygon_no_connection() {

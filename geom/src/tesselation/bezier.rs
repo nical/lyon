@@ -1,8 +1,7 @@
 use tesselation::{ Index };
 use tesselation::vertex_builder::VertexBufferBuilder;
 
-use vodk_math::vec2::{ Vector2D };
-use vodk_math::units::Unit;
+use vodk_math::{ Vector2D, Unit };
 
 pub fn triangulate_quadratic_bezier<U: Unit, Geometry: VertexBufferBuilder<Vector2D<U>>>(
     from: Vector2D<U>,

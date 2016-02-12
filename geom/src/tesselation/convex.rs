@@ -3,7 +3,7 @@
 use tesselation::vertex_builder::VertexBufferBuilder;
 use tesselation::{ Index };
 
-use vodk_math::vec2::{ Vector2D, Rectangle };
+use vodk_math::{ Vector2D, Rectangle };
 
 use std::f32::consts::PI;
 

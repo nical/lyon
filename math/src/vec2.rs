@@ -5,7 +5,9 @@ use std::mem::transmute;
 use std::ops;
 use std::default::Default;
 use std::marker::PhantomData;
-use std::convert::{ AsMut, AsRef };
+use std::convert::{ From, AsMut, AsRef };
+use std::fmt;
+
 
 use units::{ Unit, Untyped };
 use constants::*;
@@ -88,6 +90,23 @@ impl<U> AsMut<Vector2D<U>> for [f32; 2] {
 impl<U> AsMut<Vector2D<U>> for (f32, f32) {
     fn as_mut(&mut self) -> &mut Vector2D<U> { unsafe { transmute(self) } }
 }
+
+impl<U> From<[f32; 2]> for Vector2D<U> {
+    fn from(v: [f32; 2]) -> Vector2D<U> { Vector2D::new(v[0], v[1]) }
+}
+
+impl<U> From<(f32, f32)> for Vector2D<U> {
+    fn from(v: (f32, f32)) -> Vector2D<U> { let (x, y) = v; Vector2D::new(x, y) }
+}
+
+impl<U> From<Vector2D<U>> for [f32; 2]  {
+    fn from(v: Vector2D<U>) -> [f32; 2] { [v.x, v.y] }
+}
+
+impl<U> From<Vector2D<U>> for (f32, f32)  {
+    fn from(v: Vector2D<U>) -> (f32, f32) { (v.x, v.y) }
+}
+
 
 impl<U> Default for Vector2D<U> {
     fn default() -> Vector2D<U> { Vector2D::new(0.0, 0.0) }
@@ -273,8 +292,6 @@ impl<U> ops::Neg for Vector2D<U> {
         };
     }
 }
-
-use std::fmt;
 
 impl<U: Unit> fmt::Debug for Vector2D<U> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -575,3 +592,13 @@ pub fn vec2_to_array_slice<U>(slice: &[Vector2D<U>]) -> &[[f32; 2]] { unsafe { t
 pub fn tuple_to_vec2_slice<U>(slice: &[(f32, f32)]) -> &[Vector2D<U>] { unsafe { transmute(slice) } }
 
 pub fn vec2_to_tuple_slice<U>(slice: &[Vector2D<U>]) -> &[(f32, f32)] { unsafe { transmute(slice) } }
+
+// The orphan rule forbids this:
+//
+//impl<'l, U: Unit> From<&'l [[f32; 2]]> for &'l [Vector2D<U>] {
+//    fn from(slice: &'l[[f32; 2]]) -> &'l[Vector2D<U>] { array_to_vec2_slice(slice) }
+//}
+//
+//impl<'l, U: Unit> From<&'l [Vector2D<U>]> for &'l [[f32; 2]] {
+//    fn from(slice: &'l[Vector2D<U>]) -> &'l[[f32; 2]] { vec2_to_array_slice(slice) }
+//}

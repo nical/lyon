@@ -9,8 +9,8 @@ use tesselation::monotone::{ is_y_monotone, DecompositionContext, TriangulationC
 use tesselation::path_to_polygon::*;
 use tesselation::monotone::{ Write };
 
-use vodk_id::id_vector::IdSlice;
-use vodk_math::vec2::Vec2;
+use vodk_id::IdSlice;
+use vodk_math::Vec2;
 
 
 pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(

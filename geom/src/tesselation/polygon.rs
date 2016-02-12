@@ -1,11 +1,10 @@
 
-use vodk_id::id_vector::IdSlice;
-use vodk_id::{ Id, IdRange };
+use vodk_id::{ Id, IdRange, IdSlice };
 
-use tesselation::vectors::{ directed_angle, Position2D };
+use tesselation::vectors::{ Position2D };
 use tesselation::{ Direction, WindingOrder, VertexId };
 
-use vodk_math::vec2::{ Rect };
+use vodk_math::{ Rect };
 
 use std::f32::consts::PI;
 use std::iter::{ FromIterator };
@@ -426,7 +425,7 @@ pub fn compute_winding_order<'l, Pos: Position2D>(
         let b = vertices[poly.vertex(it)].position();
         let c = vertices[poly.next_vertex(it)].position();
 
-        angle += directed_angle(a - b, c - b);
+        angle += (a - b).directed_angle(c - b);
     }
 
     return if angle > ((poly.num_vertices()-1) as f32) * PI {
@@ -437,7 +436,7 @@ pub fn compute_winding_order<'l, Pos: Position2D>(
 }
 
 #[cfg(test)]
-use vodk_math::vec2::{ Vec2, vec2 };
+use vodk_math::{ Vec2, vec2 };
 #[cfg(test)]
 use tesselation::{ vertex_id, vertex_id_range };
 
