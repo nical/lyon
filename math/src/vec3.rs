@@ -3,8 +3,9 @@ use std::mem::transmute;
 use std::ops;
 use std::default::Default;
 use std::marker::PhantomData;
+use std::fmt;
 
-use common::Untyped;
+use units::{ Unit, Untyped };
 
 use super::vec2::Vector2D;
 use super::vec4::Vector4D;
@@ -13,7 +14,6 @@ pub type Vec3 = Vector3D<Untyped>;
 
 pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 { Vector3D { x: x, y: y, z: z, _unit: PhantomData } }
 
-#[derive(Copy, Clone, Debug)]
 pub struct Vector3D<Unit> {
     pub x: f32,
     pub y: f32,
@@ -224,5 +224,21 @@ impl<U> ops::Neg for Vector3D<U> {
             z: -self.z,
             _unit: PhantomData
         };
+    }
+}
+
+impl<U> Copy for Vector3D<U> {}
+
+impl<U> Clone for Vector3D<U> { fn clone(&self) -> Vector3D<U> { *self } }
+
+impl<U: Unit> fmt::Debug for Vector3D<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Vector3D<{}>[{} {} {}]", U::name(), self.x, self.y, self.z)
+    }
+}
+
+impl<U> PartialEq for Vector3D<U> {
+    fn eq(&self, other: &Vector3D<U>) -> bool {
+        self.x == other.x && self.y == other.y && self.z == other.z
     }
 }

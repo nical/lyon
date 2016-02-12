@@ -2,8 +2,9 @@ use tesselation::{ Index };
 use tesselation::vertex_builder::VertexBufferBuilder;
 
 use vodk_math::vec2::{ Vector2D };
+use vodk_math::units::Unit;
 
-pub fn triangulate_quadratic_bezier<U, Geometry: VertexBufferBuilder<Vector2D<U>>>(
+pub fn triangulate_quadratic_bezier<U: Unit, Geometry: VertexBufferBuilder<Vector2D<U>>>(
     from: Vector2D<U>,
     ctrl: Vector2D<U>,
     to: Vector2D<U>,
@@ -32,7 +33,7 @@ pub fn triangulate_quadratic_bezier<U, Geometry: VertexBufferBuilder<Vector2D<U>
     }
 }
 
-pub fn sample_quadratic_bezier<U>(
+pub fn sample_quadratic_bezier<U: Unit>(
     from: Vector2D<U>,
     ctrl: Vector2D<U>,
     to: Vector2D<U>,
@@ -46,7 +47,7 @@ pub fn sample_quadratic_bezier<U>(
          + to * t2;
 }
 
-pub fn sample_cubic_bezier<U>(
+pub fn sample_cubic_bezier<U: Unit>(
     from: Vector2D<U>,
     ctrl1: Vector2D<U>,
     ctrl2: Vector2D<U>,

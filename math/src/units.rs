@@ -1,4 +1,29 @@
+pub trait Unit {
+    fn name() -> &'static str;
+}
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Untyped;
+impl Unit for Untyped { fn name() -> &'static str { "Untyped" } }
+
+// In texture space (0 .. 1) origin: top-left
+pub struct Texels;
+impl Unit for Texels { fn name() -> &'static str { "Texels" } }
+
+// In screen pixels (0 .. X) origin: top-left
+pub struct Screen;
+impl Unit for Screen { fn name() -> &'static str { "Screen" } }
+
+// In world space (-X .. Y)
+pub struct World;
+impl Unit for World { fn name() -> &'static str { "World" } }
+
+// Local coordinates, for instance mesh vertices...
+pub struct Local;
+impl Unit for Local { fn name() -> &'static str { "Local" } }
+
+
+/*
 macro_rules! declare_unit (
     ($module:ident) => (
         pub mod $module {
@@ -14,9 +39,9 @@ macro_rules! declare_unit (
             pub type Vec2 = vec2::Vector2D<Unit>;
             pub type Vec3 = vec3::Vector3D<Unit>;
             pub type Vec4 = vec4::Vector4D<Unit>;
-            pub type Mat4 = matrix::Matrix4x4<Unit>;
-            pub type Mat3 = matrix::Matrix3x3<Unit>;
-            pub type Mat2 = matrix::Matrix2x2<Unit>;
+            pub type Mat4 = matrix::Matrix4x4<Unit, Unit>;
+            pub type Mat3 = matrix::Matrix3x3<Unit, Unit>;
+            pub type Mat2 = matrix::Matrix2x2<Unit, Unit>;
 
             pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rectangle {
                 vec2::Rectangle::new(x, y, w, h)
@@ -76,3 +101,4 @@ declare_unit!(texels);
 declare_unit!(pixels);
 // In world space (-X .. Y)
 declare_unit!(world);
+*/

@@ -3,9 +3,11 @@ use std::mem::transmute;
 use std::ops;
 use std::default::Default;
 use std::marker::PhantomData;
+use std::fmt;
 
-use common::Untyped;
+use units::{ Unit, Untyped };
 use constants::*;
+
 
 use super::vec3::Vector3D;
 use super::vec2::Vector2D;
@@ -14,7 +16,6 @@ pub type Vec4 = Vector4D<Untyped>;
 
 pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w, _unit: PhantomData } }
 
-#[derive(Copy, Clone, Debug)]
 pub struct Vector4D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
@@ -201,6 +202,16 @@ impl<U> ops::Neg for Vector4D<U> {
     }
 }
 
+impl<U> Copy for Vector4D<U> {}
+
+impl<U> Clone for Vector4D<U> { fn clone(&self) -> Vector4D<U> { *self } }
+
+impl<U: Unit> fmt::Debug for Vector4D<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Vector4D<{}>[{} {} {} {}]", U::name(), self.x, self.y, self.z, self.w)
+    }
+}
+
 pub trait EpsilonEq {
     fn epsilon_eq(&self, rhs: &Self) -> bool;
 }
@@ -229,10 +240,10 @@ fn test_vec4() {
     let d = p1.dot(&p2);
     assert!(d < -0.0);
     let m1 = Mat4::identity();
-    let p5 = m1.transform(&p1);
+    let p5 = m1.transform(p1);
     let mut m1 = Mat4::identity();
-    m1.rotate(PI, &vec3(1.0, 0.0, 0.0));
-    let p6 = m1.transform(&p1);
+    m1.rotate(PI, vec3(1.0, 0.0, 0.0));
+    let p6 = m1.transform(p1);
     assert_eq!(p1, p5);
     assert_eq!(p6, vec4(1.0, -2.0, -3.0, 0.0));
 }

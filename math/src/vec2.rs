@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 
 use std::mem::transmute;
 use std::ops;
@@ -5,24 +7,22 @@ use std::default::Default;
 use std::marker::PhantomData;
 use std::convert::{ AsMut, AsRef };
 
-use common::Untyped;
+use units::{ Unit, Untyped };
 use constants::*;
 
 pub type Vec2 = Vector2D<Untyped>;
 
-pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D { x: x, y: y, _unit: PhantomData } }
+pub fn vec2(x: f32, y: f32) -> Vec2 { Vector2D::new(x, y) }
 
 pub type Rect = Rectangle<Untyped>;
 pub type IntRect = IntRectangle<Untyped>;
 
-#[derive(PartialEq)]
 pub struct Vector2D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
     _unit: PhantomData<Unit>,
 }
 
-#[derive(PartialEq)]
 pub struct Rectangle<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
@@ -31,7 +31,6 @@ pub struct Rectangle<Unit = Untyped> {
     _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct IntRectangle<Unit = Untyped> {
     pub x: i32,
     pub y: i32,
@@ -40,21 +39,18 @@ pub struct IntRectangle<Unit = Untyped> {
     _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Size2D<Unit = Untyped> {
     pub width: f32,
     pub height: f32,
     _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct IntSize2D<Unit = Untyped> {
     pub width: i32,
     pub height: i32,
     _unit: PhantomData<Unit>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct IntVector2D<Unit = Untyped> {
     pub x: i32,
     pub y: i32,
@@ -101,13 +97,6 @@ impl<U> Default for Rectangle<U> {
     fn default() -> Rectangle<U> { Rectangle::new(0.0, 0.0, 0.0, 0.0) }
 }
 
-//impl<U> PartialEq for Vector2D<U> {
-//    fn eq(&self, rhs:&Vector2D<U>) -> bool {
-//        return self.x.eq(&rhs.x) && self.y.eq(&rhs.y);
-//    }
-//}
-
-#[allow(dead_code)]
 impl<U> Vector2D<U> {
     pub fn new(x: f32, y: f32) -> Vector2D<U> {
         Vector2D {
@@ -195,7 +184,6 @@ impl<U> Vector2D<U> {
     }
 }
 
-#[allow(dead_code)]
 impl<U> ops::Add<Vector2D<U>> for Vector2D<U> {
 
     type Output = Vector2D<U>;
@@ -210,7 +198,6 @@ impl<U> ops::Add<Vector2D<U>> for Vector2D<U> {
     }
 }
 
-#[allow(dead_code)]
 impl<U> ops::Sub<Vector2D<U>> for Vector2D<U> {
 
     type Output = Vector2D<U>;
@@ -225,7 +212,6 @@ impl<U> ops::Sub<Vector2D<U>> for Vector2D<U> {
     }
 }
 
-#[allow(dead_code)]
 impl<U> ops::Mul<Vector2D<U>> for Vector2D<U> {
 
     type Output = Vector2D<U>;
@@ -250,7 +236,6 @@ impl<U> ops::Mul<f32> for Vector2D<U> {
     }
 }
 
-#[allow(dead_code)]
 impl<U> ops::Div<Vector2D<U>> for Vector2D<U> {
 
     type Output = Vector2D<U>;
@@ -275,7 +260,6 @@ impl<U> ops::Div<f32> for Vector2D<U> {
     }
 }
 
-#[allow(dead_code)]
 impl<U> ops::Neg for Vector2D<U> {
 
     type Output = Vector2D<U>;
@@ -290,9 +274,11 @@ impl<U> ops::Neg for Vector2D<U> {
     }
 }
 
-impl<U> ::std::fmt::Debug for Vector2D<U> {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Vec2[{}, {}]", self.x, self.y)
+use std::fmt;
+
+impl<U: Unit> fmt::Debug for Vector2D<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Vector2D<{}>[{}, {}]", U::name(), self.x, self.y)
     }
 }
 
@@ -302,6 +288,9 @@ impl<U> Clone for Vector2D<U> {
     fn clone(&self) -> Vector2D<U> { *self }
 }
 
+impl<U> PartialEq for Vector2D<U> {
+    fn eq(&self, other: &Vector2D<U>) -> bool { self.x == other.x && self.y == other.y }
+}
 
 impl<U> Rectangle<U> {
     pub fn new(x: f32, y: f32, w: f32, h:f32) -> Rectangle<U> {
@@ -312,7 +301,7 @@ impl<U> Rectangle<U> {
 
     pub fn origin(&self) -> Vector2D<U> { Vector2D { x: self.x, y: self.y, _unit: PhantomData } }
 
-    pub fn size(&self) -> Size2D<U> { Size2D { width: self.width, height: self.height, _unit: PhantomData } }
+    pub fn size(&self) -> Size2D<U> { Size2D::new(self.width, self.height) }
 
     pub fn move_by(&mut self, v: Vector2D<U>) {
         self.x = self.x + v.x;
@@ -369,6 +358,20 @@ impl<U> Rectangle<U> {
                self.y_most() >= other.y_most();
     }
 
+    pub fn intersects(&self, other: &Rectangle<U>) -> bool {
+        return self.x < other.x_most() && other.x < self.x_most() &&
+            self.y < other.y_most() && other.y < self.y_most();
+    }
+
+    pub fn inflate(&mut self, d: f32) {
+        self.x -= d;
+        self.y -= d;
+        self.width += 2.0*d;
+        self.height += 2.0*d;
+    }
+
+    pub fn deflate(&mut self, d: f32) { self.inflate(-d); }
+
     pub fn ensure_invariant(&mut self) {
         self.x = self.x.min(self.x + self.width);
         self.y = self.y.min(self.y + self.height);
@@ -377,9 +380,9 @@ impl<U> Rectangle<U> {
     }
 }
 
-impl<U> ::std::fmt::Debug for Rectangle<U> {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Rect[x:{}, y:{} w:{} h:{}]", self.x, self.y, self.width, self.height)
+impl<U: Unit> fmt::Debug for Rectangle<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Rectangle<{}>[x:{}, y:{} w:{} h:{}]", U::name(), self.x, self.y, self.width, self.height)
     }
 }
 
@@ -387,6 +390,12 @@ impl<U> Copy for Rectangle<U> {}
 
 impl<U> Clone for Rectangle<U> {
     fn clone(&self) -> Rectangle<U> { *self }
+}
+
+impl<U> PartialEq for Rectangle<U> {
+    fn eq(&self, other: &Rectangle<U>) -> bool {
+        self.x == other.x && self.y == other.y && self.width == other.width && self.height == other.height
+    }
 }
 
 impl<U> IntRectangle<U> {
@@ -455,7 +464,81 @@ impl<U> IntRectangle<U> {
     }
 }
 
+impl<U: Unit> fmt::Debug for IntRectangle<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "IntRectangle<{}>[x:{}, y:{} w:{} h:{}]", U::name(), self.x, self.y, self.width, self.height)
+    }
+}
+
+impl<U> Copy for IntRectangle<U> {}
+
+impl<U> Clone for IntRectangle<U> {
+    fn clone(&self) -> IntRectangle<U> { *self }
+}
+
+impl<U> PartialEq for IntRectangle<U> {
+    fn eq(&self, other: &IntRectangle<U>) -> bool {
+        self.x == other.x && self.y == other.y && self.width == other.width && self.height == other.height
+    }
+}
+
 fn imin(a: i32, b: i32) -> i32 { if a >= b { a } else { b } }
+
+impl<U> Size2D<U> {
+    pub fn new(w: f32, h: f32) -> Size2D<U> { Size2D { width: w, height: h, _unit: PhantomData } }
+}
+
+impl<U: Unit> fmt::Debug for Size2D<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Size2D<{}>[{}, {}]", U::name(), self.width, self.height)
+    }
+}
+
+impl<U> Copy for Size2D<U> {}
+
+impl<U> Clone for Size2D<U> {
+    fn clone(&self) -> Size2D<U> { *self }
+}
+
+impl<U> PartialEq for Size2D<U> {
+    fn eq(&self, other: &Size2D<U>) -> bool {
+        self.width == other.width && self.height == other.height
+    }
+}
+
+impl<U> IntSize2D<U> {
+    pub fn new(w: i32, h: i32) -> IntSize2D<U> { IntSize2D { width: w, height: h, _unit: PhantomData } }
+}
+
+impl<U: Unit> fmt::Debug for IntSize2D<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "IntSize2D<{}>[{}, {}]", U::name(), self.width, self.height)
+    }
+}
+
+impl<U> Copy for IntSize2D<U> {}
+
+impl<U> Clone for IntSize2D<U> {
+    fn clone(&self) -> IntSize2D<U> { *self }
+}
+
+impl<U: Unit> fmt::Debug for IntVector2D<U> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "IntVector2D<{}>[{}, {}]", U::name(), self.x, self.y)
+    }
+}
+
+impl<U> Copy for IntVector2D<U> {}
+
+impl<U> Clone for IntVector2D<U> {
+    fn clone(&self) -> IntVector2D<U> { *self }
+}
+
+impl<U> PartialEq for IntVector2D<U> {
+    fn eq(&self, other: &IntVector2D<U>) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
 
 pub trait EpsilonEq {
     fn epsilon_eq(self, rhs: Self) -> bool;

@@ -1,28 +1,10 @@
 use std::f32::consts::PI;
 
-pub use vodk_math::vec2::{ Vector2D, Vec2, vec2 };
+use vodk_math::vec2::{ Vector2D, Vec2};
 
-//pub static X: usize = 0;
-//pub static Y: usize = 1;
-//pub static Z: usize = 2;
-//pub static W: usize = 3;
-//
-//pub static U: usize = 0;
-//pub static V: usize = 1;
-//
-//pub type Vec3 = [f32; 3];
-//pub type Vec4 = [f32; 4];
+#[cfg(test)]
+use vodk_math::vec2::{ vec2 };
 
-//pub fn vec2_square_len(a: Vec2) -> f32 { a[X]*a[X] + a[Y]*a[Y] }
-//pub fn vec2_len(a: Vec2) -> f32 { vec2_square_len(a).sqrt() }
-//pub fn vec2_add(a: Vec2, b: Vec2) -> Vec2 { [a[X]+b[X], a[Y]+b[Y]] }
-//pub fn vec2_sub(a: Vec2, b: Vec2) -> Vec2 { [a[X]-b[X], a[Y]-b[Y]] }
-//pub fn vec2_mul(a: Vec2, b: f32) -> Vec2 { [a[X]*b, a[Y]*b] }
-//pub fn vec2_cross(a: Vec2, b: Vec2) -> f32 { a[X]*b[Y] - a[Y]*b[X] }
-//
-//pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool {
-//    vec2_square_len(vec2_sub(a, b)) < 0.000001
-//}
 
 pub fn f32_almost_eq(a: f32, b:f32) -> bool { (a - b).abs() < 0.000001 }
 
@@ -88,6 +70,8 @@ pub trait Position2D {
     fn y(&self) -> f32 { self.position().y }
 }
 
+impl Position2D for Vec2 { fn position(&self) -> Vec2 { *self } }
+
 /*
 pub trait Position3D {
     fn position(&self) -> [f32; 3];
@@ -149,70 +133,11 @@ pub trait Color {
     fn b(&self) -> Self::ScalarType { self.rgba().b }
     fn a(&self) -> Self::ScalarType { self.rgba().a }
 }
-*/
-impl Position2D for Vec2 { fn position(&self) -> Vec2 { *self } }
-/*
+
 impl Position3D for Vec3 { fn position(&self) -> Vec3 { *self } }
 
 impl Position4D for Vec4 { fn position(&self) -> Vec4 { *self } }
 
 impl TextureCoordinates for Vec2 { fn uv(&self) -> Vec2 { *self } }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-impl Rect {
-    pub fn top_left(&self) -> Vec2 { [self.x, self.y] }
-
-    pub fn top_right(&self) -> Vec2 { [self.x_most(), self.y] }
-
-    pub fn bottom_right(&self) -> Vec2 { [self.x_most(), self.y_most()] }
-
-    pub fn bottom_left(&self) -> Vec2 { [self.x, self.y_most()] }
-
-    pub fn size(&self) -> Vec2 { [self.width, self.height] }
-
-    pub fn x_most(&self) -> f32 { self.x + self.width }
-
-    pub fn y_most(&self) -> f32 { self.y + self.height }
-
-    pub fn is_empty(&self) -> bool { self.x == 0.0 || self.y == 0.0 }
-
-    pub fn contains(&self, p: Vec2) -> bool {
-        return self.x <= p.x() && self.y <= p.y() && self.x_most() >= p.x() && self.y_most() >= p.y();
-    }
-
-    pub fn intersects(&self, other: &Rect) -> bool {
-        return self.x < other.x_most() && other.x < self.x_most() &&
-            self.y < other.y_most() && other.y < self.y_most();
-    }
-
-    pub fn inflate(&mut self, d: f32) {
-        self.x -= d;
-        self.y -= d;
-        self.width += 2.0*d;
-        self.height += 2.0*d;
-    }
-
-    pub fn deflate(&mut self, d: f32) { self.inflate(-d); }
-
-    pub fn translate(&mut self, v: Vec2) {
-        self.x += v.x();
-        self.y += v.y();
-    }
-
-    pub fn scale(&mut self, s: Vec2) {
-        self.x *= s.x();
-        self.y *= s.y();
-    }
-}
-
-impl ::std::default::Default for Rect {
-    fn default() -> Rect { Rect { x: 0.0, y: 0.0, width: 0.0, height: 0.0 } }
-}
 */

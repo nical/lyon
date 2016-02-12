@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-mod common;
 pub mod units;
 pub mod vec2;
 pub mod vec3;

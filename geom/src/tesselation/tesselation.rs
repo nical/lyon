@@ -1,7 +1,7 @@
 use tesselation::{ VertexId };
 use tesselation::polygon::*;
 use tesselation::path::*;
-use tesselation::vectors::{ Vec2, Position2D };
+use tesselation::vectors::{ Position2D };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::connection::{ Connections, apply_connections };
 use tesselation::bezier::{ triangulate_quadratic_bezier };
@@ -10,6 +10,7 @@ use tesselation::path_to_polygon::*;
 use tesselation::monotone::{ Write };
 
 use vodk_id::id_vector::IdSlice;
+use vodk_math::vec2::Vec2;
 
 
 pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
