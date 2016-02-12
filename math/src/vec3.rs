@@ -1,5 +1,5 @@
 
-use std::mem;
+use std::mem::transmute;
 use std::ops;
 use std::default::Default;
 use std::marker::PhantomData;
@@ -19,6 +19,38 @@ pub struct Vector3D<Unit> {
     pub y: f32,
     pub z: f32,
     _unit: PhantomData<Unit>,
+}
+
+impl<U> AsRef<[f32; 3]> for Vector3D<U> {
+    fn as_ref(&self) -> &[f32; 3] { unsafe { transmute(self) } }
+}
+
+impl<U> AsRef<(f32, f32, f32)> for Vector3D<U> {
+    fn as_ref(&self) -> &(f32, f32, f32) { unsafe { transmute(self) } }
+}
+
+impl<U> AsMut<[f32; 3]> for Vector3D<U> {
+    fn as_mut(&mut self) -> &mut [f32; 3] { unsafe { transmute(self) } }
+}
+
+impl<U> AsMut<(f32, f32, f32)> for Vector3D<U> {
+    fn as_mut(&mut self) -> &mut (f32, f32, f32) { unsafe { transmute(self) } }
+}
+
+impl<U> AsRef<Vector3D<U>> for [f32; 3] {
+    fn as_ref(&self) -> &Vector3D<U> { unsafe { transmute(self) } }
+}
+
+impl<U> AsRef<Vector3D<U>> for (f32, f32, f32) {
+    fn as_ref(&self) -> &Vector3D<U> { unsafe { transmute(self) } }
+}
+
+impl<U> AsMut<Vector3D<U>> for [f32; 3] {
+    fn as_mut(&mut self) -> &mut Vector3D<U> { unsafe { transmute(self) } }
+}
+
+impl<U> AsMut<Vector3D<U>> for (f32, f32, f32) {
+    fn as_mut(&mut self) -> &mut Vector3D<U> { unsafe { transmute(self) } }
 }
 
 impl<U> Default for Vector3D<U> {
@@ -48,13 +80,13 @@ impl<U> Vector3D<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self.x as *const f32, 3 as usize ));
+            return transmute((&self.x as *const f32, 3 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self.x as *mut f32, 3 as usize ));
+            return transmute((&mut self.x as *mut f32, 3 as usize ));
         }
     }
 
@@ -145,6 +177,37 @@ impl<U> ops::Mul<Vector3D<U>> for Vector3D<U> {
             z: self.z * rhs.z,
             _unit: PhantomData
         };
+    }
+}
+
+impl<U> ops::Mul<f32> for Vector3D<U> {
+
+    type Output = Vector3D<U>;
+
+    #[inline]
+    fn mul(self, rhs: f32) -> Vector3D<U> {
+        return Vector3D::new(self.x * rhs, self.y * rhs, self.z * rhs);
+    }
+}
+
+#[allow(dead_code)]
+impl<U> ops::Div<Vector3D<U>> for Vector3D<U> {
+
+    type Output = Vector3D<U>;
+
+    #[inline]
+    fn div(self, rhs: Vector3D<U>) -> Vector3D<U> {
+        return Vector3D::new(self.x / rhs.x, self.y / rhs.y, self.z / rhs.z);
+    }
+}
+
+impl<U> ops::Div<f32> for Vector3D<U> {
+
+    type Output = Vector3D<U>;
+
+    #[inline]
+    fn div(self, rhs: f32) -> Vector3D<U> {
+        return Vector3D::new(self.x / rhs, self.y / rhs, self.z / rhs);
     }
 }
 

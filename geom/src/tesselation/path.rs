@@ -1,8 +1,10 @@
 use std::f32::consts::PI;
 use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
-use tesselation::vectors::{ Vec2, vec2_sub, vec2_almost_eq, directed_angle, Position2D, Rect };
+use tesselation::vectors::{ directed_angle, Position2D };
 use tesselation::monotone::{ get_vertex_type, VertexType, };
 use tesselation::bezier::*;
+
+use vodk_math::vec2::{Vec2, vec2, Rect};
 
 use vodk_id::{ Id, IdSlice, IdRange, ToIndex };
 
@@ -130,10 +132,10 @@ impl<'l> PathBuilder<'l> {
         path.vertices.push(PointData { position: pos, point_type: PointType::Normal });
         PathBuilder {
             path: path,
-            last_position: [::std::f32::NAN, ::std::f32::NAN],
+            last_position: vec2(::std::f32::NAN, ::std::f32::NAN),
             accum_angle: 0.0,
-            top_left: [0.0, 0.0],
-            bottom_right: [0.0, 0.0],
+            top_left: vec2(0.0, 0.0),
+            bottom_right: vec2(0.0, 0.0),
             offset: offset,
             convex_if_cw: true,
             convex_if_ccw: true,
@@ -159,9 +161,10 @@ impl<'l> PathBuilder<'l> {
             let num_points = 16;
             let from = self.last_position;
             for i in 0..num_points {
-                let t = (i+1) as f32 / num_points as f32;
+                let t = (i+1) as f32 / (num_points+2) as f32;
                 self.push(sample_quadratic_bezier(from, ctrl, to, t), PointType::Normal);
             }
+            self.push(to, PointType::Normal);
         } else {
             self.push(ctrl, PointType::Control);
             self.push(to, PointType::Normal);
@@ -174,8 +177,8 @@ impl<'l> PathBuilder<'l> {
         if self.flatten {
             let num_points = 16;
             let from = self.last_position;
-            for i in 0..num_points {
-                let t = (i+1) as f32 / num_points as f32;
+            for i in 1..num_points {
+                let t = (i) as f32 / num_points as f32;
                 self.push(sample_cubic_bezier(from, ctrl1, ctrl2, to, t), PointType::Normal);
             }
         } else {
@@ -195,8 +198,7 @@ impl<'l> PathBuilder<'l> {
         let offset = self.offset as usize;
         let last = self.path.vertices.len() - 1;
         // If the first and last vertices are the same, remove the last vertex.
-        let last = if vec2_almost_eq(self.path.vertices[last].position,
-                                     self.path.vertices[offset].position) {
+        let last = if self.path.vertices[last].position.epsilon_eq(self.path.vertices[offset].position) {
             self.path.vertices.pop();
             closed = true;
             last - 1
@@ -205,11 +207,10 @@ impl<'l> PathBuilder<'l> {
         let vertex_count = last - offset + 1;
 
         let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
-        let aabb = Rect {
-            x: self.top_left.x(), y: self.top_left.y(),
-            width: self.bottom_right.x() - self.top_left.x(),
-            height: self.bottom_right.y() - self.top_left.y(),
-        };
+        let aabb = Rect::new(
+            self.top_left.x(), self.top_left.y(),
+            self.bottom_right.x() - self.top_left.x(), self.bottom_right.y() - self.top_left.y(),
+        );
 
         let shape_info = if vertex_count > 2 {
             let a = self.path.vertices[last - 1].position;
@@ -260,16 +261,17 @@ impl<'l> PathBuilder<'l> {
 
     fn push(&mut self, point: Vec2, ptype: PointType) {
         if point == self.last_position {
+            println!(" point == last_position");
             return;
         }
         if self.path.vertices.len() == 0 {
             self.top_left = point;
             self.bottom_right = point;
         } else {
-            if point.x() < self.top_left.x() { self.top_left[0] = point.x(); }
-            if point.y() < self.top_left.y() { self.top_left[1] = point.y(); }
-            if point.x() > self.bottom_right.x() { self.bottom_right[0] = point.x(); }
-            if point.y() > self.bottom_right.y() { self.bottom_right[1] = point.y(); }
+            if point.x < self.top_left.x { self.top_left.x = point.x; }
+            if point.y < self.top_left.y { self.top_left.y = point.y; }
+            if point.x > self.bottom_right.x { self.bottom_right.x = point.x; }
+            if point.y > self.bottom_right.y { self.bottom_right.y = point.y; }
         }
         self.path.vertices.push(PointData{ position: point, point_type: ptype });
         let idx = self.path.vertices.len() - 1;
@@ -283,7 +285,7 @@ impl<'l> PathBuilder<'l> {
     }
 
     fn update_angle(&mut self, a: Vec2, b: Vec2, c: Vec2) {
-        let angle = directed_angle(vec2_sub(a, b), vec2_sub(c, b));
+        let angle = directed_angle(a - b, c - b);
         self.accum_angle += angle;
         if angle < PI {
             self.convex_if_cw = false;
@@ -304,19 +306,19 @@ fn test_path_builder_simple() {
     let mut path = ComplexPath::new();
     // clockwise
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .line_to([1.0, 0.0])
-            .line_to([1.0, 1.0])
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .line_to(vec2(1.0, 0.0))
+            .line_to(vec2(1.0, 1.0))
             .close();
         let info = path.sub_path(id).info();
-        assert_eq!(path.vertices[0].position, [0.0, 0.0]);
-        assert_eq!(path.vertices[1].position, [1.0, 0.0]);
-        assert_eq!(path.vertices[2].position, [1.0, 1.0]);
+        assert_eq!(path.vertices[0].position, vec2(0.0, 0.0));
+        assert_eq!(path.vertices[1].position, vec2(1.0, 0.0));
+        assert_eq!(path.vertices[2].position, vec2(1.0, 1.0));
         assert_eq!(path.vertices[0].point_type, PointType::Normal);
         assert_eq!(path.vertices[1].point_type, PointType::Normal);
         assert_eq!(path.vertices[2].point_type, PointType::Normal);
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
+        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -324,13 +326,13 @@ fn test_path_builder_simple() {
 
     // counter-clockwise
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .line_to([1.0, 1.0])
-            .line_to([1.0, 0.0])
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .line_to(vec2(1.0, 1.0))
+            .line_to(vec2(1.0, 0.0))
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
-        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
+        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
         assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -338,14 +340,14 @@ fn test_path_builder_simple() {
 
     // line_to back to the first vertex (should ignore the last vertex)
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .line_to([1.0, 1.0])
-            .line_to([1.0, 0.0])
-            .line_to([0.0, 0.0])
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .line_to(vec2(1.0, 1.0))
+            .line_to(vec2(1.0, 0.0))
+            .line_to(vec2(0.0, 0.0))
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(6, 9));
-        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
+        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
         assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -358,12 +360,12 @@ fn test_path_builder_simple_bezier() {
 
     // clockwise
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .quadratic_bezier_to([1.0, 0.0], [1.0, 1.0])
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .quadratic_bezier_to(vec2(1.0, 0.0), vec2(1.0, 1.0))
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
+        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -371,12 +373,12 @@ fn test_path_builder_simple_bezier() {
 
     // counter-clockwise
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .quadratic_bezier_to([1.0, 1.0], [1.0, 0.0])
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .quadratic_bezier_to(vec2(1.0, 1.0), vec2(1.0, 0.0))
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
-        assert_eq!(info.aabb, Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 });
+        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
         assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
@@ -384,18 +386,18 @@ fn test_path_builder_simple_bezier() {
 
     // a slightly more elaborate path
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .line_to([0.1, 0.0])
-            .line_to([0.2, 0.1])
-            .line_to([0.3, 0.1])
-            .line_to([0.4, 0.0])
-            .line_to([0.5, 0.0])
-            .quadratic_bezier_to([0.5, 0.4], [0.3, 0.4])
-            .line_to([0.1, 0.4])
-            .quadratic_bezier_to([-0.2, 0.1], [-0.1, 0.0]) // TODO
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .line_to(vec2(0.1, 0.0))
+            .line_to(vec2(0.2, 0.1))
+            .line_to(vec2(0.3, 0.1))
+            .line_to(vec2(0.4, 0.0))
+            .line_to(vec2(0.5, 0.0))
+            .quadratic_bezier_to(vec2(0.5, 0.4), vec2(0.3, 0.4))
+            .line_to(vec2(0.1, 0.4))
+            .quadratic_bezier_to(vec2(-0.2, 0.1), vec2(-0.1, 0.0))
             .close();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect { x: -0.2, y: 0.0, width: 0.7, height: 0.4 });
+        assert_eq!(info.aabb, Rect::new(-0.2, 0.0, 0.7, 0.4));
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(false));
         assert_eq!(info.is_y_monotone, Some(false));
@@ -403,17 +405,17 @@ fn test_path_builder_simple_bezier() {
 
     // simple non-convex but y-monotone path
     {
-        let id = PathBuilder::begin(&mut path, [0.0, 0.0])
-            .line_to([2.0, 1.0])
-            .line_to([1.0, 2.0])
-            .line_to([2.0, 3.0])
-            .line_to([0.0, 4.0])
-            .line_to([-2.0, 3.0])
-            .line_to([-1.0, 2.0])
-            .line_to([-2.0, 1.0])
+        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
+            .line_to(vec2(2.0, 1.0))
+            .line_to(vec2(1.0, 2.0))
+            .line_to(vec2(2.0, 3.0))
+            .line_to(vec2(0.0, 4.0))
+            .line_to(vec2(-2.0, 3.0))
+            .line_to(vec2(-1.0, 2.0))
+            .line_to(vec2(-2.0, 1.0))
             .close();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect { x: -2.0, y: 0.0, width: 4.0, height: 4.0 });
+        assert_eq!(info.aabb, Rect::new(-2.0, 0.0, 4.0, 4.0));
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(false));
         assert_eq!(info.is_y_monotone, Some(true));

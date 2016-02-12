@@ -15,13 +15,14 @@ use std::mem::swap;
 use std::f32::consts::PI;
 
 use tesselation::{ VertexId, Direction, WindingOrder, error };
-use tesselation::vectors::{ Position2D, Vec2, vec2_sub, directed_angle };
+use tesselation::vectors::{ Position2D, directed_angle };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
 use tesselation::connection::{ Connections };
 
 use vodk_alloc::*;
 use vodk_id::*;
+use vodk_math::vec2::{Vector2D, Vec2};
 
 #[derive(Debug, Copy, Clone)]
 pub enum VertexType {
@@ -48,11 +49,11 @@ pub enum TriangulationError {
     TriangleCount,
 }
 
-fn is_below(a: Vec2, b: Vec2) -> bool { a.y() > b.y() || (a.y() == b.y() && a.x() > b.x()) }
+fn is_below(a: Vec2, b: Vec2) -> bool { a.y > b.y || (a.y == b.y && a.x > b.x) }
 
 pub fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
     // assuming clockwise vertex_positions winding order
-    let interrior_angle = directed_angle(vec2_sub(prev, current), vec2_sub(next, current));
+    let interrior_angle = directed_angle(prev - current, next - current);
 
     // If the interrior angle is exactly 0 we'll have degenerate (invisible 0-area) triangles
     // which is yucks but we can live with it for the sake of being robust against degenerate
@@ -76,21 +77,21 @@ pub fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
         }
     }
 
-    if prev.y() == next.y() {
-        return if prev.x() < next.x() { VertexType::Right } else { VertexType::Left };
+    if prev.y == next.y {
+        return if prev.x < next.x { VertexType::Right } else { VertexType::Left };
     }
-    return if prev.y() < next.y() { VertexType::Right } else { VertexType::Left };
+    return if prev.y < next.y { VertexType::Right } else { VertexType::Left };
 }
 
-fn intersect_segment_with_horizontal(a: [f32;2], b: [f32;2], y: f32) -> f32 {
-    let vx = b.x() - a.x();
-    let vy = b.y() - a.y();
+fn intersect_segment_with_horizontal<U>(a: Vector2D<U>, b: Vector2D<U>, y: f32) -> f32 {
+    let vx = b.x - a.x;
+    let vy = b.y - a.y;
     if vy == 0.0 {
         // If the segment is horizontal, pick the biggest x value (the right-most point).
         // That's an arbitrary decision that serves the purpose of y-monotone decomposition
-        return a.x().max(b.x());
+        return a.x.max(b.x);
     }
-    return a.x() + (y - a.y()) * vx / vy;
+    return a.x + (y - a.y) * vx / vy;
 }
 
 struct SweepLineBuilder<'l, P:'l+Position2D> {
@@ -112,8 +113,8 @@ impl<'l, P: 'l+Position2D> SweepLineBuilder<'l, P> {
             let a2 = self.vertex_position(self.polygon.next(*ea));
             let b1 = self.vertex_position(*eb);
             let b2 = self.vertex_position(self.polygon.next(*eb));
-            let xa = intersect_segment_with_horizontal(a1, a2, self.current_vertex.y());
-            let xb = intersect_segment_with_horizontal(b1, b2, self.current_vertex.y());
+            let xa = intersect_segment_with_horizontal(a1, a2, self.current_vertex.y);
+            let xb = intersect_segment_with_horizontal(b1, b2, self.current_vertex.y);
             return xa.partial_cmp(&xb).unwrap();
         });
         //println!(" sweep status is: {:?}", sweep_line);
@@ -129,10 +130,10 @@ impl<'l, P: 'l+Position2D> SweepLineBuilder<'l, P> {
         for &e in sweep_line {
             let a = self.vertex_position(e);
             let b = self.vertex_position(self.polygon.next(e));
-            let x = intersect_segment_with_horizontal(a, b, self.current_vertex.y());
+            let x = intersect_segment_with_horizontal(a, b, self.current_vertex.y);
             //println!(" -- search sweep status {:?} x: {}", e, x);
 
-            if x >= self.current_vertex.x() {
+            if x >= self.current_vertex.x {
                 return e;
             }
         }
@@ -206,10 +207,10 @@ impl DecompositionContext {
         sorted_edges.sort_by(|a, b| {
             let va = vertex_positions[polygon.vertex(*a)].position();
             let vb = vertex_positions[polygon.vertex(*b)].position();
-            if va.y() > vb.y() { return Ordering::Greater; }
-            if va.y() < vb.y() { return Ordering::Less; }
-            if va.x() > vb.x() { return Ordering::Greater; }
-            if va.x() < vb.x() { return Ordering::Less; }
+            if va.y > vb.y { return Ordering::Greater; }
+            if va.y < vb.y { return Ordering::Less; }
+            if va.x > vb.x { return Ordering::Greater; }
+            if va.x < vb.x { return Ordering::Less; }
             return Ordering::Equal;
         });
 
@@ -384,7 +385,7 @@ impl TriangulationContext {
 
         loop {
             down = next(down);
-            if vertex(up).y() != vertex(down).y() {
+            if vertex(up).y != vertex(down).y {
                 break;
             }
             if down == up {
@@ -511,7 +512,7 @@ impl TriangulationContext {
                         let v1 = vertex_positions[id_1].position();
                         let v2 = vertex_positions[id_2].position();
                         let v3 = vertex_positions[id_3].position();
-                        if directed_angle(vec2_sub(v1, v2), vec2_sub(v3, v2)) > PI {
+                        if directed_angle(v1 - v2, v3 - v2) > PI {
                             output.push_indices(id_1.handle, id_2.handle, id_3.handle);
                             triangle_count += 1;
 
@@ -551,11 +552,15 @@ impl TriangulationContext {
     }
 }
 
+
+#[cfg(test)]
+use vodk_math::vec2::{ vec2 };
+
 #[cfg(test)]
 struct TestShape<'l> {
     label: &'l str,
-    main: &'l[Vec2],
-    holes: &'l[&'l[Vec2]],
+    main: &'l[[f32;2]],
+    holes: &'l[&'l[[f32;2]]],
 }
 
 #[cfg(test)]
@@ -565,9 +570,9 @@ fn test_shape(shape: &TestShape, angle: f32) {
     use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 
     let mut vertices: Vec<Vec2> = Vec::new();
-    vertices.extend(shape.main.iter());
+    vertices.extend(shape.main.iter().map(|v|{vec2(v[0], v[1])}));
     for hole in shape.holes {
-        vertices.extend(hole.iter());
+        vertices.extend(hole.iter().map(|v|{vec2(v[0], v[1])}));
     }
 
     println!("vertices: {:?}", vertices);
@@ -576,9 +581,9 @@ fn test_shape(shape: &TestShape, angle: f32) {
         // rotate all points around (0, 0).
         let cos = angle.cos();
         let sin = angle.sin();
-        let (x, y) = (v.x(), v.y());
-        v[0] = x*cos + y*sin;
-        v[1] = y*cos - x*sin;
+        let (x, y) = (v.x, v.y);
+        v.x = x*cos + y*sin;
+        v.y = y*cos - x*sin;
     }
 
     println!("transformed vertices: {:?}", vertices);
@@ -994,7 +999,7 @@ fn assert_almost_eq(a: f32, b:f32) {
 
 #[test]
 fn test_intersect_segment_horizontal() {
-    assert_almost_eq(intersect_segment_with_horizontal([0.0, 0.0], [0.0, 2.0], 1.0), 0.0);
-    assert_almost_eq(intersect_segment_with_horizontal([0.0, 2.0], [2.0, 0.0], 1.0), 1.0);
-    assert_almost_eq(intersect_segment_with_horizontal([0.0, 1.0], [3.0, 0.0], 0.0), 3.0);
+    assert_almost_eq(intersect_segment_with_horizontal(vec2(0.0, 0.0), vec2(0.0, 2.0), 1.0), 0.0);
+    assert_almost_eq(intersect_segment_with_horizontal(vec2(0.0, 2.0), vec2(2.0, 0.0), 1.0), 1.0);
+    assert_almost_eq(intersect_segment_with_horizontal(vec2(0.0, 1.0), vec2(3.0, 0.0), 0.0), 3.0);
 }

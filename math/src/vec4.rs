@@ -1,5 +1,5 @@
 
-use std::mem;
+use std::mem::transmute;
 use std::ops;
 use std::default::Default;
 use std::marker::PhantomData;
@@ -15,12 +15,28 @@ pub type Vec4 = Vector4D<Untyped>;
 pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 { Vector4D { x: x, y: y, z: z, w: w, _unit: PhantomData } }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Vector4D<Unit> {
+pub struct Vector4D<Unit = Untyped> {
     pub x: f32,
     pub y: f32,
     pub z: f32,
     pub w: f32,
     _unit: PhantomData<Unit>,
+}
+
+impl<U> AsRef<[f32; 4]> for Vector4D<U> {
+    fn as_ref(&self) -> &[f32; 4] { unsafe { transmute(self) } }
+}
+
+impl<U> AsRef<(f32, f32, f32, f32)> for Vector4D<U> {
+    fn as_ref(&self) -> &(f32, f32, f32, f32) { unsafe { transmute(self) } }
+}
+
+impl<U> AsMut<[f32; 4]> for Vector4D<U> {
+    fn as_mut(&mut self) -> &mut [f32; 4] { unsafe { transmute(self) } }
+}
+
+impl<U> AsMut<(f32, f32, f32, f32)> for Vector4D<U> {
+    fn as_mut(&mut self) -> &mut (f32, f32, f32, f32) { unsafe { transmute(self) } }
 }
 
 impl<U> Default for Vector4D<U> {
@@ -52,13 +68,13 @@ impl<U> Vector4D<U> {
 
     pub fn as_slice<'l>(&'l self) -> &'l [f32] {
         unsafe {
-            return mem::transmute((&self.x as *const f32, 4 as usize ));
+            return transmute((&self.x as *const f32, 4 as usize ));
         }
     }
 
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
-            return mem::transmute((&mut self.x as *mut f32, 4 as usize ));
+            return transmute((&mut self.x as *mut f32, 4 as usize ));
         }
     }
 

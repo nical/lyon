@@ -1,7 +1,8 @@
 
 use tesselation::{ VertexId, error };
 use tesselation::polygon::*;
-use tesselation::vectors::{ Position2D, vec2_sub, directed_angle };
+use tesselation::vectors::{ Position2D, directed_angle };
+
 use vodk_id::id_vector::IdSlice;
 
 struct Connection<Poly: AbstractPolygon> {
@@ -107,10 +108,10 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
         // moving along the input polygon without touching a connection
         let mut selected = None;
         // find the best connection (if any) by keeping track of the lowest angle
-        let center_to_origin = vec2_sub(origin, center);
+        let center_to_origin = origin - center;
         let mut angle = directed_angle(
             center_to_origin,
-            vec2_sub(vertices[polygon.vertex(poly_next)].position(), center)
+            vertices[polygon.vertex(poly_next)].position() - center
         );
         //println!("\n -- next {:?} start with angle {}", poly_next, angle);
 
@@ -126,7 +127,7 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
 
             let diag_angle = directed_angle(
                 center_to_origin,
-                vec2_sub(vertices[polygon.vertex(diag_next)].position(), center)
+                vertices[polygon.vertex(diag_next)].position() - center
             );
 
             //println!(" -- connection {:?} angle {}", diag_next, diag_angle);
@@ -174,18 +175,19 @@ fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
 
 #[cfg(test)]
 use tesselation::{ vertex_id, vertex_id_range };
+
 #[cfg(test)]
-use tesselation::vectors::{ Vec2 };
+use vodk_math::vec2::{ Vec2, vec2 };
 
 #[test]
 fn test_gen_polygon_no_connection() {
     let positions: &[Vec2] = &[
-        [0.0, 0.0],
-        [1.0,-1.0],
-        [2.0,-1.0],
-        [3.0, 0.0],
-        [2.0, 1.0],
-        [1.0, 1.0],
+        vec2(0.0, 0.0),
+        vec2(1.0,-1.0),
+        vec2(2.0,-1.0),
+        vec2(3.0, 0.0),
+        vec2(2.0, 1.0),
+        vec2(1.0, 1.0),
     ];
 
     let poly = Polygon::from_vertices(vertex_id_range(0, 6));
@@ -208,12 +210,12 @@ fn test_gen_polygon_no_connection() {
 #[test]
 fn test_gen_polygon_simple() {
     let positions: &[Vec2] = &[
-        [0.0, 0.0],
-        [1.0,-1.0],
-        [2.0,-1.0],
-        [3.0, 0.0],
-        [2.0, 1.0],
-        [1.0, 1.0],
+        vec2(0.0, 0.0),
+        vec2(1.0,-1.0),
+        vec2(2.0,-1.0),
+        vec2(3.0, 0.0),
+        vec2(2.0, 1.0),
+        vec2(1.0, 1.0),
     ];
 
     let poly = Polygon::from_vertices(vertex_id_range(0, 6));
@@ -236,12 +238,12 @@ fn test_gen_polygon_simple() {
 #[test]
 fn test_gen_polygon_two_connections() {
     let positions: &[Vec2] = &[
-        [0.0, 0.0],
-        [1.0,-1.0],
-        [2.0,-1.0],
-        [3.0, 0.0],
-        [2.0, 1.0],
-        [1.0, 1.0],
+        vec2(0.0, 0.0),
+        vec2(1.0,-1.0),
+        vec2(2.0,-1.0),
+        vec2(3.0, 0.0),
+        vec2(2.0, 1.0),
+        vec2(1.0, 1.0),
     ];
 
     let poly = Polygon::from_vertices(vertex_id_range(0, 6));
@@ -279,14 +281,14 @@ fn test_gen_polygon_only_connections() {
     // of connections only.
 
     let positions: &[Vec2] = &[
-        [0.0, 0.0],
-        [0.0,-1.0],
-        [0.0,-2.0],
-        [1.0,-2.0],
-        [2.0,-2.0],
-        [2.0,-1.0],
-        [2.0, 0.0],
-        [1.0, 0.0],
+        vec2(0.0, 0.0),
+        vec2(0.0,-1.0),
+        vec2(0.0,-2.0),
+        vec2(1.0,-2.0),
+        vec2(2.0,-2.0),
+        vec2(2.0,-1.0),
+        vec2(2.0, 0.0),
+        vec2(1.0, 0.0),
     ];
 
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
@@ -340,21 +342,21 @@ fn test_gen_polygon_with_holes() {
 
     let positions: &[Vec2] = &[
         // a
-        [0.0, 0.0],// v(0) :a(0)
-        [2.0, 0.0],// v(1) :a(1)
-        [3.0, 0.0],// v(2) :a(2)
-        [3.0, 5.0],// v(3) :a(3)
-        [0.0, 5.0],// v(4) :a(4)
+        vec2(0.0, 0.0),// v(0) :a(0)
+        vec2(2.0, 0.0),// v(1) :a(1)
+        vec2(3.0, 0.0),// v(2) :a(2)
+        vec2(3.0, 5.0),// v(3) :a(3)
+        vec2(0.0, 5.0),// v(4) :a(4)
         // b
-        [1.0, 1.0],// v(5) :b(0)
-        [1.0, 2.0],// v(6) :b(1)
-        [2.0, 2.0],// v(7) :b(2)
-        [2.0, 1.0],// v(8) :b(3)
+        vec2(1.0, 1.0),// v(5) :b(0)
+        vec2(1.0, 2.0),// v(6) :b(1)
+        vec2(2.0, 2.0),// v(7) :b(2)
+        vec2(2.0, 1.0),// v(8) :b(3)
         // b
-        [1.0, 3.0],// v(9) :c(0)
-        [1.0, 4.0],// v(10):c(1)
-        [2.0, 4.0],// v(11):c(2)
-        [2.0, 3.0],// v(12):c(3)
+        vec2(1.0, 3.0),// v(9) :c(0)
+        vec2(1.0, 4.0),// v(10):c(1)
+        vec2(2.0, 4.0),// v(11):c(2)
+        vec2(2.0, 3.0),// v(12):c(3)
     ];
     let poly = ComplexPolygon {
         sub_polygons: vec![
@@ -395,14 +397,14 @@ fn test_apply_connections_connections() {
     // of connections only.
 
     let positions: &[Vec2] = &[
-        [0.0, 0.0],
-        [0.0,-1.0],
-        [0.0,-2.0],
-        [1.0,-2.0],
-        [2.0,-2.0],
-        [2.0,-1.0],
-        [2.0, 0.0],
-        [1.0, 0.0],
+        vec2(0.0, 0.0),
+        vec2(0.0,-1.0),
+        vec2(0.0,-2.0),
+        vec2(1.0,-2.0),
+        vec2(2.0,-2.0),
+        vec2(2.0,-1.0),
+        vec2(2.0, 0.0),
+        vec2(1.0, 0.0),
     ];
 
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
@@ -424,14 +426,14 @@ fn test_apply_connections_connections() {
 #[test]
 fn test_apply_connections_no_connections() {
     let positions: &[Vec2] = &[
-        [0.0, 0.0],
-        [0.0,-1.0],
-        [0.0,-2.0],
-        [1.0,-2.0],
-        [2.0,-2.0],
-        [2.0,-1.0],
-        [2.0, 0.0],
-        [1.0, 0.0],
+        vec2(0.0, 0.0),
+        vec2(0.0,-1.0),
+        vec2(0.0,-2.0),
+        vec2(1.0,-2.0),
+        vec2(2.0,-2.0),
+        vec2(2.0,-1.0),
+        vec2(2.0, 0.0),
+        vec2(1.0, 0.0),
     ];
 
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));

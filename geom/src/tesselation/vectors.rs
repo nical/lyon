@@ -1,29 +1,30 @@
 use std::f32::consts::PI;
 
-pub static X: usize = 0;
-pub static Y: usize = 1;
-pub static Z: usize = 2;
-pub static W: usize = 3;
+pub use vodk_math::vec2::{ Vector2D, Vec2, vec2 };
 
-pub static U: usize = 0;
-pub static V: usize = 1;
+//pub static X: usize = 0;
+//pub static Y: usize = 1;
+//pub static Z: usize = 2;
+//pub static W: usize = 3;
+//
+//pub static U: usize = 0;
+//pub static V: usize = 1;
+//
+//pub type Vec3 = [f32; 3];
+//pub type Vec4 = [f32; 4];
 
-pub type Vec2 = [f32; 2];
-pub type Vec3 = [f32; 3];
-pub type Vec4 = [f32; 4];
-
-pub fn vec2_square_len(a: Vec2) -> f32 { a[X]*a[X] + a[Y]*a[Y] }
-pub fn vec2_len(a: Vec2) -> f32 { vec2_square_len(a).sqrt() }
-pub fn vec2_add(a: Vec2, b: Vec2) -> Vec2 { [a[X]+b[X], a[Y]+b[Y]] }
-pub fn vec2_sub(a: Vec2, b: Vec2) -> Vec2 { [a[X]-b[X], a[Y]-b[Y]] }
-pub fn vec2_mul(a: Vec2, b: f32) -> Vec2 { [a[X]*b, a[Y]*b] }
-pub fn vec2_cross(a: Vec2, b: Vec2) -> f32 { a[X]*b[Y] - a[Y]*b[X] }
+//pub fn vec2_square_len(a: Vec2) -> f32 { a[X]*a[X] + a[Y]*a[Y] }
+//pub fn vec2_len(a: Vec2) -> f32 { vec2_square_len(a).sqrt() }
+//pub fn vec2_add(a: Vec2, b: Vec2) -> Vec2 { [a[X]+b[X], a[Y]+b[Y]] }
+//pub fn vec2_sub(a: Vec2, b: Vec2) -> Vec2 { [a[X]-b[X], a[Y]-b[Y]] }
+//pub fn vec2_mul(a: Vec2, b: f32) -> Vec2 { [a[X]*b, a[Y]*b] }
+//pub fn vec2_cross(a: Vec2, b: Vec2) -> f32 { a[X]*b[Y] - a[Y]*b[X] }
+//
+//pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool {
+//    vec2_square_len(vec2_sub(a, b)) < 0.000001
+//}
 
 pub fn f32_almost_eq(a: f32, b:f32) -> bool { (a - b).abs() < 0.000001 }
-pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool {
-    vec2_square_len(vec2_sub(a, b)) < 0.000001
-}
-
 
 /// Angle between vectors v1 and v2 (oriented clockwise with y pointing downward).
 ///
@@ -35,31 +36,31 @@ pub fn vec2_almost_eq(a: Vec2, b: Vec2) -> bool {
 ///  y|       |  x--> v2
 ///   v        \ |v1
 ///              v
-pub fn directed_angle(v1: Vec2, v2: Vec2) -> f32 {
-    let a = (v2.y()).atan2(v2.x()) - (v1.y()).atan2(v1.x());
+pub fn directed_angle<U>(v1: Vector2D<U>, v2: Vector2D<U>) -> f32 {
+    let a = (v2.y).atan2(v2.x) - (v1.y).atan2(v1.x);
     return if a < 0.0 { a + 2.0 * PI } else { a };
 }
 
 #[test]
 pub fn test_directed_angle() {
-    assert!(f32_almost_eq(directed_angle([1.0, 1.0], [1.0, 1.0]), 0.0));
-    assert!(f32_almost_eq(directed_angle([1.0, 0.0], [0.0, 1.0]), PI * 0.5));
-    assert!(f32_almost_eq(directed_angle([1.0, 0.0], [-1.0, 0.0]), PI));
-    assert!(f32_almost_eq(directed_angle([1.0, 0.0], [0.0, -1.0]), PI * 1.5));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, 1.0), vec2(1.0, 1.0)), 0.0));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, 0.0), vec2(0.0, 1.0)), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, 0.0), vec2(-1.0, 0.0)), PI));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, 0.0), vec2(0.0, -1.0)), PI * 1.5));
 
-    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [1.0, 0.0]), PI * 0.25));
-    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [1.0, 1.0]), PI * 0.5));
-    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [-1.0, 1.0]), PI));
-    assert!(f32_almost_eq(directed_angle([1.0, -1.0], [-1.0, -1.0]), PI * 1.5));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, -1.0), vec2(1.0, 0.0)), PI * 0.25));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, -1.0), vec2(1.0, 1.0)), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, -1.0), vec2(-1.0, 1.0)), PI));
+    assert!(f32_almost_eq(directed_angle(vec2(1.0, -1.0), vec2(-1.0, -1.0)), PI * 1.5));
 
-    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [3.0, 0.0]), PI * 0.25));
-    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [3.0, 3.0]), PI * 0.5));
-    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [-3.0, 3.0]), PI));
-    assert!(f32_almost_eq(directed_angle([10.0, -10.0], [-3.0, -3.0]), PI * 1.5));
+    assert!(f32_almost_eq(directed_angle(vec2(10.0, -10.0), vec2(3.0, 0.0)), PI * 0.25));
+    assert!(f32_almost_eq(directed_angle(vec2(10.0, -10.0), vec2(3.0, 3.0)), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle(vec2(10.0, -10.0), vec2(-3.0, 3.0)), PI));
+    assert!(f32_almost_eq(directed_angle(vec2(10.0, -10.0), vec2(-3.0, -3.0)), PI * 1.5));
 
-    assert!(f32_almost_eq(directed_angle([-1.0, 0.0], [1.0, 0.0]), PI));
-    assert!(f32_almost_eq(directed_angle([-1.0, 0.0], [0.0, 1.0]), PI * 1.5));
-    assert!(f32_almost_eq(directed_angle([-1.0, 0.0], [0.0, -1.0]), PI * 0.5));
+    assert!(f32_almost_eq(directed_angle(vec2(-1.0, 0.0), vec2(1.0, 0.0)), PI));
+    assert!(f32_almost_eq(directed_angle(vec2(-1.0, 0.0), vec2(0.0, 1.0)), PI * 1.5));
+    assert!(f32_almost_eq(directed_angle(vec2(-1.0, 0.0), vec2(0.0, -1.0)), PI * 0.5));
 }
 
 //pub trait Attribute<AttributeType, AttributeName> {
@@ -81,12 +82,13 @@ pub trait MaterialId {
 }
 
 pub trait Position2D {
-    fn position(&self) -> [f32; 2];
+    fn position(&self) -> Vec2;
     //fn position_mut(&mut self) -> &mut Vector2D<Self::Unit>;
-    fn x(&self) -> f32 { self.position()[X] }
-    fn y(&self) -> f32 { self.position()[Y] }
+    fn x(&self) -> f32 { self.position().x }
+    fn y(&self) -> f32 { self.position().y }
 }
 
+/*
 pub trait Position3D {
     fn position(&self) -> [f32; 3];
     //fn position_mut(&mut self) -> &mut Vector3D<Self::Unit>;
@@ -147,9 +149,9 @@ pub trait Color {
     fn b(&self) -> Self::ScalarType { self.rgba().b }
     fn a(&self) -> Self::ScalarType { self.rgba().a }
 }
-
+*/
 impl Position2D for Vec2 { fn position(&self) -> Vec2 { *self } }
-
+/*
 impl Position3D for Vec3 { fn position(&self) -> Vec3 { *self } }
 
 impl Position4D for Vec4 { fn position(&self) -> Vec4 { *self } }
@@ -213,3 +215,4 @@ impl Rect {
 impl ::std::default::Default for Rect {
     fn default() -> Rect { Rect { x: 0.0, y: 0.0, width: 0.0, height: 0.0 } }
 }
+*/

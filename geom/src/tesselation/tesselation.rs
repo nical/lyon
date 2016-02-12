@@ -1,7 +1,7 @@
 use tesselation::{ VertexId };
 use tesselation::polygon::*;
 use tesselation::path::*;
-use tesselation::vectors::{ Vec2, Position2D, vec2_sub, vec2_cross };
+use tesselation::vectors::{ Vec2, Position2D };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::connection::{ Connections, apply_connections };
 use tesselation::bezier::{ triangulate_quadratic_bezier };
@@ -103,7 +103,7 @@ fn separate_bezier_faces<Output: Write<[Vec2; 3]>>(
                 let vb = vertices[polygon.vertex(it)].position;
                 let vc = vertices[polygon.next_vertex(it)].position;
 
-                if vec2_cross(vec2_sub(vc, va), vec2_sub(vb, va)) < 0.0 {
+                if (vc - va).cross(vb - va) < 0.0 {
                     // The control point is outside the shape, just need to cut this triangle out.
                     polygon.remove_vertex(it);
 

@@ -13,3 +13,6 @@ path = "../alloc/"
 
 [dependencies.vodk_id]
 path = "../id/"
+
+[dependencies.vodk_math]
+path = "../math/"

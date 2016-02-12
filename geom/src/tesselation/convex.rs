@@ -1,21 +1,22 @@
 #![allow(dead_code)]
 
 use tesselation::vertex_builder::VertexBufferBuilder;
-use tesselation::vectors::{ vec2_add, Vec2, Rect };
 use tesselation::{ Index };
+
+use vodk_math::vec2::{ Vector2D, Rectangle };
 
 use std::f32::consts::PI;
 
-pub struct RoundedRectangle {
-    rect: Rect,
+pub struct RoundedRectangle<U> {
+    rect: Rectangle<U>,
     top_left_radius: f32,
     top_right_radius: f32,
     bottom_left_radius: f32,
     bottom_right_radius: f32,
 }
 
-pub fn emit_rectangle<Output: VertexBufferBuilder<Vec2>>(
-    rect: &Rect,
+pub fn emit_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+    rect: &Rectangle<U>,
     output: &mut Output,
 ) {
     output.begin_geometry();
@@ -27,17 +28,17 @@ pub fn emit_rectangle<Output: VertexBufferBuilder<Vec2>>(
     output.push_indices(a, c, d);
 }
 
-pub fn emit_rounded_rectangle<Output: VertexBufferBuilder<Vec2>>(
-    _rect: &RoundedRectangle,
+pub fn emit_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+    _rect: &RoundedRectangle<U>,
     output: &mut Output
 ) {
     output.begin_geometry();
     panic!("TODO!");
 }
 
-pub fn emit_ellipsis<Output: VertexBufferBuilder<Vec2>>(
-    center: Vec2,
-    radius: Vec2,
+pub fn emit_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+    center: Vector2D<U>,
+    radius: Vector2D<U>,
     num_vertices: u32,
     output: &mut Output
 ) {
@@ -45,7 +46,7 @@ pub fn emit_ellipsis<Output: VertexBufferBuilder<Vec2>>(
     output.push_vertex(center);
     for i in 0..num_vertices {
         let angle = i as f32 * 2.0 * PI / ((num_vertices-1) as f32);
-        output.push_vertex(vec2_add(center, [radius[0]*angle.cos(), radius[1]*angle.sin()]));
+        output.push_vertex(center + Vector2D::new(radius.x*angle.cos(), radius.y*angle.sin()));
     }
     for i in 1..((num_vertices) as Index) {
         output.push_indices(0, i, (i-1)%num_vertices as Index+2);
