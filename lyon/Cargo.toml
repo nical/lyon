@@ -1,11 +1,11 @@
 [package]
 
-name = "geom"
+name = "lyon"
 version = "0.0.1"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 
 [lib]
-name = "geom"
+name = "lyon"
 path = "src/lib.rs"
 
 [dependencies.vodk_alloc]

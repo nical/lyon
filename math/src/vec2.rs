@@ -11,6 +11,7 @@ use std::fmt;
 
 use units::{ Unit, Untyped };
 use constants::*;
+use super::fuzzy_eq;
 
 pub type Vec2 = Vector2D<Untyped>;
 
@@ -153,6 +154,15 @@ impl<U> Vector2D<U> {
     pub fn tuple(&self) -> (f32, f32) { (self.x, self.y) }
 
     #[inline]
+    pub fn from_array(array: [f32; 2]) -> Vector2D<U>{ Vector2D::new(array[0], array[1]) }
+
+    #[inline]
+    pub fn from_tuple(tuple: (f32, f32)) -> Vector2D<U> {
+        let (x, y) = tuple;
+        Vector2D::new(x, y)
+    }
+
+    #[inline]
     pub fn dot(&self, rhs: &Vector2D<U>) -> f32 {
         return self.x*rhs.x + self.y*rhs.y;
     }
@@ -198,8 +208,8 @@ impl<U> Vector2D<U> {
         return if a < 0.0 { a + 2.0 * PI } else { a };
     }
 
-    pub fn epsilon_eq(self, rhs: Vector2D<U>) -> bool {
-        return self.x.epsilon_eq(rhs.x) && self.y.epsilon_eq(rhs.y);
+    pub fn fuzzy_eq(self, rhs: Vector2D<U>) -> bool {
+        return fuzzy_eq(self.x, rhs.x) && fuzzy_eq(self.y, rhs.y);
     }
 }
 
@@ -557,32 +567,22 @@ impl<U> PartialEq for IntVector2D<U> {
     }
 }
 
-pub trait EpsilonEq {
-    fn epsilon_eq(self, rhs: Self) -> bool;
-}
-
-impl EpsilonEq for f32 {
-    fn epsilon_eq(self, rhs: f32) -> bool {
-        return (self - rhs).abs() <= EPSILON;
-    }
-}
-
 pub fn test_directed_angle() {
-    assert!(vec2(1.0, 1.0).directed_angle(vec2(1.0, 1.0)).epsilon_eq(0.0));
-    assert!(vec2(1.0, 0.0).directed_angle(vec2(0.0, 1.0)).epsilon_eq(PI * 0.5));
-    assert!(vec2(1.0, 0.0).directed_angle(vec2(-1.0, 0.0)).epsilon_eq(PI));
-    assert!(vec2(1.0, 0.0).directed_angle(vec2(0.0, -1.0)).epsilon_eq(PI * 1.5));
-    assert!(vec2(1.0, -1.0).directed_angle(vec2(1.0, 0.0)).epsilon_eq(PI * 0.25));
-    assert!(vec2(1.0, -1.0).directed_angle(vec2(1.0, 1.0)).epsilon_eq(PI * 0.5));
-    assert!(vec2(1.0, -1.0).directed_angle(vec2(-1.0, 1.0)).epsilon_eq(PI));
-    assert!(vec2(1.0, -1.0).directed_angle(vec2(-1.0, -1.0)).epsilon_eq(PI * 1.5));
-    assert!(vec2(10.0, -10.0).directed_angle(vec2(3.0, 0.0)).epsilon_eq(PI * 0.25));
-    assert!(vec2(10.0, -10.0).directed_angle(vec2(3.0, 3.0)).epsilon_eq(PI * 0.5));
-    assert!(vec2(10.0, -10.0).directed_angle(vec2(-3.0, 3.0)).epsilon_eq(PI));
-    assert!(vec2(10.0, -10.0).directed_angle(vec2(-3.0, -3.0)).epsilon_eq(PI * 1.5));
-    assert!(vec2(-1.0, 0.0).directed_angle(vec2(1.0, 0.0)).epsilon_eq(PI));
-    assert!(vec2(-1.0, 0.0).directed_angle(vec2(0.0, 1.0)).epsilon_eq(PI * 1.5));
-    assert!(vec2(-1.0, 0.0).directed_angle(vec2(0.0, -1.0)).epsilon_eq(PI * 0.5));
+    assert!(fuzzy_eq(vec2(1.0, 1.0).directed_angle(vec2(1.0, 1.0)), 0.0));
+    assert!(fuzzy_eq(vec2(1.0, 0.0).directed_angle(vec2(0.0, 1.0)), PI * 0.5));
+    assert!(fuzzy_eq(vec2(1.0, 0.0).directed_angle(vec2(-1.0, 0.0)), PI));
+    assert!(fuzzy_eq(vec2(1.0, 0.0).directed_angle(vec2(0.0, -1.0)), PI * 1.5));
+    assert!(fuzzy_eq(vec2(1.0, -1.0).directed_angle(vec2(1.0, 0.0)), PI * 0.25));
+    assert!(fuzzy_eq(vec2(1.0, -1.0).directed_angle(vec2(1.0, 1.0)), PI * 0.5));
+    assert!(fuzzy_eq(vec2(1.0, -1.0).directed_angle(vec2(-1.0, 1.0)), PI));
+    assert!(fuzzy_eq(vec2(1.0, -1.0).directed_angle(vec2(-1.0, -1.0)), PI * 1.5));
+    assert!(fuzzy_eq(vec2(10.0, -10.0).directed_angle(vec2(3.0, 0.0)), PI * 0.25));
+    assert!(fuzzy_eq(vec2(10.0, -10.0).directed_angle(vec2(3.0, 3.0)), PI * 0.5));
+    assert!(fuzzy_eq(vec2(10.0, -10.0).directed_angle(vec2(-3.0, 3.0)), PI));
+    assert!(fuzzy_eq(vec2(10.0, -10.0).directed_angle(vec2(-3.0, -3.0)), PI * 1.5));
+    assert!(fuzzy_eq(vec2(-1.0, 0.0).directed_angle(vec2(1.0, 0.0)), PI));
+    assert!(fuzzy_eq(vec2(-1.0, 0.0).directed_angle(vec2(0.0, 1.0)), PI * 1.5));
+    assert!(fuzzy_eq(vec2(-1.0, 0.0).directed_angle(vec2(0.0, -1.0)), PI * 0.5));
 }
 
 pub fn array_to_vec2_slice<U>(slice: &[[f32; 2]]) -> &[Vector2D<U>] { unsafe { transmute(slice) } }

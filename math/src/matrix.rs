@@ -8,6 +8,7 @@ use vec3::Vector3D;
 use vec4::Vector4D;
 use units::{ Unit, Untyped };
 use constants::*;
+use super::fuzzy_eq;
 
 pub type Mat4 = Matrix4x4<Untyped, Untyped>;
 pub type Mat3 = Matrix3x3<Untyped, Untyped>;
@@ -233,6 +234,8 @@ impl<From, To> Matrix4x4<From, To> {
         }
     }
 
+    pub fn as_arrays(&self) -> &[[f32;4];4] { unsafe { mem::transmute(self) } }
+
     pub fn as_mut_slice<'l>(&'l mut self) -> &'l mut [f32] {
         unsafe {
             return mem::transmute((&mut self._11 as *mut f32, 16 as usize ));
@@ -285,7 +288,7 @@ impl<From, To> Matrix4x4<From, To> {
 
     pub fn translation(v: Vector3D<To>) -> Matrix4x4<From, To> {
         Matrix4x4::new(
-            1.0, 1.0, 0.0, v.x,
+            1.0, 0.0, 0.0, v.x,
             0.0, 1.0, 0.0, v.y,
             0.0, 0.0, 1.0, v.z,
             0.0, 0.0, 0.0, 1.0
@@ -356,10 +359,27 @@ impl<From, To> Matrix4x4<From, To> {
     }
 
     pub fn translate(&mut self, v: Vector3D<To>) {
-        self._14 = self._11 * v.x + self._12 * v.y + self._13 * v.z + self._14;
-        self._24 = self._21 * v.x + self._22 * v.y + self._23 * v.z + self._24;
-        self._34 = self._31 * v.x + self._32 * v.y + self._33 * v.z + self._34;
-        self._44 = self._41 * v.x + self._42 * v.y + self._43 * v.z + self._44;
+        self._11 += self._14 * v.x;
+        self._21 += self._24 * v.x;
+        self._31 += self._34 * v.x;
+        self._41 += self._44 * v.x;
+        self._12 += self._14 * v.y;
+        self._22 += self._24 * v.y;
+        self._32 += self._34 * v.y;
+        self._42 += self._44 * v.y;
+        self._13 += self._14 * v.z;
+        self._23 += self._24 * v.z;
+        self._33 += self._34 * v.z;
+        self._43 += self._44 * v.z;
+    }
+
+    /// Similar to translate, but the translation is applied before the matrix's existing
+    /// transformation.
+    pub fn pre_translate(&mut self, v: Vector3D<From>) {
+        self._41 = self._11 * v.x + self._21 * v.y + self._31 * v.z + self._41;
+        self._42 = self._12 * v.x + self._22 * v.y + self._32 * v.z + self._42;
+        self._43 = self._13 * v.x + self._23 * v.y + self._33 * v.z + self._43;
+        self._44 = self._14 * v.x + self._24 * v.y + self._34 * v.z + self._44;
     }
 
     pub fn scale_by(&mut self, v: Vector3D<To>) {
@@ -377,7 +397,7 @@ impl<From, To> Matrix4x4<From, To> {
         self._43 = self._43 * v.z;
     }
 
-    pub fn invert(&self, out: &mut Matrix4x4<To, From>) {
+    pub fn invert(&self, out: &mut Matrix4x4<To, From>) -> bool {
         let a00 = self._11;
         let a01 = self._21;
         let a02 = self._31;
@@ -410,8 +430,9 @@ impl<From, To> Matrix4x4<From, To> {
 
         let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
 
-        if det.abs() < EPSILON {
-            panic!(); // TODO
+        if det == 0.0 {
+            *out = Matrix4x4::identity();
+            return false;
         }
 
         let det = 1.0 / det;
@@ -432,6 +453,24 @@ impl<From, To> Matrix4x4<From, To> {
         out._24 = (a00 * b09 - a01 * b07 + a02 * b06) * det;
         out._34 = (a31 * b01 - a30 * b03 - a32 * b00) * det;
         out._44 = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+
+        return true;
+    }
+
+    pub fn is_2d(&self) -> bool {
+        self._13 == 0.0 && self._14 == 0.0 &&
+        self._23 == 0.0 && self._24 == 0.0 &&
+        self._31 == 0.0 && self._32 == 0.0 &&
+        self._33 == 1.0 && self._34 == 0.0 &&
+        self._43 == 0.0 && self._44 == 1.0
+    }
+
+    pub fn has_non_translation(&self) -> bool {
+        return !fuzzy_eq(self._11, 1.0) || !fuzzy_eq(self._22, 1.0) ||
+               !fuzzy_eq(self._12, 0.0) || !fuzzy_eq(self._21, 0.0) ||
+               !fuzzy_eq(self._13, 0.0) || !fuzzy_eq(self._23, 0.0) ||
+               !fuzzy_eq(self._31, 0.0) || !fuzzy_eq(self._32, 0.0) ||
+               !fuzzy_eq(self._33, 1.0);
     }
 }
 

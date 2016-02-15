@@ -12,3 +12,7 @@ pub use vec3::{ Vector3D, Vec3, vec3 };
 pub use vec4::{ Vector4D, Vec4, vec4 };
 pub use matrix::{ Matrix2x2, Matrix3x3, Matrix4x4, Mat2, Mat3, Mat4 };
 pub use units::{ Unit, Untyped };
+
+pub fn fuzzy_eq(a: f32, b: f32) -> bool {
+    return (a - b).abs() <= constants::EPSILON;
+}

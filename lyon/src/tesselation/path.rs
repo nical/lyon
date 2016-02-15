@@ -113,6 +113,7 @@ pub struct PathInfo {
 pub struct PathBuilder<'l> {
     path: &'l mut ComplexPath,
     last_position: Vec2,
+    last_ctrl: Vec2,
     top_left: Vec2,
     bottom_right: Vec2,
     accum_angle: f32,
@@ -133,6 +134,7 @@ impl<'l> PathBuilder<'l> {
         PathBuilder {
             path: path,
             last_position: vec2(::std::f32::NAN, ::std::f32::NAN),
+            last_ctrl: vec2(0.0, 0.0),
             accum_angle: 0.0,
             top_left: vec2(0.0, 0.0),
             bottom_right: vec2(0.0, 0.0),
@@ -156,6 +158,12 @@ impl<'l> PathBuilder<'l> {
         return self;
     }
 
+    pub fn relative_line_to(mut self, to: Vec2) -> PathBuilder<'l> {
+        let offset = self.last_position;
+        self.push(offset + to, PointType::Normal);
+        return self;
+    }
+
     pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
         if self.flatten {
             let num_points = 16;
@@ -170,7 +178,13 @@ impl<'l> PathBuilder<'l> {
             self.push(to, PointType::Normal);
             self.has_beziers = true;
         }
+        self.last_ctrl = ctrl;
         return self;
+    }
+
+    pub fn relative_quadratic_bezier_to(self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
+        let offset = self.last_position;
+        return self.quadratic_bezier_to(ctrl+offset, to+offset);
     }
 
     pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
@@ -187,7 +201,54 @@ impl<'l> PathBuilder<'l> {
             self.push(to, PointType::Normal);
             self.has_beziers = true;
         }
+        self.last_ctrl = ctrl2;
         return self;
+    }
+
+    pub fn relative_cubic_bezier_to(self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+        let offset = self.last_position;
+        return self.cubic_bezier_to(ctrl1+offset, ctrl2+offset, to+offset);
+    }
+
+    // TODO: This is the "S" operation from svg, not sure how it should be called
+    pub fn cubic_bezier_to_s(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+        let ctrl = self.last_position + (self.last_position - self.last_ctrl);
+        return self.cubic_bezier_to(ctrl, ctrl2, to);
+    }
+
+    pub fn relative_cubic_bezier_to_s(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+        let ctrl = self.last_position - self.last_ctrl;
+        return self.relative_cubic_bezier_to(ctrl, ctrl2, to);
+    }
+
+    pub fn quadratic_bezier_to_s(self, to: Vec2) -> PathBuilder<'l> {
+        let ctrl = self.last_position + (self.last_position - self.last_ctrl);
+        return self.quadratic_bezier_to(ctrl, to);
+    }
+
+    pub fn relative_quadratic_bezier_to_s(self, to: Vec2) -> PathBuilder<'l> {
+        let ctrl = self.last_position - self.last_ctrl;
+        return self.relative_quadratic_bezier_to(ctrl, to);
+    }
+
+    pub fn horizontal_line_to(self, x: f32) -> PathBuilder<'l> {
+        let y = self.last_position.y;
+        return self.line_to(vec2(x, y));
+    }
+
+    pub fn relative_horizontal_line_to(self, dx: f32) -> PathBuilder<'l> {
+        let p = self.last_position;
+        return self.line_to(vec2(p.x + dx, p.y));
+    }
+
+    pub fn vertical_line_to(self, y: f32) -> PathBuilder<'l> {
+        let x = self.last_position.x;
+        return self.line_to(vec2(x, y));
+    }
+
+    pub fn vertical_horizontal_line_to(self, dy: f32) -> PathBuilder<'l> {
+        let p = self.last_position;
+        return self.line_to(vec2(p.x, p.y + dy));
     }
 
     pub fn end(self) -> PathId { self.finish(false) }
@@ -198,7 +259,7 @@ impl<'l> PathBuilder<'l> {
         let offset = self.offset as usize;
         let last = self.path.vertices.len() - 1;
         // If the first and last vertices are the same, remove the last vertex.
-        let last = if self.path.vertices[last].position.epsilon_eq(self.path.vertices[offset].position) {
+        let last = if self.path.vertices[last].position.fuzzy_eq(self.path.vertices[offset].position) {
             self.path.vertices.pop();
             closed = true;
             last - 1

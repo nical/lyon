@@ -15,7 +15,7 @@ pub struct RoundedRectangle<U> {
     bottom_right_radius: f32,
 }
 
-pub fn emit_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+pub fn fill_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     rect: &Rectangle<U>,
     output: &mut Output,
 ) {
@@ -28,7 +28,7 @@ pub fn emit_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     output.push_indices(a, c, d);
 }
 
-pub fn emit_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+pub fn fill_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     _rect: &RoundedRectangle<U>,
     output: &mut Output
 ) {
@@ -36,7 +36,7 @@ pub fn emit_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     panic!("TODO!");
 }
 
-pub fn emit_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+pub fn fill_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     center: Vector2D<U>,
     radius: Vector2D<U>,
     num_vertices: u32,
