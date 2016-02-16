@@ -133,7 +133,7 @@ impl<'l> PathBuilder<'l> {
         path.vertices.push(PointData { position: pos, point_type: PointType::Normal });
         PathBuilder {
             path: path,
-            last_position: vec2(::std::f32::NAN, ::std::f32::NAN),
+            last_position: pos,
             last_ctrl: vec2(0.0, 0.0),
             accum_angle: 0.0,
             top_left: vec2(0.0, 0.0),
@@ -160,16 +160,17 @@ impl<'l> PathBuilder<'l> {
 
     pub fn relative_line_to(mut self, to: Vec2) -> PathBuilder<'l> {
         let offset = self.last_position;
+        assert!(!offset.x.is_nan() && !offset.y.is_nan());
         self.push(offset + to, PointType::Normal);
         return self;
     }
 
     pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
         if self.flatten {
-            let num_points = 16;
+            let num_points = 8;
             let from = self.last_position;
             for i in 0..num_points {
-                let t = (i+1) as f32 / (num_points+2) as f32;
+                let t = (i+1) as f32 / num_points as f32;
                 self.push(sample_quadratic_bezier(from, ctrl, to, t), PointType::Normal);
             }
             self.push(to, PointType::Normal);
@@ -189,10 +190,10 @@ impl<'l> PathBuilder<'l> {
 
     pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
         if self.flatten {
-            let num_points = 16;
+            let num_points = 8;
             let from = self.last_position;
-            for i in 1..num_points {
-                let t = (i) as f32 / num_points as f32;
+            for i in 0..num_points {
+                let t = (i+1) as f32 / num_points as f32;
                 self.push(sample_cubic_bezier(from, ctrl1, ctrl2, to, t), PointType::Normal);
             }
         } else {
@@ -246,7 +247,7 @@ impl<'l> PathBuilder<'l> {
         return self.line_to(vec2(x, y));
     }
 
-    pub fn vertical_horizontal_line_to(self, dy: f32) -> PathBuilder<'l> {
+    pub fn relative_vertical_line_to(self, dy: f32) -> PathBuilder<'l> {
         let p = self.last_position;
         return self.line_to(vec2(p.x, p.y + dy));
     }
