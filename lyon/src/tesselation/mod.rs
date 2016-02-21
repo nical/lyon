@@ -10,6 +10,7 @@ pub mod vertex_builder;
 pub mod vectors;
 pub mod tesselation;
 pub mod path_to_polygon;
+pub mod sweep_line;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 

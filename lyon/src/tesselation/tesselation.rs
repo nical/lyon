@@ -6,6 +6,7 @@ use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::connection::{ Connections, apply_connections };
 use tesselation::bezier::{ triangulate_quadratic_bezier };
 use tesselation::monotone::{ is_y_monotone, DecompositionContext, TriangulationContext, };
+use tesselation::sweep_line;
 use tesselation::path_to_polygon::*;
 use tesselation::monotone::{ Write };
 
@@ -28,9 +29,9 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     let vertex_positions = path.vertices();
     let mut beziers: Vec<[Vec2; 3]> = vec![];
 
-    for p in &mut polygon.sub_polygons {
-        separate_bezier_faces(p, vertex_positions, &mut beziers);
-    }
+    //for p in &mut polygon.sub_polygons {
+    //    separate_bezier_faces(p, vertex_positions, &mut beziers);
+    //}
 
     let maybe_slice = polygon.as_slice();
 
@@ -48,7 +49,10 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         let mut connections = Connections::new();
         let mut ctx = DecompositionContext::new();
 
-        let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut connections);
+        let mut sorted_events = sweep_line::EventVector::new();
+        sorted_events.set_polygon(polygon.slice(), vertex_positions);
+
+        let res = ctx.y_monotone_polygon_decomposition(polygon.slice(), vertex_positions, sorted_events.slice(), &mut connections);
         if !res.is_ok() {
             return Err(());
         }
@@ -56,7 +60,7 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         if maybe_slice.is_some() && connections.is_empty() {
             monotone_polygon_slices.push(maybe_slice.unwrap());
         } else {
-            let res = apply_connections(&polygon, vertex_positions, &mut connections, &mut monotone_polygon_vec);
+            let res = apply_connections(polygon.slice(), vertex_positions, &mut connections, &mut monotone_polygon_vec);
             if !res.is_ok() {
                 return Err(());
             }

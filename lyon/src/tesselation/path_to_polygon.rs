@@ -21,10 +21,11 @@ pub fn complex_path_to_polygon(path: ComplexPathSlice) -> Result<ComplexPolygon,
                       else { is_first };
 
         let path_info = sub_path.info();
-        let mut poly = if reverse { Polygon::from_vertices(ReverseIdRange::new(path_info.range)) }
-                       else { Polygon::from_vertices(path_info.range) };
+        //let mut poly = if reverse { Polygon::from_vertices(ReverseIdRange::new(path_info.range)) }
+        //               else { Polygon::from_vertices(path_info.range) };
 
-        poly.info = PolygonInfo {
+        //poly.info = PolygonInfo {
+        let info = PolygonInfo {
             aabb: Some(path_info.aabb),
             is_convex: path_info.is_convex,
             is_y_monotone: path_info.is_y_monotone,
@@ -32,7 +33,11 @@ pub fn complex_path_to_polygon(path: ComplexPathSlice) -> Result<ComplexPolygon,
             op: if is_first { Operator::Add } else { Operator::Substract },
         };
 
-        polygon.sub_polygons.push(poly);
+        if reverse {
+            polygon.add_sub_polygon(ReverseIdRange::new(path_info.range), info);
+        } else {
+            polygon.add_sub_polygon(path_info.range, info);
+        }
 
         is_first = false;
     }

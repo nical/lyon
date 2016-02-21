@@ -20,11 +20,12 @@ impl<Poly: AbstractPolygon> Connections<Poly> {
 
     pub fn new() -> Connections<Poly> {
         Connections {
-            connections: Vec::with_capacity(4), // kinda arbitrary...
+            connections: Vec::with_capacity(32), // kinda arbitrary...
         }
     }
 
     pub fn add_connection(&mut self, from: Poly::PointId, to: Poly::PointId) {
+        println!("   -- add_connection {:?} -> {:?}", from, to);
         self.connections.push(Connection{
             from: from, to: to, processed_face: false, processed_opposite_face: false
         });
@@ -50,8 +51,8 @@ pub struct Error;
 /// if the input polygon has holes that are not connected with the contour through connections.
 /// More generally this is intended for use to apply the y-monotone decomposition of a polygon,
 /// which we know to produce a valid input for teh partition.
-pub fn apply_connections<Poly: AbstractPolygon, V: Position2D>(
-    polygon: &Poly,
+pub fn apply_connections<Poly: AbstractPolygonSlice, V: Position2D>(
+    polygon: Poly,
     vertices: IdSlice<VertexId, V>,
     connections: &mut Connections<Poly>,
     output: &mut Vec<Polygon>
@@ -82,8 +83,8 @@ pub fn apply_connections<Poly: AbstractPolygon, V: Position2D>(
     return Ok(());
 }
 
-fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
-    polygon: &Poly,
+fn gen_polygon<Poly: AbstractPolygonSlice, V: Position2D>(
+    polygon: Poly,
     vertices: IdSlice<VertexId, V>,
     connections: &mut Connections<Poly>,
     first_point: Poly::PointId,
@@ -194,7 +195,7 @@ fn test_gen_polygon_no_connection() {
 
     let vertices = IdSlice::new(positions);
 
-    let new_poly = gen_polygon(&poly, vertices, &mut connections, point_id(0), point_id(1)).unwrap();
+    let new_poly = gen_polygon(poly.slice(), vertices, &mut connections, point_id(0), point_id(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
         vertex_id(1),
         vertex_id(2),
@@ -223,7 +224,7 @@ fn test_gen_polygon_simple() {
 
     let vertices = IdSlice::new(positions);
 
-    let new_poly = gen_polygon(&poly, vertices, &mut connections, point_id(0), point_id(1)).unwrap();
+    let new_poly = gen_polygon(poly.slice(), vertices, &mut connections, point_id(0), point_id(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
         vertex_id(1),
         vertex_id(2),
@@ -252,7 +253,7 @@ fn test_gen_polygon_two_connections() {
 
     let vertices = IdSlice::new(positions);
 
-    let new_poly = gen_polygon(&poly, vertices, &mut connections, point_id(0), point_id(1)).unwrap();
+    let new_poly = gen_polygon(poly.slice(), vertices, &mut connections, point_id(0), point_id(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
         vertex_id(1),
         vertex_id(2),
@@ -299,7 +300,7 @@ fn test_gen_polygon_only_connections() {
 
     let vertices = IdSlice::new(positions);
 
-    let new_poly = gen_polygon(&poly, vertices, &mut connections, point_id(1), point_id(3)).unwrap();
+    let new_poly = gen_polygon(poly.slice(), vertices, &mut connections, point_id(1), point_id(3)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
         vertex_id(3),
         vertex_id(5),
@@ -334,6 +335,8 @@ fn test_gen_polygon_with_holes() {
     //   +-----------+
     //  a4           a3
 
+    let mut poly = ComplexPolygon::new();
+
     let mut connections = Connections::new();
     connections.add_connection(a(1), b(3));
     connections.add_connection(c(3), b(2));
@@ -356,17 +359,14 @@ fn test_gen_polygon_with_holes() {
         vec2(2.0, 4.0),// v(11):c(2)
         vec2(2.0, 3.0),// v(12):c(3)
     ];
-    let poly = ComplexPolygon {
-        sub_polygons: vec![
-            Polygon::from_vertices(vertex_id_range(0, 5)),
-            Polygon::from_vertices(vertex_id_range(5, 9)),
-            Polygon::from_vertices(vertex_id_range(9, 13)),
-        ]
-    };
 
     let vertices = IdSlice::new(positions);
 
-    let new_poly = gen_polygon(&poly, vertices, &mut connections, a(0), a(1)).unwrap();
+    poly.add_sub_polygon(vertex_id_range(0, 5), PolygonInfo::default());
+    poly.add_sub_polygon(vertex_id_range(5, 9), PolygonInfo::default());
+    poly.add_sub_polygon(vertex_id_range(9, 13), PolygonInfo::default());
+
+    let new_poly = gen_polygon(poly.slice(), vertices, &mut connections, a(0), a(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
         v(1), v(8), v(5), v(6), v(7), v(12), v(9), v(10), v(11),
         v(12), v(7), v(8), v(1), v(2), v(3), v(4), v(0)
@@ -417,7 +417,7 @@ fn test_apply_connections_connections() {
 
     let mut partition = Vec::new();
 
-    apply_connections(&poly, vertices, &mut connections, &mut partition).unwrap();
+    apply_connections(poly.slice(), vertices, &mut connections, &mut partition).unwrap();
     assert_eq!(partition.len(), 5);
 }
 
@@ -442,6 +442,6 @@ fn test_apply_connections_no_connections() {
 
     let mut partition = Vec::new();
 
-    apply_connections(&poly, vertices, &mut no_connections, &mut partition).unwrap();
+    apply_connections(poly.slice(), vertices, &mut no_connections, &mut partition).unwrap();
     assert_eq!(partition.len(), 0);
 }

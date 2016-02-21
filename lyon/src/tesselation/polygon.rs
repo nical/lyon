@@ -82,6 +82,10 @@ pub trait AbstractPolygon {
     fn as_slice(&self) -> Option<PolygonSlice>;
 }
 
+pub trait AbstractPolygonSlice : AbstractPolygon + Copy {
+
+}
+
 #[derive(Copy, Clone)]
 pub struct PolygonSlice<'l> {
     vertices: &'l [VertexId],
@@ -127,6 +131,8 @@ impl<'l> AbstractPolygon for PolygonSlice<'l> {
     fn as_slice(&self) -> Option<PolygonSlice> { Some(*self) }
 }
 
+impl<'l> AbstractPolygonSlice for PolygonSlice<'l> {}
+
 #[derive(Clone)]
 pub struct Polygon {
     pub vertices: Vec<VertexId>,
@@ -164,8 +170,13 @@ impl Polygon {
     pub fn is_empty(&self) -> bool { self.vertices.is_empty() }
 
     pub fn into_complex_polygon(self) -> ComplexPolygon {
+        let count = self.vertices.len() as u16;
         ComplexPolygon {
-            sub_polygons: Vec::new()
+            vertices: self.vertices,
+            sub_polygons: vec![SubPolygonInfo {
+                info: self.info,
+                first: 0, count: count,
+            }],
         }
     }
 
@@ -217,24 +228,90 @@ impl AbstractPolygon for Polygon {
     fn as_slice(&self) -> Option<PolygonSlice> { Some(self.slice()) }
 }
 
+pub struct SubPolygonInfo {
+    info: PolygonInfo,
+    first: u16,
+    count: u16,
+}
+
 pub struct ComplexPolygon {
-    pub sub_polygons: Vec<Polygon>
+    vertices: Vec<VertexId>,
+    sub_polygons: Vec<SubPolygonInfo>
 }
 
 impl ComplexPolygon {
     pub fn new() -> ComplexPolygon {
         ComplexPolygon {
+            vertices: Vec::with_capacity(256),
             sub_polygons: Vec::new(),
         }
     }
 
-    pub fn add_hole(&mut self, mut hole: Polygon) {
-        hole.info.op = Operator::Substract;
-        self.sub_polygons.push(hole);
+    pub fn polygon(&self, id: PolygonId) -> PolygonSlice {
+        let p = &self.sub_polygons[id.handle as usize];
+        return PolygonSlice {
+            vertices: &self.vertices[p.first as usize..p.first as usize + p.count as usize],
+            info: &p.info
+        }
     }
 
-    pub fn polygon(&self, id: PolygonId) -> &Polygon {
-        return &self.sub_polygons[id.handle as usize];
+    pub fn point_ids(&self, p: PolygonId) -> ComplexPointIdRange {
+        ComplexPointIdRange {
+            range: IdRange {
+                first: point_id(0),
+                count: self.polygon(p).num_vertices() as u16
+            },
+            polygon_id: p,
+        }
+    }
+
+    pub fn polygon_ids(&self) -> IdRange<Polygon_, u16> {
+        IdRange {
+            first: polygon_id(0),
+            count: self.sub_polygons.len() as u16,
+        }
+    }
+
+    pub fn add_sub_polygon<IT: Iterator<Item=VertexId>>(&mut self, it: IT, info: PolygonInfo) -> PolygonId {
+        let first = self.vertices.len();
+        self.vertices.extend(it);
+        let last = self.vertices.len();
+        self.sub_polygons.push(SubPolygonInfo {
+            first: first as u16,
+            count: (last - first) as u16,
+            info: info
+        });
+        return polygon_id(self.sub_polygons.len() as u16 -1 )
+    }
+
+    pub fn slice(&self) -> ComplexPolygonSlice {
+        ComplexPolygonSlice {
+            vertices: &self.vertices[..],
+            sub_polygons: &self.sub_polygons[..]
+        }
+    }
+
+    pub fn as_slice(&self) -> Option<PolygonSlice> {
+        if self.sub_polygons.len() == 1 {
+            return Some(self.polygon(polygon_id(0)));
+        }
+        return None;
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct ComplexPolygonSlice<'l> {
+    vertices: &'l[VertexId],
+    sub_polygons: &'l[SubPolygonInfo]
+}
+
+impl<'l> ComplexPolygonSlice<'l> {
+    pub fn polygon(&self, id: PolygonId) -> PolygonSlice {
+        let p = &self.sub_polygons[id.handle as usize];
+        return PolygonSlice {
+            vertices: &self.vertices[p.first as usize..p.first as usize + p.count as usize],
+            info: &p.info
+        }
     }
 
     pub fn point_ids(&self, p: PolygonId) -> ComplexPointIdRange {
@@ -255,30 +332,11 @@ impl ComplexPolygon {
     }
 }
 
-pub struct ComplexPointIdRange {
-    range: IdRange<Point_, u16>,
-    polygon_id: PolygonId,
-}
-
-impl Iterator for ComplexPointIdRange {
-    type Item = ComplexPointId;
-    fn next(&mut self) -> Option<ComplexPointId> {
-        return if let Some(next) = self.range.next() {
-            Some(ComplexPointId {
-                point: next,
-                polygon_id: self.polygon_id
-            })
-        } else {
-            None
-        };
-    }
-}
-
-impl AbstractPolygon for ComplexPolygon {
+impl<'l> AbstractPolygon for ComplexPolygonSlice<'l> {
     type PointId = ComplexPointId;
 
     fn first_point(&self) -> ComplexPointId {
-        ComplexPointId { point: self.sub_polygons[0].first_point(), polygon_id: polygon_id(0) }
+        ComplexPointId { point: point_id(0), polygon_id: polygon_id(0) }
     }
 
     fn vertex(&self, id: ComplexPointId) -> VertexId {
@@ -301,8 +359,8 @@ impl AbstractPolygon for ComplexPolygon {
 
     fn num_vertices(&self) -> usize {
         let mut result = 0;
-        for hole in &self.sub_polygons {
-            result += hole.num_vertices();
+        for p in self.polygon_ids() {
+            result += self.polygon(p).num_vertices();
         }
         return result;
     }
@@ -311,9 +369,9 @@ impl AbstractPolygon for ComplexPolygon {
         self.polygon(point.polygon_id).num_vertices()
     }
 
-    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonSlice<'l>> {
+    fn get_sub_polygon<'a>(&'a self, id: PolygonId) -> Option<PolygonSlice<'a>> {
         if id.handle <= self.sub_polygons.len() as u16 {
-            return Some(self.sub_polygons[id.handle as usize].slice());
+            return Some(self.polygon(id));
         }
 
         return None;
@@ -323,9 +381,30 @@ impl AbstractPolygon for ComplexPolygon {
 
     fn as_slice(&self) -> Option<PolygonSlice> {
         if self.sub_polygons.len() == 1 {
-            return Some(self.sub_polygons[0].slice());
+            return Some(self.polygon(polygon_id(0)));
         }
         return None;
+    }
+}
+
+impl<'l> AbstractPolygonSlice for ComplexPolygonSlice<'l> {}
+
+pub struct ComplexPointIdRange {
+    range: IdRange<Point_, u16>,
+    polygon_id: PolygonId,
+}
+
+impl Iterator for ComplexPointIdRange {
+    type Item = ComplexPointId;
+    fn next(&mut self) -> Option<ComplexPointId> {
+        return if let Some(next) = self.range.next() {
+            Some(ComplexPointId {
+                point: next,
+                polygon_id: self.polygon_id
+            })
+        } else {
+            None
+        };
     }
 }
 

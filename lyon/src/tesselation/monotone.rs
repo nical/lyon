@@ -9,37 +9,26 @@
 //! Note that a lot of the comments and variable labels in this module assume a coordinate
 //! system where y is pointing downwards
 
-use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::mem::swap;
 use std::f32::consts::PI;
 
-use tesselation::{ VertexId, Direction, WindingOrder, error };
+use tesselation::{ VertexId, Direction, error };
 use tesselation::vectors::{ Position2D };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
 use tesselation::connection::{ Connections };
+use tesselation::sweep_line;
+use tesselation::sweep_line::{
+    VertexType, get_vertex_type, SweepLine, SweepLineEdge, is_below,
+};
 
 use vodk_alloc::*;
 use vodk_id::*;
-use vodk_math::{ Vector2D, Vec2 };
-
-#[derive(Debug, Copy, Clone)]
-pub enum VertexType {
-    Start,
-    End,
-    Split,
-    Merge,
-    Left,
-    Right,
-}
+use vodk_math::{ Vec2 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum DecompositionError {
-    OpenPath,
-    WrongWindingOrder,
-    MissingFace,
-}
+pub struct DecompositionError;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TriangulationError {
@@ -49,126 +38,18 @@ pub enum TriangulationError {
     TriangleCount,
 }
 
-fn is_below(a: Vec2, b: Vec2) -> bool { a.y > b.y || (a.y == b.y && a.x > b.x) }
-
-pub fn get_vertex_type(prev: Vec2, current: Vec2, next: Vec2) -> VertexType {
-    // assuming clockwise vertex_positions winding order
-    let interrior_angle = (prev - current).directed_angle(next - current);
-
-    // If the interrior angle is exactly 0 we'll have degenerate (invisible 0-area) triangles
-    // which is yucks but we can live with it for the sake of being robust against degenerate
-    // inputs. So special-case them so that they don't get considered as Merge ot Split vertices
-    // otherwise there can be no monotone decomposition of a shape where all points are on the
-    // same line.
-
-    if is_below(current, prev) && is_below(current, next) {
-        if interrior_angle < PI && interrior_angle != 0.0 {
-            return VertexType::Merge;
-        } else {
-            return VertexType::End;
-        }
-    }
-
-    if !is_below(current, prev) && !is_below(current, next) {
-        if interrior_angle < PI && interrior_angle != 0.0 {
-            return VertexType::Split;
-        } else {
-            return VertexType::Start;
-        }
-    }
-
-    if prev.y == next.y {
-        return if prev.x < next.x { VertexType::Right } else { VertexType::Left };
-    }
-    return if prev.y < next.y { VertexType::Right } else { VertexType::Left };
-}
-
-fn intersect_segment_with_horizontal<U>(a: Vector2D<U>, b: Vector2D<U>, y: f32) -> f32 {
-    let vx = b.x - a.x;
-    let vy = b.y - a.y;
-    if vy == 0.0 {
-        // If the segment is horizontal, pick the biggest x value (the right-most point).
-        // That's an arbitrary decision that serves the purpose of y-monotone decomposition
-        return a.x.max(b.x);
-    }
-    return a.x + (y - a.y) * vx / vy;
-}
-
-struct SweepLineBuilder<'l, P:'l+Position2D> {
-    polygon: &'l ComplexPolygon,
-    vertices: IdSlice<'l, VertexId, P>,
-    current_vertex: Vec2
-}
-
-impl<'l, P: 'l+Position2D> SweepLineBuilder<'l, P> {
-    fn vertex_position(&self, e: ComplexPointId) -> Vec2 {
-        return self.vertices[self.polygon.vertex(e)].position();
-    }
-
-    fn add(&self, sweep_line: &mut Vec<ComplexPointId>, e: ComplexPointId) {
-        sweep_line.push(e);
-        // sort from left to right (increasing x values)
-        sweep_line.sort_by(|ea, eb| {
-            let a1 = self.vertex_position(*ea);
-            let a2 = self.vertex_position(self.polygon.next(*ea));
-            let b1 = self.vertex_position(*eb);
-            let b2 = self.vertex_position(self.polygon.next(*eb));
-            let xa = intersect_segment_with_horizontal(a1, a2, self.current_vertex.y);
-            let xb = intersect_segment_with_horizontal(b1, b2, self.current_vertex.y);
-            return xa.partial_cmp(&xb).unwrap();
-        });
-        //println!(" sweep status is: {:?}", sweep_line);
-    }
-
-    fn remove(&self, sweep_line: &mut Vec<ComplexPointId>, e: ComplexPointId) {
-        //println!(" remove {:?} from sweep line", e);
-        sweep_line.retain(|item|{ *item != e });
-    }
-
-    // Search the sweep status to find the edge directly to the right of the current vertex.
-    fn find_right_of_current_vertex(&self, sweep_line: &Vec<ComplexPointId>) -> ComplexPointId {
-        for &e in sweep_line {
-            let a = self.vertex_position(e);
-            let b = self.vertex_position(self.polygon.next(e));
-            let x = intersect_segment_with_horizontal(a, b, self.current_vertex.y);
-            //println!(" -- search sweep status {:?} x: {}", e, x);
-
-            if x >= self.current_vertex.x {
-                return e;
-            }
-        }
-        panic!("Could not find the edge directly right of e on the sweep line");
-    }
-}
-
-fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
-                                       helper_edge: ComplexPointId,
-                                       helpers: &mut HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
-                                       connections: &mut Connections<ComplexPolygon>) {
-    if let Some(&(h, VertexType::Merge)) = helpers.get(&helper_edge) {
-        connections.add_connection(h, current_edge);
-        //println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
-        //println!(" **** connection {:?}->{:?}", h, current_edge);
-    }
-}
-
 /// Can perform y-monotone decomposition on a connectivity kernel.
 ///
 /// This object holds on to the memory that was allocated during previous
 /// decompositions in order to avoid allocating during the next decompositions
 /// if possible.
 pub struct DecompositionContext {
-    sorted_edges_storage: Allocation,
-    // list of edges that intercept the sweep line, sorted by increasing x coordinate
-    sweep_state_storage: Allocation,
     helper: HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
 }
 
 impl DecompositionContext {
     pub fn new() -> DecompositionContext {
         DecompositionContext {
-            sorted_edges_storage: Allocation::empty(),
-            sweep_state_storage: Allocation::empty(),
             helper: HashMap::new(),
         }
     }
@@ -176,97 +57,72 @@ impl DecompositionContext {
     /// Applies an y_monotone decomposition of a face in a connectivity kernel.
     ///
     /// This operation will add faces and edges to the connectivity kernel.
-    pub fn y_monotone_polygon_decomposition<'l,
+    pub fn y_monotone_polygon_decomposition<
         P: Position2D
     >(
         &mut self,
-        polygon: &'l ComplexPolygon,
-        vertex_positions: IdSlice<'l, VertexId, P>,
-        connections: &'l mut Connections<ComplexPolygon>
+        polygon: ComplexPolygonSlice,
+        vertex_positions: IdSlice<VertexId, P>,
+        events: sweep_line::SortedEventSlice,
+        connections: &mut Connections<ComplexPolygonSlice>
     ) -> Result<(), DecompositionError> {
         self.helper.clear();
 
-        let mut storage = Allocation::empty();
-        swap(&mut self.sweep_state_storage, &mut storage);
-        let mut sweep_state: Vec<ComplexPointId> = create_vec_from(storage);
+        let mut sweep_line = SweepLine::new();
 
-        let mut storage = Allocation::empty();
-        swap(&mut self.sorted_edges_storage, &mut storage);
-        let mut sorted_edges: Vec<ComplexPointId> = create_vec_from(storage);
-
-        for sub_poly in polygon.polygon_ids() {
-            if sub_poly != polygon_id(0) {
-                let winding = compute_winding_order(polygon.get_sub_polygon(sub_poly).unwrap(), vertex_positions);
-                debug_assert_eq!(winding, Some(WindingOrder::CounterClockwise));
-            }
-            sorted_edges.extend(polygon.point_ids(sub_poly));
-        }
-        debug_assert!(sorted_edges.len() == polygon.num_vertices());
-
-        // sort indices by increasing y coordinate of the corresponding vertex
-        sorted_edges.sort_by(|a, b| {
-            let va = vertex_positions[polygon.vertex(*a)].position();
-            let vb = vertex_positions[polygon.vertex(*b)].position();
-            if va.y > vb.y { return Ordering::Greater; }
-            if va.y < vb.y { return Ordering::Less; }
-            if va.x > vb.x { return Ordering::Greater; }
-            if va.x < vb.x { return Ordering::Less; }
-            return Ordering::Equal;
-        });
-
-        for &e in &sorted_edges {
-            //let edge = kernel[e];
+        for &e in events.events {
             let prev = polygon.previous(e);
             let next = polygon.next(e);
-            let current_vertex = vertex_positions[polygon.vertex(e)].position();
-            let previous_vertex = vertex_positions[polygon.vertex(prev)].position();
-            let next_vertex = vertex_positions[polygon.vertex(next)].position();
-            let vertex_type = get_vertex_type(previous_vertex, current_vertex, next_vertex);
-            let sweep_line = SweepLineBuilder {
-                polygon: polygon,
-                vertices: vertex_positions,
-                current_vertex: current_vertex,
+            let current_position = vertex_positions[polygon.vertex(e)].position();
+            let previous_position = vertex_positions[polygon.vertex(prev)].position();
+            let next_position = vertex_positions[polygon.vertex(next)].position();
+            let vertex_type = get_vertex_type(previous_position, current_position, next_position);
+
+            sweep_line.set_current_position(current_position);
+            let edge = SweepLineEdge {
+                key: e,
+                from: current_position,
+                to: next_position
             };
+
             match vertex_type {
                 VertexType::Start => {
-                    sweep_line.add(&mut sweep_state, e);
+                    sweep_line.add(edge);
                     self.helper.insert(e, (e, vertex_type));
                 }
                 VertexType::End => {
                     connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
-                    sweep_line.remove(&mut sweep_state, prev);
+                    sweep_line.remove(prev);
                 }
                 VertexType::Split => {
-                    let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
+                    let ej = sweep_line.find_right_of_current_position().unwrap();
                     if let Some(&(helper_edge,_)) = self.helper.get(&ej) {
                         connections.add_connection(e, helper_edge);
-                        //println!(" **** connection {:?}->{:?}", e, helper_edge);
                     } else {
-                        panic!();
+                        return Err(DecompositionError);
                     }
                     self.helper.insert(ej, (e, vertex_type));
 
-                    sweep_line.add(&mut sweep_state, e);
+                    sweep_line.add(edge);
                     self.helper.insert(e, (e, vertex_type));
                 }
                 VertexType::Merge => {
                     connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
-                    sweep_line.remove(&mut sweep_state, prev);
+                    sweep_line.remove(prev);
 
-                    let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
+                    let ej = sweep_line.find_right_of_current_position().unwrap();
                     connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
                     self.helper.insert(ej, (e, vertex_type));
                 }
                 VertexType::Right => {
                     connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     self.helper.remove(&prev);
-                    sweep_line.remove(&mut sweep_state, prev);
-
-                    sweep_line.add(&mut sweep_state, e);
+                    sweep_line.remove(prev);
+                    sweep_line.add(edge);
                     self.helper.insert(e, (e, vertex_type));
                 }
                 VertexType::Left => {
-                    let ej = sweep_line.find_right_of_current_vertex(&sweep_state);
+                    let ej = sweep_line.find_right_of_current_position().unwrap();
                     connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
 
                     self.helper.insert(ej, (e, vertex_type));
@@ -274,13 +130,20 @@ impl DecompositionContext {
             }
         }
 
-        // Keep the buffers to avoid reallocating it next time, if possible.
-        self.sweep_state_storage = vec::recycle(sweep_state);
-        self.sorted_edges_storage = vec::recycle(sorted_edges);
-
         return Ok(());
     }
 }
+
+fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
+                                       helper_edge: ComplexPointId,
+                                       helpers: &mut HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
+                                       connections: &mut Connections<ComplexPolygonSlice>) {
+    if let Some(&(h, VertexType::Merge)) = helpers.get(&helper_edge) {
+        //println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
+        connections.add_connection(h, current_edge);
+    }
+}
+
 
 /// Returns true if the face is y-monotone in O(n).
 pub fn is_y_monotone<'l, Pos: Position2D>(
@@ -588,32 +451,32 @@ fn test_shape(shape: &TestShape, angle: f32) {
 
     println!("transformed vertices: {:?}", vertices);
 
-    let mut polygon = ComplexPolygon {
-        sub_polygons: vec![Polygon::from_vertices(vertex_id_range(0, shape.main.len() as u16))],
-    };
+    let mut polygon = ComplexPolygon::new();
+    polygon.add_sub_polygon(vertex_id_range(0, shape.main.len() as u16), PolygonInfo::default());
 
     let mut from = shape.main.len() as u16;
     for hole in shape.holes {
         let to = from + hole.len() as u16;
-        println!(" -- range from {} to {}", from, to);
-        polygon.sub_polygons.push(Polygon::from_vertices(ReverseIdRange::new(vertex_id_range(from, to))));
+        polygon.add_sub_polygon(ReverseIdRange::new(vertex_id_range(from, to)), PolygonInfo::default());
         from = to;
     }
-
-    println!("\n\n -- poly main {:?}", polygon.sub_polygons[0].vertices);
-    for h in &polygon.sub_polygons[1..] {
-        println!("    hole {:?}", h.vertices);
-    }
-
 
     let vertex_positions = IdSlice::new(&vertices[..]);
     let mut ctx = DecompositionContext::new();
     let mut connections = Connections::new();
-    let res = ctx.y_monotone_polygon_decomposition(&polygon, vertex_positions, &mut connections);
+
+    let mut sorted_events = sweep_line::EventVector::new();
+    sorted_events.set_polygon(polygon.slice(), vertex_positions);
+    //let mut algo = YMonotoneDecomposition::new();
+    //let res = sweep_line::apply_y_sweep(&polygon, vertex_positions, sorted_events.slice(), &mut algo);
+
+    let res = ctx.y_monotone_polygon_decomposition(
+        polygon.slice(), vertex_positions, sorted_events.slice(), &mut connections
+    );
     assert_eq!(res, Ok(()));
 
     let mut y_monotone_polygons = Vec::new();
-    let res = apply_connections(&polygon, vertex_positions, &mut connections, &mut y_monotone_polygons);
+    let res = apply_connections(polygon.slice(), vertex_positions, &mut connections, &mut y_monotone_polygons);
     assert!(res.is_ok());
 
     let mut triangulator = TriangulationContext::new();
@@ -988,18 +851,4 @@ fn test_triangulate_failures() {
             holes: &[],
         },
     ]);
-}
-
-#[cfg(test)]
-fn assert_almost_eq(a: f32, b:f32) {
-    if (a - b).abs() < 0.0001 { return; }
-    println!("expected {} and {} to be equal", a, b);
-    panic!();
-}
-
-#[test]
-fn test_intersect_segment_horizontal() {
-    assert_almost_eq(intersect_segment_with_horizontal(vec2(0.0, 0.0), vec2(0.0, 2.0), 1.0), 0.0);
-    assert_almost_eq(intersect_segment_with_horizontal(vec2(0.0, 2.0), vec2(2.0, 0.0), 1.0), 1.0);
-    assert_almost_eq(intersect_segment_with_horizontal(vec2(0.0, 1.0), vec2(3.0, 0.0), 0.0), 3.0);
 }

@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
 use tesselation::vectors::{ Position2D };
-use tesselation::monotone::{ get_vertex_type, VertexType, };
+use tesselation::sweep_line::{ get_vertex_type, VertexType, };
 use tesselation::bezier::*;
 
 use vodk_math::{ Vec2, vec2, Rect };
