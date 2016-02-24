@@ -33,7 +33,7 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     //    separate_bezier_faces(p, vertex_positions, &mut beziers);
     //}
 
-    let maybe_slice = polygon.as_slice();
+    let maybe_slice = polygon.as_simple_polygon();
 
     let y_monotone = if let Some(slice) = maybe_slice {
         slice.info().is_y_monotone == Some(true)
@@ -50,9 +50,9 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         let mut ctx = DecompositionContext::new();
 
         let mut sorted_events = sweep_line::EventVector::new();
-        sorted_events.set_polygon(polygon.slice(), vertex_positions);
+        sorted_events.set_polygon(polygon.as_slice(), vertex_positions);
 
-        let res = ctx.y_monotone_polygon_decomposition(polygon.slice(), vertex_positions, sorted_events.slice(), &mut connections);
+        let res = ctx.y_monotone_polygon_decomposition(polygon.as_slice(), vertex_positions, sorted_events.as_slice(), &mut connections);
         if !res.is_ok() {
             return Err(());
         }
@@ -60,11 +60,11 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         if maybe_slice.is_some() && connections.is_empty() {
             monotone_polygon_slices.push(maybe_slice.unwrap());
         } else {
-            let res = apply_connections(polygon.slice(), vertex_positions, &mut connections, &mut monotone_polygon_vec);
+            let res = apply_connections(polygon.as_slice(), vertex_positions, &mut connections, &mut monotone_polygon_vec);
             if !res.is_ok() {
                 return Err(());
             }
-            monotone_polygon_slices.extend(monotone_polygon_vec.iter().map(|item|{item.slice()}));
+            monotone_polygon_slices.extend(monotone_polygon_vec.iter().map(|item|{item.as_slice()}));
         }
     };
 

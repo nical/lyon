@@ -9,26 +9,26 @@ use vodk_id::IdSlice;
 #[derive(Debug)]
 pub struct Error; // placeholder
 
-struct Intersection<Poly: AbstractPolygon> {
-    from: Poly::PointId,
-    to: Poly::PointId,
+struct Intersection<PointId> {
+    from: PointId,
+    to: PointId,
     inter: VertexId,
     processed_face: bool,
     processed_opposite_face: bool,
 }
 
-pub struct Intersections<Poly: AbstractPolygon> {
-    intersections: Vec<Intersection<Poly>>
+pub struct Intersections<PointId> {
+    intersections: Vec<Intersection<PointId>>
 }
 
-impl<Poly: AbstractPolygon> Intersections<Poly> {
-    pub fn new() -> Intersections<Poly> {
+impl<PointId: ::std::fmt::Debug> Intersections<PointId> {
+    pub fn new() -> Intersections<PointId> {
         Intersections {
             intersections: Vec::with_capacity(4),
         }
     }
 
-    pub fn add_intersection(&mut self, from: Poly::PointId, to: Poly::PointId, inter: VertexId) {
+    pub fn add_intersection(&mut self, from: PointId, to: PointId, inter: VertexId) {
         self.intersections.push(Intersection{
             from: from, to: to, inter: inter,
             processed_face: false, processed_opposite_face: false,
@@ -45,19 +45,19 @@ impl<Poly: AbstractPolygon> Intersections<Poly> {
     }
 }
 
-pub fn apply_intersections<Poly: AbstractPolygon, V: Position2D>(
-    polygon: &Poly,
+pub fn apply_intersections<Poly: AbstractPolygonSlice, V: Position2D>(
+    polygon: Poly,
     vertices: IdSlice<VertexId, V>,
-    intersections: &mut Intersections<Poly>,
+    intersections: &mut Intersections<Poly::PointId>,
     output: &mut Vec<Polygon>
 ) -> Result<(), Error> {
     Err(Error)
 }
 
-fn gen_polygon<Poly: AbstractPolygon, V: Position2D>(
-    polygon: &Poly,
+fn gen_polygon<Poly: AbstractPolygonSlice, V: Position2D>(
+    polygon: Poly,
     vertices: IdSlice<VertexId, V>,
-    intersections: &mut Intersections<Poly>,
+    intersections: &mut Intersections<Poly::PointId>,
     first_point: Poly::PointId,
     second_point: Poly::PointId,
 ) -> Result<Polygon, Error> {

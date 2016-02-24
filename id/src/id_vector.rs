@@ -1,4 +1,4 @@
-use super::{ Identifier, FromIndex };
+use super::{ Identifier, FromIndex, IdRange, IntegerHandle };
 use std::default::Default;
 use std::slice;
 use std::marker::PhantomData;
@@ -140,9 +140,15 @@ impl<'l, Data, ID:Identifier> IdSlice<'l, ID, Data> where Data:'l {
         }
     }
 
+    pub fn len(&self) -> usize { self.slice.len() }
+
     pub fn as_slice<'a>(&'a self) -> &'a[Data] { self.slice }
 
     pub fn iter<'a>(&'a self) -> slice::Iter<'a, Data> { self.slice.iter() }
+
+    pub fn ids<T:IntegerHandle>(&self) -> IdRange<ID::Unit, T> {
+        IdRange::new(FromIndex::from_index(0), FromIndex::from_index(self.len()))
+    }
 }
 
 impl<'l, ID:Identifier, Data> ops::Index<ID> for IdSlice<'l, ID, Data> where Data:'l {

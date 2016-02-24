@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
 use tesselation::vectors::{ Position2D };
-use tesselation::sweep_line::{ get_vertex_type, VertexType, };
+use tesselation::sweep_line::{ compute_event_type, EventType, };
 use tesselation::bezier::*;
 
 use vodk_math::{ Vec2, vec2, Rect };
@@ -354,10 +354,10 @@ impl<'l> PathBuilder<'l> {
         } else {
             self.convex_if_ccw = false;
         }
-        let vertex_type = get_vertex_type(a, b, c);
+        let vertex_type = compute_event_type(a, b, c);
         match vertex_type {
-            VertexType::Split|VertexType::Merge => { self.y_monotone_if_cw = false; }
-            VertexType::Start|VertexType::End => { self.y_monotone_if_ccw = false; }
+            EventType::Split|EventType::Merge => { self.y_monotone_if_cw = false; }
+            EventType::Start|EventType::End => { self.y_monotone_if_ccw = false; }
             _ => {}
         }
     }

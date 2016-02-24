@@ -37,6 +37,7 @@ impl<T, H:Copy> Id<T, H> {
 
 impl<T, H:IntegerHandle> Identifier for Id<T, H> {
     type Handle = H;
+    type Unit = T;
 }
 
 impl<T, H:ToIndex> ToIndex for Id<T, H> {
@@ -222,6 +223,7 @@ pub trait IntegerHandle : Copy + Clone
 
 pub trait Identifier: Copy + FromIndex + ToIndex + PartialEq {
     type Handle: IntegerHandle;
+    type Unit;
 }
 
 

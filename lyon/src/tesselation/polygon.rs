@@ -9,38 +9,20 @@ use vodk_math::{ Rect };
 use std::f32::consts::PI;
 use std::iter::{ FromIterator };
 
-
 #[derive(Debug)]
 pub struct Point_;
 pub type PointId = Id<Point_, u16>;
 pub fn point_id(idx: u16) -> PointId { PointId::new(idx) }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Operator {
-    Add,
-    Substract,
-    EvenOdd,
-}
+#[derive(Debug)]
+pub struct Polygon_;
+pub type PolygonId = Id<Polygon_, u16>;
+pub fn polygon_id(idx: u16) -> PolygonId { PolygonId::new(idx) }
 
-#[derive(Clone, Debug)]
-pub struct PolygonInfo {
-    pub aabb: Option<Rect>,
-    pub is_convex: Option<bool>,
-    pub is_y_monotone: Option<bool>,
-    pub has_beziers: Option<bool>,
-    pub op: Operator,
-}
-
-impl ::std::default::Default for PolygonInfo {
-    fn default() -> PolygonInfo {
-        PolygonInfo {
-            aabb: None,
-            is_convex: None,
-            is_y_monotone: None,
-            has_beziers: None,
-            op: Operator::Add,
-        }
-    }
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct ComplexPointId {
+    pub point: PointId,
+    pub polygon_id: PolygonId,
 }
 
 pub trait AbstractPolygon {
@@ -69,21 +51,26 @@ pub trait AbstractPolygon {
         self.vertex(self.previous(point))
     }
 
-    // number of vertices on the loop containing point
-    fn num_vertices_on_loop(&self, point: Self::PointId) -> usize;
-
     // number of vertices total
     fn num_vertices(&self) -> usize;
 
-    fn get_sub_polygon<'l>(&'l self, id: PolygonId) -> Option<PolygonSlice<'l>>;
-
     fn is_complex(&self) -> bool;
 
-    fn as_slice(&self) -> Option<PolygonSlice>;
+    fn as_simple_polygon(&self) -> Option<PolygonSlice>;
 }
 
-pub trait AbstractPolygonSlice : AbstractPolygon + Copy {
+pub trait AbstractPolygonSlice : AbstractPolygon + Copy {}
 
+pub trait PolygonMut : AbstractPolygon {
+    fn push_vertex(&mut self, v: VertexId) -> Option<Self::PointId>;
+
+    fn remove_vertex(&mut self, v: PointId);
+
+    fn clear(&mut self);
+
+    fn num_vertices(&self) -> usize;
+
+    fn max_vertices(&self) -> Option<usize>;
 }
 
 #[derive(Copy, Clone)]
@@ -122,22 +109,57 @@ impl<'l> AbstractPolygon for PolygonSlice<'l> {
 
     fn num_vertices(&self) -> usize { self.vertices.len() }
 
-    fn num_vertices_on_loop(&self, _point: PointId) -> usize { self.num_vertices() }
-
-    fn get_sub_polygon<'m>(&'m self, _: PolygonId) -> Option<PolygonSlice<'m>> { None }
-
     fn is_complex(&self) -> bool { false }
 
-    fn as_slice(&self) -> Option<PolygonSlice> { Some(*self) }
+    fn as_simple_polygon(&self) -> Option<PolygonSlice> { Some(*self) }
 }
 
 impl<'l> AbstractPolygonSlice for PolygonSlice<'l> {}
+
+pub struct PolygonSliceMut<'l> {
+    vertices: &'l mut[VertexId],
+    info: &'l mut PolygonInfo,
+    num_vertices: u16,
+}
 
 #[derive(Clone)]
 pub struct Polygon {
     pub vertices: Vec<VertexId>,
     pub info: PolygonInfo,
 }
+
+impl<'l> PolygonSliceMut<'l> {
+    pub fn info(self) -> &'l PolygonInfo { self.info }
+
+    pub fn point_ids(self) -> IdRange<Point_, u16> { self.as_slice().point_ids() }
+
+    pub fn as_slice(&self) -> PolygonSlice {
+        PolygonSlice {
+            vertices: &self.vertices[0..self.num_vertices as usize],
+            info: self.info,
+        }
+    }
+}
+
+impl<'l> AbstractPolygon for PolygonSliceMut<'l> {
+    type PointId = PointId;
+
+    fn first_point(&self) -> PointId { point_id(0) }
+
+    fn vertex(&self, point: PointId) -> VertexId { self.as_slice().vertex(point) }
+
+    fn next(&self, point: PointId) -> PointId { self.as_slice().next(point) }
+
+    fn previous(&self, point: PointId) -> PointId { self.as_slice().previous(point) }
+
+    fn num_vertices(&self) -> usize { self.num_vertices as usize }
+
+    fn is_complex(&self) -> bool { false }
+
+    fn as_simple_polygon(&self) -> Option<PolygonSlice> { Some(self.as_slice()) }
+}
+
+
 
 impl Polygon {
     pub fn new() -> Polygon {
@@ -201,7 +223,7 @@ impl Polygon {
         self.vertices.insert(point.handle as usize, new_vertex);
     }
 
-    pub fn slice<'l>(&'l self) -> PolygonSlice<'l> {
+    pub fn as_slice<'l>(&'l self) -> PolygonSlice<'l> {
         PolygonSlice { vertices: &self.vertices[..], info: &self.info }
     }
 }
@@ -213,19 +235,15 @@ impl AbstractPolygon for Polygon {
 
     fn vertex(&self, point: PointId) -> VertexId { self.vertices[point.handle as usize] }
 
-    fn next(&self, point: PointId) -> PointId { self.slice().next(point) }
+    fn next(&self, point: PointId) -> PointId { self.as_slice().next(point) }
 
-    fn previous(&self, point: PointId) -> PointId { self.slice().previous(point) }
+    fn previous(&self, point: PointId) -> PointId { self.as_slice().previous(point) }
 
     fn num_vertices(&self) -> usize { self.vertices.len() }
 
-    fn num_vertices_on_loop(&self, _point: PointId) -> usize { self.num_vertices() }
-
-    fn get_sub_polygon<'l>(&'l self, _: PolygonId) -> Option<PolygonSlice<'l>> { None }
-
     fn is_complex(&self) -> bool { false }
 
-    fn as_slice(&self) -> Option<PolygonSlice> { Some(self.slice()) }
+    fn as_simple_polygon(&self) -> Option<PolygonSlice> { Some(self.as_slice()) }
 }
 
 pub struct SubPolygonInfo {
@@ -284,14 +302,14 @@ impl ComplexPolygon {
         return polygon_id(self.sub_polygons.len() as u16 -1 )
     }
 
-    pub fn slice(&self) -> ComplexPolygonSlice {
+    pub fn as_slice(&self) -> ComplexPolygonSlice {
         ComplexPolygonSlice {
             vertices: &self.vertices[..],
             sub_polygons: &self.sub_polygons[..]
         }
     }
 
-    pub fn as_slice(&self) -> Option<PolygonSlice> {
+    pub fn as_simple_polygon(&self) -> Option<PolygonSlice> {
         if self.sub_polygons.len() == 1 {
             return Some(self.polygon(polygon_id(0)));
         }
@@ -365,21 +383,9 @@ impl<'l> AbstractPolygon for ComplexPolygonSlice<'l> {
         return result;
     }
 
-    fn num_vertices_on_loop(&self, point: ComplexPointId) -> usize {
-        self.polygon(point.polygon_id).num_vertices()
-    }
-
-    fn get_sub_polygon<'a>(&'a self, id: PolygonId) -> Option<PolygonSlice<'a>> {
-        if id.handle <= self.sub_polygons.len() as u16 {
-            return Some(self.polygon(id));
-        }
-
-        return None;
-    }
-
     fn is_complex(&self) -> bool { true }
 
-    fn as_slice(&self) -> Option<PolygonSlice> {
+    fn as_simple_polygon(&self) -> Option<PolygonSlice> {
         if self.sub_polygons.len() == 1 {
             return Some(self.polygon(polygon_id(0)));
         }
@@ -408,89 +414,55 @@ impl Iterator for ComplexPointIdRange {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct PolygonCirculator<'l> {
-    polygon: PolygonSlice<'l>,
-    point: PointId,
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Operator {
+    Add,
+    Substract,
+    EvenOdd,
 }
 
-impl<'l> PolygonCirculator<'l> {
-    pub fn next_vertex(self) -> VertexId {
-        self.polygon.next_vertex(self.point)
-    }
+#[derive(Clone, Debug)]
+pub struct PolygonInfo {
+    pub aabb: Option<Rect>,
+    pub is_convex: Option<bool>,
+    pub is_y_monotone: Option<bool>,
+    pub has_beziers: Option<bool>,
+    pub op: Operator,
+}
 
-    pub fn previous_vertex(self) -> VertexId {
-        self.polygon.previous_vertex(self.point)
-    }
+impl ::std::default::Default for PolygonInfo {
+    fn default() -> PolygonInfo { PolygonInfo::new() }
+}
 
-    pub fn advance(&mut self, dir: Direction) {
-        self.point = self.polygon.advance(self.point, dir);
-    }
-
-    pub fn iter(self) -> PolygonIterator<'l> {
-        PolygonIterator {
-            polygon: self.polygon,
-            first: self.point.handle,
-            count: 0
+impl PolygonInfo {
+    pub fn new() -> PolygonInfo {
+        PolygonInfo {
+            aabb: None,
+            is_convex: None,
+            is_y_monotone: None,
+            has_beziers: None,
+            op: Operator::Add,
         }
     }
-}
 
-#[derive(Copy, Clone)]
-pub struct PolygonIterator<'l> {
-    polygon: PolygonSlice<'l>,
-    first: u16,
-    count: u16,
-}
-
-impl<'l> Iterator for PolygonIterator<'l> {
-    type Item = VertexId;
-
-    fn next(&mut self) -> Option<VertexId> {
-        let num_vertices = self.polygon.num_vertices();
-        if self.count as usize >= num_vertices {
-            return None;
-        }
-
-        let idx = (self.count + self.first) as usize % num_vertices;
-        self.count += 1;
-
-        return Some(self.polygon.vertices[idx]);
+    pub fn with_aabb(mut self, aabb: Rect) -> PolygonInfo {
+        self.aabb = Some(aabb);
+        return self;
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let num_vertices = self.polygon.num_vertices();
-        (num_vertices, Some(num_vertices))
+    pub fn with_is_convex(mut self, convex: bool) -> PolygonInfo {
+        self.is_convex = Some(convex);
+        return self;
+    }
+
+    pub fn with_is_y_monotone(mut self, mnotone: bool) -> PolygonInfo {
+        self.is_y_monotone = Some(mnotone);
+        return self;
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct ComplexPolygonIterator<'l> {
-    iter: PolygonIterator<'l>,
-    polygon_id: PolygonId,
-}
-
-impl<'l> Iterator for ComplexPolygonIterator<'l> {
-    type Item = VertexId;
-
-    fn next(&mut self) -> Option<VertexId> { self.iter.next() }
-
-    fn size_hint(&self) -> (usize, Option<usize>) { self.iter.size_hint() }
-}
-
-
-#[derive(Debug)]
-pub struct Polygon_;
-pub type PolygonId = Id<Polygon_, u16>;
-pub fn polygon_id(idx: u16) -> PolygonId { PolygonId::new(idx) }
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ComplexPointId {
-    pub point: PointId,
-    pub polygon_id: PolygonId,
-}
-
-pub fn compute_winding_order<'l, Pos: Position2D>(
+#[cfg(test)]
+fn compute_winding_order<'l, Pos: Position2D>(
     poly: PolygonSlice<'l>,
     vertices: IdSlice<VertexId, Pos>
 ) -> Option<WindingOrder> {
@@ -550,7 +522,7 @@ fn test_winding_order()
     ];
     let vertices = IdSlice::new(positions);
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
-    assert_eq!(compute_winding_order(poly.slice(), vertices), Some(WindingOrder::Clockwise));
+    assert_eq!(compute_winding_order(poly.as_slice(), vertices), Some(WindingOrder::Clockwise));
 
     let positions: &[Vec2] = &[
         vec2(1.0, 0.0),
@@ -564,6 +536,6 @@ fn test_winding_order()
     ];
     let vertices = IdSlice::new(positions);
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
-    assert_eq!(compute_winding_order(poly.slice(), vertices), Some(WindingOrder::CounterClockwise));
+    assert_eq!(compute_winding_order(poly.as_slice(), vertices), Some(WindingOrder::CounterClockwise));
 
 }

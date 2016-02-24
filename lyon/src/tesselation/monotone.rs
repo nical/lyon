@@ -20,7 +20,7 @@ use tesselation::polygon::*;
 use tesselation::connection::{ Connections };
 use tesselation::sweep_line;
 use tesselation::sweep_line::{
-    VertexType, get_vertex_type, SweepLine, SweepLineEdge, is_below,
+    EventType, compute_event_type, SweepLine, SweepLineEdge, is_below,
 };
 
 use vodk_alloc::*;
@@ -44,7 +44,7 @@ pub enum TriangulationError {
 /// decompositions in order to avoid allocating during the next decompositions
 /// if possible.
 pub struct DecompositionContext {
-    helper: HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
+    helper: HashMap<ComplexPointId, (ComplexPointId, EventType)>,
 }
 
 impl DecompositionContext {
@@ -64,7 +64,7 @@ impl DecompositionContext {
         polygon: ComplexPolygonSlice,
         vertex_positions: IdSlice<VertexId, P>,
         events: sweep_line::SortedEventSlice,
-        connections: &mut Connections<ComplexPolygonSlice>
+        connections: &mut Connections<ComplexPointId>
     ) -> Result<(), DecompositionError> {
         self.helper.clear();
 
@@ -76,7 +76,7 @@ impl DecompositionContext {
             let current_position = vertex_positions[polygon.vertex(e)].position();
             let previous_position = vertex_positions[polygon.vertex(prev)].position();
             let next_position = vertex_positions[polygon.vertex(next)].position();
-            let vertex_type = get_vertex_type(previous_position, current_position, next_position);
+            let vertex_type = compute_event_type(previous_position, current_position, next_position);
 
             sweep_line.set_current_position(current_position);
             let edge = SweepLineEdge {
@@ -86,15 +86,15 @@ impl DecompositionContext {
             };
 
             match vertex_type {
-                VertexType::Start => {
+                EventType::Start => {
                     sweep_line.add(edge);
                     self.helper.insert(e, (e, vertex_type));
                 }
-                VertexType::End => {
+                EventType::End => {
                     connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     sweep_line.remove(prev);
                 }
-                VertexType::Split => {
+                EventType::Split => {
                     let ej = sweep_line.find_right_of_current_position().unwrap();
                     if let Some(&(helper_edge,_)) = self.helper.get(&ej) {
                         connections.add_connection(e, helper_edge);
@@ -106,7 +106,7 @@ impl DecompositionContext {
                     sweep_line.add(edge);
                     self.helper.insert(e, (e, vertex_type));
                 }
-                VertexType::Merge => {
+                EventType::Merge => {
                     connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     sweep_line.remove(prev);
 
@@ -114,14 +114,14 @@ impl DecompositionContext {
                     connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
                     self.helper.insert(ej, (e, vertex_type));
                 }
-                VertexType::Right => {
+                EventType::Right => {
                     connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
                     self.helper.remove(&prev);
                     sweep_line.remove(prev);
                     sweep_line.add(edge);
                     self.helper.insert(e, (e, vertex_type));
                 }
-                VertexType::Left => {
+                EventType::Left => {
                     let ej = sweep_line.find_right_of_current_position().unwrap();
                     connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
 
@@ -136,9 +136,9 @@ impl DecompositionContext {
 
 fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
                                        helper_edge: ComplexPointId,
-                                       helpers: &mut HashMap<ComplexPointId, (ComplexPointId, VertexType)>,
-                                       connections: &mut Connections<ComplexPolygonSlice>) {
-    if let Some(&(h, VertexType::Merge)) = helpers.get(&helper_edge) {
+                                       helpers: &mut HashMap<ComplexPointId, (ComplexPointId, EventType)>,
+                                       connections: &mut Connections<ComplexPointId>) {
+    if let Some(&(h, EventType::Merge)) = helpers.get(&helper_edge) {
         //println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
         connections.add_connection(h, current_edge);
     }
@@ -155,8 +155,8 @@ pub fn is_y_monotone<'l, Pos: Position2D>(
         let current = vertex_positions[polygon.vertex(point)].position();
         let next = vertex_positions[polygon.next_vertex(point)].position();
 
-        match get_vertex_type(previous, current, next) {
-            VertexType::Split | VertexType::Merge => {
+        match compute_event_type(previous, current, next) {
+            EventType::Split | EventType::Merge => {
                 return false;
             }
             _ => {}
@@ -466,17 +466,17 @@ fn test_shape(shape: &TestShape, angle: f32) {
     let mut connections = Connections::new();
 
     let mut sorted_events = sweep_line::EventVector::new();
-    sorted_events.set_polygon(polygon.slice(), vertex_positions);
+    sorted_events.set_polygon(polygon.as_slice(), vertex_positions);
     //let mut algo = YMonotoneDecomposition::new();
-    //let res = sweep_line::apply_y_sweep(&polygon, vertex_positions, sorted_events.slice(), &mut algo);
+    //let res = sweep_line::apply_y_sweep(&polygon, vertex_positions, sorted_events.as_slice(), &mut algo);
 
     let res = ctx.y_monotone_polygon_decomposition(
-        polygon.slice(), vertex_positions, sorted_events.slice(), &mut connections
+        polygon.as_slice(), vertex_positions, sorted_events.as_slice(), &mut connections
     );
     assert_eq!(res, Ok(()));
 
     let mut y_monotone_polygons = Vec::new();
-    let res = apply_connections(polygon.slice(), vertex_positions, &mut connections, &mut y_monotone_polygons);
+    let res = apply_connections(polygon.as_slice(), vertex_positions, &mut connections, &mut y_monotone_polygons);
     assert!(res.is_ok());
 
     let mut triangulator = TriangulationContext::new();
@@ -490,9 +490,9 @@ fn test_shape(shape: &TestShape, angle: f32) {
             println!("     -> point {} vertex {:?} position {:?}", i, p, vertex_positions[p].position());
             i += 1;
         }
-        assert!(is_y_monotone(poly.slice(), vertex_positions));
+        assert!(is_y_monotone(poly.as_slice(), vertex_positions));
         let res = triangulator.y_monotone_triangulation(
-            poly.slice(),
+            poly.as_slice(),
             vertex_positions,
             &mut simple_vertex_builder(&mut buffers)
         );
