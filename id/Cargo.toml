@@ -3,7 +3,7 @@
 name = "vodk_id"
 version = "0.0.1"
 description = "Tiny library providing id types and an id-based vector."
-license = "MIT"
+license = "MIT/Apache-2.0"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/vodk.rs"
 include = [ "Cargo.toml", "src/*.rs" ]

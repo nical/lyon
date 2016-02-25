@@ -3,7 +3,7 @@
 name = "kiwi"
 version = "0.0.2"
 description = "A small graph library to help building node compositors"
-license = "MIT"
+license = "MIT/Apache-2.0"
 authors = [
     "Nicolas Silva <nical@fastmail.com>",
 ]

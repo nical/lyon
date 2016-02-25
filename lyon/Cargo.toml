@@ -3,6 +3,7 @@
 name = "lyon"
 version = "0.0.1"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
+license = "MIT/Apache-2.0"
 
 [lib]
 name = "lyon"
