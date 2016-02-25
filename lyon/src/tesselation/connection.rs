@@ -1,9 +1,7 @@
 
-use tesselation::{ VertexId, error };
+use tesselation::{ VertexId, VertexSlice, error };
 use tesselation::polygon::*;
 use tesselation::vectors::{ Position2D };
-
-use vodk_id::IdSlice;
 
 struct Connection<PointId> {
     from: PointId,
@@ -53,7 +51,7 @@ pub struct Error;
 /// which we know to produce a valid input for teh partition.
 pub fn apply_connections<Poly: AbstractPolygonSlice, V: Position2D>(
     polygon: Poly,
-    vertices: IdSlice<VertexId, V>,
+    vertices: VertexSlice<V>,
     connections: &mut Connections<Poly::PointId>,
     output: &mut Vec<Polygon>
 ) -> Result<(), Error> {
@@ -85,7 +83,7 @@ pub fn apply_connections<Poly: AbstractPolygonSlice, V: Position2D>(
 
 fn gen_polygon<Poly: AbstractPolygonSlice, V: Position2D>(
     polygon: Poly,
-    vertices: IdSlice<VertexId, V>,
+    vertices: VertexSlice<V>,
     connections: &mut Connections<Poly::PointId>,
     first_point: Poly::PointId,
     second_point: Poly::PointId,
@@ -193,7 +191,7 @@ fn test_gen_polygon_no_connection() {
 
     let mut connections = Connections::new();
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     let new_poly = gen_polygon(poly.as_slice(), vertices, &mut connections, point_id(0), point_id(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
@@ -222,7 +220,7 @@ fn test_gen_polygon_simple() {
     let mut connections = Connections::new();
     connections.add_connection(point_id(2), point_id(4));
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     let new_poly = gen_polygon(poly.as_slice(), vertices, &mut connections, point_id(0), point_id(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
@@ -251,7 +249,7 @@ fn test_gen_polygon_two_connections() {
     connections.add_connection(point_id(2), point_id(5));
     connections.add_connection(point_id(2), point_id(4));
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     let new_poly = gen_polygon(poly.as_slice(), vertices, &mut connections, point_id(0), point_id(1)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
@@ -298,7 +296,7 @@ fn test_gen_polygon_only_connections() {
     connections.add_connection(point_id(7), point_id(5));
     connections.add_connection(point_id(3), point_id(5));
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     let new_poly = gen_polygon(poly.as_slice(), vertices, &mut connections, point_id(1), point_id(3)).unwrap();
     assert_eq!(&new_poly.vertices[..], &[
@@ -360,7 +358,7 @@ fn test_gen_polygon_with_holes() {
         vec2(2.0, 3.0),// v(12):c(3)
     ];
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     poly.add_sub_polygon(vertex_id_range(0, 5), PolygonInfo::default());
     poly.add_sub_polygon(vertex_id_range(5, 9), PolygonInfo::default());
@@ -413,7 +411,7 @@ fn test_apply_connections_connections() {
     connections.add_connection(point_id(7), point_id(5));
     connections.add_connection(point_id(3), point_id(5));
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     let mut partition = Vec::new();
 
@@ -438,7 +436,7 @@ fn test_apply_connections_no_connections() {
 
     let mut no_connections = Connections::new();
 
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
 
     let mut partition = Vec::new();
 

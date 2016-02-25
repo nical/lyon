@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::mem::swap;
 use std::f32::consts::PI;
 
-use tesselation::{ VertexId, Direction, error };
+use tesselation::{ VertexId, VertexSlice, Direction, error };
 use tesselation::vectors::{ Position2D };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::polygon::*;
@@ -58,11 +58,11 @@ impl DecompositionContext {
     ///
     /// This operation will add faces and edges to the connectivity kernel.
     pub fn y_monotone_polygon_decomposition<
-        P: Position2D
+        V: Position2D
     >(
         &mut self,
         polygon: ComplexPolygonSlice,
-        vertex_positions: IdSlice<VertexId, P>,
+        vertex_positions: VertexSlice<V>,
         events: sweep_line::SortedEventSlice,
         connections: &mut Connections<ComplexPointId>
     ) -> Result<(), DecompositionError> {
@@ -146,9 +146,9 @@ fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
 
 
 /// Returns true if the face is y-monotone in O(n).
-pub fn is_y_monotone<'l, Pos: Position2D>(
-    polygon: PolygonSlice<'l>,
-    vertex_positions: IdSlice<'l, VertexId, Pos>,
+pub fn is_y_monotone<V: Position2D>(
+    polygon: PolygonSlice,
+    vertex_positions: VertexSlice<V>,
 ) -> bool {
     for point in polygon.point_ids() {
         let previous = vertex_positions[polygon.previous_vertex(point)].position();
@@ -222,13 +222,13 @@ impl TriangulationContext {
     /// outputing triangles by pack of 3 vertex indices in a TriangleStream.
     ///
     /// Returns the number of indices that were added to the stream.
-    pub fn y_monotone_triangulation<'l,
+    pub fn y_monotone_triangulation<
         P: Position2D,
         Output: VertexBufferBuilder<Vec2>
     >(
         &mut self,
-        polygon: PolygonSlice<'l>,
-        vertex_positions: IdSlice<'l, VertexId, P>,
+        polygon: PolygonSlice,
+        vertex_positions: VertexSlice<P>,
         output: &mut Output,
     ) -> Result<(), TriangulationError> {
 
@@ -461,7 +461,7 @@ fn test_shape(shape: &TestShape, angle: f32) {
         from = to;
     }
 
-    let vertex_positions = IdSlice::new(&vertices[..]);
+    let vertex_positions = VertexSlice::new(&vertices[..]);
     let mut ctx = DecompositionContext::new();
     let mut connections = Connections::new();
 

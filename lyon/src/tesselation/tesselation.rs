@@ -1,4 +1,4 @@
-use tesselation::{ VertexId };
+use tesselation::{ VertexId, VertexSlice };
 use tesselation::polygon::*;
 use tesselation::path::*;
 use tesselation::vectors::{ Position2D };
@@ -10,7 +10,6 @@ use tesselation::sweep_line;
 use tesselation::path_to_polygon::*;
 use tesselation::monotone::{ Write };
 
-use vodk_id::IdSlice;
 use vodk_math::Vec2;
 
 
@@ -90,7 +89,7 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 // TODO: merge this with the polygon generation instead of removing points after the fact.
 fn separate_bezier_faces<Output: Write<[Vec2; 3]>>(
     polygon: &mut Polygon,
-    vertices: IdSlice<VertexId, PointData>,
+    vertices: VertexSlice<PointData>,
     out_beziers: &mut Output
 ) {
     if polygon.info().has_beziers == Some(false) {

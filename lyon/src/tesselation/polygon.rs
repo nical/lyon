@@ -1,8 +1,8 @@
 
-use vodk_id::{ Id, IdRange, IdSlice };
+use vodk_id::{ Id, IdRange };
 
 use tesselation::vectors::{ Position2D };
-use tesselation::{ Direction, WindingOrder, VertexId };
+use tesselation::{ Direction, WindingOrder, VertexId, VertexSlice };
 
 use vodk_math::{ Rect };
 
@@ -464,7 +464,7 @@ impl PolygonInfo {
 #[cfg(test)]
 fn compute_winding_order<'l, Pos: Position2D>(
     poly: PolygonSlice<'l>,
-    vertices: IdSlice<VertexId, Pos>
+    vertices: VertexSlice<Pos>
 ) -> Option<WindingOrder> {
     if poly.num_vertices() < 3 {
         return None;
@@ -520,7 +520,7 @@ fn test_winding_order()
         vec2(2.0, 0.0),
         vec2(1.0, 0.0),
     ];
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
     assert_eq!(compute_winding_order(poly.as_slice(), vertices), Some(WindingOrder::Clockwise));
 
@@ -534,7 +534,7 @@ fn test_winding_order()
         vec2(0.0,-1.0),
         vec2(0.0, 0.0),
     ];
-    let vertices = IdSlice::new(positions);
+    let vertices = VertexSlice::new(positions);
     let poly = Polygon::from_vertices(vertex_id_range(0, 8));
     assert_eq!(compute_winding_order(poly.as_slice(), vertices), Some(WindingOrder::CounterClockwise));
 

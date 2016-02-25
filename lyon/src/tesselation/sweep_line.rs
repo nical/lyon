@@ -1,7 +1,7 @@
 use std::cmp::{Ordering, PartialOrd};
 use std::f32::consts::PI;
 
-use tesselation::{ VertexId };
+use tesselation::{ VertexId, VertexSlice };
 use tesselation::polygon::*;
 use tesselation::vectors::Position2D;
 
@@ -9,8 +9,6 @@ use vodk_math::{ Vector2D, Vec2 };
 
 #[cfg(test)]
 use vodk_math::{ vec2 };
-
-use vodk_id::IdSlice;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EventType {
@@ -29,26 +27,26 @@ pub trait Algorithm<Vertex: Position2D> {
 
     fn begin(&mut self,
         _polygon: ComplexPolygonSlice,
-        _vertices: IdSlice<VertexId, Vertex>
+        _vertices: VertexSlice<Vertex>
     ) -> Result<(), Self::Error> { Ok(()) }
 
     fn end(&mut self,
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>
+        vertices: VertexSlice<Vertex>
     ) -> Result<Self::Success, Self::Error>;
 
     fn on_event(&mut self,
         event: &Event,
         event_type: EventType,
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>
+        vertices: VertexSlice<Vertex>
     ) -> Result<(), Self::Error>;
 }
 
 /// run the algorithm passed in parameters on pre-sorted events for a given polygon.
 pub fn rum_algorithm<Vertex: Position2D,  Algo: Algorithm<Vertex>>(
     polygon: ComplexPolygonSlice,
-    vertices: IdSlice<VertexId, Vertex>,
+    vertices: VertexSlice<Vertex>,
     events: SortedEventSlice,
     algorithm: &mut Algo
 ) -> Result<Algo::Success, Algo::Error> {
@@ -128,7 +126,7 @@ impl EventVector {
 
     pub fn from_polygon<Vertex: Position2D>(
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>,
+        vertices: VertexSlice<Vertex>,
     ) -> EventVector {
         let mut ev = EventVector {
             events: Vec::with_capacity(polygon.num_vertices())
@@ -139,7 +137,7 @@ impl EventVector {
 
     pub fn set_polygon<Vertex: Position2D>(&mut self,
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>,
+        vertices: VertexSlice<Vertex>,
     ) {
         self.events.clear();
         for sub_poly in polygon.polygon_ids() {
@@ -247,6 +245,8 @@ pub struct SweepLineLR {
 
 impl SweepLineLR {
     pub fn new() -> SweepLineLR { SweepLineLR { sweep_line: SweepLine::new() }}
+
+    pub fn as_slice(&self) -> &[SweepLineEdge] { self.sweep_line.as_slice() }
 }
 
 /// A sweep line that records edges on the left side of the geometry only
@@ -256,6 +256,8 @@ pub struct SweepLineL {
 
 impl SweepLineL {
     pub fn new() -> SweepLineL { SweepLineL { sweep_line: SweepLine::new() }}
+
+    pub fn as_slice(&self) -> &[SweepLineEdge] { self.sweep_line.as_slice() }
 }
 
 impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineLR {
@@ -264,7 +266,7 @@ impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineLR {
 
     fn end(&mut self,
         _polygon: ComplexPolygonSlice,
-        _vertices: IdSlice<VertexId, Vertex>
+        _vertices: VertexSlice<Vertex>
     ) -> Result<(), ()> {
         Ok(())
     }
@@ -273,7 +275,7 @@ impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineLR {
         event: &Event,
         event_type: EventType,
         _polygon: ComplexPolygonSlice,
-        _vertices: IdSlice<VertexId, Vertex>
+        _vertices: VertexSlice<Vertex>
     ) -> Result<(), ()> {
         let edge = SweepLineEdge {
             key: event.current,
@@ -315,7 +317,7 @@ impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineL {
 
     fn end(&mut self,
         _polygon: ComplexPolygonSlice,
-        _vertices: IdSlice<VertexId, Vertex>
+        _vertices: VertexSlice<Vertex>
     ) -> Result<(), ()> {
         Ok(())
     }
@@ -324,7 +326,7 @@ impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineL {
         event: &Event,
         event_type: EventType,
         _polygon: ComplexPolygonSlice,
-        _vertices: IdSlice<VertexId, Vertex>
+        _vertices: VertexSlice<Vertex>
     ) -> Result<(), ()> {
         let edge = SweepLineEdge {
             key: event.current,
@@ -372,7 +374,7 @@ impl<
 
     fn begin(&mut self,
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>
+        vertices: VertexSlice<Vertex>
     ) -> Result<(), Self::Error> {
         let r1 = self.first.begin(polygon, vertices);
         let r2 = self.second.begin(polygon, vertices);
@@ -387,7 +389,7 @@ impl<
 
     fn end(&mut self,
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>
+        vertices: VertexSlice<Vertex>
     ) -> Result<(Algo1::Success, Algo2::Success), Self::Error> {
         let r1 = self.first.end(polygon, vertices);
         let r2 = self.second.end(polygon, vertices);
@@ -403,7 +405,7 @@ impl<
         event: &Event,
         event_type: EventType,
         polygon: ComplexPolygonSlice,
-        vertices: IdSlice<VertexId, Vertex>
+        vertices: VertexSlice<Vertex>
     ) -> Result<(), Self::Error> {
         let r1 = self.first.on_event(event, event_type, polygon, vertices);
         let r2 = self.second.on_event(event, event_type, polygon, vertices);
@@ -456,14 +458,14 @@ fn test_sweep_line_lr() {
 
         fn begin(&mut self,
             polygon: ComplexPolygonSlice,
-            vertices: IdSlice<VertexId, Vec2>
+            vertices: VertexSlice<Vec2>
         ) -> Result<(), ()> {
             return self.sweep.begin(polygon, vertices);
         }
 
         fn end(&mut self,
             polygon: ComplexPolygonSlice,
-            vertices: IdSlice<VertexId, Vec2>
+            vertices: VertexSlice<Vec2>
         ) -> Result<(), ()> {
             return self.sweep.end(polygon, vertices);
         }
@@ -472,7 +474,7 @@ fn test_sweep_line_lr() {
             event: &Event,
             evt_type: EventType,
             polygon: ComplexPolygonSlice,
-            vertices: IdSlice<VertexId, Vec2>
+            vertices: VertexSlice<Vec2>
         ) -> Result<(), ()> {
             let expected: &[(u16, EventType, &[u16])] = &[
                 (7,  EventType::Start,  &[]),
@@ -524,7 +526,7 @@ fn test_sweep_line_lr() {
         vec2(6.0, 8.0), // 12 -> 10
     ];
 
-    let vertices: IdSlice<VertexId, Vec2> = IdSlice::new(positions);
+    let vertices: VertexSlice<Vec2> = VertexSlice::new(positions);
     let polygon = Polygon::from_vertices(vertices.ids()).into_complex_polygon();
     let mut events = EventVector::new();
     events.set_polygon(polygon.as_slice(), vertices);

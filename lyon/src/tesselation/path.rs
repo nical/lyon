@@ -1,12 +1,12 @@
 use std::f32::consts::PI;
-use tesselation::{ vertex_id_range, VertexIdRange, VertexId, WindingOrder };
+use tesselation::{ vertex_id_range, VertexIdRange, VertexId, VertexSlice, WindingOrder };
 use tesselation::vectors::{ Position2D };
 use tesselation::sweep_line::{ compute_event_type, EventType, };
 use tesselation::bezier::*;
 
 use vodk_math::{ Vec2, vec2, Rect };
 
-use vodk_id::{ Id, IdSlice, IdRange, ToIndex };
+use vodk_id::{ Id, IdRange, ToIndex };
 
 #[derive(Debug)]
 pub struct Path_;
@@ -39,7 +39,7 @@ impl ComplexPath {
         ComplexPath { vertices: Vec::new(), sub_paths: Vec::new() }
     }
 
-    pub fn vertices(&self) -> IdSlice<VertexId, PointData> { IdSlice::new(&self.vertices[..]) }
+    pub fn vertices(&self) -> VertexSlice<PointData> { VertexSlice::new(&self.vertices[..]) }
 
     pub fn sub_path(&self, id: PathId) -> PathSlice {
         PathSlice {
@@ -68,7 +68,7 @@ pub struct ComplexPathSlice<'l> {
 
 impl<'l> ComplexPathSlice<'l> {
 
-    pub fn vertices(&self) -> IdSlice<VertexId, PointData> { IdSlice::new(&self.vertices[..]) }
+    pub fn vertices(&self) -> VertexSlice<PointData> { VertexSlice::new(&self.vertices[..]) }
 
     pub fn sub_path(&self, id: PathId) -> PathSlice {
         PathSlice {

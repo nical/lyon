@@ -14,7 +14,7 @@ pub mod bentley_ottmann;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 
-use vodk_id::{Id, IdRange};
+use vodk_id::{Id, IdSlice, IdRange};
 
 pub type Index = u16;
 
@@ -35,6 +35,8 @@ pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
         count: to - from,
     }
 }
+
+pub type VertexSlice<'l, V> = IdSlice<'l, VertexId, V>;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindingOrder {
