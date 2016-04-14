@@ -167,6 +167,8 @@ impl EventVector {
 
 /// Defines an ordering between two points
 pub fn is_below(a: Vec2, b: Vec2) -> bool { a.y > b.y || (a.y == b.y && a.x > b.x) }
+pub fn is_right_of(a: Vec2, b: Vec2) -> bool { a.x > b.x || (a.x == b.x && a.y > b.y) }
+
 
 #[derive(Debug)]
 pub struct SweepLineEdge {
@@ -418,7 +420,7 @@ impl<
     }
 }
 
-fn intersect_segment_with_horizontal<U>(a: Vector2D<U>, b: Vector2D<U>, y: f32) -> f32 {
+pub fn intersect_segment_with_horizontal<U>(a: Vector2D<U>, b: Vector2D<U>, y: f32) -> f32 {
     let vx = b.x - a.x;
     let vy = b.y - a.y;
     if vy == 0.0 {

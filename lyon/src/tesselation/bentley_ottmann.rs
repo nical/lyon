@@ -94,8 +94,24 @@ pub fn compute_segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> O
     if v1_cross_v2 == 0.0 {
 
         if a2_a1_cross_v1 == 0.0 {
-            // The two segments are colinear
-            // TODO: they may actually intersect!
+
+            let v1_sqr_len = v1.square_length();
+            // check if a2 is between a1 and b1
+            let v1_dot_a2a1 = v1.dot(&(a2-a1));
+            if v1_dot_a2a1 > 0.0 && v1_dot_a2a1 < v1_sqr_len { return Some(a2); }
+
+            // check if b2 is between a1 and b1
+            let v1_dot_b2a1 = v1.dot(&(b2-a1));
+            if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len { return Some(b2); }
+
+            let v2_sqr_len = v2.square_length();
+            // check if a1 is between a2 and b2
+            let v2_dot_a1a2 = v2.dot(&(a1-a2));
+            if v2_dot_a1a2 > 0.0 && v2_dot_a1a2 < v2_sqr_len { return Some(a1); }
+
+            // check if b1 is between a2 and b2
+            let v2_dot_b1a2 = v2.dot(&(b1-a2));
+            if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len { return Some(b1); }
 
             return None;
         }
@@ -133,6 +149,25 @@ fn test_segment_intersection() {
         vec2(1.0, 0.0), vec2(3.0, 0.0)
     ).is_some());
 
+    assert!(compute_segment_intersection(
+        vec2(3.0, 0.0), vec2(1.0, 0.0),
+        vec2(2.0, 0.0), vec2(4.0, 0.0)
+    ).is_some());
+
+    assert!(compute_segment_intersection(
+        vec2(2.0, 0.0), vec2(4.0, 0.0),
+        vec2(3.0, 0.0), vec2(1.0, 0.0)
+    ).is_some());
+
+    assert!(compute_segment_intersection(
+        vec2(1.0, 0.0), vec2(4.0, 0.0),
+        vec2(2.0, 0.0), vec2(3.0, 0.0)
+    ).is_some());
+
+    assert!(compute_segment_intersection(
+        vec2(2.0, 0.0), vec2(3.0, 0.0),
+        vec2(1.0, 0.0), vec2(4.0, 0.0)
+    ).is_some());
 }
 
 struct Intersection<PointId> {

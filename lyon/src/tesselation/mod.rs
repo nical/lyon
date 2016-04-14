@@ -11,6 +11,7 @@ pub mod tesselation;
 pub mod path_to_polygon;
 pub mod sweep_line;
 pub mod bentley_ottmann;
+pub mod experimental;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 

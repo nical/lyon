@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use tesselation::{ vertex_id_range, VertexIdRange, VertexId, VertexSlice, WindingOrder };
+use tesselation::{ vertex_id, vertex_id_range, VertexIdRange, VertexId, VertexSlice, WindingOrder };
 use tesselation::vectors::{ Position2D };
 use tesselation::sweep_line::{ compute_event_type, EventType, };
 use tesselation::bezier::*;
@@ -43,7 +43,7 @@ impl ComplexPath {
 
     pub fn sub_path(&self, id: PathId) -> PathSlice {
         PathSlice {
-            vertices: &self.vertices[..],
+            vertices: VertexSlice::new(&self.vertices[..]),
             info: &self.sub_paths[id.handle.to_index()]
         }
     }
@@ -54,21 +54,56 @@ impl ComplexPath {
 
     pub fn slice(&self) -> ComplexPathSlice {
         ComplexPathSlice {
-            vertices: &self.vertices[..],
+            vertices: VertexSlice::new(&self.vertices[..]),
             sub_paths: &self.sub_paths[..],
         }
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ComplexVertexId {
+    vertex_id: VertexId,
+    path_id: PathId,
+}
+
+pub struct ComplexVertexIdRange {
+    range: VertexIdRange,
+    path_id: PathId,
+}
+
+impl Iterator for ComplexVertexIdRange {
+    type Item = ComplexVertexId;
+    fn next(&mut self) -> Option<ComplexVertexId> {
+        return if let Some(next) = self.range.next() {
+            Some(ComplexVertexId {
+                vertex_id: next,
+                path_id: self.path_id
+            })
+        } else {
+            None
+        };
+    }
+}
+
+#[derive(Copy, Clone)]
 pub struct ComplexPathSlice<'l> {
-    vertices: &'l[PointData],
+    vertices: VertexSlice<'l,PointData>,
     sub_paths: &'l[PathInfo],
 }
 
 impl<'l> ComplexPathSlice<'l> {
 
-    pub fn vertices(&self) -> VertexSlice<PointData> { VertexSlice::new(&self.vertices[..]) }
+    pub fn vertices(&self) -> VertexSlice<PointData> { self.vertices }
+
+    pub fn vertex_ids(&self, sub_path: PathId) -> ComplexVertexIdRange {
+        ComplexVertexIdRange {
+            range: IdRange {
+                first: vertex_id(0),
+                count: self.sub_path(sub_path).num_vertices() as u16
+            },
+            path_id: sub_path,
+        }
+    }
 
     pub fn sub_path(&self, id: PathId) -> PathSlice {
         PathSlice {
@@ -80,23 +115,60 @@ impl<'l> ComplexPathSlice<'l> {
     pub fn path_ids(&self) -> PathIdRange {
         IdRange::new(0, self.sub_paths.len() as u16)
     }
+
+    pub fn vertex(&self, id: ComplexVertexId) -> &PointData {
+        &self.vertices[id.vertex_id]
+    }
+
+    pub fn next(&self, id: ComplexVertexId) -> ComplexVertexId {
+        ComplexVertexId {
+            path_id: id.path_id,
+            vertex_id: self.sub_path(id.path_id).next(id.vertex_id),
+        }
+    }
+
+    pub fn previous(&self, id: ComplexVertexId) -> ComplexVertexId {
+        ComplexVertexId {
+            path_id: id.path_id,
+            vertex_id: self.sub_path(id.path_id).previous(id.vertex_id),
+        }
+    }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct PathSlice<'l> {
-    vertices: &'l[PointData],
+    vertices: VertexSlice<'l, PointData>,
     info: &'l PathInfo,
 }
 
 impl<'l> PathSlice<'l> {
-    pub fn vertices(self) -> &'l[PointData] {
-        let range = self.info.range;
-        let from = range.first.to_index();
-        let count = range.count as usize;
-        return &self.vertices[from..from+count];
+    pub fn info(self) -> &'l PathInfo { self.info }
+
+    pub fn vertex(&self, id: VertexId) -> &PointData { &self.vertices[id] }
+
+    pub fn first(&self) -> VertexId { self.info.range.first }
+
+    pub fn next(&self, id: VertexId) -> VertexId {
+        let first = self.info.range.first.handle;
+        let last = first + self.info.range.count;
+        return Id::new(if id.handle == last { first } else { id.handle + 1 });
     }
 
-    pub fn info(self) -> &'l PathInfo { self.info }
+    pub fn previous(&self, id: VertexId) -> VertexId {
+        let first = self.info.range.first.handle;
+        let last = first + self.info.range.count;
+        return Id::new(if id.handle == first { last } else { id.handle - 1 });
+    }
+
+    pub fn next_vertex(&self, id: VertexId) -> &PointData {
+        self.vertex(self.next(id))
+    }
+
+    pub fn previous_vertex(&self, id: VertexId) -> &PointData {
+        self.vertex(self.previous(id))
+    }
+
+    pub fn num_vertices(&self) -> usize { self.vertices.len() }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -384,6 +456,15 @@ fn test_path_builder_simple() {
         assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
         assert_eq!(info.is_convex, Some(true));
         assert_eq!(info.is_y_monotone, Some(true));
+        let sub_path = path.sub_path(id);
+        let first = sub_path.first();
+        let next = sub_path.next(first);
+        let prev = sub_path.previous(first);
+        assert!(first != next);
+        assert!(first != prev);
+        assert!(next != prev);
+        assert_eq!(first, sub_path.previous(next));
+        assert_eq!(first, sub_path.next(prev));
     }
 
     // counter-clockwise
