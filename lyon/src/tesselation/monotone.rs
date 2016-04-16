@@ -9,7 +9,6 @@
 //! Note that a lot of the comments and variable labels in this module assume a coordinate
 //! system where y is pointing downwards
 
-use std::collections::HashMap;
 use std::mem::swap;
 use std::f32::consts::PI;
 
@@ -43,16 +42,10 @@ pub enum TriangulationError {
 /// This object holds on to the memory that was allocated during previous
 /// decompositions in order to avoid allocating during the next decompositions
 /// if possible.
-pub struct DecompositionContext {
-    helper: HashMap<ComplexPointId, (ComplexPointId, EventType)>,
-}
+pub struct DecompositionContext;
 
 impl DecompositionContext {
-    pub fn new() -> DecompositionContext {
-        DecompositionContext {
-            helper: HashMap::new(),
-        }
-    }
+    pub fn new() -> DecompositionContext { DecompositionContext }
 
     /// Applies an y_monotone decomposition of a face in a connectivity kernel.
     ///
@@ -66,7 +59,6 @@ impl DecompositionContext {
         events: sweep_line::SortedEventSlice,
         connections: &mut Connections<ComplexPointId>
     ) -> Result<(), DecompositionError> {
-        self.helper.clear();
 
         let mut sweep_line = SweepLine::new();
 
@@ -79,53 +71,53 @@ impl DecompositionContext {
             let vertex_type = compute_event_type(previous_position, current_position, next_position);
 
             sweep_line.set_current_position(current_position);
-            let edge = SweepLineEdge {
+            let mut edge = SweepLineEdge {
                 key: e,
                 from: current_position,
-                to: next_position
+                to: next_position,
+                helper: Some((e, vertex_type)),
             };
 
             match vertex_type {
                 EventType::Start => {
                     sweep_line.add(edge);
-                    self.helper.insert(e, (e, vertex_type));
                 }
                 EventType::End => {
-                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
+                    let prev_idx = sweep_line.find(prev).unwrap();
+                    connect_with_helper_if_merge_vertex(e, prev_idx, &mut sweep_line, connections);
                     sweep_line.remove(prev);
                 }
                 EventType::Split => {
-                    let ej = sweep_line.find_right_of_current_position().unwrap();
-                    if let Some(&(helper_edge,_)) = self.helper.get(&ej) {
+                    let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
+
+                    if let Some((helper_edge,_)) = sweep_line.get_helper(right_idx) {
                         connections.add_connection(e, helper_edge);
                     } else {
                         return Err(DecompositionError);
                     }
-                    self.helper.insert(ej, (e, vertex_type));
-
+                    sweep_line.set_helper(right_idx, e, vertex_type);
                     sweep_line.add(edge);
-                    self.helper.insert(e, (e, vertex_type));
                 }
                 EventType::Merge => {
-                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
+                    let prev_idx = sweep_line.find(prev).unwrap();
+                    connect_with_helper_if_merge_vertex(e, prev_idx, &mut sweep_line, connections);
                     sweep_line.remove(prev);
 
-                    let ej = sweep_line.find_right_of_current_position().unwrap();
-                    connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
-                    self.helper.insert(ej, (e, vertex_type));
+                    let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
+                    connect_with_helper_if_merge_vertex(e, right_idx, &mut sweep_line, connections);
+                    sweep_line.set_helper(right_idx, e, vertex_type);
                 }
                 EventType::Right => {
-                    connect_with_helper_if_merge_vertex(e, prev, &mut self.helper, connections);
-                    self.helper.remove(&prev);
+                    let prev_idx = sweep_line.find(prev).unwrap();
+                    connect_with_helper_if_merge_vertex(e, prev_idx, &mut sweep_line, connections);
                     sweep_line.remove(prev);
                     sweep_line.add(edge);
-                    self.helper.insert(e, (e, vertex_type));
                 }
                 EventType::Left => {
-                    let ej = sweep_line.find_right_of_current_position().unwrap();
-                    connect_with_helper_if_merge_vertex(e, ej, &mut self.helper, connections);
+                    let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
+                    connect_with_helper_if_merge_vertex(e, right_idx, &mut sweep_line, connections);
 
-                    self.helper.insert(ej, (e, vertex_type));
+                    sweep_line.set_helper(right_idx, e, vertex_type);
                 }
             }
         }
@@ -135,10 +127,10 @@ impl DecompositionContext {
 }
 
 fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
-                                       helper_edge: ComplexPointId,
-                                       helpers: &mut HashMap<ComplexPointId, (ComplexPointId, EventType)>,
+                                       sl_index: usize,
+                                       sl: &mut SweepLine,
                                        connections: &mut Connections<ComplexPointId>) {
-    if let Some(&(h, EventType::Merge)) = helpers.get(&helper_edge) {
+    if let Some((h, EventType::Merge)) = sl.get_helper(sl_index) {
         //println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
         connections.add_connection(h, current_edge);
     }
