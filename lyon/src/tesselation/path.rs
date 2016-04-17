@@ -62,8 +62,8 @@ impl ComplexPath {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ComplexVertexId {
-    vertex_id: VertexId,
-    path_id: PathId,
+    pub vertex_id: VertexId,
+    pub path_id: PathId,
 }
 
 pub struct ComplexVertexIdRange {

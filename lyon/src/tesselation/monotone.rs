@@ -37,93 +37,81 @@ pub enum TriangulationError {
     TriangleCount,
 }
 
-/// Can perform y-monotone decomposition on a connectivity kernel.
-///
-/// This object holds on to the memory that was allocated during previous
-/// decompositions in order to avoid allocating during the next decompositions
-/// if possible.
-pub struct DecompositionContext;
+pub fn y_monotone_polygon_decomposition<
+    V: Position2D
+>(
+    polygon: ComplexPolygonSlice,
+    vertex_positions: VertexSlice<V>,
+    events: sweep_line::SortedEventSlice,
+    connections: &mut Connections<ComplexPointId>
+) -> Result<(), DecompositionError> {
 
-impl DecompositionContext {
-    pub fn new() -> DecompositionContext { DecompositionContext }
+    let mut sweep_line = &mut SweepLine::new();
 
-    /// Applies an y_monotone decomposition of a face in a connectivity kernel.
-    ///
-    /// This operation will add faces and edges to the connectivity kernel.
-    pub fn y_monotone_polygon_decomposition<
-        V: Position2D
-    >(
-        &mut self,
-        polygon: ComplexPolygonSlice,
-        vertex_positions: VertexSlice<V>,
-        events: sweep_line::SortedEventSlice,
-        connections: &mut Connections<ComplexPointId>
-    ) -> Result<(), DecompositionError> {
+    for &e in events.events {
+        let prev = polygon.previous(e);
+        let next = polygon.next(e);
+        let current_position = vertex_positions[polygon.vertex(e)].position();
+        let previous_position = vertex_positions[polygon.vertex(prev)].position();
+        let next_position = vertex_positions[polygon.vertex(next)].position();
+        let vertex_type = compute_event_type(previous_position, current_position, next_position);
 
-        let mut sweep_line = SweepLine::new();
+        sweep_line.set_current_position(current_position);
+        let mut edge = SweepLineEdge {
+            key: e,
+            from: current_position,
+            to: next_position,
+            helper: Some((e, vertex_type)),
+        };
 
-        for &e in events.events {
-            let prev = polygon.previous(e);
-            let next = polygon.next(e);
-            let current_position = vertex_positions[polygon.vertex(e)].position();
-            let previous_position = vertex_positions[polygon.vertex(prev)].position();
-            let next_position = vertex_positions[polygon.vertex(next)].position();
-            let vertex_type = compute_event_type(previous_position, current_position, next_position);
+        match vertex_type {
+            EventType::Start => {
+                sweep_line.add(edge);
+            }
+            EventType::End => {
+                let prev_idx = sweep_line.find(prev).unwrap();
+                connect_with_helper_if_merge_vertex(e, prev_idx, sweep_line, connections);
 
-            sweep_line.set_current_position(current_position);
-            let mut edge = SweepLineEdge {
-                key: e,
-                from: current_position,
-                to: next_position,
-                helper: Some((e, vertex_type)),
-            };
+                sweep_line.remove(prev);
+            }
+            EventType::Split => {
+                let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
 
-            match vertex_type {
-                EventType::Start => {
-                    sweep_line.add(edge);
+                if !connect_with_helper(e, right_idx, sweep_line, connections) {
+                    return Err(DecompositionError);
                 }
-                EventType::End => {
-                    let prev_idx = sweep_line.find(prev).unwrap();
-                    connect_with_helper_if_merge_vertex(e, prev_idx, &mut sweep_line, connections);
-                    sweep_line.remove(prev);
-                }
-                EventType::Split => {
-                    let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
 
-                    if let Some((helper_edge,_)) = sweep_line.get_helper(right_idx) {
-                        connections.add_connection(e, helper_edge);
-                    } else {
-                        return Err(DecompositionError);
-                    }
-                    sweep_line.set_helper(right_idx, e, vertex_type);
-                    sweep_line.add(edge);
-                }
-                EventType::Merge => {
-                    let prev_idx = sweep_line.find(prev).unwrap();
-                    connect_with_helper_if_merge_vertex(e, prev_idx, &mut sweep_line, connections);
-                    sweep_line.remove(prev);
+                sweep_line.set_helper(right_idx, e, vertex_type);
+                sweep_line.add(edge);
+            }
+            EventType::Merge => {
+                let prev_idx = sweep_line.find(prev).unwrap();
+                connect_with_helper_if_merge_vertex(e, prev_idx, sweep_line, connections);
 
-                    let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
-                    connect_with_helper_if_merge_vertex(e, right_idx, &mut sweep_line, connections);
-                    sweep_line.set_helper(right_idx, e, vertex_type);
-                }
-                EventType::Right => {
-                    let prev_idx = sweep_line.find(prev).unwrap();
-                    connect_with_helper_if_merge_vertex(e, prev_idx, &mut sweep_line, connections);
-                    sweep_line.remove(prev);
-                    sweep_line.add(edge);
-                }
-                EventType::Left => {
-                    let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
-                    connect_with_helper_if_merge_vertex(e, right_idx, &mut sweep_line, connections);
+                sweep_line.remove(prev);
 
-                    sweep_line.set_helper(right_idx, e, vertex_type);
-                }
+                let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
+                connect_with_helper_if_merge_vertex(e, right_idx, sweep_line, connections);
+
+                sweep_line.set_helper(right_idx, e, vertex_type);
+            }
+            EventType::Right => {
+                let prev_idx = sweep_line.find(prev).unwrap();
+                connect_with_helper_if_merge_vertex(e, prev_idx, sweep_line, connections);
+
+                sweep_line.remove(prev);
+                sweep_line.add(edge);
+            }
+            EventType::Left => {
+                let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
+                connect_with_helper_if_merge_vertex(e, right_idx, sweep_line, connections);
+
+                sweep_line.set_helper(right_idx, e, vertex_type);
             }
         }
-
-        return Ok(());
     }
+
+    return Ok(());
 }
 
 fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
@@ -134,6 +122,18 @@ fn connect_with_helper_if_merge_vertex(current_edge: ComplexPointId,
         //println!("      helper {:?} of {:?} is a merge vertex", h, helper_edge);
         connections.add_connection(h, current_edge);
     }
+}
+
+fn connect_with_helper(e: ComplexPointId,
+                       sl_index: usize,
+                       sl: &mut SweepLine,
+                       connections: &mut Connections<ComplexPointId>) -> bool {
+
+    if let Some((h,_)) = sl.get_helper(sl_index) {
+        connections.add_connection(e, h);
+        return true;
+    }
+    return false;
 }
 
 
@@ -407,7 +407,6 @@ impl TriangulationContext {
     }
 }
 
-
 #[cfg(test)]
 use vodk_math::{ vec2 };
 
@@ -454,7 +453,6 @@ fn test_shape(shape: &TestShape, angle: f32) {
     }
 
     let vertex_positions = VertexSlice::new(&vertices[..]);
-    let mut ctx = DecompositionContext::new();
     let mut connections = Connections::new();
 
     let mut sorted_events = sweep_line::EventVector::new();
@@ -462,7 +460,7 @@ fn test_shape(shape: &TestShape, angle: f32) {
     //let mut algo = YMonotoneDecomposition::new();
     //let res = sweep_line::apply_y_sweep(&polygon, vertex_positions, sorted_events.as_slice(), &mut algo);
 
-    let res = ctx.y_monotone_polygon_decomposition(
+    let res = y_monotone_polygon_decomposition(
         polygon.as_slice(), vertex_positions, sorted_events.as_slice(), &mut connections
     );
     assert_eq!(res, Ok(()));
