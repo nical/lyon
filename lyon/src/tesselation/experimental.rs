@@ -339,8 +339,8 @@ impl MonotoneTesselator {
         let first = MonotoneVertex { pos: pos, id: id, side: Side::Left };
 
         let mut tess = MonotoneTesselator {
-            stack: Vec::with_capacity(32),
-            triangles: Vec::with_capacity(32),
+            stack: Vec::with_capacity(16),
+            triangles: Vec::with_capacity(128),
             previous: first,
         };
 
@@ -353,41 +353,36 @@ impl MonotoneTesselator {
         let mut current = MonotoneVertex{ pos: pos, id: id, side: side };
 
         assert!(is_below(current.pos, self.previous.pos));
+        assert!(!self.stack.is_empty());
 
         let changed_side = current.side != self.previous.side;
-        let winding_fixup = current.side == Side::Right;
+        let right_side = current.side == Side::Right;
 
-        if !self.stack.is_empty() && changed_side {
+        if changed_side {
             for i in 0..(self.stack.len() - 1) {
                 let mut a = self.stack[i];
                 let mut b = self.stack[i+1];
-                let c = current;
-                if winding_fixup {
+
+                if right_side {
                     swap(&mut a, &mut b);
                 }
-                self.push_triangle(&a, &b, &c);
+
+                self.push_triangle(&a, &b, &current);
             }
             self.stack.clear();
             self.stack.push(self.previous);
-            self.stack.push(current);
         } else {
             let mut last_popped = self.stack.pop();
-            loop {
-                if self.stack.is_empty() {
-                    break;
-                }
+            while !self.stack.is_empty() {
+                let mut a = last_popped.unwrap();
+                let mut b = *self.stack.last().unwrap();
 
-                let mut a = *self.stack.last().unwrap();
-                let mut b = last_popped.unwrap();
-                let c = current;
-
-                if winding_fixup {
+                if right_side {
                     swap(&mut a, &mut b);
                 }
 
-                if (c.pos - b.pos).directed_angle(c.pos - a.pos) > PI {
-                    self.push_triangle(&a, &b, &c);
-
+                if (current.pos - b.pos).directed_angle(a.pos - b.pos) <= PI {
+                    self.push_triangle(&a, &b, &current);
                     last_popped = self.stack.pop();
                 } else {
                     break;
@@ -396,19 +391,23 @@ impl MonotoneTesselator {
             if let Some(item) = last_popped {
                 self.stack.push(item);
             }
-            self.stack.push(current);
         }
 
+        self.stack.push(current);
         self.previous = current;
     }
 
     pub fn end(&mut self, pos: Vec2, id: VertexId) {
         let side = self.previous.side.opposite();
         self.vertex(pos, id, side);
+        self.stack.clear();
     }
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
         println!(" -- triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
+
+        debug_assert!((c.pos - b.pos).directed_angle(a.pos - b.pos) <= PI);
+
         self.triangles.push(a.id.handle);
         self.triangles.push(b.id.handle);
         self.triangles.push(c.id.handle);
@@ -417,6 +416,14 @@ impl MonotoneTesselator {
 
 #[test]
 fn test_monotone_tess() {
+    println!(" ------------ ");
+    {
+        let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
+        tess.vertex(vec2(-1.0, 1.0), vertex_id(1), Side::Left);
+        tess.end(vec2(1.0, 2.0), vertex_id(2));
+        assert_eq!(tess.triangles.len(), 3);
+    }
+    println!(" ------------ ");
     {
         let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(1.0, 1.0), vertex_id(1), Side::Right);
@@ -424,10 +431,29 @@ fn test_monotone_tess() {
         tess.vertex(vec2(-1.0, 3.0), vertex_id(3), Side::Left);
         tess.vertex(vec2(1.0, 4.0), vertex_id(4), Side::Right);
         tess.end(vec2(0.0, 5.0), vertex_id(5));
+        assert_eq!(tess.triangles.len(), 12);
     }
+    println!(" ------------ ");
+    {
+        let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
+        tess.vertex(vec2(1.0, 1.0), vertex_id(1), Side::Right);
+        tess.vertex(vec2(3.0, 2.0), vertex_id(2), Side::Right);
+        tess.vertex(vec2(1.0, 3.0), vertex_id(3), Side::Right);
+        tess.vertex(vec2(1.0, 4.0), vertex_id(4), Side::Right);
+        tess.vertex(vec2(4.0, 5.0), vertex_id(5), Side::Right);
+        tess.end(vec2(0.0, 6.0), vertex_id(6));
+        assert_eq!(tess.triangles.len(), 15);
+    }
+    println!(" ------------ ");
     {
         let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(-1.0, 1.0), vertex_id(1), Side::Left);
-        tess.end(vec2(1.0, 2.0), vertex_id(2));
+        tess.vertex(vec2(-3.0, 2.0), vertex_id(2), Side::Left);
+        tess.vertex(vec2(-1.0, 3.0), vertex_id(3), Side::Left);
+        tess.vertex(vec2(-1.0, 4.0), vertex_id(4), Side::Left);
+        tess.vertex(vec2(-4.0, 5.0), vertex_id(5), Side::Left);
+        tess.end(vec2(0.0, 6.0), vertex_id(6));
+        assert_eq!(tess.triangles.len(), 15);
     }
+    println!(" ------------ ");
 }
