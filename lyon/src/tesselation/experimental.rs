@@ -101,6 +101,10 @@ struct Edge {
     lower: Option<ComplexVertexId>,
 }
 
+impl Edge {
+    fn has_merge_vertex(&self) -> bool { self.lower.is_none() }
+}
+
 struct Span {
     left: Edge,
     right: Edge,
@@ -122,14 +126,11 @@ impl Span {
     ) {
         self.set_upper_vertex(pos, id, side);
         self.set_lower_vertex(next_pos, next_id, side);
-        //self._vertex(pos, id, Some((next_pos, next_id)), side);
     }
 
     fn merge_vertex(&mut self, pos: Vec2, id: ComplexVertexId, side: Side) {
         self.set_upper_vertex(pos, id, side);
         self.set_no_lower_vertex(side);
-
-        //self._vertex(pos, id, None, side);
     }
 
     fn set_upper_vertex(&mut self, pos: Vec2, id: ComplexVertexId, side: Side) {
@@ -171,36 +172,6 @@ impl Span {
             Side::Right => { &mut self.right }
         };
     }
-
-    fn is_merge_vertex(&self, side: Side) -> bool { self.edge(side).lower.is_none() }
-
-//    fn _vertex(&mut self,
-//        pos: Vec2, id: ComplexVertexId,
-//        next: Option<(Vec2, ComplexVertexId)>,
-//        side: Side
-//    ) {
-//        let mut edge = match side {
-//            Side::Left => { &mut self.left }
-//            Side::Right => { &mut self.right }
-//        };
-//
-//        if let Some(n) = edge.lower {
-//            assert_eq!(n, id);
-//        }
-//
-//        edge.upper = id;
-//        edge.upper_position = pos;
-//
-//        if let Some((next_pos, next_id)) = next {
-//            edge.lower = Some(next_id);
-//            edge.lower_position = next_pos;
-//        } else {
-//            edge.lower = None;
-//        }
-//
-//        self.monotone_tesselator.vertex(pos, id.vertex_id, side);
-//    }
-
 
     fn end(&mut self,
         pos: Vec2, id: ComplexVertexId,
@@ -248,188 +219,20 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 
         return Err(());
     }
+
     fn on_event(&mut self, event: &Event) -> Result<(), ()> {
         println!(" ------ Event {:?}", event.current);
-        let (x, y) = event.current_position.tuple();
         let base_evt_type = compute_base_event_type(
             event.previous_position, event.current_position, event.next_position
         );
 
         match base_evt_type {
-            BaseEventType::Regular => {
-                let (span_index, side) = self.find_span_regular(event);
-
-                let next_below = is_below(event.next_position, event.current_position);
-                let (next, next_pos) = if next_below { (event.next, event.next_position) }
-                                       else { (event.previous, event.previous_position) };
-
-                if side == Side::Left {
-                    println!(" ++++++ Left event {}", event.current.vertex_id.handle);
-
-                    if self.sweep_line.spans[span_index].right.lower.is_none() {
-                        //     \ /
-                        //  \   x   <-- merge vertex
-                        //   \ :
-                        // ll x   <-- current vertex
-                        //     \r
-                        self.sweep_line.spans[span_index+1].set_lower_vertex(event.current_position, event.current, Side::Left);
-                        self.sweep_line.spans[span_index].end(event.current_position, event.current);
-                        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
-                        self.sweep_line.spans.remove(span_index);
-                    }
-
-                } else {
-                    println!(" ++++++ Right event {}", event.current.vertex_id.handle);
-                }
-
-                self.sweep_line.spans[span_index].vertex(
-                    event.current_position, event.current,
-                    next_pos, next,
-                    side
-                );
-            }
-            BaseEventType::Up => {
-                let (span_index, is_inside) = self.find_span_up(event);
-
-                let mut l = Edge {
-                    upper: event.current,
-                    lower: Some(event.previous),
-                    upper_position: event.current_position,
-                    lower_position: event.previous_position,
-                };
-                let mut r = Edge {
-                    upper: event.current,
-                    lower: Some(event.next),
-                    upper_position: event.current_position,
-                    lower_position: event.next_position,
-                };
-
-                let angle = (event.previous_position - event.current_position).directed_angle(
-                    event.next_position - event.current_position
-                );
-
-                if angle < PI {
-                    swap(&mut l, &mut r);
-                }
-
-                if is_inside {
-                    // Split event.
-                    println!(" ++++++ Split event {}", event.current.vertex_id.handle);
-                    //println!("left {:?} | right {:?}", l.lower.unwrap().vertex_id.handle, r.lower.unwrap().vertex_id.handle);
-
-
-                    // look whether the span shares a merge vertex with the previous one
-                    if self.sweep_line.spans[span_index].left.lower.is_none() {
-                        let left_span = span_index-1;
-                        let right_span = span_index;
-                        //            \ /
-                        //             x   <-- merge vertex
-                        //  left_span  :  righ_span
-                        //             x   <-- current split vertex
-                        //           l/ \r
-                        self.sweep_line.spans[left_span].vertex(
-                            event.current_position, event.current,
-                            l.lower_position, l.lower.unwrap(),
-                            Side::Right,
-                        );
-                        self.sweep_line.spans[right_span].vertex(
-                            event.current_position, event.current,
-                            r.lower_position, r.lower.unwrap(),
-                            Side::Left,
-                        );
-                    } else {
-                        //      /
-                        //     x
-                        //    / :r2
-                        // ll/   x   <-- current split vertex
-                        //     l/ \r
-                        let ll = self.sweep_line.spans[span_index].left;
-                        let r2 = Edge {
-                            upper: ll.upper,
-                            upper_position: ll.upper_position,
-                            lower: Some(event.current),
-                            lower_position: event.current_position,
-                        };
-                        self.sweep_line.spans.insert(span_index, Span::begin(ll, r2));
-                        self.sweep_line.spans[span_index].vertex(
-                            event.current_position, event.current,
-                            l.lower_position, l.lower.unwrap(),
-                            Side::Right,
-                        );
-                        self.sweep_line.spans[span_index+1].vertex(
-                            event.current_position, event.current,
-                            r.lower_position, r.lower.unwrap(),
-                            Side::Left,
-                        );
-                    }
-                } else {
-                    println!(" ++++++ Start event {}", event.current.vertex_id.handle);
-                    // Start event.
-
-                    self.sweep_line.spans.insert(span_index, Span::begin(l, r));
-                }
-            }
-            BaseEventType::Down => {
-                let (span_index, is_end) = self.find_span_down(event);
-
-                assert!(span_index < self.sweep_line.spans.len());
-
-                if is_end {
-                    // End event
-                    println!(" ++++++ End event {}", event.current.vertex_id.handle);
-
-                    if self.sweep_line.spans[span_index].right.lower.is_none() {
-                        //   \ /
-                        //  \ x   <-- merge vertex
-                        //   \:/
-                        //    x   <-- current vertex
-                        self.sweep_line.spans[span_index].end(event.current_position, event.current);
-                        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
-                        self.sweep_line.spans.remove(span_index);
-                    }
-
-                    self.sweep_line.spans[span_index].end(event.current_position, event.current);
-                    self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
-                    self.sweep_line.spans.remove(span_index);
-                } else {
-                    // Merge event
-                    println!(" ++++++ Merge event {}", event.current.vertex_id.handle);
-                    assert!(span_index < self.sweep_line.spans.len()-1);
-
-                    // TODO: do we actually need this one?
-                    if self.sweep_line.spans[span_index].left.lower.is_none() {
-                        //  \ / \
-                        //   x-. \ /  <-- merge vertex
-                        //      '-x    <-- current merge vertex
-                        self.sweep_line.spans[span_index-1].set_lower_vertex(event.current_position, event.current, Side::Right);
-                        self.sweep_line.spans[span_index].end(event.current_position, event.current);
-                        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
-                        self.sweep_line.spans.remove(span_index);
-                    }
-
-                    if self.sweep_line.spans[span_index].right.lower.is_none() {
-                        //     / \ /
-                        //  \ / .-x    <-- merge vertex
-                        //   x-'      <-- current merge vertex
-                        self.sweep_line.spans[span_index+1].end(event.current_position, event.current);
-                        self.sweep_line.spans[span_index+1].monotone_tesselator.flush(self.output);
-                        self.sweep_line.spans[span_index+2].set_lower_vertex(event.current_position, event.current, Side::Left);
-                        self.sweep_line.spans.remove(span_index+1);
-                    }
-
-                    debug_assert!(self.sweep_line.spans[span_index+1].left.lower == Some(event.current));
-
-                    self.sweep_line.spans[span_index].merge_vertex(
-                        event.current_position, event.current, Side::Right
-                    );
-                    self.sweep_line.spans[span_index+1].merge_vertex(
-                        event.current_position, event.current, Side::Left
-                    );
-                }
-            }
+            BaseEventType::Regular => { self.on_regular_event(event); }
+            BaseEventType::Down => { self.on_down_event(event); }
+            BaseEventType::Up => { self.on_up_event(event); }
         }
 
-        return Err(());
+        return Ok(());
     }
 
     fn find_span_regular(&self, event: &Event) -> (usize, Side) {
@@ -445,6 +248,151 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         // unreachable
         panic!();
     }
+
+    fn on_regular_event(&mut self, event: &Event) {
+        let (span_index, side) = self.find_span_regular(event);
+
+        let next_below = is_below(event.next_position, event.current_position);
+        let (next, next_pos) = if next_below { (event.next, event.next_position) }
+                               else { (event.previous, event.previous_position) };
+
+        if side == Side::Left {
+            println!(" ++++++ Left event {}", event.current.vertex_id.handle);
+
+            if self.sweep_line.spans[span_index].right.has_merge_vertex() {
+                //     \ /
+                //  \   x   <-- merge vertex
+                //   \ :
+                // ll x   <-- current vertex
+                //     \r
+                self.sweep_line.spans[span_index+1].set_lower_vertex(event.current_position, event.current, Side::Left);
+                self.end_span(span_index, event);
+            }
+
+        } else {
+            println!(" ++++++ Right event {}", event.current.vertex_id.handle);
+        }
+
+        self.sweep_line.spans[span_index].vertex(
+            event.current_position, event.current,
+            next_pos, next,
+            side
+        );
+    }
+
+    fn on_split_event(&mut self, event: &Event, span_index: usize, l: &Edge, r: &Edge) {
+        println!(" ++++++ Split event {}", event.current.vertex_id.handle);
+        //println!("left {:?} | right {:?}", l.lower.unwrap().vertex_id.handle, r.lower.unwrap().vertex_id.handle);
+
+        // look whether the span shares a merge vertex with the previous one
+        if self.sweep_line.spans[span_index].left.has_merge_vertex() {
+            let left_span = span_index-1;
+            let right_span = span_index;
+            //            \ /
+            //             x   <-- merge vertex
+            //  left_span  :  righ_span
+            //             x   <-- current split vertex
+            //           l/ \r
+            self.sweep_line.spans[left_span].vertex(
+                event.current_position, event.current,
+                l.lower_position, l.lower.unwrap(),
+                Side::Right,
+            );
+            self.sweep_line.spans[right_span].vertex(
+                event.current_position, event.current,
+                r.lower_position, r.lower.unwrap(),
+                Side::Left,
+            );
+        } else {
+            //      /
+            //     x
+            //    / :r2
+            // ll/   x   <-- current split vertex
+            //     l/ \r
+            let ll = self.sweep_line.spans[span_index].left;
+            let r2 = Edge {
+                upper: ll.upper,
+                upper_position: ll.upper_position,
+                lower: Some(event.current),
+                lower_position: event.current_position,
+            };
+            self.sweep_line.spans.insert(span_index, Span::begin(ll, r2));
+            self.sweep_line.spans[span_index].vertex(
+                event.current_position, event.current,
+                l.lower_position, l.lower.unwrap(),
+                Side::Right,
+            );
+            self.sweep_line.spans[span_index+1].vertex(
+                event.current_position, event.current,
+                r.lower_position, r.lower.unwrap(),
+                Side::Left,
+            );
+        }
+    }
+
+    fn find_span_up(&self, event: &Event) -> (usize, bool) {
+        let (x, y) = event.current_position.tuple();
+        let mut span_index = 0;
+        for span in &self.sweep_line.spans {
+            if span.left.lower.is_some() {
+                let lx = intersect_segment_with_horizontal(
+                    span.left.upper_position,
+                    span.left.lower_position,
+                    y
+                );
+                if lx > x {
+                    return (span_index, false); // outside
+                }
+            }
+            if span.right.lower.is_some() {
+                let rx = intersect_segment_with_horizontal(
+                    span.right.upper_position,
+                    span.right.lower_position,
+                    y
+                );
+                if rx > x {
+                    return (span_index, true); // inside
+                }
+            }
+            span_index += 1;
+        }
+
+        return (span_index, false);
+    }
+
+    fn on_up_event(&mut self, event: &Event) {
+        let (span_index, is_inside) = self.find_span_up(event);
+
+        let mut l = Edge {
+            upper: event.current,
+            lower: Some(event.previous),
+            upper_position: event.current_position,
+            lower_position: event.previous_position,
+        };
+        let mut r = Edge {
+            upper: event.current,
+            lower: Some(event.next),
+            upper_position: event.current_position,
+            lower_position: event.next_position,
+        };
+
+        let angle = (event.previous_position - event.current_position).directed_angle(
+            event.next_position - event.current_position
+        );
+
+        if angle < PI {
+            swap(&mut l, &mut r);
+        }
+
+        if is_inside {
+            self.on_split_event(event, span_index, &l, &r)
+        } else {
+            println!(" ++++++ Start event {}", event.current.vertex_id.handle);
+            // Start event.
+            self.sweep_line.spans.insert(span_index, Span::begin(l, r));
+        }
+    }
+
 
     fn find_span_down(&self, event: &Event) -> (usize, bool) {
         let mut span_index = 0;
@@ -467,39 +415,71 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         panic!();
     }
 
-    fn find_span_up(&self, event: &Event) -> (usize, bool) {
-        let (x, y) = event.current_position.tuple();
-        let mut span_index = 0;
-        for span in &self.sweep_line.spans {
-            if span.left.lower.is_some() {
-                let lx = intersect_segment_with_horizontal(
-                    span.left.upper_position,
-                    span.left.lower_position,
-                    y
-                );
-                if lx > x {
-                    return (span_index, false);
-                }
-            }
-            if span.right.lower.is_some() {
-                let rx = intersect_segment_with_horizontal(
-                    span.right.upper_position,
-                    span.right.lower_position,
-                    y
-                );
-                if rx > x {
-                    return (span_index, true); // inside
-                }
-            }
-            span_index += 1;
+    fn on_down_event(&mut self, event: &Event) {
+        let (span_index, is_end) = self.find_span_down(event);
+
+        assert!(span_index < self.sweep_line.spans.len());
+
+        if is_end {
+            self.on_end_event(event, span_index);
+        } else {
+            self.on_merge_event(event, span_index);
+        }
+    }
+
+    fn on_end_event(&mut self, event: &Event, span_index: usize) {
+        println!(" ++++++ End event {}", event.current.vertex_id.handle);
+
+        if self.sweep_line.spans[span_index].right.has_merge_vertex() {
+            //   \ /
+            //  \ x   <-- merge vertex
+            //   \:/
+            //    x   <-- current vertex
+            self.end_span(span_index, event);
         }
 
-        return (span_index, false);
+        self.end_span(span_index, event);
+    }
+
+    fn on_merge_event(&mut self, event: &Event, span_index: usize) {
+        println!(" ++++++ Merge event {}", event.current.vertex_id.handle);
+        assert!(span_index < self.sweep_line.spans.len()-1);
+
+        // TODO: do we actually need this one?
+        //if self.sweep_line.spans[span_index].left.has_merge_vertex() {
+        //    //  \ / \
+        //    //   x-. \ /  <-- merge vertex
+        //    //      '-x    <-- current merge vertex
+        //    self.sweep_line.spans[span_index-1].set_lower_vertex(event.current_position, event.current, Side::Right);
+        //    self.end_span(span_index+1, event);
+        //}
+
+        if self.sweep_line.spans[span_index].right.has_merge_vertex() {
+            //     / \ /
+            //  \ / .-x    <-- merge vertex
+            //   x-'      <-- current merge vertex
+            self.sweep_line.spans[span_index+2].set_lower_vertex(event.current_position, event.current, Side::Left);
+            self.end_span(span_index+1, event);
+        }
+
+        debug_assert!(self.sweep_line.spans[span_index+1].left.lower == Some(event.current));
+
+        self.sweep_line.spans[span_index].merge_vertex(
+            event.current_position, event.current, Side::Right
+        );
+        self.sweep_line.spans[span_index+1].merge_vertex(
+            event.current_position, event.current, Side::Left
+        );
+    }
+
+    fn end_span(&mut self, span_index: usize, event: &Event) {
+        self.sweep_line.spans[span_index].end(event.current_position, event.current);
+        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
+        self.sweep_line.spans.remove(span_index);
     }
 }
 
 pub fn compute_base_event_type(prev: Vec2, current: Vec2, next: Vec2) -> BaseEventType {
-    println!(" compute base evt type prev[{} {}] current[{} {}] next[{} {}]", prev.x, prev.y, current.x, current.y, next.x, next.y);
     let interrior_angle = (prev - current).directed_angle(next - current);
 
     let below_prev = is_below(current, prev);
