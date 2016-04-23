@@ -711,6 +711,21 @@ fn test_tesselator_simple_merge_split() {
 }
 
 #[test]
+fn test_tesselator_simple_aligned() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(1.0, 0.0))
+        .line_to(vec2(2.0, 0.0))
+        .line_to(vec2(2.0, 1.0))
+        .line_to(vec2(2.0, 2.0))
+        .line_to(vec2(1.0, 2.0))
+        .line_to(vec2(0.0, 2.0))
+        .line_to(vec2(0.0, 1.0))
+        .close();
+    test_path_with_rotations(path, 6);
+}
+
+#[test]
 fn test_tesselator_simple_1() {
     let mut path = ComplexPath::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
