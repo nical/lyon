@@ -347,7 +347,7 @@ impl<'l> PathBuilder<'l> {
         let offset = self.offset as usize;
         let last = self.path.vertices.len() - 1;
         // If the first and last vertices are the same, remove the last vertex.
-        let last = if self.path.vertices[last].position.fuzzy_eq(self.path.vertices[offset].position) {
+        let last = if last > 0 && self.path.vertices[last].position.fuzzy_eq(self.path.vertices[offset].position) {
             self.path.vertices.pop();
             closed = true;
             last - 1

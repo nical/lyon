@@ -1,15 +1,14 @@
 use std::f32::consts::PI;
-use std::cmp::{Ordering, PartialOrd};
+use std::cmp::{ Ordering };
 use std::mem::swap;
 
-use tesselation::{ vertex_id, VertexId, VertexSlice };
+use tesselation::{ vertex_id, VertexId };
 use tesselation::path::*;
 use tesselation::vectors::Position2D;
-use tesselation::sweep_line::{ EventType, is_below, intersect_segment_with_horizontal };
-use tesselation::vertex_builder::{ VertexBufferBuilder };
-use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
+use tesselation::sweep_line::{ is_below, intersect_segment_with_horizontal };
+use tesselation::vertex_builder::{ VertexBufferBuilder, VertexBuffers, simple_vertex_builder };
 
-use vodk_math::{ Vector2D, Vec2, vec2 };
+use vodk_math::{ Vec2, vec2 };
 
 pub struct Event {
     pub current_position: Vec2,
@@ -201,8 +200,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
     }
 
-    pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) -> Result<(), ()>{
-
+    pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) {
         for &e in sorted_events.events {
             let p = self.path.previous(e);
             let n = self.path.next(e);
@@ -216,11 +214,9 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             };
             self.on_event(&evt);
         }
-
-        return Err(());
     }
 
-    fn on_event(&mut self, event: &Event) -> Result<(), ()> {
+    fn on_event(&mut self, event: &Event) {
         println!(" ------ Event {:?}", event.current);
         let base_evt_type = compute_base_event_type(
             event.previous_position, event.current_position, event.next_position
@@ -231,8 +227,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             BaseEventType::Down => { self.on_down_event(event); }
             BaseEventType::Up => { self.on_up_event(event); }
         }
-
-        return Ok(());
     }
 
     fn find_span_regular(&self, event: &Event) -> (usize, Side) {
@@ -480,8 +474,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 }
 
 pub fn compute_base_event_type(prev: Vec2, current: Vec2, next: Vec2) -> BaseEventType {
-    let interrior_angle = (prev - current).directed_angle(next - current);
-
     let below_prev = is_below(current, prev);
     let below_next = is_below(current, next);
 
@@ -527,7 +519,7 @@ impl MonotoneTesselator {
     }
 
     pub fn vertex(&mut self, pos: Vec2, id: VertexId, side: Side) {
-        let mut current = MonotoneVertex{ pos: pos, id: id, side: side };
+        let current = MonotoneVertex{ pos: pos, id: id, side: side };
 
         assert!(is_below(current.pos, self.previous.pos));
         assert!(!self.stack.is_empty());
@@ -640,6 +632,23 @@ fn test_monotone_tess() {
     println!(" ------------ ");
 }
 
+pub fn tesselate_fill<'l, Output: VertexBufferBuilder<Vec2>>(
+    path: ComplexPathSlice<'l>,
+    output: &mut Output
+) -> Result<(), ()> {
+    output.begin_geometry();
+
+    for v in path.vertices().as_slice() {
+        output.push_vertex(v.position());
+    }
+
+    let events = EventVector::from_path(path);
+    let mut tess = Tesselator::new(path, output);
+    tess.tesselate(events.as_slice());
+
+    return Ok(());
+}
+
 #[cfg(test)]
 fn test_path(path: ComplexPathSlice, expected_triangle_count: usize) {
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
@@ -653,7 +662,7 @@ fn test_path(path: ComplexPathSlice, expected_triangle_count: usize) {
 }
 
 #[cfg(test)]
-fn test_path_with_rotations(mut path: ComplexPath, expected_triangle_count: usize) {
+fn test_path_with_rotations(path: ComplexPath, expected_triangle_count: usize) {
     let mut angle = 0.0;
 
     while angle < PI * 2.0 {
@@ -768,6 +777,23 @@ fn test_tesselator_hole_1() {
         .line_to(vec2(0.0, -2.0))
         .line_to(vec2(4.0, 2.0))
         .close();
-
     test_path_with_rotations(path, 6);
+}
+
+#[test]
+fn test_tesselator_degenerate_empty() {
+    test_path_with_rotations(ComplexPath::new(), 0);
+}
+
+#[test]
+fn test_tesselator_degenerate_same_position() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(0.0, 0.0))
+        .line_to(vec2(0.0, 0.0))
+        .line_to(vec2(0.0, 0.0))
+        .line_to(vec2(0.0, 0.0))
+        .line_to(vec2(0.0, 0.0))
+        .close();
+    test_path_with_rotations(path, 0);
 }
