@@ -65,15 +65,17 @@ pub fn y_monotone_polygon_decomposition<
         };
 
         match vertex_type {
-            EventType::Start => {
-                sweep_line.add(edge);
-            }
-            EventType::End => {
+            // having an egde on the right side
+            EventType::End | EventType::Merge | EventType::Right => {
                 let prev_idx = sweep_line.find(prev).unwrap();
                 connect_with_helper_if_merge_vertex(e, prev_idx, sweep_line, connections);
-
-                sweep_line.remove(prev);
             }
+            _ => {}
+        }
+
+        match vertex_type {
+            EventType::Start => { sweep_line.add(edge); }
+            EventType::End => { sweep_line.remove(prev); }
             EventType::Split => {
                 let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
 
@@ -85,9 +87,6 @@ pub fn y_monotone_polygon_decomposition<
                 sweep_line.add(edge);
             }
             EventType::Merge => {
-                let prev_idx = sweep_line.find(prev).unwrap();
-                connect_with_helper_if_merge_vertex(e, prev_idx, sweep_line, connections);
-
                 sweep_line.remove(prev);
 
                 let right_idx = sweep_line.find_index_right_of_current_position().unwrap();
@@ -96,9 +95,6 @@ pub fn y_monotone_polygon_decomposition<
                 sweep_line.set_helper(right_idx, e, vertex_type);
             }
             EventType::Right => {
-                let prev_idx = sweep_line.find(prev).unwrap();
-                connect_with_helper_if_merge_vertex(e, prev_idx, sweep_line, connections);
-
                 sweep_line.remove(prev);
                 sweep_line.add(edge);
             }

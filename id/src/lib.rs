@@ -6,7 +6,7 @@ mod id_vector;
 pub mod sparse_id_vector;
 pub mod id_list;
 
-pub use id_vector::{ IdSlice, IdVector };
+pub use id_vector::{ IdSlice, MutIdSlice, IdVector };
 
 // --------------------------------------------------------------------------------------------- Id
 

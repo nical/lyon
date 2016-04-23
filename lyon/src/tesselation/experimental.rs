@@ -6,6 +6,8 @@ use tesselation::{ vertex_id, VertexId, VertexSlice };
 use tesselation::path::*;
 use tesselation::vectors::Position2D;
 use tesselation::sweep_line::{ EventType, is_below, intersect_segment_with_horizontal };
+use tesselation::vertex_builder::{ VertexBufferBuilder };
+use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 
 use vodk_math::{ Vector2D, Vec2, vec2 };
 
@@ -51,7 +53,7 @@ impl EventVector {
         for sub_path in path.path_ids() {
             self.events.extend(path.vertex_ids(sub_path));
         }
-        debug_assert!(self.events.len() == path.vertices().len());
+        debug_assert_eq!(self.events.len(), path.vertices().len());
 
         self.events.sort_by(|a, b| {
             let va = path.vertex(*a).position();
@@ -79,11 +81,6 @@ pub enum BaseEventType {
     Down,
 }
 
-pub struct Tesselator<'l> {
-    path: ComplexPathSlice<'l>,
-    sweep_line: SweepLine,
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Side { Left, Right }
 
@@ -107,37 +104,108 @@ struct Edge {
 struct Span {
     left: Edge,
     right: Edge,
-    last_side: Option<Side>,
-    helper: Option<(ComplexVertexId, EventType)>,
-    montone_tesselator: MonotoneTesselator,
+    monotone_tesselator: MonotoneTesselator,
 }
 
 impl Span {
     fn begin(l: Edge, r: Edge) -> Span {
         Span {
-            left: l, right: r, last_side: None,
-            helper: Some((l.upper, EventType::Start)),
-            montone_tesselator: MonotoneTesselator::begin(l.upper_position, l.upper.vertex_id),
+            left: l, right: r,
+            monotone_tesselator: MonotoneTesselator::begin(l.upper_position, l.upper.vertex_id),
         }
     }
 
-    fn vertex(&mut self, pos: Vec2, id: ComplexVertexId, side: Side) {
-        let mut e = match side {
+    fn vertex(&mut self,
+        pos: Vec2, id: ComplexVertexId,
+        next_pos: Vec2, next_id: ComplexVertexId,
+        side: Side
+    ) {
+        self.set_upper_vertex(pos, id, side);
+        self.set_lower_vertex(next_pos, next_id, side);
+        //self._vertex(pos, id, Some((next_pos, next_id)), side);
+    }
+
+    fn merge_vertex(&mut self, pos: Vec2, id: ComplexVertexId, side: Side) {
+        self.set_upper_vertex(pos, id, side);
+        self.set_no_lower_vertex(side);
+
+        //self._vertex(pos, id, None, side);
+    }
+
+    fn set_upper_vertex(&mut self, pos: Vec2, id: ComplexVertexId, side: Side) {
+        {
+            let mut edge = self.mut_edge(side);
+
+            //if let Some(n) = edge.lower {
+            //    assert_eq!(n, id);
+            //}
+
+            edge.upper = id;
+            edge.upper_position = pos;
+        }
+
+        self.monotone_tesselator.vertex(pos, id.vertex_id, side);
+    }
+
+    fn set_lower_vertex(&mut self, pos: Vec2, id: ComplexVertexId, side: Side) {
+       let mut edge = self.mut_edge(side);
+
+        edge.lower = Some(id);
+        edge.lower_position = pos;
+    }
+
+    fn set_no_lower_vertex(&mut self, side: Side) {
+        self.mut_edge(side).lower = None;
+    }
+
+    fn edge(&self, side: Side) -> &Edge {
+        return match side {
+            Side::Left => { &self.left }
+            Side::Right => { &self.right }
+        };
+    }
+
+    fn mut_edge(&mut self, side: Side) -> &mut Edge {
+        return match side {
             Side::Left => { &mut self.left }
             Side::Right => { &mut self.right }
         };
-
-        e.upper = e.lower.unwrap();
-        e.upper_position = e.lower_position;
-        e.lower = Some(id);
-        e.lower_position = pos;
-        self.last_side = Some(Side::Left);
-
-        self.montone_tesselator.vertex(pos, id.vertex_id, side);
     }
 
-    fn end(&mut self, pos: Vec2, id: ComplexVertexId) {
-        self.montone_tesselator.end(pos, id.vertex_id);
+    fn is_merge_vertex(&self, side: Side) -> bool { self.edge(side).lower.is_none() }
+
+//    fn _vertex(&mut self,
+//        pos: Vec2, id: ComplexVertexId,
+//        next: Option<(Vec2, ComplexVertexId)>,
+//        side: Side
+//    ) {
+//        let mut edge = match side {
+//            Side::Left => { &mut self.left }
+//            Side::Right => { &mut self.right }
+//        };
+//
+//        if let Some(n) = edge.lower {
+//            assert_eq!(n, id);
+//        }
+//
+//        edge.upper = id;
+//        edge.upper_position = pos;
+//
+//        if let Some((next_pos, next_id)) = next {
+//            edge.lower = Some(next_id);
+//            edge.lower_position = next_pos;
+//        } else {
+//            edge.lower = None;
+//        }
+//
+//        self.monotone_tesselator.vertex(pos, id.vertex_id, side);
+//    }
+
+
+    fn end(&mut self,
+        pos: Vec2, id: ComplexVertexId,
+    ) {
+        self.monotone_tesselator.end(pos, id.vertex_id);
     }
 }
 
@@ -145,13 +213,20 @@ struct SweepLine {
     spans: Vec<Span>
 }
 
-impl<'l> Tesselator<'l> {
-    pub fn new(path: ComplexPathSlice<'l>) -> Tesselator<'l> {
+pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
+    path: ComplexPathSlice<'l>,
+    sweep_line: SweepLine,
+    output: &'l mut Output,
+}
+
+impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
+    pub fn new(path: ComplexPathSlice<'l>, output: &'l mut Output) -> Tesselator<'l, Output> {
         Tesselator {
             path: path,
             sweep_line: SweepLine {
                 spans: Vec::with_capacity(16),
             },
+            output: output,
         }
     }
 
@@ -173,56 +248,48 @@ impl<'l> Tesselator<'l> {
 
         return Err(());
     }
-
     fn on_event(&mut self, event: &Event) -> Result<(), ()> {
+        println!(" ------ Event {:?}", event.current);
         let (x, y) = event.current_position.tuple();
         let base_evt_type = compute_base_event_type(
             event.previous_position, event.current_position, event.next_position
         );
 
-        let angle = (event.previous_position - event.current_position).directed_angle(
-            event.next_position - event.current_position
-        );
-
         match base_evt_type {
             BaseEventType::Regular => {
+                let (span_index, side) = self.find_span_regular(event);
+
                 let next_below = is_below(event.next_position, event.current_position);
-                for mut span in &mut self.sweep_line.spans {
-
-                    let side = if span.left.lower == Some(event.current) { Side::Left }
-                               else if span.right.lower == Some(event.current) { Side::Right }
-                               else { continue; };
-
-                    let (point, pos) = if next_below { (event.next, event.next_position) }
+                let (next, next_pos) = if next_below { (event.next, event.next_position) }
                                        else { (event.previous, event.previous_position) };
 
-                    span.vertex(pos, point, side);
+                if side == Side::Left {
+                    println!(" ++++++ Left event {}", event.current.vertex_id.handle);
+
+                    if self.sweep_line.spans[span_index].right.lower.is_none() {
+                        //     \ /
+                        //  \   x   <-- merge vertex
+                        //   \ :
+                        // ll x   <-- current vertex
+                        //     \r
+                        self.sweep_line.spans[span_index+1].set_lower_vertex(event.current_position, event.current, Side::Left);
+                        self.sweep_line.spans[span_index].end(event.current_position, event.current);
+                        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
+                        self.sweep_line.spans.remove(span_index);
+                    }
+
+                } else {
+                    println!(" ++++++ Right event {}", event.current.vertex_id.handle);
                 }
+
+                self.sweep_line.spans[span_index].vertex(
+                    event.current_position, event.current,
+                    next_pos, next,
+                    side
+                );
             }
             BaseEventType::Up => {
-                let mut inside = false;
-                let mut span_index = 0;
-                for span in &self.sweep_line.spans {
-                    let lx = intersect_segment_with_horizontal(
-                        span.left.upper_position,
-                        span.left.lower_position,
-                        y
-                    );
-                    if lx > x {
-                        // inside = false
-                        break;
-                    }
-                    let rx = intersect_segment_with_horizontal(
-                        span.right.upper_position,
-                        span.right.lower_position,
-                        y
-                    );
-                    if rx > x {
-                        inside = true;
-                        break;
-                    }
-                    span_index += 1;
-                }
+                let (span_index, is_inside) = self.find_span_up(event);
 
                 let mut l = Edge {
                     upper: event.current,
@@ -237,54 +304,127 @@ impl<'l> Tesselator<'l> {
                     lower_position: event.next_position,
                 };
 
-                if angle < PI / 2.0 {
+                let angle = (event.previous_position - event.current_position).directed_angle(
+                    event.next_position - event.current_position
+                );
+
+                if angle < PI {
                     swap(&mut l, &mut r);
                 }
 
-                if inside {
+                if is_inside {
                     // Split event.
+                    println!(" ++++++ Split event {}", event.current.vertex_id.handle);
+                    //println!("left {:?} | right {:?}", l.lower.unwrap().vertex_id.handle, r.lower.unwrap().vertex_id.handle);
 
-                    // TODO: connect something
 
-                    // |     :     |
-                    // |    / \    |
-                    // ll  l   r  rr
-                    let mut rr = self.sweep_line.spans[span_index].right;
-
-                    self.sweep_line.spans[span_index+1].right = l;
-
-                    // TODO: that's a bit more complicated.
-                    //
-                    //   |    \ /    |
-                    //   |     :     |
-                    //   |    / \    |
-                    //
-                    // In the above case we don't insert a new span
+                    // look whether the span shares a merge vertex with the previous one
+                    if self.sweep_line.spans[span_index].left.lower.is_none() {
+                        let left_span = span_index-1;
+                        let right_span = span_index;
+                        //            \ /
+                        //             x   <-- merge vertex
+                        //  left_span  :  righ_span
+                        //             x   <-- current split vertex
+                        //           l/ \r
+                        self.sweep_line.spans[left_span].vertex(
+                            event.current_position, event.current,
+                            l.lower_position, l.lower.unwrap(),
+                            Side::Right,
+                        );
+                        self.sweep_line.spans[right_span].vertex(
+                            event.current_position, event.current,
+                            r.lower_position, r.lower.unwrap(),
+                            Side::Left,
+                        );
+                    } else {
+                        //      /
+                        //     x
+                        //    / :r2
+                        // ll/   x   <-- current split vertex
+                        //     l/ \r
+                        let ll = self.sweep_line.spans[span_index].left;
+                        let r2 = Edge {
+                            upper: ll.upper,
+                            upper_position: ll.upper_position,
+                            lower: Some(event.current),
+                            lower_position: event.current_position,
+                        };
+                        self.sweep_line.spans.insert(span_index, Span::begin(ll, r2));
+                        self.sweep_line.spans[span_index].vertex(
+                            event.current_position, event.current,
+                            l.lower_position, l.lower.unwrap(),
+                            Side::Right,
+                        );
+                        self.sweep_line.spans[span_index+1].vertex(
+                            event.current_position, event.current,
+                            r.lower_position, r.lower.unwrap(),
+                            Side::Left,
+                        );
+                    }
                 } else {
+                    println!(" ++++++ Start event {}", event.current.vertex_id.handle);
                     // Start event.
 
                     self.sweep_line.spans.insert(span_index, Span::begin(l, r));
                 }
             }
             BaseEventType::Down => {
-                let mut is_end = false;
-                let mut index = 0;
-                // look for the two edges in the sweep line that contain event.current
-                // if they are both on the same span -> end event else -> merge
-                for span in &mut self.sweep_line.spans {
-                    if span.right.lower == Some(event.current) {
-                        is_end = span.left.lower == Some(event.current);
-                        break;
-                    }
-                    index += 1;
-                }
+                let (span_index, is_end) = self.find_span_down(event);
+
+                assert!(span_index < self.sweep_line.spans.len());
 
                 if is_end {
                     // End event
-                    self.sweep_line.spans[index].end(event.current_position, event.current);
-                    self.sweep_line.spans.remove(index);
+                    println!(" ++++++ End event {}", event.current.vertex_id.handle);
+
+                    if self.sweep_line.spans[span_index].right.lower.is_none() {
+                        //   \ /
+                        //  \ x   <-- merge vertex
+                        //   \:/
+                        //    x   <-- current vertex
+                        self.sweep_line.spans[span_index].end(event.current_position, event.current);
+                        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
+                        self.sweep_line.spans.remove(span_index);
+                    }
+
+                    self.sweep_line.spans[span_index].end(event.current_position, event.current);
+                    self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
+                    self.sweep_line.spans.remove(span_index);
                 } else {
                     // Merge event
+                    println!(" ++++++ Merge event {}", event.current.vertex_id.handle);
+                    assert!(span_index < self.sweep_line.spans.len()-1);
+
+                    // TODO: do we actually need this one?
+                    if self.sweep_line.spans[span_index].left.lower.is_none() {
+                        //  \ / \
+                        //   x-. \ /  <-- merge vertex
+                        //      '-x    <-- current merge vertex
+                        self.sweep_line.spans[span_index-1].set_lower_vertex(event.current_position, event.current, Side::Right);
+                        self.sweep_line.spans[span_index].end(event.current_position, event.current);
+                        self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
+                        self.sweep_line.spans.remove(span_index);
+                    }
+
+                    if self.sweep_line.spans[span_index].right.lower.is_none() {
+                        //     / \ /
+                        //  \ / .-x    <-- merge vertex
+                        //   x-'      <-- current merge vertex
+                        self.sweep_line.spans[span_index+1].end(event.current_position, event.current);
+                        self.sweep_line.spans[span_index+1].monotone_tesselator.flush(self.output);
+                        self.sweep_line.spans[span_index+2].set_lower_vertex(event.current_position, event.current, Side::Left);
+                        self.sweep_line.spans.remove(span_index+1);
+                    }
+
+                    debug_assert!(self.sweep_line.spans[span_index+1].left.lower == Some(event.current));
+
+                    self.sweep_line.spans[span_index].merge_vertex(
+                        event.current_position, event.current, Side::Right
+                    );
+                    self.sweep_line.spans[span_index+1].merge_vertex(
+                        event.current_position, event.current, Side::Left
+                    );
                 }
             }
         }
@@ -292,28 +432,85 @@ impl<'l> Tesselator<'l> {
         return Err(());
     }
 
-    fn on_start_event(&mut self, event: &Event) -> Result<(), ()> {
-        Err(())
+    fn find_span_regular(&self, event: &Event) -> (usize, Side) {
+        let mut span_index = 0;
+        for span in &self.sweep_line.spans {
+            if span.left.lower == Some(event.current) {
+                return (span_index, Side::Left);
+            } else if span.right.lower == Some(event.current) {
+                return (span_index, Side::Right);
+            }
+            span_index += 1;
+        }
+        // unreachable
+        panic!();
     }
 
-    fn on_split_event(&mut self, event: &Event) -> Result<(), ()> {
-        Err(())
+    fn find_span_down(&self, event: &Event) -> (usize, bool) {
+        let mut span_index = 0;
+        for span in &self.sweep_line.spans {
+
+            println!(" ** search {} left: {:?} | right: {:?}", event.current.vertex_id.handle,
+                span.left.lower, span.right.lower);
+
+            if span.left.lower == Some(event.current) {
+                return (span_index, true);
+            }
+
+            if span.right.lower == Some(event.current) {
+                return (span_index, false);
+            }
+
+            span_index += 1;
+        }
+        // unreachable
+        panic!();
+    }
+
+    fn find_span_up(&self, event: &Event) -> (usize, bool) {
+        let (x, y) = event.current_position.tuple();
+        let mut span_index = 0;
+        for span in &self.sweep_line.spans {
+            if span.left.lower.is_some() {
+                let lx = intersect_segment_with_horizontal(
+                    span.left.upper_position,
+                    span.left.lower_position,
+                    y
+                );
+                if lx > x {
+                    return (span_index, false);
+                }
+            }
+            if span.right.lower.is_some() {
+                let rx = intersect_segment_with_horizontal(
+                    span.right.upper_position,
+                    span.right.lower_position,
+                    y
+                );
+                if rx > x {
+                    return (span_index, true); // inside
+                }
+            }
+            span_index += 1;
+        }
+
+        return (span_index, false);
     }
 }
 
 pub fn compute_base_event_type(prev: Vec2, current: Vec2, next: Vec2) -> BaseEventType {
+    println!(" compute base evt type prev[{} {}] current[{} {}] next[{} {}]", prev.x, prev.y, current.x, current.y, next.x, next.y);
     let interrior_angle = (prev - current).directed_angle(next - current);
 
-    if is_below(current, prev) && is_below(current, next) {
-        if interrior_angle < PI && interrior_angle != 0.0 {
-            return BaseEventType::Down;
-        }
+    let below_prev = is_below(current, prev);
+    let below_next = is_below(current, next);
+
+    if below_prev && below_next {
+        return BaseEventType::Down;
     }
 
-    if !is_below(current, prev) && !is_below(current, next) {
-        if interrior_angle < PI && interrior_angle != 0.0 {
-            return BaseEventType::Up;
-        }
+    if !below_prev && !below_next {
+        return BaseEventType::Up;
     }
 
     return BaseEventType::Regular;
@@ -324,7 +521,7 @@ pub fn compute_base_event_type(prev: Vec2, current: Vec2, next: Vec2) -> BaseEve
 struct MonotoneTesselator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
-    triangles: Vec<u16>,
+    triangles: Vec<(u16, u16, u16)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -404,13 +601,18 @@ impl MonotoneTesselator {
     }
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
-        println!(" -- triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
+        println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
 
         debug_assert!((c.pos - b.pos).directed_angle(a.pos - b.pos) <= PI);
 
-        self.triangles.push(a.id.handle);
-        self.triangles.push(b.id.handle);
-        self.triangles.push(c.id.handle);
+        self.triangles.push((a.id.handle, b.id.handle, c.id.handle));
+    }
+
+    fn flush<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) {
+        for &(a, b, c) in &self.triangles {
+            output.push_indices(a, b, c);
+        }
+        self.triangles.clear();
     }
 }
 
@@ -421,7 +623,7 @@ fn test_monotone_tess() {
         let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(-1.0, 1.0), vertex_id(1), Side::Left);
         tess.end(vec2(1.0, 2.0), vertex_id(2));
-        assert_eq!(tess.triangles.len(), 3);
+        assert_eq!(tess.triangles.len(), 1);
     }
     println!(" ------------ ");
     {
@@ -431,7 +633,7 @@ fn test_monotone_tess() {
         tess.vertex(vec2(-1.0, 3.0), vertex_id(3), Side::Left);
         tess.vertex(vec2(1.0, 4.0), vertex_id(4), Side::Right);
         tess.end(vec2(0.0, 5.0), vertex_id(5));
-        assert_eq!(tess.triangles.len(), 12);
+        assert_eq!(tess.triangles.len(), 4);
     }
     println!(" ------------ ");
     {
@@ -442,7 +644,7 @@ fn test_monotone_tess() {
         tess.vertex(vec2(1.0, 4.0), vertex_id(4), Side::Right);
         tess.vertex(vec2(4.0, 5.0), vertex_id(5), Side::Right);
         tess.end(vec2(0.0, 6.0), vertex_id(6));
-        assert_eq!(tess.triangles.len(), 15);
+        assert_eq!(tess.triangles.len(), 5);
     }
     println!(" ------------ ");
     {
@@ -453,7 +655,124 @@ fn test_monotone_tess() {
         tess.vertex(vec2(-1.0, 4.0), vertex_id(4), Side::Left);
         tess.vertex(vec2(-4.0, 5.0), vertex_id(5), Side::Left);
         tess.end(vec2(0.0, 6.0), vertex_id(6));
-        assert_eq!(tess.triangles.len(), 15);
+        assert_eq!(tess.triangles.len(), 5);
     }
     println!(" ------------ ");
+}
+
+#[cfg(test)]
+fn test_path(path: ComplexPathSlice, expected_triangle_count: usize) {
+    let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
+    {
+        let mut vertex_builder = simple_vertex_builder(&mut buffers);
+        let events = EventVector::from_path(path);
+        let mut tess = Tesselator::new(path, &mut vertex_builder);
+        tess.tesselate(events.as_slice());
+    }
+    assert_eq!(buffers.indices.len()/3, expected_triangle_count);
+}
+
+#[cfg(test)]
+fn test_path_with_rotations(mut path: ComplexPath, expected_triangle_count: usize) {
+    let mut angle = 0.0;
+
+    while angle < PI * 2.0 {
+        let mut tranformed_path = path.clone();
+        let cos = angle.cos();
+        let sin = angle.sin();
+        for v in tranformed_path.mut_vertices() {
+            let (x, y) = (v.position.x, v.position.y);
+            v.position.x = x*cos + y*sin;
+            v.position.y = y*cos - x*sin;
+        }
+        println!("\n\n ==================== angle = {}", angle);
+        test_path(tranformed_path.as_slice(), expected_triangle_count);
+
+        angle += 0.001;
+    }
+}
+
+#[test]
+fn test_tesselator_simple_monotone() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(-1.0, 1.0))
+        .line_to(vec2(-3.0, 2.0))
+        .line_to(vec2(-1.0, 3.0))
+        .line_to(vec2(-4.0, 5.0))
+        .line_to(vec2( 0.0, 6.0))
+        .close();
+    test_path(path.as_slice(), 4);
+}
+
+#[test]
+fn test_tesselator_simple_split() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(2.0, 1.0))
+        .line_to(vec2(2.0, 3.0))
+        .line_to(vec2(1.0, 2.0))
+        .line_to(vec2(0.0, 3.0))
+        .close();
+    test_path_with_rotations(path, 3);
+}
+
+#[test]
+fn test_tesselator_simple_merge_split() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(1.0, 1.0))
+        .line_to(vec2(2.0, 0.0))
+        .line_to(vec2(2.0, 3.0))
+        .line_to(vec2(1.0, 2.0))
+        .line_to(vec2(0.0, 3.0))
+        .close();
+    test_path_with_rotations(path, 4);
+}
+
+#[test]
+fn test_tesselator_simple_1() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(1.0, 1.0))
+        .line_to(vec2(2.0, 0.0))
+        .line_to(vec2(1.0, 3.0))
+        .line_to(vec2(0.5, 4.0))
+        .line_to(vec2(0.0, 3.0))
+        .close();
+    test_path_with_rotations(path, 4);
+}
+
+#[test]
+fn test_tesselator_simple_2() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(1.0, 0.0))
+        .line_to(vec2(2.0, 0.0))
+        .line_to(vec2(3.0, 0.0))
+        .line_to(vec2(3.0, 1.0))
+        .line_to(vec2(3.0, 2.0))
+        .line_to(vec2(3.0, 3.0))
+        .line_to(vec2(2.0, 3.0))
+        .line_to(vec2(1.0, 3.0))
+        .line_to(vec2(0.0, 3.0))
+        .line_to(vec2(0.0, 2.0))
+        .line_to(vec2(0.0, 1.0))
+        .close();
+    test_path_with_rotations(path, 10);
+}
+
+#[test]
+fn test_tesselator_hole_1() {
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(-11.0, 5.0)).flattened()
+        .line_to(vec2(0.0, -5.0))
+        .line_to(vec2(10.0, 5.0))
+        .close();
+    PathBuilder::begin(&mut path, vec2(-5.0, 2.0)).flattened()
+        .line_to(vec2(0.0, -2.0))
+        .line_to(vec2(4.0, 2.0))
+        .close();
+
+    test_path_with_rotations(path, 6);
 }
