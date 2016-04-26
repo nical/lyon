@@ -7,6 +7,7 @@ use tesselation::path::*;
 use tesselation::vectors::Position2D;
 use tesselation::sweep_line::{ is_below, intersect_segment_with_horizontal };
 use tesselation::vertex_builder::{ VertexBufferBuilder, VertexBuffers, simple_vertex_builder };
+use tesselation::bentley_ottmann::compute_segment_intersection;
 
 use vodk_math::{ Vec2, vec2 };
 
@@ -17,6 +18,14 @@ pub struct Event {
     pub current: ComplexVertexId,
     pub previous: ComplexVertexId,
     pub next: ComplexVertexId,
+}
+
+pub struct Intersection {
+    position: Vec2,
+    a_up: ComplexVertexId,
+    a_down: ComplexVertexId,
+    b_up: ComplexVertexId,
+    b_down: ComplexVertexId,
 }
 
 #[derive(Copy, Clone)]
@@ -74,12 +83,6 @@ impl EventVector {
     }
 }
 
-pub enum BaseEventType {
-    Regular,
-    Up,
-    Down,
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Side { Left, Right }
 
@@ -90,6 +93,10 @@ impl Side {
             Side::Right => Side::Left,
         }
     }
+
+    pub fn is_left(self) -> bool { self == Side::Left }
+
+    pub fn is_right(self) -> bool { self == Side::Right }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -172,9 +179,7 @@ impl Span {
         };
     }
 
-    fn end(&mut self,
-        pos: Vec2, id: ComplexVertexId,
-    ) {
+    fn end(&mut self, pos: Vec2, id: ComplexVertexId) {
         self.monotone_tesselator.end(pos, id.vertex_id);
     }
 }
@@ -201,6 +206,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     }
 
     pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) {
+
         for &e in sorted_events.events {
             let p = self.path.previous(e);
             let n = self.path.next(e);
@@ -212,21 +218,26 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 previous: p,
                 next: n
             };
+
             self.on_event(&evt);
         }
     }
 
     fn on_event(&mut self, event: &Event) {
-        println!(" ------ Event {:?}", event.current);
-        let base_evt_type = compute_base_event_type(
-            event.previous_position, event.current_position, event.next_position
-        );
+        //println!(" ------ Event {:?}", event.current);
 
-        match base_evt_type {
-            BaseEventType::Regular => { self.on_regular_event(event); }
-            BaseEventType::Down => { self.on_down_event(event); }
-            BaseEventType::Up => { self.on_up_event(event); }
+        let below_prev = is_below(event.current_position, event.previous_position);
+        let below_next = is_below(event.current_position, event.next_position);
+
+        if below_prev && below_next {
+            return self.on_down_event(event);
         }
+
+        if !below_prev && !below_next {
+            return self.on_up_event(event);
+        }
+
+        return self.on_regular_event(event);
     }
 
     fn find_span_regular(&self, event: &Event) -> (usize, Side) {
@@ -250,8 +261,8 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         let (next, next_pos) = if next_below { (event.next, event.next_position) }
                                else { (event.previous, event.previous_position) };
 
-        if side == Side::Left {
-            println!(" ++++++ Left event {}", event.current.vertex_id.handle);
+        if side.is_left() {
+            //println!(" ++++++ Left event {}", event.current.vertex_id.handle);
 
             if self.sweep_line.spans[span_index].right.has_merge_vertex() {
                 //     \ /
@@ -264,64 +275,14 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             }
 
         } else {
-            println!(" ++++++ Right event {}", event.current.vertex_id.handle);
+            //println!(" ++++++ Right event {}", event.current.vertex_id.handle);
         }
 
-        self.sweep_line.spans[span_index].vertex(
+        self.insert_sweep_line_edge(
+            span_index, side,
             event.current_position, event.current,
             next_pos, next,
-            side
         );
-    }
-
-    fn on_split_event(&mut self, event: &Event, span_index: usize, l: &Edge, r: &Edge) {
-        println!(" ++++++ Split event {}", event.current.vertex_id.handle);
-        //println!("left {:?} | right {:?}", l.lower.unwrap().vertex_id.handle, r.lower.unwrap().vertex_id.handle);
-
-        // look whether the span shares a merge vertex with the previous one
-        if self.sweep_line.spans[span_index].left.has_merge_vertex() {
-            let left_span = span_index-1;
-            let right_span = span_index;
-            //            \ /
-            //             x   <-- merge vertex
-            //  left_span  :  righ_span
-            //             x   <-- current split vertex
-            //           l/ \r
-            self.sweep_line.spans[left_span].vertex(
-                event.current_position, event.current,
-                l.lower_position, l.lower.unwrap(),
-                Side::Right,
-            );
-            self.sweep_line.spans[right_span].vertex(
-                event.current_position, event.current,
-                r.lower_position, r.lower.unwrap(),
-                Side::Left,
-            );
-        } else {
-            //      /
-            //     x
-            //    / :r2
-            // ll/   x   <-- current split vertex
-            //     l/ \r
-            let ll = self.sweep_line.spans[span_index].left;
-            let r2 = Edge {
-                upper: ll.upper,
-                upper_position: ll.upper_position,
-                lower: Some(event.current),
-                lower_position: event.current_position,
-            };
-            self.sweep_line.spans.insert(span_index, Span::begin(ll, r2));
-            self.sweep_line.spans[span_index].vertex(
-                event.current_position, event.current,
-                l.lower_position, l.lower.unwrap(),
-                Side::Right,
-            );
-            self.sweep_line.spans[span_index+1].vertex(
-                event.current_position, event.current,
-                r.lower_position, r.lower.unwrap(),
-                Side::Left,
-            );
-        }
     }
 
     fn find_span_up(&self, event: &Event) -> (usize, bool) {
@@ -381,19 +342,70 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         if is_inside {
             self.on_split_event(event, span_index, &l, &r)
         } else {
-            println!(" ++++++ Start event {}", event.current.vertex_id.handle);
+            //println!(" ++++++ Start event {}", event.current.vertex_id.handle);
             // Start event.
+
+            // TODO: use a function that checks intersections for l and r
             self.sweep_line.spans.insert(span_index, Span::begin(l, r));
         }
     }
 
+    fn on_split_event(&mut self, event: &Event, span_index: usize, l: &Edge, r: &Edge) {
+        //println!(" ++++++ Split event {}", event.current.vertex_id.handle);
+        //println!("left {:?} | right {:?}", l.lower.unwrap().vertex_id.handle, r.lower.unwrap().vertex_id.handle);
+
+        // look whether the span shares a merge vertex with the previous one
+        if self.sweep_line.spans[span_index].left.has_merge_vertex() {
+            let left_span = span_index-1;
+            let right_span = span_index;
+            //            \ /
+            //             x   <-- merge vertex
+            //  left_span  :  righ_span
+            //             x   <-- current split vertex
+            //           l/ \r
+            self.sweep_line.spans[left_span].vertex(
+                event.current_position, event.current,
+                l.lower_position, l.lower.unwrap(),
+                Side::Right,
+            );
+            self.sweep_line.spans[right_span].vertex(
+                event.current_position, event.current,
+                r.lower_position, r.lower.unwrap(),
+                Side::Left,
+            );
+        } else {
+            //      /
+            //     x
+            //    / :r2
+            // ll/   x   <-- current split vertex
+            //     l/ \r
+            let ll = self.sweep_line.spans[span_index].left;
+            let r2 = Edge {
+                upper: ll.upper,
+                upper_position: ll.upper_position,
+                lower: Some(event.current),
+                lower_position: event.current_position,
+            };
+
+            self.sweep_line.spans.insert(span_index, Span::begin(ll, r2));
+
+            self.insert_sweep_line_edge(span_index, Side::Right,
+                event.current_position, event.current,
+                l.lower_position, l.lower.unwrap(),
+            );
+            self.insert_sweep_line_edge(span_index+1, Side::Left,
+                event.current_position, event.current,
+                r.lower_position, r.lower.unwrap(),
+            );
+        }
+    }
 
     fn find_span_down(&self, event: &Event) -> (usize, bool) {
         let mut span_index = 0;
         for span in &self.sweep_line.spans {
 
-            println!(" ** search {} left: {:?} | right: {:?}", event.current.vertex_id.handle,
-                span.left.lower, span.right.lower);
+            //println!(" ** search {} left: {:?} | right: {:?}", event.current.vertex_id.handle,
+            //  span.left.lower, span.right.lower);
 
             if span.left.lower == Some(event.current) {
                 return (span_index, true);
@@ -422,7 +434,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     }
 
     fn on_end_event(&mut self, event: &Event, span_index: usize) {
-        println!(" ++++++ End event {}", event.current.vertex_id.handle);
+        //println!(" ++++++ End event {}", event.current.vertex_id.handle);
 
         if self.sweep_line.spans[span_index].right.has_merge_vertex() {
             //   \ /
@@ -436,17 +448,8 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     }
 
     fn on_merge_event(&mut self, event: &Event, span_index: usize) {
-        println!(" ++++++ Merge event {}", event.current.vertex_id.handle);
+        //println!(" ++++++ Merge event {}", event.current.vertex_id.handle);
         assert!(span_index < self.sweep_line.spans.len()-1);
-
-        // TODO: do we actually need this one?
-        //if self.sweep_line.spans[span_index].left.has_merge_vertex() {
-        //    //  \ / \
-        //    //   x-. \ /  <-- merge vertex
-        //    //      '-x    <-- current merge vertex
-        //    self.sweep_line.spans[span_index-1].set_lower_vertex(event.current_position, event.current, Side::Right);
-        //    self.end_span(span_index+1, event);
-        //}
 
         if self.sweep_line.spans[span_index].right.has_merge_vertex() {
             //     / \ /
@@ -466,26 +469,53 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         );
     }
 
+    fn insert_sweep_line_edge(&mut self,
+        span_index: usize, side: Side,
+        up_pos: Vec2, up_id: ComplexVertexId,
+        down_pos: Vec2, down_id: ComplexVertexId,
+    ) {
+        //println!(" -- insert_sweep_line_edge");
+        let mut idx = 0;
+        for span in &self.sweep_line.spans {
+
+            if !span.left.has_merge_vertex() && (idx != span_index || side.is_right()) {
+                if let Some(intersection) = compute_segment_intersection(
+                    span.left.upper_position, span.left.lower_position,
+                    up_pos, down_pos,
+                ) {
+                    println!(" -- found an intersection at {:?}", intersection);
+                    if idx == span_index {
+                        //println!(" -- on the same span (adds end/start events)");
+                    } else {
+                        //println!(" -- on the different spans (adds left/right events)");
+                    }
+                }
+            }
+
+            if !span.right.has_merge_vertex() && (idx != span_index || side.is_left()) {
+                if let Some(intersection) = compute_segment_intersection(
+                    span.right.upper_position, span.right.lower_position,
+                    up_pos, down_pos,
+                ) {
+                    println!(" -- found an intersection at {:?}", intersection);
+                    if idx == span_index {
+                        //println!(" -- on the same span (adds end/start events)");
+                    } else {
+                        //println!(" -- on the different spans (adds left/right events)");
+                    }
+                }
+            }
+
+            idx += 1;
+        }
+        self.sweep_line.spans[span_index].vertex(up_pos, up_id, down_pos, down_id, side);
+    }
+
     fn end_span(&mut self, span_index: usize, event: &Event) {
         self.sweep_line.spans[span_index].end(event.current_position, event.current);
         self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
         self.sweep_line.spans.remove(span_index);
     }
-}
-
-pub fn compute_base_event_type(prev: Vec2, current: Vec2, next: Vec2) -> BaseEventType {
-    let below_prev = is_below(current, prev);
-    let below_next = is_below(current, next);
-
-    if below_prev && below_next {
-        return BaseEventType::Down;
-    }
-
-    if !below_prev && !below_next {
-        return BaseEventType::Up;
-    }
-
-    return BaseEventType::Regular;
 }
 
 /// helper class that generates a triangulation from a sequence of vertices describing a monotone
@@ -520,12 +550,12 @@ impl MonotoneTesselator {
 
     pub fn vertex(&mut self, pos: Vec2, id: VertexId, side: Side) {
         let current = MonotoneVertex{ pos: pos, id: id, side: side };
+        let right_side = current.side == Side::Right;
 
         assert!(is_below(current.pos, self.previous.pos));
         assert!(!self.stack.is_empty());
 
         let changed_side = current.side != self.previous.side;
-        let right_side = current.side == Side::Right;
 
         if changed_side {
             for i in 0..(self.stack.len() - 1) {
@@ -573,11 +603,13 @@ impl MonotoneTesselator {
     }
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
-        println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
+        //println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
 
-        debug_assert!((c.pos - b.pos).directed_angle(a.pos - b.pos) <= PI);
-
-        self.triangles.push((a.id.handle, b.id.handle, c.id.handle));
+        if (c.pos - b.pos).directed_angle(a.pos - b.pos) <= PI {
+            self.triangles.push((a.id.handle, b.id.handle, c.id.handle));
+        } else {
+            self.triangles.push((b.id.handle, a.id.handle, c.id.handle));
+        }
     }
 
     fn flush<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) {
@@ -650,7 +682,7 @@ pub fn tesselate_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 }
 
 #[cfg(test)]
-fn test_path(path: ComplexPathSlice, expected_triangle_count: usize) {
+fn test_path(path: ComplexPathSlice, expected_triangle_count: Option<usize>) {
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
@@ -658,11 +690,13 @@ fn test_path(path: ComplexPathSlice, expected_triangle_count: usize) {
         let mut tess = Tesselator::new(path, &mut vertex_builder);
         tess.tesselate(events.as_slice());
     }
-    assert_eq!(buffers.indices.len()/3, expected_triangle_count);
+    if let Some(num_triangles) = expected_triangle_count {
+        assert_eq!(buffers.indices.len()/3, num_triangles);
+    }
 }
 
 #[cfg(test)]
-fn test_path_with_rotations(path: ComplexPath, expected_triangle_count: usize) {
+fn test_path_with_rotations(path: ComplexPath, step: f32, expected_triangle_count: Option<usize>) {
     let mut angle = 0.0;
 
     while angle < PI * 2.0 {
@@ -677,7 +711,7 @@ fn test_path_with_rotations(path: ComplexPath, expected_triangle_count: usize) {
         println!("\n\n ==================== angle = {}", angle);
         test_path(tranformed_path.as_slice(), expected_triangle_count);
 
-        angle += 0.001;
+        angle += step;
     }
 }
 
@@ -691,7 +725,7 @@ fn test_tesselator_simple_monotone() {
         .line_to(vec2(-4.0, 5.0))
         .line_to(vec2( 0.0, 6.0))
         .close();
-    test_path(path.as_slice(), 4);
+    test_path(path.as_slice(), Some(4));
 }
 
 #[test]
@@ -703,7 +737,7 @@ fn test_tesselator_simple_split() {
         .line_to(vec2(1.0, 2.0))
         .line_to(vec2(0.0, 3.0))
         .close();
-    test_path_with_rotations(path, 3);
+    test_path_with_rotations(path, 0.001, Some(3));
 }
 
 #[test]
@@ -716,7 +750,7 @@ fn test_tesselator_simple_merge_split() {
         .line_to(vec2(1.0, 2.0))
         .line_to(vec2(0.0, 3.0))
         .close();
-    test_path_with_rotations(path, 4);
+    test_path_with_rotations(path, 0.001, Some(4));
 }
 
 #[test]
@@ -731,7 +765,7 @@ fn test_tesselator_simple_aligned() {
         .line_to(vec2(0.0, 2.0))
         .line_to(vec2(0.0, 1.0))
         .close();
-    test_path_with_rotations(path, 6);
+    test_path_with_rotations(path, 0.001, Some(6));
 }
 
 #[test]
@@ -744,7 +778,7 @@ fn test_tesselator_simple_1() {
         .line_to(vec2(0.5, 4.0))
         .line_to(vec2(0.0, 3.0))
         .close();
-    test_path_with_rotations(path, 4);
+    test_path_with_rotations(path, 0.001, Some(4));
 }
 
 #[test]
@@ -763,7 +797,7 @@ fn test_tesselator_simple_2() {
         .line_to(vec2(0.0, 2.0))
         .line_to(vec2(0.0, 1.0))
         .close();
-    test_path_with_rotations(path, 10);
+    test_path_with_rotations(path, 0.001, Some(10));
 }
 
 #[test]
@@ -777,12 +811,13 @@ fn test_tesselator_hole_1() {
         .line_to(vec2(0.0, -2.0))
         .line_to(vec2(4.0, 2.0))
         .close();
-    test_path_with_rotations(path, 6);
+
+    test_path_with_rotations(path, 0.001, Some(6));
 }
 
 #[test]
 fn test_tesselator_degenerate_empty() {
-    test_path_with_rotations(ComplexPath::new(), 0);
+    test_path(ComplexPath::new().as_slice(), Some(0));
 }
 
 #[test]
@@ -795,5 +830,287 @@ fn test_tesselator_degenerate_same_position() {
         .line_to(vec2(0.0, 0.0))
         .line_to(vec2(0.0, 0.0))
         .close();
-    test_path_with_rotations(path, 0);
+    test_path_with_rotations(path, 0.001, None);
+}
+
+#[test]
+fn test_tesselator_auto_intersection() {
+    //  x.___
+    //   \   'x
+    //    \ /
+    //     o  <-- intersection!
+    //    / \
+    //  x.___\
+    //       'x
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(2.0, 1.0))
+        .line_to(vec2(0.0, 2.0))
+        .line_to(vec2(2.0, 3.0))
+        .close();
+    test_path(path.as_slice(), None);
+    panic!();
+}
+
+#[test]
+fn test_tesselator_rust_logo() {
+    let mut path = ComplexPath::new();
+
+    PathBuilder::begin(&mut path, vec2(122.631, 69.716)).flattened()
+        .relative_line_to(vec2(-4.394, -2.72))
+        .relative_cubic_bezier_to(vec2(-0.037, -0.428), vec2(-0.079, -0.855), vec2(-0.125, -1.28))
+        .relative_line_to(vec2(3.776, -3.522))
+        .relative_cubic_bezier_to(vec2(0.384, -0.358), vec2(0.556, -0.888), vec2(0.452, -1.401))
+        .relative_cubic_bezier_to(vec2(-0.101, -0.515), vec2(-0.462, -0.939), vec2(-0.953, -1.122))
+        .relative_line_to(vec2(-4.827, -1.805))
+        .relative_cubic_bezier_to(vec2(-0.121, -0.418), vec2(-0.248, -0.833), vec2(-0.378, -1.246))
+        .relative_line_to(vec2(3.011, -4.182))
+        .relative_cubic_bezier_to(vec2(0.307, -0.425), vec2(0.37, -0.978), vec2(0.17, -1.463))
+        .relative_cubic_bezier_to(vec2(-0.2, -0.483), vec2(-0.637, -0.829), vec2(-1.154, -0.914))
+        .relative_line_to(vec2(-5.09, -0.828))
+        .relative_cubic_bezier_to(vec2(-0.198, -0.386), vec2(-0.404, -0.766), vec2(-0.612, -1.143))
+        .relative_line_to(vec2(2.139, -4.695))
+        .relative_cubic_bezier_to(vec2(0.219, -0.478), vec2(0.174, -1.034), vec2(-0.118, -1.468))
+        .relative_cubic_bezier_to(vec2(-0.291, -0.436), vec2(-0.784, -0.691), vec2(-1.31, -0.671))
+        .relative_line_to(vec2(-5.166, 0.18))
+        .relative_cubic_bezier_to(vec2(-0.267, -0.334), vec2(-0.539, -0.665), vec2(-0.816, -0.99))
+        .relative_line_to(vec2(1.187, -5.032))
+        .relative_cubic_bezier_to(vec2(0.12, -0.511), vec2(-0.031, -1.046), vec2(-0.403, -1.417))
+        .relative_cubic_bezier_to(vec2(-0.369, -0.37), vec2(-0.905, -0.523), vec2(-1.416, -0.403))
+        .relative_line_to(vec2(-5.031, 1.186))
+        .relative_cubic_bezier_to(vec2(-0.326, -0.276), vec2(-0.657, -0.549), vec2(-0.992, -0.816))
+        .relative_line_to(vec2(0.181, -5.166))
+        .relative_cubic_bezier_to(vec2(0.02, -0.523), vec2(-0.235, -1.02), vec2(-0.671, -1.31))
+        .relative_cubic_bezier_to(vec2(-0.437, -0.292), vec2(-0.99, -0.336), vec2(-1.467, -0.119))
+        .relative_line_to(vec2(-4.694, 2.14))
+        .relative_cubic_bezier_to(vec2(-0.379, -0.208), vec2(-0.759, -0.414), vec2(-1.143, -0.613))
+        .relative_line_to(vec2(-0.83, -5.091))
+        .relative_cubic_bezier_to(vec2(-0.084, -0.516), vec2(-0.43, -0.954), vec2(-0.914, -1.154))
+        .relative_cubic_bezier_to(vec2(-0.483, -0.201), vec2(-1.037, -0.136), vec2(-1.462, 0.17))
+        .relative_line_to(vec2(-4.185, 3.011))
+        .relative_cubic_bezier_to(vec2(-0.412, -0.131), vec2(-0.826, -0.257), vec2(-1.244, -0.377))
+        .relative_line_to(vec2(-1.805, -4.828))
+        .relative_cubic_bezier_to(vec2(-0.183, -0.492), vec2(-0.607, -0.853), vec2(-1.122, -0.955))
+        .relative_cubic_bezier_to(vec2(-0.514, -0.101), vec2(-1.043, 0.07), vec2(-1.4, 0.452))
+        .relative_line_to(vec2(-3.522, 3.779))
+        .relative_cubic_bezier_to(vec2(-0.425, -0.047), vec2(-0.853, -0.09), vec2(-1.28, -0.125))
+        .relative_line_to(vec2(-2.72, -4.395))
+        .relative_cubic_bezier_to(vec2(-0.275, -0.445), vec2(-0.762, -0.716), vec2(-1.286, -0.716))
+        .relative_cubic_bezier_to_s(vec2(-1.011, 0.271), vec2(-1.285, 0.716))
+        .relative_line_to(vec2(-2.72, 4.395))
+        .relative_cubic_bezier_to(vec2(-0.428, 0.035), vec2(-0.856, 0.078), vec2(-1.281, 0.125))
+        .relative_line_to(vec2(-3.523, -3.779))
+        .relative_cubic_bezier_to(vec2(-0.357, -0.382), vec2(-0.887, -0.553), vec2(-1.4, -0.452))
+        .relative_cubic_bezier_to(vec2(-0.515, 0.103), vec2(-0.939, 0.463), vec2(-1.122, 0.955))
+        .relative_line_to(vec2(-1.805, 4.828))
+        .relative_cubic_bezier_to(vec2(-0.418, 0.12), vec2(-0.832, 0.247), vec2(-1.245, 0.377))
+        .relative_line_to(vec2(-4.184, -3.011))
+        .relative_cubic_bezier_to(vec2(-0.425, -0.307), vec2(-0.979, -0.372), vec2(-1.463, -0.17))
+        .relative_cubic_bezier_to(vec2(-0.483, 0.2), vec2(-0.83, 0.638), vec2(-0.914, 1.154))
+        .relative_line_to(vec2(-0.83, 5.091))
+        .relative_cubic_bezier_to(vec2(-0.384, 0.199), vec2(-0.764, 0.404), vec2(-1.143, 0.613))
+        .relative_line_to(vec2(-4.694, -2.14))
+        .relative_cubic_bezier_to(vec2(-0.477, -0.218), vec2(-1.033, -0.173), vec2(-1.467, 0.119))
+        .relative_cubic_bezier_to(vec2(-0.436, 0.29), vec2(-0.691, 0.787), vec2(-0.671, 1.31))
+        .relative_line_to(vec2(0.18, 5.166))
+        .relative_cubic_bezier_to(vec2(-0.334, 0.267), vec2(-0.665, 0.54), vec2(-0.992, 0.816))
+        .relative_line_to(vec2(-5.031, -1.186))
+        .relative_cubic_bezier_to(vec2(-0.511, -0.119), vec2(-1.047, 0.033), vec2(-1.417, 0.403))
+        .relative_cubic_bezier_to(vec2(-0.372, 0.371), vec2(-0.523, 0.906), vec2(-0.403, 1.417))
+        .relative_line_to(vec2(1.185, 5.032))
+        .relative_cubic_bezier_to(vec2(-0.275, 0.326), vec2(-0.547, 0.656), vec2(-0.814, 0.99))
+        .relative_line_to(vec2(-5.166, -0.18))
+        .relative_cubic_bezier_to(vec2(-0.521, -0.015), vec2(-1.019, 0.235), vec2(-1.31, 0.671))
+        .relative_cubic_bezier_to(vec2(-0.292, 0.434), vec2(-0.336, 0.99), vec2(-0.119, 1.468))
+        .relative_line_to(vec2(2.14, 4.695))
+        .relative_cubic_bezier_to(vec2(-0.208, 0.377), vec2(-0.414, 0.757), vec2(-0.613, 1.143))
+        .relative_line_to(vec2(-5.09, 0.828))
+        .relative_cubic_bezier_to(vec2(-0.517, 0.084), vec2(-0.953, 0.43), vec2(-1.154, 0.914))
+        .relative_cubic_bezier_to(vec2(-0.2, 0.485), vec2(-0.135, 1.038), vec2(0.17, 1.463))
+        .relative_line_to(vec2(3.011, 4.182))
+        .relative_cubic_bezier_to(vec2(-0.131, 0.413), vec2(-0.258, 0.828), vec2(-0.378, 1.246))
+        .relative_line_to(vec2(-4.828, 1.805))
+        .relative_cubic_bezier_to(vec2(-0.49, 0.183), vec2(-0.851, 0.607), vec2(-0.953, 1.122))
+        .relative_cubic_bezier_to(vec2(-0.102, 0.514), vec2(0.069, 1.043), vec2(0.452, 1.401))
+        .relative_line_to(vec2(3.777, 3.522))
+        .relative_cubic_bezier_to(vec2(-0.047, 0.425), vec2(-0.089, 0.853), vec2(-0.125, 1.28))
+        .relative_line_to(vec2(-4.394, 2.72))
+        .relative_cubic_bezier_to(vec2(-0.445, 0.275), vec2(-0.716, 0.761), vec2(-0.716, 1.286))
+        .relative_cubic_bezier_to_s(vec2(0.271, 1.011), vec2(0.716, 1.285))
+        .relative_line_to(vec2(4.394, 2.72))
+        .relative_cubic_bezier_to(vec2(0.036, 0.428), vec2(0.078, 0.855), vec2(0.125, 1.28))
+        .relative_line_to(vec2(-3.777, 3.523))
+        .relative_cubic_bezier_to(vec2(-0.383, 0.357), vec2(-0.554, 0.887), vec2(-0.452, 1.4))
+        .relative_cubic_bezier_to(vec2(0.102, 0.515), vec2(0.463, 0.938), vec2(0.953, 1.122))
+        .relative_line_to(vec2(4.828, 1.805))
+        .relative_cubic_bezier_to(vec2(0.12, 0.418), vec2(0.247, 0.833), vec2(0.378, 1.246))
+        .relative_line_to(vec2(-3.011, 4.183))
+        .relative_cubic_bezier_to(vec2(-0.306, 0.426), vec2(-0.371, 0.979), vec2(-0.17, 1.462))
+        .relative_cubic_bezier_to(vec2(0.201, 0.485), vec2(0.638, 0.831), vec2(1.155, 0.914))
+        .relative_line_to(vec2(5.089, 0.828))
+        .relative_cubic_bezier_to(vec2(0.199, 0.386), vec2(0.403, 0.766), vec2(0.613, 1.145))
+        .relative_line_to(vec2(-2.14, 4.693))
+        .relative_cubic_bezier_to(vec2(-0.218, 0.477), vec2(-0.173, 1.032), vec2(0.119, 1.468))
+        .relative_cubic_bezier_to(vec2(0.292, 0.437), vec2(0.789, 0.692), vec2(1.31, 0.671))
+        .relative_line_to(vec2(5.164, -0.181))
+        .relative_cubic_bezier_to(vec2(0.269, 0.336), vec2(0.54, 0.665), vec2(0.816, 0.992))
+        .relative_line_to(vec2(-1.185, 5.033))
+        .relative_cubic_bezier_to(vec2(-0.12, 0.51), vec2(0.031, 1.043), vec2(0.403, 1.414))
+        .relative_cubic_bezier_to(vec2(0.369, 0.373), vec2(0.906, 0.522), vec2(1.417, 0.402))
+        .relative_line_to(vec2(5.031, -1.185))
+        .relative_cubic_bezier_to(vec2(0.327, 0.278), vec2(0.658, 0.548), vec2(0.992, 0.814))
+        .relative_line_to(vec2(-0.18, 5.167))
+        .relative_cubic_bezier_to(vec2(-0.02, 0.523), vec2(0.235, 1.019), vec2(0.671, 1.311))
+        .relative_cubic_bezier_to(vec2(0.434, 0.291), vec2(0.99, 0.335), vec2(1.467, 0.117))
+        .relative_line_to(vec2(4.694, -2.139))
+        .relative_cubic_bezier_to(vec2(0.378, 0.21), vec2(0.758, 0.414), vec2(1.143, 0.613))
+        .relative_line_to(vec2(0.83, 5.088))
+        .relative_cubic_bezier_to(vec2(0.084, 0.518), vec2(0.43, 0.956), vec2(0.914, 1.155))
+        .relative_cubic_bezier_to(vec2(0.483, 0.201), vec2(1.038, 0.136), vec2(1.463, -0.169))
+        .relative_line_to(vec2(4.182, -3.013))
+        .relative_cubic_bezier_to(vec2(0.413, 0.131), vec2(0.828, 0.259), vec2(1.246, 0.379))
+        .relative_line_to(vec2(1.805, 4.826))
+        .relative_cubic_bezier_to(vec2(0.183, 0.49), vec2(0.607, 0.853), vec2(1.122, 0.953))
+        .relative_cubic_bezier_to(vec2(0.514, 0.104), vec2(1.043, -0.068), vec2(1.4, -0.452))
+        .relative_line_to(vec2(3.523, -3.777))
+        .relative_cubic_bezier_to(vec2(0.425, 0.049), vec2(0.853, 0.09), vec2(1.281, 0.128))
+        .relative_line_to(vec2(2.72, 4.394))
+        .relative_cubic_bezier_to(vec2(0.274, 0.443), vec2(0.761, 0.716), vec2(1.285, 0.716))
+        .relative_cubic_bezier_to_s(vec2(1.011, -0.272), vec2(1.286, -0.716))
+        .relative_line_to(vec2(2.72, -4.394))
+        .relative_cubic_bezier_to(vec2(0.428, -0.038), vec2(0.855, -0.079), vec2(1.28, -0.128))
+        .relative_line_to(vec2(3.522, 3.777))
+        .relative_cubic_bezier_to(vec2(0.357, 0.384), vec2(0.887, 0.556), vec2(1.4, 0.452))
+        .relative_cubic_bezier_to(vec2(0.515, -0.101), vec2(0.939, -0.463), vec2(1.122, -0.953))
+        .relative_line_to(vec2(1.805, -4.826))
+        .relative_cubic_bezier_to(vec2(0.418, -0.12), vec2(0.833, -0.248), vec2(1.246, -0.379))
+        .relative_line_to(vec2(4.183, 3.013))
+        .relative_cubic_bezier_to(vec2(0.425, 0.305), vec2(0.979, 0.37), vec2(1.462, 0.169))
+        .relative_cubic_bezier_to(vec2(0.484, -0.199), vec2(0.83, -0.638), vec2(0.914, -1.155))
+        .relative_line_to(vec2(0.83, -5.088))
+        .relative_cubic_bezier_to(vec2(0.384, -0.199), vec2(0.764, -0.406), vec2(1.143, -0.613))
+        .relative_line_to(vec2(4.694, 2.139))
+        .relative_cubic_bezier_to(vec2(0.477, 0.218), vec2(1.032, 0.174), vec2(1.467, -0.117))
+        .relative_cubic_bezier_to(vec2(0.436, -0.292), vec2(0.69, -0.787), vec2(0.671, -1.311))
+        .relative_line_to(vec2(-0.18, -5.167))
+        .relative_cubic_bezier_to(vec2(0.334, -0.267), vec2(0.665, -0.536), vec2(0.991, -0.814))
+        .relative_line_to(vec2(5.031, 1.185))
+        .relative_cubic_bezier_to(vec2(0.511, 0.12), vec2(1.047, -0.029), vec2(1.416, -0.402))
+        .relative_cubic_bezier_to(vec2(0.372, -0.371), vec2(0.523, -0.904), vec2(0.403, -1.414))
+        .relative_line_to(vec2(-1.185, -5.033))
+        .relative_cubic_bezier_to(vec2(0.276, -0.327), vec2(0.548, -0.656), vec2(0.814, -0.992))
+        .relative_line_to(vec2(5.166, 0.181))
+        .relative_cubic_bezier_to(vec2(0.521, 0.021), vec2(1.019, -0.234), vec2(1.31, -0.671))
+        .relative_cubic_bezier_to(vec2(0.292, -0.436), vec2(0.337, -0.991), vec2(0.118, -1.468))
+        .relative_line_to(vec2(-2.139, -4.693))
+        .relative_cubic_bezier_to(vec2(0.209, -0.379), vec2(0.414, -0.759), vec2(0.612, -1.145))
+        .relative_line_to(vec2(5.09, -0.828))
+        .relative_cubic_bezier_to(vec2(0.518, -0.083), vec2(0.954, -0.429), vec2(1.154, -0.914))
+        .relative_cubic_bezier_to(vec2(0.2, -0.483), vec2(0.137, -1.036), vec2(-0.17, -1.462))
+        .relative_line_to(vec2(-3.011, -4.183))
+        .relative_cubic_bezier_to(vec2(0.13, -0.413), vec2(0.257, -0.828), vec2(0.378, -1.246))
+        .relative_line_to(vec2(4.827, -1.805))
+        .relative_cubic_bezier_to(vec2(0.491, -0.184), vec2(0.853, -0.607), vec2(0.953, -1.122))
+        .relative_cubic_bezier_to(vec2(0.104, -0.514), vec2(-0.068, -1.043), vec2(-0.452, -1.4))
+        .relative_line_to(vec2(-3.776, -3.523))
+        .relative_cubic_bezier_to(vec2(0.046, -0.425), vec2(0.088, -0.853), vec2(0.125, -1.28))
+        .relative_line_to(vec2(4.394, -2.72))
+        .relative_cubic_bezier_to(vec2(0.445, -0.274), vec2(0.716, -0.761), vec2(0.716, -1.285))
+        .cubic_bezier_to_s(vec2(123.076, 69.991), vec2(122.631, 69.716))
+        .close();
+    PathBuilder::begin(&mut path, vec2(93.222, 106.167)).flattened()
+        .relative_cubic_bezier_to(vec2(-1.678, -0.362), vec2(-2.745, -2.016), vec2(-2.385, -3.699))
+        .relative_cubic_bezier_to(vec2(0.359, -1.681), vec2(2.012, -2.751), vec2(3.689, -2.389))
+        .relative_cubic_bezier_to(vec2(1.678, 0.359), vec2(2.747, 2.016), vec2(2.387, 3.696))
+        .cubic_bezier_to_s(vec2(94.899, 106.526), vec2(93.222, 106.167))
+        .close();
+    PathBuilder::begin(&mut path, vec2(91.729, 96.069)).flattened()
+        .relative_cubic_bezier_to(vec2(-1.531, -0.328), vec2(-3.037, 0.646), vec2(-3.365, 2.18))
+        .relative_line_to(vec2(-1.56, 7.28))
+        .relative_cubic_bezier_to(vec2(-4.814, 2.185), vec2(-10.16, 3.399), vec2(-15.79, 3.399))
+        .relative_cubic_bezier_to(vec2(-5.759, 0.0), vec2(-11.221, -1.274), vec2(-16.121, -3.552))
+        .relative_line_to(vec2(-1.559, -7.28))
+        .relative_cubic_bezier_to(vec2(-0.328, -1.532), vec2(-1.834, -2.508), vec2(-3.364, -2.179))
+        .relative_line_to(vec2(-6.427, 1.38))
+        .relative_cubic_bezier_to(vec2(-1.193, -1.228), vec2(-2.303, -2.536), vec2(-3.323, -3.917))
+        .relative_horizontal_line_to(31.272)
+        .relative_cubic_bezier_to(vec2(0.354, 0.0), vec2(0.59, -0.064), vec2(0.59, -0.386))
+        .vertical_line_to(81.932)
+        .relative_cubic_bezier_to(vec2(0.0, -0.322), vec2(-0.236, -0.386), vec2(-0.59, -0.386))
+        .relative_horizontal_line_to(-9.146)
+        .relative_vertical_line_to(-7.012)
+        .relative_horizontal_line_to(9.892)
+        .relative_cubic_bezier_to(vec2(0.903, 0.0), vec2(4.828, 0.258), vec2(6.083, 5.275))
+        .relative_cubic_bezier_to(vec2(0.393, 1.543), vec2(1.256, 6.562), vec2(1.846, 8.169))
+        .relative_cubic_bezier_to(vec2(0.588, 1.802), vec2(2.982, 5.402), vec2(5.533, 5.402))
+        .relative_horizontal_line_to(15.583)
+        .relative_cubic_bezier_to(vec2(0.177, 0.0), vec2(0.366, -0.02), vec2(0.565, -0.056))
+        .relative_cubic_bezier_to(vec2(-1.081, 1.469), vec2(-2.267, 2.859), vec2(-3.544, 4.158))
+        .line_to(vec2(91.729, 96.069))
+        .close();
+    PathBuilder::begin(&mut path, vec2(48.477, 106.015)).flattened()
+        .relative_cubic_bezier_to(vec2(-1.678, 0.362), vec2(-3.33, -0.708), vec2(-3.691, -2.389))
+        .relative_cubic_bezier_to(vec2(-0.359, -1.684), vec2(0.708, -3.337), vec2(2.386, -3.699))
+        .relative_cubic_bezier_to(vec2(1.678, -0.359), vec2(3.331, 0.711), vec2(3.691, 2.392))
+        .cubic_bezier_to(vec2(51.222, 103.999), vec2(50.154, 105.655), vec2(48.477, 106.015))
+        .close();
+    PathBuilder::begin(&mut path, vec2(36.614, 57.91)).flattened()
+        .relative_cubic_bezier_to(vec2(0.696, 1.571), vec2(-0.012, 3.412), vec2(-1.581, 4.107))
+        .relative_cubic_bezier_to(vec2(-1.569, 0.697), vec2(-3.405, -0.012), vec2(-4.101, -1.584))
+        .relative_cubic_bezier_to(vec2(-0.696, -1.572), vec2(0.012, -3.41), vec2(1.581, -4.107))
+        .cubic_bezier_to(vec2(34.083, 55.63), vec2(35.918, 56.338), vec2(36.614, 57.91))
+        .close();
+    PathBuilder::begin(&mut path, vec2(32.968, 66.553)).flattened()
+        .relative_line_to(vec2(6.695, -2.975))
+        .relative_cubic_bezier_to(vec2(1.43, -0.635), vec2(2.076, -2.311), vec2(1.441, -3.744))
+        .relative_line_to(vec2(-1.379, -3.118))
+        .relative_horizontal_line_to(5.423)
+        .vertical_line_to(81.16)
+        .horizontal_line_to(34.207)
+        .relative_cubic_bezier_to(vec2(-0.949, -3.336), vec2(-1.458, -6.857), vec2(-1.458, -10.496))
+        .cubic_bezier_to(vec2(32.749, 69.275), vec2(32.824, 67.902), vec2(32.968, 66.553))
+        .close();
+    PathBuilder::begin(&mut path, vec2(62.348, 64.179)).flattened()
+        .relative_vertical_line_to(-7.205)
+        .relative_horizontal_line_to(12.914)
+        .relative_cubic_bezier_to(vec2(0.667, 0.0), vec2(4.71, 0.771), vec2(4.71, 3.794))
+        .relative_cubic_bezier_to(vec2(0.0, 2.51), vec2(-3.101, 3.41), vec2(-5.651, 3.41))
+        //.horizontal_line_to(62.348) //TODO
+        .close();
+    PathBuilder::begin(&mut path, vec2(109.28, 70.664)).flattened()
+        .relative_cubic_bezier_to(vec2(0.0, 0.956), vec2(-0.035, 1.902), vec2(-0.105, 2.841))
+        .relative_horizontal_line_to(-3.926)
+        .relative_cubic_bezier_to(vec2(-0.393, 0.0), vec2(-0.551, 0.258), vec2(-0.551, 0.643))
+        .relative_vertical_line_to(1.803)
+        .relative_cubic_bezier_to(vec2(0.0, 4.244), vec2(-2.393, 5.167), vec2(-4.49, 5.402))
+        .relative_cubic_bezier_to(vec2(-1.997, 0.225), vec2(-4.211, -0.836), vec2(-4.484, -2.058))
+        .relative_cubic_bezier_to(vec2(-1.178, -6.626), vec2(-3.141, -8.041), vec2(-6.241, -10.486))
+        .relative_cubic_bezier_to(vec2(3.847, -2.443), vec2(7.85, -6.047), vec2(7.85, -10.871))
+        .relative_cubic_bezier_to(vec2(0.0, -5.209), vec2(-3.571, -8.49), vec2(-6.005, -10.099))
+        .relative_cubic_bezier_to(vec2(-3.415, -2.251), vec2(-7.196, -2.702), vec2(-8.216, -2.702))
+        .horizontal_line_to(42.509)
+        .relative_cubic_bezier_to(vec2(5.506, -6.145), vec2(12.968, -10.498), vec2(21.408, -12.082))
+        .relative_line_to(vec2(4.786, 5.021))
+        .relative_cubic_bezier_to(vec2(1.082, 1.133), vec2(2.874, 1.175), vec2(4.006, 0.092))
+        .relative_line_to(vec2(5.355, -5.122))
+        .relative_cubic_bezier_to(vec2(11.221, 2.089), vec2(20.721, 9.074), vec2(26.196, 18.657))
+        .relative_line_to(vec2(-3.666, 8.28))
+        .relative_cubic_bezier_to(vec2(-0.633, 1.433), vec2(0.013, 3.109), vec2(1.442, 3.744))
+        .relative_line_to(vec2(7.058, 3.135))
+        .cubic_bezier_to(vec2(109.216, 68.115), vec2(109.28, 69.381), vec2(109.28, 70.664))
+        .close();
+    PathBuilder::begin(&mut path, vec2(68.705, 28.784)).flattened()
+        .relative_cubic_bezier_to(vec2(1.24, -1.188), vec2(3.207, -1.141), vec2(4.394, 0.101))
+        .relative_cubic_bezier_to(vec2(1.185, 1.245), vec2(1.14, 3.214), vec2(-0.103, 4.401))
+        .relative_cubic_bezier_to(vec2(-1.24, 1.188), vec2(-3.207, 1.142), vec2(-4.394, -0.102))
+        .cubic_bezier_to(vec2(67.418, 31.941), vec2(67.463, 29.972), vec2(68.705, 28.784))
+        .close();
+    PathBuilder::begin(&mut path, vec2(105.085, 58.061)).flattened()
+        .relative_cubic_bezier_to(vec2(0.695, -1.571), vec2(2.531, -2.28), vec2(4.1, -1.583))
+        .relative_cubic_bezier_to(vec2(1.569, 0.696), vec2(2.277, 2.536), vec2(1.581, 4.107))
+        .relative_cubic_bezier_to(vec2(-0.695, 1.572), vec2(-2.531, 2.281), vec2(-4.101, 1.584))
+        .cubic_bezier_to(vec2(105.098, 61.473), vec2(104.39, 59.634), vec2(105.085, 58.061))
+        .close();
+
+    test_path_with_rotations(path, 0.011, None);
 }
