@@ -3,6 +3,7 @@ use std::default::Default;
 use std::slice;
 use std::marker::PhantomData;
 use std::ops;
+use std::iter::IntoIterator;
 
 /// Similar to Vec except that it is indexed using an Id rather than an usize index.
 /// if the stored type implements Default, IdVector can also use the set(...) method which can
@@ -173,6 +174,18 @@ impl<'l, ID:Identifier, Data:'l> MutIdSlice<'l, ID, Data>{
 
     pub fn iter<'a>(&'a self) -> slice::Iter<'a, Data> { self.slice.iter() }
     pub fn iter_mut<'a>(&'a mut self) -> slice::IterMut<'a, Data> { self.slice.iter_mut() }
+}
+
+impl<'l, ID:Identifier, Data:'l> IntoIterator for IdSlice<'l, ID, Data> {
+    type Item = &'l Data;
+    type IntoIter = slice::Iter<'l, Data>;
+    fn into_iter(self) -> slice::Iter<'l, Data> { self.slice.iter() }
+}
+
+impl<'l, ID:Identifier, Data:'l> IntoIterator for MutIdSlice<'l, ID, Data> {
+    type Item = &'l mut Data;
+    type IntoIter = slice::IterMut<'l, Data>;
+    fn into_iter(self) -> slice::IterMut<'l, Data> { self.slice.iter_mut() }
 }
 
 impl<'l, ID:Identifier, Data:'l> ops::Index<ID> for MutIdSlice<'l, ID, Data> {

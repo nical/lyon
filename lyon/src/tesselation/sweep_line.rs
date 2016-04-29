@@ -167,12 +167,15 @@ impl EventVector {
 
 /// Defines an ordering between two points
 pub fn is_below(a: Vec2, b: Vec2) -> bool { a.y > b.y || (a.y == b.y && a.x > b.x) }
+pub fn is_right_of(a: Vec2, b: Vec2) -> bool { a.x > b.x || (a.x == b.x && a.y > b.y) }
+
 
 #[derive(Debug)]
 pub struct SweepLineEdge {
     pub from: Vec2,
     pub to: Vec2,
     pub key: ComplexPointId,
+    pub helper: Option<(ComplexPointId, EventType)>,
 }
 
 pub struct SweepLine {
@@ -226,7 +229,41 @@ impl SweepLine {
         return None;
     }
 
+    // Search the sweep status to find the edge directly to the right of the current vertex.
+    pub fn find_index_right_of_current_position(&self) -> Option<usize> {
+        let mut i: usize = 0;
+        for e in &self.edges {
+            let x = intersect_segment_with_horizontal(e.from, e.to, self.current_position.y);
+            if x >= self.current_position.x {
+                return Some(i);
+            }
+            i += 1;
+        }
+
+        return None;
+    }
+
+    pub fn find(&self, edge: ComplexPointId) -> Option<usize> {
+        let mut i: usize = 0;
+        for e in &self.edges {
+            if e.key == edge {
+                return Some(i);
+            }
+            i += 1;
+        }
+        return None;
+    }
+
+    pub fn set_helper(&mut self, index: usize, e: ComplexPointId, evt_type: EventType) {
+        self.edges[index].helper = Some((e, evt_type));
+    }
+
+    pub fn get_helper(&mut self, index: usize) -> Option<(ComplexPointId, EventType)> {
+        self.edges[index].helper
+    }
+
     pub fn as_slice(&self) -> &[SweepLineEdge] { &self.edges[..] }
+    pub fn as_mut_slice(&mut self) -> &mut[SweepLineEdge] { &mut self.edges[..] }
 }
 
 pub struct Event {
@@ -280,12 +317,14 @@ impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineLR {
         let edge = SweepLineEdge {
             key: event.current,
             from: event.current_position,
-            to: event.next_position
+            to: event.next_position,
+            helper: None, // TODO
         };
         let prev_edge = SweepLineEdge {
             key: event.previous,
             from: event.previous_position,
             to: event.current_position,
+            helper: None, // TODO
         };
         self.sweep_line.current_position = event.current_position;
         match event_type {
@@ -331,7 +370,8 @@ impl<Vertex: Position2D> Algorithm<Vertex> for SweepLineL {
         let edge = SweepLineEdge {
             key: event.current,
             from: event.current_position,
-            to: event.next_position
+            to: event.next_position,
+            helper: None, // TODO
         };
         self.sweep_line.current_position = event.current_position;
         match event_type {
@@ -418,7 +458,7 @@ impl<
     }
 }
 
-fn intersect_segment_with_horizontal<U>(a: Vector2D<U>, b: Vector2D<U>, y: f32) -> f32 {
+pub fn intersect_segment_with_horizontal<U>(a: Vector2D<U>, b: Vector2D<U>, y: f32) -> f32 {
     let vx = b.x - a.x;
     let vy = b.y - a.y;
     if vy == 0.0 {

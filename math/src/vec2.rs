@@ -182,6 +182,8 @@ impl<U> Vector2D<U> {
         return self.x * self.x + self.y * self.y;
     }
 
+    pub fn normalized(&self) -> Vector2D<U> { *self / self.length() }
+
     pub fn xy(&self) -> Vector2D<U> { Vector2D { x: self.x, y:self.y, _unit: PhantomData } }
     pub fn yx(&self) -> Vector2D<U> { Vector2D { x: self.y, y:self.x, _unit: PhantomData } }
 

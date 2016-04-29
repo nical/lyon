@@ -5,7 +5,9 @@ use tesselation::vectors::{ Position2D };
 use tesselation::vertex_builder::{ VertexBufferBuilder };
 use tesselation::connection::{ Connections, apply_connections };
 use tesselation::bezier::{ triangulate_quadratic_bezier };
-use tesselation::monotone::{ is_y_monotone, DecompositionContext, TriangulationContext, };
+use tesselation::monotone::{
+    is_y_monotone, y_monotone_polygon_decomposition, TriangulationContext,
+};
 use tesselation::sweep_line;
 use tesselation::path_to_polygon::*;
 use tesselation::monotone::{ Write };
@@ -46,12 +48,11 @@ pub fn tesselate_complex_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         monotone_polygon_slices.push(maybe_slice.unwrap());
     } else {
         let mut connections = Connections::new();
-        let mut ctx = DecompositionContext::new();
 
         let mut sorted_events = sweep_line::EventVector::new();
         sorted_events.set_polygon(polygon.as_slice(), vertex_positions);
 
-        let res = ctx.y_monotone_polygon_decomposition(polygon.as_slice(), vertex_positions, sorted_events.as_slice(), &mut connections);
+        let res = y_monotone_polygon_decomposition(polygon.as_slice(), vertex_positions, sorted_events.as_slice(), &mut connections);
         if !res.is_ok() {
             return Err(());
         }
