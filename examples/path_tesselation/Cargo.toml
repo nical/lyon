@@ -1,0 +1,21 @@
+[package]
+name = "path tesselation"
+version = "0.0.1"
+authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+
+[[bin]]
+name = "path_tesselation"
+path = "src/path_tesselation.rs"
+
+[dependencies.lyon]
+path = "../../lyon/"
+
+[dependencies.vodk_id]
+path = "../../id/"
+
+[dependencies.vodk_math]
+path = "../../math/"
+
+[dependencies]
+glutin = "0.4.2"
+glium = "0.12.2"
