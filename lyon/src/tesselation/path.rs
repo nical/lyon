@@ -114,6 +114,8 @@ impl<'l> ComplexPathSlice<'l> {
 
     pub fn num_vertices(&self) -> usize { self.vertices.len() }
 
+    pub fn num_sub_paths(&self) -> usize { self.sub_paths.len() }
+
     pub fn sub_path(&self, id: PathId) -> PathSlice {
         PathSlice {
             vertices: self.vertices,

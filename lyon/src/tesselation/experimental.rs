@@ -22,9 +22,11 @@ pub struct Event {
 
 pub struct Intersection {
     position: Vec2,
-    a_up: ComplexVertexId,
+    a_down_pos: Vec2,
+    b_down_pos: Vec2,
+    //a_up: ComplexVertexId,
     a_down: ComplexVertexId,
-    b_up: ComplexVertexId,
+    //b_up: ComplexVertexId,
     b_down: ComplexVertexId,
 }
 
@@ -105,6 +107,7 @@ struct Edge {
     lower_position: Vec2,
     upper: ComplexVertexId,
     lower: Option<ComplexVertexId>,
+    lower2: Option<ComplexVertexId>,
 }
 
 impl Edge {
@@ -191,6 +194,8 @@ struct SweepLine {
 pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
     path: ComplexPathSlice<'l>,
     sweep_line: SweepLine,
+    intersections: Vec<Intersection>,
+    next_new_vertex: ComplexVertexId,
     output: &'l mut Output,
 }
 
@@ -200,6 +205,11 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             path: path,
             sweep_line: SweepLine {
                 spans: Vec::with_capacity(16),
+            },
+            intersections: Vec::new(),
+            next_new_vertex: ComplexVertexId {
+                vertex_id: vertex_id(0),
+                path_id: path_id(path.num_sub_paths() as u16),
             },
             output: output,
         }
@@ -219,12 +229,17 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 next: n
             };
 
+            for inter in &self.intersections {
+                if is_below(evt.current_position, inter.position) {
+                    println!(" Should process intersection at {:?} ", inter.position);
+                }
+            }
             self.on_event(&evt);
         }
     }
 
     fn on_event(&mut self, event: &Event) {
-        //println!(" ------ Event {:?}", event.current);
+        println!(" ------ Event {:?}", event.current);
 
         let below_prev = is_below(event.current_position, event.previous_position);
         let below_next = is_below(event.current_position, event.next_position);
@@ -321,12 +336,14 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         let mut l = Edge {
             upper: event.current,
             lower: Some(event.previous),
+            lower2: Some(event.previous),
             upper_position: event.current_position,
             lower_position: event.previous_position,
         };
         let mut r = Edge {
             upper: event.current,
             lower: Some(event.next),
+            lower2: Some(event.next),
             upper_position: event.current_position,
             lower_position: event.next_position,
         };
@@ -384,6 +401,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 upper: ll.upper,
                 upper_position: ll.upper_position,
                 lower: Some(event.current),
+                lower2: Some(event.current),
                 lower_position: event.current_position,
             };
 
@@ -484,11 +502,24 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     up_pos, down_pos,
                 ) {
                     println!(" -- found an intersection at {:?}", intersection);
-                    if idx == span_index {
-                        //println!(" -- on the same span (adds end/start events)");
-                    } else {
-                        //println!(" -- on the different spans (adds left/right events)");
-                    }
+                    let intersection = Intersection {
+                        position: intersection,
+                        a_down_pos: down_pos,
+                        b_down_pos: span.left.lower_position,
+                        a_down: down_id,
+                        b_down: span.left.lower.unwrap(),
+                    };
+
+                    self.intersections.push(intersection);
+                    self.intersections.sort_by(|a, b| {
+                        let va = a.position;
+                        let vb = b.position;
+                        if va.y > vb.y { return Ordering::Greater; }
+                        if va.y < vb.y { return Ordering::Less; }
+                        if va.x > vb.x { return Ordering::Greater; }
+                        if va.x < vb.x { return Ordering::Less; }
+                        return Ordering::Equal;
+                    });
                 }
             }
 
@@ -498,17 +529,73 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     up_pos, down_pos,
                 ) {
                     println!(" -- found an intersection at {:?}", intersection);
-                    if idx == span_index {
-                        //println!(" -- on the same span (adds end/start events)");
-                    } else {
-                        //println!(" -- on the different spans (adds left/right events)");
-                    }
+                    let intersection = Intersection {
+                        position: intersection,
+                        a_down_pos: down_pos,
+                        b_down_pos: span.right.lower_position,
+                        a_down: down_id,
+                        b_down: span.right.lower.unwrap(),
+                    };
                 }
             }
 
             idx += 1;
         }
         self.sweep_line.spans[span_index].vertex(up_pos, up_id, down_pos, down_id, side);
+    }
+
+    fn gen_vertex_id(&mut self) -> ComplexVertexId {
+        let ret = self.next_new_vertex;
+        self.next_new_vertex = ComplexVertexId {
+            vertex_id: vertex_id(self.next_new_vertex.vertex_id.handle + 1),
+            path_id: self.next_new_vertex.path_id,
+        };
+        return ret;
+    }
+
+    fn on_itersection_event(&mut self, intersection: &Intersection) {
+        let mut span_index = 0;
+        let mut side = Side::Left;
+        let mut is_a = false;
+        for span in &self.sweep_line.spans {
+            if span.left.lower2 == Some(intersection.a_down) {
+                side = Side::Left;
+                is_a = true;
+                break;
+            }
+            if span.left.lower2 == Some(intersection.b_down) {
+                side = Side::Left;
+                is_a = false;
+                break;
+            }
+
+            if span.right.lower2 == Some(intersection.a_down) {
+                side = Side::Right;
+                is_a = true;
+                break;
+            }
+            if span.right.lower2 == Some(intersection.b_down) {
+                side = Side::Right;
+                is_a = false;
+                break;
+            }
+
+            span_index += 1;
+        }
+
+        if side.is_left() { // TODO this is wrong
+/*
+*/ 
+            let vertex_id = self.gen_vertex_id();
+            self.on_regular_event(&Event{
+                current_position: intersection.position,
+                next_position: if is_a { intersection.a_down_pos } else { intersection.b_down_pos },
+                next: if is_a { intersection.a_down } else { intersection.b_down },
+                previous_position: intersection.position + vec2(0.0, -1.0), // >_<
+                previous: intersection.a_down, // should not matter
+                current: vertex_id,
+            });
+        }
     }
 
     fn end_span(&mut self, span_index: usize, event: &Event) {
@@ -853,6 +940,7 @@ fn test_tesselator_auto_intersection() {
 }
 
 #[test]
+#[ignore]
 fn test_tesselator_rust_logo() {
     let mut path = ComplexPath::new();
 
