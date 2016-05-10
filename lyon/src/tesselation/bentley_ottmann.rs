@@ -92,7 +92,6 @@ pub fn compute_segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> O
     let a2_a1_cross_v1 = (a2 - a1).cross(v1);
 
     if v1_cross_v2 == 0.0 {
-
         if a2_a1_cross_v1 == 0.0 {
 
             let v1_sqr_len = v1.square_length();
@@ -120,13 +119,23 @@ pub fn compute_segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> O
     }
 
     let t = a2_a1_cross_v1 / v1_cross_v2;
-    let intersection = a1 + (v1 * t);
+    let u = (a2 - a1).cross(v2) / v1_cross_v2;
 
-    return Some(intersection);
+    if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
+        return Some(a1 + (v1 * t));
+    }
+
+    return None;
 }
 
 #[test]
 fn test_segment_intersection() {
+
+    assert!(compute_segment_intersection(
+        vec2(0.0, -2.0), vec2(-5.0, 2.0),
+        vec2(-5.0, 0.0), vec2(-11.0, 5.0)
+    ).is_none());
+
     let i = compute_segment_intersection(
         vec2(0.0, 0.0), vec2(1.0, 1.0),
         vec2(0.0, 1.0), vec2(1.0, 0.0)
@@ -168,6 +177,11 @@ fn test_segment_intersection() {
         vec2(2.0, 0.0), vec2(3.0, 0.0),
         vec2(1.0, 0.0), vec2(4.0, 0.0)
     ).is_some());
+
+    assert!(compute_segment_intersection(
+        vec2(0.0, 0.0), vec2(1.0, 0.0),
+        vec2(0.0, 1.0), vec2(1.0, 1.0)
+    ).is_none());
 }
 
 struct Intersection<PointId> {

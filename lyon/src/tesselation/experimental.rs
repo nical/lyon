@@ -11,6 +11,8 @@ use tesselation::bentley_ottmann::compute_segment_intersection;
 
 use vodk_math::{ Vec2, vec2 };
 
+fn crash() -> ! { panic!() }
+
 struct Event {
     pub current: Vertex,
     pub next: Vertex,
@@ -209,7 +211,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             },
             intersections: Vec::new(),
             next_new_vertex: ComplexVertexId {
-                vertex_id: vertex_id(0),
+                vertex_id: vertex_id(path.num_vertices() as u16),
                 path_id: path_id(path.num_sub_paths() as u16),
             },
             output: output,
@@ -227,17 +229,20 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 next: Vertex { position: self.path.vertex(n).position(), id: n },
             };
 
-            for inter in &self.intersections {
-                //if is_below(evt.current.position, inter.position) {
-                //    println!(" Should process intersection at {:?} ", inter.position);
-                //}
+            for idx in 0..self.intersections.len() {
+                if is_below(evt.current.position, self.intersections[idx].position) {
+                    {
+                        let inter = self.intersections.remove(idx);
+                        self.on_intersection_event(&inter);
+                    }
+                }
             }
             self.on_event(&evt);
         }
     }
 
     fn on_event(&mut self, event: &Event) {
-        println!(" ------ Event {:?}", event.current.id);
+        //println!(" ------ Event {:?}", event.current.id);
 
         let below_prev = is_below(event.current.position, event.previous.position);
         let below_next = is_below(event.current.position, event.next.position);
@@ -269,34 +274,41 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             }
             span_index += 1;
         }
-        // unreachable
-        panic!();
-    }
 
-    //fn on_regular_event2(&mut self, )
+        unreachable!();
+    }
 
     // (edge below, span id, side)
     fn on_regular_event(&mut self, current: Vertex, next: Vertex) {
+
         let (span_index, side) = self.find_span_and_side(current.id);
 
-        if side.is_left() {
-            //println!(" ++++++ Left event {}", event.current.vertex_id.handle);
+        match side {
+            Side::Left => { self.on_left_event(span_index, current, next); }
+            Side::Right => { self.on_right_event(span_index, current, next); }
+        }
+    }
 
-            if self.sweep_line.spans[span_index].right.merge {
-                //     \ /
-                //  \   x   <-- merge vertex
-                //   \ :
-                // ll x   <-- current vertex
-                //     \r
-                self.sweep_line.spans[span_index+1].set_lower_vertex(current, Side::Left);
-                self.end_span(span_index, current);
-            }
+    fn on_left_event(&mut self, span_index: usize, current: Vertex, next: Vertex) {
+        //println!(" ++++++ Left event {}", current.id.vertex_id.handle);
 
-        } else {
-            //println!(" ++++++ Right event {}", event.current.vertex_id.handle);
+        if self.sweep_line.spans[span_index].right.merge {
+            //     \ /
+            //  \   x   <-- merge vertex
+            //   \ :
+            // ll x   <-- current vertex
+            //     \r
+            self.sweep_line.spans[span_index+1].set_lower_vertex(current, Side::Left);
+            self.end_span(span_index, current);
         }
 
-        self.insert_sweep_line_edge(span_index, side, current, next);
+        self.insert_sweep_line_edge(span_index, Side::Left, current, next);
+    }
+
+    fn on_right_event(&mut self, span_index: usize, current: Vertex, next: Vertex) {
+        //println!(" ++++++ Right event {}", current.id.vertex_id.handle);
+
+        self.insert_sweep_line_edge(span_index, Side::Right, current, next);
     }
 
     fn find_span_up(&self, vertex: Vertex) -> (usize, bool) {
@@ -356,16 +368,18 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         if is_inside {
             self.on_split_event(event, span_index, &l, &r)
         } else {
-            //println!(" ++++++ Start event {}", event.current.vertex_id.handle);
+            //println!(" ++++++ Start event {}", event.current.id.vertex_id.handle);
             // Start event.
 
-            // TODO: use a function that checks intersections for l and r
+            let non_existant_index = self.sweep_line.spans.len();
+            self.check_intersections(non_existant_index, Side::Left, l.upper, l.lower);
+            self.check_intersections(non_existant_index, Side::Right, r.upper, r.lower);
             self.sweep_line.spans.insert(span_index, Span::begin(l, r));
         }
     }
 
     fn on_split_event(&mut self, event: &Event, span_index: usize, l: &SpanEdge, r: &SpanEdge) {
-        //println!(" ++++++ Split event {}", event.current.vertex_id.handle);
+        //println!(" ++++++ Split event {}", event.current.id.vertex_id.handle);
 
         // look whether the span shares a merge vertex with the previous one
         if self.sweep_line.spans[span_index].left.merge {
@@ -412,7 +426,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     }
 
     fn on_end_event(&mut self, vertex: Vertex, span_index: usize) {
-        //println!(" ++++++ End event {}", event.current.vertex_id.handle);
+        //println!(" ++++++ End event {}", vertex.id.vertex_id.handle);
 
         if self.sweep_line.spans[span_index].right.merge {
             //   \ /
@@ -448,52 +462,65 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         up: Vertex, down: Vertex
     ) {
         //println!(" -- insert_sweep_line_edge");
-        let mut idx = 0;
-        for span in &self.sweep_line.spans {
-
-            if !span.left.merge && (idx != span_index || side.is_right()) {
-                if let Some(intersection) = compute_segment_intersection(
-                    span.left.upper.position, span.left.lower.position,
-                    up.position, down.position,
-                ) {
-                    println!(" -- found an intersection at {:?}", intersection);
-                    let intersection = Intersection {
-                        position: intersection,
-                        a_down: down,
-                        b_down: span.left.lower,
-                    };
-
-                    self.intersections.push(intersection);
-                    self.intersections.sort_by(|a, b| {
-                        let va = a.position;
-                        let vb = b.position;
-                        if va.y > vb.y { return Ordering::Greater; }
-                        if va.y < vb.y { return Ordering::Less; }
-                        if va.x > vb.x { return Ordering::Greater; }
-                        if va.x < vb.x { return Ordering::Less; }
-                        return Ordering::Equal;
-                    });
-                }
-            }
-
-            if !span.right.merge && (idx != span_index || side.is_left()) {
-                if let Some(intersection) = compute_segment_intersection(
-                    span.right.upper.position, span.right.lower.position,
-                    up.position, down.position,
-                ) {
-                    println!(" -- found an intersection at {:?}", intersection);
-                    let intersection = Intersection {
-                        position: intersection,
-                        a_down: down,
-                        b_down: span.right.lower,
-                    };
-                }
-            }
-
-            idx += 1;
-        }
+        self.check_intersections(span_index, side, up, down);
         self.sweep_line.spans[span_index].vertex(up, down, side);
     }
+
+    fn check_intersections(&mut self,
+        span_index: usize, side: Side,
+        up: Vertex, down: Vertex
+    ) {
+        for idx in 0..self.sweep_line.spans.len() {
+            if idx != span_index || side.is_right() {
+                let left = self.sweep_line.spans[idx].left.clone();
+                self.test_intersection(&left, up, down);
+            }
+            if idx != span_index || side.is_left() {
+                let right = self.sweep_line.spans[idx].right.clone();
+                self.test_intersection(&right, up, down);
+            }
+        }
+    }
+
+    fn test_intersection(
+        &mut self, edge: &SpanEdge,
+        up: Vertex, down: Vertex
+    ) {
+        if !edge.merge
+        && edge.lower.id != up.id
+        && edge.lower.id != down.id {
+            if let Some(intersection) = compute_segment_intersection(
+                edge.upper.position, edge.lower.position,
+                up.position, down.position,
+            ) {
+                println!(" -- found an intersection at {:?}", intersection);
+
+                let mut evt = Intersection {
+                    position: intersection,
+                    a_down: down,
+                    b_down: edge.lower,
+                };
+
+                // TODO: this is bogus, probably need to compare angles instead.
+                if evt.a_down.position.x > evt.b_down.position.x {
+                    swap(&mut evt.a_down, &mut evt.b_down);
+                }
+
+                self.intersections.push(evt);
+
+                self.intersections.sort_by(|a, b| {
+                    let va = a.position;
+                    let vb = b.position;
+                    if va.y > vb.y { return Ordering::Greater; }
+                    if va.y < vb.y { return Ordering::Less; }
+                    if va.x > vb.x { return Ordering::Greater; }
+                    if va.x < vb.x { return Ordering::Less; }
+                    return Ordering::Equal;
+                });
+            }
+        }
+    }
+
 
     fn gen_vertex_id(&mut self) -> ComplexVertexId {
         let ret = self.next_new_vertex;
@@ -504,49 +531,42 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         return ret;
     }
 
-    fn on_itersection_event(&mut self, intersection: &Intersection) {
-        let mut span_index = 0;
-        let mut side = Side::Left;
-        let mut is_a = false;
-        for span in &self.sweep_line.spans {
-            if span.left.lower2 == Some(intersection.a_down.id) {
-                side = Side::Left;
-                is_a = true;
-                break;
-            }
-            if span.left.lower2 == Some(intersection.b_down.id) {
-                side = Side::Left;
-                is_a = false;
-                break;
+    fn on_intersection_event(&mut self, intersection: &Intersection) {
+        for idx in 0..self.sweep_line.spans.len() {
+            let (l, r) = {
+                let span = &self.sweep_line.spans[idx];
+                (span.left.lower2, span.right.lower2)
+            };
+
+            println!(" -- {}: searching SL for intersection span: {} {} inter: {} {}", idx,
+                l.unwrap().vertex_id.handle, r.unwrap().vertex_id.handle,
+                intersection.a_down.id.vertex_id.handle,
+                intersection.b_down.id.vertex_id.handle
+            );
+
+            if r == Some(intersection.b_down.id) {
+                // left + right events
+                println!(" XXX left/right intersection");
+                let new_vertex = Vertex {
+                    position: intersection.position,
+                    id: self.gen_vertex_id(),
+                };
+
+                self.on_right_event(idx, new_vertex, intersection.a_down);
+                self.on_left_event(idx+1, new_vertex, intersection.b_down);
+                return;
             }
 
-            if span.right.lower2 == Some(intersection.a_down.id) {
-                side = Side::Right;
-                is_a = true;
-                break;
-            }
-            if span.right.lower2 == Some(intersection.b_down.id) {
-                side = Side::Right;
-                is_a = false;
-                break;
-            }
+            if l == Some(intersection.b_down.id) {
+                // up + down events
+                println!(" XXX up/down intersection");
+                crash();
 
-            span_index += 1;
+                return;
+            }
         }
 
-        if side.is_left() { // TODO this is wrong
-/*
-*/
-            let vertex_id = self.gen_vertex_id();
-            //self.on_regular_event(&Event{
-            //    current: Vertex { position: intersection.position, id: vertex_id },
-            //    next: if is_a { Vertex { position: intersection.a_down.position, id: intersection.a_down } }
-            //          else { Vertex { position: intersection.b_down_pos, id: intersection.b_down } },
-            //    previous: Vertex {
-            //        position: intersection.position + vec2(0.0, -1.0), id: intersection.a_down
-            //    }, // should not matter
-            //});
-        }
+        unreachable!();
     }
 
     fn end_span(&mut self, span_index: usize, vertex: Vertex) {
@@ -872,26 +892,42 @@ fn test_tesselator_degenerate_same_position() {
 }
 
 #[test]
-fn test_tesselator_auto_intersection() {
-    //  x.___
-    //   \   'x
+fn test_tesselator_auto_intersection_type1() {
+    //  o.___
+    //   \   'o
     //    \ /
-    //     o  <-- intersection!
+    //     x  <-- intersection!
     //    / \
-    //  x.___\
-    //       'x
+    //  o.___\
+    //       'o
     let mut path = ComplexPath::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(2.0, 1.0))
         .line_to(vec2(0.0, 2.0))
         .line_to(vec2(2.0, 3.0))
         .close();
-    test_path(path.as_slice(), None);
-    panic!();
+    test_path(path.as_slice(), Some(2));
 }
 
 #[test]
-#[ignore]
+fn test_tesselator_auto_intersection_type2() {
+    //  o
+    //  |\   ,o
+    //  | \ / |
+    //  |  x  | <-- intersection!
+    //  | / \ |
+    //  o'   \|
+    //        o
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
+        .line_to(vec2(2.0, 3.0))
+        .line_to(vec2(2.0, 1.0))
+        .line_to(vec2(0.0, 2.0))
+        .close();
+    test_path(path.as_slice(), Some(2));
+}
+
+#[test]
 fn test_tesselator_rust_logo() {
     let mut path = ComplexPath::new();
 
