@@ -1,13 +1,9 @@
-use std::f32::consts::PI;
 use tesselation::{
     vertex_id, vertex_id_range,
     VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
-    WindingOrder
 };
 
-use tesselation::vectors::{ Position2D };
-use tesselation::sweep_line::{ compute_event_type, EventType, };
 use tesselation::bezier::*;
 
 use vodk_math::{ Vec2, vec2, Rect };
@@ -31,8 +27,6 @@ pub struct PointData {
     pub position: Vec2,
     pub point_type: PointType,
 }
-
-impl Position2D for PointData { fn position(&self) -> Vec2 { self.position } }
 
 #[derive(Clone, Debug)]
 pub struct ComplexPath {
@@ -192,9 +186,6 @@ impl<'l> PathSlice<'l> {
 pub struct PathInfo {
     pub aabb: Rect,
     pub range: VertexIdRange,
-    pub winding_order: Option<WindingOrder>,
-    pub is_convex: Option<bool>,
-    pub is_y_monotone: Option<bool>,
     pub has_beziers: Option<bool>,
     pub is_closed: bool,
 }
@@ -205,13 +196,8 @@ pub struct PathBuilder<'l> {
     last_ctrl: Vec2,
     top_left: Vec2,
     bottom_right: Vec2,
-    accum_angle: f32,
     offset: u16,
     // flags
-    convex_if_cw: bool,
-    convex_if_ccw: bool,
-    y_monotone_if_cw: bool,
-    y_monotone_if_ccw: bool,
     has_beziers: bool,
     flatten: bool,
 }
@@ -224,14 +210,9 @@ impl<'l> PathBuilder<'l> {
             path: path,
             last_position: pos,
             last_ctrl: vec2(0.0, 0.0),
-            accum_angle: 0.0,
             top_left: vec2(0.0, 0.0),
             bottom_right: vec2(0.0, 0.0),
             offset: offset,
-            convex_if_cw: true,
-            convex_if_ccw: true,
-            y_monotone_if_cw: true,
-            y_monotone_if_ccw: true,
             has_beziers: false,
             flatten: false,
         }
@@ -300,23 +281,22 @@ impl<'l> PathBuilder<'l> {
         return self.cubic_bezier_to(ctrl1+offset, ctrl2+offset, to+offset);
     }
 
-    // TODO: This is the "S" operation from svg, not sure how it should be called
-    pub fn cubic_bezier_to_s(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn cubic_bezier_symetry_to(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
         let ctrl = self.last_position + (self.last_position - self.last_ctrl);
         return self.cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    pub fn relative_cubic_bezier_to_s(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_cubic_bezier_symetry_to(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
         let ctrl = self.last_position - self.last_ctrl;
         return self.relative_cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    pub fn quadratic_bezier_to_s(self, to: Vec2) -> PathBuilder<'l> {
+    pub fn quadratic_bezier_symetry_to(self, to: Vec2) -> PathBuilder<'l> {
         let ctrl = self.last_position + (self.last_position - self.last_ctrl);
         return self.quadratic_bezier_to(ctrl, to);
     }
 
-    pub fn relative_quadratic_bezier_to_s(self, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_quadratic_bezier_symetry_to(self, to: Vec2) -> PathBuilder<'l> {
         let ctrl = self.last_position - self.last_ctrl;
         return self.relative_quadratic_bezier_to(ctrl, to);
     }
@@ -363,46 +343,11 @@ impl<'l> PathBuilder<'l> {
             self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y,
         );
 
-        let shape_info = if vertex_count > 2 {
-            let a = self.path.vertices[last - 1].position;
-            let b = self.path.vertices[last].position;
-            let c = self.path.vertices[offset].position;
-            let d = self.path.vertices[offset+1].position;
-
-            self.update_angle(a, b, c);
-            self.update_angle(b, c, d);
-
-            if self.accum_angle > ((vertex_count-1) as f32) * PI {
-                PathInfo {
-                    range: vertex_range,
-                    aabb: aabb,
-                    winding_order: Some(WindingOrder::Clockwise),
-                    is_convex: Some(self.convex_if_cw),
-                    is_y_monotone: Some(self.y_monotone_if_cw),
-                    has_beziers: Some(self.has_beziers),
-                    is_closed: closed,
-                }
-            } else {
-                PathInfo {
-                    range: vertex_range,
-                    aabb: aabb,
-                    winding_order: Some(WindingOrder::CounterClockwise),
-                    is_convex: Some(self.convex_if_ccw),
-                    is_y_monotone: Some(self.y_monotone_if_ccw),
-                    has_beziers: Some(self.has_beziers),
-                    is_closed: closed,
-                }
-            }
-        } else {
-            PathInfo {
-                range: vertex_range,
-                aabb: aabb,
-                winding_order: None,
-                is_convex: None,
-                is_y_monotone: None,
-                has_beziers: Some(self.has_beziers),
-                is_closed: false,
-            }
+        let shape_info = PathInfo {
+            range: vertex_range,
+            aabb: aabb,
+            has_beziers: Some(self.has_beziers),
+            is_closed: closed,
         };
 
         let index = path_id(self.path.sub_paths.len() as u16);
@@ -425,30 +370,7 @@ impl<'l> PathBuilder<'l> {
             if point.y > self.bottom_right.y { self.bottom_right.y = point.y; }
         }
         self.path.vertices.push(PointData{ position: point, point_type: ptype });
-        let idx = self.path.vertices.len() - 1;
-        if idx - self.offset as usize > 2 {
-            let a = self.path.vertices[idx-2].position;
-            let b = self.path.vertices[idx-1].position;
-            let c = self.path.vertices[idx  ].position;
-            self.update_angle(a, b, c);
-        }
         self.last_position = point;
-    }
-
-    fn update_angle(&mut self, a: Vec2, b: Vec2, c: Vec2) {
-        let angle = (a - b).directed_angle(c - b);
-        self.accum_angle += angle;
-        if angle < PI {
-            self.convex_if_cw = false;
-        } else {
-            self.convex_if_ccw = false;
-        }
-        let vertex_type = compute_event_type(a, b, c);
-        match vertex_type {
-            EventType::Split|EventType::Merge => { self.y_monotone_if_cw = false; }
-            EventType::Start|EventType::End => { self.y_monotone_if_ccw = false; }
-            _ => {}
-        }
     }
 }
 
@@ -470,9 +392,6 @@ fn test_path_builder_simple() {
         assert_eq!(path.vertices[2].point_type, PointType::Normal);
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
-        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
-        assert_eq!(info.is_convex, Some(true));
-        assert_eq!(info.is_y_monotone, Some(true));
         let sub_path = path.sub_path(id);
         let first = sub_path.first();
         let next = sub_path.next(first);
@@ -493,9 +412,6 @@ fn test_path_builder_simple() {
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
-        assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
-        assert_eq!(info.is_convex, Some(true));
-        assert_eq!(info.is_y_monotone, Some(true));
     }
 
     // line_to back to the first vertex (should ignore the last vertex)
@@ -508,9 +424,6 @@ fn test_path_builder_simple() {
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(6, 9));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
-        assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
-        assert_eq!(info.is_convex, Some(true));
-        assert_eq!(info.is_y_monotone, Some(true));
     }
 }
 
@@ -526,9 +439,6 @@ fn test_path_builder_simple_bezier() {
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
-        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
-        assert_eq!(info.is_convex, Some(true));
-        assert_eq!(info.is_y_monotone, Some(true));
     }
 
     // counter-clockwise
@@ -539,9 +449,6 @@ fn test_path_builder_simple_bezier() {
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
-        assert_eq!(info.winding_order, Some(WindingOrder::CounterClockwise));
-        assert_eq!(info.is_convex, Some(true));
-        assert_eq!(info.is_y_monotone, Some(true));
     }
 
     // a slightly more elaborate path
@@ -558,26 +465,5 @@ fn test_path_builder_simple_bezier() {
             .close();
         let info = path.sub_path(id).info();
         assert_eq!(info.aabb, Rect::new(-0.2, 0.0, 0.7, 0.4));
-        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
-        assert_eq!(info.is_convex, Some(false));
-        assert_eq!(info.is_y_monotone, Some(false));
-    }
-
-    // simple non-convex but y-monotone path
-    {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .line_to(vec2(2.0, 1.0))
-            .line_to(vec2(1.0, 2.0))
-            .line_to(vec2(2.0, 3.0))
-            .line_to(vec2(0.0, 4.0))
-            .line_to(vec2(-2.0, 3.0))
-            .line_to(vec2(-1.0, 2.0))
-            .line_to(vec2(-2.0, 1.0))
-            .close();
-        let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect::new(-2.0, 0.0, 4.0, 4.0));
-        assert_eq!(info.winding_order, Some(WindingOrder::Clockwise));
-        assert_eq!(info.is_convex, Some(false));
-        assert_eq!(info.is_y_monotone, Some(true));
     }
 }

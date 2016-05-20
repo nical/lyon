@@ -4,10 +4,9 @@ use std::mem::swap;
 
 use tesselation::{ vertex_id, VertexId };
 use tesselation::path::*;
-use tesselation::vectors::Position2D;
 use tesselation::sweep_line::{ is_below, intersect_segment_with_horizontal };
 use tesselation::vertex_builder::{ VertexBufferBuilder, VertexBuffers, simple_vertex_builder };
-use tesselation::bentley_ottmann::compute_segment_intersection;
+use tesselation::intersection::compute_segment_intersection;
 
 use vodk_math::{ Vec2, vec2 };
 
@@ -61,8 +60,8 @@ impl EventVector {
         debug_assert_eq!(self.events.len(), path.vertices().len());
 
         self.events.sort_by(|a, b| {
-            let va = path.vertex(*a).position();
-            let vb = path.vertex(*b).position();
+            let va = path.vertex(*a).position;
+            let vb = path.vertex(*b).position;
             if va.y > vb.y { return Ordering::Greater; }
             if va.y < vb.y { return Ordering::Less; }
             if va.x > vb.x { return Ordering::Greater; }
@@ -159,13 +158,6 @@ impl Span {
         self.mut_edge(side).merge = true;
     }
 
-    fn edge(&self, side: Side) -> &SpanEdge {
-        return match side {
-            Side::Left => { &self.left }
-            Side::Right => { &self.right }
-        };
-    }
-
     fn mut_edge(&mut self, side: Side) -> &mut SpanEdge {
         return match side {
             Side::Left => { &mut self.left }
@@ -225,9 +217,9 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             let p = self.path.previous(e);
             let n = self.path.next(e);
             let evt = Event {
-                current: Vertex { position: self.path.vertex(e).position(), id: e },
-                previous: Vertex { position: self.path.vertex(p).position(), id: p },
-                next: Vertex { position: self.path.vertex(n).position(), id: n },
+                current: Vertex { position: self.path.vertex(e).position, id: e },
+                previous: Vertex { position: self.path.vertex(p).position, id: p },
+                next: Vertex { position: self.path.vertex(n).position, id: n },
             };
 
             while !self.intersections.is_empty() {
@@ -598,12 +590,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 // up + down events
                 self.on_end_event(intersection.point, idx);
 
-                let mut l = SpanEdge {
+                let l = SpanEdge {
                     upper: intersection.point,
                     lower: intersection.a_down,
                     merge: false,
                 };
-                let mut r = SpanEdge {
+                let r = SpanEdge {
                     upper: intersection.point,
                     lower: intersection.b_down,
                     merge: false,
@@ -777,7 +769,7 @@ pub fn tesselate_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     output.begin_geometry();
 
     for v in path.vertices().as_slice() {
-        output.push_vertex(v.position());
+        output.push_vertex(v.position);
     }
 
     let events = EventVector::from_path(path);
@@ -1045,7 +1037,7 @@ fn test_tesselator_rust_logo() {
         .relative_cubic_bezier_to(vec2(-0.425, -0.047), vec2(-0.853, -0.09), vec2(-1.28, -0.125))
         .relative_line_to(vec2(-2.72, -4.395))
         .relative_cubic_bezier_to(vec2(-0.275, -0.445), vec2(-0.762, -0.716), vec2(-1.286, -0.716))
-        .relative_cubic_bezier_to_s(vec2(-1.011, 0.271), vec2(-1.285, 0.716))
+        .relative_cubic_bezier_symetry_to(vec2(-1.011, 0.271), vec2(-1.285, 0.716))
         .relative_line_to(vec2(-2.72, 4.395))
         .relative_cubic_bezier_to(vec2(-0.428, 0.035), vec2(-0.856, 0.078), vec2(-1.281, 0.125))
         .relative_line_to(vec2(-3.523, -3.779))
@@ -1085,7 +1077,7 @@ fn test_tesselator_rust_logo() {
         .relative_cubic_bezier_to(vec2(-0.047, 0.425), vec2(-0.089, 0.853), vec2(-0.125, 1.28))
         .relative_line_to(vec2(-4.394, 2.72))
         .relative_cubic_bezier_to(vec2(-0.445, 0.275), vec2(-0.716, 0.761), vec2(-0.716, 1.286))
-        .relative_cubic_bezier_to_s(vec2(0.271, 1.011), vec2(0.716, 1.285))
+        .relative_cubic_bezier_symetry_to(vec2(0.271, 1.011), vec2(0.716, 1.285))
         .relative_line_to(vec2(4.394, 2.72))
         .relative_cubic_bezier_to(vec2(0.036, 0.428), vec2(0.078, 0.855), vec2(0.125, 1.28))
         .relative_line_to(vec2(-3.777, 3.523))
@@ -1125,7 +1117,7 @@ fn test_tesselator_rust_logo() {
         .relative_cubic_bezier_to(vec2(0.425, 0.049), vec2(0.853, 0.09), vec2(1.281, 0.128))
         .relative_line_to(vec2(2.72, 4.394))
         .relative_cubic_bezier_to(vec2(0.274, 0.443), vec2(0.761, 0.716), vec2(1.285, 0.716))
-        .relative_cubic_bezier_to_s(vec2(1.011, -0.272), vec2(1.286, -0.716))
+        .relative_cubic_bezier_symetry_to(vec2(1.011, -0.272), vec2(1.286, -0.716))
         .relative_line_to(vec2(2.72, -4.394))
         .relative_cubic_bezier_to(vec2(0.428, -0.038), vec2(0.855, -0.079), vec2(1.28, -0.128))
         .relative_line_to(vec2(3.522, 3.777))
@@ -1165,13 +1157,13 @@ fn test_tesselator_rust_logo() {
         .relative_cubic_bezier_to(vec2(0.046, -0.425), vec2(0.088, -0.853), vec2(0.125, -1.28))
         .relative_line_to(vec2(4.394, -2.72))
         .relative_cubic_bezier_to(vec2(0.445, -0.274), vec2(0.716, -0.761), vec2(0.716, -1.285))
-        .cubic_bezier_to_s(vec2(123.076, 69.991), vec2(122.631, 69.716))
+        .cubic_bezier_symetry_to(vec2(123.076, 69.991), vec2(122.631, 69.716))
         .close();
     PathBuilder::begin(&mut path, vec2(93.222, 106.167)).flattened()
         .relative_cubic_bezier_to(vec2(-1.678, -0.362), vec2(-2.745, -2.016), vec2(-2.385, -3.699))
         .relative_cubic_bezier_to(vec2(0.359, -1.681), vec2(2.012, -2.751), vec2(3.689, -2.389))
         .relative_cubic_bezier_to(vec2(1.678, 0.359), vec2(2.747, 2.016), vec2(2.387, 3.696))
-        .cubic_bezier_to_s(vec2(94.899, 106.526), vec2(93.222, 106.167))
+        .cubic_bezier_symetry_to(vec2(94.899, 106.526), vec2(93.222, 106.167))
         .close();
     PathBuilder::begin(&mut path, vec2(91.729, 96.069)).flattened()
         .relative_cubic_bezier_to(vec2(-1.531, -0.328), vec2(-3.037, 0.646), vec2(-3.365, 2.18))
