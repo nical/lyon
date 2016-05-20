@@ -5,6 +5,7 @@ version = "0.1.0"
 authors = [
     "Nicolas Silva <nical.silva@gmail.com>",
 ]
+license = "MIT/Apache-2.0"
 
 [[lib]]
 name = "container"
