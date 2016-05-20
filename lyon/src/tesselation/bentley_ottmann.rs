@@ -118,8 +118,8 @@ pub fn compute_segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> O
         return None;
     }
 
-    let t = a2_a1_cross_v1 / v1_cross_v2;
-    let u = (a2 - a1).cross(v2) / v1_cross_v2;
+    let t = (a2 - a1).cross(v2) / v1_cross_v2;
+    let u = a2_a1_cross_v1 / v1_cross_v2;
 
     if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
         return Some(a1 + (v1 * t));

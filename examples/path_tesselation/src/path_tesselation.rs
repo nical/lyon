@@ -312,6 +312,18 @@ fn main() {
         .cubic_bezier_to(vec2(105.098, 61.473), vec2(104.39, 59.634), vec2(105.085, 58.061))
         .close();
 
+    let mut path = ComplexPath::new();
+    PathBuilder::begin(&mut path, vec2(20.0, 20.0)).flattened()
+        .line_to(vec2(60.0, 20.0))
+        .line_to(vec2(60.0, 60.0))
+        .line_to(vec2(20.0, 60.0))
+        .close();
+    PathBuilder::begin(&mut path, vec2(40.0, 10.0)).flattened()
+        .line_to(vec2(70.0, 40.0))
+        .line_to(vec2(40.0, 70.0))
+        .line_to(vec2(10.0, 40.0))
+        .close();
+
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
