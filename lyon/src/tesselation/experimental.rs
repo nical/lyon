@@ -21,9 +21,7 @@ struct Event {
 
 pub struct Intersection {
     point: Vertex,
-    //a_up: ComplexVertexId,
     a_down: Vertex,
-    //b_up: ComplexVertexId,
     b_down: Vertex,
 }
 
@@ -102,7 +100,6 @@ impl Side {
 struct SpanEdge {
     upper: Vertex,
     lower: Vertex,
-    lower2: Option<ComplexVertexId>,
     merge: bool,
 }
 
@@ -155,7 +152,6 @@ impl Span {
         let mut edge = self.mut_edge(side);
 
         edge.lower = vertex;
-        edge.lower2 = Some(vertex.id);
         edge.merge = false;
     }
 
@@ -220,10 +216,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             for span in &self.sweep_line.spans {
                 print!("| {:?}   {:?} |  ", span.left.lower.id.vertex_id.handle, span.right.lower.id.vertex_id.handle,);
             }
-            print!("\n|    : ");
-            for span in &self.sweep_line.spans {
-                print!("|({:?}) ({:?})|  ", span.left.lower2.unwrap().vertex_id.handle, span.right.lower2.unwrap().vertex_id.handle,);
-            }
             println!("");
         }
 
@@ -238,15 +230,10 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 next: Vertex { position: self.path.vertex(n).position(), id: n },
             };
 
-            self.log_sl();
-
             while !self.intersections.is_empty() {
                 if is_below(evt.current.position, self.intersections[0].point.position) {
                     let inter = self.intersections.remove(0);
                     self.on_intersection_event(&inter);
-
-                    self.log_sl();
-
                 } else {
                     break;
                 }
@@ -384,13 +371,11 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         let mut l = SpanEdge {
             upper: event.current,
             lower: event.previous,
-            lower2: Some(event.previous.id),
             merge: false,
         };
         let mut r = SpanEdge {
             upper: event.current,
             lower: event.next,
-            lower2: Some(event.next.id),
             merge: false,
         };
 
@@ -440,7 +425,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 upper: ll.upper,
                 lower: event.current,
                 merge: false,
-                lower2: Some(event.current.id),
             };
 
             self.sweep_line.spans.insert(span_index, Span::begin(ll, r2));
@@ -592,7 +576,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         for idx in 0..self.sweep_line.spans.len() {
             let (l, r) = {
                 let span = &self.sweep_line.spans[idx];
-                (span.left.lower2, span.right.lower2)
+                (span.left.lower.id, span.right.lower.id)
             };
 
             //println!("      {}: searching SL for intersection span: {} {} inter: {} {}", idx,
@@ -601,18 +585,15 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             //    intersection.b_down.id.vertex_id.handle
             //);
 
-            if r == Some(intersection.b_down.id) {
+            if r == intersection.b_down.id {
                 // left + right events
                 //println!(" -- L/R intersection");
                 self.on_right_event_no_intersection(idx, intersection.point, intersection.a_down);
-
-                self.log_sl();
-
                 self.on_left_event_no_intersection(idx+1, intersection.point, intersection.b_down);
                 return;
             }
 
-            if l == Some(intersection.b_down.id) {
+            if l == intersection.b_down.id {
                 //println!(" -- U/D intersection");
                 // up + down events
                 self.on_end_event(intersection.point, idx);
@@ -620,13 +601,11 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 let mut l = SpanEdge {
                     upper: intersection.point,
                     lower: intersection.a_down,
-                    lower2: Some(intersection.a_down.id),
                     merge: false,
                 };
                 let mut r = SpanEdge {
                     upper: intersection.point,
                     lower: intersection.b_down,
-                    lower2: Some(intersection.b_down.id),
                     merge: false,
                 };
                 self.sweep_line.spans.insert(idx, Span::begin(l, r));
@@ -730,7 +709,7 @@ impl MonotoneTesselator {
     }
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
-        println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
+        //println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
 
         if (c.pos - b.pos).directed_angle(a.pos - b.pos) <= PI {
             self.triangles.push((a.id.handle, b.id.handle, c.id.handle));
