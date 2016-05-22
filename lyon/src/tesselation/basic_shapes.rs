@@ -4,6 +4,7 @@ use tesselation::vertex_builder::VertexBufferBuilder;
 use tesselation::{ Index };
 
 use vodk_math::{ Vector2D, Rectangle };
+use vodk_math::units::{ Texels };
 
 use std::f32::consts::PI;
 
@@ -15,20 +16,67 @@ pub struct RoundedRectangle<U> {
     bottom_right_radius: f32,
 }
 
-pub fn fill_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
-    rect: &Rectangle<U>,
+pub fn tesselate_triangle<Input, Output: VertexBufferBuilder<Input>>(
+    v1: Input,
+    v2: Input,
+    v3: Input,
     output: &mut Output,
 ) {
     output.begin_geometry();
-    let a = output.push_vertex(rect.top_left());
-    let b = output.push_vertex(rect.top_right());
-    let c = output.push_vertex(rect.bottom_right());
-    let d = output.push_vertex(rect.bottom_left());
+    let a = output.push_vertex(v1);
+    let b = output.push_vertex(v2);
+    let c = output.push_vertex(v3);
+    output.push_indices(a, b, c);
+}
+
+pub fn tesselate_quad<Input, Output: VertexBufferBuilder<Input>>(
+    v1: Input,
+    v2: Input,
+    v3: Input,
+    v4: Input,
+    output: &mut Output,
+) {
+    output.begin_geometry();
+    let a = output.push_vertex(v1);
+    let b = output.push_vertex(v2);
+    let c = output.push_vertex(v3);
+    let d = output.push_vertex(v4);
     output.push_indices(a, b, c);
     output.push_indices(a, c, d);
 }
 
-pub fn fill_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+pub fn tesselate_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+    rect: &Rectangle<U>,
+    output: &mut Output,
+) {
+    tesselate_quad(
+        rect.top_left(),
+        rect.top_right(),
+        rect.bottom_right(),
+        rect.bottom_left(),
+        output
+    );
+}
+
+pub trait Vertex2dUv {
+    fn new(Vector2D) -> Self;
+}
+
+pub fn tesselate_rectangle_with_uv<A, Output: VertexBufferBuilder<(Vector2D<A>, Vector2D<Texels>)>>(
+    rect: &Rectangle<A>,
+    uv: &Rectangle<Texels>,
+    output: &mut Output,
+) {
+    tesselate_quad(
+        (rect.top_left(), uv.top_left()),
+        (rect.top_right(), uv.top_right()),
+        (rect.bottom_right(), uv.bottom_right()),
+        (rect.bottom_left(), uv.bottom_left()),
+        output
+    );
+}
+
+pub fn tesselate_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     _rect: &RoundedRectangle<U>,
     output: &mut Output
 ) {
@@ -36,7 +84,7 @@ pub fn fill_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     panic!("TODO!");
 }
 
-pub fn fill_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
+pub fn tesselate_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     center: Vector2D<U>,
     radius: Vector2D<U>,
     num_vertices: u32,
@@ -52,3 +100,18 @@ pub fn fill_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
         output.push_indices(0, i, (i-1)%num_vertices as Index+2);
     }
 }
+
+/*
+tesselate_rect_with_uv(text[i].rect(), cache.uv_for(text[i].key), output);
+
+let glyph_rect = text[i].rect.top_left();
+let uv_rect = cache.uv_for(text[i].key);
+tesselate_quad(
+    Vertex::new(transform * glyph_rect.top_left(), uv_rect.top_left()),
+    Vertex::new(transform * glyph_rect.top_right(), uv_rect.top_right()),
+    Vertex::new(transform * glyph_rect.bottom_right(), uv_rect.bottom_right()),
+    Vertex::new(transform * glyph_rect.bottom_left(), uv_rect.bottom_left()),
+    output
+);
+
+*/

@@ -9,10 +9,12 @@ use glium::glutin;
 use glium::index::PrimitiveType;
 use glium::DisplayBuild;
 
-use lyon::tesselation::path::{ ComplexPath, PathBuilder, PointType };
+use lyon::tesselation::path::{ ComplexPath, PathBuilder };
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
-use lyon::tesselation::path_tesselator::tesselate_fill;
+use lyon::tesselation::path_tesselator::{
+    TesselatorOptions, tesselate_path_fill, tesselate_path_stroke
+};
 
 use vodk_math::*;
 
@@ -333,10 +335,18 @@ fn main() {
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
-    tesselate_fill(
+    tesselate_path_fill(
         path.as_slice(),
+        &TesselatorOptions::new(),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
     ).unwrap();
+
+    tesselate_path_stroke(
+        path.as_slice(),
+        1.0,
+        2,
+        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
+    );
 
 /*
     for p in path.vertices().as_slice() {
@@ -361,7 +371,7 @@ fn main() {
     println!(" -- {} vertices {} indices", vertices.len(), indices.len());
 
     let mut bg_buffers: VertexBuffers<BgVertex> = VertexBuffers::new();
-    fill_rectangle(
+    tesselate_rectangle(
         &Rect::new(-1.0, -1.0, 2.0, 2.0),
         &mut vertex_builder(&mut bg_buffers, BgVertexCtor)
     );

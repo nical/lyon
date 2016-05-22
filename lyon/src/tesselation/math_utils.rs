@@ -1,9 +1,47 @@
-use vodk_math::{ Vec2, vec2, fuzzy_eq };
+use vodk_math::{ Vector2D };
 
-pub fn compute_segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> Option<Vec2> {
+#[cfg(test)]
+use vodk_math::{ vec2 };
+
+/// Defines an ordering between two points
+pub fn is_below<U>(a: Vector2D<U>, b: Vector2D<U>) -> bool {
+    a.y > b.y || (a.y == b.y && a.x > b.x)
+}
+
+pub fn tangent<U>(v: Vector2D<U>) -> Vector2D<U> {
+    let l = v.length();
+    return Vector2D::new(-v.y / l, v.x / l);
+}
+
+pub fn line_intersection<U>(
+    a1: Vector2D<U>,
+    a2: Vector2D<U>,
+    b1: Vector2D<U>,
+    b2: Vector2D<U>
+) -> Option<Vector2D<U>> {
+    let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
+    if det*det == 0.0 {
+        // The lines are very close to parallel
+        return None;
+    }
+    let inv_det = 1.0 / det;
+    let a = a1.x * a2.y - a1.y * a2.x;
+    let b = b1.x * b2.y - b1.y * b2.x;
+    return Some(Vector2D::new(
+        (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
+        (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
+    ));
+}
+
+pub fn segment_intersection<U>(
+    a1: Vector2D<U>,
+    b1: Vector2D<U>,
+    a2: Vector2D<U>,
+    b2: Vector2D<U>
+) -> Option<Vector2D<U>> {
     let v1 = b1 - a1;
     let v2 = b2 - a2;
-    if v2.fuzzy_eq(vec2(0.0, 0.0)) {
+    if v2.fuzzy_eq(Vector2D::new(0.0, 0.0)) {
         return None;
     }
 
@@ -50,56 +88,86 @@ pub fn compute_segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> O
 #[test]
 fn test_segment_intersection() {
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(0.0, -2.0), vec2(-5.0, 2.0),
         vec2(-5.0, 0.0), vec2(-11.0, 5.0)
     ).is_none());
 
-    let i = compute_segment_intersection(
+    let i = segment_intersection(
         vec2(0.0, 0.0), vec2(1.0, 1.0),
         vec2(0.0, 1.0), vec2(1.0, 0.0)
     ).unwrap();
     println!(" intersection: {:?}", i);
     assert!(i.fuzzy_eq(vec2(0.5, 0.5)));
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(0.0, 1.0),
         vec2(1.0, 0.0), vec2(1.0, 1.0)
     ).is_none());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(1.0, 0.0),
         vec2(2.0, 0.0), vec2(3.0, 0.0)
     ).is_none());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(2.0, 0.0),
         vec2(1.0, 0.0), vec2(3.0, 0.0)
     ).is_some());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(3.0, 0.0), vec2(1.0, 0.0),
         vec2(2.0, 0.0), vec2(4.0, 0.0)
     ).is_some());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(2.0, 0.0), vec2(4.0, 0.0),
         vec2(3.0, 0.0), vec2(1.0, 0.0)
     ).is_some());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(1.0, 0.0), vec2(4.0, 0.0),
         vec2(2.0, 0.0), vec2(3.0, 0.0)
     ).is_some());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(2.0, 0.0), vec2(3.0, 0.0),
         vec2(1.0, 0.0), vec2(4.0, 0.0)
     ).is_some());
 
-    assert!(compute_segment_intersection(
+    assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(1.0, 0.0),
         vec2(0.0, 1.0), vec2(1.0, 1.0)
     ).is_none());
+}
+
+pub fn line_horizontal_intersection<U>(
+    a: Vector2D<U>,
+    b: Vector2D<U>,
+    y: f32
+) -> f32 {
+    let vx = b.x - a.x;
+    let vy = b.y - a.y;
+    if vy == 0.0 {
+        // If the segment is horizontal, pick the biggest x value (the right-most point).
+        // That's an arbitrary decision that serves the purpose of y-monotone decomposition
+        return a.x.max(b.x);
+    }
+    return a.x + (y - a.y) * vx / vy;
+}
+
+
+#[cfg(test)]
+fn assert_almost_eq(a: f32, b:f32) {
+    if (a - b).abs() < 0.0001 { return; }
+    println!("expected {} and {} to be equal", a, b);
+    panic!();
+}
+
+#[test]
+fn test_intersect_segment_horizontal() {
+    assert_almost_eq(line_horizontal_intersection(vec2(0.0, 0.0), vec2(0.0, 2.0), 1.0), 0.0);
+    assert_almost_eq(line_horizontal_intersection(vec2(0.0, 2.0), vec2(2.0, 0.0), 1.0), 1.0);
+    assert_almost_eq(line_horizontal_intersection(vec2(0.0, 1.0), vec2(3.0, 0.0), 0.0), 3.0);
 }
 

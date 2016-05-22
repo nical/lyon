@@ -1,9 +1,8 @@
 pub mod basic_shapes;
 pub mod bezier;
-pub mod intersection;
+pub mod math_utils;
 pub mod path;
 pub mod path_tesselator;
-pub mod sweep_line;
 pub mod vertex_builder;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }

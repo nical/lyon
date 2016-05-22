@@ -6,7 +6,7 @@ use tesselation::{
 
 use tesselation::bezier::*;
 
-use vodk_math::{ Vec2, vec2, Rect };
+use vodk_math::{ Vec2, vec2, Rect, Untyped };
 
 use vodk_id::{ Id, IdRange, ToIndex };
 
@@ -152,6 +152,10 @@ impl<'l> PathSlice<'l> {
     pub fn vertex(&self, id: VertexId) -> &PointData { &self.vertices[id] }
 
     pub fn first(&self) -> VertexId { self.info.range.first }
+
+    pub fn last(&self) -> VertexId {
+        vertex_id(self.info.range.first.handle + self.info.range.count - 1)
+    }
 
     pub fn next(&self, id: VertexId) -> VertexId {
         let first = self.info.range.first.handle;
@@ -373,6 +377,150 @@ impl<'l> PathBuilder<'l> {
         self.last_position = point;
     }
 }
+
+pub fn flatten_cubic_bezier_segment<'l>(
+    mut bezier: CubicBezierSegment<Untyped>,
+    tolerance: f32,
+    mut path: PathBuilder<'l>
+) -> PathBuilder<'l> {
+    // The algorithm implemented here is based on:
+    // http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
+    //
+    // The basic premise is that for a small t the third order term in the
+    // equation of a cubic bezier curve is insignificantly small. This can
+    // then be approximated by a quadratic equation for which the maximum
+    // difference from a linear approximation can be much more easily determined.
+    let mut t = 0.0;
+    while t < 1.0 {
+        let cp21 = bezier.cp1 - bezier.cp2;
+        let cp31 = bezier.cp2 - bezier.from;
+
+        // To remove divisions and check for divide-by-zero, this is optimized from:
+        // Float s3 = (cp31.x * cp21.y - cp31.y * cp21.x) / hypotf(cp21.x, cp21.y);
+        // t = 2 * Float(sqrt(tolerance / (3. * std::abs(s3))));
+        let cp21x31 = cp31.x * cp21.y - cp31.y * cp21.x;
+        let h = cp21.x.hypot(cp21.y);
+        if cp21x31 * h == 0.0 {
+            break;
+        }
+
+        let s3inv = h / cp21x31;
+        t = 2.0 * (tolerance * s3inv.abs().sqrt() / 3.0);
+
+        if t >= 1.0 {
+            break;
+        }
+
+        let mut second = bezier;
+        split_cubic_bezier(&bezier, t, None, Some(&mut second));
+        bezier = second;
+
+        path = path.line_to(bezier.from);
+    }
+
+    return path.line_to(bezier.to);
+}
+
+fn flatten_cubic_bezier<'l>(
+    bezier: CubicBezierSegment<Untyped>,
+    tolerance: f32,
+    mut path: PathBuilder<'l>
+) -> PathBuilder<'l> {
+    let (t1, t2) = find_cubic_bezier_inflection_points(&bezier);
+    let count = if t1.is_none() { 0 } else if t2.is_none() { 1 } else { 2 };
+    let t1 = if let Some(t) = t1 { t } else { -1.0 };
+    let t2 = if let Some(t) = t2 { t } else { -1.0 };
+
+    // Check that at least one of the inflection points is inside [0..1]
+    if count == 0 || ((t1 < 0.0 || t1 > 1.0) && (count == 1 || (t2 < 0.0 || t2 > 1.0))) {
+        return flatten_cubic_bezier_segment(bezier, tolerance, path);
+    }
+
+    let mut t1min = t1;
+    let mut t1max = t1;
+    let mut t2min = t2;
+    let mut t2max = t2;
+
+    let mut remaining_cp = bezier;
+
+    // For both inflection points, calulate the range where they can be linearly
+    // approximated if they are positioned within [0,1]
+    if count > 0 && t1 >= 0.0 && t1 < 1.0 {
+        find_cubic_bezier_inflection_approximation_range(&bezier, t1, tolerance, &mut t1min, &mut t1max);
+    }
+    if count > 1 && t2 >= 0.0 && t2 < 1.0 {
+        find_cubic_bezier_inflection_approximation_range(&bezier, t2, tolerance, &mut t2min, &mut t2max);
+    }
+    let mut next_bezier = bezier;
+    let mut prev_bezier = bezier;
+
+    // Process ranges. [t1min, t1max] and [t2min, t2max] are approximated by line
+    // segments.
+    if count == 1 && t1min <= 0.0 && t1max >= 1.0 {
+        // The whole range can be approximated by a line segment.
+        return path.line_to(bezier.to);
+    }
+
+    if t1min > 0.0 {
+        // Flatten the Bezier up until the first inflection point's approximation
+        // point.
+        split_cubic_bezier(&bezier, t1min, Some(&mut prev_bezier), Some(&mut remaining_cp));
+        path = flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+    }
+    if t1max >= 0.0 && t1max < 1.0 && (count == 1 || t2min > t1max) {
+        // The second inflection point's approximation range begins after the end
+        // of the first, approximate the first inflection point by a line and
+        // subsequently flatten up until the end or the next inflection point.
+        split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
+
+        path = path.line_to(next_bezier.from);
+
+        if count == 1 || (count > 1 && t2min >= 1.0) {
+            // No more inflection points to deal with, flatten the rest of the curve.
+            path = flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+        }
+    } else if count > 1 && t2min > 1.0 {
+        // We've already concluded t2min <= t1max, so if this is true the
+        // approximation range for the first inflection point runs past the
+        // end of the curve, draw a line to the end and we're done.
+        return path.line_to(bezier.to);
+    }
+
+    if count > 1 && t2min < 1.0 && t2max > 0.0 {
+        if t2min > 0.0 && t2min < t1max {
+            // In this case the t2 approximation range starts inside the t1
+            // approximation range.
+            split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
+            path = path.line_to(next_bezier.from);
+        } else if t2min > 0.0 && t1max > 0.0 {
+            split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
+
+            // Find a control points describing the portion of the curve between t1max and t2min.
+            let t2mina = (t2min - t1max) / (1.0 - t1max);
+            let tmp = next_bezier;
+            split_cubic_bezier(&tmp, t2mina, Some(&mut prev_bezier), Some(&mut next_bezier));
+            path = flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+        } else if t2min > 0.0 {
+            // We have nothing interesting before t2min, find that bit and flatten it.
+            split_cubic_bezier(&bezier, t2min, Some(&mut prev_bezier), Some(&mut next_bezier));
+            path = flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+        }
+        if t2max < 1.0 {
+            // Flatten the portion of the curve after t2max
+            split_cubic_bezier(&bezier, t2max, None, Some(&mut next_bezier));
+
+            // Draw a line to the start, this is the approximation between t2min and
+            // t2max.
+            path = path.line_to(next_bezier.from);
+            return flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+        } else {
+            // Our approximation range extends beyond the end of the curve.
+            return path.line_to(bezier.to);
+        }
+    }
+    return path;
+}
+
 
 #[test]
 fn test_path_builder_simple() {
