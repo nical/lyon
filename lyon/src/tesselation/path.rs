@@ -35,6 +35,10 @@ pub struct Path {
     sub_paths: Vec<PathInfo>,
 }
 
+trait LineTo {
+    fn line_to(&mut self, to Vec2);
+}
+
 impl Path {
     pub fn new() -> Path {
         Path { vertices: Vec::new(), sub_paths: Vec::new() }

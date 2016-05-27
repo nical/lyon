@@ -4,6 +4,7 @@ pub mod math_utils;
 pub mod path;
 pub mod path_tesselator;
 pub mod vertex_builder;
+pub mod rust_logo;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 pub fn crash() -> ! { panic!() }
