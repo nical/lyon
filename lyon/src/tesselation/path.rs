@@ -36,7 +36,7 @@ pub struct Path {
 }
 
 trait LineTo {
-    fn line_to(&mut self, to Vec2);
+    fn line_to(&mut self, to: Vec2);
 }
 
 impl Path {
@@ -199,8 +199,8 @@ pub struct PathInfo {
     pub is_closed: bool,
 }
 
-pub struct PathBuilder<'l> {
-    path: &'l mut Path,
+pub struct PathBuilder {
+    path: Path,
     last_position: Vec2,
     last_ctrl: Vec2,
     top_left: Vec2,
@@ -210,134 +210,162 @@ pub struct PathBuilder<'l> {
     // flags
     has_beziers: bool,
     flatten: bool,
+    building: bool,
 }
 
-impl<'l> PathBuilder<'l> {
-    pub fn begin(path: &'l mut Path, pos: Vec2) -> PathBuilder {
-        let offset = path.vertices.len() as u16;
-        path.vertices.push(PointData { position: pos, point_type: PointType::Normal });
+impl PathBuilder {
+    pub fn new() -> PathBuilder {
         PathBuilder {
-            path: path,
-            last_position: pos,
-            last_ctrl: pos,
+            path: Path::new(),
+            last_position: vec2(0.0, 0.0),
+            last_ctrl: vec2(0.0, 0.0),
             top_left: vec2(0.0, 0.0),
             bottom_right: vec2(0.0, 0.0),
-            offset: offset,
+            offset: 0,
             tolerance: 0.05,
             has_beziers: false,
             flatten: false,
         }
     }
 
-    pub fn flattened(mut self) -> PathBuilder<'l> {
-        self.flatten = true;
-        return self;
-    }
+    pub fn finish(self) -> Path { self.path }
 
-    pub fn line_to(mut self, to: Vec2) -> PathBuilder<'l> {
+    pub fn set_flattening(&mut self, flattening: bool) { self.flatten = flattening }
+
+    pub fn set_tolerance(&mut self, tolerance: f32) { self.tolerance = tolerance }
+
+    pub fn move_to(&mut self, to: Vec2)
+    {
+        if self.building {
+            self.finish_sub_path(false);
+        }
+        self.last_position = to;
         self.last_ctrl = to;
-        return self.line_step_to(to);
+        self.top_left = to;
+        self.bottom_right = to;
+        self.building = false;
     }
 
-    fn line_step_to(mut self, to: Vec2) -> PathBuilder<'l> {
+//    pub fn begin(path: &'l mut Path, pos: Vec2) {
+//        let offset = path.vertices.len() as u16;
+//        path.vertices.push(PointData { position: pos, point_type: PointType::Normal });
+//        PathBuilder {
+//            path: path,
+//            last_position: pos,
+//            last_ctrl: pos,
+//            top_left: vec2(0.0, 0.0),
+//            bottom_right: vec2(0.0, 0.0),
+//            offset: offset,
+//            tolerance: 0.05,
+//            has_beziers: false,
+//            flatten: false,
+//        }
+//    }
+
+    pub fn line_to(mut self, to: Vec2) {
+        self.last_ctrl = to;
+        self.line_step_to(to);
+    }
+
+    fn line_step_to(mut self, to: Vec2) {
         self.push(to, PointType::Normal);
-        return self;
     }
 
-    pub fn relative_line_to(mut self, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_line_to(mut self, to: Vec2) {
         let offset = self.last_position;
         assert!(!offset.x.is_nan() && !offset.y.is_nan());
         self.push(offset + to, PointType::Normal);
-        return self;
     }
 
-    pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) {
         self.last_ctrl = ctrl;
         if self.flatten {
             let from = self.last_position;
             let cubic = QuadraticBezierSegment { from: from, cp: ctrl, to: to }.to_cubic();
-            return flatten_cubic_bezier(cubic, self.tolerance, self);
+            flatten_cubic_bezier(cubic, self.tolerance, &mut self);
         } else {
             self.push(ctrl, PointType::Control);
             self.push(to, PointType::Normal);
             self.has_beziers = true;
         }
-        return self;
     }
 
-    pub fn relative_quadratic_bezier_to(self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
         let offset = self.last_position;
-        return self.quadratic_bezier_to(ctrl+offset, to+offset);
+        self.quadratic_bezier_to(ctrl + offset, to + offset);
     }
 
-    pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
         self.last_ctrl = ctrl2;
         if self.flatten {
-            return flatten_cubic_bezier(CubicBezierSegment{
-                from: self.last_position,
-                cp1: ctrl1,
-                cp2: ctrl2,
-                to: to,
-            }, self.tolerance, self);
+            flatten_cubic_bezier(
+                CubicBezierSegment{
+                    from: self.last_position,
+                    cp1: ctrl1,
+                    cp2: ctrl2,
+                    to: to,
+                },
+                self.tolerance,
+                &mut self
+            );
         } else {
             self.push(ctrl1, PointType::Control);
             self.push(ctrl2, PointType::Control);
             self.push(to, PointType::Normal);
             self.has_beziers = true;
         }
-        return self;
     }
 
-    pub fn relative_cubic_bezier_to(self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
         let offset = self.last_position;
-        return self.cubic_bezier_to(ctrl1+offset, ctrl2+offset, to+offset);
+        self.cubic_bezier_to(ctrl1 + offset, ctrl2 + offset, to + offset);
     }
 
-    pub fn cubic_bezier_symetry_to(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn cubic_bezier_symetry_to(&mut self, ctrl2: Vec2, to: Vec2) {
         let ctrl = self.last_position + (self.last_position - self.last_ctrl);
-        return self.cubic_bezier_to(ctrl, ctrl2, to);
+        self.cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    pub fn relative_cubic_bezier_symetry_to(self, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_cubic_bezier_symetry_to(&mut self, ctrl2: Vec2, to: Vec2) {
         let ctrl = self.last_position - self.last_ctrl;
-        return self.relative_cubic_bezier_to(ctrl, ctrl2, to);
+        self.relative_cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    pub fn quadratic_bezier_symetry_to(self, to: Vec2) -> PathBuilder<'l> {
+    pub fn quadratic_bezier_symetry_to(&mut self, to: Vec2) {
         let ctrl = self.last_position + (self.last_position - self.last_ctrl);
-        return self.quadratic_bezier_to(ctrl, to);
+        self.quadratic_bezier_to(ctrl, to);
     }
 
-    pub fn relative_quadratic_bezier_symetry_to(self, to: Vec2) -> PathBuilder<'l> {
+    pub fn relative_quadratic_bezier_symetry_to(&mut self, to: Vec2) {
         let ctrl = self.last_position - self.last_ctrl;
-        return self.relative_quadratic_bezier_to(ctrl, to);
+        self.relative_quadratic_bezier_to(ctrl, to);
     }
 
-    pub fn horizontal_line_to(self, x: f32) -> PathBuilder<'l> {
+    pub fn horizontal_line_to(&mut self, x: f32) {
         let y = self.last_position.y;
-        return self.line_to(vec2(x, y));
+        self.line_to(vec2(x, y));
     }
 
-    pub fn relative_horizontal_line_to(self, dx: f32) -> PathBuilder<'l> {
+    pub fn relative_horizontal_line_to(&mut self, dx: f32) {
         let p = self.last_position;
-        return self.line_to(vec2(p.x + dx, p.y));
+        self.line_to(vec2(p.x + dx, p.y));
     }
 
-    pub fn vertical_line_to(self, y: f32) -> PathBuilder<'l> {
+    pub fn vertical_line_to(&mut self, y: f32) {
         let x = self.last_position.x;
-        return self.line_to(vec2(x, y));
+        self.line_to(vec2(x, y));
     }
 
-    pub fn relative_vertical_line_to(self, dy: f32) -> PathBuilder<'l> {
+    pub fn relative_vertical_line_to(&mut self, dy: f32) {
         let p = self.last_position;
-        return self.line_to(vec2(p.x, p.y + dy));
+        self.line_to(vec2(p.x, p.y + dy));
     }
 
-    pub fn end(self) -> PathId { self.finish(false) }
+    pub fn end(&mut self) -> PathId { self.finish_sub_path(false) }
 
-    pub fn close(self) -> PathId { self.finish(true) }
+    pub fn close(&mut self) -> PathId { self.finish_sub_path(true) }
 
-    fn finish(mut self, mut closed: bool) -> PathId {
+    fn finish_sub_path(mut self, mut closed: bool) -> PathId {
         let offset = self.offset as usize;
         let last = self.path.vertices.len() - 1;
         // If the first and last vertices are the same, remove the last vertex.
@@ -371,6 +399,9 @@ impl<'l> PathBuilder<'l> {
         if point == self.last_position {
             return;
         }
+
+        self.building = true;
+
         if self.path.vertices.len() == 0 {
             self.top_left = point;
             self.bottom_right = point;
@@ -385,11 +416,11 @@ impl<'l> PathBuilder<'l> {
     }
 }
 
-pub fn flatten_cubic_bezier<'l>(
+pub fn flatten_cubic_bezier(
     bezier: CubicBezierSegment<Untyped>,
     tolerance: f32,
-    mut path: PathBuilder<'l>
-) -> PathBuilder<'l> {
+    path: &mut PathBuilder
+) {
     let (t1, t2) = find_cubic_bezier_inflection_points(&bezier);
     let count = if t1.is_none() { 0 } else if t2.is_none() { 1 } else { 2 };
     let t1 = if let Some(t) = t1 { t } else { -1.0 };
@@ -422,14 +453,15 @@ pub fn flatten_cubic_bezier<'l>(
     // segments.
     if count == 1 && t1min <= 0.0 && t1max >= 1.0 {
         // The whole range can be approximated by a line segment.
-        return path.line_step_to(bezier.to);
+        path.line_step_to(bezier.to);
+        return;
     }
 
     if t1min > 0.0 {
         // Flatten the Bezier up until the first inflection point's approximation
         // point.
         split_cubic_bezier(&bezier, t1min, Some(&mut prev_bezier), Some(&mut remaining_cp));
-        path = flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+        flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
     }
     if t1max >= 0.0 && t1max < 1.0 && (count == 1 || t2min > t1max) {
         // The second inflection point's approximation range begins after the end
@@ -437,17 +469,18 @@ pub fn flatten_cubic_bezier<'l>(
         // subsequently flatten up until the end or the next inflection point.
         split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
 
-        path = path.line_step_to(next_bezier.from);
+        path.line_step_to(next_bezier.from);
 
         if count == 1 || (count > 1 && t2min >= 1.0) {
             // No more inflection points to deal with, flatten the rest of the curve.
-            path = flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+            flatten_cubic_bezier_segment(next_bezier, tolerance, path);
         }
     } else if count > 1 && t2min > 1.0 {
         // We've already concluded t2min <= t1max, so if this is true the
         // approximation range for the first inflection point runs past the
         // end of the curve, draw a line to the end and we're done.
-        return path.line_step_to(bezier.to);
+        path.line_step_to(bezier.to);
+        return;
     }
 
     if count > 1 && t2min < 1.0 && t2max > 0.0 {
@@ -455,7 +488,7 @@ pub fn flatten_cubic_bezier<'l>(
             // In this case the t2 approximation range starts inside the t1
             // approximation range.
             split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
-            path = path.line_step_to(next_bezier.from);
+            path.line_step_to(next_bezier.from);
         } else if t2min > 0.0 && t1max > 0.0 {
             split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
 
@@ -463,11 +496,11 @@ pub fn flatten_cubic_bezier<'l>(
             let t2mina = (t2min - t1max) / (1.0 - t1max);
             let tmp = next_bezier;
             split_cubic_bezier(&tmp, t2mina, Some(&mut prev_bezier), Some(&mut next_bezier));
-            path = flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+            flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
         } else if t2min > 0.0 {
             // We have nothing interesting before t2min, find that bit and flatten it.
             split_cubic_bezier(&bezier, t2min, Some(&mut prev_bezier), Some(&mut next_bezier));
-            path = flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+            flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
         }
         if t2max < 1.0 {
             // Flatten the portion of the curve after t2max
@@ -475,22 +508,23 @@ pub fn flatten_cubic_bezier<'l>(
 
             // Draw a line to the start, this is the approximation between t2min and
             // t2max.
-            path = path.line_step_to(next_bezier.from);
-            return flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+            path.line_step_to(next_bezier.from);
+            flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+            return;
         } else {
             // Our approximation range extends beyond the end of the curve.
-            return path.line_step_to(bezier.to);
+            path.line_step_to(bezier.to);
+            return;
         }
     }
-    return path;
 }
 
 
 fn flatten_cubic_bezier_segment<'l>(
     mut bezier: CubicBezierSegment<Untyped>,
     tolerance: f32,
-    mut path: PathBuilder<'l>
-) -> PathBuilder<'l> {
+    path: &mut PathBuilder
+) {
 
     let end = bezier.to;
 
@@ -524,22 +558,25 @@ fn flatten_cubic_bezier_segment<'l>(
 
         bezier = bezier.split_in_place(t as f32);
 
-        path = path.line_step_to(bezier.from);
+        path.line_step_to(bezier.from);
     }
 
-    return path.line_step_to(end);
+    path.line_step_to(end);
 }
 
 
 #[test]
 fn test_path_builder_simple() {
-    let mut path = Path::new();
+
     // clockwise
     {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .line_to(vec2(1.0, 0.0))
-            .line_to(vec2(1.0, 1.0))
-            .close();
+        let mut path = PathBuilder::new();
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(1.0, 0.0));
+        path.line_to(vec2(1.0, 1.0));
+        let id = path.close();
+
+        let path = path.finish();
         let info = path.sub_path(id).info();
         assert_eq!(path.vertices[0].position, vec2(0.0, 0.0));
         assert_eq!(path.vertices[1].position, vec2(1.0, 0.0));
@@ -562,10 +599,13 @@ fn test_path_builder_simple() {
 
     // counter-clockwise
     {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .line_to(vec2(1.0, 1.0))
-            .line_to(vec2(1.0, 0.0))
-            .close();
+        let mut path = PathBuilder::new();
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(1.0, 1.0));
+        path.line_to(vec2(1.0, 0.0));
+        let id = path.close();
+
+        let path = path.finish();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -573,11 +613,14 @@ fn test_path_builder_simple() {
 
     // line_to back to the first vertex (should ignore the last vertex)
     {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .line_to(vec2(1.0, 1.0))
-            .line_to(vec2(1.0, 0.0))
-            .line_to(vec2(0.0, 0.0))
-            .close();
+        let mut path = PathBuilder::new();
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(1.0, 1.0));
+        path.line_to(vec2(1.0, 0.0));
+        path.line_to(vec2(0.0, 0.0));
+        let id = path.close();
+
+        let path = path.finish();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(6, 9));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -586,13 +629,14 @@ fn test_path_builder_simple() {
 
 #[test]
 fn test_path_builder_simple_bezier() {
-    let mut path = Path::new();
-
     // clockwise
     {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .quadratic_bezier_to(vec2(1.0, 0.0), vec2(1.0, 1.0))
-            .close();
+        let mut path = PathBuilder::new();
+        path.move_to(vec2(0.0, 0.0));
+        path.quadratic_bezier_to(vec2(1.0, 0.0), vec2(1.0, 1.0));
+        let id = path.close();
+
+        let path = path.finish();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -600,9 +644,12 @@ fn test_path_builder_simple_bezier() {
 
     // counter-clockwise
     {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .quadratic_bezier_to(vec2(1.0, 1.0), vec2(1.0, 0.0))
-            .close();
+        let mut path = PathBuilder::new();
+        path.move_to(vec2(0.0, 0.0));
+        path.quadratic_bezier_to(vec2(1.0, 1.0), vec2(1.0, 0.0));
+        let id = path.close();
+
+        let path = path.finish();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(3, 6));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -610,16 +657,19 @@ fn test_path_builder_simple_bezier() {
 
     // a slightly more elaborate path
     {
-        let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
-            .line_to(vec2(0.1, 0.0))
-            .line_to(vec2(0.2, 0.1))
-            .line_to(vec2(0.3, 0.1))
-            .line_to(vec2(0.4, 0.0))
-            .line_to(vec2(0.5, 0.0))
-            .quadratic_bezier_to(vec2(0.5, 0.4), vec2(0.3, 0.4))
-            .line_to(vec2(0.1, 0.4))
-            .quadratic_bezier_to(vec2(-0.2, 0.1), vec2(-0.1, 0.0))
-            .close();
+        let mut path = PathBuilder::new();
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(0.1, 0.0));
+        path.line_to(vec2(0.2, 0.1));
+        path.line_to(vec2(0.3, 0.1));
+        path.line_to(vec2(0.4, 0.0));
+        path.line_to(vec2(0.5, 0.0));
+        path.quadratic_bezier_to(vec2(0.5, 0.4), vec2(0.3, 0.4));
+        path.line_to(vec2(0.1, 0.4));
+        path.quadratic_bezier_to(vec2(-0.2, 0.1), vec2(-0.1, 0.0));
+        let id = path.close();
+
+        let path = path.finish();
         let info = path.sub_path(id).info();
         assert_eq!(info.aabb, Rect::new(-0.2, 0.0, 0.7, 0.4));
     }

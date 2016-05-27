@@ -56,15 +56,18 @@ implement_vertex!(BgVertex, a_position);
 
 fn main() {
 
-    let mut path = Path::new();
+    let mut builder = PathBuilder::new();
+    builder.set_flattening(true);
 
-    build_logo_path(&mut path);
+    build_logo_path(&mut builder);
 
-    PathBuilder::begin(&mut path, vec2(10.0, 30.0)).flattened()
-        .line_to(vec2(130.0, 30.0))
-        .line_to(vec2(130.0, 60.0))
-        .line_to(vec2(10.0, 60.0))
-        .close();
+    builder.move_to(vec2(10.0, 30.0));
+    builder.line_to(vec2(130.0, 30.0));
+    builder.line_to(vec2(130.0, 60.0));
+    builder.line_to(vec2(10.0, 60.0));
+    builder.close();
+
+    let path = builder.finish();
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 

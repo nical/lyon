@@ -939,102 +939,118 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 
 #[test]
 fn test_tesselator_simple_monotone() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(-1.0, 1.0))
-        .line_to(vec2(-3.0, 2.0))
-        .line_to(vec2(-1.0, 3.0))
-        .line_to(vec2(-4.0, 5.0))
-        .line_to(vec2( 0.0, 6.0))
-        .close();
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(-1.0, 1.0));
+    path.line_to(vec2(-3.0, 2.0));
+    path.line_to(vec2(-1.0, 3.0));
+    path.line_to(vec2(-4.0, 5.0));
+    path.line_to(vec2( 0.0, 6.0));
+    path.close();
+
+    let path = path.finish();
     test_path(path.as_slice(), Some(4));
 }
 
 #[test]
 fn test_tesselator_simple_split() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(2.0, 1.0))
-        .line_to(vec2(2.0, 3.0))
-        .line_to(vec2(1.0, 2.0))
-        .line_to(vec2(0.0, 3.0))
-        .close();
-    test_path_with_rotations(path, 0.001, Some(3));
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(2.0, 1.0));
+    path.line_to(vec2(2.0, 3.0));
+    path.line_to(vec2(1.0, 2.0));
+    path.line_to(vec2(0.0, 3.0));
+    path.close();
+
+    test_path_with_rotations(path.finish(), 0.001, Some(3));
 }
 
 #[test]
 fn test_tesselator_simple_merge_split() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(1.0, 1.0))
-        .line_to(vec2(2.0, 0.0))
-        .line_to(vec2(2.0, 3.0))
-        .line_to(vec2(1.0, 2.0))
-        .line_to(vec2(0.0, 3.0))
-        .close();
-    test_path_with_rotations(path, 0.001, Some(4));
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(1.0, 1.0));
+    path.line_to(vec2(2.0, 0.0));
+    path.line_to(vec2(2.0, 3.0));
+    path.line_to(vec2(1.0, 2.0));
+    path.line_to(vec2(0.0, 3.0));
+    path.close();
+
+    test_path_with_rotations(path.finish(), 0.001, Some(4));
 }
 
 #[test]
 fn test_tesselator_simple_aligned() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(1.0, 0.0))
-        .line_to(vec2(2.0, 0.0))
-        .line_to(vec2(2.0, 1.0))
-        .line_to(vec2(2.0, 2.0))
-        .line_to(vec2(1.0, 2.0))
-        .line_to(vec2(0.0, 2.0))
-        .line_to(vec2(0.0, 1.0))
-        .close();
-    test_path_with_rotations(path, 0.001, Some(6));
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(1.0, 0.0));
+    path.line_to(vec2(2.0, 0.0));
+    path.line_to(vec2(2.0, 1.0));
+    path.line_to(vec2(2.0, 2.0));
+    path.line_to(vec2(1.0, 2.0));
+    path.line_to(vec2(0.0, 2.0));
+    path.line_to(vec2(0.0, 1.0));
+    path.close();
+
+    test_path_with_rotations(path.finish(), 0.001, Some(6));
 }
 
 #[test]
 fn test_tesselator_simple_1() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(1.0, 1.0))
-        .line_to(vec2(2.0, 0.0))
-        .line_to(vec2(1.0, 3.0))
-        .line_to(vec2(0.5, 4.0))
-        .line_to(vec2(0.0, 3.0))
-        .close();
-    test_path_with_rotations(path, 0.001, Some(4));
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(1.0, 1.0));
+    path.line_to(vec2(2.0, 0.0));
+    path.line_to(vec2(1.0, 3.0));
+    path.line_to(vec2(0.5, 4.0));
+    path.line_to(vec2(0.0, 3.0));
+    path.close();
+
+    test_path_with_rotations(path.finish(), 0.001, Some(4));
 }
 
 #[test]
 fn test_tesselator_simple_2() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(1.0, 0.0))
-        .line_to(vec2(2.0, 0.0))
-        .line_to(vec2(3.0, 0.0))
-        .line_to(vec2(3.0, 1.0))
-        .line_to(vec2(3.0, 2.0))
-        .line_to(vec2(3.0, 3.0))
-        .line_to(vec2(2.0, 3.0))
-        .line_to(vec2(1.0, 3.0))
-        .line_to(vec2(0.0, 3.0))
-        .line_to(vec2(0.0, 2.0))
-        .line_to(vec2(0.0, 1.0))
-        .close();
-    test_path_with_rotations(path, 0.001, Some(10));
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(1.0, 0.0));
+    path.line_to(vec2(2.0, 0.0));
+    path.line_to(vec2(3.0, 0.0));
+    path.line_to(vec2(3.0, 1.0));
+    path.line_to(vec2(3.0, 2.0));
+    path.line_to(vec2(3.0, 3.0));
+    path.line_to(vec2(2.0, 3.0));
+    path.line_to(vec2(1.0, 3.0));
+    path.line_to(vec2(0.0, 3.0));
+    path.line_to(vec2(0.0, 2.0));
+    path.line_to(vec2(0.0, 1.0));
+    path.close();
+
+    test_path_with_rotations(path.finish(), 0.001, Some(10));
 }
 
 #[test]
 fn test_tesselator_hole_1() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(-11.0, 5.0)).flattened()
-        .line_to(vec2(0.0, -5.0))
-        .line_to(vec2(10.0, 5.0))
-        .close();
-    PathBuilder::begin(&mut path, vec2(-5.0, 2.0)).flattened()
-        .line_to(vec2(0.0, -2.0))
-        .line_to(vec2(4.0, 2.0))
-        .close();
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(-11.0, 5.0));
+    path.line_to(vec2(0.0, -5.0));
+    path.line_to(vec2(10.0, 5.0));
+    path.close();
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(-5.0, 2.0));
+    path.line_to(vec2(0.0, -2.0));
+    path.line_to(vec2(4.0, 2.0));
+    path.close();
 
-    test_path_with_rotations(path, 0.001, Some(6));
+    test_path_with_rotations(path.finish(), 0.001, Some(6));
 }
 
 #[test]
@@ -1044,15 +1060,17 @@ fn test_tesselator_degenerate_empty() {
 
 #[test]
 fn test_tesselator_degenerate_same_position() {
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(0.0, 0.0))
-        .line_to(vec2(0.0, 0.0))
-        .line_to(vec2(0.0, 0.0))
-        .line_to(vec2(0.0, 0.0))
-        .line_to(vec2(0.0, 0.0))
-        .close();
-    test_path_with_rotations(path, 0.001, None);
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(0.0, 0.0));
+    path.line_to(vec2(0.0, 0.0));
+    path.line_to(vec2(0.0, 0.0));
+    path.line_to(vec2(0.0, 0.0));
+    path.line_to(vec2(0.0, 0.0));
+    path.close();
+
+    test_path_with_rotations(path.finish(), 0.001, None);
 }
 
 #[test]
@@ -1064,12 +1082,14 @@ fn test_tesselator_auto_intersection_type1() {
     //    / \
     //  o.___\
     //       'o
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(2.0, 1.0))
-        .line_to(vec2(0.0, 2.0))
-        .line_to(vec2(2.0, 3.0))
-        .close();
+    let mut path = PathBuilder::new();
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(2.0, 1.0));
+    path.line_to(vec2(0.0, 2.0));
+    path.line_to(vec2(2.0, 3.0));
+    path.close();
+
+    let path = path.finish();
     test_path(path.as_slice(), Some(2));
 }
 
@@ -1082,12 +1102,14 @@ fn test_tesselator_auto_intersection_type2() {
     //  | / \ |
     //  o'   \|
     //        o
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
-        .line_to(vec2(2.0, 3.0))
-        .line_to(vec2(2.0, 1.0))
-        .line_to(vec2(0.0, 2.0))
-        .close();
+    let mut path = PathBuilder::new();
+    path.move_to(vec2(0.0, 0.0));
+    path.line_to(vec2(2.0, 3.0));
+    path.line_to(vec2(2.0, 1.0));
+    path.line_to(vec2(0.0, 2.0));
+    path.close();
+
+    let path = path.finish();
     test_path(path.as_slice(), Some(2));
 }
 
@@ -1103,25 +1125,29 @@ fn test_tesselator_auto_intersection_multi() {
     //  |_\___/_|
     //     \ /
     //      '
-    let mut path = Path::new();
-    PathBuilder::begin(&mut path, vec2(20.0, 20.0)).flattened()
-        .line_to(vec2(60.0, 20.0))
-        .line_to(vec2(60.0, 60.0))
-        .line_to(vec2(20.0, 60.0))
-        .close();
-    PathBuilder::begin(&mut path, vec2(40.0, 10.0)).flattened()
-        .line_to(vec2(70.0, 40.0))
-        .line_to(vec2(40.0, 70.0))
-        .line_to(vec2(10.0, 40.0))
-        .close();
+    let mut path = PathBuilder::new();
+    path.move_to(vec2(20.0, 20.0));
+    path.line_to(vec2(60.0, 20.0));
+    path.line_to(vec2(60.0, 60.0));
+    path.line_to(vec2(20.0, 60.0));
+    path.close();
+
+    path.move_to(vec2(40.0, 10.0));
+    path.line_to(vec2(70.0, 40.0));
+    path.line_to(vec2(40.0, 70.0));
+    path.line_to(vec2(10.0, 40.0));
+    path.close();
+
+    let path = path.finish();
     test_path(path.as_slice(), Some(8));
 }
 
 #[test]
 fn test_tesselator_rust_logo() {
-    let mut path = Path::new();
+    let mut path = PathBuilder::new();
+    path.set_flattening(true);
 
     ::tesselation::rust_logo::build_logo_path(&mut path);
 
-    test_path_with_rotations(path, 0.011, None);
+    test_path_with_rotations(path.finish(), 0.011, None);
 }
