@@ -57,7 +57,184 @@ fn main() {
 
     let mut path = ComplexPath::new();
 
-    PathBuilder::begin(&mut path, vec2(122.631, 69.716)).flattened()
+    rust_logo(&mut path);
+
+    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+
+    tesselate_path_fill(
+        path.as_slice(),
+        &TesselatorOptions::new(),
+        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
+    ).unwrap();
+
+    tesselate_path_stroke(
+        path.as_slice(),
+        1.0,
+        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
+    );
+
+
+    for p in path.vertices().as_slice() {
+        tesselate_ellipsis(p.position, vec2(1.0, 1.0), 16,
+            &mut vertex_builder(&mut buffers,
+                VertexCtor{ color: [0.0, 0.0, 0.0] }
+            )
+        );
+        tesselate_ellipsis(p.position, vec2(0.5, 0.5), 16,
+            &mut vertex_builder(&mut buffers,
+                VertexCtor{ color: [0.0, 1.0, 0.0] }
+            )
+        );
+    }
+
+    let (indices, vertices) = (buffers.indices, buffers.vertices);
+
+    println!(" -- {} vertices {} indices", vertices.len(), indices.len());
+
+    let mut bg_buffers: VertexBuffers<BgVertex> = VertexBuffers::new();
+    tesselate_rectangle(
+        &Rect::new(-1.0, -1.0, 2.0, 2.0),
+        &mut vertex_builder(&mut bg_buffers, BgVertexCtor)
+    );
+
+    // building the display, ie. the main object
+    let display = glutin::WindowBuilder::new()
+        .with_dimensions(700, 700)
+        .with_title("tesselation".to_string())
+        .build_glium().unwrap();
+
+    let model_vbo = glium::VertexBuffer::new(&display, &vertices[..]).unwrap();
+    let model_ibo = glium::IndexBuffer::new(
+        &display, PrimitiveType::TrianglesList,
+        &indices[..]
+    ).unwrap();
+
+    let bg_vbo = glium::VertexBuffer::new(&display, &bg_buffers.vertices[..]).unwrap();
+    let bg_ibo = glium::IndexBuffer::new(
+        &display, PrimitiveType::TrianglesList,
+        &bg_buffers.indices[..]
+    ).unwrap();
+
+    // compiling shaders and linking them together
+    let bg_program = program!(&display,
+        140 => {
+            vertex: "
+                #version 140
+                in vec2 a_position;
+                out vec2 v_position;
+                void main() {
+                    gl_Position = vec4(a_position, 0.0, 1.0);
+                    v_position = a_position;
+                }
+            ",
+            fragment: "
+                #version 140
+                uniform vec2 u_resolution;
+                in vec2 v_position;
+                out vec4 f_color;
+                void main() {
+                    vec2 px_position = (v_position * vec2(1.0, -1.0)    + vec2(1.0, 1.0))
+                                     * 0.5 * u_resolution;
+                    // #005fa4
+                    float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
+
+                    f_color = mix(
+                        vec4(0.0, 0.47, 0.9, 1.0),
+                        vec4(0.0, 0.1, 0.64, 1.0),
+                        vignette
+                    );
+
+                    if (mod(px_position.x, 20.0) <= 1.0 ||
+                        mod(px_position.y, 20.0) <= 1.0) {
+                        f_color *= 1.2;
+                    }
+
+                    if (mod(px_position.x, 100.0) <= 1.0 ||
+                        mod(px_position.y, 100.0) <= 1.0) {
+                        f_color *= 1.2;
+                    }
+                }
+            "
+        },
+    ).unwrap();
+
+    // compiling shaders and linking them together
+    let model_program = program!(&display,
+        140 => {
+            vertex: "
+                #version 140
+                uniform vec2 u_resolution;
+                uniform mat4 u_matrix;
+                in vec2 a_position;
+                in vec3 a_color;
+                out vec3 v_color;
+                void main() {
+                    gl_Position = vec4(a_position, 0.0, 1.0) * u_matrix;// / vec4(u_resolution, 1.0, 1.0);
+                    v_color = a_color;
+                }
+            ",
+            fragment: "
+                #version 140
+                in vec3 v_color;
+                out vec4 f_color;
+                void main() {
+                    f_color = vec4(v_color, 1.0);
+                }
+            "
+        },
+    ).unwrap();
+
+    loop {
+        let mut target = display.draw();
+
+        let (w, h) = target.get_dimensions();
+        let resolution = vec2(w as f32, h as f32);
+
+        let mut model_mat: Matrix4x4<units::Local, units::World> = Matrix4x4::identity();
+        model_mat.scale_by(Vector3D::new(5.0, 5.0, 0.0));
+
+        let mut view_mat: Matrix4x4<units::World, units::Screen> = Matrix4x4::identity();
+        view_mat.scale_by(Vector3D::new(2.0/resolution.x, -2.0/resolution.y, 1.0));
+        view_mat.translate(Vector3D::new(-1.0, 1.0, 0.0));
+        //view_mat = view_mat * Matrix4x4::translation(Vector3D::new(-1.0, 1.0, 0.0));
+
+        let uniforms = uniform! {
+            u_resolution: resolution.array(),
+            u_matrix: *(model_mat * view_mat).as_arrays()
+        };
+
+        target.clear_color(0.75, 0.75, 0.75, 1.0);
+        target.draw(
+            &bg_vbo, &bg_ibo,
+            &bg_program, &uniforms,
+            &Default::default()
+        ).unwrap();
+        target.draw(
+            &model_vbo, &model_ibo,
+            &model_program, &uniforms,
+            &Default::default()
+        ).unwrap();
+        target.finish().unwrap();
+
+        let mut should_close = false;
+        for event in display.poll_events() {
+            should_close |= match event {
+                glutin::Event::Closed => true,
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => true,
+                _ => {
+                    //println!("{:?}", evt);
+                    false
+                }
+            };
+        }
+        if should_close {
+            break;
+        }
+    }
+}
+
+fn rust_logo(path: &mut ComplexPath) {
+    PathBuilder::begin(path, vec2(122.631, 69.716)).flattened()
         .relative_line_to(vec2(-4.394, -2.72))
         .relative_cubic_bezier_to(vec2(-0.037, -0.428), vec2(-0.079, -0.855), vec2(-0.125, -1.28))
         .relative_line_to(vec2(3.776, -3.522))
@@ -219,13 +396,13 @@ fn main() {
         .relative_cubic_bezier_to(vec2(0.445, -0.274), vec2(0.716, -0.761), vec2(0.716, -1.285))
         .cubic_bezier_symetry_to(vec2(123.076, 69.991), vec2(122.631, 69.716))
         .close();
-    PathBuilder::begin(&mut path, vec2(93.222, 106.167)).flattened()
+    PathBuilder::begin(path, vec2(93.222, 106.167)).flattened()
         .relative_cubic_bezier_to(vec2(-1.678, -0.362), vec2(-2.745, -2.016), vec2(-2.385, -3.699))
         .relative_cubic_bezier_to(vec2(0.359, -1.681), vec2(2.012, -2.751), vec2(3.689, -2.389))
         .relative_cubic_bezier_to(vec2(1.678, 0.359), vec2(2.747, 2.016), vec2(2.387, 3.696))
         .cubic_bezier_symetry_to(vec2(94.899, 106.526), vec2(93.222, 106.167))
         .close();
-    PathBuilder::begin(&mut path, vec2(91.729, 96.069)).flattened()
+    PathBuilder::begin(path, vec2(91.729, 96.069)).flattened()
         .relative_cubic_bezier_to(vec2(-1.531, -0.328), vec2(-3.037, 0.646), vec2(-3.365, 2.18))
         .relative_line_to(vec2(-1.56, 7.28))
         .relative_cubic_bezier_to(vec2(-4.814, 2.185), vec2(-10.16, 3.399), vec2(-15.79, 3.399))
@@ -249,19 +426,19 @@ fn main() {
         .relative_cubic_bezier_to(vec2(-1.081, 1.469), vec2(-2.267, 2.859), vec2(-3.544, 4.158))
         .line_to(vec2(91.729, 96.069))
         .close();
-    PathBuilder::begin(&mut path, vec2(48.477, 106.015)).flattened()
+    PathBuilder::begin(path, vec2(48.477, 106.015)).flattened()
         .relative_cubic_bezier_to(vec2(-1.678, 0.362), vec2(-3.33, -0.708), vec2(-3.691, -2.389))
         .relative_cubic_bezier_to(vec2(-0.359, -1.684), vec2(0.708, -3.337), vec2(2.386, -3.699))
         .relative_cubic_bezier_to(vec2(1.678, -0.359), vec2(3.331, 0.711), vec2(3.691, 2.392))
         .cubic_bezier_to(vec2(51.222, 103.999), vec2(50.154, 105.655), vec2(48.477, 106.015))
         .close();
-    PathBuilder::begin(&mut path, vec2(36.614, 57.91)).flattened()
+    PathBuilder::begin(path, vec2(36.614, 57.91)).flattened()
         .relative_cubic_bezier_to(vec2(0.696, 1.571), vec2(-0.012, 3.412), vec2(-1.581, 4.107))
         .relative_cubic_bezier_to(vec2(-1.569, 0.697), vec2(-3.405, -0.012), vec2(-4.101, -1.584))
         .relative_cubic_bezier_to(vec2(-0.696, -1.572), vec2(0.012, -3.41), vec2(1.581, -4.107))
         .cubic_bezier_to(vec2(34.083, 55.63), vec2(35.918, 56.338), vec2(36.614, 57.91))
         .close();
-    PathBuilder::begin(&mut path, vec2(32.968, 66.553)).flattened()
+    PathBuilder::begin(path, vec2(32.968, 66.553)).flattened()
         .relative_line_to(vec2(6.695, -2.975))
         .relative_cubic_bezier_to(vec2(1.43, -0.635), vec2(2.076, -2.311), vec2(1.441, -3.744))
         .relative_line_to(vec2(-1.379, -3.118))
@@ -271,14 +448,14 @@ fn main() {
         .relative_cubic_bezier_to(vec2(-0.949, -3.336), vec2(-1.458, -6.857), vec2(-1.458, -10.496))
         .cubic_bezier_to(vec2(32.749, 69.275), vec2(32.824, 67.902), vec2(32.968, 66.553))
         .close();
-    PathBuilder::begin(&mut path, vec2(62.348, 64.179)).flattened()
+    PathBuilder::begin(path, vec2(62.348, 64.179)).flattened()
         .relative_vertical_line_to(-7.205)
         .relative_horizontal_line_to(12.914)
         .relative_cubic_bezier_to(vec2(0.667, 0.0), vec2(4.71, 0.771), vec2(4.71, 3.794))
         .relative_cubic_bezier_to(vec2(0.0, 2.51), vec2(-3.101, 3.41), vec2(-5.651, 3.41))
         //.horizontal_line_to(62.348) //TODO
         .close();
-    PathBuilder::begin(&mut path, vec2(109.28, 70.664)).flattened()
+    PathBuilder::begin(path, vec2(109.28, 70.664)).flattened()
         .relative_cubic_bezier_to(vec2(0.0, 0.956), vec2(-0.035, 1.902), vec2(-0.105, 2.841))
         .relative_horizontal_line_to(-3.926)
         .relative_cubic_bezier_to(vec2(-0.393, 0.0), vec2(-0.551, 0.258), vec2(-0.551, 0.643))
@@ -300,214 +477,22 @@ fn main() {
         .relative_line_to(vec2(7.058, 3.135))
         .cubic_bezier_to(vec2(109.216, 68.115), vec2(109.28, 69.381), vec2(109.28, 70.664))
         .close();
-    PathBuilder::begin(&mut path, vec2(68.705, 28.784)).flattened()
+    PathBuilder::begin(path, vec2(68.705, 28.784)).flattened()
         .relative_cubic_bezier_to(vec2(1.24, -1.188), vec2(3.207, -1.141), vec2(4.394, 0.101))
         .relative_cubic_bezier_to(vec2(1.185, 1.245), vec2(1.14, 3.214), vec2(-0.103, 4.401))
         .relative_cubic_bezier_to(vec2(-1.24, 1.188), vec2(-3.207, 1.142), vec2(-4.394, -0.102))
         .cubic_bezier_to(vec2(67.418, 31.941), vec2(67.463, 29.972), vec2(68.705, 28.784))
         .close();
-    PathBuilder::begin(&mut path, vec2(105.085, 58.061)).flattened()
+    PathBuilder::begin(path, vec2(105.085, 58.061)).flattened()
         .relative_cubic_bezier_to(vec2(0.695, -1.571), vec2(2.531, -2.28), vec2(4.1, -1.583))
         .relative_cubic_bezier_to(vec2(1.569, 0.696), vec2(2.277, 2.536), vec2(1.581, 4.107))
         .relative_cubic_bezier_to(vec2(-0.695, 1.572), vec2(-2.531, 2.281), vec2(-4.101, 1.584))
         .cubic_bezier_to(vec2(105.098, 61.473), vec2(104.39, 59.634), vec2(105.085, 58.061))
         .close();
 
-    PathBuilder::begin(&mut path, vec2(10.0, 30.0)).flattened()
+    PathBuilder::begin(path, vec2(10.0, 30.0)).flattened()
         .line_to(vec2(130.0, 30.0))
         .line_to(vec2(130.0, 60.0))
         .line_to(vec2(10.0, 60.0))
         .close();
-
-
-    //let mut path = ComplexPath::new();
-    //PathBuilder::begin(&mut path, vec2(20.0, 20.0)).flattened()
-    //    .line_to(vec2(60.0, 20.0))
-    //    .line_to(vec2(60.0, 60.0))
-    //    .line_to(vec2(20.0, 60.0))
-    //    .close();
-    //PathBuilder::begin(&mut path, vec2(40.0, 10.0)).flattened()
-    //    .line_to(vec2(70.0, 40.0))
-    //    .line_to(vec2(40.0, 70.0))
-    //    .line_to(vec2(10.0, 40.0))
-    //    .close();
-
-
-    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
-
-    tesselate_path_fill(
-        path.as_slice(),
-        &TesselatorOptions::new(),
-        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
-    ).unwrap();
-
-    tesselate_path_stroke(
-        path.as_slice(),
-        1.0,
-        2,
-        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
-    );
-
-/*
-    for p in path.vertices().as_slice() {
-        fill_ellipsis(p.position, vec2(10.0, 10.0), 16,
-            &mut vertex_builder(&mut buffers,
-                VertexCtor{ color: [0.0, 0.0, 0.0] }
-            )
-        );
-
-        fill_ellipsis(p.position, vec2(5.0, 5.0), 16,
-            &mut vertex_builder(&mut buffers,
-                VertexCtor{
-                    color: if p.point_type == PointType::Normal { [0.0, 1.0, 0.0] }
-                           else { [0.0, 1.0, 1.0] }
-                }
-            )
-        );
-    }
-*/
-    let (indices, vertices) = (buffers.indices, buffers.vertices);
-
-    println!(" -- {} vertices {} indices", vertices.len(), indices.len());
-
-    let mut bg_buffers: VertexBuffers<BgVertex> = VertexBuffers::new();
-    tesselate_rectangle(
-        &Rect::new(-1.0, -1.0, 2.0, 2.0),
-        &mut vertex_builder(&mut bg_buffers, BgVertexCtor)
-    );
-
-    // building the display, ie. the main object
-    let display = glutin::WindowBuilder::new()
-        .with_dimensions(700, 700)
-        .with_title("tesselation".to_string())
-        .build_glium().unwrap();
-
-    let model_vbo = glium::VertexBuffer::new(&display, &vertices[..]).unwrap();
-    let model_ibo = glium::IndexBuffer::new(
-        &display, PrimitiveType::TrianglesList,
-        &indices[..]
-    ).unwrap();
-
-    let bg_vbo = glium::VertexBuffer::new(&display, &bg_buffers.vertices[..]).unwrap();
-    let bg_ibo = glium::IndexBuffer::new(
-        &display, PrimitiveType::TrianglesList,
-        &bg_buffers.indices[..]
-    ).unwrap();
-
-    // compiling shaders and linking them together
-    let bg_program = program!(&display,
-        140 => {
-            vertex: "
-                #version 140
-                in vec2 a_position;
-                out vec2 v_position;
-                void main() {
-                    gl_Position = vec4(a_position, 0.0, 1.0);
-                    v_position = a_position;
-                }
-            ",
-            fragment: "
-                #version 140
-                uniform vec2 u_resolution;
-                in vec2 v_position;
-                out vec4 f_color;
-                void main() {
-                    vec2 px_position = (v_position * vec2(1.0, -1.0)    + vec2(1.0, 1.0))
-                                     * 0.5 * u_resolution;
-                    // #005fa4
-                    float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
-
-                    f_color = mix(
-                        vec4(0.0, 0.47, 0.9, 1.0),
-                        vec4(0.0, 0.1, 0.64, 1.0),
-                        vignette
-                    );
-
-                    if (mod(px_position.x, 20.0) <= 1.0 ||
-                        mod(px_position.y, 20.0) <= 1.0) {
-                        f_color *= 1.2;
-                    }
-
-                    if (mod(px_position.x, 100.0) <= 1.0 ||
-                        mod(px_position.y, 100.0) <= 1.0) {
-                        f_color *= 1.2;
-                    }
-                }
-            "
-        },
-    ).unwrap();
-
-    // compiling shaders and linking them together
-    let model_program = program!(&display,
-        140 => {
-            vertex: "
-                #version 140
-                uniform vec2 u_resolution;
-                uniform mat4 u_matrix;
-                in vec2 a_position;
-                in vec3 a_color;
-                out vec3 v_color;
-                void main() {
-                    gl_Position = vec4(a_position, 0.0, 1.0) * u_matrix;// / vec4(u_resolution, 1.0, 1.0);
-                    v_color = a_color;
-                }
-            ",
-            fragment: "
-                #version 140
-                in vec3 v_color;
-                out vec4 f_color;
-                void main() {
-                    f_color = vec4(v_color, 1.0);
-                }
-            "
-        },
-    ).unwrap();
-
-    loop {
-        let mut target = display.draw();
-
-        let (w, h) = target.get_dimensions();
-        let resolution = vec2(w as f32, h as f32);
-
-        let mut model_mat: Matrix4x4<units::Local, units::World> = Matrix4x4::identity();
-        model_mat.scale_by(Vector3D::new(5.0, 5.0, 0.0));
-
-        let mut view_mat: Matrix4x4<units::World, units::Screen> = Matrix4x4::identity();
-        view_mat.scale_by(Vector3D::new(2.0/resolution.x, -2.0/resolution.y, 1.0));
-        view_mat.translate(Vector3D::new(-1.0, 1.0, 0.0));
-        //view_mat = view_mat * Matrix4x4::translation(Vector3D::new(-1.0, 1.0, 0.0));
-
-        let uniforms = uniform! {
-            u_resolution: resolution.array(),
-            u_matrix: *(model_mat * view_mat).as_arrays()
-        };
-
-        target.clear_color(0.75, 0.75, 0.75, 1.0);
-        target.draw(
-            &bg_vbo, &bg_ibo,
-            &bg_program, &uniforms,
-            &Default::default()
-        ).unwrap();
-        target.draw(
-            &model_vbo, &model_ibo,
-            &model_program, &uniforms,
-            &Default::default()
-        ).unwrap();
-        target.finish().unwrap();
-
-        let mut should_close = false;
-        for event in display.poll_events() {
-            should_close |= match event {
-                glutin::Event::Closed => true,
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => true,
-                _ => {
-                    //println!("{:?}", evt);
-                    false
-                }
-            };
-        }
-        if should_close {
-            break;
-        }
-    }
 }

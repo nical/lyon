@@ -778,11 +778,6 @@ impl TesselatorOptions {
     }
 }
 
-pub type StrokeFlags = u16;
-pub static STROKE_DEFAULT : StrokeFlags = 0;
-pub static STROKE_INWARD  : StrokeFlags = 1 << 0;
-pub static STROKE_OUTWARD : StrokeFlags = 1 << 1;
-
 pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     path: ComplexPathSlice<'l>,
     options: &TesselatorOptions,
@@ -791,6 +786,8 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
     if options.vertex_aa {
         println!("[tesselate_path_fill] Vertex anti-aliasing not implemented");
     }
+
+    println!("[tesselate_path_fill] path {:>?}", path.num_vertices());
 
     output.begin_geometry();
 
@@ -808,12 +805,11 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     path: ComplexPathSlice,
     thickness: f32,
-    flags: StrokeFlags,
     output: &mut Output
 ) -> (Range, Range) {
     output.begin_geometry();
     for p in path.path_ids() {
-        tesselate_sub_path_stroke(path.sub_path(p), thickness, flags, output);
+        tesselate_sub_path_stroke(path.sub_path(p), thickness, output);
     }
     return output.end_geometry();
 }
@@ -821,7 +817,6 @@ pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
 pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     path: PathSlice,
     thickness: f32,
-    flags: StrokeFlags,
     output: &mut Output
 ) {
     let is_closed = path.info().is_closed;
@@ -839,16 +834,8 @@ pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
         let extruded = extrude_along_tangent(path, i, thickness, is_closed);
         let d = extruded - p1;
 
-
-
-        if flags & STROKE_INWARD == 0 && flags & STROKE_OUTWARD == 0 {
-            p1 = p1 + (d * 0.5);
-            p2 = p2 - (d * 0.5);
-        } else if flags & STROKE_OUTWARD != 0 {
-            p1 = p1 + d;
-        } else if flags & STROKE_INWARD != 0 {
-            p2 = p2 - d;
-        }
+        p1 = p1 + (d * 0.5);
+        p2 = p2 - (d * 0.5);
 
         if i != first || done {
             // TODO: should reuse vertices instead of tesselating quads
@@ -865,6 +852,9 @@ pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
         i = path.next(i);
 
         if i == first {
+            if !is_closed {
+                break;
+            }
             done = true;
         }
     }
@@ -878,38 +868,35 @@ pub fn extrude_along_tangent(
 ) -> Vec2 {
 
     let px = path.vertex(i).position;
-    let prev = path.previous_vertex(i).position;
-    let next = path.next_vertex(i).position;
+    let _next = path.next_vertex(i).position;
+    let _prev = path.previous_vertex(i).position;
 
-    let p1 = if i != path.first() || is_closed { prev }
-             else { px + px - next };
+    let prev = if i == path.first() && !is_closed { px + px - _next } else { _prev };
+    let next = if i == path.last() && !is_closed { px + px - _prev } else { _next };
 
-    let p2 = if i != path.last() || is_closed { next }
-             else { px + px - prev };
-
-    let n1 = tangent(px - p1) * amount;
-    let n2 = tangent(p2 - px) * amount;
+    let n1 = tangent(px - prev) * amount;
+    let n2 = tangent(next - px) * amount;
 
     // Segment P1-->PX
-    let pn1  = p1 + n1; // p1 extruded along the tangent n1
+    let pn1  = prev + n1; // prev extruded along the tangent n1
     let pn1x = px + n1; // px extruded along the tangent n1
     // Segment PX-->P2
-    let pn2  = p2 + n2;
+    let pn2  = next + n2;
     let pn2x = px + n2;
 
     let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
         Some(v) => { v }
         None => {
-            if (n1 - n2).square_length() < 0.0000001 {
+            if (n1 - n2).square_length() < 0.000001 {
                 pn1x
             } else {
                 // TODO: the angle is very narrow, use rounded corner instead
                 //panic!("Not implemented yet");
                 println!("!! narrow angle at {:?} {:?} {:?} | {:?} {:?} {:?}",
-                    px, n1.directed_angle(n2), px.directed_angle2(p1, p2),
-                    p1.tuple(), px.tuple(), p2.tuple(),
+                    px, n1.directed_angle(n2), px.directed_angle2(prev, next),
+                    prev.tuple(), px.tuple(), next.tuple(),
                 );
-                px + (px - p1) * amount / (px - p1).length()
+                px + (px - prev) * amount / (px - prev).length()
             }
         }
     };

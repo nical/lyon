@@ -6,6 +6,7 @@ pub mod path_tesselator;
 pub mod vertex_builder;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
+pub fn crash() -> ! { panic!() }
 
 use vodk_id::{Id, IdSlice, MutIdSlice, IdRange};
 

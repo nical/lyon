@@ -2,6 +2,7 @@ use tesselation::{
     vertex_id, vertex_id_range,
     VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
+//    crash,
 };
 
 use tesselation::bezier::*;
@@ -200,6 +201,7 @@ pub struct PathBuilder<'l> {
     last_ctrl: Vec2,
     top_left: Vec2,
     bottom_right: Vec2,
+    tolerance: f32,
     offset: u16,
     // flags
     has_beziers: bool,
@@ -213,10 +215,11 @@ impl<'l> PathBuilder<'l> {
         PathBuilder {
             path: path,
             last_position: pos,
-            last_ctrl: vec2(0.0, 0.0),
+            last_ctrl: pos,
             top_left: vec2(0.0, 0.0),
             bottom_right: vec2(0.0, 0.0),
             offset: offset,
+            tolerance: 0.05,
             has_beziers: false,
             flatten: false,
         }
@@ -228,6 +231,11 @@ impl<'l> PathBuilder<'l> {
     }
 
     pub fn line_to(mut self, to: Vec2) -> PathBuilder<'l> {
+        self.last_ctrl = to;
+        return self.line_step_to(to);
+    }
+
+    fn line_step_to(mut self, to: Vec2) -> PathBuilder<'l> {
         self.push(to, PointType::Normal);
         return self;
     }
@@ -240,20 +248,16 @@ impl<'l> PathBuilder<'l> {
     }
 
     pub fn quadratic_bezier_to(mut self, ctrl: Vec2, to: Vec2) -> PathBuilder<'l> {
+        self.last_ctrl = ctrl;
         if self.flatten {
-            let num_points = 8;
             let from = self.last_position;
-            for i in 0..num_points {
-                let t = (i+1) as f32 / num_points as f32;
-                self.push(sample_quadratic_bezier(from, ctrl, to, t), PointType::Normal);
-            }
-            self.push(to, PointType::Normal);
+            let cubic = QuadraticBezierSegment { from: from, cp: ctrl, to: to }.to_cubic();
+            return flatten_cubic_bezier(cubic, self.tolerance, self);
         } else {
             self.push(ctrl, PointType::Control);
             self.push(to, PointType::Normal);
             self.has_beziers = true;
         }
-        self.last_ctrl = ctrl;
         return self;
     }
 
@@ -263,20 +267,20 @@ impl<'l> PathBuilder<'l> {
     }
 
     pub fn cubic_bezier_to(mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) -> PathBuilder<'l> {
+        self.last_ctrl = ctrl2;
         if self.flatten {
-            let num_points = 8;
-            let from = self.last_position;
-            for i in 0..num_points {
-                let t = (i+1) as f32 / num_points as f32;
-                self.push(sample_cubic_bezier(from, ctrl1, ctrl2, to, t), PointType::Normal);
-            }
+            return flatten_cubic_bezier(CubicBezierSegment{
+                from: self.last_position,
+                cp1: ctrl1,
+                cp2: ctrl2,
+                to: to,
+            }, self.tolerance, self);
         } else {
             self.push(ctrl1, PointType::Control);
             self.push(ctrl2, PointType::Control);
             self.push(to, PointType::Normal);
             self.has_beziers = true;
         }
-        self.last_ctrl = ctrl2;
         return self;
     }
 
@@ -361,7 +365,6 @@ impl<'l> PathBuilder<'l> {
 
     fn push(&mut self, point: Vec2, ptype: PointType) {
         if point == self.last_position {
-            println!(" point == last_position");
             return;
         }
         if self.path.vertices.len() == 0 {
@@ -378,50 +381,7 @@ impl<'l> PathBuilder<'l> {
     }
 }
 
-pub fn flatten_cubic_bezier_segment<'l>(
-    mut bezier: CubicBezierSegment<Untyped>,
-    tolerance: f32,
-    mut path: PathBuilder<'l>
-) -> PathBuilder<'l> {
-    // The algorithm implemented here is based on:
-    // http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
-    //
-    // The basic premise is that for a small t the third order term in the
-    // equation of a cubic bezier curve is insignificantly small. This can
-    // then be approximated by a quadratic equation for which the maximum
-    // difference from a linear approximation can be much more easily determined.
-    let mut t = 0.0;
-    while t < 1.0 {
-        let cp21 = bezier.cp1 - bezier.cp2;
-        let cp31 = bezier.cp2 - bezier.from;
-
-        // To remove divisions and check for divide-by-zero, this is optimized from:
-        // Float s3 = (cp31.x * cp21.y - cp31.y * cp21.x) / hypotf(cp21.x, cp21.y);
-        // t = 2 * Float(sqrt(tolerance / (3. * std::abs(s3))));
-        let cp21x31 = cp31.x * cp21.y - cp31.y * cp21.x;
-        let h = cp21.x.hypot(cp21.y);
-        if cp21x31 * h == 0.0 {
-            break;
-        }
-
-        let s3inv = h / cp21x31;
-        t = 2.0 * (tolerance * s3inv.abs().sqrt() / 3.0);
-
-        if t >= 1.0 {
-            break;
-        }
-
-        let mut second = bezier;
-        split_cubic_bezier(&bezier, t, None, Some(&mut second));
-        bezier = second;
-
-        path = path.line_to(bezier.from);
-    }
-
-    return path.line_to(bezier.to);
-}
-
-fn flatten_cubic_bezier<'l>(
+pub fn flatten_cubic_bezier<'l>(
     bezier: CubicBezierSegment<Untyped>,
     tolerance: f32,
     mut path: PathBuilder<'l>
@@ -458,7 +418,7 @@ fn flatten_cubic_bezier<'l>(
     // segments.
     if count == 1 && t1min <= 0.0 && t1max >= 1.0 {
         // The whole range can be approximated by a line segment.
-        return path.line_to(bezier.to);
+        return path.line_step_to(bezier.to);
     }
 
     if t1min > 0.0 {
@@ -473,7 +433,7 @@ fn flatten_cubic_bezier<'l>(
         // subsequently flatten up until the end or the next inflection point.
         split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
 
-        path = path.line_to(next_bezier.from);
+        path = path.line_step_to(next_bezier.from);
 
         if count == 1 || (count > 1 && t2min >= 1.0) {
             // No more inflection points to deal with, flatten the rest of the curve.
@@ -483,7 +443,7 @@ fn flatten_cubic_bezier<'l>(
         // We've already concluded t2min <= t1max, so if this is true the
         // approximation range for the first inflection point runs past the
         // end of the curve, draw a line to the end and we're done.
-        return path.line_to(bezier.to);
+        return path.line_step_to(bezier.to);
     }
 
     if count > 1 && t2min < 1.0 && t2max > 0.0 {
@@ -491,7 +451,7 @@ fn flatten_cubic_bezier<'l>(
             // In this case the t2 approximation range starts inside the t1
             // approximation range.
             split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
-            path = path.line_to(next_bezier.from);
+            path = path.line_step_to(next_bezier.from);
         } else if t2min > 0.0 && t1max > 0.0 {
             split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
 
@@ -511,14 +471,59 @@ fn flatten_cubic_bezier<'l>(
 
             // Draw a line to the start, this is the approximation between t2min and
             // t2max.
-            path = path.line_to(next_bezier.from);
+            path = path.line_step_to(next_bezier.from);
             return flatten_cubic_bezier_segment(next_bezier, tolerance, path);
         } else {
             // Our approximation range extends beyond the end of the curve.
-            return path.line_to(bezier.to);
+            return path.line_step_to(bezier.to);
         }
     }
     return path;
+}
+
+
+fn flatten_cubic_bezier_segment<'l>(
+    mut bezier: CubicBezierSegment<Untyped>,
+    tolerance: f32,
+    mut path: PathBuilder<'l>
+) -> PathBuilder<'l> {
+
+    let end = bezier.to;
+
+    // The algorithm implemented here is based on:
+    // http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
+    //
+    // The basic premise is that for a small t the third order term in the
+    // equation of a cubic bezier curve is insignificantly small. This can
+    // then be approximated by a quadratic equation for which the maximum
+    // difference from a linear approximation can be much more easily determined.
+    let mut t = 0.0;
+    while t < 1.0 {
+        let v1 = bezier.cp1 - bezier.from;
+        let v2 = bezier.cp2 - bezier.from;
+
+        // To remove divisions and check for divide-by-zero, this is optimized from:
+        // Float s2 = (v2.x * v1.y - v2.y * v1.x) / hypot(v1.x, v1.y);
+        // t = 2 * Float(sqrt(tolerance / (3. * abs(s2))));
+        let v1xv2 = v2.x * v1.y - v2.y * v1.x;
+        let h = v1.x.hypot(v1.y);
+        if v1xv2 * h == 0.0 {
+            break;
+        }
+        let s2inv = h / v1xv2;
+
+        t = 2.0 * (tolerance * s2inv.abs() / 3.0).sqrt();
+
+        if t >= 0.999 {
+            break;
+        }
+
+        bezier = bezier.split_in_place(t as f32);
+
+        path = path.line_step_to(bezier.from);
+    }
+
+    return path.line_step_to(end);
 }
 
 

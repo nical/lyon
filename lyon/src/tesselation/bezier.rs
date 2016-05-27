@@ -73,8 +73,8 @@ pub struct CubicBezierSegment<U: Unit> {
     pub to: Vector2D<U>,
 }
 
-impl<U> Copy for CubicBezierSegment<U> {}
-impl<U> Clone for CubicBezierSegment<U> {
+impl<U: Unit> Copy for CubicBezierSegment<U> {}
+impl<U: Unit> Clone for CubicBezierSegment<U> {
     fn clone(&self) -> CubicBezierSegment<U> { *self }
 }
 
@@ -85,9 +85,53 @@ pub struct QuadraticBezierSegment<U: Unit> {
     pub to: Vector2D<U>,
 }
 
-impl<U> Copy for QuadraticBezierSegment<U> {}
-impl<U> Clone for QuadraticBezierSegment<U> {
+impl<U: Unit> Copy for QuadraticBezierSegment<U> {}
+impl<U: Unit> Clone for QuadraticBezierSegment<U> {
     fn clone(&self) -> QuadraticBezierSegment<U> { *self }
+}
+
+impl<U: Unit> QuadraticBezierSegment<U> {
+    pub fn to_cubic(&self) -> CubicBezierSegment<U> {
+        CubicBezierSegment {
+            from: self.from,
+            cp1: (self.from + self.cp * 2.0) / 3.0,
+            cp2: (self.to + self.cp * 2.0) / 3.0,
+            to: self.to,
+        }
+    }
+}
+
+impl<U: Unit> CubicBezierSegment<U> {
+    pub fn split_in_place(&mut self, t: f32) -> CubicBezierSegment<U> {
+        let cp1a = self.from + (self.cp1 - self.from) * t;
+        let cp2a = self.cp1 + (self.cp2 - self.cp1) * t;
+        let cp1aa = cp1a + (cp2a - cp1a) * t;
+        let cp3a = self.cp2 + (self.to - self.cp2) * t;
+        let cp2aa = cp2a + (cp3a - cp2a) * t;
+        let cp1aaa = cp1aa + (cp2aa - cp1aa) * t;
+        let to = self.to;
+
+        self.cp1 = cp1a;
+        self.cp2 = cp1aa;
+        self.to = cp1aaa;
+
+        return CubicBezierSegment {
+            from: cp1aaa,
+            cp1: cp2aa,
+            cp2: cp3a,
+            to: to,
+        };
+    }
+
+    pub fn split(&self, t: f32) -> (CubicBezierSegment<U>, CubicBezierSegment<U>) {
+        let mut a = *self;
+        let b = a.split_in_place(t);
+        return (a, b);
+    }
+
+    pub fn sample(&self, t: f32) -> Vector2D<U> {
+        return sample_cubic_bezier(self.from, self.cp1, self.cp2, self.to, t);
+    }
 }
 
 pub fn split_cubic_bezier<U: Unit>(
@@ -188,7 +232,7 @@ pub fn find_cubic_bezier_inflection_approximation_range<U: Unit>(
     min: &mut f32, max: &mut f32
 ) {
     let mut bezier = *bezier_segment;
-    split_cubic_bezier(bezier_segment, t, None, Some(&mut bezier));
+    bezier = bezier.split_in_place(t);
 
     let cp21 = bezier.cp1 - bezier.from;
     let cp41 = bezier.to - bezier.from;

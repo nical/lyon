@@ -20,7 +20,7 @@ pub fn line_intersection<U>(
     b2: Vector2D<U>
 ) -> Option<Vector2D<U>> {
     let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
-    if det*det == 0.0 {
+    if det.abs() <= 0.000001 {
         // The lines are very close to parallel
         return None;
     }
