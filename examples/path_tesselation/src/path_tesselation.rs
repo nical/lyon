@@ -9,7 +9,7 @@ use glium::glutin;
 use glium::index::PrimitiveType;
 use glium::DisplayBuild;
 
-use lyon::tesselation::path::{ Path, PathBuilder };
+use lyon::tesselation::path_builder::{ PathBuilder };
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
 use lyon::tesselation::rust_logo::build_logo_path;
