@@ -9,7 +9,7 @@ use glium::glutin;
 use glium::index::PrimitiveType;
 use glium::DisplayBuild;
 
-use lyon::tesselation::path::{ ComplexPath, PathBuilder };
+use lyon::tesselation::path::{ Path, PathBuilder };
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
 use lyon::tesselation::path_tesselator::{
@@ -55,7 +55,7 @@ implement_vertex!(BgVertex, a_position);
 
 fn main() {
 
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
 
     rust_logo(&mut path);
 
@@ -233,7 +233,7 @@ fn main() {
     }
 }
 
-fn rust_logo(path: &mut ComplexPath) {
+fn rust_logo(path: &mut Path) {
     PathBuilder::begin(path, vec2(122.631, 69.716)).flattened()
         .relative_line_to(vec2(-4.394, -2.72))
         .relative_cubic_bezier_to(vec2(-0.037, -0.428), vec2(-0.079, -0.855), vec2(-0.125, -1.28))

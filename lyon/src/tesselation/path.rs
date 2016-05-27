@@ -30,14 +30,14 @@ pub struct PointData {
 }
 
 #[derive(Clone, Debug)]
-pub struct ComplexPath {
+pub struct Path {
     vertices: Vec<PointData>,
     sub_paths: Vec<PathInfo>,
 }
 
-impl ComplexPath {
-    pub fn new() -> ComplexPath {
-        ComplexPath { vertices: Vec::new(), sub_paths: Vec::new() }
+impl Path {
+    pub fn new() -> Path {
+        Path { vertices: Vec::new(), sub_paths: Vec::new() }
     }
 
     pub fn vertices(&self) -> VertexSlice<PointData> { VertexSlice::new(&self.vertices[..]) }
@@ -46,8 +46,8 @@ impl ComplexPath {
 
     pub fn num_vertices(&self) -> usize { self.as_slice().num_vertices() }
 
-    pub fn sub_path(&self, id: PathId) -> PathSlice {
-        PathSlice {
+    pub fn sub_path(&self, id: PathId) -> SubPathSlice {
+        SubPathSlice {
             vertices: VertexSlice::new(&self.vertices[..]),
             info: &self.sub_paths[id.handle.to_index()]
         }
@@ -57,8 +57,8 @@ impl ComplexPath {
         IdRange::new(0, self.sub_paths.len() as u16)
     }
 
-    pub fn as_slice(&self) -> ComplexPathSlice {
-        ComplexPathSlice {
+    pub fn as_slice(&self) -> PathSlice {
+        PathSlice {
             vertices: VertexSlice::new(&self.vertices[..]),
             sub_paths: &self.sub_paths[..],
         }
@@ -66,21 +66,21 @@ impl ComplexPath {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct ComplexVertexId {
+pub struct PathVertexId {
     pub vertex_id: VertexId,
     pub path_id: PathId,
 }
 
-pub struct ComplexVertexIdRange {
+pub struct PathVertexIdRange {
     range: VertexIdRange,
     path_id: PathId,
 }
 
-impl Iterator for ComplexVertexIdRange {
-    type Item = ComplexVertexId;
-    fn next(&mut self) -> Option<ComplexVertexId> {
+impl Iterator for PathVertexIdRange {
+    type Item = PathVertexId;
+    fn next(&mut self) -> Option<PathVertexId> {
         return if let Some(next) = self.range.next() {
-            Some(ComplexVertexId {
+            Some(PathVertexId {
                 vertex_id: next,
                 path_id: self.path_id
             })
@@ -91,17 +91,17 @@ impl Iterator for ComplexVertexIdRange {
 }
 
 #[derive(Copy, Clone)]
-pub struct ComplexPathSlice<'l> {
+pub struct PathSlice<'l> {
     vertices: VertexSlice<'l,PointData>,
     sub_paths: &'l[PathInfo],
 }
 
-impl<'l> ComplexPathSlice<'l> {
+impl<'l> PathSlice<'l> {
 
     pub fn vertices(&self) -> VertexSlice<PointData> { self.vertices }
 
-    pub fn vertex_ids(&self, sub_path: PathId) -> ComplexVertexIdRange {
-        ComplexVertexIdRange {
+    pub fn vertex_ids(&self, sub_path: PathId) -> PathVertexIdRange {
+        PathVertexIdRange {
             range: self.sub_path(sub_path).vertex_ids(),
             path_id: sub_path,
         }
@@ -111,8 +111,8 @@ impl<'l> ComplexPathSlice<'l> {
 
     pub fn num_sub_paths(&self) -> usize { self.sub_paths.len() }
 
-    pub fn sub_path(&self, id: PathId) -> PathSlice {
-        PathSlice {
+    pub fn sub_path(&self, id: PathId) -> SubPathSlice {
+        SubPathSlice {
             vertices: self.vertices,
             info: &self.sub_paths[id.handle.to_index()]
         }
@@ -122,19 +122,19 @@ impl<'l> ComplexPathSlice<'l> {
         IdRange::new(0, self.sub_paths.len() as u16)
     }
 
-    pub fn vertex(&self, id: ComplexVertexId) -> &PointData {
+    pub fn vertex(&self, id: PathVertexId) -> &PointData {
         &self.vertices[id.vertex_id]
     }
 
-    pub fn next(&self, id: ComplexVertexId) -> ComplexVertexId {
-        ComplexVertexId {
+    pub fn next(&self, id: PathVertexId) -> PathVertexId {
+        PathVertexId {
             path_id: id.path_id,
             vertex_id: self.sub_path(id.path_id).next(id.vertex_id),
         }
     }
 
-    pub fn previous(&self, id: ComplexVertexId) -> ComplexVertexId {
-        ComplexVertexId {
+    pub fn previous(&self, id: PathVertexId) -> PathVertexId {
+        PathVertexId {
             path_id: id.path_id,
             vertex_id: self.sub_path(id.path_id).previous(id.vertex_id),
         }
@@ -142,12 +142,12 @@ impl<'l> ComplexPathSlice<'l> {
 }
 
 #[derive(Copy, Clone)]
-pub struct PathSlice<'l> {
+pub struct SubPathSlice<'l> {
     vertices: VertexSlice<'l, PointData>,
     info: &'l PathInfo,
 }
 
-impl<'l> PathSlice<'l> {
+impl<'l> SubPathSlice<'l> {
     pub fn info(&self) -> &'l PathInfo { self.info }
 
     pub fn vertex(&self, id: VertexId) -> &PointData { &self.vertices[id] }
@@ -196,7 +196,7 @@ pub struct PathInfo {
 }
 
 pub struct PathBuilder<'l> {
-    path: &'l mut ComplexPath,
+    path: &'l mut Path,
     last_position: Vec2,
     last_ctrl: Vec2,
     top_left: Vec2,
@@ -209,7 +209,7 @@ pub struct PathBuilder<'l> {
 }
 
 impl<'l> PathBuilder<'l> {
-    pub fn begin(path: &'l mut ComplexPath, pos: Vec2) -> PathBuilder {
+    pub fn begin(path: &'l mut Path, pos: Vec2) -> PathBuilder {
         let offset = path.vertices.len() as u16;
         path.vertices.push(PointData { position: pos, point_type: PointType::Normal });
         PathBuilder {
@@ -529,7 +529,7 @@ fn flatten_cubic_bezier_segment<'l>(
 
 #[test]
 fn test_path_builder_simple() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     // clockwise
     {
         let id = PathBuilder::begin(&mut path, vec2(0.0, 0.0))
@@ -582,7 +582,7 @@ fn test_path_builder_simple() {
 
 #[test]
 fn test_path_builder_simple_bezier() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
 
     // clockwise
     {

@@ -32,13 +32,13 @@ pub struct Intersection {
 
 #[derive(Copy, Clone)]
 pub struct SortedEventSlice<'l> {
-    pub events: &'l[ComplexVertexId]
+    pub events: &'l[PathVertexId]
 }
 
 /// Contains the events of a path and provide access to them, sorted from top to bottom
 /// (assuming y points downwards).
 pub struct EventVector {
-    events: Vec<ComplexVertexId>
+    events: Vec<PathVertexId>
 }
 
 impl EventVector {
@@ -47,7 +47,7 @@ impl EventVector {
     }
 
     pub fn from_path(
-        path: ComplexPathSlice,
+        path: PathSlice,
     ) -> EventVector {
         let mut ev = EventVector {
             events: Vec::with_capacity(path.vertices().len())
@@ -57,7 +57,7 @@ impl EventVector {
     }
 
     pub fn set_path(&mut self,
-        path: ComplexPathSlice,
+        path: PathSlice,
     ) {
         self.events.clear();
         for sub_path in path.path_ids() {
@@ -111,7 +111,7 @@ struct SpanEdge {
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
     position: Vec2,
-    id: ComplexVertexId,
+    id: PathVertexId,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -171,7 +171,7 @@ impl Span {
         };
     }
 
-    fn end(&mut self, pos: Vec2, id: ComplexVertexId) {
+    fn end(&mut self, pos: Vec2, id: PathVertexId) {
         self.monotone_tesselator.end(pos, id.vertex_id);
     }
 }
@@ -181,22 +181,22 @@ struct SweepLine {
 }
 
 pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
-    path: ComplexPathSlice<'l>,
+    path: PathSlice<'l>,
     sweep_line: SweepLine,
     intersections: Vec<Intersection>,
-    next_new_vertex: ComplexVertexId,
+    next_new_vertex: PathVertexId,
     output: &'l mut Output,
 }
 
 impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
-    pub fn new(path: ComplexPathSlice<'l>, output: &'l mut Output) -> Tesselator<'l, Output> {
+    pub fn new(path: PathSlice<'l>, output: &'l mut Output) -> Tesselator<'l, Output> {
         Tesselator {
             path: path,
             sweep_line: SweepLine {
                 spans: Vec::with_capacity(16),
             },
             intersections: Vec::new(),
-            next_new_vertex: ComplexVertexId {
+            next_new_vertex: PathVertexId {
                 vertex_id: vertex_id(path.num_vertices() as u16),
                 path_id: path_id(path.num_sub_paths() as u16),
             },
@@ -263,7 +263,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         );
     }
 
-    fn find_span_and_side(&self, vertex: ComplexVertexId) -> (usize, Side) {
+    fn find_span_and_side(&self, vertex: PathVertexId) -> (usize, Side) {
         let mut span_index = 0;
         for span in &self.sweep_line.spans {
             if !span.left.merge && span.left.lower.id == vertex {
@@ -557,7 +557,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             position: pos,
         };
 
-        self.next_new_vertex = ComplexVertexId {
+        self.next_new_vertex = PathVertexId {
             vertex_id: vertex_id(self.next_new_vertex.vertex_id.handle + 1),
             path_id: self.next_new_vertex.path_id,
         };
@@ -779,7 +779,7 @@ impl TesselatorOptions {
 }
 
 pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
-    path: ComplexPathSlice<'l>,
+    path: PathSlice<'l>,
     options: &TesselatorOptions,
     output: &mut Output
 ) -> Result<(), ()> {
@@ -803,7 +803,7 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 }
 
 pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
-    path: ComplexPathSlice,
+    path: PathSlice,
     thickness: f32,
     output: &mut Output
 ) -> (Range, Range) {
@@ -815,7 +815,7 @@ pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
 }
 
 pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
-    path: PathSlice,
+    path: SubPathSlice,
     thickness: f32,
     output: &mut Output
 ) {
@@ -861,7 +861,7 @@ pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
 }
 
 pub fn extrude_along_tangent(
-    path: PathSlice,
+    path: SubPathSlice,
     i: VertexId,
     amount: f32,
     is_closed: bool
@@ -904,7 +904,7 @@ pub fn extrude_along_tangent(
 }
 
 #[cfg(test)]
-fn test_path(path: ComplexPathSlice, expected_triangle_count: Option<usize>) {
+fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
@@ -918,7 +918,7 @@ fn test_path(path: ComplexPathSlice, expected_triangle_count: Option<usize>) {
 }
 
 #[cfg(test)]
-fn test_path_with_rotations(path: ComplexPath, step: f32, expected_triangle_count: Option<usize>) {
+fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Option<usize>) {
     let mut angle = 0.0;
 
     while angle < PI * 2.0 {
@@ -939,7 +939,7 @@ fn test_path_with_rotations(path: ComplexPath, step: f32, expected_triangle_coun
 
 #[test]
 fn test_tesselator_simple_monotone() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(-1.0, 1.0))
         .line_to(vec2(-3.0, 2.0))
@@ -952,7 +952,7 @@ fn test_tesselator_simple_monotone() {
 
 #[test]
 fn test_tesselator_simple_split() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(2.0, 1.0))
         .line_to(vec2(2.0, 3.0))
@@ -964,7 +964,7 @@ fn test_tesselator_simple_split() {
 
 #[test]
 fn test_tesselator_simple_merge_split() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(1.0, 1.0))
         .line_to(vec2(2.0, 0.0))
@@ -977,7 +977,7 @@ fn test_tesselator_simple_merge_split() {
 
 #[test]
 fn test_tesselator_simple_aligned() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(1.0, 0.0))
         .line_to(vec2(2.0, 0.0))
@@ -992,7 +992,7 @@ fn test_tesselator_simple_aligned() {
 
 #[test]
 fn test_tesselator_simple_1() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(1.0, 1.0))
         .line_to(vec2(2.0, 0.0))
@@ -1005,7 +1005,7 @@ fn test_tesselator_simple_1() {
 
 #[test]
 fn test_tesselator_simple_2() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(1.0, 0.0))
         .line_to(vec2(2.0, 0.0))
@@ -1024,7 +1024,7 @@ fn test_tesselator_simple_2() {
 
 #[test]
 fn test_tesselator_hole_1() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(-11.0, 5.0)).flattened()
         .line_to(vec2(0.0, -5.0))
         .line_to(vec2(10.0, 5.0))
@@ -1039,12 +1039,12 @@ fn test_tesselator_hole_1() {
 
 #[test]
 fn test_tesselator_degenerate_empty() {
-    test_path(ComplexPath::new().as_slice(), Some(0));
+    test_path(Path::new().as_slice(), Some(0));
 }
 
 #[test]
 fn test_tesselator_degenerate_same_position() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(0.0, 0.0))
         .line_to(vec2(0.0, 0.0))
@@ -1064,7 +1064,7 @@ fn test_tesselator_auto_intersection_type1() {
     //    / \
     //  o.___\
     //       'o
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(2.0, 1.0))
         .line_to(vec2(0.0, 2.0))
@@ -1082,7 +1082,7 @@ fn test_tesselator_auto_intersection_type2() {
     //  | / \ |
     //  o'   \|
     //        o
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(0.0, 0.0)).flattened()
         .line_to(vec2(2.0, 3.0))
         .line_to(vec2(2.0, 1.0))
@@ -1103,7 +1103,7 @@ fn test_tesselator_auto_intersection_multi() {
     //  |_\___/_|
     //     \ /
     //      '
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
     PathBuilder::begin(&mut path, vec2(20.0, 20.0)).flattened()
         .line_to(vec2(60.0, 20.0))
         .line_to(vec2(60.0, 60.0))
@@ -1119,7 +1119,7 @@ fn test_tesselator_auto_intersection_multi() {
 
 #[test]
 fn test_tesselator_rust_logo() {
-    let mut path = ComplexPath::new();
+    let mut path = Path::new();
 
     PathBuilder::begin(&mut path, vec2(122.631, 69.716)).flattened()
         .relative_line_to(vec2(-4.394, -2.72))
