@@ -150,6 +150,8 @@ impl<'l, Data, ID:Identifier> IdSlice<'l, ID, Data> where Data:'l {
     pub fn ids<T:IntegerHandle>(&self) -> IdRange<ID::Unit, T> {
         IdRange::new(FromIndex::from_index(0), FromIndex::from_index(self.len()))
     }
+
+    pub fn nth(&self, idx: usize) -> &Data { &self.slice[idx] }
 }
 
 impl<'l, ID:Identifier, Data> ops::Index<ID> for IdSlice<'l, ID, Data> where Data:'l {

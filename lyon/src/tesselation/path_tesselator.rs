@@ -17,6 +17,8 @@ use vodk_math::{ Vec2 };
 use vodk_math::{ vec2 };
 #[cfg(test)]
 use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
+#[cfg(test)]
+use tesselation::path_builder::PathBuilder;
 
 struct Event {
     pub current: Vertex,
@@ -1043,8 +1045,7 @@ fn test_tesselator_hole_1() {
     path.line_to(vec2(0.0, -5.0));
     path.line_to(vec2(10.0, 5.0));
     path.close();
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+
     path.move_to(vec2(-5.0, 2.0));
     path.line_to(vec2(0.0, -2.0));
     path.line_to(vec2(4.0, 2.0));
@@ -1083,6 +1084,7 @@ fn test_tesselator_auto_intersection_type1() {
     //  o.___\
     //       'o
     let mut path = PathBuilder::new();
+    path.set_flattening(true);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 1.0));
     path.line_to(vec2(0.0, 2.0));
@@ -1103,6 +1105,7 @@ fn test_tesselator_auto_intersection_type2() {
     //  o'   \|
     //        o
     let mut path = PathBuilder::new();
+    path.set_flattening(true);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 3.0));
     path.line_to(vec2(2.0, 1.0));
@@ -1126,6 +1129,7 @@ fn test_tesselator_auto_intersection_multi() {
     //     \ /
     //      '
     let mut path = PathBuilder::new();
+    path.set_flattening(true);
     path.move_to(vec2(20.0, 20.0));
     path.line_to(vec2(60.0, 20.0));
     path.line_to(vec2(60.0, 60.0));

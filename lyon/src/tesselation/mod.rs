@@ -2,6 +2,7 @@ pub mod basic_shapes;
 pub mod bezier;
 pub mod math_utils;
 pub mod path;
+pub mod path_builder;
 pub mod path_tesselator;
 pub mod vertex_builder;
 pub mod rust_logo;
