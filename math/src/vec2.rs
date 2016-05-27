@@ -210,6 +210,10 @@ impl<U> Vector2D<U> {
         return if a < 0.0 { a + 2.0 * PI } else { a };
     }
 
+    pub fn directed_angle2(self, a: Vector2D<U>, b: Vector2D<U>) -> f32 {
+        (a - self).directed_angle(b - self)
+    }
+
     pub fn fuzzy_eq(self, rhs: Vector2D<U>) -> bool {
         return fuzzy_eq(self.x, rhs.x) && fuzzy_eq(self.y, rhs.y);
     }

@@ -1,21 +1,16 @@
-
-pub mod monotone;
-pub mod convex;
-pub mod path;
-pub mod polygon;
-pub mod connection;
+pub mod basic_shapes;
 pub mod bezier;
+pub mod math_utils;
+pub mod path;
+pub mod path_builder;
+pub mod path_tesselator;
 pub mod vertex_builder;
-pub mod vectors;
-pub mod tesselation;
-pub mod path_to_polygon;
-pub mod sweep_line;
-pub mod bentley_ottmann;
-pub mod experimental;
+pub mod rust_logo;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
+pub fn crash() -> ! { panic!() }
 
-use vodk_id::{Id, IdSlice, IdRange};
+use vodk_id::{Id, IdSlice, MutIdSlice, IdRange};
 
 pub type Index = u16;
 
@@ -38,24 +33,4 @@ pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
 }
 
 pub type VertexSlice<'l, V> = IdSlice<'l, VertexId, V>;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum WindingOrder {
-    Clockwise,
-    CounterClockwise,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Direction {
-    Forward,
-    Backward,
-}
-
-impl Direction {
-    pub fn reverse(self) -> Direction {
-        match self {
-            Direction::Forward => Direction::Backward,
-            Direction::Backward => Direction::Forward,
-        }
-    }
-}
+pub type MutVertexSlice<'l, V> = MutIdSlice<'l, VertexId, V>;

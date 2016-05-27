@@ -2,22 +2,73 @@
 
 use std::marker::PhantomData;
 
+pub type Index = u16;
+
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Range {
+    pub first: Index,
+    pub count: Index,
+}
+
+impl Range {
+    pub fn new(first: Index, count: Index) -> Range { Range { first: first, count: count } }
+
+    pub fn contains(&self, other: &Range) -> bool {
+        self.first <= other.first && self.first + self.count >= other.first + other.count
+    }
+    pub fn intersects(&self, other: &Range) -> bool {
+        self.first <= other.first + self.count && self.first + self.count >= other.first
+    }
+    pub fn shrink_left(&mut self, amount: Index) {
+        self.count -= amount;
+        self.first += amount;
+    }
+    pub fn shrink_right(&mut self, amount: Index) {
+        self.count -= amount;
+    }
+    pub fn expand_left(&mut self, amount: Index) {
+        self.count += amount;
+        self.first -= amount;
+    }
+    pub fn expand_right(&mut self, amount: Index) {
+        self.count += amount;
+    }
+    pub fn is_left_adjacent_to(&self, other: &Range) -> bool {
+        self.first + self.count == other.first
+    }
+    pub fn is_right_adjacent_to(&self, other: &Range) -> bool {
+        other.is_left_adjacent_to(self)
+    }
+    pub fn is_adjacent_to(&self, other: &Range) -> bool {
+        self.is_left_adjacent_to(other) || other.is_right_adjacent_to(other)
+    }
+
+    pub fn is_left_of(&self, other: &Range) -> bool {
+        self.first < other.first
+    }
+
+    pub fn right_most(&self) -> Index {
+        self.first + self.count
+    }
+}
+
 
 /// Structure that holds the vertex and index data.
 ///
 /// Usually writen into though temporary VertexBuilder objects.
 pub struct VertexBuffers<VertexType> {
     pub vertices: Vec<VertexType>,
-    pub indices: Vec<u16>,
+    pub indices: Vec<Index>,
 }
 
 /// A trait that VertexBuilder implements exposing the methods that algorithms generating geometry
 /// need, and hiding the generic parameters they should not care about.
 pub trait VertexBufferBuilder<Input> {
 
-    fn push_vertex(&mut self, p: Input) -> u16;
+    fn push_vertex(&mut self, p: Input) -> Index;
 
-    fn push_indices(&mut self, a: u16, b: u16, c: u16);
+    fn push_indices(&mut self, a: Index, b: Index, c: Index);
 
     fn num_vertices(&self) -> usize;
 
@@ -25,7 +76,12 @@ pub trait VertexBufferBuilder<Input> {
     ///
     /// Use this when a VertexBuilder is passed by reference to a succession of functions at the
     /// beginning of each of these functions (if they expect indices to start at zero).
+    ///
+    /// Return the offsets of the first vertex and th first index.
     fn begin_geometry(&mut self);
+
+    /// Return the ranges of vertirces and indices added since we last called begin_geometry.
+    fn end_geometry(&mut self) -> (Range, Range);
 }
 
 impl<VertexType> VertexBuffers<VertexType> {
@@ -43,12 +99,12 @@ impl<VertexType> VertexBuffers<VertexType> {
 
 impl<VertexType> VertexBufferBuilder<VertexType> for VertexBuffers<VertexType> {
 
-    fn push_vertex(&mut self, p: VertexType) -> u16 {
+    fn push_vertex(&mut self, p: VertexType) -> Index {
         self.vertices.push(p);
-        return self.vertices.len() as u16 - 1;
+        return self.vertices.len() as Index - 1;
     }
 
-    fn push_indices(&mut self, a: u16, b: u16, c: u16) {
+    fn push_indices(&mut self, a: Index, b: Index, c: Index) {
         self.indices.push(a);
         self.indices.push(b);
         self.indices.push(c);
@@ -59,6 +115,13 @@ impl<VertexType> VertexBufferBuilder<VertexType> for VertexBuffers<VertexType> {
     fn begin_geometry(&mut self) {
         self.vertices.clear();
         self.indices.clear();
+    }
+
+    fn end_geometry(&mut self) -> (Range, Range) {
+        return (
+            Range { first: 0, count: self.vertices.len() as Index },
+            Range { first: 0, count: self.indices.len() as Index },
+        );
     }
 }
 
@@ -80,7 +143,8 @@ pub struct VertexBuilder<'l,
     Ctor: VertexConstructor<Input, VertexType>
 > {
     buffers: &'l mut VertexBuffers<VertexType>,
-    vertex_offset: u16,
+    vertex_offset: Index,
+    index_offset: Index,
     vertex_constructor: Ctor,
     _marker: PhantomData<Input>
 }
@@ -91,11 +155,11 @@ impl<'l,
     Ctor: VertexConstructor<Input, VertexType>
 > VertexBufferBuilder<Input> for VertexBuilder<'l, VertexType, Input, Ctor> {
 
-    fn push_vertex(&mut self, p: Input) -> u16 {
+    fn push_vertex(&mut self, p: Input) -> Index {
         self.buffers.push_vertex(self.vertex_constructor.new_vertex(p)) - self.vertex_offset
     }
 
-    fn push_indices(&mut self, a: u16, b: u16, c: u16) {
+    fn push_indices(&mut self, a: Index, b: Index, c: Index) {
         self.buffers.push_indices(
             a + self.vertex_offset,
             b + self.vertex_offset,
@@ -105,7 +169,17 @@ impl<'l,
 
     fn num_vertices(&self) -> usize { self.buffers.num_vertices() }
 
-    fn begin_geometry(&mut self) { self.vertex_offset = self.buffers.vertices.len() as u16 }
+    fn begin_geometry(&mut self) {
+        self.vertex_offset = self.buffers.vertices.len() as Index;
+        self.index_offset = self.buffers.indices.len() as Index;
+    }
+
+    fn end_geometry(&mut self) -> (Range, Range) {
+        return (
+            Range { first: self.vertex_offset, count: self.buffers.vertices.len() as Index - self.vertex_offset },
+            Range { first: self.index_offset, count: self.buffers.indices.len() as Index - self.index_offset }
+        );
+    }
 }
 
 /// Constructor
@@ -114,10 +188,12 @@ pub fn vertex_builder<'l,
     Input,
     Ctor: VertexConstructor<Input, VertexType>
 > (buffers: &'l mut VertexBuffers<VertexType>, ctor: Ctor) -> VertexBuilder<'l, VertexType, Input, Ctor> {
-    let offset = buffers.num_vertices() as u16;
+    let vertex_offset = buffers.num_vertices() as Index;
+    let index_offset = buffers.indices.len() as Index;
     VertexBuilder {
         buffers: buffers,
-        vertex_offset: offset,
+        vertex_offset: vertex_offset,
+        index_offset: index_offset,
         vertex_constructor: ctor,
         _marker: PhantomData
     }
@@ -142,10 +218,12 @@ pub type SimpleVertexBuilder<'l, VertexType> = VertexBuilder<'l, VertexType, Ver
 
 /// Constructor
 pub fn simple_vertex_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType>) -> SimpleVertexBuilder<'l, VertexType> {
-    let offset = buffers.num_vertices() as u16;
+    let vertex_offset = buffers.num_vertices() as Index;
+    let index_offset = buffers.indices.len() as Index;
     VertexBuilder {
         buffers: buffers,
-        vertex_offset: offset,
+        vertex_offset: vertex_offset,
+        index_offset: index_offset,
         vertex_constructor: Identity,
         _marker: PhantomData
     }
@@ -179,7 +257,7 @@ fn add_quad<Builder: VertexBufferBuilder<[f32; 2]>>(
     top_left: [f32; 2],
     size:[f32; 2],
     mut out: Builder
-) {
+) -> (Range, Range) {
     out.begin_geometry();
     let a = out.push_vertex(top_left);
     let b = out.push_vertex([top_left[0]+size[0], top_left[1]]);
@@ -187,12 +265,17 @@ fn add_quad<Builder: VertexBufferBuilder<[f32; 2]>>(
     let d = out.push_vertex([top_left[0], top_left[1]+size[1]]);
     out.push_indices(a, b, c);
     out.push_indices(a, c, d);
+    let (vertices, indices) = out.end_geometry();
     // offsets always start at zero after begin_geometry, regardless of where we are
     // in the actual vbo. Algorithms can rely on this property when generating indices.
     assert_eq!(a, 0);
     assert_eq!(b, 1);
     assert_eq!(c, 2);
     assert_eq!(d, 3);
+    assert_eq!(vertices.count, 4);
+    assert_eq!(indices.count, 6);
+
+    return (vertices, indices);
 }
 
 #[test]
