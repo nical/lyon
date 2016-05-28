@@ -13,6 +13,6 @@ path = "src/lib.rs"
 
 [dependencies]
 
-sid = { version = "0.1.0", path = "../id/sid" }
-sid_vec = { version = "0.1.0", path = "../id/sid_vec" }
-vodk_math = { version = "0.0.3", path = "../math/" }
+sid = { version = "0.1.0", path = "../vodk/id/sid" }
+sid_vec = { version = "0.1.0", path = "../vodk/id/sid_vec" }
+vodk_math = { version = "0.0.3", path = "../vodk/math/" }

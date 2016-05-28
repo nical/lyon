@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate glium;
 extern crate lyon;
-extern crate sid;
 extern crate vodk_math;
 
 use glium::Surface;

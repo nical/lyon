@@ -1,0 +1,15 @@
+[package]
+name = "Glium viewer"
+version = "0.0.1"
+authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+
+[[bin]]
+name = "glium_tess_example"
+path = "src/glium_tess_example.rs"
+
+[dependencies]
+lyon = { path = "../../" }
+vodk_math = { version = "0.0.3", path = "../../../vodk/math/" }
+
+glutin = "0.4.2"
+glium = "0.12.2"
