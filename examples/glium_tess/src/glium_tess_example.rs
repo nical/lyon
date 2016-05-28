@@ -8,10 +8,10 @@ use glium::glutin;
 use glium::index::PrimitiveType;
 use glium::DisplayBuild;
 
-use lyon::tesselation::path_builder::{ PathBuilder };
+use lyon::extra::rust_logo::build_logo_path;
+use lyon::path_builder::{ PathBuilder };
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
-use lyon::tesselation::rust_logo::build_logo_path;
 use lyon::tesselation::path_tesselator::{
     TesselatorOptions, tesselate_path_fill, tesselate_path_stroke
 };

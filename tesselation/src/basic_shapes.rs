@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use tesselation::vertex_builder::VertexBufferBuilder;
-use tesselation::{ Index };
+use vertex_builder::VertexBufferBuilder;
+use super::{ Index };
 
 use vodk_math::{ Vector2D, Rectangle };
 use vodk_math::units::{ Texels };

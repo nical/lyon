@@ -2,23 +2,23 @@ use std::f32::consts::PI;
 use std::cmp::{ Ordering };
 use std::mem::swap;
 
-use tesselation::{ vertex_id, VertexId };
-use tesselation::path::*;
-use tesselation::vertex_builder::{ VertexBufferBuilder, Range, };
-use tesselation::math_utils::{
+use super::{ vertex_id, VertexId };
+use path::*;
+use vertex_builder::{ VertexBufferBuilder, Range, };
+use math_utils::{
     is_below, tangent,
     segment_intersection,line_intersection, line_horizontal_intersection,
 };
-use tesselation::basic_shapes::{ tesselate_quad };
+use basic_shapes::{ tesselate_quad };
 
 use vodk_math::{ Vec2 };
 
 #[cfg(test)]
 use vodk_math::{ vec2 };
 #[cfg(test)]
-use tesselation::vertex_builder::{ VertexBuffers, simple_vertex_builder, };
+use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 #[cfg(test)]
-use tesselation::path_builder::PathBuilder;
+use path_builder::PathBuilder;
 
 struct Event {
     pub current: Vertex,
@@ -1151,7 +1151,7 @@ fn test_tesselator_rust_logo() {
     let mut path = PathBuilder::new();
     path.set_flattening(true);
 
-    ::tesselation::rust_logo::build_logo_path(&mut path);
+    ::lyon_extra::rust_logo::build_logo_path(&mut path);
 
     test_path_with_rotations(path.build(), 0.011, None);
 }

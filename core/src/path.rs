@@ -1,4 +1,4 @@
-use tesselation::{
+use super::{
     vertex_id, VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
 };

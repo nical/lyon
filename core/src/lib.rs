@@ -1,11 +1,11 @@
-pub mod basic_shapes;
-pub mod bezier;
-pub mod math_utils;
+extern crate sid;
+extern crate sid_vec;
+extern crate vodk_math;
+
 pub mod path;
 pub mod path_builder;
-pub mod path_tesselator;
-pub mod vertex_builder;
-pub mod rust_logo;
+pub mod math_utils;
+pub mod bezier;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 pub fn crash() -> ! { panic!() }

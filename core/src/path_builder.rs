@@ -1,6 +1,6 @@
-use tesselation::path::*;
-use tesselation::bezier::*;
-use tesselation::{
+use path::*;
+use bezier::*;
+use super::{
     vertex_id_range,
 //    crash,
 };

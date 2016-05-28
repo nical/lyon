@@ -1,4 +1,4 @@
-use tesselation::path_builder::{ PathBuilder };
+use path_builder::{ PathBuilder };
 use vodk_math::{ vec2 };
 
 pub fn build_logo_path(path: &mut PathBuilder) {;
