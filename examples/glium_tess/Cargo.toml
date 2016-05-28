@@ -9,7 +9,7 @@ path = "src/glium_tess_example.rs"
 
 [dependencies]
 lyon = { path = "../../" }
-vodk_math = { version = "0.0.3", path = "../../../vodk/math/" }
+vodk_math = { version = "0.0.3" }
 
 glutin = "0.4.2"
 glium = "0.12.2"
