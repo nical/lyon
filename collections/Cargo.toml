@@ -1,0 +1,18 @@
+[package]
+
+name = "containers"
+version = "0.1.0"
+authors = [
+    "Nicolas Silva <nical.silva@gmail.com>",
+]
+license = "MIT/Apache-2.0"
+
+[[lib]]
+name = "container"
+path = "./lib.rs"
+
+[dependencies.vodk_data]
+path = "../data/"
+
+[dependencies.vodk_id]
+path = "../id/"
