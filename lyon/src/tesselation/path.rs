@@ -5,7 +5,7 @@ use tesselation::{
 
 use vodk_math::{ Vec2, Rect, };
 
-use vodk_id::{ Id, IdRange, ToIndex };
+use sid::{ Id, IdRange, ToIndex };
 
 #[derive(Debug)]
 pub struct Path_;

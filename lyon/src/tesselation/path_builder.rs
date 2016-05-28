@@ -7,10 +7,14 @@ use tesselation::{
 
 use vodk_math::{ Vec2, vec2, Rect };
 
+// The API provided is intended to follow the svg path specification as much as
+// possible https://svgwg.org/specs/paths/
+
 pub trait CurveBuilder {
     fn push_vertex(&mut self, v: Vec2);
 }
 
+/// Creates a path
 pub struct PathBuilder {
     vertices: Vec<PointData>,
     path_info: Vec<PathInfo>,
@@ -26,6 +30,7 @@ pub struct PathBuilder {
     building: bool,
 }
 
+/// A convenience API to create Path objects.
 impl PathBuilder {
     pub fn new() -> PathBuilder {
         PathBuilder {
@@ -43,7 +48,7 @@ impl PathBuilder {
         }
     }
 
-    pub fn finish(mut self) -> Path {
+    pub fn build(mut self) -> Path {
         if self.building {
             self.end();
         }
@@ -238,7 +243,7 @@ fn test_path_builder_simple() {
         path.line_to(vec2(1.0, 1.0));
         let id = path.close();
 
-        let path = path.finish();
+        let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(path.vertices().nth(0).position, vec2(0.0, 0.0));
         assert_eq!(path.vertices().nth(1).position, vec2(1.0, 0.0));
@@ -267,7 +272,7 @@ fn test_path_builder_simple() {
         path.line_to(vec2(1.0, 0.0));
         let id = path.close();
 
-        let path = path.finish();
+        let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -282,7 +287,7 @@ fn test_path_builder_simple() {
         path.line_to(vec2(0.0, 0.0));
         let id = path.close();
 
-        let path = path.finish();
+        let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -298,7 +303,7 @@ fn test_path_builder_simple_bezier() {
         path.quadratic_bezier_to(vec2(1.0, 0.0), vec2(1.0, 1.0));
         let id = path.close();
 
-        let path = path.finish();
+        let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -311,7 +316,7 @@ fn test_path_builder_simple_bezier() {
         path.quadratic_bezier_to(vec2(1.0, 1.0), vec2(1.0, 0.0));
         let id = path.close();
 
-        let path = path.finish();
+        let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
         assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
@@ -331,7 +336,7 @@ fn test_path_builder_simple_bezier() {
         path.quadratic_bezier_to(vec2(-0.2, 0.1), vec2(-0.1, 0.0));
         let id = path.close();
 
-        let path = path.finish();
+        let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.aabb, Rect::new(-0.2, 0.0, 0.7, 0.4));
     }

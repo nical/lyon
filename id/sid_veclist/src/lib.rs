@@ -1,4 +1,7 @@
-use super::{ Identifier, FromIndex };
+extern crate sid;
+
+use sid::{ Identifier, FromIndex };
+
 use std::marker::PhantomData;
 use std::ops;
 

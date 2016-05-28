@@ -10,7 +10,8 @@ pub mod rust_logo;
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 pub fn crash() -> ! { panic!() }
 
-use vodk_id::{Id, IdSlice, MutIdSlice, IdRange};
+use sid::{ Id, IdRange, };
+use sid_vec::{ IdSlice, MutIdSlice, };
 
 pub type Index = u16;
 

@@ -951,7 +951,7 @@ fn test_tesselator_simple_monotone() {
     path.line_to(vec2( 0.0, 6.0));
     path.close();
 
-    let path = path.finish();
+    let path = path.build();
     test_path(path.as_slice(), Some(4));
 }
 
@@ -966,7 +966,7 @@ fn test_tesselator_simple_split() {
     path.line_to(vec2(0.0, 3.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, Some(3));
+    test_path_with_rotations(path.build(), 0.001, Some(3));
 }
 
 #[test]
@@ -981,7 +981,7 @@ fn test_tesselator_simple_merge_split() {
     path.line_to(vec2(0.0, 3.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, Some(4));
+    test_path_with_rotations(path.build(), 0.001, Some(4));
 }
 
 #[test]
@@ -998,7 +998,7 @@ fn test_tesselator_simple_aligned() {
     path.line_to(vec2(0.0, 1.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, Some(6));
+    test_path_with_rotations(path.build(), 0.001, Some(6));
 }
 
 #[test]
@@ -1013,7 +1013,7 @@ fn test_tesselator_simple_1() {
     path.line_to(vec2(0.0, 3.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, Some(4));
+    test_path_with_rotations(path.build(), 0.001, Some(4));
 }
 
 #[test]
@@ -1034,7 +1034,7 @@ fn test_tesselator_simple_2() {
     path.line_to(vec2(0.0, 1.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, Some(10));
+    test_path_with_rotations(path.build(), 0.001, Some(10));
 }
 
 #[test]
@@ -1051,7 +1051,7 @@ fn test_tesselator_hole_1() {
     path.line_to(vec2(4.0, 2.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, Some(6));
+    test_path_with_rotations(path.build(), 0.001, Some(6));
 }
 
 #[test]
@@ -1071,7 +1071,7 @@ fn test_tesselator_degenerate_same_position() {
     path.line_to(vec2(0.0, 0.0));
     path.close();
 
-    test_path_with_rotations(path.finish(), 0.001, None);
+    test_path_with_rotations(path.build(), 0.001, None);
 }
 
 #[test]
@@ -1091,7 +1091,7 @@ fn test_tesselator_auto_intersection_type1() {
     path.line_to(vec2(2.0, 3.0));
     path.close();
 
-    let path = path.finish();
+    let path = path.build();
     test_path(path.as_slice(), Some(2));
 }
 
@@ -1112,7 +1112,7 @@ fn test_tesselator_auto_intersection_type2() {
     path.line_to(vec2(0.0, 2.0));
     path.close();
 
-    let path = path.finish();
+    let path = path.build();
     test_path(path.as_slice(), Some(2));
 }
 
@@ -1142,7 +1142,7 @@ fn test_tesselator_auto_intersection_multi() {
     path.line_to(vec2(10.0, 40.0));
     path.close();
 
-    let path = path.finish();
+    let path = path.build();
     test_path(path.as_slice(), Some(8));
 }
 
@@ -1153,5 +1153,5 @@ fn test_tesselator_rust_logo() {
 
     ::tesselation::rust_logo::build_logo_path(&mut path);
 
-    test_path_with_rotations(path.finish(), 0.011, None);
+    test_path_with_rotations(path.build(), 0.011, None);
 }

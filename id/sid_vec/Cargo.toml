@@ -1,15 +1,18 @@
 [package]
 
-name = "vodk_math"
-version = "0.0.3"
-description = "Yet another math vector and matrix library."
+name = "sid_vec"
+version = "0.1.0"
 license = "MIT/Apache-2.0"
+description = "Vector and slice indexed with strongly typed handles instead of usize."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/vodk.rs"
 include = [ "Cargo.toml", "src/*.rs" ]
 
-
 [lib]
 
-name = "vodk_math"
+name = "sid_vec"
 path = "src/lib.rs"
+
+[dependencies]
+
+sid = { version = "0.1.0", path = "../sid" }

@@ -2,12 +2,6 @@ use std::marker::PhantomData;
 use std::ops::Add;
 use std::hash::{ Hash, Hasher };
 
-mod id_vector;
-pub mod sparse_id_vector;
-pub mod id_list;
-
-pub use id_vector::{ IdSlice, MutIdSlice, IdVector };
-
 // --------------------------------------------------------------------------------------------- Id
 
 pub struct Id<T, H> {

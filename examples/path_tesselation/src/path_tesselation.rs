@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate glium;
 extern crate lyon;
-extern crate vodk_id;
+extern crate sid;
 extern crate vodk_math;
 
 use glium::Surface;
@@ -67,7 +67,7 @@ fn main() {
     builder.line_to(vec2(10.0, 60.0));
     builder.close();
 
-    let path = builder.finish();
+    let path = builder.build();
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 

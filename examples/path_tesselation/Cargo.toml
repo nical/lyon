@@ -7,15 +7,10 @@ authors = ["Nicolas Silva <nical.silva@gmail.com>"]
 name = "path_tesselation"
 path = "src/path_tesselation.rs"
 
-[dependencies.lyon]
-path = "../../lyon/"
-
-[dependencies.vodk_id]
-path = "../../id/"
-
-[dependencies.vodk_math]
-path = "../../math/"
-
 [dependencies]
+lyon = { path = "../../lyon/" }
+sid = { path = "../../id/sid" }
+vodk_math = { path = "../../math/" }
+
 glutin = "0.4.2"
 glium = "0.12.2"

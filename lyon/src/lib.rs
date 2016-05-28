@@ -1,7 +1,5 @@
-extern crate vodk_alloc;
-extern crate vodk_id;
+extern crate sid;
+extern crate sid_vec;
 extern crate vodk_math;
 
-//pub mod half_edge;
 pub mod tesselation;
-//pub mod extra;
