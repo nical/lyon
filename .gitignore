@@ -51,4 +51,4 @@
 .valgrindrc
 bin/
 *.lock
-
+**/target/
