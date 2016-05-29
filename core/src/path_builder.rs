@@ -57,6 +57,10 @@ pub trait SvgBuilder : PrimitiveBuilder {
     fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags);
 }
 
+pub trait PolygonBuilder {
+    fn polygon(&mut self, points: &[Vec2]) -> PathId;
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct ArcFlags {
     large_arc: bool,
@@ -203,7 +207,7 @@ pub struct PrimitiveImpl {
     building: bool,
 }
 
-impl<Builder: PrimitiveBuilder+CurveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
+impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Vec2) { self.builder.move_to(to); }
@@ -363,16 +367,10 @@ impl PrimitiveImpl {
     }
 }
 
-pub trait CurveBuilder {
-    fn push_vertex(&mut self, v: Vec2);
-}
-
-impl<Builder: CurveBuilder> CurveBuilder for FlattenedBuilder<Builder> {
-    fn push_vertex(&mut self, v: Vec2) { self.builder.push_vertex(v); }
-}
-
-impl CurveBuilder for PrimitiveImpl {
-    fn push_vertex(&mut self, v: Vec2) { self.push(v, PointType::Normal); }
+impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
+    fn polygon(&mut self, points: &[Vec2]) -> PathId {
+        unimplemented!(); // TODO
+    }
 }
 
 #[test]

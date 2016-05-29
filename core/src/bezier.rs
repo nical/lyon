@@ -1,4 +1,4 @@
-use path_builder::CurveBuilder;
+use path_builder::PrimitiveBuilder;
 
 use vodk_math::{ Vector2D, Unit, Untyped };
 
@@ -235,7 +235,7 @@ pub fn find_cubic_bezier_inflection_approximation_range<U: Unit>(
     *max = t + tf * (1.0 - t);
 }
 
-pub fn flatten_cubic_bezier<Builder: CurveBuilder>(
+pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
     bezier: CubicBezierSegment<Untyped>,
     tolerance: f32,
     path: &mut Builder
@@ -272,7 +272,7 @@ pub fn flatten_cubic_bezier<Builder: CurveBuilder>(
     // segments.
     if count == 1 && t1min <= 0.0 && t1max >= 1.0 {
         // The whole range can be approximated by a line segment.
-        path.push_vertex(bezier.to);
+        path.line_to(bezier.to);
         return;
     }
 
@@ -288,7 +288,7 @@ pub fn flatten_cubic_bezier<Builder: CurveBuilder>(
         // subsequently flatten up until the end or the next inflection point.
         split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
 
-        path.push_vertex(next_bezier.from);
+        path.line_to(next_bezier.from);
 
         if count == 1 || (count > 1 && t2min >= 1.0) {
             // No more inflection points to deal with, flatten the rest of the curve.
@@ -298,7 +298,7 @@ pub fn flatten_cubic_bezier<Builder: CurveBuilder>(
         // We've already concluded t2min <= t1max, so if this is true the
         // approximation range for the first inflection point runs past the
         // end of the curve, draw a line to the end and we're done.
-        path.push_vertex(bezier.to);
+        path.line_to(bezier.to);
         return;
     }
 
@@ -307,7 +307,7 @@ pub fn flatten_cubic_bezier<Builder: CurveBuilder>(
             // In this case the t2 approximation range starts inside the t1
             // approximation range.
             split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
-            path.push_vertex(next_bezier.from);
+            path.line_to(next_bezier.from);
         } else if t2min > 0.0 && t1max > 0.0 {
             split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
 
@@ -327,19 +327,19 @@ pub fn flatten_cubic_bezier<Builder: CurveBuilder>(
 
             // Draw a line to the start, this is the approximation between t2min and
             // t2max.
-            path.push_vertex(next_bezier.from);
+            path.line_to(next_bezier.from);
             flatten_cubic_bezier_segment(next_bezier, tolerance, path);
             return;
         } else {
             // Our approximation range extends beyond the end of the curve.
-            path.push_vertex(bezier.to);
+            path.line_to(bezier.to);
             return;
         }
     }
 }
 
 
-fn flatten_cubic_bezier_segment<Builder: CurveBuilder>(
+fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
     mut bezier: CubicBezierSegment<Untyped>,
     tolerance: f32,
     path: &mut Builder
@@ -377,8 +377,8 @@ fn flatten_cubic_bezier_segment<Builder: CurveBuilder>(
 
         bezier = bezier.split_in_place(t as f32);
 
-        path.push_vertex(bezier.from);
+        path.line_to(bezier.from);
     }
 
-    path.push_vertex(end);
+    path.line_to(end);
 }
