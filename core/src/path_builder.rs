@@ -7,18 +7,18 @@ use super::{
 
 use vodk_math::{ Vec2, vec2, Rect };
 
-// The API provided is intended to follow the svg path specification as much as
-// possible https://svgwg.org/specs/paths/
-
-
+/// Builder for paths that can contain lines, and quadratic/cubic bezier segments.
 pub type BezierPathBuilder = SvgPathBuilder<PrimitiveImpl>;
 
+/// Builder for flattened paths
 pub type FlattenedPathBuilder = SvgPathBuilder<FlattenedBuilder<PrimitiveImpl>>;
 
+/// FlattenedPathBuilder constructor.
 pub fn flattened_path_builder() -> FlattenedPathBuilder {
     SvgPathBuilder::from_builder(FlattenedBuilder::new(PrimitiveImpl::new(),0.05))
 }
 
+/// BezierPathBuilder constructor.
 pub fn bezier_path_builder() -> BezierPathBuilder {
     SvgPathBuilder::from_builder(PrimitiveImpl::new())
 }
@@ -39,7 +39,8 @@ pub trait PrimitiveBuilder {
     fn build(self) -> Self::PathType;
 }
 
-/// A path building interface that follows SVG's path specification
+/// A path building interface that tries to stay close to SVG's path specification.
+/// https://svgwg.org/specs/paths/
 pub trait SvgBuilder : PrimitiveBuilder {
     fn relative_move_to(&mut self, to: Vec2);
     fn relative_line_to(&mut self, to: Vec2);
@@ -67,7 +68,7 @@ pub struct ArcFlags {
     sweep: bool,
 }
 
-/// Implements the Svg building interface on top of the a basic builder.
+/// Implements the Svg building interface on top of the a primitive builder.
 pub struct SvgPathBuilder<Builder: PrimitiveBuilder> {
     builder: Builder,
     last_ctrl: Vec2,

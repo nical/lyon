@@ -19,7 +19,7 @@ pub enum PointType {
     Control,
 }
 
-// TODO: need a better representation for paths. It needs to:
+// TODO: Need a better representation for paths. It needs to:
 //  * be compact
 //  * allow quickly finding the previous and next command
 //  * be stored in a contiguous buffer

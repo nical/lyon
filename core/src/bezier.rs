@@ -105,6 +105,7 @@ impl<U: Unit> CubicBezierSegment<U> {
     }
 }
 
+// TODO: This is not very ergonomic.
 pub fn split_cubic_bezier<U: Unit>(
     bezier: &CubicBezierSegment<U>,
     t: f32,
@@ -135,7 +136,7 @@ pub fn split_cubic_bezier<U: Unit>(
 
 
 // Find the inflection points of a cubic bezier curve.
-pub fn find_cubic_bezier_inflection_points<U: Unit>(
+fn find_cubic_bezier_inflection_points<U: Unit>(
     bezier: &CubicBezierSegment<U>,
 ) -> (Option<f32>, Option<f32>) {
     // Find inflection points.
@@ -197,7 +198,7 @@ pub fn cubic_root(val: f32) -> f32 {
     return val.powf(1.0 / 3.0);
 }
 
-pub fn find_cubic_bezier_inflection_approximation_range<U: Unit>(
+fn find_cubic_bezier_inflection_approximation_range<U: Unit>(
     bezier_segment: &CubicBezierSegment<U>,
     t: f32, tolerance: f32,
     min: &mut f32, max: &mut f32
@@ -337,7 +338,6 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
         }
     }
 }
-
 
 fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
     mut bezier: CubicBezierSegment<Untyped>,
