@@ -19,6 +19,13 @@ pub enum PointType {
     Control,
 }
 
+// TODO: need a better representation for paths. It needs to:
+//  * be compact
+//  * allow quickly finding the previous and next command
+//  * be stored in a contiguous buffer
+//  * be extensible (add extra parameters to vertices)
+//  * not store pointers
+//  * be iterable but not necessarily random-accessible
 #[derive(Copy, Clone, Debug)]
 pub struct PointData {
     pub position: Vec2,

@@ -41,6 +41,7 @@ pub trait PrimitiveBuilder {
 
 /// A path building interface that follows SVG's path specification
 pub trait SvgBuilder : PrimitiveBuilder {
+    fn relative_move_to(&mut self, to: Vec2);
     fn relative_line_to(&mut self, to: Vec2);
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2);
@@ -52,6 +53,14 @@ pub trait SvgBuilder : PrimitiveBuilder {
     fn relative_horizontal_line_to(&mut self, dx: f32);
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
+    // TODO: Would it be better to use an api closer to cairo/skia for arcs?
+    fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ArcFlags {
+    large_arc: bool,
+    sweep: bool,
 }
 
 /// Implements the Svg building interface on top of the a basic builder.
@@ -110,6 +119,11 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
 }
 
 impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
+    fn relative_move_to(&mut self, to: Vec2) {
+        let offset = self.builder.current_position();
+        self.move_to(offset + to);
+    }
+
     fn relative_line_to(&mut self, to: Vec2) {
         let offset = self.builder.current_position();
         self.line_to(offset + to);
@@ -163,6 +177,11 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn relative_vertical_line_to(&mut self, dy: f32) {
         let p = self.builder.current_position();
         self.line_to(vec2(p.x, p.y + dy));
+    }
+
+    fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
+        // TODO: https://svgwg.org/specs/paths/#PathDataEllipticalArcCommands
+        unimplemented!();
     }
 }
 
