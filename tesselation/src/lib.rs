@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate sid;
 extern crate sid_vec;
 extern crate vodk_math;

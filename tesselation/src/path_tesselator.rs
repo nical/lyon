@@ -18,7 +18,7 @@ use vodk_math::{ vec2 };
 #[cfg(test)]
 use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 #[cfg(test)]
-use path_builder::PathBuilder;
+use path_builder::{ flattened_path_builder, PrimitiveBuilder };
 
 struct Event {
     pub current: Vertex,
@@ -941,8 +941,7 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 
 #[test]
 fn test_tesselator_simple_monotone() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(-1.0, 1.0));
     path.line_to(vec2(-3.0, 2.0));
@@ -957,8 +956,7 @@ fn test_tesselator_simple_monotone() {
 
 #[test]
 fn test_tesselator_simple_split() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 1.0));
     path.line_to(vec2(2.0, 3.0));
@@ -971,8 +969,7 @@ fn test_tesselator_simple_split() {
 
 #[test]
 fn test_tesselator_simple_merge_split() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 1.0));
     path.line_to(vec2(2.0, 0.0));
@@ -986,8 +983,7 @@ fn test_tesselator_simple_merge_split() {
 
 #[test]
 fn test_tesselator_simple_aligned() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1003,8 +999,7 @@ fn test_tesselator_simple_aligned() {
 
 #[test]
 fn test_tesselator_simple_1() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 1.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1018,8 +1013,7 @@ fn test_tesselator_simple_1() {
 
 #[test]
 fn test_tesselator_simple_2() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1039,8 +1033,7 @@ fn test_tesselator_simple_2() {
 
 #[test]
 fn test_tesselator_hole_1() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(-11.0, 5.0));
     path.line_to(vec2(0.0, -5.0));
     path.line_to(vec2(10.0, 5.0));
@@ -1061,8 +1054,7 @@ fn test_tesselator_degenerate_empty() {
 
 #[test]
 fn test_tesselator_degenerate_same_position() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(0.0, 0.0));
     path.line_to(vec2(0.0, 0.0));
@@ -1083,8 +1075,7 @@ fn test_tesselator_auto_intersection_type1() {
     //    / \
     //  o.___\
     //       'o
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 1.0));
     path.line_to(vec2(0.0, 2.0));
@@ -1104,8 +1095,7 @@ fn test_tesselator_auto_intersection_type2() {
     //  | / \ |
     //  o'   \|
     //        o
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 3.0));
     path.line_to(vec2(2.0, 1.0));
@@ -1128,8 +1118,7 @@ fn test_tesselator_auto_intersection_multi() {
     //  |_\___/_|
     //     \ /
     //      '
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
     path.move_to(vec2(20.0, 20.0));
     path.line_to(vec2(60.0, 20.0));
     path.line_to(vec2(60.0, 60.0));
@@ -1148,8 +1137,7 @@ fn test_tesselator_auto_intersection_multi() {
 
 #[test]
 fn test_tesselator_rust_logo() {
-    let mut path = PathBuilder::new();
-    path.set_flattening(true);
+    let mut path = flattened_path_builder();
 
     ::lyon_extra::rust_logo::build_logo_path(&mut path);
 

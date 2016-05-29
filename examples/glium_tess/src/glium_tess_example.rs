@@ -9,7 +9,7 @@ use glium::index::PrimitiveType;
 use glium::DisplayBuild;
 
 use lyon::extra::rust_logo::build_logo_path;
-use lyon::path_builder::{ PathBuilder };
+use lyon::path_builder::*;
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
 use lyon::tesselation::path_tesselator::{
@@ -55,8 +55,7 @@ implement_vertex!(BgVertex, a_position);
 
 fn main() {
 
-    let mut builder = PathBuilder::new();
-    builder.set_flattening(true);
+    let mut builder = flattened_path_builder();
 
     build_logo_path(&mut builder);
 

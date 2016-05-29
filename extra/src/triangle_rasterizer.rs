@@ -1,5 +1,8 @@
-use vodk_math::{ vec2, Vec2, Mat3 };
+use vodk_math::{ Vec2 };
 use image::MutableImageSlice;
+
+#[cfg(test)]
+use vodk_math::{ vec2 };
 
 /// A software triangle rasterizer intended for ref testing and to help debugging
 /// the output of the various tesselation routines.
@@ -74,6 +77,7 @@ impl VertexData for Vec2 {
 
 
 #[test]
+#[ignore]
 fn test_rasterizer_simple() {
     // This test rasterizes two triangles which should produce a square of origin
     // (10, 10) and size (80, 80).
