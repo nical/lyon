@@ -18,6 +18,10 @@ TODO:
 
 Rendering fonts is out of scope for now.
 
+## Status
+
+The tesselator can currently only operate on flattened paths. It is able to handle some complex cases including self intersecting paths, but there are still some bugs that need to be found and fixed. The API is not stable at all.
+
 ## License
 
 Licensed under either of
