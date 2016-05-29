@@ -1,5 +1,22 @@
-# lyon
+# Lyon
 2D graphics rendering experiments in rust.
+
+<img src="assets/screenshot.png" width=500 height=500 alt="Screenshot of the Rust logo (svg) tesselated">
+
+For now the goal is to provide efficient path tesselation tools to help with rendering vector graphics on the GPU.
+
+The project is split into small crates:
+* lyon: A meta-crate that imports the other crates.
+* lyon_core: Contains types common to most lyon crates.
+* lyon_tesselator: The tesselation routines (where most of the focus is for now).
+* lyon_extra: various optional utilities.
+
+TODO:
+* lyon_renderer: A scene-graph API to render complex 2d graphics.
+* lyon_glium: A glium backend for lyon_renderer.
+* other backends ?
+
+Rendering fonts is out of scope for now.
 
 ## License
 
