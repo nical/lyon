@@ -4,6 +4,7 @@ use std::mem::swap;
 
 use super::{ vertex_id, VertexId };
 use path::*;
+use path_builder::{ PrimitiveBuilder, };
 use vertex_builder::{ VertexBufferBuilder, Range, };
 use math_utils::{
     is_below, tangent,
@@ -18,7 +19,7 @@ use vodk_math::{ vec2 };
 #[cfg(test)]
 use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 #[cfg(test)]
-use path_builder::{ flattened_path_builder, PrimitiveBuilder };
+use path_builder::{ flattened_path_builder, };
 
 struct Event {
     pub current: Vertex,
@@ -30,6 +31,13 @@ pub struct Intersection {
     point: Vertex,
     a_down: Vertex,
     b_down: Vertex,
+}
+
+pub type TesselatorResult = Result<(), ()>;
+
+fn error<K>() -> Result<K, ()> {
+    //panic!();
+    return Err(());
 }
 
 #[derive(Copy, Clone)]
@@ -210,7 +218,9 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 
             print!("\n|  sl: ");
             for span in &self.sweep_line.spans {
-                print!("| {:?}   {:?} |  ", span.left.upper.id.vertex_id.handle, span.right.upper.id.vertex_id.handle,);
+                let ml = if span.left.merge { "*" } else { " " };
+                let mr = if span.left.merge { "*" } else { " " };
+                print!("| {:?}{}  {:?}{}|  ", span.left.upper.id.vertex_id.handle, ml, span.right.upper.id.vertex_id.handle, mr);
             }
             print!("\n|    : ");
             for span in &self.sweep_line.spans {
@@ -219,7 +229,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             println!("");
         }
 
-    pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) {
+    pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) -> TesselatorResult {
 
         for &e in sorted_events.events {
             let p = self.path.previous(e);
@@ -233,21 +243,29 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             while !self.intersections.is_empty() {
                 if is_below(evt.current.position, self.intersections[0].point.position) {
                     let inter = self.intersections.remove(0);
-                    self.on_intersection_event(&inter);
+                    //self.log_sl();
+                    try!{ self.on_intersection_event(&inter) };
                 } else {
                     break;
                 }
             }
 
-            self.on_event(&evt);
+            //self.log_sl();
+
+            try! { self.on_event(&evt) };
         }
+
+        return Ok(());
     }
 
-    fn on_event(&mut self, event: &Event) {
-        //println!("\n -- on event {:?}", event.current.id.vertex_id.handle);
+    fn on_event(&mut self, event: &Event) -> TesselatorResult {
+        //println!("\n -- on event {:?}   (next: {:?}  prev: {:?})", event.current.id.vertex_id.handle,event.next.id.vertex_id.handle, event.previous.id.vertex_id.handle);
 
         let below_prev = is_below(event.current.position, event.previous.position);
         let below_next = is_below(event.current.position, event.next.position);
+
+        //assert!(event.current.position != event.next.position);
+        //assert!(event.current.position != event.previous.position);
 
         if below_prev && below_next {
             return self.on_down_event(event.current);
@@ -265,30 +283,37 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         );
     }
 
-    fn find_span_and_side(&self, vertex: PathVertexId) -> (usize, Side) {
+    fn find_span_and_side(&self, vertex: PathVertexId) -> Result<(usize, Side), ()> {
         let mut span_index = 0;
         for span in &self.sweep_line.spans {
             if !span.left.merge && span.left.lower.id == vertex {
-                return (span_index, Side::Left);
+                return Ok((span_index, Side::Left));
             }
             if !span.right.merge && span.right.lower.id == vertex {
-                return (span_index, Side::Right);
+                return Ok((span_index, Side::Right));
             }
             span_index += 1;
         }
 
-        unreachable!();
+        println!(" -- error");
+        println!(" -- searching vertex {:?}", vertex);
+        self.log_sl();
+
+        return error();
     }
 
     // (edge below, span id, side)
-    fn on_regular_event(&mut self, current: Vertex, next: Vertex) {
+    fn on_regular_event(&mut self, current: Vertex, next: Vertex) -> TesselatorResult {
+        //println!(" -- regular evt  current:{:?} next:{:?}", current, next);
 
-        let (span_index, side) = self.find_span_and_side(current.id);
+        let (span_index, side) = try! { self.find_span_and_side(current.id) };
 
         match side {
             Side::Left => { self.on_left_event(span_index, current, next); }
             Side::Right => { self.on_right_event(span_index, current, next); }
         }
+
+        return Ok(())
     }
 
     fn on_left_event(&mut self, span_index: usize, current: Vertex, next: Vertex) {
@@ -308,7 +333,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     }
 
     fn on_left_event_no_intersection(&mut self, span_index: usize, current: Vertex, next: Vertex) {
-        //println!(" ++++++ Left event {}", current.id.vertex_id.handle);
+        //println!(" ++++++ Left event (no intersection) {}", current.id.vertex_id.handle);
 
         if self.sweep_line.spans[span_index].right.merge {
             //     \ /
@@ -365,7 +390,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         return (span_index, false);
     }
 
-    fn on_up_event(&mut self, event: &Event) {
+    fn on_up_event(&mut self, event: &Event) -> TesselatorResult {
         let (span_index, is_inside) = self.find_span_up(event.current);
 
         let mut l = SpanEdge {
@@ -390,7 +415,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         if is_inside {
             self.on_split_event(event, span_index, &l, &r)
         } else {
-            //println!(" ++++++ Start event {}", event.current.id.vertex_id.handle);
+            // /println!(" ++++++ Start event {} (span {})", event.current.id.vertex_id.handle, span_index);
             // Start event.
 
             let non_existant_index = self.sweep_line.spans.len();
@@ -398,10 +423,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             self.check_intersections(non_existant_index, Side::Right, r.upper, r.lower);
             self.sweep_line.spans.insert(span_index, Span::begin(l, r));
         }
+
+        return Ok(());
     }
 
     fn on_split_event(&mut self, event: &Event, span_index: usize, l: &SpanEdge, r: &SpanEdge) {
-        //println!(" ++++++ Split event {}", event.current.id.vertex_id.handle);
+        //println!(" ++++++ Split event {} (span {})", event.current.id.vertex_id.handle, span_index);
 
         // look whether the span shares a merge vertex with the previous one
         if self.sweep_line.spans[span_index].left.merge {
@@ -434,20 +461,28 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
     }
 
-    fn on_down_event(&mut self, vertex: Vertex) {
-        let (span_index, side) = self.find_span_and_side(vertex.id);
+    fn on_down_event(&mut self, vertex: Vertex) -> TesselatorResult {
+        let (span_index, side) = try!{ self.find_span_and_side(vertex.id) };
 
-        assert!(span_index < self.sweep_line.spans.len());
-
-        if side.is_left() {
-            self.on_end_event(vertex, span_index);
-        } else {
-            self.on_merge_event(vertex, span_index);
+        //assert!(span_index < self.sweep_line.spans.len());
+        if span_index >= self.sweep_line.spans.len() {
+            return error();
         }
+
+        let result = if side.is_left() {
+            self.on_end_event(vertex, span_index)
+        } else {
+            self.on_merge_event(vertex, span_index)
+        };
+
+        return result;
     }
 
-    fn on_end_event(&mut self, vertex: Vertex, span_index: usize) {
-        //println!(" ++++++ End event {}", vertex.id.vertex_id.handle);
+    fn on_end_event(&mut self, vertex: Vertex, span_index: usize) -> TesselatorResult {
+        //println!(" ++++++ End event {} (span {})", vertex.id.vertex_id.handle, span_index);
+        if span_index > self.sweep_line.spans.len() {
+            return error();
+        }
 
         if self.sweep_line.spans[span_index].right.merge {
             //   \ /
@@ -458,11 +493,16 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
 
         self.end_span(span_index, vertex);
+
+        return Ok(());
     }
 
-    fn on_merge_event(&mut self, vertex: Vertex, span_index: usize) {
-        //println!(" ++++++ Merge event {}", event.current.vertex_id.handle);
-        assert!(span_index < self.sweep_line.spans.len()-1);
+    fn on_merge_event(&mut self, vertex: Vertex, span_index: usize) -> TesselatorResult {
+        //println!(" ++++++ Merge event {} (span {})", vertex.id.vertex_id.handle, span_index);
+        //assert!(span_index < self.sweep_line.spans.len()-1);
+        if span_index >= self.sweep_line.spans.len()-1 {
+            return error();
+        }
 
         if self.sweep_line.spans[span_index].right.merge {
             //     / \ /
@@ -472,10 +512,15 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             self.end_span(span_index+1, vertex);
         }
 
-        debug_assert!(self.sweep_line.spans[span_index+1].left.lower.id == vertex.id);
+        //debug_assert!(self.sweep_line.spans[span_index+1].left.lower.id == vertex.id);
+        if self.sweep_line.spans[span_index+1].left.lower.id != vertex.id {
+            return error();
+        }
 
         self.sweep_line.spans[span_index].merge_vertex(vertex, Side::Right);
         self.sweep_line.spans[span_index+1].merge_vertex(vertex, Side::Left);
+
+        return Ok(());
     }
 
     fn insert_edge(&mut self,
@@ -528,8 +573,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 
                 //println!(" -- found an intersection at {:?}", intersection);
                 //println!("    | {:?}->{:?} x {:?}->{:?}",
-                //    edge.upper.position, edge.lower.position,
-                //    up.position, down.position,
+                //    edge.upper.position.tuple(), edge.lower.position.tuple(),
+                //    up.position.tuple(), down.position.tuple(),
+                //);
+                //println!("    | {:?}->{:?} x {:?}->{:?}",
+                //    edge.upper.id.vertex_id.handle, edge.lower.id.vertex_id.handle,
+                //    up.id.vertex_id.handle, down.id.vertex_id.handle,
                 //);
                 //println!("    | new vertex: {:?}", evt.point.id.vertex_id.handle);
 
@@ -569,7 +618,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         return ret;
     }
 
-    fn on_intersection_event(&mut self, intersection: &Intersection) {
+    fn on_intersection_event(&mut self, intersection: &Intersection) -> TesselatorResult {
 
         //println!("\n ------ Intersection evt {:?} {:?}", intersection.point.id, intersection.point.position);
 
@@ -590,13 +639,13 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 //println!(" -- L/R intersection");
                 self.on_right_event_no_intersection(idx, intersection.point, intersection.a_down);
                 self.on_left_event_no_intersection(idx+1, intersection.point, intersection.b_down);
-                return;
+                return Ok(());
             }
 
             if l == intersection.b_down.id {
                 //println!(" -- U/D intersection");
                 // up + down events
-                self.on_end_event(intersection.point, idx);
+                try! { self.on_end_event(intersection.point, idx) };
 
                 let l = SpanEdge {
                     upper: intersection.point,
@@ -610,14 +659,15 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 };
                 self.sweep_line.spans.insert(idx, Span::begin(l, r));
 
-                return;
+                return Ok(());
             }
         }
 
-        unreachable!();
+        return error();
     }
 
     fn end_span(&mut self, span_index: usize, vertex: Vertex) {
+        //println!("     end span {} (vertex: {})", span_index, vertex.id.vertex_id.handle);
         self.sweep_line.spans[span_index].end(vertex.position, vertex.id);
         self.sweep_line.spans[span_index].monotone_tesselator.flush(self.output);
         self.sweep_line.spans.remove(span_index);
@@ -700,6 +750,8 @@ impl MonotoneTesselator {
 
         self.stack.push(current);
         self.previous = current;
+
+        return;
     }
 
     pub fn end(&mut self, pos: Vec2, id: VertexId) {
@@ -789,8 +841,6 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
         println!("[tesselate_path_fill] Vertex anti-aliasing not implemented");
     }
 
-    println!("[tesselate_path_fill] path {:>?}", path.num_vertices());
-
     output.begin_geometry();
 
     for v in path.vertices().as_slice() {
@@ -799,9 +849,8 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 
     let events = EventVector::from_path(path);
     let mut tess = Tesselator::new(path, output);
-    tess.tesselate(events.as_slice());
 
-    return Ok(());
+    return tess.tesselate(events.as_slice());
 }
 
 pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
@@ -906,16 +955,32 @@ pub fn extrude_along_tangent(
 }
 
 #[cfg(test)]
-fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
+fn tesselate(path: PathSlice) -> Result<usize, ()> {
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
         let events = EventVector::from_path(path);
         let mut tess = Tesselator::new(path, &mut vertex_builder);
-        tess.tesselate(events.as_slice());
+        try!{ tess.tesselate(events.as_slice()) };
     }
-    if let Some(num_triangles) = expected_triangle_count {
-        assert_eq!(buffers.indices.len()/3, num_triangles);
+    return Ok(buffers.indices.len()/3);
+}
+
+#[cfg(test)]
+fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
+    {
+        let res = ::std::panic::catch_unwind(|| { tesselate(path) });
+
+        if let Ok(Ok(num_triangles)) = res {
+            if let Some(actual_triangles) = expected_triangle_count {
+                assert_eq!(actual_triangles, num_triangles);
+            }
+            return;
+        }
+        ::lyon_extra::debugging::find_reduced_test_case(path, &|path: Path|{
+            return tesselate(path.as_slice()).is_err();
+        });
+        panic!();
     }
 }
 
@@ -924,19 +989,23 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
     let mut angle = 0.0;
 
     while angle < PI * 2.0 {
-        let mut tranformed_path = path.clone();
-        let cos = angle.cos();
-        let sin = angle.sin();
-        for v in tranformed_path.mut_vertices() {
-            let (x, y) = (v.position.x, v.position.y);
-            v.position.x = x*cos + y*sin;
-            v.position.y = y*cos - x*sin;
-        }
         println!("\n\n ==================== angle = {}", angle);
-        test_path(tranformed_path.as_slice(), expected_triangle_count);
-
+        test_path_with_rotation(&path, angle, expected_triangle_count);
         angle += step;
     }
+}
+
+#[cfg(test)]
+fn test_path_with_rotation(path: &Path, angle: f32, expected_triangle_count: Option<usize>) {
+    let mut tranformed_path = path.clone();
+    let cos = angle.cos();
+    let sin = angle.sin();
+    for v in tranformed_path.mut_vertices() {
+        let (x, y) = (v.position.x, v.position.y);
+        v.position.x = x*cos + y*sin;
+        v.position.y = y*cos - x*sin;
+    }
+    test_path(tranformed_path.as_slice(), expected_triangle_count);
 }
 
 #[test]
@@ -1142,4 +1211,47 @@ fn test_tesselator_rust_logo() {
     ::lyon_extra::rust_logo::build_logo_path(&mut path);
 
     test_path_with_rotations(path.build(), 0.011, None);
+}
+
+#[test]
+#[ignore]
+fn test_tesselator_rust_logo_failing() {
+    let mut path = flattened_path_builder();
+
+    ::lyon_extra::rust_logo::build_logo_path(&mut path);
+
+    path.move_to(vec2(10.0, 30.0));
+    path.line_to(vec2(130.0, 30.0));
+    path.line_to(vec2(130.0, 60.0));
+    path.line_to(vec2(10.0, 60.0));
+    path.close();
+
+    let path = path.build();
+
+    test_path_with_rotation(&path, 1.1439997, None);
+}
+
+#[test]
+#[ignore]
+fn test_tesselator_rust_logo_failing_reduced() {
+    let mut builder = flattened_path_builder();
+
+    builder.move_to(vec2(68.072815, -12.68354));
+    builder.line_to(vec2(70.3177, -17.620079));
+    builder.line_to(vec2(92.56899, -7.501316));
+    builder.line_to(vec2(74.43127, -2.3427906));
+    builder.close();
+    builder.move_to(vec2(56.45978, -48.749058));
+    builder.line_to(vec2(55.50829, -49.330647));
+    builder.line_to(vec2(54.817123, -50.221615));
+    builder.close();
+    builder.move_to(vec2(31.448463, 3.3157415));
+    builder.line_to(vec2(81.12329, -105.91984));
+    builder.line_to(vec2(108.43219, -93.50113));
+    builder.line_to(vec2(58.75736, 15.734448));
+    builder.close();
+
+    let path = builder.build();
+
+    test_path_with_rotation(&path, 1.1439997, None);
 }
