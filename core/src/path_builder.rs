@@ -370,7 +370,11 @@ impl PrimitiveImpl {
 
 impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
     fn polygon(&mut self, points: &[Vec2]) -> PathId {
-        unimplemented!(); // TODO
+        self.move_to(points[0]);
+        for p in points.iter() {
+            self.line_to(vec2(p.x,p.y));
+        }
+        return self.close();
     }
 }
 
