@@ -1,5 +1,9 @@
 use path::*;
 use bezier::*;
+use std::f32::*;
+use vodk_math::{ Vector2D };
+use math_utils::*;
+
 use super::{
     vertex_id_range,
 //    crash,
@@ -55,7 +59,7 @@ pub trait SvgBuilder : PrimitiveBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+    fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
 }
 
 pub trait PolygonBuilder {
@@ -64,8 +68,8 @@ pub trait PolygonBuilder {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ArcFlags {
-    large_arc: bool,
-    sweep: bool,
+    pub large_arc: bool,
+    pub sweep: bool,
 }
 
 /// Implements the Svg building interface on top of the a primitive builder.
@@ -184,9 +188,88 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(vec2(p.x, p.y + dy));
     }
 
-    fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
-        // TODO: https://svgwg.org/specs/paths/#PathDataEllipticalArcCommands
-        unimplemented!();
+    fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags){
+
+        // If endPoint and starting point are identical, then there is not ellipse to be drawn
+        if (self.current_position().x == to.x)&&(self.current_position().y == to.y){
+            return;
+        }
+
+        // Use of positive values of radii
+        if radii.x == 0.0 && radii.y == 0.0 {
+            self.line_to(to) ;
+        }
+
+        let x_axis_rotation = x_rotation; //(x_rotation % 360.0).to_radians();
+        let scaled_radii : Vector2D<f32> = Vector2D::new(radii.x.abs(), radii.y.abs());
+
+        // Transformed Point
+        let transformed_point : Vector2D<f32> =  Vector2D::new(
+                x_axis_rotation.cos() * (self.current_position().x - to.x) / 2.0 +
+                x_axis_rotation.sin() * (self.current_position().y - to.y) / 2.0 ,
+                - x_axis_rotation.sin() * (self.current_position().x - to.x) / 2.0 +
+                x_axis_rotation.cos() * (self.current_position().y - to.y) / 2.0
+            );
+
+        // Transformed Center
+        let center_num = (scaled_radii.x.powi(2) * scaled_radii.y.powi(2)
+                        - scaled_radii.x.powi(2) * transformed_point.y.powi(2)
+                        - scaled_radii.y.powi(2) * transformed_point.x.powi(2)).sqrt();
+
+        let center_denom =
+                    (scaled_radii.x.powi(2) * transformed_point.y.powi(2)
+                    + scaled_radii.y.powi(2) * transformed_point.x.powi(2)).sqrt();
+
+        let mut center_coef = center_num / center_denom;
+        if flags.large_arc == flags.sweep {
+            center_coef = - center_coef;
+        }
+
+        let transformed_center : Vector2D<f32> = Vector2D::new(
+            center_coef*((scaled_radii.x*transformed_point.y)/scaled_radii.y),
+            center_coef*(-(scaled_radii.y*transformed_point.x)/scaled_radii.x)
+        );
+
+        // Center
+        let center : Vector2D<f32> = Vector2D::new(
+            (x_axis_rotation).cos()*transformed_center.x - (x_axis_rotation).sin()*transformed_center.y
+            + ((self.current_position().x + to.x) /2.0 ),
+            (x_axis_rotation).sin()*transformed_center.x + (x_axis_rotation).cos()*transformed_center.y
+            + ((self.current_position().y + to.y) /2.0 )
+        );
+
+        // Start and sweep angles
+        let start_vector : Vector2D<f32> = Vector2D::new(
+            (transformed_point.x - transformed_center.x) / scaled_radii.x,
+            (transformed_point.y - transformed_center.y) / scaled_radii.y,
+        );
+        let start_angle = angle_between(Vector2D::new(1.0, 0.0), start_vector);
+
+        let end_vector : Vector2D<f32> = Vector2D::new(
+            (-transformed_point.x - transformed_center.x) / scaled_radii.x,
+            (-transformed_point.x - transformed_center.y) / scaled_radii.y
+        );
+        let mut sweep_angle = angle_between(start_vector, end_vector);
+
+        if !flags.sweep && sweep_angle > 0.0 {
+            sweep_angle -= 2.0*consts::PI;
+        } else if flags.sweep && sweep_angle < 0.0 {
+            sweep_angle += 2.0*consts::PI;
+        }
+
+        sweep_angle %= 2.0*consts::PI;
+
+        let ctrl_point_1 : Vector2D<> = Vector2D::new(
+            self.current_position().x + (sweep_angle/2.0).tan()*(scaled_radii.x*start_angle.sin() - scaled_radii.y*start_angle.cos()),
+            self.current_position().y + (sweep_angle/2.0).tan()*(scaled_radii.x*start_angle.sin() - scaled_radii.y*start_angle.cos())
+        );
+
+        let ctrl_point_2 : Vector2D<> = Vector2D::new(
+            self.current_position().x + (sweep_angle/2.0).tan()*(scaled_radii.x*(start_angle+sweep_angle).sin() - scaled_radii.y*(start_angle+sweep_angle).cos()),
+            self.current_position().y + (sweep_angle/2.0).tan()*(scaled_radii.x*(start_angle+sweep_angle).sin() - scaled_radii.y*(start_angle+sweep_angle).cos())
+        );
+        println!("{:?}", ctrl_point_1);
+        self.relative_cubic_bezier_to( ctrl_point_1, ctrl_point_2, to);
     }
 }
 

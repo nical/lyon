@@ -8,6 +8,20 @@ pub fn is_below<U>(a: Vector2D<U>, b: Vector2D<U>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
+pub fn norme(v: Vector2D<f32>) -> f32 {
+    return (v.x.powi(2) + v.y.powi(2)).sqrt();
+}
+
+pub fn angle_between(start_vector : Vector2D<f32>, end_vector : Vector2D<f32>) -> f32 {
+    let result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
+                 (norme(start_vector) * norme(end_vector))) as f32;
+
+    if start_vector.x*end_vector.y - start_vector.y*end_vector.x < 0.0{
+        return - result;
+    }
+    return result;
+}
+
 pub fn tangent<U>(v: Vector2D<U>) -> Vector2D<U> {
     let l = v.length();
     return Vector2D::new(-v.y / l, v.x / l);
@@ -170,4 +184,3 @@ fn test_intersect_segment_horizontal() {
     assert_almost_eq(line_horizontal_intersection(vec2(0.0, 2.0), vec2(2.0, 0.0), 1.0), 1.0);
     assert_almost_eq(line_horizontal_intersection(vec2(0.0, 1.0), vec2(3.0, 0.0), 0.0), 3.0);
 }
-
