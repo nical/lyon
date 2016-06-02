@@ -346,6 +346,8 @@ impl PrimitiveImpl {
     }
 
     pub fn push(&mut self, point: Vec2, ptype: PointType) {
+        debug_assert!(!point.x.is_nan());
+        debug_assert!(!point.y.is_nan());
         if self.building && point == self.last_position {
             return;
         }
