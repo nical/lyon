@@ -12,6 +12,13 @@ The project is split into small crates:
 * lyon_extra: various optional utilities.
 
 TODO:
+* Currently the tesselator only understands flattened paths, add support for quadratic beziers to speed the algorithm up.
+* Adding support for curves would also let us optionally render them separately in a shader, rather than tesselating them.
+* Vertex anti-aliasing.
+* Proper implementation of strokes.
+* Missing svg features.
+
+Some other crates I would like to build on top of the tesselator:
 * lyon_renderer: A scene-graph API to render complex 2d graphics.
 * lyon_glium: A glium backend for lyon_renderer.
 * other backends ?
