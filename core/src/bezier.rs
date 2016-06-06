@@ -247,7 +247,7 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
     let t2 = if let Some(t) = t2 { t } else { -1.0 };
 
     // Check that at least one of the inflection points is inside [0..1]
-    if count == 0 || ((t1 < 0.0 || t1 > 1.0) && (count == 1 || (t2 < 0.0 || t2 > 1.0))) {
+    if count == 0 || ((t1 <= 0.0 || t1 >= 1.0) && (count == 1 || (t2 <= 0.0 || t2 >= 1.0))) {
         return flatten_cubic_bezier_segment(bezier, tolerance, path);
     }
 
@@ -294,6 +294,7 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
         if count == 1 || (count > 1 && t2min >= 1.0) {
             // No more inflection points to deal with, flatten the rest of the curve.
             flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+            return;
         }
     } else if count > 1 && t2min > 1.0 {
         // We've already concluded t2min <= t1max, so if this is true the
@@ -330,11 +331,9 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
             // t2max.
             path.line_to(next_bezier.from);
             flatten_cubic_bezier_segment(next_bezier, tolerance, path);
-            return;
         } else {
             // Our approximation range extends beyond the end of the curve.
             path.line_to(bezier.to);
-            return;
         }
     }
 }
@@ -344,7 +343,6 @@ fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
     tolerance: f32,
     path: &mut Builder
 ) {
-
     let end = bezier.to;
 
     // The algorithm implemented here is based on:
