@@ -316,8 +316,12 @@ impl PrimitiveImpl {
 
     pub fn end_sub_path(&mut self, mut closed: bool) -> PathId {
         self.building = false;
+        let vertices_len = self.vertices.len();
+        if vertices_len == 0 {
+            return path_id(self.path_info.len() as u16);
+        }
         let offset = self.offset as usize;
-        let last = self.vertices.len() - 1;
+        let last = vertices_len - 1;
         // If the first and last vertices are the same, remove the last vertex.
         let last = if last > 0 && self.vertices[last].position.fuzzy_eq(self.vertices[offset].position) {
             self.vertices.pop();
@@ -325,7 +329,11 @@ impl PrimitiveImpl {
             last - 1
         } else { last };
 
-        let vertex_count = last - offset + 1;
+        let vertex_count = last + 1 - offset;
+
+        if vertex_count == 0 {
+            return path_id(self.path_info.len() as u16);
+        }
 
         let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
         let aabb = Rect::new(
@@ -375,6 +383,33 @@ impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
         unimplemented!(); // TODO
     }
 }
+
+#[test]
+fn test_path_builder_empty_path() {
+    let _ = flattened_path_builder().build();
+}
+
+#[test]
+fn test_path_builder_empty_sub_path() {
+    let mut builder = flattened_path_builder();
+    builder.move_to(vec2(0.0, 0.0));
+    builder.move_to(vec2(1.0, 0.0));
+    builder.move_to(vec2(2.0, 0.0));
+    let _ = builder.build();
+}
+
+#[test]
+fn test_path_builder_close_empty() {
+    let mut builder = flattened_path_builder();
+    builder.end();
+    builder.close();
+    builder.end();
+    builder.end();
+    builder.close();
+    builder.close();
+    let _ = builder.build();
+}
+
 
 #[test]
 fn test_path_builder_simple() {
