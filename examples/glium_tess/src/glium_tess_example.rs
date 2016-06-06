@@ -59,13 +59,18 @@ fn main() {
 
     build_logo_path(&mut builder);
 
-    let flags =  ArcFlags {large_arc: false , sweep: false };
+    let mut flags =  ArcFlags {large_arc: false , sweep: false };
 
-    builder.move_to(vec2(200.0, 200.0));
-    builder.arc_to(vec2(200.0, 220.0), vec2(10.0, 5.0) , 0.0, flags );
+    //builder.move_to(vec2(130.0, 130.0));
+    //builder.arc_to(vec2(145.0, 170.0), vec2(10.0, 5.0) , 0.0, flags );
 
+    flags.large_arc = true;
+    flags.sweep = true;
+    builder.move_to(vec2(150.0, 150.0));
+    builder.arc_to(vec2(140.0, 160.0), vec2(20.0, 40.0) , 0.0, flags );
     //let points = vec![vec2(120.0, 120.0), vec2(120.0, 250.0), vec2(250.0, 250.0)];
     //builder.polygon(&points);
+
 
     builder.move_to(vec2(10.0, 30.0));
     builder.line_to(vec2(130.0, 30.0));

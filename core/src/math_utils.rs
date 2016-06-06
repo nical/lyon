@@ -8,15 +8,15 @@ pub fn is_below<U>(a: Vector2D<U>, b: Vector2D<U>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
-pub fn norme(v: Vector2D<f32>) -> f32 {
+pub fn norme<U>(v: Vector2D<U>) -> f32 {
     return (v.x.powi(2) + v.y.powi(2)).sqrt();
 }
 
-pub fn angle_between(start_vector : Vector2D<f32>, end_vector : Vector2D<f32>) -> f32 {
+pub fn angle_between<U>(start_vector : Vector2D<U>, end_vector : Vector2D<U>) -> f32 {
     let result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
-                 (norme(start_vector) * norme(end_vector))) as f32;
+                 (norme(start_vector) * norme(end_vector))).acos() ;
 
-    if start_vector.x*end_vector.y - start_vector.y*end_vector.x < 0.0{
+    if (start_vector.x*end_vector.y - start_vector.y*end_vector.x) < 0.0{
         return - result;
     }
     return result;
