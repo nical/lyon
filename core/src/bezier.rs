@@ -380,3 +380,21 @@ fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
 
     path.line_to(end);
 }
+
+#[test]
+fn test_cubic_inflection_extremity() {
+    use vodk_math::vec2;
+    use path_builder::flattened_path_builder;
+
+    // This curve has inflection points t1=-0.125 and t2=1.0 which used to fall
+    // between the branches of flatten_cubic_bezier and not produce any vertex
+    // because of t2 being exactly at the extremity of the curve.
+    let mut builder = flattened_path_builder();
+    builder.move_to(vec2(141.0, 135.0));
+    builder.cubic_bezier_to(vec2(141.0, 130.0), vec2(140.0, 130.0),vec2(131.0, 130.0));
+    builder.close();
+
+    let path = builder.build();
+    // check that
+    assert!(path.num_vertices() > 2);
+}
