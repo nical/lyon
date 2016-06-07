@@ -92,17 +92,17 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
     }
 
     fn line_to(&mut self, to: Vec2) {
-        self.last_ctrl = to;
+        self.last_ctrl = self.current_position;
         self.builder.line_to(to);
     }
 
     fn quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
-        self.last_ctrl = to;
+        self.last_ctrl = ctrl;
         self.builder.quadratic_bezier_to(ctrl, to);
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
-        self.last_ctrl = to;
+        self.last_ctrl = ctrl2;
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
