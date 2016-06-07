@@ -576,18 +576,20 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         span_index: usize, side: Side,
         up: Vertex, down: Vertex
     ) {
-        self.log_sl();
-        println!(" -- check for intersections in {} spans", self.sweep_line.spans.len());
+        if self.log {
+            self.log_sl();
+            println!(" -- check for intersections in {} spans", self.sweep_line.spans.len());
+        }
         for idx in 0..self.sweep_line.spans.len() {
-            println!(" test intersection along sl");
+            if self.log { println!(" test intersection along sl"); }
             if idx != span_index || side.is_right() {
                 let left = self.sweep_line.spans[idx].left.clone();
-                println!(" test intersection left");
+                if self.log { println!(" test intersection left"); }
                 self.test_intersection(&left, up, down);
             }
             if idx != span_index || side.is_left() {
                 let right = self.sweep_line.spans[idx].right.clone();
-                println!(" test intersection right");
+                if self.log { println!(" test intersection right"); }
                 self.test_intersection(&right, up, down);
             }
         }
@@ -600,10 +602,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         if !edge.merge
         && edge.lower.id != up.id
         && edge.lower.id != down.id {
-            println!("** [{:?}->{:?}] vs [{:?}->{:?}]",
-                edge.upper.position.tuple(), edge.lower.position.tuple(),
-                up.position.tuple(), down.position.tuple(),
-            );
+            if self.log {
+                println!("** [{:?}->{:?}] vs [{:?}->{:?}]",
+                    edge.upper.position.tuple(), edge.lower.position.tuple(),
+                    up.position.tuple(), down.position.tuple(),
+                );
+            }
             if let Some(intersection) = segment_intersection(
                 edge.upper.position, edge.lower.position,
                 up.position, down.position,
@@ -676,12 +680,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 let span = &self.sweep_line.spans[idx];
                 (span.left.lower.id, span.right.lower.id)
             };
-
-            //println!("      {}: searching SL for intersection span: {} {} inter: {} {}", idx,
-            //    l.unwrap().vertex_id.handle, r.unwrap().vertex_id.handle,
-            //    intersection.a_down.id.vertex_id.handle,
-            //    intersection.b_down.id.vertex_id.handle
-            //);
 
             if r == intersection.b_down.id {
                 // left + right events
@@ -1265,7 +1263,6 @@ fn test_tesselator_auto_intersection_multi() {
 }
 
 #[test]
-#[ignore]
 fn test_tesselator_rust_logo() {
     let mut path = flattened_path_builder();
 
@@ -1275,7 +1272,7 @@ fn test_tesselator_rust_logo() {
 }
 
 #[test]
-#[ignore]
+#[ignore] // TODO
 fn test_tesselator_rust_logo_failing() {
     let mut path = flattened_path_builder();
 
@@ -1315,6 +1312,7 @@ fn test_tesselator_split_with_intersections() {
 }
 
 #[test]
+#[ignore] // TODO
 fn test_tesselator_failing() {
     let mut builder = flattened_path_builder();
 
@@ -1334,6 +1332,64 @@ fn test_tesselator_failing() {
     builder.line_to(vec2(81.12329, -105.91984));
     builder.line_to(vec2(108.43219, -93.50113));
     builder.line_to(vec2(58.75736, 15.734448));
+    builder.close();
+
+    let path = builder.build();
+
+    tesselate(path.as_slice(), true);
+}
+
+#[test]
+fn test_colinear_1() {
+    let mut builder = flattened_path_builder();
+    builder.move_to(vec2(20.0, 150.0));
+    builder.line_to(vec2(80.0, 150.0));
+    builder.close();
+
+    let path = builder.build();
+
+    test_path_with_rotations(path, 0.01, None);
+}
+
+#[test]
+fn test_colinear_2() {
+    let mut builder = flattened_path_builder();
+    builder.move_to(vec2(20.0, 150.0));
+    builder.line_to(vec2(80.0, 150.0));
+    builder.line_to(vec2(20.0, 150.0));
+    builder.close();
+
+    let path = builder.build();
+
+    test_path_with_rotations(path, 0.01, None);
+}
+
+#[test]
+#[ignore] // TODO
+fn test_colinear_3() {
+    let mut builder = flattened_path_builder();
+    // The path goes through many points along a line.
+    builder.move_to(vec2(0.0, 1.0));
+    builder.line_to(vec2(0.0, 3.0));
+    builder.line_to(vec2(0.0, 5.0));
+    builder.line_to(vec2(0.0, 4.0));
+    builder.line_to(vec2(0.0, 2.0));
+    builder.close();
+
+    let path = builder.build();
+
+    tesselate(path.as_slice(), true);
+}
+
+#[test]
+#[ignore] // TODO
+fn test_colinear_4() {
+    // The path goes back and forth along a line.
+    let mut builder = flattened_path_builder();
+    builder.move_to(vec2(0.0, 2.0));
+    builder.line_to(vec2(0.0, 1.0));
+    builder.line_to(vec2(0.0, 3.0));
+    builder.line_to(vec2(0.0, 0.0));
     builder.close();
 
     let path = builder.build();
