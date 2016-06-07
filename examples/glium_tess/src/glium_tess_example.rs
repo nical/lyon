@@ -59,17 +59,38 @@ fn main() {
 
     build_logo_path(&mut builder);
 
-    let mut flags =  ArcFlags {large_arc: false , sweep: false };
+    let mut flags =  ArcFlags {large_arc: false , sweep: true  };
 
-    //builder.move_to(vec2(130.0, 130.0));
-    //builder.arc_to(vec2(145.0, 170.0), vec2(10.0, 5.0) , 0.0, flags );
+    builder.move_to(vec2(100.0, 100.0));
+    builder.arc_to(vec2(140.0, 120.0), vec2(40.0, 20.0) , 0.0, flags );
 
-    flags.large_arc = true;
+    //builder.move_to(vec2(141.0, 135.0));
+    //builder.cubic_bezier_to( vec2(141.0, 130.0), vec2(140.0, 130.0),vec2(131.0, 130.0));
+    //println!("I'm out ");
+
+    /*let mut flags =  ArcFlags {large_arc: true , sweep: true  };
+
+    builder.move_to(vec2(130.0, 130.0));
+    builder.arc_to(vec2(140.0, 135.0), vec2(10.0, 5.0) , 0.0, flags );*/
+
+    //let points = vec![vec2(130.0,130.0), vec2(140.0, 125.0), vec2(150.0, 130.0),vec2(140.0, 135.0)];
+    //builder.polygon(&points);
+
+
+    /*flags.large_arc = true;
     flags.sweep = true;
     builder.move_to(vec2(150.0, 150.0));
-    builder.arc_to(vec2(140.0, 160.0), vec2(20.0, 40.0) , 0.0, flags );
-    //let points = vec![vec2(120.0, 120.0), vec2(120.0, 250.0), vec2(250.0, 250.0)];
-    //builder.polygon(&points);
+    builder.arc_to(vec2(140.0, 160.0), vec2(20.0, 40.0) , 0.0, flags );*/
+
+    /*
+    let mut points = vec![vec2(140.0, 130.0), vec2(160.0, 130.0), vec2(160.0, 160.0)];
+    builder.polygon(&points);
+
+    points = vec![vec2(110.0, 110.0), vec2(90.0, 130.0), vec2(100.0, 150.0), vec2(120.0, 150.0), vec2(130.0, 130.0)];
+    builder.polygon(&points);
+    */
+
+
 
 
     builder.move_to(vec2(10.0, 30.0));

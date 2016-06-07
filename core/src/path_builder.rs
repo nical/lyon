@@ -188,6 +188,15 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(vec2(p.x, p.y + dy));
     }
 
+    // Draw an elliptical arc between two points with a sweep_angle <= Pi/2
+    fn elliptical_bezier_to(&mut self, to: Vec2, start_angle: f32, sweep_angle: f32, radii: Vec2, ellipse_center: Vec2, x_rotation_radian: f32) {
+
+
+
+
+        self.cubic_bezier_to(ctrl_point_1, ctrl_point_2, to);
+    }
+
     fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags){
 
         println!("HERE WE ARE {:?}, {:?} ", self.current_position(), to);
@@ -202,7 +211,11 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             self.line_to(to) ;
         }
 
-        let x_axis_rotation = (x_rotation % 360.0).to_radians();
+        let mut x_axis_rotation = (x_rotation % 360.0).to_radians();
+
+        if radii.x > radii.y {
+            x_axis_rotation = x_axis_rotation + consts::PI/2.0 ;
+        }
 
         // Transformed Point
         let transformed_point : Vec2 =  Vec2::new(
@@ -211,7 +224,8 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                 - x_axis_rotation.sin() * (self.current_position().x - to.x) / 2.0 +
                 x_axis_rotation.cos() * (self.current_position().y - to.y) / 2.0
             );
-            println!("transformed_point {:?} ", transformed_point);
+        println!("transformed_point {:?} ", transformed_point);
+
 
         // Scale up the ellipse
         let radii_to_scale = (transformed_point.x.powi(2)/radii.x.powi(2)
@@ -238,17 +252,20 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                     println!("center_denom {} ", center_denom);
 
         let mut center_coef = center_num / center_denom;
+
+
         if center_coef < 0.0 {
             center_coef = 0.0;
         }
 
         if flags.large_arc == flags.sweep {
-            println!("On passe ici");
             center_coef = - center_coef.sqrt();
+            println!("On passe ici {}", center_coef);
         } else {
-            println!("Ou par là");
             center_coef = center_coef.sqrt();
+            println!("On passe par là {}", center_coef);
         }
+
 
         let transformed_center : Vec2 = Vec2::new(
             center_coef*((scaled_radii.x*transformed_point.y)/scaled_radii.y),
@@ -263,6 +280,8 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             (x_axis_rotation).sin()*transformed_center.x + (x_axis_rotation).cos()*transformed_center.y
             + ((self.current_position().y + to.y) /2.0 )
         );
+
+        println!("Center {:?} ", center);
 
         // Start and sweep angles
         let start_vector : Vec2 = Vec2::new(
@@ -281,34 +300,66 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
 
         let end_angle = angle_between(Vector2D::new(1.0, 0.0), end_vector);
         let mut sweep_angle = end_angle - start_angle;// angle_between(start_vector, end_vector);
-        println!("sweep_angle {} ", sweep_angle);
+
+
+        println!("sweep_angle  {} ", sweep_angle);
 
         if !flags.sweep && sweep_angle > 0.0 {
-            sweep_angle -= 2.0*consts::PI;
+            sweep_angle =  sweep_angle  - 2.0*consts::PI;
+            println!("sweep_angle pos {} ", sweep_angle);
         } else if flags.sweep && sweep_angle < 0.0 {
-            sweep_angle += 2.0*consts::PI;
+            sweep_angle = sweep_angle + 2.0*consts::PI;
+            println!("sweep_angle neg {} ", sweep_angle);
         }
 
         sweep_angle %= 2.0*consts::PI;
+        println!("sweep_angle test après modulo {} ", sweep_angle);
 
+        /*
         let alpha = sweep_angle.sin()* ( ((4.0 + 3.0*(sweep_angle/2.0).tan().powi(2)).sqrt() - 1.0) /3.0);
-        println!("alpha {} ", alpha);
+        let alpha_1 = alpha;
+        let alpha_2 = alpha;
+
+        //let alpha_1 = sweep_angle.sin()* (1.0 + (sweep_angle/2.0).tan() * f32::sqrt(3.0) )/3.0;
+        //let alpha_2 = sweep_angle.sin()* (1.0 - (sweep_angle/2.0).tan() * f32::sqrt(3.0) )/3.0;
+        println!("alpha_1 {} / alpha_2 {}", alpha_1, alpha_2);
 
         let ctrl_point_1 : Vec2 = Vec2::new(
-            (self.current_position().x + alpha * (- scaled_radii.x *  x_axis_rotation.cos() * start_angle.cos() - scaled_radii.y * x_axis_rotation.sin() * start_angle.cos())).round(),
-            (self.current_position().y + alpha * (- scaled_radii.x *  x_axis_rotation.sin() * start_angle.sin() + scaled_radii.y * x_axis_rotation.cos() * start_angle.sin())).round()
+            (self.current_position().x + alpha_1 * (- scaled_radii.x *  x_axis_rotation.cos() * start_angle.cos() - scaled_radii.y * x_axis_rotation.sin() * start_angle.cos())).round(),
+            (self.current_position().y + alpha_1 * (- scaled_radii.x *  x_axis_rotation.sin() * start_angle.sin() + scaled_radii.y * x_axis_rotation.cos() * start_angle.sin())).round()
         );
 
         let ctrl_point_2 : Vec2 = Vec2::new(
-            (to.x - alpha * (- scaled_radii.x *  x_axis_rotation.cos() * (start_angle + sweep_angle).cos() - scaled_radii.y * x_axis_rotation.sin() * (start_angle + sweep_angle).cos())).round(),
-            (to.y - alpha * (- scaled_radii.x *  x_axis_rotation.sin() * (start_angle + sweep_angle).sin() + scaled_radii.y * x_axis_rotation.cos() * (start_angle + sweep_angle).sin())).round()
+            (to.x - alpha_2 * (- scaled_radii.x *  x_axis_rotation.cos() * end_angle.cos() - scaled_radii.y * x_axis_rotation.sin() * end_angle.cos())).round(),
+            (to.y - alpha_2 * (- scaled_radii.x *  x_axis_rotation.sin() * end_angle.sin() + scaled_radii.y * x_axis_rotation.cos() * end_angle.cos())).round()
         );
 
-        //let points = vec![vec2(center.x - scaled_radii.x, center.y), vec2(center.x , center.y - scaled_radii.y), vec2(center.x + scaled_radii.x, center.y), vec2(center.x , center.y + scaled_radii.y)];
-        //self.polygon(&points);
+        println!("HERE WE ARE {:?} ,{:?} ,{:?} \n\n", ctrl_point_1, ctrl_point_2, to);
 
-        println!("HERE WE ARE {:?} ,{:?} ,{:?} ", ctrl_point_1, ctrl_point_2, to);
+        println!("<html>");
+        println!("  <body>");
+        println!("      <h2>Le SVG</h2>");
+        println!("      <svg width=\"500\" height=\"500\">");
+        println!("          <ellipse cx=\"100\" cy=\"120\" rx=\"40\" ry=\"20\"");
+        println!("              style=\"fill:yellow;stroke:grey\"/>");
+        println!("          <ellipse cx=\"140\" cy=\"100\" rx=\"40\" ry=\"20\"");
+        println!("              style=\"fill:yellow;stroke:grey\"/>");
+        println!("          <path d=\"M{},{} C{},{} {},{} {},{}\"", self.current_position().x, self.current_position().y, ctrl_point_1.x, ctrl_point_1.y, ctrl_point_2.x, ctrl_point_2.y, to.x, to.y);
+        println!("              style=\"fill:none;stroke:red\"/>");
+        println!("      </svg>");
+        println!("  <body>");
+        println!("</html>");
+
         self.cubic_bezier_to( ctrl_point_1, ctrl_point_2, to);
+        */
+
+        let ctrl_point_1 : Vec2 = Vec2::new(
+            to.x - (sweep_angle / 2.0 ).tan() * (- scaled_radii.x * x_axis_rotation.cos() * end_angle.sin() - scaled_radii.y * x_axis_rotation.sin() * end_angle.cos()),
+            to.y - (sweep_angle / 2.0 ).tan() * (- scaled_radii.x * x_axis_rotation.sin() * end_angle.sin() + scaled_radii.y * x_axis_rotation.cos() * end_angle.cos())
+        );
+
+        self.quadratic_bezier_to( ctrl_point_1 , to);
+
     }
 }
 
