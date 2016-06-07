@@ -92,7 +92,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
     }
 
     fn line_to(&mut self, to: Vec2) {
-        self.last_ctrl = self.current_position;
+        self.last_ctrl = self.current_position();
         self.builder.line_to(to);
     }
 
