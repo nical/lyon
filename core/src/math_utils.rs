@@ -23,13 +23,9 @@ pub fn ellipse_point_from_angle<U>(center: Vector2D<U>, radii: Vector2D<U>, angl
     )
 }
 
-pub fn norme<U>(v: Vector2D<U>) -> f32 {
-    (v.x.powi(2) + v.y.powi(2)).sqrt()
-}
-
 pub fn angle_between<U>(start_vector : Vector2D<U>, end_vector : Vector2D<U>) -> f32 {
     let mut result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
-                 (norme(start_vector) * norme(end_vector))).acos() ;
+                 (start_vector.length() * end_vector.length())).acos() ;
 
     if (start_vector.x*end_vector.y - start_vector.y*end_vector.x) < 0.0{
         result = - result;

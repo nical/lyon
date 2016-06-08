@@ -227,8 +227,8 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                     + radii.y.powi(2) * point.x.powi(2);
 
         let mut center_coef = center_num / center_denom;
-        if center_coef < 0. {
-            center_coef = 0.;
+        if center_coef < 0.0 {
+            center_coef = 0.0;
         }
 
         if flags.large_arc == flags.sweep {
@@ -245,14 +245,15 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
 
     fn to_scale (&mut self, radii: Vec2, point: Vec2) -> Vec2{
         let mut radii_to_scale = point.x.powi(2)/radii.x.powi(2) + point.y.powi(2)/radii.y.powi(2);
-        if radii_to_scale > 1. {
+        if radii_to_scale > 1.0 {
             radii_to_scale = radii_to_scale.sqrt();
         } else {
-            radii_to_scale = 1.;
+            radii_to_scale = 1.0;
         }
         vec2(radii_to_scale*radii.x.abs(), radii_to_scale*radii.y.abs())
     }
 
+    // x_rotation in radian
     fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags){
 
         // If end and starting point are identical, then there is not ellipse to be drawn
@@ -260,16 +261,16 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             return;
         }
 
-        if radii.x == 0. && radii.y == 0. {
+        if radii.x == 0.0 && radii.y == 0.0 {
             self.line_to(to) ;
         }
 
-        let x_axis_rotation = (x_rotation % 360.).to_radians();
+        let x_axis_rotation = x_rotation % (2.0*consts::PI);
         let from : Vec2 = self.current_position();
 
         // Middle point between start and end point
-        let dx = (from.x - to.x) / 2.;
-        let dy = (from.y - to.y) / 2.;
+        let dx = (from.x - to.x) / 2.0;
+        let dy = (from.y - to.y) / 2.0;
         let transformed_point : Vec2 =  Vec2::new(
                 (x_axis_rotation.cos() *  dx + x_axis_rotation.sin() * dy ).round(),
                 (- x_axis_rotation.sin() * dx + x_axis_rotation.cos() * dy).round()
@@ -283,21 +284,21 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                                                           transformed_point,
                                                           scaled_radii
                                                           );
-        let mut start_angle = angle_between(Vector2D::new(1., 0.), start_vector);
+        let mut start_angle = angle_between(Vector2D::new(1.0, 0.0), start_vector);
 
         let end_vector : Vec2 = ellipse_center_to_point(transformed_center,
                                                         vec2(-transformed_point.x, -transformed_point.y),
                                                         scaled_radii
                                                         );
-        let mut end_angle = angle_between(Vector2D::new(1., 0.), end_vector);
+        let mut end_angle = angle_between(Vector2D::new(1.0, 0.0), end_vector);
 
         let mut sweep_angle = end_angle - start_angle;
 
         // Affect the flags value to get the right arc among the 4 possible
-        if !flags.sweep && sweep_angle > 0. {
-            sweep_angle =  sweep_angle  - 2.*consts::PI;
-        } else if flags.sweep && sweep_angle < 0. {
-            sweep_angle = sweep_angle + 2.*consts::PI;
+        if !flags.sweep && sweep_angle > 0.0 {
+            sweep_angle =  sweep_angle  - 2.0*consts::PI;
+        } else if flags.sweep && sweep_angle < 0.0 {
+            sweep_angle = sweep_angle + 2.0*consts::PI;
         }
         sweep_angle %= 2.0*consts::PI;
 
@@ -309,8 +310,8 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             let mut crossing_point = ellipse_point_from_angle(transformed_center, scaled_radii, end_angle);
 
             crossing_point = Vec2::new(
-                x_axis_rotation.cos()*crossing_point.x - x_axis_rotation.sin() * crossing_point.y + (from.x + to.x) /2.,
-                x_axis_rotation.sin()*crossing_point.x + x_axis_rotation.cos() * crossing_point.y + (from.y + to.y) /2.
+                x_axis_rotation.cos()*crossing_point.x - x_axis_rotation.sin() * crossing_point.y + (from.x + to.x) /2.0,
+                x_axis_rotation.sin()*crossing_point.x + x_axis_rotation.cos() * crossing_point.y + (from.y + to.y) /2.0
             );
 
             self.elliptical_bezier_to(
@@ -321,7 +322,7 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                 x_axis_rotation
             );
 
-             if sweep_angle > 0. {
+             if sweep_angle > 0.0 {
                  sweep_angle -= consts::FRAC_PI_2;
                  start_angle += consts::FRAC_PI_2;
              } else {
