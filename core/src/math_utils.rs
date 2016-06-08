@@ -8,18 +8,33 @@ pub fn is_below<U>(a: Vector2D<U>, b: Vector2D<U>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
+// Compute the vector from ce center of an ellipse on of its points
+pub fn ellipse_center_to_point<U>(center: Vector2D<U>, ellipse_point: Vector2D<U>, radii: Vector2D<U>) -> Vector2D<U>{
+    Vector2D::new(
+        (ellipse_point.x - center.x) / radii.x,
+        (ellipse_point.y - center.y) / radii.y,
+    )
+}
+
+pub fn ellipse_point_from_angle<U>(center: Vector2D<U>, radii: Vector2D<U>, angle: f32) -> Vector2D<U>{
+    Vector2D::new(
+        center.x + radii.x * angle.cos(),
+        center.y + radii.y * angle.sin()
+    )
+}
+
 pub fn norme<U>(v: Vector2D<U>) -> f32 {
-    return (v.x.powi(2) + v.y.powi(2)).sqrt();
+    (v.x.powi(2) + v.y.powi(2)).sqrt()
 }
 
 pub fn angle_between<U>(start_vector : Vector2D<U>, end_vector : Vector2D<U>) -> f32 {
-    let result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
+    let mut result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
                  (norme(start_vector) * norme(end_vector))).acos() ;
 
     if (start_vector.x*end_vector.y - start_vector.y*end_vector.x) < 0.0{
-        return - result;
+        result = - result;
     }
-    return result;
+    result
 }
 
 pub fn tangent<U>(v: Vector2D<U>) -> Vector2D<U> {
