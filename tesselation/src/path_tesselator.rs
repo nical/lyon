@@ -890,14 +890,35 @@ fn test_monotone_tess() {
     println!(" ------------ ");
 }
 
+/// Parameters for the tesselator.
 pub struct TesselatorOptions {
+    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
+    /// a gradient to smooth the edges.
+    ///
+    /// Not implemented yet!
     pub vertex_aa: bool,
+
+    /// If set to false, the tesselator will separate the quadratic bezier segments
+    /// from the rest of the shape so that their tesselation can be done separately,
+    /// for example in a fragment shader.
+    ///
+    /// Not implemented yet!
+    pub flatten_curves: bool,
 }
 
 impl TesselatorOptions {
     pub fn new() -> TesselatorOptions {
-        TesselatorOptions { vertex_aa: false, }
+        TesselatorOptions {
+            vertex_aa: false,
+            flatten_curves: true,
+        }
     }
+
+    pub fn with_vertex_aa(mut self) -> TesselatorOptions {
+        self.vertex_aa = true;
+        return self;
+    }
+
 }
 
 pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
@@ -924,8 +945,12 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     path: PathSlice,
     thickness: f32,
+    options: &TesselatorOptions,
     output: &mut Output
 ) -> (Range, Range) {
+    if options.vertex_aa {
+        println!("[tesselate_path_stroke] Vertex anti-aliasing not implemented");
+    }
     output.begin_geometry();
     for p in path.path_ids() {
         tesselate_sub_path_stroke(path.sub_path(p), thickness, output);
