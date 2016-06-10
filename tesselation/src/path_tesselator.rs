@@ -433,7 +433,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         );
 
         if angle < PI {
-            print!(" angle {} < PI, swap {} and {}", angle, l.lower.id.vertex_id.handle, r.lower.id.vertex_id.handle);
             swap(&mut l, &mut r);
         }
 
@@ -1028,7 +1027,7 @@ fn tesselate(path: PathSlice, log: bool) -> Result<usize, ()> {
 
 #[cfg(test)]
 fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
-    tesselate(path, true);
+    //tesselate(path, true);
 
     let res = ::std::panic::catch_unwind(|| { tesselate(path, false) });
 
