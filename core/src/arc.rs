@@ -14,7 +14,8 @@ pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
     builder: &mut Builder
 ) {
     if radii.x == 0.0 && radii.y == 0.0 {
-        builder.line_to(to) ;
+        builder.line_to(to);
+        return;
     }
 
     let x_axis_rotation = x_rotation % (2.0*consts::PI);
@@ -22,21 +23,21 @@ pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
     // Middle point between start and end point
     let dx = (from.x - to.x) / 2.0;
     let dy = (from.y - to.y) / 2.0;
-    let transformed_point : Vec2 =  Vec2::new(
-        (x_axis_rotation.cos() *  dx + x_axis_rotation.sin() * dy ).round(),
-        (- x_axis_rotation.sin() * dx + x_axis_rotation.cos() * dy).round()
+    let transformed_point : Vec2 = Vec2::new(
+        (x_axis_rotation.cos() * dx + x_axis_rotation.sin() * dy).round(),
+        (-x_axis_rotation.sin() * dx + x_axis_rotation.cos() * dy).round()
     );
 
     let scaled_radii = radii_to_scale(radii, transformed_point);
-    let transformed_center : Vec2 =  find_center(scaled_radii, transformed_point, flags);
+    let transformed_center : Vec2 = find_center(scaled_radii, transformed_point, flags);
 
     // Start, end and sweep angles
-    let start_vector : Vec2 = ellipse_center_to_point(
+    let start_vector: Vec2 = ellipse_center_to_point(
         transformed_center, transformed_point, scaled_radii
     );
     let mut start_angle = angle_between(Vector2D::new(1.0, 0.0), start_vector);
 
-    let end_vector : Vec2 = ellipse_center_to_point(
+    let end_vector: Vec2 = ellipse_center_to_point(
         transformed_center, vec2(-transformed_point.x, -transformed_point.y),
         scaled_radii
     );
@@ -82,6 +83,7 @@ pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
             start_angle -= consts::FRAC_PI_2;
         }
     }
+
     sub_arc_to_cubic_beziers(
         builder.current_position(),
         to,start_angle,
@@ -101,7 +103,6 @@ fn sub_arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
     sweep_angle: f32, radii: Vec2, x_rotation_radian: f32,
     builder: &mut Builder
 ) {
-
     let alpha = sweep_angle.sin() * (((4.0 + 3.0*(sweep_angle/2.0).tan().powi(2)).sqrt() - 1.0) / 3.0);
     let end_angle = start_angle + sweep_angle;
 
@@ -119,22 +120,24 @@ fn sub_arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
 }
 
 fn radii_to_scale(radii: Vec2, point: Vec2) -> Vec2 {
-    let mut radii_to_scale = point.x.powi(2)/radii.x.powi(2) + point.y.powi(2)/radii.y.powi(2);
+    let mut radii_to_scale = (point.x * point.x) / (radii.x * radii.x)
+                           + (point.y * point.y) / (radii.y * radii.y);
     if radii_to_scale > 1.0 {
         radii_to_scale = radii_to_scale.sqrt();
     } else {
         radii_to_scale = 1.0;
     }
-    vec2(radii_to_scale * radii.x.abs(), radii_to_scale * radii.y.abs())
+
+    return vec2(radii_to_scale * radii.x.abs(), radii_to_scale * radii.y.abs());
 }
 
 fn find_center(radii: Vec2, point: Vec2, flags: ArcFlags) -> Vec2 {
-    let center_num = radii.x.powi(2) * radii.y.powi(2)
-                   - radii.x.powi(2) * point.y.powi(2)
-                   - radii.y.powi(2) * point.x.powi(2);
+    let center_num = radii.x * radii.x * radii.y * radii.y
+                   - radii.x * radii.x * point.y * point.y
+                   - radii.y * radii.y * point.x * point.x;
 
-    let center_denom = radii.x.powi(2) * point.y.powi(2)
-                     + radii.y.powi(2) * point.x.powi(2);
+    let center_denom = radii.x * radii.x * point.y * point.y
+                     + radii.y * radii.y * point.x * point.x;
 
     let mut center_coef = center_num / center_denom;
     if center_coef < 0.0 {
