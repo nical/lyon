@@ -1352,7 +1352,7 @@ fn test_colinear_3() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true);
+    tesselate(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -1368,5 +1368,24 @@ fn test_colinear_4() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true);
+    tesselate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+#[ignore] // TODO
+fn test_intersection_coincident_failing() {
+    // A self-intersecting path with two points at the same position.
+    let mut builder = flattened_path_builder();
+
+    builder.move_to(vec2(0.0, 0.0));
+    builder.line_to(vec2(1.0, 1.0)); // <--
+    builder.line_to(vec2(2.0, 0.0));
+    builder.line_to(vec2(1.0, 0.0));
+    builder.line_to(vec2(1.0, 1.0)); // <--
+    builder.line_to(vec2(0.0, 2.0));
+    builder.close();
+
+    let path = builder.build();
+
+    test_path_with_rotations(path, 0.01, None);
 }
