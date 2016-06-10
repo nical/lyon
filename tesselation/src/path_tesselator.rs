@@ -36,7 +36,7 @@ pub type TesselatorResult = Result<(), ()>;
 
 fn error<K>() -> Result<K, ()> {
     panic!();
-    return Err(());
+    //return Err(());
 }
 
 #[derive(Copy, Clone)]
@@ -589,15 +589,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             println!(" -- check for intersections in {} spans", self.sweep_line.spans.len());
         }
         for idx in 0..self.sweep_line.spans.len() {
-            if self.log { println!(" test intersection along sl"); }
             if idx != span_index || side.is_right() {
                 let left = self.sweep_line.spans[idx].left.clone();
-                if self.log { println!(" test intersection left"); }
                 self.test_intersection(&left, up, down);
             }
             if idx != span_index || side.is_left() {
                 let right = self.sweep_line.spans[idx].right.clone();
-                if self.log { println!(" test intersection right"); }
                 self.test_intersection(&right, up, down);
             }
         }
@@ -610,12 +607,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         if !edge.merge
         && edge.lower.id != up.id
         && edge.lower.id != down.id {
-            if self.log {
-                println!("** [{:?}->{:?}] vs [{:?}->{:?}]",
-                    edge.upper.position.tuple(), edge.lower.position.tuple(),
-                    up.position.tuple(), down.position.tuple(),
-                );
-            }
             if let Some(intersection) = segment_intersection(
                 edge.upper.position, edge.lower.position,
                 up.position, down.position,
@@ -1450,5 +1441,27 @@ fn test_coincident_failing() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true);
+    tesselate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+#[ignore] // TODO
+fn test_identical_square_failing() {
+    // Two identiacal sub paths. It's a pretty much the worst type of input for
+    // the tesselator as far as I know.
+    let mut builder = flattened_path_builder();
+    builder.move_to(vec2(0.0, 0.0));
+    builder.line_to(vec2(1.0, 0.0));
+    builder.line_to(vec2(1.0, 1.0));
+    builder.line_to(vec2(0.0, 1.0));
+    builder.close();
+    builder.move_to(vec2(0.0, 0.0));
+    builder.line_to(vec2(1.0, 0.0));
+    builder.line_to(vec2(1.0, 1.0));
+    builder.line_to(vec2(0.0, 1.0));
+    builder.close();
+
+    let path = builder.build();
+
+    tesselate(path.as_slice(), true).unwrap();
 }
