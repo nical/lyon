@@ -6,6 +6,7 @@ pub mod path;
 pub mod path_builder;
 pub mod math_utils;
 pub mod bezier;
+pub mod arc;
 
 pub fn error<Err, S>(err: Err) -> Result<S, Err> { Err(err) }
 pub fn crash() -> ! { panic!() }
