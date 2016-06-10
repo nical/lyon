@@ -433,6 +433,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         );
 
         if angle < PI {
+            print!(" angle {} < PI, swap {} and {}", angle, l.lower.id.vertex_id.handle, r.lower.id.vertex_id.handle);
             swap(&mut l, &mut r);
         }
 
@@ -442,7 +443,8 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             // Start event.
             if self.log {
                 println!(" ++++++ Start event {} (span {})", event.current.id.vertex_id.handle, span_index);
-            }
+                println!("        will insert {:?} and {:?}", l.lower.id.vertex_id.handle, r.lower.id.vertex_id.handle);
+             }
 
             let non_existant_index = self.sweep_line.spans.len();
             self.check_intersections(non_existant_index, Side::Left, l.upper, l.lower);
@@ -467,8 +469,8 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             //  left_span  :  righ_span
             //             x   <-- current split vertex
             //           l/ \r
-            self.sweep_line.spans[left_span].vertex(event.current, l.lower, Side::Right);
-            self.sweep_line.spans[right_span].vertex(event.current, r.lower, Side::Left);
+            self.insert_edge(left_span, Side::Right, event.current, l.lower);
+            self.insert_edge(right_span, Side::Left, event.current, r.lower);
         } else {
             //      /
             //     x
@@ -1026,7 +1028,7 @@ fn tesselate(path: PathSlice, log: bool) -> Result<usize, ()> {
 
 #[cfg(test)]
 fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
-    //tesselate(path, true);
+    tesselate(path, true);
 
     let res = ::std::panic::catch_unwind(|| { tesselate(path, false) });
 
@@ -1263,6 +1265,7 @@ fn test_tesselator_auto_intersection_multi() {
 }
 
 #[test]
+//#[ignore]
 fn test_tesselator_rust_logo() {
     let mut path = flattened_path_builder();
 
@@ -1272,8 +1275,8 @@ fn test_tesselator_rust_logo() {
 }
 
 #[test]
-#[ignore] // TODO
-fn test_tesselator_rust_logo_failing() {
+//#[ignore]
+fn test_tesselator_rust_logo_with_intersection() {
     let mut path = flattened_path_builder();
 
     ::lyon_extra::rust_logo::build_logo_path(&mut path);
@@ -1309,34 +1312,6 @@ fn test_tesselator_split_with_intersections() {
     let path = builder.build();
 
     test_path(path.as_slice(), None);
-}
-
-#[test]
-#[ignore] // TODO
-fn test_tesselator_failing() {
-    let mut builder = flattened_path_builder();
-
-    // TODO: It looks like an intersection is missed leading to another intersection
-    // being applied incorrectly and a point being lost on the sweep line.
-
-    builder.move_to(vec2(68.072815, -12.68354));
-    builder.line_to(vec2(70.3177, -17.620079));
-    builder.line_to(vec2(92.56899, -7.501316));
-    builder.line_to(vec2(74.43127, -2.3427906));
-    builder.close();
-    builder.move_to(vec2(56.45978, -48.749058));
-    builder.line_to(vec2(55.50829, -49.330647));
-    builder.line_to(vec2(54.817123, -50.221615));
-    builder.close();
-    builder.move_to(vec2(31.448463, 3.3157415));
-    builder.line_to(vec2(81.12329, -105.91984));
-    builder.line_to(vec2(108.43219, -93.50113));
-    builder.line_to(vec2(58.75736, 15.734448));
-    builder.close();
-
-    let path = builder.build();
-
-    tesselate(path.as_slice(), true);
 }
 
 #[test]

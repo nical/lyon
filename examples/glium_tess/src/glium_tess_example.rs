@@ -192,19 +192,26 @@ fn main() {
         },
     ).unwrap();
 
+    let mut target_zoom = 1.0;
+    let mut zoom = 1.0;
+    let mut target_pos = vec2(0.0, 0.0);
+    let mut pos = vec2(0.0, 0.0);
     loop {
+        zoom += (target_zoom - zoom) / 3.0;
+        pos = pos + (target_pos - pos) / 3.0;
+
         let mut target = display.draw();
 
         let (w, h) = target.get_dimensions();
         let resolution = vec2(w as f32, h as f32);
 
         let mut model_mat: Matrix4x4<units::Local, units::World> = Matrix4x4::identity();
-        model_mat.scale_by(Vector3D::new(5.0, 5.0, 0.0));
 
         let mut view_mat: Matrix4x4<units::World, units::Screen> = Matrix4x4::identity();
+        view_mat.translate(Vector3D::new(pos.x, pos.y, 0.0));
+        view_mat.scale_by(Vector3D::new(5.0 * zoom, 5.0 * zoom, 0.0));
         view_mat.scale_by(Vector3D::new(2.0/resolution.x, -2.0/resolution.y, 1.0));
         view_mat.translate(Vector3D::new(-1.0, 1.0, 0.0));
-        //view_mat = view_mat * Matrix4x4::translation(Vector3D::new(-1.0, 1.0, 0.0));
 
         let uniforms = uniform! {
             u_resolution: resolution.array(),
@@ -229,8 +236,32 @@ fn main() {
             should_close |= match event {
                 glutin::Event::Closed => true,
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => true,
-                _ => {
-                    //println!("{:?}", evt);
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageDown)) => {
+                    target_zoom *= 0.8;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageUp)) => {
+                    target_zoom *= 1.25;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Left)) => {
+                    target_pos.x += 5.0 / target_zoom;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Right)) => {
+                    target_pos.x -= 5.0 / target_zoom;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Up)) => {
+                    target_pos.y += 5.0 / target_zoom;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Down)) => {
+                    target_pos.y -= 5.0 / target_zoom;
+                    false
+                }
+                _evt => {
+                    //println!("{:?}", _evt);
                     false
                 }
             };
