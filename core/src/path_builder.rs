@@ -60,6 +60,7 @@ pub trait SvgBuilder : PrimitiveBuilder {
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
     fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
 }
 
 pub trait PolygonBuilder {
@@ -273,16 +274,15 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         let transformed_center : Vec2 =  self.find_center(scaled_radii, transformed_point, flags);
 
         // Start, end and sweep angles
-        let start_vector : Vec2 = ellipse_center_to_point(transformed_center,
-                                                          transformed_point,
-                                                          scaled_radii
-                                                          );
+        let start_vector : Vec2 = ellipse_center_to_point(
+            transformed_center, transformed_point, scaled_radii
+        );
         let mut start_angle = angle_between(Vector2D::new(1.0, 0.0), start_vector);
 
-        let end_vector : Vec2 = ellipse_center_to_point(transformed_center,
-                                                        vec2(-transformed_point.x, -transformed_point.y),
-                                                        scaled_radii
-                                                        );
+        let end_vector : Vec2 = ellipse_center_to_point(
+            transformed_center, vec2(-transformed_point.x, -transformed_point.y),
+            scaled_radii
+        );
         let mut end_angle = angle_between(Vector2D::new(1.0, 0.0), end_vector);
 
         let mut sweep_angle = end_angle - start_angle;
@@ -324,6 +324,11 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             }
         }
         self.sub_arc(to,start_angle, sweep_angle, scaled_radii, x_axis_rotation);
+    }
+
+    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
+        let offset = self.builder.current_position();
+        self.arc_to(to + offset, radii, x_rotation, flags);
     }
 }
 
