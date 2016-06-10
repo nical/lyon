@@ -59,28 +59,6 @@ fn main() {
 
     build_logo_path(&mut builder);
 
-    // Two big elliptical arc
-    let mut flags =  ArcFlags {large_arc: true, sweep: false};
-    builder.move_to(vec2(180.0, 180.0));
-    builder.arc_to(vec2(160.0, 220.0), vec2(20.0, 40.0) , 0.0, flags );
-    flags = ArcFlags {large_arc: true, sweep: true};
-    builder.move_to(vec2(180.0, 180.0));
-    builder.arc_to(vec2(160.0, 220.0), vec2(20.0, 40.0) , 0.0, flags );
-
-    // two small elliptical arc
-    flags = ArcFlags {large_arc: false, sweep: true};
-    builder.move_to(vec2(260.0, 150.0));
-    builder.arc_to(vec2(240.0, 190.0), vec2(20.0, 40.0) , 0.0, flags );
-
-    // add this and it creates an error (unreachable code) !!
-/*
-    flags = ArcFlags {large_arc: false, sweep: false};
-    builder.move_to(vec2(260.0, 150.0));
-    builder.arc_to(vec2(240.0, 190.0), vec2(20.0, 40.0) , 0.0, flags );
-*/
-    let points = vec![vec2(10., 170.), vec2(50., 150.), vec2(90., 170.), vec2(50.0, 190.)];
-    builder.polygon(&points);
-
     builder.move_to(vec2(10.0, 30.0));
     builder.line_to(vec2(130.0, 30.0));
     builder.line_to(vec2(130.0, 60.0));
