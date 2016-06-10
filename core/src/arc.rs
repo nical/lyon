@@ -6,7 +6,7 @@ use vodk_math::{ Vec2, vec2, Vector2D };
 use path_builder::{ PrimitiveBuilder, ArcFlags };
 use math_utils::*;
 
-/// Build an svg arc by aprroximating it with cubic bezier curves.
+/// Build an svg arc by approximating it with cubic bezier curves.
 ///
 /// Angles are expressed in radians.
 pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
