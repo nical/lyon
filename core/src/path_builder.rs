@@ -1,5 +1,9 @@
 use path::*;
 use bezier::*;
+use std::f32::*;
+use vodk_math::{ Vector2D };
+use math_utils::*;
+
 use super::{
     vertex_id_range,
 //    crash,
@@ -55,7 +59,10 @@ pub trait SvgBuilder : PrimitiveBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+    fn elliptical_bezier_to(&mut self, to: Vec2, start_angle: f32, sweep_angle: f32, radii: Vec2, x_rotation_radian: f32);
+    fn find_center(&mut self, radii: Vec2, point: Vec2, flags: ArcFlags) -> Vec2;
+    fn to_scale (&mut self, radii: Vec2, point: Vec2) -> Vec2;
+    fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
 }
 
 pub trait PolygonBuilder {
@@ -64,8 +71,8 @@ pub trait PolygonBuilder {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ArcFlags {
-    large_arc: bool,
-    sweep: bool,
+    pub large_arc: bool,
+    pub sweep: bool,
 }
 
 /// Implements the Svg building interface on top of the a primitive builder.
@@ -184,9 +191,146 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(vec2(p.x, p.y + dy));
     }
 
-    fn arc(&mut self, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
-        // TODO: https://svgwg.org/specs/paths/#PathDataEllipticalArcCommands
-        unimplemented!();
+    /** Draw an elliptical arc between two points with a sweep_angle <= Pi/2
+      * current_position and to are points of the ellipse when aligned with the origin axis !!
+      * which means that they are the rotation of the original starting and ending point
+      * x_rotation_radian is in radian
+      *
+      * It calculates the two control points that will be used by cubic_bezier_to to draw the ellipse arc
+      */
+
+    fn elliptical_bezier_to(&mut self, to: Vec2, start_angle: f32, sweep_angle: f32, radii: Vec2, x_rotation_radian: f32) {
+
+        let alpha = sweep_angle.sin()* ( ((4.0 + 3.0*(sweep_angle/2.0).tan().powi(2)).sqrt() - 1.0) /3.0);
+        let end_angle = start_angle + sweep_angle;
+
+        let ctrl_point_1 : Vec2 = Vec2::new(
+            (self.current_position().x + alpha * (- radii.x *  x_rotation_radian.cos() * start_angle.sin() - radii.y * x_rotation_radian.sin() * start_angle.cos())).round(),
+            (self.current_position().y + alpha * (- radii.x *  x_rotation_radian.sin() * start_angle.sin() + radii.y * x_rotation_radian.cos() * start_angle.cos())).round()
+        );
+
+        let ctrl_point_2 : Vec2 = Vec2::new(
+            (to.x - alpha * (- radii.x *  x_rotation_radian.cos() * end_angle.sin() - radii.y * x_rotation_radian.sin() * end_angle.cos())).round(),
+            (to.y - alpha * (- radii.x *  x_rotation_radian.sin() * end_angle.sin() + radii.y * x_rotation_radian.cos() * end_angle.cos())).round()
+        );
+
+        self.cubic_bezier_to(ctrl_point_1, ctrl_point_2, to);
+    }
+
+    fn find_center(&mut self, radii: Vec2, point: Vec2, flags: ArcFlags) -> Vec2{
+        let center_num = radii.x.powi(2) * radii.y.powi(2)
+                        - radii.x.powi(2) * point.y.powi(2)
+                        - radii.y.powi(2) * point.x.powi(2);
+
+        let center_denom =
+                    radii.x.powi(2) * point.y.powi(2)
+                    + radii.y.powi(2) * point.x.powi(2);
+
+        let mut center_coef = center_num / center_denom;
+        if center_coef < 0.0 {
+            center_coef = 0.0;
+        }
+
+        if flags.large_arc == flags.sweep {
+            center_coef = - center_coef.sqrt();
+        } else {
+            center_coef = center_coef.sqrt();
+        }
+
+        return vec2(
+            center_coef*((radii.x*point.y)/radii.y),
+            center_coef*(-(radii.y*point.x)/radii.x)
+        )
+    }
+
+    fn to_scale (&mut self, radii: Vec2, point: Vec2) -> Vec2{
+        let mut radii_to_scale = point.x.powi(2)/radii.x.powi(2) + point.y.powi(2)/radii.y.powi(2);
+        if radii_to_scale > 1.0 {
+            radii_to_scale = radii_to_scale.sqrt();
+        } else {
+            radii_to_scale = 1.0;
+        }
+        vec2(radii_to_scale*radii.x.abs(), radii_to_scale*radii.y.abs())
+    }
+
+    // x_rotation in radian
+    fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags){
+
+        // If end and starting point are identical, then there is not ellipse to be drawn
+        if (self.current_position().x == to.x)&&(self.current_position().y == to.y){
+            return;
+        }
+
+        if radii.x == 0.0 && radii.y == 0.0 {
+            self.line_to(to) ;
+        }
+
+        let x_axis_rotation = x_rotation % (2.0*consts::PI);
+        let from : Vec2 = self.current_position();
+
+        // Middle point between start and end point
+        let dx = (from.x - to.x) / 2.0;
+        let dy = (from.y - to.y) / 2.0;
+        let transformed_point : Vec2 =  Vec2::new(
+                (x_axis_rotation.cos() *  dx + x_axis_rotation.sin() * dy ).round(),
+                (- x_axis_rotation.sin() * dx + x_axis_rotation.cos() * dy).round()
+        );
+
+        let scaled_radii = self.to_scale(radii, transformed_point);
+        let transformed_center : Vec2 =  self.find_center(scaled_radii, transformed_point, flags);
+
+        // Start, end and sweep angles
+        let start_vector : Vec2 = ellipse_center_to_point(transformed_center,
+                                                          transformed_point,
+                                                          scaled_radii
+                                                          );
+        let mut start_angle = angle_between(Vector2D::new(1.0, 0.0), start_vector);
+
+        let end_vector : Vec2 = ellipse_center_to_point(transformed_center,
+                                                        vec2(-transformed_point.x, -transformed_point.y),
+                                                        scaled_radii
+                                                        );
+        let mut end_angle = angle_between(Vector2D::new(1.0, 0.0), end_vector);
+
+        let mut sweep_angle = end_angle - start_angle;
+
+        // Affect the flags value to get the right arc among the 4 possible
+        if !flags.sweep && sweep_angle > 0.0 {
+            sweep_angle =  sweep_angle  - 2.0*consts::PI;
+        } else if flags.sweep && sweep_angle < 0.0 {
+            sweep_angle = sweep_angle + 2.0*consts::PI;
+        }
+        sweep_angle %= 2.0*consts::PI;
+
+        // Break down the arc into smaller ones of maximum PI/2 angle from point to point
+        while sweep_angle.abs() > consts::FRAC_PI_2 {
+            // compute crossing-points
+            end_angle = start_angle + sweep_angle.signum() * consts::FRAC_PI_2;
+
+            let mut crossing_point = ellipse_point_from_angle(transformed_center, scaled_radii, end_angle);
+
+            crossing_point = Vec2::new(
+                x_axis_rotation.cos()*crossing_point.x - x_axis_rotation.sin() * crossing_point.y + (from.x + to.x) /2.0,
+                x_axis_rotation.sin()*crossing_point.x + x_axis_rotation.cos() * crossing_point.y + (from.y + to.y) /2.0
+            );
+
+            self.elliptical_bezier_to(
+                crossing_point,
+                start_angle,
+                sweep_angle.signum() *  consts::FRAC_PI_2,
+                scaled_radii,
+                x_axis_rotation
+            );
+
+             if sweep_angle > 0.0 {
+                 sweep_angle -= consts::FRAC_PI_2;
+                 start_angle += consts::FRAC_PI_2;
+             } else {
+                 sweep_angle += consts::FRAC_PI_2;
+                 start_angle -= consts::FRAC_PI_2;
+             }
+        }
+        self.elliptical_bezier_to(to,start_angle, sweep_angle, scaled_radii, x_axis_rotation);
     }
 }
 
@@ -380,7 +524,11 @@ impl PrimitiveImpl {
 
 impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
     fn polygon(&mut self, points: &[Vec2]) -> PathId {
-        unimplemented!(); // TODO
+        self.move_to(points[0]);
+        for p in points.iter() {
+            self.line_to(vec2(p.x,p.y));
+        }
+        return self.close();
     }
 }
 

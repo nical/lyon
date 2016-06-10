@@ -8,6 +8,31 @@ pub fn is_below<U>(a: Vector2D<U>, b: Vector2D<U>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
+// Compute the vector from ce center of an ellipse on of its points
+pub fn ellipse_center_to_point<U>(center: Vector2D<U>, ellipse_point: Vector2D<U>, radii: Vector2D<U>) -> Vector2D<U>{
+    Vector2D::new(
+        (ellipse_point.x - center.x) / radii.x,
+        (ellipse_point.y - center.y) / radii.y,
+    )
+}
+
+pub fn ellipse_point_from_angle<U>(center: Vector2D<U>, radii: Vector2D<U>, angle: f32) -> Vector2D<U>{
+    Vector2D::new(
+        center.x + radii.x * angle.cos(),
+        center.y + radii.y * angle.sin()
+    )
+}
+
+pub fn angle_between<U>(start_vector : Vector2D<U>, end_vector : Vector2D<U>) -> f32 {
+    let mut result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
+                 (start_vector.length() * end_vector.length())).acos() ;
+
+    if (start_vector.x*end_vector.y - start_vector.y*end_vector.x) < 0.0{
+        result = - result;
+    }
+    result
+}
+
 pub fn tangent<U>(v: Vector2D<U>) -> Vector2D<U> {
     let l = v.length();
     return Vector2D::new(-v.y / l, v.x / l);
@@ -170,4 +195,3 @@ fn test_intersect_segment_horizontal() {
     assert_almost_eq(line_horizontal_intersection(vec2(0.0, 2.0), vec2(2.0, 0.0), 1.0), 1.0);
     assert_almost_eq(line_horizontal_intersection(vec2(0.0, 1.0), vec2(3.0, 0.0), 0.0), 3.0);
 }
-
