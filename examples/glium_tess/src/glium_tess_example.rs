@@ -78,6 +78,7 @@ fn main() {
     tesselate_path_stroke(
         path.as_slice(),
         1.0,
+        &TesselatorOptions::new(),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
     );
 
