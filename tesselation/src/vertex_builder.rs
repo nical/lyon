@@ -1,58 +1,8 @@
-//! A simple module that helps with populating vertex and index buffers
+//! Tools to help with populating vertex and index buffers
 
 use std::marker::PhantomData;
 
 pub type Index = u16;
-
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Range {
-    pub first: Index,
-    pub count: Index,
-}
-
-impl Range {
-    pub fn new(first: Index, count: Index) -> Range { Range { first: first, count: count } }
-
-    pub fn contains(&self, other: &Range) -> bool {
-        self.first <= other.first && self.first + self.count >= other.first + other.count
-    }
-    pub fn intersects(&self, other: &Range) -> bool {
-        self.first <= other.first + self.count && self.first + self.count >= other.first
-    }
-    pub fn shrink_left(&mut self, amount: Index) {
-        self.count -= amount;
-        self.first += amount;
-    }
-    pub fn shrink_right(&mut self, amount: Index) {
-        self.count -= amount;
-    }
-    pub fn expand_left(&mut self, amount: Index) {
-        self.count += amount;
-        self.first -= amount;
-    }
-    pub fn expand_right(&mut self, amount: Index) {
-        self.count += amount;
-    }
-    pub fn is_left_adjacent_to(&self, other: &Range) -> bool {
-        self.first + self.count == other.first
-    }
-    pub fn is_right_adjacent_to(&self, other: &Range) -> bool {
-        other.is_left_adjacent_to(self)
-    }
-    pub fn is_adjacent_to(&self, other: &Range) -> bool {
-        self.is_left_adjacent_to(other) || other.is_right_adjacent_to(other)
-    }
-
-    pub fn is_left_of(&self, other: &Range) -> bool {
-        self.first < other.first
-    }
-
-    pub fn right_most(&self) -> Index {
-        self.first + self.count
-    }
-}
-
 
 /// Structure that holds the vertex and index data.
 ///
@@ -226,6 +176,54 @@ pub fn simple_vertex_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<Ver
         index_offset: index_offset,
         vertex_constructor: Identity,
         _marker: PhantomData
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Range {
+    pub first: Index,
+    pub count: Index,
+}
+
+impl Range {
+    pub fn new(first: Index, count: Index) -> Range { Range { first: first, count: count } }
+
+    pub fn contains(&self, other: &Range) -> bool {
+        self.first <= other.first && self.first + self.count >= other.first + other.count
+    }
+    pub fn intersects(&self, other: &Range) -> bool {
+        self.first <= other.first + self.count && self.first + self.count >= other.first
+    }
+    pub fn shrink_left(&mut self, amount: Index) {
+        self.count -= amount;
+        self.first += amount;
+    }
+    pub fn shrink_right(&mut self, amount: Index) {
+        self.count -= amount;
+    }
+    pub fn expand_left(&mut self, amount: Index) {
+        self.count += amount;
+        self.first -= amount;
+    }
+    pub fn expand_right(&mut self, amount: Index) {
+        self.count += amount;
+    }
+    pub fn is_left_adjacent_to(&self, other: &Range) -> bool {
+        self.first + self.count == other.first
+    }
+    pub fn is_right_adjacent_to(&self, other: &Range) -> bool {
+        other.is_left_adjacent_to(self)
+    }
+    pub fn is_adjacent_to(&self, other: &Range) -> bool {
+        self.is_left_adjacent_to(other) || other.is_right_adjacent_to(other)
+    }
+
+    pub fn is_left_of(&self, other: &Range) -> bool {
+        self.first < other.first
+    }
+
+    pub fn right_most(&self) -> Index {
+        self.first + self.count
     }
 }
 

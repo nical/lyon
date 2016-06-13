@@ -1,3 +1,8 @@
+//! Data structures to represent complex paths.
+//!
+//! This whole module will change at some point in order to implement a more
+//! flexible and efficient Path data structure.
+
 use super::{
     vertex_id, VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
@@ -8,8 +13,11 @@ use vodk_math::{ Vec2, Rect, };
 use sid::{ Id, IdRange, ToIndex };
 
 #[derive(Debug)]
+/// Phatom type marker for PathId.
 pub struct Path_;
+/// An Id that represents a sub-path in a certain path object.
 pub type PathId = Id<Path_, u16>;
+/// A contiguous range of PathIds.
 pub type PathIdRange = IdRange<Path_, u16>;
 pub fn path_id(idx: u16) -> PathId { PathId::new(idx) }
 
@@ -32,6 +40,10 @@ pub struct PointData {
     pub point_type: PointType,
 }
 
+/// The data structure that represent a complex path.
+///
+/// This API is not stable yet. Both the data structure and the methods it exposes will
+/// change, hopefully soon.
 #[derive(Clone, Debug)]
 pub struct Path {
     vertices: Vec<PointData>,
@@ -197,6 +209,7 @@ impl<'l> SubPathSlice<'l> {
     pub fn num_vertices(&self) -> usize { self.vertices.len() }
 }
 
+/// Some metadata for sub paths
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct PathInfo {
     pub aabb: Rect,

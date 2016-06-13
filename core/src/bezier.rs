@@ -1,3 +1,5 @@
+//! Bezier curve related maths and tools.
+
 use path_builder::PrimitiveBuilder;
 
 use vodk_math::{ Vector2D, Unit, Untyped };

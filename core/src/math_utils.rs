@@ -1,3 +1,5 @@
+//! Various math tools that are usefull for several modules.
+
 use vodk_math::{ Vector2D };
 
 #[cfg(test)]

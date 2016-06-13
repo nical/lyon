@@ -1,3 +1,5 @@
+//! Tools to build path objects from a sequence of imperative commands.
+
 use path::*;
 use bezier::*;
 use arc::arc_to_cubic_beziers;
@@ -66,6 +68,7 @@ pub trait PolygonBuilder {
     fn polygon(&mut self, points: &[Vec2]) -> PathId;
 }
 
+/// Flag parameters for arcs as described by the SVG specification.
 #[derive(Copy, Clone, Debug)]
 pub struct ArcFlags {
     pub large_arc: bool,

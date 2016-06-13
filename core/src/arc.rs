@@ -1,3 +1,4 @@
+//! Elliptic arc related maths and tools.
 
 use std::f32::*;
 

@@ -1,3 +1,5 @@
+//! Tesselation routines for complex paths.
+
 use std::f32::consts::PI;
 use std::f32::NAN;
 use std::cmp::{ Ordering };
@@ -26,7 +28,7 @@ struct Event {
     pub previous: Vertex,
 }
 
-pub struct Intersection {
+struct Intersection {
     point: Vertex,
     a_down: Vertex,
     b_down: Vertex,
@@ -41,7 +43,7 @@ fn error<K>() -> Result<K, ()> {
 
 #[derive(Copy, Clone)]
 pub struct SortedEventSlice<'l> {
-    pub events: &'l[PathVertexId]
+    events: &'l[PathVertexId]
 }
 
 /// Contains the events of a path and provide access to them, sorted from top to bottom
@@ -189,6 +191,9 @@ struct SweepLine {
     spans: Vec<Span>
 }
 
+/// A Context object that can tesselate fill operations for complex paths.
+///
+/// The Tesselator API is not stable yet.
 pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
     path: PathSlice<'l>,
     sweep_line: SweepLine,
@@ -200,6 +205,7 @@ pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
 }
 
 impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
+    /// Constructor.
     pub fn new(path: PathSlice<'l>, output: &'l mut Output) -> Tesselator<'l, Output> {
         Tesselator {
             path: path,
@@ -217,20 +223,9 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
     }
 
-    pub fn log_sl(&self) {
-        print!("\n|  sl: ");
-        for span in &self.sweep_line.spans {
-            let ml = if span.left.merge { "*" } else { " " };
-            let mr = if span.left.merge { "*" } else { " " };
-            print!("| {:?}{}  {:?}{}|  ", span.left.upper.id.vertex_id.handle, ml, span.right.upper.id.vertex_id.handle, mr);
-        }
-        print!("\n|    : ");
-        for span in &self.sweep_line.spans {
-            print!("| {:?}   {:?} |  ", span.left.lower.id.vertex_id.handle, span.right.lower.id.vertex_id.handle,);
-        }
-        println!("");
-    }
-
+    /// Compute the tesselation (fill).
+    ///
+    /// This is where most of the interesting things happen.
     pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) -> TesselatorResult {
 
         for &e in sorted_events.events {
@@ -739,7 +734,23 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         self.previous_position = *pos;
     }
 
+    /// Enable some verbose logging during the tesselation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
+
+    /// Print the current state of the sweep line for debgging purposes.
+    pub fn log_sl(&self) {
+        print!("\n|  sl: ");
+        for span in &self.sweep_line.spans {
+            let ml = if span.left.merge { "*" } else { " " };
+            let mr = if span.left.merge { "*" } else { " " };
+            print!("| {:?}{}  {:?}{}|  ", span.left.upper.id.vertex_id.handle, ml, span.right.upper.id.vertex_id.handle, mr);
+        }
+        print!("\n|    : ");
+        for span in &self.sweep_line.spans {
+            print!("| {:?}   {:?} |  ", span.left.lower.id.vertex_id.handle, span.right.lower.id.vertex_id.handle,);
+        }
+        println!("");
+    }
 }
 
 /// helper class that generates a triangulation from a sequence of vertices describing a monotone
@@ -958,7 +969,7 @@ pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     return output.end_geometry();
 }
 
-pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
+fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     path: SubPathSlice,
     thickness: f32,
     output: &mut Output
@@ -1004,7 +1015,7 @@ pub fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     }
 }
 
-pub fn extrude_along_tangent(
+fn extrude_along_tangent(
     path: SubPathSlice,
     i: VertexId,
     amount: f32,

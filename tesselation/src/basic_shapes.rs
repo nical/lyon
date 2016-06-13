@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+//! Tesselation routines for simple shapes.
+
 use vertex_builder::VertexBufferBuilder;
 use super::{ Index };
 
@@ -58,10 +60,6 @@ pub fn tesselate_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     );
 }
 
-pub trait Vertex2dUv {
-    fn new(Vector2D) -> Self;
-}
-
 pub fn tesselate_rectangle_with_uv<A, Output: VertexBufferBuilder<(Vector2D<A>, Vector2D<Texels>)>>(
     rect: &Rectangle<A>,
     uv: &Rectangle<Texels>,
@@ -81,7 +79,7 @@ pub fn tesselate_rounded_rectangle<U, Output: VertexBufferBuilder<Vector2D<U>>>(
     output: &mut Output
 ) {
     output.begin_geometry();
-    panic!("TODO!");
+    unimplemented!()
 }
 
 pub fn tesselate_ellipsis<U, Output: VertexBufferBuilder<Vector2D<U>>>(
