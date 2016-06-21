@@ -23,12 +23,6 @@ use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
 #[cfg(test)]
 use path_builder::{ flattened_path_builder, };
 
-struct Event {
-    pub current: Vertex,
-    pub next: Vertex,
-    pub previous: Vertex,
-}
-
 struct Intersection {
     point: Vertex,
     a_down: Vertex,
@@ -40,61 +34,6 @@ pub type TesselatorResult = Result<(), ()>;
 fn error<K>() -> Result<K, ()> {
     panic!();
     //return Err(());
-}
-
-#[derive(Copy, Clone)]
-pub struct SortedEventSlice<'l> {
-    events: &'l[PathVertexId]
-}
-
-/// Contains the events of a path and provide access to them, sorted from top to bottom
-/// (assuming y points downwards).
-pub struct EventVector {
-    events: Vec<PathVertexId>
-}
-
-impl EventVector {
-    pub fn new() -> EventVector {
-        EventVector { events: Vec::new() }
-    }
-
-    pub fn from_path(
-        path: PathSlice,
-    ) -> EventVector {
-        let mut ev = EventVector {
-            events: Vec::with_capacity(path.vertices().len())
-        };
-        ev.set_path(path);
-        return ev;
-    }
-
-    pub fn set_path(&mut self,
-        path: PathSlice,
-    ) {
-        self.events.clear();
-        for sub_path in path.path_ids() {
-            self.events.extend(path.vertex_ids(sub_path));
-        }
-        debug_assert_eq!(self.events.len(), path.vertices().len());
-
-        self.events.sort_by(|a, b| {
-            let va = path.vertex(*a).position;
-            let vb = path.vertex(*b).position;
-            if va.y > vb.y { return Ordering::Greater; }
-            if va.y < vb.y { return Ordering::Less; }
-            if va.x > vb.x { return Ordering::Greater; }
-            if va.x < vb.x { return Ordering::Less; }
-            return Ordering::Equal;
-        });
-    }
-
-    pub fn as_slice(&self) -> SortedEventSlice {
-        SortedEventSlice { events: &self.events[..] }
-    }
-
-    pub fn clear(&mut self) {
-        self.events.clear();
-    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -115,8 +54,7 @@ impl Side {
 
 #[derive(Copy, Clone, Debug)]
 struct SpanEdge {
-    upper: Vertex,
-    lower: Vertex,
+    edge: Edge,
     merge: bool,
 }
 
@@ -128,8 +66,8 @@ struct Vertex {
 
 #[derive(Copy, Clone, Debug)]
 struct Edge {
-    upper: Vertex,
-    lower: Vertex,
+    upper: Vec2,
+    lower: Vec2,
 }
 
 struct Span {
@@ -201,7 +139,7 @@ struct SweepLine {
 }
 
 #[derive(Debug)]
-struct TmpVertex {
+struct EdgeBelow {
     vertex: Vertex,
     angle: f32,
 }
@@ -213,9 +151,9 @@ pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
     path: PathSlice<'l>,
     sweep_line: SweepLine,
     intersections: Vec<Intersection>,
-    above: Vec<TmpVertex>,
-    below: Vec<TmpVertex>,
-    next_new_vertex: PathVertexId,
+    edge_events: Vec<Edge>,
+    vertex_events: Vec<Edge>,
+    below: Vec<EdgeBelow>,
     previous_position: Vec2,
     log: bool,
     output: &'l mut Output,
@@ -223,19 +161,15 @@ pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
 
 impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     /// Constructor.
-    pub fn new(path: PathSlice<'l>, output: &'l mut Output) -> Tesselator<'l, Output> {
+    pub fn new(output: &'l mut Output) -> Tesselator<'l, Output> {
         Tesselator {
-            path: path,
             sweep_line: SweepLine {
                 spans: Vec::with_capacity(16),
             },
-            intersections: Vec::new(),
-            above: Vec::new(),
-            below: Vec::new(),
-            next_new_vertex: PathVertexId {
-                vertex_id: vertex_id(0),
-                path_id: path_id(path.num_sub_paths() as u16),
-            },
+            edge_events: Vec::with_capacity(512),
+            vertex_events: Vec::with_capacity(64),
+            below: Vec::with_capacity(8),
+            intersections: Vec::with_capacity(8),
             previous_position: vec2(NAN, NAN),
             log: false,
             output: output,
@@ -247,29 +181,18 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             return Ok(());
         }
 
-        println!(".");
-        println!(".");
+        println!("");
+        println!("");
 
         // Sanity check: all events always have an even number of edges sharing
         // the same vertex.
         debug_assert!((self.below.len()+self.above.len()) % 2 == 0);
 
-        let id = self.add_vertex(current_position);
+        let id = self.new_vertex(current_position);
         let current = Vertex { position: current_position, id: id };
 
-        self.above.sort_by(|a, b| {
-            a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
-            //let angle = -current_position.directed_angle2(a.position, b.position);
-            //return if angle > 0.0 { Ordering::Greater }
-            //       else if angle < 0.0 { Ordering::Less }
-            //       else { Ordering::Equal };
-        });
         self.below.sort_by(|a, b| {
             a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
-            //let angle = current_position.directed_angle2(a.position, b.position);
-            //return if angle > 0.0 { Ordering::Greater }
-            //       else if angle < 0.0 { Ordering::Less }
-            //       else { Ordering::Equal };
         });
 
         // Walk the sweep line to determine where we are with respect to the
@@ -436,85 +359,67 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         return Ok(());
     }
 
+    fn initialize_events(&mut self, path: PathSlice) {
+        for sub_path in path.path_ids() {
+            for vertex in path.sub_path(sub_path) {
+                let a = path.vertex(vertex);
+                let b = path.next_vertex(vertex);
+                //a == b {
+                //    continue;
+                //}
+                let prev = path.previous_vertex(vertex);
+                let a_below_b = is_below(a, b);
+                let a_below_prev = is_below(a, prev);
+                if a_below_b {
+                    swap(&mut a, &mut b);
+                }
+
+                if a_below_b && a_below_prev {
+                    // End or merge event don't necessarily have edges below but we need to
+                    // process them.
+                    self.vertex_events.push(a);
+                }
+
+                self.edge_events.push(Edge { upper: a, lower: b });
+            }
+        }
+
+        self.edge_events.sort_by(|a, b|{
+            if is_below(a, b) { return Ordering::Greater; }
+            if a == b { return Ordering::Equal; }
+            return Ordering::Less;
+        });
+    }
+
     /// Compute the tesselation (fill).
     ///
     /// This is where most of the interesting things happen.
-    pub fn tesselate(&mut self, sorted_events: SortedEventSlice<'l>) -> TesselatorResult {
+    pub fn tesselate(&mut self, path: PathSlice) -> TesselatorResult {
+        self.initialize_events(path);
 
         let mut last_pos = vec2(NAN, NAN);
-        for &e in sorted_events.events {
-            let p = self.path.previous(e);
-            let n = self.path.next(e);
+        for &edge in self.edge_events {
 
-            let current = Vertex { position: self.path.vertex(e).position, id: e.vertex_id };
-
-            if current.position != last_pos {
+            // TODO: fuzzy?
+            if edge.upper != last_pos {
                 try!{ self.process_vertex(last_pos) };
+                last_pos = edge.upper;
             }
 
+            //while !self.intersections.is_empty() {
+            //    if !is_below(self.intersections[0].point.position, current.position) {
+            //        let inter = self.intersections.remove(0);
+            //        try!{ self.on_intersection_event(&inter) };
+            //    } else {
+            //        break;
+            //    }
+            //}
 
-            while !self.intersections.is_empty() {
-                if !is_below(self.intersections[0].point.position, current.position) {
-                    let inter = self.intersections.remove(0);
-
-                    if self.log {
-                        self.log_sl();
-                    }
-                    try!{ self.on_intersection_event(&inter) };
-                } else {
-                    break;
-                }
-            }
-
-            println!("########## vertex id: {}", current.id.handle);
-
-            let next = Vertex { position: self.path.vertex(n).position, id: n.vertex_id };
-            let prev = Vertex { position: self.path.vertex(p).position, id: p.vertex_id };
-
-            let v_next = next.position - current.position;
-            let v_prev = prev.position - current.position;
-
-            if v_next.x.abs() + v_next.y.abs() > 0.0000001 {
-                let next_below = is_below(next.position, current.position);
-                let next = TmpVertex {
-                    angle: -vec2(1.0, 0.0).directed_angle(v_next),
-                    vertex: next,
-                };
-                if next_below { &mut self.below } else { &mut self.above }.push(next);
-            }
-
-            if v_prev.x.abs() + v_prev.y.abs() > 0.0000001 {
-                let prev_below = is_below(prev.position, current.position);
-                let prev = TmpVertex {
-                    angle: -vec2(1.0, 0.0).directed_angle(v_prev),
-                    vertex: prev,
-                };
-                if prev_below { &mut self.below } else { &mut self.above }.push(prev);
-            }
-
-/*
-            let evt = Event { current: current, previous: prev, next: next };
-
-            while !self.intersections.is_empty() {
-                if is_below(evt.current.position, self.intersections[0].point.position) {
-                    let inter = self.intersections.remove(0);
-
-                    if self.log {
-                        self.log_sl();
-                    }
-                    try!{ self.on_intersection_event(&inter) };
-                } else {
-                    break;
-                }
-            }
-
-            if self.log {
-                self.log_sl();
-            }
-
-            try! { self.on_event(&evt) };
-*/
-            last_pos = current.position;
+            let edge_vec = edge.lower - edge.upper;
+            self.below.push(EdgeBelow{
+                edge: edge,
+                angle: -vec2(1.0, 0.0).directed_angle(edge_vec),
+            });
         }
 
         try!{ self.process_vertex(last_pos) };
@@ -695,6 +600,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         &mut self, edge: &SpanEdge,
         up: Vertex, down: Vertex
     ) {
+/*
         if !edge.merge
         && edge.lower.id != up.id
         && edge.lower.id != down.id {
@@ -738,35 +644,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 });
             }
         }
+*/
     }
 
-    fn add_vertex(&mut self, pos: Vec2) -> VertexId {
-        let ret = self.next_new_vertex.vertex_id;
-
-        self.next_new_vertex = PathVertexId {
-            vertex_id: vertex_id(self.next_new_vertex.vertex_id.handle + 1),
-            path_id: self.next_new_vertex.path_id,
-        };
-
-        self.output.push_vertex(pos);
-
-        return ret;
-    }
-
-    fn new_vertex(&mut self, pos: Vec2) -> Vertex {
-        let ret = Vertex {
-            id: self.next_new_vertex.vertex_id,
-            position: pos,
-        };
-
-        self.next_new_vertex = PathVertexId {
-            vertex_id: vertex_id(self.next_new_vertex.vertex_id.handle + 1),
-            path_id: self.next_new_vertex.path_id,
-        };
-
-        self.output.push_vertex(pos);
-
-        return ret;
+    fn new_vertex(&mut self, pos: Vec2) -> VertexId {
+        let id = self.output.push_vertex(pos);
+        return id;
     }
 
     fn on_intersection_event(&mut self, intersection: &Intersection) -> TesselatorResult {
@@ -1053,9 +936,8 @@ pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
 
     output.begin_geometry();
     let result = {
-        let events = EventVector::from_path(path);
-        let mut tess = Tesselator::new(path, output);
-        tess.tesselate(events.as_slice())
+        let mut tess = Tesselator::new(output);
+        tess.tesselate(path)
     };
     output.end_geometry();
     return result;
@@ -1171,12 +1053,11 @@ fn tesselate(path: PathSlice, log: bool) -> Result<usize, ()> {
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
-        let events = EventVector::from_path(path);
-        let mut tess = Tesselator::new(path, &mut vertex_builder);
+        let mut tess = Tesselator::new(&mut vertex_builder);
         if log {
             tess.enable_logging();
         }
-        try!{ tess.tesselate(events.as_slice()) };
+        try!{ tess.tesselate(path) };
     }
     return Ok(buffers.indices.len()/3);
 }
