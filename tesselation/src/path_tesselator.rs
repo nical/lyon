@@ -197,7 +197,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         //    return Ok(());
         //}
 
-        println!("");
+        println!("_______________");
         println!("");
 
         // Sanity check: all events always have an even number of edges sharing
@@ -213,19 +213,58 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 
         // Walk the sweep line to determine where we are with respect to the
         // existing spans.
-        let mut inout = Out;
         let mut start_span = 0;
+
+        #[derive(Copy, Clone, Debug, PartialEq)]
+        enum E { In, Out, LeftEdge, RightEdge };
+
+        let mut status = E::Out;
+
+        //self.print_sl();
+        //self.print_sl_at(current_position.x);
+
+        /*
+        for i in 0..self.sweep_line.spans.len() {
+            let span = &self.sweep_line.spans[i];
+            println!("$ span {}:", i);
+            if test_span_touches(&span.left, current_position) {
+                println!("   left touches");
+            }
+
+            if test_span_side(&span.left, current_position) {
+                println!("   left >");
+            }
+
+            if test_span_touches(&span.right, current_position) {
+                println!("   right touches");
+            }
+
+            if test_span_side(&span.right, current_position) {
+                println!("   right >");
+            }
+        }*/
+
         for span in &self.sweep_line.spans {
 
             fn almos_eq(a: f32, b: f32) -> bool { (a - b).abs() < 0.00001 }
 
+            if test_span_touches(&span.left, current_position) {
+                status = E::LeftEdge;
+                break;
+            }
+
             if test_span_side(&span.left, current_position) {
-                inout = Out;
+                status = E::Out;
+                break;
+            }
+
+            if test_span_touches(&span.right, current_position) {
+                status = E::RightEdge;
                 break;
             }
 
             if test_span_side(&span.right, current_position) {
-                inout = In;
+                status = E::In;
                 break;
             }
 
@@ -234,11 +273,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 
         self.log_sl();
 
-        println!("\n ----- current: {:?} ------ {:?} {:?}", current_position, start_span, inout);
-
-        //for a in &self.above {
-        //    println!("   -- ^ above: {:?}", a);
-        //}
+        println!("\n ----- current: {:?} ------ {:?} {:?}", current_position, start_span, status);
 
         for b in &self.below {
             println!("   -- below: {:?}", b);
@@ -249,13 +284,13 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
 
         let mut span_idx = start_span;
         let mut pending_merge = false;
-        let mut above_count = 0; //self.above.len(); TODO
+        let mut above_count = 0;
         let mut below_count = self.below.len();
 
         // Step 1, wal the sweep line, handle left/right events, handle the spans that end
         // at this vertex, as well as merge events.
         if start_span < self.sweep_line.spans.len() {
-            if inout == In {
+            if status == E::RightEdge {
                 if below_count == 0 {
                     // we'll merge with the right most edge, there may be end events
                     // in the middle so we handle the merge event later. Since end
@@ -274,98 +309,50 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     start_span += 1;
                     below_idx += 1;
                     below_count -= 1;
+                    status = E::LeftEdge;
                 }
-                span_idx += 1;
-                inout = Out;
-            }
-
-            while span_idx < self.sweep_line.spans.len() {
-                let (left_test, right_test) = {
-                    let span = &self.sweep_line.spans[span_idx];
-                    (
-                        test_span_side(&span.left, current_position),
-                        test_span_side(&span.right, current_position),
-                    )
-                };
-
-                if left_test && right_test {
-                    try!{ self.on_end_event(current, span_idx) };
-                } else if pending_merge {
-                    debug_assert!(left_test);
-                    println!("(merge event)");
-                    try!{ self.on_merge_event(current, start_span) };
-                } else if left_test {
-                    assert!(below_count > 0);
-                    println!("(left event) {}", span_idx);
-                    let down = self.below[self.below.len()-1].lower;
-                    self.on_left_event(span_idx, current_position, id, down);
-                    below_count -= 1;
-                }
-
-                if !right_test {
-                    break;
-                }
-
                 span_idx += 1;
             }
         }
-/*
-        // Step 1, handle edges above the current vertex.
-        if above_count > 0 {
-            if inout == In {
-                if below_count == 0 {
-                    // we'll merge with the right most edge, there may be end events
-                    // in the middle so we handle the merge event later. Since end
-                    // events remove thier spans, we don't need to remember the current
-                    // span index
-                    pending_merge = true;
-                    above_count -= 2;
-                } else {
-                    println!("(right event) {}", span_idx);
-                    let edge = Edge {
-                        upper: current_position,
-                        lower: self.below[0].lower,
-                    };
-                    self.insert_edge(span_idx, Side::Right, edge, id);
-                    above_count -= 1;
-                    // update the initial state for the pass that will handle
-                    // the edges below the current vertex.
-                    start_span += 1;
-                    below_idx += 1;
-                    below_count -= 1;
-                }
-                span_idx += 1;
 
-                inout = Out;
-            }
-
-            while above_count >= 2 {
-                println!("(end event)");
-                try!{ self.on_end_event(current, span_idx) };
-                above_count -= 2;
-            }
-
-            if pending_merge {
-                println!("(merge event)");
-                try!{ self.on_merge_event(current, start_span) };
-            } else if above_count == 1 {
-                assert!(below_count > 0);
-                println!("(left event) {}", span_idx);
-                let down = self.below[self.below.len()-1].lower;
-                self.on_left_event(span_idx, current_position, id, down);
-                below_count -= 1;
+        for span in &self.sweep_line.spans[span_idx..] {
+            let l = test_span_touches(&span.left, current_position);
+            let r = test_span_touches(&span.right, current_position);
+            if l { above_count += 1; }
+            if r { above_count += 1; }
+            if !l && !r {
+                break;
             }
         }
-*/
+
+        while above_count >= 2 {
+            println!("(end event)");
+            try!{ self.on_end_event(current, span_idx) };
+            above_count -= 2;
+        }
+
+        if pending_merge {
+            debug_assert!(above_count == 1);
+            println!("(merge event)");
+            try!{ self.on_merge_event(current, start_span) };
+        } else if above_count == 1 {
+            assert!(below_count > 0);
+            println!("(left event) {}", span_idx);
+            let down = self.below[self.below.len()-1].lower;
+            self.on_left_event(span_idx, current_position, id, down);
+            below_count -= 1;
+        }
+
         // Since we took care of left and right event already we should not have
         // an odd number of edges to work with below the current vertex by now.
         assert!(below_count % 2 == 0);
 
-        span_idx = start_span;
+        // reset span_idx for the next pass.
+        let mut span_idx = start_span;
 
         // Step 2, handle edges below the current vertex.
         if below_count > 0 {
-            if inout == In {
+            if status == E::In {
                 println!("(split event)");
                 let left = self.below[0].lower;
                 let right = self.below[below_count-1].lower;
@@ -375,7 +362,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             }
 
             while below_count >= 2 {
-                println!("(start event)");
+                println!("(start event) {}", span_idx);
 
                 let non_existant_index = self.sweep_line.spans.len();
                 let l = self.below[below_idx].lower;
@@ -390,6 +377,8 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             }
         }
 
+        //self.check_sl(current_position);
+
         self.below.clear();
 
         return Ok(());
@@ -403,24 +392,29 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         for sub_path in path.path_ids() {
             for vertex in path.vertex_ids(sub_path) {
                 let mut a = path.vertex(vertex).position;
-                let mut b = path.vertex(path.next(vertex)).position;
+                let mut next = path.vertex(path.next(vertex)).position;
                 //a == b {
                 //    continue;
                 //}
                 let prev = path.vertex(path.previous(vertex)).position;
-                let a_below_b = is_below(a, b);
+                let a_below_next = is_below(a, next);
                 let a_below_prev = is_below(a, prev);
-                if a_below_b {
-                    swap(&mut a, &mut b);
-                }
 
-                if a_below_b && a_below_prev {
+                if a_below_next && a_below_prev {
                     // End or merge event don't necessarily have edges below but we need to
                     // process them.
                     events.vertices.push(a);
                 }
 
-                events.edges.push(Edge { upper: a, lower: b });
+                if a_below_next {
+                    swap(&mut a, &mut next);
+                }
+
+                println!(" event {:?} next {:?} {:?}, prev {:?} {:?}", a, next, a_below_next, prev, a_below_prev);
+
+                if snap_v(a) != snap_v(next) {
+                    events.edges.push(Edge { upper: a, lower: next });
+                }
             }
         }
 
@@ -429,6 +423,13 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             if a.upper == b.upper { return Ordering::Equal; }
             return Ordering::Less;
         });
+        events.vertices.sort_by(|a, b|{
+            if is_below(*a, *b) { return Ordering::Greater; }
+            if *a == *b { return Ordering::Equal; }
+            return Ordering::Less;
+        });
+
+        println!(" -- {} edges and {} vertices", events.edges.len(), events.vertices.len());
 
         return events;
     }
@@ -440,6 +441,51 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         let mut events = self.initialize_events(path);
 
         let mut last_pos = vec2(NAN, NAN);
+
+        let mut edge_iter = events.edges.iter();
+        let mut vertex_iter = events.vertices.iter();
+        let mut next_edge = edge_iter.next();
+        let mut next_vertex = vertex_iter.next();
+        loop {
+            let (position, edge_is_above) = match (next_edge, next_vertex) {
+                (Some(edge), Some(vertex)) => {
+                    let edge_is_above = is_below(*vertex, edge.upper);
+                    let position = if edge_is_above { edge.upper } else { *vertex };
+                    (position, edge_is_above)
+                }
+                (Some(edge), None) => { (edge.upper, true) }
+                (None, Some(vertex)) => { (*vertex, false) }
+                (None, None) => {
+                    // No more events, process the remaining accumulated edges
+                    // and exit the loop.
+                    let res = self.process_vertex(last_pos);
+                    debug_assert!(self.sweep_line.spans.len() == 0);
+                    return res;
+                }
+            };
+            let snapped_position = snap_v(position);
+            if snapped_position != last_pos {
+                try!{ self.process_vertex(last_pos) };
+                last_pos = snapped_position;
+            }
+
+            if edge_is_above {
+                let edge = next_edge.unwrap();
+                let edge_vec = edge.lower - edge.upper;
+                self.below.push(EdgeBelow{
+                    lower: edge.lower,
+                    angle: -vec2(1.0, 0.0).directed_angle(edge_vec),
+                });
+                next_edge = edge_iter.next();
+                println!(" edge at {:?} ->{:?}", snapped_position.tuple(), edge.lower.tuple());
+            } else {
+                println!(" vertex at {:?}", snapped_position.tuple());
+                next_vertex = vertex_iter.next();
+            }
+        }
+
+        unreachable!();
+/*
         for edge in &events.edges {
 
             // TODO: fuzzy?
@@ -465,8 +511,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
 
         try!{ self.process_vertex(last_pos) };
-
-        return Ok(());
+*/
     }
 
     fn on_left_event(&mut self, span_index: usize, current: Vec2, id: VertexId, next: Vec2) {
@@ -761,6 +806,19 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     /// Enable some verbose logging during the tesselation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
 
+    pub fn check_sl(&self, current: Vec2) {
+        for span in &self.sweep_line.spans {
+            if !span.left.merge {
+                assert!(!is_below(current, snap_v(span.left.lower)));
+                assert!(!is_below(snap_v(span.left.upper), snap_v(span.left.lower)));
+            }
+            if !span.right.merge {
+                assert!(!is_below(current, snap_v(span.right.lower)));
+                assert!(!is_below(snap_v(span.right.upper), snap_v(span.right.lower)));
+            }
+        }
+    }
+
     /// Print the current state of the sweep line for debgging purposes.
     pub fn log_sl(&self) {
         print!("\n|  sl: ");
@@ -769,11 +827,49 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             let mr = if span.right.merge { "*" } else { " " };
             print!("| {:?}{}  {:?}{}|  ", span.left.upper_id.handle, ml, span.right.upper_id.handle, mr);
         }
-        //print!("\n|    : ");
-        //for span in &self.sweep_line.spans {
-        //    print!("| {:?}   {:?} |  ", span.left.lower.id.handle, span.right.lower.id.handle,);
-        //}
         println!("");
+    }
+
+    fn print_sl(&self) {
+        print!("\n sl: [");
+        for span in &self.sweep_line.spans {
+            print!("| l:{:?} ", snap_v(span.left.upper).tuple());
+            print!(" r:{:?} |", snap_v(span.right.upper).tuple());
+        }
+        println!("]");
+        print!("     [");
+        for span in &self.sweep_line.spans {
+            if span.left.merge {
+                print!("| l:   <merge>           ");
+            } else {
+                print!("| l:{:?} ", snap_v(span.left.lower).tuple());
+            }
+            if span.right.merge {
+                print!(" r:   <merge>           |");
+            } else {
+                print!(" r:{:?} |", snap_v(span.right.lower).tuple());
+            }
+        }
+        println!("]\n");
+    }
+
+    fn print_sl_at(&self, y: f32) {
+        print!("\nat y={}  sl: [", y);
+        for span in &self.sweep_line.spans {
+            if span.left.merge {
+                print!("| l:<merge> ");
+            } else {
+                let lx = line_horizontal_intersection(span.left.upper, span.left.lower, y);
+                print!("| l:{} ", lx);
+            }
+            if span.right.merge {
+                print!(" r:<merge> |");
+            } else {
+                let rx = line_horizontal_intersection(span.right.upper, span.right.lower, y);
+                print!(" r:{} |", rx);
+            }
+        }
+        println!("]\n");
     }
 }
 
@@ -781,14 +877,31 @@ fn test_span_side(span_edge: &SpanEdge, position: Vec2) -> bool {
     if span_edge.merge {
         return false;
     }
-    if span_edge.lower == position {
+    if snap_v(span_edge.lower) == position {
+        //println!(" ++++++ current:{}  span:{}", position.x, position.x);
         return true;
     }
     let x = line_horizontal_intersection(span_edge.upper, span_edge.lower, position.y);
-    println!(" ++++++ current:{}  span:{}", position.x, x);
-    let epsilon = 0.000001; // TODO :(
-    return x + epsilon >= position.x; // TODO: ugh!
+    //println!(" ++++++ current:{}  span:{}", position.x, snap(x));
+    return position.x < snap(x);
 }
+
+fn test_span_touches(span_edge: &SpanEdge, position: Vec2) -> bool {
+    if span_edge.merge {
+        return false;
+    }
+    let x = line_horizontal_intersection(span_edge.upper, span_edge.lower, position.y);
+    println!("          test current:{:?}  span:{:?}", position.x, snap(x));
+
+    if snap_v(span_edge.lower) == position {
+        return true;
+    }
+
+    return position.x == snap(x);
+}
+
+fn snap(v: f32) -> f32 { ((v * 100000.0) as i64) as f32 / 100000.0 }
+fn snap_v(v: Vec2) -> Vec2 { Vec2::new(snap(v.x), snap(v.y)) }
 
 /// helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon.
@@ -1186,7 +1299,6 @@ fn test_tesselator_simple_split() {
     path.line_to(vec2(0.0, 3.0));
     path.close();
 
-    //test_path_with_rotation(&path.build(), 2.3570116, Some(3));
     test_path_with_rotations(path.build(), 0.001, Some(3));
 }
 
@@ -1255,7 +1367,6 @@ fn test_tesselator_simple_2() {
 }
 
 #[test]
-//#[ignore]
 fn test_tesselator_hole_1() {
     let mut path = flattened_path_builder();
     path.move_to(vec2(-11.0, 5.0));
@@ -1268,8 +1379,7 @@ fn test_tesselator_hole_1() {
     path.line_to(vec2(4.0, 2.0));
     path.close();
 
-    //test_path_with_rotations(path.build(), 0.001, Some(6));
-    test_path_with_rotations(path.build(), 0.5809961, Some(6));
+    test_path_with_rotations(path.build(), 0.001, Some(6));
 }
 
 #[test]
@@ -1364,7 +1474,6 @@ fn test_tesselator_auto_intersection_multi() {
 }
 
 #[test]
-//#[ignore]
 fn test_tesselator_rust_logo() {
     let mut path = flattened_path_builder();
 
