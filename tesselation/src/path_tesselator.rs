@@ -151,7 +151,6 @@ struct Events {
 pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
     sweep_line: Vec<Span>,
     intersections: Vec<Intersection>,
-    events: Option<Events>,
     below: Vec<EdgeBelow>,
     previous_position: Vec2,
     log: bool,
@@ -163,10 +162,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     pub fn new(output: &'l mut Output) -> Tesselator<'l, Output> {
         Tesselator {
             sweep_line: Vec::with_capacity(16),
-            events: Some(Events {
-                edges: Vec::with_capacity(512),
-                vertices: Vec::with_capacity(64),
-            }),
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
             previous_position: vec2(NAN, NAN),
@@ -255,9 +250,10 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     }
 
     fn initialize_events(&mut self, path: PathSlice) -> Events {
-        let mut swap_events = None;
-        swap(&mut self.events, &mut swap_events);
-        let mut events = swap_events.unwrap();
+        let mut events = Events {
+            edges: Vec::with_capacity(512),
+            vertices: Vec::with_capacity(64),
+        };
 
         for sub_path in path.path_ids() {
             for vertex in path.vertex_ids(sub_path) {
@@ -397,16 +393,25 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             }
         }
 
+        // Count the number of remaining edges above the sweep line that end at
+        // the current position.
         for span in &self.sweep_line[span_idx..] {
-            let l = test_span_touches(&span.left, current_position);
-            let r = test_span_touches(&span.right, current_position);
-            if l { above_count += 1; }
-            if r { above_count += 1; }
-            if !l && !r {
+            let left_interects = test_span_touches(&span.left, current_position);
+            let right_intersects = test_span_touches(&span.right, current_position);
+            // Here it is tempting to assume that we can only have end events
+            // if left_interects && right_intersects, but we also need to take merge
+            // spans into account. See the diagram in on_end_event.
+            if left_interects { above_count += 1; }
+            if right_intersects { above_count += 1; }
+            if !left_interects && !left_interects {
                 break;
             }
+            // If right_intersects, left should intersect too, unless it is a merge edge.
+            debug_assert!(left_interects || span.left.merge);
         }
 
+        // Pairs of edges that end at the current position form "end events".
+        // By construction we know that they are on the same spans.
         while above_count >= 2 {
             if self.log { println!("(end event)"); }
             self.on_end_event(current, span_idx);
@@ -758,7 +763,7 @@ fn test_span_side(span_edge: &SpanEdge, position: Vec2) -> bool {
     }
     let x = line_horizontal_intersection(span_edge.upper, span_edge.lower, position.y);
     //println!(" ++++++ current:{}  span:{}", position.x, snap(x));
-    return position.x < snap(x);
+    return position.x <= snap(x);
 }
 
 fn test_span_touches(span_edge: &SpanEdge, position: Vec2) -> bool {
