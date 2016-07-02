@@ -105,7 +105,8 @@ pub fn segment_intersection<U>(
     let t = (a2 - a1).cross(v2) / v1_cross_v2;
     let u = a2_a1_cross_v1 / v1_cross_v2;
 
-    if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
+    // TODO :(
+    if t > 0.00001 && t < 0.9999 && u > 0.00001 && u < 0.9999 {
         return Some(a1 + (v1 * t));
     }
 

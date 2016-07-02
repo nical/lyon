@@ -61,16 +61,21 @@ pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwi
         }
     }
 
-    println!(" ----------- reduced test case: -----------");
+    println!(" ----------- reduced test case: -----------\n\n");
+    println!("#[test]");
+    println!("fn reduced_test_case() {{");
+    println!("    let mut builder = flattened_path_builder();\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
-        println!("builder.move_to(vec2({}, {}));", pos.x, pos.y);
+        println!("    builder.move_to(vec2({}, {}));", pos.x, pos.y);
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
-            println!("builder.line_to(vec2({}, {}));", pos.x, pos.y);
+            println!("    builder.line_to(vec2({}, {}));", pos.x, pos.y);
         }
-        println!("builder.close();");
+        println!("    builder.close();\n");
     }
+    println!("    test_path(builder.build().as_slice(), None);");
+    println!("}}\n\n");
 
     return polygons_to_path(&polygons);
 }
