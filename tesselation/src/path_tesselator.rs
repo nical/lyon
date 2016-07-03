@@ -1801,7 +1801,7 @@ fn test_coincident_simple_rotated() {
 #[test]
 #[ignore] // TODO
 fn test_identical_square_failing() {
-    // Two identiacal sub paths. It's a pretty much the worst type of input for
+    // Two identical sub paths. It's a pretty much the worst type of input for
     // the tesselator as far as I know.
     let mut builder = flattened_path_builder();
     builder.move_to(vec2(0.0, 0.0));
