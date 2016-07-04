@@ -7,16 +7,15 @@ use std::mem::swap;
 use std::cmp::PartialOrd;
 
 use super::{ vertex_id, VertexId };
+use math::*;
 use path::*;
 use path_builder::{ PrimitiveBuilder, };
 use vertex_builder::{ VertexBufferBuilder, Range, };
 use math_utils::{
-    is_below, tangent,
+    is_below, tangent, directed_angle, directed_angle2,
     segment_intersection,line_intersection, line_horizontal_intersection,
 };
 use basic_shapes::{ tesselate_quad };
-
-use vodk_math::{ Vec2, vec2 };
 
 #[cfg(test)]
 use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
@@ -196,7 +195,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     next_edge = edge_iter.next();
                     self.below.push(EdgeBelow{
                         lower: edge.lower,
-                        angle: -vec2(1.0, 0.0).directed_angle(edge_vec),
+                        angle: -directed_angle(vec2(1.0, 0.0), edge_vec),
                         test_intersections: true,
                     });
                     pending_events = true;
@@ -770,12 +769,12 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
         self.below.push(EdgeBelow {
             lower: intersection.a_down,
-            angle: -vec2(1.0, 0.0).directed_angle(intersection.a_down - intersection.point),
+            angle: -directed_angle(vec2(1.0, 0.0), intersection.a_down - intersection.point),
             test_intersections: false,
         });
         self.below.push(EdgeBelow {
             lower: intersection.b_down,
-            angle: -vec2(1.0, 0.0).directed_angle(intersection.b_down - intersection.point),
+            angle: -directed_angle(vec2(1.0, 0.0), intersection.b_down - intersection.point),
             test_intersections: false,
         });
     }
@@ -966,7 +965,7 @@ impl MonotoneTesselator {
                     swap(&mut a, &mut b);
                 }
 
-                if (current.pos - b.pos).directed_angle(a.pos - b.pos) <= PI {
+                if directed_angle2(b.pos, current.pos, a.pos) <= PI {
                     self.push_triangle(&a, &b, &current);
                     last_popped = self.stack.pop();
                 } else {
@@ -994,7 +993,7 @@ impl MonotoneTesselator {
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
         println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
 
-        if (c.pos - b.pos).directed_angle(a.pos - b.pos) <= PI {
+        if directed_angle2(b.pos, c.pos, a.pos) <= PI {
             self.triangles.push((a.id.handle, b.id.handle, c.id.handle));
         } else {
             self.triangles.push((b.id.handle, a.id.handle, c.id.handle));
@@ -1129,8 +1128,8 @@ fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     let mut i = first;
     let mut done = false;
 
-    let mut prev_v1: Vec2 = Default::default();
-    let mut prev_v2: Vec2 = Default::default();
+    let mut prev_v1 = vec2(NAN, NAN);
+    let mut prev_v2 = vec2(NAN, NAN);
     loop {
         let mut p1 = path.vertex(i).position;
         let mut p2 = path.vertex(i).position;
@@ -1197,7 +1196,7 @@ fn extrude_along_tangent(
                 // TODO: the angle is very narrow, use rounded corner instead
                 //panic!("Not implemented yet");
                 println!("!! narrow angle at {:?} {:?} {:?} | {:?} {:?} {:?}",
-                    px, n1.directed_angle(n2), px.directed_angle2(prev, next),
+                    px, directed_angle(n1, n2), directed_angle2(px, prev, next),
                     prev.tuple(), px.tuple(), next.tuple(),
                 );
                 px + (px - prev) * amount / (px - prev).length()

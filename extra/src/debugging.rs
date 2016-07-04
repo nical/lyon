@@ -1,6 +1,6 @@
 use path::{ Path, PathSlice };
 use path_builder::{ flattened_path_builder, PrimitiveBuilder };
-use vodk_math::{ Vec2 };
+use math::{ Vec2 };
 
 pub type Polygons = Vec<Vec<Vec2>>;
 
@@ -103,4 +103,3 @@ fn find_reduced_test_case_sp<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwin
         i += 1;
     }
 }
-

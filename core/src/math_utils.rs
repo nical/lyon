@@ -1,31 +1,64 @@
 //! Various math tools that are usefull for several modules.
 
-use vodk_math::{ Vector2D };
+use std::f32::consts::PI;
+use math::*;
 
-#[cfg(test)]
-use vodk_math::{ vec2 };
+pub fn fuzzy_eq_f32(a: f32, b: f32) -> bool {
+    let epsilon = 0.000001;
+    return (a - b).abs() <= epsilon;
+}
+
+pub fn fuzzy_eq(a: Vec2, b: Vec2) -> bool { fuzzy_eq_f32(a.x, b.x) && fuzzy_eq_f32(a.y, b.y) }
 
 /// Defines an ordering between two points
-pub fn is_below<U>(a: Vector2D<U>, b: Vector2D<U>) -> bool {
+pub fn is_below(a: Vec2, b: Vec2) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
 // Compute the vector from ce center of an ellipse on of its points
-pub fn ellipse_center_to_point<U>(center: Vector2D<U>, ellipse_point: Vector2D<U>, radii: Vector2D<U>) -> Vector2D<U>{
-    Vector2D::new(
+pub fn ellipse_center_to_point(center: Vec2, ellipse_point: Vec2, radii: Vec2) -> Vec2{
+    vec2(
         (ellipse_point.x - center.x) / radii.x,
         (ellipse_point.y - center.y) / radii.y,
     )
 }
 
-pub fn ellipse_point_from_angle<U>(center: Vector2D<U>, radii: Vector2D<U>, angle: f32) -> Vector2D<U>{
-    Vector2D::new(
+pub fn ellipse_point_from_angle(center: Vec2, radii: Vec2, angle: f32) -> Vec2{
+    vec2(
         center.x + radii.x * angle.cos(),
         center.y + radii.y * angle.sin()
     )
 }
 
-pub fn angle_between<U>(start_vector : Vector2D<U>, end_vector : Vector2D<U>) -> f32 {
+
+/// Angle between vectors v1 and v2 (oriented clockwise assyming y points downwards).
+/// The result is a number between 0 and 2*PI.
+///
+/// ex: directed_angle([0,1], [1,0]) = 3/2 Pi rad
+///     x       __
+///   0-->     /  \
+///  y|       |  x--> v2
+///   v        \ |v1
+///              v
+///
+/// Or, assuming y points upwards:
+/// directed_angle([0,-1], [1,0]) = 1/2 Pi rad
+///
+///   ^           v2
+///  y|          x-->
+///   0-->    v1 | /
+///     x        v-
+///
+pub fn directed_angle(a:Vec2, b: Vec2) -> f32 {
+    let angle = (b.y).atan2(b.x) - (a.y).atan2(a.x);
+    return if angle < 0.0 { angle + 2.0 * PI } else { angle };
+}
+
+pub fn directed_angle2(center: Vec2,  a: Vec2, b: Vec2) -> f32 {
+    directed_angle(a - center, b - center)
+}
+
+pub fn angle_between(start_vector : Vec2, end_vector : Vec2) -> f32 {
     let mut result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
                  (start_vector.length() * end_vector.length())).acos() ;
 
@@ -35,17 +68,18 @@ pub fn angle_between<U>(start_vector : Vector2D<U>, end_vector : Vector2D<U>) ->
     result
 }
 
-pub fn tangent<U>(v: Vector2D<U>) -> Vector2D<U> {
+
+pub fn tangent(v: Vec2) -> Vec2 {
     let l = v.length();
-    return Vector2D::new(-v.y / l, v.x / l);
+    return vec2(-v.y / l, v.x / l);
 }
 
-pub fn line_intersection<U>(
-    a1: Vector2D<U>,
-    a2: Vector2D<U>,
-    b1: Vector2D<U>,
-    b2: Vector2D<U>
-) -> Option<Vector2D<U>> {
+pub fn line_intersection(
+    a1: Vec2,
+    a2: Vec2,
+    b1: Vec2,
+    b2: Vec2
+) -> Option<Vec2> {
     let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
     if det.abs() <= 0.000001 {
         // The lines are very close to parallel
@@ -54,21 +88,21 @@ pub fn line_intersection<U>(
     let inv_det = 1.0 / det;
     let a = a1.x * a2.y - a1.y * a2.x;
     let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(Vector2D::new(
+    return Some(vec2(
         (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
         (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
     ));
 }
 
-pub fn segment_intersection<U>(
-    a1: Vector2D<U>,
-    b1: Vector2D<U>,
-    a2: Vector2D<U>,
-    b2: Vector2D<U>
-) -> Option<Vector2D<U>> {
+pub fn segment_intersection(
+    a1: Vec2,
+    b1: Vec2,
+    a2: Vec2,
+    b2: Vec2
+) -> Option<Vec2> {
     let v1 = b1 - a1;
     let v2 = b2 - a2;
-    if v2.fuzzy_eq(Vector2D::new(0.0, 0.0)) {
+    if fuzzy_eq(v2, vec2(0.0, 0.0)) {
         return None;
     }
 
@@ -80,20 +114,20 @@ pub fn segment_intersection<U>(
 
             let v1_sqr_len = v1.square_length();
             // check if a2 is between a1 and b1
-            let v1_dot_a2a1 = v1.dot(&(a2-a1));
+            let v1_dot_a2a1 = v1.dot(a2 - a1);
             if v1_dot_a2a1 > 0.0 && v1_dot_a2a1 < v1_sqr_len { return Some(a2); }
 
             // check if b2 is between a1 and b1
-            let v1_dot_b2a1 = v1.dot(&(b2-a1));
+            let v1_dot_b2a1 = v1.dot(b2 - a1);
             if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len { return Some(b2); }
 
             let v2_sqr_len = v2.square_length();
             // check if a1 is between a2 and b2
-            let v2_dot_a1a2 = v2.dot(&(a1-a2));
+            let v2_dot_a1a2 = v2.dot(a1 - a2);
             if v2_dot_a1a2 > 0.0 && v2_dot_a1a2 < v2_sqr_len { return Some(a1); }
 
             // check if b1 is between a2 and b2
-            let v2_dot_b1a2 = v2.dot(&(b1-a2));
+            let v2_dot_b1a2 = v2.dot(b1 - a2);
             if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len { return Some(b1); }
 
             return None;
@@ -126,7 +160,7 @@ fn test_segment_intersection() {
         vec2(0.0, 1.0), vec2(1.0, 0.0)
     ).unwrap();
     println!(" intersection: {:?}", i);
-    assert!(i.fuzzy_eq(vec2(0.5, 0.5)));
+    assert!(fuzzy_eq(i, vec2(0.5, 0.5)));
 
     assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(0.0, 1.0),
@@ -169,9 +203,9 @@ fn test_segment_intersection() {
     ).is_none());
 }
 
-pub fn line_horizontal_intersection<U>(
-    a: Vector2D<U>,
-    b: Vector2D<U>,
+pub fn line_horizontal_intersection(
+    a: Vec2,
+    b: Vec2,
     y: f32
 ) -> f32 {
     let vx = b.x - a.x;

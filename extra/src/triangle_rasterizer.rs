@@ -1,8 +1,5 @@
-use vodk_math::{ Vec2 };
+use math::*;
 use image::MutableImageSlice;
-
-#[cfg(test)]
-use vodk_math::{ vec2 };
 
 /// A software triangle rasterizer intended for ref testing and to help debugging
 /// the output of the various tesselation routines.

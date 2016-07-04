@@ -2,10 +2,9 @@
 
 use std::f32::*;
 
-use vodk_math::{ Vec2, vec2, Vector2D };
-
 use path_builder::{ PrimitiveBuilder, ArcFlags };
 use math_utils::*;
+use math::*;
 
 /// Build an svg arc by approximating it with cubic bezier curves.
 ///
@@ -24,25 +23,25 @@ pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
     // Middle point between start and end point
     let dx = (from.x - to.x) / 2.0;
     let dy = (from.y - to.y) / 2.0;
-    let transformed_point : Vec2 = Vec2::new(
+    let transformed_point = vec2(
         (x_axis_rotation.cos() * dx + x_axis_rotation.sin() * dy).round(),
         (-x_axis_rotation.sin() * dx + x_axis_rotation.cos() * dy).round()
     );
 
     let scaled_radii = radii_to_scale(radii, transformed_point);
-    let transformed_center : Vec2 = find_center(scaled_radii, transformed_point, flags);
+    let transformed_center = find_center(scaled_radii, transformed_point, flags);
 
     // Start, end and sweep angles
-    let start_vector: Vec2 = ellipse_center_to_point(
+    let start_vector = ellipse_center_to_point(
         transformed_center, transformed_point, scaled_radii
     );
-    let mut start_angle = angle_between(Vector2D::new(1.0, 0.0), start_vector);
+    let mut start_angle = angle_between(vec2(1.0, 0.0), start_vector);
 
-    let end_vector: Vec2 = ellipse_center_to_point(
+    let end_vector = ellipse_center_to_point(
         transformed_center, vec2(-transformed_point.x, -transformed_point.y),
         scaled_radii
     );
-    let mut end_angle = angle_between(Vector2D::new(1.0, 0.0), end_vector);
+    let mut end_angle = angle_between(vec2(1.0, 0.0), end_vector);
 
     let mut sweep_angle = end_angle - start_angle;
 
@@ -61,7 +60,7 @@ pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
 
         let mut crossing_point = ellipse_point_from_angle(transformed_center, scaled_radii, end_angle);
 
-        crossing_point = Vec2::new(
+        crossing_point = vec2(
             x_axis_rotation.cos()*crossing_point.x - x_axis_rotation.sin() * crossing_point.y + (from.x + to.x) /2.0,
             x_axis_rotation.sin()*crossing_point.x + x_axis_rotation.cos() * crossing_point.y + (from.y + to.y) /2.0
         );
@@ -107,12 +106,12 @@ fn sub_arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
     let alpha = sweep_angle.sin() * (((4.0 + 3.0*(sweep_angle/2.0).tan().powi(2)).sqrt() - 1.0) / 3.0);
     let end_angle = start_angle + sweep_angle;
 
-    let ctrl_point_1 : Vec2 = Vec2::new(
+    let ctrl_point_1 = vec2(
         (from.x + alpha * (-radii.x * x_rotation_radian.cos() * start_angle.sin() - radii.y * x_rotation_radian.sin() * start_angle.cos())).round(),
         (from.y + alpha * (-radii.x * x_rotation_radian.sin() * start_angle.sin() + radii.y * x_rotation_radian.cos() * start_angle.cos())).round()
     );
 
-    let ctrl_point_2 : Vec2 = Vec2::new(
+    let ctrl_point_2 = vec2(
         (to.x - alpha * (-radii.x * x_rotation_radian.cos() * end_angle.sin() - radii.y * x_rotation_radian.sin() * end_angle.cos())).round(),
         (to.y - alpha * (-radii.x * x_rotation_radian.sin() * end_angle.sin() + radii.y * x_rotation_radian.cos() * end_angle.cos())).round()
     );
@@ -156,4 +155,3 @@ fn find_center(radii: Vec2, point: Vec2, flags: ArcFlags) -> Vec2 {
         center_coef * -radii.y * point.x / radii.x
     )
 }
-

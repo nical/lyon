@@ -1,6 +1,8 @@
 //! Tools to build path objects from a sequence of imperative commands.
 
 use path::*;
+use math::*;
+use math_utils::fuzzy_eq;
 use bezier::*;
 use arc::arc_to_cubic_beziers;
 
@@ -8,8 +10,6 @@ use super::{
     vertex_id_range,
 //    crash,
 };
-
-use vodk_math::{ Vec2, vec2, Rect };
 
 /// Builder for paths that can contain lines, and quadratic/cubic bezier segments.
 pub type BezierPathBuilder = SvgPathBuilder<PrimitiveImpl>;
@@ -345,7 +345,7 @@ impl PrimitiveImpl {
         let offset = self.offset as usize;
         let last = vertices_len - 1;
         // If the first and last vertices are the same, remove the last vertex.
-        let last = if last > 0 && self.vertices[last].position.fuzzy_eq(self.vertices[offset].position) {
+        let last = if last > 0 && fuzzy_eq(self.vertices[last].position, self.vertices[offset].position) {
             self.vertices.pop();
             closed = true;
             last - 1
@@ -358,9 +358,8 @@ impl PrimitiveImpl {
         }
 
         let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
-        let aabb = Rect::new(
-            self.top_left.x, self.top_left.y,
-            self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y,
+        let aabb = Rect::new(self.top_left,
+            size(self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y),
         );
 
         let shape_info = PathInfo {
@@ -459,7 +458,7 @@ fn test_path_builder_simple() {
         assert_eq!(path.vertices().nth(1).point_type, PointType::Normal);
         assert_eq!(path.vertices().nth(2).point_type, PointType::Normal);
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
         let sub_path = path.sub_path(id);
         let first = sub_path.first();
         let next = sub_path.next(first);
@@ -482,7 +481,7 @@ fn test_path_builder_simple() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // line_to back to the first vertex (should ignore the last vertex)
@@ -497,7 +496,7 @@ fn test_path_builder_simple() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 }
 
@@ -513,7 +512,7 @@ fn test_path_builder_simple_bezier() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // counter-clockwise
@@ -526,7 +525,7 @@ fn test_path_builder_simple_bezier() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // a slightly more elaborate path
@@ -545,7 +544,7 @@ fn test_path_builder_simple_bezier() {
 
         let path = path.build();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect::new(-0.2, 0.0, 0.7, 0.4));
+        assert_eq!(info.aabb, Rect::new(vec2(-0.2, 0.0), size(0.7, 0.4)));
     }
 }
 
