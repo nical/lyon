@@ -12,9 +12,8 @@ use lyon::path_builder::*;
 use lyon::math::*;
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
-use lyon::tesselation::path_tesselator::{
-    TesselatorOptions, tesselate_path_fill, tesselate_path_stroke
-};
+use lyon::tesselation::path_fill::FillTesselator;
+use lyon::tesselation::path_stroke::StrokeTesselator;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -76,18 +75,15 @@ fn main() {
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
-    tesselate_path_fill(
+    FillTesselator::new().tesselate(
         path.as_slice(),
-        &TesselatorOptions::new(),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
     ).unwrap();
 
-    tesselate_path_stroke(
-        path.as_slice(),
-        1.0,
-        &TesselatorOptions::new(),
+    StrokeTesselator::new().tesselate(
+        path.as_slice(), 1.0,
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
-    );
+    ).unwrap();
 
 
     for p in path.vertices().as_slice() {

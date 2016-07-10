@@ -1,7 +1,6 @@
-//! Tesselation routines for complex paths.
+//! Tesselation routines for complex path fill operations.
 
 use std::f32::consts::PI;
-use std::f32::NAN;
 use std::i32;
 use std::cmp::{ Ordering };
 use std::mem::swap;
@@ -13,15 +12,14 @@ use math::*;
 use path::*;
 use vertex_builder::{ VertexBufferBuilder, Range, };
 use math_utils::{
-    is_below, is_below_int, tangent, directed_angle, directed_angle2,
-    segment_intersection_int, line_intersection, line_horizontal_intersection_int,
+    is_below, is_below_int, directed_angle, directed_angle2,
+    segment_intersection_int, line_horizontal_intersection_int,
 };
-use basic_shapes::{ tesselate_quad };
 
 #[cfg(test)]
 use path_builder::{ PrimitiveBuilder, };
 #[cfg(test)]
-use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
+use vertex_builder::{ VertexBuffers, simple_vertex_builder };
 #[cfg(test)]
 use path_builder::{ flattened_path_builder, };
 
@@ -31,7 +29,7 @@ struct Intersection {
     b_down: IntVec2,
 }
 
-pub type TesselatorResult = Result<(), ()>;
+pub type FillResult = Result<(Range, Range), ()>;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Side { Left, Right }
@@ -142,27 +140,25 @@ struct Events {
 /// A Context object that can tesselate fill operations for complex paths.
 ///
 /// The Tesselator API is not stable yet.
-pub struct Tesselator<'l, Output: VertexBufferBuilder<Vec2>+'l> {
+pub struct FillTesselator {
     sweep_line: Vec<Span>,
     monotone_tesselators: Vec<MonotoneTesselator>,
     intersections: Vec<Intersection>,
     below: Vec<EdgeBelow>,
     previous_position: IntVec2,
     log: bool,
-    output: &'l mut Output,
 }
 
-impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
+impl FillTesselator {
     /// Constructor.
-    pub fn new(output: &'l mut Output) -> Tesselator<'l, Output> {
-        Tesselator {
+    pub fn new() -> FillTesselator {
+        FillTesselator {
             sweep_line: Vec::with_capacity(16),
             monotone_tesselators: Vec::with_capacity(16),
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
             previous_position: int_vec2(i32::MIN, i32::MIN),
             log: false,
-            output: output,
         }
     }
 
@@ -172,7 +168,10 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
     /// Compute the tesselation (fill).
     ///
     /// This is where most of the interesting things happen.
-    pub fn tesselate(&mut self, path: PathSlice) -> TesselatorResult {
+    pub fn tesselate<Output: VertexBufferBuilder<Vec2>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
+
+        self.begin_tesselation(output);
+
         let events = self.initialize_events(path);
 
         let mut current_position = int_vec2(i32::MIN, i32::MIN);
@@ -239,7 +238,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             let mut found_intersections = false;
             if pending_events {
                 let num_intersections = self.intersections.len();
-                self.process_vertex(current_position);
+                self.process_vertex(current_position, output);
                 found_intersections = num_intersections != self.intersections.len();
             }
 
@@ -252,9 +251,24 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 current_position = position;
                 if self.log { println!(" -- current_position is now {:?}", position.tuple()); }
             } else {
-                return Ok(());
+                let ranges = self.end_tesselation(output);
+                return Ok(ranges);
             }
         }
+    }
+
+    fn begin_tesselation<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) {
+        debug_assert!(self.sweep_line.is_empty());
+        debug_assert!(self.monotone_tesselators.is_empty());
+        debug_assert!(self.below.is_empty());
+        output.begin_geometry();
+    }
+
+    fn end_tesselation<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) -> (Range, Range) {
+        debug_assert!(self.sweep_line.is_empty());
+        debug_assert!(self.monotone_tesselators.is_empty());
+        debug_assert!(self.below.is_empty());
+        return output.end_geometry();
     }
 
     fn initialize_events(&mut self, path: PathSlice) -> Events {
@@ -304,14 +318,14 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         return events;
     }
 
-    fn process_vertex(&mut self, current_position: IntVec2) {
+    fn process_vertex<Output: VertexBufferBuilder<Vec2>>(&mut self, current_position: IntVec2, output: &mut Output) {
 
         if self.log {
             println!("\n_______________\n");
         }
 
         let vec2_position = self.to_vec2(current_position);
-        let id = vertex_id(self.output.push_vertex(vec2_position));
+        let id = vertex_id(output.push_vertex(vec2_position));
         let current = Vertex { position: current_position, id: id };
 
         self.below.sort_by(|a, b| {
@@ -440,21 +454,19 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         // By construction we know that they are on the same spans.
         while above_count >= 2 {
             if self.log { println!("(end event)"); }
-            self.on_end_event(current, span_idx);
+            self.on_end_event(current, span_idx, output);
             above_count -= 2;
         }
 
         if pending_merge {
             debug_assert!(above_count == 1);
             if self.log { println!("(merge event)"); }
-            self.on_merge_event(current, start_span)
+            self.on_merge_event(current, start_span, output)
         } else if above_count == 1 {
             if self.log { println!("(left event) {}", span_idx); }
             assert!(below_count > 0);
             let edge_below = self.below[self.below.len()-1].clone();
-            self.on_left_event(
-                span_idx, current_position, id, edge_below.lower,
-            );
+            self.on_left_event(span_idx, current_position, id, edge_below.lower, output);
             below_count -= 1;
         }
 
@@ -471,7 +483,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 if self.log { println!("(split event)"); }
                 let left = self.below[0].clone();
                 let right = self.below[below_count-1].clone();
-                self.on_split_event(start_span, current_position, id, left, right);
+                self.on_split_event(start_span, current_position, id, left, right, output);
                 below_count -= 2;
                 below_idx += 1;
             }
@@ -500,9 +512,10 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         self.below.clear();
     }
 
-    fn on_left_event(&mut self,
+    fn on_left_event<Output: VertexBufferBuilder<Vec2>>(&mut self,
         span_index: usize,
         current: IntVec2, id: VertexId, next: IntVec2,
+        output: &mut Output
     ) {
         if self.log {
             println!(" ++++++ Left event {}", id.handle);
@@ -515,7 +528,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             // ll x   <-- current vertex
             //     \r
             self.sweep_line[span_index+1].set_lower_vertex(current, Side::Left);
-            self.end_span(span_index, Vertex { position: current, id: id });
+            self.end_span(span_index, Vertex { position: current, id: id }, output);
         }
 
         self.insert_edge(
@@ -524,9 +537,10 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         );
     }
 
-    fn on_split_event(&mut self,
+    fn on_split_event<Output: VertexBufferBuilder<Vec2>>(&mut self,
         span_index: usize, current: IntVec2, id: VertexId,
-        left: EdgeBelow, right: EdgeBelow
+        left: EdgeBelow, right: EdgeBelow,
+        output: &mut Output
     ) {
         if self.log {
             println!(" ++++++ Split event {} (span {})", id.handle, span_index);
@@ -559,7 +573,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 //    x   <-- current vertex
                 //   / \
                 self.sweep_line[span_index+1].set_lower_vertex(current, Side::Left);
-                self.end_span(span_index, Vertex { position: current, id: id });
+                self.end_span(span_index, Vertex { position: current, id: id }, output);
             }
         } else {
             //      /
@@ -595,7 +609,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
     }
 
-    fn on_end_event(&mut self, vertex: Vertex, span_index: usize) {
+    fn on_end_event<Output: VertexBufferBuilder<Vec2>>(&mut self, vertex: Vertex, span_index: usize, output: &mut Output) {
         if self.log {
             println!(" ++++++ End event {} (span {})", vertex.id.handle, span_index);
         }
@@ -605,13 +619,13 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             //  \ x   <-- merge vertex
             //   \:/
             //    x   <-- current vertex
-            self.end_span(span_index, vertex);
+            self.end_span(span_index, vertex, output);
         }
 
-        self.end_span(span_index, vertex);
+        self.end_span(span_index, vertex, output);
     }
 
-    fn on_merge_event(&mut self, vertex: Vertex, span_index: usize) {
+    fn on_merge_event<Output: VertexBufferBuilder<Vec2>>(&mut self, vertex: Vertex, span_index: usize, output: &mut Output) {
         if self.log {
             println!(" ++++++ Merge event {} (span {})", vertex.id.handle, span_index);
         }
@@ -623,7 +637,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             //  \ / .-x    <-- merge vertex
             //   x-'      <-- current merge vertex
             self.sweep_line[span_index+2].set_lower_vertex(vertex.position, Side::Left);
-            self.end_span(span_index+1, vertex);
+            self.end_span(span_index+1, vertex, output);
         }
 
         let vec2_position = self.to_vec2(vertex.position);
@@ -639,7 +653,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         span_index: usize, side: Side,
         mut edge: Edge, id: VertexId,
     ) {
-
         // TODO horrible hack: set the merge flag on the edge we are about to replace temporarily
         // so that it doesn not get in the way of the intersection detection.
         self.sweep_line[span_index].mut_edge(side).merge = true;
@@ -749,7 +762,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         });
     }
 
-    fn end_span(&mut self, span_index: usize, vertex: Vertex) {
+    fn end_span<Output: VertexBufferBuilder<Vec2>>(&mut self, span_index: usize, vertex: Vertex, output: &mut Output) {
         if self.log {
             println!("     end span {} (vertex: {})", span_index, vertex.id.handle);
         }
@@ -757,7 +770,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         {
             let tess = &mut self.monotone_tesselators[span_index];
             tess.end(vec2_position, vertex.id);
-            tess.flush(self.output);
+            tess.flush(output);
         }
         self.sweep_line.remove(span_index);
         self.monotone_tesselators.remove(span_index);
@@ -1035,8 +1048,18 @@ fn test_monotone_tess() {
     println!(" ------------ ");
 }
 
+pub enum FillRule {
+    EvenOdd,
+    NonZero,
+}
+
 /// Parameters for the tesselator.
-pub struct TesselatorOptions {
+pub struct TesselatorConfig {
+    /// See the SVG specification.
+    ///
+    /// Currently, only the EvenOdd rule is implemented.
+    pub fill_rule: FillRule,
+
     /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
     /// a gradient to smooth the edges.
     ///
@@ -1051,142 +1074,29 @@ pub struct TesselatorOptions {
     pub flatten_curves: bool,
 }
 
-impl TesselatorOptions {
-    pub fn new() -> TesselatorOptions {
-        TesselatorOptions {
+impl TesselatorConfig {
+    pub fn new() -> TesselatorConfig { TesselatorConfig::even_odd() }
+
+    pub fn even_odd() -> TesselatorConfig {
+        TesselatorConfig {
+            fill_rule: FillRule::EvenOdd,
             vertex_aa: false,
             flatten_curves: true,
         }
     }
 
-    pub fn with_vertex_aa(mut self) -> TesselatorOptions {
+    pub fn non_zero() -> TesselatorConfig {
+        TesselatorConfig {
+            fill_rule: FillRule::NonZero,
+            vertex_aa: false,
+            flatten_curves: true,
+        }
+    }
+
+    pub fn with_vertex_aa(mut self) -> TesselatorConfig {
         self.vertex_aa = true;
         return self;
     }
-
-}
-
-pub fn tesselate_path_fill<'l, Output: VertexBufferBuilder<Vec2>>(
-    path: PathSlice<'l>,
-    options: &TesselatorOptions,
-    output: &mut Output
-) -> Result<(), ()> {
-    if options.vertex_aa {
-        println!("[tesselate_path_fill] Vertex anti-aliasing not implemented");
-    }
-
-    output.begin_geometry();
-    let result = {
-        let mut tess = Tesselator::new(output);
-        tess.tesselate(path)
-    };
-    output.end_geometry();
-    return result;
-}
-
-pub fn tesselate_path_stroke<Output: VertexBufferBuilder<Vec2>>(
-    path: PathSlice,
-    thickness: f32,
-    options: &TesselatorOptions,
-    output: &mut Output
-) -> (Range, Range) {
-    if options.vertex_aa {
-        println!("[tesselate_path_stroke] Vertex anti-aliasing not implemented");
-    }
-    output.begin_geometry();
-    for p in path.path_ids() {
-        tesselate_sub_path_stroke(path.sub_path(p), thickness, output);
-    }
-    return output.end_geometry();
-}
-
-fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
-    path: SubPathSlice,
-    thickness: f32,
-    output: &mut Output
-) {
-    let is_closed = path.info().is_closed;
-
-    let first = path.first();
-    let mut i = first;
-    let mut done = false;
-
-    let mut prev_v1 = vec2(NAN, NAN);
-    let mut prev_v2 = vec2(NAN, NAN);
-    loop {
-        let mut p1 = path.vertex(i).position;
-        let mut p2 = path.vertex(i).position;
-
-        let extruded = extrude_along_tangent(path, i, thickness, is_closed);
-        let d = extruded - p1;
-
-        p1 = p1 + (d * 0.5);
-        p2 = p2 - (d * 0.5);
-
-        if i != first || done {
-            // TODO: should reuse vertices instead of tesselating quads
-            tesselate_quad(prev_v1, prev_v2, p2, p1, output);
-        }
-
-        if done {
-            break;
-        }
-
-        prev_v1 = p1;
-        prev_v2 = p2;
-
-        i = path.next(i);
-
-        if i == first {
-            if !is_closed {
-                break;
-            }
-            done = true;
-        }
-    }
-}
-
-fn extrude_along_tangent(
-    path: SubPathSlice,
-    i: VertexId,
-    amount: f32,
-    is_closed: bool
-) -> Vec2 {
-
-    let px = path.vertex(i).position;
-    let _next = path.next_vertex(i).position;
-    let _prev = path.previous_vertex(i).position;
-
-    let prev = if i == path.first() && !is_closed { px + px - _next } else { _prev };
-    let next = if i == path.last() && !is_closed { px + px - _prev } else { _next };
-
-    let n1 = tangent(px - prev) * amount;
-    let n2 = tangent(next - px) * amount;
-
-    // Segment P1-->PX
-    let pn1  = prev + n1; // prev extruded along the tangent n1
-    let pn1x = px + n1; // px extruded along the tangent n1
-    // Segment PX-->P2
-    let pn2  = next + n2;
-    let pn2x = px + n2;
-
-    let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
-        Some(v) => { v }
-        None => {
-            if (n1 - n2).square_length() < 0.000001 {
-                pn1x
-            } else {
-                // TODO: the angle is very narrow, use rounded corner instead
-                //panic!("Not implemented yet");
-                println!("!! narrow angle at {:?} {:?} {:?} | {:?} {:?} {:?}",
-                    px, directed_angle(n1, n2), directed_angle2(px, prev, next),
-                    prev.tuple(), px.tuple(), next.tuple(),
-                );
-                px + (px - prev) * amount / (px - prev).length()
-            }
-        }
-    };
-    return inter;
 }
 
 #[cfg(test)]
@@ -1194,11 +1104,11 @@ fn tesselate(path: PathSlice, log: bool) -> Result<usize, ()> {
     let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
-        let mut tess = Tesselator::new(&mut vertex_builder);
+        let mut tess = FillTesselator::new();
         if log {
             tess.enable_logging();
         }
-        try!{ tess.tesselate(path) };
+        try!{ tess.tesselate(path, &mut vertex_builder) };
     }
     return Ok(buffers.indices.len()/3);
 }
