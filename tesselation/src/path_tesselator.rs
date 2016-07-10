@@ -18,6 +18,7 @@ use math_utils::{
 };
 use basic_shapes::{ tesselate_quad };
 
+#[cfg(test)]
 use path_builder::{ PrimitiveBuilder, };
 #[cfg(test)]
 use vertex_builder::{ VertexBuffers, simple_vertex_builder, };
@@ -31,11 +32,6 @@ struct Intersection {
 }
 
 pub type TesselatorResult = Result<(), ()>;
-
-fn error<K>() -> Result<K, ()> {
-    panic!();
-    //return Err(());
-}
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Side { Left, Right }
@@ -186,7 +182,9 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         let mut next_edge = edge_iter.next();
         let mut next_vertex = vertex_iter.next();
         loop {
-            let mut next_source = 0;
+            #[derive(PartialEq, Debug)]
+            enum Source { NoSource, Edge, Vertex, Intersection };
+
             let mut next_position = None;
             let mut pending_events = false;
 
@@ -204,7 +202,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     }
                     continue;
                 }
-                next_source = 1;
+
                 next_position = Some(edge.upper);
                 break;
             }
@@ -219,7 +217,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     continue;
                 }
                 if next_position.is_none() || is_below_int(next_position.unwrap(), *vertex) {
-                    next_source = 2;
                     next_position = Some(*vertex);
                 }
                 break;
@@ -234,7 +231,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                     continue
                 }
                 if next_position.is_none() || is_below_int(next_position.unwrap(), intersection_position) {
-                    next_source = 3;
                     next_position = Some(intersection_position);
                 }
                 break;
@@ -243,7 +239,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
             let mut found_intersections = false;
             if pending_events {
                 let num_intersections = self.intersections.len();
-                try! { self.process_vertex(current_position) };
+                self.process_vertex(current_position);
                 found_intersections = num_intersections != self.intersections.len();
             }
 
@@ -251,8 +247,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
                 if self.log { println!(" -- there was an intersection"); }
                 continue;
             }
-
-            if self.log { println!(" next source {:?}", next_source); }
 
             if let Some(position) = next_position {
                 current_position = position;
@@ -310,7 +304,7 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         return events;
     }
 
-    fn process_vertex(&mut self, current_position: IntVec2) -> TesselatorResult {
+    fn process_vertex(&mut self, current_position: IntVec2) {
 
         if self.log {
             println!("\n_______________\n");
@@ -344,8 +338,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         }
 
         for span in &self.sweep_line {
-
-            fn almos_eq(a: f32, b: f32) -> bool { (a - b).abs() < 0.00001 }
 
             if test_span_touches(&span.left, current_position) {
                 status = E::LeftEdge;
@@ -506,8 +498,6 @@ impl<'l, Output: VertexBufferBuilder<Vec2>> Tesselator<'l, Output> {
         //self.check_sl(current_position);
 
         self.below.clear();
-
-        return Ok(());
     }
 
     fn on_left_event(&mut self,
