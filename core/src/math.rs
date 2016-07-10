@@ -1,5 +1,7 @@
 use euclid;
 
+use std::cmp;
+
 pub type Vec2 = euclid::Point2D<f32>;
 pub type IntVec2 = euclid::Point2D<i32>;
 pub type Size = euclid::Size2D<f32>;
@@ -24,85 +26,71 @@ impl<S> Vec2Array<S> for euclid::Point2D<S> { fn array(self) ->[S; 2] { [self.x,
 
 pub trait Vec2Length {
     fn length(self) -> f32;
+}
+
+pub trait Vec2SquareLength {
     fn square_length(self) -> f32;
 }
 
 impl Vec2Length for Vec2 {
     fn length(self) -> f32 { self.square_length().sqrt() }
+}
+
+impl Vec2SquareLength for Vec2 {
     fn square_length(self) -> f32 { self.x*self.x + self.y*self.y }
 }
 
-/*
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct IntFraction {
+    pub numerator: i64,
+    pub denominator: i64,
 }
 
-impl Rect {
-    pub fn new(x: f32, y: f32, w: f32, h:f32) -> Rect {
-        let mut rect = Rect { x: x, y: y, width: w, height: h };
-        rect.ensure_invariant();
-        return rect;
-    }
+impl IntFraction {
+    pub fn from_int(val: i32) -> IntFraction {  IntFraction { numerator: val as i64, denominator: 1 } }
 
-    pub fn origin(&self) -> Vec2 { vec2(self.x, self.y) }
+    pub fn to_f32(self) -> f32 { self.numerator as f32 / self.denominator as f32 }
 
-    pub fn size(&self) -> Size2<f32> { Size2::new(self.width, self.height) }
+    pub fn int_approximation(self) -> i32 { (self.numerator / self.denominator) as i32 }
 
-    pub fn move_by(&mut self, v: Vec2) {
-        self.x = self.x + v.x;
-        self.y = self.y + v.y;
-    }
+    pub fn int_approximation_has_error(self) -> bool { self.numerator % self.denominator != 0 }
+}
 
-    pub fn scale_by(&mut self, v: f32) {
-        self.x = self.x * v;
-        self.y = self.y * v;
-        self.width = self.width * v;
-        self.height = self.height * v;
-        self.ensure_invariant();
-    }
-
-    pub fn top_left(&self) -> Vec2 { vec2(self.x, self.y) }
-
-    pub fn top_right(&self) -> Vec2 { vec2(self.x + self.width, self.y) }
-
-    pub fn bottom_right(&self) -> Vec2 { vec2(self.x + self.width, self.y + self.height) }
-
-    pub fn bottom_left(&self) -> Vec2 { vec2(self.x, self.y + self.height) }
-
-    pub fn x_most(&self) -> f32 { self.x + self.width }
-
-    pub fn y_most(&self) -> f32 { self.y + self.height }
-
-    pub fn contains(&self, other: &Rect) -> bool {
-        return self.x <= other.x &&
-               self.y <= self.y &&
-               self.x_most() >= other.x_most() &&
-               self.y_most() >= other.y_most();
-    }
-
-    pub fn intersects(&self, other: &Rect) -> bool {
-        return self.x < other.x_most() && other.x < self.x_most() &&
-            self.y < other.y_most() && other.y < self.y_most();
-    }
-
-    pub fn inflate(&mut self, d: f32) {
-        self.x -= d;
-        self.y -= d;
-        self.width += 2.0*d;
-        self.height += 2.0*d;
-    }
-
-    pub fn deflate(&mut self, d: f32) { self.inflate(-d); }
-
-    pub fn ensure_invariant(&mut self) {
-        self.x = self.x.min(self.x + self.width);
-        self.y = self.y.min(self.y + self.height);
-        self.width = self.width.abs();
-        self.height = self.height.abs();
+impl cmp::PartialOrd<IntFraction> for IntFraction {
+    fn partial_cmp(&self, rhs: &IntFraction) -> Option<cmp::Ordering> {
+        return (self.numerator * rhs.denominator).partial_cmp(&(rhs.numerator * self.denominator));
     }
 }
-*/
+
+impl cmp::PartialOrd<i32> for IntFraction {
+    fn partial_cmp(&self, rhs: &i32) -> Option<cmp::Ordering> {
+        return self.numerator.partial_cmp(&(&(*rhs as i64) * self.denominator));
+    }
+}
+
+impl cmp::PartialEq<i32> for IntFraction {
+    fn eq(&self, rhs: &i32) -> bool {
+        return self.numerator == *rhs as i64 * self.denominator;
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct IntVec2Fraction {
+    numerator: IntVec2,
+    denominator: i32,
+}
+
+impl IntVec2Fraction {
+    pub fn from_int_vec2(val: IntVec2) -> IntVec2Fraction { IntVec2Fraction { numerator: val, denominator: 1 } }
+
+    pub fn to_vec2(self) -> Vec2 {
+        let denom = self.denominator as f32;
+        return vec2(self.numerator.x as f32 / denom, self.numerator.y as f32 / denom);
+    }
+
+    pub fn int_approximation(self) -> IntVec2 { self.numerator / self.denominator }
+
+    pub fn int_approximation_has_error(self) -> bool {
+        self.numerator.x % self.denominator != 0 || self.numerator.y % self.denominator != 0
+    }
+}
