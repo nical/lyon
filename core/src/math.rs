@@ -9,6 +9,11 @@ pub type IntSize = euclid::Size2D<i32>;
 pub type Rect = euclid::Rect<f32>;
 pub type IntRect = euclid::Rect<i32>;
 
+pub type Vec3 = euclid::Point3D<f32>;
+pub type IntVec3 = euclid::Point3D<i32>;
+
+pub type Mat4 = euclid::Matrix4D<f32>;
+
 pub fn vec2(x: f32, y: f32) -> Vec2 { Vec2::new(x, y) }
 pub fn int_vec2(x: i32, y: i32) -> IntVec2 { IntVec2::new(x, y) }
 pub fn size(w: f32, h: f32) -> Size { Size::new(w, h) }
