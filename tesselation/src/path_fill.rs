@@ -141,7 +141,7 @@ struct Events {
 pub struct FillTesselator {
     sweep_line: Vec<Span>,
     monotone_tesselators: Vec<MonotoneTesselator>,
-    intersections: Vec<Intersection>,
+    intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
     previous_position: IntVec2,
     log: bool,
@@ -220,19 +220,14 @@ impl FillTesselator {
             }
 
             while !self.intersections.is_empty() {
-                let intersection_position = self.intersections[0].point;
+                let intersection_position = self.intersections[0].upper;
                 if intersection_position == current_position {
                     let inter = self.intersections.remove(0);
 
-                    let a_vec2 = self.to_vec2(inter.lower1 - inter.point);
+                    let vec = self.to_vec2(inter.lower - current_position);
                     self.below.push(EdgeBelow {
-                        lower: inter.lower1,
-                        angle: -directed_angle(vec2(1.0, 0.0), a_vec2),
-                    });
-                    let b_vec2 = self.to_vec2(inter.lower2 - inter.point);
-                    self.below.push(EdgeBelow {
-                        lower: inter.lower2,
-                        angle: -directed_angle(vec2(1.0, 0.0), b_vec2),
+                        lower: inter.lower,
+                        angle: -directed_angle(vec2(1.0, 0.0), vec),
                     });
 
                     pending_events = true;
@@ -252,7 +247,6 @@ impl FillTesselator {
             }
 
             if found_intersections {
-                if self.log { println!(" -- there was an intersection"); }
                 continue;
             }
 
@@ -718,15 +712,39 @@ impl FillTesselator {
             span_idx += 1;
         }
 
-        if let Some((evt, span_idx, side)) = intersection {
-            if self.log {
-                println!(" set span[{:?}].{:?}.lower = {:?} (was {:?}", span_idx, side, evt.point.tuple(), self.sweep_line[span_idx].mut_edge(side).lower.tuple());
+        if let Some((mut evt, span_idx, side)) = intersection {
+            let current_position = original_edge.upper;
+
+            // Because precision issues, it can happen that the intersection appear to be
+            // "above" the current vertex (in fact it is at the same y but on its left which
+            // counts as above). Since we can't come back in time to process the intersection
+            // before the current vertex, we can only cheat by moving the interseciton down by
+            // one unit.
+            if !is_below_int(evt.point, current_position) {
+                evt.point.y = current_position.y + 1;
+                edge.lower = evt.point;
             }
+
+            let mut e1 = Edge { upper: evt.point, lower: evt.lower1 };
+            let mut e2 = Edge { upper: evt.point, lower: evt.lower2 };
+            // Same deal with the precision issues here. In this case we can just flip the new
+            // edge so that its upper member is indeed above the lower one.
+            if is_below_int(e1.upper, e1.lower) { swap(&mut e1.upper, &mut e1.lower); }
+            if is_below_int(e2.upper, e2.lower) { swap(&mut e2.upper, &mut e2.lower); }
+
+            if self.log {
+                println!(" set span[{:?}].{:?}.lower = {:?} (was {:?}",
+                    span_idx, side, evt.point.tuple(),
+                    self.sweep_line[span_idx].mut_edge(side).lower.tuple()
+                );
+            }
+
             self.sweep_line[span_idx].mut_edge(side).lower = evt.point;
-            self.intersections.push(evt);
+            self.intersections.push(e1);
+            self.intersections.push(e2);
             // TODO lazily sort intersections next time we read from the vector or
             // do a sorted insertion.
-            self.intersections.sort_by(|a, b| { compare_positions(a.point, b.point) });
+            self.intersections.sort_by(|a, b| { compare_positions(a.upper, b.upper) });
         }
     }
 
@@ -1352,7 +1370,6 @@ fn test_rust_logo() {
 }
 
 #[test]
-#[ignore]
 fn test_rust_logo_with_intersection() {
     let mut path = flattened_path_builder();
 
@@ -1367,7 +1384,6 @@ fn test_rust_logo_with_intersection() {
     let path = path.build();
 
     test_path_with_rotations(path, 0.011, None);
-    //test_path_with_rotation(&path, 1.1439997, None);
 }
 
 #[test]
@@ -1508,8 +1524,14 @@ fn test_chained_merge_split() {
 // TODO: Check that chained merge events can't mess with the way we handle complex events.
 
 #[test]
-#[ignore]
-fn test_logo_with_intersection_reduced() {
+fn test_intersection_horizontal_precision() {
+    // TODO make a cleaner test case exercising the same edge case.
+    // This test has an almost horizontal segment e1 going from right to left intersected
+    // by another segment e2. Since e1 is almost horizontal the intersection point ends up
+    // with the same y coordinate and at the left of the current position when it is found.
+    // The difficulty is that the intersection is therefore technically "above" the current
+    // position, but we can't allow that because the ordering of the events is a strong
+    // invariant of the algorithm.
     let mut builder = flattened_path_builder();
 
     builder.move_to(vec2(-34.619564, 111.88655));
