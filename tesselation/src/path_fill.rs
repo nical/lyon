@@ -144,6 +144,9 @@ pub struct FillTesselator {
     intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
     previous_position: IntVec2,
+    scale: f32,
+    inv_scale: f32,
+    translation: Vec2,
     log: bool,
 }
 
@@ -156,12 +159,28 @@ impl FillTesselator {
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
             previous_position: int_vec2(i32::MIN, i32::MIN),
+            scale: 1000.0,
+            inv_scale: 0.001,
+            translation: vec2(0.0, 0.0),
             log: false,
         }
     }
 
     /// Enable some verbose logging during the tesselation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
+
+    /// The length in world space of one tesselator unit.
+    /// The tesselator unit defines the precision of the tesselator.
+    pub fn set_unit_scale(&mut self, factor: f32) {
+        self.scale = factor;
+        self.inv_scale = 1.0 / factor;
+    }
+
+    /// A translation can be defined in addition to the unit scale to avoid overflowing
+    /// the tesselator's coordinate range.
+    pub fn set_translation(&mut self, v: Vec2) {
+        self.translation = v;
+    }
 
     /// Compute the tesselation (fill).
     ///
@@ -179,9 +198,6 @@ impl FillTesselator {
         let mut next_edge = edge_iter.next();
         let mut next_vertex = vertex_iter.next();
         loop {
-            #[derive(PartialEq, Debug)]
-            enum Source { NoSource, Edge, Vertex, Intersection };
-
             let mut next_position = None;
             let mut pending_events = false;
 
@@ -763,11 +779,12 @@ impl FillTesselator {
     }
 
     fn to_internal(&self, v: Vec2) -> IntVec2 {
-        int_vec2((v.x * 1000.0) as i32, (v.y * 1000.0) as i32)
+        let v = v + self.translation;
+        int_vec2((v.x * self.scale) as i32, (v.y * self.scale) as i32)
     }
 
     fn to_vec2(&self, v: IntVec2) -> Vec2 {
-        vec2(v.x as f32 * 0.001, v.y as f32 * 0.001)
+        vec2(v.x as f32 * self.inv_scale, v.y as f32 * self.inv_scale) - self.translation
     }
 
     fn check_sl(&self, current: IntVec2) {
@@ -1587,7 +1604,6 @@ fn reduced_test_case() {
 }
 
 #[test]
-#[ignore]
 fn test_colinear_1() {
     let mut builder = flattened_path_builder();
     builder.move_to(vec2(20.0, 150.0));
@@ -1600,7 +1616,6 @@ fn test_colinear_1() {
 }
 
 #[test]
-#[ignore]
 fn test_colinear_2() {
     let mut builder = flattened_path_builder();
     builder.move_to(vec2(20.0, 150.0));
@@ -1631,7 +1646,6 @@ fn test_colinear_3() {
 }
 
 #[test]
-#[ignore] // TODO
 fn test_colinear_4() {
     // The path goes back and forth along a line.
     let mut builder = flattened_path_builder();
@@ -1706,8 +1720,7 @@ fn test_coincident_simple_rotated() {
 }
 
 #[test]
-#[ignore] // TODO
-fn test_identical_square_failing() {
+fn test_identical_squares() {
     // Two identical sub paths. It's a pretty much the worst type of input for
     // the tesselator as far as I know.
     let mut builder = flattened_path_builder();
