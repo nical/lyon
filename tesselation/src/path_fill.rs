@@ -23,130 +23,41 @@ use vertex_builder::{ VertexBuffers, simple_vertex_builder };
 #[cfg(test)]
 use path_builder::{ flattened_path_builder, };
 
-struct Intersection {
-    point: IntVec2,
-    lower1: IntVec2,
-    lower2: IntVec2,
-}
+pub type FillResult = Result<(Range, Range), FillError>;
 
-pub type FillResult = Result<(Range, Range), ()>;
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum Side { Left, Right }
-
-impl Side {
-    pub fn opposite(self) -> Side {
-        match self {
-            Side::Left => Side::Right,
-            Side::Right => Side::Left,
-        }
-    }
-
-    pub fn is_left(self) -> bool { self == Side::Left }
-
-    pub fn is_right(self) -> bool { self == Side::Right }
-}
-
-#[derive(Copy, Clone, Debug)]
-struct SpanEdge {
-    upper: IntVec2,
-    lower: IntVec2,
-    upper_id: VertexId,
-    merge: bool,
-}
-
-#[derive(Copy, Clone, Debug)]
-struct Vertex {
-    position: IntVec2,
-    id: VertexId,
+#[derive(Clone, Debug)]
+pub enum FillError {
+    Unknown,
 }
 
 #[derive(Copy, Clone, Debug)]
 struct Edge {
-    upper: IntVec2,
-    lower: IntVec2,
-}
-
-struct Span {
-    left: SpanEdge,
-    right: SpanEdge,
-}
-
-impl Span {
-    fn begin(current: IntVec2, id: VertexId, left: IntVec2, right: IntVec2) -> Span {
-        Span {
-            left: SpanEdge {
-                upper: current,
-                lower: left,
-                upper_id: id,
-                merge: false,
-            },
-            right: SpanEdge {
-                upper: current,
-                lower: right,
-                upper_id: id,
-                merge: false,
-            },
-        }
-    }
-
-    fn edge(&mut self,
-        edge: Edge,
-        id: VertexId,
-        side: Side
-    ) {
-        self.set_upper_vertex(edge.upper, id, side);
-        self.set_lower_vertex(edge.lower, side);
-    }
-
-    fn merge_vertex(&mut self, vertex: IntVec2, id: VertexId, side: Side) {
-        self.set_upper_vertex(vertex, id, side);
-        self.mut_edge(side).merge = true;
-    }
-
-    fn set_upper_vertex(&mut self, vertex: IntVec2, id: VertexId, side: Side) {
-        self.mut_edge(side).upper = vertex;
-        self.mut_edge(side).upper_id = id;
-    }
-
-    fn set_lower_vertex(&mut self, vertex: IntVec2, side: Side) {
-        let mut edge = self.mut_edge(side);
-        edge.lower = vertex;
-        edge.merge = false;
-    }
-
-    fn mut_edge(&mut self, side: Side) -> &mut SpanEdge {
-        return match side {
-            Side::Left => { &mut self.left }
-            Side::Right => { &mut self.right }
-        };
-    }
+    upper: IntPoint,
+    lower: IntPoint,
 }
 
 #[derive(Clone, Debug)]
 struct EdgeBelow {
     // The upper vertex is the current vertex, we don't need to store it.
-    lower: IntVec2,
+    lower: IntPoint,
     angle: f32,
-}
-
-struct Events {
-    edges: Vec<Edge>,
-    vertices: Vec<IntVec2>,
 }
 
 /// A Context object that can tesselate fill operations for complex paths.
 ///
-/// The Tesselator API is not stable yet.
+/// The Tesselator API is not stable yet. For example it is not clear whether we will use
+/// separate Tesselator structs for some of the different configurations (vertex-aa, etc),
+/// or if evertything can be implemented with the same algorithm.
 pub struct FillTesselator {
     sweep_line: Vec<Span>,
     monotone_tesselators: Vec<MonotoneTesselator>,
     intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
-    previous_position: IntVec2,
+    previous_position: IntPoint,
     scale: f32,
     inv_scale: f32,
-    translation: Vec2,
+    translation: Point,
+    error: Option<FillError>,
     log: bool,
 }
 
@@ -162,8 +73,29 @@ impl FillTesselator {
             scale: 1000.0,
             inv_scale: 0.001,
             translation: vec2(0.0, 0.0),
+            error: None,
             log: false,
         }
+    }
+
+    /// Compute the tesselation.
+    pub fn tesselate<Output: VertexBufferBuilder<Point>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
+
+        let events = self.initialize_events(path);
+
+        self.begin_tesselation(output);
+
+        self.tesselator_loop(&events, output);
+
+        let ranges = self.end_tesselation(output);
+
+        let mut error = None;
+        swap(&mut error, &mut self.error);
+        if let Some(err) = error {
+            return Err(err);
+        }
+
+        return Ok(ranges);
     }
 
     /// Enable some verbose logging during the tesselation, for debugging purposes.
@@ -178,19 +110,67 @@ impl FillTesselator {
 
     /// A translation can be defined in addition to the unit scale to avoid overflowing
     /// the tesselator's coordinate range.
-    pub fn set_translation(&mut self, v: Vec2) {
+    pub fn set_translation(&mut self, v: Point) {
         self.translation = v;
     }
 
-    /// Compute the tesselation (fill).
-    ///
-    /// This is where most of the interesting things happen.
-    pub fn tesselate<Output: VertexBufferBuilder<Vec2>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
+    fn begin_tesselation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
+        debug_assert!(self.sweep_line.is_empty());
+        debug_assert!(self.monotone_tesselators.is_empty());
+        debug_assert!(self.below.is_empty());
+        output.begin_geometry();
+    }
 
-        self.begin_tesselation(output);
+    fn end_tesselation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) -> (Range, Range) {
+        debug_assert!(self.sweep_line.is_empty());
+        debug_assert!(self.monotone_tesselators.is_empty());
+        debug_assert!(self.below.is_empty());
+        return output.end_geometry();
+    }
 
-        let events = self.initialize_events(path);
+    fn initialize_events(&mut self, path: PathSlice) -> Events {
+        let mut events = Events {
+            edges: Vec::with_capacity(512),
+            vertices: Vec::with_capacity(64),
+        };
 
+        for sub_path in path.path_ids() {
+            for vertex in path.vertex_ids(sub_path) {
+                let mut a = self.to_internal(path.vertex(vertex).position);
+                let mut next = self.to_internal(path.vertex(path.next(vertex)).position);
+                let prev = self.to_internal(path.vertex(path.previous(vertex)).position);
+
+                let a_below_next = is_below_int(a, next);
+                let a_below_prev = is_below_int(a, prev);
+
+                if a_below_next && a_below_prev {
+                    // End or merge event don't necessarily have edges below but we need to
+                    // process them.
+                    events.vertices.push(a);
+                }
+
+                if a_below_next {
+                    swap(&mut a, &mut next);
+                }
+
+                if a == next {
+                    continue;
+                }
+
+                events.edges.push(Edge { upper: a, lower: next });
+            }
+        }
+
+        events.edges.sort_by(|a, b|{ compare_positions(a.upper, b.upper) });
+        events.vertices.sort_by(|a, b|{ compare_positions(*a, *b) });
+
+        return events;
+    }
+
+    fn tesselator_loop<Output: VertexBufferBuilder<Point>>(&mut self,
+        events: &Events,
+        output: &mut Output
+    ) {
         let mut current_position = int_vec2(i32::MIN, i32::MIN);
 
         let mut edge_iter = events.edges.iter();
@@ -198,6 +178,10 @@ impl FillTesselator {
         let mut next_edge = edge_iter.next();
         let mut next_vertex = vertex_iter.next();
         loop {
+            if self.error.is_some() {
+                return;
+            }
+
             let mut next_position = None;
             let mut pending_events = false;
 
@@ -270,92 +254,19 @@ impl FillTesselator {
                 current_position = position;
                 if self.log { println!(" -- current_position is now {:?}", position.tuple()); }
             } else {
-                let ranges = self.end_tesselation(output);
-                return Ok(ranges);
+                return;
             }
         }
     }
 
-    fn begin_tesselation<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) {
-        debug_assert!(self.sweep_line.is_empty());
-        debug_assert!(self.monotone_tesselators.is_empty());
-        debug_assert!(self.below.is_empty());
-        output.begin_geometry();
-    }
-
-    fn end_tesselation<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) -> (Range, Range) {
-        debug_assert!(self.sweep_line.is_empty());
-        debug_assert!(self.monotone_tesselators.is_empty());
-        debug_assert!(self.below.is_empty());
-        return output.end_geometry();
-    }
-
-    fn initialize_events(&mut self, path: PathSlice) -> Events {
-        let mut events = Events {
-            edges: Vec::with_capacity(512),
-            vertices: Vec::with_capacity(64),
-        };
-
-        for sub_path in path.path_ids() {
-            for vertex in path.vertex_ids(sub_path) {
-                let mut a = self.to_internal(path.vertex(vertex).position);
-                let mut next = self.to_internal(path.vertex(path.next(vertex)).position);
-                let prev = self.to_internal(path.vertex(path.previous(vertex)).position);
-
-                let a_below_next = is_below_int(a, next);
-                let a_below_prev = is_below_int(a, prev);
-
-                if a_below_next && a_below_prev {
-                    // End or merge event don't necessarily have edges below but we need to
-                    // process them.
-                    events.vertices.push(a);
-                }
-
-                if a_below_next {
-                    swap(&mut a, &mut next);
-                }
-
-                if a == next {
-                    continue;
-                }
-
-                if self.log {
-                    println!(" event {:?} next {:?} {:?}, prev {:?} {:?}", a, next, a_below_next, prev, a_below_prev);
-                }
-
-                events.edges.push(Edge { upper: a, lower: next });
-            }
-        }
-
-        events.edges.sort_by(|a, b|{ compare_positions(a.upper, b.upper) });
-        events.vertices.sort_by(|a, b|{ compare_positions(*a, *b) });
-
-        if self.log {
-            println!(" -- {} edges and {} vertices", events.edges.len(), events.vertices.len());
-        }
-
-        return events;
-    }
-
-    fn process_vertex<Output: VertexBufferBuilder<Vec2>>(&mut self, current_position: IntVec2, output: &mut Output) {
-
-        if self.log {
-            println!("\n_______________\n");
-        }
+    fn process_vertex<Output: VertexBufferBuilder<Point>>(&mut self, current_position: IntPoint, output: &mut Output) {
 
         let vec2_position = self.to_vec2(current_position);
         let id = vertex_id(output.push_vertex(vec2_position));
-        let current = Vertex { position: current_position, id: id };
 
         self.below.sort_by(|a, b| {
             a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
         });
-
-        if self.log {
-            for b in &self.below {
-                println!(" below angle {:?}", b.angle);
-            }
-        }
 
         // Walk the sweep line to determine where we are with respect to the
         // existing spans.
@@ -365,12 +276,9 @@ impl FillTesselator {
         enum E { In, Out, LeftEdge, RightEdge };
         let mut status = E::Out;
 
-        if self.log {
-            self.print_sl();
-            self.print_sl_at(current_position.y);
-        }
-
         for span in &self.sweep_line {
+            // TODO: the computation here can be reduced since test_span_side and
+            // test_span_touches share a lot of the logic.
 
             if test_span_touches(&span.left, current_position) {
                 status = E::LeftEdge;
@@ -396,7 +304,9 @@ impl FillTesselator {
         }
 
         if self.log {
-            self.log_sl();
+            println!("\n\n\n\n");
+            self.log_sl_ids();
+            self.log_sl_points_at(current_position.y);
             println!("\n ----- current: {:?} ------ {:?} {:?}", current_position, start_span, status);
             for b in &self.below {
                 println!("   -- below: {:?}", b);
@@ -422,14 +332,17 @@ impl FillTesselator {
                     // span index to process the merge.
                     pending_merge = true;
                 } else {
+                    // Right event.
+                    //
+                    //   ..../
+                    //   ...x
+                    //   ....\
+                    //
                     if self.log { println!("(right event) {}", start_span); }
-                    let edge = Edge {
-                        upper: current_position,
-                        lower: self.below[0].lower,
-                    };
-                    self.insert_edge(
-                        start_span, Side::Right, edge, id,
-                    );
+
+                    let edge = Edge { upper: current_position, lower: self.below[0].lower };
+                    self.insert_edge(start_span, Side::Right, edge, id);
+
                     // update the initial state for the pass that will handle
                     // the edges below the current vertex.
                     start_span += 1;
@@ -441,10 +354,6 @@ impl FillTesselator {
             }
         }
 
-        if self.log {
-            println!(" -- start_span {} span_idx {}", start_span, span_idx);
-        }
-
         // Count the number of remaining edges above the sweep line that end at
         // the current position.
         for span in &self.sweep_line[span_idx..] {
@@ -453,14 +362,8 @@ impl FillTesselator {
             // Here it is tempting to assume that we can only have end events
             // if left_interects && right_intersects, but we also need to take merge
             // vertices into account.
-            if left {
-                if self.log { println!(" -- touch left"); }
-                above_count += 1;
-            }
-            if right {
-                if self.log { println!(" -- touch right"); }
-                above_count += 1;
-            }
+            if left { above_count += 1; }
+            if right { above_count += 1; }
 
             // We can't assume that if left and right are false we are already past
             // the current point because both sides of the span could be in the merge state.
@@ -469,29 +372,45 @@ impl FillTesselator {
             debug_assert!(!right || left || span.left.merge);
         }
 
-        if self.log {
-            println!(" -- above count {}", above_count);
-        }
-
         // Pairs of edges that end at the current position form "end events".
         // By construction we know that they are on the same spans.
         while above_count >= 2 {
-            if self.log { println!("(end event)"); }
+            // End event.
+            //
+            //   \.../
+            //    \./
+            //     x
+            //
+            if self.log { println!("(end event) {}", span_idx); }
 
-            self.resolve_merge_vertices(span_idx, current.position, current.id, output);
-            self.end_span(span_idx, current, output);
+            self.resolve_merge_vertices(span_idx, current_position, id, output);
+            self.end_span(span_idx, current_position, id, output);
 
             above_count -= 2;
         }
 
         if pending_merge {
-            debug_assert!(above_count == 1);
-            if self.log { println!("(merge event)"); }
-            self.merge_event(current, start_span, output)
-        } else if above_count == 1 {
-            if self.log { println!("(left event) {}", span_idx); }
-            assert!(below_count > 0);
+            // Merge event.
+            //
+            // ...\   /...
+            // ....\ /....
+            // .....x.....
+            //
+            if self.log { println!("(merge event) {}", start_span); }
 
+            debug_assert!(above_count == 1);
+            self.merge_event(current_position, id, start_span, output)
+
+        } else if above_count == 1 {
+            // Left event.
+            //
+            //     /...
+            //    x....
+            //     \...
+            //
+            if self.log { println!("(left event) {}", span_idx); }
+
+            debug_assert!(below_count > 0);
             self.resolve_merge_vertices(span_idx, current_position, id, output);
 
             let vertex_below = self.below[self.below.len()-1].lower;
@@ -505,7 +424,7 @@ impl FillTesselator {
 
         // Since we took care of left and right event already we should not have
         // an odd number of edges to work with below the current vertex by now.
-        assert!(below_count % 2 == 0);
+        debug_assert!(below_count % 2 == 0);
 
         // reset span_idx for the next pass.
         let mut span_idx = start_span;
@@ -513,7 +432,14 @@ impl FillTesselator {
         // Step 2, handle edges below the current vertex.
         if below_count > 0 {
             if status == E::In {
-                if self.log { println!("(split event)"); }
+                // Split event.
+                //
+                // .....x.....
+                // ..../ \....
+                // .../   \...
+                //
+                if self.log { println!("(split event) {}", start_span); }
+
                 let left = self.below[0].clone();
                 let right = self.below[below_count-1].clone();
                 self.split_event(start_span, current_position, id, left, right, output);
@@ -522,6 +448,12 @@ impl FillTesselator {
             }
 
             while below_count >= 2 {
+                // Start event.
+                //
+                //      x
+                //     /.\
+                //    /...\
+                //
                 if self.log { println!("(start event) {}", span_idx); }
 
                 let l = self.below[below_idx].lower;
@@ -540,7 +472,7 @@ impl FillTesselator {
             }
         }
 
-        self.check_sl(current_position);
+        self.debug_check_sl(current_position);
 
         self.below.clear();
     }
@@ -548,9 +480,9 @@ impl FillTesselator {
     // Look for eventual merge vertices on this span above the current vertex, and connect
     // them to the current vertex.
     // This should be called when processing a vertex that is on the left side of a span.
-    fn resolve_merge_vertices<Output: VertexBufferBuilder<Vec2>>(&mut self,
+    fn resolve_merge_vertices<Output: VertexBufferBuilder<Point>>(&mut self,
         span_idx: usize,
-        current: IntVec2, id: VertexId,
+        current: IntPoint, id: VertexId,
         output: &mut Output
     ) {
         while self.sweep_line[span_idx].right.merge {
@@ -559,19 +491,15 @@ impl FillTesselator {
             //   \ :
             //    x   <-- current vertex
             self.sweep_line[span_idx+1].set_lower_vertex(current, Side::Left);
-            self.end_span(span_idx, Vertex { position: current, id: id }, output);
+            self.end_span(span_idx, current, id, output);
         }
     }
 
-    fn split_event<Output: VertexBufferBuilder<Vec2>>(&mut self,
-        span_idx: usize, current: IntVec2, id: VertexId,
+    fn split_event<Output: VertexBufferBuilder<Point>>(&mut self,
+        span_idx: usize, current: IntPoint, id: VertexId,
         left: EdgeBelow, right: EdgeBelow,
         output: &mut Output
     ) {
-        if self.log {
-            println!(" ++++++ Split event {} (span {})", id.handle, span_idx);
-        }
-
         // Look whether the span shares a merge vertex with the previous one
         if self.sweep_line[span_idx].left.merge {
             let left_span = span_idx-1;
@@ -627,12 +555,12 @@ impl FillTesselator {
         }
     }
 
-    fn merge_event<Output: VertexBufferBuilder<Vec2>>(&mut self, vertex: Vertex, span_idx: usize, output: &mut Output) {
-        if self.log {
-            println!(" ++++++ Merge event {} (span {})", vertex.id.handle, span_idx);
-        }
-
-        assert!(span_idx < self.sweep_line.len()-1);
+    fn merge_event<Output: VertexBufferBuilder<Point>>(&mut self,
+        position: IntPoint, id: VertexId,
+        span_idx: usize,
+        output: &mut Output
+    ) {
+        debug_assert!(span_idx < self.sweep_line.len()-1);
 
         let left_span = span_idx;
         let right_span = span_idx+1;
@@ -640,15 +568,15 @@ impl FillTesselator {
         //     / \ /
         //  \ / .-x    <-- merge vertex
         //   x-'      <-- current merge vertex
-        self.resolve_merge_vertices(right_span, vertex.position, vertex.id, output);
+        self.resolve_merge_vertices(right_span, position, id, output);
 
-        let vec2_position = self.to_vec2(vertex.position);
+        let vec2_position = self.to_vec2(position);
 
-        self.sweep_line[left_span].merge_vertex(vertex.position, vertex.id, Side::Right);
-        self.monotone_tesselators[left_span].vertex(vec2_position, vertex.id, Side::Right);
+        self.sweep_line[left_span].merge_vertex(position, id, Side::Right);
+        self.monotone_tesselators[left_span].vertex(vec2_position, id, Side::Right);
 
-        self.sweep_line[right_span].merge_vertex(vertex.position, vertex.id, Side::Left);
-        self.monotone_tesselators[right_span].vertex(vec2_position, vertex.id, Side::Left);
+        self.sweep_line[right_span].merge_vertex(position, id, Side::Left);
+        self.monotone_tesselators[right_span].vertex(vec2_position, id, Side::Left);
     }
 
     fn insert_edge(&mut self,
@@ -667,6 +595,8 @@ impl FillTesselator {
     }
 
     fn check_intersections(&mut self, edge: &mut Edge) {
+        struct Intersection { point: IntPoint, lower1: IntPoint, lower2: IntPoint }
+
         let original_edge = *edge;
         let mut intersection = None;
         let mut span_idx = 0;
@@ -764,44 +694,49 @@ impl FillTesselator {
         }
     }
 
-    fn end_span<Output: VertexBufferBuilder<Vec2>>(&mut self, span_idx: usize, vertex: Vertex, output: &mut Output) {
-        if self.log {
-            println!("     end span {} (vertex: {})", span_idx, vertex.id.handle);
-        }
-        let vec2_position = self.to_vec2(vertex.position);
+    fn end_span<Output: VertexBufferBuilder<Point>>(&mut self,
+        span_idx: usize, position: IntPoint, id: VertexId, output: &mut Output
+    ) {
+        let vec2_position = self.to_vec2(position);
         {
             let tess = &mut self.monotone_tesselators[span_idx];
-            tess.end(vec2_position, vertex.id);
+            tess.end(vec2_position, id);
             tess.flush(output);
         }
         self.sweep_line.remove(span_idx);
         self.monotone_tesselators.remove(span_idx);
     }
 
-    fn to_internal(&self, v: Vec2) -> IntVec2 {
+    fn error(&mut self, err: FillError) {
+        if self.log {
+            println!(" !! FillTesselator Error {:?}", err);
+        }
+        self.error = Some(err);
+    }
+
+    fn to_internal(&self, v: Point) -> IntPoint {
         let v = v + self.translation;
         int_vec2((v.x * self.scale) as i32, (v.y * self.scale) as i32)
     }
 
-    fn to_vec2(&self, v: IntVec2) -> Vec2 {
+    fn to_vec2(&self, v: IntPoint) -> Point {
         vec2(v.x as f32 * self.inv_scale, v.y as f32 * self.inv_scale) - self.translation
     }
 
-    fn check_sl(&self, current: IntVec2) {
+    fn debug_check_sl(&self, current: IntPoint) {
         for span in &self.sweep_line {
             if !span.left.merge {
-                assert!(!is_below_int(current, span.left.lower));
-                assert!(!is_below_int(span.left.upper, span.left.lower));
+                debug_assert!(!is_below_int(current, span.left.lower));
+                debug_assert!(!is_below_int(span.left.upper, span.left.lower));
             }
             if !span.right.merge {
-                assert!(!is_below_int(current, span.right.lower));
-                assert!(!is_below_int(span.right.upper, span.right.lower));
+                debug_assert!(!is_below_int(current, span.right.lower));
+                debug_assert!(!is_below_int(span.right.upper, span.right.lower));
             }
         }
     }
 
-    /// Print the current state of the sweep line for debgging purposes.
-    fn log_sl(&self) {
+    fn log_sl_ids(&self) {
         print!("\n|  sl: ");
         for span in &self.sweep_line {
             let ml = if span.left.merge { "*" } else { " " };
@@ -811,7 +746,7 @@ impl FillTesselator {
         println!("");
     }
 
-    fn print_sl(&self) {
+    fn log_sl_points(&self) {
         print!("\n sl: [");
         for span in &self.sweep_line {
             print!("| l:{:?} ", span.left.upper.tuple());
@@ -834,7 +769,7 @@ impl FillTesselator {
         println!("]\n");
     }
 
-    fn print_sl_at(&self, y: i32) {
+    fn log_sl_points_at(&self, y: i32) {
         print!("\nat y={}  sl: [", y);
         for span in &self.sweep_line {
             if span.left.merge {
@@ -854,7 +789,7 @@ impl FillTesselator {
     }
 }
 
-fn compare_positions(a: IntVec2, b: IntVec2) -> Ordering {
+fn compare_positions(a: IntPoint, b: IntPoint) -> Ordering {
     if a.y > b.y { return Ordering::Greater; }
     if a.y < b.y { return Ordering::Less; }
     if a.x > b.x { return Ordering::Greater; }
@@ -862,7 +797,7 @@ fn compare_positions(a: IntVec2, b: IntVec2) -> Ordering {
     return Ordering::Equal;
 }
 
-fn test_span_side(span_edge: &SpanEdge, position: IntVec2) -> bool {
+fn test_span_side(span_edge: &SpanEdge, position: IntPoint) -> bool {
     if span_edge.merge {
         return false;
     }
@@ -887,7 +822,7 @@ fn test_span_side(span_edge: &SpanEdge, position: IntVec2) -> bool {
     return (position.y - from.y) as i64 * vx >= (position.x - from.x) as i64 * vy;
 }
 
-fn test_span_touches(span_edge: &SpanEdge, position: IntVec2) -> bool {
+fn test_span_touches(span_edge: &SpanEdge, position: IntPoint) -> bool {
     if span_edge.merge {
         return false;
     }
@@ -907,9 +842,147 @@ fn test_span_touches(span_edge: &SpanEdge, position: IntVec2) -> bool {
     return (position.y - from.y) as i64 * vx == (position.x - from.x) as i64 * vy;
 }
 
-/// helper class that generates a triangulation from a sequence of vertices describing a monotone
+struct Span {
+    left: SpanEdge,
+    right: SpanEdge,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct SpanEdge {
+    upper: IntPoint,
+    lower: IntPoint,
+    upper_id: VertexId,
+    merge: bool,
+}
+
+impl Span {
+    fn begin(current: IntPoint, id: VertexId, left: IntPoint, right: IntPoint) -> Span {
+        Span {
+            left: SpanEdge {
+                upper: current,
+                lower: left,
+                upper_id: id,
+                merge: false,
+            },
+            right: SpanEdge {
+                upper: current,
+                lower: right,
+                upper_id: id,
+                merge: false,
+            },
+        }
+    }
+
+    fn edge(&mut self,
+        edge: Edge,
+        id: VertexId,
+        side: Side
+    ) {
+        self.set_upper_vertex(edge.upper, id, side);
+        self.set_lower_vertex(edge.lower, side);
+    }
+
+    fn merge_vertex(&mut self, vertex: IntPoint, id: VertexId, side: Side) {
+        self.set_upper_vertex(vertex, id, side);
+        self.mut_edge(side).merge = true;
+    }
+
+    fn set_upper_vertex(&mut self, vertex: IntPoint, id: VertexId, side: Side) {
+        self.mut_edge(side).upper = vertex;
+        self.mut_edge(side).upper_id = id;
+    }
+
+    fn set_lower_vertex(&mut self, vertex: IntPoint, side: Side) {
+        let mut edge = self.mut_edge(side);
+        edge.lower = vertex;
+        edge.merge = false;
+    }
+
+    fn mut_edge(&mut self, side: Side) -> &mut SpanEdge {
+        return match side {
+            Side::Left => { &mut self.left }
+            Side::Right => { &mut self.right }
+        };
+    }
+}
+
+struct Events {
+    edges: Vec<Edge>,
+    vertices: Vec<IntPoint>,
+}
+
+pub enum FillRule {
+    EvenOdd,
+    NonZero,
+}
+
+/// Parameters for the tesselator.
+///
+/// Not used yet (only one configuration supported).
+pub struct TesselatorConfig {
+    /// See the SVG specification.
+    ///
+    /// Currently, only the EvenOdd rule is implemented.
+    pub fill_rule: FillRule,
+
+    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
+    /// a gradient to smooth the edges.
+    ///
+    /// Not implemented yet!
+    pub vertex_aa: bool,
+
+    /// If set to false, the tesselator will separate the quadratic bezier segments
+    /// from the rest of the shape so that their tesselation can be done separately,
+    /// for example in a fragment shader.
+    ///
+    /// Not implemented yet!
+    pub flatten_curves: bool,
+}
+
+impl TesselatorConfig {
+    pub fn new() -> TesselatorConfig { TesselatorConfig::even_odd() }
+
+    pub fn even_odd() -> TesselatorConfig {
+        TesselatorConfig {
+            fill_rule: FillRule::EvenOdd,
+            vertex_aa: false,
+            flatten_curves: true,
+        }
+    }
+
+    pub fn non_zero() -> TesselatorConfig {
+        TesselatorConfig {
+            fill_rule: FillRule::NonZero,
+            vertex_aa: false,
+            flatten_curves: true,
+        }
+    }
+
+    pub fn with_vertex_aa(mut self) -> TesselatorConfig {
+        self.vertex_aa = true;
+        return self;
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Side { Left, Right }
+
+impl Side {
+    pub fn opposite(self) -> Side {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+
+    pub fn is_left(self) -> bool { self == Side::Left }
+
+    pub fn is_right(self) -> bool { self == Side::Right }
+}
+
+/// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon.
-struct MonotoneTesselator {
+pub struct MonotoneTesselator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
     triangles: Vec<(u16, u16, u16)>,
@@ -917,16 +990,14 @@ struct MonotoneTesselator {
 
 #[derive(Copy, Clone, Debug)]
 struct MonotoneVertex {
-    pos: Vec2,
+    pos: Point,
     id: VertexId,
     side: Side,
 }
 
 impl MonotoneTesselator {
-    pub fn begin(pos: Vec2, id: VertexId) -> MonotoneTesselator {
+    pub fn begin(pos: Point, id: VertexId) -> MonotoneTesselator {
         let first = MonotoneVertex { pos: pos, id: id, side: Side::Left };
-
-        //println!(" @@@ begin monotone vertex: {:?}", pos.tuple());
 
         let mut tess = MonotoneTesselator {
             stack: Vec::with_capacity(16),
@@ -939,13 +1010,12 @@ impl MonotoneTesselator {
         return tess;
     }
 
-    pub fn vertex(&mut self, pos: Vec2, id: VertexId, side: Side) {
+    pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
         let current = MonotoneVertex{ pos: pos, id: id, side: side };
         let right_side = current.side == Side::Right;
 
-        //println!(" @@@ monotone vertex: {:?} (was {:?})", current.pos.tuple(), self.previous.pos.tuple());
-        assert!(is_below(current.pos, self.previous.pos));
-        assert!(!self.stack.is_empty());
+        debug_assert!(is_below(current.pos, self.previous.pos));
+        debug_assert!(!self.stack.is_empty());
 
         let changed_side = current.side != self.previous.side;
 
@@ -990,9 +1060,8 @@ impl MonotoneTesselator {
         return;
     }
 
-    pub fn end(&mut self, pos: Vec2, id: VertexId) {
+    pub fn end(&mut self, pos: Point, id: VertexId) {
         let side = self.previous.side.opposite();
-        //println!(" @@@ end monotone tesselator with stack {}", self.stack.len());
         self.vertex(pos, id, side);
         self.stack.clear();
     }
@@ -1007,7 +1076,7 @@ impl MonotoneTesselator {
         }
     }
 
-    fn flush<Output: VertexBufferBuilder<Vec2>>(&mut self, output: &mut Output) {
+    fn flush<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
         for &(a, b, c) in &self.triangles {
             output.push_indices(a, b, c);
         }
@@ -1059,60 +1128,9 @@ fn test_monotone_tess() {
     println!(" ------------ ");
 }
 
-pub enum FillRule {
-    EvenOdd,
-    NonZero,
-}
-
-/// Parameters for the tesselator.
-pub struct TesselatorConfig {
-    /// See the SVG specification.
-    ///
-    /// Currently, only the EvenOdd rule is implemented.
-    pub fill_rule: FillRule,
-
-    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
-    /// a gradient to smooth the edges.
-    ///
-    /// Not implemented yet!
-    pub vertex_aa: bool,
-
-    /// If set to false, the tesselator will separate the quadratic bezier segments
-    /// from the rest of the shape so that their tesselation can be done separately,
-    /// for example in a fragment shader.
-    ///
-    /// Not implemented yet!
-    pub flatten_curves: bool,
-}
-
-impl TesselatorConfig {
-    pub fn new() -> TesselatorConfig { TesselatorConfig::even_odd() }
-
-    pub fn even_odd() -> TesselatorConfig {
-        TesselatorConfig {
-            fill_rule: FillRule::EvenOdd,
-            vertex_aa: false,
-            flatten_curves: true,
-        }
-    }
-
-    pub fn non_zero() -> TesselatorConfig {
-        TesselatorConfig {
-            fill_rule: FillRule::NonZero,
-            vertex_aa: false,
-            flatten_curves: true,
-        }
-    }
-
-    pub fn with_vertex_aa(mut self) -> TesselatorConfig {
-        self.vertex_aa = true;
-        return self;
-    }
-}
-
 #[cfg(test)]
-fn tesselate(path: PathSlice, log: bool) -> Result<usize, ()> {
-    let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
+fn tesselate(path: PathSlice, log: bool) -> Result<usize, FillError> {
+    let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
         let mut tess = FillTesselator::new();
