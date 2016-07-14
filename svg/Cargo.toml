@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_tesselation = { version = "0.0.3", path = "../tesselation" }
+lyon_tessellation = { version = "0.0.3", path = "../tessellation" }
 lyon_core = { version = "0.0.3", path = "../core" }
 lyon_extra = { version = "0.0.3", path = "../extra" }
 

@@ -1,4 +1,4 @@
-//! Tesselation routines for complex path fill operations.
+//! Tessellation routines for complex path fill operations.
 
 use std::f32::consts::PI;
 use std::i32;
@@ -78,16 +78,16 @@ impl FillTesselator {
         }
     }
 
-    /// Compute the tesselation.
+    /// Compute the tessellation.
     pub fn tesselate<Output: VertexBufferBuilder<Point>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
 
         let events = self.initialize_events(path);
 
-        self.begin_tesselation(output);
+        self.begin_tessellation(output);
 
         self.tesselator_loop(&events, output);
 
-        let ranges = self.end_tesselation(output);
+        let ranges = self.end_tessellation(output);
 
         let mut error = None;
         swap(&mut error, &mut self.error);
@@ -98,7 +98,7 @@ impl FillTesselator {
         return Ok(ranges);
     }
 
-    /// Enable some verbose logging during the tesselation, for debugging purposes.
+    /// Enable some verbose logging during the tessellation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
 
     /// The length in world space of one tesselator unit.
@@ -114,14 +114,14 @@ impl FillTesselator {
         self.translation = v;
     }
 
-    fn begin_tesselation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
+    fn begin_tessellation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tesselators.is_empty());
         debug_assert!(self.below.is_empty());
         output.begin_geometry();
     }
 
-    fn end_tesselation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) -> (Range, Range) {
+    fn end_tessellation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) -> (Range, Range) {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tesselators.is_empty());
         debug_assert!(self.below.is_empty());
@@ -932,7 +932,7 @@ pub struct TesselatorConfig {
     pub vertex_aa: bool,
 
     /// If set to false, the tesselator will separate the quadratic bezier segments
-    /// from the rest of the shape so that their tesselation can be done separately,
+    /// from the rest of the shape so that their tessellation can be done separately,
     /// for example in a fragment shader.
     ///
     /// Not implemented yet!

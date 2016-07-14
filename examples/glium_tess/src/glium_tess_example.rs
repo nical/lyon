@@ -10,10 +10,10 @@ use glium::DisplayBuild;
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
 use lyon::math::*;
-use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
-use lyon::tesselation::basic_shapes::*;
-use lyon::tesselation::path_fill::FillTesselator;
-use lyon::tesselation::path_stroke::StrokeTesselator;
+use lyon::tessellation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
+use lyon::tessellation::basic_shapes::*;
+use lyon::tessellation::path_fill::FillTesselator;
+use lyon::tessellation::path_stroke::StrokeTesselator;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -112,7 +112,7 @@ fn main() {
     // building the display, ie. the main object
     let display = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
-        .with_title("tesselation".to_string())
+        .with_title("tessellation".to_string())
         .with_multisampling(8)
         .with_vsync()
         .build_glium().unwrap();

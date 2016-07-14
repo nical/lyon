@@ -1,4 +1,4 @@
-//! Tesselation routines for path stroke operations.
+//! Tessellation routines for path stroke operations.
 //!
 //! The current implementation is pretty bad and does not deal with overlap in an svg-compliant
 //! way.

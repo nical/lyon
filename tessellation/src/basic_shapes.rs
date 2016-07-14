@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-//! Tesselation routines for simple shapes.
+//! Tessellation routines for simple shapes.
 
 use vertex_builder::VertexBufferBuilder;
 use super::{ Index };

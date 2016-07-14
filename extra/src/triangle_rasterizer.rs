@@ -2,7 +2,7 @@ use math::*;
 use image::MutableImageSlice;
 
 /// A software triangle rasterizer intended for ref testing and to help debugging
-/// the output of the various tesselation routines.
+/// the output of the various tessellation routines.
 ///
 /// The triangles are defined by sequences of 3 indices in the input buffers.
 /// For example, the first triangle is:
