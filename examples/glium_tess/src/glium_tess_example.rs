@@ -61,7 +61,7 @@ fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
 
 fn main() {
 
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
 
     build_logo_path(&mut builder);
 
@@ -113,6 +113,8 @@ fn main() {
     let display = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
         .with_title("tesselation".to_string())
+        .with_multisampling(8)
+        .with_vsync()
         .build_glium().unwrap();
 
     let model_vbo = glium::VertexBuffer::new(&display, &vertices[..]).unwrap();

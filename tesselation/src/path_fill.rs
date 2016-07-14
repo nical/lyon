@@ -1190,7 +1190,7 @@ fn test_path_with_rotation(path: &Path, angle: f32, expected_triangle_count: Opt
 
 #[test]
 fn test_simple_triangle() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 1.0));
     path.line_to(vec2(0.0, 1.0));
@@ -1201,7 +1201,7 @@ fn test_simple_triangle() {
 
 #[test]
 fn test_simple_monotone() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(-1.0, 1.0));
     path.line_to(vec2(-3.0, 2.0));
@@ -1216,7 +1216,7 @@ fn test_simple_monotone() {
 
 #[test]
 fn test_simple_split() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 1.0));
     path.line_to(vec2(2.0, 3.0));
@@ -1229,7 +1229,7 @@ fn test_simple_split() {
 
 #[test]
 fn test_simple_merge_split() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 1.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1243,7 +1243,7 @@ fn test_simple_merge_split() {
 
 #[test]
 fn test_simple_aligned() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1259,7 +1259,7 @@ fn test_simple_aligned() {
 
 #[test]
 fn test_simple_1() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 1.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1273,7 +1273,7 @@ fn test_simple_1() {
 
 #[test]
 fn test_simple_2() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 0.0));
@@ -1293,7 +1293,7 @@ fn test_simple_2() {
 
 #[test]
 fn test_hole_1() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(-11.0, 5.0));
     path.line_to(vec2(0.0, -5.0));
     path.line_to(vec2(10.0, 5.0));
@@ -1314,7 +1314,7 @@ fn test_degenerate_empty() {
 
 #[test]
 fn test_degenerate_same_position() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(0.0, 0.0));
     path.line_to(vec2(0.0, 0.0));
@@ -1335,7 +1335,7 @@ fn test_auto_intersection_type1() {
     //    / \
     //  o.___\
     //       'o
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 1.0));
     path.line_to(vec2(0.0, 2.0));
@@ -1355,7 +1355,7 @@ fn test_auto_intersection_type2() {
     //  | / \ |
     //  o'   \|
     //        o
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(2.0, 3.0));
     path.line_to(vec2(2.0, 1.0));
@@ -1378,7 +1378,7 @@ fn test_auto_intersection_multi() {
     //  |_\___/_|
     //     \ /
     //      '
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
     path.move_to(vec2(20.0, 20.0));
     path.line_to(vec2(60.0, 20.0));
     path.line_to(vec2(60.0, 60.0));
@@ -1397,7 +1397,7 @@ fn test_auto_intersection_multi() {
 
 #[test]
 fn test_rust_logo() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     ::lyon_extra::rust_logo::build_logo_path(&mut path);
 
@@ -1406,7 +1406,7 @@ fn test_rust_logo() {
 
 #[test]
 fn test_rust_logo_with_intersection() {
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     ::lyon_extra::rust_logo::build_logo_path(&mut path);
 
@@ -1434,7 +1434,7 @@ fn test_rust_logo_scale_up() {
     // The goal of this test is to check how resistent the tesselator is against integer
     // overflows, and catch regressions.
 
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     ::lyon_extra::rust_logo::build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -1451,7 +1451,7 @@ fn test_rust_logo_scale_up_failing() {
     //   a way that is less subject to overflows.
     // * See if we can define a safe interval where no path can trigger overflows and scale
     //   all paths to this interval internally in the tesselator.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     ::lyon_extra::rust_logo::build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -1463,7 +1463,7 @@ fn test_rust_logo_scale_up_failing() {
 fn test_rust_logo_scale_down() {
     // The goal of this test is to check that the tesselator can handle very small geometry.
 
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     ::lyon_extra::rust_logo::build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -1476,7 +1476,7 @@ fn test_rust_logo_scale_down() {
 fn test_rust_logo_scale_down_failing() {
     // Issues with very small paths.
 
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     ::lyon_extra::rust_logo::build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -1494,7 +1494,7 @@ fn test_double_merge() {
     //
     // The test case generated from a reduced rotation of
     // test_rust_logo_with_intersection
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     path.move_to(vec2(80.041534, 19.24472));
     path.line_to(vec2(76.56131, 23.062233));
@@ -1525,7 +1525,7 @@ fn test_chained_merge_end() {
     //     \    /
     //      \  /
     //       \/        < -- end
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     path.move_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 1.0)); // <-- merge
@@ -1550,7 +1550,7 @@ fn test_chained_merge_left() {
     // |            |
     //  \           |  <-- left
     //   \          |
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     path.move_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 1.0)); // <-- merge
@@ -1575,7 +1575,7 @@ fn test_chained_merge_merge() {
     //    /          \/  |  <-- merge
     // |\/               |  <-- merge (resolving)
     // |_________________|
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     path.move_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 1.0)); // <-- merge
@@ -1602,7 +1602,7 @@ fn test_chained_merge_split() {
     // |        \/  |  <-- merge
     // |            |
     // |     /\     |  <-- split
-    let mut path = flattened_path_builder();
+    let mut path = flattened_path_builder(0.05);
 
     path.move_to(vec2(1.0, 0.0));
     path.line_to(vec2(2.0, 1.0)); // <-- merge
@@ -1630,7 +1630,7 @@ fn test_intersection_horizontal_precision() {
     // The difficulty is that the intersection is therefore technically "above" the current
     // position, but we can't allow that because the ordering of the events is a strong
     // invariant of the algorithm.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
 
     builder.move_to(vec2(-34.619564, 111.88655));
     builder.line_to(vec2(-35.656174, 111.891));
@@ -1651,7 +1651,7 @@ fn test_split_with_intersections() {
     // were found during a split event, due to the sweep line beeing into a temporarily
     // inconsistent state when insert_edge was called.
 
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
 
     builder.move_to(vec2(-21.004179, -71.57515));
     builder.line_to(vec2(-21.927473, -70.94977));
@@ -1669,7 +1669,7 @@ fn test_split_with_intersections() {
 
 #[test]
 fn reduced_test_case() {
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
 
     builder.move_to(vec2(-21.004179, -71.57515));
     builder.line_to(vec2(-21.927473, -70.94977));
@@ -1686,7 +1686,7 @@ fn reduced_test_case() {
 
 #[test]
 fn test_colinear_1() {
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(20.0, 150.0));
     builder.line_to(vec2(80.0, 150.0));
     builder.close();
@@ -1698,7 +1698,7 @@ fn test_colinear_1() {
 
 #[test]
 fn test_colinear_2() {
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(20.0, 150.0));
     builder.line_to(vec2(80.0, 150.0));
     builder.line_to(vec2(20.0, 150.0));
@@ -1712,7 +1712,7 @@ fn test_colinear_2() {
 #[test]
 #[ignore] // TODO
 fn test_colinear_3() {
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     // The path goes through many points along a line.
     builder.move_to(vec2(0.0, 1.0));
     builder.line_to(vec2(0.0, 3.0));
@@ -1729,7 +1729,7 @@ fn test_colinear_3() {
 #[test]
 fn test_colinear_4() {
     // The path goes back and forth along a line.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 2.0));
     builder.line_to(vec2(0.0, 1.0));
     builder.line_to(vec2(0.0, 3.0));
@@ -1750,7 +1750,7 @@ fn test_coincident_simple() {
     // 2   3
 
     // A self-intersecting path with two points at the same position.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));
     builder.line_to(vec2(1.0, 1.0)); // <--
     builder.line_to(vec2(0.0, 2.0));
@@ -1768,7 +1768,7 @@ fn test_coincident_simple() {
 #[test]
 fn test_coincident_simple_2() {
     // A self-intersecting path with two points at the same position.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));
     builder.line_to(vec2(1.0, 1.0)); // <--
     builder.line_to(vec2(2.0, 0.0));
@@ -1786,7 +1786,7 @@ fn test_coincident_simple_2() {
 fn test_coincident_simple_rotated() {
     // Same as test_coincident_simple with the usual rotations
     // applied.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));
     builder.line_to(vec2(1.0, 1.0)); // <--
     builder.line_to(vec2(0.0, 2.0));
@@ -1804,7 +1804,7 @@ fn test_coincident_simple_rotated() {
 fn test_identical_squares() {
     // Two identical sub paths. It's a pretty much the worst type of input for
     // the tesselator as far as I know.
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));
     builder.line_to(vec2(1.0, 0.0));
     builder.line_to(vec2(1.0, 1.0));

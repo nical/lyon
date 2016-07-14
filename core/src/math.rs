@@ -2,6 +2,7 @@ use euclid;
 
 pub type Point = euclid::Point2D<f32>;
 pub type IntPoint = euclid::Point2D<i32>;
+// Point and Vec2 are the same type but they should probably be separate types.
 pub type Vec2 = euclid::Point2D<f32>;
 pub type IntVec2 = euclid::Point2D<i32>;
 pub type Size = euclid::Size2D<f32>;
@@ -14,6 +15,7 @@ pub type IntVec3 = euclid::Point3D<i32>;
 
 pub type Mat4 = euclid::Matrix4D<f32>;
 
+pub fn point(x: f32, y: f32) -> Point { vec2(x, y) }
 pub fn vec2(x: f32, y: f32) -> Vec2 { Vec2::new(x, y) }
 pub fn int_vec2(x: i32, y: i32) -> IntVec2 { IntVec2::new(x, y) }
 pub fn size(w: f32, h: f32) -> Size { Size::new(w, h) }
