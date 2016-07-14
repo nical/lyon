@@ -43,14 +43,14 @@ struct EdgeBelow {
     angle: f32,
 }
 
-/// A Context object that can tesselate fill operations for complex paths.
+/// A Context object that can tessellate fill operations for complex paths.
 ///
-/// The Tesselator API is not stable yet. For example it is not clear whether we will use
-/// separate Tesselator structs for some of the different configurations (vertex-aa, etc),
+/// The Tessellator API is not stable yet. For example it is not clear whether we will use
+/// separate Tessellator structs for some of the different configurations (vertex-aa, etc),
 /// or if evertything can be implemented with the same algorithm.
-pub struct FillTesselator {
+pub struct FillTessellator {
     sweep_line: Vec<Span>,
-    monotone_tesselators: Vec<MonotoneTesselator>,
+    monotone_tessellators: Vec<MonotoneTessellator>,
     intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
     previous_position: IntPoint,
@@ -61,12 +61,12 @@ pub struct FillTesselator {
     log: bool,
 }
 
-impl FillTesselator {
+impl FillTessellator {
     /// Constructor.
-    pub fn new() -> FillTesselator {
-        FillTesselator {
+    pub fn new() -> FillTessellator {
+        FillTessellator {
             sweep_line: Vec::with_capacity(16),
-            monotone_tesselators: Vec::with_capacity(16),
+            monotone_tessellators: Vec::with_capacity(16),
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
             previous_position: int_vec2(i32::MIN, i32::MIN),
@@ -79,13 +79,13 @@ impl FillTesselator {
     }
 
     /// Compute the tessellation.
-    pub fn tesselate<Output: VertexBufferBuilder<Point>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
+    pub fn tessellate<Output: VertexBufferBuilder<Point>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
 
         let events = self.initialize_events(path);
 
         self.begin_tessellation(output);
 
-        self.tesselator_loop(&events, output);
+        self.tessellator_loop(&events, output);
 
         let ranges = self.end_tessellation(output);
 
@@ -101,29 +101,29 @@ impl FillTesselator {
     /// Enable some verbose logging during the tessellation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
 
-    /// The length in world space of one tesselator unit.
-    /// The tesselator unit defines the precision of the tesselator.
+    /// The length in world space of one tessellator unit.
+    /// The tessellator unit defines the precision of the tessellator.
     pub fn set_unit_scale(&mut self, factor: f32) {
         self.scale = factor;
         self.inv_scale = 1.0 / factor;
     }
 
     /// A translation can be defined in addition to the unit scale to avoid overflowing
-    /// the tesselator's coordinate range.
+    /// the tessellator's coordinate range.
     pub fn set_translation(&mut self, v: Point) {
         self.translation = v;
     }
 
     fn begin_tessellation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
         debug_assert!(self.sweep_line.is_empty());
-        debug_assert!(self.monotone_tesselators.is_empty());
+        debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
         output.begin_geometry();
     }
 
     fn end_tessellation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) -> (Range, Range) {
         debug_assert!(self.sweep_line.is_empty());
-        debug_assert!(self.monotone_tesselators.is_empty());
+        debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
         return output.end_geometry();
     }
@@ -167,7 +167,7 @@ impl FillTesselator {
         return events;
     }
 
-    fn tesselator_loop<Output: VertexBufferBuilder<Point>>(&mut self,
+    fn tessellator_loop<Output: VertexBufferBuilder<Point>>(&mut self,
         events: &Events,
         output: &mut Output
     ) {
@@ -464,7 +464,7 @@ impl FillTesselator {
                 self.check_intersections(&mut right_edge);
                 self.sweep_line.insert(span_idx, Span::begin(current_position, id, left_edge.lower, right_edge.lower));
                 let vec2_position = self.to_vec2(current_position);
-                self.monotone_tesselators.insert(span_idx, MonotoneTesselator::begin(vec2_position, id));
+                self.monotone_tessellators.insert(span_idx, MonotoneTessellator::begin(vec2_position, id));
 
                 below_idx += 2;
                 below_count -= 2;
@@ -537,8 +537,8 @@ impl FillTesselator {
                 span_idx, Span::begin(ll.upper, ll.upper_id, ll.lower, current)
             );
             let vec2_position = self.to_vec2(ll.upper);
-            self.monotone_tesselators.insert(
-                span_idx, MonotoneTesselator::begin(vec2_position, ll.upper_id)
+            self.monotone_tessellators.insert(
+                span_idx, MonotoneTessellator::begin(vec2_position, ll.upper_id)
             );
             self.sweep_line[span_idx+1].left.upper = r2.upper;
             self.sweep_line[span_idx+1].left.lower = r2.lower;
@@ -573,10 +573,10 @@ impl FillTesselator {
         let vec2_position = self.to_vec2(position);
 
         self.sweep_line[left_span].merge_vertex(position, id, Side::Right);
-        self.monotone_tesselators[left_span].vertex(vec2_position, id, Side::Right);
+        self.monotone_tessellators[left_span].vertex(vec2_position, id, Side::Right);
 
         self.sweep_line[right_span].merge_vertex(position, id, Side::Left);
-        self.monotone_tesselators[right_span].vertex(vec2_position, id, Side::Left);
+        self.monotone_tessellators[right_span].vertex(vec2_position, id, Side::Left);
     }
 
     fn insert_edge(&mut self,
@@ -590,7 +590,7 @@ impl FillTesselator {
         // This sets the merge flag to false.
         self.sweep_line[span_idx].edge(edge, id, side);
         let vec2_position = self.to_vec2(edge.upper);
-        self.monotone_tesselators[span_idx].vertex(vec2_position, id, side);
+        self.monotone_tessellators[span_idx].vertex(vec2_position, id, side);
 
     }
 
@@ -699,17 +699,17 @@ impl FillTesselator {
     ) {
         let vec2_position = self.to_vec2(position);
         {
-            let tess = &mut self.monotone_tesselators[span_idx];
+            let tess = &mut self.monotone_tessellators[span_idx];
             tess.end(vec2_position, id);
             tess.flush(output);
         }
         self.sweep_line.remove(span_idx);
-        self.monotone_tesselators.remove(span_idx);
+        self.monotone_tessellators.remove(span_idx);
     }
 
     fn error(&mut self, err: FillError) {
         if self.log {
-            println!(" !! FillTesselator Error {:?}", err);
+            println!(" !! FillTessellator Error {:?}", err);
         }
         self.error = Some(err);
     }
@@ -916,10 +916,10 @@ pub enum FillRule {
     NonZero,
 }
 
-/// Parameters for the tesselator.
+/// Parameters for the tessellator.
 ///
 /// Not used yet (only one configuration supported).
-pub struct TesselatorConfig {
+pub struct TessellatorConfig {
     /// See the SVG specification.
     ///
     /// Currently, only the EvenOdd rule is implemented.
@@ -931,7 +931,7 @@ pub struct TesselatorConfig {
     /// Not implemented yet!
     pub vertex_aa: bool,
 
-    /// If set to false, the tesselator will separate the quadratic bezier segments
+    /// If set to false, the tessellator will separate the quadratic bezier segments
     /// from the rest of the shape so that their tessellation can be done separately,
     /// for example in a fragment shader.
     ///
@@ -939,26 +939,26 @@ pub struct TesselatorConfig {
     pub flatten_curves: bool,
 }
 
-impl TesselatorConfig {
-    pub fn new() -> TesselatorConfig { TesselatorConfig::even_odd() }
+impl TessellatorConfig {
+    pub fn new() -> TessellatorConfig { TessellatorConfig::even_odd() }
 
-    pub fn even_odd() -> TesselatorConfig {
-        TesselatorConfig {
+    pub fn even_odd() -> TessellatorConfig {
+        TessellatorConfig {
             fill_rule: FillRule::EvenOdd,
             vertex_aa: false,
             flatten_curves: true,
         }
     }
 
-    pub fn non_zero() -> TesselatorConfig {
-        TesselatorConfig {
+    pub fn non_zero() -> TessellatorConfig {
+        TessellatorConfig {
             fill_rule: FillRule::NonZero,
             vertex_aa: false,
             flatten_curves: true,
         }
     }
 
-    pub fn with_vertex_aa(mut self) -> TesselatorConfig {
+    pub fn with_vertex_aa(mut self) -> TessellatorConfig {
         self.vertex_aa = true;
         return self;
     }
@@ -981,8 +981,8 @@ impl Side {
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
-/// polygon (used internally by the FillTesselator).
-pub struct MonotoneTesselator {
+/// polygon (used internally by the FillTessellator).
+pub struct MonotoneTessellator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
     triangles: Vec<(u16, u16, u16)>,
@@ -995,11 +995,11 @@ struct MonotoneVertex {
     side: Side,
 }
 
-impl MonotoneTesselator {
-    pub fn begin(pos: Point, id: VertexId) -> MonotoneTesselator {
+impl MonotoneTessellator {
+    pub fn begin(pos: Point, id: VertexId) -> MonotoneTessellator {
         let first = MonotoneVertex { pos: pos, id: id, side: Side::Left };
 
-        let mut tess = MonotoneTesselator {
+        let mut tess = MonotoneTessellator {
             stack: Vec::with_capacity(16),
             triangles: Vec::with_capacity(128),
             previous: first,
@@ -1088,14 +1088,14 @@ impl MonotoneTesselator {
 fn test_monotone_tess() {
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
+        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(-1.0, 1.0), vertex_id(1), Side::Left);
         tess.end(vec2(1.0, 2.0), vertex_id(2));
         assert_eq!(tess.triangles.len(), 1);
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
+        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(1.0, 1.0), vertex_id(1), Side::Right);
         tess.vertex(vec2(-1.5, 2.0), vertex_id(2), Side::Left);
         tess.vertex(vec2(-1.0, 3.0), vertex_id(3), Side::Left);
@@ -1105,7 +1105,7 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
+        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(1.0, 1.0), vertex_id(1), Side::Right);
         tess.vertex(vec2(3.0, 2.0), vertex_id(2), Side::Right);
         tess.vertex(vec2(1.0, 3.0), vertex_id(3), Side::Right);
@@ -1116,7 +1116,7 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTesselator::begin(vec2(0.0, 0.0), vertex_id(0));
+        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), vertex_id(0));
         tess.vertex(vec2(-1.0, 1.0), vertex_id(1), Side::Left);
         tess.vertex(vec2(-3.0, 2.0), vertex_id(2), Side::Left);
         tess.vertex(vec2(-1.0, 3.0), vertex_id(3), Side::Left);
@@ -1129,27 +1129,27 @@ fn test_monotone_tess() {
 }
 
 #[cfg(test)]
-fn tesselate(path: PathSlice, log: bool) -> Result<usize, FillError> {
+fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_vertex_builder(&mut buffers);
-        let mut tess = FillTesselator::new();
+        let mut tess = FillTessellator::new();
         if log {
             tess.enable_logging();
         }
-        try!{ tess.tesselate(path, &mut vertex_builder) };
+        try!{ tess.tessellate(path, &mut vertex_builder) };
     }
     return Ok(buffers.indices.len()/3);
 }
 
 #[cfg(test)]
 fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
-    let res = ::std::panic::catch_unwind(|| { tesselate(path, false) });
+    let res = ::std::panic::catch_unwind(|| { tessellate(path, false) });
 
     if let Ok(Ok(num_triangles)) = res {
         if let Some(expected_triangles) = expected_triangle_count {
             if num_triangles != expected_triangles {
-                tesselate(path, true).unwrap();
+                tessellate(path, true).unwrap();
                 panic!("expected {} triangles, got {}", expected_triangles, num_triangles);
             }
         }
@@ -1157,10 +1157,10 @@ fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
     }
 
     ::lyon_extra::debugging::find_reduced_test_case(path, &|path: Path|{
-        return tesselate(path.as_slice(), false).is_err();
+        return tessellate(path.as_slice(), false).is_err();
     });
 
-    tesselate(path, true).unwrap();
+    tessellate(path, true).unwrap();
     panic!();
 }
 
@@ -1431,7 +1431,7 @@ fn scale_path(slice: super::MutVertexSlice<PointData>, scale: f32) {
 
 #[test]
 fn test_rust_logo_scale_up() {
-    // The goal of this test is to check how resistent the tesselator is against integer
+    // The goal of this test is to check how resistent the tessellator is against integer
     // overflows, and catch regressions.
 
     let mut builder = flattened_path_builder(0.05);
@@ -1445,12 +1445,12 @@ fn test_rust_logo_scale_up() {
 #[test]
 #[ignore] // TODO
 fn test_rust_logo_scale_up_failing() {
-    // This test triggers integers overflow in the tesselator.
+    // This test triggers integers overflow in the tessellator.
     // In order to fix this type issue we need to:
     // * Look at the computation that is casuing trouble and see if it can be expressed in
     //   a way that is less subject to overflows.
     // * See if we can define a safe interval where no path can trigger overflows and scale
-    //   all paths to this interval internally in the tesselator.
+    //   all paths to this interval internally in the tessellator.
     let mut builder = flattened_path_builder(0.05);
     ::lyon_extra::rust_logo::build_logo_path(&mut builder);
     let mut path = builder.build();
@@ -1461,7 +1461,7 @@ fn test_rust_logo_scale_up_failing() {
 
 #[test]
 fn test_rust_logo_scale_down() {
-    // The goal of this test is to check that the tesselator can handle very small geometry.
+    // The goal of this test is to check that the tessellator can handle very small geometry.
 
     let mut builder = flattened_path_builder(0.05);
     ::lyon_extra::rust_logo::build_logo_path(&mut builder);
@@ -1723,7 +1723,7 @@ fn test_colinear_3() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true).unwrap();
+    tessellate(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -1738,7 +1738,7 @@ fn test_colinear_4() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true).unwrap();
+    tessellate(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -1761,7 +1761,7 @@ fn test_coincident_simple() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true).unwrap();
+    tessellate(path.as_slice(), true).unwrap();
     //test_path_with_rotations(path, 0.01, None);
 }
 
@@ -1779,7 +1779,7 @@ fn test_coincident_simple_2() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true).unwrap();
+    tessellate(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -1803,7 +1803,7 @@ fn test_coincident_simple_rotated() {
 #[test]
 fn test_identical_squares() {
     // Two identical sub paths. It's a pretty much the worst type of input for
-    // the tesselator as far as I know.
+    // the tessellator as far as I know.
     let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));
     builder.line_to(vec2(1.0, 0.0));
@@ -1818,5 +1818,5 @@ fn test_identical_squares() {
 
     let path = builder.build();
 
-    tesselate(path.as_slice(), true).unwrap();
+    tessellate(path.as_slice(), true).unwrap();
 }

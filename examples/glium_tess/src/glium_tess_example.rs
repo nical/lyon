@@ -12,8 +12,8 @@ use lyon::path_builder::*;
 use lyon::math::*;
 use lyon::tessellation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::path_fill::FillTesselator;
-use lyon::tessellation::path_stroke::StrokeTesselator;
+use lyon::tessellation::path_fill::FillTessellator;
+use lyon::tessellation::path_stroke::StrokeTessellator;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -75,24 +75,24 @@ fn main() {
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
-    FillTesselator::new().tesselate(
+    FillTessellator::new().tessellate(
         path.as_slice(),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
     ).unwrap();
 
-    StrokeTesselator::new().tesselate(
+    StrokeTessellator::new().tessellate(
         path.as_slice(), 1.0,
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
     ).unwrap();
 
 
     for p in path.vertices().as_slice() {
-        tesselate_ellipsis(p.position, vec2(1.0, 1.0), 16,
+        tessellate_ellipsis(p.position, vec2(1.0, 1.0), 16,
             &mut vertex_builder(&mut buffers,
                 VertexCtor{ color: [0.0, 0.0, 0.0] }
             )
         );
-        tesselate_ellipsis(p.position, vec2(0.5, 0.5), 16,
+        tessellate_ellipsis(p.position, vec2(0.5, 0.5), 16,
             &mut vertex_builder(&mut buffers,
                 VertexCtor{ color: [0.0, 1.0, 0.0] }
             )
@@ -104,7 +104,7 @@ fn main() {
     println!(" -- {} vertices {} indices", vertices.len(), indices.len());
 
     let mut bg_buffers: VertexBuffers<BgVertex> = VertexBuffers::new();
-    tesselate_rectangle(
+    tessellate_rectangle(
         &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
         &mut vertex_builder(&mut bg_buffers, BgVertexCtor)
     );

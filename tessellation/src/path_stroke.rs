@@ -9,17 +9,17 @@ use math::*;
 use path::*;
 use vertex_builder::{ VertexBufferBuilder, Range, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
-use basic_shapes::{ tesselate_quad };
+use basic_shapes::{ tessellate_quad };
 use super::{ VertexId };
 
 pub type StrokeResult = Result<(Range, Range), ()>;
 
-pub struct StrokeTesselator {}
+pub struct StrokeTessellator {}
 
-impl StrokeTesselator {
-    pub fn new() -> StrokeTesselator { StrokeTesselator {} }
+impl StrokeTessellator {
+    pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
-    pub fn tesselate<Output: VertexBufferBuilder<Vec2>>(
+    pub fn tessellate<Output: VertexBufferBuilder<Vec2>>(
         &mut self,
         path: PathSlice,
         thickness: f32,
@@ -27,14 +27,14 @@ impl StrokeTesselator {
     )  -> StrokeResult {
         output.begin_geometry();
         for p in path.path_ids() {
-            tesselate_sub_path_stroke(path.sub_path(p), thickness, output);
+            tessellate_sub_path_stroke(path.sub_path(p), thickness, output);
         }
         let ranges = output.end_geometry();
         return Ok(ranges);
     }
 }
 
-fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
+fn tessellate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
     path: SubPathSlice,
     thickness: f32,
     output: &mut Output
@@ -58,8 +58,8 @@ fn tesselate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
         p2 = p2 - (d * 0.5);
 
         if i != first || done {
-            // TODO: should reuse vertices instead of tesselating quads
-            tesselate_quad(prev_v1, prev_v2, p2, p1, output);
+            // TODO: should reuse vertices instead of tessellating quads
+            tessellate_quad(prev_v1, prev_v2, p2, p1, output);
         }
 
         if done {

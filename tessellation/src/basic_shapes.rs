@@ -17,7 +17,7 @@ pub struct RoundedRect {
     bottom_right_radius: f32,
 }
 
-pub fn tesselate_triangle<Input, Output: VertexBufferBuilder<Input>>(
+pub fn tessellate_triangle<Input, Output: VertexBufferBuilder<Input>>(
     v1: Input,
     v2: Input,
     v3: Input,
@@ -30,7 +30,7 @@ pub fn tesselate_triangle<Input, Output: VertexBufferBuilder<Input>>(
     output.push_indices(a, b, c);
 }
 
-pub fn tesselate_quad<Input, Output: VertexBufferBuilder<Input>>(
+pub fn tessellate_quad<Input, Output: VertexBufferBuilder<Input>>(
     v1: Input,
     v2: Input,
     v3: Input,
@@ -46,11 +46,11 @@ pub fn tesselate_quad<Input, Output: VertexBufferBuilder<Input>>(
     output.push_indices(a, c, d);
 }
 
-pub fn tesselate_rectangle<Output: VertexBufferBuilder<Vec2>>(
+pub fn tessellate_rectangle<Output: VertexBufferBuilder<Vec2>>(
     rect: &Rect,
     output: &mut Output,
 ) {
-    tesselate_quad(
+    tessellate_quad(
         rect.origin,
         rect.top_right(),
         rect.bottom_right(),
@@ -59,12 +59,12 @@ pub fn tesselate_rectangle<Output: VertexBufferBuilder<Vec2>>(
     );
 }
 
-pub fn tesselate_rectangle_with_uv<A, Output: VertexBufferBuilder<(Vec2, Vec2)>>(
+pub fn tessellate_rectangle_with_uv<A, Output: VertexBufferBuilder<(Vec2, Vec2)>>(
     rect: &Rect,
     uv: &Rect,
     output: &mut Output,
 ) {
-    tesselate_quad(
+    tessellate_quad(
         (rect.origin, uv.origin),
         (rect.top_right(), uv.top_right()),
         (rect.bottom_right(), uv.bottom_right()),
@@ -73,7 +73,7 @@ pub fn tesselate_rectangle_with_uv<A, Output: VertexBufferBuilder<(Vec2, Vec2)>>
     );
 }
 
-pub fn tesselate_rounded_rectangle<Output: VertexBufferBuilder<Vec2>>(
+pub fn tessellate_rounded_rectangle<Output: VertexBufferBuilder<Vec2>>(
     _rect: &RoundedRect,
     output: &mut Output
 ) {
@@ -81,7 +81,7 @@ pub fn tesselate_rounded_rectangle<Output: VertexBufferBuilder<Vec2>>(
     unimplemented!()
 }
 
-pub fn tesselate_ellipsis<Output: VertexBufferBuilder<Vec2>>(
+pub fn tessellate_ellipsis<Output: VertexBufferBuilder<Vec2>>(
     center: Vec2,
     radius: Vec2,
     num_vertices: u32,
