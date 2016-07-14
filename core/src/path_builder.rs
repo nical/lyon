@@ -1,6 +1,8 @@
 //! Tools to build path objects from a sequence of imperative commands.
 
 use path::*;
+use math::*;
+use math_utils::fuzzy_eq;
 use bezier::*;
 use arc::arc_to_cubic_beziers;
 
@@ -9,8 +11,6 @@ use super::{
 //    crash,
 };
 
-use vodk_math::{ Vec2, vec2, Rect };
-
 /// Builder for paths that can contain lines, and quadratic/cubic bezier segments.
 pub type BezierPathBuilder = SvgPathBuilder<PrimitiveImpl>;
 
@@ -18,8 +18,8 @@ pub type BezierPathBuilder = SvgPathBuilder<PrimitiveImpl>;
 pub type FlattenedPathBuilder = SvgPathBuilder<FlattenedBuilder<PrimitiveImpl>>;
 
 /// FlattenedPathBuilder constructor.
-pub fn flattened_path_builder() -> FlattenedPathBuilder {
-    SvgPathBuilder::from_builder(FlattenedBuilder::new(PrimitiveImpl::new(),0.05))
+pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder {
+    SvgPathBuilder::from_builder(FlattenedBuilder::new(PrimitiveImpl::new(), tolerance))
 }
 
 /// BezierPathBuilder constructor.
@@ -32,13 +32,13 @@ pub fn bezier_path_builder() -> BezierPathBuilder {
 pub trait PrimitiveBuilder {
     type PathType;
 
-    fn move_to(&mut self, to: Vec2);
-    fn line_to(&mut self, to: Vec2);
-    fn quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
-    fn cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2);
+    fn move_to(&mut self, to: Point);
+    fn line_to(&mut self, to: Point);
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
     fn end(&mut self) -> PathId;
     fn close(&mut self) -> PathId;
-    fn current_position(&self) -> Vec2;
+    fn current_position(&self) -> Point;
 
     fn build(self) -> Self::PathType;
 }
@@ -50,22 +50,22 @@ pub trait SvgBuilder : PrimitiveBuilder {
     fn relative_line_to(&mut self, to: Vec2);
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2);
-    fn cubic_bezier_smooth_to(&mut self, ctrl2: Vec2, to: Vec2);
+    fn cubic_bezier_smooth_to(&mut self, ctrl2: Point, to: Point);
     fn relative_cubic_bezier_smooth_to(&mut self, ctrl2: Vec2, to: Vec2);
-    fn quadratic_bezier_smooth_to(&mut self, to: Vec2);
+    fn quadratic_bezier_smooth_to(&mut self, to: Point);
     fn relative_quadratic_bezier_smooth_to(&mut self, to: Vec2);
     fn horizontal_line_to(&mut self, x: f32);
     fn relative_horizontal_line_to(&mut self, dx: f32);
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: f32, flags: ArcFlags);
     fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
 }
 
 /// Build a path from a simple list of points.
 pub trait PolygonBuilder {
-    fn polygon(&mut self, points: &[Vec2]) -> PathId;
+    fn polygon(&mut self, points: &[Point]) -> PathId;
 }
 
 /// Flag parameters for arcs as described by the SVG specification.
@@ -78,7 +78,7 @@ pub struct ArcFlags {
 /// Implements the Svg building interface on top of the a primitive builder.
 pub struct SvgPathBuilder<Builder: PrimitiveBuilder> {
     builder: Builder,
-    last_ctrl: Vec2,
+    last_ctrl: Point,
 }
 
 impl<Builder: PrimitiveBuilder> SvgPathBuilder<Builder> {
@@ -93,33 +93,33 @@ impl<Builder: PrimitiveBuilder> SvgPathBuilder<Builder> {
 impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
-    fn move_to(&mut self, to: Vec2) {
+    fn move_to(&mut self, to: Point) {
         self.last_ctrl = to;
         self.builder.move_to(to);
     }
 
-    fn line_to(&mut self, to: Vec2) {
+    fn line_to(&mut self, to: Point) {
         self.last_ctrl = self.current_position();
         self.builder.line_to(to);
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.last_ctrl = ctrl;
         self.builder.quadratic_bezier_to(ctrl, to);
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         self.last_ctrl = ctrl2;
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
     fn end(&mut self) -> PathId {
-        self.last_ctrl = vec2(0.0, 0.0);
+        self.last_ctrl = point(0.0, 0.0);
         self.builder.end()
     }
 
     fn close(&mut self) -> PathId {
-        self.last_ctrl = vec2(0.0, 0.0);
+        self.last_ctrl = point(0.0, 0.0);
         self.builder.close()
     }
 
@@ -151,7 +151,7 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.cubic_bezier_to(ctrl1 + offset, ctrl2 + offset, to + offset);
     }
 
-    fn cubic_bezier_smooth_to(&mut self, ctrl2: Vec2, to: Vec2) {
+    fn cubic_bezier_smooth_to(&mut self, ctrl2: Point, to: Point) {
         let ctrl = self.builder.current_position() + (self.builder.current_position() - self.last_ctrl);
         self.cubic_bezier_to(ctrl, ctrl2, to);
     }
@@ -161,7 +161,7 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.relative_cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    fn quadratic_bezier_smooth_to(&mut self, to: Vec2) {
+    fn quadratic_bezier_smooth_to(&mut self, to: Point) {
         let ctrl = self.builder.current_position() + (self.builder.current_position() - self.last_ctrl);
         self.quadratic_bezier_to(ctrl, to);
     }
@@ -192,7 +192,7 @@ impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     }
 
     // x_rotation in radian
-    fn arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
+    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
 
         // If end and starting point are identical, then there is not ellipse to be drawn
         if self.current_position() == to {
@@ -233,17 +233,17 @@ pub struct PrimitiveImpl {
 impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
     type PathType = Builder::PathType;
 
-    fn move_to(&mut self, to: Vec2) { self.builder.move_to(to); }
+    fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
 
-    fn line_to(&mut self, to: Vec2) { self.builder.line_to(to); }
+    fn line_to(&mut self, to: Point) { self.builder.line_to(to); }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         let from = self.current_position();
         let cubic = QuadraticBezierSegment { from: from, cp: ctrl, to: to }.to_cubic();
         flatten_cubic_bezier(cubic, self.tolerance, self);
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         flatten_cubic_bezier(
             CubicBezierSegment{
                 from: self.current_position(),
@@ -260,7 +260,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
 
     fn close(&mut self) -> PathId { self.builder.close() }
 
-    fn current_position(&self) -> Vec2 { self.builder.current_position() }
+    fn current_position(&self) -> Point { self.builder.current_position() }
 
     fn build(self) -> Builder::PathType { self.builder.build() }
 }
@@ -268,7 +268,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
 impl PrimitiveBuilder for PrimitiveImpl {
     type PathType = Path;
 
-    fn move_to(&mut self, to: Vec2)
+    fn move_to(&mut self, to: Point)
     {
         if self.building {
             self.end_sub_path(false);
@@ -278,16 +278,16 @@ impl PrimitiveBuilder for PrimitiveImpl {
         self.push(to, PointType::Normal);
     }
 
-    fn line_to(&mut self, to: Vec2) {
+    fn line_to(&mut self, to: Point) {
         self.push(to, PointType::Normal);
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.push(ctrl, PointType::Control);
         self.push(to, PointType::Normal);
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         self.push(ctrl1, PointType::Control);
         self.push(ctrl2, PointType::Control);
         self.push(to, PointType::Normal);
@@ -297,7 +297,7 @@ impl PrimitiveBuilder for PrimitiveImpl {
 
     fn close(&mut self) -> PathId { self.end_sub_path(true) }
 
-    fn current_position(&self) -> Vec2 { self.last_position }
+    fn current_position(&self) -> Point { self.last_position }
 
     fn build(mut self) -> Path {
         if self.building {
@@ -345,7 +345,7 @@ impl PrimitiveImpl {
         let offset = self.offset as usize;
         let last = vertices_len - 1;
         // If the first and last vertices are the same, remove the last vertex.
-        let last = if last > 0 && self.vertices[last].position.fuzzy_eq(self.vertices[offset].position) {
+        let last = if last > 0 && fuzzy_eq(self.vertices[last].position, self.vertices[offset].position) {
             self.vertices.pop();
             closed = true;
             last - 1
@@ -358,9 +358,8 @@ impl PrimitiveImpl {
         }
 
         let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
-        let aabb = Rect::new(
-            self.top_left.x, self.top_left.y,
-            self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y,
+        let aabb = Rect::new(self.top_left,
+            size(self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y),
         );
 
         let shape_info = PathInfo {
@@ -401,12 +400,12 @@ impl PrimitiveImpl {
 }
 
 impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
-    fn polygon(&mut self, points: &[Vec2]) -> PathId {
+    fn polygon(&mut self, points: &[Point]) -> PathId {
         assert!(!points.is_empty());
 
         self.move_to(points[0]);
         for p in points[1..].iter() {
-            self.line_to(vec2(p.x,p.y));
+            self.line_to(*p);
         }
         return self.close();
     }
@@ -414,12 +413,12 @@ impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
 
 #[test]
 fn test_path_builder_empty_path() {
-    let _ = flattened_path_builder().build();
+    let _ = flattened_path_builder(0.05).build();
 }
 
 #[test]
 fn test_path_builder_empty_sub_path() {
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));
     builder.move_to(vec2(1.0, 0.0));
     builder.move_to(vec2(2.0, 0.0));
@@ -428,7 +427,7 @@ fn test_path_builder_empty_sub_path() {
 
 #[test]
 fn test_path_builder_close_empty() {
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
     builder.end();
     builder.close();
     builder.end();
@@ -444,7 +443,7 @@ fn test_path_builder_simple() {
 
     // clockwise
     {
-        let mut path = flattened_path_builder();
+        let mut path = flattened_path_builder(0.05);
         path.move_to(vec2(0.0, 0.0));
         path.line_to(vec2(1.0, 0.0));
         path.line_to(vec2(1.0, 1.0));
@@ -459,7 +458,7 @@ fn test_path_builder_simple() {
         assert_eq!(path.vertices().nth(1).point_type, PointType::Normal);
         assert_eq!(path.vertices().nth(2).point_type, PointType::Normal);
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
         let sub_path = path.sub_path(id);
         let first = sub_path.first();
         let next = sub_path.next(first);
@@ -473,7 +472,7 @@ fn test_path_builder_simple() {
 
     // counter-clockwise
     {
-        let mut path = flattened_path_builder();
+        let mut path = flattened_path_builder(0.05);
         path.move_to(vec2(0.0, 0.0));
         path.line_to(vec2(1.0, 1.0));
         path.line_to(vec2(1.0, 0.0));
@@ -482,12 +481,12 @@ fn test_path_builder_simple() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // line_to back to the first vertex (should ignore the last vertex)
     {
-        let mut path = flattened_path_builder();
+        let mut path = flattened_path_builder(0.05);
         path.move_to(vec2(0.0, 0.0));
         path.line_to(vec2(1.0, 1.0));
         path.line_to(vec2(1.0, 0.0));
@@ -497,7 +496,7 @@ fn test_path_builder_simple() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 }
 
@@ -513,7 +512,7 @@ fn test_path_builder_simple_bezier() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // counter-clockwise
@@ -526,7 +525,7 @@ fn test_path_builder_simple_bezier() {
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(0.0, 0.0, 1.0, 1.0));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // a slightly more elaborate path
@@ -545,7 +544,7 @@ fn test_path_builder_simple_bezier() {
 
         let path = path.build();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect::new(-0.2, 0.0, 0.7, 0.4));
+        assert_eq!(info.aabb, Rect::new(vec2(-0.2, 0.0), size(0.7, 0.4)));
     }
 }
 

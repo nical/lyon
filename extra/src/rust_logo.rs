@@ -1,5 +1,5 @@
 use path_builder::{ SvgBuilder };
-use vodk_math::{ vec2 };
+use math::{ vec2 };
 
 pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.move_to(vec2(122.631, 69.716));

@@ -1,7 +1,8 @@
 extern crate sid;
 extern crate sid_vec;
-extern crate vodk_math;
+extern crate euclid;
 
+pub mod math;
 pub mod path;
 pub mod path_builder;
 pub mod math_utils;

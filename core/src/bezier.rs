@@ -1,17 +1,16 @@
 //! Bezier curve related maths and tools.
 
 use path_builder::PrimitiveBuilder;
-
-use vodk_math::{ Vector2D, Unit, Untyped };
+use math::*;
 
 use std::mem::swap;
 
-pub fn sample_quadratic_bezier<U: Unit>(
-    from: Vector2D<U>,
-    ctrl: Vector2D<U>,
-    to: Vector2D<U>,
+pub fn sample_quadratic_bezier(
+    from: Vec2,
+    ctrl: Vec2,
+    to: Vec2,
     t: f32
-) -> Vector2D<U> {
+) -> Vec2 {
     let t2 = t*t;
     let one_t = 1.0 - t;
     let one_t2 = one_t * one_t;
@@ -20,13 +19,13 @@ pub fn sample_quadratic_bezier<U: Unit>(
          + to * t2;
 }
 
-pub fn sample_cubic_bezier<U: Unit>(
-    from: Vector2D<U>,
-    ctrl1: Vector2D<U>,
-    ctrl2: Vector2D<U>,
-    to: Vector2D<U>,
+pub fn sample_cubic_bezier(
+    from: Vec2,
+    ctrl1: Vec2,
+    ctrl2: Vec2,
+    to: Vec2,
     t: f32
-) -> Vector2D<U> {
+) -> Vec2 {
     let t2 = t*t;
     let t3 = t2*t;
     let one_t = 1.0 - t;
@@ -39,32 +38,32 @@ pub fn sample_cubic_bezier<U: Unit>(
 }
 
 #[derive(Debug)]
-pub struct CubicBezierSegment<U: Unit> {
-    pub from: Vector2D<U>,
-    pub cp1: Vector2D<U>,
-    pub cp2: Vector2D<U>,
-    pub to: Vector2D<U>,
+pub struct CubicBezierSegment {
+    pub from: Vec2,
+    pub cp1: Vec2,
+    pub cp2: Vec2,
+    pub to: Vec2,
 }
 
-impl<U: Unit> Copy for CubicBezierSegment<U> {}
-impl<U: Unit> Clone for CubicBezierSegment<U> {
-    fn clone(&self) -> CubicBezierSegment<U> { *self }
+impl Copy for CubicBezierSegment {}
+impl Clone for CubicBezierSegment {
+    fn clone(&self) -> CubicBezierSegment { *self }
 }
 
 #[derive(Debug)]
-pub struct QuadraticBezierSegment<U: Unit> {
-    pub from: Vector2D<U>,
-    pub cp: Vector2D<U>,
-    pub to: Vector2D<U>,
+pub struct QuadraticBezierSegment {
+    pub from: Vec2,
+    pub cp: Vec2,
+    pub to: Vec2,
 }
 
-impl<U: Unit> Copy for QuadraticBezierSegment<U> {}
-impl<U: Unit> Clone for QuadraticBezierSegment<U> {
-    fn clone(&self) -> QuadraticBezierSegment<U> { *self }
+impl Copy for QuadraticBezierSegment {}
+impl Clone for QuadraticBezierSegment {
+    fn clone(&self) -> QuadraticBezierSegment { *self }
 }
 
-impl<U: Unit> QuadraticBezierSegment<U> {
-    pub fn to_cubic(&self) -> CubicBezierSegment<U> {
+impl QuadraticBezierSegment {
+    pub fn to_cubic(&self) -> CubicBezierSegment {
         CubicBezierSegment {
             from: self.from,
             cp1: (self.from + self.cp * 2.0) / 3.0,
@@ -74,8 +73,8 @@ impl<U: Unit> QuadraticBezierSegment<U> {
     }
 }
 
-impl<U: Unit> CubicBezierSegment<U> {
-    pub fn split_in_place(&mut self, t: f32) -> CubicBezierSegment<U> {
+impl CubicBezierSegment {
+    pub fn split_in_place(&mut self, t: f32) -> CubicBezierSegment {
         let cp1a = self.from + (self.cp1 - self.from) * t;
         let cp2a = self.cp1 + (self.cp2 - self.cp1) * t;
         let cp1aa = cp1a + (cp2a - cp1a) * t;
@@ -96,23 +95,23 @@ impl<U: Unit> CubicBezierSegment<U> {
         };
     }
 
-    pub fn split(&self, t: f32) -> (CubicBezierSegment<U>, CubicBezierSegment<U>) {
+    pub fn split(&self, t: f32) -> (CubicBezierSegment, CubicBezierSegment) {
         let mut a = *self;
         let b = a.split_in_place(t);
         return (a, b);
     }
 
-    pub fn sample(&self, t: f32) -> Vector2D<U> {
+    pub fn sample(&self, t: f32) -> Vec2 {
         return sample_cubic_bezier(self.from, self.cp1, self.cp2, self.to, t);
     }
 }
 
 // TODO: This is not very ergonomic.
-pub fn split_cubic_bezier<U: Unit>(
-    bezier: &CubicBezierSegment<U>,
+pub fn split_cubic_bezier(
+    bezier: &CubicBezierSegment,
     t: f32,
-    out_first_segment: Option<&mut CubicBezierSegment<U>>,
-    out_second_segment: Option<&mut CubicBezierSegment<U>>
+    out_first_segment: Option<&mut CubicBezierSegment>,
+    out_second_segment: Option<&mut CubicBezierSegment>
 ) {
     let cp1a = bezier.from + (bezier.cp1 - bezier.from) * t;
     let cp2a = bezier.cp1 + (bezier.cp2 - bezier.cp1) * t;
@@ -138,8 +137,8 @@ pub fn split_cubic_bezier<U: Unit>(
 
 
 // Find the inflection points of a cubic bezier curve.
-fn find_cubic_bezier_inflection_points<U: Unit>(
-    bezier: &CubicBezierSegment<U>,
+fn find_cubic_bezier_inflection_points(
+    bezier: &CubicBezierSegment,
 ) -> (Option<f32>, Option<f32>) {
     // Find inflection points.
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
@@ -200,8 +199,8 @@ pub fn cubic_root(val: f32) -> f32 {
     return val.powf(1.0 / 3.0);
 }
 
-fn find_cubic_bezier_inflection_approximation_range<U: Unit>(
-    bezier_segment: &CubicBezierSegment<U>,
+fn find_cubic_bezier_inflection_approximation_range(
+    bezier_segment: &CubicBezierSegment,
     t: f32, tolerance: f32,
     min: &mut f32, max: &mut f32
 ) {
@@ -239,7 +238,7 @@ fn find_cubic_bezier_inflection_approximation_range<U: Unit>(
 }
 
 pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
-    bezier: CubicBezierSegment<Untyped>,
+    bezier: CubicBezierSegment,
     tolerance: f32,
     path: &mut Builder
 ) {
@@ -341,7 +340,7 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
 }
 
 fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
-    mut bezier: CubicBezierSegment<Untyped>,
+    mut bezier: CubicBezierSegment,
     tolerance: f32,
     path: &mut Builder
 ) {
@@ -385,7 +384,6 @@ fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
 
 #[test]
 fn test_cubic_inflection_extremity() {
-    use vodk_math::vec2;
     use path_builder::flattened_path_builder;
 
     // This curve has inflection points t1=-0.125 and t2=1.0 which used to fall

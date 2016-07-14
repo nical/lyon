@@ -7,8 +7,7 @@ use super::{
     vertex_id, VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
 };
-
-use vodk_math::{ Vec2, Rect, };
+use math::*;
 
 use sid::{ Id, IdRange, ToIndex };
 
@@ -217,4 +216,3 @@ pub struct PathInfo {
     pub has_beziers: Option<bool>,
     pub is_closed: bool,
 }
-

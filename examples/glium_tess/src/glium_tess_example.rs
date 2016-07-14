@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate glium;
 extern crate lyon;
-extern crate vodk_math;
 
 use glium::Surface;
 use glium::glutin;
@@ -10,13 +9,11 @@ use glium::DisplayBuild;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
+use lyon::math::*;
 use lyon::tesselation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tesselation::basic_shapes::*;
-use lyon::tesselation::path_tesselator::{
-    TesselatorOptions, tesselate_path_fill, tesselate_path_stroke
-};
-
-use vodk_math::*;
+use lyon::tesselation::path_fill::FillTesselator;
+use lyon::tesselation::path_stroke::StrokeTesselator;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -53,9 +50,18 @@ impl VertexConstructor<Vec2, BgVertex> for BgVertexCtor {
 
 implement_vertex!(BgVertex, a_position);
 
+fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
+    [
+        [m.m11, m.m12, m.m13, m.m14],
+        [m.m21, m.m22, m.m23, m.m24],
+        [m.m31, m.m32, m.m33, m.m34],
+        [m.m41, m.m42, m.m43, m.m44],
+    ]
+}
+
 fn main() {
 
-    let mut builder = flattened_path_builder();
+    let mut builder = flattened_path_builder(0.05);
 
     build_logo_path(&mut builder);
 
@@ -69,18 +75,15 @@ fn main() {
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
-    tesselate_path_fill(
+    FillTesselator::new().tesselate(
         path.as_slice(),
-        &TesselatorOptions::new(),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
     ).unwrap();
 
-    tesselate_path_stroke(
-        path.as_slice(),
-        1.0,
-        &TesselatorOptions::new(),
+    StrokeTesselator::new().tesselate(
+        path.as_slice(), 1.0,
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
-    );
+    ).unwrap();
 
 
     for p in path.vertices().as_slice() {
@@ -102,7 +105,7 @@ fn main() {
 
     let mut bg_buffers: VertexBuffers<BgVertex> = VertexBuffers::new();
     tesselate_rectangle(
-        &Rect::new(-1.0, -1.0, 2.0, 2.0),
+        &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
         &mut vertex_builder(&mut bg_buffers, BgVertexCtor)
     );
 
@@ -110,6 +113,8 @@ fn main() {
     let display = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
         .with_title("tesselation".to_string())
+        .with_multisampling(8)
+        .with_vsync()
         .build_glium().unwrap();
 
     let model_vbo = glium::VertexBuffer::new(&display, &vertices[..]).unwrap();
@@ -178,7 +183,7 @@ fn main() {
                 in vec3 a_color;
                 out vec3 v_color;
                 void main() {
-                    gl_Position = vec4(a_position, 0.0, 1.0) * u_matrix;// / vec4(u_resolution, 1.0, 1.0);
+                    gl_Position = u_matrix * vec4(a_position, 0.0, 1.0);// / vec4(u_resolution, 1.0, 1.0);
                     v_color = a_color;
                 }
             ",
@@ -206,17 +211,17 @@ fn main() {
         let (w, h) = target.get_dimensions();
         let resolution = vec2(w as f32, h as f32);
 
-        let mut model_mat: Matrix4x4<units::Local, units::World> = Matrix4x4::identity();
+        let model_mat = Mat4::identity();
+        let mut view_mat = Mat4::identity();
 
-        let mut view_mat: Matrix4x4<units::World, units::Screen> = Matrix4x4::identity();
-        view_mat.translate(Vector3D::new(pos.x, pos.y, 0.0));
-        view_mat.scale_by(Vector3D::new(5.0 * zoom, 5.0 * zoom, 0.0));
-        view_mat.scale_by(Vector3D::new(2.0/resolution.x, -2.0/resolution.y, 1.0));
-        view_mat.translate(Vector3D::new(-1.0, 1.0, 0.0));
+        view_mat = view_mat.translate(-1.0, 1.0, 0.0);
+        view_mat = view_mat.scale(5.0 * zoom, 5.0 * zoom, 0.0);
+        view_mat = view_mat.scale(2.0/resolution.x, -2.0/resolution.y, 1.0);
+        view_mat = view_mat.translate(pos.x, pos.y, 0.0);
 
         let uniforms = uniform! {
             u_resolution: resolution.array(),
-            u_matrix: *(model_mat * view_mat).as_arrays()
+            u_matrix: uniform_matrix(&model_mat.mul(&view_mat))
         };
 
         target.clear_color(0.75, 0.75, 0.75, 1.0);
