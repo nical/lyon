@@ -1,18 +1,18 @@
 # Lyon
 GPU-based 2D graphics rendering experiments in rust.
 
-<img src="assets/screenshot.png" width=500 height=500 alt="Screenshot of the Rust logo (svg) tesselated">
+<img src="assets/screenshot.png" width=500 height=500 alt="Screenshot of the Rust logo (svg) tessellated">
 
 # Goals
 
-For now the goal is to provide efficient SVG-compliant path tesselation tools to help with rendering vector graphics on the GPU. If things go well the project could eventually grow into including a (partial) SVG renderer in a separate crate, but for now think of this library as a way to turn complex paths into triangles for use in your own rendering engine.
+For now the goal is to provide efficient SVG-compliant path tessellation tools to help with rendering vector graphics on the GPU. If things go well the project could eventually grow into including a (partial) SVG renderer in a separate crate, but for now think of this library as a way to turn complex paths into triangles for use in your own rendering engine.
 
 The intent is for this library to be useful in projects like [Servo](https://servo.org/).
 
 The project is split into small crates:
 * lyon: A meta-crate that imports the other crates.
 * lyon_core: Contains types common to most lyon crates.
-* lyon_tesselator: The tesselation routines (where most of the focus is for now).
+* lyon_tessellator: The tessellation routines (where most of the focus is for now).
 * lyon_extra: various optional utilities.
 
 ## TODO
@@ -21,8 +21,8 @@ There is a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO)
 
 ## Status
 
-The focus right now is on implementing a SVG compliant path tesselator (rather than an actual SVG render).
-The tesselator can currently only operate on flattened paths. It is able to handle most complex cases including self intersections, but there are still some bugs that need to be found and fixed. The API is not stable at all.
+The focus right now is on implementing a SVG compliant path tessellator (rather than an actual SVG render).
+The tessellator can currently only operate on flattened paths. It is able to handle most complex cases including self intersections, but there are still some bugs that need to be found and fixed. The API is not stable at all.
 
 ## License
 
