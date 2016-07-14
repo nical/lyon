@@ -981,7 +981,7 @@ impl Side {
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
-/// polygon.
+/// polygon (used internally by the FillTesselator).
 pub struct MonotoneTesselator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
