@@ -1421,6 +1421,69 @@ fn test_rust_logo_with_intersection() {
     test_path_with_rotations(path, 0.011, None);
 }
 
+#[cfg(test)]
+fn scale_path(slice: super::MutVertexSlice<PointData>, scale: f32) {
+    for v in slice {
+        v.position.x = v.position.x * scale;
+        v.position.y = v.position.y * scale;
+    }
+}
+
+#[test]
+fn test_rust_logo_scale_up() {
+    // The goal of this test is to check how resistent the tesselator is against integer
+    // overflows, and catch regressions.
+
+    let mut builder = flattened_path_builder();
+    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    let mut path = builder.build();
+
+    scale_path(path.mut_vertices(), 10000.0);
+    test_path(path.as_slice(), None);
+}
+
+#[test]
+#[ignore] // TODO
+fn test_rust_logo_scale_up_failing() {
+    // This test triggers integers overflow in the tesselator.
+    // In order to fix this type issue we need to:
+    // * Look at the computation that is casuing trouble and see if it can be expressed in
+    //   a way that is less subject to overflows.
+    // * See if we can define a safe interval where no path can trigger overflows and scale
+    //   all paths to this interval internally in the tesselator.
+    let mut builder = flattened_path_builder();
+    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    let mut path = builder.build();
+
+    scale_path(path.mut_vertices(), 100000.0);
+    test_path(path.as_slice(), None);
+}
+
+#[test]
+fn test_rust_logo_scale_down() {
+    // The goal of this test is to check that the tesselator can handle very small geometry.
+
+    let mut builder = flattened_path_builder();
+    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    let mut path = builder.build();
+
+    scale_path(path.mut_vertices(), 0.01);
+    test_path(path.as_slice(), None);
+}
+
+#[test]
+#[ignore] // TODO
+fn test_rust_logo_scale_down_failing() {
+    // Issues with very small paths.
+
+    let mut builder = flattened_path_builder();
+    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    let mut path = builder.build();
+
+    scale_path(path.mut_vertices(), 0.0001);
+    test_path(path.as_slice(), None);
+}
+
 #[test]
 fn test_double_merge() {
     // This test triggers the code path where a merge event is resolved during another
