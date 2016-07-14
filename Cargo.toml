@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon"
-version = "0.0.3"
+version = "0.1.0"
 description = "2D Graphics rendering experiments."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_tesselation = { version = "0.0.3", path = "tesselation/" }
-lyon_svg = { version = "0.0.3", path = "svg/" }
-lyon_core = { version = "0.0.3", path = "core/" }
-lyon_extra = { version = "0.0.3", path = "extra/" }
+lyon_tesselation = { version = "0.1.0", path = "tesselation/" }
+lyon_svg = { version = "0.1.0", path = "svg/" }
+lyon_core = { version = "0.1.0", path = "core/" }
+lyon_extra = { version = "0.1.0", path = "extra/" }
