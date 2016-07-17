@@ -222,9 +222,9 @@ pub struct FlattenedBuilder<Builder> {
 pub struct PrimitiveImpl {
     vertices: Vec<PointData>,
     path_info: Vec<PathInfo>,
-    last_position: Vec2,
-    top_left: Vec2,
-    bottom_right: Vec2,
+    last_position: Point,
+    top_left: Point,
+    bottom_right: Point,
     offset: u16,
     // flags
     building: bool,

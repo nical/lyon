@@ -7,36 +7,36 @@ use std::f32::NAN;
 
 use math::*;
 use path::*;
-use vertex_builder::{ VertexBufferBuilder, Range, };
+use vertex_builder::{ GeometryBuilder, Count, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
 use basic_shapes::{ tessellate_quad };
 use super::{ VertexId };
 
-pub type StrokeResult = Result<(Range, Range), ()>;
+pub type StrokeResult = Result<Count, ()>;
 
 pub struct StrokeTessellator {}
 
 impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
-    pub fn tessellate<Output: VertexBufferBuilder<Vec2>>(
+    pub fn tessellate_path<Output: GeometryBuilder>(
         &mut self,
         path: PathSlice,
-        thickness: f32,
+        options: &StrokeOptions,
         output: &mut Output
-    )  -> StrokeResult {
+    ) -> StrokeResult {
         output.begin_geometry();
         for p in path.path_ids() {
-            tessellate_sub_path_stroke(path.sub_path(p), thickness, output);
+            tessellate_sub_path_stroke(path.sub_path(p), options.stroke_width, output);
         }
         let ranges = output.end_geometry();
         return Ok(ranges);
     }
 }
 
-fn tessellate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
+fn tessellate_sub_path_stroke<Output: GeometryBuilder>(
     path: SubPathSlice,
-    thickness: f32,
+    stroke_width: f32,
     output: &mut Output
 ) {
     let is_closed = path.info().is_closed;
@@ -51,7 +51,7 @@ fn tessellate_sub_path_stroke<Output: VertexBufferBuilder<Vec2>>(
         let mut p1 = path.vertex(i).position;
         let mut p2 = path.vertex(i).position;
 
-        let extruded = extrude_along_tangent(path, i, thickness, is_closed);
+        let extruded = extrude_along_tangent(path, i, stroke_width, is_closed);
         let d = extruded - p1;
 
         p1 = p1 + (d * 0.5);
@@ -121,4 +121,114 @@ fn extrude_along_tangent(
         }
     };
     return inter;
+}
+
+/// Line cap as defined by the SVG specification.
+///
+/// See: https://svgwg.org/specs/strokes/#StrokeLinecapProperty
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LineCap {
+    Butt,
+    Round,
+    Square
+}
+
+/// Line join as defined by the SVG specification.
+///
+/// See: https://svgwg.org/specs/strokes/#StrokeLinejoinProperty
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LineJoin {
+    Miter,
+    MiterClip,
+    Round,
+    Bevel,
+    Arcs,
+}
+
+/// Parameters for the tessellator.
+///
+/// Not used yet (only one configuration supported).
+pub struct StrokeOptions {
+    /// Thickness of the stroke.
+    pub stroke_width: f32,
+
+    /// See the SVG secification.
+    pub line_cap: LineCap,
+
+    /// See the SVG secification.
+    pub line_join: LineJoin,
+
+    /// See the SVG secification.
+    pub miter_limit: f32,
+
+    /// Maximum allowed distance to the path when building an approximation.
+    pub tolerance: f32,
+
+    /// The number of tesselator units per world unit.
+    ///
+    /// As the tesselator is internally using integer coordinates, this parameter defines
+    /// the precision and range of the tesselator.
+    pub unit_scale: f32,
+
+    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
+    /// a gradient to smooth the edges.
+    ///
+    /// Not implemented yet!
+    pub vertex_aa: bool,
+
+    // To be able to add fields without making it a breaking change, add an empty private field
+    // which makes it impossible to create a StrokeOptions without the calling constructor.
+    _private: (),
+}
+
+impl StrokeOptions {
+    pub fn stroke_width(stroke_width: f32) -> StrokeOptions {
+        StrokeOptions {
+            stroke_width: stroke_width,
+            line_cap: LineCap::Butt,
+            line_join: LineJoin::Miter,
+            miter_limit: 10.0,
+            tolerance: 0.1,
+            unit_scale: 1000.0,
+            vertex_aa: false,
+            _private: (),
+        }
+    }
+
+    pub fn default() -> StrokeOptions { StrokeOptions::stroke_width(1.0) }
+
+    pub fn with_tolerance(mut self, tolerance: f32) -> StrokeOptions {
+        self.tolerance = tolerance;
+        return self;
+    }
+
+    pub fn with_line_cap(mut self, cap: LineCap) -> StrokeOptions {
+        self.line_cap = cap;
+        return self;
+    }
+
+    pub fn with_line_join(mut self, join: LineJoin) -> StrokeOptions {
+        self.line_join = join;
+        return self;
+    }
+
+    pub fn with_miter_limit(mut self, limit: f32) -> StrokeOptions {
+        self.miter_limit = limit;
+        return self;
+    }
+
+    pub fn with_stroke_width(mut self, width: f32) -> StrokeOptions {
+        self.stroke_width = width;
+        return self;
+    }
+
+    pub fn with_unit_scale(mut self, scale: f32) -> StrokeOptions {
+        self.unit_scale = scale;
+        return self;
+    }
+
+    pub fn with_vertex_aa(mut self) -> StrokeOptions {
+        self.vertex_aa = true;
+        return self;
+    }
 }

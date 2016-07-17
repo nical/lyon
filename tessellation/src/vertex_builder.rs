@@ -1,6 +1,9 @@
 //! Tools to help with populating vertex and index buffers
 
 use std::marker::PhantomData;
+use std::ops::Add;
+use math::{ Point, Vec2 };
+use super::{ VertexId, vertex_id };
 
 pub type Index = u16;
 
@@ -28,10 +31,10 @@ pub trait VertexBufferBuilder<Input> {
     /// beginning of each of these functions (if they expect indices to start at zero).
     ///
     /// Return the offsets of the first vertex and th first index.
-    fn begin_geometry(&mut self);
+    fn begin(&mut self);
 
-    /// Return the ranges of vertirces and indices added since we last called begin_geometry.
-    fn end_geometry(&mut self) -> (Range, Range);
+    /// Return the ranges of vertices and indices added since we last called begin.
+    fn end(&mut self) -> (Range, Range);
 }
 
 impl<VertexType> VertexBuffers<VertexType> {
@@ -62,12 +65,12 @@ impl<VertexType> VertexBufferBuilder<VertexType> for VertexBuffers<VertexType> {
 
     fn num_vertices(&self) -> usize { self.vertices.len() }
 
-    fn begin_geometry(&mut self) {
+    fn begin(&mut self) {
         self.vertices.clear();
         self.indices.clear();
     }
 
-    fn end_geometry(&mut self) -> (Range, Range) {
+    fn end(&mut self) -> (Range, Range) {
         return (
             Range { first: 0, count: self.vertices.len() as Index },
             Range { first: 0, count: self.indices.len() as Index },
@@ -119,16 +122,17 @@ impl<'l,
 
     fn num_vertices(&self) -> usize { self.buffers.num_vertices() }
 
-    fn begin_geometry(&mut self) {
+    fn begin(&mut self) {
         self.vertex_offset = self.buffers.vertices.len() as Index;
         self.index_offset = self.buffers.indices.len() as Index;
     }
 
-    fn end_geometry(&mut self) -> (Range, Range) {
-        return (
+    fn end(&mut self) -> (Range, Range) {
+        let ranges = (
             Range { first: self.vertex_offset, count: self.buffers.vertices.len() as Index - self.vertex_offset },
             Range { first: self.index_offset, count: self.buffers.indices.len() as Index - self.index_offset }
         );
+        return ranges;
     }
 }
 
@@ -249,6 +253,59 @@ impl VertexConstructor<[f32; 2], Vertex2d> for Vertex2dConstructor {
     }
 }
 
+/// A slightly higher level interface than VertexBufferBuilder that is tailored for
+/// the tessellator's use-case.
+///
+/// It may end up replacing VertexBufferBuilder completely.
+pub trait GeometryBuilder {
+    fn begin_geometry(&mut self);
+    fn end_geometry(&mut self) -> Count;
+    fn add_vertex(&mut self, pos: Point, normal: Option<Vec2>) -> VertexId;
+    fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId);
+    fn add_quadratic_curve(&mut self, from: VertexId, to: VertexId, ctrl: Point);
+}
+
+/// Number of vertices and indices added during the tesselation.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Count {
+    vertices: u32,
+    indices: u32,
+}
+
+impl Add for Count {
+    type Output = Count;
+    fn add(self, other: Count) -> Count {
+        Count {
+            vertices: self.vertices + other.vertices,
+            indices: self.indices + other.indices,
+        }
+    }
+}
+
+impl<'l, VertexType:'l, Ctor: VertexConstructor<Point, VertexType>>
+GeometryBuilder for VertexBuilder<'l, VertexType, Point, Ctor> {
+    fn begin_geometry(&mut self) {
+        self.begin();
+    }
+
+    fn end_geometry(&mut self) -> Count {
+        let (vertices, indices) = self.end();
+        return Count { vertices: vertices.count as u32, indices: indices.count as u32 };
+    }
+
+    fn add_vertex(&mut self, pos: Point, _normal: Option<Vec2>) -> VertexId {
+        vertex_id(self.push_vertex(pos))
+    }
+
+    fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        self.push_indices(a.handle, b.handle, c.handle);
+    }
+
+    fn add_quadratic_curve(&mut self, _from: VertexId, _to: VertexId, _ctrl: Point) {
+        unimplemented!();
+    }
+}
+
 // A typical "algortihm" that generates some geometry, in this case a simple axis-aligned quad.
 #[cfg(test)]
 fn add_quad<Builder: VertexBufferBuilder<[f32; 2]>>(
@@ -256,14 +313,14 @@ fn add_quad<Builder: VertexBufferBuilder<[f32; 2]>>(
     size:[f32; 2],
     mut out: Builder
 ) -> (Range, Range) {
-    out.begin_geometry();
+    out.begin();
     let a = out.push_vertex(top_left);
     let b = out.push_vertex([top_left[0]+size[0], top_left[1]]);
     let c = out.push_vertex([top_left[0]+size[0], top_left[1]+size[1]]);
     let d = out.push_vertex([top_left[0], top_left[1]+size[1]]);
     out.push_indices(a, b, c);
     out.push_indices(a, c, d);
-    let (vertices, indices) = out.end_geometry();
+    let (vertices, indices) = out.end();
     // offsets always start at zero after begin_geometry, regardless of where we are
     // in the actual vbo. Algorithms can rely on this property when generating indices.
     assert_eq!(a, 0);

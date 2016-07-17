@@ -12,8 +12,8 @@ use lyon::path_builder::*;
 use lyon::math::*;
 use lyon::tessellation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::path_fill::FillTessellator;
-use lyon::tessellation::path_stroke::StrokeTessellator;
+use lyon::tessellation::path_fill::{ FillTessellator, FillOptions };
+use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -61,42 +61,47 @@ fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
 
 fn main() {
 
-    let mut builder = flattened_path_builder(0.05);
+    let mut builder = flattened_path_builder(0.03);
 
     build_logo_path(&mut builder);
 
-    builder.move_to(vec2(10.0, 30.0));
-    builder.line_to(vec2(130.0, 30.0));
-    builder.line_to(vec2(130.0, 60.0));
-    builder.line_to(vec2(10.0, 60.0));
-    builder.close();
+    //builder.move_to(vec2(10.0, 30.0));
+    //builder.line_to(vec2(130.0, 30.0));
+    //builder.line_to(vec2(130.0, 60.0));
+    //builder.line_to(vec2(10.0, 60.0));
+    //builder.close();
 
     let path = builder.build();
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
-    FillTessellator::new().tessellate(
+    FillTessellator::new().tessellate_path(
         path.as_slice(),
+        &FillOptions::default(),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
     ).unwrap();
 
-    StrokeTessellator::new().tessellate(
-        path.as_slice(), 1.0,
+    StrokeTessellator::new().tessellate_path(
+        path.as_slice(),
+        &StrokeOptions::stroke_width(1.0),
         &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
     ).unwrap();
 
+    let show_points = false;
 
-    for p in path.vertices().as_slice() {
-        tessellate_ellipsis(p.position, vec2(1.0, 1.0), 16,
-            &mut vertex_builder(&mut buffers,
-                VertexCtor{ color: [0.0, 0.0, 0.0] }
-            )
-        );
-        tessellate_ellipsis(p.position, vec2(0.5, 0.5), 16,
-            &mut vertex_builder(&mut buffers,
-                VertexCtor{ color: [0.0, 1.0, 0.0] }
-            )
-        );
+    if show_points {
+        for p in path.vertices().as_slice() {
+            tessellate_ellipsis(p.position, vec2(1.0, 1.0), 16,
+                &mut vertex_builder(&mut buffers,
+                    VertexCtor{ color: [0.0, 0.0, 0.0] }
+                )
+            );
+            tessellate_ellipsis(p.position, vec2(0.5, 0.5), 16,
+                &mut vertex_builder(&mut buffers,
+                    VertexCtor{ color: [0.0, 1.0, 0.0] }
+                )
+            );
+        }
     }
 
     let (indices, vertices) = (buffers.indices, buffers.vertices);

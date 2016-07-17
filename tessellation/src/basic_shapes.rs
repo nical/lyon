@@ -2,8 +2,8 @@
 
 //! Tessellation routines for simple shapes.
 
-use vertex_builder::VertexBufferBuilder;
-use super::{ Index };
+use vertex_builder::{ GeometryBuilder, Count };
+use super::{ Index, vertex_id };
 
 use math::*;
 
@@ -11,46 +11,78 @@ use std::f32::consts::PI;
 
 pub struct RoundedRect {
     rect: Rect,
-    top_left_radius: f32,
-    top_right_radius: f32,
-    bottom_left_radius: f32,
-    bottom_right_radius: f32,
+    top_left_radius: Option<f32>,
+    top_right_radius: Option<f32>,
+    bottom_left_radius: Option<f32>,
+    bottom_right_radius: Option<f32>,
 }
 
-pub fn tessellate_triangle<Input, Output: VertexBufferBuilder<Input>>(
-    v1: Input,
-    v2: Input,
-    v3: Input,
+/// Add a triangle to a geometry.
+///
+/// Does not call begin_geometry and end_geometry.
+pub fn add_triangle<Output: GeometryBuilder>(
+    v1: Point,
+    v2: Point,
+    v3: Point,
     output: &mut Output,
 ) {
-    output.begin_geometry();
-    let a = output.push_vertex(v1);
-    let b = output.push_vertex(v2);
-    let c = output.push_vertex(v3);
-    output.push_indices(a, b, c);
+    let a = output.add_vertex(v1, None);
+    let b = output.add_vertex(v2, None);
+    let c = output.add_vertex(v3, None);
+    output.add_triangle(a, b, c);
 }
 
-pub fn tessellate_quad<Input, Output: VertexBufferBuilder<Input>>(
-    v1: Input,
-    v2: Input,
-    v3: Input,
-    v4: Input,
+/// Tessellate a simple triangle geometry.
+pub fn tessellate_triangle<Output: GeometryBuilder>(
+    v1: Point,
+    v2: Point,
+    v3: Point,
+    output: &mut Output,
+) -> Count {
+    output.begin_geometry();
+    add_triangle(v1, v2, v3, output);
+    return output.end_geometry();
+}
+
+/// Add a quad to a geometry.
+///
+/// Does not call begin_geometry and end_geometry.
+pub fn add_quad<Output: GeometryBuilder>(
+    v1: Point,
+    v2: Point,
+    v3: Point,
+    v4: Point,
     output: &mut Output,
 ) {
-    output.begin_geometry();
-    let a = output.push_vertex(v1);
-    let b = output.push_vertex(v2);
-    let c = output.push_vertex(v3);
-    let d = output.push_vertex(v4);
-    output.push_indices(a, b, c);
-    output.push_indices(a, c, d);
+    let a = output.add_vertex(v1, None);
+    let b = output.add_vertex(v2, None);
+    let c = output.add_vertex(v3, None);
+    let d = output.add_vertex(v4, None);
+    output.add_triangle(a, b, c);
+    output.add_triangle(a, c, d);
 }
 
-pub fn tessellate_rectangle<Output: VertexBufferBuilder<Vec2>>(
+/// Tessellate a simple quad geometry.
+pub fn tessellate_quad<Output: GeometryBuilder>(
+    v1: Point,
+    v2: Point,
+    v3: Point,
+    v4: Point,
+    output: &mut Output,
+) -> Count {
+    output.begin_geometry();
+    add_quad(v1, v2, v3, v4, output);
+    return output.end_geometry()
+}
+
+/// Add a Rect to a geometry.
+///
+/// Does not call begin_geometry and end_geometry.
+pub fn add_rectangle<Output: GeometryBuilder>(
     rect: &Rect,
     output: &mut Output,
 ) {
-    tessellate_quad(
+    add_quad(
         rect.origin,
         rect.top_right(),
         rect.bottom_right(),
@@ -59,41 +91,53 @@ pub fn tessellate_rectangle<Output: VertexBufferBuilder<Vec2>>(
     );
 }
 
-pub fn tessellate_rectangle_with_uv<A, Output: VertexBufferBuilder<(Vec2, Vec2)>>(
+/// Tessellate a simple Rect.
+pub fn tessellate_rectangle<Output: GeometryBuilder>(
     rect: &Rect,
-    uv: &Rect,
     output: &mut Output,
-) {
-    tessellate_quad(
-        (rect.origin, uv.origin),
-        (rect.top_right(), uv.top_right()),
-        (rect.bottom_right(), uv.bottom_right()),
-        (rect.bottom_left(), uv.bottom_left()),
+) -> Count {
+    return tessellate_quad(
+        rect.origin,
+        rect.top_right(),
+        rect.bottom_right(),
+        rect.bottom_left(),
         output
     );
 }
 
-pub fn tessellate_rounded_rectangle<Output: VertexBufferBuilder<Vec2>>(
+/// Add a rounded reactangle to a geometry.
+///
+/// Does not call begin_geometry and end_geometry.
+pub fn add_rounded_rectangle<Output: GeometryBuilder>(
     _rect: &RoundedRect,
-    output: &mut Output
-) {
-    output.begin_geometry();
-    unimplemented!()
+    _output: &mut Output
+) -> Count {
+    unimplemented!();
 }
 
-pub fn tessellate_ellipsis<Output: VertexBufferBuilder<Vec2>>(
-    center: Vec2,
+/// Tessellate a simple rounded rectangle.
+pub fn tessellate_rounded_rectangle<Output: GeometryBuilder>(
+    _rect: &RoundedRect,
+    _output: &mut Output
+) -> Count {
+    unimplemented!();
+}
+
+/// Tessellate a simple ellipsis.
+pub fn tessellate_ellipsis<Output: GeometryBuilder>(
+    center: Point,
     radius: Vec2,
-    num_vertices: u32,
+    num_vertices: u32, // TODO: use a tolerance instead?
     output: &mut Output
-) {
+) -> Count {
     output.begin_geometry();
-    output.push_vertex(center);
+    let c = output.add_vertex(center, None);
     for i in 0..num_vertices {
         let angle = i as f32 * 2.0 * PI / ((num_vertices-1) as f32);
-        output.push_vertex(center + vec2(radius.x*angle.cos(), radius.y*angle.sin()));
+        output.add_vertex(center + vec2(radius.x*angle.cos(), radius.y*angle.sin()), None);
     }
     for i in 1..((num_vertices) as Index) {
-        output.push_indices(0, i, (i-1)%num_vertices as Index+2);
+        output.add_triangle(c, vertex_id(i), vertex_id((i-1)%num_vertices as Index+2));
     }
+    return output.end_geometry()
 }

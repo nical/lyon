@@ -7,23 +7,24 @@ use std::mem::swap;
 use std::cmp::PartialOrd;
 use std::cmp;
 
-use super::{ vertex_id, VertexId };
+use super::{ VertexId };
 use math::*;
 use path::*;
-use vertex_builder::{ VertexBufferBuilder, Range, };
+use vertex_builder::{ GeometryBuilder, Count};
+use path_builder::{ PrimitiveBuilder, PrimitiveImpl };
 use math_utils::{
     is_below, is_below_int, directed_angle, directed_angle2,
     segment_intersection_int, line_horizontal_intersection_int,
 };
 
 #[cfg(test)]
-use path_builder::{ PrimitiveBuilder, };
+use super::{ vertex_id, };
 #[cfg(test)]
 use vertex_builder::{ VertexBuffers, simple_vertex_builder };
 #[cfg(test)]
 use path_builder::{ flattened_path_builder, };
 
-pub type FillResult = Result<(Range, Range), FillError>;
+pub type FillResult = Result<Count, FillError>;
 
 #[derive(Clone, Debug)]
 pub enum FillError {
@@ -79,15 +80,26 @@ impl FillTessellator {
     }
 
     /// Compute the tessellation.
-    pub fn tessellate<Output: VertexBufferBuilder<Point>>(&mut self, path: PathSlice, output: &mut Output) -> FillResult {
+    pub fn tessellate_events<Output: GeometryBuilder>(&mut self,
+        events: &Events,
+        options: &FillOptions,
+        output: &mut Output
+    ) -> FillResult {
+        if options.vertex_aa {
+            println!("warning: Vertex-aa is not supported yet.");
+        }
 
-        let events = self.initialize_events(path);
+        if options.fill_rule != FillRule::EvenOdd {
+            println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
+        }
+
+        self.set_unit_scale(options.unit_scale);
 
         self.begin_tessellation(output);
 
         self.tessellator_loop(&events, output);
 
-        let ranges = self.end_tessellation(output);
+        let res = self.end_tessellation(output);
 
         let mut error = None;
         swap(&mut error, &mut self.error);
@@ -95,7 +107,22 @@ impl FillTessellator {
             return Err(err);
         }
 
-        return Ok(ranges);
+        return Ok(res);
+    }
+
+    /// Compute the tessellation.
+    ///
+    /// Takes a path as parameter for convenience, using tessellate_events may be more
+    /// efficient in some cases.
+    pub fn tessellate_path<Output: GeometryBuilder>(&mut self,
+        path: PathSlice,
+        options: &FillOptions,
+        output: &mut Output
+    ) -> FillResult {
+
+        let events = initialize_events(path, self.scale, self.translation);
+
+        return self.tessellate_events(&events, options, output);
     }
 
     /// Enable some verbose logging during the tessellation, for debugging purposes.
@@ -114,14 +141,14 @@ impl FillTessellator {
         self.translation = v;
     }
 
-    fn begin_tessellation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
+    fn begin_tessellation<Output: GeometryBuilder>(&mut self, output: &mut Output) {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
         output.begin_geometry();
     }
 
-    fn end_tessellation<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) -> (Range, Range) {
+    fn end_tessellation<Output: GeometryBuilder>(&mut self, output: &mut Output) -> Count {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
@@ -167,7 +194,7 @@ impl FillTessellator {
         return events;
     }
 
-    fn tessellator_loop<Output: VertexBufferBuilder<Point>>(&mut self,
+    fn tessellator_loop<Output: GeometryBuilder>(&mut self,
         events: &Events,
         output: &mut Output
     ) {
@@ -259,10 +286,10 @@ impl FillTessellator {
         }
     }
 
-    fn process_vertex<Output: VertexBufferBuilder<Point>>(&mut self, current_position: IntPoint, output: &mut Output) {
+    fn process_vertex<Output: GeometryBuilder>(&mut self, current_position: IntPoint, output: &mut Output) {
 
         let vec2_position = self.to_vec2(current_position);
-        let id = vertex_id(output.push_vertex(vec2_position));
+        let id = output.add_vertex(vec2_position, None);
 
         self.below.sort_by(|a, b| {
             a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
@@ -480,7 +507,7 @@ impl FillTessellator {
     // Look for eventual merge vertices on this span above the current vertex, and connect
     // them to the current vertex.
     // This should be called when processing a vertex that is on the left side of a span.
-    fn resolve_merge_vertices<Output: VertexBufferBuilder<Point>>(&mut self,
+    fn resolve_merge_vertices<Output: GeometryBuilder>(&mut self,
         span_idx: usize,
         current: IntPoint, id: VertexId,
         output: &mut Output
@@ -495,7 +522,7 @@ impl FillTessellator {
         }
     }
 
-    fn split_event<Output: VertexBufferBuilder<Point>>(&mut self,
+    fn split_event<Output: GeometryBuilder>(&mut self,
         span_idx: usize, current: IntPoint, id: VertexId,
         left: EdgeBelow, right: EdgeBelow,
         output: &mut Output
@@ -555,7 +582,7 @@ impl FillTessellator {
         }
     }
 
-    fn merge_event<Output: VertexBufferBuilder<Point>>(&mut self,
+    fn merge_event<Output: GeometryBuilder>(&mut self,
         position: IntPoint, id: VertexId,
         span_idx: usize,
         output: &mut Output
@@ -694,7 +721,7 @@ impl FillTessellator {
         }
     }
 
-    fn end_span<Output: VertexBufferBuilder<Point>>(&mut self,
+    fn end_span<Output: GeometryBuilder>(&mut self,
         span_idx: usize, position: IntPoint, id: VertexId, output: &mut Output
     ) {
         let vec2_position = self.to_vec2(position);
@@ -906,24 +933,129 @@ impl Span {
     }
 }
 
-struct Events {
+pub struct EventsBuilder {
+    builder: PrimitiveImpl,
+    translation: Vec2,
+    scale: f32,
+}
+
+pub struct Events {
     edges: Vec<Edge>,
     vertices: Vec<IntPoint>,
 }
 
+/// Build fill events using the PrimitiveBuilder interface in order to be used as any
+/// path builder.
+///
+/// Currently this deffers all of the work to a PrimitiveImpl path builder, and does the
+/// conversion at the end, but the goal is to have a specialized implementation that can
+/// generate the events directly without having to allocate and build a path.
+impl EventsBuilder {
+    pub fn new(options: &FillOptions) -> EventsBuilder {
+        EventsBuilder {
+            builder: PrimitiveImpl::new(),
+            translation: vec2(0.0, 0.0),
+            scale: options.unit_scale,
+        }
+    }
+}
+
+impl PrimitiveBuilder for EventsBuilder {
+    type PathType = Events;
+
+    fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
+
+    fn line_to(&mut self, to: Point) { self.builder.line_to(to); }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        self.builder.quadratic_bezier_to(ctrl, to);
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        self.builder.cubic_bezier_to(ctrl1, ctrl2, to)
+    }
+
+    fn end(&mut self) -> PathId { self.builder.end() }
+
+    fn close(&mut self) -> PathId { self.builder.close() }
+
+    fn current_position(&self) -> Point { self.builder.current_position() }
+
+    fn build(self) -> Events {
+        let scale = self.scale;
+        let translation = self.translation;
+        let path = self.builder.build();
+       return initialize_events(path.as_slice(), scale, translation);
+    }
+}
+
+fn initialize_events(path: PathSlice, scale: f32, translation: Vec2) -> Events {
+    let to_internal = |v: Point| {
+        let v = v + translation;
+        int_vec2((v.x * scale) as i32, (v.y * scale) as i32)
+    };
+
+    let path_num_vertices = path.num_vertices();
+
+    let mut events = Events {
+        edges: Vec::with_capacity(path_num_vertices),
+        vertices: Vec::with_capacity(path_num_vertices / 10),
+    };
+
+    for sub_path in path.path_ids() {
+        for vertex in path.vertex_ids(sub_path) {
+            let mut a = to_internal(path.vertex(vertex).position);
+            let mut next = to_internal(path.vertex(path.next(vertex)).position);
+            let prev = to_internal(path.vertex(path.previous(vertex)).position);
+
+            let a_below_next = is_below_int(a, next);
+            let a_below_prev = is_below_int(a, prev);
+
+            if a_below_next && a_below_prev {
+                // End or merge event don't necessarily have edges below but we need to
+                // process them.
+                events.vertices.push(a);
+            }
+
+            if a_below_next {
+                swap(&mut a, &mut next);
+            }
+
+            if a == next {
+                continue;
+            }
+
+            events.edges.push(Edge { upper: a, lower: next });
+        }
+    }
+
+    events.edges.sort_by(|a, b|{ compare_positions(a.upper, b.upper) });
+    events.vertices.sort_by(|a, b|{ compare_positions(*a, *b) });
+
+    return events;
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FillRule {
     EvenOdd,
     NonZero,
 }
 
 /// Parameters for the tessellator.
-///
-/// Not used yet (only one configuration supported).
-pub struct TessellatorConfig {
+pub struct FillOptions {
+    /// Maximum allowed distance to the path when building an approximation.
+    pub tolerance: f32,
+
     /// See the SVG specification.
     ///
     /// Currently, only the EvenOdd rule is implemented.
     pub fill_rule: FillRule,
+
+    /// The number of tesselator units per world unit.
+    ///
+    /// As the tesselator is internally using integer coordinates, this parameter defines
+    /// the precision and range of the tesselator.
+    pub unit_scale: f32,
 
     /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
     /// a gradient to smooth the edges.
@@ -931,34 +1063,41 @@ pub struct TessellatorConfig {
     /// Not implemented yet!
     pub vertex_aa: bool,
 
-    /// If set to false, the tessellator will separate the quadratic bezier segments
-    /// from the rest of the shape so that their tessellation can be done separately,
-    /// for example in a fragment shader.
-    ///
-    /// Not implemented yet!
-    pub flatten_curves: bool,
+    // To be able to add fields without making it a breaking change, add an empty private field
+    // which makes it impossible to create a FillOptions without the calling constructor.
+    _private: (),
 }
 
-impl TessellatorConfig {
-    pub fn new() -> TessellatorConfig { TessellatorConfig::even_odd() }
+impl FillOptions {
+    pub fn default() -> FillOptions { FillOptions::even_odd() }
 
-    pub fn even_odd() -> TessellatorConfig {
-        TessellatorConfig {
+    pub fn even_odd() -> FillOptions {
+        FillOptions {
+            tolerance: 0.1,
             fill_rule: FillRule::EvenOdd,
+            unit_scale: 1000.0,
             vertex_aa: false,
-            flatten_curves: true,
+            _private: (),
         }
     }
 
-    pub fn non_zero() -> TessellatorConfig {
-        TessellatorConfig {
-            fill_rule: FillRule::NonZero,
-            vertex_aa: false,
-            flatten_curves: true,
-        }
+    pub fn non_zero() -> FillOptions {
+        let mut options = FillOptions::default();
+        options.fill_rule = FillRule::NonZero;
+        return options;
     }
 
-    pub fn with_vertex_aa(mut self) -> TessellatorConfig {
+    pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
+        self.tolerance = tolerance;
+        return self;
+    }
+
+    pub fn with_unit_scale(mut self, scale: f32) -> FillOptions {
+        self.unit_scale = scale;
+        return self;
+    }
+
+    pub fn with_vertex_aa(mut self) -> FillOptions {
         self.vertex_aa = true;
         return self;
     }
@@ -985,7 +1124,7 @@ impl Side {
 pub struct MonotoneTessellator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
-    triangles: Vec<(u16, u16, u16)>,
+    triangles: Vec<(VertexId, VertexId, VertexId)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1070,15 +1209,15 @@ impl MonotoneTessellator {
         //println!(" #### triangle {} {} {}", a.id.handle, b.id.handle, c.id.handle);
 
         if directed_angle2(b.pos, c.pos, a.pos) <= PI {
-            self.triangles.push((a.id.handle, b.id.handle, c.id.handle));
+            self.triangles.push((a.id, b.id, c.id));
         } else {
-            self.triangles.push((b.id.handle, a.id.handle, c.id.handle));
+            self.triangles.push((b.id, a.id, c.id));
         }
     }
 
-    fn flush<Output: VertexBufferBuilder<Point>>(&mut self, output: &mut Output) {
+    fn flush<Output: GeometryBuilder>(&mut self, output: &mut Output) {
         for &(a, b, c) in &self.triangles {
-            output.push_indices(a, b, c);
+            output.add_triangle(a, b, c);
         }
         self.triangles.clear();
     }
@@ -1137,7 +1276,7 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
         if log {
             tess.enable_logging();
         }
-        try!{ tess.tessellate(path, &mut vertex_builder) };
+        try!{ tess.tessellate_path(path, &FillOptions::default(), &mut vertex_builder) };
     }
     return Ok(buffers.indices.len()/3);
 }
