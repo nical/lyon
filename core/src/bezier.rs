@@ -5,64 +5,109 @@ use math::*;
 
 use std::mem::swap;
 
-pub fn sample_quadratic_bezier(
-    from: Vec2,
-    ctrl: Vec2,
-    to: Vec2,
-    t: f32
-) -> Vec2 {
-    let t2 = t*t;
-    let one_t = 1.0 - t;
-    let one_t2 = one_t * one_t;
-    return from * one_t2
-         + ctrl * 2.0*one_t*t
-         + to * t2;
-}
-
-pub fn sample_cubic_bezier(
-    from: Vec2,
-    ctrl1: Vec2,
-    ctrl2: Vec2,
-    to: Vec2,
-    t: f32
-) -> Vec2 {
-    let t2 = t*t;
-    let t3 = t2*t;
-    let one_t = 1.0 - t;
-    let one_t2 = one_t*one_t;
-    let one_t3 = one_t2*one_t;
-    return from * one_t3
-         + ctrl1 * 3.0*one_t2*t
-         + ctrl2 * 3.0*one_t*t2
-         + to * t3
-}
-
-#[derive(Debug)]
-pub struct CubicBezierSegment {
-    pub from: Vec2,
-    pub cp1: Vec2,
-    pub cp2: Vec2,
-    pub to: Vec2,
-}
-
-impl Copy for CubicBezierSegment {}
-impl Clone for CubicBezierSegment {
-    fn clone(&self) -> CubicBezierSegment { *self }
-}
-
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct QuadraticBezierSegment {
     pub from: Vec2,
     pub cp: Vec2,
     pub to: Vec2,
 }
 
-impl Copy for QuadraticBezierSegment {}
-impl Clone for QuadraticBezierSegment {
-    fn clone(&self) -> QuadraticBezierSegment { *self }
-}
-
 impl QuadraticBezierSegment {
+
+    pub fn sample(&self, t: f32) -> Point {
+        let t2 = t*t;
+        let one_t = 1.0 - t;
+        let one_t2 = one_t * one_t;
+        return self.from * one_t2
+             + self.cp * 2.0 * one_t * t
+             + self.to * t2;
+    }
+
+    pub fn sample_x(&self, t: f32) -> f32 {
+        let t2 = t*t;
+        let one_t = 1.0 - t;
+        let one_t2 = one_t * one_t;
+        return self.from.x * one_t2
+             + self.cp.x * 2.0*one_t*t
+             + self.to.x * t2;
+    }
+
+    pub fn sample_y(&self, t: f32) -> f32 {
+        let t2 = t*t;
+        let one_t = 1.0 - t;
+        let one_t2 = one_t * one_t;
+        return self.from.y * one_t2
+             + self.cp.y * 2.0*one_t*t
+             + self.to.y * t2;
+    }
+
+    pub fn flip(&mut self) { swap(&mut self.from, &mut self.to); }
+
+    /// Find the advancement of the y-most position in the curve.
+    ///
+    /// This returns the advancement along the curve, not the actual y position.
+    pub fn find_y_maximum(&self) -> f32 {
+        if let Some(t) = self.find_y_inflection() {
+            let ty = self.sample(t);
+            if ty > self.from.y && ty > self.to.y {
+              return t;
+            }
+        }
+        return if self.from.y > self.to.y { 0.0 } else { 1.0 };
+    }
+
+    /// Return the y inflection point or None if this curve is y-monotone.
+    pub fn find_y_inflection(&self) -> Option<f32> {
+        let div = self.from.y - 2.0 * self.cp.y + self.to.y;
+        if div == 0.0 {
+           return None;
+        }
+        let t = (self.from.y - self.cp.y) / div;
+        if t > 0.0 && t < 1.0 {
+            return Some(t);
+        }
+        return None;
+    }
+
+    /// Split this curve into two sub-curves.
+    pub fn split(&self, t: f32) -> (QuadraticBezierSegment, QuadraticBezierSegment) {
+        let t_one = t - 1.0;
+        let split_point = self.sample(t);
+        return (
+            QuadraticBezierSegment {
+                from: self.from,
+                cp: self.cp * t - self.from * t_one,
+                to: split_point,
+            },
+            QuadraticBezierSegment {
+                from: split_point,
+                cp: self.to * t - self.cp * t_one,
+                to: self.to,
+            }
+        );
+    }
+
+    /// Return the curve before the split point.
+    pub fn before_split(&self, t: f32) -> QuadraticBezierSegment {
+        let t_one = t - 1.0;
+        return QuadraticBezierSegment {
+            from: self.from,
+            cp: self.cp * t - self.from * t_one,
+            to: self.sample(t),
+        };
+    }
+
+    /// Return the curve after the split point.
+    pub fn after_split(&self, t: f32) -> QuadraticBezierSegment {
+        let t_one = t - 1.0;
+        return QuadraticBezierSegment {
+            from: self.sample(t),
+            cp: self.to * t - self.cp * t_one,
+            to: self.to
+        };
+    }
+
+    /// Elevate this curve to a third order bezier.
     pub fn to_cubic(&self) -> CubicBezierSegment {
         CubicBezierSegment {
             from: self.from,
@@ -71,10 +116,69 @@ impl QuadraticBezierSegment {
             to: self.to,
         }
     }
+
+    /// Find the interval of the begining of the curve that can be approximated with a
+    /// line segment.
+    pub fn flattening_step(&self, tolerance: f32) -> f32 {
+        let v1 = self.cp - self.from;
+        let v2 = self.to - self.from;
+
+        let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
+        let h = v1.x.hypot(v1.y);
+
+        if (v1_cross_v2 * h).abs() <= 0.000001 {
+            return 1.0;
+        }
+
+        let s2inv = h / v1_cross_v2;
+
+        let t = 2.0 * (tolerance * s2inv.abs() / 3.0).sqrt();
+
+        if t > 1.0 {
+            return 1.0;
+        }
+
+        return t;
+    }
+
+    /// Translate this curve into a sequence of line_to operations on a PrimitiveBuilder.
+    pub fn flatten_into_builder<Output: PrimitiveBuilder>(&self, tolerance: f32, output: &mut Output) {
+        let mut iter = *self;
+        loop {
+            let t = iter.flattening_step(tolerance);
+            if t == 1.0 {
+                output.line_to(iter.to);
+                break
+            }
+            iter = iter.after_split(t);
+            output.line_to(iter.from);
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct CubicBezierSegment {
+    pub from: Vec2,
+    pub cp1: Vec2,
+    pub cp2: Vec2,
+    pub to: Vec2,
 }
 
 impl CubicBezierSegment {
-    pub fn split_in_place(&mut self, t: f32) -> CubicBezierSegment {
+    pub fn sample(&self, t: f32) -> Vec2 {
+        let t2 = t * t;
+        let t3 = t2 * t;
+        let one_t = 1.0 - t;
+        let one_t2 = one_t * one_t;
+        let one_t3 = one_t2 * one_t;
+        return self.from * one_t3
+             + self.cp1 * 3.0 * one_t2 * t
+             + self.cp2 * 3.0 * one_t * t2
+             + self.to * t3;
+    }
+
+    /// Split this curve into two sub-curves.
+    pub fn split(&self, t: f32) -> (CubicBezierSegment, CubicBezierSegment) {
         let cp1a = self.from + (self.cp1 - self.from) * t;
         let cp2a = self.cp1 + (self.cp2 - self.cp1) * t;
         let cp1aa = cp1a + (cp2a - cp1a) * t;
@@ -83,58 +187,53 @@ impl CubicBezierSegment {
         let cp1aaa = cp1aa + (cp2aa - cp1aa) * t;
         let to = self.to;
 
-        self.cp1 = cp1a;
-        self.cp2 = cp1aa;
-        self.to = cp1aaa;
+        return (
+            CubicBezierSegment {
+                from: self.from,
+                cp1: cp1a,
+                cp2: cp1aa,
+                to: cp1aaa,
+            },
+            CubicBezierSegment {
+                from: cp1aaa,
+                cp1: cp2aa,
+                cp2: cp3a,
+                to: to,
+            },
+        );
+    }
 
+    /// Return the curve before the split point.
+    pub fn before_split(&self, t: f32) -> CubicBezierSegment {
+        let cp1a = self.from + (self.cp1 - self.from) * t;
+        let cp2a = self.cp1 + (self.cp2 - self.cp1) * t;
+        let cp1aa = cp1a + (cp2a - cp1a) * t;
+        let cp3a = self.cp2 + (self.to - self.cp2) * t;
+        let cp2aa = cp2a + (cp3a - cp2a) * t;
+        let cp1aaa = cp1aa + (cp2aa - cp1aa) * t;
         return CubicBezierSegment {
-            from: cp1aaa,
-            cp1: cp2aa,
+            from: self.from,
+            cp1: cp1a,
+            cp2: cp1aa,
+            to: cp1aaa,
+        }
+    }
+
+    /// Return the curve after the split point.
+    pub fn after_split(&self, t: f32) -> CubicBezierSegment {
+        let cp1a = self.from + (self.cp1 - self.from) * t;
+        let cp2a = self.cp1 + (self.cp2 - self.cp1) * t;
+        let cp1aa = cp1a + (cp2a - cp1a) * t;
+        let cp3a = self.cp2 + (self.to - self.cp2) * t;
+        let cp2aa = cp2a + (cp3a - cp2a) * t;
+        return CubicBezierSegment {
+            from: cp1aa + (cp2aa - cp1aa) * t,
+            cp1: cp2a + (cp3a - cp2a) * t,
             cp2: cp3a,
-            to: to,
-        };
-    }
-
-    pub fn split(&self, t: f32) -> (CubicBezierSegment, CubicBezierSegment) {
-        let mut a = *self;
-        let b = a.split_in_place(t);
-        return (a, b);
-    }
-
-    pub fn sample(&self, t: f32) -> Vec2 {
-        return sample_cubic_bezier(self.from, self.cp1, self.cp2, self.to, t);
+            to: self.to,
+        }
     }
 }
-
-// TODO: This is not very ergonomic.
-pub fn split_cubic_bezier(
-    bezier: &CubicBezierSegment,
-    t: f32,
-    out_first_segment: Option<&mut CubicBezierSegment>,
-    out_second_segment: Option<&mut CubicBezierSegment>
-) {
-    let cp1a = bezier.from + (bezier.cp1 - bezier.from) * t;
-    let cp2a = bezier.cp1 + (bezier.cp2 - bezier.cp1) * t;
-    let cp1aa = cp1a + (cp2a - cp1a) * t;
-    let cp3a = bezier.cp2 + (bezier.to - bezier.cp2) * t;
-    let cp2aa = cp2a + (cp3a - cp2a) * t;
-    let cp1aaa = cp1aa + (cp2aa - cp1aa) * t;
-
-    if let Some(first) = out_first_segment {
-        first.from = bezier.from;
-        first.cp1 = cp1a;
-        first.cp2 = cp1aa;
-        first.to = cp1aaa;
-    }
-
-    if let Some(second) = out_second_segment {
-        second.from = cp1aaa;
-        second.cp1 = cp2aa;
-        second.cp2 = cp3a;
-        second.to = bezier.to;
-    }
-}
-
 
 // Find the inflection points of a cubic bezier curve.
 fn find_cubic_bezier_inflection_points(
@@ -191,7 +290,7 @@ fn find_cubic_bezier_inflection_points(
     return (Some(t1), Some(t2));
 }
 
-pub fn cubic_root(val: f32) -> f32 {
+fn cubic_root(val: f32) -> f32 {
     if val < 0.0 {
         return -cubic_root(-val);
     }
@@ -204,8 +303,7 @@ fn find_cubic_bezier_inflection_approximation_range(
     t: f32, tolerance: f32,
     min: &mut f32, max: &mut f32
 ) {
-    let mut bezier = *bezier_segment;
-    bezier = bezier.split_in_place(t);
+    let bezier = bezier_segment.after_split(t);
 
     let cp21 = bezier.cp1 - bezier.from;
     let cp41 = bezier.to - bezier.from;
@@ -249,15 +347,13 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
 
     // Check that at least one of the inflection points is inside [0..1]
     if count == 0 || ((t1 <= 0.0 || t1 >= 1.0) && (count == 1 || (t2 <= 0.0 || t2 >= 1.0))) {
-        return flatten_cubic_bezier_segment(bezier, tolerance, path);
+        return flatten_cubic_no_inflection(bezier, tolerance, path);
     }
 
     let mut t1min = t1;
     let mut t1max = t1;
     let mut t2min = t2;
     let mut t2max = t2;
-
-    let mut remaining_cp = bezier;
 
     // For both inflection points, calulate the range where they can be linearly
     // approximated if they are positioned within [0,1]
@@ -267,8 +363,6 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
     if count > 1 && t2 >= 0.0 && t2 < 1.0 {
         find_cubic_bezier_inflection_approximation_range(&bezier, t2, tolerance, &mut t2min, &mut t2max);
     }
-    let mut next_bezier = bezier;
-    let mut prev_bezier = bezier;
 
     // Process ranges. [t1min, t1max] and [t2min, t2max] are approximated by line
     // segments.
@@ -281,20 +375,19 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
     if t1min > 0.0 {
         // Flatten the Bezier up until the first inflection point's approximation
         // point.
-        split_cubic_bezier(&bezier, t1min, Some(&mut prev_bezier), Some(&mut remaining_cp));
-        flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+        flatten_cubic_no_inflection(bezier.before_split(t1min), tolerance, path);
     }
     if t1max >= 0.0 && t1max < 1.0 && (count == 1 || t2min > t1max) {
         // The second inflection point's approximation range begins after the end
         // of the first, approximate the first inflection point by a line and
         // subsequently flatten up until the end or the next inflection point.
-        split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
+        let next_bezier = bezier.after_split(t1max);
 
         path.line_to(next_bezier.from);
 
         if count == 1 || (count > 1 && t2min >= 1.0) {
             // No more inflection points to deal with, flatten the rest of the curve.
-            flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+            flatten_cubic_no_inflection(next_bezier, tolerance, path);
             return;
         }
     } else if count > 1 && t2min > 1.0 {
@@ -309,29 +402,25 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
         if t2min > 0.0 && t2min < t1max {
             // In this case the t2 approximation range starts inside the t1
             // approximation range.
-            split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
-            path.line_to(next_bezier.from);
+            path.line_to(bezier.sample(t1max));
         } else if t2min > 0.0 && t1max > 0.0 {
-            split_cubic_bezier(&bezier, t1max, None, Some(&mut next_bezier));
+            let next_bezier = bezier.after_split(t1max);
 
             // Find a control points describing the portion of the curve between t1max and t2min.
             let t2mina = (t2min - t1max) / (1.0 - t1max);
-            let tmp = next_bezier;
-            split_cubic_bezier(&tmp, t2mina, Some(&mut prev_bezier), Some(&mut next_bezier));
-            flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+            flatten_cubic_no_inflection(next_bezier.before_split(t2mina), tolerance, path);
         } else if t2min > 0.0 {
             // We have nothing interesting before t2min, find that bit and flatten it.
-            split_cubic_bezier(&bezier, t2min, Some(&mut prev_bezier), Some(&mut next_bezier));
-            flatten_cubic_bezier_segment(prev_bezier, tolerance, path);
+            flatten_cubic_no_inflection(bezier.before_split(t2min), tolerance, path);
         }
+
         if t2max < 1.0 {
             // Flatten the portion of the curve after t2max
-            split_cubic_bezier(&bezier, t2max, None, Some(&mut next_bezier));
+            let next_bezier = bezier.after_split(t2max);
 
-            // Draw a line to the start, this is the approximation between t2min and
-            // t2max.
+            // Draw a line to the start, this is the approximation between t2min and t2max.
             path.line_to(next_bezier.from);
-            flatten_cubic_bezier_segment(next_bezier, tolerance, path);
+            flatten_cubic_no_inflection(next_bezier, tolerance, path);
         } else {
             // Our approximation range extends beyond the end of the curve.
             path.line_to(bezier.to);
@@ -339,7 +428,7 @@ pub fn flatten_cubic_bezier<Builder: PrimitiveBuilder>(
     }
 }
 
-fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
+fn flatten_cubic_no_inflection<Builder: PrimitiveBuilder>(
     mut bezier: CubicBezierSegment,
     tolerance: f32,
     path: &mut Builder
@@ -361,20 +450,20 @@ fn flatten_cubic_bezier_segment<Builder: PrimitiveBuilder>(
         // To remove divisions and check for divide-by-zero, this is optimized from:
         // Float s2 = (v2.x * v1.y - v2.y * v1.x) / hypot(v1.x, v1.y);
         // t = 2 * Float(sqrt(tolerance / (3. * abs(s2))));
-        let v1xv2 = v2.x * v1.y - v2.y * v1.x;
+        let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
         let h = v1.x.hypot(v1.y);
-        if v1xv2 * h == 0.0 {
+        if v1_cross_v2 * h == 0.0 {
             break;
         }
-        let s2inv = h / v1xv2;
+        let s2inv = h / v1_cross_v2;
 
         t = 2.0 * (tolerance * s2inv.abs() / 3.0).sqrt();
 
-        if t >= 0.999 {
+        if t >= 0.9999 {
             break;
         }
 
-        bezier = bezier.split_in_place(t as f32);
+        bezier = bezier.after_split(t);
 
         path.line_to(bezier.from);
     }
