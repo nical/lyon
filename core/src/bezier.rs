@@ -48,8 +48,8 @@ impl QuadraticBezierSegment {
     /// This returns the advancement along the curve, not the actual y position.
     pub fn find_y_maximum(&self) -> f32 {
         if let Some(t) = self.find_y_inflection() {
-            let ty = self.sample(t);
-            if ty > self.from.y && ty > self.to.y {
+            let p = self.sample(t);
+            if p.y > self.from.y && p.y > self.to.y {
               return t;
             }
         }
