@@ -10,7 +10,7 @@ use glium::DisplayBuild;
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
 use lyon::math::*;
-use lyon::tessellation::vertex_builder::{ VertexConstructor, VertexBuffers, vertex_builder };
+use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
@@ -21,15 +21,13 @@ struct Vertex {
     a_color: [f32; 3],
 }
 
-struct VertexCtor {
-    color: [f32; 3]
-}
+struct WithColor([f32; 3]);
 
-impl VertexConstructor<Vec2, Vertex> for VertexCtor {
+impl VertexConstructor<Vec2, Vertex> for WithColor {
     fn new_vertex(&mut self, pos: Vec2) -> Vertex {
         Vertex {
             a_position: pos.array(),
-            a_color: self.color,
+            a_color: self.0,
         }
     }
 }
@@ -65,12 +63,6 @@ fn main() {
 
     build_logo_path(&mut builder);
 
-    //builder.move_to(vec2(10.0, 30.0));
-    //builder.line_to(vec2(130.0, 30.0));
-    //builder.line_to(vec2(130.0, 60.0));
-    //builder.line_to(vec2(10.0, 60.0));
-    //builder.close();
-
     let path = builder.build();
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
@@ -78,13 +70,13 @@ fn main() {
     FillTessellator::new().tessellate_path(
         path.as_slice(),
         &FillOptions::default(),
-        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.9, 0.9, 1.0] })
+        &mut BuffersBuilder::new(&mut buffers, WithColor([0.9, 0.9, 1.0]))
     ).unwrap();
 
     StrokeTessellator::new().tessellate_path(
         path.as_slice(),
         &StrokeOptions::stroke_width(1.0),
-        &mut vertex_builder(&mut buffers, VertexCtor{ color: [0.0, 0.0, 0.0] })
+        &mut BuffersBuilder::new(&mut buffers, WithColor([0.0, 0.0, 0.0]))
     ).unwrap();
 
     let show_points = false;
@@ -92,13 +84,13 @@ fn main() {
     if show_points {
         for p in path.vertices().as_slice() {
             tessellate_ellipsis(p.position, vec2(1.0, 1.0), 16,
-                &mut vertex_builder(&mut buffers,
-                    VertexCtor{ color: [0.0, 0.0, 0.0] }
+                &mut BuffersBuilder::new(&mut buffers,
+                    WithColor([0.0, 0.0, 0.0])
                 )
             );
             tessellate_ellipsis(p.position, vec2(0.5, 0.5), 16,
-                &mut vertex_builder(&mut buffers,
-                    VertexCtor{ color: [0.0, 1.0, 0.0] }
+                &mut BuffersBuilder::new(&mut buffers,
+                    WithColor([0.0, 1.0, 0.0])
                 )
             );
         }
@@ -111,7 +103,7 @@ fn main() {
     let mut bg_buffers: VertexBuffers<BgVertex> = VertexBuffers::new();
     tessellate_rectangle(
         &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
-        &mut vertex_builder(&mut bg_buffers, BgVertexCtor)
+        &mut BuffersBuilder::new(&mut bg_buffers, BgVertexCtor)
     );
 
     // building the display, ie. the main object

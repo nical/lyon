@@ -9,7 +9,7 @@ use std::cmp;
 
 use math::*;
 use path::*;
-use vertex_builder::{ GeometryBuilder, Count, VertexId };
+use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
 use path_builder::{ PrimitiveBuilder, PrimitiveImpl };
 use math_utils::{
     is_below, is_below_int, directed_angle, directed_angle2,
@@ -17,7 +17,7 @@ use math_utils::{
 };
 
 #[cfg(test)]
-use vertex_builder::{ VertexBuffers, simple_vertex_builder };
+use geometry_builder::{ VertexBuffers, simple_builder };
 #[cfg(test)]
 use path_builder::{ flattened_path_builder, };
 
@@ -77,7 +77,7 @@ impl FillTessellator {
     }
 
     /// Compute the tessellation.
-    pub fn tessellate_events<Output: GeometryBuilder>(&mut self,
+    pub fn tessellate_events<Output: BezierGeometryBuilder<Point>>(&mut self,
         events: &Events,
         options: &FillOptions,
         output: &mut Output
@@ -111,7 +111,7 @@ impl FillTessellator {
     ///
     /// Takes a path as parameter for convenience, using tessellate_events may be more
     /// efficient in some cases.
-    pub fn tessellate_path<Output: GeometryBuilder>(&mut self,
+    pub fn tessellate_path<Output: BezierGeometryBuilder<Point>>(&mut self,
         path: PathSlice,
         options: &FillOptions,
         output: &mut Output
@@ -138,14 +138,14 @@ impl FillTessellator {
         self.translation = v;
     }
 
-    fn begin_tessellation<Output: GeometryBuilder>(&mut self, output: &mut Output) {
+    fn begin_tessellation<Output: BezierGeometryBuilder<Point>>(&mut self, output: &mut Output) {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
         output.begin_geometry();
     }
 
-    fn end_tessellation<Output: GeometryBuilder>(&mut self, output: &mut Output) -> Count {
+    fn end_tessellation<Output: BezierGeometryBuilder<Point>>(&mut self, output: &mut Output) -> Count {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
@@ -191,7 +191,7 @@ impl FillTessellator {
         return events;
     }
 
-    fn tessellator_loop<Output: GeometryBuilder>(&mut self,
+    fn tessellator_loop<Output: BezierGeometryBuilder<Point>>(&mut self,
         events: &Events,
         output: &mut Output
     ) {
@@ -283,10 +283,10 @@ impl FillTessellator {
         }
     }
 
-    fn process_vertex<Output: GeometryBuilder>(&mut self, current_position: IntPoint, output: &mut Output) {
+    fn process_vertex<Output: BezierGeometryBuilder<Point>>(&mut self, current_position: IntPoint, output: &mut Output) {
 
         let vec2_position = self.to_vec2(current_position);
-        let id = output.add_vertex(vec2_position, None);
+        let id = output.add_vertex(vec2_position);
 
         self.below.sort_by(|a, b| {
             a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
@@ -526,7 +526,7 @@ impl FillTessellator {
     // Look for eventual merge vertices on this span above the current vertex, and connect
     // them to the current vertex.
     // This should be called when processing a vertex that is on the left side of a span.
-    fn resolve_merge_vertices<Output: GeometryBuilder>(&mut self,
+    fn resolve_merge_vertices<Output: BezierGeometryBuilder<Point>>(&mut self,
         span_idx: usize,
         current: IntPoint, id: VertexId,
         output: &mut Output
@@ -541,7 +541,7 @@ impl FillTessellator {
         }
     }
 
-    fn split_event<Output: GeometryBuilder>(&mut self,
+    fn split_event<Output: BezierGeometryBuilder<Point>>(&mut self,
         span_idx: usize, current: IntPoint, id: VertexId,
         left: EdgeBelow, right: EdgeBelow,
         output: &mut Output
@@ -601,7 +601,7 @@ impl FillTessellator {
         }
     }
 
-    fn merge_event<Output: GeometryBuilder>(&mut self,
+    fn merge_event<Output: BezierGeometryBuilder<Point>>(&mut self,
         position: IntPoint, id: VertexId,
         span_idx: usize,
         output: &mut Output
@@ -785,7 +785,7 @@ impl FillTessellator {
         }
     }
 
-    fn end_span<Output: GeometryBuilder>(&mut self,
+    fn end_span<Output: BezierGeometryBuilder<Point>>(&mut self,
         span_idx: usize, position: IntPoint, id: VertexId, output: &mut Output
     ) {
         let vec2_position = self.to_vec2(position);
@@ -1362,7 +1362,7 @@ impl MonotoneTessellator {
         }
     }
 
-    fn flush<Output: GeometryBuilder>(&mut self, output: &mut Output) {
+    fn flush<Output: BezierGeometryBuilder<Point>>(&mut self, output: &mut Output) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }
@@ -1418,7 +1418,7 @@ fn test_monotone_tess() {
 fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
     {
-        let mut vertex_builder = simple_vertex_builder(&mut buffers);
+        let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();
         if log {
             tess.enable_logging();

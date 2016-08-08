@@ -7,7 +7,7 @@ use std::f32::NAN;
 
 use math::*;
 use path::*;
-use vertex_builder::{ GeometryBuilder, Count, };
+use geometry_builder::{ GeometryBuilder, Count, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
 use basic_shapes::{ tessellate_quad };
 use super::{ VertexId };
@@ -19,7 +19,7 @@ pub struct StrokeTessellator {}
 impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
-    pub fn tessellate_path<Output: GeometryBuilder>(
+    pub fn tessellate_path<Output: GeometryBuilder<Point>>(
         &mut self,
         path: PathSlice,
         options: &StrokeOptions,
@@ -34,7 +34,7 @@ impl StrokeTessellator {
     }
 }
 
-fn tessellate_sub_path_stroke<Output: GeometryBuilder>(
+fn tessellate_sub_path_stroke<Output: GeometryBuilder<Point>>(
     path: SubPathSlice,
     stroke_width: f32,
     output: &mut Output
