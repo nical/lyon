@@ -14,7 +14,7 @@ use vertex_builder::{ GeometryBuilder, Count};
 use path_builder::{ PrimitiveBuilder, PrimitiveImpl };
 use math_utils::{
     is_below, is_below_int, directed_angle, directed_angle2,
-    segment_intersection_int, line_horizontal_intersection_int,
+    line_horizontal_intersection_int,
 };
 
 #[cfg(test)]
@@ -318,6 +318,8 @@ impl FillTessellator {
             }
 
             if test_span_touches(&span.right, current_position) {
+                // TODO: this isn't correct if the next span on the right also touches.
+                // see test_colinear_touching_squares2.
                 status = E::RightEdge;
                 break;
             }
@@ -487,12 +489,36 @@ impl FillTessellator {
                 let r = self.below[below_idx + 1].lower;
                 let mut left_edge = Edge { upper: current_position, lower: l };
                 let mut right_edge = Edge { upper: current_position, lower: r };
-                self.check_intersections(&mut left_edge);
-                self.check_intersections(&mut right_edge);
-                self.sweep_line.insert(span_idx, Span::begin(current_position, id, left_edge.lower, right_edge.lower));
-                let vec2_position = self.to_vec2(current_position);
-                self.monotone_tessellators.insert(span_idx, MonotoneTessellator::begin(vec2_position, id));
 
+                if self.below[below_idx].angle != self.below[below_idx+1].angle {
+                    // In most cases:
+                    self.check_intersections(&mut left_edge);
+                    self.check_intersections(&mut right_edge);
+                    self.sweep_line.insert(span_idx, Span::begin(current_position, id, left_edge.lower, right_edge.lower));
+                    let vec2_position = self.to_vec2(current_position);
+                    self.monotone_tessellators.insert(span_idx, MonotoneTessellator::begin(vec2_position, id));
+                } else {
+                    // If the two edges are colinear we "postpone" the beginning of this span
+                    // since at this level there is nothing to fill in a zero-area span.
+                    //
+                    //     x  <- current point
+                    //     |  <- zero area to fill while the span sides overlap.
+                    //     x  <- postponed start event
+                    //     |\
+                    //     x.\
+                    //
+                    // TODO: this doesn't work if there is an intersection with another span above
+                    // the postponed position.
+                    println!(" -- colinear start event.");
+
+                    if l == r {
+                        // just skip these two egdes.
+                    } else if is_below_int(l, r) {
+                        self.intersections.push(Edge { upper: r, lower: l });
+                    } else {
+                        self.intersections.push(Edge { upper: l, lower: r });
+                    }
+                }
                 below_idx += 2;
                 below_count -= 2;
                 span_idx += 1;
@@ -632,53 +658,68 @@ impl FillTessellator {
 
             // Test for an intersection against the span's left edge.
             if !span.left.merge {
-                if let Some(position) = segment_intersection_int(
+                match segment_intersection_int(
                     edge.upper, edge.lower,
                     span.left.upper, span.left.lower,
                 ) {
-                    if self.log {
-                        println!(" -- found an intersection at {:?}", position);
-                        println!("    | {:?}->{:?} x {:?}->{:?}",
-                            original_edge.upper.tuple(), original_edge.lower.tuple(),
-                            span.left.upper.tuple(), span.left.lower.tuple(),
-                        );
+                    SegmentInteresection::One(position) => {
+                        if self.log {
+                            println!(" -- found an intersection at {:?}", position);
+                            println!("    | {:?}->{:?} x {:?}->{:?}",
+                                original_edge.upper.tuple(), original_edge.lower.tuple(),
+                                span.left.upper.tuple(), span.left.lower.tuple(),
+                            );
+                        }
+
+                        intersection = Some((
+                            Intersection {
+                                point: position,
+                                lower1: original_edge.lower, lower2: span.left.lower
+                            },
+
+                            span_idx, Side::Left
+                        ));
+                        // From now on only consider potential intersections above the one we found,
+                        // by removing the lower part from the segment we test against.
+                        edge.lower = position;
                     }
-
-                    intersection = Some((
-                        Intersection {
-                            point: position,
-                            lower1: original_edge.lower, lower2: span.left.lower
-                        },
-
-                        span_idx, Side::Left
-                    ));
-                    // From now on only consider potential intersections above the one we found,
-                    // by removing the lower part from the segment we test against.
-                    edge.lower = position;
+                    SegmentInteresection::Two(p1, p2) => {
+                        println!(" -- found two intersections {:?} and {:?}", p1.tuple(), p2.tuple());
+                        unimplemented!();
+                    }
+                    _ => {}
                 }
             }
 
             // Same thing for the span's right edge.
             if !span.right.merge {
-                if let Some(position) = segment_intersection_int(
+                match segment_intersection_int(
                     edge.upper, edge.lower,
                     span.right.upper, span.right.lower,
                 ) {
-                    if self.log {
-                        println!(" -- found an intersection at {:?}", position);
-                        println!("    | {:?}->{:?} x {:?}->{:?}",
-                            original_edge.upper.tuple(), original_edge.lower.tuple(),
-                            span.right.upper.tuple(), span.right.lower.tuple(),
-                        );
+                    SegmentInteresection::One(position) => {
+
+                        if self.log {
+                            println!(" -- found an intersection at {:?}", position);
+                            println!("    | {:?}->{:?} x {:?}->{:?}",
+                                original_edge.upper.tuple(), original_edge.lower.tuple(),
+                                span.right.upper.tuple(), span.right.lower.tuple(),
+                            );
+                        }
+                        intersection = Some((
+                            Intersection {
+                                point: position,
+                                lower1: original_edge.lower, lower2: span.right.lower
+                            },
+                            span_idx, Side::Right
+                        ));
+                        edge.lower = position;
                     }
-                    intersection = Some((
-                        Intersection {
-                            point: position,
-                            lower1: original_edge.lower, lower2: span.right.lower
-                        },
-                        span_idx, Side::Right
-                    ));
-                    edge.lower = position;
+                    SegmentInteresection::Two(p1, p2) => {
+                        println!(" -- found two intersections {:?} and {:?}", p1.tuple(), p2.tuple());
+                        unimplemented!();
+                    }
+                    _ => {}
                 }
             }
 
@@ -822,6 +863,87 @@ fn compare_positions(a: IntPoint, b: IntPoint) -> Ordering {
     if a.x > b.x { return Ordering::Greater; }
     if a.x < b.x { return Ordering::Less; }
     return Ordering::Equal;
+}
+
+enum SegmentInteresection {
+    One(IntVec2),
+    Two(IntVec2, IntVec2),
+    None,
+}
+
+fn segment_intersection_int(
+    a1: IntVec2, b1: IntVec2, // The new edge.
+    a2: IntVec2, b2: IntVec2  // An already inserted edge.
+) -> SegmentInteresection {
+
+    //println!(" -- test intersection {:?} {:?} x {:?} {:?}", a1, b1, a2, b2);
+
+    // TODO: See if we can do this with integers math instead.
+    let a1 = vec2(a1.x as f32, a1.y as f32);
+    let b1 = vec2(b1.x as f32, b1.y as f32);
+    let a2 = vec2(a2.x as f32, a2.y as f32);
+    let b2 = vec2(b2.x as f32, b2.y as f32);
+
+    let v1 = b1 - a1;
+    let v2 = b2 - a2;
+    if v2 == vec2(0.0, 0.0) {
+        panic!("zero-length edge");
+    }
+
+    let v1_cross_v2 = v1.cross(v2);
+    let a2_a1_cross_v1 = (a2 - a1).cross(v1);
+
+    //println!(" -- v1_cross_v2 {}, a2_a1_cross_v1 {}", v1_cross_v2, a2_a1_cross_v1);
+
+    if v1_cross_v2 == 0.0 {
+        if a2_a1_cross_v1 != 0.0 {
+            return SegmentInteresection::None;
+        }
+        // The two segments are colinear.
+        //println!(" -- colinear segments");
+
+        let v1_sqr_len = v1.x*v1.x + v1.y*v1.y;
+        let v2_sqr_len = v2.x*v2.x + v2.y*v2.y;
+
+        // We know that a1 cannot be above a2 so if b1 is between a2 and b2, we have
+        // the order a2 -> a1 -> b1 -> b2.
+        let v2_dot_b1a2 = v2.dot(b1 - a2);
+        if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len {
+            //println!(" -- colinear intersection");
+            return SegmentInteresection::Two(
+                int_vec2(a1.x as i32, a1.y as i32),
+                int_vec2(b1.x as i32, b1.y as i32),
+            );
+        }
+
+        // We know that a1 cannot be above a2 and if b1 is below b2, so if
+        // b2 is between a1 and b1, then we have the order a2 -> a1 -> b2 -> b1.
+        let v1_dot_b2a1 = v1.dot(b2 - a1);
+        if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len {
+            //println!(" -- colinear intersection");
+            return SegmentInteresection::Two(
+                int_vec2(a1.x as i32, a1.y as i32),
+                int_vec2(b2.x as i32, b2.y as i32),
+            );
+        }
+
+        return SegmentInteresection::None;
+    }
+
+    if a1 == b2 || a1 == a2 || b1 == a2 || b1 == b2 {
+        //println!(" -- segments touch");
+        return SegmentInteresection::None;
+    }
+
+    let t = (a2 - a1).cross(v2) / v1_cross_v2;
+    let u = a2_a1_cross_v1 / v1_cross_v2;
+
+    if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
+        let res = a1 + (v1 * t);
+        return SegmentInteresection::One(int_vec2(res.x as i32, res.y as i32));
+    }
+
+    return SegmentInteresection::None;
 }
 
 fn test_span_side(span_edge: &SpanEdge, position: IntPoint) -> bool {
@@ -1849,7 +1971,6 @@ fn test_colinear_2() {
 }
 
 #[test]
-#[ignore] // TODO
 fn test_colinear_3() {
     let mut builder = flattened_path_builder(0.05);
     // The path goes through many points along a line.
@@ -1873,6 +1994,62 @@ fn test_colinear_4() {
     builder.line_to(vec2(0.0, 1.0));
     builder.line_to(vec2(0.0, 3.0));
     builder.line_to(vec2(0.0, 0.0));
+    builder.close();
+
+    let path = builder.build();
+
+    tessellate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+fn test_colinear_touching_squares() {
+    // Two squares touching.
+    //
+    // x-----x-----x
+    // |     |     |
+    // |     |     |
+    // x-----x-----x
+    //
+    let mut builder = flattened_path_builder(0.05);
+    builder.move_to(vec2(0.0, 0.0));
+    builder.line_to(vec2(1.0, 0.0));
+    builder.line_to(vec2(1.0, 1.0));
+    builder.line_to(vec2(0.0, 1.0));
+
+    builder.move_to(vec2(1.0, 0.0));
+    builder.line_to(vec2(2.0, 0.0));
+    builder.line_to(vec2(2.0, 1.0));
+    builder.line_to(vec2(1.0, 1.0));
+
+    builder.close();
+
+    let path = builder.build();
+
+    tessellate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+#[ignore]
+fn test_colinear_touching_squares2() {
+    // Two squares touching.
+    //
+    // x-----x
+    // |     x-----x
+    // |     |     |
+    // x-----x     |
+    //       x-----x
+    //
+    let mut builder = flattened_path_builder(0.05);
+    builder.move_to(vec2(0.0,   0.0));
+    builder.line_to(vec2(100.0, 0.0));
+    builder.line_to(vec2(100.0, 100.0));
+    builder.line_to(vec2(0.0,   100.0));
+
+    builder.move_to(vec2(100.0, 10.0));
+    builder.line_to(vec2(200.0, 10.0));
+    builder.line_to(vec2(200.0, 110.0));
+    builder.line_to(vec2(100.0, 110.0));
+
     builder.close();
 
     let path = builder.build();
@@ -1941,7 +2118,7 @@ fn test_coincident_simple_rotated() {
 
 #[test]
 fn test_identical_squares() {
-    // Two identical sub paths. It's a pretty much the worst type of input for
+    // Two identical sub paths. It is pretty much the worst type of input for
     // the tessellator as far as I know.
     let mut builder = flattened_path_builder(0.05);
     builder.move_to(vec2(0.0, 0.0));

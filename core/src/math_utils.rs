@@ -153,67 +153,6 @@ pub fn segment_intersection(
     return None;
 }
 
-pub fn segment_intersection_int(
-    _a1: IntVec2,
-    _b1: IntVec2,
-    _a2: IntVec2,
-    _b2: IntVec2
-) -> Option<IntVec2> {
-    if _a1 == _a2 || _a1 == _b1 || _b1 == _a2 || _b1 == _b2 {
-        return None;
-    }
-    let a1 = vec2(_a1.x as f32, _a1.y as f32);
-    let a2 = vec2(_a2.x as f32, _a2.y as f32);
-    let b1 = vec2(_b1.x as f32, _b1.y as f32);
-    let b2 = vec2(_b2.x as f32, _b2.y as f32);
-
-    let v1 = b1 - a1;
-    let v2 = b2 - a2;
-    if v2 == vec2(0.0, 0.0) {
-        return None;
-    }
-
-    let v1_cross_v2 = v1.cross(v2);
-    let a2_a1_cross_v1 = (a2 - a1).cross(v1);
-
-    if v1_cross_v2 == 0.0 {
-        if a2_a1_cross_v1 == 0.0 {
-
-            let v1_sqr_len = v1.x*v1.x + v1.y*v1.y;
-            // check if a2 is between a1 and b1
-            let v1_dot_a2a1 = v1.dot(a2 - a1);
-            if v1_dot_a2a1 > 0.0 && v1_dot_a2a1 < v1_sqr_len { return Some(int_vec2(a2.x as i32, a2.y as i32)); }
-
-            // check if b2 is between a1 and b1
-            let v1_dot_b2a1 = v1.dot(b2 - a1);
-            if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len { return Some(int_vec2(b2.x as i32, b2.y as i32)); }
-
-            let v2_sqr_len = v2.x*v2.x + v2.y*v2.y;
-            // check if a1 is between a2 and b2
-            let v2_dot_a1a2 = v2.dot(a1 - a2);
-            if v2_dot_a1a2 > 0.0 && v2_dot_a1a2 < v2_sqr_len { return Some(int_vec2(a1.x as i32, a1.y as i32)); }
-
-            // check if b1 is between a2 and b2
-            let v2_dot_b1a2 = v2.dot(b1 - a2);
-            if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len { return Some(int_vec2(b1.x as i32, b1.y as i32)); }
-
-            return None;
-        }
-
-        return None;
-    }
-
-    let t = (a2 - a1).cross(v2) / v1_cross_v2;
-    let u = a2_a1_cross_v1 / v1_cross_v2;
-
-    if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
-        let res = a1 + (v1 * t);
-        return Some(int_vec2(res.x as i32, res.y as i32));
-    }
-
-    return None;
-}
-
 #[test]
 fn test_segment_intersection() {
 
