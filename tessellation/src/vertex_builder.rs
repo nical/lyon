@@ -3,9 +3,13 @@
 use std::marker::PhantomData;
 use std::ops::Add;
 use math::{ Point, Vec2 };
-use super::{ VertexId, vertex_id };
 
 pub type Index = u16;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct VertexId(pub u16);
+impl VertexId {
+    pub fn offset(&self) -> u16 { self.0 }
+}
 
 /// Structure that holds the vertex and index data.
 ///
@@ -322,11 +326,11 @@ GeometryBuilder for VertexBuilder<'l, VertexType, Point, Ctor> {
     }
 
     fn add_vertex(&mut self, pos: Point, _normal: Option<Vec2>) -> VertexId {
-        vertex_id(self.push_vertex(pos))
+        VertexId(self.push_vertex(pos))
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
-        self.push_indices(a.handle, b.handle, c.handle);
+        self.push_indices(a.offset(), b.offset(), c.offset());
     }
 
     fn add_quadratic_bezier(&mut self, _from: VertexId, _to: VertexId, _ctrl: Point) {

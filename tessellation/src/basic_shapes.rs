@@ -2,8 +2,7 @@
 
 //! Tessellation routines for simple shapes.
 
-use vertex_builder::{ GeometryBuilder, Count };
-use super::{ Index, vertex_id };
+use vertex_builder::{ GeometryBuilder, Count, VertexId };
 
 use math::*;
 
@@ -133,11 +132,11 @@ pub fn tessellate_ellipsis<Output: GeometryBuilder>(
     output.begin_geometry();
     let c = output.add_vertex(center, None);
     for i in 0..num_vertices {
-        let angle = i as f32 * 2.0 * PI / ((num_vertices-1) as f32);
+        let angle = i as f32 * 2.0 * PI / ((num_vertices - 1) as f32);
         output.add_vertex(center + vec2(radius.x*angle.cos(), radius.y*angle.sin()), None);
     }
-    for i in 1..((num_vertices) as Index) {
-        output.add_triangle(c, vertex_id(i), vertex_id((i-1)%num_vertices as Index+2));
+    for i in 1..((num_vertices) as u16) {
+        output.add_triangle(c, VertexId(i), VertexId((i - 1)%num_vertices as u16 + 2));
     }
     return output.end_geometry()
 }
