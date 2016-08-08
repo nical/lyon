@@ -304,9 +304,6 @@ impl FillTessellator {
         let mut status = E::Out;
 
         for span in &self.sweep_line {
-            // TODO: the computation here can be reduced since test_span_side and
-            // test_span_touches share a lot of the logic.
-
             if test_span_touches(&span.left, current_position) {
                 status = E::LeftEdge;
                 break;
@@ -509,7 +506,6 @@ impl FillTessellator {
                     //
                     // TODO: this doesn't work if there is an intersection with another span above
                     // the postponed position.
-                    println!(" -- colinear start event.");
 
                     if l == r {
                         // just skip these two egdes.
@@ -648,7 +644,7 @@ impl FillTessellator {
     }
 
     fn check_intersections(&mut self, edge: &mut Edge) {
-        struct Intersection { point: IntPoint, lower1: IntPoint, lower2: IntPoint }
+        struct Intersection { point: IntPoint, lower1: IntPoint, lower2: Option<IntPoint> }
 
         let original_edge = *edge;
         let mut intersection = None;
@@ -674,7 +670,8 @@ impl FillTessellator {
                         intersection = Some((
                             Intersection {
                                 point: position,
-                                lower1: original_edge.lower, lower2: span.left.lower
+                                lower1: original_edge.lower,
+                                lower2: Some(span.left.lower)
                             },
 
                             span_idx, Side::Left
@@ -685,7 +682,18 @@ impl FillTessellator {
                     }
                     SegmentInteresection::Two(p1, p2) => {
                         println!(" -- found two intersections {:?} and {:?}", p1.tuple(), p2.tuple());
-                        unimplemented!();
+
+                        intersection = Some((
+                            Intersection {
+                                point: p2,
+                                lower1: if is_below_int(original_edge.lower, span.left.lower)
+                                            { original_edge.lower } else { span.left.lower },
+                                lower2: None
+                            },
+
+                            span_idx, Side::Left
+                        ));
+                        edge.lower = p2;
                     }
                     _ => {}
                 }
@@ -709,7 +717,8 @@ impl FillTessellator {
                         intersection = Some((
                             Intersection {
                                 point: position,
-                                lower1: original_edge.lower, lower2: span.right.lower
+                                lower1: original_edge.lower,
+                                lower2: Some(span.right.lower)
                             },
                             span_idx, Side::Right
                         ));
@@ -717,7 +726,18 @@ impl FillTessellator {
                     }
                     SegmentInteresection::Two(p1, p2) => {
                         println!(" -- found two intersections {:?} and {:?}", p1.tuple(), p2.tuple());
-                        unimplemented!();
+
+                        intersection = Some((
+                            Intersection {
+                                point: p2,
+                                lower1: if is_below_int(original_edge.lower, span.right.lower)
+                                            { original_edge.lower } else { span.right.lower },
+                                lower2: None
+                            },
+
+                            span_idx, Side::Right
+                        ));
+                        edge.lower = p2;
                     }
                     _ => {}
                 }
@@ -740,11 +760,15 @@ impl FillTessellator {
             }
 
             let mut e1 = Edge { upper: evt.point, lower: evt.lower1 };
-            let mut e2 = Edge { upper: evt.point, lower: evt.lower2 };
-            // Same deal with the precision issues here. In this case we can just flip the new
-            // edge so that its upper member is indeed above the lower one.
             if is_below_int(e1.upper, e1.lower) { swap(&mut e1.upper, &mut e1.lower); }
-            if is_below_int(e2.upper, e2.lower) { swap(&mut e2.upper, &mut e2.lower); }
+
+            let e2 = if let Some(lower2) = evt.lower2 {
+                let mut e2 = Edge { upper: evt.point, lower: lower2 };
+                // Same deal with the precision issues here. In this case we can just flip the new
+                // edge so that its upper member is indeed above the lower one.
+                if is_below_int(e2.upper, e2.lower) { swap(&mut e2.upper, &mut e2.lower); }
+                Some(e2)
+            } else { None };
 
             if self.log {
                 println!(" set span[{:?}].{:?}.lower = {:?} (was {:?}",
@@ -755,7 +779,9 @@ impl FillTessellator {
 
             self.sweep_line[span_idx].mut_edge(side).lower = evt.point;
             self.intersections.push(e1);
-            self.intersections.push(e2);
+            if let Some(e2) = e2 {
+                self.intersections.push(e2);
+            }
             // TODO lazily sort intersections next time we read from the vector or
             // do a sorted insertion.
             self.intersections.sort_by(|a, b| { compare_positions(a.upper, b.upper) });
@@ -963,12 +989,12 @@ fn test_span_side(span_edge: &SpanEdge, position: IntPoint) -> bool {
     if vy == 0 {
         // If the segment is horizontal, pick the biggest x value (the right-most point).
         // That's arbitrary, not sure it is the right thing to do.
-        return cmp::max(position.x, to.x) >= position.x;
+        return cmp::max(position.x, to.x) > position.x;
     }
     // shuffled around from:
-    // edge_from.x + (point.y - edge_from.y) * vx / vy >= point.x
+    // edge_from.x + (point.y - edge_from.y) * vx / vy > point.x
     // in order to remove the division.
-    return (position.y - from.y) as i64 * vx >= (position.x - from.x) as i64 * vy;
+    return (position.y - from.y) as i64 * vx > (position.x - from.x) as i64 * vy;
 }
 
 fn test_span_touches(span_edge: &SpanEdge, position: IntPoint) -> bool {
@@ -980,15 +1006,17 @@ fn test_span_touches(span_edge: &SpanEdge, position: IntPoint) -> bool {
         return true;
     }
 
-    let from = span_edge.upper;
-    let to = span_edge.lower;
+    return false;
 
-    let vx = (to.x - from.x) as i64;
-    let vy = (to.y - from.y) as i64;
-    if vy == 0 {
-        return cmp::max(position.x, to.x) >= position.x;
-    }
-    return (position.y - from.y) as i64 * vx == (position.x - from.x) as i64 * vy;
+//    let from = span_edge.upper;
+//    let to = span_edge.lower;
+//
+//    let vx = (to.x - from.x) as i64;
+//    let vy = (to.y - from.y) as i64;
+//    if vy == 0 {
+//        return cmp::max(position.x, to.x) >= position.x;
+//    }
+//    return (position.y - from.y) as i64 * vx == (position.x - from.x) as i64 * vy;
 }
 
 struct Span {
@@ -2029,7 +2057,6 @@ fn test_colinear_touching_squares() {
 }
 
 #[test]
-#[ignore]
 fn test_colinear_touching_squares2() {
     // Two squares touching.
     //
@@ -2040,21 +2067,78 @@ fn test_colinear_touching_squares2() {
     //       x-----x
     //
     let mut builder = flattened_path_builder(0.05);
-    builder.move_to(vec2(0.0,   0.0));
-    builder.line_to(vec2(100.0, 0.0));
-    builder.line_to(vec2(100.0, 100.0));
-    builder.line_to(vec2(0.0,   100.0));
+    builder.move_to(vec2(0.0,  0.0));
+    builder.line_to(vec2(10.0, 0.0));
+    builder.line_to(vec2(10.0, 10.0));
+    builder.line_to(vec2(0.0,  10.0));
 
-    builder.move_to(vec2(100.0, 10.0));
-    builder.line_to(vec2(200.0, 10.0));
-    builder.line_to(vec2(200.0, 110.0));
-    builder.line_to(vec2(100.0, 110.0));
+    builder.move_to(vec2(10.0, 1.0));
+    builder.line_to(vec2(20.0, 1.0));
+    builder.line_to(vec2(20.0, 11.0));
+    builder.line_to(vec2(10.0, 11.0));
 
     builder.close();
 
     let path = builder.build();
 
     tessellate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+fn test_colinear_touching_squares3() {
+    // Two squares touching.
+    //
+    //       x-----x
+    // x-----x     |
+    // |     |     |
+    // |     x-----x
+    // x-----x
+    //
+    let mut builder = flattened_path_builder(0.05);
+    builder.move_to(vec2(0.0,  1.0));
+    builder.line_to(vec2(10.0, 1.0));
+    builder.line_to(vec2(10.0, 11.0));
+    builder.line_to(vec2(0.0,  11.0));
+
+    builder.move_to(vec2(10.0, 0.0));
+    builder.line_to(vec2(20.0, 0.0));
+    builder.line_to(vec2(20.0, 10.0));
+    builder.line_to(vec2(10.0, 10.0));
+
+    builder.close();
+
+    let path = builder.build();
+
+    tessellate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+#[ignore] // TODO
+fn test_colinear_touching_squares_rotated_failing() {
+    // Two squares touching.
+    //
+    //       x-----x
+    // x-----x     |
+    // |     |     |
+    // |     x-----x
+    // x-----x
+    //
+    let mut builder = flattened_path_builder(0.05);
+    builder.move_to(vec2(0.0,  1.0));
+    builder.line_to(vec2(10.0, 1.0));
+    builder.line_to(vec2(10.0, 11.0));
+    builder.line_to(vec2(0.0,  11.0));
+
+    builder.move_to(vec2(10.0, 0.0));
+    builder.line_to(vec2(20.0, 0.0));
+    builder.line_to(vec2(20.0, 10.0));
+    builder.line_to(vec2(10.0, 10.0));
+
+    builder.close();
+
+    let path = builder.build();
+
+    test_path_with_rotations(path, 0.01, None)
 }
 
 #[test]
@@ -2078,7 +2162,6 @@ fn test_coincident_simple() {
     let path = builder.build();
 
     tessellate(path.as_slice(), true).unwrap();
-    //test_path_with_rotations(path, 0.01, None);
 }
 
 #[test]
