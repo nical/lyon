@@ -99,14 +99,14 @@ impl FillTessellator {
 
         self.tessellator_loop(&events, output);
 
-        let res = self.end_tessellation(output);
-
         let mut error = None;
         swap(&mut error, &mut self.error);
         if let Some(err) = error {
+            output.abort_geometry();
             return Err(err);
         }
 
+        let res = self.end_tessellation(output);
         return Ok(res);
     }
 

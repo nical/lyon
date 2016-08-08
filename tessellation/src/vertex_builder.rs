@@ -258,11 +258,39 @@ impl VertexConstructor<[f32; 2], Vertex2d> for Vertex2dConstructor {
 ///
 /// It may end up replacing VertexBufferBuilder completely.
 pub trait GeometryBuilder {
+    /// Called at the beginning of a generation.
+    ///
+    /// end_geometry must be called before begin_geometry is called again.
     fn begin_geometry(&mut self);
+
+    /// Called at the end of a generation.
+    /// Returns the number of vertices and indices added since the last time begin_geometry was
+    /// called.
     fn end_geometry(&mut self) -> Count;
+
+    /// Inserts a vertex, priving its position, and optionally a normal.
+    /// Retuns a vertex id that is only valid between begin_geometry and end_geometry.
+    ///
+    /// This method can only be called between begin_geometry and end_geometry.
     fn add_vertex(&mut self, pos: Point, normal: Option<Vec2>) -> VertexId;
+
+    /// Insert a triangle made of vertices that were added after the last call to begin_geometry.
+    ///
+    /// This method can only be called between begin_geometry and end_geometry.
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId);
-    fn add_quadratic_curve(&mut self, from: VertexId, to: VertexId, ctrl: Point);
+
+    /// Insert a quadratic bezier curve.
+    /// The interrior is on the right side of the curve.
+    ///
+    /// This method can only be called between begin_geometry and end_geometry.
+    fn add_quadratic_bezier(&mut self, from: VertexId, to: VertexId, ctrl: Point);
+
+    /// abort_geometry is called instead of end_geometry if an error occured while producing
+    /// the geometry and we won't be able to finish.
+    ///
+    /// The implementation is expected to discard the geometry that was generated since the last
+    /// time begin_geometry was called, and to remain in a usable state.
+   fn abort_geometry(&mut self);
 }
 
 /// Number of vertices and indices added during the tesselation.
@@ -282,7 +310,7 @@ impl Add for Count {
     }
 }
 
-impl<'l, VertexType:'l, Ctor: VertexConstructor<Point, VertexType>>
+impl<'l, VertexType:'l + Clone, Ctor: VertexConstructor<Point, VertexType>>
 GeometryBuilder for VertexBuilder<'l, VertexType, Point, Ctor> {
     fn begin_geometry(&mut self) {
         self.begin();
@@ -301,8 +329,13 @@ GeometryBuilder for VertexBuilder<'l, VertexType, Point, Ctor> {
         self.push_indices(a.handle, b.handle, c.handle);
     }
 
-    fn add_quadratic_curve(&mut self, _from: VertexId, _to: VertexId, _ctrl: Point) {
+    fn add_quadratic_bezier(&mut self, _from: VertexId, _to: VertexId, _ctrl: Point) {
         unimplemented!();
+    }
+
+    fn abort_geometry(&mut self) {
+        self.buffers.vertices.truncate(self.vertex_offset as usize);
+        self.buffers.indices.truncate(self.index_offset as usize);
     }
 }
 
