@@ -15,4 +15,4 @@ path = "src/lib.rs"
 
 sid = { version = "0.1.0" }
 sid_vec = { version = "0.1.0" }
-euclid = "0.7.1"
+euclid = "0.8.1"
