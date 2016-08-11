@@ -5,8 +5,10 @@ extern crate euclid;
 pub mod math;
 pub mod path;
 pub mod path_builder;
+pub mod path_iterator;
 pub mod math_utils;
 pub mod bezier;
+pub mod flatten_cubic;
 pub mod arc;
 
 use sid::{ Id, IdRange, };

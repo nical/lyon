@@ -36,7 +36,6 @@ pub trait PrimitiveBuilder {
     fn line_to(&mut self, to: Point);
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
-    fn end(&mut self) -> PathId;
     fn close(&mut self) -> PathId;
     fn current_position(&self) -> Point;
 
@@ -111,11 +110,6 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         self.last_ctrl = ctrl2;
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
-    }
-
-    fn end(&mut self) -> PathId {
-        self.last_ctrl = point(0.0, 0.0);
-        self.builder.end()
     }
 
     fn close(&mut self) -> PathId {
@@ -256,8 +250,6 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
         );
     }
 
-    fn end(&mut self) -> PathId { self.builder.end() }
-
     fn close(&mut self) -> PathId { self.builder.close() }
 
     fn current_position(&self) -> Point { self.builder.current_position() }
@@ -293,15 +285,13 @@ impl PrimitiveBuilder for PrimitiveImpl {
         self.push(to, PointType::Normal);
     }
 
-    fn end(&mut self) -> PathId { self.end_sub_path(false) }
-
     fn close(&mut self) -> PathId { self.end_sub_path(true) }
 
     fn current_position(&self) -> Point { self.last_position }
 
     fn build(mut self) -> Path {
         if self.building {
-            self.end();
+            self.end_sub_path(false);
         }
         return Path::from_vec(self.vertices, self.path_info);
     }
@@ -428,10 +418,7 @@ fn test_path_builder_empty_sub_path() {
 #[test]
 fn test_path_builder_close_empty() {
     let mut builder = flattened_path_builder(0.05);
-    builder.end();
     builder.close();
-    builder.end();
-    builder.end();
     builder.close();
     builder.close();
     let _ = builder.build();

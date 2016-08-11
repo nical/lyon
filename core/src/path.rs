@@ -7,6 +7,10 @@ use super::{
     vertex_id, VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
 };
+
+use path_builder::{ PrimitiveBuilder };
+use path_iterator::{ PathIter };
+
 use math::*;
 
 use sid::{ Id, IdRange, ToIndex };
@@ -20,6 +24,238 @@ pub type PathId = Id<Path_, u16>;
 pub type PathIdRange = IdRange<Path_, u16>;
 pub fn path_id(idx: u16) -> PathId { PathId::new(idx) }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Verb {
+    MoveTo,
+    LineTo,
+    QuadraticTo,
+    CubicTo,
+    Close,
+}
+
+#[derive(Clone, Debug)]
+pub struct Path2 {
+    vertices: Vec<Point>,
+    verbs: Vec<Verb>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct PathSlice2<'l> {
+    vertices: &'l[Point],
+    verbs: &'l[Verb],
+}
+
+impl Path2 {
+    pub fn new() -> Path2 { Path2::with_capacity(128) }
+
+    pub fn with_capacity(cap: usize) -> Path2 {
+        Path2 {
+            vertices: Vec::with_capacity(cap),
+            verbs: Vec::with_capacity(cap),
+        }
+    }
+
+    pub fn as_slice(&self) -> PathSlice2 {
+        PathSlice2 { vertices: &self.vertices[..], verbs: &self.verbs[..] }
+    }
+
+    pub fn iter(&self) -> PathIter {
+        PathIter::new(&self.vertices[..], &self.verbs[..])
+    }
+}
+
+impl<'l> PathSlice2<'l> {
+    pub fn new(vertices: &'l[Point], verbs: &'l[Verb]) -> PathSlice2<'l> {
+        PathSlice2 { vertices: vertices, verbs: verbs }
+    }
+
+    pub fn iter(&self) -> PathIter { PathIter::new(self.vertices, self.verbs) }
+}
+
+pub struct PathBuilder {
+    path: Path2,
+    current_position: Point,
+    first_position: Point,
+    building: bool,
+}
+
+impl PathBuilder {
+    pub fn new() -> PathBuilder { PathBuilder::with_capacity(128) }
+
+    pub fn with_capacity(cap: usize) -> PathBuilder {
+        PathBuilder {
+            path: Path2::with_capacity(cap),
+            current_position: Point::new(0.0, 0.0),
+            first_position: Point::new(0.0, 0.0),
+            building: false,
+        }
+    }
+}
+
+#[inline]
+fn nan_check(p: Point) {
+    debug_assert!(!p.x.is_nan());
+    debug_assert!(!p.y.is_nan());
+}
+
+impl PrimitiveBuilder for PathBuilder {
+    type PathType = Path2;
+
+    fn move_to(&mut self, to: Point)
+    {
+        nan_check(to);
+        if self.path.verbs.last() == Some(&Verb::MoveTo) {
+            // previous op was also MoveTo, just overrwrite it.
+            self.path.vertices.pop();
+            self.path.verbs.pop();
+        }
+        self.first_position = to;
+        self.current_position = to;
+        self.building = true;
+        self.path.vertices.push(to);
+        self.path.verbs.push(Verb::MoveTo);
+    }
+
+    fn line_to(&mut self, to: Point) {
+        nan_check(to);
+        self.path.vertices.push(to);
+        self.path.verbs.push(Verb::LineTo);
+        self.current_position = to;
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        nan_check(ctrl);
+        nan_check(to);
+        self.path.vertices.push(ctrl);
+        self.path.vertices.push(to);
+        self.path.verbs.push(Verb::QuadraticTo);
+        self.current_position = to;
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        nan_check(ctrl1);
+        nan_check(ctrl2);
+        nan_check(to);
+        self.path.vertices.push(ctrl1);
+        self.path.vertices.push(ctrl2);
+        self.path.vertices.push(to);
+        self.path.verbs.push(Verb::CubicTo);
+        self.current_position = to;
+    }
+
+    fn close(&mut self) -> PathId {
+        if self.path.verbs.last() == Some(&Verb::MoveTo) {
+            // previous op was MoveTo we don't have a path to close, drop it.
+            self.path.vertices.pop();
+            self.path.verbs.pop();
+        } else if self.path.verbs.last() == Some(&Verb::Close) {
+            return path_id(0); // TODO
+        }
+
+        self.path.verbs.push(Verb::Close);
+        self.current_position = self.first_position;
+        self.building = false;
+        path_id(0) // TODO
+    }
+
+    fn current_position(&self) -> Point { self.current_position }
+
+    fn build(self) -> Path2 {
+        //self.end();
+        self.path
+    }
+}
+
+#[cfg(test)]
+use path_iterator::PrimitiveEvent;
+
+#[test]
+fn test_path_builder_1() {
+
+    let mut p = PathBuilder::with_capacity(0);
+    p.line_to(point(1.0, 0.0));
+    p.line_to(point(2.0, 0.0));
+    p.line_to(point(3.0, 0.0));
+    p.quadratic_bezier_to(point(4.0, 0.0), point(4.0, 1.0));
+    p.cubic_bezier_to(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0));
+    p.close();
+
+    p.move_to(point(10.0, 0.0));
+    p.line_to(point(11.0, 0.0));
+    p.line_to(point(12.0, 0.0));
+    p.line_to(point(13.0, 0.0));
+    p.quadratic_bezier_to(point(14.0, 0.0), point(14.0, 1.0));
+    p.cubic_bezier_to(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0));
+    p.close();
+
+    p.close();
+    p.move_to(point(1.0, 1.0));
+    p.move_to(point(2.0, 2.0));
+    p.move_to(point(3.0, 3.0));
+    p.line_to(point(4.0, 4.0));
+
+    let path = p.build();
+
+    let mut it = path.iter();
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(1.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(2.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(3.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::QuadraticTo(point(4.0, 0.0), point(4.0, 1.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::CubicTo(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::Close));
+
+    assert_eq!(it.next(), Some(PrimitiveEvent::MoveTo(point(10.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(11.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(12.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(13.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::QuadraticTo(point(14.0, 0.0), point(14.0, 1.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::Close));
+
+    assert_eq!(it.next(), Some(PrimitiveEvent::MoveTo(point(3.0, 3.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(4.0, 4.0))));
+    assert_eq!(it.next(), None);
+    assert_eq!(it.next(), None);
+    assert_eq!(it.next(), None);
+}
+
+#[test]
+fn test_path_builder_empty() {
+    let path = PathBuilder::new().build();
+    let mut it = path.iter();
+    assert_eq!(it.next(), None);
+    assert_eq!(it.next(), None);
+}
+
+#[test]
+fn test_path_builder_empty_move_to() {
+    let mut p = PathBuilder::new();
+    p.move_to(point(1.0, 2.0));
+    p.move_to(point(3.0, 4.0));
+    p.move_to(point(5.0, 6.0));
+
+    let path = p.build();
+    let mut it = path.iter();
+    assert_eq!(it.next(), Some(PrimitiveEvent::MoveTo(point(5.0, 6.0))));
+    assert_eq!(it.next(), None);
+    assert_eq!(it.next(), None);
+}
+
+#[test]
+fn test_path_builder_move_to_after_close() {
+    let mut p = PathBuilder::new();
+    p.line_to(point(1.0, 0.0));
+    p.close();
+    p.line_to(point(2.0, 0.0));
+
+    let path = p.build();
+    let mut it = path.iter();
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(1.0, 0.0))));
+    assert_eq!(it.next(), Some(PrimitiveEvent::Close));
+    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(2.0, 0.0))));
+    assert_eq!(it.next(), None);
+}
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum PointType {
     Normal,
@@ -28,7 +264,6 @@ pub enum PointType {
 
 // TODO: Need a better representation for paths. It needs to:
 //  * be compact
-//  * allow quickly finding the previous and next command
 //  * be stored in a contiguous buffer
 //  * be extensible (add extra parameters to vertices)
 //  * not store pointers
