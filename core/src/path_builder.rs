@@ -232,22 +232,20 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
     fn line_to(&mut self, to: Point) { self.builder.line_to(to); }
 
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
-        let from = self.current_position();
-        let cubic = QuadraticBezierSegment { from: from, cp: ctrl, to: to }.to_cubic();
-        flatten_cubic_bezier(cubic, self.tolerance, &mut |point| { self.line_to(point); });
+        QuadraticBezierSegment {
+            from: self.current_position(),
+            cp: ctrl,
+            to: to
+        }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
-        flatten_cubic_bezier(
-            CubicBezierSegment{
-                from: self.current_position(),
-                cp1: ctrl1,
-                cp2: ctrl2,
-                to: to,
-            },
-            self.tolerance,
-            &mut |point| { self.line_to(point); }
-        );
+        CubicBezierSegment{
+            from: self.current_position(),
+            cp1: ctrl1,
+            cp2: ctrl2,
+            to: to,
+        }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn close(&mut self) -> PathId { self.builder.close() }

@@ -1297,7 +1297,7 @@ impl TmpEventBuilder {
 
 #[test]
 fn test_iter_builder() {
-    use path::{ Path2, PathBuilder };
+    use path::{ PathBuilder };
     use path_iterator::{ FlattenIter };
     let mut builder = PathBuilder::new();
     builder.line_to(point(1.0, 0.0));

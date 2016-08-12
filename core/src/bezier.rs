@@ -1,7 +1,6 @@
 //! Bezier curve related maths and tools.
 
 pub use flatten_cubic::{ flatten_cubic_bezier, CubicFlattenIter };
-use path_builder::PrimitiveBuilder;
 use math::*;
 
 use std::mem::swap;
@@ -142,20 +141,22 @@ impl QuadraticBezierSegment {
         return t;
     }
 
-    /// Translate this curve into a sequence of line_to operations on a PrimitiveBuilder.
-    pub fn flatten_into_builder<Output: PrimitiveBuilder>(&self, tolerance: f32, output: &mut Output) {
+    /// Iterates through the curve invoking a callback at each point.
+    pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
         let mut iter = *self;
         loop {
             let t = iter.flattening_step(tolerance);
             if t == 1.0 {
-                output.line_to(iter.to);
+                call_back(iter.to);
                 break
             }
             iter = iter.after_split(t);
-            output.line_to(iter.from);
+            call_back(iter.from);
         }
     }
 
+    /// Returns the flattened representation of the curve as an iterator, starting *after* the
+    /// current point.
     pub fn flatten_iter(&self, tolerance: f32) -> QuadraticFlattenIter {
         QuadraticFlattenIter::new(*self, tolerance)
     }
@@ -272,8 +273,14 @@ impl CubicBezierSegment {
         }
     }
 
+    /// Returns the flattened representation of the curve as an iterator, starting *after* the
+    /// current point.
     pub fn flatten_iter(&self, tolerance: f32) -> CubicFlattenIter {
         CubicFlattenIter::new(*self, tolerance)
     }
-}
 
+    /// Iterates through the curve invoking a callback at each point.
+    pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
+        flatten_cubic_bezier(*self, tolerance, call_back);
+    }
+}
