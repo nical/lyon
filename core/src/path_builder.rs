@@ -234,7 +234,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         let from = self.current_position();
         let cubic = QuadraticBezierSegment { from: from, cp: ctrl, to: to }.to_cubic();
-        flatten_cubic_bezier(cubic, self.tolerance, self);
+        flatten_cubic_bezier(cubic, self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
@@ -246,7 +246,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
                 to: to,
             },
             self.tolerance,
-            self
+            &mut |point| { self.line_to(point); }
         );
     }
 

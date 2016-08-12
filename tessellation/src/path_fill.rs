@@ -11,7 +11,7 @@ use math::*;
 use path::*;
 use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
 use path_builder::{ PrimitiveBuilder, PrimitiveImpl };
-use path_iterator::{ FlattenedEvent };
+use lyon_core::{ FlattenedEvent };
 use math_utils::{
     is_below, is_below_int, directed_angle, directed_angle2,
     line_horizontal_intersection_int,

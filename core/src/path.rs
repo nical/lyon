@@ -6,10 +6,11 @@
 use super::{
     vertex_id, VertexId, VertexIdRange,
     VertexSlice, MutVertexSlice,
+    PrimitiveEvent,
 };
 
 use path_builder::{ PrimitiveBuilder };
-use path_iterator::{ PathIter };
+use path_iterator::{ PathIterator };
 
 use math::*;
 
@@ -62,6 +63,10 @@ impl Path2 {
     pub fn iter(&self) -> PathIter {
         PathIter::new(&self.vertices[..], &self.verbs[..])
     }
+
+    pub fn vertices(&self) -> &[Point] { &self.vertices[..] }
+
+    pub fn verbs(&self) -> &[Verb] { &self.verbs[..] }
 }
 
 impl<'l> PathSlice2<'l> {
@@ -70,6 +75,10 @@ impl<'l> PathSlice2<'l> {
     }
 
     pub fn iter(&self) -> PathIter { PathIter::new(self.vertices, self.verbs) }
+
+    pub fn vertices(&self) -> &[Point] { self.vertices }
+
+    pub fn verbs(&self) -> &[Verb] { self.verbs }
 }
 
 pub struct PathBuilder {
@@ -164,6 +173,67 @@ impl PrimitiveBuilder for PathBuilder {
         //self.end();
         self.path
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct PathIter<'l> {
+    vertices: ::std::slice::Iter<'l, Point>,
+    verbs: ::std::slice::Iter<'l, Verb>,
+    current: Point,
+    first: Point,
+}
+
+impl<'l> PathIter<'l> {
+    pub fn new(vertices: &'l[Point], verbs: &'l[Verb]) -> Self {
+        PathIter {
+            vertices: vertices.iter(),
+            verbs: verbs.iter(),
+            current: Point::new(0.0, 0.0),
+            first: Point::new(0.0, 0.0),
+        }
+    }
+}
+
+impl<'l> Iterator for PathIter<'l> {
+    type Item = PrimitiveEvent;
+    fn next(&mut self) -> Option<PrimitiveEvent> {
+        return match self.verbs.next() {
+            Some(&Verb::MoveTo) => {
+                let to = *self.vertices.next().unwrap();
+                self.current = to;
+                self.first = to;
+                Some(PrimitiveEvent::MoveTo(to))
+            }
+            Some(&Verb::LineTo) => {
+                let to = *self.vertices.next().unwrap();
+                self.current = to;
+                Some(PrimitiveEvent::LineTo(to))
+            }
+            Some(&Verb::QuadraticTo) => {
+                let ctrl = *self.vertices.next().unwrap();
+                let to = *self.vertices.next().unwrap();
+                self.current = to;
+                Some(PrimitiveEvent::QuadraticTo(ctrl, to))
+            }
+            Some(&Verb::CubicTo) => {
+                let ctrl1 = *self.vertices.next().unwrap();
+                let ctrl2 = *self.vertices.next().unwrap();
+                let to = *self.vertices.next().unwrap();
+                self.current = to;
+                Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to))
+            }
+            Some(&Verb::Close) => {
+                self.current = self.first;
+                Some(PrimitiveEvent::Close)
+            }
+            None => { None }
+        };
+    }
+}
+
+impl<'l> PathIterator<PrimitiveEvent> for PathIter<'l> {
+    fn current_position(&self) -> Point { self.current }
+    fn first_position(&self) -> Point { self.first }
 }
 
 #[cfg(test)]
