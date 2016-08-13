@@ -2,13 +2,12 @@
 
 use std::f32::consts::PI;
 use std::i32;
-use std::cmp::{ Ordering };
 use std::mem::swap;
-use std::cmp::PartialOrd;
+use std::cmp::{ PartialOrd, Ordering };
 use std::cmp;
 
 use math::*;
-use lyon_path::{ Path, PathBuilder, PrimitiveImpl, PathSlice };
+use lyon_path::{ PrimitiveImpl, PathSlice };
 use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
 use lyon_path_builder::{ PrimitiveBuilder, PathId };
 use lyon_core::{ FlattenedEvent };
@@ -20,7 +19,7 @@ use math_utils::{
 #[cfg(test)]
 use geometry_builder::{ VertexBuffers, simple_builder };
 #[cfg(test)]
-use path_builder::{ flattened_path_builder, };
+use lyon_path::{ flattened_path_builder, Path };
 
 pub type FillResult = Result<Count, FillError>;
 
@@ -1297,8 +1296,9 @@ impl TmpEventBuilder {
 
 #[test]
 fn test_iter_builder() {
-    use path::{ PathBuilder };
-    use path_iterator::{ FlattenIter };
+    use lyon_path::{ PathBuilder };
+    use lyon_path_iterator::{ FlattenIter };
+
     let mut builder = PathBuilder::new();
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 1.0));
@@ -1846,7 +1846,10 @@ fn test_rust_logo_with_intersection() {
 }
 
 #[cfg(test)]
-fn scale_path(slice: super::MutVertexSlice<PointData>, scale: f32) {
+use lyon_path::{ MutVertexSlice, PointData };
+
+#[cfg(test)]
+fn scale_path(slice: MutVertexSlice<PointData>, scale: f32) {
     for v in slice {
         v.position.x = v.position.x * scale;
         v.position.y = v.position.y * scale;

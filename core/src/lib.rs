@@ -15,7 +15,7 @@ pub enum SvgEvent {
     RelativeQuadraticTo(Vec2, Vec2),
     CubicTo(Point, Point, Point),
     RelativeCubicTo(Vec2, Vec2, Vec2),
-    ArcTo(Vec2, Vec2, Vec2),
+    ArcTo(Point, Vec2, f32, ArcFlags),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
     RelativeHorizontalLineTo(f32),
@@ -71,4 +71,11 @@ impl PrimitiveEvent {
             PrimitiveEvent::Close => { SvgEvent::Close }
         };
     }
+}
+
+/// Flag parameters for arcs as described by the SVG specification.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ArcFlags {
+    pub large_arc: bool,
+    pub sweep: bool,
 }

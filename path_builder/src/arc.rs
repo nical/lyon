@@ -2,9 +2,10 @@
 
 use std::f32::*;
 
-use super::{ PrimitiveBuilder, ArcFlags };
+use lyon_core::ArcFlags;
 use lyon_core::math_utils::*;
 use lyon_core::math::*;
+use super::PrimitiveBuilder;
 
 /// Build an svg arc by approximating it with cubic bezier curves.
 ///

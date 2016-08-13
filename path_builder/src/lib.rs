@@ -7,6 +7,7 @@ extern crate sid;
 
 mod arc;
 
+use lyon_core::{ PrimitiveEvent, SvgEvent, ArcFlags };
 use lyon_core::math::*;
 use lyon_bezier::{ CubicBezierSegment, QuadraticBezierSegment };
 use arc::arc_to_cubic_beziers;
@@ -31,6 +32,16 @@ pub trait PrimitiveBuilder {
     fn close(&mut self) -> PathId;
     fn current_position(&self) -> Point;
 
+    fn primitive_event(&mut self, event: PrimitiveEvent) {
+        match event {
+            PrimitiveEvent::MoveTo(to) => { self.move_to(to); }
+            PrimitiveEvent::LineTo(to) => { self.line_to(to); }
+            PrimitiveEvent::QuadraticTo(ctrl, to) => { self.quadratic_bezier_to(ctrl, to); }
+            PrimitiveEvent::CubicTo(ctrl1, ctrl2, to) => { self.cubic_bezier_to(ctrl1, ctrl2, to); }
+            PrimitiveEvent::Close => { self.close(); }
+        }
+    }
+
     fn build(self) -> Self::PathType;
 }
 
@@ -52,18 +63,33 @@ pub trait SvgBuilder : PrimitiveBuilder {
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
     fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: f32, flags: ArcFlags);
     fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+
+    fn svg_event(&mut self, event: SvgEvent) {
+        match event {
+            SvgEvent::MoveTo(to) => { self.move_to(to); }
+            SvgEvent::LineTo(to) => { self.line_to(to); }
+            SvgEvent::QuadraticTo(ctrl, to) => { self.quadratic_bezier_to(ctrl, to); }
+            SvgEvent::CubicTo(ctrl1, ctrl2, to) => { self.cubic_bezier_to(ctrl1, ctrl2, to); }
+            SvgEvent::Close => { self.close(); }
+
+            SvgEvent::ArcTo(to, radii, x_rotation, flags) => { self.arc_to(to, radii, x_rotation, flags); }
+
+            SvgEvent::RelativeMoveTo(to) => { self.relative_move_to(to); }
+            SvgEvent::RelativeLineTo(to) => { self.relative_line_to(to); }
+            SvgEvent::RelativeQuadraticTo(ctrl, to) => { self.relative_quadratic_bezier_to(ctrl, to); }
+            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => { self.relative_cubic_bezier_to(ctrl1, ctrl2, to); }
+
+            SvgEvent::HorizontalLineTo(x) => { self.horizontal_line_to(x); }
+            SvgEvent::VerticalLineTo(y) => { self.vertical_line_to(y); }
+            SvgEvent::RelativeHorizontalLineTo(x) => { self.relative_horizontal_line_to(x); }
+            SvgEvent::RelativeVerticalLineTo(y) => { self.relative_vertical_line_to(y); }
+        }
+    }
 }
 
 /// Build a path from a simple list of points.
 pub trait PolygonBuilder {
     fn polygon(&mut self, points: &[Point]);
-}
-
-/// Flag parameters for arcs as described by the SVG specification.
-#[derive(Copy, Clone, Debug)]
-pub struct ArcFlags {
-    pub large_arc: bool,
-    pub sweep: bool,
 }
 
 /// Implements the Svg building interface on top of the a primitive builder.
@@ -256,28 +282,5 @@ impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
         }
         self.close();
     }
-}
-
-#[test]
-fn test_path_builder_empty_path() {
-    let _ = flattened_path_builder(0.05).build();
-}
-
-#[test]
-fn test_path_builder_empty_sub_path() {
-    let mut builder = flattened_path_builder(0.05);
-    builder.move_to(vec2(0.0, 0.0));
-    builder.move_to(vec2(1.0, 0.0));
-    builder.move_to(vec2(2.0, 0.0));
-    let _ = builder.build();
-}
-
-#[test]
-fn test_path_builder_close_empty() {
-    let mut builder = flattened_path_builder(0.05);
-    builder.close();
-    builder.close();
-    builder.close();
-    let _ = builder.build();
 }
 

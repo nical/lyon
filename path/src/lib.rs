@@ -233,9 +233,6 @@ impl<'l> PathIterator<PrimitiveEvent> for PathIter<'l> {
     fn first_position(&self) -> Point { self.first }
 }
 
-#[cfg(test)]
-use path_iterator::PrimitiveEvent;
-
 #[test]
 fn test_path_builder_1() {
 
@@ -813,6 +810,9 @@ fn test_path_builder_simple_bezier() {
 
 #[test]
 fn test_arc_simple() {
+    use lyon_core::ArcFlags;
+    use lyon_path_builder::SvgBuilder;
+
     let mut path = bezier_path_builder();
 
     // Two big elliptical arc
@@ -835,4 +835,27 @@ fn test_arc_simple() {
     );
 
     path.build();
+}
+
+#[test]
+fn test_path_builder_empty_path() {
+    let _ = flattened_path_builder(0.05).build();
+}
+
+#[test]
+fn test_path_builder_empty_sub_path() {
+    let mut builder = flattened_path_builder(0.05);
+    builder.move_to(vec2(0.0, 0.0));
+    builder.move_to(vec2(1.0, 0.0));
+    builder.move_to(vec2(2.0, 0.0));
+    let _ = builder.build();
+}
+
+#[test]
+fn test_path_builder_close_empty() {
+    let mut builder = flattened_path_builder(0.05);
+    builder.close();
+    builder.close();
+    builder.close();
+    let _ = builder.build();
 }

@@ -7,6 +7,8 @@ extern crate lyon_path;
 extern crate lyon_path_builder;
 
 #[cfg(test)]
+extern crate lyon_path_iterator;
+#[cfg(test)]
 extern crate lyon_extra;
 
 pub mod basic_shapes;
