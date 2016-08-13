@@ -11,7 +11,6 @@ extern crate sid_vec;
 
 
 use lyon_path_builder::{ PrimitiveBuilder, SvgPathBuilder, FlattenedBuilder, Path_, PathId, path_id };
-use lyon_path_iterator::{ PrimitiveIterator };
 
 use lyon_core::PrimitiveEvent;
 use lyon_core::math::*;
@@ -176,8 +175,6 @@ impl PrimitiveBuilder for PathBuilder {
 pub struct PathIter<'l> {
     vertices: ::std::slice::Iter<'l, Point>,
     verbs: ::std::slice::Iter<'l, Verb>,
-    current: Point,
-    first: Point,
 }
 
 impl<'l> PathIter<'l> {
@@ -185,8 +182,6 @@ impl<'l> PathIter<'l> {
         PathIter {
             vertices: vertices.iter(),
             verbs: verbs.iter(),
-            current: Point::new(0.0, 0.0),
-            first: Point::new(0.0, 0.0),
         }
     }
 }
@@ -197,40 +192,29 @@ impl<'l> Iterator for PathIter<'l> {
         return match self.verbs.next() {
             Some(&Verb::MoveTo) => {
                 let to = *self.vertices.next().unwrap();
-                self.current = to;
-                self.first = to;
                 Some(PrimitiveEvent::MoveTo(to))
             }
             Some(&Verb::LineTo) => {
                 let to = *self.vertices.next().unwrap();
-                self.current = to;
                 Some(PrimitiveEvent::LineTo(to))
             }
             Some(&Verb::QuadraticTo) => {
                 let ctrl = *self.vertices.next().unwrap();
                 let to = *self.vertices.next().unwrap();
-                self.current = to;
                 Some(PrimitiveEvent::QuadraticTo(ctrl, to))
             }
             Some(&Verb::CubicTo) => {
                 let ctrl1 = *self.vertices.next().unwrap();
                 let ctrl2 = *self.vertices.next().unwrap();
                 let to = *self.vertices.next().unwrap();
-                self.current = to;
                 Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to))
             }
             Some(&Verb::Close) => {
-                self.current = self.first;
                 Some(PrimitiveEvent::Close)
             }
             None => { None }
         };
     }
-}
-
-impl<'l> PrimitiveIterator for PathIter<'l> {
-    fn current_position(&self) -> Point { self.current }
-    fn first_position(&self) -> Point { self.first }
 }
 
 #[test]

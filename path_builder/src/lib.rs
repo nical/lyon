@@ -84,6 +84,11 @@ pub trait SvgBuilder : PrimitiveBuilder {
             SvgEvent::VerticalLineTo(y) => { self.vertical_line_to(y); }
             SvgEvent::RelativeHorizontalLineTo(x) => { self.relative_horizontal_line_to(x); }
             SvgEvent::RelativeVerticalLineTo(y) => { self.relative_vertical_line_to(y); }
+
+            SvgEvent::SmoothQuadraticTo(to) => { self.quadratic_bezier_smooth_to(to); }
+            SvgEvent::SmoothCubicTo(ctrl2, to) => { self.cubic_bezier_smooth_to(ctrl2, to); }
+            SvgEvent::SmoothRelativeQuadraticTo(to) => { self.relative_quadratic_bezier_smooth_to(to); }
+            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => { self.relative_cubic_bezier_smooth_to(ctrl2, to); }
         }
     }
 }

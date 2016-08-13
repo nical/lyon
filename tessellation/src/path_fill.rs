@@ -1297,7 +1297,7 @@ impl TmpEventBuilder {
 #[test]
 fn test_iter_builder() {
     use lyon_path::{ PathBuilder };
-    use lyon_path_iterator::{ FlattenIter };
+    use lyon_path_iterator::{ FlattenIter, PositionedPrimitiveIter };
 
     let mut builder = PathBuilder::new();
     builder.line_to(point(1.0, 0.0));
@@ -1312,7 +1312,7 @@ fn test_iter_builder() {
 
     let path = builder.build();
 
-    let events = TmpEventBuilder::default().build(FlattenIter::new(0.05, path.iter()));
+    let events = TmpEventBuilder::default().build(FlattenIter::new(0.05, PositionedPrimitiveIter::new(path.iter())));
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
     let mut vertex_builder = simple_builder(&mut buffers);
     let mut tess = FillTessellator::new();
