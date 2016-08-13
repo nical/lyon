@@ -1,7 +1,7 @@
 [package]
 name = "Glium viewer"
 version = "0.0.3"
-authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+authors = ["Nicolas Silva <nical@fastmail.com>"]
 
 [[bin]]
 name = "glium_tess_example"
