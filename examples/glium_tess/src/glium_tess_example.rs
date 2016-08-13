@@ -12,9 +12,10 @@ use lyon::path_builder::*;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::path_fill::{ FillTessellator, FillOptions };
+use lyon::tessellation::path_fill::{ Events, FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
-use lyon::path::flattened_path_builder;
+use lyon::path::{ flattened_path_builder, flattened_path_builder2 };
+use lyon::path_iterator::{ PositionedPrimitiveIter, FlattenIter };
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -60,6 +61,7 @@ fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
 
 fn main() {
 
+    //let mut builder = flattened_path_builder2(0.03);
     let mut builder = flattened_path_builder(0.03);
 
     build_logo_path(&mut builder);
@@ -68,6 +70,12 @@ fn main() {
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
+    //let events = Events::from_iter(
+    //    FlattenIter::new(0.03, PositionedPrimitiveIter::new(path.iter()))
+    //);
+
+    //FillTessellator::new().tessellate_events(
+    //    &events,
     FillTessellator::new().tessellate_path(
         path.as_slice(),
         &FillOptions::default(),

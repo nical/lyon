@@ -19,7 +19,9 @@ use math_utils::{
 #[cfg(test)]
 use geometry_builder::{ VertexBuffers, simple_builder };
 #[cfg(test)]
-use lyon_path::{ flattened_path_builder, Path };
+use lyon_path::{ PathBuilder, flattened_path_builder, flattened_path_builder2, Path, Path2, PathSlice2 };
+#[cfg(test)]
+use lyon_path_iterator::{ FlattenIter, PositionedPrimitiveIter };
 
 pub type FillResult = Result<Count, FillError>;
 
@@ -1296,8 +1298,6 @@ impl TmpEventBuilder {
 
 #[test]
 fn test_iter_builder() {
-    use lyon_path::{ PathBuilder };
-    use lyon_path_iterator::{ FlattenIter, PositionedPrimitiveIter };
 
     let mut builder = PathBuilder::new();
     builder.line_to(point(1.0, 0.0));
@@ -1567,6 +1567,25 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
 }
 
 #[cfg(test)]
+fn tessellate2(path: PathSlice2, log: bool) -> Result<usize, FillError> {
+    let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+    {
+        let mut vertex_builder = simple_builder(&mut buffers);
+        let mut tess = FillTessellator::new();
+        if log {
+            tess.enable_logging();
+        }
+        let events = TmpEventBuilder::default().build(
+            FlattenIter::new(0.05, PositionedPrimitiveIter::new(path.iter()))
+        );
+        try!{
+            tess.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder)
+        };
+    }
+    return Ok(buffers.indices.len()/3);
+}
+
+#[cfg(test)]
 fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
     let res = ::std::panic::catch_unwind(|| { tessellate(path, false) });
 
@@ -1585,6 +1604,28 @@ fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
     });
 
     tessellate(path, true).unwrap();
+    panic!();
+}
+
+#[cfg(test)]
+fn test_path2(path: PathSlice2, expected_triangle_count: Option<usize>) {
+    let res = ::std::panic::catch_unwind(|| { tessellate2(path, false) });
+
+    if let Ok(Ok(num_triangles)) = res {
+        if let Some(expected_triangles) = expected_triangle_count {
+            if num_triangles != expected_triangles {
+                tessellate2(path, true).unwrap();
+                panic!("expected {} triangles, got {}", expected_triangles, num_triangles);
+            }
+        }
+        return;
+    }
+
+    ::lyon_extra::debugging::find_reduced_test_case2(path, &|path: Path2|{
+        return tessellate2(path.as_slice(), false).is_err();
+    });
+
+    tessellate2(path, true).unwrap();
     panic!();
 }
 
@@ -1625,7 +1666,7 @@ fn test_simple_triangle() {
 
 #[test]
 fn test_simple_monotone() {
-    let mut path = flattened_path_builder(0.05);
+    let mut path = flattened_path_builder2(0.05);
     path.move_to(vec2(0.0, 0.0));
     path.line_to(vec2(-1.0, 1.0));
     path.line_to(vec2(-3.0, 2.0));
@@ -1635,7 +1676,7 @@ fn test_simple_monotone() {
     path.close();
 
     let path = path.build();
-    test_path(path.as_slice(), Some(4));
+    test_path2(path.as_slice(), Some(4));
 }
 
 #[test]
