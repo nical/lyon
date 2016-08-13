@@ -6,6 +6,7 @@ extern crate sid_vec;
 extern crate lyon_core;
 extern crate lyon_path;
 extern crate lyon_path_builder;
+extern crate lyon_path_iterator;
 
 pub mod rust_logo;
 pub mod triangle_rasterizer;

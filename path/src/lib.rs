@@ -543,6 +543,13 @@ pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder {
     SvgPathBuilder::from_builder(FlattenedBuilder::new(PrimitiveImpl::new(), tolerance))
 }
 
+/// Builder for flattened paths
+pub type FlattenedPathBuilder2 = SvgPathBuilder<FlattenedBuilder<PathBuilder>>;
+/// FlattenedPathBuilder constructor.
+pub fn flattened_path_builder2(tolerance: f32) -> FlattenedPathBuilder2 {
+    SvgPathBuilder::from_builder(FlattenedBuilder::new(PathBuilder::new(), tolerance))
+}
+
 /// BezierPathBuilder constructor.
 pub fn bezier_path_builder() -> BezierPathBuilder {
     SvgPathBuilder::from_builder(PrimitiveImpl::new())

@@ -1,5 +1,7 @@
-use lyon_path::{ Path, PathSlice, flattened_path_builder };
+use lyon_path::{ Path, Path2, PathSlice, PathSlice2, flattened_path_builder, flattened_path_builder2 };
+use lyon_core::{ PrimitiveEvent };
 use lyon_path_builder::PrimitiveBuilder;
+use lyon_path_iterator::PositionedPrimitiveIter;
 use math::{ Vec2 };
 
 pub type Polygons = Vec<Vec<Vec2>>;
@@ -17,8 +19,46 @@ pub fn path_to_polygons(path: PathSlice) -> Vec<Vec<Vec2>> {
     return polygons;
 }
 
+pub fn path_to_polygons2(path: PathSlice2) -> Vec<Vec<Vec2>> {
+    let mut polygons = Vec::new();
+    let mut poly = Vec::new();
+    for evt in PositionedPrimitiveIter::new(path.iter()) {
+        match evt {
+            PrimitiveEvent::MoveTo(to) => {
+                polygons.push(poly);
+                poly = vec![to];
+            }
+            PrimitiveEvent::LineTo(to) => {
+                poly.push(to);
+            }
+            PrimitiveEvent::Close => {
+                if !poly.is_empty() {
+                    polygons.push(poly);
+                }
+                poly = Vec::new();
+            }
+            _ => {
+                println!(" -- path_to_polygons: warning! Unsupported event type {:?}", evt);
+            }
+        }
+    }
+    return polygons;
+}
+
 pub fn polygons_to_path(polygons: &Polygons) -> Path {
     let mut builder = flattened_path_builder(0.05);
+    for poly in polygons.iter() {
+        builder.move_to(poly[0]);
+        for i in 1..poly.len() {
+            builder.line_to(poly[i]);
+        }
+        builder.close();
+    }
+    return builder.build();
+}
+
+pub fn polygons_to_path2(polygons: &Polygons) -> Path2 {
+    let mut builder = flattened_path_builder2(0.05);
     for poly in polygons.iter() {
         builder.move_to(poly[0]);
         for i in 1..poly.len() {
@@ -102,4 +142,9 @@ fn find_reduced_test_case_sp<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwin
 
         i += 1;
     }
+}
+
+#[test]
+fn test_path_to_polygons() {
+    // TODO!
 }
