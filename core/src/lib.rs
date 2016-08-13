@@ -16,6 +16,7 @@ pub enum SvgEvent {
     CubicTo(Point, Point, Point),
     RelativeCubicTo(Vec2, Vec2, Vec2),
     ArcTo(Point, Vec2, f32, ArcFlags),
+    RelativeArcTo(Point, Vec2, f32, ArcFlags),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
     RelativeHorizontalLineTo(f32),
@@ -71,6 +72,93 @@ impl PrimitiveEvent {
             PrimitiveEvent::Close => { SvgEvent::Close }
         };
     }
+}
+
+impl FlattenedEvent {
+    pub fn to_svg(self) -> SvgEvent {
+        return match self {
+            FlattenedEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
+            FlattenedEvent::LineTo(to) => { SvgEvent::LineTo(to) }
+            FlattenedEvent::Close => { SvgEvent::Close }
+        }
+    }
+
+    pub fn to_primitive(self) -> PrimitiveEvent {
+        return match self {
+            FlattenedEvent::MoveTo(to) => { PrimitiveEvent::MoveTo(to) }
+            FlattenedEvent::LineTo(to) => { PrimitiveEvent::LineTo(to) }
+            FlattenedEvent::Close => { PrimitiveEvent::Close }
+        }
+    }
+}
+
+pub struct PositionState {
+    pub current: Point,
+    pub first: Point,
+}
+
+impl PositionState {
+    pub fn new() -> Self {
+        PositionState { current: Point::new(0.0, 0.0), first: Point::new(0.0, 0.0) }
+    }
+}
+
+impl PositionState {
+    pub fn svg_event(&mut self, event: SvgEvent) {
+        match event {
+            SvgEvent::MoveTo(to) => {
+              self.next(to);
+              self.first = to;
+            }
+            SvgEvent::RelativeMoveTo(to) => {
+                self.relative_next(to);
+                self.first = self.current;
+            }
+            SvgEvent::LineTo(to) => { self.next(to); }
+            SvgEvent::QuadraticTo(_, to) => { self.next(to); }
+            SvgEvent::CubicTo(_, _, to) => { self.next(to); }
+            SvgEvent::ArcTo(to, _, _, _) => { self.next(to); }
+
+            SvgEvent::RelativeLineTo(to) => { self.relative_next(to); }
+            SvgEvent::RelativeQuadraticTo(_, to) => { self.relative_next(to); }
+            SvgEvent::RelativeCubicTo(_, _, to) => { self.relative_next(to); }
+            SvgEvent::RelativeArcTo(to, _, _, _) => { self.relative_next(to); }
+
+            SvgEvent::HorizontalLineTo(x) => { self.current.x = x }
+            SvgEvent::VerticalLineTo(y) => { self.current.y = y }
+            SvgEvent::RelativeHorizontalLineTo(x) => { self.current.x += x }
+            SvgEvent::RelativeVerticalLineTo(y) => { self.current.y += y }
+            SvgEvent::Close => { self.current = self.first; }
+        }
+    }
+
+    pub fn primitive_event(&mut self, event: PrimitiveEvent) {
+        match event {
+            PrimitiveEvent::MoveTo(to) => {
+              self.next(to);
+              self.first = to;
+            }
+            PrimitiveEvent::LineTo(to) => { self.next(to); }
+            PrimitiveEvent::QuadraticTo(_, to) => { self.next(to); }
+            PrimitiveEvent::CubicTo(_, _, to) => { self.next(to); }
+            PrimitiveEvent::Close => {}
+        }
+    }
+
+    pub fn flattened_event(&mut self, event: FlattenedEvent) {
+        match event {
+            FlattenedEvent::MoveTo(to) => {
+              self.next(to);
+              self.first = to;
+            }
+            FlattenedEvent::LineTo(to) => { self.next(to); }
+            FlattenedEvent::Close => {}
+        }
+    }
+
+    pub fn next(&mut self, to: Point) { self.current = to; }
+
+    pub fn relative_next(&mut self, to: Point) { self.current = self.current + to; }
 }
 
 /// Flag parameters for arcs as described by the SVG specification.

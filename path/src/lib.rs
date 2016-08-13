@@ -11,7 +11,7 @@ extern crate sid_vec;
 
 
 use lyon_path_builder::{ PrimitiveBuilder, SvgPathBuilder, FlattenedBuilder, Path_, PathId, path_id };
-use lyon_path_iterator::{ PathIterator };
+use lyon_path_iterator::{ PrimitiveIterator };
 
 use lyon_core::PrimitiveEvent;
 use lyon_core::math::*;
@@ -228,7 +228,7 @@ impl<'l> Iterator for PathIter<'l> {
     }
 }
 
-impl<'l> PathIterator<PrimitiveEvent> for PathIter<'l> {
+impl<'l> PrimitiveIterator for PathIter<'l> {
     fn current_position(&self) -> Point { self.current }
     fn first_position(&self) -> Point { self.first }
 }

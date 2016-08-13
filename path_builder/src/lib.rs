@@ -73,6 +73,7 @@ pub trait SvgBuilder : PrimitiveBuilder {
             SvgEvent::Close => { self.close(); }
 
             SvgEvent::ArcTo(to, radii, x_rotation, flags) => { self.arc_to(to, radii, x_rotation, flags); }
+            SvgEvent::RelativeArcTo(to, radii, x_rotation, flags) => { self.relative_arc_to(to, radii, x_rotation, flags); }
 
             SvgEvent::RelativeMoveTo(to) => { self.relative_move_to(to); }
             SvgEvent::RelativeLineTo(to) => { self.relative_line_to(to); }
