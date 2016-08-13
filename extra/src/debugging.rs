@@ -1,5 +1,5 @@
-use path::{ Path, PathSlice };
-use path_builder::{ flattened_path_builder, PrimitiveBuilder };
+use lyon_path::{ Path, PathSlice, flattened_path_builder };
+use lyon_path_builder::PrimitiveBuilder;
 use math::{ Vec2 };
 
 pub type Polygons = Vec<Vec<Vec2>>;

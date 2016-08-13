@@ -1,9 +1,14 @@
 //! Bezier curve related maths and tools.
 
-pub use flatten_cubic::{ flatten_cubic_bezier, CubicFlattenIter };
-use math::*;
+extern crate euclid;
+
+mod flatten_cubic;
 
 use std::mem::swap;
+use flatten_cubic::{ flatten_cubic_bezier, CubicFlattenIter };
+
+pub type Point = euclid::Point2D<f32>;
+pub type Vec2 = euclid::Point2D<f32>;
 
 #[derive(Copy, Clone, Debug)]
 pub struct QuadraticBezierSegment {

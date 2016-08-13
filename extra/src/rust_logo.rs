@@ -1,4 +1,4 @@
-use path_builder::{ SvgBuilder };
+use lyon_path_builder::{ SvgBuilder };
 use math::{ vec2 };
 
 pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;

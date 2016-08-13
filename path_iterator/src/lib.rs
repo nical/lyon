@@ -1,5 +1,9 @@
-use math::*;
-use super::{ PrimitiveEvent, SvgEvent, FlattenedEvent };
+extern crate lyon_core;
+extern crate lyon_bezier;
+
+use lyon_core::{ PrimitiveEvent, SvgEvent, FlattenedEvent };
+use lyon_core::math::*;
+use lyon_bezier::{ QuadraticFlattenIter, QuadraticBezierSegment };
 
 /// Convenience for algorithms which prefer to iterate over segments directly rather than
 /// path events.
@@ -139,8 +143,6 @@ where PrimitiveIter: Iterator<Item=PrimitiveEvent> {
         }
     }
 }
-
-use bezier::{ QuadraticFlattenIter, QuadraticBezierSegment };
 
 enum TmpFlattenIter {
   Quadratic(QuadraticFlattenIter),

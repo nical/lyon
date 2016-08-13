@@ -8,9 +8,9 @@ use std::cmp::PartialOrd;
 use std::cmp;
 
 use math::*;
-use path::*;
+use lyon_path::{ Path, PathBuilder, PrimitiveImpl, PathSlice };
 use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
-use path_builder::{ PrimitiveBuilder, PrimitiveImpl };
+use lyon_path_builder::{ PrimitiveBuilder, PathId };
 use lyon_core::{ FlattenedEvent };
 use math_utils::{
     is_below, is_below_int, directed_angle, directed_angle2,

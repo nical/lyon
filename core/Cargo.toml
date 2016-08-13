@@ -9,10 +9,6 @@ license = "MIT/Apache-2.0"
 
 [lib]
 name = "lyon_core"
-path = "src/lib.rs"
 
 [dependencies]
-
-sid = { version = "0.1.0" }
-sid_vec = { version = "0.1.0" }
 euclid = "0.8.1"

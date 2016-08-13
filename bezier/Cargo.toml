@@ -1,0 +1,12 @@
+[package]
+name = "lyon_bezier"
+version = "0.1.1"
+authors = ["Nicolas Silva <nical.silva@gmail.com>"]
+repository = "https://github.com/nical/lyon"
+license = "MIT/Apache-2.0"
+
+[lib]
+name = "lyon_bezier"
+
+[dependencies]
+euclid = "0.8.1"

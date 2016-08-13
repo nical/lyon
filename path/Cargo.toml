@@ -1,21 +1,18 @@
 [package]
-
-name = "lyon_extra"
+name = "lyon_path"
 version = "0.1.1"
-description = "Various optional utilities for the lyon crate."
+description = "Utilities to build vector paths."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
 license = "MIT/Apache-2.0"
 
 [lib]
-name = "lyon_extra"
-path = "src/lib.rs"
+name = "lyon_path"
 
 [dependencies]
-
+lyon_core = { version = "0.1.1", path = "../core" }
+lyon_bezier = { version = "0.1.1", path = "../bezier" }
+lyon_path_builder = { version = "0.1.1", path = "../path_builder" }
+lyon_path_iterator = { version = "0.1.1", path = "../path_iterator" }
 sid = { version = "0.1.0" }
 sid_vec = { version = "0.1.0" }
-
-lyon_core = { version = "0.1.1", path = "../core" }
-lyon_path = { version = "0.1.1", path = "../path" }
-lyon_path_builder = { version = "0.1.1", path = "../path_builder" }

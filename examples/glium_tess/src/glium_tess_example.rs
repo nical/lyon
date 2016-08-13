@@ -14,6 +14,7 @@ use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, Bu
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
+use lyon::path::flattened_path_builder;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {

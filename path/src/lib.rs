@@ -3,27 +3,24 @@
 //! This whole module will change at some point in order to implement a more
 //! flexible and efficient Path data structure.
 
-use super::{
-    vertex_id, VertexId, VertexIdRange,
-    VertexSlice, MutVertexSlice,
-    PrimitiveEvent,
-};
+extern crate lyon_core;
+extern crate lyon_path_builder;
+extern crate lyon_path_iterator;
+extern crate sid;
+extern crate sid_vec;
 
-use path_builder::{ PrimitiveBuilder };
-use path_iterator::{ PathIterator };
 
-use math::*;
+use lyon_path_builder::{ PrimitiveBuilder, SvgPathBuilder, FlattenedBuilder, Path_, PathId, path_id };
+use lyon_path_iterator::{ PathIterator };
+
+use lyon_core::PrimitiveEvent;
+use lyon_core::math::*;
 
 use sid::{ Id, IdRange, ToIndex };
+use sid_vec::{ IdSlice, MutIdSlice, };
 
-#[derive(Debug)]
-/// Phatom type marker for PathId.
-pub struct Path_;
-/// An Id that represents a sub-path in a certain path object.
-pub type PathId = Id<Path_, u16>;
 /// A contiguous range of PathIds.
 pub type PathIdRange = IdRange<Path_, u16>;
-pub fn path_id(idx: u16) -> PathId { PathId::new(idx) }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Verb {
@@ -513,6 +510,39 @@ impl<'l> SubPathSlice<'l> {
     pub fn num_vertices(&self) -> usize { self.vertices.len() }
 }
 
+use lyon_core::math_utils::fuzzy_eq;
+
+/// The integer type to index a vertex in a vertex buffer or path.
+pub type Index = u16;
+
+/// Phantom type marker for VertexId.
+#[derive(Debug)]
+pub struct Vertex_;
+
+/// An Id that represents a vertex in a contiguous vertex buffer.
+pub type VertexId = Id<Vertex_, Index>;
+
+/// Create a VertexId from an u16 index.
+#[inline]
+pub fn vertex_id(index: Index) -> VertexId { VertexId::new(index) }
+
+/// A range of VertexIds pointing to contiguous vertices.
+pub type VertexIdRange = IdRange<Vertex_, Index>;
+
+/// Create a VertexIdRange.
+pub fn vertex_id_range(from: u16, to: u16) -> VertexIdRange {
+    IdRange {
+        first: Id::new(from),
+        count: to - from,
+    }
+}
+
+/// A slice of vertices indexed with VertexIds rather than usize offset.
+pub type VertexSlice<'l, V> = IdSlice<'l, VertexId, V>;
+
+/// A slice of mutable vertices indexed with VertexIds rather than usize offset.
+pub type MutVertexSlice<'l, V> = MutIdSlice<'l, VertexId, V>;
+
 /// Some metadata for sub paths
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct PathInfo {
@@ -520,4 +550,289 @@ pub struct PathInfo {
     pub range: VertexIdRange,
     pub has_beziers: Option<bool>,
     pub is_closed: bool,
+}
+
+/// Builder for paths that can contain lines, and quadratic/cubic bezier segments.
+pub type BezierPathBuilder = SvgPathBuilder<PrimitiveImpl>;
+
+/// Builder for flattened paths
+pub type FlattenedPathBuilder = SvgPathBuilder<FlattenedBuilder<PrimitiveImpl>>;
+/// FlattenedPathBuilder constructor.
+pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder {
+    SvgPathBuilder::from_builder(FlattenedBuilder::new(PrimitiveImpl::new(), tolerance))
+}
+
+/// BezierPathBuilder constructor.
+pub fn bezier_path_builder() -> BezierPathBuilder {
+    SvgPathBuilder::from_builder(PrimitiveImpl::new())
+}
+
+/// Generates path objects with bezier segments
+pub struct PrimitiveImpl {
+    vertices: Vec<PointData>,
+    path_info: Vec<PathInfo>,
+    last_position: Point,
+    top_left: Point,
+    bottom_right: Point,
+    offset: u16,
+    // flags
+    building: bool,
+}
+
+impl PrimitiveBuilder for PrimitiveImpl {
+    type PathType = Path;
+
+    fn move_to(&mut self, to: Point)
+    {
+        if self.building {
+            self.end_sub_path(false);
+        }
+        self.top_left = to;
+        self.bottom_right = to;
+        self.push(to, PointType::Normal);
+    }
+
+    fn line_to(&mut self, to: Point) {
+        self.push(to, PointType::Normal);
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        self.push(ctrl, PointType::Control);
+        self.push(to, PointType::Normal);
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        self.push(ctrl1, PointType::Control);
+        self.push(ctrl2, PointType::Control);
+        self.push(to, PointType::Normal);
+    }
+
+    fn close(&mut self) -> PathId { self.end_sub_path(true) }
+
+    fn current_position(&self) -> Point { self.last_position }
+
+    fn build(mut self) -> Path {
+        if self.building {
+            self.end_sub_path(false);
+        }
+        return Path::from_vec(self.vertices, self.path_info);
+    }
+}
+impl PrimitiveImpl {
+    pub fn new() -> PrimitiveImpl {
+        PrimitiveImpl {
+            vertices: Vec::with_capacity(512),
+            path_info: Vec::with_capacity(16),
+            last_position: vec2(0.0, 0.0),
+            top_left: vec2(0.0, 0.0),
+            bottom_right: vec2(0.0, 0.0),
+            offset: 0,
+            building: false,
+        }
+    }
+
+    pub fn begin_sub_path(&mut self) {
+        self.offset = self.vertices.len() as u16;
+        self.building = true;
+    }
+
+    pub fn end_sub_path(&mut self, mut closed: bool) -> PathId {
+        self.building = false;
+        let vertices_len = self.vertices.len();
+        if vertices_len == 0 {
+            return path_id(self.path_info.len() as u16);
+        }
+        let offset = self.offset as usize;
+        let last = vertices_len - 1;
+        // If the first and last vertices are the same, remove the last vertex.
+        let last = if last > 0 && fuzzy_eq(self.vertices[last].position, self.vertices[offset].position) {
+            self.vertices.pop();
+            closed = true;
+            last - 1
+        } else { last };
+
+        let vertex_count = last + 1 - offset;
+
+        if vertex_count == 0 {
+            return path_id(self.path_info.len() as u16);
+        }
+
+        let vertex_range = vertex_id_range(self.offset, self.offset + vertex_count as u16);
+        let aabb = Rect::new(self.top_left,
+            size(self.bottom_right.x - self.top_left.x, self.bottom_right.y - self.top_left.y),
+        );
+
+        let shape_info = PathInfo {
+            range: vertex_range,
+            aabb: aabb,
+            has_beziers: Some(false),
+            is_closed: closed,
+        };
+
+        let index = path_id(self.path_info.len() as u16);
+        self.path_info.push(shape_info);
+        return index;
+    }
+
+    pub fn push(&mut self, point: Vec2, ptype: PointType) {
+        debug_assert!(!point.x.is_nan());
+        debug_assert!(!point.y.is_nan());
+        if self.building && point == self.last_position {
+            return;
+        }
+
+        if !self.building {
+            self.begin_sub_path();
+        }
+
+        if self.vertices.len() == 0 {
+            self.top_left = point;
+            self.bottom_right = point;
+        } else {
+            if point.x < self.top_left.x { self.top_left.x = point.x; }
+            if point.y < self.top_left.y { self.top_left.y = point.y; }
+            if point.x > self.bottom_right.x { self.bottom_right.x = point.x; }
+            if point.y > self.bottom_right.y { self.bottom_right.y = point.y; }
+        }
+        self.vertices.push(PointData{ position: point, point_type: ptype });
+        self.last_position = point;
+    }
+}
+
+
+
+#[test]
+fn test_path_builder_simple() {
+
+    // clockwise
+    {
+        let mut path = flattened_path_builder(0.05);
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(1.0, 0.0));
+        path.line_to(vec2(1.0, 1.0));
+        let id = path.close();
+
+        let path = path.build();
+        let info = path.sub_path(id).info();
+        assert_eq!(path.vertices().nth(0).position, vec2(0.0, 0.0));
+        assert_eq!(path.vertices().nth(1).position, vec2(1.0, 0.0));
+        assert_eq!(path.vertices().nth(2).position, vec2(1.0, 1.0));
+        assert_eq!(path.vertices().nth(0).point_type, PointType::Normal);
+        assert_eq!(path.vertices().nth(1).point_type, PointType::Normal);
+        assert_eq!(path.vertices().nth(2).point_type, PointType::Normal);
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+        let sub_path = path.sub_path(id);
+        let first = sub_path.first();
+        let next = sub_path.next(first);
+        let prev = sub_path.previous(first);
+        assert!(first != next);
+        assert!(first != prev);
+        assert!(next != prev);
+        assert_eq!(first, sub_path.previous(next));
+        assert_eq!(first, sub_path.next(prev));
+    }
+
+    // counter-clockwise
+    {
+        let mut path = flattened_path_builder(0.05);
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(1.0, 1.0));
+        path.line_to(vec2(1.0, 0.0));
+        let id = path.close();
+
+        let path = path.build();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+    }
+
+    // line_to back to the first vertex (should ignore the last vertex)
+    {
+        let mut path = flattened_path_builder(0.05);
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(1.0, 1.0));
+        path.line_to(vec2(1.0, 0.0));
+        path.line_to(vec2(0.0, 0.0));
+        let id = path.close();
+
+        let path = path.build();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+    }
+}
+
+#[test]
+fn test_path_builder_simple_bezier() {
+    // clockwise
+    {
+        let mut path = bezier_path_builder();
+        path.move_to(vec2(0.0, 0.0));
+        path.quadratic_bezier_to(vec2(1.0, 0.0), vec2(1.0, 1.0));
+        let id = path.close();
+
+        let path = path.build();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+    }
+
+    // counter-clockwise
+    {
+        let mut path = bezier_path_builder();
+        path.move_to(vec2(0.0, 0.0));
+        path.quadratic_bezier_to(vec2(1.0, 1.0), vec2(1.0, 0.0));
+        let id = path.close();
+
+        let path = path.build();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.range, vertex_id_range(0, 3));
+        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+    }
+
+    // a slightly more elaborate path
+    {
+        let mut path = bezier_path_builder();
+        path.move_to(vec2(0.0, 0.0));
+        path.line_to(vec2(0.1, 0.0));
+        path.line_to(vec2(0.2, 0.1));
+        path.line_to(vec2(0.3, 0.1));
+        path.line_to(vec2(0.4, 0.0));
+        path.line_to(vec2(0.5, 0.0));
+        path.quadratic_bezier_to(vec2(0.5, 0.4), vec2(0.3, 0.4));
+        path.line_to(vec2(0.1, 0.4));
+        path.quadratic_bezier_to(vec2(-0.2, 0.1), vec2(-0.1, 0.0));
+        let id = path.close();
+
+        let path = path.build();
+        let info = path.sub_path(id).info();
+        assert_eq!(info.aabb, Rect::new(vec2(-0.2, 0.0), size(0.7, 0.4)));
+    }
+}
+
+#[test]
+fn test_arc_simple() {
+    let mut path = bezier_path_builder();
+
+    // Two big elliptical arc
+    path.move_to(vec2(180.0, 180.0));
+    path.arc_to(
+        vec2(160.0, 220.0), vec2(20.0, 40.0) , 0.0,
+        ArcFlags { large_arc: true, sweep: false }
+    );
+    path.move_to(vec2(180.0, 180.0));
+    path.arc_to(
+        vec2(160.0, 220.0), vec2(20.0, 40.0) , 0.0,
+        ArcFlags { large_arc: true, sweep: true }
+    );
+
+    // a small elliptical arc
+    path.move_to(vec2(260.0, 150.0));
+    path.arc_to(
+        vec2(240.0, 190.0), vec2(20.0, 40.0) , 0.0,
+        ArcFlags {large_arc: false, sweep: true}
+    );
+
+    path.build();
 }

@@ -2,6 +2,10 @@
 
 extern crate lyon_core;
 
+// TODO: test dependency only
+extern crate lyon_path;
+extern crate lyon_path_builder;
+
 #[cfg(test)]
 extern crate lyon_extra;
 

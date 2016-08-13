@@ -6,11 +6,10 @@
 use std::f32::NAN;
 
 use math::*;
-use path::*;
+use lyon_path::*;
 use geometry_builder::{ GeometryBuilder, Count, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
 use basic_shapes::{ tessellate_quad };
-use super::{ VertexId };
 
 pub type StrokeResult = Result<Count, ()>;
 
