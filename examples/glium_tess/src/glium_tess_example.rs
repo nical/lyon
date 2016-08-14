@@ -16,6 +16,7 @@ use lyon::tessellation::path_fill::{ Events, FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
 use lyon::path::{ flattened_path_builder, flattened_path_builder2 };
 use lyon::path_iterator::{ PositionedPrimitiveIter, FlattenIter };
+use lyon::{ FlattenedEvent  };
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -61,32 +62,46 @@ fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
 
 fn main() {
 
-    //let mut builder = flattened_path_builder2(0.03);
+    let mut builder2 = flattened_path_builder2(0.03);
     let mut builder = flattened_path_builder(0.03);
 
     build_logo_path(&mut builder);
+    build_logo_path(&mut builder2);
 
     let path = builder.build();
+    let path2 = builder2.build();
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 
-    //let events = Events::from_iter(
-    //    FlattenIter::new(0.03, PositionedPrimitiveIter::new(path.iter()))
-    //);
+    let events = Events::from_iter(
+        FlattenIter::new(0.03, PositionedPrimitiveIter::new(path2.iter()))
+    );
 
-    //FillTessellator::new().tessellate_events(
-    //    &events,
-    FillTessellator::new().tessellate_path(
-        path.as_slice(),
+    FillTessellator::new().tessellate_events(
+        &events,
+    //FillTessellator::new().tessellate_path(
+    //    path.as_slice(),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut buffers, WithColor([0.9, 0.9, 1.0]))
     ).unwrap();
 
-    StrokeTessellator::new().tessellate_path(
-        path.as_slice(),
-        &StrokeOptions::stroke_width(1.0),
-        &mut BuffersBuilder::new(&mut buffers, WithColor([0.0, 0.0, 0.0]))
-    ).unwrap();
+    for evt in FlattenIter::new(0.03, PositionedPrimitiveIter::new(path2.as_slice().iter())) {
+        let p = match evt {
+            FlattenedEvent::MoveTo(to) => { to }
+            FlattenedEvent::LineTo(to) => { to }
+            _ => { continue; }
+        };
+        tessellate_ellipsis(p, vec2(1.0, 1.0), 16,
+            &mut BuffersBuilder::new(&mut buffers,
+                WithColor([0.0, 0.0, 0.0])
+            )
+        );
+    }
+    //StrokeTessellator::new().tessellate_path(
+    //    path.as_slice(),
+    //    &StrokeOptions::stroke_width(1.0),
+    //    &mut BuffersBuilder::new(&mut buffers, WithColor([0.0, 0.0, 0.0]))
+    //).unwrap();
 
     let show_points = false;
 

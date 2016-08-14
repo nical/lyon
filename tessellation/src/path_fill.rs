@@ -92,7 +92,8 @@ impl FillTessellator {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
         }
 
-        self.set_unit_scale(options.unit_scale);
+        assert_eq!(events.scale, options.unit_scale);
+        self.set_unit_scale(events.scale);
 
         self.begin_tessellation(output);
 
@@ -158,6 +159,8 @@ impl FillTessellator {
         let mut events = Events {
             edges: Vec::with_capacity(512),
             vertices: Vec::with_capacity(64),
+            scale: self.scale,
+            translation: self.translation,
         };
 
         for sub_path in path.path_ids() {
@@ -1091,6 +1094,8 @@ pub struct EventsBuilder {
 pub struct Events {
     edges: Vec<Edge>,
     vertices: Vec<IntPoint>,
+    translation: Vec2,
+    scale: f32,
 }
 
 impl Events {
@@ -1130,8 +1135,6 @@ impl PrimitiveBuilder for EventsBuilder {
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to)
     }
 
-    //fn end(&mut self) -> PathId { self.builder.end() }
-
     fn close(&mut self) -> PathId { self.builder.close() }
 
     fn current_position(&self) -> Point { self.builder.current_position() }
@@ -1155,6 +1158,8 @@ fn initialize_events(path: PathSlice, scale: f32, translation: Vec2) -> Events {
     let mut events = Events {
         edges: Vec::with_capacity(path_num_vertices),
         vertices: Vec::with_capacity(path_num_vertices / 10),
+        scale: scale,
+        translation: translation,
     };
 
     for sub_path in path.path_ids() {
@@ -1212,22 +1217,24 @@ impl TmpEventBuilder {
     }
 
     fn build<Iter: Iterator<Item=FlattenedEvent>>(mut self, inputs: Iter) -> Events {
-        let mut first = Point::new(0.0, 0.0);
-        let mut second = Point::new(0.0, 0.0);
-        let mut previous = Point::new(0.0, 0.0);
-        let mut current = Point::new(0.0, 0.0);
+        let mut first = IntPoint::new(0, 0);
+        let mut second = IntPoint::new(0, 0);
+        let mut previous = IntPoint::new(0, 0);
+        let mut current = IntPoint::new(0, 0);
         let mut nth = 0;
         for evt in inputs {
             //println!(" -- event {:?}", evt);
             match evt {
                 FlattenedEvent::LineTo(next) => {
+                    let next = self.to_internal(next);
+                    if next == current {
+                        continue;
+                    }
                     if nth == 0 {
-                        first = current;
-                    } else if nth == 1 {
                         second = current;
                     }
                     self.add_edge(current, next);
-                    if nth > 1 {
+                    if nth > 0 {
                         self.vertex(previous, current, next);
                     }
                     previous = current;
@@ -1244,6 +1251,7 @@ impl TmpEventBuilder {
                     current = first;
                 }
                 FlattenedEvent::MoveTo(next) => {
+                    let next = self.to_internal(next);
                     if nth > 1 {
                         self.add_edge(current, first);
                         self.vertex(previous, current, first);
@@ -1251,7 +1259,7 @@ impl TmpEventBuilder {
                     }
                     first = next;
                     current = next;
-                    nth = 1;
+                    nth = 0;
                 }
             }
         }
@@ -1259,7 +1267,12 @@ impl TmpEventBuilder {
         self.edges.sort_by(|a, b|{ compare_positions(a.upper, b.upper) });
         self.vertices.sort_by(|a, b|{ compare_positions(*a, *b) });
 
-        return Events { edges: self.edges, vertices: self.vertices };
+        return Events {
+            edges: self.edges,
+            vertices: self.vertices,
+            translation: self.translation,
+            scale: self.scale,
+        };
     }
 
     fn to_internal(&self, v: Point) -> IntPoint {
@@ -1267,10 +1280,7 @@ impl TmpEventBuilder {
         int_vec2((v.x * self.scale) as i32, (v.y * self.scale) as i32)
     }
 
-    fn add_edge(&mut self, a: Point, b: Point) {
-        let mut a = self.to_internal(a);
-        let mut b = self.to_internal(b);
-
+    fn add_edge(&mut self, mut a: IntPoint, mut b: IntPoint) {
         if a == b {
             return;
         }
@@ -1284,11 +1294,7 @@ impl TmpEventBuilder {
         self.edges.push(Edge { upper: a, lower: b });
     }
 
-    fn vertex(&mut self, previous: Point, current: Point, next: Point) {
-        let previous = self.to_internal(previous);
-        let current = self.to_internal(current);
-        let next = self.to_internal(next);
-
+    fn vertex(&mut self, previous: IntPoint, current: IntPoint, next: IntPoint) {
         if is_below_int(current, previous) && is_below_int(current, next) {
             println!(" -- add vertex evt {:?} ", current);
             self.vertices.push(current);
@@ -1360,7 +1366,7 @@ impl FillOptions {
         FillOptions {
             tolerance: 0.1,
             fill_rule: FillRule::EvenOdd,
-            unit_scale: 1000.0,
+            unit_scale: 100.0,
             vertex_aa: false,
             _private: (),
         }

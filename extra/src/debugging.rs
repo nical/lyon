@@ -221,3 +221,28 @@ fn find_reduced_test_case_sp2<F: Fn(Path2)->bool+panic::UnwindSafe+panic::RefUnw
 fn test_path_to_polygons() {
     // TODO!
 }
+
+#[test]
+fn test_new_path_builder() {
+    use lyon_path::{ flattened_path_builder, flattened_path_builder2 };
+    use rust_logo::build_logo_path;
+
+    let mut builder = flattened_path_builder(0.05);
+    let mut builder2 = flattened_path_builder2(0.05);
+    build_logo_path(&mut builder);
+    build_logo_path(&mut builder2);
+
+
+    let path = builder.build();
+    let path2 = builder2.build();
+
+    let mut builder2 = flattened_path_builder2(0.05);
+
+    println!("path2: {:?}\n\n\n", path2);
+    panic!()
+
+    //let polygons = path_to_polygons(path.as_slice());
+    //let polygons2 = path_to_polygons2(path2.as_slice());
+
+    //assert_eq!(polygons, polygons2);
+}
