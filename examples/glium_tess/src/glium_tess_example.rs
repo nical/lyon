@@ -64,7 +64,16 @@ fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
 fn main() {
     let mut builder = SvgPathBuilder::new(PathBuilder::new());
 
-    build_logo_path(&mut builder);
+    //build_logo_path(&mut builder);
+
+    builder.move_to(vec2(-21.004179, -71.57515));
+    builder.line_to(vec2(-21.927473, -70.94977));
+    builder.line_to(vec2(-23.024633, -70.68942));
+    builder.close();
+    builder.move_to(vec2(16.036617, -27.254852));
+    builder.line_to(vec2(-62.83691, -117.69249));
+    builder.line_to(vec2(38.646027, -46.973236));
+    builder.close();
 
     let path = builder.build();
 

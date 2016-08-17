@@ -25,7 +25,9 @@ pub fn path_to_polygons2(path: PathSlice2) -> Vec<Vec<Vec2>> {
     for evt in PositionedPrimitiveIter::new(path.iter()) {
         match evt {
             PrimitiveEvent::MoveTo(to) => {
-                polygons.push(poly);
+                if poly.len() > 0 {
+                    polygons.push(poly);
+                }
                 poly = vec![to];
             }
             PrimitiveEvent::LineTo(to) => {

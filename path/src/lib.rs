@@ -32,13 +32,13 @@ pub enum Verb {
 
 #[derive(Clone, Debug)]
 pub struct Path2 {
-    vertices: Vec<Point>,
+    points: Vec<Point>,
     verbs: Vec<Verb>,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct PathSlice2<'l> {
-    vertices: &'l[Point],
+    points: &'l[Point],
     verbs: &'l[Verb],
 }
 
@@ -47,32 +47,34 @@ impl Path2 {
 
     pub fn with_capacity(cap: usize) -> Path2 {
         Path2 {
-            vertices: Vec::with_capacity(cap),
+            points: Vec::with_capacity(cap),
             verbs: Vec::with_capacity(cap),
         }
     }
 
     pub fn as_slice(&self) -> PathSlice2 {
-        PathSlice2 { vertices: &self.vertices[..], verbs: &self.verbs[..] }
+        PathSlice2 { points: &self.points[..], verbs: &self.verbs[..] }
     }
 
     pub fn iter(&self) -> PathIter {
-        PathIter::new(&self.vertices[..], &self.verbs[..])
+        PathIter::new(&self.points[..], &self.verbs[..])
     }
 
-    pub fn vertices(&self) -> &[Point] { &self.vertices[..] }
+    pub fn points(&self) -> &[Point] { &self.points[..] }
+
+    pub fn mut_points(&mut self) -> &mut[Point] { &mut self.points[..] }
 
     pub fn verbs(&self) -> &[Verb] { &self.verbs[..] }
 }
 
 impl<'l> PathSlice2<'l> {
-    pub fn new(vertices: &'l[Point], verbs: &'l[Verb]) -> PathSlice2<'l> {
-        PathSlice2 { vertices: vertices, verbs: verbs }
+    pub fn new(points: &'l[Point], verbs: &'l[Verb]) -> PathSlice2<'l> {
+        PathSlice2 { points: points, verbs: verbs }
     }
 
-    pub fn iter(&self) -> PathIter { PathIter::new(self.vertices, self.verbs) }
+    pub fn iter(&self) -> PathIter { PathIter::new(self.points, self.verbs) }
 
-    pub fn vertices(&self) -> &[Point] { self.vertices }
+    pub fn points(&self) -> &[Point] { self.points }
 
     pub fn verbs(&self) -> &[Verb] { self.verbs }
 }
@@ -117,13 +119,13 @@ impl PrimitiveBuilder for PathBuilder {
         self.first_position = to;
         self.current_position = to;
         self.building = true;
-        self.path.vertices.push(to);
+        self.path.points.push(to);
         self.path.verbs.push(Verb::MoveTo);
     }
 
     fn line_to(&mut self, to: Point) {
         nan_check(to);
-        self.path.vertices.push(to);
+        self.path.points.push(to);
         self.path.verbs.push(Verb::LineTo);
         self.current_position = to;
     }
@@ -131,8 +133,8 @@ impl PrimitiveBuilder for PathBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         nan_check(ctrl);
         nan_check(to);
-        self.path.vertices.push(ctrl);
-        self.path.vertices.push(to);
+        self.path.points.push(ctrl);
+        self.path.points.push(to);
         self.path.verbs.push(Verb::QuadraticTo);
         self.current_position = to;
     }
@@ -141,9 +143,9 @@ impl PrimitiveBuilder for PathBuilder {
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
-        self.path.vertices.push(ctrl1);
-        self.path.vertices.push(ctrl2);
-        self.path.vertices.push(to);
+        self.path.points.push(ctrl1);
+        self.path.points.push(ctrl2);
+        self.path.points.push(to);
         self.path.verbs.push(Verb::CubicTo);
         self.current_position = to;
     }
@@ -151,7 +153,7 @@ impl PrimitiveBuilder for PathBuilder {
     fn close(&mut self) -> PathId {
         //if self.path.verbs.last() == Some(&Verb::MoveTo) {
         //    // previous op was MoveTo we don't have a path to close, drop it.
-        //    self.path.vertices.pop();
+        //    self.path.points.pop();
         //    self.path.verbs.pop();
         //} else if self.path.verbs.last() == Some(&Verb::Close) {
         //    return path_id(0); // TODO
@@ -173,14 +175,14 @@ impl PrimitiveBuilder for PathBuilder {
 
 #[derive(Clone, Debug)]
 pub struct PathIter<'l> {
-    vertices: ::std::slice::Iter<'l, Point>,
+    points: ::std::slice::Iter<'l, Point>,
     verbs: ::std::slice::Iter<'l, Verb>,
 }
 
 impl<'l> PathIter<'l> {
-    pub fn new(vertices: &'l[Point], verbs: &'l[Verb]) -> Self {
+    pub fn new(points: &'l[Point], verbs: &'l[Verb]) -> Self {
         PathIter {
-            vertices: vertices.iter(),
+            points: points.iter(),
             verbs: verbs.iter(),
         }
     }
@@ -191,22 +193,22 @@ impl<'l> Iterator for PathIter<'l> {
     fn next(&mut self) -> Option<PrimitiveEvent> {
         return match self.verbs.next() {
             Some(&Verb::MoveTo) => {
-                let to = *self.vertices.next().unwrap();
+                let to = *self.points.next().unwrap();
                 Some(PrimitiveEvent::MoveTo(to))
             }
             Some(&Verb::LineTo) => {
-                let to = *self.vertices.next().unwrap();
+                let to = *self.points.next().unwrap();
                 Some(PrimitiveEvent::LineTo(to))
             }
             Some(&Verb::QuadraticTo) => {
-                let ctrl = *self.vertices.next().unwrap();
-                let to = *self.vertices.next().unwrap();
+                let ctrl = *self.points.next().unwrap();
+                let to = *self.points.next().unwrap();
                 Some(PrimitiveEvent::QuadraticTo(ctrl, to))
             }
             Some(&Verb::CubicTo) => {
-                let ctrl1 = *self.vertices.next().unwrap();
-                let ctrl2 = *self.vertices.next().unwrap();
-                let to = *self.vertices.next().unwrap();
+                let ctrl1 = *self.points.next().unwrap();
+                let ctrl2 = *self.points.next().unwrap();
+                let to = *self.points.next().unwrap();
                 Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to))
             }
             Some(&Verb::Close) => {
@@ -310,12 +312,7 @@ pub enum PointType {
     Control,
 }
 
-// TODO: Need a better representation for paths. It needs to:
-//  * be compact
-//  * be stored in a contiguous buffer
-//  * be extensible (add extra parameters to vertices)
-//  * not store pointers
-//  * be iterable but not necessarily random-accessible
+// TODO: remove this
 #[derive(Copy, Clone, Debug)]
 pub struct PointData {
     pub position: Vec2,
