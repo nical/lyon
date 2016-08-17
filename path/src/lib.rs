@@ -95,6 +95,8 @@ impl Builder {
             building: false,
         }
     }
+
+    pub fn with_svg(self) -> SvgPathBuilder<Self> { SvgPathBuilder::new(self) }
 }
 
 #[inline]

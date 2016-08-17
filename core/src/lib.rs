@@ -45,7 +45,7 @@ pub enum FlattenedEvent {
 }
 
 impl PathEvent {
-    pub fn to_svg(self) -> SvgEvent {
+    pub fn to_svg_event(self) -> SvgEvent {
         return match self {
             PathEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
             PathEvent::LineTo(to) => { SvgEvent::LineTo(to) }
@@ -67,7 +67,7 @@ impl PathEvent {
 }
 
 impl FlattenedEvent {
-    pub fn to_svg(self) -> SvgEvent {
+    pub fn to_svg_event(self) -> SvgEvent {
         return match self {
             FlattenedEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
             FlattenedEvent::LineTo(to) => { SvgEvent::LineTo(to) }
@@ -75,7 +75,7 @@ impl FlattenedEvent {
         }
     }
 
-    pub fn to_primitive(self) -> PathEvent {
+    pub fn to_path_event(self) -> PathEvent {
         return match self {
             FlattenedEvent::MoveTo(to) => { PathEvent::MoveTo(to) }
             FlattenedEvent::LineTo(to) => { PathEvent::LineTo(to) }
@@ -172,7 +172,7 @@ impl PathState {
         }
     }
 
-    pub fn primitive_event(&mut self, event: PathEvent) {
+    pub fn path_event(&mut self, event: PathEvent) {
         match event {
             PathEvent::MoveTo(to) => { self.move_to(to); }
             PathEvent::LineTo(to) => { self.line_to(to); }
@@ -219,7 +219,7 @@ impl PathState {
 
     pub fn from_relative(&self, v: Vec2) -> Point { self.current + v }
 
-    pub fn svg_to_primitive(&self, event: SvgEvent) -> PathEvent {
+    pub fn svg_to_path_event(&self, event: SvgEvent) -> PathEvent {
         return match event {
             SvgEvent::MoveTo(to) => { PathEvent::MoveTo(to) }
             SvgEvent::LineTo(to) => { PathEvent::LineTo(to) }

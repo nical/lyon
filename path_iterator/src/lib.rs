@@ -30,8 +30,8 @@ pub trait PathIterator : Iterator<Item=PathEvent> + Sized {
     fn flattened(self, tolerance: f32) -> FlattenIter<Self> { FlattenIter::new(tolerance, self) }
 
     /// Returns an iterator of SVG events.
-    fn to_svg(self) -> iter::Map<Self, fn(PathEvent)->SvgEvent> {
-        self.map(primitive_to_svg_event)
+    fn svg_iter(self) -> iter::Map<Self, fn(PathEvent)->SvgEvent> {
+        self.map(path_to_svg_event)
     }
 }
 
@@ -43,10 +43,10 @@ pub trait SvgIterator : Iterator<Item=SvgEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlattenIter<SvgToPathIter<Self>> { FlattenIter::new(tolerance, self.to_primitive()) }
+    fn flattened(self, tolerance: f32) -> FlattenIter<SvgToPathIter<Self>> { self.path_iter().flattened(tolerance) }
 
-    /// Returns an iterator of primitive events.
-    fn to_primitive(self) -> SvgToPathIter<Self> { SvgToPathIter::new(self) }
+    /// Returns an iterator of path events.
+    fn path_iter(self) -> SvgToPathIter<Self> { SvgToPathIter::new(self) }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -56,13 +56,13 @@ pub trait FlattenedIterator : Iterator<Item=FlattenedEvent> + Sized {
     /// sub-path, and the position of the last control point.
     fn get_state(&self) -> &PathState;
 
-    /// Returns an iterator of primitive events.
-    fn to_primitive(self) -> iter::Map<Self, fn(FlattenedEvent)->PathEvent> {
-        self.map(flattened_to_primitive_event)
+    /// Returns an iterator of path events.
+    fn path_iter(self) -> iter::Map<Self, fn(FlattenedEvent)->PathEvent> {
+        self.map(flattened_to_path_event)
     }
 
     /// Returns an iterator of svg events.
-    fn to_svg(self) -> iter::Map<Self, fn(FlattenedEvent)->SvgEvent> {
+    fn svg_iter(self) -> iter::Map<Self, fn(FlattenedEvent)->SvgEvent> {
         self.map(flattened_to_svg_event)
     }
 }
@@ -153,7 +153,7 @@ where SvgIter: SvgIterator {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
         return match self.it.next() {
-            Some(svg_evt) => { Some(self.get_state().svg_to_primitive(svg_evt)) }
+            Some(svg_evt) => { Some(self.get_state().svg_to_path_event(svg_evt)) }
             None => { None }
         }
     }
@@ -278,15 +278,15 @@ impl<Iter: Iterator<Item=PathEvent>> Iterator for PathStateIter<Iter> {
     fn next(&mut self) -> Option<PathEvent> {
         let next = self.it.next();
         if let Some(evt) = next {
-            self.state.primitive_event(evt);
+            self.state.path_event(evt);
         }
         return next;
     }
 }
 
-fn flattened_to_primitive_event(evt: FlattenedEvent) -> PathEvent { evt.to_primitive() }
-fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg() }
-fn primitive_to_svg_event(evt: PathEvent) -> SvgEvent { evt.to_svg() }
+fn flattened_to_path_event(evt: FlattenedEvent) -> PathEvent { evt.to_path_event() }
+fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg_event() }
+fn path_to_svg_event(evt: PathEvent) -> SvgEvent { evt.to_svg_event() }
 
 #[test]
 fn test_svg_to_flattened_iter() {

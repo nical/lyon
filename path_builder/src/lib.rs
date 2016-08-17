@@ -14,7 +14,7 @@ use arc::arc_to_cubic_beziers;
 
 /// The base path building interface. More elaborate interfaces are built on top
 /// of the provided primitives.
-pub trait PathBuilder {
+pub trait PathBuilder : ::std::marker::Sized {
     type PathType;
 
     fn move_to(&mut self, to: Point);
@@ -24,7 +24,7 @@ pub trait PathBuilder {
     fn close(&mut self);
     fn current_position(&self) -> Point;
 
-    fn primitive_event(&mut self, event: PathEvent) {
+    fn path_event(&mut self, event: PathEvent) {
         match event {
             PathEvent::MoveTo(to) => { self.move_to(to); }
             PathEvent::LineTo(to) => { self.line_to(to); }
@@ -35,6 +35,8 @@ pub trait PathBuilder {
     }
 
     fn build(self) -> Self::PathType;
+
+    fn with_svg(self) -> SvgPathBuilder<Self> { SvgPathBuilder::new(self) }
 }
 
 /// A path building interface that tries to stay close to SVG's path specification.
@@ -90,7 +92,7 @@ pub trait PolygonBuilder {
     fn polygon(&mut self, points: &[Point]);
 }
 
-/// Implements the Svg building interface on top of the a primitive builder.
+/// Implements the Svg building interface on top of a PathBuilder.
 pub struct SvgPathBuilder<Builder: PathBuilder> {
     builder: Builder,
     last_ctrl: Point,
