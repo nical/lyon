@@ -5,7 +5,7 @@
 
 use math::*;
 use lyon_core::{ FlattenedEvent };
-//use lyon_path_builder::{ PrimitiveBuilder };
+//use lyon_path_builder::{ PathBuilder };
 use geometry_builder::{ VertexId, GeometryBuilder, Count, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
 

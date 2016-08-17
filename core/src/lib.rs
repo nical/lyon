@@ -29,7 +29,7 @@ pub enum SvgEvent {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum PrimitiveEvent {
+pub enum PathEvent {
     MoveTo(Point),
     LineTo(Point),
     QuadraticTo(Point, Point),
@@ -44,24 +44,24 @@ pub enum FlattenedEvent {
     Close,
 }
 
-impl PrimitiveEvent {
+impl PathEvent {
     pub fn to_svg(self) -> SvgEvent {
         return match self {
-            PrimitiveEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
-            PrimitiveEvent::LineTo(to) => { SvgEvent::LineTo(to) }
-            PrimitiveEvent::QuadraticTo(ctrl, to) => { SvgEvent::QuadraticTo(ctrl, to) }
-            PrimitiveEvent::CubicTo(ctrl1, ctrl2, to) => { SvgEvent::CubicTo(ctrl1, ctrl2, to) }
-            PrimitiveEvent::Close => { SvgEvent::Close }
+            PathEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
+            PathEvent::LineTo(to) => { SvgEvent::LineTo(to) }
+            PathEvent::QuadraticTo(ctrl, to) => { SvgEvent::QuadraticTo(ctrl, to) }
+            PathEvent::CubicTo(ctrl1, ctrl2, to) => { SvgEvent::CubicTo(ctrl1, ctrl2, to) }
+            PathEvent::Close => { SvgEvent::Close }
         };
     }
 
     pub fn destination(self) -> Option<Point> {
         return match self {
-            PrimitiveEvent::MoveTo(to) => Some(to),
-            PrimitiveEvent::LineTo(to) => Some(to),
-            PrimitiveEvent::QuadraticTo(_, to) => Some(to),
-            PrimitiveEvent::CubicTo(_, _, to) => Some(to),
-            PrimitiveEvent::Close => None,
+            PathEvent::MoveTo(to) => Some(to),
+            PathEvent::LineTo(to) => Some(to),
+            PathEvent::QuadraticTo(_, to) => Some(to),
+            PathEvent::CubicTo(_, _, to) => Some(to),
+            PathEvent::Close => None,
         }
     }
 }
@@ -75,24 +75,24 @@ impl FlattenedEvent {
         }
     }
 
-    pub fn to_primitive(self) -> PrimitiveEvent {
+    pub fn to_primitive(self) -> PathEvent {
         return match self {
-            FlattenedEvent::MoveTo(to) => { PrimitiveEvent::MoveTo(to) }
-            FlattenedEvent::LineTo(to) => { PrimitiveEvent::LineTo(to) }
-            FlattenedEvent::Close => { PrimitiveEvent::Close }
+            FlattenedEvent::MoveTo(to) => { PathEvent::MoveTo(to) }
+            FlattenedEvent::LineTo(to) => { PathEvent::LineTo(to) }
+            FlattenedEvent::Close => { PathEvent::Close }
         }
     }
 }
 
-pub struct PositionState {
+pub struct PathState {
     pub current: Point,
     pub first: Point,
     pub last_ctrl: Point,
 }
 
-impl PositionState {
+impl PathState {
     pub fn new() -> Self {
-        PositionState {
+        PathState {
             current: Point::new(0.0, 0.0),
             first: Point::new(0.0, 0.0),
             last_ctrl: Point::new(0.0, 0.0),
@@ -100,7 +100,7 @@ impl PositionState {
     }
 }
 
-impl PositionState {
+impl PathState {
     pub fn svg_event(&mut self, event: SvgEvent) {
         match event {
             SvgEvent::MoveTo(to) => { self.move_to(to); }
@@ -172,13 +172,13 @@ impl PositionState {
         }
     }
 
-    pub fn primitive_event(&mut self, event: PrimitiveEvent) {
+    pub fn primitive_event(&mut self, event: PathEvent) {
         match event {
-            PrimitiveEvent::MoveTo(to) => { self.move_to(to); }
-            PrimitiveEvent::LineTo(to) => { self.line_to(to); }
-            PrimitiveEvent::QuadraticTo(ctrl, to) => { self.curve_to(ctrl, to); }
-            PrimitiveEvent::CubicTo(_, ctrl2, to) => { self.curve_to(ctrl2, to); }
-            PrimitiveEvent::Close => { self.close(); }
+            PathEvent::MoveTo(to) => { self.move_to(to); }
+            PathEvent::LineTo(to) => { self.line_to(to); }
+            PathEvent::QuadraticTo(ctrl, to) => { self.curve_to(ctrl, to); }
+            PathEvent::CubicTo(_, ctrl2, to) => { self.curve_to(ctrl2, to); }
+            PathEvent::Close => { self.close(); }
         }
     }
 
@@ -219,40 +219,40 @@ impl PositionState {
 
     pub fn from_relative(&self, v: Vec2) -> Point { self.current + v }
 
-    pub fn svg_to_primitive(&self, event: SvgEvent) -> PrimitiveEvent {
+    pub fn svg_to_primitive(&self, event: SvgEvent) -> PathEvent {
         return match event {
-            SvgEvent::MoveTo(to) => { PrimitiveEvent::MoveTo(to) }
-            SvgEvent::LineTo(to) => { PrimitiveEvent::LineTo(to) }
-            SvgEvent::QuadraticTo(ctrl, to) => { PrimitiveEvent::QuadraticTo(ctrl, to) }
-            SvgEvent::CubicTo(ctrl1, ctrl2, to) => { PrimitiveEvent::CubicTo(ctrl1, ctrl2, to) }
-            SvgEvent::Close => { PrimitiveEvent::Close }
-            SvgEvent::RelativeMoveTo(to) => { PrimitiveEvent::MoveTo(self.from_relative(to)) }
-            SvgEvent::RelativeLineTo(to) => { PrimitiveEvent::LineTo(self.from_relative(to)) }
+            SvgEvent::MoveTo(to) => { PathEvent::MoveTo(to) }
+            SvgEvent::LineTo(to) => { PathEvent::LineTo(to) }
+            SvgEvent::QuadraticTo(ctrl, to) => { PathEvent::QuadraticTo(ctrl, to) }
+            SvgEvent::CubicTo(ctrl1, ctrl2, to) => { PathEvent::CubicTo(ctrl1, ctrl2, to) }
+            SvgEvent::Close => { PathEvent::Close }
+            SvgEvent::RelativeMoveTo(to) => { PathEvent::MoveTo(self.from_relative(to)) }
+            SvgEvent::RelativeLineTo(to) => { PathEvent::LineTo(self.from_relative(to)) }
             SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-                PrimitiveEvent::QuadraticTo(self.from_relative(ctrl), self.from_relative(to))
+                PathEvent::QuadraticTo(self.from_relative(ctrl), self.from_relative(to))
             }
             SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
-                PrimitiveEvent::CubicTo(
+                PathEvent::CubicTo(
                     self.from_relative(ctrl1),
                     self.from_relative(ctrl2),
                     self.from_relative(to)
                 )
             }
-            SvgEvent::HorizontalLineTo(x) => { PrimitiveEvent::LineTo(Point::new(x, self.current.y)) }
-            SvgEvent::VerticalLineTo(y) => { PrimitiveEvent::LineTo(Point::new(self.current.x, y)) }
-            SvgEvent::RelativeHorizontalLineTo(x) => { PrimitiveEvent::LineTo(Point::new(self.current.x + x, self.current.y)) }
-            SvgEvent::RelativeVerticalLineTo(y) => { PrimitiveEvent::LineTo(Point::new(self.current.x, self.current.y + y)) }
+            SvgEvent::HorizontalLineTo(x) => { PathEvent::LineTo(Point::new(x, self.current.y)) }
+            SvgEvent::VerticalLineTo(y) => { PathEvent::LineTo(Point::new(self.current.x, y)) }
+            SvgEvent::RelativeHorizontalLineTo(x) => { PathEvent::LineTo(Point::new(self.current.x + x, self.current.y)) }
+            SvgEvent::RelativeVerticalLineTo(y) => { PathEvent::LineTo(Point::new(self.current.x, self.current.y + y)) }
             SvgEvent::SmoothQuadraticTo(to) => {
-                PrimitiveEvent::QuadraticTo(self.get_smooth_ctrl(), to)
+                PathEvent::QuadraticTo(self.get_smooth_ctrl(), to)
             }
             SvgEvent::SmoothCubicTo(ctrl2, to) => {
-                PrimitiveEvent::CubicTo(self.get_smooth_ctrl(), ctrl2, to)
+                PathEvent::CubicTo(self.get_smooth_ctrl(), ctrl2, to)
             }
             SvgEvent::SmoothRelativeQuadraticTo(to) => {
-                PrimitiveEvent::QuadraticTo(self.get_smooth_ctrl(), self.from_relative(to))
+                PathEvent::QuadraticTo(self.get_smooth_ctrl(), self.from_relative(to))
             }
             SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-                PrimitiveEvent::CubicTo(
+                PathEvent::CubicTo(
                     self.get_smooth_ctrl(),
                     self.from_relative(ctrl2),
                     self.from_relative(to)

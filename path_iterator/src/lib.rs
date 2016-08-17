@@ -3,7 +3,7 @@ extern crate lyon_bezier;
 
 use std::iter;
 
-use lyon_core::{ PrimitiveEvent, SvgEvent, FlattenedEvent, PositionState };
+use lyon_core::{ PathEvent, SvgEvent, FlattenedEvent, PathState };
 use lyon_core::math::*;
 use lyon_bezier::{
     QuadraticBezierSegment, CubicBezierSegment,
@@ -21,16 +21,16 @@ pub enum Segment {
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
-pub trait PrimitiveIterator : Iterator<Item=PrimitiveEvent> + Sized {
+pub trait PathIterator : Iterator<Item=PathEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PositionState;
+    fn get_state(&self) -> &PathState;
 
     /// Returns an iterator that turns curves into line segments.
     fn flattened(self, tolerance: f32) -> FlattenIter<Self> { FlattenIter::new(tolerance, self) }
 
     /// Returns an iterator of SVG events.
-    fn to_svg(self) -> iter::Map<Self, fn(PrimitiveEvent)->SvgEvent> {
+    fn to_svg(self) -> iter::Map<Self, fn(PathEvent)->SvgEvent> {
         self.map(primitive_to_svg_event)
     }
 }
@@ -40,13 +40,13 @@ pub trait PrimitiveIterator : Iterator<Item=PrimitiveEvent> + Sized {
 pub trait SvgIterator : Iterator<Item=SvgEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PositionState;
+    fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlattenIter<SvgToPrimitiveIter<Self>> { FlattenIter::new(tolerance, self.to_primitive()) }
+    fn flattened(self, tolerance: f32) -> FlattenIter<SvgToPathIter<Self>> { FlattenIter::new(tolerance, self.to_primitive()) }
 
     /// Returns an iterator of primitive events.
-    fn to_primitive(self) -> SvgToPrimitiveIter<Self> { SvgToPrimitiveIter::new(self) }
+    fn to_primitive(self) -> SvgToPathIter<Self> { SvgToPathIter::new(self) }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -54,10 +54,10 @@ pub trait SvgIterator : Iterator<Item=SvgEvent> + Sized {
 pub trait FlattenedIterator : Iterator<Item=FlattenedEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PositionState;
+    fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of primitive events.
-    fn to_primitive(self) -> iter::Map<Self, fn(FlattenedEvent)->PrimitiveEvent> {
+    fn to_primitive(self) -> iter::Map<Self, fn(FlattenedEvent)->PathEvent> {
         self.map(flattened_to_primitive_event)
     }
 
@@ -70,16 +70,16 @@ pub trait FlattenedIterator : Iterator<Item=FlattenedEvent> + Sized {
 /// Consumes an iterator of path events and yields segments.
 pub struct SegmentIterator<PathIt> {
     it: PathIt,
-    state: PositionState,
+    state: PathState,
     in_sub_path: bool,
 }
 
-impl<'l, PathIt:'l+Iterator<Item=PrimitiveEvent>> SegmentIterator<PathIt> {
+impl<'l, PathIt:'l+Iterator<Item=PathEvent>> SegmentIterator<PathIt> {
     /// Constructor.
     pub fn new(it: PathIt) -> Self {
         SegmentIterator {
             it: it,
-            state: PositionState::new(),
+            state: PathState::new(),
             in_sub_path: false,
         }
     }
@@ -96,12 +96,12 @@ impl<'l, PathIt:'l+Iterator<Item=PrimitiveEvent>> SegmentIterator<PathIt> {
     }
 }
 
-impl<'l, PathIt:'l+Iterator<Item=PrimitiveEvent>> Iterator
+impl<'l, PathIt:'l+Iterator<Item=PathEvent>> Iterator
 for SegmentIterator<PathIt> {
     type Item = Segment;
     fn next(&mut self) -> Option<Segment> {
         return match self.it.next() {
-            Some(PrimitiveEvent::MoveTo(to)) => {
+            Some(PathEvent::MoveTo(to)) => {
                 let first = self.state.first;
                 self.state.move_to(to);
                 if self.in_sub_path && first != self.state.current {
@@ -111,47 +111,47 @@ for SegmentIterator<PathIt> {
                     self.next()
                 }
             }
-            Some(PrimitiveEvent::LineTo(to)) => {
+            Some(PathEvent::LineTo(to)) => {
                 self.in_sub_path = true;
                 let from = self.state.current;
                 self.state.line_to(to);
                 Some(Segment::Line(from, to))
             }
-            Some(PrimitiveEvent::QuadraticTo(ctrl, to)) => {
+            Some(PathEvent::QuadraticTo(ctrl, to)) => {
                 self.in_sub_path = true;
                 let from = self.state.current;
                 self.state.curve_to(ctrl, to);
                 Some(Segment::QuadraticBezier(from, ctrl, to))
             }
-            Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to)) => {
+            Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
                 self.in_sub_path = true;
                 let from = self.state.current;
                 self.state.curve_to(ctrl2, to);
                 Some(Segment::CubicBezier(from, ctrl1, ctrl2, to))
             }
-            Some(PrimitiveEvent::Close) => { self.close() }
+            Some(PathEvent::Close) => { self.close() }
             None => { None }
         };
     }
 }
 
-pub struct SvgToPrimitiveIter<SvgIter> {
+pub struct SvgToPathIter<SvgIter> {
     it: SvgIter,
 }
 
-impl<SvgIter> SvgToPrimitiveIter<SvgIter> {
-    pub fn new(it: SvgIter) -> Self { SvgToPrimitiveIter { it: it } }
+impl<SvgIter> SvgToPathIter<SvgIter> {
+    pub fn new(it: SvgIter) -> Self { SvgToPathIter { it: it } }
 }
 
-impl<SvgIter> PrimitiveIterator for SvgToPrimitiveIter<SvgIter>
+impl<SvgIter> PathIterator for SvgToPathIter<SvgIter>
 where SvgIter : SvgIterator {
-    fn get_state(&self) -> &PositionState { self.it.get_state() }
+    fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
-impl<SvgIter> Iterator for SvgToPrimitiveIter<SvgIter>
+impl<SvgIter> Iterator for SvgToPathIter<SvgIter>
 where SvgIter: SvgIterator {
-    type Item = PrimitiveEvent;
-    fn next(&mut self) -> Option<PrimitiveEvent> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         return match self.it.next() {
             Some(svg_evt) => { Some(self.get_state().svg_to_primitive(svg_evt)) }
             None => { None }
@@ -159,7 +159,7 @@ where SvgIter: SvgIterator {
     }
 }
 
-/// An iterator that consumes an PrimitiveIterator and yields FlattenedEvents.
+/// An iterator that consumes an PathIterator and yields FlattenedEvents.
 pub struct FlattenIter<Iter> {
     it: Iter,
     current_curve: TmpFlattenIter,
@@ -172,7 +172,7 @@ enum TmpFlattenIter {
     None,
 }
 
-impl<Iter: PrimitiveIterator> FlattenIter<Iter> {
+impl<Iter: PathIterator> FlattenIter<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
         FlattenIter {
@@ -184,12 +184,12 @@ impl<Iter: PrimitiveIterator> FlattenIter<Iter> {
 }
 
 impl<Iter> FlattenedIterator for FlattenIter<Iter>
-where Iter : PrimitiveIterator {
-    fn get_state(&self) -> &PositionState { self.it.get_state() }
+where Iter : PathIterator {
+    fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
 impl<Iter> Iterator for FlattenIter<Iter>
-where Iter: PrimitiveIterator {
+where Iter: PathIterator {
     type Item = FlattenedEvent;
     fn next(&mut self) -> Option<FlattenedEvent> {
         match self.current_curve {
@@ -208,10 +208,10 @@ where Iter: PrimitiveIterator {
         self.current_curve = TmpFlattenIter::None;
         let current = self.get_state().current;
         return match self.it.next() {
-            Some(PrimitiveEvent::MoveTo(to)) => { Some(FlattenedEvent::MoveTo(to)) }
-            Some(PrimitiveEvent::LineTo(to)) => { Some(FlattenedEvent::LineTo(to)) }
-            Some(PrimitiveEvent::Close) => { Some(FlattenedEvent::Close) }
-            Some(PrimitiveEvent::QuadraticTo(ctrl, to)) => {
+            Some(PathEvent::MoveTo(to)) => { Some(FlattenedEvent::MoveTo(to)) }
+            Some(PathEvent::LineTo(to)) => { Some(FlattenedEvent::LineTo(to)) }
+            Some(PathEvent::Close) => { Some(FlattenedEvent::Close) }
+            Some(PathEvent::QuadraticTo(ctrl, to)) => {
                 self.current_curve = TmpFlattenIter::Quadratic(
                     QuadraticBezierSegment {
                         from: current, cp: ctrl, to: to
@@ -219,7 +219,7 @@ where Iter: PrimitiveIterator {
                 );
                 return self.next();
             }
-            Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to)) => {
+            Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
                 self.current_curve = TmpFlattenIter::Cubic(
                     CubicBezierSegment {
                         from: current, cp1: ctrl1, cp2: ctrl2, to: to
@@ -233,21 +233,21 @@ where Iter: PrimitiveIterator {
 }
 
 /// An adapater iterator that implements SvgIterator on top of an Iterator<Item=SvgEvent>.
-pub struct PositionedSvgIter<Iter> {
+pub struct PathStateSvgIter<Iter> {
     it: Iter,
-    state: PositionState,
+    state: PathState,
 }
 
-impl<Iter: Iterator<Item=SvgEvent>> PositionedSvgIter<Iter> {
-    pub fn new(it: Iter) -> Self { PositionedSvgIter { it: it, state: PositionState::new() } }
+impl<Iter: Iterator<Item=SvgEvent>> PathStateSvgIter<Iter> {
+    pub fn new(it: Iter) -> Self { PathStateSvgIter { it: it, state: PathState::new() } }
 }
 
-impl<Iter> SvgIterator for PositionedSvgIter<Iter>
+impl<Iter> SvgIterator for PathStateSvgIter<Iter>
 where Iter: Iterator<Item=SvgEvent> {
-    fn get_state(&self) -> &PositionState { &self.state }
+    fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item=SvgEvent>> Iterator for PositionedSvgIter<Iter> {
+impl<Iter: Iterator<Item=SvgEvent>> Iterator for PathStateSvgIter<Iter> {
     type Item = SvgEvent;
     fn next(&mut self) -> Option<SvgEvent> {
         let next = self.it.next();
@@ -258,24 +258,24 @@ impl<Iter: Iterator<Item=SvgEvent>> Iterator for PositionedSvgIter<Iter> {
     }
 }
 
-/// An adapater iterator that implements PrimitiveIterator on top of an Iterator<Item=PrimitveEvent>.
-pub struct PositionedPrimitiveIter<Iter> {
+/// An adapater iterator that implements PathIterator on top of an Iterator<Item=PatheEvent>.
+pub struct PathStateIter<Iter> {
     it: Iter,
-    state: PositionState,
+    state: PathState,
 }
 
-impl<Iter: Iterator<Item=PrimitiveEvent>> PositionedPrimitiveIter<Iter> {
-  pub fn new(it: Iter) -> Self { PositionedPrimitiveIter { it: it, state: PositionState::new() } }
+impl<Iter: Iterator<Item=PathEvent>> PathStateIter<Iter> {
+  pub fn new(it: Iter) -> Self { PathStateIter { it: it, state: PathState::new() } }
 }
 
-impl<Iter> PrimitiveIterator for PositionedPrimitiveIter<Iter>
-where Iter : Iterator<Item=PrimitiveEvent> {
-    fn get_state(&self) -> &PositionState { &self.state }
+impl<Iter> PathIterator for PathStateIter<Iter>
+where Iter : Iterator<Item=PathEvent> {
+    fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item=PrimitiveEvent>> Iterator for PositionedPrimitiveIter<Iter> {
-    type Item = PrimitiveEvent;
-    fn next(&mut self) -> Option<PrimitiveEvent> {
+impl<Iter: Iterator<Item=PathEvent>> Iterator for PathStateIter<Iter> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         let next = self.it.next();
         if let Some(evt) = next {
             self.state.primitive_event(evt);
@@ -284,13 +284,13 @@ impl<Iter: Iterator<Item=PrimitiveEvent>> Iterator for PositionedPrimitiveIter<I
     }
 }
 
-fn flattened_to_primitive_event(evt: FlattenedEvent) -> PrimitiveEvent { evt.to_primitive() }
+fn flattened_to_primitive_event(evt: FlattenedEvent) -> PathEvent { evt.to_primitive() }
 fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg() }
-fn primitive_to_svg_event(evt: PrimitiveEvent) -> SvgEvent { evt.to_svg() }
+fn primitive_to_svg_event(evt: PathEvent) -> SvgEvent { evt.to_svg() }
 
 #[test]
 fn test_svg_to_flattened_iter() {
-    let mut it = PositionedSvgIter::new(&[
+    let mut it = PathStateSvgIter::new(&[
         SvgEvent::MoveTo(point(1.0, 1.0)),
         SvgEvent::LineTo(point(2.0, 2.0)),
         SvgEvent::LineTo(point(3.0, 3.0)),

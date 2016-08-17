@@ -5,12 +5,12 @@ use std::f32::*;
 use lyon_core::ArcFlags;
 use lyon_core::math_utils::*;
 use lyon_core::math::*;
-use super::PrimitiveBuilder;
+use super::PathBuilder;
 
 /// Build an svg arc by approximating it with cubic bezier curves.
 ///
 /// Angles are expressed in radians.
-pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
+pub fn arc_to_cubic_beziers<Builder: PathBuilder>(
     from: Vec2, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags,
     builder: &mut Builder
 ) {
@@ -99,7 +99,7 @@ pub fn arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
 /// current_position and to are points of the ellipse when aligned with the origin axis !!
 /// which means that they are the rotation of the original starting and ending point
 /// x_rotation_radian is in radian
-fn sub_arc_to_cubic_beziers<Builder: PrimitiveBuilder>(
+fn sub_arc_to_cubic_beziers<Builder: PathBuilder>(
     from: Vec2, to: Vec2, start_angle: f32,
     sweep_angle: f32, radii: Vec2, x_rotation_radian: f32,
     builder: &mut Builder

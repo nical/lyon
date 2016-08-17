@@ -7,9 +7,10 @@ extern crate lyon_core;
 extern crate lyon_path_builder;
 extern crate lyon_path_iterator;
 
-use lyon_path_builder::{ PrimitiveBuilder, SvgPathBuilder, FlattenedBuilder };
+use lyon_path_builder::{ PathBuilder, SvgPathBuilder, FlattenedBuilder };
+use lyon_path_iterator::PathStateIter;
 
-use lyon_core::PrimitiveEvent;
+use lyon_core::PathEvent;
 use lyon_core::math::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -34,6 +35,10 @@ pub struct PathSlice<'l> {
 }
 
 impl Path {
+    pub fn builder() -> Builder { Builder::new() }
+
+    pub fn flattened_svg_builder(tolerance: f32) -> FlattenedPathBuilder { flattened_path_builder(tolerance) }
+
     pub fn new() -> Path { Path::with_capacity(128) }
 
     pub fn with_capacity(cap: usize) -> Path {
@@ -47,9 +52,9 @@ impl Path {
         PathSlice { points: &self.points[..], verbs: &self.verbs[..] }
     }
 
-    pub fn iter(&self) -> PathIter {
-        PathIter::new(&self.points[..], &self.verbs[..])
-    }
+    pub fn iter(&self) -> PathIter { PathIter::new(&self.points[..], &self.verbs[..]) }
+
+    pub fn path_iter(&self) -> PathStateIter<PathIter> { PathStateIter::new(self.iter()) }
 
     pub fn points(&self) -> &[Point] { &self.points[..] }
 
@@ -65,23 +70,25 @@ impl<'l> PathSlice<'l> {
 
     pub fn iter(&self) -> PathIter { PathIter::new(self.points, self.verbs) }
 
+    pub fn path_iter(&self) -> PathStateIter<PathIter> { PathStateIter::new(self.iter()) }
+
     pub fn points(&self) -> &[Point] { self.points }
 
     pub fn verbs(&self) -> &[Verb] { self.verbs }
 }
 
-pub struct PathBuilder {
+pub struct Builder {
     path: Path,
     current_position: Point,
     first_position: Point,
     building: bool,
 }
 
-impl PathBuilder {
-    pub fn new() -> PathBuilder { PathBuilder::with_capacity(128) }
+impl Builder {
+    pub fn new() -> Self { Builder::with_capacity(128) }
 
-    pub fn with_capacity(cap: usize) -> PathBuilder {
-        PathBuilder {
+    pub fn with_capacity(cap: usize) -> Self {
+        Builder {
             path: Path::with_capacity(cap),
             current_position: Point::new(0.0, 0.0),
             first_position: Point::new(0.0, 0.0),
@@ -96,7 +103,7 @@ fn nan_check(p: Point) {
     debug_assert!(!p.y.is_nan());
 }
 
-impl PrimitiveBuilder for PathBuilder {
+impl PathBuilder for Builder {
     type PathType = Path;
 
     fn move_to(&mut self, to: Point)
@@ -178,30 +185,30 @@ impl<'l> PathIter<'l> {
 }
 
 impl<'l> Iterator for PathIter<'l> {
-    type Item = PrimitiveEvent;
-    fn next(&mut self) -> Option<PrimitiveEvent> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         return match self.verbs.next() {
             Some(&Verb::MoveTo) => {
                 let to = *self.points.next().unwrap();
-                Some(PrimitiveEvent::MoveTo(to))
+                Some(PathEvent::MoveTo(to))
             }
             Some(&Verb::LineTo) => {
                 let to = *self.points.next().unwrap();
-                Some(PrimitiveEvent::LineTo(to))
+                Some(PathEvent::LineTo(to))
             }
             Some(&Verb::QuadraticTo) => {
                 let ctrl = *self.points.next().unwrap();
                 let to = *self.points.next().unwrap();
-                Some(PrimitiveEvent::QuadraticTo(ctrl, to))
+                Some(PathEvent::QuadraticTo(ctrl, to))
             }
             Some(&Verb::CubicTo) => {
                 let ctrl1 = *self.points.next().unwrap();
                 let ctrl2 = *self.points.next().unwrap();
                 let to = *self.points.next().unwrap();
-                Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to))
+                Some(PathEvent::CubicTo(ctrl1, ctrl2, to))
             }
             Some(&Verb::Close) => {
-                Some(PrimitiveEvent::Close)
+                Some(PathEvent::Close)
             }
             None => { None }
         };
@@ -211,7 +218,7 @@ impl<'l> Iterator for PathIter<'l> {
 #[test]
 fn test_path_builder_1() {
 
-    let mut p = PathBuilder::with_capacity(0);
+    let mut p = Builder::with_capacity(0);
     p.line_to(point(1.0, 0.0));
     p.line_to(point(2.0, 0.0));
     p.line_to(point(3.0, 0.0));
@@ -236,23 +243,23 @@ fn test_path_builder_1() {
     let path = p.build();
 
     let mut it = path.iter();
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(1.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(2.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(3.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::QuadraticTo(point(4.0, 0.0), point(4.0, 1.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::CubicTo(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(3.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(4.0, 0.0), point(4.0, 1.0))));
+    assert_eq!(it.next(), Some(PathEvent::CubicTo(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0))));
+    assert_eq!(it.next(), Some(PathEvent::Close));
 
-    assert_eq!(it.next(), Some(PrimitiveEvent::MoveTo(point(10.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(11.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(12.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(13.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::QuadraticTo(point(14.0, 0.0), point(14.0, 1.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(10.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(11.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(12.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(13.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(14.0, 0.0), point(14.0, 1.0))));
+    assert_eq!(it.next(), Some(PathEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0))));
+    assert_eq!(it.next(), Some(PathEvent::Close));
 
-    assert_eq!(it.next(), Some(PrimitiveEvent::MoveTo(point(3.0, 3.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(4.0, 4.0))));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(3.0, 3.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 4.0))));
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);
@@ -260,7 +267,7 @@ fn test_path_builder_1() {
 
 #[test]
 fn test_path_builder_empty() {
-    let path = PathBuilder::new().build();
+    let path = Path::builder().build();
     let mut it = path.iter();
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);
@@ -268,38 +275,38 @@ fn test_path_builder_empty() {
 
 #[test]
 fn test_path_builder_empty_move_to() {
-    let mut p = PathBuilder::new();
+    let mut p = Path::builder();
     p.move_to(point(1.0, 2.0));
     p.move_to(point(3.0, 4.0));
     p.move_to(point(5.0, 6.0));
 
     let path = p.build();
     let mut it = path.iter();
-    assert_eq!(it.next(), Some(PrimitiveEvent::MoveTo(point(5.0, 6.0))));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(5.0, 6.0))));
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);
 }
 
 #[test]
 fn test_path_builder_move_to_after_close() {
-    let mut p = PathBuilder::new();
+    let mut p = Path::builder();
     p.line_to(point(1.0, 0.0));
     p.close();
     p.line_to(point(2.0, 0.0));
 
     let path = p.build();
     let mut it = path.iter();
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(1.0, 0.0))));
-    assert_eq!(it.next(), Some(PrimitiveEvent::Close));
-    assert_eq!(it.next(), Some(PrimitiveEvent::LineTo(point(2.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
     assert_eq!(it.next(), None);
 }
 
 /// Builder for flattened paths
-pub type FlattenedPathBuilder2 = SvgPathBuilder<FlattenedBuilder<PathBuilder>>;
+pub type FlattenedPathBuilder = SvgPathBuilder<FlattenedBuilder<Builder>>;
 /// FlattenedPathBuilder constructor.
-pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder2 {
-    SvgPathBuilder::new(FlattenedBuilder::new(PathBuilder::new(), tolerance))
+pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder {
+    SvgPathBuilder::new(FlattenedBuilder::new(Path::builder(), tolerance))
 }
 
 /*

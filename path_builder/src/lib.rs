@@ -7,14 +7,14 @@ extern crate sid;
 
 mod arc;
 
-use lyon_core::{ PrimitiveEvent, SvgEvent, ArcFlags };
+use lyon_core::{ PathEvent, SvgEvent, ArcFlags };
 use lyon_core::math::*;
 use lyon_bezier::{ CubicBezierSegment, QuadraticBezierSegment };
 use arc::arc_to_cubic_beziers;
 
 /// The base path building interface. More elaborate interfaces are built on top
 /// of the provided primitives.
-pub trait PrimitiveBuilder {
+pub trait PathBuilder {
     type PathType;
 
     fn move_to(&mut self, to: Point);
@@ -24,13 +24,13 @@ pub trait PrimitiveBuilder {
     fn close(&mut self);
     fn current_position(&self) -> Point;
 
-    fn primitive_event(&mut self, event: PrimitiveEvent) {
+    fn primitive_event(&mut self, event: PathEvent) {
         match event {
-            PrimitiveEvent::MoveTo(to) => { self.move_to(to); }
-            PrimitiveEvent::LineTo(to) => { self.line_to(to); }
-            PrimitiveEvent::QuadraticTo(ctrl, to) => { self.quadratic_bezier_to(ctrl, to); }
-            PrimitiveEvent::CubicTo(ctrl1, ctrl2, to) => { self.cubic_bezier_to(ctrl1, ctrl2, to); }
-            PrimitiveEvent::Close => { self.close(); }
+            PathEvent::MoveTo(to) => { self.move_to(to); }
+            PathEvent::LineTo(to) => { self.line_to(to); }
+            PathEvent::QuadraticTo(ctrl, to) => { self.quadratic_bezier_to(ctrl, to); }
+            PathEvent::CubicTo(ctrl1, ctrl2, to) => { self.cubic_bezier_to(ctrl1, ctrl2, to); }
+            PathEvent::Close => { self.close(); }
         }
     }
 
@@ -39,7 +39,7 @@ pub trait PrimitiveBuilder {
 
 /// A path building interface that tries to stay close to SVG's path specification.
 /// https://svgwg.org/specs/paths/
-pub trait SvgBuilder : PrimitiveBuilder {
+pub trait SvgBuilder : PathBuilder {
     fn relative_move_to(&mut self, to: Vec2);
     fn relative_line_to(&mut self, to: Vec2);
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
@@ -91,12 +91,12 @@ pub trait PolygonBuilder {
 }
 
 /// Implements the Svg building interface on top of the a primitive builder.
-pub struct SvgPathBuilder<Builder: PrimitiveBuilder> {
+pub struct SvgPathBuilder<Builder: PathBuilder> {
     builder: Builder,
     last_ctrl: Point,
 }
 
-impl<Builder: PrimitiveBuilder> SvgPathBuilder<Builder> {
+impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     pub fn new(builder: Builder) -> SvgPathBuilder<Builder> {
         SvgPathBuilder {
             builder: builder,
@@ -105,7 +105,7 @@ impl<Builder: PrimitiveBuilder> SvgPathBuilder<Builder> {
     }
 }
 
-impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
+impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) {
@@ -140,7 +140,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
     fn build(self) -> Builder::PathType { self.builder.build() }
 }
 
-impl<Builder: PrimitiveBuilder> SvgBuilder for SvgPathBuilder<Builder> {
+impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn relative_move_to(&mut self, to: Vec2) {
         let offset = self.builder.current_position();
         self.move_to(offset + to);
@@ -228,7 +228,7 @@ pub struct FlattenedBuilder<Builder> {
     tolerance: f32,
 }
 
-impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
+impl<Builder: PathBuilder> PathBuilder for FlattenedBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
@@ -259,7 +259,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
     fn build(self) -> Builder::PathType { self.builder.build() }
 }
 
-impl<Builder: PrimitiveBuilder> FlattenedBuilder<Builder> {
+impl<Builder: PathBuilder> FlattenedBuilder<Builder> {
     pub fn new(builder: Builder, tolerance: f32) -> FlattenedBuilder<Builder> {
         FlattenedBuilder {
             builder: builder,
@@ -270,7 +270,7 @@ impl<Builder: PrimitiveBuilder> FlattenedBuilder<Builder> {
     pub fn set_tolerance(&mut self, tolerance: f32) { self.tolerance = tolerance }
 }
 
-impl<Builder: PrimitiveBuilder> PolygonBuilder for Builder {
+impl<Builder: PathBuilder> PolygonBuilder for Builder {
     fn polygon(&mut self, points: &[Point]) {
         assert!(!points.is_empty());
 

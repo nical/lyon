@@ -1,7 +1,6 @@
 use lyon_path::{ Path, PathSlice, flattened_path_builder };
-use lyon_core::{ PrimitiveEvent };
-use lyon_path_builder::PrimitiveBuilder;
-use lyon_path_iterator::PositionedPrimitiveIter;
+use lyon_core::{ PathEvent };
+use lyon_path_builder::PathBuilder;
 use math::{ Vec2 };
 
 pub type Polygons = Vec<Vec<Vec2>>;
@@ -9,18 +8,18 @@ pub type Polygons = Vec<Vec<Vec2>>;
 pub fn path_to_polygons(path: PathSlice) -> Vec<Vec<Vec2>> {
     let mut polygons = Vec::new();
     let mut poly = Vec::new();
-    for evt in PositionedPrimitiveIter::new(path.iter()) {
+    for evt in path.path_iter() {
         match evt {
-            PrimitiveEvent::MoveTo(to) => {
+            PathEvent::MoveTo(to) => {
                 if poly.len() > 0 {
                     polygons.push(poly);
                 }
                 poly = vec![to];
             }
-            PrimitiveEvent::LineTo(to) => {
+            PathEvent::LineTo(to) => {
                 poly.push(to);
             }
-            PrimitiveEvent::Close => {
+            PathEvent::Close => {
                 if !poly.is_empty() {
                     polygons.push(poly);
                 }
