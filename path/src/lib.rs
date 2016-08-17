@@ -109,11 +109,11 @@ impl PrimitiveBuilder for PathBuilder {
     fn move_to(&mut self, to: Point)
     {
         nan_check(to);
-        if self.path.verbs.last() == Some(&Verb::MoveTo) {
-            // previous op was also MoveTo, just overrwrite it.
-            self.path.vertices.pop();
-            self.path.verbs.pop();
-        }
+        //if self.path.verbs.last() == Some(&Verb::MoveTo) {
+        //    // previous op was also MoveTo, just overrwrite it.
+        //    self.path.vertices.pop();
+        //    self.path.verbs.pop();
+        //}
         self.first_position = to;
         self.current_position = to;
         self.building = true;
@@ -149,13 +149,13 @@ impl PrimitiveBuilder for PathBuilder {
     }
 
     fn close(&mut self) -> PathId {
-        if self.path.verbs.last() == Some(&Verb::MoveTo) {
-            // previous op was MoveTo we don't have a path to close, drop it.
-            self.path.vertices.pop();
-            self.path.verbs.pop();
-        } else if self.path.verbs.last() == Some(&Verb::Close) {
-            return path_id(0); // TODO
-        }
+        //if self.path.verbs.last() == Some(&Verb::MoveTo) {
+        //    // previous op was MoveTo we don't have a path to close, drop it.
+        //    self.path.vertices.pop();
+        //    self.path.verbs.pop();
+        //} else if self.path.verbs.last() == Some(&Verb::Close) {
+        //    return path_id(0); // TODO
+        //}
 
         self.path.verbs.push(Verb::Close);
         self.current_position = self.first_position;
@@ -540,19 +540,19 @@ pub type BezierPathBuilder = SvgPathBuilder<PrimitiveImpl>;
 pub type FlattenedPathBuilder = SvgPathBuilder<FlattenedBuilder<PrimitiveImpl>>;
 /// FlattenedPathBuilder constructor.
 pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder {
-    SvgPathBuilder::from_builder(FlattenedBuilder::new(PrimitiveImpl::new(), tolerance))
+    SvgPathBuilder::new(FlattenedBuilder::new(PrimitiveImpl::new(), tolerance))
 }
 
 /// Builder for flattened paths
 pub type FlattenedPathBuilder2 = SvgPathBuilder<FlattenedBuilder<PathBuilder>>;
 /// FlattenedPathBuilder constructor.
 pub fn flattened_path_builder2(tolerance: f32) -> FlattenedPathBuilder2 {
-    SvgPathBuilder::from_builder(FlattenedBuilder::new(PathBuilder::new(), tolerance))
+    SvgPathBuilder::new(FlattenedBuilder::new(PathBuilder::new(), tolerance))
 }
 
 /// BezierPathBuilder constructor.
 pub fn bezier_path_builder() -> BezierPathBuilder {
-    SvgPathBuilder::from_builder(PrimitiveImpl::new())
+    SvgPathBuilder::new(PrimitiveImpl::new())
 }
 
 /// Generates path objects with bezier segments

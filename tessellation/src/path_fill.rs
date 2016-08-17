@@ -1289,14 +1289,11 @@ impl TmpEventBuilder {
             swap(&mut a, &mut b);
         }
 
-        println!(" -- add edge {:?} {:?}", a, b);
-
         self.edges.push(Edge { upper: a, lower: b });
     }
 
     fn vertex(&mut self, previous: IntPoint, current: IntPoint, next: IntPoint) {
         if is_below_int(current, previous) && is_below_int(current, next) {
-            println!(" -- add vertex evt {:?} ", current);
             self.vertices.push(current);
         }
     }

@@ -3,13 +3,11 @@
 //! The current implementation is pretty bad and does not deal with overlap in an svg-compliant
 //! way.
 
-use std::f32::NAN;
-
 use math::*;
-use lyon_path::*;
-use geometry_builder::{ GeometryBuilder, Count, };
+use lyon_core::{ FlattenedEvent };
+//use lyon_path_builder::{ PrimitiveBuilder };
+use geometry_builder::{ VertexId, GeometryBuilder, Count, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
-use basic_shapes::{ tessellate_quad };
 
 pub type StrokeResult = Result<Count, ()>;
 
@@ -18,90 +16,139 @@ pub struct StrokeTessellator {}
 impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
-    pub fn tessellate_path<Output: GeometryBuilder<Point>>(
-        &mut self,
-        path: PathSlice,
-        options: &StrokeOptions,
-        output: &mut Output
-    ) -> StrokeResult {
-        output.begin_geometry();
-        for p in path.path_ids() {
-            tessellate_sub_path_stroke(path.sub_path(p), options.stroke_width, output);
-        }
-        let ranges = output.end_geometry();
-        return Ok(ranges);
+    pub fn tessellate<Input, Output>(&mut self, input: Input, options: &StrokeOptions, builder: &mut Output) -> StrokeResult
+    where Input: Iterator<Item=FlattenedEvent>, Output: GeometryBuilder<Point> {
+        let zero = Point::new(0.0, 0.0);
+        return StrokingContext {
+            first: zero,
+            second: zero,
+            previous: zero,
+            current: zero,
+            previous_a_id: VertexId(0),
+            previous_b_id: VertexId(0),
+            second_a_id: VertexId(0),
+            second_b_id: VertexId(0),
+            nth: 0,
+            stroke_width: options.stroke_width,
+            output: builder
+        }.tessellate(input);
     }
 }
 
-fn tessellate_sub_path_stroke<Output: GeometryBuilder<Point>>(
-    path: SubPathSlice,
+struct StrokingContext<'l, Output:'l> {
+    first: Point,
+    previous: Point,
+    current: Point,
+    second: Point,
+    previous_a_id: VertexId,
+    previous_b_id: VertexId,
+    second_a_id: VertexId,
+    second_b_id: VertexId,
+    nth: u32,
     stroke_width: f32,
-    output: &mut Output
-) {
-    let is_closed = path.info().is_closed;
+    output: &'l mut Output,
+}
 
-    let first = path.first();
-    let mut i = first;
-    let mut done = false;
+impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
 
-    let mut prev_v1 = vec2(NAN, NAN);
-    let mut prev_v2 = vec2(NAN, NAN);
-    loop {
-        let mut p1 = path.vertex(i).position;
-        let mut p2 = path.vertex(i).position;
+    fn tessellate<Input>(&mut self, input: Input) -> StrokeResult
+    where Input: Iterator<Item=FlattenedEvent> {
+        self.output.begin_geometry();
 
-        let extruded = extrude_along_tangent(path, i, stroke_width, is_closed);
-        let d = extruded - p1;
-
-        p1 = p1 + (d * 0.5);
-        p2 = p2 - (d * 0.5);
-
-        if i != first || done {
-            // TODO: should reuse vertices instead of tessellating quads
-            tessellate_quad(prev_v1, prev_v2, p2, p1, output);
-        }
-
-        if done {
-            break;
-        }
-
-        prev_v1 = p1;
-        prev_v2 = p2;
-
-        i = path.next(i);
-
-        if i == first {
-            if !is_closed {
-                break;
+        self.nth = 0;
+        for evt in input {
+            match evt {
+                FlattenedEvent::LineTo(to) => { self.line_to(to); }
+                FlattenedEvent::MoveTo(to) => { self.move_to(to); }
+                FlattenedEvent::Close => { self.close(); }
             }
-            done = true;
         }
+
+        return Ok(self.output.end_geometry());
+    }
+
+    pub fn move_to(&mut self, to: Point) {
+        // TODO: implement line caps!
+        self.first = to;
+        self.current = to;
+        self.nth = 0;
+    }
+
+    pub fn line_to(&mut self, to: Point) {
+        let width = self.stroke_width;
+        self.edge_to(to, width);
+    }
+
+    pub fn close(&mut self) {
+        let width = self.stroke_width;
+        let first = self.first;
+        self.edge_to(first, width);
+        if self.nth > 1 {
+            let second = self.second;
+            self.edge_to(second, width);
+            self.output.add_triangle(self.previous_b_id, self.previous_a_id, self.second_b_id);
+            self.output.add_triangle(self.previous_a_id, self.second_a_id, self.second_b_id);
+        }
+        self.nth = 0;
+        self.current = self.first;
+    }
+
+    fn edge_to(&mut self, to: Point, width: f32) {
+        if self.current == to {
+            return;
+        }
+        if self.nth == 0 {
+            // We don't have enough information to compute a and b yet.
+            self.previous = self.first;
+            self.current = to;
+            self.nth += 1;
+            return;
+        }
+        let (a, b, c_opt) = get_angle_info(self.previous, self.current, to, width);
+        let a_id = self.output.add_vertex(a);
+        let b_id = self.output.add_vertex(b);
+        let (c, c_id) = if let Some(c) = c_opt { (c, self.output.add_vertex(c)) } else { (b, b_id) };
+
+        if self.nth > 1 {
+            self.output.add_triangle(self.previous_b_id, self.previous_a_id, b_id);
+            self.output.add_triangle(self.previous_a_id, a_id, b_id);
+        }
+
+        self.previous = self.current;
+        self.previous_a_id = a_id;
+        self.previous_b_id = c_id;
+        self.current = to;
+
+        if self.nth == 1 {
+            self.second = self.previous;
+            self.second_a_id = a_id;
+            self.second_b_id = c_id;
+        }
+
+        if c_opt.is_some() {
+            self.tessellate_angle(a, a_id, b, b_id, c, c_id);
+        }
+
+        self.nth += 1;
+    }
+
+    fn tessellate_angle(&mut self, _a: Point, a_id: VertexId, _b: Point, b_id: VertexId, _c: Point, c_id: VertexId) {
+        // TODO: Properly support all types of angles.
+        self.output.add_triangle(b_id, a_id, c_id);
     }
 }
 
-fn extrude_along_tangent(
-    path: SubPathSlice,
-    i: VertexId,
-    amount: f32,
-    is_closed: bool
-) -> Vec2 {
-
-    let px = path.vertex(i).position;
-    let _next = path.next_vertex(i).position;
-    let _prev = path.previous_vertex(i).position;
-
-    let prev = if i == path.first() && !is_closed { px + px - _next } else { _prev };
-    let next = if i == path.last() && !is_closed { px + px - _prev } else { _next };
-
-    let n1 = tangent(px - prev) * amount;
-    let n2 = tangent(next - px) * amount;
+fn get_angle_info(previous: Point, current: Point, next: Point, width: f32) -> (Point, Point, Option<Point>) {
+    let amount = width * 0.5;
+    let n1 = tangent(current - previous) * amount;
+    let n2 = tangent(next - current) * amount;
 
     // Segment P1-->PX
-    let pn1  = prev + n1; // prev extruded along the tangent n1
-    let pn1x = px + n1; // px extruded along the tangent n1
+    let pn1  = previous + n1; // prev extruded along the tangent n1
+    let pn1x = current + n1; // px extruded along the tangent n1
     // Segment PX-->P2
     let pn2  = next + n2;
-    let pn2x = px + n2;
+    let pn2x = current + n2;
 
     let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
         Some(v) => { v }
@@ -112,14 +159,15 @@ fn extrude_along_tangent(
                 // TODO: the angle is very narrow, use rounded corner instead
                 //panic!("Not implemented yet");
                 println!("!! narrow angle at {:?} {:?} {:?} | {:?} {:?} {:?}",
-                    px, directed_angle(n1, n2), directed_angle2(px, prev, next),
-                    prev.tuple(), px.tuple(), next.tuple(),
+                    current, directed_angle(n1, n2), directed_angle2(current, previous, next),
+                    previous, current, next,
                 );
-                px + (px - prev) * amount / (px - prev).length()
+                current + (current - previous) * amount / (current - previous).length()
             }
         }
     };
-    return inter;
+    let a = current + current - inter;
+    return (inter, a, None);
 }
 
 /// Line cap as defined by the SVG specification.

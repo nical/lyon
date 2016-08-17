@@ -185,7 +185,7 @@ impl<Iter: PrimitiveIterator> FlattenIter<Iter> {
 
 impl<Iter> FlattenedIterator for FlattenIter<Iter>
 where Iter : PrimitiveIterator {
-  fn get_state(&self) -> &PositionState { self.it.get_state() }
+    fn get_state(&self) -> &PositionState { self.it.get_state() }
 }
 
 impl<Iter> Iterator for FlattenIter<Iter>
@@ -195,35 +195,34 @@ where Iter: PrimitiveIterator {
         match self.current_curve {
             TmpFlattenIter::Quadratic(ref mut it) => {
                 if let Some(point) = it.next() {
-                  return Some(FlattenedEvent::LineTo(point));
+                    return Some(FlattenedEvent::LineTo(point));
                 }
             }
             TmpFlattenIter::Cubic(ref mut it) => {
                 if let Some(point) = it.next() {
-                  return Some(FlattenedEvent::LineTo(point));
+                    return Some(FlattenedEvent::LineTo(point));
                 }
             }
             _ => {}
         }
         self.current_curve = TmpFlattenIter::None;
+        let current = self.get_state().current;
         return match self.it.next() {
             Some(PrimitiveEvent::MoveTo(to)) => { Some(FlattenedEvent::MoveTo(to)) }
             Some(PrimitiveEvent::LineTo(to)) => { Some(FlattenedEvent::LineTo(to)) }
             Some(PrimitiveEvent::Close) => { Some(FlattenedEvent::Close) }
             Some(PrimitiveEvent::QuadraticTo(ctrl, to)) => {
-                let current = self.get_state().current;
                 self.current_curve = TmpFlattenIter::Quadratic(
                     QuadraticBezierSegment {
-                      from: current, cp: ctrl, to: to
+                        from: current, cp: ctrl, to: to
                     }.flatten_iter(self.tolerance)
                 );
                 return self.next();
             }
             Some(PrimitiveEvent::CubicTo(ctrl1, ctrl2, to)) => {
-                let current = self.get_state().current;
                 self.current_curve = TmpFlattenIter::Cubic(
                     CubicBezierSegment {
-                      from: current, cp1: ctrl1, cp2: ctrl2, to: to
+                        from: current, cp1: ctrl1, cp2: ctrl2, to: to
                     }.flatten_iter(self.tolerance)
                 );
                 return self.next();
@@ -279,7 +278,7 @@ impl<Iter: Iterator<Item=PrimitiveEvent>> Iterator for PositionedPrimitiveIter<I
     fn next(&mut self) -> Option<PrimitiveEvent> {
         let next = self.it.next();
         if let Some(evt) = next {
-          self.state.primitive_event(evt);
+            self.state.primitive_event(evt);
         }
         return next;
     }
@@ -310,12 +309,12 @@ fn test_svg_to_flattened_iter() {
     loop {
         let evt = it.next();
         if evt == Some(FlattenedEvent::MoveTo(10.0, 10.0)) = evt {
-          break;
+            break;
         }
         if let Some(FlattenedEvent::MoveTo(to)) = evt {
-          // ok
+            // ok
         } else {
-          panic!("Expected a MoveTo event, got {:?}", evt);
+            panic!("Expected a MoveTo event, got {:?}", evt);
         }
     }
 
@@ -323,12 +322,12 @@ fn test_svg_to_flattened_iter() {
     loop {
         let evt = it.next();
         if evt.is_none() {
-          break;
+            break;
         }
         if let Some(FlattenedEvent::MoveTo(to)) = evt {
-          // ok
+            // ok
         } else {
-          panic!("Expected a MoveTo event, got {:?}", evt);
+            panic!("Expected a MoveTo event, got {:?}", evt);
         }
     }
 }

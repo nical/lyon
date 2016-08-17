@@ -26,14 +26,20 @@ pub struct CubicFlattenIter {
     tolerance: f32,
 }
 
+fn clamp(a: f32, min: f32, max: f32) -> f32 {
+    if a < min { return min; }
+    if a > max { return max; }
+    return a;
+}
+
 impl CubicFlattenIter {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment, tolerance: f32) -> Self {
-        let (first_inflection, seconf_inflection) = find_cubic_bezier_inflection_points(&bezier);
-        let num_inflections = if first_inflection.is_none() { 0 } else if seconf_inflection.is_none() { 1 } else { 2 };
+        let (first_inflection, second_inflection) = find_cubic_bezier_inflection_points(&bezier);
+        let num_inflections = if first_inflection.is_none() { 0 } else if second_inflection.is_none() { 1 } else { 2 };
         let first_inflection = first_inflection.unwrap_or(-1.0);
-        let seconf_inflection = seconf_inflection.unwrap_or(-1.0);
+        let second_inflection = second_inflection.unwrap_or(-1.0);
 
         let mut iter = CubicFlattenIter {
             curve: bezier,
@@ -58,12 +64,17 @@ impl CubicFlattenIter {
             &mut iter.next_inflection_end
         );
 
+        iter.next_inflection_start = clamp(iter.next_inflection_start, 0.0, 1.0);
+        iter.next_inflection_end = clamp(iter.next_inflection_end, 0.0, 1.0);
+
         if iter.num_inflecions == 2 {
             find_cubic_bezier_inflection_approximation_range(
-                &bezier, seconf_inflection, tolerance,
+                &bezier, second_inflection, tolerance,
                 &mut iter.following_inflection_start,
                 &mut iter.following_inflection_end
             );
+            iter.following_inflection_start = clamp(iter.following_inflection_start, 0.0, 1.0);
+            iter.following_inflection_end = clamp(iter.following_inflection_end, 0.0, 1.0);
         }
 
         if iter.next_inflection_start > 0.0 {
@@ -80,7 +91,7 @@ impl Iterator for CubicFlattenIter {
         if let Some(sub_curve) = self.sub_curve {
             // We are iterating over a sub-curve that does not have inflections.
             let t = no_inflection_flattening_step(&sub_curve, self.tolerance);
-            if t == 1.0 {
+            if t >= 1.0 {
                 let to = sub_curve.to;
                 self.sub_curve = None;
                 return Some(to);
@@ -105,7 +116,7 @@ impl Iterator for CubicFlattenIter {
             // sub-curve portion that we are going to iterator over.
             if current_range_end < 1.0 {
                 let mut next_curve = self.curve.after_split(current_range_end);
-                if self.num_inflecions > 0 {
+                if self.num_inflecions > 0 && current_range_end < self.next_inflection_start {
                     next_curve = next_curve.before_split(self.next_inflection_start);
                 }
                 self.sub_curve = Some(next_curve);
@@ -123,10 +134,10 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
     tolerance: f32,
     call_back: &mut F
 ) {
-    let (first_inflection, seconf_inflection) = find_cubic_bezier_inflection_points(&bezier);
-    let num_inflections = if first_inflection.is_none() { 0 } else if seconf_inflection.is_none() { 1 } else { 2 };
+    let (first_inflection, second_inflection) = find_cubic_bezier_inflection_points(&bezier);
+    let num_inflections = if first_inflection.is_none() { 0 } else if second_inflection.is_none() { 1 } else { 2 };
     let first_inflection = if let Some(t) = first_inflection { t } else { -1.0 };
-    let seconf_inflection = if let Some(t) = seconf_inflection { t } else { -1.0 };
+    let second_inflection = if let Some(t) = second_inflection { t } else { -1.0 };
 
     if num_inflections == 0 {
         flatten_cubic_no_inflection(bezier, tolerance, call_back);
@@ -135,8 +146,8 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
 
     let mut first_inflection_start = first_inflection;
     let mut first_inflection_end = first_inflection;
-    let mut second_inflection_start = seconf_inflection;
-    let mut second_inflection_end = seconf_inflection;
+    let mut second_inflection_start = second_inflection;
+    let mut second_inflection_end = second_inflection;
 
     // For both inflection points, calulate the range where they can be linearly approximated if
     // they are positioned within [0, 1]
@@ -150,7 +161,7 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
 
     if num_inflections == 2 {
         find_cubic_bezier_inflection_approximation_range(
-            &bezier, seconf_inflection, tolerance,
+            &bezier, second_inflection, tolerance,
             &mut second_inflection_start,
             &mut second_inflection_end
         );
@@ -198,7 +209,7 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
 
     if num_inflections > 1 && second_inflection_start < 1.0 && second_inflection_end > 0.0 {
         if second_inflection_start > 0.0 && second_inflection_start < first_inflection_end {
-            // In this case the seconf_inflection approximation range starts inside the
+            // In this case the second_inflection approximation range starts inside the
             // first inflection's approximation range.
             call_back(bezier.sample(first_inflection_end));
         } else if second_inflection_start > 0.0 && first_inflection_end > 0.0 {
@@ -255,7 +266,6 @@ fn flatten_cubic_no_inflection<F: FnMut(Point)>(
         t = no_inflection_flattening_step(&bezier, tolerance);
 
         if t == 1.0 {
-            call_back(bezier.to);
             break
         }
         bezier = bezier.after_split(t);
@@ -324,7 +334,7 @@ fn find_cubic_bezier_inflection_points(
         return (Some(-c / b), None);
     }
 
-    fn in_range(t: f32) -> Option<f32> { if t >= 0.0 && t <= 1.0 { Some(t) } else { None } }
+    fn in_range(t: f32) -> Option<f32> { if t >= 0.0 && t < 1.0 { Some(t) } else { None } }
 
     let discriminant = b * b - 4.0 * a * c;
 
@@ -340,19 +350,19 @@ fn find_cubic_bezier_inflection_points(
     let q = if b < 0.0 { b - discriminant_sqrt } else { b + discriminant_sqrt } * -0.5;
 
     let mut first_inflection = q / a;
-    let mut seconf_inflection = c / q;
-    if first_inflection > seconf_inflection {
-        swap(&mut first_inflection, &mut seconf_inflection);
+    let mut second_inflection = c / q;
+    if first_inflection > second_inflection {
+        swap(&mut first_inflection, &mut second_inflection);
     }
 
     let first_inflection = in_range(first_inflection);
-    let seconf_inflection = in_range(seconf_inflection);
+    let second_inflection = in_range(second_inflection);
 
     if first_inflection.is_none() {
-        return (seconf_inflection, None);
+        return (second_inflection, None);
     }
 
-    return (first_inflection, seconf_inflection);
+    return (first_inflection, second_inflection);
 }
 
 fn cubic_root(val: f32) -> f32 {
@@ -376,24 +386,24 @@ fn find_cubic_bezier_inflection_approximation_range(
     let cp41 = bezier.to - bezier.from;
 
     if cp21.x == 0.0 && cp21.y == 0.0 {
-      // In this case s3 becomes lim[n->0] (cp41.x * n) / n - (cp41.y * n) / n = cp41.x - cp41.y.
+        // In this case s3 becomes lim[n->0] (cp41.x * n) / n - (cp41.y * n) / n = cp41.x - cp41.y.
 
-      // Use the absolute value so that Min and Max will correspond with the
-      // minimum and maximum of the range.
-      *min = t - cubic_root((tolerance / (cp41.x - cp41.y)).abs());
-      *max = t + cubic_root((tolerance / (cp41.x - cp41.y)).abs());
-      return;
+        // Use the absolute value so that Min and Max will correspond with the
+        // minimum and maximum of the range.
+        *min = t - cubic_root((tolerance / (cp41.x - cp41.y)).abs());
+        *max = t + cubic_root((tolerance / (cp41.x - cp41.y)).abs());
+        return;
     }
 
     let s3 = (cp41.x * cp21.y - cp41.y * cp21.x) / cp21.x.hypot(cp21.y);
 
     if s3 == 0.0 {
-      // This means within the precision we have it can be approximated
-      // infinitely by a linear segment. Deal with this by specifying the
-      // approximation range as extending beyond the entire curve.
-      *min = -1.0;
-      *max = 2.0;
-      return;
+        // This means within the precision we have it can be approximated
+        // infinitely by a linear segment. Deal with this by specifying the
+        // approximation range as extending beyond the entire curve.
+        *min = -1.0;
+        *max = 2.0;
+        return;
     }
 
     let tf = cubic_root((tolerance / s3).abs());
@@ -402,19 +412,74 @@ fn find_cubic_bezier_inflection_approximation_range(
     *max = t + tf * (1.0 - t);
 }
 
+#[cfg(test)]
+fn print_arrays(a: &[Point], b: &[Point]) {
+    println!("left:  {:?}", a);
+    println!("right: {:?}", b);
+}
+
+#[cfg(test)]
+fn assert_approx_eq(a: &[Point], b: &[Point]) {
+    if a.len() != b.len() {
+        print_arrays(a, b);
+        panic!("Lenths differ ({} != {})", a.len(), b.len());
+    }
+    for i in 0..a.len() {
+        if (a[i].x - b[i].x).abs() > 0.0000001 ||
+           (a[i].y - b[i].y).abs() > 0.0000001 {
+            print_arrays(a, b);
+            panic!("The arrays are not equal");
+        }
+    }
+}
+
 #[test]
-fn test_cubic_inflection_extremity() {
-    use path_builder::flattened_path_builder;
+fn test_iterator_builder_1() {
+    let tolerance = 0.01;
+    let c1 = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        cp1: Point::new(1.0, 0.0),
+        cp2: Point::new(1.0, 1.0),
+        to: Point::new(0.0, 1.0),
+    };
+    let iter_points: Vec<Point> = c1.flatten_iter(tolerance).collect();
+    let mut builder_points = Vec::new();
+    c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
 
-    // This curve has inflection points first_inflection=-0.125 and seconf_inflection=1.0 which used to fall
-    // between the branches of flatten_cubic_bezier and not produce any vertex
-    // because of seconf_inflection being exactly at the extremity of the curve.
-    let mut builder = flattened_path_builder(0.05);
-    builder.move_to(vec2(141.0, 135.0));
-    builder.cubic_bezier_to(vec2(141.0, 130.0), vec2(140.0, 130.0),vec2(131.0, 130.0));
-    builder.close();
+    assert!(iter_points.len() > 2);
+    assert_approx_eq(&iter_points[..], &builder_points[..]);
+}
 
-    let path = builder.build();
-    // check that
-    assert!(path.num_vertices() > 2);
+#[test]
+fn test_iterator_builder_2() {
+    let tolerance = 0.01;
+    let c1 = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        cp1: Point::new(1.0, 0.0),
+        cp2: Point::new(0.0, 1.0),
+        to: Point::new(1.0, 1.0),
+    };
+    let iter_points: Vec<Point> = c1.flatten_iter(tolerance).collect();
+    let mut builder_points = Vec::new();
+    c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
+
+    assert!(iter_points.len() > 2);
+    assert_approx_eq(&iter_points[..], &builder_points[..]);
+}
+
+#[test]
+fn test_iterator_builder_3() {
+    let tolerance = 0.01;
+    let c1 = CubicBezierSegment {
+        from: Point::new(141.0, 135.0),
+        cp1: Point::new(141.0, 130.0),
+        cp2: Point::new(140.0, 130.0),
+        to: Point::new(131.0, 130.0),
+    };
+    let iter_points: Vec<Point> = c1.flatten_iter(tolerance).collect();
+    let mut builder_points = Vec::new();
+    c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
+
+    assert!(iter_points.len() > 2);
+    assert_approx_eq(&iter_points[..], &builder_points[..]);
 }

@@ -16,7 +16,7 @@ pub enum SvgEvent {
     CubicTo(Point, Point, Point),
     RelativeCubicTo(Vec2, Vec2, Vec2),
     ArcTo(Point, Vec2, f32, ArcFlags),
-    RelativeArcTo(Point, Vec2, f32, ArcFlags),
+    RelativeArcTo(Vec2, Vec2, f32, ArcFlags),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
     RelativeHorizontalLineTo(f32),
@@ -53,6 +53,16 @@ impl PrimitiveEvent {
             PrimitiveEvent::CubicTo(ctrl1, ctrl2, to) => { SvgEvent::CubicTo(ctrl1, ctrl2, to) }
             PrimitiveEvent::Close => { SvgEvent::Close }
         };
+    }
+
+    pub fn destination(self) -> Option<Point> {
+        return match self {
+            PrimitiveEvent::MoveTo(to) => Some(to),
+            PrimitiveEvent::LineTo(to) => Some(to),
+            PrimitiveEvent::QuadraticTo(_, to) => Some(to),
+            PrimitiveEvent::CubicTo(_, _, to) => Some(to),
+            PrimitiveEvent::Close => None,
+        }
     }
 }
 
@@ -95,7 +105,7 @@ impl PositionState {
         match event {
             SvgEvent::MoveTo(to) => { self.move_to(to); }
             SvgEvent::RelativeMoveTo(to) => {
-                let to = self.get_relative(to);
+                let to = self.from_relative(to);
                 self.move_to(to);
             }
             SvgEvent::LineTo(to) => { self.line_to(to) }
@@ -106,17 +116,17 @@ impl PositionState {
                 self.current = to;
             }
             SvgEvent::RelativeLineTo(to) => {
-                let to = self.get_relative(to);
+                let to = self.from_relative(to);
                 self.line_to(to);
             }
             SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-                let to = self.get_relative(to);
-                let ctrl = self.get_relative(ctrl);
+                let to = self.from_relative(to);
+                let ctrl = self.from_relative(ctrl);
                 self.curve_to(ctrl, to);
             }
             SvgEvent::RelativeCubicTo(_, ctrl2, to) => {
-                let to = self.get_relative(to);
-                let ctrl2 = self.get_relative(ctrl2);
+                let to = self.from_relative(to);
+                let ctrl2 = self.from_relative(ctrl2);
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::RelativeArcTo(to, _, _, _) => {
@@ -147,17 +157,36 @@ impl PositionState {
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::SmoothRelativeQuadraticTo(to) => {
-                let to = self.get_relative(to);
                 let ctrl = self.get_smooth_ctrl();
+                let to = self.from_relative(to);
                 self.curve_to(ctrl, to);
             }
             SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-                let to = self.get_relative(to);
+                let ctrl2 = self.from_relative(ctrl2);
+                let to = self.from_relative(to);
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::Close => {
                 self.close();
             }
+        }
+    }
+
+    pub fn primitive_event(&mut self, event: PrimitiveEvent) {
+        match event {
+            PrimitiveEvent::MoveTo(to) => { self.move_to(to); }
+            PrimitiveEvent::LineTo(to) => { self.line_to(to); }
+            PrimitiveEvent::QuadraticTo(ctrl, to) => { self.curve_to(ctrl, to); }
+            PrimitiveEvent::CubicTo(_, ctrl2, to) => { self.curve_to(ctrl2, to); }
+            PrimitiveEvent::Close => { self.close(); }
+        }
+    }
+
+    pub fn flattened_event(&mut self, event: FlattenedEvent) {
+        match event {
+            FlattenedEvent::MoveTo(to) => { self.move_to(to); }
+            FlattenedEvent::LineTo(to) => { self.line_to(to); }
+            FlattenedEvent::Close => { self.close(); }
         }
     }
 
@@ -182,37 +211,13 @@ impl PositionState {
         self.current = self.first;
     }
 
-    pub fn primitive_event(&mut self, event: PrimitiveEvent) {
-        match event {
-            PrimitiveEvent::MoveTo(to) => {
-              self.next(to);
-              self.first = to;
-            }
-            PrimitiveEvent::LineTo(to) => { self.next(to); }
-            PrimitiveEvent::QuadraticTo(_, to) => { self.next(to); }
-            PrimitiveEvent::CubicTo(_, _, to) => { self.next(to); }
-            PrimitiveEvent::Close => {}
-        }
-    }
-
-    pub fn flattened_event(&mut self, event: FlattenedEvent) {
-        match event {
-            FlattenedEvent::MoveTo(to) => {
-              self.next(to);
-              self.first = to;
-            }
-            FlattenedEvent::LineTo(to) => { self.next(to); }
-            FlattenedEvent::Close => {}
-        }
-    }
-
     pub fn next(&mut self, to: Point) { self.current = to; }
 
-    pub fn relative_next(&mut self, to: Point) { self.current = self.get_relative(to); }
+    pub fn relative_next(&mut self, to: Point) { self.current = self.from_relative(to); }
 
     pub fn get_smooth_ctrl(&self) -> Point { self.current + (self.current - self.last_ctrl) }
 
-    pub fn get_relative(&self, v: Vec2) -> Point { self.current + v }
+    pub fn from_relative(&self, v: Vec2) -> Point { self.current + v }
 
     pub fn svg_to_primitive(&self, event: SvgEvent) -> PrimitiveEvent {
         return match event {
@@ -221,18 +226,38 @@ impl PositionState {
             SvgEvent::QuadraticTo(ctrl, to) => { PrimitiveEvent::QuadraticTo(ctrl, to) }
             SvgEvent::CubicTo(ctrl1, ctrl2, to) => { PrimitiveEvent::CubicTo(ctrl1, ctrl2, to) }
             SvgEvent::Close => { PrimitiveEvent::Close }
-            SvgEvent::RelativeMoveTo(to) => { PrimitiveEvent::MoveTo(self.get_relative(to)) }
-            SvgEvent::RelativeLineTo(to) => { PrimitiveEvent::LineTo(self.get_relative(to)) }
-            SvgEvent::RelativeQuadraticTo(ctrl, to) => { PrimitiveEvent::QuadraticTo(self.current + ctrl, self.get_relative(to)) }
-            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => { PrimitiveEvent::CubicTo(self.get_relative(ctrl1), self.get_relative(ctrl2), self.get_relative(to)) }
+            SvgEvent::RelativeMoveTo(to) => { PrimitiveEvent::MoveTo(self.from_relative(to)) }
+            SvgEvent::RelativeLineTo(to) => { PrimitiveEvent::LineTo(self.from_relative(to)) }
+            SvgEvent::RelativeQuadraticTo(ctrl, to) => {
+                PrimitiveEvent::QuadraticTo(self.from_relative(ctrl), self.from_relative(to))
+            }
+            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
+                PrimitiveEvent::CubicTo(
+                    self.from_relative(ctrl1),
+                    self.from_relative(ctrl2),
+                    self.from_relative(to)
+                )
+            }
             SvgEvent::HorizontalLineTo(x) => { PrimitiveEvent::LineTo(Point::new(x, self.current.y)) }
             SvgEvent::VerticalLineTo(y) => { PrimitiveEvent::LineTo(Point::new(self.current.x, y)) }
             SvgEvent::RelativeHorizontalLineTo(x) => { PrimitiveEvent::LineTo(Point::new(self.current.x + x, self.current.y)) }
             SvgEvent::RelativeVerticalLineTo(y) => { PrimitiveEvent::LineTo(Point::new(self.current.x, self.current.y + y)) }
-            SvgEvent::SmoothQuadraticTo(to) => { PrimitiveEvent::QuadraticTo(self.get_smooth_ctrl(), to) }
-            SvgEvent::SmoothRelativeQuadraticTo(to) => { PrimitiveEvent::QuadraticTo(self.get_smooth_ctrl(), self.get_relative(to)) }
-            SvgEvent::SmoothCubicTo(ctrl2, to) => { PrimitiveEvent::CubicTo(self.get_smooth_ctrl(), ctrl2, to) }
-            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => { PrimitiveEvent::CubicTo(self.get_smooth_ctrl(), ctrl2, self.get_relative(to)) }
+            SvgEvent::SmoothQuadraticTo(to) => {
+                PrimitiveEvent::QuadraticTo(self.get_smooth_ctrl(), to)
+            }
+            SvgEvent::SmoothCubicTo(ctrl2, to) => {
+                PrimitiveEvent::CubicTo(self.get_smooth_ctrl(), ctrl2, to)
+            }
+            SvgEvent::SmoothRelativeQuadraticTo(to) => {
+                PrimitiveEvent::QuadraticTo(self.get_smooth_ctrl(), self.from_relative(to))
+            }
+            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
+                PrimitiveEvent::CubicTo(
+                    self.get_smooth_ctrl(),
+                    self.from_relative(ctrl2),
+                    self.from_relative(to)
+                )
+            }
             // TODO arcs
             _ => { unimplemented!() }
         };

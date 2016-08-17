@@ -105,7 +105,7 @@ pub struct SvgPathBuilder<Builder: PrimitiveBuilder> {
 }
 
 impl<Builder: PrimitiveBuilder> SvgPathBuilder<Builder> {
-    pub fn from_builder(builder: Builder) -> SvgPathBuilder<Builder> {
+    pub fn new(builder: Builder) -> SvgPathBuilder<Builder> {
         SvgPathBuilder {
             builder: builder,
             last_ctrl: vec2(0.0, 0.0),
