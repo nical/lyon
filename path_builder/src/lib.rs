@@ -12,14 +12,6 @@ use lyon_core::math::*;
 use lyon_bezier::{ CubicBezierSegment, QuadraticBezierSegment };
 use arc::arc_to_cubic_beziers;
 
-#[derive(Debug)]
-/// Phatom type marker for PathId.
-pub struct Path_;
-/// An Id that represents a sub-path in a certain path object.
-pub type PathId = sid::Id<Path_, u16>;
-pub fn path_id(idx: u16) -> PathId { PathId::new(idx) }
-
-
 /// The base path building interface. More elaborate interfaces are built on top
 /// of the provided primitives.
 pub trait PrimitiveBuilder {
@@ -29,7 +21,7 @@ pub trait PrimitiveBuilder {
     fn line_to(&mut self, to: Point);
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
-    fn close(&mut self) -> PathId;
+    fn close(&mut self);
     fn current_position(&self) -> Point;
 
     fn primitive_event(&mut self, event: PrimitiveEvent) {
@@ -136,7 +128,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for SvgPathBuilder<Builder> {
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
-    fn close(&mut self)  -> PathId {
+    fn close(&mut self)  {
         self.last_ctrl = point(0.0, 0.0);
         self.builder.close()
     }
@@ -260,7 +252,7 @@ impl<Builder: PrimitiveBuilder> PrimitiveBuilder for FlattenedBuilder<Builder> {
         }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
-    fn close(&mut self) -> PathId { self.builder.close() }
+    fn close(&mut self) { self.builder.close() }
 
     fn current_position(&self) -> Point { self.builder.current_position() }
 

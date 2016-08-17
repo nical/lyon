@@ -14,5 +14,3 @@ lyon_core = { version = "0.1.1", path = "../core" }
 lyon_bezier = { version = "0.1.1", path = "../bezier" }
 lyon_path_builder = { version = "0.1.1", path = "../path_builder" }
 lyon_path_iterator = { version = "0.1.1", path = "../path_iterator" }
-sid = { version = "0.1.0" }
-sid_vec = { version = "0.1.0" }

@@ -1,4 +1,4 @@
-use lyon_path::{ Path2, PathSlice2, flattened_path_builder2 };
+use lyon_path::{ Path, PathSlice, flattened_path_builder };
 use lyon_core::{ PrimitiveEvent };
 use lyon_path_builder::PrimitiveBuilder;
 use lyon_path_iterator::PositionedPrimitiveIter;
@@ -6,7 +6,7 @@ use math::{ Vec2 };
 
 pub type Polygons = Vec<Vec<Vec2>>;
 
-pub fn path_to_polygons(path: PathSlice2) -> Vec<Vec<Vec2>> {
+pub fn path_to_polygons(path: PathSlice) -> Vec<Vec<Vec2>> {
     let mut polygons = Vec::new();
     let mut poly = Vec::new();
     for evt in PositionedPrimitiveIter::new(path.iter()) {
@@ -34,8 +34,8 @@ pub fn path_to_polygons(path: PathSlice2) -> Vec<Vec<Vec2>> {
     return polygons;
 }
 
-pub fn polygons_to_path(polygons: &Polygons) -> Path2 {
-    let mut builder = flattened_path_builder2(0.05);
+pub fn polygons_to_path(polygons: &Polygons) -> Path {
+    let mut builder = flattened_path_builder(0.05);
     for poly in polygons.iter() {
         builder.move_to(poly[0]);
         for i in 1..poly.len() {
@@ -46,7 +46,7 @@ pub fn polygons_to_path(polygons: &Polygons) -> Path2 {
     return builder.build();
 }
 
-pub fn find_reduced_test_case<F: Fn(Path2)->bool+panic::UnwindSafe+panic::RefUnwindSafe>(path: PathSlice2, cb: &F) -> Path2 {
+pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwindSafe>(path: PathSlice, cb: &F) -> Path {
     let mut polygons = path_to_polygons(path);
 
     println!(" -- removing sub-paths...");
@@ -81,7 +81,7 @@ pub fn find_reduced_test_case<F: Fn(Path2)->bool+panic::UnwindSafe+panic::RefUnw
     println!(" ----------- reduced test case: -----------\n\n");
     println!("#[test]");
     println!("fn reduced_test_case() {{");
-    println!("    let mut builder = flattened_path_builder2(0.05);\n");
+    println!("    let mut builder = flattened_path_builder(0.05);\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
         println!("    builder.move_to(vec2({}, {}));", pos.x, pos.y);
@@ -99,7 +99,7 @@ pub fn find_reduced_test_case<F: Fn(Path2)->bool+panic::UnwindSafe+panic::RefUnw
 
 use std::panic;
 
-fn find_reduced_test_case_sp<F: Fn(Path2)->bool+panic::UnwindSafe+panic::RefUnwindSafe>(mut polygons: Polygons, cb: &F) -> Polygons {
+fn find_reduced_test_case_sp<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwindSafe>(mut polygons: Polygons, cb: &F) -> Polygons {
     let mut i = 0;
     loop {
         if i >= polygons.len() {
@@ -119,34 +119,4 @@ fn find_reduced_test_case_sp<F: Fn(Path2)->bool+panic::UnwindSafe+panic::RefUnwi
 
         i += 1;
     }
-}
-
-#[test]
-fn test_path_to_polygons() {
-    // TODO!
-}
-
-#[test]
-fn test_new_path_builder() {
-    use lyon_path::{ flattened_path_builder, flattened_path_builder2 };
-    use rust_logo::build_logo_path;
-
-    let mut builder = flattened_path_builder(0.05);
-    let mut builder2 = flattened_path_builder2(0.05);
-    build_logo_path(&mut builder);
-    build_logo_path(&mut builder2);
-
-
-    let path = builder.build();
-    let path2 = builder2.build();
-
-    let mut builder2 = flattened_path_builder2(0.05);
-
-    println!("path2: {:?}\n\n\n", path2);
-    panic!()
-
-    //let polygons = path_to_polygons(path.as_slice());
-    //let polygons2 = path_to_polygons(path2.as_slice());
-
-    //assert_eq!(polygons, polygons2);
 }
