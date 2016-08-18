@@ -1,4 +1,4 @@
-use math::*;
+use core::math::*;
 use image::MutableImageSlice;
 
 /// A software triangle rasterizer intended for ref testing and to help debugging

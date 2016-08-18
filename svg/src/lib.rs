@@ -1,13 +1,9 @@
 #![allow(dead_code)]
-extern crate sid;
-extern crate sid_vec;
-extern crate lyon_core;
-extern crate lyon_tessellation;
+extern crate lyon_core as core;
+extern crate lyon_tessellation as tessellation;
 
 #[cfg(test)]
-extern crate lyon_extra;
-
-pub use lyon_tessellation::*;
+extern crate lyon_extra as extra;
 
 #[test]
 fn todo() {

@@ -12,4 +12,3 @@ name = "lyon_path_builder"
 [dependencies]
 lyon_core = { version = "0.1.1", path = "../core" }
 lyon_bezier = { version = "0.1.1", path = "../bezier" }
-sid = { version = "0.1.0" }

@@ -1,5 +1,5 @@
-use lyon_path_builder::{ SvgBuilder };
-use math::{ vec2 };
+use path_builder::SvgBuilder;
+use core::math::{ vec2 };
 
 pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.move_to(vec2(122.631, 69.716));

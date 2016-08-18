@@ -1,7 +1,7 @@
-use lyon_path::{ Path, PathSlice, flattened_path_builder };
-use lyon_core::{ PathEvent };
-use lyon_path_builder::PathBuilder;
-use math::{ Vec2 };
+use core::PathEvent;
+use core::math::{ Vec2 };
+use path::{ Path, PathSlice };
+use path_builder::PathBuilder;
 
 pub type Polygons = Vec<Vec<Vec2>>;
 
@@ -34,7 +34,7 @@ pub fn path_to_polygons(path: PathSlice) -> Vec<Vec<Vec2>> {
 }
 
 pub fn polygons_to_path(polygons: &Polygons) -> Path {
-    let mut builder = flattened_path_builder(0.05);
+    let mut builder = Path::builder().flattened(0.05);
     for poly in polygons.iter() {
         builder.move_to(poly[0]);
         for i in 1..poly.len() {
@@ -80,7 +80,7 @@ pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwi
     println!(" ----------- reduced test case: -----------\n\n");
     println!("#[test]");
     println!("fn reduced_test_case() {{");
-    println!("    let mut builder = flattened_path_builder(0.05);\n");
+    println!("    let mut builder = Path::builder().flattened(0.05);\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
         println!("    builder.move_to(vec2({}, {}));", pos.x, pos.y);

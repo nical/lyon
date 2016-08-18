@@ -2,10 +2,10 @@
 
 use std::f32::*;
 
-use lyon_core::ArcFlags;
-use lyon_core::math_utils::*;
-use lyon_core::math::*;
-use super::PathBuilder;
+use core::ArcFlags;
+use core::math_utils::*;
+use core::math::*;
+use PathBuilder;
 
 /// Build an svg arc by approximating it with cubic bezier curves.
 ///

@@ -8,7 +8,7 @@ use std::cmp;
 
 use math::*;
 use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
-use lyon_core::{ FlattenedEvent };
+use core::{ FlattenedEvent };
 use math_utils::{
     is_below, is_below_int, directed_angle, directed_angle2,
     line_horizontal_intersection_int,
@@ -17,11 +17,13 @@ use math_utils::{
 #[cfg(test)]
 use geometry_builder::{ VertexBuffers, simple_builder };
 #[cfg(test)]
-use lyon_path::{ Path, PathSlice };
+use path::{ Path, PathSlice };
 #[cfg(test)]
-use lyon_path_iterator::PathIterator;
+use path_iterator::PathIterator;
 #[cfg(test)]
-use lyon_path_builder::PathBuilder;
+use path_builder::PathBuilder;
+#[cfg(test)]
+use extra::rust_logo::build_logo_path;
 
 pub type FillResult = Result<Count, FillError>;
 
@@ -1433,7 +1435,7 @@ fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
         return;
     }
 
-    ::lyon_extra::debugging::find_reduced_test_case(path, &|path: Path|{
+    ::extra::debugging::find_reduced_test_case(path, &|path: Path|{
         return tessellate(path.as_slice(), false).is_err();
     });
 
@@ -1674,7 +1676,7 @@ fn test_auto_intersection_multi() {
 fn test_rust_logo() {
     let mut path = Path::builder().with_svg();
 
-    ::lyon_extra::rust_logo::build_logo_path(&mut path);
+    build_logo_path(&mut path);
 
     test_path_with_rotations(path.build(), 0.011, None);
 }
@@ -1683,7 +1685,7 @@ fn test_rust_logo() {
 fn test_rust_logo_with_intersection() {
     let mut path = Path::builder().with_svg();
 
-    ::lyon_extra::rust_logo::build_logo_path(&mut path);
+    build_logo_path(&mut path);
 
     path.move_to(vec2(10.0, 30.0));
     path.line_to(vec2(130.0, 30.0));
@@ -1709,7 +1711,7 @@ fn test_rust_logo_scale_up() {
     // overflows, and catch regressions.
 
     let mut builder = Path::builder().with_svg();
-    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    build_logo_path(&mut builder);
     let mut path = builder.build();
 
     scale_path(&mut path, 10000.0);
@@ -1726,7 +1728,7 @@ fn test_rust_logo_scale_up_failing() {
     // * See if we can define a safe interval where no path can trigger overflows and scale
     //   all paths to this interval internally in the tessellator.
     let mut builder = Path::builder().with_svg();
-    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    build_logo_path(&mut builder);
     let mut path = builder.build();
 
     scale_path(&mut path, 100000.0);
@@ -1738,7 +1740,7 @@ fn test_rust_logo_scale_down() {
     // The goal of this test is to check that the tessellator can handle very small geometry.
 
     let mut builder = Path::builder().with_svg();
-    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    build_logo_path(&mut builder);
     let mut path = builder.build();
 
     scale_path(&mut path, 0.02);
@@ -1751,7 +1753,7 @@ fn test_rust_logo_scale_down_failing() {
     // Issues with very small paths.
 
     let mut builder = Path::builder().with_svg();
-    ::lyon_extra::rust_logo::build_logo_path(&mut builder);
+    build_logo_path(&mut builder);
     let mut path = builder.build();
 
     scale_path(&mut path, 0.0001);
