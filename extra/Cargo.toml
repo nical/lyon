@@ -13,9 +13,6 @@ path = "src/lib.rs"
 
 [dependencies]
 
-sid = { version = "0.1.0" }
-sid_vec = { version = "0.1.0" }
-
 lyon_core = { version = "0.2.0", path = "../core" }
 lyon_path = { version = "0.2.0", path = "../path" }
 lyon_path_builder = { version = "0.2.0", path = "../path_builder" }
