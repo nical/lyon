@@ -10,5 +10,5 @@ path = "src/glium_tess_example.rs"
 [dependencies]
 lyon = { path = "../../" }
 
-glutin = "0.4.2"
-glium = "0.12.2"
+glutin = "0.6.1"
+glium = "0.15.0"

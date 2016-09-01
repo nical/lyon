@@ -853,24 +853,23 @@ fn segment_intersection_int(
     //println!(" -- test intersection {:?} {:?} x {:?} {:?}", a1, b1, a2, b2);
 
     // TODO: See if we can do this with integers math instead.
-    let a1 = vec2(a1.x as f32, a1.y as f32);
-    let b1 = vec2(b1.x as f32, b1.y as f32);
-    let a2 = vec2(a2.x as f32, a2.y as f32);
-    let b2 = vec2(b2.x as f32, b2.y as f32);
+    let a1 = Int64Point::new(a1.x as i64, a1.y as i64);
+    let b1 = Int64Point::new(b1.x as i64, b1.y as i64);
+    let a2 = Int64Point::new(a2.x as i64, a2.y as i64);
+    let b2 = Int64Point::new(b2.x as i64, b2.y as i64);
 
     let v1 = b1 - a1;
     let v2 = b2 - a2;
-    if v2 == vec2(0.0, 0.0) {
-        panic!("zero-length edge");
-    }
+
+    debug_assert!(v2.x != 0 || v2.y != 0, "zero-length edge");
 
     let v1_cross_v2 = v1.cross(v2);
     let a2_a1_cross_v1 = (a2 - a1).cross(v1);
 
     //println!(" -- v1_cross_v2 {}, a2_a1_cross_v1 {}", v1_cross_v2, a2_a1_cross_v1);
 
-    if v1_cross_v2 == 0.0 {
-        if a2_a1_cross_v1 != 0.0 {
+    if v1_cross_v2 == 0 {
+        if a2_a1_cross_v1 != 0 {
             return SegmentInteresection::None;
         }
         // The two segments are colinear.
@@ -882,7 +881,7 @@ fn segment_intersection_int(
         // We know that a1 cannot be above a2 so if b1 is between a2 and b2, we have
         // the order a2 -> a1 -> b1 -> b2.
         let v2_dot_b1a2 = v2.dot(b1 - a2);
-        if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len {
+        if v2_dot_b1a2 > 0 && v2_dot_b1a2 < v2_sqr_len {
             //println!(" -- colinear intersection");
             return SegmentInteresection::Two(
                 int_vec2(a1.x as i32, a1.y as i32),
@@ -893,7 +892,7 @@ fn segment_intersection_int(
         // We know that a1 cannot be above a2 and if b1 is below b2, so if
         // b2 is between a1 and b1, then we have the order a2 -> a1 -> b2 -> b1.
         let v1_dot_b2a1 = v1.dot(b2 - a1);
-        if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len {
+        if v1_dot_b2a1 > 0 && v1_dot_b2a1 < v1_sqr_len {
             //println!(" -- colinear intersection");
             return SegmentInteresection::Two(
                 int_vec2(a1.x as i32, a1.y as i32),
@@ -909,11 +908,17 @@ fn segment_intersection_int(
         return SegmentInteresection::None;
     }
 
-    let t = (a2 - a1).cross(v2) / v1_cross_v2;
-    let u = a2_a1_cross_v1 / v1_cross_v2;
+    let sign_v1_cross_v2 = if v1_cross_v2 > 0 { 1 } else { -1 };
+    let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
 
-    if t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0 {
-        let res = a1 + (v1 * t);
+    // t and u should be divided by v1_cross_v2, but we postpone that to not loose precision.
+    // We have to respect the sign of v1_cross_v2 and therefore t and u so we apply it now and
+    // will use the abslute value of v1_cross_v2 afterwards.
+    let t = (a2 - a1).cross(v2) * sign_v1_cross_v2;
+    let u = a2_a1_cross_v1 * sign_v1_cross_v2;
+
+    if t > 0 && t < abs_v1_cross_v2 && u > 0 && u < abs_v1_cross_v2 {
+        let res = a1 + (v1 * t) / abs_v1_cross_v2;
         return SegmentInteresection::One(int_vec2(res.x as i32, res.y as i32));
     }
 
@@ -2080,6 +2085,25 @@ fn test_colinear_touching_squares3() {
     let path = builder.build();
 
     tessellate(path.as_slice(), true).unwrap();
+}
+
+
+#[test]
+#[ignore] // TODO
+fn reduced_test_case() {
+    let mut builder = Path::builder().flattened(0.05);
+
+    builder.move_to(vec2(10.0095005, 0.89995164));
+    builder.line_to(vec2(10.109498, 10.899451));
+    builder.line_to(vec2(0.10999817, 10.99945));
+    builder.close();
+
+    builder.move_to(vec2(9.9995, -0.09999833));
+    builder.line_to(vec2(20.098999, 9.799503));
+    builder.line_to(vec2(10.099499, 9.899502));
+    builder.close();
+
+    test_path(builder.build().as_slice(), None);
 }
 
 #[test]
