@@ -45,6 +45,10 @@ struct EdgeBelow {
     angle: f32,
 }
 
+// These two constants define the precision of the tessellator.
+const UNIT_SCALE: f32 = 1000.0; // number of tessellator unit per world unit.
+const UNIT_INV_SCALE: f32 = 0.001; // Size of a tessellator unit in world units.
+
 /// A Context object that can tessellate fill operations for complex paths.
 ///
 /// The Tessellator API is not stable yet. For example it is not clear whether we will use
@@ -56,9 +60,6 @@ pub struct FillTessellator {
     intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
     previous_position: IntPoint,
-    scale: f32,
-    inv_scale: f32,
-    translation: Point,
     error: Option<FillError>,
     log: bool,
 }
@@ -72,9 +73,6 @@ impl FillTessellator {
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
             previous_position: int_vec2(i32::MIN, i32::MIN),
-            scale: 1000.0,
-            inv_scale: 0.001,
-            translation: vec2(0.0, 0.0),
             error: None,
             log: false,
         }
@@ -94,9 +92,6 @@ impl FillTessellator {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
         }
 
-        assert_eq!(events.scale, options.unit_scale);
-        self.set_unit_scale(events.scale);
-
         self.begin_tessellation(output);
 
         self.tessellator_loop(&events, output);
@@ -114,19 +109,6 @@ impl FillTessellator {
 
     /// Enable some verbose logging during the tessellation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
-
-    /// The length in world space of one tessellator unit.
-    /// The tessellator unit defines the precision of the tessellator.
-    pub fn set_unit_scale(&mut self, factor: f32) {
-        self.scale = factor;
-        self.inv_scale = 1.0 / factor;
-    }
-
-    /// A translation can be defined in addition to the unit scale to avoid overflowing
-    /// the tessellator's coordinate range.
-    pub fn set_translation(&mut self, v: Point) {
-        self.translation = v;
-    }
 
     fn begin_tessellation<Output: BezierGeometryBuilder<Point>>(&mut self, output: &mut Output) {
         debug_assert!(self.sweep_line.is_empty());
@@ -162,7 +144,7 @@ impl FillTessellator {
 
             while let Some(edge) = next_edge {
                 if edge.upper == current_position {
-                    let edge_vec = self.to_vec2(edge.lower - edge.upper);
+                    let edge_vec = to_vec2(edge.lower - edge.upper);
                     next_edge = edge_iter.next();
                     self.below.push(EdgeBelow{
                         lower: edge.lower,
@@ -199,7 +181,7 @@ impl FillTessellator {
                 if intersection_position == current_position {
                     let inter = self.intersections.remove(0);
 
-                    let vec = self.to_vec2(inter.lower - current_position);
+                    let vec = to_vec2(inter.lower - current_position);
                     self.below.push(EdgeBelow {
                         lower: inter.lower,
                         angle: -directed_angle(vec2(1.0, 0.0), vec),
@@ -236,7 +218,7 @@ impl FillTessellator {
 
     fn process_vertex<Output: BezierGeometryBuilder<Point>>(&mut self, current_position: IntPoint, output: &mut Output) {
 
-        let vec2_position = self.to_vec2(current_position);
+        let vec2_position = to_vec2(current_position);
         let id = output.add_vertex(vec2_position);
 
         self.below.sort_by(|a, b| {
@@ -440,7 +422,7 @@ impl FillTessellator {
                     self.check_intersections(&mut left_edge);
                     self.check_intersections(&mut right_edge);
                     self.sweep_line.insert(span_idx, Span::begin(current_position, id, left_edge.lower, right_edge.lower));
-                    let vec2_position = self.to_vec2(current_position);
+                    let vec2_position = to_vec2(current_position);
                     self.monotone_tessellators.insert(span_idx, MonotoneTessellator::begin(vec2_position, id));
                 } else {
                     // If the two edges are colinear we "postpone" the beginning of this span
@@ -533,7 +515,7 @@ impl FillTessellator {
             self.sweep_line.insert(
                 span_idx, Span::begin(ll.upper, ll.upper_id, ll.lower, current)
             );
-            let vec2_position = self.to_vec2(ll.upper);
+            let vec2_position = to_vec2(ll.upper);
             self.monotone_tessellators.insert(
                 span_idx, MonotoneTessellator::begin(vec2_position, ll.upper_id)
             );
@@ -567,7 +549,7 @@ impl FillTessellator {
         //   x-'      <-- current merge vertex
         self.resolve_merge_vertices(right_span, position, id, output);
 
-        let vec2_position = self.to_vec2(position);
+        let vec2_position = to_vec2(position);
 
         self.sweep_line[left_span].merge_vertex(position, id, Side::Right);
         self.monotone_tessellators[left_span].vertex(vec2_position, id, Side::Right);
@@ -586,7 +568,7 @@ impl FillTessellator {
         self.check_intersections(&mut edge);
         // This sets the merge flag to false.
         self.sweep_line[span_idx].edge(edge, id, side);
-        let vec2_position = self.to_vec2(edge.upper);
+        let vec2_position = to_vec2(edge.upper);
         self.monotone_tessellators[span_idx].vertex(vec2_position, id, side);
 
     }
@@ -739,7 +721,7 @@ impl FillTessellator {
     fn end_span<Output: BezierGeometryBuilder<Point>>(&mut self,
         span_idx: usize, position: IntPoint, id: VertexId, output: &mut Output
     ) {
-        let vec2_position = self.to_vec2(position);
+        let vec2_position = to_vec2(position);
         {
             let tess = &mut self.monotone_tessellators[span_idx];
             tess.end(vec2_position, id);
@@ -754,15 +736,6 @@ impl FillTessellator {
             println!(" !! FillTessellator Error {:?}", err);
         }
         self.error = Some(err);
-    }
-
-    fn to_internal(&self, v: Point) -> IntPoint {
-        let v = v + self.translation;
-        int_vec2((v.x * self.scale) as i32, (v.y * self.scale) as i32)
-    }
-
-    fn to_vec2(&self, v: IntPoint) -> Point {
-        vec2(v.x as f32 * self.inv_scale, v.y as f32 * self.inv_scale) - self.translation
     }
 
     fn debug_check_sl(&self, current: IntPoint) {
@@ -1026,37 +999,32 @@ impl Span {
     }
 }
 
+// translate to and from the internal coordinate system.
+fn to_internal(v: Point) -> IntPoint { int_vec2((v.x * UNIT_SCALE) as i32, (v.y * UNIT_SCALE) as i32) }
+fn to_vec2(v: IntPoint) -> Point { vec2(v.x as f32 * UNIT_INV_SCALE, v.y as f32 * UNIT_INV_SCALE) }
+
 pub struct FillEvents {
     edges: Vec<Edge>,
     vertices: Vec<IntPoint>,
-    translation: Vec2,
-    scale: f32,
 }
 
 impl FillEvents {
     pub fn from_iter<Iter: Iterator<Item=FlattenedEvent>>(it: Iter) -> Self {
-        EventsBuilder::default().build(it)
+        EventsBuilder::new().build(it)
     }
 }
 
 struct EventsBuilder {
     edges: Vec<Edge>,
     vertices: Vec<IntPoint>,
-    scale: f32,
-    translation: Vec2,
 }
 
 impl EventsBuilder {
-    fn default() -> Self {
-        EventsBuilder::new(1000.0, Vec2::new(0.0, 0.0))
-    }
 
-    fn new(scale: f32, translation: Vec2) -> Self {
+    fn new() -> Self {
         EventsBuilder {
             edges: Vec::new(),
             vertices: Vec::new(),
-            scale: scale,
-            translation: translation
         }
     }
 
@@ -1069,7 +1037,7 @@ impl EventsBuilder {
         for evt in inputs {
             match evt {
                 FlattenedEvent::LineTo(next) => {
-                    let next = self.to_internal(next);
+                    let next = to_internal(next);
                     if next == current {
                         continue;
                     }
@@ -1102,7 +1070,7 @@ impl EventsBuilder {
                     current = first;
                 }
                 FlattenedEvent::MoveTo(next) => {
-                    let next = self.to_internal(next);
+                    let next = to_internal(next);
                     if nth > 1 {
                         self.add_edge(current, first);
                         self.vertex(previous, current, first);
@@ -1121,14 +1089,7 @@ impl EventsBuilder {
         return FillEvents {
             edges: self.edges,
             vertices: self.vertices,
-            translation: self.translation,
-            scale: self.scale,
         };
-    }
-
-    fn to_internal(&self, v: Point) -> IntPoint {
-        let v = v + self.translation;
-        int_vec2((v.x * self.scale) as i32, (v.y * self.scale) as i32)
     }
 
     fn add_edge(&mut self, mut a: IntPoint, mut b: IntPoint) {
@@ -1169,7 +1130,7 @@ fn test_iter_builder() {
 
     let path = builder.build();
 
-    let events = EventsBuilder::default().build(path.path_iter().flattened(0.05));
+    let events = EventsBuilder::new().build(path.path_iter().flattened(0.05));
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
     let mut vertex_builder = simple_builder(&mut buffers);
     let mut tess = FillTessellator::new();
@@ -1193,12 +1154,6 @@ pub struct FillOptions {
     /// Currently, only the EvenOdd rule is implemented.
     pub fill_rule: FillRule,
 
-    /// The number of tessellator units per world unit.
-    ///
-    /// As the tessellator is internally using integer coordinates, this parameter defines
-    /// the precision and range of the tessellator.
-    pub unit_scale: f32,
-
     /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
     /// a gradient to smooth the edges.
     ///
@@ -1217,7 +1172,6 @@ impl FillOptions {
         FillOptions {
             tolerance: 0.1,
             fill_rule: FillRule::EvenOdd,
-            unit_scale: 1000.0,
             vertex_aa: false,
             _private: (),
         }
@@ -1231,11 +1185,6 @@ impl FillOptions {
 
     pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
         self.tolerance = tolerance;
-        return self;
-    }
-
-    pub fn with_unit_scale(mut self, scale: f32) -> FillOptions {
-        self.unit_scale = scale;
         return self;
     }
 
@@ -1418,7 +1367,7 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
         if log {
             tess.enable_logging();
         }
-        let events = EventsBuilder::default().build(path.path_iter().flattened(0.05));
+        let events = FillEvents::from_iter(path.path_iter().flattened(0.05));
         try!{
             tess.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder)
         };
