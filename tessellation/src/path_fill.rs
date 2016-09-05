@@ -10,8 +10,7 @@ use math::*;
 use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
 use core::{ FlattenedEvent };
 use math_utils::{
-    is_below, is_below_int, directed_angle, directed_angle2,
-    line_horizontal_intersection_int,
+    is_below, is_below_fixed, directed_angle, directed_angle2,
 };
 
 #[cfg(test)]
@@ -34,14 +33,14 @@ pub enum FillError {
 
 #[derive(Copy, Clone, Debug)]
 struct Edge {
-    upper: IntPoint,
-    lower: IntPoint,
+    upper: TessPoint,
+    lower: TessPoint,
 }
 
 #[derive(Clone, Debug)]
 struct EdgeBelow {
     // The upper vertex is the current vertex, we don't need to store it.
-    lower: IntPoint,
+    lower: TessPoint,
     angle: f32,
 }
 
@@ -59,7 +58,7 @@ pub struct FillTessellator {
     monotone_tessellators: Vec<MonotoneTessellator>,
     intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
-    previous_position: IntPoint,
+    previous_position: TessPoint,
     error: Option<FillError>,
     log: bool,
 }
@@ -72,7 +71,7 @@ impl FillTessellator {
             monotone_tessellators: Vec::with_capacity(16),
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
-            previous_position: int_vec2(i32::MIN, i32::MIN),
+            previous_position: TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val()),
             error: None,
             log: false,
         }
@@ -128,7 +127,7 @@ impl FillTessellator {
         events: &FillEvents,
         output: &mut Output
     ) {
-        let mut current_position = int_vec2(i32::MIN, i32::MIN);
+        let mut current_position = TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val());
 
         let mut edge_iter = events.edges.iter();
         let mut vertex_iter = events.vertices.iter();
@@ -170,7 +169,7 @@ impl FillTessellator {
                     }
                     continue;
                 }
-                if next_position.is_none() || is_below_int(next_position.unwrap(), *vertex) {
+                if next_position.is_none() || is_below_fixed(next_position.unwrap(), *vertex) {
                     next_position = Some(*vertex);
                 }
                 break;
@@ -190,7 +189,7 @@ impl FillTessellator {
                     pending_events = true;
                     continue
                 }
-                if next_position.is_none() || is_below_int(next_position.unwrap(), intersection_position) {
+                if next_position.is_none() || is_below_fixed(next_position.unwrap(), intersection_position) {
                     next_position = Some(intersection_position);
                 }
                 break;
@@ -216,7 +215,7 @@ impl FillTessellator {
         }
     }
 
-    fn process_vertex<Output: BezierGeometryBuilder<Point>>(&mut self, current_position: IntPoint, output: &mut Output) {
+    fn process_vertex<Output: BezierGeometryBuilder<Point>>(&mut self, current_position: TessPoint, output: &mut Output) {
 
         let vec2_position = to_vec2(current_position);
         let id = output.add_vertex(vec2_position);
@@ -439,7 +438,7 @@ impl FillTessellator {
 
                     if l == r {
                         // just skip these two egdes.
-                    } else if is_below_int(l, r) {
+                    } else if is_below_fixed(l, r) {
                         self.intersections.push(Edge { upper: r, lower: l });
                     } else {
                         self.intersections.push(Edge { upper: l, lower: r });
@@ -461,7 +460,7 @@ impl FillTessellator {
     // This should be called when processing a vertex that is on the left side of a span.
     fn resolve_merge_vertices<Output: BezierGeometryBuilder<Point>>(&mut self,
         span_idx: usize,
-        current: IntPoint, id: VertexId,
+        current: TessPoint, id: VertexId,
         output: &mut Output
     ) {
         while self.sweep_line[span_idx].right.merge {
@@ -475,7 +474,7 @@ impl FillTessellator {
     }
 
     fn split_event<Output: BezierGeometryBuilder<Point>>(&mut self,
-        span_idx: usize, current: IntPoint, id: VertexId,
+        span_idx: usize, current: TessPoint, id: VertexId,
         left: EdgeBelow, right: EdgeBelow,
         output: &mut Output
     ) {
@@ -535,7 +534,7 @@ impl FillTessellator {
     }
 
     fn merge_event<Output: BezierGeometryBuilder<Point>>(&mut self,
-        position: IntPoint, id: VertexId,
+        position: TessPoint, id: VertexId,
         span_idx: usize,
         output: &mut Output
     ) {
@@ -574,7 +573,7 @@ impl FillTessellator {
     }
 
     fn check_intersections(&mut self, edge: &mut Edge) {
-        struct Intersection { point: IntPoint, lower1: IntPoint, lower2: Option<IntPoint> }
+        struct Intersection { point: TessPoint, lower1: TessPoint, lower2: Option<TessPoint> }
 
         let original_edge = *edge;
         let mut intersection = None;
@@ -616,7 +615,7 @@ impl FillTessellator {
                         intersection = Some((
                             Intersection {
                                 point: p2,
-                                lower1: if is_below_int(original_edge.lower, span.left.lower)
+                                lower1: if is_below_fixed(original_edge.lower, span.left.lower)
                                             { original_edge.lower } else { span.left.lower },
                                 lower2: None
                             },
@@ -660,7 +659,7 @@ impl FillTessellator {
                         intersection = Some((
                             Intersection {
                                 point: p2,
-                                lower1: if is_below_int(original_edge.lower, span.right.lower)
+                                lower1: if is_below_fixed(original_edge.lower, span.right.lower)
                                             { original_edge.lower } else { span.right.lower },
                                 lower2: None
                             },
@@ -684,19 +683,19 @@ impl FillTessellator {
             // counts as above). Since we can't come back in time to process the intersection
             // before the current vertex, we can only cheat by moving the interseciton down by
             // one unit.
-            if !is_below_int(evt.point, current_position) {
-                evt.point.y = current_position.y + 1;
+            if !is_below_fixed(evt.point, current_position) {
+                evt.point.y = current_position.y + FixedPoint32::epsilon();
                 edge.lower = evt.point;
             }
 
             let mut e1 = Edge { upper: evt.point, lower: evt.lower1 };
-            if is_below_int(e1.upper, e1.lower) { swap(&mut e1.upper, &mut e1.lower); }
+            if is_below_fixed(e1.upper, e1.lower) { swap(&mut e1.upper, &mut e1.lower); }
 
             let e2 = if let Some(lower2) = evt.lower2 {
                 let mut e2 = Edge { upper: evt.point, lower: lower2 };
                 // Same deal with the precision issues here. In this case we can just flip the new
                 // edge so that its upper member is indeed above the lower one.
-                if is_below_int(e2.upper, e2.lower) { swap(&mut e2.upper, &mut e2.lower); }
+                if is_below_fixed(e2.upper, e2.lower) { swap(&mut e2.upper, &mut e2.lower); }
                 Some(e2)
             } else { None };
 
@@ -719,7 +718,7 @@ impl FillTessellator {
     }
 
     fn end_span<Output: BezierGeometryBuilder<Point>>(&mut self,
-        span_idx: usize, position: IntPoint, id: VertexId, output: &mut Output
+        span_idx: usize, position: TessPoint, id: VertexId, output: &mut Output
     ) {
         let vec2_position = to_vec2(position);
         {
@@ -738,15 +737,15 @@ impl FillTessellator {
         self.error = Some(err);
     }
 
-    fn debug_check_sl(&self, current: IntPoint) {
+    fn debug_check_sl(&self, current: TessPoint) {
         for span in &self.sweep_line {
             if !span.left.merge {
-                debug_assert!(!is_below_int(current, span.left.lower));
-                debug_assert!(!is_below_int(span.left.upper, span.left.lower));
+                debug_assert!(!is_below_fixed(current, span.left.lower));
+                debug_assert!(!is_below_fixed(span.left.upper, span.left.lower));
             }
             if !span.right.merge {
-                debug_assert!(!is_below_int(current, span.right.lower));
-                debug_assert!(!is_below_int(span.right.upper, span.right.lower));
+                debug_assert!(!is_below_fixed(current, span.right.lower));
+                debug_assert!(!is_below_fixed(span.right.upper, span.right.lower));
             }
         }
     }
@@ -784,19 +783,19 @@ impl FillTessellator {
         println!("]\n");
     }
 
-    fn log_sl_points_at(&self, y: i32) {
-        print!("\nat y={}  sl: [", y);
+    fn log_sl_points_at(&self, y: FixedPoint32) {
+        print!("\nat y={:?}  sl: [", y);
         for span in &self.sweep_line {
             if span.left.merge {
                 print!("| l:<merge> ");
             } else {
-                let lx = line_horizontal_intersection_int(span.left.upper, span.left.lower, y);
+                let lx = line_horizontal_intersection_fixed(span.left.upper, span.left.lower, y);
                 print!("| l:{:?} ", lx);
             }
             if span.right.merge {
                 print!(" r:<merge> |");
             } else {
-                let rx = line_horizontal_intersection_int(span.right.upper, span.right.lower, y);
+                let rx = line_horizontal_intersection_fixed(span.right.upper, span.right.lower, y);
                 print!(" r:{:?} |", rx);
             }
         }
@@ -804,7 +803,7 @@ impl FillTessellator {
     }
 }
 
-fn compare_positions(a: IntPoint, b: IntPoint) -> Ordering {
+fn compare_positions(a: TessPoint, b: TessPoint) -> Ordering {
     if a.y > b.y { return Ordering::Greater; }
     if a.y < b.y { return Ordering::Less; }
     if a.x > b.x { return Ordering::Greater; }
@@ -812,24 +811,45 @@ fn compare_positions(a: IntPoint, b: IntPoint) -> Ordering {
     return Ordering::Equal;
 }
 
+pub fn line_horizontal_intersection_fixed(
+    a: TessPoint,
+    b: TessPoint,
+    y: FixedPoint32
+) -> FixedPoint32 {
+    let vx = b.x - a.x;
+    let vy = b.y - a.y;
+    if vy.is_zero() {
+        return cmp::max(a.x, b.x);
+    }
+
+    return a.x + ((y - a.y).to_fp64() * vx.to_fp64() / vy.to_fp64()).to_fp32();
+}
+
 enum SegmentInteresection {
-    One(IntVec2),
-    Two(IntVec2, IntVec2),
+    One(TessPoint),
+    Two(TessPoint, TessPoint),
     None,
 }
 
 fn segment_intersection_int(
-    a1: IntVec2, b1: IntVec2, // The new edge.
-    a2: IntVec2, b2: IntVec2  // An already inserted edge.
+    a1: TessPoint, b1: TessPoint, // The new edge.
+    a2: TessPoint, b2: TessPoint  // An already inserted edge.
 ) -> SegmentInteresection {
+
+    fn tess_point(x: i64, y: i64) -> TessPoint {
+        TessPoint::new(FixedPoint32::from_raw(x as i32), FixedPoint32::from_raw(y as i32))
+    }
 
     //println!(" -- test intersection {:?} {:?} x {:?} {:?}", a1, b1, a2, b2);
 
-    // TODO: See if we can do this with integers math instead.
-    let a1 = Int64Point::new(a1.x as i64, a1.y as i64);
-    let b1 = Int64Point::new(b1.x as i64, b1.y as i64);
-    let a2 = Int64Point::new(a2.x as i64, a2.y as i64);
-    let b2 = Int64Point::new(b2.x as i64, b2.y as i64);
+    // Locally work with 64 bit integers to avoid overflow. We don't need to apply
+    // the fixed point's division because the equation preserves the unit, letting
+    // us work directly with the raw integer representation and avoid precision loss
+    // when performing divisions.
+    let a1 = Int64Point::new(a1.x.raw() as i64, a1.y.raw() as i64);
+    let b1 = Int64Point::new(b1.x.raw() as i64, b1.y.raw() as i64);
+    let a2 = Int64Point::new(a2.x.raw() as i64, a2.y.raw() as i64);
+    let b2 = Int64Point::new(b2.x.raw() as i64, b2.y.raw() as i64);
 
     let v1 = b1 - a1;
     let v2 = b2 - a2;
@@ -848,8 +868,8 @@ fn segment_intersection_int(
         // The two segments are colinear.
         //println!(" -- colinear segments");
 
-        let v1_sqr_len = v1.x*v1.x + v1.y*v1.y;
-        let v2_sqr_len = v2.x*v2.x + v2.y*v2.y;
+        let v1_sqr_len = v1.x * v1.x + v1.y * v1.y;
+        let v2_sqr_len = v2.x * v2.x + v2.y * v2.y;
 
         // We know that a1 cannot be above a2 so if b1 is between a2 and b2, we have
         // the order a2 -> a1 -> b1 -> b2.
@@ -857,8 +877,8 @@ fn segment_intersection_int(
         if v2_dot_b1a2 > 0 && v2_dot_b1a2 < v2_sqr_len {
             //println!(" -- colinear intersection");
             return SegmentInteresection::Two(
-                int_vec2(a1.x as i32, a1.y as i32),
-                int_vec2(b1.x as i32, b1.y as i32),
+                tess_point(a1.x, a1.y),
+                tess_point(b1.x, b1.y),
             );
         }
 
@@ -868,8 +888,8 @@ fn segment_intersection_int(
         if v1_dot_b2a1 > 0 && v1_dot_b2a1 < v1_sqr_len {
             //println!(" -- colinear intersection");
             return SegmentInteresection::Two(
-                int_vec2(a1.x as i32, a1.y as i32),
-                int_vec2(b2.x as i32, b2.y as i32),
+                tess_point(a1.x, a1.y),
+                tess_point(b2.x, b2.y),
             );
         }
 
@@ -892,13 +912,13 @@ fn segment_intersection_int(
 
     if t > 0 && t < abs_v1_cross_v2 && u > 0 && u < abs_v1_cross_v2 {
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
-        return SegmentInteresection::One(int_vec2(res.x as i32, res.y as i32));
+        return SegmentInteresection::One(tess_point(res.x, res.y));
     }
 
     return SegmentInteresection::None;
 }
 
-fn test_span_side(span_edge: &SpanEdge, position: IntPoint) -> bool {
+fn test_span_side(span_edge: &SpanEdge, position: TessPoint) -> bool {
     if span_edge.merge {
         return false;
     }
@@ -910,20 +930,20 @@ fn test_span_side(span_edge: &SpanEdge, position: IntPoint) -> bool {
     let from = span_edge.upper;
     let to = span_edge.lower;
 
-    let vx = (to.x - from.x) as i64;
-    let vy = (to.y - from.y) as i64;
+    let vx = (to.x - from.x).raw() as i64;
+    let vy = (to.y - from.y).raw() as i64;
     if vy == 0 {
         // If the segment is horizontal, pick the biggest x value (the right-most point).
         // That's arbitrary, not sure it is the right thing to do.
-        return cmp::max(position.x, to.x) > position.x;
+        return cmp::max(position.x.raw(), to.x.raw()) > position.x.raw();
     }
     // shuffled around from:
     // edge_from.x + (point.y - edge_from.y) * vx / vy > point.x
     // in order to remove the division.
-    return (position.y - from.y) as i64 * vx > (position.x - from.x) as i64 * vy;
+    return (position.y - from.y).raw() as i64 * vx > (position.x - from.x).raw() as i64 * vy;
 }
 
-fn test_span_touches(span_edge: &SpanEdge, position: IntPoint) -> bool {
+fn test_span_touches(span_edge: &SpanEdge, position: TessPoint) -> bool {
     if span_edge.merge {
         return false;
     }
@@ -942,14 +962,14 @@ struct Span {
 
 #[derive(Copy, Clone, Debug)]
 struct SpanEdge {
-    upper: IntPoint,
-    lower: IntPoint,
+    upper: TessPoint,
+    lower: TessPoint,
     upper_id: VertexId,
     merge: bool,
 }
 
 impl Span {
-    fn begin(current: IntPoint, id: VertexId, left: IntPoint, right: IntPoint) -> Span {
+    fn begin(current: TessPoint, id: VertexId, left: TessPoint, right: TessPoint) -> Span {
         Span {
             left: SpanEdge {
                 upper: current,
@@ -975,17 +995,17 @@ impl Span {
         self.set_lower_vertex(edge.lower, side);
     }
 
-    fn merge_vertex(&mut self, vertex: IntPoint, id: VertexId, side: Side) {
+    fn merge_vertex(&mut self, vertex: TessPoint, id: VertexId, side: Side) {
         self.set_upper_vertex(vertex, id, side);
         self.mut_edge(side).merge = true;
     }
 
-    fn set_upper_vertex(&mut self, vertex: IntPoint, id: VertexId, side: Side) {
+    fn set_upper_vertex(&mut self, vertex: TessPoint, id: VertexId, side: Side) {
         self.mut_edge(side).upper = vertex;
         self.mut_edge(side).upper_id = id;
     }
 
-    fn set_lower_vertex(&mut self, vertex: IntPoint, side: Side) {
+    fn set_lower_vertex(&mut self, vertex: TessPoint, side: Side) {
         let mut edge = self.mut_edge(side);
         edge.lower = vertex;
         edge.merge = false;
@@ -1000,12 +1020,12 @@ impl Span {
 }
 
 // translate to and from the internal coordinate system.
-fn to_internal(v: Point) -> IntPoint { int_vec2((v.x * UNIT_SCALE) as i32, (v.y * UNIT_SCALE) as i32) }
-fn to_vec2(v: IntPoint) -> Point { vec2(v.x as f32 * UNIT_INV_SCALE, v.y as f32 * UNIT_INV_SCALE) }
+fn to_internal(v: Point) -> TessPoint { TessPoint::new(fixed(v.x), fixed(v.y)) }
+fn to_vec2(v: TessPoint) -> Point { vec2(v.x.to_f32(), v.y.to_f32()) }
 
 pub struct FillEvents {
     edges: Vec<Edge>,
-    vertices: Vec<IntPoint>,
+    vertices: Vec<TessPoint>,
 }
 
 impl FillEvents {
@@ -1016,7 +1036,7 @@ impl FillEvents {
 
 struct EventsBuilder {
     edges: Vec<Edge>,
-    vertices: Vec<IntPoint>,
+    vertices: Vec<TessPoint>,
 }
 
 impl EventsBuilder {
@@ -1029,10 +1049,10 @@ impl EventsBuilder {
     }
 
     fn build<Iter: Iterator<Item=FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {
-        let mut first = IntPoint::new(0, 0);
-        let mut second = IntPoint::new(0, 0);
-        let mut previous = IntPoint::new(0, 0);
-        let mut current = IntPoint::new(0, 0);
+        let mut first = TessPoint::new(fixed(0.0), fixed(0.0));
+        let mut second = TessPoint::new(fixed(0.0), fixed(0.0));
+        let mut previous = TessPoint::new(fixed(0.0), fixed(0.0));
+        let mut current = TessPoint::new(fixed(0.0), fixed(0.0));
         let mut nth = 0;
         for evt in inputs {
             match evt {
@@ -1092,12 +1112,12 @@ impl EventsBuilder {
         };
     }
 
-    fn add_edge(&mut self, mut a: IntPoint, mut b: IntPoint) {
+    fn add_edge(&mut self, mut a: TessPoint, mut b: TessPoint) {
         if a == b {
             return;
         }
 
-        if is_below_int(a, b) {
+        if is_below_fixed(a, b) {
             swap(&mut a, &mut b);
         }
 
@@ -1106,8 +1126,8 @@ impl EventsBuilder {
         self.edges.push(Edge { upper: a, lower: b });
     }
 
-    fn vertex(&mut self, previous: IntPoint, current: IntPoint, next: IntPoint) {
-        if is_below_int(current, previous) && is_below_int(current, next) {
+    fn vertex(&mut self, previous: TessPoint, current: TessPoint, next: TessPoint) {
+        if is_below_fixed(current, previous) && is_below_fixed(current, next) {
             //println!(" -- add vertex evt {:?}", current);
             self.vertices.push(current);
         }

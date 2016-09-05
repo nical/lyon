@@ -1,6 +1,5 @@
 //! Various math tools that are usefull for several modules.
 
-use std::cmp;
 use std::f32::consts::PI;
 use math::*;
 
@@ -17,7 +16,7 @@ pub fn is_below(a: Vec2, b: Vec2) -> bool {
 }
 
 /// Defines an ordering between two points
-pub fn is_below_int(a: IntVec2, b: IntVec2) -> bool {
+pub fn is_below_fixed(a: TessPoint, b: TessPoint) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
@@ -222,20 +221,6 @@ pub fn line_horizontal_intersection(
         return a.x.max(b.x);
     }
     return a.x + (y - a.y) * vx / vy;
-}
-
-pub fn line_horizontal_intersection_int(
-    a: IntVec2,
-    b: IntVec2,
-    y: i32
-) -> i32 {
-    let vx = b.x - a.x;
-    let vy = b.y - a.y;
-    if vy == 0 {
-        return cmp::max(a.x, b.x);
-    }
-
-    return (a.x as i64 + (y - a.y) as i64 * vx as i64 / vy as i64) as i32;
 }
 
 

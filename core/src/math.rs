@@ -1,4 +1,7 @@
 use euclid;
+use fixed;
+
+pub use euclid::Point2D;
 
 pub type Point = euclid::Point2D<f32>;
 pub type IntPoint = euclid::Point2D<i32>;
@@ -10,6 +13,10 @@ pub type Size = euclid::Size2D<f32>;
 pub type IntSize = euclid::Size2D<i32>;
 pub type Rect = euclid::Rect<f32>;
 pub type IntRect = euclid::Rect<i32>;
+
+pub type FixedPoint32 = fixed::Fp32<fixed::_8>;
+pub type TessPoint = Point2D<FixedPoint32>;
+pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }
 
 pub type Vec3 = euclid::Point3D<f32>;
 pub type IntVec3 = euclid::Point3D<i32>;
