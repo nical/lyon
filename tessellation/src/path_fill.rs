@@ -145,10 +145,12 @@ impl FillTessellator {
                 if edge.upper == current_position {
                     let edge_vec = to_vec2(edge.lower - edge.upper);
                     next_edge = edge_iter.next();
-                    self.below.push(EdgeBelow{
-                        lower: edge.lower,
-                        angle: -directed_angle(vec2(1.0, 0.0), edge_vec),
-                    });
+                    if edge.lower != current_position {
+                        self.below.push(EdgeBelow{
+                            lower: edge.lower,
+                            angle: -directed_angle(vec2(1.0, 0.0), edge_vec),
+                        });
+                    }
                     pending_events = true;
                     if self.log {
                         println!(" edge at {:?} -> {:?}", edge.upper.tuple(), edge.lower.tuple());
@@ -180,11 +182,13 @@ impl FillTessellator {
                 if intersection_position == current_position {
                     let inter = self.intersections.remove(0);
 
-                    let vec = to_vec2(inter.lower - current_position);
-                    self.below.push(EdgeBelow {
-                        lower: inter.lower,
-                        angle: -directed_angle(vec2(1.0, 0.0), vec),
-                    });
+                    if inter.lower != current_position {
+                        let vec = to_vec2(inter.lower - current_position);
+                        self.below.push(EdgeBelow {
+                            lower: inter.lower,
+                            angle: -directed_angle(vec2(1.0, 0.0), vec),
+                        });
+                    }
 
                     pending_events = true;
                     continue
@@ -220,10 +224,6 @@ impl FillTessellator {
         let vec2_position = to_vec2(current_position);
         let id = output.add_vertex(vec2_position);
 
-        self.below.sort_by(|a, b| {
-            a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
-        });
-
         // Walk the sweep line to determine where we are with respect to the
         // existing spans.
         let mut start_span = 0;
@@ -232,9 +232,21 @@ impl FillTessellator {
         enum E { In, Out, LeftEdge, RightEdge };
         let mut status = E::Out;
 
-        for span in &self.sweep_line {
-            if test_span_touches(&span.left, current_position) {
+        for span in &mut self.sweep_line {
+            if !span.left.merge && span.left.lower == current_position {
                 status = E::LeftEdge;
+                break;
+            }
+
+            if test_span_touches(&span.left, current_position) {
+                // TODO: compute directed angles using fixed point vectors.
+                self.below.push(EdgeBelow {
+                    lower: span.left.lower,
+                    angle: -directed_angle(vec2(1.0, 0.0), to_vec2(span.left.lower - current_position))
+                });
+                span.left.lower = current_position;
+                status = E::LeftEdge;
+                //println!(" ---- touch left");
                 break;
             }
 
@@ -243,10 +255,21 @@ impl FillTessellator {
                 break;
             }
 
-            if test_span_touches(&span.right, current_position) {
-                // TODO: this isn't correct if the next span on the right also touches.
+            if !span.right.merge && span.right.lower == current_position {
+                // TODO: this leads to incorrect results if the next span also touches.
                 // see test_colinear_touching_squares2.
                 status = E::RightEdge;
+                break;
+            }
+
+            if test_span_touches(&span.right, current_position) {
+                self.below.push(EdgeBelow {
+                    lower: span.right.lower,
+                    angle: -directed_angle(vec2(1.0, 0.0), to_vec2(span.right.lower - current_position))
+                });
+                span.right.lower = current_position;
+                status = E::RightEdge;
+                //println!(" ---- touch right");
                 break;
             }
 
@@ -257,6 +280,10 @@ impl FillTessellator {
 
             start_span += 1;
         }
+
+        self.below.sort_by(|a, b| {
+            a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal)
+        });
 
         if self.log {
             println!("\n\n\n\n");
@@ -312,19 +339,23 @@ impl FillTessellator {
         // Count the number of remaining edges above the sweep line that end at
         // the current position.
         for span in &self.sweep_line[span_idx..] {
-            let left = test_span_touches(&span.left, current_position);
-            let right = test_span_touches(&span.right, current_position);
+            let left = !span.left.merge && span.left.lower == current_position;
+            let right = !span.right.merge && span.right.lower == current_position;
             // Here it is tempting to assume that we can only have end events
-            // if left_interects && right_intersects, but we also need to take merge
-            // vertices into account.
+            // if left && right, but we also need to take merge vertices into account.
             if left { above_count += 1; }
             if right { above_count += 1; }
 
             // We can't assume that if left and right are false we are already past
             // the current point because both sides of the span could be in the merge state.
 
-            // If right_intersects, left should intersect too, unless it is a merge.
-            debug_assert!(!right || left || span.left.merge);
+            // If right is true, left should be true as well, unless it is a merge.
+            debug_assert!(!right || left || span.left.merge,
+                "The right edge {:?} touches but the left edge {:?} does not. merge: {}",
+                span.right.lower,
+                span.left.lower,
+                span.left.merge
+            );
         }
 
         // Pairs of edges that end at the current position form "end events".
@@ -363,12 +394,12 @@ impl FillTessellator {
             //    x....
             //     \...
             //
-            if self.log { println!("(left event) {}", span_idx); }
 
             debug_assert!(below_count > 0);
             self.resolve_merge_vertices(span_idx, current_position, id, output);
 
             let vertex_below = self.below[self.below.len()-1].lower;
+            if self.log { println!("(left event) {}    -> {:?}", span_idx, vertex_below); }
             self.insert_edge(
                 span_idx, Side::Left,
                 Edge { upper: current_position, lower: vertex_below }, id,
@@ -561,6 +592,7 @@ impl FillTessellator {
         span_idx: usize, side: Side,
         mut edge: Edge, id: VertexId,
     ) {
+        debug_assert!(!is_below_fixed(edge.upper, edge.lower));
         // TODO horrible hack: set the merge flag on the edge we are about to replace temporarily
         // so that it doesn not get in the way of the intersection detection.
         self.sweep_line[span_idx].mut_edge(side).merge = true;
@@ -740,8 +772,14 @@ impl FillTessellator {
     fn debug_check_sl(&self, current: TessPoint) {
         for span in &self.sweep_line {
             if !span.left.merge {
-                debug_assert!(!is_below_fixed(current, span.left.lower));
-                debug_assert!(!is_below_fixed(span.left.upper, span.left.lower));
+                debug_assert!(!is_below_fixed(current, span.left.lower),
+                    "current {:?} should not be below lower left{:?}",
+                    current, span.left.lower
+                );
+                debug_assert!(!is_below_fixed(span.left.upper, span.left.lower),
+                    "upper left {:?} should not be below lower left {:?}",
+                    span.left.upper, span.left.lower
+                );
             }
             if !span.right.merge {
                 debug_assert!(!is_below_fixed(current, span.right.lower));
@@ -815,14 +853,16 @@ pub fn line_horizontal_intersection_fixed(
     a: TessPoint,
     b: TessPoint,
     y: FixedPoint32
-) -> FixedPoint32 {
+) -> Option<FixedPoint32> {
     let vx = b.x - a.x;
     let vy = b.y - a.y;
+
     if vy.is_zero() {
-        return cmp::max(a.x, b.x);
+        // the line is horizontal
+        return None;
     }
 
-    return a.x + ((y - a.y).to_fp64() * vx.to_fp64() / vy.to_fp64()).to_fp32();
+    return Some(a.x + (y - a.y).to_fp64().mul_div(vx.to_fp64(), vy.to_fp64()).to_fp32());
 }
 
 enum SegmentInteresection {
@@ -904,16 +944,31 @@ fn segment_intersection_int(
     let sign_v1_cross_v2 = if v1_cross_v2 > 0 { 1 } else { -1 };
     let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
 
-    // t and u should be divided by v1_cross_v2, but we postpone that to not loose precision.
-    // We have to respect the sign of v1_cross_v2 and therefore t and u so we apply it now and
-    // will use the abslute value of v1_cross_v2 afterwards.
+    // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
+    // We have to respect the sign of v1_cross_v2 (and therefore t and u) so we apply it now and
+    // will use the absolute value of v1_cross_v2 afterwards.
     let t = (a2 - a1).cross(v2) * sign_v1_cross_v2;
     let u = a2_a1_cross_v1 * sign_v1_cross_v2;
 
-    if t > 0 && t < abs_v1_cross_v2 && u > 0 && u < abs_v1_cross_v2 {
+    if t > 0 && t < abs_v1_cross_v2 && u > 0 && u <= abs_v1_cross_v2 {
+
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
+
+        debug_assert!(res.y <= b1.y && res.y <= b2.y);
+
+        //debug_assert!(res != a1);
+
+        if res != a1 && res != b1 && res != a2 && res != b2 {
+        //if res != a1 && res != a2 {
+        let d = (v1 * t) / abs_v1_cross_v2 - v1;
+        println!(" -- intersection: t = {} u= {} v1xv2 = {}, d = {:?}", t, u, v1_cross_v2, d);
         return SegmentInteresection::One(tess_point(res.x, res.y));
+        }
     }
+
+    //if t > 0 && t - abs_v1_cross_v2 < 100 {
+    //    println!(" -- almost intersecting {} {} : {}", t, abs_v1_cross_v2, t - abs_v1_cross_v2 );
+    //}
 
     return SegmentInteresection::None;
 }
@@ -944,15 +999,13 @@ fn test_span_side(span_edge: &SpanEdge, position: TessPoint) -> bool {
 }
 
 fn test_span_touches(span_edge: &SpanEdge, position: TessPoint) -> bool {
-    if span_edge.merge {
-        return false;
+    if let Some(x) = line_horizontal_intersection_fixed(span_edge.upper, span_edge.lower, position.y) {
+        return (x - position.x).abs() <= FixedPoint32::epsilon() * 2;
     }
-
-    if span_edge.lower == position {
-        return true;
-    }
-
-    return false;
+    debug_assert!(span_edge.upper.y == span_edge.lower.y);
+    return span_edge.upper.y == position.y
+        && span_edge.upper.x < position.x
+        && span_edge.lower.x > position.x;
 }
 
 struct Span {
@@ -2058,18 +2111,18 @@ fn test_colinear_touching_squares3() {
 
 
 #[test]
-#[ignore] // TODO
+//#[ignore] // TODO
 fn reduced_test_case() {
     let mut builder = Path::builder().flattened(0.05);
 
-    builder.move_to(vec2(10.0095005, 0.89995164));
-    builder.line_to(vec2(10.109498, 10.899451));
-    builder.line_to(vec2(0.10999817, 10.99945));
+    builder.move_to(vec2(5.924612, -8.117819));
+    builder.line_to(vec2(14.548652, -3.0556107));
+    builder.line_to(vec2(9.4864435, 5.568429));
     builder.close();
 
-    builder.move_to(vec2(9.9995, -0.09999833));
-    builder.line_to(vec2(20.098999, 9.799503));
-    builder.line_to(vec2(10.099499, 9.899502));
+    builder.move_to(vec2(5.062208, -8.62404));
+    builder.line_to(vec2(18.748455, -12.185871));
+    builder.line_to(vec2(13.686248, -3.5618315));
     builder.close();
 
     test_path(builder.build().as_slice(), None);
@@ -2102,6 +2155,50 @@ fn test_colinear_touching_squares_rotated_failing() {
     let path = builder.build();
 
     test_path_with_rotations(path, 0.01, None)
+}
+
+#[test]
+fn test_point_on_edge_right() {
+    //     a
+    //    /|
+    //   / x  <--- point exactly on edge ab
+    //  / /|\
+    // x-' | \
+    //     b--x
+    //
+    let mut builder = Path::builder();
+    builder.move_to(vec2(0.0, 0.0));
+    builder.line_to(vec2(0.0, 100.0));
+    builder.line_to(vec2(50.0, 100.0));
+    builder.line_to(vec2(0.0, 50.0));
+    builder.line_to(vec2(-50.0, 100.0));
+    builder.close();
+
+    let path = builder.build();
+
+    tessellate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+fn test_point_on_edge_left() {
+    //     a
+    //     |\
+    //     x \  <--- point exactly on edge ab
+    //    /|\ \
+    //   / | `-x
+    //  x--b
+    //
+    let mut builder = Path::builder();
+    builder.move_to(vec2(0.0, 0.0));
+    builder.line_to(vec2(0.0, 100.0));
+    builder.line_to(vec2(-50.0, 100.0));
+    builder.line_to(vec2(0.0, 50.0));
+    builder.line_to(vec2(50.0, 100.0));
+    builder.close();
+
+    let path = builder.build();
+
+    tessellate(path.as_slice(), true).unwrap();
 }
 
 #[test]

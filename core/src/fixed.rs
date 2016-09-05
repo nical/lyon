@@ -117,6 +117,10 @@ macro_rules! impl_fixed_point {
             #[inline]
             pub fn max(self, other: Self) -> Self { Self::from_raw(cmp::max(self.bits, other.bits)) }
 
+            #[inline]
+            /// Returns the absolute value of this number.
+            pub fn abs(self) -> Self { Self::from_raw(self.bits.abs()) }
+
             /// Returns the same number with a different fractional precision.
             #[inline]
             pub fn to_fixed<NewF: FractionalBits>(self) -> $name<NewF> {
