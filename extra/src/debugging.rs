@@ -90,7 +90,7 @@ pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwi
         }
         println!("    builder.close();\n");
     }
-    println!("    test_path2(builder.build().as_slice(), None);");
+    println!("    test_path(builder.build().as_slice(), None);");
     println!("}}\n\n");
 
     return polygons_to_path(&polygons);
