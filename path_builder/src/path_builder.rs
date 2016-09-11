@@ -43,10 +43,10 @@ pub trait SvgBuilder : PathBuilder {
     fn relative_line_to(&mut self, to: Vec2);
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2);
-    fn cubic_bezier_smooth_to(&mut self, ctrl2: Point, to: Point);
-    fn relative_cubic_bezier_smooth_to(&mut self, ctrl2: Vec2, to: Vec2);
-    fn quadratic_bezier_smooth_to(&mut self, to: Point);
-    fn relative_quadratic_bezier_smooth_to(&mut self, to: Vec2);
+    fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point);
+    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vec2, to: Vec2);
+    fn smooth_quadratic_bezier_to(&mut self, to: Point);
+    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vec2);
     fn horizontal_line_to(&mut self, x: f32);
     fn relative_horizontal_line_to(&mut self, dx: f32);
     fn vertical_line_to(&mut self, y: f32);
@@ -76,10 +76,10 @@ pub trait SvgBuilder : PathBuilder {
             SvgEvent::RelativeHorizontalLineTo(x) => { self.relative_horizontal_line_to(x); }
             SvgEvent::RelativeVerticalLineTo(y) => { self.relative_vertical_line_to(y); }
 
-            SvgEvent::SmoothQuadraticTo(to) => { self.quadratic_bezier_smooth_to(to); }
-            SvgEvent::SmoothCubicTo(ctrl2, to) => { self.cubic_bezier_smooth_to(ctrl2, to); }
-            SvgEvent::SmoothRelativeQuadraticTo(to) => { self.relative_quadratic_bezier_smooth_to(to); }
-            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => { self.relative_cubic_bezier_smooth_to(ctrl2, to); }
+            SvgEvent::SmoothQuadraticTo(to) => { self.smooth_quadratic_bezier_to(to); }
+            SvgEvent::SmoothCubicTo(ctrl2, to) => { self.smooth_cubic_bezier_to(ctrl2, to); }
+            SvgEvent::SmoothRelativeQuadraticTo(to) => { self.smooth_relative_quadratic_bezier_to(to); }
+            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => { self.smooth_relative_cubic_bezier_to(ctrl2, to); }
         }
     }
 }
@@ -160,22 +160,22 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.cubic_bezier_to(ctrl1 + offset, ctrl2 + offset, to + offset);
     }
 
-    fn cubic_bezier_smooth_to(&mut self, ctrl2: Point, to: Point) {
+    fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point) {
         let ctrl = self.builder.current_position() + (self.builder.current_position() - self.last_ctrl);
         self.cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    fn relative_cubic_bezier_smooth_to(&mut self, ctrl2: Vec2, to: Vec2) {
+    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vec2, to: Vec2) {
         let ctrl = self.builder.current_position() - self.last_ctrl;
         self.relative_cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    fn quadratic_bezier_smooth_to(&mut self, to: Point) {
+    fn smooth_quadratic_bezier_to(&mut self, to: Point) {
         let ctrl = self.builder.current_position() + (self.builder.current_position() - self.last_ctrl);
         self.quadratic_bezier_to(ctrl, to);
     }
 
-    fn relative_quadratic_bezier_smooth_to(&mut self, to: Vec2) {
+    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vec2) {
         let ctrl = self.builder.current_position() - self.last_ctrl;
         self.relative_quadratic_bezier_to(ctrl, to);
     }
