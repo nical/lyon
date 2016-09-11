@@ -8,6 +8,7 @@ use core::FlattenedEvent;
 //use lyon_path_builder::{ PathBuilder };
 use geometry_builder::{ VertexId, GeometryBuilder, Count, };
 use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
+use path_builder::BaseBuilder;
 
 pub type StrokeResult = Result<Count, ()>;
 
@@ -18,6 +19,7 @@ impl StrokeTessellator {
 
     pub fn tessellate<Input, Output>(&mut self, input: Input, options: &StrokeOptions, builder: &mut Output) -> StrokeResult
     where Input: Iterator<Item=FlattenedEvent>, Output: GeometryBuilder<Point> {
+        builder.begin_geometry();
         let zero = Point::new(0.0, 0.0);
         return StrokingContext {
             first: zero,
@@ -51,19 +53,47 @@ struct StrokingContext<'l, Output:'l> {
     output: &'l mut Output,
 }
 
+impl<'l, Output:'l + GeometryBuilder<Point>> BaseBuilder for StrokingContext<'l, Output> {
+    type PathType = StrokeResult;
+
+    fn move_to(&mut self, to: Point) {
+        self.finish();
+
+        self.first = to;
+        self.current = to;
+        self.nth = 0;
+    }
+
+    fn line_to(&mut self, to: Point) {
+        self.edge_to(to);
+    }
+
+    fn close(&mut self) {
+        let first = self.first;
+        self.edge_to(first);
+        if self.nth > 1 {
+            let second = self.second;
+            self.edge_to(second);
+            self.output.add_triangle(self.previous_b_id, self.previous_a_id, self.second_b_id);
+            self.output.add_triangle(self.previous_a_id, self.second_a_id, self.second_b_id);
+        }
+        self.nth = 0;
+        self.current = self.first;
+    }
+
+    fn build(self) -> StrokeResult {
+        return Ok(self.output.end_geometry());
+    }
+}
+
 impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
 
     fn tessellate<Input>(&mut self, input: Input) -> StrokeResult
     where Input: Iterator<Item=FlattenedEvent> {
-        self.output.begin_geometry();
 
         self.nth = 0;
         for evt in input {
-            match evt {
-                FlattenedEvent::LineTo(to) => { self.line_to(to); }
-                FlattenedEvent::MoveTo(to) => { self.move_to(to); }
-                FlattenedEvent::Close => { self.close(); }
-            }
+            self.flat_event(evt);
         }
 
         self.finish();
@@ -79,8 +109,7 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
         // last edge
         if self.nth > 0 {
             let p = self.current + self.current - self.previous;
-            let w = self.stroke_width;
-            self.edge_to(p, w);
+            self.edge_to(p);
         }
 
         // first edge
@@ -98,34 +127,7 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
         }
     }
 
-    pub fn move_to(&mut self, to: Point) {
-        self.finish();
-        // TODO: implement line caps!
-        self.first = to;
-        self.current = to;
-        self.nth = 0;
-    }
-
-    pub fn line_to(&mut self, to: Point) {
-        let width = self.stroke_width;
-        self.edge_to(to, width);
-    }
-
-    pub fn close(&mut self) {
-        let width = self.stroke_width;
-        let first = self.first;
-        self.edge_to(first, width);
-        if self.nth > 1 {
-            let second = self.second;
-            self.edge_to(second, width);
-            self.output.add_triangle(self.previous_b_id, self.previous_a_id, self.second_b_id);
-            self.output.add_triangle(self.previous_a_id, self.second_a_id, self.second_b_id);
-        }
-        self.nth = 0;
-        self.current = self.first;
-    }
-
-    fn edge_to(&mut self, to: Point, width: f32) {
+    fn edge_to(&mut self, to: Point) {
         if self.current == to {
             return;
         }
@@ -136,7 +138,7 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
             self.nth += 1;
             return;
         }
-        let (a, b, c_opt) = get_angle_info(self.previous, self.current, to, width);
+        let (a, b, c_opt) = get_angle_info(self.previous, self.current, to, self.stroke_width);
         let a_id = self.output.add_vertex(a);
         let b_id = self.output.add_vertex(b);
         let (c, c_id) = if let Some(c) = c_opt { (c, self.output.add_vertex(c)) } else { (b, b_id) };

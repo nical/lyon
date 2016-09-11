@@ -1,7 +1,7 @@
 use core::PathEvent;
 use core::math::{ Vec2 };
 use path::{ Path, PathSlice };
-use path_builder::PathBuilder;
+use path_builder::BaseBuilder;
 
 pub type Polygons = Vec<Vec<Vec2>>;
 

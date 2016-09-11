@@ -1,4 +1,4 @@
-use path_builder::{ PathBuilder, SvgPathBuilder, FlattenedBuilder };
+use path_builder::{ BaseBuilder, PathBuilder, SvgPathBuilder, FlattenedBuilder };
 use path_iterator::PathStateIter;
 
 use core::PathEvent;
@@ -98,7 +98,7 @@ fn nan_check(p: Point) {
     debug_assert!(!p.y.is_nan());
 }
 
-impl PathBuilder for Builder {
+impl BaseBuilder for Builder {
     type PathType = Path;
 
     fn move_to(&mut self, to: Point)
@@ -123,6 +123,26 @@ impl PathBuilder for Builder {
         self.current_position = to;
     }
 
+    fn close(&mut self) {
+        //if self.path.verbs.last() == Some(&Verb::MoveTo) {
+        //    // previous op was MoveTo we don't have a path to close, drop it.
+        //    self.path.points.pop();
+        //    self.path.verbs.pop();
+        //} else if self.path.verbs.last() == Some(&Verb::Close) {
+        //    return;
+        //}
+
+        self.path.verbs.push(Verb::Close);
+        self.current_position = self.first_position;
+        self.building = false;
+    }
+
+    fn build(self) -> Path {
+        self.path
+    }
+}
+
+impl PathBuilder for Builder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         nan_check(ctrl);
         nan_check(to);
@@ -143,25 +163,7 @@ impl PathBuilder for Builder {
         self.current_position = to;
     }
 
-    fn close(&mut self) {
-        //if self.path.verbs.last() == Some(&Verb::MoveTo) {
-        //    // previous op was MoveTo we don't have a path to close, drop it.
-        //    self.path.points.pop();
-        //    self.path.verbs.pop();
-        //} else if self.path.verbs.last() == Some(&Verb::Close) {
-        //    return;
-        //}
-
-        self.path.verbs.push(Verb::Close);
-        self.current_position = self.first_position;
-        self.building = false;
-    }
-
     fn current_position(&self) -> Point { self.current_position }
-
-    fn build(self) -> Path {
-        self.path
-    }
 }
 
 #[derive(Clone, Debug)]

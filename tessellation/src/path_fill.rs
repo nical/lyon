@@ -20,7 +20,7 @@ use path::{ Path, PathSlice };
 #[cfg(test)]
 use path_iterator::PathIterator;
 #[cfg(test)]
-use path_builder::PathBuilder;
+use path_builder::BaseBuilder;
 #[cfg(test)]
 use extra::rust_logo::build_logo_path;
 

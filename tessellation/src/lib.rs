@@ -2,10 +2,11 @@
 
 extern crate lyon_core as core;
 
+extern crate lyon_path_builder as path_builder;
+
 #[cfg(test)]
 extern crate lyon_path as path;
-#[cfg(test)]
-extern crate lyon_path_builder as path_builder;
+
 #[cfg(test)]
 extern crate lyon_path_iterator as path_iterator;
 #[cfg(test)]

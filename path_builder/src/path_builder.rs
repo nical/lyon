@@ -1,18 +1,31 @@
-use core::{ PathEvent, SvgEvent, ArcFlags };
+use core::{ PathEvent, FlattenedEvent, SvgEvent, ArcFlags };
 use core::math::*;
 use bezier::{ CubicBezierSegment, QuadraticBezierSegment };
 use arc::arc_to_cubic_beziers;
 
-/// The base path building interface. More elaborate interfaces are built on top
-/// of the provided primitives.
-pub trait PathBuilder : ::std::marker::Sized {
+pub trait BaseBuilder : ::std::marker::Sized {
     type PathType;
 
     fn move_to(&mut self, to: Point);
     fn line_to(&mut self, to: Point);
+    fn close(&mut self);
+
+    fn build(self) -> Self::PathType;
+
+    fn flat_event(&mut self, event: FlattenedEvent) {
+        match event {
+            FlattenedEvent::MoveTo(to) => { self.move_to(to); }
+            FlattenedEvent::LineTo(to) => { self.line_to(to); }
+            FlattenedEvent::Close => { self.close(); }
+        }
+    }
+}
+
+/// The base path building interface. More elaborate interfaces are built on top
+/// of the provided primitives.
+pub trait PathBuilder : BaseBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
-    fn close(&mut self);
     fn current_position(&self) -> Point;
 
     fn path_event(&mut self, event: PathEvent) {
@@ -24,8 +37,6 @@ pub trait PathBuilder : ::std::marker::Sized {
             PathEvent::Close => { self.close(); }
         }
     }
-
-    fn build(self) -> Self::PathType;
 
     /// Returns a builder that support svg commands.
     fn with_svg(self) -> SvgPathBuilder<Self> { SvgPathBuilder::new(self) }
@@ -104,7 +115,7 @@ impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     }
 }
 
-impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
+impl<Builder: PathBuilder> BaseBuilder for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) {
@@ -117,6 +128,15 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         self.builder.line_to(to);
     }
 
+    fn close(&mut self)  {
+        self.last_ctrl = point(0.0, 0.0);
+        self.builder.close()
+    }
+
+    fn build(self) -> Builder::PathType { self.builder.build() }
+}
+
+impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.last_ctrl = ctrl;
         self.builder.quadratic_bezier_to(ctrl, to);
@@ -127,16 +147,9 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
-    fn close(&mut self)  {
-        self.last_ctrl = point(0.0, 0.0);
-        self.builder.close()
-    }
-
     fn current_position(&self) -> Vec2 {
         self.builder.current_position()
     }
-
-    fn build(self) -> Builder::PathType { self.builder.build() }
 }
 
 impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
@@ -227,13 +240,19 @@ pub struct FlattenedBuilder<Builder> {
     tolerance: f32,
 }
 
-impl<Builder: PathBuilder> PathBuilder for FlattenedBuilder<Builder> {
+impl<Builder: PathBuilder> BaseBuilder for FlattenedBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
 
     fn line_to(&mut self, to: Point) { self.builder.line_to(to); }
 
+    fn close(&mut self) { self.builder.close() }
+
+    fn build(self) -> Builder::PathType { self.builder.build() }
+}
+
+impl<Builder: PathBuilder> PathBuilder for FlattenedBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         QuadraticBezierSegment {
             from: self.current_position(),
@@ -251,11 +270,7 @@ impl<Builder: PathBuilder> PathBuilder for FlattenedBuilder<Builder> {
         }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
-    fn close(&mut self) { self.builder.close() }
-
     fn current_position(&self) -> Point { self.builder.current_position() }
-
-    fn build(self) -> Builder::PathType { self.builder.build() }
 }
 
 impl<Builder: PathBuilder> FlattenedBuilder<Builder> {
