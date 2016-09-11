@@ -1611,9 +1611,9 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 #[test]
 fn test_simple_triangle() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(1.0, 1.0));
-    path.line_to(vec2(0.0, 1.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(1.0, 1.0));
+    path.line_to(point(0.0, 1.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.01, Some(1));
@@ -1622,12 +1622,12 @@ fn test_simple_triangle() {
 #[test]
 fn test_simple_monotone() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(-1.0, 1.0));
-    path.line_to(vec2(-3.0, 2.0));
-    path.line_to(vec2(-1.0, 3.0));
-    path.line_to(vec2(-4.0, 5.0));
-    path.line_to(vec2( 0.0, 6.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(-1.0, 1.0));
+    path.line_to(point(-3.0, 2.0));
+    path.line_to(point(-1.0, 3.0));
+    path.line_to(point(-4.0, 5.0));
+    path.line_to(point( 0.0, 6.0));
     path.close();
 
     let path = path.build();
@@ -1637,11 +1637,11 @@ fn test_simple_monotone() {
 #[test]
 fn test_simple_split() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(2.0, 1.0));
-    path.line_to(vec2(2.0, 3.0));
-    path.line_to(vec2(1.0, 2.0));
-    path.line_to(vec2(0.0, 3.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(2.0, 1.0));
+    path.line_to(point(2.0, 3.0));
+    path.line_to(point(1.0, 2.0));
+    path.line_to(point(0.0, 3.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(3));
@@ -1650,12 +1650,12 @@ fn test_simple_split() {
 #[test]
 fn test_simple_merge_split() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(1.0, 1.0));
-    path.line_to(vec2(2.0, 0.0));
-    path.line_to(vec2(2.0, 3.0));
-    path.line_to(vec2(1.0, 2.0));
-    path.line_to(vec2(0.0, 3.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(1.0, 1.0));
+    path.line_to(point(2.0, 0.0));
+    path.line_to(point(2.0, 3.0));
+    path.line_to(point(1.0, 2.0));
+    path.line_to(point(0.0, 3.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(4));
@@ -1664,14 +1664,14 @@ fn test_simple_merge_split() {
 #[test]
 fn test_simple_aligned() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(1.0, 0.0));
-    path.line_to(vec2(2.0, 0.0));
-    path.line_to(vec2(2.0, 1.0));
-    path.line_to(vec2(2.0, 2.0));
-    path.line_to(vec2(1.0, 2.0));
-    path.line_to(vec2(0.0, 2.0));
-    path.line_to(vec2(0.0, 1.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(1.0, 0.0));
+    path.line_to(point(2.0, 0.0));
+    path.line_to(point(2.0, 1.0));
+    path.line_to(point(2.0, 2.0));
+    path.line_to(point(1.0, 2.0));
+    path.line_to(point(0.0, 2.0));
+    path.line_to(point(0.0, 1.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(6));
@@ -1680,12 +1680,12 @@ fn test_simple_aligned() {
 #[test]
 fn test_simple_1() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(1.0, 1.0));
-    path.line_to(vec2(2.0, 0.0));
-    path.line_to(vec2(1.0, 3.0));
-    path.line_to(vec2(0.5, 4.0));
-    path.line_to(vec2(0.0, 3.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(1.0, 1.0));
+    path.line_to(point(2.0, 0.0));
+    path.line_to(point(1.0, 3.0));
+    path.line_to(point(0.5, 4.0));
+    path.line_to(point(0.0, 3.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(4));
@@ -1694,18 +1694,18 @@ fn test_simple_1() {
 #[test]
 fn test_simple_2() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(1.0, 0.0));
-    path.line_to(vec2(2.0, 0.0));
-    path.line_to(vec2(3.0, 0.0));
-    path.line_to(vec2(3.0, 1.0));
-    path.line_to(vec2(3.0, 2.0));
-    path.line_to(vec2(3.0, 3.0));
-    path.line_to(vec2(2.0, 3.0));
-    path.line_to(vec2(1.0, 3.0));
-    path.line_to(vec2(0.0, 3.0));
-    path.line_to(vec2(0.0, 2.0));
-    path.line_to(vec2(0.0, 1.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(1.0, 0.0));
+    path.line_to(point(2.0, 0.0));
+    path.line_to(point(3.0, 0.0));
+    path.line_to(point(3.0, 1.0));
+    path.line_to(point(3.0, 2.0));
+    path.line_to(point(3.0, 3.0));
+    path.line_to(point(2.0, 3.0));
+    path.line_to(point(1.0, 3.0));
+    path.line_to(point(0.0, 3.0));
+    path.line_to(point(0.0, 2.0));
+    path.line_to(point(0.0, 1.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(10));
@@ -1714,14 +1714,14 @@ fn test_simple_2() {
 #[test]
 fn test_hole_1() {
     let mut path = Path::builder();
-    path.move_to(vec2(-11.0, 5.0));
-    path.line_to(vec2(0.0, -5.0));
-    path.line_to(vec2(10.0, 5.0));
+    path.move_to(point(-11.0, 5.0));
+    path.line_to(point(0.0, -5.0));
+    path.line_to(point(10.0, 5.0));
     path.close();
 
-    path.move_to(vec2(-5.0, 2.0));
-    path.line_to(vec2(0.0, -2.0));
-    path.line_to(vec2(4.0, 2.0));
+    path.move_to(point(-5.0, 2.0));
+    path.line_to(point(0.0, -2.0));
+    path.line_to(point(4.0, 2.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(6));
@@ -1735,12 +1735,12 @@ fn test_degenerate_empty() {
 #[test]
 fn test_degenerate_same_position() {
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(0.0, 0.0));
-    path.line_to(vec2(0.0, 0.0));
-    path.line_to(vec2(0.0, 0.0));
-    path.line_to(vec2(0.0, 0.0));
-    path.line_to(vec2(0.0, 0.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(0.0, 0.0));
+    path.line_to(point(0.0, 0.0));
+    path.line_to(point(0.0, 0.0));
+    path.line_to(point(0.0, 0.0));
+    path.line_to(point(0.0, 0.0));
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, None);
@@ -1756,10 +1756,10 @@ fn test_auto_intersection_type1() {
     //  o.___\
     //       'o
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(2.0, 1.0));
-    path.line_to(vec2(0.0, 2.0));
-    path.line_to(vec2(2.0, 3.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(2.0, 1.0));
+    path.line_to(point(0.0, 2.0));
+    path.line_to(point(2.0, 3.0));
     path.close();
 
     let path = path.build();
@@ -1776,10 +1776,10 @@ fn test_auto_intersection_type2() {
     //  o'   \|
     //        o
     let mut path = Path::builder();
-    path.move_to(vec2(0.0, 0.0));
-    path.line_to(vec2(2.0, 3.0));
-    path.line_to(vec2(2.0, 1.0));
-    path.line_to(vec2(0.0, 2.0));
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(2.0, 3.0));
+    path.line_to(point(2.0, 1.0));
+    path.line_to(point(0.0, 2.0));
     path.close();
 
     let path = path.build();
@@ -1799,16 +1799,16 @@ fn test_auto_intersection_multi() {
     //     \ /
     //      '
     let mut path = Path::builder();
-    path.move_to(vec2(20.0, 20.0));
-    path.line_to(vec2(60.0, 20.0));
-    path.line_to(vec2(60.0, 60.0));
-    path.line_to(vec2(20.0, 60.0));
+    path.move_to(point(20.0, 20.0));
+    path.line_to(point(60.0, 20.0));
+    path.line_to(point(60.0, 60.0));
+    path.line_to(point(20.0, 60.0));
     path.close();
 
-    path.move_to(vec2(40.0, 10.0));
-    path.line_to(vec2(70.0, 40.0));
-    path.line_to(vec2(40.0, 70.0));
-    path.line_to(vec2(10.0, 40.0));
+    path.move_to(point(40.0, 10.0));
+    path.line_to(point(70.0, 40.0));
+    path.line_to(point(40.0, 70.0));
+    path.line_to(point(10.0, 40.0));
     path.close();
 
     let path = path.build();
@@ -1830,10 +1830,10 @@ fn test_rust_logo_with_intersection() {
 
     build_logo_path(&mut path);
 
-    path.move_to(vec2(10.0, 30.0));
-    path.line_to(vec2(130.0, 30.0));
-    path.line_to(vec2(130.0, 60.0));
-    path.line_to(vec2(10.0, 60.0));
+    path.move_to(point(10.0, 30.0));
+    path.line_to(point(130.0, 30.0));
+    path.line_to(point(130.0, 60.0));
+    path.line_to(point(10.0, 60.0));
     path.close();
 
     let path = path.build();
@@ -1915,18 +1915,18 @@ fn test_double_merge() {
     // test_rust_logo_with_intersection
     let mut path = Path::builder();
 
-    path.move_to(vec2(80.041534, 19.24472));
-    path.line_to(vec2(76.56131, 23.062233));
-    path.line_to(vec2(67.26949, 23.039438));
-    path.line_to(vec2(65.989944, 23.178522));
-    path.line_to(vec2(59.90927, 19.969215));
-    path.line_to(vec2(56.916714, 25.207449));
-    path.line_to(vec2(50.333813, 23.25274));
-    path.line_to(vec2(48.42367, 28.978098));
+    path.move_to(point(80.041534, 19.24472));
+    path.line_to(point(76.56131, 23.062233));
+    path.line_to(point(67.26949, 23.039438));
+    path.line_to(point(65.989944, 23.178522));
+    path.line_to(point(59.90927, 19.969215));
+    path.line_to(point(56.916714, 25.207449));
+    path.line_to(point(50.333813, 23.25274));
+    path.line_to(point(48.42367, 28.978098));
     path.close();
-    path.move_to(vec2(130.32213, 28.568213));
-    path.line_to(vec2(130.65213, 58.5664));
-    path.line_to(vec2(10.659382, 59.88637));
+    path.move_to(point(130.32213, 28.568213));
+    path.line_to(point(130.65213, 58.5664));
+    path.line_to(point(10.659382, 59.88637));
     path.close();
 
     test_path(path.build().as_slice(), None);
@@ -1946,14 +1946,14 @@ fn test_chained_merge_end() {
     //       \/        < -- end
     let mut path = Path::builder();
 
-    path.move_to(vec2(1.0, 0.0));
-    path.line_to(vec2(2.0, 1.0)); // <-- merge
-    path.line_to(vec2(3.0, 0.0));
-    path.line_to(vec2(4.0, 2.0)); // <-- merge
-    path.line_to(vec2(5.0, 0.0));
-    path.line_to(vec2(6.0, 3.0)); // <-- merge
-    path.line_to(vec2(7.0, 0.0));
-    path.line_to(vec2(5.0, 8.0)); // <-- end
+    path.move_to(point(1.0, 0.0));
+    path.line_to(point(2.0, 1.0)); // <-- merge
+    path.line_to(point(3.0, 0.0));
+    path.line_to(point(4.0, 2.0)); // <-- merge
+    path.line_to(point(5.0, 0.0));
+    path.line_to(point(6.0, 3.0)); // <-- merge
+    path.line_to(point(7.0, 0.0));
+    path.line_to(point(5.0, 8.0)); // <-- end
     path.close();
 
     test_path(path.build().as_slice(), Some(6));
@@ -1971,15 +1971,15 @@ fn test_chained_merge_left() {
     //   \          |
     let mut path = Path::builder();
 
-    path.move_to(vec2(1.0, 0.0));
-    path.line_to(vec2(2.0, 1.0)); // <-- merge
-    path.line_to(vec2(3.0, 0.0));
-    path.line_to(vec2(4.0, 2.0)); // <-- merge
-    path.line_to(vec2(5.0, 0.0));
-    path.line_to(vec2(6.0, 3.0)); // <-- merge
-    path.line_to(vec2(7.0, 0.0));
-    path.line_to(vec2(7.0, 5.0));
-    path.line_to(vec2(0.0, 4.0)); // <-- left
+    path.move_to(point(1.0, 0.0));
+    path.line_to(point(2.0, 1.0)); // <-- merge
+    path.line_to(point(3.0, 0.0));
+    path.line_to(point(4.0, 2.0)); // <-- merge
+    path.line_to(point(5.0, 0.0));
+    path.line_to(point(6.0, 3.0)); // <-- merge
+    path.line_to(point(7.0, 0.0));
+    path.line_to(point(7.0, 5.0));
+    path.line_to(point(0.0, 4.0)); // <-- left
     path.close();
 
     test_path(path.build().as_slice(), Some(7));
@@ -1996,17 +1996,17 @@ fn test_chained_merge_merge() {
     // |_________________|
     let mut path = Path::builder();
 
-    path.move_to(vec2(1.0, 0.0));
-    path.line_to(vec2(2.0, 1.0)); // <-- merge
-    path.line_to(vec2(3.0, 0.0));
-    path.line_to(vec2(4.0, 2.0)); // <-- merge
-    path.line_to(vec2(5.0, 0.0));
-    path.line_to(vec2(6.0, 3.0)); // <-- merge
-    path.line_to(vec2(7.0, 0.0));
-    path.line_to(vec2(7.0, 5.0));
-    path.line_to(vec2(-1.0, 5.0));
-    path.line_to(vec2(-1.0, 0.0));
-    path.line_to(vec2(0.0, 4.0)); // <-- merge (resolving)
+    path.move_to(point(1.0, 0.0));
+    path.line_to(point(2.0, 1.0)); // <-- merge
+    path.line_to(point(3.0, 0.0));
+    path.line_to(point(4.0, 2.0)); // <-- merge
+    path.line_to(point(5.0, 0.0));
+    path.line_to(point(6.0, 3.0)); // <-- merge
+    path.line_to(point(7.0, 0.0));
+    path.line_to(point(7.0, 5.0));
+    path.line_to(point(-1.0, 5.0));
+    path.line_to(point(-1.0, 0.0));
+    path.line_to(point(0.0, 4.0)); // <-- merge (resolving)
     path.close();
 
     test_path(path.build().as_slice(), Some(9));
@@ -2023,16 +2023,16 @@ fn test_chained_merge_split() {
     // |     /\     |  <-- split
     let mut path = Path::builder();
 
-    path.move_to(vec2(1.0, 0.0));
-    path.line_to(vec2(2.0, 1.0)); // <-- merge
-    path.line_to(vec2(3.0, 0.0));
-    path.line_to(vec2(4.0, 2.0)); // <-- merge
-    path.line_to(vec2(5.0, 0.0));
-    path.line_to(vec2(6.0, 3.0)); // <-- merge
-    path.line_to(vec2(7.0, 0.0));
-    path.line_to(vec2(7.0, 5.0));
-    path.line_to(vec2(4.0, 4.0)); // <-- split
-    path.line_to(vec2(1.0, 5.0));
+    path.move_to(point(1.0, 0.0));
+    path.line_to(point(2.0, 1.0)); // <-- merge
+    path.line_to(point(3.0, 0.0));
+    path.line_to(point(4.0, 2.0)); // <-- merge
+    path.line_to(point(5.0, 0.0));
+    path.line_to(point(6.0, 3.0)); // <-- merge
+    path.line_to(point(7.0, 0.0));
+    path.line_to(point(7.0, 5.0));
+    path.line_to(point(4.0, 4.0)); // <-- split
+    path.line_to(point(1.0, 5.0));
     path.close();
 
     test_path(path.build().as_slice(), Some(8));
@@ -2051,14 +2051,14 @@ fn test_intersection_horizontal_precision() {
     // invariant of the algorithm.
     let mut builder = Path::builder();
 
-    builder.move_to(vec2(-34.619564, 111.88655));
-    builder.line_to(vec2(-35.656174, 111.891));
-    builder.line_to(vec2(-39.304527, 121.766914));
+    builder.move_to(point(-34.619564, 111.88655));
+    builder.line_to(point(-35.656174, 111.891));
+    builder.line_to(point(-39.304527, 121.766914));
     builder.close();
 
-    builder.move_to(vec2(1.4426613, 133.40884));
-    builder.line_to(vec2(-27.714422, 140.47032));
-    builder.line_to(vec2(-55.960342, 23.841988));
+    builder.move_to(point(1.4426613, 133.40884));
+    builder.line_to(point(-27.714422, 140.47032));
+    builder.line_to(point(-55.960342, 23.841988));
     builder.close();
 
     test_path(builder.build().as_slice(), None);
@@ -2072,13 +2072,13 @@ fn test_split_with_intersections() {
 
     let mut builder = Path::builder();
 
-    builder.move_to(vec2(-21.004179, -71.57515));
-    builder.line_to(vec2(-21.927473, -70.94977));
-    builder.line_to(vec2(-23.024633, -70.68942));
+    builder.move_to(point(-21.004179, -71.57515));
+    builder.line_to(point(-21.927473, -70.94977));
+    builder.line_to(point(-23.024633, -70.68942));
     builder.close();
-    builder.move_to(vec2(16.036617, -27.254852));
-    builder.line_to(vec2(-62.83691, -117.69249));
-    builder.line_to(vec2(38.646027, -46.973236));
+    builder.move_to(point(16.036617, -27.254852));
+    builder.line_to(point(-62.83691, -117.69249));
+    builder.line_to(point(38.646027, -46.973236));
     builder.close();
 
     let path = builder.build();
@@ -2089,8 +2089,8 @@ fn test_split_with_intersections() {
 #[test]
 fn test_colinear_1() {
     let mut builder = Path::builder();
-    builder.move_to(vec2(20.0, 150.0));
-    builder.line_to(vec2(80.0, 150.0));
+    builder.move_to(point(20.0, 150.0));
+    builder.line_to(point(80.0, 150.0));
     builder.close();
 
     let path = builder.build();
@@ -2101,9 +2101,9 @@ fn test_colinear_1() {
 #[test]
 fn test_colinear_2() {
     let mut builder = Path::builder();
-    builder.move_to(vec2(20.0, 150.0));
-    builder.line_to(vec2(80.0, 150.0));
-    builder.line_to(vec2(20.0, 150.0));
+    builder.move_to(point(20.0, 150.0));
+    builder.line_to(point(80.0, 150.0));
+    builder.line_to(point(20.0, 150.0));
     builder.close();
 
     let path = builder.build();
@@ -2115,11 +2115,11 @@ fn test_colinear_2() {
 fn test_colinear_3() {
     let mut builder = Path::builder();
     // The path goes through many points along a line.
-    builder.move_to(vec2(0.0, 1.0));
-    builder.line_to(vec2(0.0, 3.0));
-    builder.line_to(vec2(0.0, 5.0));
-    builder.line_to(vec2(0.0, 4.0));
-    builder.line_to(vec2(0.0, 2.0));
+    builder.move_to(point(0.0, 1.0));
+    builder.line_to(point(0.0, 3.0));
+    builder.line_to(point(0.0, 5.0));
+    builder.line_to(point(0.0, 4.0));
+    builder.line_to(point(0.0, 2.0));
     builder.close();
 
     let path = builder.build();
@@ -2131,10 +2131,10 @@ fn test_colinear_3() {
 fn test_colinear_4() {
     // The path goes back and forth along a line.
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 2.0));
-    builder.line_to(vec2(0.0, 1.0));
-    builder.line_to(vec2(0.0, 3.0));
-    builder.line_to(vec2(0.0, 0.0));
+    builder.move_to(point(0.0, 2.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.line_to(point(0.0, 3.0));
+    builder.line_to(point(0.0, 0.0));
     builder.close();
 
     let path = builder.build();
@@ -2152,15 +2152,15 @@ fn test_colinear_touching_squares() {
     // x-----x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(1.0, 0.0));
-    builder.line_to(vec2(1.0, 1.0));
-    builder.line_to(vec2(0.0, 1.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 0.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(0.0, 1.0));
 
-    builder.move_to(vec2(1.0, 0.0));
-    builder.line_to(vec2(2.0, 0.0));
-    builder.line_to(vec2(2.0, 1.0));
-    builder.line_to(vec2(1.0, 1.0));
+    builder.move_to(point(1.0, 0.0));
+    builder.line_to(point(2.0, 0.0));
+    builder.line_to(point(2.0, 1.0));
+    builder.line_to(point(1.0, 1.0));
 
     builder.close();
 
@@ -2180,15 +2180,15 @@ fn test_colinear_touching_squares2() {
     //       x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0,  0.0));
-    builder.line_to(vec2(10.0, 0.0));
-    builder.line_to(vec2(10.0, 10.0));
-    builder.line_to(vec2(0.0,  10.0));
+    builder.move_to(point(0.0,  0.0));
+    builder.line_to(point(10.0, 0.0));
+    builder.line_to(point(10.0, 10.0));
+    builder.line_to(point(0.0,  10.0));
 
-    builder.move_to(vec2(10.0, 1.0));
-    builder.line_to(vec2(20.0, 1.0));
-    builder.line_to(vec2(20.0, 11.0));
-    builder.line_to(vec2(10.0, 11.0));
+    builder.move_to(point(10.0, 1.0));
+    builder.line_to(point(20.0, 1.0));
+    builder.line_to(point(20.0, 11.0));
+    builder.line_to(point(10.0, 11.0));
 
     builder.close();
 
@@ -2208,15 +2208,15 @@ fn test_colinear_touching_squares3() {
     // x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0,  1.0));
-    builder.line_to(vec2(10.0, 1.0));
-    builder.line_to(vec2(10.0, 11.0));
-    builder.line_to(vec2(0.0,  11.0));
+    builder.move_to(point(0.0,  1.0));
+    builder.line_to(point(10.0, 1.0));
+    builder.line_to(point(10.0, 11.0));
+    builder.line_to(point(0.0,  11.0));
 
-    builder.move_to(vec2(10.0, 0.0));
-    builder.line_to(vec2(20.0, 0.0));
-    builder.line_to(vec2(20.0, 10.0));
-    builder.line_to(vec2(10.0, 10.0));
+    builder.move_to(point(10.0, 0.0));
+    builder.line_to(point(20.0, 0.0));
+    builder.line_to(point(20.0, 10.0));
+    builder.line_to(point(10.0, 10.0));
 
     builder.close();
 
@@ -2231,14 +2231,14 @@ fn test_colinear_touching_squares3() {
 fn reduced_test_case() {
     let mut builder = Path::builder().flattened(0.05);
 
-    builder.move_to(vec2(3.825176, -9.29344));
-    builder.line_to(vec2(13.405333, -6.42628));
-    builder.line_to(vec2(10.538172, 3.1538765));
+    builder.move_to(point(3.825176, -9.29344));
+    builder.line_to(point(13.405333, -6.42628));
+    builder.line_to(point(10.538172, 3.1538765));
     builder.close();
 
-    builder.move_to(vec2(2.8671603, -9.580156));
-    builder.line_to(vec2(15.314477, -16.293152));
-    builder.line_to(vec2(12.447317, -6.712996));
+    builder.move_to(point(2.8671603, -9.580156));
+    builder.line_to(point(15.314477, -16.293152));
+    builder.line_to(point(12.447317, -6.712996));
     builder.close();
 
     test_path(builder.build().as_slice(), None);
@@ -2256,15 +2256,15 @@ fn test_colinear_touching_squares_rotated_failing() {
     // x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0,  1.0));
-    builder.line_to(vec2(10.0, 1.0));
-    builder.line_to(vec2(10.0, 11.0));
-    builder.line_to(vec2(0.0,  11.0));
+    builder.move_to(point(0.0,  1.0));
+    builder.line_to(point(10.0, 1.0));
+    builder.line_to(point(10.0, 11.0));
+    builder.line_to(point(0.0,  11.0));
 
-    builder.move_to(vec2(10.0, 0.0));
-    builder.line_to(vec2(20.0, 0.0));
-    builder.line_to(vec2(20.0, 10.0));
-    builder.line_to(vec2(10.0, 10.0));
+    builder.move_to(point(10.0, 0.0));
+    builder.line_to(point(20.0, 0.0));
+    builder.line_to(point(20.0, 10.0));
+    builder.line_to(point(10.0, 10.0));
 
     builder.close();
 
@@ -2283,11 +2283,11 @@ fn test_point_on_edge_right() {
     //     b--x
     //
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(0.0, 100.0));
-    builder.line_to(vec2(50.0, 100.0));
-    builder.line_to(vec2(0.0, 50.0));
-    builder.line_to(vec2(-50.0, 100.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(0.0, 100.0));
+    builder.line_to(point(50.0, 100.0));
+    builder.line_to(point(0.0, 50.0));
+    builder.line_to(point(-50.0, 100.0));
     builder.close();
 
     let path = builder.build();
@@ -2305,11 +2305,11 @@ fn test_point_on_edge_left() {
     //  x--b
     //
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(0.0, 100.0));
-    builder.line_to(vec2(-50.0, 100.0));
-    builder.line_to(vec2(0.0, 50.0));
-    builder.line_to(vec2(50.0, 100.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(0.0, 100.0));
+    builder.line_to(point(-50.0, 100.0));
+    builder.line_to(point(0.0, 50.0));
+    builder.line_to(point(50.0, 100.0));
     builder.close();
 
     let path = builder.build();
@@ -2327,12 +2327,12 @@ fn test_coincident_simple() {
 
     // A self-intersecting path with two points at the same position.
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(1.0, 1.0)); // <--
-    builder.line_to(vec2(0.0, 2.0));
-    builder.line_to(vec2(2.0, 2.0));
-    builder.line_to(vec2(1.0, 1.0)); // <--
-    builder.line_to(vec2(2.0, 0.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 1.0)); // <--
+    builder.line_to(point(0.0, 2.0));
+    builder.line_to(point(2.0, 2.0));
+    builder.line_to(point(1.0, 1.0)); // <--
+    builder.line_to(point(2.0, 0.0));
     builder.close();
 
     let path = builder.build();
@@ -2344,12 +2344,12 @@ fn test_coincident_simple() {
 fn test_coincident_simple_2() {
     // A self-intersecting path with two points at the same position.
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(1.0, 1.0)); // <--
-    builder.line_to(vec2(2.0, 0.0));
-    builder.line_to(vec2(2.0, 2.0));
-    builder.line_to(vec2(1.0, 1.0)); // <--
-    builder.line_to(vec2(0.0, 2.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 1.0)); // <--
+    builder.line_to(point(2.0, 0.0));
+    builder.line_to(point(2.0, 2.0));
+    builder.line_to(point(1.0, 1.0)); // <--
+    builder.line_to(point(0.0, 2.0));
     builder.close();
 
     let path = builder.build();
@@ -2362,12 +2362,12 @@ fn test_coincident_simple_rotated() {
     // Same as test_coincident_simple with the usual rotations
     // applied.
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(1.0, 1.0)); // <--
-    builder.line_to(vec2(0.0, 2.0));
-    builder.line_to(vec2(2.0, 2.0));
-    builder.line_to(vec2(1.0, 1.0)); // <--
-    builder.line_to(vec2(2.0, 0.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 1.0)); // <--
+    builder.line_to(point(0.0, 2.0));
+    builder.line_to(point(2.0, 2.0));
+    builder.line_to(point(1.0, 1.0)); // <--
+    builder.line_to(point(2.0, 0.0));
     builder.close();
 
     let path = builder.build();
@@ -2380,15 +2380,15 @@ fn test_identical_squares() {
     // Two identical sub paths. It is pretty much the worst type of input for
     // the tessellator as far as I know.
     let mut builder = Path::builder();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(1.0, 0.0));
-    builder.line_to(vec2(1.0, 1.0));
-    builder.line_to(vec2(0.0, 1.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 0.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(0.0, 1.0));
     builder.close();
-    builder.move_to(vec2(0.0, 0.0));
-    builder.line_to(vec2(1.0, 0.0));
-    builder.line_to(vec2(1.0, 1.0));
-    builder.line_to(vec2(0.0, 1.0));
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 0.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(0.0, 1.0));
     builder.close();
 
     let path = builder.build();
@@ -2403,10 +2403,10 @@ fn test_close_at_first_position() {
     // test against the angle of (current, first, second)).
     let mut builder = Path::builder();
 
-    builder.move_to(vec2(107.400665, 91.79798));
-    builder.line_to(vec2(108.93136, 91.51076));
-    builder.line_to(vec2(107.84248, 91.79686));
-    builder.line_to(vec2(107.400665, 91.79798));
+    builder.move_to(point(107.400665, 91.79798));
+    builder.line_to(point(108.93136, 91.51076));
+    builder.line_to(point(107.84248, 91.79686));
+    builder.line_to(point(107.400665, 91.79798));
     builder.close();
 
     test_path(builder.build().as_slice(), None);
