@@ -30,6 +30,7 @@ impl StrokeTessellator {
             second_b_id: VertexId(0),
             nth: 0,
             stroke_width: options.stroke_width,
+            line_cap: options.line_cap,
             output: builder
         }.tessellate(input);
     }
@@ -46,6 +47,7 @@ struct StrokingContext<'l, Output:'l> {
     second_b_id: VertexId,
     nth: u32,
     stroke_width: f32,
+    line_cap: LineCap,
     output: &'l mut Output,
 }
 
@@ -64,10 +66,40 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
             }
         }
 
+        self.finish();
+
         return Ok(self.output.end_geometry());
     }
 
+    fn finish(&mut self) {
+        if self.line_cap != LineCap::Butt {
+            println!("[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.", self.line_cap);
+        }
+
+        // last edge
+        if self.nth > 0 {
+            let p = self.current + self.current - self.previous;
+            let w = self.stroke_width;
+            self.edge_to(p, w);
+        }
+
+        // first edge
+        if self.nth > 1 {
+            let first = self.first;
+            let second = self.second;
+            let fake_prev = first + (first - second);
+            let (a, b, c_opt) = get_angle_info(fake_prev, first, second, self.stroke_width);
+            assert!(c_opt.is_none()); // will be used for yet-to-be-implemented line join types.
+            let first_a_id = self.output.add_vertex(a);
+            let first_b_id = self.output.add_vertex(b);
+
+            self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
+            self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
+        }
+    }
+
     pub fn move_to(&mut self, to: Point) {
+        self.finish();
         // TODO: implement line caps!
         self.first = to;
         self.current = to;
@@ -211,12 +243,6 @@ pub struct StrokeOptions {
     /// Maximum allowed distance to the path when building an approximation.
     pub tolerance: f32,
 
-    /// The number of tesselator units per world unit.
-    ///
-    /// As the tesselator is internally using integer coordinates, this parameter defines
-    /// the precision and range of the tesselator.
-    pub unit_scale: f32,
-
     /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
     /// a gradient to smooth the edges.
     ///
@@ -236,7 +262,6 @@ impl StrokeOptions {
             line_join: LineJoin::Miter,
             miter_limit: 10.0,
             tolerance: 0.1,
-            unit_scale: 1000.0,
             vertex_aa: false,
             _private: (),
         }
@@ -266,11 +291,6 @@ impl StrokeOptions {
 
     pub fn with_stroke_width(mut self, width: f32) -> StrokeOptions {
         self.stroke_width = width;
-        return self;
-    }
-
-    pub fn with_unit_scale(mut self, scale: f32) -> StrokeOptions {
-        self.unit_scale = scale;
         return self;
     }
 
