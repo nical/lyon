@@ -270,7 +270,10 @@ impl<F: FractionalBits> Fp32<F> {
     pub fn max_val() -> Self { Fp32::from_raw(i32::MAX) }
 
     /// Casts into a 64 bits fixed point number.
-    pub fn to_fp64(self) -> Fp64<F> { Fp64::from_raw(self.bits as i64) }
+    pub fn to_fp64<NewF: FractionalBits>(self) -> Fp64<NewF> {
+        let tmp: Fp64<F> = Fp64::from_raw(self.bits as i64);
+        return tmp.to_fixed();
+    }
 
     // This is nice in theory but overflows with any Fp32<16> * Fp32<16> operation so it's not
     // so useful in practice.
@@ -306,7 +309,10 @@ impl<F: FractionalBits> Fp64<F> {
     pub fn mul_div(self, m: Self, d: Self) -> Self { Fp64::from_raw(self.bits * m.bits / d.bits) }
 
     /// Casts into a 32 bits fixed point number.
-    pub fn to_fp32(self) -> Fp32<F> { Fp32::from_raw(self.bits as i32) }
+    pub fn to_fp32<NewF: FractionalBits>(self) -> Fp32<NewF> {
+        let tmp = self.to_fixed::<NewF>();
+        return Fp32::from_raw(tmp.bits as i32);
+    }
 }
 
 impl<F: FractionalBits> ops::Div<Fp64<F>> for Fp64<F> {
