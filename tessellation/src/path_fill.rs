@@ -153,7 +153,7 @@ impl FillTessellator {
                     }
                     pending_events = true;
                     if self.log {
-                        println!(" edge at {:?} -> {:?}", edge.upper.tuple(), edge.lower.tuple());
+                        println!(" edge at {:?} -> {:?}", edge.upper, edge.lower);
                     }
                     continue;
                 }
@@ -167,7 +167,7 @@ impl FillTessellator {
                     next_vertex = vertex_iter.next();
                     pending_events = true;
                     if self.log {
-                        println!(" vertex at {:?}", current_position.tuple());
+                        println!(" vertex at {:?}", current_position);
                     }
                     continue;
                 }
@@ -212,7 +212,7 @@ impl FillTessellator {
 
             if let Some(position) = next_position {
                 current_position = position;
-                if self.log { println!(" -- current_position is now {:?}", position.tuple()); }
+                if self.log { println!(" -- current_position is now {:?}", position); }
             } else {
                 return;
             }
@@ -623,8 +623,8 @@ impl FillTessellator {
                         if self.log {
                             println!(" -- found an intersection at {:?}", position);
                             println!("    | {:?}->{:?} x {:?}->{:?}",
-                                original_edge.upper.tuple(), original_edge.lower.tuple(),
-                                span.left.upper.tuple(), span.left.lower.tuple(),
+                                original_edge.upper, original_edge.lower,
+                                span.left.upper, span.left.lower,
                             );
                         }
 
@@ -642,7 +642,7 @@ impl FillTessellator {
                         edge.lower = position;
                     }
                     SegmentInteresection::Two(p1, p2) => {
-                        println!(" -- found two intersections {:?} and {:?}", p1.tuple(), p2.tuple());
+                        println!(" -- found two intersections {:?} and {:?}", p1, p2);
 
                         intersection = Some((
                             Intersection {
@@ -671,8 +671,8 @@ impl FillTessellator {
                         if self.log {
                             println!(" -- found an intersection at {:?}", position);
                             println!("    | {:?}->{:?} x {:?}->{:?}",
-                                original_edge.upper.tuple(), original_edge.lower.tuple(),
-                                span.right.upper.tuple(), span.right.lower.tuple(),
+                                original_edge.upper, original_edge.lower,
+                                span.right.upper, span.right.lower,
                             );
                         }
                         intersection = Some((
@@ -686,7 +686,7 @@ impl FillTessellator {
                         edge.lower = position;
                     }
                     SegmentInteresection::Two(p1, p2) => {
-                        println!(" -- found two intersections {:?} and {:?}", p1.tuple(), p2.tuple());
+                        println!(" -- found two intersections {:?} and {:?}", p1, p2);
 
                         intersection = Some((
                             Intersection {
@@ -733,8 +733,8 @@ impl FillTessellator {
 
             if self.log {
                 println!(" set span[{:?}].{:?}.lower = {:?} (was {:?}",
-                    span_idx, side, evt.point.tuple(),
-                    self.sweep_line[span_idx].mut_edge(side).lower.tuple()
+                    span_idx, side, evt.point,
+                    self.sweep_line[span_idx].mut_edge(side).lower
                 );
             }
 
@@ -801,8 +801,8 @@ impl FillTessellator {
     fn log_sl_points(&self) {
         print!("\n sl: [");
         for span in &self.sweep_line {
-            print!("| l:{:?} ", span.left.upper.tuple());
-            print!(" r:{:?} |", span.right.upper.tuple());
+            print!("| l:{:?} ", span.left.upper);
+            print!(" r:{:?} |", span.right.upper);
         }
         println!("]");
         print!("     [");
@@ -810,12 +810,12 @@ impl FillTessellator {
             if span.left.merge {
                 print!("| l:   <merge>           ");
             } else {
-                print!("| l:{:?} ", span.left.lower.tuple());
+                print!("| l:{:?} ", span.left.lower);
             }
             if span.right.merge {
                 print!(" r:   <merge>           |");
             } else {
-                print!(" r:{:?} |", span.right.lower.tuple());
+                print!(" r:{:?} |", span.right.lower);
             }
         }
         println!("]\n");

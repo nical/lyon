@@ -36,10 +36,6 @@ pub fn int_rect(x: i32, y: i32, w: i32, h: i32) -> IntRect { IntRect::new(int_ve
 
 pub fn rad(val: f32) -> Radians<f32> { Radians::new(val) }
 
-pub trait Vec2Tuple<S> { fn tuple(self) -> (S, S); }
-
-impl<S> Vec2Tuple<S> for euclid::Point2D<S> { fn tuple(self) ->(S, S) { (self.x, self.y) } }
-
 pub trait Vec2Array<S> { fn array(self) -> [S; 2]; }
 
 impl<S> Vec2Array<S> for euclid::Point2D<S> { fn array(self) ->[S; 2] { [self.x, self.y] } }
