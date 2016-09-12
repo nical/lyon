@@ -102,22 +102,50 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
     }
 
     fn finish(&mut self) {
-        if self.line_cap != LineCap::Butt {
-            println!("[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.", self.line_cap);
+        match self.line_cap {
+            LineCap::Butt | LineCap::Square => {}
+            _ => {
+                println!("[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.", self.line_cap);
+            }
+        }
+
+        let hw = self.stroke_width * 0.5;
+
+        if self.line_cap == LineCap::Square && self.nth == 0 {
+            // Even if there is no edge, if we are using square caps we have to place a square
+            // at the current position.
+            let a = self.output.add_vertex(self.current + vec2(-hw, -hw));
+            let b = self.output.add_vertex(self.current + vec2( hw, -hw));
+            let c = self.output.add_vertex(self.current + vec2( hw,  hw));
+            let d = self.output.add_vertex(self.current + vec2(-hw,  hw));
+            self.output.add_triangle(a, b, c);
+            self.output.add_triangle(a, c, d);
         }
 
         // last edge
         if self.nth > 0 {
-            let p = self.current + self.current - self.previous;
+            let current = self.current;
+            let d = self.current - self.previous;
+            if self.line_cap == LineCap::Square {
+                // The easiest way to implement square caps is to lie about the current position
+                // and move it slightly to accommodate for the width/2 extra length.
+                self.current = self.current + d.normalized() * hw;
+            }
+            let p = self.current + d;
             self.edge_to(p);
+            // Restore the real current position.
+            self.current = current;
         }
 
         // first edge
         if self.nth > 1 {
-            let first = self.first;
-            let second = self.second;
-            let fake_prev = first + (first - second);
-            let (a, b, c_opt) = get_angle_info(fake_prev, first, second, self.stroke_width);
+            let mut first = self.first;
+            let d = first - self.second;
+            if self.line_cap == LineCap::Square {
+                first = first + d.normalized() * hw;
+            }
+            let fake_prev = first + d;
+            let (a, b, c_opt) = get_angle_info(fake_prev, first, self.second, self.stroke_width);
             assert!(c_opt.is_none()); // will be used for yet-to-be-implemented line join types.
             let first_a_id = self.output.add_vertex(a);
             let first_b_id = self.output.add_vertex(b);

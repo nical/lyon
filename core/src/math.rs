@@ -43,6 +43,7 @@ impl<S> Vec2Array<S> for euclid::Point2D<S> { fn array(self) ->[S; 2] { [self.x,
 
 pub trait Vec2Length {
     fn length(self) -> f32;
+    fn normalized(self) -> Self;
 }
 
 pub trait Vec2SquareLength {
@@ -51,8 +52,10 @@ pub trait Vec2SquareLength {
 
 impl Vec2Length for Vec2 {
     fn length(self) -> f32 { self.square_length().sqrt() }
+    fn normalized(self) -> Self { self / self.length() }
 }
 
 impl Vec2SquareLength for Vec2 {
     fn square_length(self) -> f32 { self.x*self.x + self.y*self.y }
 }
+
