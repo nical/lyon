@@ -1,4 +1,4 @@
-use path_builder::{ BaseBuilder, PathBuilder, SvgPathBuilder, FlattenedBuilder };
+use path_builder::{ BaseBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder };
 use path_iterator::PathStateIter;
 
 use core::PathEvent;
@@ -28,7 +28,12 @@ pub struct PathSlice<'l> {
 impl Path {
     pub fn builder() -> Builder { Builder::new() }
 
-    pub fn new() -> Path { Path::with_capacity(128) }
+    pub fn new() -> Path {
+        Path {
+            points: Vec::new(),
+            verbs: Vec::new(),
+        }
+    }
 
     pub fn with_capacity(cap: usize) -> Path {
         Path {
@@ -87,8 +92,8 @@ impl Builder {
 
     pub fn with_svg(self) -> SvgPathBuilder<Self> { SvgPathBuilder::new(self) }
 
-    pub fn flattened(self, tolerance: f32) -> FlattenedBuilder<Self> {
-        FlattenedBuilder::new(self, tolerance)
+    pub fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> {
+        FlatteningBuilder::new(self, tolerance)
     }
 }
 
@@ -137,8 +142,17 @@ impl BaseBuilder for Builder {
         self.building = false;
     }
 
-    fn build(self) -> Path {
-        self.path
+    fn current_position(&self) -> Point { self.current_position }
+
+    fn build(self) -> Path { self.path }
+
+    fn build_and_reset(&mut self) -> Path {
+        self.current_position = Point::new(0.0, 0.0);
+        self.first_position = Point::new(0.0, 0.0);
+        self.building = false;
+        let mut tmp = Path::with_capacity(self.path.verbs.len());
+        ::std::mem::swap(&mut self.path, &mut tmp);
+        return tmp;
     }
 }
 
@@ -162,8 +176,6 @@ impl PathBuilder for Builder {
         self.path.verbs.push(Verb::CubicTo);
         self.current_position = to;
     }
-
-    fn current_position(&self) -> Point { self.current_position }
 }
 
 #[derive(Clone, Debug)]
@@ -300,10 +312,10 @@ fn test_path_builder_move_to_after_close() {
 }
 
 /// Builder for flattened paths
-pub type FlattenedPathBuilder = SvgPathBuilder<FlattenedBuilder<Builder>>;
+pub type FlattenedPathBuilder = SvgPathBuilder<FlatteningBuilder<Builder>>;
 /// FlattenedPathBuilder constructor.
 pub fn flattened_path_builder(tolerance: f32) -> FlattenedPathBuilder {
-    SvgPathBuilder::new(FlattenedBuilder::new(Path::builder(), tolerance))
+    SvgPathBuilder::new(FlatteningBuilder::new(Path::builder(), tolerance))
 }
 
 /*

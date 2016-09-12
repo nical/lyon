@@ -4,7 +4,7 @@ use core::{ PathEvent, SvgEvent, FlattenedEvent, PathState };
 use core::math::*;
 use bezier::{
     QuadraticBezierSegment, CubicBezierSegment,
-    QuadraticFlattenIter, CubicFlattenIter
+    QuadraticFlatteningIter, CubicFlatteningIter
 };
 
 /// Convenience for algorithms which prefer to iterate over segments directly rather than
@@ -24,7 +24,7 @@ pub trait PathIterator : Iterator<Item=PathEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator that turns curves into line segments.
-    fn flattened(self, tolerance: f32) -> FlattenIter<Self> { FlattenIter::new(tolerance, self) }
+    fn flattened(self, tolerance: f32) -> FlatteningIter<Self> { FlatteningIter::new(tolerance, self) }
 
     /// Returns an iterator of SVG events.
     fn svg_iter(self) -> iter::Map<Self, fn(PathEvent)->SvgEvent> {
@@ -40,7 +40,7 @@ pub trait SvgIterator : Iterator<Item=SvgEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlattenIter<SvgToPathIter<Self>> { self.path_iter().flattened(tolerance) }
+    fn flattened(self, tolerance: f32) -> FlatteningIter<SvgToPathIter<Self>> { self.path_iter().flattened(tolerance) }
 
     /// Returns an iterator of path events.
     fn path_iter(self) -> SvgToPathIter<Self> { SvgToPathIter::new(self) }
@@ -157,70 +157,70 @@ where SvgIter: SvgIterator {
 }
 
 /// An iterator that consumes an PathIterator and yields FlattenedEvents.
-pub struct FlattenIter<Iter> {
+pub struct FlatteningIter<Iter> {
     it: Iter,
-    current_curve: TmpFlattenIter,
+    current_curve: TmpFlatteningIter,
     tolerance: f32,
 }
 
-enum TmpFlattenIter {
-    Quadratic(QuadraticFlattenIter),
-    Cubic(CubicFlattenIter),
+enum TmpFlatteningIter {
+    Quadratic(QuadraticFlatteningIter),
+    Cubic(CubicFlatteningIter),
     None,
 }
 
-impl<Iter: PathIterator> FlattenIter<Iter> {
+impl<Iter: PathIterator> FlatteningIter<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
-        FlattenIter {
+        FlatteningIter {
             it: it,
-            current_curve: TmpFlattenIter::None,
+            current_curve: TmpFlatteningIter::None,
             tolerance: tolerance,
         }
     }
 }
 
-impl<Iter> FlattenedIterator for FlattenIter<Iter>
+impl<Iter> FlattenedIterator for FlatteningIter<Iter>
 where Iter : PathIterator {
     fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
-impl<Iter> Iterator for FlattenIter<Iter>
+impl<Iter> Iterator for FlatteningIter<Iter>
 where Iter: PathIterator {
     type Item = FlattenedEvent;
     fn next(&mut self) -> Option<FlattenedEvent> {
         match self.current_curve {
-            TmpFlattenIter::Quadratic(ref mut it) => {
+            TmpFlatteningIter::Quadratic(ref mut it) => {
                 if let Some(point) = it.next() {
                     return Some(FlattenedEvent::LineTo(point));
                 }
             }
-            TmpFlattenIter::Cubic(ref mut it) => {
+            TmpFlatteningIter::Cubic(ref mut it) => {
                 if let Some(point) = it.next() {
                     return Some(FlattenedEvent::LineTo(point));
                 }
             }
             _ => {}
         }
-        self.current_curve = TmpFlattenIter::None;
+        self.current_curve = TmpFlatteningIter::None;
         let current = self.get_state().current;
         return match self.it.next() {
             Some(PathEvent::MoveTo(to)) => { Some(FlattenedEvent::MoveTo(to)) }
             Some(PathEvent::LineTo(to)) => { Some(FlattenedEvent::LineTo(to)) }
             Some(PathEvent::Close) => { Some(FlattenedEvent::Close) }
             Some(PathEvent::QuadraticTo(ctrl, to)) => {
-                self.current_curve = TmpFlattenIter::Quadratic(
+                self.current_curve = TmpFlatteningIter::Quadratic(
                     QuadraticBezierSegment {
-                        from: current, cp: ctrl, to: to
-                    }.flatten_iter(self.tolerance)
+                        from: current, ctrl: ctrl, to: to
+                    }.flattening_iter(self.tolerance)
                 );
                 return self.next();
             }
             Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
-                self.current_curve = TmpFlattenIter::Cubic(
+                self.current_curve = TmpFlatteningIter::Cubic(
                     CubicBezierSegment {
-                        from: current, cp1: ctrl1, cp2: ctrl2, to: to
-                    }.flatten_iter(self.tolerance)
+                        from: current, ctrl1: ctrl1, ctrl2: ctrl2, to: to
+                    }.flattening_iter(self.tolerance)
                 );
                 return self.next();
             }

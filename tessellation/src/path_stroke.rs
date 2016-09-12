@@ -1,17 +1,17 @@
 //! Tessellation routines for path stroke operations.
 //!
-//! The current implementation is pretty bad and does not deal with overlap in an svg-compliant
+//! The current implementation is pretty basic and does not deal with overlap in an svg-compliant
 //! way.
 
 use math::*;
 use core::FlattenedEvent;
-//use lyon_path_builder::{ PathBuilder };
 use geometry_builder::{ VertexId, GeometryBuilder, Count, };
-use math_utils::{ tangent, directed_angle, directed_angle2, line_intersection, };
+use math_utils::{ tangent, line_intersection, };
 use path_builder::BaseBuilder;
 
 pub type StrokeResult = Result<Count, ()>;
 
+/// A Context object that can tessellate stroke operations for complex paths.
 pub struct StrokeTessellator {}
 
 impl StrokeTessellator {
@@ -20,25 +20,18 @@ impl StrokeTessellator {
     pub fn tessellate<Input, Output>(&mut self, input: Input, options: &StrokeOptions, builder: &mut Output) -> StrokeResult
     where Input: Iterator<Item=FlattenedEvent>, Output: GeometryBuilder<Point> {
         builder.begin_geometry();
-        let zero = Point::new(0.0, 0.0);
-        return StrokingContext {
-            first: zero,
-            second: zero,
-            previous: zero,
-            current: zero,
-            previous_a_id: VertexId(0),
-            previous_b_id: VertexId(0),
-            second_a_id: VertexId(0),
-            second_b_id: VertexId(0),
-            nth: 0,
-            stroke_width: options.stroke_width,
-            line_cap: options.line_cap,
-            output: builder
-        }.tessellate(input);
+        let mut stroker = StrokeBuilder::new(options, builder);
+
+        for evt in input {
+            stroker.flat_event(evt);
+        }
+
+        return stroker.build();
     }
 }
 
-struct StrokingContext<'l, Output:'l> {
+/// A builder that tessellates a stroke directly without allocating any intermediate data structure.
+pub struct StrokeBuilder<'l, Output:'l> {
     first: Point,
     previous: Point,
     current: Point,
@@ -48,12 +41,11 @@ struct StrokingContext<'l, Output:'l> {
     second_a_id: VertexId,
     second_b_id: VertexId,
     nth: u32,
-    stroke_width: f32,
-    line_cap: LineCap,
+    options: StrokeOptions,
     output: &'l mut Output,
 }
 
-impl<'l, Output:'l + GeometryBuilder<Point>> BaseBuilder for StrokingContext<'l, Output> {
+impl<'l, Output:'l + GeometryBuilder<Point>> BaseBuilder for StrokeBuilder<'l, Output> {
     type PathType = StrokeResult;
 
     fn move_to(&mut self, to: Point) {
@@ -81,37 +73,56 @@ impl<'l, Output:'l + GeometryBuilder<Point>> BaseBuilder for StrokingContext<'l,
         self.current = self.first;
     }
 
-    fn build(self) -> StrokeResult {
+    fn current_position(&self) -> Point { self.current }
+
+    fn build(mut self) -> StrokeResult {
+        self.finish();
+        return Ok(self.output.end_geometry());
+    }
+
+    fn build_and_reset(&mut self) -> StrokeResult {
+        self.first = Point::new(0.0, 0.0);
+        self.previous = Point::new(0.0, 0.0);
+        self.current = Point::new(0.0, 0.0);
+        self.second = Point::new(0.0, 0.0);
+        self.nth = 0;
         return Ok(self.output.end_geometry());
     }
 }
 
-impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
-
-    fn tessellate<Input>(&mut self, input: Input) -> StrokeResult
-    where Input: Iterator<Item=FlattenedEvent> {
-
-        self.nth = 0;
-        for evt in input {
-            self.flat_event(evt);
+impl<'l, Output:'l + GeometryBuilder<Point>> StrokeBuilder<'l, Output> {
+    pub fn new(options: &StrokeOptions, builder: &'l mut Output) -> Self {
+        let zero = Point::new(0.0, 0.0);
+        return StrokeBuilder {
+            first: zero,
+            second: zero,
+            previous: zero,
+            current: zero,
+            previous_a_id: VertexId(0),
+            previous_b_id: VertexId(0),
+            second_a_id: VertexId(0),
+            second_b_id: VertexId(0),
+            nth: 0,
+            options: *options,
+            output: builder
         }
+    }
 
-        self.finish();
-
-        return Ok(self.output.end_geometry());
+    pub fn set_options(&mut self, options: &StrokeOptions) {
+        self.options = *options;
     }
 
     fn finish(&mut self) {
-        match self.line_cap {
+        match self.options.line_cap {
             LineCap::Butt | LineCap::Square => {}
             _ => {
-                println!("[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.", self.line_cap);
+                println!("[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.", self.options.line_cap);
             }
         }
 
-        let hw = self.stroke_width * 0.5;
+        let hw = self.options.stroke_width * 0.5;
 
-        if self.line_cap == LineCap::Square && self.nth == 0 {
+        if self.options.line_cap == LineCap::Square && self.nth == 0 {
             // Even if there is no edge, if we are using square caps we have to place a square
             // at the current position.
             let a = self.output.add_vertex(self.current + vec2(-hw, -hw));
@@ -126,7 +137,7 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
         if self.nth > 0 {
             let current = self.current;
             let d = self.current - self.previous;
-            if self.line_cap == LineCap::Square {
+            if self.options.line_cap == LineCap::Square {
                 // The easiest way to implement square caps is to lie about the current position
                 // and move it slightly to accommodate for the width/2 extra length.
                 self.current = self.current + d.normalized() * hw;
@@ -141,11 +152,11 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
         if self.nth > 1 {
             let mut first = self.first;
             let d = first - self.second;
-            if self.line_cap == LineCap::Square {
+            if self.options.line_cap == LineCap::Square {
                 first = first + d.normalized() * hw;
             }
             let fake_prev = first + d;
-            let (a, b, c_opt) = get_angle_info(fake_prev, first, self.second, self.stroke_width);
+            let (a, b, c_opt) = get_angle_info(fake_prev, first, self.second, self.options.stroke_width);
             assert!(c_opt.is_none()); // will be used for yet-to-be-implemented line join types.
             let first_a_id = self.output.add_vertex(a);
             let first_b_id = self.output.add_vertex(b);
@@ -166,7 +177,7 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokingContext<'l, Output> {
             self.nth += 1;
             return;
         }
-        let (a, b, c_opt) = get_angle_info(self.previous, self.current, to, self.stroke_width);
+        let (a, b, c_opt) = get_angle_info(self.previous, self.current, to, self.options.stroke_width);
         let a_id = self.output.add_vertex(a);
         let b_id = self.output.add_vertex(b);
         let (c, c_id) = if let Some(c) = c_opt { (c, self.output.add_vertex(c)) } else { (b, b_id) };
@@ -218,12 +229,7 @@ fn get_angle_info(previous: Point, current: Point, next: Point, width: f32) -> (
             if (n1 - n2).square_length() < 0.000001 {
                 pn1x
             } else {
-                // TODO: the angle is very narrow, use rounded corner instead
-                //panic!("Not implemented yet");
-                println!("!! narrow angle at {:?} {:?} {:?} | {:?} {:?} {:?}",
-                    current, directed_angle(n1, n2), directed_angle2(current, previous, next),
-                    previous, current, next,
-                );
+                println!("[StrokeTessellator] unimplemented narrow angle."); // TODO
                 current + (current - previous) * amount / (current - previous).length()
             }
         }
@@ -255,8 +261,7 @@ pub enum LineJoin {
 }
 
 /// Parameters for the tessellator.
-///
-/// Not used yet (only one configuration supported).
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeOptions {
     /// Thickness of the stroke.
     pub stroke_width: f32,
@@ -265,9 +270,13 @@ pub struct StrokeOptions {
     pub line_cap: LineCap,
 
     /// See the SVG secification.
+    ///
+    /// Not implemented yet!
     pub line_join: LineJoin,
 
     /// See the SVG secification.
+    ///
+    /// Not implemented yet!
     pub miter_limit: f32,
 
     /// Maximum allowed distance to the path when building an approximation.
@@ -280,7 +289,7 @@ pub struct StrokeOptions {
     pub vertex_aa: bool,
 
     // To be able to add fields without making it a breaking change, add an empty private field
-    // which makes it impossible to create a StrokeOptions without the calling constructor.
+    // which makes it impossible to create a StrokeOptions without calling the constructor.
     _private: (),
 }
 

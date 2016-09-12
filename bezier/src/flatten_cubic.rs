@@ -15,7 +15,7 @@ use std::mem::swap;
 /// threshold.
 /// The iterator starts at the first point *after* the origin of the curve and ends at the
 /// destination.
-pub struct CubicFlattenIter {
+pub struct CubicFlatteningIter {
     curve: CubicBezierSegment,
     sub_curve: Option<CubicBezierSegment>,
     next_inflection_start: f32,
@@ -32,7 +32,7 @@ fn clamp(a: f32, min: f32, max: f32) -> f32 {
     return a;
 }
 
-impl CubicFlattenIter {
+impl CubicFlatteningIter {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment, tolerance: f32) -> Self {
@@ -41,7 +41,7 @@ impl CubicFlattenIter {
         let first_inflection = first_inflection.unwrap_or(-1.0);
         let second_inflection = second_inflection.unwrap_or(-1.0);
 
-        let mut iter = CubicFlattenIter {
+        let mut iter = CubicFlatteningIter {
             curve: bezier,
             sub_curve: None,
             next_inflection_start: f32::NAN,
@@ -85,7 +85,7 @@ impl CubicFlattenIter {
     }
 }
 
-impl Iterator for CubicFlattenIter {
+impl Iterator for CubicFlatteningIter {
     type Item = Point;
     fn next(&mut self) -> Option<Point> {
         if let Some(sub_curve) = self.sub_curve {
@@ -279,8 +279,8 @@ fn no_inflection_flattening_step(
     bezier: &CubicBezierSegment,
     tolerance: f32,
 ) -> f32 {
-    let v1 = bezier.cp1 - bezier.from;
-    let v2 = bezier.cp2 - bezier.from;
+    let v1 = bezier.ctrl1 - bezier.from;
+    let v2 = bezier.ctrl2 - bezier.from;
 
     // To remove divisions and check for divide-by-zero, this is optimized from:
     // Float s2 = (v2.x * v1.y - v2.y * v1.x) / hypot(v1.x, v1.y);
@@ -308,9 +308,9 @@ fn find_cubic_bezier_inflection_points(
     // Find inflection points.
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
-    let pa = bezier.cp1 - bezier.from;
-    let pb = bezier.cp2 - (bezier.cp1 * 2.0) + bezier.from;
-    let pc = bezier.to - (bezier.cp2 * 3.0) + (bezier.cp1 * 3.0) - bezier.from;
+    let pa = bezier.ctrl1 - bezier.from;
+    let pb = bezier.ctrl2 - (bezier.ctrl1 * 2.0) + bezier.from;
+    let pc = bezier.to - (bezier.ctrl2 * 3.0) + (bezier.ctrl1 * 3.0) - bezier.from;
 
     let a = pb.x * pc.y - pb.y * pc.x;
     let b = pa.x * pc.y - pa.y * pc.x;
@@ -382,20 +382,20 @@ fn find_cubic_bezier_inflection_approximation_range(
 ) {
     let bezier = bezier_segment.after_split(t);
 
-    let cp21 = bezier.cp1 - bezier.from;
-    let cp41 = bezier.to - bezier.from;
+    let ctrl21 = bezier.ctrl1 - bezier.from;
+    let ctrl41 = bezier.to - bezier.from;
 
-    if cp21.x == 0.0 && cp21.y == 0.0 {
-        // In this case s3 becomes lim[n->0] (cp41.x * n) / n - (cp41.y * n) / n = cp41.x - cp41.y.
+    if ctrl21.x == 0.0 && ctrl21.y == 0.0 {
+        // In this case s3 becomes lim[n->0] (ctrl41.x * n) / n - (ctrl41.y * n) / n = ctrl41.x - ctrl41.y.
 
         // Use the absolute value so that Min and Max will correspond with the
         // minimum and maximum of the range.
-        *min = t - cubic_root((tolerance / (cp41.x - cp41.y)).abs());
-        *max = t + cubic_root((tolerance / (cp41.x - cp41.y)).abs());
+        *min = t - cubic_root((tolerance / (ctrl41.x - ctrl41.y)).abs());
+        *max = t + cubic_root((tolerance / (ctrl41.x - ctrl41.y)).abs());
         return;
     }
 
-    let s3 = (cp41.x * cp21.y - cp41.y * cp21.x) / cp21.x.hypot(cp21.y);
+    let s3 = (ctrl41.x * ctrl21.y - ctrl41.y * ctrl21.x) / ctrl21.x.hypot(ctrl21.y);
 
     if s3 == 0.0 {
         // This means within the precision we have it can be approximated
@@ -438,11 +438,11 @@ fn test_iterator_builder_1() {
     let tolerance = 0.01;
     let c1 = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
-        cp1: Point::new(1.0, 0.0),
-        cp2: Point::new(1.0, 1.0),
+        ctrl1: Point::new(1.0, 0.0),
+        ctrl2: Point::new(1.0, 1.0),
         to: Point::new(0.0, 1.0),
     };
-    let iter_points: Vec<Point> = c1.flatten_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
 
@@ -455,11 +455,11 @@ fn test_iterator_builder_2() {
     let tolerance = 0.01;
     let c1 = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
-        cp1: Point::new(1.0, 0.0),
-        cp2: Point::new(0.0, 1.0),
+        ctrl1: Point::new(1.0, 0.0),
+        ctrl2: Point::new(0.0, 1.0),
         to: Point::new(1.0, 1.0),
     };
-    let iter_points: Vec<Point> = c1.flatten_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
 
@@ -472,11 +472,11 @@ fn test_iterator_builder_3() {
     let tolerance = 0.01;
     let c1 = CubicBezierSegment {
         from: Point::new(141.0, 135.0),
-        cp1: Point::new(141.0, 130.0),
-        cp2: Point::new(140.0, 130.0),
+        ctrl1: Point::new(141.0, 130.0),
+        ctrl2: Point::new(140.0, 130.0),
         to: Point::new(131.0, 130.0),
     };
-    let iter_points: Vec<Point> = c1.flatten_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
 

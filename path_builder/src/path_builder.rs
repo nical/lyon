@@ -3,14 +3,31 @@ use core::math::*;
 use bezier::{ CubicBezierSegment, QuadraticBezierSegment };
 use arc::arc_to_cubic_beziers;
 
+/// The most basic path building interface. Does not handle any kind of curve.
 pub trait BaseBuilder : ::std::marker::Sized {
+    /// The type of object that is created by this builder.
     type PathType;
 
+    /// Sets the current position in preparation for the next sub-path.
+    /// If the current sub-path contains edges, this ends the sub-path without closing it.
     fn move_to(&mut self, to: Point);
+
+    /// Adds a line segment to the current sub-path and set the current position.
     fn line_to(&mut self, to: Point);
+
+    /// Closes the current sub path and sets the current position to the first position of
+    /// this the current sub-path.
+    ///
+    /// Subsequent commands will affect the next sub-path.
     fn close(&mut self);
 
+    /// Builds a path object and resets the builder so that it can be used again.
     fn build(self) -> Self::PathType;
+
+    /// Builds a path object and resets the builder so that it can be used again.
+    fn build_and_reset(&mut self) -> Self::PathType;
+
+    fn current_position(&self) -> Point;
 
     fn flat_event(&mut self, event: FlattenedEvent) {
         match event {
@@ -19,14 +36,18 @@ pub trait BaseBuilder : ::std::marker::Sized {
             FlattenedEvent::Close => { self.close(); }
         }
     }
+
+    /// Returns a builder that approximates all curves with sequences of line segments.
+    fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> {
+        FlatteningBuilder::new(self, tolerance)
+    }
 }
 
-/// The base path building interface. More elaborate interfaces are built on top
+/// The main path building interface. More elaborate interfaces are built on top
 /// of the provided primitives.
 pub trait PathBuilder : BaseBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
-    fn current_position(&self) -> Point;
 
     fn path_event(&mut self, event: PathEvent) {
         match event {
@@ -40,11 +61,6 @@ pub trait PathBuilder : BaseBuilder {
 
     /// Returns a builder that support svg commands.
     fn with_svg(self) -> SvgPathBuilder<Self> { SvgPathBuilder::new(self) }
-
-    /// Returns a builder that approximates all curves with sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlattenedBuilder<Self> {
-        FlattenedBuilder::new(self, tolerance)
-    }
 }
 
 /// A path building interface that tries to stay close to SVG's path specification.
@@ -133,7 +149,13 @@ impl<Builder: PathBuilder> BaseBuilder for SvgPathBuilder<Builder> {
         self.builder.close()
     }
 
+    fn current_position(&self) -> Vec2 {
+        self.builder.current_position()
+    }
+
     fn build(self) -> Builder::PathType { self.builder.build() }
+
+    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
 }
 
 impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
@@ -145,10 +167,6 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         self.last_ctrl = ctrl2;
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
-    }
-
-    fn current_position(&self) -> Vec2 {
-        self.builder.current_position()
     }
 }
 
@@ -235,12 +253,12 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
 }
 
 /// Generates flattened paths
-pub struct FlattenedBuilder<Builder> {
+pub struct FlatteningBuilder<Builder> {
     builder: Builder,
     tolerance: f32,
 }
 
-impl<Builder: PathBuilder> BaseBuilder for FlattenedBuilder<Builder> {
+impl<Builder: BaseBuilder> BaseBuilder for FlatteningBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
@@ -249,14 +267,18 @@ impl<Builder: PathBuilder> BaseBuilder for FlattenedBuilder<Builder> {
 
     fn close(&mut self) { self.builder.close() }
 
+    fn current_position(&self) -> Point { self.builder.current_position() }
+
     fn build(self) -> Builder::PathType { self.builder.build() }
+
+    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
 }
 
-impl<Builder: PathBuilder> PathBuilder for FlattenedBuilder<Builder> {
+impl<Builder: BaseBuilder> PathBuilder for FlatteningBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         QuadraticBezierSegment {
             from: self.current_position(),
-            cp: ctrl,
+            ctrl: ctrl,
             to: to
         }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
@@ -264,18 +286,16 @@ impl<Builder: PathBuilder> PathBuilder for FlattenedBuilder<Builder> {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         CubicBezierSegment{
             from: self.current_position(),
-            cp1: ctrl1,
-            cp2: ctrl2,
+            ctrl1: ctrl1,
+            ctrl2: ctrl2,
             to: to,
         }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
-
-    fn current_position(&self) -> Point { self.builder.current_position() }
 }
 
-impl<Builder: PathBuilder> FlattenedBuilder<Builder> {
-    pub fn new(builder: Builder, tolerance: f32) -> FlattenedBuilder<Builder> {
-        FlattenedBuilder {
+impl<Builder: BaseBuilder> FlatteningBuilder<Builder> {
+    pub fn new(builder: Builder, tolerance: f32) -> FlatteningBuilder<Builder> {
+        FlatteningBuilder {
             builder: builder,
             tolerance: tolerance,
         }
@@ -284,7 +304,7 @@ impl<Builder: PathBuilder> FlattenedBuilder<Builder> {
     pub fn set_tolerance(&mut self, tolerance: f32) { self.tolerance = tolerance }
 }
 
-impl<Builder: PathBuilder> PolygonBuilder for Builder {
+impl<Builder: BaseBuilder> PolygonBuilder for Builder {
     fn polygon(&mut self, points: &[Point]) {
         assert!(!points.is_empty());
 
