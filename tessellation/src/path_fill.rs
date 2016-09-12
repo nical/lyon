@@ -1,7 +1,6 @@
 //! Tessellation routines for complex path fill operations.
 
 use std::f32::consts::PI;
-use std::i32;
 use std::mem::swap;
 use std::cmp::{ PartialOrd, Ordering };
 use std::cmp;
@@ -615,7 +614,7 @@ impl FillTessellator {
 
             // Test for an intersection against the span's left edge.
             if !span.left.merge {
-                match segment_intersection_int(
+                match segment_intersection(
                     edge.upper, edge.lower,
                     span.left.upper, span.left.lower,
                 ) {
@@ -662,7 +661,7 @@ impl FillTessellator {
 
             // Same thing for the span's right edge.
             if !span.right.merge {
-                match segment_intersection_int(
+                match segment_intersection(
                     edge.upper, edge.lower,
                     span.right.upper, span.right.lower,
                 ) {
@@ -873,50 +872,34 @@ enum SegmentInteresection {
     None,
 }
 
-fn segment_intersection_int(
-    a1: TessPoint, b1: TessPoint, // The new edge.
-    a2: TessPoint, b2: TessPoint  // An already inserted edge.
-) -> SegmentInteresection {
-    let r1 = segment_intersection_int2(a1, b1, a2, b2);
-//    let r2 = segment_intersection_fixed(a1, b1, a2, b2);
-//
-//    assert_eq!(r1, r2);
-
-    return r1;
-}
-
-fn segment_intersection_int2(
+fn segment_intersection(
     a1: TessPoint, b1: TessPoint, // The new edge.
     a2: TessPoint, b2: TessPoint  // An already inserted edge.
 ) -> SegmentInteresection {
 
-    fn tess_point(x: i64, y: i64) -> TessPoint {
-        TessPoint::new(FixedPoint32::from_raw(x as i32), FixedPoint32::from_raw(y as i32))
+    fn tess_point(x: f64, y: f64) -> TessPoint {
+        TessPoint::new(FixedPoint32::from_f64(x), FixedPoint32::from_f64(y))
     }
 
     //println!(" -- test intersection {:?} {:?} x {:?} {:?}", a1, b1, a2, b2);
 
-    // Locally work with 64 bit integers to avoid overflow. We don't need to apply
-    // the fixed point's division because the equation preserves the unit, letting
-    // us work directly with the raw integer representation and avoid precision loss
-    // when performing divisions.
-    let a1 = Int64Point::new(a1.x.raw() as i64, a1.y.raw() as i64);
-    let b1 = Int64Point::new(b1.x.raw() as i64, b1.y.raw() as i64);
-    let a2 = Int64Point::new(a2.x.raw() as i64, a2.y.raw() as i64);
-    let b2 = Int64Point::new(b2.x.raw() as i64, b2.y.raw() as i64);
+    let a1 = F64Point::new(a1.x.to_f64(), a1.y.to_f64());
+    let b1 = F64Point::new(b1.x.to_f64(), b1.y.to_f64());
+    let a2 = F64Point::new(a2.x.to_f64(), a2.y.to_f64());
+    let b2 = F64Point::new(b2.x.to_f64(), b2.y.to_f64());
 
     let v1 = b1 - a1;
     let v2 = b2 - a2;
 
-    debug_assert!(v2.x != 0 || v2.y != 0, "zero-length edge");
+    debug_assert!(v2.x != 0.0 || v2.y != 0.0, "zero-length edge");
 
     let v1_cross_v2 = v1.cross(v2);
     let a2_a1_cross_v1 = (a2 - a1).cross(v1);
 
     //println!(" -- v1_cross_v2 {}, a2_a1_cross_v1 {}", v1_cross_v2, a2_a1_cross_v1);
 
-    if v1_cross_v2 == 0 {
-        if a2_a1_cross_v1 != 0 {
+    if v1_cross_v2 == 0.0 {
+        if a2_a1_cross_v1 != 0.0 {
             return SegmentInteresection::None;
         }
         // The two segments are colinear.
@@ -928,7 +911,7 @@ fn segment_intersection_int2(
         // We know that a1 cannot be above a2 so if b1 is between a2 and b2, we have
         // the order a2 -> a1 -> b1 -> b2.
         let v2_dot_b1a2 = v2.dot(b1 - a2);
-        if v2_dot_b1a2 > 0 && v2_dot_b1a2 < v2_sqr_len {
+        if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len {
             //println!(" -- colinear intersection");
             return SegmentInteresection::Two(
                 tess_point(a1.x, a1.y),
@@ -939,7 +922,7 @@ fn segment_intersection_int2(
         // We know that a1 cannot be above a2 and if b1 is below b2, so if
         // b2 is between a1 and b1, then we have the order a2 -> a1 -> b2 -> b1.
         let v1_dot_b2a1 = v1.dot(b2 - a1);
-        if v1_dot_b2a1 > 0 && v1_dot_b2a1 < v1_sqr_len {
+        if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len {
             //println!(" -- colinear intersection");
             return SegmentInteresection::Two(
                 tess_point(a1.x, a1.y),
@@ -955,7 +938,7 @@ fn segment_intersection_int2(
         return SegmentInteresection::None;
     }
 
-    let sign_v1_cross_v2 = if v1_cross_v2 > 0 { 1 } else { -1 };
+    let sign_v1_cross_v2 = if v1_cross_v2 > 0.0 { 1.0 } else { -1.0 };
     let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
 
     // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
@@ -964,7 +947,7 @@ fn segment_intersection_int2(
     let t = (a2 - a1).cross(v2) * sign_v1_cross_v2;
     let u = a2_a1_cross_v1 * sign_v1_cross_v2;
 
-    if t > 0 && t < abs_v1_cross_v2 && u > 0 && u <= abs_v1_cross_v2 {
+    if t > 0.0 && t < abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
 
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
 
@@ -977,108 +960,6 @@ fn segment_intersection_int2(
         let d = (v1 * t) / abs_v1_cross_v2 - v1;
         println!(" -- intersection: t = {} u= {} v1xv2 = {}, d = {:?}", t, u, v1_cross_v2, d);
         return SegmentInteresection::One(tess_point(res.x, res.y));
-        }
-    }
-
-    //if t > 0 && t - abs_v1_cross_v2 < 100 {
-    //    println!(" -- almost intersecting {} {} : {}", t, abs_v1_cross_v2, t - abs_v1_cross_v2 );
-    //}
-
-    return SegmentInteresection::None;
-}
-
-fn segment_intersection_fixed(
-    a1: TessPoint, b1: TessPoint, // The new edge.
-    a2: TessPoint, b2: TessPoint  // An already inserted edge.
-) -> SegmentInteresection {
-
-    fn tess_point(x: i64, y: i64) -> TessPoint {
-        TessPoint::new(FixedPoint32::from_raw(x as i32), FixedPoint32::from_raw(y as i32))
-    }
-
-    //println!(" -- test intersection {:?} {:?} x {:?} {:?}", a1, b1, a2, b2);
-
-    // Locally work with 64 bit integers to avoid overflow. We don't need to apply
-    // the fixed point's division because the equation preserves the unit, letting
-    // us work directly with the raw integer representation and avoid precision loss
-    // when performing divisions.
-    let a1 = TessPoint64::new(a1.x.to_fp64(), a1.y.to_fp64());
-    let b1 = TessPoint64::new(b1.x.to_fp64(), b1.y.to_fp64());
-    let a2 = TessPoint64::new(a2.x.to_fp64(), a2.y.to_fp64());
-    let b2 = TessPoint64::new(b2.x.to_fp64(), b2.y.to_fp64());
-
-    let v1 = b1 - a1;
-    let v2 = b2 - a2;
-
-    debug_assert!(!v2.x.is_zero() || !v2.y.is_zero(), "zero-length edge");
-
-    let v1_cross_v2 = v1.cross(v2);
-    let a2_a1_cross_v1 = (a2 - a1).cross(v1);
-
-    //println!(" -- v1_cross_v2 {}, a2_a1_cross_v1 {}", v1_cross_v2, a2_a1_cross_v1);
-
-    if v1_cross_v2.is_zero() {
-        if !a2_a1_cross_v1.is_zero() {
-            return SegmentInteresection::None;
-        }
-        // The two segments are colinear.
-        //println!(" -- colinear segments");
-
-        let v1_sqr_len = v1.x * v1.x + v1.y * v1.y;
-        let v2_sqr_len = v2.x * v2.x + v2.y * v2.y;
-
-        // We know that a1 cannot be above a2 so if b1 is between a2 and b2, we have
-        // the order a2 -> a1 -> b1 -> b2.
-        let v2_dot_b1a2 = v2.dot(b1 - a2);
-        if v2_dot_b1a2.raw() > 0 && v2_dot_b1a2 < v2_sqr_len {
-            //println!(" -- colinear intersection");
-            return SegmentInteresection::Two(
-                TessPoint::new(a1.x.to_fp32(), a1.y.to_fp32()),
-                TessPoint::new(b1.x.to_fp32(), b1.y.to_fp32()),
-            );
-        }
-
-        // We know that a1 cannot be above a2 and if b1 is below b2, so if
-        // b2 is between a1 and b1, then we have the order a2 -> a1 -> b2 -> b1.
-        let v1_dot_b2a1 = v1.dot(b2 - a1);
-        if v1_dot_b2a1.raw() > 0 && v1_dot_b2a1 < v1_sqr_len {
-            //println!(" -- colinear intersection");
-            return SegmentInteresection::Two(
-                TessPoint::new(a1.x.to_fp32(), a1.y.to_fp32()),
-                TessPoint::new(b2.x.to_fp32(), b2.y.to_fp32()),
-            );
-        }
-
-        return SegmentInteresection::None;
-    }
-
-    if a1 == b2 || a1 == a2 || b1 == a2 || b1 == b2 {
-        //println!(" -- segments touch");
-        return SegmentInteresection::None;
-    }
-
-    let sign_v1_cross_v2 = if v1_cross_v2.raw() > 0 { 1 } else { -1 };
-    let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
-
-    // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
-    // We have to respect the sign of v1_cross_v2 (and therefore t and u) so we apply it now and
-    // will use the absolute value of v1_cross_v2 afterwards.
-    let t = (a2 - a1).cross(v2) * sign_v1_cross_v2;
-    let u = a2_a1_cross_v1 * sign_v1_cross_v2;
-
-    if t.raw() > 0 && t < abs_v1_cross_v2 && u.raw() > 0 && u <= abs_v1_cross_v2 {
-
-        let res = a1 + (v1 * t) / abs_v1_cross_v2;
-
-        debug_assert!(res.y <= b1.y && res.y <= b2.y);
-
-        //debug_assert!(res != a1);
-
-        if res != a1 && res != b1 && res != a2 && res != b2 {
-            //if res != a1 && res != a2 {
-            let d = (v1 * t) / abs_v1_cross_v2 - v1;
-            println!(" -- intersection: t = {} u= {} v1xv2 = {}, d = {:?}", t, u, v1_cross_v2, d);
-            return SegmentInteresection::One(TessPoint::new(res.x.to_fp32(), res.y.to_fp32()));
         }
     }
 
@@ -1857,7 +1738,7 @@ fn test_rust_logo_scale_up() {
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
-    scale_path(&mut path, 1000.0);
+    scale_path(&mut path, 8000.0);
     test_path(path.as_slice(), None);
 }
 
@@ -1886,7 +1767,7 @@ fn test_rust_logo_scale_down() {
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
-    scale_path(&mut path, 0.02);
+    scale_path(&mut path, 0.005);
     test_path(path.as_slice(), None);
 }
 
@@ -2231,14 +2112,14 @@ fn test_colinear_touching_squares3() {
 fn reduced_test_case() {
     let mut builder = Path::builder().flattened(0.05);
 
-    builder.move_to(point(3.825176, -9.29344));
-    builder.line_to(point(13.405333, -6.42628));
-    builder.line_to(point(10.538172, 3.1538765));
+    builder.move_to(vec2(-3.3709216, 9.467676));
+    builder.line_to(vec2(-13.078612, 7.0675235));
+    builder.line_to(vec2(-10.67846, -2.6401677));
     builder.close();
 
-    builder.move_to(point(2.8671603, -9.580156));
-    builder.line_to(point(15.314477, -16.293152));
-    builder.line_to(point(12.447317, -6.712996));
+    builder.move_to(vec2(-4.800305, 19.415382));
+    builder.line_to(vec2(-14.507996, 17.01523));
+    builder.line_to(vec2(-12.107843, 7.307539));
     builder.close();
 
     test_path(builder.build().as_slice(), None);

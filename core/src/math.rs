@@ -7,6 +7,7 @@ pub use euclid::Radians;
 pub type Point = euclid::Point2D<f32>;
 pub type IntPoint = euclid::Point2D<i32>;
 pub type Int64Point = euclid::Point2D<i64>;
+pub type F64Point = euclid::Point2D<f64>;
 // Point and Vec2 are the same type but they should probably be separate types.
 pub type Vec2 = euclid::Point2D<f32>;
 pub type IntVec2 = euclid::Point2D<i32>;

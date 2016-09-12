@@ -83,10 +83,10 @@ pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwi
     println!("    let mut builder = Path::builder().flattened(0.05);\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
-        println!("    builder.move_to(vec2({}, {}));", pos.x, pos.y);
+        println!("    builder.move_to(point({}, {}));", pos.x, pos.y);
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
-            println!("    builder.line_to(vec2({}, {}));", pos.x, pos.y);
+            println!("    builder.line_to(point({}, {}));", pos.x, pos.y);
         }
         println!("    builder.close();\n");
     }
