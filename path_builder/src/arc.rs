@@ -11,7 +11,7 @@ use PathBuilder;
 ///
 /// Angles are expressed in radians.
 pub fn arc_to_cubic_beziers<Builder: PathBuilder>(
-    from: Vec2, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags,
+    from: Vec2, to: Vec2, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags,
     builder: &mut Builder
 ) {
     if radii.x == 0.0 && radii.y == 0.0 {
@@ -19,7 +19,7 @@ pub fn arc_to_cubic_beziers<Builder: PathBuilder>(
         return;
     }
 
-    let x_axis_rotation = x_rotation % (2.0*consts::PI);
+    let x_axis_rotation = x_rotation.get() % (2.0*consts::PI);
 
     // Middle point between start and end point
     let dx = (from.x - to.x) / 2.0;

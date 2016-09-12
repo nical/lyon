@@ -2,6 +2,7 @@ use euclid;
 use fixed;
 
 pub use euclid::Point2D;
+pub use euclid::Radians;
 
 pub type Point = euclid::Point2D<f32>;
 pub type IntPoint = euclid::Point2D<i32>;
@@ -32,6 +33,8 @@ pub fn size(w: f32, h: f32) -> Size { Size::new(w, h) }
 pub fn int_size(w: i32, h: i32) -> IntSize { IntSize::new(w, h) }
 pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect { Rect::new(vec2(x, y), size(w, h)) }
 pub fn int_rect(x: i32, y: i32, w: i32, h: i32) -> IntRect { IntRect::new(int_vec2(x, y), int_size(w, h)) }
+
+pub fn rad(val: f32) -> Radians<f32> { Radians::new(val) }
 
 pub trait Vec2Tuple<S> { fn tuple(self) -> (S, S); }
 

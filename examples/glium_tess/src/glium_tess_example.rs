@@ -218,14 +218,14 @@ fn main() {
         let model_mat = Mat4::identity();
         let mut view_mat = Mat4::identity();
 
-        view_mat = view_mat.translate(-1.0, 1.0, 0.0);
-        view_mat = view_mat.scale(5.0 * zoom, 5.0 * zoom, 0.0);
-        view_mat = view_mat.scale(2.0/resolution.x, -2.0/resolution.y, 1.0);
-        view_mat = view_mat.translate(pos.x, pos.y, 0.0);
+        view_mat = view_mat.pre_translated(-1.0, 1.0, 0.0);
+        view_mat = view_mat.pre_scaled(5.0 * zoom, 5.0 * zoom, 0.0);
+        view_mat = view_mat.pre_scaled(2.0/resolution.x, -2.0/resolution.y, 1.0);
+        view_mat = view_mat.pre_translated(pos.x, pos.y, 0.0);
 
         let uniforms = uniform! {
             u_resolution: resolution.array(),
-            u_matrix: uniform_matrix(&model_mat.mul(&view_mat))
+            u_matrix: uniform_matrix(&model_mat.pre_mul(&view_mat))
         };
 
         target.clear_color(0.75, 0.75, 0.75, 1.0);

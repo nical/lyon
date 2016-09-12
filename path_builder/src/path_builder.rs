@@ -63,8 +63,8 @@ pub trait SvgBuilder : PathBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: f32, flags: ArcFlags);
-    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags);
+    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags);
+    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags);
 
     fn svg_event(&mut self, event: SvgEvent) {
         match event {
@@ -214,7 +214,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     }
 
     // x_rotation in radian
-    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
+    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags) {
 
         // If end and starting point are identical, then there is not ellipse to be drawn
         if self.current_position() == to {
@@ -228,7 +228,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         );
     }
 
-    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: f32, flags: ArcFlags) {
+    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags) {
         let offset = self.builder.current_position();
         self.arc_to(to + offset, radii, x_rotation, flags);
     }

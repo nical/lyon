@@ -10,4 +10,4 @@ license = "MIT/Apache-2.0"
 name = "lyon_bezier"
 
 [dependencies]
-euclid = "0.8.1"
+euclid = "0.10.1"
