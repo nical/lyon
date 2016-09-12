@@ -16,7 +16,7 @@ pub type IntSize = euclid::Size2D<i32>;
 pub type Rect = euclid::Rect<f32>;
 pub type IntRect = euclid::Rect<i32>;
 
-pub type FixedPoint32 = fixed::Fp32<fixed::_8>;
+pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
 pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
 pub type TessPoint = Point2D<FixedPoint32>;
 pub type TessPoint64 = Point2D<FixedPoint64>;

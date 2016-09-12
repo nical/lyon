@@ -2112,14 +2112,14 @@ fn test_colinear_touching_squares3() {
 fn reduced_test_case() {
     let mut builder = Path::builder().flattened(0.05);
 
-    builder.move_to(vec2(-3.3709216, 9.467676));
-    builder.line_to(vec2(-13.078612, 7.0675235));
-    builder.line_to(vec2(-10.67846, -2.6401677));
+    builder.move_to(point(-3.3709216, 9.467676));
+    builder.line_to(point(-13.078612, 7.0675235));
+    builder.line_to(point(-10.67846, -2.6401677));
     builder.close();
 
-    builder.move_to(vec2(-4.800305, 19.415382));
-    builder.line_to(vec2(-14.507996, 17.01523));
-    builder.line_to(vec2(-12.107843, 7.307539));
+    builder.move_to(point(-4.800305, 19.415382));
+    builder.line_to(point(-14.507996, 17.01523));
+    builder.line_to(point(-12.107843, 7.307539));
     builder.close();
 
     test_path(builder.build().as_slice(), None);
