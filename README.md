@@ -19,14 +19,75 @@ The project is split into small crates:
 * lyon_bezier: 2d quadratic and cubic bezier curve maths, including an efficient flattening algorithm.
 * lyon_extra: various optional utilities.
 
-## TODO
-
-There is a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO). If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), please let me know on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
-
 ## Status
 
 The focus right now is on implementing a SVG compliant path tessellator (rather than an actual SVG render).
-The tessellator can currently only operate on flattened paths. It is able to handle most complex cases including self intersections, but there are still some bugs that need to be found and fixed. The API is not stable at all.
+
+- path
+  - [x] bezier curves (through path flattening) 
+  - [x] SVG 1.1
+  - [x] builder API
+  - [x] iterator API
+- complex fill
+  - [x] fill shape types
+    - [x] concave shapes
+    - [x] self-intersections
+    - [x] concave shapes
+    - [x] self-intersections
+  - [ ] fill rule
+    - [x] even-odd
+    - [ ] non-zero
+  - [ ] vertex-aa
+  - [ ] clip rect
+  - [ ] stable API
+- complex stroke
+  - [ ] line cap
+    - [x] butt
+    - [x] square
+    - [ ] round
+  - [ ] line join
+    - [ ] miter
+    - [ ] miter clip
+    - [ ] round
+    - [ ] bevel
+    - [ ] arcs
+  - [ ] vertex-aa
+  - [ ] clip rect
+  - [ ] stable API
+- basic shapes
+  - [ ] quad
+    - [x] fill
+    - [ ] stroke
+  - [ ] rectangle
+    - [x] fill
+    - [ ] stroke
+  - [ ] rounded rectangle
+    - [ ] fill
+    - [ ] stroke
+  - [x] ellipsis
+    - [x] fill
+    - [ ] stroke
+  - [ ] convex polygon
+    - [ ] fill
+    - [ ] stroke
+  - [ ] nine-patch
+- path flattening
+  - [x] builder
+  - [x] iterator
+- testing
+  - [x] fill
+    - [x] test suite
+    - [x] automatic test-case reduction
+    - [ ] reference testing
+    - [ ] fuzzing
+  - [ ] stroke
+  - [ ] basic shapes
+
+
+## TODO
+
+There are the unticked items above as well as a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO). If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), please let me know on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
+
 
 ## License
 
