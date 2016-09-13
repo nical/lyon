@@ -32,8 +32,7 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
   - [x] fill shape types
     - [x] concave shapes
     - [x] self-intersections
-    - [x] concave shapes
-    - [x] self-intersections
+    - [x] holes
   - [ ] fill rule
     - [x] even-odd
     - [ ] non-zero
