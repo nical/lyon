@@ -1,5 +1,3 @@
-#![feature(associated_consts)]
-
 extern crate euclid;
 
 pub mod math;
