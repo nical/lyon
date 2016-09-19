@@ -43,10 +43,6 @@ struct EdgeBelow {
     angle: f32,
 }
 
-// These two constants define the precision of the tessellator.
-const UNIT_SCALE: f32 = 1000.0; // number of tessellator unit per world unit.
-const UNIT_INV_SCALE: f32 = 0.001; // Size of a tessellator unit in world units.
-
 /// A Context object that can tessellate fill operations for complex paths.
 ///
 /// The Tessellator API is not stable yet. For example it is not clear whether we will use
@@ -1743,8 +1739,7 @@ fn test_rust_logo_scale_up() {
 }
 
 #[test]
-#[ignore]
-fn test_rust_logo_scale_up_failing() {
+fn test_rust_logo_scale_up_2() {
     // This test triggers integers overflow in the tessellator.
     // In order to fix this type issue we need to:
     // * Look at the computation that is casuing trouble and see if it can be expressed in
@@ -1772,8 +1767,7 @@ fn test_rust_logo_scale_down() {
 }
 
 #[test]
-#[ignore] // TODO
-fn test_rust_logo_scale_down_failing() {
+fn test_rust_logo_scale_down2() {
     // Issues with very small paths.
 
     let mut builder = Path::builder().with_svg();
