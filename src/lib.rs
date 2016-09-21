@@ -16,7 +16,7 @@
 //!
 //! # Additional documentation
 //!
-//! The is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
+//! There is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
 //!
 
 
