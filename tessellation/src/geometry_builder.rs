@@ -1,4 +1,80 @@
-//! Tools to help with populating vertex and index buffers
+//! # Geometry builder
+//!
+//! Tools to help with populating vertex and index buffers.
+//!
+//! ## Overview
+//!
+//! TODO
+//!
+//! ## Example
+//!
+//! ```
+//! // This example sets up a simple function that generates the vertices and indices for
+//! // colored quads, using some of the tools provided in this crate.
+//! // Note that for simplicity in this example we use [f32; 2] to represent positions,
+//! // while most of the more advanced tessellator code use euclid points.
+//! use lyon_tessellation::geometry_builder::*;
+//!
+//! // Define our vertex type.
+//! #[derive(Copy, Clone, PartialEq, Debug)]
+//! struct Vertex2d {
+//!   position: [f32; 2],
+//!   color: [f32; 4],
+//! }
+//!
+//! // The vertex constructor. This is the object that will be used to create vertices from
+//! // a position provided by the geometry builder. In this specific case the vertex constructor
+//! // stores a constant color which will be applied to all vertices.
+//! struct WithColor([f32; 4]);
+//!
+//! // Implement the VertexConstructor trait accordingly. WithColor takes a [f32; 2] position as
+//! // input and returns a Vertex2d.
+//! impl VertexConstructor<[f32; 2], Vertex2d> for WithColor {
+//!     fn new_vertex(&mut self, pos: [f32; 2]) -> Vertex2d {
+//!         Vertex2d {
+//!             position: pos,
+//!             color: self.0
+//!         }
+//!     }
+//! }
+//!
+//! // A typical "algortihm" that generates some geometry, in this case a simple axis-aligned quad.
+//! // Returns a structure containing the number of vertices and number of indices allocated during
+//! // the execution of this method.
+//! fn make_quad<Builder: GeometryBuilder<[f32; 2]>>(
+//!     top_left: [f32; 2],
+//!     size: [f32; 2],
+//!     builder: &mut Builder
+//! ) -> Count {
+//!     builder.begin_geometry();
+//!     // Create the vertices...
+//!     let a = builder.add_vertex(top_left);
+//!     let b = builder.add_vertex([top_left[0] + size[0], top_left[1]]);
+//!     let c = builder.add_vertex([top_left[0] + size[0], top_left[1] + size[1]]);
+//!     let d = builder.add_vertex([top_left[0], top_left[1] + size[1]]);
+//!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
+//!     // vertex buffer.
+//!     builder.add_triangle(a, b, c);
+//!     builder.add_triangle(a, c, d);
+//!     return builder.end_geometry();
+//! }
+//!
+//! // Allocate a vertex buffer and an index buffer. This is typically what we would want to
+//! // send to the GPU for rendering.
+//! let mut buffers: VertexBuffers<Vertex2d> = VertexBuffers::new();
+//!
+//! // Finally, generate the geometry using the function we created above to make a red square...
+//! let red = [1.0, 0.0, 0.0, 1.0];
+//! make_quad([0.0, 0.0], [1.0, 1.0], &mut vertex_builder(&mut buffers, WithColor(red)));
+//!
+//! // ...an a green one.
+//! let green = [0.0, 1.0, 0.0, 1.0];
+//! make_quad([2.0, 0.0], [1.0, 1.0], &mut vertex_builder(&mut buffers, WithColor(green)));
+//!
+//! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
+//! println!("The generated indices are: {:?}.", &buffers.indices[..]);
+//! ```
+
 
 use std::marker::PhantomData;
 use std::ops::Add;
@@ -17,7 +93,7 @@ impl VertexId {
     pub fn offset(&self) -> u16 { self.0 }
 }
 
-/// An interface separating tesselators and other geometry generation algorthms from the
+/// An interface separating tessellators and other geometry generation algorthms from the
 /// actual vertex construction.
 pub trait GeometryBuilder<Input> {
     /// Called at the beginning of a generation.
@@ -118,7 +194,7 @@ BuffersBuilder<'l, VertexType, Input, Ctor> {
     }
 }
 
-/// Constructor
+/// Creates a BuffersBuilder.
 pub fn vertex_builder<'l,
     VertexType,
     Input,
@@ -152,7 +228,7 @@ impl<T> VertexConstructor<T, T> for Identity {
 /// A BuffersBuilder that takes the actual vertex type as input.
 pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l, VertexType, VertexType, Identity>;
 
-/// Constructor
+/// Creates a SimpleBuffersBuilder.
 pub fn simple_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType>) -> SimpleBuffersBuilder<'l, VertexType> {
     let vertex_offset = buffers.vertices.len() as Index;
     let index_offset = buffers.indices.len() as Index;
@@ -165,7 +241,7 @@ pub fn simple_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType
     }
 }
 
-/// Number of vertices and indices added during the tesselation.
+/// Number of vertices and indices added during the tessellation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Count {
     vertices: u32,
@@ -226,6 +302,8 @@ where VertexType:'l + Clone, Ctor: VertexConstructor<Input, VertexType> {
 
 #[test]
 fn test_simple_quad() {
+    // Same as the example from the documentation with some assertions.
+
     #[derive(Copy, Clone, PartialEq, Debug)]
     struct Vertex2d {
       position: [f32; 2],

@@ -1,3 +1,16 @@
+//! # Path iterators
+//!
+//! Composable tools to iterate over paths.
+//!
+//! ## Overview
+//!
+//! TODO
+//!
+//! ## Example
+//!
+//! TODO
+//!
+
 use std::iter;
 
 use core::{ PathEvent, SvgEvent, FlattenedEvent, PathState };

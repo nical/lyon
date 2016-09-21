@@ -1,4 +1,58 @@
+//! # Path fill tessellator
+//!
 //! Tessellation routines for complex path fill operations.
+//!
+//! ## Overview
+//!
+//! TODO
+//!
+//! # Examples
+//!
+//! ```
+//! # extern crate lyon_tessellation;
+//! # extern crate lyon_core;
+//! # extern crate lyon_path;
+//! # extern crate lyon_path_builder;
+//! # extern crate lyon_path_iterator;
+//! # use lyon_path::Path;
+//! # use lyon_path_builder::*;
+//! # use lyon_path_iterator::*;
+//! # use lyon_core::math::{Point, point};
+//! # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
+//! # use lyon_tessellation::path_fill::*;
+//! # fn main() {
+//! // Create a simple path.
+//! let mut path_builder = Path::builder();
+//! path_builder.move_to(point(0.0, 0.0));
+//! path_builder.line_to(point(1.0, 2.0));
+//! path_builder.line_to(point(2.0, 0.0));
+//! path_builder.line_to(point(1.0, 1.0));
+//! path_builder.close();
+//! let path = path_builder.build();
+//!
+//! // Create the destination vertex and index buffers.
+//! let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+//!
+//! {
+//!     // Create the destination vertex and index buffers.
+//!     let mut vertex_builder = simple_builder(&mut buffers);
+//!
+//!     // Create the tessellator.
+//!     let mut tessellator = FillTessellator::new();
+//!
+//!     // Allocate the FillEvents object and initialize it from a path iterator.
+//!     let events = FillEvents::from_iter(path.path_iter().flattened(0.05));
+//!
+//!     // Compute the tessellation.
+//!     let result = tessellator.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder);
+//!     assert!(result.is_ok());
+//! }
+//!
+//! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
+//! println!("The generated indices are: {:?}.", &buffers.indices[..]);
+//!
+//! # }
+//! ```
 
 use std::f32::consts::PI;
 use std::mem::swap;
@@ -844,7 +898,7 @@ fn compare_positions(a: TessPoint, b: TessPoint) -> Ordering {
     return Ordering::Equal;
 }
 
-pub fn line_horizontal_intersection_fixed(
+fn line_horizontal_intersection_fixed(
     a: TessPoint,
     b: TessPoint,
     y: FixedPoint32
@@ -1069,6 +1123,7 @@ impl Span {
 fn to_internal(v: Point) -> TessPoint { TessPoint::new(fixed(v.x), fixed(v.y)) }
 fn to_vec2(v: TessPoint) -> Point { vec2(v.x.to_f32(), v.y.to_f32()) }
 
+/// A sequence of edges sorted from top to bottom, to be used as the tessellator's input.
 pub struct FillEvents {
     edges: Vec<Edge>,
     vertices: Vec<TessPoint>,
