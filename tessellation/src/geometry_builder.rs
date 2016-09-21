@@ -17,7 +17,7 @@ impl VertexId {
     pub fn offset(&self) -> u16 { self.0 }
 }
 
-/// An interface separating tesselators and other geometry generation algorthms from the
+/// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
 pub trait GeometryBuilder<Input> {
     /// Called at the beginning of a generation.
@@ -165,7 +165,7 @@ pub fn simple_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType
     }
 }
 
-/// Number of vertices and indices added during the tesselation.
+/// Number of vertices and indices added during the tessellation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Count {
     vertices: u32,
