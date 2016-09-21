@@ -1,7 +1,19 @@
+//! ## Path stroke tessellator
+//!
 //! Tessellation routines for path stroke operations.
 //!
 //! The current implementation is pretty basic and does not deal with overlap in an svg-compliant
 //! way.
+//!
+//! ## Overview
+//!
+//! TODO
+//!
+//! ## Example
+//!
+//! TODO
+//!
+
 
 use math::*;
 use core::FlattenedEvent;
