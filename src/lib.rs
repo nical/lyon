@@ -14,6 +14,11 @@
 //!
 //! This crate is just a meta-crate, reexporting the crates listed above.
 //!
+//! # Additional documentation
+//!
+//! The is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
+//!
+
 
 pub extern crate lyon_core;
 pub extern crate lyon_path;

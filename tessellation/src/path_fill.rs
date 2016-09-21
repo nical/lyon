@@ -2,9 +2,40 @@
 //!
 //! Tessellation routines for complex path fill operations.
 //!
+//! <svg version="1.1" viewBox="0 0 400 200" height="200" width="400">
+//!   <g transform="translate(0,-852.36216)">
+//!     <path style="fill:#aad400;stroke:none;" transform="translate(0,852.36216)" d="M 20 20 L 20 180 L 180.30273 180 L 180.30273 20 L 20 20 z M 100 55 L 145 145 L 55 145 L 100 55 z "/>
+//!     <path style="fill:#aad400;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-" d="m 219.75767,872.36216 0,160.00004 160.30273,0 0,-160.00004 -160.30273,0 z m 80,35 45,90 -90,0 45,-90 z"/>
+//!     <path style="fill:none;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-" d="m 220,1032.3622 35,-35.00004 125,35.00004 -35,-35.00004 35,-125 -80,35 -80,-35 35,125"/>
+//!     <circle r="5" cy="872.36218" cx="20" style="color:#000000;;fill:#ff6600;fill-;stroke:#000000;" />
+//!     <circle r="5" cx="180.10918" cy="872.61475" style="fill:#ff6600;stroke:#000000;"/>
+//!     <circle r="5" cy="1032.2189" cx="180.10918" style="fill:#ff6600;stroke:#000000;"/>
+//!     <circle r="5" cx="20.505075" cy="1032.4714" style="fill:#ff6600;stroke:#000000;"/>
+//!     <circle r="5" cy="907.21252" cx="99.802048" style="fill:#ff6600;stroke:#000000;"/>
+//!     <circle r="5" cx="55.102798" cy="997.36865" style="fill:#ff6600;stroke:#000000;"/>
+//!     <circle r="5" cy="997.62122" cx="145.25891" style="fill:#ff6600;stroke:#000000;"/>
+//!   </g>
+//! </svg>
+//!
 //! ## Overview
 //!
-//! TODO
+//! The most important structure is [FillTessellator](struct.FillTessellator.html).
+//! It implements the path fill tessellation algorithm which is by far the most advanced
+//! feature in all lyon crates.
+//!
+//! The FillTessellator takes a [FillEvents](struct.FillEvents.html) object and
+//! [FillOptions](struct.FillOptions.html) as input. The former is an intermediate representaion
+//! of the path, containing all edges sorted from top to bottom. FillOption contains
+//! some extra parameters (Some of which are not implemented yet).
+//!
+//! The output of the tessellator is produced by the
+//! [BezierGeometryBuilder](../geometry_builder/trait.BezierGeometryBuilder.html) (see the
+//! [geometry_builder documentation](../geometry_builder/index.html) for more details about
+//! how tessellators produce their output geometry).
+//!
+//! The [tessellator's wiki page](https://github.com/nical/lyon/wiki/Tessellator) is a good place
+//! to learn more about how the tessellator's algorithm works. The source code also contains
+//! inline documentation for the adventurous who want to delve into more details.
 //!
 //! # Examples
 //!
@@ -44,7 +75,11 @@
 //!     let events = FillEvents::from_iter(path.path_iter().flattened(0.05));
 //!
 //!     // Compute the tessellation.
-//!     let result = tessellator.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder);
+//!     let result = tessellator.tessellate_events(
+//!         &events,
+//!         &FillOptions::default(),
+//!         &mut vertex_builder
+//!     );
 //!     assert!(result.is_ok());
 //! }
 //!
@@ -77,8 +112,10 @@ use path_builder::BaseBuilder;
 #[cfg(test)]
 use extra::rust_logo::build_logo_path;
 
+/// The fill tessellator's result type.
 pub type FillResult = Result<Count, FillError>;
 
+/// The fill tessellator's error enumeration.
 #[derive(Clone, Debug)]
 pub enum FillError {
     Unknown,
@@ -1259,6 +1296,9 @@ fn test_iter_builder() {
     tess.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder).unwrap();
 }
 
+/// The fill rule defines how to determine what is inside and what is outside of the shape.
+///
+/// See the SVG specification.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FillRule {
     EvenOdd,
@@ -1316,24 +1356,24 @@ impl FillOptions {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum Side { Left, Right }
+enum Side { Left, Right }
 
 impl Side {
-    pub fn opposite(self) -> Side {
+    fn opposite(self) -> Side {
         match self {
             Side::Left => Side::Right,
             Side::Right => Side::Left,
         }
     }
 
-    pub fn is_left(self) -> bool { self == Side::Left }
+    fn is_left(self) -> bool { self == Side::Left }
 
-    pub fn is_right(self) -> bool { self == Side::Right }
+    fn is_right(self) -> bool { self == Side::Right }
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the FillTessellator).
-pub struct MonotoneTessellator {
+struct MonotoneTessellator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
     triangles: Vec<(VertexId, VertexId, VertexId)>,
