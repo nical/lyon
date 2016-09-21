@@ -93,7 +93,7 @@ impl VertexId {
     pub fn offset(&self) -> u16 { self.0 }
 }
 
-/// An interface separating tessellators and other geometry generation algorthms from the
+/// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
 pub trait GeometryBuilder<Input> {
     /// Called at the beginning of a generation.
