@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon_core"
-version = "0.3.1"
+version = "0.3.2"
 description = "Common resources to all lyon crates."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
