@@ -4,6 +4,13 @@ use path_iterator::PathStateIter;
 use core::PathEvent;
 use core::math::*;
 
+use std::iter::IntoIterator;
+
+/// Enumeration corresponding to the [PathEvent](../../core/events/enum.PathEvent.html) enum
+/// without the parameters.
+///
+/// This is used by the [Path](struct.Path.html) data structure to store path events a tad
+/// more efficiently.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Verb {
     MoveTo,
@@ -13,6 +20,9 @@ pub enum Verb {
     Close,
 }
 
+/// A simple path data structure.
+///
+/// It can be created using a [Builder](struct.Builder.html), and can be iterated over.
 #[derive(Clone, Debug)]
 pub struct Path {
     points: Vec<Point>,
@@ -26,6 +36,7 @@ pub struct PathSlice<'l> {
 }
 
 impl Path {
+    /// Creates a [Builder](struct.Builder.html) to create a path.
     pub fn builder() -> Builder { Builder::new() }
 
     pub fn new() -> Path {
@@ -57,6 +68,14 @@ impl Path {
     pub fn verbs(&self) -> &[Verb] { &self.verbs[..] }
 }
 
+impl<'l> IntoIterator for &'l Path {
+    type Item = PathEvent;
+    type IntoIter = PathIter<'l>;
+
+    fn into_iter(self) -> PathIter<'l> { self.iter() }
+}
+
+/// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
     pub fn new(points: &'l[Point], verbs: &'l[Verb]) -> PathSlice<'l> {
         PathSlice { points: points, verbs: verbs }
@@ -71,6 +90,16 @@ impl<'l> PathSlice<'l> {
     pub fn verbs(&self) -> &[Verb] { self.verbs }
 }
 
+//impl<'l> IntoIterator for PathSlice<'l> {
+//    type Item = PathEvent;
+//    type IntoIter = PathIter<'l>;
+//
+//    fn into_iter(self) -> PathIter<'l> { self.iter() }
+//}
+
+/// Builds path object using the BaseBuilder interface.
+///
+/// See the [lyon_path_builder](../lyon_path_builder/index.html) module documentation.
 pub struct Builder {
     path: Path,
     current_position: Point,
@@ -267,6 +296,9 @@ fn test_path_builder_1() {
     assert_eq!(it.next(), Some(PathEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0))));
     assert_eq!(it.next(), Some(PathEvent::Close));
 
+    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 1.0))));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(2.0, 2.0))));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(3.0, 3.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 4.0))));
     assert_eq!(it.next(), None);
@@ -291,6 +323,8 @@ fn test_path_builder_empty_move_to() {
 
     let path = p.build();
     let mut it = path.iter();
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 2.0))));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(3.0, 4.0))));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(5.0, 6.0))));
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);

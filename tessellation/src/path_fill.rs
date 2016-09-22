@@ -31,7 +31,7 @@
 //! The output of the tessellator is produced by the
 //! [BezierGeometryBuilder](../geometry_builder/trait.BezierGeometryBuilder.html) (see the
 //! [geometry_builder documentation](../geometry_builder/index.html) for more details about
-//! how tessellators produce their output geometry).
+//! how tessellators produce their output geometry, and how to generate custom vertex layouts).
 //!
 //! The [tessellator's wiki page](https://github.com/nical/lyon/wiki/Tessellator) is a good place
 //! to learn more about how the tessellator's algorithm works. The source code also contains

@@ -1,4 +1,4 @@
-//! # Lyon Tessellation
+//! # Lyon tessellation
 //!
 //! This crate implements tools to compute the tessellation of 2d paths fill and stroke operations, in order to render them efficiently on the GPU.
 //!
@@ -27,9 +27,14 @@
 //!
 //! ## Overview
 //!
-//! The path (fill and stroke) tessellators consume iterators of path events, and generate the
-//! tessellation using the
-//! [BezierGeometryBuilder trait](geometry_builder/trait.BezierGeometryBuilder.html).
+//! The most interesting modules of this crate are:
+//!
+//! * [path_fill](path_fill/index.html) - Implementing the tessellation of complex path fill
+//!   operations.
+//! * [path_storke](path_storke/index.html) - Implementing the tessellation of complex path
+//!   stroke operations.
+//! * [geometry_builder](geometry_builder/index.html) - Which the above two are built on. It
+//!   provides traits to facilitate generating arbitrary vertex and index buffers.
 //!
 //! ### The input: iterators
 //!
@@ -59,9 +64,11 @@
 //! [geometry_buider::BuffersBuilder](geometry_builder/struct.BuffersBuilder.html) are provided
 //! for convenience.
 //!
-//! ## Example
+//! ## Examples
 //!
-//! TODO
+//! See the examples in the [path_fill](path_fill/index.html) and [path_stroke](path_stroke/index.html)
+//! modules documentation.
+//!
 
 #![allow(dead_code)]
 

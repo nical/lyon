@@ -2,17 +2,77 @@
 //!
 //! Tessellation routines for path stroke operations.
 //!
-//! The current implementation is pretty basic and does not deal with overlap in an svg-compliant
-//! way.
-//!
 //! ## Overview
 //!
-//! TODO
+//! The stroke tessellation algorithm simply generates a strip of triangles along
+//! the path. This method is fast and simple to implement, howerver it means that
+//! if the path overlap with itself (for example in the case of a self-intersecting
+//! path), some triangles will overlap in the interesecting region, which may not
+//! be the desired behavior. This needs to be kept in mind when rendering transparent
+//! SVG strokes since the spec mandates that each point along a semi-transparent path
+//! is shaded once no matter how many times the path overlaps with itself at this
+//! location.
 //!
-//! ## Example
+//! The main interface is the [StrokeTessellator](struct.StrokeTessellator.html),
+//! which exposes a similar interface to its
+//! [fill equivalent](../path_fill/struct.FillTessellator.html).
 //!
-//! TODO
+//! This stroke tessellator takes an iterator of path events as inputs as well as
+//! a [StrokeOption](struct.StrokeOptions.html), and prodices its outputs using
+//! a [BezierGeometryBuilder](../geometry_builder/trait.BezierGeometryBuilder.html).
 //!
+//!
+//! See the [geometry_builder module documentation](../geometry_builder/index.html)
+//! for more details about how to output custom vertex layouts.
+//!
+//! # Examples
+//!
+//! ```
+//! # extern crate lyon_tessellation;
+//! # extern crate lyon_core;
+//! # extern crate lyon_path;
+//! # extern crate lyon_path_builder;
+//! # extern crate lyon_path_iterator;
+//! # use lyon_path::Path;
+//! # use lyon_path_builder::*;
+//! # use lyon_path_iterator::*;
+//! # use lyon_core::math::{Point, point};
+//! # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
+//! # use lyon_tessellation::path_stroke::*;
+//! # fn main() {
+//! // Create a simple path.
+//! let mut path_builder = Path::builder();
+//! path_builder.move_to(point(0.0, 0.0));
+//! path_builder.line_to(point(1.0, 2.0));
+//! path_builder.line_to(point(2.0, 0.0));
+//! path_builder.line_to(point(1.0, 1.0));
+//! path_builder.close();
+//! let path = path_builder.build();
+//!
+//! // Create the destination vertex and index buffers.
+//! let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+//!
+//! {
+//!     // Create the destination vertex and index buffers.
+//!     let mut vertex_builder = simple_builder(&mut buffers);
+//!
+//!     // Create the tessellator.
+//!     let mut tessellator = StrokeTessellator::new();
+//!
+//!     // Compute the tessellation.
+//!     let result = tessellator.tessellate(
+//!         path.path_iter().flattened(0.05),
+//!         &StrokeOptions::default(),
+//!         &mut vertex_builder
+//!     );
+//!     assert!(result.is_ok());
+//! }
+//!
+//! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
+//! println!("The generated indices are: {:?}.", &buffers.indices[..]);
+//!
+//! # }
+//! ```
 
 
 use math::*;
@@ -356,8 +416,8 @@ impl StrokeOptions {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LineCap {
     Butt,
+    Square,
     Round,
-    Square
 }
 
 /// Line join as defined by the SVG specification.
