@@ -10,14 +10,14 @@ For now the goal is to provide efficient SVG-compliant path tessellation tools t
 The intent is for this library to be useful in projects like [Servo](https://servo.org/).
 
 The project is split into small crates:
-* lyon: A meta-crate that imports the other crates.
-* lyon_core: Contains types common to most lyon crates.
-* lyon_tessellator: The tessellation routines (where most of the focus is for now).
-* lyon_path: A simple vector path data structure provided for convenience, but not required by the other crates.
-* lyon_path_iterator: A set of iterator abstractions over vector paths.
-* lyon_path_builder: Tools to build paths.
-* lyon_bezier: 2d quadratic and cubic bezier curve maths, including an efficient flattening algorithm.
-* lyon_extra: various optional utilities.
+* lyon ([documentation](https://nical.github.io/lyon-doc/lyon/)): A meta-crate that imports the other crates.
+* lyon_tessellator ([documentation](https://nical.github.io/lyon-doc/lyon_tessellator/)): The tessellation routines (where most of the focus is for now).
+* lyon_path_iterator ([documentation](https://nical.github.io/lyon-doc/lyon_path_iterator/)): A set of iterator abstractions over vector paths.
+* lyon_path_builder ([documentation](https://nical.github.io/lyon-doc/lyon_path_builder/)): Tools to build paths.
+* lyon_path ([documentation](https://nical.github.io/lyon-doc/lyon_path/)): A simple vector path data structure provided for convenience, but not required by the other crates.
+* lyon_bezier ([documentation](https://nical.github.io/lyon-doc/lyon_bezier/)): 2d quadratic and cubic bezier curve maths, including an efficient flattening algorithm.
+* lyon_core ([documentation](https://nical.github.io/lyon-doc/lyon_core/)): Contains types common to most lyon crates.
+* lyon_extra ([documentation](https://nical.github.io/lyon-doc/lyon_extra/)): various optional utilities.
 
 ## Status
 
