@@ -1,18 +1,59 @@
 //! # Geometry builder
 //!
-//! Tools to help with populating vertex and index buffers.
+//! Tools to help with generating geometry to send to the GPU.
 //!
 //! ## Overview
 //!
-//! TODO
+//! While it would be possible for the tessellation algorithms to manually generate vertex
+//! and index buffers with a certain layout, it would mean that most code using the tessellators
+//! would need to copy and convert all generated vertices in order to have their own vertex
+//! layout, or even several vertex layouts, which is a very common use-case.
 //!
-//! ## Example
+//! In order to provide flexibility with the generation of geometry, this module provides with
+//! the [GeometryBuilder](trait.GeometryBuilder.html) and its extension the
+//! [BezierGeometryBuilder](trait.BezierGeometryBuilder.html) trait. The former exposes
+//! the methods to facilitate adding vertices and triangles. The latter adds a method to
+//! specifically handle quadratic bezier curves. Quadratic bezier curves have interesting
+//! properties that make them a lot easier to render than most types of curves and we want
+//! to have the option to handle them separately in the renderer.
+//!
+//! See the [Rendering curves](https://github.com/nical/lyon/wiki/Experiments#rendering-curves)
+//! section in the project's wiki for more details about the advantages of handling quadratic
+//! bezier curves separately in the tessellator and the renderer.
+//!
+//! This modules provides with a basic implementation of these traits through the following types:
+//!
+//! * The struct [VertexBuffers<T>](struct.VertexBuffers.html) is a simple pair of vectors of u16
+//!   indices and T (generic parameter) vertices.
+//! * The struct [BuffersBuilder](struct.BuffersBuilder.html) which implements
+//!   [BezierGeometryBuilder](trait.BezierGeometryBuilder.html) and writes into a
+//!   [VertexBuffers](struct.VertexBuffers.html).
+//! * The trait [VertexConstructor](trait.VertexConstructor.html) used by
+//!   [BuffersBuilder](struct.BuffersBuilder.html) in order to generate any vertex type. In the
+//!   example below, a struct WithColor implements the VertexConstructor trait in order to
+//!   create vertices composed of a 2d position and a color value from an input 2d position.
+//!   This separates the construction of vertex values from the assembly of the vertex buffers.
+//!   Another, simpler example of vertex constructor is the [Identity](struct.Identity.html)
+//!   constructor which just returns its input, untransformed.
+//!
+//! Geometry builders are a practical way to add one last step to the tessellation pipeline,
+//! such as applying a transform or clipping the geometry.
+//!
+//! While this is module designed to facilitate the generation of vertex buffers and index
+//! buffers, nothing prevents a given GeometryBuilder implementation to only generate a
+//! vertex buffer without indices, or write into a completely different format.
+//! These builder traits are at the end of the tessellation pipelines and are meant for
+//! users of this crate to be able to adapt the output of the tessellators to their own
+//! needs.
+//!
+//! # Examples
+//!
+//! This example sets up a simple function that generates the vertices and indices for
+//! colored quads, using some of the tools provided in this crate.
+//! Note that for simplicity in this example we use [f32; 2] to represent positions,
+//! while most of the more advanced tessellator code use euclid points.
 //!
 //! ```
-//! // This example sets up a simple function that generates the vertices and indices for
-//! // colored quads, using some of the tools provided in this crate.
-//! // Note that for simplicity in this example we use [f32; 2] to represent positions,
-//! // while most of the more advanced tessellator code use euclid points.
 //! use lyon_tessellation::geometry_builder::*;
 //!
 //! // Define our vertex type.
@@ -65,11 +106,11 @@
 //!
 //! // Finally, generate the geometry using the function we created above to make a red square...
 //! let red = [1.0, 0.0, 0.0, 1.0];
-//! make_quad([0.0, 0.0], [1.0, 1.0], &mut vertex_builder(&mut buffers, WithColor(red)));
+//! make_quad([0.0, 0.0], [1.0, 1.0], &mut BuffersBuilder::new(&mut buffers, WithColor(red)));
 //!
 //! // ...an a green one.
 //! let green = [0.0, 1.0, 0.0, 1.0];
-//! make_quad([2.0, 0.0], [1.0, 1.0], &mut vertex_builder(&mut buffers, WithColor(green)));
+//! make_quad([2.0, 0.0], [1.0, 1.0], &mut BuffersBuilder::new(&mut buffers, WithColor(green)));
 //!
 //! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
 //! println!("The generated indices are: {:?}.", &buffers.indices[..]);
@@ -195,26 +236,14 @@ BuffersBuilder<'l, VertexType, Input, Ctor> {
 }
 
 /// Creates a BuffersBuilder.
-pub fn vertex_builder<'l,
-    VertexType,
-    Input,
-    Ctor: VertexConstructor<Input, VertexType>
-> (buffers: &'l mut VertexBuffers<VertexType>, ctor: Ctor) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
-    let vertex_offset = buffers.vertices.len() as Index;
-    let index_offset = buffers.indices.len() as Index;
-    BuffersBuilder {
-        buffers: buffers,
-        vertex_offset: vertex_offset,
-        index_offset: index_offset,
-        vertex_constructor: ctor,
-        _marker: PhantomData
-    }
+pub fn vertex_builder<'l, VertexType, Input, Ctor: VertexConstructor<Input, VertexType>>(
+    buffers: &'l mut VertexBuffers<VertexType>,
+    ctor: Ctor
+) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
+    BuffersBuilder::new(buffers, ctor)
 }
 
-/// Creates vertex values
-///
-/// Typically will take a vertex position as Input and will build a full vertex value from it, swee
-/// the test example at the bottom of this file.
+/// A trait specifying how to create vertex values.
 pub trait VertexConstructor<Input, VertexType> {
     fn new_vertex(&mut self, input: Input) -> VertexType;
 }
