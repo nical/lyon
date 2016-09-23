@@ -21,7 +21,7 @@ The project is split into small crates:
 
 ## Documentation
 
-* [Link to the documentation](nical.github.io/lyon-doc/lyon)
+* [Link to the documentation](https://nical.github.io/lyon-doc/lyon/)
 * The documentation can be generated locally by running ```cargo doc``` at the root of the repository.
 
 ## Status
