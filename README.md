@@ -7,7 +7,7 @@ GPU-based 2D graphics rendering experiments in rust.
 
 For now the goal is to provide efficient SVG-compliant path tessellation tools to help with rendering vector graphics on the GPU. If things go well the project could eventually grow into including a (partial) SVG renderer in a separate crate, but for now think of this library as a way to turn complex paths into triangles for use in your own rendering engine.
 
-The intent is for this library to be useful in projects like [Servo](https://servo.org/).
+The intent is for this library to be useful in projects like [Servo](https://servo.org/) and games.
 
 The project is split into small crates:
 * lyon ([documentation](https://nical.github.io/lyon-doc/lyon/)): A meta-crate that imports the other crates.

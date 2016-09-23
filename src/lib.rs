@@ -2,7 +2,7 @@
 //!
 //! 2d rendering on the GPU in rust.
 //!
-//! <img src="../../../assets/lyon-logo.svg" width=500 height=500 alt="Project logo">
+//! <img src="https://raw.githubusercontent.com/nical/lyon/master/assets/lyon-logo.svg" width=500 height=500 alt="Project logo">
 //!
 //! # Crates
 //!
