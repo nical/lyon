@@ -1,7 +1,7 @@
 # Lyon
 GPU-based 2D graphics rendering experiments in rust.
 
-<img src="assets/lyon-logo.png" width=500 height=500 alt="Project logo">
+<img src="https://nical.github.io/lyon-doc/lyon-logo.svg" alt="Project logo">
 
 # Goals
 
