@@ -2,6 +2,8 @@
 //!
 //! 2d rendering on the GPU in rust.
 //!
+//! <img src="../../../assets/lyon-logo.svg" width=500 height=500 alt="Project logo">
+//!
 //! # Crates
 //!
 //! * [lyon_tessellation](https://crates.io/crates/lyon_tessellation) ([documentation](../lyon_tessellation/index.html)): Path tessellation routines.

@@ -1,4 +1,12 @@
 //! Bezier curve related maths and tools.
+//!
+//! This crate implement simple 2d quadratic and cubic bezier math, and an efficient
+//! flattening algorithm.
+//!
+//! The flatteing algorithm implemented here is the most interesting part. It is based on:
+//! http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
+//! It produces a better approximations than the usual recursive subdivision approach (or
+//! in other words, it generates less points for a given tolerance threshold).
 
 extern crate euclid;
 
@@ -11,6 +19,11 @@ pub use flatten_cubic::CubicFlatteningIter;
 pub type Point = euclid::Point2D<f32>;
 pub type Vec2 = euclid::Point2D<f32>;
 
+/// A 2d curve segment defined by three points: the beginning of the segment, a control
+/// point and the end of the segment.
+///
+/// The curve is defined by equation:
+/// ```∀ t ∈ [0..1],  P(t) = (1 - t)² * from + 2 * (1 - t) * t * ctrl + 2 * t * to```
 #[derive(Copy, Clone, Debug)]
 pub struct QuadraticBezierSegment {
     pub from: Vec2,
@@ -20,6 +33,7 @@ pub struct QuadraticBezierSegment {
 
 impl QuadraticBezierSegment {
 
+    /// Sample the curve at t (expecting t between 0 and 1).
     pub fn sample(&self, t: f32) -> Point {
         let t2 = t*t;
         let one_t = 1.0 - t;
@@ -29,6 +43,7 @@ impl QuadraticBezierSegment {
              + self.to * t2;
     }
 
+    /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
     pub fn sample_x(&self, t: f32) -> f32 {
         let t2 = t*t;
         let one_t = 1.0 - t;
@@ -38,6 +53,7 @@ impl QuadraticBezierSegment {
              + self.to.x * t2;
     }
 
+    /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
     pub fn sample_y(&self, t: f32) -> f32 {
         let t2 = t*t;
         let one_t = 1.0 - t;
@@ -47,6 +63,7 @@ impl QuadraticBezierSegment {
              + self.to.y * t2;
     }
 
+    /// Swap the beginning and the end of the segment.
     pub fn flip(&mut self) { swap(&mut self.from, &mut self.to); }
 
     /// Find the advancement of the y-most position in the curve.
@@ -168,6 +185,11 @@ impl QuadraticBezierSegment {
     }
 }
 
+/// An iterator over a quadratic bezier segment that yields line segments approximating the
+/// curve for a given approximation threshold.
+///
+/// The iterator starts at the first point *after* the origin of the curve and ends at the
+/// destination.
 pub struct QuadraticFlatteningIter {
     curve: QuadraticBezierSegment,
     tolerance: f32,
@@ -201,6 +223,11 @@ impl Iterator for QuadraticFlatteningIter {
     }
 }
 
+/// A 2d curve segment defined by four points: the beginning of the segment, two control
+/// points and the end of the segment.
+///
+/// The curve is defined by equation:²
+/// ```∀ t ∈ [0..1],  P(t) = (1 - t)³ * from + 3 * (1 - t)² * t * ctrl1 + 3 * t² * (1 - t) * ctrl2 + t³ * to```
 #[derive(Copy, Clone, Debug)]
 pub struct CubicBezierSegment {
     pub from: Vec2,
@@ -210,6 +237,7 @@ pub struct CubicBezierSegment {
 }
 
 impl CubicBezierSegment {
+    /// Sample the curve at t (expecting t between 0 and 1).
     pub fn sample(&self, t: f32) -> Vec2 {
         let t2 = t * t;
         let t3 = t2 * t;

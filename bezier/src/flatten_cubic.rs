@@ -11,8 +11,9 @@ use super::{ Point, CubicBezierSegment };
 use std::f32;
 use std::mem::swap;
 
-/// An iterator that expresses the linearization of a cubic bezier segment for given a tolerance
-/// threshold.
+/// An iterator over a cubic bezier segment that yields line segments approximating the
+/// curve for a given approximation threshold.
+///
 /// The iterator starts at the first point *after* the origin of the curve and ends at the
 /// destination.
 pub struct CubicFlatteningIter {

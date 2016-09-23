@@ -1,7 +1,7 @@
 # Lyon
 GPU-based 2D graphics rendering experiments in rust.
 
-<img src="assets/screenshot.png" width=500 height=500 alt="Screenshot of the Rust logo (svg) tessellated">
+<img src="assets/lyon-logo.png" width=500 height=500 alt="Project logo">
 
 # Goals
 
@@ -19,12 +19,17 @@ The project is split into small crates:
 * lyon_core ([documentation](https://nical.github.io/lyon-doc/lyon_core/)): Contains types common to most lyon crates.
 * lyon_extra ([documentation](https://nical.github.io/lyon-doc/lyon_extra/)): various optional utilities.
 
+## Documentation
+
+* [Link to the documentation](nical.github.io/lyon-doc/lyon)
+* The documentation can be generated locally by running ```cargo doc``` at the root of the repository.
+
 ## Status
 
 The focus right now is on implementing a SVG compliant path tessellator (rather than an actual SVG render).
 
 - path
-  - [x] bezier curves (through path flattening) 
+  - [x] bezier curves (through path flattening)
   - [x] SVG 1.1
   - [x] builder API
   - [x] iterator API
