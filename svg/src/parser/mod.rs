@@ -10,3 +10,6 @@ pub use svgparser::LengthUnit;
 pub use svgparser::ElementId;
 pub use svgparser::ValueId;
 
+pub use self::attribute::{
+    Attribute, AttributeId, AttributeValue, RefAttributeValue,
+};
