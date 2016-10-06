@@ -1170,6 +1170,23 @@ impl FillEvents {
     pub fn from_iter<Iter: Iterator<Item=FlattenedEvent>>(it: Iter) -> Self {
         EventsBuilder::new().build(it)
     }
+
+    pub fn new() -> Self { FillEvents { edges: Vec::new(), vertices: Vec::new() } }
+
+    pub fn clear(&mut self) {
+        self.edges.clear();
+        self.vertices.clear();
+    }
+
+    pub fn set_path_iter<Iter: Iterator<Item=FlattenedEvent>>(&mut self, it: Iter) {
+        self.clear();
+        let mut tmp = FillEvents::new();
+        ::std::mem::swap(self, &mut tmp);
+        let mut builder = EventsBuilder::new();
+        builder.recycle(tmp);
+        let mut tmp = builder.build(it);
+        ::std::mem::swap(self, &mut tmp);
+    }
 }
 
 struct EventsBuilder {
@@ -1184,6 +1201,11 @@ impl EventsBuilder {
             edges: Vec::new(),
             vertices: Vec::new(),
         }
+    }
+
+    fn recycle(&mut self, events: FillEvents) {
+        self.edges = events.edges;
+        self.vertices = events.vertices;
     }
 
     fn build<Iter: Iterator<Item=FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {

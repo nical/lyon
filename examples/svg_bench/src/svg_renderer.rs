@@ -1,22 +1,27 @@
-
+#[macro_use]
+extern crate glium;
 #[macro_use]
 extern crate clap;
-extern crate gfx;
 extern crate svgparser;
-extern crate gfx_window_glutin;
 extern crate glutin;
 extern crate rayon;
 extern crate lyon;
 extern crate lyon_svg;
 
-use gfx::traits::FactoryExt;
-use gfx::Device;
-use gfx::format::{DepthStencil, Rgba8};
+use glium::Surface;
+use glium::index::PrimitiveType;
+use glium::DisplayBuild;
+use glium::backend::glutin_backend::GlutinFacade as Display;
 
 use lyon::path::Path;
 use lyon::path_builder::*;
 use lyon::math::*;
 use lyon_svg::parser::RgbColor;
+use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
+use lyon::tessellation::basic_shapes::*;
+use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
+use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
+use lyon::path_iterator::PathIterator;
 
 use clap::{Arg, ArgMatches};
 
@@ -43,15 +48,184 @@ fn main() {
         println!("Rendering to a window");
     }
 
-    let scene = if let Some(input_file) = matches.value_of("INPUT") {
+    let mut scene = if let Some(input_file) = matches.value_of("INPUT") {
         load_svg(input_file)
     } else {
         unimplemented!();
     };
 
-    let builder = glutin::WindowBuilder::new().with_title("Svg renderer test".to_string());
-    let (window, device, factory, rtv, stv) = gfx_window_glutin::init::<Rgba8, DepthStencil>(builder);
+    tessellate_scene(&mut scene[..]);
 
+    let display = glutin::WindowBuilder::new()
+        .with_dimensions(700, 700)
+        .with_title("tessellation".to_string())
+        .with_multisampling(8)
+        .with_vsync()
+        .build_glium().unwrap();
+
+    upload_geometry(&mut scene[..], &display);
+
+/*
+    let model_vbo = glium::VertexBuffer::new(&display, &vertices[..]).unwrap();
+    let model_ibo = glium::IndexBuffer::new(
+        &display, PrimitiveType::TrianglesList,
+        &indices[..]
+    ).unwrap();
+
+    let bg_vbo = glium::VertexBuffer::new(&display, &bg_buffers.vertices[..]).unwrap();
+    let bg_ibo = glium::IndexBuffer::new(
+        &display, PrimitiveType::TrianglesList,
+        &bg_buffers.indices[..]
+    ).unwrap();
+*/
+    // compiling shaders and linking them together
+    let bg_program = program!(&display,
+        140 => {
+            vertex: "
+                #version 140
+                in vec2 a_position;
+                out vec2 v_position;
+                void main() {
+                    gl_Position = vec4(a_position, 0.0, 1.0);
+                    v_position = a_position;
+                }
+            ",
+            fragment: "
+                #version 140
+                uniform vec2 u_resolution;
+                in vec2 v_position;
+                out vec4 f_color;
+                void main() {
+                    vec2 px_position = (v_position * vec2(1.0, -1.0)    + vec2(1.0, 1.0))
+                                     * 0.5 * u_resolution;
+                    // #005fa4
+                    float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
+
+                    f_color = mix(
+                        vec4(0.0, 0.47, 0.9, 1.0),
+                        vec4(0.0, 0.1, 0.64, 1.0),
+                        vignette
+                    );
+
+                    if (mod(px_position.x, 20.0) <= 1.0 ||
+                        mod(px_position.y, 20.0) <= 1.0) {
+                        f_color *= 1.2;
+                    }
+
+                    if (mod(px_position.x, 100.0) <= 1.0 ||
+                        mod(px_position.y, 100.0) <= 1.0) {
+                        f_color *= 1.2;
+                    }
+                }
+            "
+        },
+    ).unwrap();
+
+    // compiling shaders and linking them together
+    let model_program = program!(&display,
+        140 => {
+            vertex: "
+                #version 140
+                uniform vec2 u_resolution;
+                uniform mat4 u_matrix;
+                in vec2 a_position;
+                in vec3 a_color;
+                out vec3 v_color;
+                void main() {
+                    gl_Position = u_matrix * vec4(a_position, 0.0, 1.0);// / vec4(u_resolution, 1.0, 1.0);
+                    v_color = a_color;
+                }
+            ",
+            fragment: "
+                #version 140
+                in vec3 v_color;
+                out vec4 f_color;
+                void main() {
+                    f_color = vec4(v_color, 1.0);
+                }
+            "
+        },
+    ).unwrap();
+
+    let mut target_zoom = 1.0;
+    let mut zoom = 1.0;
+    let mut target_pos = vec2(0.0, 0.0);
+    let mut pos = vec2(0.0, 0.0);
+    loop {
+        zoom += (target_zoom - zoom) / 3.0;
+        pos = pos + (target_pos - pos) / 3.0;
+
+        let mut target = display.draw();
+
+        let (w, h) = target.get_dimensions();
+        let resolution = vec2(w as f32, h as f32);
+
+        let model_mat = Mat4::identity();
+        let mut view_mat = Mat4::identity();
+
+        view_mat = view_mat.pre_translated(-1.0, 1.0, 0.0);
+        view_mat = view_mat.pre_scaled(5.0 * zoom, 5.0 * zoom, 0.0);
+        view_mat = view_mat.pre_scaled(2.0/resolution.x, -2.0/resolution.y, 1.0);
+        view_mat = view_mat.pre_translated(pos.x, pos.y, 0.0);
+
+        let uniforms = uniform! {
+            u_resolution: resolution.array(),
+            u_matrix: uniform_matrix(&model_mat.pre_mul(&view_mat))
+        };
+
+        target.clear_color(0.75, 0.75, 0.75, 1.0);
+
+        for item in &scene[..] {
+            if let &Some((ref vbo, ref ibo)) = &item.uploaded {
+                target.draw(
+                    vbo, ibo,
+                    &model_program, &uniforms,
+                    &Default::default()
+                ).unwrap();
+            }
+        }
+
+        target.finish().unwrap();
+
+        let mut should_close = false;
+        for event in display.poll_events() {
+            should_close |= match event {
+                glutin::Event::Closed => true,
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => true,
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageDown)) => {
+                    target_zoom *= 0.8;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageUp)) => {
+                    target_zoom *= 1.25;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Left)) => {
+                    target_pos.x += 5.0 / target_zoom;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Right)) => {
+                    target_pos.x -= 5.0 / target_zoom;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Up)) => {
+                    target_pos.y += 5.0 / target_zoom;
+                    false
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Down)) => {
+                    target_pos.y -= 5.0 / target_zoom;
+                    false
+                }
+                _evt => {
+                    //println!("{:?}", _evt);
+                    false
+                }
+            };
+        }
+        if should_close {
+            break;
+        }
+    }
 }
 
 use std::fs;
@@ -66,6 +240,8 @@ struct RenderItem {
     fill: Option<RgbColor>,
     stroke: Option<RgbColor>,
     stroke_width: f32,
+    geometry: Option<VertexBuffers<Vertex>>,
+    uploaded: Option<(glium::VertexBuffer<Vertex>, glium::IndexBuffer<u16>)>,
 }
 
 impl RenderItem {
@@ -75,8 +251,70 @@ impl RenderItem {
             fill: None,
             stroke: None,
             stroke_width: 1.0,
+            geometry: None,
+            uploaded: None,
         }
 
+    }
+}
+
+fn tessellate_scene(scene: &mut[RenderItem]) {
+    println!(" -- The scene contains {} items to tessellate", scene.len());
+    let mut fill_tessellator = FillTessellator::new();
+    let mut fill_events = FillEvents::new();
+    let mut stroke_tessellator = StrokeTessellator::new();
+
+    for item in scene {
+        if item.geometry.is_none() {
+            let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+            if let Some(color) = item.fill {
+                println!(" -- tessellate fill");
+                //fill_events.set_path_iter(item.path.path_iter().flattened(0.03));
+                //fill_tessellator.tessellate_events(
+                //    &fill_events,
+                //    &FillOptions::default(),
+                //    &mut BuffersBuilder::new(&mut buffers, WithColor(
+                //        [color.red as f32 / 255.0, color.green as f32 / 255.0, color.blue as f32 / 255.0]
+                //    ))
+                //).unwrap();
+            }
+            if let Some(color) = item.stroke {
+                println!(" -- tessellate stroke");
+                stroke_tessellator.tessellate(
+                    item.path.path_iter().flattened(0.03),
+                    &StrokeOptions::stroke_width(item.stroke_width),
+                    &mut BuffersBuilder::new(&mut buffers, WithColor(
+                        [color.red as f32 / 255.0, color.green as f32 / 255.0, color.blue as f32 / 255.0]
+                    ))
+                ).unwrap();
+                item.geometry = Some(buffers);
+                item.uploaded = None;
+            }
+            //item.geometry = Some(buffers);
+            //item.uploaded = None;
+        }
+    }
+}
+
+fn upload_geometry(scene: &mut[RenderItem], display: &Display) {
+    for item in scene {
+        let uploaded = match (&item.geometry, &item.uploaded) {
+            (&Some(ref geom), &None) => {
+                let vbo = glium::VertexBuffer::new(display, &geom.vertices[..]).unwrap();
+                let ibo = glium::IndexBuffer::new(
+                    display, PrimitiveType::TrianglesList,
+                    &geom.indices[..]
+                ).unwrap();
+
+                Some((vbo, ibo))
+            }
+            _ => { None }
+        };
+
+        if uploaded.is_some() {
+            println!(" -- upload geometry");
+            item.uploaded = uploaded;
+        }
     }
 }
 
@@ -97,7 +335,8 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
             Ok(SvgToken::ElementStart(b"path")) => {
                 current_item = RenderItem::new();
             }
-            Ok(SvgToken::ElementEnd(ElementEnd::Close(b"path"))) => {
+            Ok(SvgToken::ElementEnd(_)) => {
+                println!(" -- close path");
                 if current_item.fill.is_some() || current_item.stroke.is_some() {
                     let mut tmp = RenderItem::new();
                     ::std::mem::swap(&mut current_item, &mut tmp);
@@ -117,6 +356,8 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
             _ => {}
         }
     }
+
+    println!(" -- loaded {} paths", render_items.len());
 
     return render_items;
 }
@@ -150,7 +391,7 @@ fn parse_style(stream: svgparser::Stream, item: &mut RenderItem) {
                 AttributeId::Stroke => {
                     match attr.value {
                         AttributeValue::RgbColor(rgb) => { item.stroke = Some(rgb); }
-                        AttributeValue::None => { item.stroke = None; }
+                        AttributeValue::KeyWord(ValueId::None) => { item.stroke = None; }
                         _ => {
                             panic!(" Unimplemented ! stroke: {:?}", attr.value);
                         }
@@ -175,26 +416,46 @@ fn parse_style(stream: svgparser::Stream, item: &mut RenderItem) {
     }
 }
 
-/*
-gfx_defines!{
-    vertex Vertex {
-        pos: [f32; 2] = "a_position",
-    }
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    a_position: [f32; 2],
+    a_color: [f32; 3],
+}
 
-    constant Locals {
-        transform: [[f32; 4]; 4] = "u_transform",
-    }
+struct WithColor([f32; 3]);
 
-    pipeline pipe {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
-        transform: gfx::Global<[[f32; 4]; 4]> = "u_transform",
-        locals: gfx::ConstantBuffer<Locals> = "Locals",
-        out_color: gfx::RenderTarget<ColorFormat> = "Target0",
-        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
+impl VertexConstructor<Vec2, Vertex> for WithColor {
+    fn new_vertex(&mut self, pos: Vec2) -> Vertex {
+        assert!(!pos.x.is_nan());
+        assert!(!pos.y.is_nan());
+        Vertex {
+            a_position: pos.array(),
+            a_color: self.0,
+        }
     }
 }
 
-impl Vertex {
-    fn new(pos: Point) -> Vertex { Vertex { pos: [pos.x, pos.y] } }
+implement_vertex!(Vertex, a_position, a_color);
+
+#[derive(Copy, Clone, Debug)]
+struct BgVertex {
+    a_position: [f32; 2],
 }
-*/
+
+struct BgWithColor ;
+impl VertexConstructor<Vec2, BgVertex> for BgWithColor  {
+    fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
+        BgVertex { a_position: pos.array() }
+    }
+}
+
+implement_vertex!(BgVertex, a_position);
+
+fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
+    [
+        [m.m11, m.m12, m.m13, m.m14],
+        [m.m21, m.m22, m.m23, m.m24],
+        [m.m31, m.m32, m.m33, m.m34],
+        [m.m41, m.m42, m.m43, m.m44],
+    ]
+}
