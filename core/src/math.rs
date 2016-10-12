@@ -1,6 +1,7 @@
 use euclid;
 use fixed;
 
+pub use euclid::TypedPoint2D;
 pub use euclid::Point2D;
 pub use euclid::Radians;
 
@@ -18,6 +19,7 @@ pub type IntRect = euclid::Rect<i32>;
 
 pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
 pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
+pub type TessVec2 = Point2D<FixedPoint32>;
 pub type TessPoint = Point2D<FixedPoint32>;
 pub type TessPoint64 = Point2D<FixedPoint64>;
 pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }

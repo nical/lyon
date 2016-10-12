@@ -10,16 +10,6 @@ pub fn fuzzy_eq_f32(a: f32, b: f32) -> bool {
 
 pub fn fuzzy_eq(a: Vec2, b: Vec2) -> bool { fuzzy_eq_f32(a.x, b.x) && fuzzy_eq_f32(a.y, b.y) }
 
-/// Defines an ordering between two points
-pub fn is_below(a: Vec2, b: Vec2) -> bool {
-    a.y > b.y || (a.y == b.y && a.x > b.x)
-}
-
-/// Defines an ordering between two points
-pub fn is_below_fixed(a: TessPoint, b: TessPoint) -> bool {
-    a.y > b.y || (a.y == b.y && a.x > b.x)
-}
-
 // Compute the vector from ce center of an ellipse on of its points
 pub fn ellipse_center_to_point(center: Vec2, ellipse_point: Vec2, radii: Vec2) -> Vec2{
     vec2(
@@ -54,8 +44,8 @@ pub fn ellipse_point_from_angle(center: Vec2, radii: Vec2, angle: f32) -> Vec2{
 ///   0-->    v1 | /
 ///     x        v-
 ///
-pub fn directed_angle(a:Vec2, b: Vec2) -> f32 {
-    let angle = (b.y).atan2(b.x) - (a.y).atan2(a.x);
+pub fn directed_angle(a: Vec2, b: Vec2) -> f32 {
+    let angle = atan2(b.y, b.x) - fast_atan2(a.y, a.x);
     return if angle < 0.0 { angle + 2.0 * PI } else { angle };
 }
 
@@ -73,6 +63,26 @@ pub fn angle_between(start_vector : Vec2, end_vector : Vec2) -> f32 {
     result
 }
 
+#[inline]
+pub fn atan2(y: f32, x: f32) -> f32 {
+    //y.atan2(x)
+    fast_atan2(y, x)
+}
+
+/// A slightly faster approximation of atan2.
+///
+/// Note that it does not deal with the case where both x and y are 0.
+pub fn fast_atan2(y: f32, x: f32) -> f32 {
+    let x_abs = x.abs();
+    let y_abs = y.abs();
+    let a = x_abs.min(y_abs) / x_abs.max(y_abs);
+    let s = a * a;
+    let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a;
+    if y_abs > x_abs { r = 1.57079637 - r; }
+    if x < 0.0 { r = 3.14159274 - r }
+    if y < 0.0 { r = -r }
+    return r;
+}
 
 pub fn tangent(v: Vec2) -> Vec2 {
     let l = v.length();
