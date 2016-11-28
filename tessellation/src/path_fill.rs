@@ -1034,11 +1034,22 @@ enum SegmentInteresection {
     None,
 }
 
+#[inline]
+fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPoint32) -> bool {
+    let (max1, min1) = if a1 > b1 { (a1, b1) } else { (b1, a1) };
+    let (max2, min2) = if a2 > b2 { (a2, b2) } else { (b2, a2) };
+    min1 < max2 && max1 > min2
+}
+
 // TODO[optim]: This function shows up pretty high in the profiles.
 fn segment_intersection(
     a1: TessPoint, b1: TessPoint, // The new edge.
     a2: TessPoint, b2: TessPoint  // An already inserted edge.
 ) -> SegmentInteresection {
+
+    if !x_aabb_test(a1.x, b1.x, a2.x, b2.x) {
+        return SegmentInteresection::None;
+    }
 
     fn tess_point(x: f64, y: f64) -> TessPoint {
         TessPoint::new(FixedPoint32::from_f64(x), FixedPoint32::from_f64(y))
