@@ -26,24 +26,24 @@ pub struct _24;
 pub struct _32;
 
 pub trait FractionalBits { fn bits() -> u32; }
-impl FractionalBits for _1  { fn bits() -> u32 { 1 } }
-impl FractionalBits for _2  { fn bits() -> u32 { 2 } }
-impl FractionalBits for _3  { fn bits() -> u32 { 3 } }
-impl FractionalBits for _4  { fn bits() -> u32 { 4 } }
-impl FractionalBits for _5  { fn bits() -> u32 { 5 } }
-impl FractionalBits for _6  { fn bits() -> u32 { 6 } }
-impl FractionalBits for _7  { fn bits() -> u32 { 7 } }
-impl FractionalBits for _8  { fn bits() -> u32 { 8 } }
-impl FractionalBits for _9  { fn bits() -> u32 { 9 } }
-impl FractionalBits for _10 { fn bits() -> u32 { 10 } }
-impl FractionalBits for _11 { fn bits() -> u32 { 11 } }
-impl FractionalBits for _12 { fn bits() -> u32 { 12 } }
-impl FractionalBits for _13 { fn bits() -> u32 { 13 } }
-impl FractionalBits for _14 { fn bits() -> u32 { 14 } }
-impl FractionalBits for _15 { fn bits() -> u32 { 15 } }
-impl FractionalBits for _16 { fn bits() -> u32 { 16 } }
-impl FractionalBits for _24 { fn bits() -> u32 { 24 } }
-impl FractionalBits for _32 { fn bits() -> u32 { 32 } }
+impl FractionalBits for _1  { #[inline] fn bits() -> u32 { 1 } }
+impl FractionalBits for _2  { #[inline] fn bits() -> u32 { 2 } }
+impl FractionalBits for _3  { #[inline] fn bits() -> u32 { 3 } }
+impl FractionalBits for _4  { #[inline] fn bits() -> u32 { 4 } }
+impl FractionalBits for _5  { #[inline] fn bits() -> u32 { 5 } }
+impl FractionalBits for _6  { #[inline] fn bits() -> u32 { 6 } }
+impl FractionalBits for _7  { #[inline] fn bits() -> u32 { 7 } }
+impl FractionalBits for _8  { #[inline] fn bits() -> u32 { 8 } }
+impl FractionalBits for _9  { #[inline] fn bits() -> u32 { 9 } }
+impl FractionalBits for _10 { #[inline] fn bits() -> u32 { 10 } }
+impl FractionalBits for _11 { #[inline] fn bits() -> u32 { 11 } }
+impl FractionalBits for _12 { #[inline] fn bits() -> u32 { 12 } }
+impl FractionalBits for _13 { #[inline] fn bits() -> u32 { 13 } }
+impl FractionalBits for _14 { #[inline] fn bits() -> u32 { 14 } }
+impl FractionalBits for _15 { #[inline] fn bits() -> u32 { 15 } }
+impl FractionalBits for _16 { #[inline] fn bits() -> u32 { 16 } }
+impl FractionalBits for _24 { #[inline] fn bits() -> u32 { 24 } }
+impl FractionalBits for _32 { #[inline] fn bits() -> u32 { 32 } }
 
 /// A 32 fixed point number.
 /// The size of the fractional is defined by the type parameter F.
@@ -117,8 +117,14 @@ macro_rules! impl_fixed_point {
             #[inline]
             pub fn max(self, other: Self) -> Self { Self::from_raw(cmp::max(self.bits, other.bits)) }
 
+            /// Returns the lowest and highest of the two values in order.
             #[inline]
+            pub fn min_max(self, other: Self) -> (Self, Self) {
+                if self.bits < other.bits { (self, other) } else { (other, self) }
+            }
+
             /// Returns the absolute value of this number.
+            #[inline]
             pub fn abs(self) -> Self { Self::from_raw(self.bits.abs()) }
 
             /// Returns the same number with a different fractional precision.
@@ -135,7 +141,10 @@ macro_rules! impl_fixed_point {
 
         impl<F> Clone for $name<F> { fn clone(&self) -> Self { *self } }
 
-        impl<F> PartialEq for $name<F> { fn eq(&self, other: &Self) -> bool { self.bits == other.bits } }
+        impl<F> PartialEq for $name<F> {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool { self.bits == other.bits }
+        }
 
         impl<F> Eq for $name<F> {}
 
@@ -265,11 +274,14 @@ impl<F: FractionalBits> Fp32<F> {
         Fp32::from_raw((self.bits as i64 * m.bits as i64 / d.bits as i64) as i32)
     }
 
+    #[inline]
     pub fn min_val() -> Self { Fp32::from_raw(i32::MIN) }
 
+    #[inline]
     pub fn max_val() -> Self { Fp32::from_raw(i32::MAX) }
 
     /// Casts into a 64 bits fixed point number.
+    #[inline]
     pub fn to_fp64<NewF: FractionalBits>(self) -> Fp64<NewF> {
         let tmp: Fp64<F> = Fp64::from_raw(self.bits as i64);
         return tmp.to_fixed();
@@ -317,6 +329,7 @@ impl<F: FractionalBits> Fp64<F> {
 
 impl<F: FractionalBits> ops::Div<Fp64<F>> for Fp64<F> {
     type Output = Self;
+    #[inline]
     fn div(self, other: Self) -> Self {
         Fp64::from_raw((self.bits / other.bits) << F::bits())
     }

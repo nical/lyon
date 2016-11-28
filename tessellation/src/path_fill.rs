@@ -1036,8 +1036,8 @@ enum SegmentInteresection {
 
 #[inline]
 fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPoint32) -> bool {
-    let (max1, min1) = if a1 > b1 { (a1, b1) } else { (b1, a1) };
-    let (max2, min2) = if a2 > b2 { (a2, b2) } else { (b2, a2) };
+    let (min1, max1) = a1.min_max(b1);
+    let (min2, max2) = a2.min_max(b2);
     min1 < max2 && max1 > min2
 }
 
@@ -1047,6 +1047,7 @@ fn segment_intersection(
     a2: TessPoint, b2: TessPoint  // An already inserted edge.
 ) -> SegmentInteresection {
 
+    // This early-out test gives a noticeable performance improvement.
     if !x_aabb_test(a1.x, b1.x, a2.x, b2.x) {
         return SegmentInteresection::None;
     }
@@ -1082,7 +1083,7 @@ fn segment_intersection(
 
 /*
     // TODO: we almost never take this branch.
-    // Note: Skia's tessellator doesn't 
+    // Note: Skia's tessellator doesn't have it
     if v1_cross_v2 == 0.0 {
         if a2_a1_cross_v1 != 0.0 {
             return SegmentInteresection::None;
@@ -1168,6 +1169,12 @@ fn test_span_side(span_edge: &SpanEdge, position: TessPoint) -> bool {
 }
 
 fn test_span_touches(span_edge: &SpanEdge, position: TessPoint) -> bool {
+    // This early-out test gives a noticeable performance improvement.
+    let (min, max) = span_edge.upper.x.min_max(span_edge.lower.x);
+    if position.x < min || position.x > max {
+        return false;
+    }
+
     if let Some(x) = line_horizontal_intersection_fixed(span_edge.upper, span_edge.lower, position.y) {
         return (x - position.x).abs() <= FixedPoint32::epsilon() * 2;
     }
@@ -1229,6 +1236,7 @@ impl Span {
         edge.merge = false;
     }
 
+    #[inline]
     fn mut_edge(&mut self, side: Side) -> &mut SpanEdge {
         return match side {
             Side::Left => { &mut self.left }
@@ -1243,14 +1251,18 @@ impl Span {
 /// A point is considered after another point if it is below (y pointing downward) the point.
 /// If two points have the same y coordinate, the one on the right (x pointing to the right)
 /// is the one after.
+#[inline]
 pub fn is_after<T: PartialOrd, U>(a: TypedPoint2D<T, U>, b: TypedPoint2D<T, U>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
 // translate to and from the internal coordinate system.
+#[inline]
 fn to_internal(v: Point) -> TessPoint { TessPoint::new(fixed(v.x), fixed(v.y)) }
+#[inline]
 fn to_vec2(v: TessPoint) -> Point { vec2(v.x.to_f32(), v.y.to_f32()) }
 
+#[inline]
 fn compute_angle(v: TessVec2) -> f32 {
     // TODO: compute directed angles using fixed point vectors.
     -directed_angle(vec2(1.0, 0.0), to_vec2(v))
