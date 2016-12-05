@@ -247,3 +247,38 @@ fn test_intersect_segment_horizontal() {
     assert_almost_eq(line_horizontal_intersection(vec2(0.0, 2.0), vec2(2.0, 0.0), 1.0), 1.0);
     assert_almost_eq(line_horizontal_intersection(vec2(0.0, 1.0), vec2(3.0, 0.0), 0.0), 3.0);
 }
+
+pub fn triangle_contains(triangle: &[Point], point: Point) -> bool {
+    // see http://blackpawn.com/texts/pointinpoly/
+    let v0 = triangle[2] - triangle[0];
+    let v1 = triangle[1] - triangle[0];
+    let v2 = point - triangle[0];
+
+    let dot00 = v0.dot(v0);
+    let dot01 = v0.dot(v1);
+    let dot02 = v0.dot(v2);
+    let dot11 = v1.dot(v1);
+    let dot12 = v1.dot(v2);
+    let inv = 1.0 / (dot00 * dot11 - dot01 * dot01);
+    let u = (dot11 * dot02 - dot01 * dot12) * inv;
+    let v = (dot11 * dot12 - dot01 * dot02) * inv;
+
+    return u >= 0.0 && v >= 0.0 && u + v < 1.0;
+}
+
+#[test]
+fn test_triangle_contains() {
+    assert!(triangle_contains(
+        &[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)],
+        point(0.2, 0.2)
+    ));
+    assert!(!triangle_contains(
+        &[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)],
+        point(1.2, 0.2)
+    ));
+    // Point exactly on the edge counts as in the triangle.
+    assert!(triangle_contains(
+        &[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)],
+        point(0.0, 0.0)
+    ));
+}
