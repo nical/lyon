@@ -27,6 +27,7 @@ pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }
 
 pub type Vec3 = euclid::Point3D<f32>;
 pub type IntVec3 = euclid::Point3D<i32>;
+pub type IntVec4 = euclid::Point4D<i32>;
 
 pub type Mat4 = euclid::Matrix4D<f32>;
 
@@ -36,6 +37,8 @@ pub fn point(x: f32, y: f32) -> Point { vec2(x, y) }
 pub fn vec2(x: f32, y: f32) -> Vec2 { Vec2::new(x, y) }
 #[inline]
 pub fn int_vec2(x: i32, y: i32) -> IntVec2 { IntVec2::new(x, y) }
+#[inline]
+pub fn int_vec4(x: i32, y: i32, z: i32, w: i32) -> IntVec4 { IntVec4::new(x, y, z, w) }
 #[inline]
 pub fn size(w: f32, h: f32) -> Size { Size::new(w, h) }
 #[inline]
@@ -81,3 +84,43 @@ impl Vec2SquareLength for Vec2 {
     fn square_length(self) -> f32 { self.x*self.x + self.y*self.y }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BoolVec4 {
+    pub x: bool,
+    pub y: bool,
+    pub z: bool,
+    pub w: bool,
+}
+
+pub fn bvec4(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
+    BoolVec4 { x: x, y: y, z: z, w: w }
+}
+
+impl BoolVec4 {
+    #[inline]
+    pub fn new(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
+        bvec4(x, y, z, w)
+    }
+
+    #[inline]
+    pub fn any(self) -> bool { self.x || self.y || self.z || self.w }
+
+    #[inline]
+    pub fn all(self) -> bool { self.x && self.y && self.z && self.w }
+
+    #[inline]
+    pub fn and(self, other: BoolVec4) -> BoolVec4 {
+        bvec4(self.x && other.x, self.y && other.y, self.z && other.z, self.w && other.w)
+    }
+
+    #[inline]
+    pub fn or(self, other: BoolVec4) -> BoolVec4 {
+        bvec4(self.x || other.x, self.y || other.y, self.z || other.z, self.w || other.w)
+    }
+
+    #[inline]
+    pub fn tuple(&self) -> (bool, bool, bool, bool) { (self.x, self.y, self.z, self.w) }
+
+    #[inline]
+    pub fn array(&self) -> [bool; 4] { [self.x, self.y, self.z, self.w] }
+}
