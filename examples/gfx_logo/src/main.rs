@@ -22,8 +22,9 @@ pub type DepthFormat = gfx::format::DepthStencil;
 
 gfx_defines!{
     constant Constants {
-        transform: [[f32; 4]; 4] = "u_transform",
         resolution: [f32; 2] = "u_resolution",
+        scroll_offset: [f32; 2] = "u_scroll_offset",
+        zoom: f32 = "u_zoom",
     }
 
     vertex Vertex {
@@ -36,13 +37,13 @@ gfx_defines!{
     }
 
     pipeline model_pipeline {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
+        vbo: gfx::VertexBuffer<Vertex> = (),
         out: gfx::RenderTarget<ColorFormat> = "out_color",
         constants: gfx::ConstantBuffer<Constants> = "Constants",
     }
 
     pipeline bg_pipeline {
-        vbuf: gfx::VertexBuffer<BgVertex> = (),
+        vbo: gfx::VertexBuffer<BgVertex> = (),
         out: gfx::RenderTarget<ColorFormat> = "out_color",
         constants: gfx::ConstantBuffer<Constants> = "Constants",
     }
@@ -66,15 +67,6 @@ impl VertexConstructor<Vec2, BgVertex> for BgVertexCtor  {
     fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
         BgVertex { a_position: pos.array() }
     }
-}
-
-fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
-    [
-        [m.m11, m.m12, m.m13, m.m14],
-        [m.m21, m.m22, m.m23, m.m24],
-        [m.m31, m.m32, m.m33, m.m34],
-        [m.m41, m.m42, m.m43, m.m44],
-    ]
 }
 
 fn main() {
@@ -134,7 +126,7 @@ fn main() {
         .with_multisampling(8)
         .with_vsync();
 
-    let (window, mut device, mut factory, mut main_fbo, mut _main_depth) =
+    let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -162,40 +154,79 @@ fn main() {
         &buffers.indices[..]
     );
 
-    let mut target_zoom = 1.0;
-    let mut zoom = 1.0;
-    let mut target_pos = vec2(0.0, 0.0);
-    let mut pos = vec2(0.0, 0.0);
+    let mut target_zoom = 5.0;
+    let mut zoom = 0.5;
+    let mut target_scroll = vec2(70.0, 70.0);
+    let mut scroll = vec2(70.0, 70.0);
     let mut resolution;
     loop {
-        zoom += (target_zoom - zoom) / 3.0;
-        pos = pos + (target_pos - pos) / 3.0;
+        let mut should_close = false;
+        for event in window.poll_events() {
+            use glutin::Event::KeyboardInput;
+            use glutin::ElementState::Pressed;
+            use glutin::VirtualKeyCode;
+            match event {
+                glutin::Event::Closed => {
+                    should_close = true;
+                }
+                KeyboardInput(Pressed, _, Some(key)) => {
+                    match key {
+                        VirtualKeyCode::Escape => {
+                            should_close = true;
+                        }
+                        VirtualKeyCode::PageDown => {
+                            target_zoom *= 0.8;
+                        }
+                        VirtualKeyCode::PageUp => {
+                            target_zoom *= 1.25;
+                        }
+                        VirtualKeyCode::Left => {
+                            target_scroll.x -= 5.0 / target_zoom;
+                        }
+                        VirtualKeyCode::Right => {
+                            target_scroll.x += 5.0 / target_zoom;
+                        }
+                        VirtualKeyCode::Up => {
+                            target_scroll.y += 5.0 / target_zoom;
+                        }
+                        VirtualKeyCode::Down => {
+                            target_scroll.y -= 5.0 / target_zoom;
+                        }
+                        _key => {}
+                    }
+                    println!(" -- zoom: {}, scroll: {:?}", target_zoom, target_scroll);
+                }
+                _evt => {
+                    //println!("{:?}", _evt);
+                }
+            };
+        }
 
-        gfx_window_glutin::update_views(&window, &mut main_fbo, &mut _main_depth);
+        if should_close {
+            break;
+        }
+
+        gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
 
         resolution = vec2(w as f32, h as f32);
 
-        let model_mat = Mat4::identity();
-        let mut view_mat = Mat4::identity();
-
-        view_mat = view_mat.pre_translated(-1.0, 1.0, 0.0);
-        view_mat = view_mat.pre_scaled(5.0 * zoom, 5.0 * zoom, 0.0);
-        view_mat = view_mat.pre_scaled(2.0/resolution.x, -2.0/resolution.y, 1.0);
-        view_mat = view_mat.pre_translated(pos.x, pos.y, 0.0);
+        zoom += (target_zoom - zoom) / 3.0;
+        scroll = scroll + (target_scroll - scroll) / 3.0;
 
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.update_constant_buffer(&constants, &Constants {
             resolution: resolution.array(),
-            transform: uniform_matrix(&model_mat.pre_mul(&view_mat))
+            zoom: zoom,
+            scroll_offset: scroll.array(),
         });
         cmd_queue.draw(&bg_range, &bg_pso, &bg_pipeline::Data {
-            vbuf: bg_vbo.clone(),
+            vbo: bg_vbo.clone(),
             out: main_fbo.clone(),
             constants: constants.clone(),
         });
         cmd_queue.draw(&model_range, &model_pso, &model_pipeline::Data {
-            vbuf: model_vbo.clone(),
+            vbo: model_vbo.clone(),
             out: main_fbo.clone(),
             constants: constants.clone(),
         });
@@ -204,56 +235,25 @@ fn main() {
         window.swap_buffers().unwrap();
         device.cleanup();
 
-        let mut should_close = false;
-        for event in window.poll_events() {
-            match event {
-                glutin::Event::Closed => {
-                    should_close = true;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => {
-                    should_close = true;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageDown)) => {
-                    target_zoom *= 0.8;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageUp)) => {
-                    target_zoom *= 1.25;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Left)) => {
-                    target_pos.x += 5.0 / target_zoom;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Right)) => {
-                    target_pos.x -= 5.0 / target_zoom;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Up)) => {
-                    target_pos.y += 5.0 / target_zoom;
-                }
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Down)) => {
-                    target_pos.y -= 5.0 / target_zoom;
-                }
-                _evt => {
-                    //println!("{:?}", _evt);
-                }
-            };
-        }
-        if should_close {
-            break;
-        }
     }
 }
 
 static MODEL_VERTEX_SHADER: &'static str = &"
     #version 140
     uniform Constants {
-        mat4 u_transform;
         vec2 u_resolution;
+        vec2 u_scroll_offset;
+        float u_zoom;
     };
     in vec2 a_position;
     in vec3 a_color;
     out vec3 v_color;
 
     void main() {
-        gl_Position = u_transform * vec4(a_position, 0.0, 1.0);// / vec4(u_resolution, 1.0, 1.0);
+        gl_Position = vec4(
+            (a_position - u_scroll_offset) * u_zoom / (vec2(0.5, -0.5) * u_resolution),
+            0.0, 1.0
+        );
         v_color = a_color;
     }
 ";
@@ -279,33 +279,39 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
 
 static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     #version 140
-    //uniform vec2 u_resolution;
-    //uniform mat4 u_transform;
     uniform Constants {
-        mat4 u_transform;
         vec2 u_resolution;
+        vec2 u_scroll_offset;
+        float u_zoom;
     };
     in vec2 v_position;
     out vec4 out_color;
     void main() {
-        vec2 px_position = (v_position * vec2(1.0, -1.0)    + vec2(1.0, 1.0))
-                         * 0.5 * u_resolution;
+        vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
+
         // #005fa4
         float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
-
         out_color = mix(
             vec4(0.0, 0.47, 0.9, 1.0),
             vec4(0.0, 0.1, 0.64, 1.0),
             vignette
         );
 
-        if (mod(px_position.x, 20.0) <= 1.0 ||
-            mod(px_position.y, 20.0) <= 1.0) {
+        // TODO: properly adapt the grid while zooming in and out.
+        float grid_scale = 5.0;
+        if (u_zoom < 2.5) {
+            grid_scale = 1.0;
+        }
+
+        vec2 pos = px_position + u_scroll_offset * u_zoom;
+
+        if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
+            mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
             out_color *= 1.2;
         }
 
-        if (mod(px_position.x, 100.0) <= 1.0 ||
-            mod(px_position.y, 100.0) <= 1.0) {
+        if (mod(pos.x, 100.0 / grid_scale * u_zoom) <= 2.0 ||
+            mod(pos.y, 100.0 / grid_scale * u_zoom) <= 2.0) {
             out_color *= 1.2;
         }
     }
