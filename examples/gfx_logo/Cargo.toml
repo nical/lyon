@@ -1,0 +1,15 @@
+[package]
+name = "gfx-rs example"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+
+[[bin]]
+name = "gfx_logo"
+path = "src/main.rs"
+
+[dependencies]
+lyon = { path = "../../" }
+
+gfx = "0.13"
+gfx_window_glutin = "0.13"
+glutin = "0.7"
