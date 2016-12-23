@@ -151,12 +151,6 @@ fn main() {
         &bg_buffers.indices[..]
     );
 
-    let bg_data = bg_pipeline::Data {
-        vbuf: bg_vbo,
-        out: main_fbo.clone(),
-        constants: constants.clone(),
-    };
-
     let model_pso = factory.create_pipeline_simple(
         MODEL_VERTEX_SHADER.as_bytes(),
         MODEL_FRAGMENT_SHADER.as_bytes(),
@@ -168,26 +162,19 @@ fn main() {
         &buffers.indices[..]
     );
 
-    let model_data = model_pipeline::Data {
-        vbuf: model_vbo,
-        out: main_fbo.clone(),
-        constants: constants.clone(),
-    };
-
     let mut target_zoom = 1.0;
     let mut zoom = 1.0;
     let mut target_pos = vec2(0.0, 0.0);
     let mut pos = vec2(0.0, 0.0);
-    let mut resolution = vec2(0.0, 0.0);
+    let mut resolution;
     loop {
         zoom += (target_zoom - zoom) / 3.0;
         pos = pos + (target_pos - pos) / 3.0;
 
+        gfx_window_glutin::update_views(&window, &mut main_fbo, &mut _main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
-        if resolution.x != w as f32 || resolution.y != h  as f32 {
-            resolution = vec2(w as f32, h as f32);
-            gfx_window_glutin::update_views(&window, &mut main_fbo, &mut _main_depth);
-        }
+
+        resolution = vec2(w as f32, h as f32);
 
         let model_mat = Mat4::identity();
         let mut view_mat = Mat4::identity();
@@ -197,13 +184,21 @@ fn main() {
         view_mat = view_mat.pre_scaled(2.0/resolution.x, -2.0/resolution.y, 1.0);
         view_mat = view_mat.pre_translated(pos.x, pos.y, 0.0);
 
-        cmd_queue.clear(&model_data.out, [resolution.x / 2000.0, 0.0, 0.0, 0.0]);
+        cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.update_constant_buffer(&constants, &Constants {
             resolution: resolution.array(),
             transform: uniform_matrix(&model_mat.pre_mul(&view_mat))
         });
-        cmd_queue.draw(&bg_range, &bg_pso, &bg_data);
-        cmd_queue.draw(&model_range, &model_pso, &model_data);
+        cmd_queue.draw(&bg_range, &bg_pso, &bg_pipeline::Data {
+            vbuf: bg_vbo.clone(),
+            out: main_fbo.clone(),
+            constants: constants.clone(),
+        });
+        cmd_queue.draw(&model_range, &model_pso, &model_pipeline::Data {
+            vbuf: model_vbo.clone(),
+            out: main_fbo.clone(),
+            constants: constants.clone(),
+        });
         cmd_queue.flush(&mut device);
 
         window.swap_buffers().unwrap();
@@ -211,36 +206,33 @@ fn main() {
 
         let mut should_close = false;
         for event in window.poll_events() {
-            should_close |= match event {
-                glutin::Event::Closed => true,
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => true,
+            match event {
+                glutin::Event::Closed => {
+                    should_close = true;
+                }
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => {
+                    should_close = true;
+                }
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageDown)) => {
                     target_zoom *= 0.8;
-                    false
                 }
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::PageUp)) => {
                     target_zoom *= 1.25;
-                    false
                 }
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Left)) => {
                     target_pos.x += 5.0 / target_zoom;
-                    false
                 }
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Right)) => {
                     target_pos.x -= 5.0 / target_zoom;
-                    false
                 }
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Up)) => {
                     target_pos.y += 5.0 / target_zoom;
-                    false
                 }
                 glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Down)) => {
                     target_pos.y -= 5.0 / target_zoom;
-                    false
                 }
                 _evt => {
                     //println!("{:?}", _evt);
-                    false
                 }
             };
         }
