@@ -20,6 +20,8 @@ use gfx::Device;
 pub type ColorFormat = gfx::format::Rgba8;
 pub type DepthFormat = gfx::format::DepthStencil;
 
+const SHAPE_DATA_LEN: usize = 64;
+
 gfx_defines!{
     constant Constants {
         resolution: [f32; 2] = "u_resolution",
@@ -27,37 +29,67 @@ gfx_defines!{
         zoom: f32 = "u_zoom",
     }
 
+    constant ShapeTransform {
+        transform: [[f32; 4]; 4] = "transform",
+    }
+
+    constant ShapeData {
+        color: [f32; 4] = "color",
+        z_index: f32 = "z_index",
+        _padding_0: f32 = "_padding_0",
+        _padding_1: f32 = "_padding_1",
+        _padding_2: f32 = "_padding_2",
+    }
+
     vertex Vertex {
-        a_position: [f32; 2] = "a_position",
-        a_color: [f32; 3] = "a_color",
+        position: [f32; 2] = "a_position",
+        color: [f32; 3] = "a_color",
+        shape_id: i32 = "a_shape_id",
     }
 
     vertex BgVertex {
-        a_position: [f32; 2] = "a_position",
+        position: [f32; 2] = "a_position",
     }
 
     pipeline model_pipeline {
         vbo: gfx::VertexBuffer<Vertex> = (),
-        out: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Constants> = "Constants",
+        transforms: gfx::ConstantBuffer<ShapeTransform> = "u_transforms",
+        shape_data: gfx::ConstantBuffer<ShapeData> = "u_shape_data",
     }
 
     pipeline bg_pipeline {
         vbo: gfx::VertexBuffer<BgVertex> = (),
-        out: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Constants> = "Constants",
     }
 }
 
-struct WithColor([f32; 3]);
+impl ShapeData {
+    fn new(color: [f32; 4], z_index: f32) -> ShapeData {
+        ShapeData {
+            color: color,
+            z_index: z_index,
+            _padding_0: 0.0,
+            _padding_1: 0.0,
+            _padding_2: 0.0,
+        }
+    }
+}
 
-impl VertexConstructor<Vec2, Vertex> for WithColor {
+struct VertexCtor([f32; 3], i32);
+
+impl VertexConstructor<Vec2, Vertex> for VertexCtor {
     fn new_vertex(&mut self, pos: Vec2) -> Vertex {
         assert!(!pos.x.is_nan());
         assert!(!pos.y.is_nan());
         Vertex {
-            a_position: pos.array(),
-            a_color: self.0,
+            position: pos.array(),
+            color: self.0,
+            shape_id: self.1,
         }
     }
 }
@@ -65,7 +97,7 @@ impl VertexConstructor<Vec2, Vertex> for WithColor {
 struct BgVertexCtor ;
 impl VertexConstructor<Vec2, BgVertex> for BgVertexCtor  {
     fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
-        BgVertex { a_position: pos.array() }
+        BgVertex { position: pos.array() }
     }
 }
 
@@ -77,20 +109,31 @@ fn main() {
     let path = builder.build();
 
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut shape_data_cpu = &mut [ShapeData::new([1.0, 0.0, 0.0, 1.0], 1.0); SHAPE_DATA_LEN];
+    let shape_transforms_cpu = &[
+        ShapeTransform { transform: [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]}; SHAPE_DATA_LEN
+    ];
 
     let events = FillEvents::from_iter(path.path_iter().flattened(0.03));
 
     FillTessellator::new().tessellate_events(
         &events,
         &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut buffers, WithColor([0.9, 0.9, 1.0]))
+        &mut BuffersBuilder::new(&mut buffers, VertexCtor([0.9, 0.9, 1.0], 1))
     ).unwrap();
+    shape_data_cpu[1] = ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.2);
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.03),
         &StrokeOptions::stroke_width(1.0),
-        &mut BuffersBuilder::new(&mut buffers, WithColor([0.0, 0.0, 0.0]))
+        &mut BuffersBuilder::new(&mut buffers, VertexCtor([0.0, 0.0, 0.0], 2))
     ).unwrap();
+    shape_data_cpu[2] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.1);
 
     let show_points = false;
 
@@ -99,12 +142,12 @@ fn main() {
             if let Some(to) = p.destination() {
                 tessellate_ellipsis(to, vec2(1.0, 1.0), 16,
                     &mut BuffersBuilder::new(&mut buffers,
-                        WithColor([0.0, 0.0, 0.0])
+                        VertexCtor([0.0, 0.0, 0.0], 3)
                     )
                 );
                 tessellate_ellipsis(to, vec2(0.5, 0.5), 16,
                     &mut BuffersBuilder::new(&mut buffers,
-                        WithColor([0.0, 1.0, 0.0])
+                        VertexCtor([0.0, 1.0, 0.0], 4)
                     )
                 );
             }
@@ -119,9 +162,9 @@ fn main() {
         &mut BuffersBuilder::new(&mut bg_buffers, BgVertexCtor )
     );
 
-    // building the display, ie. the main object
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
+        .with_decorations(true)
         .with_title("tessellation".to_string())
         .with_multisampling(8)
         .with_vsync();
@@ -129,8 +172,12 @@ fn main() {
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
 
+    println!(" -- hidpi factor: {}", window.hidpi_factor());
+
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
     let constants = factory.create_constant_buffer(1);
+    let shape_data_gpu = factory.create_constant_buffer(SHAPE_DATA_LEN);
+    let shape_transforms_gpu = factory.create_constant_buffer(SHAPE_DATA_LEN);
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -154,80 +201,57 @@ fn main() {
         &buffers.indices[..]
     );
 
-    let mut target_zoom = 5.0;
-    let mut zoom = 0.5;
-    let mut target_scroll = vec2(70.0, 70.0);
-    let mut scroll = vec2(70.0, 70.0);
-    let mut resolution;
-    loop {
-        let mut should_close = false;
-        for event in window.poll_events() {
-            use glutin::Event::KeyboardInput;
-            use glutin::ElementState::Pressed;
-            use glutin::VirtualKeyCode;
-            match event {
-                glutin::Event::Closed => {
-                    should_close = true;
-                }
-                KeyboardInput(Pressed, _, Some(key)) => {
-                    match key {
-                        VirtualKeyCode::Escape => {
-                            should_close = true;
-                        }
-                        VirtualKeyCode::PageDown => {
-                            target_zoom *= 0.8;
-                        }
-                        VirtualKeyCode::PageUp => {
-                            target_zoom *= 1.25;
-                        }
-                        VirtualKeyCode::Left => {
-                            target_scroll.x -= 5.0 / target_zoom;
-                        }
-                        VirtualKeyCode::Right => {
-                            target_scroll.x += 5.0 / target_zoom;
-                        }
-                        VirtualKeyCode::Up => {
-                            target_scroll.y += 5.0 / target_zoom;
-                        }
-                        VirtualKeyCode::Down => {
-                            target_scroll.y -= 5.0 / target_zoom;
-                        }
-                        _key => {}
-                    }
-                    println!(" -- zoom: {}, scroll: {:?}", target_zoom, target_scroll);
-                }
-                _evt => {
-                    //println!("{:?}", _evt);
-                }
-            };
-        }
+    let mut view = Viewport {
+        target_zoom: 5.0,
+        zoom: 0.5,
+        target_scroll: vec2(70.0, 70.0),
+        scroll: vec2(70.0, 70.0),
+    };
 
-        if should_close {
+    let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+    init_queue.update_buffer(&shape_data_gpu, shape_data_cpu, 0).unwrap();
+    init_queue.update_buffer(&shape_transforms_gpu, shape_transforms_cpu, 0).unwrap();
+    init_queue.flush(&mut device);
+
+    let mut frame_count: usize = 0;
+    loop {
+        if !update_viewport(&window, &mut view) {
             break;
         }
+
+        // Set the color of the second shape (the outline) to some slowly changing
+        // pseudo-random color.
+        shape_data_cpu[2].color = [
+            (frame_count as f32 * 0.008 - 1.6).sin() * 0.1 + 0.1,
+            (frame_count as f32 * 0.005 - 1.6).sin() * 0.1 + 0.1,
+            (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
+            1.0
+        ];
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
 
-        resolution = vec2(w as f32, h as f32);
-
-        zoom += (target_zoom - zoom) / 3.0;
-        scroll = scroll + (target_scroll - scroll) / 3.0;
-
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
+        cmd_queue.clear_depth(&main_depth.clone(), 1.0);
+
+        cmd_queue.update_buffer(&shape_data_gpu, shape_data_cpu, 0).unwrap();
         cmd_queue.update_constant_buffer(&constants, &Constants {
-            resolution: resolution.array(),
-            zoom: zoom,
-            scroll_offset: scroll.array(),
-        });
-        cmd_queue.draw(&bg_range, &bg_pso, &bg_pipeline::Data {
-            vbo: bg_vbo.clone(),
-            out: main_fbo.clone(),
-            constants: constants.clone(),
+            resolution: [w as f32, h as f32],
+            zoom: view.zoom,
+            scroll_offset: view.scroll.array(),
         });
         cmd_queue.draw(&model_range, &model_pso, &model_pipeline::Data {
             vbo: model_vbo.clone(),
-            out: main_fbo.clone(),
+            out_color: main_fbo.clone(),
+            out_depth: main_depth.clone(),
+            constants: constants.clone(),
+            shape_data: shape_data_gpu.clone(),
+            transforms: shape_transforms_gpu.clone(),
+        });
+        cmd_queue.draw(&bg_range, &bg_pso, &bg_pipeline::Data {
+            vbo: bg_vbo.clone(),
+            out_color: main_fbo.clone(),
+            out_depth: main_depth.clone(),
             constants: constants.clone(),
         });
         cmd_queue.flush(&mut device);
@@ -235,35 +259,61 @@ fn main() {
         window.swap_buffers().unwrap();
         device.cleanup();
 
+        frame_count += 1;
     }
 }
 
 static MODEL_VERTEX_SHADER: &'static str = &"
     #version 140
+    #line 266
     uniform Constants {
         vec2 u_resolution;
         vec2 u_scroll_offset;
         float u_zoom;
     };
+
+    #define SHAPE_DATA_LEN 64
+
+    struct ShapeTransform { mat4 transform; };
+    uniform u_transforms { ShapeTransform transforms[SHAPE_DATA_LEN]; };
+
+    struct ShapeData {
+        vec4 color;
+        float z_index;
+        float _padding_0;
+        float _padding_1;
+        float _padding_2;
+    };
+    uniform u_shape_data { ShapeData shape_data[SHAPE_DATA_LEN]; };
+
     in vec2 a_position;
-    in vec3 a_color;
-    out vec3 v_color;
+    in int a_shape_id;
+
+    out vec4 v_color;
 
     void main() {
+        ShapeData data = shape_data[a_shape_id];
+
+        vec4 world_pos = transforms[a_shape_id].transform * vec4(a_position, 0.0, 1.0);
+        vec2 transformed_pos = (world_pos.xy - u_scroll_offset)
+            * u_zoom / (vec2(0.5, -0.5) * u_resolution);
+
         gl_Position = vec4(
-            (a_position - u_scroll_offset) * u_zoom / (vec2(0.5, -0.5) * u_resolution),
-            0.0, 1.0
+            transformed_pos,
+            world_pos.z + data.z_index,
+            world_pos.w
         );
-        v_color = a_color;
+        v_color = data.color;
     }
 ";
 
 static MODEL_FRAGMENT_SHADER: &'static str = &"
     #version 140
-    in vec3 v_color;
+    in vec4 v_color;
     out vec4 out_color;
+
     void main() {
-        out_color = vec4(v_color, 1.0);
+        out_color = v_color;
     }
 ";
 
@@ -271,8 +321,10 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
     #version 140
     in vec2 a_position;
     out vec2 v_position;
+
     void main() {
-        gl_Position = vec4(a_position, 0.0, 1.0);
+        // TODO: fetch the z coordinate and a transform from a buffer.
+        gl_Position = vec4(a_position, 0.9, 1.0);
         v_position = a_position;
     }
 ";
@@ -286,6 +338,7 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     };
     in vec2 v_position;
     out vec4 out_color;
+
     void main() {
         vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
 
@@ -316,3 +369,58 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
         }
     }
 ";
+
+struct Viewport {
+    target_zoom: f32,
+    zoom: f32,
+    target_scroll: Vec2,
+    scroll: Vec2,
+}
+
+fn update_viewport(window: &glutin::Window, view: &mut Viewport) -> bool {
+    for event in window.poll_events() {
+        use glutin::Event::KeyboardInput;
+        use glutin::ElementState::Pressed;
+        use glutin::VirtualKeyCode;
+        match event {
+            glutin::Event::Closed => {
+                return false;
+            }
+            KeyboardInput(Pressed, _, Some(key)) => {
+                match key {
+                    VirtualKeyCode::Escape => {
+                        return false;
+                    }
+                    VirtualKeyCode::PageDown => {
+                        view.target_zoom *= 0.8;
+                    }
+                    VirtualKeyCode::PageUp => {
+                        view.target_zoom *= 1.25;
+                    }
+                    VirtualKeyCode::Left => {
+                        view.target_scroll.x -= 20.0 / view.target_zoom;
+                    }
+                    VirtualKeyCode::Right => {
+                        view.target_scroll.x += 20.0 / view.target_zoom;
+                    }
+                    VirtualKeyCode::Up => {
+                        view.target_scroll.y -= 20.0 / view.target_zoom;
+                    }
+                    VirtualKeyCode::Down => {
+                        view.target_scroll.y += 20.0 / view.target_zoom;
+                    }
+                    _key => {}
+                }
+                println!(" -- zoom: {}, scroll: {:?}", view.target_zoom, view.target_scroll);
+            }
+            _evt => {
+                //println!("{:?}", _evt);
+            }
+        };
+    }
+
+    view.zoom += (view.target_zoom - view.zoom) / 3.0;
+    view.scroll = view.scroll + (view.target_scroll - view.scroll) / 3.0;
+
+    return true;
+}
