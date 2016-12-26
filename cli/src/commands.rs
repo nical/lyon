@@ -4,7 +4,7 @@ pub struct TessellateCmd {
     pub input: String,
     pub output: Box<io::Write>,
     pub fill: bool,
-    pub stroke: bool,
+    pub stroke: Option<f32>,
     pub tolerance: f32,
     pub count: bool,
 }

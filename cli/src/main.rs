@@ -28,6 +28,8 @@ fn main() {
                 .short("s")
                 .long("stroke")
                 .help("Strokes the path")
+                .value_name("STROKE_WIDTH")
+                .takes_value(true)
             )
             .arg(Arg::with_name("TOLERANCE")
                 .short("t")
@@ -64,18 +66,18 @@ fn main() {
             .required(false)
         )
         .arg(Arg::with_name("INPUT")
-            .help("Sets the input file to use")
             .short("i")
             .long("input")
+            .help("Sets the input file to use")
             .value_name("FILE")
             .takes_value(true)
             .required(false)
         )
         .arg(Arg::with_name("OUTPUT")
-            .help("Sets the output file to use")
-            .value_name("FILE")
             .short("o")
             .long("output")
+            .help("Sets the output file to use")
+            .value_name("FILE")
             .takes_value(true)
             .required(false)
         )
@@ -104,11 +106,11 @@ fn main() {
 
     if let Some(tess_matches) = matches.subcommand_matches("tessellate") {
         let fill_cmd = tess_matches.is_present("FILL");
-        let stroke_cmd = tess_matches.is_present("STROKE");
+        let stroke_cmd = get_stroke(tess_matches);
         let cmd = TessellateCmd {
             input: input_buffer,
             output: output,
-            fill: fill_cmd || (!fill_cmd && !stroke_cmd),
+            fill: fill_cmd || (!fill_cmd && !stroke_cmd.is_some()),
             stroke: stroke_cmd,
             tolerance: get_tolerance(&tess_matches),
             count: tess_matches.is_present("COUNT"),
@@ -134,4 +136,13 @@ fn get_tolerance(matches: &ArgMatches) -> f32 {
         return tolerance_str.parse().unwrap_or(default);
     }
     return default;
+}
+
+fn get_stroke(matches: &ArgMatches) -> Option<f32> {
+    if let Some(stroke_str) = matches.value_of("STROKE") {
+        if let Ok(val) = stroke_str.parse() {
+            return Some(val);
+        }
+    }
+    return None;
 }

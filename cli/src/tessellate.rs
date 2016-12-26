@@ -47,10 +47,10 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
         }
     }
 
-    if cmd.stroke {
+    if let Some(width) = cmd.stroke {
         if StrokeTessellator::new().tessellate(
             path.path_iter().flattened(cmd.tolerance),
-            &StrokeOptions::stroke_width(1.0),
+            &StrokeOptions::stroke_width(width),
             &mut simple_builder(&mut buffers)
         ).is_err() {
             return Err(TessError::Stroke);
