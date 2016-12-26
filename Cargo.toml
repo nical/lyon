@@ -22,3 +22,4 @@ lyon_path = { version = "0.3.2", path = "path/" }
 lyon_path_builder = { version = "0.3.2", path = "path_builder/" }
 lyon_path_iterator = { version = "0.3.2", path = "path_iterator/" }
 lyon_extra = { version = "0.3.2", path = "extra/" }
+lyon_svg = { version = "0.2.0", path = "svg/" }

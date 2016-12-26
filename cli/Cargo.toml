@@ -1,0 +1,12 @@
+[package]
+name = "lyon_cli"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+
+[[bin]]
+name = "lyon"
+
+[dependencies]
+lyon = { path = "../" }
+clap = "2.19.2"
+
