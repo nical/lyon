@@ -29,6 +29,29 @@ pub fn flatten(mut cmd: FlattenCmd) -> Result<(), FlattenError> {
     }
 
     let path = builder.build();
+
+    if cmd.count {
+        let mut num_paths = 0;
+        let mut num_vertices = 0;
+        for event in path.path_iter().flattened(cmd.tolerance) {
+            match event {
+                FlattenedEvent::MoveTo(_) => {
+                    num_vertices += 1;
+                    num_paths += 1;
+                }
+                FlattenedEvent::LineTo(_) => {
+                    num_vertices += 1;
+                }
+                FlattenedEvent::Close => {}
+            }
+        }
+
+        try!{ writeln!(&mut *cmd.output, "vertices: {}", num_vertices) };
+        try!{ writeln!(&mut *cmd.output, "paths: {}", num_paths) };
+
+        return Ok(());
+    }
+
     for event in path.path_iter().flattened(cmd.tolerance) {
         match event {
             FlattenedEvent::MoveTo(p) => {

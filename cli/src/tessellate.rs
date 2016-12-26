@@ -57,6 +57,14 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
         }
     }
 
+    if cmd.count {
+        try!{ writeln!(&mut *cmd.output, "vertices: {}", buffers.vertices.len()) };
+        try!{ writeln!(&mut *cmd.output, "indices: {}", buffers.indices.len()) };
+        try!{ writeln!(&mut *cmd.output, "triangles: {}", buffers.indices.len() / 3) };
+
+        return Ok(());
+    }
+
     try!{ write!(&mut *cmd.output, "vertices: [") };
     let mut is_first = true;
     for vertex in buffers.vertices {
@@ -68,7 +76,7 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
     }
     try!{ writeln!(&mut *cmd.output, "]") };
 
-    try!{ write!(&mut *cmd.output, "inices: [") };
+    try!{ write!(&mut *cmd.output, "indices: [") };
     let mut is_first = true;
     for index in buffers.indices {
         if !is_first {
