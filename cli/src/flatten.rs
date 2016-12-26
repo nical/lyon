@@ -17,7 +17,6 @@ impl ::std::convert::From<::std::io::Error> for FlattenError {
 }
 
 pub fn flatten(mut cmd: FlattenCmd) -> Result<(), FlattenError> {
-
     let mut builder = path::Path::builder().with_svg();
 
     for item in parser::path::PathTokenizer::new(&cmd.input) {
