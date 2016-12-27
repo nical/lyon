@@ -11,10 +11,12 @@
 extern crate euclid;
 
 mod flatten_cubic;
+mod cubic_to_quadratic;
 
 use std::mem::swap;
 use flatten_cubic::flatten_cubic_bezier;
 pub use flatten_cubic::CubicFlatteningIter;
+pub use cubic_to_quadratic::cubic_to_quadratic;
 
 pub type Point = euclid::Point2D<f32>;
 pub type Vec2 = euclid::Point2D<f32>;

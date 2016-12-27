@@ -34,6 +34,14 @@ pub enum PathEvent {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum QuadraticPathEvent {
+    MoveTo,
+    LineTo,
+    QuadraticTo(Point, Point),
+    Close,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FlattenedEvent {
     MoveTo(Point),
     LineTo(Point),

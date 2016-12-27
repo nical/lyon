@@ -17,6 +17,7 @@ path = "src/lib.rs"
 
 lyon_core = { version = "0.3.2", path = "../core" }
 lyon_path = { version = "0.3.2", path = "../path" }
+lyon_bezier = { version = "0.3.2", path = "../bezier" }
 lyon_path_builder = { version = "0.3.2", path = "../path_builder" }
 lyon_path_iterator = { version = "0.3.2", path = "../path_iterator" }
 
