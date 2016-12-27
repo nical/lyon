@@ -23,6 +23,7 @@ pub type DepthFormat = gfx::format::DepthStencil;
 
 const SHAPE_DATA_LEN: usize = 64;
 
+// Describe the vertex, uniform data and pipeline states passed to gfx-rs.
 gfx_defines!{
     constant Globals {
         resolution: [f32; 2] = "u_resolution",
@@ -34,6 +35,9 @@ gfx_defines!{
         transform: [[f32; 4]; 4] = "transform",
     }
 
+    // Per-shape data.
+    // It would probably make sense to have different structures for fills and strokes,
+    // but using the same struct helps with keeping things simple for now.
     constant ShapeData {
         color: [f32; 4] = "color",
         z_index: f32 = "z_index",
@@ -42,14 +46,13 @@ gfx_defines!{
         _padding: f32 = "_padding",
     }
 
+    // Per-vertex data.
+    // Again, the same data is used for fill and strokes for simplicity.
+    // Ideally this should stay as small as possible.
     vertex Vertex {
         position: [f32; 2] = "a_position",
         normal: [f32; 2] = "a_normal",
-        shape_id: i32 = "a_shape_id",
-    }
-
-    vertex BgVertex {
-        position: [f32; 2] = "a_position",
+        shape_id: i32 = "a_shape_id", // An id pointing to the ShapeData struct above.
     }
 
     pipeline model_pipeline {
@@ -59,6 +62,11 @@ gfx_defines!{
         constants: gfx::ConstantBuffer<Globals> = "Globals",
         transforms: gfx::ConstantBuffer<ShapeTransform> = "u_transforms",
         shape_data: gfx::ConstantBuffer<ShapeData> = "u_shape_data",
+    }
+
+    // The background is drawn separately with its own shader.
+    vertex BgVertex {
+        position: [f32; 2] = "a_position",
     }
 
     pipeline bg_pipeline {
@@ -81,23 +89,16 @@ impl ShapeData {
     }
 }
 
+// Implement a vertex constructor.
+// The vertex constructor sits between the tessellator and the geometry builder.
+// it is called every time a new vertex needs to be added and creates a the vertex
+// from the information provided by the tessellator.
+//
+// This vertex constructor forwards the positions and normals provided by the
+// tessellators and add a shape id.
 struct WithShapeId(i32);
 
-impl VertexConstructor<Vec2, Vertex> for WithShapeId {
-    fn new_vertex(&mut self, pos: Vec2) -> Vertex {
-        assert!(!pos.x.is_nan());
-        assert!(!pos.y.is_nan());
-        Vertex {
-            position: pos.array(),
-            normal: [0.0, 0.0],
-            shape_id: self.0,
-        }
-    }
-}
-
-struct StrokeWidthAndShapeId(f32, i32);
-
-impl VertexConstructor<StrokeVertex, Vertex> for StrokeWidthAndShapeId {
+impl VertexConstructor<StrokeVertex, Vertex> for WithShapeId {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
@@ -106,7 +107,21 @@ impl VertexConstructor<StrokeVertex, Vertex> for StrokeWidthAndShapeId {
         Vertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.1,
+            shape_id: self.0,
+        }
+    }
+}
+
+// The fill tessellator does not implement normals yet, so this implementation
+// just sets it to [0, 0], for now.
+impl VertexConstructor<Vec2, Vertex> for WithShapeId {
+    fn new_vertex(&mut self, pos: Vec2) -> Vertex {
+        assert!(!pos.x.is_nan());
+        assert!(!pos.y.is_nan());
+        Vertex {
+            position: pos.array(),
+            normal: [0.0, 0.0],
+            shape_id: self.0,
         }
     }
 }
@@ -129,12 +144,12 @@ fn main() {
     println!("  p: toggle sow points");
     println!("  a/z: increase/decrease the stroke width");
 
+    // Build a Path for the rust logo.
     let mut builder = SvgPathBuilder::new(Path::builder());
-
     build_logo_path(&mut builder);
-
     let path = builder.build();
 
+    // Create some CPU-side buffers that will contain the geometry.
     let mut path_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
     let mut points_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
     let mut shape_data_cpu = &mut [ShapeData::new([1.0, 0.0, 0.0, 1.0], 0.0, TransformId(0)); SHAPE_DATA_LEN];
@@ -147,6 +162,11 @@ fn main() {
         ]}; SHAPE_DATA_LEN
     ];
 
+    // Tessellate the fill
+
+    // Note that we flatten the path here. Since the flattening tolerance should
+    // depend on the resolution/zoom it would make sense to re-tessellate when the
+    // zoom level changes (not done here for simplicity).
     let events = FillEvents::from_iter(path.path_iter().flattened(0.09));
 
     FillTessellator::new().tessellate_events(
@@ -156,13 +176,16 @@ fn main() {
     ).unwrap();
     shape_data_cpu[1] = ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.1, TransformId(0));
 
+    // Tessellate the stroke
+
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.022),
         &StrokeOptions::default(),
-        &mut BuffersBuilder::new(&mut path_mesh_cpu, StrokeWidthAndShapeId(1.0, 2))
+        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(2))
     ).unwrap();
     shape_data_cpu[2] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.2, TransformId(0));
 
+    // Tessellate a dot for each point along the path (hidden by default)
     for p in path.as_slice().iter() {
         if let Some(to) = p.destination() {
             tessellate_ellipsis(
@@ -194,6 +217,8 @@ fn main() {
         &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
         &mut BuffersBuilder::new(&mut bg_path_mesh_cpu, BgWithShapeId )
     );
+
+    // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
 
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
@@ -242,6 +267,7 @@ fn main() {
         model_pipeline::new()
     ).unwrap();
 
+    /// Upload the tessellated geometry to the GPU.
     let (model_vbo, model_range) = factory.create_vertex_buffer_with_slice(
         &path_mesh_cpu.vertices[..],
         &path_mesh_cpu.indices[..]
@@ -282,7 +308,6 @@ fn main() {
             (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
             1.0
         ];
-        // Mess with the stroke width.
         shape_data_cpu[2].width = scene.stroke_width;
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
@@ -297,6 +322,9 @@ fn main() {
             zoom: scene.zoom,
             scroll_offset: scene.scroll.array(),
         });
+
+        // Draw the opaque geometry front to back with the depth buffer enabled.
+
         if scene.show_points {
             cmd_queue.draw(&points_range, &model_pso, &model_pipeline::Data {
                 vbo: points_vbo.clone(),
@@ -326,6 +354,10 @@ fn main() {
             out_depth: main_depth.clone(),
             constants: constants.clone(),
         });
+
+        // Non-opaque geometry should be drawn back to front here.
+        // (there is none in this example)
+
         cmd_queue.flush(&mut device);
 
         window.swap_buffers().unwrap();
@@ -335,6 +367,10 @@ fn main() {
     }
 }
 
+// The vertex shader for the tessellated geometry.
+// The transform, color and stroke width are applied instead of during tessellation. This makes
+// it possible to change these parameters without having to modify/upload the geometry.
+// Per-shape data is stored in uniform buffer objects to keep the vertex buffer small.
 static MODEL_VERTEX_SHADER: &'static str = &"
     #version 140
     #line 266
@@ -378,6 +414,9 @@ static MODEL_VERTEX_SHADER: &'static str = &"
     }
 ";
 
+// The fragment shader is dead simple. It just applies the color computed in the vertex shader.
+// A more advanced renderer would probably compute texture coordinates in the vertex shader and
+// sample the color from a texture here.
 static MODEL_FRAGMENT_SHADER: &'static str = &"
     #version 140
     in vec4 v_color;
@@ -400,6 +439,8 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
     }
 ";
 
+// The background.
+// This shader is silly and slow, but it looks nice ;)
 static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     #version 140
     uniform Globals {
