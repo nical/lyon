@@ -38,12 +38,13 @@ gfx_defines!{
         color: [f32; 4] = "color",
         z_index: f32 = "z_index",
         transform_id: i32 = "transform_id",
-        _padding_0: f32 = "_padding_0",
-        _padding_1: f32 = "_padding_1",
+        width: f32 = "width",
+        _padding: f32 = "_padding",
     }
 
     vertex Vertex {
         position: [f32; 2] = "a_position",
+        normal: [f32; 2] = "a_normal",
         shape_id: i32 = "a_shape_id",
     }
 
@@ -74,8 +75,8 @@ impl ShapeData {
             color: color,
             z_index: z_index,
             transform_id: transform_id.0,
-            _padding_0: 0.0,
-            _padding_1: 0.0,
+            width: 1.0,
+            _padding: 0.0,
         }
     }
 }
@@ -88,6 +89,7 @@ impl VertexConstructor<Vec2, Vertex> for WithShapeId {
         assert!(!pos.y.is_nan());
         Vertex {
             position: pos.array(),
+            normal: [0.0, 0.0],
             shape_id: self.0,
         }
     }
@@ -102,7 +104,8 @@ impl VertexConstructor<StrokeVertex, Vertex> for StrokeWidthAndShapeId {
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
         Vertex {
-            position: (vertex.position + vertex.normal * self.0).array(),
+            position: vertex.position.array(),
+            normal: vertex.normal.array(),
             shape_id: self.1,
         }
     }
@@ -118,6 +121,14 @@ impl VertexConstructor<Vec2, BgVertex> for BgWithShapeId  {
 struct TransformId(i32);
 
 fn main() {
+    println!("== gfx-rs example ==");
+    println!("Controls:");
+    println!("  Arrow keys: scrolling");
+    println!("  PgUp/PgDown: zoom in/out");
+    println!("  w: toggle wireframe mode");
+    println!("  p: toggle sow points");
+    println!("  a/z: increase/decrease the stroke width");
+
     let mut builder = SvgPathBuilder::new(Path::builder());
 
     build_logo_path(&mut builder);
@@ -146,7 +157,7 @@ fn main() {
     shape_data_cpu[1] = ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.1, TransformId(0));
 
     StrokeTessellator::new().tessellate(
-        path.path_iter().flattened(0.02),
+        path.path_iter().flattened(0.022),
         &StrokeOptions::default(),
         &mut BuffersBuilder::new(&mut path_mesh_cpu, StrokeWidthAndShapeId(1.0, 2))
     ).unwrap();
@@ -193,8 +204,6 @@ fn main() {
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
-
-    println!(" -- hidpi factor: {}", window.hidpi_factor());
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
     let constants = factory.create_constant_buffer(1);
@@ -243,13 +252,15 @@ fn main() {
         &points_mesh_cpu.indices[..]
     );
 
-    let mut view = Viewport {
+    let mut scene = SceneParams {
         target_zoom: 5.0,
         zoom: 0.5,
         target_scroll: vec2(70.0, 70.0),
         scroll: vec2(70.0, 70.0),
         show_points: false,
         show_wireframe: false,
+        stroke_width: 0.0,
+        target_stroke_width: 1.0,
     };
 
     let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -259,7 +270,7 @@ fn main() {
 
     let mut frame_count: usize = 0;
     loop {
-        if !update_viewport(&window, &mut view) {
+        if !update_inputs(&window, &mut scene) {
             break;
         }
 
@@ -271,6 +282,8 @@ fn main() {
             (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
             1.0
         ];
+        // Mess with the stroke width.
+        shape_data_cpu[2].width = scene.stroke_width;
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
@@ -281,10 +294,10 @@ fn main() {
         cmd_queue.update_buffer(&shape_data_gpu, shape_data_cpu, 0).unwrap();
         cmd_queue.update_constant_buffer(&constants, &Globals {
             resolution: [w as f32, h as f32],
-            zoom: view.zoom,
-            scroll_offset: view.scroll.array(),
+            zoom: scene.zoom,
+            scroll_offset: scene.scroll.array(),
         });
-        if view.show_points {
+        if scene.show_points {
             cmd_queue.draw(&points_range, &model_pso, &model_pipeline::Data {
                 vbo: points_vbo.clone(),
                 out_color: main_fbo.clone(),
@@ -294,7 +307,7 @@ fn main() {
                 transforms: shape_transforms_gpu.clone(),
             });
         }
-        let pso = if view.show_wireframe {
+        let pso = if scene.show_wireframe {
             &wireframe_model_pso
         } else {
             &model_pso
@@ -341,12 +354,13 @@ static MODEL_VERTEX_SHADER: &'static str = &"
         vec4 color;
         float z_index;
         int transform_id;
-        float _padding_0;
-        float _padding_1;
+        float width;
+        float _padding;
     };
     uniform u_shape_data { ShapeData shape_data[SHAPE_DATA_LEN]; };
 
     in vec2 a_position;
+    in vec2 a_normal;
     in int a_shape_id;
 
     out vec4 v_color;
@@ -354,7 +368,8 @@ static MODEL_VERTEX_SHADER: &'static str = &"
     void main() {
         ShapeData data = shape_data[a_shape_id];
 
-        vec4 world_pos = transforms[data.transform_id].transform * vec4(a_position, 0.0, 1.0);
+        vec4 local_pos = vec4(a_position + a_normal * data.width, 0.0, 1.0);
+        vec4 world_pos = transforms[data.transform_id].transform * local_pos;
         vec2 transformed_pos = (world_pos.xy / world_pos.w - u_scroll_offset)
             * u_zoom / (vec2(0.5, -0.5) * u_resolution);
 
@@ -426,16 +441,18 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     }
 ";
 
-struct Viewport {
+struct SceneParams {
     target_zoom: f32,
     zoom: f32,
     target_scroll: Vec2,
     scroll: Vec2,
     show_points: bool,
     show_wireframe: bool,
+    stroke_width: f32,
+    target_stroke_width: f32,
 }
 
-fn update_viewport(window: &glutin::Window, view: &mut Viewport) -> bool {
+fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
     for event in window.poll_events() {
         use glutin::Event::KeyboardInput;
         use glutin::ElementState::Pressed;
@@ -450,32 +467,38 @@ fn update_viewport(window: &glutin::Window, view: &mut Viewport) -> bool {
                         return false;
                     }
                     VirtualKeyCode::PageDown => {
-                        view.target_zoom *= 0.8;
+                        scene.target_zoom *= 0.8;
                     }
                     VirtualKeyCode::PageUp => {
-                        view.target_zoom *= 1.25;
+                        scene.target_zoom *= 1.25;
                     }
                     VirtualKeyCode::Left => {
-                        view.target_scroll.x -= 50.0 / view.target_zoom;
+                        scene.target_scroll.x -= 50.0 / scene.target_zoom;
                     }
                     VirtualKeyCode::Right => {
-                        view.target_scroll.x += 50.0 / view.target_zoom;
+                        scene.target_scroll.x += 50.0 / scene.target_zoom;
                     }
                     VirtualKeyCode::Up => {
-                        view.target_scroll.y -= 50.0 / view.target_zoom;
+                        scene.target_scroll.y -= 50.0 / scene.target_zoom;
                     }
                     VirtualKeyCode::Down => {
-                        view.target_scroll.y += 50.0 / view.target_zoom;
+                        scene.target_scroll.y += 50.0 / scene.target_zoom;
                     }
                     VirtualKeyCode::P => {
-                        view.show_points = !view.show_points;
+                        scene.show_points = !scene.show_points;
                     }
                     VirtualKeyCode::W => {
-                        view.show_wireframe = !view.show_wireframe;
+                        scene.show_wireframe = !scene.show_wireframe;
+                    }
+                    VirtualKeyCode::A => {
+                        scene.target_stroke_width += 0.8;
+                    }
+                    VirtualKeyCode::Z => {
+                        scene.target_stroke_width -= 0.8;
                     }
                     _key => {}
                 }
-                println!(" -- zoom: {}, scroll: {:?}", view.target_zoom, view.target_scroll);
+                println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
             }
             _evt => {
                 //println!("{:?}", _evt);
@@ -483,8 +506,9 @@ fn update_viewport(window: &glutin::Window, view: &mut Viewport) -> bool {
         };
     }
 
-    view.zoom += (view.target_zoom - view.zoom) / 3.0;
-    view.scroll = view.scroll + (view.target_scroll - view.scroll) / 3.0;
+    scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
+    scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
+    scene.stroke_width = scene.stroke_width + (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
     return true;
 }

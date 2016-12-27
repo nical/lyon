@@ -295,7 +295,9 @@ fn no_inflection_flattening_step(
 
     let t = 2.0 * (tolerance * s2inv.abs() / 3.0).sqrt();
 
-    if t >= 0.9999 {
+    // TODO: We start having floating point precision issues if this constant
+    // is closer to 1.0 with a small enough tolerance threshold.
+    if t >= 0.995 {
         return 1.0;
     }
 
