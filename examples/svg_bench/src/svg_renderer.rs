@@ -21,6 +21,7 @@ use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, Bu
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
+use lyon::tessellation::Vertex as StrokeVertex;
 use lyon::path_iterator::PathIterator;
 
 use clap::{Arg, ArgMatches};
@@ -282,9 +283,13 @@ fn tessellate_scene(scene: &mut[RenderItem]) {
                 println!(" -- tessellate stroke");
                 stroke_tessellator.tessellate(
                     item.path.path_iter().flattened(0.03),
-                    &StrokeOptions::stroke_width(item.stroke_width),
-                    &mut BuffersBuilder::new(&mut buffers, WithColor(
-                        [color.red as f32 / 255.0, color.green as f32 / 255.0, color.blue as f32 / 255.0]
+                    &StrokeOptions::default(),
+                    &mut BuffersBuilder::new(&mut buffers, WithColorAndStrokeWidth([
+                            color.red as f32 / 255.0,
+                            color.green as f32 / 255.0,
+                            color.blue as f32 / 255.0
+                        ],
+                        item.stroke_width
                     ))
                 ).unwrap();
                 item.geometry = Some(buffers);
@@ -351,7 +356,6 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
             }
             Err(e) => {
                 panic!("Error: {:?}.", e);
-                break;
             }
             _ => {}
         }
@@ -430,6 +434,21 @@ impl VertexConstructor<Vec2, Vertex> for WithColor {
         assert!(!pos.y.is_nan());
         Vertex {
             a_position: pos.array(),
+            a_color: self.0,
+        }
+    }
+}
+
+struct WithColorAndStrokeWidth([f32; 3], f32);
+
+impl VertexConstructor<StrokeVertex, Vertex> for WithColorAndStrokeWidth {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
+        assert!(!vertex.position.x.is_nan());
+        assert!(!vertex.position.y.is_nan());
+        assert!(!vertex.normal.x.is_nan());
+        assert!(!vertex.normal.y.is_nan());
+        Vertex {
+            a_position: (vertex.position + vertex.normal * self.1).array(),
             a_color: self.0,
         }
     }

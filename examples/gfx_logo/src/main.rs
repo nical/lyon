@@ -11,6 +11,7 @@ use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, Bu
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
+use lyon::tessellation::Vertex as StrokeVertex;
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
 
@@ -92,6 +93,21 @@ impl VertexConstructor<Vec2, Vertex> for WithShapeId {
     }
 }
 
+struct StrokeWidthAndShapeId(f32, i32);
+
+impl VertexConstructor<StrokeVertex, Vertex> for StrokeWidthAndShapeId {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
+        assert!(!vertex.position.x.is_nan());
+        assert!(!vertex.position.y.is_nan());
+        assert!(!vertex.normal.x.is_nan());
+        assert!(!vertex.normal.y.is_nan());
+        Vertex {
+            position: (vertex.position + vertex.normal * self.0).array(),
+            shape_id: self.1,
+        }
+    }
+}
+
 struct BgWithShapeId ;
 impl VertexConstructor<Vec2, BgVertex> for BgWithShapeId  {
     fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
@@ -131,8 +147,8 @@ fn main() {
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.02),
-        &StrokeOptions::stroke_width(1.0),
-        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(2))
+        &StrokeOptions::default(),
+        &mut BuffersBuilder::new(&mut path_mesh_cpu, StrokeWidthAndShapeId(1.0, 2))
     ).unwrap();
     shape_data_cpu[2] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.2, TransformId(0));
 

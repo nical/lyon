@@ -1,12 +1,13 @@
 use commands::TessellateCmd;
-use lyon::math::Vec2;
+use lyon::math::*;
 use lyon::svg::parser;
 use lyon::path::Path;
 use lyon::path_builder::*;
 use lyon::path_iterator::*;
-use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
+use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers, BuffersBuilder, VertexConstructor};
 use lyon::tessellation::path_fill::*;
 use lyon::tessellation::path_stroke::*;
+use lyon::tessellation::Vertex as StrokeVertex;
 use std::io;
 
 #[derive(Debug)]
@@ -50,8 +51,8 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
     if let Some(width) = cmd.stroke {
         if StrokeTessellator::new().tessellate(
             path.path_iter().flattened(cmd.tolerance),
-            &StrokeOptions::stroke_width(width),
-            &mut simple_builder(&mut buffers)
+            &StrokeOptions::default(),
+            &mut BuffersBuilder::new(&mut buffers, StrokeWidth(width))
         ).is_err() {
             return Err(TessError::Stroke);
         }
@@ -89,3 +90,17 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
 
     Ok(())
 }
+
+struct StrokeWidth(f32);
+
+impl VertexConstructor<StrokeVertex, Vec2> for StrokeWidth {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vec2 {
+        assert!(!vertex.position.x.is_nan());
+        assert!(!vertex.position.y.is_nan());
+        assert!(!vertex.normal.x.is_nan());
+        assert!(!vertex.normal.y.is_nan());
+
+        vertex.position + vertex.normal * self.0
+    }
+}
+

@@ -89,3 +89,8 @@ pub mod path_stroke;
 pub mod geometry_builder;
 
 pub use core::*;
+
+pub struct Vertex {
+    pub position: math::Point,
+    pub normal: math::Vec2,
+}

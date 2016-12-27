@@ -80,6 +80,7 @@ use core::FlattenedEvent;
 use geometry_builder::{ VertexId, GeometryBuilder, Count, };
 use math_utils::{ tangent, line_intersection, };
 use path_builder::BaseBuilder;
+use Vertex;
 
 pub type StrokeResult = Result<Count, ()>;
 
@@ -90,7 +91,7 @@ impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
     pub fn tessellate<Input, Output>(&mut self, input: Input, options: &StrokeOptions, builder: &mut Output) -> StrokeResult
-    where Input: Iterator<Item=FlattenedEvent>, Output: GeometryBuilder<Point> {
+    where Input: Iterator<Item=FlattenedEvent>, Output: GeometryBuilder<Vertex> {
         builder.begin_geometry();
         let mut stroker = StrokeBuilder::new(options, builder);
 
@@ -117,7 +118,7 @@ pub struct StrokeBuilder<'l, Output:'l> {
     output: &'l mut Output,
 }
 
-impl<'l, Output:'l + GeometryBuilder<Point>> BaseBuilder for StrokeBuilder<'l, Output> {
+impl<'l, Output:'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, Output> {
     type PathType = StrokeResult;
 
     fn move_to(&mut self, to: Point) {
@@ -162,7 +163,7 @@ impl<'l, Output:'l + GeometryBuilder<Point>> BaseBuilder for StrokeBuilder<'l, O
     }
 }
 
-impl<'l, Output:'l + GeometryBuilder<Point>> StrokeBuilder<'l, Output> {
+impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     pub fn new(options: &StrokeOptions, builder: &'l mut Output) -> Self {
         let zero = Point::new(0.0, 0.0);
         return StrokeBuilder {
@@ -192,15 +193,27 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokeBuilder<'l, Output> {
             }
         }
 
-        let hw = self.options.stroke_width * 0.5;
+        let hw = 0.5;
 
         if self.options.line_cap == LineCap::Square && self.nth == 0 {
             // Even if there is no edge, if we are using square caps we have to place a square
             // at the current position.
-            let a = self.output.add_vertex(self.current + vec2(-hw, -hw));
-            let b = self.output.add_vertex(self.current + vec2( hw, -hw));
-            let c = self.output.add_vertex(self.current + vec2( hw,  hw));
-            let d = self.output.add_vertex(self.current + vec2(-hw,  hw));
+            let a = self.output.add_vertex(Vertex {
+                position: self.current,
+                normal: vec2(-hw, -hw),
+            });
+            let b = self.output.add_vertex(Vertex {
+                position: self.current,
+                normal: vec2(hw, -hw),
+            });
+            let c = self.output.add_vertex(Vertex {
+                position: self.current,
+                normal: vec2(hw,  hw),
+            });
+            let d = self.output.add_vertex(Vertex {
+                position: self.current,
+                normal: vec2(-hw,  hw),
+            });
             self.output.add_triangle(a, b, c);
             self.output.add_triangle(a, c, d);
         }
@@ -228,10 +241,18 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokeBuilder<'l, Output> {
                 first = first + d.normalized() * hw;
             }
             let fake_prev = first + d;
-            let (a, b, c_opt) = get_angle_info(fake_prev, first, self.second, self.options.stroke_width);
+            let (n1, n2, c_opt) = get_angle_info(fake_prev, first, self.second);
             assert!(c_opt.is_none()); // will be used for yet-to-be-implemented line join types.
-            let first_a_id = self.output.add_vertex(a);
-            let first_b_id = self.output.add_vertex(b);
+            //let first_a_id = self.output.add_vertex(a);
+            //let first_b_id = self.output.add_vertex(b);
+            let first_a_id = self.output.add_vertex(Vertex {
+                position: first,
+                normal: n1,
+            });
+            let first_b_id = self.output.add_vertex(Vertex {
+                position: first,
+                normal: n2,
+            });
 
             self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
             self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
@@ -249,10 +270,22 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokeBuilder<'l, Output> {
             self.nth += 1;
             return;
         }
-        let (a, b, c_opt) = get_angle_info(self.previous, self.current, to, self.options.stroke_width);
-        let a_id = self.output.add_vertex(a);
-        let b_id = self.output.add_vertex(b);
-        let (c, c_id) = if let Some(c) = c_opt { (c, self.output.add_vertex(c)) } else { (b, b_id) };
+        let (na, nb, maybe_nc) = get_angle_info(self.previous, self.current, to);
+        let a_id = self.output.add_vertex(Vertex {
+            position: self.current,
+            normal: na,
+        });
+        let b_id = self.output.add_vertex(Vertex {
+            position: self.current,
+            normal: nb,
+        });
+
+        let (nc, c_id) = if let Some(n) = maybe_nc {
+            (n, self.output.add_vertex(Vertex{
+                position: self.current,
+                normal: n,
+            }))
+        } else { (nb, b_id) };
 
         if self.nth > 1 {
             self.output.add_triangle(self.previous_b_id, self.previous_a_id, b_id);
@@ -270,21 +303,22 @@ impl<'l, Output:'l + GeometryBuilder<Point>> StrokeBuilder<'l, Output> {
             self.second_b_id = c_id;
         }
 
-        if c_opt.is_some() {
-            self.tessellate_angle(a, a_id, b, b_id, c, c_id);
+        if maybe_nc.is_some() {
+            let current = self.current;
+            self.tessellate_angle(current, na, a_id, nb, b_id, nc, c_id);
         }
 
         self.nth += 1;
     }
 
-    fn tessellate_angle(&mut self, _a: Point, a_id: VertexId, _b: Point, b_id: VertexId, _c: Point, c_id: VertexId) {
+    fn tessellate_angle(&mut self, _position: Point,  _na: Vec2, a_id: VertexId, _nb: Vec2, b_id: VertexId, _nc: Vec2, c_id: VertexId) {
         // TODO: Properly support all types of angles.
         self.output.add_triangle(b_id, a_id, c_id);
     }
 }
 
-fn get_angle_info(previous: Point, current: Point, next: Point, width: f32) -> (Point, Point, Option<Point>) {
-    let amount = width * 0.5;
+fn get_angle_info(previous: Point, current: Point, next: Point) -> (Point, Point, Option<Point>) {
+    let amount = 0.5;
     let n1 = tangent(current - previous) * amount;
     let n2 = tangent(next - current) * amount;
 
@@ -306,16 +340,12 @@ fn get_angle_info(previous: Point, current: Point, next: Point, width: f32) -> (
             }
         }
     };
-    let a = current + current - inter;
-    return (inter, a, None);
+    return (inter - current, current - inter, None);
 }
 
 /// Parameters for the tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeOptions {
-    /// Thickness of the stroke.
-    pub stroke_width: f32,
-
     /// See the SVG secification.
     pub line_cap: LineCap,
 
@@ -344,9 +374,8 @@ pub struct StrokeOptions {
 }
 
 impl StrokeOptions {
-    pub fn stroke_width(stroke_width: f32) -> StrokeOptions {
+    pub fn default() -> StrokeOptions {
         StrokeOptions {
-            stroke_width: stroke_width,
             line_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
             miter_limit: 10.0,
@@ -355,8 +384,6 @@ impl StrokeOptions {
             _private: (),
         }
     }
-
-    pub fn default() -> StrokeOptions { StrokeOptions::stroke_width(1.0) }
 
     pub fn with_tolerance(mut self, tolerance: f32) -> StrokeOptions {
         self.tolerance = tolerance;
@@ -375,11 +402,6 @@ impl StrokeOptions {
 
     pub fn with_miter_limit(mut self, limit: f32) -> StrokeOptions {
         self.miter_limit = limit;
-        return self;
-    }
-
-    pub fn with_stroke_width(mut self, width: f32) -> StrokeOptions {
-        self.stroke_width = width;
         return self;
     }
 
