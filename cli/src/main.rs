@@ -9,8 +9,7 @@ use clap::*;
 use commands::*;
 
 use std::fs::File;
-use std::io::{Write, stdout, stderr};
-use std::io::prelude::*;
+use std::io::{Read, Write, stdout, stderr};
 
 fn main() {
     let matches = App::new("Lyon command-line interface")
