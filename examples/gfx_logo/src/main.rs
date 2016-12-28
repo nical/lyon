@@ -114,13 +114,15 @@ impl VertexConstructor<StrokeVertex, Vertex> for WithShapeId {
 
 // The fill tessellator does not implement normals yet, so this implementation
 // just sets it to [0, 0], for now.
-impl VertexConstructor<Vec2, Vertex> for WithShapeId {
-    fn new_vertex(&mut self, pos: Vec2) -> Vertex {
-        assert!(!pos.x.is_nan());
-        assert!(!pos.y.is_nan());
+impl VertexConstructor<FillVertex, Vertex> for WithShapeId {
+    fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+        assert!(!vertex.position.x.is_nan());
+        assert!(!vertex.position.y.is_nan());
+        assert!(!vertex.normal.x.is_nan());
+        assert!(!vertex.normal.y.is_nan());
         Vertex {
-            position: pos.array(),
-            normal: [0.0, 0.0],
+            position: vertex.position.array(),
+            normal: vertex.normal.array(),
             shape_id: self.0,
         }
     }

@@ -23,13 +23,6 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 ## Example
 
 ```rust
-    use lyon::math::Vec2;
-    use lyon::path_builder::*;
-    use lyon::tessellation::geometry_builder::{ VertexBuffers, simple_builder };
-    use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
-    use lyon::path::Path;
-    use lyon::path_iterator::PathIterator;
-
     // Build a Path.
     let mut builder = SvgPathBuilder::new(Path::builder());
     builder.move_to(point(0.0, 0.0));
@@ -42,14 +35,14 @@ The intent is for this library to be useful in projects like [Servo](https://ser
     // Will contain the result.
     let mut geometry_cpu: VertexBuffers<Vec2> = VertexBuffers::new();
 
+    let events = FillEvents::from_iter(path.path_iter().flattened(0.09));
+
     let mut tessellator = FillTessellator::new();
 
     {
-        // The simple builder creates vertices that only contain x and y coordinates.
+        // The simple builder uses the tessellator's vertex type.
         // You can implement the GeometryBuilder trait to create custom vertices.
         let mut vertex_builder = simple_builder(&mut geometry_cpu);
-
-        let events = FillEvents::from_iter(path.path_iter().flattened(0.09));
 
         // Compute the tessellation.
         tessellator.tessellate_events(

@@ -293,17 +293,23 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
 }
 
 /// Tessellate an ellipsis.
-pub fn fill_ellipsis<Output: GeometryBuilder<Point>>(
+pub fn fill_ellipsis<Output: GeometryBuilder<FillVertex>>(
     center: Point,
     radius: Vec2,
     num_vertices: u32, // TODO: use a tolerance instead?
     output: &mut Output
 ) -> Count {
     output.begin_geometry();
-    let c = output.add_vertex(center);
+    let c = output.add_vertex(FillVertex{
+        position: center,
+        normal: vec2(0.0, 0.0),
+    });
     for i in 0..num_vertices {
         let angle = i as f32 * 2.0 * PI / ((num_vertices - 1) as f32);
-        output.add_vertex(center + vec2(radius.x*angle.cos(), radius.y*angle.sin()));
+        output.add_vertex(FillVertex {
+            position: center + vec2(radius.x*angle.cos(), radius.y*angle.sin()),
+            normal: vec2(0.0, 0.0), // TODO
+        });
     }
     for i in 1..((num_vertices) as u16) {
         output.add_triangle(c, VertexId(i), VertexId((i - 1)%num_vertices as u16 + 2));
