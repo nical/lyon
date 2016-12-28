@@ -313,16 +313,22 @@ pub fn compute_normal(e1: Vec2, e2: Vec2) -> Vec2 {
 
 #[test]
 fn test_compute_normal() {
+    fn assert_almost_eq(a: Vec2, b: Vec2) {
+        if (a - b).square_length() > 0.00001 {
+            panic!("assert almost equal: {:?} != {:?}", a, b);
+        }
+    }
+
     for i in 1..10 {
         let f = i as f32;
-        assert_eq!(
+        assert_almost_eq(
             compute_normal(vec2(f, 0.0), vec2(0.0, f*f)),
             vec2(1.0, -1.0)
         );
     }
     for i in 1..10 {
         let f = i as f32;
-        assert_eq!(
+        assert_almost_eq(
             compute_normal(vec2(f, 0.0), vec2(f*f, 0.0)),
             vec2(0.0, -1.0)
         );
