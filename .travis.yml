@@ -4,11 +4,11 @@ rust:
   - beta
   - nightly
 script:
-  - cd ./core && cargo test
-  - cd ./tessellation && cargo test
-  - cd ./extra && cargo test
-  - cd ./path_builder && cargo test
-  - cd ./path_iterator && cargo test
-  - cd ./path && cargo test
-  - cd ./examples/gfx_logo && cargo build
-  - cd ./cli && cargo build
+  - cd core && cargo test
+  - cd tessellation && cargo test
+  - cd extra && cargo test
+  - cd path_builder && cargo test
+  - cd path_iterator && cargo test
+  - cd path && cargo test
+  - cd examples/gfx_logo && cargo build
+  - cd cli && cargo build
