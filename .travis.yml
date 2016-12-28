@@ -3,12 +3,14 @@ rust:
   - stable
   - beta
   - nightly
+env:
+  - TEST_DIR=core
+  - TEST_DIR=tessellation
+  - TEST_DIR=path_builder
+  - TEST_DIR=path_iterator
+  - TEST_DIR=path
+  - TEST_DIR=extra
+  - TEST_DIR=examples/gfx_logo
+  - TEST_DIR=cli
 script:
-  - cd core && cargo test
-  - cd tessellation && cargo test
-  - cd extra && cargo test
-  - cd path_builder && cargo test
-  - cd path_iterator && cargo test
-  - cd path && cargo test
-  - cd examples/gfx_logo && cargo build
-  - cd cli && cargo build
+  - cd $TEST_DIR && cargo test
