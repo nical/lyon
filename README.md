@@ -9,6 +9,9 @@ GPU-based 2D graphics rendering experiments in rust.
   <a href="https://crates.io/crates/lyon">
       <img src="http://meritbadge.herokuapp.com/lyon" alt="crates.io">
   </a>
+  <a href="https://travis-ci.org/nical/lyon">
+      <img src="https://img.shields.io/travis/nical/lyon/master.svg" alt="Travis Build Status">
+  </a>
 </p>
 
 # Motivation
