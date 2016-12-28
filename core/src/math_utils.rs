@@ -282,3 +282,49 @@ fn test_triangle_contains() {
         point(0.0, 0.0)
     ));
 }
+
+/// Compute a normal vector at a point P such that ```x ---e1----> P ---e2---> x```
+///
+/// The resulting vector is not normalized. The length is such that extruding the shape
+/// would yield parallel segments exactly 1 unit away from their original. (useful
+/// for generating strokes and vertex-aa).
+/// The normal points towards the left side of e1.
+pub fn compute_normal(e1: Vec2, e2: Vec2) -> Vec2 {
+    let e1_norm = e1.normalized();
+    let n = e1_norm - e2.normalized();
+    if n.length() == 0.0 {
+        return vec2(e1_norm.y, -e1_norm.x);
+    }
+    let mut n_norm = n.normalized();
+
+    if e1_norm.cross(n_norm) > 0.0 {
+        n_norm = -n_norm;
+    }
+
+    let angle = directed_angle(e1, e2) * 0.5;
+    let sin = angle.sin();
+
+    if sin == 0.0 {
+        return e1_norm;
+    }
+
+    return n_norm / sin;
+}
+
+#[test]
+fn test_compute_normal() {
+    for i in 1..10 {
+        let f = i as f32;
+        assert_eq!(
+            compute_normal(vec2(f, 0.0), vec2(0.0, f*f)),
+            vec2(1.0, -1.0)
+        );
+    }
+    for i in 1..10 {
+        let f = i as f32;
+        assert_eq!(
+            compute_normal(vec2(f, 0.0), vec2(f*f, 0.0)),
+            vec2(0.0, -1.0)
+        );
+    }
+}

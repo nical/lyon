@@ -11,7 +11,7 @@ use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, Bu
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
-use lyon::tessellation::StrokeVertex;
+use lyon::tessellation::{FillVertex, StrokeVertex};
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
 
@@ -127,9 +127,9 @@ impl VertexConstructor<Vec2, Vertex> for WithShapeId {
 }
 
 struct BgWithShapeId ;
-impl VertexConstructor<Vec2, BgVertex> for BgWithShapeId  {
-    fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
-        BgVertex { position: pos.array() }
+impl VertexConstructor<FillVertex, BgVertex> for BgWithShapeId  {
+    fn new_vertex(&mut self, vertex: FillVertex) -> BgVertex {
+        BgVertex { position: vertex.position.array() }
     }
 }
 
@@ -188,7 +188,7 @@ fn main() {
     // Tessellate a dot for each point along the path (hidden by default)
     for p in path.as_slice().iter() {
         if let Some(to) = p.destination() {
-            tessellate_ellipsis(
+            fill_ellipsis(
                 to, vec2(1.0, 1.0), 32,
                 &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(3))
             );
@@ -198,7 +198,7 @@ fn main() {
                 TransformId(0)
             );
 
-            tessellate_ellipsis(
+            fill_ellipsis(
                 to, vec2(0.5, 0.5), 32,
                 &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(4))
             );
@@ -213,7 +213,7 @@ fn main() {
     println!(" -- {} vertices {} indices", path_mesh_cpu.vertices.len(), path_mesh_cpu.indices.len());
 
     let mut bg_path_mesh_cpu: VertexBuffers<BgVertex> = VertexBuffers::new();
-    tessellate_rectangle(
+    fill_rectangle(
         &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
         &mut BuffersBuilder::new(&mut bg_path_mesh_cpu, BgWithShapeId )
     );
