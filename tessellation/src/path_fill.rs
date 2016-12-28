@@ -96,7 +96,7 @@
 // segment-segment intersection is currently the most perf-sensituve function by far.
 // A quick experiment replacing segment_intersection by a dummy function that always
 // return None made the tessellation of the log twice faster.
-// segment_intersection can be improved (it is currently a nive implementation).
+// segment_intersection can be improved (it is currently a naive implementation).
 // It would be interesting to have a fast-path for non-intersecting polygons, though.
 // Other tessellators have similar optimizations (like FastUIDraw).
 //

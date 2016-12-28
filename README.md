@@ -1,28 +1,87 @@
 # Lyon
 GPU-based 2D graphics rendering experiments in rust.
 
+<p align="center">
 <img src="https://nical.github.io/lyon-doc/lyon-logo.svg" alt="Project logo">
+</p>
 
-# Goals
+<p align="center">
+  <a href="https://crates.io/crates/lyon">
+      <img src="http://meritbadge.herokuapp.com/lyon" alt="crates.io">
+  </a>
+</p>
+
+# Motivation
 
 For now the goal is to provide efficient SVG-compliant path tessellation tools to help with rendering vector graphics on the GPU. If things go well the project could eventually grow into including a (partial) SVG renderer in a separate crate, but for now think of this library as a way to turn complex paths into triangles for use in your own rendering engine.
 
 The intent is for this library to be useful in projects like [Servo](https://servo.org/) and games.
 
-The project is split into small crates:
-* lyon ([documentation](https://nical.github.io/lyon-doc/lyon/)): A meta-crate that imports the other crates.
-* lyon_tessellator ([documentation](https://nical.github.io/lyon-doc/lyon_tessellator/)): The tessellation routines (where most of the focus is for now).
-* lyon_path_iterator ([documentation](https://nical.github.io/lyon-doc/lyon_path_iterator/)): A set of iterator abstractions over vector paths.
-* lyon_path_builder ([documentation](https://nical.github.io/lyon-doc/lyon_path_builder/)): Tools to build paths.
-* lyon_path ([documentation](https://nical.github.io/lyon-doc/lyon_path/)): A simple vector path data structure provided for convenience, but not required by the other crates.
-* lyon_bezier ([documentation](https://nical.github.io/lyon-doc/lyon_bezier/)): 2d quadratic and cubic bezier curve maths, including an efficient flattening algorithm.
-* lyon_core ([documentation](https://nical.github.io/lyon-doc/lyon_core/)): Contains types common to most lyon crates.
-* lyon_extra ([documentation](https://nical.github.io/lyon-doc/lyon_extra/)): various optional utilities.
+## Example
 
+```rust
+    use lyon::math::Vec2;
+    use lyon::path_builder::*;
+    use lyon::tessellation::geometry_builder::{ VertexBuffers, simple_builder };
+    use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
+    use lyon::path::Path;
+    use lyon::path_iterator::PathIterator;
+
+    // Build a Path.
+    let mut builder = SvgPathBuilder::new(Path::builder());
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 0.0));
+    builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
+    builder.cubic_bezier_to(point(1.0, 1.0), point(0.0, 1.0), point(0.0, 0.0));
+    builder.close();
+    let path = builder.build();
+
+    // Will contain the result.
+    let mut geometry_cpu: VertexBuffers<Vec2> = VertexBuffers::new();
+
+    let mut tessellator = FillTessellator::new();
+
+    {
+        // The simple builder creates vertices that only contain x and y coordinates.
+        // You can implement the GeometryBuilder trait to create custom vertices.
+        let mut vertex_builder = simple_builder(&mut geometry_cpu);
+
+        let events = FillEvents::from_iter(path.path_iter().flattened(0.09));
+
+        // Compute the tessellation.
+        tessellator.tessellate_events(
+            &events,
+            &FillOptions::default(),
+            &mut vertex_builder
+        ).unwrap();
+    }
+
+    // The tessellated geometry is ready to be uploaded to the GPU.
+    println!(" -- {} vertices {} indices",
+        geometry_cpu.vertices.len(),
+        geometry_cpu.indices.len()
+    );
+```
 ## Documentation
 
-* [Link to the documentation](https://nical.github.io/lyon-doc/lyon/)
+* [Link to the documentation](https://nical.github.io/lyon-doc/lyon/index.html)
 * The documentation can be generated locally by running ```cargo doc``` at the root of the repository.
+
+## Structure
+
+The project is split into small crates:
+* lyon ([documentation](https://nical.github.io/lyon-doc/lyon/index.html)): A meta-crate that imports the other crates.
+* lyon_tessellator ([documentation](https://nical.github.io/lyon-doc/lyon_tessellator/index.html)): The tessellation routines (where most of the focus is for now).
+* lyon_path_iterator ([documentation](https://nical.github.io/lyon-doc/lyon_path_iterator/index.html)): A set of iterator abstractions over vector paths.
+* lyon_path_builder ([documentation](https://nical.github.io/lyon-doc/lyon_path_builder/index.html)): Tools to build paths.
+* lyon_path ([documentation](https://nical.github.io/lyon-doc/lyon_path/)): A simple vector path data structure provided for convenience, but not required by the other crates.
+* lyon_bezier ([documentation](https://nical.github.io/lyon-doc/lyon_bezier/index.html)): 2d quadratic and cubic bezier curve maths, including an efficient flattening algorithm.
+* lyon_core ([documentation](https://nical.github.io/lyon-doc/lyon_core/index.html)): Contains types common to most lyon crates.
+* lyon_extra ([documentation](https://nical.github.io/lyon-doc/lyon_extra/index.html)): various optional utilities.
+
+There is also a toy [command-line tool](cli) exposing to tessellate SVG path from your favorite terminal.
+
+Have a look at the [gfx-rs example](examples/gfx_logo) to see how integrating the tessellators in a renderer can look like.
 
 ## Status
 
@@ -33,23 +92,23 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
   - [x] SVG 1.1
   - [x] builder API
   - [x] iterator API
-- complex fill
+- complex fills
   - [x] fill shape types
     - [x] concave shapes
     - [x] self-intersections
     - [x] holes
-  - [ ] fill rule
+  - [ ] fill rules
     - [x] even-odd
     - [ ] non-zero
   - [ ] vertex-aa
   - [ ] clip rect
   - [ ] stable API
-- complex stroke
-  - [ ] line cap
+- complex strokes
+  - [ ] line caps
     - [x] butt
     - [x] square
     - [ ] round
-  - [ ] line join
+  - [ ] line joins
     - [ ] miter
     - [ ] miter clip
     - [ ] round
@@ -71,7 +130,7 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
   - [x] ellipsis
     - [x] fill
     - [ ] stroke
-  - [ ] convex polygon
+  - [ ] convex polygons
     - [ ] fill
     - [ ] stroke
   - [ ] nine-patch
