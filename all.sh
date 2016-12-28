@@ -7,5 +7,5 @@ cd ../extra && cargo $1 &&
 cd ../path_builder && cargo $1 &&
 cd ../path_iterator && cargo $1 &&
 cd ../path && cargo $1 &&
-cd ../examples/glium_tess && cargo $1 &&
+cd ../examples/gfx_logo && cargo build &&
 echo "...done"

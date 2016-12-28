@@ -7,7 +7,7 @@ use lyon::path_iterator::*;
 use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers, BuffersBuilder, VertexConstructor};
 use lyon::tessellation::path_fill::*;
 use lyon::tessellation::path_stroke::*;
-use lyon::tessellation::Vertex as StrokeVertex;
+use lyon::tessellation::StrokeVertex;
 use std::io;
 
 #[derive(Debug)]

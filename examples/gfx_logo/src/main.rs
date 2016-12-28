@@ -11,7 +11,7 @@ use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, Bu
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
-use lyon::tessellation::Vertex as StrokeVertex;
+use lyon::tessellation::StrokeVertex;
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
 

@@ -39,6 +39,7 @@
 //! # use lyon_core::math::{Point, point};
 //! # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
 //! # use lyon_tessellation::path_stroke::*;
+//! # use lyon_tessellation::StrokeVertex as Vertex;
 //! # fn main() {
 //! // Create a simple path.
 //! let mut path_builder = Path::builder();
@@ -50,7 +51,7 @@
 //! let path = path_builder.build();
 //!
 //! // Create the destination vertex and index buffers.
-//! let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+//! let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
 //!
 //! {
 //!     // Create the destination vertex and index buffers.
@@ -80,7 +81,7 @@ use core::FlattenedEvent;
 use geometry_builder::{ VertexId, GeometryBuilder, Count, };
 use math_utils::{ tangent, line_intersection, };
 use path_builder::BaseBuilder;
-use Vertex;
+use StrokeVertex as Vertex;
 
 pub type StrokeResult = Result<Count, ()>;
 

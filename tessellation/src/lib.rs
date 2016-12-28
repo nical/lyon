@@ -90,7 +90,15 @@ pub mod geometry_builder;
 
 pub use core::*;
 
-pub struct Vertex {
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct StrokeVertex {
     pub position: math::Point,
     pub normal: math::Vec2,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct FillVertex {
+    pub position: math::Point,
+    pub normal: math::Vec2,
+}
+
