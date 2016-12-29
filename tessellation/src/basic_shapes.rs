@@ -5,8 +5,7 @@
 use geometry_builder::{ GeometryBuilder, Count, VertexId };
 use math_utils::compute_normal;
 use math::*;
-use FillVertex;
-use StrokeVertex;
+use {FillVertex, StrokeVertex, Side};
 
 use std::f32::consts::PI;
 
@@ -53,28 +52,34 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
     let a1 = output.add_vertex(StrokeVertex {
         position: v1,
         normal: -na,
+        side: Side::Right,
     });
     let a2 = output.add_vertex(StrokeVertex {
         position: v1,
         normal: na,
+        side: Side::Left,
     });
 
     let b1 = output.add_vertex(StrokeVertex {
         position: v2,
         normal: -nb,
+        side: Side::Right,
     });
     let b2 = output.add_vertex(StrokeVertex {
         position: v2,
         normal: nb,
+        side: Side::Left,
     });
 
     let c1 = output.add_vertex(StrokeVertex {
         position: v3,
         normal: -nc,
+        side: Side::Right,
     });
     let c2 = output.add_vertex(StrokeVertex {
         position: v3,
         normal: nc,
+        side: Side::Left,
     });
 
     output.add_triangle(a1, a2, b2);
@@ -138,37 +143,45 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
     let a1 = output.add_vertex(StrokeVertex {
         position: v1,
         normal: -na,
+        side: Side::Right,
     });
     let a2 = output.add_vertex(StrokeVertex {
         position: v1,
         normal: na,
+        side: Side::Left,
     });
 
     let b1 = output.add_vertex(StrokeVertex {
         position: v2,
         normal: -nb,
+        side: Side::Right,
     });
     let b2 = output.add_vertex(StrokeVertex {
         position: v2,
         normal: nb,
+        side: Side::Left,
     });
 
     let c1 = output.add_vertex(StrokeVertex {
         position: v3,
         normal: -nc,
+        side: Side::Right,
     });
     let c2 = output.add_vertex(StrokeVertex {
         position: v3,
         normal: nc,
+        side: Side::Left,
     });
 
     let d1 = output.add_vertex(StrokeVertex {
         position: v4,
         normal: -nc,
+        side: Side::Right,
     });
     let d2 = output.add_vertex(StrokeVertex {
         position: v4,
         normal: nd,
+        side: Side::Left,
     });
 
     output.add_triangle(a1, a2, b2);
@@ -222,37 +235,45 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     let a1 = output.add_vertex(StrokeVertex {
         position: rect.origin,
         normal: -vec2(-1.0, -1.0),
+        side: Side::Right,
     });
     let a2 = output.add_vertex(StrokeVertex {
         position: rect.origin,
         normal: vec2(-1.0, -1.0),
+        side: Side::Left,
     });
 
     let b1 = output.add_vertex(StrokeVertex {
         position: rect.top_right(),
         normal: -vec2(1.0, -1.0),
+        side: Side::Right,
     });
     let b2 = output.add_vertex(StrokeVertex {
         position: rect.top_right(),
         normal: vec2(1.0, -1.0),
+        side: Side::Left,
     });
 
     let c1 = output.add_vertex(StrokeVertex {
         position: rect.bottom_right(),
         normal: -vec2(1.0, 1.0),
+        side: Side::Right,
     });
     let c2 = output.add_vertex(StrokeVertex {
         position: rect.bottom_right(),
         normal: vec2(1.0, 1.0),
+        side: Side::Left,
     });
 
     let d1 = output.add_vertex(StrokeVertex {
         position: rect.bottom_left(),
         normal: -vec2(1.0, 0.0),
+        side: Side::Right,
     });
     let d2 = output.add_vertex(StrokeVertex {
         position: rect.bottom_left(),
         normal: vec2(1.0, 0.0),
+        side: Side::Left,
     });
 
     output.add_triangle(a1, a2, b2);
@@ -325,8 +346,8 @@ pub fn fill_convex_polyline<Iter, Output>(
     output: &mut Output,
 ) -> Count
 where
-    Output: GeometryBuilder<FillVertex>,
-    Iter: Iterator<Item=Point>
+    Iter: Iterator<Item=Point>,
+    Output: GeometryBuilder<FillVertex>
 {
     output.begin_geometry();
     if let (Some(first), Some(second)) = (it.next(), it.next()) {

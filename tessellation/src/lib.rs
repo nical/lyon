@@ -91,9 +91,16 @@ pub mod geometry_builder;
 pub use core::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Side {
+    Left,
+    Right
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeVertex {
     pub position: math::Point,
     pub normal: math::Vec2,
+    pub side: Side,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

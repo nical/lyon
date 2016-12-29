@@ -118,6 +118,7 @@ use std::cmp::{ PartialOrd, Ordering };
 use std::cmp;
 
 use FillVertex as Vertex;
+use Side;
 use math::*;
 use geometry_builder::{ BezierGeometryBuilder, Count, VertexId };
 use core::{ FlattenedEvent };
@@ -1486,9 +1487,6 @@ impl FillOptions {
         return self;
     }
 }
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum Side { Left, Right }
 
 impl Side {
     fn opposite(self) -> Side {

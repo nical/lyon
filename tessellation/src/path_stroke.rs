@@ -82,6 +82,7 @@ use geometry_builder::{ VertexId, GeometryBuilder, Count, };
 use math_utils::{ tangent, line_intersection, };
 use path_builder::BaseBuilder;
 use StrokeVertex as Vertex;
+use Side;
 
 pub type StrokeResult = Result<Count, ()>;
 
@@ -202,18 +203,22 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let a = self.output.add_vertex(Vertex {
                 position: self.current,
                 normal: vec2(-hw, -hw),
+                side: Side::Left,
             });
             let b = self.output.add_vertex(Vertex {
                 position: self.current,
                 normal: vec2(hw, -hw),
+                side: Side::Left,
             });
             let c = self.output.add_vertex(Vertex {
                 position: self.current,
                 normal: vec2(hw,  hw),
+                side: Side::Right,
             });
             let d = self.output.add_vertex(Vertex {
                 position: self.current,
                 normal: vec2(-hw,  hw),
+                side: Side::Right,
             });
             self.output.add_triangle(a, b, c);
             self.output.add_triangle(a, c, d);
@@ -249,10 +254,12 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let first_a_id = self.output.add_vertex(Vertex {
                 position: first,
                 normal: n1,
+                side: Side::Left,
             });
             let first_b_id = self.output.add_vertex(Vertex {
                 position: first,
                 normal: n2,
+                side: Side::Right,
             });
 
             self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
@@ -275,16 +282,19 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         let a_id = self.output.add_vertex(Vertex {
             position: self.current,
             normal: na,
+            side: Side::Left,
         });
         let b_id = self.output.add_vertex(Vertex {
             position: self.current,
             normal: nb,
+            side: Side::Right,
         });
 
         let (nc, c_id) = if let Some(n) = maybe_nc {
             (n, self.output.add_vertex(Vertex{
                 position: self.current,
                 normal: n,
+                side: Side::Left, // TODO
             }))
         } else { (nb, b_id) };
 
