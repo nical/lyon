@@ -32,10 +32,8 @@ The intent is for this library to be useful in projects like [Servo](https://ser
     builder.close();
     let path = builder.build();
 
-    // Will contain the result.
+    // Will contain the result of the tessellation.
     let mut geometry_cpu: VertexBuffers<Vec2> = VertexBuffers::new();
-
-    let events = FillEvents::from_iter(path.path_iter().flattened(0.09));
 
     let mut tessellator = FillTessellator::new();
 
@@ -45,8 +43,8 @@ The intent is for this library to be useful in projects like [Servo](https://ser
         let mut vertex_builder = simple_builder(&mut geometry_cpu);
 
         // Compute the tessellation.
-        tessellator.tessellate_events(
-            &events,
+        tessellator.tessellate_path(
+            path.path_iter().flattened(0.1),
             &FillOptions::default(),
             &mut vertex_builder
         ).unwrap();

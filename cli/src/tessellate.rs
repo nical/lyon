@@ -38,9 +38,8 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
     let path = builder.build();
 
     if cmd.fill {
-        let events = FillEvents::from_iter(path.path_iter().flattened(cmd.tolerance));
-        if FillTessellator::new().tessellate_events(
-            &events,
+        if FillTessellator::new().tessellate_path(
+            path.path_iter().flattened(cmd.tolerance),
             &FillOptions::default(),
             &mut BuffersBuilder::new(&mut buffers, ApplyNormal)
         ).is_err() {

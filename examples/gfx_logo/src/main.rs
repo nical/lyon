@@ -9,9 +9,9 @@ use lyon::path_builder::*;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
+use lyon::tessellation::path_fill::{ FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
-use lyon::tessellation::{FillVertex, StrokeVertex};
+use lyon::tessellation::{ FillVertex, StrokeVertex };
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
 
@@ -169,10 +169,8 @@ fn main() {
     // Note that we flatten the path here. Since the flattening tolerance should
     // depend on the resolution/zoom it would make sense to re-tessellate when the
     // zoom level changes (not done here for simplicity).
-    let events = FillEvents::from_iter(path.path_iter().flattened(0.09));
-
-    FillTessellator::new().tessellate_events(
-        &events,
+    FillTessellator::new().tessellate_path(
+        path.path_iter().flattened(0.09),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(1))
     ).unwrap();

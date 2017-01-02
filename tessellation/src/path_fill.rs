@@ -72,12 +72,9 @@
 //!     // Create the tessellator.
 //!     let mut tessellator = FillTessellator::new();
 //!
-//!     // Allocate the FillEvents object and initialize it from a path iterator.
-//!     let events = FillEvents::from_iter(path.path_iter().flattened(0.05));
-//!
 //!     // Compute the tessellation.
-//!     let result = tessellator.tessellate_events(
-//!         &events,
+//!     let result = tessellator.tessellate_path(
+//!         path.path_iter().flattened(0.05),
 //!         &FillOptions::default(),
 //!         &mut vertex_builder
 //!     );
@@ -113,7 +110,7 @@
 //
 
 use std::f32::consts::PI;
-use std::mem::swap;
+use std::mem::{replace, swap};
 use std::cmp::{ PartialOrd, Ordering };
 use std::cmp;
 
@@ -183,6 +180,7 @@ struct EdgeBelow {
 /// separate Tessellator structs for some of the different configurations (vertex-aa, etc),
 /// or if evertything can be implemented with the same algorithm.
 pub struct FillTessellator {
+    events: FillEvents,
     sweep_line: Vec<Span>,
     monotone_tessellators: Vec<MonotoneTessellator>,
     intersections: Vec<Edge>,
@@ -197,6 +195,7 @@ impl FillTessellator {
     /// Constructor.
     pub fn new() -> FillTessellator {
         FillTessellator {
+            events: FillEvents::new(),
             sweep_line: Vec::with_capacity(16),
             monotone_tessellators: Vec::with_capacity(16),
             below: Vec::with_capacity(8),
@@ -208,12 +207,32 @@ impl FillTessellator {
         }
     }
 
-    /// Compute the tessellation.
-    pub fn tessellate_events<Output: BezierGeometryBuilder<Vertex>>(&mut self,
+    /// Compute the tessellation from a path iterator.
+    pub fn tessellate_path<Iter, Output>(
+        &mut self, it: Iter,
+        options: &FillOptions,
+        output: &mut Output
+    ) -> FillResult
+    where
+        Iter: Iterator<Item=FlattenedEvent>,
+        Output: BezierGeometryBuilder<Vertex>
+    {
+        let mut events = replace(&mut self.events, FillEvents::new());
+        events.clear();
+        events.set_path_iter(it);
+        let result = self.tessellate_events(&events, options, output);
+        self.events = events;
+        return result;
+    }
+
+
+    /// Compute the tessellation from pre-sorted events.
+    pub fn tessellate_events<Output>(&mut self,
         events: &FillEvents,
         options: &FillOptions,
         output: &mut Output
-    ) -> FillResult {
+    ) -> FillResult
+    where Output: BezierGeometryBuilder<Vertex> {
         if options.vertex_aa {
             println!("warning: Vertex-aa is not supported yet.");
         }
@@ -1658,9 +1677,8 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
         if log {
             tess.enable_logging();
         }
-        let events = FillEvents::from_iter(path.path_iter().flattened(0.05));
         try!{
-            tess.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder)
+            tess.tessellate_path(path.path_iter().flattened(0.05), &FillOptions::default(), &mut vertex_builder)
         };
     }
     return Ok(buffers.indices.len()/3);
