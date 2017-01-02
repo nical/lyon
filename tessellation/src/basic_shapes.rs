@@ -2,7 +2,9 @@
 
 //! Tessellation routines for simple shapes.
 
+use core::FlattenedEvent;
 use geometry_builder::{ GeometryBuilder, Count, VertexId };
+use path_stroke::{ StrokeOptions, StrokeTessellator };
 use math_utils::compute_normal;
 use math::*;
 use {FillVertex, StrokeVertex, Side};
@@ -372,4 +374,112 @@ where
         }
     }
     return output.end_geometry();
+}
+
+pub fn stroke_polyline<Iter, Output>(
+    it: Iter,
+    is_closed: bool,
+    output: &mut Output,
+) -> Count
+where
+    Iter: Iterator<Item=Point>,
+    Output: GeometryBuilder<StrokeVertex>
+{
+    let options = StrokeOptions::default();
+    let mut tess = StrokeTessellator::new();
+
+    return tess.tessellate(
+        PolylineEvents::new(is_closed, it),
+        &options,
+        output
+    ).unwrap();
+}
+
+// TODO: This should be in path_iterator but it creates a dependency.
+
+/// An iterator that consumes an iterator of points and produces FlattenedEvents.
+pub struct PolylineEvents<Iter> {
+    iter: Iter,
+    first: bool,
+    done: bool,
+    close: bool,
+}
+
+impl<Iter:Iterator<Item=Point>> PolylineEvents<Iter> {
+    pub fn new(closed: bool, iter: Iter) -> Self {
+        PolylineEvents {
+            iter: iter,
+            first: true,
+            done: false,
+            close: closed,
+        }
+    }
+
+    pub fn closed(iter: Iter) -> Self { PolylineEvents::new(true, iter) }
+
+    pub fn open(iter: Iter) -> Self { PolylineEvents::new(false, iter) }
+}
+
+impl<Iter> Iterator for PolylineEvents<Iter>
+where Iter: Iterator<Item=Point> {
+
+    type Item = FlattenedEvent;
+
+    fn next(&mut self) -> Option<FlattenedEvent> {
+        if self.done {
+            return None;
+        }
+
+        if let Some(next) = self.iter.next() {
+            return Some(if self.first {
+                self.first = false;
+                FlattenedEvent::MoveTo(next)
+            } else {
+                FlattenedEvent::LineTo(next)
+            });
+        }
+
+        self.done = true;
+        if self.close {
+            return Some(FlattenedEvent::Close);
+        }
+
+        return None;
+    }
+}
+
+#[test]
+fn test_polyline_events_open() {
+    let points = &[
+        point(1.0, 1.0),
+        point(3.0, 1.0),
+        point(4.0, 5.0),
+        point(5.0, 2.0),
+    ];
+
+    let mut evts = PolylineEvents::open(points.iter().cloned());
+
+    assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
+    assert_eq!(evts.next(), None);
+}
+
+#[test]
+fn test_polyline_events_closed() {
+    let points = &[
+        point(1.0, 1.0),
+        point(3.0, 1.0),
+        point(4.0, 5.0),
+        point(5.0, 2.0),
+    ];
+
+    let mut evts = PolylineEvents::closed(points.iter().cloned());
+
+    assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Close));
 }
