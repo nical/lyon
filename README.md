@@ -112,12 +112,12 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
   - [ ] clip rect
   - [ ] stable API
 - basic shapes
-  - [ ] quad
+  - [x] quad
     - [x] fill
-    - [ ] stroke
-  - [ ] rectangle
+    - [x] stroke
+  - [x] rectangle
     - [x] fill
-    - [ ] stroke
+    - [x] stroke
   - [ ] rounded rectangle
     - [ ] fill
     - [ ] stroke
@@ -125,7 +125,7 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
     - [x] fill
     - [ ] stroke
   - [ ] convex polygons
-    - [ ] fill
+    - [x] fill
     - [ ] stroke
   - [ ] nine-patch
 - path flattening
