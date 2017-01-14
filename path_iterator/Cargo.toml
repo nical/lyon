@@ -7,6 +7,7 @@ repository = "https://github.com/nical/lyon"
 documentation = "https://nical.github.io/lyon-doc/lyon_path_iterator/"
 keywords = ["2d", "graphics", "svg"]
 license = "MIT/Apache-2.0"
+workspace = ".."
 
 [lib]
 name = "lyon_path_iterator"

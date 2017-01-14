@@ -2,6 +2,7 @@
 name = "gfx-rs example"
 version = "0.1.0"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = ".."
 
 [[bin]]
 name = "gfx_logo"
@@ -11,5 +12,6 @@ path = "src/main.rs"
 lyon = { path = "../../" }
 
 gfx = "0.13"
+gfx_device_gl = "0.12"
 gfx_window_glutin = "0.13"
 glutin = "0.7"
