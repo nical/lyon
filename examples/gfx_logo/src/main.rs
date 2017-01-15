@@ -23,7 +23,7 @@ use std::ops::Rem;
 pub type ColorFormat = gfx::format::Rgba8;
 pub type DepthFormat = gfx::format::DepthStencil;
 
-const SHAPE_DATA_LEN: usize = 128;
+const SHAPE_DATA_LEN: usize = 1024;
 
 // Describe the vertex, uniform data and pipeline states passed to gfx-rs.
 gfx_defines!{
@@ -180,7 +180,7 @@ impl<T: Default+Copy> CpuBuffer<T> {
 
     pub fn try_alloc_range(&mut self, count: usize) -> Option<IdRange<T>> {
         let id = self.next_id;
-        if id as usize >= self.data.len() - count {
+        if id as usize + count >= self.data.len() {
             return None;
         }
 
@@ -314,31 +314,44 @@ fn main() {
     ).unwrap();
     shape_data_cpu[stroke_id] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform);
 
-    let dots_outer_id = shape_data_cpu.alloc_id();
-    let dots_inner_id = shape_data_cpu.alloc_id();
+    let mut num_points = 0;
+    for p in path.as_slice().iter() {
+        if p.destination().is_some() {
+            num_points += 1;
+        }
+    }
 
-    // Tessellate a dot for each point along the path (hidden by default)
+    let point_transforms = shape_transforms_cpu.alloc_range(num_points);
+    let point_ids_1 = shape_data_cpu.alloc_range(num_points);
+    let point_ids_2 = shape_data_cpu.alloc_range(num_points);
+
+    let ellipsis_count = fill_ellipsis(
+        vec2(0.0, 0.0), vec2(1.0, 1.0), 64,
+        &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(point_ids_1.first()))
+    );
+    fill_ellipsis(
+        vec2(0.0, 0.0), vec2(0.5, 0.5), 64,
+        &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(point_ids_2.first()))
+    );
+
+    let mut i = 0;
     for p in path.as_slice().iter() {
         if let Some(to) = p.destination() {
-            fill_ellipsis(
-                to, vec2(1.0, 1.0), 32,
-                &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(dots_outer_id))
-            );
-            shape_data_cpu[dots_outer_id] = ShapeData::new(
+            let transform_id = point_transforms.get(i);
+            shape_transforms_cpu[transform_id].transform = Mat4::create_translation(
+                to.x, to.y, 0.0
+            ).to_row_arrays();
+            shape_data_cpu[point_ids_1.get(i)] = ShapeData::new(
                 [0.0, 0.2, 0.0, 1.0],
                 0.3,
-                default_transform
+                transform_id
             );
-
-            fill_ellipsis(
-                to, vec2(0.5, 0.5), 32,
-                &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(dots_inner_id))
-            );
-            shape_data_cpu[dots_inner_id] = ShapeData::new(
+            shape_data_cpu[point_ids_2.get(i)] = ShapeData::new(
                 [0.0, 1.0, 0.0, 1.0],
                 0.4,
-                default_transform
+                transform_id
             );
+            i += 1;
         }
     }
 
@@ -410,8 +423,11 @@ fn main() {
         &points_mesh_cpu.vertices[..],
         &points_mesh_cpu.indices[..]
     );
+    let (mut points_range_1, mut points_range_2) = split_gfx_slice(points_range.clone(), ellipsis_count.indices as u32);
+    points_range_1.instances = Some((num_points as u32, 0));
+    points_range_2.instances = Some((num_points as u32, 0));
 
-    let (mut fill_range, other_range) = split_gfx_slice(model_range, fill_count.indices as u32);
+    let (mut fill_range, stroke_range) = split_gfx_slice(model_range, fill_count.indices as u32);
     fill_range.instances = Some((num_instances as u32, 0));
 
     let mut scene = SceneParams {
@@ -469,40 +485,36 @@ fn main() {
             scroll_offset: scene.scroll.array(),
         });
 
+        let default_pipeline_data = model_pipeline::Data {
+            vbo: model_vbo.clone(),
+            out_color: main_fbo.clone(),
+            out_depth: main_depth.clone(),
+            constants: constants.clone(),
+            shape_data: shape_data_gpu.clone(),
+            transforms: shape_transforms_gpu.clone(),
+        };
+
+pub type Buffer = gfx::handle::Buffer;
+
         // Draw the opaque geometry front to back with the depth buffer enabled.
 
         if scene.show_points {
-            cmd_queue.draw(&points_range, &model_pso, &model_pipeline::Data {
+            cmd_queue.draw(&points_range_1, &model_pso, &model_pipeline::Data {
                 vbo: points_vbo.clone(),
-                out_color: main_fbo.clone(),
-                out_depth: main_depth.clone(),
-                constants: constants.clone(),
-                shape_data: shape_data_gpu.clone(),
-                transforms: shape_transforms_gpu.clone(),
+                .. default_pipeline_data.clone()
+            });
+            cmd_queue.draw(&points_range_2, &model_pso, &model_pipeline::Data {
+                vbo: points_vbo.clone(),
+                .. default_pipeline_data.clone()
             });
         }
-        let pso = if scene.show_wireframe {
-            &wireframe_model_pso
-        } else {
-            &model_pso
-        };
 
-        cmd_queue.draw(&fill_range, &pso, &model_pipeline::Data {
-            vbo: model_vbo.clone(),
-            out_color: main_fbo.clone(),
-            out_depth: main_depth.clone(),
-            constants: constants.clone(),
-            shape_data: shape_data_gpu.clone(),
-            transforms: shape_transforms_gpu.clone(),
-        });
-        cmd_queue.draw(&other_range, &pso, &model_pipeline::Data {
-            vbo: model_vbo.clone(),
-            out_color: main_fbo.clone(),
-            out_depth: main_depth.clone(),
-            constants: constants.clone(),
-            shape_data: shape_data_gpu.clone(),
-            transforms: shape_transforms_gpu.clone(),
-        });
+        let pso = if scene.show_wireframe { &wireframe_model_pso } else { &model_pso };
+
+        cmd_queue.draw(&fill_range, &pso, &default_pipeline_data);
+
+        cmd_queue.draw(&stroke_range, &pso, &default_pipeline_data);
+
         cmd_queue.draw(&bg_range, &bg_pso, &bg_pipeline::Data {
             vbo: bg_vbo.clone(),
             out_color: main_fbo.clone(),
