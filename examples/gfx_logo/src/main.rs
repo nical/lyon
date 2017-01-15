@@ -18,10 +18,12 @@ use lyon::path_iterator::PathIterator;
 use gfx::traits::FactoryExt;
 use gfx::Device;
 
+use std::ops::Rem;
+
 pub type ColorFormat = gfx::format::Rgba8;
 pub type DepthFormat = gfx::format::DepthStencil;
 
-const SHAPE_DATA_LEN: usize = 64;
+const SHAPE_DATA_LEN: usize = 128;
 
 // Describe the vertex, uniform data and pipeline states passed to gfx-rs.
 gfx_defines!{
@@ -77,15 +79,134 @@ gfx_defines!{
     }
 }
 
+pub fn split_gfx_slice<R:gfx::Resources>(slice: gfx::Slice<R>, at: u32) -> (gfx::Slice<R>, gfx::Slice<R>) {
+    let mut first = slice.clone();
+    let mut second = slice.clone();
+    first.end = at;
+    second.start = at;
+
+    return (first, second);
+}
+
 impl ShapeData {
     fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> ShapeData {
         ShapeData {
             color: color,
             z_index: z_index,
-            transform_id: transform_id.0,
+            transform_id: transform_id.to_i32(),
             width: 1.0,
             _padding: 0.0,
         }
+    }
+}
+
+impl std::default::Default for ShapeData {
+    fn default() -> Self { ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
+}
+
+impl std::default::Default for ShapeTransform {
+    fn default() -> Self {
+        ShapeTransform { transform: [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]}
+    }
+}
+
+use std::marker::PhantomData;
+
+pub struct Id<T> {
+    handle: u16,
+    _marker: PhantomData<T>,
+}
+impl<T> Copy for Id<T> {}
+impl<T> Clone for Id<T> { fn clone(&self) -> Self { *self } }
+impl<T> Id<T> {
+    pub fn new(handle: u16) -> Self { Id { handle: handle, _marker: PhantomData  } }
+    pub fn index(&self) -> usize { self.handle as usize }
+    pub fn to_i32(&self) -> i32 { self.handle as i32 }
+}
+
+#[derive(Copy, Clone)]
+pub struct IdRange<T> {
+    first: Id<T>,
+    count: u16,
+}
+
+impl<T> IdRange<T> {
+    pub fn new(first: Id<T>, count: u16) -> Self {
+        IdRange {
+            first: first,
+            count: count,
+        }
+    }
+    pub fn first(&self) -> Id<T> { self.first }
+    pub fn first_index(&self) -> usize { self.first.index() }
+    pub fn count(&self) -> usize { self.count as usize }
+    pub fn get(&self, n: usize) -> Id<T> {
+        assert!(n < self.count(), "Shape id out of range.");
+        Id::new(self.first.handle + n as u16)
+    }
+}
+
+pub type ShapeId = Id<ShapeData>;
+
+pub struct CpuBuffer<T> {
+    data: Box<[T]>,
+    next_id: u16,
+}
+
+impl<T: Default+Copy> CpuBuffer<T> {
+    pub fn new() -> Self {
+        CpuBuffer {
+            data: Box::new([Default::default(); SHAPE_DATA_LEN]),
+            next_id: 0,
+        }
+    }
+
+    pub fn try_alloc_id(&mut self) -> Option<Id<T>> {
+        let id = self.next_id;
+        if id as usize >= self.data.len() {
+            return None;
+        }
+
+        self.next_id += 1;
+        return Some(Id::new(id));
+    }
+
+    pub fn alloc_id(&mut self) -> Id<T> { self.try_alloc_id().unwrap() }
+
+    pub fn try_alloc_range(&mut self, count: usize) -> Option<IdRange<T>> {
+        let id = self.next_id;
+        if id as usize >= self.data.len() - count {
+            return None;
+        }
+
+        self.next_id += count as u16;
+        return Some(IdRange::new(Id::new(id), count as u16));
+    }
+
+    pub fn alloc_range(&mut self, count: usize) -> IdRange<T> {
+        self.try_alloc_range(count).unwrap()
+    }
+
+    pub fn as_slice(&self) -> &[T] { &self.data[..] }
+
+    pub fn len(&self) -> usize { self.data.len() }
+}
+
+impl<T> std::ops::Index<Id<T>> for CpuBuffer<T> {
+    type Output = T;
+    fn index(&self, id: Id<T>) -> &T {
+        &self.data[id.index()]
+    }
+}
+
+impl<T> std::ops::IndexMut<Id<T>> for CpuBuffer<T> {
+    fn index_mut(&mut self, id: Id<T>) -> &mut T {
+        &mut self.data[id.index()]
     }
 }
 
@@ -96,7 +217,7 @@ impl ShapeData {
 //
 // This vertex constructor forwards the positions and normals provided by the
 // tessellators and add a shape id.
-struct WithShapeId(i32);
+struct WithShapeId(ShapeId);
 
 impl VertexConstructor<StrokeVertex, Vertex> for WithShapeId {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
@@ -107,7 +228,7 @@ impl VertexConstructor<StrokeVertex, Vertex> for WithShapeId {
         Vertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.0,
+            shape_id: self.0.to_i32(),
         }
     }
 }
@@ -123,7 +244,7 @@ impl VertexConstructor<FillVertex, Vertex> for WithShapeId {
         Vertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.0,
+            shape_id: self.0.to_i32(),
         }
     }
 }
@@ -135,7 +256,7 @@ impl VertexConstructor<FillVertex, BgVertex> for BgWithShapeId  {
     }
 }
 
-struct TransformId(i32);
+pub type TransformId = Id<ShapeTransform>;
 
 fn main() {
     println!("== gfx-rs example ==");
@@ -146,6 +267,8 @@ fn main() {
     println!("  p: toggle sow points");
     println!("  a/z: increase/decrease the stroke width");
 
+    let num_instances = 32;
+
     // Build a Path for the rust logo.
     let mut builder = SvgPathBuilder::new(Path::builder());
     build_logo_path(&mut builder);
@@ -154,58 +277,67 @@ fn main() {
     // Create some CPU-side buffers that will contain the geometry.
     let mut path_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
     let mut points_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
-    let mut shape_data_cpu = &mut [ShapeData::new([1.0, 0.0, 0.0, 1.0], 0.0, TransformId(0)); SHAPE_DATA_LEN];
-    let shape_transforms_cpu = &[
-        ShapeTransform { transform: [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ]}; SHAPE_DATA_LEN
-    ];
+    let mut shape_data_cpu: CpuBuffer<ShapeData> = CpuBuffer::new();
+    let mut shape_transforms_cpu: CpuBuffer<ShapeTransform> = CpuBuffer::new();
+
+    let default_transform = shape_transforms_cpu.alloc_id();
+    let logo_transforms = shape_transforms_cpu.alloc_range(num_instances);
 
     // Tessellate the fill
+    let fill_ids = shape_data_cpu.alloc_range(num_instances);
 
     // Note that we flatten the path here. Since the flattening tolerance should
     // depend on the resolution/zoom it would make sense to re-tessellate when the
     // zoom level changes (not done here for simplicity).
-    FillTessellator::new().tessellate_path(
+    let fill_count = FillTessellator::new().tessellate_path(
         path.path_iter().flattened(0.09),
         &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(1))
+        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(fill_ids.first()))
     ).unwrap();
-    shape_data_cpu[1] = ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.1, TransformId(0));
+
+    shape_data_cpu[fill_ids.first()] = ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.first());
+    for i in 1..num_instances {
+        shape_data_cpu[fill_ids.get(i)] = ShapeData::new(
+            [(0.1 * i as f32).rem(1.0), (0.5 * i as f32).rem(1.0), (0.9 * i as f32).rem(1.0), 1.0],
+            0.1 - 0.001 * i as f32,
+            logo_transforms.get(i)
+        );
+    }
 
     // Tessellate the stroke
+    let stroke_id = shape_data_cpu.alloc_id();
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.022),
         &StrokeOptions::default(),
-        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(2))
+        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(stroke_id))
     ).unwrap();
-    shape_data_cpu[2] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.2, TransformId(0));
+    shape_data_cpu[stroke_id] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform);
+
+    let dots_outer_id = shape_data_cpu.alloc_id();
+    let dots_inner_id = shape_data_cpu.alloc_id();
 
     // Tessellate a dot for each point along the path (hidden by default)
     for p in path.as_slice().iter() {
         if let Some(to) = p.destination() {
             fill_ellipsis(
                 to, vec2(1.0, 1.0), 32,
-                &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(3))
+                &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(dots_outer_id))
             );
-            shape_data_cpu[3] = ShapeData::new(
+            shape_data_cpu[dots_outer_id] = ShapeData::new(
                 [0.0, 0.2, 0.0, 1.0],
                 0.3,
-                TransformId(0)
+                default_transform
             );
 
             fill_ellipsis(
                 to, vec2(0.5, 0.5), 32,
-                &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(4))
+                &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(dots_inner_id))
             );
-            shape_data_cpu[4] = ShapeData::new(
+            shape_data_cpu[dots_inner_id] = ShapeData::new(
                 [0.0, 1.0, 0.0, 1.0],
                 0.4,
-                TransformId(0)
+                default_transform
             );
         }
     }
@@ -231,6 +363,7 @@ fn main() {
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+
     let constants = factory.create_constant_buffer(1);
     let shape_data_gpu = factory.create_constant_buffer(SHAPE_DATA_LEN);
     let shape_transforms_gpu = factory.create_constant_buffer(SHAPE_DATA_LEN);
@@ -278,6 +411,9 @@ fn main() {
         &points_mesh_cpu.indices[..]
     );
 
+    let (mut fill_range, other_range) = split_gfx_slice(model_range, fill_count.indices as u32);
+    fill_range.instances = Some((num_instances as u32, 0));
+
     let mut scene = SceneParams {
         target_zoom: 5.0,
         zoom: 0.5,
@@ -290,8 +426,8 @@ fn main() {
     };
 
     let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    init_queue.update_buffer(&shape_data_gpu, shape_data_cpu, 0).unwrap();
-    init_queue.update_buffer(&shape_transforms_gpu, shape_transforms_cpu, 0).unwrap();
+    init_queue.update_buffer(&shape_data_gpu, shape_data_cpu.as_slice(), 0).unwrap();
+    init_queue.update_buffer(&shape_transforms_gpu, shape_transforms_cpu.as_slice(), 0).unwrap();
     init_queue.flush(&mut device);
 
     let mut frame_count: usize = 0;
@@ -302,13 +438,22 @@ fn main() {
 
         // Set the color of the second shape (the outline) to some slowly changing
         // pseudo-random color.
-        shape_data_cpu[2].color = [
+        shape_data_cpu[stroke_id].color = [
             (frame_count as f32 * 0.008 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.005 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
             1.0
         ];
-        shape_data_cpu[2].width = scene.stroke_width;
+        shape_data_cpu[stroke_id].width = scene.stroke_width;
+
+        for i in 1..num_instances {
+            shape_transforms_cpu[logo_transforms.get(i)].transform = Mat4::create_translation(
+                (frame_count as f32 * 0.001 * i as f32).sin() * (100.0 + i as f32 * 10.0),
+                (frame_count as f32 * 0.002 * i as f32).sin() * (100.0 + i as f32 * 10.0),
+                0.0
+            ).to_row_arrays();
+        }
+
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
@@ -316,7 +461,8 @@ fn main() {
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
 
-        cmd_queue.update_buffer(&shape_data_gpu, shape_data_cpu, 0).unwrap();
+        cmd_queue.update_buffer(&shape_transforms_gpu, shape_transforms_cpu.as_slice(), 0).unwrap();
+        cmd_queue.update_buffer(&shape_data_gpu, shape_data_cpu.as_slice(), 0).unwrap();
         cmd_queue.update_constant_buffer(&constants, &Globals {
             resolution: [w as f32, h as f32],
             zoom: scene.zoom,
@@ -340,7 +486,16 @@ fn main() {
         } else {
             &model_pso
         };
-        cmd_queue.draw(&model_range, &pso, &model_pipeline::Data {
+
+        cmd_queue.draw(&fill_range, &pso, &model_pipeline::Data {
+            vbo: model_vbo.clone(),
+            out_color: main_fbo.clone(),
+            out_depth: main_depth.clone(),
+            constants: constants.clone(),
+            shape_data: shape_data_gpu.clone(),
+            transforms: shape_transforms_gpu.clone(),
+        });
+        cmd_queue.draw(&other_range, &pso, &model_pipeline::Data {
             vbo: model_vbo.clone(),
             out_color: main_fbo.clone(),
             out_depth: main_depth.clone(),
@@ -402,7 +557,8 @@ static MODEL_VERTEX_SHADER: &'static str = &"
     out vec4 v_color;
 
     void main() {
-        ShapeData data = shape_data[a_shape_id];
+        int id = a_shape_id + gl_InstanceID;
+        ShapeData data = shape_data[id];
 
         vec4 local_pos = vec4(a_position + a_normal * data.width, 0.0, 1.0);
         vec4 world_pos = transforms[data.transform_id].transform * local_pos;

@@ -273,8 +273,8 @@ pub fn simple_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType
 /// Number of vertices and indices added during the tessellation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Count {
-    vertices: u32,
-    indices: u32,
+    pub vertices: u32,
+    pub indices: u32,
 }
 
 impl Add for Count {
