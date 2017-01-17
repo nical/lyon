@@ -494,8 +494,6 @@ fn main() {
             transforms: shape_transforms_gpu.clone(),
         };
 
-pub type Buffer = gfx::handle::Buffer;
-
         // Draw the opaque geometry front to back with the depth buffer enabled.
 
         if scene.show_points {
