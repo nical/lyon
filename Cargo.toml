@@ -23,7 +23,6 @@ lyon_path_builder = { version = "0.4.0", path = "path_builder/" }
 lyon_path_iterator = { version = "0.4.0", path = "path_iterator/" }
 lyon_extra = { version = "0.4.0", path = "extra/" }
 lyon_svg = { version = "0.4.0", path = "svg/" }
-lyon_renderer = { version = "0.4.0", path = "renderer/" }
 
 [workspace]
 members = [
