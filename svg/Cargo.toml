@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon_svg"
-version = "0.2.0"
+version = "0.4.0"
 description = "[TODO] High-level SVG rendering library on top of lyon's tesselator."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -13,10 +13,10 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_tessellation = { version = "0.3.2", path = "../tessellation" }
-lyon_path_iterator = { version = "0.3.2", path = "../path_iterator" }
-lyon_path_builder = { version = "0.3.2", path = "../path_builder" }
-lyon_path = { version = "0.3.2", path = "../path" }
-lyon_core = { version = "0.3.2", path = "../core" }
+lyon_tessellation = { version = "0.4.0", path = "../tessellation" }
+lyon_path_iterator = { version = "0.4.0", path = "../path_iterator" }
+lyon_path_builder = { version = "0.4.0", path = "../path_builder" }
+lyon_path = { version = "0.4.0", path = "../path" }
+lyon_core = { version = "0.4.0", path = "../core" }
 
 svgparser = "0.0.3"

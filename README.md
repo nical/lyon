@@ -1,5 +1,5 @@
 # Lyon
-GPU-based 2D graphics rendering experiments in rust.
+GPU-based 2D graphics rendering in rust.
 
 <p align="center">
 <img src="https://nical.github.io/lyon-doc/lyon-logo.svg" alt="Project logo">
