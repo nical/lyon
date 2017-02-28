@@ -378,6 +378,7 @@ fn main() {
     points_range_2.instances = Some((num_points as u32, 0));
 
     fill_range.instances = Some((num_instances as u32, 0));
+    fill_range.end = fill_count.indices as u32;
 
     let mut scene = SceneParams {
         target_zoom: 5.0,
