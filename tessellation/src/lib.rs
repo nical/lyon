@@ -96,16 +96,32 @@ pub enum Side {
     Right
 }
 
+/// Vertex produced by the stroke tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeVertex {
+    /// Position of the vertex (on the path, the consumer should move the point along
+    /// the provided normal in order to give the stroke a width).
     pub position: math::Point,
+    /// Normal at this vertex such that extruding the vertices along the normal would
+    /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
+    ///
+    /// Note that some tessellators aren't fully implemented and don't provide the
+    /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
     pub normal: math::Vec2,
+    /// Whether the vertex is on the left or right side of the path.
     pub side: Side,
 }
 
+/// Vertex produced by the fill tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FillVertex {
+    /// Position of the vertex (on the path).
     pub position: math::Point,
+    /// Normal at this vertex such that extruding the vertices along the normal would
+    /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
+    ///
+    /// Note that some tessellators aren't fully implemented and don't provide the
+    /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
     pub normal: math::Vec2,
 }
 

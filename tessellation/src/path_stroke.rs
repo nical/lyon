@@ -18,7 +18,7 @@
 //! [fill equivalent](../path_fill/struct.FillTessellator.html).
 //!
 //! This stroke tessellator takes an iterator of path events as inputs as well as
-//! a [StrokeOption](struct.StrokeOptions.html), and prodices its outputs using
+//! a [StrokeOption](struct.StrokeOptions.html), and produces its outputs using
 //! a [BezierGeometryBuilder](../geometry_builder/trait.BezierGeometryBuilder.html).
 //!
 //!

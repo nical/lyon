@@ -73,13 +73,13 @@ The project is split into small crates:
 * lyon_core ([documentation](https://nical.github.io/lyon-doc/lyon_core/index.html)): Contains types common to most lyon crates.
 * lyon_extra ([documentation](https://nical.github.io/lyon-doc/lyon_extra/index.html)): various optional utilities.
 
-There is also a toy [command-line tool](cli) exposing to tessellate SVG path from your favorite terminal.
+There is also a toy [command-line tool](cli) to tessellate SVG path from your favorite terminal.
 
 Have a look at the [gfx-rs example](examples/gfx_logo) to see how integrating the tessellators in a renderer can look like.
 
 ## Status
 
-The focus right now is on implementing a SVG compliant path tessellator (rather than an actual SVG render).
+The focus right now is on improving the tessellators and experimenting with a higher level API (which will become the crate lyon_renderer when ready).
 
 - path
   - [x] bezier curves (through path flattening)
@@ -87,22 +87,22 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
   - [x] builder API
   - [x] iterator API
 - complex fills
-  - [x] fill shape types
+  - fill shape types
     - [x] concave shapes
     - [x] self-intersections
     - [x] holes
-  - [ ] fill rules
+  - fill rules
     - [x] even-odd
     - [ ] non-zero
   - [ ] vertex-aa
   - [ ] clip rect
   - [ ] stable API
 - complex strokes
-  - [ ] line caps
+  - line caps
     - [x] butt
     - [x] square
     - [ ] round
-  - [ ] line joins
+  - line joins
     - [ ] miter
     - [ ] miter clip
     - [ ] round
@@ -112,27 +112,27 @@ The focus right now is on implementing a SVG compliant path tessellator (rather 
   - [ ] clip rect
   - [ ] stable API
 - basic shapes
-  - [x] quad
+  - quad
     - [x] fill
     - [x] stroke
-  - [x] rectangle
+  - rectangle
     - [x] fill
     - [x] stroke
-  - [ ] rounded rectangle
+  - rounded rectangle
     - [ ] fill
     - [ ] stroke
-  - [x] ellipsis
+  - ellipsis
     - [x] fill
     - [ ] stroke
-  - [ ] convex polygons
+  - convex polygons
     - [x] fill
     - [ ] stroke
-  - [ ] nine-patch
+  - nine-patch
 - path flattening
   - [x] builder
   - [x] iterator
 - testing
-  - [x] fill
+  - fill
     - [x] test suite
     - [x] automatic test-case reduction
     - [ ] reference testing
