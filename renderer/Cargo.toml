@@ -1,5 +1,5 @@
 [package]
-name = "lyon_gfx"
+name = "lyon_renderer"
 version = "0.3.2"
 description = "A 2d renderer based on lyon and gfx-rs."
 authors = ["Nicolas Silva <nical@fastmail.com>"]
@@ -9,7 +9,8 @@ keywords = ["2d", "graphics", "tessellation"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-gfx = "0.13"
+gfx = "0.14"
+gfx_device_gl = "0.13"
 lyon_core = { version = "0.3.2", path = "../core" }
 lyon_path = { version = "0.3.2", path = "../path" }
 lyon_bezier = { version = "0.3.2", path = "../bezier" }

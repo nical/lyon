@@ -30,6 +30,7 @@ pub type IntVec3 = euclid::Point3D<i32>;
 pub type IntVec4 = euclid::Point4D<i32>;
 
 pub type Mat4 = euclid::Matrix4D<f32>;
+pub type Transform2d = euclid::Matrix2D<f32>;
 
 #[inline]
 pub fn point(x: f32, y: f32) -> Point { vec2(x, y) }

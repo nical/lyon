@@ -316,7 +316,7 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
 }
 
 /// Tessellate an ellipsis.
-pub fn fill_ellipsis<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
     center: Point,
     radius: Vec2,
     num_vertices: u32, // TODO: use a tolerance instead?

@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate gfx;
 extern crate gfx_window_glutin;
+extern crate gfx_device_gl;
 extern crate glutin;
 extern crate lyon;
+extern crate lyon_renderer;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
@@ -11,19 +13,25 @@ use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, Bu
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::path_fill::{ FillTessellator, FillOptions };
 use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
-use lyon::tessellation::{ FillVertex, StrokeVertex };
+use lyon::tessellation;
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
+use lyon_renderer::frame;
+use lyon_renderer::buffer::{Id, CpuBuffer};
+use lyon_renderer::shaders::*;
+use lyon_renderer::api::{Color};
+// make  public so that the module in gfx_defines can see the types.
+pub use lyon_renderer::gfx_types::*;
 
 use gfx::traits::FactoryExt;
-use gfx::Device;
 
 use std::ops::Rem;
 
-pub type ColorFormat = gfx::format::Rgba8;
-pub type DepthFormat = gfx::format::DepthStencil;
+type FillVertex = Vertex;
+type StrokeVertex = Vertex;
 
-const SHAPE_DATA_LEN: usize = 1024;
+type OpaquePso = Pso<opaque_pipeline::Meta>;
+type TransparentPso = Pso<transparent_pipeline::Meta>;
 
 // Describe the vertex, uniform data and pipeline states passed to gfx-rs.
 gfx_defines!{
@@ -33,14 +41,15 @@ gfx_defines!{
         zoom: f32 = "u_zoom",
     }
 
-    constant ShapeTransform {
+    constant PrimTransform {
         transform: [[f32; 4]; 4] = "transform",
     }
 
     // Per-shape data.
     // It would probably make sense to have different structures for fills and strokes,
     // but using the same struct helps with keeping things simple for now.
-    constant ShapeData {
+    constant PrimData {
+        // TODO: sample the color from a texture.
         color: [f32; 4] = "color",
         z_index: f32 = "z_index",
         transform_id: i32 = "transform_id",
@@ -54,16 +63,25 @@ gfx_defines!{
     vertex Vertex {
         position: [f32; 2] = "a_position",
         normal: [f32; 2] = "a_normal",
-        shape_id: i32 = "a_shape_id", // An id pointing to the ShapeData struct above.
+        prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
     }
 
-    pipeline model_pipeline {
+    pipeline opaque_pipeline {
         vbo: gfx::VertexBuffer<Vertex> = (),
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
-        transforms: gfx::ConstantBuffer<ShapeTransform> = "u_transforms",
-        shape_data: gfx::ConstantBuffer<ShapeData> = "u_shape_data",
+        transforms: gfx::ConstantBuffer<PrimTransform> = "u_transforms",
+        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
+    }
+
+    pipeline transparent_pipeline {
+        vbo: gfx::VertexBuffer<Vertex> = (),
+        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_TEST,
+        constants: gfx::ConstantBuffer<Globals> = "Globals",
+        transforms: gfx::ConstantBuffer<PrimTransform> = "u_transforms",
+        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
     }
 
     // The background is drawn separately with its own shader.
@@ -79,18 +97,11 @@ gfx_defines!{
     }
 }
 
-pub fn split_gfx_slice<R:gfx::Resources>(slice: gfx::Slice<R>, at: u32) -> (gfx::Slice<R>, gfx::Slice<R>) {
-    let mut first = slice.clone();
-    let mut second = slice.clone();
-    first.end = at;
-    second.start = at;
+pub type TransformId = Id<PrimTransform>;
 
-    return (first, second);
-}
-
-impl ShapeData {
-    fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> ShapeData {
-        ShapeData {
+impl PrimData {
+    pub fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> PrimData {
+        PrimData {
             color: color,
             z_index: z_index,
             transform_id: transform_id.to_i32(),
@@ -100,13 +111,13 @@ impl ShapeData {
     }
 }
 
-impl std::default::Default for ShapeData {
-    fn default() -> Self { ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
+impl std::default::Default for PrimData {
+    fn default() -> Self { PrimData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
 }
 
-impl std::default::Default for ShapeTransform {
+impl std::default::Default for PrimTransform {
     fn default() -> Self {
-        ShapeTransform { transform: [
+        PrimTransform { transform: [
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 1.0, 0.0],
@@ -115,100 +126,25 @@ impl std::default::Default for ShapeTransform {
     }
 }
 
-use std::marker::PhantomData;
+pub fn split_gfx_slice<R:gfx::Resources>(slice: gfx::Slice<R>, at: u32) -> (gfx::Slice<R>, gfx::Slice<R>) {
+    let mut first = slice.clone();
+    let mut second = slice.clone();
+    first.end = at;
+    second.start = at;
 
-pub struct Id<T> {
-    handle: u16,
-    _marker: PhantomData<T>,
-}
-impl<T> Copy for Id<T> {}
-impl<T> Clone for Id<T> { fn clone(&self) -> Self { *self } }
-impl<T> Id<T> {
-    pub fn new(handle: u16) -> Self { Id { handle: handle, _marker: PhantomData  } }
-    pub fn index(&self) -> usize { self.handle as usize }
-    pub fn to_i32(&self) -> i32 { self.handle as i32 }
+    return (first, second);
 }
 
-#[derive(Copy, Clone)]
-pub struct IdRange<T> {
-    first: Id<T>,
-    count: u16,
+pub fn gfx_sub_slice<R:gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32) -> gfx::Slice<R> {
+    let mut sub = slice.clone();
+    sub.start = from;
+    sub.end = to;
+
+    return sub;
 }
 
-impl<T> IdRange<T> {
-    pub fn new(first: Id<T>, count: u16) -> Self {
-        IdRange {
-            first: first,
-            count: count,
-        }
-    }
-    pub fn first(&self) -> Id<T> { self.first }
-    pub fn first_index(&self) -> usize { self.first.index() }
-    pub fn count(&self) -> usize { self.count as usize }
-    pub fn get(&self, n: usize) -> Id<T> {
-        assert!(n < self.count(), "Shape id out of range.");
-        Id::new(self.first.handle + n as u16)
-    }
-}
 
-pub type ShapeId = Id<ShapeData>;
-
-pub struct CpuBuffer<T> {
-    data: Box<[T]>,
-    next_id: u16,
-}
-
-impl<T: Default+Copy> CpuBuffer<T> {
-    pub fn new() -> Self {
-        CpuBuffer {
-            data: Box::new([Default::default(); SHAPE_DATA_LEN]),
-            next_id: 0,
-        }
-    }
-
-    pub fn try_alloc_id(&mut self) -> Option<Id<T>> {
-        let id = self.next_id;
-        if id as usize >= self.data.len() {
-            return None;
-        }
-
-        self.next_id += 1;
-        return Some(Id::new(id));
-    }
-
-    pub fn alloc_id(&mut self) -> Id<T> { self.try_alloc_id().unwrap() }
-
-    pub fn try_alloc_range(&mut self, count: usize) -> Option<IdRange<T>> {
-        let id = self.next_id;
-        if id as usize + count >= self.data.len() {
-            return None;
-        }
-
-        self.next_id += count as u16;
-        return Some(IdRange::new(Id::new(id), count as u16));
-    }
-
-    pub fn alloc_range(&mut self, count: usize) -> IdRange<T> {
-        self.try_alloc_range(count).unwrap()
-    }
-
-    pub fn as_slice(&self) -> &[T] { &self.data[..] }
-
-    pub fn len(&self) -> usize { self.data.len() }
-}
-
-impl<T> std::ops::Index<Id<T>> for CpuBuffer<T> {
-    type Output = T;
-    fn index(&self, id: Id<T>) -> &T {
-        &self.data[id.index()]
-    }
-}
-
-impl<T> std::ops::IndexMut<Id<T>> for CpuBuffer<T> {
-    fn index_mut(&mut self, id: Id<T>) -> &mut T {
-        &mut self.data[id.index()]
-    }
-}
+pub type PrimId = Id<PrimData>;
 
 // Implement a vertex constructor.
 // The vertex constructor sits between the tessellator and the geometry builder.
@@ -216,47 +152,45 @@ impl<T> std::ops::IndexMut<Id<T>> for CpuBuffer<T> {
 // from the information provided by the tessellator.
 //
 // This vertex constructor forwards the positions and normals provided by the
-// tessellators and add a shape id.
-struct WithShapeId(ShapeId);
+// tessellators and add a prim id.
+pub struct WithPrimId(pub PrimId);
 
-impl VertexConstructor<StrokeVertex, Vertex> for WithShapeId {
-    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
+impl VertexConstructor<tessellation::StrokeVertex, StrokeVertex> for WithPrimId {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> StrokeVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        Vertex {
+        StrokeVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.0.to_i32(),
+            prim_id: self.0.to_i32(),
         }
     }
 }
 
 // The fill tessellator does not implement normals yet, so this implementation
 // just sets it to [0, 0], for now.
-impl VertexConstructor<FillVertex, Vertex> for WithShapeId {
-    fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+impl VertexConstructor<tessellation::FillVertex, FillVertex> for WithPrimId {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> FillVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        Vertex {
+        FillVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.0.to_i32(),
+            prim_id: self.0.to_i32(),
         }
     }
 }
 
-struct BgWithShapeId ;
-impl VertexConstructor<FillVertex, BgVertex> for BgWithShapeId  {
-    fn new_vertex(&mut self, vertex: FillVertex) -> BgVertex {
+struct BgWithPrimId ;
+impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgWithPrimId  {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
         BgVertex { position: vertex.position.array() }
     }
 }
-
-pub type TransformId = Id<ShapeTransform>;
 
 fn main() {
     println!("== gfx-rs example ==");
@@ -264,7 +198,7 @@ fn main() {
     println!("  Arrow keys: scrolling");
     println!("  PgUp/PgDown: zoom in/out");
     println!("  w: toggle wireframe mode");
-    println!("  p: toggle sow points");
+    println!("  p: toggle show points");
     println!("  a/z: increase/decrease the stroke width");
 
     let num_instances = 32;
@@ -275,16 +209,16 @@ fn main() {
     let path = builder.build();
 
     // Create some CPU-side buffers that will contain the geometry.
-    let mut path_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
-    let mut points_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
-    let mut shape_data_cpu: CpuBuffer<ShapeData> = CpuBuffer::new();
-    let mut shape_transforms_cpu: CpuBuffer<ShapeTransform> = CpuBuffer::new();
+    let mut fill_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut stroke_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut prim_data_cpu: CpuBuffer<PrimData> = CpuBuffer::new(PRIM_BUFFER_LEN as u16);
+    let mut prim_transforms_cpu: CpuBuffer<PrimTransform> = CpuBuffer::new(PRIM_BUFFER_LEN as u16);
 
-    let default_transform = shape_transforms_cpu.alloc_id();
-    let logo_transforms = shape_transforms_cpu.alloc_range(num_instances);
+    let default_transform = prim_transforms_cpu.push(PrimTransform::default());
+    let logo_transforms = prim_transforms_cpu.alloc_range(num_instances);
 
     // Tessellate the fill
-    let fill_ids = shape_data_cpu.alloc_range(num_instances);
+    let fill_ids = prim_data_cpu.alloc_range(num_instances);
 
     // Note that we flatten the path here. Since the flattening tolerance should
     // depend on the resolution/zoom it would make sense to re-tessellate when the
@@ -292,12 +226,12 @@ fn main() {
     let fill_count = FillTessellator::new().tessellate_path(
         path.path_iter().flattened(0.09),
         &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(fill_ids.first()))
+        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(fill_ids.first()))
     ).unwrap();
 
-    shape_data_cpu[fill_ids.first()] = ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.first());
+    prim_data_cpu[fill_ids.first()] = PrimData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.first());
     for i in 1..num_instances {
-        shape_data_cpu[fill_ids.get(i)] = ShapeData::new(
+        prim_data_cpu[fill_ids.get(i)] = PrimData::new(
             [(0.1 * i as f32).rem(1.0), (0.5 * i as f32).rem(1.0), (0.9 * i as f32).rem(1.0), 1.0],
             0.1 - 0.001 * i as f32,
             logo_transforms.get(i)
@@ -305,14 +239,13 @@ fn main() {
     }
 
     // Tessellate the stroke
-    let stroke_id = shape_data_cpu.alloc_id();
+    let stroke_id = prim_data_cpu.push(PrimData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform));
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.022),
         &StrokeOptions::default(),
-        &mut BuffersBuilder::new(&mut path_mesh_cpu, WithShapeId(stroke_id))
+        &mut BuffersBuilder::new(&mut stroke_mesh_cpu, WithPrimId(stroke_id))
     ).unwrap();
-    shape_data_cpu[stroke_id] = ShapeData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform);
 
     let mut num_points = 0;
     for p in path.as_slice().iter() {
@@ -321,32 +254,34 @@ fn main() {
         }
     }
 
-    let point_transforms = shape_transforms_cpu.alloc_range(num_points);
-    let point_ids_1 = shape_data_cpu.alloc_range(num_points);
-    let point_ids_2 = shape_data_cpu.alloc_range(num_points);
+    let point_transforms = prim_transforms_cpu.alloc_range(num_points);
+    let point_ids_1 = prim_data_cpu.alloc_range(num_points);
+    let point_ids_2 = prim_data_cpu.alloc_range(num_points);
 
-    let ellipsis_count = fill_ellipsis(
+    let ellipse_vertices_start = fill_mesh_cpu.vertices.len() as u32;
+    let ellipse_indices_start = fill_mesh_cpu.indices.len() as u32;
+    let ellipsis_count = fill_ellipse(
         vec2(0.0, 0.0), vec2(1.0, 1.0), 64,
-        &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(point_ids_1.first()))
+        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(point_ids_1.first()))
     );
-    fill_ellipsis(
+    fill_ellipse(
         vec2(0.0, 0.0), vec2(0.5, 0.5), 64,
-        &mut BuffersBuilder::new(&mut points_mesh_cpu, WithShapeId(point_ids_2.first()))
+        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(point_ids_2.first()))
     );
 
     let mut i = 0;
     for p in path.as_slice().iter() {
         if let Some(to) = p.destination() {
             let transform_id = point_transforms.get(i);
-            shape_transforms_cpu[transform_id].transform = Mat4::create_translation(
+            prim_transforms_cpu[transform_id].transform = Mat4::create_translation(
                 to.x, to.y, 0.0
             ).to_row_arrays();
-            shape_data_cpu[point_ids_1.get(i)] = ShapeData::new(
+            prim_data_cpu[point_ids_1.get(i)] = PrimData::new(
                 [0.0, 0.2, 0.0, 1.0],
                 0.3,
                 transform_id
             );
-            shape_data_cpu[point_ids_2.get(i)] = ShapeData::new(
+            prim_data_cpu[point_ids_2.get(i)] = PrimData::new(
                 [0.0, 1.0, 0.0, 1.0],
                 0.4,
                 transform_id
@@ -355,12 +290,13 @@ fn main() {
         }
     }
 
-    println!(" -- {} vertices {} indices", path_mesh_cpu.vertices.len(), path_mesh_cpu.indices.len());
+    println!(" -- fill: {} vertices {} indices", fill_mesh_cpu.vertices.len(), fill_mesh_cpu.indices.len());
+    println!(" -- stroke: {} vertices {} indices", stroke_mesh_cpu.vertices.len(), stroke_mesh_cpu.indices.len());
 
-    let mut bg_path_mesh_cpu: VertexBuffers<BgVertex> = VertexBuffers::new();
+    let mut bg_mesh_cpu: VertexBuffers<BgVertex> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
-        &mut BuffersBuilder::new(&mut bg_path_mesh_cpu, BgWithShapeId )
+        &mut BuffersBuilder::new(&mut bg_mesh_cpu, BgWithPrimId )
     );
 
     // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
@@ -375,11 +311,9 @@ fn main() {
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
 
-    let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-
     let constants = factory.create_constant_buffer(1);
-    let shape_data_gpu = factory.create_constant_buffer(SHAPE_DATA_LEN);
-    let shape_transforms_gpu = factory.create_constant_buffer(SHAPE_DATA_LEN);
+    let prim_data_gpu = factory.create_constant_buffer(PRIM_BUFFER_LEN);
+    let prim_transforms_gpu = factory.create_constant_buffer(PRIM_BUFFER_LEN);
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -388,46 +322,61 @@ fn main() {
     ).unwrap();
 
     let (bg_vbo, bg_range) = factory.create_vertex_buffer_with_slice(
-        &bg_path_mesh_cpu.vertices[..],
-        &bg_path_mesh_cpu.indices[..]
+        &bg_mesh_cpu.vertices[..],
+        &bg_mesh_cpu.indices[..]
     );
 
     let model_shader = factory.link_program(
-        MODEL_VERTEX_SHADER.as_bytes(),
-        MODEL_FRAGMENT_SHADER.as_bytes(),
+        FILL_VERTEX_SHADER.as_bytes(),
+        FILL_FRAGMENT_SHADER.as_bytes(),
     ).unwrap();
 
-    let model_pso = factory.create_pipeline_from_program(
+    let opaque_pso = factory.create_pipeline_from_program(
         &model_shader,
         gfx::Primitive::TriangleList,
         gfx::state::Rasterizer::new_fill(),
-        model_pipeline::new()
+        opaque_pipeline::new()
+    ).unwrap();
+
+    let transparent_pso = factory.create_pipeline_from_program(
+        &model_shader,
+        gfx::Primitive::TriangleList,
+        gfx::state::Rasterizer::new_fill(),
+        transparent_pipeline::new()
     ).unwrap();
 
     let mut fill_mode = gfx::state::Rasterizer::new_fill();
     fill_mode.method = gfx::state::RasterMethod::Line(1);
-    let wireframe_model_pso = factory.create_pipeline_from_program(
+    let wireframe_opaque_pso = factory.create_pipeline_from_program(
         &model_shader,
         gfx::Primitive::TriangleList,
         fill_mode,
-        model_pipeline::new()
+        opaque_pipeline::new()
+    ).unwrap();
+
+    let wireframe_transparent_pso = factory.create_pipeline_from_program(
+        &model_shader,
+        gfx::Primitive::TriangleList,
+        fill_mode,
+        transparent_pipeline::new()
     ).unwrap();
 
     /// Upload the tessellated geometry to the GPU.
-    let (model_vbo, model_range) = factory.create_vertex_buffer_with_slice(
-        &path_mesh_cpu.vertices[..],
-        &path_mesh_cpu.indices[..]
+    let (fill_vbo, mut fill_range) = factory.create_vertex_buffer_with_slice(
+        &fill_mesh_cpu.vertices[..],
+        &fill_mesh_cpu.indices[..]
+    );
+    let (stroke_vbo, stroke_range) = factory.create_vertex_buffer_with_slice(
+        &stroke_mesh_cpu.vertices[..],
+        &stroke_mesh_cpu.indices[..]
     );
 
-    let (points_vbo, points_range) = factory.create_vertex_buffer_with_slice(
-        &points_mesh_cpu.vertices[..],
-        &points_mesh_cpu.indices[..]
-    );
-    let (mut points_range_1, mut points_range_2) = split_gfx_slice(points_range.clone(), ellipsis_count.indices as u32);
+    let split = ellipse_indices_start + (ellipsis_count.indices as u32);
+    let mut points_range_1 = gfx_sub_slice(fill_range.clone(), ellipse_indices_start, split);
+    let mut points_range_2 = gfx_sub_slice(fill_range.clone(), split, split + ellipsis_count.indices as u32);
     points_range_1.instances = Some((num_points as u32, 0));
     points_range_2.instances = Some((num_points as u32, 0));
 
-    let (mut fill_range, stroke_range) = split_gfx_slice(model_range, fill_count.indices as u32);
     fill_range.instances = Some((num_instances as u32, 0));
 
     let mut scene = SceneParams {
@@ -442,9 +391,11 @@ fn main() {
     };
 
     let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    init_queue.update_buffer(&shape_data_gpu, shape_data_cpu.as_slice(), 0).unwrap();
-    init_queue.update_buffer(&shape_transforms_gpu, shape_transforms_cpu.as_slice(), 0).unwrap();
+    init_queue.update_buffer(&prim_data_gpu, prim_data_cpu.as_slice(), 0).unwrap();
+    init_queue.update_buffer(&prim_transforms_gpu, prim_transforms_cpu.as_slice(), 0).unwrap();
     init_queue.flush(&mut device);
+
+    let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut frame_count: usize = 0;
     loop {
@@ -454,16 +405,16 @@ fn main() {
 
         // Set the color of the second shape (the outline) to some slowly changing
         // pseudo-random color.
-        shape_data_cpu[stroke_id].color = [
+        prim_data_cpu[stroke_id].color = [
             (frame_count as f32 * 0.008 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.005 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
             1.0
         ];
-        shape_data_cpu[stroke_id].width = scene.stroke_width;
+        prim_data_cpu[stroke_id].width = scene.stroke_width;
 
         for i in 1..num_instances {
-            shape_transforms_cpu[logo_transforms.get(i)].transform = Mat4::create_translation(
+            prim_transforms_cpu[logo_transforms.get(i)].transform = Mat4::create_translation(
                 (frame_count as f32 * 0.001 * i as f32).sin() * (100.0 + i as f32 * 10.0),
                 (frame_count as f32 * 0.002 * i as f32).sin() * (100.0 + i as f32 * 10.0),
                 0.0
@@ -477,41 +428,48 @@ fn main() {
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
 
-        cmd_queue.update_buffer(&shape_transforms_gpu, shape_transforms_cpu.as_slice(), 0).unwrap();
-        cmd_queue.update_buffer(&shape_data_gpu, shape_data_cpu.as_slice(), 0).unwrap();
+        cmd_queue.update_buffer(&prim_transforms_gpu, prim_transforms_cpu.as_slice(), 0).unwrap();
+        cmd_queue.update_buffer(&prim_data_gpu, prim_data_cpu.as_slice(), 0).unwrap();
         cmd_queue.update_constant_buffer(&constants, &Globals {
             resolution: [w as f32, h as f32],
             zoom: scene.zoom,
             scroll_offset: scene.scroll.array(),
         });
 
-        let default_pipeline_data = model_pipeline::Data {
-            vbo: model_vbo.clone(),
+        let default_pipeline_data = opaque_pipeline::Data {
+            vbo: fill_vbo.clone(),
             out_color: main_fbo.clone(),
             out_depth: main_depth.clone(),
             constants: constants.clone(),
-            shape_data: shape_data_gpu.clone(),
-            transforms: shape_transforms_gpu.clone(),
+            prim_data: prim_data_gpu.clone(),
+            transforms: prim_transforms_gpu.clone(),
         };
 
         // Draw the opaque geometry front to back with the depth buffer enabled.
 
         if scene.show_points {
-            cmd_queue.draw(&points_range_1, &model_pso, &model_pipeline::Data {
-                vbo: points_vbo.clone(),
+            cmd_queue.draw(&points_range_1, &opaque_pso, &opaque_pipeline::Data {
+                vbo: fill_vbo.clone(),
                 .. default_pipeline_data.clone()
             });
-            cmd_queue.draw(&points_range_2, &model_pso, &model_pipeline::Data {
-                vbo: points_vbo.clone(),
+            cmd_queue.draw(&points_range_2, &opaque_pso, &opaque_pipeline::Data {
+                vbo: fill_vbo.clone(),
                 .. default_pipeline_data.clone()
             });
         }
 
-        let pso = if scene.show_wireframe { &wireframe_model_pso } else { &model_pso };
+        let pso = if scene.show_wireframe { &wireframe_opaque_pso }
+                  else { &opaque_pso };
 
-        cmd_queue.draw(&fill_range, &pso, &default_pipeline_data);
+        cmd_queue.draw(&fill_range, &pso, &opaque_pipeline::Data {
+            vbo: fill_vbo.clone(),
+            .. default_pipeline_data.clone()
+        });
 
-        cmd_queue.draw(&stroke_range, &pso, &default_pipeline_data);
+        cmd_queue.draw(&stroke_range, &pso, &opaque_pipeline::Data {
+            vbo: stroke_vbo.clone(),
+            .. default_pipeline_data.clone()
+        });
 
         cmd_queue.draw(&bg_range, &bg_pso, &bg_pipeline::Data {
             vbo: bg_vbo.clone(),
@@ -520,133 +478,21 @@ fn main() {
             constants: constants.clone(),
         });
 
+        //let pso = if scene.show_wireframe { &wireframe_transparent_pso }
+        //          else { &transparent_pso };
         // Non-opaque geometry should be drawn back to front here.
         // (there is none in this example)
+
 
         cmd_queue.flush(&mut device);
 
         window.swap_buffers().unwrap();
-        device.cleanup();
+
+        //device.cleanup(); // TODO
 
         frame_count += 1;
     }
 }
-
-// The vertex shader for the tessellated geometry.
-// The transform, color and stroke width are applied instead of during tessellation. This makes
-// it possible to change these parameters without having to modify/upload the geometry.
-// Per-shape data is stored in uniform buffer objects to keep the vertex buffer small.
-static MODEL_VERTEX_SHADER: &'static str = &"
-    #version 140
-    #line 266
-
-    #define SHAPE_DATA_LEN 64
-
-    uniform Globals {
-        vec2 u_resolution;
-        vec2 u_scroll_offset;
-        float u_zoom;
-    };
-
-    struct ShapeTransform { mat4 transform; };
-    uniform u_transforms { ShapeTransform transforms[SHAPE_DATA_LEN]; };
-
-    struct ShapeData {
-        vec4 color;
-        float z_index;
-        int transform_id;
-        float width;
-        float _padding;
-    };
-    uniform u_shape_data { ShapeData shape_data[SHAPE_DATA_LEN]; };
-
-    in vec2 a_position;
-    in vec2 a_normal;
-    in int a_shape_id;
-
-    out vec4 v_color;
-
-    void main() {
-        int id = a_shape_id + gl_InstanceID;
-        ShapeData data = shape_data[id];
-
-        vec4 local_pos = vec4(a_position + a_normal * data.width, 0.0, 1.0);
-        vec4 world_pos = transforms[data.transform_id].transform * local_pos;
-        vec2 transformed_pos = (world_pos.xy / world_pos.w - u_scroll_offset)
-            * u_zoom / (vec2(0.5, -0.5) * u_resolution);
-
-        gl_Position = vec4(transformed_pos, 1.0 - data.z_index, 1.0);
-        v_color = data.color;
-    }
-";
-
-// The fragment shader is dead simple. It just applies the color computed in the vertex shader.
-// A more advanced renderer would probably compute texture coordinates in the vertex shader and
-// sample the color from a texture here.
-static MODEL_FRAGMENT_SHADER: &'static str = &"
-    #version 140
-    in vec4 v_color;
-    out vec4 out_color;
-
-    void main() {
-        out_color = v_color;
-    }
-";
-
-static BACKGROUND_VERTEX_SHADER: &'static str = &"
-    #version 140
-    in vec2 a_position;
-    out vec2 v_position;
-
-    void main() {
-        // TODO: fetch the z coordinate and a transform from a buffer.
-        gl_Position = vec4(a_position, 1.0, 1.0);
-        v_position = a_position;
-    }
-";
-
-// The background.
-// This shader is silly and slow, but it looks nice ;)
-static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
-    #version 140
-    uniform Globals {
-        vec2 u_resolution;
-        vec2 u_scroll_offset;
-        float u_zoom;
-    };
-    in vec2 v_position;
-    out vec4 out_color;
-
-    void main() {
-        vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
-
-        // #005fa4
-        float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
-        out_color = mix(
-            vec4(0.0, 0.47, 0.9, 1.0),
-            vec4(0.0, 0.1, 0.64, 1.0),
-            vignette
-        );
-
-        // TODO: properly adapt the grid while zooming in and out.
-        float grid_scale = 5.0;
-        if (u_zoom < 2.5) {
-            grid_scale = 1.0;
-        }
-
-        vec2 pos = px_position + u_scroll_offset * u_zoom;
-
-        if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
-            mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
-            out_color *= 1.2;
-        }
-
-        if (mod(pos.x, 100.0 / grid_scale * u_zoom) <= 2.0 ||
-            mod(pos.y, 100.0 / grid_scale * u_zoom) <= 2.0) {
-            out_color *= 1.2;
-        }
-    }
-";
 
 struct SceneParams {
     target_zoom: f32,
@@ -719,3 +565,57 @@ fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
 
     return true;
 }
+
+static BACKGROUND_VERTEX_SHADER: &'static str = &"
+    #version 140
+    in vec2 a_position;
+    out vec2 v_position;
+
+    void main() {
+        gl_Position = vec4(a_position, 1.0, 1.0);
+        v_position = a_position;
+    }
+";
+
+// The background.
+// This shader is silly and slow, but it looks nice ;)
+static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
+    #version 140
+    uniform Globals {
+        vec2 u_resolution;
+        vec2 u_scroll_offset;
+        float u_zoom;
+    };
+    in vec2 v_position;
+    out vec4 out_color;
+
+    void main() {
+        vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
+
+        // #005fa4
+        float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
+        out_color = mix(
+            vec4(0.0, 0.47, 0.9, 1.0),
+            vec4(0.0, 0.1, 0.64, 1.0),
+            vignette
+        );
+
+        // TODO: properly adapt the grid while zooming in and out.
+        float grid_scale = 5.0;
+        if (u_zoom < 2.5) {
+            grid_scale = 1.0;
+        }
+
+        vec2 pos = px_position + u_scroll_offset * u_zoom;
+
+        if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
+            mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
+            out_color *= 1.2;
+        }
+
+        if (mod(pos.x, 100.0 / grid_scale * u_zoom) <= 2.0 ||
+            mod(pos.y, 100.0 / grid_scale * u_zoom) <= 2.0) {
+            out_color *= 1.2;
+        }
+    }
+";
