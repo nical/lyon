@@ -218,7 +218,7 @@ fn main() {
     let logo_transforms = prim_transforms_cpu.alloc_range(num_instances);
 
     // Tessellate the fill
-    let fill_ids = prim_data_cpu.alloc_range(num_instances);
+    let logo_fill_ids = prim_data_cpu.alloc_range(num_instances);
 
     // Note that we flatten the path here. Since the flattening tolerance should
     // depend on the resolution/zoom it would make sense to re-tessellate when the
@@ -226,12 +226,12 @@ fn main() {
     let fill_count = FillTessellator::new().tessellate_path(
         path.path_iter().flattened(0.09),
         &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(fill_ids.first()))
+        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(logo_fill_ids.first()))
     ).unwrap();
 
-    prim_data_cpu[fill_ids.first()] = PrimData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.first());
+    prim_data_cpu[logo_fill_ids.first()] = PrimData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.first());
     for i in 1..num_instances {
-        prim_data_cpu[fill_ids.get(i)] = PrimData::new(
+        prim_data_cpu[logo_fill_ids.get(i)] = PrimData::new(
             [(0.1 * i as f32).rem(1.0), (0.5 * i as f32).rem(1.0), (0.9 * i as f32).rem(1.0), 1.0],
             0.1 - 0.001 * i as f32,
             logo_transforms.get(i)
@@ -239,12 +239,12 @@ fn main() {
     }
 
     // Tessellate the stroke
-    let stroke_id = prim_data_cpu.push(PrimData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform));
+    let logo_stroke_id = prim_data_cpu.push(PrimData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform));
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.022),
         &StrokeOptions::default(),
-        &mut BuffersBuilder::new(&mut stroke_mesh_cpu, WithPrimId(stroke_id))
+        &mut BuffersBuilder::new(&mut stroke_mesh_cpu, WithPrimId(logo_stroke_id))
     ).unwrap();
 
     let mut num_points = 0;
@@ -406,13 +406,13 @@ fn main() {
 
         // Set the color of the second shape (the outline) to some slowly changing
         // pseudo-random color.
-        prim_data_cpu[stroke_id].color = [
+        prim_data_cpu[logo_stroke_id].color = [
             (frame_count as f32 * 0.008 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.005 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
             1.0
         ];
-        prim_data_cpu[stroke_id].width = scene.stroke_width;
+        prim_data_cpu[logo_stroke_id].width = scene.stroke_width;
 
         for i in 1..num_instances {
             prim_transforms_cpu[logo_transforms.get(i)].transform = Mat4::create_translation(

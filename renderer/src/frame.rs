@@ -1,41 +1,25 @@
 use std::sync::Arc;
 
-use renderer::{FillVertex, StrokeVertex, StrokeShapeData, FillShapeData, ShapeTransform};
+use renderer::{ GpuFillVertex, GpuStrokeVertex, GpuStrokePrimitive, GpuFillPrimitive, GpuTransform };
 use api::Color;
-use frame_builder::{MeshData};
+use frame_builder::{ FillGeometryRanges, StrokeGeometryRanges };
+use buffer::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct RenderTargetId(pub u32);
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TextureId(pub u32);
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct UniformBufferId(pub u32);
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct VertexBufferId(pub u16);
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct IndexBufferId(pub u16);
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct BufferRange<ID> {
-    pub buffer: ID,
-    pub first: u16,
-    pub count: u16,
-}
+pub type Index = u16;
+pub type IndexBufferId = BufferId<Index>;
+pub type IndexBufferRange = BufferRange<Index>;
+pub type TransformBufferId = BufferId<GpuTransform>;
+pub type TransformBufferRange = BufferRange<GpuTransform>;
+pub type FillVertexBufferId = BufferId<GpuFillVertex>;
+pub type FillVertexBufferRange = BufferRange<GpuFillVertex>;
+pub type StrokeVertexBufferId = BufferId<GpuStrokeVertex>;
+pub type StrokeVertexBufferRange = BufferRange<GpuStrokeVertex>;
+pub type FillPrimBufferId = BufferId<GpuFillPrimitive>;
+pub type FillPrimBufferRange = BufferRange<GpuFillPrimitive>;
+pub type StrokePrimBufferId = BufferId<GpuStrokePrimitive>;
+pub type StrokePrimBufferRange = BufferRange<GpuStrokePrimitive>;
 
-impl<ID> BufferRange<ID> {
-    pub fn buffer_id(self) -> ID { self.buffer }
-
-    pub fn range(self) -> (u16, u16) { (self.first, self.first + self.count) }
-
-    pub fn first(&self) -> u32 { self.first as u32 }
-
-    pub fn count(&self) -> u32 { self.count as u32 }
-
-    pub fn end(&self) -> u32 { self.first() + self.count() }
-}
-
-pub type IndexBufferRange = BufferRange<IndexBufferId>;
-pub type VertexBufferRange = BufferRange<VertexBufferId>;
-
+/*
 #[derive(Clone)]
 pub struct DrawParams {
     pub vbo: VertexBufferId,
@@ -43,14 +27,14 @@ pub struct DrawParams {
     pub instances: Option<u16>,
     pub texture: Option<TextureId>,
     pub shape_data: UniformBufferId,
-    pub transforms: UniformBufferId,
+    pub transforms: TransformBufferId,
 }
 
 #[derive(Clone)]
 pub enum UploadCmd {
-    FillShapeData(UniformBufferId, u16, Vec<FillShapeData>),
-    StrokeShapeData(UniformBufferId, u16, Vec<StrokeShapeData>),
-    Transform(UniformBufferId, u16, Vec<ShapeTransform>),
+    GpuFillPrimitive(UniformBufferId, u16, Vec<GpuFillPrimitive>),
+    GpuStrokePrimitive(UniformBufferId, u16, Vec<GpuStrokePrimitive>),
+    Transform(UniformBufferId, u16, Vec<GpuTransform>),
     FillVertex(VertexBufferId, u16, Vec<FillVertex>),
     StrokeVertex(VertexBufferId, u16, Vec<StrokeVertex>),
 }
@@ -62,9 +46,9 @@ pub enum AllocCmd {
     //AllocIndexBuffer(IndexBufferId, Arc<Vec<FillVertex>>),
     AddFillVertexBuffer(VertexBufferId, Arc<Vec<FillVertex>>, Arc<Vec<u16>>),
     AddStrokeVertexBuffer(VertexBufferId, Arc<Vec<StrokeVertex>>, Arc<Vec<u16>>),
-    AddFillShapeBuffer(UniformBufferId, Arc<Vec<FillShapeData>>),
-    AddStrokeShapeBuffer(UniformBufferId, Arc<Vec<StrokeShapeData>>),
-    AddTransformBuffer(UniformBufferId, Arc<Vec<ShapeTransform>>),
+    AddFillShapeBuffer(UniformBufferId, Arc<Vec<GpuFillPrimitive>>),
+    AddStrokeShapeBuffer(UniformBufferId, Arc<Vec<GpuStrokePrimitive>>),
+    AddTransformBuffer(UniformBufferId, Arc<Vec<GpuTransform>>),
     AddTexture(TextureId, ImageDescriptor, Arc<Vec<u8>>),
     RemoveFillShapeBuffer(UniformBufferId),
     RemoveStrokeShapeBuffer(UniformBufferId),
@@ -89,20 +73,80 @@ pub struct ImageDescriptor {
 }
 
 #[derive(Clone)]
-pub struct DrawCmd {
-    pub mesh: MeshData,
-    pub instances: u32,
-    pub prim_data: UniformBufferId,
-    pub transforms: UniformBufferId,
+pub struct FrameCmds {
+    pub allocations: Vec<AllocCmd>,
+    pub uploads: Vec<UploadCmd>,
+    pub targets: Vec<RenderTargetCmds>,
 }
+
+*/
+
+#[derive(Clone)]
+pub struct FillCmd {
+    pub geometry: FillGeometryRanges,
+    pub instances: u32,
+    pub prim_data: FillPrimBufferId,
+    pub transforms: TransformBufferId,
+}
+
+impl FillCmd {
+    pub fn default() -> Self {
+        FillCmd {
+            geometry: FillGeometryRanges {
+                vertices: FillVertexBufferRange {
+                    buffer: BufferId::new(0),
+                    range: IdRange::new(0, 0),
+                },
+                indices: IndexBufferRange {
+                    buffer: IndexBufferId::new(0),
+                    range: IdRange::new(0, 0),
+                },
+            },
+            instances: 1,
+            prim_data: FillPrimBufferId::new(0),
+            transforms: TransformBufferId::new(0),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct StrokeCmd {
+    pub geometry: StrokeGeometryRanges,
+    pub instances: u32,
+    pub prim_data: StrokePrimBufferId,
+    pub transforms: TransformBufferId,
+}
+
+impl StrokeCmd {
+    pub fn default() -> Self {
+        StrokeCmd {
+            geometry: StrokeGeometryRanges {
+                vertices: StrokeVertexBufferRange {
+                    buffer: BufferId::new(0),
+                    range: IdRange::new(0, 0),
+                },
+                indices: IndexBufferRange {
+                    buffer: IndexBufferId::new(0),
+                    range: IdRange::new(0, 0),
+                },
+            },
+            instances: 1,
+            prim_data: StrokePrimBufferId::new(0),
+            transforms: TransformBufferId::new(0),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct RenderTargetId(pub u32);
 
 #[derive(Clone)]
 pub struct RenderTargetCmds {
     pub fbo: RenderTargetId,
-    pub opaque_fills: Vec<DrawCmd>,
-    pub opaque_strokes: Vec<DrawCmd>,
-    pub transparent_fills: Vec<DrawCmd>,
-    pub transparent_strokes: Vec<DrawCmd>,
+    pub opaque_fills: Vec<FillCmd>,
+    pub opaque_strokes: Vec<StrokeCmd>,
+    pub transparent_fills: Vec<FillCmd>,
+    pub transparent_strokes: Vec<StrokeCmd>,
     pub clear_color: Option<Color>,
     pub clear_depth: Option<f32>,
 }
@@ -121,14 +165,6 @@ impl RenderTargetCmds {
             clear_color: Some(Color::black()),
         }
     }
-}
-
-
-#[derive(Clone)]
-pub struct FrameCmds {
-    pub allocations: Vec<AllocCmd>,
-    pub uploads: Vec<UploadCmd>,
-    pub targets: Vec<RenderTargetCmds>,
 }
 
 pub struct TargetCmdBuilder {
@@ -160,19 +196,10 @@ impl TargetCmdBuilder {
         return self;
     }
 
-//    pub fn add_opaque(mut self, cmd: DrawCmd) -> Self {
-//        self.target.opaque_cmds.push(cmd);
-//        return self;
-//    }
-
-//    pub fn add_transparent(mut self, cmd: DrawCmd) -> Self {
-//        self.target.transparent_cmds.push(cmd);
-//        return self;
-//    }
-
     pub fn build(mut self) -> RenderTargetCmds { self.target }
 }
 
+/*
 pub struct FrameCmdBuilder {
     frame: FrameCmds,
 }
@@ -193,20 +220,21 @@ impl FrameCmdBuilder {
         return self;
     }
 
-    pub fn update_fill_shapes(mut self, id: UniformBufferId, offset: u16, data: Vec<FillShapeData>) -> Self {
-        self.frame.uploads.push(UploadCmd::FillShapeData(id, offset, data));
+    pub fn update_fill_shapes(mut self, id: UniformBufferId, offset: u16, data: Vec<GpuFillPrimitive>) -> Self {
+        self.frame.uploads.push(UploadCmd::GpuFillPrimitive(id, offset, data));
         return self;
     }
 
-    pub fn update_stroke_shapes(mut self, id: UniformBufferId, offset: u16, data: Vec<StrokeShapeData>) -> Self {
-        self.frame.uploads.push(UploadCmd::StrokeShapeData(id, offset, data));
+    pub fn update_stroke_shapes(mut self, id: UniformBufferId, offset: u16, data: Vec<GpuStrokePrimitive>) -> Self {
+        self.frame.uploads.push(UploadCmd::GpuStrokePrimitive(id, offset, data));
         return self;
     }
 
-    pub fn update_transforms(mut self, id: UniformBufferId, offset: u16, data: Vec<ShapeTransform>) -> Self {
+    pub fn update_transforms(mut self, id: UniformBufferId, offset: u16, data: Vec<GpuTransform>) -> Self {
         self.frame.uploads.push(UploadCmd::Transform(id, offset, data));
         return self;
     }
 
     pub fn build(self) -> FrameCmds { self.frame }
 }
+*/

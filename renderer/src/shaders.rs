@@ -16,8 +16,8 @@ pub static FILL_VERTEX_SHADER: &'static str = &"
         float u_zoom;
     };
 
-    struct PrimTransform { mat4 transform; };
-    uniform u_transforms { PrimTransform transforms[PRIM_BUFFER_LEN]; };
+    struct GpuTransform { mat4 transform; };
+    uniform u_transforms { GpuTransform transforms[PRIM_BUFFER_LEN]; };
 
     struct PrimData {
         vec4 color;

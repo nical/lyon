@@ -6,13 +6,10 @@ use tessellation::geometry_builder::{VertexBuffers, VertexConstructor, BuffersBu
 use core::math::*;
 use path_iterator::*;
 use path::Path;
+use renderer::{ PrimitiveId, GpuFillVertex, GpuStrokeVertex };
 use renderer;
-use renderer::ShapeDataId;
-use buffer::{Id, IdRange};
-
 
 use std::sync::Arc;
-use std::marker::PhantomData;
 
 pub enum Shape {
     Path(Arc<Path>),
@@ -32,8 +29,8 @@ pub struct ResolvedRequest {
 }
 
 pub enum TessRequest {
-    FillMesh(VertexBuffers<renderer::FillVertex>),
-    StrokeMesh(VertexBuffers<renderer::StrokeVertex>),
+    FillMesh(VertexBuffers<GpuFillVertex>),
+    StrokeMesh(VertexBuffers<GpuStrokeVertex>),
     Error,
 }
 
@@ -44,7 +41,7 @@ pub struct FillRquest {
     pub shape: Shape,
     pub transform: Option<Transform2d>,
     pub tolerance: Option<f32>,
-    pub shape_id: ShapeDataId,
+    pub shape_id: PrimitiveId,
     pub request_id: RequestId,
 }
 
@@ -55,7 +52,7 @@ impl ResourceBuilder {
         transform: Option<Transform2d>,
         options: &FillOptions,
         tolerance: Option<f32>,
-        shape_id: renderer::ShapeDataId,
+        shape_id: renderer::PrimitiveId,
         id: RequestId
     ) {
         match shape {
@@ -74,16 +71,16 @@ impl ResourceBuilder {
     pub fn request_rect_fill(
         &mut self,
         rect: &Rect,
-        transform: Option<Transform2d>,
-        options: &FillOptions,
-        shape_id: renderer::ShapeDataId,
+        _transform: Option<Transform2d>,
+        _options: &FillOptions,
+        shape_id: renderer::PrimitiveId,
         id: RequestId
     ) {
         let mut buffers = VertexBuffers::new();
 
         basic_shapes::fill_rectangle(
             rect,
-            &mut BuffersBuilder::new(&mut buffers, WithShapeDataId(shape_id))
+            &mut BuffersBuilder::new(&mut buffers, WithPrimitiveId(shape_id))
         );
 
         self.resolved_requests.push(
@@ -97,10 +94,10 @@ impl ResourceBuilder {
         &mut self,
         center: Point,
         radii: Vec2,
-        transform: Option<Transform2d>,
-        options: &FillOptions,
+        _transform: Option<Transform2d>,
+        _options: &FillOptions,
         tolerance: Option<f32>,
-        shape_id: renderer::ShapeDataId,
+        shape_id: renderer::PrimitiveId,
         id: RequestId
     ) {
         let tolerance = tolerance.unwrap_or(0.5);
@@ -113,7 +110,7 @@ impl ResourceBuilder {
 
         basic_shapes::fill_ellipse(
             center, radii, num_points,
-            &mut BuffersBuilder::new(&mut buffers, WithShapeDataId(shape_id))
+            &mut BuffersBuilder::new(&mut buffers, WithPrimitiveId(shape_id))
         );
 
         self.resolved_requests.push(
@@ -127,10 +124,10 @@ impl ResourceBuilder {
     pub fn request_path_fill(
         &mut self,
         path: Arc<Path>,
-        transform: Option<Transform2d>,
+        _transform: Option<Transform2d>,
         options: &FillOptions,
         tolerance: Option<f32>,
-        shape_id: renderer::ShapeDataId,
+        shape_id: renderer::PrimitiveId,
         id: RequestId
     ) {
         let tolerance = tolerance.unwrap_or(0.5);
@@ -140,7 +137,7 @@ impl ResourceBuilder {
         self.fill_tess.tessellate_path(
             path.path_iter().flattened(tolerance),
             options,
-            &mut BuffersBuilder::new(&mut buffers, WithShapeDataId(shape_id))
+            &mut BuffersBuilder::new(&mut buffers, WithPrimitiveId(shape_id))
         ).unwrap();
 
         self.resolved_requests.push(
@@ -154,10 +151,10 @@ impl ResourceBuilder {
     pub fn request_path_stroke(
         &mut self,
         path: Arc<Path>,
-        transform: Option<Transform2d>,
+        _transform: Option<Transform2d>,
         options: &StrokeOptions,
         tolerance: Option<f32>,
-        shape_id: renderer::ShapeDataId,
+        shape_id: renderer::PrimitiveId,
         id: RequestId
     ) {
         let tolerance = tolerance.unwrap_or(0.5);
@@ -167,7 +164,7 @@ impl ResourceBuilder {
         self.stroke_tess.tessellate(
             path.path_iter().flattened(tolerance),
             options,
-            &mut BuffersBuilder::new(&mut buffers, WithShapeDataId(shape_id))
+            &mut BuffersBuilder::new(&mut buffers, WithPrimitiveId(shape_id))
         ).unwrap();
 
         self.resolved_requests.push(
@@ -186,15 +183,15 @@ impl ResourceBuilder {
 //
 // This vertex constructor forwards the positions and normals provided by the
 // tessellators and add a shape id.
-pub struct WithShapeDataId(pub renderer::ShapeDataId);
+pub struct WithPrimitiveId(pub renderer::PrimitiveId);
 
-impl VertexConstructor<tessellation::StrokeVertex, renderer::StrokeVertex> for WithShapeDataId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> renderer::StrokeVertex {
+impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrimitiveId {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuStrokeVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        renderer::StrokeVertex {
+        GpuStrokeVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
             shape_id: self.0.to_i32(),
@@ -204,101 +201,16 @@ impl VertexConstructor<tessellation::StrokeVertex, renderer::StrokeVertex> for W
 
 // The fill tessellator does not implement normals yet, so this implementation
 // just sets it to [0, 0], for now.
-impl VertexConstructor<tessellation::FillVertex, renderer::FillVertex> for WithShapeDataId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> renderer::FillVertex {
+impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithPrimitiveId {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        renderer::FillVertex {
+        GpuFillVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
             shape_id: self.0.to_i32(),
         }
-    }
-}
-
-pub struct SimpleBufferAllocator {
-    back_index: u16,
-    front_index: u16,
-    len: u16,
-}
-
-impl SimpleBufferAllocator {
-    pub fn new(len: u16) -> Self {
-        SimpleBufferAllocator {
-            back_index: len,
-            front_index: 0,
-            len: len,
-        }
-    }
-
-    pub fn len(&self) -> u16 { self.len }
-
-    pub fn available_size(&self) -> u16 { self.back_index - self.front_index }
-
-    pub fn alloc_range_dynamic(&mut self, len: u16) -> Option<(u16, u16)> {
-        if self.available_size() < len {
-            return None;
-        }
-
-        self.back_index -= len;
-
-        return Some((self.back_index, len));
-    }
-
-    pub fn alloc_dynamic(&mut self) -> Option<u16> {
-        self.alloc_range_dynamic(1).map(|range|{ range.0 })
-    }
-
-    pub fn alloc_range_static(&mut self, len: u16) -> Option<(u16, u16)> {
-        if self.available_size() < len {
-            return None;
-        }
-
-        let id = self.front_index;
-        self.front_index += len;
-
-        return Some((id, len));
-    }
-
-    pub fn alloc_static(&mut self) -> Option<u16> {
-        self.alloc_range_static(1).map(|range|{ range.0 })
-    }
-}
-
-pub struct TypedSimpleBufferAllocator<T> {
-    alloc: SimpleBufferAllocator,
-    _marker: PhantomData<T>,
-}
-
-impl<T> TypedSimpleBufferAllocator<T> {
-    pub fn new(len: u16) -> Self {
-        TypedSimpleBufferAllocator {
-            alloc: SimpleBufferAllocator::new(len),
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn len(&self) -> u16 { self.alloc.len() }
-
-    pub fn alloc_dynamic(&mut self) -> Option<Id<T>> {
-        self.alloc.alloc_dynamic().map(|id|{ Id::new(id) })
-    }
-
-    pub fn alloc_static(&mut self) -> Option<Id<T>> {
-        self.alloc.alloc_static().map(|id|{ Id::new(id) })
-    }
-
-    pub fn alloc_range_dynamic(&mut self, len: u16) -> Option<IdRange<T>> {
-        self.alloc.alloc_range_dynamic(len).map(|(first, count)|{
-            IdRange::new(Id::new(first), count)
-        })
-    }
-
-    pub fn alloc_range_static(&mut self, len: u16) -> Option<IdRange<T>> {
-        self.alloc.alloc_range_static(len).map(|(first, count)|{
-            IdRange::new(Id::new(first), count)
-        })
     }
 }

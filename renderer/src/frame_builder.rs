@@ -3,18 +3,19 @@ use std::sync::Arc;
 use std::default::Default;
 
 use api::*;
+use buffer::*;
 use path::Path;
 use path_iterator::*;
 use resource_builder;
-use resource_builder::{ ResourceBuilder, WithShapeDataId, TypedSimpleBufferAllocator };
-use renderer::FillVertex as GpuFillVertex;
-use renderer::StrokeVertex as GpuStrokeVertex;
-use renderer::ShapeData as GpuPrimData;
-use renderer::ShapeDataId as PrimDataId;
+use resource_builder::{ ResourceBuilder, WithPrimitiveId };
+use renderer::{ GpuFillVertex, GpuStrokeVertex };
+use renderer::PrimData as GpuPrimData;
+use renderer::PrimitiveId;
 
 use frame::{
-    DrawCmd, RenderTargetCmds, RenderTargetId,
-    VertexBufferRange, IndexBufferRange, VertexBufferId, IndexBufferId, UniformBufferId
+    FillCmd, StrokeCmd, RenderTargetCmds, RenderTargetId,
+    FillVertexBufferRange, StrokeVertexBufferRange, IndexBufferRange,
+    FillVertexBufferId, StrokeVertexBufferId, IndexBufferId,
 };
 
 use core::math::*;
@@ -28,8 +29,8 @@ pub type CpuMesh<VertexType> = VertexBuffers<VertexType>;
 #[derive(Clone, Debug)]
 pub struct RenderNodeInternal {
     descriptor: RenderNode,
-    fill_prim: Option<PrimDataId>,
-    stroke_prim: Option<PrimDataId>,
+    fill_prim: Option<PrimitiveId>,
+    stroke_prim: Option<PrimitiveId>,
     in_use: bool,
 }
 
@@ -58,13 +59,12 @@ pub struct FrameBuilder {
 
     static_transforms: Vec<Transform>,
     static_colors: Vec<Color>,
-    static_floats: Vec<f32>,
 
     prim_data: Vec<GpuPrimData>,
 
     paths: Vec<PathTemplate>,
     // the vbo allocator
-    path_meshes: Vec<PathMeshData>,
+    path_meshes: Vec<PathGeometryRanges>,
     // the cpu-side tessellated meshes
     fill_meshes: Vec<CpuMesh<GpuFillVertex>>,
     stroke_meshes: Vec<CpuMesh<GpuStrokeVertex>>,
@@ -79,20 +79,23 @@ struct PathTemplate {
     stroke_mesh: Option<usize>,
 }
 
-struct PathMeshData {
-    fill: Option<MeshData>,
-    stroke: Option<MeshData>,
+struct PathGeometryRanges {
+    fill: Option<FillGeometryRanges>,
+    stroke: Option<StrokeGeometryRanges>,
 }
 
-impl Default for PathMeshData {
-    fn default() -> Self { PathMeshData { fill: None, stroke: None, } }
+impl Default for PathGeometryRanges {
+    fn default() -> Self { PathGeometryRanges { fill: None, stroke: None, } }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct MeshData {
-    pub vertices: VertexBufferRange,
+pub struct GeometryRanges<Vertex> {
+    pub vertices: BufferRange<Vertex>,
     pub indices: IndexBufferRange,
 }
+
+pub type FillGeometryRanges = GeometryRanges<GpuFillVertex>;
+pub type StrokeGeometryRanges = GeometryRanges<GpuStrokeVertex>;
 
 unsafe impl Send for FrameBuilder {}
 
@@ -106,7 +109,6 @@ impl FrameBuilder {
             animated_floats: Vec::new(),
             static_transforms: Vec::new(),
             static_colors: Vec::new(),
-            static_floats: Vec::new(),
             paths: Vec::new(),
             path_meshes: Vec::new(),
             fill_meshes: Vec::new(),
@@ -151,20 +153,18 @@ impl FrameBuilder {
             if let Some(ref style) = render_node.descriptor.fill {
                 if style.pattern.is_opaque() {
                     opaque_fills.push(Op { z_index: z, render_node: node });
-                    z += 1;
                 } else {
                     transparent_fills.push(Op { z_index: z, render_node: node });
-                    z += 1;
                 }
+                z += 1;
             }
             if let Some(ref style) = render_node.descriptor.stroke {
                 if style.pattern.is_opaque() {
                     opaque_strokes.push(Op { z_index: z, render_node: node });
-                    z += 1;
                 } else {
                     transparent_strokes.push(Op { z_index: z, render_node: node });
-                    z += 1;
                 }
+                z += 1;
             }
             node += 1;
         }
@@ -175,31 +175,15 @@ impl FrameBuilder {
             tessellator: FillTessellator::new(),
             offsets: Count { vertices: 0, indices: 0 },
             buffers: &mut VertexBuffers::new(),
-            vbo: VertexBufferId(0),
-            ibo: IndexBufferId(0),
+            vbo: FillVertexBufferId::new(0),
+            ibo: IndexBufferId::new(0),
         };
         let mut stroke_ctx = StrokeCtx {
             tessellator: StrokeTessellator::new(),
             offsets: Count { vertices: 0, indices: 0 },
             buffers: &mut VertexBuffers::new(),
-            vbo: VertexBufferId(0),
-            ibo: IndexBufferId(0),
-        };
-
-        let default_cmd_params = DrawCmd {
-            mesh: MeshData {
-                vertices: VertexBufferRange {
-                    buffer: VertexBufferId(0),
-                    first: 0, count: 0,
-                },
-                indices: IndexBufferRange {
-                    buffer: IndexBufferId(0),
-                    first: 0, count: 0,
-                },
-            },
-            instances: 1,
-            prim_data: UniformBufferId(0), // TODO
-            transforms: UniformBufferId(0),
+            vbo: StrokeVertexBufferId::new(0),
+            ibo: IndexBufferId::new(0),
         };
 
         let default_transform = TransformId::new(0);
@@ -211,7 +195,7 @@ impl FrameBuilder {
             let node = &mut self.render_nodes[of.render_node as usize];
 
             if node.fill_prim.is_none() {
-                node.fill_prim = self.prim_alloc.alloc_static();
+                node.fill_prim = self.prim_alloc.alloc();
             }
             let prim_id = node.fill_prim.unwrap();
 
@@ -228,10 +212,10 @@ impl FrameBuilder {
 
             let draw_cmd = match node.descriptor.shape {
                 ShapeId::Path(path_id) => {
-                    if let Some(mesh) = self.path_meshes[path_id.index()].fill {
-                        DrawCmd { mesh: mesh, ..default_cmd_params }
+                    if let Some(geom) = self.path_meshes[path_id.index()].fill {
+                        FillCmd { geometry: geom, ..FillCmd::default() }
                     } else {
-                        // TODO: if let Some(mesh_id) = self.paths[path_id.index()].fill_mesh {
+                        // TODO: if let Some(geom_id) = self.paths[path_id.index()].fill_mesh {
                         //     if self.mesh_cache.contains(mesh_id) {
                         //         self.mesh_cache.mark_used(mesh_id)
                         //     } else {
@@ -240,9 +224,9 @@ impl FrameBuilder {
                         // }
                         //
                         //
-                        let mesh = fill_ctx.add_path(&self.paths[path_id.index()].data, prim_id, tolerance);
-                        self.path_meshes[path_id.index()].fill = Some(mesh);
-                        DrawCmd { mesh: mesh, ..default_cmd_params }
+                        let geom = fill_ctx.add_path(&self.paths[path_id.index()].data, prim_id, tolerance);
+                        self.path_meshes[path_id.index()].fill = Some(geom);
+                        FillCmd { geometry: geom, ..FillCmd::default() }
                     }
                 }
                 _ => { unimplemented!(); }
@@ -255,7 +239,7 @@ impl FrameBuilder {
             let node = &mut self.render_nodes[os.render_node as usize];
 
             if node.stroke_prim.is_none() {
-                node.stroke_prim = self.prim_alloc.alloc_static();
+                node.stroke_prim = self.prim_alloc.alloc();
             }
             let prim_id = node.stroke_prim.unwrap();
 
@@ -273,12 +257,12 @@ impl FrameBuilder {
 
             match node.descriptor.shape {
                 ShapeId::Path(path_id) => {
-                    let draw_cmd = if let Some(mesh) = self.path_meshes[path_id.index()].stroke {
-                        DrawCmd { mesh: mesh, ..default_cmd_params }
+                    let draw_cmd = if let Some(geom) = self.path_meshes[path_id.index()].stroke {
+                        StrokeCmd { geometry: geom, ..StrokeCmd::default() }
                     } else {
-                        let mesh = stroke_ctx.add_path(&self.paths[path_id.index()].data, prim_id, tolerance);
-                        self.path_meshes[path_id.index()].stroke = Some(mesh);
-                        DrawCmd { mesh: mesh, ..default_cmd_params }
+                        let geom = stroke_ctx.add_path(&self.paths[path_id.index()].data, prim_id, tolerance);
+                        self.path_meshes[path_id.index()].stroke = Some(geom);
+                        StrokeCmd { geometry: geom, ..StrokeCmd::default() }
                     };
 
                     frame.opaque_strokes.push(draw_cmd);
@@ -293,53 +277,61 @@ struct FillCtx<'l> {
     tessellator: FillTessellator,
     buffers: &'l mut VertexBuffers<GpuFillVertex>,
     offsets: Count,
-    vbo: VertexBufferId,
+    vbo: FillVertexBufferId,
     ibo: IndexBufferId,
 }
 
 impl<'l> FillCtx<'l> {
-    fn add_path(&mut self, path: &Path, prim_id: PrimDataId, tolerance: f32) -> MeshData {
+    fn add_path(&mut self, path: &Path, prim_id: PrimitiveId, tolerance: f32) -> FillGeometryRanges {
         let count = self.tessellator.tessellate_path(
             path.path_iter().flattened(tolerance),
             &FillOptions::default(),
-            &mut BuffersBuilder::new(self.buffers, WithShapeDataId(prim_id))
+            &mut BuffersBuilder::new(self.buffers, WithPrimitiveId(prim_id))
         ).unwrap();
 
         self.offsets = self.offsets + count;
 
-        return MeshData {
-            vertices: VertexBufferRange {
+        return FillGeometryRanges {
+            vertices: FillVertexBufferRange {
                 buffer: self.vbo,
-                first: self.offsets.vertices as u16,
-                count: count.vertices as u16,
+                range: IdRange::new(
+                    self.offsets.vertices as u16,
+                    count.vertices as u16
+                ),
             },
             indices: IndexBufferRange {
                 buffer: self.ibo,
-                first: self.offsets.indices as u16,
-                count: count.indices as u16,
+                range: IdRange::new(
+                    self.offsets.indices as u16,
+                    count.indices as u16
+                ),
             },
         };
     }
 
-    fn add_ellipse(&mut self, center: Point, radii: Vec2, prim_id: PrimDataId, tolerance: f32) -> MeshData {
+    fn add_ellipse(&mut self, center: Point, radii: Vec2, prim_id: PrimitiveId, tolerance: f32) -> FillGeometryRanges {
         // TODO: compute num vertices for a given tolerance!
         let count = basic_shapes::fill_ellipse(
             center, radii, 64,
-            &mut BuffersBuilder::new(&mut self.buffers, WithShapeDataId(prim_id))
+            &mut BuffersBuilder::new(&mut self.buffers, WithPrimitiveId(prim_id))
         );
 
         self.offsets = self.offsets + count;
 
-        return MeshData {
-            vertices: VertexBufferRange {
+        return FillGeometryRanges {
+            vertices: FillVertexBufferRange {
                 buffer: self.vbo,
-                first: self.offsets.vertices as u16,
-                count: count.vertices as u16,
+                range: IdRange::new(
+                    self.offsets.vertices as u16,
+                    count.vertices as u16,
+                ),
             },
             indices: IndexBufferRange {
                 buffer: self.ibo,
-                first: self.offsets.indices as u16,
-                count: count.indices as u16,
+                range: IdRange::new(
+                    self.offsets.indices as u16,
+                    count.indices as u16,
+                ),
             },
         };
     }
@@ -349,30 +341,34 @@ struct StrokeCtx<'l> {
     tessellator: StrokeTessellator,
     buffers: &'l mut VertexBuffers<GpuStrokeVertex>,
     offsets: Count,
-    vbo: VertexBufferId,
+    vbo: StrokeVertexBufferId,
     ibo: IndexBufferId,
 }
 
 impl<'l> StrokeCtx<'l> {
-    fn add_path(&mut self, path: &Path, prim_id: PrimDataId, tolerance: f32) -> MeshData {
+    fn add_path(&mut self, path: &Path, prim_id: PrimitiveId, tolerance: f32) -> StrokeGeometryRanges {
         let count = self.tessellator.tessellate(
             path.path_iter().flattened(tolerance),
             &StrokeOptions::default(),
-            &mut BuffersBuilder::new(self.buffers, WithShapeDataId(prim_id))
+            &mut BuffersBuilder::new(self.buffers, WithPrimitiveId(prim_id))
         ).unwrap();
 
         self.offsets = self.offsets + count;
 
-        return MeshData {
-            vertices: VertexBufferRange {
+        return StrokeGeometryRanges {
+            vertices: StrokeVertexBufferRange {
                 buffer: self.vbo,
-                first: self.offsets.vertices as u16,
-                count: count.vertices as u16,
+                range: IdRange::new(
+                    self.offsets.vertices as u16,
+                    count.vertices as u16,
+                ),
             },
             indices: IndexBufferRange {
                 buffer: self.ibo,
-                first: self.offsets.indices as u16,
-                count: count.indices as u16,
+                range: IdRange::new(
+                    self.offsets.indices as u16,
+                    count.indices as u16,
+                ),
             },
         };
     }

@@ -21,3 +21,4 @@ pub mod renderer;
 pub mod shaders;
 pub mod gfx_types;
 pub mod resource_builder;
+pub mod prim_store;

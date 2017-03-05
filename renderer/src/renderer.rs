@@ -8,6 +8,7 @@ use core::math::*;
 use buffer::*;
 pub use gfx_types::*;
 use shaders::*;
+use prim_store::{ PrimStore, BufferStore, GeometryStore };
 
 use frame::*;
 
@@ -18,10 +19,10 @@ use std::collections::HashMap;
 pub type OpaquePso = Pso<opaque_pipeline::Meta>;
 pub type TransparentPso = Pso<transparent_pipeline::Meta>;
 
-pub type StrokeVertex = Vertex;
-pub type FillVertex = Vertex;
-pub type StrokeShapeData = ShapeData;
-pub type FillShapeData = ShapeData;
+pub type GpuStrokeVertex = Vertex;
+pub type GpuFillVertex = Vertex;
+pub type GpuStrokePrimitive = PrimData;
+pub type GpuFillPrimitive = PrimData;
 
 gfx_defines!{
     constant Globals {
@@ -30,14 +31,14 @@ gfx_defines!{
         zoom: f32 = "u_zoom",
     }
 
-    constant ShapeTransform {
+    constant GpuTransform {
         transform: [[f32; 4]; 4] = "transform",
     }
 
     // Per-shape data.
     // It would probably make sense to have different structures for fills and strokes,
     // but using the same struct helps with keeping things simple for now.
-    constant ShapeData {
+    constant PrimData {
         color: [f32; 4] = "color",
         z_index: f32 = "z_index",
         transform_id: i32 = "transform_id",
@@ -51,7 +52,7 @@ gfx_defines!{
     vertex Vertex {
         position: [f32; 2] = "a_position",
         normal: [f32; 2] = "a_normal",
-        shape_id: i32 = "a_shape_id", // An id pointing to the ShapeData struct above.
+        shape_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
     }
 
     pipeline opaque_pipeline {
@@ -59,8 +60,8 @@ gfx_defines!{
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
-        transforms: gfx::ConstantBuffer<ShapeTransform> = "u_transforms",
-        shape_data: gfx::ConstantBuffer<ShapeData> = "u_shape_data",
+        transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
+        shape_data: gfx::ConstantBuffer<PrimData> = "u_shape_data",
     }
 
     pipeline transparent_pipeline {
@@ -68,16 +69,16 @@ gfx_defines!{
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_TEST,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
-        transforms: gfx::ConstantBuffer<ShapeTransform> = "u_transforms",
-        shape_data: gfx::ConstantBuffer<ShapeData> = "u_shape_data",
+        transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
+        shape_data: gfx::ConstantBuffer<PrimData> = "u_shape_data",
     }
 }
 
-pub type TransformId = Id<ShapeTransform>;
+pub type TransformId = Id<GpuTransform>;
 
-impl ShapeData {
-    pub fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> ShapeData {
-        ShapeData {
+impl PrimData {
+    pub fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> PrimData {
+        PrimData {
             color: color,
             z_index: z_index,
             transform_id: transform_id.to_i32(),
@@ -87,13 +88,13 @@ impl ShapeData {
     }
 }
 
-impl std::default::Default for ShapeData {
-    fn default() -> Self { ShapeData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
+impl std::default::Default for PrimData {
+    fn default() -> Self { PrimData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
 }
 
-impl std::default::Default for ShapeTransform {
+impl std::default::Default for GpuTransform {
     fn default() -> Self {
-        ShapeTransform { transform: [
+        GpuTransform { transform: [
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 1.0, 0.0],
@@ -102,7 +103,7 @@ impl std::default::Default for ShapeTransform {
     }
 }
 
-pub type ShapeDataId = Id<ShapeData>;
+pub type PrimitiveId = Id<PrimData>;
 
 // Implement a vertex constructor.
 // The vertex constructor sits between the tessellator and the geometry builder.
@@ -111,15 +112,15 @@ pub type ShapeDataId = Id<ShapeData>;
 //
 // This vertex constructor forwards the positions and normals provided by the
 // tessellators and add a shape id.
-pub struct WithShapeDataId(pub ShapeDataId);
+pub struct WithPrimitiveId(pub PrimitiveId);
 
-impl VertexConstructor<tessellation::StrokeVertex, StrokeVertex> for WithShapeDataId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> StrokeVertex {
+impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrimitiveId {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuStrokeVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        StrokeVertex {
+        GpuStrokeVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
             shape_id: self.0.to_i32(),
@@ -129,26 +130,19 @@ impl VertexConstructor<tessellation::StrokeVertex, StrokeVertex> for WithShapeDa
 
 // The fill tessellator does not implement normals yet, so this implementation
 // just sets it to [0, 0], for now.
-impl VertexConstructor<tessellation::FillVertex, FillVertex> for WithShapeDataId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> FillVertex {
+impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithPrimitiveId {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        FillVertex {
+        GpuFillVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
             shape_id: self.0.to_i32(),
         }
     }
 }
-
-//pub struct Range { first: u16, count: u16 }
-//
-//pub struct Ranges {
-//    vertices: Range,
-//    indices: Range,
-//}
 
 pub enum SurfaceFormat {
     Rgb,
@@ -168,10 +162,9 @@ pub struct Geometry<T> {
 }
 
 pub struct Renderer {
-    fill_geometries: HashMap<VertexBufferId, Geometry<FillVertex>>,
-    stroke_geometries: HashMap<VertexBufferId, Geometry<StrokeVertex>>,
-    shape_data_buffers: HashMap<UniformBufferId, BufferObject<ShapeData>>,
-    transform_buffers: HashMap<UniformBufferId, BufferObject<ShapeTransform>>,
+    fill_data: GpuStore<GpuFillVertex, PrimData>,
+    stroke_data: GpuStore<GpuFillVertex, PrimData>,
+    transform_buffers: GpuBufferStore<GpuTransform>,
     render_targets: HashMap<RenderTargetId, RenderTarget>,
 
     opaque_fill_pso: [OpaquePso; 2],
@@ -283,10 +276,9 @@ impl Renderer {
         }
 
         return Ok(Renderer {
-            fill_geometries: HashMap::new(),
-            stroke_geometries: HashMap::new(),
-            shape_data_buffers: HashMap::new(),
-            transform_buffers: HashMap::new(),
+            fill_data: GpuStore::new(),
+            stroke_data: GpuStore::new(),
+            transform_buffers: GpuBufferStore::new(),
             render_targets: HashMap::new(),
 
             opaque_fill_pso: [opaque_fill_pso, dbg_opaque_fill_pso],
@@ -300,237 +292,71 @@ impl Renderer {
             factory: config.factory,
         });
     }
+}
 
-    pub fn render_frame(&mut self, options: &RenderOptions, mut frame: FrameCmds) -> Result<(), ()> {
-        for alloc_cmd in frame.allocations {
-            match alloc_cmd {
-                AllocCmd::AddFillVertexBuffer(id, vertices, indices) => {
-                    self.add_fill_geometry(id, &vertices[..], &indices[..]);
-                }
-                AllocCmd::AddStrokeVertexBuffer(id, vertices, indices) => {
-                    self.add_stroke_geometry(id, &vertices[..], &indices[..]);
-                }
-                AllocCmd::AddFillShapeBuffer(id, buffer) => {
-                    self.add_fill_shape_buffer(id, &buffer[..]);
-                }
-                AllocCmd::AddStrokeShapeBuffer(id, buffer) => {
-                    self.add_stroke_shape_buffer(id, &buffer[..]);
-                }
-                AllocCmd::AddTransformBuffer(id, buffer) => {
-                    self.add_transform_buffer(id, &buffer[..])
-                }
-                AllocCmd::AddTexture(id, descriptor, buffer) => {
-                    unimplemented!();
-                }
-                AllocCmd::RemoveFillShapeBuffer(id) => {
-                    self.shape_data_buffers.remove(&id);
-                }
-                AllocCmd::RemoveStrokeShapeBuffer(id) => {
-                    self.shape_data_buffers.remove(&id);
-                }
-                AllocCmd::RemoveTransformBuffer(id) => {
-                    self.transform_buffers.remove(&id);
-                }
-                AllocCmd::RemoveTexture(id) => {
-                    unimplemented!();
-                }
-            }
+pub struct GpuStore<Vertex, Primitive> {
+    geometry: GpuGeometryStore<Vertex>,
+    primitives: GpuBufferStore<Primitive>,
+}
+
+impl<Vertex, Primitive> GpuStore<Vertex, Primitive>
+where
+    Vertex: Copy + gfx::traits::Pod + gfx::pso::buffer::Structure<gfx::format::Format>,
+    Primitive: Copy + Default + gfx::traits::Pod
+{
+    pub fn new() -> Self {
+        GpuStore {
+            geometry: GpuGeometryStore::new(),
+            primitives: GpuBufferStore::new(),
         }
-
-        let mut init_queue: CmdEncoder = self.factory.create_command_buffer().into();
-        for upload_cmd in frame.uploads {
-            match upload_cmd {
-                UploadCmd::FillShapeData(id, offset, data) => {
-                    if let Some(buffer_object) = self.shape_data_buffers.get(&id) {
-                        init_queue.update_buffer(
-                            buffer_object,
-                            &data[..],
-                            offset as usize
-                        ).unwrap();
-                    }
-                }
-                UploadCmd::StrokeShapeData(id, offset, data) => {
-                    if let Some(buffer_object) = self.shape_data_buffers.get(&id) {
-                        init_queue.update_buffer(
-                            buffer_object,
-                            &data[..],
-                            offset as usize
-                        ).unwrap();
-                    }
-                }
-                UploadCmd::Transform(id, offset, data) => {
-                    if let Some(buffer_object) = self.transform_buffers.get(&id) {
-                        init_queue.update_buffer(
-                            buffer_object,
-                            &data[..],
-                            offset as usize
-                        ).unwrap();
-                    }
-                }
-                UploadCmd::FillVertex(id, offset, data) => {
-                    if let Some(geom) = self.fill_geometries.get(&id) {
-                        init_queue.update_buffer(
-                            &geom.vbo,
-                            &data[..],
-                            offset as usize,
-                        ).unwrap();
-                    }
-                }
-                UploadCmd::StrokeVertex(id, offset, data) => {
-                    if let Some(geom) = self.stroke_geometries.get(&id) {
-                        init_queue.update_buffer(
-                            &geom.vbo,
-                            &data[..],
-                            offset as usize,
-                        ).unwrap();
-                    }
-                }
-            }
-        }
-        init_queue.flush(&mut self.device);
-
-        let mut draw_queue: CmdEncoder = self.factory.create_command_buffer().into();
-        for target_cmds in frame.targets {
-            try!{ self.render_target(target_cmds, options, &mut draw_queue) };
-        }
-        draw_queue.flush(&mut self.device);
-
-        return Ok(());
     }
 
-    pub fn render_target(
-        &mut self,
-        target_cmds: RenderTargetCmds,
-        options: &RenderOptions,
-        draw_queue: &mut CmdEncoder
-    ) -> Result<(), ()> {
-        let pso_index = if options.wireframe { 1 } else { 0 };
-
-        let target = self.render_targets.get(&target_cmds.fbo).unwrap();
-        if let Some(color) = target_cmds.clear_color {
-            draw_queue.clear(&target.color.clone(), color.f32_array());
-        }
-        if let Some(value) = target_cmds.clear_depth {
-            draw_queue.clear_depth(&target.depth.clone(), value);
-        }
-        for cmd in target_cmds.opaque_fills {
-            let geom = self.fill_geometries.get(&cmd.mesh.vertices.buffer).unwrap();
-            let (start, end) = cmd.mesh.indices.range();
-            let mut indices = geom.ibo.clone();
-            indices.start = start as u32;
-            indices.end = end as u32;
-            if cmd.instances > 1 {
-                indices.instances = Some((cmd.instances as u32, 0));
-            }
-
-            draw_queue.draw(
-                &indices,
-                &self.opaque_fill_pso[pso_index],
-                &opaque_pipeline::Data {
-                    vbo: geom.vbo.clone(),
-                    out_color: target.color.clone(),
-                    out_depth: target.depth.clone(),
-                    constants: self.constants_buffer.clone(),
-                    shape_data: self.shape_data_buffers.get(&cmd.prim_data).unwrap().clone(),
-                    transforms: self.transform_buffers.get(&cmd.transforms).unwrap().clone(),
-                }
-            );
-        }
-
-        /*
-        for cmd in target_cmds.opaque_cmds {
-            match cmd {
-                DrawCmd::Fill(params) => {
-                    let geom = self.fill_geometries.get(&params.vbo).unwrap();
-                    let mut indices = geom.ibo.clone();
-                    let (start, end) = params.indices.range();
-                    indices.start = start as u32;
-                    indices.end = end as u32;
-                    if let Some(instances) = params.instances {
-                        indices.instances = Some((instances as u32, 0));
-                    }
-
-                    draw_queue.draw(
-                        &indices,
-                        &self.opaque_fill_pso[pso_index],
-                        &opaque_pipeline::Data {
-                            vbo: geom.vbo.clone(),
-                            out_color: target.color.clone(),
-                            out_depth: target.depth.clone(),
-                            constants: self.constants_buffer.clone(),
-                            shape_data: self.shape_data_buffers.get(&params.shape_data).unwrap().clone(),
-                            transforms: self.transform_buffers.get(&params.transforms).unwrap().clone(),
-                        }
-                    );
-                }
-                DrawCmd::Stroke(params) => {
-                    let geom = self.stroke_geometries.get(&params.vbo).unwrap();
-                    let mut indices = geom.ibo.clone();
-                    let (start, end) = params.indices.range();
-                    indices.start = start as u32;
-                    indices.end = end as u32;
-                    if let Some(instances) = params.instances {
-                        indices.instances = Some((instances as u32, 0));
-                    }
-
-                    draw_queue.draw(
-                        &indices,
-                        &self.opaque_stroke_pso[pso_index],
-                        &opaque_pipeline::Data {
-                            vbo: geom.vbo.clone(),
-                            out_color: target.color.clone(),
-                            out_depth: target.depth.clone(),
-                            constants: self.constants_buffer.clone(),
-                            shape_data: self.shape_data_buffers.get(&params.shape_data).unwrap().clone(),
-                            transforms: self.transform_buffers.get(&params.transforms).unwrap().clone(),
-                        }
-                    );
-                }
-                DrawCmd::External(params) => {
-                    unimplemented!();
-                }
-            }
-        }
-        */
-
-        return Ok(());
-    }
-
-    pub fn add_render_target(&mut self, id: RenderTargetId, target: RenderTarget) {
-        self.render_targets.insert(id, target);
-    }
-
-    pub fn add_fill_geometry(&mut self, id: VertexBufferId, vertices: &[FillVertex], indices: &[u16]) {
-        let (vbo, ibo) = self.factory.create_vertex_buffer_with_slice(
-            &vertices[..],
-            &indices[..],
-        );
-        self.fill_geometries.insert(id, Geometry { vbo: vbo, ibo: ibo });
-    }
-
-    pub fn add_stroke_geometry(&mut self, id: VertexBufferId, vertices: &[StrokeVertex], indices: &[u16]) {
-        let (vbo, ibo) = self.factory.create_vertex_buffer_with_slice(
-            &vertices[..],
-            &indices[..],
-        );
-        self.stroke_geometries.insert(id, Geometry { vbo: vbo, ibo: ibo });
-    }
-
-    pub fn add_fill_shape_buffer(&mut self, id: UniformBufferId, data: &[FillShapeData]) {
-        let buffer = self.factory.create_constant_buffer(data.len());
-        self.shape_data_buffers.insert(id, buffer);
-    }
-
-    pub fn add_stroke_shape_buffer(&mut self, id: UniformBufferId, data: &[StrokeShapeData]) {
-        let buffer = self.factory.create_constant_buffer(data.len());
-        self.shape_data_buffers.insert(id, buffer);
-    }
-
-    pub fn add_transform_buffer(&mut self, id: UniformBufferId, data: &[ShapeTransform]) {
-        let buffer = self.factory.create_constant_buffer(data.len());
-        self.transform_buffers.insert(id, buffer);
+    pub fn update(&mut self, data: &mut PrimStore<Vertex, Primitive>, factory: &mut GlFactory, queue: &mut CmdEncoder) {
+        self.geometry.update(&mut data.geometry, factory, queue);
+        self.primitives.update(&mut data.primitives, factory, queue);
     }
 }
+
+pub struct GpuBufferStore<Primitive> {
+    buffers: Vec<BufferObject<Primitive>>,
+}
+
+impl<Primitive> GpuBufferStore<Primitive>
+where  Primitive: Copy + Default + gfx::traits::Pod {
+    pub fn new() -> Self { GpuBufferStore { buffers: Vec::new() } }
+
+    pub fn update(&mut self, cpu: &mut BufferStore<Primitive>, factory: &mut GlFactory, queue: &mut CmdEncoder) {
+        for i in 0..cpu.buffers.len() {
+            if i >= self.buffers.len() {
+                let buffer = factory.create_constant_buffer(PRIM_BUFFER_LEN);
+                self.buffers.push(buffer);
+            }
+            queue.update_buffer(&self.buffers[i], cpu.buffers[i].as_slice(), 0).unwrap();
+        }
+    }
+}
+
+pub struct GpuGeometryStore<Vertex> {
+    buffers: Vec<Geometry<Vertex>>,
+}
+
+impl<Vertex> GpuGeometryStore<Vertex>
+where Vertex: Copy + gfx::traits::Pod + gfx::pso::buffer::Structure<gfx::format::Format> {
+    pub fn new() -> Self { GpuGeometryStore { buffers: Vec::new() } }
+
+    pub fn update(&mut self, cpu: &mut GeometryStore<Vertex>, factory: &mut GlFactory, queue: &mut CmdEncoder) {
+        for i in 0..cpu.buffers.len() {
+            let cpu_geom = &cpu.buffers[i];
+            let (vbo, ibo) = factory.create_vertex_buffer_with_slice(
+                &cpu_geom.vertices[..],
+                &cpu_geom.indices[..],
+            );
+            self.buffers.push(Geometry { vbo: vbo, ibo: ibo });
+        }
+    }
+}
+
+
 
 pub struct RenderOptions {
     pub wireframe: bool,
