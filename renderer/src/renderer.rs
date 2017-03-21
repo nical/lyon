@@ -1,6 +1,6 @@
 use gfx::traits::FactoryExt;
-//use gfx_device_gl;
 use gfx;
+use gfx::Factory;
 
 use tessellation;
 use tessellation::geometry_builder::VertexConstructor;
@@ -13,6 +13,7 @@ use prim_store::{ PrimStore, BufferStore, GeometryStore };
 use frame::*;
 
 use std;
+use std::ops;
 //use std::sync::Arc;
 use std::collections::HashMap;
 
@@ -52,7 +53,7 @@ gfx_defines!{
     vertex Vertex {
         position: [f32; 2] = "a_position",
         normal: [f32; 2] = "a_normal",
-        shape_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
+        prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
     }
 
     pipeline opaque_pipeline {
@@ -61,7 +62,7 @@ gfx_defines!{
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
         transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
-        shape_data: gfx::ConstantBuffer<PrimData> = "u_shape_data",
+        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
     }
 
     pipeline transparent_pipeline {
@@ -70,7 +71,7 @@ gfx_defines!{
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_TEST,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
         transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
-        shape_data: gfx::ConstantBuffer<PrimData> = "u_shape_data",
+        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
     }
 }
 
@@ -123,7 +124,7 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrim
         GpuStrokeVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.0.to_i32(),
+            prim_id: self.0.to_i32(),
         }
     }
 }
@@ -139,15 +140,14 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithPrimitiv
         GpuFillVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
-            shape_id: self.0.to_i32(),
+            prim_id: self.0.to_i32(),
         }
     }
 }
 
 pub enum SurfaceFormat {
-    Rgb,
-    Rgba,
-    Alpha,
+    RgbaU8,
+    AlphaU8,
     Stencil,
 }
 
@@ -156,14 +156,14 @@ pub struct RenderTarget {
     pub depth: DepthTarget,
 }
 
-pub struct Geometry<T> {
-    vbo: Vbo<T>,
-    ibo: IndexSlice,
+pub struct GpuGeometry<T> {
+    pub vbo: Vbo<T>,
+    pub ibo: IndexSlice,
 }
 
 pub struct Renderer {
-    fill_data: GpuStore<GpuFillVertex, PrimData>,
-    stroke_data: GpuStore<GpuFillVertex, PrimData>,
+    //fill_data: GpuStore<GpuFillVertex, PrimData>,
+    //stroke_data: GpuStore<GpuFillVertex, PrimData>,
     transform_buffers: GpuBufferStore<GpuTransform>,
     render_targets: HashMap<RenderTargetId, RenderTarget>,
 
@@ -276,9 +276,9 @@ impl Renderer {
         }
 
         return Ok(Renderer {
-            fill_data: GpuStore::new(),
-            stroke_data: GpuStore::new(),
-            transform_buffers: GpuBufferStore::new(),
+            //fill_data: GpuStore::new(),
+            //stroke_data: GpuStore::new(),
+            transform_buffers: GpuBufferStore::new_uniforms(),
             render_targets: HashMap::new(),
 
             opaque_fill_pso: [opaque_fill_pso, dbg_opaque_fill_pso],
@@ -294,41 +294,44 @@ impl Renderer {
     }
 }
 
-pub struct GpuStore<Vertex, Primitive> {
-    geometry: GpuGeometryStore<Vertex>,
-    primitives: GpuBufferStore<Primitive>,
-}
-
-impl<Vertex, Primitive> GpuStore<Vertex, Primitive>
-where
-    Vertex: Copy + gfx::traits::Pod + gfx::pso::buffer::Structure<gfx::format::Format>,
-    Primitive: Copy + Default + gfx::traits::Pod
-{
-    pub fn new() -> Self {
-        GpuStore {
-            geometry: GpuGeometryStore::new(),
-            primitives: GpuBufferStore::new(),
-        }
-    }
-
-    pub fn update(&mut self, data: &mut PrimStore<Vertex, Primitive>, factory: &mut GlFactory, queue: &mut CmdEncoder) {
-        self.geometry.update(&mut data.geometry, factory, queue);
-        self.primitives.update(&mut data.primitives, factory, queue);
-    }
-}
-
 pub struct GpuBufferStore<Primitive> {
     buffers: Vec<BufferObject<Primitive>>,
+    role: gfx::buffer::Role,
+    usage: gfx::memory::Usage,
 }
 
 impl<Primitive> GpuBufferStore<Primitive>
 where  Primitive: Copy + Default + gfx::traits::Pod {
-    pub fn new() -> Self { GpuBufferStore { buffers: Vec::new() } }
+    pub fn new(role: gfx::buffer::Role, usage: gfx::memory::Usage) -> Self {
+        GpuBufferStore {
+            buffers: Vec::new(),
+            role: role,
+            usage: usage,
+        }
+    }
 
-    pub fn update(&mut self, cpu: &mut BufferStore<Primitive>, factory: &mut GlFactory, queue: &mut CmdEncoder) {
+    pub fn new_uniforms() -> Self {
+        GpuBufferStore::new(gfx::buffer::Role::Constant, gfx::memory::Usage::Dynamic)
+    }
+
+    pub fn new_vertices() -> Self {
+        GpuBufferStore::new(gfx::buffer::Role::Vertex, gfx::memory::Usage::Dynamic)
+    }
+
+    pub fn update(
+        &mut self,
+        cpu: &mut BufferStore<Primitive>,
+        factory: &mut GlFactory,
+        queue: &mut CmdEncoder
+    ) {
         for i in 0..cpu.buffers.len() {
             if i >= self.buffers.len() {
-                let buffer = factory.create_constant_buffer(PRIM_BUFFER_LEN);
+                let buffer = factory.create_buffer(
+                    PRIM_BUFFER_LEN,
+                    self.role,
+                    self.usage,
+                    gfx::memory::Bind::empty(),
+                ).unwrap();
                 self.buffers.push(buffer);
             }
             queue.update_buffer(&self.buffers[i], cpu.buffers[i].as_slice(), 0).unwrap();
@@ -336,27 +339,18 @@ where  Primitive: Copy + Default + gfx::traits::Pod {
     }
 }
 
-pub struct GpuGeometryStore<Vertex> {
-    buffers: Vec<Geometry<Vertex>>,
-}
-
-impl<Vertex> GpuGeometryStore<Vertex>
-where Vertex: Copy + gfx::traits::Pod + gfx::pso::buffer::Structure<gfx::format::Format> {
-    pub fn new() -> Self { GpuGeometryStore { buffers: Vec::new() } }
-
-    pub fn update(&mut self, cpu: &mut GeometryStore<Vertex>, factory: &mut GlFactory, queue: &mut CmdEncoder) {
-        for i in 0..cpu.buffers.len() {
-            let cpu_geom = &cpu.buffers[i];
-            let (vbo, ibo) = factory.create_vertex_buffer_with_slice(
-                &cpu_geom.vertices[..],
-                &cpu_geom.indices[..],
-            );
-            self.buffers.push(Geometry { vbo: vbo, ibo: ibo });
-        }
+impl<T> ops::Index<BufferId<T>> for GpuBufferStore<T> {
+    type Output = BufferObject<T>;
+    fn index(&self, id: BufferId<T>) -> &BufferObject<T> {
+        &self.buffers[id.index()]
     }
 }
 
-
+impl<T> ops::IndexMut<BufferId<T>> for GpuBufferStore<T> {
+    fn index_mut(&mut self, id: BufferId<T>) -> &mut BufferObject<T> {
+        &mut self.buffers[id.index()]
+    }
+}
 
 pub struct RenderOptions {
     pub wireframe: bool,

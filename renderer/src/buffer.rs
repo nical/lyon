@@ -3,6 +3,7 @@ use std::fmt;
 use std::cmp;
 use std::hash;
 use std::marker::PhantomData;
+use std::ops::Range;
 
 pub struct Id<T> {
     handle: u16,
@@ -14,7 +15,7 @@ impl<T> Id<T> {
     pub fn index(&self) -> usize { self.handle as usize }
     pub fn to_i32(&self) -> i32 { self.handle as i32 }
     pub fn to_u16(&self) -> u16 { self.handle }
-    pub fn as_range(&self) -> IdRange<T> { IdRange::new(self.handle, 1) }
+    pub fn as_range(&self) -> IdRange<T> { IdRange::new(self.handle..self.handle+1) }
 }
 
 impl<T> Copy for Id<T> {}
@@ -34,66 +35,98 @@ impl<T> hash::Hash for Id<T> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) { self.handle.hash(state); }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
 pub struct IdRange<T> {
-    first: Id<T>,
-    count: u16,
+    start: u16,
+    end: u16,
+    _marker: PhantomData<T>,
 }
 
 impl<T> IdRange<T> {
-    pub fn new(first: u16, count: u16) -> Self {
+    #[inline]
+    pub fn new(range: Range<u16>) -> Self {
         IdRange {
-            first: Id::new(first),
-            count: count,
+            start: range.start,
+            end: range.end,
+            _marker: PhantomData,
         }
     }
 
-    pub fn empty() -> Self { IdRange::new(0, 0) }
+    #[inline]
+    pub fn empty() -> Self { IdRange::new(0..0) }
 
-    pub fn first(&self) -> Id<T> { self.first }
+    #[inline]
+    pub fn start(&self) -> Id<T> { Id::new(self.start) }
 
-    pub fn first_index(&self) -> usize { self.first.index() }
+    #[inline]
+    pub fn start_index(&self) -> usize { self.start as usize }
 
-    pub fn count(&self) -> usize { self.count as usize }
+    #[inline]
+    pub fn end_index(&self) -> usize { self.end as usize }
 
+    #[inline]
+    pub fn usize_range(&self) -> Range<usize> { self.start_index()..self.end_index() }
+
+    #[inline]
+    pub fn u16_range(&self) -> Range<u16> { self.start..self.end }
+
+    #[inline]
+    pub fn from_indices(indices: Range<usize>) -> Self { IdRange::new(indices.start as u16..indices.end as u16) }
+
+    #[inline]
+    pub fn from_start_count(start: u16, count: u16) -> Self { IdRange::new(start..(start + count)) }
+
+    #[inline]
+    pub fn count(&self) -> u16 { self.end - self.start }
+
+    #[inline]
     pub fn get(&self, n: u16) -> Id<T> {
-        assert!(n < self.count, "Shape id out of range.");
-        Id::new(self.first.handle + n)
+        assert!(n < (self.end - self.start), "Shape id out of range.");
+        Id::new(self.start + n)
     }
 
-    pub fn is_empty(&self) -> bool { self.count == 0 }
+    #[inline]
+    pub fn is_empty(&self) -> bool { self.start == self.end }
 
+    #[inline]
     pub fn contains(&self, id: Id<T>) -> bool {
-        id.handle >= self.first.handle && id.handle < self.first.handle + self.count
+        id.handle >= self.start && id.handle < self.end
     }
 
+    #[inline]
     pub fn intersection(&self, other: Self) -> Self {
-        let first = cmp::max(self.first.handle, other.first.handle);
-        let end = cmp::min(self.first.handle + self.count, other.first.handle + other.count);
-        let count = if end > first { end - first } else { 0 };
-        return IdRange::new(first, count);
+        let start = cmp::max(self.start, other.start);
+        let end = cmp::min(self.end, other.end);
+        if end < start {
+            return IdRange::empty()
+        }
+        return IdRange::new(start..end);
     }
 
+    #[inline]
     pub fn including_id(&self, id: Id<T>) -> Self {
-        if id.handle < self.first.handle {
-            return IdRange {
-                first: id,
-                count: self.count + self.first.handle - id.handle,
-            }
+        if id.handle < self.start {
+            return IdRange::new(id.handle..(self.count() + self.start - id.handle));
         }
 
-        if id.handle >= self.first.handle + self.count {
-            return IdRange {
-                first: self.first,
-                count: id.handle - self.first.handle + 1,
-            }
+        if id.handle >= self.end {
+            return IdRange::new(self.start..(id.handle - self.start + 1));
         }
 
-        return IdRange {
-            first: self.first,
-            count: self.count,
-        };
+        return *self;
     }
+}
+
+impl<T> Copy for IdRange<T> {}
+
+impl<T> Clone for IdRange<T> { fn clone(&self) -> Self { *self } }
+
+impl<T> ::std::cmp::PartialEq for IdRange<T> {
+    fn eq(&self, other: &Self) -> bool { self.start == other.start && self.end == other.end }
+    fn ne(&self, other: &Self) -> bool { self.start != other.start || self.end != other.end }
+}
+
+impl<T> fmt::Debug for IdRange<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "IdRange({}..{})", self.start, self.end) }
 }
 
 pub struct BufferId<T> {
@@ -103,6 +136,8 @@ pub struct BufferId<T> {
 impl<T> BufferId<T> {
     pub fn new(handle: u32) -> Self { BufferId { handle: handle, _marker: PhantomData  } }
     pub fn index(&self) -> usize { self.handle as usize }
+    pub fn to_i32(&self) -> i32 { self.handle as i32 }
+    pub fn to_u32(&self) -> u32 { self.handle }
 }
 
 impl<T> Copy for BufferId<T> {}
@@ -122,10 +157,27 @@ impl<T> hash::Hash for BufferId<T> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) { self.handle.hash(state); }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BufferRange<T> {
     pub buffer: BufferId<T>,
     pub range: IdRange<T>,
+}
+
+impl<T> BufferRange<T> {
+    pub fn get(&self, nth: u16) -> BufferElement<T> {
+        BufferElement {
+            buffer: self.buffer,
+            element: self.range.get(nth),
+        }
+    }
+
+    pub fn first(&self) -> BufferElement<T> { self.get(0) }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct BufferElement<T> {
+    pub buffer: BufferId<T>,
+    pub element: Id<T>,
 }
 
 pub struct CpuBuffer<T> {
@@ -149,6 +201,8 @@ impl<T: Default+Copy> CpuBuffer<T> {
 
     pub fn alloc(&mut self) -> Id<T> { self.try_alloc().unwrap() }
 
+    pub fn alloc_back(&mut self) -> Id<T> { self.try_alloc_back().unwrap() }
+
     pub fn push(&mut self, val: T) -> Id<T> {
         let id = self.alloc();
         self[id] = val;
@@ -156,22 +210,42 @@ impl<T: Default+Copy> CpuBuffer<T> {
     }
 
     pub fn try_alloc_range(&mut self, count: u16) -> Option<IdRange<T>> {
-        self.allocator.alloc_range(count).map(|range|{ IdRange::new(range.0, range.1) })
+        self.allocator.alloc_range(count).map(|range|{ IdRange::new(range.0..range.0+range.1) })
     }
 
     pub fn alloc_range(&mut self, count: u16) -> IdRange<T> {
         self.try_alloc_range(count).unwrap()
     }
 
+    pub fn try_alloc_back(&mut self) -> Option<Id<T>> {
+        self.allocator.alloc_back().map(|idx|{ Id::new(idx) })
+    }
+
+    pub fn try_alloc_range_back(&mut self, count: u16) -> Option<IdRange<T>> {
+        self.allocator.alloc_range_back(count).map(|range|{ IdRange::new(range.0..range.0+range.1) })
+    }
+
+    pub fn alloc_range_back(&mut self, count: u16) -> IdRange<T> {
+        self.try_alloc_range_back(count).unwrap()
+    }
+
+    pub fn push_back(&mut self, val: T) -> Id<T> {
+        let id = self.alloc_back();
+        self[id] = val;
+        return id;
+    }
+
     pub fn as_slice(&self) -> &[T] { &self.data[..] }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] { &mut self.data[..] }
 
     pub fn len(&self) -> usize { self.data.len() }
 
-    pub fn range(&self) -> IdRange<T> { IdRange::new(0, self.len() as u16) }
+    pub fn range(&self) -> IdRange<T> { IdRange::new(0..self.len() as u16) }
 
     pub fn sub_slice(&self, range: IdRange<T>) -> &[T] {
         let range = self.range().intersection(range);
-        return &self.data[range.first_index()..(range.first_index() + range.count())]
+        return &self.data[range.start_index()..(range.end as usize)]
     }
 
     pub fn flush_dirty_range(&mut self) -> IdRange<T> {
@@ -196,6 +270,18 @@ impl<T> std::ops::IndexMut<Id<T>> for CpuBuffer<T> {
     }
 }
 
+impl<T: Copy+Default> std::ops::Index<IdRange<T>> for CpuBuffer<T> {
+    type Output = [T];
+    fn index(&self, ids: IdRange<T>) -> &[T] {
+        &self.data[ids.usize_range()]
+    }
+}
+
+impl<T: Copy+Default> std::ops::IndexMut<IdRange<T>> for CpuBuffer<T> {
+    fn index_mut(&mut self, ids: IdRange<T>) -> &mut [T] {
+        &mut self.data[ids.usize_range()]
+    }
+}
 
 pub struct SimpleBufferAllocator {
     back_index: u16,
@@ -271,13 +357,13 @@ impl<T> TypedSimpleBufferAllocator<T> {
 
     pub fn alloc_range(&mut self, len: u16) -> Option<IdRange<T>> {
         self.alloc.alloc_range(len).map(|(first, count)|{
-            IdRange::new(first, count)
+            IdRange::new(first..(first + count))
         })
     }
 
     pub fn alloc_range_back(&mut self, len: u16) -> Option<IdRange<T>> {
         self.alloc.alloc_range_back(len).map(|(first, count)|{
-            IdRange::new(first, count)
+            IdRange::new(first..(first+count))
         })
     }
 }

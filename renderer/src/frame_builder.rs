@@ -6,8 +6,6 @@ use api::*;
 use buffer::*;
 use path::Path;
 use path_iterator::*;
-use resource_builder;
-use resource_builder::{ ResourceBuilder, WithPrimitiveId };
 use renderer::{ GpuFillVertex, GpuStrokeVertex };
 use renderer::PrimData as GpuPrimData;
 use renderer::PrimitiveId;
@@ -19,6 +17,7 @@ use frame::{
 };
 
 use core::math::*;
+use tessellation;
 use tessellation::basic_shapes;
 use tessellation::path_fill::*;
 use tessellation::path_stroke::*;
@@ -294,17 +293,11 @@ impl<'l> FillCtx<'l> {
         return FillGeometryRanges {
             vertices: FillVertexBufferRange {
                 buffer: self.vbo,
-                range: IdRange::new(
-                    self.offsets.vertices as u16,
-                    count.vertices as u16
-                ),
+                range: IdRange::from_start_count(self.offsets.vertices as u16, count.vertices as u16),
             },
             indices: IndexBufferRange {
                 buffer: self.ibo,
-                range: IdRange::new(
-                    self.offsets.indices as u16,
-                    count.indices as u16
-                ),
+                range: IdRange::from_start_count(self.offsets.indices as u16, count.indices as u16),
             },
         };
     }
@@ -321,17 +314,11 @@ impl<'l> FillCtx<'l> {
         return FillGeometryRanges {
             vertices: FillVertexBufferRange {
                 buffer: self.vbo,
-                range: IdRange::new(
-                    self.offsets.vertices as u16,
-                    count.vertices as u16,
-                ),
+                range: IdRange::from_start_count(self.offsets.vertices as u16, count.vertices as u16),
             },
             indices: IndexBufferRange {
                 buffer: self.ibo,
-                range: IdRange::new(
-                    self.offsets.indices as u16,
-                    count.indices as u16,
-                ),
+                range: IdRange::from_start_count(self.offsets.indices as u16, count.indices as u16),
             },
         };
     }
@@ -358,17 +345,11 @@ impl<'l> StrokeCtx<'l> {
         return StrokeGeometryRanges {
             vertices: StrokeVertexBufferRange {
                 buffer: self.vbo,
-                range: IdRange::new(
-                    self.offsets.vertices as u16,
-                    count.vertices as u16,
-                ),
+                range: IdRange::from_start_count(self.offsets.vertices as u16, count.vertices as u16),
             },
             indices: IndexBufferRange {
                 buffer: self.ibo,
-                range: IdRange::new(
-                    self.offsets.indices as u16,
-                    count.indices as u16,
-                ),
+                range: IdRange::from_start_count(self.offsets.indices as u16, count.indices as u16),
             },
         };
     }
@@ -382,10 +363,10 @@ fn simple_frame() {
     let mut frame_builder = FrameBuilder::new();
 
     let node_id = RenderNodeId::new(0);
-    let shape_id = ShapeId::Path(PathId::new(0));
+    let prim_id = ShapeId::Path(PathId::new(0));
 
     frame_builder.create_render_node(node_id, RenderNode {
-        shape: shape_id,
+        shape: prim_id,
         transform: None,
         fill: Some(FillStyle {
             pattern: Pattern::Color(Color::black()),
@@ -395,4 +376,43 @@ fn simple_frame() {
     });
 
     let frame = frame_builder.build_frame();
+}
+
+// Implement a vertex constructor.
+// The vertex constructor sits between the tessellator and the geometry builder.
+// it is called every time a new vertex needs to be added and creates a the vertex
+// from the information provided by the tessellator.
+//
+// This vertex constructor forwards the positions and normals provided by the
+// tessellators and add a shape id.
+pub struct WithPrimitiveId(pub PrimitiveId);
+
+impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrimitiveId {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuStrokeVertex {
+        assert!(!vertex.position.x.is_nan());
+        assert!(!vertex.position.y.is_nan());
+        assert!(!vertex.normal.x.is_nan());
+        assert!(!vertex.normal.y.is_nan());
+        GpuStrokeVertex {
+            position: vertex.position.array(),
+            normal: vertex.normal.array(),
+            prim_id: self.0.to_i32(),
+        }
+    }
+}
+
+// The fill tessellator does not implement normals yet, so this implementation
+// just sets it to [0, 0], for now.
+impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithPrimitiveId {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
+        assert!(!vertex.position.x.is_nan());
+        assert!(!vertex.position.y.is_nan());
+        assert!(!vertex.normal.x.is_nan());
+        assert!(!vertex.normal.y.is_nan());
+        GpuFillVertex {
+            position: vertex.position.array(),
+            normal: vertex.normal.array(),
+            prim_id: self.0.to_i32(),
+        }
+    }
 }

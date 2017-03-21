@@ -95,11 +95,11 @@ impl FillCmd {
             geometry: FillGeometryRanges {
                 vertices: FillVertexBufferRange {
                     buffer: BufferId::new(0),
-                    range: IdRange::new(0, 0),
+                    range: IdRange::empty(),
                 },
                 indices: IndexBufferRange {
                     buffer: IndexBufferId::new(0),
-                    range: IdRange::new(0, 0),
+                    range: IdRange::empty(),
                 },
             },
             instances: 1,
@@ -123,11 +123,11 @@ impl StrokeCmd {
             geometry: StrokeGeometryRanges {
                 vertices: StrokeVertexBufferRange {
                     buffer: BufferId::new(0),
-                    range: IdRange::new(0, 0),
+                    range: IdRange::empty(),
                 },
                 indices: IndexBufferRange {
                     buffer: IndexBufferId::new(0),
-                    range: IdRange::new(0, 0),
+                    range: IdRange::empty(),
                 },
             },
             instances: 1,

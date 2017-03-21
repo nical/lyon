@@ -60,4 +60,3 @@ pub static FILL_FRAGMENT_SHADER: &'static str = &"
         out_color = v_color;
     }
 ";
-

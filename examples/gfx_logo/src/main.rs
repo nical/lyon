@@ -16,10 +16,14 @@ use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation;
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
-use lyon_renderer::frame;
-use lyon_renderer::buffer::{Id, CpuBuffer};
+use lyon_renderer::buffer::{ Id };
 use lyon_renderer::shaders::*;
-use lyon_renderer::api::{Color};
+use lyon_renderer::renderer::{
+    GpuBufferStore, PrimData, GpuTransform, Vertex,
+    opaque_pipeline, transparent_pipeline, Globals, WithPrimitiveId,
+    GpuGeometry,
+};
+use lyon_renderer::prim_store::{ BufferStore };
 // make  public so that the module in gfx_defines can see the types.
 pub use lyon_renderer::gfx_types::*;
 
@@ -30,60 +34,10 @@ use std::ops::Rem;
 type FillVertex = Vertex;
 type StrokeVertex = Vertex;
 
-type OpaquePso = Pso<opaque_pipeline::Meta>;
-type TransparentPso = Pso<transparent_pipeline::Meta>;
+//type OpaquePso = Pso<opaque_pipeline::Meta>;
+//type TransparentPso = Pso<transparent_pipeline::Meta>;
 
-// Describe the vertex, uniform data and pipeline states passed to gfx-rs.
 gfx_defines!{
-    constant Globals {
-        resolution: [f32; 2] = "u_resolution",
-        scroll_offset: [f32; 2] = "u_scroll_offset",
-        zoom: f32 = "u_zoom",
-    }
-
-    constant PrimTransform {
-        transform: [[f32; 4]; 4] = "transform",
-    }
-
-    // Per-shape data.
-    // It would probably make sense to have different structures for fills and strokes,
-    // but using the same struct helps with keeping things simple for now.
-    constant PrimData {
-        // TODO: sample the color from a texture.
-        color: [f32; 4] = "color",
-        z_index: f32 = "z_index",
-        transform_id: i32 = "transform_id",
-        width: f32 = "width",
-        _padding: f32 = "_padding",
-    }
-
-    // Per-vertex data.
-    // Again, the same data is used for fill and strokes for simplicity.
-    // Ideally this should stay as small as possible.
-    vertex Vertex {
-        position: [f32; 2] = "a_position",
-        normal: [f32; 2] = "a_normal",
-        prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
-    }
-
-    pipeline opaque_pipeline {
-        vbo: gfx::VertexBuffer<Vertex> = (),
-        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
-        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
-        constants: gfx::ConstantBuffer<Globals> = "Globals",
-        transforms: gfx::ConstantBuffer<PrimTransform> = "u_transforms",
-        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
-    }
-
-    pipeline transparent_pipeline {
-        vbo: gfx::VertexBuffer<Vertex> = (),
-        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
-        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_TEST,
-        constants: gfx::ConstantBuffer<Globals> = "Globals",
-        transforms: gfx::ConstantBuffer<PrimTransform> = "u_transforms",
-        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
-    }
-
     // The background is drawn separately with its own shader.
     vertex BgVertex {
         position: [f32; 2] = "a_position",
@@ -97,34 +51,7 @@ gfx_defines!{
     }
 }
 
-pub type TransformId = Id<PrimTransform>;
-
-impl PrimData {
-    pub fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> PrimData {
-        PrimData {
-            color: color,
-            z_index: z_index,
-            transform_id: transform_id.to_i32(),
-            width: 1.0,
-            _padding: 0.0,
-        }
-    }
-}
-
-impl std::default::Default for PrimData {
-    fn default() -> Self { PrimData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
-}
-
-impl std::default::Default for PrimTransform {
-    fn default() -> Self {
-        PrimTransform { transform: [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ]}
-    }
-}
+pub type TransformId = Id<GpuTransform>;
 
 pub fn split_gfx_slice<R:gfx::Resources>(slice: gfx::Slice<R>, at: u32) -> (gfx::Slice<R>, gfx::Slice<R>) {
     let mut first = slice.clone();
@@ -143,53 +70,25 @@ pub fn gfx_sub_slice<R:gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32)
     return sub;
 }
 
-
-pub type PrimId = Id<PrimData>;
-
-// Implement a vertex constructor.
-// The vertex constructor sits between the tessellator and the geometry builder.
-// it is called every time a new vertex needs to be added and creates a the vertex
-// from the information provided by the tessellator.
-//
-// This vertex constructor forwards the positions and normals provided by the
-// tessellators and add a prim id.
-pub struct WithPrimId(pub PrimId);
-
-impl VertexConstructor<tessellation::StrokeVertex, StrokeVertex> for WithPrimId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> StrokeVertex {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
-        assert!(!vertex.normal.x.is_nan());
-        assert!(!vertex.normal.y.is_nan());
-        StrokeVertex {
-            position: vertex.position.array(),
-            normal: vertex.normal.array(),
-            prim_id: self.0.to_i32(),
-        }
-    }
-}
-
-// The fill tessellator does not implement normals yet, so this implementation
-// just sets it to [0, 0], for now.
-impl VertexConstructor<tessellation::FillVertex, FillVertex> for WithPrimId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> FillVertex {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
-        assert!(!vertex.normal.x.is_nan());
-        assert!(!vertex.normal.y.is_nan());
-        FillVertex {
-            position: vertex.position.array(),
-            normal: vertex.normal.array(),
-            prim_id: self.0.to_i32(),
-        }
-    }
-}
-
 struct BgWithPrimId ;
 impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgWithPrimId  {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
         BgVertex { position: vertex.position.array() }
     }
+}
+
+struct Cpu {
+    transforms: BufferStore<GpuTransform>,
+    primitives: BufferStore<PrimData>,
+    fills: VertexBuffers<FillVertex>,
+    strokes: VertexBuffers<StrokeVertex>,
+}
+
+struct Gpu {
+    transforms: GpuBufferStore<GpuTransform>,
+    primitives: GpuBufferStore<PrimData>,
+    //fills: GpuGeometry<FillVertex>,
+    //strokes: GpuGeometry<StrokeVertex>,
 }
 
 fn main() {
@@ -209,16 +108,18 @@ fn main() {
     let path = builder.build();
 
     // Create some CPU-side buffers that will contain the geometry.
-    let mut fill_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
-    let mut stroke_mesh_cpu: VertexBuffers<Vertex> = VertexBuffers::new();
-    let mut prim_data_cpu: CpuBuffer<PrimData> = CpuBuffer::new(PRIM_BUFFER_LEN as u16);
-    let mut prim_transforms_cpu: CpuBuffer<PrimTransform> = CpuBuffer::new(PRIM_BUFFER_LEN as u16);
+    let mut cpu = Cpu {
+        fills: VertexBuffers::new(),
+        strokes: VertexBuffers::new(),
+        transforms: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
+        primitives: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
+    };
 
-    let default_transform = prim_transforms_cpu.push(PrimTransform::default());
-    let logo_transforms = prim_transforms_cpu.alloc_range(num_instances);
+    let default_transform = cpu.transforms.push(GpuTransform::default());
+    let logo_transforms = cpu.transforms.alloc_range(num_instances);
 
     // Tessellate the fill
-    let logo_fill_ids = prim_data_cpu.alloc_range(num_instances);
+    let logo_fill_ids = cpu.primitives.alloc_range(num_instances);
 
     // Note that we flatten the path here. Since the flattening tolerance should
     // depend on the resolution/zoom it would make sense to re-tessellate when the
@@ -226,25 +127,25 @@ fn main() {
     let fill_count = FillTessellator::new().tessellate_path(
         path.path_iter().flattened(0.09),
         &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(logo_fill_ids.first()))
+        &mut BuffersBuilder::new(&mut cpu.fills, WithPrimitiveId(logo_fill_ids.range.start()))
     ).unwrap();
 
-    prim_data_cpu[logo_fill_ids.first()] = PrimData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.first());
+    cpu.primitives[logo_fill_ids.first()] = PrimData::new([1.0, 1.0, 1.0, 1.0], 0.1, logo_transforms.range.start());
     for i in 1..num_instances {
-        prim_data_cpu[logo_fill_ids.get(i)] = PrimData::new(
+        cpu.primitives[logo_fill_ids.get(i)] = PrimData::new(
             [(0.1 * i as f32).rem(1.0), (0.5 * i as f32).rem(1.0), (0.9 * i as f32).rem(1.0), 1.0],
             0.1 - 0.001 * i as f32,
-            logo_transforms.get(i)
+            logo_transforms.range.get(i)
         );
     }
 
     // Tessellate the stroke
-    let logo_stroke_id = prim_data_cpu.push(PrimData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform));
+    let logo_stroke_id = cpu.primitives.push(PrimData::new([0.0, 0.0, 0.0, 0.1], 0.2, default_transform.element));
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.022),
         &StrokeOptions::default(),
-        &mut BuffersBuilder::new(&mut stroke_mesh_cpu, WithPrimId(logo_stroke_id))
+        &mut BuffersBuilder::new(&mut cpu.strokes, WithPrimitiveId(logo_stroke_id.element))
     ).unwrap();
 
     let mut num_points = 0;
@@ -254,34 +155,33 @@ fn main() {
         }
     }
 
-    let point_transforms = prim_transforms_cpu.alloc_range(num_points);
-    let point_ids_1 = prim_data_cpu.alloc_range(num_points);
-    let point_ids_2 = prim_data_cpu.alloc_range(num_points);
+    let point_transforms = cpu.transforms.alloc_range(num_points);
+    let point_ids_1 =  cpu.primitives.alloc_range(num_points);
+    let point_ids_2 =  cpu.primitives.alloc_range(num_points);
 
-    let ellipse_vertices_start = fill_mesh_cpu.vertices.len() as u32;
-    let ellipse_indices_start = fill_mesh_cpu.indices.len() as u32;
+    let ellipse_indices_start =  cpu.fills.indices.len() as u32;
     let ellipsis_count = fill_ellipse(
         vec2(0.0, 0.0), vec2(1.0, 1.0), 64,
-        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(point_ids_1.first()))
+        &mut BuffersBuilder::new(&mut  cpu.fills, WithPrimitiveId(point_ids_1.range.start()))
     );
     fill_ellipse(
         vec2(0.0, 0.0), vec2(0.5, 0.5), 64,
-        &mut BuffersBuilder::new(&mut fill_mesh_cpu, WithPrimId(point_ids_2.first()))
+        &mut BuffersBuilder::new(&mut  cpu.fills, WithPrimitiveId(point_ids_2.range.start()))
     );
 
     let mut i = 0;
-    for p in path.as_slice().iter() {
-        if let Some(to) = p.destination() {
-            let transform_id = point_transforms.get(i);
-            prim_transforms_cpu[transform_id].transform = Mat4::create_translation(
+    for evt in path.as_slice().iter() {
+        if let Some(to) = evt.destination() {
+            let transform_id = point_transforms.range.get(i);
+            cpu.transforms[point_transforms.get(i)].transform = Mat4::create_translation(
                 to.x, to.y, 0.0
             ).to_row_arrays();
-            prim_data_cpu[point_ids_1.get(i)] = PrimData::new(
+            cpu.primitives[point_ids_1.get(i)] = PrimData::new(
                 [0.0, 0.2, 0.0, 1.0],
                 0.3,
                 transform_id
             );
-            prim_data_cpu[point_ids_2.get(i)] = PrimData::new(
+            cpu.primitives[point_ids_2.get(i)] = PrimData::new(
                 [0.0, 1.0, 0.0, 1.0],
                 0.4,
                 transform_id
@@ -290,8 +190,8 @@ fn main() {
         }
     }
 
-    println!(" -- fill: {} vertices {} indices", fill_mesh_cpu.vertices.len(), fill_mesh_cpu.indices.len());
-    println!(" -- stroke: {} vertices {} indices", stroke_mesh_cpu.vertices.len(), stroke_mesh_cpu.indices.len());
+    println!(" -- fill: {} vertices {} indices",  cpu.fills.vertices.len(),  cpu.fills.indices.len());
+    println!(" -- stroke: {} vertices {} indices",  cpu.strokes.vertices.len(),  cpu.strokes.indices.len());
 
     let mut bg_mesh_cpu: VertexBuffers<BgVertex> = VertexBuffers::new();
     fill_rectangle(
@@ -312,8 +212,13 @@ fn main() {
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
 
     let constants = factory.create_constant_buffer(1);
-    let prim_data_gpu = factory.create_constant_buffer(PRIM_BUFFER_LEN);
-    let prim_transforms_gpu = factory.create_constant_buffer(PRIM_BUFFER_LEN);
+
+    let mut gpu = Gpu {
+        //fills: GpuGeometry::new(),
+        //strokes: GpuGeometry::new(),
+        transforms: GpuBufferStore::new(gfx::buffer::Role::Constant, gfx::memory::Usage::Dynamic),
+        primitives: GpuBufferStore::new(gfx::buffer::Role::Constant, gfx::memory::Usage::Dynamic),
+    };
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -338,7 +243,7 @@ fn main() {
         opaque_pipeline::new()
     ).unwrap();
 
-    let transparent_pso = factory.create_pipeline_from_program(
+    let _transparent_pso = factory.create_pipeline_from_program(
         &model_shader,
         gfx::Primitive::TriangleList,
         gfx::state::Rasterizer::new_fill(),
@@ -354,31 +259,41 @@ fn main() {
         opaque_pipeline::new()
     ).unwrap();
 
-    let wireframe_transparent_pso = factory.create_pipeline_from_program(
+    let _wireframe_transparent_pso = factory.create_pipeline_from_program(
         &model_shader,
         gfx::Primitive::TriangleList,
         fill_mode,
         transparent_pipeline::new()
     ).unwrap();
 
-    /// Upload the tessellated geometry to the GPU.
-    let (fill_vbo, mut fill_range) = factory.create_vertex_buffer_with_slice(
-        &fill_mesh_cpu.vertices[..],
-        &fill_mesh_cpu.indices[..]
+    let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+
+    let (vbo, ibo) = factory.create_vertex_buffer_with_slice(
+        &cpu.fills.vertices[..],
+        &cpu.fills.indices[..],
     );
-    let (stroke_vbo, stroke_range) = factory.create_vertex_buffer_with_slice(
-        &stroke_mesh_cpu.vertices[..],
-        &stroke_mesh_cpu.indices[..]
+    let gpu_fills = GpuGeometry { vbo: vbo, ibo: ibo };
+
+    let (vbo, ibo) = factory.create_vertex_buffer_with_slice(
+        &cpu.strokes.vertices[..],
+        &cpu.strokes.indices[..],
     );
+    let gpu_strokes = GpuGeometry { vbo: vbo, ibo: ibo };
+
+    //gpu.fills.update(&mut cpu.fills, &mut factory, &mut init_queue);
+    //gpu.strokes.update(&mut cpu.strokes, &mut factory, &mut init_queue);
+    gpu.primitives.update(&mut cpu.primitives, &mut factory, &mut init_queue);
+    gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut init_queue);
+    init_queue.flush(&mut device);
 
     let split = ellipse_indices_start + (ellipsis_count.indices as u32);
-    let mut points_range_1 = gfx_sub_slice(fill_range.clone(), ellipse_indices_start, split);
-    let mut points_range_2 = gfx_sub_slice(fill_range.clone(), split, split + ellipsis_count.indices as u32);
+    let mut points_range_1 = gfx_sub_slice(gpu_fills.ibo.clone(), ellipse_indices_start, split);
+    let mut points_range_2 = gfx_sub_slice(gpu_fills.ibo.clone(), split, split + ellipsis_count.indices as u32);
     points_range_1.instances = Some((num_points as u32, 0));
     points_range_2.instances = Some((num_points as u32, 0));
 
+    let mut fill_range = gfx_sub_slice(gpu_fills.ibo.clone(), 0, fill_count.indices as u32);
     fill_range.instances = Some((num_instances as u32, 0));
-    fill_range.end = fill_count.indices as u32;
 
     let mut scene = SceneParams {
         target_zoom: 5.0,
@@ -391,11 +306,6 @@ fn main() {
         target_stroke_width: 1.0,
     };
 
-    let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    init_queue.update_buffer(&prim_data_gpu, prim_data_cpu.as_slice(), 0).unwrap();
-    init_queue.update_buffer(&prim_transforms_gpu, prim_transforms_cpu.as_slice(), 0).unwrap();
-    init_queue.flush(&mut device);
-
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let mut frame_count: usize = 0;
@@ -406,16 +316,16 @@ fn main() {
 
         // Set the color of the second shape (the outline) to some slowly changing
         // pseudo-random color.
-        prim_data_cpu[logo_stroke_id].color = [
+         cpu.primitives[logo_stroke_id].color = [
             (frame_count as f32 * 0.008 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.005 - 1.6).sin() * 0.1 + 0.1,
             (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
             1.0
         ];
-        prim_data_cpu[logo_stroke_id].width = scene.stroke_width;
+        cpu.primitives[logo_stroke_id].width = scene.stroke_width;
 
         for i in 1..num_instances {
-            prim_transforms_cpu[logo_transforms.get(i)].transform = Mat4::create_translation(
+            cpu.transforms[logo_transforms.get(i)].transform = Mat4::create_translation(
                 (frame_count as f32 * 0.001 * i as f32).sin() * (100.0 + i as f32 * 10.0),
                 (frame_count as f32 * 0.002 * i as f32).sin() * (100.0 + i as f32 * 10.0),
                 0.0
@@ -429,8 +339,9 @@ fn main() {
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
 
-        cmd_queue.update_buffer(&prim_transforms_gpu, prim_transforms_cpu.as_slice(), 0).unwrap();
-        cmd_queue.update_buffer(&prim_data_gpu, prim_data_cpu.as_slice(), 0).unwrap();
+        gpu.primitives.update(&mut cpu.primitives, &mut factory, &mut cmd_queue);
+        gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut cmd_queue);
+
         cmd_queue.update_constant_buffer(&constants, &Globals {
             resolution: [w as f32, h as f32],
             zoom: scene.zoom,
@@ -438,23 +349,23 @@ fn main() {
         });
 
         let default_pipeline_data = opaque_pipeline::Data {
-            vbo: fill_vbo.clone(),
+            vbo: gpu_fills.vbo.clone(),
             out_color: main_fbo.clone(),
             out_depth: main_depth.clone(),
             constants: constants.clone(),
-            prim_data: prim_data_gpu.clone(),
-            transforms: prim_transforms_gpu.clone(),
+            prim_data: gpu.primitives[logo_fill_ids.buffer].clone(),
+            transforms: gpu.transforms[logo_transforms.buffer].clone(),
         };
 
         // Draw the opaque geometry front to back with the depth buffer enabled.
 
         if scene.show_points {
             cmd_queue.draw(&points_range_1, &opaque_pso, &opaque_pipeline::Data {
-                vbo: fill_vbo.clone(),
+                vbo: gpu_fills.vbo.clone(),
                 .. default_pipeline_data.clone()
             });
             cmd_queue.draw(&points_range_2, &opaque_pso, &opaque_pipeline::Data {
-                vbo: fill_vbo.clone(),
+                vbo: gpu_fills.vbo.clone(),
                 .. default_pipeline_data.clone()
             });
         }
@@ -463,12 +374,12 @@ fn main() {
                   else { &opaque_pso };
 
         cmd_queue.draw(&fill_range, &pso, &opaque_pipeline::Data {
-            vbo: fill_vbo.clone(),
+            vbo: gpu_fills.vbo.clone(),
             .. default_pipeline_data.clone()
         });
 
-        cmd_queue.draw(&stroke_range, &pso, &opaque_pipeline::Data {
-            vbo: stroke_vbo.clone(),
+        cmd_queue.draw(&gpu_strokes.ibo, &pso, &opaque_pipeline::Data {
+            vbo: gpu_strokes.vbo.clone(),
             .. default_pipeline_data.clone()
         });
 
