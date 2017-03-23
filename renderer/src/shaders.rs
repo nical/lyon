@@ -12,21 +12,19 @@ pub static FILL_VERTEX_SHADER: &'static str = &"
 
     uniform Globals {
         vec2 u_resolution;
-        vec2 u_scroll_offset;
-        float u_zoom;
     };
 
     struct GpuTransform { mat4 transform; };
     uniform u_transforms { GpuTransform transforms[PRIM_BUFFER_LEN]; };
 
-    struct PrimData {
+    struct Primitive {
         vec4 color;
         float z_index;
-        int transform_id;
+        int local_transform;
+        int view_transform;
         float width;
-        float _padding;
     };
-    uniform u_prim_data { PrimData prim_data[PRIM_BUFFER_LEN]; };
+    uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
 
     in vec2 a_position;
     in vec2 a_normal;
@@ -36,15 +34,17 @@ pub static FILL_VERTEX_SHADER: &'static str = &"
 
     void main() {
         int id = a_prim_id + gl_InstanceID;
-        PrimData data = prim_data[id];
+        Primitive prim = primitives[id];
 
-        vec4 local_pos = vec4(a_position + a_normal * data.width, 0.0, 1.0);
-        vec4 world_pos = transforms[data.transform_id].transform * local_pos;
-        vec2 transformed_pos = (world_pos.xy / world_pos.w - u_scroll_offset)
-            * u_zoom / (vec2(0.5, -0.5) * u_resolution);
+        vec4 local_pos = vec4(a_position + a_normal * prim.width, 0.0, 1.0);
+        vec4 world_pos = transforms[prim.view_transform].transform
+            * transforms[prim.local_transform].transform
+            * local_pos;
 
-        gl_Position = vec4(transformed_pos, 1.0 - data.z_index, 1.0);
-        v_color = data.color;
+        vec2 transformed_pos = world_pos.xy / (vec2(0.5, -0.5) * u_resolution * world_pos.w);
+
+        gl_Position = vec4(transformed_pos, 1.0 - prim.z_index, 1.0);
+        v_color = prim.color;
     }
 ";
 

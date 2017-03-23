@@ -7,8 +7,8 @@ use buffer::*;
 use path::Path;
 use path_iterator::*;
 use renderer::{ GpuFillVertex, GpuStrokeVertex };
-use renderer::PrimData as GpuPrimData;
-use renderer::PrimitiveId;
+use renderer::{ GpuFillPrimitive, GpuStrokePrimitive };
+use renderer::{ FillPrimitiveId, StrokePrimitiveId, WithId };
 
 use frame::{
     FillCmd, StrokeCmd, RenderTargetCmds, RenderTargetId,
@@ -28,8 +28,8 @@ pub type CpuMesh<VertexType> = VertexBuffers<VertexType>;
 #[derive(Clone, Debug)]
 pub struct RenderNodeInternal {
     descriptor: RenderNode,
-    fill_prim: Option<PrimitiveId>,
-    stroke_prim: Option<PrimitiveId>,
+    fill_prim: Option<FillPrimitiveId>,
+    stroke_prim: Option<StrokePrimitiveId>,
     in_use: bool,
 }
 
@@ -59,7 +59,8 @@ pub struct FrameBuilder {
     static_transforms: Vec<Transform>,
     static_colors: Vec<Color>,
 
-    prim_data: Vec<GpuPrimData>,
+    fill_primitives: Vec<GpuFillPrimitive>,
+    stroke_primitives: Vec<GpuStrokePrimitive>,
 
     paths: Vec<PathTemplate>,
     // the vbo allocator
@@ -69,7 +70,8 @@ pub struct FrameBuilder {
     stroke_meshes: Vec<CpuMesh<GpuStrokeVertex>>,
 
     transform_alloc: TypedSimpleBufferAllocator<TransformId>,
-    prim_alloc: TypedSimpleBufferAllocator<GpuPrimData>,
+    fill_prim_alloc: TypedSimpleBufferAllocator<GpuFillPrimitive>,
+    stroke_prim_alloc: TypedSimpleBufferAllocator<GpuStrokePrimitive>,
 }
 
 struct PathTemplate {
@@ -102,7 +104,8 @@ impl FrameBuilder {
     pub fn new() -> Self {
         FrameBuilder {
             render_nodes: vec![Default::default(); 128],
-            prim_data: vec![Default::default(); 128],
+            fill_primitives: vec![Default::default(); 128],
+            stroke_primitives: vec![Default::default(); 128],
             animated_transforms: Vec::new(),
             animated_colors: Vec::new(),
             animated_floats: Vec::new(),
@@ -113,7 +116,8 @@ impl FrameBuilder {
             fill_meshes: Vec::new(),
             stroke_meshes: Vec::new(),
             transform_alloc: TypedSimpleBufferAllocator::new(2048),
-            prim_alloc: TypedSimpleBufferAllocator::new(2048),
+            fill_prim_alloc: TypedSimpleBufferAllocator::new(2048),
+            stroke_prim_alloc: TypedSimpleBufferAllocator::new(2048),
         }
     }
 
@@ -194,17 +198,17 @@ impl FrameBuilder {
             let node = &mut self.render_nodes[of.render_node as usize];
 
             if node.fill_prim.is_none() {
-                node.fill_prim = self.prim_alloc.alloc();
+                node.fill_prim = self.fill_prim_alloc.alloc();
             }
             let prim_id = node.fill_prim.unwrap();
 
-            self.prim_data[prim_id.index()] = GpuPrimData {
+            self.fill_primitives[prim_id.index()] = GpuFillPrimitive {
                 color: match node.descriptor.fill.as_ref().unwrap().pattern {
                     Pattern::Color(color) => { color.f32_array() }
                     _ => { unimplemented!(); }
                 },
                 z_index: of.z_index as f32 / 1000.0,
-                transform_id: node.descriptor.transform.as_ref().unwrap_or(&default_transform).to_i32(),
+                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).to_i32(),
                 width: 0.0,
                 .. Default::default()
             };
@@ -238,18 +242,18 @@ impl FrameBuilder {
             let node = &mut self.render_nodes[os.render_node as usize];
 
             if node.stroke_prim.is_none() {
-                node.stroke_prim = self.prim_alloc.alloc();
+                node.stroke_prim = self.stroke_prim_alloc.alloc();
             }
             let prim_id = node.stroke_prim.unwrap();
 
             let stroke_style = &node.descriptor.stroke.as_ref().unwrap();
-            self.prim_data[prim_id.index()] = GpuPrimData {
+            self.stroke_primitives[prim_id.index()] = GpuStrokePrimitive {
                 color: match stroke_style.pattern {
                     Pattern::Color(color) => { color.f32_array() }
                     _ => { unimplemented!(); }
                 },
                 z_index: os.z_index as f32 / 1000.0,
-                transform_id: node.descriptor.transform.as_ref().unwrap_or(&default_transform).to_i32(),
+                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).to_i32(),
                 width: stroke_style.width,
                 .. Default::default()
             };
@@ -281,11 +285,11 @@ struct FillCtx<'l> {
 }
 
 impl<'l> FillCtx<'l> {
-    fn add_path(&mut self, path: &Path, prim_id: PrimitiveId, tolerance: f32) -> FillGeometryRanges {
+    fn add_path(&mut self, path: &Path, prim_id: FillPrimitiveId, tolerance: f32) -> FillGeometryRanges {
         let count = self.tessellator.tessellate_path(
             path.path_iter().flattened(tolerance),
             &FillOptions::default(),
-            &mut BuffersBuilder::new(self.buffers, WithPrimitiveId(prim_id))
+            &mut BuffersBuilder::new(self.buffers, WithId(prim_id))
         ).unwrap();
 
         self.offsets = self.offsets + count;
@@ -302,11 +306,11 @@ impl<'l> FillCtx<'l> {
         };
     }
 
-    fn add_ellipse(&mut self, center: Point, radii: Vec2, prim_id: PrimitiveId, tolerance: f32) -> FillGeometryRanges {
+    fn add_ellipse(&mut self, center: Point, radii: Vec2, prim_id: FillPrimitiveId, tolerance: f32) -> FillGeometryRanges {
         // TODO: compute num vertices for a given tolerance!
         let count = basic_shapes::fill_ellipse(
             center, radii, 64,
-            &mut BuffersBuilder::new(&mut self.buffers, WithPrimitiveId(prim_id))
+            &mut BuffersBuilder::new(&mut self.buffers, WithId(prim_id))
         );
 
         self.offsets = self.offsets + count;
@@ -333,11 +337,11 @@ struct StrokeCtx<'l> {
 }
 
 impl<'l> StrokeCtx<'l> {
-    fn add_path(&mut self, path: &Path, prim_id: PrimitiveId, tolerance: f32) -> StrokeGeometryRanges {
+    fn add_path(&mut self, path: &Path, prim_id: StrokePrimitiveId, tolerance: f32) -> StrokeGeometryRanges {
         let count = self.tessellator.tessellate(
             path.path_iter().flattened(tolerance),
             &StrokeOptions::default(),
-            &mut BuffersBuilder::new(self.buffers, WithPrimitiveId(prim_id))
+            &mut BuffersBuilder::new(self.buffers, WithId(prim_id))
         ).unwrap();
 
         self.offsets = self.offsets + count;
@@ -376,43 +380,4 @@ fn simple_frame() {
     });
 
     let frame = frame_builder.build_frame();
-}
-
-// Implement a vertex constructor.
-// The vertex constructor sits between the tessellator and the geometry builder.
-// it is called every time a new vertex needs to be added and creates a the vertex
-// from the information provided by the tessellator.
-//
-// This vertex constructor forwards the positions and normals provided by the
-// tessellators and add a shape id.
-pub struct WithPrimitiveId(pub PrimitiveId);
-
-impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrimitiveId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuStrokeVertex {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
-        assert!(!vertex.normal.x.is_nan());
-        assert!(!vertex.normal.y.is_nan());
-        GpuStrokeVertex {
-            position: vertex.position.array(),
-            normal: vertex.normal.array(),
-            prim_id: self.0.to_i32(),
-        }
-    }
-}
-
-// The fill tessellator does not implement normals yet, so this implementation
-// just sets it to [0, 0], for now.
-impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithPrimitiveId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
-        assert!(!vertex.normal.x.is_nan());
-        assert!(!vertex.normal.y.is_nan());
-        GpuFillVertex {
-            position: vertex.position.array(),
-            normal: vertex.normal.array(),
-            prim_id: self.0.to_i32(),
-        }
-    }
 }

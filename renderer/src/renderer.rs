@@ -1,4 +1,3 @@
-use gfx::traits::FactoryExt;
 use gfx;
 use gfx::Factory;
 
@@ -8,22 +7,14 @@ use core::math::*;
 use buffer::*;
 pub use gfx_types::*;
 use shaders::*;
-use prim_store::{ PrimStore, BufferStore, GeometryStore };
-
-use frame::*;
+use prim_store::{ BufferStore };
 
 use std;
+use std::mem;
 use std::ops;
-//use std::sync::Arc;
-use std::collections::HashMap;
 
-pub type OpaquePso = Pso<opaque_pipeline::Meta>;
-pub type TransparentPso = Pso<transparent_pipeline::Meta>;
-
-pub type GpuStrokeVertex = Vertex;
-pub type GpuFillVertex = Vertex;
-pub type GpuStrokePrimitive = PrimData;
-pub type GpuFillPrimitive = PrimData;
+pub type OpaquePso = Pso<opaque_fill_pipeline::Meta>;
+pub type TransparentPso = Pso<transparent_fill_pipeline::Meta>;
 
 gfx_defines!{
     constant Globals {
@@ -36,62 +27,123 @@ gfx_defines!{
         transform: [[f32; 4]; 4] = "transform",
     }
 
-    // Per-shape data.
-    // It would probably make sense to have different structures for fills and strokes,
-    // but using the same struct helps with keeping things simple for now.
-    constant PrimData {
-        color: [f32; 4] = "color",
-        z_index: f32 = "z_index",
-        transform_id: i32 = "transform_id",
-        width: f32 = "width",
-        _padding: f32 = "_padding",
-    }
-
     // Per-vertex data.
-    // Again, the same data is used for fill and strokes for simplicity.
-    // Ideally this should stay as small as possible.
-    vertex Vertex {
+    vertex GpuFillVertex {
         position: [f32; 2] = "a_position",
         normal: [f32; 2] = "a_normal",
         prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
     }
 
-    pipeline opaque_pipeline {
-        vbo: gfx::VertexBuffer<Vertex> = (),
+    // Per fill primitive data.
+    constant GpuFillPrimitive {
+        color: [f32; 4] = "color",
+        z_index: f32 = "z_index",
+        local_transform: i32 = "local_transform",
+        view_transform: i32 = "view_transform",
+        width: f32 = "width",
+    }
+
+    // Per-vertex data.
+    vertex GpuStrokeVertex {
+        position: [f32; 2] = "a_position",
+        normal: [f32; 2] = "a_normal",
+        prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
+    }
+
+    // Per stroke primitive data.
+    constant GpuStrokePrimitive {
+        color: [f32; 4] = "color",
+        z_index: f32 = "z_index",
+        local_transform: i32 = "local_transform",
+        view_transform: i32 = "view_transform",
+        width: f32 = "width",
+    }
+
+    pipeline opaque_fill_pipeline {
+        vbo: gfx::VertexBuffer<GpuFillVertex> = (),
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
         transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
-        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
+        primitives: gfx::ConstantBuffer<GpuFillPrimitive> = "u_primitives",
     }
 
-    pipeline transparent_pipeline {
-        vbo: gfx::VertexBuffer<Vertex> = (),
+    pipeline transparent_fill_pipeline {
+        vbo: gfx::VertexBuffer<GpuFillVertex> = (),
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_TEST,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
         transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
-        prim_data: gfx::ConstantBuffer<PrimData> = "u_prim_data",
+        primitives: gfx::ConstantBuffer<GpuFillPrimitive> = "u_primitives",
+    }
+
+    pipeline opaque_stroke_pipeline {
+        vbo: gfx::VertexBuffer<GpuStrokeVertex> = (),
+        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
+        constants: gfx::ConstantBuffer<Globals> = "Globals",
+        transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
+        primitives: gfx::ConstantBuffer<GpuStrokePrimitive> = "u_primitives",
+    }
+
+    pipeline transparent_stroke_pipeline {
+        vbo: gfx::VertexBuffer<GpuStrokeVertex> = (),
+        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
+        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_TEST,
+        constants: gfx::ConstantBuffer<Globals> = "Globals",
+        transforms: gfx::ConstantBuffer<GpuTransform> = "u_transforms",
+        primitives: gfx::ConstantBuffer<GpuStrokePrimitive> = "u_primitives",
     }
 }
 
-pub type TransformId = Id<GpuTransform>;
-
-impl PrimData {
-    pub fn new(color: [f32; 4], z_index: f32, transform_id: TransformId) -> PrimData {
-        PrimData {
+impl GpuFillPrimitive {
+    pub fn new(
+        color: [f32; 4],
+        z_index: f32,
+        local_transform: TransformId,
+        view_transform: TransformId
+    ) -> GpuFillPrimitive {
+        GpuFillPrimitive {
             color: color,
             z_index: z_index,
-            transform_id: transform_id.to_i32(),
+            local_transform: local_transform.to_i32(),
+            view_transform: view_transform.to_i32(),
             width: 1.0,
-            _padding: 0.0,
         }
     }
 }
 
-impl std::default::Default for PrimData {
-    fn default() -> Self { PrimData::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0)) }
+impl std::default::Default for GpuFillPrimitive {
+    fn default() -> Self {
+        GpuFillPrimitive::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0), TransformId::new(0))
+    }
 }
+
+impl GpuStrokePrimitive {
+    pub fn new(
+        color: [f32; 4],
+        z_index: f32,
+        local_transform: TransformId,
+        view_transform: TransformId
+    ) -> GpuStrokePrimitive {
+        GpuStrokePrimitive {
+            color: color,
+            z_index: z_index,
+            local_transform: local_transform.to_i32(),
+            view_transform: view_transform.to_i32(),
+            width: 1.0,
+        }
+    }
+}
+
+impl std::default::Default for GpuStrokePrimitive {
+    fn default() -> Self {
+        GpuStrokePrimitive::new([1.0, 1.0, 1.0, 1.0], 0.0, TransformId::new(0), TransformId::new(0))
+    }
+}
+
+
+pub type TransformId = Id<GpuTransform>;
 
 impl std::default::Default for GpuTransform {
     fn default() -> Self {
@@ -104,24 +156,36 @@ impl std::default::Default for GpuTransform {
     }
 }
 
-pub type PrimitiveId = Id<PrimData>;
+impl GpuTransform {
+    pub fn new(mat: Mat4) -> Self {
+        GpuTransform { transform: mat.to_row_arrays() }
+    }
 
-// Implement a vertex constructor.
-// The vertex constructor sits between the tessellator and the geometry builder.
-// it is called every time a new vertex needs to be added and creates a the vertex
-// from the information provided by the tessellator.
-//
-// This vertex constructor forwards the positions and normals provided by the
-// tessellators and add a shape id.
-pub struct WithPrimitiveId(pub PrimitiveId);
+    pub fn as_mat4(&self) -> &Mat4 {
+        unsafe { mem::transmute(self) }
+    }
 
-impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrimitiveId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuStrokeVertex {
+    pub fn as_mut_mat4(&mut self) -> &mut Mat4 {
+        unsafe { mem::transmute(self) }
+    }
+}
+
+pub type FillPrimitiveId = Id<GpuFillPrimitive>;
+pub type StrokePrimitiveId = Id<GpuStrokePrimitive>;
+
+/// This vertex constructor forwards the positions and normals provided by the
+/// tessellators and add a shape id.
+pub struct WithId<T>(pub Id<T>);
+
+// The fill tessellator does not implement normals yet, so this implementation
+// just sets it to [0, 0], for now.
+impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithId<GpuFillPrimitive> {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        GpuStrokeVertex {
+        GpuFillVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
             prim_id: self.0.to_i32(),
@@ -129,15 +193,13 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithPrim
     }
 }
 
-// The fill tessellator does not implement normals yet, so this implementation
-// just sets it to [0, 0], for now.
-impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithPrimitiveId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
+impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithId<GpuStrokePrimitive> {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuStrokeVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
-        GpuFillVertex {
+        GpuStrokeVertex {
             position: vertex.position.array(),
             normal: vertex.normal.array(),
             prim_id: self.0.to_i32(),
@@ -161,138 +223,6 @@ pub struct GpuGeometry<T> {
     pub ibo: IndexSlice,
 }
 
-pub struct Renderer {
-    //fill_data: GpuStore<GpuFillVertex, PrimData>,
-    //stroke_data: GpuStore<GpuFillVertex, PrimData>,
-    transform_buffers: GpuBufferStore<GpuTransform>,
-    render_targets: HashMap<RenderTargetId, RenderTarget>,
-
-    opaque_fill_pso: [OpaquePso; 2],
-    opaque_stroke_pso: [OpaquePso; 2],
-    transparent_fill_pso: [TransparentPso; 2],
-    transparent_stroke_pso: [TransparentPso; 2],
-
-    constants_buffer: BufferObject<Globals>,
-
-    device: GlDevice,
-    factory: GlFactory,
-}
-
-pub enum InitializationError {
-    ShaderCompilation,
-    PipelineCreation,
-    BufferAllocation,
-}
-
-impl Renderer {
-    pub fn new(mut config: RendererConfig) -> Result<Self, InitializationError> {
-
-        let shader = if let Ok(program) = config.factory.link_program(
-            FILL_VERTEX_SHADER.as_bytes(),
-            FILL_FRAGMENT_SHADER.as_bytes(),
-        ) { program } else { return Err(InitializationError::ShaderCompilation); };
-
-        let opaque_fill_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-            &shader,
-            gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
-            opaque_pipeline::new()
-        ) { pso } else { return Err(InitializationError::PipelineCreation); };
-        let opaque_stroke_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-            &shader,
-            gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
-            opaque_pipeline::new()
-        ) { pso } else { return Err(InitializationError::PipelineCreation); };
-        let transparent_fill_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-            &shader,
-            gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
-            transparent_pipeline::new()
-        ) { pso } else { return Err(InitializationError::PipelineCreation); };
-        let transparent_stroke_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-            &shader,
-            gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
-            transparent_pipeline::new()
-        ) { pso } else { return Err(InitializationError::PipelineCreation); };
-
-        let dbg_opaque_fill_pso;
-        let dbg_opaque_stroke_pso;
-        let dbg_transparent_fill_pso;
-        let dbg_transparent_stroke_pso;
-        if config.debug {
-            let mut fill_mode = gfx::state::Rasterizer::new_fill();
-            fill_mode.method = gfx::state::RasterMethod::Line(1);
-            dbg_opaque_fill_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                fill_mode,
-                opaque_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-            dbg_opaque_stroke_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                fill_mode,
-                opaque_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-            dbg_transparent_fill_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                fill_mode,
-                transparent_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-            dbg_transparent_stroke_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                fill_mode,
-                transparent_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-        } else {
-            dbg_opaque_fill_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                gfx::state::Rasterizer::new_fill(),
-                opaque_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-            dbg_opaque_stroke_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                gfx::state::Rasterizer::new_fill(),
-                opaque_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-            dbg_transparent_fill_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                gfx::state::Rasterizer::new_fill(),
-                transparent_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-            dbg_transparent_stroke_pso = if let Ok(pso) = config.factory.create_pipeline_from_program(
-                &shader,
-                gfx::Primitive::TriangleList,
-                gfx::state::Rasterizer::new_fill(),
-                transparent_pipeline::new()
-            ) { pso } else { return Err(InitializationError::PipelineCreation); };
-        }
-
-        return Ok(Renderer {
-            //fill_data: GpuStore::new(),
-            //stroke_data: GpuStore::new(),
-            transform_buffers: GpuBufferStore::new_uniforms(),
-            render_targets: HashMap::new(),
-
-            opaque_fill_pso: [opaque_fill_pso, dbg_opaque_fill_pso],
-            opaque_stroke_pso: [opaque_stroke_pso, dbg_opaque_stroke_pso],
-            transparent_fill_pso: [transparent_fill_pso, dbg_transparent_fill_pso],
-            transparent_stroke_pso: [transparent_stroke_pso, dbg_transparent_stroke_pso],
-
-            constants_buffer: config.factory.create_constant_buffer(1),
-
-            device: config.device,
-            factory: config.factory,
-        });
-    }
-}
 
 pub struct GpuBufferStore<Primitive> {
     buffers: Vec<BufferObject<Primitive>>,
@@ -349,29 +279,6 @@ impl<T> ops::Index<BufferId<T>> for GpuBufferStore<T> {
 impl<T> ops::IndexMut<BufferId<T>> for GpuBufferStore<T> {
     fn index_mut(&mut self, id: BufferId<T>) -> &mut BufferObject<T> {
         &mut self.buffers[id.index()]
-    }
-}
-
-pub struct RenderOptions {
-    pub wireframe: bool,
-}
-
-pub struct RendererConfig {
-    pub device: GlDevice,
-    pub factory: GlFactory,
-    pub debug: bool,
-}
-
-impl RenderOptions {
-    pub fn new() -> Self {
-        RenderOptions {
-            wireframe: false,
-        }
-    }
-
-    pub fn with_wireframe(mut self, enabled: bool) -> Self {
-        self.wireframe = enabled;
-        return self;
     }
 }
 
