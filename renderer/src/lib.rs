@@ -15,9 +15,8 @@ extern crate lyon_tessellation as tessellation;
 
 pub mod api;
 pub mod frame;
-pub mod frame_builder;
+pub mod batch_builder;
 pub mod buffer;
 pub mod renderer;
-pub mod shaders;
 pub mod gfx_types;
-pub mod prim_store;
+pub mod glsl;

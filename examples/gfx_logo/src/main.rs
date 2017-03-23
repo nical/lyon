@@ -16,14 +16,13 @@ use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation;
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
-use lyon_renderer::buffer::{ Id };
-use lyon_renderer::shaders::*;
+use lyon_renderer::buffer::{ Id, BufferStore };
+use lyon_renderer::glsl::*;
 use lyon_renderer::renderer::{
     GpuTransform, GpuFillVertex, GpuStrokeVertex, GpuFillPrimitive, GpuStrokePrimitive,
     opaque_fill_pipeline, transparent_fill_pipeline, opaque_stroke_pipeline, transparent_stroke_pipeline,
     GpuGeometry, GpuBufferStore, Globals, WithId,
 };
-use lyon_renderer::prim_store::{ BufferStore };
 // make  public so that the module in gfx_defines can see the types.
 pub use lyon_renderer::gfx_types::*;
 

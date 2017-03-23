@@ -1,7 +1,7 @@
 use core::math::*;
 use path::Path;
 use buffer::*;
-use frame_builder;
+use batch_builder;
 //use renderer::{FillVertex, StrokeVertex};
 use frame::{FillVertexBufferRange, StrokeVertexBufferRange, IndexBufferRange};
 

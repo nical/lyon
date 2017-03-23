@@ -6,8 +6,7 @@ use tessellation::geometry_builder::VertexConstructor;
 use core::math::*;
 use buffer::*;
 pub use gfx_types::*;
-use shaders::*;
-use prim_store::{ BufferStore };
+use glsl::PRIM_BUFFER_LEN;
 
 use std;
 use std::mem;
