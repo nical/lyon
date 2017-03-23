@@ -6,10 +6,10 @@ use api::*;
 use buffer::*;
 use path::Path;
 use path_iterator::*;
+use glsl::PRIM_BUFFER_LEN;
 use renderer::{ GpuFillVertex, GpuStrokeVertex };
 use renderer::{ GpuFillPrimitive, GpuStrokePrimitive };
-use renderer::{ FillPrimitiveId, StrokePrimitiveId, WithId };
-
+use renderer::{ FillPrimitiveId, StrokePrimitiveId, WithId, GpuTransform };
 use frame::{
     FillCmd, StrokeCmd, RenderTargetCmds, RenderTargetId,
     FillVertexBufferRange, StrokeVertexBufferRange, IndexBufferRange,
@@ -21,15 +21,15 @@ use tessellation;
 use tessellation::basic_shapes;
 use tessellation::path_fill::*;
 use tessellation::path_stroke::*;
-use tessellation::geometry_builder::{VertexBuffers, VertexConstructor, BuffersBuilder, Count};
+use tessellation::geometry_builder::{ VertexBuffers, VertexConstructor, BuffersBuilder, Count };
 
 pub type CpuMesh<VertexType> = VertexBuffers<VertexType>;
 
 #[derive(Clone, Debug)]
 pub struct RenderNodeInternal {
     descriptor: RenderNode,
-    fill_prim: Option<FillPrimitiveId>,
-    stroke_prim: Option<StrokePrimitiveId>,
+    fill_prim: Option<BufferElement<GpuFillPrimitive>>,
+    stroke_prim: Option<BufferElement<GpuStrokePrimitive>>,
     in_use: bool,
 }
 
@@ -49,29 +49,19 @@ impl ::std::default::Default for RenderNodeInternal {
     }
 }
 
-pub struct FrameBuilder {
+pub struct BatchBuilder {
     render_nodes: Vec<RenderNodeInternal>,
 
-    animated_transforms: Vec<Transform>,
-    animated_colors: Vec<Color>,
-    animated_floats: Vec<f32>,
-
-    static_transforms: Vec<Transform>,
-    static_colors: Vec<Color>,
-
-    fill_primitives: Vec<GpuFillPrimitive>,
-    stroke_primitives: Vec<GpuStrokePrimitive>,
+    transforms: BufferStore<GpuTransform>,
+    fill_primitives: BufferStore<GpuFillPrimitive>,
+    stroke_primitives: BufferStore<GpuStrokePrimitive>,
 
     paths: Vec<PathTemplate>,
     // the vbo allocator
     path_meshes: Vec<PathGeometryRanges>,
     // the cpu-side tessellated meshes
-    fill_meshes: Vec<CpuMesh<GpuFillVertex>>,
-    stroke_meshes: Vec<CpuMesh<GpuStrokeVertex>>,
-
-    transform_alloc: TypedSimpleBufferAllocator<TransformId>,
-    fill_prim_alloc: TypedSimpleBufferAllocator<GpuFillPrimitive>,
-    stroke_prim_alloc: TypedSimpleBufferAllocator<GpuStrokePrimitive>,
+    //fill_meshes: Vec<CpuMesh<GpuFillVertex>>,
+    //stroke_meshes: Vec<CpuMesh<GpuStrokeVertex>>,
 }
 
 struct PathTemplate {
@@ -98,26 +88,19 @@ pub struct GeometryRanges<Vertex> {
 pub type FillGeometryRanges = GeometryRanges<GpuFillVertex>;
 pub type StrokeGeometryRanges = GeometryRanges<GpuStrokeVertex>;
 
-unsafe impl Send for FrameBuilder {}
+unsafe impl Send for BatchBuilder {}
 
-impl FrameBuilder {
+impl BatchBuilder {
     pub fn new() -> Self {
-        FrameBuilder {
+        BatchBuilder {
             render_nodes: vec![Default::default(); 128],
-            fill_primitives: vec![Default::default(); 128],
-            stroke_primitives: vec![Default::default(); 128],
-            animated_transforms: Vec::new(),
-            animated_colors: Vec::new(),
-            animated_floats: Vec::new(),
-            static_transforms: Vec::new(),
-            static_colors: Vec::new(),
+            fill_primitives: BufferStore::new(PRIM_BUFFER_LEN as u16, 1),
+            stroke_primitives: BufferStore::new(PRIM_BUFFER_LEN as u16, 1),
+            transforms: BufferStore::new(PRIM_BUFFER_LEN as u16, 1),
             paths: Vec::new(),
             path_meshes: Vec::new(),
-            fill_meshes: Vec::new(),
-            stroke_meshes: Vec::new(),
-            transform_alloc: TypedSimpleBufferAllocator::new(2048),
-            fill_prim_alloc: TypedSimpleBufferAllocator::new(2048),
-            stroke_prim_alloc: TypedSimpleBufferAllocator::new(2048),
+            //fill_meshes: Vec::new(),
+            //stroke_meshes: Vec::new(),
         }
     }
 
@@ -189,7 +172,7 @@ impl FrameBuilder {
             ibo: IndexBufferId::new(0),
         };
 
-        let default_transform = TransformId::new(0);
+        let default_transform = TransformId { buffer: BufferId::new(0), element: Id::new(0) };
         let tolerance = 0.5;
 
         let mut frame = RenderTargetCmds::new(RenderTargetId(0));
@@ -198,17 +181,18 @@ impl FrameBuilder {
             let node = &mut self.render_nodes[of.render_node as usize];
 
             if node.fill_prim.is_none() {
-                node.fill_prim = self.fill_prim_alloc.alloc();
+                node.fill_prim = Some(self.fill_primitives.alloc());
             }
+
             let prim_id = node.fill_prim.unwrap();
 
-            self.fill_primitives[prim_id.index()] = GpuFillPrimitive {
+            self.fill_primitives[prim_id] = GpuFillPrimitive {
                 color: match node.descriptor.fill.as_ref().unwrap().pattern {
                     Pattern::Color(color) => { color.f32_array() }
                     _ => { unimplemented!(); }
                 },
                 z_index: of.z_index as f32 / 1000.0,
-                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).to_i32(),
+                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).element.to_i32(),
                 width: 0.0,
                 .. Default::default()
             };
@@ -227,7 +211,7 @@ impl FrameBuilder {
                         // }
                         //
                         //
-                        let geom = fill_ctx.add_path(&self.paths[path_id.index()].data, prim_id, tolerance);
+                        let geom = fill_ctx.add_path(&self.paths[path_id.index()].data, prim_id.element, tolerance);
                         self.path_meshes[path_id.index()].fill = Some(geom);
                         FillCmd { geometry: geom, ..FillCmd::default() }
                     }
@@ -242,18 +226,18 @@ impl FrameBuilder {
             let node = &mut self.render_nodes[os.render_node as usize];
 
             if node.stroke_prim.is_none() {
-                node.stroke_prim = self.stroke_prim_alloc.alloc();
+                node.stroke_prim = Some(self.stroke_primitives.alloc());
             }
             let prim_id = node.stroke_prim.unwrap();
 
             let stroke_style = &node.descriptor.stroke.as_ref().unwrap();
-            self.stroke_primitives[prim_id.index()] = GpuStrokePrimitive {
+            self.stroke_primitives[prim_id] = GpuStrokePrimitive {
                 color: match stroke_style.pattern {
                     Pattern::Color(color) => { color.f32_array() }
                     _ => { unimplemented!(); }
                 },
                 z_index: os.z_index as f32 / 1000.0,
-                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).to_i32(),
+                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).element.to_i32(),
                 width: stroke_style.width,
                 .. Default::default()
             };
@@ -263,7 +247,7 @@ impl FrameBuilder {
                     let draw_cmd = if let Some(geom) = self.path_meshes[path_id.index()].stroke {
                         StrokeCmd { geometry: geom, ..StrokeCmd::default() }
                     } else {
-                        let geom = stroke_ctx.add_path(&self.paths[path_id.index()].data, prim_id, tolerance);
+                        let geom = stroke_ctx.add_path(&self.paths[path_id.index()].data, prim_id.element, tolerance);
                         self.path_meshes[path_id.index()].stroke = Some(geom);
                         StrokeCmd { geometry: geom, ..StrokeCmd::default() }
                     };
@@ -364,7 +348,7 @@ impl<'l> StrokeCtx<'l> {
 fn simple_frame() {
     use api::PathId;
 
-    let mut frame_builder = FrameBuilder::new();
+    let mut frame_builder = BatchBuilder::new();
 
     let node_id = RenderNodeId::new(0);
     let prim_id = ShapeId::Path(PathId::new(0));

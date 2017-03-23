@@ -27,8 +27,8 @@ pub struct Effect;
 pub struct Epoch(u64);
 
 pub type ImageId = Id<Image>;
-pub type TransformId = Id<Transform>;
-pub type TransformIdRange = IdRange<Transform>;
+pub type TransformId = BufferElement<Transform>;
+pub type TransformIdRange = BufferRange<Transform>;
 pub type RenderNodeId = Id<RenderNode>;
 pub type PathId = Id<Path>;
 pub type RectId = Id<Rect>;
@@ -138,7 +138,7 @@ pub struct FillStyle {
     pub aa: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct RenderNode {
     pub shape: ShapeId,
     pub transform: Option<TransformId>,
