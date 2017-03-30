@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use renderer::{ GpuFillVertex, GpuStrokeVertex, GpuStrokePrimitive, GpuFillPrimitive, GpuTransform };
 use api::Color;
 use batch_builder::{ FillGeometryRanges, StrokeGeometryRanges };
@@ -134,5 +132,5 @@ impl TargetCmdBuilder {
         return self;
     }
 
-    pub fn build(mut self) -> RenderTargetCmds { self.target }
+    pub fn build(self) -> RenderTargetCmds { self.target }
 }

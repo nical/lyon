@@ -1,16 +1,6 @@
 use core::math::*;
 use path::Path;
 use buffer::*;
-use batch_builder;
-//use renderer::{FillVertex, StrokeVertex};
-use frame::{FillVertexBufferRange, StrokeVertexBufferRange, IndexBufferRange};
-
-use tessellation::path_fill::FillOptions;
-use tessellation::path_stroke::StrokeOptions;
-
-use std::collections::HashMap;
-//use std::sync::mpsc::channel;
-//use std::thread;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Image;

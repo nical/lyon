@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::default::Default;
 
@@ -17,13 +16,12 @@ use frame::{
 };
 
 use core::math::*;
-use tessellation;
 use tessellation::basic_shapes;
 use tessellation::path_fill::*;
 use tessellation::path_stroke::*;
-use tessellation::geometry_builder::{ VertexBuffers, VertexConstructor, BuffersBuilder, Count };
+use tessellation::geometry_builder::{ VertexBuffers, BuffersBuilder, Count };
 
-pub type CpuMesh<VertexType> = VertexBuffers<VertexType>;
+pub type Geometry<VertexType> = VertexBuffers<VertexType>;
 
 #[derive(Clone, Debug)]
 pub struct RenderNodeInternal {
@@ -56,27 +54,109 @@ pub struct BatchBuilder {
     fill_primitives: BufferStore<GpuFillPrimitive>,
     stroke_primitives: BufferStore<GpuStrokePrimitive>,
 
-    paths: Vec<PathTemplate>,
-    // the vbo allocator
-    path_meshes: Vec<PathGeometryRanges>,
+    shapes: Vec<ShapeData>,
     // the cpu-side tessellated meshes
-    //fill_meshes: Vec<CpuMesh<GpuFillVertex>>,
-    //stroke_meshes: Vec<CpuMesh<GpuStrokeVertex>>,
+    fill_geom: Geometry<GpuFillVertex>,
+    stroke_geom: Geometry<GpuStrokeVertex>,
 }
 
-struct PathTemplate {
-    data: Arc<Path>,
-    fill_mesh: Option<usize>,
-    stroke_mesh: Option<usize>,
-}
-
-struct PathGeometryRanges {
+struct ShapeData {
+    path: Arc<Path>,
     fill: Option<FillGeometryRanges>,
     stroke: Option<StrokeGeometryRanges>,
 }
 
-impl Default for PathGeometryRanges {
-    fn default() -> Self { PathGeometryRanges { fill: None, stroke: None, } }
+pub struct FillBatchBuilder {
+    primitives: BufferStore<GpuFillPrimitive>,
+    geom: Geometry<GpuFillVertex>,
+
+    render_nodes: Vec<FillRenderNode>,
+    // ordered list of render node indices
+    prim_list: Vec<u16>,
+}
+
+struct FillRenderNode {
+    z_index: u32,
+    shape: ShapeId,
+    local_transform: Option<TransformId>,
+    view_transform: Option<TransformId>,
+    primitive: Option<BufferElement<GpuFillPrimitive>>,
+    style: FillStyle,
+}
+
+impl FillBatchBuilder {
+    pub fn fill_shape(
+        &mut self,
+        shape: ShapeId,
+        local_transform: Option<TransformId>,
+        view_transform: Option<TransformId>,
+        style: FillStyle,
+        z_index: u32,
+    ){
+        self.render_nodes.push(FillRenderNode {
+            z_index: z_index,
+            shape: shape,
+            local_transform: local_transform,
+            view_transform: view_transform,
+            primitive: None,
+            style: style,
+        });
+    }
+
+    pub fn build(&mut self, scene: &mut BatchBuilder) {
+        let mut node_ids = self.prim_list.clone();
+        node_ids.reverse();
+
+        let default_transform = TransformId { buffer: BufferId::new(0), element: Id::new(0) };
+        let tolerance = 0.5;
+
+        let mut fill_ctx = FillCtx {
+            tessellator: FillTessellator::new(),
+            offsets: Count { vertices: 0, indices: 0 },
+            buffers: &mut self.geom,
+            vbo: FillVertexBufferId::new(0),
+            ibo: IndexBufferId::new(0),
+        };
+
+        let mut opaque_fills = Vec::new();
+
+        for index in node_ids {
+            let node = &mut self.render_nodes[index as usize];
+
+            if node.primitive.is_none() {
+                node.primitive = Some(self.primitives.alloc());
+            }
+
+            let prim_id = node.primitive.unwrap();
+
+            self.primitives[prim_id] = GpuFillPrimitive {
+                color: match node.style.pattern {
+                    Pattern::Color(color) => { color.f32_array() }
+                    _ => { unimplemented!(); }
+                },
+                z_index: node.z_index as f32 / 1000.0,
+                local_transform: node.local_transform.unwrap_or(default_transform).element.to_i32(),
+                view_transform: node.view_transform.unwrap_or(default_transform).element.to_i32(),
+                width: 0.0,
+                .. Default::default()
+            };
+
+            let draw_cmd = match node.shape {
+                ShapeId::Path(path_id) => {
+                    if let Some(geom) = scene.shapes[path_id.index()].fill {
+                        FillCmd { geometry: geom, ..FillCmd::default() }
+                    } else {
+                        let geom = fill_ctx.add_path(&scene.shapes[path_id.index()].path, prim_id.element, tolerance);
+                        scene.shapes[path_id.index()].fill = Some(geom);
+                        FillCmd { geometry: geom, ..FillCmd::default() }
+                    }
+                }
+                _ => { unimplemented!(); }
+            };
+
+            opaque_fills.push(draw_cmd);
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -97,10 +177,9 @@ impl BatchBuilder {
             fill_primitives: BufferStore::new(PRIM_BUFFER_LEN as u16, 1),
             stroke_primitives: BufferStore::new(PRIM_BUFFER_LEN as u16, 1),
             transforms: BufferStore::new(PRIM_BUFFER_LEN as u16, 1),
-            paths: Vec::new(),
-            path_meshes: Vec::new(),
-            //fill_meshes: Vec::new(),
-            //stroke_meshes: Vec::new(),
+            shapes: Vec::new(),
+            fill_geom: Geometry::new(),
+            stroke_geom: Geometry::new(),
         }
     }
 
@@ -160,14 +239,14 @@ impl BatchBuilder {
         let mut fill_ctx = FillCtx {
             tessellator: FillTessellator::new(),
             offsets: Count { vertices: 0, indices: 0 },
-            buffers: &mut VertexBuffers::new(),
+            buffers: &mut self.fill_geom,
             vbo: FillVertexBufferId::new(0),
             ibo: IndexBufferId::new(0),
         };
         let mut stroke_ctx = StrokeCtx {
             tessellator: StrokeTessellator::new(),
             offsets: Count { vertices: 0, indices: 0 },
-            buffers: &mut VertexBuffers::new(),
+            buffers: &mut self.stroke_geom,
             vbo: StrokeVertexBufferId::new(0),
             ibo: IndexBufferId::new(0),
         };
@@ -192,27 +271,18 @@ impl BatchBuilder {
                     _ => { unimplemented!(); }
                 },
                 z_index: of.z_index as f32 / 1000.0,
-                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).element.to_i32(),
+                local_transform: node.descriptor.transform.unwrap_or(default_transform).element.to_i32(),
                 width: 0.0,
                 .. Default::default()
             };
 
             let draw_cmd = match node.descriptor.shape {
                 ShapeId::Path(path_id) => {
-                    if let Some(geom) = self.path_meshes[path_id.index()].fill {
+                    if let Some(geom) = self.shapes[path_id.index()].fill {
                         FillCmd { geometry: geom, ..FillCmd::default() }
                     } else {
-                        // TODO: if let Some(geom_id) = self.paths[path_id.index()].fill_mesh {
-                        //     if self.mesh_cache.contains(mesh_id) {
-                        //         self.mesh_cache.mark_used(mesh_id)
-                        //     } else {
-                        //         tessellate and push into cache.
-                        //     }
-                        // }
-                        //
-                        //
-                        let geom = fill_ctx.add_path(&self.paths[path_id.index()].data, prim_id.element, tolerance);
-                        self.path_meshes[path_id.index()].fill = Some(geom);
+                        let geom = fill_ctx.add_path(&self.shapes[path_id.index()].path, prim_id.element, tolerance);
+                        self.shapes[path_id.index()].fill = Some(geom);
                         FillCmd { geometry: geom, ..FillCmd::default() }
                     }
                 }
@@ -237,18 +307,18 @@ impl BatchBuilder {
                     _ => { unimplemented!(); }
                 },
                 z_index: os.z_index as f32 / 1000.0,
-                local_transform: node.descriptor.transform.as_ref().unwrap_or(&default_transform).element.to_i32(),
+                local_transform: node.descriptor.transform.unwrap_or(default_transform).element.to_i32(),
                 width: stroke_style.width,
                 .. Default::default()
             };
 
             match node.descriptor.shape {
                 ShapeId::Path(path_id) => {
-                    let draw_cmd = if let Some(geom) = self.path_meshes[path_id.index()].stroke {
+                    let draw_cmd = if let Some(geom) = self.shapes[path_id.index()].stroke {
                         StrokeCmd { geometry: geom, ..StrokeCmd::default() }
                     } else {
-                        let geom = stroke_ctx.add_path(&self.paths[path_id.index()].data, prim_id.element, tolerance);
-                        self.path_meshes[path_id.index()].stroke = Some(geom);
+                        let geom = stroke_ctx.add_path(&self.shapes[path_id.index()].path, prim_id.element, tolerance);
+                        self.shapes[path_id.index()].stroke = Some(geom);
                         StrokeCmd { geometry: geom, ..StrokeCmd::default() }
                     };
 
