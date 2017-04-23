@@ -22,6 +22,7 @@ impl<T> Copy for Id<T> {}
 
 impl<T> Clone for Id<T> { fn clone(&self) -> Self { *self } }
 
+impl<T> ::std::cmp::Eq for Id<T> {}
 impl<T> ::std::cmp::PartialEq for Id<T> {
     fn eq(&self, other: &Self) -> bool { self.handle == other.handle }
     fn ne(&self, other: &Self) -> bool { self.handle != other.handle }
@@ -120,6 +121,7 @@ impl<T> Copy for IdRange<T> {}
 
 impl<T> Clone for IdRange<T> { fn clone(&self) -> Self { *self } }
 
+impl<T> ::std::cmp::Eq for IdRange<T> {}
 impl<T> ::std::cmp::PartialEq for IdRange<T> {
     fn eq(&self, other: &Self) -> bool { self.start == other.start && self.end == other.end }
     fn ne(&self, other: &Self) -> bool { self.start != other.start || self.end != other.end }
@@ -144,6 +146,7 @@ impl<T> Copy for BufferId<T> {}
 
 impl<T> Clone for BufferId<T> { fn clone(&self) -> Self { *self } }
 
+impl<T> ::std::cmp::Eq for BufferId<T> {}
 impl<T> ::std::cmp::PartialEq for BufferId<T> {
     fn eq(&self, other: &Self) -> bool { self.handle == other.handle }
     fn ne(&self, other: &Self) -> bool { self.handle != other.handle }
@@ -157,7 +160,7 @@ impl<T> hash::Hash for BufferId<T> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) { self.handle.hash(state); }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BufferRange<T> {
     pub buffer: BufferId<T>,
     pub range: IdRange<T>,
@@ -174,7 +177,7 @@ impl<T> BufferRange<T> {
     pub fn first(&self) -> BufferElement<T> { self.get(0) }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BufferElement<T> {
     pub buffer: BufferId<T>,
     pub element: Id<T>,

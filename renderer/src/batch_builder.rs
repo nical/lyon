@@ -1,5 +1,7 @@
 use std::sync::Arc;
 use std::default::Default;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use api::*;
 use buffer::*;
@@ -66,96 +68,146 @@ struct ShapeData {
     stroke: Option<StrokeGeometryRanges>,
 }
 
-pub struct FillBatchBuilder {
-    primitives: BufferStore<GpuFillPrimitive>,
-    geom: Geometry<GpuFillVertex>,
-
-    render_nodes: Vec<FillRenderNode>,
-    // ordered list of render node indices
-    prim_list: Vec<u16>,
+pub struct GeometryStore<Vertex> {
+    geom: Geometry<Vertex>,
+    ranges: HashMap<ShapeId, GeometryRanges<Vertex>>,
 }
 
-struct FillRenderNode {
-    z_index: u32,
-    shape: ShapeId,
-    local_transform: Option<TransformId>,
-    view_transform: Option<TransformId>,
-    primitive: Option<BufferElement<GpuFillPrimitive>>,
-    style: FillStyle,
-}
-
-impl FillBatchBuilder {
-    pub fn fill_shape(
-        &mut self,
-        shape: ShapeId,
-        local_transform: Option<TransformId>,
-        view_transform: Option<TransformId>,
-        style: FillStyle,
-        z_index: u32,
-    ){
-        self.render_nodes.push(FillRenderNode {
-            z_index: z_index,
-            shape: shape,
-            local_transform: local_transform,
-            view_transform: view_transform,
-            primitive: None,
-            style: style,
-        });
+impl<Vertex> GeometryStore<Vertex> {
+    pub fn get(&self, id: ShapeId) -> Option<&GeometryRanges<Vertex>> {
+        self.ranges.get(&id)
     }
 
-    pub fn build(&mut self, scene: &mut BatchBuilder) {
-        let mut node_ids = self.prim_list.clone();
-        node_ids.reverse();
+    pub fn clear(&mut self) {
+        self.geom.vertices.clear();
+        self.geom.indices.clear();
+        self.ranges.clear();
+    }
+}
+
+pub struct ShapeStore {
+    paths: Vec<ShapeData>,
+}
+
+impl ShapeStore {
+    fn get_path(&self, id: PathId) -> &ShapeData {
+        &self.paths[id.index()]
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct PrimitiveParams<Style> {
+    pub z_index: u32,
+    pub shape: ShapeId,
+    pub transforms: Transforms,
+    pub style: Style,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Transforms {
+    pub local: Option<TransformId>,
+    pub view: Option<TransformId>,
+}
+
+pub trait VertexBuilder<Vertex, PrimitiveId> {
+    fn add_path(
+        &mut self,
+        path: &Path,
+        prim_id: PrimitiveId,
+        tolerance: f32,
+        geom: &mut Geometry<Vertex>
+    ) -> FillGeometryRanges;
+}
+
+pub struct OpaqueBatcher<VertexBuilder> {
+    render_nodes: Vec<PrimitiveParams<FillStyle>>,
+    allocated_primitives: Vec<Option<BufferElement<GpuFillPrimitive>>>,
+    vertex_builder: VertexBuilder,
+}
+
+impl<V: VertexBuilder<GpuFillVertex, FillPrimitiveId>> OpaqueBatcher<V> {
+    pub fn new(vertex_builder: V) -> Self {
+        Self {
+            render_nodes: Vec::new(),
+            allocated_primitives: Vec::new(),
+            vertex_builder: vertex_builder,
+        }
+    }
+
+    pub fn fill_shape(&mut self, params: PrimitiveParams<FillStyle>){
+        self.render_nodes.push(params);
+        self.allocated_primitives.push(None);
+    }
+
+    pub fn clear(&mut self) {
+        self.render_nodes.clear();
+        self.allocated_primitives.clear();
+    }
+
+    pub fn build(
+        &mut self,
+        shapes: &ShapeStore,
+        geom_store: &mut GeometryStore<GpuFillVertex>,
+        prim_store: &mut BufferStore<GpuFillPrimitive>,
+    ) -> Vec<FillCmd> {
+        // This is a gross overestimate if commands get merged through batching or instancing.
+        let mut cmds = Vec::with_capacity(self.render_nodes.len());
 
         let default_transform = TransformId { buffer: BufferId::new(0), element: Id::new(0) };
         let tolerance = 0.5;
 
-        let mut fill_ctx = FillCtx {
-            tessellator: FillTessellator::new(),
-            offsets: Count { vertices: 0, indices: 0 },
-            buffers: &mut self.geom,
-            vbo: FillVertexBufferId::new(0),
-            ibo: IndexBufferId::new(0),
-        };
+        // Go through render nodes in reverse order to make it more likely that
+        // primitives are rendered front to back.
+        for index in (0..self.render_nodes.len()).rev() {
+            let node = &mut self.render_nodes[index];
+            let allocated_primitive = &mut self.allocated_primitives[index];
 
-        let mut opaque_fills = Vec::new();
+            let prim_id = allocated_primitive.unwrap_or_else(&mut||{
+                prim_store.alloc()
+            });
+            *allocated_primitive = Some(prim_id);
 
-        for index in node_ids {
-            let node = &mut self.render_nodes[index as usize];
-
-            if node.primitive.is_none() {
-                node.primitive = Some(self.primitives.alloc());
-            }
-
-            let prim_id = node.primitive.unwrap();
-
-            self.primitives[prim_id] = GpuFillPrimitive {
+            prim_store[prim_id] = GpuFillPrimitive {
                 color: match node.style.pattern {
                     Pattern::Color(color) => { color.f32_array() }
                     _ => { unimplemented!(); }
                 },
                 z_index: node.z_index as f32 / 1000.0,
-                local_transform: node.local_transform.unwrap_or(default_transform).element.to_i32(),
-                view_transform: node.view_transform.unwrap_or(default_transform).element.to_i32(),
+                local_transform: node.transforms.local.unwrap_or(default_transform).element.to_i32(),
+                view_transform: node.transforms.view.unwrap_or(default_transform).element.to_i32(),
                 width: 0.0,
                 .. Default::default()
             };
 
-            let draw_cmd = match node.shape {
-                ShapeId::Path(path_id) => {
-                    if let Some(geom) = scene.shapes[path_id.index()].fill {
-                        FillCmd { geometry: geom, ..FillCmd::default() }
-                    } else {
-                        let geom = fill_ctx.add_path(&scene.shapes[path_id.index()].path, prim_id.element, tolerance);
-                        scene.shapes[path_id.index()].fill = Some(geom);
-                        FillCmd { geometry: geom, ..FillCmd::default() }
+            let draw_cmd = match geom_store.ranges.entry(node.shape) {
+                Entry::Occupied(entry) => {
+                    FillCmd { geometry: *entry.get(), ..FillCmd::default() }
+                }
+                Entry::Vacant(entry) => {
+                    match node.shape {
+                        ShapeId::Path(path_id) => {
+                            let geom = self.vertex_builder.add_path(
+                                &*shapes.get_path(path_id).path,
+                                prim_id.element,
+                                tolerance,
+                                &mut geom_store.geom,
+                            );
+                            entry.insert(geom);
+                            FillCmd { geometry: geom, ..FillCmd::default() }
+                        }
+                        _ => { unimplemented!(); }
                     }
                 }
-                _ => { unimplemented!(); }
             };
 
-            opaque_fills.push(draw_cmd);
+            // TODO: if current geom == previous geom && prim_id = previous id + 1
+            // just increment the previous command's instance count.
+            // or do it as a later pass ?
+
+            cmds.push(draw_cmd);
         }
+
+        return cmds;
     }
 }
 

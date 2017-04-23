@@ -53,7 +53,7 @@ impl Color {
     ]}
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ShapeId {
     Path(PathId),
     Ellipse(EllipseId),
