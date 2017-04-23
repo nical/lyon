@@ -119,13 +119,22 @@ pub trait VertexBuilder<Vertex, PrimitiveId> {
     ) -> FillGeometryRanges;
 }
 
-pub struct OpaqueBatcher<VertexBuilder> {
+pub trait PrimitiveBuilder<PrimitiveId, Params> {
+    fn alloc_id(&mut self) -> PrimitiveId;
+    fn build_primtive(&mut self, id: PrimitiveId, params: &Params);
+}
+
+pub struct OpaqueBatcher<VertexBuilder, PrimitiveId> {
     render_nodes: Vec<PrimitiveParams<FillStyle>>,
-    allocated_primitives: Vec<Option<BufferElement<GpuFillPrimitive>>>,
+    allocated_primitives: Vec<Option<PrimitiveId>>,
     vertex_builder: VertexBuilder,
 }
 
-impl<V: VertexBuilder<GpuFillVertex, FillPrimitiveId>> OpaqueBatcher<V> {
+impl<V, PrimitiveId> OpaqueBatcher<V, PrimitiveId>
+where
+    V: VertexBuilder<GpuFillVertex, PrimitiveId>,
+    PrimitiveId: Copy,
+{
     pub fn new(vertex_builder: V) -> Self {
         Self {
             render_nodes: Vec::new(),
@@ -144,16 +153,15 @@ impl<V: VertexBuilder<GpuFillVertex, FillPrimitiveId>> OpaqueBatcher<V> {
         self.allocated_primitives.clear();
     }
 
-    pub fn build(
+    pub fn build<PrimBuilder: PrimitiveBuilder<PrimitiveId, PrimitiveParams<FillStyle>>>(
         &mut self,
         shapes: &ShapeStore,
         geom_store: &mut GeometryStore<GpuFillVertex>,
-        prim_store: &mut BufferStore<GpuFillPrimitive>,
+        prim_builder: &mut PrimBuilder,
     ) -> Vec<FillCmd> {
         // This is a gross overestimate if commands get merged through batching or instancing.
         let mut cmds = Vec::with_capacity(self.render_nodes.len());
 
-        let default_transform = TransformId { buffer: BufferId::new(0), element: Id::new(0) };
         let tolerance = 0.5;
 
         // Go through render nodes in reverse order to make it more likely that
@@ -163,21 +171,22 @@ impl<V: VertexBuilder<GpuFillVertex, FillPrimitiveId>> OpaqueBatcher<V> {
             let allocated_primitive = &mut self.allocated_primitives[index];
 
             let prim_id = allocated_primitive.unwrap_or_else(&mut||{
-                prim_store.alloc()
+                prim_builder.alloc_id()
             });
             *allocated_primitive = Some(prim_id);
 
-            prim_store[prim_id] = GpuFillPrimitive {
-                color: match node.style.pattern {
-                    Pattern::Color(color) => { color.f32_array() }
-                    _ => { unimplemented!(); }
-                },
-                z_index: node.z_index as f32 / 1000.0,
-                local_transform: node.transforms.local.unwrap_or(default_transform).element.to_i32(),
-                view_transform: node.transforms.view.unwrap_or(default_transform).element.to_i32(),
-                width: 0.0,
-                .. Default::default()
-            };
+            prim_builder.build_primtive(prim_id, node);
+            //prim_store[prim_id] = GpuFillPrimitive {
+            //    color: match node.style.pattern {
+            //        Pattern::Color(color) => { color.f32_array() }
+            //        _ => { unimplemented!(); }
+            //    },
+            //    z_index: node.z_index as f32 / 1000.0,
+            //    local_transform: node.transforms.local.unwrap_or(default_transform).element.to_i32(),
+            //    view_transform: node.transforms.view.unwrap_or(default_transform).element.to_i32(),
+            //    width: 0.0,
+            //    .. Default::default()
+            //};
 
             let draw_cmd = match geom_store.ranges.entry(node.shape) {
                 Entry::Occupied(entry) => {
@@ -188,7 +197,7 @@ impl<V: VertexBuilder<GpuFillVertex, FillPrimitiveId>> OpaqueBatcher<V> {
                         ShapeId::Path(path_id) => {
                             let geom = self.vertex_builder.add_path(
                                 &*shapes.get_path(path_id).path,
-                                prim_id.element,
+                                prim_id,
                                 tolerance,
                                 &mut geom_store.geom,
                             );
@@ -208,6 +217,31 @@ impl<V: VertexBuilder<GpuFillVertex, FillPrimitiveId>> OpaqueBatcher<V> {
         }
 
         return cmds;
+    }
+}
+
+pub struct FillPrimitiveBuilder<'l> {
+    pub primitives: &'l mut CpuBuffer<GpuFillPrimitive>,
+}
+
+impl<'l> PrimitiveBuilder<FillPrimitiveId, PrimitiveParams<FillStyle>> for FillPrimitiveBuilder<'l> {
+    fn alloc_id(&mut self) -> FillPrimitiveId {
+        self.primitives.alloc()
+    }
+
+    fn build_primtive(&mut self, id: FillPrimitiveId, params: &PrimitiveParams<FillStyle>) {
+        let default_transform = TransformId { buffer: BufferId::new(0), element: Id::new(0) };
+        self.primitives[id] = GpuFillPrimitive {
+            color: match params.style.pattern {
+                Pattern::Color(color) => { color.f32_array() }
+                _ => { unimplemented!(); }
+            },
+            z_index: params.z_index as f32 / 1000.0,
+            local_transform: params.transforms.local.unwrap_or(default_transform).element.to_i32(),
+            view_transform: params.transforms.view.unwrap_or(default_transform).element.to_i32(),
+            width: 0.0,
+            .. Default::default()
+        };
     }
 }
 
