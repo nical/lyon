@@ -160,7 +160,9 @@ impl<T> hash::Hash for BufferId<T> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) { self.handle.hash(state); }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+impl<T> Copy for BufferRange<T> {}
+impl<T> Clone for BufferRange<T> { fn clone(&self) -> Self { *self } }
+#[derive(Debug, PartialEq, Eq)]
 pub struct BufferRange<T> {
     pub buffer: BufferId<T>,
     pub range: IdRange<T>,
