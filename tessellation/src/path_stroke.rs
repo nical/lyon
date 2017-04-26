@@ -243,14 +243,14 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         if self.nth > 1 {
             let mut first = self.first;
             let d = first - self.second;
+
             if self.options.line_cap == LineCap::Square {
                 first = first + d.normalized() * hw;
             }
-            let fake_prev = first + d;
-            let (n1, n2, c_opt) = get_angle_info(fake_prev, first, self.second);
-            assert!(c_opt.is_none()); // will be used for yet-to-be-implemented line join types.
-            //let first_a_id = self.output.add_vertex(a);
-            //let first_b_id = self.output.add_vertex(b);
+
+            let n2 = tangent(d) * 0.5;
+            let n1 = -n2;
+
             let first_a_id = self.output.add_vertex(Vertex {
                 position: first,
                 normal: n1,
