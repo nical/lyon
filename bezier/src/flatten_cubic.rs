@@ -486,3 +486,21 @@ fn test_iterator_builder_3() {
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
 }
+
+#[test]
+fn test_issue_19() {
+    let mut tolerance = 0.15;
+    let c1 = CubicBezierSegment {
+        from: Point::new(11.71726, 9.07143),
+        ctrl1: Point::new(1.889879,13.22917),
+        ctrl2: Point::new(18.142855,19.27679),
+        to: Point::new(18.142855,19.27679),
+    };
+    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let mut builder_points = Vec::new();
+    c1.flattened_for_each(tolerance, &mut|p|{ builder_points.push(p); });
+
+    assert_approx_eq(&iter_points[..], &builder_points[..]);
+
+    assert!(iter_points.len() > 1);
+}
