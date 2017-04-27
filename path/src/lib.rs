@@ -1,8 +1,8 @@
 //! # Lyon path
 //!
 //! A simple path data structure implementing the traits provided in the
-//! [lyon_path_builder](../lyon_path_builder/index.html) and
-//! [lyon_path_iterator](../lyon_path_iterator/index.html) modules.
+//! [lyon_path_builder](https://docs.rs/lyon_path_builder) and
+//! [lyon_path_iterator](https://docs.rs/lyon_path_iterator) modules.
 //!
 //! # Examples
 //!

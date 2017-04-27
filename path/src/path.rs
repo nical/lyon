@@ -6,7 +6,7 @@ use core::math::*;
 
 use std::iter::IntoIterator;
 
-/// Enumeration corresponding to the [PathEvent](../../core/events/enum.PathEvent.html) enum
+/// Enumeration corresponding to the [PathEvent](https://docs.rs/lyon_core/*/lyon_core/events/enum.PathEvent.html) enum
 /// without the parameters.
 ///
 /// This is used by the [Path](struct.Path.html) data structure to store path events a tad
@@ -99,7 +99,7 @@ impl<'l> PathSlice<'l> {
 
 /// Builds path object using the BaseBuilder interface.
 ///
-/// See the [lyon_path_builder](../lyon_path_builder/index.html) module documentation.
+/// See the [lyon_path_builder](https://docs.rs/lyon_path_builder) module documentation.
 pub struct Builder {
     path: Path,
     current_position: Point,

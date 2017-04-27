@@ -1,26 +1,28 @@
-//! # Lyon
-//!
 //! 2d rendering on the GPU in rust.
 //!
 //! ![logo](https://nical.github.io/lyon-doc/lyon-logo.svg)
 //!
+//! [![crate](http://meritbadge.herokuapp.com/lyon)](https://crates.io/crates/lyon)
+//! [![ci](https://img.shields.io/travis/nical/lyon/master.svg)](https://travis-ci.org/nical/lyon)
+//!
 //! # Crates
 //!
-//! * [lyon_tessellation](https://crates.io/crates/lyon_tessellation) ([documentation](../lyon_tessellation/index.html)): Path tessellation routines.
-//! * [lyon_path_builder](https://crates.io/crates/lyon_path_builder) ([documentation](../lyon_path_builder/index.html)): Tools to facilitate building paths.
-//! * [lyon_path_iterator](https://crates.io/crates/lyon_path_iterator) ([documentation](../lyon_path_iterator/index.html)): Tools to facilitate iteratring over paths.
-//! * [lyon_path](https://crates.io/crates/lyon_path) ([documentation](../lyon_path/index.html)): A simple optional path datat structure, provided for convenience.
-//! * [lyon_bezier](https://crates.io/crates/lyon_bezier) ([documentation](../lyon_bezier/index.html)): Cubic and Quadratic 2d bezier math.
-//! * [lyon_extra](https://crates.io/crates/lyon_extra) ([documentation](../lyon_extra/index.html)): Additional testing and debugging tools.
-//! * [lyon_core](https://crates.io/crates/lyon_path) ([documentation](../lyon_core/index.html)): Common types to most lyon crates.
+//! * [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) - [lyon_tessellation](https://crates.io/crates/lyon_tessellation) -  Path tessellation routines.
+//! * [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) - [lyon_path_builder](https://crates.io/crates/lyon_path_builder) -  Tools to facilitate building paths.
+//! * [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) - [lyon_path_iterator](https://crates.io/crates/lyon_path_iterator) -  Tools to facilitate iteratring over paths.
+//! * [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) - [lyon_path](https://crates.io/crates/lyon_path) -  A simple optional path data structure, provided for convenience.
+//! * [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) - [lyon_bezier](https://crates.io/crates/lyon_bezier) -  Cubic and Quadratic 2d bezier math.
+//! * [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) - [lyon_extra](https://crates.io/crates/lyon_extra) -  Additional testing and debugging tools.
+//! * [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_path_core) - [lyon_core](https://crates.io/crates/lyon_core) -  Common types to most lyon crates.
 //!
 //! [This crate](https://crates.io/crates/lyon) is just a meta-crate, reexporting the crates listed above.
 //!
 //! # Additional documentation and links
 //!
+//! * [gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_logo).
 //! * There is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
 //! * The source code is available on the project's [git repository](https://github.com/nical/lyon).
-//! * Interested in contributing? [This page is](https://github.com/nical/lyon/wiki/Contribute)
+//! * Interested in contributing? [This page](https://github.com/nical/lyon/wiki/Contribute)
 //!   is probably what you are looking for! You can also look at the list of
 //!   [issues marked as easy](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy),
 //!   they are a good place to start.

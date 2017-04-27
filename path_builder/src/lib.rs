@@ -5,7 +5,7 @@
 //! ## Examples
 //!
 //! The following example shows the Builder struct from the
-//! [lyon_path](../lyon_path/index.html) crate using the
+//! [lyon_path](https://docs.rs/lyon_path/*/lyon_path) crate using the
 //! [BaseBuilder](traits.BaseBuilder.html) interface.
 //!
 //! ```ignore
