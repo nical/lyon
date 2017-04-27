@@ -184,6 +184,11 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
             tolerance,
             call_back
         );
+
+        if first_inflection_end >= 1.0 {
+            call_back(bezier.to);
+            return;
+        }
     }
 
     if first_inflection_end >= 0.0 && first_inflection_end < 1.0
@@ -218,9 +223,9 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
 
             // Find a control points describing the portion of the curve between
             // first_inflection_end and second_inflection_start.
-            let second_inflection_starta = (second_inflection_start - first_inflection_end) / (1.0 - first_inflection_end);
+            let second_inflection_start = (second_inflection_start - first_inflection_end) / (1.0 - first_inflection_end);
             flatten_cubic_no_inflection(
-                next_bezier.before_split(second_inflection_starta),
+                next_bezier.before_split(second_inflection_start),
                 tolerance,
                 call_back
             );
@@ -390,11 +395,18 @@ fn find_cubic_bezier_inflection_approximation_range(
 
     if ctrl21.x == 0.0 && ctrl21.y == 0.0 {
         // In this case s3 becomes lim[n->0] (ctrl41.x * n) / n - (ctrl41.y * n) / n = ctrl41.x - ctrl41.y.
+        let s3 = ctrl41.x - ctrl41.y;
 
+        if s3 == 0.0 {
+            *min = t;
+            *max = t;
+            return;
+        }
         // Use the absolute value so that Min and Max will correspond with the
         // minimum and maximum of the range.
-        *min = t - cubic_root((tolerance / (ctrl41.x - ctrl41.y)).abs());
-        *max = t + cubic_root((tolerance / (ctrl41.x - ctrl41.y)).abs());
+        let tf = cubic_root((tolerance / s3).abs());
+        *min = t - tf;
+        *max = t + tf;
         return;
     }
 
@@ -489,7 +501,7 @@ fn test_iterator_builder_3() {
 
 #[test]
 fn test_issue_19() {
-    let mut tolerance = 0.15;
+    let tolerance = 0.15;
     let c1 = CubicBezierSegment {
         from: Point::new(11.71726, 9.07143),
         ctrl1: Point::new(1.889879,13.22917),
