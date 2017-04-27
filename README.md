@@ -12,11 +12,14 @@ GPU-based 2D graphics rendering in rust.
   <a href="https://travis-ci.org/nical/lyon">
       <img src="https://img.shields.io/travis/nical/lyon/master.svg" alt="Travis Build Status">
   </a>
+  <a href="https://docs.rs/lyon">
+      <img src="https://docs.rs/lyon/badge.svg" alt="documentation">
+  </a>
 </p>
 
 # Motivation
 
-For now the goal is to provide efficient SVG-compliant path tessellation tools to help with rendering vector graphics on the GPU. If things go well the project could eventually grow into including a (partial) SVG renderer in a separate crate, but for now think of this library as a way to turn complex paths into triangles for use in your own rendering engine.
+For now the goal is to provide efficient SVG-compliant path tessellation tools to help with rendering vector graphics on the GPU. For now think of this library as a way to turn complex paths into triangles for use in your own rendering engine.
 
 The intent is for this library to be useful in projects like [Servo](https://servo.org/) and games.
 
@@ -56,95 +59,26 @@ The intent is for this library to be useful in projects like [Servo](https://ser
         geometry_cpu.indices.len()
     );
 ```
-## Documentation
-
-* [Link to the documentation](https://nical.github.io/lyon-doc/lyon/index.html)
-* The documentation can be generated locally by running ```cargo doc``` at the root of the repository.
 
 ## Structure
 
 The project is split into small crates:
-* lyon ([documentation](https://nical.github.io/lyon-doc/lyon/index.html)): A meta-crate that imports the other crates.
-* lyon_tessellator ([documentation](https://nical.github.io/lyon-doc/lyon_tessellator/index.html)): The tessellation routines (where most of the focus is for now).
-* lyon_path_iterator ([documentation](https://nical.github.io/lyon-doc/lyon_path_iterator/index.html)): A set of iterator abstractions over vector paths.
-* lyon_path_builder ([documentation](https://nical.github.io/lyon-doc/lyon_path_builder/index.html)): Tools to build paths.
-* lyon_path ([documentation](https://nical.github.io/lyon-doc/lyon_path/)): A simple vector path data structure provided for convenience, but not required by the other crates.
-* lyon_bezier ([documentation](https://nical.github.io/lyon-doc/lyon_bezier/index.html)): 2d quadratic and cubic bezier curve maths, including an efficient flattening algorithm.
-* lyon_core ([documentation](https://nical.github.io/lyon-doc/lyon_core/index.html)): Contains types common to most lyon crates.
-* lyon_extra ([documentation](https://nical.github.io/lyon-doc/lyon_extra/index.html)): various optional utilities.
+
+* [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) - [lyon_tessellation](https://crates.io/crates/lyon_tessellation) -  Path tessellation routines.
+* [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) - [lyon_path_builder](https://crates.io/crates/lyon_path_builder) -  Tools to facilitate building paths.
+* [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) - [lyon_path_iterator](https://crates.io/crates/lyon_path_iterator) -  Tools to facilitate iteratring over paths.
+* [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) - [lyon_path](https://crates.io/crates/lyon_path) -  A simple optional path data structure, provided for convenience.
+* [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) - [lyon_bezier](https://crates.io/crates/lyon_bezier) -  Cubic and Quadratic 2d bezier math.
+* [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) - [lyon_extra](https://crates.io/crates/lyon_extra) -  Additional testing and debugging tools.
+* [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_path_core) - [lyon_core](https://crates.io/crates/lyon_core) -  Common types to most lyon crates.
 
 There is also a toy [command-line tool](cli) to tessellate SVG path from your favorite terminal.
 
 Have a look at the [gfx-rs example](examples/gfx_logo) to see how integrating the tessellators in a renderer can look like.
 
-## Status
-
-The focus right now is on improving the tessellators and experimenting with a higher level API (which will become the crate lyon_renderer when ready).
-
-- path
-  - [x] bezier curves (through path flattening)
-  - [x] SVG 1.1
-  - [x] builder API
-  - [x] iterator API
-- complex fills
-  - fill shape types
-    - [x] concave shapes
-    - [x] self-intersections
-    - [x] holes
-  - fill rules
-    - [x] even-odd
-    - [ ] non-zero
-  - [ ] vertex-aa
-  - [ ] clip rect
-  - [ ] stable API
-- complex strokes
-  - line caps
-    - [x] butt
-    - [x] square
-    - [ ] round
-  - line joins
-    - [ ] miter
-    - [ ] miter clip
-    - [ ] round
-    - [ ] bevel
-    - [ ] arcs
-  - [ ] vertex-aa
-  - [ ] clip rect
-  - [ ] stable API
-- basic shapes
-  - quad
-    - [x] fill
-    - [x] stroke
-  - rectangle
-    - [x] fill
-    - [x] stroke
-  - rounded rectangle
-    - [ ] fill
-    - [ ] stroke
-  - ellipsis
-    - [x] fill
-    - [ ] stroke
-  - convex polygons
-    - [x] fill
-    - [ ] stroke
-  - nine-patch
-- path flattening
-  - [x] builder
-  - [x] iterator
-- testing
-  - fill
-    - [x] test suite
-    - [x] automatic test-case reduction
-    - [ ] reference testing
-    - [ ] fuzzing
-  - [ ] stroke
-  - [ ] basic shapes
-
-
 ## TODO
 
-There are the unticked items above as well as a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO). If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), please let me know on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
-
+There's a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO) in the wiki. If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), please let me know on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
 
 ## License
 

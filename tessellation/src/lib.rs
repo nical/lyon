@@ -39,9 +39,10 @@
 //! ### The input: iterators
 //!
 //! The path tessellators are not tied to a particular data structure. Instead they consume
-//! iterators of [path events](../lyon_core/events/index.html).
-//! A [Path struct](../lyon_path/path/struct.Path.html) in the crate [lyon_path](../lyon_path/)
-//! is provided for convenience (but is not mandatory).
+//! iterators of [path events](https://docs.rs/lyon_core/*/lyon_core/events/index.html).
+//! A [Path struct](https://docs.rs/lyon_path/*/lyon_path/struct.Path.html) in the crate
+//! [lyon_path](https://docs.rs/lyon_path/*/lyon_path/) is provided for convenience
+//! (but is not mandatory).
 //!
 //! The fill tessellator builds a [FillEvents object](path_fill/struct.FillEvents.html) from
 //! the iterator. It is an intermediate representation which can be cached if the path needs
