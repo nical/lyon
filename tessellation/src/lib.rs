@@ -31,7 +31,7 @@
 //!
 //! * [path_fill](path_fill/index.html) - Implementing the tessellation of complex path fill
 //!   operations.
-//! * [path_storke](path_storke/index.html) - Implementing the tessellation of complex path
+//! * [path_stroke](path_stroke/index.html) - Implementing the tessellation of complex path
 //!   stroke operations.
 //! * [geometry_builder](geometry_builder/index.html) - Which the above two are built on. It
 //!   provides traits to facilitate generating arbitrary vertex and index buffers.
