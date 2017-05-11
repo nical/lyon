@@ -1,5 +1,6 @@
 use gfx;
 use gfx::Factory;
+use gfx_device_gl;
 
 use tessellation;
 use tessellation::geometry_builder::VertexConstructor;
@@ -14,6 +15,26 @@ use std::ops;
 
 pub type OpaquePso = Pso<opaque_fill_pipeline::Meta>;
 pub type TransparentPso = Pso<transparent_fill_pipeline::Meta>;
+
+pub type ColorFormat = gfx::format::Rgba8;
+pub type DepthFormat = gfx::format::DepthStencil;
+pub type DataTexFormat = (gfx::format::R32_G32_B32_A32, gfx::format::Float);
+
+pub type CmdEncoder = gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>;
+pub type BufferObject<T> = gfx::handle::Buffer<gfx_device_gl::Resources, T>;
+pub type Vbo<T> = gfx::handle::Buffer<gfx_device_gl::Resources, T>;
+pub type Ibo = gfx::IndexBuffer<gfx_device_gl::Resources>;
+pub type Pso<T> = gfx::PipelineState<gfx_device_gl::Resources, T>;
+pub type IndexSlice = gfx::Slice<gfx_device_gl::Resources>;
+pub type ColorTarget = gfx::handle::RenderTargetView<gfx_device_gl::Resources,
+                                                     (gfx::format::R8_G8_B8_A8,
+                                                      gfx::format::Unorm)>;
+pub type DepthTarget = gfx::handle::DepthStencilView<gfx_device_gl::Resources,
+                                                     (gfx::format::D24_S8, gfx::format::Unorm)>;
+pub type GlDevice = gfx_device_gl::Device;
+pub type GlFactory = gfx_device_gl::Factory;
+pub type GlRgbaTexture = gfx::handle::Texture<gfx_device_gl::Resources, ColorFormat>;
+pub type GlDataTexture = gfx::handle::Texture<gfx_device_gl::Resources, DataTexFormat>;
 
 gfx_defines!{
     constant Globals {
@@ -101,7 +122,7 @@ impl GpuFillPrimitive {
         color: [f32; 4],
         z_index: f32,
         local_transform: TransformId,
-        view_transform: TransformId
+        view_transform: TransformId,
     ) -> GpuFillPrimitive {
         GpuFillPrimitive {
             color: color,
@@ -124,7 +145,7 @@ impl GpuStrokePrimitive {
         color: [f32; 4],
         z_index: f32,
         local_transform: TransformId,
-        view_transform: TransformId
+        view_transform: TransformId,
     ) -> GpuStrokePrimitive {
         GpuStrokePrimitive {
             color: color,
@@ -147,27 +168,23 @@ pub type TransformId = Id<GpuTransform>;
 
 impl std::default::Default for GpuTransform {
     fn default() -> Self {
-        GpuTransform { transform: [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ]}
+        GpuTransform {
+            transform: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ],
+        }
     }
 }
 
 impl GpuTransform {
-    pub fn new(mat: Transform3D) -> Self {
-        GpuTransform { transform: mat.to_row_arrays() }
-    }
+    pub fn new(mat: Transform3D) -> Self { GpuTransform { transform: mat.to_row_arrays() } }
 
-    pub fn as_mat4(&self) -> &Transform3D {
-        unsafe { mem::transmute(self) }
-    }
+    pub fn as_mat4(&self) -> &Transform3D { unsafe { mem::transmute(self) } }
 
-    pub fn as_mut_mat4(&mut self) -> &mut Transform3D {
-        unsafe { mem::transmute(self) }
-    }
+    pub fn as_mut_mat4(&mut self) -> &mut Transform3D { unsafe { mem::transmute(self) } }
 }
 
 pub type FillPrimitiveId = Id<GpuFillPrimitive>;
@@ -209,12 +226,6 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithId<G
     }
 }
 
-pub enum SurfaceFormat {
-    RgbaU8,
-    AlphaU8,
-    Stencil,
-}
-
 pub struct RenderTarget {
     pub color: ColorTarget,
     pub depth: DepthTarget,
@@ -233,7 +244,9 @@ pub struct GpuBufferStore<Primitive> {
 }
 
 impl<Primitive> GpuBufferStore<Primitive>
-where  Primitive: Copy + Default + gfx::traits::Pod {
+where
+    Primitive: Copy + Default + gfx::traits::Pod,
+{
     pub fn new(role: gfx::buffer::Role, usage: gfx::memory::Usage) -> Self {
         GpuBufferStore {
             buffers: Vec::new(),
@@ -254,16 +267,18 @@ where  Primitive: Copy + Default + gfx::traits::Pod {
         &mut self,
         cpu: &mut BufferStore<Primitive>,
         factory: &mut GlFactory,
-        queue: &mut CmdEncoder
+        queue: &mut CmdEncoder,
     ) {
         for i in 0..cpu.buffers.len() {
             if i >= self.buffers.len() {
-                let buffer = factory.create_buffer(
-                    PRIM_BUFFER_LEN,
-                    self.role,
-                    self.usage,
-                    gfx::memory::Bind::empty(),
-                ).unwrap();
+                let buffer = factory
+                    .create_buffer(
+                        PRIM_BUFFER_LEN,
+                        self.role,
+                        self.usage,
+                        gfx::memory::Bind::empty(),
+                    )
+                    .unwrap();
                 self.buffers.push(buffer);
             }
             queue.update_buffer(&self.buffers[i], cpu.buffers[i].as_slice(), 0).unwrap();
@@ -273,9 +288,7 @@ where  Primitive: Copy + Default + gfx::traits::Pod {
 
 impl<T> ops::Index<BufferId<T>> for GpuBufferStore<T> {
     type Output = BufferObject<T>;
-    fn index(&self, id: BufferId<T>) -> &BufferObject<T> {
-        &self.buffers[id.index()]
-    }
+    fn index(&self, id: BufferId<T>) -> &BufferObject<T> { &self.buffers[id.index()] }
 }
 
 impl<T> ops::IndexMut<BufferId<T>> for GpuBufferStore<T> {
@@ -288,3 +301,12 @@ pub fn create_index_buffer(factory: &mut GlFactory, data: &[u16]) -> Ibo {
     use gfx::IntoIndexBuffer;
     return data.into_index_buffer(factory);
 }
+
+#[repr(C)]
+pub struct GpuBlock16([f32; 4]);
+#[repr(C)]
+pub struct GpuBlock32([f32; 8]);
+#[repr(C)]
+pub struct GpuBlock64([f32; 16]);
+#[repr(C)]
+pub struct GpuBlock128([f32; 32]);
