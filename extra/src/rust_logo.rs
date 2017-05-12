@@ -1,5 +1,5 @@
 use path_builder::SvgBuilder;
-use core::math::{ vec2 };
+use core::math::vec2;
 
 pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.move_to(vec2(122.631, 69.716));
@@ -218,7 +218,11 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.relative_horizontal_line_to(5.423);
     path.vertical_line_to(81.16);
     path.horizontal_line_to(34.207);
-    path.relative_cubic_bezier_to(vec2(-0.949, -3.336), vec2(-1.458, -6.857), vec2(-1.458, -10.496));
+    path.relative_cubic_bezier_to(
+        vec2(-0.949, -3.336),
+        vec2(-1.458, -6.857),
+        vec2(-1.458, -10.496),
+    );
     path.cubic_bezier_to(vec2(32.749, 69.275), vec2(32.824, 67.902), vec2(32.968, 66.553));
     path.close();
 
@@ -237,12 +241,20 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.relative_vertical_line_to(1.803);
     path.relative_cubic_bezier_to(vec2(0.0, 4.244), vec2(-2.393, 5.167), vec2(-4.49, 5.402));
     path.relative_cubic_bezier_to(vec2(-1.997, 0.225), vec2(-4.211, -0.836), vec2(-4.484, -2.058));
-    path.relative_cubic_bezier_to(vec2(-1.178, -6.626), vec2(-3.141, -8.041), vec2(-6.241, -10.486));
+    path.relative_cubic_bezier_to(
+        vec2(-1.178, -6.626),
+        vec2(-3.141, -8.041),
+        vec2(-6.241, -10.486),
+    );
     path.relative_cubic_bezier_to(vec2(3.847, -2.443), vec2(7.85, -6.047), vec2(7.85, -10.871));
     path.relative_cubic_bezier_to(vec2(0.0, -5.209), vec2(-3.571, -8.49), vec2(-6.005, -10.099));
     path.relative_cubic_bezier_to(vec2(-3.415, -2.251), vec2(-7.196, -2.702), vec2(-8.216, -2.702));
     path.horizontal_line_to(42.509);
-    path.relative_cubic_bezier_to(vec2(5.506, -6.145), vec2(12.968, -10.498), vec2(21.408, -12.082));
+    path.relative_cubic_bezier_to(
+        vec2(5.506, -6.145),
+        vec2(12.968, -10.498),
+        vec2(21.408, -12.082),
+    );
     path.relative_line_to(vec2(4.786, 5.021));
     path.relative_cubic_bezier_to(vec2(1.082, 1.133), vec2(2.874, 1.175), vec2(4.006, 0.092));
     path.relative_line_to(vec2(5.355, -5.122));

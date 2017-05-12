@@ -1,6 +1,6 @@
 use core::PathEvent;
-use core::math::{ Vec2 };
-use path::{ Path, PathSlice };
+use core::math::Vec2;
+use path::{Path, PathSlice};
 use path_builder::BaseBuilder;
 
 pub type Polygons = Vec<Vec<Vec2>>;
@@ -45,7 +45,11 @@ pub fn polygons_to_path(polygons: &Polygons) -> Path {
     return builder.build();
 }
 
-pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwindSafe>(path: PathSlice, cb: &F) -> Path {
+pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe>
+    (
+    path: PathSlice,
+    cb: &F,
+) -> Path {
     let mut polygons = path_to_polygons(path);
 
     println!(" -- removing sub-paths...");
@@ -66,14 +70,14 @@ pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwi
 
             let path = polygons_to_path(&cloned);
 
-            let failed = panic::catch_unwind(|| { cb(path) }).unwrap_or(true);
+            let failed = panic::catch_unwind(|| cb(path)).unwrap_or(true);
 
             if failed {
                 polygons = cloned;
                 continue;
             }
 
-            v +=1 ;
+            v += 1;
         }
     }
 
@@ -98,7 +102,10 @@ pub fn find_reduced_test_case<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwi
 
 use std::panic;
 
-fn find_reduced_test_case_sp<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwindSafe>(mut polygons: Polygons, cb: &F) -> Polygons {
+fn find_reduced_test_case_sp<F>(mut polygons: Polygons, cb: &F) -> Polygons 
+where
+    F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe
+{
     let mut i = 0;
     loop {
         if i >= polygons.len() {
@@ -109,7 +116,7 @@ fn find_reduced_test_case_sp<F: Fn(Path)->bool+panic::UnwindSafe+panic::RefUnwin
         cloned.remove(i);
         let path = polygons_to_path(&cloned);
 
-        let failed = panic::catch_unwind(|| { cb(path) }).unwrap_or(true);
+        let failed = panic::catch_unwind(|| cb(path)).unwrap_or(true);
 
         if failed {
             polygons = cloned;

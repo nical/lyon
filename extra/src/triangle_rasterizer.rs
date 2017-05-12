@@ -15,12 +15,14 @@ use image::MutableImageSlice;
 ///
 /// The rasterizer processes pixels by block of 4 and hands blocks containing at
 /// least one affected pixel to the ShadingStage.
-pub fn rasterize_triangles<Constants, Vertex: VertexData, Target> (
+pub fn rasterize_triangles<Constants, Vertex: VertexData, Target>(
     vertices: &[Vertex],
     indices: &[u16],
     constants: &Constants,
     target: &mut Target,
-) where Target: ShadingStage<Vertex, Constants> {
+) where
+    Target: ShadingStage<Vertex, Constants>,
+{
     // This is a naive implementation of the algorithm described in this blog post:
     // https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
     let target_size = target.get_size();
@@ -32,8 +34,8 @@ pub fn rasterize_triangles<Constants, Vertex: VertexData, Target> (
     let mut i = 0;
     while i < indices.len() {
         let v0 = vertices[indices[i] as usize].position().round().to_i32();
-        let v1 = vertices[indices[i+1] as usize].position().round().to_i32();
-        let v2 = vertices[indices[i+2] as usize].position().round().to_i32();
+        let v1 = vertices[indices[i + 1] as usize].position().round().to_i32();
+        let v2 = vertices[indices[i + 2] as usize].position().round().to_i32();
 
         let min_x = max(viewport_min_x, min(v0.x, min(v1.x, v2.x)));
         let max_x = min(viewport_max_x, max(v0.x, max(v1.x, v2.x)));
@@ -63,11 +65,12 @@ pub fn rasterize_triangles<Constants, Vertex: VertexData, Target> (
 
                 if mask.any() {
                     target.process_block(
-                        x, y,
+                        x,
+                        y,
                         mask,
                         // TODO: interpolate the vertices
                         &vertices[indices[i] as usize],
-                        constants
+                        constants,
                     );
                 }
 
@@ -105,16 +108,22 @@ fn init_edge(v0: &IntVec2, v1: &IntVec2, origin: &IntVec2) -> (IntVec4, IntVec4,
     let swizzling_y = int_vec4(0, 0, 0, 0);
     let dx = int_vec4(origin.x, origin.x, origin.x, origin.x) + swizzling_x;
     let dy = int_vec4(origin.y, origin.y, origin.y, origin.y) + swizzling_y;
-    let row = int_vec4(a * dx.x, a * dx.y, a * dx.z, a * dx.w)
-        + int_vec4(b * dy.x, b * dy.y, b * dy.w, b * dy.w)
-        + int_vec4(c, c, c, c);
+    let row = int_vec4(a * dx.x, a * dx.y, a * dx.z, a * dx.w) +
+        int_vec4(b * dy.x, b * dy.y, b * dy.w, b * dy.w) + int_vec4(c, c, c, c);
 
     return (step_x, step_y, row);
 }
 
 
 pub trait ShadingStage<Vertex, Constants> {
-    fn process_block(&mut self, x: i32, y: i32, mask: BoolVec4, vertex: &Vertex, constants: &Constants);
+    fn process_block(
+        &mut self,
+        x: i32,
+        y: i32,
+        mask: BoolVec4,
+        vertex: &Vertex,
+        constants: &Constants,
+    );
     fn get_size(&self) -> (usize, usize);
 }
 
@@ -136,23 +145,19 @@ struct FillVertexColor;
 struct FillConstantColor;
 
 /// Implemented vertices and constants that can return a color.
-pub trait GetColor<Pixel> { fn get_color(&self) -> Pixel; }
-
-
-impl<Pixel, Vertex: GetColor<Pixel>, Constants>
-PixelShader<Pixel, Vertex, Constants>
-for FillVertexColor {
-    fn shade(_: Pixel, vertex_pixels: &Vertex, _: &Constants) -> Pixel {
-        vertex_pixels.get_color()
-    }
+pub trait GetColor<Pixel> {
+    fn get_color(&self) -> Pixel;
 }
 
-impl<Pixel, Vertex, Constants: GetColor<Pixel>>
-PixelShader<Pixel, Vertex, Constants>
+
+impl<Pixel, Vertex: GetColor<Pixel>, Constants> PixelShader<Pixel, Vertex, Constants>
+for FillVertexColor {
+    fn shade(_: Pixel, vertex_pixels: &Vertex, _: &Constants) -> Pixel { vertex_pixels.get_color() }
+}
+
+impl<Pixel, Vertex, Constants: GetColor<Pixel>> PixelShader<Pixel, Vertex, Constants>
 for FillConstantColor {
-    fn shade(_: Pixel, _: &Vertex, constants: &Constants) -> Pixel {
-        constants.get_color()
-    }
+    fn shade(_: Pixel, _: &Vertex, constants: &Constants) -> Pixel { constants.get_color() }
 }
 
 impl VertexData for Vec2 {
@@ -164,15 +169,25 @@ impl VertexData for Vec2 {
     fn position(&self) -> Vec2 { *self }
 }
 
-pub struct ColorTarget<'a, 'b:'a, Pixel: Copy+'static, Shader> {
+pub struct ColorTarget<'a, 'b: 'a, Pixel: Copy + 'static, Shader> {
     target: &'a mut MutableImageSlice<'b, Pixel>,
     shader: Shader,
 }
 
-impl<'l, 'm, Pixel, Vertex, Constants, Shader>
-ShadingStage<Vertex, Constants> for ColorTarget<'l, 'm, Pixel, Shader>
-where Pixel: Copy+'static, Shader: PixelShader<Pixel, Vertex, Constants> {
-    fn process_block(&mut self, x: i32, y: i32, mask: BoolVec4, vertex: &Vertex, constants: &Constants) {
+impl<'l, 'm, Pixel, Vertex, Constants, Shader> ShadingStage<Vertex, Constants>
+for ColorTarget<'l, 'm, Pixel, Shader>
+where
+    Pixel: Copy + 'static,
+    Shader: PixelShader<Pixel, Vertex, Constants>,
+{
+    fn process_block(
+        &mut self,
+        x: i32,
+        y: i32,
+        mask: BoolVec4,
+        vertex: &Vertex,
+        constants: &Constants,
+    ) {
         // This is pretty slow, the shader should process blocks instead of pixels, etc.
         if mask.x {
             let i0 = self.target.pixel_offset(x as usize, y as usize);
@@ -206,8 +221,12 @@ fn test_rasterizer_simple() {
     // This test rasterizes two triangles which should produce a square of origin
     // (10, 10) and size (80, 80).
 
-    struct Constants { color: u8, }
-    impl GetColor<u8> for Constants { fn get_color(&self) -> u8 { self.color } }
+    struct Constants {
+        color: u8,
+    }
+    impl GetColor<u8> for Constants {
+        fn get_color(&self) -> u8 { self.color }
+    }
 
     let mut buffer = Box::new([0; 256]);
     let mut surface = MutableImageSlice::new(16, 16, &mut *buffer);
@@ -234,9 +253,9 @@ fn test_rasterizer_simple() {
             indices,
             &Constants { color: 1 },
             &mut ColorTarget {
-                target: &mut surface,
-                shader: FillConstantColor,
-            }
+                     target: &mut surface,
+                     shader: FillConstantColor,
+                 },
         );
     }
 
@@ -252,6 +271,4 @@ fn test_rasterizer_simple() {
             print!(" {}", pix);
         }
     }
-
-    //panic!();
 }

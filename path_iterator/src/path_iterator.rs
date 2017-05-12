@@ -15,7 +15,7 @@ use std::iter;
 
 use core::math::*;
 use core::{PathEvent, SvgEvent, FlattenedEvent, PathState};
-use bezier::{QuadraticBezierSegment, QuadraticFlatteningIte};
+use bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
 use bezier::{CubicBezierSegment, CubicFlatteningIter};
 
 /// Convenience for algorithms which prefer to iterate over segments directly rather than
