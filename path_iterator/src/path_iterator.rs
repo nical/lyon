@@ -13,12 +13,10 @@
 
 use std::iter;
 
-use core::{ PathEvent, SvgEvent, FlattenedEvent, PathState };
 use core::math::*;
-use bezier::{
-    QuadraticBezierSegment, CubicBezierSegment,
-    QuadraticFlatteningIter, CubicFlatteningIter
-};
+use core::{PathEvent, SvgEvent, FlattenedEvent, PathState};
+use bezier::{QuadraticBezierSegment, QuadraticFlatteningIte};
+use bezier::{CubicBezierSegment, CubicFlatteningIter};
 
 /// Convenience for algorithms which prefer to iterate over segments directly rather than
 /// path events.
@@ -31,29 +29,31 @@ pub enum Segment {
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
-pub trait PathIterator : Iterator<Item=PathEvent> + Sized {
+pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator that turns curves into line segments.
-    fn flattened(self, tolerance: f32) -> FlatteningIter<Self> { FlatteningIter::new(tolerance, self) }
+    fn flattened(self, tolerance: f32) -> FlatteningIter<Self> {
+        FlatteningIter::new(tolerance, self)
+    }
 
     /// Returns an iterator of SVG events.
-    fn svg_iter(self) -> iter::Map<Self, fn(PathEvent)->SvgEvent> {
-        self.map(path_to_svg_event)
-    }
+    fn svg_iter(self) -> iter::Map<Self, fn(PathEvent) -> SvgEvent> { self.map(path_to_svg_event) }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
-pub trait SvgIterator : Iterator<Item=SvgEvent> + Sized {
+pub trait SvgIterator: Iterator<Item = SvgEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlatteningIter<SvgToPathIter<Self>> { self.path_iter().flattened(tolerance) }
+    fn flattened(self, tolerance: f32) -> FlatteningIter<SvgToPathIter<Self>> {
+        self.path_iter().flattened(tolerance)
+    }
 
     /// Returns an iterator of path events.
     fn path_iter(self) -> SvgToPathIter<Self> { SvgToPathIter::new(self) }
@@ -61,18 +61,18 @@ pub trait SvgIterator : Iterator<Item=SvgEvent> + Sized {
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
-pub trait FlattenedIterator : Iterator<Item=FlattenedEvent> + Sized {
+pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of path events.
-    fn path_iter(self) -> iter::Map<Self, fn(FlattenedEvent)->PathEvent> {
+    fn path_iter(self) -> iter::Map<Self, fn(FlattenedEvent) -> PathEvent> {
         self.map(flattened_to_path_event)
     }
 
     /// Returns an iterator of svg events.
-    fn svg_iter(self) -> iter::Map<Self, fn(FlattenedEvent)->SvgEvent> {
+    fn svg_iter(self) -> iter::Map<Self, fn(FlattenedEvent) -> SvgEvent> {
         self.map(flattened_to_svg_event)
     }
 }
@@ -84,7 +84,7 @@ pub struct SegmentIterator<PathIt> {
     in_sub_path: bool,
 }
 
-impl<'l, PathIt:'l+Iterator<Item=PathEvent>> SegmentIterator<PathIt> {
+impl<'l, PathIt: 'l + Iterator<Item = PathEvent>> SegmentIterator<PathIt> {
     /// Constructor.
     pub fn new(it: PathIt) -> Self {
         SegmentIterator {
@@ -106,42 +106,41 @@ impl<'l, PathIt:'l+Iterator<Item=PathEvent>> SegmentIterator<PathIt> {
     }
 }
 
-impl<'l, PathIt:'l+Iterator<Item=PathEvent>> Iterator
-for SegmentIterator<PathIt> {
+impl<'l, PathIt: 'l + Iterator<Item = PathEvent>> Iterator for SegmentIterator<PathIt> {
     type Item = Segment;
     fn next(&mut self) -> Option<Segment> {
         return match self.it.next() {
-            Some(PathEvent::MoveTo(to)) => {
-                let first = self.state.first;
-                self.state.move_to(to);
-                if self.in_sub_path && first != self.state.current {
-                    Some(Segment::Line(first, self.state.current))
-                } else {
-                    self.in_sub_path = true;
-                    self.next()
-                }
-            }
-            Some(PathEvent::LineTo(to)) => {
-                self.in_sub_path = true;
-                let from = self.state.current;
-                self.state.line_to(to);
-                Some(Segment::Line(from, to))
-            }
-            Some(PathEvent::QuadraticTo(ctrl, to)) => {
-                self.in_sub_path = true;
-                let from = self.state.current;
-                self.state.curve_to(ctrl, to);
-                Some(Segment::QuadraticBezier(from, ctrl, to))
-            }
-            Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
-                self.in_sub_path = true;
-                let from = self.state.current;
-                self.state.curve_to(ctrl2, to);
-                Some(Segment::CubicBezier(from, ctrl1, ctrl2, to))
-            }
-            Some(PathEvent::Close) => { self.close() }
-            None => { None }
-        };
+                   Some(PathEvent::MoveTo(to)) => {
+                       let first = self.state.first;
+                       self.state.move_to(to);
+                       if self.in_sub_path && first != self.state.current {
+                           Some(Segment::Line(first, self.state.current))
+                       } else {
+                           self.in_sub_path = true;
+                           self.next()
+                       }
+                   }
+                   Some(PathEvent::LineTo(to)) => {
+                       self.in_sub_path = true;
+                       let from = self.state.current;
+                       self.state.line_to(to);
+                       Some(Segment::Line(from, to))
+                   }
+                   Some(PathEvent::QuadraticTo(ctrl, to)) => {
+                       self.in_sub_path = true;
+                       let from = self.state.current;
+                       self.state.curve_to(ctrl, to);
+                       Some(Segment::QuadraticBezier(from, ctrl, to))
+                   }
+                   Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
+                       self.in_sub_path = true;
+                       let from = self.state.current;
+                       self.state.curve_to(ctrl2, to);
+                       Some(Segment::CubicBezier(from, ctrl1, ctrl2, to))
+                   }
+                   Some(PathEvent::Close) => self.close(),
+                   None => None,
+               };
     }
 }
 
@@ -154,18 +153,22 @@ impl<SvgIter> SvgToPathIter<SvgIter> {
 }
 
 impl<SvgIter> PathIterator for SvgToPathIter<SvgIter>
-where SvgIter : SvgIterator {
+where
+    SvgIter: SvgIterator,
+{
     fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
 impl<SvgIter> Iterator for SvgToPathIter<SvgIter>
-where SvgIter: SvgIterator {
+where
+    SvgIter: SvgIterator,
+{
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
         return match self.it.next() {
-            Some(svg_evt) => { Some(self.get_state().svg_to_path_event(svg_evt)) }
-            None => { None }
-        }
+                   Some(svg_evt) => Some(self.get_state().svg_to_path_event(svg_evt)),
+                   None => None,
+               };
     }
 }
 
@@ -194,12 +197,16 @@ impl<Iter: PathIterator> FlatteningIter<Iter> {
 }
 
 impl<Iter> FlattenedIterator for FlatteningIter<Iter>
-where Iter : PathIterator {
+where
+    Iter: PathIterator,
+{
     fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
 impl<Iter> Iterator for FlatteningIter<Iter>
-where Iter: PathIterator {
+where
+    Iter: PathIterator,
+{
     type Item = FlattenedEvent;
     fn next(&mut self) -> Option<FlattenedEvent> {
         match self.current_curve {
@@ -218,13 +225,15 @@ where Iter: PathIterator {
         self.current_curve = TmpFlatteningIter::None;
         let current = self.get_state().current;
         return match self.it.next() {
-            Some(PathEvent::MoveTo(to)) => { Some(FlattenedEvent::MoveTo(to)) }
-            Some(PathEvent::LineTo(to)) => { Some(FlattenedEvent::LineTo(to)) }
-            Some(PathEvent::Close) => { Some(FlattenedEvent::Close) }
+            Some(PathEvent::MoveTo(to)) => Some(FlattenedEvent::MoveTo(to)),
+            Some(PathEvent::LineTo(to)) => Some(FlattenedEvent::LineTo(to)),
+            Some(PathEvent::Close) => Some(FlattenedEvent::Close),
             Some(PathEvent::QuadraticTo(ctrl, to)) => {
                 self.current_curve = TmpFlatteningIter::Quadratic(
                     QuadraticBezierSegment {
-                        from: current, ctrl: ctrl, to: to
+                            from: current,
+                            ctrl: ctrl,
+                            to: to,
                     }.flattening_iter(self.tolerance)
                 );
                 return self.next();
@@ -232,13 +241,16 @@ where Iter: PathIterator {
             Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
                 self.current_curve = TmpFlatteningIter::Cubic(
                     CubicBezierSegment {
-                        from: current, ctrl1: ctrl1, ctrl2: ctrl2, to: to
+                        from: current,
+                        ctrl1: ctrl1,
+                        ctrl2: ctrl2,
+                        to: to,
                     }.flattening_iter(self.tolerance)
                 );
                 return self.next();
             }
-            None => { None }
-        }
+            None => None,
+        };
     }
 }
 
@@ -248,16 +260,23 @@ pub struct PathStateSvgIter<Iter> {
     state: PathState,
 }
 
-impl<Iter: Iterator<Item=SvgEvent>> PathStateSvgIter<Iter> {
-    pub fn new(it: Iter) -> Self { PathStateSvgIter { it: it, state: PathState::new() } }
+impl<Iter: Iterator<Item = SvgEvent>> PathStateSvgIter<Iter> {
+    pub fn new(it: Iter) -> Self {
+        PathStateSvgIter {
+            it: it,
+            state: PathState::new(),
+        }
+    }
 }
 
 impl<Iter> SvgIterator for PathStateSvgIter<Iter>
-where Iter: Iterator<Item=SvgEvent> {
+where
+    Iter: Iterator<Item = SvgEvent>,
+{
     fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item=SvgEvent>> Iterator for PathStateSvgIter<Iter> {
+impl<Iter: Iterator<Item = SvgEvent>> Iterator for PathStateSvgIter<Iter> {
     type Item = SvgEvent;
     fn next(&mut self) -> Option<SvgEvent> {
         let next = self.it.next();
@@ -274,16 +293,23 @@ pub struct PathStateIter<Iter> {
     state: PathState,
 }
 
-impl<Iter: Iterator<Item=PathEvent>> PathStateIter<Iter> {
-  pub fn new(it: Iter) -> Self { PathStateIter { it: it, state: PathState::new() } }
+impl<Iter: Iterator<Item = PathEvent>> PathStateIter<Iter> {
+    pub fn new(it: Iter) -> Self {
+        PathStateIter {
+            it: it,
+            state: PathState::new(),
+        }
+    }
 }
 
 impl<Iter> PathIterator for PathStateIter<Iter>
-where Iter : Iterator<Item=PathEvent> {
+where
+    Iter: Iterator<Item = PathEvent>,
+{
     fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item=PathEvent>> Iterator for PathStateIter<Iter> {
+impl<Iter: Iterator<Item = PathEvent>> Iterator for PathStateIter<Iter> {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
         let next = self.it.next();
