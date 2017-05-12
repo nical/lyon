@@ -90,35 +90,28 @@ pub struct QuadraticBezierSegment {
 }
 
 impl QuadraticBezierSegment {
-
     /// Sample the curve at t (expecting t between 0 and 1).
     pub fn sample(&self, t: f32) -> Point {
-        let t2 = t*t;
+        let t2 = t * t;
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
-        return self.from * one_t2
-             + self.ctrl * 2.0 * one_t * t
-             + self.to * t2;
+        return self.from * one_t2 + self.ctrl * 2.0 * one_t * t + self.to * t2;
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
     pub fn sample_x(&self, t: f32) -> f32 {
-        let t2 = t*t;
+        let t2 = t * t;
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
-        return self.from.x * one_t2
-             + self.ctrl.x * 2.0*one_t*t
-             + self.to.x * t2;
+        return self.from.x * one_t2 + self.ctrl.x * 2.0 * one_t * t + self.to.x * t2;
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
     pub fn sample_y(&self, t: f32) -> f32 {
-        let t2 = t*t;
+        let t2 = t * t;
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
-        return self.from.y * one_t2
-             + self.ctrl.y * 2.0*one_t*t
-             + self.to.y * t2;
+        return self.from.y * one_t2 + self.ctrl.y * 2.0 * one_t * t + self.to.y * t2;
     }
 
     /// Swap the beginning and the end of the segment.
@@ -131,7 +124,7 @@ impl QuadraticBezierSegment {
         if let Some(t) = self.find_y_inflection() {
             let p = self.sample(t);
             if p.y > self.from.y && p.y > self.to.y {
-              return t;
+                return t;
             }
         }
         return if self.from.y > self.to.y { 0.0 } else { 1.0 };
@@ -141,7 +134,7 @@ impl QuadraticBezierSegment {
     pub fn find_y_inflection(&self) -> Option<f32> {
         let div = self.from.y - 2.0 * self.ctrl.y + self.to.y;
         if div == 0.0 {
-           return None;
+            return None;
         }
         let t = (self.from.y - self.ctrl.y) / div;
         if t > 0.0 && t < 1.0 {
@@ -154,18 +147,16 @@ impl QuadraticBezierSegment {
     pub fn split(&self, t: f32) -> (QuadraticBezierSegment, QuadraticBezierSegment) {
         let t_one = t - 1.0;
         let split_point = self.sample(t);
-        return (
-            QuadraticBezierSegment {
-                from: self.from,
-                ctrl: self.ctrl * t - self.from * t_one,
-                to: split_point,
-            },
-            QuadraticBezierSegment {
-                from: split_point,
-                ctrl: self.to * t - self.ctrl * t_one,
-                to: self.to,
-            }
-        );
+        return (QuadraticBezierSegment {
+            from: self.from,
+            ctrl: self.ctrl * t - self.from * t_one,
+            to: split_point,
+        },
+        QuadraticBezierSegment {
+            from: split_point,
+            ctrl: self.to * t - self.ctrl * t_one,
+            to: self.to,
+        });
     }
 
     /// Return the curve before the split point.
@@ -184,7 +175,7 @@ impl QuadraticBezierSegment {
         return QuadraticBezierSegment {
             from: self.sample(t),
             ctrl: self.to * t - self.ctrl * t_one,
-            to: self.to
+            to: self.to,
         };
     }
 
@@ -229,7 +220,7 @@ impl QuadraticBezierSegment {
             let t = iter.flattening_step(tolerance);
             if t == 1.0 {
                 call_back(iter.to);
-                break
+                break;
             }
             iter = iter.after_split(t);
             call_back(iter.from);
@@ -302,10 +293,8 @@ impl CubicBezierSegment {
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
-        return self.from * one_t3
-             + self.ctrl1 * 3.0 * one_t2 * t
-             + self.ctrl2 * 3.0 * one_t * t2
-             + self.to * t3;
+        return self.from * one_t3 + self.ctrl1 * 3.0 * one_t2 * t +
+                   self.ctrl2 * 3.0 * one_t * t2 + self.to * t3;
     }
 
     /// Split this curve into two sub-curves.
@@ -318,20 +307,18 @@ impl CubicBezierSegment {
         let ctrl1aaa = ctrl1aa + (ctrl2aa - ctrl1aa) * t;
         let to = self.to;
 
-        return (
-            CubicBezierSegment {
-                from: self.from,
-                ctrl1: ctrl1a,
-                ctrl2: ctrl1aa,
-                to: ctrl1aaa,
-            },
-            CubicBezierSegment {
-                from: ctrl1aaa,
-                ctrl1: ctrl2aa,
-                ctrl2: ctrl3a,
-                to: to,
-            },
-        );
+        return (CubicBezierSegment {
+            from: self.from,
+            ctrl1: ctrl1a,
+            ctrl2: ctrl1aa,
+            to: ctrl1aaa,
+        },
+        CubicBezierSegment {
+            from: ctrl1aaa,
+            ctrl1: ctrl2aa,
+            ctrl2: ctrl3a,
+            to: to,
+        });
     }
 
     /// Return the curve before the split point.
@@ -347,7 +334,7 @@ impl CubicBezierSegment {
             ctrl1: ctrl1a,
             ctrl2: ctrl1aa,
             to: ctrl1aaa,
-        }
+        };
     }
 
     /// Return the curve after the split point.
@@ -362,7 +349,7 @@ impl CubicBezierSegment {
             ctrl1: ctrl2a + (ctrl3a - ctrl2a) * t,
             ctrl2: ctrl3a,
             to: self.to,
-        }
+        };
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
