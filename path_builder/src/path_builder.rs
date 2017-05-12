@@ -11,13 +11,13 @@
 //! TODO
 //!
 
-use core::{ PathEvent, FlattenedEvent, SvgEvent, ArcFlags };
+use core::{PathEvent, FlattenedEvent, SvgEvent, ArcFlags};
 use core::math::*;
-use bezier::{ CubicBezierSegment, QuadraticBezierSegment };
+use bezier::{CubicBezierSegment, QuadraticBezierSegment};
 use arc::arc_to_cubic_beziers;
 
 /// The most basic path building interface. Does not handle any kind of curve.
-pub trait BaseBuilder : ::std::marker::Sized {
+pub trait BaseBuilder: ::std::marker::Sized {
     /// The type of object that is created by this builder.
     type PathType;
 
@@ -44,9 +44,15 @@ pub trait BaseBuilder : ::std::marker::Sized {
 
     fn flat_event(&mut self, event: FlattenedEvent) {
         match event {
-            FlattenedEvent::MoveTo(to) => { self.move_to(to); }
-            FlattenedEvent::LineTo(to) => { self.line_to(to); }
-            FlattenedEvent::Close => { self.close(); }
+            FlattenedEvent::MoveTo(to) => {
+                self.move_to(to);
+            }
+            FlattenedEvent::LineTo(to) => {
+                self.line_to(to);
+            }
+            FlattenedEvent::Close => {
+                self.close();
+            }
         }
     }
 
@@ -58,17 +64,27 @@ pub trait BaseBuilder : ::std::marker::Sized {
 
 /// The main path building interface. More elaborate interfaces are built on top
 /// of the provided primitives.
-pub trait PathBuilder : BaseBuilder {
+pub trait PathBuilder: BaseBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
 
     fn path_event(&mut self, event: PathEvent) {
         match event {
-            PathEvent::MoveTo(to) => { self.move_to(to); }
-            PathEvent::LineTo(to) => { self.line_to(to); }
-            PathEvent::QuadraticTo(ctrl, to) => { self.quadratic_bezier_to(ctrl, to); }
-            PathEvent::CubicTo(ctrl1, ctrl2, to) => { self.cubic_bezier_to(ctrl1, ctrl2, to); }
-            PathEvent::Close => { self.close(); }
+            PathEvent::MoveTo(to) => {
+                self.move_to(to);
+            }
+            PathEvent::LineTo(to) => {
+                self.line_to(to);
+            }
+            PathEvent::QuadraticTo(ctrl, to) => {
+                self.quadratic_bezier_to(ctrl, to);
+            }
+            PathEvent::CubicTo(ctrl1, ctrl2, to) => {
+                self.cubic_bezier_to(ctrl1, ctrl2, to);
+            }
+            PathEvent::Close => {
+                self.close();
+            }
         }
     }
 
@@ -78,7 +94,7 @@ pub trait PathBuilder : BaseBuilder {
 
 /// A path building interface that tries to stay close to SVG's path specification.
 /// https://svgwg.org/specs/paths/
-pub trait SvgBuilder : PathBuilder {
+pub trait SvgBuilder: PathBuilder {
     fn relative_move_to(&mut self, to: Vec2);
     fn relative_line_to(&mut self, to: Vec2);
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
@@ -93,33 +109,77 @@ pub trait SvgBuilder : PathBuilder {
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
     fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags);
-    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags);
+    fn relative_arc_to(
+        &mut self,
+        to: Vec2,
+        radii: Vec2,
+        x_rotation: Radians<f32>,
+        flags: ArcFlags,
+    );
 
     fn svg_event(&mut self, event: SvgEvent) {
         match event {
-            SvgEvent::MoveTo(to) => { self.move_to(to); }
-            SvgEvent::LineTo(to) => { self.line_to(to); }
-            SvgEvent::QuadraticTo(ctrl, to) => { self.quadratic_bezier_to(ctrl, to); }
-            SvgEvent::CubicTo(ctrl1, ctrl2, to) => { self.cubic_bezier_to(ctrl1, ctrl2, to); }
-            SvgEvent::Close => { self.close(); }
+            SvgEvent::MoveTo(to) => {
+                self.move_to(to);
+            }
+            SvgEvent::LineTo(to) => {
+                self.line_to(to);
+            }
+            SvgEvent::QuadraticTo(ctrl, to) => {
+                self.quadratic_bezier_to(ctrl, to);
+            }
+            SvgEvent::CubicTo(ctrl1, ctrl2, to) => {
+                self.cubic_bezier_to(ctrl1, ctrl2, to);
+            }
+            SvgEvent::Close => {
+                self.close();
+            }
 
-            SvgEvent::ArcTo(to, radii, x_rotation, flags) => { self.arc_to(to, radii, x_rotation, flags); }
-            SvgEvent::RelativeArcTo(to, radii, x_rotation, flags) => { self.relative_arc_to(to, radii, x_rotation, flags); }
+            SvgEvent::ArcTo(to, radii, x_rotation, flags) => {
+                self.arc_to(to, radii, x_rotation, flags);
+            }
+            SvgEvent::RelativeArcTo(to, radii, x_rotation, flags) => {
+                self.relative_arc_to(to, radii, x_rotation, flags);
+            }
 
-            SvgEvent::RelativeMoveTo(to) => { self.relative_move_to(to); }
-            SvgEvent::RelativeLineTo(to) => { self.relative_line_to(to); }
-            SvgEvent::RelativeQuadraticTo(ctrl, to) => { self.relative_quadratic_bezier_to(ctrl, to); }
-            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => { self.relative_cubic_bezier_to(ctrl1, ctrl2, to); }
+            SvgEvent::RelativeMoveTo(to) => {
+                self.relative_move_to(to);
+            }
+            SvgEvent::RelativeLineTo(to) => {
+                self.relative_line_to(to);
+            }
+            SvgEvent::RelativeQuadraticTo(ctrl, to) => {
+                self.relative_quadratic_bezier_to(ctrl, to);
+            }
+            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
+                self.relative_cubic_bezier_to(ctrl1, ctrl2, to);
+            }
 
-            SvgEvent::HorizontalLineTo(x) => { self.horizontal_line_to(x); }
-            SvgEvent::VerticalLineTo(y) => { self.vertical_line_to(y); }
-            SvgEvent::RelativeHorizontalLineTo(x) => { self.relative_horizontal_line_to(x); }
-            SvgEvent::RelativeVerticalLineTo(y) => { self.relative_vertical_line_to(y); }
+            SvgEvent::HorizontalLineTo(x) => {
+                self.horizontal_line_to(x);
+            }
+            SvgEvent::VerticalLineTo(y) => {
+                self.vertical_line_to(y);
+            }
+            SvgEvent::RelativeHorizontalLineTo(x) => {
+                self.relative_horizontal_line_to(x);
+            }
+            SvgEvent::RelativeVerticalLineTo(y) => {
+                self.relative_vertical_line_to(y);
+            }
 
-            SvgEvent::SmoothQuadraticTo(to) => { self.smooth_quadratic_bezier_to(to); }
-            SvgEvent::SmoothCubicTo(ctrl2, to) => { self.smooth_cubic_bezier_to(ctrl2, to); }
-            SvgEvent::SmoothRelativeQuadraticTo(to) => { self.smooth_relative_quadratic_bezier_to(to); }
-            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => { self.smooth_relative_cubic_bezier_to(ctrl2, to); }
+            SvgEvent::SmoothQuadraticTo(to) => {
+                self.smooth_quadratic_bezier_to(to);
+            }
+            SvgEvent::SmoothCubicTo(ctrl2, to) => {
+                self.smooth_cubic_bezier_to(ctrl2, to);
+            }
+            SvgEvent::SmoothRelativeQuadraticTo(to) => {
+                self.smooth_relative_quadratic_bezier_to(to);
+            }
+            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
+                self.smooth_relative_cubic_bezier_to(ctrl2, to);
+            }
         }
     }
 }
@@ -157,14 +217,12 @@ impl<Builder: PathBuilder> BaseBuilder for SvgPathBuilder<Builder> {
         self.builder.line_to(to);
     }
 
-    fn close(&mut self)  {
+    fn close(&mut self) {
         self.last_ctrl = point(0.0, 0.0);
         self.builder.close()
     }
 
-    fn current_position(&self) -> Vec2 {
-        self.builder.current_position()
-    }
+    fn current_position(&self) -> Vec2 { self.builder.current_position() }
 
     fn build(self) -> Builder::PathType { self.builder.build() }
 
@@ -205,7 +263,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     }
 
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point) {
-        let ctrl = self.builder.current_position() + (self.builder.current_position() - self.last_ctrl);
+        let ctrl = self.builder.current_position() +
+            (self.builder.current_position() - self.last_ctrl);
         self.cubic_bezier_to(ctrl, ctrl2, to);
     }
 
@@ -215,7 +274,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     }
 
     fn smooth_quadratic_bezier_to(&mut self, to: Point) {
-        let ctrl = self.builder.current_position() + (self.builder.current_position() - self.last_ctrl);
+        let ctrl = self.builder.current_position() +
+            (self.builder.current_position() - self.last_ctrl);
         self.quadratic_bezier_to(ctrl, to);
     }
 
@@ -252,14 +312,16 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             return;
         }
 
-        arc_to_cubic_beziers(
-            self.current_position(),
-            to, radii, x_rotation, flags,
-            self
-        );
+        arc_to_cubic_beziers(self.current_position(), to, radii, x_rotation, flags, self);
     }
 
-    fn relative_arc_to(&mut self, to: Vec2, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags) {
+    fn relative_arc_to(
+        &mut self,
+        to: Vec2,
+        radii: Vec2,
+        x_rotation: Radians<f32>,
+        flags: ArcFlags,
+    ) {
         let offset = self.builder.current_position();
         self.arc_to(to + offset, radii, x_rotation, flags);
     }
@@ -292,12 +354,12 @@ impl<Builder: BaseBuilder> PathBuilder for FlatteningBuilder<Builder> {
         QuadraticBezierSegment {
             from: self.current_position(),
             ctrl: ctrl,
-            to: to
+            to: to,
         }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
-        CubicBezierSegment{
+        CubicBezierSegment {
             from: self.current_position(),
             ctrl1: ctrl1,
             ctrl2: ctrl2,
@@ -328,4 +390,3 @@ impl<Builder: BaseBuilder> PolygonBuilder for Builder {
         self.close();
     }
 }
-
