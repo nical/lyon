@@ -1,0 +1,12 @@
+fn_args_layout = "Block"
+array_layout = "Block"
+control_style = "Rfc"
+where_style = "Rfc"
+generics_indent = "Block"
+fn_call_style = "Block"
+
+fn_single_line = true
+fn_call_width = 90
+single_line_if_else_max_width = 80
+chain_one_line_max = 90
+closure_block_indent_threshold = 3
