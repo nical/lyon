@@ -1,4 +1,4 @@
-use path_builder::{ BaseBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder };
+use path_builder::{BaseBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
 use path_iterator::PathStateIter;
 
 use core::PathEvent;
@@ -31,8 +31,8 @@ pub struct Path {
 
 #[derive(Copy, Clone, Debug)]
 pub struct PathSlice<'l> {
-    points: &'l[Point],
-    verbs: &'l[Verb],
+    points: &'l [Point],
+    verbs: &'l [Verb],
 }
 
 impl Path {
@@ -54,7 +54,10 @@ impl Path {
     }
 
     pub fn as_slice(&self) -> PathSlice {
-        PathSlice { points: &self.points[..], verbs: &self.verbs[..] }
+        PathSlice {
+            points: &self.points[..],
+            verbs: &self.verbs[..],
+        }
     }
 
     pub fn iter(&self) -> PathIter { PathIter::new(&self.points[..], &self.verbs[..]) }
@@ -63,7 +66,7 @@ impl Path {
 
     pub fn points(&self) -> &[Point] { &self.points[..] }
 
-    pub fn mut_points(&mut self) -> &mut[Point] { &mut self.points[..] }
+    pub fn mut_points(&mut self) -> &mut [Point] { &mut self.points[..] }
 
     pub fn verbs(&self) -> &[Verb] { &self.verbs[..] }
 }
@@ -77,8 +80,11 @@ impl<'l> IntoIterator for &'l Path {
 
 /// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
-    pub fn new(points: &'l[Point], verbs: &'l[Verb]) -> PathSlice<'l> {
-        PathSlice { points: points, verbs: verbs }
+    pub fn new(points: &'l [Point], verbs: &'l [Verb]) -> PathSlice<'l> {
+        PathSlice {
+            points: points,
+            verbs: verbs,
+        }
     }
 
     pub fn iter(&self) -> PathIter { PathIter::new(self.points, self.verbs) }
@@ -135,8 +141,7 @@ fn nan_check(p: Point) {
 impl BaseBuilder for Builder {
     type PathType = Path;
 
-    fn move_to(&mut self, to: Point)
-    {
+    fn move_to(&mut self, to: Point) {
         nan_check(to);
         //if self.path.verbs.last() == Some(&Verb::MoveTo) {
         //    // previous op was also MoveTo, just overrwrite it.
@@ -214,7 +219,7 @@ pub struct PathIter<'l> {
 }
 
 impl<'l> PathIter<'l> {
-    pub fn new(points: &'l[Point], verbs: &'l[Verb]) -> Self {
+    pub fn new(points: &'l [Point], verbs: &'l [Verb]) -> Self {
         PathIter {
             points: points.iter(),
             verbs: verbs.iter(),
@@ -245,10 +250,8 @@ impl<'l> Iterator for PathIter<'l> {
                 let to = *self.points.next().unwrap();
                 Some(PathEvent::CubicTo(ctrl1, ctrl2, to))
             }
-            Some(&Verb::Close) => {
-                Some(PathEvent::Close)
-            }
-            None => { None }
+            Some(&Verb::Close) => Some(PathEvent::Close),
+            None => None,
         };
     }
 }
@@ -285,7 +288,10 @@ fn test_path_builder_1() {
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(3.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(4.0, 0.0), point(4.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::CubicTo(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0))));
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::CubicTo(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0)))
+    );
     assert_eq!(it.next(), Some(PathEvent::Close));
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(10.0, 0.0))));
@@ -293,7 +299,10 @@ fn test_path_builder_1() {
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(12.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(13.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(14.0, 0.0), point(14.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0))));
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0)))
+    );
     assert_eq!(it.next(), Some(PathEvent::Close));
 
     assert_eq!(it.next(), Some(PathEvent::Close));
