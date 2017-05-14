@@ -1,5 +1,5 @@
 
-use super::Stream;
+use svgparser::{ Tokenize, TextFrame };
 use super::attribute::{Attribute, AttributeId, AttributeValue, RefAttributeValue};
 use std::str;
 use svgparser;
@@ -13,35 +13,42 @@ pub struct StyleTokenizer<'l> {
 
 impl<'l> StyleTokenizer<'l> {
     pub fn new(text: &str) -> StyleTokenizer {
-        StyleTokenizer::from_stream(Stream::new(text.as_bytes()))
+        StyleTokenizer {
+            tokenizer: svgparser::style::Tokenizer::from_str(text)
+        }
     }
 
-    pub fn from_stream(stream: Stream) -> StyleTokenizer {
+    pub fn from_frame(frame: TextFrame) -> StyleTokenizer {
         StyleTokenizer {
-            tokenizer: svgparser::style::Tokenizer::new(stream)
+            tokenizer: svgparser::style::Tokenizer::from_frame(frame)
         }
     }
 }
 
 impl<'l> Iterator for StyleTokenizer<'l> {
     type Item = Result<Attribute, StyleParserError>;
+
     fn next(&mut self) -> Option<Result<Attribute, StyleParserError>> {
-        return match self.tokenizer.next() {
-            Some(Ok(svgparser::style::Token::Attribute(name, mut stream))) => {
-                Some(parse_attribute(name, &mut stream))
+        match self.tokenizer.parse_next() {
+            Ok(token) => {
+                match token {
+                    svgparser::style::Token::SvgAttribute(id, value) => {
+                        Some(parse_attribute(id, value))
+                    }
+                    svgparser::style::Token::EndOfStream => {
+                        None
+                    }
+                    _ => self.next(),
+                }
             }
-            Some(Err(_)) => { Some(Err(StyleParserError)) }
-            None => { None }
-            _ => { self.next() }
-        };
+            Err(_) => { Some(Err(StyleParserError)) }
+        }
     }
 }
 
-fn parse_attribute(name: &[u8], value: &mut Stream) -> Result<Attribute, StyleParserError> {
-    if let Some(attr_name) = AttributeId::from_name(unsafe { str::from_utf8_unchecked(name) }) {
-        if let Ok(attr_value) = RefAttributeValue::from_stream(svgparser::ElementId::Style, attr_name, value) {
-            return Ok(Attribute { id: attr_name, value: AttributeValue::from_ref(attr_value) });
-        }
+fn parse_attribute(id: AttributeId, value: TextFrame) -> Result<Attribute, StyleParserError> {
+    if let Ok(attr_value) = RefAttributeValue::from_frame(svgparser::ElementId::Rect, id, value) {
+        return Ok(Attribute { id: id, value: AttributeValue::from_ref(attr_value) });
     }
 
     return Err(StyleParserError);

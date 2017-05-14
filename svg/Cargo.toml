@@ -19,4 +19,4 @@ lyon_path_builder = { version = "0.4.1", path = "../path_builder" }
 lyon_path = { version = "0.4.1", path = "../path" }
 lyon_core = { version = "0.4.1", path = "../core" }
 
-svgparser = "0.0.3"
+svgparser = "0.4"
