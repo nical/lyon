@@ -1,4 +1,4 @@
-use math::{ Point, Vec2, Radians };
+use math::{Point, Vec2, Radians};
 use super::ArcFlags;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -51,11 +51,11 @@ pub enum FlattenedEvent {
 impl PathEvent {
     pub fn to_svg_event(self) -> SvgEvent {
         return match self {
-            PathEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
-            PathEvent::LineTo(to) => { SvgEvent::LineTo(to) }
-            PathEvent::QuadraticTo(ctrl, to) => { SvgEvent::QuadraticTo(ctrl, to) }
-            PathEvent::CubicTo(ctrl1, ctrl2, to) => { SvgEvent::CubicTo(ctrl1, ctrl2, to) }
-            PathEvent::Close => { SvgEvent::Close }
+            PathEvent::MoveTo(to) => SvgEvent::MoveTo(to),
+            PathEvent::LineTo(to) => SvgEvent::LineTo(to),
+            PathEvent::QuadraticTo(ctrl, to) => SvgEvent::QuadraticTo(ctrl, to),
+            PathEvent::CubicTo(ctrl1, ctrl2, to) => SvgEvent::CubicTo(ctrl1, ctrl2, to),
+            PathEvent::Close => SvgEvent::Close,
         };
     }
 
@@ -66,24 +66,24 @@ impl PathEvent {
             PathEvent::QuadraticTo(_, to) => Some(to),
             PathEvent::CubicTo(_, _, to) => Some(to),
             PathEvent::Close => None,
-        }
+        };
     }
 }
 
 impl FlattenedEvent {
     pub fn to_svg_event(self) -> SvgEvent {
         return match self {
-            FlattenedEvent::MoveTo(to) => { SvgEvent::MoveTo(to) }
-            FlattenedEvent::LineTo(to) => { SvgEvent::LineTo(to) }
-            FlattenedEvent::Close => { SvgEvent::Close }
-        }
+            FlattenedEvent::MoveTo(to) => SvgEvent::MoveTo(to),
+            FlattenedEvent::LineTo(to) => SvgEvent::LineTo(to),
+            FlattenedEvent::Close => SvgEvent::Close,
+        };
     }
 
     pub fn to_path_event(self) -> PathEvent {
         return match self {
-            FlattenedEvent::MoveTo(to) => { PathEvent::MoveTo(to) }
-            FlattenedEvent::LineTo(to) => { PathEvent::LineTo(to) }
-            FlattenedEvent::Close => { PathEvent::Close }
-        }
+            FlattenedEvent::MoveTo(to) => PathEvent::MoveTo(to),
+            FlattenedEvent::LineTo(to) => PathEvent::LineTo(to),
+            FlattenedEvent::Close => PathEvent::Close,
+        };
     }
 }

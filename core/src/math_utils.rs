@@ -11,18 +11,12 @@ pub fn fuzzy_eq_f32(a: f32, b: f32) -> bool {
 pub fn fuzzy_eq(a: Vec2, b: Vec2) -> bool { fuzzy_eq_f32(a.x, b.x) && fuzzy_eq_f32(a.y, b.y) }
 
 // Compute the vector from ce center of an ellipse on of its points
-pub fn ellipse_center_to_point(center: Vec2, ellipse_point: Vec2, radii: Vec2) -> Vec2{
-    vec2(
-        (ellipse_point.x - center.x) / radii.x,
-        (ellipse_point.y - center.y) / radii.y,
-    )
+pub fn ellipse_center_to_point(center: Vec2, ellipse_point: Vec2, radii: Vec2) -> Vec2 {
+    vec2((ellipse_point.x - center.x) / radii.x, (ellipse_point.y - center.y) / radii.y)
 }
 
-pub fn ellipse_point_from_angle(center: Vec2, radii: Vec2, angle: f32) -> Vec2{
-    vec2(
-        center.x + radii.x * angle.cos(),
-        center.y + radii.y * angle.sin()
-    )
+pub fn ellipse_point_from_angle(center: Vec2, radii: Vec2, angle: f32) -> Vec2 {
+    vec2(center.x + radii.x * angle.cos(), center.y + radii.y * angle.sin())
 }
 
 
@@ -49,16 +43,16 @@ pub fn directed_angle(a: Vec2, b: Vec2) -> f32 {
     return if angle < 0.0 { angle + 2.0 * PI } else { angle };
 }
 
-pub fn directed_angle2(center: Vec2,  a: Vec2, b: Vec2) -> f32 {
+pub fn directed_angle2(center: Vec2, a: Vec2, b: Vec2) -> f32 {
     directed_angle(a - center, b - center)
 }
 
-pub fn angle_between(start_vector : Vec2, end_vector : Vec2) -> f32 {
+pub fn angle_between(start_vector: Vec2, end_vector: Vec2) -> f32 {
     let mut result = ((start_vector.x * end_vector.x + start_vector.y * end_vector.y) /
-                 (start_vector.length() * end_vector.length())).acos() ;
+                          (start_vector.length() * end_vector.length())).acos();
 
-    if (start_vector.x*end_vector.y - start_vector.y*end_vector.x) < 0.0{
-        result = - result;
+    if (start_vector.x * end_vector.y - start_vector.y * end_vector.x) < 0.0 {
+        result = -result;
     }
     result
 }
@@ -78,9 +72,15 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     let a = x_abs.min(y_abs) / x_abs.max(y_abs);
     let s = a * a;
     let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a;
-    if y_abs > x_abs { r = 1.57079637 - r; }
-    if x < 0.0 { r = 3.14159274 - r }
-    if y < 0.0 { r = -r }
+    if y_abs > x_abs {
+        r = 1.57079637 - r;
+    }
+    if x < 0.0 {
+        r = 3.14159274 - r
+    }
+    if y < 0.0 {
+        r = -r
+    }
     return r;
 }
 
@@ -89,12 +89,7 @@ pub fn tangent(v: Vec2) -> Vec2 {
     return vec2(-v.y / l, v.x / l);
 }
 
-pub fn line_intersection(
-    a1: Vec2,
-    a2: Vec2,
-    b1: Vec2,
-    b2: Vec2
-) -> Option<Vec2> {
+pub fn line_intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
     let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
     if det.abs() <= 0.000001 {
         // The lines are very close to parallel
@@ -103,18 +98,15 @@ pub fn line_intersection(
     let inv_det = 1.0 / det;
     let a = a1.x * a2.y - a1.y * a2.x;
     let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(vec2(
-        (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
-        (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det
-    ));
+    return Some(
+        vec2(
+            (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
+            (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det,
+        )
+    );
 }
 
-pub fn segment_intersection(
-    a1: Vec2,
-    b1: Vec2,
-    a2: Vec2,
-    b2: Vec2
-) -> Option<Vec2> {
+pub fn segment_intersection(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2) -> Option<Vec2> {
     let v1 = b1 - a1;
     let v2 = b2 - a2;
     if fuzzy_eq(v2, vec2(0.0, 0.0)) {
@@ -130,20 +122,28 @@ pub fn segment_intersection(
             let v1_sqr_len = v1.square_length();
             // check if a2 is between a1 and b1
             let v1_dot_a2a1 = v1.dot(a2 - a1);
-            if v1_dot_a2a1 > 0.0 && v1_dot_a2a1 < v1_sqr_len { return Some(a2); }
+            if v1_dot_a2a1 > 0.0 && v1_dot_a2a1 < v1_sqr_len {
+                return Some(a2);
+            }
 
             // check if b2 is between a1 and b1
             let v1_dot_b2a1 = v1.dot(b2 - a1);
-            if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len { return Some(b2); }
+            if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len {
+                return Some(b2);
+            }
 
             let v2_sqr_len = v2.square_length();
             // check if a1 is between a2 and b2
             let v2_dot_a1a2 = v2.dot(a1 - a2);
-            if v2_dot_a1a2 > 0.0 && v2_dot_a1a2 < v2_sqr_len { return Some(a1); }
+            if v2_dot_a1a2 > 0.0 && v2_dot_a1a2 < v2_sqr_len {
+                return Some(a1);
+            }
 
             // check if b1 is between a2 and b2
             let v2_dot_b1a2 = v2.dot(b1 - a2);
-            if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len { return Some(b1); }
+            if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len {
+                return Some(b1);
+            }
 
             return None;
         }
@@ -165,22 +165,20 @@ pub fn segment_intersection(
 #[test]
 fn test_segment_intersection() {
 
-    assert!(segment_intersection(
-        vec2(0.0, -2.0), vec2(-5.0, 2.0),
-        vec2(-5.0, 0.0), vec2(-11.0, 5.0)
-    ).is_none());
+    assert!(
+        segment_intersection(vec2(0.0, -2.0), vec2(-5.0, 2.0), vec2(-5.0, 0.0), vec2(-11.0, 5.0))
+            .is_none()
+    );
 
-    let i = segment_intersection(
-        vec2(0.0, 0.0), vec2(1.0, 1.0),
-        vec2(0.0, 1.0), vec2(1.0, 0.0)
-    ).unwrap();
+    let i = segment_intersection(vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 0.0))
+        .unwrap();
     println!(" intersection: {:?}", i);
     assert!(fuzzy_eq(i, vec2(0.5, 0.5)));
 
     assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(0.0, 1.0),
         vec2(1.0, 0.0), vec2(1.0, 1.0)
-    ).is_none());
+    ) .is_none());
 
     assert!(segment_intersection(
         vec2(0.0, 0.0), vec2(1.0, 0.0),
@@ -218,11 +216,7 @@ fn test_segment_intersection() {
     ).is_none());
 }
 
-pub fn line_horizontal_intersection(
-    a: Vec2,
-    b: Vec2,
-    y: f32
-) -> f32 {
+pub fn line_horizontal_intersection(a: Vec2, b: Vec2, y: f32) -> f32 {
     let vx = b.x - a.x;
     let vy = b.y - a.y;
     if vy == 0.0 {
@@ -235,8 +229,10 @@ pub fn line_horizontal_intersection(
 
 
 #[cfg(test)]
-fn assert_almost_eq(a: f32, b:f32) {
-    if (a - b).abs() < 0.0001 { return; }
+fn assert_almost_eq(a: f32, b: f32) {
+    if (a - b).abs() < 0.0001 {
+        return;
+    }
     println!("expected {} and {} to be equal", a, b);
     panic!();
 }
@@ -268,19 +264,16 @@ pub fn triangle_contains(triangle: &[Point], point: Point) -> bool {
 
 #[test]
 fn test_triangle_contains() {
-    assert!(triangle_contains(
-        &[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)],
-        point(0.2, 0.2)
-    ));
-    assert!(!triangle_contains(
-        &[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)],
-        point(1.2, 0.2)
-    ));
+    assert!(
+        triangle_contains(&[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)], point(0.2, 0.2))
+    );
+    assert!(
+        !triangle_contains(&[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)], point(1.2, 0.2))
+    );
     // Point exactly on the edge counts as in the triangle.
-    assert!(triangle_contains(
-        &[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)],
-        point(0.0, 0.0)
-    ));
+    assert!(
+        triangle_contains(&[point(0.0, 0.0), point(1.0, 0.0), point(0.0, 1.0)], point(0.0, 0.0))
+    );
 }
 
 /// Compute a normal vector at a point P such that ```x ---e1----> P ---e2---> x```
@@ -321,16 +314,10 @@ fn test_compute_normal() {
 
     for i in 1..10 {
         let f = i as f32;
-        assert_almost_eq(
-            compute_normal(vec2(f, 0.0), vec2(0.0, f*f)),
-            vec2(1.0, -1.0)
-        );
+        assert_almost_eq(compute_normal(vec2(f, 0.0), vec2(0.0, f * f)), vec2(1.0, -1.0));
     }
     for i in 1..10 {
         let f = i as f32;
-        assert_almost_eq(
-            compute_normal(vec2(f, 0.0), vec2(f*f, 0.0)),
-            vec2(0.0, -1.0)
-        );
+        assert_almost_eq(compute_normal(vec2(f, 0.0), vec2(f * f, 0.0)), vec2(0.0, -1.0));
     }
 }

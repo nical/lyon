@@ -25,25 +25,81 @@ pub struct _16;
 pub struct _24;
 pub struct _32;
 
-pub trait FractionalBits { fn bits() -> u32; }
-impl FractionalBits for _1  { #[inline] fn bits() -> u32 { 1 } }
-impl FractionalBits for _2  { #[inline] fn bits() -> u32 { 2 } }
-impl FractionalBits for _3  { #[inline] fn bits() -> u32 { 3 } }
-impl FractionalBits for _4  { #[inline] fn bits() -> u32 { 4 } }
-impl FractionalBits for _5  { #[inline] fn bits() -> u32 { 5 } }
-impl FractionalBits for _6  { #[inline] fn bits() -> u32 { 6 } }
-impl FractionalBits for _7  { #[inline] fn bits() -> u32 { 7 } }
-impl FractionalBits for _8  { #[inline] fn bits() -> u32 { 8 } }
-impl FractionalBits for _9  { #[inline] fn bits() -> u32 { 9 } }
-impl FractionalBits for _10 { #[inline] fn bits() -> u32 { 10 } }
-impl FractionalBits for _11 { #[inline] fn bits() -> u32 { 11 } }
-impl FractionalBits for _12 { #[inline] fn bits() -> u32 { 12 } }
-impl FractionalBits for _13 { #[inline] fn bits() -> u32 { 13 } }
-impl FractionalBits for _14 { #[inline] fn bits() -> u32 { 14 } }
-impl FractionalBits for _15 { #[inline] fn bits() -> u32 { 15 } }
-impl FractionalBits for _16 { #[inline] fn bits() -> u32 { 16 } }
-impl FractionalBits for _24 { #[inline] fn bits() -> u32 { 24 } }
-impl FractionalBits for _32 { #[inline] fn bits() -> u32 { 32 } }
+pub trait FractionalBits {
+    fn bits() -> u32;
+}
+impl FractionalBits for _1 {
+    #[inline]
+    fn bits() -> u32 { 1 }
+}
+impl FractionalBits for _2 {
+    #[inline]
+    fn bits() -> u32 { 2 }
+}
+impl FractionalBits for _3 {
+    #[inline]
+    fn bits() -> u32 { 3 }
+}
+impl FractionalBits for _4 {
+    #[inline]
+    fn bits() -> u32 { 4 }
+}
+impl FractionalBits for _5 {
+    #[inline]
+    fn bits() -> u32 { 5 }
+}
+impl FractionalBits for _6 {
+    #[inline]
+    fn bits() -> u32 { 6 }
+}
+impl FractionalBits for _7 {
+    #[inline]
+    fn bits() -> u32 { 7 }
+}
+impl FractionalBits for _8 {
+    #[inline]
+    fn bits() -> u32 { 8 }
+}
+impl FractionalBits for _9 {
+    #[inline]
+    fn bits() -> u32 { 9 }
+}
+impl FractionalBits for _10 {
+    #[inline]
+    fn bits() -> u32 { 10 }
+}
+impl FractionalBits for _11 {
+    #[inline]
+    fn bits() -> u32 { 11 }
+}
+impl FractionalBits for _12 {
+    #[inline]
+    fn bits() -> u32 { 12 }
+}
+impl FractionalBits for _13 {
+    #[inline]
+    fn bits() -> u32 { 13 }
+}
+impl FractionalBits for _14 {
+    #[inline]
+    fn bits() -> u32 { 14 }
+}
+impl FractionalBits for _15 {
+    #[inline]
+    fn bits() -> u32 { 15 }
+}
+impl FractionalBits for _16 {
+    #[inline]
+    fn bits() -> u32 { 16 }
+}
+impl FractionalBits for _24 {
+    #[inline]
+    fn bits() -> u32 { 24 }
+}
+impl FractionalBits for _32 {
+    #[inline]
+    fn bits() -> u32 { 32 }
+}
 
 /// A 32 fixed point number.
 /// The size of the fractional is defined by the type parameter F.
@@ -330,9 +386,7 @@ impl<F: FractionalBits> Fp64<F> {
 impl<F: FractionalBits> ops::Div<Fp64<F>> for Fp64<F> {
     type Output = Self;
     #[inline]
-    fn div(self, other: Self) -> Self {
-        Fp64::from_raw((self.bits / other.bits) << F::bits())
-    }
+    fn div(self, other: Self) -> Self { Fp64::from_raw((self.bits / other.bits) << F::bits()) }
 }
 
 
@@ -354,23 +408,43 @@ fn test_fp32() {
     pub type Fp = Fp32<_16>;
 
     let zero = fixed(0.0);
-    let one  = fixed(1.0);
-    let minus_one  = Fp::from_f32(-1.0);
-    let ten  = Fp::from_f32(10.0);
-    let a  = Fp::from_f32(1.5);
+    let one = fixed(1.0);
+    let minus_one = Fp::from_f32(-1.0);
+    let ten = Fp::from_f32(10.0);
+    let a = Fp::from_f32(1.5);
 
     println!("0: {:?} | {}", zero, zero.bits);
     println!("1: {:?} | {}", one, one.bits);
     println!("-1: {:?} | {}", minus_one, minus_one.bits);
     println!("10: {:?} | {}", ten, ten.bits);
     println!("1.5: {:?} | {}", a, a.bits);
-    println!("1.5 * 10: {:?} | {}", a * ten, (a*ten).bits);
-    println!("0.5 / 2: {:?} | {}", Fp::from_f32(0.5) / fixed(2.0), (Fp::from_f32(0.5) / fixed(2.0)).bits);
-    println!("-0.5 / -2: {:?} | {}", Fp::from_f32(-0.5) / fixed(-2.0), (Fp::from_f32(-0.5) / fixed(-2.0)).bits);
-    println!("-0.5 / 2: {:?} | {}", Fp::from_f32(-0.5) / fixed(2.0), (Fp::from_f32(-0.5) / fixed(2.0)).bits);
-    println!("-0.5 * 2: {:?} | {}", Fp::from_f32(-0.5) * fixed(2.0), (Fp::from_f32(-0.5) * fixed(2.0)).bits);
-    println!("0.5 / -2: {:?} | {}", Fp::from_f32(0.5) / fixed(-2.0), (Fp::from_f32(0.5) / fixed(-2.0)).bits);
-    println!("bits {}", 1<<8 );
+    println!("1.5 * 10: {:?} | {}", a * ten, (a * ten).bits);
+    println!(
+        "0.5 / 2: {:?} | {}",
+        Fp::from_f32(0.5) / fixed(2.0),
+        (Fp::from_f32(0.5) / fixed(2.0)).bits
+    );
+    println!(
+        "-0.5 / -2: {:?} | {}",
+        Fp::from_f32(-0.5) / fixed(-2.0),
+        (Fp::from_f32(-0.5) / fixed(-2.0)).bits
+    );
+    println!(
+        "-0.5 / 2: {:?} | {}",
+        Fp::from_f32(-0.5) / fixed(2.0),
+        (Fp::from_f32(-0.5) / fixed(2.0)).bits
+    );
+    println!(
+        "-0.5 * 2: {:?} | {}",
+        Fp::from_f32(-0.5) * fixed(2.0),
+        (Fp::from_f32(-0.5) * fixed(2.0)).bits
+    );
+    println!(
+        "0.5 / -2: {:?} | {}",
+        Fp::from_f32(0.5) / fixed(-2.0),
+        (Fp::from_f32(0.5) / fixed(-2.0)).bits
+    );
+    println!("bits {}", 1 << 8);
 
     assert_eq!(Fp::from_i32(1), one);
     assert_eq!(Fp::one(), one);

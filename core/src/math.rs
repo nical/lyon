@@ -47,7 +47,9 @@ pub fn int_size(w: i32, h: i32) -> IntSize { IntSize::new(w, h) }
 #[inline]
 pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect { Rect::new(vec2(x, y), size(w, h)) }
 #[inline]
-pub fn int_rect(x: i32, y: i32, w: i32, h: i32) -> IntRect { IntRect::new(int_vec2(x, y), int_size(w, h)) }
+pub fn int_rect(x: i32, y: i32, w: i32, h: i32) -> IntRect {
+    IntRect::new(int_vec2(x, y), int_size(w, h))
+}
 
 #[inline]
 pub fn rad(val: f32) -> Radians<f32> { Radians::new(val) }
@@ -59,7 +61,7 @@ pub trait Vec2Array<S> {
 
 impl<S> Vec2Array<S> for euclid::Point2D<S> {
     #[inline]
-    fn array(self) ->[S; 2] { [self.x, self.y] }
+    fn array(self) -> [S; 2] { [self.x, self.y] }
 }
 
 pub trait Vec2Length {
@@ -82,7 +84,7 @@ impl Vec2Length for Vec2 {
 
 impl Vec2SquareLength for Vec2 {
     #[inline]
-    fn square_length(self) -> f32 { self.x*self.x + self.y*self.y }
+    fn square_length(self) -> f32 { self.x * self.x + self.y * self.y }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -94,14 +96,17 @@ pub struct BoolVec4 {
 }
 
 pub fn bvec4(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
-    BoolVec4 { x: x, y: y, z: z, w: w }
+    BoolVec4 {
+        x: x,
+        y: y,
+        z: z,
+        w: w,
+    }
 }
 
 impl BoolVec4 {
     #[inline]
-    pub fn new(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
-        bvec4(x, y, z, w)
-    }
+    pub fn new(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 { bvec4(x, y, z, w) }
 
     #[inline]
     pub fn any(self) -> bool { self.x || self.y || self.z || self.w }
