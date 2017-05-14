@@ -1,9 +1,9 @@
-use svgparser::path::{ Segment, SegmentData, Tokenizer };
+
+use svgparser::{ Tokenize, TextFrame };
+use svgparser::path::{ Tokenizer, Token };
 use core::SvgEvent;
 use core::math::*;
 use core::ArcFlags;
-
-use super::Stream;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ParserError;
@@ -14,93 +14,108 @@ pub struct PathTokenizer<'l> {
 
 impl<'l> PathTokenizer<'l> {
     pub fn new(text: &str) -> PathTokenizer {
-        PathTokenizer::from_stream(Stream::new(text.as_bytes()))
+        PathTokenizer {
+            tokenizer: Tokenizer::from_str(text)
+        }
     }
 
-    pub fn from_stream(stream: Stream) -> PathTokenizer {
+    pub fn from_frame(frame: TextFrame) -> PathTokenizer {
         PathTokenizer {
-            tokenizer: Tokenizer::new(stream)
+            tokenizer: Tokenizer::from_frame(frame)
         }
     }
 }
 
 impl<'l> Iterator for PathTokenizer<'l> {
     type Item = Result<SvgEvent, ParserError>;
+
     fn next(&mut self) -> Option<Result<SvgEvent, ParserError>> {
-        return match self.tokenizer.next() {
-            Some(Ok(segment)) => { Some(Ok(svg_event(&segment))) }
-            Some(Err(_)) => { Some(Err(ParserError)) }
-            None => { None }
-        };
+        match self.tokenizer.parse_next() {
+            Ok(token) => {
+                if token != Token::EndOfStream {
+                    Some(Ok(svg_event(&token)))
+                } else {
+                    None
+                }
+            }
+            Err(_) => { Some(Err(ParserError)) }
+        }
     }
 }
 
-fn svg_event(segment: &Segment) -> SvgEvent {
+fn svg_event(token: &Token) -> SvgEvent {
     fn v(x: f64, y: f64) -> Point { point(x as f32, y as f32) }
-    return match (segment.cmd, &segment.data) {
-        (b'M', &SegmentData::MoveTo { x, y }) => {
-            SvgEvent::MoveTo(v(x, y))
+    match *token {
+        Token::MoveTo { abs, x, y } => {
+            if abs {
+                SvgEvent::MoveTo(v(x, y))
+            } else {
+                SvgEvent::RelativeMoveTo(v(x, y))
+            }
         },
-        (b'm', &SegmentData::MoveTo { x, y }) => {
-            SvgEvent::RelativeMoveTo(v(x, y))
+        Token::LineTo { abs, x, y } => {
+            if abs {
+                SvgEvent::LineTo(v(x, y))
+            } else {
+                SvgEvent::RelativeLineTo(v(x, y))
+            }
         },
-        (b'L', &SegmentData::LineTo { x, y }) => {
-            SvgEvent::LineTo(v(x, y))
+        Token::HorizontalLineTo { abs, x } => {
+            if abs {
+                SvgEvent::HorizontalLineTo(x as f32)
+            } else {
+                SvgEvent::RelativeHorizontalLineTo(x as f32)
+            }
         },
-        (b'l', &SegmentData::LineTo { x, y }) => {
-            SvgEvent::RelativeLineTo(v(x, y))
+        Token::VerticalLineTo { abs, y } => {
+            if abs {
+                SvgEvent::VerticalLineTo(y as f32)
+            } else {
+                SvgEvent::RelativeVerticalLineTo(y as f32)
+            }
         },
-        (b'H', &SegmentData::HorizontalLineTo { x }) => {
-            SvgEvent::HorizontalLineTo(x as f32)
+        Token::CurveTo { abs, x1, y1, x2, y2, x, y } => {
+            if abs {
+                SvgEvent::CubicTo(v(x1, y1), v(x2, y2), v(x, y))
+            } else {
+                SvgEvent::RelativeCubicTo(v(x1, y1), v(x2, y2), v(x, y))
+            }
         },
-        (b'h', &SegmentData::HorizontalLineTo { x }) => {
-            SvgEvent::RelativeHorizontalLineTo(x as f32)
+        Token::SmoothCurveTo { abs, x2, y2, x, y } => {
+            if abs {
+                SvgEvent::SmoothCubicTo(v(x2, y2), v(x, y))
+            } else {
+                SvgEvent::SmoothRelativeCubicTo(v(x2, y2), v(x, y))
+            }
         },
-        (b'V', &SegmentData::VerticalLineTo { y }) => {
-            SvgEvent::VerticalLineTo(y as f32)
+        Token::Quadratic { abs, x1, y1, x, y } => {
+            if abs {
+                SvgEvent::QuadraticTo(v(x1, y1), v(x, y))
+            } else {
+                SvgEvent::RelativeQuadraticTo(v(x1, y1), v(x, y))
+            }
         },
-        (b'v', &SegmentData::VerticalLineTo { y }) => {
-            SvgEvent::RelativeVerticalLineTo(y as f32)
+        Token::SmoothQuadratic { abs, x, y } => {
+            if abs {
+                SvgEvent::SmoothQuadraticTo(v(x, y))
+            } else {
+                SvgEvent::SmoothRelativeQuadraticTo(v(x, y))
+            }
         },
-        (b'C', &SegmentData::CurveTo { x1, y1, x2, y2, x, y }) => {
-            SvgEvent::CubicTo(v(x1, y1), v(x2, y2), v(x, y))
+        Token::EllipticalArc { abs, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
+            if abs {
+                SvgEvent::ArcTo(
+                v(x, y), v(rx, ry), Radians::new(x_axis_rotation.to_radians() as f32),
+                ArcFlags { large_arc: large_arc, sweep: sweep }
+                )
+            } else {
+                SvgEvent::RelativeArcTo(
+                v(x, y), v(rx, ry), Radians::new(x_axis_rotation.to_radians() as f32),
+                ArcFlags { large_arc: large_arc, sweep: sweep }
+                )
+            }
         },
-        (b'c', &SegmentData::CurveTo { x1, y1, x2, y2, x, y }) => {
-            SvgEvent::RelativeCubicTo(v(x1, y1), v(x2, y2), v(x, y))
-        },
-        (b'S', &SegmentData::SmoothCurveTo { x2, y2, x, y }) => {
-            SvgEvent::SmoothCubicTo(v(x2, y2), v(x, y))
-        },
-        (b's', &SegmentData::SmoothCurveTo { x2, y2, x, y }) => {
-            SvgEvent::SmoothRelativeCubicTo(v(x2, y2), v(x, y))
-        },
-        (b'Q', &SegmentData::Quadratic { x1, y1, x, y }) => {
-            SvgEvent::QuadraticTo(v(x1, y1), v(x, y))
-        },
-        (b'q', &SegmentData::Quadratic { x1, y1, x, y }) => {
-            SvgEvent::RelativeQuadraticTo(v(x1, y1), v(x, y))
-        },
-        (b'T', &SegmentData::SmoothQuadratic { x, y }) => {
-            SvgEvent::SmoothQuadraticTo(v(x, y))
-        },
-        (b't', &SegmentData::SmoothQuadratic { x, y }) => {
-            SvgEvent::SmoothRelativeQuadraticTo(v(x, y))
-        },
-        (b'A', &SegmentData::EllipticalArc { rx, ry, x_axis_rotation, large_arc, sweep, x, y }) => {
-            SvgEvent::ArcTo(
-              v(x, y), v(rx, ry), Radians::new(x_axis_rotation.to_radians() as f32),
-              ArcFlags { large_arc: large_arc, sweep: sweep }
-            )
-        },
-        (b'a', &SegmentData::EllipticalArc { rx, ry, x_axis_rotation, large_arc, sweep, x, y }) => {
-            SvgEvent::RelativeArcTo(
-              v(x, y), v(rx, ry), Radians::new(x_axis_rotation.to_radians() as f32),
-              ArcFlags { large_arc: large_arc, sweep: sweep }
-            )
-        },
-        (_, &SegmentData::ClosePath) => { SvgEvent::Close },
-        _ => {
-            panic!("Unimplemented {:?} {:?}", segment.cmd, segment.data);
-        }
+        Token::ClosePath { .. } => { SvgEvent::Close },
+        Token::EndOfStream => unreachable!(),
     }
 }

@@ -1,5 +1,5 @@
 
-use super::{RgbColor, ValueId, Length};
+use super::{Color, ValueId, Length};
 use std::str;
 
 pub use svgparser::AttributeId;
@@ -15,7 +15,7 @@ pub enum AttributeValue {
     None,
     Number(f64),
     Length(Length),
-    RgbColor(RgbColor),
+    RgbColor(Color),
     String(String),
     KeyWord(ValueId),
     Unsupported,
@@ -28,9 +28,7 @@ impl AttributeValue {
             RefAttributeValue::Color(c) => { AttributeValue::RgbColor(c) }
             RefAttributeValue::Length(l) => { AttributeValue::Length(l) }
             RefAttributeValue::Number(n) => { AttributeValue::Number(n as f64) }
-            RefAttributeValue::String(s) => {
-                AttributeValue::String(unsafe { str::from_utf8_unchecked(s).to_string() })
-            }
+            RefAttributeValue::String(s) => { AttributeValue::String(s.to_owned()) }
             _ => {
                  // TODO...
                 println!(" -- WARNING: unsupported attribute value {:?}", val);
