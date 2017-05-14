@@ -163,11 +163,11 @@ pub trait GeometryBuilder<Input> {
     ///
     /// The implementation is expected to discard the geometry that was generated since the last
     /// time begin_geometry was called, and to remain in a usable state.
-   fn abort_geometry(&mut self);
+    fn abort_geometry(&mut self);
 }
 
 /// An extension to GeometryBuilder that can handle quadratic bezier segments.
-pub trait BezierGeometryBuilder<Input> : GeometryBuilder<Input> {
+pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
     /// Insert a quadratic bezier curve.
     /// The interrior is on the right side of the curve.
     ///
@@ -208,21 +208,20 @@ impl<VertexType> VertexBuffers<VertexType> {
 /// vertex attributes. The VertexConstructor does the translation from generic Input to VertexType.
 /// If your logic generates the actual vertex type directly, you can use the SimpleBuffersBuilder
 /// convenience typedef.
-pub struct BuffersBuilder<'l,
-    VertexType: 'l,
-    Input,
-    Ctor: VertexConstructor<Input, VertexType>
-> {
+pub struct BuffersBuilder<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>> {
     buffers: &'l mut VertexBuffers<VertexType>,
     vertex_offset: Index,
     index_offset: Index,
     vertex_constructor: Ctor,
-    _marker: PhantomData<Input>
+    _marker: PhantomData<Input>,
 }
 
 impl<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>>
-BuffersBuilder<'l, VertexType, Input, Ctor> {
-    pub fn new(buffers: &'l mut VertexBuffers<VertexType>, ctor: Ctor) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
+    BuffersBuilder<'l, VertexType, Input, Ctor> {
+    pub fn new(
+        buffers: &'l mut VertexBuffers<VertexType>,
+        ctor: Ctor,
+    ) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
         let vertex_offset = buffers.vertices.len() as Index;
         let index_offset = buffers.indices.len() as Index;
         BuffersBuilder {
@@ -230,15 +229,16 @@ BuffersBuilder<'l, VertexType, Input, Ctor> {
             vertex_offset: vertex_offset,
             index_offset: index_offset,
             vertex_constructor: ctor,
-            _marker: PhantomData
+            _marker: PhantomData,
         }
     }
 }
 
 /// Creates a BuffersBuilder.
-pub fn vertex_builder<'l, VertexType, Input, Ctor: VertexConstructor<Input, VertexType>>(
+pub fn vertex_builder<'l, VertexType, Input, Ctor: VertexConstructor<Input, VertexType>>
+    (
     buffers: &'l mut VertexBuffers<VertexType>,
-    ctor: Ctor
+    ctor: Ctor,
 ) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
     BuffersBuilder::new(buffers, ctor)
 }
@@ -255,10 +255,14 @@ impl<T> VertexConstructor<T, T> for Identity {
 }
 
 /// A BuffersBuilder that takes the actual vertex type as input.
-pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l, VertexType, VertexType, Identity>;
+pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l,
+                                                               VertexType,
+                                                               VertexType,
+                                                               Identity>;
 
 /// Creates a SimpleBuffersBuilder.
-pub fn simple_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType>) -> SimpleBuffersBuilder<'l, VertexType> {
+pub fn simple_builder<'l, VertexType>(buffers: &'l mut VertexBuffers<VertexType>)
+    -> SimpleBuffersBuilder<'l, VertexType> {
     let vertex_offset = buffers.vertices.len() as Index;
     let index_offset = buffers.indices.len() as Index;
     BuffersBuilder {
@@ -266,7 +270,7 @@ pub fn simple_builder<'l, VertexType> (buffers: &'l mut VertexBuffers<VertexType
         vertex_offset: vertex_offset,
         index_offset: index_offset,
         vertex_constructor: Identity,
-        _marker: PhantomData
+        _marker: PhantomData,
     }
 }
 
@@ -288,9 +292,11 @@ impl Add for Count {
 }
 
 impl<'l, VertexType, Input, Ctor> GeometryBuilder<Input>
-for BuffersBuilder<'l, VertexType, Input, Ctor>
-where VertexType:'l + Clone, Ctor: VertexConstructor<Input, VertexType> {
-
+    for BuffersBuilder<'l, VertexType, Input, Ctor>
+where
+    VertexType: 'l + Clone,
+    Ctor: VertexConstructor<Input, VertexType>,
+{
     fn begin_geometry(&mut self) {
         self.vertex_offset = self.buffers.vertices.len() as Index;
         self.index_offset = self.buffers.indices.len() as Index;
@@ -298,14 +304,14 @@ where VertexType:'l + Clone, Ctor: VertexConstructor<Input, VertexType> {
 
     fn end_geometry(&mut self) -> Count {
         return Count {
-            vertices: self.buffers.vertices.len() as u32 - self.vertex_offset as u32,
-            indices: self.buffers.indices.len() as u32 - self.index_offset as u32
-        };
+                   vertices: self.buffers.vertices.len() as u32 - self.vertex_offset as u32,
+                   indices: self.buffers.indices.len() as u32 - self.index_offset as u32,
+               };
     }
 
     fn add_vertex(&mut self, v: Input) -> VertexId {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
-        return VertexId(self.buffers.vertices.len() as Index - 1 - self.vertex_offset)
+        return VertexId(self.buffers.vertices.len() as Index - 1 - self.vertex_offset);
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -322,8 +328,11 @@ where VertexType:'l + Clone, Ctor: VertexConstructor<Input, VertexType> {
 
 
 impl<'l, VertexType, Input, Ctor> BezierGeometryBuilder<Input>
-for BuffersBuilder<'l, VertexType, Input, Ctor>
-where VertexType:'l + Clone, Ctor: VertexConstructor<Input, VertexType> {
+    for BuffersBuilder<'l, VertexType, Input, Ctor>
+where
+    VertexType: 'l + Clone,
+    Ctor: VertexConstructor<Input, VertexType>,
+{
     fn add_quadratic_bezier(&mut self, _from: VertexId, _to: VertexId, _ctrl: Input) {
         unimplemented!();
     }
@@ -335,8 +344,8 @@ fn test_simple_quad() {
 
     #[derive(Copy, Clone, PartialEq, Debug)]
     struct Vertex2d {
-      position: [f32; 2],
-      color: [f32; 4],
+        position: [f32; 2],
+        color: [f32; 4],
     }
 
     struct WithColor([f32; 4]);
@@ -345,7 +354,7 @@ fn test_simple_quad() {
         fn new_vertex(&mut self, pos: [f32; 2]) -> Vertex2d {
             Vertex2d {
                 position: pos,
-                color: self.0
+                color: self.0,
             }
         }
     }
@@ -354,7 +363,7 @@ fn test_simple_quad() {
     fn add_quad<Builder: GeometryBuilder<[f32; 2]>>(
         top_left: [f32; 2],
         size: [f32; 2],
-        mut out: Builder
+        mut out: Builder,
     ) -> Count {
         out.begin_geometry();
         let a = out.add_vertex(top_left);
@@ -383,17 +392,65 @@ fn test_simple_quad() {
 
     add_quad([0.0, 0.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(red)));
 
-    assert_eq!(buffers.vertices[0], Vertex2d { position: [0.0, 0.0], color: red });
-    assert_eq!(buffers.vertices[1], Vertex2d { position: [1.0, 0.0], color: red });
-    assert_eq!(buffers.vertices[3], Vertex2d { position: [0.0, 1.0], color: red });
-    assert_eq!(buffers.vertices[2], Vertex2d { position: [1.0, 1.0], color: red });
+    assert_eq!(
+        buffers.vertices[0],
+        Vertex2d {
+            position: [0.0, 0.0],
+            color: red,
+        }
+    );
+    assert_eq!(
+        buffers.vertices[1],
+        Vertex2d {
+            position: [1.0, 0.0],
+            color: red,
+        }
+    );
+    assert_eq!(
+        buffers.vertices[3],
+        Vertex2d {
+            position: [0.0, 1.0],
+            color: red,
+        }
+    );
+    assert_eq!(
+        buffers.vertices[2],
+        Vertex2d {
+            position: [1.0, 1.0],
+            color: red,
+        }
+    );
     assert_eq!(&buffers.indices[..], &[0, 1, 2, 0, 2, 3]);
 
     add_quad([10.0, 10.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(green)));
 
-    assert_eq!(buffers.vertices[4], Vertex2d { position: [10.0, 10.0], color: green });
-    assert_eq!(buffers.vertices[5], Vertex2d { position: [11.0, 10.0], color: green });
-    assert_eq!(buffers.vertices[6], Vertex2d { position: [11.0, 11.0], color: green });
-    assert_eq!(buffers.vertices[7], Vertex2d { position: [10.0, 11.0], color: green });
+    assert_eq!(
+        buffers.vertices[4],
+        Vertex2d {
+            position: [10.0, 10.0],
+            color: green,
+        }
+    );
+    assert_eq!(
+        buffers.vertices[5],
+        Vertex2d {
+            position: [11.0, 10.0],
+            color: green,
+        }
+    );
+    assert_eq!(
+        buffers.vertices[6],
+        Vertex2d {
+            position: [11.0, 11.0],
+            color: green,
+        }
+    );
+    assert_eq!(
+        buffers.vertices[7],
+        Vertex2d {
+            position: [10.0, 11.0],
+            color: green,
+        }
+    );
     assert_eq!(&buffers.indices[..], &[0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
 }

@@ -3,8 +3,8 @@
 //! Tessellation routines for simple shapes.
 
 use core::FlattenedEvent;
-use geometry_builder::{ GeometryBuilder, Count, VertexId };
-use path_stroke::{ StrokeOptions, StrokeTessellator };
+use geometry_builder::{GeometryBuilder, Count, VertexId};
+use path_stroke::{StrokeOptions, StrokeTessellator};
 use math_utils::compute_normal;
 use math::*;
 use {FillVertex, StrokeVertex, Side};
@@ -20,18 +20,24 @@ pub fn fill_triangle<Output: GeometryBuilder<FillVertex>>(
 ) -> Count {
     output.begin_geometry();
 
-    let a = output.add_vertex(FillVertex {
-        position: v1,
-        normal: compute_normal(v1 - v3, v2 - v1),
-    });
-    let b = output.add_vertex(FillVertex {
-        position: v2,
-        normal: compute_normal(v2 - v1, v3 - v2),
-    });
-    let c = output.add_vertex(FillVertex {
-        position: v3,
-        normal: compute_normal(v3 - v2, v1 - v3),
-    });
+    let a = output.add_vertex(
+        FillVertex {
+            position: v1,
+            normal: compute_normal(v1 - v3, v2 - v1),
+        }
+    );
+    let b = output.add_vertex(
+        FillVertex {
+            position: v2,
+            normal: compute_normal(v2 - v1, v3 - v2),
+        }
+    );
+    let c = output.add_vertex(
+        FillVertex {
+            position: v3,
+            normal: compute_normal(v3 - v2, v1 - v3),
+        }
+    );
 
     output.add_triangle(a, b, c);
 
@@ -51,38 +57,50 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
     let nb = compute_normal(v2 - v1, v3 - v2);
     let nc = compute_normal(v3 - v2, v1 - v3);
 
-    let a1 = output.add_vertex(StrokeVertex {
-        position: v1,
-        normal: -na,
-        side: Side::Right,
-    });
-    let a2 = output.add_vertex(StrokeVertex {
-        position: v1,
-        normal: na,
-        side: Side::Left,
-    });
+    let a1 = output.add_vertex(
+        StrokeVertex {
+            position: v1,
+            normal: -na,
+            side: Side::Right,
+        }
+    );
+    let a2 = output.add_vertex(
+        StrokeVertex {
+            position: v1,
+            normal: na,
+            side: Side::Left,
+        }
+    );
 
-    let b1 = output.add_vertex(StrokeVertex {
-        position: v2,
-        normal: -nb,
-        side: Side::Right,
-    });
-    let b2 = output.add_vertex(StrokeVertex {
-        position: v2,
-        normal: nb,
-        side: Side::Left,
-    });
+    let b1 = output.add_vertex(
+        StrokeVertex {
+            position: v2,
+            normal: -nb,
+            side: Side::Right,
+        }
+    );
+    let b2 = output.add_vertex(
+        StrokeVertex {
+            position: v2,
+            normal: nb,
+            side: Side::Left,
+        }
+    );
 
-    let c1 = output.add_vertex(StrokeVertex {
-        position: v3,
-        normal: -nc,
-        side: Side::Right,
-    });
-    let c2 = output.add_vertex(StrokeVertex {
-        position: v3,
-        normal: nc,
-        side: Side::Left,
-    });
+    let c1 = output.add_vertex(
+        StrokeVertex {
+            position: v3,
+            normal: -nc,
+            side: Side::Right,
+        }
+    );
+    let c2 = output.add_vertex(
+        StrokeVertex {
+            position: v3,
+            normal: nc,
+            side: Side::Left,
+        }
+    );
 
     output.add_triangle(a1, a2, b2);
     output.add_triangle(a2, b2, b1);
@@ -105,26 +123,34 @@ pub fn fill_quad<Output: GeometryBuilder<FillVertex>>(
 ) -> Count {
     output.begin_geometry();
 
-    let a = output.add_vertex(FillVertex {
-        position: v1,
-        normal: compute_normal(v1 - v4, v2 - v1),
-    });
-    let b = output.add_vertex(FillVertex {
-        position: v2,
-        normal: compute_normal(v2 - v1, v3 - v2),
-    });
-    let c = output.add_vertex(FillVertex {
-        position: v3,
-        normal: compute_normal(v3 - v2, v4 - v3),
-    });
-    let d = output.add_vertex(FillVertex {
-        position: v4,
-        normal: compute_normal(v4 - v3, v1 - v4),
-    });
+    let a = output.add_vertex(
+        FillVertex {
+            position: v1,
+            normal: compute_normal(v1 - v4, v2 - v1),
+        }
+    );
+    let b = output.add_vertex(
+        FillVertex {
+            position: v2,
+            normal: compute_normal(v2 - v1, v3 - v2),
+        }
+    );
+    let c = output.add_vertex(
+        FillVertex {
+            position: v3,
+            normal: compute_normal(v3 - v2, v4 - v3),
+        }
+    );
+    let d = output.add_vertex(
+        FillVertex {
+            position: v4,
+            normal: compute_normal(v4 - v3, v1 - v4),
+        }
+    );
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    return output.end_geometry()
+    return output.end_geometry();
 }
 
 /// Tessellate the stroke of a quad.
@@ -142,49 +168,65 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
     let nc = compute_normal(v3 - v2, v4 - v3);
     let nd = compute_normal(v4 - v3, v1 - v4);
 
-    let a1 = output.add_vertex(StrokeVertex {
-        position: v1,
-        normal: -na,
-        side: Side::Right,
-    });
-    let a2 = output.add_vertex(StrokeVertex {
-        position: v1,
-        normal: na,
-        side: Side::Left,
-    });
+    let a1 = output.add_vertex(
+        StrokeVertex {
+            position: v1,
+            normal: -na,
+            side: Side::Right,
+        }
+    );
+    let a2 = output.add_vertex(
+        StrokeVertex {
+            position: v1,
+            normal: na,
+            side: Side::Left,
+        }
+    );
 
-    let b1 = output.add_vertex(StrokeVertex {
-        position: v2,
-        normal: -nb,
-        side: Side::Right,
-    });
-    let b2 = output.add_vertex(StrokeVertex {
-        position: v2,
-        normal: nb,
-        side: Side::Left,
-    });
+    let b1 = output.add_vertex(
+        StrokeVertex {
+            position: v2,
+            normal: -nb,
+            side: Side::Right,
+        }
+    );
+    let b2 = output.add_vertex(
+        StrokeVertex {
+            position: v2,
+            normal: nb,
+            side: Side::Left,
+        }
+    );
 
-    let c1 = output.add_vertex(StrokeVertex {
-        position: v3,
-        normal: -nc,
-        side: Side::Right,
-    });
-    let c2 = output.add_vertex(StrokeVertex {
-        position: v3,
-        normal: nc,
-        side: Side::Left,
-    });
+    let c1 = output.add_vertex(
+        StrokeVertex {
+            position: v3,
+            normal: -nc,
+            side: Side::Right,
+        }
+    );
+    let c2 = output.add_vertex(
+        StrokeVertex {
+            position: v3,
+            normal: nc,
+            side: Side::Left,
+        }
+    );
 
-    let d1 = output.add_vertex(StrokeVertex {
-        position: v4,
-        normal: -nc,
-        side: Side::Right,
-    });
-    let d2 = output.add_vertex(StrokeVertex {
-        position: v4,
-        normal: nd,
-        side: Side::Left,
-    });
+    let d1 = output.add_vertex(
+        StrokeVertex {
+            position: v4,
+            normal: -nc,
+            side: Side::Right,
+        }
+    );
+    let d2 = output.add_vertex(
+        StrokeVertex {
+            position: v4,
+            normal: nd,
+            side: Side::Left,
+        }
+    );
 
     output.add_triangle(a1, a2, b2);
     output.add_triangle(a2, b2, b1);
@@ -205,26 +247,34 @@ pub fn fill_rectangle<Output: GeometryBuilder<FillVertex>>(
 ) -> Count {
     output.begin_geometry();
 
-    let a = output.add_vertex(FillVertex {
-        position: rect.origin,
-        normal: vec2(-1.0, -1.0),
-    });
-    let b = output.add_vertex(FillVertex {
-        position: rect.top_right(),
-        normal: vec2(1.0, -1.0),
-    });
-    let c = output.add_vertex(FillVertex {
-        position: rect.bottom_right(),
-        normal: vec2(1.0, 1.0),
-    });
-    let d = output.add_vertex(FillVertex {
-        position: rect.bottom_left(),
-        normal: vec2(-1.0, 1.0),
-    });
+    let a = output.add_vertex(
+        FillVertex {
+            position: rect.origin,
+            normal: vec2(-1.0, -1.0),
+        }
+    );
+    let b = output.add_vertex(
+        FillVertex {
+            position: rect.top_right(),
+            normal: vec2(1.0, -1.0),
+        }
+    );
+    let c = output.add_vertex(
+        FillVertex {
+            position: rect.bottom_right(),
+            normal: vec2(1.0, 1.0),
+        }
+    );
+    let d = output.add_vertex(
+        FillVertex {
+            position: rect.bottom_left(),
+            normal: vec2(-1.0, 1.0),
+        }
+    );
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    return output.end_geometry()
+    return output.end_geometry();
 }
 
 /// Tessellate the stroke for an axis-aligne rectangle.
@@ -234,49 +284,65 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
 ) -> Count {
     output.begin_geometry();
 
-    let a1 = output.add_vertex(StrokeVertex {
-        position: rect.origin,
-        normal: -vec2(-1.0, -1.0),
-        side: Side::Right,
-    });
-    let a2 = output.add_vertex(StrokeVertex {
-        position: rect.origin,
-        normal: vec2(-1.0, -1.0),
-        side: Side::Left,
-    });
+    let a1 = output.add_vertex(
+        StrokeVertex {
+            position: rect.origin,
+            normal: -vec2(-1.0, -1.0),
+            side: Side::Right,
+        }
+    );
+    let a2 = output.add_vertex(
+        StrokeVertex {
+            position: rect.origin,
+            normal: vec2(-1.0, -1.0),
+            side: Side::Left,
+        }
+    );
 
-    let b1 = output.add_vertex(StrokeVertex {
-        position: rect.top_right(),
-        normal: -vec2(1.0, -1.0),
-        side: Side::Right,
-    });
-    let b2 = output.add_vertex(StrokeVertex {
-        position: rect.top_right(),
-        normal: vec2(1.0, -1.0),
-        side: Side::Left,
-    });
+    let b1 = output.add_vertex(
+        StrokeVertex {
+            position: rect.top_right(),
+            normal: -vec2(1.0, -1.0),
+            side: Side::Right,
+        }
+    );
+    let b2 = output.add_vertex(
+        StrokeVertex {
+            position: rect.top_right(),
+            normal: vec2(1.0, -1.0),
+            side: Side::Left,
+        }
+    );
 
-    let c1 = output.add_vertex(StrokeVertex {
-        position: rect.bottom_right(),
-        normal: -vec2(1.0, 1.0),
-        side: Side::Right,
-    });
-    let c2 = output.add_vertex(StrokeVertex {
-        position: rect.bottom_right(),
-        normal: vec2(1.0, 1.0),
-        side: Side::Left,
-    });
+    let c1 = output.add_vertex(
+        StrokeVertex {
+            position: rect.bottom_right(),
+            normal: -vec2(1.0, 1.0),
+            side: Side::Right,
+        }
+    );
+    let c2 = output.add_vertex(
+        StrokeVertex {
+            position: rect.bottom_right(),
+            normal: vec2(1.0, 1.0),
+            side: Side::Left,
+        }
+    );
 
-    let d1 = output.add_vertex(StrokeVertex {
-        position: rect.bottom_left(),
-        normal: -vec2(1.0, 0.0),
-        side: Side::Right,
-    });
-    let d2 = output.add_vertex(StrokeVertex {
-        position: rect.bottom_left(),
-        normal: vec2(1.0, 0.0),
-        side: Side::Left,
-    });
+    let d1 = output.add_vertex(
+        StrokeVertex {
+            position: rect.bottom_left(),
+            normal: -vec2(1.0, 0.0),
+            side: Side::Right,
+        }
+    );
+    let d2 = output.add_vertex(
+        StrokeVertex {
+            position: rect.bottom_left(),
+            normal: vec2(1.0, 0.0),
+            side: Side::Left,
+        }
+    );
 
     output.add_triangle(a1, a2, b2);
     output.add_triangle(a2, b2, b1);
@@ -302,7 +368,7 @@ pub struct RoundedRect {
 /// Tessellate an axis-aligned rounded rectangle.
 pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
     _rect: &RoundedRect,
-    _output: &mut Output
+    _output: &mut Output,
 ) -> Count {
     unimplemented!();
 }
@@ -310,7 +376,7 @@ pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
 pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     _rect: &RoundedRect,
-    _output: &mut Output
+    _output: &mut Output,
 ) -> Count {
     unimplemented!();
 }
@@ -320,53 +386,60 @@ pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
     center: Point,
     radius: Vec2,
     num_vertices: u32, // TODO: use a tolerance instead?
-    output: &mut Output
+    output: &mut Output,
 ) -> Count {
     output.begin_geometry();
-    let c = output.add_vertex(FillVertex{
-        position: center,
-        normal: vec2(0.0, 0.0),
-    });
+    let c = output.add_vertex(
+        FillVertex {
+            position: center,
+            normal: vec2(0.0, 0.0),
+        }
+    );
     for i in 0..num_vertices {
         let angle = i as f32 * 2.0 * PI / ((num_vertices - 1) as f32);
-        output.add_vertex(FillVertex {
-            position: center + vec2(radius.x*angle.cos(), radius.y*angle.sin()),
-            normal: vec2(0.0, 0.0), // TODO
-        });
+        output.add_vertex(
+            FillVertex {
+                position: center + vec2(radius.x * angle.cos(), radius.y * angle.sin()),
+                normal: vec2(0.0, 0.0), // TODO
+            }
+        );
     }
     for i in 1..((num_vertices) as u16) {
-        output.add_triangle(c, VertexId(i), VertexId((i - 1)%num_vertices as u16 + 2));
+        output.add_triangle(c, VertexId(i), VertexId((i - 1) % num_vertices as u16 + 2));
     }
-    return output.end_geometry()
+    return output.end_geometry();
 }
 
 /// Tessellate a convex polyline.
 ///
 /// TODO: normals are not implemented yet.
-pub fn fill_convex_polyline<Iter, Output>(
-    mut it: Iter,
-    output: &mut Output,
-) -> Count
+pub fn fill_convex_polyline<Iter, Output>(mut it: Iter, output: &mut Output) -> Count
 where
-    Iter: Iterator<Item=Point>,
-    Output: GeometryBuilder<FillVertex>
+    Iter: Iterator<Item = Point>,
+    Output: GeometryBuilder<FillVertex>,
 {
     output.begin_geometry();
     if let (Some(first), Some(second)) = (it.next(), it.next()) {
-        let mut a = output.add_vertex(FillVertex {
-            position: first,
-            normal: vec2(0.0, 0.0), // TODO
-        });
-        let mut b = output.add_vertex(FillVertex {
-            position: second,
-            normal: vec2(0.0, 0.0), // TODO
-        });
+        let mut a = output.add_vertex(
+            FillVertex {
+                position: first,
+                normal: vec2(0.0, 0.0), // TODO
+            }
+        );
+        let mut b = output.add_vertex(
+            FillVertex {
+                position: second,
+                normal: vec2(0.0, 0.0), // TODO
+            }
+        );
 
         for point in it {
-            let c = output.add_vertex(FillVertex {
-                position: point,
-                normal: vec2(0.0, 0.0), // TODO
-            });
+            let c = output.add_vertex(
+                FillVertex {
+                    position: point,
+                    normal: vec2(0.0, 0.0), // TODO
+                }
+            );
 
             output.add_triangle(a, b, c);
             a = b;
@@ -376,23 +449,15 @@ where
     return output.end_geometry();
 }
 
-pub fn stroke_polyline<Iter, Output>(
-    it: Iter,
-    is_closed: bool,
-    output: &mut Output,
-) -> Count
+pub fn stroke_polyline<Iter, Output>(it: Iter, is_closed: bool, output: &mut Output) -> Count
 where
-    Iter: Iterator<Item=Point>,
-    Output: GeometryBuilder<StrokeVertex>
+    Iter: Iterator<Item = Point>,
+    Output: GeometryBuilder<StrokeVertex>,
 {
     let options = StrokeOptions::default();
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate(
-        PolylineEvents::new(is_closed, it),
-        &options,
-        output
-    ).unwrap();
+    return tess.tessellate(PolylineEvents::new(is_closed, it), &options, output).unwrap();
 }
 
 // TODO: This should be in path_iterator but it creates a dependency.
@@ -405,7 +470,7 @@ pub struct PolylineEvents<Iter> {
     close: bool,
 }
 
-impl<Iter:Iterator<Item=Point>> PolylineEvents<Iter> {
+impl<Iter: Iterator<Item = Point>> PolylineEvents<Iter> {
     pub fn new(closed: bool, iter: Iter) -> Self {
         PolylineEvents {
             iter: iter,
@@ -421,8 +486,9 @@ impl<Iter:Iterator<Item=Point>> PolylineEvents<Iter> {
 }
 
 impl<Iter> Iterator for PolylineEvents<Iter>
-where Iter: Iterator<Item=Point> {
-
+where
+    Iter: Iterator<Item = Point>,
+{
     type Item = FlattenedEvent;
 
     fn next(&mut self) -> Option<FlattenedEvent> {
@@ -431,12 +497,14 @@ where Iter: Iterator<Item=Point> {
         }
 
         if let Some(next) = self.iter.next() {
-            return Some(if self.first {
-                self.first = false;
-                FlattenedEvent::MoveTo(next)
-            } else {
-                FlattenedEvent::LineTo(next)
-            });
+            return Some(
+                if self.first {
+                    self.first = false;
+                    FlattenedEvent::MoveTo(next)
+                } else {
+                    FlattenedEvent::LineTo(next)
+                }
+            );
         }
 
         self.done = true;

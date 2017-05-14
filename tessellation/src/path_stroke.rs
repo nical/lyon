@@ -78,8 +78,8 @@
 
 use math::*;
 use core::FlattenedEvent;
-use geometry_builder::{ VertexId, GeometryBuilder, Count, };
-use math_utils::{ tangent, line_intersection, };
+use geometry_builder::{VertexId, GeometryBuilder, Count};
+use math_utils::{tangent, line_intersection};
 use path_builder::BaseBuilder;
 use StrokeVertex as Vertex;
 use Side;
@@ -92,8 +92,16 @@ pub struct StrokeTessellator {}
 impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
-    pub fn tessellate<Input, Output>(&mut self, input: Input, options: &StrokeOptions, builder: &mut Output) -> StrokeResult
-    where Input: Iterator<Item=FlattenedEvent>, Output: GeometryBuilder<Vertex> {
+    pub fn tessellate<Input, Output>(
+        &mut self,
+        input: Input,
+        options: &StrokeOptions,
+        builder: &mut Output,
+    ) -> StrokeResult
+    where
+        Input: Iterator<Item = FlattenedEvent>,
+        Output: GeometryBuilder<Vertex>,
+    {
         builder.begin_geometry();
         let mut stroker = StrokeBuilder::new(options, builder);
 
@@ -106,7 +114,7 @@ impl StrokeTessellator {
 }
 
 /// A builder that tessellates a stroke directly without allocating any intermediate data structure.
-pub struct StrokeBuilder<'l, Output:'l> {
+pub struct StrokeBuilder<'l, Output: 'l> {
     first: Point,
     previous: Point,
     current: Point,
@@ -120,7 +128,7 @@ pub struct StrokeBuilder<'l, Output:'l> {
     output: &'l mut Output,
 }
 
-impl<'l, Output:'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, Output> {
+impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, Output> {
     type PathType = StrokeResult;
 
     fn move_to(&mut self, to: Point) {
@@ -131,9 +139,7 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, 
         self.nth = 0;
     }
 
-    fn line_to(&mut self, to: Point) {
-        self.edge_to(to);
-    }
+    fn line_to(&mut self, to: Point) { self.edge_to(to); }
 
     fn close(&mut self) {
         let first = self.first;
@@ -165,33 +171,34 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, 
     }
 }
 
-impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
+impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     pub fn new(options: &StrokeOptions, builder: &'l mut Output) -> Self {
         let zero = Point::new(0.0, 0.0);
         return StrokeBuilder {
-            first: zero,
-            second: zero,
-            previous: zero,
-            current: zero,
-            previous_a_id: VertexId(0),
-            previous_b_id: VertexId(0),
-            second_a_id: VertexId(0),
-            second_b_id: VertexId(0),
-            nth: 0,
-            options: *options,
-            output: builder
-        }
+                   first: zero,
+                   second: zero,
+                   previous: zero,
+                   current: zero,
+                   previous_a_id: VertexId(0),
+                   previous_b_id: VertexId(0),
+                   second_a_id: VertexId(0),
+                   second_b_id: VertexId(0),
+                   nth: 0,
+                   options: *options,
+                   output: builder,
+               };
     }
 
-    pub fn set_options(&mut self, options: &StrokeOptions) {
-        self.options = *options;
-    }
+    pub fn set_options(&mut self, options: &StrokeOptions) { self.options = *options; }
 
     fn finish(&mut self) {
         match self.options.line_cap {
             LineCap::Butt | LineCap::Square => {}
             _ => {
-                println!("[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.", self.options.line_cap);
+                println!(
+                    "[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.",
+                    self.options.line_cap
+                );
             }
         }
 
@@ -200,26 +207,38 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         if self.options.line_cap == LineCap::Square && self.nth == 0 {
             // Even if there is no edge, if we are using square caps we have to place a square
             // at the current position.
-            let a = self.output.add_vertex(Vertex {
-                position: self.current,
-                normal: vec2(-hw, -hw),
-                side: Side::Left,
-            });
-            let b = self.output.add_vertex(Vertex {
-                position: self.current,
-                normal: vec2(hw, -hw),
-                side: Side::Left,
-            });
-            let c = self.output.add_vertex(Vertex {
-                position: self.current,
-                normal: vec2(hw,  hw),
-                side: Side::Right,
-            });
-            let d = self.output.add_vertex(Vertex {
-                position: self.current,
-                normal: vec2(-hw,  hw),
-                side: Side::Right,
-            });
+            let a = self.output
+                .add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: vec2(-hw, -hw),
+                        side: Side::Left,
+                    }
+                );
+            let b = self.output
+                .add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: vec2(hw, -hw),
+                        side: Side::Left,
+                    }
+                );
+            let c = self.output
+                .add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: vec2(hw, hw),
+                        side: Side::Right,
+                    }
+                );
+            let d = self.output
+                .add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: vec2(-hw, hw),
+                        side: Side::Right,
+                    }
+                );
             self.output.add_triangle(a, b, c);
             self.output.add_triangle(a, c, d);
         }
@@ -251,16 +270,22 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let n2 = tangent(d) * 0.5;
             let n1 = -n2;
 
-            let first_a_id = self.output.add_vertex(Vertex {
-                position: first,
-                normal: n1,
-                side: Side::Left,
-            });
-            let first_b_id = self.output.add_vertex(Vertex {
-                position: first,
-                normal: n2,
-                side: Side::Right,
-            });
+            let first_a_id = self.output
+                .add_vertex(
+                    Vertex {
+                        position: first,
+                        normal: n1,
+                        side: Side::Left,
+                    }
+                );
+            let first_b_id = self.output
+                .add_vertex(
+                    Vertex {
+                        position: first,
+                        normal: n2,
+                        side: Side::Right,
+                    }
+                );
 
             self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
             self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
@@ -279,24 +304,36 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             return;
         }
         let (na, nb, maybe_nc) = get_angle_info(self.previous, self.current, to);
-        let a_id = self.output.add_vertex(Vertex {
-            position: self.current,
-            normal: na,
-            side: Side::Left,
-        });
-        let b_id = self.output.add_vertex(Vertex {
-            position: self.current,
-            normal: nb,
-            side: Side::Right,
-        });
+        let a_id = self.output
+            .add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: na,
+                    side: Side::Left,
+                }
+            );
+        let b_id = self.output
+            .add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: nb,
+                    side: Side::Right,
+                }
+            );
 
         let (nc, c_id) = if let Some(n) = maybe_nc {
-            (n, self.output.add_vertex(Vertex{
-                position: self.current,
-                normal: n,
-                side: Side::Left, // TODO
-            }))
-        } else { (nb, b_id) };
+            (n,
+             self.output
+                 .add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: n,
+                    side: Side::Left, // TODO
+                }
+            ))
+        } else {
+            (nb, b_id)
+        };
 
         if self.nth > 1 {
             self.output.add_triangle(self.previous_b_id, self.previous_a_id, b_id);
@@ -322,7 +359,16 @@ impl<'l, Output:'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         self.nth += 1;
     }
 
-    fn tessellate_angle(&mut self, _position: Point,  _na: Vec2, a_id: VertexId, _nb: Vec2, b_id: VertexId, _nc: Vec2, c_id: VertexId) {
+    fn tessellate_angle(
+        &mut self,
+        _position: Point,
+        _na: Vec2,
+        a_id: VertexId,
+        _nb: Vec2,
+        b_id: VertexId,
+        _nc: Vec2,
+        c_id: VertexId,
+    ) {
         // TODO: Properly support all types of angles.
         self.output.add_triangle(b_id, a_id, c_id);
     }
@@ -334,14 +380,14 @@ fn get_angle_info(previous: Point, current: Point, next: Point) -> (Point, Point
     let n2 = tangent(next - current) * amount;
 
     // Segment P1-->PX
-    let pn1  = previous + n1; // prev extruded along the tangent n1
+    let pn1 = previous + n1; // prev extruded along the tangent n1
     let pn1x = current + n1; // px extruded along the tangent n1
     // Segment PX-->P2
-    let pn2  = next + n2;
+    let pn2 = next + n2;
     let pn2x = current + n2;
 
     let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
-        Some(v) => { v }
+        Some(v) => v,
         None => {
             if (n1 - n2).square_length() < 0.000001 {
                 pn1x

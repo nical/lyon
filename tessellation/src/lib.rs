@@ -94,7 +94,7 @@ pub use core::*;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Side {
     Left,
-    Right
+    Right,
 }
 
 /// Vertex produced by the stroke tessellators.
@@ -125,4 +125,3 @@ pub struct FillVertex {
     /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
     pub normal: math::Vec2,
 }
-
