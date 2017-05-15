@@ -87,6 +87,12 @@ impl CubicFlatteningIter2 {
             );
             iter.following_inflection_start = clamp(iter.following_inflection_start, 0.0, 1.0);
             iter.following_inflection_end = clamp(iter.following_inflection_end, 0.0, 1.0);
+
+            // Adjust the second inflection since we are going to remove the part before the
+            // first inflection from the bezier curve.
+            let split = iter.next_inflection_end;
+            iter.following_inflection_start = (iter.following_inflection_start - split) / (1.0 - split);
+            iter.following_inflection_end = (iter.following_inflection_end - split) / (1.0 - split);
         }
 
         if iter.next_inflection_start > 0.0 {
@@ -306,6 +312,12 @@ fn flatten_cubic_bezier2<F: FnMut(Point)>(
             &mut second_inflection_start,
             &mut second_inflection_end,
         );
+
+        // Adjust the second inflection since we are going to remove the part before the
+        // first inflection from the bezier curve.
+        let split = first_inflection_end;
+        second_inflection_start = (second_inflection_start - split) / (1.0 - split);
+        second_inflection_end = (second_inflection_end - split) / (1.0 - split);
     }
 
     // Process ranges. [first_inflection_start, first_inflection_end] and
