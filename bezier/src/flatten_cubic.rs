@@ -11,22 +11,6 @@ use super::{Point, CubicBezierSegment};
 use std::f32;
 use std::mem::swap;
 
-/// An iterator over a cubic bezier segment that yields line segments approximating the
-/// curve for a given approximation threshold.
-///
-/// The iterator starts at the first point *after* the origin of the curve and ends at the
-/// destination.
-pub struct CubicFlatteningIter {
-    curve: CubicBezierSegment,
-    sub_curve: Option<CubicBezierSegment>,
-    next_inflection_start: f32,
-    next_inflection_end: f32,
-    following_inflection_start: f32,
-    following_inflection_end: f32,
-    num_inflecions: i32,
-    tolerance: f32,
-}
-
 fn clamp(a: f32, min: f32, max: f32) -> f32 {
     if a < min {
         return min;
@@ -37,7 +21,20 @@ fn clamp(a: f32, min: f32, max: f32) -> f32 {
     return a;
 }
 
-impl CubicFlatteningIter {
+// TODO: remove this when we have made sure the simplified flattening algorithm
+// is correct.
+struct CubicFlatteningIter2 {
+    curve: CubicBezierSegment,
+    sub_curve: Option<CubicBezierSegment>,
+    next_inflection_start: f32,
+    next_inflection_end: f32,
+    following_inflection_start: f32,
+    following_inflection_end: f32,
+    num_inflecions: i32,
+    tolerance: f32,
+}
+
+impl CubicFlatteningIter2 {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment, tolerance: f32) -> Self {
@@ -52,7 +49,7 @@ impl CubicFlatteningIter {
         let first_inflection = first_inflection.unwrap_or(-1.0);
         let second_inflection = second_inflection.unwrap_or(-1.0);
 
-        let mut iter = CubicFlatteningIter {
+        let mut iter = CubicFlatteningIter2 {
             curve: bezier,
             sub_curve: None,
             next_inflection_start: f32::NAN,
@@ -100,7 +97,7 @@ impl CubicFlatteningIter {
     }
 }
 
-impl Iterator for CubicFlatteningIter {
+impl Iterator for CubicFlatteningIter2 {
     type Item = Point;
     fn next(&mut self) -> Option<Point> {
         if let Some(sub_curve) = self.sub_curve {
@@ -144,7 +141,126 @@ impl Iterator for CubicFlatteningIter {
     }
 }
 
+/// An iterator over a cubic bezier segment that yields line segments approximating the
+/// curve for a given approximation threshold.
+///
+/// The iterator starts at the first point *after* the origin of the curve and ends at the
+/// destination.
+pub struct CubicFlatteningIter {
+    remaining_curve: CubicBezierSegment,
+    // current portion of the curve, does not have inflections.
+    current_curve: Option<CubicBezierSegment>,
+    next_inflection: Option<f32>,
+    following_inflection: Option<f32>,
+    tolerance: f32,
+}
+
+impl CubicFlatteningIter {
+    /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
+    /// flattened approximation of the curve given a certain tolerance.
+    pub fn new(bezier: CubicBezierSegment, tolerance: f32) -> Self {
+        let (first_inflection, second_inflection) = find_cubic_bezier_inflection_points(&bezier);
+
+        let mut iter = CubicFlatteningIter {
+            remaining_curve: bezier,
+            current_curve: None,
+            next_inflection: first_inflection,
+            following_inflection: second_inflection,
+            tolerance: tolerance,
+        };
+
+        println!(" -- iter: {:?} {:?}", first_inflection, second_inflection);
+
+        if let Some(t1) = first_inflection {
+            let (before, after) = bezier.split(t1);
+            iter.current_curve = Some(before);
+            iter.remaining_curve = after;
+            if let Some(t2) = second_inflection {
+                // Adjust the second inflection since we removed the part before the
+                // first inflection from the bezier curve.
+                let t2 = (t2 - t1) / (1.0 - t1);
+                iter.following_inflection = Some(t2)
+            }
+
+            return iter;
+        }
+
+        iter.current_curve = Some(bezier);
+
+        return iter;
+    }
+}
+
+impl Iterator for CubicFlatteningIter {
+    type Item = Point;
+    fn next(&mut self) -> Option<Point> {
+
+        if self.current_curve.is_none() {
+            if self.next_inflection.is_some() {
+                if let Some(t2) = self.following_inflection {
+                    // No need to re-map t2 in the curve because we already did iter_points
+                    // in the iterator's new function.
+                    let (before, after) = self.remaining_curve.split(t2);
+                    self.current_curve = Some(before);
+                    self.remaining_curve = after;
+                } else {
+                    // the last chunk doesn't have inflection points, use it.
+                    self.current_curve = Some(self.remaining_curve);
+                }
+
+                // Pop the inflection stack.
+                self.next_inflection = self.following_inflection;
+                self.following_inflection = None;
+            }
+        }
+
+        if let Some(sub_curve) = self.current_curve {
+            // We are iterating over a sub-curve that does not have inflections.
+            let t = no_inflection_flattening_step(&sub_curve, self.tolerance);
+            if t >= 1.0 {
+                let to = sub_curve.to;
+                self.current_curve = None;
+                return Some(to);
+            }
+
+            let next_curve = sub_curve.after_split(t);
+            self.current_curve = Some(next_curve);
+            return Some(next_curve.from);
+        }
+
+        return None;
+    }
+}
+
 pub fn flatten_cubic_bezier<F: FnMut(Point)>(
+    mut bezier: CubicBezierSegment,
+    tolerance: f32,
+    call_back: &mut F,
+) {
+    let (inflection1, inflection2) = find_cubic_bezier_inflection_points(&bezier);
+
+    if let Some(t1) = inflection1 {
+        let (before, after) = bezier.split(t1);
+        flatten_cubic_no_inflection(before, tolerance, call_back);
+        bezier = after;
+
+        if let Some(t2) = inflection2 {
+            // Adjust the second inflection since we removed the part before the
+            // first inflection from the bezier curve.
+            let t2 = (t2 - t1) / (1.0 - t1);
+
+            let (before, after) = bezier.split(t2);
+            flatten_cubic_no_inflection(before, tolerance, call_back);
+            bezier = after;
+        }
+    }
+
+    flatten_cubic_no_inflection(bezier, tolerance, call_back);
+}
+
+// TODO: remove this when we have made sure the simplified flattening algorithm
+// is correct.
+fn flatten_cubic_bezier2<F: FnMut(Point)>(
     bezier: CubicBezierSegment,
     tolerance: f32,
     call_back: &mut F,
