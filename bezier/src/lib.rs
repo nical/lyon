@@ -232,6 +232,17 @@ impl QuadraticBezierSegment {
     pub fn flattening_iter(&self, tolerance: f32) -> QuadraticFlatteningIter {
         QuadraticFlatteningIter::new(*self, tolerance)
     }
+
+    /// Compute the length of the segment using a flattened approximation.
+    pub fn compute_length(&self, tolerance: f32) -> f32 {
+        let mut start = self.from;
+        let mut len = 0.0;
+        self.flattened_for_each(tolerance, &mut|p| {
+            len += vec2_length(p - start);
+            start = p;
+        });
+        return len;
+    }
 }
 
 /// An iterator over a quadratic bézier segment that yields line segments approximating the
@@ -362,4 +373,40 @@ impl CubicBezierSegment {
     pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
     }
+
+    /// Compute the length of the segment using a flattened approximation.
+    pub fn compute_length(&self, tolerance: f32) -> f32 {
+        let mut start = self.from;
+        let mut len = 0.0;
+        self.flattened_for_each(tolerance, &mut|p| {
+            len += vec2_length(p - start);
+            start = p;
+        });
+        return len;
+    }
+}
+
+fn vec2_length(v: Vec2) -> f32 {
+    (v.x * v.x + v.y * v.y).sqrt()
+}
+
+#[test]
+fn length_straight_line() {
+    // Sanity check: aligned points so both these curves are straight lines
+    // that go form (0.0, 0.0) to (2.0, 0.0).
+
+    let len = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 0.0),
+        to: Point::new(2.0, 0.0),
+    }.compute_length(0.01);
+    assert_eq!(len, 2.0);
+
+    let len = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(1.0, 0.0),
+        ctrl2: Point::new(1.0, 0.0),
+        to: Point::new(2.0, 0.0),
+    }.compute_length(0.01);
+    assert_eq!(len, 2.0);
 }
