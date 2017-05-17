@@ -7,6 +7,7 @@
 ///! in other words, it generates less points for a given tolerance threshold).
 
 use super::{Point, CubicBezierSegment};
+use up_to_two::UpToTwo;
 
 use std::f32;
 use std::mem::swap;
@@ -29,21 +30,21 @@ impl CubicFlatteningIter {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment, tolerance: f32) -> Self {
-        let (first_inflection, second_inflection) = find_cubic_bezier_inflection_points(&bezier);
+        let inflections = find_cubic_bezier_inflection_points(&bezier);
 
         let mut iter = CubicFlatteningIter {
             remaining_curve: bezier,
             current_curve: None,
-            next_inflection: first_inflection,
-            following_inflection: second_inflection,
+            next_inflection: inflections.first().cloned(),
+            following_inflection: inflections.second().cloned(),
             tolerance: tolerance,
         };
 
-        if let Some(t1) = first_inflection {
+        if let Some(&t1) = inflections.first() {
             let (before, after) = bezier.split(t1);
             iter.current_curve = Some(before);
             iter.remaining_curve = after;
-            if let Some(t2) = second_inflection {
+            if let Some(&t2) = inflections.second() {
                 // Adjust the second inflection since we removed the part before the
                 // first inflection from the bezier curve.
                 let t2 = (t2 - t1) / (1.0 - t1);
@@ -105,14 +106,14 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
     tolerance: f32,
     call_back: &mut F,
 ) {
-    let (inflection1, inflection2) = find_cubic_bezier_inflection_points(&bezier);
+    let inflections = find_cubic_bezier_inflection_points(&bezier);
 
-    if let Some(t1) = inflection1 {
+    if let Some(&t1) = inflections.first() {
         let (before, after) = bezier.split(t1);
         flatten_cubic_no_inflection(before, tolerance, call_back);
         bezier = after;
 
-        if let Some(t2) = inflection2 {
+        if let Some(&t2) = inflections.second() {
             // Adjust the second inflection since we removed the part before the
             // first inflection from the bezier curve.
             let t2 = (t2 - t1) / (1.0 - t1);
@@ -180,7 +181,7 @@ fn no_inflection_flattening_step(bezier: &CubicBezierSegment, tolerance: f32) ->
 }
 
 // Find the inflection points of a cubic bezier curve.
-fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> (Option<f32>, Option<f32>) {
+pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToTwo<f32> {
     // Find inflection points.
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
@@ -203,23 +204,24 @@ fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> (Option<f
             // point at t == 0. The inflection point approximation range found will
             // automatically extend into infinity.
             if c == 0.0 {
-                return (Some(0.0), None);
+                return UpToTwo::One(0.0);
             }
-            return (None, None);
+            return UpToTwo::None;
         }
-        return (Some(-c / b), None);
+        return UpToTwo::One(-c / b);
     }
 
-    fn in_range(t: f32) -> Option<f32> { if t >= 0.0 && t < 1.0 { Some(t) } else { None } }
+    fn in_range(t: f32) -> bool { t >= 0.0 && t < 1.0 }
 
     let discriminant = b * b - 4.0 * a * c;
 
     if discriminant < 0.0 {
-        return (None, None);
+        return UpToTwo::None;
     }
 
     if discriminant == 0.0 {
-        return (in_range(-b / (2.0 * a)), None);
+        let t = -b / (2.0 * a);
+        return if in_range(t) { UpToTwo::One(t) } else { UpToTwo::None };
     }
 
     let discriminant_sqrt = discriminant.sqrt();
@@ -231,14 +233,12 @@ fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> (Option<f
         swap(&mut first_inflection, &mut second_inflection);
     }
 
-    let first_inflection = in_range(first_inflection);
-    let second_inflection = in_range(second_inflection);
-
-    if first_inflection.is_none() {
-        return (second_inflection, None);
+    return match (in_range(first_inflection), in_range(second_inflection)) {
+        (false, false) => UpToTwo::None,
+        (true, false) => UpToTwo::One(first_inflection),
+        (false, true) => UpToTwo::One(second_inflection),
+        (true, true) => UpToTwo::Two(first_inflection, second_inflection),
     }
-
-    return (first_inflection, second_inflection);
 }
 
 #[cfg(test)]
