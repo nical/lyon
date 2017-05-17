@@ -175,8 +175,6 @@ impl CubicFlatteningIter {
             tolerance: tolerance,
         };
 
-        println!(" -- iter: {:?} {:?}", first_inflection, second_inflection);
-
         if let Some(t1) = first_inflection {
             let (before, after) = bezier.split(t1);
             iter.current_curve = Some(before);
