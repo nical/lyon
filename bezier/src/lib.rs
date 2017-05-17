@@ -65,11 +65,13 @@ extern crate euclid;
 
 mod flatten_cubic;
 mod cubic_to_quadratic;
+mod up_to_two;
 
 use std::mem::swap;
-use flatten_cubic::flatten_cubic_bezier;
+use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
 pub use cubic_to_quadratic::cubic_to_quadratic;
+pub use up_to_two::UpToTwo;
 
 /// Alias for ```euclid::Point2D<f32>```.
 pub type Point = euclid::Point2D<f32>;
@@ -383,6 +385,10 @@ impl CubicBezierSegment {
             start = p;
         });
         return len;
+    }
+
+    pub fn find_inflection_points(&self) -> UpToTwo<f32> {
+        find_cubic_bezier_inflection_points(self)
     }
 }
 
