@@ -83,7 +83,7 @@ pub type Vec2 = euclid::Point2D<f32>;
 /// point and the end of the segment.
 ///
 /// The curve is defined by equation:
-/// ```∀ t ∈ [0..1],  P(t) = (1 - t)² * from + 2 * (1 - t) * t * ctrl + 2 * t * to```
+/// ```∀ t ∈ [0..1],  P(t) = (1 - t)² * from + 2 * (1 - t) * t * ctrl + 2 * t² * to```
 #[derive(Copy, Clone, Debug)]
 pub struct QuadraticBezierSegment {
     pub from: Point,
