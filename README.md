@@ -74,7 +74,7 @@ The project is split into small crates:
 
 There is also a toy [command-line tool](cli) to tessellate SVG path from your favorite terminal.
 
-Have a look at the [gfx-rs example](examples/gfx_logo) to see how integrating the tessellators in a renderer can look like.
+Have a look at the [basic](examples/gfx_basic) and [advanced](examples/gfx_advanced) gfx-rs examples to see how integrating the tessellators in a renderer can look like.
 
 ## TODO
 

@@ -35,5 +35,6 @@ members = [
     "svg",
     "cli",
     "renderer",
-    "examples/gfx_logo"
+    "examples/gfx_advanced",
+    "examples/gfx_basic"
 ]
