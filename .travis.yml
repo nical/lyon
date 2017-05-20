@@ -10,7 +10,8 @@ env:
   - TEST_DIR=path_iterator
   - TEST_DIR=path
   - TEST_DIR=extra
-  - TEST_DIR=examples/gfx_logo
+  - TEST_DIR=examples/gfx_basic
+  - TEST_DIR=examples/gfx_advanced
   - TEST_DIR=cli
 script:
   - cd $TEST_DIR && cargo test

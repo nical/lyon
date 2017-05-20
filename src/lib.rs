@@ -19,7 +19,8 @@
 //!
 //! # Additional documentation and links
 //!
-//! * [gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_logo).
+//! * [very basic gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_basic).
+//! * [advanced gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_advanced).
 //! * There is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
 //! * The source code is available on the project's [git repository](https://github.com/nical/lyon).
 //! * Interested in contributing? [This page](https://github.com/nical/lyon/wiki/Contribute)

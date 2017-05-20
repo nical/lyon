@@ -1,0 +1,18 @@
+[package]
+name = "gfx-rs simple example"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = "../.."
+
+[[bin]]
+name = "gfx_basic"
+path = "src/main.rs"
+
+[dependencies]
+lyon = { path = "../../" }
+lyon_renderer = { path = "../../renderer" }
+
+gfx = "0.14"
+gfx_device_gl = "0.13"
+gfx_window_glutin = "0.14"
+glutin = "0.7"
