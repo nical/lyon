@@ -96,7 +96,8 @@ fn main() {
     println!("  Arrow keys: scrolling");
     println!("  PgUp/PgDown: zoom in/out");
     println!("  w: toggle wireframe mode");
-    println!("  p: toggle show points");
+    println!("  p: toggle showing points");
+    println!("  b: toggle drawing the background");
     println!("  a/z: increase/decrease the stroke width");
 
     let num_instances = 32;
@@ -368,6 +369,7 @@ fn main() {
         show_wireframe: false,
         stroke_width: 0.0,
         target_stroke_width: 1.0,
+        draw_background: true,
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -483,16 +485,18 @@ fn main() {
             },
         );
 
-        cmd_queue.draw(
-            &bg_range,
-            &bg_pso,
-            &bg_pipeline::Data {
-                vbo: bg_vbo.clone(),
-                out_color: main_fbo.clone(),
-                out_depth: main_depth.clone(),
-                constants: constants.clone(),
-            },
-        );
+        if scene.draw_background {
+            cmd_queue.draw(
+                &bg_range,
+                &bg_pso,
+                &bg_pipeline::Data {
+                    vbo: bg_vbo.clone(),
+                    out_color: main_fbo.clone(),
+                    out_depth: main_depth.clone(),
+                    constants: constants.clone(),
+                },
+            );
+        }
 
         // Non-opaque geometry should be drawn back to front here.
         // (there is none in this example)
@@ -516,6 +520,7 @@ struct SceneParams {
     show_wireframe: bool,
     stroke_width: f32,
     target_stroke_width: f32,
+    draw_background: bool,
 }
 
 fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
@@ -555,6 +560,9 @@ fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
                     }
                     VirtualKeyCode::W => {
                         scene.show_wireframe = !scene.show_wireframe;
+                    }
+                    VirtualKeyCode::B => {
+                        scene.draw_background = !scene.draw_background;
                     }
                     VirtualKeyCode::A => {
                         scene.target_stroke_width += 0.8;
