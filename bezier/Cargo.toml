@@ -13,4 +13,4 @@ workspace = ".."
 name = "lyon_bezier"
 
 [dependencies]
-euclid = "0.10.1"
+euclid = "0.13"
