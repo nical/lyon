@@ -516,6 +516,23 @@ where
     }
 }
 
+// Returns the maximum length of individual line segments when approximating a
+// circle.
+//
+// From pythagora's theorem:
+// r² = (d/2)² + (r - t)²
+// r² = d²/4 + r² + t² - 2 * e * r
+// d² = 4 * (2 * t * r - t²)
+// d = 2 * sqrt(2 * t * r - t²)
+//
+// With:
+//  r: the radius
+//  t: the tolerance threshold
+//  d: the line segment length
+fn circle_flattening_step(radius:f32, tolerance: f32) -> f32 {
+    2.0 * (2.0 * tolerance * radius - tolerance * tolerance).sqrt()
+}
+
 #[test]
 fn test_polyline_events_open() {
     let points = &[
