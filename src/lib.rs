@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+
 //! 2d rendering on the GPU in rust.
 //!
 //! ![logo](https://nical.github.io/lyon-doc/lyon-logo.svg)

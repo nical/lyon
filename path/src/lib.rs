@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+
 //! # Lyon path
 //!
 //! A simple path data structure implementing the traits provided in the

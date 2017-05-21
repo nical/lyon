@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+
 //! # Bézier curve related maths and tools.
 //!
 //! This crate implements simple 2d quadratic and cubic bézier math and an efficient

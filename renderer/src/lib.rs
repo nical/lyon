@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+
 //! Very experimental high level api on top of lyon_tessellator
 //!
 //! Don't use it.

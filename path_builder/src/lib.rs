@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+
 //! # Lyon path builder
 //!
 //! Tools to build path objects from a sequence of imperative commands.

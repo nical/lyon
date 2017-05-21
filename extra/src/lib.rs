@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
