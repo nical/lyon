@@ -25,10 +25,8 @@
 //! * [advanced gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_advanced).
 //! * There is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
 //! * The source code is available on the project's [git repository](https://github.com/nical/lyon).
-//! * Interested in contributing? [This page](https://github.com/nical/lyon/wiki/Contribute)
-//!   is probably what you are looking for! You can also look at the list of
-//!   [issues marked as easy](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy),
-//!   they are a good place to start.
+//! * Interested in contributing? Have a look at the [github issues](https://github.com/nical/lyon/issues),
+//!   some of which are tagged as [easy](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy).
 //!
 
 

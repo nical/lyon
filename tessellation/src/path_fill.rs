@@ -86,6 +86,12 @@
 //!
 //! # }
 //! ```
+//!
+//! # How the fill tessellator works
+//!
+//! Learn more about how the algrorithm works on the [tessellator wiki page](https://github.com/nical/lyon/wiki/Tessellator).
+//!
+
 
 // TODO[optim]
 //

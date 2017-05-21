@@ -79,7 +79,7 @@ Have a look at the [basic](examples/gfx_basic) and [advanced](examples/gfx_advan
 
 ## TODO
 
-There's a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO) in the wiki. If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), please let me know on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
+There's a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO) on the wiki as well as the [github issues](https://github.com/nical/lyon/issues), some of which are tagged as [easy](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy). If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), don't hesitate to comment on the gihub issues or contact me. Need help ? [File an issue](https://github.com/nical/lyon/issues/new) or contact me on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
 
 ## License
 
