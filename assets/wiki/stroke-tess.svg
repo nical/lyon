@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140mm" height="70mm" viewBox="0 0 140 70">
+  <defs>
+    <marker id="b" orient="auto" overflow="visible">
+      <path fill="teal" fill-rule="evenodd" stroke="teal" stroke-width=".378" d="M-5.23-2.42l6.55 2.4-6.55 2.42c1.05-1.42 1.04-3.37 0-4.82z" stroke-linejoin="round"/>
+    </marker>
+    <marker id="a" orient="auto" overflow="visible">
+      <path fill="teal" fill-rule="evenodd" stroke="teal" stroke-width=".378" d="M-5.23-2.42l6.55 2.4-6.55 2.42c1.05-1.42 1.04-3.37 0-4.82z" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <path fill="none" stroke="#f60" stroke-width=".26" d="M12.46 21.72l41.6 18.73 45.77-9.23 19.15-28.7" stroke-linejoin="round"/>
+  <path fill="none" stroke="#f60" stroke-width=".26" d="M6.76 35.85l46.65 19.9 53.7-11.02 23.94-34.7" stroke-linejoin="round"/>
+  <path fill="none" stroke="#f60" stroke-width=".26" d="M6.76 35.85l5.7-14.13L53.4 55.75l.66-15.3 53.03 4.28-7.27-13.5 31.2-21.2L119 2.52" stroke-linejoin="round"/>
+  <path fill="none" stroke="#000" stroke-width=".5" d="M9.04 28.47L54 48.12l48.96-10.24 21.8-31.72"/>
+  <g color="#000">
+    <path d="M11.87 29a2.3 2.3 0 0 1-2.3 2.3 2.3 2.3 0 0 1-2.3-2.3 2.3 2.3 0 0 1 2.3-2.3 2.3 2.3 0 0 1 2.3 2.3h-2.3z" overflow="visible" opacity=".5"/>
+    <path fill="#fff" d="M11.2 29a1.63 1.63 0 0 1-1.63 1.63A1.63 1.63 0 0 1 7.94 29a1.63 1.63 0 0 1 1.62-1.63A1.63 1.63 0 0 1 11.2 29H9.55z" overflow="visible"/>
+  </g>
+  <g color="#000">
+    <path d="M56.3 48.1a2.3 2.3 0 0 1-2.3 2.32 2.3 2.3 0 0 1-2.3-2.3 2.3 2.3 0 0 1 2.3-2.3 2.3 2.3 0 0 1 2.3 2.3H54z" overflow="visible" opacity=".5"/>
+    <path fill="#fff" d="M55.62 48.1A1.63 1.63 0 0 1 54 49.75a1.63 1.63 0 0 1-1.63-1.62A1.63 1.63 0 0 1 54 46.5a1.63 1.63 0 0 1 1.62 1.6l-1.62.02z" overflow="visible"/>
+  </g>
+  <g color="#000">
+    <path d="M105.26 37.88a2.3 2.3 0 0 1-2.3 2.3 2.3 2.3 0 0 1-2.3-2.3 2.3 2.3 0 0 1 2.3-2.3 2.3 2.3 0 0 1 2.3 2.3h-2.3z" overflow="visible" opacity=".5"/>
+    <path fill="#fff" d="M104.6 37.88a1.63 1.63 0 0 1-1.64 1.63 1.63 1.63 0 0 1-1.63-1.6 1.63 1.63 0 0 1 1.63-1.64 1.63 1.63 0 0 1 1.63 1.62h-1.64z" overflow="visible"/>
+  </g>
+  <g color="#000">
+    <path d="M127.05 6.16a2.3 2.3 0 0 1-2.3 2.3 2.3 2.3 0 0 1-2.3-2.3 2.3 2.3 0 0 1 2.3-2.3 2.3 2.3 0 0 1 2.3 2.3h-2.3z" overflow="visible" opacity=".5"/>
+    <path fill="#fff" d="M126.38 6.16a1.63 1.63 0 0 1-1.62 1.63 1.63 1.63 0 0 1-1.64-1.64 1.63 1.63 0 0 1 1.63-1.63 1.63 1.63 0 0 1 1.63 1.62h-1.63z" overflow="visible"/>
+  </g>
+  <path fill="none" stroke="teal" stroke-width=".6" d="M53.84 275.17l-.33 7.58" stroke-linecap="round" marker-end="url(#a)" transform="translate(0 -227)"/>
+  <path fill="none" stroke="teal" stroke-width=".6" d="M102.96 264.88l4.13 6.85" stroke-linecap="round" marker-end="url(#b)" transform="translate(0 -227)"/>
+  <path fill="none" stroke="teal" stroke-width=".26" d="M53.4 55.75l12.12 12.12h5.4" stroke-dasharray="1.05833327, 1.05833327"/>
+  <path fill="none" stroke="#000" stroke-width=".26" d="M54 48.12l11.2 10.76h5.2" stroke-dasharray="1.05833327, 1.05833327"/>
+  <text x="70.4" y="285.88" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -227)">
+    <tspan x="70.4" y="285.88" font-size="3.88">vertex position</tspan>
+  </text>
+  <text x="70.92" y="294.87" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -227)">
+    <tspan x="70.92" y="294.87" font-size="3.53">normal</tspan>
+  </text>
+  <path fill="none" stroke="#000" stroke-width=".26" d="M82.68 41.63l-11.2-10.76H64.6" stroke-dasharray="1.05833327, 1.05833327"/>
+  <text x="55.89" y="257.89" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -227)">
+    <tspan x="55.89" y="257.89" font-size="3.53">path</tspan>
+  </text>
+</svg>
