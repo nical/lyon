@@ -75,6 +75,8 @@
 //! # }
 //! ```
 
+// See https://github.com/nical/lyon/wiki/Stroke-tessellation for some notes
+// about how the path stroke tessellator is implemented.
 
 use math::*;
 use core::FlattenedEvent;
