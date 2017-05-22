@@ -209,38 +209,34 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         if self.options.line_cap == LineCap::Square && self.nth == 0 {
             // Even if there is no edge, if we are using square caps we have to place a square
             // at the current position.
-            let a = self.output
-                .add_vertex(
-                    Vertex {
-                        position: self.current,
-                        normal: vec2(-hw, -hw),
-                        side: Side::Left,
-                    }
-                );
-            let b = self.output
-                .add_vertex(
-                    Vertex {
-                        position: self.current,
-                        normal: vec2(hw, -hw),
-                        side: Side::Left,
-                    }
-                );
-            let c = self.output
-                .add_vertex(
-                    Vertex {
-                        position: self.current,
-                        normal: vec2(hw, hw),
-                        side: Side::Right,
-                    }
-                );
-            let d = self.output
-                .add_vertex(
-                    Vertex {
-                        position: self.current,
-                        normal: vec2(-hw, hw),
-                        side: Side::Right,
-                    }
-                );
+            let a = self.output.add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: vec2(-hw, -hw),
+                    side: Side::Left,
+                }
+            );
+            let b = self.output.add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: vec2(hw, -hw),
+                    side: Side::Left,
+                }
+            );
+            let c = self.output.add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: vec2(hw, hw),
+                    side: Side::Right,
+                }
+            );
+            let d = self.output.add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: vec2(-hw, hw),
+                    side: Side::Right,
+                }
+            );
             self.output.add_triangle(a, b, c);
             self.output.add_triangle(a, c, d);
         }
@@ -272,22 +268,20 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let n2 = tangent(d) * 0.5;
             let n1 = -n2;
 
-            let first_a_id = self.output
-                .add_vertex(
-                    Vertex {
-                        position: first,
-                        normal: n1,
-                        side: Side::Left,
-                    }
-                );
-            let first_b_id = self.output
-                .add_vertex(
-                    Vertex {
-                        position: first,
-                        normal: n2,
-                        side: Side::Right,
-                    }
-                );
+            let first_a_id = self.output.add_vertex(
+                Vertex {
+                    position: first,
+                    normal: n1,
+                    side: Side::Left,
+                }
+            );
+            let first_b_id = self.output.add_vertex(
+                Vertex {
+                    position: first,
+                    normal: n2,
+                    side: Side::Right,
+                }
+            );
 
             self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
             self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
@@ -306,33 +300,32 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             return;
         }
         let (na, nb, maybe_nc) = get_angle_info(self.previous, self.current, to);
-        let a_id = self.output
-            .add_vertex(
-                Vertex {
-                    position: self.current,
-                    normal: na,
-                    side: Side::Left,
-                }
-            );
-        let b_id = self.output
-            .add_vertex(
-                Vertex {
-                    position: self.current,
-                    normal: nb,
-                    side: Side::Right,
-                }
-            );
+        let a_id = self.output.add_vertex(
+            Vertex {
+                position: self.current,
+                normal: na,
+                side: Side::Left,
+            }
+        );
+        let b_id = self.output.add_vertex(
+            Vertex {
+                position: self.current,
+                normal: nb,
+                side: Side::Right,
+            }
+        );
 
         let (nc, c_id) = if let Some(n) = maybe_nc {
-            (n,
-             self.output
-                 .add_vertex(
-                Vertex {
-                    position: self.current,
-                    normal: n,
-                    side: Side::Left, // TODO
-                }
-            ))
+            (
+                n,
+                self.output.add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: n,
+                        side: Side::Left, // TODO
+                    }
+                )
+            )
         } else {
             (nb, b_id)
         };
