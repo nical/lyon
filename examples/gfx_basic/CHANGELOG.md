@@ -1,6 +1,7 @@
 ## Change log
 
 ### (next)
+  - [tessellation] implement fill tessellation for rounded rectangles.
   - [svg] Bump svgparser dependency from 0.0.3 t0 0.4.0.
   - [lyon] Bump euclid dependency from 0.10.1 to 0.13.
   - [bezier] Fix a bug (issue #19) in the cubic bezier flattening code.
