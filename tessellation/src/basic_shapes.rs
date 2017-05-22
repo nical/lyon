@@ -397,8 +397,6 @@ pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
     tolerance: f32,
     output: &mut Output,
 ) -> Count {
-    use std::f32::consts::PI;
-
     output.begin_geometry();
 
     let w = rect.size.width;
@@ -569,6 +567,62 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     _output: &mut Output,
 ) -> Count {
     unimplemented!();
+}
+
+/// Tessellate a circle.
+pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
+    center: Point,
+    radius: f32,
+    tolerance: f32,
+    output: &mut Output,
+) -> Count {
+    output.begin_geometry();
+
+    let radius = radius.abs();
+    if radius == 0.0 {
+        return output.end_geometry();
+    }
+
+    let up = vec2(0.0, -1.0);
+    let down = vec2(0.0, 1.0);
+    let left = vec2(-1.0, 0.0);
+    let right = vec2(1.0, 0.0);
+
+    let v = [
+        output.add_vertex(FillVertex { position: left * radius, normal: left }),
+        output.add_vertex(FillVertex { position: up * radius, normal: up }),
+        output.add_vertex(FillVertex { position: right * radius, normal: right }),
+        output.add_vertex(FillVertex { position: down * radius, normal: down }),
+    ];
+
+    output.add_triangle(v[0], v[1], v[3]);
+    output.add_triangle(v[1], v[2], v[3]);
+
+    let angles = [
+        (PI, 1.5 * PI),
+        (1.5* PI, 2.0 * PI),
+        (0.0, PI * 0.5),
+        (PI * 0.5, PI),
+    ];
+
+    let arc_len = 0.5 * PI * radius;
+    let step = circle_flattening_step(radius, tolerance);
+    let num_segments = (arc_len / step).ceil();
+    let num_recursions = num_segments.log2() as u32;
+
+    for i in 0..4 {
+        fill_border_radius(
+            center,
+            angles[i],
+            radius,
+            v[i],
+            v[(i + 1) % 4],
+            num_recursions,
+            output,
+        );
+    }
+
+    return output.end_geometry();
 }
 
 /// Tessellate an ellipsis.
