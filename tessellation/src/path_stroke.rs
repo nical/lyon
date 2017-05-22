@@ -489,8 +489,21 @@ impl StrokeOptions {
 /// </svg>
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LineCap {
+    /// The stroke for each subpath does not extend beyond its two endpoints.
+    /// A zero length subpath will therefore not have any stroke.
     Butt,
+    /// At the end of each subpath, the shape representing the stroke will be
+    /// extended by a rectangle with the same width as the stroke width and
+    /// whose length is half of the stroke width. If a subpath has zero length,
+    /// then the resulting effect is that the stroke for that subpath consists
+    /// solely of a square with side length equal to the stroke width, centered
+    /// at the subpath's point.
     Square,
+    /// [Not implemented] At each end of each subpath, the shape representing
+    /// the stroke will be extended by a half circle with a radius equal to the
+    /// stroke width. If a subpath has zero length, then the resulting effect is
+    /// that the stroke for that subpath consists solely of a full circle centered
+    /// at the subpath's point.
     Round,
 }
 
@@ -499,9 +512,16 @@ pub enum LineCap {
 /// See: https://svgwg.org/specs/strokes/#StrokeLinejoinProperty
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LineJoin {
+    /// A sharp corner is to be used to join path segments.
     Miter,
+    /// [Not implemented] Same as a miter join, but if the miter limit is exceeded,
+    /// the miter is clipped at a miter length equal to the miter limit value
+    /// multiplied by the stroke width.
     MiterClip,
+    /// [Not implemented] A round corner is to be used to join path segments.
     Round,
+    /// [Not implemented] A bevelled corner is to be used to join path segments.
+    /// The bevel shape is a triangle that fills the area between the two stroked
+    /// segments.
     Bevel,
-    Arcs,
 }
