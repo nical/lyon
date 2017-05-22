@@ -356,26 +356,216 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     return output.end_geometry();
 }
 
-/// An axis-aligned rounded rectangle.
-pub struct RoundedRect {
-    pub rect: Rect,
-    pub top_left_radius: f32,
-    pub top_right_radius: f32,
-    pub bottom_left_radius: f32,
-    pub bottom_right_radius: f32,
+/// The radius of each corner of a rounded rectangle.
+pub struct BorderRadii {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_left: f32,
+    pub bottom_right: f32,
+}
+
+impl BorderRadii {
+    pub fn new(
+        top_left: f32,
+        top_right: f32,
+        bottom_left: f32,
+        bottom_right: f32,
+    ) -> Self {
+        BorderRadii {
+            top_left: top_left.abs(),
+            top_right: top_right.abs(),
+            bottom_left: bottom_left.abs(),
+            bottom_right: bottom_right.abs(),
+        }
+    }
+
+    pub fn new_all_same(radius: f32) -> Self {
+        let r = radius.abs();
+        BorderRadii {
+            top_left: r,
+            top_right: r,
+            bottom_left: r,
+            bottom_right: r,
+        }
+    }
 }
 
 /// Tessellate an axis-aligned rounded rectangle.
 pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
-    _rect: &RoundedRect,
-    _output: &mut Output,
+    rect: &Rect,
+    radii: &BorderRadii,
+    tolerance: f32,
+    output: &mut Output,
 ) -> Count {
-    unimplemented!();
+    use std::f32::consts::PI;
+
+    output.begin_geometry();
+
+    let w = rect.size.width;
+    let h = rect.size.height;
+    let x_min = rect.min_x();
+    let y_min = rect.min_y();
+    let x_max = rect.max_x();
+    let y_max = rect.max_y();
+    let min_wh = w.min(h);
+    let mut tl = radii.top_left.abs().min(min_wh);
+    let mut tr = radii.top_right.abs().min(min_wh);
+    let mut bl = radii.bottom_left.abs().min(min_wh);
+    let mut br = radii.bottom_right.abs().min(min_wh);
+
+    // clamp border radii if they don't fit in the rectangle.
+    if tl + tr > w {
+        let x = (tl + tr - w) * 0.5;
+        tl -= x;
+        tr -= x;
+    }
+    if bl + br > w {
+        let x = (bl + br - w) * 0.5;
+        bl -= x;
+        br -= x;
+    }
+    if tr + br > h {
+        let x = (tr + br - h) * 0.5;
+        tr -= x;
+        br -= x;
+    }
+    if tl + bl > h {
+        let x = (tl + bl - h) * 0.5;
+        tl -= x;
+        bl -= x;
+    }
+
+    // top
+    let p1 = point(x_min + tl, y_min);
+    let p2 = point(x_max - tr, y_min);
+
+    // bottom
+    let p6 = point(x_min + bl, y_max);
+    let p5 = point(x_max - br, y_max);
+
+    // left
+    let p0 = point(x_min, y_min + tl);
+    let p7 = point(x_min, y_max - bl);
+
+    // right
+    let p3 = point(x_max, y_min + tr);
+    let p4 = point(x_max, y_max - br);
+
+    let up = vec2(0.0, -1.0);
+    let down = vec2(0.0, 1.0);
+    let left = vec2(-1.0, 0.0);
+    let right = vec2(1.0, 0.0);
+
+
+    let v = [
+        output.add_vertex(FillVertex { position: p0, normal: left }),
+        output.add_vertex(FillVertex { position: p1, normal: up }),
+        output.add_vertex(FillVertex { position: p2, normal: up }),
+        output.add_vertex(FillVertex { position: p3, normal: right }),
+        output.add_vertex(FillVertex { position: p4, normal: right }),
+        output.add_vertex(FillVertex { position: p5, normal: down }),
+        output.add_vertex(FillVertex { position: p6, normal: down }),
+        output.add_vertex(FillVertex { position: p7, normal: left }),
+    ];
+
+    output.add_triangle(v[6], v[7], v[0]);
+    output.add_triangle(v[6], v[0], v[1]);
+    output.add_triangle(v[6], v[1], v[5]);
+    output.add_triangle(v[5], v[1], v[2]);
+    output.add_triangle(v[5], v[2], v[4]);
+    output.add_triangle(v[4], v[2], v[3]);
+
+    let radii = [tl, tr, br, bl];
+    let angles = [
+        (PI, 1.5 * PI),
+        (1.5* PI, 2.0 * PI),
+        (0.0, PI * 0.5),
+        (PI * 0.5, PI),
+    ];
+
+    let centers = [
+        point(p1.x, p0.y),
+        point(p2.x, p3.y),
+        point(p5.x, p4.y),
+        point(p6.x, p7.y),
+    ];
+
+    for i in 0..4 {
+        let radius = radii[i];
+        if radius > 0.0 {
+
+            let arc_len = 0.5 * PI * radius;
+
+            let step = circle_flattening_step(radius, tolerance);
+            let num_segments = (arc_len / step).ceil();
+
+            let num_recursions = num_segments.log2() as u32;
+
+            fill_border_radius(
+                centers[i],
+                angles[i],
+                radius,
+                v[i*2],
+                v[i*2 + 1],
+                num_recursions,
+                output,
+            );
+        }
+    }
+
+    return output.end_geometry();
+}
+
+// recursively tessellate the rounded corners.
+fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
+    center: Point,
+    angle: (f32, f32),
+    radius: f32,
+    va: VertexId,
+    vb: VertexId,
+    num_recursions: u32,
+    output: &mut Output
+) {
+    if num_recursions == 0 {
+        return;
+    }
+
+    let mid_angle = (angle.0 + angle.1) * 0.5;
+
+    let normal = vec2(mid_angle.cos(), mid_angle.sin());
+    let pos = center + normal * radius;
+
+    let vertex = output.add_vertex(FillVertex {
+        position: pos,
+        normal: normal,
+    });
+
+    output.add_triangle(va, vertex, vb);
+
+    fill_border_radius(
+        center,
+        (angle.0, mid_angle),
+        radius,
+        va,
+        vertex,
+        num_recursions - 1,
+        output
+    );
+    fill_border_radius(
+        center,
+        (mid_angle, angle.1),
+        radius,
+        vertex,
+        vb,
+        num_recursions - 1,
+        output
+    );
 }
 
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
 pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
-    _rect: &RoundedRect,
+    _rect: &Rect,
+    _radii: &BorderRadii,
     _output: &mut Output,
 ) -> Count {
     unimplemented!();
