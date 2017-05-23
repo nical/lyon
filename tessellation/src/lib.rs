@@ -93,6 +93,15 @@ pub mod geometry_builder;
 
 pub use core::*;
 
+#[doc(inline)]
+pub use path_fill::*;
+
+#[doc(inline)]
+pub use path_stroke::*;
+
+#[doc(inline)]
+pub use geometry_builder::{GeometryBuilder, VertexBuffers};
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Side {
     Left,
