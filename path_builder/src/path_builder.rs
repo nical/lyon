@@ -1,16 +1,3 @@
-//! # Path builder
-//!
-//! Composable tools to build paths.
-//!
-//! ## Overview
-//!
-//! TODO
-//!
-//! ## Example
-//!
-//! TODO
-//!
-
 use core::{PathEvent, FlattenedEvent, SvgEvent, ArcFlags};
 use core::math::*;
 use bezier::{CubicBezierSegment, QuadraticBezierSegment};
