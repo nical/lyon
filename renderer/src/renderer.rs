@@ -107,7 +107,7 @@ impl GpuFillPrimitive {
             z_index: z_index,
             local_transform: local_transform.to_i32(),
             view_transform: view_transform.to_i32(),
-            width: 1.0,
+            width: 0.0,
         }
     }
 }

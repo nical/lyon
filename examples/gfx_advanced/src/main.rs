@@ -186,21 +186,20 @@ fn main() {
     let point_ids_1 = cpu.fill_primitives.alloc_range(num_points);
     let point_ids_2 = cpu.fill_primitives.alloc_range(num_points);
 
-    let ellipse_indices_start = cpu.fills.indices.len() as u32;
-    let ellipsis_count =
-        fill_ellipse(
-            vec2(0.0, 0.0),
-            vec2(1.0, 1.0),
-            64,
-            &mut BuffersBuilder::new(
-                &mut cpu.fills,
-                WithId(point_ids_1.range.start())
-            ),
-        );
-    fill_ellipse(
+    let circle_indices_start = cpu.fills.indices.len() as u32;
+    let circle_count = fill_circle(
         vec2(0.0, 0.0),
-        vec2(0.5, 0.5),
-        64,
+        1.0,
+        0.01,
+        &mut BuffersBuilder::new(
+            &mut cpu.fills,
+            WithId(point_ids_1.range.start())
+        ),
+    );
+    fill_circle(
+        vec2(0.0, 0.0),
+        0.5,
+        0.01,
         &mut BuffersBuilder::new(
             &mut cpu.fills,
             WithId(point_ids_2.range.start())
@@ -350,10 +349,10 @@ fn main() {
     gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut init_queue);
     init_queue.flush(&mut device);
 
-    let split = ellipse_indices_start + (ellipsis_count.indices as u32);
-    let mut points_range_1 = gfx_sub_slice(gpu_fills.ibo.clone(), ellipse_indices_start, split);
+    let split = circle_indices_start + (circle_count.indices as u32);
+    let mut points_range_1 = gfx_sub_slice(gpu_fills.ibo.clone(), circle_indices_start, split);
     let mut points_range_2 =
-        gfx_sub_slice(gpu_fills.ibo.clone(), split, split + ellipsis_count.indices as u32);
+        gfx_sub_slice(gpu_fills.ibo.clone(), split, split + circle_count.indices as u32);
     points_range_1.instances = Some((num_points as u32, 0));
     points_range_2.instances = Some((num_points as u32, 0));
 

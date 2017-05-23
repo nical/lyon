@@ -85,10 +85,10 @@ pub trait VertexBuilder<PrimitiveId, Vertex> {
         geom: &mut Geometry<Vertex>
     ) -> GeometryRanges<Vertex>;
 
-    fn add_ellipse(
+    fn add_circle(
         &mut self,
         center: Point,
-        radii: Vec2,
+        radius: f32,
         prim_id: FillPrimitiveId,
         tolerance: f32,
         geom: &mut Geometry<Vertex>
@@ -265,10 +265,10 @@ impl VertexBuilder<FillPrimitiveId, GpuFillVertex> for FillVertexBuilder {
         };
     }
 
-    fn add_ellipse(
+    fn add_circle(
         &mut self,
         center: Point,
-        radii: Vec2,
+        radius: f32,
         prim_id: FillPrimitiveId,
         tolerance: f32,
         geom: &mut Geometry<GpuFillVertex>
@@ -276,9 +276,8 @@ impl VertexBuilder<FillPrimitiveId, GpuFillVertex> for FillVertexBuilder {
         let vtx_offset = geom.vertices.len();
         let idx_offset = geom.indices.len();
 
-        // TODO: compute num vertices for a given tolerance!
-        let count = basic_shapes::fill_ellipse(
-            center, radii, 64,
+        let count = basic_shapes::fill_circle(
+            center, radius, tolerance,
             &mut BuffersBuilder::new(geom, WithId(prim_id))
         );
 
