@@ -84,4 +84,7 @@ extern crate lyon_bezier as bezier;
 mod path_builder;
 mod arc;
 
+#[doc(inline)]
 pub use path_builder::*;
+
+pub use core::*;
