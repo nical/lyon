@@ -46,74 +46,177 @@
 //! users of this crate to be able to adapt the output of the tessellators to their own
 //! needs.
 //!
-//! # Examples
+//! ## Examples
 //!
-//! This example sets up a simple function that generates the vertices and indices for
-//! colored quads, using some of the tools provided in this crate.
-//! Note that for simplicity in this example we use [f32; 2] to represent positions,
-//! while most of the more advanced tessellator code use euclid points.
+//! ### Generating custom vertices
+//!
+//! The exampe below implements the `VertexConstructor` trait in order to use a custom
+//! vertex type `MyVertex` (containing position and color), storing the tessellation in a
+//! `VertexBuffers<MyVertex>`, and tessellates two shapes with different colors.
 //!
 //! ```
-//! use lyon_tessellation::geometry_builder::*;
+//! extern crate lyon_tessellation;
+//! use lyon_tessellation::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex};
+//! use lyon_tessellation::basic_shapes::fill_circle;
+//! use lyon_tessellation::math::point;
 //!
-//! // Define our vertex type.
-//! #[derive(Copy, Clone, PartialEq, Debug)]
-//! struct Vertex2d {
+//! // Our custom vertex.
+//! #[derive(Copy, Clone, Debug)]
+//! pub struct MyVertex {
 //!   position: [f32; 2],
 //!   color: [f32; 4],
 //! }
 //!
-//! // The vertex constructor. This is the object that will be used to create vertices from
-//! // a position provided by the geometry builder. In this specific case the vertex constructor
-//! // stores a constant color which will be applied to all vertices.
+//! // The vertex constructor. This is the object that will be used to create the custom
+//! // verticex from the information provided by the tessellators.
 //! struct WithColor([f32; 4]);
 //!
-//! // Implement the VertexConstructor trait accordingly. WithColor takes a [f32; 2] position as
-//! // input and returns a Vertex2d.
-//! impl VertexConstructor<[f32; 2], Vertex2d> for WithColor {
-//!     fn new_vertex(&mut self, pos: [f32; 2]) -> Vertex2d {
-//!         Vertex2d {
-//!             position: pos,
-//!             color: self.0
+//! impl VertexConstructor<FillVertex, MyVertex> for WithColor {
+//!     fn new_vertex(&mut self, vertex: FillVertex) -> MyVertex {
+//!         // FillVertex also provides normals but we don't need it here.
+//!         MyVertex {
+//!             position: [
+//!                 vertex.position.x,
+//!                 vertex.position.y,
+//!             ],
+//!             color: self.0,
 //!         }
 //!     }
 //! }
 //!
-//! // A typical "algortihm" that generates some geometry, in this case a simple axis-aligned quad.
-//! // Returns a structure containing the number of vertices and number of indices allocated during
-//! // the execution of this method.
-//! fn make_quad<Builder: GeometryBuilder<[f32; 2]>>(
-//!     top_left: [f32; 2],
-//!     size: [f32; 2],
-//!     builder: &mut Builder
-//! ) -> Count {
-//!     builder.begin_geometry();
-//!     // Create the vertices...
-//!     let a = builder.add_vertex(top_left);
-//!     let b = builder.add_vertex([top_left[0] + size[0], top_left[1]]);
-//!     let c = builder.add_vertex([top_left[0] + size[0], top_left[1] + size[1]]);
-//!     let d = builder.add_vertex([top_left[0], top_left[1] + size[1]]);
-//!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
-//!     // vertex buffer.
-//!     builder.add_triangle(a, b, c);
-//!     builder.add_triangle(a, c, d);
-//!     return builder.end_geometry();
+//! fn main() {
+//!     let mut output = VertexBuffers::new();
+//!     // Tessellate a red and a green circle.
+//!     fill_circle(
+//!         point(0.0, 0.0),
+//!         10.0,
+//!         0.05,
+//!         &mut BuffersBuilder::new(
+//!             &mut output,
+//!             WithColor([1.0, 0.0, 0.0, 1.0])
+//!         ),
+//!     );
+//!     fill_circle(
+//!         point(10.0, 0.0),
+//!         5.0,
+//!         0.05,
+//!         &mut BuffersBuilder::new(
+//!             &mut output,
+//!             WithColor([0.0, 1.0, 0.0, 1.0])
+//!         ),
+//!     );
+//!
+//!     println!(" -- {} vertices, {} indices", output.vertices.len(), output.indices.len());
+//! }
+//! ```
+//!
+//! ### Generating a completely custom output
+//!
+//! Using `VertexBuffers<T>` is convenient and probably fits a lot of use cases, but
+//! what if we do not want to write the geometry in a pair of vectors?
+//! Perhaps we want to write the geometry in a different data structure or directly
+//! into gpu-accessible buffers mapped on the CPU?
+//!
+//! ```
+//! extern crate lyon_tessellation;
+//! use lyon_tessellation::{GeometryBuilder, Count};
+//! use lyon_tessellation::geometry_builder::VertexId;
+//! use lyon_tessellation::basic_shapes::stroke_polyline;
+//! use lyon_tessellation::math::point;
+//! use std::fmt::Debug;
+//!
+//! // A geometry builder that writes the result of the tessellation to stdout instead
+//! // of filling vertex and index buffers.
+//! pub struct ToStdOut {
+//!     vertices: u32,
+//!     indices: u32,
 //! }
 //!
-//! // Allocate a vertex buffer and an index buffer. This is typically what we would want to
-//! // send to the GPU for rendering.
-//! let mut buffers: VertexBuffers<Vertex2d> = VertexBuffers::new();
+//! impl ToStdOut {
+//!      pub fn new() -> Self { ToStdOut { vertices: 0, indices: 0 } }
+//! }
 //!
-//! // Finally, generate the geometry using the function we created above to make a red square...
-//! let red = [1.0, 0.0, 0.0, 1.0];
-//! make_quad([0.0, 0.0], [1.0, 1.0], &mut BuffersBuilder::new(&mut buffers, WithColor(red)));
+//! // This one takes any vertex type that implements Debug, so it will work with both
+//! // FillVertex and StrokeVertex.
+//! impl<Vertex: Debug> GeometryBuilder<Vertex> for ToStdOut {
+//!     fn begin_geometry(&mut self) {
+//!         // Reset the vertex in index counters.
+//!         self.vertices = 0;
+//!         self.indices = 0;
+//!         println!(" -- begin geometry");
+//!     }
 //!
-//! // ...an a green one.
-//! let green = [0.0, 1.0, 0.0, 1.0];
-//! make_quad([2.0, 0.0], [1.0, 1.0], &mut BuffersBuilder::new(&mut buffers, WithColor(green)));
+//!     fn end_geometry(&mut self) -> Count {
+//!         println!(" -- end geometry, {} vertices, {} indices", self.vertices, self.indices);
+//!         Count {
+//!             vertices: self.vertices,
+//!             indices: self.indices,
+//!         }
+//!     }
 //!
-//! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
-//! println!("The generated indices are: {:?}.", &buffers.indices[..]);
+//!     fn add_vertex(&mut self, vertex: Vertex) -> VertexId {
+//!         println!("vertex {:?}", vertex);
+//!         self.vertices += 1;
+//!         VertexId(self.vertices as u16 - 1)
+//!     }
+//!
+//!     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+//!         println!("triangle ({}, {}, {})", a.offset(), b.offset(), c.offset());
+//!         self.indices += 3;
+//!     }
+//!
+//!     fn abort_geometry(&mut self) {
+//!         println!(" -- oops!");
+//!     }
+//! }
+//!
+//! fn main() {
+//!     let mut output = ToStdOut::new();
+//!     stroke_polyline(
+//!         [point(0.0, 0.0), point(10.0, 0.0), point(5.0, 5.0)].iter().cloned(),
+//!         true,
+//!         &mut output,
+//!     );
+//! }
+//! ```
+//!
+//! ### Writing a tessellator
+//!
+//! The example below is the implementation of basic_shapes::fill_rectangle.
+//!
+//! ```
+//! use lyon_tessellation::geometry_builder::*;
+//! use lyon_tessellation::FillVertex;
+//! use lyon_tessellation::math::{Rect, vec2};
+//!
+//! // A tessellator that generates an axis-aligned quad.
+//! // Returns a structure containing the number of vertices and number of indices allocated
+//! // during the execution of this method.
+//! pub fn fill_rectangle<Output>(rect: &Rect, output: &mut Output) -> Count
+//! where
+//!     Output: GeometryBuilder<FillVertex>
+//! {
+//!     output.begin_geometry();
+//!     // Create the vertices...
+//!     let a = output.add_vertex(
+//!         FillVertex { position: rect.origin, normal: vec2(-1.0, -1.0) }
+//!     );
+//!     let b = output.add_vertex(
+//!         FillVertex { position: rect.top_right(), normal: vec2(1.0, -1.0) }
+//!     );
+//!     let c = output.add_vertex(
+//!         FillVertex { position: rect.bottom_right(), normal: vec2(1.0, 1.0) }
+//!     );
+//!     let d = output.add_vertex(
+//!         FillVertex { position: rect.bottom_left(), normal: vec2(-1.0, 1.0) }
+//!     );
+//!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
+//!     // vertex buffer.
+//!     output.add_triangle(a, b, c);
+//!     output.add_triangle(a, c, d);
+//!
+//!     return output.end_geometry();
+//! }
 //! ```
 
 
@@ -340,8 +443,6 @@ where
 
 #[test]
 fn test_simple_quad() {
-    // Same as the example from the documentation with some assertions.
-
     #[derive(Copy, Clone, PartialEq, Debug)]
     struct Vertex2d {
         position: [f32; 2],

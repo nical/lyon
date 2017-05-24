@@ -38,17 +38,98 @@
 //! * [geometry_builder](geometry_builder/index.html) - Which the above two are built on. It
 //!   provides traits to facilitate generating arbitrary vertex and index buffers.
 //!
+//! ## The tessellation pipeline
+//!
+//! <svg xmlns="http://www.w3.org/2000/svg" width="280mm" height="42mm" viewBox="0 0 280 42">
+//!   <defs>
+//!     <marker id="e" orient="auto" overflow="visible">
+//!       <path fill="#59f" fill-rule="evenodd" stroke="#59f" stroke-width=".532" d="M-4 0l-2 2 7-2-7-2z"/>
+//!     </marker>
+//!     <marker id="d" orient="auto" overflow="visible">
+//!       <path fill-rule="evenodd" stroke="#000" stroke-width=".532" d="M-4 0l-2 2 7-2-7-2z"/>
+//!     </marker>
+//!     <marker id="c" orient="auto" overflow="visible">
+//!       <path fill="#59f" fill-rule="evenodd" stroke="#59f" stroke-width=".532" d="M-4 0l-2 2 7-2-7-2z"/>
+//!     </marker>
+//!     <marker id="b" orient="auto" overflow="visible">
+//!       <path fill-rule="evenodd" stroke="#000" stroke-width=".532" d="M-4 0l-2 2 7-2-7-2z"/>
+//!     </marker>
+//!     <marker id="a" orient="auto" overflow="visible">
+//!       <path fill-rule="evenodd" stroke="#000" stroke-width=".532" d="M-4 0l-2 2 7-2-7-2z"/>
+//!     </marker>
+//!   </defs>
+//!   <path fill="#fff" stroke="#000" stroke-opacity=".56" stroke-width=".26" stroke-miterlimit="4.27" d="M39.55 17.37h15.8l2.15-1.7 2.06 1.7h15.36V38.8H39.55zM194.65 31.3h21.58l2.1-1.83 2.04 1.82h35.07v7.07h-60.8zM77.7 19.5h54.6l3.3-2.58 3.17 2.57h52.56v19H77.7z" color="#000" overflow="visible" stroke-linecap="round" stroke-linejoin="round"/>
+//!   <g color="#000">
+//!     <path fill="#80b3ff" d="M194.6 20.37h50.65v8.73H194.6z" overflow="visible"/>
+//!     <path fill="#d5f6ff" d="M194.6 19.3h50.65v8.74H194.6z" overflow="visible"/>
+//!   </g>
+//!   <g color="#000">
+//!     <path fill="#2a7fff" d="M221.6 5.74h21.56v8.73H221.6z" overflow="visible"/>
+//!     <path fill="#d5f6ff" d="M221.6 4.68h21.56v8.73H221.6z" overflow="visible"/>
+//!   </g>
+//!   <g color="#000">
+//!     <path fill="#2a7fff" d="M154.38 5.74h47.4v8.73h-47.4z" overflow="visible"/>
+//!     <path fill="#d5f6ff" d="M154.38 4.68h47.4v8.73h-47.4z" overflow="visible"/>
+//!   </g>
+//!   <g color="#000">
+//!     <path fill="#2a7fff" d="M91.94 5.74h39.34v8.73H91.94z" overflow="visible"/>
+//!     <path fill="#d5f6ff" d="M91.94 4.68h39.34v8.73H91.94z" overflow="visible"/>
+//!   </g>
+//!   <g color="#000">
+//!     <path fill="#2a7fff" d="M3.04 5.74H75.2v8.73H3.03z" overflow="visible"/>
+//!     <path fill="#d5f6ff" d="M3.04 4.68H75.2v8.73H3.03z" overflow="visible"/>
+//!   </g>
+//!   <text x="93.73" y="266.09" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="93.73" y="266.09">FillTessellator</tspan>
+//!   </text>
+//!   <text x="155.37" y="265.58" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="155.37" y="265.58">GeometryBuilder</tspan>
+//!   </text>
+//!   <text x="223.1" y="266.02" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="223.1" y="266.02">output</tspan>
+//!   </text>
+//!   <text x="196.17" y="280.9" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="196.17" y="280.9">VertexConstructor</tspan>
+//!   </text>
+//!   <text x="5.13" y="266.09" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="5.13" y="266.09">Iterator&lt;FlattenedEvent&gt;</tspan>
+//!   </text>
+//!   <text x="79.79" y="282.2" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="79.79" y="282.2" fill="navy" font-size="4.23">builder.add_vertex(FillVertex) -&gt; VertexId;</tspan><tspan x="79.79" y="289.09" fill="navy" font-size="4.23">builder.add_triangle(VertexId, <tspan stroke-width=".07" style="line-height:1.75010836px;font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-alternates:normal;font-variant-east-asian:normal;font-feature-settings:normal;text-indent:0;text-align:start;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:#000000;text-transform:none;text-orientation:mixed;shape-padding:0" white-space="normal">VertexId, VertexId);</tspan></tspan>
+//!   </text>
+//!   <path fill="none" stroke="#000" stroke-width=".3" stroke-miterlimit="4.4" d="M76.94 265l13.64-.1" marker-end="url(#a)" transform="translate(0 -255)"/>
+//!   <path fill="none" stroke="#000" stroke-width=".3" stroke-miterlimit="4.4" d="M132.86 265l19.55-.1" marker-end="url(#b)" transform="translate(0 -255)"/>
+//!   <path fill="#59f" fill-rule="evenodd" stroke="#59f" stroke-width=".3" stroke-miterlimit="4.4" d="M203.38 264.53l8.27 8.26" marker-end="url(#c)" transform="translate(0 -255)"/>
+//!   <path fill="none" stroke="#000" stroke-width=".3" stroke-miterlimit="4.4" d="M203.38 264.53l16 .06" marker-end="url(#d)" transform="translate(0 -255)"/>
+//!   <text x="196.69" y="291.41" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="196.69" y="291.41" fill="navy" font-size="4.23">FillVertex -&gt; CustomVertex</tspan>
+//!   </text>
+//!   <path fill="#59f" fill-rule="evenodd" stroke="#59f" stroke-width=".3" stroke-miterlimit="4.4" d="M212.97 272.98l6.75-6.5" marker-end="url(#e)" transform="translate(0 -255)"/>
+//!   <g fill="none" stroke="#000" stroke-width=".26">
+//!     <path d="M7.2 30.1l2.98 1.72h3.24l1.78-1.8 2.62-.75 2.08 1.83-1.6 2.87-5.64 1.54-3.5-1.62zM32.6 30.1l-3 1.72H26.4l-1.78-1.8-2.62-.75-2.08 1.83 1.6 2.87 5.64 1.54 3.5-1.62zM15 20.67l-.5 4.42 1.34 1 1.63-1.57-1.06-4.03zM24.53 20.67l.5 4.42-1.33 1-1.63-1.57 1.06-4.03z"/>
+//!   </g>
+//!   <path fill="#b7c8c4" fill-rule="evenodd" stroke="#000" stroke-width=".15" d="M251.68 19.5l2.98 1.74h3.23l1.78-1.8 2.62-.75 2.07 1.82-1.6 2.87-5.63 1.53-3.5-1.63z" stroke-linecap="round" stroke-linejoin="round"/>
+//!   <path fill="#b7c8c4" fill-rule="evenodd" stroke="#000" stroke-width=".15" d="M277.07 19.5l-2.98 1.74h-3.24l-1.8-1.8-2.6-.75-2.1 1.82L266 23.4l5.63 1.53 3.5-1.63zM259.48 10.08l-.5 4.42 1.33 1 1.65-1.55-1.07-4.03zM269 10.08l.52 4.42-1.34 1-1.64-1.55 1.07-4.03z" stroke-linecap="round" stroke-linejoin="round"/>
+//!   <path fill="none" stroke="#000" stroke-width=".15" d="M258.97 14.5l2.98-.55-2.47-3.87M266.54 13.95l2.98.55-1.9-4.58M254.66 21.24l-1 2.06 4.23-2.06-.76 3.7 2.54-5.5 3.1 3.95-.48-4.7M275.1 23.3l-1-2.06-2.5 3.7-.74-3.7-4.4-2.55-.48 4.7 4.88-2.16" stroke-linecap="round" stroke-linejoin="round"/>
+//!   <text x="43.5" y="277.68" stroke-width=".26" style="line-height:6.61458349px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
+//!     <tspan x="43.5" y="277.68" fill="navy" font-size="3.88">MoveTo(Point)</tspan><tspan x="43.5" y="284.66" fill="navy" font-size="3.88">LineTo(Point)</tspan><tspan x="43.5" y="291.65" fill="navy" font-size="3.88">Close</tspan>
+//!   </text>
+//! </svg>
+//!
+//! The figure above shows each step of the fill tessellation pipeline.
+//! Tessellating strokes works the same way using `StrokeVertex` instead of `FillVertex`.
+//!
 //! ### The input: iterators
 //!
 //! The path tessellators are not tied to a particular data structure. Instead they consume
-//! iterators of [path events](https://docs.rs/lyon_core/*/lyon_core/events/index.html).
+//! iterators of flattened [path events](https://docs.rs/lyon_core/*/lyon_core/events/index.html).
 //! A [Path struct](https://docs.rs/lyon_path/*/lyon_path/struct.Path.html) in the crate
 //! [lyon_path](https://docs.rs/lyon_path/*/lyon_path/) is provided for convenience
-//! (but is not mandatory).
+//! (but is optional).
 //!
-//! The fill tessellator builds a [FillEvents object](path_fill/struct.FillEvents.html) from
-//! the iterator. It is an intermediate representation which can be cached if the path needs
-//! to be tessellated again.
+//! While the path tessellators use iterators, other more specific tessellation routines
+//! take simpler outputs like rectangles and circles.
+//! See the documentation of the [basic_shapes](basic_shapes/index.html) module.
 //!
 //! ### The output: geometry builders
 //!
@@ -56,22 +137,31 @@
 //! [GeometryBuilder trait](geometry_builder/trait.GeometryBuilder.html).
 //! This trait provides some simple methods to add vertices and triangles, without enforcing
 //! any particular representation for the resulting geometry. This is important because each
-//! application has its own internal representation for the vertex and index buffers sent to
-//! the GPU, and the tessellator needs to be able to write directly into these buffers without
-//! enforcing a particular vertex layout.
+//! application will usually want to work with its own vertex type tailored a certain rendering
+//! model.
 //!
 //! Each application will implement the ```GeometryBuilder<Point>``` trait in order to
 //! generate vertex buffers and index buffers any type of vertex they want taking a 2d Point
 //! as input for each vertex.
 //! The structs [VertexBuffers](geometry_builder/struct.VertexBuffers.html) and
 //! [geometry_buider::BuffersBuilder](geometry_builder/struct.BuffersBuilder.html) are provided
-//! for convenience.
+//! for convenience. `VertexBuffers<T>` is contains a `Vec<T>` for the vertices and a `Vec<u16>`
+//! for the indices.
+//!
+//! `BuffersBuilder` is generic over a `VertexConstructor<InputVertex, OutputVertex>` trait which
+//! creates the application's output vertices from the tessellator input vertices (either `FillVertex`
+//! or `StrokeVertex`).
 //!
 //! ## Examples
 //!
-//! See the examples in the [path_fill](path_fill/index.html) and [path_stroke](path_stroke/index.html)
-//! modules documentation.
+//! - [tessellating path fills](path_fill/index.html#examples).
+//! - [tessellating path strokes](path_stroke/index.html#examples).
+//! - [Generating custom vertices](geometry_builder/index.html#generating-custom-vertices).
+//! - [Generating completely custom output](geometry_builder/index.html#generating-a-completely-custom-output).
+//! - [Writing a tessellator](geometry_builder/index.html#writing-a-tessellator).
 //!
+
+
 
 #![allow(dead_code)]
 
@@ -100,7 +190,7 @@ pub use path_fill::*;
 pub use path_stroke::*;
 
 #[doc(inline)]
-pub use geometry_builder::{GeometryBuilder, VertexBuffers};
+pub use geometry_builder::{GeometryBuilder, BezierGeometryBuilder, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Side {
