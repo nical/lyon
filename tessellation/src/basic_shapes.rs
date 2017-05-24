@@ -664,6 +664,8 @@ where
     return output.end_geometry();
 }
 
+/// Tessellate the stroke of a shape that is discribed by an iterator of points
+/// (convenient when tessellating a shape that is represented as a slice `&[Point]`).
 pub fn stroke_polyline<Iter, Output>(it: Iter, is_closed: bool, output: &mut Output) -> Count
 where
     Iter: Iterator<Item = Point>,
