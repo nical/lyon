@@ -29,7 +29,7 @@
 //! some extra parameters (Some of which are not implemented yet).
 //!
 //! The output of the tessellator is produced by the
-//! [BezierGeometryBuilder](../geometry_builder/trait.BezierGeometryBuilder.html) (see the
+//! [GeometryBuilder](../geometry_builder/trait.GeometryBuilder.html) (see the
 //! [geometry_builder documentation](../geometry_builder/index.html) for more details about
 //! how tessellators produce their output geometry, and how to generate custom vertex layouts).
 //!
@@ -123,7 +123,7 @@ use std::cmp;
 use FillVertex as Vertex;
 use Side;
 use math::*;
-use geometry_builder::{BezierGeometryBuilder, Count, VertexId};
+use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::FlattenedEvent;
 use math_utils::{directed_angle, directed_angle2};
 
@@ -222,7 +222,7 @@ impl FillTessellator {
     ) -> FillResult
     where
         Iter: Iterator<Item = FlattenedEvent>,
-        Output: BezierGeometryBuilder<Vertex>,
+        Output: GeometryBuilder<Vertex>,
     {
         let mut events = replace(&mut self.events, FillEvents::new());
         events.clear();
@@ -241,7 +241,7 @@ impl FillTessellator {
         output: &mut Output,
     ) -> FillResult
     where
-        Output: BezierGeometryBuilder<Vertex>,
+        Output: GeometryBuilder<Vertex>,
     {
         if options.vertex_aa {
             println!("warning: Vertex-aa is not supported yet.");
@@ -277,14 +277,14 @@ impl FillTessellator {
         self.below.clear();
     }
 
-    fn begin_tessellation<Output: BezierGeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
+    fn begin_tessellation<Output: GeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
         debug_assert!(self.sweep_line.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.below.is_empty());
         output.begin_geometry();
     }
 
-    fn end_tessellation<Output: BezierGeometryBuilder<Vertex>>(
+    fn end_tessellation<Output: GeometryBuilder<Vertex>>(
         &mut self,
         output: &mut Output,
     ) -> Count {
@@ -294,7 +294,7 @@ impl FillTessellator {
         return output.end_geometry();
     }
 
-    fn tessellator_loop<Output: BezierGeometryBuilder<Vertex>>(
+    fn tessellator_loop<Output: GeometryBuilder<Vertex>>(
         &mut self,
         events: &FillEvents,
         output: &mut Output,
@@ -408,7 +408,7 @@ impl FillTessellator {
         }
     }
 
-    fn process_vertex<Output: BezierGeometryBuilder<Vertex>>(
+    fn process_vertex<Output: GeometryBuilder<Vertex>>(
         &mut self,
         current_position: TessPoint,
         output: &mut Output,
@@ -724,7 +724,7 @@ impl FillTessellator {
     // Look for eventual merge vertices on this span above the current vertex, and connect
     // them to the current vertex.
     // This should be called when processing a vertex that is on the left side of a span.
-    fn resolve_merge_vertices<Output: BezierGeometryBuilder<Vertex>>(
+    fn resolve_merge_vertices<Output: GeometryBuilder<Vertex>>(
         &mut self,
         span_idx: usize,
         current: TessPoint,
@@ -741,7 +741,7 @@ impl FillTessellator {
         }
     }
 
-    fn split_event<Output: BezierGeometryBuilder<Vertex>>(
+    fn split_event<Output: GeometryBuilder<Vertex>>(
         &mut self,
         span_idx: usize,
         current: TessPoint,
@@ -790,7 +790,7 @@ impl FillTessellator {
         }
     }
 
-    fn merge_event<Output: BezierGeometryBuilder<Vertex>>(
+    fn merge_event<Output: GeometryBuilder<Vertex>>(
         &mut self,
         position: TessPoint,
         id: VertexId,
@@ -1026,7 +1026,7 @@ impl FillTessellator {
         }
     }
 
-    fn end_span<Output: BezierGeometryBuilder<Vertex>>(
+    fn end_span<Output: GeometryBuilder<Vertex>>(
         &mut self,
         span_idx: usize,
         position: TessPoint,
@@ -1750,7 +1750,7 @@ impl MonotoneTessellator {
         }
     }
 
-    fn flush<Output: BezierGeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
+    fn flush<Output: GeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }
