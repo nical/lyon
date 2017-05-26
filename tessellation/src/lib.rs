@@ -53,14 +53,14 @@
 //! ### The output: geometry builders
 //!
 //! The tessellators are parametrized over a type implementing the
-//! [BezierGeometryBuilder trait](geometry_builder/trait.GeometryBuilder.html).
+//! [GeometryBuilder trait](geometry_builder/trait.GeometryBuilder.html).
 //! This trait provides some simple methods to add vertices and triangles, without enforcing
 //! any particular representation for the resulting geometry. This is important because each
 //! application has its own internal representation for the vertex and index buffers sent to
 //! the GPU, and the tessellator needs to be able to write directly into these buffers without
 //! enforcing a particular vertex layout.
 //!
-//! Each application will implement the ```BezierGeometryBuilder<Point>``` trait in order to
+//! Each application will implement the ```GeometryBuilder<Point>``` trait in order to
 //! generate vertex buffers and index buffers any type of vertex they want taking a 2d Point
 //! as input for each vertex.
 //! The structs [VertexBuffers](geometry_builder/struct.VertexBuffers.html) and

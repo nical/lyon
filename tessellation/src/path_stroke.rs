@@ -19,7 +19,7 @@
 //!
 //! This stroke tessellator takes an iterator of path events as inputs as well as
 //! a [StrokeOption](struct.StrokeOptions.html), and produces its outputs using
-//! a [BezierGeometryBuilder](../geometry_builder/trait.BezierGeometryBuilder.html).
+//! a [GeometryBuilder](../geometry_builder/trait.GeometryBuilder.html).
 //!
 //!
 //! See the [geometry_builder module documentation](../geometry_builder/index.html)
