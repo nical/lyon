@@ -35,16 +35,16 @@ impl CubicFlatteningIter {
         let mut iter = CubicFlatteningIter {
             remaining_curve: bezier,
             current_curve: None,
-            next_inflection: inflections.first().cloned(),
-            following_inflection: inflections.second().cloned(),
+            next_inflection: inflections.get(0).cloned(),
+            following_inflection: inflections.get(1).cloned(),
             tolerance: tolerance,
         };
 
-        if let Some(&t1) = inflections.first() {
+        if let Some(&t1) = inflections.get(0) {
             let (before, after) = bezier.split(t1);
             iter.current_curve = Some(before);
             iter.remaining_curve = after;
-            if let Some(&t2) = inflections.second() {
+            if let Some(&t2) = inflections.get(1) {
                 // Adjust the second inflection since we removed the part before the
                 // first inflection from the bezier curve.
                 let t2 = (t2 - t1) / (1.0 - t1);
@@ -108,12 +108,12 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
 ) {
     let inflections = find_cubic_bezier_inflection_points(&bezier);
 
-    if let Some(&t1) = inflections.first() {
+    if let Some(&t1) = inflections.get(0) {
         let (before, after) = bezier.split(t1);
         flatten_cubic_no_inflection(before, tolerance, call_back);
         bezier = after;
 
-        if let Some(&t2) = inflections.second() {
+        if let Some(&t2) = inflections.get(1) {
             // Adjust the second inflection since we removed the part before the
             // first inflection from the bezier curve.
             let t2 = (t2 - t1) / (1.0 - t1);
@@ -193,6 +193,8 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
     let b = pa.x * pc.y - pa.y * pc.x;
     let c = pa.x * pb.y - pa.y * pb.x;
 
+    let mut ret = UpToTwo::new();
+
     if a == 0.0 {
         // Not a quadratic equation.
         if b == 0.0 {
@@ -204,11 +206,13 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
             // point at t == 0. The inflection point approximation range found will
             // automatically extend into infinity.
             if c == 0.0 {
-                return UpToTwo::One(0.0);
+                ret.push(0.0);
             }
-            return UpToTwo::None;
+        } else {
+            ret.push(-c / b);
         }
-        return UpToTwo::One(-c / b);
+
+        return ret;
     }
 
     fn in_range(t: f32) -> bool { t >= 0.0 && t < 1.0 }
@@ -216,12 +220,17 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
     let discriminant = b * b - 4.0 * a * c;
 
     if discriminant < 0.0 {
-        return UpToTwo::None;
+        return ret;
     }
 
     if discriminant == 0.0 {
         let t = -b / (2.0 * a);
-        return if in_range(t) { UpToTwo::One(t) } else { UpToTwo::None };
+
+        if in_range(t) {
+            ret.push(t);
+        }
+
+        return ret;
     }
 
     let discriminant_sqrt = discriminant.sqrt();
@@ -233,12 +242,15 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
         swap(&mut first_inflection, &mut second_inflection);
     }
 
-    return match (in_range(first_inflection), in_range(second_inflection)) {
-        (false, false) => UpToTwo::None,
-        (true, false) => UpToTwo::One(first_inflection),
-        (false, true) => UpToTwo::One(second_inflection),
-        (true, true) => UpToTwo::Two(first_inflection, second_inflection),
+    if in_range(first_inflection) {
+        ret.push(first_inflection);
     }
+
+    if in_range(second_inflection) {
+        ret.push(second_inflection);
+    }
+
+    ret
 }
 
 #[cfg(test)]

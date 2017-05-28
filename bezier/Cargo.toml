@@ -14,3 +14,4 @@ name = "lyon_bezier"
 
 [dependencies]
 euclid = "0.13"
+arrayvec = "0.3"
