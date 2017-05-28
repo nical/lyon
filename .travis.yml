@@ -13,5 +13,6 @@ env:
   - TEST_DIR=examples/gfx_basic
   - TEST_DIR=examples/gfx_advanced
   - TEST_DIR=cli
+  - TEST_DIR=bezier
 script:
   - cd $TEST_DIR && cargo test
