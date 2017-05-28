@@ -142,6 +142,19 @@ impl QuadraticBezierSegment {
         return if self.from.y > self.to.y { 0.0 } else { 1.0 };
     }
 
+    /// Find the advancement of the y-least position in the curve.
+    ///
+    /// This returns the advancement along the curve, not the actual y position.
+    pub fn find_y_minimum(&self) -> f32 {
+        if let Some(t) = self.find_y_inflection() {
+            let p = self.sample(t);
+            if p.y < self.from.y && p.y < self.to.y {
+                return t;
+            }
+        }
+        return if self.from.y < self.to.y { 0.0 } else { 1.0 };
+    }
+
     /// Return the y inflection point or None if this curve is y-monotone.
     pub fn find_y_inflection(&self) -> Option<f32> {
         let div = self.from.y - 2.0 * self.ctrl.y + self.to.y;
@@ -149,6 +162,45 @@ impl QuadraticBezierSegment {
             return None;
         }
         let t = (self.from.y - self.ctrl.y) / div;
+        if t > 0.0 && t < 1.0 {
+            return Some(t);
+        }
+        return None;
+    }
+
+    /// Find the advancement of the x-most position in the curve.
+    ///
+    /// This returns the advancement along the curve, not the actual x position.
+    pub fn find_x_maximum(&self) -> f32 {
+        if let Some(t) = self.find_x_inflection() {
+            let p = self.sample(t);
+            if p.x > self.from.x && p.x > self.to.x {
+                return t;
+            }
+        }
+        return if self.from.x > self.to.x { 0.0 } else { 1.0 };
+    }
+
+    /// Find the advancement of the x-least position in the curve.
+    ///
+    /// This returns the advancement along the curve, not the actual x position.
+    pub fn find_x_minimum(&self) -> f32 {
+        if let Some(t) = self.find_x_inflection() {
+            let p = self.sample(t);
+            if p.x < self.from.x && p.x < self.to.x {
+                return t;
+            }
+        }
+        return if self.from.x < self.to.x { 0.0 } else { 1.0 };
+    }
+
+    /// Return the x inflection point or None if this curve is x-monotone.
+    pub fn find_x_inflection(&self) -> Option<f32> {
+        let div = self.from.x - 2.0 * self.ctrl.x + self.to.x;
+        if div == 0.0 {
+            return None;
+        }
+        let t = (self.from.x - self.ctrl.x) / div;
         if t > 0.0 && t < 1.0 {
             return Some(t);
         }
@@ -279,6 +331,98 @@ fn bounding_rect_for_quadratic_bezier_segment() {
     let actual_bounding_rect = a.bounding_rect();
 
     assert!(expected_bounding_rect == actual_bounding_rect)
+}
+
+#[test]
+fn find_y_maximum_for_simple_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_y_maximum = 0.5;
+
+    let actual_y_maximum = a.find_y_maximum();
+
+    assert!(expected_y_maximum == actual_y_maximum)
+}
+
+#[test]
+fn find_y_inflection_for_simple_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_y_inflection = 0.5;
+
+    match a.find_y_inflection() {
+        Some(actual_y_inflection) => assert!(expected_y_inflection == actual_y_inflection),
+        None => panic!(),
+    }
+}
+
+#[test]
+fn find_y_minimum_for_simple_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, -1.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_y_minimum = 0.5;
+
+    let actual_y_minimum = a.find_y_minimum();
+
+    assert!(expected_y_minimum == actual_y_minimum)
+}
+
+#[test]
+fn find_x_maximum_for_simple_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(0.0, 2.0),
+    };
+
+    let expected_x_maximum = 0.5;
+
+    let actual_x_maximum = a.find_x_maximum();
+
+    assert!(expected_x_maximum == actual_x_maximum)
+}
+
+#[test]
+fn find_x_inflection_for_simple_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(0.0, 2.0),
+    };
+
+    let expected_x_inflection = 0.5;
+
+    match a.find_x_inflection() {
+        Some(actual_x_inflection) => assert!(expected_x_inflection == actual_x_inflection),
+        None => panic!(),
+    }
+}
+
+#[test]
+fn find_x_minimum_for_simple_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(2.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(2.0, 2.0),
+    };
+
+    let expected_x_minimum = 0.5;
+
+    let actual_x_minimum = a.find_x_minimum();
+
+    assert!(expected_x_minimum == actual_x_minimum)
 }
 
 /// An iterator over a quadratic bézier segment that yields line segments approximating the
