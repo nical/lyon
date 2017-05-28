@@ -70,6 +70,7 @@ mod cubic_to_quadratic;
 mod up_to_two;
 
 use std::mem::swap;
+use euclid::rect::rect;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
 pub use cubic_to_quadratic::cubic_to_quadratic;
@@ -80,6 +81,12 @@ pub type Point = euclid::Point2D<f32>;
 
 /// Alias for ```euclid::Point2D<f32>```.
 pub type Vec2 = euclid::Point2D<f32>;
+
+/// Alias for ```euclid::Size2D<f32>```.
+pub type Size = euclid::Size2D<f32>;
+
+/// Alias for ```euclid::Rect<f32>```
+pub type Rect = euclid::Rect<f32>;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
 /// point and the end of the segment.
@@ -247,6 +254,30 @@ impl QuadraticBezierSegment {
         });
         return len;
     }
+
+    pub fn bounding_rect(&self) -> Rect {
+        let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
+        let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
+        let min_y = self.from.y.min(self.ctrl.y).min(self.to.y);
+        let max_y = self.from.y.max(self.ctrl.y).max(self.to.y);
+
+        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+    }
+}
+
+#[test]
+fn bounding_rect_for_quadratic_bezier_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_bounding_rect = rect(0.0, 0.0, 2.0, 1.0);
+
+    let actual_bounding_rect = a.bounding_rect();
+
+    assert!(expected_bounding_rect == actual_bounding_rect)
 }
 
 /// An iterator over a quadratic bézier segment that yields line segments approximating the
@@ -392,6 +423,31 @@ impl CubicBezierSegment {
     pub fn find_inflection_points(&self) -> UpToTwo<f32> {
         find_cubic_bezier_inflection_points(self)
     }
+
+    pub fn bounding_rect(&self) -> Rect {
+        let min_x = self.from.x.min(self.ctrl1.x).min(self.ctrl2.x).min(self.to.x);
+        let max_x = self.from.x.max(self.ctrl1.x).max(self.ctrl2.x).max(self.to.x);
+        let min_y = self.from.y.min(self.ctrl1.y).min(self.ctrl2.y).min(self.to.y);
+        let max_y = self.from.y.max(self.ctrl1.y).max(self.ctrl2.y).max(self.to.y);
+
+        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+    }
+}
+
+#[test]
+fn bounding_rect_for_cubic_bezier_segment() {
+    let a = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(0.5, 1.0),
+        ctrl2: Point::new(1.5, -1.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_bounding_rect = rect(0.0, -1.0, 2.0, 2.0);
+
+    let actual_bounding_rect = a.bounding_rect();
+
+    assert!(expected_bounding_rect == actual_bounding_rect)
 }
 
 fn vec2_length(v: Vec2) -> f32 {
