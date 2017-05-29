@@ -63,6 +63,7 @@
 //! the light green area and the orange arrow.
 //!
 
+extern crate arrayvec;
 extern crate euclid;
 
 mod flatten_cubic;
