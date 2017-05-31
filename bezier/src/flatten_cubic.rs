@@ -186,8 +186,8 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
     let pa = bezier.ctrl1 - bezier.from;
-    let pb = bezier.ctrl2 - (bezier.ctrl1 * 2.0) + bezier.from;
-    let pc = bezier.to - (bezier.ctrl2 * 3.0) + (bezier.ctrl1 * 3.0) - bezier.from;
+    let pb = bezier.ctrl2 - (bezier.ctrl1.to_vector() * 2.0) + bezier.from.to_vector();
+    let pc = bezier.to - (bezier.ctrl2.to_vector() * 3.0) + (bezier.ctrl1.to_vector() * 3.0) - bezier.from.to_vector();
 
     let a = pb.x * pc.y - pb.y * pc.x;
     let b = pa.x * pc.y - pa.y * pc.x;
