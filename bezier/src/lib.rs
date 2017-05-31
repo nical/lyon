@@ -71,17 +71,19 @@ mod cubic_to_quadratic;
 mod up_to_two;
 
 use std::mem::swap;
-use euclid::rect::rect;
+use euclid::rect;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 pub use up_to_two::UpToTwo;
 
+use euclid::point2;
+
 /// Alias for ```euclid::Point2D<f32>```.
 pub type Point = euclid::Point2D<f32>;
 
 /// Alias for ```euclid::Point2D<f32>```.
-pub type Vec2 = euclid::Point2D<f32>;
+pub type Vec2 = euclid::Vector2D<f32>;
 
 /// Alias for ```euclid::Size2D<f32>```.
 pub type Size = euclid::Size2D<f32>;
@@ -107,7 +109,7 @@ impl QuadraticBezierSegment {
         let t2 = t * t;
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
-        return self.from * one_t2 + self.ctrl * 2.0 * one_t * t + self.to * t2;
+        return self.from * one_t2 + self.ctrl.to_vector() * 2.0 * one_t * t + self.to.to_vector() * t2;
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
@@ -209,36 +211,33 @@ impl QuadraticBezierSegment {
 
     /// Split this curve into two sub-curves.
     pub fn split(&self, t: f32) -> (QuadraticBezierSegment, QuadraticBezierSegment) {
-        let t_one = t - 1.0;
         let split_point = self.sample(t);
         return (QuadraticBezierSegment {
             from: self.from,
-            ctrl: self.ctrl * t - self.from * t_one,
+            ctrl: lerp(self.from, self.ctrl, t),
             to: split_point,
         },
         QuadraticBezierSegment {
             from: split_point,
-            ctrl: self.to * t - self.ctrl * t_one,
+            ctrl: lerp(self.ctrl, self.to, t),
             to: self.to,
         });
     }
 
     /// Return the curve before the split point.
     pub fn before_split(&self, t: f32) -> QuadraticBezierSegment {
-        let t_one = t - 1.0;
         return QuadraticBezierSegment {
             from: self.from,
-            ctrl: self.ctrl * t - self.from * t_one,
+            ctrl: lerp(self.from, self.ctrl, t),
             to: self.sample(t),
         };
     }
 
     /// Return the curve after the split point.
     pub fn after_split(&self, t: f32) -> QuadraticBezierSegment {
-        let t_one = t - 1.0;
         return QuadraticBezierSegment {
             from: self.sample(t),
-            ctrl: self.to * t - self.ctrl * t_one,
+            ctrl: lerp(self.ctrl, self.to, t),
             to: self.to,
         };
     }
@@ -247,8 +246,8 @@ impl QuadraticBezierSegment {
     pub fn to_cubic(&self) -> CubicBezierSegment {
         CubicBezierSegment {
             from: self.from,
-            ctrl1: (self.from + self.ctrl * 2.0) / 3.0,
-            ctrl2: (self.to + self.ctrl * 2.0) / 3.0,
+            ctrl1: (self.from + self.ctrl.to_vector() * 2.0) / 3.0,
+            ctrl2: (self.to + self.ctrl.to_vector() * 2.0) / 3.0,
             to: self.to,
         }
     }
@@ -302,7 +301,7 @@ impl QuadraticBezierSegment {
         let mut start = self.from;
         let mut len = 0.0;
         self.flattened_for_each(tolerance, &mut|p| {
-            len += vec2_length(p - start);
+            len += (p - start).length();
             start = p;
         });
         return len;
@@ -484,8 +483,10 @@ impl CubicBezierSegment {
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
-        return self.from * one_t3 + self.ctrl1 * 3.0 * one_t2 * t +
-                   self.ctrl2 * 3.0 * one_t * t2 + self.to * t3;
+        return self.from * one_t3 +
+            self.ctrl1.to_vector() * 3.0 * one_t2 * t +
+            self.ctrl2.to_vector() * 3.0 * one_t * t2 +
+            self.to.to_vector() * t3;
     }
 
     /// Split this curve into two sub-curves.
@@ -559,7 +560,7 @@ impl CubicBezierSegment {
         let mut start = self.from;
         let mut len = 0.0;
         self.flattened_for_each(tolerance, &mut|p| {
-            len += vec2_length(p - start);
+            len += (p - start).length();
             start = p;
         });
         return len;
@@ -595,8 +596,14 @@ fn bounding_rect_for_cubic_bezier_segment() {
     assert!(expected_bounding_rect == actual_bounding_rect)
 }
 
-fn vec2_length(v: Vec2) -> f32 {
-    (v.x * v.x + v.y * v.y).sqrt()
+
+// Compute the linear interpolation between two points.
+#[inline]
+fn lerp(a: Point, b: Point, t: f32) -> Point {
+    point2(
+        a.x * 1.0 - t + b.x * t,
+        a.y * 1.0 - t + b.y * t
+    )
 }
 
 #[test]
