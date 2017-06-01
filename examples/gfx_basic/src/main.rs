@@ -39,7 +39,7 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
         GpuFillVertex {
             // (ugly hack) tweak the vertext position so that the logo fits roughly
             // within the (-1.0, 1.0) range.
-            position: (vertex.position * 0.0145 - point(1.0, 1.0)).array(),
+            position: (vertex.position * 0.0145 - vec2(1.0, 1.0)).to_array(),
         }
     }
 }
@@ -51,7 +51,7 @@ fn main() {
     let path = builder.build();
 
     let mut tessellator = FillTessellator::new();
-    
+
     let mut mesh = VertexBuffers::new();
 
     tessellator.tessellate_path(

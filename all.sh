@@ -10,5 +10,5 @@ cd ../path && cargo $1 &&
 cd ../renderer && cargo $1 &&
 cd ../cli && cargo $1 &&
 cd ../examples/gfx_basic && cargo build &&
-cd ../examples/gfx_advanced && cargo build &&
+cd ../gfx_advanced && cargo build &&
 echo "...done"

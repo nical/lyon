@@ -422,7 +422,7 @@ impl FillTessellator {
         // The logic here really need to be simplified, it is the trickiest part of the
         // tessellator.
 
-        let vec2_position = to_vec2(current_position);
+        let vec2_position = to_f32_point(current_position);
         let id = output.add_vertex(
             Vertex {
                 position: vec2_position,
@@ -684,7 +684,7 @@ impl FillTessellator {
                             span_idx,
                             Span::begin(current_position, id, left_edge.lower, right_edge.lower),
                         );
-                    let vec2_position = to_vec2(current_position);
+                    let vec2_position = to_f32_point(current_position);
                     self.monotone_tessellators.insert(
                         span_idx,
                         MonotoneTessellator::begin(vec2_position, id),
@@ -778,7 +778,7 @@ impl FillTessellator {
             };
 
             self.sweep_line.insert(span_idx, Span::begin(ll.upper, ll.upper_id, ll.lower, current));
-            let vec2_position = to_vec2(ll.upper);
+            let vec2_position = to_f32_point(ll.upper);
             self.monotone_tessellators
                 .insert(span_idx, MonotoneTessellator::begin(vec2_position, ll.upper_id));
             self.sweep_line[span_idx + 1].left.upper = r2.upper;
@@ -807,7 +807,7 @@ impl FillTessellator {
         //   x-'      <-- current merge vertex
         self.resolve_merge_vertices(right_span, position, id, output);
 
-        let vec2_position = to_vec2(position);
+        let vec2_position = to_f32_point(position);
 
         self.sweep_line[left_span].merge_vertex(position, id, Side::Right);
         self.monotone_tessellators[left_span].vertex(vec2_position, id, Side::Right);
@@ -835,7 +835,7 @@ impl FillTessellator {
         self.check_intersections(&mut edge);
         // This sets the merge flag to false.
         self.sweep_line[span_idx].edge(edge, id, side);
-        let vec2_position = to_vec2(edge.upper);
+        let vec2_position = to_f32_point(edge.upper);
         self.monotone_tessellators[span_idx].vertex(vec2_position, id, side);
 
     }
@@ -1033,7 +1033,7 @@ impl FillTessellator {
         id: VertexId,
         output: &mut Output,
     ) {
-        let vec2_position = to_vec2(position);
+        let vec2_position = to_f32_point(position);
         {
             let tess = &mut self.monotone_tessellators[span_idx];
             tess.end(vec2_position, id);
@@ -1407,12 +1407,14 @@ pub fn is_after<T: PartialOrd, U>(a: TypedPoint2D<T, U>, b: TypedPoint2D<T, U>) 
 #[inline]
 fn to_internal(v: Point) -> TessPoint { TessPoint::new(fixed(v.x), fixed(v.y)) }
 #[inline]
-fn to_vec2(v: TessPoint) -> Point { vec2(v.x.to_f32(), v.y.to_f32()) }
+fn to_f32_point(v: TessPoint) -> Point { point(v.x.to_f32(), v.y.to_f32()) }
+#[inline]
+fn to_f32_vec2(v: TessVec2) -> Vec2 { vec2(v.x.to_f32(), v.y.to_f32()) }
 
 #[inline]
 fn compute_angle(v: TessVec2) -> f32 {
     // TODO: compute directed angles using fixed point vectors.
-    -directed_angle(vec2(1.0, 0.0), to_vec2(v))
+    -directed_angle(vec2(1.0, 0.0), to_f32_vec2(v))
 }
 
 /// A sequence of edges sorted from top to bottom, to be used as the tessellator's input.
@@ -1762,41 +1764,41 @@ impl MonotoneTessellator {
 fn test_monotone_tess() {
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), VertexId(0));
-        tess.vertex(vec2(-1.0, 1.0), VertexId(1), Side::Left);
-        tess.end(vec2(1.0, 2.0), VertexId(2));
+        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
+        tess.end(point(1.0, 2.0), VertexId(2));
         assert_eq!(tess.triangles.len(), 1);
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), VertexId(0));
-        tess.vertex(vec2(1.0, 1.0), VertexId(1), Side::Right);
-        tess.vertex(vec2(-1.5, 2.0), VertexId(2), Side::Left);
-        tess.vertex(vec2(-1.0, 3.0), VertexId(3), Side::Left);
-        tess.vertex(vec2(1.0, 4.0), VertexId(4), Side::Right);
-        tess.end(vec2(0.0, 5.0), VertexId(5));
+        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
+        tess.vertex(point(-1.5, 2.0), VertexId(2), Side::Left);
+        tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
+        tess.vertex(point(1.0, 4.0), VertexId(4), Side::Right);
+        tess.end(point(0.0, 5.0), VertexId(5));
         assert_eq!(tess.triangles.len(), 4);
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), VertexId(0));
-        tess.vertex(vec2(1.0, 1.0), VertexId(1), Side::Right);
-        tess.vertex(vec2(3.0, 2.0), VertexId(2), Side::Right);
-        tess.vertex(vec2(1.0, 3.0), VertexId(3), Side::Right);
-        tess.vertex(vec2(1.0, 4.0), VertexId(4), Side::Right);
-        tess.vertex(vec2(4.0, 5.0), VertexId(5), Side::Right);
-        tess.end(vec2(0.0, 6.0), VertexId(6));
+        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
+        tess.vertex(point(3.0, 2.0), VertexId(2), Side::Right);
+        tess.vertex(point(1.0, 3.0), VertexId(3), Side::Right);
+        tess.vertex(point(1.0, 4.0), VertexId(4), Side::Right);
+        tess.vertex(point(4.0, 5.0), VertexId(5), Side::Right);
+        tess.end(point(0.0, 6.0), VertexId(6));
         assert_eq!(tess.triangles.len(), 5);
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(vec2(0.0, 0.0), VertexId(0));
-        tess.vertex(vec2(-1.0, 1.0), VertexId(1), Side::Left);
-        tess.vertex(vec2(-3.0, 2.0), VertexId(2), Side::Left);
-        tess.vertex(vec2(-1.0, 3.0), VertexId(3), Side::Left);
-        tess.vertex(vec2(-1.0, 4.0), VertexId(4), Side::Left);
-        tess.vertex(vec2(-4.0, 5.0), VertexId(5), Side::Left);
-        tess.end(vec2(0.0, 6.0), VertexId(6));
+        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
+        tess.vertex(point(-3.0, 2.0), VertexId(2), Side::Left);
+        tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
+        tess.vertex(point(-1.0, 4.0), VertexId(4), Side::Left);
+        tess.vertex(point(-4.0, 5.0), VertexId(5), Side::Left);
+        tess.end(point(0.0, 6.0), VertexId(6));
         assert_eq!(tess.triangles.len(), 5);
     }
     println!(" ------------ ");

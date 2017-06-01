@@ -2,7 +2,7 @@
 use svgparser::{ Tokenize, TextFrame };
 use svgparser::path::{ Tokenizer, Token };
 use core::SvgEvent;
-use core::math::*;
+use core::math;
 use core::ArcFlags;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -44,20 +44,21 @@ impl<'l> Iterator for PathTokenizer<'l> {
 }
 
 fn svg_event(token: &Token) -> SvgEvent {
-    fn v(x: f64, y: f64) -> Point { point(x as f32, y as f32) }
+    fn vec2(x: f64, y: f64) -> math::Vec2 { math::vec2(x as f32, y as f32) }
+    fn point2(x: f64, y: f64) -> math::Point { math::point(x as f32, y as f32) }
     match *token {
         Token::MoveTo { abs, x, y } => {
             if abs {
-                SvgEvent::MoveTo(v(x, y))
+                SvgEvent::MoveTo(point2(x, y))
             } else {
-                SvgEvent::RelativeMoveTo(v(x, y))
+                SvgEvent::RelativeMoveTo(vec2(x, y))
             }
         },
         Token::LineTo { abs, x, y } => {
             if abs {
-                SvgEvent::LineTo(v(x, y))
+                SvgEvent::LineTo(point2(x, y))
             } else {
-                SvgEvent::RelativeLineTo(v(x, y))
+                SvgEvent::RelativeLineTo(vec2(x, y))
             }
         },
         Token::HorizontalLineTo { abs, x } => {
@@ -76,42 +77,46 @@ fn svg_event(token: &Token) -> SvgEvent {
         },
         Token::CurveTo { abs, x1, y1, x2, y2, x, y } => {
             if abs {
-                SvgEvent::CubicTo(v(x1, y1), v(x2, y2), v(x, y))
+                SvgEvent::CubicTo(point2(x1, y1), point2(x2, y2), point2(x, y))
             } else {
-                SvgEvent::RelativeCubicTo(v(x1, y1), v(x2, y2), v(x, y))
+                SvgEvent::RelativeCubicTo(vec2(x1, y1), vec2(x2, y2), vec2(x, y))
             }
         },
         Token::SmoothCurveTo { abs, x2, y2, x, y } => {
             if abs {
-                SvgEvent::SmoothCubicTo(v(x2, y2), v(x, y))
+                SvgEvent::SmoothCubicTo(point2(x2, y2), point2(x, y))
             } else {
-                SvgEvent::SmoothRelativeCubicTo(v(x2, y2), v(x, y))
+                SvgEvent::SmoothRelativeCubicTo(vec2(x2, y2), vec2(x, y))
             }
         },
         Token::Quadratic { abs, x1, y1, x, y } => {
             if abs {
-                SvgEvent::QuadraticTo(v(x1, y1), v(x, y))
+                SvgEvent::QuadraticTo(point2(x1, y1), point2(x, y))
             } else {
-                SvgEvent::RelativeQuadraticTo(v(x1, y1), v(x, y))
+                SvgEvent::RelativeQuadraticTo(vec2(x1, y1), vec2(x, y))
             }
         },
         Token::SmoothQuadratic { abs, x, y } => {
             if abs {
-                SvgEvent::SmoothQuadraticTo(v(x, y))
+                SvgEvent::SmoothQuadraticTo(point2(x, y))
             } else {
-                SvgEvent::SmoothRelativeQuadraticTo(v(x, y))
+                SvgEvent::SmoothRelativeQuadraticTo(vec2(x, y))
             }
         },
         Token::EllipticalArc { abs, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
             if abs {
                 SvgEvent::ArcTo(
-                v(x, y), v(rx, ry), Radians::new(x_axis_rotation.to_radians() as f32),
-                ArcFlags { large_arc: large_arc, sweep: sweep }
+                    point2(x, y),
+                    vec2(rx, ry),
+                    math::Radians::new(x_axis_rotation.to_radians() as f32),
+                    ArcFlags { large_arc: large_arc, sweep: sweep }
                 )
             } else {
                 SvgEvent::RelativeArcTo(
-                v(x, y), v(rx, ry), Radians::new(x_axis_rotation.to_radians() as f32),
-                ArcFlags { large_arc: large_arc, sweep: sweep }
+                    vec2(x, y),
+                    vec2(rx, ry),
+                    math::Radians::new(x_axis_rotation.to_radians() as f32),
+                    ArcFlags { large_arc: large_arc, sweep: sweep }
                 )
             }
         },

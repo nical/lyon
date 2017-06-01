@@ -11,12 +11,12 @@ pub fn fuzzy_eq_f32(a: f32, b: f32) -> bool {
 pub fn fuzzy_eq(a: Vec2, b: Vec2) -> bool { fuzzy_eq_f32(a.x, b.x) && fuzzy_eq_f32(a.y, b.y) }
 
 // Compute the vector from ce center of an ellipse on of its points
-pub fn ellipse_center_to_point(center: Vec2, ellipse_point: Vec2, radii: Vec2) -> Vec2 {
-    vec2((ellipse_point.x - center.x) / radii.x, (ellipse_point.y - center.y) / radii.y)
+pub fn ellipse_center_to_point(center: Point, ellipse_point: Point, radii: Vec2) -> Point {
+    point((ellipse_point.x - center.x) / radii.x, (ellipse_point.y - center.y) / radii.y)
 }
 
-pub fn ellipse_point_from_angle(center: Vec2, radii: Vec2, angle: f32) -> Vec2 {
-    vec2(center.x + radii.x * angle.cos(), center.y + radii.y * angle.sin())
+pub fn ellipse_point_from_angle(center: Point, radii: Vec2, angle: f32) -> Point {
+    point(center.x + radii.x * angle.cos(), center.y + radii.y * angle.sin())
 }
 
 
@@ -43,7 +43,7 @@ pub fn directed_angle(a: Vec2, b: Vec2) -> f32 {
     return if angle < 0.0 { angle + 2.0 * PI } else { angle };
 }
 
-pub fn directed_angle2(center: Vec2, a: Vec2, b: Vec2) -> f32 {
+pub fn directed_angle2(center: Point, a: Point, b: Point) -> f32 {
     directed_angle(a - center, b - center)
 }
 
@@ -89,7 +89,7 @@ pub fn tangent(v: Vec2) -> Vec2 {
     return vec2(-v.y / l, v.x / l);
 }
 
-pub fn line_intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2> {
+pub fn line_intersection(a1: Point, a2: Point, b1: Point, b2: Point) -> Option<Point> {
     let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
     if det.abs() <= 0.000001 {
         // The lines are very close to parallel
@@ -99,7 +99,7 @@ pub fn line_intersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> Option<Vec2>
     let a = a1.x * a2.y - a1.y * a2.x;
     let b = b1.x * b2.y - b1.y * b2.x;
     return Some(
-        vec2(
+        point(
             (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
             (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det,
         )
@@ -283,12 +283,12 @@ fn test_triangle_contains() {
 /// for generating strokes and vertex-aa).
 /// The normal points towards the left side of e1.
 pub fn compute_normal(e1: Vec2, e2: Vec2) -> Vec2 {
-    let e1_norm = e1.normalized();
-    let n = e1_norm - e2.normalized();
+    let e1_norm = e1.normalize();
+    let n = e1_norm - e2.normalize();
     if n.length() == 0.0 {
         return vec2(e1_norm.y, -e1_norm.x);
     }
-    let mut n_norm = n.normalized();
+    let mut n_norm = n.normalize();
 
     if e1_norm.cross(n_norm) > 0.0 {
         n_norm = -n_norm;

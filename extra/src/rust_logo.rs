@@ -1,8 +1,8 @@
 use path_builder::SvgBuilder;
-use core::math::vec2;
+use core::math::{vec2, point};
 
 pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
-    path.move_to(vec2(122.631, 69.716));
+    path.move_to(point(122.631, 69.716));
     path.relative_line_to(vec2(-4.394, -2.72));
     path.relative_cubic_bezier_to(vec2(-0.037, -0.428), vec2(-0.079, -0.855), vec2(-0.125, -1.28));
     path.relative_line_to(vec2(3.776, -3.522));
@@ -162,17 +162,17 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.relative_cubic_bezier_to(vec2(0.046, -0.425), vec2(0.088, -0.853), vec2(0.125, -1.28));
     path.relative_line_to(vec2(4.394, -2.72));
     path.relative_cubic_bezier_to(vec2(0.445, -0.274), vec2(0.716, -0.761), vec2(0.716, -1.285));
-    path.smooth_cubic_bezier_to(vec2(123.076, 69.991), vec2(122.631, 69.716));
+    path.smooth_cubic_bezier_to(point(123.076, 69.991), point(122.631, 69.716));
     path.close();
 
-    path.move_to(vec2(93.222, 106.167));
+    path.move_to(point(93.222, 106.167));
     path.relative_cubic_bezier_to(vec2(-1.678, -0.362), vec2(-2.745, -2.016), vec2(-2.385, -3.699));
     path.relative_cubic_bezier_to(vec2(0.359, -1.681), vec2(2.012, -2.751), vec2(3.689, -2.389));
     path.relative_cubic_bezier_to(vec2(1.678, 0.359), vec2(2.747, 2.016), vec2(2.387, 3.696));
-    path.smooth_cubic_bezier_to(vec2(94.899, 106.526), vec2(93.222, 106.167));
+    path.smooth_cubic_bezier_to(point(94.899, 106.526), point(93.222, 106.167));
     path.close();
 
-    path.move_to(vec2(91.729, 96.069));
+    path.move_to(point(91.729, 96.069));
     path.relative_cubic_bezier_to(vec2(-1.531, -0.328), vec2(-3.037, 0.646), vec2(-3.365, 2.18));
     path.relative_line_to(vec2(-1.56, 7.28));
     path.relative_cubic_bezier_to(vec2(-4.814, 2.185), vec2(-10.16, 3.399), vec2(-15.79, 3.399));
@@ -194,24 +194,24 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.relative_horizontal_line_to(15.583);
     path.relative_cubic_bezier_to(vec2(0.177, 0.0), vec2(0.366, -0.02), vec2(0.565, -0.056));
     path.relative_cubic_bezier_to(vec2(-1.081, 1.469), vec2(-2.267, 2.859), vec2(-3.544, 4.158));
-    path.line_to(vec2(91.729, 96.069));
+    path.line_to(point(91.729, 96.069));
     path.close();
 
-    path.move_to(vec2(48.477, 106.015));
+    path.move_to(point(48.477, 106.015));
     path.relative_cubic_bezier_to(vec2(-1.678, 0.362), vec2(-3.33, -0.708), vec2(-3.691, -2.389));
     path.relative_cubic_bezier_to(vec2(-0.359, -1.684), vec2(0.708, -3.337), vec2(2.386, -3.699));
     path.relative_cubic_bezier_to(vec2(1.678, -0.359), vec2(3.331, 0.711), vec2(3.691, 2.392));
-    path.cubic_bezier_to(vec2(51.222, 103.999), vec2(50.154, 105.655), vec2(48.477, 106.015));
+    path.cubic_bezier_to(point(51.222, 103.999), point(50.154, 105.655), point(48.477, 106.015));
     path.close();
 
-    path.move_to(vec2(36.614, 57.91));
+    path.move_to(point(36.614, 57.91));
     path.relative_cubic_bezier_to(vec2(0.696, 1.571), vec2(-0.012, 3.412), vec2(-1.581, 4.107));
     path.relative_cubic_bezier_to(vec2(-1.569, 0.697), vec2(-3.405, -0.012), vec2(-4.101, -1.584));
     path.relative_cubic_bezier_to(vec2(-0.696, -1.572), vec2(0.012, -3.41), vec2(1.581, -4.107));
-    path.cubic_bezier_to(vec2(34.083, 55.63), vec2(35.918, 56.338), vec2(36.614, 57.91));
+    path.cubic_bezier_to(point(34.083, 55.63), point(35.918, 56.338), point(36.614, 57.91));
     path.close();
 
-    path.move_to(vec2(32.968, 66.553));
+    path.move_to(point(32.968, 66.553));
     path.relative_line_to(vec2(6.695, -2.975));
     path.relative_cubic_bezier_to(vec2(1.43, -0.635), vec2(2.076, -2.311), vec2(1.441, -3.744));
     path.relative_line_to(vec2(-1.379, -3.118));
@@ -223,10 +223,10 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
         vec2(-1.458, -6.857),
         vec2(-1.458, -10.496),
     );
-    path.cubic_bezier_to(vec2(32.749, 69.275), vec2(32.824, 67.902), vec2(32.968, 66.553));
+    path.cubic_bezier_to(point(32.749, 69.275), point(32.824, 67.902), point(32.968, 66.553));
     path.close();
 
-    path.move_to(vec2(62.348, 64.179));
+    path.move_to(point(62.348, 64.179));
     path.relative_vertical_line_to(-7.205);
     path.relative_horizontal_line_to(12.914);
     path.relative_cubic_bezier_to(vec2(0.667, 0.0), vec2(4.71, 0.771), vec2(4.71, 3.794));
@@ -234,7 +234,7 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     //path.horizontal_line_to(62.348) //TODO;
     path.close();
 
-    path.move_to(vec2(109.28, 70.664));
+    path.move_to(point(109.28, 70.664));
     path.relative_cubic_bezier_to(vec2(0.0, 0.956), vec2(-0.035, 1.902), vec2(-0.105, 2.841));
     path.relative_horizontal_line_to(-3.926);
     path.relative_cubic_bezier_to(vec2(-0.393, 0.0), vec2(-0.551, 0.258), vec2(-0.551, 0.643));
@@ -262,20 +262,20 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.relative_line_to(vec2(-3.666, 8.28));
     path.relative_cubic_bezier_to(vec2(-0.633, 1.433), vec2(0.013, 3.109), vec2(1.442, 3.744));
     path.relative_line_to(vec2(7.058, 3.135));
-    path.cubic_bezier_to(vec2(109.216, 68.115), vec2(109.28, 69.381), vec2(109.28, 70.664));
+    path.cubic_bezier_to(point(109.216, 68.115), point(109.28, 69.381), point(109.28, 70.664));
     path.close();
 
-    path.move_to(vec2(68.705, 28.784));
+    path.move_to(point(68.705, 28.784));
     path.relative_cubic_bezier_to(vec2(1.24, -1.188), vec2(3.207, -1.141), vec2(4.394, 0.101));
     path.relative_cubic_bezier_to(vec2(1.185, 1.245), vec2(1.14, 3.214), vec2(-0.103, 4.401));
     path.relative_cubic_bezier_to(vec2(-1.24, 1.188), vec2(-3.207, 1.142), vec2(-4.394, -0.102));
-    path.cubic_bezier_to(vec2(67.418, 31.941), vec2(67.463, 29.972), vec2(68.705, 28.784));
+    path.cubic_bezier_to(point(67.418, 31.941), point(67.463, 29.972), point(68.705, 28.784));
     path.close();
 
-    path.move_to(vec2(105.085, 58.061));
+    path.move_to(point(105.085, 58.061));
     path.relative_cubic_bezier_to(vec2(0.695, -1.571), vec2(2.531, -2.28), vec2(4.1, -1.583));
     path.relative_cubic_bezier_to(vec2(1.569, 0.696), vec2(2.277, 2.536), vec2(1.581, 4.107));
     path.relative_cubic_bezier_to(vec2(-0.695, 1.572), vec2(-2.531, 2.281), vec2(-4.101, 1.584));
-    path.cubic_bezier_to(vec2(105.098, 61.473), vec2(104.39, 59.634), vec2(105.085, 58.061));
+    path.cubic_bezier_to(point(105.098, 61.473), point(104.39, 59.634), point(105.085, 58.061));
     path.close();
 }
