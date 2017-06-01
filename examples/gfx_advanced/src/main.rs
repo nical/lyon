@@ -70,7 +70,7 @@ pub fn gfx_sub_slice<R: gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32
 struct BgVertexCtor;
 impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
-        BgVertex { position: vertex.position.array() }
+        BgVertex { position: vertex.position.to_array() }
     }
 }
 
@@ -188,7 +188,7 @@ fn main() {
 
     let circle_indices_start = cpu.fills.indices.len() as u32;
     let circle_count = fill_circle(
-        vec2(0.0, 0.0),
+        point(0.0, 0.0),
         1.0,
         0.01,
         &mut BuffersBuilder::new(
@@ -197,7 +197,7 @@ fn main() {
         ),
     );
     fill_circle(
-        vec2(0.0, 0.0),
+        point(0.0, 0.0),
         0.5,
         0.01,
         &mut BuffersBuilder::new(
@@ -237,7 +237,7 @@ fn main() {
 
     let mut bg_mesh_cpu: VertexBuffers<BgVertex> = VertexBuffers::new();
     fill_rectangle(
-        &Rect::new(vec2(-1.0, -1.0), size(2.0, 2.0)),
+        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &mut BuffersBuilder::new(&mut bg_mesh_cpu, BgVertexCtor),
     );
 
@@ -405,7 +405,7 @@ fn main() {
         *cpu.transforms[view_transform].as_mut_mat4() = Mat4::create_translation(
             -scene.scroll.x as f32,
             -scene.scroll.y as f32, 0.0
-        ).post_scaled(scene.zoom, scene.zoom, 1.0);
+        ).post_scale(scene.zoom, scene.zoom, 1.0);
 
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
@@ -419,7 +419,7 @@ fn main() {
             &Globals {
                 resolution: [w as f32, h as f32],
                 zoom: scene.zoom,
-                scroll_offset: scene.scroll.array(),
+                scroll_offset: scene.scroll.to_array(),
             },
         );
 

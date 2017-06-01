@@ -248,7 +248,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             if self.options.line_cap == LineCap::Square {
                 // The easiest way to implement square caps is to lie about the current position
                 // and move it slightly to accommodate for the width/2 extra length.
-                self.current = self.current + d.normalized() * hw;
+                self.current = self.current + d.normalize() * hw;
             }
             let p = self.current + d;
             self.edge_to(p);
@@ -262,7 +262,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let d = first - self.second;
 
             if self.options.line_cap == LineCap::Square {
-                first = first + d.normalized() * hw;
+                first = first + d.normalize() * hw;
             }
 
             let n2 = tangent(d) * 0.5;
@@ -369,7 +369,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     }
 }
 
-fn get_angle_info(previous: Point, current: Point, next: Point) -> (Point, Point, Option<Point>) {
+fn get_angle_info(previous: Point, current: Point, next: Point) -> (Vec2, Vec2, Option<Vec2>) {
     let amount = 0.5;
     let n1 = tangent(current - previous) * amount;
     let n2 = tangent(next - current) * amount;

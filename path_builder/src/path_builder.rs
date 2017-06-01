@@ -186,7 +186,7 @@ impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     pub fn new(builder: Builder) -> SvgPathBuilder<Builder> {
         SvgPathBuilder {
             builder: builder,
-            last_ctrl: vec2(0.0, 0.0),
+            last_ctrl: point(0.0, 0.0),
         }
     }
 }
@@ -209,7 +209,7 @@ impl<Builder: PathBuilder> BaseBuilder for SvgPathBuilder<Builder> {
         self.builder.close()
     }
 
-    fn current_position(&self) -> Vec2 { self.builder.current_position() }
+    fn current_position(&self) -> Point { self.builder.current_position() }
 
     fn build(self) -> Builder::PathType { self.builder.build() }
 
@@ -241,12 +241,12 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
 
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
         let offset = self.builder.current_position();
-        self.quadratic_bezier_to(ctrl + offset, to + offset);
+        self.quadratic_bezier_to(offset + ctrl, offset + to);
     }
 
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
         let offset = self.builder.current_position();
-        self.cubic_bezier_to(ctrl1 + offset, ctrl2 + offset, to + offset);
+        self.cubic_bezier_to(offset + ctrl1, offset + ctrl2, offset + to);
     }
 
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point) {
@@ -273,22 +273,22 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
 
     fn horizontal_line_to(&mut self, x: f32) {
         let y = self.builder.current_position().y;
-        self.line_to(vec2(x, y));
+        self.line_to(point(x, y));
     }
 
     fn relative_horizontal_line_to(&mut self, dx: f32) {
         let p = self.builder.current_position();
-        self.line_to(vec2(p.x + dx, p.y));
+        self.line_to(point(p.x + dx, p.y));
     }
 
     fn vertical_line_to(&mut self, y: f32) {
         let x = self.builder.current_position().x;
-        self.line_to(vec2(x, y));
+        self.line_to(point(x, y));
     }
 
     fn relative_vertical_line_to(&mut self, dy: f32) {
         let p = self.builder.current_position();
-        self.line_to(vec2(p.x, p.y + dy));
+        self.line_to(point(p.x, p.y + dy));
     }
 
     // x_rotation in radian
@@ -310,7 +310,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         flags: ArcFlags,
     ) {
         let offset = self.builder.current_position();
-        self.arc_to(to + offset, radii, x_rotation, flags);
+        self.arc_to(offset + to, radii, x_rotation, flags);
     }
 }
 
