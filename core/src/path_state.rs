@@ -1,5 +1,5 @@
 
-use math::{Point, Vec2};
+use math::{Point, Vec2, point, vec2};
 
 use super::{PathEvent, SvgEvent, FlattenedEvent};
 
@@ -16,9 +16,9 @@ pub struct PathState {
 impl PathState {
     pub fn new() -> Self {
         PathState {
-            current: Point::new(0.0, 0.0),
-            first: Point::new(0.0, 0.0),
-            last_ctrl: Point::new(0.0, 0.0),
+            current: point(0.0, 0.0),
+            first: point(0.0, 0.0),
+            last_ctrl: point(0.0, 0.0),
         }
     }
 }
@@ -63,19 +63,19 @@ impl PathState {
                 self.relative_next(to);
             }
             SvgEvent::HorizontalLineTo(x) => {
-                let to = Point::new(x, self.current.y);
+                let to = point(x, self.current.y);
                 self.line_to(to);
             }
             SvgEvent::VerticalLineTo(y) => {
-                let to = Point::new(self.current.x, y);
+                let to = point(self.current.x, y);
                 self.line_to(to);
             }
             SvgEvent::RelativeHorizontalLineTo(x) => {
-                let to = self.current + Point::new(x, 0.0);
+                let to = self.current + vec2(x, 0.0);
                 self.line_to(to);
             }
             SvgEvent::RelativeVerticalLineTo(y) => {
-                let to = self.current + Point::new(0.0, y);
+                let to = self.current + vec2(0.0, y);
                 self.line_to(to);
             }
             SvgEvent::SmoothQuadraticTo(to) => {
@@ -158,7 +158,7 @@ impl PathState {
 
     pub fn next(&mut self, to: Point) { self.current = to; }
 
-    pub fn relative_next(&mut self, to: Point) { self.current = self.from_relative(to); }
+    pub fn relative_next(&mut self, to: Vec2) { self.current = self.from_relative(to); }
 
     pub fn get_smooth_ctrl(&self) -> Point { self.current + (self.current - self.last_ctrl) }
 
@@ -184,14 +184,14 @@ impl PathState {
                 )
             }
             SvgEvent::HorizontalLineTo(x) => {
-                PathEvent::LineTo(Point::new(x, self.current.y))
+                PathEvent::LineTo(point(x, self.current.y))
             }
-            SvgEvent::VerticalLineTo(y) => PathEvent::LineTo(Point::new(self.current.x, y)),
+            SvgEvent::VerticalLineTo(y) => PathEvent::LineTo(point(self.current.x, y)),
             SvgEvent::RelativeHorizontalLineTo(x) => {
-                PathEvent::LineTo(Point::new(self.current.x + x, self.current.y))
+                PathEvent::LineTo(point(self.current.x + x, self.current.y))
             }
             SvgEvent::RelativeVerticalLineTo(y) => {
-                PathEvent::LineTo(Point::new(self.current.x, self.current.y + y))
+                PathEvent::LineTo(point(self.current.x, self.current.y + y))
             }
             SvgEvent::SmoothQuadraticTo(to) => {
                 PathEvent::QuadraticTo(self.get_smooth_ctrl(), to)

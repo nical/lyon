@@ -25,7 +25,7 @@ impl ::std::convert::From<::std::io::Error> for TessError {
 pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
 
     let mut builder = SvgPathBuilder::new(Path::builder());
-    let mut buffers: VertexBuffers<Vec2> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
 
     for item in parser::path::PathTokenizer::new(&cmd.input) {
         if let Ok(event) = item {
@@ -92,8 +92,8 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
 
 struct StrokeWidth(f32);
 
-impl VertexConstructor<StrokeVertex, Vec2> for StrokeWidth {
-    fn new_vertex(&mut self, vertex: StrokeVertex) -> Vec2 {
+impl VertexConstructor<StrokeVertex, Point> for StrokeWidth {
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Point {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
@@ -105,8 +105,8 @@ impl VertexConstructor<StrokeVertex, Vec2> for StrokeWidth {
 
 struct ApplyNormal;
 
-impl VertexConstructor<FillVertex, Vec2> for ApplyNormal {
-    fn new_vertex(&mut self, vertex: FillVertex) -> Vec2 {
+impl VertexConstructor<FillVertex, Point> for ApplyNormal {
+    fn new_vertex(&mut self, vertex: FillVertex) -> Point {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
 

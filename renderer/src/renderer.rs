@@ -185,8 +185,8 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for WithId<GpuFi
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
         GpuFillVertex {
-            position: vertex.position.array(),
-            normal: vertex.normal.array(),
+            position: vertex.position.to_array(),
+            normal: vertex.normal.to_array(),
             prim_id: self.0.to_i32(),
         }
     }
@@ -199,8 +199,8 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithId<G
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
         GpuStrokeVertex {
-            position: vertex.position.array(),
-            normal: vertex.normal.array(),
+            position: vertex.position.to_array(),
+            normal: vertex.normal.to_array(),
             prim_id: self.0.to_i32(),
         }
     }

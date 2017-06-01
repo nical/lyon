@@ -589,10 +589,22 @@ pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
     let right = vec2(1.0, 0.0);
 
     let v = [
-        output.add_vertex(FillVertex { position: left * radius, normal: left }),
-        output.add_vertex(FillVertex { position: up * radius, normal: up }),
-        output.add_vertex(FillVertex { position: right * radius, normal: right }),
-        output.add_vertex(FillVertex { position: down * radius, normal: down }),
+        output.add_vertex(FillVertex {
+            position: (left * radius).to_point(),
+            normal: left
+        }),
+        output.add_vertex(FillVertex {
+            position: (up * radius).to_point(),
+            normal: up
+        }),
+        output.add_vertex(FillVertex {
+            position: (right * radius).to_point(),
+            normal: right
+        }),
+        output.add_vertex(FillVertex {
+            position: (down * radius).to_point(),
+            normal: down
+        }),
     ];
 
     output.add_triangle(v[0], v[1], v[3]);

@@ -1,11 +1,11 @@
 use core::PathEvent;
-use core::math::Vec2;
+use core::math::Point;
 use path::{Path, PathSlice};
 use path_builder::BaseBuilder;
 
-pub type Polygons = Vec<Vec<Vec2>>;
+pub type Polygons = Vec<Vec<Point>>;
 
-pub fn path_to_polygons(path: PathSlice) -> Vec<Vec<Vec2>> {
+pub fn path_to_polygons(path: PathSlice) -> Polygons {
     let mut polygons = Vec::new();
     let mut poly = Vec::new();
     for evt in path.path_iter() {
