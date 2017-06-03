@@ -13,4 +13,4 @@ workspace = ".."
 name = "lyon_core"
 
 [dependencies]
-euclid = "0.14"
+euclid = "0.14.2"
