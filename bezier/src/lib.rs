@@ -71,8 +71,9 @@ mod cubic_to_quadratic;
 mod up_to_two;
 mod quadratic_bezier;
 mod cubic_bezier;
+mod triangle;
+mod line;
 
-use euclid::rect;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 pub use up_to_two::UpToTwo;
 
@@ -90,4 +91,8 @@ pub type Rect = euclid::Rect<f32>;
 
 pub use quadratic_bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
 pub use cubic_bezier::{CubicBezierSegment, CubicFlatteningIter};
+pub use triangle::{Triangle};
+pub use line::{LineSegment};
 
+use euclid::vec2;
+use euclid::rect;
