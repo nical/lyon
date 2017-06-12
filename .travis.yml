@@ -1,7 +1,6 @@
 language: rust
 rust:
   - stable
-  - beta
   - nightly
 env:
   - TEST_DIR=core
