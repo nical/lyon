@@ -137,7 +137,7 @@ use euclid::point2 as point;
 #[test]
 fn intersection_rotated() {
     use std::f32::consts::PI;
-    let epsilon = 0.00001;
+    let epsilon = 0.0001;
     let count: u32 = 100;
 
     for i in 0..count {
