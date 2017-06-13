@@ -15,16 +15,16 @@ impl LineSegment {
         self.from.lerp(self.to, t)
     }
 
-    /// [Not implemented] Sample the x coordinate of the segment at t (expecting t between 0 and 1).
+    /// Sample the x coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn sample_x(&self, _t: f32) -> f32 {
-        unimplemented!()
+    pub fn sample_x(&self, t: f32) -> f32 {
+        self.from.x * (1.0 - t) + self.to.x * t
     }
 
-    /// [Not implemented] Sample the y coordinate of the segment at t (expecting t between 0 and 1).
+    /// Sample the y coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn sample_y(&self, _t: f32) -> f32 {
-        unimplemented!()
+    pub fn sample_y(&self, t: f32) -> f32 {
+        self.from.y * (1.0 - t) + self.to.y * t
     }
 
     /// Returns an inverted version of this segment where the beginning and the end
@@ -35,22 +35,26 @@ impl LineSegment {
         LineSegment { from: self.to, to: self.from }
     }
 
-    /// [Not implemented] Split this curve into two sub-segments.
+    /// Split this curve into two sub-segments.
     #[inline]
-    pub fn split(&self, _t: f32) -> (Self, Self) {
-        unimplemented!()
+    pub fn split(&self, t: f32) -> (Self, Self) {
+        let split_point = self.sample(t);
+        return (
+            LineSegment { from: self.from, to: split_point },
+            LineSegment { from: split_point, to: self.to },
+        );
     }
 
-    /// [Not implemented] Return the segment before the split point.
+    /// Return the segment before the split point.
     #[inline]
-    pub fn before_split(&self, _t: f32) -> Self {
-        unimplemented!()
+    pub fn before_split(&self, t: f32) -> Self {
+        LineSegment { from: self.from, to: self.sample(t) }
     }
 
-    /// [Not implemented] Return the segment after the split point.
+    /// Return the segment after the split point.
     #[inline]
-    pub fn after_split(&self, _t: f32) -> Self {
-        unimplemented!()
+    pub fn after_split(&self, t: f32) -> Self {
+        LineSegment { from: self.sample(t), to: self.to }
     }
 
     /// [Not implemented]
