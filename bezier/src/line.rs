@@ -90,7 +90,6 @@ impl LineSegment {
 
         let v1 = vec2_f64(self.to_vector());
         let v2 = vec2_f64(-other.to_vector());
-        let v3 = vec2_f64(other.to - self.from);
 
         let v1_cross_v2 = v1.cross(v2);
 
@@ -99,7 +98,9 @@ impl LineSegment {
             return None;
         }
 
-        let sign_v1_cross_v2 = if v1_cross_v2 > 0.0 { 1.0 } else { -1.0 };
+        let v3 = vec2_f64(other.to - self.from);
+
+        let sign_v1_cross_v2 = v1_cross_v2.signum();
         let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
 
         // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
@@ -113,6 +114,33 @@ impl LineSegment {
         }
 
         return None;
+    }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        // we don't need as much precision if we don't compute the position of
+        // the intersection, so this version uses f32 arithmetic.
+        let v1 = self.to_vector();
+        let v2 = -other.to_vector();
+
+        let v1_cross_v2 = v1.cross(v2);
+
+        if v1_cross_v2 == 0.0 {
+            return false;
+        }
+
+        let v3 = other.to - self.from;
+
+        let sign_v1_cross_v2 = v1_cross_v2.signum();
+        let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
+
+        let t = v3.cross(v2) * sign_v1_cross_v2;
+        let u = v3.cross(v1) * sign_v1_cross_v2;
+
+        if t > 0.0 && t < abs_v1_cross_v2 && u > 0.0 && u < abs_v1_cross_v2 {
+            return true;
+        }
+
+        return false;
     }
 }
 
@@ -160,6 +188,8 @@ fn intersection_rotated() {
                 to: point(-10.0 * angle2.cos(), -10.0 * angle2.sin()),
             };
 
+            assert!(l1.intersects(&l2));
+
             assert!(
                 fuzzy_eq_point(
                     l1.intersection(&l2).unwrap(),
@@ -169,19 +199,6 @@ fn intersection_rotated() {
             );
         }
     }
-
-    let l1 = LineSegment {
-        from: point(0.0, 0.0),
-        to: point(10.0, 10.0),
-    };
-
-    let l2 = LineSegment {
-        from: point(0.0, 10.0),
-        to: point(10.0, 0.0),
-    };
-
-    let epsilon = 0.0000001;
-    assert!(fuzzy_eq_point(l1.intersection(&l2).unwrap(), point(5.0, 5.0), epsilon));
 }
 
 #[test]
@@ -196,15 +213,16 @@ fn intersection_touching() {
         to: point(10.0, 0.0),
     };
 
+    assert!(!l1.intersects(&l2));
     assert!(l1.intersection(&l2).is_none());
 }
 
 #[test]
 fn intersection_overlap() {
     // It's hard to define the intersection points of two segments that overlap,
-    // (would be a region rather than a point) and in practice the algorithms in
-    // lyon don't need to consider this special case as an intersection, so we
-    // choose to treat it as if the lines did not intersect.
+    // (would be a region rather than a point) and more importanly, in practice
+    // the algorithms in lyon don't need to consider this special case as an intersection,
+    // so we choose to treat overlapping segments as not intersecting.
 
     let l1 = LineSegment {
         from: point(0.0, 0.0),
@@ -216,5 +234,6 @@ fn intersection_overlap() {
         to: point(15.0, 0.0),
     };
 
+    assert!(!l1.intersects(&l2));
     assert!(l1.intersection(&l2).is_none());
 }
