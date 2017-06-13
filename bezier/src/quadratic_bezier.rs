@@ -1,5 +1,5 @@
 use {CubicBezierSegment};
-use {Point, Rect, rect, Transform2D};
+use {Point, Rect, rect, Triangle, Transform2D};
 use std::mem::swap;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
@@ -223,6 +223,15 @@ impl QuadraticBezierSegment {
             start = p;
         });
         return len;
+    }
+
+    /// Returns a triangle containing this curve segment.
+    pub fn bounding_triangle(&self) -> Triangle {
+        Triangle {
+            a: self.from,
+            b: self.ctrl,
+            c: self.to,
+        }
     }
 
     pub fn bounding_rect(&self) -> Rect {
