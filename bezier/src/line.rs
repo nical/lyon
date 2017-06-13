@@ -1,5 +1,4 @@
 use {Point, Vec2, vec2, Rect};
-use std::mem::swap;
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -28,10 +27,12 @@ impl LineSegment {
         unimplemented!()
     }
 
-    /// Swap the beginning and the end of the segment.
+    /// Returns an inverted version of this segment where the beginning and the end
+    /// points are swapped.
     #[inline]
-    pub fn flip(&mut self) {
-        swap(&mut self.from, &mut self.to);
+    #[must_use]
+    pub fn flip(&self) -> Self {
+        LineSegment { from: self.to, to: self.from }
     }
 
     /// [Not implemented] Split this curve into two sub-segments.
