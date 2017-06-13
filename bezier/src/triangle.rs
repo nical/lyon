@@ -23,7 +23,7 @@ impl Triangle {
         let u = (dot11 * dot02 - dot01 * dot12) * inv;
         let v = (dot11 * dot12 - dot01 * dot02) * inv;
 
-        return u >= 0.0 && v >= 0.0 && u + v < 1.0;
+        return u > 0.0 && v > 0.0 && u + v < 1.0;
     }
 
     /// [Not implemented]
@@ -81,6 +81,15 @@ impl Triangle {
             || other.contains_point(self.a)
             || *self == *other;
     }
+
+    /// Test for triangle-segment intersection.
+    #[inline]
+    pub fn intersects_line_segment(&self, segment: &LineSegment) -> bool {
+        return self.ab().intersects(&segment)
+            || self.bc().intersects(&segment)
+            || self.ac().intersects(&segment)
+            || self.contains_point(segment.from);
+    }
 }
 
 #[cfg(test)]
@@ -103,9 +112,10 @@ fn test_triangle_contains() {
             c: point(0.0, 1.0),
         }.contains_point(point(1.2, 0.2))
     );
-    // Point exactly on the edge counts as in the triangle.
+
+    // Point exactly on the edge counts as outside the triangle.
     assert!(
-        Triangle {
+        !Triangle {
             a: point(0.0, 0.0),
             b: point(1.0, 0.0),
             c: point(0.0, 1.0),
@@ -168,4 +178,40 @@ fn test_triangle_intersections() {
     assert!(t2.intersects(&t2));
     assert!(t3.intersects(&t3));
     assert!(t4.intersects(&t4));
+}
+
+#[test]
+fn test_segment_intersection() {
+    let tri = Triangle {
+        a: point(1.0, 1.0),
+        b: point(6.0, 1.0),
+        c: point(3.0, 6.0),
+    };
+
+    let l1 = LineSegment {
+        from: point(2.0, 0.0),
+        to: point(3.0, 4.0),
+    };
+
+    assert!(tri.intersects_line_segment(&l1));
+
+    let l2 = LineSegment {
+        from: point(1.0, 3.0),
+        to: point(0.0, 4.0),
+    };
+
+    assert!(!tri.intersects_line_segment(&l2));
+
+    // The segement is entirely inside the triangle.
+    let inside = LineSegment {
+        from: point(2.0, 2.0),
+        to: point(5.0, 2.0),
+    };
+
+    assert!(tri.intersects_line_segment(&inside));
+
+    // A triangle does not intersect its own segments.
+    assert!(!tri.intersects_line_segment(&tri.ab()));
+    assert!(!tri.intersects_line_segment(&tri.bc()));
+    assert!(!tri.intersects_line_segment(&tri.ac()));
 }
