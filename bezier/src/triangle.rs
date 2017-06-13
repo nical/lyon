@@ -1,5 +1,6 @@
-use {Point, Rect};
+use {Point, Rect, LineSegment};
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle {
     pub a: Point,
     pub b: Point,
@@ -31,16 +32,62 @@ impl Triangle {
         unimplemented!()
     }
 
-    /// [Not implemented]
     #[inline]
-    pub fn intersects(&self, _other: &Self) -> bool {
-        unimplemented!()
+    pub fn ab(&self) -> LineSegment {
+        LineSegment { from: self.a, to: self.b }
+    }
+
+    #[inline]
+    pub fn ba(&self) -> LineSegment {
+        LineSegment { from: self.b, to: self.a }
+    }
+
+    #[inline]
+    pub fn bc(&self) -> LineSegment {
+        LineSegment { from: self.b, to: self.c }
+    }
+
+    #[inline]
+    pub fn cb(&self) -> LineSegment {
+        LineSegment { from: self.c, to: self.b }
+    }
+
+    #[inline]
+    pub fn ca(&self) -> LineSegment {
+        LineSegment { from: self.c, to: self.a }
+    }
+
+    #[inline]
+    pub fn ac(&self) -> LineSegment {
+        LineSegment { from: self.a, to: self.c }
+    }
+
+    /// Test for triangle-triangle intersection.
+    pub fn intersects(&self, other: &Self) -> bool {
+        // TODO: This should be optimized.
+        // A bounding rect check should speed this up dramatically.
+        // Inlining and reusing intermediate computation of the intersections
+        // functions below and using SIMD would help too.
+        return self.ab().intersects(&other.ab())
+            || self.ab().intersects(&other.bc())
+            || self.ab().intersects(&other.ac())
+            || self.bc().intersects(&other.ab())
+            || self.bc().intersects(&other.bc())
+            || self.bc().intersects(&other.ac())
+            || self.ac().intersects(&other.ab())
+            || self.ac().intersects(&other.bc())
+            || self.ac().intersects(&other.ac())
+            || self.contains_point(other.a)
+            || other.contains_point(self.a)
+            || *self == *other;
     }
 }
 
+#[cfg(test)]
+use euclid::point2 as point;
+
 #[test]
 fn test_triangle_contains() {
-    use euclid::point2 as point;
 
     assert!(
         Triangle {
@@ -66,3 +113,59 @@ fn test_triangle_contains() {
     );
 }
 
+#[test]
+fn test_segments() {
+    let t = Triangle {
+        a: point(1.0, 2.0),
+        b: point(3.0, 4.0),
+        c: point(5.0, 6.0),
+    };
+
+    assert!(t.ab() == t.ba().flip());
+    assert!(t.ac() == t.ca().flip());
+    assert!(t.bc() == t.cb().flip());
+}
+
+#[test]
+fn test_triangle_intersections() {
+    let t1 = Triangle {
+        a: point(1.0, 1.0),
+        b: point(6.0, 1.0),
+        c: point(3.0, 6.0),
+    };
+
+    let t2 = Triangle {
+        a: point(2.0, 2.0),
+        b: point(0.0, 3.0),
+        c: point(1.0, 6.0),
+    };
+
+    assert!(t1.intersects(&t2));
+    assert!(t2.intersects(&t1));
+
+    // t3 and t1 have an overlapping edge, they are "touching" but not intersecting.
+    let t3 = Triangle {
+        a: point(6.0, 5.0),
+        b: point(6.0, 1.0),
+        c: point(3.0, 6.0),
+    };
+
+    assert!(!t1.intersects(&t3));
+    assert!(!t3.intersects(&t1));
+
+    // t4 is entirely inside t1.
+    let t4 = Triangle {
+        a: point(2.0, 2.0),
+        b: point(5.0, 2.0),
+        c: point(3.0, 4.0),
+    };
+
+    assert!(t1.intersects(&t4));
+    assert!(t4.intersects(&t1));
+
+    // Triangles intersect themselves.
+    assert!(t1.intersects(&t1));
+    assert!(t2.intersects(&t2));
+    assert!(t3.intersects(&t3));
+    assert!(t4.intersects(&t4));
+}
