@@ -89,6 +89,9 @@ pub type Size = euclid::Size2D<f32>;
 /// Alias for ```euclid::Rect<f32>```
 pub type Rect = euclid::Rect<f32>;
 
+/// Alias for ```euclid::Transform2D<f32>```
+pub type Transform2D = euclid::Transform2D<f32>;
+
 pub use quadratic_bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
 pub use cubic_bezier::{CubicBezierSegment, CubicFlatteningIter};
 pub use triangle::{Triangle};

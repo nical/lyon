@@ -1,4 +1,4 @@
-use {Point, Vec2, vec2, Rect, Size};
+use {Point, Vec2, vec2, Rect, Size, Transform2D};
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -86,6 +86,16 @@ impl LineSegment {
         LineSegment {
             from: self.from + by,
             to: self.to + by,
+        }
+    }
+
+    /// Applies the transform to this segment and returns the results.
+    #[inline]
+    #[must_use]
+    pub fn transform(&self, transform: &Transform2D) -> Self {
+        LineSegment {
+            from: transform.transform_point(&self.from),
+            to: transform.transform_point(&self.to),
         }
     }
 
