@@ -1,5 +1,5 @@
 use {CubicBezierSegment};
-use {Point, Rect, rect};
+use {Point, Rect, rect, Transform2D};
 use std::mem::swap;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
@@ -161,6 +161,13 @@ impl QuadraticBezierSegment {
             ctrl2: (self.to + self.ctrl.to_vector() * 2.0) / 3.0,
             to: self.to,
         }
+    }
+
+    /// [Not implemented] Applies the transform to this curve and returns the results.
+    #[inline]
+    #[must_use]
+    pub fn transform(&self, _transform: &Transform2D) -> Self {
+        unimplemented!();
     }
 
     /// Find the interval of the begining of the curve that can be approximated with a

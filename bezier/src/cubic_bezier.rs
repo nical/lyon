@@ -1,5 +1,4 @@
-use euclid::rect;
-use {Point, Rect};
+use {Point, Rect, rect, Transform2D};
 use up_to_two::UpToTwo;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
@@ -85,6 +84,13 @@ impl CubicBezierSegment {
             ctrl2: ctrl3a,
             to: self.to,
         };
+    }
+
+    /// [Not implemented] Applies the transform to this curve and returns the results.
+    #[inline]
+    #[must_use]
+    pub fn transform(&self, _transform: &Transform2D) -> Self {
+        unimplemented!();
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the

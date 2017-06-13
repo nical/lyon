@@ -1,4 +1,4 @@
-use {Point, Rect, LineSegment, Size};
+use {Point, Rect, LineSegment, Size, Transform2D};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle {
@@ -67,6 +67,13 @@ impl Triangle {
     #[inline]
     pub fn ac(&self) -> LineSegment {
         LineSegment { from: self.a, to: self.c }
+    }
+
+    /// [Not implemented] Applies the transform to this triangle and returns the results.
+    #[inline]
+    #[must_use]
+    pub fn transform(&self, _transform: &Transform2D) -> Self {
+        unimplemented!();
     }
 
     /// Test for triangle-triangle intersection.
