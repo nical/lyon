@@ -874,7 +874,7 @@ impl FillTessellator {
                     span.left.upper,
                     span.left.lower,
                 ) {
-                    SegmentInteresection::One(position) => {
+                    Some(position) => {
                         tess_log!(self, " -- found an intersection at {:?}
                                         |    {:?}->{:?} x {:?}->{:?}",
                             position,
@@ -896,26 +896,7 @@ impl FillTessellator {
                         // by removing the lower part from the segment we test against.
                         edge.lower = position;
                     }
-                    SegmentInteresection::Two(_p1, p2) => {
-                        tess_log!(self, " -- found two intersections {:?} and {:?}", _p1, p2);
-
-                        intersection = Some(
-                            (Intersection {
-                                 point: p2,
-                                 lower1: if is_after(original_edge.lower, span.left.lower) {
-                                     original_edge.lower
-                                 } else {
-                                     span.left.lower
-                                 },
-                                 lower2: None,
-                             },
-
-                             span_idx,
-                             Side::Left)
-                        );
-                        edge.lower = p2;
-                    }
-                    _ => {}
+                    None => {}
                 }
             }
 
@@ -927,7 +908,7 @@ impl FillTessellator {
                     span.right.upper,
                     span.right.lower,
                 ) {
-                    SegmentInteresection::One(position) => {
+                    Some(position) => {
                         tess_log!(self, " -- found an intersection at {:?}
                                         |    {:?}->{:?} x {:?}->{:?}",
                             position,
@@ -944,25 +925,6 @@ impl FillTessellator {
                              Side::Right)
                         );
                         edge.lower = position;
-                    }
-                    SegmentInteresection::Two(_p1, p2) => {
-                        tess_log!(self, " -- found two intersections {:?} and {:?}", _p1, p2);
-
-                        intersection = Some(
-                            (Intersection {
-                                 point: p2,
-                                 lower1: if is_after(original_edge.lower, span.right.lower) {
-                                     original_edge.lower
-                                 } else {
-                                     span.right.lower
-                                 },
-                                 lower2: None,
-                             },
-
-                             span_idx,
-                             Side::Right)
-                        );
-                        edge.lower = p2;
                     }
                     _ => {}
                 }
@@ -1193,23 +1155,21 @@ fn segment_intersection(
     b1: TessPoint, // The new edge.
     a2: TessPoint,
     b2: TessPoint, // An already inserted edge.
-) -> SegmentInteresection {
+) -> Option<TessPoint> {
 
     // This early-out test gives a noticeable performance improvement.
     if !x_aabb_test(a1.x, b1.x, a2.x, b2.x) {
-        return SegmentInteresection::None;
+        return None;
     }
 
     fn tess_point(x: f64, y: f64) -> TessPoint {
         TessPoint::new(FixedPoint32::from_f64(x), FixedPoint32::from_f64(y))
     }
 
-    //println!(" -- test intersection {:?} {:?} x {:?} {:?}", a1, b1, a2, b2);
-
     // TODO: moving this down after the v1_cross_v2 == 0.0 branch fixes test
     // test_colinear_touching_squares2_failing
     if a1 == b2 || a1 == a2 || b1 == a2 || b1 == b2 {
-        return SegmentInteresection::None;
+        return None;
     }
 
     let a1 = F64Point::new(a1.x.to_f64(), a1.y.to_f64());
@@ -1226,46 +1186,8 @@ fn segment_intersection(
     let a2_a1_cross_v1 = (a2 - a1).cross(v1);
 
     if v1_cross_v2 == 0.0 {
-        return SegmentInteresection::None;
+        return None;
     }
-
-    /*
-    // TODO: we almost never take this branch.
-    // Note: Skia's tessellator doesn't have it
-    if v1_cross_v2 == 0.0 {
-        if a2_a1_cross_v1 != 0.0 {
-            return SegmentInteresection::None;
-        }
-        // The two segments are colinear.
-
-        let v1_sqr_len = v1.x * v1.x + v1.y * v1.y;
-        let v2_sqr_len = v2.x * v2.x + v2.y * v2.y;
-
-        // We know that a1 cannot be above a2 so if b1 is between a2 and b2, we have
-        // the order a2 -> a1 -> b1 -> b2.
-        let v2_dot_b1a2 = v2.dot(b1 - a2);
-        if v2_dot_b1a2 > 0.0 && v2_dot_b1a2 < v2_sqr_len {
-            //println!(" -- colinear intersection");
-            return SegmentInteresection::Two(
-                tess_point(a1.x, a1.y),
-                tess_point(b1.x, b1.y),
-            );
-        }
-
-        // We know that a1 cannot be above a2 and if b1 is below b2, so if
-        // b2 is between a1 and b1, then we have the order a2 -> a1 -> b2 -> b1.
-        let v1_dot_b2a1 = v1.dot(b2 - a1);
-        if v1_dot_b2a1 > 0.0 && v1_dot_b2a1 < v1_sqr_len {
-            //println!(" -- colinear intersection");
-            return SegmentInteresection::Two(
-                tess_point(a1.x, a1.y),
-                tess_point(b2.x, b2.y),
-            );
-        }
-
-        return SegmentInteresection::None;
-    }
-*/
 
     let sign_v1_cross_v2 = if v1_cross_v2 > 0.0 { 1.0 } else { -1.0 };
     let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
@@ -1282,11 +1204,11 @@ fn segment_intersection(
         debug_assert!(res.y <= b1.y && res.y <= b2.y);
 
         if res != a1 && res != b1 && res != a2 && res != b2 {
-            return SegmentInteresection::One(tess_point(res.x, res.y));
+            return Some(tess_point(res.x, res.y));
         }
     }
 
-    return SegmentInteresection::None;
+    return None;
 }
 
 // Returns true if the position is on the right side of the edge.
