@@ -1,4 +1,4 @@
-use {Point, Vec2, vec2, Rect};
+use {Point, Vec2, vec2, Rect, Size};
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -57,10 +57,15 @@ impl LineSegment {
         LineSegment { from: self.sample(t), to: self.to }
     }
 
-    /// [Not implemented]
+    /// Return the minimum bounding rectangle
     #[inline]
     pub fn bounding_rect(&self) -> Rect {
-        unimplemented!()
+        let min_x = self.from.x.min(self.to.x);
+        let min_y = self.from.y.min(self.to.y);
+
+        let width  = (self.from.x.max(self.to.x) - min_x).abs();
+        let height = (self.from.y.max(self.to.y) - min_y).abs();
+        Rect::new(Point::new(min_x, min_y), Size::new(width, height))
     }
 
     /// Returns the vector between this segment's `from` and `to` points.
@@ -241,4 +246,33 @@ fn intersection_overlap() {
 
     assert!(!l1.intersects(&l2));
     assert!(l1.intersection(&l2).is_none());
+}
+
+#[cfg(test)]
+use euclid::rect;
+
+#[test]
+fn bounding_rect() {
+    let l1 = LineSegment {
+        from: point(1., 5.),
+        to: point(5., 7.),
+    };
+    let r1 = rect(1., 5., 4., 2.);
+
+    let l2 = LineSegment {
+        from: point(5., 5.),
+        to: point(1., 1.),
+    };
+    let r2 = rect(1., 1., 4., 4.);
+
+    let l3 = LineSegment {
+        from: point(3., 3.),
+        to: point(1., 5.),
+    };
+    let r3 = rect(1., 3., 2., 2.);
+
+    let cases = vec![(l1, r1), (l2, r2), (l3, r3)];
+    for &(ls, r) in &cases {
+        assert_eq!(ls.bounding_rect(), r);
+    }
 }
