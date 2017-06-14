@@ -1,4 +1,4 @@
-use {Point, Rect, LineSegment};
+use {Point, Rect, LineSegment, Size};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle {
@@ -26,10 +26,17 @@ impl Triangle {
         return u > 0.0 && v > 0.0 && u + v < 1.0;
     }
 
-    /// [Not implemented]
+    /// Return the minimum bounding rectangle
     #[inline]
     pub fn bounding_rect(&self) -> Rect {
-        unimplemented!()
+        let max_x = self.a.x.max(self.b.x).max(self.c.x);
+        let min_x = self.a.x.min(self.b.x).min(self.c.x);
+        let max_y = self.a.y.max(self.b.y).max(self.c.y);
+        let min_y = self.a.y.min(self.b.y).min(self.c.y);
+
+        let width = max_x - min_x;
+        let height = max_y - min_y;
+        Rect::new(Point::new(min_x, min_y), Size::new(width, height))
     }
 
     #[inline]
@@ -214,4 +221,36 @@ fn test_segment_intersection() {
     assert!(!tri.intersects_line_segment(&tri.ab()));
     assert!(!tri.intersects_line_segment(&tri.bc()));
     assert!(!tri.intersects_line_segment(&tri.ac()));
+}
+
+#[cfg(test)]
+use euclid::rect;
+
+#[test]
+fn test_bounding_rect() {
+    let t1 = Triangle {
+        a: point(10., 20.),
+        b: point(35., 40.),
+        c: point(50., 10.),
+    };
+    let r1 = rect(10., 10., 40., 30.);
+
+    let t2 = Triangle {
+        a: point(5., 30.),
+        b: point(25., 10.),
+        c: point(35., 40.),
+    };
+    let r2 = rect(5., 10., 30., 30.);
+
+    let t3 = Triangle {
+        a: point(1., 1.),
+        b: point(2., 5.),
+        c: point(0., 4.),
+    };
+    let r3 = rect(0., 1., 2., 4.);
+
+    let cases = vec![(t1, r1), (t2, r2), (t3, r3)];
+    for &(tri, r) in &cases {
+        assert_eq!(tri.bounding_rect(), r);
+    }
 }
