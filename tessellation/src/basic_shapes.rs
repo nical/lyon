@@ -662,6 +662,35 @@ pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
     return output.end_geometry();
 }
 
+/// Tessellate the stroke of a circle.
+pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output: &mut Output) -> Count
+    where Output: GeometryBuilder<StrokeVertex>
+    {
+    output.begin_geometry();
+
+    let radius = radius.abs();
+    if radius == 0.0 {
+        return output.end_geometry();
+    }
+
+    let angle = (0.0, 2.0 * PI);
+
+    let arc_len = 0.5 * PI * radius;
+    let step = circle_flattening_step(radius, tolerance);
+    let num_segments = (arc_len / step).ceil();
+    let resolution = num_segments.log2() as u32;
+
+    stroke_border_radius(
+            center,
+            angle,
+            radius,
+            resolution,
+            output,
+        );
+
+    return output.end_geometry();
+}
+
 /// Tessellate a convex polyline.
 ///
 /// TODO: normals are not implemented yet.
