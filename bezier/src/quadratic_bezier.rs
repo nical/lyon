@@ -166,8 +166,12 @@ impl QuadraticBezierSegment {
     /// [Not implemented] Applies the transform to this curve and returns the results.
     #[inline]
     #[must_use]
-    pub fn transform(&self, _transform: &Transform2D) -> Self {
-        unimplemented!();
+    pub fn transform(&self, transform: &Transform2D) -> Self {
+        QuadraticBezierSegment {
+            from: transform.transform_point(&self.from),
+            ctrl: transform.transform_point(&self.ctrl),
+            to: transform.transform_point(&self.to)
+        }
     }
 
     /// Find the interval of the begining of the curve that can be approximated with a
