@@ -560,6 +560,31 @@ fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
     );
 }
 
+// tessellate the stroke of rounded corners.
+fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
+    center: Point,
+    angle: (f32, f32),
+    radius: f32,
+    resolution: u32,
+    output: &mut Output
+) {
+	if resolution == 0 {
+        return;
+    }
+
+	let angle_size = (angle.0 - angle.1).abs();
+	let starting_angle = angle.0.min(angle.1);
+	let closed = angle.0 % (2.0 * PI) == angle.1 % (2.0 * PI);
+
+	let points = (0..resolution)
+		.map(|i| {
+			let new_angle = i as f32 * (angle_size) / resolution as f32 + starting_angle;
+			let normal = vec2(new_angle.cos(), new_angle.sin());
+			center + normal * radius
+			});
+	stroke_polyline(points, closed, output);
+}
+
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
 pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     _rect: &Rect,
