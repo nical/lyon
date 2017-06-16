@@ -89,8 +89,13 @@ impl CubicBezierSegment {
     /// [Not implemented] Applies the transform to this curve and returns the results.
     #[inline]
     #[must_use]
-    pub fn transform(&self, _transform: &Transform2D) -> Self {
-        unimplemented!();
+    pub fn transform(&self, transform: &Transform2D) -> Self {
+        CubicBezierSegment {
+            from: transform.transform_point(&self.from),
+            ctrl1: transform.transform_point(&self.ctrl1),
+            ctrl2: transform.transform_point(&self.ctrl2),
+            to: transform.transform_point(&self.to)
+        }
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -144,4 +149,3 @@ fn bounding_rect_for_cubic_bezier_segment() {
 
     assert!(expected_bounding_rect == actual_bounding_rect)
 }
-

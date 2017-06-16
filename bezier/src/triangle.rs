@@ -72,8 +72,12 @@ impl Triangle {
     /// [Not implemented] Applies the transform to this triangle and returns the results.
     #[inline]
     #[must_use]
-    pub fn transform(&self, _transform: &Transform2D) -> Self {
-        unimplemented!();
+    pub fn transform(&self, transform: &Transform2D) -> Self {
+        Triangle {
+            a: transform.transform_point(&self.a),
+            b: transform.transform_point(&self.b),
+            c: transform.transform_point(&self.c)
+        }
     }
 
     /// Test for triangle-triangle intersection.
