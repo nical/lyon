@@ -568,21 +568,22 @@ fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
     resolution: u32,
     output: &mut Output
 ) {
-	if resolution == 0 {
+    if resolution == 0 {
         return;
     }
 
-	let angle_size = (angle.0 - angle.1).abs();
-	let starting_angle = angle.0.min(angle.1);
-	let closed = angle.0 % (2.0 * PI) == angle.1 % (2.0 * PI);
+    let angle_size = (angle.0 - angle.1).abs();
+    let starting_angle = angle.0.min(angle.1);
+    let closed = angle.0 % (2.0 * PI) == angle.1 % (2.0 * PI);
 
-	let points = (0..resolution)
-		.map(|i| {
-			let new_angle = i as f32 * (angle_size) / resolution as f32 + starting_angle;
-			let normal = vec2(new_angle.cos(), new_angle.sin());
-			center + normal * radius
-			});
-	stroke_polyline(points, closed, output);
+    let points = (0..resolution).map(|i| {
+        let new_angle = i as f32 * (angle_size) / resolution as f32 + starting_angle;
+        let normal =
+        vec2(new_angle.cos(),
+        new_angle.sin());
+        center + normal * radius
+    });
+    stroke_polyline(points, closed, output);
 }
 
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
@@ -665,7 +666,7 @@ pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
 /// Tessellate the stroke of a circle.
 pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output: &mut Output) -> Count
     where Output: GeometryBuilder<StrokeVertex>
-    {
+{
     output.begin_geometry();
 
     let radius = radius.abs();
@@ -681,12 +682,12 @@ pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output:
     let resolution = num_segments.log2() as u32;
 
     stroke_border_radius(
-            center,
-            angle,
-            radius,
-            resolution,
-            output,
-        );
+        center,
+        angle,
+        radius,
+        resolution,
+        output,
+    );
 
     return output.end_geometry();
 }
