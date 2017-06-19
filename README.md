@@ -15,6 +15,11 @@ GPU-based 2D graphics rendering in rust.
   <a href="https://docs.rs/lyon">
       <img src="https://docs.rs/lyon/badge.svg" alt="documentation">
   </a>
+
+  <a href="https://gitter.im/lyon-rs/Lobby">
+    <img src="https://img.shields.io/badge/GITTER-join%20chat-green.svg" alt="Gitter Chat">
+  </a>
+
 </p>
 
 # Motivation
