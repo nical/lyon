@@ -46,6 +46,7 @@ gfx_defines!{
     vertex GpuStrokeVertex {
         position: [f32; 2] = "a_position",
         normal: [f32; 2] = "a_normal",
+        advancement: f32 = "a_advancement",
         prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
     }
 
@@ -198,9 +199,11 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuStrokeVertex> for WithId<G
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
+        assert!(!vertex.advancement.is_nan());
         GpuStrokeVertex {
             position: vertex.position.to_array(),
             normal: vertex.normal.to_array(),
+            advancement: vertex.advancement,
             prim_id: self.0.to_i32(),
         }
     }

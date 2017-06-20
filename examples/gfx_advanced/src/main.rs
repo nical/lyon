@@ -20,8 +20,8 @@ use lyon_renderer::buffer::{Id, BufferStore};
 use lyon_renderer::glsl::*;
 use lyon_renderer::renderer::{
     GpuTransform, GpuFillVertex, GpuStrokeVertex, GpuFillPrimitive,
-    GpuStrokePrimitive, opaque_fill_pipeline, transparent_fill_pipeline,
-    opaque_stroke_pipeline, transparent_stroke_pipeline, GpuGeometry,
+    GpuStrokePrimitive, opaque_fill_pipeline,
+    opaque_stroke_pipeline, GpuGeometry,
     GpuBufferStore, Globals, WithId
 };
 // make  public so that the module in gfx_defines can see the types.
@@ -280,36 +280,34 @@ fn main() {
         &bg_mesh_cpu.indices[..]
     );
 
-    let model_shader = factory.link_program(
+    let fill_shader = factory.link_program(
         FILL_VERTEX_SHADER.as_bytes(),
         FILL_FRAGMENT_SHADER.as_bytes()
     ).unwrap();
 
+    let stroke_shader = factory.link_program(
+        STROKE_VERTEX_SHADER.as_bytes(),
+        STROKE_FRAGMENT_SHADER.as_bytes()
+    ).unwrap();
+
     let opaque_fill_pso = factory.create_pipeline_from_program(
-        &model_shader,
+        &fill_shader,
         gfx::Primitive::TriangleList,
         gfx::state::Rasterizer::new_fill(),
         opaque_fill_pipeline::new(),
     ).unwrap();
 
     let opaque_stroke_pso = factory.create_pipeline_from_program(
-        &model_shader,
+        &stroke_shader,
         gfx::Primitive::TriangleList,
         gfx::state::Rasterizer::new_fill(),
         opaque_stroke_pipeline::new(),
     ).unwrap();
 
-    let _transparent_pso = factory.create_pipeline_from_program(
-        &model_shader,
-        gfx::Primitive::TriangleList,
-        gfx::state::Rasterizer::new_fill(),
-        transparent_stroke_pipeline::new(),
-    ).unwrap();
-
     let mut fill_mode = gfx::state::Rasterizer::new_fill();
     fill_mode.method = gfx::state::RasterMethod::Line(1);
     let wireframe_fill_pso = factory.create_pipeline_from_program(
-        &model_shader,
+        &fill_shader,
         gfx::Primitive::TriangleList,
         fill_mode,
         opaque_fill_pipeline::new(),
@@ -318,17 +316,10 @@ fn main() {
     let mut fill_mode = gfx::state::Rasterizer::new_fill();
     fill_mode.method = gfx::state::RasterMethod::Line(1);
     let wireframe_stroke_pso = factory.create_pipeline_from_program(
-        &model_shader,
+        &stroke_shader,
         gfx::Primitive::TriangleList,
         fill_mode,
         opaque_stroke_pipeline::new(),
-    ).unwrap();
-
-    let _wireframe_transparent_pso = factory.create_pipeline_from_program(
-        &model_shader,
-        gfx::Primitive::TriangleList,
-        fill_mode,
-        transparent_fill_pipeline::new(),
     ).unwrap();
 
     let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
