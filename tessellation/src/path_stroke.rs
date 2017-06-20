@@ -125,7 +125,10 @@ pub struct StrokeBuilder<'l, Output: 'l> {
     previous_b_id: VertexId,
     second_a_id: VertexId,
     second_b_id: VertexId,
+    prev_normal: Vec2,
     nth: u32,
+    length: f32,
+    sub_path_start_length: f32,
     options: StrokeOptions,
     output: &'l mut Output,
 }
@@ -139,6 +142,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
         self.first = to;
         self.current = to;
         self.nth = 0;
+        self.sub_path_start_length = self.length;
     }
 
     fn line_to(&mut self, to: Point) { self.edge_to(to); }
@@ -149,11 +153,30 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
         if self.nth > 1 {
             let second = self.second;
             self.edge_to(second);
-            self.output.add_triangle(self.previous_b_id, self.previous_a_id, self.second_b_id);
-            self.output.add_triangle(self.previous_a_id, self.second_a_id, self.second_b_id);
+
+            let first_a_id = self.output.add_vertex(
+                Vertex {
+                    position: self.first,
+                    normal: self.prev_normal,
+                    advancement: self.sub_path_start_length,
+                    side: Side::Left,
+                }
+            );
+            let first_b_id = self.output.add_vertex(
+                Vertex {
+                    position: self.first,
+                    normal: -self.prev_normal,
+                    advancement: self.sub_path_start_length,
+                    side: Side::Right,
+                }
+            );
+
+            self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
+            self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
         }
         self.nth = 0;
         self.current = self.first;
+        self.sub_path_start_length = self.length;
     }
 
     fn current_position(&self) -> Point { self.current }
@@ -168,7 +191,10 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
         self.previous = Point::new(0.0, 0.0);
         self.current = Point::new(0.0, 0.0);
         self.second = Point::new(0.0, 0.0);
+        self.prev_normal = Vec2::new(0.0, 0.0);
         self.nth = 0;
+        self.length = 0.0;
+        self.sub_path_start_length = 0.0;
         return Ok(self.output.end_geometry());
     }
 }
@@ -181,11 +207,14 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                    second: zero,
                    previous: zero,
                    current: zero,
+                   prev_normal: Vec2::new(0.0, 0.0),
                    previous_a_id: VertexId(0),
                    previous_b_id: VertexId(0),
                    second_a_id: VertexId(0),
                    second_b_id: VertexId(0),
                    nth: 0,
+                   length: 0.0,
+                   sub_path_start_length: 0.0,
                    options: *options,
                    output: builder,
                };
@@ -213,6 +242,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 Vertex {
                     position: self.current,
                     normal: vec2(-hw, -hw),
+                    advancement: 0.0,
                     side: Side::Left,
                 }
             );
@@ -220,6 +250,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 Vertex {
                     position: self.current,
                     normal: vec2(hw, -hw),
+                    advancement: 0.0,
                     side: Side::Left,
                 }
             );
@@ -227,6 +258,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 Vertex {
                     position: self.current,
                     normal: vec2(hw, hw),
+                    advancement: 0.0,
                     side: Side::Right,
                 }
             );
@@ -234,6 +266,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 Vertex {
                     position: self.current,
                     normal: vec2(-hw, hw),
+                    advancement: 0.0,
                     side: Side::Right,
                 }
             );
@@ -272,6 +305,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 Vertex {
                     position: first,
                     normal: n1,
+                    advancement: self.sub_path_start_length,
                     side: Side::Left,
                 }
             );
@@ -279,6 +313,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 Vertex {
                     position: first,
                     normal: n2,
+                    advancement: self.sub_path_start_length,
                     side: Side::Right,
                 }
             );
@@ -292,6 +327,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         if self.current == to {
             return;
         }
+
         if self.nth == 0 {
             // We don't have enough information to compute a and b yet.
             self.previous = self.first;
@@ -299,11 +335,15 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self.nth += 1;
             return;
         }
+
+        self.length += (self.current - self.previous).length();
+
         let (na, nb, maybe_nc) = get_angle_info(self.previous, self.current, to);
         let a_id = self.output.add_vertex(
             Vertex {
                 position: self.current,
                 normal: na,
+                advancement: self.length,
                 side: Side::Left,
             }
         );
@@ -311,6 +351,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             Vertex {
                 position: self.current,
                 normal: nb,
+                advancement: self.length,
                 side: Side::Right,
             }
         );
@@ -322,6 +363,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     Vertex {
                         position: self.current,
                         normal: n,
+                        advancement: self.length, // TODO
                         side: Side::Left, // TODO
                     }
                 )
@@ -336,6 +378,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         }
 
         self.previous = self.current;
+        self.prev_normal = na;
         self.previous_a_id = a_id;
         self.previous_b_id = c_id;
         self.current = to;

@@ -61,6 +61,7 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v1,
             normal: -na,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -68,6 +69,7 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v1,
             normal: na,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -76,6 +78,7 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v2,
             normal: -nb,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -83,6 +86,7 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v2,
             normal: nb,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -91,6 +95,7 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v3,
             normal: -nc,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -98,6 +103,7 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v3,
             normal: nc,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -172,6 +178,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v1,
             normal: -na,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -179,6 +186,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v1,
             normal: na,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -187,6 +195,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v2,
             normal: -nb,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -194,6 +203,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v2,
             normal: nb,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -202,6 +212,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v3,
             normal: -nc,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -209,6 +220,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v3,
             normal: nc,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -217,6 +229,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v4,
             normal: -nc,
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -224,6 +237,7 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: v4,
             normal: nd,
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -288,6 +302,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.origin,
             normal: -vec2(-1.0, -1.0),
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -295,6 +310,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.origin,
             normal: vec2(-1.0, -1.0),
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -303,6 +319,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.top_right(),
             normal: -vec2(1.0, -1.0),
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -310,6 +327,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.top_right(),
             normal: vec2(1.0, -1.0),
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -318,6 +336,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.bottom_right(),
             normal: -vec2(1.0, 1.0),
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -325,6 +344,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.bottom_right(),
             normal: vec2(1.0, 1.0),
+            advancement: 0.0,
             side: Side::Left,
         }
     );
@@ -333,6 +353,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.bottom_left(),
             normal: -vec2(1.0, 0.0),
+            advancement: 0.0,
             side: Side::Right,
         }
     );
@@ -340,6 +361,7 @@ pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         StrokeVertex {
             position: rect.bottom_left(),
             normal: vec2(1.0, 0.0),
+            advancement: 0.0,
             side: Side::Left,
         }
     );

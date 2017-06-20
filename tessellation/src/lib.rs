@@ -210,6 +210,8 @@ pub struct StrokeVertex {
     /// Note that some tessellators aren't fully implemented and don't provide the
     /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
     pub normal: math::Vec2,
+    /// How far along the path this vertex is.
+    pub advancement: f32,
     /// Whether the vertex is on the left or right side of the path.
     pub side: Side,
 }
