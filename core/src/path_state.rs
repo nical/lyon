@@ -40,7 +40,7 @@ impl PathState {
             SvgEvent::CubicTo(_, ctrl2, to) => {
                 self.curve_to(ctrl2, to);
             }
-            SvgEvent::ArcTo(to, _, _, _) => {
+            SvgEvent::ArcTo(_, _, _, to) => {
                 self.last_ctrl = self.current; // TODO
                 self.current = to;
             }
@@ -58,7 +58,7 @@ impl PathState {
                 let ctrl2 = self.from_relative(ctrl2);
                 self.curve_to(ctrl2, to);
             }
-            SvgEvent::RelativeArcTo(to, _, _, _) => {
+            SvgEvent::RelativeArcTo(_, _, _, to) => {
                 self.last_ctrl = self.current; // TODO
                 self.relative_next(to);
             }

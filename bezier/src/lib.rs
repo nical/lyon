@@ -73,6 +73,7 @@ mod quadratic_bezier;
 mod cubic_bezier;
 mod triangle;
 mod line;
+mod arc;
 
 pub use cubic_to_quadratic::cubic_to_quadratic;
 pub use up_to_two::UpToTwo;
@@ -92,10 +93,12 @@ pub type Rect = euclid::Rect<f32>;
 /// Alias for ```euclid::Transform2D<f32>```
 pub type Transform2D = euclid::Transform2D<f32>;
 
+pub type Radians = euclid::Radians<f32>;
+
 pub use quadratic_bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
 pub use cubic_bezier::{CubicBezierSegment, CubicFlatteningIter};
 pub use triangle::{Triangle};
 pub use line::{LineSegment};
+pub use arc::{Arc, SvgArc, ArcFlags};
 
-use euclid::vec2;
-use euclid::rect;
+use euclid::{vec2, point2, rect};

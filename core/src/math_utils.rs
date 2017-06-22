@@ -3,22 +3,15 @@
 use std::f32::consts::PI;
 use math::*;
 
+// TODO! Most or all of this should move into the bézier crate.
+
+
 pub fn fuzzy_eq_f32(a: f32, b: f32) -> bool {
     let epsilon = 0.000001;
     return (a - b).abs() <= epsilon;
 }
 
 pub fn fuzzy_eq(a: Vec2, b: Vec2) -> bool { fuzzy_eq_f32(a.x, b.x) && fuzzy_eq_f32(a.y, b.y) }
-
-// Compute the vector from ce center of an ellipse on of its points
-pub fn ellipse_center_to_point(center: Point, ellipse_point: Point, radii: Vec2) -> Point {
-    point((ellipse_point.x - center.x) / radii.x, (ellipse_point.y - center.y) / radii.y)
-}
-
-pub fn ellipse_point_from_angle(center: Point, radii: Vec2, angle: f32) -> Point {
-    point(center.x + radii.x * angle.cos(), center.y + radii.y * angle.sin())
-}
-
 
 /// Angle between vectors v1 and v2 (oriented clockwise assyming y points downwards).
 /// The result is a number between 0 and 2*PI.

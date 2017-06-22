@@ -1,7 +1,7 @@
 use core::{PathEvent, FlattenedEvent, SvgEvent, ArcFlags};
 use core::math::*;
-use bezier::{CubicBezierSegment, QuadraticBezierSegment};
-use arc::arc_to_cubic_beziers;
+use bezier::{CubicBezierSegment, QuadraticBezierSegment, SvgArc};
+use bezier;
 
 /// The most basic path building interface. Does not handle any kind of curve.
 pub trait BaseBuilder: ::std::marker::Sized {
@@ -95,13 +95,13 @@ pub trait SvgBuilder: PathBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags);
+    fn arc_to(&mut self, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags, to: Point);
     fn relative_arc_to(
         &mut self,
-        to: Vec2,
         radii: Vec2,
         x_rotation: Radians<f32>,
         flags: ArcFlags,
+        to: Vec2,
     );
 
     fn svg_event(&mut self, event: SvgEvent) {
@@ -122,11 +122,11 @@ pub trait SvgBuilder: PathBuilder {
                 self.close();
             }
 
-            SvgEvent::ArcTo(to, radii, x_rotation, flags) => {
-                self.arc_to(to, radii, x_rotation, flags);
+            SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
+                self.arc_to(radii, x_rotation, flags, to);
             }
-            SvgEvent::RelativeArcTo(to, radii, x_rotation, flags) => {
-                self.relative_arc_to(to, radii, x_rotation, flags);
+            SvgEvent::RelativeArcTo(radii, x_rotation, flags, to) => {
+                self.relative_arc_to(radii, x_rotation, flags, to);
             }
 
             SvgEvent::RelativeMoveTo(to) => {
@@ -291,26 +291,30 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(point(p.x, p.y + dy));
     }
 
-    // x_rotation in radian
-    fn arc_to(&mut self, to: Point, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags) {
-
-        // If end and starting point are identical, then there is not ellipse to be drawn
-        if self.current_position() == to {
-            return;
-        }
-
-        arc_to_cubic_beziers(self.current_position(), to, radii, x_rotation, flags, self);
+    fn arc_to(&mut self, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags, to: Point) {
+        SvgArc {
+            from: self.current_position(),
+            to: to,
+            radii: radii,
+            x_rotation: x_rotation,
+            flags: bezier::ArcFlags {
+                large_arc: flags.large_arc,
+                sweep: flags.sweep,
+            },
+        }.to_quadratic_beziers(&mut|ctrl, to|{
+            self.quadratic_bezier_to(ctrl, to);
+        })
     }
 
     fn relative_arc_to(
         &mut self,
-        to: Vec2,
         radii: Vec2,
         x_rotation: Radians<f32>,
         flags: ArcFlags,
+        to: Vec2,
     ) {
         let offset = self.builder.current_position();
-        self.arc_to(offset + to, radii, x_rotation, flags);
+        self.arc_to(radii, x_rotation, flags, offset + to);
     }
 }
 

@@ -106,17 +106,17 @@ fn svg_event(token: &Token) -> SvgEvent {
         Token::EllipticalArc { abs, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
             if abs {
                 SvgEvent::ArcTo(
-                    point2(x, y),
                     vec2(rx, ry),
                     math::Radians::new(x_axis_rotation.to_radians() as f32),
-                    ArcFlags { large_arc: large_arc, sweep: sweep }
+                    ArcFlags { large_arc: large_arc, sweep: sweep },
+                    point2(x, y),
                 )
             } else {
                 SvgEvent::RelativeArcTo(
-                    vec2(x, y),
                     vec2(rx, ry),
                     math::Radians::new(x_axis_rotation.to_radians() as f32),
-                    ArcFlags { large_arc: large_arc, sweep: sweep }
+                    ArcFlags { large_arc: large_arc, sweep: sweep },
+                    vec2(x, y),
                 )
             }
         },
