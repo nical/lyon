@@ -1,4 +1,7 @@
 use {Point, Vec2, vec2, Rect, Size, Transform2D};
+use euclid::point2 as point;
+use std::f32::consts::PI;
+
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -164,6 +167,49 @@ impl LineSegment {
     }
 }
 
+pub fn directed_angle(a: Vec2, b: Vec2) -> f32 {
+    let angle = fast_atan2(b.y, b.x) - fast_atan2(a.y, a.x);
+    return if angle < 0.0 { angle + 2.0 * PI } else { angle };
+}
+
+/// A slightly faster approximation of atan2.
+///
+/// Note that it does not deal with the case where both x and y are 0.
+pub fn fast_atan2(y: f32, x: f32) -> f32 {
+    let x_abs = x.abs();
+    let y_abs = y.abs();
+    let a = x_abs.min(y_abs) / x_abs.max(y_abs);
+    let s = a * a;
+    let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a;
+    if y_abs > x_abs {
+        r = 1.57079637 - r;
+    }
+    if x < 0.0 {
+        r = 3.14159274 - r
+    }
+    if y < 0.0 {
+        r = -r
+    }
+    return r;
+}
+
+pub fn line_intersection(a1: Point, a2: Point, b1: Point, b2: Point) -> Option<Point> {
+    let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
+    if det.abs() <= 0.000001 {
+        // The lines are very close to parallel
+        return None;
+    }
+    let inv_det = 1.0 / det;
+    let a = a1.x * a2.y - a1.y * a2.x;
+    let b = b1.x * b2.y - b1.y * b2.x;
+    return Some(
+        point(
+            (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
+            (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det,
+        )
+    );
+}
+
 #[cfg(test)]
 fn fuzzy_eq_f32(a: f32, b: f32, epsilon: f32) -> bool {
     return (a - b).abs() <= epsilon;
@@ -178,9 +224,6 @@ fn fuzzy_eq_vec2(a: Vec2, b: Vec2, epsilon: f32) -> bool {
 fn fuzzy_eq_point(a: Point, b: Point, epsilon: f32) -> bool {
     fuzzy_eq_vec2(a.to_vector(), b.to_vector(), epsilon)
 }
-
-#[cfg(test)]
-use euclid::point2 as point;
 
 #[test]
 fn intersection_rotated() {

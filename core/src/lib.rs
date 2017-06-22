@@ -17,3 +17,12 @@ pub struct ArcFlags {
     pub large_arc: bool,
     pub sweep: bool,
 }
+
+impl Default for ArcFlags {
+    fn default() -> Self {
+        ArcFlags {
+            large_arc: false,
+            sweep: false,
+        }
+    }
+}
