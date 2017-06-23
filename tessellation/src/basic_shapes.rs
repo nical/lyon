@@ -715,39 +715,49 @@ pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output:
 }
 
 /// Tessellate a convex polyline.
-///
-/// TODO: normals are not implemented yet.
-pub fn fill_convex_polyline<Iter, Output>(mut it: Iter, output: &mut Output) -> Count
+// We insert 2nd point on line first in order to have the neighbours for normal calculation.
+pub fn fill_convex_polyline<'a, Iter, Output>(it: &'a Iter, output: &mut Output) -> Count
 where
-    Iter: Iterator<Item = Point>,
+    &'a Iter: IntoIterator<Item = &'a Point>,
+    <&'a Iter as IntoIterator>::IntoIter: Clone,
     Output: GeometryBuilder<FillVertex>,
 {
+    let mut it0 = it.into_iter();
+    let mut it1 = it.into_iter().cycle().skip(1);
+    let mut it2 = it.into_iter().cycle().skip(2);    
+
     output.begin_geometry();
-    if let (Some(first), Some(second)) = (it.next(), it.next()) {
+    if let (Some(a1), Some(a2), Some(a3), Some(b2), Some(b3), Some(b4)) = (it0.next(), it1.next(), it2.next(), it0.next(), it1.next(), it2.next()) {
         let mut a = output.add_vertex(
             FillVertex {
-                position: first,
-                normal: vec2(0.0, 0.0), // TODO
+                position: *a2,
+                normal: compute_normal(*a2 - *a1, *a3 - *a2),
             }
         );
         let mut b = output.add_vertex(
             FillVertex {
-                position: second,
-                normal: vec2(0.0, 0.0), // TODO
+                position: *b3,
+                normal: compute_normal(*b3 - *b2, *b4 - *b3),
             }
         );
+    
+        loop {
+            match (it0.next(), it1.next(), it2.next()) {
+                (Some(p1), Some(p2), Some(p3)) => {
+                    let c = output.add_vertex(
+                        FillVertex {
+                            position: *p2,
+                            normal: compute_normal(*p2 - *p1, *p3 - *p2),
+                        }
+                    );
 
-        for point in it {
-            let c = output.add_vertex(
-                FillVertex {
-                    position: point,
-                    normal: vec2(0.0, 0.0), // TODO
-                }
-            );
+                    output.add_triangle(a, b, c);
 
-            output.add_triangle(a, b, c);
-            a = b;
-            b = c;
+                    a = b;
+                    b = c;
+                },
+                (_, _, _) => break,
+            }            
         }
     }
     return output.end_geometry();
