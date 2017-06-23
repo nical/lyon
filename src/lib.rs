@@ -140,14 +140,14 @@
 //!
 //! The meta-crate (`lyon`) mostly reexports the other lyon crates for convenience.
 //!
-//! ```
+//! ```ignore
 //! extern crate lyon;
 //! use lyon::tessellation::FillTessellator;
 //! ```
 //!
 //! Is equivalent to:
 //!
-//! ```
+//! ```ignore
 //! extern crate lyon_tessellation;
 //! use lyon_tessellation::FillTessellator;
 //! ```
