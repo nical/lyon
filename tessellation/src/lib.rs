@@ -180,6 +180,7 @@ pub mod basic_shapes;
 pub mod path_fill;
 pub mod path_stroke;
 pub mod geometry_builder;
+mod math_utils;
 
 pub use core::*;
 
