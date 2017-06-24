@@ -1,8 +1,7 @@
 use commands::TessellateCmd;
 use lyon::math::*;
-use lyon::svg::parser;
+use lyon::svg::parser::{build_path, ParserError};
 use lyon::path::Path;
-use lyon::path_builder::*;
 use lyon::path_iterator::*;
 use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor};
 use lyon::tessellation::path_fill::*;
@@ -22,20 +21,15 @@ impl ::std::convert::From<::std::io::Error> for TessError {
     fn from(err: io::Error) -> Self { TessError::Io(err) }
 }
 
+impl ::std::convert::From<ParserError> for TessError {
+    fn from(_err: ParserError) -> Self { TessError::Parse }
+}
+
 pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
 
-    let mut builder = SvgPathBuilder::new(Path::builder());
+    let path = try!{ build_path(Path::builder().with_svg(), &cmd.input) };
+
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
-
-    for item in parser::path::PathTokenizer::new(&cmd.input) {
-        if let Ok(event) = item {
-            builder.svg_event(event)
-        } else {
-            return Err(TessError::Parse);
-        }
-    }
-
-    let path = builder.build();
 
     if cmd.fill {
         if FillTessellator::new().tessellate_path(

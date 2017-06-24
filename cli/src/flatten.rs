@@ -1,7 +1,6 @@
 use commands::FlattenCmd;
-use lyon::svg::parser;
+use lyon::svg::parser::{build_path, ParserError};
 use lyon::path;
-use lyon::path_builder::*;
 use lyon::path_iterator::*;
 use lyon::events::FlattenedEvent;
 use std::io;
@@ -16,18 +15,12 @@ impl ::std::convert::From<::std::io::Error> for FlattenError {
     fn from(err: io::Error) -> Self { FlattenError::Io(err) }
 }
 
+impl ::std::convert::From<ParserError> for FlattenError {
+    fn from(_err: ParserError) -> Self { FlattenError::Parse }
+}
+
 pub fn flatten(mut cmd: FlattenCmd) -> Result<(), FlattenError> {
-    let mut builder = path::Path::builder().with_svg();
-
-    for item in parser::path::PathTokenizer::new(&cmd.input) {
-        if let Ok(event) = item {
-            builder.svg_event(event)
-        } else {
-            return Err(FlattenError::Parse);
-        }
-    }
-
-    let path = builder.build();
+    let path = try!{ build_path(path::Path::builder().with_svg(), &cmd.input) };
 
     if cmd.count {
         let mut num_paths = 0;
