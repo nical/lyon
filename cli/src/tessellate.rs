@@ -13,7 +13,6 @@ use std::io;
 pub enum TessError {
     Io(io::Error),
     Fill,
-    Stroke,
     Parse,
 }
 
@@ -42,13 +41,11 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
     }
 
     if let Some(width) = cmd.stroke {
-        if StrokeTessellator::new().tessellate(
+        StrokeTessellator::new().tessellate(
             path.path_iter().flattened(cmd.tolerance),
             &StrokeOptions::default(),
             &mut BuffersBuilder::new(&mut buffers, StrokeWidth(width))
-        ).is_err() {
-            return Err(TessError::Stroke);
-        }
+        );
     }
 
     if cmd.count {

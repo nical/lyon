@@ -763,7 +763,7 @@ where
     let options = StrokeOptions::default();
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate(PolylineEvents::new(is_closed, it), &options, output).unwrap();
+    return tess.tessellate(PolylineEvents::new(is_closed, it), &options, output);
 }
 
 // TODO: This should be in path_iterator but it creates a dependency.

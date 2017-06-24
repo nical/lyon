@@ -157,23 +157,20 @@ fn main() {
     }
 
     // Tessellate the stroke
-    let logo_stroke_id = cpu.stroke_primitives
-        .push(
-            GpuStrokePrimitive::new(
-                [0.0, 0.0, 0.0, 0.1],
-                0.2,
-                default_transform.element,
-                view_transform.element,
-            )
-        );
-
-    StrokeTessellator::new()
-        .tessellate(
-            path.path_iter().flattened(0.022),
-            &StrokeOptions::default(),
-            &mut BuffersBuilder::new(&mut cpu.strokes, WithId(logo_stroke_id.element)),
+    let logo_stroke_id = cpu.stroke_primitives.push(
+        GpuStrokePrimitive::new(
+            [0.0, 0.0, 0.0, 0.1],
+            0.2,
+            default_transform.element,
+            view_transform.element,
         )
-        .unwrap();
+    );
+
+    StrokeTessellator::new().tessellate(
+        path.path_iter().flattened(0.022),
+        &StrokeOptions::default(),
+        &mut BuffersBuilder::new(&mut cpu.strokes, WithId(logo_stroke_id.element)),
+    );
 
     let mut num_points = 0;
     for p in path.as_slice().iter() {
