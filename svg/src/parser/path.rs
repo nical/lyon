@@ -4,9 +4,25 @@ use svgparser::path::{ Tokenizer, Token };
 use core::SvgEvent;
 use core::math;
 use core::ArcFlags;
+use path_builder::SvgBuilder;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ParserError;
+
+pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParserError>
+where
+    Builder: SvgBuilder
+{
+    for item in PathTokenizer::new(src) {
+        match item {
+            Ok(event) => { builder.svg_event(event); }
+            Err(err) => { return Err(err); }
+        }
+    }
+
+    Ok(builder.build())
+}
+
 
 pub struct PathTokenizer<'l> {
     tokenizer: Tokenizer<'l>

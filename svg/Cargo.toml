@@ -13,10 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_tessellation = { version = "0.5.0", path = "../tessellation" }
-lyon_path_iterator = { version = "0.5.0", path = "../path_iterator" }
 lyon_path_builder = { version = "0.5.0", path = "../path_builder" }
-lyon_path = { version = "0.5.0", path = "../path" }
 lyon_core = { version = "0.5.0", path = "../core" }
 
 svgparser = "0.4"
