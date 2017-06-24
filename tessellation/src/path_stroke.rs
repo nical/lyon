@@ -80,8 +80,9 @@
 
 use math::*;
 use core::FlattenedEvent;
+use bezier::Line;
+use bezier::utils::normalized_tangent;
 use geometry_builder::{VertexId, GeometryBuilder, Count};
-use math_utils::{tangent, line_intersection};
 use path_builder::BaseBuilder;
 use StrokeVertex as Vertex;
 use Side;
@@ -298,7 +299,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 first = first + d.normalize() * hw;
             }
 
-            let n2 = tangent(d) * 0.5;
+            let n2 = normalized_tangent(d) * 0.5;
             let n1 = -n2;
 
             let first_a_id = self.output.add_vertex(
@@ -414,8 +415,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
 fn get_angle_info(previous: Point, current: Point, next: Point) -> (Vec2, Vec2, Option<Vec2>) {
     let amount = 0.5;
-    let n1 = tangent(current - previous) * amount;
-    let n2 = tangent(next - current) * amount;
+    let n1 = normalized_tangent(current - previous) * amount;
+    let n2 = normalized_tangent(next - current) * amount;
 
     // Segment P1-->PX
     let pn1 = previous + n1; // prev extruded along the tangent n1
@@ -424,7 +425,10 @@ fn get_angle_info(previous: Point, current: Point, next: Point) -> (Vec2, Vec2, 
     let pn2 = next + n2;
     let pn2x = current + n2;
 
-    let inter = match line_intersection(pn1, pn1x, pn2x, pn2) {
+    let l1 = Line { point: pn1, vector: pn1x - pn1 };
+    let l2 = Line { point: pn2, vector: pn2x - pn2 };
+
+    let inter = match l1.intersection(&l2) {
         Some(v) => v,
         None => {
             if (n1 - n2).square_length() < 0.000001 {
