@@ -61,12 +61,11 @@
 //!     let mut tessellator = StrokeTessellator::new();
 //!
 //!     // Compute the tessellation.
-//!     let result = tessellator.tessellate(
+//!     tessellator.tessellate(
 //!         path.path_iter().flattened(0.05),
 //!         &StrokeOptions::default(),
 //!         &mut vertex_builder
 //!     );
-//!     assert!(result.is_ok());
 //! }
 //!
 //! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
@@ -87,8 +86,6 @@ use path_builder::BaseBuilder;
 use StrokeVertex as Vertex;
 use Side;
 
-pub type StrokeResult = Result<Count, ()>;
-
 /// A Context object that can tessellate stroke operations for complex paths.
 pub struct StrokeTessellator {}
 
@@ -100,19 +97,22 @@ impl StrokeTessellator {
         input: Input,
         options: &StrokeOptions,
         builder: &mut Output,
-    ) -> StrokeResult
+    ) -> Count
     where
         Input: Iterator<Item = FlattenedEvent>,
         Output: GeometryBuilder<Vertex>,
     {
         builder.begin_geometry();
-        let mut stroker = StrokeBuilder::new(options, builder);
+        {
+            let mut stroker = StrokeBuilder::new(options, builder);
 
-        for evt in input {
-            stroker.flat_event(evt);
+            for evt in input {
+                stroker.flat_event(evt);
+            }
+
+            stroker.build();
         }
-
-        return stroker.build();
+        return builder.end_geometry();
     }
 }
 
@@ -135,7 +135,7 @@ pub struct StrokeBuilder<'l, Output: 'l> {
 }
 
 impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, Output> {
-    type PathType = StrokeResult;
+    type PathType = ();
 
     fn move_to(&mut self, to: Point) {
         self.finish();
@@ -182,12 +182,11 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
 
     fn current_position(&self) -> Point { self.current }
 
-    fn build(mut self) -> StrokeResult {
+    fn build(mut self) {
         self.finish();
-        return Ok(self.output.end_geometry());
     }
 
-    fn build_and_reset(&mut self) -> StrokeResult {
+    fn build_and_reset(&mut self) {
         self.first = Point::new(0.0, 0.0);
         self.previous = Point::new(0.0, 0.0);
         self.current = Point::new(0.0, 0.0);
@@ -196,7 +195,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
         self.nth = 0;
         self.length = 0.0;
         self.sub_path_start_length = 0.0;
-        return Ok(self.output.end_geometry());
     }
 }
 
