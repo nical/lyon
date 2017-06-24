@@ -74,6 +74,7 @@ mod cubic_bezier;
 mod triangle;
 mod line;
 mod arc;
+pub mod utils;
 
 pub use cubic_to_quadratic::cubic_to_quadratic;
 pub use up_to_two::UpToTwo;
@@ -98,7 +99,7 @@ pub type Radians = euclid::Radians<f32>;
 pub use quadratic_bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
 pub use cubic_bezier::{CubicBezierSegment, CubicFlatteningIter};
 pub use triangle::{Triangle};
-pub use line::{LineSegment};
+pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
 
 use euclid::{vec2, point2, rect};

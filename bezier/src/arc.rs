@@ -3,8 +3,8 @@
 use std::f32::*;
 use std::ops::Rem;
 
-use {Point, point2, Vec2, vec2, Transform2D, Radians};
-use line::{line_intersection, directed_angle};
+use {Point, point2, Vec2, vec2, Transform2D, Radians, Line};
+use utils::{tangent, directed_angle};
 
 pub struct SvgArc {
     pub from: Point,
@@ -147,20 +147,14 @@ fn arc_to_to_quadratic_beziers<F: FnMut(Point, Point)>(
 
         let v1 = sample_ellipse(arc.radii, arc.x_rotation, Radians::new(a1)).to_vector();
         let v2 = sample_ellipse(arc.radii, arc.x_rotation, Radians::new(a2)).to_vector();
-        let p11 = arc.center + v1;
-        let p21 = arc.center + v2;
-        let p12 = p11 + tangent(v1);
-        let p22 = p21 + tangent(v2);
+        let p1 = arc.center + v1;
+        let p2 = arc.center + v2;
+        let l1 = Line { point: p1, vector: tangent(v1) };
+        let l2 = Line { point: p2, vector: tangent(v2) };
+        let ctrl = l1.intersection(&l2).unwrap();
 
-        let ctrl = line_intersection(p11, p12, p21, p22).unwrap();
-
-        println!(" -- bezier to {:?} {:?}", ctrl, p21);
-        call_back(ctrl, p21);
+        call_back(ctrl, p2);
     }
-}
-
-pub fn tangent(v: Vec2) -> Vec2 {
-    return vec2(-v.y, v.x);
 }
 
 fn sample_ellipse(radii: Vec2, x_rotation: Radians, angle: Radians) -> Point {

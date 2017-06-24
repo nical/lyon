@@ -1,7 +1,5 @@
 use {Point, Vec2, vec2, Rect, Size, Transform2D};
 use euclid::point2 as point;
-use std::f32::consts::PI;
-
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -75,6 +73,15 @@ impl LineSegment {
     #[inline]
     pub fn to_vector(&self) -> Vec2 {
         self.to - self.from
+    }
+
+    /// Returns the line containing this segment.
+    #[inline]
+    pub fn to_line(&self) -> Line {
+        Line {
+            point: self.from,
+            vector: self.to - self.from,
+        }
     }
 
     /// Computes the length of this segment.
@@ -167,47 +174,32 @@ impl LineSegment {
     }
 }
 
-pub fn directed_angle(a: Vec2, b: Vec2) -> f32 {
-    let angle = fast_atan2(b.y, b.x) - fast_atan2(a.y, a.x);
-    return if angle < 0.0 { angle + 2.0 * PI } else { angle };
+#[derive(Copy, Clone, Debug)]
+pub struct Line {
+    pub point: Point,
+    pub vector: Vec2,
 }
 
-/// A slightly faster approximation of atan2.
-///
-/// Note that it does not deal with the case where both x and y are 0.
-pub fn fast_atan2(y: f32, x: f32) -> f32 {
-    let x_abs = x.abs();
-    let y_abs = y.abs();
-    let a = x_abs.min(y_abs) / x_abs.max(y_abs);
-    let s = a * a;
-    let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a;
-    if y_abs > x_abs {
-        r = 1.57079637 - r;
+impl Line {
+    pub fn intersection(&self, other: &Self) -> Option<Point> {
+        let epsilon = 0.000001;
+        let det = self.vector.cross(other.vector);
+        if det.abs() <= epsilon {
+            // The lines are very close to parallel
+            return None;
+        }
+        let inv_det = 1.0 / det;
+        let self_p2 = self.point + self.vector;
+        let other_p2 = other.point + other.vector;
+        let a = self.point.to_vector().cross(self_p2.to_vector());
+        let b = other.point.to_vector().cross(other_p2.to_vector());
+        return Some(
+            point(
+                (b * self.vector.x - a * other.vector.x) * inv_det,
+                (b * self.vector.y - a * other.vector.y) * inv_det,
+            )
+        );
     }
-    if x < 0.0 {
-        r = 3.14159274 - r
-    }
-    if y < 0.0 {
-        r = -r
-    }
-    return r;
-}
-
-pub fn line_intersection(a1: Point, a2: Point, b1: Point, b2: Point) -> Option<Point> {
-    let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
-    if det.abs() <= 0.000001 {
-        // The lines are very close to parallel
-        return None;
-    }
-    let inv_det = 1.0 / det;
-    let a = a1.x * a2.y - a1.y * a2.x;
-    let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(
-        point(
-            (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
-            (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det,
-        )
-    );
 }
 
 #[cfg(test)]

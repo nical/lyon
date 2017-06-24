@@ -1,7 +1,6 @@
-use Point;
 use CubicBezierSegment;
 use QuadraticBezierSegment;
-
+use Line;
 
 /// Approximate a cubic bezier segment with a sequence of quadratic bezier segments.
 pub fn cubic_to_quadratic<F>(cubic: &CubicBezierSegment, _tolerance: f32, cb: &mut F)
@@ -32,29 +31,15 @@ where
 /// curve does not have inflection points and is "flat" enough. Typically usable
 /// after subdiving the curve a few times.
 pub fn single_curve_approximation(cubic: &CubicBezierSegment) -> QuadraticBezierSegment {
-    let cp = line_intersection(cubic.from, cubic.ctrl1, cubic.ctrl2, cubic.to).unwrap();
+    let l1 = Line { point: cubic.from, vector: cubic.ctrl1 - cubic.from };
+    let l2 = Line { point: cubic.to, vector: cubic.ctrl2 - cubic.to };
+    let cp = match l1.intersection(&l2) {
+        Some(p) => p,
+        None => cubic.from.lerp(cubic.to, 0.5),
+    };
     QuadraticBezierSegment {
         from: cubic.from,
         ctrl: cp,
         to: cubic.to,
     }
-}
-
-// TODO copy pasted from core::math_utils. Figure out what the dependency should
-// look like.
-pub fn line_intersection(a1: Point, a2: Point, b1: Point, b2: Point) -> Option<Point> {
-    let det = (a1.x - a2.x) * (b1.y - b2.y) - (a1.y - a2.y) * (b1.x - b2.x);
-    if det.abs() <= 0.000001 {
-        // The lines are very close to parallel
-        return None;
-    }
-    let inv_det = 1.0 / det;
-    let a = a1.x * a2.y - a1.y * a2.x;
-    let b = b1.x * b2.y - b1.y * b2.x;
-    return Some(
-        Point::new(
-            (a * (b1.x - b2.x) - b * (a1.x - a2.x)) * inv_det,
-            (a * (b1.y - b2.y) - b * (a1.y - a2.y)) * inv_det,
-        )
-    );
 }

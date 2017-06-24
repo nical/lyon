@@ -3,7 +3,6 @@
 extern crate euclid;
 
 pub mod math;
-pub mod math_utils;
 pub mod path_state;
 pub mod events;
 pub mod fixed;
