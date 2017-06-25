@@ -337,11 +337,12 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         self.length += (self.current - self.previous).length();
 
-        let (na, nb, maybe_nc) = get_angle_info(self.previous, self.current, to);
+        let normal = get_angle_normal(self.previous, self.current, to);
+
         let a_id = self.output.add_vertex(
             Vertex {
                 position: self.current,
-                normal: na,
+                normal: normal,
                 advancement: self.length,
                 side: Side::Left,
             }
@@ -349,27 +350,11 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         let b_id = self.output.add_vertex(
             Vertex {
                 position: self.current,
-                normal: nb,
+                normal: -normal,
                 advancement: self.length,
                 side: Side::Right,
             }
         );
-
-        let (nc, c_id) = if let Some(n) = maybe_nc {
-            (
-                n,
-                self.output.add_vertex(
-                    Vertex {
-                        position: self.current,
-                        normal: n,
-                        advancement: self.length, // TODO
-                        side: Side::Left, // TODO
-                    }
-                )
-            )
-        } else {
-            (nb, b_id)
-        };
 
         if self.nth > 1 {
             self.output.add_triangle(self.previous_b_id, self.previous_a_id, b_id);
@@ -377,41 +362,22 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         }
 
         self.previous = self.current;
-        self.prev_normal = na;
+        self.prev_normal = normal;
         self.previous_a_id = a_id;
-        self.previous_b_id = c_id;
+        self.previous_b_id = b_id;
         self.current = to;
 
         if self.nth == 1 {
             self.second = self.previous;
             self.second_a_id = a_id;
-            self.second_b_id = c_id;
-        }
-
-        if maybe_nc.is_some() {
-            let current = self.current;
-            self.tessellate_angle(current, na, a_id, nb, b_id, nc, c_id);
+            self.second_b_id = b_id;
         }
 
         self.nth += 1;
     }
-
-    fn tessellate_angle(
-        &mut self,
-        _position: Point,
-        _na: Vec2,
-        a_id: VertexId,
-        _nb: Vec2,
-        b_id: VertexId,
-        _nc: Vec2,
-        c_id: VertexId,
-    ) {
-        // TODO: Properly support all types of angles.
-        self.output.add_triangle(b_id, a_id, c_id);
-    }
 }
 
-fn get_angle_info(previous: Point, current: Point, next: Point) -> (Vec2, Vec2, Option<Vec2>) {
+fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
     let amount = 0.5;
     let n1 = normalized_tangent(current - previous) * amount;
     let n2 = normalized_tangent(next - current) * amount;
@@ -437,21 +403,21 @@ fn get_angle_info(previous: Point, current: Point, next: Point) -> (Vec2, Vec2, 
             }
         }
     };
-    return (inter - current, current - inter, None);
+    return inter - current;
 }
 
 /// Parameters for the tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeOptions {
-    /// See the SVG secification.
+    /// See the SVG specification.
     pub line_cap: LineCap,
 
-    /// See the SVG secification.
+    /// See the SVG specification.
     ///
     /// Not implemented yet!
     pub line_join: LineJoin,
 
-    /// See the SVG secification.
+    /// See the SVG specification.
     ///
     /// Not implemented yet!
     pub miter_limit: f32,
