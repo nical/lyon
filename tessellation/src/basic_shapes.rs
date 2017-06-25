@@ -610,11 +610,113 @@ fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
 
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
 pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
-    _rect: &Rect,
-    _radii: &BorderRadii,
-    _output: &mut Output,
+    rect: &Rect,
+    radii: &BorderRadii,
+    tolerance: f32,
+    output: &mut Output,
 ) -> Count {
-    unimplemented!();
+    output.begin_geometry();
+
+    let w = rect.size.width;
+    let h = rect.size.height;
+    let x_min = rect.min_x();
+    let y_min = rect.min_y();
+    let x_max = rect.max_x();
+    let y_max = rect.max_y();
+    let min_wh = w.min(h);
+    let mut tl = radii.top_left.abs().min(min_wh);
+    let mut tr = radii.top_right.abs().min(min_wh);
+    let mut bl = radii.bottom_left.abs().min(min_wh);
+    let mut br = radii.bottom_right.abs().min(min_wh);
+
+    // clamp border radii if they don't fit in the rectangle.
+    if tl + tr > w {
+        let x = (tl + tr - w) * 0.5;
+        tl -= x;
+        tr -= x;
+    }
+    if bl + br > w {
+        let x = (bl + br - w) * 0.5;
+        bl -= x;
+        br -= x;
+    }
+    if tr + br > h {
+        let x = (tr + br - h) * 0.5;
+        tr -= x;
+        br -= x;
+    }
+    if tl + bl > h {
+        let x = (tl + bl - h) * 0.5;
+        tl -= x;
+        bl -= x;
+    }
+
+    // top
+    let p1 = point(x_min + tl, y_min);
+    let p2 = point(x_max - tr, y_min);
+
+    // bottom
+    let p6 = point(x_min + bl, y_max);
+    let p5 = point(x_max - br, y_max);
+
+    // left
+    let p0 = point(x_min, y_min + tl);
+    let p7 = point(x_min, y_max - bl);
+
+    // right
+    let p3 = point(x_max, y_min + tr);
+    let p4 = point(x_max, y_max - br);
+
+    let points = &[
+    [p1, p2],
+    [p5, p6],
+    [p3, p4],
+    [p0, p7],
+    ];
+
+    for side in points {
+        stroke_polyline((0..1).map(|p| {
+	    side[p]
+	}), false, output);
+    }
+
+    let radii = [tl, tr, br, bl];
+    let angles = [
+        (PI, 1.5 * PI),
+        (1.5* PI, 2.0 * PI),
+        (0.0, PI * 0.5),
+        (PI * 0.5, PI),
+    ];
+
+    let centers = [
+        point(p1.x, p0.y),
+        point(p2.x, p3.y),
+        point(p5.x, p4.y),
+        point(p6.x, p7.y),
+    ];
+
+    for i in 0..4 {
+        let radius = radii[i];
+        if radius > 0.0 {
+
+            let arc_len = 0.5 * PI * radius;
+
+            let step = circle_flattening_step(radius, tolerance);
+            let num_segments = (arc_len / step).ceil();
+
+            let resolution = num_segments.log2() as u32;
+
+            stroke_border_radius(
+                centers[i],
+                angles[i],
+                radius,
+                resolution,
+                output,
+            );
+        }
+    }
+
+    return output.end_geometry();
 }
 
 /// Tessellate a circle.
