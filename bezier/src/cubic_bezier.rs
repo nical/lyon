@@ -183,6 +183,79 @@ impl CubicBezierSegment {
         find_cubic_bezier_inflection_points(self)
     }
 
+    /// Return local x extrema or None if this curve is monotone.
+    ///
+    /// This returns the advancements along the curve, not the actual x position.
+    pub fn find_local_x_extrema(&self) -> UpToTwo<f32> {
+        let mut ret = UpToTwo::new();
+        // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
+        // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
+        // f(x) = a * x² + b * x + c such as :
+        let a = 3.0 * (self.to.x - 3.0 * self.ctrl2.x + 3.0 * self.ctrl1.x - self.from.x);
+        let b = 6.0 * (self.ctrl2.x - 2.0 * self.ctrl1.x + self.from.x);
+        let c = 3.0 * (self.ctrl1.x - self.from.x);
+
+        // If the derivative is a linear function
+        if a == 0.0 {
+            if b == 0.0 {
+                // If the derivative is a constant function
+                if c == 0.0 {
+                    ret.push(0.0);
+                }
+            } else {
+                ret.push(-c / b);
+            }
+            return ret;
+        }
+
+        fn in_range(t: f32) -> bool { t > 0.0 && t < 1.0 }
+
+        let discriminant = b * b - 4.0 * a * c;
+
+        // There is no Real solution for the equation
+        if discriminant < 0.0 {
+            return ret;
+        }
+
+        // There is one Real solution for the equation
+        if discriminant == 0.0 {
+            let t = -b / (2.0 * a);
+            if in_range(t) {
+                ret.push(t);
+            }
+            return ret;
+        }
+
+        // There are two Real solutions for the equation
+        let discriminant_sqrt = discriminant.sqrt();
+
+        let first_extremum = (-b - discriminant_sqrt) / (2.0 * a);
+        let second_extremum = (-b + discriminant_sqrt) / (2.0 * a);
+
+        if in_range(first_extremum) {
+            ret.push(first_extremum);
+        }
+
+        if in_range(second_extremum) {
+            ret.push(second_extremum);
+        }
+        ret
+    }
+
+    /// Return local y extrema or None if this curve is monotone.
+    ///
+    /// This returns the advancements along the curve, not the actual y position.
+    pub fn find_local_y_extrema(&self) -> UpToTwo<f32> {
+       let switched_segment = CubicBezierSegment {
+               from: yx(self.from),
+               ctrl1: yx(self.ctrl1),
+               ctrl2: yx(self.ctrl2),
+               to: yx(self.to),
+       };
+
+        switched_segment.find_local_x_extrema()
+    }
+
     /// Find the advancement of the y-most position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual y position.
@@ -193,7 +266,7 @@ impl CubicBezierSegment {
             max_t = 1.0;
             max_y = self.to.y;
         }
-        for t in self.find_inflection_points() {
+        for t in self.find_local_y_extrema() {
             let point = self.sample(t);
             if point.y > max_y {
                 max_t = t;
@@ -213,7 +286,7 @@ impl CubicBezierSegment {
             min_t = 1.0;
             min_y = self.to.y;
         }
-        for t in self.find_inflection_points() {
+        for t in self.find_local_y_extrema() {
             let point = self.sample(t);
             if point.y < min_y {
                 min_t = t;
@@ -233,7 +306,7 @@ impl CubicBezierSegment {
             max_t = 1.0;
             max_x = self.to.x;
         }
-        for t in self.find_inflection_points() {
+        for t in self.find_local_x_extrema() {
             let point = self.sample(t);
             if point.x > max_x {
                 max_t = t;
@@ -243,9 +316,7 @@ impl CubicBezierSegment {
         return max_t;
     }
 
-    /// Find the advancement of the x-least position in the curve.
-    ///
-    /// This returns the advancement along the curve, not the actual x position.
+    /// Find the x-least position in the curve.
     pub fn find_x_minimum(&self) -> f32 {
         let mut min_t = 0.0;
         let mut min_x = self.from.x;
@@ -253,7 +324,7 @@ impl CubicBezierSegment {
             min_t = 1.0;
             min_x = self.to.x;
         }
-        for t in self.find_inflection_points() {
+        for t in self.find_local_x_extrema() {
             let point = self.sample(t);
             if point.x < min_x {
                 min_t = t;
@@ -263,11 +334,22 @@ impl CubicBezierSegment {
         return min_t;
     }
 
+    /// Returns a rectangle the curve is contained in
     pub fn bounding_rect(&self) -> Rect {
         let min_x = self.from.x.min(self.ctrl1.x).min(self.ctrl2.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl1.x).max(self.ctrl2.x).max(self.to.x);
         let min_y = self.from.y.min(self.ctrl1.y).min(self.ctrl2.y).min(self.to.y);
         let max_y = self.from.y.max(self.ctrl1.y).max(self.ctrl2.y).max(self.to.y);
+
+        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+    }
+
+    /// Returns the smallest rectangle the curve is contained in
+    pub fn minimum_bounding_rect(&self) -> Rect {
+        let min_x = self.sample_x(self.find_x_minimum());
+        let max_x = self.sample_x(self.find_x_maximum());
+        let min_y = self.sample_y(self.find_y_minimum());
+        let max_y = self.sample_y(self.find_y_maximum());
 
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
@@ -369,6 +451,24 @@ fn bounding_rect_for_cubic_bezier_segment() {
 }
 
 #[test]
+fn minimum_bounding_rect_for_cubic_bezier_segment() {
+    let a = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(0.5, 2.0),
+        ctrl2: Point::new(1.5, -2.0),
+        to: Point::new(2.0, 0.0),
+    };
+    
+    let expected_bigger_bounding_rect: Rect = rect(0.0, -0.6, 2.0, 1.2);
+    let expected_smaller_bounding_rect: Rect = rect(0.1, -0.5, 1.9, 1.0);
+
+    let actual_minimum_bounding_rect: Rect = a.minimum_bounding_rect();
+
+    assert!(expected_bigger_bounding_rect.contains_rect(&actual_minimum_bounding_rect));
+    assert!(actual_minimum_bounding_rect.contains_rect(&expected_smaller_bounding_rect));
+}
+
+#[test]
 fn find_y_maximum_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
@@ -381,7 +481,7 @@ fn find_y_maximum_for_simple_cubic_segment() {
 
     let actual_y_maximum = a.find_y_maximum();
 
-    assert!(expected_y_maximum == actual_y_maximum, "got {}", actual_y_maximum)
+    assert!(expected_y_maximum == actual_y_maximum)
 }
 
 #[test]
@@ -397,7 +497,45 @@ fn find_y_minimum_for_simple_cubic_segment() {
 
     let actual_y_minimum = a.find_y_minimum();
 
-    assert!(expected_y_minimum == actual_y_minimum, "got {} ", actual_y_minimum)
+    assert!(expected_y_minimum == actual_y_minimum)
+}
+
+#[test]
+fn find_y_extrema_for_simple_cubic_segment() {
+    let a = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(1.0, 2.0),
+        ctrl2: Point::new(2.0, 2.0),
+        to: Point::new(3.0, 0.0),
+    };
+
+    let mut expected_y_extremums = UpToTwo::new();
+    expected_y_extremums.push(0.5);
+
+    let actual_y_extremums = a.find_local_y_extrema();
+
+    for extremum in expected_y_extremums {
+        assert!(actual_y_extremums.contains(&extremum))
+    }
+}
+
+#[test]
+fn find_x_extrema_for_simple_cubic_segment() {
+    let a = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(1.0, 2.0),
+        ctrl2: Point::new(1.0, 2.0),
+        to: Point::new(0.0, 0.0),
+    };
+
+    let mut expected_x_extremums = UpToTwo::new();
+    expected_x_extremums.push(0.5);
+
+    let actual_x_extremums = a.find_local_x_extrema();
+
+    for extremum in expected_x_extremums {
+        assert!(actual_x_extremums.contains(&extremum))
+    }
 }
 
 #[test]
@@ -412,7 +550,7 @@ fn find_x_maximum_for_simple_cubic_segment() {
 
     let actual_x_maximum = a.find_x_maximum();
 
-    assert!(expected_x_maximum == actual_x_maximum, "got {}", actual_x_maximum)
+    assert!(expected_x_maximum == actual_x_maximum)
 }
 
 #[test]
@@ -428,7 +566,7 @@ fn find_x_minimum_for_simple_cubic_segment() {
 
     let actual_x_minimum = a.find_x_minimum();
 
-    assert!(expected_x_minimum == actual_x_minimum, "got {} ", actual_x_minimum)
+    assert!(expected_x_minimum == actual_x_minimum)
 }
 
 #[test]
