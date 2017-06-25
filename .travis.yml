@@ -3,15 +3,7 @@ rust:
   - stable
   - nightly
 env:
-  - TEST_DIR=core
-  - TEST_DIR=tessellation
-  - TEST_DIR=path_builder
-  - TEST_DIR=path_iterator
-  - TEST_DIR=path
-  - TEST_DIR=extra
-  - TEST_DIR=examples/gfx_basic
-  - TEST_DIR=examples/gfx_advanced
-  - TEST_DIR=cli
-  - TEST_DIR=bezier
+  - RUST_BACKTRACE=1
 script:
-  - cd $TEST_DIR && cargo test
+  - cargo test --all
+
