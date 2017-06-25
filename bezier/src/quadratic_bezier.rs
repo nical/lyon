@@ -238,11 +238,22 @@ impl QuadraticBezierSegment {
         }
     }
 
+    /// Returns a rectangle the curve is contained in
     pub fn bounding_rect(&self) -> Rect {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
         let min_y = self.from.y.min(self.ctrl.y).min(self.to.y);
         let max_y = self.from.y.max(self.ctrl.y).max(self.to.y);
+
+        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+    }
+
+    /// Returns the smallest rectangle the curve is contained in
+    pub fn minimum_bounding_rect(&self) -> Rect {
+        let min_x = self.from.x.min(self.sample(self.find_x_minimum()).x);
+        let max_x = self.from.x.max(self.sample(self.find_x_maximum()).x);
+        let min_y = self.from.y.min(self.sample(self.find_y_minimum()).y);
+        let max_y = self.from.y.max(self.sample(self.find_y_maximum()).y);
 
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
@@ -287,6 +298,21 @@ impl Iterator for QuadraticFlatteningIter {
 }
 
 #[test]
+fn bounding_rect_for_x_monotone_quadratic_bezier_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(0.0, 0.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_bounding_rect = rect(0.0, 0.0, 2.0, 0.0);
+
+    let actual_bounding_rect = a.bounding_rect();
+
+    assert!(expected_bounding_rect == actual_bounding_rect)
+}
+
+#[test]
 fn bounding_rect_for_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
@@ -297,6 +323,21 @@ fn bounding_rect_for_quadratic_bezier_segment() {
     let expected_bounding_rect = rect(0.0, 0.0, 2.0, 1.0);
 
     let actual_bounding_rect = a.bounding_rect();
+
+    assert!(expected_bounding_rect == actual_bounding_rect)
+}
+
+#[test]
+fn minimum_bounding_rect_for_quadratic_bezier_segment() {
+    let a = QuadraticBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl: Point::new(1.0, 1.0),
+        to: Point::new(2.0, 0.0),
+    };
+
+    let expected_bounding_rect = rect(0.0, 0.0, 2.0, 0.5);
+
+    let actual_bounding_rect = a.minimum_bounding_rect();
 
     assert!(expected_bounding_rect == actual_bounding_rect)
 }
