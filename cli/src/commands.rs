@@ -1,12 +1,11 @@
 use std::io;
+use lyon::path::Path;
 
 pub struct TessellateCmd {
-    pub input: String,
-    pub output: Box<io::Write>,
+    pub path: Path,
     pub fill: bool,
     pub stroke: Option<f32>,
     pub tolerance: f32,
-    pub count: bool,
 }
 
 pub struct FlattenCmd {

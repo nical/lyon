@@ -1,7 +1,5 @@
 use commands::TessellateCmd;
 use lyon::math::*;
-use lyon::svg::parser::{build_path, ParserError};
-use lyon::path::Path;
 use lyon::path_iterator::*;
 use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor};
 use lyon::tessellation::path_fill::*;
@@ -13,26 +11,19 @@ use std::io;
 pub enum TessError {
     Io(io::Error),
     Fill,
-    Parse,
 }
 
 impl ::std::convert::From<::std::io::Error> for TessError {
     fn from(err: io::Error) -> Self { TessError::Io(err) }
 }
 
-impl ::std::convert::From<ParserError> for TessError {
-    fn from(_err: ParserError) -> Self { TessError::Parse }
-}
-
-pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
-
-    let path = try!{ build_path(Path::builder().with_svg(), &cmd.input) };
+pub fn tessellate(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError> {
 
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
 
     if cmd.fill {
         if FillTessellator::new().tessellate_path(
-            path.path_iter().flattened(cmd.tolerance),
+            cmd.path.path_iter().flattened(cmd.tolerance),
             &FillOptions::default(),
             &mut BuffersBuilder::new(&mut buffers, ApplyNormal)
         ).is_err() {
@@ -42,41 +33,50 @@ pub fn tessellate(mut cmd: TessellateCmd) -> Result<(), TessError> {
 
     if let Some(width) = cmd.stroke {
         StrokeTessellator::new().tessellate(
-            path.path_iter().flattened(cmd.tolerance),
+            cmd.path.path_iter().flattened(cmd.tolerance),
             &StrokeOptions::default(),
             &mut BuffersBuilder::new(&mut buffers, StrokeWidth(width))
         );
     }
 
-    if cmd.count {
-        try!{ writeln!(&mut *cmd.output, "vertices: {}", buffers.vertices.len()) };
-        try!{ writeln!(&mut *cmd.output, "indices: {}", buffers.indices.len()) };
-        try!{ writeln!(&mut *cmd.output, "triangles: {}", buffers.indices.len() / 3) };
+    Ok(buffers)
+}
+
+pub fn write_output(
+    buffers: VertexBuffers<Point>,
+    count: bool,
+    mut output: Box<io::Write>
+) -> Result<(), io::Error>{
+
+    if count {
+        try!{ writeln!(&mut *output, "vertices: {}", buffers.vertices.len()) };
+        try!{ writeln!(&mut *output, "indices: {}", buffers.indices.len()) };
+        try!{ writeln!(&mut *output, "triangles: {}", buffers.indices.len() / 3) };
 
         return Ok(());
     }
 
-    try!{ write!(&mut *cmd.output, "vertices: [") };
+    try!{ write!(&mut *output, "vertices: [") };
     let mut is_first = true;
-    for vertex in buffers.vertices {
+    for vertex in &buffers.vertices {
         if !is_first {
-            try!{ write!(&mut *cmd.output, ", ") };
+            try!{ write!(&mut *output, ", ") };
         }
-        try!{ write!(&mut *cmd.output, "({}, {})", vertex.x, vertex.y) };
+        try!{ write!(&mut *output, "({}, {})", vertex.x, vertex.y) };
         is_first = false;
     }
-    try!{ writeln!(&mut *cmd.output, "]") };
+    try!{ writeln!(&mut *output, "]") };
 
-    try!{ write!(&mut *cmd.output, "indices: [") };
+    try!{ write!(&mut *output, "indices: [") };
     let mut is_first = true;
-    for index in buffers.indices {
+    for index in &buffers.indices {
         if !is_first {
-            try!{ write!(&mut *cmd.output, ", ") };
+            try!{ write!(&mut *output, ", ") };
         }
-        try!{ write!(&mut *cmd.output, "{}", index) };
+        try!{ write!(&mut *output, "{}", index) };
         is_first = false;
     }
-    try!{ writeln!(&mut *cmd.output, "]") };
+    try!{ writeln!(&mut *output, "]") };
 
     Ok(())
 }
