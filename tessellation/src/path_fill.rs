@@ -127,6 +127,7 @@ use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::FlattenedEvent;
 use bezier::utils::{directed_angle, directed_angle2};
 use math_utils::{line_horizontal_intersection_fixed, segment_intersection};
+use path_builder::BaseBuilder;
 
 #[cfg(test)]
 use geometry_builder::{VertexBuffers, simple_builder};
@@ -134,8 +135,6 @@ use geometry_builder::{VertexBuffers, simple_builder};
 use path::{Path, PathSlice};
 #[cfg(test)]
 use path_iterator::PathIterator;
-#[cfg(test)]
-use path_builder::BaseBuilder;
 #[cfg(test)]
 use extra::rust_logo::build_logo_path;
 
@@ -1255,7 +1254,7 @@ pub struct FillEvents {
 
 impl FillEvents {
     pub fn from_iter<Iter: Iterator<Item = FlattenedEvent>>(it: Iter) -> Self {
-        EventsBuilder::new().build(it)
+        EventsBuilder::new().build_iter(it)
     }
 
     pub fn new() -> Self {
@@ -1276,7 +1275,7 @@ impl FillEvents {
         ::std::mem::swap(self, &mut tmp);
         let mut builder = EventsBuilder::new();
         builder.recycle(tmp);
-        let mut tmp = builder.build(it);
+        let mut tmp = builder.build_iter(it);
         ::std::mem::swap(self, &mut tmp);
     }
 }
@@ -1284,6 +1283,12 @@ impl FillEvents {
 struct EventsBuilder {
     edges: Vec<Edge>,
     vertices: Vec<TessPoint>,
+
+    first: TessPoint,
+    second: TessPoint,
+    previous: TessPoint,
+    current: TessPoint,
+    nth: u32,
 }
 
 impl EventsBuilder {
@@ -1291,6 +1296,12 @@ impl EventsBuilder {
         EventsBuilder {
             edges: Vec::new(),
             vertices: Vec::new(),
+
+            first: TessPoint::new(fixed(0.0), fixed(0.0)),
+            second: TessPoint::new(fixed(0.0), fixed(0.0)),
+            previous: TessPoint::new(fixed(0.0), fixed(0.0)),
+            current: TessPoint::new(fixed(0.0), fixed(0.0)),
+            nth: 0,
         }
     }
 
@@ -1299,68 +1310,16 @@ impl EventsBuilder {
         self.vertices = events.vertices;
     }
 
-    fn build<Iter: Iterator<Item = FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {
-        let mut first = TessPoint::new(fixed(0.0), fixed(0.0));
-        let mut second = TessPoint::new(fixed(0.0), fixed(0.0));
-        let mut previous = TessPoint::new(fixed(0.0), fixed(0.0));
-        let mut current = TessPoint::new(fixed(0.0), fixed(0.0));
-        let mut nth = 0;
+    fn build_iter<Iter: Iterator<Item = FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {
         for evt in inputs {
             match evt {
-                FlattenedEvent::LineTo(next) => {
-                    let next = to_internal(next);
-                    if next == current {
-                        continue;
-                    }
-                    if nth == 0 {
-                        second = next;
-                    }
-                    self.add_edge(current, next);
-                    if nth > 0 {
-                        self.vertex(previous, current, next);
-                    }
-                    previous = current;
-                    current = next;
-                    nth += 1;
-                }
-                FlattenedEvent::Close => {
-                    if current != first {
-                        if nth > 0 {
-                            self.add_edge(current, first);
-                            self.vertex(previous, current, first);
-                        }
-                        if nth > 1 {
-                            self.vertex(current, first, second);
-                        }
-                    } else {
-                        if nth > 1 {
-                            self.vertex(previous, first, second);
-                        }
-                    }
-                    nth = 0;
-                    current = first;
-                }
-                FlattenedEvent::MoveTo(next) => {
-                    let next = to_internal(next);
-                    if nth > 1 {
-                        self.add_edge(current, first);
-                        self.vertex(previous, current, first);
-                        self.vertex(current, first, second);
-                    }
-                    first = next;
-                    current = next;
-                    nth = 0;
-                }
+                FlattenedEvent::MoveTo(to) => { self.move_to(to) }
+                FlattenedEvent::LineTo(to) => { self.line_to(to) }
+                FlattenedEvent::Close => { self.close(); }
             }
         }
 
-        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
-        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
-
-        return FillEvents {
-                   edges: self.edges,
-                   vertices: self.vertices,
-               };
+        return self.build();
     }
 
     fn add_edge(&mut self, mut a: TessPoint, mut b: TessPoint) {
@@ -1382,6 +1341,102 @@ impl EventsBuilder {
     }
 }
 
+impl BaseBuilder for EventsBuilder {
+    type PathType = FillEvents;
+
+    fn move_to(&mut self, to: Point) {
+        self.close();
+        let next = to_internal(to);
+        if self.nth > 1 {
+            let current = self.current;
+            let previous = self.previous;
+            let first = self.first;
+            let second = self.second;
+            self.add_edge(current, first);
+            self.vertex(previous, current, first);
+            self.vertex(current, first, second);
+        }
+        self.first = next;
+        self.current = next;
+        self.nth = 0;
+    }
+
+    fn line_to(&mut self, to: Point) {
+        let next = to_internal(to);
+        if next == self.current {
+            return;
+        }
+        if self.nth == 0 {
+            self.second = next;
+        }
+        let current = self.current;
+        let previous = self.previous;
+        self.add_edge(current, next);
+        if self.nth > 0 {
+            self.vertex(previous, current, next);
+        }
+        self.previous = self.current;
+        self.current = next;
+        self.nth += 1;
+    }
+
+    fn close(&mut self) {
+        let current = self.current;
+        let first = self.first;
+        let previous = self.previous;
+        let second = self.second;
+        if self.current != self.first {
+            if self.nth > 0 {
+                self.add_edge(current, first);
+                self.vertex(previous, current, first);
+            }
+            if self.nth > 1 {
+                self.vertex(current, first, second);
+            }
+        } else {
+            if self.nth > 1 {
+                self.vertex(previous, first, second);
+            }
+        }
+        self.nth = 0;
+        self.current = self.first;
+    }
+
+    fn build(mut self) -> FillEvents {
+        self.close();
+
+        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
+        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
+
+        return FillEvents {
+            edges: self.edges,
+            vertices: self.vertices,
+        };
+    }
+
+    fn build_and_reset(&mut self) -> FillEvents {
+        self.close();
+
+        self.first = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.second = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.previous = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.current = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.nth = 0;
+
+        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
+        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
+
+        return FillEvents {
+            edges: replace(&mut self.edges, Vec::new()),
+            vertices: replace(&mut self.vertices, Vec::new()),
+        };
+    }
+
+    fn current_position(&self) -> Point {
+        to_f32_point(self.current)
+    }
+}
+
 #[test]
 fn test_iter_builder() {
 
@@ -1398,7 +1453,7 @@ fn test_iter_builder() {
 
     let path = builder.build();
 
-    let events = EventsBuilder::new().build(path.path_iter().flattened(0.05));
+    let events = EventsBuilder::new().build_iter(path.path_iter().flattened(0.05));
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
     let mut vertex_builder = simple_builder(&mut buffers);
     let mut tess = FillTessellator::new();
@@ -2512,6 +2567,17 @@ fn test_fixed_to_f32_precision() {
     builder.line_to(point(55.37999, 799.14996));
     builder.line_to(point(68.98, 796.05));
     builder.close();
+
+    test_path(builder.build().as_slice(), None);
+}
+
+#[test]
+fn test_no_close() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(1.0, 1.0));
+    builder.line_to(point(5.0, 1.0));
+    builder.line_to(point(1.0, 5.0));
 
     test_path(builder.build().as_slice(), None);
 }
