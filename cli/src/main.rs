@@ -1,5 +1,6 @@
 extern crate clap;
 extern crate lyon;
+extern crate lyon_extra;
 
 mod commands;
 mod tessellate;
@@ -10,6 +11,10 @@ use commands::*;
 
 use std::fs::File;
 use std::io::{Read, Write, stdout, stderr};
+use lyon::svg::parser::build_path;
+use lyon::path::Path;
+use lyon::path_builder::*;
+use lyon_extra::debugging::find_reduced_test_case;
 
 fn main() {
     let matches = App::new("Lyon command-line interface")
@@ -18,6 +23,11 @@ fn main() {
         .about("Path tessellator")
         .subcommand(SubCommand::with_name("tessellate")
             .about("Tessellates a path")
+            .arg(Arg::with_name("DEBUG")
+                .short("d")
+                .long("debug")
+                .help("Enable debugging")
+            )
             .arg(Arg::with_name("FILL")
                 .short("f")
                 .long("fill")
@@ -84,8 +94,6 @@ fn main() {
 
     let mut input_buffer = matches.value_of("PATH").unwrap_or(&"").to_string();
 
-    String::new();
-
     if let Some(input_file) = matches.value_of("INPUT") {
         if let Ok(mut file) = File::open(input_file) {
             file.read_to_string(&mut input_buffer).unwrap();
@@ -106,16 +114,46 @@ fn main() {
     if let Some(tess_matches) = matches.subcommand_matches("tessellate") {
         let fill_cmd = tess_matches.is_present("FILL");
         let stroke_cmd = get_stroke(tess_matches);
+        let path = build_path(Path::builder().with_svg(), &input_buffer).unwrap();
+        let fill = fill_cmd || (!fill_cmd && !stroke_cmd.is_some());
+        let tolerance = get_tolerance(&tess_matches);
+
+
         let cmd = TessellateCmd {
-            input: input_buffer,
-            output: output,
-            fill: fill_cmd || (!fill_cmd && !stroke_cmd.is_some()),
+            path: path,
+            fill: fill,
             stroke: stroke_cmd,
-            tolerance: get_tolerance(&tess_matches),
-            count: tess_matches.is_present("COUNT"),
+            tolerance: tolerance,
         };
 
-        tessellate::tessellate(cmd).unwrap();
+        let res = ::std::panic::catch_unwind(|| {
+            tessellate::tessellate(cmd)
+        });
+
+        match res {
+            Ok(Ok(buffers)) => {
+                tessellate::write_output(buffers, tess_matches.is_present("COUNT"), output).unwrap();
+            }
+            _ => {
+                println!(" -- Error while tessellating");
+                let path = build_path(Path::builder().flattened(tolerance).with_svg(), &input_buffer).unwrap();
+                if tess_matches.is_present("DEBUG") {
+                    println!(" -- Looking for a minimal test case...");
+                    find_reduced_test_case(
+                        path.as_slice(),
+                        &|path: Path| {
+                            tessellate::tessellate(TessellateCmd {
+                                path: path,
+                                fill: fill,
+                                stroke: stroke_cmd,
+                                tolerance: tolerance,
+                            }).is_err()
+                        },
+                    );
+                }
+                panic!("aborting");
+            }
+        }
 
     } else if let Some(flatten_matches) = matches.subcommand_matches("flatten") {
         let cmd = FlattenCmd {

@@ -9,5 +9,6 @@ name = "lyon"
 
 [dependencies]
 lyon = { path = "../" }
+lyon_extra = { path = "../extra" }
 clap = "2.19.2"
 
