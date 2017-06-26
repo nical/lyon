@@ -2495,3 +2495,19 @@ fn test_close_at_first_position() {
 
     test_path(builder.build().as_slice(), None);
 }
+
+#[test]
+#[ignore] // TODO
+fn test_fixed_to_f32_precision_failing() {
+    // This test appears to hit a precision issue in the conversion from fixed 16.16
+    // to f32, causing a point to appear slightly above another when it should not.
+    let mut builder = Path::builder().flattened(0.05);
+
+    builder.move_to(point(68.97998, 796.05));
+    builder.line_to(point(61.27998, 805.35));
+    builder.line_to(point(55.37999, 799.14996));
+    builder.line_to(point(68.98, 796.05));
+    builder.close();
+
+    test_path(builder.build().as_slice(), None);
+}
