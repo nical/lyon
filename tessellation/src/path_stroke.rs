@@ -122,10 +122,10 @@ pub struct StrokeBuilder<'l, Output: 'l> {
     previous: Point,
     current: Point,
     second: Point,
-    previous_a_id: VertexId,
-    previous_b_id: VertexId,
-    second_a_id: VertexId,
-    second_b_id: VertexId,
+    previous_left_id: VertexId,
+    previous_right_id: VertexId,
+    second_left_id: VertexId,
+    second_right_id: VertexId,
     prev_normal: Vec2,
     nth: u32,
     length: f32,
@@ -155,7 +155,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
             let second = self.second;
             self.edge_to(second);
 
-            let first_a_id = self.output.add_vertex(
+            let first_left_id = self.output.add_vertex(
                 Vertex {
                     position: self.first,
                     normal: self.prev_normal,
@@ -163,7 +163,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
                     side: Side::Left,
                 }
             );
-            let first_b_id = self.output.add_vertex(
+            let first_right_id = self.output.add_vertex(
                 Vertex {
                     position: self.first,
                     normal: -self.prev_normal,
@@ -172,8 +172,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
                 }
             );
 
-            self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
-            self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
+            self.output.add_triangle(first_right_id, first_left_id, self.second_right_id);
+            self.output.add_triangle(first_left_id, self.second_left_id, self.second_right_id);
         }
         self.nth = 0;
         self.current = self.first;
@@ -207,10 +207,10 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                    previous: zero,
                    current: zero,
                    prev_normal: Vec2::new(0.0, 0.0),
-                   previous_a_id: VertexId(0),
-                   previous_b_id: VertexId(0),
-                   second_a_id: VertexId(0),
-                   second_b_id: VertexId(0),
+                   previous_left_id: VertexId(0),
+                   previous_right_id: VertexId(0),
+                   second_left_id: VertexId(0),
+                   second_right_id: VertexId(0),
                    nth: 0,
                    length: 0.0,
                    sub_path_start_length: 0.0,
@@ -300,7 +300,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let n2 = normalized_tangent(d) * 0.5;
             let n1 = -n2;
 
-            let first_a_id = self.output.add_vertex(
+            let first_left_id = self.output.add_vertex(
                 Vertex {
                     position: first,
                     normal: n1,
@@ -308,7 +308,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     side: Side::Left,
                 }
             );
-            let first_b_id = self.output.add_vertex(
+            let first_right_id = self.output.add_vertex(
                 Vertex {
                     position: first,
                     normal: n2,
@@ -317,8 +317,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 }
             );
 
-            self.output.add_triangle(first_b_id, first_a_id, self.second_b_id);
-            self.output.add_triangle(first_a_id, self.second_a_id, self.second_b_id);
+            self.output.add_triangle(first_right_id, first_left_id, self.second_right_id);
+            self.output.add_triangle(first_left_id, self.second_left_id, self.second_right_id);
         }
     }
 
@@ -339,7 +339,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         let normal = get_angle_normal(self.previous, self.current, to);
 
-        let a_id = self.output.add_vertex(
+        let left_id = self.output.add_vertex(
             Vertex {
                 position: self.current,
                 normal: normal,
@@ -347,7 +347,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 side: Side::Left,
             }
         );
-        let b_id = self.output.add_vertex(
+        let right_id = self.output.add_vertex(
             Vertex {
                 position: self.current,
                 normal: -normal,
@@ -357,20 +357,20 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         );
 
         if self.nth > 1 {
-            self.output.add_triangle(self.previous_b_id, self.previous_a_id, b_id);
-            self.output.add_triangle(self.previous_a_id, a_id, b_id);
+            self.output.add_triangle(self.previous_right_id, self.previous_left_id, right_id);
+            self.output.add_triangle(self.previous_left_id, left_id, right_id);
         }
 
         self.previous = self.current;
         self.prev_normal = normal;
-        self.previous_a_id = a_id;
-        self.previous_b_id = b_id;
+        self.previous_left_id = left_id;
+        self.previous_right_id = right_id;
         self.current = to;
 
         if self.nth == 1 {
             self.second = self.previous;
-            self.second_a_id = a_id;
-            self.second_b_id = b_id;
+            self.second_left_id = left_id;
+            self.second_right_id = right_id;
         }
 
         self.nth += 1;
