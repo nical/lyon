@@ -339,41 +339,183 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         let normal = get_angle_normal(self.previous, self.current, to);
 
-        let left_id = self.output.add_vertex(
-            Vertex {
-                position: self.current,
-                normal: normal,
-                advancement: self.length,
-                side: Side::Left,
-            }
-        );
-        let right_id = self.output.add_vertex(
-            Vertex {
-                position: self.current,
-                normal: -normal,
-                advancement: self.length,
-                side: Side::Right,
-            }
-        );
+        let (start_left_id, start_right_id, end_left_id, end_right_id) = if self.nth > 0 {
+            // Tesselate join
+            self.tesselate_join(to, normal)
+        } else {
+            // Tesselate a cap at the start
+            let left_id = self.output.add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: normal,
+                    advancement: self.length,
+                    side: Side::Left,
+                }
+            );
 
+            let right_id = self.output.add_vertex(
+                Vertex {
+                    position: self.current,
+                    normal: -normal,
+                    advancement: self.length,
+                    side: Side::Right,
+                }
+            );
+
+            (left_id, right_id, left_id, right_id)
+        };
+
+        // Tesselate edge
         if self.nth > 1 {
-            self.output.add_triangle(self.previous_right_id, self.previous_left_id, right_id);
-            self.output.add_triangle(self.previous_left_id, left_id, right_id);
+            self.output.add_triangle(self.previous_left_id, self.previous_right_id, start_left_id);
+            self.output.add_triangle(self.previous_right_id, start_left_id, start_right_id);
         }
 
         self.previous = self.current;
         self.prev_normal = normal;
-        self.previous_left_id = left_id;
-        self.previous_right_id = right_id;
+        self.previous_left_id = end_left_id;
+        self.previous_right_id = end_right_id;
         self.current = to;
 
         if self.nth == 1 {
             self.second = self.previous;
-            self.second_left_id = left_id;
-            self.second_right_id = right_id;
+            self.second_left_id = start_left_id;
+            self.second_right_id = start_right_id;
         }
 
         self.nth += 1;
+    }
+
+    fn tesselate_join(&mut self, to: Point, normal: Vec2) -> (VertexId, VertexId, VertexId, VertexId) {
+        // Calculate which side is at the "front" of the join (aka. the pointy side)
+        let a_line = self.current - self.previous;
+        let b_line = to - self.current;
+        let join_angle = a_line.y.atan2(a_line.x) - b_line.y.atan2(b_line.x);
+        let front_side = if join_angle > 0.0 {
+            Side::Left
+        } else {
+            Side::Right
+        };
+
+        // If the "front" is on the right, invert the normal
+        let normal = match front_side {
+            Side::Left => normal,
+            Side::Right => -normal,
+        };
+
+        // Add a vertex at the back of the join
+        let back_vertex = self.output.add_vertex(
+            Vertex {
+                position: self.current,
+                normal: -normal,
+                advancement: self.length,
+                side: front_side.opposite(),
+            }
+        );
+
+        let (start_vertex, end_vertex) = match self.options.line_join {
+            LineJoin::Miter => {
+                let v = self.output.add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: normal,
+                        advancement: self.length,
+                        side: front_side,
+                    }
+                );
+
+                (v, v)
+            }
+
+            LineJoin::Round => {
+                let max_radius_segment_angle = compute_max_radius_segment_angle(0.1 /* line width / 2 */, 0.001/*self.options.tolerance as f64*/);
+                let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle as f32).ceil() as u32;
+                if num_segments != 0 {
+                    // Calculate angle of each step
+                    let segment_angle = join_angle as f32 / num_segments as f32;
+
+                    // Calculate initial normal
+                    let mut normal = if front_side == Side::Right {
+                        vec2(a_line.y, -a_line.x).normalize() * 0.5
+                    } else {
+                        vec2(-a_line.y, a_line.x).normalize() * 0.5
+                    };
+
+                    let mut last_vertex = self.output.add_vertex(
+                        Vertex {
+                            position: self.current,
+                            normal: normal,
+                            advancement: self.length,
+                            side: front_side,
+                        }
+                    );
+                    let start_vertex = last_vertex;
+
+                    // Plot each point along the radius by using a matrix to
+                    // rotate the normal at each step
+                    let (sin, cos) = segment_angle.sin_cos();
+                    let rotation_matrix = [
+                        [cos, sin],
+                        [-sin, cos],
+                    ];
+
+                    for _ in 0..num_segments {
+                        // Calculate normal
+                        normal = vec2(
+                            normal.x * rotation_matrix[0][0] + normal.y * rotation_matrix[0][1],
+                            normal.x * rotation_matrix[1][0] + normal.y * rotation_matrix[1][1]
+                        );
+
+                        let current_vertex = self.output.add_vertex(
+                            Vertex {
+                                position: self.current,
+                                normal: normal,
+                                advancement: self.length,
+                                side: front_side,
+                            }
+                        );
+
+                        self.output.add_triangle(back_vertex, last_vertex, current_vertex);
+                        last_vertex = current_vertex;
+                    }
+
+                    (start_vertex, last_vertex)
+                } else {
+                    // The join is perfectly straight
+                    // TODO: Could we remove these vertices?
+                    let v = self.output.add_vertex(
+                        Vertex {
+                            position: self.current,
+                            normal: normal,
+                            advancement: self.length,
+                            side: front_side,
+                        }
+                    );
+
+                    (v, v)
+                }
+            }
+
+            // Fallback to Miter for unimplemented line joins
+            _ => {
+                println!("[StrokeTessellator] unimplemented line join.");
+                let v = self.output.add_vertex(
+                    Vertex {
+                        position: self.current,
+                        normal: normal,
+                        advancement: self.length,
+                        side: front_side,
+                    }
+                );
+
+                (v, v)
+            }
+        };
+
+        match front_side {
+            Side::Left => (start_vertex, back_vertex, end_vertex, back_vertex),
+            Side::Right => (back_vertex, start_vertex, back_vertex, end_vertex),
+        }
     }
 }
 
@@ -404,6 +546,12 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
         }
     };
     return inter - current;
+}
+
+/// Computes the max angle of a radius segment for a given tolerance
+pub fn compute_max_radius_segment_angle(radius: f64, tolerance: f64) -> f64 {
+    let t = radius - tolerance;
+    ((radius * radius - t * t) * 4.0).sqrt() / radius
 }
 
 /// Parameters for the tessellator.
@@ -529,7 +677,7 @@ pub enum LineJoin {
     /// the miter is clipped at a miter length equal to the miter limit value
     /// multiplied by the stroke width.
     MiterClip,
-    /// [Not implemented] A round corner is to be used to join path segments.
+    /// A round corner is to be used to join path segments.
     Round,
     /// [Not implemented] A bevelled corner is to be used to join path segments.
     /// The bevel shape is a triangle that fills the area between the two stroked
