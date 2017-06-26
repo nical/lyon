@@ -2375,7 +2375,7 @@ fn test_unknown_issue_1() {
     // This test case used to fail but does not fail anymore, probably thanks to
     // the fixed-to-f32 workaround (cf.) test_fixed_to_f32_precision.
     // TODO: figure out what the issue was and what fixed it.
-    let mut builder = Path::builder().flattened(0.05);
+    let mut builder = Path::builder();
 
     builder.move_to(point(-3.3709216, 9.467676));
     builder.line_to(point(-13.078612, 7.0675235));
@@ -2562,7 +2562,7 @@ fn test_close_at_first_position() {
 fn test_fixed_to_f32_precision() {
     // This test appears to hit a precision issue in the conversion from fixed 16.16
     // to f32, causing a point to appear slightly above another when it should not.
-    let mut builder = Path::builder().flattened(0.05);
+    let mut builder = Path::builder();
 
     builder.move_to(point(68.97998, 796.05));
     builder.line_to(point(61.27998, 805.35));
