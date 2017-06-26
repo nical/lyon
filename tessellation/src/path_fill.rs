@@ -322,13 +322,12 @@ impl FillTessellator {
                 if edge.upper == current_position {
                     next_edge = edge_iter.next();
                     if edge.lower != current_position {
-                        self.below
-                            .push(
-                                EdgeBelow {
-                                    lower: edge.lower,
-                                    angle: compute_angle(edge.lower - edge.upper),
-                                }
-                            );
+                        self.below.push(
+                            EdgeBelow {
+                                lower: edge.lower,
+                                angle: compute_angle(edge.lower - edge.upper),
+                            }
+                        );
                     }
                     pending_events = true;
                     tess_log!(self, " edge at {:?} -> {:?}", edge.upper, edge.lower);
@@ -360,13 +359,12 @@ impl FillTessellator {
                     let inter = self.intersections.remove(0);
 
                     if inter.lower != current_position {
-                        self.below
-                            .push(
-                                EdgeBelow {
-                                    lower: inter.lower,
-                                    angle: compute_angle(inter.lower - current_position),
-                                }
-                            );
+                        self.below.push(
+                            EdgeBelow {
+                                lower: inter.lower,
+                                angle: compute_angle(inter.lower - current_position),
+                            }
+                        );
                     }
 
                     pending_events = true;
@@ -487,13 +485,12 @@ impl FillTessellator {
                 // time it is the right side instead of the left side of a span).
 
                 // Split the edge.
-                self.below
-                    .push(
-                        EdgeBelow {
-                            lower: span.right.lower,
-                            angle: compute_angle(span.right.lower - current_position),
-                        }
-                    );
+                self.below.push(
+                    EdgeBelow {
+                        lower: span.right.lower,
+                        angle: compute_angle(span.right.lower - current_position),
+                    }
+                );
                 span.right.lower = current_position;
 
                 status = E::RightEdge;
@@ -1050,10 +1047,8 @@ impl FillTessellator {
             let mr = if span.right.merge { "*" } else { " " };
             print!(
                 "| {:?}{}  {:?}{}|  ",
-                span.left.upper_id.offset(),
-                ml,
-                span.right.upper_id.offset(),
-                mr
+                span.left.upper_id.offset(), ml,
+                span.right.upper_id.offset(), mr
             );
         }
         println!("");
@@ -1272,11 +1267,11 @@ impl FillEvents {
     pub fn set_path_iter<Iter: Iterator<Item = FlattenedEvent>>(&mut self, it: Iter) {
         self.clear();
         let mut tmp = FillEvents::new();
-        ::std::mem::swap(self, &mut tmp);
+        swap(self, &mut tmp);
         let mut builder = EventsBuilder::new();
         builder.recycle(tmp);
         let mut tmp = builder.build_iter(it);
-        ::std::mem::swap(self, &mut tmp);
+        swap(self, &mut tmp);
     }
 }
 
