@@ -2515,3 +2515,8 @@ fn test_fixed_to_f32_precision() {
 
     test_path(builder.build().as_slice(), None);
 }
+
+#[test]
+fn test_empty_path() {
+    test_path(Path::new().as_slice(), Some(0));
+}
