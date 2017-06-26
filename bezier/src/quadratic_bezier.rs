@@ -250,10 +250,10 @@ impl QuadraticBezierSegment {
 
     /// Returns the smallest rectangle the curve is contained in
     pub fn minimum_bounding_rect(&self) -> Rect {
-        let min_x = self.from.x.min(self.sample(self.find_x_minimum()).x);
-        let max_x = self.from.x.max(self.sample(self.find_x_maximum()).x);
-        let min_y = self.from.y.min(self.sample(self.find_y_minimum()).y);
-        let max_y = self.from.y.max(self.sample(self.find_y_maximum()).y);
+        let min_x = self.sample(self.find_x_minimum()).x;
+        let max_x = self.sample(self.find_x_maximum()).x;
+        let min_y = self.sample(self.find_y_minimum()).y;
+        let max_y = self.sample(self.find_y_maximum()).y;
 
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
