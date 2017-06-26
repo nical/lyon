@@ -2371,8 +2371,10 @@ fn test_colinear_touching_squares3() {
 
 
 #[test]
-#[ignore] // TODO
-fn reduced_test_case() {
+fn test_unknown_issue_1() {
+    // This test case used to fail but does not fail anymore, probably thanks to
+    // the fixed-to-f32 workaround (cf.) test_fixed_to_f32_precision.
+    // TODO: figure out what the issue was and what fixed it.
     let mut builder = Path::builder().flattened(0.05);
 
     builder.move_to(point(-3.3709216, 9.467676));
