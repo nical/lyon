@@ -428,7 +428,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
 
             LineJoin::Round => {
-                let max_radius_segment_angle = compute_max_radius_segment_angle(0.1 /* line width / 2 */, 0.001/*self.options.tolerance as f64*/);
+                let max_radius_segment_angle = compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
                 let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
                 if num_segments != 0 {
                     // Calculate angle of each step
@@ -565,6 +565,11 @@ pub struct StrokeOptions {
     /// Not implemented yet!
     pub line_join: LineJoin,
 
+    /// Line width
+    ///
+    /// This is currently only used for calculating the amount of detail required in round line joins.
+    pub line_width: f32,
+
     /// See the SVG specification.
     ///
     /// Not implemented yet!
@@ -589,6 +594,7 @@ impl StrokeOptions {
         StrokeOptions {
             line_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
+            line_width: 1.0,
             miter_limit: 10.0,
             tolerance: 0.1,
             vertex_aa: false,
@@ -608,6 +614,11 @@ impl StrokeOptions {
 
     pub fn with_line_join(mut self, join: LineJoin) -> StrokeOptions {
         self.line_join = join;
+        return self;
+    }
+
+    pub fn with_line_width(mut self, width: f32) -> StrokeOptions {
+        self.line_width = width;
         return self;
     }
 
