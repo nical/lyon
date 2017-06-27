@@ -429,7 +429,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
             LineJoin::Round => {
                 let max_radius_segment_angle = compute_max_radius_segment_angle(0.1 /* line width / 2 */, 0.001/*self.options.tolerance as f64*/);
-                let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle as f32).ceil() as u32;
+                let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
                 if num_segments != 0 {
                     // Calculate angle of each step
                     let segment_angle = join_angle as f32 / num_segments as f32;
@@ -549,7 +549,7 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
 }
 
 /// Computes the max angle of a radius segment for a given tolerance
-pub fn compute_max_radius_segment_angle(radius: f64, tolerance: f64) -> f64 {
+pub fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
     let t = radius - tolerance;
     ((radius * radius - t * t) * 4.0).sqrt() / radius
 }
