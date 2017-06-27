@@ -168,7 +168,7 @@ fn main() {
 
     StrokeTessellator::new().tessellate(
         path.path_iter().flattened(0.022),
-        &StrokeOptions::default(),
+        &StrokeOptions::default().dont_apply_line_width(),
         &mut BuffersBuilder::new(&mut cpu.strokes, WithId(logo_stroke_id.element)),
     );
 

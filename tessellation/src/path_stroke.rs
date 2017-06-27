@@ -116,6 +116,18 @@ impl StrokeTessellator {
     }
 }
 
+macro_rules! add_vertex {
+    ($builder: expr, $vertex: expr) => {{
+        let mut v = $vertex;
+
+        if $builder.options.apply_line_width {
+            v.position += v.normal * $builder.options.line_width / 2.0;
+        }
+
+        $builder.output.add_vertex(v)
+    }}
+}
+
 /// A builder that tessellates a stroke directly without allocating any intermediate data structure.
 pub struct StrokeBuilder<'l, Output: 'l> {
     first: Point,
@@ -155,7 +167,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
             let second = self.second;
             self.edge_to(second);
 
-            let first_left_id = self.output.add_vertex(
+            let first_left_id = add_vertex!(
+                self,
                 Vertex {
                     position: self.first,
                     normal: self.prev_normal,
@@ -163,7 +176,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
                     side: Side::Left,
                 }
             );
-            let first_right_id = self.output.add_vertex(
+            let first_right_id = add_vertex!(
+                self,
                 Vertex {
                     position: self.first,
                     normal: -self.prev_normal,
@@ -237,7 +251,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         if self.options.line_cap == LineCap::Square && self.nth == 0 {
             // Even if there is no edge, if we are using square caps we have to place a square
             // at the current position.
-            let a = self.output.add_vertex(
+            let a = add_vertex!(
+                self,
                 Vertex {
                     position: self.current,
                     normal: vec2(-hw, -hw),
@@ -245,7 +260,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     side: Side::Left,
                 }
             );
-            let b = self.output.add_vertex(
+            let b = add_vertex!(
+                self,
                 Vertex {
                     position: self.current,
                     normal: vec2(hw, -hw),
@@ -253,7 +269,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     side: Side::Left,
                 }
             );
-            let c = self.output.add_vertex(
+            let c = add_vertex!(
+                self,
                 Vertex {
                     position: self.current,
                     normal: vec2(hw, hw),
@@ -261,7 +278,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     side: Side::Right,
                 }
             );
-            let d = self.output.add_vertex(
+            let d = add_vertex!(
+                self,
                 Vertex {
                     position: self.current,
                     normal: vec2(-hw, hw),
@@ -300,7 +318,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let n2 = normalized_tangent(d) * 0.5;
             let n1 = -n2;
 
-            let first_left_id = self.output.add_vertex(
+            let first_left_id = add_vertex!(
+                self,
                 Vertex {
                     position: first,
                     normal: n1,
@@ -308,7 +327,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     side: Side::Left,
                 }
             );
-            let first_right_id = self.output.add_vertex(
+            let first_right_id = add_vertex!(
+                self,
                 Vertex {
                     position: first,
                     normal: n2,
@@ -344,7 +364,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self.tesselate_join(to, normal)
         } else {
             // Tesselate a cap at the start
-            let left_id = self.output.add_vertex(
+            let left_id = add_vertex!(
+                self,
                 Vertex {
                     position: self.current,
                     normal: normal,
@@ -353,7 +374,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 }
             );
 
-            let right_id = self.output.add_vertex(
+            let right_id = add_vertex!(
+                self,
                 Vertex {
                     position: self.current,
                     normal: -normal,
@@ -404,7 +426,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         };
 
         // Add a vertex at the back of the join
-        let back_vertex = self.output.add_vertex(
+        let back_vertex = add_vertex!(
+            self,
             Vertex {
                 position: self.current,
                 normal: -normal,
@@ -415,7 +438,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         let (start_vertex, end_vertex) = match self.options.line_join {
             LineJoin::Miter => {
-                let v = self.output.add_vertex(
+                let v = add_vertex!(
+                    self,
                     Vertex {
                         position: self.current,
                         normal: normal,
@@ -441,7 +465,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                         vec2(-a_line.y, a_line.x).normalize() * 0.5
                     };
 
-                    let mut last_vertex = self.output.add_vertex(
+                    let mut last_vertex = add_vertex!(
+                        self,
                         Vertex {
                             position: self.current,
                             normal: normal,
@@ -466,7 +491,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                             normal.x * rotation_matrix[1][0] + normal.y * rotation_matrix[1][1]
                         );
 
-                        let current_vertex = self.output.add_vertex(
+                        let current_vertex = add_vertex!(
+                            self,
                             Vertex {
                                 position: self.current,
                                 normal: normal,
@@ -483,7 +509,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 } else {
                     // The join is perfectly straight
                     // TODO: Could we remove these vertices?
-                    let v = self.output.add_vertex(
+                    let v = add_vertex!(
+                        self,
                         Vertex {
                             position: self.current,
                             normal: normal,
@@ -499,7 +526,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             // Fallback to Miter for unimplemented line joins
             _ => {
                 println!("[StrokeTessellator] unimplemented line join.");
-                let v = self.output.add_vertex(
+                let v = add_vertex!(
+                    self,
                     Vertex {
                         position: self.current,
                         normal: normal,
@@ -566,8 +594,6 @@ pub struct StrokeOptions {
     pub line_join: LineJoin,
 
     /// Line width
-    ///
-    /// This is currently only used for calculating the amount of detail required in round line joins.
     pub line_width: f32,
 
     /// See the SVG specification.
@@ -584,6 +610,13 @@ pub struct StrokeOptions {
     /// Not implemented yet!
     pub vertex_aa: bool,
 
+    /// Apply line width
+    ///
+    /// When set to false, the generated vertices will all be positioned in the centre
+    /// of the line. The width can be applied later on (eg in a vertex shader) by adding
+    /// the vertex normal multiplied by the line with to each vertex position.
+    pub apply_line_width: bool,
+
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a StrokeOptions without calling the constructor.
     _private: (),
@@ -598,6 +631,7 @@ impl StrokeOptions {
             miter_limit: 10.0,
             tolerance: 0.1,
             vertex_aa: false,
+            apply_line_width: true,
             _private: (),
         }
     }
@@ -629,6 +663,11 @@ impl StrokeOptions {
 
     pub fn with_vertex_aa(mut self) -> StrokeOptions {
         self.vertex_aa = true;
+        return self;
+    }
+
+    pub fn dont_apply_line_width(mut self) -> StrokeOptions {
+        self.apply_line_width = false;
         return self;
     }
 }
