@@ -84,7 +84,9 @@ Have a look at the [basic](examples/gfx_basic) and [advanced](examples/gfx_advan
 
 ## TODO
 
-There's a [rough list of things to do](https://github.com/nical/lyon/wiki/TODO) on the wiki as well as the [github issues](https://github.com/nical/lyon/issues), some of which are tagged as [easy](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy). If you are interested in [contributing](https://github.com/nical/lyon/wiki/Contribute), don't hesitate to comment on the gihub issues or contact me. Need help ? [File an issue](https://github.com/nical/lyon/issues/new) or contact me on twitter ([@nicalsilva](https://twitter.com/nicalsilva)) or by e-mail.
+The [github issues](https://github.com/nical/lyon/issues) is the most up to date list of things to do in the near future. Some of these issues have the ["help wanted" label](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) which indicates that they are approachable for people who are not already familiar with the code. The ones with the [easy label](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy) are good places to start for anyone looking to [contribute](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md) for the first time.
+
+Need help working on or with lyon? [File an issue](https://github.com/nical/lyon/issues/new), ask questions on [gitter](https://gitter.im/lyon-rs/Lobby), or contact [@nical](https://github.com/nical) by e-mail.
 
 ## License
 
@@ -97,5 +99,6 @@ at your option.
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+There is useful information for contributors in the [contribution guidelines](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md).
 
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

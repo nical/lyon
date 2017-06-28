@@ -6,7 +6,7 @@ thinking of helping us:
 ## Contributions
 
 Contributions to lyon should be made in the form of GitHub pull requests.
-Each pull request will be reviewed by a core contributor (someone with 
+Each pull request will be reviewed by a core contributor (someone with
 permission to land patches) and either landed in the main tree or
 given feedback for changes that would be required.
 All contributions should follow this format, even those from core contributors.
@@ -43,7 +43,7 @@ about the algortithms that may be useful to you
   master you may be asked to rebase your changes.
 
 - Commits should be as small as possible, while ensuring that each commit is
-  correct independently (i.e., each commit should compile and pass tests). 
+  correct independently (i.e., each commit should compile and pass tests).
 
 - If your patch is not getting reviewed or you need a specific person to review
   it, you can @-reply a reviewer asking for a review in the pull request or a
@@ -55,7 +55,7 @@ For specific git instructions, see [GitHub workflow 101](https://github.com/serv
 
 ## Testing
 
-To run all tests from all of the  lyon crates, run `./all.sh test` from the root directory.
+To run all tests from all of the lyon crates, run `cargo test --all` from the root of the repository.
 
 ## Conduct
 
@@ -64,7 +64,7 @@ For escalation or moderation issues, please contact Nical (nical@fastmail.com) i
 
 ## Communication
 
-Some of the lyon contributors frequent the `#rust` and `#rust-gamedev`  channels on [`irc.mozilla.org`](https://wiki.mozilla.org/IRC).
+[Gitter](https://gitter.im/lyon-rs/Lobby) and the [github issues](https://github.com/nical/lyon/issues) are good places to ask questions and more generally talk about about lyon. Some of the lyon contributors also frequent the `#rust` and `#rust-gamedev` channels on [`irc.mozilla.org`](https://wiki.mozilla.org/IRC).
 
 ## License
 
