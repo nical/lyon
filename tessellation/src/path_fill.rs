@@ -19,18 +19,18 @@
 //!
 //! ## Overview
 //!
-//! The most important structure is [FillTessellator](struct.FillTessellator.html).
+//! The most important structure is [`FillTessellator`](struct.FillTessellator.html).
 //! It implements the path fill tessellation algorithm which is by far the most advanced
 //! feature in all lyon crates.
 //!
-//! The FillTessellator takes a [FillEvents](struct.FillEvents.html) object and
-//! [FillOptions](struct.FillOptions.html) as input. The former is an intermediate representaion
-//! of the path, containing all edges sorted from top to bottom. FillOption contains
+//! The `FillTessellator` takes a [`FillEvents`](struct.FillEvents.html) object and
+//! [`FillOptions`](struct.FillOptions.html) as input. The former is an intermediate representaion
+//! of the path, containing all edges sorted from top to bottom. `FillOption` contains
 //! some extra parameters (Some of which are not implemented yet).
 //!
 //! The output of the tessellator is produced by the
-//! [GeometryBuilder](../geometry_builder/trait.GeometryBuilder.html) (see the
-//! [geometry_builder documentation](../geometry_builder/index.html) for more details about
+//! [`GeometryBuilder`](../geometry_builder/trait.GeometryBuilder.html) (see the
+//! [`geometry_builder` documentation](../geometry_builder/index.html) for more details about
 //! how tessellators produce their output geometry, and how to generate custom vertex layouts).
 //!
 //! The [tessellator's wiki page](https://github.com/nical/lyon/wiki/Tessellator) is a good place
@@ -91,7 +91,6 @@
 //!
 //! Learn more about how the algrorithm works on the [tessellator wiki page](https://github.com/nical/lyon/wiki/Tessellator).
 //!
-
 
 // TODO[optim]
 //
@@ -253,7 +252,7 @@ impl FillTessellator {
 
         self.begin_tessellation(output);
 
-        self.tessellator_loop(&events, output);
+        self.tessellator_loop(events, output);
 
         let mut error = None;
         swap(&mut error, &mut self.error);
@@ -605,7 +604,7 @@ impl FillTessellator {
             //
             tess_log!(self, "(merge event) {}", start_span);
 
-            debug_assert!(above_count == 1);
+            debug_assert_eq!(above_count, 1);
             self.merge_event(current_position, id, start_span, output)
 
         } else if above_count == 1 {
@@ -628,7 +627,7 @@ impl FillTessellator {
 
         // Since we took care of left and right events already we should not have
         // an odd number of edges to work with below the current vertex by now.
-        debug_assert!(below_count % 2 == 0);
+        debug_assert_eq!(below_count % 2, 0);
 
         // Reset span_idx for the next pass.
         let mut span_idx = start_span;
@@ -859,75 +858,69 @@ impl FillTessellator {
 
         let original_edge = *edge;
         let mut intersection = None;
-        let mut span_idx = 0;
 
-        for span in &mut self.sweep_line {
+        for (span_idx, span) in self.sweep_line.iter_mut().enumerate() {
 
             // Test for an intersection against the span's left edge.
             if !span.left.merge {
-                match segment_intersection(
+                if let Some(position) = segment_intersection(
                     edge.upper,
                     edge.lower,
                     span.left.upper,
                     span.left.lower,
                 ) {
-                    Some(position) => {
-                        tess_log!(self, " -- found an intersection at {:?}
-                                        |    {:?}->{:?} x {:?}->{:?}",
-                            position,
-                            original_edge.upper, original_edge.lower,
-                            span.left.upper, span.left.lower,
-                        );
+                    tess_log!(self, " -- found an intersection at {:?}
+                                    |    {:?}->{:?} x {:?}->{:?}",
+                        position,
+                        original_edge.upper, original_edge.lower,
+                        span.left.upper, span.left.lower,
+                    );
 
-                        intersection = Some(
-                            (Intersection {
-                                 point: position,
-                                 lower1: original_edge.lower,
-                                 lower2: Some(span.left.lower),
-                             },
-
-                             span_idx,
-                             Side::Left)
-                        );
-                        // From now on only consider potential intersections above the one we found,
-                        // by removing the lower part from the segment we test against.
-                        edge.lower = position;
-                    }
-                    None => {}
+                    intersection = Some(
+                        (
+                            Intersection {
+                                point: position,
+                                lower1: original_edge.lower,
+                                lower2: Some(span.left.lower),
+                            },
+                            span_idx,
+                            Side::Left
+                        )
+                    );
+                    // From now on only consider potential intersections above the one we found,
+                    // by removing the lower part from the segment we test against.
+                    edge.lower = position;
                 }
             }
 
             // Same thing for the span's right edge.
             if !span.right.merge {
-                match segment_intersection(
+                if let Some(position) = segment_intersection(
                     edge.upper,
                     edge.lower,
                     span.right.upper,
                     span.right.lower,
                 ) {
-                    Some(position) => {
-                        tess_log!(self, " -- found an intersection at {:?}
-                                        |    {:?}->{:?} x {:?}->{:?}",
-                            position,
-                            original_edge.upper, original_edge.lower,
-                            span.right.upper, span.right.lower,
-                        );
-                        intersection = Some(
-                            (Intersection {
-                                 point: position,
-                                 lower1: original_edge.lower,
-                                 lower2: Some(span.right.lower),
-                             },
-                             span_idx,
-                             Side::Right)
-                        );
-                        edge.lower = position;
-                    }
-                    _ => {}
+                    tess_log!(self, " -- found an intersection at {:?}
+                                    |    {:?}->{:?} x {:?}->{:?}",
+                        position,
+                        original_edge.upper, original_edge.lower,
+                        span.right.upper, span.right.lower,
+                    );
+                    intersection = Some(
+                        (
+                            Intersection {
+                                point: position,
+                                lower1: original_edge.lower,
+                                lower2: Some(span.right.lower),
+                            },
+                            span_idx,
+                            Side::Right
+                        )
+                    );
+                    edge.lower = position;
                 }
             }
-
-            span_idx += 1;
         }
 
         if let Some((mut evt, span_idx, side)) = intersection {
@@ -1150,7 +1143,7 @@ fn test_span_touches(span_edge: &SpanEdge, position: TessPoint) -> bool {
     if let Some(x) = line_horizontal_intersection_fixed(span_edge.upper, span_edge.lower, position.y) {
         return (x - position.x).abs() <= FixedPoint32::epsilon() * 2;
     }
-    debug_assert!(span_edge.upper.y == span_edge.lower.y);
+    debug_assert_eq!(span_edge.upper.y, span_edge.lower.y);
     return span_edge.upper.y == position.y && span_edge.upper.x < position.x &&
                span_edge.lower.x > position.x;
 }
@@ -1248,7 +1241,7 @@ pub struct FillEvents {
 }
 
 impl FillEvents {
-    pub fn from_iter<Iter: Iterator<Item = FlattenedEvent>>(it: Iter) -> Self {
+    pub fn from_iterator<Iter: Iterator<Item = FlattenedEvent>>(it: Iter) -> Self {
         EventsBuilder::new().build_iter(it)
     }
 
@@ -1529,7 +1522,7 @@ impl Side {
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
-/// polygon (used internally by the FillTessellator).
+/// polygon (used internally by the `FillTessellator`).
 struct MonotoneTessellator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,

@@ -13,16 +13,16 @@
 //! is shaded once no matter how many times the path overlaps with itself at this
 //! location.
 //!
-//! The main interface is the [StrokeTessellator](struct.StrokeTessellator.html),
+//! The main interface is the [`StrokeTessellator`](struct.StrokeTessellator.html),
 //! which exposes a similar interface to its
 //! [fill equivalent](../path_fill/struct.FillTessellator.html).
 //!
 //! This stroke tessellator takes an iterator of path events as inputs as well as
-//! a [StrokeOption](struct.StrokeOptions.html), and produces its outputs using
-//! a [GeometryBuilder](../geometry_builder/trait.GeometryBuilder.html).
+//! a [`StrokeOption`](struct.StrokeOptions.html), and produces its outputs using
+//! a [`GeometryBuilder`](../geometry_builder/trait.GeometryBuilder.html).
 //!
 //!
-//! See the [geometry_builder module documentation](../geometry_builder/index.html)
+//! See the [`geometry_builder` module documentation](../geometry_builder/index.html)
 //! for more details about how to output custom vertex layouts.
 //!
 //! # Examples
@@ -298,7 +298,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             if self.options.line_cap == LineCap::Square {
                 // The easiest way to implement square caps is to lie about the current position
                 // and move it slightly to accommodate for the width/2 extra length.
-                self.current = self.current + d.normalize() * hw;
+                self.current += d.normalize() * hw;
             }
             let p = self.current + d;
             self.edge_to(p);
@@ -312,7 +312,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let d = first - self.second;
 
             if self.options.line_cap == LineCap::Square {
-                first = first + d.normalize() * hw;
+                first += d.normalize() * hw;
             }
 
             let n2 = normalized_tangent(d) * 0.5;
