@@ -157,15 +157,15 @@ impl std::default::Default for GpuTransform {
 }
 
 impl GpuTransform {
-    pub fn new(mat: Mat4) -> Self {
+    pub fn new(mat: Transform3D) -> Self {
         GpuTransform { transform: mat.to_row_arrays() }
     }
 
-    pub fn as_mat4(&self) -> &Mat4 {
+    pub fn as_mat4(&self) -> &Transform3D {
         unsafe { mem::transmute(self) }
     }
 
-    pub fn as_mut_mat4(&mut self) -> &mut Mat4 {
+    pub fn as_mut_mat4(&mut self) -> &mut Transform3D {
         unsafe { mem::transmute(self) }
     }
 }

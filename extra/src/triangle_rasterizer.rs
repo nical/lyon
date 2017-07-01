@@ -272,3 +272,50 @@ fn test_rasterizer_simple() {
         }
     }
 }
+
+#[inline]
+pub fn int_vec2(x: i32, y: i32) -> IntVec2 { vec2(x, y) }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BoolVec4 {
+    pub x: bool,
+    pub y: bool,
+    pub z: bool,
+    pub w: bool,
+}
+
+pub fn bvec4(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
+    BoolVec4 {
+        x: x,
+        y: y,
+        z: z,
+        w: w,
+    }
+}
+
+impl BoolVec4 {
+    #[inline]
+    pub fn new(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 { bvec4(x, y, z, w) }
+
+    #[inline]
+    pub fn any(self) -> bool { self.x || self.y || self.z || self.w }
+
+    #[inline]
+    pub fn all(self) -> bool { self.x && self.y && self.z && self.w }
+
+    #[inline]
+    pub fn and(self, other: BoolVec4) -> BoolVec4 {
+        bvec4(self.x && other.x, self.y && other.y, self.z && other.z, self.w && other.w)
+    }
+
+    #[inline]
+    pub fn or(self, other: BoolVec4) -> BoolVec4 {
+        bvec4(self.x || other.x, self.y || other.y, self.z || other.z, self.w || other.w)
+    }
+
+    #[inline]
+    pub fn tuple(&self) -> (bool, bool, bool, bool) { (self.x, self.y, self.z, self.w) }
+
+    #[inline]
+    pub fn array(&self) -> [bool; 4] { [self.x, self.y, self.z, self.w] }
+}
