@@ -10,8 +10,8 @@
 //! layout, or even several vertex layouts, which is a very common use-case.
 //!
 //! In order to provide flexibility with the generation of geometry, this module provides with
-//! the [GeometryBuilder](trait.GeometryBuilder.html) and its extension the
-//! [BezierGeometryBuilder](trait.BezierGeometryBuilder.html) trait. The former exposes
+//! the [`GeometryBuilder`](trait.GeometryBuilder.html) and its extension the
+//! [`BezierGeometryBuilder`](trait.BezierGeometryBuilder.html) trait. The former exposes
 //! the methods to facilitate adding vertices and triangles. The latter adds a method to
 //! specifically handle quadratic bezier curves. Quadratic bezier curves have interesting
 //! properties that make them a lot easier to render than most types of curves and we want
@@ -23,17 +23,17 @@
 //!
 //! This modules provides with a basic implementation of these traits through the following types:
 //!
-//! * The struct [VertexBuffers<T>](struct.VertexBuffers.html) is a simple pair of vectors of u16
+//! * The struct [`VertexBuffers<T>`](struct.VertexBuffers.html) is a simple pair of vectors of u16
 //!   indices and T (generic parameter) vertices.
-//! * The struct [BuffersBuilder](struct.BuffersBuilder.html) which implements
-//!   [BezierGeometryBuilder](trait.BezierGeometryBuilder.html) and writes into a
-//!   [VertexBuffers](struct.VertexBuffers.html).
-//! * The trait [VertexConstructor](trait.VertexConstructor.html) used by
-//!   [BuffersBuilder](struct.BuffersBuilder.html) in order to generate any vertex type. In the
-//!   example below, a struct WithColor implements the VertexConstructor trait in order to
+//! * The struct [`BuffersBuilder`](struct.BuffersBuilder.html) which implements
+//!   [`BezierGeometryBuilder`](trait.BezierGeometryBuilder.html) and writes into a
+//!   [`VertexBuffers`](struct.VertexBuffers.html).
+//! * The trait [`VertexConstructor`](trait.VertexConstructor.html) used by
+//!   [`BuffersBuilder`](struct.BuffersBuilder.html) in order to generate any vertex type. In the
+//!   example below, a struct `WithColor` implements the `VertexConstructor` trait in order to
 //!   create vertices composed of a 2d position and a color value from an input 2d position.
 //!   This separates the construction of vertex values from the assembly of the vertex buffers.
-//!   Another, simpler example of vertex constructor is the [Identity](struct.Identity.html)
+//!   Another, simpler example of vertex constructor is the [`Identity`](struct.Identity.html)
 //!   constructor which just returns its input, untransformed.
 //!
 //! Geometry builders are a practical way to add one last step to the tessellation pipeline,
@@ -182,7 +182,7 @@
 //!
 //! ### Writing a tessellator
 //!
-//! The example below is the implementation of basic_shapes::fill_rectangle.
+//! The example below is the implementation of `basic_shapes::fill_rectangle`.
 //!
 //! ```
 //! use lyon_tessellation::geometry_builder::*;
@@ -227,9 +227,9 @@ pub type Index = u16;
 
 /// A virtual vertex offset in a geometry.
 ///
-/// The VertexIds are only valid between GeometryBuilder::begin_geometry and
-/// GeometryBuilder::end_geometry. GeometryBuilder implementations typically be translate
-/// the ids internally so that first VertexId after begin_geometry is zero.
+/// The `VertexId`s are only valid between `GeometryBuilder::begin_geometry` and
+/// `GeometryBuilder::end_geometry`. `GeometryBuilder` implementations typically be translate
+/// the ids internally so that first `VertexId` after `begin_geometry` is zero.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct VertexId(pub u16);
 
@@ -269,18 +269,18 @@ pub trait GeometryBuilder<Input> {
     fn abort_geometry(&mut self);
 }
 
-/// An extension to GeometryBuilder that can handle quadratic bezier segments.
+/// An extension to GeometryBuilder that can handle quadratic bézier segments.
 pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
     /// Insert a quadratic bezier curve.
     /// The interrior is on the right side of the curve.
     ///
-    /// This method can only be called between begin_geometry and end_geometry.
+    /// This method can only be called between `begin_geometry` and `end_geometry`.
     fn add_quadratic_bezier(&mut self, from: VertexId, to: VertexId, ctrl: Input);
 }
 
 /// Structure that holds the vertex and index data.
 ///
-/// Usually writen into though temporary BuffersBuilder objects.
+/// Usually writen into though temporary `BuffersBuilder` objects.
 pub struct VertexBuffers<VertexType> {
     pub vertices: Vec<VertexType>,
     pub indices: Vec<Index>,
@@ -299,17 +299,17 @@ impl<VertexType> VertexBuffers<VertexType> {
     }
 }
 
-/// A temporary view on a VertexBuffers object which facilitate the population of vertex and index
+/// A temporary view on a `VertexBuffers` object which facilitate the population of vertex and index
 /// data.
 ///
-/// BuffersBuilders record the vertex offset from when they are created so that algorithms using
+/// `BuffersBuilders` record the vertex offset from when they are created so that algorithms using
 /// them don't need to worry about offsetting indices if some geometry was added beforehand. This
-/// means that from the point of view of a BuffersBuilder user, the first added vertex is at always
-/// offset at the offset 0 and VertexBuilfer takes care of translating indices adequately.
+/// means that from the point of view of a `BuffersBuilder` user, the first added vertex is at always
+/// offset at the offset 0 and `VertexBuilfer` takes care of translating indices adequately.
 ///
 /// Often, algorithms are built to generate vertex positions without knowledge of eventual other
-/// vertex attributes. The VertexConstructor does the translation from generic Input to VertexType.
-/// If your logic generates the actual vertex type directly, you can use the SimpleBuffersBuilder
+/// vertex attributes. The `VertexConstructor` does the translation from generic `Input` to `VertexType`.
+/// If your logic generates the actual vertex type directly, you can use the `SimpleBuffersBuilder`
 /// convenience typedef.
 pub struct BuffersBuilder<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>> {
     buffers: &'l mut VertexBuffers<VertexType>,
@@ -337,12 +337,14 @@ impl<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>>
     }
 }
 
-/// Creates a BuffersBuilder.
-pub fn vertex_builder<'l, VertexType, Input, Ctor: VertexConstructor<Input, VertexType>>
-    (
-    buffers: &'l mut VertexBuffers<VertexType>,
+/// Creates a `BuffersBuilder`.
+pub fn vertex_builder<VertexType, Input, Ctor>(
+    buffers: &mut VertexBuffers<VertexType>,
     ctor: Ctor,
-) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
+) -> BuffersBuilder<VertexType, Input, Ctor>
+where
+    Ctor: VertexConstructor<Input, VertexType>
+{
     BuffersBuilder::new(buffers, ctor)
 }
 
@@ -357,15 +359,12 @@ impl<T> VertexConstructor<T, T> for Identity {
     fn new_vertex(&mut self, input: T) -> T { input }
 }
 
-/// A BuffersBuilder that takes the actual vertex type as input.
-pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l,
-                                                               VertexType,
-                                                               VertexType,
-                                                               Identity>;
+/// A `BuffersBuilder` that takes the actual vertex type as input.
+pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l, VertexType, VertexType, Identity>;
 
-/// Creates a SimpleBuffersBuilder.
-pub fn simple_builder<'l, VertexType>(buffers: &'l mut VertexBuffers<VertexType>)
-    -> SimpleBuffersBuilder<'l, VertexType> {
+/// Creates a `SimpleBuffersBuilder`.
+pub fn simple_builder<VertexType>(buffers: &mut VertexBuffers<VertexType>)
+    -> SimpleBuffersBuilder<VertexType> {
     let vertex_offset = buffers.vertices.len() as Index;
     let index_offset = buffers.indices.len() as Index;
     BuffersBuilder {

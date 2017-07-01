@@ -722,10 +722,13 @@ where
     Output: GeometryBuilder<FillVertex>,
 {
     let mut it1 = it.clone().cycle().skip(1);
-    let mut it2 = it.clone().cycle().skip(2);    
+    let mut it2 = it.clone().cycle().skip(2);
 
     output.begin_geometry();
-    if let (Some(a1), Some(a2), Some(a3), Some(b2), Some(b3), Some(b4)) = (it.next(), it1.next(), it2.next(), it.next(), it1.next(), it2.next()) {
+
+    if let (Some(a1), Some(a2), Some(a3), Some(b2), Some(b3), Some(b4)) = (
+        it.next(),it1.next(), it2.next(), it.next(), it1.next(), it2.next()
+    ) {
         let mut a = output.add_vertex(
             FillVertex {
                 position: a2,
@@ -738,26 +741,22 @@ where
                 normal: compute_normal(b3 - b2, b4 - b3),
             }
         );
-    
-        loop {
-            match (it.next(), it1.next(), it2.next()) {
-                (Some(p1), Some(p2), Some(p3)) => {
-                    let c = output.add_vertex(
-                        FillVertex {
-                            position: p2,
-                            normal: compute_normal(p2 - p1, p3 - p2),
-                        }
-                    );
 
-                    output.add_triangle(a, b, c);
+        while let (Some(p1), Some(p2), Some(p3)) = (it.next(), it1.next(), it2.next()) {
+            let c = output.add_vertex(
+                FillVertex {
+                    position: p2,
+                    normal: compute_normal(p2 - p1, p3 - p2),
+                }
+            );
 
-                    a = b;
-                    b = c;
-                },
-                (_, _, _) => break,
-            }            
+            output.add_triangle(a, b, c);
+
+            a = b;
+            b = c;
         }
     }
+
     return output.end_geometry();
 }
 
@@ -776,7 +775,7 @@ where
 
 // TODO: This should be in path_iterator but it creates a dependency.
 
-/// An iterator that consumes an iterator of points and produces FlattenedEvents.
+/// An iterator that consumes an iterator of points and produces `FlattenedEvent`s.
 pub struct PolylineEvents<Iter> {
     iter: Iter,
     first: bool,
