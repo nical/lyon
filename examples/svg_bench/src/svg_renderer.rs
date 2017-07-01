@@ -161,8 +161,8 @@ fn main() {
         let (w, h) = target.get_dimensions();
         let resolution = vec2(w as f32, h as f32);
 
-        let model_mat = Mat4::identity();
-        let mut view_mat = Mat4::identity();
+        let model_mat = Transform3D::identity();
+        let mut view_mat = Transform3D::identity();
 
         view_mat = view_mat.pre_translated(-1.0, 1.0, 0.0);
         view_mat = view_mat.pre_scaled(5.0 * zoom, 5.0 * zoom, 0.0);
@@ -470,7 +470,7 @@ impl VertexConstructor<Vec2, BgVertex> for BgWithColor  {
 
 implement_vertex!(BgVertex, a_position);
 
-fn uniform_matrix(m: &Mat4) -> [[f32; 4]; 4] {
+fn uniform_matrix(m: &Transform3D) -> [[f32; 4]; 4] {
     [
         [m.m11, m.m12, m.m13, m.m14],
         [m.m21, m.m22, m.m23, m.m24],

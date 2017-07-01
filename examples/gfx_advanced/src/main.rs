@@ -119,7 +119,7 @@ fn main() {
     let default_transform = cpu.transforms.push(GpuTransform::default());
     let view_transform =
         cpu.transforms
-            .push(GpuTransform::new(Mat4::create_rotation(0.0, 0.0, 1.0, Radians::new(2.0))));
+            .push(GpuTransform::new(Transform3D::create_rotation(0.0, 0.0, 1.0, Radians::new(2.0))));
     let logo_transforms = cpu.transforms.alloc_range(num_instances);
 
     // Tessellate the fill
@@ -208,7 +208,7 @@ fn main() {
         if let Some(to) = evt.destination() {
             let transform_id = point_transforms.range.get(i);
             cpu.transforms[point_transforms.get(i)].transform =
-                Mat4::create_translation(to.x, to.y, 0.0).to_row_arrays();
+                Transform3D::create_translation(to.x, to.y, 0.0).to_row_arrays();
             cpu.fill_primitives[point_ids_1.get(i)] = GpuFillPrimitive::new(
                 [0.0, 0.2, 0.0, 1.0],
                 0.3,
@@ -379,7 +379,7 @@ fn main() {
         cpu.stroke_primitives[logo_stroke_id].width = scene.stroke_width;
 
         for i in 1..num_instances {
-            *cpu.transforms[logo_transforms.get(i)].as_mut_mat4() = Mat4::create_translation(
+            *cpu.transforms[logo_transforms.get(i)].as_mut_mat4() = Transform3D::create_translation(
                 (frame_count as f32 * 0.001 * i as f32).sin() * (100.0 + i as f32 * 10.0),
                 (frame_count as f32 * 0.002 * i as f32).sin() * (100.0 + i as f32 * 10.0),
                 0.0,
@@ -390,7 +390,7 @@ fn main() {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
 
-        *cpu.transforms[view_transform].as_mut_mat4() = Mat4::create_translation(
+        *cpu.transforms[view_transform].as_mut_mat4() = Transform3D::create_translation(
             -scene.scroll.x as f32,
             -scene.scroll.y as f32, 0.0
         ).post_scale(scene.zoom, scene.zoom, 1.0);
