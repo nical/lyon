@@ -1,6 +1,7 @@
 use {CubicBezierSegment};
 use {Point, Vec2, Rect, rect, Triangle, Transform2D};
 use std::mem::swap;
+use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
 /// point and the end of the segment.
@@ -280,7 +281,81 @@ impl QuadraticBezierSegment {
 
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
+
+    /// Cast this curve into a x-montone curve without checking that the monotonicity
+    /// assumption is correct.
+    pub fn assume_x_montone(&self) -> XMonotoneQuadraticBezierSegment {
+        XMonotoneQuadraticBezierSegment { curve: *self }
+    }
+
+    /// Cast this curve into a y-montone curve without checking that the monotonicity
+    /// assumption is correct.
+    pub fn assume_y_montone(&self) -> YMonotoneQuadraticBezierSegment {
+        YMonotoneQuadraticBezierSegment { curve: *self }
+    }
 }
+
+/// A monotonically increasing in x cubic bézier curve segment
+#[derive(Copy, Clone, Debug)]
+pub struct XMonotoneQuadraticBezierSegment {
+    curve: QuadraticBezierSegment
+}
+
+impl XMonotoneQuadraticBezierSegment {
+    #[inline]
+    pub fn curve(&self) -> &QuadraticBezierSegment {
+        &self.curve
+    }
+
+    #[inline]
+    pub fn solve_y_for_x(&self, x: f32, tolerance: f32) -> f32 {
+        self.curve.sample_y(self.solve_t_for_x(x, tolerance))
+    }
+
+    #[inline]
+    pub fn solve_t_for_x(&self, x: f32, tolerance: f32) -> f32 {
+        solve_t_for_x(self, x, tolerance)
+    }
+}
+
+impl XMonotoneParametricCurve for XMonotoneQuadraticBezierSegment {
+    fn x(&self, t: f32) -> f32 { self.curve.sample_x(t) }
+    fn dx(&self, t: f32) -> f32 { self.curve.sample_x_derivative(t) }
+}
+
+/// A monotonically increasing in y cubic bézier curve segment
+#[derive(Copy, Clone, Debug)]
+pub struct YMonotoneQuadraticBezierSegment {
+    curve: QuadraticBezierSegment
+}
+
+impl YMonotoneQuadraticBezierSegment {
+    #[inline]
+    pub fn curve(&self) -> &QuadraticBezierSegment {
+        &self.curve
+    }
+
+    #[inline]
+    pub fn solve_x_for_y(&self, y: f32, tolerance: f32) -> f32 {
+        self.curve.sample_y(self.solve_t_for_y(y, tolerance))
+    }
+
+    #[inline]
+    pub fn solve_t_for_y(&self, y: f32, tolerance: f32) -> f32 {
+        let transposed = XMonotoneQuadraticBezierSegment {
+            curve: QuadraticBezierSegment {
+                from: yx(self.curve.from),
+                ctrl: yx(self.curve.ctrl),
+                to: yx(self.curve.to),
+            }
+        };
+
+        transposed.solve_t_for_x(y, tolerance)
+    }
+}
+
+// TODO: add this to euclid.
+fn yx(point: Point) -> Point { Point::new(point.y, point.x) }
 
 /// An iterator over a quadratic bézier segment that yields line segments approximating the
 /// curve for a given approximation threshold.
@@ -489,4 +564,25 @@ fn derivatives() {
     assert_eq!(c1.sample_y_derivative(0.0), 0.0);
     assert_eq!(c1.sample_x_derivative(1.0), 0.0);
     assert_eq!(c1.sample_y_derivative(0.5), c1.sample_x_derivative(0.5));
+}
+
+#[test]
+fn monotone_solve_t_for_x() {
+    let curve = QuadraticBezierSegment {
+        from: Point::new(1.0, 1.0),
+        ctrl: Point::new(5.0, 5.0),
+        to: Point::new(10.0, 2.0),
+    };
+
+    let tolerance = 0.0001;
+
+    for i in 0..10u32 {
+        let t = i as f32 / 10.0;
+        let p = curve.sample(t);
+        let t2 = curve.assume_x_montone().solve_t_for_x(p.x, tolerance);
+        // t should be pretty close to t2 but the only guarantee we have and can test
+        // against is that x(t) - x(t2) is within the specified tolerance threshold.
+        let x_diff = curve.sample_x(t) - curve.sample_x(t2);
+        assert!(x_diff.abs() <= tolerance);
+    }
 }
