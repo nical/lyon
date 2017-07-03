@@ -74,6 +74,7 @@ mod cubic_bezier;
 mod triangle;
 mod line;
 mod arc;
+mod monotone;
 pub mod utils;
 
 pub use cubic_to_quadratic::cubic_to_quadratic;
