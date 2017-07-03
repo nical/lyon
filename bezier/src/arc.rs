@@ -35,9 +35,9 @@ impl Arc {
         let rx = arc.radii.x;
         let ry = arc.radii.y;
 
-        assert!(arc.from != arc.to);
-        assert!(rx != 0.0);
-        assert!(ry != 0.0);
+        assert_ne!(arc.from, arc.to);
+        assert_ne!(rx, 0.0);
+        assert_ne!(ry, 0.0);
 
         let xr = arc.x_rotation.get() % (2.0 * consts::PI);
         let cos_phi = xr.cos();
@@ -59,7 +59,7 @@ impl Arc {
         let rypx = ry * p.x;
         let sum_of_sq = rxpy * rxpy + rypx * rypx;
 
-        debug_assert!(sum_of_sq != 0.0);
+        debug_assert_ne!(sum_of_sq, 0.0);
 
         let sign_coe = if arc.flags.large_arc == arc.flags.sweep {-1.0 } else { 1.0 };
         let coe = sign_coe * ((rxry * rxry - sum_of_sq) / sum_of_sq).abs().sqrt();
@@ -109,7 +109,7 @@ impl Arc {
 
 impl SvgArc {
     pub fn to_quadratic_beziers<F: FnMut(Point, Point)>(&self, cb: &mut F) {
-        Arc::from_svg_arc(&self).to_quadratic_beziers(cb);
+        Arc::from_svg_arc(self).to_quadratic_beziers(cb);
     }
 }
 

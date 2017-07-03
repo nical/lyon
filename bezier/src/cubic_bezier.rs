@@ -145,7 +145,7 @@ impl CubicBezierSegment {
         };
     }
 
-    /// [Not implemented] Applies the transform to this curve and returns the results.
+    /// Applies the transform to this curve and returns the results.
     #[inline]
     #[must_use]
     pub fn transform(&self, transform: &Transform2D) -> Self {
@@ -297,11 +297,13 @@ impl XMonotoneCubicBezierSegment {
         &self.curve
     }
 
+    /// Approximates y for a given value of x and a tolerance threshold.
     #[inline]
     pub fn solve_y_for_x(&self, x: f32, tolerance: f32) -> f32 {
         self.curve.sample_y(self.solve_t_for_x(x, tolerance))
     }
 
+    /// Approximates t for a given value of x and a tolerance threshold.
     #[inline]
     pub fn solve_t_for_x(&self, x: f32, tolerance: f32) -> f32 {
         solve_t_for_x(self, x, tolerance)
@@ -325,11 +327,13 @@ impl YMonotoneCubicBezierSegment {
         &self.curve
     }
 
+    /// Approximates x for a given value of y and a tolerance threshold.
     #[inline]
     pub fn solve_x_for_y(&self, y: f32, tolerance: f32) -> f32 {
         self.curve.sample_y(self.solve_t_for_y(y, tolerance))
     }
 
+    /// Approximates t for a given value of y and a tolerance threshold.
     #[inline]
     pub fn solve_t_for_y(&self, y: f32, tolerance: f32) -> f32 {
         let transposed = XMonotoneCubicBezierSegment {
