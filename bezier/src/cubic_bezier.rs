@@ -3,6 +3,7 @@ use up_to_two::UpToTwo;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
 pub use cubic_to_quadratic::cubic_to_quadratic;
+use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 
 /// A 2d curve segment defined by four points: the beginning of the segment, two control
 /// points and the end of the segment.
@@ -301,56 +302,15 @@ impl XMonotoneCubicBezierSegment {
         self.curve.sample_y(self.solve_t_for_x(x, tolerance))
     }
 
+    #[inline]
     pub fn solve_t_for_x(&self, x: f32, tolerance: f32) -> f32 {
-        if x <= self.curve.from.x {
-            return 0.0;
-        }
-        if x >= self.curve.to.x {
-            return 1.0;
-        }
-
-        // Newton's method.
-        let mut t = x - self.curve.from.x / (self.curve.to.x - self.curve.from.x);
-        for _ in 0..8 {
-            let x2 = self.curve.sample_x(t);
-
-            if (x2 - x).abs() <= tolerance {
-                return t
-            }
-
-            let dx = self.curve.sample_x_derivative(t);
-
-            if dx <= 1e-5 {
-                break
-            }
-
-            t -= (x2 - x) / dx;
-        }
-
-        // Fall back to binary search.
-        let mut min = 0.0;
-        let mut max = 1.0;
-        let mut t = 0.5;
-
-        while min < max {
-            let x2 = self.curve.sample_x(t);
-
-            if (x2 - x).abs() < tolerance {
-                return t;
-            }
-
-            if x > x2 {
-                min = t;
-            } else {
-                max = t;
-            }
-
-            t = (max - min) * 0.5 + min;
-        }
-
-        return t;
+        solve_t_for_x(self, x, tolerance)
     }
+}
 
+impl XMonotoneParametricCurve for XMonotoneCubicBezierSegment {
+    fn x(&self, t: f32) -> f32 { self.curve.sample_x(t) }
+    fn dx(&self, t: f32) -> f32 { self.curve.sample_x_derivative(t) }
 }
 
 /// A monotonically increasing in y cubic bézier curve segment
@@ -482,12 +442,12 @@ fn derivatives() {
 }
 
 #[test]
-fn solve_t_for_x() {
+fn monotone_solve_t_for_x() {
     let c1 = CubicBezierSegment {
-        from: Point::new(1.0, 1.0,),
-        ctrl1: Point::new(1.0, 2.0,),
-        ctrl2: Point::new(2.0, 1.0,),
-        to: Point::new(2.0, 2.0,),
+        from: Point::new(1.0, 1.0),
+        ctrl1: Point::new(1.0, 2.0),
+        ctrl2: Point::new(2.0, 1.0),
+        to: Point::new(2.0, 2.0),
     };
 
     let tolerance = 0.0001;
