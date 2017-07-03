@@ -1,5 +1,5 @@
 use {CubicBezierSegment};
-use {Point, Rect, rect, Triangle, Transform2D};
+use {Point, Vec2, Rect, rect, Triangle, Transform2D};
 use std::mem::swap;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
@@ -37,6 +37,29 @@ impl QuadraticBezierSegment {
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
         return self.from.y * one_t2 + self.ctrl.y * 2.0 * one_t * t + self.to.y * t2;
+    }
+
+    #[inline]
+    fn derivative_coefficients(&self, t: f32) -> (f32, f32, f32) {
+        (2.0 * t - 2.0, - 4.0 * t + 2.0, 2.0 * t)
+    }
+
+    /// Sample the curve's derivative at t (expecting t between 0 and 1).
+    pub fn sample_derivative(&self, t: f32) -> Vec2 {
+        let (c0, c1, c2) = self.derivative_coefficients(t);
+        self.from.to_vector() * c0 + self.ctrl.to_vector() * c1 + self.to.to_vector() * c2
+    }
+
+    /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    pub fn sample_x_derivative(&self, t: f32) -> f32 {
+        let (c0, c1, c2) = self.derivative_coefficients(t);
+        self.from.x * c0 + self.ctrl.x * c1 + self.to.x * c2
+    }
+
+    /// Sample the y coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    pub fn sample_y_derivative(&self, t: f32) -> f32 {
+        let (c0, c1, c2) = self.derivative_coefficients(t);
+        self.from.y * c0 + self.ctrl.y * c1 + self.to.y * c2
     }
 
     /// Swap the beginning and the end of the segment.
@@ -453,4 +476,17 @@ fn length_straight_line() {
         to: Point::new(2.0, 0.0),
     }.compute_length(0.01);
     assert_eq!(len, 2.0);
+}
+
+#[test]
+fn derivatives() {
+    let c1 = QuadraticBezierSegment {
+        from: Point::new(1.0, 1.0),
+        ctrl: Point::new(2.0, 1.0),
+        to: Point::new(2.0, 2.0),
+    };
+
+    assert_eq!(c1.sample_y_derivative(0.0), 0.0);
+    assert_eq!(c1.sample_x_derivative(1.0), 0.0);
+    assert_eq!(c1.sample_y_derivative(0.5), c1.sample_x_derivative(0.5));
 }
