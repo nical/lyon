@@ -1,4 +1,4 @@
-use {Point, Rect, rect, Transform2D};
+use {Point, Vec2, Rect, rect, Transform2D};
 use up_to_two::UpToTwo;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
@@ -29,6 +29,64 @@ impl CubicBezierSegment {
             self.ctrl1.to_vector() * 3.0 * one_t2 * t +
             self.ctrl2.to_vector() * 3.0 * one_t * t2 +
             self.to.to_vector() * t3;
+    }
+
+    /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
+    pub fn sample_x(&self, t: f32) -> f32 {
+        let t2 = t * t;
+        let t3 = t2 * t;
+        let one_t = 1.0 - t;
+        let one_t2 = one_t * one_t;
+        let one_t3 = one_t2 * one_t;
+        return self.from.x * one_t3 +
+            self.ctrl1.x * 3.0 * one_t2 * t +
+            self.ctrl2.x * 3.0 * one_t * t2 +
+            self.to.x * t3;
+    }
+
+    /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
+    pub fn sample_y(&self, t: f32) -> f32 {
+        let t2 = t * t;
+        let t3 = t2 * t;
+        let one_t = 1.0 - t;
+        let one_t2 = one_t * one_t;
+        let one_t3 = one_t2 * one_t;
+        return self.from.y * one_t3 +
+            self.ctrl1.y * 3.0 * one_t2 * t +
+            self.ctrl2.y * 3.0 * one_t * t2 +
+            self.to.y * t3;
+    }
+
+    #[inline]
+    fn derivative_coefficients(&self, t: f32) -> (f32, f32, f32, f32) {
+        let t2 = t*t;
+        (
+            - 3.0 * t2 + 6.0 * t - 3.0,
+            9.0 * t2 - 12.0 * t + 3.0,
+            - 9.0 * t2 + 6.0 * t,
+            3.0 * t2
+        )
+    }
+
+    /// Sample the curve's derivative at t (expecting t between 0 and 1).
+    pub fn sample_derivative(&self, t: f32) -> Vec2 {
+        let (c0, c1, c2, c3) = self.derivative_coefficients(t);
+        self.from.to_vector() * c0 +
+            self.ctrl1.to_vector() * c1 +
+            self.ctrl2.to_vector() * c2 +
+            self.to.to_vector() * c3
+    }
+
+    /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    pub fn sample_x_derivative(&self, t: f32) -> f32 {
+        let (c0, c1, c2, c3) = self.derivative_coefficients(t);
+        self.from.x * c0 + self.ctrl1.x * c1 + self.ctrl2.x * c2 + self.to.x * c3
+    }
+
+    /// Sample the y coordinate of the curve's derivative at t (expecting t between 0 and 1).
+    pub fn sample_y_derivative(&self, t: f32) -> f32 {
+        let (c0, c1, c2, c3) = self.derivative_coefficients(t);
+        self.from.y * c0 + self.ctrl1.y * c1 + self.ctrl2.y * c2 + self.to.y * c3
     }
 
     /// Split this curve into two sub-curves.
@@ -291,4 +349,22 @@ fn find_x_minimum_for_simple_cubic_segment() {
     let actual_x_minimum = a.find_x_minimum();
 
     assert!(expected_x_minimum == actual_x_minimum, "got {} ", actual_x_minimum)
+}
+
+#[test]
+fn derivatives() {
+    let c1 = CubicBezierSegment {
+        from: Point::new(1.0, 1.0,),
+        ctrl1: Point::new(1.0, 2.0,),
+        ctrl2: Point::new(2.0, 1.0,),
+        to: Point::new(2.0, 2.0,),
+    };
+
+    println!(" -- {:?}", c1.sample_derivative(0.0));
+    println!(" -- {:?}", c1.sample_derivative(1.0));
+    println!(" -- {:?}", c1.sample_derivative(0.5));
+
+    assert_eq!(c1.sample_x_derivative(0.0), 0.0);
+    assert_eq!(c1.sample_x_derivative(1.0), 0.0);
+    assert_eq!(c1.sample_y_derivative(0.5), 0.0);
 }
