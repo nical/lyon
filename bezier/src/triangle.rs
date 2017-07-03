@@ -103,9 +103,9 @@ impl Triangle {
     /// Test for triangle-segment intersection.
     #[inline]
     pub fn intersects_line_segment(&self, segment: &LineSegment) -> bool {
-        return self.ab().intersects(&segment)
-            || self.bc().intersects(&segment)
-            || self.ac().intersects(&segment)
+        return self.ab().intersects(segment)
+            || self.bc().intersects(segment)
+            || self.ac().intersects(segment)
             || self.contains_point(segment.from);
     }
 }

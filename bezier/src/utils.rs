@@ -14,7 +14,7 @@ pub fn normalized_tangent(v: Vec2) -> Vec2 {
 /// Angle between vectors v1 and v2 (oriented clockwise assyming y points downwards).
 /// The result is a number between 0 and 2*PI.
 ///
-/// ex: directed_angle([0,1], [1,0]) = 3/2 Pi rad
+/// ex: `directed_angle([0,1], [1,0]) = 3/2 Pi rad`
 ///     x       __
 ///   0-->     /  \
 ///  y|       |  x--> v2
@@ -22,7 +22,7 @@ pub fn normalized_tangent(v: Vec2) -> Vec2 {
 ///              v
 ///
 /// Or, assuming y points upwards:
-/// directed_angle([0,-1], [1,0]) = 1/2 Pi rad
+/// `directed_angle([0,-1], [1,0]) = 1/2 Pi rad`
 ///
 ///   ^           v2
 ///  y|          x-->

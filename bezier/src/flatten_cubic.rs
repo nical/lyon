@@ -64,23 +64,21 @@ impl Iterator for CubicFlatteningIter {
     type Item = Point;
     fn next(&mut self) -> Option<Point> {
 
-        if self.current_curve.is_none() {
-            if self.next_inflection.is_some() {
-                if let Some(t2) = self.following_inflection {
-                    // No need to re-map t2 in the curve because we already did iter_points
-                    // in the iterator's new function.
-                    let (before, after) = self.remaining_curve.split(t2);
-                    self.current_curve = Some(before);
-                    self.remaining_curve = after;
-                } else {
-                    // the last chunk doesn't have inflection points, use it.
-                    self.current_curve = Some(self.remaining_curve);
-                }
-
-                // Pop the inflection stack.
-                self.next_inflection = self.following_inflection;
-                self.following_inflection = None;
+        if self.current_curve.is_none() && self.next_inflection.is_some() {
+            if let Some(t2) = self.following_inflection {
+                // No need to re-map t2 in the curve because we already did iter_points
+                // in the iterator's new function.
+                let (before, after) = self.remaining_curve.split(t2);
+                self.current_curve = Some(before);
+                self.remaining_curve = after;
+            } else {
+                // The last chunk doesn't have inflection points, use it.
+                self.current_curve = Some(self.remaining_curve);
             }
+
+            // Pop the inflection stack.
+            self.next_inflection = self.following_inflection;
+            self.following_inflection = None;
         }
 
         if let Some(sub_curve) = self.current_curve {
