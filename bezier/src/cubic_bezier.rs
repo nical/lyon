@@ -270,7 +270,123 @@ impl CubicBezierSegment {
 
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
+
+    /// Cast this curve into a x-montone curve without checking that the monotonicity
+    /// assumption is correct.
+    pub fn assume_x_montone(&self) -> XMonotoneCubicBezierSegment {
+        XMonotoneCubicBezierSegment { curve: *self }
+    }
+
+    /// Cast this curve into a y-montone curve without checking that the monotonicity
+    /// assumption is correct.
+    pub fn assume_y_montone(&self) -> YMonotoneCubicBezierSegment {
+        YMonotoneCubicBezierSegment { curve: *self }
+    }
 }
+
+/// A monotonically increasing in x cubic bézier curve segment
+#[derive(Copy, Clone, Debug)]
+pub struct XMonotoneCubicBezierSegment {
+    curve: CubicBezierSegment
+}
+
+impl XMonotoneCubicBezierSegment {
+    #[inline]
+    pub fn curve(&self) -> &CubicBezierSegment {
+        &self.curve
+    }
+
+    #[inline]
+    pub fn solve_y_for_x(&self, x: f32, tolerance: f32) -> f32 {
+        self.curve.sample_y(self.solve_t_for_x(x, tolerance))
+    }
+
+    pub fn solve_t_for_x(&self, x: f32, tolerance: f32) -> f32 {
+        if x <= self.curve.from.x {
+            return 0.0;
+        }
+        if x >= self.curve.to.x {
+            return 1.0;
+        }
+
+        // Newton's method.
+        let mut t = x - self.curve.from.x / (self.curve.to.x - self.curve.from.x);
+        for _ in 0..8 {
+            let x2 = self.curve.sample_x(t);
+
+            if (x2 - x).abs() <= tolerance {
+                return t
+            }
+
+            let dx = self.curve.sample_x_derivative(t);
+
+            if dx <= 1e-5 {
+                break
+            }
+
+            t -= (x2 - x) / dx;
+        }
+
+        // Fall back to binary search.
+        let mut min = 0.0;
+        let mut max = 1.0;
+        let mut t = 0.5;
+
+        while min < max {
+            let x2 = self.curve.sample_x(t);
+
+            if (x2 - x).abs() < tolerance {
+                return t;
+            }
+
+            if x > x2 {
+                min = t;
+            } else {
+                max = t;
+            }
+
+            t = (max - min) * 0.5 + min;
+        }
+
+        return t;
+    }
+
+}
+
+/// A monotonically increasing in y cubic bézier curve segment
+#[derive(Copy, Clone, Debug)]
+pub struct YMonotoneCubicBezierSegment {
+    curve: CubicBezierSegment
+}
+
+impl YMonotoneCubicBezierSegment {
+    #[inline]
+    pub fn curve(&self) -> &CubicBezierSegment {
+        &self.curve
+    }
+
+    #[inline]
+    pub fn solve_x_for_y(&self, y: f32, tolerance: f32) -> f32 {
+        self.curve.sample_y(self.solve_t_for_y(y, tolerance))
+    }
+
+    #[inline]
+    pub fn solve_t_for_y(&self, y: f32, tolerance: f32) -> f32 {
+        let transposed = XMonotoneCubicBezierSegment {
+            curve: CubicBezierSegment {
+                from: yx(self.curve.from),
+                ctrl1: yx(self.curve.ctrl1),
+                ctrl2: yx(self.curve.ctrl2),
+                to: yx(self.curve.to),
+            }
+        };
+
+        transposed.solve_t_for_x(y, tolerance)
+    }
+}
+
+// TODO: add this to euclid.
+fn yx(point: Point) -> Point { Point::new(point.y, point.x) }
 
 #[test]
 fn bounding_rect_for_cubic_bezier_segment() {
@@ -360,11 +476,29 @@ fn derivatives() {
         to: Point::new(2.0, 2.0,),
     };
 
-    println!(" -- {:?}", c1.sample_derivative(0.0));
-    println!(" -- {:?}", c1.sample_derivative(1.0));
-    println!(" -- {:?}", c1.sample_derivative(0.5));
-
     assert_eq!(c1.sample_x_derivative(0.0), 0.0);
     assert_eq!(c1.sample_x_derivative(1.0), 0.0);
     assert_eq!(c1.sample_y_derivative(0.5), 0.0);
+}
+
+#[test]
+fn solve_t_for_x() {
+    let c1 = CubicBezierSegment {
+        from: Point::new(1.0, 1.0,),
+        ctrl1: Point::new(1.0, 2.0,),
+        ctrl2: Point::new(2.0, 1.0,),
+        to: Point::new(2.0, 2.0,),
+    };
+
+    let tolerance = 0.0001;
+
+    for i in 0..10u32 {
+        let t = i as f32 / 10.0;
+        let p = c1.sample(t);
+        let t2 = c1.assume_x_montone().solve_t_for_x(p.x, tolerance);
+        // t should be pretty close to t2 but the only guarantee we have and can test
+        // against is that x(t) - x(t2) is within the specified tolerance threshold.
+        let x_diff = c1.sample_x(t) - c1.sample_x(t2);
+        assert!(x_diff.abs() <= tolerance);
+    }
 }
