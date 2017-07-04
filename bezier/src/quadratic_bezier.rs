@@ -70,7 +70,7 @@ impl QuadraticBezierSegment {
     ///
     /// This returns the advancement along the curve, not the actual y position.
     pub fn find_y_maximum(&self) -> f32 {
-        if let Some(t) = self.find_y_inflection() {
+        if let Some(t) = self.find_local_y_extremum() {
             let p = self.sample(t);
             if p.y > self.from.y && p.y > self.to.y {
                 return t;
@@ -83,7 +83,7 @@ impl QuadraticBezierSegment {
     ///
     /// This returns the advancement along the curve, not the actual y position.
     pub fn find_y_minimum(&self) -> f32 {
-        if let Some(t) = self.find_y_inflection() {
+        if let Some(t) = self.find_local_y_extremum() {
             let p = self.sample(t);
             if p.y < self.from.y && p.y < self.to.y {
                 return t;
@@ -93,7 +93,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Return the y inflection point or None if this curve is y-monotone.
-    pub fn find_y_inflection(&self) -> Option<f32> {
+    pub fn find_local_y_extremum(&self) -> Option<f32> {
         let div = self.from.y - 2.0 * self.ctrl.y + self.to.y;
         if div == 0.0 {
             return None;
@@ -109,7 +109,7 @@ impl QuadraticBezierSegment {
     ///
     /// This returns the advancement along the curve, not the actual x position.
     pub fn find_x_maximum(&self) -> f32 {
-        if let Some(t) = self.find_x_inflection() {
+        if let Some(t) = self.find_local_x_extremum() {
             let p = self.sample(t);
             if p.x > self.from.x && p.x > self.to.x {
                 return t;
@@ -122,7 +122,7 @@ impl QuadraticBezierSegment {
     ///
     /// This returns the advancement along the curve, not the actual x position.
     pub fn find_x_minimum(&self) -> f32 {
-        if let Some(t) = self.find_x_inflection() {
+        if let Some(t) = self.find_local_x_extremum() {
             let p = self.sample(t);
             if p.x < self.from.x && p.x < self.to.x {
                 return t;
@@ -132,7 +132,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Return the x inflection point or None if this curve is x-monotone.
-    pub fn find_x_inflection(&self) -> Option<f32> {
+    pub fn find_local_x_extremum(&self) -> Option<f32> {
         let div = self.from.x - 2.0 * self.ctrl.x + self.to.x;
         if div == 0.0 {
             return None;
@@ -460,7 +460,7 @@ fn find_y_maximum_for_simple_segment() {
 }
 
 #[test]
-fn find_y_inflection_for_simple_segment() {
+fn find_local_y_extremum_for_simple_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 1.0),
@@ -469,7 +469,7 @@ fn find_y_inflection_for_simple_segment() {
 
     let expected_y_inflection = 0.5;
 
-    match a.find_y_inflection() {
+    match a.find_local_y_extremum() {
         Some(actual_y_inflection) => assert!(expected_y_inflection == actual_y_inflection),
         None => panic!(),
     }
@@ -506,7 +506,7 @@ fn find_x_maximum_for_simple_segment() {
 }
 
 #[test]
-fn find_x_inflection_for_simple_segment() {
+fn find_local_x_extremum_for_simple_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 1.0),
@@ -515,7 +515,7 @@ fn find_x_inflection_for_simple_segment() {
 
     let expected_x_inflection = 0.5;
 
-    match a.find_x_inflection() {
+    match a.find_local_x_extremum() {
         Some(actual_x_inflection) => assert!(expected_x_inflection == actual_x_inflection),
         None => panic!(),
     }
