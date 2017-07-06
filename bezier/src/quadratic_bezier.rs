@@ -1,7 +1,8 @@
 use {CubicBezierSegment};
-use {Point, Vec2, Rect, rect, Triangle, Transform2D};
+use {Point, Vec2, Rect, rect, Triangle, Line, LineSegment, Transform2D};
 use std::mem::swap;
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
+use arrayvec::ArrayVec;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
 /// point and the end of the segment.
@@ -292,6 +293,39 @@ impl QuadraticBezierSegment {
     /// assumption is correct.
     pub fn assume_y_montone(&self) -> YMonotoneQuadraticBezierSegment {
         YMonotoneQuadraticBezierSegment { curve: *self }
+    }
+
+    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[Point; 2]> {
+        // TODO: a specific quadratic bézier vs line intersection function
+        // would allow for better performance.
+        let intersections = self.to_cubic().line_intersections(line);
+
+        let mut result = ArrayVec::new();
+        if intersections.len() > 0 {
+            result.push(intersections[0]);
+        }
+        if intersections.len() > 1 {
+            result.push(intersections[1]);
+        }
+
+        return result;
+    }
+
+    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[Point; 2]> {
+        // TODO: a specific quadratic bézier vs line intersection function
+        // would allow for better performance.
+        let intersections = self.to_cubic().line_intersections(&segment.to_line());
+        let aabb = segment.bounding_rect();
+
+        let mut result = ArrayVec::new();
+        if intersections.len() > 0 && aabb.contains(&intersections[0]) {
+            result.push(intersections[0]);
+        }
+        if intersections.len() > 1 && aabb.contains(&intersections[1]) {
+            result.push(intersections[1]);
+        }
+
+        return result;
     }
 }
 

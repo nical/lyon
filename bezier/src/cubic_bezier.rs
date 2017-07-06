@@ -1,9 +1,11 @@
-use {Point, Vec2, Rect, rect, Transform2D};
+use {Point, Vec2, Rect, rect, Line, LineSegment, Transform2D};
 use up_to_two::UpToTwo;
+use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::CubicFlatteningIter;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
+use utils::cubic_polynomial_roots;
 
 /// A 2d curve segment defined by four points: the beginning of the segment, two control
 /// points and the end of the segment.
@@ -364,6 +366,58 @@ impl CubicBezierSegment {
     /// assumption is correct.
     pub fn assume_y_montone(&self) -> YMonotoneCubicBezierSegment {
         YMonotoneCubicBezierSegment { curve: *self }
+    }
+
+    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[Point; 3]> {
+        if line.vector.square_length() < 1e-6 {
+            return ArrayVec::new();
+        }
+
+        let from = self.from.to_vector();
+        let ctrl1 = self.ctrl1.to_vector();
+        let ctrl2 = self.ctrl2.to_vector();
+        let to = self.to.to_vector();
+
+        let p1 = to - from + (ctrl1 - ctrl2) * 3.0;
+        let p2 = from * 3.0 + (ctrl2 - ctrl1 * 2.0) * 3.0;
+        let p3 = (ctrl1 - from) * 3.0;
+        let p4 = from;
+
+        let c = line.point.y * line.vector.x - line.point.x * line.vector.y;
+
+        let roots = cubic_polynomial_roots(
+            line.vector.y * p1.x - line.vector.x * p1.y,
+            line.vector.y * p2.x - line.vector.x * p2.y,
+            line.vector.y * p3.x - line.vector.x * p3.y,
+            line.vector.y * p4.x - line.vector.x * p4.y + c,
+        );
+
+        let mut result = ArrayVec::new();
+
+        for root in roots {
+            let t = root;
+            if t <= 0.0 || t >= 1.0 {
+                continue;
+            }
+
+            let position = (p1 * t * t * t + p2 * t * t + p3 * t + p4).to_point();
+
+            result.push(position);
+        }
+
+        return result;
+    }
+
+    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[Point; 3]> {
+        let intersections = self.line_intersections(&segment.to_line());
+        let aabb = segment.bounding_rect();
+        let mut result = ArrayVec::new();
+        for point in intersections {
+            if aabb.contains(&point) {
+                result.push(point);
+            }
+        }
+        return result;
     }
 }
 
