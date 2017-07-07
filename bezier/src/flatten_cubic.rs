@@ -24,6 +24,7 @@ pub struct CubicFlatteningIter {
     next_inflection: Option<f32>,
     following_inflection: Option<f32>,
     tolerance: f32,
+    check_inflection: bool,
 }
 
 impl CubicFlatteningIter {
@@ -38,6 +39,7 @@ impl CubicFlatteningIter {
             next_inflection: inflections.get(0).cloned(),
             following_inflection: inflections.get(1).cloned(),
             tolerance: tolerance,
+            check_inflection: false,
         };
 
         if let Some(&t1) = inflections.get(0) {
@@ -79,9 +81,19 @@ impl Iterator for CubicFlatteningIter {
             // Pop the inflection stack.
             self.next_inflection = self.following_inflection;
             self.following_inflection = None;
+            self.check_inflection = true;
         }
 
         if let Some(sub_curve) = self.current_curve {
+            if self.check_inflection {
+                self.check_inflection = false;
+                if let Some(tf) = inflection_approximation_range(&sub_curve, self.tolerance) {
+                    let next = sub_curve.after_split(tf);
+                    self.current_curve = Some(next);
+                    return Some(next.from);
+                }
+            }
+
             // We are iterating over a sub-curve that does not have inflections.
             let t = no_inflection_flattening_step(&sub_curve, self.tolerance);
             if t >= 1.0 {
@@ -107,23 +119,36 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
     let inflections = find_cubic_bezier_inflection_points(&bezier);
 
     if let Some(&t1) = inflections.get(0) {
-        let (before, after) = bezier.split(t1);
-        flatten_cubic_no_inflection(before, tolerance, call_back);
-        bezier = after;
-
+        bezier = flatten_including_inflection(&bezier, t1, tolerance, call_back);
         if let Some(&t2) = inflections.get(1) {
             // Adjust the second inflection since we removed the part before the
             // first inflection from the bezier curve.
             let t2 = (t2 - t1) / (1.0 - t1);
-
-            let (before, after) = bezier.split(t2);
-            flatten_cubic_no_inflection(before, tolerance, call_back);
-            bezier = after;
+            bezier = flatten_including_inflection(&bezier, t2, tolerance, call_back);
         }
     }
 
     flatten_cubic_no_inflection(bezier, tolerance, call_back);
 }
+
+// F;atten the curve up to the the inflection point and its approximation range included.
+fn flatten_including_inflection<F: FnMut(Point)>(
+    bezier: &CubicBezierSegment,
+    up_to_t: f32,
+    tolerance: f32,
+    call_back: &mut F,
+) -> CubicBezierSegment {
+    let (before, mut after) = bezier.split(up_to_t);
+    flatten_cubic_no_inflection(before, tolerance, call_back);
+
+    if let Some(tf) = inflection_approximation_range(&after, tolerance) {
+        after = after.after_split(tf);
+        call_back(after.from);
+    }
+
+    after
+}
+
 
 // The algorithm implemented here is based on:
 // http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
@@ -157,15 +182,19 @@ fn no_inflection_flattening_step(bezier: &CubicBezierSegment, tolerance: f32) ->
     let v1 = bezier.ctrl1 - bezier.from;
     let v2 = bezier.ctrl2 - bezier.from;
 
+    // This function assumes that the bézier segment is not starting at an inflection point,
+    // otherwise the following cross product may result in very small numbers which will hit
+    // floating point precision issues.
+
     // To remove divisions and check for divide-by-zero, this is optimized from:
-    // Float s2 = (v2.x * v1.y - v2.y * v1.x) / hypot(v1.x, v1.y);
-    // t = 2 * Float(sqrt(tolerance / (3. * abs(s2))));
-    let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
+    // s2 = (v2.x * v1.y - v2.y * v1.x) / hypot(v1.x, v1.y);
+    // t = 2 * sqrt(tolerance / (3. * abs(s2)));
+    let v2_cross_v1 = v2.cross(v1);
     let h = v1.x.hypot(v1.y);
-    if v1_cross_v2 * h == 0.0 {
+    if (v2_cross_v1 * h).abs() < 1e-5 {
         return 1.0;
     }
-    let s2inv = h / v1_cross_v2;
+    let s2inv = h / v2_cross_v1;
 
     let t = 2.0 * (tolerance * s2inv.abs() / 3.0).sqrt();
 
@@ -184,18 +213,18 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
     let pa = bezier.ctrl1 - bezier.from;
-    let pb = bezier.ctrl2 - (bezier.ctrl1.to_vector() * 2.0) + bezier.from.to_vector();
-    let pc = bezier.to - (bezier.ctrl2.to_vector() * 3.0) + (bezier.ctrl1.to_vector() * 3.0) - bezier.from.to_vector();
+    let pb = bezier.ctrl2.to_vector() - (bezier.ctrl1.to_vector() * 2.0) + bezier.from.to_vector();
+    let pc = bezier.to.to_vector() - (bezier.ctrl2.to_vector() * 3.0) + (bezier.ctrl1.to_vector() * 3.0) - bezier.from.to_vector();
 
-    let a = pb.x * pc.y - pb.y * pc.x;
-    let b = pa.x * pc.y - pa.y * pc.x;
-    let c = pa.x * pb.y - pa.y * pb.x;
+    let a = pb.cross(pc);
+    let b = pa.cross(pc);
+    let c = pa.cross(pb);
 
     let mut ret = UpToTwo::new();
 
-    if a == 0.0 {
+    if a.abs() < 1e-5 {
         // Not a quadratic equation.
-        if b == 0.0 {
+        if b.abs() < 1e-5 {
             // Instead of a linear acceleration change we have a constant
             // acceleration change. This means the equation has no solution
             // and there are no inflection points, unless the constant is 0.
@@ -203,7 +232,7 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
             // the easiest way to deal with is is by saying there's an inflection
             // point at t == 0. The inflection point approximation range found will
             // automatically extend into infinity.
-            if c == 0.0 {
+            if c.abs() < 1e-5 {
                 ret.push(0.0);
             }
         } else {
@@ -221,7 +250,7 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
         return ret;
     }
 
-    if discriminant == 0.0 {
+    if discriminant.abs() < 1e-5 {
         let t = -b / (2.0 * a);
 
         if in_range(t) {
@@ -249,6 +278,42 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
     }
 
     ret
+}
+
+// Find the range around the start of the curve where the curve can locally be approximated
+// with a line segment, given a tolerance threshold.
+fn inflection_approximation_range(
+    bezier: &CubicBezierSegment,
+    tolerance: f32,
+) -> Option<f32> {
+    let ctrl21 = bezier.ctrl1 - bezier.from;
+    let ctrl41 = bezier.to - bezier.from;
+
+    if ctrl21.x.abs() < 1e-5 && ctrl21.y.abs() < 1e-5 {
+        // In this case s3 becomes lim[n->0] (ctrl41.x * n) / n - (ctrl41.y * n) / n = ctrl41.x - ctrl41.y.
+        let s3 = ctrl41.x - ctrl41.y;
+
+        if s3 == 0.0 {
+            return None;
+        }
+        // Use the absolute value so that Min and Max will correspond with the
+        // minimum and maximum of the range.
+        let tf = (tolerance / s3).abs().powf(1.0 / 3.0);
+        return Some(tf);
+    }
+
+    let s3 = (ctrl41.x * ctrl21.y - ctrl41.y * ctrl21.x) / ctrl21.x.hypot(ctrl21.y);
+
+    if s3 == 0.0 {
+        // This means within the precision we have it can be approximated
+        // infinitely by a linear segment. Deal with this by specifying the
+        // approximation range as extending beyond the entire curve.
+        return None;
+    }
+
+    let tf = (tolerance / s3).abs().powf(1.0 / 3.0);
+
+    return Some(tf);
 }
 
 #[cfg(test)]
