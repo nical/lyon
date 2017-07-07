@@ -583,32 +583,6 @@ fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
     );
 }
 
-// tessellate the stroke of rounded corners.
-fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
-    center: Point,
-    angle: (f32, f32),
-    radius: f32,
-    resolution: u32,
-    output: &mut Output
-) {
-    if resolution == 0 {
-        return;
-    }
-
-    let angle_size = (angle.0 - angle.1).abs();
-    let starting_angle = angle.0.min(angle.1);
-    let closed = angle.0 % (2.0 * PI) == angle.1 % (2.0 * PI);
-
-    let points = (0..resolution).map(|i| {
-        let new_angle = i as f32 * (angle_size) / resolution as f32 + starting_angle;
-        let normal =
-        vec2(new_angle.cos(),
-        new_angle.sin());
-        center + normal * radius
-    });
-    stroke_polyline(points, closed, output);
-}
-
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
 pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     rect: &Rect,
@@ -692,12 +666,9 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
 
     let mut nums = radii.iter().map(|&radius| {
         if radius > 0.0 {
-
             let arc_len = 0.5 * PI * radius;
             let step = circle_flattening_step(radius, tolerance);
-            let num_segments = (arc_len / step).ceil();
-
-            num_segments.log2() as u32 - 1
+            (arc_len / step).ceil() as u32  - 1
         } else {
             0
         }
@@ -708,7 +679,7 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
         let mut builder = StrokeBuilder::new(&options, output);
         builder.move_to(p7);
         for i in 0..4 {
-            stroke_border_radius_build(
+            stroke_border_radius(
                 centers[i],
                 angles[i],
                 radii[i],
@@ -803,26 +774,31 @@ pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output:
     }
 
     let angle = (0.0, 2.0 * PI);
+    let starting_point = center + vec2(1.0, 0.0) * radius;
 
-    let arc_len = 0.5 * PI * radius;
+    let arc_len = 2.0 * PI * radius;
     let step = circle_flattening_step(radius, tolerance);
-    let num_segments = (arc_len / step).ceil();
-    let resolution = num_segments.log2() as u32;
+    let num_points = (arc_len / step).ceil() as u32 - 1;
 
-    stroke_border_radius(
-        center,
-        angle,
-        radius,
-        resolution,
-        output,
-    );
-
+    let options = StrokeOptions::default();
+    { // output borrow scope start
+        let mut builder = StrokeBuilder::new(&options, output);
+        builder.move_to(starting_point);
+        stroke_border_radius(
+            center,
+            angle,
+            radius,
+            num_points,
+            &mut builder,
+        );
+        builder.line_to(starting_point);
+    } // output borrow scope end
     return output.end_geometry();
 }
 
-// build the border using the inner points.
+// tessellate the stroke of rounded corners using the inner points.
 // assumming the builder started with move_to().
-fn stroke_border_radius_build<Output: GeometryBuilder<StrokeVertex>>(
+fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
     center: Point,
     angle: (f32, f32),
     radius: f32,
