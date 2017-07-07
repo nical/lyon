@@ -131,7 +131,7 @@ pub fn flatten_cubic_bezier<F: FnMut(Point)>(
     flatten_cubic_no_inflection(bezier, tolerance, call_back);
 }
 
-// F;atten the curve up to the the inflection point and its approximation range included.
+// Flatten the curve up to the the inflection point and its approximation range included.
 fn flatten_including_inflection<F: FnMut(Point)>(
     bezier: &CubicBezierSegment,
     up_to_t: f32,
@@ -236,7 +236,10 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
                 ret.push(0.0);
             }
         } else {
-            ret.push(-c / b);
+            let t = -c / b;
+            if in_range(t) {
+                ret.push(t);
+            }
         }
 
         return ret;
@@ -299,7 +302,7 @@ fn inflection_approximation_range(
         // Use the absolute value so that Min and Max will correspond with the
         // minimum and maximum of the range.
         let tf = (tolerance / s3).abs().powf(1.0 / 3.0);
-        return Some(tf);
+        return if tf < 1.0 { Some(tf) } else { None };
     }
 
     let s3 = (ctrl41.x * ctrl21.y - ctrl41.y * ctrl21.x) / ctrl21.x.hypot(ctrl21.y);
@@ -313,7 +316,7 @@ fn inflection_approximation_range(
 
     let tf = (tolerance / s3).abs().powf(1.0 / 3.0);
 
-    return Some(tf);
+    return if tf < 1.0 { Some(tf) } else { None };
 }
 
 #[cfg(test)]

@@ -573,6 +573,7 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
             current + (current - previous) * amount / (current - previous).length()
         }
     };
+    //debug_assert!((inter - current).length() < 20.0);
     return inter - current;
 }
 
