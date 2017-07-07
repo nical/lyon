@@ -4,9 +4,10 @@
 
 use core::FlattenedEvent;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
-use path_stroke::{StrokeOptions, StrokeTessellator};
+use path_stroke::{StrokeOptions, StrokeTessellator, StrokeBuilder};
 use math_utils::compute_normal;
 use math::*;
+use path_builder::BaseBuilder;
 use {FillVertex, StrokeVertex, Side};
 
 use std::f32::consts::PI;
@@ -712,6 +713,32 @@ pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output:
     );
 
     return output.end_geometry();
+}
+
+// build the border using the inner points.
+// assumming the builder started with move_to().
+fn stroke_border_radius_build<Output: GeometryBuilder<StrokeVertex>>(
+    center: Point,
+    angle: (f32, f32),
+    radius: f32,
+    num_points: u32,
+    builder: &mut StrokeBuilder<Output>,
+) {
+    let angle_size = (angle.0 - angle.1).abs();
+    let starting_angle = angle.0.min(angle.1);
+
+    let points = (1..num_points + 1).map(move |i| {
+        let new_angle = i as f32 * (angle_size) / (num_points + 1) as f32 + starting_angle;
+        let normal =
+        vec2(new_angle.cos(),
+        new_angle.sin());
+        center + normal * radius
+    });
+
+    for point in points {
+        builder.line_to(point)
+    };
+
 }
 
 /// Tessellate a convex polyline.
