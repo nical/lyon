@@ -552,6 +552,10 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
     let n1 = normalized_tangent(current - previous) * amount;
     let n2 = normalized_tangent(next - current) * amount;
 
+    if (n1 - n2).square_length() < 1e-5 {
+        return n1;
+    }
+
     // Segment P1-->PX
     let pn1 = previous + n1; // prev extruded along the tangent n1
     let pn1x = current + n1; // px extruded along the tangent n1
@@ -565,12 +569,8 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
     let inter = match l1.intersection(&l2) {
         Some(v) => v,
         None => {
-            if (n1 - n2).square_length() < 0.000001 {
-                pn1x
-            } else {
-                println!("[StrokeTessellator] unimplemented narrow angle."); // TODO
-                current + (current - previous) * amount / (current - previous).length()
-            }
+            println!("[StrokeTessellator] unimplemented narrow angle."); // TODO
+            current + (current - previous) * amount / (current - previous).length()
         }
     };
     return inter - current;
