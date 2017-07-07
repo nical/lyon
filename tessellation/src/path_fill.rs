@@ -1024,7 +1024,7 @@ impl FillTessellator {
     }
 
     fn log_sl(&self, current_position: TessPoint, start_span: usize) {
-        println!("\n\n\n\n");
+        println!("\n\n");
         self.log_sl_ids();
         self.log_sl_points_at(current_position.y);
         println!("\n ----- current: {:?} ------ offset {:?} in sl", current_position, start_span);
@@ -1424,6 +1424,9 @@ impl BaseBuilder for EventsBuilder {
         to_f32_point(self.current)
     }
 }
+
+#[cfg(test)]
+use path_builder::*;
 
 #[test]
 fn test_iter_builder() {
@@ -1950,7 +1953,7 @@ fn test_auto_intersection_multi() {
 
 #[test]
 fn test_rust_logo() {
-    let mut path = Path::builder().with_svg();
+    let mut path = Path::builder().flattened(0.011).with_svg();
 
     build_logo_path(&mut path);
 
@@ -1959,7 +1962,7 @@ fn test_rust_logo() {
 
 #[test]
 fn test_rust_logo_with_intersection() {
-    let mut path = Path::builder().with_svg();
+    let mut path = Path::builder().flattened(0.011).with_svg();
 
     build_logo_path(&mut path);
 
@@ -2002,7 +2005,7 @@ fn test_rust_logo_scale_up_2() {
     //   a way that is less subject to overflows.
     // * See if we can define a safe interval where no path can trigger overflows and scale
     //   all paths to this interval internally in the tessellator.
-    let mut builder = Path::builder().with_svg();
+    let mut builder = Path::builder().flattened(0.011).with_svg();
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -2014,7 +2017,7 @@ fn test_rust_logo_scale_up_2() {
 fn test_rust_logo_scale_down() {
     // The goal of this test is to check that the tessellator can handle very small geometry.
 
-    let mut builder = Path::builder().with_svg();
+    let mut builder = Path::builder().flattened(0.011).with_svg();
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -2026,7 +2029,7 @@ fn test_rust_logo_scale_down() {
 fn test_rust_logo_scale_down2() {
     // Issues with very small paths.
 
-    let mut builder = Path::builder().with_svg();
+    let mut builder = Path::builder().flattened(0.011).with_svg();
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
@@ -2298,6 +2301,23 @@ fn test_colinear_touching_squares() {
     let path = builder.build();
 
     tessellate(path.as_slice(), true).unwrap();
+}
+
+#[test]
+#[ignore] //TODO
+fn back_along_previous_edge_failing() {
+    // This test case seems to have edges that come back along the previous edge.
+    // it was found by accidentally advancing with a negative t during flattening.
+    let mut builder = Path::builder();
+
+    builder.move_to(point(0.007982401, 0.0121872));
+    builder.line_to(point(0.008415101, 0.0116545));
+    builder.line_to(point(0.008623006, 0.011589845));
+    builder.line_to(point(0.008464893, 0.011639819));
+    builder.line_to(point(0.0122631, 0.0069716));
+    builder.close();
+
+    test_path(builder.build().as_slice(), None);
 }
 
 #[test]
