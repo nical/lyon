@@ -36,5 +36,6 @@ members = [
     "cli",
     "renderer",
     "examples/gfx_advanced",
-    "examples/gfx_basic"
+    "examples/gfx_basic",
+    "examples/intersections"
 ]
