@@ -1,8 +1,32 @@
 ## Change log
 
+### v 0.6.1 (2017-07-08)
+  - [bezier] Intersection between a bézier segment and a line or line segment.
+  - [bezier] Bézier flattening bug fixes.
+  - [tessellation] Implement a stroke tessellator for rounded rectangles.
+  - [tessellation] Bug fixes in the fill tessellator.
+  - [tessellation] Bug fixes in the stroke tessellator.
+
+### v 0.6.0 (2017-07-04)
+  - [svg] Add a helper to build paths from the SVG path syntax.
+  - [bezier] Allow applying transforms to all geometric types.
+  - [bezier] Added Triangle, Line, LineSegment and monotone bézier types.
+  - [bezier] Compute the x/y extremeums of bézier segments.
+  - [bezier] Compute the conservative and minimum bounding rects of bézier segments.
+  - [tessellation] Support for round line joins in the stroke tessellator.
+  - [tessellation] The stroke tessellator applies stroke width by default (optional).
+  - [tessellation] fill_convext_polyline now properly compute normals.
+  - [tessellation] Implement a stroke tessellator for circles.
+  - [tessellation] Arcs to bézier convertion refactored, bugs fixed.
+  - [tessellation] Measure distance along strokes.
+  - [tessellation] Bug fixes in the fill tessellator.
+  - [tessellation] Bug fixes in the stroke tessellator.
+  - [lyon] Bump euclid dependency to 0.15.1.
+  - [cli] The command line tool can be set to find minimal test cases on errors.
+
 ### v 0.5.0 (2017-05-23)
-  - [tessellation] implement fill tessellation for rounded rectangles.
-  - [tessellation] implement fill tessellation for circles.
+  - [tessellation] Implement fill tessellation for rounded rectangles.
+  - [tessellation] Implement fill tessellation for circles.
   - [svg] Bump svgparser dependency from 0.0.3 t0 0.4.0.
   - [lyon] Bump euclid dependency from 0.10.1 to 0.13.
   - [bezier] Fix a bug (issue #19) in the cubic bézier flattening code.
