@@ -1,17 +1,13 @@
 use gfx;
-use gfx::Factory;
 use gfx_device_gl;
 
 use tessellation;
 use tessellation::geometry_builder::VertexConstructor;
 use core::math::*;
 use buffer::*;
-pub use gfx_types::*;
-use glsl::PRIM_BUFFER_LEN;
 
 use std;
 use std::mem;
-use std::ops;
 
 pub type OpaquePso = Pso<opaque_fill_pipeline::Meta>;
 pub type TransparentPso = Pso<transparent_fill_pipeline::Meta>;
@@ -235,78 +231,3 @@ pub struct GpuGeometry<T> {
     pub vbo: Vbo<T>,
     pub ibo: IndexSlice,
 }
-
-
-pub struct GpuBufferStore<Primitive> {
-    buffers: Vec<BufferObject<Primitive>>,
-    role: gfx::buffer::Role,
-    usage: gfx::memory::Usage,
-}
-
-impl<Primitive> GpuBufferStore<Primitive>
-where
-    Primitive: Copy + Default + gfx::traits::Pod,
-{
-    pub fn new(role: gfx::buffer::Role, usage: gfx::memory::Usage) -> Self {
-        GpuBufferStore {
-            buffers: Vec::new(),
-            role: role,
-            usage: usage,
-        }
-    }
-
-    pub fn new_uniforms() -> Self {
-        GpuBufferStore::new(gfx::buffer::Role::Constant, gfx::memory::Usage::Dynamic)
-    }
-
-    pub fn new_vertices() -> Self {
-        GpuBufferStore::new(gfx::buffer::Role::Vertex, gfx::memory::Usage::Dynamic)
-    }
-
-    pub fn update(
-        &mut self,
-        cpu: &mut BufferStore<Primitive>,
-        factory: &mut GlFactory,
-        queue: &mut CmdEncoder,
-    ) {
-        for i in 0..cpu.buffers.len() {
-            if i >= self.buffers.len() {
-                let buffer = factory
-                    .create_buffer(
-                        PRIM_BUFFER_LEN,
-                        self.role,
-                        self.usage,
-                        gfx::memory::Bind::empty(),
-                    )
-                    .unwrap();
-                self.buffers.push(buffer);
-            }
-            queue.update_buffer(&self.buffers[i], cpu.buffers[i].as_slice(), 0).unwrap();
-        }
-    }
-}
-
-impl<T> ops::Index<BufferId<T>> for GpuBufferStore<T> {
-    type Output = BufferObject<T>;
-    fn index(&self, id: BufferId<T>) -> &BufferObject<T> { &self.buffers[id.index()] }
-}
-
-impl<T> ops::IndexMut<BufferId<T>> for GpuBufferStore<T> {
-    fn index_mut(&mut self, id: BufferId<T>) -> &mut BufferObject<T> {
-        &mut self.buffers[id.index()]
-    }
-}
-
-pub fn create_index_buffer(factory: &mut GlFactory, data: &[u16]) -> Ibo {
-    use gfx::IntoIndexBuffer;
-    return data.into_index_buffer(factory);
-}
-
-#[repr(C)]
-pub struct GpuBlock16([f32; 4]);
-#[repr(C)]
-pub struct GpuBlock32([f32; 8]);
-#[repr(C)]
-pub struct GpuBlock64([f32; 16]);
-#[repr(C)]
-pub struct GpuBlock128([f32; 32]);

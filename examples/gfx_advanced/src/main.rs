@@ -15,16 +15,9 @@ use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 use lyon::path::Path;
-use lyon_renderer::buffer::{Id, BufferStore};
+use lyon_renderer::buffer::{Id, CpuBuffer};
 use lyon_renderer::glsl::*;
-use lyon_renderer::renderer::{
-    GpuTransform, GpuFillVertex, GpuStrokeVertex, GpuFillPrimitive,
-    GpuStrokePrimitive, opaque_fill_pipeline,
-    opaque_stroke_pipeline, GpuGeometry,
-    GpuBufferStore, Globals, WithId
-};
-// make  public so that the module in gfx_defines can see the types.
-pub use lyon_renderer::gfx_types::*;
+use lyon_renderer::gfx_renderer::*;
 
 use gfx::traits::{Device, FactoryExt};
 
@@ -74,17 +67,17 @@ impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
 }
 
 struct Cpu {
-    transforms: BufferStore<GpuTransform>,
-    fill_primitives: BufferStore<GpuFillPrimitive>,
-    stroke_primitives: BufferStore<GpuStrokePrimitive>,
+    transforms: CpuBuffer<GpuTransform>,
+    fill_primitives: CpuBuffer<GpuFillPrimitive>,
+    stroke_primitives: CpuBuffer<GpuStrokePrimitive>,
     fills: VertexBuffers<GpuFillVertex>,
     strokes: VertexBuffers<GpuStrokeVertex>,
 }
 
 struct Gpu {
-    transforms: GpuBufferStore<GpuTransform>,
-    fill_primitives: GpuBufferStore<GpuFillPrimitive>,
-    stroke_primitives: GpuBufferStore<GpuStrokePrimitive>,
+    transforms: BufferObject<GpuTransform>,
+    fill_primitives: BufferObject<GpuFillPrimitive>,
+    stroke_primitives: BufferObject<GpuStrokePrimitive>,
     //fills: GpuGeometry<GpuFillVertex>,
     //strokes: GpuGeometry<GpuStrokeVertex>,
 }
@@ -110,9 +103,9 @@ fn main() {
     let mut cpu = Cpu {
         fills: VertexBuffers::new(),
         strokes: VertexBuffers::new(),
-        transforms: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
-        fill_primitives: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
-        stroke_primitives: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
+        transforms: CpuBuffer::new(PRIM_BUFFER_LEN as u16),
+        fill_primitives: CpuBuffer::new(PRIM_BUFFER_LEN as u16),
+        stroke_primitives: CpuBuffer::new(PRIM_BUFFER_LEN as u16),
     };
 
     let default_transform = cpu.transforms.push(GpuTransform::default());
@@ -131,14 +124,14 @@ fn main() {
         .tessellate_path(
             path.path_iter(),
             &FillOptions::tolerance(0.09),
-            &mut BuffersBuilder::new(&mut cpu.fills, WithId(logo_fill_ids.range.start())),
+            &mut BuffersBuilder::new(&mut cpu.fills, WithId(logo_fill_ids.start())),
         ).unwrap();
 
-    cpu.fill_primitives[logo_fill_ids.first()] = GpuFillPrimitive::new(
+    cpu.fill_primitives[logo_fill_ids.start()] = GpuFillPrimitive::new(
         [1.0, 1.0, 1.0, 1.0],
         0.1,
-        logo_transforms.range.start(),
-        view_transform.element,
+        logo_transforms.start(),
+        view_transform,
     );
     for i in 1..num_instances {
         cpu.fill_primitives[logo_fill_ids.get(i)] = GpuFillPrimitive::new(
@@ -149,8 +142,8 @@ fn main() {
                 1.0,
             ],
             0.1 - 0.001 * i as f32,
-            logo_transforms.range.get(i),
-            view_transform.element,
+            logo_transforms.get(i),
+            view_transform,
         );
     }
 
@@ -159,15 +152,15 @@ fn main() {
         GpuStrokePrimitive::new(
             [0.0, 0.0, 0.0, 0.1],
             0.2,
-            default_transform.element,
-            view_transform.element,
+            default_transform,
+            view_transform,
         )
     );
 
     StrokeTessellator::new().tessellate_path(
         path.path_iter(),
         &StrokeOptions::tolerance(0.022).dont_apply_line_width(),
-        &mut BuffersBuilder::new(&mut cpu.strokes, WithId(logo_stroke_id.element)),
+        &mut BuffersBuilder::new(&mut cpu.strokes, WithId(logo_stroke_id)),
     );
 
     let mut num_points = 0;
@@ -188,7 +181,7 @@ fn main() {
         0.01,
         &mut BuffersBuilder::new(
             &mut cpu.fills,
-            WithId(point_ids_1.range.start())
+            WithId(point_ids_1.start())
         ),
     );
     fill_circle(
@@ -197,27 +190,27 @@ fn main() {
         0.01,
         &mut BuffersBuilder::new(
             &mut cpu.fills,
-            WithId(point_ids_2.range.start())
+            WithId(point_ids_2.start())
         ),
     );
 
     let mut i = 0;
     for evt in path.as_slice().iter() {
         if let Some(to) = evt.destination() {
-            let transform_id = point_transforms.range.get(i);
+            let transform_id = point_transforms.get(i);
             cpu.transforms[point_transforms.get(i)].transform =
                 Transform3D::create_translation(to.x, to.y, 0.0).to_row_arrays();
             cpu.fill_primitives[point_ids_1.get(i)] = GpuFillPrimitive::new(
                 [0.0, 0.2, 0.0, 1.0],
                 0.3,
                 transform_id,
-                view_transform.element,
+                view_transform,
             );
             cpu.fill_primitives[point_ids_2.get(i)] = GpuFillPrimitive::new(
                 [0.0, 1.0, 0.0, 1.0],
                 0.4,
                 transform_id,
-                view_transform.element,
+                view_transform,
             );
             i += 1;
         }
@@ -249,18 +242,10 @@ fn main() {
 
     let constants = factory.create_constant_buffer(1);
 
-    let mut gpu = Gpu {
-        //fills: GpuGeometry::new(),
-        //strokes: GpuGeometry::new(),
-        transforms: GpuBufferStore::new(gfx::buffer::Role::Constant, gfx::memory::Usage::Dynamic),
-        fill_primitives: GpuBufferStore::new(
-            gfx::buffer::Role::Constant,
-            gfx::memory::Usage::Dynamic,
-        ),
-        stroke_primitives: GpuBufferStore::new(
-            gfx::buffer::Role::Constant,
-            gfx::memory::Usage::Dynamic,
-        ),
+    let gpu = Gpu {
+        transforms: factory.create_constant_buffer(PRIM_BUFFER_LEN),
+        fill_primitives: factory.create_constant_buffer(PRIM_BUFFER_LEN),
+        stroke_primitives: factory.create_constant_buffer(PRIM_BUFFER_LEN),
     };
 
     let bg_pso = factory.create_pipeline_simple(
@@ -330,8 +315,12 @@ fn main() {
     );
     let gpu_strokes = GpuGeometry { vbo: vbo, ibo: ibo };
 
-    gpu.fill_primitives.update(&mut cpu.fill_primitives, &mut factory, &mut init_queue);
-    gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut init_queue);
+    init_queue.update_buffer(&gpu.fill_primitives, cpu.fill_primitives.as_slice(), 0).unwrap();
+    init_queue.update_buffer(&gpu.stroke_primitives, cpu.stroke_primitives.as_slice(), 0).unwrap();
+    init_queue.update_buffer(&gpu.transforms, cpu.transforms.as_slice(), 0).unwrap();
+
+    //gpu.fill_primitives.update(&mut cpu.fill_primitives, &mut factory, &mut init_queue);
+    //gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut init_queue);
     init_queue.flush(&mut device);
 
     let split = circle_indices_start + (circle_count.indices as u32);
@@ -395,9 +384,14 @@ fn main() {
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
 
-        gpu.fill_primitives.update(&mut cpu.fill_primitives, &mut factory, &mut cmd_queue);
-        gpu.stroke_primitives.update(&mut cpu.stroke_primitives, &mut factory, &mut cmd_queue);
-        gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut cmd_queue);
+
+        cmd_queue.update_buffer(&gpu.fill_primitives, cpu.fill_primitives.as_slice(), 0).unwrap();
+        cmd_queue.update_buffer(&gpu.stroke_primitives, cpu.stroke_primitives.as_slice(), 0).unwrap();
+        cmd_queue.update_buffer(&gpu.transforms, cpu.transforms.as_slice(), 0).unwrap();
+
+        //gpu.fill_primitives.update(&mut cpu.fill_primitives, &mut factory, &mut cmd_queue);
+        //gpu.stroke_primitives.update(&mut cpu.stroke_primitives, &mut factory, &mut cmd_queue);
+        //gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut cmd_queue);
 
         cmd_queue.update_constant_buffer(
             &constants,
@@ -416,8 +410,8 @@ fn main() {
                 &opaque_fill_pso,
                 &opaque_fill_pipeline::Data {
                     vbo: gpu_fills.vbo.clone(),
-                    primitives: gpu.fill_primitives[point_ids_1.buffer].clone(),
-                    transforms: gpu.transforms[point_transforms.buffer].clone(),
+                    primitives: gpu.fill_primitives.clone(),
+                    transforms: gpu.transforms.clone(),
                     constants: constants.clone(),
                     out_color: main_fbo.clone(),
                     out_depth: main_depth.clone(),
@@ -428,8 +422,8 @@ fn main() {
                 &opaque_fill_pso,
                 &opaque_fill_pipeline::Data {
                     vbo: gpu_fills.vbo.clone(),
-                    primitives: gpu.fill_primitives[point_ids_2.buffer].clone(),
-                    transforms: gpu.transforms[point_transforms.buffer].clone(),
+                    primitives: gpu.fill_primitives.clone(),
+                    transforms: gpu.transforms.clone(),
                     constants: constants.clone(),
                     out_color: main_fbo.clone(),
                     out_depth: main_depth.clone(),
@@ -448,8 +442,8 @@ fn main() {
             &fill_pso,
             &opaque_fill_pipeline::Data {
                 vbo: gpu_fills.vbo.clone(),
-                primitives: gpu.fill_primitives[logo_fill_ids.buffer].clone(),
-                transforms: gpu.transforms[logo_transforms.buffer].clone(),
+                primitives: gpu.fill_primitives.clone(),
+                transforms: gpu.transforms.clone(),
                 constants: constants.clone(),
                 out_color: main_fbo.clone(),
                 out_depth: main_depth.clone(),
@@ -461,8 +455,8 @@ fn main() {
             &stroke_pso,
             &opaque_stroke_pipeline::Data {
                 vbo: gpu_strokes.vbo.clone(),
-                primitives: gpu.stroke_primitives[logo_stroke_id.buffer].clone(),
-                transforms: gpu.transforms[logo_transforms.buffer].clone(),
+                primitives: gpu.stroke_primitives.clone(),
+                transforms: gpu.transforms.clone(),
                 constants: constants.clone(),
                 out_color: main_fbo.clone(),
                 out_depth: main_depth.clone(),
