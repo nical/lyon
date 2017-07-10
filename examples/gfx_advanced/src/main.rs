@@ -244,7 +244,6 @@ fn main() {
         .with_dimensions(700, 700)
         .with_decorations(true)
         .with_title("tessellation".to_string())
-        .with_multisampling(8)
         .with_vsync();
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
