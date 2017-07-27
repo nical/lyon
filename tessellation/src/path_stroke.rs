@@ -79,7 +79,6 @@
 
 use math::*;
 use core::FlattenedEvent;
-use bezier::Line;
 use bezier::utils::normalized_tangent;
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use path_builder::BaseBuilder;
@@ -343,7 +342,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     }
 
     fn edge_to(&mut self, to: Point) {
-        if self.current == to {
+        if (self.current - to).square_length() < 1e-5 {
             return;
         }
 
@@ -548,33 +547,29 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 }
 
 fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
-    let amount = 0.5;
-    let n1 = normalized_tangent(current - previous) * amount;
-    let n2 = normalized_tangent(next - current) * amount;
+    let epsilon = 1e-4;
+    let half_width = 0.5;
 
-    if (n1 - n2).square_length() < 1e-5 {
-        return n1;
+    let v1 = (next - current).normalize();
+    let v2 = (current - previous).normalize();
+    let n1 = vec2(-v1.y, v1.x);
+
+    let v12 = v1 + v2;
+
+    if v12.square_length() < epsilon {
+        return n1 * half_width;
     }
 
-    // Segment P1-->PX
-    let pn1 = previous + n1; // prev extruded along the tangent n1
-    let pn1x = current + n1; // px extruded along the tangent n1
-    // Segment PX-->P2
-    let pn2 = next + n2;
-    let pn2x = current + n2;
+    let tangent = v12.normalize();
+    let n = vec2(-tangent.y, tangent.x);
 
-    let l1 = Line { point: pn1, vector: pn1x - pn1 };
-    let l2 = Line { point: pn2, vector: pn2x - pn2 };
+    let inv_len = n.dot(n1);
 
-    let inter = match l1.intersection(&l2) {
-        Some(v) => v,
-        None => {
-            println!("[StrokeTessellator] unimplemented narrow angle."); // TODO
-            current + (current - previous) * amount / (current - previous).length()
-        }
-    };
-    //debug_assert!((inter - current).length() < 20.0);
-    return inter - current;
+    if inv_len.abs() < epsilon {
+        return n1 * half_width;
+    }
+
+    return n * half_width / inv_len;
 }
 
 /// Computes the max angle of a radius segment for a given tolerance
