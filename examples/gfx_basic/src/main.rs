@@ -55,8 +55,8 @@ fn main() {
     let mut mesh = VertexBuffers::new();
 
     tessellator.tessellate_path(
-        path.path_iter().flattened(0.01),
-        &FillOptions::default(),
+        path.path_iter(),
+        &FillOptions::tolerance(0.01),
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     ).unwrap();
 

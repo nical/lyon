@@ -744,7 +744,7 @@ where
 {
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate(PolylineEvents::new(is_closed, it), options, output);
+    return tess.tessellate_flattened_path(PolylineEvents::new(is_closed, it), options, output);
 }
 
 /// Tessellate an arbitray shape that is discribed by an iterator of points.
@@ -758,7 +758,7 @@ where
     Iter: Iterator<Item = Point>,
     Output: GeometryBuilder<FillVertex>,
 {
-    tessellator.tessellate_path(
+    tessellator.tessellate_flattened_path(
         PolylineEvents::new(true, polyline),
         options,
         output
