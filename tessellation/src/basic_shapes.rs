@@ -5,6 +5,7 @@
 use core::FlattenedEvent;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path_stroke::{StrokeOptions, StrokeTessellator, StrokeBuilder};
+use path_fill::{FillOptions, FillTessellator, FillResult};
 use math_utils::compute_normal;
 use math::*;
 use path_builder::BaseBuilder;
@@ -679,13 +680,16 @@ fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
 
 }
 
-/// Tessellate a convex polyline.
-// We insert 2nd point on line first in order to have the neighbours for normal calculation.
+/// Tessellate a convex shape that is discribed by an iterator of points.
+///
+/// The shape is assumed to be convex, calling this function with a concave
+/// shape may produce incorrect results.
 pub fn fill_convex_polyline<Iter, Output>(mut it: Iter, output: &mut Output) -> Count
 where
     Iter: Iterator<Item = Point> + Clone,
     Output: GeometryBuilder<FillVertex>,
 {
+    // We insert 2nd point on line first in order to have the neighbours for normal calculation.
     let mut it1 = it.clone().cycle().skip(1);
     let mut it2 = it.clone().cycle().skip(2);
 
@@ -725,8 +729,9 @@ where
     return output.end_geometry();
 }
 
-/// Tessellate the stroke of a shape that is discribed by an iterator of points
-/// (convenient when tessellating a shape that is represented as a slice `&[Point]`).
+/// Tessellate the stroke of a shape that is discribed by an iterator of points.
+///
+/// Convenient when tessellating a shape that is represented as a slice `&[Point]`.
 pub fn stroke_polyline<Iter, Output>(
     it: Iter,
     is_closed: bool,
@@ -740,6 +745,24 @@ where
     let mut tess = StrokeTessellator::new();
 
     return tess.tessellate(PolylineEvents::new(is_closed, it), options, output);
+}
+
+/// Tessellate an arbitray shape that is discribed by an iterator of points.
+pub fn fill_polyline<Iter, Output>(
+    polyline: Iter,
+    tessellator: &mut FillTessellator,
+    options: &FillOptions,
+    output: &mut Output
+) -> FillResult
+where
+    Iter: Iterator<Item = Point>,
+    Output: GeometryBuilder<FillVertex>,
+{
+    tessellator.tessellate_path(
+        PolylineEvents::new(true, polyline),
+        options,
+        output
+    )
 }
 
 // TODO: This should be in path_iterator but it creates a dependency.
