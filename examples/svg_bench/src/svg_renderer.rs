@@ -281,7 +281,7 @@ fn tessellate_scene(scene: &mut[RenderItem]) {
             }
             if let Some(color) = item.stroke {
                 println!(" -- tessellate stroke");
-                stroke_tessellator.tessellate(
+                stroke_tessellator.tessellate_flattened_path(
                     item.path.path_iter().flattened(0.03),
                     &StrokeOptions::default(),
                     &mut BuffersBuilder::new(&mut buffers, WithColorAndStrokeWidth([

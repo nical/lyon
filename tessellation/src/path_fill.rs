@@ -73,7 +73,7 @@
 //!     let mut tessellator = FillTessellator::new();
 //!
 //!     // Compute the tessellation.
-//!     let result = tessellator.tessellate_path(
+//!     let result = tessellator.tessellate_flattened_path(
 //!         path.path_iter().flattened(0.05),
 //!         &FillOptions::default(),
 //!         &mut vertex_builder
@@ -127,13 +127,12 @@ use core::FlattenedEvent;
 use bezier::utils::{directed_angle, directed_angle2};
 use math_utils::{line_horizontal_intersection_fixed, segment_intersection};
 use path_builder::BaseBuilder;
+use path_iterator::PathIterator;
 
 #[cfg(test)]
 use geometry_builder::{VertexBuffers, simple_builder};
 #[cfg(test)]
 use path::{Path, PathSlice};
-#[cfg(test)]
-use path_iterator::PathIterator;
 #[cfg(test)]
 use extra::rust_logo::build_logo_path;
 
@@ -214,6 +213,24 @@ impl FillTessellator {
 
     /// Compute the tessellation from a path iterator.
     pub fn tessellate_path<Iter, Output>(
+        &mut self,
+        it: Iter,
+        options: &FillOptions,
+        output: &mut Output,
+    ) -> FillResult
+    where
+        Iter: PathIterator,
+        Output: GeometryBuilder<Vertex>,
+    {
+        self.tessellate_flattened_path(
+            it.flattened(options.tolerance),
+            options,
+            output
+        )
+    }
+
+    /// Compute the tessellation from a flattened path iterator.
+    pub fn tessellate_flattened_path<Iter, Output>(
         &mut self,
         it: Iter,
         options: &FillOptions,
@@ -1494,6 +1511,10 @@ impl FillOptions {
         }
     }
 
+    pub fn tolerance(tolerance: f32) -> Self {
+        FillOptions::default().with_tolerance(tolerance)
+    }
+
     pub fn non_zero() -> FillOptions {
         let mut options = FillOptions::default();
         options.fill_rule = FillRule::NonZero;
@@ -1686,7 +1707,7 @@ fn test_monotone_tess() {
 }
 
 #[cfg(test)]
-fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
+fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
@@ -1695,7 +1716,7 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
             tess.enable_logging();
         }
         try!{
-            tess.tessellate_path(path.path_iter().flattened(0.05), &FillOptions::default(), &mut vertex_builder)
+            tess.tessellate_flattened_path(path.path_iter().flattened(0.05), &FillOptions::default(), &mut vertex_builder)
         };
     }
     return Ok(buffers.indices.len() / 3);
@@ -1703,12 +1724,12 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, FillError> {
 
 #[cfg(test)]
 fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
-    let res = ::std::panic::catch_unwind(|| tessellate(path, false));
+    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
 
     if let Ok(Ok(num_triangles)) = res {
         if let Some(expected_triangles) = expected_triangle_count {
             if num_triangles != expected_triangles {
-                tessellate(path, true).unwrap();
+                tessellate_path(path, true).unwrap();
                 panic!("expected {} triangles, got {}", expected_triangles, num_triangles);
             }
         }
@@ -1717,10 +1738,10 @@ fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
 
     ::extra::debugging::find_reduced_test_case(
         path,
-        &|path: Path| { return tessellate(path.as_slice(), false).is_err(); },
+        &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
     );
 
-    tessellate(path, true).unwrap();
+    tessellate_path(path, true).unwrap();
     panic!();
 }
 
@@ -2258,7 +2279,7 @@ fn test_colinear_3() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2273,7 +2294,7 @@ fn test_colinear_4() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2300,7 +2321,7 @@ fn test_colinear_touching_squares() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2346,7 +2367,7 @@ fn test_colinear_touching_squares2_failing() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2374,7 +2395,7 @@ fn test_colinear_touching_squares3() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 
@@ -2446,7 +2467,7 @@ fn test_point_on_edge_right() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2468,7 +2489,7 @@ fn test_point_on_edge_left() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2491,7 +2512,7 @@ fn test_coincident_simple() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2508,7 +2529,7 @@ fn test_coincident_simple_2() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]
@@ -2547,7 +2568,7 @@ fn test_identical_squares() {
 
     let path = builder.build();
 
-    tessellate(path.as_slice(), true).unwrap();
+    tessellate_path(path.as_slice(), true).unwrap();
 }
 
 #[test]

@@ -102,7 +102,7 @@
 //!         let tolerance = 0.1;
 //!
 //!         // Compute the tessellation.
-//!         tessellator.tessellate_path(
+//!         tessellator.tessellate_flattened_path(
 //!             path.path_iter().flattened(tolerance),
 //!             &FillOptions::default(),
 //!             &mut geom_builder

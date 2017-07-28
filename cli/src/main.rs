@@ -127,7 +127,7 @@ fn main() {
         };
 
         let res = ::std::panic::catch_unwind(|| {
-            tessellate::tessellate(cmd)
+            tessellate::tessellate_path(cmd)
         });
 
         match res {
@@ -142,7 +142,7 @@ fn main() {
                     find_reduced_test_case(
                         path.as_slice(),
                         &|path: Path| {
-                            tessellate::tessellate(TessellateCmd {
+                            tessellate::tessellate_path(TessellateCmd {
                                 path: path,
                                 fill: fill,
                                 stroke: stroke_cmd,

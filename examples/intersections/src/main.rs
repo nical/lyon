@@ -150,12 +150,12 @@ fn main() {
         )
     );
 
-    StrokeTessellator::new().tessellate(
+    StrokeTessellator::new().tessellate_flattened_path(
         bezier_path.path_iter().flattened(0.01),
         &StrokeOptions::default().dont_apply_line_width(),
         &mut BuffersBuilder::new(&mut cpu.strokes, WithId(bezier_id.element)),
     );
-    StrokeTessellator::new().tessellate(
+    StrokeTessellator::new().tessellate_flattened_path(
         line_path.path_iter().flattened(0.01),
         &StrokeOptions::default().dont_apply_line_width(),
         &mut BuffersBuilder::new(&mut cpu.strokes, WithId(line_id.element)),

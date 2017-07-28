@@ -17,14 +17,14 @@ impl ::std::convert::From<::std::io::Error> for TessError {
     fn from(err: io::Error) -> Self { TessError::Io(err) }
 }
 
-pub fn tessellate(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError> {
+pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError> {
 
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
 
     if cmd.fill {
         if FillTessellator::new().tessellate_path(
-            cmd.path.path_iter().flattened(cmd.tolerance),
-            &FillOptions::default(),
+            cmd.path.path_iter(),
+            &FillOptions::tolerance(cmd.tolerance),
             &mut BuffersBuilder::new(&mut buffers, ApplyNormal)
         ).is_err() {
             return Err(TessError::Fill);
@@ -32,7 +32,7 @@ pub fn tessellate(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError>
     }
 
     if let Some(width) = cmd.stroke {
-        StrokeTessellator::new().tessellate(
+        StrokeTessellator::new().tessellate_flattened_path(
             cmd.path.path_iter().flattened(cmd.tolerance),
             &StrokeOptions::default(),
             &mut BuffersBuilder::new(&mut buffers, StrokeWidth(width))

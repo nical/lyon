@@ -61,8 +61,8 @@
 //!     let mut tessellator = StrokeTessellator::new();
 //!
 //!     // Compute the tessellation.
-//!     tessellator.tessellate(
-//!         path.path_iter().flattened(0.05),
+//!     tessellator.tessellate_path(
+//!         path.path_iter(),
 //!         &StrokeOptions::default(),
 //!         &mut vertex_builder
 //!     );
@@ -82,6 +82,7 @@ use core::FlattenedEvent;
 use bezier::utils::normalized_tangent;
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use path_builder::BaseBuilder;
+use path_iterator::PathIterator;
 use StrokeVertex as Vertex;
 use Side;
 
@@ -91,7 +92,26 @@ pub struct StrokeTessellator {}
 impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
-    pub fn tessellate<Input, Output>(
+    /// Compute the tessellation from a path iterator.
+    pub fn tessellate_path<Input, Output>(
+        &mut self,
+        input: Input,
+        options: &StrokeOptions,
+        builder: &mut Output,
+    ) -> Count
+    where
+        Input: PathIterator,
+        Output: GeometryBuilder<Vertex>,
+    {
+        self.tessellate_flattened_path(
+            input.flattened(options.tolerance),
+            options,
+            builder,
+        )
+    }
+
+    /// Compute the tessellation from a flattened path iterator.
+    pub fn tessellate_flattened_path<Input, Output>(
         &mut self,
         input: Input,
         options: &StrokeOptions,
@@ -630,6 +650,10 @@ impl StrokeOptions {
             apply_line_width: true,
             _private: (),
         }
+    }
+
+    pub fn tolerance(tolerance: f32) -> Self {
+        StrokeOptions::default().with_tolerance(tolerance)
     }
 
     pub fn with_tolerance(mut self, tolerance: f32) -> StrokeOptions {

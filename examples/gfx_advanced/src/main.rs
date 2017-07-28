@@ -130,11 +130,10 @@ fn main() {
     // zoom level changes (not done here for simplicity).
     let fill_count = FillTessellator::new()
         .tessellate_path(
-            path.path_iter().flattened(0.09),
-            &FillOptions::default(),
+            path.path_iter(),
+            &FillOptions::tolerance(0.09),
             &mut BuffersBuilder::new(&mut cpu.fills, WithId(logo_fill_ids.range.start())),
-        )
-        .unwrap();
+        ).unwrap();
 
     cpu.fill_primitives[logo_fill_ids.first()] = GpuFillPrimitive::new(
         [1.0, 1.0, 1.0, 1.0],
@@ -166,9 +165,9 @@ fn main() {
         )
     );
 
-    StrokeTessellator::new().tessellate(
-        path.path_iter().flattened(0.022),
-        &StrokeOptions::default().dont_apply_line_width(),
+    StrokeTessellator::new().tessellate_path(
+        path.path_iter(),
+        &StrokeOptions::tolerance(0.022).dont_apply_line_width(),
         &mut BuffersBuilder::new(&mut cpu.strokes, WithId(logo_stroke_id.element)),
     );
 
