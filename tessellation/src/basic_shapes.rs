@@ -50,73 +50,10 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
     v1: Point,
     v2: Point,
     v3: Point,
+    options: &StrokeOptions,
     output: &mut Output,
 ) -> Count {
-    output.begin_geometry();
-
-    let na = compute_normal(v1 - v3, v2 - v1);
-    let nb = compute_normal(v2 - v1, v3 - v2);
-    let nc = compute_normal(v3 - v2, v1 - v3);
-
-    let a1 = output.add_vertex(
-        StrokeVertex {
-            position: v1,
-            normal: -na,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let a2 = output.add_vertex(
-        StrokeVertex {
-            position: v1,
-            normal: na,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let b1 = output.add_vertex(
-        StrokeVertex {
-            position: v2,
-            normal: -nb,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let b2 = output.add_vertex(
-        StrokeVertex {
-            position: v2,
-            normal: nb,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let c1 = output.add_vertex(
-        StrokeVertex {
-            position: v3,
-            normal: -nc,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let c2 = output.add_vertex(
-        StrokeVertex {
-            position: v3,
-            normal: nc,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    output.add_triangle(a1, a2, b2);
-    output.add_triangle(a2, b2, b1);
-    output.add_triangle(b1, b2, c1);
-    output.add_triangle(b2, c2, c1);
-    output.add_triangle(c1, c2, a1);
-    output.add_triangle(c2, a2, a1);
-
-    return output.end_geometry();
+    stroke_polyline([v1, v2, v3].iter().cloned(), true, options, output)
 }
 
 
@@ -166,93 +103,10 @@ pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
     v2: Point,
     v3: Point,
     v4: Point,
+    options: &StrokeOptions,
     output: &mut Output,
 ) -> Count {
-    output.begin_geometry();
-
-    let na = compute_normal(v1 - v4, v2 - v1);
-    let nb = compute_normal(v2 - v1, v3 - v2);
-    let nc = compute_normal(v3 - v2, v4 - v3);
-    let nd = compute_normal(v4 - v3, v1 - v4);
-
-    let a1 = output.add_vertex(
-        StrokeVertex {
-            position: v1,
-            normal: -na,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let a2 = output.add_vertex(
-        StrokeVertex {
-            position: v1,
-            normal: na,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let b1 = output.add_vertex(
-        StrokeVertex {
-            position: v2,
-            normal: -nb,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let b2 = output.add_vertex(
-        StrokeVertex {
-            position: v2,
-            normal: nb,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let c1 = output.add_vertex(
-        StrokeVertex {
-            position: v3,
-            normal: -nc,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let c2 = output.add_vertex(
-        StrokeVertex {
-            position: v3,
-            normal: nc,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let d1 = output.add_vertex(
-        StrokeVertex {
-            position: v4,
-            normal: -nc,
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let d2 = output.add_vertex(
-        StrokeVertex {
-            position: v4,
-            normal: nd,
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    output.add_triangle(a1, a2, b2);
-    output.add_triangle(a2, b2, b1);
-    output.add_triangle(b1, b2, c1);
-    output.add_triangle(b2, c2, c1);
-    output.add_triangle(c1, c2, d1);
-    output.add_triangle(c2, d2, d1);
-    output.add_triangle(d1, d2, a1);
-    output.add_triangle(d2, a2, a1);
-
-    return output.end_geometry();
+    stroke_polyline([v1, v2, v3, v4].iter().cloned(), true, options, output)
 }
 
 /// Tessellate an axis-aligned rectangle.
@@ -587,7 +441,7 @@ fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
 pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     rect: &Rect,
     radii: &BorderRadii,
-    tolerance: f32,
+    options: &StrokeOptions,
     output: &mut Output,
 ) -> Count {
     output.begin_geometry();
@@ -667,16 +521,15 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
     let mut nums = radii.iter().map(|&radius| {
         if radius > 0.0 {
             let arc_len = 0.5 * PI * radius;
-            let step = circle_flattening_step(radius, tolerance);
+            let step = circle_flattening_step(radius, options.tolerance);
             (arc_len / step).ceil() as u32  - 1
         } else {
             0
         }
     });
 
-    let options = StrokeOptions::default();
     { // output borrow scope start
-        let mut builder = StrokeBuilder::new(&options, output);
+        let mut builder = StrokeBuilder::new(options, output);
         builder.move_to(p7);
         for i in 0..4 {
             stroke_border_radius(
@@ -763,7 +616,12 @@ pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
 }
 
 /// Tessellate the stroke of a circle.
-pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output: &mut Output) -> Count
+pub fn stroke_circle<Output>(
+    center: Point,
+    radius: f32,
+    options: &StrokeOptions,
+    output: &mut Output
+) -> Count
     where Output: GeometryBuilder<StrokeVertex>
 {
     output.begin_geometry();
@@ -777,12 +635,11 @@ pub fn stroke_circle<Output>(center: Point, radius: f32, tolerance: f32, output:
     let starting_point = center + vec2(1.0, 0.0) * radius;
 
     let arc_len = 2.0 * PI * radius;
-    let step = circle_flattening_step(radius, tolerance);
+    let step = circle_flattening_step(radius, options.tolerance);
     let num_points = (arc_len / step).ceil() as u32 - 1;
 
-    let options = StrokeOptions::default();
     { // output borrow scope start
-        let mut builder = StrokeBuilder::new(&options, output);
+        let mut builder = StrokeBuilder::new(options, output);
         builder.move_to(starting_point);
         stroke_border_radius(
             center,
@@ -870,15 +727,19 @@ where
 
 /// Tessellate the stroke of a shape that is discribed by an iterator of points
 /// (convenient when tessellating a shape that is represented as a slice `&[Point]`).
-pub fn stroke_polyline<Iter, Output>(it: Iter, is_closed: bool, output: &mut Output) -> Count
+pub fn stroke_polyline<Iter, Output>(
+    it: Iter,
+    is_closed: bool,
+    options: &StrokeOptions,
+    output: &mut Output
+) -> Count
 where
     Iter: Iterator<Item = Point>,
     Output: GeometryBuilder<StrokeVertex>,
 {
-    let options = StrokeOptions::default();
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate(PolylineEvents::new(is_closed, it), &options, output);
+    return tess.tessellate(PolylineEvents::new(is_closed, it), options, output);
 }
 
 // TODO: This should be in path_iterator but it creates a dependency.
