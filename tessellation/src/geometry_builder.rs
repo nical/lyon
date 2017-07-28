@@ -119,7 +119,7 @@
 //!
 //! ```
 //! extern crate lyon_tessellation;
-//! use lyon_tessellation::{GeometryBuilder, Count};
+//! use lyon_tessellation::{GeometryBuilder, StrokeOptions, Count};
 //! use lyon_tessellation::geometry_builder::VertexId;
 //! use lyon_tessellation::basic_shapes::stroke_polyline;
 //! use lyon_tessellation::math::point;
@@ -175,6 +175,7 @@
 //!     stroke_polyline(
 //!         [point(0.0, 0.0), point(10.0, 0.0), point(5.0, 5.0)].iter().cloned(),
 //!         true,
+//!         &StrokeOptions::default(),
 //!         &mut output,
 //!     );
 //! }
