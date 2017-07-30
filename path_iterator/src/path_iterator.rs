@@ -311,6 +311,112 @@ fn flattened_to_path_event(evt: FlattenedEvent) -> PathEvent { evt.to_path_event
 fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg_event() }
 fn path_to_svg_event(evt: PathEvent) -> SvgEvent { evt.to_svg_event() }
 
+/// An iterator that consumes an iterator of `Point`s and produces `FlattenedEvent`s.
+///
+/// # Example
+///
+/// ```
+/// # extern crate lyon_path_iterator;
+/// # use lyon_path_iterator::FromPolyline;
+/// # use lyon_path_iterator::math::point;
+/// # fn main() {
+/// let points = [
+///     point(1.0, 1.0),
+///     point(2.0, 1.0),
+///     point(1.0, 2.0)
+/// ];
+/// let iter = FromPolyline::closed(points.iter().cloned());
+/// # }
+/// ```
+pub struct FromPolyline<Iter> {
+    iter: Iter,
+    first: bool,
+    done: bool,
+    close: bool,
+}
+
+impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
+    pub fn new(closed: bool, iter: Iter) -> Self {
+        FromPolyline {
+            iter: iter,
+            first: true,
+            done: false,
+            close: closed,
+        }
+    }
+
+    pub fn closed(iter: Iter) -> Self { FromPolyline::new(true, iter) }
+
+    pub fn open(iter: Iter) -> Self { FromPolyline::new(false, iter) }
+}
+
+impl<Iter> Iterator for FromPolyline<Iter>
+where
+    Iter: Iterator<Item = Point>,
+{
+    type Item = FlattenedEvent;
+
+    fn next(&mut self) -> Option<FlattenedEvent> {
+        if self.done {
+            return None;
+        }
+
+        if let Some(next) = self.iter.next() {
+            return Some(
+                if self.first {
+                    self.first = false;
+                    FlattenedEvent::MoveTo(next)
+                } else {
+                    FlattenedEvent::LineTo(next)
+                }
+            );
+        }
+
+        self.done = true;
+        if self.close {
+            return Some(FlattenedEvent::Close);
+        }
+
+        return None;
+    }
+}
+
+#[test]
+fn test_from_polyline_open() {
+    let points = &[
+        point(1.0, 1.0),
+        point(3.0, 1.0),
+        point(4.0, 5.0),
+        point(5.0, 2.0),
+    ];
+
+    let mut evts = FromPolyline::open(points.iter().cloned());
+
+    assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
+    assert_eq!(evts.next(), None);
+}
+
+#[test]
+fn test_from_polyline_closed() {
+    let points = &[
+        point(1.0, 1.0),
+        point(3.0, 1.0),
+        point(4.0, 5.0),
+        point(5.0, 2.0),
+    ];
+
+    let mut evts = FromPolyline::closed(points.iter().cloned());
+
+    assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Close));
+}
+
 /*
 #[test]
 fn test_svg_to_flattened_iter() {

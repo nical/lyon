@@ -9,6 +9,7 @@ use path_fill::{FillOptions, FillTessellator, FillResult};
 use math_utils::compute_normal;
 use math::*;
 use path_builder::BaseBuilder;
+use path_iterator::FromPolyline;
 use {FillVertex, StrokeVertex, Side};
 
 use std::f32::consts::PI;
@@ -744,7 +745,7 @@ where
 {
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate_flattened_path(PolylineEvents::new(is_closed, it), options, output);
+    return tess.tessellate_flattened_path(FromPolyline::new(is_closed, it), options, output);
 }
 
 /// Tessellate an arbitray shape that is discribed by an iterator of points.
@@ -759,66 +760,10 @@ where
     Output: GeometryBuilder<FillVertex>,
 {
     tessellator.tessellate_flattened_path(
-        PolylineEvents::new(true, polyline),
+        FromPolyline::closed(polyline),
         options,
         output
     )
-}
-
-// TODO: This should be in path_iterator but it creates a dependency.
-
-/// An iterator that consumes an iterator of points and produces `FlattenedEvent`s.
-pub struct PolylineEvents<Iter> {
-    iter: Iter,
-    first: bool,
-    done: bool,
-    close: bool,
-}
-
-impl<Iter: Iterator<Item = Point>> PolylineEvents<Iter> {
-    pub fn new(closed: bool, iter: Iter) -> Self {
-        PolylineEvents {
-            iter: iter,
-            first: true,
-            done: false,
-            close: closed,
-        }
-    }
-
-    pub fn closed(iter: Iter) -> Self { PolylineEvents::new(true, iter) }
-
-    pub fn open(iter: Iter) -> Self { PolylineEvents::new(false, iter) }
-}
-
-impl<Iter> Iterator for PolylineEvents<Iter>
-where
-    Iter: Iterator<Item = Point>,
-{
-    type Item = FlattenedEvent;
-
-    fn next(&mut self) -> Option<FlattenedEvent> {
-        if self.done {
-            return None;
-        }
-
-        if let Some(next) = self.iter.next() {
-            return Some(
-                if self.first {
-                    self.first = false;
-                    FlattenedEvent::MoveTo(next)
-                } else {
-                    FlattenedEvent::LineTo(next)
-                }
-            );
-        }
-
-        self.done = true;
-        if self.close {
-            return Some(FlattenedEvent::Close);
-        }
-
-        return None;
-    }
 }
 
 // Returns the maximum length of individual line segments when approximating a
@@ -838,38 +783,3 @@ fn circle_flattening_step(radius:f32, tolerance: f32) -> f32 {
     2.0 * (2.0 * tolerance * radius - tolerance * tolerance).sqrt()
 }
 
-#[test]
-fn test_polyline_events_open() {
-    let points = &[
-        point(1.0, 1.0),
-        point(3.0, 1.0),
-        point(4.0, 5.0),
-        point(5.0, 2.0),
-    ];
-
-    let mut evts = PolylineEvents::open(points.iter().cloned());
-
-    assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
-    assert_eq!(evts.next(), None);
-}
-
-#[test]
-fn test_polyline_events_closed() {
-    let points = &[
-        point(1.0, 1.0),
-        point(3.0, 1.0),
-        point(4.0, 5.0),
-        point(5.0, 2.0),
-    ];
-
-    let mut evts = PolylineEvents::closed(points.iter().cloned());
-
-    assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Close));
-}
