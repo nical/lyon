@@ -9,10 +9,9 @@ use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
-use lyon::tessellation::path_fill::{FillTessellator, FillOptions};
+use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::path::Path;
-use lyon::path_iterator::PathIterator;
 
 use gfx::traits::{Device, FactoryExt};
 

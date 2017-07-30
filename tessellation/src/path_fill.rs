@@ -50,8 +50,7 @@
 //! # use lyon_path_iterator::*;
 //! # use lyon_core::math::{Point, point};
 //! # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
-//! # use lyon_tessellation::path_fill::*;
-//! # use lyon_tessellation::FillVertex;
+//! # use lyon_tessellation::*;
 //! # fn main() {
 //! // Create a simple path.
 //! let mut path_builder = Path::builder();

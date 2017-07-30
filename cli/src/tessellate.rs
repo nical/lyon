@@ -2,9 +2,11 @@ use commands::TessellateCmd;
 use lyon::math::*;
 use lyon::path_iterator::*;
 use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor};
-use lyon::tessellation::path_fill::*;
-use lyon::tessellation::path_stroke::*;
-use lyon::tessellation::{FillVertex, StrokeVertex};
+use lyon::tessellation::{
+    FillVertex, StrokeVertex,
+    StrokeOptions, StrokeTessellator,
+    FillOptions, FillTessellator
+};
 use std::io;
 
 #[derive(Debug)]

@@ -175,9 +175,9 @@ extern crate lyon_path as path;
 extern crate lyon_extra as extra;
 
 pub mod basic_shapes;
-pub mod path_fill;
-pub mod path_stroke;
 pub mod geometry_builder;
+mod path_fill;
+mod path_stroke;
 mod math_utils;
 
 pub use core::*;
@@ -205,9 +205,6 @@ pub struct StrokeVertex {
     pub position: math::Point,
     /// Normal at this vertex such that extruding the vertices along the normal would
     /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
-    ///
-    /// Note that some tessellators aren't fully implemented and don't provide the
-    /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
     pub normal: math::Vec2,
     /// How far along the path this vertex is.
     pub advancement: f32,
@@ -226,4 +223,172 @@ pub struct FillVertex {
     /// Note that some tessellators aren't fully implemented and don't provide the
     /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
     pub normal: math::Vec2,
+}
+
+/// Line cap as defined by the SVG specification.
+///
+/// See: https://svgwg.org/specs/strokes/#StrokeLinecapProperty
+///
+/// <svg viewBox="0 0 400 399.99998" height="400" width="400">
+///   <g transform="translate(0,-652.36229)">
+///     <path style="opacity:1;fill:#80b3ff;stroke:#000000;stroke-width:1;stroke-linejoin:round;" d="m 240,983 a 30,30 0 0 1 -25,-15 30,30 0 0 1 0,-30.00001 30,30 0 0 1 25.98076,-15 l 0,30 z"/>
+///     <path style="fill:#80b3ff;stroke:#000000;stroke-width:1px;stroke-linecap:butt;" d="m 390,782.6 -150,0 0,-60 150,0.5"/>
+///     <circle style="opacity:1;fill:#ff7f2a;stroke:#000000;stroke-width:1;stroke-linejoin:round;" r="10" cy="752.89227" cx="240.86813"/>
+///     <path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linejoin:round;" d="m 240,722.6 150,60"/>
+///     <path style="fill:#80b3ff;stroke:#000000;stroke-width:1px;stroke-linecap:butt;" d="m 390,882 -180,0 0,-60 180,0.4"/>
+///     <circle style="opacity:1;fill:#ff7f2a;stroke:#000000;stroke-width:1;stroke-linejoin:round;" cx="239.86813" cy="852.20868" r="10" />
+///     <path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linejoin:round;" d="m 210.1,822.3 180,60"/>
+///     <path style="fill:#80b3ff;stroke:#000000;stroke-width:1px;stroke-linecap:butt;" d="m 390,983 -150,0 0,-60 150,0.4"/>
+///     <circle style="opacity:1;fill:#ff7f2a;stroke:#000000;stroke-width:1;stroke-linejoin:round;" cx="239.86813" cy="953.39734" r="10" />
+///     <path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linejoin:round;" d="m 390,983 -150,-60 L 210,953 l 30,30 -21.5,-9.5 L 210,953 218.3,932.5 240,923.4"/>
+///     <text y="757.61273" x="183.65314" style="font-style:normal;font-weight:normal;font-size:20px;line-height:125%;font-family:Sans;text-align:end;text-anchor:end;fill:#000000;stroke:none;">
+///        <tspan y="757.61273" x="183.65314">LineCap::Butt</tspan>
+///        <tspan y="857.61273" x="183.65314">LineCap::Square</tspan>
+///        <tspan y="957.61273" x="183.65314">LineCap::Round</tspan>
+///      </text>
+///   </g>
+/// </svg>
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LineCap {
+    /// The stroke for each subpath does not extend beyond its two endpoints.
+    /// A zero length subpath will therefore not have any stroke.
+    Butt,
+    /// At the end of each subpath, the shape representing the stroke will be
+    /// extended by a rectangle with the same width as the stroke width and
+    /// whose length is half of the stroke width. If a subpath has zero length,
+    /// then the resulting effect is that the stroke for that subpath consists
+    /// solely of a square with side length equal to the stroke width, centered
+    /// at the subpath's point.
+    Square,
+    /// At each end of each subpath, the shape representing the stroke will be extended
+    /// by a half circle with a radius equal to the stroke width.
+    /// If a subpath has zero length, then the resulting effect is that the stroke for
+    /// that subpath consists solely of a full circle centered at the subpath's point.
+    Round,
+}
+
+/// Line join as defined by the SVG specification.
+///
+/// See: https://svgwg.org/specs/strokes/#StrokeLinejoinProperty
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LineJoin {
+    /// A sharp corner is to be used to join path segments.
+    Miter,
+    /// [Not implemented] Same as a miter join, but if the miter limit is exceeded,
+    /// the miter is clipped at a miter length equal to the miter limit value
+    /// multiplied by the stroke width.
+    MiterClip,
+    /// A round corner is to be used to join path segments.
+    Round,
+    /// [Not implemented] A bevelled corner is to be used to join path segments.
+    /// The bevel shape is a triangle that fills the area between the two stroked
+    /// segments.
+    Bevel,
+}
+
+/// Parameters for the tessellator.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct StrokeOptions {
+    /// What cap to use at the start of each sub-path.
+    pub start_cap: LineCap,
+
+    /// What cap to use at the end of each sub-path.
+    pub end_cap: LineCap,
+
+    /// See the SVG specification.
+    pub line_join: LineJoin,
+
+    /// Line width
+    pub line_width: f32,
+
+    /// See the SVG specification.
+    ///
+    /// Not implemented yet!
+    pub miter_limit: f32,
+
+    /// Maximum allowed distance to the path when building an approximation.
+    pub tolerance: f32,
+
+    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
+    /// a gradient to smooth the edges.
+    ///
+    /// Not implemented yet!
+    pub vertex_aa: bool,
+
+    /// Apply line width
+    ///
+    /// When set to false, the generated vertices will all be positioned in the centre
+    /// of the line. The width can be applied later on (eg in a vertex shader) by adding
+    /// the vertex normal multiplied by the line with to each vertex position.
+    pub apply_line_width: bool,
+
+    // To be able to add fields without making it a breaking change, add an empty private field
+    // which makes it impossible to create a StrokeOptions without calling the constructor.
+    _private: (),
+}
+
+impl StrokeOptions {
+    pub fn default() -> StrokeOptions {
+        StrokeOptions {
+            start_cap: LineCap::Butt,
+            end_cap: LineCap::Butt,
+            line_join: LineJoin::Miter,
+            line_width: 1.0,
+            miter_limit: 10.0,
+            tolerance: 0.1,
+            vertex_aa: false,
+            apply_line_width: true,
+            _private: (),
+        }
+    }
+
+    pub fn tolerance(tolerance: f32) -> Self {
+        StrokeOptions::default().with_tolerance(tolerance)
+    }
+
+    pub fn with_tolerance(mut self, tolerance: f32) -> StrokeOptions {
+        self.tolerance = tolerance;
+        return self;
+    }
+
+    pub fn with_line_cap(mut self, cap: LineCap) -> StrokeOptions {
+        self.start_cap = cap;
+        self.end_cap = cap;
+        return self;
+    }
+
+    pub fn with_start_cap(mut self, cap: LineCap) -> StrokeOptions {
+        self.start_cap = cap;
+        return self;
+    }
+
+    pub fn with_end_cap(mut self, cap: LineCap) -> StrokeOptions {
+        self.end_cap = cap;
+        return self;
+    }
+
+    pub fn with_line_join(mut self, join: LineJoin) -> StrokeOptions {
+        self.line_join = join;
+        return self;
+    }
+
+    pub fn with_line_width(mut self, width: f32) -> StrokeOptions {
+        self.line_width = width;
+        return self;
+    }
+
+    pub fn with_miter_limit(mut self, limit: f32) -> StrokeOptions {
+        self.miter_limit = limit;
+        return self;
+    }
+
+    pub fn with_vertex_aa(mut self) -> StrokeOptions {
+        self.vertex_aa = true;
+        return self;
+    }
+
+    pub fn dont_apply_line_width(mut self) -> StrokeOptions {
+        self.apply_line_width = false;
+        return self;
+    }
 }

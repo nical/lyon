@@ -2,15 +2,14 @@
 
 //! Tessellation routines for simple shapes.
 
-use core::FlattenedEvent;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
-use path_stroke::{StrokeOptions, StrokeTessellator, StrokeBuilder};
+use path_stroke::{StrokeTessellator, StrokeBuilder};
 use path_fill::{FillOptions, FillTessellator, FillResult};
 use math_utils::compute_normal;
 use math::*;
 use path_builder::BaseBuilder;
 use path_iterator::FromPolyline;
-use {FillVertex, StrokeVertex, Side};
+use {FillVertex, StrokeVertex, StrokeOptions, Side};
 
 use std::f32::consts::PI;
 
