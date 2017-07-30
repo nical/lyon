@@ -162,6 +162,7 @@ pub struct StrokeBuilder<'l, Output: 'l> {
     second_right_id: VertexId,
     prev_normal: Vec2,
     nth: u32,
+    sub_path_idx: u32,
     length: f32,
     sub_path_start_length: f32,
     options: StrokeOptions,
@@ -214,6 +215,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l,
         self.nth = 0;
         self.current = self.first;
         self.sub_path_start_length = self.length;
+        self.sub_path_idx += 1;
     }
 
     fn current_position(&self) -> Point { self.current }
@@ -238,67 +240,105 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     pub fn new(options: &StrokeOptions, builder: &'l mut Output) -> Self {
         let zero = Point::new(0.0, 0.0);
         return StrokeBuilder {
-                   first: zero,
-                   second: zero,
-                   previous: zero,
-                   current: zero,
-                   prev_normal: Vec2::new(0.0, 0.0),
-                   previous_left_id: VertexId(0),
-                   previous_right_id: VertexId(0),
-                   second_left_id: VertexId(0),
-                   second_right_id: VertexId(0),
-                   nth: 0,
-                   length: 0.0,
-                   sub_path_start_length: 0.0,
-                   options: *options,
-                   output: builder,
-               };
+            first: zero,
+            second: zero,
+            previous: zero,
+            current: zero,
+            prev_normal: Vec2::new(0.0, 0.0),
+            previous_left_id: VertexId(0),
+            previous_right_id: VertexId(0),
+            second_left_id: VertexId(0),
+            second_right_id: VertexId(0),
+            nth: 0,
+            sub_path_idx: 0,
+            length: 0.0,
+            sub_path_start_length: 0.0,
+            options: *options,
+            output: builder,
+        };
     }
 
     pub fn set_options(&mut self, options: &StrokeOptions) { self.options = *options; }
 
+    fn tessellate_empty_square_cap(&mut self) {
+        let a = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: vec2(-1.0, -1.0),
+                advancement: 0.0,
+                side: Side::Left,
+            }
+        );
+        let b = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: vec2(1.0, -1.0),
+                advancement: 0.0,
+                side: Side::Left,
+            }
+        );
+        let c = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: vec2(1.0, 1.0),
+                advancement: 0.0,
+                side: Side::Right,
+            }
+        );
+        let d = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: vec2(-1.0, 1.0),
+                advancement: 0.0,
+                side: Side::Right,
+            }
+        );
+        self.output.add_triangle(a, b, c);
+        self.output.add_triangle(a, c, d);
+    }
+
+    fn tessellate_empty_round_cap(&mut self) {
+        let center = self.current;
+        let left_id = add_vertex!(
+            self,
+            Vertex {
+                position: center,
+                normal: vec2(-1.0, 0.0),
+                advancement: 0.0,
+                side: Side::Left,
+            }
+        );
+        let right_id = add_vertex!(
+            self,
+            Vertex {
+                position: center,
+                normal: vec2(1.0, 0.0),
+                advancement: 0.0,
+                side: Side::Right,
+            }
+        );
+        self.tessellate_round_cap(center, vec2(0.0, -1.0), left_id, right_id, true);
+        self.tessellate_round_cap(center, vec2(0.0, 1.0), left_id, right_id, false);
+    }
+
     fn finish(&mut self) {
-        if self.options.start_cap == LineCap::Square && self.nth == 0 {
-            // Even if there is no edge, if we are using square caps we have to place a square
-            // at the current position.
-            let a = add_vertex!(
-                self,
-                Vertex {
-                    position: self.current,
-                    normal: vec2(-1.0, -1.0),
-                    advancement: 0.0,
-                    side: Side::Left,
+        if self.nth == 0 && self.sub_path_idx > 0 {
+            match self.options.start_cap {
+                LineCap::Square => {
+                    // Even if there is no edge, if we are using square caps we have to place a square
+                    // at the current position.
+                    self.tessellate_empty_square_cap();
                 }
-            );
-            let b = add_vertex!(
-                self,
-                Vertex {
-                    position: self.current,
-                    normal: vec2(1.0, -1.0),
-                    advancement: 0.0,
-                    side: Side::Left,
+                LineCap::Round => {
+                    // Same thing for round caps.
+                    self.tessellate_empty_round_cap();
                 }
-            );
-            let c = add_vertex!(
-                self,
-                Vertex {
-                    position: self.current,
-                    normal: vec2(1.0, 1.0),
-                    advancement: 0.0,
-                    side: Side::Right,
-                }
-            );
-            let d = add_vertex!(
-                self,
-                Vertex {
-                    position: self.current,
-                    normal: vec2(-1.0, 1.0),
-                    advancement: 0.0,
-                    side: Side::Right,
-                }
-            );
-            self.output.add_triangle(a, b, c);
-            self.output.add_triangle(a, c, d);
+                _ => {}
+            }
         }
 
         // last edge
@@ -371,7 +411,9 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
             self.output.add_triangle(first_right_id, first_left_id, self.second_right_id);
             self.output.add_triangle(first_left_id, self.second_left_id, self.second_right_id);
+
         }
+        self.sub_path_idx += 1;
     }
 
     fn edge_to(&mut self, to: Point) {
