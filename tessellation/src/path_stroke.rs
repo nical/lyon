@@ -79,12 +79,15 @@
 
 use math::*;
 use core::FlattenedEvent;
-use bezier::utils::normalized_tangent;
+use bezier::utils::{normalized_tangent, directed_angle};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
+use basic_shapes::circle_flattening_step;
 use path_builder::BaseBuilder;
 use path_iterator::PathIterator;
 use StrokeVertex as Vertex;
 use Side;
+
+use std::f32::consts::PI;
 
 /// A Context object that can tessellate stroke operations for complex paths.
 pub struct StrokeTessellator {}
@@ -255,16 +258,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     pub fn set_options(&mut self, options: &StrokeOptions) { self.options = *options; }
 
     fn finish(&mut self) {
-        match self.options.line_cap {
-            LineCap::Butt | LineCap::Square => {}
-            _ => {
-                println!(
-                    "[StrokeTessellator] umimplemented {:?} line cap, defaulting to LineCap::Butt.",
-                    self.options.line_cap
-                );
-            }
-        }
-
         let hw = 0.5;
 
         if self.options.line_cap == LineCap::Square && self.nth == 0 {
@@ -323,6 +316,12 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self.edge_to(p);
             // Restore the real current position.
             self.current = current;
+
+            if self.options.line_cap == LineCap::Round {
+                let left_id = self.previous_left_id;
+                let right_id = self.previous_right_id;
+                self.tessellate_round_cap(current, d, left_id, right_id, false);
+            }
         }
 
         // first edge
@@ -356,6 +355,11 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 }
             );
 
+
+            if self.options.line_cap == LineCap::Round {
+                self.tessellate_round_cap(first, d, first_left_id, first_right_id, true);
+            }
+
             self.output.add_triangle(first_right_id, first_left_id, self.second_right_id);
             self.output.add_triangle(first_left_id, self.second_left_id, self.second_right_id);
         }
@@ -379,10 +383,10 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         let normal = get_angle_normal(self.previous, self.current, to);
 
         let (start_left_id, start_right_id, end_left_id, end_right_id) = if self.nth > 0 {
-            // Tesselate join
-            self.tesselate_join(to, normal)
+            // Tessellate join
+            self.tessellate_join(to, normal)
         } else {
-            // Tesselate a cap at the start
+            // Tessellate a cap at the start
             let left_id = add_vertex!(
                 self,
                 Vertex {
@@ -406,7 +410,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             (left_id, right_id, left_id, right_id)
         };
 
-        // Tesselate edge
+        // Tessellate edge
         if self.nth > 1 {
             self.output.add_triangle(self.previous_left_id, self.previous_right_id, start_left_id);
             self.output.add_triangle(self.previous_right_id, start_left_id, start_right_id);
@@ -427,7 +431,76 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         self.nth += 1;
     }
 
-    fn tesselate_join(&mut self, to: Point, normal: Vec2) -> (VertexId, VertexId, VertexId, VertexId) {
+    fn tessellate_round_cap(
+        &mut self,
+        center: Point,
+        dir: Vec2,
+        left: VertexId,
+        right: VertexId,
+        is_start: bool,
+    ) {
+        let radius = self.options.line_width.abs();
+        if radius < 1e-4 {
+            return;
+        }
+
+        let arc_len = 0.5 * PI * radius;
+        let step = circle_flattening_step(radius, self.options.tolerance);
+        let num_segments = (arc_len / step).ceil();
+        let num_recursions = num_segments.log2() as u32 * 2;
+
+        let dir = dir.normalize();
+        let advancement = self.length;
+
+        let quarter_angle = if is_start { -PI * 0.5 } else { PI * 0.5 };
+        let mid_angle = directed_angle(vec2(1.0, 0.0), dir);
+        let left_angle = mid_angle + quarter_angle;
+        let right_angle = mid_angle - quarter_angle;
+
+        // TODO: use the macro!
+        let mid_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: center,
+                normal: dir * 0.5,
+                advancement: advancement,
+                side: Side::Left,
+            }
+        );
+
+        self.output.add_triangle(left, mid_vertex, right);
+
+        let apply_width = if self.options.apply_line_width {
+            self.options.line_width * 0.5
+        } else {
+            0.0
+        };
+
+        tess_round_cap(
+            center,
+            (left_angle, mid_angle),
+            radius,
+            left, mid_vertex,
+            num_recursions,
+            advancement,
+            Side::Left,
+            apply_width,
+            self.output
+        );
+        tess_round_cap(
+            center,
+            (mid_angle, right_angle),
+            radius,
+            mid_vertex, right,
+            num_recursions,
+            advancement,
+            Side::Right,
+            apply_width,
+            self.output
+        );
+    }
+
+    fn tessellate_join(&mut self, to: Point, normal: Vec2) -> (VertexId, VertexId, VertexId, VertexId) {
         // Calculate which side is at the "front" of the join (aka. the pointy side)
         let a_line = self.current - self.previous;
         let b_line = to - self.current;
@@ -753,4 +826,59 @@ pub enum LineJoin {
     /// The bevel shape is a triangle that fills the area between the two stroked
     /// segments.
     Bevel,
+}
+
+fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
+    center: Point,
+    angle: (f32, f32),
+    radius: f32,
+    va: VertexId,
+    vb: VertexId,
+    num_recursions: u32,
+    advancement: f32,
+    side: Side,
+    line_width: f32,
+    output: &mut Output
+) {
+    if num_recursions == 0 {
+        return;
+    }
+
+    let mid_angle = (angle.0 + angle.1) * 0.5;
+
+    let normal = vec2(mid_angle.cos(), mid_angle.sin()) * 0.5;
+
+    let vertex = output.add_vertex(Vertex {
+        position: center + normal * line_width,
+        normal: normal,
+        advancement,
+        side,
+    });
+
+    output.add_triangle(va, vertex, vb);
+
+    tess_round_cap(
+        center,
+        (angle.0, mid_angle),
+        radius,
+        va,
+        vertex,
+        num_recursions - 1,
+        advancement,
+        side,
+        line_width,
+        output
+    );
+    tess_round_cap(
+        center,
+        (mid_angle, angle.1),
+        radius,
+        vertex,
+        vb,
+        num_recursions - 1,
+        advancement,
+        side,
+        line_width,
+        output
+    );
 }

@@ -779,7 +779,7 @@ where
 //  r: the radius
 //  t: the tolerance threshold
 //  d: the line segment length
-fn circle_flattening_step(radius:f32, tolerance: f32) -> f32 {
+pub(crate) fn circle_flattening_step(radius:f32, tolerance: f32) -> f32 {
     2.0 * (2.0 * tolerance * radius - tolerance * tolerance).sqrt()
 }
 
