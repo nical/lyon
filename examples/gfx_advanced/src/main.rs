@@ -15,7 +15,6 @@ use lyon::tessellation::path_fill::{FillTessellator, FillOptions};
 use lyon::tessellation::path_stroke::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 use lyon::path::Path;
-use lyon::path_iterator::PathIterator;
 use lyon_renderer::buffer::{Id, BufferStore};
 use lyon_renderer::glsl::*;
 use lyon_renderer::renderer::{
@@ -353,7 +352,7 @@ fn main() {
         show_points: false,
         show_wireframe: false,
         stroke_width: 0.0,
-        target_stroke_width: 1.0,
+        target_stroke_width: 0.5,
         draw_background: true,
     };
 

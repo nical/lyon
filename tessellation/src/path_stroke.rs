@@ -258,8 +258,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     pub fn set_options(&mut self, options: &StrokeOptions) { self.options = *options; }
 
     fn finish(&mut self) {
-        let hw = 0.5;
-
         if self.options.line_cap == LineCap::Square && self.nth == 0 {
             // Even if there is no edge, if we are using square caps we have to place a square
             // at the current position.
@@ -267,7 +265,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 self,
                 Vertex {
                     position: self.current,
-                    normal: vec2(-hw, -hw),
+                    normal: vec2(-1.0, -1.0),
                     advancement: 0.0,
                     side: Side::Left,
                 }
@@ -276,7 +274,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 self,
                 Vertex {
                     position: self.current,
-                    normal: vec2(hw, -hw),
+                    normal: vec2(1.0, -1.0),
                     advancement: 0.0,
                     side: Side::Left,
                 }
@@ -285,7 +283,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 self,
                 Vertex {
                     position: self.current,
-                    normal: vec2(hw, hw),
+                    normal: vec2(1.0, 1.0),
                     advancement: 0.0,
                     side: Side::Right,
                 }
@@ -294,7 +292,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 self,
                 Vertex {
                     position: self.current,
-                    normal: vec2(-hw, hw),
+                    normal: vec2(-1.0, 1.0),
                     advancement: 0.0,
                     side: Side::Right,
                 }
@@ -310,6 +308,11 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             if self.options.line_cap == LineCap::Square {
                 // The easiest way to implement square caps is to lie about the current position
                 // and move it slightly to accommodate for the width/2 extra length.
+                let hw = if self.options.apply_line_width {
+                    self.options.line_width * 0.5
+                } else {
+                    0.5
+                };
                 self.current += d.normalize() * hw;
             }
             let p = self.current + d;
@@ -330,10 +333,16 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let d = first - self.second;
 
             if self.options.line_cap == LineCap::Square {
+                let hw = if self.options.apply_line_width {
+                    self.options.line_width * 0.5
+                } else {
+                    0.5
+                };
+
                 first += d.normalize() * hw;
             }
 
-            let n2 = normalized_tangent(d) * 0.5;
+            let n2 = normalized_tangent(d);
             let n1 = -n2;
 
             let first_left_id = add_vertex!(
@@ -462,7 +471,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self,
             Vertex {
                 position: center,
-                normal: dir * 0.5,
+                normal: dir,
                 advancement: advancement,
                 side: Side::Left,
             }
@@ -641,7 +650,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
 fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
     let epsilon = 1e-4;
-    let half_width = 0.5;
 
     let v1 = (next - current).normalize();
     let v2 = (current - previous).normalize();
@@ -650,7 +658,7 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
     let v12 = v1 + v2;
 
     if v12.square_length() < epsilon {
-        return n1 * half_width;
+        return n1;
     }
 
     let tangent = v12.normalize();
@@ -659,10 +667,10 @@ fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
     let inv_len = n.dot(n1);
 
     if inv_len.abs() < epsilon {
-        return n1 * half_width;
+        return n1;
     }
 
-    return n * half_width / inv_len;
+    return n / inv_len;
 }
 
 /// Computes the max angle of a radius segment for a given tolerance
@@ -846,7 +854,7 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
 
     let mid_angle = (angle.0 + angle.1) * 0.5;
 
-    let normal = vec2(mid_angle.cos(), mid_angle.sin()) * 0.5;
+    let normal = vec2(mid_angle.cos(), mid_angle.sin());
 
     let vertex = output.add_vertex(Vertex {
         position: center + normal * line_width,
