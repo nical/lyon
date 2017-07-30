@@ -18,7 +18,7 @@ use frame::{
 
 use core::math::*;
 use tessellation::basic_shapes;
-use tessellation::path_fill::*;
+use tessellation::*;
 //use tessellation::path_stroke::*;
 use tessellation::geometry_builder::{ VertexBuffers, BuffersBuilder };
 
