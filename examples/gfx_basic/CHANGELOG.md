@@ -1,5 +1,14 @@
 ## Change log
 
+### v0.7.0 (2017-07-31)
+  - [tessellation] Various API improvements.
+  - [tessellation] Implement `basic_shapes::fill_polyline`.
+  - [tessellation] Implement round stroke caps.
+  - [tessellation] Fix bug causing generated stroke width to be half of what it should be.
+
+### v 0.6.2 (2017-07-28)
+  - [tessellation] Improve numerical stability in the stroke tessellator.
+
 ### v 0.6.1 (2017-07-08)
   - [bezier] Intersection between a bézier segment and a line or line segment.
   - [bezier] Bézier flattening bug fixes.
