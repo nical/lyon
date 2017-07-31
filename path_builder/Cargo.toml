@@ -1,6 +1,6 @@
 [package]
 name = "lyon_path_builder"
-version = "0.6.0"
+version = "0.7.0"
 description = "Utilities to build vector paths."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -13,5 +13,5 @@ workspace = ".."
 name = "lyon_path_builder"
 
 [dependencies]
-lyon_core = { version = "0.6.0", path = "../core" }
-lyon_bezier = { version = "0.6.0", path = "../bezier" }
+lyon_core = { version = "0.7.0", path = "../core" }
+lyon_bezier = { version = "0.7.0", path = "../bezier" }
