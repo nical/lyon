@@ -105,6 +105,13 @@ impl Arc {
         let angle = Radians::new(self.sweep_angle.get() * t);
         self.center + sample_ellipse(self.radii, self.x_rotation, angle).to_vector()
     }
+
+    pub fn tangent_at_angle(&self, angle: Radians) -> Vec2 {
+        let a = angle.get();
+        Transform2D::create_rotation(self.x_rotation).transform_vector(
+            &vec2(-self.radii.x * a.sin(), self.radii.y * a.cos())
+        )
+    }
 }
 
 impl SvgArc {
@@ -133,13 +140,10 @@ fn arc_to_to_quadratic_beziers<F: FnMut(Point, Point)>(
     arc: &Arc,
     call_back: &mut F,
 ) {
-    let sweep_angle = arc.sweep_angle.get().rem(consts::PI * 2.0);
+    let sweep_angle = arc.sweep_angle.get().abs().min(consts::PI * 2.0);
 
-    let n_steps = (sweep_angle.abs() / consts::FRAC_PI_4).ceil();
+    let n_steps = (sweep_angle / consts::FRAC_PI_4).ceil();
     let step = sweep_angle / n_steps;
-
-    //println!(" -- arc_to_to_quadratic_beziers {:?} {:?} {:?} {:?} {:?}", center, start_angle, sweep_angle, radii, x_rotation);
-    //println!(" -- n steps: {:?}, step: {:?}", n_steps, step);
 
     for i in 0..(n_steps as i32) {
         let a1 = arc.start_angle.get() + step * (i as f32);
@@ -149,9 +153,9 @@ fn arc_to_to_quadratic_beziers<F: FnMut(Point, Point)>(
         let v2 = sample_ellipse(arc.radii, arc.x_rotation, Radians::new(a2)).to_vector();
         let p1 = arc.center + v1;
         let p2 = arc.center + v2;
-        let l1 = Line { point: p1, vector: tangent(v1) };
-        let l2 = Line { point: p2, vector: tangent(v2) };
-        let ctrl = l1.intersection(&l2).unwrap();
+        let l1 = Line { point: p1, vector: arc.tangent_at_angle(Radians::new(a1)) };
+        let l2 = Line { point: p2, vector: arc.tangent_at_angle(Radians::new(a2)) };
+        let ctrl = l2.intersection(&l1).unwrap();
 
         call_back(ctrl, p2);
     }
