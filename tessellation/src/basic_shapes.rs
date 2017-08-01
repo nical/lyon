@@ -569,19 +569,19 @@ pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
 
     let v = [
         output.add_vertex(FillVertex {
-            position: (left * radius).to_point(),
+            position: center + (left * radius),
             normal: left
         }),
         output.add_vertex(FillVertex {
-            position: (up * radius).to_point(),
+            position: center + (up * radius),
             normal: up
         }),
         output.add_vertex(FillVertex {
-            position: (right * radius).to_point(),
+            position: center + (right * radius),
             normal: right
         }),
         output.add_vertex(FillVertex {
-            position: (down * radius).to_point(),
+            position: center + (down * radius),
             normal: down
         }),
     ];
