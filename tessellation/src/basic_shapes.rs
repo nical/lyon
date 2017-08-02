@@ -10,6 +10,7 @@ use math::*;
 use path_builder::BaseBuilder;
 use path_iterator::FromPolyline;
 use {FillVertex, StrokeVertex, StrokeOptions, Side};
+use bezier::{Arc, Radians};
 
 use std::f32::consts::PI;
 
@@ -678,6 +679,83 @@ fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
         builder.line_to(point)
     };
 
+}
+
+pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
+    center: Point,
+    radii: Vec2,
+    x_rotation: Radians,
+    tolerance: f32,
+    output: &mut Output,
+) -> Count {
+    // TODO: This is far from optimal compared to the circle tessellation, but it
+    // correctly takes the tolerance threshold into account which is harder to do
+    // than with circles.
+
+    let arc = Arc {
+        center,
+        radii,
+        x_rotation,
+        start_angle: Radians::new(0.0),
+        sweep_angle: Radians::new(2.0 * PI-0.01),
+    };
+
+    use path_builder::{PathBuilder, FlatteningBuilder};
+    use path_fill::EventsBuilder;
+
+    let mut path = FlatteningBuilder::new(EventsBuilder::new(), tolerance).with_svg();
+
+    path.move_to(arc.sample(0.0));
+    arc.to_quadratic_beziers(&mut|ctrl, to| {
+        path.quadratic_bezier_to(ctrl, to);
+    });
+    path.close();
+
+    let events = path.build();
+
+    return FillTessellator::new().tessellate_events(
+        &events,
+        &FillOptions::tolerance(tolerance),
+        output,
+    ).unwrap();
+}
+
+pub fn stroke_ellipse<Output: GeometryBuilder<StrokeVertex>>(
+    center: Point,
+    radii: Vec2,
+    x_rotation: Radians,
+    options: &StrokeOptions,
+    output: &mut Output,
+) -> Count {
+    // TODO: This is far from optimal compared to the circle tessellation, but it
+    // correctly takes the tolerance threshold into account which is harder to do
+    // than with circles.
+
+    let arc = Arc {
+        center,
+        radii,
+        x_rotation,
+        start_angle: Radians::new(0.0),
+        sweep_angle: Radians::new(2.0 * PI-0.01),
+    };
+
+    use path_builder::{PathBuilder, FlatteningBuilder};
+    use path_fill::EventsBuilder;
+
+    output.begin_geometry();
+    {
+        let mut path = FlatteningBuilder::new(StrokeBuilder::new(options, output), options.tolerance).with_svg();
+
+        path.move_to(arc.sample(0.0));
+        arc.to_quadratic_beziers(&mut|ctrl, to| {
+            path.quadratic_bezier_to(ctrl, to);
+        });
+        path.close();
+
+        let _ = path.build();
+    }
+
+    return output.end_geometry();
 }
 
 /// Tessellate a convex shape that is discribed by an iterator of points.

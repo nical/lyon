@@ -1284,7 +1284,7 @@ impl FillEvents {
     }
 }
 
-struct EventsBuilder {
+pub(crate) struct EventsBuilder {
     edges: Vec<Edge>,
     vertices: Vec<TessPoint>,
 
@@ -1296,7 +1296,7 @@ struct EventsBuilder {
 }
 
 impl EventsBuilder {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         EventsBuilder {
             edges: Vec::new(),
             vertices: Vec::new(),
