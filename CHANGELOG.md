@@ -1,5 +1,12 @@
 ## Change log
 
+### v0.7.0 (2017-08-02)
+  - [bezier] Fix broken conversion between arc and quadratic béziers.
+  - [tessellation] Fix bug in circle tessellation when center is not the origin.
+  - [tessellation] (re-)implement `basic_shapes::fill_ellipse`.
+  - [tessellation] Implement `basic_shapes::stroke_ellipse`.
+  - [tessellation] Minor doc improvements.
+
 ### v0.7.0 (2017-07-31)
   - [tessellation] Various API improvements.
   - [tessellation] Implement `basic_shapes::fill_polyline`.
