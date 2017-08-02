@@ -35,6 +35,7 @@
 //!   This separates the construction of vertex values from the assembly of the vertex buffers.
 //!   Another, simpler example of vertex constructor is the [`Identity`](struct.Identity.html)
 //!   constructor which just returns its input, untransformed.
+//!   `VertexConstructor<Input, Ouput>` is implemented for all closures `Fn(Input) -> Output`.
 //!
 //! Geometry builders are a practical way to add one last step to the tessellation pipeline,
 //! such as applying a transform or clipping the geometry.
@@ -362,6 +363,14 @@ impl<T> VertexConstructor<T, T> for Identity {
     fn new_vertex(&mut self, input: T) -> T { input }
 }
 
+impl<F, Input, VertexType> VertexConstructor<Input, VertexType> for F
+    where F: Fn(Input) -> VertexType
+{
+    fn new_vertex(&mut self, vertex: Input) -> VertexType {
+        self(vertex)
+    }
+}
+
 /// A `BuffersBuilder` that takes the actual vertex type as input.
 pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l, VertexType, VertexType, Identity>;
 
@@ -556,4 +565,36 @@ fn test_simple_quad() {
         }
     );
     assert_eq!(&buffers.indices[..], &[0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+}
+
+#[test]
+fn test_closure() {
+    use math::{Point, point, vec2};
+
+    let translation = vec2(1.0, 0.0);
+
+    let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+
+    {
+        // A builder that just translates all vertices by `translation`.
+        let mut builder = vertex_builder(&mut buffers, |position| {
+            position + translation
+        });
+
+        builder.begin_geometry();
+        let a = builder.add_vertex(point(0.0, 0.0));
+        let b = builder.add_vertex(point(1.0, 0.0));
+        let c = builder.add_vertex(point(1.0, 1.0));
+        let d = builder.add_vertex(point(0.0, 1.0));
+        builder.add_triangle(a, b, c);
+        builder.add_triangle(a, c, d);
+        builder.end_geometry();
+    }
+
+    assert_eq!(buffers.vertices, vec![
+        point(1.0, 0.0),
+        point(2.0, 0.0),
+        point(2.0, 1.0),
+        point(1.0, 1.0),
+    ]);
 }
