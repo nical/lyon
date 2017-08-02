@@ -240,6 +240,8 @@ impl VertexId {
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
+///
+/// See the [`geometry_builder`](index.html) module documentation for more detailed explanation.
 pub trait GeometryBuilder<Input> {
     /// Called at the beginning of a generation.
     ///

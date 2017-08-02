@@ -29,14 +29,15 @@
 //!
 //! ## Overview
 //!
-//! The most interesting modules of this crate are:
+//! The most interesting types and traits of this crate are:
 //!
-//! * [path_fill](path_fill/index.html) - Implementing the tessellation of complex path fill
-//!   operations.
-//! * [path_stroke](path_stroke/index.html) - Implementing the tessellation of complex path
-//!   stroke operations.
-//! * [geometry_builder](geometry_builder/index.html) - Which the above two are built on. It
-//!   provides traits to facilitate generating arbitrary vertex and index buffers.
+//! * [FillTessellator](struct.FillTessellator.html) - Tessellator for complex path fill operations.
+//! * [StrokeTessellator](struct.StrokeTessellator.html) - Tessellator for complex path stroke operations.
+//! * [`GeometryBuilder`](geometry_builder/trait.GeometryBuilder.html) - (See the documentation of the
+//!   [geometry_builder module](geometry_builder/index.html)) Which the above two are built on. This trait
+//!   provides an interface for types that help with building and assembling the vertices and triangles that
+//!   form the tessellation, usually in the form of arbitrary vertex and index buffers.
+//! * The various specialised tessellators in the [`basic_shapes`](basic_shapes/index.html) modules.
 //!
 //! ## The tessellation pipeline
 //!
@@ -127,10 +128,6 @@
 //! [lyon_path](https://docs.rs/lyon_path/*/lyon_path/) is provided for convenience
 //! (but is optional).
 //!
-//! While the path tessellators use iterators, other more specific tessellation routines
-//! take simpler outputs like rectangles and circles.
-//! See the documentation of the [basic_shapes](basic_shapes/index.html) module.
-//!
 //! ### The output: geometry builders
 //!
 //! The tessellators are parametrized over a type implementing the
@@ -191,6 +188,7 @@ pub use path_stroke::*;
 #[doc(inline)]
 pub use geometry_builder::{GeometryBuilder, BezierGeometryBuilder, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
 
+/// Left or right.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Side {
     Left,
