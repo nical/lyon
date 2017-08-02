@@ -1,82 +1,3 @@
-//! ## Path stroke tessellator
-//!
-//! Tessellation routines for path stroke operations.
-//!
-//! ## Overview
-//!
-//! The stroke tessellation algorithm simply generates a strip of triangles along
-//! the path. This method is fast and simple to implement, howerver it means that
-//! if the path overlap with itself (for example in the case of a self-intersecting
-//! path), some triangles will overlap in the interesecting region, which may not
-//! be the desired behavior. This needs to be kept in mind when rendering transparent
-//! SVG strokes since the spec mandates that each point along a semi-transparent path
-//! is shaded once no matter how many times the path overlaps with itself at this
-//! location.
-//!
-//! The main interface is the [`StrokeTessellator`](struct.StrokeTessellator.html),
-//! which exposes a similar interface to its
-//! [fill equivalent](../path_fill/struct.FillTessellator.html).
-//!
-//! This stroke tessellator takes an iterator of path events as inputs as well as
-//! a [`StrokeOption`](struct.StrokeOptions.html), and produces its outputs using
-//! a [`GeometryBuilder`](../geometry_builder/trait.GeometryBuilder.html).
-//!
-//!
-//! See the [`geometry_builder` module documentation](../geometry_builder/index.html)
-//! for more details about how to output custom vertex layouts.
-//!
-//! # Examples
-//!
-//! ```
-//! # extern crate lyon_tessellation;
-//! # extern crate lyon_core;
-//! # extern crate lyon_path;
-//! # extern crate lyon_path_builder;
-//! # extern crate lyon_path_iterator;
-//! # use lyon_path::Path;
-//! # use lyon_path_builder::*;
-//! # use lyon_path_iterator::*;
-//! # use lyon_core::math::{Point, point};
-//! # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
-//! # use lyon_tessellation::*;
-//! # use lyon_tessellation::StrokeVertex as Vertex;
-//! # fn main() {
-//! // Create a simple path.
-//! let mut path_builder = Path::builder();
-//! path_builder.move_to(point(0.0, 0.0));
-//! path_builder.line_to(point(1.0, 2.0));
-//! path_builder.line_to(point(2.0, 0.0));
-//! path_builder.line_to(point(1.0, 1.0));
-//! path_builder.close();
-//! let path = path_builder.build();
-//!
-//! // Create the destination vertex and index buffers.
-//! let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
-//!
-//! {
-//!     // Create the destination vertex and index buffers.
-//!     let mut vertex_builder = simple_builder(&mut buffers);
-//!
-//!     // Create the tessellator.
-//!     let mut tessellator = StrokeTessellator::new();
-//!
-//!     // Compute the tessellation.
-//!     tessellator.tessellate_path(
-//!         path.path_iter(),
-//!         &StrokeOptions::default(),
-//!         &mut vertex_builder
-//!     );
-//! }
-//!
-//! println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
-//! println!("The generated indices are: {:?}.", &buffers.indices[..]);
-//!
-//! # }
-//! ```
-
-// See https://github.com/nical/lyon/wiki/Stroke-tessellation for some notes
-// about how the path stroke tessellator is implemented.
-
 use math::*;
 use core::FlattenedEvent;
 use bezier::utils::{normalized_tangent, directed_angle};
@@ -90,6 +11,80 @@ use {Side, LineCap, LineJoin, StrokeOptions};
 use std::f32::consts::PI;
 
 /// A Context object that can tessellate stroke operations for complex paths.
+///
+/// ## Overview
+///
+/// The stroke tessellation algorithm simply generates a strip of triangles along
+/// the path. This method is fast and simple to implement, howerver it means that
+/// if the path overlap with itself (for example in the case of a self-intersecting
+/// path), some triangles will overlap in the interesecting region, which may not
+/// be the desired behavior. This needs to be kept in mind when rendering transparent
+/// SVG strokes since the spec mandates that each point along a semi-transparent path
+/// is shaded once no matter how many times the path overlaps with itself at this
+/// location.
+///
+/// `StrokeTessellator` exposes a similar interface to its
+/// [fill equivalent](struct.FillTessellator.html).
+///
+/// This stroke tessellator takes an iterator of path events as inputs as well as
+/// a [`StrokeOption`](struct.StrokeOptions.html), and produces its outputs using
+/// a [`GeometryBuilder`](geometry_builder/trait.GeometryBuilder.html).
+///
+///
+/// See the [`geometry_builder` module documentation](geometry_builder/index.html)
+/// for more details about how to output custom vertex layouts.
+///
+/// See https://github.com/nical/lyon/wiki/Stroke-tessellation for some notes
+/// about how the path stroke tessellator is implemented.
+///
+/// # Examples
+///
+/// ```
+/// # extern crate lyon_tessellation;
+/// # extern crate lyon_core;
+/// # extern crate lyon_path;
+/// # extern crate lyon_path_builder;
+/// # extern crate lyon_path_iterator;
+/// # use lyon_path::Path;
+/// # use lyon_path_builder::*;
+/// # use lyon_path_iterator::*;
+/// # use lyon_core::math::{Point, point};
+/// # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
+/// # use lyon_tessellation::*;
+/// # use lyon_tessellation::StrokeVertex as Vertex;
+/// # fn main() {
+/// // Create a simple path.
+/// let mut path_builder = Path::builder();
+/// path_builder.move_to(point(0.0, 0.0));
+/// path_builder.line_to(point(1.0, 2.0));
+/// path_builder.line_to(point(2.0, 0.0));
+/// path_builder.line_to(point(1.0, 1.0));
+/// path_builder.close();
+/// let path = path_builder.build();
+///
+/// // Create the destination vertex and index buffers.
+/// let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+///
+/// {
+///     // Create the destination vertex and index buffers.
+///     let mut vertex_builder = simple_builder(&mut buffers);
+///
+///     // Create the tessellator.
+///     let mut tessellator = StrokeTessellator::new();
+///
+///     // Compute the tessellation.
+///     tessellator.tessellate_path(
+///         path.path_iter(),
+///         &StrokeOptions::default(),
+///         &mut vertex_builder
+///     );
+/// }
+///
+/// println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
+/// println!("The generated indices are: {:?}.", &buffers.indices[..]);
+///
+/// # }
+/// ```
 pub struct StrokeTessellator {}
 
 impl StrokeTessellator {
