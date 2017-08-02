@@ -149,6 +149,15 @@
 //! creates the application's output vertices from the tessellator input vertices (either `FillVertex`
 //! or `StrokeVertex`).
 //!
+//! ### Flattening and tolerance
+//!
+//! Most tessellators in this crate currently operate on flattened paths (paths or shapes represented
+//! by sequences of line segments). when paths contain bézier curves or arcs, the latter need to be
+//! approximated with sequences of line segments. This approximation depends on a `tolerance` parameter
+//! which represents the maximum distance between a curve and its flattened approximation.
+//!
+//! More explanaion about flattening and tolerance in the [lyon_bezier crate](https://docs.rs/lyon_bezier/0.7.0/lyon_bezier/#flattening).
+//!
 //! ## Examples
 //!
 //! - [tessellating path fills](path_fill/index.html#examples).
@@ -305,6 +314,8 @@ pub struct StrokeOptions {
     pub miter_limit: f32,
 
     /// Maximum allowed distance to the path when building an approximation.
+    ///
+    /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
     pub tolerance: f32,
 
     /// An anti-aliasing trick extruding a 1-px wide strip around the edges with

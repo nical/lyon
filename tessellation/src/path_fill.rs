@@ -1472,6 +1472,8 @@ pub enum FillRule {
 /// Parameters for the tessellator.
 pub struct FillOptions {
     /// Maximum allowed distance to the path when building an approximation.
+    ///
+    /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
     pub tolerance: f32,
 
     /// See the SVG specification.
