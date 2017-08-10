@@ -1,11 +1,9 @@
 
 use svgparser::{ Tokenize, TextFrame };
 use super::attribute::{Attribute, AttributeId, AttributeValue, RefAttributeValue};
+use super::error::ParserError;
 use std::str;
 use svgparser;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct StyleParserError;
 
 pub struct StyleTokenizer<'l> {
     tokenizer: svgparser::style::Tokenizer<'l>
@@ -26,9 +24,9 @@ impl<'l> StyleTokenizer<'l> {
 }
 
 impl<'l> Iterator for StyleTokenizer<'l> {
-    type Item = Result<Attribute, StyleParserError>;
+    type Item = Result<Attribute, ParserError>;
 
-    fn next(&mut self) -> Option<Result<Attribute, StyleParserError>> {
+    fn next(&mut self) -> Option<Result<Attribute, ParserError>> {
         match self.tokenizer.parse_next() {
             Ok(token) => {
                 match token {
@@ -41,15 +39,14 @@ impl<'l> Iterator for StyleTokenizer<'l> {
                     _ => self.next(),
                 }
             }
-            Err(_) => { Some(Err(StyleParserError)) }
+            Err(err) => { Some(Err(ParserError::StyleToken(err))) }
         }
     }
 }
 
-fn parse_attribute(id: AttributeId, value: TextFrame) -> Result<Attribute, StyleParserError> {
-    if let Ok(attr_value) = RefAttributeValue::from_frame(svgparser::ElementId::Rect, id, value) {
-        return Ok(Attribute { id: id, value: AttributeValue::from_ref(attr_value) });
+fn parse_attribute(id: AttributeId, value: TextFrame) -> Result<Attribute, ParserError> {
+    match RefAttributeValue::from_frame(svgparser::ElementId::Rect, id, value) {
+        Ok(attr_value) => Ok(Attribute { id: id, value: AttributeValue::from_ref(attr_value) }),
+        Err(err) => Err(ParserError::StyleAttribute(err))
     }
-
-    return Err(StyleParserError);
 }

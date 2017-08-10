@@ -5,9 +5,7 @@ use core::SvgEvent;
 use core::math;
 use core::ArcFlags;
 use path_builder::SvgBuilder;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct ParserError;
+use super::error::ParserError;
 
 pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParserError>
 where
@@ -54,7 +52,7 @@ impl<'l> Iterator for PathTokenizer<'l> {
                     None
                 }
             }
-            Err(_) => { Some(Err(ParserError)) }
+            Err(err) => { Some(Err(ParserError::PathToken(err))) }
         }
     }
 }
