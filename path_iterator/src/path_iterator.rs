@@ -221,7 +221,7 @@ where
                             from: current,
                             ctrl: ctrl,
                             to: to,
-                    }.flattening_iter(self.tolerance)
+                    }.quadratic_flattening_iter(self.tolerance)
                 );
                 return self.next();
             }
@@ -232,7 +232,7 @@ where
                         ctrl1: ctrl1,
                         ctrl2: ctrl2,
                         to: to,
-                    }.flattening_iter(self.tolerance)
+                    }.cubic_flattening_iter(self.tolerance)
                 );
                 return self.next();
             }

@@ -161,7 +161,7 @@ impl CubicBezierSegment {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
-    pub fn flattening_iter(&self, tolerance: f32) -> CubicFlatteningIter {
+    pub fn cubic_flattening_iter(&self, tolerance: f32) -> CubicFlatteningIter {
         CubicFlatteningIter::new(*self, tolerance)
     }
 

@@ -239,7 +239,7 @@ impl QuadraticBezierSegment {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
-    pub fn flattening_iter(&self, tolerance: f32) -> QuadraticFlatteningIter {
+    pub fn quadratic_flattening_iter(&self, tolerance: f32) -> QuadraticFlatteningIter {
         QuadraticFlatteningIter::new(*self, tolerance)
     }
 
