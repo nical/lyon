@@ -71,8 +71,8 @@ extern crate euclid;
 mod flatten_cubic;
 mod cubic_to_quadratic;
 mod up_to_two;
-mod quadratic_bezier;
-mod cubic_bezier;
+pub mod quadratic_bezier;
+pub mod cubic_bezier;
 mod triangle;
 mod line;
 mod arc;
@@ -99,8 +99,8 @@ pub type Transform2D = euclid::Transform2D<f32>;
 
 pub type Radians = euclid::Radians<f32>;
 
-pub use quadratic_bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
-pub use cubic_bezier::{CubicBezierSegment, CubicFlatteningIter};
+pub use quadratic_bezier::QuadraticBezierSegment;
+pub use cubic_bezier::CubicBezierSegment;
 pub use triangle::{Triangle};
 pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
