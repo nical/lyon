@@ -2,7 +2,7 @@ use {Point, Vec2, Rect, rect, Line, LineSegment, Transform2D};
 use up_to_two::UpToTwo;
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
-pub use flatten_cubic::CubicFlatteningIter;
+pub use flatten_cubic::Flattened;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 use utils::cubic_polynomial_roots;
@@ -161,8 +161,8 @@ impl CubicBezierSegment {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
-    pub fn flattening_iter(&self, tolerance: f32) -> CubicFlatteningIter {
-        CubicFlatteningIter::new(*self, tolerance)
+    pub fn flattened(&self, tolerance: f32) -> Flattened {
+        Flattened::new(*self, tolerance)
     }
 
     /// Iterates through the curve invoking a callback at each point.

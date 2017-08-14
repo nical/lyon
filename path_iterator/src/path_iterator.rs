@@ -2,8 +2,10 @@ use std::iter;
 
 use core::math::*;
 use core::{PathEvent, SvgEvent, FlattenedEvent, PathState};
-use bezier::{QuadraticBezierSegment, QuadraticFlatteningIter};
-use bezier::{CubicBezierSegment, CubicFlatteningIter};
+use bezier::QuadraticBezierSegment;
+use bezier::quadratic_bezier;
+use bezier::CubicBezierSegment;
+use bezier::cubic_bezier;
 
 /// Convenience for algorithms which prefer to iterate over segments directly rather than
 /// path events.
@@ -22,8 +24,8 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator that turns curves into line segments.
-    fn flattened(self, tolerance: f32) -> FlatteningIter<Self> {
-        FlatteningIter::new(tolerance, self)
+    fn flattened(self, tolerance: f32) -> Flattened<Self> {
+        Flattened::new(tolerance, self)
     }
 
     /// Returns an iterator of SVG events.
@@ -38,7 +40,7 @@ pub trait SvgIterator: Iterator<Item = SvgEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlatteningIter<SvgToPathIter<Self>> {
+    fn flattened(self, tolerance: f32) -> Flattened<SvgToPathIter<Self>> {
         self.path_iter().flattened(tolerance)
     }
 
@@ -160,22 +162,22 @@ where
 }
 
 /// An iterator that consumes an PathIterator and yields FlattenedEvents.
-pub struct FlatteningIter<Iter> {
+pub struct Flattened<Iter> {
     it: Iter,
     current_curve: TmpFlatteningIter,
     tolerance: f32,
 }
 
 enum TmpFlatteningIter {
-    Quadratic(QuadraticFlatteningIter),
-    Cubic(CubicFlatteningIter),
+    Quadratic(quadratic_bezier::Flattened),
+    Cubic(cubic_bezier::Flattened),
     None,
 }
 
-impl<Iter: PathIterator> FlatteningIter<Iter> {
+impl<Iter: PathIterator> Flattened<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
-        FlatteningIter {
+        Flattened {
             it: it,
             current_curve: TmpFlatteningIter::None,
             tolerance: tolerance,
@@ -183,14 +185,14 @@ impl<Iter: PathIterator> FlatteningIter<Iter> {
     }
 }
 
-impl<Iter> FlattenedIterator for FlatteningIter<Iter>
+impl<Iter> FlattenedIterator for Flattened<Iter>
 where
     Iter: PathIterator,
 {
     fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
-impl<Iter> Iterator for FlatteningIter<Iter>
+impl<Iter> Iterator for Flattened<Iter>
 where
     Iter: PathIterator,
 {
@@ -221,7 +223,7 @@ where
                             from: current,
                             ctrl: ctrl,
                             to: to,
-                    }.flattening_iter(self.tolerance)
+                    }.flattened(self.tolerance)
                 );
                 return self.next();
             }
@@ -232,7 +234,7 @@ where
                         ctrl1: ctrl1,
                         ctrl2: ctrl2,
                         to: to,
-                    }.flattening_iter(self.tolerance)
+                    }.flattened(self.tolerance)
                 );
                 return self.next();
             }
@@ -275,28 +277,28 @@ impl<Iter: Iterator<Item = SvgEvent>> Iterator for PathStateSvgIter<Iter> {
 }
 
 /// An adapater iterator that implements PathIterator on top of an Iterator<Item=PatheEvent>.
-pub struct PathStateIter<Iter> {
+pub struct PathIter<Iter> {
     it: Iter,
     state: PathState,
 }
 
-impl<Iter: Iterator<Item = PathEvent>> PathStateIter<Iter> {
+impl<Iter: Iterator<Item = PathEvent>> PathIter<Iter> {
     pub fn new(it: Iter) -> Self {
-        PathStateIter {
+        PathIter {
             it: it,
             state: PathState::new(),
         }
     }
 }
 
-impl<Iter> PathIterator for PathStateIter<Iter>
+impl<Iter> PathIterator for PathIter<Iter>
 where
     Iter: Iterator<Item = PathEvent>,
 {
     fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item = PathEvent>> Iterator for PathStateIter<Iter> {
+impl<Iter: Iterator<Item = PathEvent>> Iterator for PathIter<Iter> {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
         let next = self.it.next();

@@ -17,7 +17,7 @@ use std::mem::swap;
 ///
 /// The iterator starts at the first point *after* the origin of the curve and ends at the
 /// destination.
-pub struct CubicFlatteningIter {
+pub struct Flattened {
     remaining_curve: CubicBezierSegment,
     // current portion of the curve, does not have inflections.
     current_curve: Option<CubicBezierSegment>,
@@ -27,13 +27,13 @@ pub struct CubicFlatteningIter {
     check_inflection: bool,
 }
 
-impl CubicFlatteningIter {
+impl Flattened {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment, tolerance: f32) -> Self {
         let inflections = find_cubic_bezier_inflection_points(&bezier);
 
-        let mut iter = CubicFlatteningIter {
+        let mut iter = Flattened {
             remaining_curve: bezier,
             current_curve: None,
             next_inflection: inflections.get(0).cloned(),
@@ -62,7 +62,7 @@ impl CubicFlatteningIter {
     }
 }
 
-impl Iterator for CubicFlatteningIter {
+impl Iterator for Flattened {
     type Item = Point;
     fn next(&mut self) -> Option<Point> {
 
@@ -348,7 +348,7 @@ fn test_iterator_builder_1() {
         ctrl2: Point::new(1.0, 1.0),
         to: Point::new(0.0, 1.0),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
@@ -365,7 +365,7 @@ fn test_iterator_builder_2() {
         ctrl2: Point::new(0.0, 1.0),
         to: Point::new(1.0, 1.0),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
@@ -382,7 +382,7 @@ fn test_iterator_builder_3() {
         ctrl2: Point::new(140.0, 130.0),
         to: Point::new(131.0, 130.0),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
@@ -399,7 +399,7 @@ fn test_issue_19() {
         ctrl2: Point::new(18.142855, 19.27679),
         to: Point::new(18.142855, 19.27679),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 

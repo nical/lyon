@@ -239,8 +239,8 @@ impl QuadraticBezierSegment {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
-    pub fn flattening_iter(&self, tolerance: f32) -> QuadraticFlatteningIter {
-        QuadraticFlatteningIter::new(*self, tolerance)
+    pub fn flattened(&self, tolerance: f32) -> Flattened {
+        Flattened::new(*self, tolerance)
     }
 
     /// Compute the length of the segment using a flattened approximation.
@@ -400,16 +400,16 @@ fn yx(point: Point) -> Point { Point::new(point.y, point.x) }
 ///
 /// The iterator starts at the first point *after* the origin of the curve and ends at the
 /// destination.
-pub struct QuadraticFlatteningIter {
+pub struct Flattened {
     curve: QuadraticBezierSegment,
     tolerance: f32,
     done: bool,
 }
 
-impl QuadraticFlatteningIter {
+impl Flattened {
     pub fn new(curve: QuadraticBezierSegment, tolerance: f32) -> Self {
         assert!(tolerance > 0.0);
-        QuadraticFlatteningIter {
+        Flattened {
             curve: curve,
             tolerance: tolerance,
             done: false,
@@ -417,7 +417,7 @@ impl QuadraticFlatteningIter {
     }
 }
 
-impl Iterator for QuadraticFlatteningIter {
+impl Iterator for Flattened {
     type Item = Point;
     fn next(&mut self) -> Option<Point> {
         if self.done {

@@ -1,5 +1,5 @@
 use path_builder::{BaseBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
-use path_iterator::PathStateIter;
+use path_iterator::PathIter;
 
 use core::PathEvent;
 use core::math::*;
@@ -60,9 +60,9 @@ impl Path {
         }
     }
 
-    pub fn iter(&self) -> PathIter { PathIter::new(&self.points[..], &self.verbs[..]) }
+    pub fn iter(&self) -> Iter { Iter::new(&self.points[..], &self.verbs[..]) }
 
-    pub fn path_iter(&self) -> PathStateIter<PathIter> { PathStateIter::new(self.iter()) }
+    pub fn path_iter(&self) -> PathIter<Iter> { PathIter::new(self.iter()) }
 
     pub fn points(&self) -> &[Point] { &self.points[..] }
 
@@ -73,9 +73,9 @@ impl Path {
 
 impl<'l> IntoIterator for &'l Path {
     type Item = PathEvent;
-    type IntoIter = PathIter<'l>;
+    type IntoIter = Iter<'l>;
 
-    fn into_iter(self) -> PathIter<'l> { self.iter() }
+    fn into_iter(self) -> Iter<'l> { self.iter() }
 }
 
 /// An immutable view over a Path.
@@ -87,9 +87,9 @@ impl<'l> PathSlice<'l> {
         }
     }
 
-    pub fn iter(&self) -> PathIter { PathIter::new(self.points, self.verbs) }
+    pub fn iter(&self) -> Iter { Iter::new(self.points, self.verbs) }
 
-    pub fn path_iter(&self) -> PathStateIter<PathIter> { PathStateIter::new(self.iter()) }
+    pub fn path_iter(&self) -> PathIter<Iter> { PathIter::new(self.iter()) }
 
     pub fn points(&self) -> &[Point] { self.points }
 
@@ -98,9 +98,9 @@ impl<'l> PathSlice<'l> {
 
 //impl<'l> IntoIterator for PathSlice<'l> {
 //    type Item = PathEvent;
-//    type IntoIter = PathIter<'l>;
+//    type IntoIter = Iter<'l>;
 //
-//    fn into_iter(self) -> PathIter<'l> { self.iter() }
+//    fn into_iter(self) -> Iter<'l> { self.iter() }
 //}
 
 /// Builds path object using the BaseBuilder interface.
@@ -213,21 +213,21 @@ impl PathBuilder for Builder {
 }
 
 #[derive(Clone, Debug)]
-pub struct PathIter<'l> {
+pub struct Iter<'l> {
     points: ::std::slice::Iter<'l, Point>,
     verbs: ::std::slice::Iter<'l, Verb>,
 }
 
-impl<'l> PathIter<'l> {
+impl<'l> Iter<'l> {
     pub fn new(points: &'l [Point], verbs: &'l [Verb]) -> Self {
-        PathIter {
+        Iter {
             points: points.iter(),
             verbs: verbs.iter(),
         }
     }
 }
 
-impl<'l> Iterator for PathIter<'l> {
+impl<'l> Iterator for Iter<'l> {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
         return match self.verbs.next() {
