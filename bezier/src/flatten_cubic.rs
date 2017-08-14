@@ -348,7 +348,7 @@ fn test_iterator_builder_1() {
         ctrl2: Point::new(1.0, 1.0),
         to: Point::new(0.0, 1.0),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.cubic_flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
@@ -365,7 +365,7 @@ fn test_iterator_builder_2() {
         ctrl2: Point::new(0.0, 1.0),
         to: Point::new(1.0, 1.0),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.cubic_flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
@@ -382,7 +382,7 @@ fn test_iterator_builder_3() {
         ctrl2: Point::new(140.0, 130.0),
         to: Point::new(131.0, 130.0),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.cubic_flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
@@ -399,7 +399,7 @@ fn test_issue_19() {
         ctrl2: Point::new(18.142855, 19.27679),
         to: Point::new(18.142855, 19.27679),
     };
-    let iter_points: Vec<Point> = c1.flattening_iter(tolerance).collect();
+    let iter_points: Vec<Point> = c1.cubic_flattening_iter(tolerance).collect();
     let mut builder_points = Vec::new();
     c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
 
