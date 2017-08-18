@@ -13,3 +13,4 @@ extern crate lyon_path_builder as path_builder;
 extern crate svgparser;
 
 pub mod parser;
+pub mod serializer;
