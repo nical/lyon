@@ -16,13 +16,15 @@ use glium::backend::glutin_backend::GlutinFacade as Display;
 use lyon::path::Path;
 use lyon::path_builder::*;
 use lyon::math::*;
-use lyon_svg::parser::RgbColor;
+use lyon_svg::parser::Color;
 use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::path_fill::{ FillEvents, FillTessellator, FillOptions };
-use lyon::tessellation::path_stroke::{ StrokeTessellator, StrokeOptions };
+use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
+use lyon::tessellation::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation::StrokeVertex;
 use lyon::path_iterator::PathIterator;
+
+use svgparser::Tokenize;
 
 use clap::{Arg, ArgMatches};
 
@@ -150,8 +152,8 @@ fn main() {
 
     let mut target_zoom = 1.0;
     let mut zoom = 1.0;
-    let mut target_pos = vec2(0.0, 0.0);
-    let mut pos = vec2(0.0, 0.0);
+    let mut target_pos: Point = point(0.0, 0.0);
+    let mut pos = point(0.0, 0.0);
     loop {
         zoom += (target_zoom - zoom) / 3.0;
         pos = pos + (target_pos - pos) / 3.0;
@@ -159,18 +161,17 @@ fn main() {
         let mut target = display.draw();
 
         let (w, h) = target.get_dimensions();
-        let resolution = vec2(w as f32, h as f32);
+        let resolution: Vec2 = vec2(w as f32, h as f32);
 
         let model_mat = Transform3D::identity();
-        let mut view_mat = Transform3D::identity();
-
-        view_mat = view_mat.pre_translated(-1.0, 1.0, 0.0);
-        view_mat = view_mat.pre_scaled(5.0 * zoom, 5.0 * zoom, 0.0);
-        view_mat = view_mat.pre_scaled(2.0/resolution.x, -2.0/resolution.y, 1.0);
-        view_mat = view_mat.pre_translated(pos.x, pos.y, 0.0);
+        let view_mat = Transform3D::identity()
+            .pre_translate(vec3(-1.0, 1.0, 0.0))
+            .pre_scale(5.0 * zoom, 5.0 * zoom, 0.0)
+            .pre_scale(2.0/resolution.x, -2.0/resolution.y, 1.0)
+            .pre_translate(vec3(pos.x, pos.y, 0.0));
 
         let uniforms = uniform! {
-            u_resolution: resolution.array(),
+            u_resolution: resolution.to_array(),
             u_matrix: uniform_matrix(&model_mat.pre_mul(&view_mat))
         };
 
@@ -238,8 +239,8 @@ use svgparser::svg::ElementEnd;
 
 struct RenderItem {
     path: Path,
-    fill: Option<RgbColor>,
-    stroke: Option<RgbColor>,
+    fill: Option<Color>,
+    stroke: Option<Color>,
     stroke_width: f32,
     geometry: Option<VertexBuffers<Vertex>>,
     uploaded: Option<(glium::VertexBuffer<Vertex>, glium::IndexBuffer<u16>)>,
@@ -270,14 +271,14 @@ fn tessellate_scene(scene: &mut[RenderItem]) {
             let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
             if let Some(color) = item.fill {
                 println!(" -- tessellate fill");
-                //fill_events.set_path_iter(item.path.path_iter().flattened(0.03));
-                //fill_tessellator.tessellate_events(
-                //    &fill_events,
-                //    &FillOptions::default(),
-                //    &mut BuffersBuilder::new(&mut buffers, WithColor(
-                //        [color.red as f32 / 255.0, color.green as f32 / 255.0, color.blue as f32 / 255.0]
-                //    ))
-                //).unwrap();
+                fill_events.set_path_iter(item.path.path_iter().flattened(0.03));
+                fill_tessellator.tessellate_events(
+                    &fill_events,
+                    &FillOptions::default(),
+                    &mut BuffersBuilder::new(&mut buffers, WithColor(
+                        [color.red as f32 / 255.0, color.green as f32 / 255.0, color.blue as f32 / 255.0]
+                    ))
+                ).unwrap();
             }
             if let Some(color) = item.stroke {
                 println!(" -- tessellate stroke");
@@ -291,12 +292,12 @@ fn tessellate_scene(scene: &mut[RenderItem]) {
                         ],
                         item.stroke_width
                     ))
-                ).unwrap();
-                item.geometry = Some(buffers);
-                item.uploaded = None;
+                );
+                //item.geometry = Some(buffers);
+                //item.uploaded = None;
             }
-            //item.geometry = Some(buffers);
-            //item.uploaded = None;
+            item.geometry = Some(buffers);
+            item.uploaded = None;
         }
     }
 }
@@ -328,19 +329,22 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
 
     // Read a file to the buffer.
     let mut file = fs::File::open(file_name).unwrap();
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).unwrap();
+    let mut buffer = String::new();
+    file.read_to_string(&mut buffer).unwrap();
 
     let mut render_items = Vec::new();
     let mut current_item = RenderItem::new();
 
-    let mut p = svg_parser::Tokenizer::new(&buffer);
-    while let Some(item) = p.next() {
+    let mut p = svg_parser::Tokenizer::from_str(&buffer);
+    while let Ok(item) = p.parse_next() {
         match item {
-            Ok(SvgToken::ElementStart(b"path")) => {
+            SvgToken::EndOfStream => {
+                break;
+            }
+            SvgToken::SvgElementStart(svgparser::ElementId::Path) => {
                 current_item = RenderItem::new();
             }
-            Ok(SvgToken::ElementEnd(_)) => {
+            SvgToken::ElementEnd(_) => {
                 println!(" -- close path");
                 if current_item.fill.is_some() || current_item.stroke.is_some() {
                     let mut tmp = RenderItem::new();
@@ -348,14 +352,11 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
                     render_items.push(tmp);
                 }
             }
-            Ok(SvgToken::Attribute(b"style", stream)) => {
-                parse_style(stream, &mut current_item);
+            SvgToken::SvgAttribute(svgparser::AttributeId::Style, frame) => {
+                parse_style(frame, &mut current_item);
             }
-            Ok(SvgToken::Attribute(b"d", stream)) => {
-                current_item.path = parse_path_data(stream);
-            }
-            Err(e) => {
-                panic!("Error: {:?}.", e);
+            SvgToken::SvgAttribute(svgparser::AttributeId::Path, frame) => {
+                current_item.path = parse_path_data(frame);
             }
             _ => {}
         }
@@ -366,10 +367,10 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
     return render_items;
 }
 
-fn parse_path_data(stream: svgparser::Stream) -> Path {
+fn parse_path_data(frame: svgparser::TextFrame) -> Path {
     let mut builder = Path::builder().with_svg();
 
-    for item in lyon_svg::parser::path::PathTokenizer::from_stream(stream) {
+    for item in lyon_svg::parser::PathTokenizer::from_frame(frame) {
         match item {
             Ok(evt) => { builder.svg_event(evt) }
             Err(e) => { panic!("Warning: {:?}.", e); }
@@ -379,26 +380,24 @@ fn parse_path_data(stream: svgparser::Stream) -> Path {
     return builder.build();
 }
 
-fn parse_style(stream: svgparser::Stream, item: &mut RenderItem) {
+fn parse_style(frame: svgparser::TextFrame, item: &mut RenderItem) {
     use lyon_svg::parser::{AttributeId, AttributeValue, ValueId};
 
-    for attr in lyon_svg::parser::style::StyleTokenizer::from_stream(stream) {
+    for attr in lyon_svg::parser::StyleTokenizer::from_frame(frame) {
         if let Ok(attr) = attr {
             match attr.id {
                 AttributeId::Fill => {
                     match attr.value {
-                        AttributeValue::RgbColor(rgb) => { item.fill = Some(rgb); }
+                        AttributeValue::Color(rgb) => { item.fill = Some(rgb); }
                         AttributeValue::KeyWord(ValueId::None) => { item.fill = None; }
-                        _ => { item.fill = Some(RgbColor { red: 255, green: 0, blue: 0 }) }
+                        _ => { item.fill = Some(Color { red: 255, green: 0, blue: 0 }) }
                     }
                 }
                 AttributeId::Stroke => {
                     match attr.value {
-                        AttributeValue::RgbColor(rgb) => { item.stroke = Some(rgb); }
+                        AttributeValue::Color(rgb) => { item.stroke = Some(rgb); }
                         AttributeValue::KeyWord(ValueId::None) => { item.stroke = None; }
-                        _ => {
-                            panic!(" Unimplemented ! stroke: {:?}", attr.value);
-                        }
+                        _ => { item.stroke = Some(Color { red: 255, green: 0, blue: 0 }) }
                     }
                 }
                 AttributeId::StrokeWidth => {
@@ -428,12 +427,12 @@ struct Vertex {
 
 struct WithColor([f32; 3]);
 
-impl VertexConstructor<Vec2, Vertex> for WithColor {
-    fn new_vertex(&mut self, pos: Vec2) -> Vertex {
-        assert!(!pos.x.is_nan());
-        assert!(!pos.y.is_nan());
+impl VertexConstructor<FillVertex, Vertex> for WithColor {
+    fn new_vertex(&mut self, v: FillVertex) -> Vertex {
+        assert!(!v.position.x.is_nan());
+        assert!(!v.position.y.is_nan());
         Vertex {
-            a_position: pos.array(),
+            a_position: v.position.to_array(),
             a_color: self.0,
         }
     }
@@ -448,7 +447,7 @@ impl VertexConstructor<StrokeVertex, Vertex> for WithColorAndStrokeWidth {
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
         Vertex {
-            a_position: (vertex.position + vertex.normal * self.1).array(),
+            a_position: (vertex.position + vertex.normal * self.1).to_array(),
             a_color: self.0,
         }
     }
@@ -464,7 +463,7 @@ struct BgVertex {
 struct BgWithColor ;
 impl VertexConstructor<Vec2, BgVertex> for BgWithColor  {
     fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
-        BgVertex { a_position: pos.array() }
+        BgVertex { a_position: pos.to_array() }
     }
 }
 
