@@ -250,10 +250,6 @@ impl FillTessellator {
     where
         Output: GeometryBuilder<Vertex>,
     {
-        if options.vertex_aa {
-            println!("warning: Vertex-aa is not supported yet.");
-        }
-
         if options.fill_rule != FillRule::EvenOdd {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
         }
@@ -1481,12 +1477,6 @@ pub struct FillOptions {
     /// Currently, only the EvenOdd rule is implemented.
     pub fill_rule: FillRule,
 
-    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
-    /// a gradient to smooth the edges.
-    ///
-    /// Not implemented yet!
-    pub vertex_aa: bool,
-
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a FillOptions without the calling constructor.
     _private: (),
@@ -1499,7 +1489,6 @@ impl FillOptions {
         FillOptions {
             tolerance: 0.1,
             fill_rule: FillRule::EvenOdd,
-            vertex_aa: false,
             _private: (),
         }
     }
@@ -1516,11 +1505,6 @@ impl FillOptions {
 
     pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
         self.tolerance = tolerance;
-        return self;
-    }
-
-    pub fn with_vertex_aa(mut self) -> FillOptions {
-        self.vertex_aa = true;
         return self;
     }
 }
