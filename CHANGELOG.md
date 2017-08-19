@@ -1,5 +1,10 @@
 ## Change log
 
+### v0.7.3 (2017-08-20)
+  - [tessellation] Fill tessellator bug fix (#150).
+  - [tessellation] Import tests from Mapbox's earcut tessellator.
+  - [svg] Add path builder that writes a string using the SVG path syntax.
+
 ### v0.7.1 (2017-08-02)
   - [bezier] Fix broken conversion between arc and quadratic béziers.
   - [tessellation] Fix bug in circle tessellation when center is not the origin.
