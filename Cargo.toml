@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon"
-version = "0.7.1"
+version = "0.7.3"
 description = "2D Graphics rendering on the GPU using tessellation."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -15,14 +15,14 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_tessellation = { version = "0.7.1", path = "tessellation/" }
+lyon_tessellation = { version = "0.7.3", path = "tessellation/" }
 lyon_core = { version = "0.7.0", path = "core/" }
 lyon_bezier = { version = "0.7.1", path = "bezier/" }
 lyon_path = { version = "0.7.0", path = "path/" }
 lyon_path_builder = { version = "0.7.0", path = "path_builder/" }
 lyon_path_iterator = { version = "0.7.0", path = "path_iterator/" }
 lyon_extra = { version = "0.7.0", path = "extra/" }
-lyon_svg = { version = "0.7.0", path = "svg/" }
+lyon_svg = { version = "0.7.2", path = "svg/" }
 
 [workspace]
 members = [

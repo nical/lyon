@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon_tessellation"
-version = "0.7.1"
+version = "0.7.3"
 description = "A low level path tessellation library."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
