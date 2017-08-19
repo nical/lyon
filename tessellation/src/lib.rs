@@ -186,6 +186,9 @@ mod path_fill;
 mod path_stroke;
 mod math_utils;
 
+#[cfg(test)]
+mod earcut_tests;
+
 pub use core::*;
 
 #[doc(inline)]
