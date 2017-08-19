@@ -324,16 +324,17 @@ impl FillTessellator {
             while let Some(edge) = next_edge {
                 if edge.upper == current_position {
                     next_edge = edge_iter.next();
-                    if edge.lower != current_position {
-                        self.below.push(
-                            EdgeBelow {
-                                lower: edge.lower,
-                                angle: compute_angle(edge.lower - edge.upper),
-                            }
-                        );
+                    if edge.lower == current_position {
+                        continue;
                     }
-                    pending_events = true;
+
+                    self.below.push(EdgeBelow {
+                        lower: edge.lower,
+                        angle: compute_angle(edge.lower - edge.upper),
+                    });
                     tess_log!(self, " edge at {:?} -> {:?}", edge.upper, edge.lower);
+
+                    pending_events = true;
                     continue;
                 }
 
@@ -510,6 +511,39 @@ impl FillTessellator {
 
         self.below.sort_by(|a, b| a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal));
 
+        // Go through all edges below and handle pairs of overlapping edges.
+        // Doing this here avoids some potentially tricky cases with intersections
+        // later.
+        if self.below.len() >= 2 {
+            let mut to_remove = Vec::new();
+            let mut i = 0;
+            while i < self.below.len() - 1 {
+                if self.below[i].angle == self.below[i+1].angle {
+                    to_remove.push(i);
+                    let lower1 = self.below[i].lower;
+                    let lower2 = self.below[i + 1].lower;
+                    if lower1 == lower2 {
+                        // just skip these two egdes.
+                    } else {
+                        self.intersections.push(
+                            if is_after(lower2, lower1) {
+                                Edge { upper: lower1, lower: lower2 }
+                            } else {
+                                Edge { upper: lower2, lower: lower1 }
+                            }
+                        );
+                    }
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            while let Some(idx) = to_remove.pop() {
+                self.below.remove(idx+1);
+                self.below.remove(idx);
+            }
+        }
+
         if self.log {
             self.log_sl(current_position, start_span);
         }
@@ -655,6 +689,9 @@ impl FillTessellator {
             }
 
             while below_count >= 2 {
+                let left_idx = below_idx;
+                let right_idx = below_idx + 1;
+
                 // Start event.
                 //
                 //      x
@@ -663,8 +700,8 @@ impl FillTessellator {
                 //
                 tess_log!(self, "(start event) {}", span_idx);
 
-                let l = self.below[below_idx].lower;
-                let r = self.below[below_idx + 1].lower;
+                let l = self.below[left_idx].lower;
+                let r = self.below[right_idx].lower;
                 let mut left_edge = Edge {
                     upper: current_position,
                     lower: l,
@@ -674,42 +711,19 @@ impl FillTessellator {
                     lower: r,
                 };
 
-                // Look whether the two edges are colinear:
-                if self.below[below_idx].angle != self.below[below_idx + 1].angle {
-                    // In most cases (not colinear):
-                    self.check_intersections(&mut left_edge);
-                    self.check_intersections(&mut right_edge);
-                    self.sweep_line
-                        .insert(
-                            span_idx,
-                            Span::begin(current_position, id, left_edge.lower, right_edge.lower),
-                        );
-                    let vec2_position = to_f32_point(current_position);
-                    self.monotone_tessellators.insert(
+                self.check_intersections(&mut left_edge);
+                self.check_intersections(&mut right_edge);
+                self.sweep_line
+                    .insert(
                         span_idx,
-                        MonotoneTessellator::begin(vec2_position, id),
+                        Span::begin(current_position, id, left_edge.lower, right_edge.lower),
                     );
-                } else {
-                    // If the two edges are colinear we "postpone" the beginning of this span
-                    // since at this level there is nothing to fill in a zero-area span.
-                    //
-                    //     x  <- current point
-                    //     |  <- zero area to fill while the span sides overlap.
-                    //     x  <- postponed start event
-                    //     |\
-                    //     x.\
-                    //
-                    // TODO: this doesn't work if there is an intersection with another span above
-                    // the postponed position.
+                let vec2_position = to_f32_point(current_position);
+                self.monotone_tessellators.insert(
+                    span_idx,
+                    MonotoneTessellator::begin(vec2_position, id),
+                );
 
-                    if l == r {
-                        // just skip these two egdes.
-                    } else if is_after(l, r) {
-                        self.intersections.push(Edge { upper: r, lower: l });
-                    } else {
-                        self.intersections.push(Edge { upper: l, lower: r });
-                    }
-                }
                 below_idx += 2;
                 below_count -= 2;
                 span_idx += 1;
@@ -864,7 +878,6 @@ impl FillTessellator {
         let mut intersection = None;
 
         for (span_idx, span) in self.sweep_line.iter_mut().enumerate() {
-
             // Test for an intersection against the span's left edge.
             if !span.left.merge {
                 if let Some(position) = segment_intersection(
@@ -2197,6 +2210,34 @@ fn test_intersection_horizontal_precision() {
 }
 
 #[test]
+fn test_overlapping_with_intersection() {
+    // There are two overlapping segments a-b and b-a intersecting a segment
+    // c-d.
+    // This test used to fail until overlapping edges got dealt with before
+    // intersection detection. The issue was that the one of the overlapping
+    // edges would intersect properly and the second would end up in the degenerate
+    // case where it would pass though a pain between two segments without
+    // registering as an intersection.
+    //
+    //       a
+    //     / | \
+    //    c--|--d
+    //       |
+    //       b
+
+    let mut builder = Path::builder();
+
+    builder.move_to(point(2.0, -1.0));
+    builder.line_to(point(2.0, -3.0));
+    builder.line_to(point(3.0, -2.0));
+    builder.line_to(point(1.0, -2.0));
+    builder.line_to(point(2.0, -3.0));
+    builder.close();
+
+    test_path(builder.build().as_slice(), None);
+}
+
+#[test]
 fn test_split_with_intersections() {
     // This is a reduced test case that was showing a bug where duplicate intersections
     // were found during a split event, due to the sweep line beeing into a temporarily
@@ -2319,7 +2360,6 @@ fn back_along_previous_edge_failing() {
 }
 
 #[test]
-#[ignore]
 fn test_colinear_touching_squares2_failing() {
     // Two squares touching.
     //
@@ -2397,7 +2437,6 @@ fn test_unknown_issue_1() {
 }
 
 #[test]
-#[ignore] // TODO
 fn test_colinear_touching_squares_rotated_failing() {
     // Two squares touching.
     //
