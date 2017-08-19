@@ -2,6 +2,7 @@
 name = "Fill tessellator benchmark"
 version = "0.0.1"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = "../.."
 
 [[bin]]
 name = "fill_bench"
