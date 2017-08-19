@@ -37,5 +37,6 @@ members = [
     "renderer",
     "examples/gfx_advanced",
     "examples/gfx_basic",
-    "examples/intersections"
+    "examples/intersections",
+    "bench/path_fill"
 ]
