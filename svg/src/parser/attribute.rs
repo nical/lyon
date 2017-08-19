@@ -15,7 +15,7 @@ pub enum AttributeValue {
     None,
     Number(f64),
     Length(Length),
-    RgbColor(Color),
+    Color(Color),
     String(String),
     KeyWord(ValueId),
     Unsupported,
@@ -25,7 +25,7 @@ impl AttributeValue {
     pub fn from_ref(val: RefAttributeValue) -> AttributeValue {
         match val {
             RefAttributeValue::PredefValue(v) => { AttributeValue::KeyWord(v) }
-            RefAttributeValue::Color(c) => { AttributeValue::RgbColor(c) }
+            RefAttributeValue::Color(c) => { AttributeValue::Color(c) }
             RefAttributeValue::Length(l) => { AttributeValue::Length(l) }
             RefAttributeValue::Number(n) => { AttributeValue::Number(n as f64) }
             RefAttributeValue::String(s) => { AttributeValue::String(s.to_owned()) }

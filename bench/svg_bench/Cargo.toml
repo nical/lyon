@@ -2,6 +2,7 @@
 name = "lyon_svg_renderer"
 version = "0.1.0"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = "../.."
 
 [[bin]]
 name = "renderer"
@@ -10,7 +11,7 @@ path = "src/svg_renderer.rs"
 [dependencies]
 lyon = { path = "../../" }
 lyon_svg = { path = "../../svg" }
-svgparser = "0.0.3"
+svgparser = "0.4"
 glium = "0.15.0"
 glutin = "0.6.1"
 rayon = "0.4.2"

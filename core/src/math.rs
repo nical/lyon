@@ -25,6 +25,6 @@ pub type TessPoint64 = Point2D<FixedPoint64>;
 #[inline]
 pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }
 
-pub use euclid::{vec2, rect};
+pub use euclid::{vec2, vec3, rect};
 pub use euclid::point2 as point;
 pub use euclid::size2 as size;
