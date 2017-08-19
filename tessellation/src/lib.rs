@@ -321,12 +321,6 @@ pub struct StrokeOptions {
     /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
     pub tolerance: f32,
 
-    /// An anti-aliasing trick extruding a 1-px wide strip around the edges with
-    /// a gradient to smooth the edges.
-    ///
-    /// Not implemented yet!
-    pub vertex_aa: bool,
-
     /// Apply line width
     ///
     /// When set to false, the generated vertices will all be positioned in the centre
@@ -348,7 +342,6 @@ impl StrokeOptions {
             line_width: 1.0,
             miter_limit: 10.0,
             tolerance: 0.1,
-            vertex_aa: false,
             apply_line_width: true,
             _private: (),
         }
@@ -391,11 +384,6 @@ impl StrokeOptions {
 
     pub fn with_miter_limit(mut self, limit: f32) -> StrokeOptions {
         self.miter_limit = limit;
-        return self;
-    }
-
-    pub fn with_vertex_aa(mut self) -> StrokeOptions {
-        self.vertex_aa = true;
         return self;
     }
 
