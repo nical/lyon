@@ -42,7 +42,7 @@ use path::{Path, PathSlice};
 #[cfg(test)]
 use extra::rust_logo::build_logo_path;
 
-#[cfg(debug)]
+#[cfg(test)]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
         if $obj.log {
@@ -56,7 +56,7 @@ macro_rules! tess_log {
     );
 }
 
-#[cfg(not(debug))]
+#[cfg(not(test))]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => ();
     ($obj:ident, $fmt:expr, $($arg:tt)*) => ();
@@ -2506,6 +2506,36 @@ fn test_point_on_edge_left() {
     let path = builder.build();
 
     tessellate_path(path.as_slice(), true).unwrap();
+}
+
+#[test]
+fn test_point_on_edge2() {
+    // Point b (from edges a-b and b-c) is positionned exactly on
+    // the edge d-e.
+    //
+    //     d-----+
+    //     |     |
+    //  a--b--c  |
+    //  |  |  |  |
+    //  +-----+  |
+    //     |     |
+    //     e-----+
+    let mut builder = Path::builder();
+
+    builder.move_to(point(1.0, 1.0));
+    builder.line_to(point(2.0, 1.0));
+    builder.line_to(point(3.0, 1.0));
+    builder.line_to(point(3.0, 2.0));
+    builder.line_to(point(1.0, 2.0));
+    builder.close();
+
+    builder.move_to(point(2.0, 0.0));
+    builder.line_to(point(2.0, 3.0));
+    builder.line_to(point(4.0, 3.0));
+    builder.line_to(point(4.0, 0.0));
+    builder.close();
+
+    test_path(builder.build().as_slice(), None);
 }
 
 #[test]
