@@ -25,7 +25,7 @@ pub fn line_horizontal_intersection_fixed(
 fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPoint32) -> bool {
     let (min1, max1) = a1.min_max(b1);
     let (min2, max2) = a2.min_max(b2);
-    min1 < max2 && max1 > min2
+    min1 <= max2 && max1 >= min2
 }
 
 // TODO[optim]: This function shows up pretty high in the profiles.
@@ -41,14 +41,12 @@ pub fn segment_intersection(
         return None;
     }
 
-    fn tess_point(x: f64, y: f64) -> TessPoint {
-        TessPoint::new(FixedPoint32::from_f64(x), FixedPoint32::from_f64(y))
-    }
-
-    // TODO: moving this down after the v1_cross_v2 == 0.0 branch fixes test
-    // test_colinear_touching_squares2_failing
     if a1 == b2 || a1 == a2 || b1 == a2 || b1 == b2 {
         return None;
+    }
+
+    fn tess_point(x: f64, y: f64) -> TessPoint {
+        TessPoint::new(FixedPoint32::from_f64(x), FixedPoint32::from_f64(y))
     }
 
     let a1 = F64Point::new(a1.x.to_f64(), a1.y.to_f64());
@@ -76,13 +74,12 @@ pub fn segment_intersection(
     // will use the absolute value of v1_cross_v2 afterwards.
     let t = (a2 - a1).cross(v2) * sign_v1_cross_v2;
     let u = a2_a1_cross_v1 * sign_v1_cross_v2;
-
-    if t > 0.0 && t < abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
+    if t > 0.0 && t <= abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
 
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
         debug_assert!(res.y <= b1.y && res.y <= b2.y);
 
-        if res != a1 && res != b1 && res != a2 && res != b2 {
+        if res != a1 && res != a2 {
             return Some(tess_point(res.x, res.y));
         }
     }

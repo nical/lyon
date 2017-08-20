@@ -233,7 +233,6 @@ fn issue_34() {
 }
 
 #[test]
-#[ignore]
 fn issue_35() {
     earcut_test(&[
         &[
@@ -366,7 +365,6 @@ fn touching_holes() {
 }
 
 #[test]
-#[ignore]
 fn water_huge() {
     earcut_test(&[
         &[
@@ -638,7 +636,6 @@ fn water_huge() {
 }
 
 #[test]
-#[ignore]
 fn water_huge_2() {
     earcut_test(&[
         &[
