@@ -266,7 +266,24 @@ pub enum GpuAddressType {
     Shared,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GpuAddressRange {
+    pub start: GpuAddress,
+    pub end: GpuAddress,
+}
+
+impl GpuAddressRange {
+    pub fn start(&self) -> GpuAddress { self.start }
+
+    pub fn is_empty(&self) -> bool { self.start == self.end }
+
+    pub fn shrink_left(&mut self, amount: u32) {
+        assert!(self.end.offset().as_u32() - self.start.offset().as_u32() >= amount);
+        self.start = self.start + GpuOffset(amount);
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct GpuData {
     buffer: Vec<GpuWord>,
 }

@@ -29,12 +29,13 @@ impl Context {
         let id = self.next_vector_image_id;
         self.next_vector_image_id += 1;
         VectorImageBuilder {
-            gpu_data: GpuData::new(),
             opaque_fill_cmds: Vec::new(),
             opaque_stroke_cmds: Vec::new(),
             z_index: 0,
             id: VectorImageId(id),
+            shared_data: GpuData::new(),
             shared_data_layout: MemoryLayout::new(),
+            instance_data: GpuData::new(),
             instance_data_layout: MemoryLayout::new(),
         }
     }    
@@ -67,6 +68,12 @@ pub struct GeometryBuilder {
     id: GeometryId,
 }
 
+impl GeometryBuilder {
+    pub fn id(&self) -> GeometryId { self.id }
+    pub fn fill(&self) -> &VertexBuffers<GpuFillVertex> { &self.fill }
+    pub fn stroke(&self) -> &VertexBuffers<GpuStrokeVertex> { &self.stroke }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ColorId(GpuAddress);
 
@@ -84,23 +91,6 @@ pub struct EffectId(u32);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GeometryId(u32);
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct GpuAddressRange {
-    start: GpuAddress,
-    end: GpuAddress,
-}
-
-impl GpuAddressRange {
-    pub fn start(&self) -> GpuAddress { self.start }
-
-    pub fn is_empty(&self) -> bool { self.start == self.end }
-
-    pub fn shrink_left(&mut self, amount: u32) {
-        assert!(self.end.offset().as_u32() - self.start.offset().as_u32() >= amount);
-        self.start = self.start + GpuOffset(amount);
-    }
-}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct VectorImageId(u32);
@@ -154,10 +144,11 @@ struct OpaqueStrokeCmd {
 pub struct VectorImageBuilder {
     opaque_fill_cmds: Vec<OpaqueFillCmd>,
     opaque_stroke_cmds: Vec<OpaqueStrokeCmd>,
-    gpu_data: GpuData,
     z_index: u32,
     id: VectorImageId,
+    shared_data: GpuData,
     shared_data_layout: MemoryLayout,
+    instance_data: GpuData,
     instance_data_layout: MemoryLayout,
 }
 
@@ -232,7 +223,7 @@ impl VectorImageBuilder {
 
     pub fn shared_data_mut(&mut self) -> &mut MemoryLayout { &mut self.shared_data_layout }
 
-    pub fn build(mut self, geom: &mut GeometryBuilder) -> VectorImageInstance {
+    pub fn build(mut self, geom: &mut GeometryBuilder) -> VectorImageTemplate {
         let mut fill_tess = tess::FillTessellator::new();
         let mut stroke_tess = tess::StrokeTessellator::new();
 
@@ -276,93 +267,102 @@ impl VectorImageBuilder {
             }
         }
 
-        VectorImageInstance {
-            base: Arc::new(VectorImage {
-                descriptor: VectorImageDescriptor {
-                    geometry: geom.id,
-                    id: self.id,
-                    z_range: self.z_index,
-                    mem_per_instance: self.gpu_data.len() as u32,
-                    contains_fill_ops,
-                    contains_stroke_ops,
-                    shared_data_layout: self.shared_data_layout,
-                    instance_data_layout: self.instance_data_layout,
-                }
+        VectorImageTemplate {
+            info: Arc::new(VectorImageInfo {
+                geometry: geom.id,
+                id: self.id,
+                z_range: self.z_index,
+                mem_per_instance: self.shared_data.len() as u32,
+                contains_fill_ops,
+                contains_stroke_ops,
+                shared_data: self.shared_data,
+                shared_data_layout: self.shared_data_layout,
+                instance_data: self.instance_data.clone(),
+                instance_data_layout: self.instance_data_layout,
             }),
-            gpu_data: self.gpu_data,
         }
     }
 
     fn add_fill_primitve(&mut self, prim: FillPrimitive) -> FillId {
-        let offset = self.gpu_data.push(&prim);
+        let offset = self.shared_data.push(&prim);
         return FillId(GpuAddress::shared(offset));
     }
 
     fn add_stroke_primitve(&mut self, prim: StrokePrimitive) -> StrokeId {
-        let offset = self.gpu_data.push(&prim);
+        let offset = self.shared_data.push(&prim);
         return StrokeId(GpuAddress::shared(offset));
     }
 
     pub fn add_transform(&mut self, transform: &GpuTransform2D) -> TransformId {
-        let offset = self.gpu_data.push(transform);
+        let offset = self.shared_data.push(transform);
         return TransformId(GpuAddress::shared(offset));
     }
 
-    pub fn set_transform(&mut self, id: TransformId, transform: &GpuTransform2D) {
-        self.gpu_data.set(id.0.offset(), transform);
-    }
-
     pub fn add_color(&mut self, color: &GpuColorF) -> ColorId {
-        let offset = self.gpu_data.push(color);
+        let offset = self.shared_data.push(color);
         return ColorId(GpuAddress::shared(offset));
     }
 
-    pub fn set_color(&mut self, id: ColorId, color: &GpuColorF) {
-        self.gpu_data.set(id.0.offset(), color);
+    pub fn add_instance_transform(&mut self, transform: &GpuTransform2D) -> TransformId {
+        let offset = self.instance_data.push(transform);
+        return TransformId(GpuAddress::instance(offset));
+    }
+
+    pub fn add_instance_color(&mut self, color: &GpuColorF) -> ColorId {
+        let offset = self.instance_data.push(color);
+        return ColorId(GpuAddress::instance(offset));
     }
 }
 
-pub struct VectorImage {
-    descriptor: VectorImageDescriptor,
-    // TODO: keep track of which portion of the buffer the image uses.
-}
-
-#[derive(Clone, Debug)]
-struct VectorImageDescriptor {
+#[derive(Debug)]
+pub struct VectorImageInfo {
     geometry: GeometryId,
     id: VectorImageId,
     z_range: u32,
     mem_per_instance: u32,
     contains_fill_ops: bool,
     contains_stroke_ops: bool,
+    shared_data: GpuData,
     shared_data_layout: MemoryLayout,
+    instance_data: GpuData,
     instance_data_layout: MemoryLayout,
 }
 
-impl VectorImage {
-    pub fn id(&self) -> VectorImageId { self.descriptor.id }
-
-    pub fn z_range(&self) -> u32 { self.descriptor.z_range }
-
-    pub fn geometry(&self) -> GeometryId { self.descriptor.geometry }
+#[derive(Clone, Debug)]
+pub struct VectorImageTemplate {
+    info: Arc<VectorImageInfo>,
 }
 
+impl VectorImageTemplate {
+    pub fn id(&self) -> VectorImageId { self.info.id }
+
+    pub fn z_range(&self) -> u32 { self.info.z_range }
+
+    pub fn geometry(&self) -> GeometryId { self.info.geometry }
+}
+
+impl VectorImageTemplate {
+    pub fn new_instance(&self) -> VectorImageInstance {
+        VectorImageInstance {
+            template: self.clone(),
+            gpu_data: self.info.instance_data.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct VectorImageInstance {
-    base: Arc<VectorImage>,
+    pub template: VectorImageTemplate,
     gpu_data: GpuData,
 }
 
 impl VectorImageInstance {
-    pub fn clone_instance(&self) -> Self {
-        // TODO: check that data layouts match!
-        VectorImageInstance {
-            base: Arc::clone(&self.base),
-            gpu_data: self.gpu_data.clone(),
-        }
+    pub fn set_transform(&mut self, id: TransformId, transform: &GpuTransform2D) {
+        self.gpu_data.set(id.0.offset(), transform);
     }
 
-    pub fn base(&self) -> &VectorImage {
-        &*self.base
+    pub fn set_color(&mut self, id: ColorId, color: &GpuColorF) {
+        self.gpu_data.set(id.0.offset(), color);
     }
 }
 
@@ -398,6 +398,7 @@ impl tess::VertexConstructor<tess::StrokeVertex, GpuStrokeVertex> for VertexCtor
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct DrawCmd {
     pub geometry: GeometryId,
     pub num_instances: u32,
@@ -405,7 +406,7 @@ pub struct DrawCmd {
 }
 
 struct LayerVectorImage {
-    descriptor: VectorImageDescriptor,
+    template: VectorImageTemplate,
     instances: Vec<RenderedInstance>,
     allocated_range: Option<GpuAddressRange>,
 }
@@ -424,12 +425,11 @@ pub struct LayerBuilder {
 
 impl LayerBuilder {
     pub fn add(&mut self, instance: Rc<VectorImageInstance>) {
-        let img = instance.base().descriptor.clone();
-        let z_range = img.z_range;
-        self.vector_images.entry(img.id).or_insert(
+        let z_range = instance.template.z_range();
+        self.vector_images.entry(instance.template.id()).or_insert(
             LayerVectorImage {
                 instances: Vec::new(),
-                descriptor: img,
+                template: instance.template.clone(),
                 allocated_range: None,
             }
         ).instances.push(RenderedInstance {
@@ -451,29 +451,29 @@ impl LayerBuilder {
             });
 
             let num_instances = item.instances.len() as u32;
-            let range = ctx.device.allocate_gpu_data(item.descriptor.mem_per_instance * num_instances);
+            let range = ctx.device.allocate_gpu_data(item.template.info.mem_per_instance * num_instances);
             item.allocated_range = Some(range);
 
             // for each instance within a vector image
             let mut range_iter = range;
             for img_instance in &item.instances {
                 ctx.device.set_gpu_data(range, &img_instance.instance.gpu_data);
-                range_iter.shrink_left(item.descriptor.mem_per_instance);
+                range_iter.shrink_left(item.template.info.mem_per_instance);
             }
 
             let base_address = range.start();
 
-            if item.descriptor.contains_fill_ops {
+            if item.template.info.contains_fill_ops {
                 fill_pass.push(DrawCmd {
-                    geometry: item.descriptor.geometry,
+                    geometry: item.template.info.geometry,
                     num_instances,
                     base_address,
                 });
             }
 
-            if item.descriptor.contains_stroke_ops {
+            if item.template.info.contains_stroke_ops {
                 stroke_pass.push(DrawCmd {
-                    geometry: item.descriptor.geometry,
+                    geometry: item.template.info.geometry,
                     num_instances,
                     base_address,
                 });
@@ -533,6 +533,7 @@ impl Layer {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct RenderPassOptions {
     pub vertex_type: VertexType,
     pub enable_blending: bool,
@@ -541,6 +542,7 @@ pub struct RenderPassOptions {
     pub effect: EffectId,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum VertexType {
     Fill,
     Stroke,
@@ -551,59 +553,6 @@ pub trait Device {
     fn set_gpu_data(&mut self, _range: GpuAddressRange, _data: &GpuData);
     fn submit_geometry(&mut self, geom: GeometryBuilder);
     fn render_pass(&mut self, cmds: &[DrawCmd], options: &RenderPassOptions);
-}
-
-//use gfx::Factory;
-use gfx::traits::FactoryExt;
-use gfx_renderer::{GlDevice, GlFactory, GpuGeometry, GlDataTexture};
-//use gfx::traits::Device as GfxDevice;
-
-pub struct GfxDevice {
-    _device: GlDevice,
-    factory: GlFactory,
-
-    alloc: GpuOffset,
-
-    fill_geom: HashMap<GeometryId, GpuGeometry<GpuFillVertex>>,
-    stroke_geom: HashMap<GeometryId, GpuGeometry<GpuStrokeVertex>>,
-    _data_texture: GlDataTexture,
-}
-
-impl Device for GfxDevice {
-    fn allocate_gpu_data(&mut self, size: u32) -> GpuAddressRange {
-        let start = GpuAddress::global(self.alloc);
-        self.alloc = self.alloc + GpuOffset(size);
-        let end = GpuAddress::global(self.alloc);
-        GpuAddressRange { start, end }
-    }
-
-    fn set_gpu_data(&mut self, range: GpuAddressRange, _data: &GpuData) {
-        assert!(self.alloc.as_u32() >= range.end.offset().as_u32());
-    }
-
-    fn submit_geometry(&mut self, geom: GeometryBuilder) {
-        let (fill_vbo, fill_range) = self.factory.create_vertex_buffer_with_slice(
-            &geom.fill.vertices[..],
-            &geom.fill.indices[..]
-        );
-        self.fill_geom.insert(geom.id, GpuGeometry {
-            vbo: fill_vbo,
-            ibo: fill_range,
-        });
-
-        let (stroke_vbo, stroke_range) = self.factory.create_vertex_buffer_with_slice(
-            &geom.stroke.vertices[..],
-            &geom.stroke.indices[..]
-        );
-        self.stroke_geom.insert(geom.id, GpuGeometry {
-            vbo: stroke_vbo,
-            ibo: stroke_range,
-        });
-    }
-
-    fn render_pass(&mut self, _cmds: &[DrawCmd], _options: &RenderPassOptions) {
-
-    }
 }
 
 #[test]
@@ -638,7 +587,10 @@ fn simple_vector_image() {
     let mut builder = ctx.new_vector_image();
     let mut geom = ctx.new_geometry();
 
-    let transform = builder.add_transform(&GpuTransform2D::new(
+    let global_transform = builder.add_transform(&GpuTransform2D::new(
+        Transform2D::identity()
+    ));
+    let instance_transform = builder.add_instance_transform(&GpuTransform2D::new(
         Transform2D::identity()
     ));
 
@@ -651,11 +603,19 @@ fn simple_vector_image() {
         FillStyle {
             pattern: Pattern::Color(color),
         },
-        [transform, transform],
+        [global_transform, instance_transform],
     );
 
-    let img0 = Rc::new(builder.build(&mut geom));
-    let img1 = Rc::new(img0.clone_instance());
+    let template = builder.build(&mut geom);
+
+    let mut img0 = template.new_instance();
+    img0.set_transform(instance_transform, &GpuTransform2D::new(Transform2D::create_translation(1.0, 1.0)));
+
+    let mut img1 = template.new_instance();
+    img1.set_transform(instance_transform, &GpuTransform2D::new(Transform2D::create_translation(-2.0, 5.0)));
+
+    let img0 = Rc::new(img0);
+    let img1 = Rc::new(img1);
 
     let prim_id = GpuAddress::from_raw(geom.fill.vertices[0].prim_id as u32);
 
@@ -674,12 +634,12 @@ fn simple_vector_image() {
     unsafe {
         let prim_offset = prim_id.offset().0 as usize;
         assert_eq!(
-            &img0.gpu_data.as_slice()[prim_offset..(prim_offset as usize + 4)],
+            &img0.template.info.shared_data.as_slice()[prim_offset..(prim_offset as usize + 4)],
             &[
                 mem::transmute(0u32),
                 mem::transmute(color),
-                mem::transmute(transform),
-                mem::transmute(transform),
+                mem::transmute(global_transform),
+                mem::transmute(instance_transform),
             ]
         );
     }
