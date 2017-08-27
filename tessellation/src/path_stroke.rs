@@ -40,19 +40,14 @@ use std::f32::consts::PI;
 /// # Examples
 ///
 /// ```
-/// # extern crate lyon_tessellation;
-/// # extern crate lyon_core;
-/// # extern crate lyon_path;
-/// # extern crate lyon_path_builder;
-/// # extern crate lyon_path_iterator;
-/// # use lyon_path::Path;
-/// # use lyon_path_builder::*;
-/// # use lyon_path_iterator::*;
-/// # use lyon_core::math::{Point, point};
-/// # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
-/// # use lyon_tessellation::*;
-/// # use lyon_tessellation::StrokeVertex as Vertex;
-/// # fn main() {
+/// #extern crate lyon;
+/// #use lyon::path_builder::*;
+/// #use lyon::math::point;
+/// #use lyon::path::Path;
+/// #use lyon::tessellation::geometry_builder::{VertexBuffers, simple_builder};
+/// #use lyon::tessellation::*;
+///
+/// #fn main() {
 /// // Create a simple path.
 /// let mut path_builder = Path::builder();
 /// path_builder.move_to(point(0.0, 0.0));
@@ -63,10 +58,9 @@ use std::f32::consts::PI;
 /// let path = path_builder.build();
 ///
 /// // Create the destination vertex and index buffers.
-/// let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
-///
+/// let mut buffers = VertexBuffers::new();
 /// {
-///     // Create the destination vertex and index buffers.
+///     // Create the vertex builder.
 ///     let mut vertex_builder = simple_builder(&mut buffers);
 ///
 ///     // Create the tessellator.
@@ -82,8 +76,8 @@ use std::f32::consts::PI;
 ///
 /// println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
 /// println!("The generated indices are: {:?}.", &buffers.indices[..]);
-///
-/// # }
+/// 
+/// #}
 /// ```
 pub struct StrokeTessellator {}
 
