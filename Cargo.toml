@@ -38,6 +38,7 @@ members = [
     "examples/gfx_advanced",
     "examples/gfx_basic",
     "examples/intersections",
+    "examples/gl_renderer",
     "bench/svg_bench",
     "bench/path_fill"
 ]

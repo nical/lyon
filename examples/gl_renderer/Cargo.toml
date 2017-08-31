@@ -1,0 +1,10 @@
+[package]
+name = "gl_renderer"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+
+[dependencies]
+lyon = { path = "../../" }
+lyon_renderer = { path = "../../renderer" }
+gl = "0.6.3"
+glutin = "0.9"

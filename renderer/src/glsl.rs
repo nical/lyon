@@ -1,5 +1,65 @@
 pub static PRIM_BUFFER_LEN: usize = 1024;
 
+pub static PRIM_BUFFER_LOCATION: u32 = 0;
+pub static TRANSFORM_BUFFER_LOCATION: u32 = 1;
+
+pub static FILL_PRIM_BUFFER_DECL: &'static str = &"
+    struct Primitive {
+        int z_index;
+        int color;
+        int local_transform;
+        int view_transform;
+    };
+    layout(std430, location = 0) buffer _primitives {
+        Primitive primitives[];
+    };
+";
+
+pub static STROKE_PRIM_BUFFER_DECL: &'static str = &"
+    struct Primitive {
+        int z_index;
+        int color;
+        int local_transform;
+        int view_transform;
+        float width;
+        float _padding0;
+        float _padding1;
+        float _padding2;
+    };
+    layout(std430, location = 0) buffer _primitives { Primitive primitives[]; };
+";
+
+pub static TRANFORM2D_BUFFER_DECL: &'static str = &"
+    struct Transform2D {
+        float m11, float m12,
+        float m21, float m22,
+        float m31, float m32,
+    };
+    layout(std430, location = 1) buffer _transforms { Transform2D transforms[]; };
+    mat3 get_transform(int index) {
+        Transform2D t = transforms[index];
+        return mat3(
+            t.m11, t.m12, 0.0
+            t.m21, t.m22, 0.0
+            t.m31, t.m32, 1.0
+        );
+    }
+";
+
+pub static TRANFORM3D_BUFFER_DECL: &'static str = &"
+    layout(location = 1) buffer _transforms { mat4 transforms[]; };
+    mat4 get_transform(int index) {
+        return transforms[index];
+    }
+";
+
+pub static VERTEX_ATRIBUTES_DECL: &'static str = &"
+    in vec2 a_position;
+    in vec2 a_normal;
+    in int a_prim_id;
+    in int a_advancement;
+";
+
 // The vertex shader for the tessellated geometry.
 // The transform, color and stroke width are applied instead of during tessellation. This makes
 // it possible to change these parameters without having to modify/upload the geometry.

@@ -3,7 +3,6 @@ use std::mem;
 use std::rc::Rc;
 use std::collections::HashMap;
 
-use gfx_renderer::{GpuFillVertex, GpuStrokeVertex};
 use tessellation as tess;
 use tessellation::geometry_builder::{VertexBuffers, BuffersBuilder};
 use core::math::*;
@@ -203,12 +202,12 @@ impl VectorImageBuilder {
         let address = self.add_stroke_primitve(
             StrokePrimitive::new(
                 z,
-                options.line_width,
                 match style.pattern {
                     Pattern::Color(color) => color,
                     _ => unimplemented!()
                 },
                 transforms,
+                options.line_width,
             )
         );
 
@@ -375,9 +374,9 @@ impl tess::VertexConstructor<tess::FillVertex, GpuFillVertex> for VertexCtor {
         debug_assert!(!vertex.normal.x.is_nan());
         debug_assert!(!vertex.normal.y.is_nan());
         GpuFillVertex {
-            position: vertex.position.to_array(),
-            normal: vertex.normal.to_array(),
-            prim_id: (self.0).0 as i32,
+            position: vertex.position,
+            normal: vertex.normal,
+            prim_id: self.0,
         }
     }
 }
@@ -390,10 +389,10 @@ impl tess::VertexConstructor<tess::StrokeVertex, GpuStrokeVertex> for VertexCtor
         debug_assert!(!vertex.normal.y.is_nan());
         assert!(!vertex.advancement.is_nan());
         GpuStrokeVertex {
-            position: vertex.position.to_array(),
-            normal: vertex.normal.to_array(),
+            position: vertex.position,
+            normal: vertex.normal,
             advancement: vertex.advancement,
-            prim_id: (self.0).0 as i32,
+            prim_id: self.0,
         }
     }
 }

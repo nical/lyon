@@ -26,7 +26,7 @@ gfx_defines!{
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
-        gpu_data: gfx::TextureSampler<[f32; 4]> = "gpu_data",
+        gpu_data: gfx::TextureSampler<[f32; 4]> = "u_gpu_data",
     }
 
     pipeline stroke_pipeline {
@@ -34,7 +34,7 @@ gfx_defines!{
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
         constants: gfx::ConstantBuffer<Globals> = "Globals",
-        gpu_data: gfx::TextureSampler<[f32; 4]> = "gpu_data",
+        gpu_data: gfx::TextureSampler<[f32; 4]> = "u_gpu_data",
     }
 }
 

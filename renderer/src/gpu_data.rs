@@ -1,4 +1,4 @@
-use core::math::{Transform2D, Transform3D};
+use core::math::{Transform2D, Transform3D, Point, Vec2};
 use vector_image_renderer::{ColorId, TransformId};
 use std::mem;
 use std::sync::Arc;
@@ -169,15 +169,15 @@ gpu_data! {
     #[padding(3)]
     struct StrokePrimitive: GpuBlock8 {
         z_index: u32,
-        width: f32,
         color: ColorId,
         transforms: [TransformId; 2],
+        width: f32,
     }
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GpuAddress(pub u32);
-
 
 impl GpuAddress {
     pub fn new(ty: GpuAddressType, offset: GpuOffset) -> Self {
@@ -221,6 +221,7 @@ impl GpuAddress {
     pub fn offset(&self) -> GpuOffset { GpuOffset(self.0 & GPU_ADDR_OFFSET_MASK) }
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GpuOffset(pub u32);
 
@@ -347,8 +348,15 @@ impl GpuStruct {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ScalarType {
-    I32,
     F32,
+    F64,
+    F16,
+    U32,
+    I32,
+    U16,
+    I16,
+    U8,
+    I8,
     Address,
     Unknown,
 }
@@ -429,3 +437,19 @@ impl MemoryLayout {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct GpuFillVertex {
+    pub position: Point,
+    pub normal: Vec2,
+    pub prim_id: GpuAddress,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct GpuStrokeVertex {
+    pub position: Point,
+    pub normal: Vec2,
+    pub advancement: f32, // TODO: maybe put it on a separate vertex attrib buffer?
+    pub prim_id: GpuAddress,
+}
