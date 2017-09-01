@@ -183,7 +183,7 @@ pub struct FillTessellator {
     previous_position: TessPoint,
     error: Option<FillError>,
     log: bool,
-    pub _handle_intersections: bool,
+    handle_intersections: bool,
 }
 
 impl FillTessellator {
@@ -198,7 +198,7 @@ impl FillTessellator {
             previous_position: TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val()),
             error: None,
             log: false,
-            _handle_intersections: true,
+            handle_intersections: true,
         }
     }
 
@@ -253,6 +253,8 @@ impl FillTessellator {
         if options.fill_rule != FillRule::EvenOdd {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
         }
+
+        self.handle_intersections = !options.assume_no_intersections;
 
         self.begin_tessellation(output);
 
@@ -864,7 +866,7 @@ impl FillTessellator {
         //
         // TODO: This function is more complicated (and slower) than it needs to be.
 
-        if !self._handle_intersections {
+        if !self.handle_intersections {
             return;
         }
 
@@ -1483,12 +1485,27 @@ pub struct FillOptions {
     /// Maximum allowed distance to the path when building an approximation.
     ///
     /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
+    ///
+    /// Default value: `0.1`.
     pub tolerance: f32,
 
-    /// See the SVG specification.
+    /// Set the fill rule.
     ///
-    /// Currently, only the EvenOdd rule is implemented.
+    /// See the [SVG specification](https://www.w3.org/TR/SVG/painting.html#FillRuleProperty).
+    /// Currently, only the `EvenOdd` rule is implemented.
+    ///
+    /// Default value: `EvenOdd`.
     pub fill_rule: FillRule,
+
+    /// A fast path to avoid some expensive operations if the path is known to
+    /// not have any self-intersections.
+    ///
+    /// Do not set this to `true` if the path may have intersecting edges else
+    /// the tessellator may panic or produce incorrect results. In doubt, do not
+    /// change the default value.
+    ///
+    /// Default value: `false`.
+    pub assume_no_intersections: bool,
 
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a FillOptions without the calling constructor.
@@ -1502,6 +1519,7 @@ impl FillOptions {
         FillOptions {
             tolerance: 0.1,
             fill_rule: FillRule::EvenOdd,
+            assume_no_intersections: false,
             _private: (),
         }
     }
@@ -1518,6 +1536,11 @@ impl FillOptions {
 
     pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
         self.tolerance = tolerance;
+        return self;
+    }
+
+    pub fn assume_no_intersections(mut self) -> FillOptions {
+        self.assume_no_intersections = true;
         return self;
     }
 }

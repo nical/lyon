@@ -715,7 +715,7 @@ pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
 
     return FillTessellator::new().tessellate_events(
         &events,
-        &FillOptions::tolerance(tolerance),
+        &FillOptions::tolerance(tolerance).assume_no_intersections(),
         output,
     ).unwrap();
 }

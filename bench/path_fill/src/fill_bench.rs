@@ -32,8 +32,7 @@ fn logo_tess_no_intersection(bench: &mut Bencher) {
     let path = path.build();
 
     let mut tess = FillTessellator::new();
-    tess._handle_intersections = false;
-    let options = FillOptions::default();
+    let options = FillOptions::default().assume_no_intersections();
     let events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
 
     bench.iter(|| {
