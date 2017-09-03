@@ -32,7 +32,7 @@ use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::FlattenedEvent;
 use bezier::utils::{directed_angle, directed_angle2};
 use math_utils::{line_horizontal_intersection_fixed, segment_intersection};
-use path_builder::BaseBuilder;
+use path_builder::FlatPathBuilder;
 use path_iterator::PathIterator;
 
 #[cfg(test)]
@@ -1346,7 +1346,7 @@ impl EventsBuilder {
     }
 }
 
-impl BaseBuilder for EventsBuilder {
+impl FlatPathBuilder for EventsBuilder {
     type PathType = FillEvents;
 
     fn move_to(&mut self, to: Point) {

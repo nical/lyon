@@ -8,7 +8,7 @@
 //!
 //! The following example shows the Builder struct from the
 //! [lyon_path](https://docs.rs/lyon_path/*/lyon_path) crate using the
-//! [BaseBuilder](traits.BaseBuilder.html) interface.
+//! [FlatPathBuilder](traits.FlatPathBuilder.html) interface.
 //!
 //! ```ignore
 //! use lyon_path::Path;
@@ -18,7 +18,7 @@
 //! // Create a builder object to build the path.
 //! let mut builder = Path::builder();
 //!
-//! // Build a simple path using the BaseBuilder interface.
+//! // Build a simple path using the FlatPathBuilder interface.
 //! builder.move_to(point(0.0, 0.0));
 //! builder.line_to(point(1.0, 2.0));
 //! builder.line_to(point(2.0, 0.0));
@@ -30,7 +30,7 @@
 //! ```
 //!
 //! The next example uses the [PathBuilder](traits.PathBuilder.html) trait, which adds
-//! some simple curves to the [BaseBuilder](traits.BaseBuilder.html) trait.
+//! some simple curves to the [FlatPathBuilder](traits.FlatPathBuilder.html) trait.
 //!
 //! ```ignore
 //! let mut builder = Path::builder();

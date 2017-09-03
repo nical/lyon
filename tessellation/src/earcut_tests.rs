@@ -23,7 +23,7 @@ use geometry_builder::{VertexBuffers, simple_builder};
 use path::{Path, PathSlice};
 use path_fill::*;
 use path_iterator::PathIterator;
-use path_builder::BaseBuilder;
+use path_builder::FlatPathBuilder;
 use math::*;
 use FillVertex as Vertex;
 
