@@ -1212,7 +1212,7 @@ impl Span {
     }
 
     fn set_lower_vertex(&mut self, vertex: TessPoint, side: Side) {
-        let mut edge = self.mut_edge(side);
+        let edge = self.mut_edge(side);
         edge.lower = vertex;
         edge.merge = false;
     }

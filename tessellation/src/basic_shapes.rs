@@ -740,7 +740,6 @@ pub fn stroke_ellipse<Output: GeometryBuilder<StrokeVertex>>(
     };
 
     use path_builder::{PathBuilder, FlatteningBuilder};
-    use path_fill::EventsBuilder;
 
     output.begin_geometry();
     {
