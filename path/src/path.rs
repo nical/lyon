@@ -1,4 +1,4 @@
-use path_builder::{BaseBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
+use path_builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
 use path_iterator::PathIter;
 
 use core::PathEvent;
@@ -103,7 +103,7 @@ impl<'l> PathSlice<'l> {
 //    fn into_iter(self) -> Iter<'l> { self.iter() }
 //}
 
-/// Builds path object using the BaseBuilder interface.
+/// Builds path object using the FlatPathBuilder interface.
 ///
 /// See the [lyon_path_builder](https://docs.rs/lyon_path_builder) module documentation.
 pub struct Builder {
@@ -138,7 +138,7 @@ fn nan_check(p: Point) {
     debug_assert!(!p.y.is_nan());
 }
 
-impl BaseBuilder for Builder {
+impl FlatPathBuilder for Builder {
     type PathType = Path;
 
     fn move_to(&mut self, to: Point) {

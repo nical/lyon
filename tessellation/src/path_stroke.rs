@@ -3,7 +3,7 @@ use core::FlattenedEvent;
 use bezier::utils::{normalized_tangent, directed_angle};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
-use path_builder::BaseBuilder;
+use path_builder::FlatPathBuilder;
 use path_iterator::PathIterator;
 use StrokeVertex as Vertex;
 use {Side, LineCap, LineJoin, StrokeOptions};
@@ -164,7 +164,7 @@ pub struct StrokeBuilder<'l, Output: 'l> {
     output: &'l mut Output,
 }
 
-impl<'l, Output: 'l + GeometryBuilder<Vertex>> BaseBuilder for StrokeBuilder<'l, Output> {
+impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder<'l, Output> {
     type PathType = ();
 
     fn move_to(&mut self, to: Point) {

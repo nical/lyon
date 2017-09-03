@@ -4,7 +4,7 @@ use bezier::{CubicBezierSegment, QuadraticBezierSegment, SvgArc};
 use bezier;
 
 /// The most basic path building interface. Does not handle any kind of curve.
-pub trait BaseBuilder: ::std::marker::Sized {
+pub trait FlatPathBuilder: ::std::marker::Sized {
     /// The type of object that is created by this builder.
     type PathType;
 
@@ -51,7 +51,7 @@ pub trait BaseBuilder: ::std::marker::Sized {
 
 /// The main path building interface. More elaborate interfaces are built on top
 /// of the provided primitives.
-pub trait PathBuilder: BaseBuilder {
+pub trait PathBuilder: FlatPathBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
 
@@ -191,7 +191,7 @@ impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     }
 }
 
-impl<Builder: PathBuilder> BaseBuilder for SvgPathBuilder<Builder> {
+impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) {
@@ -324,7 +324,7 @@ pub struct FlatteningBuilder<Builder> {
     tolerance: f32,
 }
 
-impl<Builder: BaseBuilder> BaseBuilder for FlatteningBuilder<Builder> {
+impl<Builder: FlatPathBuilder> FlatPathBuilder for FlatteningBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
@@ -340,7 +340,7 @@ impl<Builder: BaseBuilder> BaseBuilder for FlatteningBuilder<Builder> {
     fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
 }
 
-impl<Builder: BaseBuilder> PathBuilder for FlatteningBuilder<Builder> {
+impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         QuadraticBezierSegment {
             from: self.current_position(),
@@ -359,7 +359,7 @@ impl<Builder: BaseBuilder> PathBuilder for FlatteningBuilder<Builder> {
     }
 }
 
-impl<Builder: BaseBuilder> FlatteningBuilder<Builder> {
+impl<Builder: FlatPathBuilder> FlatteningBuilder<Builder> {
     pub fn new(builder: Builder, tolerance: f32) -> FlatteningBuilder<Builder> {
         FlatteningBuilder {
             builder: builder,
@@ -370,7 +370,7 @@ impl<Builder: BaseBuilder> FlatteningBuilder<Builder> {
     pub fn set_tolerance(&mut self, tolerance: f32) { self.tolerance = tolerance }
 }
 
-impl<Builder: BaseBuilder> PolygonBuilder for Builder {
+impl<Builder: FlatPathBuilder> PolygonBuilder for Builder {
     fn polygon(&mut self, points: &[Point]) {
         assert!(!points.is_empty());
 

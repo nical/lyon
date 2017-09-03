@@ -21,7 +21,7 @@ impl PathSerializer {
     }
 }
 
-impl BaseBuilder for PathSerializer {
+impl FlatPathBuilder for PathSerializer {
     type PathType = String;
 
     fn move_to(&mut self, to: Point) {
