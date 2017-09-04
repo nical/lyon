@@ -343,12 +343,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             if self.options.end_cap == LineCap::Square {
                 // The easiest way to implement square caps is to lie about the current position
                 // and move it slightly to accommodate for the width/2 extra length.
-                let hw = if self.options.apply_line_width {
-                    self.options.line_width * 0.5
-                } else {
-                    0.5
-                };
-                self.current += d.normalize() * hw;
+                self.current += d.normalize();
             }
             let p = self.current + d;
             self.edge_to(p);
@@ -368,13 +363,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             let d = first - self.second;
 
             if self.options.start_cap == LineCap::Square {
-                let hw = if self.options.apply_line_width {
-                    self.options.line_width * 0.5
-                } else {
-                    0.5
-                };
-
-                first += d.normalize() * hw;
+                first += d.normalize();
             }
 
             let n2 = normalized_tangent(d);
@@ -597,9 +586,9 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
                     // Calculate initial normal
                     let mut normal = if front_side == Side::Right {
-                        vec2(a_line.y, -a_line.x).normalize() * 0.5
+                        vec2(a_line.y, -a_line.x).normalize()
                     } else {
-                        vec2(-a_line.y, a_line.x).normalize() * 0.5
+                        vec2(-a_line.y, a_line.x).normalize()
                     };
 
                     let mut last_vertex = add_vertex!(
