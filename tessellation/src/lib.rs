@@ -137,9 +137,9 @@
 //! application will usually want to work with its own vertex type tailored a certain rendering
 //! model.
 //!
-//! Each application will implement the ```GeometryBuilder<Point>``` trait in order to
-//! generate vertex buffers and index buffers any type of vertex they want taking a 2d Point
-//! as input for each vertex.
+//! Applications can implement the ```GeometryBuilder<Point>``` trait in order to
+//! generate vertex buffers and index buffers with custom vertex types.
+//!
 //! The structs [VertexBuffers](geometry_builder/struct.VertexBuffers.html) and
 //! [geometry_buider::BuffersBuilder](geometry_builder/struct.BuffersBuilder.html) are provided
 //! for convenience. `VertexBuffers<T>` is contains a `Vec<T>` for the vertices and a `Vec<u16>`
@@ -148,6 +148,14 @@
 //! `BuffersBuilder` is generic over a `VertexConstructor<InputVertex, OutputVertex>` trait which
 //! creates the application's output vertices from the tessellator input vertices (either `FillVertex`
 //! or `StrokeVertex`).
+//!
+//! ### Rendering the tessellated geometry
+//!
+//! The tessellators produce geometry in the form of vertex and index buffers which are expected
+//! to be rendered using the equivalent of OpenGL's `glDrawElements` with mode `GL_TRIANGLES` available
+//! under various names in the different graphics APIs.
+//! There is a [basic example](https://github.com/nical/lyon/tree/master/examples/gfx_basic) showing how
+//! it can be done with gfx-rs.
 //!
 //! ### Flattening and tolerance
 //!

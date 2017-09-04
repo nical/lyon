@@ -67,26 +67,69 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 
 ## Structure
 
-The project is split into small crates:
+The project is split into several crates:
 
-* [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) - [lyon_tessellation](https://crates.io/crates/lyon_tessellation) - Path tessellation routines.
-* [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) - [lyon_path_builder](https://crates.io/crates/lyon_path_builder) - Tools to facilitate building paths.
-* [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) - [lyon_path_iterator](https://crates.io/crates/lyon_path_iterator) - Tools to facilitate iteratring over paths.
-* [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) - [lyon_path](https://crates.io/crates/lyon_path) - A simple optional path data structure, provided for convenience.
-* [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) - [lyon_bezier](https://crates.io/crates/lyon_bezier) - Cubic and quadratic 2d bezier math.
-* [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) - [lyon_svg](https://crates.io/crates/lyon_svg) - Create paths using SVG's path syntax.
-* [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) - [lyon_extra](https://crates.io/crates/lyon_extra) - Additional testing and debugging tools.
-* [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_path_core) - [lyon_core](https://crates.io/crates/lyon_core) - Common types to most lyon crates.
+* [![crate](http://meritbadge.herokuapp.com/lyon)](https://crates.io/crates/lyon)
+  [![doc](https://docs.rs/lyon/badge.svg)](https://docs.rs/lyon) -
+  **lyon** - A meta-crate that reexports the crates below for convenience.
+* [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
+  [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
+  **lyon_tessellation** - Path tessellation routines.
+* [![crate](http://meritbadge.herokuapp.com/lyon_path_builder)](https://crates.io/crates/lyon_path_builder)
+  [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) -
+  **lyon_path_builder** - Tools to facilitate building paths.
+* [![crate](http://meritbadge.herokuapp.com/lyon_path_iterator)](https://crates.io/crates/lyon_path_iterator)
+  [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) - 
+  **lyon_path_iterator** - Tools to facilitate iteratring over paths.
+* [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
+  [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
+  **lyon_path** - A simple optional path data structure, provided for convenience.
+* [![crate](http://meritbadge.herokuapp.com/lyon_bezier)](https://crates.io/crates/lyon_bezier)
+  [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) -
+  **lyon_bezier** - Cubic and quadratic 2d bézier math.
+* [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
+  [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
+  **lyon_svg** - Create paths using SVG's path syntax.
+* [![crate](http://meritbadge.herokuapp.com/lyon_extra)](https://crates.io/crates/lyon_extra)
+  [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
+  **lyon_extra** - Additional testing and debugging tools.
+* [![crate](http://meritbadge.herokuapp.com/lyon_core)](https://crates.io/crates/lyon_core)
+  [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_core) -
+  **lyon_core** - Common types to most lyon crates (mostly for internal use, reexported by the other crates).
 
 There is also a toy [command-line tool](cli) to tessellate SVG path from your favorite terminal.
 
 Have a look at the [basic](examples/gfx_basic) and [advanced](examples/gfx_advanced) gfx-rs examples to see how integrating the tessellators in a renderer can look like.
 
-## TODO
+## FAQ
 
-The [github issues](https://github.com/nical/lyon/issues) is the most up to date list of things to do in the near future. Some of these issues have the ["help wanted" label](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) which indicates that they are approachable for people who are not already familiar with the code. The ones with the [easy label](https://github.com/nical/lyon/issues?q=is%3Aissue+is%3Aopen+label%3Aeasy) are good places to start for anyone looking to [contribute](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md) for the first time.
+### In a nutshell, what is a tessellator?
 
-Need help working on or with lyon? [File an issue](https://github.com/nical/lyon/issues/new), ask questions on [gitter](https://gitter.im/lyon-rs/Lobby), or contact [@nical](https://github.com/nical) by e-mail.
+Tessellators such as the ones provided by lyon take complex shapes as input and generate geometry made of triangles that can be easily consumed by graphics APIs such as OpenGL, Vulkan or D3D.
+
+### How do I render an SVG file with lyon?
+
+Lyon is *not* an SVG renderer. For now lyon mainly provides primitives to tessellate complex path fills and strokes in a way that is convenient to use with GPU APIs such as gfx-rs, glium, OpenGL, D3D, etc. How the tessellated geometry is rendered is completely up to the user of this crate.
+
+### How do I render the output of the tessellators?
+
+Although the format of the output of the tessellators is customizable, the algorithms are designed to generate a vertex and an index buffer. See the [lyon::tessellation documentaton](https://docs.rs/lyon_tessellation/0.7.4/lyon_tessellation/#the-output-geometry-builders) for more details.
+
+### Is anti-aliasing supported?
+
+There is currently no built-in support for anti-aliasing in the tessellators. Anti-aliasing can still be achieved by users of this crate using techniques commonly employed in video games (msaa, taa, fxaa, etc.).
+
+### What is left to do before lyon 1.0?
+
+See the [1.0 milestone](https://github.com/nical/lyon/milestone/2) on the github repository.
+
+### I need help!
+
+Don't hesitate to [file an issue](https://github.com/nical/lyon/issues/new), ask questions on [gitter](https://gitter.im/lyon-rs/Lobby), or contact [@nical](https://github.com/nical) by e-mail.
+
+### How can I help?
+
+See [CONTRIBUTING.md](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md).
 
 ## License
 

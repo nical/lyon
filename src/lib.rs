@@ -9,15 +9,32 @@
 //!
 //! # Crates
 //!
-//! * [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) - [lyon_tessellation](https://crates.io/crates/lyon_tessellation) - Path tessellation routines.
-//! * [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) - [lyon_path_builder](https://crates.io/crates/lyon_path_builder) - Tools to facilitate building paths.
-//! * [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) - [lyon_path_iterator](https://crates.io/crates/lyon_path_iterator) - Tools to facilitate iteratring over paths.
-//! * [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) - [lyon_path](https://crates.io/crates/lyon_path) - A simple optional path data structure, provided for convenience.
-//! * [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) - [lyon_bezier](https://crates.io/crates/lyon_bezier) - Cubic and quadratic 2d bezier math.
-//! * [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) - [lyon_extra](https://crates.io/crates/lyon_extra) - Additional testing and debugging tools.
-//! * [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_path_core) - [lyon_core](https://crates.io/crates/lyon_core) - Common types to most lyon crates.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
+//!   [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
+//!   **lyon_tessellation** - Path tessellation routines.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_path_builder)](https://crates.io/crates/lyon_path_builder)
+//!   [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) -
+//!   **lyon_path_builder** - Tools to facilitate building paths.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_path_iterator)](https://crates.io/crates/lyon_path_iterator)
+//!   [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) -
+//!   **lyon_path_iterator** - Tools to facilitate iteratring over paths.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
+//!   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
+//!   **lyon_path** - A simple optional path data structure, provided for convenience.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_bezier)](https://crates.io/crates/lyon_bezier)
+//!   [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) -
+//!   **lyon_bezier** - Cubic and quadratic 2d bézier math.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
+//!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
+//!   **lyon_svg** - Create paths using SVG's path syntax.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_extra)](https://crates.io/crates/lyon_extra)
+//!   [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
+//!   **lyon_extra** - Additional testing and debugging tools.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_core)](https://crates.io/crates/lyon_core)
+//!   [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_core) -
+//!   **lyon_core** - Common types to most lyon crates (mostly for internal use, reexported by the other crates).
 //!
-//! [This crate](https://crates.io/crates/lyon) is just a meta-crate, reexporting the crates listed above.
+//! [This crate](https://crates.io/crates/lyon) is a meta-crate, reexporting the crates listed above.
 //!
 //! # Additional documentation and links
 //!
