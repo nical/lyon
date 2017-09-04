@@ -421,7 +421,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             // Tessellate join
             self.tessellate_join(to, normal)
         } else {
-            // Tessellate a cap at the start
             let left_id = add_vertex!(
                 self,
                 Vertex {
@@ -452,7 +451,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         }
 
         self.previous = self.current;
-        self.prev_normal = normal;
         self.previous_left_id = end_left_id;
         self.previous_right_id = end_right_id;
         self.current = to;
@@ -535,20 +533,24 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     }
 
     fn tessellate_join(&mut self, to: Point, normal: Vec2) -> (VertexId, VertexId, VertexId, VertexId) {
-        // Calculate which side is at the "front" of the join (aka. the pointy side)
-        let a_line = self.current - self.previous;
-        let b_line = to - self.current;
-        let join_angle = a_line.y.atan2(a_line.x) - b_line.y.atan2(b_line.x);
-        let front_side = if join_angle > 0.0 {
-            Side::Left
-        } else {
-            Side::Right
-        };
+        // This function needs to differentiate the "front" of the join (aka. the pointy side)
+        // from the back. The front is where subdivision or adjustments may be needed.
 
-        // If the "front" is on the right, invert the normal
-        let normal = match front_side {
-            Side::Left => normal,
-            Side::Right => -normal,
+        let prev_tangent = (self.current - self.previous).normalize();
+        let next_tangent = (to - self.current).normalize();
+
+        let mut join_angle = prev_tangent.y.atan2(prev_tangent.x) - next_tangent.y.atan2(next_tangent.x);
+        // Make sure to stay within the [-Pi, Pi] range.
+        if join_angle > PI {
+            join_angle -= 2.0 * PI;
+        } else if join_angle < -PI {
+            join_angle += 2.0 * PI;
+        }
+
+        let (front_side, front_normal) = if join_angle > 0.0 {
+            (Side::Left, normal)
+        } else {
+            (Side::Right, -normal)
         };
 
         // Add a vertex at the back of the join
@@ -556,111 +558,90 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self,
             Vertex {
                 position: self.current,
-                normal: -normal,
+                normal: -front_normal,
                 advancement: self.length,
                 side: front_side.opposite(),
             }
         );
 
-        let (start_vertex, end_vertex) = match self.options.line_join {
-            LineJoin::Miter => {
-                let v = add_vertex!(
-                    self,
-                    Vertex {
-                        position: self.current,
-                        normal: normal,
-                        advancement: self.length,
-                        side: front_side,
-                    }
-                );
+        let join_type = if join_angle.abs() < 0.01 {
+            // The two edges are almost aligned, just use a simple miter join.
+            LineJoin::Miter
+        } else {
+            self.options.line_join
+        };
 
-                (v, v)
-            }
-
+        let (start_vertex, end_vertex) = match join_type {
             LineJoin::Round => {
                 let max_radius_segment_angle = compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
                 let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
-                if num_segments != 0 {
-                    // Calculate angle of each step
-                    let segment_angle = join_angle as f32 / num_segments as f32;
+                assert!(num_segments > 0);
+                // Calculate angle of each step
+                let segment_angle = join_angle as f32 / num_segments as f32;
 
-                    // Calculate initial normal
-                    let mut normal = if front_side == Side::Right {
-                        vec2(a_line.y, -a_line.x).normalize()
-                    } else {
-                        vec2(-a_line.y, a_line.x).normalize()
-                    };
+                let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
 
-                    let mut last_vertex = add_vertex!(
-                        self,
-                        Vertex {
-                            position: self.current,
-                            normal: normal,
-                            advancement: self.length,
-                            side: front_side,
-                        }
-                    );
-                    let start_vertex = last_vertex;
+                // Calculate the initial front normal
+                let initial_normal = vec2(-prev_tangent.y, prev_tangent.x) * neg_if_right;
 
-                    // Plot each point along the radius by using a matrix to
-                    // rotate the normal at each step
-                    let (sin, cos) = segment_angle.sin_cos();
-                    let rotation_matrix = [
-                        [cos, sin],
-                        [-sin, cos],
-                    ];
-
-                    for _ in 0..num_segments {
-                        // Calculate normal
-                        normal = vec2(
-                            normal.x * rotation_matrix[0][0] + normal.y * rotation_matrix[0][1],
-                            normal.x * rotation_matrix[1][0] + normal.y * rotation_matrix[1][1]
-                        );
-
-                        let current_vertex = add_vertex!(
-                            self,
-                            Vertex {
-                                position: self.current,
-                                normal: normal,
-                                advancement: self.length,
-                                side: front_side,
-                            }
-                        );
-
-                        self.output.add_triangle(back_vertex, last_vertex, current_vertex);
-                        last_vertex = current_vertex;
-                    }
-
-                    (start_vertex, last_vertex)
-                } else {
-                    // The join is perfectly straight
-                    // TODO: Could we remove these vertices?
-                    let v = add_vertex!(
-                        self,
-                        Vertex {
-                            position: self.current,
-                            normal: normal,
-                            advancement: self.length,
-                            side: front_side,
-                        }
-                    );
-
-                    (v, v)
-                }
-            }
-
-            // Fallback to Miter for unimplemented line joins
-            _ => {
-                println!("[StrokeTessellator] unimplemented line join.");
-                let v = add_vertex!(
+                let mut last_vertex = add_vertex!(
                     self,
                     Vertex {
                         position: self.current,
-                        normal: normal,
+                        normal: initial_normal,
                         advancement: self.length,
                         side: front_side,
                     }
                 );
+                let start_vertex = last_vertex;
+
+                // Plot each point along the radius by using a matrix to
+                // rotate the normal at each step
+                let (sin, cos) = segment_angle.sin_cos();
+                let rotation_matrix = [
+                    [cos, sin],
+                    [-sin, cos],
+                ];
+
+                let mut n = initial_normal;
+                for _ in 0..num_segments {
+                    // incrementally rotate the normal
+                    n = vec2(
+                        n.x * rotation_matrix[0][0] + n.y * rotation_matrix[0][1],
+                        n.x * rotation_matrix[1][0] + n.y * rotation_matrix[1][1]
+                    );
+
+                    let current_vertex = add_vertex!(
+                        self,
+                        Vertex {
+                            position: self.current,
+                            normal: n,
+                            advancement: self.length,
+                            side: front_side,
+                        }
+                    );
+
+                    self.output.add_triangle(back_vertex, last_vertex, current_vertex);
+                    last_vertex = current_vertex;
+                }
+
+                self.prev_normal = n * neg_if_right;
+
+                (start_vertex, last_vertex)
+            }
+            // Fallback to Miter for unimplemented line joins
+            _ => {
+                let v = add_vertex!(
+                    self,
+                    Vertex {
+                        position: self.current,
+                        normal: front_normal,
+                        advancement: self.length,
+                        side: front_side,
+                    }
+                );
+
+                self.prev_normal = normal;
 
                 (v, v)
             }

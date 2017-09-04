@@ -1545,19 +1545,6 @@ impl FillOptions {
     }
 }
 
-impl Side {
-    pub fn opposite(self) -> Side {
-        match self {
-            Side::Left => Side::Right,
-            Side::Right => Side::Left,
-        }
-    }
-
-    fn is_left(self) -> bool { self == Side::Left }
-
-    fn is_right(self) -> bool { self == Side::Right }
-}
-
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the `FillTessellator`).
 struct MonotoneTessellator {
