@@ -207,6 +207,19 @@ pub enum Side {
     Right,
 }
 
+impl Side {
+    pub fn opposite(self) -> Side {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+
+    pub fn is_left(self) -> bool { self == Side::Left }
+
+    pub fn is_right(self) -> bool { self == Side::Right }
+}
+
 /// Vertex produced by the stroke tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeVertex {
