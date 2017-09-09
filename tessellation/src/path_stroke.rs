@@ -629,6 +629,38 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
                 (start_vertex, last_vertex)
             }
+
+            LineJoin::Bevel => {
+                let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+                let prev_tangent = vec2(-prev_tangent.y, prev_tangent.x) * neg_if_right;
+                let next_tangent = vec2(-next_tangent.y, next_tangent.x) * neg_if_right;
+
+
+                let start_vertex = add_vertex!(
+                    self,
+                    Vertex {
+                        position: self.current,
+                        normal: prev_tangent,
+                        advancement: self.length,
+                        side: front_side,
+                    }
+                );
+                let last_vertex= add_vertex!(
+                    self,
+                    Vertex {
+                        position: self.current,
+                        normal: next_tangent,
+                        advancement: self.length,
+                        side: front_side,
+                    }
+                );
+                self.prev_normal = next_tangent * neg_if_right;
+                self.output.add_triangle(start_vertex, last_vertex, back_vertex);
+
+                (start_vertex, last_vertex)
+
+            } 
+
             // Fallback to Miter for unimplemented line joins
             _ => {
                 let v = add_vertex!(
@@ -640,7 +672,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                         side: front_side,
                     }
                 );
-
                 self.prev_normal = normal;
 
                 (v, v)
