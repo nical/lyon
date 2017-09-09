@@ -168,8 +168,8 @@
 //!
 //! ## Examples
 //!
-//! - [tessellating path fills](path_fill/index.html#examples).
-//! - [tessellating path strokes](path_stroke/index.html#examples).
+//! - [tessellating path fills](path_fill/struct.FillTessellator.html#examples).
+//! - [tessellating path strokes](path_stroke/struct.StrokeTessellator.html#examples).
 //! - [Generating custom vertices](geometry_builder/index.html#generating-custom-vertices).
 //! - [Generating completely custom output](geometry_builder/index.html#generating-a-completely-custom-output).
 //! - [Writing a tessellator](geometry_builder/index.html#writing-a-tessellator).
@@ -311,7 +311,7 @@ pub enum LineJoin {
     MiterClip,
     /// A round corner is to be used to join path segments.
     Round,
-    /// [Not implemented] A bevelled corner is to be used to join path segments.
+    /// A bevelled corner is to be used to join path segments.
     /// The bevel shape is a triangle that fills the area between the two stroked
     /// segments.
     Bevel,
