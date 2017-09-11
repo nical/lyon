@@ -188,6 +188,8 @@ extern crate lyon_path as path;
 #[cfg(test)]
 extern crate lyon_extra as extra;
 
+extern crate sid;
+
 pub mod basic_shapes;
 pub mod geometry_builder;
 mod path_fill;
