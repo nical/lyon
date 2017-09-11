@@ -2,23 +2,22 @@
 
 use math::*;
 use bezier::utils::directed_angle;
+use path_fill::Edge;
 
 /// Fixed-point version of the line vs horizontal line intersection test.
 pub fn line_horizontal_intersection_fixed(
-    a: TessPoint,
-    b: TessPoint,
+    edge: &Edge,
     y: FixedPoint32,
 ) -> Option<FixedPoint32> {
-    let vx = b.x - a.x;
-    let vy = b.y - a.y;
+    let v = edge.lower - edge.upper;
 
-    if vy.is_zero() {
+    if v.y.is_zero() {
         // the line is horizontal
         return None;
     }
 
-    let tmp: FixedPoint64 = (y - a.y).to_fp64();
-    return Some(a.x + tmp.mul_div(vx.to_fp64(), vy.to_fp64()).to_fp32());
+    let tmp: FixedPoint64 = (y - edge.upper.y).to_fp64();
+    return Some(edge.upper.x + tmp.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32());
 }
 
 #[inline]
@@ -30,18 +29,16 @@ fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPo
 
 // TODO[optim]: This function shows up pretty high in the profiles.
 pub fn segment_intersection(
-    a1: TessPoint,
-    b1: TessPoint, // The new edge.
-    a2: TessPoint,
-    b2: TessPoint, // An already inserted edge.
+    e1: &Edge, // The new edge.
+    e2: &Edge, // An already inserted edge.
 ) -> Option<TessPoint> {
 
     // This early-out test gives a noticeable performance improvement.
-    if !x_aabb_test(a1.x, b1.x, a2.x, b2.x) {
+    if !x_aabb_test(e1.upper.x, e1.lower.x, e2.upper.x, e2.lower.x) {
         return None;
     }
 
-    if a1 == b2 || a1 == a2 || b1 == a2 || b1 == b2 {
+    if e1.upper == e2.lower || e1.upper == e2.upper || e1.lower == e2.upper || e1.lower == e2.lower {
         return None;
     }
 
@@ -49,10 +46,10 @@ pub fn segment_intersection(
         TessPoint::new(FixedPoint32::from_f64(x), FixedPoint32::from_f64(y))
     }
 
-    let a1 = F64Point::new(a1.x.to_f64(), a1.y.to_f64());
-    let b1 = F64Point::new(b1.x.to_f64(), b1.y.to_f64());
-    let a2 = F64Point::new(a2.x.to_f64(), a2.y.to_f64());
-    let b2 = F64Point::new(b2.x.to_f64(), b2.y.to_f64());
+    let a1 = F64Point::new(e1.upper.x.to_f64(), e1.upper.y.to_f64());
+    let b1 = F64Point::new(e1.lower.x.to_f64(), e1.lower.y.to_f64());
+    let a2 = F64Point::new(e2.upper.x.to_f64(), e2.upper.y.to_f64());
+    let b2 = F64Point::new(e2.lower.x.to_f64(), e2.lower.y.to_f64());
 
     let v1 = b1 - a1;
     let v2 = b2 - a2;
