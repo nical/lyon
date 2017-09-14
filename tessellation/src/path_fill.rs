@@ -196,7 +196,7 @@ struct EdgeBelow {
 ///
 pub struct FillTessellator {
     events: FillEvents,
-    monotone_tessellators: Vec<MonotoneTessellator>,
+    monotone_tessellators: IdVec<SpanId, MonotoneTessellator>,
     active_edges: ActiveEdges,
     intersections: Vec<Edge>,
     below: Vec<EdgeBelow>,
@@ -212,7 +212,7 @@ impl FillTessellator {
         FillTessellator {
             events: FillEvents::new(),
             active_edges: ActiveEdges::with_capacity(16),
-            monotone_tessellators: Vec::with_capacity(16),
+            monotone_tessellators: IdVec::with_capacity(16),
             below: Vec::with_capacity(8),
             intersections: Vec::with_capacity(8),
             previous_position: TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val()),
@@ -1086,7 +1086,10 @@ fn even(edge: ActiveEdgeId) -> bool { edge.handle % 2 == 0 }
 fn odd(edge: ActiveEdgeId) -> bool { edge.handle % 2 == 1 }
 
 #[inline]
-fn span_for_edge(edge: ActiveEdgeId) -> usize { edge.handle / 2 }
+fn span_for_edge(edge: ActiveEdgeId) -> SpanId {
+    // TODO: this assumes the even-odd fill rule.
+    SpanId::new(edge.handle / 2)
+}
 
 fn compare_positions(a: TessPoint, b: TessPoint) -> Ordering {
     if a.y > b.y {
