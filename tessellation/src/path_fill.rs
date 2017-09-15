@@ -23,7 +23,6 @@
 use std::f32::consts::PI;
 use std::mem::{replace, swap};
 use std::cmp::{PartialOrd, Ordering};
-use std::cmp;
 
 use sid::{Id, IdVec};
 
@@ -473,12 +472,22 @@ impl FillTessellator {
         for active_edge in &mut self.active_edges {
             let is_left = even(edge_idx);
 
-            if !active_edge.merge && active_edge.points.lower == current_position {
+            if active_edge.merge {
+                edge_idx = edge_idx + 1;
+                continue;
+            }
+
+            if active_edge.points.lower == current_position {
                 status = if is_left { E::LeftEdge } else { E::RightEdge };
                 break;
             }
 
-            if test_span_touches(&active_edge, current_position) {
+            let (touches, edge_passed_current) = compare_edge_against_position(
+                &active_edge.points,
+                current_position
+            );
+
+            if touches {
                 // The current point is on an edge we need to split the edge into the part
                 // above and the part below. See test_point_on_edge_left for an example of
                 // geometry that can lead to this scenario.
@@ -494,8 +503,18 @@ impl FillTessellator {
                 break;
             }
 
-            if test_span_side(&active_edge, current_position) {
-                status = if is_left { E::Out } else { E::In };
+            if edge_passed_current {
+                status = if is_left {
+                    //       |....
+                    //    x  |....
+                    //       |....
+                    E::Out
+                } else {
+                    //  .....|
+                    //  ..x..|
+                    //  .....|
+                    E::In
+                };
                 if !is_left {
                     // Use the edge on the left side of the span we are in.
                     edge_idx = edge_idx - 1;
@@ -1107,47 +1126,34 @@ fn compare_positions(a: TessPoint, b: TessPoint) -> Ordering {
     return Ordering::Equal;
 }
 
-// Returns true if the position is on the right side of the edge.
-fn test_span_side(span_edge: &ActiveEdge, position: TessPoint) -> bool {
-    if span_edge.merge {
-        return false;
-    }
-
-    // TODO: do we need this?
-    if span_edge.points.lower == position {
-        return true;
-    }
-
-    let from = span_edge.points.upper;
-    let to = span_edge.points.lower;
-
-    let vx = (to.x - from.x).raw() as i64;
-    let vy = (to.y - from.y).raw() as i64;
-    if vy == 0 {
-        // If the segment is horizontal, pick the biggest x value (the right-most point).
-        // That's arbitrary, not sure it is the right thing to do.
-        return cmp::max(position.x.raw(), to.x.raw()) > position.x.raw();
-    }
-    // shuffled around from:
-    // edge_from.x + (point.y - edge_from.y) * vx / vy > point.x
-    // in order to remove the division.
-    return (position.y - from.y).raw() as i64 * vx > (position.x - from.x).raw() as i64 * vy;
-}
-
-fn test_span_touches(span_edge: &ActiveEdge, position: TessPoint) -> bool {
+// Returns whether the edge touches the current position and if not,
+// whether the edge is on the right side of the current position.
+fn compare_edge_against_position(edge: &Edge, position: TessPoint) -> (bool, bool) {
     // This early-out test gives a noticeable performance improvement.
-    let (min, max) = span_edge.points.upper.x.min_max(span_edge.points.lower.x);
-    if position.x < min || position.x > max {
-        return false;
+    let (min, max) = edge.upper.x.min_max(edge.lower.x);
+    let is_before = position.x < min;
+    let is_after = position.x > max;
+    if is_before || is_after {
+        return (false, is_before);
     }
 
-    if let Some(x) = line_horizontal_intersection_fixed(&span_edge.points, position.y) {
-        return (x - position.x).abs() <= FixedPoint32::epsilon() * 2;
+    // TODO we can probably optimize a bit by inlining this function and
+    // removing the division.
+    let x = if let Some(x) = line_horizontal_intersection_fixed(&edge, position.y) {
+        x
+    } else {
+        debug_assert_eq!(edge.upper.y, edge.lower.y);
+        debug_assert_eq!(edge.upper.y, position.y);
+        let touches = edge.upper.x <= position.x && edge.lower.x >= position.x;
+        return (touches, is_before);
+    };
+
+    let threshold = FixedPoint32::epsilon() * 2;
+    if (x - position.x).abs() <= threshold {
+        return (true, false);
     }
-    debug_assert_eq!(span_edge.points.upper.y, span_edge.points.lower.y);
-    return span_edge.points.upper.y == position.y
-        && span_edge.points.upper.x < position.x
-        && span_edge.points.lower.x > position.x;
+
+    return (false, position.x < x);
 }
 
 #[derive(Copy, Clone, Debug)]
