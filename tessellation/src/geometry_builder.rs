@@ -285,6 +285,7 @@ pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
 /// Structure that holds the vertex and index data.
 ///
 /// Usually writen into though temporary `BuffersBuilder` objects.
+#[derive(Clone, Debug)]
 pub struct VertexBuffers<VertexType> {
     pub vertices: Vec<VertexType>,
     pub indices: Vec<Index>,
