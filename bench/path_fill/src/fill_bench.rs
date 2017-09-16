@@ -11,7 +11,9 @@ use lyon::path_iterator::PathIterator;
 
 use bencher::Bencher;
 
-fn logo_tess(bench: &mut Bencher) {
+const N: usize = 100;
+
+fn logo_tess_only(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -21,8 +23,10 @@ fn logo_tess(bench: &mut Bencher) {
     let events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
 
     bench.iter(|| {
-        let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
-        tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers))
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::with_capacity(512, 1450);
+            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
     })
 }
 
@@ -36,8 +40,10 @@ fn logo_tess_no_intersection(bench: &mut Bencher) {
     let events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
 
     bench.iter(|| {
-        let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
-        tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers))
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
+            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
     })
 }
 
@@ -51,8 +57,10 @@ fn logo_tess_no_curve(bench: &mut Bencher) {
     let events = FillEvents::from_iterator(path.path_iter().flattened(1000000.0));
 
     bench.iter(|| {
-        let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
-        tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers))
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
+            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
     })
 }
 
@@ -67,9 +75,11 @@ fn logo_events_and_tess(bench: &mut Bencher) {
     let mut events = FillEvents::new();
 
     bench.iter(|| {
-        events.set_path_iter(path.path_iter().flattened(0.05));
-        let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
-        tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers))
+        for _ in 0..N {
+            events.set_path_iter(path.path_iter().flattened(0.05));
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
+            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
     })
 }
 
@@ -79,7 +89,9 @@ fn logo_events_only(bench: &mut Bencher) {
     let path = path.build();
 
     bench.iter(|| {
-        let _events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+        for _ in 0..N {
+            let _events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+        }
     })
 }
 
@@ -89,7 +101,9 @@ fn logo_events_only_pre_flattened(bench: &mut Bencher) {
     let path = path.build();
 
     bench.iter(|| {
-        let _events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+        for _ in 0..N {
+            let _events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+        }
     })
 }
 
@@ -99,12 +113,14 @@ fn logo_flattening(bench: &mut Bencher) {
     let path = path.build();
 
     bench.iter(|| {
-        for _ in path.path_iter().flattened(0.05) {}
+        for _ in 0..N {
+            for _ in path.path_iter().flattened(0.05) {}
+        }
     })
 }
 
 benchmark_group!(tess,
-  logo_tess,
+  logo_tess_only,
   logo_tess_no_curve,
   logo_tess_no_intersection
 );
