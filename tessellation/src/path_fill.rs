@@ -1011,6 +1011,10 @@ impl FillTessellator {
         self.error = Some(err);
     }
 
+    #[cfg(not(debug))]
+    fn debug_check_sl(&self, _: TessPoint) {}
+
+    #[cfg(debug)]
     fn debug_check_sl(&self, current: TessPoint) {
         for edge in &self.active_edges {
             if !edge.merge {
@@ -1030,6 +1034,10 @@ impl FillTessellator {
         }
     }
 
+    #[cfg(not(debug))]
+    fn log_sl(&self, _: TessPoint, _: ActiveEdgeId) {}
+
+    #[cfg(debug)]
     fn log_sl(&self, current_position: TessPoint, start_edge: ActiveEdgeId) {
         println!("\n\n");
         self.log_sl_ids();
@@ -1040,6 +1048,10 @@ impl FillTessellator {
         }
     }
 
+    #[cfg(not(debug))]
+    fn log_sl_ids(&self) {}
+
+    #[cfg(debug)]
     fn log_sl_ids(&self) {
         print!("\n|  sl: ");
         let mut left = true;
@@ -1056,6 +1068,10 @@ impl FillTessellator {
         println!("");
     }
 
+    #[cfg(not(debug))]
+    fn log_sl_points(&self) {}
+
+    #[cfg(debug)]
     fn log_sl_points(&self) {
         print!("\n sl: [");
         let mut left = true;
@@ -1080,6 +1096,10 @@ impl FillTessellator {
         println!("]\n");
     }
 
+    #[cfg(not(debug))]
+    fn log_sl_points_at(&self, _: FixedPoint32) {}
+
+    #[cfg(debug)]
     fn log_sl_points_at(&self, y: FixedPoint32) {
         print!("\nat y={:?}  sl: [", y);
         let mut left = true;
