@@ -20,7 +20,7 @@
 // It's super slow right now.
 //
 
-use std::f32::consts::PI;
+use std::f32::consts::{PI, FRAC_PI_2};
 use std::mem::{replace, swap};
 use std::cmp::{PartialOrd, Ordering};
 
@@ -31,7 +31,7 @@ use Side;
 use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::FlattenedEvent;
-use bezier::utils::{directed_angle, directed_angle2};
+use bezier::utils::{directed_angle, directed_angle2, fast_atan2};
 use math_utils::{line_horizontal_intersection_fixed, segment_intersection};
 use path_builder::FlatPathBuilder;
 use path_iterator::PathIterator;
@@ -351,7 +351,7 @@ impl FillTessellator {
 
                     self.below.push(EdgeBelow {
                         lower: edge.lower,
-                        angle: compute_angle(edge.lower - edge.upper),
+                        angle: edge_angle(edge.lower - edge.upper),
                     });
                     tess_log!(self, " edge at {:?} -> {:?}", edge.upper, edge.lower);
 
@@ -387,7 +387,7 @@ impl FillTessellator {
                         self.below.push(
                             EdgeBelow {
                                 lower: inter.lower,
-                                angle: compute_angle(inter.lower - current_position),
+                                angle: edge_angle(inter.lower - current_position),
                             }
                         );
                     }
@@ -495,7 +495,7 @@ impl FillTessellator {
                 // Split the edge.
                 self.below.push(EdgeBelow {
                     lower: active_edge.points.lower,
-                    angle: compute_angle(active_edge.points.lower - current_position),
+                    angle: edge_angle(active_edge.points.lower - current_position),
                 });
                 active_edge.points.lower = current_position;
 
@@ -1003,6 +1003,7 @@ impl FillTessellator {
         self.active_edges.remove(edge_idx + 1);
         self.active_edges.remove(edge_idx);
 
+        // TODO(perf) recycling this allocation should help
         self.monotone_tessellators.remove(span_idx);
     }
 
@@ -1216,9 +1217,8 @@ fn to_f32_point(v: TessPoint) -> Point { point(v.x.to_f32(), v.y.to_f32()) }
 fn to_f32_vec2(v: TessVec2) -> Vec2 { vec2(v.x.to_f32(), v.y.to_f32()) }
 
 #[inline]
-fn compute_angle(v: TessVec2) -> f32 {
-    // TODO: compute directed angles using fixed point vectors.
-    -directed_angle(vec2(1.0, 0.0), to_f32_vec2(v))
+fn edge_angle(v: TessVec2) -> f32 {
+    return -fast_atan2(v.y.to_f32(), v.x.to_f32());
 }
 
 /// A sequence of edges sorted from top to bottom, to be used as the tessellator's input.
@@ -1582,6 +1582,7 @@ impl MonotoneTessellator {
                     swap(&mut a, &mut b);
                 }
 
+                // TODO(perf) this call to directed_angle shows up in profiles.
                 if directed_angle2(b.pos, current.pos, a.pos) <= PI {
                     self.push_triangle(&a, &b, &current);
                     last_popped = self.stack.pop();
@@ -1609,6 +1610,7 @@ impl MonotoneTessellator {
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
         //println!(" #### triangle {} {} {}", a.id.offset(), b.id.offset(), c.id.offset());
 
+        // TODO(perf) removing this call to directed_angle2 speeds up the tessellation by 5%
         if directed_angle2(b.pos, c.pos, a.pos) <= PI {
             self.triangles.push((a.id, b.id, c.id));
         } else {
