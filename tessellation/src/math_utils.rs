@@ -4,22 +4,6 @@ use math::*;
 use bezier::utils::directed_angle;
 use path_fill::Edge;
 
-/// Fixed-point version of the line vs horizontal line intersection test.
-pub fn line_horizontal_intersection_fixed(
-    edge: &Edge,
-    y: FixedPoint32,
-) -> Option<FixedPoint32> {
-    let v = edge.lower - edge.upper;
-
-    if v.y.is_zero() {
-        // the line is horizontal
-        return None;
-    }
-
-    let tmp: FixedPoint64 = (y - edge.upper.y).to_fp64();
-    return Some(edge.upper.x + tmp.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32());
-}
-
 #[inline]
 fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPoint32) -> bool {
     let (min1, max1) = a1.min_max(b1);

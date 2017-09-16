@@ -32,7 +32,7 @@ use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::FlattenedEvent;
 use bezier::utils::{directed_angle, directed_angle2, fast_atan2};
-use math_utils::{line_horizontal_intersection_fixed, segment_intersection};
+use math_utils::segment_intersection;
 use path_builder::FlatPathBuilder;
 use path_iterator::PathIterator;
 
@@ -1155,23 +1155,26 @@ fn compare_edge_against_position(edge: &Edge, position: TessPoint) -> (bool, boo
     let is_before = position.x < min;
     let is_after = position.x > max;
     if is_before || is_after {
+        // This should be by far the hotest path in this function.
         return (false, is_before);
     }
 
-    // TODO we can probably optimize a bit by inlining this function and
-    // removing the division.
-    let x = if let Some(x) = line_horizontal_intersection_fixed(&edge, position.y) {
-        x
-    } else {
+    let v = edge.lower - edge.upper;
+    if v.y.is_zero() {
+        // Horizontal edge
         debug_assert_eq!(edge.upper.y, edge.lower.y);
         debug_assert_eq!(edge.upper.y, position.y);
         let touches = edge.upper.x <= position.x && edge.lower.x >= position.x;
-        return (touches, is_before);
-    };
+        return (touches, false);
+    }
+
+    // Intersect the edge with the horizontal line passing at the current position.
+    let dy: FixedPoint64 = (position.y - edge.upper.y).to_fp64();
+    let x = edge.upper.x + dy.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32();
 
     let threshold = FixedPoint32::epsilon() * 2;
     if (x - position.x).abs() <= threshold {
-        return (true, false);
+        return (true, is_before);
     }
 
     return (false, position.x < x);
