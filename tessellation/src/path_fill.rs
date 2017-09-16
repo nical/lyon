@@ -203,6 +203,7 @@ pub struct FillTessellator {
     error: Option<FillError>,
     log: bool,
     handle_intersections: bool,
+    tess_pool: Vec<MonotoneTessellator>,
 }
 
 impl FillTessellator {
@@ -218,6 +219,7 @@ impl FillTessellator {
             error: None,
             log: false,
             handle_intersections: true,
+            tess_pool: Vec::with_capacity(8),
         }
     }
 
@@ -739,11 +741,7 @@ impl FillTessellator {
                     },
                 ]);
 
-                let vec2_position = to_f32_point(current_position);
-                self.monotone_tessellators.insert(
-                    span_for_edge(edge_idx),
-                    MonotoneTessellator::begin(vec2_position, id),
-                );
+                self.insert_span(span_for_edge(edge_idx), current_position, id);
 
                 below_idx += 2;
                 below_count -= 2;
@@ -839,11 +837,7 @@ impl FillTessellator {
                 merge: false,
             };
 
-            let vec2_position = to_f32_point(ll.points.upper);
-            self.monotone_tessellators.insert(
-                span_for_edge(edge_idx),
-                MonotoneTessellator::begin(vec2_position, ll.upper_id)
-            );
+            self.insert_span(span_for_edge(edge_idx), ll.points.upper, ll.upper_id);
 
             self.insert_edge(edge_idx + 1, current, left.lower, id);
             self.insert_edge(edge_idx + 2, current, right.lower, id);
@@ -1003,8 +997,16 @@ impl FillTessellator {
         self.active_edges.remove(edge_idx + 1);
         self.active_edges.remove(edge_idx);
 
-        // TODO(perf) recycling this allocation should help
-        self.monotone_tessellators.remove(span_idx);
+        let to_recycle = self.monotone_tessellators.remove(span_idx);
+        self.tess_pool.push(to_recycle);
+    }
+
+    fn insert_span(&mut self, span: SpanId, pos: TessPoint, vertex: VertexId) {
+        let tess = self.tess_pool.pop().unwrap_or_else(
+            ||{ MonotoneTessellator::new() }
+        ).begin(to_f32_point(pos), vertex);
+
+        self.monotone_tessellators.insert(span, tess);
     }
 
     fn error(&mut self, err: FillError) {
@@ -1526,22 +1528,32 @@ struct MonotoneVertex {
 }
 
 impl MonotoneTessellator {
-    pub fn begin(pos: Point, id: VertexId) -> MonotoneTessellator {
+    pub fn new() -> Self {
+        MonotoneTessellator {
+            stack: Vec::with_capacity(16),
+            triangles: Vec::with_capacity(128),
+            // Some placeholder value that will be replaced right away.
+            previous: MonotoneVertex {
+                pos: Point::new(0.0, 0.0),
+                id: VertexId(0),
+                side: Side::Left,
+            },
+        }
+    }
+
+    pub fn begin(mut self, pos: Point, id: VertexId) -> MonotoneTessellator {
         let first = MonotoneVertex {
             pos: pos,
             id: id,
             side: Side::Left,
         };
+        self.previous = first;
 
-        let mut tess = MonotoneTessellator {
-            stack: Vec::with_capacity(16),
-            triangles: Vec::with_capacity(128),
-            previous: first,
-        };
+        self.triangles.clear();
+        self.stack.clear();
+        self.stack.push(first);
 
-        tess.stack.push(first);
-
-        return tess;
+        self
     }
 
     pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
@@ -1633,14 +1645,14 @@ impl MonotoneTessellator {
 fn test_monotone_tess() {
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
         tess.end(point(1.0, 2.0), VertexId(2));
         assert_eq!(tess.triangles.len(), 1);
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
         tess.vertex(point(-1.5, 2.0), VertexId(2), Side::Left);
         tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
@@ -1650,7 +1662,7 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
         tess.vertex(point(3.0, 2.0), VertexId(2), Side::Right);
         tess.vertex(point(1.0, 3.0), VertexId(3), Side::Right);
@@ -1661,7 +1673,7 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
         tess.vertex(point(-3.0, 2.0), VertexId(2), Side::Left);
         tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
