@@ -43,5 +43,5 @@ members = [
     "examples/gfx_basic",
     "examples/intersections",
     "bench/svg_bench",
-    "bench/path_fill"
+    "bench/tess"
 ]

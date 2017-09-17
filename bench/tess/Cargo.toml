@@ -1,12 +1,11 @@
 [package]
-name = "Fill tessellator benchmark"
+name = "tess_bench"
 version = "0.0.1"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 workspace = "../.."
 
 [[bin]]
-name = "fill_bench"
-path = "src/fill_bench.rs"
+name = "tess_bench"
 
 [dependencies]
 lyon = { path = "../../" }
