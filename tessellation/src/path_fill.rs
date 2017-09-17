@@ -1597,8 +1597,8 @@ impl MonotoneTessellator {
                     swap(&mut a, &mut b);
                 }
 
-                // TODO(perf) this call to directed_angle shows up in profiles.
-                if directed_angle2(b.pos, current.pos, a.pos) <= PI {
+                let cross = (current.pos - b.pos).cross(a.pos - b.pos);
+                if cross >= 0.0 {
                     self.push_triangle(&a, &b, &current);
                     last_popped = self.stack.pop();
                 } else {
