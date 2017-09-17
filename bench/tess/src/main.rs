@@ -4,8 +4,9 @@ extern crate bencher;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
-use lyon::tessellation::geometry_builder::{ simple_builder, VertexBuffers };
-use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
+use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
+use lyon::tessellation::{FillEvents, FillTessellator, FillOptions, FillVertex};
+use lyon::tessellation::{StrokeTessellator, StrokeOptions, StrokeVertex};
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
 
@@ -13,7 +14,7 @@ use bencher::Bencher;
 
 const N: usize = 100;
 
-fn logo_tess_only(bench: &mut Bencher) {
+fn fill_logo_tess_only(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -30,7 +31,7 @@ fn logo_tess_only(bench: &mut Bencher) {
     })
 }
 
-fn logo_tess_no_intersection(bench: &mut Bencher) {
+fn fill_logo_tess_no_intersection(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -47,7 +48,7 @@ fn logo_tess_no_intersection(bench: &mut Bencher) {
     })
 }
 
-fn logo_tess_no_curve(bench: &mut Bencher) {
+fn fill_logo_tess_no_curve(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -64,7 +65,7 @@ fn logo_tess_no_curve(bench: &mut Bencher) {
     })
 }
 
-fn logo_events_and_tess(bench: &mut Bencher) {
+fn fill_logo_events_and_tess(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -83,7 +84,7 @@ fn logo_events_and_tess(bench: &mut Bencher) {
     })
 }
 
-fn logo_events_only(bench: &mut Bencher) {
+fn fill_logo_events_only(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -95,7 +96,7 @@ fn logo_events_only(bench: &mut Bencher) {
     })
 }
 
-fn logo_events_only_pre_flattened(bench: &mut Bencher) {
+fn fill_logo_events_only_pre_flattened(bench: &mut Bencher) {
     let mut path = Path::builder().flattened(0.05).with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -107,7 +108,7 @@ fn logo_events_only_pre_flattened(bench: &mut Bencher) {
     })
 }
 
-fn logo_flattening(bench: &mut Bencher) {
+fn fill_logo_flattening(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -119,21 +120,40 @@ fn logo_flattening(bench: &mut Bencher) {
     })
 }
 
-benchmark_group!(tess,
-  logo_tess_only,
-  logo_tess_no_curve,
-  logo_tess_no_intersection
+fn stroke_logo(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::default();
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<StrokeVertex> = VertexBuffers::with_capacity(1024, 3000);
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers));
+        }
+    })
+}
+
+benchmark_group!(stroke_tess,
+  stroke_logo
 );
 
-benchmark_group!(events,
-  logo_events_and_tess,
-  logo_events_only,
-  logo_events_only_pre_flattened
+benchmark_group!(fill_tess,
+  fill_logo_tess_only,
+  fill_logo_tess_no_curve,
+  fill_logo_tess_no_intersection
 );
 
-benchmark_group!(flattening,
-  logo_flattening
+benchmark_group!(fill_events,
+  fill_logo_events_and_tess,
+  fill_logo_events_only,
+  fill_logo_events_only_pre_flattened
 );
 
+benchmark_group!(fill_flattening,
+  fill_logo_flattening
+);
 
-benchmark_main!(tess, events, flattening);
+benchmark_main!(fill_tess, fill_events, fill_flattening, stroke_tess);
