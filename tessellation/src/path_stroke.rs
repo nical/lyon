@@ -564,9 +564,14 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
         );
 
+        let limit = self.options.miter_limit;
         let join_type = if join_angle.abs() < 0.01 {
             // The two edges are almost aligned, just use a simple miter join.
             LineJoin::Miter
+        } else if self.options.line_join == LineJoin::Miter && normal.square_length() > limit * limit {
+            // Per SVG spec: If the stroke-miterlimit is exceeded, the line join
+            // falls back to bevel.
+            LineJoin::Bevel
         } else {
             self.options.line_join
         };
