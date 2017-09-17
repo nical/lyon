@@ -20,7 +20,6 @@
 // It's super slow right now.
 //
 
-use std::f32::consts::{PI, FRAC_PI_2};
 use std::mem::{replace, swap};
 use std::cmp::{PartialOrd, Ordering};
 
@@ -31,7 +30,7 @@ use Side;
 use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::FlattenedEvent;
-use bezier::utils::{directed_angle, directed_angle2, fast_atan2};
+use bezier::utils::fast_atan2;
 use math_utils::segment_intersection;
 use path_builder::FlatPathBuilder;
 use path_iterator::PathIterator;
@@ -1562,7 +1561,6 @@ impl MonotoneTessellator {
             id: id,
             side: side,
         };
-        let right_side = current.side == Side::Right;
 
         // cf. test_fixed_to_f32_precision
         // TODO: investigate whether we could do the conversion without this
@@ -1579,7 +1577,9 @@ impl MonotoneTessellator {
                 let mut a = self.stack[i];
                 let mut b = self.stack[i + 1];
 
-                if right_side {
+                let winding = (current.pos - b.pos).cross(a.pos - b.pos) >= 0.0;
+
+                if !winding {
                     swap(&mut a, &mut b);
                 }
 
@@ -1593,7 +1593,7 @@ impl MonotoneTessellator {
                 let mut a = last_popped.unwrap();
                 let mut b = *self.stack.last().unwrap();
 
-                if right_side {
+                if current.side.is_right() {
                     swap(&mut a, &mut b);
                 }
 
@@ -1624,13 +1624,8 @@ impl MonotoneTessellator {
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
         //println!(" #### triangle {} {} {}", a.id.offset(), b.id.offset(), c.id.offset());
-
-        // TODO(perf) removing this call to directed_angle2 speeds up the tessellation by 5%
-        if directed_angle2(b.pos, c.pos, a.pos) <= PI {
-            self.triangles.push((a.id, b.id, c.id));
-        } else {
-            self.triangles.push((b.id, a.id, c.id));
-        }
+        debug_assert!((c.pos - b.pos).cross(a.pos - b.pos) >= 0.0);
+        self.triangles.push((a.id, b.id, c.id));
     }
 
     fn flush<Output: GeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
@@ -1726,8 +1721,9 @@ fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
 
 #[cfg(test)]
 fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Option<usize>) {
-    let mut angle = 0.0;
+    use std::f32::consts::PI;
 
+    let mut angle = 0.0;
     while angle < PI * 2.0 {
         println!("\n\n ==================== angle = {}", angle);
 
