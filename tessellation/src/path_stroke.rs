@@ -1,6 +1,6 @@
 use math::*;
 use core::FlattenedEvent;
-use bezier::utils::{normalized_tangent, directed_angle};
+use bezier::utils::{normalized_tangent, directed_angle, fast_atan2};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
 use path_builder::FlatPathBuilder;
@@ -638,7 +638,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         front_side: Side,
         back_vertex: VertexId,
     ) -> (VertexId, VertexId) {
-        let mut join_angle = prev_tangent.y.atan2(prev_tangent.x) - next_tangent.y.atan2(next_tangent.x);
+        let mut join_angle = fast_atan2(prev_tangent.y, prev_tangent.x) - fast_atan2(next_tangent.y, next_tangent.x);
 
         // Make sure to stay within the [-Pi, Pi] range.
         if join_angle > PI {
