@@ -74,6 +74,8 @@ pub fn segment_intersection(
 /// would yield parallel segments exactly 1 unit away from their original. (useful
 /// for generating strokes and vertex-aa).
 /// The normal points towards the left side of e1.
+///
+/// TODO(perf) this is slower than the approach taken in the stroke tessellator.
 pub fn compute_normal(e1: Vec2, e2: Vec2) -> Vec2 {
     let e1_norm = e1.normalize();
     let n = e1_norm - e2.normalize();

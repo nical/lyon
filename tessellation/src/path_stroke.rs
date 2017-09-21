@@ -406,45 +406,30 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         }
 
         if self.nth == 0 {
-            // We don't have enough information to compute a and b yet.
+            // We don't have enough information to compute the previous
+            // vertices (and thus the current join) yet.
             self.previous = self.first;
             self.current = to;
             self.nth += 1;
             return;
         }
 
-        self.length += (self.current - self.previous).length();
+        let previous_edge = self.current - self.previous;
+        let previous_edge_length = previous_edge.length();
+        let next_tangent = (to - self.current).normalize();
+        self.length += previous_edge_length;
 
-        let normal = get_angle_normal(self.previous, self.current, to);
+        let (
+            start_left_id,
+            start_right_id,
+            end_left_id,
+            end_right_id,
+        ) = self.tessellate_join(
+            previous_edge / previous_edge_length,
+            next_tangent
+        );
 
-        let (start_left_id, start_right_id, end_left_id, end_right_id) = if self.nth > 0 {
-            // Tessellate join
-            self.tessellate_join(to, normal)
-        } else {
-            let left_id = add_vertex!(
-                self,
-                Vertex {
-                    position: self.current,
-                    normal: normal,
-                    advancement: self.length,
-                    side: Side::Left,
-                }
-            );
-
-            let right_id = add_vertex!(
-                self,
-                Vertex {
-                    position: self.current,
-                    normal: -normal,
-                    advancement: self.length,
-                    side: Side::Right,
-                }
-            );
-
-            (left_id, right_id, left_id, right_id)
-        };
-
-        // Tessellate edge
+        // Tessellate the edge
         if self.nth > 1 {
             self.output.add_triangle(self.previous_left_id, self.previous_right_id, start_left_id);
             self.output.add_triangle(self.previous_right_id, start_left_id, start_right_id);
@@ -532,22 +517,16 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         );
     }
 
-    fn tessellate_join(&mut self, to: Point, normal: Vec2) -> (VertexId, VertexId, VertexId, VertexId) {
+    fn tessellate_join(&mut self,
+        prev_tangent: Vec2,
+        next_tangent: Vec2,
+    ) -> (VertexId, VertexId, VertexId, VertexId) {
         // This function needs to differentiate the "front" of the join (aka. the pointy side)
         // from the back. The front is where subdivision or adjustments may be needed.
 
-        let prev_tangent = (self.current - self.previous).normalize();
-        let next_tangent = (to - self.current).normalize();
+        let normal = get_angle_normal(prev_tangent, next_tangent);
 
-        let mut join_angle = prev_tangent.y.atan2(prev_tangent.x) - next_tangent.y.atan2(next_tangent.x);
-        // Make sure to stay within the [-Pi, Pi] range.
-        if join_angle > PI {
-            join_angle -= 2.0 * PI;
-        } else if join_angle < -PI {
-            join_angle += 2.0 * PI;
-        }
-
-        let (front_side, front_normal) = if join_angle > 0.0 {
+        let (front_side, front_normal) = if next_tangent.cross(prev_tangent) >= 0.0 {
             (Side::Left, normal)
         } else {
             (Side::Right, -normal)
@@ -565,8 +544,10 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         );
 
         let limit = self.options.miter_limit;
-        let join_type = if join_angle.abs() < 0.01 {
+        let join_type = if prev_tangent.dot(next_tangent) >= 0.95 {
             // The two edges are almost aligned, just use a simple miter join.
+            // TODO: the 0.95 threshold above is completely arbitrary and needs
+            // adjustments.
             LineJoin::Miter
         } else if self.options.line_join == LineJoin::Miter && normal.square_length() > limit * limit {
             // Per SVG spec: If the stroke-miterlimit is exceeded, the line join
@@ -578,94 +559,21 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         let (start_vertex, end_vertex) = match join_type {
             LineJoin::Round => {
-                let max_radius_segment_angle = compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
-                let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
-                assert!(num_segments > 0);
-                // Calculate angle of each step
-                let segment_angle = join_angle as f32 / num_segments as f32;
-
-                let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
-
-                // Calculate the initial front normal
-                let initial_normal = vec2(-prev_tangent.y, prev_tangent.x) * neg_if_right;
-
-                let mut last_vertex = add_vertex!(
-                    self,
-                    Vertex {
-                        position: self.current,
-                        normal: initial_normal,
-                        advancement: self.length,
-                        side: front_side,
-                    }
-                );
-                let start_vertex = last_vertex;
-
-                // Plot each point along the radius by using a matrix to
-                // rotate the normal at each step
-                let (sin, cos) = segment_angle.sin_cos();
-                let rotation_matrix = [
-                    [cos, sin],
-                    [-sin, cos],
-                ];
-
-                let mut n = initial_normal;
-                for _ in 0..num_segments {
-                    // incrementally rotate the normal
-                    n = vec2(
-                        n.x * rotation_matrix[0][0] + n.y * rotation_matrix[0][1],
-                        n.x * rotation_matrix[1][0] + n.y * rotation_matrix[1][1]
-                    );
-
-                    let current_vertex = add_vertex!(
-                        self,
-                        Vertex {
-                            position: self.current,
-                            normal: n,
-                            advancement: self.length,
-                            side: front_side,
-                        }
-                    );
-
-                    self.output.add_triangle(back_vertex, last_vertex, current_vertex);
-                    last_vertex = current_vertex;
-                }
-
-                self.prev_normal = n * neg_if_right;
-
-                (start_vertex, last_vertex)
+                self.tessellate_round_join(
+                    prev_tangent,
+                    next_tangent,
+                    front_side,
+                    back_vertex
+                )
             }
-
             LineJoin::Bevel => {
-                let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
-                let prev_tangent = vec2(-prev_tangent.y, prev_tangent.x) * neg_if_right;
-                let next_tangent = vec2(-next_tangent.y, next_tangent.x) * neg_if_right;
-
-
-                let start_vertex = add_vertex!(
-                    self,
-                    Vertex {
-                        position: self.current,
-                        normal: prev_tangent,
-                        advancement: self.length,
-                        side: front_side,
-                    }
-                );
-                let last_vertex= add_vertex!(
-                    self,
-                    Vertex {
-                        position: self.current,
-                        normal: next_tangent,
-                        advancement: self.length,
-                        side: front_side,
-                    }
-                );
-                self.prev_normal = next_tangent * neg_if_right;
-                self.output.add_triangle(start_vertex, last_vertex, back_vertex);
-
-                (start_vertex, last_vertex)
-
-            } 
-
+                self.tessellate_bevel_join(
+                    prev_tangent,
+                    next_tangent,
+                    front_side,
+                    back_vertex
+                )
+            }
             // Fallback to Miter for unimplemented line joins
             _ => {
                 let v = add_vertex!(
@@ -688,13 +596,118 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             Side::Right => (back_vertex, start_vertex, back_vertex, end_vertex),
         }
     }
+
+    fn tessellate_bevel_join(
+        &mut self,
+        prev_tangent: Vec2,
+        next_tangent: Vec2,
+        front_side: Side,
+        back_vertex: VertexId,
+    ) -> (VertexId, VertexId) {
+        let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+        let prev_normal = vec2(-prev_tangent.y, prev_tangent.x);
+        let next_normal = vec2(-next_tangent.y, next_tangent.x);
+
+        let start_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: prev_normal * neg_if_right,
+                advancement: self.length,
+                side: front_side,
+            }
+        );
+        let last_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: next_normal * neg_if_right,
+                advancement: self.length,
+                side: front_side,
+            }
+        );
+        self.prev_normal = next_normal;
+        self.output.add_triangle(start_vertex, last_vertex, back_vertex);
+
+        (start_vertex, last_vertex)
+    }
+    fn tessellate_round_join(
+        &mut self,
+        prev_tangent: Vec2,
+        next_tangent: Vec2,
+        front_side: Side,
+        back_vertex: VertexId,
+    ) -> (VertexId, VertexId) {
+        let mut join_angle = prev_tangent.y.atan2(prev_tangent.x) - next_tangent.y.atan2(next_tangent.x);
+
+        // Make sure to stay within the [-Pi, Pi] range.
+        if join_angle > PI {
+            join_angle -= 2.0 * PI;
+        } else if join_angle < -PI {
+            join_angle += 2.0 * PI;
+        }
+
+        let max_radius_segment_angle = compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
+        let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
+        assert!(num_segments > 0);
+        // Calculate angle of each step
+        let segment_angle = join_angle as f32 / num_segments as f32;
+
+        let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+
+        // Calculate the initial front normal
+        let initial_normal = vec2(-prev_tangent.y, prev_tangent.x) * neg_if_right;
+
+        let mut last_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: initial_normal,
+                advancement: self.length,
+                side: front_side,
+            }
+        );
+        let start_vertex = last_vertex;
+
+        // Plot each point along the radius by using a matrix to
+        // rotate the normal at each step
+        let (sin, cos) = segment_angle.sin_cos();
+        let rotation_matrix = [
+            [cos, sin],
+            [-sin, cos],
+        ];
+
+        let mut n = initial_normal;
+        for _ in 0..num_segments {
+            // incrementally rotate the normal
+            n = vec2(
+                n.x * rotation_matrix[0][0] + n.y * rotation_matrix[0][1],
+                n.x * rotation_matrix[1][0] + n.y * rotation_matrix[1][1]
+            );
+
+            let current_vertex = add_vertex!(
+                self,
+                Vertex {
+                    position: self.current,
+                    normal: n,
+                    advancement: self.length,
+                    side: front_side,
+                }
+            );
+
+            self.output.add_triangle(back_vertex, last_vertex, current_vertex);
+            last_vertex = current_vertex;
+        }
+
+        self.prev_normal = n * neg_if_right;
+
+        (start_vertex, last_vertex)
+    }
 }
 
-fn get_angle_normal(previous: Point, current: Point, next: Point) -> Vec2 {
+fn get_angle_normal(v1: Vec2, v2: Vec2) -> Vec2 {
     let epsilon = 1e-4;
 
-    let v1 = (next - current).normalize();
-    let v2 = (current - previous).normalize();
     let n1 = vec2(-v1.y, v1.x);
 
     let v12 = v1 + v2;
