@@ -5,7 +5,7 @@ extern crate bencher;
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path_builder::*;
 use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
-use lyon::tessellation::{FillEvents, FillTessellator, FillOptions, FillVertex};
+use lyon::tessellation::{FillEvents, FillTessellator, FillOptions, FillVertex, LineJoin};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions, StrokeVertex};
 use lyon::path::Path;
 use lyon::path_iterator::PathIterator;
@@ -120,7 +120,7 @@ fn fill_logo_flattening(bench: &mut Bencher) {
     })
 }
 
-fn stroke_logo(bench: &mut Bencher) {
+fn stroke_logo_miter(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -136,8 +136,42 @@ fn stroke_logo(bench: &mut Bencher) {
     })
 }
 
+fn stroke_logo_bevel(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::default().with_line_join(LineJoin::Bevel);
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<StrokeVertex> = VertexBuffers::with_capacity(1024, 3000);
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers));
+        }
+    })
+}
+
+fn stroke_logo_round(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::default().with_line_join(LineJoin::Round);
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<StrokeVertex> = VertexBuffers::with_capacity(1024, 3000);
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers));
+        }
+    })
+}
+
 benchmark_group!(stroke_tess,
-  stroke_logo
+  stroke_logo_miter,
+  stroke_logo_bevel,
+  stroke_logo_round
 );
 
 benchmark_group!(fill_tess,
