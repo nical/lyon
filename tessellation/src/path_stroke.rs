@@ -1,9 +1,10 @@
 use math::*;
 use core::FlattenedEvent;
+use bezier::{QuadraticBezierSegment, CubicBezierSegment};
 use bezier::utils::{normalized_tangent, directed_angle, fast_atan2};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
-use path_builder::FlatPathBuilder;
+use path_builder::{FlatPathBuilder, PathBuilder};
 use path_iterator::PathIterator;
 use StrokeVertex as Vertex;
 use {Side, LineCap, LineJoin, StrokeOptions};
@@ -101,11 +102,17 @@ impl StrokeTessellator {
         Input: PathIterator,
         Output: GeometryBuilder<Vertex>,
     {
-        self.tessellate_flattened_path(
-            input.flattened(options.tolerance),
-            options,
-            builder,
-        )
+        builder.begin_geometry();
+        {
+            let mut stroker = StrokeBuilder::new(options, builder);
+
+            for evt in input {
+                stroker.path_event(evt);
+            }
+
+            stroker.build();
+        }
+        return builder.end_geometry();
     }
 
     /// Compute the tessellation from a flattened path iterator.
@@ -176,14 +183,14 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
         self.sub_path_start_length = self.length;
     }
 
-    fn line_to(&mut self, to: Point) { self.edge_to(to); }
+    fn line_to(&mut self, to: Point) { self.edge_to(to, true); }
 
     fn close(&mut self) {
         let first = self.first;
-        self.edge_to(first);
+        self.edge_to(first, true);
         if self.nth > 1 {
             let second = self.second;
-            self.edge_to(second);
+            self.edge_to(second, true);
 
             let first_left_id = add_vertex!(
                 self,
@@ -228,6 +235,39 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
         self.nth = 0;
         self.length = 0.0;
         self.sub_path_start_length = 0.0;
+    }
+}
+
+impl<'l, Output: 'l + GeometryBuilder<Vertex>> PathBuilder for StrokeBuilder<'l, Output> {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        let mut first = true;
+        QuadraticBezierSegment {
+            from: self.current,
+            ctrl: ctrl,
+            to: to,
+        }.flattened_for_each(
+            self.options.tolerance,
+            &mut |point| {
+                self.edge_to(point, first);
+                first = false;
+            }
+        );
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        let mut first = true;
+        CubicBezierSegment {
+            from: self.current,
+            ctrl1: ctrl1,
+            ctrl2: ctrl2,
+            to: to,
+        }.flattened_for_each(
+            self.options.tolerance,
+            &mut |point| {
+                self.edge_to(point, first);
+                first = false;
+            }
+        );
     }
 }
 
@@ -346,7 +386,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 self.current += d.normalize();
             }
             let p = self.current + d;
-            self.edge_to(p);
+            self.edge_to(p, true);
             // Restore the real current position.
             self.current = current;
 
@@ -400,7 +440,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         self.sub_path_idx += 1;
     }
 
-    fn edge_to(&mut self, to: Point) {
+    fn edge_to(&mut self, to: Point, with_join: bool) {
         if (self.current - to).square_length() < 1e-5 {
             return;
         }
@@ -419,6 +459,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         let next_tangent = (to - self.current).normalize();
         self.length += previous_edge_length;
 
+        let join_type = if with_join { self.options.line_join } else { LineJoin::Miter };
+
         let (
             start_left_id,
             start_right_id,
@@ -426,7 +468,8 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             end_right_id,
         ) = self.tessellate_join(
             previous_edge / previous_edge_length,
-            next_tangent
+            next_tangent,
+            join_type,
         );
 
         // Tessellate the edge
@@ -520,6 +563,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     fn tessellate_join(&mut self,
         prev_tangent: Vec2,
         next_tangent: Vec2,
+        mut join_type: LineJoin,
     ) -> (VertexId, VertexId, VertexId, VertexId) {
         // This function needs to differentiate the "front" of the join (aka. the pointy side)
         // from the back. The front is where subdivision or adjustments may be needed.
@@ -544,18 +588,16 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         );
 
         let limit = self.options.miter_limit;
-        let join_type = if prev_tangent.dot(next_tangent) >= 0.95 {
+        if prev_tangent.dot(next_tangent) >= 0.95 {
             // The two edges are almost aligned, just use a simple miter join.
             // TODO: the 0.95 threshold above is completely arbitrary and needs
             // adjustments.
-            LineJoin::Miter
-        } else if self.options.line_join == LineJoin::Miter && normal.square_length() > limit * limit {
+            join_type = LineJoin::Miter
+        } else if join_type == LineJoin::Miter && normal.square_length() > limit * limit {
             // Per SVG spec: If the stroke-miterlimit is exceeded, the line join
             // falls back to bevel.
-            LineJoin::Bevel
-        } else {
-            self.options.line_join
-        };
+            join_type = LineJoin::Bevel
+        }
 
         let (start_vertex, end_vertex) = match join_type {
             LineJoin::Round => {
@@ -631,6 +673,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         (start_vertex, last_vertex)
     }
+
     fn tessellate_round_join(
         &mut self,
         prev_tangent: Vec2,
