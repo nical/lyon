@@ -29,10 +29,11 @@ use FillVertex as Vertex;
 use Side;
 use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
-use core::FlattenedEvent;
+use core::{PathEvent, FlattenedEvent};
+use bezier::{QuadraticBezierSegment, CubicBezierSegment};
 use bezier::utils::fast_atan2;
 use math_utils::segment_intersection;
-use path_builder::FlatPathBuilder;
+use path_builder::{FlatPathBuilder, PathBuilder, FlatteningBuilder};
 use path_iterator::PathIterator;
 
 #[cfg(test)]
@@ -233,11 +234,12 @@ impl FillTessellator {
         Iter: PathIterator,
         Output: GeometryBuilder<Vertex>,
     {
-        self.tessellate_flattened_path(
-            it.flattened(options.tolerance),
-            options,
-            output
-        )
+        let mut events = replace(&mut self.events, FillEvents::new());
+        events.clear();
+        events.set_path(options.tolerance, it);
+        let result = self.tessellate_events(&events, options, output);
+        self.events = events;
+        return result;
     }
 
     /// Compute the tessellation from a flattened path iterator.
@@ -253,7 +255,7 @@ impl FillTessellator {
     {
         let mut events = replace(&mut self.events, FillEvents::new());
         events.clear();
-        events.set_path_iter(it);
+        events.set_flattened_path(it);
         let result = self.tessellate_events(&events, options, output);
         self.events = events;
         return result;
@@ -1232,8 +1234,16 @@ pub struct FillEvents {
 }
 
 impl FillEvents {
-    pub fn from_iterator<Iter: Iterator<Item = FlattenedEvent>>(it: Iter) -> Self {
-        EventsBuilder::new().build_iter(it)
+    pub fn from_flattened_path<Iter: Iterator<Item = FlattenedEvent>>(it: Iter) -> Self {
+        let mut events = FillEvents::new();
+        events.set_flattened_path(it);
+        return events;
+    }
+
+    pub fn from_path<Iter: Iterator<Item = PathEvent>>(tolerance: f32, it: Iter) -> Self {
+        let mut events = FillEvents::new();
+        events.set_path(tolerance, it);
+        return events;
     }
 
     pub fn new() -> Self {
@@ -1248,14 +1258,30 @@ impl FillEvents {
         self.vertices.clear();
     }
 
-    pub fn set_path_iter<Iter: Iterator<Item = FlattenedEvent>>(&mut self, it: Iter) {
+    pub fn set_flattened_path<Iter: Iterator<Item = FlattenedEvent>>(&mut self, it: Iter) {
         self.clear();
         let mut tmp = FillEvents::new();
         swap(self, &mut tmp);
         let mut builder = EventsBuilder::new();
         builder.recycle(tmp);
-        let mut tmp = builder.build_iter(it);
+        let mut tmp = builder.build_flattened_iter(it);
         swap(self, &mut tmp);
+    }
+
+    pub fn set_path<Iter: Iterator<Item = PathEvent>>(&mut self, tolerance: f32, it: Iter) {
+        self.clear();
+        let mut tmp = FillEvents::new();
+        swap(self, &mut tmp);
+
+        let mut builder = EventsBuilder::new();
+        builder.recycle(tmp);
+
+        let mut builder = builder.flattened(tolerance);
+        for evt in it {
+            builder.path_event(evt);
+        }
+
+        swap(self, &mut builder.build());
     }
 }
 
@@ -1268,6 +1294,7 @@ pub(crate) struct EventsBuilder {
     previous: TessPoint,
     current: TessPoint,
     nth: u32,
+    tolerance: f32,
 }
 
 impl EventsBuilder {
@@ -1281,6 +1308,7 @@ impl EventsBuilder {
             previous: TessPoint::new(fixed(0.0), fixed(0.0)),
             current: TessPoint::new(fixed(0.0), fixed(0.0)),
             nth: 0,
+            tolerance: 0.1,
         }
     }
 
@@ -1289,7 +1317,7 @@ impl EventsBuilder {
         self.vertices = events.vertices;
     }
 
-    fn build_iter<Iter: Iterator<Item = FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {
+    fn build_flattened_iter<Iter: Iterator<Item = FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {
         for evt in inputs {
             match evt {
                 FlattenedEvent::MoveTo(to) => { self.move_to(to) }
@@ -1429,7 +1457,7 @@ fn test_iter_builder() {
 
     let path = builder.build();
 
-    let events = EventsBuilder::new().build_iter(path.path_iter().flattened(0.05));
+    let events = EventsBuilder::new().build_flattened_iter(path.path_iter().flattened(0.05));
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
     let mut vertex_builder = simple_builder(&mut buffers);
     let mut tess = FillTessellator::new();

@@ -12,7 +12,51 @@ use lyon::path_iterator::PathIterator;
 
 use bencher::Bencher;
 
-const N: usize = 100;
+const N: usize = 10;
+
+fn logo_simple_flattening_iter(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    bench.iter(|| {
+        for _ in 0..N {
+            for _ in path.path_iter().flattened(0.05) {}
+        }
+    })
+}
+
+// This benchmark is a bit convoluted in order to be comparable to
+// logo_flattening_builder below.
+fn logo_flattening_iter(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    bench.iter(|| {
+        let mut builder = Path::builder();
+        for _ in 0..N {
+            for evt in path.path_iter().flattened(0.05) {
+                builder.flat_event(evt);
+            }
+        }
+    })
+}
+
+fn logo_flattening_builder(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    bench.iter(|| {
+        let mut builder = Path::builder().flattened(0.05);
+        for _ in 0..N {
+            for evt in path.path_iter() {
+                builder.path_event(evt);
+            }
+        }
+    })
+}
 
 fn fill_logo_tess_only(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
@@ -21,7 +65,7 @@ fn fill_logo_tess_only(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default();
-    let events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+    let events = FillEvents::from_flattened_path(path.path_iter().flattened(0.05));
 
     bench.iter(|| {
         for _ in 0..N {
@@ -38,7 +82,7 @@ fn fill_logo_tess_no_intersection(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default().assume_no_intersections();
-    let events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+    let events = FillEvents::from_flattened_path(path.path_iter().flattened(0.05));
 
     bench.iter(|| {
         for _ in 0..N {
@@ -55,7 +99,7 @@ fn fill_logo_tess_no_curve(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default();
-    let events = FillEvents::from_iterator(path.path_iter().flattened(1000000.0));
+    let events = FillEvents::from_flattened_path(path.path_iter().flattened(1000000.0));
 
     bench.iter(|| {
         for _ in 0..N {
@@ -71,15 +115,12 @@ fn fill_logo_events_and_tess(bench: &mut Bencher) {
     let path = path.build();
 
     let mut tess = FillTessellator::new();
-    let options = FillOptions::default();
-
-    let mut events = FillEvents::new();
+    let options = FillOptions::tolerance(0.05);
 
     bench.iter(|| {
         for _ in 0..N {
-            events.set_path_iter(path.path_iter().flattened(0.05));
             let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
-            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -91,7 +132,7 @@ fn fill_logo_events_only(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            let _events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
+            let _events = FillEvents::from_path(0.05, path.path_iter());
         }
     })
 }
@@ -103,19 +144,7 @@ fn fill_logo_events_only_pre_flattened(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            let _events = FillEvents::from_iterator(path.path_iter().flattened(0.05));
-        }
-    })
-}
-
-fn fill_logo_flattening(bench: &mut Bencher) {
-    let mut path = Path::builder().with_svg();
-    build_logo_path(&mut path);
-    let path = path.build();
-
-    bench.iter(|| {
-        for _ in 0..N {
-            for _ in path.path_iter().flattened(0.05) {}
+            let _events = FillEvents::from_flattened_path(path.path_iter().flattened(0.05));
         }
     })
 }
@@ -186,8 +215,10 @@ benchmark_group!(fill_events,
   fill_logo_events_only_pre_flattened
 );
 
-benchmark_group!(fill_flattening,
-  fill_logo_flattening
+benchmark_group!(flattening,
+  logo_simple_flattening_iter,
+  logo_flattening_iter,
+  logo_flattening_builder
 );
 
-benchmark_main!(fill_tess, fill_events, fill_flattening, stroke_tess);
+benchmark_main!(fill_tess, fill_events, stroke_tess, flattening);

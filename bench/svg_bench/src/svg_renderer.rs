@@ -271,7 +271,7 @@ fn tessellate_scene(scene: &mut[RenderItem]) {
             let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
             if let Some(color) = item.fill {
                 println!(" -- tessellate fill");
-                fill_events.set_path_iter(item.path.path_iter().flattened(0.03));
+                fill_events.set_path(0.03, item.path.path_iter());
                 fill_tessellator.tessellate_events(
                     &fill_events,
                     &FillOptions::default(),
