@@ -9,6 +9,15 @@ documentation = "https://docs.rs/lyon/"
 keywords = ["2d", "graphics", "tessellation", "svg"]
 license = "MIT/Apache-2.0"
 
+exclude = [
+    "assets/*",
+    "examples/*",
+    "bench/*",
+    "cli/*",
+    ".vscode/*",
+    "all.sh"
+]
+
 [lib]
 name = "lyon"
 path = "src/lib.rs"
