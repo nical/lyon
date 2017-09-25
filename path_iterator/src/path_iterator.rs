@@ -29,7 +29,7 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     }
 
     /// Returns an iterator of SVG events.
-    fn svg_iter(self) -> iter::Map<Self, fn(PathEvent) -> SvgEvent> { self.map(path_to_svg_event) }
+    fn svg_events(self) -> iter::Map<Self, fn(PathEvent) -> SvgEvent> { self.map(path_to_svg_event) }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -40,12 +40,12 @@ pub trait SvgIterator: Iterator<Item = SvgEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
-    fn flattened(self, tolerance: f32) -> Flattened<SvgToPathIter<Self>> {
-        self.path_iter().flattened(tolerance)
+    fn flattened(self, tolerance: f32) -> Flattened<PathEvents<Self>> {
+        self.path_events().flattened(tolerance)
     }
 
     /// Returns an iterator of path events.
-    fn path_iter(self) -> SvgToPathIter<Self> { SvgToPathIter::new(self) }
+    fn path_events(self) -> PathEvents<Self> { PathEvents::new(self) }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -56,32 +56,32 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of path events.
-    fn path_iter(self) -> iter::Map<Self, fn(FlattenedEvent) -> PathEvent> {
+    fn path_events(self) -> iter::Map<Self, fn(FlattenedEvent) -> PathEvent> {
         self.map(flattened_to_path_event)
     }
 
     /// Returns an iterator of svg events.
-    fn svg_iter(self) -> iter::Map<Self, fn(FlattenedEvent) -> SvgEvent> {
+    fn svg_events(self) -> iter::Map<Self, fn(FlattenedEvent) -> SvgEvent> {
         self.map(flattened_to_svg_event)
     }
 }
 
-pub struct SvgToPathIter<SvgIter> {
+pub struct PathEvents<SvgIter> {
     it: SvgIter,
 }
 
-impl<SvgIter> SvgToPathIter<SvgIter> {
-    pub fn new(it: SvgIter) -> Self { SvgToPathIter { it: it } }
+impl<SvgIter> PathEvents<SvgIter> {
+    pub fn new(it: SvgIter) -> Self { PathEvents { it: it } }
 }
 
-impl<SvgIter> PathIterator for SvgToPathIter<SvgIter>
+impl<SvgIter> PathIterator for PathEvents<SvgIter>
 where
     SvgIter: SvgIterator,
 {
     fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
-impl<SvgIter> Iterator for SvgToPathIter<SvgIter>
+impl<SvgIter> Iterator for PathEvents<SvgIter>
 where
     SvgIter: SvgIterator,
 {
