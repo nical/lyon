@@ -18,7 +18,7 @@
 //! All of this extra information is conveniently exposed in the `PathState` struct
 //! that can be accessed by `PathIterator`, `SvgIterator` and `FlattenedIterator`.
 //!
-//! The `PathStateIter<Iter>` adapter automatically implements `PathIterator` for
+//! The `PathIter<Iter>` adapter automatically implements `PathIterator` for
 //! any `Iter` that implements `Iterator<PathEvent>`
 //!
 //! This crate provides adapters between these iterator types. For example iterating
