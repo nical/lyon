@@ -7,15 +7,6 @@ use bezier::quadratic_bezier;
 use bezier::CubicBezierSegment;
 use bezier::cubic_bezier;
 
-/// Convenience for algorithms which prefer to iterate over segments directly rather than
-/// path events.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Segment {
-    Line(Point, Point),
-    QuadraticBezier(Point, Point, Point),
-    CubicBezier(Point, Point, Point, Point),
-}
-
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
