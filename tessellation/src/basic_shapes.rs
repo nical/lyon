@@ -650,7 +650,7 @@ pub fn stroke_circle<Output>(
             num_points,
             &mut builder,
         );
-        builder.line_to(starting_point);
+        builder.close();
     } // output borrow scope end
     return output.end_geometry();
 }
@@ -667,18 +667,12 @@ fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
     let angle_size = (angle.0 - angle.1).abs();
     let starting_angle = angle.0.min(angle.1);
 
-    let points = (1..num_points + 1).map(move |i| {
+    for i in 1..num_points + 1 {
         let new_angle = i as f32 * (angle_size) / (num_points + 1) as f32 + starting_angle;
-        let normal =
-        vec2(new_angle.cos(),
-        new_angle.sin());
-        center + normal * radius
-    });
+        let normal = vec2(new_angle.cos(), new_angle.sin());
 
-    for point in points {
-        builder.line_to(point)
-    };
-
+        builder.line_to(center + normal * radius)
+    }
 }
 
 pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
