@@ -51,9 +51,9 @@
 //!     let svg_path_iter = SvgPathIter::new(simple_iter);
 //!
 //!     // Make it a PathIterator (iterates on simpler PathEvents).
-//!     let path_iter = svg_path_iter.path_iter();
+//!     let path_iter = svg_path_iter.path_events();
 //!     // Equivalent to:
-//!     // let path_iter = SvgToPathIter::new(svg_path_iter);
+//!     // let path_iter = PathEvents::new(svg_path_iter);
 //!
 //!     // Make it an iterator over even simpler primitives: FlattenedEvent,
 //!     // which do not contain any curve. To do so we approximate each curve
@@ -64,7 +64,7 @@
 //!     // while iterating with no memory allocation.
 //!     let flattened_iter = path_iter.flattened(0.01);
 //!     // equivalent to:
-//!     // let flattened = FlatteningIter::new(0.01, path_iter);
+//!     // let flattened = Flattened::new(0.01, path_iter);
 //!
 //!     for evt in flattened_iter {
 //!         match evt {
