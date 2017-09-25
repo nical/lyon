@@ -176,29 +176,33 @@ where
     }
 }
 
+// TODO: SvgPathIter and PathIter should be merged into a single struct using
+// specialization to implement the Iterator trait depending on the type of
+// event but specialization isn't stable in rust yet.
+
 /// An adapater iterator that implements SvgIterator on top of an Iterator<Item=SvgEvent>.
-pub struct PathStateSvgIter<Iter> {
+pub struct SvgPathIter<Iter> {
     it: Iter,
     state: PathState,
 }
 
-impl<Iter: Iterator<Item = SvgEvent>> PathStateSvgIter<Iter> {
+impl<Iter: Iterator<Item = SvgEvent>> SvgPathIter<Iter> {
     pub fn new(it: Iter) -> Self {
-        PathStateSvgIter {
+        SvgPathIter {
             it: it,
             state: PathState::new(),
         }
     }
 }
 
-impl<Iter> SvgIterator for PathStateSvgIter<Iter>
+impl<Iter> SvgIterator for SvgPathIter<Iter>
 where
     Iter: Iterator<Item = SvgEvent>,
 {
     fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item = SvgEvent>> Iterator for PathStateSvgIter<Iter> {
+impl<Iter: Iterator<Item = SvgEvent>> Iterator for SvgPathIter<Iter> {
     type Item = SvgEvent;
     fn next(&mut self) -> Option<SvgEvent> {
         let next = self.it.next();
@@ -351,51 +355,3 @@ fn test_from_polyline_closed() {
     assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
     assert_eq!(evts.next(), Some(FlattenedEvent::Close));
 }
-
-/*
-#[test]
-fn test_svg_to_flattened_iter() {
-    let mut it = PathStateSvgIter::new(
-        [
-            SvgEvent::MoveTo(point(1.0, 1.0)),
-            SvgEvent::LineTo(point(2.0, 2.0)),
-            SvgEvent::LineTo(point(3.0, 3.0)),
-            SvgEvent::MoveTo(point(0.0, 0.0)),
-            SvgEvent::QuadraticTo(point(1.0, 0.0), point(1.0, 1.0)),
-            SvgEvent::MoveTo(point(10.0, 10.0)),
-            SvgEvent::CubicTo(point(11.0, 10.0), point(11.0, 11.0), point(11.0, 11.0)),
-        ].iter()
-    ).flattened(0.05);
-
-    assert_eq!(it.next(), FlattenedEvent::MoveTo(point(1.0, 1.0)));
-    assert_eq!(it.next(), FlattenedEvent::LineTo(point(2.0, 2.0)));
-    assert_eq!(it.next(), FlattenedEvent::LineTo(point(3.0, 3.0)));
-    assert_eq!(it.next(), FlattenedEvent::MoveTo(point(0.0, 0.0)));
-
-    // Flattened quadratic curve.
-    loop {
-        let evt = it.next();
-        if evt == Some(FlattenedEvent::MoveTo(point(10.0, 10.0))) {
-            break;
-        }
-        if let Some(FlattenedEvent::MoveTo(to)) = evt {
-            // ok
-        } else {
-            panic!("Expected a MoveTo event, got {:?}", evt);
-        }
-    }
-
-    // Flattened cubic curve.
-    loop {
-        let evt = it.next();
-        if evt.is_none() {
-            break;
-        }
-        if let Some(FlattenedEvent::MoveTo(to)) = evt {
-            // ok
-        } else {
-            panic!("Expected a MoveTo event, got {:?}", evt);
-        }
-    }
-}
-*/

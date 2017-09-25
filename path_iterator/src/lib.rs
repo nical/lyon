@@ -48,7 +48,7 @@
 //!     let simple_iter = events.iter().cloned();
 //!
 //!     // Make it a SvgIterator (keeps tracks of the path state).
-//!     let svg_path_iter = PathStateSvgIter::new(simple_iter);
+//!     let svg_path_iter = SvgPathIter::new(simple_iter);
 //!
 //!     // Make it a PathIterator (iterates on simpler PathEvents).
 //!     let path_iter = svg_path_iter.path_iter();
@@ -92,7 +92,7 @@
 //!         SvgEvent::Close,
 //!     ];
 //!
-//!     for evt in PathStateSvgIter::new(events.iter().cloned()).flattened(0.01) {
+//!     for evt in SvgPathIter::new(events.iter().cloned()).flattened(0.01) {
 //!         // ...
 //!     }
 //! }
