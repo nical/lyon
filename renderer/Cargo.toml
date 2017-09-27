@@ -1,6 +1,6 @@
 [package]
 name = "lyon_renderer"
-version = "0.7.0"
+version = "0.8.0"
 description = "High level APIs on top of lyon and gfx-rs."
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 repository = "https://github.com/nical/lyon"
@@ -11,9 +11,9 @@ license = "MIT/Apache-2.0"
 [dependencies]
 gfx = "0.14"
 gfx_device_gl = "0.13"
-lyon_core = { version = "0.7.0", path = "../core" }
-lyon_path = { version = "0.7.0", path = "../path" }
-lyon_bezier = { version = "0.7.0", path = "../bezier" }
-lyon_tessellation = { version = "0.7.0", path = "../tessellation" }
-lyon_path_builder = { version = "0.7.0", path = "../path_builder" }
-lyon_path_iterator = { version = "0.7.0", path = "../path_iterator" }
+lyon_core = { version = "0.8.0", path = "../core" }
+lyon_path = { version = "0.8.0", path = "../path" }
+lyon_bezier = { version = "0.8.0", path = "../bezier" }
+lyon_tessellation = { version = "0.8.0", path = "../tessellation" }
+lyon_path_builder = { version = "0.8.0", path = "../path_builder" }
+lyon_path_iterator = { version = "0.8.0", path = "../path_iterator" }

@@ -1,5 +1,14 @@
 ## Change log
 
+### v0.8.0 (2017-09-29)
+  - [tessellation] Performance improvements to the fill and stroke path tessellators.
+  - [tessellation] Stroke path tessellator bug fixes.
+  - [tessellation] Fix a bug in the tessellation of circle strokes.
+  - [tessellation] Implement bevel line joins in the stroke tessellator.
+  - [tessellation] Default to bevel joins when the miter length exceeds the limit.
+  - [path_iterator] Rename some iterators to comply with the rust API guidelines.
+  - [tessellation] Minor API changes.
+
 ### v0.7.3 (2017-08-20)
   - [tessellation] Fill tessellator bug fix (#150).
   - [tessellation] Import tests from Mapbox's earcut tessellator.
