@@ -1,5 +1,5 @@
 use core::PathEvent;
-use core::math::Point;
+use core::math::{Point, fixed};
 use path::{Path, PathSlice};
 use path_builder::FlatPathBuilder;
 
@@ -84,10 +84,10 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     println!(" ----------- reduced test case: -----------\n\n");
     println!("#[test]");
     println!("fn reduced_test_case() {{");
-    println!("    let mut builder = Path::builder().flattened(0.05);\n");
+    println!("    let mut builder = Path::builder();\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
-        println!("    builder.move_to(point({}, {}));", pos.x, pos.y);
+        println!("    builder.move_to(point({}, {}));", fixed(pos.x).to_f32(), fixed(pos.y).to_f32());
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
             println!("    builder.line_to(point({}, {}));", pos.x, pos.y);
