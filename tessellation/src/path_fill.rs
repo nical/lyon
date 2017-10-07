@@ -30,10 +30,9 @@ use Side;
 use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::{PathEvent, FlattenedEvent};
-use bezier::{QuadraticBezierSegment, CubicBezierSegment};
 use bezier::utils::fast_atan2;
 use math_utils::segment_intersection;
-use path_builder::{FlatPathBuilder, PathBuilder, FlatteningBuilder};
+use path_builder::{FlatPathBuilder, PathBuilder};
 use path_iterator::PathIterator;
 
 #[cfg(test)]
@@ -352,11 +351,12 @@ impl FillTessellator {
                         continue;
                     }
 
+                    let angle = edge_angle(edge.lower - edge.upper);
                     self.below.push(EdgeBelow {
                         lower: edge.lower,
-                        angle: edge_angle(edge.lower - edge.upper),
+                        angle,
                     });
-                    tess_log!(self, " edge at {:?} -> {:?}", edge.upper, edge.lower);
+                    tess_log!(self, " edge at {:?} -> {:?} (angle={:?})", edge.upper, edge.lower, angle);
 
                     pending_events = true;
                     continue;
@@ -528,6 +528,8 @@ impl FillTessellator {
             edge_idx = edge_idx + 1;
         }
 
+        println!("status={:?}", status);
+
         self.below.sort_by(|a, b| a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal));
 
         // Go through all edges below and handle pairs of overlapping edges.
@@ -537,7 +539,7 @@ impl FillTessellator {
             let mut to_remove = Vec::new();
             let mut i = 0;
             while i < self.below.len() - 1 {
-                if self.below[i].angle == self.below[i+1].angle {
+                if (self.below[i].angle - self.below[i+1].angle).abs() < 0.0035 {
                     to_remove.push(i);
                     let lower1 = self.below[i].lower;
                     let lower2 = self.below[i + 1].lower;
@@ -1438,9 +1440,6 @@ impl FlatPathBuilder for EventsBuilder {
     }
 }
 
-#[cfg(test)]
-use path_builder::*;
-
 #[test]
 fn test_iter_builder() {
 
@@ -1718,7 +1717,11 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
             tess.enable_logging();
         }
         try!{
-            tess.tessellate_flattened_path(path.path_iter().flattened(0.05), &FillOptions::default(), &mut vertex_builder)
+            tess.tessellate_flattened_path(
+                path.path_iter().flattened(0.05),
+                &FillOptions::default(),
+                &mut vertex_builder
+            )
         };
     }
     return Ok(buffers.indices.len() / 3);
@@ -2057,7 +2060,7 @@ fn test_rust_logo_scale_down2() {
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
-    scale_path(&mut path, 0.0001);
+    scale_path(&mut path, 0.0000001);
     test_path(path.as_slice(), None);
 }
 
@@ -2356,10 +2359,10 @@ fn test_colinear_touching_squares() {
 }
 
 #[test]
-#[ignore] //TODO
-fn back_along_previous_edge_failing() {
-    // This test case seems to have edges that come back along the previous edge.
-    // it was found by accidentally advancing with a negative t during flattening.
+fn angle_precision() {
+    // This test case has some edges that are almost parallel and the
+    // imprecision of the angle computation causes them to be in the
+    // wrong order in the sweep line.
     let mut builder = Path::builder();
 
     builder.move_to(point(0.007982401, 0.0121872));
@@ -2373,7 +2376,21 @@ fn back_along_previous_edge_failing() {
 }
 
 #[test]
-fn test_colinear_touching_squares2_failing() {
+fn back_along_previous_edge() {
+    // This test has edges that come back along the previous edge.
+    let mut builder = Path::builder();
+
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(0.8, 0.8));
+    builder.line_to(point(1.5, 1.5));
+    builder.close();
+
+    test_path(builder.build().as_slice(), None);
+}
+
+#[test]
+fn test_colinear_touching_squares2() {
     // Two squares touching.
     //
     // x-----x
@@ -2450,7 +2467,7 @@ fn test_unknown_issue_1() {
 }
 
 #[test]
-fn test_colinear_touching_squares_rotated_failing() {
+fn test_colinear_touching_squares_rotated() {
     // Two squares touching.
     //
     //       x-----x
