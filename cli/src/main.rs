@@ -1,9 +1,11 @@
 extern crate clap;
 extern crate lyon;
 extern crate lyon_extra;
+extern crate rand;
 
 mod commands;
 mod tessellate;
+mod fuzzing;
 mod flatten;
 
 use clap::*;
@@ -66,6 +68,33 @@ fn main() {
                 .short("c")
                 .long("count")
                 .help("Prints the number of vertices")
+            )
+        )
+        .subcommand(SubCommand::with_name("fuzz")
+            .about("tessellates random paths in order to find potential bugs")
+            .arg(Arg::with_name("FILL")
+                .short("f")
+                .long("fill")
+                .help("Fills the path")
+            )
+            .arg(Arg::with_name("STROKE")
+                .short("s")
+                .long("stroke")
+                .help("Strokes the path")
+                .value_name("STROKE_WIDTH")
+                .takes_value(true)
+            )
+            .arg(Arg::with_name("MAX_POINTS")
+                .long("max-points")
+                .help("Sets the maximum number of points per paths")
+                .value_name("MAX_POINTS")
+                .takes_value(true)
+            )
+            .arg(Arg::with_name("MIN_POINTS")
+                .long("min-points")
+                .help("Sets the minimum number of points per paths")
+                .value_name("MIN_POINTS")
+                .takes_value(true)
             )
         )
         .arg(Arg::with_name("PATH")
@@ -164,6 +193,13 @@ fn main() {
         };
 
         flatten::flatten(cmd).unwrap();
+    } else if let Some(fuzz_matches) = matches.subcommand_matches("fuzz") {
+        fuzzing::run(FuzzCmd {
+            fill: fuzz_matches.is_present("FILL"),
+            stroke: fuzz_matches.is_present("STROKE"),
+            min_points: fuzz_matches.value_of("MIN_POINTS").and_then(|str_val| str_val.parse::<u32>().ok()),
+            max_points: fuzz_matches.value_of("MAX_POINTS").and_then(|str_val| str_val.parse::<u32>().ok()),
+        });
     }
 }
 

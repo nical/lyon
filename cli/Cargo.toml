@@ -11,4 +11,4 @@ name = "lyon"
 lyon = { path = "../" }
 lyon_extra = { path = "../extra" }
 clap = "2.19.2"
-
+rand = "0.3"

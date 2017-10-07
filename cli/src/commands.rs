@@ -15,3 +15,10 @@ pub struct FlattenCmd {
     pub count: bool,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct FuzzCmd {
+    pub fill: bool,
+    pub stroke: bool,
+    pub min_points: Option<u32>,
+    pub max_points: Option<u32>,
+}

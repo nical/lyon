@@ -199,6 +199,9 @@ mod math_utils;
 #[cfg(test)]
 mod earcut_tests;
 
+#[cfg(test)]
+mod fuzz_tests;
+
 pub use core::*;
 
 #[doc(inline)]
