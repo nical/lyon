@@ -1,5 +1,8 @@
 ## Change log
 
+### v0.8.1 (2017-10-07)
+  - [tessellation] Fix a floating point precision bug in the fill tessellator with almost-overlapping edges. All tests are now passing.
+
 ### v0.8.0 (2017-09-29)
   - [tessellation] Performance improvements to the fill and stroke path tessellators.
   - [tessellation] Stroke path tessellator bug fixes.
