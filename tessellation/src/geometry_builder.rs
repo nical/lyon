@@ -441,6 +441,42 @@ where
     }
 }
 
+/// A geometry builder that does not output any geometry.
+/// 
+/// Mostly useful for testing.
+pub struct NoOutput {
+    count: Count,
+}
+
+impl NoOutput {
+    pub fn new() -> Self {
+        NoOutput { count: Count { vertices: 0, indices: 0 } }
+    }
+}
+
+impl<T> GeometryBuilder<T> for NoOutput
+{
+    fn begin_geometry(&mut self) {
+        self.count.vertices = 0;
+        self.count.indices = 0;
+    }
+
+    fn add_vertex(&mut self, _: T) -> VertexId {
+        self.count.vertices += 1;
+        return VertexId(self.count.vertices as Index - 1);
+    }
+
+    fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        assert!(a != b);
+        assert!(a != c);
+        assert!(b != c);
+        self.count.indices += 3;
+    }
+
+    fn end_geometry(&mut self) -> Count { self.count }
+    fn abort_geometry(&mut self) {}
+}
+
 
 impl<'l, VertexType, Input, Ctor> BezierGeometryBuilder<Input>
     for BuffersBuilder<'l, VertexType, Input, Ctor>
