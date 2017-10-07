@@ -528,8 +528,6 @@ impl FillTessellator {
             edge_idx = edge_idx + 1;
         }
 
-        println!("status={:?}", status);
-
         self.below.sort_by(|a, b| a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal));
 
         // Go through all edges below and handle pairs of overlapping edges.
