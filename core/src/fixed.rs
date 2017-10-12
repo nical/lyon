@@ -205,11 +205,11 @@ macro_rules! impl_fixed_point {
         impl<F> Eq for $name<F> {}
 
         impl<F:FractionalBits> fmt::Debug for $name<F> {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.to_f32().fmt(f) }
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.to_f64().fmt(f) }
         }
 
         impl<F:FractionalBits> fmt::Display for $name<F> {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.to_f32().fmt(f) }
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.to_f64().fmt(f) }
         }
 
         impl<F> hash::Hash for $name<F> {

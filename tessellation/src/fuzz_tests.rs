@@ -42,8 +42,7 @@ fn test_path(path: PathSlice) {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_1() {
+fn fuzzing_test_case_1() {
     let mut builder = Path::builder();
 
     builder.move_to(point(0.78730774, 0.48590088));
@@ -160,8 +159,7 @@ fn fuzzing_failure_1() {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_2() {
+fn fuzzing_test_case_2() {
     let mut builder = Path::builder();
 
     builder.move_to(point(97.84245, 342.3357));
@@ -245,8 +243,7 @@ fn fuzzing_failure_2() {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_3() {
+fn fuzzing_test_case_3() {
     let mut builder = Path::builder();
 
     builder.move_to(point(618.4506, 535.154));
@@ -331,8 +328,14 @@ fn fuzzing_failure_3() {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_4() {
+fn fuzzing_test_case_4() {
+    // This test has a vertex almost on an edge, on its left.
+    // The loop that identifies the active edges connected to
+    // the current vertex was registering the vertex but skipped
+    // the touching edge on its immediate right.
+    // The bug was fixed by continuing to iterate over the active
+    // edges in this loop and remove the second loop that was not
+    // properly testing for touching edges.
     let mut builder = Path::builder();
 
     builder.move_to(point(953.18604, 567.57916));
@@ -343,6 +346,51 @@ fn fuzzing_failure_4() {
     builder.move_to(point(605.66626, 136.37721));
     builder.line_to(point(710.2989, 960.26587));
     builder.line_to(point(473.67264, 879.073));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
+
+#[test]
+#[ignore]
+fn fuzzing_failure_5() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(280.44034, 16.12854));
+    builder.line_to(point(317.7893, 459.68353));
+    builder.line_to(point(267.34244, 17.728329));
+    builder.line_to(point(656.3035, 126.39856));
+    builder.line_to(point(373.27957, 90.56401));
+    builder.line_to(point(20.245314, 715.9369));
+    builder.line_to(point(138.39507, 131.92189));
+    builder.line_to(point(599.403, 637.9332));
+    builder.line_to(point(71.63012, 109.90965));
+    builder.line_to(point(369.259, 677.46436));
+    builder.line_to(point(440.13644, 702.98157));
+    builder.line_to(point(4.911661, 226.04358));
+    builder.line_to(point(831.2118, 817.4058));
+    builder.line_to(point(755.3699, 812.03796));
+    builder.line_to(point(79.84316, 340.46912));
+    builder.line_to(point(617.79913, 614.2463));
+    builder.close();
+
+    builder.move_to(point(252.10011, 189.48198));
+    builder.line_to(point(659.73224, 645.6623));
+    builder.line_to(point(22.57371, 656.8426));
+    builder.line_to(point(568.11584, 157.38916));
+    builder.line_to(point(746.6457, 565.2523));
+    builder.line_to(point(328.3987, 24.919628));
+    builder.line_to(point(96.115234, 698.0083));
+    builder.line_to(point(7.1537495, 530.7252));
+    builder.line_to(point(21.84856, 302.0538));
+    builder.line_to(point(34.8227, 193.36272));
+    builder.close();
+
+    builder.move_to(point(839.4768, 878.84283));
+    builder.line_to(point(265.41888, 365.45013));
+    builder.line_to(point(678.88605, 98.7531));
+    builder.line_to(point(192.53146, 780.74335));
+    builder.line_to(point(90.92653, 192.44206));
     builder.close();
 
     test_path(builder.build().as_slice());

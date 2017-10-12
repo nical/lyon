@@ -549,10 +549,10 @@ fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
                         scene.draw_background = !scene.draw_background;
                     }
                     VirtualKeyCode::A => {
-                        scene.target_stroke_width += 0.8;
+                        scene.target_stroke_width /= 0.8;
                     }
                     VirtualKeyCode::Z => {
-                        scene.target_stroke_width -= 0.8;
+                        scene.target_stroke_width *= 0.8;
                     }
                     _key => {}
                 }
