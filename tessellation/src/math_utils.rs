@@ -55,7 +55,7 @@ pub fn segment_intersection(
     // will use the absolute value of v1_cross_v2 afterwards.
     let t = (a2 - a1).cross(v2) * sign_v1_cross_v2;
     let u = a2_a1_cross_v1 * sign_v1_cross_v2;
-    if t > 0.0 && t <= abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
+    if t >= 0.0 && t <= abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
 
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
         debug_assert!(res.y <= b1.y && res.y <= b2.y);

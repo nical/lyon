@@ -427,7 +427,7 @@ impl FillTessellator {
 
             if let Some(position) = next_position {
                 current_position = position;
-                tess_log!(self, " -- current_position is now {:?}", position);
+                tess_log!(self, "\n\n -- current_position is now {:?}", position);
             } else {
                 return;
             }
@@ -456,33 +456,39 @@ impl FillTessellator {
             }
         );
 
-
         // Go through the sweep line to find the first edge that ends at the current
         // position (if any) or if the current position is inside or outside the shape.
         #[derive(Copy, Clone, Debug, PartialEq)]
         enum E {
             In,
             Out,
-            LeftEdge,
-            RightEdge,
+            OnEdge(Side),
         };
-        let mut status = E::Out;
+        let mut status = None;
 
-        // Walk the sweep line to determine where we are with respect to the
-        // existing spans.
-        let mut edge_idx = Id::new(0);
+        // Number of active edges that end at the current point.
+        let mut above_count = 0;
 
-        for active_edge in &mut self.active_edges {
-            let is_left = even(edge_idx);
+        // Default to an index that is outside of the active edges range.
+        // this value will be changed unless the current point is right
+        // of all active edges.
+        let mut first_edge = ActiveEdgeId::new(self.active_edges.len());
 
+        for (i, active_edge) in self.active_edges.iter_mut().enumerate() {
             if active_edge.merge {
-                edge_idx = edge_idx + 1;
                 continue;
             }
 
+            let edge_idx = ActiveEdgeId::new(i);
+            let side = if even(edge_idx) { Side::Left } else { Side::Right };
+
             if active_edge.points.lower == current_position {
-                status = if is_left { E::LeftEdge } else { E::RightEdge };
-                break;
+                above_count += 1;
+                if status.is_none() {
+                    status = Some(E::OnEdge(side));
+                    first_edge = edge_idx;
+                }
+                continue
             }
 
             let (touches, edge_passed_current) = compare_edge_against_position(
@@ -502,31 +508,41 @@ impl FillTessellator {
                 });
                 active_edge.points.lower = current_position;
 
-                status = if is_left { E::LeftEdge } else { E::RightEdge };
-                break;
-            }
+                above_count += 1;
 
-            if edge_passed_current {
-                status = if is_left {
+                if status.is_none() {
+                    status = Some(E::OnEdge(side));
+                    first_edge = edge_idx;
+                }
+
+            } else if edge_passed_current {
+                if status.is_some() {
+                    break;
+                }
+
+                if side.is_left() {
                     //       |....
                     //    x  |....
                     //       |....
-                    E::Out
+                    status = Some(E::Out);
+                    first_edge = edge_idx;
                 } else {
                     //  .....|
                     //  ..x..|
                     //  .....|
-                    E::In
-                };
-                if !is_left {
+                    status = Some(E::In);
                     // Use the edge on the left side of the span we are in.
-                    edge_idx = edge_idx - 1;
+                    first_edge = edge_idx - 1;
                 }
+
                 break;
             }
-
-            edge_idx = edge_idx + 1;
         }
+
+        let mut status = status.unwrap_or(E::Out);
+        // Make first_edge immutable.
+        let first_edge = first_edge;
+        let mut edge_idx = first_edge;
 
         self.below.sort_by(|a, b| a.angle.partial_cmp(&b.angle).unwrap_or(Ordering::Equal));
 
@@ -555,12 +571,10 @@ impl FillTessellator {
             }
         }
 
-        let start_edge = edge_idx;
-
         if self.log {
-            self.log_sl(current_position, edge_idx);
-            //println!("{:?}", status);
-            //println!("below:{:?}", self.below);
+            self.log_sl(current_position, first_edge);
+            tess_log!(self, "{:?}", status);
+            tess_log!(self, "below:{:?}", self.below);
         }
 
         // The index of the next edge below the current vertex, to be processed.
@@ -571,9 +585,9 @@ impl FillTessellator {
 
         // Step 1, walk the sweep line, handle left/right events, handle the spans that end
         // at this vertex, as well as merge events.
-        if self.active_edges.has_id(edge_idx) {
-            if status == E::RightEdge {
-                debug_assert!(odd(edge_idx));
+        if self.active_edges.has_id(first_edge) {
+            if status == E::OnEdge(Side::Right) {
+                debug_assert!(odd(first_edge));
                 if below_count == 0 {
                     // we are on the right side of a span but there is nothing below, it means
                     // that we are at a merge event.
@@ -588,6 +602,7 @@ impl FillTessellator {
                     // events remove their spans, we don't need to remember the current
                     // span index to process the merge.
                     pending_merge = true;
+                    above_count -= 2;
                 } else {
                     // Right event.
                     //
@@ -604,26 +619,12 @@ impl FillTessellator {
                     // the edges below the current vertex.
                     below_idx += 1;
                     below_count -= 1;
+                    above_count -= 1;
                     status = E::Out;
                 }
                 edge_idx = edge_idx + 1;
             }
         }
-
-        // Count the number of remaining edges above the sweep line that end at
-        // the current position.
-        let mut above_count = 0;
-        for active_edge in self.active_edges.range_from(edge_idx).iter() {
-            if !active_edge.merge {
-                if active_edge.points.lower != current_position {
-                    break;
-                }
-
-                above_count += 1;
-            }
-        }
-
-        //println!("above count: {}", above_count);
 
         while above_count >= 2 {
             // End event.
@@ -654,8 +655,8 @@ impl FillTessellator {
             //
             tess_log!(self, "(merge event) {:?}", edge_idx);
 
-            debug_assert_eq!(above_count, 1);
-            self.merge_event(current_position, id, start_edge, output);
+            debug_assert_eq!(above_count, 0);
+            self.merge_event(current_position, id, first_edge, output);
 
         } else if above_count == 1 {
             // Left event.
@@ -673,6 +674,7 @@ impl FillTessellator {
             self.insert_edge(edge_idx, current_position, vertex_below, id);
 
             below_count -= 1;
+            above_count -= 1;
         }
 
         // Since we took care of left and right events already we should not have
@@ -753,6 +755,9 @@ impl FillTessellator {
         self.debug_check_sl(current_position);
 
         self.below.clear();
+
+        debug_assert_eq!(above_count, 0);
+        debug_assert_eq!(below_count, 0);
     }
 
     // Look for eventual merge vertices on this span above the current vertex, and connect
@@ -881,7 +886,7 @@ impl FillTessellator {
     ) {
         debug_assert!(!is_after(upper, lower));
         // TODO horrible hack: set the merge flag on the edge we are about to replace temporarily
-        // so that it doesn not get in the way of the intersection detection.
+        // so that it does not get in the way of the intersection detection.
         self.active_edges[edge_idx].merge = true;
         let mut edge = Edge {
             upper: upper,
@@ -1042,11 +1047,11 @@ impl FillTessellator {
     fn log_sl(&self, _: TessPoint, _: ActiveEdgeId) {}
 
     #[cfg(debug)]
-    fn log_sl(&self, current_position: TessPoint, start_edge: ActiveEdgeId) {
+    fn log_sl(&self, current_position: TessPoint, first_edge: ActiveEdgeId) {
         println!("\n\n");
         self.log_sl_ids();
         self.log_sl_points_at(current_position.y);
-        println!("\n ----- current: {:?} ------ offset {:?} in sl", current_position, start_edge.handle);
+        println!("\n ----- current: {:?} ------ offset {:?} in sl", current_position, first_edge.handle);
         for b in &self.below {
             println!("   -- below: {:?}", b);
         }
@@ -1175,7 +1180,7 @@ fn compare_edge_against_position(edge: &Edge, position: TessPoint) -> (bool, boo
     let dy: FixedPoint64 = (position.y - edge.upper.y).to_fp64();
     let x = edge.upper.x + dy.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32();
 
-    let threshold = FixedPoint32::epsilon() * 2;
+    let threshold = FixedPoint32::epsilon() * 4;
     if (x - position.x).abs() <= threshold {
         return (true, is_before);
     }
