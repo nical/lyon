@@ -441,7 +441,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     }
 
     fn edge_to(&mut self, to: Point, with_join: bool) {
-        if (self.current - to).square_length() < 1e-5 {
+        if to == self.current {
             return;
         }
 
