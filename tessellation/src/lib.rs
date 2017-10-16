@@ -176,7 +176,7 @@
 //!
 
 #![allow(dead_code)]
-#![allow(needless_return, new_without_default_derive)] // clippy
+//#![allow(needless_return, new_without_default_derive)] // clippy
 
 extern crate lyon_core as core;
 extern crate lyon_path_builder as path_builder;
