@@ -483,7 +483,7 @@ impl FillTessellator {
         if self.log {
             self.log_sl(current_position, first_edge_above);
             tess_log!(self, "{:?}", point_type);
-            tess_log!(self, "below:{:?}", self.below);
+            tess_log!(self, "below:{:?}, above:{}", self.below, num_edges_above);
         }
 
         // The number of edges below the current point that are yet to be
@@ -688,7 +688,15 @@ impl FillTessellator {
                 );
             }
 
+            tess_log!(self,
+                "## point:{} edge:{} past:{}",
+                at_endpoint, on_edge, edge_after_point
+            );
             if at_endpoint || on_edge {
+                // If at_endpoint or on_edge is true then edge_after_point
+                // should be false, otherwise we may break out of this loop
+                // too early.
+                debug_assert!(!edge_after_point);
                 num_edges_above += 1;
                 if point_type.is_none() {
                     point_type = Some(PointType::OnEdge(side));
@@ -1197,6 +1205,7 @@ fn compare_edge_against_position(
         debug_assert_eq!(edge.upper.y, edge.lower.y);
         debug_assert_eq!(edge.upper.y, position.y);
         *on_edge = edge.upper.x <= position.x && edge.lower.x >= position.x;
+        *edge_passed_point = edge.upper.x > position.x && edge.lower.x > position.x;
         return;
     }
 
@@ -1206,8 +1215,9 @@ fn compare_edge_against_position(
 
     let threshold = FixedPoint32::epsilon() * 4;
 
+    //println!("dx = {} ({})", x - position.x, (x - position.x).raw());
     *on_edge = (x - position.x).abs() <= threshold;
-    *edge_passed_point = position.x < x;
+    *edge_passed_point = !*on_edge && position.x < x;
 }
 
 fn prepare_edges_below(

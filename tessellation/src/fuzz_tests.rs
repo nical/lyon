@@ -397,9 +397,12 @@ fn fuzzing_failure_5() {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_6() {
+fn fuzzing_test_case_6() {
     let mut builder = Path::builder();
+    // This test case has a point that is very close on the left of
+    // an edge. the loop that finds connected edges above was stopping
+    // prematurely because find_interesting_active_edges could sometimes
+    // indicate that the point is both on the edge and left of it.
 
     builder.move_to(point(908.77045, 59.34178));
     builder.line_to(point(177.41656, 803.875));
@@ -412,8 +415,7 @@ fn fuzzing_failure_6() {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_7() {
+fn fuzzing_test_case_7() {
     let mut builder = Path::builder();
 
     builder.move_to(point(113.852264, 563.1574));
