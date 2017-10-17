@@ -395,3 +395,40 @@ fn fuzzing_failure_5() {
 
     test_path(builder.build().as_slice());
 }
+
+#[test]
+#[ignore]
+fn fuzzing_failure_6() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(908.77045, 59.34178));
+    builder.line_to(point(177.41656, 803.875));
+    builder.line_to(point(803.30835, 166.7068));
+    builder.line_to(point(910.1411, 409.8233));
+    builder.line_to(point(113.08825, 838.0237));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
+
+#[test]
+#[ignore]
+fn fuzzing_failure_7() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(113.852264, 563.1574));
+    builder.line_to(point(486.71103, 73.901535));
+    builder.line_to(point(705.56006, 835.71826));
+    builder.line_to(point(358.2251, 418.4035));
+    builder.line_to(point(837.3598, 151.83974));
+    builder.close();
+
+    builder.move_to(point(359.5538, 4.9495697));
+    builder.line_to(point(825.8098, 129.8927));
+    builder.line_to(point(389.28534, 429.343));
+    builder.line_to(point(968.47296, 238.33));
+    builder.line_to(point(371.02557, 307.2325));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
