@@ -352,8 +352,7 @@ fn fuzzing_test_case_4() {
 }
 
 #[test]
-#[ignore]
-fn fuzzing_failure_5() {
+fn fuzzing_test_case_5() {
     let mut builder = Path::builder();
 
     builder.move_to(point(280.44034, 16.12854));
