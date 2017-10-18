@@ -1,5 +1,11 @@
 ## Change log
 
+### v0.8.4 (2017-10-18)
+  - [tessellation] Fix several fill tessellation bugs found by the fuzzer.
+  - [tessellation] Fix a stroke tessellation bug.
+  - [bezier] Fix a flattening bug.
+  - [cli] Add a simple fuzzer.
+
 ### v0.8.2 (2017-10-07)
   - [tessellation] Fix a floating point precision bug in the fill tessellator with almost-overlapping edges. All tests are now passing.
 
