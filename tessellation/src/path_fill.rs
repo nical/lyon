@@ -1187,10 +1187,12 @@ fn compare_edge_against_position(
     on_edge: &mut bool,
     edge_passed_point: &mut bool,
 ) {
+    let threshold = FixedPoint32::epsilon() * 8;
+
     // This early-out test gives a noticeable performance improvement.
     let (min, max) = edge.upper.x.min_max(edge.lower.x);
-    let point_before = position.x < min;
-    let point_after = position.x > max;
+    let point_before = position.x < min - threshold;
+    let point_after = position.x > max + threshold;
 
     if point_before || point_after {
         // This should be by far the hotest path in this function.
@@ -1205,15 +1207,13 @@ fn compare_edge_against_position(
         debug_assert_eq!(edge.upper.y, edge.lower.y);
         debug_assert_eq!(edge.upper.y, position.y);
         *on_edge = edge.upper.x <= position.x && edge.lower.x >= position.x;
-        *edge_passed_point = edge.upper.x > position.x && edge.lower.x > position.x;
+        *edge_passed_point = edge.upper.x > position.x + threshold;
         return;
     }
 
     // Intersect the edge with the horizontal line passing at the current position.
     let dy: FixedPoint64 = (position.y - edge.upper.y).to_fp64();
     let x = edge.upper.x + dy.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32();
-
-    let threshold = FixedPoint32::epsilon() * 8;
 
     //println!("dx = {} ({})", x - position.x, (x - position.x).raw());
     *on_edge = (x - position.x).abs() <= threshold;
