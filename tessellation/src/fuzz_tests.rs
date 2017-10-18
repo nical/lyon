@@ -434,3 +434,27 @@ fn fuzzing_test_case_7() {
 
     test_path(builder.build().as_slice());
 }
+
+#[test]
+fn fuzzing_test_case_8() {
+    let mut builder = Path::builder();
+    // This test a rather complex shape with plenty of intersections
+    // including three lines intersecting very close to a certain point.
+    // The failure was fixed by increasing the threshold in compare_edge_against_position.
+
+    builder.move_to(point(786.3492, 715.7762));
+    builder.line_to(point(108.706955, 396.7073));
+    builder.line_to(point(744.5795, 645.1025));
+    builder.line_to(point(359.92264, 194.16666));
+    builder.line_to(point(432.9413, 690.4683));
+    builder.line_to(point(592.9548, 277.76956));
+    builder.line_to(point(145.36989, 641.0073));
+    builder.close();
+
+    builder.move_to(point(608.8108, 554.82874));
+    builder.line_to(point(215.48784, 523.1583));
+    builder.line_to(point(821.7586, 872.91003));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}

@@ -1213,7 +1213,7 @@ fn compare_edge_against_position(
     let dy: FixedPoint64 = (position.y - edge.upper.y).to_fp64();
     let x = edge.upper.x + dy.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32();
 
-    let threshold = FixedPoint32::epsilon() * 4;
+    let threshold = FixedPoint32::epsilon() * 8;
 
     //println!("dx = {} ({})", x - position.x, (x - position.x).raw());
     *on_edge = (x - position.x).abs() <= threshold;
