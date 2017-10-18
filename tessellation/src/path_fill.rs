@@ -1187,7 +1187,7 @@ fn compare_edge_against_position(
     on_edge: &mut bool,
     edge_passed_point: &mut bool,
 ) {
-    let threshold = FixedPoint32::epsilon() * 8;
+    let threshold = FixedPoint32::epsilon() * 16;
 
     // This early-out test gives a noticeable performance improvement.
     let (min, max) = edge.upper.x.min_max(edge.lower.x);

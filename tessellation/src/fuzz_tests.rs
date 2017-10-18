@@ -457,3 +457,23 @@ fn fuzzing_test_case_8() {
 
     test_path(builder.build().as_slice());
 }
+
+#[test]
+fn fuzzing_test_case_9() {
+    let mut builder = Path::builder();
+    // This test exerciese the usual precision robustness with a vertex
+    // very close to an edge.
+    // It was fixed by adjusting the theshold in compare_edge_against_position.
+
+    builder.move_to(point(659.9835, 415.86328));
+    builder.line_to(point(70.36328, 204.36978));
+    builder.line_to(point(74.12529, 89.01107));
+    builder.close();
+
+    builder.move_to(point(840.2258, 295.46188));
+    builder.line_to(point(259.41193, 272.18054));
+    builder.line_to(point(728.914, 281.41678));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
