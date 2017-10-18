@@ -63,7 +63,7 @@
 //! the light green area and the orange arrow.
 //!
 
-#![allow(needless_return)] // clippy
+//#![allow(needless_return)] // clippy
 
 extern crate arrayvec;
 extern crate euclid;
