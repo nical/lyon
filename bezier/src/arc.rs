@@ -1,10 +1,9 @@
 //! Elliptic arc related maths and tools.
 
 use std::f32::*;
-use std::ops::Rem;
 
 use {Point, point2, Vec2, vec2, Transform2D, Radians, Line};
-use utils::{tangent, directed_angle};
+use utils::directed_angle;
 
 pub struct SvgArc {
     pub from: Point,
