@@ -1,6 +1,6 @@
 use math::*;
 use core::FlattenedEvent;
-use bezier::{QuadraticBezierSegment, CubicBezierSegment};
+use bezier::{QuadraticBezierSegment, CubicBezierSegment, LineSegment};
 use bezier::utils::{normalized_tangent, directed_angle, fast_atan2};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
@@ -593,13 +593,12 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
         );
 
-        let limit = self.options.miter_limit;
         if prev_tangent.dot(next_tangent) >= 0.95 {
             // The two edges are almost aligned, just use a simple miter join.
             // TODO: the 0.95 threshold above is completely arbitrary and needs
             // adjustments.
             join_type = LineJoin::Miter
-        } else if join_type == LineJoin::Miter && normal.square_length() > limit * limit {
+        } else if join_type == LineJoin::Miter && self.miter_limit_is_exceeded(normal) {
             // Per SVG spec: If the stroke-miterlimit is exceeded, the line join
             // falls back to bevel.
             join_type = LineJoin::Bevel
@@ -622,20 +621,21 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                     back_vertex
                 )
             }
+            LineJoin::MiterClip => {
+                self.tessellate_miter_clip_join(
+                    prev_tangent,
+                    next_tangent,
+                    front_side,
+                    back_vertex,
+                    normal
+                )
+            }
             // Fallback to Miter for unimplemented line joins
             _ => {
-                let v = add_vertex!(
-                    self,
-                    Vertex {
-                        position: self.current,
-                        normal: front_normal,
-                        advancement: self.length,
-                        side: front_side,
-                    }
-                );
-                self.prev_normal = normal;
-
-                (v, v)
+                self.tessellate_miter_join(
+                    front_side,
+                    normal
+                )
             }
         };
 
@@ -687,14 +687,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         front_side: Side,
         back_vertex: VertexId,
     ) -> (VertexId, VertexId) {
-        let mut join_angle = fast_atan2(prev_tangent.y, prev_tangent.x) - fast_atan2(next_tangent.y, next_tangent.x);
-
-        // Make sure to stay within the [-Pi, Pi] range.
-        if join_angle > PI {
-            join_angle -= 2.0 * PI;
-        } else if join_angle < -PI {
-            join_angle += 2.0 * PI;
-        }
+        let join_angle = get_join_angle(prev_tangent, next_tangent);
 
         let max_radius_segment_angle = compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
         let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
@@ -752,6 +745,99 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         (start_vertex, last_vertex)
     }
+
+    fn tessellate_miter_clip_join(
+        &mut self,
+        prev_tangent: Vec2,
+        next_tangent: Vec2,
+        front_side: Side,
+        back_vertex: VertexId,
+        normal: Vec2,
+    ) -> (VertexId, VertexId) {
+        if !self.miter_limit_is_exceeded(normal) {
+            return self.tessellate_miter_join(
+                front_side,
+                normal
+            );
+        }
+        let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+        let prev_normal: Vec2 = vec2(-prev_tangent.y, prev_tangent.x);
+        let next_normal: Vec2 = vec2(-next_tangent.y, next_tangent.x);
+
+        let (v1, v2) = self.get_clip_intersections(prev_normal, next_normal, normal);
+
+        let start_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: v1 * neg_if_right,
+                advancement: self.length,
+                side: front_side,
+            }
+        );
+
+        let last_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: v2 * neg_if_right,
+                advancement: self.length,
+                side: front_side,
+            }
+        );
+
+        self.prev_normal = normal;
+        self.output.add_triangle(start_vertex, last_vertex, back_vertex);
+
+        (start_vertex, last_vertex)
+    }
+
+    fn tessellate_miter_join(
+        &mut self,
+        front_side: Side,
+        normal: Vec2,
+    ) -> (VertexId, VertexId) {
+        let v = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: normal,
+                advancement: self.length,
+                side: front_side,
+            }
+        );
+        self.prev_normal = normal;
+
+        (v, v)
+    }
+
+    fn miter_limit_is_exceeded(&self, normal: Vec2 ) -> bool {
+        normal.square_length() > self.options.miter_limit * self.options.miter_limit
+    }
+
+    fn get_clip_intersections(&self, prev_normal: Vec2, next_normal: Vec2, normal: Vec2) -> (Vec2, Vec2) {
+        let miter_length = self.options.miter_limit * self.options.line_width;
+        let normal_limit = normal.normalize() * miter_length;
+
+        let normal_limit_perp = LineSegment{
+            from: point(normal_limit.x - normal_limit.y, normal_limit.y + normal_limit.x),
+            to: point(normal_limit.x + normal_limit.y, normal_limit.y - normal_limit.x)
+        };
+
+        let l1 = LineSegment{
+            from : point(prev_normal.x, prev_normal.y),
+            to: point(normal.x, normal.y)
+        };
+        let l2 = LineSegment{
+            from: point(next_normal.x, next_normal.y),
+            to: point(normal.x, normal.y)
+        };
+
+        let i1 = l1.intersection(&normal_limit_perp).unwrap();
+        let i2 = l2.intersection(&normal_limit_perp).unwrap();
+
+        (vec2(i1.x, i1.y), vec2(i2.x, i2.y))
+    }
 }
 
 fn get_angle_normal(v1: Vec2, v2: Vec2) -> Vec2 {
@@ -781,6 +867,19 @@ fn get_angle_normal(v1: Vec2, v2: Vec2) -> Vec2 {
 pub fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
     let t = radius - tolerance;
     ((radius * radius - t * t) * 4.0).sqrt() / radius
+}
+
+fn get_join_angle(prev_tangent: Vec2, next_tangent: Vec2) -> f32 {
+    let mut join_angle = fast_atan2(prev_tangent.y, prev_tangent.x) - fast_atan2(next_tangent.y, next_tangent.x);
+
+    // Make sure to stay within the [-Pi, Pi] range.
+    if join_angle > PI {
+        join_angle -= 2.0 * PI;
+    } else if join_angle < -PI {
+        join_angle += 2.0 * PI;
+    }
+
+    join_angle
 }
 
 fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
