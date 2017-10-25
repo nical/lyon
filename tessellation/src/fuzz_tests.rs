@@ -477,3 +477,39 @@ fn fuzzing_test_case_9() {
 
     test_path(builder.build().as_slice());
 }
+
+#[test]
+fn fuzzing_test_case_10() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(29.138443, 706.1346));
+    builder.line_to(point(347.19098, 7.499695));
+    builder.line_to(point(943.01306, 619.71893));
+    builder.line_to(point(94.4196, 562.7375));
+    builder.line_to(point(569.1717, 605.43097));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
+
+#[test]
+fn fuzzing_test_case_11() {
+    let mut builder = Path::builder();
+
+    // 3 segments intersect very close to (329.9366912841797,614.3472747802734).
+    // The fix was to bump the snapping threshold up to 24 in compare_edge_against_position.
+
+    builder.move_to(point(626.85846, 976.155));
+    builder.line_to(point(200.21939, 393.71896));
+    builder.line_to(point(261.13367, 789.74426));
+    builder.line_to(point(463.53662, 273.76627));
+    builder.line_to(point(690.73224, 841.4799));
+    builder.line_to(point(162.06873, 508.66888));
+    builder.line_to(point(958.7871, 240.41963));
+    builder.line_to(point(172.95158, 566.25415));
+    builder.line_to(point(215.60406, 610.8441));
+    builder.line_to(point(802.26874, 628.8196));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
