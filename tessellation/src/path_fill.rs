@@ -2444,6 +2444,35 @@ fn angle_precision() {
 }
 
 #[test]
+#[ignore]
+fn n_segments_intersecting() {
+    use std::f32::consts::PI;
+
+    // This test creates a lot of segments that intersect at the same
+    // position (center). Very good at finding precision issues.
+
+    for i in 1..10 {
+        let mut builder = Path::builder();
+
+        let center = point(-2.0, -5.0);
+        let n = i * 4 - 1;
+        let delta = PI / n as f32;
+        let mut radius = 1000.0;
+        builder.move_to(center + vec2(radius, 0.0));
+        builder.line_to(center - vec2(-radius, 0.0));
+        for i in 0..n {
+            let (s, c) = (i as f32 * delta).sin_cos();
+            builder.line_to(center + vec2(c, s) * radius);
+            builder.line_to(center - vec2(c, s) * radius);
+            radius = -radius;
+        }
+        builder.close();
+
+        test_path_with_rotations(builder.build(), 0.03, None);
+    }
+}
+
+#[test]
 fn back_along_previous_edge() {
     // This test has edges that come back along the previous edge.
     let mut builder = Path::builder();
