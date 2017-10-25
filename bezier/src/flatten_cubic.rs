@@ -288,31 +288,34 @@ fn inflection_approximation_range(
     bezier: &CubicBezierSegment,
     tolerance: f32,
 ) -> Option<f32> {
-    let ctrl21 = bezier.ctrl1 - bezier.from;
-    let ctrl41 = bezier.to - bezier.from;
+    // Transform the curve such that it starts at the origin.
+    let p1 = bezier.ctrl1 - bezier.from;
+    let p2 = bezier.ctrl2 - bezier.from;
+    let p3 = bezier.to - bezier.from;
 
-    if ctrl21.x.abs() < 1e-5 && ctrl21.y.abs() < 1e-5 {
-        // In this case s3 becomes lim[n->0] (ctrl41.x * n) / n - (ctrl41.y * n) / n = ctrl41.x - ctrl41.y.
-        let s3 = ctrl41.x - ctrl41.y;
+    // Thus, curve(t) = t^3 * (3*p1 - 3*p2 + p3) + t^2 * (-6*p1 + 3*p2) + t * (3*p1).
+    // Since curve(0) is an inflection point, cross(p1, p2) = 0, i.e. p1 and p2 are parallel.
 
-        if s3 == 0.0 {
+    // Let s(t) = s3 * t^3 be the (signed) perpendicular distance of curve(t) from a line that will be determined below.
+    let s3;
+    if p1.x.abs() < 1e-5 && p1.y.abs() < 1e-5 {
+        // Assume p1 = 0.
+        if p2.x.abs() < 1e-5 && p2.y.abs() < 1e-5 {
+            // Assume p2 = 0.
+            // The curve itself is a line or a point.
             return None;
+        } else {
+            // In this case p2 is away from zero.
+            // Choose the line in direction p2.
+            s3 = p2.cross(p3) / p2.length();
         }
-        // Use the absolute value so that Min and Max will correspond with the
-        // minimum and maximum of the range.
-        let tf = (tolerance / s3).abs().powf(1.0 / 3.0);
-        return if tf < 1.0 { Some(tf) } else { None };
+    } else {
+        // In this case p1 is away from zero.
+        // Choose the line in direction p1 and use that p1 and p2 are parallel.
+        s3 = p1.cross(p3) / p1.length();
     }
 
-    let s3 = (ctrl41.x * ctrl21.y - ctrl41.y * ctrl21.x) / ctrl21.x.hypot(ctrl21.y);
-
-    if s3 == 0.0 {
-        // This means within the precision we have it can be approximated
-        // infinitely by a linear segment. Deal with this by specifying the
-        // approximation range as extending beyond the entire curve.
-        return None;
-    }
-
+    // Calculate the maximal t value such that the (absolute) distance is within the tolerance.
     let tf = (tolerance / s3).abs().powf(1.0 / 3.0);
 
     return if tf < 1.0 { Some(tf) } else { None };
