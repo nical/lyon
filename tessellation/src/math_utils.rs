@@ -58,10 +58,14 @@ pub fn segment_intersection(
     if t >= 0.0 && t <= abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
 
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
-        debug_assert!(res.y <= b1.y && res.y <= b2.y);
 
-        if res != a1 && res != a2 {
-            return Some(tess_point(res.x, res.y));
+        let res = tess_point(res.x, res.y);
+        // It would be great if the assertion below held, but it happens
+        // to fail due to precision issues.
+        // debug_assert!(res.y <= e1.lower.y && res.y <= e2.lower.y);
+        if res != e1.upper && res != e2.upper
+            && res.y <= e1.lower.y && res.y <= e2.lower.y {
+            return Some(res);
         }
     }
 
