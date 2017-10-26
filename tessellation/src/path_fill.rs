@@ -1796,7 +1796,17 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
 }
 
 #[cfg(test)]
-fn test_path(path: PathSlice, expected_triangle_count: Option<usize>) {
+fn test_path(path: PathSlice) {
+    test_path_internal(path, None);
+}
+
+#[cfg(test)]
+fn test_path_and_count_triangles(path: PathSlice, expected_triangle_count: usize) {
+    test_path_internal(path, Some(expected_triangle_count));
+}
+
+#[cfg(test)]
+fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
     let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
 
     if let Ok(Ok(num_triangles)) = res {
@@ -1835,7 +1845,7 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
             v.y = y * cos - x * sin;
         }
 
-        test_path(tranformed_path.as_slice(), expected_triangle_count);
+        test_path_internal(tranformed_path.as_slice(), expected_triangle_count);
 
         angle += step;
     }
@@ -1864,7 +1874,7 @@ fn test_simple_monotone() {
     path.close();
 
     let path = path.build();
-    test_path(path.as_slice(), Some(4));
+    test_path_and_count_triangles(path.as_slice(), 4);
 }
 
 #[test]
@@ -1961,9 +1971,6 @@ fn test_hole_1() {
 }
 
 #[test]
-fn test_degenerate_empty() { test_path(Path::new().as_slice(), Some(0)); }
-
-#[test]
 fn test_degenerate_same_position() {
     let mut path = Path::builder();
     path.move_to(point(0.0, 0.0));
@@ -1994,7 +2001,7 @@ fn test_auto_intersection_type1() {
     path.close();
 
     let path = path.build();
-    test_path(path.as_slice(), Some(2));
+    test_path_and_count_triangles(path.as_slice(), 2);
 }
 
 #[test]
@@ -2014,7 +2021,7 @@ fn test_auto_intersection_type2() {
     path.close();
 
     let path = path.build();
-    test_path(path.as_slice(), Some(2));
+    test_path_and_count_triangles(path.as_slice(), 2);
 }
 
 #[test]
@@ -2043,7 +2050,7 @@ fn test_auto_intersection_multi() {
     path.close();
 
     let path = path.build();
-    test_path(path.as_slice(), Some(8));
+    test_path_with_rotations(path, 0.011, Some(8));
 }
 
 #[test]
@@ -2089,7 +2096,7 @@ fn test_rust_logo_scale_up() {
     let mut path = builder.build();
 
     scale_path(&mut path, 8000.0);
-    test_path(path.as_slice(), None);
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -2105,7 +2112,7 @@ fn test_rust_logo_scale_up_2() {
     let mut path = builder.build();
 
     scale_path(&mut path, 100000.0);
-    test_path(path.as_slice(), None);
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -2117,7 +2124,7 @@ fn test_rust_logo_scale_down() {
     let mut path = builder.build();
 
     scale_path(&mut path, 0.005);
-    test_path(path.as_slice(), None);
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -2129,7 +2136,7 @@ fn test_rust_logo_scale_down2() {
     let mut path = builder.build();
 
     scale_path(&mut path, 0.0000001);
-    test_path(path.as_slice(), None);
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -2158,7 +2165,7 @@ fn test_double_merge() {
     path.line_to(point(10.659382, 59.88637));
     path.close();
 
-    test_path(path.build().as_slice(), None);
+    test_path(path.build().as_slice());
 }
 
 #[test]
@@ -2185,7 +2192,7 @@ fn test_chained_merge_end() {
     path.line_to(point(5.0, 8.0)); // <-- end
     path.close();
 
-    test_path(path.build().as_slice(), Some(6));
+    test_path_and_count_triangles(path.build().as_slice(), 6);
 }
 
 #[test]
@@ -2211,7 +2218,7 @@ fn test_chained_merge_left() {
     path.line_to(point(0.0, 4.0)); // <-- left
     path.close();
 
-    test_path(path.build().as_slice(), Some(7));
+    test_path_and_count_triangles(path.build().as_slice(), 7);
 }
 
 #[test]
@@ -2238,7 +2245,7 @@ fn test_chained_merge_merge() {
     path.line_to(point(0.0, 4.0)); // <-- merge (resolving)
     path.close();
 
-    test_path(path.build().as_slice(), Some(9));
+    test_path_and_count_triangles(path.build().as_slice(), 9);
 }
 
 #[test]
@@ -2264,7 +2271,7 @@ fn test_chained_merge_split() {
     path.line_to(point(1.0, 5.0));
     path.close();
 
-    test_path(path.build().as_slice(), Some(8));
+    test_path_and_count_triangles(path.build().as_slice(), 8);
 }
 
 // TODO: Check that chained merge events can't mess with the way we handle complex events.
@@ -2290,7 +2297,7 @@ fn test_intersection_horizontal_precision() {
     builder.line_to(point(-55.960342, 23.841988));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2318,7 +2325,7 @@ fn test_overlapping_with_intersection() {
     builder.line_to(point(2.0, -3.0));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2340,7 +2347,7 @@ fn test_split_with_intersections() {
 
     let path = builder.build();
 
-    test_path(path.as_slice(), None);
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -2440,11 +2447,11 @@ fn angle_precision() {
     builder.line_to(point(0.0122631, 0.0069716));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
-#[ignore]
+//#[ignore]
 fn n_segments_intersecting() {
     use std::f32::consts::PI;
 
@@ -2483,7 +2490,7 @@ fn back_along_previous_edge() {
     builder.line_to(point(1.5, 1.5));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2560,7 +2567,7 @@ fn test_unknown_issue_1() {
     builder.line_to(point(-12.107843, 7.307539));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2662,7 +2669,7 @@ fn test_point_on_edge2() {
     builder.line_to(point(4.0, 0.0));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2757,7 +2764,7 @@ fn test_close_at_first_position() {
     builder.line_to(point(107.400665, 91.79798));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2772,7 +2779,7 @@ fn test_fixed_to_f32_precision() {
     builder.line_to(point(68.98, 796.05));
     builder.close();
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
@@ -2783,10 +2790,10 @@ fn test_no_close() {
     builder.line_to(point(5.0, 1.0));
     builder.line_to(point(1.0, 5.0));
 
-    test_path(builder.build().as_slice(), None);
+    test_path(builder.build().as_slice());
 }
 
 #[test]
 fn test_empty_path() {
-    test_path(Path::new().as_slice(), Some(0));
+    test_path_and_count_triangles(Path::new().as_slice(), 0);
 }

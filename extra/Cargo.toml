@@ -18,3 +18,4 @@ lyon_core = { version = "0.8.0", path = "../core" }
 lyon_path = { version = "0.8.0", path = "../path" }
 lyon_path_builder = { version = "0.8.0", path = "../path_builder" }
 lyon_path_iterator = { version = "0.8.0", path = "../path_iterator" }
+lyon_svg = { version = "0.8.0", path = "../svg" }
