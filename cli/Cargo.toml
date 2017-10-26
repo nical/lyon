@@ -12,3 +12,8 @@ lyon = { path = "../" }
 lyon_extra = { path = "../extra" }
 clap = "2.19.2"
 rand = "0.3"
+
+gfx = "0.14"
+gfx_device_gl = "0.13"
+gfx_window_glutin = "0.14"
+glutin = "0.7"

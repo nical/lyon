@@ -2,11 +2,17 @@ extern crate clap;
 extern crate lyon;
 extern crate lyon_extra;
 extern crate rand;
+#[macro_use]
+extern crate gfx;
+extern crate gfx_window_glutin;
+extern crate gfx_device_gl;
+extern crate glutin;
 
 mod commands;
 mod tessellate;
 mod fuzzing;
 mod flatten;
+mod show;
 
 use clap::*;
 use commands::*;
@@ -97,6 +103,33 @@ fn main() {
                 .takes_value(true)
             )
         )
+        .subcommand(SubCommand::with_name("show")
+            .about("render a path in an interactive window")
+            .arg(Arg::with_name("DEBUG")
+                .short("d")
+                .long("debug")
+                .help("Enable debugging")
+            )
+            .arg(Arg::with_name("FILL")
+                .short("f")
+                .long("fill")
+                .help("Fills the path")
+            )
+            .arg(Arg::with_name("STROKE")
+                .short("s")
+                .long("stroke")
+                .help("Strokes the path")
+                .value_name("STROKE_WIDTH")
+                .takes_value(true)
+            )
+            .arg(Arg::with_name("TOLERANCE")
+                .short("t")
+                .long("tolerance")
+                .help("Sets the tolerance threshold for flattening (0.5 by default)")
+                .value_name("TOLERANCE")
+                .takes_value(true)
+            )
+        )
         .arg(Arg::with_name("PATH")
             .value_name("PATH")
             .help("An SVG path")
@@ -146,7 +179,6 @@ fn main() {
         let path = build_path(Path::builder().with_svg(), &input_buffer).unwrap();
         let fill = fill_cmd || (!fill_cmd && !stroke_cmd.is_some());
         let tolerance = get_tolerance(&tess_matches);
-
 
         let cmd = TessellateCmd {
             path: path,
@@ -200,6 +232,21 @@ fn main() {
             min_points: fuzz_matches.value_of("MIN_POINTS").and_then(|str_val| str_val.parse::<u32>().ok()),
             max_points: fuzz_matches.value_of("MAX_POINTS").and_then(|str_val| str_val.parse::<u32>().ok()),
         });
+    } else if let Some(tess_matches) = matches.subcommand_matches("show") {
+        let fill_cmd = tess_matches.is_present("FILL");
+        let stroke_cmd = get_stroke(tess_matches);
+        let path = build_path(Path::builder().with_svg(), &input_buffer).unwrap();
+        let fill = fill_cmd || (!fill_cmd && !stroke_cmd.is_some());
+        let tolerance = get_tolerance(&tess_matches);
+
+        let cmd = TessellateCmd {
+            path: path,
+            fill: fill,
+            stroke: stroke_cmd,
+            tolerance: tolerance,
+        };
+
+        show::show_path(cmd);
     }
 }
 
