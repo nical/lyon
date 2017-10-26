@@ -2,6 +2,7 @@ use core::PathEvent;
 use core::math::{Point, fixed};
 use path::{Path, PathSlice};
 use path_builder::FlatPathBuilder;
+use svg;
 
 pub type Polygons = Vec<Vec<Point>>;
 
@@ -81,6 +82,7 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
         }
     }
 
+    let mut svg_path = svg::serializer::PathSerializer::new();
     println!(" ----------- reduced test case: -----------\n\n");
     println!("#[test]");
     println!("fn reduced_test_case() {{");
@@ -88,13 +90,18 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
         println!("    builder.move_to(point({}, {}));", fixed(pos.x).to_f32(), fixed(pos.y).to_f32());
+        svg_path.move_to(pos);
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
             println!("    builder.line_to(point({}, {}));", pos.x, pos.y);
+            svg_path.line_to(pos);
         }
         println!("    builder.close();\n");
+        svg_path.close();
     }
-    println!("    test_path(builder.build().as_slice(), None);");
+    println!("    test_path(builder.build().as_slice());\n");
+    println!("    // SVG path syntax:");
+    println!("    // \"{}\"", svg_path.build());
     println!("}}\n\n");
 
     return polygons_to_path(&polygons);
