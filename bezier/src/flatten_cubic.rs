@@ -409,3 +409,20 @@ fn test_issue_19() {
 
     assert!(iter_points.len() > 1);
 }
+
+#[test]
+fn test_issue_194() {
+    let segment = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(0.0, 0.0),
+        ctrl2: Point::new(50.0, 70.0),
+        to: Point::new(100.0, 100.0),
+    };
+
+    let mut points = Vec::new();
+    segment.flattened_for_each(0.1, &mut |p| {
+        points.push(p);
+    });
+
+    assert!(points.len() > 2);
+}
