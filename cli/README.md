@@ -64,6 +64,12 @@ Opens a window with an interactive path viewer.
 
 Run ```$> lyon show --help``` for more details.
 
+### example
+
+```
+$> lyon show -i assets/logo.path --fill --stroke --tolerance 0.05 --line-join Round --line-width 1.5
+```
+
 ## ```fuzz```
 
 This command runs the built-in fuzzer. The fuzzer will generate random paths and tessellate them until it finds a path that trigers an error. Once an error is found, the fuzzer tries to reduce the test case and prints the reduced test case to stdout.
