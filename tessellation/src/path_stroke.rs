@@ -593,15 +593,18 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
         );
 
-        if prev_tangent.dot(next_tangent) >= 0.95 {
+        let threshold = 0.95; // TODO: look for a good constant here.
+        if prev_tangent.dot(next_tangent) >= threshold {
             // The two edges are almost aligned, just use a simple miter join.
             // TODO: the 0.95 threshold above is completely arbitrary and needs
             // adjustments.
-            join_type = LineJoin::Miter
+            join_type = LineJoin::Miter;
         } else if join_type == LineJoin::Miter && self.miter_limit_is_exceeded(normal) {
             // Per SVG spec: If the stroke-miterlimit is exceeded, the line join
             // falls back to bevel.
-            join_type = LineJoin::Bevel
+            join_type = LineJoin::Bevel;
+        } else if join_type == LineJoin::MiterClip && !self.miter_limit_is_exceeded(normal) {
+            join_type = LineJoin::Miter;
         }
 
         let (start_vertex, end_vertex) = match join_type {
@@ -632,10 +635,18 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
             // Fallback to Miter for unimplemented line joins
             _ => {
-                self.tessellate_miter_join(
-                    front_side,
-                    normal
-                )
+                let v = add_vertex!(
+                    self,
+                    Vertex {
+                        position: self.current,
+                        normal: front_normal,
+                        advancement: self.length,
+                        side: front_side,
+                    }
+                );
+                self.prev_normal = normal;
+
+                (v, v)
             }
         };
 
@@ -754,12 +765,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         back_vertex: VertexId,
         normal: Vec2,
     ) -> (VertexId, VertexId) {
-        if !self.miter_limit_is_exceeded(normal) {
-            return self.tessellate_miter_join(
-                front_side,
-                normal
-            );
-        }
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
         let prev_normal: Vec2 = vec2(-prev_tangent.y, prev_tangent.x);
         let next_normal: Vec2 = vec2(-next_tangent.y, next_tangent.x);
@@ -790,25 +795,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         self.output.add_triangle(start_vertex, last_vertex, back_vertex);
 
         (start_vertex, last_vertex)
-    }
-
-    fn tessellate_miter_join(
-        &mut self,
-        front_side: Side,
-        normal: Vec2,
-    ) -> (VertexId, VertexId) {
-        let v = add_vertex!(
-            self,
-            Vertex {
-                position: self.current,
-                normal: normal,
-                advancement: self.length,
-                side: front_side,
-            }
-        );
-        self.prev_normal = normal;
-
-        (v, v)
     }
 
     fn miter_limit_is_exceeded(&self, normal: Vec2 ) -> bool {
