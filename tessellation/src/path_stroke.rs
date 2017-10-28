@@ -186,8 +186,16 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
     fn line_to(&mut self, to: Point) { self.edge_to(to, true); }
 
     fn close(&mut self) {
-        let first = self.first;
-        self.edge_to(first, true);
+        // If we close almost at the first edge, then we have to
+        // skip connecting the last and first edges otherwise the
+        // normal will be plagued with floating point precision
+        // issues.
+        let threshold = 0.001;
+        if (self.first - self.current).square_length() > threshold {
+            let first = self.first;
+            self.edge_to(first, true);
+        }
+
         if self.nth > 1 {
             let second = self.second;
             self.edge_to(second, true);
@@ -195,7 +203,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
             let first_left_id = add_vertex!(
                 self,
                 Vertex {
-                    position: self.first,
+                    position: self.previous,
                     normal: self.prev_normal,
                     advancement: self.sub_path_start_length,
                     side: Side::Left,
@@ -204,7 +212,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
             let first_right_id = add_vertex!(
                 self,
                 Vertex {
-                    position: self.first,
+                    position: self.previous,
                     normal: -self.prev_normal,
                     advancement: self.sub_path_start_length,
                     side: Side::Right,
@@ -396,7 +404,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 self.tessellate_round_cap(current, d, left_id, right_id, false);
             }
         }
-
         // first edge
         if self.nth > 1 {
             let mut first = self.first;
@@ -428,15 +435,14 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 }
             );
 
-
             if self.options.start_cap == LineCap::Round {
                 self.tessellate_round_cap(first, d, first_left_id, first_right_id, true);
             }
 
             self.output.add_triangle(first_right_id, first_left_id, self.second_right_id);
             self.output.add_triangle(first_left_id, self.second_left_id, self.second_right_id);
-
         }
+
         self.sub_path_idx += 1;
     }
 
