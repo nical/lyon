@@ -1,11 +1,9 @@
 use commands::TessellateCmd;
 use lyon::math::*;
-use lyon::path_iterator::*;
 use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor};
 use lyon::tessellation::{
     FillVertex, StrokeVertex,
-    StrokeOptions, StrokeTessellator,
-    FillOptions, FillTessellator
+    StrokeTessellator, FillTessellator
 };
 use std::io;
 
@@ -23,21 +21,21 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessE
 
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
 
-    if cmd.fill {
+    if let Some(options) = cmd.fill {
         if FillTessellator::new().tessellate_path(
             cmd.path.path_iter(),
-            &FillOptions::tolerance(cmd.tolerance),
-            &mut BuffersBuilder::new(&mut buffers, ApplyNormal)
+            &options,
+            &mut BuffersBuilder::new(&mut buffers, VertexCtor)
         ).is_err() {
             return Err(TessError::Fill);
         }
     }
 
-    if let Some(width) = cmd.stroke {
-        StrokeTessellator::new().tessellate_flattened_path(
-            cmd.path.path_iter().flattened(cmd.tolerance),
-            &StrokeOptions::default(),
-            &mut BuffersBuilder::new(&mut buffers, StrokeWidth(width))
+    if let Some(options) = cmd.stroke {
+        StrokeTessellator::new().tessellate_path(
+            cmd.path.path_iter(),
+            &options,
+            &mut BuffersBuilder::new(&mut buffers, VertexCtor)
         );
     }
 
@@ -83,27 +81,25 @@ pub fn write_output(
     Ok(())
 }
 
-struct StrokeWidth(f32);
+struct VertexCtor;
 
-impl VertexConstructor<StrokeVertex, Point> for StrokeWidth {
+impl VertexConstructor<StrokeVertex, Point> for VertexCtor {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Point {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
         assert!(!vertex.normal.x.is_nan());
         assert!(!vertex.normal.y.is_nan());
 
-        vertex.position + vertex.normal * self.0
+        vertex.position
     }
 }
 
-struct ApplyNormal;
-
-impl VertexConstructor<FillVertex, Point> for ApplyNormal {
+impl VertexConstructor<FillVertex, Point> for VertexCtor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Point {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
 
-        vertex.position + vertex.normal
+        vertex.position
     }
 }
 

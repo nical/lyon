@@ -1,15 +1,16 @@
 use std::io;
 use lyon::path::Path;
+use lyon::tessellation::{FillOptions, StrokeOptions};
 
+#[derive(Clone, Debug)]
 pub struct TessellateCmd {
     pub path: Path,
-    pub fill: bool,
-    pub stroke: Option<f32>,
-    pub tolerance: f32,
+    pub fill: Option<FillOptions>,
+    pub stroke: Option<StrokeOptions>,
 }
 
 pub struct FlattenCmd {
-    pub input: String,
+    pub path: Path,
     pub output: Box<io::Write>,
     pub tolerance: f32,
     pub count: bool,
