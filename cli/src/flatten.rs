@@ -1,4 +1,4 @@
-use commands::FlattenCmd;
+use commands::PathCmd;
 use lyon::path_iterator::*;
 use lyon::events::FlattenedEvent;
 use std::io;
@@ -12,8 +12,13 @@ impl ::std::convert::From<::std::io::Error> for FlattenError {
     fn from(err: io::Error) -> Self { FlattenError::Io(err) }
 }
 
-pub fn flatten(mut cmd: FlattenCmd) -> Result<(), FlattenError> {
+pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
+    if !cmd.flatten {
+        // TODO: implement more transformations.
+        return Ok(());
+    }
     if cmd.count {
+        // TODO: when flatten is false we should count vertices, curves, etc.
         let mut num_paths = 0;
         let mut num_vertices = 0;
         for event in cmd.path.path_iter().flattened(cmd.tolerance) {

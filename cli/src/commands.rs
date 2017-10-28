@@ -9,11 +9,12 @@ pub struct TessellateCmd {
     pub stroke: Option<StrokeOptions>,
 }
 
-pub struct FlattenCmd {
+pub struct PathCmd {
     pub path: Path,
     pub output: Box<io::Write>,
     pub tolerance: f32,
     pub count: bool,
+    pub flatten: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
