@@ -1,5 +1,5 @@
 # Lyon
-GPU-based 2D graphics rendering in rust.
+A path tessellation library written in rust for GPU-based 2D graphics rendering.
 
 <p align="center">
 <img src="https://nical.github.io/lyon-doc/lyon-logo.svg" alt="Project logo">

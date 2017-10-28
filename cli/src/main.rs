@@ -52,14 +52,19 @@ fn main() {
             )
         )
         .subcommand(
-            declare_input_path(SubCommand::with_name("flatten"))
-            .about("Flattens a path")
+            declare_input_path(SubCommand::with_name("path"))
+            .about("Transforms an SVG path")
             .arg(Arg::with_name("TOLERANCE")
                 .short("t")
                 .long("tolerance")
                 .help("Sets the tolerance threshold (0.5 by default)")
                 .value_name("TOLERANCE")
                 .takes_value(true)
+            )
+            .arg(Arg::with_name("FLATTEN")
+                .short("f")
+                .long("flatten")
+                .help("Approximates all curves with line segments")
             )
             .arg(Arg::with_name("COUNT")
                 .short("c")
@@ -86,7 +91,6 @@ fn main() {
                 .short("s")
                 .long("stroke")
                 .help("Strokes the path")
-                .value_name("STROKE_WIDTH")
             )
             .arg(Arg::with_name("MAX_POINTS")
                 .long("max-points")
@@ -103,7 +107,7 @@ fn main() {
         )
         .subcommand(
             declare_tess_params(SubCommand::with_name("show"))
-            .about("render a path in an interactive window")
+            .about("Renders a path in an interactive window")
         )
         .get_matches();
 
@@ -141,12 +145,13 @@ fn main() {
 
     }
 
-    if let Some(flatten_matches) = matches.subcommand_matches("flatten") {
-        let cmd = FlattenCmd {
-            path: get_path(&flatten_matches).expect("Need a path to flatten"),
-            output: get_output(flatten_matches),
-            tolerance: get_tolerance(&flatten_matches),
-            count: flatten_matches.is_present("COUNT"),
+    if let Some(command) = matches.subcommand_matches("path") {
+        let cmd = PathCmd {
+            path: get_path(&command).expect("Need a path to transform"),
+            output: get_output(command),
+            tolerance: get_tolerance(&command),
+            count: command.is_present("COUNT"),
+            flatten: command.is_present("FLATTEN"),
         };
 
         flatten::flatten(cmd).unwrap();
@@ -195,8 +200,6 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .short("s")
         .long("stroke")
         .help("Strokes the path")
-        .value_name("STROKE_WIDTH")
-        .takes_value(true)
     )
     .arg(Arg::with_name("TOLERANCE")
         .short("t")
