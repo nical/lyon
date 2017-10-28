@@ -1541,6 +1541,7 @@ pub enum FillRule {
     NonZero,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 /// Parameters for the tessellator.
 pub struct FillOptions {
     /// Maximum allowed distance to the path when building an approximation.

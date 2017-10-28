@@ -1,8 +1,7 @@
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, FillOptions};
-use lyon::tessellation::{StrokeTessellator, StrokeOptions};
+use lyon::tessellation::{FillTessellator, StrokeTessellator};
 use lyon::tessellation;
 use commands::TessellateCmd;
 
@@ -13,21 +12,28 @@ use gfx::traits::{Device, FactoryExt};
 
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
-
-    if cmd.stroke.is_some() {
+    let mut stroke_width = 1.0;
+    if let Some(mut options) = cmd.stroke {
+        stroke_width = options.line_width;
+        options.apply_line_width = false;
         StrokeTessellator::new().tessellate_path(
             cmd.path.path_iter(),
-            &StrokeOptions::tolerance(cmd.tolerance),
+            &options,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
         );
     }
 
-    if cmd.fill {
+    if let Some(options) = cmd.fill {
         FillTessellator::new().tessellate_path(
             cmd.path.path_iter(),
-            &FillOptions::tolerance(cmd.tolerance),
+            &options,
             &mut BuffersBuilder::new(&mut geometry, WithId(0))
         ).unwrap();
+    }
+
+    if geometry.vertices.is_empty() {
+        println!("No geometry to show");
+        return;
     }
 
     let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
@@ -92,8 +98,8 @@ pub fn show_path(cmd: TessellateCmd) {
         scroll: vec2(0.0, 0.0),
         show_points: false,
         show_wireframe: false,
-        stroke_width: 0.5,
-        target_stroke_width: 0.5,
+        stroke_width,
+        target_stroke_width: stroke_width,
         draw_background: true,
     };
 
