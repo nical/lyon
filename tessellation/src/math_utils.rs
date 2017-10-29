@@ -57,6 +57,17 @@ pub fn segment_intersection(
     let u = a2_a1_cross_v1 * sign_v1_cross_v2;
     if t >= 0.0 && t <= abs_v1_cross_v2 && u > 0.0 && u <= abs_v1_cross_v2 {
 
+        // Snap intersections to the edge if it is very close.
+        // This helps with preventing small floating points errors from
+        // accumulating when many edges intersect at the same position.
+        let threshold = 0.000001;
+        if 1.0 - t / abs_v1_cross_v2 < threshold {
+            return Some(e1.lower);
+        }
+        if 1.0 - u / abs_v1_cross_v2 < threshold {
+            return Some(e2.lower);
+        }
+
         let res = a1 + (v1 * t) / abs_v1_cross_v2;
 
         let res = tess_point(res.x, res.y);
