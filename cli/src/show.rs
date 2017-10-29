@@ -9,6 +9,7 @@ use gfx;
 use gfx_window_glutin;
 use glutin;
 use gfx::traits::{Device, FactoryExt};
+use glutin::GlContext;
 
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
@@ -42,14 +43,17 @@ pub fn show_path(cmd: TessellateCmd) {
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     );
 
+    let mut events_loop = glutin::EventsLoop::new();
+
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(800, 800)
         .with_decorations(true)
-        .with_title("lyon".to_string())
-        .with_vsync();
+        .with_title("lyon".to_string());
+    
+    let context = glutin::ContextBuilder::new().with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder);
+        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop);
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -105,7 +109,7 @@ pub fn show_path(cmd: TessellateCmd) {
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
-    while update_inputs(&window, &mut scene) {
+    while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
 
@@ -371,19 +375,28 @@ struct SceneParams {
     draw_background: bool,
 }
 
-fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
-    for event in window.poll_events() {
-        use glutin::Event::KeyboardInput;
-        use glutin::ElementState::Pressed;
-        use glutin::VirtualKeyCode;
+fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
+    let mut status = true;
+
+    use glutin::Event;
+    use glutin::VirtualKeyCode;
+    use glutin::ElementState::Pressed;
+
+    events_loop.poll_events(|event| {
         match event {
-            glutin::Event::Closed => {
-                return false;
-            }
-            KeyboardInput(Pressed, _, Some(key)) => {
+           Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
+                println!("Window Closed!");
+                status = false;
+            },
+            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput 
+                {input: glutin::KeyboardInput 
+                    {state: Pressed, virtual_keycode: Some(key), 
+                    ..}, 
+                ..}, 
+            ..} => {
                 match key {
                     VirtualKeyCode::Escape => {
-                        return false;
+                        status = false;
                     }
                     VirtualKeyCode::PageDown => {
                         scene.target_zoom *= 0.8;
@@ -420,18 +433,16 @@ fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
                     }
                     _key => {}
                 }
-                println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
-            }
-            _evt => {
-                //println!("{:?}", _evt);
-            }
-        };
-    }
+            },
+            _ => {}
+        }
+    });
+ 
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
     scene.stroke_width = scene.stroke_width +
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    return true;
+    status
 }
