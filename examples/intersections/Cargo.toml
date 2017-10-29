@@ -12,7 +12,7 @@ path = "src/main.rs"
 lyon = { path = "../../" }
 lyon_renderer = { path = "../../renderer" }
 
-gfx = "0.14"
-gfx_device_gl = "0.13"
-gfx_window_glutin = "0.14"
-glutin = "0.7"
+gfx = "0.16"
+gfx_device_gl = "0.14"
+gfx_window_glutin = "0.18"
+glutin = "0.10"
