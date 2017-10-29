@@ -11,7 +11,7 @@ path = "src/main.rs"
 [dependencies]
 lyon = { path = "../../" }
 
-gfx = "0.16.1"
-gfx_device_gl = "0.14.4"
-gfx_window_glutin = "0.18.0"
-glutin = "0.10.0"
+gfx = "0.16"
+gfx_device_gl = "0.14"
+gfx_window_glutin = "0.18"
+glutin = "0.10"

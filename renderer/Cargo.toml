@@ -9,8 +9,8 @@ keywords = ["2d", "graphics", "tessellation"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-gfx = "0.14"
-gfx_device_gl = "0.13"
+gfx = "0.16"
+gfx_device_gl = "0.14"
 lyon_core = { version = "0.8.0", path = "../core" }
 lyon_path = { version = "0.8.0", path = "../path" }
 lyon_bezier = { version = "0.8.0", path = "../bezier" }
