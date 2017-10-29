@@ -7,9 +7,11 @@ use commands::TessellateCmd;
 
 use gfx;
 use gfx_window_glutin;
-use glutin;
-use glutin::GlContext;
 use gfx::traits::{Device, FactoryExt};
+use glutin;
+use glutin::{GlContext, Event, WindowEvent, EventsLoop, KeyboardInput};
+use glutin::ElementState::Pressed;
+use glutin::VirtualKeyCode;
 
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
@@ -376,65 +378,72 @@ struct SceneParams {
     draw_background: bool,
 }
 
-fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
+fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
     let mut status = true;
     events_loop.poll_events(|event| {
-        use glutin::{ Event, WindowEvent };
-        use glutin::ElementState::Pressed;
-        use glutin::VirtualKeyCode;
         match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::Closed => {
-                    status = false;
-                }
-                WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..} => {
-                    match key {
-                        VirtualKeyCode::Escape => {
-                            status = false;
-                        }
-                        VirtualKeyCode::PageDown => {
-                            scene.target_zoom *= 0.8;
-                        }
-                        VirtualKeyCode::PageUp => {
-                            scene.target_zoom *= 1.25;
-                        }
-                        VirtualKeyCode::Left => {
-                            scene.target_scroll.x -= 50.0 / scene.target_zoom;
-                        }
-                        VirtualKeyCode::Right => {
-                            scene.target_scroll.x += 50.0 / scene.target_zoom;
-                        }
-                        VirtualKeyCode::Up => {
-                            scene.target_scroll.y -= 50.0 / scene.target_zoom;
-                        }
-                        VirtualKeyCode::Down => {
-                            scene.target_scroll.y += 50.0 / scene.target_zoom;
-                        }
-                        VirtualKeyCode::P => {
-                            scene.show_points = !scene.show_points;
-                        }
-                        VirtualKeyCode::W => {
-                            scene.show_wireframe = !scene.show_wireframe;
-                        }
-                        VirtualKeyCode::B => {
-                            scene.draw_background = !scene.draw_background;
-                        }
-                        VirtualKeyCode::A => {
-                            scene.target_stroke_width /= 0.8;
-                        }
-                        VirtualKeyCode::Z => {
-                            scene.target_stroke_width *= 0.8;
-                        }
-                        _key => {}
+            Event::WindowEvent {
+                event: WindowEvent::Closed,
+                ..
+            } => {
+                status = false;
+            },
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    input: KeyboardInput {
+                        state: Pressed,
+                        virtual_keycode: Some(key),
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } => {
+                match key {
+                    VirtualKeyCode::Escape => {
+                        status = false;
                     }
-                    println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
-                }
-                _evt => {
-                    //println!("{:?}", _evt);
+                    VirtualKeyCode::PageDown => {
+                        scene.target_zoom *= 0.8;
+                    }
+                    VirtualKeyCode::PageUp => {
+                        scene.target_zoom *= 1.25;
+                    }
+                    VirtualKeyCode::Left => {
+                        scene.target_scroll.x -= 50.0 / scene.target_zoom;
+                    }
+                    VirtualKeyCode::Right => {
+                        scene.target_scroll.x += 50.0 / scene.target_zoom;
+                    }
+                    VirtualKeyCode::Up => {
+                        scene.target_scroll.y -= 50.0 / scene.target_zoom;
+                    }
+                    VirtualKeyCode::Down => {
+                        scene.target_scroll.y += 50.0 / scene.target_zoom;
+                    }
+                    VirtualKeyCode::P => {
+                        scene.show_points = !scene.show_points;
+                    }
+                    VirtualKeyCode::W => {
+                        scene.show_wireframe = !scene.show_wireframe;
+                    }
+                    VirtualKeyCode::B => {
+                        scene.draw_background = !scene.draw_background;
+                    }
+                    VirtualKeyCode::A => {
+                        scene.target_stroke_width /= 0.8;
+                    }
+                    VirtualKeyCode::Z => {
+                        scene.target_stroke_width *= 0.8;
+                    }
+                    _key => {}
                 }
             }
-            _ => ()
+            _evt => {
+                //println!("{:?}", _evt);
+            }
         }
+        println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
     });
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
