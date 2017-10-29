@@ -8,8 +8,9 @@ use commands::TessellateCmd;
 use gfx;
 use gfx_window_glutin;
 use glutin;
-use gfx::traits::{Device, FactoryExt};
 use glutin::GlContext;
+use gfx::traits::{Device, FactoryExt};
+
 
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
@@ -228,7 +229,7 @@ impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
     }
 }
 
-static BACKGROUND_VERTEX_SHADER: &'static str = &"
+static BACKGROUND_VERTEX_SHADER: &'static str = "
     #version 140
     in vec2 a_position;
     out vec2 v_position;
@@ -241,7 +242,7 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
 
 // The background.
 // This shader is silly and slow, but it looks nice ;)
-static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
+static BACKGROUND_FRAGMENT_SHADER: &'static str = "
     #version 140
     uniform Globals {
         vec2 u_resolution;
@@ -431,7 +432,7 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                     VirtualKeyCode::Z => {
                         scene.target_stroke_width *= 0.8;
                     }
-                    _key => {}
+                    println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
                 }
             },
             _ => {}
