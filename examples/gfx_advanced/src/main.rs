@@ -30,6 +30,8 @@ use gfx::traits::{Device, FactoryExt};
 
 use std::ops::Rem;
 
+use glutin::GlContext;
+
 gfx_defines!{
     // The background is drawn separately with its own shader.
     vertex BgVertex {
@@ -55,7 +57,7 @@ pub fn split_gfx_slice<R: gfx::Resources>(
     first.end = at;
     second.start = at;
 
-    return (first, second);
+    (first, second)
 }
 
 pub fn gfx_sub_slice<R: gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32) -> gfx::Slice<R> {
@@ -63,7 +65,7 @@ pub fn gfx_sub_slice<R: gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32
     sub.start = from;
     sub.end = to;
 
-    return sub;
+    sub
 }
 
 struct BgVertexCtor;
@@ -237,15 +239,17 @@ fn main() {
     );
 
     // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
+    let mut events_loop = glutin::EventsLoop::new();
 
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
         .with_decorations(true)
-        .with_title("tessellation".to_string())
-        .with_vsync();
+        .with_title("tessellation".to_string());
+
+        let context = glutin::ContextBuilder::new().with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &events_loop);
 
     let constants = factory.create_constant_buffer(1);
 
@@ -360,7 +364,7 @@ fn main() {
 
     let mut frame_count: usize = 0;
     loop {
-        if !update_inputs(&window, &mut scene) {
+        if !update_inputs(&mut events_loop, &mut scene) {
             break;
         }
 
@@ -507,19 +511,23 @@ struct SceneParams {
     draw_background: bool,
 }
 
-fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
-    for event in window.poll_events() {
-        use glutin::Event::KeyboardInput;
-        use glutin::ElementState::Pressed;
-        use glutin::VirtualKeyCode;
+fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
+    let mut status = true;
+
+    use glutin::Event;
+    use glutin::VirtualKeyCode;
+    use glutin::ElementState::Pressed;
+
+    events_loop.poll_events(|event| {
         match event {
-            glutin::Event::Closed => {
-                return false;
-            }
-            KeyboardInput(Pressed, _, Some(key)) => {
+            Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
+                println!("Window Closed!");
+                status = false;
+            },
+            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..}, ..} => {
                 match key {
                     VirtualKeyCode::Escape => {
-                        return false;
+                        status = false;
                     }
                     VirtualKeyCode::PageDown => {
                         scene.target_zoom *= 0.8;
@@ -556,20 +564,17 @@ fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
                     }
                     _key => {}
                 }
-                println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
-            }
-            _evt => {
-                //println!("{:?}", _evt);
-            }
-        };
-    }
+            },
+            _ => {}
+        }
+    });
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
     scene.stroke_width = scene.stroke_width +
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    return true;
+    status
 }
 
 static BACKGROUND_VERTEX_SHADER: &'static str = &"

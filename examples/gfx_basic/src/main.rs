@@ -15,6 +15,8 @@ use lyon::path::Path;
 
 use gfx::traits::{Device, FactoryExt};
 
+use glutin::GlContext;
+
 type ColorFormat = gfx::format::Rgba8;
 type DepthFormat = gfx::format::DepthStencil;
 
@@ -42,8 +44,6 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
         }
     }
 }
-
-use glutin::GlContext;
 
 fn main() {
     // Build a Path for the rust logo.
