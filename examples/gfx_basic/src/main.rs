@@ -43,6 +43,8 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
     }
 }
 
+use glutin::GlContext;
+
 fn main() {
     // Build a Path for the rust logo.
     let mut builder = SvgPathBuilder::new(Path::builder());
@@ -62,15 +64,17 @@ fn main() {
     println!(" -- fill: {} vertices {} indices", mesh.vertices.len(), mesh.indices.len());
 
     // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
+    let mut events_loop = glutin::EventsLoop::new();
 
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
         .with_decorations(true)
-        .with_title("Simple tessellation".to_string())
-        .with_vsync();
+        .with_title("Simple tessellation".to_string());
+
+    let context = glutin::ContextBuilder::new().with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder);
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &events_loop);
 
     let shader = factory.link_program(
         VERTEX_SHADER.as_bytes(),
@@ -92,7 +96,7 @@ fn main() {
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     loop {
-        if !update_inputs(&window) {
+        if !update_inputs(&mut events_loop) {
             break;
         }
 
@@ -115,33 +119,36 @@ fn main() {
     }
 }
 
-fn update_inputs(window: &glutin::Window) -> bool {
-    for event in window.poll_events() {
-        use glutin::Event::KeyboardInput;
-        use glutin::ElementState::Pressed;
-        use glutin::VirtualKeyCode;
+fn update_inputs(event_loop: &mut glutin::EventsLoop) -> bool {
+    use glutin::Event;
+    use glutin::VirtualKeyCode;
+    use glutin::ElementState::Pressed;
+
+    let mut status = true;
+
+    event_loop.poll_events(|event| {
         match event {
-            glutin::Event::Closed => {
-                return false;
-            }
-            KeyboardInput(Pressed, _, Some(key)) => {
+            Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
+                println!("Window Closed!");
+                status = false;
+            },
+            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..}, ..} => {
                 match key {
                     VirtualKeyCode::Escape => {
-                        return false;
+                        println!("Closing");
+                        status = false;
                     }
                     _key => {}
                 }
-            }
-            _evt => {
-                //println!("{:?}", _evt);
-            }
-        };
-    }
+            },
+            _ => {}
+        }
+    });
 
-    return true;
+    status
 }
 
-pub static VERTEX_SHADER: &'static str = &"
+pub static VERTEX_SHADER: &'static str = "
     #version 140
     #line 266
 
@@ -159,7 +166,7 @@ pub static VERTEX_SHADER: &'static str = &"
 // The fragment shader is dead simple. It just applies the color computed in the vertex shader.
 // A more advanced renderer would probably compute texture coordinates in the vertex shader and
 // sample the color from a texture here.
-pub static FRAGMENT_SHADER: &'static str = &"
+pub static FRAGMENT_SHADER: &'static str = "
     #version 140
     in vec4 v_color;
     out vec4 out_color;
