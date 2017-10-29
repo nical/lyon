@@ -13,6 +13,6 @@ name = "lyon_path"
 
 [dependencies]
 lyon_core = { version = "0.8.0", path = "../core" }
-lyon_bezier = { version = "0.8.0", path = "../bezier" }
+lyon_bezier = { version = "0.8.4", path = "../bezier" }
 lyon_path_builder = { version = "0.8.0", path = "../path_builder" }
 lyon_path_iterator = { version = "0.8.0", path = "../path_iterator" }
