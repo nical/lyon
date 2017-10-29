@@ -8,6 +8,7 @@ use commands::TessellateCmd;
 use gfx;
 use gfx_window_glutin;
 use glutin;
+use glutin::GlContext;
 use gfx::traits::{Device, FactoryExt};
 
 pub fn show_path(cmd: TessellateCmd) {
@@ -45,11 +46,15 @@ pub fn show_path(cmd: TessellateCmd) {
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(800, 800)
         .with_decorations(true)
-        .with_title("lyon".to_string())
-        .with_vsync();
+        .with_title("lyon".to_string());
+
+    let context = glutin::ContextBuilder::new()
+        .with_vsync(true);
+
+    let mut events_loop = glutin::EventsLoop::new();
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder);
+        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop);
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -105,7 +110,7 @@ pub fn show_path(cmd: TessellateCmd) {
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
-    while update_inputs(&window, &mut scene) {
+    while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
 
@@ -371,67 +376,71 @@ struct SceneParams {
     draw_background: bool,
 }
 
-fn update_inputs(window: &glutin::Window, scene: &mut SceneParams) -> bool {
-    for event in window.poll_events() {
-        use glutin::Event::KeyboardInput;
+fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
+    let mut status = true;
+    events_loop.poll_events(|event| {
+        use glutin::{ Event, WindowEvent };
         use glutin::ElementState::Pressed;
         use glutin::VirtualKeyCode;
         match event {
-            glutin::Event::Closed => {
-                return false;
-            }
-            KeyboardInput(Pressed, _, Some(key)) => {
-                match key {
-                    VirtualKeyCode::Escape => {
-                        return false;
-                    }
-                    VirtualKeyCode::PageDown => {
-                        scene.target_zoom *= 0.8;
-                    }
-                    VirtualKeyCode::PageUp => {
-                        scene.target_zoom *= 1.25;
-                    }
-                    VirtualKeyCode::Left => {
-                        scene.target_scroll.x -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Right => {
-                        scene.target_scroll.x += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Up => {
-                        scene.target_scroll.y -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Down => {
-                        scene.target_scroll.y += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::P => {
-                        scene.show_points = !scene.show_points;
-                    }
-                    VirtualKeyCode::W => {
-                        scene.show_wireframe = !scene.show_wireframe;
-                    }
-                    VirtualKeyCode::B => {
-                        scene.draw_background = !scene.draw_background;
-                    }
-                    VirtualKeyCode::A => {
-                        scene.target_stroke_width /= 0.8;
-                    }
-                    VirtualKeyCode::Z => {
-                        scene.target_stroke_width *= 0.8;
-                    }
-                    _key => {}
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::Closed => {
+                    status = false;
                 }
-                println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
+                WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..} => {
+                    match key {
+                        VirtualKeyCode::Escape => {
+                            status = false;
+                        }
+                        VirtualKeyCode::PageDown => {
+                            scene.target_zoom *= 0.8;
+                        }
+                        VirtualKeyCode::PageUp => {
+                            scene.target_zoom *= 1.25;
+                        }
+                        VirtualKeyCode::Left => {
+                            scene.target_scroll.x -= 50.0 / scene.target_zoom;
+                        }
+                        VirtualKeyCode::Right => {
+                            scene.target_scroll.x += 50.0 / scene.target_zoom;
+                        }
+                        VirtualKeyCode::Up => {
+                            scene.target_scroll.y -= 50.0 / scene.target_zoom;
+                        }
+                        VirtualKeyCode::Down => {
+                            scene.target_scroll.y += 50.0 / scene.target_zoom;
+                        }
+                        VirtualKeyCode::P => {
+                            scene.show_points = !scene.show_points;
+                        }
+                        VirtualKeyCode::W => {
+                            scene.show_wireframe = !scene.show_wireframe;
+                        }
+                        VirtualKeyCode::B => {
+                            scene.draw_background = !scene.draw_background;
+                        }
+                        VirtualKeyCode::A => {
+                            scene.target_stroke_width /= 0.8;
+                        }
+                        VirtualKeyCode::Z => {
+                            scene.target_stroke_width *= 0.8;
+                        }
+                        _key => {}
+                    }
+                    println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
+                }
+                _evt => {
+                    //println!("{:?}", _evt);
+                }
             }
-            _evt => {
-                //println!("{:?}", _evt);
-            }
-        };
-    }
+            _ => ()
+        }
+    });
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
     scene.stroke_width = scene.stroke_width +
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    return true;
+    return status;
 }
