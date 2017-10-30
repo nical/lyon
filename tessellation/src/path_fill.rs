@@ -31,7 +31,7 @@ use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::{PathEvent, FlattenedEvent};
 use bezier::utils::fast_atan2;
-use math_utils::segment_intersection;
+use math_utils::{segment_intersection, compute_normal};
 use path_builder::{FlatPathBuilder, PathBuilder};
 use path_iterator::PathIterator;
 
@@ -438,6 +438,15 @@ impl FillTessellator {
         }
     }
 
+    fn add_vertex<Output: GeometryBuilder<Vertex>>(&mut self, prev: &TessPoint, vertex: &TessPoint, next: &TessPoint, output: &mut Output) -> VertexId {
+        let position = to_f32_point(*vertex);
+        let prev = to_f32_point(*prev);
+        let next = to_f32_point(*next);
+        let normal = compute_normal(position - prev, next - position).normalize();
+
+        output.add_vertex(Vertex { position, normal })
+    }
+
     fn process_vertex<Output: GeometryBuilder<Vertex>>(
         &mut self,
         current_position: TessPoint,
@@ -451,14 +460,6 @@ impl FillTessellator {
         //
         // The logic here really need to be simplified, it is the trickiest part of the
         // tessellator.
-
-        let vec2_position = to_f32_point(current_position);
-        let vertex_id = output.add_vertex(
-            Vertex {
-                position: vec2_position,
-                normal: vec2(0.0, 0.0),
-            }
-        );
 
         let (
             // Whether the point is inside, outside or on an edge.
@@ -524,6 +525,8 @@ impl FillTessellator {
                     debug_assert!(num_edges_below > 0);
 
                     let edge_to = self.below[0].lower;
+                    let vertex_above = self.active_edges[above_idx].points.upper;
+                    let vertex_id = self.add_vertex(&vertex_above, &current_position, &edge_to, output);
                     self.insert_edge(above_idx, current_position, edge_to, vertex_id);
 
                     // Update the initial state for the pass that will handle
@@ -551,6 +554,10 @@ impl FillTessellator {
             //
             tess_log!(self, "(end event) {:?}", above_idx);
 
+            let left = self.active_edges[above_idx].points.upper;
+            let right = self.active_edges[above_idx+1].points.upper;
+            let vertex_id = self.add_vertex(&right, &current_position, &left, output);
+
             self.resolve_merge_vertices(above_idx, current_position, vertex_id, output);
             self.end_span(above_idx, current_position, vertex_id, output);
 
@@ -567,6 +574,10 @@ impl FillTessellator {
             tess_log!(self, "(merge event) {:?}", above_idx);
             debug_assert_eq!(num_edges_above, 0);
 
+            let left = self.active_edges[first_edge_above].points.upper;
+            let right = self.active_edges[first_edge_above+1].points.upper;
+            let vertex_id = self.add_vertex(&left, &current_position, &right, output);
+
             self.merge_event(current_position, vertex_id, first_edge_above, output);
 
         } else if num_edges_above == 1 {
@@ -582,6 +593,8 @@ impl FillTessellator {
             let vertex_below = self.below[self.below.len() - 1].lower;
             tess_log!(self, "(left event) {:?}    -> {:?}", above_idx, vertex_below);
 
+            let vertex_above = self.active_edges[above_idx].points.upper;
+            let vertex_id = self.add_vertex(&vertex_below, &current_position, &vertex_above, output);
             self.resolve_merge_vertices(above_idx, current_position, vertex_id, output);
             self.insert_edge(above_idx, current_position, vertex_below, vertex_id);
 
@@ -607,6 +620,7 @@ impl FillTessellator {
 
                 let left = self.below[0].lower;
                 let right = self.below[num_edges_below - 1].lower;
+                let vertex_id = self.add_vertex(&right, &current_position, &left, output);
                 self.split_event(
                     above_idx,
                     current_position,
@@ -634,6 +648,8 @@ impl FillTessellator {
 
                 let left = self.below[below_idx].lower;
                 let right = self.below[below_idx + 1].lower;
+                let vertex_id = self.add_vertex(&left, &current_position, &right, output);
+
                 self.start_event(above_idx,
                     current_position,
                     vertex_id,
