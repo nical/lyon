@@ -358,6 +358,7 @@ fn main() {
         stroke_width: 0.0,
         target_stroke_width: 0.5,
         draw_background: true,
+        cursor_position: (0.0, 0.0)
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -509,6 +510,7 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
+    cursor_position: (f64, f64),
 }
 std::iter;
 fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
@@ -520,12 +522,14 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
     use glutin::Event;
     use glutin::VirtualKeyCode;
     use glutin::ElementState::Pressed;
+    use glutin::WindowEvent;
 
     events_loop.poll_events(|event| {
         match event {
             Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
                 println!("Window Closed!");
                 status = false;
+<<<<<<< HEAD
             },
             Event::WindowEvent {
                 event: glutin::WindowEvent::MouseInput {
@@ -533,14 +537,28 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                 ..},
             ..} => {
                 println!("X: {}, Y: {}", &mut x_c, &mut y_c)
+=======
+            },           
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput {
+                    state: ElementState::Pressed, button: glutin::MouseButton::Left,
+                ..},
+            ..} => {
+                println!("X: {}, Y: {}", scene.cursor_position.0, scene.cursor_position.1);
+>>>>>>> 6e567c3... Print the coordinates of the cursor when clicking in the window on the show command cli app and gfx_advanced example
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::MouseMoved {
                     position: (x, y), 
                     ..}, 
             ..} => {
+<<<<<<< HEAD
                 x_c = x;
                 y_c = y;
+=======
+                scene.cursor_position.0 = x / scene.target_zoom as f64;
+                scene.cursor_position.1 = y / scene.target_zoom as f64;
+>>>>>>> 6e567c3... Print the coordinates of the cursor when clicking in the window on the show command cli app and gfx_advanced example
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::KeyboardInput {
