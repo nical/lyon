@@ -13,6 +13,7 @@ use glutin::{GlContext, Event, WindowEvent, EventsLoop, KeyboardInput};
 use glutin::ElementState::Pressed;
 use glutin::VirtualKeyCode;
 
+
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
     let mut stroke_width = 1.0;
@@ -45,15 +46,14 @@ pub fn show_path(cmd: TessellateCmd) {
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     );
 
+    let mut events_loop = glutin::EventsLoop::new();
+
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(800, 800)
         .with_decorations(true)
         .with_title("lyon".to_string());
-
-    let context = glutin::ContextBuilder::new()
-        .with_vsync(true);
-
-    let mut events_loop = glutin::EventsLoop::new();
+    
+    let context = glutin::ContextBuilder::new().with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop);
@@ -231,7 +231,7 @@ impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
     }
 }
 
-static BACKGROUND_VERTEX_SHADER: &'static str = &"
+static BACKGROUND_VERTEX_SHADER: &'static str = "
     #version 140
     in vec2 a_position;
     out vec2 v_position;
@@ -244,7 +244,7 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
 
 // The background.
 // This shader is silly and slow, but it looks nice ;)
-static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
+static BACKGROUND_FRAGMENT_SHADER: &'static str = "
     #version 140
     uniform Globals {
         vec2 u_resolution;
@@ -380,6 +380,11 @@ struct SceneParams {
 
 fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
     let mut status = true;
+
+    use glutin::Event;
+    use glutin::VirtualKeyCode;
+    use glutin::ElementState::Pressed;
+
     events_loop.poll_events(|event| {
         match event {
             Event::WindowEvent {
@@ -445,11 +450,12 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
         }
         println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
     });
+ 
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
     scene.stroke_width = scene.stroke_width +
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    return status;
+    status
 }
