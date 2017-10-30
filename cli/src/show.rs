@@ -7,9 +7,11 @@ use commands::TessellateCmd;
 
 use gfx;
 use gfx_window_glutin;
-use glutin;
-use glutin::GlContext;
 use gfx::traits::{Device, FactoryExt};
+use glutin;
+use glutin::{GlContext, Event, WindowEvent, EventsLoop, KeyboardInput};
+use glutin::ElementState::Pressed;
+use glutin::VirtualKeyCode;
 
 
 pub fn show_path(cmd: TessellateCmd) {
@@ -376,7 +378,7 @@ struct SceneParams {
     draw_background: bool,
 }
 
-fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
+fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
     let mut status = true;
 
     use glutin::Event;
@@ -385,16 +387,23 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
 
     events_loop.poll_events(|event| {
         match event {
-           Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
-                println!("Window Closed!");
+            Event::WindowEvent {
+                event: WindowEvent::Closed,
+                ..
+            } => {
                 status = false;
             },
-            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput 
-                {input: glutin::KeyboardInput 
-                    {state: Pressed, virtual_keycode: Some(key), 
-                    ..}, 
-                ..}, 
-            ..} => {
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    input: KeyboardInput {
+                        state: Pressed,
+                        virtual_keycode: Some(key),
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } => {
                 match key {
                     VirtualKeyCode::Escape => {
                         status = false;
@@ -432,11 +441,14 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                     VirtualKeyCode::Z => {
                         scene.target_stroke_width *= 0.8;
                     }
-                    println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
+                    _key => {}
                 }
-            },
-            _ => {}
+            }
+            _evt => {
+                //println!("{:?}", _evt);
+            }
         }
+        println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
     });
  
 
