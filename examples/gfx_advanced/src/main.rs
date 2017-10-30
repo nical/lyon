@@ -510,9 +510,12 @@ struct SceneParams {
     target_stroke_width: f32,
     draw_background: bool,
 }
-
+std::iter;
 fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
     let mut status = true;
+    // Coordinates of the cursor
+    let mut x_c = 0.0;
+    let mut y_c = 0.0;
 
     use glutin::Event;
     use glutin::VirtualKeyCode;
@@ -524,7 +527,29 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                 println!("Window Closed!");
                 status = false;
             },
-            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..}, ..} => {
+            Event::WindowEvent {
+                event: glutin::WindowEvent::MouseInput {
+                    state: Pressed, button: glutin::MouseButton::Left,
+                ..},
+            ..} => {
+                println!("X: {}, Y: {}", &mut x_c, &mut y_c)
+            }
+            Event::WindowEvent {
+                event: glutin::WindowEvent::MouseMoved {
+                    position: (x, y), 
+                    ..}, 
+            ..} => {
+                x_c = x;
+                y_c = y;
+            }
+            Event::WindowEvent {
+                event: glutin::WindowEvent::KeyboardInput {
+                    input: glutin::KeyboardInput {
+                        state: Pressed, virtual_keycode: Some(key), 
+                    ..}, 
+                ..},
+            ..} => {
+                
                 match key {
                     VirtualKeyCode::Escape => {
                         status = false;
