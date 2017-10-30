@@ -510,7 +510,7 @@ struct SceneParams {
     target_stroke_width: f32,
     draw_background: bool,
 }
-std::iter;
+
 fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
     let mut status = true;
     // Coordinates of the cursor
