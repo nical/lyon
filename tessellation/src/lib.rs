@@ -445,5 +445,5 @@ fn test_with_miter_limit(){
 #[test]
 #[should_panic]
 fn test_with_invalid_miter_limit(){
-    let stroke_options = StrokeOptions::default().with_miter_limit(0.0);
+    let _ = StrokeOptions::default().with_miter_limit(0.0);
 }
