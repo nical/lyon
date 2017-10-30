@@ -11,7 +11,6 @@ use gfx::traits::{Device, FactoryExt};
 use glutin;
 use glutin::{GlContext, Event, WindowEvent, EventsLoop, KeyboardInput};
 use glutin::ElementState::Pressed;
-use glutin::VirtualKeyCode;
 
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
@@ -108,6 +107,7 @@ pub fn show_path(cmd: TessellateCmd) {
         stroke_width,
         target_stroke_width: stroke_width,
         draw_background: true,
+        cursor_position: (0.0, 0.0),
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -376,10 +376,16 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
+    cursor_position: (f64, f64),
 }
 
 fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
+    use glutin::Event;
+    use glutin::VirtualKeyCode;
+    use glutin::WindowEvent;
+
     let mut status = true;
+    
     events_loop.poll_events(|event| {
         match event {
             Event::WindowEvent {
@@ -388,6 +394,21 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
             } => {
                 status = false;
             },
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput {
+                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
+                ..},
+            ..} => {
+                println!("X: {}, Y: {}", scene.cursor_position.0, scene.cursor_position.1);
+            }
+            Event::WindowEvent {
+                event: WindowEvent::MouseMoved {
+                    position: (x, y), 
+                    ..}, 
+            ..} => {
+                scene.cursor_position.0 = x / scene.target_zoom as f64;
+                scene.cursor_position.1 = y / scene.target_zoom as f64;
+            }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
                     input: KeyboardInput {
