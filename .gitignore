@@ -52,3 +52,4 @@
 bin/
 *.lock
 **/target/
+.DS_Store

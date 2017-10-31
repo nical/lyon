@@ -51,6 +51,7 @@ members = [
     "examples/gfx_advanced",
     "examples/gfx_basic",
     "examples/intersections",
+    "examples/svg_viewer",
     "bench/svg_bench",
     "bench/tess"
 ]

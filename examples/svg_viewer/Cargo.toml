@@ -1,0 +1,13 @@
+[package]
+authors = ["whmountains <8680147+whmountains@users.noreply.github.com>"]
+name = "circuit_design"
+version = "0.1.0"
+
+[dependencies]
+clap = "2.27.1"
+gfx = "0.16.1"
+gfx_device_gl = "0.14.4"
+gfx_window_glutin = "0.18.0"
+glutin = "0.10.0"
+lyon = "0.8.4"
+xml-rs = "0.7.0"
