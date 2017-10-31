@@ -1,6 +1,6 @@
 [package]
 authors = ["whmountains <8680147+whmountains@users.noreply.github.com>"]
-name = "circuit_design"
+name = "svg_viewer"
 version = "0.1.0"
 
 [dependencies]
