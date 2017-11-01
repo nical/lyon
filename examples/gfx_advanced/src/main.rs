@@ -528,8 +528,8 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                 status = false;
             },           
             Event::WindowEvent {
-                event: glutin::WindowEvent::MouseInput {
-                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
+                event: WindowEvent::MouseInput {
+                    state: ElementState::Pressed, button: glutin::MouseButton::Left,
                 ..},
             ..} => {
                 println!("X: {}, Y: {}", scene.cursor_position.0, scene.cursor_position.1);
