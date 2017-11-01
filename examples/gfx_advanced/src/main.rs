@@ -529,18 +529,18 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
             },
             Event::WindowEvent {
                 event: glutin::WindowEvent::MouseInput {
-                    state: Pressed, button: glutin::MouseButton::Left,
+                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
                 ..},
             ..} => {
-                println!("X: {}, Y: {}", &mut x_c, &mut y_c)
+                println!("X: {}, Y: {}", x_c, y_c);
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::MouseMoved {
                     position: (x, y), 
                     ..}, 
             ..} => {
-                x_c = x;
-                y_c = y;
+                x_c = x / scene.target_zoom as f64;
+                y_c = y / scene.target_zoom as f64;
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::KeyboardInput {
