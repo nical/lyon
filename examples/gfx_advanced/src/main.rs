@@ -512,12 +512,9 @@ struct SceneParams {
     draw_background: bool,
     cursor_position: (f64, f64),
 }
-std::iter;
+
 fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
     let mut status = true;
-    // Coordinates of the cursor
-    let mut x_c = 0.0;
-    let mut y_c = 0.0;
 
     use glutin::Event;
     use glutin::VirtualKeyCode;
