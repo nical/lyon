@@ -5,7 +5,7 @@ extern crate gfx_device_gl;
 extern crate glutin;
 extern crate lyon;
 extern crate clap;
-extern crate xml;
+extern crate svgparser;
 
 // use lyon::extra::rust_logo::build_logo_path;
 // use lyon::path_builder::*;
@@ -15,7 +15,7 @@ use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::path::Path;
 use lyon::svg::parser::build_path;
-use lyon::lyon_path_builder::SvgBuilder;
+// use lyon::lyon_path_builder::SvgBuilder;
 
 use gfx::traits::{Device, FactoryExt};
 use glutin::GlContext;
@@ -23,10 +23,11 @@ use glutin::GlContext;
 use clap::{Arg, App};
 
 use std::fs::File;
-use std::io::{BufReader};
+use std::io::{Read};
 // use std::borrow::Borrow;
 
-use xml::reader::{EventReader, XmlEvent};
+use svgparser::svg::{Tokenizer, Token};
+use svgparser::{Tokenize, ElementId, AttributeId};
 
 type ColorFormat = gfx::format::Rgba8;
 type DepthFormat = gfx::format::DepthStencil;
@@ -58,7 +59,12 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
     }
 }
 
+// struct PathIterator {
+//     currentElement: Option<>
+// }
+
 fn main() {
+    // Parse CLI arguments
     let cli_args = App::new("Lyon CLI Renderer")
                           .arg(Arg::with_name("input")
                                .index(1)
@@ -69,32 +75,37 @@ fn main() {
 
     let filepath = cli_args.value_of("input").expect("Missing input file");
 
-    // let input_buffer = String::new();
+    // read the SVG file into a string
+    let mut input_buffer = String::new();
+    let mut file = File::open(filepath)
+        .expect("Error opening input file!");
+    file.read_to_string(&mut input_buffer)
+        .expect("Error reading input file!");
 
-    let file = File::open(filepath)
-        .expect("Error opening input file");
-    let file = BufReader::new(file);
-
-    let paths = EventReader::new(file).into_iter().filter_map(|event| {
-        if let Ok(XmlEvent::StartElement { name, attributes, .. }) = event {
-            if name.local_name == "path" {
-                if let Some(attr) = attributes.iter().find(|attribute| attribute.name.local_name == "d") {
-                    return Some(attr.value.clone());
+    // iterate over the SVG contents (i.e. tokens)
+    let mut last_tag = None;
+    let mut svg_paths = Vec::new();
+    let mut tokens = Tokenizer::from_str(&input_buffer).tokens();
+    for token in &mut tokens {
+        match token {
+            Token::SvgElementStart(tag) => {
+                last_tag = Some(tag);
+            }
+            Token::SvgAttribute(name, value) => {
+                if last_tag == Some(ElementId::Path) && name == AttributeId::D {
+                    svg_paths.push(build_path(Path::builder().with_svg(), value.slice()).expect("Error parsing SVG!"));
                 }
             }
+            _ => {}
         }
-
-        None
-    })
-    .map(|p| build_path(Path::builder().with_svg(), &p).expect("Error parsing SVG!"))
-    .collect::<Vec<_>>();
+    }
 
     let mut tessellator = FillTessellator::new();
 
     let mut mesh = VertexBuffers::new();
 
     tessellator.tessellate_path(
-        paths[0].path_iter(),
+        svg_paths[0].path_iter(),
         &FillOptions::tolerance(0.01),
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     ).unwrap();
