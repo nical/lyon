@@ -134,7 +134,7 @@ pub fn show_path(cmd: TessellateCmd) {
                 Primitive {
                     color: [1.0, 1.0, 1.0, 1.0],
                     z_index: 0.1,
-                    width: 0.0,
+                    width: scene.target_stroke_width,
                     padding: [0.0, 0.0],
                 },
                 Primitive {

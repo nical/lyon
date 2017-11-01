@@ -31,7 +31,7 @@ use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::{PathEvent, FlattenedEvent};
 use bezier::utils::fast_atan2;
-use math_utils::{segment_intersection, compute_normal};
+use math_utils::segment_intersection;
 use path_builder::{FlatPathBuilder, PathBuilder};
 use path_iterator::PathIterator;
 
@@ -206,6 +206,7 @@ pub struct FillTessellator {
     error: Option<FillError>,
     log: bool,
     handle_intersections: bool,
+    compute_normals: bool,
     tess_pool: Vec<MonotoneTessellator>,
 }
 
@@ -222,6 +223,7 @@ impl FillTessellator {
             error: None,
             log: false,
             handle_intersections: true,
+            compute_normals: true,
             tess_pool: Vec::with_capacity(8),
         }
     }
@@ -280,6 +282,7 @@ impl FillTessellator {
         }
 
         self.handle_intersections = !options.assume_no_intersections;
+        self.compute_normals = options.compute_normals;
 
         self.begin_tessellation(output);
 
@@ -438,11 +441,14 @@ impl FillTessellator {
         }
     }
 
-    fn add_vertex<Output: GeometryBuilder<Vertex>>(&mut self, prev: &TessPoint, vertex: &TessPoint, next: &TessPoint, output: &mut Output) -> VertexId {
+    fn add_vertex_with_normal<Output: GeometryBuilder<Vertex>>(&mut self, prev: &TessPoint, vertex: &TessPoint, next: &TessPoint, output: &mut Output) -> VertexId {
         let position = to_f32_point(*vertex);
         let prev = to_f32_point(*prev);
         let next = to_f32_point(*next);
-        let normal = compute_normal(position - prev, next - position).normalize();
+        let normal = -compute_normal(
+            (position - prev).normalize(),
+            (next - position).normalize(),
+        );
 
         output.add_vertex(Vertex { position, normal })
     }
@@ -487,6 +493,18 @@ impl FillTessellator {
             tess_log!(self, "below:{:?}, above:{}", self.below, num_edges_above);
         }
 
+        let mut vertex_id = if self.compute_normals {
+            let vec2_position = to_f32_point(current_position);
+            output.add_vertex(
+                Vertex {
+                    position: vec2_position,
+                    normal: vec2(0.0, 0.0),
+                }
+            )
+        } else {
+            VertexId(0)
+        };
+
         // The number of edges below the current point that are yet to be
         // processed.
         let mut num_edges_below = self.below.len();
@@ -525,8 +543,10 @@ impl FillTessellator {
                     debug_assert!(num_edges_below > 0);
 
                     let edge_to = self.below[0].lower;
-                    let vertex_above = self.active_edges[above_idx].points.upper;
-                    let vertex_id = self.add_vertex(&vertex_above, &current_position, &edge_to, output);
+                    if self.compute_normals {
+                        let vertex_above = self.active_edges[above_idx].points.upper;
+                        vertex_id = self.add_vertex_with_normal(&vertex_above, &current_position, &edge_to, output);
+                    }
                     self.insert_edge(above_idx, current_position, edge_to, vertex_id);
 
                     // Update the initial state for the pass that will handle
@@ -554,9 +574,11 @@ impl FillTessellator {
             //
             tess_log!(self, "(end event) {:?}", above_idx);
 
-            let left = self.active_edges[above_idx].points.upper;
-            let right = self.active_edges[above_idx+1].points.upper;
-            let vertex_id = self.add_vertex(&right, &current_position, &left, output);
+            if self.compute_normals {
+                let left = self.active_edges[above_idx].points.upper;
+                let right = self.active_edges[above_idx+1].points.upper;
+                vertex_id = self.add_vertex_with_normal(&right, &current_position, &left, output);
+            }
 
             self.resolve_merge_vertices(above_idx, current_position, vertex_id, output);
             self.end_span(above_idx, current_position, vertex_id, output);
@@ -574,9 +596,11 @@ impl FillTessellator {
             tess_log!(self, "(merge event) {:?}", above_idx);
             debug_assert_eq!(num_edges_above, 0);
 
-            let left = self.active_edges[first_edge_above].points.upper;
-            let right = self.active_edges[first_edge_above+1].points.upper;
-            let vertex_id = self.add_vertex(&left, &current_position, &right, output);
+            if self.compute_normals {
+                let left = self.active_edges[first_edge_above].points.upper;
+                let right = self.active_edges[first_edge_above+1].points.upper;
+                vertex_id = self.add_vertex_with_normal(&left, &current_position, &right, output);
+            }
 
             self.merge_event(current_position, vertex_id, first_edge_above, output);
 
@@ -593,8 +617,10 @@ impl FillTessellator {
             let vertex_below = self.below[self.below.len() - 1].lower;
             tess_log!(self, "(left event) {:?}    -> {:?}", above_idx, vertex_below);
 
-            let vertex_above = self.active_edges[above_idx].points.upper;
-            let vertex_id = self.add_vertex(&vertex_below, &current_position, &vertex_above, output);
+            if self.compute_normals {
+                let vertex_above = self.active_edges[above_idx].points.upper;
+                vertex_id = self.add_vertex_with_normal(&vertex_below, &current_position, &vertex_above, output);
+            }
             self.resolve_merge_vertices(above_idx, current_position, vertex_id, output);
             self.insert_edge(above_idx, current_position, vertex_below, vertex_id);
 
@@ -620,7 +646,9 @@ impl FillTessellator {
 
                 let left = self.below[0].lower;
                 let right = self.below[num_edges_below - 1].lower;
-                let vertex_id = self.add_vertex(&right, &current_position, &left, output);
+                if self.compute_normals {
+                    vertex_id = self.add_vertex_with_normal(&right, &current_position, &left, output);
+                }
                 self.split_event(
                     above_idx,
                     current_position,
@@ -648,7 +676,10 @@ impl FillTessellator {
 
                 let left = self.below[below_idx].lower;
                 let right = self.below[below_idx + 1].lower;
-                let vertex_id = self.add_vertex(&left, &current_position, &right, output);
+
+                if self.compute_normals {
+                    vertex_id = self.add_vertex_with_normal(&left, &current_position, &right, output);
+                }
 
                 self.start_event(above_idx,
                     current_position,
@@ -1575,6 +1606,15 @@ pub struct FillOptions {
     /// Default value: `EvenOdd`.
     pub fill_rule: FillRule,
 
+    /// Whether or not to compute the normal vector at each vertex.
+    ///
+    /// When set to false, all generated vertex normals are equal to `vec2(0.0, 0.0)`.
+    /// Not computing vertex normals can speed up tessellation and enable generating less vertices
+    /// at intersections.
+    ///
+    /// Default value: `true`.
+    pub compute_normals: bool,
+
     /// A fast path to avoid some expensive operations if the path is known to
     /// not have any self-intersections.
     ///
@@ -1597,6 +1637,7 @@ impl FillOptions {
         FillOptions {
             tolerance: 0.1,
             fill_rule: FillRule::EvenOdd,
+            compute_normals: true,
             assume_no_intersections: false,
             _private: (),
         }
@@ -1621,6 +1662,29 @@ impl FillOptions {
         self.assume_no_intersections = true;
         return self;
     }
+}
+
+fn compute_normal(v1: Vec2, v2: Vec2) -> Vec2 {
+    let epsilon = 1e-4;
+
+    let n1 = vec2(-v1.y, v1.x);
+
+    let v12 = v1 + v2;
+
+    if v12.square_length() < epsilon {
+        return n1;
+    }
+
+    let tangent = v12.normalize();
+    let n = vec2(-tangent.y, tangent.x);
+
+    let inv_len = n.dot(n1);
+
+    if inv_len.abs() < epsilon {
+        return n1;
+    }
+
+    return n / inv_len;
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
