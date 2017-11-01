@@ -533,9 +533,10 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
             },
             Event::WindowEvent {
                 event: glutin::WindowEvent::MouseInput {
-                    state: Pressed, button: glutin::MouseButton::Left,
+                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
                 ..},
             ..} => {
+<<<<<<< HEAD
                 println!("X: {}, Y: {}", &mut x_c, &mut y_c)
 =======
             },           
@@ -546,6 +547,9 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
             ..} => {
                 println!("X: {}, Y: {}", scene.cursor_position.0, scene.cursor_position.1);
 >>>>>>> 6e567c3... Print the coordinates of the cursor when clicking in the window on the show command cli app and gfx_advanced example
+=======
+                println!("X: {}, Y: {}", x_c, y_c);
+>>>>>>> 338c7af... progess
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::MouseMoved {
@@ -553,12 +557,17 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                     ..}, 
             ..} => {
 <<<<<<< HEAD
+<<<<<<< HEAD
                 x_c = x;
                 y_c = y;
 =======
                 scene.cursor_position.0 = x / scene.target_zoom as f64;
                 scene.cursor_position.1 = y / scene.target_zoom as f64;
 >>>>>>> 6e567c3... Print the coordinates of the cursor when clicking in the window on the show command cli app and gfx_advanced example
+=======
+                x_c = x / scene.target_zoom as f64;
+                y_c = y / scene.target_zoom as f64;
+>>>>>>> 338c7af... progess
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::KeyboardInput {
