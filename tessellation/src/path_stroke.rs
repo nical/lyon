@@ -1,4 +1,5 @@
 use math::*;
+use math_utils::compute_normal;
 use core::FlattenedEvent;
 use bezier::{QuadraticBezierSegment, CubicBezierSegment, LineSegment};
 use bezier::utils::{normalized_tangent, directed_angle, fast_atan2};
@@ -574,7 +575,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         // This function needs to differentiate the "front" of the join (aka. the pointy side)
         // from the back. The front is where subdivision or adjustments may be needed.
 
-        let normal = get_angle_normal(prev_tangent, next_tangent);
+        let normal = compute_normal(prev_tangent, next_tangent);
 
         let (front_side, front_normal) = if next_tangent.cross(prev_tangent) >= 0.0 {
             (Side::Left, normal)
@@ -824,29 +825,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         (vec2(i1.x, i1.y), vec2(i2.x, i2.y))
     }
-}
-
-fn get_angle_normal(v1: Vec2, v2: Vec2) -> Vec2 {
-    let epsilon = 1e-4;
-
-    let n1 = vec2(-v1.y, v1.x);
-
-    let v12 = v1 + v2;
-
-    if v12.square_length() < epsilon {
-        return n1;
-    }
-
-    let tangent = v12.normalize();
-    let n = vec2(-tangent.y, tangent.x);
-
-    let inv_len = n.dot(n1);
-
-    if inv_len.abs() < epsilon {
-        return n1;
-    }
-
-    return n / inv_len;
 }
 
 /// Computes the max angle of a radius segment for a given tolerance

@@ -17,28 +17,38 @@ use std::f32::consts::PI;
 /// Tessellate a triangle.
 pub fn fill_triangle<Output: GeometryBuilder<FillVertex>>(
     v1: Point,
-    v2: Point,
-    v3: Point,
+    mut v2: Point,
+    mut v3: Point,
     output: &mut Output,
 ) -> Count {
     output.begin_geometry();
 
+    // Make sure the winding order is correct.
+    if (v1 - v2).cross(v3 - v2) < 0.0 {
+        ::std::mem::swap(&mut v2, &mut v3);
+    }
+
+    // Tangents
+    let t31 = (v1 - v3).normalize();
+    let t12 = (v2 - v1).normalize();
+    let t23 = (v3 - v2).normalize();
+
     let a = output.add_vertex(
         FillVertex {
             position: v1,
-            normal: compute_normal(v1 - v3, v2 - v1),
+            normal: compute_normal(t31, t12),
         }
     );
     let b = output.add_vertex(
         FillVertex {
             position: v2,
-            normal: compute_normal(v2 - v1, v3 - v2),
+            normal: compute_normal(t12, t23),
         }
     );
     let c = output.add_vertex(
         FillVertex {
             position: v3,
-            normal: compute_normal(v3 - v2, v1 - v3),
+            normal: compute_normal(t23, t31),
         }
     );
 
@@ -62,35 +72,46 @@ pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
 /// Tessellate a quad.
 pub fn fill_quad<Output: GeometryBuilder<FillVertex>>(
     v1: Point,
-    v2: Point,
+    mut v2: Point,
     v3: Point,
-    v4: Point,
+    mut v4: Point,
     output: &mut Output,
 ) -> Count {
     output.begin_geometry();
 
+    // Make sure the winding order is correct.
+    if (v1 - v2).cross(v3 - v2) < 0.0 {
+        ::std::mem::swap(&mut v2, &mut v4);
+    }
+
+    // Tangents
+    let t12 = (v2 - v1).normalize();
+    let t23 = (v3 - v2).normalize();
+    let t34 = (v4 - v3).normalize();
+    let t41 = (v1 - v4).normalize();
+
     let a = output.add_vertex(
         FillVertex {
             position: v1,
-            normal: compute_normal(v1 - v4, v2 - v1),
+            normal: compute_normal(t41, t12),
         }
     );
     let b = output.add_vertex(
         FillVertex {
             position: v2,
-            normal: compute_normal(v2 - v1, v3 - v2),
+            normal: compute_normal(t12, t23),
         }
     );
     let c = output.add_vertex(
         FillVertex {
             position: v3,
-            normal: compute_normal(v3 - v2, v4 - v3),
+            normal: compute_normal(t23, t34),
         }
     );
     let d = output.add_vertex(
         FillVertex {
             position: v4,
-            normal: compute_normal(v4 - v3, v1 - v4),
+            normal: compute_normal(t34, t41),
         }
     );
     output.add_triangle(a, b, c);
@@ -126,8 +147,8 @@ pub fn fill_rectangle<Output: GeometryBuilder<FillVertex>>(
     );
     let b = output.add_vertex(
         FillVertex {
-            position: rect.top_right(),
-            normal: vec2(1.0, -1.0),
+            position: rect.bottom_left(),
+            normal: vec2(-1.0, 1.0),
         }
     );
     let c = output.add_vertex(
@@ -138,8 +159,8 @@ pub fn fill_rectangle<Output: GeometryBuilder<FillVertex>>(
     );
     let d = output.add_vertex(
         FillVertex {
-            position: rect.bottom_left(),
-            normal: vec2(-1.0, 1.0),
+            position: rect.top_right(),
+            normal: vec2(1.0, -1.0),
         }
     );
     output.add_triangle(a, b, c);
@@ -335,14 +356,14 @@ pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
 
 
     let v = [
-        output.add_vertex(FillVertex { position: p0, normal: left }),
-        output.add_vertex(FillVertex { position: p1, normal: up }),
-        output.add_vertex(FillVertex { position: p2, normal: up }),
-        output.add_vertex(FillVertex { position: p3, normal: right }),
-        output.add_vertex(FillVertex { position: p4, normal: right }),
-        output.add_vertex(FillVertex { position: p5, normal: down }),
-        output.add_vertex(FillVertex { position: p6, normal: down }),
         output.add_vertex(FillVertex { position: p7, normal: left }),
+        output.add_vertex(FillVertex { position: p6, normal: down }),
+        output.add_vertex(FillVertex { position: p5, normal: down }),
+        output.add_vertex(FillVertex { position: p4, normal: right }),
+        output.add_vertex(FillVertex { position: p3, normal: right }),
+        output.add_vertex(FillVertex { position: p2, normal: up }),
+        output.add_vertex(FillVertex { position: p1, normal: up }),
+        output.add_vertex(FillVertex { position: p0, normal: left }),
     ];
 
     output.add_triangle(v[6], v[7], v[0]);
@@ -352,19 +373,19 @@ pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
     output.add_triangle(v[5], v[2], v[4]);
     output.add_triangle(v[4], v[2], v[3]);
 
-    let radii = [tl, tr, br, bl];
+    let radii = [bl, br, tr, tl];
     let angles = [
-        (PI, 1.5 * PI),
-        (1.5* PI, 2.0 * PI),
-        (0.0, PI * 0.5),
         (PI * 0.5, PI),
+        (0.0, PI * 0.5),
+        (1.5* PI, 2.0 * PI),
+        (PI, 1.5 * PI),
     ];
 
     let centers = [
-        point(p1.x, p0.y),
-        point(p2.x, p3.y),
-        point(p5.x, p4.y),
         point(p6.x, p7.y),
+        point(p5.x, p4.y),
+        point(p2.x, p3.y),
+        point(p1.x, p0.y),
     ];
 
     for i in 0..4 {
@@ -382,8 +403,8 @@ pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
                 centers[i],
                 angles[i],
                 radius,
-                v[i*2],
                 v[i*2 + 1],
+                v[i*2],
                 num_recursions,
                 output,
             );
@@ -417,7 +438,7 @@ fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
         normal: normal,
     });
 
-    output.add_triangle(va, vertex, vb);
+    output.add_triangle(vb, vertex, va);
 
     fill_border_radius(
         center,
@@ -587,8 +608,8 @@ pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
         }),
     ];
 
-    output.add_triangle(v[0], v[1], v[3]);
-    output.add_triangle(v[1], v[2], v[3]);
+    output.add_triangle(v[0], v[3], v[1]);
+    output.add_triangle(v[1], v[3], v[2]);
 
     let angles = [
         (PI, 1.5 * PI),

@@ -1,7 +1,6 @@
 //! Various math tools that are mostly usefull for the tessellators.
 
 use math::*;
-use bezier::utils::directed_angle;
 use path_fill::Edge;
 
 #[inline]
@@ -89,28 +88,27 @@ pub fn segment_intersection(
 /// would yield parallel segments exactly 1 unit away from their original. (useful
 /// for generating strokes and vertex-aa).
 /// The normal points towards the left side of e1.
-///
-/// TODO(perf) this is slower than the approach taken in the stroke tessellator.
-pub fn compute_normal(e1: Vec2, e2: Vec2) -> Vec2 {
-    let e1_norm = e1.normalize();
-    let n = e1_norm - e2.normalize();
-    if n.length() == 0.0 {
-        return vec2(e1_norm.y, -e1_norm.x);
-    }
-    let mut n_norm = n.normalize();
+pub fn compute_normal(v1: Vec2, v2: Vec2) -> Vec2 {
+    let epsilon = 1e-4;
 
-    if e1_norm.cross(n_norm) > 0.0 {
-        n_norm = -n_norm;
+    let n1 = vec2(-v1.y, v1.x);
+
+    let v12 = v1 + v2;
+
+    if v12.square_length() < epsilon {
+        return n1;
     }
 
-    let angle = directed_angle(e1, e2) * 0.5;
-    let sin = angle.sin();
+    let tangent = v12.normalize();
+    let n = vec2(-tangent.y, tangent.x);
 
-    if sin == 0.0 {
-        return e1_norm;
+    let inv_len = n.dot(n1);
+
+    if inv_len.abs() < epsilon {
+        return n1;
     }
 
-    return n_norm / sin;
+    return n / inv_len;
 }
 
 #[test]
