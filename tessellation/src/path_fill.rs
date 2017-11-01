@@ -31,7 +31,7 @@ use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::{PathEvent, FlattenedEvent};
 use bezier::utils::fast_atan2;
-use math_utils::segment_intersection;
+use math_utils::{segment_intersection, compute_normal};
 use path_builder::{FlatPathBuilder, PathBuilder};
 use path_iterator::PathIterator;
 
@@ -1662,29 +1662,6 @@ impl FillOptions {
         self.assume_no_intersections = true;
         return self;
     }
-}
-
-fn compute_normal(v1: Vec2, v2: Vec2) -> Vec2 {
-    let epsilon = 1e-4;
-
-    let n1 = vec2(-v1.y, v1.x);
-
-    let v12 = v1 + v2;
-
-    if v12.square_length() < epsilon {
-        return n1;
-    }
-
-    let tangent = v12.normalize();
-    let n = vec2(-tangent.y, tangent.x);
-
-    let inv_len = n.dot(n1);
-
-    if inv_len.abs() < epsilon {
-        return n1;
-    }
-
-    return n / inv_len;
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
