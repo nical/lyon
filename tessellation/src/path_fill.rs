@@ -445,7 +445,7 @@ impl FillTessellator {
         let position = to_f32_point(*vertex);
         let prev = to_f32_point(*prev);
         let next = to_f32_point(*next);
-        let normal = -compute_normal(
+        let normal = compute_normal(
             (position - prev).normalize(),
             (next - position).normalize(),
         );
@@ -545,7 +545,7 @@ impl FillTessellator {
                     let edge_to = self.below[0].lower;
                     if self.compute_normals {
                         let vertex_above = self.active_edges[above_idx].points.upper;
-                        vertex_id = self.add_vertex_with_normal(&vertex_above, &current_position, &edge_to, output);
+                        vertex_id = self.add_vertex_with_normal(&edge_to, &current_position, &vertex_above, output);
                     }
                     self.insert_edge(above_idx, current_position, edge_to, vertex_id);
 
@@ -577,7 +577,7 @@ impl FillTessellator {
             if self.compute_normals {
                 let left = self.active_edges[above_idx].points.upper;
                 let right = self.active_edges[above_idx+1].points.upper;
-                vertex_id = self.add_vertex_with_normal(&right, &current_position, &left, output);
+                vertex_id = self.add_vertex_with_normal(&left, &current_position, &right, output);
             }
 
             self.resolve_merge_vertices(above_idx, current_position, vertex_id, output);
@@ -599,7 +599,7 @@ impl FillTessellator {
             if self.compute_normals {
                 let left = self.active_edges[first_edge_above].points.upper;
                 let right = self.active_edges[first_edge_above+1].points.upper;
-                vertex_id = self.add_vertex_with_normal(&left, &current_position, &right, output);
+                vertex_id = self.add_vertex_with_normal(&right, &current_position, &left, output);
             }
 
             self.merge_event(current_position, vertex_id, first_edge_above, output);
@@ -619,7 +619,7 @@ impl FillTessellator {
 
             if self.compute_normals {
                 let vertex_above = self.active_edges[above_idx].points.upper;
-                vertex_id = self.add_vertex_with_normal(&vertex_below, &current_position, &vertex_above, output);
+                vertex_id = self.add_vertex_with_normal(&vertex_above, &current_position, &vertex_below, output);
             }
             self.resolve_merge_vertices(above_idx, current_position, vertex_id, output);
             self.insert_edge(above_idx, current_position, vertex_below, vertex_id);
@@ -647,7 +647,7 @@ impl FillTessellator {
                 let left = self.below[0].lower;
                 let right = self.below[num_edges_below - 1].lower;
                 if self.compute_normals {
-                    vertex_id = self.add_vertex_with_normal(&right, &current_position, &left, output);
+                    vertex_id = self.add_vertex_with_normal(&left, &current_position, &right, output);
                 }
                 self.split_event(
                     above_idx,
@@ -678,7 +678,7 @@ impl FillTessellator {
                 let right = self.below[below_idx + 1].lower;
 
                 if self.compute_normals {
-                    vertex_id = self.add_vertex_with_normal(&left, &current_position, &right, output);
+                    vertex_id = self.add_vertex_with_normal(&right, &current_position, &left, output);
                 }
 
                 self.start_event(above_idx,
