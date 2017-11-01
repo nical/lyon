@@ -88,7 +88,12 @@ pub fn segment_intersection(
 /// would yield parallel segments exactly 1 unit away from their original. (useful
 /// for generating strokes and vertex-aa).
 /// The normal points towards the left side of e1.
+///
+/// v1 and v2 are expected to be normalized.
 pub fn compute_normal(v1: Vec2, v2: Vec2) -> Vec2 {
+    //debug_assert!((v1.length() - 1.0).abs() < 0.001, "v1 should be normalized ({})", v1.length());
+    //debug_assert!((v2.length() - 1.0).abs() < 0.001, "v2 should be normalized ({})", v2.length());
+
     let epsilon = 1e-4;
 
     let n1 = vec2(-v1.y, v1.x);
@@ -119,12 +124,6 @@ fn test_compute_normal() {
         }
     }
 
-    for i in 1..10 {
-        let f = i as f32;
-        assert_almost_eq(compute_normal(vec2(f, 0.0), vec2(0.0, f * f)), vec2(1.0, -1.0));
-    }
-    for i in 1..10 {
-        let f = i as f32;
-        assert_almost_eq(compute_normal(vec2(f, 0.0), vec2(f * f, 0.0)), vec2(0.0, -1.0));
-    }
+    assert_almost_eq(compute_normal(vec2(1.0, 0.0), vec2(0.0, 1.0)), vec2(-1.0, 1.0));
+    assert_almost_eq(compute_normal(vec2(1.0, 0.0), vec2(1.0, 0.0)), vec2(0.0, 1.0));
 }
