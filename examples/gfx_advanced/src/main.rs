@@ -510,7 +510,7 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
-    cursor_position: (f64, f64)
+    cursor_position: (f64, f64),
 }
 
 fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
