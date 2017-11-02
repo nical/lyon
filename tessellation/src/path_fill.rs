@@ -1730,7 +1730,7 @@ impl MonotoneTessellator {
                 let mut a = self.stack[i];
                 let mut b = self.stack[i + 1];
 
-                let winding = (current.pos - b.pos).cross(a.pos - b.pos) >= 0.0;
+                let winding = (a.pos - b.pos).cross(current.pos - b.pos) >= 0.0;
 
                 if !winding {
                     swap(&mut a, &mut b);
@@ -1752,7 +1752,7 @@ impl MonotoneTessellator {
 
                 let cross = (current.pos - b.pos).cross(a.pos - b.pos);
                 if cross >= 0.0 {
-                    self.push_triangle(&a, &b, &current);
+                    self.push_triangle(&b, &a, &current);
                     last_popped = self.stack.pop();
                 } else {
                     break;
@@ -1777,7 +1777,7 @@ impl MonotoneTessellator {
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
         let threshold = -0.035; // Floating point errors stroke again :(
-        debug_assert!((c.pos - b.pos).cross(a.pos - b.pos) >= threshold);
+        debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
         self.triangles.push((a.id, b.id, c.id));
     }
 
