@@ -27,7 +27,7 @@ use std::io::{Read};
 // use std::borrow::Borrow;
 
 use svgparser::svg::{Tokenizer, Token};
-use svgparser::{Tokenize, ElementId, AttributeId};
+use svgparser::{Tokenize, ElementId, AttributeId, Color};
 
 type ColorFormat = gfx::format::Rgba8;
 type DepthFormat = gfx::format::DepthStencil;
@@ -50,8 +50,19 @@ gfx_defines!{
     }
 }
 
+fn gpu_color(color: Color, opacity: f32) -> [f32; 4] {
+    [
+        f32::from(color.red) / 255.0,
+        f32::from(color.green) / 255.0,
+        f32::from(color.blue) / 255.0,
+        opacity
+    ]
+}
+
 // A very simple vertex constructor that only outputs the vertex position
-struct VertexCtor;
+struct VertexCtor {
+    fill: Color
+}
 impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
         assert!(!vertex.position.x.is_nan());
@@ -60,7 +71,7 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
             // (ugly hack) tweak the vertext position so that the logo fits roughly
             // within the (-1.0, 1.0) range.
             position: (vertex.position * 0.0145 - vec2(1.0, 1.0)).to_array(),
-            color: [0.2, 0.2, 0.2, 1.0]
+            color: gpu_color(self.fill, 1.0)
         }
     }
 }
@@ -77,6 +88,20 @@ impl From<Scene> for Globals {
         Globals {
             zoom: [scene.zoom, scene.zoom],
             pan: scene.pan
+        }
+    }
+}
+
+struct SvgPath {
+    d: String,
+    fill: Color
+}
+
+impl Default for SvgPath {
+    fn default() -> Self {
+        SvgPath {
+            d: String::new(),
+            fill: Color::new(0,0,0)
         }
     }
 }
@@ -100,11 +125,10 @@ fn main() {
     file.read_to_string(&mut input_buffer)
         .expect("Error reading input file!");
 
-    // iterate over the SVG paths and tesselate each one (i.e. tokens)
+    // process the SVG tokens and generate an array of paths
     let mut last_tag = None;
-    // let mut svg_paths = Vec::new();
-    let mut tessellator = FillTessellator::new();
-    let mut mesh = VertexBuffers::new();
+    let mut svg_paths = Vec::new();
+    let mut current_path = SvgPath::default();
     let mut tokens = Tokenizer::from_str(&input_buffer).tokens();
     for token in &mut tokens {
         match token {
@@ -114,22 +138,45 @@ fn main() {
             }
             // start of an SVG attribute
             Token::SvgAttribute(name, value) => {
-                // check if we're dealing with a path definition
-                if last_tag == Some(ElementId::Path) && name == AttributeId::D {
-                    // parse/build the path
-                    let path = build_path(Path::builder().with_svg(), value.slice())
-                        .expect("Error parsing SVG!");
+                // ignore non-paths
+                if last_tag == Some(ElementId::Path) {
+                    match name {
+                        AttributeId::D => current_path.d = String::from(value.slice()),
+                        AttributeId::Fill => current_path.fill = Color::from_frame(value).unwrap_or_else(|_| Color::new(0,0,0)),
+                        _ => {}
+                    }
+                }
+            }
+            // end of an SVG tag
+            Token::ElementEnd(_tag) => {
+                if (last_tag) == Some(ElementId::Path) {
+                    // give our current path to the paths array
+                    svg_paths.push(current_path);
 
-                    // tesselate and add to the shared mesh
-                    tessellator.tessellate_path(
-                        path.path_iter(),
-                        &FillOptions::tolerance(0.01),
-                        &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-                    ).expect("Error during tesselation");
+                    // reset current path and last tag
+                    current_path = SvgPath::default();
+                    last_tag = None;
                 }
             }
             _ => {}
         }
+    }
+
+    // tesselate each path and add it's data to the shared mesh
+    let mut tessellator = FillTessellator::new();
+    let mut mesh = VertexBuffers::new();
+
+    for path in svg_paths {
+        // parse/build the path
+        let pathdef = build_path(Path::builder().with_svg(), &path.d)
+            .expect("Error parsing SVG path syntax!");
+
+        // tesselate and add to the shared mesh
+        tessellator.tessellate_path(
+            pathdef.path_iter(),
+            &FillOptions::tolerance(0.01),
+            &mut BuffersBuilder::new(&mut mesh, VertexCtor {fill: path.fill}),
+        ).expect("Error during tesselation");
     }
 
     println!("Finished tesselation: {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
