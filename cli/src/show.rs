@@ -72,7 +72,7 @@ pub fn show_path(cmd: TessellateCmd) {
     let path_pso = factory.create_pipeline_from_program(
         &path_shader,
         gfx::Primitive::TriangleList,
-        gfx::state::Rasterizer::new_fill(),
+        gfx::state::Rasterizer::new_fill().with_cull_back(),
         path_pipeline::new(),
     ).unwrap();
 

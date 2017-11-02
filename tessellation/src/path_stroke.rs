@@ -309,9 +309,9 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self,
             Vertex {
                 position: self.current,
-                normal: vec2(-1.0, -1.0),
+                normal: vec2(1.0, 1.0),
                 advancement: 0.0,
-                side: Side::Left,
+                side: Side::Right,
             }
         );
         let b = add_vertex!(
@@ -327,9 +327,9 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self,
             Vertex {
                 position: self.current,
-                normal: vec2(1.0, 1.0),
+                normal: vec2(-1.0, -1.0),
                 advancement: 0.0,
-                side: Side::Right,
+                side: Side::Left,
             }
         );
         let d = add_vertex!(
@@ -481,7 +481,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
 
         // Tessellate the edge
         if self.nth > 1 {
-            self.output.add_triangle(self.previous_left_id, self.previous_right_id, start_left_id);
+            self.output.add_triangle(self.previous_right_id, self.previous_left_id, start_left_id);
             self.output.add_triangle(self.previous_right_id, start_left_id, start_right_id);
         }
 
@@ -535,7 +535,12 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
         );
 
-        self.output.add_triangle(left, mid_vertex, right);
+        let (v1, v2, v3) = if is_start {
+           (left, right, mid_vertex)
+        } else {
+           (left, mid_vertex, right)
+        };
+        self.output.add_triangle(v1, v2, v3);
 
         let apply_width = if self.options.apply_line_width {
             self.options.line_width * 0.5
@@ -552,6 +557,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             advancement,
             Side::Left,
             apply_width,
+            !is_start,
             self.output
         );
         tess_round_cap(
@@ -563,6 +569,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             advancement,
             Side::Right,
             apply_width,
+            !is_start,
             self.output
         );
     }
@@ -687,7 +694,13 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             }
         );
         self.prev_normal = next_normal;
-        self.output.add_triangle(start_vertex, last_vertex, back_vertex);
+
+        let (v1, v2, v3) = if front_side.is_left() {
+            (start_vertex, last_vertex, back_vertex)
+        } else {
+            (last_vertex, start_vertex, back_vertex)
+        };
+        self.output.add_triangle(v1, v2, v3);
 
         (start_vertex, last_vertex)
     }
@@ -749,7 +762,13 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
                 }
             );
 
-            self.output.add_triangle(back_vertex, last_vertex, current_vertex);
+            let (v1, v2, v3) = if front_side.is_left() {
+                (back_vertex, last_vertex, current_vertex)
+            } else {
+                (back_vertex, current_vertex, last_vertex)
+            };
+            self.output.add_triangle(v1, v2, v3);
+
             last_vertex = current_vertex;
         }
 
@@ -793,7 +812,13 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
         );
 
         self.prev_normal = normal;
-        self.output.add_triangle(start_vertex, last_vertex, back_vertex);
+
+        let (v1, v2, v3) = if front_side.is_left() {
+            (back_vertex, start_vertex, last_vertex)
+        } else {
+            (back_vertex, last_vertex, start_vertex)
+        };
+        self.output.add_triangle(v1, v2, v3);
 
         (start_vertex, last_vertex)
     }
@@ -856,6 +881,7 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
     advancement: f32,
     side: Side,
     line_width: f32,
+    invert_winding: bool,
     output: &mut Output
 ) {
     if num_recursions == 0 {
@@ -873,7 +899,12 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
         side,
     });
 
-    output.add_triangle(va, vertex, vb);
+    let (v1, v2, v3) = if invert_winding {
+        (vertex, vb, va)
+    } else {
+        (vertex, va, vb)
+    };
+    output.add_triangle(v1, v2, v3);
 
     tess_round_cap(
         center,
@@ -885,6 +916,7 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
         advancement,
         side,
         line_width,
+        invert_winding,
         output
     );
     tess_round_cap(
@@ -897,6 +929,7 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
         advancement,
         side,
         line_width,
+        invert_winding,
         output
     );
 }
