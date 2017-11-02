@@ -165,10 +165,10 @@ pub struct StrokeBuilder<'l, Output: 'l> {
     second_right_id: VertexId,
     prev_normal: Vec2,
     nth: u32,
-    sub_path_idx: u32,
     length: f32,
     sub_path_start_length: f32,
     options: StrokeOptions,
+    previous_command_was_move: bool,
     output: &'l mut Output,
 }
 
@@ -182,9 +182,13 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
         self.current = to;
         self.nth = 0;
         self.sub_path_start_length = self.length;
+        self.previous_command_was_move = true;
     }
 
-    fn line_to(&mut self, to: Point) { self.edge_to(to, true); }
+    fn line_to(&mut self, to: Point) {
+        self.previous_command_was_move = false;
+        self.edge_to(to, true);
+    }
 
     fn close(&mut self) {
         // If we close almost at the first edge, then we have to
@@ -226,7 +230,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
         self.nth = 0;
         self.current = self.first;
         self.sub_path_start_length = self.length;
-        self.sub_path_idx += 1;
+        self.previous_command_was_move = false;
     }
 
     fn current_position(&self) -> Point { self.current }
@@ -244,11 +248,13 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
         self.nth = 0;
         self.length = 0.0;
         self.sub_path_start_length = 0.0;
+        self.previous_command_was_move = false;
     }
 }
 
 impl<'l, Output: 'l + GeometryBuilder<Vertex>> PathBuilder for StrokeBuilder<'l, Output> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        self.previous_command_was_move = false;
         let mut first = true;
         QuadraticBezierSegment {
             from: self.current,
@@ -264,6 +270,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> PathBuilder for StrokeBuilder<'l,
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        self.previous_command_was_move = false;
         let mut first = true;
         CubicBezierSegment {
             from: self.current,
@@ -294,10 +301,10 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             second_left_id: VertexId(0),
             second_right_id: VertexId(0),
             nth: 0,
-            sub_path_idx: 0,
             length: 0.0,
             sub_path_start_length: 0.0,
             options: *options,
+            previous_command_was_move: false,
             output: builder,
         };
     }
@@ -370,7 +377,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
     }
 
     fn finish(&mut self) {
-        if self.nth == 0 && self.sub_path_idx > 0 {
+        if self.nth == 0 && self.previous_command_was_move {
             match self.options.start_cap {
                 LineCap::Square => {
                     // Even if there is no edge, if we are using square caps we have to place a square
@@ -443,8 +450,6 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
             self.output.add_triangle(first_right_id, first_left_id, self.second_right_id);
             self.output.add_triangle(first_left_id, self.second_left_id, self.second_right_id);
         }
-
-        self.sub_path_idx += 1;
     }
 
     fn edge_to(&mut self, to: Point, with_join: bool) {
