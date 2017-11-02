@@ -38,9 +38,15 @@ gfx_defines!{
         color: [f32; 4] = "a_color",
     }
 
+    constant Globals {
+        zoom: [f32; 2] = "u_zoom",
+        pan: [f32; 2] = "u_pan",
+    }
+
     pipeline fill_pipeline {
         vbo: gfx::VertexBuffer<GpuFillVertex> = (),
         out_color: gfx::RenderTarget<ColorFormat> = "out_color",
+        constants: gfx::ConstantBuffer<Globals> = "Globals",
     }
 }
 
@@ -59,9 +65,21 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
     }
 }
 
-// struct PathIterator {
-//     currentElement: Option<>
-// }
+#[derive(Copy, Clone, Debug)]
+struct Scene {
+    zoom: f32,
+    pan: [f32; 2]
+}
+
+// extract the relevant globals from the scene struct
+impl From<Scene> for Globals {
+    fn from(scene: Scene) -> Self {
+        Globals {
+            zoom: [scene.zoom, scene.zoom],
+            pan: scene.pan
+        }
+    }
+}
 
 fn main() {
     // Parse CLI arguments
@@ -82,35 +100,48 @@ fn main() {
     file.read_to_string(&mut input_buffer)
         .expect("Error reading input file!");
 
-    // iterate over the SVG contents (i.e. tokens)
+    // iterate over the SVG paths and tesselate each one (i.e. tokens)
     let mut last_tag = None;
-    let mut svg_paths = Vec::new();
+    // let mut svg_paths = Vec::new();
+    let mut tessellator = FillTessellator::new();
+    let mut mesh = VertexBuffers::new();
     let mut tokens = Tokenizer::from_str(&input_buffer).tokens();
     for token in &mut tokens {
         match token {
+            // start of new tag
             Token::SvgElementStart(tag) => {
                 last_tag = Some(tag);
             }
+            // start of an SVG attribute
             Token::SvgAttribute(name, value) => {
+                // check if we're dealing with a path definition
                 if last_tag == Some(ElementId::Path) && name == AttributeId::D {
-                    svg_paths.push(build_path(Path::builder().with_svg(), value.slice()).expect("Error parsing SVG!"));
+                    // parse/build the path
+                    let path = build_path(Path::builder().with_svg(), value.slice())
+                        .expect("Error parsing SVG!");
+
+                    // tesselate and add to the shared mesh
+                    tessellator.tessellate_path(
+                        path.path_iter(),
+                        &FillOptions::tolerance(0.01),
+                        &mut BuffersBuilder::new(&mut mesh, VertexCtor),
+                    ).expect("Error during tesselation");
                 }
             }
             _ => {}
         }
     }
 
-    let mut tessellator = FillTessellator::new();
+    println!("Finished tesselation: {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
+    println!("Use arrow keys to pan, square brackes to zoom.");
 
-    let mut mesh = VertexBuffers::new();
-
-    tessellator.tessellate_path(
-        svg_paths[0].path_iter(),
-        &FillOptions::tolerance(0.01),
-        &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    ).unwrap();
-
-    println!(" -- fill: {} vertices {} indices", mesh.vertices.len(), mesh.indices.len());
+    // init the scene object
+    let mut scene = Scene {
+        // coordinate shift factor (applied before scale)
+        pan: [0.0, 0.0],
+        // coordinate multiplication factor.  Zero means infinitely zoomed out.
+        zoom: 1.0
+    };
 
     // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
     let mut events_loop = glutin::EventsLoop::new();
@@ -118,7 +149,7 @@ fn main() {
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(700, 700)
         .with_decorations(true)
-        .with_title("Simple tessellation".to_string());
+        .with_title("SVG Viewer".to_string());
 
     let context = glutin::ContextBuilder::new().with_vsync(true);
 
@@ -144,20 +175,25 @@ fn main() {
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
+    let constants = factory.create_constant_buffer(1);
+
     loop {
-        if !update_inputs(&mut events_loop) {
+        if !update_inputs(&mut scene, &mut events_loop) {
             break;
         }
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
 
-        cmd_queue.clear(&main_fbo.clone(), [0.8, 0.8, 0.8, 1.0]);
+        cmd_queue.clear(&main_fbo.clone(), [1.0, 1.0, 1.0, 1.0]);
+
+        cmd_queue.update_constant_buffer(&constants, &scene.into());
         cmd_queue.draw(
             &ibo,
             &pso,
             &fill_pipeline::Data {
                 vbo: vbo.clone(),
                 out_color: main_fbo.clone(),
+                constants: constants.clone()
             },
         );
         cmd_queue.flush(&mut device);
@@ -168,7 +204,7 @@ fn main() {
     }
 }
 
-fn update_inputs(event_loop: &mut glutin::EventsLoop) -> bool {
+fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool {
     use glutin::Event;
     use glutin::VirtualKeyCode;
     use glutin::ElementState::Pressed;
@@ -187,6 +223,24 @@ fn update_inputs(event_loop: &mut glutin::EventsLoop) -> bool {
                         println!("Closing");
                         status = false;
                     }
+                    VirtualKeyCode::LBracket => {
+                        scene.zoom *= 0.8;
+                    }
+                    VirtualKeyCode::RBracket => {
+                        scene.zoom *= 1.2;
+                    }
+                    VirtualKeyCode::Left => {
+                        scene.pan[0] -= 0.2 / scene.zoom;
+                    }
+                    VirtualKeyCode::Right => {
+                        scene.pan[0] += 0.2 / scene.zoom;
+                    }
+                    VirtualKeyCode::Up => {
+                        scene.pan[1] -= 0.2 / scene.zoom;
+                    }
+                    VirtualKeyCode::Down => {
+                        scene.pan[1] += 0.2 / scene.zoom;
+                    }
                     _key => {}
                 }
             },
@@ -202,13 +256,18 @@ pub static VERTEX_SHADER: &'static str = "
     #version 140
     #line 266
 
+    uniform Globals {
+        vec2 u_zoom;
+        vec2 u_pan;
+    };
+
     in vec2 a_position;
     in vec4 a_color;
 
     out vec4 v_color;
 
     void main() {
-        gl_Position = vec4(a_position, 0.0, 1.0);
+        gl_Position = vec4((a_position + u_pan) * u_zoom, 0.0, 1.0);
         gl_Position.y *= -1.0;
         v_color = a_color;
     }
