@@ -358,7 +358,8 @@ fn main() {
         stroke_width: 0.0,
         target_stroke_width: 0.5,
         draw_background: true,
-        cursor_position: (0.0, 0.0)
+        cursor_position: (0.0, 0.0),
+        window_size: (800.0, 800.0),
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -388,9 +389,9 @@ fn main() {
             );
         }
 
-
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
+        scene.window_size = (w as f32, h as f32);
 
         *cpu.transforms[view_transform].as_mut_mat4() = Transform3D::create_translation(
             -scene.scroll.x as f32,
@@ -510,7 +511,8 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
-    cursor_position: (f64, f64),
+    cursor_position: (f32, f32),
+    window_size: (f32, f32),
 }
 
 fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
@@ -531,15 +533,19 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                     state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
                 ..},
             ..} => {
-                println!("X: {}, Y: {}", scene.cursor_position.0, scene.cursor_position.1);
+                let half_width = scene.window_size.0 * 0.5;
+                let half_height = scene.window_size.1 * 0.5;
+                println!("X: {}, Y: {}",
+                    (scene.cursor_position.0 - half_width) / scene.zoom + scene.scroll.x,
+                    (scene.cursor_position.1 - half_height) / scene.zoom + scene.scroll.y,
+                );
             }
             Event::WindowEvent {
                 event: WindowEvent::MouseMoved {
                     position: (x, y), 
                     ..}, 
             ..} => {
-                scene.cursor_position.0 = x / scene.target_zoom as f64;
-                scene.cursor_position.1 = y / scene.target_zoom as f64;
+                scene.cursor_position = (x as f32, y as f32);
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::KeyboardInput {
