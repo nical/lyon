@@ -9,8 +9,11 @@ use gfx;
 use gfx_window_glutin;
 use gfx::traits::{Device, FactoryExt};
 use glutin;
-use glutin::{GlContext, Event, WindowEvent, EventsLoop, KeyboardInput};
+use glutin::{GlContext, EventsLoop, KeyboardInput};
 use glutin::ElementState::Pressed;
+
+const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
+const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
 pub fn show_path(cmd: TessellateCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
@@ -45,7 +48,7 @@ pub fn show_path(cmd: TessellateCmd) {
     );
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(800, 800)
+        .with_dimensions(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32)
         .with_decorations(true)
         .with_title("lyon".to_string());
 
@@ -108,6 +111,7 @@ pub fn show_path(cmd: TessellateCmd) {
         target_stroke_width: stroke_width,
         draw_background: true,
         cursor_position: (0.0, 0.0),
+        window_size: (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -115,6 +119,7 @@ pub fn show_path(cmd: TessellateCmd) {
     while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
+        scene.window_size = (w as f32, h as f32);
 
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
@@ -376,7 +381,8 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
-    cursor_position: (f64, f64),
+    cursor_position: (f32, f32),
+    window_size: (f32, f32),
 }
 
 fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
@@ -399,15 +405,19 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                     state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
                 ..},
             ..} => {
-                println!("X: {}, Y: {}", scene.cursor_position.0, scene.cursor_position.1);
+                let half_width = scene.window_size.0 * 0.5;
+                let half_height = scene.window_size.1 * 0.5;
+                println!("X: {}, Y: {}",
+                    (scene.cursor_position.0 - half_width) / scene.zoom + scene.scroll.x,
+                    (scene.cursor_position.1 - half_height) / scene.zoom + scene.scroll.y,
+                );
             }
             Event::WindowEvent {
                 event: WindowEvent::MouseMoved {
                     position: (x, y), 
                     ..}, 
             ..} => {
-                scene.cursor_position.0 = x / scene.target_zoom as f64;
-                scene.cursor_position.1 = y / scene.target_zoom as f64;
+                scene.cursor_position = (x as f32, y as f32);
             }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
@@ -464,7 +474,7 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                 //println!("{:?}", _evt);
             }
         }
-        println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
+        //println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
     });
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
