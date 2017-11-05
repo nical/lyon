@@ -26,6 +26,7 @@ use path_iterator::PathIterator;
 use path_builder::FlatPathBuilder;
 use math::*;
 use FillVertex as Vertex;
+use FillOptions;
 
 #[test]
 fn bad_diagonal() {
