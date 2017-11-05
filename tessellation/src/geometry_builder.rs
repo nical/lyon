@@ -340,6 +340,10 @@ impl<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>>
             _marker: PhantomData,
         }
     }
+
+    pub fn buffers<'a, 'b: 'a>(&'b self) -> &'a VertexBuffers<VertexType> {
+        self.buffers
+    }
 }
 
 /// Creates a `BuffersBuilder`.
