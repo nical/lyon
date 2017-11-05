@@ -5,6 +5,7 @@ use path_iterator::PathIterator;
 use path_builder::FlatPathBuilder;
 use math::*;
 use FillVertex as Vertex;
+use FillOptions;
 
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();

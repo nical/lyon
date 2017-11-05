@@ -326,25 +326,35 @@ pub enum LineJoin {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StrokeOptions {
     /// What cap to use at the start of each sub-path.
+    ///
+    /// Default value: `LineCap::Butt`.
     pub start_cap: LineCap,
 
     /// What cap to use at the end of each sub-path.
+    ///
+    /// Default value: `LineCap::Butt`.
     pub end_cap: LineCap,
 
     /// See the SVG specification.
+    ///
+    /// Default value: `LineJoin::Miter`.
     pub line_join: LineJoin,
 
     /// Line width
+    ///
+    /// Default value: `StrokeOptions::DEFAULT_LINE_WIDTH`.
     pub line_width: f32,
 
     /// See the SVG specification.
     ///
-    /// Must be greater than or equal to 1.0
+    /// Must be greater than or equal to 1.0.
+    /// Default value: `StrokeOptions::DEFAULT_MITER_LIMIT`.
     pub miter_limit: f32,
 
     /// Maximum allowed distance to the path when building an approximation.
     ///
     /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
+    /// Default value: `StrokeOptions::DEFAULT_TOLERANCE`.
     pub tolerance: f32,
 
     /// Apply line width
@@ -352,6 +362,8 @@ pub struct StrokeOptions {
     /// When set to false, the generated vertices will all be positioned in the centre
     /// of the line. The width can be applied later on (eg in a vertex shader) by adding
     /// the vertex normal multiplied by the line with to each vertex position.
+    ///
+    /// Default value: `true`.
     pub apply_line_width: bool,
 
     // To be able to add fields without making it a breaking change, add an empty private field
@@ -363,17 +375,19 @@ impl StrokeOptions {
     /// Minimum and default miter limits as defined by the SVG specification
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
-    const MINIMUM_MITER_LIMIT:f32 = 1.0;
-    const DEFAULT_MITER_LIMIT:f32 = 4.0;
+    const MINIMUM_MITER_LIMIT: f32 = 1.0;
+    const DEFAULT_MITER_LIMIT: f32 = 4.0;
+    const DEFAULT_LINE_WIDTH: f32 = 1.0;
+    const DEFAULT_TOLERANCE: f32 = 0.1;
 
     pub fn default() -> StrokeOptions {
         StrokeOptions {
             start_cap: LineCap::Butt,
             end_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
-            line_width: 1.0,
+            line_width: StrokeOptions::DEFAULT_LINE_WIDTH,
             miter_limit: StrokeOptions::DEFAULT_MITER_LIMIT,
-            tolerance: 0.1,
+            tolerance: StrokeOptions::DEFAULT_TOLERANCE,
             apply_line_width: true,
             _private: (),
         }
@@ -422,6 +436,93 @@ impl StrokeOptions {
 
     pub fn dont_apply_line_width(mut self) -> StrokeOptions {
         self.apply_line_width = false;
+        return self;
+    }
+}
+
+/// The fill rule defines how to determine what is inside and what is outside of the shape.
+///
+/// See the SVG specification.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum FillRule {
+    EvenOdd,
+    NonZero,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+/// Parameters for the fill tessellator.
+pub struct FillOptions {
+    /// Maximum allowed distance to the path when building an approximation.
+    ///
+    /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
+    ///
+    /// Default value: `FillOptions::DEFAULT_TOLERANCE`.
+    pub tolerance: f32,
+
+    /// Set the fill rule.
+    ///
+    /// See the [SVG specification](https://www.w3.org/TR/SVG/painting.html#FillRuleProperty).
+    /// Currently, only the `EvenOdd` rule is implemented.
+    ///
+    /// Default value: `EvenOdd`.
+    pub fill_rule: FillRule,
+
+    /// Whether or not to compute the normal vector at each vertex.
+    ///
+    /// When set to false, all generated vertex normals are equal to `vec2(0.0, 0.0)`.
+    /// Not computing vertex normals can speed up tessellation and enable generating less vertices
+    /// at intersections.
+    ///
+    /// Default value: `true`.
+    pub compute_normals: bool,
+
+    /// A fast path to avoid some expensive operations if the path is known to
+    /// not have any self-intersections.
+    ///
+    /// Do not set this to `true` if the path may have intersecting edges else
+    /// the tessellator may panic or produce incorrect results. In doubt, do not
+    /// change the default value.
+    ///
+    /// Default value: `false`.
+    pub assume_no_intersections: bool,
+
+    // To be able to add fields without making it a breaking change, add an empty private field
+    // which makes it impossible to create a FillOptions without the calling constructor.
+    _private: (),
+}
+
+impl FillOptions {
+    const DEFAULT_TOLERANCE: f32 = 0.1;
+
+    pub fn default() -> FillOptions { FillOptions::even_odd() }
+
+    pub fn even_odd() -> FillOptions {
+        FillOptions {
+            tolerance: 0.1,
+            fill_rule: FillRule::EvenOdd,
+            compute_normals: true,
+            assume_no_intersections: false,
+            _private: (),
+        }
+    }
+
+    pub fn tolerance(tolerance: f32) -> Self {
+        FillOptions::default().with_tolerance(tolerance)
+    }
+
+    pub fn non_zero() -> FillOptions {
+        let mut options = FillOptions::default();
+        options.fill_rule = FillRule::NonZero;
+        return options;
+    }
+
+    pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
+        self.tolerance = tolerance;
+        return self;
+    }
+
+    pub fn assume_no_intersections(mut self) -> FillOptions {
+        self.assume_no_intersections = true;
         return self;
     }
 }

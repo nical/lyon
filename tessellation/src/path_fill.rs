@@ -26,7 +26,7 @@ use std::cmp::{PartialOrd, Ordering};
 use sid::{Id, IdVec};
 
 use FillVertex as Vertex;
-use Side;
+use {FillOptions, FillRule, Side};
 use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::{PathEvent, FlattenedEvent};
@@ -1577,91 +1577,6 @@ fn test_iter_builder() {
     let mut tess = FillTessellator::new();
     tess.enable_logging();
     tess.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder).unwrap();
-}
-
-/// The fill rule defines how to determine what is inside and what is outside of the shape.
-///
-/// See the SVG specification.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum FillRule {
-    EvenOdd,
-    NonZero,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-/// Parameters for the tessellator.
-pub struct FillOptions {
-    /// Maximum allowed distance to the path when building an approximation.
-    ///
-    /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
-    ///
-    /// Default value: `0.1`.
-    pub tolerance: f32,
-
-    /// Set the fill rule.
-    ///
-    /// See the [SVG specification](https://www.w3.org/TR/SVG/painting.html#FillRuleProperty).
-    /// Currently, only the `EvenOdd` rule is implemented.
-    ///
-    /// Default value: `EvenOdd`.
-    pub fill_rule: FillRule,
-
-    /// Whether or not to compute the normal vector at each vertex.
-    ///
-    /// When set to false, all generated vertex normals are equal to `vec2(0.0, 0.0)`.
-    /// Not computing vertex normals can speed up tessellation and enable generating less vertices
-    /// at intersections.
-    ///
-    /// Default value: `true`.
-    pub compute_normals: bool,
-
-    /// A fast path to avoid some expensive operations if the path is known to
-    /// not have any self-intersections.
-    ///
-    /// Do not set this to `true` if the path may have intersecting edges else
-    /// the tessellator may panic or produce incorrect results. In doubt, do not
-    /// change the default value.
-    ///
-    /// Default value: `false`.
-    pub assume_no_intersections: bool,
-
-    // To be able to add fields without making it a breaking change, add an empty private field
-    // which makes it impossible to create a FillOptions without the calling constructor.
-    _private: (),
-}
-
-impl FillOptions {
-    pub fn default() -> FillOptions { FillOptions::even_odd() }
-
-    pub fn even_odd() -> FillOptions {
-        FillOptions {
-            tolerance: 0.1,
-            fill_rule: FillRule::EvenOdd,
-            compute_normals: true,
-            assume_no_intersections: false,
-            _private: (),
-        }
-    }
-
-    pub fn tolerance(tolerance: f32) -> Self {
-        FillOptions::default().with_tolerance(tolerance)
-    }
-
-    pub fn non_zero() -> FillOptions {
-        let mut options = FillOptions::default();
-        options.fill_rule = FillRule::NonZero;
-        return options;
-    }
-
-    pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
-        self.tolerance = tolerance;
-        return self;
-    }
-
-    pub fn assume_no_intersections(mut self) -> FillOptions {
-        self.assume_no_intersections = true;
-        return self;
-    }
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone

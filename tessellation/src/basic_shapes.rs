@@ -4,12 +4,12 @@
 
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path_stroke::{StrokeTessellator, StrokeBuilder};
-use path_fill::{FillOptions, FillTessellator, FillResult};
+use path_fill::{FillTessellator, FillResult};
 use math_utils::compute_normal;
 use math::*;
 use path_builder::FlatPathBuilder;
 use path_iterator::FromPolyline;
-use {FillVertex, StrokeVertex, StrokeOptions, Side};
+use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
 use bezier::{Arc, Radians};
 
 use std::f32::consts::PI;
