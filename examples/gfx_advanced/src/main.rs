@@ -550,8 +550,8 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
             Event::WindowEvent {
                 event: glutin::WindowEvent::KeyboardInput {
                     input: glutin::KeyboardInput {
-                        state: Pressed, virtual_keycode: Some(key), 
-                    ..}, 
+                        state: glutin::ElementState::Pressed, virtual_keycode: Some(key),
+                    ..},
                 ..},
             ..} => {
                 
