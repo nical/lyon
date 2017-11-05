@@ -938,3 +938,173 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
         output
     );
 }
+
+#[cfg(test)]
+use path::{Path, PathSlice};
+#[cfg(test)]
+use geometry_builder::{
+    SimpleBuffersBuilder, simple_builder, VertexBuffers,
+};
+
+#[cfg(test)]
+fn test_path(
+    path: PathSlice,
+    options: &StrokeOptions,
+    expected_triangle_count: Option<u32>
+) {
+
+    struct TestBuilder<'l> {
+        builder: SimpleBuffersBuilder<'l, Vertex>,
+    }
+
+    impl<'l> GeometryBuilder<Vertex> for TestBuilder<'l> {
+        fn begin_geometry(&mut self) {
+            self.builder.begin_geometry();
+        }
+        fn end_geometry(&mut self) -> Count {
+            self.builder.end_geometry()
+        }
+        fn add_vertex(&mut self, vertex: Vertex) -> VertexId {
+            assert!(!vertex.position.x.is_nan());
+            assert!(!vertex.position.y.is_nan());
+            assert!(!vertex.normal.x.is_nan());
+            assert!(!vertex.normal.y.is_nan());
+            assert!(vertex.normal.square_length() != 0.0);
+            assert!(!vertex.advancement.is_nan());
+            self.builder.add_vertex(vertex)
+        }
+        fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+            assert!(a != b);
+            assert!(a != c);
+            assert!(b != c);
+            let pa = self.builder.buffers().vertices[a.0 as usize].position;
+            let pb = self.builder.buffers().vertices[b.0 as usize].position;
+            let pc = self.builder.buffers().vertices[c.0 as usize].position;
+            let threshold = -0.035; // Floating point errors :(
+            assert!((pa - pb).cross(pc - pb) >= threshold);
+            self.builder.add_triangle(a, b, c);
+        }
+        fn abort_geometry(&mut self) {
+            panic!();
+        }
+    }
+
+    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+
+    let mut tess = StrokeTessellator::new();
+    let count = tess.tessellate_path(
+        path.path_iter(),
+        &options,
+        &mut TestBuilder {
+            builder: simple_builder(&mut buffers)
+        }
+    );
+
+    if let Some(triangles) = expected_triangle_count {
+        assert_eq!(triangles, count.indices / 3, "Unexpected number of triangles");
+    }
+}
+
+#[test]
+fn test_square() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(-1.0, 1.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(1.0, -1.0));
+    builder.line_to(point(-1.0, -1.0));
+    builder.close();
+
+    let path1 = builder.build();
+
+    let mut builder = Path::builder();
+
+    builder.move_to(point(-1.0, -1.0));
+    builder.line_to(point(1.0, -1.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(-1.0, 1.0));
+    builder.close();
+
+    let path2 = builder.build();
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::Miter),
+        Some(8),
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::Miter),
+        Some(8),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::Bevel),
+        Some(12),
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::Bevel),
+        Some(12),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::MiterClip).with_miter_limit(1.0),
+        Some(12),
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::default().with_line_join(LineJoin::MiterClip).with_miter_limit(1.0),
+        Some(12),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::tolerance(0.001).with_line_join(LineJoin::Round),
+        None,
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::tolerance(0.001).with_line_join(LineJoin::Round),
+        None,
+    );
+}
+
+#[test]
+fn test_empty_path() {
+    let path = Path::builder().build();
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default(),
+        Some(0),
+    );
+}
+
+#[test]
+fn test_empty_caps() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(1.0, 0.0));
+    builder.move_to(point(2.0, 0.0));
+    builder.move_to(point(3.0, 0.0));
+
+    let path = builder.build();
+
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default().with_line_cap(LineCap::Butt),
+        Some(0),
+    );
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default().with_line_cap(LineCap::Square),
+        Some(6),
+    );
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default().with_line_cap(LineCap::Round),
+        None,
+    );
+}
