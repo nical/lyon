@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon_tessellation"
-version = "0.8.4"
+version = "0.8.5"
 description = "A low level path tessellation library."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -18,10 +18,10 @@ path = "src/lib.rs"
 
 lyon_core = { version = "0.8.0", path = "../core" }
 lyon_path = { version = "0.8.0", path = "../path" }
-lyon_bezier = { version = "0.8.4", path = "../bezier" }
+lyon_bezier = { version = "0.8.5", path = "../bezier" }
 lyon_path_builder = { version = "0.8.0", path = "../path_builder" }
 lyon_path_iterator = { version = "0.8.0", path = "../path_iterator" }
 sid = "0.5"
 
 [dev-dependencies]
-lyon_extra = { version = "0.8.1", path = "../extra" }
+lyon_extra = { version = "0.8.5", path = "../extra" }
