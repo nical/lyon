@@ -614,7 +614,6 @@ fn fuzzing_test_case_14() {
 }
 
 #[test]
-#[ignore]
 fn fuzzing_test_case_15() {
     let mut builder = Path::builder();
 
