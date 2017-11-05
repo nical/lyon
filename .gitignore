@@ -49,6 +49,6 @@
 .cproject
 .project
 .valgrindrc
+.vscode
 bin/
-*.lock
 **/target/
