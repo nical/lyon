@@ -1,5 +1,15 @@
 ## Change log
 
+### v0.8.5 (???)
+  - [tessellation] Fix several fill tessellation bugs found by the fuzzer.
+  - [tessellation] Implement Vertex normals in the fill tessellator.
+  - [tessellation] Make the triangle winding order consistent.
+  - [tessellation] Implement stroke miter limit.
+  - [bezier] Fix some precision issues in the path flattening code.
+  - [cli] Add an interactive path viewer.
+  - [cli] Improve the interface of the command line app.
+  - [examples] Update the glutin dependency.
+
 ### v0.8.4 (2017-10-18)
   - [tessellation] Fix several fill tessellation bugs found by the fuzzer.
   - [tessellation] Fix a stroke tessellation bug.
