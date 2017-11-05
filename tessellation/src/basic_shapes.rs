@@ -788,9 +788,9 @@ where
     output.begin_geometry();
 
     if let (Some(a1), Some(a2), Some(a3), Some(b2), Some(b3), Some(b4)) = (
-        it.next(),it1.next(), it2.next(), it.next(), it1.next(), it2.next()
+        it.next(), it1.next(), it2.next(), it.next(), it1.next(), it2.next()
     ) {
-        let mut a = output.add_vertex(
+        let a = output.add_vertex(
             FillVertex {
                 position: a2,
                 normal: compute_normal(a2 - a1, a3 - a2),
@@ -813,7 +813,6 @@ where
 
             output.add_triangle(a, b, c);
 
-            a = b;
             b = c;
         }
     }
