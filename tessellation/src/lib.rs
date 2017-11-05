@@ -372,29 +372,34 @@ pub struct StrokeOptions {
 }
 
 impl StrokeOptions {
-    /// Minimum and default miter limits as defined by the SVG specification
+    /// Minimum miter limits as defined by the SVG specification.
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
     const MINIMUM_MITER_LIMIT: f32 = 1.0;
+    /// Default miter limits as defined by the SVG specification.
+    ///
+    /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
     const DEFAULT_MITER_LIMIT: f32 = 4.0;
+    const DEFAULT_LINE_CAP: LineCap = LineCap::Butt;
+    const DEFAULT_LINE_JOIN: LineJoin = LineJoin::Miter;
     const DEFAULT_LINE_WIDTH: f32 = 1.0;
     const DEFAULT_TOLERANCE: f32 = 0.1;
 
-    pub fn default() -> StrokeOptions {
-        StrokeOptions {
-            start_cap: LineCap::Butt,
-            end_cap: LineCap::Butt,
-            line_join: LineJoin::Miter,
-            line_width: StrokeOptions::DEFAULT_LINE_WIDTH,
-            miter_limit: StrokeOptions::DEFAULT_MITER_LIMIT,
-            tolerance: StrokeOptions::DEFAULT_TOLERANCE,
-            apply_line_width: true,
-            _private: (),
-        }
-    }
+    const DEFAULT: StrokeOptions = StrokeOptions {
+        start_cap: StrokeOptions::DEFAULT_LINE_CAP,
+        end_cap: StrokeOptions::DEFAULT_LINE_CAP,
+        line_join: StrokeOptions::DEFAULT_LINE_JOIN,
+        line_width: StrokeOptions::DEFAULT_LINE_WIDTH,
+        miter_limit: StrokeOptions::DEFAULT_MITER_LIMIT,
+        tolerance: StrokeOptions::DEFAULT_TOLERANCE,
+        apply_line_width: true,
+        _private: (),
+    };
+
+    pub fn default() -> Self { StrokeOptions::DEFAULT }
 
     pub fn tolerance(tolerance: f32) -> Self {
-        StrokeOptions::default().with_tolerance(tolerance)
+        StrokeOptions::DEFAULT.with_tolerance(tolerance)
     }
 
     pub fn with_tolerance(mut self, tolerance: f32) -> StrokeOptions {
@@ -491,40 +496,56 @@ pub struct FillOptions {
     _private: (),
 }
 
+impl Default for StrokeOptions {
+    fn default() -> Self { StrokeOptions::DEFAULT }
+}
+
 impl FillOptions {
+    /// Default flattening tolerance.
     const DEFAULT_TOLERANCE: f32 = 0.1;
+    /// Default Fill rule.
+    const DEFAULT_FILL_RULE: FillRule = FillRule::EvenOdd;
 
-    pub fn default() -> FillOptions { FillOptions::even_odd() }
+    const DEFAULT: FillOptions = FillOptions {
+        tolerance: FillOptions::DEFAULT_TOLERANCE,
+        fill_rule: FillOptions::DEFAULT_FILL_RULE,
+        compute_normals: true,
+        assume_no_intersections: false,
+        _private: (),
+    };
 
-    pub fn even_odd() -> FillOptions {
-        FillOptions {
-            tolerance: 0.1,
-            fill_rule: FillRule::EvenOdd,
-            compute_normals: true,
-            assume_no_intersections: false,
-            _private: (),
-        }
-    }
+    pub fn default() -> Self { FillOptions::DEFAULT }
+
+    pub fn even_odd() -> Self { FillOptions::DEFAULT }
 
     pub fn tolerance(tolerance: f32) -> Self {
-        FillOptions::default().with_tolerance(tolerance)
+        FillOptions::DEFAULT.with_tolerance(tolerance)
     }
 
-    pub fn non_zero() -> FillOptions {
-        let mut options = FillOptions::default();
+    pub fn non_zero() -> Self {
+        let mut options = FillOptions::DEFAULT;
         options.fill_rule = FillRule::NonZero;
         return options;
     }
 
-    pub fn with_tolerance(mut self, tolerance: f32) -> FillOptions {
+    pub fn with_tolerance(mut self, tolerance: f32) -> Self {
         self.tolerance = tolerance;
         return self;
     }
 
-    pub fn assume_no_intersections(mut self) -> FillOptions {
+    pub fn with_normals(mut self, normals: bool) -> Self {
+        self.compute_normals = normals;
+        self
+    }
+
+    pub fn assume_no_intersections(mut self) -> Self {
         self.assume_no_intersections = true;
         return self;
     }
+}
+
+impl Default for FillOptions {
+    fn default() -> Self { FillOptions::DEFAULT }
 }
 
 #[test]
