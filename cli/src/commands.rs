@@ -9,6 +9,17 @@ pub struct TessellateCmd {
     pub stroke: Option<StrokeOptions>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum AntiAliasing {
+    Msaa(u16),
+    None,
+}
+
+#[derive(Clone, Debug)]
+pub struct RenderCmd {
+    pub aa: AntiAliasing,
+}
+
 pub struct PathCmd {
     pub path: Path,
     pub output: Box<io::Write>,

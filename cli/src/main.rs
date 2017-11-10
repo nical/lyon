@@ -108,6 +108,12 @@ fn main() {
         .subcommand(
             declare_tess_params(SubCommand::with_name("show"))
             .about("Renders a path in an interactive window")
+            .arg(Arg::with_name("ANTIALIASING")
+                .long("anti-aliasing")
+                .help("Sets the anti-aliasing method to use")
+                .value_name("ANTIALIASING")
+                .takes_value(true)
+            )
         )
         .get_matches();
 
@@ -168,7 +174,8 @@ fn main() {
 
     if let Some(command) = matches.subcommand_matches("show") {
         let cmd = get_tess_command(command);
-        show::show_path(cmd);
+        let render_params = get_render_params(command);
+        show::show_path(cmd, render_params);
     }
 }
 
@@ -259,6 +266,21 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
             println!("{}", e);
             None
         }
+    }
+}
+
+fn get_render_params(matches: &ArgMatches) -> RenderCmd {
+    RenderCmd {
+        aa: if let Some(aa) = matches.value_of("ANTIALIASING") {
+            match aa {
+                "msaa4" => AntiAliasing::Msaa(4),
+                "msaa8" => AntiAliasing::Msaa(8),
+                "msaa16" => AntiAliasing::Msaa(16),
+                _ => AntiAliasing::None,
+            }
+        } else {
+            AntiAliasing::Msaa(8)
+        },
     }
 }
 

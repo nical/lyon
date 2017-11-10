@@ -3,7 +3,7 @@ use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, Buf
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
 use lyon::tessellation;
-use commands::TessellateCmd;
+use commands::{TessellateCmd, AntiAliasing, RenderCmd};
 
 use gfx;
 use gfx_window_glutin;
@@ -15,7 +15,7 @@ use glutin::ElementState::Pressed;
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
-pub fn show_path(cmd: TessellateCmd) {
+pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
     let mut stroke_width = 1.0;
     if let Some(mut options) = cmd.stroke {
@@ -52,7 +52,12 @@ pub fn show_path(cmd: TessellateCmd) {
         .with_decorations(true)
         .with_title("lyon".to_string());
 
+    let msaa = match render_options.aa {
+        AntiAliasing::Msaa(samples) => samples,
+        _ => 0,
+    };
     let context = glutin::ContextBuilder::new()
+        .with_multisampling(msaa)
         .with_vsync(true);
 
     let mut events_loop = glutin::EventsLoop::new();
@@ -71,10 +76,14 @@ pub fn show_path(cmd: TessellateCmd) {
         FRAGMENT_SHADER.as_bytes()
     ).unwrap();
 
+    let mut rasterizer_state = gfx::state::Rasterizer::new_fill().with_cull_back();
+    if let AntiAliasing::Msaa(_) = render_options.aa {
+        rasterizer_state.samples = Some(gfx::state::MultiSample);
+    }
     let path_pso = factory.create_pipeline_from_program(
         &path_shader,
         gfx::Primitive::TriangleList,
-        gfx::state::Rasterizer::new_fill().with_cull_back(),
+        rasterizer_state,
         path_pipeline::new(),
     ).unwrap();
 
