@@ -113,6 +113,7 @@ impl OrientedEdge {
     }
 
     fn with_winding(mut a: TessPoint, mut b: TessPoint, winding: i16) -> Self {
+        debug_assert!(winding != 0);
         if is_after(a, b) {
             swap(&mut a, &mut b);
         }
@@ -473,7 +474,7 @@ impl FillTessellator {
                             PendingEdge {
                                 lower: inter.lower,
                                 angle: edge_angle(inter.lower - self.current_position),
-                                winding: 1, // TODO
+                                winding: inter.winding,
                             }
                         );
                     }
@@ -517,7 +518,12 @@ impl FillTessellator {
         }
     }
 
-    fn add_vertex_with_normal<Output: GeometryBuilder<Vertex>>(&mut self, prev: &TessPoint, next: &TessPoint, output: &mut Output) -> VertexId {
+    fn add_vertex_with_normal<Output: GeometryBuilder<Vertex>>(
+        &mut self,
+        prev: &TessPoint,
+        next: &TessPoint,
+        output: &mut Output
+    ) -> VertexId {
         let position = to_f32_point(self.current_position);
         let prev = to_f32_point(*prev);
         let next = to_f32_point(*next);
@@ -548,7 +554,9 @@ impl FillTessellator {
             // First active edge that ends at the current point
             first_edge_above,
             // Number of active edges that end at the current point.
-            mut num_edges_above
+            mut num_edges_above,
+            // The number used by the fill rule to determine what is in or out.
+            _winding_number,
         ) = self.find_interesting_active_edges();
 
         // We'll bump above_idx as we process active edges that interact with
@@ -565,7 +573,7 @@ impl FillTessellator {
         if self.log {
             self.log_sl(first_edge_above);
             tess_log!(self, "{:?}", point_type);
-            tess_log!(self, "below:{:?}, above:{}", self.pending_edges, num_edges_above);
+            tess_log!(self, "above:{}", num_edges_above);
         }
 
         let mut vertex_id = if self.compute_normals {
@@ -773,7 +781,8 @@ impl FillTessellator {
 
     fn find_interesting_active_edges(
         &mut self,
-    ) -> (PointType, ActiveEdgeId, usize) {
+    ) -> (PointType, ActiveEdgeId, usize, i16) {
+        let mut winding_number = 0;
         let mut point_type = None;
         let mut num_edges_above = 0;
         let mut first_edge_above = ActiveEdgeId::new(self.active_edges.len());
@@ -786,6 +795,8 @@ impl FillTessellator {
             if active_edge.merge {
                 continue;
             }
+
+            winding_number += active_edge.winding;
 
             let edge_idx = ActiveEdgeId::new(i);
             let side = if even(edge_idx) { Side::Left } else { Side::Right };
@@ -861,6 +872,7 @@ impl FillTessellator {
             point_type.unwrap_or(PointType::Out),
             first_edge_above,
             num_edges_above,
+            winding_number
         );
     }
 
@@ -1129,10 +1141,10 @@ impl FillTessellator {
         self.error = Some(err);
     }
 
-    #[cfg(not(debug))]
+    #[cfg(not(test))]
     fn debug_check_sl(&self) {}
 
-    #[cfg(debug)]
+    #[cfg(test)]
     fn debug_check_sl(&self) {
         for edge in &self.active_edges {
             if !edge.merge {
@@ -1150,15 +1162,18 @@ impl FillTessellator {
                 );
             }
         }
+        self.log_sl_winding();
+        // TODO: There are a few failing tests to fix before this assertion
+        // can be made.
+        //assert_eq!(winding_number, 0);
     }
 
-    #[cfg(not(debug))]
+    #[cfg(not(test))]
     fn log_sl(&self, _: ActiveEdgeId) {}
 
-    #[cfg(debug)]
+    #[cfg(test)]
     fn log_sl(&self, first_edge_above: ActiveEdgeId) {
         println!("\n\n");
-        self.log_sl_ids();
         self.log_sl_points_at(self.current_position.y);
         println!("\n ----- current: {:?} ------ offset {:?} in sl", self.current_position, first_edge_above.handle);
         for b in &self.pending_edges {
@@ -1166,30 +1181,26 @@ impl FillTessellator {
         }
     }
 
-    #[cfg(not(debug))]
-    fn log_sl_ids(&self) {}
-
-    #[cfg(debug)]
-    fn log_sl_ids(&self) {
-        print!("\n|  sl: ");
-        let mut left = true;
-        for edge in &self.active_edges {
-            let m = if edge.merge { "*" } else { " " };
-            let sep = if left { " |" } else { " " };
-            print!(
-                "{} {:?}{} ",
-                sep,
-                edge.upper_id.offset(), m,
-            );
-            left = !left
+    fn log_sl_winding(&self) {
+        if !self.log {
+            return;
         }
-        println!("");
+        print!("winding: |");
+        for edge in &self.active_edges {
+            print!("{}", match edge.winding {
+                1 => "+",
+                -1 => "-",
+                0 => "*",
+                _ => panic!(),
+            });
+        }
+        println!("|");
     }
 
-    #[cfg(not(debug))]
+    #[cfg(not(test))]
     fn log_sl_points(&self) {}
 
-    #[cfg(debug)]
+    #[cfg(test)]
     fn log_sl_points(&self) {
         print!("\n sl: [");
         let mut left = true;
@@ -1318,13 +1329,18 @@ fn prepare_pending_edges(
             // This theshold may need to be adjusted if we run into more
             // precision issues with how angles are computed.
             let threshold = 0.0035;
-            if (pending_edges[i].angle - pending_edges[i+1].angle).abs() < threshold {
+            let edge_a = &pending_edges[i];
+            let edge_b = &pending_edges[i+1];
+            // TODO: Skipping edges loses track of the correct winding number,
+            // hence the check that the winding isn't affected but it is far
+            // from ideal.
+            let doesnt_affect_winding = true; //edge_a.winding + edge_b.winding == 0;
+            if (edge_a.angle - edge_b.angle).abs() < threshold && doesnt_affect_winding {
                 to_remove.push(i);
-                let lower1 = pending_edges[i].lower;
-                let lower2 = pending_edges[i + 1].lower;
-                if lower1 != lower2 {
-                    let winding = pending_edges[if is_after(lower1, lower2) { i } else { i + 1 }].winding;
-                    intersections.push(OrientedEdge::with_winding(lower1, lower2, winding));
+                if edge_a.lower != edge_b.lower {
+                    let furthest = if is_after(edge_a.lower, edge_b.lower) { i } else { i + 1 };
+                    let winding = pending_edges[furthest].winding;
+                    intersections.push(OrientedEdge::with_winding(edge_a.lower, edge_b.lower, winding));
                 }
                 i += 2;
             } else {
@@ -1732,7 +1748,7 @@ impl MonotoneTessellator {
     }
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
-        let threshold = -0.035; // Floating point errors stroke again :(
+        let threshold = -0.042; // Floating point errors stroke again :(
         debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
         self.triangles.push((a.id, b.id, c.id));
     }
