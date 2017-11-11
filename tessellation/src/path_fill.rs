@@ -152,6 +152,19 @@ impl EdgeBelow {
             winding: self.winding,
         }
     }
+
+    fn to_active_edge(&self, upper: TessPoint, upper_id: VertexId) -> ActiveEdge {
+        ActiveEdge {
+            points: Edge {
+                upper,
+                lower: self.lower,
+            },
+            upper_id,
+            winding: self.winding,
+            merge: false,
+        }
+    }
+
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -255,9 +268,9 @@ pub struct FillTessellator {
     below: Vec<EdgeBelow>,
     current_position: TessPoint,
     error: Option<FillError>,
-    log: bool,
-    handle_intersections: bool,
+    assume_no_intersections: bool,
     compute_normals: bool,
+    log: bool,
     tess_pool: Vec<MonotoneTessellator>,
 }
 
@@ -272,9 +285,9 @@ impl FillTessellator {
             intersections: Vec::with_capacity(8),
             current_position: TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val()),
             error: None,
-            log: false,
-            handle_intersections: true,
+            assume_no_intersections: true,
             compute_normals: true,
+            log: false,
             tess_pool: Vec::with_capacity(8),
         }
     }
@@ -332,7 +345,7 @@ impl FillTessellator {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
         }
 
-        self.handle_intersections = !options.assume_no_intersections;
+        self.assume_no_intersections = options.assume_no_intersections;
         self.compute_normals = options.compute_normals;
 
         self.begin_tessellation(output);
@@ -884,18 +897,12 @@ impl FillTessellator {
         //     /.\
         //    /...\
         //
-
-        let left: TessPoint = self.below[below_idx].lower;
-        let right: TessPoint = self.below[below_idx+1].lower;
-        let mut left_edge = OrientedEdge { upper: self.current_position, lower: left, winding: self.below[below_idx].winding };
-        let mut right_edge = OrientedEdge { upper: self.current_position, lower: right, winding: self.below[below_idx+1].winding };
-
-        self.check_intersections(&mut left_edge);
-        self.check_intersections(&mut right_edge);
+        self.handle_intersections(below_idx);
+        self.handle_intersections(below_idx + 1);
 
         self.active_edges.insert_slice(edge_idx, &[
-            left_edge.to_active_edge(vertex_id),
-            right_edge.to_active_edge(vertex_id),
+            self.below[below_idx].to_active_edge(self.current_position, vertex_id),
+            self.below[below_idx + 1].to_active_edge(self.current_position, vertex_id),
         ]);
 
         let pos = self.current_position;
@@ -933,16 +940,13 @@ impl FillTessellator {
             //  l2/ :r2
             //   /   x   <-- current split vertex
             //  left/ \right
-            let mut left = self.below[below_left_idx].to_oriented_edge(self.current_position);
-            let mut right = self.below[below_right_idx].to_oriented_edge(self.current_position);
-
-            self.check_intersections(&mut left);
-            self.check_intersections(&mut right);
+            self.handle_intersections(below_left_idx);
+            self.handle_intersections(below_right_idx);
 
             let left_idx = edge_idx + 1;
             self.active_edges.insert_slice(left_idx, &[
-                left.to_active_edge(id),
-                right.to_active_edge(id),
+                self.below[below_left_idx].to_active_edge(self.current_position, id),
+                self.below[below_right_idx].to_active_edge(self.current_position, id),
             ]);
 
             let left_span = span_for_edge(left_idx);
@@ -996,21 +1000,19 @@ impl FillTessellator {
         // so that it does not get in the way of the intersection detection.
         self.active_edges[edge_idx].merge = true;
 
-        let mut edge = self.below[below_idx].to_oriented_edge(upper);
+        debug_assert!(!is_after(upper, self.below[below_idx].lower));
 
-        debug_assert!(!is_after(edge.upper, edge.lower));
-
-        self.check_intersections(&mut edge);
+        self.handle_intersections(below_idx);
 
         // This sets the merge flag to false.
-        self.active_edges[edge_idx] = edge.to_active_edge(id);
+        self.active_edges[edge_idx] = self.below[below_idx].to_active_edge(upper, id);
 
         let side = if even(edge_idx) { Side::Left } else { Side::Right };
         let vec2_position = to_f32_point(upper);
         self.monotone_tessellators[span_for_edge(edge_idx)].vertex(vec2_position, id, side);
     }
 
-    fn check_intersections(&mut self, new_edge: &mut OrientedEdge) {
+    fn handle_intersections(&mut self, new_edge_idx: usize) {
         // Test and for intersections against the edges in the sweep line.
         // If an intersecton is found, the edge is split and retains only the part
         // above the intersection point. The lower part is kept with the intersection
@@ -1020,19 +1022,13 @@ impl FillTessellator {
         //
         // TODO: This function is more complicated (and slower) than it needs to be.
 
-        if !self.handle_intersections {
+        if self.assume_no_intersections {
             return;
         }
 
-        struct Intersection {
-            point: TessPoint,
-            lower1: TessPoint,
-            lower2: TessPoint,
-            winding1: i16,
-            winding2: i16,
-        }
+        let mut new_edge = self.below[new_edge_idx].to_oriented_edge(self.current_position);
 
-        let original_edge = new_edge.clone();
+        let original_edge = new_edge.edge();
         let mut intersection = None;
 
         for (edge_idx, edge) in self.active_edges.iter_mut().enumerate() {
@@ -1046,16 +1042,7 @@ impl FillTessellator {
                         edge.points.upper, edge.points.lower,
                     );
 
-                    intersection = Some((
-                        Intersection {
-                            point: position,
-                            lower1: original_edge.lower,
-                            lower2: edge.points.lower,
-                            winding1: 1, // TODO
-                            winding2: edge.winding,
-                        },
-                        ActiveEdgeId::new(edge_idx),
-                    ));
+                    intersection = Some((position, ActiveEdgeId::new(edge_idx)));
                     // From now on only consider potential intersections above the one we found,
                     // by removing the lower part from the segment we test against.
                     new_edge.lower = position;
@@ -1063,39 +1050,42 @@ impl FillTessellator {
             }
         }
 
-        let (mut intersection, edge_idx) = match intersection {
-            Some((evt, idx)) => (evt, idx),
-            None => { return; }
-        };
+        if intersection.is_none() {
+            return;
+        }
+
+        let (mut intersection, edge_idx) = intersection.unwrap();
 
         // Because precision issues, it can happen that the intersection appear to be
         // "above" the current vertex (in fact it is at the same y but on its left which
         // counts as above). Since we can't come back in time to process the intersection
-        // before the current vertex, we can only cheat by moving the interseciton down by
+        // before the current vertex, we can only cheat by moving the intersection down by
         // one unit.
-        if !is_after(intersection.point, self.current_position) {
-            intersection.point.y = self.current_position.y + FixedPoint32::epsilon();
-            new_edge.lower = intersection.point;
+        if !is_after(intersection, self.current_position) {
+            intersection.y = self.current_position.y + FixedPoint32::epsilon();
+            new_edge.lower = intersection;
         }
 
-        tess_log!(
-            self,
-            " set edge[{:?}].poinst.lower = {:?} (was {:?})",
-            edge_idx,
-            intersection.point,
-            self.active_edges[edge_idx].points.lower
-        );
+        self.below[new_edge_idx].lower = new_edge.lower;
 
-        self.active_edges[edge_idx].points.lower = intersection.point;
+        let active_edge_lower;
+        let active_edge_winding;
+        {
+            let active_edge = &mut self.active_edges[edge_idx];
+            active_edge_lower = active_edge.points.lower;
+            active_edge_winding = active_edge.winding;
+            active_edge.points.lower = intersection;
+        }
+
         self.intersections.push(OrientedEdge::with_winding(
-            intersection.point,
-            intersection.lower1,
-            intersection.winding1
+            intersection,
+            original_edge.lower,
+            new_edge.winding
         ));
         self.intersections.push(OrientedEdge::with_winding(
-            intersection.point,
-            intersection.lower2,
-            intersection.winding2
+            intersection,
+            active_edge_lower,
+            active_edge_winding
         ));
 
         // We sill sort the intersection vector lazily.
