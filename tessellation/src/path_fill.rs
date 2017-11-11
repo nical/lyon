@@ -939,10 +939,6 @@ impl FillTessellator {
             self.check_intersections(&mut left);
             self.check_intersections(&mut right);
 
-            // TODO: I think that this can move down, should not be affected by insert_slice.
-            let l2_upper = self.active_edges[edge_idx].points.upper;
-            let l2_id = self.active_edges[edge_idx].upper_id;
-
             let left_idx = edge_idx + 1;
             self.active_edges.insert_slice(left_idx, &[
                 left.to_active_edge(id),
@@ -951,6 +947,9 @@ impl FillTessellator {
 
             let left_span = span_for_edge(left_idx);
             let right_span = left_span + 1;
+
+            let l2_upper = self.active_edges[edge_idx].points.upper;
+            let l2_id = self.active_edges[edge_idx].upper_id;
 
             self.insert_span(left_span, l2_upper, l2_id);
 
