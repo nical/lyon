@@ -149,7 +149,6 @@ impl CubicBezierSegment {
 
     /// Applies the transform to this curve and returns the results.
     #[inline]
-    #[must_use]
     pub fn transform(&self, transform: &Transform2D) -> Self {
         CubicBezierSegment {
             from: transform.transform_point(&self.from),

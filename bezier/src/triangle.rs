@@ -71,7 +71,6 @@ impl Triangle {
 
     /// [Not implemented] Applies the transform to this triangle and returns the results.
     #[inline]
-    #[must_use]
     pub fn transform(&self, transform: &Transform2D) -> Self {
         Triangle {
             a: transform.transform_point(&self.a),

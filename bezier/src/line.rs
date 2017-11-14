@@ -31,7 +31,6 @@ impl LineSegment {
     /// Returns an inverted version of this segment where the beginning and the end
     /// points are swapped.
     #[inline]
-    #[must_use]
     pub fn flip(&self) -> Self {
         LineSegment { from: self.to, to: self.from }
     }
@@ -91,7 +90,6 @@ impl LineSegment {
     }
 
     #[inline]
-    #[must_use]
     pub fn translate(&mut self, by: Vec2) -> Self {
         LineSegment {
             from: self.from + by,
@@ -101,7 +99,6 @@ impl LineSegment {
 
     /// Applies the transform to this segment and returns the results.
     #[inline]
-    #[must_use]
     pub fn transform(&self, transform: &Transform2D) -> Self {
         LineSegment {
             from: transform.transform_point(&self.from),
