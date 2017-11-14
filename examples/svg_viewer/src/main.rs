@@ -9,7 +9,7 @@ extern crate svgparser;
 
 // use lyon::extra::rust_logo::build_logo_path;
 // use lyon::path_builder::*;
-use lyon::math::*;
+// use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
@@ -59,24 +59,26 @@ fn gpu_color(color: Color, opacity: f32) -> [f32; 4] {
     ]
 }
 
-// A very simple vertex constructor that only outputs the vertex position
+// This struct carries the data for each vertex
 struct VertexCtor {
     fill: Color
 }
+
+// handle conversions to the gfx vertex format
 impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
         assert!(!vertex.position.x.is_nan());
         assert!(!vertex.position.y.is_nan());
+
         GpuFillVertex {
-            // (ugly hack) tweak the vertext position so that the logo fits roughly
-            // within the (-1.0, 1.0) range.
-            position: (vertex.position * 0.0145 - vec2(1.0, 1.0)).to_array(),
+            position: vertex.position.to_array(),
             color: gpu_color(self.fill, 1.0)
         }
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
+// default scene has all values set to zero
 struct Scene {
     zoom: f32,
     pan: [f32; 2]
@@ -92,11 +94,13 @@ impl From<Scene> for Globals {
     }
 }
 
+// path + fill
 struct SvgPath {
     d: String,
     fill: Color
 }
 
+// default path is empty
 impl Default for SvgPath {
     fn default() -> Self {
         SvgPath {
@@ -125,11 +129,18 @@ fn main() {
     file.read_to_string(&mut input_buffer)
         .expect("Error reading input file!");
 
-    // process the SVG tokens and generate an array of paths
-    let mut last_tag = None;
-    let mut svg_paths = Vec::new();
-    let mut current_path = SvgPath::default();
+    // iterate over the SVG tokens and extract information
+
+    // parsing state
     let mut tokens = Tokenizer::from_str(&input_buffer).tokens();
+    let mut last_tag = None;
+    let mut current_path = SvgPath::default();
+
+    // output
+    let mut svg_paths = Vec::new();
+    let mut view_box = None;
+
+    // do the iteration
     for token in &mut tokens {
         match token {
             // start of new tag
@@ -138,13 +149,33 @@ fn main() {
             }
             // start of an SVG attribute
             Token::SvgAttribute(name, value) => {
-                // ignore non-paths
-                if last_tag == Some(ElementId::Path) {
-                    match name {
-                        AttributeId::D => current_path.d = String::from(value.slice()),
-                        AttributeId::Fill => current_path.fill = Color::from_frame(value).unwrap_or_else(|_| Color::new(0,0,0)),
-                        _ => {}
+                match last_tag {
+                    Some(ElementId::Svg) => {
+                        if name == AttributeId::ViewBox {
+                            // split by space char, parse as float, collect into vector
+                            let params: Vec<f32> = value.slice().split(' ').filter_map(|v| v.parse().ok()).collect();
+
+                            // do we have 4 floats?
+                            if params.len() == 4 {
+                                // copy values into the viewBox output
+                                view_box = Some([
+                                    params[0],
+                                    params[1],
+                                    params[2],
+                                    params[3]
+                                ]);
+                            }
+                        }
                     }
+                    Some(ElementId::Path) => {
+                        match name {
+                            // extract relevant path attributes
+                            AttributeId::D => current_path.d = String::from(value.slice()),
+                            AttributeId::Fill => current_path.fill = Color::from_frame(value).unwrap_or_else(|_| Color::new(0,0,0)),
+                            _ => {}
+                        }
+                    }
+                    _ => {}
                 }
             }
             // end of an SVG tag
@@ -182,14 +213,6 @@ fn main() {
     println!("Finished tesselation: {} vertices, {} indices", mesh.vertices.len(), mesh.indices.len());
     println!("Use arrow keys to pan, square brackes to zoom.");
 
-    // init the scene object
-    let mut scene = Scene {
-        // coordinate shift factor (applied before scale)
-        pan: [0.0, 0.0],
-        // coordinate multiplication factor.  Zero means infinitely zoomed out.
-        zoom: 1.0
-    };
-
     // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
     let mut events_loop = glutin::EventsLoop::new();
 
@@ -223,6 +246,25 @@ fn main() {
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let constants = factory.create_constant_buffer(1);
+
+    // init the scene object
+    // use the viewBox, if available, to set the initial zoom and pan
+    // viewBox is [minX, minY, width, height]
+    // we're ignoring minX and minY for now
+    let mut scene = if let Some(vb) = view_box {
+        // { zoom: 0.011443832, pan: [-57, -57.993813] }
+        // Scene { zoom: 0.0033684117, pan: [-225.70827, -821.13] }
+        Scene {
+            // this is applied before zoom, so we're working in the original SVG coordinates
+            pan: [vb[2] / -2.0, vb[3] / -2.0],
+            // all coordinates get multiplied by this number
+            zoom: 2.0 / f32::max(vb[2], vb[3])
+        }
+    } else {Scene::default()};
+
+    println!("Original {:?}", scene);
+
+
 
     loop {
         if !update_inputs(&mut scene, &mut events_loop) {
@@ -265,6 +307,8 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
                 status = false;
             },
             Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..}, ..} => {
+                println!("Preparing to update {:?}", scene);
+
                 match key {
                     VirtualKeyCode::Escape => {
                         println!("Closing");
@@ -289,7 +333,9 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
                         scene.pan[1] += 0.2 / scene.zoom;
                     }
                     _key => {}
-                }
+                };
+
+                println!("Updated {:?}", scene);
             },
             _ => {}
         }
