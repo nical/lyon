@@ -247,9 +247,9 @@ impl VertexBuilder<FillPrimitiveId, GpuFillVertex> for FillVertexBuilder {
         let vtx_offset = geom.vertices.len();
         let idx_offset = geom.indices.len();
 
-        let count = self.tessellator.tessellate_flattened_path(
-            path.path_iter().flattened(tolerance),
-            &FillOptions::default(),
+        let count = self.tessellator.tessellate_path(
+            path.path_iter(),
+            &FillOptions::tolerance(tolerance),
             &mut BuffersBuilder::new(geom, WithId(prim_id))
         ).unwrap();
 

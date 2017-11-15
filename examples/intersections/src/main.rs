@@ -13,7 +13,6 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 use lyon::path::Path;
-use lyon::path_iterator::PathIterator;
 use lyon_renderer::buffer::{Id, BufferStore};
 use lyon_renderer::glsl::*;
 use lyon_renderer::renderer::{
@@ -152,14 +151,15 @@ fn main() {
         )
     );
 
-    StrokeTessellator::new().tessellate_flattened_path(
-        bezier_path.path_iter().flattened(0.01),
-        &StrokeOptions::default().dont_apply_line_width(),
+    let stroke_options = StrokeOptions::tolerance(0.01).dont_apply_line_width();
+    StrokeTessellator::new().tessellate_path(
+        bezier_path.path_iter(),
+        &stroke_options,
         &mut BuffersBuilder::new(&mut cpu.strokes, WithId(bezier_id.element)),
     );
-    StrokeTessellator::new().tessellate_flattened_path(
-        line_path.path_iter().flattened(0.01),
-        &StrokeOptions::default().dont_apply_line_width(),
+    StrokeTessellator::new().tessellate_path(
+        line_path.path_iter(),
+        &stroke_options,
         &mut BuffersBuilder::new(&mut cpu.strokes, WithId(line_id.element)),
     );
 

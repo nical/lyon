@@ -51,7 +51,7 @@ The intent is for this library to be useful in projects like [Servo](https://ser
         let mut vertex_builder = simple_builder(&mut geometry_cpu);
 
         // Compute the tessellation.
-        tessellator.tessellate_flattened_path(
+        tessellator.tessellate_path(
             path.path_iter().flattened(0.1),
             &FillOptions::default(),
             &mut vertex_builder

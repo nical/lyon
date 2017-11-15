@@ -87,3 +87,15 @@ impl FlattenedEvent {
         };
     }
 }
+
+impl Into<PathEvent> for FlattenedEvent {
+    fn into(self) -> PathEvent { self.to_path_event() }
+}
+
+impl Into<SvgEvent> for FlattenedEvent {
+    fn into(self) -> SvgEvent { self.to_svg_event() }
+}
+
+impl Into<SvgEvent> for PathEvent {
+    fn into(self) -> SvgEvent { self.to_svg_event() }
+}

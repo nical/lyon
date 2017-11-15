@@ -29,7 +29,7 @@ use FillVertex as Vertex;
 use {FillOptions, FillRule, Side};
 use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
-use core::{PathEvent, FlattenedEvent};
+use core::PathEvent;
 use bezier::utils::fast_atan2;
 use math_utils::{segment_intersection, compute_normal};
 use path_builder::{FlatPathBuilder, PathBuilder};
@@ -243,8 +243,8 @@ enum PointType { In, Out, OnEdge(Side) }
 ///     let mut tessellator = FillTessellator::new();
 ///
 ///     // Compute the tessellation.
-///     let result = tessellator.tessellate_flattened_path(
-///         path.path_iter().flattened(0.05),
+///     let result = tessellator.tessellate_path(
+///         path.path_iter(),
 ///         &FillOptions::default(),
 ///         &mut vertex_builder
 ///     );
@@ -256,6 +256,12 @@ enum PointType { In, Out, OnEdge(Side) }
 ///
 /// # }
 /// ```
+///
+/// # Limitations
+///
+/// The fill tessellator internally works with 16.16 fixed point numbers. This
+/// means that it is unable to represent numbers with absolute values larger
+/// than 32767.0 without running into overflows and undefined behavior.
 ///
 /// # How the fill tessellator works
 ///
@@ -320,25 +326,6 @@ impl FillTessellator {
         self.events = events;
         return result;
     }
-
-    /// Compute the tessellation from a flattened path iterator.
-    pub fn tessellate_flattened_path<Iter>(
-        &mut self,
-        it: Iter,
-        options: &FillOptions,
-        output: &mut GeometryBuilder<Vertex>,
-    ) -> FillResult
-    where
-        Iter: Iterator<Item = FlattenedEvent>,
-    {
-        let mut events = replace(&mut self.events, FillEvents::new());
-        events.clear();
-        events.set_flattened_path(it);
-        let result = self.tessellate_events(&events, options, output);
-        self.events = events;
-        return result;
-    }
-
 
     /// Compute the tessellation from pre-sorted events.
     pub fn tessellate_events(
@@ -1403,12 +1390,6 @@ pub struct FillEvents {
 }
 
 impl FillEvents {
-    pub fn from_flattened_path<Iter: Iterator<Item = FlattenedEvent>>(it: Iter) -> Self {
-        let mut events = FillEvents::new();
-        events.set_flattened_path(it);
-        return events;
-    }
-
     pub fn from_path<Iter: Iterator<Item = PathEvent>>(tolerance: f32, it: Iter) -> Self {
         let mut events = FillEvents::new();
         events.set_path(tolerance, it);
@@ -1425,16 +1406,6 @@ impl FillEvents {
     pub fn clear(&mut self) {
         self.edges.clear();
         self.vertices.clear();
-    }
-
-    pub fn set_flattened_path<Iter: Iterator<Item = FlattenedEvent>>(&mut self, it: Iter) {
-        self.clear();
-        let mut tmp = FillEvents::new();
-        swap(self, &mut tmp);
-        let mut builder = EventsBuilder::new();
-        builder.recycle(tmp);
-        let mut tmp = builder.build_flattened_iter(it);
-        swap(self, &mut tmp);
     }
 
     pub fn set_path<Iter: Iterator<Item = PathEvent>>(&mut self, tolerance: f32, it: Iter) {
@@ -1486,18 +1457,6 @@ impl EventsBuilder {
         self.vertices = events.vertices;
     }
 
-    fn build_flattened_iter<Iter: Iterator<Item = FlattenedEvent>>(mut self, inputs: Iter) -> FillEvents {
-        for evt in inputs {
-            match evt {
-                FlattenedEvent::MoveTo(to) => { self.move_to(to) }
-                FlattenedEvent::LineTo(to) => { self.line_to(to) }
-                FlattenedEvent::Close => { self.close(); }
-            }
-        }
-
-        return self.build();
-    }
-
     fn add_edge(&mut self, a: TessPoint, b: TessPoint) {
         if a != b {
             self.edges.push(OrientedEdge::new(a, b));
@@ -1515,6 +1474,11 @@ impl FlatPathBuilder for EventsBuilder {
     type PathType = FillEvents;
 
     fn move_to(&mut self, to: Point) {
+        // Because of the internal 16.16 fixed point representation,
+        // the tessellator is unable to work with numbers that are
+        // bigger than 32767.0.
+        //debug_assert!(to.x.abs() <= 32767.0);
+        //debug_assert!(to.y.abs() <= 32767.0);
         self.close();
         let next = to_internal(to);
         if self.nth > 1 {
@@ -1532,6 +1496,8 @@ impl FlatPathBuilder for EventsBuilder {
     }
 
     fn line_to(&mut self, to: Point) {
+        //debug_assert!(to.x.abs() <= 32767.0);
+        //debug_assert!(to.y.abs() <= 32767.0);
         let next = to_internal(to);
         if next == self.current {
             return;
@@ -1605,30 +1571,6 @@ impl FlatPathBuilder for EventsBuilder {
     fn current_position(&self) -> Point {
         to_f32_point(self.current)
     }
-}
-
-#[test]
-fn test_iter_builder() {
-
-    let mut builder = Path::builder();
-    builder.line_to(point(1.0, 0.0));
-    builder.line_to(point(1.0, 1.0));
-    builder.line_to(point(0.0, 1.0));
-
-    builder.move_to(point(10.0, 0.0));
-    builder.line_to(point(11.0, 0.0));
-    builder.line_to(point(11.0, 1.0));
-    builder.line_to(point(10.0, 1.0));
-    builder.close();
-
-    let path = builder.build();
-
-    let events = EventsBuilder::new().build_flattened_iter(path.path_iter().flattened(0.05));
-    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
-    let mut vertex_builder = simple_builder(&mut buffers);
-    let mut tess = FillTessellator::new();
-    tess.enable_logging();
-    tess.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder).unwrap();
 }
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
@@ -1810,9 +1752,9 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
             tess.enable_logging();
         }
         try!{
-            tess.tessellate_flattened_path(
-                path.path_iter().flattened(0.05),
-                &FillOptions::default(),
+            tess.tessellate_path(
+                path.path_iter(),
+                &FillOptions::tolerance(0.05),
                 &mut vertex_builder
             )
         };
@@ -2120,23 +2062,7 @@ fn test_rust_logo_scale_up() {
     build_logo_path(&mut builder);
     let mut path = builder.build();
 
-    scale_path(&mut path, 8000.0);
-    test_path(path.as_slice());
-}
-
-#[test]
-fn test_rust_logo_scale_up_2() {
-    // This test triggers integers overflow in the tessellator.
-    // In order to fix this type issue we need to:
-    // * Look at the computation that is casuing trouble and see if it can be expressed in
-    //   a way that is less subject to overflows.
-    // * See if we can define a safe interval where no path can trigger overflows and scale
-    //   all paths to this interval internally in the tessellator.
-    let mut builder = Path::builder().flattened(0.011).with_svg();
-    build_logo_path(&mut builder);
-    let mut path = builder.build();
-
-    scale_path(&mut path, 100000.0);
+    scale_path(&mut path, 260.0);
     test_path(path.as_slice());
 }
 

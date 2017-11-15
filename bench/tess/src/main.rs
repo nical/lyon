@@ -65,7 +65,7 @@ fn fill_logo_tess_only(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default();
-    let events = FillEvents::from_flattened_path(path.path_iter().flattened(0.05));
+    let events = FillEvents::from_path(0.05, path.path_iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -82,7 +82,7 @@ fn fill_logo_tess_no_intersection(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default().assume_no_intersections();
-    let events = FillEvents::from_flattened_path(path.path_iter().flattened(0.05));
+    let events = FillEvents::from_path(0.05, path.path_iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -99,7 +99,7 @@ fn fill_logo_tess_no_curve(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default();
-    let events = FillEvents::from_flattened_path(path.path_iter().flattened(1000000.0));
+    let events = FillEvents::from_path(1000000.0, path.path_iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -144,7 +144,7 @@ fn fill_logo_events_only_pre_flattened(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            let _events = FillEvents::from_flattened_path(path.path_iter().flattened(0.05));
+            let _events = FillEvents::from_path(0.05, path.path_iter());
         }
     })
 }
