@@ -93,15 +93,14 @@ impl StrokeTessellator {
     pub fn new() -> StrokeTessellator { StrokeTessellator {} }
 
     /// Compute the tessellation from a path iterator.
-    pub fn tessellate_path<Input, Output>(
+    pub fn tessellate_path<Input>(
         &mut self,
         input: Input,
         options: &StrokeOptions,
-        builder: &mut Output,
+        builder: &mut GeometryBuilder<Vertex>,
     ) -> Count
     where
         Input: PathIterator,
-        Output: GeometryBuilder<Vertex>,
     {
         builder.begin_geometry();
         {
@@ -117,15 +116,14 @@ impl StrokeTessellator {
     }
 
     /// Compute the tessellation from a flattened path iterator.
-    pub fn tessellate_flattened_path<Input, Output>(
+    pub fn tessellate_flattened_path<Input>(
         &mut self,
         input: Input,
         options: &StrokeOptions,
-        builder: &mut Output,
+        builder: &mut GeometryBuilder<Vertex>,
     ) -> Count
     where
         Input: Iterator<Item = FlattenedEvent>,
-        Output: GeometryBuilder<Vertex>,
     {
         builder.begin_geometry();
         {
@@ -154,7 +152,7 @@ macro_rules! add_vertex {
 }
 
 /// A builder that tessellates a stroke directly without allocating any intermediate data structure.
-pub struct StrokeBuilder<'l, Output: 'l> {
+pub struct StrokeBuilder<'l> {
     first: Point,
     previous: Point,
     current: Point,
@@ -169,10 +167,10 @@ pub struct StrokeBuilder<'l, Output: 'l> {
     sub_path_start_length: f32,
     options: StrokeOptions,
     previous_command_was_move: bool,
-    output: &'l mut Output,
+    output: &'l mut GeometryBuilder<Vertex>,
 }
 
-impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder<'l, Output> {
+impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
     type PathType = ();
 
     fn move_to(&mut self, to: Point) {
@@ -252,7 +250,7 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> FlatPathBuilder for StrokeBuilder
     }
 }
 
-impl<'l, Output: 'l + GeometryBuilder<Vertex>> PathBuilder for StrokeBuilder<'l, Output> {
+impl<'l> PathBuilder for StrokeBuilder<'l> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.previous_command_was_move = false;
         let mut first = true;
@@ -287,8 +285,11 @@ impl<'l, Output: 'l + GeometryBuilder<Vertex>> PathBuilder for StrokeBuilder<'l,
     }
 }
 
-impl<'l, Output: 'l + GeometryBuilder<Vertex>> StrokeBuilder<'l, Output> {
-    pub fn new(options: &StrokeOptions, builder: &'l mut Output) -> Self {
+impl<'l> StrokeBuilder<'l> {
+    pub fn new(
+        options: &StrokeOptions,
+        builder: &'l mut GeometryBuilder<Vertex>,
+    ) -> Self {
         let zero = Point::new(0.0, 0.0);
         return StrokeBuilder {
             first: zero,
@@ -876,7 +877,7 @@ fn get_join_angle(prev_tangent: Vec2, next_tangent: Vec2) -> f32 {
     join_angle
 }
 
-fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
+fn tess_round_cap(
     center: Point,
     angle: (f32, f32),
     radius: f32,
@@ -887,7 +888,7 @@ fn tess_round_cap<Output: GeometryBuilder<Vertex>>(
     side: Side,
     line_width: f32,
     invert_winding: bool,
-    output: &mut Output
+    output: &mut GeometryBuilder<Vertex>
 ) {
     if num_recursions == 0 {
         return;
