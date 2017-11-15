@@ -78,10 +78,10 @@ where
 {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
-        return match self.it.next() {
-                   Some(svg_evt) => Some(self.get_state().svg_to_path_event(svg_evt)),
-                   None => None,
-               };
+        match self.it.next() {
+            Some(svg_evt) => Some(self.get_state().svg_to_path_event(svg_evt)),
+            None => None,
+        }
     }
 }
 
@@ -177,7 +177,11 @@ pub struct SvgPathIter<Iter> {
     state: PathState,
 }
 
-impl<Iter: Iterator<Item = SvgEvent>> SvgPathIter<Iter> {
+impl<E, Iter> SvgPathIter<Iter>
+where
+    E: Into<SvgEvent>,
+    Iter: Iterator<Item = E>
+{
     pub fn new(it: Iter) -> Self {
         SvgPathIter {
             it: it,
@@ -186,31 +190,41 @@ impl<Iter: Iterator<Item = SvgEvent>> SvgPathIter<Iter> {
     }
 }
 
-impl<Iter> SvgIterator for SvgPathIter<Iter>
+impl<E, Iter> SvgIterator for SvgPathIter<Iter>
 where
-    Iter: Iterator<Item = SvgEvent>,
+    E: Into<SvgEvent>,
+    Iter: Iterator<Item = E>
 {
     fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item = SvgEvent>> Iterator for SvgPathIter<Iter> {
+impl<E, Iter> Iterator for SvgPathIter<Iter>
+where
+    E: Into<SvgEvent>,
+    Iter: Iterator<Item = E>
+{
     type Item = SvgEvent;
     fn next(&mut self) -> Option<SvgEvent> {
-        let next = self.it.next();
-        if let Some(evt) = next {
-            self.state.svg_event(evt);
+        if let Some(evt) = self.it.next() {
+            let svg_evt = evt.into();
+            self.state.svg_event(svg_evt);
+            return Some(svg_evt);
         }
-        return next;
+        return None;
     }
 }
 
-/// An adapater iterator that implements PathIterator on top of an Iterator<Item=PatheEvent>.
+/// An adapater iterator that implements PathIterator on top of an Iterator<Item=PathEvent>.
 pub struct PathIter<Iter> {
     it: Iter,
     state: PathState,
 }
 
-impl<Iter: Iterator<Item = PathEvent>> PathIter<Iter> {
+impl<E, Iter> PathIter<Iter>
+where
+    E: Into<PathEvent>,
+    Iter: Iterator<Item = E>
+{
     pub fn new(it: Iter) -> Self {
         PathIter {
             it: it,
@@ -219,21 +233,28 @@ impl<Iter: Iterator<Item = PathEvent>> PathIter<Iter> {
     }
 }
 
-impl<Iter> PathIterator for PathIter<Iter>
+
+impl<E, Iter> PathIterator for PathIter<Iter>
 where
-    Iter: Iterator<Item = PathEvent>,
+    E: Into<PathEvent>,
+    Iter: Iterator<Item = E>
 {
     fn get_state(&self) -> &PathState { &self.state }
 }
 
-impl<Iter: Iterator<Item = PathEvent>> Iterator for PathIter<Iter> {
+impl<E, Iter> Iterator for PathIter<Iter>
+where
+    E: Into<PathEvent>,
+    Iter: Iterator<Item = E>
+{
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
-        let next = self.it.next();
-        if let Some(evt) = next {
-            self.state.path_event(evt);
+        if let Some(evt) = self.it.next() {
+            let path_evt = evt.into();
+            self.state.path_event(path_evt);
+            return Some(path_evt);
         }
-        return next;
+        return None;
     }
 }
 
@@ -278,6 +299,9 @@ impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
     pub fn closed(iter: Iter) -> Self { FromPolyline::new(true, iter) }
 
     pub fn open(iter: Iter) -> Self { FromPolyline::new(false, iter) }
+
+    /// Consumes self and returns an adapter that implements PathIterator.
+    pub fn path_iter(self) -> PathIter<Self> { PathIter::new(self) }
 }
 
 impl<Iter> Iterator for FromPolyline<Iter>

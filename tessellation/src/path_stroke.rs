@@ -114,29 +114,6 @@ impl StrokeTessellator {
         }
         return builder.end_geometry();
     }
-
-    /// Compute the tessellation from a flattened path iterator.
-    pub fn tessellate_flattened_path<Input>(
-        &mut self,
-        input: Input,
-        options: &StrokeOptions,
-        builder: &mut GeometryBuilder<Vertex>,
-    ) -> Count
-    where
-        Input: Iterator<Item = FlattenedEvent>,
-    {
-        builder.begin_geometry();
-        {
-            let mut stroker = StrokeBuilder::new(options, builder);
-
-            for evt in input {
-                stroker.flat_event(evt);
-            }
-
-            stroker.build();
-        }
-        return builder.end_geometry();
-    }
 }
 
 macro_rules! add_vertex {

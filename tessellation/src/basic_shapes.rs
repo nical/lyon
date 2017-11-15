@@ -836,7 +836,11 @@ where
 {
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate_flattened_path(FromPolyline::new(is_closed, it), options, output);
+    return tess.tessellate_path(
+        FromPolyline::new(is_closed, it).path_iter(),
+        options,
+        output
+    );
 }
 
 /// Tessellate an arbitray shape that is discribed by an iterator of points.
@@ -849,8 +853,8 @@ pub fn fill_polyline<Iter>(
 where
     Iter: Iterator<Item = Point>,
 {
-    tessellator.tessellate_flattened_path(
-        FromPolyline::closed(polyline),
+    tessellator.tessellate_path(
+        FromPolyline::closed(polyline).path_iter(),
         options,
         output
     )

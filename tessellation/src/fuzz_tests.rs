@@ -1,7 +1,6 @@
 use geometry_builder::{VertexBuffers, simple_builder};
 use path::{Path, PathSlice};
 use path_fill::*;
-use path_iterator::PathIterator;
 use path_builder::FlatPathBuilder;
 use math::*;
 use FillVertex as Vertex;
@@ -16,9 +15,9 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
             tess.enable_logging();
         }
         try!{
-            tess.tessellate_flattened_path(
-                path.path_iter().flattened(0.05),
-                &FillOptions::default(),
+            tess.tessellate_path(
+                path.path_iter(),
+                &FillOptions::tolerance(0.05),
                 &mut vertex_builder
             )
         };
