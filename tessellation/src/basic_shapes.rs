@@ -15,11 +15,11 @@ use bezier::{Arc, Radians};
 use std::f32::consts::PI;
 
 /// Tessellate a triangle.
-pub fn fill_triangle<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_triangle(
     v1: Point,
     mut v2: Point,
     mut v3: Point,
-    output: &mut Output,
+    output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -58,24 +58,24 @@ pub fn fill_triangle<Output: GeometryBuilder<FillVertex>>(
 }
 
 /// Tessellate the stroke of a triangle.
-pub fn stroke_triangle<Output: GeometryBuilder<StrokeVertex>>(
+pub fn stroke_triangle(
     v1: Point,
     v2: Point,
     v3: Point,
     options: &StrokeOptions,
-    output: &mut Output,
+    output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
     stroke_polyline([v1, v2, v3].iter().cloned(), true, options, output)
 }
 
 
 /// Tessellate a quad.
-pub fn fill_quad<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_quad(
     v1: Point,
     mut v2: Point,
     v3: Point,
     mut v4: Point,
-    output: &mut Output,
+    output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -121,21 +121,21 @@ pub fn fill_quad<Output: GeometryBuilder<FillVertex>>(
 }
 
 /// Tessellate the stroke of a quad.
-pub fn stroke_quad<Output: GeometryBuilder<StrokeVertex>>(
+pub fn stroke_quad(
     v1: Point,
     v2: Point,
     v3: Point,
     v4: Point,
     options: &StrokeOptions,
-    output: &mut Output,
+    output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
     stroke_polyline([v1, v2, v3, v4].iter().cloned(), true, options, output)
 }
 
 /// Tessellate an axis-aligned rectangle.
-pub fn fill_rectangle<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_rectangle(
     rect: &Rect,
-    output: &mut Output,
+    output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -170,9 +170,9 @@ pub fn fill_rectangle<Output: GeometryBuilder<FillVertex>>(
 }
 
 /// Tessellate the stroke for an axis-aligne rectangle.
-pub fn stroke_rectangle<Output: GeometryBuilder<StrokeVertex>>(
+pub fn stroke_rectangle(
     rect: &Rect,
-    output: &mut Output,
+    output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -291,11 +291,11 @@ impl BorderRadii {
 }
 
 /// Tessellate an axis-aligned rounded rectangle.
-pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
     tolerance: f32,
-    output: &mut Output,
+    output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -415,14 +415,14 @@ pub fn fill_rounded_rectangle<Output: GeometryBuilder<FillVertex>>(
 }
 
 // recursively tessellate the rounded corners.
-fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
+fn fill_border_radius(
     center: Point,
     angle: (f32, f32),
     radius: f32,
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
-    output: &mut Output
+    output: &mut GeometryBuilder<FillVertex>
 ) {
     if num_recursions == 0 {
         return;
@@ -461,11 +461,11 @@ fn fill_border_radius<Output: GeometryBuilder<FillVertex>>(
 }
 
 /// Tessellate the stroke of an axis-aligned rounded rectangle.
-pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
+pub fn stroke_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
     options: &StrokeOptions,
-    output: &mut Output,
+    output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -571,11 +571,11 @@ pub fn stroke_rounded_rectangle<Output: GeometryBuilder<StrokeVertex>>(
 }
 
 /// Tessellate a circle.
-pub fn fill_circle<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_circle(
     center: Point,
     radius: f32,
     tolerance: f32,
-    output: &mut Output,
+    output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -643,7 +643,7 @@ pub fn stroke_circle<Output>(
     center: Point,
     radius: f32,
     options: &StrokeOptions,
-    output: &mut Output
+    output: &mut GeometryBuilder<StrokeVertex>
 ) -> Count
     where Output: GeometryBuilder<StrokeVertex>
 {
@@ -678,12 +678,12 @@ pub fn stroke_circle<Output>(
 
 // tessellate the stroke of rounded corners using the inner points.
 // assumming the builder started with move_to().
-fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
+fn stroke_border_radius(
     center: Point,
     angle: (f32, f32),
     radius: f32,
     num_points: u32,
-    builder: &mut StrokeBuilder<Output>,
+    builder: &mut StrokeBuilder,
 ) {
     let angle_size = (angle.0 - angle.1).abs();
     let starting_angle = angle.0.min(angle.1);
@@ -696,12 +696,12 @@ fn stroke_border_radius<Output: GeometryBuilder<StrokeVertex>>(
     }
 }
 
-pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
+pub fn fill_ellipse(
     center: Point,
     radii: Vec2,
     x_rotation: Radians,
     tolerance: f32,
-    output: &mut Output,
+    output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     // TODO: This is far from optimal compared to the circle tessellation, but it
     // correctly takes the tolerance threshold into account which is harder to do
@@ -735,12 +735,12 @@ pub fn fill_ellipse<Output: GeometryBuilder<FillVertex>>(
     ).unwrap();
 }
 
-pub fn stroke_ellipse<Output: GeometryBuilder<StrokeVertex>>(
+pub fn stroke_ellipse(
     center: Point,
     radii: Vec2,
     x_rotation: Radians,
     options: &StrokeOptions,
-    output: &mut Output,
+    output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
     // TODO: This is far from optimal compared to the circle tessellation, but it
     // correctly takes the tolerance threshold into account which is harder to do
@@ -776,10 +776,12 @@ pub fn stroke_ellipse<Output: GeometryBuilder<StrokeVertex>>(
 ///
 /// The shape is assumed to be convex, calling this function with a concave
 /// shape may produce incorrect results.
-pub fn fill_convex_polyline<Iter, Output>(mut it: Iter, output: &mut Output) -> Count
+pub fn fill_convex_polyline<Iter>(
+    mut it: Iter,
+    output: &mut GeometryBuilder<FillVertex>
+) -> Count
 where
     Iter: Iterator<Item = Point> + Clone,
-    Output: GeometryBuilder<FillVertex>,
 {
     // We insert 2nd point on line first in order to have the neighbours for normal calculation.
     let mut it1 = it.clone().cycle().skip(1);
@@ -823,15 +825,14 @@ where
 /// Tessellate the stroke of a shape that is discribed by an iterator of points.
 ///
 /// Convenient when tessellating a shape that is represented as a slice `&[Point]`.
-pub fn stroke_polyline<Iter, Output>(
+pub fn stroke_polyline<Iter>(
     it: Iter,
     is_closed: bool,
     options: &StrokeOptions,
-    output: &mut Output
+    output: &mut GeometryBuilder<StrokeVertex>
 ) -> Count
 where
     Iter: Iterator<Item = Point>,
-    Output: GeometryBuilder<StrokeVertex>,
 {
     let mut tess = StrokeTessellator::new();
 
@@ -839,15 +840,14 @@ where
 }
 
 /// Tessellate an arbitray shape that is discribed by an iterator of points.
-pub fn fill_polyline<Iter, Output>(
+pub fn fill_polyline<Iter>(
     polyline: Iter,
     tessellator: &mut FillTessellator,
     options: &FillOptions,
-    output: &mut Output
+    output: &mut GeometryBuilder<FillVertex>
 ) -> FillResult
 where
     Iter: Iterator<Item = Point>,
-    Output: GeometryBuilder<FillVertex>,
 {
     tessellator.tessellate_flattened_path(
         FromPolyline::closed(polyline),

@@ -304,15 +304,14 @@ impl FillTessellator {
     }
 
     /// Compute the tessellation from a path iterator.
-    pub fn tessellate_path<Iter, Output>(
+    pub fn tessellate_path<Iter>(
         &mut self,
         it: Iter,
         options: &FillOptions,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) -> FillResult
     where
         Iter: PathIterator,
-        Output: GeometryBuilder<Vertex>,
     {
         let mut events = replace(&mut self.events, FillEvents::new());
         events.clear();
@@ -323,15 +322,14 @@ impl FillTessellator {
     }
 
     /// Compute the tessellation from a flattened path iterator.
-    pub fn tessellate_flattened_path<Iter, Output>(
+    pub fn tessellate_flattened_path<Iter>(
         &mut self,
         it: Iter,
         options: &FillOptions,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) -> FillResult
     where
         Iter: Iterator<Item = FlattenedEvent>,
-        Output: GeometryBuilder<Vertex>,
     {
         let mut events = replace(&mut self.events, FillEvents::new());
         events.clear();
@@ -343,15 +341,12 @@ impl FillTessellator {
 
 
     /// Compute the tessellation from pre-sorted events.
-    pub fn tessellate_events<Output>(
+    pub fn tessellate_events(
         &mut self,
         events: &FillEvents,
         options: &FillOptions,
-        output: &mut Output,
-    ) -> FillResult
-    where
-        Output: GeometryBuilder<Vertex>,
-    {
+        output: &mut GeometryBuilder<Vertex>,
+    ) -> FillResult {
         if options.fill_rule != FillRule::EvenOdd {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
         }
@@ -385,16 +380,16 @@ impl FillTessellator {
         self.pending_edges.clear();
     }
 
-    fn begin_tessellation<Output: GeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
+    fn begin_tessellation(&mut self, output: &mut GeometryBuilder<Vertex>) {
         debug_assert!(self.active_edges.len() == 0);
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.pending_edges.is_empty());
         output.begin_geometry();
     }
 
-    fn end_tessellation<Output: GeometryBuilder<Vertex>>(
+    fn end_tessellation(
         &mut self,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) -> Count {
         debug_assert!(self.active_edges.len() == 0);
         debug_assert!(self.monotone_tessellators.is_empty());
@@ -402,10 +397,10 @@ impl FillTessellator {
         return output.end_geometry();
     }
 
-    fn tessellator_loop<Output: GeometryBuilder<Vertex>>(
+    fn tessellator_loop(
         &mut self,
         events: &FillEvents,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) {
         self.current_position = TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val());
 
@@ -518,11 +513,11 @@ impl FillTessellator {
         }
     }
 
-    fn add_vertex_with_normal<Output: GeometryBuilder<Vertex>>(
+    fn add_vertex_with_normal(
         &mut self,
         prev: &TessPoint,
         next: &TessPoint,
-        output: &mut Output
+        output: &mut GeometryBuilder<Vertex>
     ) -> VertexId {
         let position = to_f32_point(self.current_position);
         let prev = to_f32_point(*prev);
@@ -535,9 +530,9 @@ impl FillTessellator {
         output.add_vertex(Vertex { position, normal })
     }
 
-    fn process_vertex<Output: GeometryBuilder<Vertex>>(
+    fn process_vertex(
         &mut self,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) {
         // This is where the interesting things happen.
         // We go through the sweep line to find all of the edges that end at the current
@@ -879,11 +874,11 @@ impl FillTessellator {
     // Look for eventual merge vertices on this span above the current vertex, and connect
     // them to the current vertex.
     // This should be called when processing a vertex that is on the left side of a span.
-    fn resolve_merge_vertices<Output: GeometryBuilder<Vertex>>(
+    fn resolve_merge_vertices(
         &mut self,
         edge_idx: ActiveEdgeId,
         id: VertexId,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) {
         // we are expecting this to be called with the index of the beginning (left side)
         // of a span, so the index should be even. This won't necessary hold true when we
@@ -922,13 +917,13 @@ impl FillTessellator {
         self.insert_span(span_for_edge(edge_idx), pos, vertex_id);
     }
 
-    fn split_event<Output: GeometryBuilder<Vertex>>(
+    fn split_event(
         &mut self,
         edge_idx: ActiveEdgeId,
         pending_left_id: usize,
         pending_right_id: usize,
         id: VertexId,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) {
         debug_assert!(even(edge_idx));
         // Look whether the span shares a merge vertex with the previous one
@@ -976,11 +971,11 @@ impl FillTessellator {
         }
     }
 
-    fn merge_event<Output: GeometryBuilder<Vertex>>(
+    fn merge_event(
         &mut self,
         id: VertexId,
         edge_idx: ActiveEdgeId,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) {
         debug_assert!(odd(edge_idx));
         debug_assert!(self.active_edges.has_id(edge_idx + 2));
@@ -1104,11 +1099,11 @@ impl FillTessellator {
         // We sill sort the intersection vector lazily.
     }
 
-    fn end_span<Output: GeometryBuilder<Vertex>>(
+    fn end_span(
         &mut self,
         edge_idx: ActiveEdgeId,
         id: VertexId,
-        output: &mut Output,
+        output: &mut GeometryBuilder<Vertex>,
     ) {
         // This assertion is only valid with the EvenOdd fill rule.
         debug_assert!(even(edge_idx));
@@ -1753,7 +1748,7 @@ impl MonotoneTessellator {
         self.triangles.push((a.id, b.id, c.id));
     }
 
-    fn flush<Output: GeometryBuilder<Vertex>>(&mut self, output: &mut Output) {
+    fn flush(&mut self, output: &mut GeometryBuilder<Vertex>) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }
