@@ -252,8 +252,6 @@ fn main() {
     // viewBox is [minX, minY, width, height]
     // we're ignoring minX and minY for now
     let mut scene = if let Some(vb) = view_box {
-        // { zoom: 0.011443832, pan: [-57, -57.993813] }
-        // Scene { zoom: 0.0033684117, pan: [-225.70827, -821.13] }
         Scene {
             // this is applied before zoom, so we're working in the original SVG coordinates
             pan: [vb[2] / -2.0, vb[3] / -2.0],
