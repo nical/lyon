@@ -96,7 +96,7 @@ impl From<Scene> for Globals {
 
 // path + fill
 struct SvgPath {
-    d: String,
+    d: Path,
     fill: Color
 }
 
@@ -104,7 +104,7 @@ struct SvgPath {
 impl Default for SvgPath {
     fn default() -> Self {
         SvgPath {
-            d: String::new(),
+            d: Path::new(),
             fill: Color::new(0,0,0)
         }
     }
@@ -170,7 +170,8 @@ fn main() {
                     Some(ElementId::Path) => {
                         match name {
                             // extract relevant path attributes
-                            AttributeId::D => current_path.d = String::from(value.slice()),
+                            AttributeId::D => current_path.d = build_path(Path::builder().with_svg(), value.slice())
+                                .expect("Error parsing SVG path syntax!"),
                             AttributeId::Fill => current_path.fill = Color::from_frame(value).unwrap_or_else(|_| Color::new(0,0,0)),
                             _ => {}
                         }
@@ -198,13 +199,9 @@ fn main() {
     let mut mesh = VertexBuffers::new();
 
     for path in svg_paths {
-        // parse/build the path
-        let pathdef = build_path(Path::builder().with_svg(), &path.d)
-            .expect("Error parsing SVG path syntax!");
-
         // tesselate and add to the shared mesh
         tessellator.tessellate_path(
-            pathdef.path_iter(),
+            path.d.path_iter(),
             &FillOptions::tolerance(0.01),
             &mut BuffersBuilder::new(&mut mesh, VertexCtor {fill: path.fill}),
         ).expect("Error during tesselation");
