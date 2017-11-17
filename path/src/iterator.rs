@@ -32,7 +32,8 @@
 //! ```
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
-//! use math::{point, vec2};
+//! use lyon_path::math::{point, vec2};
+//! use lyon_path::events::*;
 //!
 //! fn main() {
 //!     let events = vec![
@@ -80,7 +81,8 @@
 //! ```
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
-//! use math::{point, vec2};
+//! use lyon_path::math::{point, vec2};
+//! use lyon_path::events::*;
 //!
 //! fn main() {
 //!     let events = vec![
@@ -367,7 +369,7 @@ fn path_to_svg_event(evt: PathEvent) -> SvgEvent { evt.to_svg_event() }
 /// ```
 /// # extern crate lyon_path;
 /// # use lyon_path::iterator::FromPolyline;
-/// # use lyon_path::iterator::math::point;
+/// # use lyon_path::math::point;
 /// # fn main() {
 /// let points = [
 ///     point(1.0, 1.0),

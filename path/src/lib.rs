@@ -46,3 +46,5 @@ pub mod iterator;
 pub mod builder;
 
 pub use path::*;
+pub use core::math;
+pub use core::events;

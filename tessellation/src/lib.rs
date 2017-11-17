@@ -191,6 +191,7 @@ pub mod geometry_builder;
 mod path_fill;
 mod path_stroke;
 mod math_utils;
+mod fixed;
 
 #[cfg(test)]
 mod earcut_tests;

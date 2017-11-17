@@ -1,5 +1,5 @@
 use core::PathEvent;
-use core::math::{Point, fixed};
+use core::math::Point;
 use path::{Path, PathSlice};
 use path::builder::FlatPathBuilder;
 use svg;
@@ -89,7 +89,7 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     println!("    let mut builder = Path::builder();\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
-        println!("    builder.move_to(point({}, {}));", fixed(pos.x).to_f32(), fixed(pos.y).to_f32());
+        println!("    builder.move_to(point({}, {}));", pos.x, pos.y);
         svg_path.move_to(pos);
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
