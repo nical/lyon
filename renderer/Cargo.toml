@@ -15,5 +15,3 @@ lyon_core = { version = "0.8.0", path = "../core" }
 lyon_path = { version = "0.8.0", path = "../path" }
 lyon_bezier = { version = "0.8.0", path = "../bezier" }
 lyon_tessellation = { version = "0.8.0", path = "../tessellation" }
-lyon_path_builder = { version = "0.8.0", path = "../path_builder" }
-lyon_path_iterator = { version = "0.8.0", path = "../path_iterator" }

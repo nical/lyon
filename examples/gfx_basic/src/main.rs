@@ -6,7 +6,7 @@ extern crate glutin;
 extern crate lyon;
 
 use lyon::extra::rust_logo::build_logo_path;
-use lyon::path_builder::*;
+use lyon::path::builder::*;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::{FillTessellator, FillOptions};

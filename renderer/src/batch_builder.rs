@@ -6,7 +6,7 @@ use std::collections::hash_map::Entry;
 use api::*;
 use buffer::*;
 use path::Path;
-use path_iterator::*;
+use path::iterator::*;
 use glsl::PRIM_BUFFER_LEN;
 use renderer::{ GpuFillVertex, GpuStrokeVertex };
 use renderer::{ GpuFillPrimitive, GpuStrokePrimitive };

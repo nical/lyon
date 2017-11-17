@@ -1,7 +1,7 @@
 use core::PathEvent;
 use core::math::{Point, fixed};
 use path::{Path, PathSlice};
-use path_builder::FlatPathBuilder;
+use path::builder::FlatPathBuilder;
 use svg;
 
 pub type Polygons = Vec<Vec<Point>>;

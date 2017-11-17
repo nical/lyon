@@ -12,15 +12,9 @@
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
 //!   [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
 //!   **lyon_tessellation** - Path tessellation routines.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_path_builder)](https://crates.io/crates/lyon_path_builder)
-//!   [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) -
-//!   **lyon_path_builder** - Tools to facilitate building paths.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_path_iterator)](https://crates.io/crates/lyon_path_iterator)
-//!   [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) -
-//!   **lyon_path_iterator** - Tools to facilitate iteratring over paths.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
 //!   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
-//!   **lyon_path** - A simple optional path data structure, provided for convenience.
+//!   **lyon_path** - Tools to build and iterate over paths.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_bezier)](https://crates.io/crates/lyon_bezier)
 //!   [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) -
 //!   **lyon_bezier** - Cubic and quadratic 2d bézier math.
@@ -34,7 +28,19 @@
 //!   [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_core) -
 //!   **lyon_core** - Common types to most lyon crates (mostly for internal use, reexported by the other crates).
 //!
-//! [This crate](https://crates.io/crates/lyon) is a meta-crate, reexporting the crates listed above.
+//! This meta-crate (`lyon`) mostly reexports the other lyon crates for convenience.
+//!
+//! ```ignore
+//! extern crate lyon;
+//! use lyon::tessellation::FillTessellator;
+//! ```
+//!
+//! Is equivalent to:
+//!
+//! ```ignore
+//! extern crate lyon_tessellation;
+//! use lyon_tessellation::FillTessellator;
+//! ```
 //!
 //! # Additional documentation and links
 //!
@@ -93,8 +99,8 @@
 //! extern crate lyon;
 //! use lyon::math::point;
 //! use lyon::path::Path;
-//! use lyon::path_builder::*;
-//! use lyon::path_iterator::PathIterator;
+//! use lyon::path::builder::*;
+//! use lyon::path::iterator::PathIterator;
 //! use lyon::tessellation::{FillTessellator, FillOptions, VertexBuffers};
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
@@ -153,61 +159,11 @@
 //! examples can be used to get an idea of how to render the geometry (in this case
 //! using gfx-rs).
 //!
-//! ## Which crates do I need?
-//!
-//! The meta-crate (`lyon`) mostly reexports the other lyon crates for convenience.
-//!
-//! ```ignore
-//! extern crate lyon;
-//! use lyon::tessellation::FillTessellator;
-//! ```
-//!
-//! Is equivalent to:
-//!
-//! ```ignore
-//! extern crate lyon_tessellation;
-//! use lyon_tessellation::FillTessellator;
-//! ```
-//!
-//! - The `lyon_tessellation` crate is the most interesting crate so is what most people using
-//!   lyon are interested in. The tessellation algorithms don't depend on a specific data
-//!   structure. Instead they work on iterators of path. When using the `lyon_tessellation`
-//!   crate you'll almost always want to use the `lyon_path_iterator` crate as well.
-//! - The `lyon_path_iterator` crate contains a colletion of tools to chain iterators
-//!   of path events. These adapters are very useful to convert an iterator of SVG events
-//!   (which contains various types of curves in relative and absolute coordinates) into
-//!   iterator of simpler path events (every thing in absolute coordinates) all the way to
-//!   flattened events (only line segments in absolute corrdinates).
-//! - The `lyon_path` crate is completely optional. It contains a path data structure
-//!   which work with the `lyon_path_iterator` (and thus works with `lyon_tessellation`) and
-//!   `lyon_path_builder` crates. Various examples use it but anyone can implement a custom
-//!   path data structure that works with the tessellators as long as it provides an iterator
-//!   of path events.
-//! - The `lyon_path_builder` crate is also optional, but provide useful abstractions to
-//!   build path objects from sequences of function calls like `move_to`, `cubic_bezier_to`, etc.
-//!   Just like `lyon_path_iterator` this crate provides adapters between the different types of
-//!   path events, making it easy to use the full set of SVG events to build a path object that
-//!   does not actually support all of them by converting events to lower level primitives on
-//!   the fly.
-//! - The `lyon_bezier` crate is really standalone as it does not depend on any other `lyon_*` crate.
-//!   It implements useful quadratic and cubic bezier curve math, including the flattening
-//!   algorithm that is used by `lyon_path_iterator` and `lyon_path_builder`.
-//! - The `lyon_svg` crate contains utilities to interface with SVG. At the moment it is mostly
-//!   a collection of wrappers around the excellent `svgparser` crate.
-//! - The `lyon_core` crate contains internal details that are useful to all other lyon crates
-//!   (except `lyon_bezier`). It is reexported by all crates and you should not have to interact
-//!   directly with it.
-//!
-//! These crates are not very big, it's usually fine for most use-case to simply import the `lyon`
-//! meta-crate, unless you are only interested in the bezier tools.
-//!
 
 
 
 pub extern crate lyon_core;
 pub extern crate lyon_path;
-pub extern crate lyon_path_builder;
-pub extern crate lyon_path_iterator;
 pub extern crate lyon_tessellation;
 pub extern crate lyon_bezier;
 pub extern crate lyon_extra;
@@ -218,8 +174,6 @@ pub use lyon_core::*;
 
 pub use lyon_tessellation as tessellation;
 pub use lyon_path as path;
-pub use lyon_path_builder as path_builder;
-pub use lyon_path_iterator as path_iterator;
 pub use lyon_bezier as bezier;
 pub use lyon_extra as extra;
 pub use lyon_svg as svg;

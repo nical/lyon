@@ -13,16 +13,16 @@ use glium::index::PrimitiveType;
 use glium::DisplayBuild;
 use glium::backend::glutin_backend::GlutinFacade as Display;
 
-use lyon::path::Path;
-use lyon::path_builder::*;
 use lyon::math::*;
+use lyon::path::Path;
+use lyon::path::builder::*;
+use lyon::path::iterator::PathIterator;
 use lyon_svg::parser::Color;
 use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
 use lyon::tessellation::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation::StrokeVertex;
-use lyon::path_iterator::PathIterator;
 
 use svgparser::Tokenize;
 

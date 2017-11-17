@@ -1,12 +1,11 @@
 use math::*;
 use math_utils::compute_normal;
-use core::FlattenedEvent;
 use bezier::{QuadraticBezierSegment, CubicBezierSegment, LineSegment};
 use bezier::utils::{normalized_tangent, directed_angle, fast_atan2};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
-use path_builder::{FlatPathBuilder, PathBuilder};
-use path_iterator::PathIterator;
+use path::builder::{FlatPathBuilder, PathBuilder};
+use path::iterator::PathIterator;
 use StrokeVertex as Vertex;
 use {Side, LineCap, LineJoin, StrokeOptions};
 

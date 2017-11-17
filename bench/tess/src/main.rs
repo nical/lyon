@@ -2,13 +2,13 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
+use lyon::path::Path;
+use lyon::path::builder::*;
+use lyon::path::iterator::PathIterator;
 use lyon::extra::rust_logo::build_logo_path;
-use lyon::path_builder::*;
 use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
 use lyon::tessellation::{FillEvents, FillTessellator, FillOptions, FillVertex, LineJoin};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions, StrokeVertex};
-use lyon::path::Path;
-use lyon::path_iterator::PathIterator;
 
 use bencher::Bencher;
 

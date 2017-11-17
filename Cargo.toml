@@ -32,16 +32,12 @@ lyon_tessellation = { version = "0.8.6", path = "tessellation/" }
 lyon_core = { version = "0.8.0", path = "core/" }
 lyon_bezier = { version = "0.8.5", path = "bezier/" }
 lyon_path = { version = "0.8.6", path = "path/" }
-lyon_path_builder = { version = "0.8.6", path = "path_builder/" }
-lyon_path_iterator = { version = "0.8.5", path = "path_iterator/" }
 lyon_extra = { version = "0.8.6", path = "extra/" }
 lyon_svg = { version = "0.8.6", path = "svg/" }
 
 [workspace]
 members = [
     "path",
-    "path_builder",
-    "path_iterator",
     "tessellation",
     "bezier",
     "extra",

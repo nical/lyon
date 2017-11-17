@@ -7,8 +7,9 @@
 //! crate.
 
 #![allow(dead_code)]
+
 extern crate lyon_core as core;
-extern crate lyon_path_builder as path_builder;
+extern crate lyon_path as path;
 
 extern crate svgparser;
 

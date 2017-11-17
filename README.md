@@ -52,7 +52,7 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 
         // Compute the tessellation.
         tessellator.tessellate_path(
-            path.path_iter().flattened(0.1),
+            path.path_iter(),
             &FillOptions::default(),
             &mut vertex_builder
         ).unwrap();
@@ -75,15 +75,9 @@ The project is split into several crates:
 * [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
   [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
   **lyon_tessellation** - Path tessellation routines.
-* [![crate](http://meritbadge.herokuapp.com/lyon_path_builder)](https://crates.io/crates/lyon_path_builder)
-  [![doc](https://docs.rs/lyon_path_builder/badge.svg)](https://docs.rs/lyon_path_builder) -
-  **lyon_path_builder** - Tools to facilitate building paths.
-* [![crate](http://meritbadge.herokuapp.com/lyon_path_iterator)](https://crates.io/crates/lyon_path_iterator)
-  [![doc](https://docs.rs/lyon_path_iterator/badge.svg)](https://docs.rs/lyon_path_iterator) - 
-  **lyon_path_iterator** - Tools to facilitate iteratring over paths.
 * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
-  **lyon_path** - A simple optional path data structure, provided for convenience.
+  **lyon_path** - Tools to build and iterate over paths.
 * [![crate](http://meritbadge.herokuapp.com/lyon_bezier)](https://crates.io/crates/lyon_bezier)
   [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) -
   **lyon_bezier** - Cubic and quadratic 2d bézier math.
