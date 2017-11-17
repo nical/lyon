@@ -31,7 +31,7 @@ use math::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::PathEvent;
 use bezier::utils::fast_atan2;
-use math_utils::{segment_intersection, compute_normal};
+use math_utils::*;
 use path::builder::{FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
 
@@ -214,11 +214,9 @@ enum PointType { In, Out, OnEdge(Side) }
 /// # extern crate lyon_tessellation;
 /// # extern crate lyon_core;
 /// # extern crate lyon_path;
-/// # extern crate lyon_path_builder;
-/// # extern crate lyon_path_iterator;
 /// # use lyon_path::Path;
-/// # use lyon_path_builder::*;
-/// # use lyon_path_iterator::*;
+/// # use lyon_path::builder::*;
+/// # use lyon_path::iterator::*;
 /// # use lyon_core::math::{Point, point};
 /// # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
 /// # use lyon_tessellation::*;

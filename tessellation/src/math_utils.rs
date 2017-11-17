@@ -1,7 +1,16 @@
 //! Various math tools that are mostly usefull for the tessellators.
 
+use fixed;
 use math::*;
 use path_fill::Edge;
+
+pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
+pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
+pub type TessVec2 = Vector2D<FixedPoint32>;
+pub type TessPoint = Point2D<FixedPoint32>;
+pub type TessPoint64 = Point2D<FixedPoint64>;
+#[inline]
+pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }
 
 #[inline]
 fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPoint32) -> bool {

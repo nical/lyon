@@ -5,7 +5,6 @@ extern crate euclid;
 pub mod math;
 pub mod path_state;
 pub mod events;
-pub mod fixed;
 
 pub use path_state::*;
 pub use events::*;
