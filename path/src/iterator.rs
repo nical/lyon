@@ -33,7 +33,7 @@
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
 //! use lyon_path::math::{point, vec2};
-//! use lyon_path::events::*;
+//! use lyon_path::{PathEvent, SvgEvent, FlattenedEvent};
 //!
 //! fn main() {
 //!     let events = vec![
@@ -82,7 +82,7 @@
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
 //! use lyon_path::math::{point, vec2};
-//! use lyon_path::events::*;
+//! use lyon_path::SvgEvent;
 //!
 //! fn main() {
 //!     let events = vec![
@@ -101,7 +101,7 @@
 use std::iter;
 
 use core::math::*;
-use core::{PathEvent, SvgEvent, FlattenedEvent, PathState};
+use {PathEvent, SvgEvent, FlattenedEvent, PathState};
 use bezier::QuadraticBezierSegment;
 use bezier::quadratic_bezier;
 use bezier::CubicBezierSegment;

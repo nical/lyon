@@ -1,9 +1,8 @@
 
 use svgparser::{ Tokenize, TextFrame };
 use svgparser::path::{ Tokenizer, Token };
-use core::SvgEvent;
+use path::{SvgEvent, ArcFlags};
 use core::math;
-use core::ArcFlags;
 use path::builder::SvgBuilder;
 use super::error::ParserError;
 

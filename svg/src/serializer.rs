@@ -1,5 +1,5 @@
 use path::builder::*;
-use core::ArcFlags;
+use path::ArcFlags;
 use core::math::{Vec2, Point, Radians};
 use std::f32::consts::PI;
 use std::mem;

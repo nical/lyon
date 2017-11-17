@@ -28,10 +28,10 @@ use sid::{Id, IdVec};
 use FillVertex as Vertex;
 use {FillOptions, FillRule, Side};
 use math::*;
-use geometry_builder::{GeometryBuilder, Count, VertexId};
-use core::PathEvent;
-use bezier::utils::fast_atan2;
 use math_utils::*;
+use geometry_builder::{GeometryBuilder, Count, VertexId};
+use bezier::utils::fast_atan2;
+use path::PathEvent;
 use path::builder::{FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
 

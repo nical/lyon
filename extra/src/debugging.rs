@@ -1,6 +1,5 @@
-use core::PathEvent;
 use core::math::Point;
-use path::{Path, PathSlice};
+use path::{Path, PathSlice, PathEvent};
 use path::builder::FlatPathBuilder;
 use svg;
 
