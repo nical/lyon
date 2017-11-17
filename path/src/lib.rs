@@ -3,20 +3,19 @@
 //! # Lyon path
 //!
 //! A simple path data structure implementing the traits provided in the
-//! [lyon_path_builder](https://docs.rs/lyon_path_builder) and
-//! [lyon_path_iterator](https://docs.rs/lyon_path_iterator) modules.
+//! [builder](https://docs.rs/lyon_path_builder) and
+//! [iterator](https://docs.rs/lyon_path_iterator) modules.
+//! TODO(nical) fix links!
 //!
 //! # Examples
 //!
 //! ```
 //! # extern crate lyon_core;
 //! # extern crate lyon_path;
-//! # extern crate lyon_path_builder;
-//! # extern crate lyon_path_iterator;
 //! # fn main() {
 //! use lyon_path::Path;
 //! use lyon_core::math::{point};
-//! use lyon_path_builder::*;
+//! use lyon_path::builder::*;
 //!
 //! // Create a builder object to build the path.
 //! let mut builder = Path::builder();
@@ -40,9 +39,10 @@
 //!
 
 extern crate lyon_core as core;
-extern crate lyon_path_builder as path_builder;
-extern crate lyon_path_iterator as path_iterator;
+extern crate lyon_bezier as bezier;
 
 mod path;
+pub mod iterator;
+pub mod builder;
 
 pub use path::*;

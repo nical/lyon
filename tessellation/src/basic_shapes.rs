@@ -7,10 +7,10 @@ use path_stroke::{StrokeTessellator, StrokeBuilder};
 use path_fill::{FillTessellator, FillResult};
 use math_utils::compute_normal;
 use math::*;
-use path_builder::FlatPathBuilder;
-use path_iterator::FromPolyline;
-use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
+use path::builder::FlatPathBuilder;
+use path::iterator::FromPolyline;
 use bezier::{Arc, Radians};
+use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
 
 use std::f32::consts::PI;
 
@@ -715,7 +715,7 @@ pub fn fill_ellipse(
         sweep_angle: Radians::new(2.0 * PI-0.01),
     };
 
-    use path_builder::{PathBuilder, FlatteningBuilder};
+    use path::builder::{PathBuilder, FlatteningBuilder};
     use path_fill::EventsBuilder;
 
     let mut path = FlatteningBuilder::new(EventsBuilder::new(), tolerance).with_svg();
@@ -754,7 +754,7 @@ pub fn stroke_ellipse(
         sweep_angle: Radians::new(2.0 * PI-0.01),
     };
 
-    use path_builder::{PathBuilder, FlatteningBuilder};
+    use path::builder::{PathBuilder, FlatteningBuilder};
 
     output.begin_geometry();
     {

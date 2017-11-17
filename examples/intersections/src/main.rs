@@ -6,7 +6,7 @@ extern crate glutin;
 extern crate lyon;
 extern crate lyon_renderer;
 
-use lyon::path_builder::*;
+use lyon::path::builder::*;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;

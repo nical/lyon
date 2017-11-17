@@ -32,8 +32,8 @@ use geometry_builder::{GeometryBuilder, Count, VertexId};
 use core::PathEvent;
 use bezier::utils::fast_atan2;
 use math_utils::{segment_intersection, compute_normal};
-use path_builder::{FlatPathBuilder, PathBuilder};
-use path_iterator::PathIterator;
+use path::builder::{FlatPathBuilder, PathBuilder};
+use path::iterator::PathIterator;
 
 #[cfg(test)]
 use geometry_builder::{VertexBuffers, simple_builder};

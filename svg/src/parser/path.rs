@@ -4,7 +4,7 @@ use svgparser::path::{ Tokenizer, Token };
 use core::SvgEvent;
 use core::math;
 use core::ArcFlags;
-use path_builder::SvgBuilder;
+use path::builder::SvgBuilder;
 use super::error::ParserError;
 
 pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParserError>

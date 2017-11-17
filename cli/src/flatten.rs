@@ -1,5 +1,5 @@
 use commands::PathCmd;
-use lyon::path_iterator::*;
+use lyon::path::iterator::*;
 use lyon::events::FlattenedEvent;
 use std::io;
 

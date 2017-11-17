@@ -1,4 +1,4 @@
-use path_builder::*;
+use path::builder::*;
 use core::ArcFlags;
 use core::math::{Vec2, Point, Radians};
 use std::f32::consts::PI;

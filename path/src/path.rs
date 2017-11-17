@@ -1,5 +1,5 @@
-use path_builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
-use path_iterator::PathIter;
+use builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
+use iterator::PathIter;
 
 use core::PathEvent;
 use core::math::*;
@@ -104,8 +104,8 @@ impl<'l> PathSlice<'l> {
 //}
 
 /// Builds path object using the FlatPathBuilder interface.
-///
-/// See the [lyon_path_builder](https://docs.rs/lyon_path_builder) module documentation.
+/// TODO(nical) fix link
+/// See the [builder](https://docs.rs/lyon_path_builder) module documentation.
 pub struct Builder {
     path: Path,
     current_position: Point,

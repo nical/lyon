@@ -1,6 +1,6 @@
 use lyon::math::*;
 use lyon::path::Path;
-use lyon::path_builder::*;
+use lyon::path::builder::*;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{
     StrokeOptions, StrokeTessellator,

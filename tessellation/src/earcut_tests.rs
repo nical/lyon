@@ -21,8 +21,8 @@
 
 use geometry_builder::{VertexBuffers, simple_builder};
 use path::{Path, PathSlice};
+use path::builder::FlatPathBuilder;
 use path_fill::*;
-use path_builder::FlatPathBuilder;
 use math::*;
 use FillVertex as Vertex;
 use FillOptions;
