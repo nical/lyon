@@ -76,9 +76,10 @@
 //! ```
 //!
 
-use core::{PathEvent, FlattenedEvent, SvgEvent, ArcFlags};
 use core::math::*;
+use events::{PathEvent, FlattenedEvent, SvgEvent};
 use bezier::{CubicBezierSegment, QuadraticBezierSegment, SvgArc};
+use ArcFlags;
 use bezier;
 
 /// The most basic path building interface. Does not handle any kind of curve.

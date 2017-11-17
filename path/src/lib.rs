@@ -42,9 +42,28 @@ extern crate lyon_core as core;
 extern crate lyon_bezier as bezier;
 
 mod path;
+mod events;
+mod path_state;
 pub mod iterator;
 pub mod builder;
 
 pub use path::*;
+pub use events::*;
+pub use path_state::*;
 pub use core::math;
-pub use core::events;
+
+/// Flag parameters for arcs as described by the SVG specification.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ArcFlags {
+    pub large_arc: bool,
+    pub sweep: bool,
+}
+
+impl Default for ArcFlags {
+    fn default() -> Self {
+        ArcFlags {
+            large_arc: false,
+            sweep: false,
+        }
+    }
+}

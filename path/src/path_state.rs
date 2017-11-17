@@ -1,7 +1,7 @@
 
 use math::{Point, Vec2, point, vec2};
 
-use super::{PathEvent, SvgEvent, FlattenedEvent};
+use events::{PathEvent, SvgEvent, FlattenedEvent};
 
 /// Represents the current state of a path while it is being built.
 pub struct PathState {

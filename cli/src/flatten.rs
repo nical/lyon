@@ -1,6 +1,6 @@
 use commands::PathCmd;
 use lyon::path::iterator::*;
-use lyon::events::FlattenedEvent;
+use lyon::path::FlattenedEvent;
 use std::io;
 
 #[derive(Debug)]
