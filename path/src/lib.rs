@@ -51,19 +51,4 @@ pub use path::*;
 pub use events::*;
 pub use path_state::*;
 pub use core::math;
-
-/// Flag parameters for arcs as described by the SVG specification.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct ArcFlags {
-    pub large_arc: bool,
-    pub sweep: bool,
-}
-
-impl Default for ArcFlags {
-    fn default() -> Self {
-        ArcFlags {
-            large_arc: false,
-            sweep: false,
-        }
-    }
-}
+pub use bezier::ArcFlags;
