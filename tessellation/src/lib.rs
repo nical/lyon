@@ -471,7 +471,7 @@ pub struct FillOptions {
 
     /// Whether or not to compute the normal vector at each vertex.
     ///
-    /// When set to false, all generated vertex normals are equal to `vec2(0.0, 0.0)`.
+    /// When set to false, all generated vertex normals are equal to `vector(0.0, 0.0)`.
     /// Not computing vertex normals can speed up tessellation and enable generating less vertices
     /// at intersections.
     ///

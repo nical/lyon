@@ -368,21 +368,21 @@ fn test_path_builder_simple() {
     // clockwise
     {
         let mut path = flattened_path_builder(0.05);
-        path.move_to(vec2(0.0, 0.0));
-        path.line_to(vec2(1.0, 0.0));
-        path.line_to(vec2(1.0, 1.0));
+        path.move_to(vector(0.0, 0.0));
+        path.line_to(vector(1.0, 0.0));
+        path.line_to(vector(1.0, 1.0));
         let id = path.close();
 
         let path = path.build();
         let info = path.sub_path(id).info();
-        assert_eq!(path.vertices().nth(0).position, vec2(0.0, 0.0));
-        assert_eq!(path.vertices().nth(1).position, vec2(1.0, 0.0));
-        assert_eq!(path.vertices().nth(2).position, vec2(1.0, 1.0));
+        assert_eq!(path.vertices().nth(0).position, vector(0.0, 0.0));
+        assert_eq!(path.vertices().nth(1).position, vector(1.0, 0.0));
+        assert_eq!(path.vertices().nth(2).position, vector(1.0, 1.0));
         assert_eq!(path.vertices().nth(0).point_type, PointType::Normal);
         assert_eq!(path.vertices().nth(1).point_type, PointType::Normal);
         assert_eq!(path.vertices().nth(2).point_type, PointType::Normal);
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+        assert_eq!(info.aabb, Rect::new(vector(0.0, 0.0), size(1.0, 1.0)));
         let sub_path = path.sub_path(id);
         let first = sub_path.first();
         let next = sub_path.next(first);
@@ -397,30 +397,30 @@ fn test_path_builder_simple() {
     // counter-clockwise
     {
         let mut path = flattened_path_builder(0.05);
-        path.move_to(vec2(0.0, 0.0));
-        path.line_to(vec2(1.0, 1.0));
-        path.line_to(vec2(1.0, 0.0));
+        path.move_to(vector(0.0, 0.0));
+        path.line_to(vector(1.0, 1.0));
+        path.line_to(vector(1.0, 0.0));
         let id = path.close();
 
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+        assert_eq!(info.aabb, Rect::new(vector(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // line_to back to the first vertex (should ignore the last vertex)
     {
         let mut path = flattened_path_builder(0.05);
-        path.move_to(vec2(0.0, 0.0));
-        path.line_to(vec2(1.0, 1.0));
-        path.line_to(vec2(1.0, 0.0));
-        path.line_to(vec2(0.0, 0.0));
+        path.move_to(vector(0.0, 0.0));
+        path.line_to(vector(1.0, 1.0));
+        path.line_to(vector(1.0, 0.0));
+        path.line_to(vector(0.0, 0.0));
         let id = path.close();
 
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+        assert_eq!(info.aabb, Rect::new(vector(0.0, 0.0), size(1.0, 1.0)));
     }
 }
 
@@ -429,46 +429,46 @@ fn test_path_builder_simple_bezier() {
     // clockwise
     {
         let mut path = bezier_path_builder();
-        path.move_to(vec2(0.0, 0.0));
-        path.quadratic_bezier_to(vec2(1.0, 0.0), vec2(1.0, 1.0));
+        path.move_to(vector(0.0, 0.0));
+        path.quadratic_bezier_to(vector(1.0, 0.0), vector(1.0, 1.0));
         let id = path.close();
 
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+        assert_eq!(info.aabb, Rect::new(vector(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // counter-clockwise
     {
         let mut path = bezier_path_builder();
-        path.move_to(vec2(0.0, 0.0));
-        path.quadratic_bezier_to(vec2(1.0, 1.0), vec2(1.0, 0.0));
+        path.move_to(vector(0.0, 0.0));
+        path.quadratic_bezier_to(vector(1.0, 1.0), vector(1.0, 0.0));
         let id = path.close();
 
         let path = path.build();
         let info = path.sub_path(id).info();
         assert_eq!(info.range, vertex_id_range(0, 3));
-        assert_eq!(info.aabb, Rect::new(vec2(0.0, 0.0), size(1.0, 1.0)));
+        assert_eq!(info.aabb, Rect::new(vector(0.0, 0.0), size(1.0, 1.0)));
     }
 
     // a slightly more elaborate path
     {
         let mut path = bezier_path_builder();
-        path.move_to(vec2(0.0, 0.0));
-        path.line_to(vec2(0.1, 0.0));
-        path.line_to(vec2(0.2, 0.1));
-        path.line_to(vec2(0.3, 0.1));
-        path.line_to(vec2(0.4, 0.0));
-        path.line_to(vec2(0.5, 0.0));
-        path.quadratic_bezier_to(vec2(0.5, 0.4), vec2(0.3, 0.4));
-        path.line_to(vec2(0.1, 0.4));
-        path.quadratic_bezier_to(vec2(-0.2, 0.1), vec2(-0.1, 0.0));
+        path.move_to(vector(0.0, 0.0));
+        path.line_to(vector(0.1, 0.0));
+        path.line_to(vector(0.2, 0.1));
+        path.line_to(vector(0.3, 0.1));
+        path.line_to(vector(0.4, 0.0));
+        path.line_to(vector(0.5, 0.0));
+        path.quadratic_bezier_to(vector(0.5, 0.4), vector(0.3, 0.4));
+        path.line_to(vector(0.1, 0.4));
+        path.quadratic_bezier_to(vector(-0.2, 0.1), vector(-0.1, 0.0));
         let id = path.close();
 
         let path = path.build();
         let info = path.sub_path(id).info();
-        assert_eq!(info.aabb, Rect::new(vec2(-0.2, 0.0), size(0.7, 0.4)));
+        assert_eq!(info.aabb, Rect::new(vector(-0.2, 0.0), size(0.7, 0.4)));
     }
 }
 
@@ -480,21 +480,21 @@ fn test_arc_simple() {
     let mut path = bezier_path_builder();
 
     // Two big elliptical arc
-    path.move_to(vec2(180.0, 180.0));
+    path.move_to(vector(180.0, 180.0));
     path.arc_to(
-        vec2(160.0, 220.0), vec2(20.0, 40.0) , 0.0,
+        vector(160.0, 220.0), vector(20.0, 40.0) , 0.0,
         ArcFlags { large_arc: true, sweep: false }
     );
-    path.move_to(vec2(180.0, 180.0));
+    path.move_to(vector(180.0, 180.0));
     path.arc_to(
-        vec2(160.0, 220.0), vec2(20.0, 40.0) , 0.0,
+        vector(160.0, 220.0), vector(20.0, 40.0) , 0.0,
         ArcFlags { large_arc: true, sweep: true }
     );
 
     // a small elliptical arc
-    path.move_to(vec2(260.0, 150.0));
+    path.move_to(vector(260.0, 150.0));
     path.arc_to(
-        vec2(240.0, 190.0), vec2(20.0, 40.0) , 0.0,
+        vector(240.0, 190.0), vector(20.0, 40.0) , 0.0,
         ArcFlags {large_arc: false, sweep: true}
     );
 
@@ -509,9 +509,9 @@ fn test_path_builder_empty_path() {
 #[test]
 fn test_path_builder_empty_sub_path() {
     let mut builder = flattened_path_builder(0.05);
-    builder.move_to(vec2(0.0, 0.0));
-    builder.move_to(vec2(1.0, 0.0));
-    builder.move_to(vec2(2.0, 0.0));
+    builder.move_to(vector(0.0, 0.0));
+    builder.move_to(vector(1.0, 0.0));
+    builder.move_to(vector(2.0, 0.0));
     let _ = builder.build();
 }
 

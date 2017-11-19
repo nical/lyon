@@ -42,7 +42,7 @@ pub fn rasterize_triangles<Constants, Vertex: VertexData, Target>(
         let min_y = max(viewport_min_y, min(v0.y, min(v1.y, v2.y)));
         let max_y = min(viewport_max_y, max(v0.y, max(v1.y, v2.y)));
 
-        let p = int_vec2(min_x, min_y);
+        let p = int_vector(min_x, min_y);
         let (e12_step_x, e12_step_y, mut w0_row) = init_edge(&v1, &v2, &p);
         let (e20_step_x, e20_step_y, mut w1_row) = init_edge(&v2, &v0, &p);
         let (e01_step_x, e01_step_y, mut w2_row) = init_edge(&v0, &v1, &p);
@@ -233,12 +233,12 @@ fn test_rasterizer_simple() {
 
     {
         let vertices = &[
-            vec2(0.0, 0.0),
-            vec2(8.0, 0.0),
-            vec2(0.0, 8.0),
+            vector(0.0, 0.0),
+            vector(8.0, 0.0),
+            vector(0.0, 8.0),
 
-            vec2(15.0, 15.0),
-            vec2(1.0, 15.0),
+            vector(15.0, 15.0),
+            vector(1.0, 15.0),
         ];
 
         let indices = &[
@@ -274,7 +274,7 @@ fn test_rasterizer_simple() {
 }
 
 #[inline]
-pub fn int_vec2(x: i32, y: i32) -> IntVector { vec2(x, y) }
+pub fn int_vector(x: i32, y: i32) -> IntVector { vector(x, y) }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BoolVec4 {

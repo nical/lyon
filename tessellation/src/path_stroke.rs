@@ -291,7 +291,7 @@ impl<'l> StrokeBuilder<'l> {
             self,
             Vertex {
                 position: self.current,
-                normal: vec2(1.0, 1.0),
+                normal: vector(1.0, 1.0),
                 advancement: 0.0,
                 side: Side::Right,
             }
@@ -300,7 +300,7 @@ impl<'l> StrokeBuilder<'l> {
             self,
             Vertex {
                 position: self.current,
-                normal: vec2(1.0, -1.0),
+                normal: vector(1.0, -1.0),
                 advancement: 0.0,
                 side: Side::Left,
             }
@@ -309,7 +309,7 @@ impl<'l> StrokeBuilder<'l> {
             self,
             Vertex {
                 position: self.current,
-                normal: vec2(-1.0, -1.0),
+                normal: vector(-1.0, -1.0),
                 advancement: 0.0,
                 side: Side::Left,
             }
@@ -318,7 +318,7 @@ impl<'l> StrokeBuilder<'l> {
             self,
             Vertex {
                 position: self.current,
-                normal: vec2(-1.0, 1.0),
+                normal: vector(-1.0, 1.0),
                 advancement: 0.0,
                 side: Side::Right,
             }
@@ -333,7 +333,7 @@ impl<'l> StrokeBuilder<'l> {
             self,
             Vertex {
                 position: center,
-                normal: vec2(-1.0, 0.0),
+                normal: vector(-1.0, 0.0),
                 advancement: 0.0,
                 side: Side::Left,
             }
@@ -342,13 +342,13 @@ impl<'l> StrokeBuilder<'l> {
             self,
             Vertex {
                 position: center,
-                normal: vec2(1.0, 0.0),
+                normal: vector(1.0, 0.0),
                 advancement: 0.0,
                 side: Side::Right,
             }
         );
-        self.tessellate_round_cap(center, vec2(0.0, -1.0), left_id, right_id, true);
-        self.tessellate_round_cap(center, vec2(0.0, 1.0), left_id, right_id, false);
+        self.tessellate_round_cap(center, vector(0.0, -1.0), left_id, right_id, true);
+        self.tessellate_round_cap(center, vector(0.0, 1.0), left_id, right_id, false);
     }
 
     fn finish(&mut self) {
@@ -501,7 +501,7 @@ impl<'l> StrokeBuilder<'l> {
         let advancement = self.length;
 
         let quarter_angle = if is_start { -PI * 0.5 } else { PI * 0.5 };
-        let mid_angle = directed_angle(vec2(1.0, 0.0), dir);
+        let mid_angle = directed_angle(vector(1.0, 0.0), dir);
         let left_angle = mid_angle + quarter_angle;
         let right_angle = mid_angle - quarter_angle;
 
@@ -652,8 +652,8 @@ impl<'l> StrokeBuilder<'l> {
         back_vertex: VertexId,
     ) -> (VertexId, VertexId) {
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
-        let prev_normal = vec2(-prev_tangent.y, prev_tangent.x);
-        let next_normal = vec2(-next_tangent.y, next_tangent.x);
+        let prev_normal = vector(-prev_tangent.y, prev_tangent.x);
+        let next_normal = vector(-next_tangent.y, next_tangent.x);
 
         let start_vertex = add_vertex!(
             self,
@@ -703,7 +703,7 @@ impl<'l> StrokeBuilder<'l> {
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
 
         // Calculate the initial front normal
-        let initial_normal = vec2(-prev_tangent.y, prev_tangent.x) * neg_if_right;
+        let initial_normal = vector(-prev_tangent.y, prev_tangent.x) * neg_if_right;
 
         let mut last_vertex = add_vertex!(
             self,
@@ -727,7 +727,7 @@ impl<'l> StrokeBuilder<'l> {
         let mut n = initial_normal;
         for _ in 0..num_segments {
             // incrementally rotate the normal
-            n = vec2(
+            n = vector(
                 n.x * rotation_matrix[0][0] + n.y * rotation_matrix[0][1],
                 n.x * rotation_matrix[1][0] + n.y * rotation_matrix[1][1]
             );
@@ -766,8 +766,8 @@ impl<'l> StrokeBuilder<'l> {
         normal: Vector,
     ) -> (VertexId, VertexId) {
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
-        let prev_normal: Vector = vec2(-prev_tangent.y, prev_tangent.x);
-        let next_normal: Vector = vec2(-next_tangent.y, next_tangent.x);
+        let prev_normal: Vector = vector(-prev_tangent.y, prev_tangent.x);
+        let next_normal: Vector = vector(-next_tangent.y, next_tangent.x);
 
         let (v1, v2) = self.get_clip_intersections(prev_normal, next_normal, normal);
 
@@ -828,7 +828,7 @@ impl<'l> StrokeBuilder<'l> {
         let i1 = l1.intersection(&normal_limit_perp).unwrap();
         let i2 = l2.intersection(&normal_limit_perp).unwrap();
 
-        (vec2(i1.x, i1.y), vec2(i2.x, i2.y))
+        (vector(i1.x, i1.y), vector(i2.x, i2.y))
     }
 }
 
@@ -870,7 +870,7 @@ fn tess_round_cap(
 
     let mid_angle = (angle.0 + angle.1) * 0.5;
 
-    let normal = vec2(mid_angle.cos(), mid_angle.sin());
+    let normal = vector(mid_angle.cos(), mid_angle.sin());
 
     let vertex = output.add_vertex(Vertex {
         position: center + normal * line_width,

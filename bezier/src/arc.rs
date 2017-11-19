@@ -2,7 +2,7 @@
 
 use std::f32::*;
 
-use {Point, point2, Vector, vec2, Transform2D, Radians, Line};
+use {Point, point, Vector, vector, Transform2D, Radians, Line};
 use utils::directed_angle;
 
 pub struct SvgArc {
@@ -67,22 +67,22 @@ impl Arc {
         let transformed_cy = -coe * rypx / rx;
 
         // F6.5.3
-        let center = point2(
+        let center = point(
             cos_phi * transformed_cx - sin_phi * transformed_cy + hs_x,
             sin_phi * transformed_cx + cos_phi * transformed_cy + hs_y
         );
 
-        let a = vec2(
+        let a = vector(
             (p.x - transformed_cx) / rx,
             (p.y - transformed_cy) / ry,
         );
         // TODO
-        let b = -vec2(
+        let b = -vector(
             (-p.x - transformed_cx) / rx,
             (-p.y - transformed_cy) / ry,
         );
 
-        let start_angle = Radians::new(directed_angle(vec2(1.0, 0.0), a));
+        let start_angle = Radians::new(directed_angle(vector(1.0, 0.0), a));
 
         let sign_delta = if arc.flags.sweep { 1.0 } else { -1.0 };
         let sweep_angle = Radians::new(sign_delta * (directed_angle(a, b).abs() % (2.0 * consts::PI)));
@@ -108,7 +108,7 @@ impl Arc {
     pub fn tangent_at_angle(&self, angle: Radians) -> Vector {
         let a = angle.get();
         Transform2D::create_rotation(self.x_rotation).transform_vector(
-            &vec2(-self.radii.x * a.sin(), self.radii.y * a.cos())
+            &vector(-self.radii.x * a.sin(), self.radii.y * a.cos())
         )
     }
 }
@@ -162,6 +162,6 @@ fn arc_to_to_quadratic_beziers<F: FnMut(Point, Point)>(
 
 fn sample_ellipse(radii: Vector, x_rotation: Radians, angle: Radians) -> Point {
     Transform2D::create_rotation(x_rotation).transform_point(
-        &point2(radii.x * angle.get().cos(), radii.y * angle.get().sin())
+        &point(radii.x * angle.get().cos(), radii.y * angle.get().sin())
     )
 }

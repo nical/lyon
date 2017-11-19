@@ -86,8 +86,8 @@ fn main() {
         140 => {
             vertex: "
                 #version 140
-                in vec2 a_position;
-                out vec2 v_position;
+                in vector a_position;
+                out vector v_position;
                 void main() {
                     gl_Position = vec4(a_position, 0.0, 1.0);
                     v_position = a_position;
@@ -95,11 +95,11 @@ fn main() {
             ",
             fragment: "
                 #version 140
-                uniform vec2 u_resolution;
-                in vec2 v_position;
+                uniform vector u_resolution;
+                in vector v_position;
                 out vec4 f_color;
                 void main() {
-                    vec2 px_position = (v_position * vec2(1.0, -1.0)    + vec2(1.0, 1.0))
+                    vector px_position = (v_position * vector(1.0, -1.0)    + vector(1.0, 1.0))
                                      * 0.5 * u_resolution;
                     // #005fa4
                     float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
@@ -129,9 +129,9 @@ fn main() {
         140 => {
             vertex: "
                 #version 140
-                uniform vec2 u_resolution;
+                uniform vector u_resolution;
                 uniform mat4 u_matrix;
-                in vec2 a_position;
+                in vector a_position;
                 in vec3 a_color;
                 out vec3 v_color;
                 void main() {
@@ -161,14 +161,14 @@ fn main() {
         let mut target = display.draw();
 
         let (w, h) = target.get_dimensions();
-        let resolution: Vector = vec2(w as f32, h as f32);
+        let resolution: Vector = vector(w as f32, h as f32);
 
         let model_mat = Transform3D::identity();
         let view_mat = Transform3D::identity()
-            .pre_translate(vec3(-1.0, 1.0, 0.0))
+            .pre_translate(vector3d(-1.0, 1.0, 0.0))
             .pre_scale(5.0 * zoom, 5.0 * zoom, 0.0)
             .pre_scale(2.0/resolution.x, -2.0/resolution.y, 1.0)
-            .pre_translate(vec3(pos.x, pos.y, 0.0));
+            .pre_translate(vector3d(pos.x, pos.y, 0.0));
 
         let uniforms = uniform! {
             u_resolution: resolution.to_array(),

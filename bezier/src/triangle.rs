@@ -110,7 +110,7 @@ impl Triangle {
 }
 
 #[cfg(test)]
-use euclid::point2 as point;
+use point;
 
 #[test]
 fn test_triangle_contains() {

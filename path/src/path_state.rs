@@ -1,5 +1,5 @@
 
-use math::{Point, Vector, point, vec2};
+use math::{Point, Vector, point, vector};
 
 use events::{PathEvent, SvgEvent, FlattenedEvent};
 
@@ -71,11 +71,11 @@ impl PathState {
                 self.line_to(to);
             }
             SvgEvent::RelativeHorizontalLineTo(x) => {
-                let to = self.current + vec2(x, 0.0);
+                let to = self.current + vector(x, 0.0);
                 self.line_to(to);
             }
             SvgEvent::RelativeVerticalLineTo(y) => {
-                let to = self.current + vec2(0.0, y);
+                let to = self.current + vector(0.0, y);
                 self.line_to(to);
             }
             SvgEvent::SmoothQuadraticTo(to) => {

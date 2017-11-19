@@ -104,7 +104,7 @@ fn main() {
 
     let line = Line {
         point: point(5.0, 20.0),
-        vector: vec2(100.0, 45.0),
+        vector: vector(100.0, 45.0),
     };
 
     let intersections = bezier.line_intersections(&line);
@@ -319,8 +319,8 @@ fn main() {
     let mut scene = SceneParams {
         target_zoom: 5.0,
         zoom: 0.5,
-        target_scroll: vec2(70.0, 70.0),
-        scroll: vec2(70.0, 70.0),
+        target_scroll: vector(70.0, 70.0),
+        scroll: vector(70.0, 70.0),
         show_points: false,
         show_wireframe: false,
         stroke_width: 0.0,
@@ -518,8 +518,8 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
 
 static BACKGROUND_VERTEX_SHADER: &'static str = "
     #version 140
-    in vec2 a_position;
-    out vec2 v_position;
+    in vector a_position;
+    out vector v_position;
 
     void main() {
         gl_Position = vec4(a_position, 1.0, 1.0);
@@ -532,15 +532,15 @@ static BACKGROUND_VERTEX_SHADER: &'static str = "
 static BACKGROUND_FRAGMENT_SHADER: &'static str = "
     #version 140
     uniform Globals {
-        vec2 u_resolution;
-        vec2 u_scroll_offset;
+        vector u_resolution;
+        vector u_scroll_offset;
         float u_zoom;
     };
-    in vec2 v_position;
+    in vector v_position;
     out vec4 out_color;
 
     void main() {
-        vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
+        vector px_position = v_position * vector(1.0, -1.0) * u_resolution * 0.5;
 
         // #005fa4
         float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
@@ -556,7 +556,7 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = "
             grid_scale = 1.0;
         }
 
-        vec2 pos = px_position + u_scroll_offset * u_zoom;
+        vector pos = px_position + u_scroll_offset * u_zoom;
 
         if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
             mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
