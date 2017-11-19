@@ -351,8 +351,8 @@ fn main() {
     let mut scene = SceneParams {
         target_zoom: 5.0,
         zoom: 0.5,
-        target_scroll: vec2(70.0, 70.0),
-        scroll: vec2(70.0, 70.0),
+        target_scroll: vector(70.0, 70.0),
+        scroll: vector(70.0, 70.0),
         show_points: false,
         show_wireframe: false,
         stroke_width: 0.0,

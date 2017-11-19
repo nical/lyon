@@ -189,7 +189,7 @@
 //! ```
 //! use lyon_tessellation::geometry_builder::*;
 //! use lyon_tessellation::FillVertex;
-//! use lyon_tessellation::math::{Rect, vec2};
+//! use lyon_tessellation::math::{Rect, vector};
 //!
 //! // A tessellator that generates an axis-aligned quad.
 //! // Returns a structure containing the number of vertices and number of indices allocated
@@ -201,16 +201,16 @@
 //!     output.begin_geometry();
 //!     // Create the vertices...
 //!     let a = output.add_vertex(
-//!         FillVertex { position: rect.origin, normal: vec2(-1.0, -1.0) }
+//!         FillVertex { position: rect.origin, normal: vector(-1.0, -1.0) }
 //!     );
 //!     let b = output.add_vertex(
-//!         FillVertex { position: rect.top_right(), normal: vec2(1.0, -1.0) }
+//!         FillVertex { position: rect.top_right(), normal: vector(1.0, -1.0) }
 //!     );
 //!     let c = output.add_vertex(
-//!         FillVertex { position: rect.bottom_right(), normal: vec2(1.0, 1.0) }
+//!         FillVertex { position: rect.bottom_right(), normal: vector(1.0, 1.0) }
 //!     );
 //!     let d = output.add_vertex(
-//!         FillVertex { position: rect.bottom_left(), normal: vec2(-1.0, 1.0) }
+//!         FillVertex { position: rect.bottom_left(), normal: vector(-1.0, 1.0) }
 //!     );
 //!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
 //!     // vertex buffer.
@@ -610,9 +610,9 @@ fn test_simple_quad() {
 
 #[test]
 fn test_closure() {
-    use math::{Point, point, vec2};
+    use math::{Point, point, vector};
 
-    let translation = vec2(1.0, 0.0);
+    let translation = vector(1.0, 0.0);
 
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
 

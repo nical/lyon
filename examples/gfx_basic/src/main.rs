@@ -40,7 +40,7 @@ impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
         GpuFillVertex {
             // (ugly hack) tweak the vertext position so that the logo fits roughly
             // within the (-1.0, 1.0) range.
-            position: (vertex.position * 0.0145 - vec2(1.0, 1.0)).to_array(),
+            position: (vertex.position * 0.0145 - vector(1.0, 1.0)).to_array(),
         }
     }
 }
@@ -152,7 +152,7 @@ pub static VERTEX_SHADER: &'static str = "
     #version 140
     #line 266
 
-    in vec2 a_position;
+    in vector a_position;
 
     out vec4 v_color;
 

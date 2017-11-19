@@ -105,7 +105,7 @@ pub fn compute_normal(v1: Vector, v2: Vector) -> Vector {
 
     let epsilon = 1e-4;
 
-    let n1 = vec2(-v1.y, v1.x);
+    let n1 = vector(-v1.y, v1.x);
 
     let v12 = v1 + v2;
 
@@ -114,7 +114,7 @@ pub fn compute_normal(v1: Vector, v2: Vector) -> Vector {
     }
 
     let tangent = v12.normalize();
-    let n = vec2(-tangent.y, tangent.x);
+    let n = vector(-tangent.y, tangent.x);
 
     let inv_len = n.dot(n1);
 
@@ -133,6 +133,6 @@ fn test_compute_normal() {
         }
     }
 
-    assert_almost_eq(compute_normal(vec2(1.0, 0.0), vec2(0.0, 1.0)), vec2(-1.0, 1.0));
-    assert_almost_eq(compute_normal(vec2(1.0, 0.0), vec2(1.0, 0.0)), vec2(0.0, 1.0));
+    assert_almost_eq(compute_normal(vector(1.0, 0.0), vector(0.0, 1.0)), vector(-1.0, 1.0));
+    assert_almost_eq(compute_normal(vector(1.0, 0.0), vector(1.0, 0.0)), vector(0.0, 1.0));
 }

@@ -142,25 +142,25 @@ pub fn fill_rectangle(
     let a = output.add_vertex(
         FillVertex {
             position: rect.origin,
-            normal: vec2(-1.0, -1.0),
+            normal: vector(-1.0, -1.0),
         }
     );
     let b = output.add_vertex(
         FillVertex {
             position: rect.bottom_left(),
-            normal: vec2(-1.0, 1.0),
+            normal: vector(-1.0, 1.0),
         }
     );
     let c = output.add_vertex(
         FillVertex {
             position: rect.bottom_right(),
-            normal: vec2(1.0, 1.0),
+            normal: vector(1.0, 1.0),
         }
     );
     let d = output.add_vertex(
         FillVertex {
             position: rect.top_right(),
-            normal: vec2(1.0, -1.0),
+            normal: vector(1.0, -1.0),
         }
     );
     output.add_triangle(a, b, c);
@@ -179,7 +179,7 @@ pub fn stroke_rectangle(
     let a1 = output.add_vertex(
         StrokeVertex {
             position: rect.origin,
-            normal: -vec2(-1.0, -1.0),
+            normal: -vector(-1.0, -1.0),
             advancement: 0.0,
             side: Side::Right,
         }
@@ -187,7 +187,7 @@ pub fn stroke_rectangle(
     let a2 = output.add_vertex(
         StrokeVertex {
             position: rect.origin,
-            normal: vec2(-1.0, -1.0),
+            normal: vector(-1.0, -1.0),
             advancement: 0.0,
             side: Side::Left,
         }
@@ -196,7 +196,7 @@ pub fn stroke_rectangle(
     let b1 = output.add_vertex(
         StrokeVertex {
             position: rect.top_right(),
-            normal: -vec2(1.0, -1.0),
+            normal: -vector(1.0, -1.0),
             advancement: 0.0,
             side: Side::Right,
         }
@@ -204,7 +204,7 @@ pub fn stroke_rectangle(
     let b2 = output.add_vertex(
         StrokeVertex {
             position: rect.top_right(),
-            normal: vec2(1.0, -1.0),
+            normal: vector(1.0, -1.0),
             advancement: 0.0,
             side: Side::Left,
         }
@@ -213,7 +213,7 @@ pub fn stroke_rectangle(
     let c1 = output.add_vertex(
         StrokeVertex {
             position: rect.bottom_right(),
-            normal: -vec2(1.0, 1.0),
+            normal: -vector(1.0, 1.0),
             advancement: 0.0,
             side: Side::Right,
         }
@@ -221,7 +221,7 @@ pub fn stroke_rectangle(
     let c2 = output.add_vertex(
         StrokeVertex {
             position: rect.bottom_right(),
-            normal: vec2(1.0, 1.0),
+            normal: vector(1.0, 1.0),
             advancement: 0.0,
             side: Side::Left,
         }
@@ -230,7 +230,7 @@ pub fn stroke_rectangle(
     let d1 = output.add_vertex(
         StrokeVertex {
             position: rect.bottom_left(),
-            normal: -vec2(1.0, 0.0),
+            normal: -vector(1.0, 0.0),
             advancement: 0.0,
             side: Side::Right,
         }
@@ -238,7 +238,7 @@ pub fn stroke_rectangle(
     let d2 = output.add_vertex(
         StrokeVertex {
             position: rect.bottom_left(),
-            normal: vec2(1.0, 0.0),
+            normal: vector(1.0, 0.0),
             advancement: 0.0,
             side: Side::Left,
         }
@@ -349,10 +349,10 @@ pub fn fill_rounded_rectangle(
     let p3 = point(x_max, y_min + tr);
     let p4 = point(x_max, y_max - br);
 
-    let up = vec2(0.0, -1.0);
-    let down = vec2(0.0, 1.0);
-    let left = vec2(-1.0, 0.0);
-    let right = vec2(1.0, 0.0);
+    let up = vector(0.0, -1.0);
+    let down = vector(0.0, 1.0);
+    let left = vector(-1.0, 0.0);
+    let right = vector(1.0, 0.0);
 
 
     let v = [
@@ -430,7 +430,7 @@ fn fill_border_radius(
 
     let mid_angle = (angle.0 + angle.1) * 0.5;
 
-    let normal = vec2(mid_angle.cos(), mid_angle.sin());
+    let normal = vector(mid_angle.cos(), mid_angle.sin());
     let pos = center + normal * radius;
 
     let vertex = output.add_vertex(FillVertex {
@@ -584,10 +584,10 @@ pub fn fill_circle(
         return output.end_geometry();
     }
 
-    let up = vec2(0.0, -1.0);
-    let down = vec2(0.0, 1.0);
-    let left = vec2(-1.0, 0.0);
-    let right = vec2(1.0, 0.0);
+    let up = vector(0.0, -1.0);
+    let down = vector(0.0, 1.0);
+    let left = vector(-1.0, 0.0);
+    let right = vector(1.0, 0.0);
 
     let v = [
         output.add_vertex(FillVertex {
@@ -655,7 +655,7 @@ pub fn stroke_circle<Output>(
     }
 
     let angle = (0.0, 2.0 * PI);
-    let starting_point = center + vec2(1.0, 0.0) * radius;
+    let starting_point = center + vector(1.0, 0.0) * radius;
 
     let arc_len = 2.0 * PI * radius;
     let step = circle_flattening_step(radius, options.tolerance);
@@ -690,7 +690,7 @@ fn stroke_border_radius(
 
     for i in 1..num_points + 1 {
         let new_angle = i as f32 * (angle_size) / (num_points + 1) as f32 + starting_angle;
-        let normal = vec2(new_angle.cos(), new_angle.sin());
+        let normal = vector(new_angle.cos(), new_angle.sin());
 
         builder.line_to(center + normal * radius)
     }

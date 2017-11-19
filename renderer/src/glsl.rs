@@ -11,7 +11,7 @@ pub static FILL_VERTEX_SHADER: &'static str = &"
     #define PRIM_BUFFER_LEN 64
 
     uniform Globals {
-        vec2 u_resolution;
+        vector u_resolution;
     };
 
     struct GpuTransform { mat4 transform; };
@@ -26,8 +26,8 @@ pub static FILL_VERTEX_SHADER: &'static str = &"
     };
     uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
 
-    in vec2 a_position;
-    in vec2 a_normal;
+    in vector a_position;
+    in vector a_normal;
     in int a_prim_id;
 
     out vec4 v_color;
@@ -41,7 +41,7 @@ pub static FILL_VERTEX_SHADER: &'static str = &"
             * transforms[prim.local_transform].transform
             * local_pos;
 
-        vec2 transformed_pos = world_pos.xy / (vec2(0.5, -0.5) * u_resolution * world_pos.w);
+        vector transformed_pos = world_pos.xy / (vector(0.5, -0.5) * u_resolution * world_pos.w);
 
         gl_Position = vec4(transformed_pos, 1.0 - prim.z_index, 1.0);
         v_color = prim.color;
@@ -55,7 +55,7 @@ pub static STROKE_VERTEX_SHADER: &'static str = &"
     #define PRIM_BUFFER_LEN 64
 
     uniform Globals {
-        vec2 u_resolution;
+        vector u_resolution;
     };
 
     struct GpuTransform { mat4 transform; };
@@ -70,8 +70,8 @@ pub static STROKE_VERTEX_SHADER: &'static str = &"
     };
     uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
 
-    in vec2 a_position;
-    in vec2 a_normal;
+    in vector a_position;
+    in vector a_normal;
     in float a_advancement;
     in int a_prim_id;
 
@@ -87,7 +87,7 @@ pub static STROKE_VERTEX_SHADER: &'static str = &"
             * transforms[prim.local_transform].transform
             * local_pos;
 
-        vec2 transformed_pos = world_pos.xy / (vec2(0.5, -0.5) * u_resolution * world_pos.w);
+        vector transformed_pos = world_pos.xy / (vector(0.5, -0.5) * u_resolution * world_pos.w);
 
         gl_Position = vec4(transformed_pos, 1.0 - prim.z_index, 1.0);
         v_color = prim.color;

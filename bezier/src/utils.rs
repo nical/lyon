@@ -1,10 +1,10 @@
-use {Point, Vector, vec2};
+use {Point, Vector, vector};
 use std::f32::consts::PI;
 use arrayvec::ArrayVec;
 
 #[inline]
 pub fn tangent(v: Vector) -> Vector {
-    vec2(-v.y, v.x)
+    vector(-v.y, v.x)
 }
 
 #[inline]

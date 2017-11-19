@@ -1,5 +1,4 @@
-use {Point, Vector, vec2, Rect, Size, Transform2D};
-use euclid::point2 as point;
+use {Point, point, Vector, vector, Rect, Size, Transform2D};
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -113,10 +112,10 @@ impl LineSegment {
         // parameter and chose depending on that.
 
         use euclid::Vector2D;
-        fn vec2_f64(v: Vector) -> Vector2D<f64> { vec2( v.x as f64, v.y as f64) }
+        fn vector_f64(v: Vector) -> Vector2D<f64> { vector( v.x as f64, v.y as f64) }
 
-        let v1 = vec2_f64(self.to_vector());
-        let v2 = vec2_f64(-other.to_vector());
+        let v1 = vector_f64(self.to_vector());
+        let v2 = vector_f64(-other.to_vector());
 
         let v1_cross_v2 = v1.cross(v2);
 
@@ -125,7 +124,7 @@ impl LineSegment {
             return None;
         }
 
-        let v3 = vec2_f64(other.to - self.from);
+        let v3 = vector_f64(other.to - self.from);
 
         let sign_v1_cross_v2 = v1_cross_v2.signum();
         let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
@@ -205,13 +204,13 @@ fn fuzzy_eq_f32(a: f32, b: f32, epsilon: f32) -> bool {
 }
 
 #[cfg(test)]
-fn fuzzy_eq_vec2(a: Vector, b: Vector, epsilon: f32) -> bool {
+fn fuzzy_eq_vector(a: Vector, b: Vector, epsilon: f32) -> bool {
     fuzzy_eq_f32(a.x, b.x, epsilon) && fuzzy_eq_f32(a.y, b.y, epsilon)
 }
 
 #[cfg(test)]
 fn fuzzy_eq_point(a: Point, b: Point, epsilon: f32) -> bool {
-    fuzzy_eq_vec2(a.to_vector(), b.to_vector(), epsilon)
+    fuzzy_eq_vector(a.to_vector(), b.to_vector(), epsilon)
 }
 
 #[test]

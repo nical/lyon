@@ -105,4 +105,6 @@ pub use triangle::{Triangle};
 pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
 
-use euclid::{vec2, point2, rect};
+pub use euclid::rect;
+pub use euclid::vec2 as vector;
+pub use euclid::point2 as point;

@@ -32,13 +32,13 @@
 //! ```
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
-//! use lyon_path::math::{point, vec2};
+//! use lyon_path::math::{point, vector};
 //! use lyon_path::{PathEvent, SvgEvent, FlattenedEvent};
 //!
 //! fn main() {
 //!     let events = vec![
 //!         SvgEvent::MoveTo(point(1.0, 1.0)),
-//!         SvgEvent::RelativeQuadraticTo(vec2(4.0, 5.0), vec2(-1.0, 4.0)),
+//!         SvgEvent::RelativeQuadraticTo(vector(4.0, 5.0), vector(-1.0, 4.0)),
 //!         SvgEvent::SmoothCubicTo(point(3.0, 1.0), point(10.0, -3.0)),
 //!         SvgEvent::Close,
 //!     ];
@@ -81,13 +81,13 @@
 //! ```
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
-//! use lyon_path::math::{point, vec2};
+//! use lyon_path::math::{point, vector};
 //! use lyon_path::SvgEvent;
 //!
 //! fn main() {
 //!     let events = vec![
 //!         SvgEvent::MoveTo(point(1.0, 1.0)),
-//!         SvgEvent::RelativeQuadraticTo(vec2(4.0, 5.0), vec2(-1.0, 4.0)),
+//!         SvgEvent::RelativeQuadraticTo(vector(4.0, 5.0), vector(-1.0, 4.0)),
 //!         SvgEvent::SmoothCubicTo(point(3.0, 1.0), point(10.0, -3.0)),
 //!         SvgEvent::Close,
 //!     ];

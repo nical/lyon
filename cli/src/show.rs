@@ -112,8 +112,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut scene = SceneParams {
         target_zoom: 1.0,
         zoom: 0.1,
-        target_scroll: vec2(0.0, 0.0),
-        scroll: vec2(0.0, 0.0),
+        target_scroll: vector(0.0, 0.0),
+        scroll: vector(0.0, 0.0),
         show_points: false,
         show_wireframe: false,
         stroke_width,

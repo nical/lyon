@@ -557,11 +557,11 @@ impl FillTessellator {
         }
 
         let mut vertex_id = if self.compute_normals {
-            let vec2_position = to_f32_point(self.current_position);
+            let vector_position = to_f32_point(self.current_position);
             output.add_vertex(
                 Vertex {
-                    position: vec2_position,
-                    normal: vec2(0.0, 0.0),
+                    position: vector_position,
+                    normal: vector(0.0, 0.0),
                 }
             )
         } else {
@@ -950,9 +950,9 @@ impl FillTessellator {
 
             self.insert_span(left_span, l2_upper, l2_id);
 
-            let vec2_position = to_f32_point(self.current_position);
-            self.monotone_tessellators[left_span].vertex(vec2_position, id, Side::Right);
-            self.monotone_tessellators[right_span].vertex(vec2_position, id, Side::Left);
+            let vector_position = to_f32_point(self.current_position);
+            self.monotone_tessellators[left_span].vertex(vector_position, id, Side::Right);
+            self.monotone_tessellators[right_span].vertex(vector_position, id, Side::Left);
         }
     }
 
@@ -973,13 +973,13 @@ impl FillTessellator {
         //   x-'      <-- current merge vertex
         self.resolve_merge_vertices(right_span_edge, id, output);
 
-        let vec2_position = to_f32_point(self.current_position);
+        let vector_position = to_f32_point(self.current_position);
 
         self.active_edges[left_span_edge].merge_vertex(self.current_position, id);
         self.active_edges[right_span_edge].merge_vertex(self.current_position, id);
 
-        self.monotone_tessellators[span_for_edge(left_span_edge)].vertex(vec2_position, id, Side::Right);
-        self.monotone_tessellators[span_for_edge(right_span_edge)].vertex(vec2_position, id, Side::Left);
+        self.monotone_tessellators[span_for_edge(left_span_edge)].vertex(vector_position, id, Side::Right);
+        self.monotone_tessellators[span_for_edge(right_span_edge)].vertex(vector_position, id, Side::Left);
     }
 
     fn insert_edge(
@@ -1001,8 +1001,8 @@ impl FillTessellator {
         self.active_edges[edge_idx] = self.pending_edges[pending_edge_id].to_active_edge(upper, id);
 
         let side = if even(edge_idx) { Side::Left } else { Side::Right };
-        let vec2_position = to_f32_point(upper);
-        self.monotone_tessellators[span_for_edge(edge_idx)].vertex(vec2_position, id, side);
+        let vector_position = to_f32_point(upper);
+        self.monotone_tessellators[span_for_edge(edge_idx)].vertex(vector_position, id, side);
     }
 
     fn handle_intersections(&mut self, new_edge_idx: usize) {
@@ -1094,10 +1094,10 @@ impl FillTessellator {
         debug_assert!(even(edge_idx));
         let span_idx = span_for_edge(edge_idx);
 
-        let vec2_position = to_f32_point(self.current_position);
+        let vector_position = to_f32_point(self.current_position);
         {
             let tess = &mut self.monotone_tessellators[span_idx];
-            tess.end(vec2_position, id);
+            tess.end(vector_position, id);
             tess.flush(output);
         }
 
@@ -1374,7 +1374,7 @@ fn to_internal(v: Point) -> TessPoint { TessPoint::new(fixed(v.x), fixed(v.y)) }
 #[inline]
 fn to_f32_point(v: TessPoint) -> Point { point(v.x.to_f32(), v.y.to_f32()) }
 #[inline]
-fn to_f32_vec2(v: TessVector) -> Vector { vec2(v.x.to_f32(), v.y.to_f32()) }
+fn to_f32_vector(v: TessVector) -> Vector { vector(v.x.to_f32(), v.y.to_f32()) }
 
 #[inline]
 fn edge_angle(v: TessVector) -> f32 {
@@ -2413,12 +2413,12 @@ fn n_segments_intersecting() {
         let n = i * 4 - 1;
         let delta = PI / n as f32;
         let mut radius = 1000.0;
-        builder.move_to(center + vec2(radius, 0.0));
-        builder.line_to(center - vec2(-radius, 0.0));
+        builder.move_to(center + vector(radius, 0.0));
+        builder.line_to(center - vector(-radius, 0.0));
         for i in 0..n {
             let (s, c) = (i as f32 * delta).sin_cos();
-            builder.line_to(center + vec2(c, s) * radius);
-            builder.line_to(center - vec2(c, s) * radius);
+            builder.line_to(center + vector(c, s) * radius);
+            builder.line_to(center - vector(c, s) * radius);
             radius = -radius;
         }
         builder.close();
