@@ -1,4 +1,4 @@
-use {Point, Vec2, vec2, Rect, Size, Transform2D};
+use {Point, Vector, vec2, Rect, Size, Transform2D};
 use euclid::point2 as point;
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
@@ -70,7 +70,7 @@ impl LineSegment {
 
     /// Returns the vector between this segment's `from` and `to` points.
     #[inline]
-    pub fn to_vector(&self) -> Vec2 {
+    pub fn to_vector(&self) -> Vector {
         self.to - self.from
     }
 
@@ -90,7 +90,7 @@ impl LineSegment {
     }
 
     #[inline]
-    pub fn translate(&mut self, by: Vec2) -> Self {
+    pub fn translate(&mut self, by: Vector) -> Self {
         LineSegment {
             from: self.from + by,
             to: self.to + by,
@@ -113,7 +113,7 @@ impl LineSegment {
         // parameter and chose depending on that.
 
         use euclid::Vector2D;
-        fn vec2_f64(v: Vec2) -> Vector2D<f64> { vec2( v.x as f64, v.y as f64) }
+        fn vec2_f64(v: Vector) -> Vector2D<f64> { vec2( v.x as f64, v.y as f64) }
 
         let v1 = vec2_f64(self.to_vector());
         let v2 = vec2_f64(-other.to_vector());
@@ -174,7 +174,7 @@ impl LineSegment {
 #[derive(Copy, Clone, Debug)]
 pub struct Line {
     pub point: Point,
-    pub vector: Vec2,
+    pub vector: Vector,
 }
 
 impl Line {
@@ -205,7 +205,7 @@ fn fuzzy_eq_f32(a: f32, b: f32, epsilon: f32) -> bool {
 }
 
 #[cfg(test)]
-fn fuzzy_eq_vec2(a: Vec2, b: Vec2, epsilon: f32) -> bool {
+fn fuzzy_eq_vec2(a: Vector, b: Vector, epsilon: f32) -> bool {
     fuzzy_eq_f32(a.x, b.x, epsilon) && fuzzy_eq_f32(a.y, b.y, epsilon)
 }
 

@@ -1,26 +1,26 @@
-use math::{Point, Vec2, Radians};
+use math::{Point, Vector, Radians};
 use super::ArcFlags;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SvgEvent {
     MoveTo(Point),
-    RelativeMoveTo(Vec2),
+    RelativeMoveTo(Vector),
     LineTo(Point),
-    RelativeLineTo(Vec2),
+    RelativeLineTo(Vector),
     QuadraticTo(Point, Point),
-    RelativeQuadraticTo(Vec2, Vec2),
+    RelativeQuadraticTo(Vector, Vector),
     CubicTo(Point, Point, Point),
-    RelativeCubicTo(Vec2, Vec2, Vec2),
-    ArcTo(Vec2, Radians<f32>, ArcFlags, Point),
-    RelativeArcTo(Vec2, Radians<f32>, ArcFlags, Vec2),
+    RelativeCubicTo(Vector, Vector, Vector),
+    ArcTo(Vector, Radians<f32>, ArcFlags, Point),
+    RelativeArcTo(Vector, Radians<f32>, ArcFlags, Vector),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
     RelativeHorizontalLineTo(f32),
     RelativeVerticalLineTo(f32),
     SmoothQuadraticTo(Point),
-    SmoothRelativeQuadraticTo(Vec2),
+    SmoothRelativeQuadraticTo(Vector),
     SmoothCubicTo(Point, Point),
-    SmoothRelativeCubicTo(Vec2, Vec2),
+    SmoothRelativeCubicTo(Vector, Vector),
     Close,
 }
 

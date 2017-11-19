@@ -698,7 +698,7 @@ fn stroke_border_radius(
 
 pub fn fill_ellipse(
     center: Point,
-    radii: Vec2,
+    radii: Vector,
     x_rotation: Radians,
     tolerance: f32,
     output: &mut GeometryBuilder<FillVertex>,
@@ -737,7 +737,7 @@ pub fn fill_ellipse(
 
 pub fn stroke_ellipse(
     center: Point,
-    radii: Vec2,
+    radii: Vector,
     x_rotation: Radians,
     options: &StrokeOptions,
     output: &mut GeometryBuilder<StrokeVertex>,

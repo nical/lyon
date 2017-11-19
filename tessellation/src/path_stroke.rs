@@ -135,7 +135,7 @@ pub struct StrokeBuilder<'l> {
     previous_right_id: VertexId,
     second_left_id: VertexId,
     second_right_id: VertexId,
-    prev_normal: Vec2,
+    prev_normal: Vector,
     nth: u32,
     length: f32,
     sub_path_start_length: f32,
@@ -216,7 +216,7 @@ impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
         self.previous = Point::new(0.0, 0.0);
         self.current = Point::new(0.0, 0.0);
         self.second = Point::new(0.0, 0.0);
-        self.prev_normal = Vec2::new(0.0, 0.0);
+        self.prev_normal = Vector::new(0.0, 0.0);
         self.nth = 0;
         self.length = 0.0;
         self.sub_path_start_length = 0.0;
@@ -270,7 +270,7 @@ impl<'l> StrokeBuilder<'l> {
             second: zero,
             previous: zero,
             current: zero,
-            prev_normal: Vec2::new(0.0, 0.0),
+            prev_normal: Vector::new(0.0, 0.0),
             previous_left_id: VertexId(0),
             previous_right_id: VertexId(0),
             second_left_id: VertexId(0),
@@ -482,7 +482,7 @@ impl<'l> StrokeBuilder<'l> {
     fn tessellate_round_cap(
         &mut self,
         center: Point,
-        dir: Vec2,
+        dir: Vector,
         left: VertexId,
         right: VertexId,
         is_start: bool,
@@ -555,8 +555,8 @@ impl<'l> StrokeBuilder<'l> {
     }
 
     fn tessellate_join(&mut self,
-        prev_tangent: Vec2,
-        next_tangent: Vec2,
+        prev_tangent: Vector,
+        next_tangent: Vector,
         mut join_type: LineJoin,
     ) -> (VertexId, VertexId, VertexId, VertexId) {
         // This function needs to differentiate the "front" of the join (aka. the pointy side)
@@ -646,8 +646,8 @@ impl<'l> StrokeBuilder<'l> {
 
     fn tessellate_bevel_join(
         &mut self,
-        prev_tangent: Vec2,
-        next_tangent: Vec2,
+        prev_tangent: Vector,
+        next_tangent: Vector,
         front_side: Side,
         back_vertex: VertexId,
     ) -> (VertexId, VertexId) {
@@ -687,8 +687,8 @@ impl<'l> StrokeBuilder<'l> {
 
     fn tessellate_round_join(
         &mut self,
-        prev_tangent: Vec2,
-        next_tangent: Vec2,
+        prev_tangent: Vector,
+        next_tangent: Vector,
         front_side: Side,
         back_vertex: VertexId,
     ) -> (VertexId, VertexId) {
@@ -759,15 +759,15 @@ impl<'l> StrokeBuilder<'l> {
 
     fn tessellate_miter_clip_join(
         &mut self,
-        prev_tangent: Vec2,
-        next_tangent: Vec2,
+        prev_tangent: Vector,
+        next_tangent: Vector,
         front_side: Side,
         back_vertex: VertexId,
-        normal: Vec2,
+        normal: Vector,
     ) -> (VertexId, VertexId) {
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
-        let prev_normal: Vec2 = vec2(-prev_tangent.y, prev_tangent.x);
-        let next_normal: Vec2 = vec2(-next_tangent.y, next_tangent.x);
+        let prev_normal: Vector = vec2(-prev_tangent.y, prev_tangent.x);
+        let next_normal: Vector = vec2(-next_tangent.y, next_tangent.x);
 
         let (v1, v2) = self.get_clip_intersections(prev_normal, next_normal, normal);
 
@@ -803,11 +803,11 @@ impl<'l> StrokeBuilder<'l> {
         (start_vertex, last_vertex)
     }
 
-    fn miter_limit_is_exceeded(&self, normal: Vec2 ) -> bool {
+    fn miter_limit_is_exceeded(&self, normal: Vector ) -> bool {
         normal.square_length() > self.options.miter_limit * self.options.miter_limit
     }
 
-    fn get_clip_intersections(&self, prev_normal: Vec2, next_normal: Vec2, normal: Vec2) -> (Vec2, Vec2) {
+    fn get_clip_intersections(&self, prev_normal: Vector, next_normal: Vector, normal: Vector) -> (Vector, Vector) {
         let miter_length = self.options.miter_limit * self.options.line_width;
         let normal_limit = normal.normalize() * miter_length;
 
@@ -838,7 +838,7 @@ pub fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
     ((radius * radius - t * t) * 4.0).sqrt() / radius
 }
 
-fn get_join_angle(prev_tangent: Vec2, next_tangent: Vec2) -> f32 {
+fn get_join_angle(prev_tangent: Vector, next_tangent: Vector) -> f32 {
     let mut join_angle = fast_atan2(prev_tangent.y, prev_tangent.x) - fast_atan2(next_tangent.y, next_tangent.x);
 
     // Make sure to stay within the [-Pi, Pi] range.

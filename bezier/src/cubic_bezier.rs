@@ -1,4 +1,4 @@
-use {Point, Vec2, Rect, rect, Line, LineSegment, Transform2D};
+use {Point, Vector, Rect, rect, Line, LineSegment, Transform2D};
 use up_to_two::UpToTwo;
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
@@ -72,7 +72,7 @@ impl CubicBezierSegment {
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
-    pub fn sample_derivative(&self, t: f32) -> Vec2 {
+    pub fn sample_derivative(&self, t: f32) -> Vector {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.to_vector() * c0 +
             self.ctrl1.to_vector() * c1 +

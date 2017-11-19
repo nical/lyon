@@ -1,5 +1,5 @@
 use {CubicBezierSegment};
-use {Point, Vec2, Rect, rect, Triangle, Line, LineSegment, Transform2D};
+use {Point, Vector, Rect, rect, Triangle, Line, LineSegment, Transform2D};
 use std::mem::swap;
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 use arrayvec::ArrayVec;
@@ -47,7 +47,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
-    pub fn sample_derivative(&self, t: f32) -> Vec2 {
+    pub fn sample_derivative(&self, t: f32) -> Vector {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.to_vector() * c0 + self.ctrl.to_vector() * c1 + self.to.to_vector() * c2
     }

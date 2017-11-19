@@ -161,26 +161,26 @@ pub trait PathBuilder: FlatPathBuilder {
 /// A path building interface that tries to stay close to SVG's path specification.
 /// https://svgwg.org/specs/paths/
 pub trait SvgBuilder: PathBuilder {
-    fn relative_move_to(&mut self, to: Vec2);
-    fn relative_line_to(&mut self, to: Vec2);
-    fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2);
-    fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2);
+    fn relative_move_to(&mut self, to: Vector);
+    fn relative_line_to(&mut self, to: Vector);
+    fn relative_quadratic_bezier_to(&mut self, ctrl: Vector, to: Vector);
+    fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector);
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point);
-    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vec2, to: Vec2);
+    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vector, to: Vector);
     fn smooth_quadratic_bezier_to(&mut self, to: Point);
-    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vec2);
+    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vector);
     fn horizontal_line_to(&mut self, x: f32);
     fn relative_horizontal_line_to(&mut self, dx: f32);
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc_to(&mut self, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags, to: Point);
+    fn arc_to(&mut self, radii: Vector, x_rotation: Radians<f32>, flags: ArcFlags, to: Point);
     fn relative_arc_to(
         &mut self,
-        radii: Vec2,
+        radii: Vector,
         x_rotation: Radians<f32>,
         flags: ArcFlags,
-        to: Vec2,
+        to: Vector,
     );
 
     fn svg_event(&mut self, event: SvgEvent) {
@@ -308,22 +308,22 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
 }
 
 impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
-    fn relative_move_to(&mut self, to: Vec2) {
+    fn relative_move_to(&mut self, to: Vector) {
         let offset = self.builder.current_position();
         self.move_to(offset + to);
     }
 
-    fn relative_line_to(&mut self, to: Vec2) {
+    fn relative_line_to(&mut self, to: Vector) {
         let offset = self.builder.current_position();
         self.line_to(offset + to);
     }
 
-    fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
+    fn relative_quadratic_bezier_to(&mut self, ctrl: Vector, to: Vector) {
         let offset = self.builder.current_position();
         self.quadratic_bezier_to(offset + ctrl, offset + to);
     }
 
-    fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
+    fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector) {
         let offset = self.builder.current_position();
         self.cubic_bezier_to(offset + ctrl1, offset + ctrl2, offset + to);
     }
@@ -334,7 +334,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.cubic_bezier_to(ctrl, ctrl2, to);
     }
 
-    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vec2, to: Vec2) {
+    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vector, to: Vector) {
         let ctrl = self.builder.current_position() - self.last_ctrl;
         self.relative_cubic_bezier_to(ctrl, ctrl2, to);
     }
@@ -345,7 +345,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.quadratic_bezier_to(ctrl, to);
     }
 
-    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vec2) {
+    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vector) {
         let ctrl = self.builder.current_position() - self.last_ctrl;
         self.relative_quadratic_bezier_to(ctrl, to);
     }
@@ -370,7 +370,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(point(p.x, p.y + dy));
     }
 
-    fn arc_to(&mut self, radii: Vec2, x_rotation: Radians<f32>, flags: ArcFlags, to: Point) {
+    fn arc_to(&mut self, radii: Vector, x_rotation: Radians<f32>, flags: ArcFlags, to: Point) {
         SvgArc {
             from: self.current_position(),
             to: to,
@@ -387,10 +387,10 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
 
     fn relative_arc_to(
         &mut self,
-        radii: Vec2,
+        radii: Vector,
         x_rotation: Radians<f32>,
         flags: ArcFlags,
-        to: Vec2,
+        to: Vector,
     ) {
         let offset = self.builder.current_position();
         self.arc_to(radii, x_rotation, flags, offset + to);

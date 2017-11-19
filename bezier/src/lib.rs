@@ -86,7 +86,7 @@ pub use up_to_two::UpToTwo;
 pub type Point = euclid::Point2D<f32>;
 
 /// Alias for ```euclid::Point2D<f32>```.
-pub type Vec2 = euclid::Vector2D<f32>;
+pub type Vector = euclid::Vector2D<f32>;
 
 /// Alias for ```euclid::Size2D<f32>```.
 pub type Size = euclid::Size2D<f32>;

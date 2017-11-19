@@ -439,8 +439,8 @@ fn main() {
 struct SceneParams {
     target_zoom: f32,
     zoom: f32,
-    target_scroll: Vec2,
-    scroll: Vec2,
+    target_scroll: Vector,
+    scroll: Vector,
     show_points: bool,
     show_wireframe: bool,
     stroke_width: f32,

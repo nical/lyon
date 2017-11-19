@@ -1,6 +1,6 @@
 use path::builder::*;
 use path::ArcFlags;
-use core::math::{Vec2, Point, Radians};
+use core::math::{Vector, Point, Radians};
 use std::f32::consts::PI;
 use std::mem;
 
@@ -59,19 +59,19 @@ impl PathBuilder for PathSerializer {
 
 impl SvgBuilder for PathSerializer {
 
-    fn relative_move_to(&mut self, to: Vec2) {
+    fn relative_move_to(&mut self, to: Vector) {
         self.path += &format!("m {} {} ", to.x, to.y);
     }
 
-    fn relative_line_to(&mut self, to: Vec2) {
+    fn relative_line_to(&mut self, to: Vector) {
         self.path += &format!("l {} {} ", to.x, to.y);
     }
 
-    fn relative_quadratic_bezier_to(&mut self, ctrl: Vec2, to: Vec2) {
+    fn relative_quadratic_bezier_to(&mut self, ctrl: Vector, to: Vector) {
         self.path += &format!("q {} {} {} {}", ctrl.x, ctrl.y, to.x, to.y);
     }
 
-    fn relative_cubic_bezier_to(&mut self, ctrl1: Vec2, ctrl2: Vec2, to: Vec2) {
+    fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector) {
         self.path += &format!("c {} {} {} {} {} {}", ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
     }
 
@@ -79,7 +79,7 @@ impl SvgBuilder for PathSerializer {
         self.path += &format!("S {} {} {} {}", ctrl2.x, ctrl2.y, to.x, to.y);
     }
 
-    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vec2, to: Vec2) {
+    fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vector, to: Vector) {
         self.path += &format!("s {} {} {} {}", ctrl2.x, ctrl2.y, to.x, to.y);
     }
 
@@ -87,7 +87,7 @@ impl SvgBuilder for PathSerializer {
         self.path += &format!("T {} {} ", to.x, to.y);
     }
 
-    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vec2) {
+    fn smooth_relative_quadratic_bezier_to(&mut self, to: Vector) {
         self.path += &format!("t {} {} ", to.x, to.y);
     }
 
@@ -109,7 +109,7 @@ impl SvgBuilder for PathSerializer {
 
     fn arc_to(
         &mut self,
-        radii: Vec2,
+        radii: Vector,
         x_rotation: Radians<f32>,
         flags: ArcFlags,
         to: Point
@@ -125,10 +125,10 @@ impl SvgBuilder for PathSerializer {
 
     fn relative_arc_to(
         &mut self,
-        radii: Vec2,
+        radii: Vector,
         x_rotation: Radians<f32>,
         flags: ArcFlags,
-        to: Vec2,
+        to: Vector,
     ) {
         self.path += &format!(
             "a {} {} {} {} {} {} {} ",

@@ -6,7 +6,7 @@ use path_fill::Edge;
 
 pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
 pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
-pub type TessVec2 = Vector2D<FixedPoint32>;
+pub type TessVector = Vector2D<FixedPoint32>;
 pub type TessPoint = Point2D<FixedPoint32>;
 pub type TessPoint64 = Point2D<FixedPoint64>;
 #[inline]
@@ -99,7 +99,7 @@ pub fn segment_intersection(
 /// The normal points towards the left side of e1.
 ///
 /// v1 and v2 are expected to be normalized.
-pub fn compute_normal(v1: Vec2, v2: Vec2) -> Vec2 {
+pub fn compute_normal(v1: Vector, v2: Vector) -> Vector {
     //debug_assert!((v1.length() - 1.0).abs() < 0.001, "v1 should be normalized ({})", v1.length());
     //debug_assert!((v2.length() - 1.0).abs() < 0.001, "v2 should be normalized ({})", v2.length());
 
@@ -127,7 +127,7 @@ pub fn compute_normal(v1: Vec2, v2: Vec2) -> Vec2 {
 
 #[test]
 fn test_compute_normal() {
-    fn assert_almost_eq(a: Vec2, b: Vec2) {
+    fn assert_almost_eq(a: Vector, b: Vector) {
         if (a - b).square_length() > 0.00001 {
             panic!("assert almost equal: {:?} != {:?}", a, b);
         }

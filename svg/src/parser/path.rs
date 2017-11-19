@@ -57,7 +57,7 @@ impl<'l> Iterator for PathTokenizer<'l> {
 }
 
 fn svg_event(token: &Token) -> SvgEvent {
-    fn vec2(x: f64, y: f64) -> math::Vec2 { math::vec2(x as f32, y as f32) }
+    fn vec2(x: f64, y: f64) -> math::Vector { math::vec2(x as f32, y as f32) }
     fn point2(x: f64, y: f64) -> math::Point { math::point(x as f32, y as f32) }
     match *token {
         Token::MoveTo { abs, x, y } => {

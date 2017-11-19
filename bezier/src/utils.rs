@@ -1,14 +1,14 @@
-use {Point, Vec2, vec2};
+use {Point, Vector, vec2};
 use std::f32::consts::PI;
 use arrayvec::ArrayVec;
 
 #[inline]
-pub fn tangent(v: Vec2) -> Vec2 {
+pub fn tangent(v: Vector) -> Vector {
     vec2(-v.y, v.x)
 }
 
 #[inline]
-pub fn normalized_tangent(v: Vec2) -> Vec2 {
+pub fn normalized_tangent(v: Vector) -> Vector {
     tangent(v).normalize()
 }
 
@@ -31,7 +31,7 @@ pub fn normalized_tangent(v: Vec2) -> Vec2 {
 ///     x        v-
 ///
 #[inline]
-pub fn directed_angle(a: Vec2, b: Vec2) -> f32 {
+pub fn directed_angle(a: Vector, b: Vector) -> f32 {
     let angle = fast_atan2(b.y, b.x) - fast_atan2(a.y, a.x);
     return if angle < 0.0 { angle + 2.0 * PI } else { angle };
 }
