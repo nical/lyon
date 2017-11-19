@@ -238,7 +238,7 @@ pub struct StrokeVertex {
     pub position: math::Point,
     /// Normal at this vertex such that extruding the vertices along the normal would
     /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
-    pub normal: math::Vec2,
+    pub normal: math::Vector,
     /// How far along the path this vertex is.
     pub advancement: f32,
     /// Whether the vertex is on the left or right side of the path.
@@ -255,7 +255,7 @@ pub struct FillVertex {
     ///
     /// Note that some tessellators aren't fully implemented and don't provide the
     /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
-    pub normal: math::Vec2,
+    pub normal: math::Vector,
 }
 
 /// Line cap as defined by the SVG specification.

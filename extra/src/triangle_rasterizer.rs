@@ -94,7 +94,7 @@ pub fn rasterize_triangles<Constants, Vertex: VertexData, Target>(
 const PX_GROUP_X: i32 = 4;
 const PX_GROUP_Y: i32 = 1;
 
-fn init_edge(v0: &IntVec2, v1: &IntVec2, origin: &IntVec2) -> (IntVec4, IntVec4, IntVec4) {
+fn init_edge(v0: &IntVector, v1: &IntVector, origin: &IntVector) -> (IntVec4, IntVec4, IntVec4) {
     let a = v0.y - v1.y;
     let b = v1.x - v0.x;
     let c = v0.x * v1.y - v0.y * v1.x;
@@ -135,7 +135,7 @@ pub trait PixelShader<Pixel, Vertex, Constants> {
 // Vertices must implement this trait
 pub trait VertexData {
     fn interpolate(v1: &Self, v2: &Self, v3: &Self, w1: f32, w2: f32, w3: f32) -> Self;
-    fn position(&self) -> Vec2;
+    fn position(&self) -> Vector;
 }
 
 /// A simple shader that returns the interpolated vertex color.
@@ -160,13 +160,13 @@ for FillConstantColor {
     fn shade(_: Pixel, _: &Vertex, constants: &Constants) -> Pixel { constants.get_color() }
 }
 
-impl VertexData for Vec2 {
-    fn interpolate(a: &Vec2, b: &Vec2, c: &Vec2, wa: f32, wb: f32, wc: f32) -> Vec2 {
+impl VertexData for Vector {
+    fn interpolate(a: &Vector, b: &Vector, c: &Vector, wa: f32, wb: f32, wc: f32) -> Vector {
         let inv_w = 1.0 / (wa + wb + wc);
         return (*a * wa + *b * wb + *c * wc) * inv_w;
     }
 
-    fn position(&self) -> Vec2 { *self }
+    fn position(&self) -> Vector { *self }
 }
 
 pub struct ColorTarget<'a, 'b: 'a, Pixel: Copy + 'static, Shader> {
@@ -274,7 +274,7 @@ fn test_rasterizer_simple() {
 }
 
 #[inline]
-pub fn int_vec2(x: i32, y: i32) -> IntVec2 { vec2(x, y) }
+pub fn int_vec2(x: i32, y: i32) -> IntVector { vec2(x, y) }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BoolVec4 {

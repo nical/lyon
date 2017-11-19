@@ -161,7 +161,7 @@ fn main() {
         let mut target = display.draw();
 
         let (w, h) = target.get_dimensions();
-        let resolution: Vec2 = vec2(w as f32, h as f32);
+        let resolution: Vector = vec2(w as f32, h as f32);
 
         let model_mat = Transform3D::identity();
         let view_mat = Transform3D::identity()
@@ -461,8 +461,8 @@ struct BgVertex {
 }
 
 struct BgWithColor ;
-impl VertexConstructor<Vec2, BgVertex> for BgWithColor  {
-    fn new_vertex(&mut self, pos: Vec2) -> BgVertex {
+impl VertexConstructor<Vector, BgVertex> for BgWithColor  {
+    fn new_vertex(&mut self, pos: Vector) -> BgVertex {
         BgVertex { a_position: pos.to_array() }
     }
 }

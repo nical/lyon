@@ -2,20 +2,20 @@
 
 use std::f32::*;
 
-use {Point, point2, Vec2, vec2, Transform2D, Radians, Line};
+use {Point, point2, Vector, vec2, Transform2D, Radians, Line};
 use utils::directed_angle;
 
 pub struct SvgArc {
     pub from: Point,
     pub to: Point,
-    pub radii: Vec2,
+    pub radii: Vector,
     pub x_rotation: Radians,
     pub flags: ArcFlags,
 }
 
 pub struct Arc {
     pub center: Point,
-    pub radii: Vec2,
+    pub radii: Vector,
     pub start_angle: Radians,
     pub sweep_angle: Radians,
     pub x_rotation: Radians,
@@ -105,7 +105,7 @@ impl Arc {
         self.center + sample_ellipse(self.radii, self.x_rotation, angle).to_vector()
     }
 
-    pub fn tangent_at_angle(&self, angle: Radians) -> Vec2 {
+    pub fn tangent_at_angle(&self, angle: Radians) -> Vector {
         let a = angle.get();
         Transform2D::create_rotation(self.x_rotation).transform_vector(
             &vec2(-self.radii.x * a.sin(), self.radii.y * a.cos())
@@ -160,7 +160,7 @@ fn arc_to_to_quadratic_beziers<F: FnMut(Point, Point)>(
     }
 }
 
-fn sample_ellipse(radii: Vec2, x_rotation: Radians, angle: Radians) -> Point {
+fn sample_ellipse(radii: Vector, x_rotation: Radians, angle: Radians) -> Point {
     Transform2D::create_rotation(x_rotation).transform_point(
         &point2(radii.x * angle.get().cos(), radii.y * angle.get().sin())
     )

@@ -1,5 +1,5 @@
 
-use math::{Point, Vec2, point, vec2};
+use math::{Point, Vector, point, vec2};
 
 use events::{PathEvent, SvgEvent, FlattenedEvent};
 
@@ -158,11 +158,11 @@ impl PathState {
 
     pub fn next(&mut self, to: Point) { self.current = to; }
 
-    pub fn relative_next(&mut self, to: Vec2) { self.current = self.from_relative(to); }
+    pub fn relative_next(&mut self, to: Vector) { self.current = self.from_relative(to); }
 
     pub fn get_smooth_ctrl(&self) -> Point { self.current + (self.current - self.last_ctrl) }
 
-    pub fn from_relative(&self, v: Vec2) -> Point { self.current + v }
+    pub fn from_relative(&self, v: Vector) -> Point { self.current + v }
 
     pub fn svg_to_path_event(&self, event: SvgEvent) -> PathEvent {
         match event {

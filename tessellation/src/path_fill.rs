@@ -1374,10 +1374,10 @@ fn to_internal(v: Point) -> TessPoint { TessPoint::new(fixed(v.x), fixed(v.y)) }
 #[inline]
 fn to_f32_point(v: TessPoint) -> Point { point(v.x.to_f32(), v.y.to_f32()) }
 #[inline]
-fn to_f32_vec2(v: TessVec2) -> Vec2 { vec2(v.x.to_f32(), v.y.to_f32()) }
+fn to_f32_vec2(v: TessVector) -> Vector { vec2(v.x.to_f32(), v.y.to_f32()) }
 
 #[inline]
-fn edge_angle(v: TessVec2) -> f32 {
+fn edge_angle(v: TessVector) -> f32 {
     return -fast_atan2(v.y.to_f32(), v.x.to_f32());
 }
 
