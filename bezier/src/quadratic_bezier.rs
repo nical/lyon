@@ -381,18 +381,15 @@ impl YMonotoneQuadraticBezierSegment {
     pub fn solve_t_for_y(&self, y: f32, tolerance: f32) -> f32 {
         let transposed = XMonotoneQuadraticBezierSegment {
             curve: QuadraticBezierSegment {
-                from: yx(self.curve.from),
-                ctrl: yx(self.curve.ctrl),
-                to: yx(self.curve.to),
+                from: self.curve.from.yx(),
+                ctrl: self.curve.ctrl.yx(),
+                to: self.curve.to.yx(),
             }
         };
 
         transposed.solve_t_for_x(y, tolerance)
     }
 }
-
-// TODO: add this to euclid.
-fn yx(point: Point) -> Point { Point::new(point.y, point.x) }
 
 /// An iterator over a quadratic bézier segment that yields line segments approximating the
 /// curve for a given approximation threshold.
