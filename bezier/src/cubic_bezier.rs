@@ -248,10 +248,10 @@ impl CubicBezierSegment {
     /// This returns the advancements along the curve, not the actual y position.
     pub fn find_local_y_extrema(&self) -> UpToTwo<f32> {
        let switched_segment = CubicBezierSegment {
-               from: yx(self.from),
-               ctrl1: yx(self.ctrl1),
-               ctrl2: yx(self.ctrl2),
-               to: yx(self.to),
+               from: self.from.yx(),
+               ctrl1: self.ctrl1.yx(),
+               ctrl2: self.ctrl2.yx(),
+               to: self.to.yx(),
        };
 
         switched_segment.find_local_x_extrema()
@@ -473,19 +473,16 @@ impl YMonotoneCubicBezierSegment {
     pub fn solve_t_for_y(&self, y: f32, tolerance: f32) -> f32 {
         let transposed = XMonotoneCubicBezierSegment {
             curve: CubicBezierSegment {
-                from: yx(self.curve.from),
-                ctrl1: yx(self.curve.ctrl1),
-                ctrl2: yx(self.curve.ctrl2),
-                to: yx(self.curve.to),
+                from: self.curve.from.yx(),
+                ctrl1: self.curve.ctrl1.yx(),
+                ctrl2: self.curve.ctrl2.yx(),
+                to: self.curve.to.yx(),
             }
         };
 
         transposed.solve_t_for_x(y, tolerance)
     }
 }
-
-// TODO: add this to euclid.
-fn yx(point: Point) -> Point { Point::new(point.y, point.x) }
 
 #[test]
 fn bounding_rect_for_cubic_bezier_segment() {
