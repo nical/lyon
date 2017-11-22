@@ -1,5 +1,5 @@
 use {Point, Vector, vector, Radians};
-use std::f32::consts::PI;
+use std::f32::consts::{PI, FRAC_PI_2};
 use arrayvec::ArrayVec;
 
 #[inline]
@@ -51,10 +51,10 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     let s = a * a;
     let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a;
     if y_abs > x_abs {
-        r = 1.57079637 - r;
+        r = FRAC_PI_2 - r;
     }
     if x < 0.0 {
-        r = 3.14159274 - r
+        r = PI - r
     }
     if y < 0.0 {
         r = -r
