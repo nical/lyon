@@ -1,6 +1,7 @@
 
 use math::{Point, Vector, point, vector};
-
+use bezier::utils::vector_angle;
+use bezier::{Arc, SvgArc};
 use events::{PathEvent, SvgEvent, FlattenedEvent};
 
 /// Represents the current state of a path while it is being built.
@@ -115,6 +116,19 @@ impl PathState {
             PathEvent::CubicTo(_, ctrl2, to) => {
                 self.curve_to(ctrl2, to);
             }
+            PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
+                let start_angle = vector_angle(self.current - center);
+                let arc = Arc {
+                    center,
+                    radii,
+                    start_angle,
+                    sweep_angle,
+                    x_rotation,
+                };
+                let to = arc.to();
+                let ctrl = to - arc.sample_tangent(1.0);
+                self.curve_to(ctrl, to);
+            }
             PathEvent::Close => {
                 self.close();
             }
@@ -209,8 +223,36 @@ impl PathState {
                     self.from_relative(to),
                 )
             }
-            // TODO arcs
-            _ => unimplemented!(),
+            SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
+                let arc = Arc::from_svg_arc(&SvgArc {
+                    from: self.current,
+                    to,
+                    radii,
+                    x_rotation,
+                    flags,
+                });
+                PathEvent::Arc(
+                    arc.center,
+                    arc.radii,
+                    arc.sweep_angle,
+                    arc.x_rotation,
+                )
+            }
+            SvgEvent::RelativeArcTo(radii, x_rotation, flags, to) => {
+                let arc = Arc::from_svg_arc(&SvgArc {
+                    from: self.current,
+                    to: self.current + to,
+                    radii,
+                    x_rotation,
+                    flags,
+                });
+                PathEvent::Arc(
+                    arc.center,
+                    arc.radii,
+                    arc.sweep_angle,
+                    arc.x_rotation,
+                )
+            }
         }
     }
 }

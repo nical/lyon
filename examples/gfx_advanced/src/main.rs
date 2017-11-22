@@ -15,6 +15,7 @@ use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 use lyon::path::Path;
+use lyon::path::PathEvent;
 use lyon_renderer::buffer::{Id, BufferStore};
 use lyon_renderer::glsl::*;
 use lyon_renderer::renderer::{
@@ -174,7 +175,7 @@ fn main() {
 
     let mut num_points = 0;
     for p in path.as_slice().iter() {
-        if p.destination().is_some() {
+        if destination(&p).is_some() {
             num_points += 1;
         }
     }
@@ -205,7 +206,7 @@ fn main() {
 
     let mut i = 0;
     for evt in path.as_slice().iter() {
-        if let Some(to) = evt.destination() {
+        if let Some(to) = destination(&evt) {
             let transform_id = point_transforms.range.get(i);
             cpu.transforms[point_transforms.get(i)].transform =
                 Transform3D::create_translation(to.x, to.y, 0.0).to_row_arrays();
@@ -542,19 +543,23 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
             }
             Event::WindowEvent {
                 event: WindowEvent::MouseMoved {
-                    position: (x, y), 
-                    ..}, 
-            ..} => {
+                    position: (x, y),
+                    ..
+                },
+                ..
+            } => {
                 scene.cursor_position = (x as f32, y as f32);
             }
             Event::WindowEvent {
                 event: glutin::WindowEvent::KeyboardInput {
                     input: glutin::KeyboardInput {
                         state: glutin::ElementState::Pressed, virtual_keycode: Some(key),
-                    ..},
-                ..},
-            ..} => {
-                
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } => {
                 match key {
                     VirtualKeyCode::Escape => {
                         status = false;
@@ -605,6 +610,17 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
     status
+}
+
+fn destination(evt: &PathEvent) -> Option<Point> {
+    match evt {
+        &PathEvent::MoveTo(to) => Some(to),
+        &PathEvent::LineTo(to) => Some(to),
+        &PathEvent::QuadraticTo(_, to) => Some(to),
+        &PathEvent::CubicTo(_, _, to) => Some(to),
+        &PathEvent::Arc(..) => { None },
+        &PathEvent::Close => None,
+    }
 }
 
 static BACKGROUND_VERTEX_SHADER: &'static str = &"

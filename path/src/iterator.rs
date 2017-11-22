@@ -106,6 +106,8 @@ use bezier::QuadraticBezierSegment;
 use bezier::quadratic_bezier;
 use bezier::CubicBezierSegment;
 use bezier::cubic_bezier;
+use bezier::utils::vector_angle;
+use bezier::arc;
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
@@ -118,9 +120,6 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     fn flattened(self, tolerance: f32) -> Flattened<Self> {
         Flattened::new(tolerance, self)
     }
-
-    /// Returns an iterator of SVG events.
-    fn svg_events(self) -> iter::Map<Self, fn(PathEvent) -> SvgEvent> { self.map(path_to_svg_event) }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -195,6 +194,7 @@ pub struct Flattened<Iter> {
 enum TmpFlatteningIter {
     Quadratic(quadratic_bezier::Flattened),
     Cubic(cubic_bezier::Flattened),
+    Arc(arc::Flattened),
     None,
 }
 
@@ -233,6 +233,11 @@ where
                     return Some(FlattenedEvent::LineTo(point));
                 }
             }
+            TmpFlatteningIter::Arc(ref mut it) => {
+                if let Some(point) = it.next() {
+                    return Some(FlattenedEvent::LineTo(point));
+                }
+            }
             _ => {}
         }
         self.current_curve = TmpFlatteningIter::None;
@@ -258,6 +263,17 @@ where
                         ctrl1: ctrl1,
                         ctrl2: ctrl2,
                         to: to,
+                    }.flattened(self.tolerance)
+                );
+                return self.next();
+            }
+            Some(PathEvent::Arc(center, radii, sweep_angle, x_rotation)) => {
+                let start_angle = vector_angle(current - center);
+                self.current_curve = TmpFlatteningIter::Arc(
+                    arc::Arc {
+                        center, radii,
+                        start_angle, sweep_angle,
+                        x_rotation
                     }.flattened(self.tolerance)
                 );
                 return self.next();
@@ -360,7 +376,6 @@ where
 
 fn flattened_to_path_event(evt: FlattenedEvent) -> PathEvent { evt.to_path_event() }
 fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg_event() }
-fn path_to_svg_event(evt: PathEvent) -> SvgEvent { evt.to_svg_event() }
 
 /// An iterator that consumes an iterator of `Point`s and produces `FlattenedEvent`s.
 ///

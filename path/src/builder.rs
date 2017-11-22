@@ -78,9 +78,8 @@
 
 use core::math::*;
 use events::{PathEvent, FlattenedEvent, SvgEvent};
-use bezier::{CubicBezierSegment, QuadraticBezierSegment, SvgArc};
-use ArcFlags;
-use bezier;
+use bezier::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
+use bezier::utils::vector_angle;
 
 /// The most basic path building interface. Does not handle any kind of curve.
 pub trait FlatPathBuilder: ::std::marker::Sized {
@@ -133,6 +132,7 @@ pub trait FlatPathBuilder: ::std::marker::Sized {
 pub trait PathBuilder: FlatPathBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
+    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Radians, x_rotation: Radians);
 
     fn path_event(&mut self, event: PathEvent) {
         match event {
@@ -147,6 +147,9 @@ pub trait PathBuilder: FlatPathBuilder {
             }
             PathEvent::CubicTo(ctrl1, ctrl2, to) => {
                 self.cubic_bezier_to(ctrl1, ctrl2, to);
+            }
+            PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
+                self.arc(center, radii, sweep_angle, x_rotation);
             }
             PathEvent::Close => {
                 self.close();
@@ -174,11 +177,11 @@ pub trait SvgBuilder: PathBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc_to(&mut self, radii: Vector, x_rotation: Radians<f32>, flags: ArcFlags, to: Point);
+    fn arc_to(&mut self, radii: Vector, x_rotation: Radians, flags: ArcFlags, to: Point);
     fn relative_arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians<f32>,
+        x_rotation: Radians,
         flags: ArcFlags,
         to: Vector,
     );
@@ -305,6 +308,21 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         self.last_ctrl = ctrl2;
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
+
+    fn arc(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        sweep_angle: Radians,
+        x_rotation: Radians
+    ) {
+        let arc = Arc {
+            start_angle: vector_angle(self.current_position() - center),
+            center, radii, sweep_angle, x_rotation,
+        };
+        self.last_ctrl = arc.sample(1.0) - arc.sample_tangent(1.0);
+        self.builder.arc(center, radii, sweep_angle, x_rotation);
+    }
 }
 
 impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
@@ -370,13 +388,13 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(point(p.x, p.y + dy));
     }
 
-    fn arc_to(&mut self, radii: Vector, x_rotation: Radians<f32>, flags: ArcFlags, to: Point) {
+    fn arc_to(&mut self, radii: Vector, x_rotation: Radians, flags: ArcFlags, to: Point) {
         SvgArc {
             from: self.current_position(),
             to: to,
             radii: radii,
             x_rotation: x_rotation,
-            flags: bezier::ArcFlags {
+            flags: ArcFlags {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
@@ -388,7 +406,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn relative_arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians<f32>,
+        x_rotation: Radians,
         flags: ArcFlags,
         to: Vector,
     ) {
@@ -435,6 +453,25 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             ctrl2: ctrl2,
             to: to,
         }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
+    }
+
+    fn arc(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        sweep_angle: Radians,
+        x_rotation: Radians
+    ) {
+        let start_angle = vector_angle(self.current_position() - center);
+        Arc {
+            center,
+            radii,
+            start_angle,
+            sweep_angle,
+            x_rotation,
+        }.to_quadratic_beziers(&mut|ctrl, to| {
+            self.quadratic_bezier_to(ctrl, to);
+        });
     }
 }
 

@@ -1,7 +1,7 @@
 use math::*;
 use math_utils::compute_normal;
-use bezier::{QuadraticBezierSegment, CubicBezierSegment, LineSegment};
-use bezier::utils::{normalized_tangent, directed_angle, fast_atan2};
+use bezier::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
+use bezier::utils::{normalized_tangent, directed_angle, fast_atan2, vector_angle};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
 use path::builder::{FlatPathBuilder, PathBuilder};
@@ -249,6 +249,30 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             ctrl1: ctrl1,
             ctrl2: ctrl2,
             to: to,
+        }.flattened_for_each(
+            self.options.tolerance,
+            &mut |point| {
+                self.edge_to(point, first);
+                first = false;
+            }
+        );
+    }
+
+    fn arc(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        sweep_angle: Radians,
+        x_rotation: Radians
+    ) {
+        let start_angle = vector_angle(self.current - center);
+        let mut first = true;
+        Arc {
+            center,
+            radii,
+            start_angle,
+            sweep_angle,
+            x_rotation,
         }.flattened_for_each(
             self.options.tolerance,
             &mut |point| {

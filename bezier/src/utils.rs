@@ -1,4 +1,4 @@
-use {Point, Vector, vector};
+use {Point, Vector, vector, Radians};
 use std::f32::consts::PI;
 use arrayvec::ArrayVec;
 
@@ -12,7 +12,7 @@ pub fn normalized_tangent(v: Vector) -> Vector {
     tangent(v).normalize()
 }
 
-/// Angle between vectors v1 and v2 (oriented clockwise assyming y points downwards).
+/// Radians between vectors v1 and v2 (oriented clockwise assyming y points downwards).
 /// The result is a number between 0 and 2*PI.
 ///
 /// ex: `directed_angle([0,1], [1,0]) = 3/2 Pi rad`
@@ -61,6 +61,9 @@ pub fn fast_atan2(y: f32, x: f32) -> f32 {
     }
     return r;
 }
+
+#[inline]
+pub fn vector_angle(v: Vector) -> Radians { Radians::new(fast_atan2(v.y, v.x)) }
 
 pub fn cubic_polynomial_roots(a: f32, b: f32, c: f32, d: f32) -> ArrayVec<[f32; 3]> {
     let mut result = ArrayVec::new();
