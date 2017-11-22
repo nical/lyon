@@ -1,5 +1,5 @@
 use math::{Point, Vector, Radians};
-use super::ArcFlags;
+use ArcFlags;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SvgEvent {
@@ -11,8 +11,8 @@ pub enum SvgEvent {
     RelativeQuadraticTo(Vector, Vector),
     CubicTo(Point, Point, Point),
     RelativeCubicTo(Vector, Vector, Vector),
-    ArcTo(Vector, Radians<f32>, ArcFlags, Point),
-    RelativeArcTo(Vector, Radians<f32>, ArcFlags, Vector),
+    ArcTo(Vector, Radians, ArcFlags, Point),
+    RelativeArcTo(Vector, Radians, ArcFlags, Vector),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
     RelativeHorizontalLineTo(f32),
@@ -30,6 +30,7 @@ pub enum PathEvent {
     LineTo(Point),
     QuadraticTo(Point, Point),
     CubicTo(Point, Point, Point),
+    Arc(Point, Vector, Radians, Radians),
     Close,
 }
 
@@ -46,28 +47,6 @@ pub enum FlattenedEvent {
     MoveTo(Point),
     LineTo(Point),
     Close,
-}
-
-impl PathEvent {
-    pub fn to_svg_event(self) -> SvgEvent {
-        return match self {
-            PathEvent::MoveTo(to) => SvgEvent::MoveTo(to),
-            PathEvent::LineTo(to) => SvgEvent::LineTo(to),
-            PathEvent::QuadraticTo(ctrl, to) => SvgEvent::QuadraticTo(ctrl, to),
-            PathEvent::CubicTo(ctrl1, ctrl2, to) => SvgEvent::CubicTo(ctrl1, ctrl2, to),
-            PathEvent::Close => SvgEvent::Close,
-        };
-    }
-
-    pub fn destination(self) -> Option<Point> {
-        return match self {
-            PathEvent::MoveTo(to) => Some(to),
-            PathEvent::LineTo(to) => Some(to),
-            PathEvent::QuadraticTo(_, to) => Some(to),
-            PathEvent::CubicTo(_, _, to) => Some(to),
-            PathEvent::Close => None,
-        };
-    }
 }
 
 impl FlattenedEvent {
@@ -93,9 +72,5 @@ impl Into<PathEvent> for FlattenedEvent {
 }
 
 impl Into<SvgEvent> for FlattenedEvent {
-    fn into(self) -> SvgEvent { self.to_svg_event() }
-}
-
-impl Into<SvgEvent> for PathEvent {
     fn into(self) -> SvgEvent { self.to_svg_event() }
 }

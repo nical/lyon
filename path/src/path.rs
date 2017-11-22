@@ -17,6 +17,7 @@ pub enum Verb {
     LineTo,
     QuadraticTo,
     CubicTo,
+    Arc,
     Close,
 }
 
@@ -210,6 +211,26 @@ impl PathBuilder for Builder {
         self.path.verbs.push(Verb::CubicTo);
         self.current_position = to;
     }
+
+    fn arc(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        sweep_angle: Radians,
+        x_rotation: Radians
+    ) {
+        nan_check(center);
+        nan_check(radii.to_point());
+        debug_assert!(!sweep_angle.get().is_nan());
+        debug_assert!(!x_rotation.get().is_nan());
+        self.path.points.push(center);
+        self.path.points.push(radii.to_point());
+        self.path.points.push(point(
+            sweep_angle.get(),
+            x_rotation.get(),
+        ));
+        self.path.verbs.push(Verb::Arc);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -249,6 +270,17 @@ impl<'l> Iterator for Iter<'l> {
                 let ctrl2 = *self.points.next().unwrap();
                 let to = *self.points.next().unwrap();
                 Some(PathEvent::CubicTo(ctrl1, ctrl2, to))
+            }
+            Some(&Verb::Arc) => {
+                let center = *self.points.next().unwrap();
+                let radii = self.points.next().unwrap().to_vector();
+                let sweep_angle_x_rot = *self.points.next().unwrap();
+                Some(PathEvent::Arc(
+                    center,
+                    radii,
+                    Radians::new(sweep_angle_x_rot.x),
+                    Radians::new(sweep_angle_x_rot.y),
+                ))
             }
             Some(&Verb::Close) => Some(PathEvent::Close),
             None => None,

@@ -73,9 +73,9 @@ mod cubic_to_quadratic;
 mod up_to_two;
 pub mod quadratic_bezier;
 pub mod cubic_bezier;
+pub mod arc;
 mod triangle;
 mod line;
-mod arc;
 mod monotone;
 pub mod utils;
 
@@ -96,6 +96,8 @@ pub type Rect = euclid::Rect<f32>;
 
 /// Alias for ```euclid::Transform2D<f32>```
 pub type Transform2D = euclid::Transform2D<f32>;
+
+pub type Rotation2D = euclid::Rotation2D<f32>;
 
 pub type Radians = euclid::Radians<f32>;
 

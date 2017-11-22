@@ -1,6 +1,6 @@
 use euclid;
 
-pub use euclid::{Point2D, Vector2D, TypedPoint2D, Radians};
+pub use euclid::{Point2D, Vector2D, TypedPoint2D};
 
 pub type Point = euclid::Point2D<f32>;
 pub type IntPoint = euclid::Point2D<i32>;
@@ -13,6 +13,8 @@ pub type Rect = euclid::Rect<f32>;
 pub type IntRect = euclid::Rect<i32>;
 pub type Transform2D = euclid::Transform2D<f32>;
 pub type Transform3D = euclid::Transform3D<f32>;
+pub type Rotation2D = euclid::Rotation2D<f32>;
+pub type Radians = euclid::Radians<f32>;
 
 pub use euclid::vec2 as vector;
 pub use euclid::vec3 as vector3d;

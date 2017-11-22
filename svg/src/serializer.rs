@@ -1,8 +1,10 @@
 use path::builder::*;
 use path::ArcFlags;
-use core::math::{Vector, Point, Radians};
+use core::math::{Vector, Point, Radians, point};
 use std::f32::consts::PI;
 use std::mem;
+use path::bezier::Arc;
+use path::bezier::utils::vector_angle;
 
 /// A `PathBuilder` that builds a `String` representation of the path
 /// using the SVG syntax.
@@ -11,12 +13,14 @@ use std::mem;
 /// output compact. Intended primarily for debugging purposes.
 pub struct PathSerializer {
     path: String,
+    current: Point,
 }
 
 impl PathSerializer {
     pub fn new() -> Self {
         PathSerializer {
-            path: String::new()
+            path: String::new(),
+            current: point(0.0, 0.0),
         }
     }
 }
@@ -26,10 +30,12 @@ impl FlatPathBuilder for PathSerializer {
 
     fn move_to(&mut self, to: Point) {
         self.path += &format!("M {} {} ", to.x, to.y);
+        self.current = to;
     }
 
     fn line_to(&mut self, to: Point) {
         self.path += &format!("L {} {} ", to.x, to.y);
+        self.current = to;
     }
 
     fn close(&mut self) {
@@ -39,11 +45,12 @@ impl FlatPathBuilder for PathSerializer {
     fn build(self) -> String { self.path }
 
     fn build_and_reset(&mut self) -> String {
+        self.current = point(0.0, 0.0);
         mem::replace(&mut self.path, String::new())
     }
 
     fn current_position(&self) -> Point {
-        unimplemented!();
+        self.current
     }
 }
 
@@ -54,6 +61,25 @@ impl PathBuilder for PathSerializer {
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         self.path += &format!("C {} {} {} {} {} {}", ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
+    }
+
+    fn arc(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        sweep_angle: Radians,
+        x_rotation: Radians
+    ) {
+        let start_angle = vector_angle(self.current - center);
+        let svg = Arc {
+            center, radii, start_angle, sweep_angle, x_rotation
+        }.to_svg_arc();
+        self.path += &format!(
+            "A {} {} {} {} {} {} {}",
+            radii.x, radii.y, svg.x_rotation.get(),
+            svg.flags.large_arc, svg.flags.sweep,
+            svg.to.x, svg.to.y
+        );
     }
 }
 
@@ -110,7 +136,7 @@ impl SvgBuilder for PathSerializer {
     fn arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians<f32>,
+        x_rotation: Radians,
         flags: ArcFlags,
         to: Point
     ) {
@@ -126,7 +152,7 @@ impl SvgBuilder for PathSerializer {
     fn relative_arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians<f32>,
+        x_rotation: Radians,
         flags: ArcFlags,
         to: Vector,
     ) {
