@@ -3,8 +3,13 @@
 use std::f32::*;
 use std::f32;
 
-use {Point, point, Vector, vector, Rotation2D, Radians, Line, QuadraticBezierSegment};
+use {Point, point, Vector, vector, Rotation2D, Transform2D, Radians, Line, Rect};
 use utils::directed_angle;
+use segment::{Segment, FlattenedForEach, FlatteningStep};
+use segment;
+
+/// A flattening iterator for arc segments.
+pub type Flattened = segment::Flattened<Arc>;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SvgArc {
@@ -120,28 +125,23 @@ impl Arc {
         arc_to_to_quadratic_beziers(self, cb);
     }
 
-    #[inline]
-    pub fn get_angle(&self, t: f32) -> Radians {
-        self.start_angle + Radians::new(self.sweep_angle.get() * t)
-    }
-
+    /// Sample the curve at t (expecting t between 0 and 1).
     #[inline]
     pub fn sample(&self, t: f32) -> Point {
         let angle = self.get_angle(t);
         self.center + sample_ellipse(self.radii, self.x_rotation, angle).to_vector()
     }
 
+    /// Sample the curve's tangent at t (expecting t between 0 and 1).
     #[inline]
     pub fn sample_tangent(&self, t: f32) -> Vector {
         self.tangent_at_angle(self.get_angle(t))
     }
 
+    /// Sample the curve's angle at t (expecting t between 0 and 1).
     #[inline]
-    pub fn tangent_at_angle(&self, angle: Radians) -> Vector {
-        let a = angle.get();
-        Rotation2D::new(self.x_rotation).transform_vector(
-            &vector(-self.radii.x * a.sin(), self.radii.y * a.cos())
-        )
+    pub fn get_angle(&self, t: f32) -> Radians {
+        self.start_angle + Radians::new(self.sweep_angle.get() * t)
     }
 
     #[inline]
@@ -159,6 +159,7 @@ impl Arc {
         self.sample(1.0)
     }
 
+    /// Split this curve into two sub-curves.
     pub fn split(&self, t: f32) -> (Arc, Arc) {
         let split_angle = Radians::new(self.sweep_angle.get() * t);
         (
@@ -179,6 +180,7 @@ impl Arc {
         )
     }
 
+    /// Return the curve before the split point.
     pub fn before_split(&self, t: f32) -> Arc {
         let split_angle = Radians::new(self.sweep_angle.get() * t);
         Arc {
@@ -190,6 +192,7 @@ impl Arc {
         }
     }
 
+    /// Return the curve after the split point.
     pub fn after_split(&self, t: f32) -> Arc {
         let split_angle = Radians::new(self.sweep_angle.get() * t);
         Arc {
@@ -201,19 +204,21 @@ impl Arc {
         }
     }
 
-    /// Iterates through the curve invoking a callback at each point.
-    pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
-        let mut from = self.sample(0.0);
-        self.to_quadratic_beziers(&mut |ctrl, to| {
-            QuadraticBezierSegment {
-                from,
-                ctrl,
-                to
-            }.flattened_for_each(tolerance, call_back);
-            from = to;
-        });
+    /// Swap the direction of the segment.
+    pub fn flip(&self) -> Self {
+        let mut arc = *self;
+        arc.start_angle = arc.start_angle + self.sweep_angle;
+        arc.sweep_angle = -self.sweep_angle;
+
+        arc
     }
 
+    /// Iterates through the curve invoking a callback at each point.
+    pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
+        <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
+    }
+
+    /// Iterates through the curve invoking a callback at each point.
     pub fn flattening_step(&self, tolerance: f32) -> f32 {
         // Here we make the approximation that for small tolerance values we consider
         // the radius to be constant over each approximated segment.
@@ -222,46 +227,32 @@ impl Arc {
         f32::acos((a * a) / r)
     }
 
+    /// Returns the flattened representation of the curve as an iterator, starting *after* the
+    /// current point.
     pub fn flattened(&self, tolerance: f32) -> Flattened {
         Flattened::new(*self, tolerance)
     }
-}
 
-/// An iterator over a quadratic bézier segment that yields line segments approximating the
-/// curve for a given approximation threshold.
-///
-/// The iterator starts at the first point *after* the origin of the curve and ends at the
-/// destination.
-pub struct Flattened {
-    curve: Arc,
-    tolerance: f32,
-    done: bool,
-}
-
-impl Flattened {
-    pub fn new(curve: Arc, tolerance: f32) -> Self {
-        assert!(tolerance > 0.0);
-        Flattened {
-            curve: curve,
-            tolerance: tolerance,
-            done: false,
-        }
+    /// Returns a conservative rectangle that contains the curve.
+    pub fn bounding_rect(&self) -> Rect {
+        Transform2D::create_rotation(self.x_rotation).transform_rect(
+            &Rect::new(
+                self.center - self.radii,
+                self.radii.to_size() * 2.0
+            )
+        )
     }
-}
 
-impl Iterator for Flattened {
-    type Item = Point;
-    fn next(&mut self) -> Option<Point> {
-        if self.done {
-            return None;
-        }
-        let t = self.curve.flattening_step(self.tolerance);
-        if t == 1.0 {
-            self.done = true;
-            return Some(self.curve.to());
-        }
-        self.curve = self.curve.after_split(t);
-        return Some(self.curve.from());
+    pub fn approximate_length(&self, tolerance: f32) -> f32 {
+        segment::approximate_length_from_flattening(self, tolerance)
+    }
+
+    #[inline]
+    fn tangent_at_angle(&self, angle: Radians) -> Vector {
+        let a = angle.get();
+        Rotation2D::new(self.x_rotation).transform_vector(
+            &vector(-self.radii.x * a.sin(), self.radii.y * a.cos())
+        )
     }
 }
 
@@ -322,4 +313,24 @@ fn sample_ellipse(radii: Vector, x_rotation: Radians, angle: Radians) -> Point {
     Rotation2D::new(x_rotation).transform_point(
         &point(radii.x * angle.get().cos(), radii.y * angle.get().sin())
     )
+}
+
+impl Segment for Arc {
+    fn from(&self) -> Point { self.from() }
+    fn to(&self) -> Point { self.to() }
+    fn sample(&self, t: f32) -> Point { self.sample(t) }
+    fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
+    fn before_split(&self, t: f32) -> Self { self.before_split(t) }
+    fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+    fn flip(&self) -> Self { self.flip() }
+    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn approximate_length(&self, tolerance: f32) -> f32 {
+        self.approximate_length(tolerance)
+    }
+}
+
+impl FlatteningStep for Arc {
+    fn flattening_step(&self, tolerance: f32) -> f32 {
+        self.flattening_step(tolerance)
+    }
 }

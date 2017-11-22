@@ -1,4 +1,5 @@
 use {Point, point, Vector, vector, Rect, Size, Transform2D};
+use segment::{Segment, FlatteningStep};
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -169,6 +170,29 @@ impl LineSegment {
         return false;
     }
 }
+
+impl Segment for LineSegment {
+    fn from(&self) -> Point { self.from }
+    fn to(&self) -> Point { self.to }
+    fn sample(&self, t: f32) -> Point { self.sample(t) }
+    fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
+    fn before_split(&self, t: f32) -> Self { self.before_split(t) }
+    fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+    fn flip(&self) -> Self { self.flip() }
+    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn approximate_length(&self, _tolerance: f32) -> f32 { self.length() }
+}
+
+impl FlatteningStep for LineSegment {
+    fn flattening_step(&self, _tolerance: f32) -> f32 { 1.0 }
+}
+
+// TODO: we could implement this more efficiently with specialization
+// impl FlattenedForEach for LineSegment {
+//     fn flattened_for_each<F: FnMut(Point)>(&self, _tolerance: f32, call_back: &mut F) {
+//         call_back(self.to);
+//     }
+// }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Line {

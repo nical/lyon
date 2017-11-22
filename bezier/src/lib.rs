@@ -68,16 +68,17 @@
 extern crate arrayvec;
 extern crate euclid;
 
-mod flatten_cubic;
-mod cubic_to_quadratic;
-mod up_to_two;
 pub mod quadratic_bezier;
 pub mod cubic_bezier;
 pub mod arc;
+pub mod utils;
+mod segment;
+mod flatten_cubic;
+mod cubic_to_quadratic;
+mod up_to_two;
 mod triangle;
 mod line;
 mod monotone;
-pub mod utils;
 
 pub use cubic_to_quadratic::cubic_to_quadratic;
 pub use up_to_two::UpToTwo;
@@ -106,7 +107,12 @@ pub use cubic_bezier::CubicBezierSegment;
 pub use triangle::{Triangle};
 pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
+pub use segment::Segment;
 
 pub use euclid::rect;
 pub use euclid::vec2 as vector;
 pub use euclid::point2 as point;
+
+pub mod traits {
+    pub use segment::{Segment, FlattenedForEach, FlatteningStep};
+}

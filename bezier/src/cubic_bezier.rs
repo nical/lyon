@@ -6,13 +6,14 @@ pub use flatten_cubic::Flattened;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 use utils::cubic_polynomial_roots;
+use segment::{Segment, FlattenedForEach, approximate_length_from_flattening};
 
 /// A 2d curve segment defined by four points: the beginning of the segment, two control
 /// points and the end of the segment.
 ///
 /// The curve is defined by equation:²
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)³ * from + 3 * (1 - t)² * t * ctrl1 + 3 * t² * (1 - t) * ctrl2 + t³ * to```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct CubicBezierSegment {
     pub from: Point,
     pub ctrl1: Point,
@@ -158,6 +159,16 @@ impl CubicBezierSegment {
         }
     }
 
+    /// Swap the beginning and the end of the segment.
+    pub fn flip(&self) -> Self {
+        CubicBezierSegment {
+            from: self.to,
+            ctrl1: self.ctrl2,
+            ctrl2: self.ctrl1,
+            to: self.from,
+        }
+    }
+
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
     pub fn flattened(&self, tolerance: f32) -> Flattened {
@@ -170,14 +181,8 @@ impl CubicBezierSegment {
     }
 
     /// Compute the length of the segment using a flattened approximation.
-    pub fn compute_length(&self, tolerance: f32) -> f32 {
-        let mut start = self.from;
-        let mut len = 0.0;
-        self.flattened_for_each(tolerance, &mut|p| {
-            len += (p - start).length();
-            start = p;
-        });
-        return len;
+    pub fn approximate_length(&self, tolerance: f32) -> f32 {
+        approximate_length_from_flattening(self, tolerance)
     }
 
     pub fn find_inflection_points(&self) -> UpToTwo<f32> {
@@ -420,6 +425,26 @@ impl CubicBezierSegment {
     }
 }
 
+impl Segment for CubicBezierSegment {
+    fn from(&self) -> Point { self.from }
+    fn to(&self) -> Point { self.to }
+    fn sample(&self, t: f32) -> Point { self.sample(t) }
+    fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
+    fn before_split(&self, t: f32) -> Self { self.before_split(t) }
+    fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+    fn flip(&self) -> Self { self.flip() }
+    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn approximate_length(&self, tolerance: f32) -> f32 {
+        self.approximate_length(tolerance)
+    }
+}
+
+impl FlattenedForEach for CubicBezierSegment {
+    fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
+        self.flattened_for_each(tolerance, call_back);
+    }
+}
+
 /// A monotonically increasing in x cubic bézier curve segment
 #[derive(Copy, Clone, Debug)]
 pub struct XMonotoneCubicBezierSegment {
@@ -508,7 +533,7 @@ fn minimum_bounding_rect_for_cubic_bezier_segment() {
         ctrl2: Point::new(1.5, -2.0),
         to: Point::new(2.0, 0.0),
     };
-    
+
     let expected_bigger_bounding_rect: Rect = rect(0.0, -0.6, 2.0, 1.2);
     let expected_smaller_bounding_rect: Rect = rect(0.1, -0.5, 1.9, 1.0);
 
