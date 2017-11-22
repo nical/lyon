@@ -1,15 +1,19 @@
 use {CubicBezierSegment};
 use {Point, Vector, Rect, rect, Triangle, Line, LineSegment, Transform2D};
-use std::mem::swap;
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 use arrayvec::ArrayVec;
+use segment::{Segment, FlatteningStep, FlattenedForEach};
+use segment;
+
+/// A flattening iterator for quadratic bézier segments.
+pub type Flattened = segment::Flattened<QuadraticBezierSegment>;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
 /// point and the end of the segment.
 ///
 /// The curve is defined by equation:
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)² * from + 2 * (1 - t) * t * ctrl + 2 * t² * to```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct QuadraticBezierSegment {
     pub from: Point,
     pub ctrl: Point,
@@ -65,7 +69,13 @@ impl QuadraticBezierSegment {
     }
 
     /// Swap the beginning and the end of the segment.
-    pub fn flip(&mut self) { swap(&mut self.from, &mut self.to); }
+    pub fn flip(&self) -> Self {
+        QuadraticBezierSegment {
+            from: self.to,
+            ctrl: self.ctrl,
+            to: self.from,
+        }
+    }
 
     /// Find the advancement of the y-most position in the curve.
     ///
@@ -224,16 +234,7 @@ impl QuadraticBezierSegment {
 
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
-        let mut iter = *self;
-        loop {
-            let t = iter.flattening_step(tolerance);
-            if t == 1.0 {
-                call_back(iter.to);
-                break;
-            }
-            iter = iter.after_split(t);
-            call_back(iter.from);
-        }
+        <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -243,14 +244,8 @@ impl QuadraticBezierSegment {
     }
 
     /// Compute the length of the segment using a flattened approximation.
-    pub fn compute_length(&self, tolerance: f32) -> f32 {
-        let mut start = self.from;
-        let mut len = 0.0;
-        self.flattened_for_each(tolerance, &mut|p| {
-            len += (p - start).length();
-            start = p;
-        });
-        return len;
+    pub fn approximate_length(&self, tolerance: f32) -> f32 {
+        segment::approximate_length_from_flattening(self, tolerance)
     }
 
     /// Returns a triangle containing this curve segment.
@@ -262,7 +257,7 @@ impl QuadraticBezierSegment {
         }
     }
 
-    /// Returns a rectangle the curve is contained in
+    /// Returns a conservative rectangle that contains the curve.
     pub fn bounding_rect(&self) -> Rect {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
@@ -328,6 +323,26 @@ impl QuadraticBezierSegment {
     }
 }
 
+impl Segment for QuadraticBezierSegment {
+    fn from(&self) -> Point { self.from }
+    fn to(&self) -> Point { self.to }
+    fn sample(&self, t: f32) -> Point { self.sample(t) }
+    fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
+    fn before_split(&self, t: f32) -> Self { self.before_split(t) }
+    fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+    fn flip(&self) -> Self { self.flip() }
+    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn approximate_length(&self, tolerance: f32) -> f32 {
+        self.approximate_length(tolerance)
+    }
+}
+
+impl FlatteningStep for QuadraticBezierSegment {
+    fn flattening_step(&self, tolerance: f32) -> f32 {
+        self.flattening_step(tolerance)
+    }
+}
+
 /// A monotonically increasing in x cubic bézier curve segment
 #[derive(Copy, Clone, Debug)]
 pub struct XMonotoneQuadraticBezierSegment {
@@ -388,44 +403,6 @@ impl YMonotoneQuadraticBezierSegment {
         };
 
         transposed.solve_t_for_x(y, tolerance)
-    }
-}
-
-/// An iterator over a quadratic bézier segment that yields line segments approximating the
-/// curve for a given approximation threshold.
-///
-/// The iterator starts at the first point *after* the origin of the curve and ends at the
-/// destination.
-pub struct Flattened {
-    curve: QuadraticBezierSegment,
-    tolerance: f32,
-    done: bool,
-}
-
-impl Flattened {
-    pub fn new(curve: QuadraticBezierSegment, tolerance: f32) -> Self {
-        assert!(tolerance > 0.0);
-        Flattened {
-            curve: curve,
-            tolerance: tolerance,
-            done: false,
-        }
-    }
-}
-
-impl Iterator for Flattened {
-    type Item = Point;
-    fn next(&mut self) -> Option<Point> {
-        if self.done {
-            return None;
-        }
-        let t = self.curve.flattening_step(self.tolerance);
-        if t == 1.0 {
-            self.done = true;
-            return Some(self.curve.to);
-        }
-        self.curve = self.curve.after_split(t);
-        return Some(self.curve.from);
     }
 }
 
@@ -575,7 +552,7 @@ fn length_straight_line() {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
-    }.compute_length(0.01);
+    }.approximate_length(0.01);
     assert_eq!(len, 2.0);
 
     let len = CubicBezierSegment {
@@ -583,7 +560,7 @@ fn length_straight_line() {
         ctrl1: Point::new(1.0, 0.0),
         ctrl2: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
-    }.compute_length(0.01);
+    }.approximate_length(0.01);
     assert_eq!(len, 2.0);
 }
 
