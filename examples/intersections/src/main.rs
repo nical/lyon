@@ -4,47 +4,20 @@ extern crate gfx_window_glutin;
 extern crate gfx_device_gl;
 extern crate glutin;
 extern crate lyon;
-extern crate lyon_renderer;
 
 use lyon::path::builder::*;
+use lyon::geom::{Line, CubicBezierSegment};
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 use lyon::path::Path;
-use lyon_renderer::buffer::{Id, BufferStore};
-use lyon_renderer::glsl::*;
-use lyon_renderer::renderer::{
-    GpuTransform, GpuFillVertex, GpuStrokeVertex, GpuFillPrimitive,
-    GpuStrokePrimitive, opaque_fill_pipeline,
-    opaque_stroke_pipeline, GpuGeometry,
-    GpuBufferStore, Globals, WithId
-};
-use lyon::geom::{CubicBezierSegment, Line};
-use lyon::geom::euclid::Transform3D;
-// make  public so that the module in gfx_defines can see the types.
-pub use lyon_renderer::gfx_types::*;
 
 use gfx::traits::{Device, FactoryExt};
 
-use glutin::GlContext;
-
-gfx_defines!{
-    // The background is drawn separately with its own shader.
-    vertex BgVertex {
-        position: [f32; 2] = "a_position",
-    }
-
-    pipeline bg_pipeline {
-        vbo: gfx::VertexBuffer<BgVertex> = (),
-        out_color: gfx::RenderTarget<ColorFormat> = "out_color",
-        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
-        constants: gfx::ConstantBuffer<Globals> = "Globals",
-    }
-}
-
-pub type TransformId = Id<GpuTransform>;
+use glutin::{GlContext, EventsLoop, KeyboardInput};
+use glutin::ElementState::Pressed;
 
 pub fn split_gfx_slice<R: gfx::Resources>(
     slice: gfx::Slice<R>,
@@ -55,7 +28,7 @@ pub fn split_gfx_slice<R: gfx::Resources>(
     first.end = at;
     second.start = at;
 
-    return (first, second);
+    (first, second)
 }
 
 pub fn gfx_sub_slice<R: gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32) -> gfx::Slice<R> {
@@ -63,29 +36,11 @@ pub fn gfx_sub_slice<R: gfx::Resources>(slice: gfx::Slice<R>, from: u32, to: u32
     sub.start = from;
     sub.end = to;
 
-    return sub;
+    sub
 }
 
-struct BgVertexCtor;
-impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
-        BgVertex { position: vertex.position.to_array() }
-    }
-}
-
-struct Cpu {
-    transforms: BufferStore<GpuTransform>,
-    fill_primitives: BufferStore<GpuFillPrimitive>,
-    stroke_primitives: BufferStore<GpuStrokePrimitive>,
-    fills: VertexBuffers<GpuFillVertex>,
-    strokes: VertexBuffers<GpuStrokeVertex>,
-}
-
-struct Gpu {
-    transforms: GpuBufferStore<GpuTransform>,
-    fill_primitives: GpuBufferStore<GpuFillPrimitive>,
-    stroke_primitives: GpuBufferStore<GpuStrokePrimitive>,
-}
+const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
+const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
 fn main() {
     println!("== gfx-rs example ==");
@@ -95,6 +50,9 @@ fn main() {
     println!("  w: toggle wireframe mode");
     println!("  b: toggle drawing the background");
     println!("  a/z: increase/decrease the stroke width");
+
+
+    let tolerance = 0.001;
 
     let bezier = CubicBezierSegment {
         from: point(10.0, 10.0),
@@ -109,144 +67,118 @@ fn main() {
     };
 
     let intersections = bezier.line_intersections(&line);
+    let num_points = intersections.len() as u16;
 
-    // Build a Path for the rust logo.
     let mut builder = SvgPathBuilder::new(Path::builder());
     builder.move_to(bezier.from);
     builder.cubic_bezier_to(bezier.ctrl1, bezier.ctrl2, bezier.to);
     let bezier_path = builder.build();
+
 
     let mut builder = SvgPathBuilder::new(Path::builder());
     builder.move_to(line.point);
     builder.relative_line_to(line.vector);
     let line_path = builder.build();
 
+    let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
 
-    // Create some CPU-side buffers that will contain the geometry.
-    let mut cpu = Cpu {
-        fills: VertexBuffers::new(),
-        strokes: VertexBuffers::new(),
-        transforms: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
-        fill_primitives: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
-        stroke_primitives: BufferStore::new(1, PRIM_BUFFER_LEN as u16),
-    };
+    let line_id = 0;
+    let bezier_id = 1;
+    let point_ids_1 = 2;
+    let point_ids_2 = point_ids_1 + num_points as i32;
 
-    let default_transform = cpu.transforms.push(GpuTransform::default());
-    let view_transform =
-        cpu.transforms.push(GpuTransform::new(Transform3D::create_rotation(0.0, 0.0, 1.0, Radians::new(2.0))));
-
-    let bezier_id = cpu.stroke_primitives.push(
-        GpuStrokePrimitive::new(
-            [0.0, 0.0, 0.0, 0.1],
-            0.2,
-            default_transform.element,
-            view_transform.element,
-        )
-    );
-    let line_id = cpu.stroke_primitives.push(
-        GpuStrokePrimitive::new(
-            [0.0, 0.0, 0.0, 0.1],
-            0.3,
-            default_transform.element,
-            view_transform.element,
-        )
-    );
-
-    let stroke_options = StrokeOptions::tolerance(0.01).dont_apply_line_width();
+    let stroke_options = StrokeOptions::tolerance(tolerance).dont_apply_line_width();
     StrokeTessellator::new().tessellate_path(
         bezier_path.path_iter(),
         &stroke_options,
-        &mut BuffersBuilder::new(&mut cpu.strokes, WithId(bezier_id.element)),
+        &mut BuffersBuilder::new(
+            &mut geometry,
+            WithId(bezier_id)
+        ),
     );
     StrokeTessellator::new().tessellate_path(
         line_path.path_iter(),
         &stroke_options,
-        &mut BuffersBuilder::new(&mut cpu.strokes, WithId(line_id.element)),
-    );
-
-    let num_points = intersections.len() as u16;
-
-    let stroke_ids = cpu.stroke_primitives.alloc_range(2);
-    let point_transforms = cpu.transforms.alloc_range(num_points);
-    let point_ids_1 = cpu.fill_primitives.alloc_range(num_points);
-    let point_ids_2 = cpu.fill_primitives.alloc_range(num_points);
-
-    let circle_indices_start = cpu.fills.indices.len() as u32;
-    let circle_count = fill_circle(
-        point(0.0, 0.0),
-        2.0,
-        0.01,
         &mut BuffersBuilder::new(
-            &mut cpu.fills,
-            WithId(point_ids_1.range.start())
+            &mut geometry,
+            WithId(line_id)
         ),
     );
+
+
+    let circle_indices_start = geometry.indices.len() as u32;
+
     fill_circle(
         point(0.0, 0.0),
-        1.5,
+        1.0,
         0.01,
         &mut BuffersBuilder::new(
-            &mut cpu.fills,
-            WithId(point_ids_2.range.start())
+            &mut geometry,
+            WithId(point_ids_1)
         ),
     );
 
-    println!(" -- intersections {:?}", intersections);
-    for (i, p) in intersections.iter().enumerate() {
-        let i = i as u16;
-        let transform_id = point_transforms.range.get(i);
-        cpu.transforms[point_transforms.get(i)].transform =
-            Transform3D::create_translation(p.x, p.y, 0.0).to_row_arrays();
-        cpu.fill_primitives[point_ids_1.get(i)] = GpuFillPrimitive::new(
-            [0.0, 0.2, 0.0, 1.0],
-            0.3,
-            transform_id,
-            view_transform.element,
-        );
-        cpu.fill_primitives[point_ids_2.get(i)] = GpuFillPrimitive::new(
-            [0.0, 1.0, 0.0, 1.0],
-            0.4,
-            transform_id,
-            view_transform.element,
+    let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
+    fill_rectangle(
+        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+        &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
+    );
+
+    let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
+    for _ in 0..PRIM_BUFFER_LEN {
+        cpu_primitives.push(
+            Primitive {
+                color: [1.0, 0.0, 0.0, 1.0],
+                z_index: 0,
+                width: 0.0,
+                translate: [0.0, 0.0],
+            },
         );
     }
 
-    let mut bg_mesh_cpu: VertexBuffers<BgVertex> = VertexBuffers::new();
-    fill_rectangle(
-        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &mut BuffersBuilder::new(&mut bg_mesh_cpu, BgVertexCtor),
-    );
+    cpu_primitives[line_id as usize] = Primitive {
+        color: [0.0, 0.0, 0.0, 1.0],
+        z_index: 1,
+        width: 0.2,
+        translate: [0.0, 0.0],
+    };
 
-    // Initialize glutin and gfx-rs (refer to gfx-rs examples for more details).
-    let mut events_loop = glutin::EventsLoop::new();
+    cpu_primitives[bezier_id as usize] = Primitive {
+        color: [0.0, 0.0, 0.0, 1.0],
+        z_index: 2,
+        width: 0.2,
+        translate: [0.0, 0.0],
+    };
+
+    // Intance primitives
+    println!(" -- intersections {:?}", intersections);
+    for (i, p) in intersections.iter().enumerate() {
+        let pos = p.to_array();
+        cpu_primitives[point_ids_1 as usize + i] = Primitive {
+            color: [0.0, 0.2, 0.0, 1.0],
+            z_index: 3,
+            width: 2.0,
+            translate: pos,
+        };
+        cpu_primitives[point_ids_2 as usize + i] = Primitive {
+            color: [0.0, 1.0, 0.0, 1.0],
+            z_index: 4,
+            width: 1.0,
+            translate: pos,
+        };
+    }
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(700, 700)
+        .with_dimensions(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32)
         .with_decorations(true)
-        .with_title("tessellation".to_string());
+        .with_title("lyon".to_string());
 
-    let context = glutin::ContextBuilder::new()
-        .with_multisampling(8)
-        .with_vsync(true);
+    let context = glutin::ContextBuilder::new().with_vsync(true);
+
+    let mut events_loop = glutin::EventsLoop::new();
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &events_loop);
-
-    let constants = factory.create_constant_buffer(1);
-
-    let mut gpu = Gpu {
-        //fills: GpuGeometry::new(),
-        //strokes: GpuGeometry::new(),
-        transforms: GpuBufferStore::new(gfx::buffer::Role::Constant, gfx::memory::Usage::Dynamic),
-        fill_primitives: GpuBufferStore::new(
-            gfx::buffer::Role::Constant,
-            gfx::memory::Usage::Dynamic,
-        ),
-        stroke_primitives: GpuBufferStore::new(
-            gfx::buffer::Role::Constant,
-            gfx::memory::Usage::Dynamic,
-        ),
-    };
+        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop);
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -254,113 +186,69 @@ fn main() {
         bg_pipeline::new(),
     ).unwrap();
 
+    let path_shader = factory.link_program(
+        VERTEX_SHADER.as_bytes(),
+        FRAGMENT_SHADER.as_bytes()
+    ).unwrap();
+
+    let path_pso = factory.create_pipeline_from_program(
+        &path_shader,
+        gfx::Primitive::TriangleList,
+        gfx::state::Rasterizer::new_fill().with_cull_back(),
+        path_pipeline::new(),
+    ).unwrap();
+
+    let mut wireframe_fill_mode = gfx::state::Rasterizer::new_fill();
+    wireframe_fill_mode.method = gfx::state::RasterMethod::Line(1);
+    let wireframe_pso = factory.create_pipeline_from_program(
+        &path_shader,
+        gfx::Primitive::TriangleList,
+        wireframe_fill_mode,
+        path_pipeline::new(),
+    ).unwrap();
+
     let (bg_vbo, bg_range) = factory.create_vertex_buffer_with_slice(
-        &bg_mesh_cpu.vertices[..],
-        &bg_mesh_cpu.indices[..]
+        &bg_geometry.vertices[..],
+        &bg_geometry.indices[..]
     );
 
-    let fill_shader = factory.link_program(
-        FILL_VERTEX_SHADER.as_bytes(),
-        FILL_FRAGMENT_SHADER.as_bytes()
-    ).unwrap();
-
-    let stroke_shader = factory.link_program(
-        STROKE_VERTEX_SHADER.as_bytes(),
-        STROKE_FRAGMENT_SHADER.as_bytes()
-    ).unwrap();
-
-    let opaque_fill_pso = factory.create_pipeline_from_program(
-        &fill_shader,
-        gfx::Primitive::TriangleList,
-        gfx::state::Rasterizer::new_fill(),
-        opaque_fill_pipeline::new(),
-    ).unwrap();
-
-    let opaque_stroke_pso = factory.create_pipeline_from_program(
-        &stroke_shader,
-        gfx::Primitive::TriangleList,
-        gfx::state::Rasterizer::new_fill(),
-        opaque_stroke_pipeline::new(),
-    ).unwrap();
-
-    let mut fill_mode = gfx::state::Rasterizer::new_fill();
-    fill_mode.method = gfx::state::RasterMethod::Line(1);
-    let wireframe_stroke_pso = factory.create_pipeline_from_program(
-        &stroke_shader,
-        gfx::Primitive::TriangleList,
-        fill_mode,
-        opaque_stroke_pipeline::new(),
-    ).unwrap();
-
-    let mut init_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-
-    let (vbo, ibo) = factory.create_vertex_buffer_with_slice(
-        &cpu.fills.vertices[..],
-        &cpu.fills.indices[..]
+    let (path_vbo, path_range) = factory.create_vertex_buffer_with_slice(
+        &geometry.vertices[..],
+        &geometry.indices[..]
     );
-    let gpu_fills = GpuGeometry { vbo: vbo, ibo: ibo };
 
-    let (vbo, ibo) = factory.create_vertex_buffer_with_slice(
-        &cpu.strokes.vertices[..],
-        &cpu.strokes.indices[..]
-    );
-    let gpu_strokes = GpuGeometry { vbo: vbo, ibo: ibo };
+    let (stroke_range, mut points_range) = split_gfx_slice(path_range, circle_indices_start);
+    points_range.instances = Some((2 * num_points as u32, 0));
 
-    gpu.fill_primitives.update(&mut cpu.fill_primitives, &mut factory, &mut init_queue);
-    gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut init_queue);
-    init_queue.flush(&mut device);
-
-    let split = circle_indices_start + (circle_count.indices as u32);
-    let mut points_range_1 = gfx_sub_slice(gpu_fills.ibo.clone(), circle_indices_start, split);
-    let mut points_range_2 =
-        gfx_sub_slice(gpu_fills.ibo.clone(), split, split + circle_count.indices as u32);
-    points_range_1.instances = Some((num_points as u32, 0));
-    points_range_2.instances = Some((num_points as u32, 0));
+    let gpu_primitives = factory.create_constant_buffer(PRIM_BUFFER_LEN);
+    let constants = factory.create_constant_buffer(1);
 
     let mut scene = SceneParams {
         target_zoom: 5.0,
-        zoom: 0.5,
+        zoom: 0.1,
         target_scroll: vector(70.0, 70.0),
         scroll: vector(70.0, 70.0),
         show_points: false,
         show_wireframe: false,
-        stroke_width: 0.0,
+        stroke_width: 1.0,
         target_stroke_width: 1.0,
         draw_background: true,
+        cursor_position: (0.0, 0.0),
+        window_size: (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
-    let mut frame_count: usize = 0;
-    loop {
-        if !update_inputs(&mut events_loop, &mut scene) {
-            break;
-        }
-
-        cpu.stroke_primitives[bezier_id].color =
-            [
-                (frame_count as f32 * 0.008 - 1.6).sin() * 0.1 + 0.1,
-                (frame_count as f32 * 0.005 - 1.6).sin() * 0.1 + 0.1,
-                (frame_count as f32 * 0.01 - 1.6).sin() * 0.1 + 0.1,
-                1.0,
-            ];
-        cpu.stroke_primitives[bezier_id].width = scene.stroke_width;
-        cpu.stroke_primitives[line_id].width = scene.stroke_width;
-
+    while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let (w, h) = window.get_inner_size_pixels().unwrap();
-
-        *cpu.transforms[view_transform].as_mut_mat4() = Transform3D::create_translation(
-            -scene.scroll.x as f32,
-            -scene.scroll.y as f32, 0.0
-        ).post_scale(scene.zoom, scene.zoom, 1.0);
+        scene.window_size = (w as f32, h as f32);
 
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
 
-        gpu.fill_primitives.update(&mut cpu.fill_primitives, &mut factory, &mut cmd_queue);
-        gpu.stroke_primitives.update(&mut cpu.stroke_primitives, &mut factory, &mut cmd_queue);
-        gpu.transforms.update(&mut cpu.transforms, &mut factory, &mut cmd_queue);
+        cpu_primitives[line_id as usize].width = scene.stroke_width;
+        cpu_primitives[bezier_id as usize].width = scene.stroke_width;
 
         cmd_queue.update_constant_buffer(
             &constants,
@@ -371,40 +259,36 @@ fn main() {
             },
         );
 
+        cmd_queue.update_buffer(
+            &gpu_primitives,
+            &cpu_primitives[..],
+            0
+        ).unwrap();
+
+        let pso = if scene.show_wireframe {
+            &wireframe_pso
+        } else {
+            &path_pso
+        };
+
         cmd_queue.draw(
-            &points_range_1,
-            &opaque_fill_pso,
-            &opaque_fill_pipeline::Data {
-                vbo: gpu_fills.vbo.clone(),
-                primitives: gpu.fill_primitives[point_ids_1.buffer].clone(),
-                transforms: gpu.transforms[point_transforms.buffer].clone(),
-                constants: constants.clone(),
-                out_color: main_fbo.clone(),
-                out_depth: main_depth.clone(),
-            },
-        );
-        cmd_queue.draw(
-            &points_range_2,
-            &opaque_fill_pso,
-            &opaque_fill_pipeline::Data {
-                vbo: gpu_fills.vbo.clone(),
-                primitives: gpu.fill_primitives[point_ids_2.buffer].clone(),
-                transforms: gpu.transforms[point_transforms.buffer].clone(),
+            &stroke_range,
+            &pso,
+            &path_pipeline::Data {
+                vbo: path_vbo.clone(),
+                primitives: gpu_primitives.clone(),
                 constants: constants.clone(),
                 out_color: main_fbo.clone(),
                 out_depth: main_depth.clone(),
             },
         );
 
-        let stroke_pso = if scene.show_wireframe { &wireframe_stroke_pso } else { &opaque_stroke_pso };
-
         cmd_queue.draw(
-            &gpu_strokes.ibo,
-            &stroke_pso,
-            &opaque_stroke_pipeline::Data {
-                vbo: gpu_strokes.vbo.clone(),
-                primitives: gpu.stroke_primitives[stroke_ids.buffer].clone(),
-                transforms: gpu.transforms[default_transform.buffer].clone(),
+            &points_range,
+            &pso,
+            &path_pipeline::Data {
+                vbo: path_vbo.clone(),
+                primitives: gpu_primitives.clone(),
                 constants: constants.clone(),
                 out_color: main_fbo.clone(),
                 out_depth: main_depth.clone(),
@@ -424,16 +308,194 @@ fn main() {
             );
         }
 
-        // Non-opaque geometry should be drawn back to front here.
-        // (there is none in this example)
-
         cmd_queue.flush(&mut device);
-
         window.swap_buffers().unwrap();
-
         device.cleanup();
+    }
+}
 
-        frame_count += 1;
+gfx_defines!{
+    constant Globals {
+        resolution: [f32; 2] = "u_resolution",
+        scroll_offset: [f32; 2] = "u_scroll_offset",
+        zoom: f32 = "u_zoom",
+    }
+
+    vertex GpuVertex {
+        position: [f32; 2] = "a_position",
+        normal: [f32; 2] = "a_normal",
+        prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
+    }
+
+    constant Primitive {
+        color: [f32; 4] = "color",
+        z_index: i32 = "z_index",
+        width: f32 = "width",
+        translate: [f32; 2] = "translate",
+    }
+
+    pipeline path_pipeline {
+        vbo: gfx::VertexBuffer<GpuVertex> = (),
+        out_color: gfx::RenderTarget<gfx::format::Rgba8> = "out_color",
+        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
+        constants: gfx::ConstantBuffer<Globals> = "Globals",
+        primitives: gfx::ConstantBuffer<Primitive> = "u_primitives",
+    }
+
+    vertex BgVertex {
+        position: [f32; 2] = "a_position",
+    }
+
+    pipeline bg_pipeline {
+        vbo: gfx::VertexBuffer<BgVertex> = (),
+        out_color: gfx::RenderTarget<gfx::format::Rgba8> = "out_color",
+        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
+        constants: gfx::ConstantBuffer<Globals> = "Globals",
+    }
+}
+
+struct BgVertexCtor;
+impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
+        BgVertex { position: vertex.position.to_array() }
+    }
+}
+
+static BACKGROUND_VERTEX_SHADER: &'static str = &"
+    #version 140
+    in vec2 a_position;
+    out vec2 v_position;
+
+    void main() {
+        gl_Position = vec4(a_position, 1.0, 1.0);
+        v_position = a_position;
+    }
+";
+
+// The background.
+// This shader is silly and slow, but it looks nice ;)
+static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
+    #version 140
+    uniform Globals {
+        vec2 u_resolution;
+        vec2 u_scroll_offset;
+        float u_zoom;
+    };
+    in vec2 v_position;
+    out vec4 out_color;
+
+    void main() {
+        vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
+
+        // #005fa4
+        float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
+        out_color = mix(
+            vec4(0.0, 0.47, 0.9, 1.0),
+            vec4(0.0, 0.1, 0.64, 1.0),
+            vignette
+        );
+
+        // TODO: properly adapt the grid while zooming in and out.
+        float grid_scale = 5.0;
+        if (u_zoom < 2.5) {
+            grid_scale = 1.0;
+        }
+
+        vec2 pos = px_position + u_scroll_offset * u_zoom;
+
+        if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
+            mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
+            out_color *= 1.2;
+        }
+
+        if (mod(pos.x, 100.0 / grid_scale * u_zoom) <= 2.0 ||
+            mod(pos.y, 100.0 / grid_scale * u_zoom) <= 2.0) {
+            out_color *= 1.2;
+        }
+    }
+";
+
+const PRIM_BUFFER_LEN: usize = 64;
+
+pub static VERTEX_SHADER: &'static str = &"
+    #version 140
+
+    #define PRIM_BUFFER_LEN 64
+
+    uniform Globals {
+        vec2 u_resolution;
+        vec2 u_scroll_offset;
+        float u_zoom;
+    };
+
+    struct Primitive {
+        vec4 color;
+        int z_index;
+        float width;
+        vec2 translate;
+    };
+    uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
+
+    in vec2 a_position;
+    in vec2 a_normal;
+    in int a_prim_id;
+
+    out vec4 v_color;
+
+    void main() {
+        int id = a_prim_id + gl_InstanceID;
+        Primitive prim = primitives[id];
+
+        vec2 local_pos = a_position + a_normal * prim.width;
+        vec2 world_pos = local_pos - u_scroll_offset + prim.translate;
+        vec2 transformed_pos = world_pos * u_zoom / (vec2(0.5, -0.5) * u_resolution);
+
+        float z = float(prim.z_index) / 4096.0;
+        gl_Position = vec4(transformed_pos, 1.0 - z, 1.0);
+        v_color = prim.color;
+    }
+";
+
+pub static FRAGMENT_SHADER: &'static str = &"
+    #version 140
+    in vec4 v_color;
+    out vec4 out_color;
+
+    void main() {
+        out_color = v_color;
+    }
+";
+
+/// This vertex constructor forwards the positions and normals provided by the
+/// tessellators and add a shape id.
+pub struct WithId(pub i32);
+
+impl VertexConstructor<tessellation::FillVertex, GpuVertex> for WithId {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
+        debug_assert!(!vertex.position.x.is_nan());
+        debug_assert!(!vertex.position.y.is_nan());
+        debug_assert!(!vertex.normal.x.is_nan());
+        debug_assert!(!vertex.normal.y.is_nan());
+        GpuVertex {
+            position: vertex.position.to_array(),
+            normal: vertex.normal.to_array(),
+            prim_id: self.0,
+        }
+    }
+}
+
+impl VertexConstructor<tessellation::StrokeVertex, GpuVertex> for WithId {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
+        debug_assert!(!vertex.position.x.is_nan());
+        debug_assert!(!vertex.position.y.is_nan());
+        debug_assert!(!vertex.normal.x.is_nan());
+        debug_assert!(!vertex.normal.y.is_nan());
+        debug_assert!(!vertex.advancement.is_nan());
+        GpuVertex {
+            position: vertex.position.to_array(),
+            normal: vertex.normal.to_array(),
+            prim_id: self.0,
+        }
     }
 }
 
@@ -447,21 +509,55 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
+    cursor_position: (f32, f32),
+    window_size: (f32, f32),
 }
 
-fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) -> bool {
+fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
     use glutin::Event;
     use glutin::VirtualKeyCode;
-    use glutin::ElementState::Pressed;
+    use glutin::WindowEvent;
 
     let mut status = true;
 
     events_loop.poll_events(|event| {
         match event {
-            Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
+            Event::WindowEvent {
+                event: WindowEvent::Closed,
+                ..
+            } => {
                 status = false;
+            },
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput {
+                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
+                ..},
+            ..} => {
+                let half_width = scene.window_size.0 * 0.5;
+                let half_height = scene.window_size.1 * 0.5;
+                println!("X: {}, Y: {}",
+                    (scene.cursor_position.0 - half_width) / scene.zoom + scene.scroll.x,
+                    (scene.cursor_position.1 - half_height) / scene.zoom + scene.scroll.y,
+                );
             }
-            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..}, ..} => {
+            Event::WindowEvent {
+                event: WindowEvent::MouseMoved {
+                    position: (x, y),
+                    ..},
+            ..} => {
+                scene.cursor_position = (x as f32, y as f32);
+            }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    input: KeyboardInput {
+                        state: Pressed,
+                        virtual_keycode: Some(key),
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } => {
                 match key {
                     VirtualKeyCode::Escape => {
                         status = false;
@@ -494,19 +590,16 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
                         scene.draw_background = !scene.draw_background;
                     }
                     VirtualKeyCode::A => {
-                        scene.target_stroke_width += 0.8;
+                        scene.target_stroke_width /= 0.8;
                     }
                     VirtualKeyCode::Z => {
-                        scene.target_stroke_width -= 0.8;
+                        scene.target_stroke_width *= 0.8;
                     }
                     _key => {}
                 }
-                println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
             }
-            _evt => {
-                //println!("{:?}", _evt);
-            }
-        };
+            _evt => {}
+        }
     });
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
@@ -514,59 +607,5 @@ fn update_inputs(events_loop: &mut glutin::EventsLoop, scene: &mut SceneParams) 
     scene.stroke_width = scene.stroke_width +
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    status
+    return status;
 }
-
-static BACKGROUND_VERTEX_SHADER: &'static str = "
-    #version 140
-    in vector a_position;
-    out vector v_position;
-
-    void main() {
-        gl_Position = vec4(a_position, 1.0, 1.0);
-        v_position = a_position;
-    }
-";
-
-// The background.
-// This shader is silly and slow, but it looks nice ;)
-static BACKGROUND_FRAGMENT_SHADER: &'static str = "
-    #version 140
-    uniform Globals {
-        vector u_resolution;
-        vector u_scroll_offset;
-        float u_zoom;
-    };
-    in vector v_position;
-    out vec4 out_color;
-
-    void main() {
-        vector px_position = v_position * vector(1.0, -1.0) * u_resolution * 0.5;
-
-        // #005fa4
-        float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
-        out_color = mix(
-            vec4(0.0, 0.47, 0.9, 1.0),
-            vec4(0.0, 0.1, 0.64, 1.0),
-            vignette
-        );
-
-        // TODO: properly adapt the grid while zooming in and out.
-        float grid_scale = 5.0;
-        if (u_zoom < 2.5) {
-            grid_scale = 1.0;
-        }
-
-        vector pos = px_position + u_scroll_offset * u_zoom;
-
-        if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
-            mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
-            out_color *= 1.2;
-        }
-
-        if (mod(pos.x, 100.0 / grid_scale * u_zoom) <= 2.0 ||
-            mod(pos.y, 100.0 / grid_scale * u_zoom) <= 2.0) {
-            out_color *= 1.2;
-        }
-    }
-";
