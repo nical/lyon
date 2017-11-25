@@ -83,29 +83,6 @@ mod monotone;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 pub use up_to_two::UpToTwo;
 
-/// Alias for ```euclid::Point2D<f32>```.
-pub type Point = euclid::Point2D<f32>;
-
-/// Alias for ```euclid::Point2D<f32>```.
-pub type F64Point = euclid::Point2D<f64>;
-
-/// Alias for ```euclid::Point2D<f32>```.
-pub type Vector = euclid::Vector2D<f32>;
-
-/// Alias for ```euclid::Size2D<f32>```.
-pub type Size = euclid::Size2D<f32>;
-
-/// Alias for ```euclid::Rect<f32>```
-pub type Rect = euclid::Rect<f32>;
-
-/// Alias for ```euclid::Transform2D<f32>```
-pub type Transform2D = euclid::Transform2D<f32>;
-
-pub type Rotation2D = euclid::Rotation2D<f32>;
-
-/// An angle in radians (f32).
-pub type Radians = euclid::Radians<f32>;
-
 pub use quadratic_bezier::QuadraticBezierSegment;
 pub use cubic_bezier::CubicBezierSegment;
 pub use triangle::{Triangle};
@@ -113,33 +90,51 @@ pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
 pub use segment::Segment;
 
-pub use euclid::rect;
-pub use euclid::vec2 as vector;
-pub use euclid::point2 as point;
-pub use euclid::size2 as size;
-
-pub mod core {
+pub mod math {
     //! ## Core geometry types
     //!
     //! Basic types that are used everywhere. Most other lyon crates
     //! reexport them.
 
-    pub use Point;
-    pub use F64Point;
-    pub use Vector;
-    pub use Size;
-    pub use Rect;
-    pub use Transform2D;
-    pub use Rotation2D;
-    pub use Radians;
+    use euclid;
 
-    pub use point;
-    pub use vector;
-    pub use size;
-    pub use rect;
+    /// Alias for ```euclid::Point2D<f32>```.
+    pub type Point = euclid::Point2D<f32>;
 
-    pub use euclid;
+    /// Alias for ```euclid::Point2D<f32>```.
+    pub type F64Point = euclid::Point2D<f64>;
+
+    /// Alias for ```euclid::Point2D<f32>```.
+    pub type Vector = euclid::Vector2D<f32>;
+
+    /// Alias for ```euclid::Size2D<f32>```.
+    pub type Size = euclid::Size2D<f32>;
+
+    /// Alias for ```euclid::Rect<f32>```
+    pub type Rect = euclid::Rect<f32>;
+
+    /// Alias for ```euclid::Transform2D<f32>```
+    pub type Transform2D = euclid::Transform2D<f32>;
+
+    /// Alias for ```euclid::Rotation2D<f32>```
+    pub type Rotation2D = euclid::Rotation2D<f32>;
+
+    /// An angle in radians (f32).
+    pub type Radians = euclid::Radians<f32>;
+
+    /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
+    pub use euclid::rect;
+
+    /// Shorthand for `Vector::new(x, y)`.
+    pub use euclid::vec2 as vector;
+
+    /// Shorthand for `Point::new(x, y)`.
+    pub use euclid::point2 as point;
+
+    /// Shorthand for `Size::new(x, y)`.
+    pub use euclid::size2 as size;
 }
+
 
 pub mod traits {
     pub use segment::{Segment, FlattenedForEach, FlatteningStep};

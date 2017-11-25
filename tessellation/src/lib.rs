@@ -164,7 +164,7 @@
 //! approximated with sequences of line segments. This approximation depends on a `tolerance` parameter
 //! which represents the maximum distance between a curve and its flattened approximation.
 //!
-//! More explanaion about flattening and tolerance in the [lyon_bezier crate](https://docs.rs/lyon_bezier/0.7.0/lyon_bezier/#flattening).
+//! More explanaion about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/0.7.0/lyon_geom/#flattening).
 //!
 //! ## Examples
 //!
@@ -178,7 +178,6 @@
 #![allow(dead_code)]
 //#![allow(needless_return, new_without_default_derive)] // clippy
 
-pub extern crate lyon_bezier as geom;
 pub extern crate lyon_path as path;
 
 #[cfg(test)] extern crate lyon_extra as extra;
@@ -198,7 +197,9 @@ mod earcut_tests;
 #[cfg(test)]
 mod fuzz_tests;
 
-pub use geom::core as math;
+pub use path::math;
+
+pub use path::geom;
 
 #[doc(inline)]
 pub use path_fill::*;

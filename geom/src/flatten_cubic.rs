@@ -6,7 +6,8 @@
 ///! It produces a better approximations than the usual recursive subdivision approach (or
 ///! in other words, it generates less points for a given tolerance threshold).
 
-use super::{Point, CubicBezierSegment};
+use CubicBezierSegment;
+use math::Point;
 use up_to_two::UpToTwo;
 
 use std::f32;

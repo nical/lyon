@@ -37,7 +37,7 @@
 //! ```
 //!
 
-pub extern crate lyon_bezier as geom;
+pub extern crate lyon_geom as geom;
 
 mod path;
 mod events;
@@ -49,4 +49,4 @@ pub use path::*;
 pub use events::*;
 pub use path_state::*;
 pub use geom::ArcFlags;
-pub use geom::core as math;
+pub use geom::math as math;

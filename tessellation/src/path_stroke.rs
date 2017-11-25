@@ -1,5 +1,5 @@
 use math_utils::compute_normal;
-use geom::core::*;
+use geom::math::*;
 use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
 use geom::utils::{normalized_tangent, directed_angle, fast_atan2, vector_angle};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
@@ -45,7 +45,7 @@ use std::f32::consts::PI;
 /// # use tess::path::Path;
 /// # use tess::path::builder::*;
 /// # use tess::path::iterator::*;
-/// # use tess::geom::core::*;
+/// # use tess::geom::math::*;
 /// # use tess::geometry_builder::{VertexBuffers, simple_builder};
 /// # use tess::*;
 /// # fn main() {

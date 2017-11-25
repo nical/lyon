@@ -29,8 +29,6 @@ path = "src/lib.rs"
 [dependencies]
 
 lyon_tessellation = { version = "0.8.6", path = "tessellation/" }
-lyon_bezier = { version = "0.8.5", path = "bezier/" }
-lyon_path = { version = "0.8.6", path = "path/" }
 lyon_extra = { version = "0.8.6", path = "extra/" }
 lyon_svg = { version = "0.8.6", path = "svg/" }
 
@@ -38,7 +36,7 @@ lyon_svg = { version = "0.8.6", path = "svg/" }
 members = [
     "path",
     "tessellation",
-    "bezier",
+    "geom",
     "extra",
     "svg",
     "cli",

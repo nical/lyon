@@ -1,5 +1,5 @@
-use {CubicBezierSegment};
-use {Point, Vector, Rect, rect, Triangle, Line, LineSegment, Transform2D};
+use {CubicBezierSegment, Triangle, Line, LineSegment};
+use math::{Point, Vector, Rect, rect, Transform2D};
 use monotone::{XMonotoneParametricCurve, solve_t_for_x};
 use arrayvec::ArrayVec;
 use segment::{Segment, FlatteningStep, FlattenedForEach};

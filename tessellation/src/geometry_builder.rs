@@ -59,7 +59,7 @@
 //! extern crate lyon_tessellation as tess;
 //! use tess::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex};
 //! use tess::basic_shapes::fill_circle;
-//! use tess::geom::point;
+//! use tess::math::point;
 //!
 //! // Our custom vertex.
 //! #[derive(Copy, Clone, Debug)]
@@ -123,7 +123,7 @@
 //! use tess::{GeometryBuilder, StrokeOptions, Count};
 //! use tess::geometry_builder::VertexId;
 //! use tess::basic_shapes::stroke_polyline;
-//! use tess::geom::point;
+//! use tess::math::point;
 //! use std::fmt::Debug;
 //!
 //! // A geometry builder that writes the result of the tessellation to stdout instead

@@ -23,7 +23,7 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
 use lyon::tessellation::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation::StrokeVertex;
-use lyon::path::math::euclid::{Transform3D, vec3};
+use lyon::geom::euclid::{Transform3D, vec3};
 
 use svgparser::Tokenize;
 

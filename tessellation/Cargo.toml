@@ -17,7 +17,6 @@ path = "src/lib.rs"
 [dependencies]
 
 lyon_path = { version = "0.8.6", path = "../path" }
-lyon_bezier = { version = "0.8.5", path = "../bezier" }
 sid = "0.5"
 
 [dev-dependencies]

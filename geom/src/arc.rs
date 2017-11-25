@@ -3,7 +3,8 @@
 use std::f32::*;
 use std::f32;
 
-use {Point, point, Vector, vector, Rotation2D, Transform2D, Radians, Line, Rect};
+use Line;
+use math::{Point, point, Vector, vector, Rotation2D, Transform2D, Radians, Rect};
 use utils::directed_angle;
 use segment::{Segment, FlattenedForEach, FlatteningStep};
 use segment;

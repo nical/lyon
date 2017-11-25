@@ -21,8 +21,8 @@ use lyon_renderer::renderer::{
     opaque_stroke_pipeline, GpuGeometry,
     GpuBufferStore, Globals, WithId
 };
-use lyon::bezier::{CubicBezierSegment, Line};
-use lyon::math::euclid::Transform3D;
+use lyon::geom::{CubicBezierSegment, Line};
+use lyon::geom::euclid::Transform3D;
 // make  public so that the module in gfx_defines can see the types.
 pub use lyon_renderer::gfx_types::*;
 

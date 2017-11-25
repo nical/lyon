@@ -1,4 +1,4 @@
-use {Point, Rect};
+use math::{Point, Rect};
 
 /// Common APIs to segment types.
 pub trait Segment: Copy + Sized {
