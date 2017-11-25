@@ -9,7 +9,7 @@ extern crate gfx;
 extern crate gfx_device_gl;
 
 extern crate lyon_path as path;
-extern crate lyon_bezier as bezier;
+extern crate lyon_geom as bezier;
 extern crate lyon_tessellation as tessellation;
 
 pub mod api;

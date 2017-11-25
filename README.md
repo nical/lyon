@@ -78,9 +78,9 @@ The project is split into several crates:
 * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
   **lyon_path** - Tools to build and iterate over paths.
-* [![crate](http://meritbadge.herokuapp.com/lyon_bezier)](https://crates.io/crates/lyon_bezier)
-  [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) -
-  **lyon_bezier** - Cubic and quadratic 2d bézier math.
+* [![crate](http://meritbadge.herokuapp.com/lyon_geom)](https://crates.io/crates/lyon_geom)
+  [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
+  **lyon_geom** - Cubic and quadratic 2d bézier math.
 * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
   **lyon_svg** - Create paths using SVG's path syntax.

@@ -12,4 +12,4 @@ workspace = ".."
 name = "lyon_path"
 
 [dependencies]
-lyon_bezier = { version = "0.8.5", path = "../bezier" }
+lyon_geom = { version = "0.8.5", path = "../geom" }

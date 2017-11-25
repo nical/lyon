@@ -1,4 +1,5 @@
-use {Point, Vector, Rect, rect, Line, LineSegment, Transform2D};
+use {Line, LineSegment};
+use math::{Point, Vector, Rect, rect, Transform2D};
 use up_to_two::UpToTwo;
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};

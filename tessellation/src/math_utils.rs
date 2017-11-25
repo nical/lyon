@@ -1,8 +1,9 @@
 //! Various math tools that are mostly usefull for the tessellators.
 
 use fixed;
-use geom::core::*;
+use geom::math::*;
 use path_fill::Edge;
+use geom::euclid;
 
 pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
 pub type FixedPoint64 = fixed::Fp64<fixed::_16>;

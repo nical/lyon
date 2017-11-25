@@ -1,4 +1,5 @@
-use {Point, Rect, LineSegment, Size, Transform2D};
+use math::{Point, Rect, Size, Transform2D};
+use LineSegment;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle {
@@ -110,7 +111,7 @@ impl Triangle {
 }
 
 #[cfg(test)]
-use point;
+use math::point;
 
 #[test]
 fn test_triangle_contains() {

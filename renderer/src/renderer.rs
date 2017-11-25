@@ -4,7 +4,7 @@ use gfx::Factory;
 use tessellation;
 use tessellation::geometry_builder::VertexConstructor;
 use tessellation::math::*;
-use tessellation::math::euclid::Transform3D;
+use tessellation::geom::euclid::Transform3D;
 use buffer::*;
 pub use gfx_types::*;
 use glsl::PRIM_BUFFER_LEN;

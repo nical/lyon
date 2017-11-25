@@ -1,4 +1,4 @@
-use {Point, Vector, vector, Radians};
+use math::{Point, Vector, vector, Radians};
 use std::f32::consts::{PI, FRAC_PI_2};
 use arrayvec::ArrayVec;
 

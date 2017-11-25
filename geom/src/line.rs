@@ -1,4 +1,4 @@
-use {Point, point, Vector, vector, Rect, Size, Transform2D};
+use math::{Point, point, Vector, vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep};
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64

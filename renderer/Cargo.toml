@@ -12,5 +12,5 @@ license = "MIT/Apache-2.0"
 gfx = "0.16"
 gfx_device_gl = "0.14"
 lyon_path = { version = "0.8.0", path = "../path" }
-lyon_bezier = { version = "0.8.0", path = "../bezier" }
+lyon_geom = { version = "0.8.0", path = "../geom" }
 lyon_tessellation = { version = "0.8.0", path = "../tessellation" }

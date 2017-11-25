@@ -15,9 +15,9 @@
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
 //!   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
 //!   **lyon_path** - Tools to build and iterate over paths.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_bezier)](https://crates.io/crates/lyon_bezier)
-//!   [![doc](https://docs.rs/lyon_bezier/badge.svg)](https://docs.rs/lyon_bezier) -
-//!   **lyon_bezier** - Cubic and quadratic 2d bézier math.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_geom)](https://crates.io/crates/lyon_geom)
+//!   [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
+//!   **lyon_geom** - Cubic and quadratic 2d bézier math.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
 //!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
 //!   **lyon_svg** - Create paths using SVG's path syntax.
@@ -146,7 +146,7 @@
 //! so we have to approximate the curves segments with sequences of line segments.
 //! To do so we pick a tolerance threshold which is the maximum distance allowed
 //! between the curve and its approximation.
-//! The documentation of the [lyon_bezier](https://docs.rs/lyon_bezier) crate provides
+//! The documentation of the [lyon_geom](https://docs.rs/lyon_geom) crate provides
 //! more detailed explanations about this tolerance parameter.
 //!
 //! ## Rendering the tessellated geometry
@@ -162,18 +162,16 @@
 
 
 
-pub extern crate lyon_path;
 pub extern crate lyon_tessellation;
-pub extern crate lyon_bezier;
 pub extern crate lyon_extra;
 pub extern crate lyon_svg;
 //pub extern crate lyon_renderer;
 
 pub use lyon_tessellation as tessellation;
-pub use lyon_path as path;
-pub use lyon_bezier as bezier;
+pub use tessellation::path as path;
+pub use tessellation::geom as geom;
 pub use lyon_extra as extra;
 pub use lyon_svg as svg;
 //pub use lyon_renderer as renderer;
 
-pub use bezier::core as math;
+pub use geom::math;
