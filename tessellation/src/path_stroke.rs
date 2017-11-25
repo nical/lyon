@@ -717,7 +717,7 @@ impl<'l> StrokeBuilder<'l> {
 
         let max_radius_segment_angle = compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
         let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
-        assert!(num_segments > 0);
+        debug_assert!(num_segments > 0);
         // Calculate angle of each step
         let segment_angle = join_angle as f32 / num_segments as f32;
 
