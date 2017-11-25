@@ -3,9 +3,8 @@
 //! # Lyon path
 //!
 //! A simple path data structure implementing the traits provided in the
-//! [builder](https://docs.rs/lyon_path_builder) and
-//! [iterator](https://docs.rs/lyon_path_iterator) modules.
-//! TODO(nical) fix links!
+//! [builder](builder/index.html) and
+//! [iterator](iterator/index.html) modules.
 //!
 //! # Examples
 //!

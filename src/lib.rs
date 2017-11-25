@@ -9,6 +9,8 @@
 //!
 //! # Crates
 //!
+//! This meta-crate (`lyon`) reexports the following sub-crates for convenience:
+//!
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
 //!   [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
 //!   **lyon_tessellation** - Path tessellation routines.
@@ -17,29 +19,26 @@
 //!   **lyon_path** - Tools to build and iterate over paths.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_geom)](https://crates.io/crates/lyon_geom)
 //!   [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
-//!   **lyon_geom** - Cubic and quadratic 2d bézier math.
+//!   **lyon_geom** - 2d utilities for cubic and quadratic bézier curves, arcs and more.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
 //!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
 //!   **lyon_svg** - Create paths using SVG's path syntax.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_extra)](https://crates.io/crates/lyon_extra)
 //!   [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
 //!   **lyon_extra** - Additional testing and debugging tools.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_core)](https://crates.io/crates/lyon_core)
-//!   [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_core) -
-//!   **lyon_core** - Common types to most lyon crates (mostly for internal use, reexported by the other crates).
 //!
-//! This meta-crate (`lyon`) mostly reexports the other lyon crates for convenience.
+//! Each `lyon_<name>` crate is reexported as a `<name>` module in `lyon`. For example:
 //!
 //! ```ignore
-//! extern crate lyon;
-//! use lyon::tessellation::FillTessellator;
+//! extern crate lyon_tessellation;
+//! use lyon_tessellation::FillTessellator;
 //! ```
 //!
 //! Is equivalent to:
 //!
 //! ```ignore
-//! extern crate lyon_tessellation;
-//! use lyon_tessellation::FillTessellator;
+//! extern crate lyon;
+//! use lyon::tessellation::FillTessellator;
 //! ```
 //!
 //! # Additional documentation and links
@@ -159,8 +158,6 @@
 //! examples can be used to get an idea of how to render the geometry (in this case
 //! using gfx-rs).
 //!
-
-
 
 pub extern crate lyon_tessellation;
 pub extern crate lyon_extra;

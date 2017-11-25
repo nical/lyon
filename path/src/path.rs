@@ -105,8 +105,8 @@ impl<'l> PathSlice<'l> {
 //}
 
 /// Builds path object using the FlatPathBuilder interface.
-/// TODO(nical) fix link
-/// See the [builder](https://docs.rs/lyon_path_builder) module documentation.
+///
+/// See the [builder module](builder/index.html) documentation.
 pub struct Builder {
     path: Path,
     current_position: Point,
