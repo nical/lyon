@@ -12,7 +12,7 @@ use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, Buf
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
-use lyon::path::Path;
+use lyon::path::default::Path;
 
 use gfx::traits::{Device, FactoryExt};
 

@@ -1,5 +1,5 @@
 use std::io;
-use lyon::path::Path;
+use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions};
 
 #[derive(Clone, Debug)]

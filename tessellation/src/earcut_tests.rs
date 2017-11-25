@@ -20,7 +20,7 @@
 // -------------
 
 use geometry_builder::{VertexBuffers, simple_builder};
-use path::{Path, PathSlice};
+use path::default::{Path, PathSlice};
 use path::builder::FlatPathBuilder;
 use path_fill::*;
 use geom::math::*;

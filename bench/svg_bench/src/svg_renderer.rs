@@ -14,7 +14,7 @@ use glium::DisplayBuild;
 use glium::backend::glutin_backend::GlutinFacade as Display;
 
 use lyon::math::*;
-use lyon::path::Path;
+use lyon::path::default::Path;
 use lyon::path::builder::*;
 use lyon::path::iterator::PathIterator;
 use lyon_svg::parser::Color;

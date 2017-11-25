@@ -39,7 +39,7 @@ use path::iterator::PathIterator;
 #[cfg(test)]
 use geometry_builder::{VertexBuffers, simple_builder};
 #[cfg(test)]
-use path::{Path, PathSlice};
+use path::default::{Path, PathSlice};
 #[cfg(test)]
 use extra::rust_logo::build_logo_path;
 
@@ -213,7 +213,7 @@ enum PointType { In, Out, OnEdge(Side) }
 ///
 /// ```
 /// # extern crate lyon_tessellation as tess;
-/// # use tess::path::Path;
+/// # use tess::path::default::Path;
 /// # use tess::path::builder::*;
 /// # use tess::path::iterator::*;
 /// # use tess::geom::math::{Point, point};

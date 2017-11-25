@@ -2,7 +2,7 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
-use lyon::path::Path;
+use lyon::path::default::Path;
 use lyon::path::builder::*;
 use lyon::path::iterator::PathIterator;
 use lyon::extra::rust_logo::build_logo_path;

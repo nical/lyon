@@ -97,7 +97,7 @@
 //! ```
 //! extern crate lyon;
 //! use lyon::math::point;
-//! use lyon::path::Path;
+//! use lyon::path::default::Path;
 //! use lyon::path::builder::*;
 //! use lyon::path::iterator::PathIterator;
 //! use lyon::tessellation::{FillTessellator, FillOptions, VertexBuffers};
