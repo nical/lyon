@@ -162,7 +162,6 @@
 
 
 
-pub extern crate lyon_core;
 pub extern crate lyon_path;
 pub extern crate lyon_tessellation;
 pub extern crate lyon_bezier;
@@ -170,11 +169,11 @@ pub extern crate lyon_extra;
 pub extern crate lyon_svg;
 //pub extern crate lyon_renderer;
 
-pub use lyon_core::*;
-
 pub use lyon_tessellation as tessellation;
 pub use lyon_path as path;
 pub use lyon_bezier as bezier;
 pub use lyon_extra as extra;
 pub use lyon_svg as svg;
 //pub use lyon_renderer as renderer;
+
+pub use bezier::core as math;

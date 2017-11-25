@@ -1,10 +1,10 @@
 use path::builder::*;
 use path::ArcFlags;
-use core::math::{Vector, Point, Radians, point};
+use path::math::{Vector, Point, Radians, point};
 use std::f32::consts::PI;
 use std::mem;
-use path::bezier::Arc;
-use path::bezier::utils::vector_angle;
+use path::geom::Arc;
+use path::geom::utils::vector_angle;
 
 /// A `PathBuilder` that builds a `String` representation of the path
 /// using the SVG syntax.

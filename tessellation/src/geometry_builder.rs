@@ -56,10 +56,10 @@
 //! `VertexBuffers<MyVertex>`, and tessellates two shapes with different colors.
 //!
 //! ```
-//! extern crate lyon_tessellation;
-//! use lyon_tessellation::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex};
-//! use lyon_tessellation::basic_shapes::fill_circle;
-//! use lyon_tessellation::math::point;
+//! extern crate lyon_tessellation as tess;
+//! use tess::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex};
+//! use tess::basic_shapes::fill_circle;
+//! use tess::geom::point;
 //!
 //! // Our custom vertex.
 //! #[derive(Copy, Clone, Debug)]
@@ -119,11 +119,11 @@
 //! into gpu-accessible buffers mapped on the CPU?
 //!
 //! ```
-//! extern crate lyon_tessellation;
-//! use lyon_tessellation::{GeometryBuilder, StrokeOptions, Count};
-//! use lyon_tessellation::geometry_builder::VertexId;
-//! use lyon_tessellation::basic_shapes::stroke_polyline;
-//! use lyon_tessellation::math::point;
+//! extern crate lyon_tessellation as tess;
+//! use tess::{GeometryBuilder, StrokeOptions, Count};
+//! use tess::geometry_builder::VertexId;
+//! use tess::basic_shapes::stroke_polyline;
+//! use tess::geom::point;
 //! use std::fmt::Debug;
 //!
 //! // A geometry builder that writes the result of the tessellation to stdout instead

@@ -1,7 +1,7 @@
 
 use math::{Point, Vector, point, vector};
-use bezier::utils::vector_angle;
-use bezier::{Arc, SvgArc};
+use geom::utils::vector_angle;
+use geom::{Arc, SvgArc};
 use events::{PathEvent, SvgEvent, FlattenedEvent};
 
 /// Represents the current state of a path while it is being built.

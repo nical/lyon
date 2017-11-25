@@ -10,11 +10,10 @@
 //! # Examples
 //!
 //! ```
-//! # extern crate lyon_core;
 //! # extern crate lyon_path;
 //! # fn main() {
 //! use lyon_path::Path;
-//! use lyon_core::math::{point};
+//! use lyon_path::math::{point};
 //! use lyon_path::builder::*;
 //!
 //! // Create a builder object to build the path.
@@ -38,8 +37,7 @@
 //! ```
 //!
 
-extern crate lyon_core as core;
-pub extern crate lyon_bezier as bezier;
+pub extern crate lyon_bezier as geom;
 
 mod path;
 mod events;
@@ -50,5 +48,5 @@ pub mod builder;
 pub use path::*;
 pub use events::*;
 pub use path_state::*;
-pub use core::math;
-pub use bezier::ArcFlags;
+pub use geom::ArcFlags;
+pub use geom::core as math;

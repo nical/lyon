@@ -22,6 +22,7 @@ use lyon_renderer::renderer::{
     GpuBufferStore, Globals, WithId
 };
 use lyon::bezier::{CubicBezierSegment, Line};
+use lyon::math::euclid::Transform3D;
 // make  public so that the module in gfx_defines can see the types.
 pub use lyon_renderer::gfx_types::*;
 

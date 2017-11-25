@@ -123,7 +123,7 @@
 //! ### The input: iterators
 //!
 //! The path tessellators are not tied to a particular data structure. Instead they consume
-//! iterators of flattened [path events](https://docs.rs/lyon_core/*/lyon_core/events/index.html).
+//! iterators of flattened path events.
 //! A [Path struct](https://docs.rs/lyon_path/*/lyon_path/struct.Path.html) in the crate
 //! [lyon_path](https://docs.rs/lyon_path/*/lyon_path/) is provided for convenience
 //! (but is optional).
@@ -178,9 +178,8 @@
 #![allow(dead_code)]
 //#![allow(needless_return, new_without_default_derive)] // clippy
 
-extern crate lyon_core as core;
-extern crate lyon_bezier as bezier;
-extern crate lyon_path as path;
+pub extern crate lyon_bezier as geom;
+pub extern crate lyon_path as path;
 
 #[cfg(test)] extern crate lyon_extra as extra;
 
@@ -199,7 +198,7 @@ mod earcut_tests;
 #[cfg(test)]
 mod fuzz_tests;
 
-pub use core::*;
+pub use geom::core as math;
 
 #[doc(inline)]
 pub use path_fill::*;

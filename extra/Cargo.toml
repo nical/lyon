@@ -14,6 +14,5 @@ name = "lyon_extra"
 
 [dependencies]
 
-lyon_core = { version = "0.8.0", path = "../core" }
 lyon_path = { version = "0.8.6", path = "../path" }
 lyon_svg = { version = "0.8.6", path = "../svg" }

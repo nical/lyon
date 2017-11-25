@@ -2,7 +2,7 @@
 use svgparser::{ Tokenize, TextFrame };
 use svgparser::path::{ Tokenizer, Token };
 use path::{SvgEvent, ArcFlags};
-use core::math;
+use path::math::{Point, point, Vector, vector, Radians};
 use path::builder::SvgBuilder;
 use super::error::ParserError;
 
@@ -57,8 +57,8 @@ impl<'l> Iterator for PathTokenizer<'l> {
 }
 
 fn svg_event(token: &Token) -> SvgEvent {
-    fn vec2(x: f64, y: f64) -> math::Vector { math::vector(x as f32, y as f32) }
-    fn point2(x: f64, y: f64) -> math::Point { math::point(x as f32, y as f32) }
+    fn vec2(x: f64, y: f64) -> Vector { vector(x as f32, y as f32) }
+    fn point2(x: f64, y: f64) -> Point { point(x as f32, y as f32) }
     match *token {
         Token::MoveTo { abs, x, y } => {
             if abs {
@@ -120,14 +120,14 @@ fn svg_event(token: &Token) -> SvgEvent {
             if abs {
                 SvgEvent::ArcTo(
                     vec2(rx, ry),
-                    math::Radians::new(x_axis_rotation.to_radians() as f32),
+                    Radians::new(x_axis_rotation.to_radians() as f32),
                     ArcFlags { large_arc: large_arc, sweep: sweep },
                     point2(x, y),
                 )
             } else {
                 SvgEvent::RelativeArcTo(
                     vec2(rx, ry),
-                    math::Radians::new(x_axis_rotation.to_radians() as f32),
+                    Radians::new(x_axis_rotation.to_radians() as f32),
                     ArcFlags { large_arc: large_arc, sweep: sweep },
                     vec2(x, y),
                 )

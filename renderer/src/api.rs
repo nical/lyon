@@ -1,4 +1,4 @@
-use core::math::*;
+use tessellation::math::*;
 use path::Path;
 use buffer::*;
 

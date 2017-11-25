@@ -16,7 +16,7 @@ use frame::{
     //StrokeVertexBufferRange,
 };
 
-use core::math::*;
+use tessellation::math::*;
 use tessellation::basic_shapes;
 use tessellation::*;
 //use tessellation::path_stroke::*;

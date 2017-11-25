@@ -100,14 +100,11 @@
 
 use std::iter;
 
-use core::math::*;
+use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, PathState};
-use bezier::QuadraticBezierSegment;
-use bezier::quadratic_bezier;
-use bezier::CubicBezierSegment;
-use bezier::cubic_bezier;
-use bezier::utils::vector_angle;
-use bezier::arc;
+use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
+use geom::utils::vector_angle;
+use geom::arc;
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.

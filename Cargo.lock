@@ -615,7 +615,6 @@ name = "lyon"
 version = "0.8.6"
 dependencies = [
  "lyon_bezier 0.8.5",
- "lyon_core 0.8.0",
  "lyon_extra 0.8.6",
  "lyon_path 0.8.6",
  "lyon_svg 0.8.6",
@@ -645,17 +644,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "lyon_core"
-version = "0.8.0"
-dependencies = [
- "euclid 0.15.4 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "lyon_extra"
 version = "0.8.6"
 dependencies = [
- "lyon_core 0.8.0",
  "lyon_path 0.8.6",
  "lyon_svg 0.8.6",
 ]
@@ -665,7 +656,6 @@ name = "lyon_path"
 version = "0.8.6"
 dependencies = [
  "lyon_bezier 0.8.5",
- "lyon_core 0.8.0",
 ]
 
 [[package]]
@@ -675,7 +665,6 @@ dependencies = [
  "gfx 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_device_gl 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "lyon_bezier 0.8.5",
- "lyon_core 0.8.0",
  "lyon_path 0.8.6",
  "lyon_tessellation 0.8.6",
 ]
@@ -684,7 +673,6 @@ dependencies = [
 name = "lyon_svg"
 version = "0.8.6"
 dependencies = [
- "lyon_core 0.8.0",
  "lyon_path 0.8.6",
  "svgparser 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -707,7 +695,6 @@ name = "lyon_tessellation"
 version = "0.8.6"
 dependencies = [
  "lyon_bezier 0.8.5",
- "lyon_core 0.8.0",
  "lyon_extra 0.8.6",
  "lyon_path 0.8.6",
  "sid 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",

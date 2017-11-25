@@ -3,7 +3,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-extern crate lyon_core as core;
 extern crate lyon_path as path;
 extern crate lyon_svg as svg;
 

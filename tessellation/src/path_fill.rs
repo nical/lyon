@@ -27,10 +27,10 @@ use sid::{Id, IdVec};
 
 use FillVertex as Vertex;
 use {FillOptions, FillRule, Side};
-use math::*;
+use geom::utils::fast_atan2;
+use geom::core::*;
 use math_utils::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
-use bezier::utils::fast_atan2;
 use path::PathEvent;
 use path::builder::{FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
@@ -211,15 +211,13 @@ enum PointType { In, Out, OnEdge(Side) }
 /// # Examples
 ///
 /// ```
-/// # extern crate lyon_tessellation;
-/// # extern crate lyon_core;
-/// # extern crate lyon_path;
-/// # use lyon_path::Path;
-/// # use lyon_path::builder::*;
-/// # use lyon_path::iterator::*;
-/// # use lyon_core::math::{Point, point};
-/// # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
-/// # use lyon_tessellation::*;
+/// # extern crate lyon_tessellation as tess;
+/// # use tess::path::Path;
+/// # use tess::path::builder::*;
+/// # use tess::path::iterator::*;
+/// # use tess::geom::core::{Point, point};
+/// # use tess::geometry_builder::{VertexBuffers, simple_builder};
+/// # use tess::*;
 /// # fn main() {
 /// // Create a simple path.
 /// let mut path_builder = Path::builder();
@@ -1364,7 +1362,7 @@ impl ActiveEdge {
 /// If two points have the same y coordinate, the one on the right (x pointing to the right)
 /// is the one after.
 #[inline]
-pub fn is_after<T: PartialOrd, U>(a: TypedPoint2D<T, U>, b: TypedPoint2D<T, U>) -> bool {
+pub fn is_after<T: PartialOrd, U>(a: euclid::TypedPoint2D<T, U>, b: euclid::TypedPoint2D<T, U>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
