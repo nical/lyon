@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate glium;
-#[macro_use]
 extern crate clap;
 extern crate svgparser;
 extern crate glutin;
@@ -16,18 +15,15 @@ use glium::backend::glutin_backend::GlutinFacade as Display;
 use lyon::math::*;
 use lyon::path::default::Path;
 use lyon::path::builder::*;
-use lyon::path::iterator::PathIterator;
 use lyon_svg::parser::Color;
 use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
-use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
 use lyon::tessellation::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation::StrokeVertex;
 use lyon::geom::euclid::{Transform3D, vec3};
 
 use svgparser::Tokenize;
-
-use clap::{Arg, ArgMatches};
+use clap::Arg;
 
 fn main() {
     let matches = clap::App::new("SVG renderer test")
@@ -81,7 +77,6 @@ fn main() {
         &display, PrimitiveType::TrianglesList,
         &bg_buffers.indices[..]
     ).unwrap();
-*/
     // compiling shaders and linking them together
     let bg_program = program!(&display,
         140 => {
@@ -124,6 +119,7 @@ fn main() {
             "
         },
     ).unwrap();
+*/
 
     // compiling shaders and linking them together
     let model_program = program!(&display,
@@ -234,9 +230,7 @@ fn main() {
 use std::fs;
 use std::io::Read;
 use svgparser::svg as svg_parser;
-use svgparser::path as path_parser;
 use svgparser::svg::Token as SvgToken;
-use svgparser::svg::ElementEnd;
 
 struct RenderItem {
     path: Path,
@@ -406,7 +400,7 @@ fn parse_style(frame: svgparser::TextFrame, item: &mut RenderItem) {
                         AttributeValue::Number(n) => {
                             item.stroke_width = n as f32;
                         }
-                        AttributeValue::Length(lyon_svg::parser::Length { num, unit }) => {
+                        AttributeValue::Length(lyon_svg::parser::Length { num, .. }) => {
                             item.stroke_width = num as f32;
                         }
                         _=> {
@@ -455,7 +449,7 @@ impl VertexConstructor<StrokeVertex, Vertex> for WithColorAndStrokeWidth {
 }
 
 implement_vertex!(Vertex, a_position, a_color);
-
+/*
 #[derive(Copy, Clone, Debug)]
 struct BgVertex {
     a_position: [f32; 2],
@@ -467,8 +461,8 @@ impl VertexConstructor<Vector, BgVertex> for BgWithColor  {
         BgVertex { a_position: pos.to_array() }
     }
 }
-
 implement_vertex!(BgVertex, a_position);
+*/
 
 fn uniform_matrix(m: &Transform3D<f32>) -> [[f32; 4]; 4] {
     [
