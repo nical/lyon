@@ -1120,10 +1120,10 @@ impl FillTessellator {
         self.error = Some(err);
     }
 
-    #[cfg(not(test))]
+    #[cfg(not(debug_assertions))]
     fn debug_check_sl(&self) {}
 
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     fn debug_check_sl(&self) {
         for edge in &self.active_edges {
             if !edge.merge {
@@ -1152,9 +1152,7 @@ impl FillTessellator {
 
     #[cfg(test)]
     fn log_sl(&self, first_edge_above: ActiveEdgeId) {
-        println!("\n\n");
-        self.log_sl_points_at(self.current_position.y);
-        println!("\n ----- current: {:?} ------ offset {:?} in sl", self.current_position, first_edge_above.handle);
+        println!("\n\n ----- current: {:?} ------ offset {:?} in sl", self.current_position, first_edge_above.handle);
         for b in &self.pending_edges {
             println!("   -- below: {:?}", b);
         }
@@ -1198,27 +1196,6 @@ impl FillTessellator {
                 print!("   <merge>           ");
             } else {
                 print!("{:?} ", edge.points.lower);
-            }
-            left = !left;
-        }
-        println!("]\n");
-    }
-
-    #[cfg(not(debug))]
-    fn log_sl_points_at(&self, _: FixedPoint32) {}
-
-    #[cfg(debug)]
-    fn log_sl_points_at(&self, y: FixedPoint32) {
-        print!("\nat y={:?}  sl: [", y);
-        let mut left = true;
-        for edge in &self.active_edges {
-            let sep = if left { "|" } else { " " };
-            print!("{}", sep);
-            if edge.merge {
-                print!("<merge> ");
-            } else {
-                let x = line_horizontal_intersection_fixed(&edge.points, y);
-                print!("{:?} ", x);
             }
             left = !left;
         }

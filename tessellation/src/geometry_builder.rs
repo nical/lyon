@@ -471,9 +471,9 @@ impl<T> GeometryBuilder<T> for NoOutput
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
-        assert!(a != b);
-        assert!(a != c);
-        assert!(b != c);
+        debug_assert!(a != b);
+        debug_assert!(a != c);
+        debug_assert!(b != c);
         self.count.indices += 3;
     }
 
