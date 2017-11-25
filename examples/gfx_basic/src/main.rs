@@ -11,7 +11,7 @@ use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
-use lyon::path::Path;
+use lyon::path::default::Path;
 
 use gfx::traits::{Device, FactoryExt};
 

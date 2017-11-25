@@ -20,7 +20,7 @@ use commands::*;
 use std::fs::File;
 use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::parser::build_path;
-use lyon::path::Path;
+use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
 use lyon_extra::debugging::find_reduced_test_case;
 

@@ -1,5 +1,5 @@
 use lyon::math::*;
-use lyon::path::Path;
+use lyon::path::default::Path;
 use lyon::path::builder::*;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{
