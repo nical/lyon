@@ -23,6 +23,7 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
 use lyon::tessellation::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation::StrokeVertex;
+use lyon::path::math::euclid::{Transform3D, vec3};
 
 use svgparser::Tokenize;
 
@@ -165,10 +166,10 @@ fn main() {
 
         let model_mat = Transform3D::identity();
         let view_mat = Transform3D::identity()
-            .pre_translate(vector3d(-1.0, 1.0, 0.0))
+            .pre_translate(vec3(-1.0, 1.0, 0.0))
             .pre_scale(5.0 * zoom, 5.0 * zoom, 0.0)
             .pre_scale(2.0/resolution.x, -2.0/resolution.y, 1.0)
-            .pre_translate(vector3d(pos.x, pos.y, 0.0));
+            .pre_translate(vec3(pos.x, pos.y, 0.0));
 
         let uniforms = uniform! {
             u_resolution: resolution.to_array(),
@@ -469,7 +470,7 @@ impl VertexConstructor<Vector, BgVertex> for BgWithColor  {
 
 implement_vertex!(BgVertex, a_position);
 
-fn uniform_matrix(m: &Transform3D) -> [[f32; 4]; 4] {
+fn uniform_matrix(m: &Transform3D<f32>) -> [[f32; 4]; 4] {
     [
         [m.m11, m.m12, m.m13, m.m14],
         [m.m21, m.m22, m.m23, m.m24],

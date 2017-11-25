@@ -6,10 +6,10 @@ use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path_stroke::{StrokeTessellator, StrokeBuilder};
 use path_fill::{FillTessellator, FillResult};
 use math_utils::compute_normal;
-use math::*;
+use geom::core::*;
+use geom::{Arc, Radians};
 use path::builder::FlatPathBuilder;
 use path::iterator::FromPolyline;
-use bezier::{Arc, Radians};
 use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
 
 use std::f32::consts::PI;

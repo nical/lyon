@@ -2,7 +2,7 @@ use builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
 use iterator::PathIter;
 
 use PathEvent;
-use core::math::*;
+use math::*;
 
 use std::iter::IntoIterator;
 

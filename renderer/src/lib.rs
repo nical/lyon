@@ -8,7 +8,6 @@
 extern crate gfx;
 extern crate gfx_device_gl;
 
-extern crate lyon_core as core;
 extern crate lyon_path as path;
 extern crate lyon_bezier as bezier;
 extern crate lyon_tessellation as tessellation;

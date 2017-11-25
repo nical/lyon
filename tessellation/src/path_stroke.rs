@@ -1,7 +1,7 @@
-use math::*;
 use math_utils::compute_normal;
-use bezier::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
-use bezier::utils::{normalized_tangent, directed_angle, fast_atan2, vector_angle};
+use geom::core::*;
+use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
+use geom::utils::{normalized_tangent, directed_angle, fast_atan2, vector_angle};
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
 use path::builder::{FlatPathBuilder, PathBuilder};
@@ -41,16 +41,13 @@ use std::f32::consts::PI;
 /// # Examples
 ///
 /// ```
-/// # extern crate lyon_tessellation;
-/// # extern crate lyon_core;
-/// # extern crate lyon_path;
-/// # use lyon_path::Path;
-/// # use lyon_path::builder::*;
-/// # use lyon_path::iterator::*;
-/// # use lyon_core::math::{Point, point};
-/// # use lyon_tessellation::geometry_builder::{VertexBuffers, simple_builder};
-/// # use lyon_tessellation::*;
-/// # use lyon_tessellation::StrokeVertex as Vertex;
+/// # extern crate lyon_tessellation as tess;
+/// # use tess::path::Path;
+/// # use tess::path::builder::*;
+/// # use tess::path::iterator::*;
+/// # use tess::geom::core::*;
+/// # use tess::geometry_builder::{VertexBuffers, simple_builder};
+/// # use tess::*;
 /// # fn main() {
 /// // Create a simple path.
 /// let mut path_builder = Path::builder();
@@ -62,7 +59,7 @@ use std::f32::consts::PI;
 /// let path = path_builder.build();
 ///
 /// // Create the destination vertex and index buffers.
-/// let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+/// let mut buffers: VertexBuffers<StrokeVertex> = VertexBuffers::new();
 ///
 /// {
 ///     // Create the destination vertex and index buffers.

@@ -1,5 +1,5 @@
 use path::builder::SvgBuilder;
-use core::math::{vector, point};
+use path::math::{vector, point};
 
 pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.move_to(point(122.631, 69.716));

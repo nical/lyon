@@ -66,7 +66,7 @@
 //#![allow(needless_return)] // clippy
 
 extern crate arrayvec;
-extern crate euclid;
+pub extern crate euclid;
 
 pub mod quadratic_bezier;
 pub mod cubic_bezier;
@@ -87,6 +87,9 @@ pub use up_to_two::UpToTwo;
 pub type Point = euclid::Point2D<f32>;
 
 /// Alias for ```euclid::Point2D<f32>```.
+pub type F64Point = euclid::Point2D<f64>;
+
+/// Alias for ```euclid::Point2D<f32>```.
 pub type Vector = euclid::Vector2D<f32>;
 
 /// Alias for ```euclid::Size2D<f32>```.
@@ -100,6 +103,7 @@ pub type Transform2D = euclid::Transform2D<f32>;
 
 pub type Rotation2D = euclid::Rotation2D<f32>;
 
+/// An angle in radians (f32).
 pub type Radians = euclid::Radians<f32>;
 
 pub use quadratic_bezier::QuadraticBezierSegment;
@@ -112,6 +116,30 @@ pub use segment::Segment;
 pub use euclid::rect;
 pub use euclid::vec2 as vector;
 pub use euclid::point2 as point;
+pub use euclid::size2 as size;
+
+pub mod core {
+    //! ## Core geometry types
+    //!
+    //! Basic types that are used everywhere. Most other lyon crates
+    //! reexport them.
+
+    pub use Point;
+    pub use F64Point;
+    pub use Vector;
+    pub use Size;
+    pub use Rect;
+    pub use Transform2D;
+    pub use Rotation2D;
+    pub use Radians;
+
+    pub use point;
+    pub use vector;
+    pub use size;
+    pub use rect;
+
+    pub use euclid;
+}
 
 pub mod traits {
     pub use segment::{Segment, FlattenedForEach, FlatteningStep};

@@ -76,10 +76,10 @@
 //! ```
 //!
 
-use core::math::*;
+use math::*;
 use events::{PathEvent, FlattenedEvent, SvgEvent};
-use bezier::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
-use bezier::utils::vector_angle;
+use geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
+use geom::utils::vector_angle;
 
 /// The most basic path building interface. Does not handle any kind of curve.
 pub trait FlatPathBuilder: ::std::marker::Sized {

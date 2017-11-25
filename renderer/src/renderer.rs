@@ -3,7 +3,8 @@ use gfx::Factory;
 
 use tessellation;
 use tessellation::geometry_builder::VertexConstructor;
-use core::math::*;
+use tessellation::math::*;
+use tessellation::math::euclid::Transform3D;
 use buffer::*;
 pub use gfx_types::*;
 use glsl::PRIM_BUFFER_LEN;
@@ -157,15 +158,15 @@ impl std::default::Default for GpuTransform {
 }
 
 impl GpuTransform {
-    pub fn new(mat: Transform3D) -> Self {
+    pub fn new(mat: Transform3D<f32>) -> Self {
         GpuTransform { transform: mat.to_row_arrays() }
     }
 
-    pub fn as_mat4(&self) -> &Transform3D {
+    pub fn as_mat4(&self) -> &Transform3D<f32> {
         unsafe { mem::transmute(self) }
     }
 
-    pub fn as_mut_mat4(&mut self) -> &mut Transform3D {
+    pub fn as_mut_mat4(&mut self) -> &mut Transform3D<f32> {
         unsafe { mem::transmute(self) }
     }
 }
