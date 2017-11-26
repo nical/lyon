@@ -43,6 +43,7 @@ mod path_state;
 pub mod default;
 pub mod iterator;
 pub mod builder;
+pub mod walk;
 
 pub use events::*;
 pub use path_state::*;

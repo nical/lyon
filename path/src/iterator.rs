@@ -105,6 +105,8 @@ use {PathEvent, SvgEvent, FlattenedEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
 use geom::utils::vector_angle;
 use geom::arc;
+use walk;
+use builder::FlatPathBuilder;
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
@@ -150,6 +152,14 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     /// Returns an iterator of svg events.
     fn svg_events(self) -> iter::Map<Self, fn(FlattenedEvent) -> SvgEvent> {
         self.map(flattened_to_svg_event)
+    }
+
+    /// Walks along the path staring from `start` and applies a `Pattern`.
+    fn walk(self, start: f32, pattern: &mut walk::Pattern) {
+        let mut walker = walk::PathWalker::new(start, pattern);
+        for evt in self {
+            walker.flat_event(evt);
+        }
     }
 }
 
