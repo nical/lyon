@@ -52,3 +52,4 @@
 .vscode
 bin/
 **/target/
+.DS_Store
