@@ -7,6 +7,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "Path walking example"
+version = "0.1.0"
+dependencies = [
+ "gfx 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx_device_gl 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx_window_glutin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glutin 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lyon 0.8.6",
+]
+
+[[package]]
 name = "android_glue"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
