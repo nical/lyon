@@ -1,0 +1,17 @@
+[package]
+name = "Path walking example"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = "../.."
+
+[[bin]]
+name = "walker_example"
+path = "src/main.rs"
+
+[dependencies]
+lyon = { path = "../../" }
+
+gfx = "0.16"
+gfx_device_gl = "0.14"
+gfx_window_glutin = "0.18"
+glutin = "0.10"
