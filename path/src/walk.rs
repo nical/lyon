@@ -1,15 +1,65 @@
+//! # Path walking
+//!
+//! Path walking enables moving along a path.
+//!
+//! ## Overview
+//!
+//! In principle, walking a path is similar to iterating over it,
+//! but instead of going from receiving path segments (of varying
+//! sizes), the path walker makes it possible to advance by a certain
+//! distance along the path.
+//!
+//! ## Example
+//!
+//! ```
+//! use lyon_path::walk::RegularPattern;
+//! use lyon_path::default::PathSlice;
+//! use lyon_path::iterator::*;
+//! use lyon_path::math::Point;
+//!
+//! fn dots_along_path(path: PathSlice, dots: &mut Vec<Point>) {
+//!     let mut pattern = RegularPattern {
+//!         callback: &mut |position, _tangent, _distance| {
+//!             dots.push(position);
+//!             true // Return true to continue walking the path.
+//!         },
+//!         // Invoke the callback above at a regular interval of 3 units.
+//!         interval: 3.0,
+//!     };
+//!
+//!     let tolerance = 0.01; // The path flattening tolerance.
+//!     let start_offset = 0.0; // Start walking at the beginning of the path.
+//!     path.path_iter()
+//!         .flattened(tolerance)
+//!         .walk(start_offset, &mut pattern);
+//! }
+//!
+//! ```
+//!
+
 use math::*;
 use builder::FlatPathBuilder;
 
 use std::f32;
 
-/// TODO(doc)
+/// Types implementing the `Pattern` can be used to walk along a path
+/// at constant speed.
+///
+/// At each step, the pattern receives the position, tangent and already
+/// traversed distance along the path and returns the distance until the
+/// next step.
+///
+/// See the `RegularPattern` and `RepeatedPattern` implementations.
+/// This trait is also implemented for all functions/closures with signature
+/// `FnMut(Point, Vector, f32) -> Option<f32>`.
 pub trait Pattern {
+    /// This method is invoked at each step along the path.
+    ///
+    /// If this method returns None, path walking stops.
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32>;
 }
 
-/// A helper struct to walk along a flattened path using a builder
-/// API.
+/// A helper struct to walk along a flattened path using a builder API.
 pub struct PathWalker<'l> {
     prev: Point,
     advancement: f32,
@@ -86,31 +136,47 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
     fn current_position(&self) -> Point { self.prev }
 }
 
+/// A simple pattern that invokes a callback at regular intervals.
+///
+/// If the callback returns false, path walking stops.
 pub struct RegularPattern<Cb> {
+    /// The function to call at each step.
     pub callback: Cb,
+    /// A constant interval between each step.
     pub interval: f32,
 }
 
 impl<Cb> Pattern for RegularPattern<Cb>
-where Cb: FnMut(Point, Vector, f32) {
+where Cb: FnMut(Point, Vector, f32) -> bool {
     #[inline]
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32> {
-        (self.callback)(position, tangent, distance);
+        if !(self.callback)(position, tangent, distance) {
+            return None;
+        }
         Some(self.interval)
     }
 }
 
+/// A pattern that invokes a callback at a repeated sequence of
+/// constant intervals.
+///
+/// If the callback returns false, path walking stops.
 pub struct RepeatedPattern<'l, Cb> {
+    /// The function to call at each step.
     pub callback: Cb,
+    /// The repeated interval sequence.
     pub intervals: &'l[f32],
+    /// The index of the next interval in the sequence.
     pub index: usize,
 }
 
 impl<'l, Cb> Pattern for RepeatedPattern<'l, Cb>
-where Cb: FnMut(Point, Vector, f32) {
+where Cb: FnMut(Point, Vector, f32) -> bool {
     #[inline]
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32> {
-        (self.callback)(position, tangent, distance);
+        if !(self.callback)(position, tangent, distance) {
+            return None;
+        }
         let idx = self.index % self.intervals.len();
         self.index += 1;
         Some(self.intervals[idx])
@@ -152,6 +218,7 @@ fn walk_square() {
             assert_eq!(n, expected[i].1);
             assert_eq!(d, expected[i].2);
             i += 1;
+            true
         },
     };
 
@@ -186,6 +253,7 @@ fn walk_with_leftover() {
             assert_eq!(n, expected[i].1);
             assert_eq!(d, expected[i].2);
             i += 1;
+            true
         }
     };
 
