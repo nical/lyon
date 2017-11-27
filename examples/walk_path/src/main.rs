@@ -162,7 +162,7 @@ fn main() {
                     if i >= PRIM_BUFFER_LEN {
                         // don't want to overflow the primitive buffer,
                         // just skip the remaining arrows.
-                        return;
+                        return false;
                     }
                     cpu_primitives[i] = Primitive {
                         position: pos.to_array(),
@@ -170,6 +170,7 @@ fn main() {
                         z_index: 1,
                     };
                     i += 1;
+                    true
                 },
                 intervals: &[scene.arrow_spacing, 3.0, 3.0],
                 index: 0,
