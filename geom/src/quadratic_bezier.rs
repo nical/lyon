@@ -259,22 +259,42 @@ impl QuadraticBezierSegment {
 
     /// Returns a conservative rectangle that contains the curve.
     pub fn fast_bounding_rect(&self) -> Rect {
+        let (min_x, max_x) = self.fast_bounding_range_x();
+        let (min_y, max_y) = self.fast_bounding_range_y();
+
+        rect(min_x, min_y, max_x - min_x, max_y - min_y)
+    }
+
+    pub fn fast_bounding_range_x(&self) -> (f32, f32) {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
+        (min_x, max_x)
+    }
+
+    pub fn fast_bounding_range_y(&self) -> (f32, f32) {
         let min_y = self.from.y.min(self.ctrl.y).min(self.to.y);
         let max_y = self.from.y.max(self.ctrl.y).max(self.to.y);
-
-        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+        (min_y, max_y)
     }
 
     /// Returns the smallest rectangle the curve is contained in
     pub fn bounding_rect(&self) -> Rect {
+        let (min_x, max_x) = self.bounding_range_x();
+        let (min_y, max_y) = self.bounding_range_y();
+
+        rect(min_x, min_y, max_x - min_x, max_y - min_y)
+    }
+
+    pub fn bounding_range_x(&self) -> (f32, f32) {
         let min_x = self.sample(self.find_x_minimum()).x;
         let max_x = self.sample(self.find_x_maximum()).x;
+        (min_x, max_x)
+    }
+
+    pub fn bounding_range_y(&self) -> (f32, f32) {
         let min_y = self.sample(self.find_y_minimum()).y;
         let max_y = self.sample(self.find_y_maximum()).y;
-
-        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+        (min_y, max_y)
     }
 
     /// Cast this curve into a x-montone curve without checking that the monotonicity
@@ -332,6 +352,10 @@ impl Segment for QuadraticBezierSegment { impl_segment!(); }
 impl BoundingRect for QuadraticBezierSegment {
     fn bounding_rect(&self) -> Rect { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect { self.fast_bounding_rect() }
+    fn bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
+    fn bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (f32, f32) { self.fast_bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (f32, f32) { self.fast_bounding_range_y() }
 }
 
 impl FlatteningStep for QuadraticBezierSegment {

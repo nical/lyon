@@ -465,6 +465,10 @@ impl Segment for CubicBezierSegment { impl_segment!(); }
 impl BoundingRect for CubicBezierSegment {
     fn bounding_rect(&self) -> Rect { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect { self.fast_bounding_rect() }
+    fn bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
+    fn bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (f32, f32) { self.fast_bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (f32, f32) { self.fast_bounding_range_y() }
 }
 
 impl FlattenedForEach for CubicBezierSegment {
