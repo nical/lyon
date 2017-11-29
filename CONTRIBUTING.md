@@ -68,6 +68,12 @@ For escalation or moderation issues, please contact Nical (nical@fastmail.com) i
 
 ## License
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be licensed dual MIT/Apache 2, or Mozilla Public License 2.0, without any additional terms or conditions.
+
+We reserve the right to publish future versions of this project under the Mozilla Public License 2.0 (MPL2) instead of the three-licenses scheme described above, including all contributions.
+If such a change occurs, it will not affect versions of the project prior to the application of the license change.
+
+### In other words...
+
+At this time we are not entirely certain which of MPL2 or dual MIT/Apache2 is the best licensing scheme for this project. Both approaches are very permissive and we want to keep the door open to changing to MPL2 in the future.
+This project will remain usable under the MIT/Apache2 license for the foreseeable future. However, by contributing to this project you accept that your contributions may be re-licensed under the Mozilla Public License 2.0 without the MIT and Apache2 options.
