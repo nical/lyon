@@ -1,4 +1,4 @@
-use math::{Point, Rect};
+use math::{Point, Vector, Rect};
 
 /// Common APIs to segment types.
 pub trait Segment: Copy + Sized {
@@ -10,6 +10,21 @@ pub trait Segment: Copy + Sized {
 
     /// Sample the curve at t (expecting t between 0 and 1).
     fn sample(&self, t: f32) -> Point;
+
+    /// Sample x at t (expecting t between 0 and 1).
+    fn x(&self, t: f32) -> f32 { self.sample(t).x }
+
+    /// Sample y at t (expecting t between 0 and 1).
+    fn y(&self, t: f32) -> f32 { self.sample(t).y }
+
+    /// Sample the derivative at t (expecting t between 0 and 1).
+    fn derivative(&self, t: f32) -> Vector;
+
+    /// Sample x derivative at t (expecting t between 0 and 1).
+    fn dx(&self, t: f32) -> f32 { self.derivative(t).x }
+
+    /// Sample y derivative at t (expecting t between 0 and 1).
+    fn dy(&self, t: f32) -> f32 { self.derivative(t).y }
 
     /// Split this curve into two sub-curves.
     fn split(&self, t: f32) -> (Self, Self);
@@ -23,13 +38,18 @@ pub trait Segment: Copy + Sized {
     /// Swap the direction of the segment.
     fn flip(&self) -> Self;
 
+    /// Compute the length of the segment using a flattened approximation.
+    fn approximate_length(&self, tolerance: f32) -> f32;
+}
+
+pub trait BoundingRect {
+    /// Returns a rectangle that contains the curve.
+    fn bounding_rect(&self) -> Rect;
+
     /// Returns a rectangle that contains the curve.
     ///
     /// This does not necessarily return the smallest possible bounding rectangle.
-    fn bounding_rect(&self) -> Rect;
-
-    /// Compute the length of the segment using a flattened approximation.
-    fn approximate_length(&self, tolerance: f32) -> f32;
+    fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
 }
 
 /// Types that implement call-back based iteration
@@ -115,4 +135,24 @@ where T: FlattenedForEach {
         start = p;
     });
     return len;
+}
+
+macro_rules! impl_segment {
+    () => (
+        fn from(&self) -> Point { self.from() }
+        fn to(&self) -> Point { self.to() }
+        fn sample(&self, t: f32) -> Point { self.sample(t) }
+        fn x(&self, t: f32) -> f32 { self.x(t) }
+        fn y(&self, t: f32) -> f32 { self.y(t) }
+        fn derivative(&self, t: f32) -> Vector { self.derivative(t) }
+        fn dx(&self, t: f32) -> f32 { self.dx(t) }
+        fn dy(&self, t: f32) -> f32 { self.dy(t) }
+        fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
+        fn before_split(&self, t: f32) -> Self { self.before_split(t) }
+        fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+        fn flip(&self) -> Self { self.flip() }
+        fn approximate_length(&self, tolerance: f32) -> f32 {
+            self.approximate_length(tolerance)
+        }
+    )
 }

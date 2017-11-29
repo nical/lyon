@@ -1,5 +1,5 @@
 use math::{Point, point, Vector, vector, Rect, Size, Transform2D};
-use segment::{Segment, FlatteningStep};
+use segment::{Segment, FlatteningStep, BoundingRect};
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -18,13 +18,13 @@ impl LineSegment {
 
     /// Sample the x coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn sample_x(&self, t: f32) -> f32 {
+    pub fn x(&self, t: f32) -> f32 {
         self.from.x * (1.0 - t) + self.to.x * t
     }
 
     /// Sample the y coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn sample_y(&self, t: f32) -> f32 {
+    pub fn y(&self, t: f32) -> f32 {
         self.from.y * (1.0 - t) + self.to.y * t
     }
 
@@ -175,12 +175,21 @@ impl Segment for LineSegment {
     fn from(&self) -> Point { self.from }
     fn to(&self) -> Point { self.to }
     fn sample(&self, t: f32) -> Point { self.sample(t) }
+    fn x(&self, t: f32) -> f32 { self.x(t) }
+    fn y(&self, t: f32) -> f32 { self.y(t) }
+    fn derivative(&self, _t: f32) -> Vector { self.to_vector() }
+    fn dx(&self, _t: f32) -> f32 { self.to.x - self.from.x }
+    fn dy(&self, _t: f32) -> f32 { self.to.y - self.from.y }
     fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
     fn before_split(&self, t: f32) -> Self { self.before_split(t) }
     fn after_split(&self, t: f32) -> Self { self.after_split(t) }
     fn flip(&self) -> Self { self.flip() }
-    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
     fn approximate_length(&self, _tolerance: f32) -> f32 { self.length() }
+}
+
+impl BoundingRect for LineSegment {
+    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
 }
 
 impl FlatteningStep for LineSegment {
