@@ -50,6 +50,18 @@ pub trait BoundingRect {
     ///
     /// This does not necessarily return the smallest possible bounding rectangle.
     fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
+
+    /// Returns a range of x values that contains the curve.
+    fn bounding_range_x(&self) -> (f32, f32);
+
+    /// Returns a range of y values that contains the curve.
+    fn bounding_range_y(&self) -> (f32, f32);
+
+    /// Returns a range of x values that contains the curve.
+    fn fast_bounding_range_x(&self) -> (f32, f32);
+
+    /// Returns a range of y values that contains the curve.
+    fn fast_bounding_range_y(&self) -> (f32, f32);
 }
 
 /// Types that implement call-back based iteration

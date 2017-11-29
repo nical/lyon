@@ -3,6 +3,11 @@ use std::f32::consts::{PI, FRAC_PI_2};
 use arrayvec::ArrayVec;
 
 #[inline]
+pub fn min_max(a: f32, b: f32) -> (f32, f32) {
+    if a < b { (a, b) } else { (b, a) }
+}
+
+#[inline]
 pub fn tangent(v: Vector) -> Vector {
     vector(-v.y, v.x)
 }

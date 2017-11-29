@@ -250,6 +250,16 @@ impl Arc {
         )
     }
 
+    pub fn bounding_range_x(&self) -> (f32, f32) {
+        let r = self.bounding_rect();
+        (r.min_x(), r.max_x())
+    }
+
+    pub fn bounding_range_y(&self) -> (f32, f32) {
+        let r = self.bounding_rect();
+        (r.min_y(), r.max_y())
+    }
+
     pub fn approximate_length(&self, tolerance: f32) -> f32 {
         segment::approximate_length_from_flattening(self, tolerance)
     }
@@ -341,6 +351,10 @@ impl Segment for Arc {
 impl BoundingRect for Arc {
     fn bounding_rect(&self) -> Rect { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
+    fn bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
 }
 
 impl FlatteningStep for Arc {

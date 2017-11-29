@@ -1,5 +1,6 @@
 use math::{Point, point, Vector, vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
+use utils::min_max;
 
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
@@ -60,12 +61,22 @@ impl LineSegment {
     /// Return the minimum bounding rectangle
     #[inline]
     pub fn bounding_rect(&self) -> Rect {
-        let min_x = self.from.x.min(self.to.x);
-        let min_y = self.from.y.min(self.to.y);
+        let (min_x, max_x) = self.bounding_range_x();
+        let (min_y, max_y) = self.bounding_range_y();
 
-        let width  = (self.from.x.max(self.to.x) - min_x).abs();
-        let height = (self.from.y.max(self.to.y) - min_y).abs();
+        let width  = max_x - min_x;
+        let height = max_y - min_y;
         Rect::new(Point::new(min_x, min_y), Size::new(width, height))
+    }
+
+    #[inline]
+    fn bounding_range_x(&self) -> (f32, f32) {
+        min_max(self.from.x, self.to.x)
+    }
+
+    #[inline]
+    fn bounding_range_y(&self) -> (f32, f32) {
+        min_max(self.from.y, self.to.y)
     }
 
     /// Returns the vector between this segment's `from` and `to` points.
@@ -190,6 +201,10 @@ impl Segment for LineSegment {
 impl BoundingRect for LineSegment {
     fn bounding_rect(&self) -> Rect { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
+    fn bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
 }
 
 impl FlatteningStep for LineSegment {
