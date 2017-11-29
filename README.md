@@ -131,11 +131,12 @@ Licensed under either of
 
  * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+ * [Mozilla Public License 2.0](https://www.mozilla.org/en-US/MPL/2.0/)
 
 at your option.
+
+Dual MIT/Apache2 is strictly more permissive
 
 ### Contribution
 
 There is useful information for contributors in the [contribution guidelines](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md).
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
