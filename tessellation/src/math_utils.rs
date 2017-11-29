@@ -4,6 +4,7 @@ use fixed;
 use geom::math::*;
 use path_fill::Edge;
 use geom::euclid;
+use std::f64;
 
 pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
 pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
@@ -56,8 +57,8 @@ pub fn segment_intersection(
         return None;
     }
 
-    let sign_v1_cross_v2 = if v1_cross_v2 > 0.0 { 1.0 } else { -1.0 };
-    let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
+    let sign_v1_cross_v2 = v1_cross_v2.signum();
+    let abs_v1_cross_v2 = f64::abs(v1_cross_v2);
 
     // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
     // We have to respect the sign of v1_cross_v2 (and therefore t and u) so we apply it now and

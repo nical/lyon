@@ -1,4 +1,4 @@
-use math::{Point, point, Vector, vector, Rect, Size, Transform2D};
+use math::{Point, point, Vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use utils::min_max;
 
@@ -118,16 +118,19 @@ impl LineSegment {
     }
 
     /// Computes the intersection (if any) between this segment and another one.
-    pub fn intersection(&self, other: &Self) -> Option<Point> {
-        // TODO: The precision with of the function with f32 is pretty bad so
-        // this uses f64. It'd be better if we made the scalar type a typed
-        // parameter and chose depending on that.
+    ///
+    /// The result is provided in the form of the `t` parameter of each
+    /// segment. To get the intersection point, sample one of the segments
+    /// at the corresponding value.
+    pub fn intersection(&self, other: &Self) -> Option<(f32, f32)> {
+        let (min1, max1) = self.bounding_range_x();
+        let (min2, max2) = other.bounding_range_x();
+        if min1 > max2 || max1 < min2 {
+            return None;
+        }
 
-        use euclid::Vector2D;
-        fn vector_f64(v: Vector) -> Vector2D<f64> { vector( v.x as f64, v.y as f64) }
-
-        let v1 = vector_f64(self.to_vector());
-        let v2 = vector_f64(-other.to_vector());
+        let v1 = self.to_vector().to_f64();
+        let v2 = other.to_vector().to_f64();
 
         let v1_cross_v2 = v1.cross(v2);
 
@@ -136,10 +139,10 @@ impl LineSegment {
             return None;
         }
 
-        let v3 = vector_f64(other.to - self.from);
-
         let sign_v1_cross_v2 = v1_cross_v2.signum();
-        let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
+        let abs_v1_cross_v2 = f64::abs(v1_cross_v2);
+
+        let v3 = (other.from - self.from).to_f64();
 
         // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
         // We have to respect the sign of v1_cross_v2 (and therefore t and u) so we apply it now and
@@ -147,38 +150,18 @@ impl LineSegment {
         let t = v3.cross(v2) * sign_v1_cross_v2;
         let u = v3.cross(v1) * sign_v1_cross_v2;
 
-        if t > 0.0 && t < abs_v1_cross_v2 && u > 0.0 && u < abs_v1_cross_v2 {
-            return Some(self.from + (v1 * t / abs_v1_cross_v2).to_f32());
+        if t <= 0.0 || t >= abs_v1_cross_v2 || u <= 0.0 || u >= abs_v1_cross_v2 {
+            return None;
         }
 
-        return None;
+        Some((
+            (t / abs_v1_cross_v2) as f32,
+            (u / abs_v1_cross_v2) as f32,
+        ))
     }
 
     pub fn intersects(&self, other: &Self) -> bool {
-        // we don't need as much precision if we don't compute the position of
-        // the intersection, so this version uses f32 arithmetic.
-        let v1 = self.to_vector();
-        let v2 = -other.to_vector();
-
-        let v1_cross_v2 = v1.cross(v2);
-
-        if v1_cross_v2 == 0.0 {
-            return false;
-        }
-
-        let v3 = other.to - self.from;
-
-        let sign_v1_cross_v2 = v1_cross_v2.signum();
-        let abs_v1_cross_v2 = v1_cross_v2 * sign_v1_cross_v2;
-
-        let t = v3.cross(v2) * sign_v1_cross_v2;
-        let u = v3.cross(v1) * sign_v1_cross_v2;
-
-        if t > 0.0 && t < abs_v1_cross_v2 && u > 0.0 && u < abs_v1_cross_v2 {
-            return true;
-        }
-
-        return false;
+        self.intersection(other).is_some()
     }
 }
 
@@ -291,7 +274,15 @@ fn intersection_rotated() {
 
             assert!(
                 fuzzy_eq_point(
-                    l1.intersection(&l2).unwrap(),
+                    l1.sample(l1.intersection(&l2).unwrap().0),
+                    point(0.0, 0.0),
+                    epsilon
+                )
+            );
+
+            assert!(
+                fuzzy_eq_point(
+                    l2.sample(l1.intersection(&l2).unwrap().1),
                     point(0.0, 0.0),
                     epsilon
                 )

@@ -8,8 +8,7 @@
 
 use CubicBezierSegment;
 use math::Point;
-use up_to_two::UpToTwo;
-
+use arrayvec::ArrayVec;
 use std::f32;
 use std::mem::swap;
 
@@ -208,7 +207,7 @@ fn no_inflection_flattening_step(bezier: &CubicBezierSegment, tolerance: f32) ->
 }
 
 // Find the inflection points of a cubic bezier curve.
-pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToTwo<f32> {
+pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> ArrayVec<[f32; 2]> {
     // Find inflection points.
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
@@ -220,7 +219,7 @@ pub fn find_cubic_bezier_inflection_points(bezier: &CubicBezierSegment) -> UpToT
     let b = pa.cross(pc);
     let c = pa.cross(pb);
 
-    let mut ret = UpToTwo::new();
+    let mut ret = ArrayVec::new();
 
     if a.abs() < 1e-5 {
         // Not a quadratic equation.
