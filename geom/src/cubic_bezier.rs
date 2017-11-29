@@ -1,6 +1,5 @@
 use {Line, LineSegment};
 use math::{Point, Vector, Rect, rect, Transform2D};
-use up_to_two::UpToTwo;
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
@@ -186,15 +185,15 @@ impl CubicBezierSegment {
         approximate_length_from_flattening(self, tolerance)
     }
 
-    pub fn find_inflection_points(&self) -> UpToTwo<f32> {
+    pub fn find_inflection_points(&self) -> ArrayVec<[f32; 2]> {
         find_cubic_bezier_inflection_points(self)
     }
 
     /// Return local x extrema or None if this curve is monotone.
     ///
     /// This returns the advancements along the curve, not the actual x position.
-    pub fn find_local_x_extrema(&self) -> UpToTwo<f32> {
-        let mut ret = UpToTwo::new();
+    pub fn find_local_x_extrema(&self) -> ArrayVec<[f32; 2]> {
+        let mut ret = ArrayVec::new();
         // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
         // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
         // f(x) = a * x² + b * x + c such as :
@@ -252,7 +251,7 @@ impl CubicBezierSegment {
     /// Return local y extrema or None if this curve is monotone.
     ///
     /// This returns the advancements along the curve, not the actual y position.
-    pub fn find_local_y_extrema(&self) -> UpToTwo<f32> {
+    pub fn find_local_y_extrema(&self) -> ArrayVec<[f32; 2]> {
        let switched_segment = CubicBezierSegment {
                from: self.from.yx(),
                ctrl1: self.ctrl1.yx(),
@@ -403,7 +402,12 @@ impl CubicBezierSegment {
         YMonotoneCubicBezierSegment { segment: *self }
     }
 
-    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[Point; 3]> {
+    /// Computes the intersections (if any) between this segment a line.
+    ///
+    /// The result is provided in the form of the `t` parameters of each
+    /// point along curve. To get the intersection points, sample the curve
+    /// at the corresponding values.
+    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[f32; 3]> {
         if line.vector.square_length() < 1e-6 {
             return ArrayVec::new();
         }
@@ -430,26 +434,32 @@ impl CubicBezierSegment {
         let mut result = ArrayVec::new();
 
         for root in roots {
-            let t = root;
-            if t <= 0.0 || t >= 1.0 {
-                continue;
+            if root > 0.0 && root < 1.0 {
+                result.push(root);
             }
-
-            let position = (p1 * t * t * t + p2 * t * t + p3 * t + p4).to_point();
-
-            result.push(position);
         }
 
         return result;
     }
 
-    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[Point; 3]> {
+    /// Computes the intersections (if any) between this segment a line segment.
+    ///
+    /// The result is provided in the form of the `t` parameters of each
+    /// point along curve and segment. To get the intersection points, sample
+    /// the segments at the corresponding values.
+    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[(f32, f32); 3]> {
+        if !self.fast_bounding_rect().intersects(&segment.bounding_rect()) {
+            return ArrayVec::new();
+        }
+
         let intersections = self.line_intersections(&segment.to_line());
         let aabb = segment.bounding_rect();
+
         let mut result = ArrayVec::new();
-        for point in intersections {
-            if aabb.contains(&point) {
-                result.push(point);
+        for t in intersections {
+            if aabb.contains(&self.sample(t)) {
+                let t2 = (self.sample(t) - segment.from).length() / segment.length();
+                result.push((t,t2));
             }
         }
         return result;
@@ -557,7 +567,7 @@ fn find_y_extrema_for_simple_cubic_segment() {
         to: Point::new(3.0, 0.0),
     };
 
-    let mut expected_y_extremums = UpToTwo::new();
+    let mut expected_y_extremums = Vec::new();
     expected_y_extremums.push(0.5);
 
     let actual_y_extremums = a.find_local_y_extrema();
@@ -576,7 +586,7 @@ fn find_x_extrema_for_simple_cubic_segment() {
         to: Point::new(0.0, 0.0),
     };
 
-    let mut expected_x_extremums = UpToTwo::new();
+    let mut expected_x_extremums = Vec::new();
     expected_x_extremums.push(0.5);
 
     let actual_x_extremums = a.find_local_x_extrema();

@@ -65,7 +65,7 @@
 
 //#![allow(needless_return)] // clippy
 
-extern crate arrayvec;
+pub extern crate arrayvec;
 pub extern crate euclid;
 
 #[macro_use] mod segment;
@@ -75,13 +75,11 @@ pub mod arc;
 pub mod utils;
 mod flatten_cubic;
 mod cubic_to_quadratic;
-mod up_to_two;
 mod triangle;
 mod line;
 mod monotone;
 
 pub use cubic_to_quadratic::cubic_to_quadratic;
-pub use up_to_two::UpToTwo;
 
 pub use quadratic_bezier::QuadraticBezierSegment;
 pub use cubic_bezier::CubicBezierSegment;

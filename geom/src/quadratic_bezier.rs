@@ -309,34 +309,38 @@ impl QuadraticBezierSegment {
         YMonotoneQuadraticBezierSegment { segment: *self }
     }
 
-    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[Point; 2]> {
+    /// Computes the intersections (if any) between this segment a line.
+    ///
+    /// The result is provided in the form of the `t` parameters of each
+    /// point along curve. To get the intersection points, sample the curve
+    /// at the corresponding values.
+    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[f32; 2]> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
         let intersections = self.to_cubic().line_intersections(line);
 
         let mut result = ArrayVec::new();
-        if intersections.len() > 0 {
-            result.push(intersections[0]);
-        }
-        if intersections.len() > 1 {
-            result.push(intersections[1]);
+        for t in intersections {
+            result.push(t);
         }
 
         return result;
     }
 
-    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[Point; 2]> {
+    /// Computes the intersections (if any) between this segment a line segment.
+    ///
+    /// The result is provided in the form of the `t` parameters of each
+    /// point along curve and segment. To get the intersection points, sample
+    /// the segments at the corresponding values.
+    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[(f32, f32); 2]> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
-        let intersections = self.to_cubic().line_intersections(&segment.to_line());
-        let aabb = segment.fast_bounding_rect();
+        let intersections = self.to_cubic().line_segment_intersections(&segment);
+        assert!(intersections.len() <= 2);
 
         let mut result = ArrayVec::new();
-        if intersections.len() > 0 && aabb.contains(&intersections[0]) {
-            result.push(intersections[0]);
-        }
-        if intersections.len() > 1 && aabb.contains(&intersections[1]) {
-            result.push(intersections[1]);
+        for t in intersections {
+            result.push(t);
         }
 
         return result;
