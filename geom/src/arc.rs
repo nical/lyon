@@ -6,7 +6,7 @@ use std::f32;
 use Line;
 use math::{Point, point, Vector, vector, Rotation2D, Transform2D, Radians, Rect};
 use utils::directed_angle;
-use segment::{Segment, FlattenedForEach, FlatteningStep};
+use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
 use segment;
 
 /// A flattening iterator for arc segments.
@@ -132,6 +132,12 @@ impl Arc {
         let angle = self.get_angle(t);
         self.center + sample_ellipse(self.radii, self.x_rotation, angle).to_vector()
     }
+
+    #[inline]
+    pub fn x(&self, t: f32) -> f32 { self.sample(t).x }
+
+    #[inline]
+    pub fn y(&self, t: f32) -> f32 { self.sample(t).y }
 
     /// Sample the curve's tangent at t (expecting t between 0 and 1).
     #[inline]
@@ -320,14 +326,21 @@ impl Segment for Arc {
     fn from(&self) -> Point { self.from() }
     fn to(&self) -> Point { self.to() }
     fn sample(&self, t: f32) -> Point { self.sample(t) }
+    fn x(&self, t: f32) -> f32 { self.x(t) }
+    fn y(&self, t: f32) -> f32 { self.y(t) }
+    fn derivative(&self, t: f32) -> Vector { self.sample_tangent(t) }
     fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
     fn before_split(&self, t: f32) -> Self { self.before_split(t) }
     fn after_split(&self, t: f32) -> Self { self.after_split(t) }
     fn flip(&self) -> Self { self.flip() }
-    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
     fn approximate_length(&self, tolerance: f32) -> f32 {
         self.approximate_length(tolerance)
     }
+}
+
+impl BoundingRect for Arc {
+    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
+    fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
 }
 
 impl FlatteningStep for Arc {

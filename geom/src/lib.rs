@@ -68,11 +68,11 @@
 extern crate arrayvec;
 pub extern crate euclid;
 
+#[macro_use] mod segment;
 pub mod quadratic_bezier;
 pub mod cubic_bezier;
 pub mod arc;
 pub mod utils;
-mod segment;
 mod flatten_cubic;
 mod cubic_to_quadratic;
 mod up_to_two;
@@ -89,6 +89,7 @@ pub use triangle::{Triangle};
 pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
 pub use segment::Segment;
+pub use monotone::{XMonotone, YMonotone, XMonotoneSegment, YMonotoneSegment};
 
 pub mod math {
     //! ## Core geometry types
@@ -138,4 +139,5 @@ pub mod math {
 
 pub mod traits {
     pub use segment::{Segment, FlattenedForEach, FlatteningStep};
+    pub use monotone::{XMonotoneSegment, YMonotoneSegment};
 }

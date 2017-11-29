@@ -1,8 +1,8 @@
 use {CubicBezierSegment, Triangle, Line, LineSegment};
 use math::{Point, Vector, Rect, rect, Transform2D};
-use monotone::{XMonotoneParametricCurve, solve_t_for_x};
+use monotone::{XMonotone, YMonotone};
 use arrayvec::ArrayVec;
-use segment::{Segment, FlatteningStep, FlattenedForEach};
+use segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
 use segment;
 
 /// A flattening iterator for quadratic bézier segments.
@@ -30,7 +30,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
-    pub fn sample_x(&self, t: f32) -> f32 {
+    pub fn x(&self, t: f32) -> f32 {
         let t2 = t * t;
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
@@ -38,7 +38,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
-    pub fn sample_y(&self, t: f32) -> f32 {
+    pub fn y(&self, t: f32) -> f32 {
         let t2 = t * t;
         let one_t = 1.0 - t;
         let one_t2 = one_t * one_t;
@@ -51,19 +51,19 @@ impl QuadraticBezierSegment {
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
-    pub fn sample_derivative(&self, t: f32) -> Vector {
+    pub fn derivative(&self, t: f32) -> Vector {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.to_vector() * c0 + self.ctrl.to_vector() * c1 + self.to.to_vector() * c2
     }
 
     /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
-    pub fn sample_x_derivative(&self, t: f32) -> f32 {
+    pub fn dx(&self, t: f32) -> f32 {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.x * c0 + self.ctrl.x * c1 + self.to.x * c2
     }
 
     /// Sample the y coordinate of the curve's derivative at t (expecting t between 0 and 1).
-    pub fn sample_y_derivative(&self, t: f32) -> f32 {
+    pub fn dy(&self, t: f32) -> f32 {
         let (c0, c1, c2) = self.derivative_coefficients(t);
         self.from.y * c0 + self.ctrl.y * c1 + self.to.y * c2
     }
@@ -258,7 +258,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Returns a conservative rectangle that contains the curve.
-    pub fn bounding_rect(&self) -> Rect {
+    pub fn fast_bounding_rect(&self) -> Rect {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
         let min_y = self.from.y.min(self.ctrl.y).min(self.to.y);
@@ -268,7 +268,7 @@ impl QuadraticBezierSegment {
     }
 
     /// Returns the smallest rectangle the curve is contained in
-    pub fn minimum_bounding_rect(&self) -> Rect {
+    pub fn bounding_rect(&self) -> Rect {
         let min_x = self.sample(self.find_x_minimum()).x;
         let max_x = self.sample(self.find_x_maximum()).x;
         let min_y = self.sample(self.find_y_minimum()).y;
@@ -280,13 +280,13 @@ impl QuadraticBezierSegment {
     /// Cast this curve into a x-montone curve without checking that the monotonicity
     /// assumption is correct.
     pub fn assume_x_montone(&self) -> XMonotoneQuadraticBezierSegment {
-        XMonotoneQuadraticBezierSegment { curve: *self }
+        XMonotoneQuadraticBezierSegment { segment: *self }
     }
 
     /// Cast this curve into a y-montone curve without checking that the monotonicity
     /// assumption is correct.
     pub fn assume_y_montone(&self) -> YMonotoneQuadraticBezierSegment {
-        YMonotoneQuadraticBezierSegment { curve: *self }
+        YMonotoneQuadraticBezierSegment { segment: *self }
     }
 
     pub fn line_intersections(&self, line: &Line) -> ArrayVec<[Point; 2]> {
@@ -309,7 +309,7 @@ impl QuadraticBezierSegment {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
         let intersections = self.to_cubic().line_intersections(&segment.to_line());
-        let aabb = segment.bounding_rect();
+        let aabb = segment.fast_bounding_rect();
 
         let mut result = ArrayVec::new();
         if intersections.len() > 0 && aabb.contains(&intersections[0]) {
@@ -321,20 +321,17 @@ impl QuadraticBezierSegment {
 
         return result;
     }
+
+    pub fn from(&self) -> Point { self.from }
+
+    pub fn to(&self) -> Point { self.to }
 }
 
-impl Segment for QuadraticBezierSegment {
-    fn from(&self) -> Point { self.from }
-    fn to(&self) -> Point { self.to }
-    fn sample(&self, t: f32) -> Point { self.sample(t) }
-    fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
-    fn before_split(&self, t: f32) -> Self { self.before_split(t) }
-    fn after_split(&self, t: f32) -> Self { self.after_split(t) }
-    fn flip(&self) -> Self { self.flip() }
+impl Segment for QuadraticBezierSegment { impl_segment!(); }
+
+impl BoundingRect for QuadraticBezierSegment {
     fn bounding_rect(&self) -> Rect { self.bounding_rect() }
-    fn approximate_length(&self, tolerance: f32) -> f32 {
-        self.approximate_length(tolerance)
-    }
+    fn fast_bounding_rect(&self) -> Rect { self.fast_bounding_rect() }
 }
 
 impl FlatteningStep for QuadraticBezierSegment {
@@ -343,68 +340,10 @@ impl FlatteningStep for QuadraticBezierSegment {
     }
 }
 
-/// A monotonically increasing in x cubic bézier curve segment
-#[derive(Copy, Clone, Debug)]
-pub struct XMonotoneQuadraticBezierSegment {
-    curve: QuadraticBezierSegment
-}
-
-impl XMonotoneQuadraticBezierSegment {
-    #[inline]
-    pub fn curve(&self) -> &QuadraticBezierSegment {
-        &self.curve
-    }
-
-    /// Approximates y for a given value of x and a tolerance threshold.
-    #[inline]
-    pub fn solve_y_for_x(&self, x: f32, tolerance: f32) -> f32 {
-        self.curve.sample_y(self.solve_t_for_x(x, tolerance))
-    }
-
-    /// Approximates t for a given value of x and a tolerance threshold.
-    #[inline]
-    pub fn solve_t_for_x(&self, x: f32, tolerance: f32) -> f32 {
-        solve_t_for_x(self, x, tolerance)
-    }
-}
-
-impl XMonotoneParametricCurve for XMonotoneQuadraticBezierSegment {
-    fn x(&self, t: f32) -> f32 { self.curve.sample_x(t) }
-    fn dx(&self, t: f32) -> f32 { self.curve.sample_x_derivative(t) }
-}
-
-/// A monotonically increasing in y cubic bézier curve segment
-#[derive(Copy, Clone, Debug)]
-pub struct YMonotoneQuadraticBezierSegment {
-    curve: QuadraticBezierSegment
-}
-
-impl YMonotoneQuadraticBezierSegment {
-    #[inline]
-    pub fn curve(&self) -> &QuadraticBezierSegment {
-        &self.curve
-    }
-
-    /// Approximates x for a given value of y and a tolerance threshold.
-    #[inline]
-    pub fn solve_x_for_y(&self, y: f32, tolerance: f32) -> f32 {
-        self.curve.sample_y(self.solve_t_for_y(y, tolerance))
-    }
-
-    /// Approximates t for a given value of y and a tolerance threshold.
-    #[inline]
-    pub fn solve_t_for_y(&self, y: f32, tolerance: f32) -> f32 {
-        let transposed = XMonotoneQuadraticBezierSegment {
-            curve: QuadraticBezierSegment {
-                from: self.curve.from.yx(),
-                ctrl: self.curve.ctrl.yx(),
-                to: self.curve.to.yx(),
-            }
-        };
-
-        transposed.solve_t_for_x(y, tolerance)
-    }
-}
+/// A monotonically increasing in x quadratic bézier curve segment
+pub type XMonotoneQuadraticBezierSegment = XMonotone<QuadraticBezierSegment>;
+/// A monotonically increasing in y quadratic bézier curve segment
+pub type YMonotoneQuadraticBezierSegment = YMonotone<QuadraticBezierSegment>;
 
 #[test]
 fn bounding_rect_for_x_monotone_quadratic_bezier_segment() {
@@ -422,7 +361,7 @@ fn bounding_rect_for_x_monotone_quadratic_bezier_segment() {
 }
 
 #[test]
-fn bounding_rect_for_quadratic_bezier_segment() {
+fn fast_bounding_rect_for_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 1.0),
@@ -431,7 +370,7 @@ fn bounding_rect_for_quadratic_bezier_segment() {
 
     let expected_bounding_rect = rect(0.0, 0.0, 2.0, 1.0);
 
-    let actual_bounding_rect = a.bounding_rect();
+    let actual_bounding_rect = a.fast_bounding_rect();
 
     assert!(expected_bounding_rect == actual_bounding_rect)
 }
@@ -446,7 +385,7 @@ fn minimum_bounding_rect_for_quadratic_bezier_segment() {
 
     let expected_bounding_rect = rect(0.0, 0.0, 2.0, 0.5);
 
-    let actual_bounding_rect = a.minimum_bounding_rect();
+    let actual_bounding_rect = a.bounding_rect();
 
     assert!(expected_bounding_rect == actual_bounding_rect)
 }
@@ -572,9 +511,9 @@ fn derivatives() {
         to: Point::new(2.0, 2.0),
     };
 
-    assert_eq!(c1.sample_y_derivative(0.0), 0.0);
-    assert_eq!(c1.sample_x_derivative(1.0), 0.0);
-    assert_eq!(c1.sample_y_derivative(0.5), c1.sample_x_derivative(0.5));
+    assert_eq!(c1.dy(0.0), 0.0);
+    assert_eq!(c1.dx(1.0), 0.0);
+    assert_eq!(c1.dy(0.5), c1.dx(0.5));
 }
 
 #[test]
@@ -593,7 +532,7 @@ fn monotone_solve_t_for_x() {
         let t2 = curve.assume_x_montone().solve_t_for_x(p.x, tolerance);
         // t should be pretty close to t2 but the only guarantee we have and can test
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
-        let x_diff = curve.sample_x(t) - curve.sample_x(t2);
+        let x_diff = curve.x(t) - curve.x(t2);
         assert!(x_diff.abs() <= tolerance);
     }
 }
