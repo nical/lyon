@@ -231,7 +231,7 @@ pub fn build_logo_path<Builder: SvgBuilder>(path: &mut Builder) {;
     path.relative_horizontal_line_to(12.914);
     path.relative_cubic_bezier_to(vector(0.667, 0.0), vector(4.71, 0.771), vector(4.71, 3.794));
     path.relative_cubic_bezier_to(vector(0.0, 2.51), vector(-3.101, 3.41), vector(-5.651, 3.41));
-    //path.horizontal_line_to(62.348) //TODO;
+    path.horizontal_line_to(62.348);
     path.close();
 
     path.move_to(point(109.28, 70.664));
