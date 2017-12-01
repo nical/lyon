@@ -1,0 +1,9 @@
+[package]
+name = "glium_basic"
+version = "0.1.0"
+authors = ["orhanbalci <orhanbalci@gmail.com>"]
+workspace = "../.."
+
+[dependencies]
+lyon = { path = "../../" }
+glium = "*"
