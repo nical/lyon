@@ -483,6 +483,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "glium_basic"
+version = "0.1.0"
+dependencies = [
+ "glium 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lyon 0.8.6",
+]
+
+[[package]]
 name = "glutin"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
