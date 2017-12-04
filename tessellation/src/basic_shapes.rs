@@ -1,6 +1,22 @@
 #![allow(dead_code)]
 
 //! Tessellation routines for simple shapes.
+//!
+//! #Overview
+//!
+//! This module contains tessellators for specific shapes that can
+//! benefit from having a specialised algorithm rather than using
+//! the generic algorithm (for performance purposes or in some cases
+//! just for convenience).
+//!
+//! See also the generic [fill](../struct.FillTessellator.html) and
+//! [stroke](../struct.StrokeTessellator.html) tessellators.
+//!
+//! Some of these algorithms approximate the geometry based on a
+//! tolerance threshold which sets the maximum allows distance
+//! between the theoretical curve and its approximation.
+//!
+//! More explanaion about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/0.7.0/lyon_geom/#flattening).
 
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path_stroke::{StrokeTessellator, StrokeBuilder};
@@ -57,7 +73,7 @@ pub fn fill_triangle(
     return output.end_geometry();
 }
 
-/// Tessellate the stroke of a triangle.
+/// Tessellate the stroke for a triangle.
 pub fn stroke_triangle(
     v1: Point,
     v2: Point,
@@ -120,7 +136,7 @@ pub fn fill_quad(
     return output.end_geometry();
 }
 
-/// Tessellate the stroke of a quad.
+/// Tessellate the stroke for a quad.
 pub fn stroke_quad(
     v1: Point,
     v2: Point,
@@ -460,7 +476,7 @@ fn fill_border_radius(
     );
 }
 
-/// Tessellate the stroke of an axis-aligned rounded rectangle.
+/// Tessellate the stroke for an axis-aligned rounded rectangle.
 pub fn stroke_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
@@ -638,7 +654,7 @@ pub fn fill_circle(
     return output.end_geometry();
 }
 
-/// Tessellate the stroke of a circle.
+/// Tessellate the stroke for a circle.
 pub fn stroke_circle<Output>(
     center: Point,
     radius: f32,
@@ -676,7 +692,7 @@ pub fn stroke_circle<Output>(
     return output.end_geometry();
 }
 
-// tessellate the stroke of rounded corners using the inner points.
+// tessellate the stroke for rounded corners using the inner points.
 // assumming the builder started with move_to().
 fn stroke_border_radius(
     center: Point,
@@ -696,6 +712,7 @@ fn stroke_border_radius(
     }
 }
 
+/// Tessellate an ellipse.
 pub fn fill_ellipse(
     center: Point,
     radii: Vector,
@@ -735,6 +752,7 @@ pub fn fill_ellipse(
     ).unwrap();
 }
 
+/// Tessellate the stroke for an ellipse.
 pub fn stroke_ellipse(
     center: Point,
     radii: Vector,
@@ -822,7 +840,7 @@ where
     return output.end_geometry();
 }
 
-/// Tessellate the stroke of a shape that is discribed by an iterator of points.
+/// Tessellate the stroke for a shape that is discribed by an iterator of points.
 ///
 /// Convenient when tessellating a shape that is represented as a slice `&[Point]`.
 pub fn stroke_polyline<Iter>(
