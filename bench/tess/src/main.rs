@@ -14,7 +14,7 @@ use bencher::Bencher;
 
 const N: usize = 10;
 
-fn logo_simple_flattening_iter(bench: &mut Bencher) {
+fn flattening_01_logo_simple_iter(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -27,8 +27,8 @@ fn logo_simple_flattening_iter(bench: &mut Bencher) {
 }
 
 // This benchmark is a bit convoluted in order to be comparable to
-// logo_flattening_builder below.
-fn logo_flattening_iter(bench: &mut Bencher) {
+// flattening_03_logo_builder below.
+fn flattening_02_logo_iter(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -43,7 +43,7 @@ fn logo_flattening_iter(bench: &mut Bencher) {
     })
 }
 
-fn logo_flattening_builder(bench: &mut Bencher) {
+fn flattening_03_logo_builder(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -58,7 +58,7 @@ fn logo_flattening_builder(bench: &mut Bencher) {
     })
 }
 
-fn fill_logo_tess_only(bench: &mut Bencher) {
+fn fill_tess_01_logo(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -75,7 +75,24 @@ fn fill_logo_tess_only(bench: &mut Bencher) {
     })
 }
 
-fn fill_logo_tess_no_intersection(bench: &mut Bencher) {
+fn fill_tess_02_logo_no_normals(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    let options = FillOptions::default().with_normals(false);
+    let events = FillEvents::from_path(0.05, path.path_iter());
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::with_capacity(512, 1450);
+            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
+    })
+}
+
+fn fill_tess_03_logo_no_intersections(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -92,7 +109,26 @@ fn fill_logo_tess_no_intersection(bench: &mut Bencher) {
     })
 }
 
-fn fill_logo_tess_no_curve(bench: &mut Bencher) {
+fn fill_tess_04_logo_no_normals_no_intersections(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    let options = FillOptions::default()
+        .with_normals(false)
+        .assume_no_intersections();
+    let events = FillEvents::from_path(0.05, path.path_iter());
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::with_capacity(512, 1450);
+            tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
+    })
+}
+
+fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -109,7 +145,31 @@ fn fill_logo_tess_no_curve(bench: &mut Bencher) {
     })
 }
 
-fn fill_logo_events_and_tess(bench: &mut Bencher) {
+fn fill_events_01_logo(bench: &mut Bencher) {
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let _events = FillEvents::from_path(0.05, path.path_iter());
+        }
+    })
+}
+
+fn fill_events_02_logo_pre_flattened(bench: &mut Bencher) {
+    let mut path = Path::builder().flattened(0.05).with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let _events = FillEvents::from_path(0.05, path.path_iter());
+        }
+    })
+}
+
+fn fill_events_03_logo_with_tess(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -125,31 +185,7 @@ fn fill_logo_events_and_tess(bench: &mut Bencher) {
     })
 }
 
-fn fill_logo_events_only(bench: &mut Bencher) {
-    let mut path = Path::builder().with_svg();
-    build_logo_path(&mut path);
-    let path = path.build();
-
-    bench.iter(|| {
-        for _ in 0..N {
-            let _events = FillEvents::from_path(0.05, path.path_iter());
-        }
-    })
-}
-
-fn fill_logo_events_only_pre_flattened(bench: &mut Bencher) {
-    let mut path = Path::builder().flattened(0.05).with_svg();
-    build_logo_path(&mut path);
-    let path = path.build();
-
-    bench.iter(|| {
-        for _ in 0..N {
-            let _events = FillEvents::from_path(0.05, path.path_iter());
-        }
-    })
-}
-
-fn stroke_logo_miter(bench: &mut Bencher) {
+fn stroke_01_logo_miter(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -165,7 +201,7 @@ fn stroke_logo_miter(bench: &mut Bencher) {
     })
 }
 
-fn stroke_logo_bevel(bench: &mut Bencher) {
+fn stroke_02_logo_bevel(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -181,7 +217,7 @@ fn stroke_logo_bevel(bench: &mut Bencher) {
     })
 }
 
-fn stroke_logo_round(bench: &mut Bencher) {
+fn stroke_03_logo_round(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -198,27 +234,29 @@ fn stroke_logo_round(bench: &mut Bencher) {
 }
 
 benchmark_group!(stroke_tess,
-  stroke_logo_miter,
-  stroke_logo_bevel,
-  stroke_logo_round
+  stroke_01_logo_miter,
+  stroke_02_logo_bevel,
+  stroke_03_logo_round
 );
 
 benchmark_group!(fill_tess,
-  fill_logo_tess_only,
-  fill_logo_tess_no_curve,
-  fill_logo_tess_no_intersection
+  fill_tess_01_logo,
+  fill_tess_02_logo_no_normals,
+  fill_tess_03_logo_no_intersections,
+  fill_tess_04_logo_no_normals_no_intersections,
+  fill_tess_05_logo_no_curve
 );
 
 benchmark_group!(fill_events,
-  fill_logo_events_and_tess,
-  fill_logo_events_only,
-  fill_logo_events_only_pre_flattened
+  fill_events_01_logo,
+  fill_events_02_logo_pre_flattened,
+  fill_events_03_logo_with_tess
 );
 
 benchmark_group!(flattening,
-  logo_simple_flattening_iter,
-  logo_flattening_iter,
-  logo_flattening_builder
+  flattening_01_logo_simple_iter,
+  flattening_02_logo_iter,
+  flattening_03_logo_builder
 );
 
 benchmark_main!(fill_tess, fill_events, stroke_tess, flattening);
