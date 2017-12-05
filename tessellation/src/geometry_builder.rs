@@ -1,6 +1,4 @@
-//! # Geometry builder
-//!
-//! Tools to help with generating geometry to send to the GPU.
+//! Tools to help with generating vertex and index buffers.
 //!
 //! ## Overview
 //!
