@@ -93,7 +93,7 @@
 //!     <tspan x="196.17" y="280.9">VertexConstructor</tspan>
 //!   </text>
 //!   <text x="5.13" y="266.09" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
-//!     <tspan x="5.13" y="266.09">Iterator&lt;FlattenedEvent&gt;</tspan>
+//!     <tspan x="5.13" y="266.09">Iterator&lt;PathEvent&gt;</tspan>
 //!   </text>
 //!   <text x="79.79" y="282.2" stroke-width=".26" style="line-height:6.61458302px" font-size="5.29" font-family="Sans" letter-spacing="0" word-spacing="0" transform="translate(0 -255)">
 //!     <tspan x="79.79" y="282.2" fill="navy" font-size="4.23">builder.add_vertex(FillVertex) -&gt; VertexId;</tspan><tspan x="79.79" y="289.09" fill="navy" font-size="4.23">builder.add_triangle(VertexId, <tspan stroke-width=".07" style="line-height:1.75010836px;font-variant-ligatures:normal;font-variant-position:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-alternates:normal;font-variant-east-asian:normal;font-feature-settings:normal;text-indent:0;text-align:start;text-decoration-line:none;text-decoration-style:solid;text-decoration-color:#000000;text-transform:none;text-orientation:mixed;shape-padding:0" white-space="normal">VertexId, VertexId);</tspan></tspan>
@@ -218,7 +218,7 @@ pub enum Side {
 }
 
 impl Side {
-    pub fn opposite(self) -> Side {
+    pub fn opposite(self) -> Self {
         match self {
             Side::Left => Side::Right,
             Side::Right => Side::Left,
@@ -369,11 +369,11 @@ pub struct StrokeOptions {
 }
 
 impl StrokeOptions {
-    /// Minimum miter limits as defined by the SVG specification.
+    /// Minimum miter limit as defined by the SVG specification.
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
     const MINIMUM_MITER_LIMIT: f32 = 1.0;
-    /// Default miter limits as defined by the SVG specification.
+    /// Default miter limit as defined by the SVG specification.
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
     const DEFAULT_MITER_LIMIT: f32 = 4.0;
@@ -393,50 +393,60 @@ impl StrokeOptions {
         _private: (),
     };
 
+    #[inline]
     pub fn default() -> Self { StrokeOptions::DEFAULT }
 
+    #[inline]
     pub fn tolerance(tolerance: f32) -> Self {
         StrokeOptions::DEFAULT.with_tolerance(tolerance)
     }
 
-    pub fn with_tolerance(mut self, tolerance: f32) -> StrokeOptions {
+    #[inline]
+    pub fn with_tolerance(mut self, tolerance: f32) -> Self {
         self.tolerance = tolerance;
         return self;
     }
 
-    pub fn with_line_cap(mut self, cap: LineCap) -> StrokeOptions {
+    #[inline]
+    pub fn with_line_cap(mut self, cap: LineCap) -> Self {
         self.start_cap = cap;
         self.end_cap = cap;
         return self;
     }
 
-    pub fn with_start_cap(mut self, cap: LineCap) -> StrokeOptions {
+    #[inline]
+    pub fn with_start_cap(mut self, cap: LineCap) -> Self {
         self.start_cap = cap;
         return self;
     }
 
-    pub fn with_end_cap(mut self, cap: LineCap) -> StrokeOptions {
+    #[inline]
+    pub fn with_end_cap(mut self, cap: LineCap) -> Self {
         self.end_cap = cap;
         return self;
     }
 
-    pub fn with_line_join(mut self, join: LineJoin) -> StrokeOptions {
+    #[inline]
+    pub fn with_line_join(mut self, join: LineJoin) -> Self {
         self.line_join = join;
         return self;
     }
 
-    pub fn with_line_width(mut self, width: f32) -> StrokeOptions {
+    #[inline]
+    pub fn with_line_width(mut self, width: f32) -> Self {
         self.line_width = width;
         return self;
     }
 
-    pub fn with_miter_limit(mut self, limit: f32) -> StrokeOptions {
+    #[inline]
+    pub fn with_miter_limit(mut self, limit: f32) -> Self {
         assert!(limit >= StrokeOptions::MINIMUM_MITER_LIMIT);
         self.miter_limit = limit;
         return self;
     }
 
-    pub fn dont_apply_line_width(mut self) -> StrokeOptions {
+    #[inline]
+    pub fn dont_apply_line_width(mut self) -> Self {
         self.apply_line_width = false;
         return self;
     }
@@ -511,30 +521,37 @@ impl FillOptions {
         _private: (),
     };
 
+    #[inline]
     pub fn default() -> Self { FillOptions::DEFAULT }
 
+    #[inline]
     pub fn even_odd() -> Self { FillOptions::DEFAULT }
 
+    #[inline]
     pub fn tolerance(tolerance: f32) -> Self {
         FillOptions::DEFAULT.with_tolerance(tolerance)
     }
 
+    #[inline]
     pub fn non_zero() -> Self {
         let mut options = FillOptions::DEFAULT;
         options.fill_rule = FillRule::NonZero;
         return options;
     }
 
+    #[inline]
     pub fn with_tolerance(mut self, tolerance: f32) -> Self {
         self.tolerance = tolerance;
         return self;
     }
 
+    #[inline]
     pub fn with_normals(mut self, normals: bool) -> Self {
         self.compute_normals = normals;
         self
     }
 
+    #[inline]
     pub fn assume_no_intersections(mut self) -> Self {
         self.assume_no_intersections = true;
         return self;

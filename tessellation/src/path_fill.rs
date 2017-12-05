@@ -1334,13 +1334,13 @@ impl ActiveEdge {
 }
 
 
-/// Defines an ordering between two points
-///
-/// A point is considered after another point if it is below (y pointing downward) the point.
-/// If two points have the same y coordinate, the one on the right (x pointing to the right)
-/// is the one after.
+// Defines an ordering between two points
+//
+// A point is considered after another point if it is below (y pointing downward) the point.
+// If two points have the same y coordinate, the one on the right (x pointing to the right)
+// is the one after.
 #[inline]
-pub fn is_after<T: PartialOrd>(a: euclid::Point2D<T>, b: euclid::Point2D<T>) -> bool {
+fn is_after<T: PartialOrd>(a: euclid::Point2D<T>, b: euclid::Point2D<T>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 

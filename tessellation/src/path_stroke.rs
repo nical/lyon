@@ -853,8 +853,8 @@ impl<'l> StrokeBuilder<'l> {
     }
 }
 
-/// Computes the max angle of a radius segment for a given tolerance
-pub fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
+// Computes the max angle of a radius segment for a given tolerance
+fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
     let t = radius - tolerance;
     ((radius * radius - t * t) * 4.0).sqrt() / radius
 }
