@@ -89,7 +89,8 @@ pub use arc::{Arc, SvgArc, ArcFlags};
 pub use segment::Segment;
 pub use monotonic::{
     Monotonic, MonotonicSegment,
-    monotonic_segment_intersecion
+    monotonic_segment_intersecion,
+    monotonic_segment_intersecions,
 };
 
 pub mod math {

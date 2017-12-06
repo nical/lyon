@@ -2,6 +2,7 @@
 
 use std::f32::*;
 use std::f32;
+use std::ops::Range;
 
 use Line;
 use math::{Point, point, Vector, vector, Rotation2D, Transform2D, Radians, Rect};
@@ -164,6 +165,22 @@ impl Arc {
     #[inline]
     pub fn to(&self) -> Point {
         self.sample(1.0)
+    }
+
+    /// Return the sub-curve inside a given range of t.
+    ///
+    /// This is equivalent splitting at the range's end points.
+    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+        let angle_1 = Radians::new(self.sweep_angle.get() * t_range.start);
+        let angle_2 = Radians::new(self.sweep_angle.get() * t_range.end);
+
+        Arc {
+            center: self.center,
+            radii: self.radii,
+            start_angle: self.start_angle + angle_1,
+            sweep_angle: angle_2 - angle_1,
+            x_rotation: self.x_rotation,
+        }
     }
 
     /// Split this curve into two sub-curves.
@@ -339,6 +356,7 @@ impl Segment for Arc {
     fn x(&self, t: f32) -> f32 { self.x(t) }
     fn y(&self, t: f32) -> f32 { self.y(t) }
     fn derivative(&self, t: f32) -> Vector { self.sample_tangent(t) }
+    fn split_range(&self, t_range: Range<f32>) -> Self { self.split_range(t_range) }
     fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
     fn before_split(&self, t: f32) -> Self { self.before_split(t) }
     fn after_split(&self, t: f32) -> Self { self.after_split(t) }

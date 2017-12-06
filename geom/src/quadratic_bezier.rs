@@ -5,6 +5,8 @@ use arrayvec::ArrayVec;
 use segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
 use segment;
 
+use std::ops::Range;
+
 /// A flattening iterator for quadratic bézier segments.
 pub type Flattened = segment::Flattened<QuadraticBezierSegment>;
 
@@ -153,6 +155,27 @@ impl QuadraticBezierSegment {
             return Some(t);
         }
         return None;
+    }
+
+    /// Return the sub-curve inside a given range of t.
+    ///
+    /// This is equivalent splitting at the range's end points.
+    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+        let t1 = t_range.start;
+        let t2 = t_range.end;
+
+        debug_assert!(t1 >= 0.0);
+        debug_assert!(t2 <= 1.0);
+        debug_assert!(t1 <= t2);
+        debug_assert!(t1 != 1.0);
+
+        let from = self.sample(t1);
+        let to = self.sample(t2);
+        let a = self.from.lerp(self.ctrl, t1);
+        let b = self.ctrl.lerp(self.to, t1);
+        let ctrl = a.lerp(b, (t2 - t1) / (1.0 - t1));
+
+        QuadraticBezierSegment { from, ctrl, to }
     }
 
     /// Split this curve into two sub-curves.

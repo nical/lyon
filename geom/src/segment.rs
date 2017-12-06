@@ -1,5 +1,7 @@
 use math::{Point, Vector, Rect};
 
+use std::ops::Range;
+
 /// Common APIs to segment types.
 pub trait Segment: Copy + Sized {
     /// Start of the curve.
@@ -34,6 +36,11 @@ pub trait Segment: Copy + Sized {
 
     /// Return the curve after the split point.
     fn after_split(&self, t: f32) -> Self;
+
+    /// Return the curve inside a given range of t.
+    ///
+    /// This is equivalent splitting at the range's end points.
+    fn split_range(&self, t_range: Range<f32>) -> Self;
 
     /// Swap the direction of the segment.
     fn flip(&self) -> Self;
@@ -162,6 +169,7 @@ macro_rules! impl_segment {
         fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
         fn before_split(&self, t: f32) -> Self { self.before_split(t) }
         fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+        fn split_range(&self, t_range: Range<f32>) -> Self { self.split_range(t_range) }
         fn flip(&self) -> Self { self.flip() }
         fn approximate_length(&self, tolerance: f32) -> f32 {
             self.approximate_length(tolerance)
