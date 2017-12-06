@@ -1,6 +1,6 @@
 use {CubicBezierSegment, Triangle, Line, LineSegment};
 use math::{Point, Vector, Rect, rect, Transform2D};
-use monotone::{XMonotone, YMonotone};
+use monotonic::Monotonic;
 use arrayvec::ArrayVec;
 use segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
 use segment;
@@ -103,7 +103,7 @@ impl QuadraticBezierSegment {
         return if self.from.y < self.to.y { 0.0 } else { 1.0 };
     }
 
-    /// Return the y inflection point or None if this curve is y-monotone.
+    /// Return the y inflection point or None if this curve is y-monotonic.
     pub fn find_local_y_extremum(&self) -> Option<f32> {
         let div = self.from.y - 2.0 * self.ctrl.y + self.to.y;
         if div == 0.0 {
@@ -142,7 +142,7 @@ impl QuadraticBezierSegment {
         return if self.from.x < self.to.x { 0.0 } else { 1.0 };
     }
 
-    /// Return the x inflection point or None if this curve is x-monotone.
+    /// Return the x inflection point or None if this curve is x-monotonic.
     pub fn find_local_x_extremum(&self) -> Option<f32> {
         let div = self.from.x - 2.0 * self.ctrl.x + self.to.x;
         if div == 0.0 {
@@ -297,16 +297,10 @@ impl QuadraticBezierSegment {
         (min_y, max_y)
     }
 
-    /// Cast this curve into a x-montone curve without checking that the monotonicity
+    /// Cast this curve into a monotonic curve without checking that the monotonicity
     /// assumption is correct.
-    pub fn assume_x_monotone(&self) -> XMonotoneQuadraticBezierSegment {
-        XMonotoneQuadraticBezierSegment { segment: *self }
-    }
-
-    /// Cast this curve into a y-montone curve without checking that the monotonicity
-    /// assumption is correct.
-    pub fn assume_y_monotone(&self) -> YMonotoneQuadraticBezierSegment {
-        YMonotoneQuadraticBezierSegment { segment: *self }
+    pub fn assume_monotonic(&self) -> MonotonicQuadraticBezierSegment {
+        MonotonicQuadraticBezierSegment { segment: *self }
     }
 
     /// Computes the intersections (if any) between this segment a line.
@@ -368,13 +362,11 @@ impl FlatteningStep for QuadraticBezierSegment {
     }
 }
 
-/// A monotonically increasing in x quadratic bézier curve segment
-pub type XMonotoneQuadraticBezierSegment = XMonotone<QuadraticBezierSegment>;
-/// A monotonically increasing in y quadratic bézier curve segment
-pub type YMonotoneQuadraticBezierSegment = YMonotone<QuadraticBezierSegment>;
+/// A monotonically increasing in x and y quadratic bézier curve segment
+pub type MonotonicQuadraticBezierSegment = Monotonic<QuadraticBezierSegment>;
 
 #[test]
-fn bounding_rect_for_x_monotone_quadratic_bezier_segment() {
+fn bounding_rect_for_monotonic_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(0.0, 0.0),
@@ -545,7 +537,7 @@ fn derivatives() {
 }
 
 #[test]
-fn monotone_solve_t_for_x() {
+fn monotonic_solve_t_for_x() {
     let curve = QuadraticBezierSegment {
         from: Point::new(1.0, 1.0),
         ctrl: Point::new(5.0, 5.0),
@@ -557,7 +549,7 @@ fn monotone_solve_t_for_x() {
     for i in 0..10u32 {
         let t = i as f32 / 10.0;
         let p = curve.sample(t);
-        let t2 = curve.assume_x_montone().solve_t_for_x(p.x, tolerance);
+        let t2 = curve.assume_monotonic().solve_t_for_x(p.x, 0.0..1.0, tolerance);
         // t should be pretty close to t2 but the only guarantee we have and can test
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
         let x_diff = curve.x(t) - curve.x(t2);
