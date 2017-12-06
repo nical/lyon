@@ -2,6 +2,8 @@ use math::{Point, point, Vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use utils::min_max;
 
+use std::ops::Range;
+
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -29,11 +31,27 @@ impl LineSegment {
         self.from.y * (1.0 - t) + self.to.y * t
     }
 
+    #[inline]
+    pub fn from(&self) -> Point { self.from }
+
+    #[inline]
+    pub fn to(&self) -> Point { self.to }
+
     /// Returns an inverted version of this segment where the beginning and the end
     /// points are swapped.
     #[inline]
     pub fn flip(&self) -> Self {
         LineSegment { from: self.to, to: self.from }
+    }
+
+    /// Return the sub-segment inside a given range of t.
+    ///
+    /// This is equivalent splitting at the range's end points.
+    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+        LineSegment {
+            from: self.from.lerp(self.to, t_range.start),
+            to: self.from.lerp(self.to, t_range.end),
+        }
     }
 
     /// Split this curve into two sub-segments.
@@ -174,6 +192,7 @@ impl Segment for LineSegment {
     fn derivative(&self, _t: f32) -> Vector { self.to_vector() }
     fn dx(&self, _t: f32) -> f32 { self.to.x - self.from.x }
     fn dy(&self, _t: f32) -> f32 { self.to.y - self.from.y }
+    fn split_range(&self, t_range: Range<f32>) -> Self { self.split_range(t_range) }
     fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
     fn before_split(&self, t: f32) -> Self { self.before_split(t) }
     fn after_split(&self, t: f32) -> Self { self.after_split(t) }

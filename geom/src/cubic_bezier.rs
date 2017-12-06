@@ -8,6 +8,8 @@ use monotonic::Monotonic;
 use utils::cubic_polynomial_roots;
 use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
 
+use std::ops::Range;
+
 /// A 2d curve segment defined by four points: the beginning of the segment, two control
 /// points and the end of the segment.
 ///
@@ -91,6 +93,16 @@ impl CubicBezierSegment {
     pub fn dy(&self, t: f32) -> f32 {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.y * c0 + self.ctrl1.y * c1 + self.ctrl2.y * c2 + self.to.y * c3
+    }
+
+    /// Return the sub-curve inside a given range of t.
+    ///
+    /// This is equivalent splitting at the range's end points.
+    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+        let t1 = t_range.start;
+        let t2 = (t_range.end - t_range.start) / (1.0 - t_range.start);
+
+        self.after_split(t1).before_split(t2)
     }
 
     /// Split this curve into two sub-curves.
