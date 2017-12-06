@@ -299,13 +299,13 @@ impl QuadraticBezierSegment {
 
     /// Cast this curve into a x-montone curve without checking that the monotonicity
     /// assumption is correct.
-    pub fn assume_x_montone(&self) -> XMonotoneQuadraticBezierSegment {
+    pub fn assume_x_monotone(&self) -> XMonotoneQuadraticBezierSegment {
         XMonotoneQuadraticBezierSegment { segment: *self }
     }
 
     /// Cast this curve into a y-montone curve without checking that the monotonicity
     /// assumption is correct.
-    pub fn assume_y_montone(&self) -> YMonotoneQuadraticBezierSegment {
+    pub fn assume_y_monotone(&self) -> YMonotoneQuadraticBezierSegment {
         YMonotoneQuadraticBezierSegment { segment: *self }
     }
 

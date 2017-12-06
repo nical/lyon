@@ -87,7 +87,10 @@ pub use triangle::{Triangle};
 pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
 pub use segment::Segment;
-pub use monotone::{XMonotone, YMonotone, XMonotoneSegment, YMonotoneSegment};
+pub use monotone::{
+    XMonotone, YMonotone, XMonotoneSegment, YMonotoneSegment,
+    monotone_segment_intersecion
+};
 
 pub mod math {
     //! ## Core geometry types
