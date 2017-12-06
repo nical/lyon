@@ -2,20 +2,16 @@ use segment::{Segment, BoundingRect};
 use math::{Point, Vector, Rect};
 use std::ops::Range;
 
-pub trait XMonotoneSegment {
+pub trait MonotonicSegment {
     fn solve_t_for_x(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32;
 }
 
-pub trait YMonotoneSegment {
-    fn solve_t_for_y(&self, y: f32, t_range: Range<f32>, tolerance: f32) -> f32;
-}
-
 #[derive(Copy, Clone, Debug)]
-pub struct XMonotone<S> {
+pub struct Monotonic<S> {
     pub(crate) segment: S,
 }
 
-impl<S: Segment> XMonotone<S> {
+impl<S: Segment> Monotonic<S> {
     #[inline]
     pub fn segment(&self) -> &S { &self.segment }
     #[inline]
@@ -65,15 +61,15 @@ impl<S: Segment> XMonotone<S> {
     }
 }
 
-impl<S: Segment> XMonotoneSegment for XMonotone<S> {
+impl<S: Segment> MonotonicSegment for Monotonic<S> {
     fn solve_t_for_x(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
         self.solve_t(x, t_range, tolerance)
     }
 }
 
-impl<S: Segment> Segment for XMonotone<S> { impl_segment!(); }
+impl<S: Segment> Segment for Monotonic<S> { impl_segment!(); }
 
-impl<S: BoundingRect> BoundingRect for XMonotone<S> {
+impl<S: BoundingRect> BoundingRect for Monotonic<S> {
     fn bounding_rect(&self) -> Rect {
         self.segment.bounding_rect()
     }
@@ -94,70 +90,7 @@ impl<S: BoundingRect> BoundingRect for XMonotone<S> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct YMonotone<S> {
-    pub(crate) segment: S,
-}
-
-impl<S: Segment> YMonotone<S> {
-    #[inline]
-    pub fn segment(&self) -> &S { &self.segment }
-    #[inline]
-    pub fn from(&self) -> Point { self.segment.from() }
-    #[inline]
-    pub fn to(&self) -> Point { self.segment.to() }
-    #[inline]
-    pub fn sample(&self, t: f32) -> Point { self.segment.sample(t) }
-    #[inline]
-    pub fn x(&self, t: f32) -> f32 { self.segment.x(t) }
-    #[inline]
-    pub fn y(&self, t: f32) -> f32 { self.segment.y(t) }
-    #[inline]
-    pub fn derivative(&self, t: f32) -> Vector { self.segment.derivative(t) }
-    #[inline]
-    pub fn dx(&self, t: f32) -> f32 { self.segment.dx(t) }
-    #[inline]
-    pub fn dy(&self, t: f32) -> f32 { self.segment.dy(t) }
-    #[inline]
-    pub fn split(&self, t: f32) -> (Self, Self) {
-        let (a, b) = self.segment.split(t);
-        (Self { segment: a }, Self { segment: b })
-    }
-    #[inline]
-    pub fn before_split(&self, t: f32) -> Self {
-        Self { segment: self.segment.before_split(t) }
-    }
-    #[inline]
-    pub fn after_split(&self, t: f32) -> Self {
-        Self { segment: self.segment.after_split(t) }
-    }
-    #[inline]
-    pub fn flip(&self) -> Self {
-        Self { segment: self.segment.flip() }
-    }
-    #[inline]
-    pub fn approximate_length(&self, tolerance: f32) -> f32 {
-        self.segment.approximate_length(tolerance)
-    }
-
-    pub fn solve_t_for_y(&self, y: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
-        self.solve_t(y, t_range, tolerance)
-    }
-
-    pub fn solve_x_for_y(&self, y: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
-        self.y(self.solve_t(y, t_range, tolerance))
-    }
-}
-
-impl<S: Segment> YMonotoneSegment for YMonotone<S> {
-    fn solve_t_for_y(&self, y: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
-        self.solve_t(y, t_range, tolerance)
-    }
-}
-
-impl<S: Segment> Segment for YMonotone<S> { impl_segment!(); }
-
-trait MonotoneFunction {
+trait MonotonicFunction {
     fn f(&self, t: f32) -> f32;
     fn df(&self, t: f32) -> f32;
 
@@ -215,25 +148,20 @@ trait MonotoneFunction {
     }
 }
 
-impl<S: Segment> MonotoneFunction for XMonotone<S> {
+impl<S: Segment> MonotonicFunction for Monotonic<S> {
     fn f(&self, t: f32) -> f32 { self.x(t) }
     fn df(&self, t: f32) -> f32 { self.dx(t) }
 }
 
-impl<S: Segment> MonotoneFunction for YMonotone<S> {
-    fn f(&self, t: f32) -> f32 { self.y(t) }
-    fn df(&self, t: f32) -> f32 { self.dy(t) }
-}
-
 // TODO: This returns at most one intersection but there could be two.
-pub fn monotone_segment_intersecion<A, B>(
+pub fn monotonic_segment_intersecion<A, B>(
     a: &A,
     b: &B,
     tolerance: f32,
 ) -> Option<(f32, f32)>
 where
-    A: Segment + XMonotoneSegment + BoundingRect,
-    B: Segment + XMonotoneSegment + BoundingRect,
+    A: Segment + MonotonicSegment + BoundingRect,
+    B: Segment + MonotonicSegment + BoundingRect,
 {
     let (a_min, a_max) = a.fast_bounding_range_x();
     let (b_min, b_max) = b.fast_bounding_range_x();

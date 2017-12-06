@@ -4,7 +4,7 @@ use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
 pub use cubic_to_quadratic::cubic_to_quadratic;
-use monotone::{XMonotone, YMonotone};
+use monotonic::Monotonic;
 use utils::cubic_polynomial_roots;
 use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
 
@@ -189,7 +189,7 @@ impl CubicBezierSegment {
         find_cubic_bezier_inflection_points(self)
     }
 
-    /// Return local x extrema or None if this curve is monotone.
+    /// Return local x extrema or None if this curve is monotonic.
     ///
     /// This returns the advancements along the curve, not the actual x position.
     pub fn find_local_x_extrema(&self) -> ArrayVec<[f32; 2]> {
@@ -248,7 +248,7 @@ impl CubicBezierSegment {
         ret
     }
 
-    /// Return local y extrema or None if this curve is monotone.
+    /// Return local y extrema or None if this curve is monotonic.
     ///
     /// This returns the advancements along the curve, not the actual y position.
     pub fn find_local_y_extrema(&self) -> ArrayVec<[f32; 2]> {
@@ -390,16 +390,10 @@ impl CubicBezierSegment {
         (min_y, max_y)
     }
 
-    /// Cast this curve into a x-montone curve without checking that the monotonicity
+    /// Cast this curve into a monotonic curve without checking that the monotonicity
     /// assumption is correct.
-    pub fn assume_x_montone(&self) -> XMonotoneCubicBezierSegment {
-        XMonotoneCubicBezierSegment { segment: *self }
-    }
-
-    /// Cast this curve into a y-montone curve without checking that the monotonicity
-    /// assumption is correct.
-    pub fn assume_y_montone(&self) -> YMonotoneCubicBezierSegment {
-        YMonotoneCubicBezierSegment { segment: *self }
+    pub fn assume_monotonic(&self) -> MonotonicCubicBezierSegment {
+        MonotonicCubicBezierSegment { segment: *self }
     }
 
     /// Computes the intersections (if any) between this segment a line.
@@ -487,10 +481,8 @@ impl FlattenedForEach for CubicBezierSegment {
     }
 }
 
-/// A monotonically increasing in x quadratic bézier curve segment
-pub type XMonotoneCubicBezierSegment = XMonotone<CubicBezierSegment>;
-/// A monotonically increasing in y quadratic bézier curve segment
-pub type YMonotoneCubicBezierSegment = YMonotone<CubicBezierSegment>;
+/// A monotonically increasing in x and y quadratic bézier curve segment
+pub type MonotonicCubicBezierSegment = Monotonic<CubicBezierSegment>;
 
 #[test]
 fn fast_bounding_rect_for_cubic_bezier_segment() {
@@ -642,7 +634,7 @@ fn derivatives() {
 }
 
 #[test]
-fn monotone_solve_t_for_x() {
+fn monotonic_solve_t_for_x() {
     let c1 = CubicBezierSegment {
         from: Point::new(1.0, 1.0),
         ctrl1: Point::new(1.0, 2.0),
@@ -655,7 +647,7 @@ fn monotone_solve_t_for_x() {
     for i in 0..10u32 {
         let t = i as f32 / 10.0;
         let p = c1.sample(t);
-        let t2 = c1.assume_x_montone().solve_t_for_x(p.x, tolerance);
+        let t2 = c1.assume_monotonic().solve_t_for_x(p.x, 0.0..1.0, tolerance);
         // t should be pretty close to t2 but the only guarantee we have and can test
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
         let x_diff = c1.x(t) - c1.x(t2);
