@@ -7,7 +7,7 @@ pub fn cubic_to_quadratic<F>(cubic: &CubicBezierSegment, _tolerance: f32, cb: &m
 where
     F: FnMut(QuadraticBezierSegment),
 {
-    mid_point_approximation(cubic, cb);
+    inflection_based_approximation(cubic, cb);
 }
 
 /// Approximate a cubic bezier segments with four quadratic bezier segments using
@@ -41,5 +41,47 @@ pub fn single_curve_approximation(cubic: &CubicBezierSegment) -> QuadraticBezier
         from: cubic.from,
         ctrl: cp,
         to: cubic.to,
+    }
+}
+
+/// Approximate the curve by first splitting it at the inflection points
+/// and then using single or mid point approximations depending on the
+/// size of the parts.
+pub fn inflection_based_approximation<F>(curve: &CubicBezierSegment, cb: &mut F)
+where
+    F: FnMut(QuadraticBezierSegment),
+{
+    fn step<F>(
+        curve: &CubicBezierSegment,
+        t0: f32, t1: f32,
+        cb: &mut F
+    )
+    where
+        F: FnMut(QuadraticBezierSegment),
+    {
+        let dt = t1 - t0;
+        if dt > 0.01 {
+            let sub_curve = curve.split_range(t0..t1);
+            if dt < 0.25 {
+                cb(single_curve_approximation(&sub_curve));
+            } else {
+                mid_point_approximation(&sub_curve, cb);
+            }
+        }
+    }
+
+    let inflections = curve.find_inflection_points();
+
+    let mut t: f32 = 0.0;
+    for inflection in inflections {
+        // don't split if we are very close to the end.
+        let next = if inflection < 0.99 { inflection } else { 1.0 };
+
+        step(curve, t, next, cb);
+        t = next;
+    }
+
+    if t < 1.0 {
+        step(curve, t, 1.0, cb)
     }
 }
