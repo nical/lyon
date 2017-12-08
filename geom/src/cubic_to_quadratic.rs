@@ -85,3 +85,45 @@ where
         step(curve, t, 1.0, cb)
     }
 }
+
+pub fn monotonic_approximation<F>(curve: &CubicBezierSegment, cb: &mut F)
+where
+    F: FnMut(QuadraticBezierSegment),
+{
+    let x_extrema = curve.find_local_x_extrema();
+    let y_extrema = curve.find_local_y_extrema();
+
+    let t = 0.0;
+    let mut it_x = x_extrema.iter().cloned();
+    let mut it_y = y_extrema.iter().cloned();
+    let mut tx = it_x.next();
+    let mut ty = it_y.next();
+    loop {
+        let next = match (tx, ty) {
+            (Some(a), Some(b)) => {
+                if a < b {
+                    tx = it_x.next();
+                    a
+                } else {
+                    ty = it_y.next();
+                    b
+                }
+            }
+            (Some(a), None) => {
+                tx = it_x.next();
+                a
+            }
+            (None, Some(b)) => {
+                ty = it_y.next();
+                b
+            }
+            (None, None) => {
+                1.0
+            }
+        };
+        cb(single_curve_approximation(&curve.split_range(t..next)));
+        if next == 1.0 {
+            return;
+        }
+    }
+}
