@@ -123,7 +123,7 @@ pub mod math {
     pub type Rotation2D = euclid::Rotation2D<f32>;
 
     /// An angle in radians (f32).
-    pub type Radians = euclid::Radians<f32>;
+    pub type Angle = euclid::Angle<f32>;
 
     /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
     pub use euclid::rect;

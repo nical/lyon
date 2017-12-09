@@ -1,6 +1,6 @@
 use path::builder::*;
 use path::ArcFlags;
-use path::math::{Vector, Point, Radians, point};
+use path::math::{Vector, Point, Angle, point};
 use std::f32::consts::PI;
 use std::mem;
 use path::geom::Arc;
@@ -67,8 +67,8 @@ impl PathBuilder for PathSerializer {
         &mut self,
         center: Point,
         radii: Vector,
-        sweep_angle: Radians,
-        x_rotation: Radians
+        sweep_angle: Angle,
+        x_rotation: Angle
     ) {
         let start_angle = vector_angle(self.current - center);
         let svg = Arc {
@@ -136,7 +136,7 @@ impl SvgBuilder for PathSerializer {
     fn arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians,
+        x_rotation: Angle,
         flags: ArcFlags,
         to: Point
     ) {
@@ -152,7 +152,7 @@ impl SvgBuilder for PathSerializer {
     fn relative_arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians,
+        x_rotation: Angle,
         flags: ArcFlags,
         to: Vector,
     ) {

@@ -233,8 +233,8 @@ impl PathBuilder for Builder {
         &mut self,
         center: Point,
         radii: Vector,
-        sweep_angle: Radians,
-        x_rotation: Radians
+        sweep_angle: Angle,
+        x_rotation: Angle
     ) {
         nan_check(center);
         nan_check(radii.to_point());
@@ -295,8 +295,8 @@ impl<'l> Iterator for Iter<'l> {
                 Some(PathEvent::Arc(
                     center,
                     radii,
-                    Radians::new(sweep_angle_x_rot.x),
-                    Radians::new(sweep_angle_x_rot.y),
+                    Angle::radians(sweep_angle_x_rot.x),
+                    Angle::radians(sweep_angle_x_rot.y),
                 ))
             }
             Some(&Verb::Close) => Some(PathEvent::Close),
