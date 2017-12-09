@@ -259,8 +259,8 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         &mut self,
         center: Point,
         radii: Vector,
-        sweep_angle: Radians,
-        x_rotation: Radians
+        sweep_angle: Angle,
+        x_rotation: Angle
     ) {
         let start_angle = vector_angle(self.current - center);
         let mut first = true;

@@ -2,7 +2,7 @@
 use svgparser::{ Tokenize, TextFrame };
 use svgparser::path::{ Tokenizer, Token };
 use path::{SvgEvent, ArcFlags};
-use path::math::{Point, point, Vector, vector, Radians};
+use path::math::{Point, point, Vector, vector, Angle};
 use path::builder::SvgBuilder;
 use super::error::ParserError;
 
@@ -140,14 +140,14 @@ fn svg_event(token: &Token) -> SvgEvent {
             if abs {
                 SvgEvent::ArcTo(
                     vec2(rx, ry),
-                    Radians::new(x_axis_rotation.to_radians() as f32),
+                    Angle::degrees(x_axis_rotation as f32),
                     ArcFlags { large_arc: large_arc, sweep: sweep },
                     point2(x, y),
                 )
             } else {
                 SvgEvent::RelativeArcTo(
                     vec2(rx, ry),
-                    Radians::new(x_axis_rotation.to_radians() as f32),
+                    Angle::degrees(x_axis_rotation as f32),
                     ArcFlags { large_arc: large_arc, sweep: sweep },
                     vec2(x, y),
                 )

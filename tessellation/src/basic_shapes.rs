@@ -716,7 +716,7 @@ fn stroke_border_radius(
 pub fn fill_ellipse(
     center: Point,
     radii: Vector,
-    x_rotation: Radians,
+    x_rotation: Angle,
     tolerance: f32,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
@@ -728,8 +728,8 @@ pub fn fill_ellipse(
         center,
         radii,
         x_rotation,
-        start_angle: Radians::new(0.0),
-        sweep_angle: Radians::new(2.0 * PI-0.01),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
     use path::builder::{PathBuilder, FlatteningBuilder};
@@ -756,7 +756,7 @@ pub fn fill_ellipse(
 pub fn stroke_ellipse(
     center: Point,
     radii: Vector,
-    x_rotation: Radians,
+    x_rotation: Angle,
     options: &StrokeOptions,
     output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
@@ -768,8 +768,8 @@ pub fn stroke_ellipse(
         center,
         radii,
         x_rotation,
-        start_angle: Radians::new(0.0),
-        sweep_angle: Radians::new(2.0 * PI-0.01),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
     use path::builder::{PathBuilder, FlatteningBuilder};

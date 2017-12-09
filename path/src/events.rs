@@ -1,4 +1,4 @@
-use math::{Point, Vector, Radians};
+use math::{Point, Vector, Angle};
 use ArcFlags;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -11,8 +11,8 @@ pub enum SvgEvent {
     RelativeQuadraticTo(Vector, Vector),
     CubicTo(Point, Point, Point),
     RelativeCubicTo(Vector, Vector, Vector),
-    ArcTo(Vector, Radians, ArcFlags, Point),
-    RelativeArcTo(Vector, Radians, ArcFlags, Vector),
+    ArcTo(Vector, Angle, ArcFlags, Point),
+    RelativeArcTo(Vector, Angle, ArcFlags, Vector),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
     RelativeHorizontalLineTo(f32),
@@ -30,7 +30,7 @@ pub enum PathEvent {
     LineTo(Point),
     QuadraticTo(Point, Point),
     CubicTo(Point, Point, Point),
-    Arc(Point, Vector, Radians, Radians),
+    Arc(Point, Vector, Angle, Angle),
     Close,
 }
 

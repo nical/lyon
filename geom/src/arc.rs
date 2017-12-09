@@ -5,7 +5,7 @@ use std::f32;
 use std::ops::Range;
 
 use Line;
-use math::{Point, point, Vector, vector, Rotation2D, Transform2D, Radians, Rect};
+use math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
 use utils::directed_angle;
 use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
 use segment;
@@ -18,7 +18,7 @@ pub struct SvgArc {
     pub from: Point,
     pub to: Point,
     pub radii: Vector,
-    pub x_rotation: Radians,
+    pub x_rotation: Angle,
     pub flags: ArcFlags,
 }
 
@@ -26,9 +26,9 @@ pub struct SvgArc {
 pub struct Arc {
     pub center: Point,
     pub radii: Vector,
-    pub start_angle: Radians,
-    pub sweep_angle: Radians,
-    pub x_rotation: Radians,
+    pub start_angle: Angle,
+    pub sweep_angle: Angle,
+    pub x_rotation: Angle,
 }
 
 impl Arc {
@@ -92,10 +92,10 @@ impl Arc {
             (-p.y - transformed_cy) / ry,
         );
 
-        let start_angle = Radians::new(directed_angle(vector(1.0, 0.0), a));
+        let start_angle = Angle::radians(directed_angle(vector(1.0, 0.0), a));
 
         let sign_delta = if arc.flags.sweep { 1.0 } else { -1.0 };
-        let sweep_angle = Radians::new(sign_delta * (directed_angle(a, b).abs() % (2.0 * consts::PI)));
+        let sweep_angle = Angle::radians(sign_delta * (directed_angle(a, b).abs() % (2.0 * consts::PI)));
 
         Arc {
             center: center,
@@ -148,12 +148,12 @@ impl Arc {
 
     /// Sample the curve's angle at t (expecting t between 0 and 1).
     #[inline]
-    pub fn get_angle(&self, t: f32) -> Radians {
-        self.start_angle + Radians::new(self.sweep_angle.get() * t)
+    pub fn get_angle(&self, t: f32) -> Angle {
+        self.start_angle + Angle::radians(self.sweep_angle.get() * t)
     }
 
     #[inline]
-    pub fn end_angle(&self) -> Radians {
+    pub fn end_angle(&self) -> Angle {
         self.start_angle + self.sweep_angle
     }
 
@@ -171,8 +171,8 @@ impl Arc {
     ///
     /// This is equivalent splitting at the range's end points.
     pub fn split_range(&self, t_range: Range<f32>) -> Self {
-        let angle_1 = Radians::new(self.sweep_angle.get() * t_range.start);
-        let angle_2 = Radians::new(self.sweep_angle.get() * t_range.end);
+        let angle_1 = Angle::radians(self.sweep_angle.get() * t_range.start);
+        let angle_2 = Angle::radians(self.sweep_angle.get() * t_range.end);
 
         Arc {
             center: self.center,
@@ -185,7 +185,7 @@ impl Arc {
 
     /// Split this curve into two sub-curves.
     pub fn split(&self, t: f32) -> (Arc, Arc) {
-        let split_angle = Radians::new(self.sweep_angle.get() * t);
+        let split_angle = Angle::radians(self.sweep_angle.get() * t);
         (
             Arc {
                 center: self.center,
@@ -206,7 +206,7 @@ impl Arc {
 
     /// Return the curve before the split point.
     pub fn before_split(&self, t: f32) -> Arc {
-        let split_angle = Radians::new(self.sweep_angle.get() * t);
+        let split_angle = Angle::radians(self.sweep_angle.get() * t);
         Arc {
             center: self.center,
             radii: self.radii,
@@ -218,7 +218,7 @@ impl Arc {
 
     /// Return the curve after the split point.
     pub fn after_split(&self, t: f32) -> Arc {
-        let split_angle = Radians::new(self.sweep_angle.get() * t);
+        let split_angle = Angle::radians(self.sweep_angle.get() * t);
         Arc {
             center: self.center,
             radii: self.radii,
@@ -282,7 +282,7 @@ impl Arc {
     }
 
     #[inline]
-    fn tangent_at_angle(&self, angle: Radians) -> Vector {
+    fn tangent_at_angle(&self, angle: Angle) -> Vector {
         let a = angle.get();
         Rotation2D::new(self.x_rotation).transform_vector(
             &vector(-self.radii.x * a.sin(), self.radii.y * a.cos())
@@ -331,19 +331,19 @@ fn arc_to_to_quadratic_beziers<F: FnMut(Point, Point)>(
         let a1 = arc.start_angle.get() + step * (i as f32);
         let a2 = arc.start_angle.get() + step * ((i+1) as f32);
 
-        let v1 = sample_ellipse(arc.radii, arc.x_rotation, Radians::new(a1)).to_vector();
-        let v2 = sample_ellipse(arc.radii, arc.x_rotation, Radians::new(a2)).to_vector();
+        let v1 = sample_ellipse(arc.radii, arc.x_rotation, Angle::radians(a1)).to_vector();
+        let v2 = sample_ellipse(arc.radii, arc.x_rotation, Angle::radians(a2)).to_vector();
         let p1 = arc.center + v1;
         let p2 = arc.center + v2;
-        let l1 = Line { point: p1, vector: arc.tangent_at_angle(Radians::new(a1)) };
-        let l2 = Line { point: p2, vector: arc.tangent_at_angle(Radians::new(a2)) };
+        let l1 = Line { point: p1, vector: arc.tangent_at_angle(Angle::radians(a1)) };
+        let l2 = Line { point: p2, vector: arc.tangent_at_angle(Angle::radians(a2)) };
         let ctrl = l2.intersection(&l1).unwrap();
 
         call_back(ctrl, p2);
     }
 }
 
-fn sample_ellipse(radii: Vector, x_rotation: Radians, angle: Radians) -> Point {
+fn sample_ellipse(radii: Vector, x_rotation: Angle, angle: Angle) -> Point {
     Rotation2D::new(x_rotation).transform_point(
         &point(radii.x * angle.get().cos(), radii.y * angle.get().sin())
     )

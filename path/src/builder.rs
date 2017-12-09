@@ -132,7 +132,7 @@ pub trait FlatPathBuilder: ::std::marker::Sized {
 pub trait PathBuilder: FlatPathBuilder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
-    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Radians, x_rotation: Radians);
+    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle);
 
     fn path_event(&mut self, event: PathEvent) {
         match event {
@@ -177,11 +177,11 @@ pub trait SvgBuilder: PathBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     // TODO: Would it be better to use an api closer to cairo/skia for arcs?
-    fn arc_to(&mut self, radii: Vector, x_rotation: Radians, flags: ArcFlags, to: Point);
+    fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point);
     fn relative_arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians,
+        x_rotation: Angle,
         flags: ArcFlags,
         to: Vector,
     );
@@ -313,8 +313,8 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         &mut self,
         center: Point,
         radii: Vector,
-        sweep_angle: Radians,
-        x_rotation: Radians
+        sweep_angle: Angle,
+        x_rotation: Angle
     ) {
         let arc = Arc {
             start_angle: vector_angle(self.current_position() - center),
@@ -388,7 +388,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         self.line_to(point(p.x, p.y + dy));
     }
 
-    fn arc_to(&mut self, radii: Vector, x_rotation: Radians, flags: ArcFlags, to: Point) {
+    fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point) {
         SvgArc {
             from: self.current_position(),
             to: to,
@@ -406,7 +406,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn relative_arc_to(
         &mut self,
         radii: Vector,
-        x_rotation: Radians,
+        x_rotation: Angle,
         flags: ArcFlags,
         to: Vector,
     ) {
@@ -459,8 +459,8 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
         &mut self,
         center: Point,
         radii: Vector,
-        sweep_angle: Radians,
-        x_rotation: Radians
+        sweep_angle: Angle,
+        x_rotation: Angle
     ) {
         let start_angle = vector_angle(self.current_position() - center);
         Arc {
