@@ -6,6 +6,26 @@ use path::math::{Point, point, Vector, vector, Radians};
 use path::builder::SvgBuilder;
 use super::error::ParserError;
 
+/// Builds path object using an SvgBuilder and a list of commands.
+/// Once the path is built you can tessellate it.
+///
+/// The [SvgBuilder](trait.SvgBuilder.html) Adds to [PathBuilder](traits.PathBuilder.html)
+/// the rest of the [SVG path](https://svgwg.org/specs/paths/) commands.
+///
+/// # Examples
+///
+/// ```
+/// # extern crate lyon_svg as svg;
+/// # extern crate lyon_path;
+/// # use lyon_path::default::Path;
+/// # use svg::parser::build_path;
+/// # fn main() {
+/// // Create a simple path.
+/// let commands = String::from("M 0 0 L 10 0  10 10 L 0 10 z");
+/// let svg_builder = Path::builder().with_svg();
+/// let path = build_path(svg_builder, &commands);
+/// # }
+/// ```
 pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParserError>
 where
     Builder: SvgBuilder
