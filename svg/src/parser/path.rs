@@ -21,7 +21,7 @@ use super::error::ParserError;
 /// # use svg::parser::build_path;
 /// # fn main() {
 /// // Create a simple path.
-/// let commands = String::from("M 0 0 L 10 0  10 10 L 0 10 z");
+/// let commands = &"M 0 0 L 10 0  10 10 L 0 10 z";
 /// let svg_builder = Path::builder().with_svg();
 /// let path = build_path(svg_builder, &commands);
 /// # }
