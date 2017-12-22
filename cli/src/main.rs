@@ -13,6 +13,7 @@ mod tessellate;
 mod fuzzing;
 mod flatten;
 mod show;
+mod export;
 
 use clap::*;
 use commands::*;
@@ -23,6 +24,7 @@ use lyon::svg::parser::build_path;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
 use lyon_extra::debugging::find_reduced_test_case;
+use export::FileFormat;
 
 fn main() {
     let matches = App::new("Lyon command-line interface")
@@ -122,6 +124,31 @@ fn main() {
                 .takes_value(true)
             )
         )
+        .subcommand(
+            declare_tess_params(SubCommand::with_name("export"))
+                .about("Exports a rendered path to an file")
+                .arg(Arg::with_name("ANTIALIASING")
+                    .long("anti-aliasing")
+                    .help("Sets the anti-aliasing method to use")
+                    .value_name("ANTIALIASING")
+                    .takes_value(true)
+                )
+                .arg(Arg::with_name("FORMAT")
+                    .long("format")
+                    .help("Sets the output file format")
+                    .value_name("FORMAT")
+                    .takes_value(true)
+                    .required(false)
+                 )
+                .arg(Arg::with_name("OUTPUT")
+                    .short("o")
+                    .long("output")
+                    .help("Sets the output file to use")
+                    .value_name("FILE")
+                    .takes_value(true)
+                    .required(true)
+                )
+            )
         .get_matches();
 
     if let Some(command) = matches.subcommand_matches("tessellate") {
@@ -186,6 +213,15 @@ fn main() {
         let cmd = get_tess_command(command);
         let render_params = get_render_params(command);
         show::show_path(cmd, render_params);
+    }
+
+    if let Some(command) = matches.subcommand_matches("export") {
+        let cmd = get_tess_command(command);
+        let render_params = get_render_params(command);
+        let format = get_file_format(&command);
+        let output = get_output(&command);
+
+        export::export_path(cmd, render_params, format, output);
     }
 }
 
@@ -393,4 +429,13 @@ fn get_output(matches: &ArgMatches) -> Box<Write> {
         }
     }
     return output;
+}
+
+fn get_file_format(matches: &ArgMatches) -> FileFormat {
+    if let Some(format_str) = matches.value_of("FORMAT") {
+        if let Ok(format) = format_str.parse() {
+            return format;
+        }
+    }
+    return FileFormat::PNG;
 }
