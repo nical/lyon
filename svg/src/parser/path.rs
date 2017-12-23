@@ -23,7 +23,7 @@ use super::error::ParserError;
 /// // Create a simple path.
 /// let commands = &"M 0 0 L 10 0  10 10 L 0 10 z";
 /// let svg_builder = Path::builder().with_svg();
-/// let path = build_path(svg_builder, &commands);
+/// let path = build_path(svg_builder, commands);
 /// # }
 /// ```
 pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParserError>
