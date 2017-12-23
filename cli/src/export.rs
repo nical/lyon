@@ -7,7 +7,6 @@ use commands::{TessellateCmd, RenderCmd, AntiAliasing};
 use std::borrow::Borrow;
 use std::io::Write;
 use std::str::FromStr;
-use show;
 use std::f32;
 
 use gfx;
@@ -66,8 +65,6 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
         ).unwrap();
     }
 
-    println!("Geometry : {:?}", geometry);
-
     if geometry.vertices.is_empty() {
         println!("No geometry to show");
         return;
@@ -82,7 +79,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
     let window_position = compute_window_position(&geometry.vertices);
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(window_position.width as u32, window_position.height as u32)
+        .with_dimensions(window_position.size.width as u32, window_position.size.height as u32)
         .with_decorations(true)
         .with_title("lyon export".to_string());
 
@@ -143,26 +140,28 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
     let gpu_primitives = factory.create_constant_buffer(2);
     let constants = factory.create_constant_buffer(1);
 
+    let center_x = window_position.min_x() + (window_position.max_x() - window_position.min_x()) / 2.0;
+    let center_y = window_position.min_y() + (window_position.max_y() - window_position.min_y()) / 2.0;
+    let window_center = vector(center_x, center_y);
+
     let mut scene = SceneParams {
         target_zoom: 1.0,
         zoom: 0.1,
-        target_scroll: vector(window_position.center_x, window_position.center_y),
-        scroll: vector(window_position.center_x, window_position.center_y),
+        target_scroll: window_center,
+        scroll: window_center,
         show_points: false,
         show_wireframe: false,
         stroke_width,
         target_stroke_width: stroke_width,
         draw_background: true,
-        cursor_position: (window_position.center_x, window_position.center_y),
-        window_size: (window_position.width, window_position.height),
+        cursor_position: (0.0, 0.0),
+        window_size: (window_position.size.width, window_position.size.height),
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
-        let (w, h) = window.get_inner_size_pixels().unwrap();
-        //scene.window_size = (w as f32, h as f32);
 
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
@@ -170,7 +169,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
         cmd_queue.update_constant_buffer(
             &constants,
             &Globals {
-                resolution: [window_position.width as f32, window_position.height as f32],
+                resolution: [window_position.size.width as f32, window_position.size.height as f32],
                 zoom: scene.zoom,
                 scroll_offset: scene.scroll.to_array(),
             },
@@ -232,63 +231,17 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
     }
 }
 
-struct WindowPosition {
-    width: f32,
-    height: f32,
-    center_x: f32,
-    center_y: f32,
-}
-
-fn compute_window_position(vertices: &Vec<GpuVertex>) -> WindowPosition {
+fn compute_window_position(vertices: &Vec<GpuVertex>) -> Rect {
     if vertices.len() == 0 {
-        return WindowPosition {
-            width: DEFAULT_WINDOW_WIDTH,
-            height: DEFAULT_WINDOW_HEIGHT,
-            center_x: 0.0,
-            center_y: 0.0,
-        };
+        return Rect::new(point(0.0, 0.0), size(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT));
     }
 
-    let (min_x, max_x, min_y, max_y) = get_bounding_coordinates(&vertices);
-
-
-    // Add 10% margin to each side to view the shape correctly
-    let (x_margin, y_margin) = get_window_margins(min_x, max_x, min_y, max_y);
-
-    // Compute the window size
-    let (width, height) = get_window_size(min_x, max_x, min_y, max_y, x_margin, y_margin);
-
-    // Adjust the scroll to center the shape
-    let( center_x, center_y) = get_window_center(min_x, x_margin, width, min_y, y_margin, height);
-
-    WindowPosition {
-        width,
-        height,
-        center_x,
-        center_y,
-    }
+    let window = get_bounding_window(&vertices);
+    // Add 20% margin to the axes to view the shape correctly (and keep the shape centered)
+    get_window_with_margins(window, 0.2)
 }
 
-fn get_window_center(min_x :f32, x_margin :f32, width :f32, min_y :f32, y_margin :f32, height :f32)->(f32, f32) {
-    let center_x: f32 = width / 2.0 + min_x - x_margin;
-    let center_y: f32 = height / 2.0 + min_y - y_margin;
-
-    (center_x, center_y)
-}
-
-fn get_window_size(min_x :f32, max_x :f32, min_y :f32, max_y :f32, x_margin :f32, y_margin :f32) -> (f32, f32) {
-    let width: f32 = (max_x - min_x) + 2.0 * x_margin;
-    let height: f32 = (max_y - min_y) + 2.0 * y_margin;
-    (width, height)
-}
-
-fn get_window_margins(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> (f32, f32) {
-    let x_margin: f32 = (max_x - min_x) * 0.1;
-    let y_margin: f32 = (max_y - min_y) * 0.1;
-    (x_margin, y_margin)
-}
-
-fn get_bounding_coordinates(vertices: &Vec<GpuVertex>) -> (f32, f32, f32, f32) {
+fn get_bounding_window(vertices: &Vec<GpuVertex>) -> Rect {
     let mut min_x: f32 = f32::MAX;
     let mut max_x: f32 = f32::MIN;
     let mut min_y: f32 = f32::MAX;
@@ -300,7 +253,15 @@ fn get_bounding_coordinates(vertices: &Vec<GpuVertex>) -> (f32, f32, f32, f32) {
         if vertex.position[1] > max_y { max_y = vertex.position[1]; }
     }
 
-    (min_x, max_x, min_y, max_y)
+    Rect::new(point(min_x, min_y), size(max_x - min_x, max_y - min_y))
+}
+
+fn get_window_with_margins(window: Rect, margin_to_apply: f32) -> Rect {
+    let new_size = window.size * (1.0 + margin_to_apply);
+    let new_x = window.min_x() + (window.size.width - new_size.width) / 2.0;
+    let new_y = window.min_y() + (window.size.height - new_size.height) / 2.0;
+
+    Rect::new(point(new_x, new_y), new_size)
 }
 
 gfx_defines! {
