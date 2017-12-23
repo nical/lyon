@@ -24,7 +24,7 @@ pub struct FileFormatParseError;
 
 pub enum FileFormat {
     JPG,
-    PNG
+    PNG,
 }
 
 impl FromStr for FileFormat {
@@ -54,7 +54,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
         StrokeTessellator::new().tessellate_path(
             cmd.path.path_iter(),
             &options,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1))
+            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
         );
     }
 
@@ -62,7 +62,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
         FillTessellator::new().tessellate_path(
             cmd.path.path_iter(),
             &options,
-            &mut BuffersBuilder::new(&mut geometry, WithId(0))
+            &mut BuffersBuilder::new(&mut geometry, WithId(0)),
         ).unwrap();
     }
 
@@ -79,7 +79,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     );
 
-    let window_position  = compute_window_position(&geometry);
+    let window_position = compute_window_position(&geometry.vertices);
 
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(window_position.width as u32, window_position.height as u32)
@@ -107,7 +107,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
 
     let path_shader = factory.link_program(
         VERTEX_SHADER.as_bytes(),
-        FRAGMENT_SHADER.as_bytes()
+        FRAGMENT_SHADER.as_bytes(),
     ).unwrap();
 
     let mut rasterizer_state = gfx::state::Rasterizer::new_fill().with_cull_back();
@@ -132,12 +132,12 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
 
     let (bg_vbo, bg_range) = factory.create_vertex_buffer_with_slice(
         &bg_geometry.vertices[..],
-        &bg_geometry.indices[..]
+        &bg_geometry.indices[..],
     );
 
     let (path_vbo, path_range) = factory.create_vertex_buffer_with_slice(
         &geometry.vertices[..],
-        &geometry.indices[..]
+        &geometry.indices[..],
     );
 
     let gpu_primitives = factory.create_constant_buffer(2);
@@ -146,14 +146,14 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut scene = SceneParams {
         target_zoom: 1.0,
         zoom: 0.1,
-        target_scroll: vector(0.0, 0.0),
-        scroll: vector(window_position.cursor_x, window_position.cursor_y),
+        target_scroll: vector(window_position.center_x, window_position.center_y),
+        scroll: vector(window_position.center_x, window_position.center_y),
         show_points: false,
         show_wireframe: false,
         stroke_width,
         target_stroke_width: stroke_width,
         draw_background: true,
-        cursor_position: (0.0, 0.0),
+        cursor_position: (window_position.center_x, window_position.center_y),
         window_size: (window_position.width, window_position.height),
     };
 
@@ -192,7 +192,7 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
                     padding: [0.0, 0.0],
                 },
             ],
-            0
+            0,
         ).unwrap();
 
         let pso = if scene.show_wireframe {
@@ -235,59 +235,75 @@ fn render_window(cmd: TessellateCmd, render_options: RenderCmd) {
 struct WindowPosition {
     width: f32,
     height: f32,
-    cursor_x: f32,
-    cursor_y: f32
+    center_x: f32,
+    center_y: f32,
 }
 
-fn compute_window_position(vertex_buffers :&VertexBuffers<GpuVertex>) -> WindowPosition {
-    if vertex_buffers.vertices.len() == 0 {
+fn compute_window_position(vertices: &Vec<GpuVertex>) -> WindowPosition {
+    if vertices.len() == 0 {
         return WindowPosition {
             width: DEFAULT_WINDOW_WIDTH,
             height: DEFAULT_WINDOW_HEIGHT,
-            cursor_x: 0.0,
-            cursor_y: 0.0
+            center_x: 0.0,
+            center_y: 0.0,
         };
     }
 
+    let (min_x, max_x, min_y, max_y) = get_bounding_coordinates(&vertices);
+
+
+    // Add 10% margin to each side to view the shape correctly
+    let (x_margin, y_margin) = get_window_margins(min_x, max_x, min_y, max_y);
+
+    // Compute the window size
+    let (width, height) = get_window_size(min_x, max_x, min_y, max_y, x_margin, y_margin);
+
+    // Adjust the scroll to center the shape
+    let( center_x, center_y) = get_window_center(min_x, x_margin, width, min_y, y_margin, height);
+
+    WindowPosition {
+        width,
+        height,
+        center_x,
+        center_y,
+    }
+}
+
+fn get_window_center(min_x :f32, x_margin :f32, width :f32, min_y :f32, y_margin :f32, height :f32)->(f32, f32) {
+    let center_x: f32 = width / 2.0 + min_x - x_margin;
+    let center_y: f32 = height / 2.0 + min_y - y_margin;
+
+    (center_x, center_y)
+}
+
+fn get_window_size(min_x :f32, max_x :f32, min_y :f32, max_y :f32, x_margin :f32, y_margin :f32) -> (f32, f32) {
+    let width: f32 = (max_x - min_x) + 2.0 * x_margin;
+    let height: f32 = (max_y - min_y) + 2.0 * y_margin;
+    (width, height)
+}
+
+fn get_window_margins(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> (f32, f32) {
+    let x_margin: f32 = (max_x - min_x) * 0.1;
+    let y_margin: f32 = (max_y - min_y) * 0.1;
+    (x_margin, y_margin)
+}
+
+fn get_bounding_coordinates(vertices: &Vec<GpuVertex>) -> (f32, f32, f32, f32) {
     let mut min_x: f32 = f32::MAX;
     let mut max_x: f32 = f32::MIN;
     let mut min_y: f32 = f32::MAX;
     let mut max_y: f32 = f32::MIN;
-
-
-    for vertex in vertex_buffers.vertices.iter() {
-        println!(" position  x : {} | y : {}", vertex.position[0], vertex.position[1]);
-
+    for vertex in vertices.iter() {
         if vertex.position[0] < min_x { min_x = vertex.position[0]; }
         if vertex.position[0] > max_x { max_x = vertex.position[0]; }
         if vertex.position[1] < min_y { min_y = vertex.position[1]; }
         if vertex.position[1] > max_y { max_y = vertex.position[1]; }
     }
 
-    println!(" min x : {}", min_x);
-    println!(" max x : {}", max_x);
-    println!(" min y : {}", min_y);
-    println!(" max y : {}", max_y);
-
-    let width: f32 = max_x - min_x;
-    let height: f32 = max_y - min_y;
-    let cursor_x: f32 = width / 2.0 + min_x;
-    let cursor_y: f32 = height / 2.0 + min_y;
-
-    println!(" width : {}", width);
-    println!(" height : {}", height);
-    println!(" cursor x : {}", cursor_x);
-    println!(" cursor y : {}", cursor_y);
-
-    WindowPosition {
-        width,
-        height,
-        cursor_x,
-        cursor_y
-    }
+    (min_x, max_x, min_y, max_y)
 }
 
-gfx_defines!{
+gfx_defines! {
     constant Globals {
         resolution: [f32; 2] = "u_resolution",
         scroll_offset: [f32; 2] = "u_scroll_offset",
@@ -328,6 +344,7 @@ gfx_defines!{
 }
 
 struct BgVertexCtor;
+
 impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
         BgVertex { position: vertex.position.to_array() }
@@ -497,12 +514,14 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                 ..
             } => {
                 status = false;
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::MouseInput {
                     state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
-                    ..},
-                ..} => {
+                    ..
+                },
+                ..
+            } => {
                 let half_width = scene.window_size.0 * 0.5;
                 let half_height = scene.window_size.1 * 0.5;
                 println!("X: {}, Y: {}",
@@ -513,8 +532,10 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
             Event::WindowEvent {
                 event: WindowEvent::MouseMoved {
                     position: (x, y),
-                    ..},
-                ..} => {
+                    ..
+                },
+                ..
+            } => {
                 scene.cursor_position = (x as f32, y as f32);
             }
             Event::WindowEvent {
