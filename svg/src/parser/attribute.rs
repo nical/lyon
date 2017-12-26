@@ -1,6 +1,5 @@
 
 use super::{Color, ValueId, Length};
-use std::str;
 
 pub use svgparser::AttributeId;
 pub use svgparser::AttributeValue as RefAttributeValue;
