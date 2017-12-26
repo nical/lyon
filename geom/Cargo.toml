@@ -14,4 +14,4 @@ name = "lyon_geom"
 
 [dependencies]
 euclid = "0.16.1"
-arrayvec = "0.3"
+arrayvec = "0.4"
