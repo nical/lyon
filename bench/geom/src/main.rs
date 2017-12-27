@@ -5,7 +5,7 @@ extern crate bencher;
 use bencher::Bencher;
 
 use lyon::math::*;
-use lyon::geom::{QuadraticBezierSegment, monotonic_segment_intersecion};
+use lyon::geom::{QuadraticBezierSegment, first_monotonic_segment_intersecion};
 
 const N: usize = 10;
 
@@ -24,22 +24,22 @@ fn monotonic_intersection(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            monotonic_segment_intersecion(
+            first_monotonic_segment_intersecion(
                 &c1, 0.0..1.0,
                 &c2, 0.0..1.0,
                 0.001,
             );
-            monotonic_segment_intersecion(
+            first_monotonic_segment_intersecion(
                 &c1, 0.0..0.5,
                 &c2, 0.0..0.5,
                 0.001,
             );
-            monotonic_segment_intersecion(
+            first_monotonic_segment_intersecion(
                 &c1, 0.5..1.0,
                 &c2, 0.5..1.0,
                 0.001,
             );
-            monotonic_segment_intersecion(
+            first_monotonic_segment_intersecion(
                 &c1, 0.3..0.7,
                 &c2, 0.3..0.7,
                 0.001,

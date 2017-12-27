@@ -90,12 +90,12 @@ pub use arc::{Arc, SvgArc, ArcFlags};
 pub use segment::Segment;
 pub use monotonic::{
     Monotonic, MonotonicSegment,
-    monotonic_segment_intersecion,
+    first_monotonic_segment_intersecion,
     monotonic_segment_intersecions,
 };
 
 mod scalar {
-    pub(crate) use num_traits::{Float, FloatConst};
+    pub(crate) use num_traits::{Float, FloatConst, NumCast};
     pub(crate) use num_traits::One;
     pub(crate) use num_traits::cast::cast;
     pub(crate) use euclid::Trig;

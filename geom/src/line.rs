@@ -1,6 +1,7 @@
 use scalar::{Float, FloatExt, Trig, ApproxEq};
 use generic_math::{Point, point, Vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
+use monotonic::MonotonicSegment;
 use utils::min_max;
 
 use std::ops::Range;
@@ -37,6 +38,32 @@ impl<S: Float> LineSegment<S> {
 
     #[inline]
     pub fn to(&self) -> Point<S> { self.to }
+
+    pub fn solve_t_for_x(&self, x: S) -> S {
+        let dx = self.to.x - self.from.x;
+        if dx == S::zero() {
+            return S::zero();
+        }
+
+        (x - self.from.x) / dx
+    }
+
+    pub fn solve_t_for_y(&self, y: S) -> S {
+        let dy = self.to.y - self.from.y;
+        if dy == S::zero() {
+            return S::zero()
+        }
+
+        (y - self.from.y) / dy
+    }
+
+    pub fn solve_y_for_x(&self, x: S) -> S {
+        self.y(self.solve_t_for_x(x))
+    }
+
+    pub fn solve_x_for_y(&self, y: S) -> S {
+        self.x(self.solve_t_for_y(y))
+    }
 
     /// Returns an inverted version of this segment where the beginning and the end
     /// points are swapped.
@@ -75,6 +102,10 @@ impl<S: Float> LineSegment<S> {
     #[inline]
     pub fn after_split(&self, t: S) -> Self {
         LineSegment { from: self.sample(t), to: self.to }
+    }
+
+    pub fn split_at_x(&self, x: S) -> (Self, Self) {
+        self.split(self.solve_t_for_x(x))
     }
 
     /// Return the minimum bounding rectangle
@@ -149,27 +180,27 @@ impl<S: Float> LineSegment<S> {
     /// The result is provided in the form of the `t` parameter of each
     /// segment. To get the intersection point, sample one of the segments
     /// at the corresponding value.
-    pub fn intersection(&self, other: &Self) -> Option<(f32, f32)> {
+    pub fn intersection_t(&self, other: &Self) -> Option<(S, S)> {
         let (min1, max1) = self.bounding_range_x();
         let (min2, max2) = other.bounding_range_x();
         if min1 > max2 || max1 < min2 {
             return None;
         }
 
-        let v1 = self.to_vector().to_f64();
-        let v2 = other.to_vector().to_f64();
+        let v1 = self.to_vector();
+        let v2 = other.to_vector();
 
         let v1_cross_v2 = v1.cross(v2);
 
-        if v1_cross_v2 == 0.0 {
+        if v1_cross_v2 == S::zero() {
             // The segments are parallel
             return None;
         }
 
         let sign_v1_cross_v2 = v1_cross_v2.signum();
-        let abs_v1_cross_v2 = f64::abs(v1_cross_v2);
+        let abs_v1_cross_v2 = Float::abs(v1_cross_v2);
 
-        let v3 = (other.from - self.from).to_f64();
+        let v3 = other.from - self.from;
 
         // t and u should be divided by v1_cross_v2, but we postpone that to not lose precision.
         // We have to respect the sign of v1_cross_v2 (and therefore t and u) so we apply it now and
@@ -177,18 +208,24 @@ impl<S: Float> LineSegment<S> {
         let t = v3.cross(v2) * sign_v1_cross_v2;
         let u = v3.cross(v1) * sign_v1_cross_v2;
 
-        if t <= 0.0 || t >= abs_v1_cross_v2 || u <= 0.0 || u >= abs_v1_cross_v2 {
+        if t <= S::zero() || t >= abs_v1_cross_v2 || u <= S::zero() || u >= abs_v1_cross_v2 {
             return None;
         }
 
         Some((
-            (t / abs_v1_cross_v2) as f32,
-            (u / abs_v1_cross_v2) as f32,
+            t / abs_v1_cross_v2,
+            u / abs_v1_cross_v2,
         ))
     }
 
+    #[inline]
+    pub fn intersection(&self, other: &Self) -> Option<Point<S>> {
+        self.intersection_t(other).map(|(t, _)|{ self.sample(t) })
+    }
+
+    #[inline]
     pub fn intersects(&self, other: &Self) -> bool {
-        self.intersection(other).is_some()
+        self.intersection_t(other).is_some()
     }
 }
 
@@ -218,6 +255,13 @@ impl<S: Float> BoundingRect for LineSegment<S> {
     fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
     fn fast_bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
     fn fast_bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
+}
+
+impl<S: Float> MonotonicSegment for LineSegment<S> {
+    type Scalar = S;
+    fn solve_t_for_x(&self, x: S, _t_range: Range<S>, _tolerance: S) -> S {
+        self.solve_t_for_x(x)
+    }
 }
 
 impl<S: Float + ApproxEq<S>> FlatteningStep for LineSegment<S> {
@@ -304,7 +348,7 @@ fn intersection_rotated() {
 
             assert!(
                 fuzzy_eq_point(
-                    l1.sample(l1.intersection(&l2).unwrap().0),
+                    l1.sample(l1.intersection_t(&l2).unwrap().0),
                     point(0.0, 0.0),
                     epsilon
                 )
@@ -312,7 +356,7 @@ fn intersection_rotated() {
 
             assert!(
                 fuzzy_eq_point(
-                    l2.sample(l1.intersection(&l2).unwrap().1),
+                    l2.sample(l1.intersection_t(&l2).unwrap().1),
                     point(0.0, 0.0),
                     epsilon
                 )

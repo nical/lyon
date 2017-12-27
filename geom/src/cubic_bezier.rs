@@ -193,7 +193,7 @@ impl<S: Float> CubicBezierSegment<S> {
     }
 }
 
-impl<S: Float + ApproxEq<S>> CubicBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
@@ -424,7 +424,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
-    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[S; 3]> {
+    pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<[S; 3]> {
         if line.vector.square_length() < S::c(1e-6) {
             return ArrayVec::new();
         }
@@ -459,17 +459,28 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
         return result;
     }
 
+    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[Point<S>; 3]> {
+        let intersections = self.line_intersections_t(&line);
+
+        let mut result = ArrayVec::new();
+        for t in intersections {
+            result.push(self.sample(t));
+        }
+
+        return result;
+    }
+
     /// Computes the intersections (if any) between this segment a line segment.
     ///
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve and segment. To get the intersection points, sample
     /// the segments at the corresponding values.
-    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 3]> {
+    pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 3]> {
         if !self.fast_bounding_rect().intersects(&segment.bounding_rect()) {
             return ArrayVec::new();
         }
 
-        let intersections = self.line_intersections(&segment.to_line());
+        let intersections = self.line_intersections_t(&segment.to_line());
         let aabb = segment.bounding_rect();
 
         let mut result = ArrayVec::new();
@@ -483,13 +494,24 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     }
 }
 
-impl<S: Float> CubicBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     pub fn from(&self) -> Point<S> { self.from }
 
     pub fn to(&self) -> Point<S> { self.to }
+
+    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[Point<S>; 3]> {
+        let intersections = self.line_segment_intersections_t(&segment);
+
+        let mut result = ArrayVec::new();
+        for (t, _) in intersections {
+            result.push(self.sample(t));
+        }
+
+        return result;
+    }
 }
 
-impl<S: Float + ApproxEq<S>> Segment for CubicBezierSegment<S> { impl_segment!(S); }
+impl<S: Float + FloatConst + ApproxEq<S>> Segment for CubicBezierSegment<S> { impl_segment!(S); }
 
 impl<S: Float> BoundingRect for CubicBezierSegment<S> {
     type Scalar = S;
@@ -501,7 +523,7 @@ impl<S: Float> BoundingRect for CubicBezierSegment<S> {
     fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
 }
 
-impl<S: Float + ApproxEq<S>> FlattenedForEach for CubicBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> FlattenedForEach for CubicBezierSegment<S> {
     fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         self.flattened_for_each(tolerance, call_back);
     }
