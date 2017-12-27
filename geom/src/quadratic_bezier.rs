@@ -261,7 +261,7 @@ impl<S: Float> QuadraticBezierSegment<S> {
     }
 }
 
-impl<S: Float + ApproxEq<S>> QuadraticBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
@@ -274,7 +274,7 @@ impl<S: Float + ApproxEq<S>> QuadraticBezierSegment<S> {
     }
 }
 
-impl<S: Float + ApproxEq<S>> QuadraticBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// Compute the length of the segment using a flattened approximation.
     pub fn approximate_length(&self, tolerance: S) -> S {
         segment::approximate_length_from_flattening(self, tolerance)
@@ -344,14 +344,26 @@ impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
-    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[S; 2]> {
+    pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<[S; 2]> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
-        let intersections = self.to_cubic().line_intersections(line);
+        let intersections = self.to_cubic().line_intersections_t(line);
 
         let mut result = ArrayVec::new();
         for t in intersections {
             result.push(t);
+        }
+
+        return result;
+    }
+
+    /// Computes the intersection points (if any) between this segment a line.
+    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[Point<S>;2]> {
+        let intersections = self.to_cubic().line_intersections_t(line);
+
+        let mut result = ArrayVec::new();
+        for t in intersections {
+            result.push(self.sample(t));
         }
 
         return result;
@@ -362,10 +374,10 @@ impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve and segment. To get the intersection points, sample
     /// the segments at the corresponding values.
-    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 2]> {
+    pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 2]> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
-        let intersections = self.to_cubic().line_segment_intersections(&segment);
+        let intersections = self.to_cubic().line_segment_intersections_t(&segment);
         assert!(intersections.len() <= 2);
 
         let mut result = ArrayVec::new();
@@ -377,13 +389,26 @@ impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     }
 }
 
-impl<S: Float> QuadraticBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     pub fn from(&self) -> Point<S> { self.from }
 
     pub fn to(&self) -> Point<S> { self.to }
+
+    /// Computes the intersection points (if any) between this segment a line segment.
+    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[Point<S>; 2]> {
+        let intersections = self.to_cubic().line_segment_intersections_t(&segment);
+        assert!(intersections.len() <= 2);
+
+        let mut result = ArrayVec::new();
+        for (t, _) in intersections {
+            result.push(self.sample(t));
+        }
+
+        return result;
+    }
 }
 
-impl<S: Float + ApproxEq<S>> Segment for QuadraticBezierSegment<S> { impl_segment!(S); }
+impl<S: Float + FloatConst + ApproxEq<S>> Segment for QuadraticBezierSegment<S> { impl_segment!(S); }
 
 impl<S: Float> BoundingRect for QuadraticBezierSegment<S> {
     type Scalar = S;
@@ -395,7 +420,7 @@ impl<S: Float> BoundingRect for QuadraticBezierSegment<S> {
     fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
 }
 
-impl<S: Float + ApproxEq<S>> FlatteningStep for QuadraticBezierSegment<S> {
+impl<S: Float + FloatConst + ApproxEq<S>> FlatteningStep for QuadraticBezierSegment<S> {
     fn flattening_step(&self, tolerance: S) -> S {
         self.flattening_step(tolerance)
     }
@@ -588,7 +613,7 @@ fn monotonic_solve_t_for_x() {
     for i in 0..10u32 {
         let t = i as f32 / 10.0;
         let p = curve.sample(t);
-        let t2 = curve.assume_monotonic().solve_t_for_x(p.x, 0.0..1.0, tolerance);
+        let t2 = curve.assume_monotonic().solve_t_for_x(p.x);
         // t should be pretty close to t2 but the only guarantee we have and can test
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
         let x_diff = curve.x(t) - curve.x(t2);

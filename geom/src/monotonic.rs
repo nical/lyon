@@ -1,8 +1,11 @@
 use segment::{Segment, BoundingRect};
-use scalar::{Float, FloatExt};
+use scalar::{Float, FloatConst, FloatExt, NumCast, ApproxEq};
 use generic_math::{Point, Vector, Rect};
 use std::ops::Range;
 use arrayvec::ArrayVec;
+use {QuadraticBezierSegment, CubicBezierSegment};
+
+use std::f64;
 
 pub trait MonotonicSegment {
     type Scalar: Float;
@@ -58,21 +61,6 @@ impl<T: Segment> Monotonic<T> {
     pub fn approximate_length(&self, tolerance: T::Scalar) -> T::Scalar {
         self.segment.approximate_length(tolerance)
     }
-
-    pub fn solve_t_for_x(&self, x: T::Scalar, t_range: Range<T::Scalar>, tolerance: T::Scalar) -> T::Scalar {
-        self.solve_t(x, t_range, tolerance)
-    }
-
-    pub fn solve_y_for_x(&self, x: T::Scalar, t_range: Range<T::Scalar>, tolerance: T::Scalar) -> T::Scalar {
-        self.y(self.solve_t(x, t_range, tolerance))
-    }
-}
-
-impl<T: Segment> MonotonicSegment for Monotonic<T> {
-    type Scalar = T::Scalar;
-    fn solve_t_for_x(&self, x: T::Scalar, t_range: Range<T::Scalar>, tolerance: T::Scalar) -> T::Scalar {
-        self.solve_t(x, t_range, tolerance)
-    }
 }
 
 impl<T: Segment> Segment for Monotonic<T> { impl_segment!(T::Scalar); }
@@ -101,16 +89,107 @@ impl<T: BoundingRect> BoundingRect for Monotonic<T> {
     }
 }
 
-trait MonotonicFunction {
-    type Scalar: Float;
+impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<QuadraticBezierSegment<S>> {
+    pub fn solve_t_for_x(&self, x: S) -> S {
+        Self::solve_t(
+            NumCast::from(self.segment.from.x).unwrap(),
+            NumCast::from(self.segment.ctrl.x).unwrap(),
+            NumCast::from(self.segment.to.x).unwrap(),
+            NumCast::from(x).unwrap(),
+        )
+    }
 
-    fn f(&self, t: Self::Scalar) -> Self::Scalar;
-    fn df(&self, t: Self::Scalar) -> Self::Scalar;
+    pub fn solve_t_for_y(&self, y: S) -> S {
+        Self::solve_t(
+            NumCast::from(self.segment.from.y).unwrap(),
+            NumCast::from(self.segment.ctrl.y).unwrap(),
+            NumCast::from(self.segment.to.y).unwrap(),
+            NumCast::from(y).unwrap(),
+        )
+    }
 
-    fn solve_t(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar {
+    fn solve_t(from: f64, ctrl: f64, to: f64, x: f64) -> S {
+        let a = from - 2.0 * ctrl + to;
+        let b = -2.0 * from + 2.0 * ctrl;
+        let c = from - x;
+
+        let t = 2.0 * c / (-b - f64::sqrt(b * b - 4.0 * a * c));
+
+        NumCast::from(t.max(0.0).min(1.0)).unwrap()
+    }
+
+    #[inline]
+    pub fn split_at_x(&self, x: S) -> (Self, Self) {
+        self.split(self.solve_t_for_x(x))
+    }
+
+    pub fn intersections_t(
+        &self, self_t_range: Range<S>,
+        other: &Self, other_t_range: Range<S>,
+        tolerance: S,
+    ) -> ArrayVec<[(S, S);2]> {
+        monotonic_segment_intersecions(
+            self, self_t_range,
+            other, other_t_range,
+            tolerance
+        )
+    }
+
+    pub fn intersections(
+        &self, self_t_range: Range<S>,
+        other: &Self, other_t_range: Range<S>,
+        tolerance: S,
+    ) -> ArrayVec<[Point<S>;2]> {
+        let intersections = monotonic_segment_intersecions(
+            self, self_t_range,
+            other, other_t_range,
+            tolerance
+        );
+        let mut result = ArrayVec::new();
+        for (t, _) in intersections {
+            result.push(self.sample(t));
+        }
+
+        result
+    }
+
+    pub fn first_intersection_t(
+        &self, self_t_range: Range<S>,
+        other: &Self, other_t_range: Range<S>,
+        tolerance: S,
+    ) -> Option<(S, S)> {
+        first_monotonic_segment_intersecion(
+            self, self_t_range,
+            other, other_t_range,
+            tolerance
+        )
+    }
+
+    pub fn first_intersection(
+        &self, self_t_range: Range<S>,
+        other: &Self, other_t_range: Range<S>,
+        tolerance: S,
+    ) -> Option<Point<S>> {
+        first_monotonic_segment_intersecion(
+            self, self_t_range,
+            other, other_t_range,
+            tolerance
+        ).map(|(t, _)|{ self.sample(t) })
+    }
+}
+
+impl<S: Float + FloatConst + ApproxEq<S>> MonotonicSegment for Monotonic<QuadraticBezierSegment<S>> {
+    type Scalar = S;
+    fn solve_t_for_x(&self, x: S, _t_range: Range<S>, _tolerance: S) -> S {
+        self.solve_t_for_x(x)
+    }
+}
+
+impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<CubicBezierSegment<S>> {
+    pub fn solve_t_for_x(&self, x: S, t_range: Range<S>, tolerance: S) -> S {
         debug_assert!(t_range.start <= t_range.end);
-        let from = self.f(t_range.start);
-        let to = self.f(t_range.end);
+        let from = self.x(t_range.start);
+        let to = self.x(t_range.end);
         if x <= from {
             return t_range.start;
         }
@@ -121,15 +200,15 @@ trait MonotonicFunction {
         // Newton's method.
         let mut t = x - from / (to - from);
         for _ in 0..8 {
-            let x2 = self.f(t);
+            let x2 = self.x(t);
 
             if (x2 - x).abs() <= tolerance {
                 return t
             }
 
-            let dx = self.df(t);
+            let dx = self.dx(t);
 
-            if dx <= Self::Scalar::c(1e-5) {
+            if dx <= S::c(1e-5) {
                 break
             }
 
@@ -139,10 +218,10 @@ trait MonotonicFunction {
         // Fall back to binary search.
         let mut min = t_range.start;
         let mut max = t_range.end;
-        let mut t = Self::Scalar::c(0.5);
+        let mut t = S::c(0.5);
 
         while min < max {
-            let x2 = self.f(t);
+            let x2 = self.x(t);
 
             if (x2 - x).abs() < tolerance {
                 return t;
@@ -154,24 +233,31 @@ trait MonotonicFunction {
                 max = t;
             }
 
-            t = (max - min) * Self::Scalar::c(0.5) + min;
+            t = (max - min) * S::c(0.5) + min;
         }
 
         return t;
     }
+
+    #[inline]
+    pub fn split_at_x(&self, x: S) -> (Self, Self) {
+        // TODO tolerance param.
+        self.split(self.solve_t_for_x(x, S::zero()..S::one(), S::c(0.001)))
+    }
 }
 
-impl<T: Segment> MonotonicFunction for Monotonic<T> {
-    type Scalar = T::Scalar;
-    fn f(&self, t: T::Scalar) -> T::Scalar { self.x(t) }
-    fn df(&self, t: T::Scalar) -> T::Scalar { self.dx(t) }
+impl<S: Float + FloatConst + ApproxEq<S>> MonotonicSegment for Monotonic<CubicBezierSegment<S>> {
+    type Scalar = S;
+    fn solve_t_for_x(&self, x: S, t_range: Range<S>, tolerance: S) -> S {
+        self.solve_t_for_x(x, t_range, tolerance)
+    }
 }
 
 /// Return the first intersection point (if any) of two monotonic curve
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub fn monotonic_segment_intersecion<S: Float, A, B>(
+pub fn first_monotonic_segment_intersecion<S: Float, A, B>(
     a: &A, a_t_range: Range<S>,
     b: &B, b_t_range: Range<S>,
     tolerance: S,
@@ -266,7 +352,7 @@ where
     A: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
     B: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
 {
-    let (t1, t2) = match monotonic_segment_intersecion(
+    let (t1, t2) = match first_monotonic_segment_intersecion(
         a, a_t_range.clone(),
         b, b_t_range.clone(),
         tolerance
@@ -278,7 +364,7 @@ where
     let mut result = ArrayVec::new();
     result.push((t1, t2));
 
-    match monotonic_segment_intersecion(
+    match first_monotonic_segment_intersecion(
         a, t1..a_t_range.end,
         b, t2..b_t_range.end,
         tolerance

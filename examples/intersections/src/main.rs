@@ -153,8 +153,8 @@ fn main() {
 
     // Intance primitives
     println!(" -- intersections {:?}", intersections);
-    for (i, t) in intersections.iter().enumerate() {
-        let pos = bezier.sample(*t).to_array();
+    for (i, intersection) in intersections.iter().enumerate() {
+        let pos = intersection.to_array();
         cpu_primitives[point_ids_1 as usize + i] = Primitive {
             color: [0.0, 0.2, 0.0, 1.0],
             z_index: 3,

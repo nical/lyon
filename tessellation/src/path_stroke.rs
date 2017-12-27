@@ -847,8 +847,8 @@ impl<'l> StrokeBuilder<'l> {
             to: point(normal.x, normal.y)
         };
 
-        let i1 = l1.sample(l1.intersection(&normal_limit_perp).unwrap().0);
-        let i2 = l1.sample(l2.intersection(&normal_limit_perp).unwrap().0);
+        let i1 = l1.intersection(&normal_limit_perp).unwrap();
+        let i2 = l2.intersection(&normal_limit_perp).unwrap();
 
         (vector(i1.x, i1.y), vector(i2.x, i2.y))
     }
