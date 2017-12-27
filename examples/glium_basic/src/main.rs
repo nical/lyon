@@ -60,13 +60,13 @@ fn main() {
 
 
 
-    use glium::DisplayBuild;
-    let display = glium::glutin::WindowBuilder::new()
-        .with_dimensions(700, 700)
+    let mut events_loop = glium::glutin::EventsLoop::new();
+    let context = glium::glutin::ContextBuilder::new().with_vsync(true);
+    let window = glium::glutin::WindowBuilder::new()
+        .with_dimensions(400, 400)
         .with_decorations(true)
-        .with_title("Simple tessellation".to_string())
-        .build_glium()
-        .unwrap();
+        .with_title("lyon + glium basic example");
+    let display = glium::Display::new(window, context, &events_loop).unwrap();
 
     let vertex_buffer = glium::VertexBuffer::new(&display, &mesh.vertices).unwrap();
     let indices = glium::IndexBuffer::new(
@@ -85,23 +85,25 @@ fn main() {
 
         let mut target = display.draw();
         target.clear_color(0.8, 0.8, 0.8, 1.0);
-        target
-            .draw(
-                &vertex_buffer,
-                &indices,
-                &program,
-                &glium::uniforms::EmptyUniforms,
-                &Default::default(),
-            )
-            .unwrap();
+        target.draw(
+            &vertex_buffer,
+            &indices,
+            &program,
+            &glium::uniforms::EmptyUniforms,
+            &Default::default(),
+        ).unwrap();
+
         target.finish().unwrap();
 
-        for ev in display.poll_events() {
-            match ev {
-                glium::glutin::Event::Closed => status = false,
+        events_loop.poll_events(|event| {
+            match event {
+                glium::glutin::Event::WindowEvent { event, .. } => match event {
+                    glium::glutin::WindowEvent::Closed => { status = false }
+                    _ => (),
+                }
                 _ => (),
             }
-        }
+        });
     }
 }
 

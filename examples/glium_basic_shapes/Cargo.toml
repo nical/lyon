@@ -1,7 +1,6 @@
 [package]
-name = "glium_basic"
+name = "glium_basic_shapes"
 version = "0.1.0"
-authors = ["orhanbalci <orhanbalci@gmail.com>"]
 workspace = "../.."
 
 [dependencies]

@@ -584,14 +584,12 @@ pub fn fill_circle(
 }
 
 /// Tessellate the stroke for a circle.
-pub fn stroke_circle<Output>(
+pub fn stroke_circle(
     center: Point,
     radius: f32,
     options: &StrokeOptions,
     output: &mut GeometryBuilder<StrokeVertex>
-) -> Count
-    where Output: GeometryBuilder<StrokeVertex>
-{
+) -> Count {
     output.begin_geometry();
 
     let radius = radius.abs();
