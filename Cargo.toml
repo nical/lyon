@@ -45,6 +45,7 @@ members = [
     "examples/intersections",
     "examples/walk_path",
     "examples/glium_basic",
+    "examples/glium_basic_shapes",
     "bench/svg_bench",
     "bench/tess",
     "bench/geom"
