@@ -282,6 +282,10 @@ pub fn fill_rounded_rectangle(
     let p1 = point(x_min + tl, y_min);
     let p2 = point(x_max - tr, y_min);
 
+    // right
+    let p3 = point(x_max, y_min + tr);
+    let p4 = point(x_max, y_max - br);
+
     // bottom
     let p6 = point(x_min + bl, y_max);
     let p5 = point(x_max - br, y_max);
@@ -289,10 +293,6 @@ pub fn fill_rounded_rectangle(
     // left
     let p0 = point(x_min, y_min + tl);
     let p7 = point(x_min, y_max - bl);
-
-    // right
-    let p3 = point(x_max, y_min + tr);
-    let p4 = point(x_max, y_max - br);
 
     let up = vector(0.0, -1.0);
     let down = vector(0.0, 1.0);
@@ -452,6 +452,10 @@ pub fn stroke_rounded_rectangle(
     let p1 = point(x_min + tl, y_min);
     let p2 = point(x_max - tr, y_min);
 
+    // right
+    let p3 = point(x_max, y_min + tr);
+    let p4 = point(x_max, y_max - br);
+
     // bottom
     let p6 = point(x_min + bl, y_max);
     let p5 = point(x_max - br, y_max);
@@ -460,15 +464,11 @@ pub fn stroke_rounded_rectangle(
     let p0 = point(x_min, y_min + tl);
     let p7 = point(x_min, y_max - bl);
 
-    // right
-    let p3 = point(x_max, y_min + tr);
-    let p4 = point(x_max, y_max - br);
-
     let sides = &[
         [p1, p2],
-        [p5, p6],
         [p3, p4],
-        [p0, p7],
+        [p5, p6],
+        [p7, p0],
     ];
 
     let radii = [tl, tr, br, bl];
@@ -496,9 +496,9 @@ pub fn stroke_rounded_rectangle(
         }
     });
 
-    { // output borrow scope start
+    {
         let mut builder = StrokeBuilder::new(options, output);
-        builder.move_to(p7);
+        builder.move_to(p0);
         for i in 0..4 {
             stroke_border_radius(
                 centers[i],
@@ -507,10 +507,12 @@ pub fn stroke_rounded_rectangle(
                 nums.next().unwrap(),
                 &mut builder,
             );
+
             builder.line_to(sides[i][0]);
             builder.line_to(sides[i][1]);
         }
-    } // output borrow scope end
+        builder.close();
+    }
 
     return output.end_geometry();
 }
