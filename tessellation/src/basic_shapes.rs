@@ -188,88 +188,17 @@ pub fn fill_rectangle(
 /// Tessellate the stroke for an axis-aligne rectangle.
 pub fn stroke_rectangle(
     rect: &Rect,
+    options: &StrokeOptions,
     output: &mut GeometryBuilder<StrokeVertex>,
 ) -> Count {
-    output.begin_geometry();
-
-    let a1 = output.add_vertex(
-        StrokeVertex {
-            position: rect.origin,
-            normal: -vector(-1.0, -1.0),
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let a2 = output.add_vertex(
-        StrokeVertex {
-            position: rect.origin,
-            normal: vector(-1.0, -1.0),
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let b1 = output.add_vertex(
-        StrokeVertex {
-            position: rect.top_right(),
-            normal: -vector(1.0, -1.0),
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let b2 = output.add_vertex(
-        StrokeVertex {
-            position: rect.top_right(),
-            normal: vector(1.0, -1.0),
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let c1 = output.add_vertex(
-        StrokeVertex {
-            position: rect.bottom_right(),
-            normal: -vector(1.0, 1.0),
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let c2 = output.add_vertex(
-        StrokeVertex {
-            position: rect.bottom_right(),
-            normal: vector(1.0, 1.0),
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    let d1 = output.add_vertex(
-        StrokeVertex {
-            position: rect.bottom_left(),
-            normal: -vector(1.0, 0.0),
-            advancement: 0.0,
-            side: Side::Right,
-        }
-    );
-    let d2 = output.add_vertex(
-        StrokeVertex {
-            position: rect.bottom_left(),
-            normal: vector(1.0, 0.0),
-            advancement: 0.0,
-            side: Side::Left,
-        }
-    );
-
-    output.add_triangle(a1, a2, b2);
-    output.add_triangle(a2, b2, b1);
-    output.add_triangle(b1, b2, c1);
-    output.add_triangle(b2, c2, c1);
-    output.add_triangle(c1, c2, d1);
-    output.add_triangle(c2, d2, d1);
-    output.add_triangle(d1, d2, a1);
-    output.add_triangle(d2, a2, a1);
-
-    return output.end_geometry();
+    stroke_quad(
+        rect.origin,
+        rect.top_right(),
+        rect.bottom_right(),
+        rect.bottom_left(),
+        options,
+        output
+    )
 }
 
 /// The radius of each corner of a rounded rectangle.
