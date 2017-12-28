@@ -62,14 +62,14 @@
 //! ```
 //! extern crate lyon;
 //! use lyon::math::rect;
-//! use lyon::tessellation::VertexBuffers;
+//! use lyon::tessellation::{VertexBuffers, FillOptions};
 //! use lyon::tessellation::basic_shapes::*;
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
 //! fn main() {
 //!     let mut geometry = VertexBuffers::new();
 //!
-//!     let tolerance = 0.1;
+//!     let options = FillOptions::tolerance(0.1);
 //!
 //!     fill_rounded_rectangle(
 //!         &rect(0.0, 0.0, 100.0, 50.0),
@@ -79,7 +79,7 @@
 //!             bottom_left: 20.0,
 //!             bottom_right: 25.0,
 //!         },
-//!         tolerance,
+//!         &options,
 //!         &mut simple_builder(&mut geometry),
 //!     );
 //!

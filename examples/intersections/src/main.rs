@@ -10,7 +10,7 @@ use lyon::geom::{Line, CubicBezierSegment};
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{StrokeTessellator, StrokeOptions};
+use lyon::tessellation::{StrokeTessellator, StrokeOptions, FillOptions};
 use lyon::tessellation;
 use lyon::path::default::Path;
 
@@ -111,7 +111,7 @@ fn main() {
     fill_circle(
         point(0.0, 0.0),
         1.0,
-        0.01,
+        &FillOptions::tolerance(0.01),
         &mut BuffersBuilder::new(
             &mut geometry,
             WithId(point_ids_1)
@@ -121,6 +121,7 @@ fn main() {
     let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+        &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     );
 

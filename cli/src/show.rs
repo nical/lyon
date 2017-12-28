@@ -1,7 +1,7 @@
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, StrokeTessellator};
+use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd};
 
@@ -44,6 +44,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+        &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     );
 

@@ -13,10 +13,15 @@
 //! [stroke](../struct.StrokeTessellator.html) tessellators.
 //!
 //! Some of these algorithms approximate the geometry based on a
-//! tolerance threshold which sets the maximum allows distance
+//! tolerance threshold which sets the maximum allowed distance
 //! between the theoretical curve and its approximation.
 //!
-//! More explanaion about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/0.7.0/lyon_geom/#flattening).
+//! This tolerance threshold is configured in the
+//! [FillOptions](../struct.FillOptions.html) and
+//! [StrokeOptions](../struct.StrokeOptions.html) parameters.
+//!
+//! More explanation about flattening and tolerance in the
+//! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path_stroke::{StrokeTessellator, StrokeBuilder};
@@ -26,7 +31,7 @@ use geom::math::*;
 use geom::Arc;
 use path::builder::FlatPathBuilder;
 use path::iterator::FromPolyline;
-use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
+use {FillOptions, FillVertex, StrokeVertex, StrokeOptions};
 
 use std::f32::consts::PI;
 
@@ -35,6 +40,7 @@ pub fn fill_triangle(
     v1: Point,
     mut v2: Point,
     mut v3: Point,
+    _options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
@@ -91,6 +97,7 @@ pub fn fill_quad(
     mut v2: Point,
     v3: Point,
     mut v4: Point,
+    _options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
@@ -151,6 +158,7 @@ pub fn stroke_quad(
 /// Tessellate an axis-aligned rectangle.
 pub fn fill_rectangle(
     rect: &Rect,
+    _options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
@@ -239,7 +247,7 @@ impl BorderRadii {
 pub fn fill_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
-    tolerance: f32,
+    options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
@@ -339,7 +347,7 @@ pub fn fill_rounded_rectangle(
 
             let arc_len = 0.5 * PI * radius;
 
-            let step = circle_flattening_step(radius, tolerance);
+            let step = circle_flattening_step(radius, options.tolerance);
             let num_segments = (arc_len / step).ceil();
 
             let num_recursions = num_segments.log2() as u32;
@@ -521,7 +529,7 @@ pub fn stroke_rounded_rectangle(
 pub fn fill_circle(
     center: Point,
     radius: f32,
-    tolerance: f32,
+    options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
@@ -566,7 +574,7 @@ pub fn fill_circle(
     ];
 
     let arc_len = 0.5 * PI * radius;
-    let step = circle_flattening_step(radius, tolerance);
+    let step = circle_flattening_step(radius, options.tolerance);
     let num_segments = (arc_len / step).ceil();
     let num_recursions = num_segments.log2() as u32;
 
@@ -646,7 +654,7 @@ pub fn fill_ellipse(
     center: Point,
     radii: Vector,
     x_rotation: Angle,
-    tolerance: f32,
+    options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
     // TODO: This is far from optimal compared to the circle tessellation, but it
@@ -664,7 +672,10 @@ pub fn fill_ellipse(
     use path::builder::{PathBuilder, FlatteningBuilder};
     use path_fill::EventsBuilder;
 
-    let mut path = FlatteningBuilder::new(EventsBuilder::new(), tolerance).with_svg();
+    let mut path = FlatteningBuilder::new(
+        EventsBuilder::new(),
+        options.tolerance
+    ).with_svg();
 
     path.move_to(arc.sample(0.0));
     arc.to_quadratic_beziers(&mut|ctrl, to| {
@@ -676,7 +687,7 @@ pub fn fill_ellipse(
 
     return FillTessellator::new().tessellate_events(
         &events,
-        &FillOptions::tolerance(tolerance).assume_no_intersections(),
+        &options.clone().assume_no_intersections(),
         output,
     ).unwrap();
 }
@@ -725,6 +736,7 @@ pub fn stroke_ellipse(
 /// shape may produce incorrect results.
 pub fn fill_convex_polyline<Iter>(
     mut it: Iter,
+    _options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>
 ) -> Count
 where
