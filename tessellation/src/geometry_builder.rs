@@ -271,15 +271,6 @@ pub trait GeometryBuilder<Input> {
     fn abort_geometry(&mut self);
 }
 
-/// An extension to GeometryBuilder that can handle quadratic bézier segments.
-pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
-    /// Insert a quadratic bezier curve.
-    /// The interrior is on the right side of the curve.
-    ///
-    /// This method can only be called between `begin_geometry` and `end_geometry`.
-    fn add_quadratic_bezier(&mut self, from: VertexId, to: VertexId, ctrl: Input);
-}
-
 /// Structure that holds the vertex and index data.
 ///
 /// Usually writen into though temporary `BuffersBuilder` objects.
@@ -444,7 +435,7 @@ where
 }
 
 /// A geometry builder that does not output any geometry.
-/// 
+///
 /// Mostly useful for testing.
 pub struct NoOutput {
     count: Count,
@@ -479,17 +470,24 @@ impl<T> GeometryBuilder<T> for NoOutput
     fn abort_geometry(&mut self) {}
 }
 
-
-impl<'l, VertexType, Input, Ctor> BezierGeometryBuilder<Input>
-    for BuffersBuilder<'l, VertexType, Input, Ctor>
-where
-    VertexType: 'l + Clone,
-    Ctor: VertexConstructor<Input, VertexType>,
-{
-    fn add_quadratic_bezier(&mut self, _from: VertexId, _to: VertexId, _ctrl: Input) {
-        unimplemented!();
-    }
-}
+// /// An extension to GeometryBuilder that can handle quadratic bézier segments.
+// pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
+//     /// Insert a quadratic bezier curve.
+//     /// The interrior is on the right side of the curve.
+//     ///
+//     /// This method can only be called between `begin_geometry` and `end_geometry`.
+//     fn add_quadratic_bezier(&mut self, from: VertexId, to: VertexId, ctrl: Input);
+// }
+// impl<'l, VertexType, Input, Ctor> BezierGeometryBuilder<Input>
+//     for BuffersBuilder<'l, VertexType, Input, Ctor>
+// where
+//     VertexType: 'l + Clone,
+//     Ctor: VertexConstructor<Input, VertexType>,
+// {
+//     fn add_quadratic_bezier(&mut self, _from: VertexId, _to: VertexId, _ctrl: Input) {
+//         unimplemented!();
+//     }
+// }
 
 #[test]
 fn test_simple_quad() {
