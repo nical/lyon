@@ -164,7 +164,7 @@
 //! approximated with sequences of line segments. This approximation depends on a `tolerance` parameter
 //! which represents the maximum distance between a curve and its flattened approximation.
 //!
-//! More explanaion about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/0.7.0/lyon_geom/#flattening).
+//! More explanaion about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 //!
 //! ## Examples
 //!

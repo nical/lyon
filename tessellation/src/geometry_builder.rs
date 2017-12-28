@@ -55,7 +55,7 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex};
+//! use tess::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex, FillOptions};
 //! use tess::basic_shapes::fill_circle;
 //! use tess::math::point;
 //!
@@ -89,7 +89,7 @@
 //!     fill_circle(
 //!         point(0.0, 0.0),
 //!         10.0,
-//!         0.05,
+//!         &FillOptions::tolerance(0.05),
 //!         &mut BuffersBuilder::new(
 //!             &mut output,
 //!             WithColor([1.0, 0.0, 0.0, 1.0])
@@ -98,7 +98,7 @@
 //!     fill_circle(
 //!         point(10.0, 0.0),
 //!         5.0,
-//!         0.05,
+//!         &FillOptions::tolerance(0.05),
 //!         &mut BuffersBuilder::new(
 //!             &mut output,
 //!             WithColor([0.0, 1.0, 0.0, 1.0])

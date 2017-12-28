@@ -6,7 +6,7 @@ use glium::Surface;
 
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
-use lyon::tessellation::StrokeOptions;
+use lyon::tessellation::{StrokeOptions, FillOptions};
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation;
 
@@ -36,15 +36,19 @@ fn main() {
 
     let mut mesh = VertexBuffers::new();
 
+    let fill_options = FillOptions::tolerance(0.01);
+
     fill_triangle(
         point(3.0, 1.0),
         point(1.0, 4.0),
         point(5.0, 4.0),
+        &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
     fill_rectangle(
         &rect(6.0, 1.0, 4.0, 3.0),
+        &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
@@ -53,6 +57,7 @@ fn main() {
         point(13.0, 2.0),
         point(14.0, 5.0),
         point(12.0, 4.0),
+        &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
@@ -64,14 +69,14 @@ fn main() {
             bottom_right: 1.0,
             bottom_left: 1.5,
         },
-        0.01,
+        &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
     fill_circle(
         point(22.0, 3.0),
         2.0,
-        0.01,
+        &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
@@ -79,25 +84,25 @@ fn main() {
         point(27.0, 3.0),
         vector(2.2, 1.5),
         Angle::radians(0.6),
-        0.01,
+        &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
 
-    let options = StrokeOptions::tolerance(0.01)
+    let stroke_options = StrokeOptions::tolerance(0.01)
         .with_line_width(0.2);
 
     stroke_triangle(
         point(3.0, 6.0),
         point(1.0, 9.0),
         point(5.0, 9.0),
-        &options,
+        &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
     stroke_rectangle(
         &rect(6.0, 6.0, 4.0, 3.0),
-        &options,
+        &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
@@ -106,7 +111,7 @@ fn main() {
         point(13.0, 7.0),
         point(14.0, 10.0),
         point(12.0, 9.0),
-        &options,
+        &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
@@ -118,14 +123,14 @@ fn main() {
             bottom_right: 1.0,
             bottom_left: 1.5,
         },
-        &options,
+        &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
     stroke_circle(
         point(22.0, 8.0),
         2.0,
-        &options,
+        &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
@@ -133,7 +138,7 @@ fn main() {
         point(27.0, 8.0),
         vector(2.2, 1.5),
         Angle::radians(0.6),
-        &options,
+        &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
     );
 
