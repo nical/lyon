@@ -1,11 +1,12 @@
+use scalar::{Float, FloatExt};
 use CubicBezierSegment;
 use QuadraticBezierSegment;
 use Line;
 
 /// Approximate a cubic bezier segment with a sequence of quadratic bezier segments.
-pub fn cubic_to_quadratic<F>(cubic: &CubicBezierSegment, _tolerance: f32, cb: &mut F)
+pub fn cubic_to_quadratic<S: Float, F>(cubic: &CubicBezierSegment<S>, _tolerance: S, cb: &mut F)
 where
-    F: FnMut(QuadraticBezierSegment),
+    F: FnMut(QuadraticBezierSegment<S>),
 {
     inflection_based_approximation(cubic, cb);
 }
@@ -14,13 +15,13 @@ where
 /// using the mid-point approximation approach.
 ///
 /// TODO: This isn't a very good approximation.
-pub fn mid_point_approximation<F>(cubic: &CubicBezierSegment, cb: &mut F)
+pub fn mid_point_approximation<S: Float, F>(cubic: &CubicBezierSegment<S>, cb: &mut F)
 where
-    F: FnMut(QuadraticBezierSegment),
+    F: FnMut(QuadraticBezierSegment<S>),
 {
-    let (c1, c2) = cubic.split(0.5);
-    let (c11, c12) = c1.split(0.5);
-    let (c21, c22) = c2.split(0.5);
+    let (c1, c2) = cubic.split(S::c(0.5));
+    let (c11, c12) = c1.split(S::c(0.5));
+    let (c21, c22) = c2.split(S::c(0.5));
     cb(single_curve_approximation(&c11));
     cb(single_curve_approximation(&c12));
     cb(single_curve_approximation(&c21));
@@ -30,12 +31,12 @@ where
 /// This is terrible as a general approximation but works well if the cubic
 /// curve does not have inflection points and is "flat" enough. Typically usable
 /// after subdiving the curve a few times.
-pub fn single_curve_approximation(cubic: &CubicBezierSegment) -> QuadraticBezierSegment {
+pub fn single_curve_approximation<S: Float>(cubic: &CubicBezierSegment<S>) -> QuadraticBezierSegment<S> {
     let l1 = Line { point: cubic.from, vector: cubic.ctrl1 - cubic.from };
     let l2 = Line { point: cubic.to, vector: cubic.ctrl2 - cubic.to };
     let cp = match l1.intersection(&l2) {
         Some(p) => p,
-        None => cubic.from.lerp(cubic.to, 0.5),
+        None => cubic.from.lerp(cubic.to, S::c(0.5)),
     };
     QuadraticBezierSegment {
         from: cubic.from,
@@ -47,22 +48,22 @@ pub fn single_curve_approximation(cubic: &CubicBezierSegment) -> QuadraticBezier
 /// Approximate the curve by first splitting it at the inflection points
 /// and then using single or mid point approximations depending on the
 /// size of the parts.
-pub fn inflection_based_approximation<F>(curve: &CubicBezierSegment, cb: &mut F)
+pub fn inflection_based_approximation<S: Float, F>(curve: &CubicBezierSegment<S>, cb: &mut F)
 where
-    F: FnMut(QuadraticBezierSegment),
+    F: FnMut(QuadraticBezierSegment<S>),
 {
-    fn step<F>(
-        curve: &CubicBezierSegment,
-        t0: f32, t1: f32,
+    fn step<S: Float, F>(
+        curve: &CubicBezierSegment<S>,
+        t0: S, t1: S,
         cb: &mut F
     )
     where
-        F: FnMut(QuadraticBezierSegment),
+        F: FnMut(QuadraticBezierSegment<S>),
     {
         let dt = t1 - t0;
-        if dt > 0.01 {
+        if dt > S::c(0.01) {
             let sub_curve = curve.split_range(t0..t1);
-            if dt < 0.25 {
+            if dt < S::c(0.25) {
                 cb(single_curve_approximation(&sub_curve));
             } else {
                 mid_point_approximation(&sub_curve, cb);
@@ -72,28 +73,28 @@ where
 
     let inflections = curve.find_inflection_points();
 
-    let mut t: f32 = 0.0;
+    let mut t = S::zero();
     for inflection in inflections {
         // don't split if we are very close to the end.
-        let next = if inflection < 0.99 { inflection } else { 1.0 };
+        let next = if inflection < S::c(0.99) { inflection } else { S::one() };
 
         step(curve, t, next, cb);
         t = next;
     }
 
-    if t < 1.0 {
-        step(curve, t, 1.0, cb)
+    if t < S::one() {
+        step(curve, t, S::one(), cb)
     }
 }
 
-pub fn monotonic_approximation<F>(curve: &CubicBezierSegment, cb: &mut F)
+pub fn monotonic_approximation<S: Float, F>(curve: &CubicBezierSegment<S>, cb: &mut F)
 where
-    F: FnMut(QuadraticBezierSegment),
+    F: FnMut(QuadraticBezierSegment<S>),
 {
     let x_extrema = curve.find_local_x_extrema();
     let y_extrema = curve.find_local_y_extrema();
 
-    let t = 0.0;
+    let t = S::zero();
     let mut it_x = x_extrema.iter().cloned();
     let mut it_y = y_extrema.iter().cloned();
     let mut tx = it_x.next();
@@ -118,11 +119,11 @@ where
                 b
             }
             (None, None) => {
-                1.0
+                S::one()
             }
         };
         cb(single_curve_approximation(&curve.split_range(t..next)));
-        if next == 1.0 {
+        if next == S::one() {
             return;
         }
     }

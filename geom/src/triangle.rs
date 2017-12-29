@@ -1,15 +1,16 @@
-use math::{Point, Rect, Size, Transform2D};
+use scalar::{Float, Trig};
+use generic_math::{Point, Rect, Size, Transform2D};
 use LineSegment;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Triangle {
-    pub a: Point,
-    pub b: Point,
-    pub c: Point,
+pub struct Triangle<S: Float> {
+    pub a: Point<S>,
+    pub b: Point<S>,
+    pub c: Point<S>,
 }
 
-impl Triangle {
-    pub fn contains_point(&self, point: Point) -> bool {
+impl<S: Float> Triangle<S> {
+    pub fn contains_point(&self, point: Point<S>) -> bool {
         // see http://blackpawn.com/texts/pointinpoly/
         let v0 = self.c - self.a;
         let v1 = self.b - self.a;
@@ -20,16 +21,16 @@ impl Triangle {
         let dot02 = v0.dot(v2);
         let dot11 = v1.dot(v1);
         let dot12 = v1.dot(v2);
-        let inv = 1.0 / (dot00 * dot11 - dot01 * dot01);
+        let inv = S::one() / (dot00 * dot11 - dot01 * dot01);
         let u = (dot11 * dot02 - dot01 * dot12) * inv;
         let v = (dot11 * dot12 - dot01 * dot02) * inv;
 
-        return u > 0.0 && v > 0.0 && u + v < 1.0;
+        return u > S::zero() && v > S::zero() && u + v < S::one();
     }
 
     /// Return the minimum bounding rectangle
     #[inline]
-    pub fn bounding_rect(&self) -> Rect {
+    pub fn bounding_rect(&self) -> Rect<S> {
         let max_x = self.a.x.max(self.b.x).max(self.c.x);
         let min_x = self.a.x.min(self.b.x).min(self.c.x);
         let max_y = self.a.y.max(self.b.y).max(self.c.y);
@@ -41,45 +42,49 @@ impl Triangle {
     }
 
     #[inline]
-    pub fn ab(&self) -> LineSegment {
+    pub fn ab(&self) -> LineSegment<S> {
         LineSegment { from: self.a, to: self.b }
     }
 
     #[inline]
-    pub fn ba(&self) -> LineSegment {
+    pub fn ba(&self) -> LineSegment<S> {
         LineSegment { from: self.b, to: self.a }
     }
 
     #[inline]
-    pub fn bc(&self) -> LineSegment {
+    pub fn bc(&self) -> LineSegment<S> {
         LineSegment { from: self.b, to: self.c }
     }
 
     #[inline]
-    pub fn cb(&self) -> LineSegment {
+    pub fn cb(&self) -> LineSegment<S> {
         LineSegment { from: self.c, to: self.b }
     }
 
     #[inline]
-    pub fn ca(&self) -> LineSegment {
+    pub fn ca(&self) -> LineSegment<S> {
         LineSegment { from: self.c, to: self.a }
     }
 
     #[inline]
-    pub fn ac(&self) -> LineSegment {
+    pub fn ac(&self) -> LineSegment<S> {
         LineSegment { from: self.a, to: self.c }
     }
+}
 
+impl<S: Float + Trig> Triangle<S> {
     /// [Not implemented] Applies the transform to this triangle and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D) -> Self {
+    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         Triangle {
             a: transform.transform_point(&self.a),
             b: transform.transform_point(&self.b),
             c: transform.transform_point(&self.c)
         }
     }
+}
 
+impl<S: Float> Triangle<S> {
     /// Test for triangle-triangle intersection.
     pub fn intersects(&self, other: &Self) -> bool {
         // TODO: This should be optimized.
@@ -102,7 +107,7 @@ impl Triangle {
 
     /// Test for triangle-segment intersection.
     #[inline]
-    pub fn intersects_line_segment(&self, segment: &LineSegment) -> bool {
+    pub fn intersects_line_segment(&self, segment: &LineSegment<S>) -> bool {
         return self.ab().intersects(segment)
             || self.bc().intersects(segment)
             || self.ac().intersects(segment)

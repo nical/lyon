@@ -1,4 +1,5 @@
-use math::{Point, point, Vector, Rect, Size, Transform2D};
+use scalar::{Float, FloatExt, Trig, ApproxEq};
+use generic_math::{Point, point, Vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use utils::min_max;
 
@@ -7,35 +8,35 @@ use std::ops::Range;
 // TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
 // or some fixed precision number (See comment in the intersection function).
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct LineSegment {
-    pub from: Point,
-    pub to: Point,
+pub struct LineSegment<S: Float> {
+    pub from: Point<S>,
+    pub to: Point<S>,
 }
 
-impl LineSegment {
+impl<S: Float> LineSegment<S> {
     /// Sample the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn sample(&self, t: f32) -> Point {
+    pub fn sample(&self, t: S) -> Point<S> {
         self.from.lerp(self.to, t)
     }
 
     /// Sample the x coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn x(&self, t: f32) -> f32 {
-        self.from.x * (1.0 - t) + self.to.x * t
+    pub fn x(&self, t: S) -> S {
+        self.from.x * (S::one() - t) + self.to.x * t
     }
 
     /// Sample the y coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
-    pub fn y(&self, t: f32) -> f32 {
-        self.from.y * (1.0 - t) + self.to.y * t
+    pub fn y(&self, t: S) -> S {
+        self.from.y * (S::one() - t) + self.to.y * t
     }
 
     #[inline]
-    pub fn from(&self) -> Point { self.from }
+    pub fn from(&self) -> Point<S> { self.from }
 
     #[inline]
-    pub fn to(&self) -> Point { self.to }
+    pub fn to(&self) -> Point<S> { self.to }
 
     /// Returns an inverted version of this segment where the beginning and the end
     /// points are swapped.
@@ -47,7 +48,7 @@ impl LineSegment {
     /// Return the sub-segment inside a given range of t.
     ///
     /// This is equivalent splitting at the range's end points.
-    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+    pub fn split_range(&self, t_range: Range<S>) -> Self {
         LineSegment {
             from: self.from.lerp(self.to, t_range.start),
             to: self.from.lerp(self.to, t_range.end),
@@ -56,7 +57,7 @@ impl LineSegment {
 
     /// Split this curve into two sub-segments.
     #[inline]
-    pub fn split(&self, t: f32) -> (Self, Self) {
+    pub fn split(&self, t: S) -> (Self, Self) {
         let split_point = self.sample(t);
         return (
             LineSegment { from: self.from, to: split_point },
@@ -66,19 +67,19 @@ impl LineSegment {
 
     /// Return the segment before the split point.
     #[inline]
-    pub fn before_split(&self, t: f32) -> Self {
+    pub fn before_split(&self, t: S) -> Self {
         LineSegment { from: self.from, to: self.sample(t) }
     }
 
     /// Return the segment after the split point.
     #[inline]
-    pub fn after_split(&self, t: f32) -> Self {
+    pub fn after_split(&self, t: S) -> Self {
         LineSegment { from: self.sample(t), to: self.to }
     }
 
     /// Return the minimum bounding rectangle
     #[inline]
-    pub fn bounding_rect(&self) -> Rect {
+    pub fn bounding_rect(&self) -> Rect<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
@@ -88,53 +89,61 @@ impl LineSegment {
     }
 
     #[inline]
-    fn bounding_range_x(&self) -> (f32, f32) {
+    fn bounding_range_x(&self) -> (S, S) {
         min_max(self.from.x, self.to.x)
     }
 
     #[inline]
-    fn bounding_range_y(&self) -> (f32, f32) {
+    fn bounding_range_y(&self) -> (S, S) {
         min_max(self.from.y, self.to.y)
     }
 
     /// Returns the vector between this segment's `from` and `to` points.
     #[inline]
-    pub fn to_vector(&self) -> Vector {
+    pub fn to_vector(&self) -> Vector<S> {
         self.to - self.from
     }
 
     /// Returns the line containing this segment.
     #[inline]
-    pub fn to_line(&self) -> Line {
+    pub fn to_line(&self) -> Line<S> {
         Line {
             point: self.from,
             vector: self.to - self.from,
         }
     }
+}
 
+impl<S: Float + ApproxEq<S>> LineSegment<S> {
     /// Computes the length of this segment.
     #[inline]
-    pub fn length(&self) -> f32 {
+    pub fn length(&self) -> S {
         self.to_vector().length()
     }
+}
 
+impl<S: Float> LineSegment<S> {
     #[inline]
-    pub fn translate(&mut self, by: Vector) -> Self {
+    pub fn translate(&mut self, by: Vector<S>) -> Self {
         LineSegment {
             from: self.from + by,
             to: self.to + by,
         }
     }
+}
 
+impl<S: Float + Trig> LineSegment<S> {
     /// Applies the transform to this segment and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D) -> Self {
+    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         LineSegment {
             from: transform.transform_point(&self.from),
             to: transform.transform_point(&self.to),
         }
     }
+}
 
+impl<S: Float> LineSegment<S> {
     /// Computes the intersection (if any) between this segment and another one.
     ///
     /// The result is provided in the form of the `t` parameter of each
@@ -183,34 +192,36 @@ impl LineSegment {
     }
 }
 
-impl Segment for LineSegment {
-    fn from(&self) -> Point { self.from }
-    fn to(&self) -> Point { self.to }
-    fn sample(&self, t: f32) -> Point { self.sample(t) }
-    fn x(&self, t: f32) -> f32 { self.x(t) }
-    fn y(&self, t: f32) -> f32 { self.y(t) }
-    fn derivative(&self, _t: f32) -> Vector { self.to_vector() }
-    fn dx(&self, _t: f32) -> f32 { self.to.x - self.from.x }
-    fn dy(&self, _t: f32) -> f32 { self.to.y - self.from.y }
-    fn split_range(&self, t_range: Range<f32>) -> Self { self.split_range(t_range) }
-    fn split(&self, t: f32) -> (Self, Self) { self.split(t) }
-    fn before_split(&self, t: f32) -> Self { self.before_split(t) }
-    fn after_split(&self, t: f32) -> Self { self.after_split(t) }
+impl<S: Float + ApproxEq<S>> Segment for LineSegment<S> {
+    type Scalar = S;
+    fn from(&self) -> Point<S> { self.from }
+    fn to(&self) -> Point<S> { self.to }
+    fn sample(&self, t: S) -> Point<S> { self.sample(t) }
+    fn x(&self, t: S) -> S { self.x(t) }
+    fn y(&self, t: S) -> S { self.y(t) }
+    fn derivative(&self, _t: S) -> Vector<S> { self.to_vector() }
+    fn dx(&self, _t: S) -> S { self.to.x - self.from.x }
+    fn dy(&self, _t: S) -> S { self.to.y - self.from.y }
+    fn split_range(&self, t_range: Range<S>) -> Self { self.split_range(t_range) }
+    fn split(&self, t: S) -> (Self, Self) { self.split(t) }
+    fn before_split(&self, t: S) -> Self { self.before_split(t) }
+    fn after_split(&self, t: S) -> Self { self.after_split(t) }
     fn flip(&self) -> Self { self.flip() }
-    fn approximate_length(&self, _tolerance: f32) -> f32 { self.length() }
+    fn approximate_length(&self, _tolerance: S) -> S { self.length() }
 }
 
-impl BoundingRect for LineSegment {
-    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
-    fn fast_bounding_rect(&self) -> Rect { self.bounding_rect() }
-    fn bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
-    fn bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
-    fn fast_bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
-    fn fast_bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
+impl<S: Float> BoundingRect for LineSegment<S> {
+    type Scalar = S;
+    fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
+    fn fast_bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
+    fn bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
+    fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
 }
 
-impl FlatteningStep for LineSegment {
-    fn flattening_step(&self, _tolerance: f32) -> f32 { 1.0 }
+impl<S: Float + ApproxEq<S>> FlatteningStep for LineSegment<S> {
+    fn flattening_step(&self, _tolerance: S) -> S { S::one() }
 }
 
 // TODO: we could implement this more efficiently with specialization
@@ -221,20 +232,20 @@ impl FlatteningStep for LineSegment {
 // }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Line {
-    pub point: Point,
-    pub vector: Vector,
+pub struct Line<S: Float> {
+    pub point: Point<S>,
+    pub vector: Vector<S>,
 }
 
-impl Line {
-    pub fn intersection(&self, other: &Self) -> Option<Point> {
-        let epsilon = 0.000001;
+impl<S: Float> Line<S> {
+    pub fn intersection(&self, other: &Self) -> Option<Point<S>> {
+        let epsilon = S::c(0.000001);
         let det = self.vector.cross(other.vector);
         if det.abs() <= epsilon {
             // The lines are very close to parallel
             return None;
         }
-        let inv_det = 1.0 / det;
+        let inv_det = S::one() / det;
         let self_p2 = self.point + self.vector;
         let other_p2 = other.point + other.vector;
         let a = self.point.to_vector().cross(self_p2.to_vector());
@@ -254,12 +265,12 @@ fn fuzzy_eq_f32(a: f32, b: f32, epsilon: f32) -> bool {
 }
 
 #[cfg(test)]
-fn fuzzy_eq_vector(a: Vector, b: Vector, epsilon: f32) -> bool {
+fn fuzzy_eq_vector(a: Vector<f32>, b: Vector<f32>, epsilon: f32) -> bool {
     fuzzy_eq_f32(a.x, b.x, epsilon) && fuzzy_eq_f32(a.y, b.y, epsilon)
 }
 
 #[cfg(test)]
-fn fuzzy_eq_point(a: Point, b: Point, epsilon: f32) -> bool {
+fn fuzzy_eq_point(a: Point<f32>, b: Point<f32>, epsilon: f32) -> bool {
     fuzzy_eq_vector(a.to_vector(), b.to_vector(), epsilon)
 }
 

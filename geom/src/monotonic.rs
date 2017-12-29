@@ -1,51 +1,53 @@
 use segment::{Segment, BoundingRect};
-use math::{Point, Vector, Rect};
+use scalar::{Float, FloatExt};
+use generic_math::{Point, Vector, Rect};
 use std::ops::Range;
 use arrayvec::ArrayVec;
 
 pub trait MonotonicSegment {
-    fn solve_t_for_x(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32;
+    type Scalar: Float;
+    fn solve_t_for_x(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar;
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Monotonic<S> {
-    pub(crate) segment: S,
+pub struct Monotonic<T> {
+    pub(crate) segment: T,
 }
 
-impl<S: Segment> Monotonic<S> {
+impl<T: Segment> Monotonic<T> {
     #[inline]
-    pub fn segment(&self) -> &S { &self.segment }
+    pub fn segment(&self) -> &T { &self.segment }
     #[inline]
-    pub fn from(&self) -> Point { self.segment.from() }
+    pub fn from(&self) -> Point<T::Scalar> { self.segment.from() }
     #[inline]
-    pub fn to(&self) -> Point { self.segment.to() }
+    pub fn to(&self) -> Point<T::Scalar> { self.segment.to() }
     #[inline]
-    pub fn sample(&self, t: f32) -> Point { self.segment.sample(t) }
+    pub fn sample(&self, t: T::Scalar) -> Point<T::Scalar> { self.segment.sample(t) }
     #[inline]
-    pub fn x(&self, t: f32) -> f32 { self.segment.x(t) }
+    pub fn x(&self, t: T::Scalar) -> T::Scalar { self.segment.x(t) }
     #[inline]
-    pub fn y(&self, t: f32) -> f32 { self.segment.y(t) }
+    pub fn y(&self, t: T::Scalar) -> T::Scalar { self.segment.y(t) }
     #[inline]
-    pub fn derivative(&self, t: f32) -> Vector { self.segment.derivative(t) }
+    pub fn derivative(&self, t: T::Scalar) -> Vector<T::Scalar> { self.segment.derivative(t) }
     #[inline]
-    pub fn dx(&self, t: f32) -> f32 { self.segment.dx(t) }
+    pub fn dx(&self, t: T::Scalar) -> T::Scalar { self.segment.dx(t) }
     #[inline]
-    pub fn dy(&self, t: f32) -> f32 { self.segment.dy(t) }
+    pub fn dy(&self, t: T::Scalar) -> T::Scalar { self.segment.dy(t) }
     #[inline]
-    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+    pub fn split_range(&self, t_range: Range<T::Scalar>) -> Self {
         Self { segment: self.segment.split_range(t_range) }
     }
     #[inline]
-    pub fn split(&self, t: f32) -> (Self, Self) {
+    pub fn split(&self, t: T::Scalar) -> (Self, Self) {
         let (a, b) = self.segment.split(t);
         (Self { segment: a }, Self { segment: b })
     }
     #[inline]
-    pub fn before_split(&self, t: f32) -> Self {
+    pub fn before_split(&self, t: T::Scalar) -> Self {
         Self { segment: self.segment.before_split(t) }
     }
     #[inline]
-    pub fn after_split(&self, t: f32) -> Self {
+    pub fn after_split(&self, t: T::Scalar) -> Self {
         Self { segment: self.segment.after_split(t) }
     }
     #[inline]
@@ -53,55 +55,59 @@ impl<S: Segment> Monotonic<S> {
         Self { segment: self.segment.flip() }
     }
     #[inline]
-    pub fn approximate_length(&self, tolerance: f32) -> f32 {
+    pub fn approximate_length(&self, tolerance: T::Scalar) -> T::Scalar {
         self.segment.approximate_length(tolerance)
     }
 
-    pub fn solve_t_for_x(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
+    pub fn solve_t_for_x(&self, x: T::Scalar, t_range: Range<T::Scalar>, tolerance: T::Scalar) -> T::Scalar {
         self.solve_t(x, t_range, tolerance)
     }
 
-    pub fn solve_y_for_x(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
+    pub fn solve_y_for_x(&self, x: T::Scalar, t_range: Range<T::Scalar>, tolerance: T::Scalar) -> T::Scalar {
         self.y(self.solve_t(x, t_range, tolerance))
     }
 }
 
-impl<S: Segment> MonotonicSegment for Monotonic<S> {
-    fn solve_t_for_x(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
+impl<T: Segment> MonotonicSegment for Monotonic<T> {
+    type Scalar = T::Scalar;
+    fn solve_t_for_x(&self, x: T::Scalar, t_range: Range<T::Scalar>, tolerance: T::Scalar) -> T::Scalar {
         self.solve_t(x, t_range, tolerance)
     }
 }
 
-impl<S: Segment> Segment for Monotonic<S> { impl_segment!(); }
+impl<T: Segment> Segment for Monotonic<T> { impl_segment!(T::Scalar); }
 
-impl<S: BoundingRect> BoundingRect for Monotonic<S> {
-    fn bounding_rect(&self) -> Rect {
+impl<T: BoundingRect> BoundingRect for Monotonic<T> {
+    type Scalar = T::Scalar;
+    fn bounding_rect(&self) -> Rect<T::Scalar> {
         // For monotonic segments the fast bounding rect approximation
         // is exact.
         self.segment.fast_bounding_rect()
     }
-    fn fast_bounding_rect(&self) -> Rect {
+    fn fast_bounding_rect(&self) -> Rect<T::Scalar> {
         self.segment.fast_bounding_rect()
     }
-    fn bounding_range_x(&self) -> (f32, f32) {
+    fn bounding_range_x(&self) -> (T::Scalar, T::Scalar) {
         self.segment.bounding_range_x()
     }
-    fn bounding_range_y(&self) -> (f32, f32) {
+    fn bounding_range_y(&self) -> (T::Scalar, T::Scalar) {
         self.segment.bounding_range_y()
     }
-    fn fast_bounding_range_x(&self) -> (f32, f32) {
+    fn fast_bounding_range_x(&self) -> (T::Scalar, T::Scalar) {
         self.segment.fast_bounding_range_x()
     }
-    fn fast_bounding_range_y(&self) -> (f32, f32) {
+    fn fast_bounding_range_y(&self) -> (T::Scalar, T::Scalar) {
         self.segment.fast_bounding_range_y()
     }
 }
 
 trait MonotonicFunction {
-    fn f(&self, t: f32) -> f32;
-    fn df(&self, t: f32) -> f32;
+    type Scalar: Float;
 
-    fn solve_t(&self, x: f32, t_range: Range<f32>, tolerance: f32) -> f32 {
+    fn f(&self, t: Self::Scalar) -> Self::Scalar;
+    fn df(&self, t: Self::Scalar) -> Self::Scalar;
+
+    fn solve_t(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar {
         debug_assert!(t_range.start <= t_range.end);
         let from = self.f(t_range.start);
         let to = self.f(t_range.end);
@@ -123,17 +129,17 @@ trait MonotonicFunction {
 
             let dx = self.df(t);
 
-            if dx <= 1e-5 {
+            if dx <= Self::Scalar::c(1e-5) {
                 break
             }
 
-            t -= (x2 - x) / dx;
+            t = t - (x2 - x) / dx;
         }
 
         // Fall back to binary search.
         let mut min = t_range.start;
         let mut max = t_range.end;
-        let mut t = 0.5;
+        let mut t = Self::Scalar::c(0.5);
 
         while min < max {
             let x2 = self.f(t);
@@ -148,37 +154,38 @@ trait MonotonicFunction {
                 max = t;
             }
 
-            t = (max - min) * 0.5 + min;
+            t = (max - min) * Self::Scalar::c(0.5) + min;
         }
 
         return t;
     }
 }
 
-impl<S: Segment> MonotonicFunction for Monotonic<S> {
-    fn f(&self, t: f32) -> f32 { self.x(t) }
-    fn df(&self, t: f32) -> f32 { self.dx(t) }
+impl<T: Segment> MonotonicFunction for Monotonic<T> {
+    type Scalar = T::Scalar;
+    fn f(&self, t: T::Scalar) -> T::Scalar { self.x(t) }
+    fn df(&self, t: T::Scalar) -> T::Scalar { self.dx(t) }
 }
 
 /// Return the first intersection point (if any) of two monotonic curve
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub fn monotonic_segment_intersecion<A, B>(
-    a: &A, a_t_range: Range<f32>,
-    b: &B, b_t_range: Range<f32>,
-    tolerance: f32,
-) -> Option<(f32, f32)>
+pub fn monotonic_segment_intersecion<S: Float, A, B>(
+    a: &A, a_t_range: Range<S>,
+    b: &B, b_t_range: Range<S>,
+    tolerance: S,
+) -> Option<(S, S)>
 where
-    A: Segment + MonotonicSegment + BoundingRect,
-    B: Segment + MonotonicSegment + BoundingRect,
+    A: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
+    B: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
 {
     debug_assert!(a.from().x <= a.to().x);
     debug_assert!(b.from().x <= b.to().x);
 
     // We need to have a stricter tolerance in solve_t_for_x otherwise
     // the error accumulation becomes pretty bad.
-    let tx_tolerance = tolerance * 0.1;
+    let tx_tolerance = tolerance * S::c(0.1);
 
     let (a_min, a_max) = a.split_range(a_t_range).fast_bounding_range_x();
     let (b_min, b_max) = b.split_range(b_t_range).fast_bounding_range_x();
@@ -187,13 +194,13 @@ where
         return None;
     }
 
-    let mut min_x = f32::max(a_min, b_min);
-    let mut max_x = f32::min(a_max, b_max);
+    let mut min_x = S::max(a_min, b_min);
+    let mut max_x = S::min(a_max, b_max);
 
-    let mut t_min_a = a.solve_t_for_x(min_x, 0.0..1.0, tx_tolerance);
-    let mut t_max_a = a.solve_t_for_x(max_x, t_min_a..1.0, tx_tolerance);
-    let mut t_min_b = b.solve_t_for_x(min_x, 0.0..1.0, tx_tolerance);
-    let mut t_max_b = b.solve_t_for_x(max_x, t_min_b..1.0, tx_tolerance);
+    let mut t_min_a = a.solve_t_for_x(min_x, S::zero()..S::one(), tx_tolerance);
+    let mut t_max_a = a.solve_t_for_x(max_x, t_min_a..S::one(), tx_tolerance);
+    let mut t_min_b = b.solve_t_for_x(min_x, S::zero()..S::one(), tx_tolerance);
+    let mut t_max_b = b.solve_t_for_x(max_x, t_min_b..S::one(), tx_tolerance);
 
     const MAX_ITERATIONS: u32 = 32;
     for _ in 0..MAX_ITERATIONS {
@@ -208,11 +215,11 @@ where
         // that is always slightly after the real intersection, which
         // means that if we search for intersections after the one we
         // found, we are not going to converge towards it again.
-        if f32::abs(y_max_a - y_max_b) < tolerance {
+        if S::abs(y_max_a - y_max_b) < tolerance {
             return Some((t_max_a, t_max_b));
         }
 
-        let mid_x = (min_x + max_x) * 0.5;
+        let mid_x = (min_x + max_x) * S::c(0.5);
         let t_mid_a = a.solve_t_for_x(mid_x, t_min_a..t_max_a, tx_tolerance);
         let t_mid_b = b.solve_t_for_x(mid_x, t_min_b..t_max_b, tx_tolerance);
 
@@ -222,9 +229,9 @@ where
         let y_mid_b = b.y(t_mid_b);
         let y_min_b = b.y(t_min_b);
 
-        let min_sign = f32::signum(y_min_a - y_min_b);
-        let mid_sign = f32::signum(y_mid_a - y_mid_b);
-        let max_sign = f32::signum(y_max_a - y_max_b);
+        let min_sign = S::signum(y_min_a - y_min_b);
+        let mid_sign = S::signum(y_mid_a - y_mid_b);
+        let max_sign = S::signum(y_max_a - y_max_b);
 
         if min_sign != mid_sign {
             max_x = mid_x;
@@ -250,14 +257,14 @@ where
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub fn monotonic_segment_intersecions<A, B>(
-    a: &A, a_t_range: Range<f32>,
-    b: &B, b_t_range: Range<f32>,
-    tolerance: f32,
-) -> ArrayVec<[(f32, f32); 2]>
+pub fn monotonic_segment_intersecions<S: Float, A, B>(
+    a: &A, a_t_range: Range<S>,
+    b: &B, b_t_range: Range<S>,
+    tolerance: S,
+) -> ArrayVec<[(S, S); 2]>
 where
-    A: Segment + MonotonicSegment + BoundingRect,
-    B: Segment + MonotonicSegment + BoundingRect,
+    A: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
+    B: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
 {
     let (t1, t2) = match monotonic_segment_intersecion(
         a, a_t_range.clone(),

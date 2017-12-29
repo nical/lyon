@@ -1,5 +1,6 @@
 use {Line, LineSegment};
-use math::{Point, Vector, Rect, rect, Transform2D};
+use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
+use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
@@ -16,66 +17,66 @@ use std::ops::Range;
 /// The curve is defined by equation:²
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)³ * from + 3 * (1 - t)² * t * ctrl1 + 3 * t² * (1 - t) * ctrl2 + t³ * to```
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct CubicBezierSegment {
-    pub from: Point,
-    pub ctrl1: Point,
-    pub ctrl2: Point,
-    pub to: Point,
+pub struct CubicBezierSegment<S: Float> {
+    pub from: Point<S>,
+    pub ctrl1: Point<S>,
+    pub ctrl2: Point<S>,
+    pub to: Point<S>,
 }
 
-impl CubicBezierSegment {
+impl<S: Float> CubicBezierSegment<S> {
     /// Sample the curve at t (expecting t between 0 and 1).
-    pub fn sample(&self, t: f32) -> Point {
+    pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
         let t3 = t2 * t;
-        let one_t = 1.0 - t;
+        let one_t = S::one() - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from * one_t3 +
-            self.ctrl1.to_vector() * 3.0 * one_t2 * t +
-            self.ctrl2.to_vector() * 3.0 * one_t * t2 +
+            self.ctrl1.to_vector() * S::c(3.0) * one_t2 * t +
+            self.ctrl2.to_vector() * S::c(3.0) * one_t * t2 +
             self.to.to_vector() * t3;
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
-    pub fn x(&self, t: f32) -> f32 {
+    pub fn x(&self, t: S) -> S {
         let t2 = t * t;
         let t3 = t2 * t;
-        let one_t = 1.0 - t;
+        let one_t = S::one() - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from.x * one_t3 +
-            self.ctrl1.x * 3.0 * one_t2 * t +
-            self.ctrl2.x * 3.0 * one_t * t2 +
+            self.ctrl1.x * S::c(3.0) * one_t2 * t +
+            self.ctrl2.x * S::c(3.0) * one_t * t2 +
             self.to.x * t3;
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
-    pub fn y(&self, t: f32) -> f32 {
+    pub fn y(&self, t: S) -> S {
         let t2 = t * t;
         let t3 = t2 * t;
-        let one_t = 1.0 - t;
+        let one_t = S::one() - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from.y * one_t3 +
-            self.ctrl1.y * 3.0 * one_t2 * t +
-            self.ctrl2.y * 3.0 * one_t * t2 +
+            self.ctrl1.y * S::c(3.0) * one_t2 * t +
+            self.ctrl2.y * S::c(3.0) * one_t * t2 +
             self.to.y * t3;
     }
 
     #[inline]
-    fn derivative_coefficients(&self, t: f32) -> (f32, f32, f32, f32) {
+    fn derivative_coefficients(&self, t: S) -> (S, S, S, S) {
         let t2 = t*t;
         (
-            - 3.0 * t2 + 6.0 * t - 3.0,
-            9.0 * t2 - 12.0 * t + 3.0,
-            - 9.0 * t2 + 6.0 * t,
-            3.0 * t2
+            - S::c(3.0) * t2 + S::c(6.0) * t - S::c(3.0),
+            S::c(9.0) * t2 - S::c(12.0) * t + S::c(3.0),
+            - S::c(9.0) * t2 + S::c(6.0) * t,
+            S::c(3.0) * t2
         )
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
-    pub fn derivative(&self, t: f32) -> Vector {
+    pub fn derivative(&self, t: S) -> Vector<S> {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.to_vector() * c0 +
             self.ctrl1.to_vector() * c1 +
@@ -84,13 +85,13 @@ impl CubicBezierSegment {
     }
 
     /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
-    pub fn dx(&self, t: f32) -> f32 {
+    pub fn dx(&self, t: S) -> S {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.x * c0 + self.ctrl1.x * c1 + self.ctrl2.x * c2 + self.to.x * c3
     }
 
     /// Sample the y coordinate of the curve's derivative at t (expecting t between 0 and 1).
-    pub fn dy(&self, t: f32) -> f32 {
+    pub fn dy(&self, t: S) -> S {
         let (c0, c1, c2, c3) = self.derivative_coefficients(t);
         self.from.y * c0 + self.ctrl1.y * c1 + self.ctrl2.y * c2 + self.to.y * c3
     }
@@ -98,15 +99,15 @@ impl CubicBezierSegment {
     /// Return the sub-curve inside a given range of t.
     ///
     /// This is equivalent splitting at the range's end points.
-    pub fn split_range(&self, t_range: Range<f32>) -> Self {
+    pub fn split_range(&self, t_range: Range<S>) -> Self {
         let t1 = t_range.start;
-        let t2 = (t_range.end - t_range.start) / (1.0 - t_range.start);
+        let t2 = (t_range.end - t_range.start) / (S::one() - t_range.start);
 
         self.after_split(t1).before_split(t2)
     }
 
     /// Split this curve into two sub-curves.
-    pub fn split(&self, t: f32) -> (CubicBezierSegment, CubicBezierSegment) {
+    pub fn split(&self, t: S) -> (CubicBezierSegment<S>, CubicBezierSegment<S>) {
         let ctrl1a = self.from + (self.ctrl1 - self.from) * t;
         let ctrl2a = self.ctrl1 + (self.ctrl2 - self.ctrl1) * t;
         let ctrl1aa = ctrl1a + (ctrl2a - ctrl1a) * t;
@@ -130,7 +131,7 @@ impl CubicBezierSegment {
     }
 
     /// Return the curve before the split point.
-    pub fn before_split(&self, t: f32) -> CubicBezierSegment {
+    pub fn before_split(&self, t: S) -> CubicBezierSegment<S> {
         let ctrl1a = self.from + (self.ctrl1 - self.from) * t;
         let ctrl2a = self.ctrl1 + (self.ctrl2 - self.ctrl1) * t;
         let ctrl1aa = ctrl1a + (ctrl2a - ctrl1a) * t;
@@ -146,7 +147,7 @@ impl CubicBezierSegment {
     }
 
     /// Return the curve after the split point.
-    pub fn after_split(&self, t: f32) -> CubicBezierSegment {
+    pub fn after_split(&self, t: S) -> CubicBezierSegment<S> {
         let ctrl1a = self.from + (self.ctrl1 - self.from) * t;
         let ctrl2a = self.ctrl1 + (self.ctrl2 - self.ctrl1) * t;
         let ctrl1aa = ctrl1a + (ctrl2a - ctrl1a) * t;
@@ -159,10 +160,12 @@ impl CubicBezierSegment {
             to: self.to,
         };
     }
+}
 
+impl<S: Float + Trig> CubicBezierSegment<S> {
     /// Applies the transform to this curve and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D) -> Self {
+    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         CubicBezierSegment {
             from: transform.transform_point(&self.from),
             ctrl1: transform.transform_point(&self.ctrl1),
@@ -170,7 +173,9 @@ impl CubicBezierSegment {
             to: transform.transform_point(&self.to)
         }
     }
+}
 
+impl<S: Float> CubicBezierSegment<S> {
     /// Swap the beginning and the end of the segment.
     pub fn flip(&self) -> Self {
         CubicBezierSegment {
@@ -183,42 +188,46 @@ impl CubicBezierSegment {
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
-    pub fn flattened(&self, tolerance: f32) -> Flattened {
+    pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(*self, tolerance)
     }
+}
 
+impl<S: Float + ApproxEq<S>> CubicBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
-    pub fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
+    pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
     }
 
     /// Compute the length of the segment using a flattened approximation.
-    pub fn approximate_length(&self, tolerance: f32) -> f32 {
+    pub fn approximate_length(&self, tolerance: S) -> S {
         approximate_length_from_flattening(self, tolerance)
     }
+}
 
-    pub fn find_inflection_points(&self) -> ArrayVec<[f32; 2]> {
+impl<S: Float> CubicBezierSegment<S> {
+    pub fn find_inflection_points(&self) -> ArrayVec<[S; 2]> {
         find_cubic_bezier_inflection_points(self)
     }
 
     /// Return local x extrema or None if this curve is monotonic.
     ///
     /// This returns the advancements along the curve, not the actual x position.
-    pub fn find_local_x_extrema(&self) -> ArrayVec<[f32; 2]> {
+    pub fn find_local_x_extrema(&self) -> ArrayVec<[S; 2]> {
         let mut ret = ArrayVec::new();
         // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
         // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
         // f(x) = a * x² + b * x + c such as :
-        let a = 3.0 * (self.to.x - 3.0 * self.ctrl2.x + 3.0 * self.ctrl1.x - self.from.x);
-        let b = 6.0 * (self.ctrl2.x - 2.0 * self.ctrl1.x + self.from.x);
-        let c = 3.0 * (self.ctrl1.x - self.from.x);
+        let a = S::c(3.0) * (self.to.x - S::c(3.0) * self.ctrl2.x + S::c(3.0) * self.ctrl1.x - self.from.x);
+        let b = S::c(6.0) * (self.ctrl2.x - S::c(2.0) * self.ctrl1.x + self.from.x);
+        let c = S::c(3.0) * (self.ctrl1.x - self.from.x);
 
         // If the derivative is a linear function
-        if a == 0.0 {
-            if b == 0.0 {
+        if a == S::zero() {
+            if b == S::zero() {
                 // If the derivative is a constant function
-                if c == 0.0 {
-                    ret.push(0.0);
+                if c == S::zero() {
+                    ret.push(S::zero());
                 }
             } else {
                 ret.push(-c / b);
@@ -226,18 +235,18 @@ impl CubicBezierSegment {
             return ret;
         }
 
-        fn in_range(t: f32) -> bool { t > 0.0 && t < 1.0 }
+        fn in_range<S: Float>(t: S) -> bool { t > S::zero() && t < S::one() }
 
-        let discriminant = b * b - 4.0 * a * c;
+        let discriminant = b * b - S::c(4.0) * a * c;
 
         // There is no Real solution for the equation
-        if discriminant < 0.0 {
+        if discriminant < S::zero() {
             return ret;
         }
 
         // There is one Real solution for the equation
-        if discriminant == 0.0 {
-            let t = -b / (2.0 * a);
+        if discriminant == S::zero() {
+            let t = -b / (S::c(2.0) * a);
             if in_range(t) {
                 ret.push(t);
             }
@@ -247,8 +256,8 @@ impl CubicBezierSegment {
         // There are two Real solutions for the equation
         let discriminant_sqrt = discriminant.sqrt();
 
-        let first_extremum = (-b - discriminant_sqrt) / (2.0 * a);
-        let second_extremum = (-b + discriminant_sqrt) / (2.0 * a);
+        let first_extremum = (-b - discriminant_sqrt) / (S::c(2.0) * a);
+        let second_extremum = (-b + discriminant_sqrt) / (S::c(2.0) * a);
 
         if in_range(first_extremum) {
             ret.push(first_extremum);
@@ -263,7 +272,7 @@ impl CubicBezierSegment {
     /// Return local y extrema or None if this curve is monotonic.
     ///
     /// This returns the advancements along the curve, not the actual y position.
-    pub fn find_local_y_extrema(&self) -> ArrayVec<[f32; 2]> {
+    pub fn find_local_y_extrema(&self) -> ArrayVec<[S; 2]> {
        let switched_segment = CubicBezierSegment {
                from: self.from.yx(),
                ctrl1: self.ctrl1.yx(),
@@ -277,11 +286,11 @@ impl CubicBezierSegment {
     /// Find the advancement of the y-most position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual y position.
-    pub fn find_y_maximum(&self) -> f32 {
-        let mut max_t = 0.0;
+    pub fn find_y_maximum(&self) -> S {
+        let mut max_t = S::zero();
         let mut max_y = self.from.y;
         if self.to.y > max_y {
-            max_t = 1.0;
+            max_t = S::one();
             max_y = self.to.y;
         }
         for t in self.find_local_y_extrema() {
@@ -297,11 +306,11 @@ impl CubicBezierSegment {
     /// Find the advancement of the y-least position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual y position.
-    pub fn find_y_minimum(&self) -> f32 {
-        let mut min_t = 0.0;
+    pub fn find_y_minimum(&self) -> S {
+        let mut min_t = S::zero();
         let mut min_y = self.from.y;
         if self.to.y < min_y {
-            min_t = 1.0;
+            min_t = S::one();
             min_y = self.to.y;
         }
         for t in self.find_local_y_extrema() {
@@ -317,11 +326,11 @@ impl CubicBezierSegment {
     /// Find the advancement of the x-most position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual x position.
-    pub fn find_x_maximum(&self) -> f32 {
-        let mut max_t = 0.0;
+    pub fn find_x_maximum(&self) -> S {
+        let mut max_t = S::zero();
         let mut max_x = self.from.x;
         if self.to.x > max_x {
-            max_t = 1.0;
+            max_t = S::one();
             max_x = self.to.x;
         }
         for t in self.find_local_x_extrema() {
@@ -335,11 +344,11 @@ impl CubicBezierSegment {
     }
 
     /// Find the x-least position in the curve.
-    pub fn find_x_minimum(&self) -> f32 {
-        let mut min_t = 0.0;
+    pub fn find_x_minimum(&self) -> S {
+        let mut min_t = S::zero();
         let mut min_x = self.from.x;
         if self.to.x < min_x {
-            min_t = 1.0;
+            min_t = S::one();
             min_x = self.to.x;
         }
         for t in self.find_local_x_extrema() {
@@ -355,7 +364,7 @@ impl CubicBezierSegment {
     /// Returns a conservative rectangle the curve is contained in.
     ///
     /// This method is faster than `bounding_rect` but more conservative.
-    pub fn fast_bounding_rect(&self) -> Rect {
+    pub fn fast_bounding_rect(&self) -> Rect<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
 
@@ -363,7 +372,7 @@ impl CubicBezierSegment {
     }
 
     #[inline]
-    pub fn fast_bounding_range_x(&self) -> (f32, f32) {
+    pub fn fast_bounding_range_x(&self) -> (S, S) {
         let min_x = self.from.x.min(self.ctrl1.x).min(self.ctrl2.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl1.x).max(self.ctrl2.x).max(self.to.x);
 
@@ -371,7 +380,7 @@ impl CubicBezierSegment {
     }
 
     #[inline]
-    pub fn fast_bounding_range_y(&self) -> (f32, f32) {
+    pub fn fast_bounding_range_y(&self) -> (S, S) {
         let min_y = self.from.y.min(self.ctrl1.y).min(self.ctrl2.y).min(self.to.y);
         let max_y = self.from.y.max(self.ctrl1.y).max(self.ctrl2.y).max(self.to.y);
 
@@ -379,7 +388,7 @@ impl CubicBezierSegment {
     }
 
     /// Returns the smallest rectangle the curve is contained in
-    pub fn bounding_rect(&self) -> Rect {
+    pub fn bounding_rect(&self) -> Rect<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
@@ -387,7 +396,7 @@ impl CubicBezierSegment {
     }
 
     #[inline]
-    pub fn bounding_range_x(&self) -> (f32, f32) {
+    pub fn bounding_range_x(&self) -> (S, S) {
         let min_x = self.x(self.find_x_minimum());
         let max_x = self.x(self.find_x_maximum());
 
@@ -395,7 +404,7 @@ impl CubicBezierSegment {
     }
 
     #[inline]
-    pub fn bounding_range_y(&self) -> (f32, f32) {
+    pub fn bounding_range_y(&self) -> (S, S) {
         let min_y = self.y(self.find_y_minimum());
         let max_y = self.y(self.find_y_maximum());
 
@@ -404,17 +413,19 @@ impl CubicBezierSegment {
 
     /// Cast this curve into a monotonic curve without checking that the monotonicity
     /// assumption is correct.
-    pub fn assume_monotonic(&self) -> MonotonicCubicBezierSegment {
+    pub fn assume_monotonic(&self) -> MonotonicCubicBezierSegment<S> {
         MonotonicCubicBezierSegment { segment: *self }
     }
+}
 
+impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     /// Computes the intersections (if any) between this segment a line.
     ///
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
-    pub fn line_intersections(&self, line: &Line) -> ArrayVec<[f32; 3]> {
-        if line.vector.square_length() < 1e-6 {
+    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[S; 3]> {
+        if line.vector.square_length() < S::c(1e-6) {
             return ArrayVec::new();
         }
 
@@ -423,9 +434,9 @@ impl CubicBezierSegment {
         let ctrl2 = self.ctrl2.to_vector();
         let to = self.to.to_vector();
 
-        let p1 = to - from + (ctrl1 - ctrl2) * 3.0;
-        let p2 = from * 3.0 + (ctrl2 - ctrl1 * 2.0) * 3.0;
-        let p3 = (ctrl1 - from) * 3.0;
+        let p1 = to - from + (ctrl1 - ctrl2) * S::c(3.0);
+        let p2 = from * S::c(3.0) + (ctrl2 - ctrl1 * S::c(2.0)) * S::c(3.0);
+        let p3 = (ctrl1 - from) * S::c(3.0);
         let p4 = from;
 
         let c = line.point.y * line.vector.x - line.point.x * line.vector.y;
@@ -440,7 +451,7 @@ impl CubicBezierSegment {
         let mut result = ArrayVec::new();
 
         for root in roots {
-            if root > 0.0 && root < 1.0 {
+            if root > S::zero() && root < S::one() {
                 result.push(root);
             }
         }
@@ -453,7 +464,7 @@ impl CubicBezierSegment {
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve and segment. To get the intersection points, sample
     /// the segments at the corresponding values.
-    pub fn line_segment_intersections(&self, segment: &LineSegment) -> ArrayVec<[(f32, f32); 3]> {
+    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 3]> {
         if !self.fast_bounding_rect().intersects(&segment.bounding_rect()) {
             return ArrayVec::new();
         }
@@ -470,31 +481,34 @@ impl CubicBezierSegment {
         }
         return result;
     }
-
-    pub fn from(&self) -> Point { self.from }
-
-    pub fn to(&self) -> Point { self.to }
 }
 
-impl Segment for CubicBezierSegment { impl_segment!(); }
+impl<S: Float> CubicBezierSegment<S> {
+    pub fn from(&self) -> Point<S> { self.from }
 
-impl BoundingRect for CubicBezierSegment {
-    fn bounding_rect(&self) -> Rect { self.bounding_rect() }
-    fn fast_bounding_rect(&self) -> Rect { self.fast_bounding_rect() }
-    fn bounding_range_x(&self) -> (f32, f32) { self.bounding_range_x() }
-    fn bounding_range_y(&self) -> (f32, f32) { self.bounding_range_y() }
-    fn fast_bounding_range_x(&self) -> (f32, f32) { self.fast_bounding_range_x() }
-    fn fast_bounding_range_y(&self) -> (f32, f32) { self.fast_bounding_range_y() }
+    pub fn to(&self) -> Point<S> { self.to }
 }
 
-impl FlattenedForEach for CubicBezierSegment {
-    fn flattened_for_each<F: FnMut(Point)>(&self, tolerance: f32, call_back: &mut F) {
+impl<S: Float + ApproxEq<S>> Segment for CubicBezierSegment<S> { impl_segment!(S); }
+
+impl<S: Float> BoundingRect for CubicBezierSegment<S> {
+    type Scalar = S;
+    fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
+    fn fast_bounding_rect(&self) -> Rect<S> { self.fast_bounding_rect() }
+    fn bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
+    fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (S, S) { self.fast_bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
+}
+
+impl<S: Float + ApproxEq<S>> FlattenedForEach for CubicBezierSegment<S> {
+    fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         self.flattened_for_each(tolerance, call_back);
     }
 }
 
 /// A monotonically increasing in x and y quadratic bézier curve segment
-pub type MonotonicCubicBezierSegment = Monotonic<CubicBezierSegment>;
+pub type MonotonicCubicBezierSegment<S> = Monotonic<CubicBezierSegment<S>>;
 
 #[test]
 fn fast_bounding_rect_for_cubic_bezier_segment() {
@@ -521,10 +535,10 @@ fn minimum_bounding_rect_for_cubic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bigger_bounding_rect: Rect = rect(0.0, -0.6, 2.0, 1.2);
-    let expected_smaller_bounding_rect: Rect = rect(0.1, -0.5, 1.9, 1.0);
+    let expected_bigger_bounding_rect: Rect<f32> = rect(0.0, -0.6, 2.0, 1.2);
+    let expected_smaller_bounding_rect: Rect<f32> = rect(0.1, -0.5, 1.9, 1.0);
 
-    let actual_minimum_bounding_rect: Rect = a.bounding_rect();
+    let actual_minimum_bounding_rect: Rect<f32> = a.bounding_rect();
 
     assert!(expected_bigger_bounding_rect.contains_rect(&actual_minimum_bounding_rect));
     assert!(actual_minimum_bounding_rect.contains_rect(&expected_smaller_bounding_rect));
