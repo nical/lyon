@@ -199,9 +199,9 @@ pub struct Flattened<Iter> {
 }
 
 enum TmpFlatteningIter {
-    Quadratic(quadratic_bezier::Flattened),
-    Cubic(cubic_bezier::Flattened),
-    Arc(arc::Flattened),
+    Quadratic(quadratic_bezier::Flattened<f32>),
+    Cubic(cubic_bezier::Flattened<f32>),
+    Arc(arc::Flattened<f32>),
     None,
 }
 

@@ -27,9 +27,8 @@ use sid::{Id, IdVec};
 
 use FillVertex as Vertex;
 use {FillOptions, FillRule, Side};
-use geom::utils::fast_atan2;
 use geom::math::*;
-use geom::euclid;
+use geom::euclid::{self, Trig};
 use math_utils::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path::PathEvent;
@@ -1354,7 +1353,7 @@ fn to_f32_vector(v: TessVector) -> Vector { vector(v.x.to_f32(), v.y.to_f32()) }
 
 #[inline]
 fn edge_angle(v: TessVector) -> f32 {
-    return -fast_atan2(v.y.to_f32(), v.x.to_f32());
+    return -Trig::fast_atan2(v.y.to_f32(), v.x.to_f32());
 }
 
 /// A sequence of edges sorted from top to bottom, to be used as the tessellator's input.
