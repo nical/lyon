@@ -1,19 +1,19 @@
-use math::{Point, Vector, vector, Angle};
-use std::f32::consts::{PI, FRAC_PI_2};
+use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
+use generic_math::{Point, Vector, vector, Angle};
 use arrayvec::ArrayVec;
 
 #[inline]
-pub fn min_max(a: f32, b: f32) -> (f32, f32) {
+pub fn min_max<S: Float>(a: S, b: S) -> (S, S) {
     if a < b { (a, b) } else { (b, a) }
 }
 
 #[inline]
-pub fn tangent(v: Vector) -> Vector {
+pub fn tangent<S: Float>(v: Vector<S>) -> Vector<S> {
     vector(-v.y, v.x)
 }
 
 #[inline]
-pub fn normalized_tangent(v: Vector) -> Vector {
+pub fn normalized_tangent<S: Float + ApproxEq<S>>(v: Vector<S>) -> Vector<S> {
     tangent(v).normalize()
 }
 
@@ -36,67 +36,45 @@ pub fn normalized_tangent(v: Vector) -> Vector {
 ///     x        v-
 ///
 #[inline]
-pub fn directed_angle(a: Vector, b: Vector) -> f32 {
-    let angle = fast_atan2(b.y, b.x) - fast_atan2(a.y, a.x);
-    return if angle < 0.0 { angle + 2.0 * PI } else { angle };
+pub fn directed_angle<S: Float + FloatConst + Trig>(a: Vector<S>, b: Vector<S>) -> S {
+    let angle = S::fast_atan2(b.y, b.x) - S::fast_atan2(a.y, a.x);
+    return if angle < S::zero() { angle + S::c(2.0) * S::PI() } else { angle };
 }
 
-pub fn directed_angle2(center: Point, a: Point, b: Point) -> f32 {
+pub fn directed_angle2<S: Float + FloatConst + Trig>(center: Point<S>, a: Point<S>, b: Point<S>) -> S {
     directed_angle(a - center, b - center)
 }
 
-/// A slightly faster approximation of atan2.
-///
-/// Note that it does not deal with the case where both x and y are 0.
 #[inline]
-pub fn fast_atan2(y: f32, x: f32) -> f32 {
-    let x_abs = x.abs();
-    let y_abs = y.abs();
-    let a = x_abs.min(y_abs) / x_abs.max(y_abs);
-    let s = a * a;
-    let mut r = ((-0.0464964749 * s + 0.15931422) * s - 0.327622764) * s * a + a;
-    if y_abs > x_abs {
-        r = FRAC_PI_2 - r;
-    }
-    if x < 0.0 {
-        r = PI - r
-    }
-    if y < 0.0 {
-        r = -r
-    }
-    return r;
-}
+pub fn vector_angle<S: Float + FloatConst + Trig>(v: Vector<S>) -> Angle<S> { Angle::radians(S::fast_atan2(v.y, v.x)) }
 
-#[inline]
-pub fn vector_angle(v: Vector) -> Angle { Angle::radians(fast_atan2(v.y, v.x)) }
-
-pub fn cubic_polynomial_roots(a: f32, b: f32, c: f32, d: f32) -> ArrayVec<[f32; 3]> {
+pub fn cubic_polynomial_roots<S: Float + FloatConst>(a: S, b: S, c: S, d: S) -> ArrayVec<[S; 3]> {
     let mut result = ArrayVec::new();
 
-    if a.abs() < 1e-6 {
+    if a.abs() < S::c(1e-6) {
         // quadratic equation
-        let delta = b * b - 4.0 * a * c;
-        if delta > 0.0 {
+        let delta = b * b - S::c(4.0) * a * c;
+        if delta > S::zero() {
             let sqrt_delta = delta.sqrt();
-            result.push((-b - sqrt_delta) / (2.0 * a));
-            result.push((-b + sqrt_delta) / (2.0 * a));
-        } else if delta.abs() < 1e-6 {
-            result.push(-b / (2.0 * a));
+            result.push((-b - sqrt_delta) / (S::c(2.0) * a));
+            result.push((-b + sqrt_delta) / (S::c(2.0) * a));
+        } else if delta.abs() < S::c(1e-6) {
+            result.push(-b / (S::c(2.0) * a));
         }
         return result;
     }
 
-    let frac_1_3 = 1.0 / 3.0;
+    let frac_1_3 = S::c(1.0 / 3.0);
 
     let bn = b / a;
     let cn = c / a;
     let dn = d / a;
 
-    let delta0 = (3.0 * cn - bn * bn) / 9.0;
-    let delta1 = (9.0 * bn * cn - 27.0 * dn - 2.0 * bn * bn * bn) / 54.0;
+    let delta0 = (S::c(3.0) * cn - bn * bn) / S::c(9.0);
+    let delta1 = (S::c(9.0) * bn * cn - S::c(27.0) * dn - S::c(2.0) * bn * bn * bn) / S::c(54.0);
     let delta_01 = delta0 * delta0 * delta0 + delta1 * delta1;
 
-    if delta_01 >= 0.0 {
+    if delta_01 >= S::zero() {
         let delta_p_sqrt = delta1 + delta_01.sqrt();
         let delta_m_sqrt = delta1 - delta_01.sqrt();
 
@@ -105,15 +83,15 @@ pub fn cubic_polynomial_roots(a: f32, b: f32, c: f32, d: f32) -> ArrayVec<[f32; 
 
         result.push(-bn * frac_1_3 + (s + t));
 
-        if (s - t).abs() < 1e-5 {
-            result.push(-bn * frac_1_3 - (s + t) / 2.0);
+        if (s - t).abs() < S::c(1e-5) {
+            result.push(-bn * frac_1_3 - (s + t) / S::c(2.0));
         }
     } else {
         let theta = (delta1 / (-delta0 * delta0 * delta0).sqrt()).acos();
-        let two_sqrt_delta0 = 2.0 * (-delta0).sqrt();
+        let two_sqrt_delta0 = S::c(2.0) * (-delta0).sqrt();
         result.push(two_sqrt_delta0 * (theta * frac_1_3).cos() - bn * frac_1_3);
-        result.push(two_sqrt_delta0 * ((theta + 2.0 * PI) * frac_1_3).cos() - bn * frac_1_3);
-        result.push(two_sqrt_delta0 * ((theta + 4.0 * PI) * frac_1_3).cos() - bn * frac_1_3);
+        result.push(two_sqrt_delta0 * ((theta + S::c(2.0) * S::PI()) * frac_1_3).cos() - bn * frac_1_3);
+        result.push(two_sqrt_delta0 * ((theta + S::c(4.0) * S::PI()) * frac_1_3).cos() - bn * frac_1_3);
     }
 
     //result.sort();

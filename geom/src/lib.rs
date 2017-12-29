@@ -67,6 +67,7 @@
 
 pub extern crate arrayvec;
 pub extern crate euclid;
+extern crate num_traits;
 
 #[macro_use] mod segment;
 pub mod quadratic_bezier;
@@ -92,6 +93,60 @@ pub use monotonic::{
     monotonic_segment_intersecion,
     monotonic_segment_intersecions,
 };
+
+mod scalar {
+    pub(crate) use num_traits::{Float, FloatConst};
+    pub(crate) use num_traits::One;
+    pub(crate) use num_traits::cast::cast;
+    pub(crate) use euclid::Trig;
+    pub(crate) use euclid::approxeq::ApproxEq; // FIXME: Remove ApproxEq bounds
+
+    pub(crate) trait FloatExt {
+        // Only use for constants
+        fn c(c: f64) -> Self;
+    }
+
+    impl<S: Float> FloatExt for S {
+        fn c(c: f64) -> Self {
+            cast(c).unwrap()
+        }
+    }
+}
+
+mod generic_math {
+    /// Alias for `euclid::Point2D`.
+    pub use euclid::Point2D as Point;
+
+    /// Alias for `euclid::Vector2D`.
+    pub use euclid::Vector2D as Vector;
+
+    /// Alias for `euclid::Size2D`.
+    pub use euclid::Size2D as Size;
+
+    /// Alias for `euclid::Rect`
+    pub use euclid::Rect;
+
+    /// Alias for `euclid::Transform2D`
+    pub use euclid::Transform2D;
+
+    /// Alias for `euclid::Rotation2D`
+    pub use euclid::Rotation2D;
+
+    /// An angle in radians.
+    pub use euclid::Angle;
+
+    /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
+    pub use euclid::rect;
+
+    /// Shorthand for `Vector::new(x, y)`.
+    pub use euclid::vec2 as vector;
+
+    /// Shorthand for `Point::new(x, y)`.
+    pub use euclid::point2 as point;
+
+    /// Shorthand for `Size::new(x, y)`.
+    pub use euclid::size2 as size;
+}
 
 pub mod math {
     //! ## Core geometry types
