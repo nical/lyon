@@ -1,7 +1,8 @@
 use math_utils::compute_normal;
 use geom::math::*;
 use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
-use geom::utils::{normalized_tangent, directed_angle, fast_atan2, vector_angle};
+use geom::utils::{normalized_tangent, directed_angle, vector_angle};
+use geom::euclid::Trig;
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
 use path::builder::{FlatPathBuilder, PathBuilder};
@@ -860,7 +861,7 @@ fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
 }
 
 fn get_join_angle(prev_tangent: Vector, next_tangent: Vector) -> f32 {
-    let mut join_angle = fast_atan2(prev_tangent.y, prev_tangent.x) - fast_atan2(next_tangent.y, next_tangent.x);
+    let mut join_angle = Trig::fast_atan2(prev_tangent.y, prev_tangent.x) - Trig::fast_atan2(next_tangent.y, next_tangent.x);
 
     // Make sure to stay within the [-Pi, Pi] range.
     if join_angle > PI {
