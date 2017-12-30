@@ -221,6 +221,21 @@ impl<S: Float> QuadraticBezierSegment<S> {
             to: self.to,
         }
     }
+
+    #[inline]
+    pub fn baseline(&self) -> LineSegment<S> {
+        LineSegment { from: self.from, to: self.to }
+    }
+
+    /// Computes the "fat line" of this segment.
+    ///
+    /// A fat line is a bounding box of the segment oriented along the
+    /// baseline segment with the signed distance to the control point.
+    pub fn fat_line(&self) -> (LineSegment<S>, S) where S : ApproxEq<S> {
+        let baseline = self.baseline();
+        let d = baseline.to_line().signed_distance_to_point(&self.ctrl);
+        (baseline, d)
+    }
 }
 
 impl<S: Float + Trig> QuadraticBezierSegment<S> {

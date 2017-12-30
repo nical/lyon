@@ -301,6 +301,12 @@ impl<S: Float> Line<S> {
             )
         );
     }
+
+    pub fn signed_distance_to_point(&self, p: &Point<S>) -> S where S : ApproxEq<S> {
+        let v1 = self.point.to_vector();
+        let v2 = v1 + self.vector;
+        (p.to_vector().cross(self.vector) + v2.cross(v1)) / self.vector.length()
+    }
 }
 
 #[cfg(test)]
@@ -430,3 +436,25 @@ fn bounding_rect() {
         assert_eq!(ls.bounding_rect(), r);
     }
 }
+
+#[test]
+fn distance_to_point() {
+    use math::vector;
+
+    let l1 = Line {
+        point: point(2.0f32, 3.0),
+        vector: vector(-1.5, 0.0),
+    };
+
+    let l2 = Line {
+        point: point(3.0f32, 3.0),
+        vector: vector(1.5, 1.5),
+    };
+
+    assert!(l1.signed_distance_to_point(&point(1.1, 4.0)).approx_eq(&1.0));
+    assert!(l1.signed_distance_to_point(&point(2.3, 2.0)).approx_eq(&-1.0));
+
+    assert!(l2.signed_distance_to_point(&point(1.0, 0.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
+    assert!(l2.signed_distance_to_point(&point(0.0, 1.0)).approx_eq(&(-f32::sqrt(2.0)/2.0)));
+}
+
