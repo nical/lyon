@@ -12,6 +12,7 @@ use segment;
 /// A flattening iterator for arc segments.
 pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
 
+/// An ellipic arc curve segment using the SVG notation.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SvgArc<S: Float> {
     pub from: Point<S>,
@@ -21,6 +22,7 @@ pub struct SvgArc<S: Float> {
     pub flags: ArcFlags,
 }
 
+/// An ellipic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Arc<S: Float> {
     pub center: Point<S>,

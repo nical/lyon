@@ -1,9 +1,13 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 
-//! # Bézier curve related maths and tools.
+//! # Overview.
 //!
-//! This crate implements simple 2d quadratic and cubic bézier math and an efficient
-//! flattening algorithm on top of [eulcid](https://crates.io/crates/euclid).
+//! This crate implements simple 2D geometric primitives on top of euclid:
+//!
+//! - lines and line segments,
+//! - quadratic and cubic bézier curves,
+//! - elliptic arcs,
+//! - triangles.
 //!
 //! # Flattening
 //!
@@ -81,13 +85,19 @@ mod line;
 mod monotonic;
 
 pub use cubic_to_quadratic::cubic_to_quadratic;
-
+#[doc(inline)]
 pub use quadratic_bezier::QuadraticBezierSegment;
+#[doc(inline)]
 pub use cubic_bezier::CubicBezierSegment;
+#[doc(inline)]
 pub use triangle::{Triangle};
+#[doc(inline)]
 pub use line::{LineSegment, Line};
+#[doc(inline)]
 pub use arc::{Arc, SvgArc, ArcFlags};
+#[doc(inline)]
 pub use segment::Segment;
+#[doc(inline)]
 pub use monotonic::Monotonic;
 
 mod scalar {
@@ -145,8 +155,6 @@ mod generic_math {
 }
 
 pub mod math {
-    //! ## Core geometry types
-    //!
     //! Basic types that are used everywhere. Most other lyon crates
     //! reexport them.
 

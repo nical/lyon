@@ -6,8 +6,7 @@ use utils::min_max;
 
 use std::ops::Range;
 
-// TODO: Perhaps it would be better to have LineSegment<T> where T can be f32, f64
-// or some fixed precision number (See comment in the intersection function).
+/// A linear segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct LineSegment<S: Float> {
     pub from: Point<S>,
@@ -275,6 +274,7 @@ impl<S: Float + ApproxEq<S>> FlatteningStep for LineSegment<S> {
 //     }
 // }
 
+/// An infinite line defined by a point and a vector.
 #[derive(Copy, Clone, Debug)]
 pub struct Line<S: Float> {
     pub point: Point<S>,
