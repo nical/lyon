@@ -88,11 +88,7 @@ pub use triangle::{Triangle};
 pub use line::{LineSegment, Line};
 pub use arc::{Arc, SvgArc, ArcFlags};
 pub use segment::Segment;
-pub use monotonic::{
-    Monotonic, MonotonicSegment,
-    first_monotonic_segment_intersecion,
-    monotonic_segment_intersecions,
-};
+pub use monotonic::Monotonic;
 
 mod scalar {
     pub(crate) use num_traits::{Float, FloatConst, NumCast};
@@ -196,5 +192,5 @@ pub mod math {
 
 pub mod traits {
     pub use segment::{Segment, FlattenedForEach, FlatteningStep};
-    pub use monotonic::MonotonicSegment;
+    //pub use monotonic::MonotonicSegment;
 }

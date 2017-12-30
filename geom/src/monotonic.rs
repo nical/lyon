@@ -7,7 +7,7 @@ use {QuadraticBezierSegment, CubicBezierSegment};
 
 use std::f64;
 
-pub trait MonotonicSegment {
+pub(crate) trait MonotonicSegment {
     type Scalar: Float;
     fn solve_t_for_x(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar;
 }
@@ -257,7 +257,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> MonotonicSegment for Monotonic<CubicBe
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub fn first_monotonic_segment_intersecion<S: Float, A, B>(
+pub(crate) fn first_monotonic_segment_intersecion<S: Float, A, B>(
     a: &A, a_t_range: Range<S>,
     b: &B, b_t_range: Range<S>,
     tolerance: S,
@@ -343,7 +343,7 @@ where
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub fn monotonic_segment_intersecions<S: Float, A, B>(
+pub(crate) fn monotonic_segment_intersecions<S: Float, A, B>(
     a: &A, a_t_range: Range<S>,
     b: &B, b_t_range: Range<S>,
     tolerance: S,
