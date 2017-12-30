@@ -2,6 +2,7 @@ use scalar::{Float, Trig};
 use generic_math::{Point, Rect, Size, Transform2D};
 use LineSegment;
 
+/// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle<S: Float> {
     pub a: Point<S>,
@@ -28,7 +29,7 @@ impl<S: Float> Triangle<S> {
         return u > S::zero() && v > S::zero() && u + v < S::one();
     }
 
-    /// Return the minimum bounding rectangle
+    /// Return the minimum bounding rectangle.
     #[inline]
     pub fn bounding_rect(&self) -> Rect<S> {
         let max_x = self.a.x.max(self.b.x).max(self.c.x);

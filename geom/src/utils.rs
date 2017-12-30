@@ -18,26 +18,31 @@ pub fn normalized_tangent<S: Float + ApproxEq<S>>(v: Vector<S>) -> Vector<S> {
 }
 
 /// Angle between vectors v1 and v2 (oriented clockwise assyming y points downwards).
-/// The result is a number between 0 and 2*PI.
+/// The result is a number between `0` and `2 * PI`.
 ///
 /// ex: `directed_angle([0,1], [1,0]) = 3/2 Pi rad`
+///
+/// ```text
 ///     x       __
 ///   0-->     /  \
 ///  y|       |  x--> v2
 ///   v        \ |v1
 ///              v
+/// ```
 ///
 /// Or, assuming y points upwards:
 /// `directed_angle([0,-1], [1,0]) = 1/2 Pi rad`
 ///
+/// ```text
 ///   ^           v2
 ///  y|          x-->
 ///   0-->    v1 | /
 ///     x        v-
+/// ```
 ///
 #[inline]
-pub fn directed_angle<S: Float + FloatConst + Trig>(a: Vector<S>, b: Vector<S>) -> S {
-    let angle = S::fast_atan2(b.y, b.x) - S::fast_atan2(a.y, a.x);
+pub fn directed_angle<S: Float + FloatConst + Trig>(v1: Vector<S>, v2: Vector<S>) -> S {
+    let angle = S::fast_atan2(v2.y, v2.x) - S::fast_atan2(v1.y, v1.x);
     return if angle < S::zero() { angle + S::c(2.0) * S::PI() } else { angle };
 }
 

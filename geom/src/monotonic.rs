@@ -12,6 +12,7 @@ pub(crate) trait MonotonicSegment {
     fn solve_t_for_x(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar;
 }
 
+/// A x and y monotonic curve segment, for example `Monotonic<QuadraticBezierSegment>`.
 #[derive(Copy, Clone, Debug)]
 pub struct Monotonic<T> {
     pub(crate) segment: T,
