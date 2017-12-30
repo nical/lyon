@@ -6,7 +6,7 @@ use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
 pub use cubic_to_quadratic::cubic_to_quadratic;
 use monotonic::Monotonic;
-use utils::cubic_polynomial_roots;
+use utils::{min_max, cubic_polynomial_roots};
 use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
 
 use std::ops::Range;
@@ -159,6 +159,29 @@ impl<S: Float> CubicBezierSegment<S> {
             ctrl2: ctrl3a,
             to: self.to,
         };
+    }
+
+    #[inline]
+    pub fn baseline(&self) -> LineSegment<S> {
+        LineSegment { from: self.from, to: self.to }
+    }
+
+    /// Computes the "fat line" of this segment.
+    ///
+    /// A fat line is a bounding box of the segment oriented along the
+    /// baseline segment with the maximum signed distances on each side
+    /// of the baseline to the control points.
+    pub fn fat_line(&self) -> (LineSegment<S>, S, S) where S : ApproxEq<S> {
+        let baseline = self.baseline();
+        let (mut d1, mut d2) = min_max(
+            baseline.to_line().signed_distance_to_point(&self.ctrl1),
+            baseline.to_line().signed_distance_to_point(&self.ctrl2),
+        );
+
+        d1 = Float::min(d1, S::zero());
+        d2 = Float::max(d2, S::zero());
+
+        (baseline, d1, d2)
     }
 }
 
@@ -701,4 +724,48 @@ fn monotonic_solve_t_for_x() {
         let x_diff = c1.x(t) - c1.x(t2);
         assert!(x_diff.abs() <= tolerance);
     }
+}
+
+#[test]
+fn fat_line() {
+    use math::point;
+
+    let c1 = CubicBezierSegment {
+        from: point(1.0f32, 2.0),
+        ctrl1: point(1.0, 3.0),
+        ctrl2: point(11.0, 11.0),
+        to: point(11.0, 12.0),
+    };
+
+    let (baseline, d1, d2) = c1.fat_line();
+    assert_eq!(baseline, LineSegment { from: c1.from, to: c1. to });
+    assert!(d1 <= 0.0);
+    assert!(d2 >= 0.0);
+    let sqrt_2_2: f32 = Float::sqrt(2.0)/2.0;
+    assert!(d1.approx_eq(&-sqrt_2_2));
+    assert!(d2.approx_eq(&sqrt_2_2));
+
+    let c2 = CubicBezierSegment {
+        from: point(1.0f32, 2.0),
+        ctrl1: point(1.0, 3.0),
+        ctrl2: point(11.0, 14.0),
+        to: point(11.0, 12.0),
+    };
+
+    let (baseline, d1, d2) = c2.fat_line();
+    assert_eq!(baseline, LineSegment { from: c1.from, to: c1. to });
+    assert!(d1.approx_eq(&(-2.0 * sqrt_2_2)));
+    assert!(d2.approx_eq(&0.0));
+
+    let c3 = CubicBezierSegment {
+        from: point(1.0f32, 2.0),
+        ctrl1: point(1.0, 0.0),
+        ctrl2: point(11.0, 11.0),
+        to: point(11.0, 12.0),
+    };
+
+    let (baseline, d1, d2) = c3.fat_line();
+    assert_eq!(baseline, LineSegment { from: c1.from, to: c1. to });
+    assert!(d1.approx_eq(&0.0));
+    assert!(d2.approx_eq(&(2.0 * sqrt_2_2)));
 }
