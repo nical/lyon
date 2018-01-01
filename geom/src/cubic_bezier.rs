@@ -166,6 +166,17 @@ impl<S: Float> CubicBezierSegment<S> {
         LineSegment { from: self.from, to: self.to }
     }
 
+    pub fn is_linear(&self, tolerance: S) -> bool {
+        let epsilon = S::c(0.00001);
+        if (self.from - self.to).square_length() < epsilon {
+            return false;
+        }
+        let line = self.baseline().to_line().equation();
+
+        line.distance_to_point(&self.ctrl1) < tolerance
+            && line.distance_to_point(&self.ctrl2) < tolerance
+    }
+
     /// Computes a "fat line" of this segment.
     ///
     /// A fat line is two convervative lines between which the segment
