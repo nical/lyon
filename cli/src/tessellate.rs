@@ -17,6 +17,14 @@ impl ::std::convert::From<::std::io::Error> for TessError {
     fn from(err: io::Error) -> Self { TessError::Io(err) }
 }
 
+fn format_float(value: f32, precision: Option<usize>) -> String {
+    if let Some(p) = precision {
+        format!("{0:.1$}", value, p)
+    } else {
+        format!("{}", value)
+    }
+}
+
 pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError> {
 
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
@@ -45,8 +53,9 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessE
 pub fn write_output(
     buffers: VertexBuffers<Point>,
     count: bool,
+    precision: Option<usize>,
     mut output: Box<io::Write>
-) -> Result<(), io::Error>{
+) -> Result<(), io::Error> {
 
     if count {
         try!{ writeln!(&mut *output, "vertices: {}", buffers.vertices.len()) };
@@ -62,7 +71,8 @@ pub fn write_output(
         if !is_first {
             try!{ write!(&mut *output, ", ") };
         }
-        try!{ write!(&mut *output, "({}, {})", vertex.x, vertex.y) };
+        try!{ write!(&mut *output, "({}, {})", format_float(vertex.x, precision),
+                                               format_float(vertex.y, precision)) };
         is_first = false;
     }
     try!{ writeln!(&mut *output, "]") };

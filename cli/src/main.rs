@@ -50,6 +50,14 @@ fn main() {
                 .takes_value(true)
                 .required(false)
             )
+            .arg(Arg::with_name("PRECISION")
+                .short("p")
+                .long("precision")
+                .help("Sets the floating point precision for the output")
+                .value_name("PRECISION")
+                .takes_value(true)
+                .required(false)
+            )
         )
         .subcommand(
             declare_input_path(SubCommand::with_name("path"))
@@ -121,6 +129,7 @@ fn main() {
         let output = get_output(&command);
         let cmd = get_tess_command(&command);
         let cmd_copy = cmd.clone();
+        let precision = cmd.precision;
 
         let res = ::std::panic::catch_unwind(|| {
             tessellate::tessellate_path(cmd)
@@ -128,7 +137,10 @@ fn main() {
 
         match res {
             Ok(Ok(buffers)) => {
-                tessellate::write_output(buffers, command.is_present("COUNT"), output).unwrap();
+                tessellate::write_output(buffers,
+                                         command.is_present("COUNT"),
+                                         precision,
+                                         output).unwrap();
             }
             _ => {
                 println!(" -- Error while tessellating");
@@ -148,7 +160,6 @@ fn main() {
                 panic!("aborting");
             }
         }
-
     }
 
     if let Some(command) = matches.subcommand_matches("path") {
@@ -293,10 +304,17 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
         None
     };
 
+    let precision = if let Some(precision) = command.value_of("PRECISION") {
+        Some(precision.parse::<usize>().expect("Precision must be an integer").min(7))
+    } else {
+        None
+    };
+
     TessellateCmd {
         path: path.clone(),
         fill: fill,
         stroke: stroke_cmd,
+        precision: precision,
     }
 }
 
