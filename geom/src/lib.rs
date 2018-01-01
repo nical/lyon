@@ -92,7 +92,7 @@ pub use cubic_bezier::CubicBezierSegment;
 #[doc(inline)]
 pub use triangle::{Triangle};
 #[doc(inline)]
-pub use line::{LineSegment, Line};
+pub use line::{LineSegment, Line, LineEquation};
 #[doc(inline)]
 pub use arc::{Arc, SvgArc, ArcFlags};
 #[doc(inline)]
