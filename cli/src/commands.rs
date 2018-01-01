@@ -7,7 +7,7 @@ pub struct TessellateCmd {
     pub path: Path,
     pub fill: Option<FillOptions>,
     pub stroke: Option<StrokeOptions>,
-    pub precision: Option<usize>,
+    pub float_precision: Option<usize>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

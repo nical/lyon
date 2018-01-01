@@ -53,7 +53,7 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessE
 pub fn write_output(
     buffers: VertexBuffers<Point>,
     count: bool,
-    precision: Option<usize>,
+    float_precision: Option<usize>,
     mut output: Box<io::Write>
 ) -> Result<(), io::Error> {
 
@@ -71,8 +71,8 @@ pub fn write_output(
         if !is_first {
             try!{ write!(&mut *output, ", ") };
         }
-        try!{ write!(&mut *output, "({}, {})", format_float(vertex.x, precision),
-                                               format_float(vertex.y, precision)) };
+        try!{ write!(&mut *output, "({}, {})", format_float(vertex.x, float_precision),
+                                               format_float(vertex.y, float_precision)) };
         is_first = false;
     }
     try!{ writeln!(&mut *output, "]") };
