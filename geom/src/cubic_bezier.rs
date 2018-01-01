@@ -1,4 +1,4 @@
-use {Line, LineSegment};
+use {Line, LineSegment, LineEquation};
 use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
 use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use arrayvec::ArrayVec;
@@ -166,22 +166,32 @@ impl<S: Float> CubicBezierSegment<S> {
         LineSegment { from: self.from, to: self.to }
     }
 
-    /// Computes the "fat line" of this segment.
+    /// Computes a "fat line" of this segment.
     ///
-    /// A fat line is a bounding box of the segment oriented along the
-    /// baseline segment with the maximum signed distances on each side
-    /// of the baseline to the control points.
-    pub fn fat_line(&self) -> (LineSegment<S>, S, S) where S : ApproxEq<S> {
-        let baseline = self.baseline();
+    /// A fat line is two convervative lines between which the segment
+    /// is fully contained.
+    pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>)
+    where S : ApproxEq<S> {
+        let baseline = self.baseline().to_line().equation();
         let (mut d1, mut d2) = min_max(
-            baseline.to_line().signed_distance_to_point(&self.ctrl1),
-            baseline.to_line().signed_distance_to_point(&self.ctrl2),
+            baseline.signed_distance_to_point(&self.ctrl1),
+            baseline.signed_distance_to_point(&self.ctrl2),
         );
 
         d1 = Float::min(d1, S::zero());
         d2 = Float::max(d2, S::zero());
 
-        (baseline, d1, d2)
+        let frac_3_4 = S::c(3.0/4.0);
+
+        if (d1 * d2).is_sign_positive() {
+            d1 = d1 * frac_3_4;
+            d2 = d2 * frac_3_4;
+        } else {
+            d1 = d1 * frac_3_4 * frac_3_4;
+            d2 = d2 * frac_3_4 * frac_3_4;
+        }
+
+        (baseline.offset(d1), baseline.offset(d2))
     }
 }
 

@@ -1,5 +1,5 @@
 use scalar::{Float, FloatExt, Trig, ApproxEq};
-use generic_math::{Point, point, Vector, Rect, Size, Transform2D};
+use generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use monotonic::MonotonicSegment;
 use utils::min_max;
@@ -306,6 +306,76 @@ impl<S: Float> Line<S> {
         let v1 = self.point.to_vector();
         let v2 = v1 + self.vector;
         (p.to_vector().cross(self.vector) + v2.cross(v1)) / self.vector.length()
+    }
+
+    pub fn equation(&self) -> LineEquation<S> {
+        let a = self.vector.x;
+        let b = self.vector.y;
+        let c = -(a * self.point.x + b * self.point.y);
+
+        LineEquation::new(a, b, c)
+    }
+}
+
+/// A line defined by the equation
+/// `a * x + b * y + c = 0; a * a + b * b = 1`.
+pub struct LineEquation<S> {
+    a: S,
+    b: S,
+    c: S,
+}
+
+impl<S: Float> LineEquation<S> {
+    pub fn new(a: S, b: S, c: S) -> Self {
+        let div = S::one() / (a * a + b * b);
+        LineEquation { a: a * div, b: b * div, c: c * div }
+    }
+
+    #[inline]
+    pub fn a(&self) -> S { self.a }
+
+    #[inline]
+    pub fn b(&self) -> S { self.b }
+
+    #[inline]
+    pub fn c(&self) -> S { self.c }
+
+    pub fn project_point(&self, p: &Point<S>) -> Point<S> {
+        point(
+            self.b * (self.b * p.x - self.a * p.y) - self.a * self.c,
+            self.a * (self.a * p.y - self.b * p.x) - self.b * self.c,
+        )
+    }
+
+    #[inline]
+    pub fn signed_distance_to_point(&self, p: &Point<S>) -> S {
+        self.a * p.x + self.b * p.y + self.c
+    }
+
+    #[inline]
+    pub fn distance_to_point(&self, p: &Point<S>) -> S {
+        Float::abs(self.signed_distance_to_point(p))
+    }
+
+    #[inline]
+    pub fn invert(&self) -> Self {
+        LineEquation { a: -self.a, b: -self.b, c: -self.c }
+    }
+
+    #[inline]
+    pub fn parallel_line(&self, p: &Point<S>) -> Self {
+        let c = -(self.a * p.x + self.b * p.y);
+        LineEquation { a: self.a, b: self.b, c }
+    }
+
+    #[inline]
+    pub fn offset(&self, d: S) -> Self {
+        LineEquation { a: self.a, b: self.b, c: self.c + d }
+    }
+
+    #[inline]
+    pub fn to_vector(&self) -> Vector<S> {
+        vector(self.a, self.b)
     }
 }
 

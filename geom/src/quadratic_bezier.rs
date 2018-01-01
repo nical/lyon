@@ -1,4 +1,4 @@
-use {CubicBezierSegment, Triangle, Line, LineSegment};
+use {CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
 use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
 use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use monotonic::Monotonic;
@@ -227,14 +227,18 @@ impl<S: Float> QuadraticBezierSegment<S> {
         LineSegment { from: self.from, to: self.to }
     }
 
-    /// Computes the "fat line" of this segment.
+    /// Computes a "fat line" of this segment.
     ///
-    /// A fat line is a bounding box of the segment oriented along the
-    /// baseline segment with the signed distance to the control point.
-    pub fn fat_line(&self) -> (LineSegment<S>, S) where S : ApproxEq<S> {
-        let baseline = self.baseline();
-        let d = baseline.to_line().signed_distance_to_point(&self.ctrl);
-        (baseline, d)
+    /// A fat line is two convervative lines between which the segment
+    /// is fully contained.
+    pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>)
+    where S : ApproxEq<S> {
+        let l1 = self.baseline().to_line().equation();
+        let d = l1.signed_distance_to_point(&self.ctrl);
+        let two = S::one() + S::one();
+        let l2 = l1.offset(d / two);
+
+        if d >= S::zero() { (l1, l2) } else { (l2, l1) }
     }
 }
 
