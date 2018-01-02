@@ -1,4 +1,4 @@
-use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
+use scalar::{Scalar, Float};
 use generic_math::{Point, Vector, vector, Angle};
 use arrayvec::ArrayVec;
 
@@ -13,7 +13,7 @@ pub fn tangent<S: Float>(v: Vector<S>) -> Vector<S> {
 }
 
 #[inline]
-pub fn normalized_tangent<S: Float + ApproxEq<S>>(v: Vector<S>) -> Vector<S> {
+pub fn normalized_tangent<S: Scalar>(v: Vector<S>) -> Vector<S> {
     tangent(v).normalize()
 }
 
@@ -41,42 +41,42 @@ pub fn normalized_tangent<S: Float + ApproxEq<S>>(v: Vector<S>) -> Vector<S> {
 /// ```
 ///
 #[inline]
-pub fn directed_angle<S: Float + FloatConst + Trig>(v1: Vector<S>, v2: Vector<S>) -> S {
+pub fn directed_angle<S: Scalar>(v1: Vector<S>, v2: Vector<S>) -> S {
     let angle = S::fast_atan2(v2.y, v2.x) - S::fast_atan2(v1.y, v1.x);
-    return if angle < S::zero() { angle + S::c(2.0) * S::PI() } else { angle };
+    return if angle < S::zero() { angle + S::TWO * S::PI() } else { angle };
 }
 
-pub fn directed_angle2<S: Float + FloatConst + Trig>(center: Point<S>, a: Point<S>, b: Point<S>) -> S {
+pub fn directed_angle2<S: Scalar>(center: Point<S>, a: Point<S>, b: Point<S>) -> S {
     directed_angle(a - center, b - center)
 }
 
 #[inline]
-pub fn vector_angle<S: Float + FloatConst + Trig>(v: Vector<S>) -> Angle<S> { Angle::radians(S::fast_atan2(v.y, v.x)) }
+pub fn vector_angle<S: Scalar>(v: Vector<S>) -> Angle<S> { Angle::radians(S::fast_atan2(v.y, v.x)) }
 
-pub fn cubic_polynomial_roots<S: Float + FloatConst>(a: S, b: S, c: S, d: S) -> ArrayVec<[S; 3]> {
+pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S; 3]> {
     let mut result = ArrayVec::new();
 
-    if a.abs() < S::c(1e-6) {
+    if a.abs() < S::constant(1e-6) {
         // quadratic equation
-        let delta = b * b - S::c(4.0) * a * c;
+        let delta = b * b - S::FOUR * a * c;
         if delta > S::zero() {
             let sqrt_delta = delta.sqrt();
-            result.push((-b - sqrt_delta) / (S::c(2.0) * a));
-            result.push((-b + sqrt_delta) / (S::c(2.0) * a));
-        } else if delta.abs() < S::c(1e-6) {
-            result.push(-b / (S::c(2.0) * a));
+            result.push((-b - sqrt_delta) / (S::TWO * a));
+            result.push((-b + sqrt_delta) / (S::TWO * a));
+        } else if delta.abs() < S::constant(1e-6) {
+            result.push(-b / (S::TWO * a));
         }
         return result;
     }
 
-    let frac_1_3 = S::c(1.0 / 3.0);
+    let frac_1_3 = S::constant(1.0 / 3.0);
 
     let bn = b / a;
     let cn = c / a;
     let dn = d / a;
 
-    let delta0 = (S::c(3.0) * cn - bn * bn) / S::c(9.0);
-    let delta1 = (S::c(9.0) * bn * cn - S::c(27.0) * dn - S::c(2.0) * bn * bn * bn) / S::c(54.0);
+    let delta0 = (S::THREE * cn - bn * bn) / S::constant(9.0);
+    let delta1 = (S::constant(9.0) * bn * cn - S::constant(27.0) * dn - S::TWO * bn * bn * bn) / S::constant(54.0);
     let delta_01 = delta0 * delta0 * delta0 + delta1 * delta1;
 
     if delta_01 >= S::zero() {
@@ -88,15 +88,15 @@ pub fn cubic_polynomial_roots<S: Float + FloatConst>(a: S, b: S, c: S, d: S) -> 
 
         result.push(-bn * frac_1_3 + (s + t));
 
-        if (s - t).abs() < S::c(1e-5) {
-            result.push(-bn * frac_1_3 - (s + t) / S::c(2.0));
+        if (s - t).abs() < S::constant(1e-5) {
+            result.push(-bn * frac_1_3 - (s + t) / S::TWO);
         }
     } else {
         let theta = (delta1 / (-delta0 * delta0 * delta0).sqrt()).acos();
-        let two_sqrt_delta0 = S::c(2.0) * (-delta0).sqrt();
-        result.push(two_sqrt_delta0 * (theta * frac_1_3).cos() - bn * frac_1_3);
-        result.push(two_sqrt_delta0 * ((theta + S::c(2.0) * S::PI()) * frac_1_3).cos() - bn * frac_1_3);
-        result.push(two_sqrt_delta0 * ((theta + S::c(4.0) * S::PI()) * frac_1_3).cos() - bn * frac_1_3);
+        let two_sqrt_delta0 = S::TWO * Float::sqrt(-delta0);
+        result.push(two_sqrt_delta0 * Float::cos(theta * frac_1_3) - bn * frac_1_3);
+        result.push(two_sqrt_delta0 * Float::cos((theta + S::TWO * S::PI()) * frac_1_3) - bn * frac_1_3);
+        result.push(two_sqrt_delta0 * Float::cos((theta + S::FOUR * S::PI()) * frac_1_3) - bn * frac_1_3);
     }
 
     //result.sort();

@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use Line;
-use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq, cast};
+use scalar::{Scalar, Float, cast};
 use generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
 use utils::directed_angle;
 use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
@@ -14,7 +14,7 @@ pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
 
 /// An ellipic arc curve segment using the SVG notation.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct SvgArc<S: Float> {
+pub struct SvgArc<S> {
     pub from: Point<S>,
     pub to: Point<S>,
     pub radii: Vector<S>,
@@ -24,7 +24,7 @@ pub struct SvgArc<S: Float> {
 
 /// An ellipic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Arc<S: Float> {
+pub struct Arc<S> {
     pub center: Point<S>,
     pub radii: Vector<S>,
     pub start_angle: Angle<S>,
@@ -32,7 +32,7 @@ pub struct Arc<S: Float> {
     pub x_rotation: Angle<S>,
 }
 
-impl<S: Float + FloatConst + Trig + ::std::fmt::Debug> Arc<S> {
+impl<S: Scalar> Arc<S> {
     pub fn from_svg_arc(arc: &SvgArc<S>) -> Arc<S> {
         debug_assert!(!arc.from.x.is_nan());
         debug_assert!(!arc.from.y.is_nan());
@@ -49,13 +49,13 @@ impl<S: Float + FloatConst + Trig + ::std::fmt::Debug> Arc<S> {
         assert_ne!(rx, S::zero());
         assert_ne!(ry, S::zero());
 
-        let xr = arc.x_rotation.get() % (S::c(2.0) * S::PI());
+        let xr = arc.x_rotation.get() % (S::constant(2.0) * S::PI());
         let cos_phi = Float::cos(xr);
         let sin_phi = Float::sin(xr);
-        let hd_x = (arc.from.x - arc.to.x) / S::c(2.0);
-        let hd_y = (arc.from.y - arc.to.y) / S::c(2.0);
-        let hs_x = (arc.from.x + arc.to.x) / S::c(2.0);
-        let hs_y = (arc.from.y + arc.to.y) / S::c(2.0);
+        let hd_x = (arc.from.x - arc.to.x) / S::constant(2.0);
+        let hd_y = (arc.from.y - arc.to.y) / S::constant(2.0);
+        let hs_x = (arc.from.x + arc.to.x) / S::constant(2.0);
+        let hs_y = (arc.from.y + arc.to.y) / S::constant(2.0);
         // F6.5.1
         let p = Point::new(
             cos_phi * hd_x + sin_phi * hd_y,
@@ -96,7 +96,7 @@ impl<S: Float + FloatConst + Trig + ::std::fmt::Debug> Arc<S> {
         let start_angle = Angle::radians(directed_angle(vector(S::one(), S::zero()), a));
 
         let sign_delta = if arc.flags.sweep { S::one() } else { -S::one() };
-        let sweep_angle = Angle::radians(sign_delta * (directed_angle(a, b).abs() % (S::c(2.0) * S::PI())));
+        let sweep_angle = Angle::radians(sign_delta * (directed_angle(a, b).abs() % (S::constant(2.0) * S::PI())));
 
         Arc {
             center: center,
@@ -108,7 +108,7 @@ impl<S: Float + FloatConst + Trig + ::std::fmt::Debug> Arc<S> {
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> Arc<S> {
+impl<S: Scalar> Arc<S> {
     pub fn to_svg_arc(&self) -> SvgArc<S> {
         let from = self.sample(S::zero());
         let to = self.sample(S::one());
@@ -126,14 +126,12 @@ impl<S: Float + FloatConst + ApproxEq<S>> Arc<S> {
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> Arc<S> {
+impl<S: Scalar> Arc<S> {
     #[inline]
     pub fn to_quadratic_beziers<F: FnMut(Point<S>, Point<S>)>(&self, cb: &mut F) {
         arc_to_to_quadratic_beziers(self, cb);
     }
-}
 
-impl<S: Float + ApproxEq<S>> Arc<S> {
     /// Sample the curve at t (expecting t between 0 and 1).
     #[inline]
     pub fn sample(&self, t: S) -> Point<S> {
@@ -152,9 +150,7 @@ impl<S: Float + ApproxEq<S>> Arc<S> {
     pub fn sample_tangent(&self, t: S) -> Vector<S> {
         self.tangent_at_angle(self.get_angle(t))
     }
-}
 
-impl<S: Float> Arc<S> {
     /// Sample the curve's angle at t (expecting t between 0 and 1).
     #[inline]
     pub fn get_angle(&self, t: S) -> Angle<S> {
@@ -165,9 +161,7 @@ impl<S: Float> Arc<S> {
     pub fn end_angle(&self) -> Angle<S> {
         self.start_angle + self.sweep_angle
     }
-}
 
-impl<S: Float + ApproxEq<S>> Arc<S> {
     #[inline]
     pub fn from(&self) -> Point<S> {
         self.sample(S::zero())
@@ -177,9 +171,7 @@ impl<S: Float + ApproxEq<S>> Arc<S> {
     pub fn to(&self) -> Point<S> {
         self.sample(S::one())
     }
-}
 
-impl<S: Float> Arc<S> {
     /// Return the sub-curve inside a given range of t.
     ///
     /// This is equivalent splitting at the range's end points.
@@ -249,9 +241,7 @@ impl<S: Float> Arc<S> {
 
         arc
     }
-}
 
-impl<S: Float + ApproxEq<S>> Arc<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
@@ -262,7 +252,7 @@ impl<S: Float + ApproxEq<S>> Arc<S> {
         // Here we make the approximation that for small tolerance values we consider
         // the radius to be constant over each approximated segment.
         let r = (self.from() - self.center).length();
-        let a = S::c(2.0) * tolerance * r - tolerance * tolerance;
+        let a = S::constant(2.0) * tolerance * r - tolerance * tolerance;
         S::acos((a * a) / r)
     }
 
@@ -271,15 +261,13 @@ impl<S: Float + ApproxEq<S>> Arc<S> {
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(*self, tolerance)
     }
-}
 
-impl<S: Float + Trig> Arc<S> {
     /// Returns a conservative rectangle that contains the curve.
     pub fn bounding_rect(&self) -> Rect<S> {
         Transform2D::create_rotation(self.x_rotation).transform_rect(
             &Rect::new(
                 self.center - self.radii,
-                self.radii.to_size() * S::c(2.0)
+                self.radii.to_size() * S::constant(2.0)
             )
         )
     }
@@ -293,9 +281,7 @@ impl<S: Float + Trig> Arc<S> {
         let r = self.bounding_rect();
         (r.min_y(), r.max_y())
     }
-}
 
-impl<S: Float + ApproxEq<S>> Arc<S> {
     pub fn approximate_length(&self, tolerance: S) -> S {
         segment::approximate_length_from_flattening(self, tolerance)
     }
@@ -309,11 +295,11 @@ impl<S: Float + ApproxEq<S>> Arc<S> {
     }
 }
 
-impl<S: Float + FloatConst + Trig + ApproxEq<S> + ::std::fmt::Debug> Into<Arc<S>> for SvgArc<S> {
+impl<S: Scalar> Into<Arc<S>> for SvgArc<S> {
     fn into(self) -> Arc<S> { self.to_arc() }
 }
 
-impl<S: Float + FloatConst + Trig + ApproxEq<S> + ::std::fmt::Debug> SvgArc<S> {
+impl<S: Scalar> SvgArc<S> {
     pub fn to_arc(&self) -> Arc<S> { Arc::from_svg_arc(self) }
 
     pub fn to_quadratic_beziers<F: FnMut(Point<S>, Point<S>)>(&self, cb: &mut F) {
@@ -337,11 +323,11 @@ impl Default for ArcFlags {
     }
 }
 
-fn arc_to_to_quadratic_beziers<S: Float + FloatConst + ApproxEq<S>, F: FnMut(Point<S>, Point<S>)>(
+fn arc_to_to_quadratic_beziers<S: Scalar, F: FnMut(Point<S>, Point<S>)>(
     arc: &Arc<S>,
     call_back: &mut F,
 ) {
-    let sweep_angle = arc.sweep_angle.get().abs().min(S::PI() * S::c(2.0));
+    let sweep_angle = arc.sweep_angle.get().abs().min(S::PI() * S::constant(2.0));
 
     let n_steps = (sweep_angle / S::FRAC_PI_4()).ceil();
     let step = sweep_angle / n_steps;
@@ -362,13 +348,13 @@ fn arc_to_to_quadratic_beziers<S: Float + FloatConst + ApproxEq<S>, F: FnMut(Poi
     }
 }
 
-fn sample_ellipse<S: Float + ApproxEq<S>>(radii: Vector<S>, x_rotation: Angle<S>, angle: Angle<S>) -> Point<S> {
+fn sample_ellipse<S: Scalar>(radii: Vector<S>, x_rotation: Angle<S>, angle: Angle<S>) -> Point<S> {
     Rotation2D::new(x_rotation).transform_point(
-        &point(radii.x * angle.get().cos(), radii.y * angle.get().sin())
+        &point(radii.x * Float::cos(angle.get()), radii.y * Float::sin(angle.get()))
     )
 }
 
-impl<S: Float + ApproxEq<S>> Segment for Arc<S> {
+impl<S: Scalar> Segment for Arc<S> {
     type Scalar = S;
     fn from(&self) -> Point<S> { self.from() }
     fn to(&self) -> Point<S> { self.to() }
@@ -386,7 +372,7 @@ impl<S: Float + ApproxEq<S>> Segment for Arc<S> {
     }
 }
 
-impl<S: Float + Trig> BoundingRect for Arc<S> {
+impl<S: Scalar> BoundingRect for Arc<S> {
     type Scalar = S;
     fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
@@ -396,7 +382,7 @@ impl<S: Float + Trig> BoundingRect for Arc<S> {
     fn fast_bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
 }
 
-impl<S: Float + ApproxEq<S>> FlatteningStep for Arc<S> {
+impl<S: Scalar> FlatteningStep for Arc<S> {
     fn flattening_step(&self, tolerance: S) -> S {
         self.flattening_step(tolerance)
     }

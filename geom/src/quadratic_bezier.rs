@@ -1,5 +1,5 @@
 use {CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
-use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
+use scalar::Scalar;
 use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use monotonic::Monotonic;
 use arrayvec::ArrayVec;
@@ -17,40 +17,40 @@ pub type Flattened<S> = segment::Flattened<S, QuadraticBezierSegment<S>>;
 /// The curve is defined by equation:
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)² * from + 2 * (1 - t) * t * ctrl + 2 * t² * to```
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct QuadraticBezierSegment<S: Float> {
+pub struct QuadraticBezierSegment<S> {
     pub from: Point<S>,
     pub ctrl: Point<S>,
     pub to: Point<S>,
 }
 
-impl<S: Float> QuadraticBezierSegment<S> {
+impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Sample the curve at t (expecting t between 0 and 1).
     pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
-        let one_t = S::one() - t;
+        let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
-        return self.from * one_t2 + self.ctrl.to_vector() * S::c(2.0) * one_t * t + self.to.to_vector() * t2;
+        return self.from * one_t2 + self.ctrl.to_vector() * S::TWO * one_t * t + self.to.to_vector() * t2;
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
     pub fn x(&self, t: S) -> S {
         let t2 = t * t;
-        let one_t = S::one() - t;
+        let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
-        return self.from.x * one_t2 + self.ctrl.x * S::c(2.0) * one_t * t + self.to.x * t2;
+        return self.from.x * one_t2 + self.ctrl.x * S::TWO * one_t * t + self.to.x * t2;
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
     pub fn y(&self, t: S) -> S {
         let t2 = t * t;
-        let one_t = S::one() - t;
+        let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
-        return self.from.y * one_t2 + self.ctrl.y * S::c(2.0) * one_t * t + self.to.y * t2;
+        return self.from.y * one_t2 + self.ctrl.y * S::TWO * one_t * t + self.to.y * t2;
     }
 
     #[inline]
     fn derivative_coefficients(&self, t: S) -> (S, S, S) {
-        (S::c(2.0) * t - S::c(2.0), S::c(-4.0) * t + S::c(2.0), S::c(2.0) * t)
+        (S::TWO * t - S::TWO, S::constant(-4.0) * t + S::TWO, S::TWO * t)
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
@@ -90,7 +90,7 @@ impl<S: Float> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.y > self.to.y { S::zero() } else { S::one() };
+        return if self.from.y > self.to.y { S::zero() } else { S::ONE };
     }
 
     /// Find the advancement of the y-least position in the curve.
@@ -103,17 +103,17 @@ impl<S: Float> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.y < self.to.y { S::zero() } else { S::one() };
+        return if self.from.y < self.to.y { S::zero() } else { S::ONE };
     }
 
     /// Return the y inflection point or None if this curve is y-monotonic.
     pub fn find_local_y_extremum(&self) -> Option<S> {
-        let div = self.from.y - S::c(2.0) * self.ctrl.y + self.to.y;
+        let div = self.from.y - S::TWO * self.ctrl.y + self.to.y;
         if div == S::zero() {
             return None;
         }
         let t = (self.from.y - self.ctrl.y) / div;
-        if t > S::zero() && t < S::one() {
+        if t > S::zero() && t < S::ONE {
             return Some(t);
         }
         return None;
@@ -129,7 +129,7 @@ impl<S: Float> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.x > self.to.x { S::zero() } else { S::one() };
+        return if self.from.x > self.to.x { S::zero() } else { S::ONE };
     }
 
     /// Find the advancement of the x-least position in the curve.
@@ -142,17 +142,17 @@ impl<S: Float> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.x < self.to.x { S::zero() } else { S::one() };
+        return if self.from.x < self.to.x { S::zero() } else { S::ONE };
     }
 
     /// Return the x inflection point or None if this curve is x-monotonic.
     pub fn find_local_x_extremum(&self) -> Option<S> {
-        let div = self.from.x - S::c(2.0) * self.ctrl.x + self.to.x;
+        let div = self.from.x - S::TWO * self.ctrl.x + self.to.x;
         if div == S::zero() {
             return None;
         }
         let t = (self.from.x - self.ctrl.x) / div;
-        if t > S::zero() && t < S::one() {
+        if t > S::zero() && t < S::ONE {
             return Some(t);
         }
         return None;
@@ -166,15 +166,15 @@ impl<S: Float> QuadraticBezierSegment<S> {
         let t2 = t_range.end;
 
         debug_assert!(t1 >= S::zero());
-        debug_assert!(t2 <= S::one());
+        debug_assert!(t2 <= S::ONE);
         debug_assert!(t1 <= t2);
-        debug_assert!(t1 != S::one());
+        debug_assert!(t1 != S::ONE);
 
         let from = self.sample(t1);
         let to = self.sample(t2);
         let a = self.from.lerp(self.ctrl, t1);
         let b = self.ctrl.lerp(self.to, t1);
-        let ctrl = a.lerp(b, (t2 - t1) / (S::one() - t1));
+        let ctrl = a.lerp(b, (t2 - t1) / (S::ONE - t1));
 
         QuadraticBezierSegment { from, ctrl, to }
     }
@@ -216,8 +216,8 @@ impl<S: Float> QuadraticBezierSegment<S> {
     pub fn to_cubic(&self) -> CubicBezierSegment<S> {
         CubicBezierSegment {
             from: self.from,
-            ctrl1: (self.from + self.ctrl.to_vector() * S::c(2.0)) / S::c(3.0),
-            ctrl2: (self.to + self.ctrl.to_vector() * S::c(2.0)) / S::c(3.0),
+            ctrl1: (self.from + self.ctrl.to_vector() * S::TWO) / S::constant(3.0),
+            ctrl2: (self.to + self.ctrl.to_vector() * S::TWO) / S::constant(3.0),
             to: self.to,
         }
     }
@@ -228,7 +228,7 @@ impl<S: Float> QuadraticBezierSegment<S> {
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::c(0.000001);
+        let epsilon = S::constant(0.000001);
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }
@@ -241,18 +241,15 @@ impl<S: Float> QuadraticBezierSegment<S> {
     ///
     /// A fat line is two convervative lines between which the segment
     /// is fully contained.
-    pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>)
-    where S : ApproxEq<S> {
+    pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>) {
         let l1 = self.baseline().to_line().equation();
         let d = l1.signed_distance_to_point(&self.ctrl);
-        let two = S::one() + S::one();
+        let two = S::ONE + S::ONE;
         let l2 = l1.offset(d / two);
 
         if d >= S::zero() { (l1, l2) } else { (l2, l1) }
     }
-}
 
-impl<S: Float + Trig> QuadraticBezierSegment<S> {
     /// Applies the transform to this curve and returns the results.
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
@@ -262,9 +259,7 @@ impl<S: Float + Trig> QuadraticBezierSegment<S> {
             to: transform.transform_point(&self.to)
         }
     }
-}
 
-impl<S: Float> QuadraticBezierSegment<S> {
     /// Find the interval of the begining of the curve that can be approximated with a
     /// line segment.
     pub fn flattening_step(&self, tolerance: S) -> S {
@@ -274,23 +269,21 @@ impl<S: Float> QuadraticBezierSegment<S> {
         let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
         let h = v1.x.hypot(v1.y);
 
-        if (v1_cross_v2 * h).abs() <= S::c(0.000001) {
-            return S::one();
+        if (v1_cross_v2 * h).abs() <= S::constant(0.000001) {
+            return S::ONE;
         }
 
         let s2inv = h / v1_cross_v2;
 
-        let t = S::c(2.0) * (tolerance * s2inv.abs() / S::c(3.0)).sqrt();
+        let t = S::TWO * (tolerance * s2inv.abs() / S::constant(3.0)).sqrt();
 
-        if t > S::one() {
-            return S::one();
+        if t > S::ONE {
+            return S::ONE;
         }
 
         return t;
     }
-}
 
-impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
@@ -301,16 +294,12 @@ impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(*self, tolerance)
     }
-}
 
-impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// Compute the length of the segment using a flattened approximation.
     pub fn approximate_length(&self, tolerance: S) -> S {
         segment::approximate_length_from_flattening(self, tolerance)
     }
-}
 
-impl<S: Float> QuadraticBezierSegment<S> {
     /// Returns a triangle containing this curve segment.
     pub fn bounding_triangle(&self) -> Triangle<S> {
         Triangle {
@@ -365,9 +354,7 @@ impl<S: Float> QuadraticBezierSegment<S> {
     pub fn assume_monotonic(&self) -> MonotonicQuadraticBezierSegment<S> {
         MonotonicQuadraticBezierSegment { segment: *self }
     }
-}
 
-impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     /// Computes the intersections (if any) between this segment a line.
     ///
     /// The result is provided in the form of the `t` parameters of each
@@ -416,9 +403,6 @@ impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
 
         return result;
     }
-}
-
-impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     pub fn from(&self) -> Point<S> { self.from }
 
     pub fn to(&self) -> Point<S> { self.to }
@@ -437,9 +421,9 @@ impl<S: Float + FloatConst + ApproxEq<S>> QuadraticBezierSegment<S> {
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> Segment for QuadraticBezierSegment<S> { impl_segment!(S); }
+impl<S: Scalar> Segment for QuadraticBezierSegment<S> { impl_segment!(S); }
 
-impl<S: Float> BoundingRect for QuadraticBezierSegment<S> {
+impl<S: Scalar> BoundingRect for QuadraticBezierSegment<S> {
     type Scalar = S;
     fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect<S> { self.fast_bounding_rect() }
@@ -449,7 +433,7 @@ impl<S: Float> BoundingRect for QuadraticBezierSegment<S> {
     fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> FlatteningStep for QuadraticBezierSegment<S> {
+impl<S: Scalar> FlatteningStep for QuadraticBezierSegment<S> {
     fn flattening_step(&self, tolerance: S) -> S {
         self.flattening_step(tolerance)
     }
@@ -682,6 +666,8 @@ fn fat_line() {
 
 #[test]
 fn is_linear() {
+    use scalar::Float;
+
     let mut angle = 0.0;
     let center = Point::new(1000.0, -700.0);
     for _ in 0..100 {

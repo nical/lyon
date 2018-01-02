@@ -1,5 +1,5 @@
 use {Line, LineSegment, LineEquation};
-use scalar::{Float, FloatExt, FloatConst, Trig, ApproxEq};
+use scalar::{Scalar, Float};
 use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
@@ -17,14 +17,14 @@ use std::ops::Range;
 /// The curve is defined by equation:²
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)³ * from + 3 * (1 - t)² * t * ctrl1 + 3 * t² * (1 - t) * ctrl2 + t³ * to```
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct CubicBezierSegment<S: Float> {
+pub struct CubicBezierSegment<S> {
     pub from: Point<S>,
     pub ctrl1: Point<S>,
     pub ctrl2: Point<S>,
     pub to: Point<S>,
 }
 
-impl<S: Float> CubicBezierSegment<S> {
+impl<S: Scalar> CubicBezierSegment<S> {
     /// Sample the curve at t (expecting t between 0 and 1).
     pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
@@ -33,8 +33,8 @@ impl<S: Float> CubicBezierSegment<S> {
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from * one_t3 +
-            self.ctrl1.to_vector() * S::c(3.0) * one_t2 * t +
-            self.ctrl2.to_vector() * S::c(3.0) * one_t * t2 +
+            self.ctrl1.to_vector() * S::THREE * one_t2 * t +
+            self.ctrl2.to_vector() * S::THREE * one_t * t2 +
             self.to.to_vector() * t3;
     }
 
@@ -46,8 +46,8 @@ impl<S: Float> CubicBezierSegment<S> {
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from.x * one_t3 +
-            self.ctrl1.x * S::c(3.0) * one_t2 * t +
-            self.ctrl2.x * S::c(3.0) * one_t * t2 +
+            self.ctrl1.x * S::THREE * one_t2 * t +
+            self.ctrl2.x * S::THREE * one_t * t2 +
             self.to.x * t3;
     }
 
@@ -59,8 +59,8 @@ impl<S: Float> CubicBezierSegment<S> {
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from.y * one_t3 +
-            self.ctrl1.y * S::c(3.0) * one_t2 * t +
-            self.ctrl2.y * S::c(3.0) * one_t * t2 +
+            self.ctrl1.y * S::THREE * one_t2 * t +
+            self.ctrl2.y * S::THREE * one_t * t2 +
             self.to.y * t3;
     }
 
@@ -68,10 +68,10 @@ impl<S: Float> CubicBezierSegment<S> {
     fn derivative_coefficients(&self, t: S) -> (S, S, S, S) {
         let t2 = t*t;
         (
-            - S::c(3.0) * t2 + S::c(6.0) * t - S::c(3.0),
-            S::c(9.0) * t2 - S::c(12.0) * t + S::c(3.0),
-            - S::c(9.0) * t2 + S::c(6.0) * t,
-            S::c(3.0) * t2
+            - S::THREE * t2 + S::constant(6.0) * t - S::THREE,
+            S::constant(9.0) * t2 - S::constant(12.0) * t + S::THREE,
+            - S::constant(9.0) * t2 + S::constant(6.0) * t,
+            S::THREE * t2
         )
     }
 
@@ -167,7 +167,7 @@ impl<S: Float> CubicBezierSegment<S> {
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::c(0.00001);
+        let epsilon = S::constant(0.00001);
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }
@@ -180,8 +180,7 @@ impl<S: Float> CubicBezierSegment<S> {
     ///
     /// A fat line is two convervative lines between which the segment
     /// is fully contained.
-    pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>)
-    where S : ApproxEq<S> {
+    pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>) {
         let baseline = self.baseline().to_line().equation();
         let (mut d1, mut d2) = min_max(
             baseline.signed_distance_to_point(&self.ctrl1),
@@ -191,7 +190,7 @@ impl<S: Float> CubicBezierSegment<S> {
         d1 = Float::min(d1, S::zero());
         d2 = Float::max(d2, S::zero());
 
-        let frac_3_4 = S::c(3.0/4.0);
+        let frac_3_4 = S::constant(3.0/4.0);
 
         if (d1 * d2).is_sign_positive() {
             d1 = d1 * frac_3_4;
@@ -203,9 +202,7 @@ impl<S: Float> CubicBezierSegment<S> {
 
         (baseline.offset(d1), baseline.offset(d2))
     }
-}
 
-impl<S: Float + Trig> CubicBezierSegment<S> {
     /// Applies the transform to this curve and returns the results.
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
@@ -216,9 +213,7 @@ impl<S: Float + Trig> CubicBezierSegment<S> {
             to: transform.transform_point(&self.to)
         }
     }
-}
 
-impl<S: Float> CubicBezierSegment<S> {
     /// Swap the beginning and the end of the segment.
     pub fn flip(&self) -> Self {
         CubicBezierSegment {
@@ -234,9 +229,7 @@ impl<S: Float> CubicBezierSegment<S> {
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(*self, tolerance)
     }
-}
 
-impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
@@ -246,9 +239,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     pub fn approximate_length(&self, tolerance: S) -> S {
         approximate_length_from_flattening(self, tolerance)
     }
-}
 
-impl<S: Float> CubicBezierSegment<S> {
     pub fn find_inflection_points(&self) -> ArrayVec<[S; 2]> {
         find_cubic_bezier_inflection_points(self)
     }
@@ -261,9 +252,9 @@ impl<S: Float> CubicBezierSegment<S> {
         // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
         // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
         // f(x) = a * x² + b * x + c such as :
-        let a = S::c(3.0) * (self.to.x - S::c(3.0) * self.ctrl2.x + S::c(3.0) * self.ctrl1.x - self.from.x);
-        let b = S::c(6.0) * (self.ctrl2.x - S::c(2.0) * self.ctrl1.x + self.from.x);
-        let c = S::c(3.0) * (self.ctrl1.x - self.from.x);
+        let a = S::THREE * (self.to.x - S::THREE * self.ctrl2.x + S::THREE * self.ctrl1.x - self.from.x);
+        let b = S::constant(6.0) * (self.ctrl2.x - S::TWO * self.ctrl1.x + self.from.x);
+        let c = S::THREE * (self.ctrl1.x - self.from.x);
 
         // If the derivative is a linear function
         if a == S::zero() {
@@ -278,9 +269,9 @@ impl<S: Float> CubicBezierSegment<S> {
             return ret;
         }
 
-        fn in_range<S: Float>(t: S) -> bool { t > S::zero() && t < S::one() }
+        fn in_range<S: Scalar>(t: S) -> bool { t > S::zero() && t < S::one() }
 
-        let discriminant = b * b - S::c(4.0) * a * c;
+        let discriminant = b * b - S::FOUR * a * c;
 
         // There is no Real solution for the equation
         if discriminant < S::zero() {
@@ -289,7 +280,7 @@ impl<S: Float> CubicBezierSegment<S> {
 
         // There is one Real solution for the equation
         if discriminant == S::zero() {
-            let t = -b / (S::c(2.0) * a);
+            let t = -b / (S::TWO * a);
             if in_range(t) {
                 ret.push(t);
             }
@@ -299,8 +290,8 @@ impl<S: Float> CubicBezierSegment<S> {
         // There are two Real solutions for the equation
         let discriminant_sqrt = discriminant.sqrt();
 
-        let first_extremum = (-b - discriminant_sqrt) / (S::c(2.0) * a);
-        let second_extremum = (-b + discriminant_sqrt) / (S::c(2.0) * a);
+        let first_extremum = (-b - discriminant_sqrt) / (S::TWO * a);
+        let second_extremum = (-b + discriminant_sqrt) / (S::TWO * a);
 
         if in_range(first_extremum) {
             ret.push(first_extremum);
@@ -459,16 +450,14 @@ impl<S: Float> CubicBezierSegment<S> {
     pub fn assume_monotonic(&self) -> MonotonicCubicBezierSegment<S> {
         MonotonicCubicBezierSegment { segment: *self }
     }
-}
 
-impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     /// Computes the intersections (if any) between this segment a line.
     ///
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
     pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<[S; 3]> {
-        if line.vector.square_length() < S::c(1e-6) {
+        if line.vector.square_length() < S::constant(1e-6) {
             return ArrayVec::new();
         }
 
@@ -477,9 +466,9 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
         let ctrl2 = self.ctrl2.to_vector();
         let to = self.to.to_vector();
 
-        let p1 = to - from + (ctrl1 - ctrl2) * S::c(3.0);
-        let p2 = from * S::c(3.0) + (ctrl2 - ctrl1 * S::c(2.0)) * S::c(3.0);
-        let p3 = (ctrl1 - from) * S::c(3.0);
+        let p1 = to - from + (ctrl1 - ctrl2) * S::THREE;
+        let p2 = from * S::THREE + (ctrl2 - ctrl1 * S::TWO) * S::THREE;
+        let p3 = (ctrl1 - from) * S::THREE;
         let p4 = from;
 
         let c = line.point.y * line.vector.x - line.point.x * line.vector.y;
@@ -535,9 +524,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
         }
         return result;
     }
-}
 
-impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     pub fn from(&self) -> Point<S> { self.from }
 
     pub fn to(&self) -> Point<S> { self.to }
@@ -554,9 +541,9 @@ impl<S: Float + FloatConst + ApproxEq<S>> CubicBezierSegment<S> {
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> Segment for CubicBezierSegment<S> { impl_segment!(S); }
+impl<S: Scalar> Segment for CubicBezierSegment<S> { impl_segment!(S); }
 
-impl<S: Float> BoundingRect for CubicBezierSegment<S> {
+impl<S: Scalar> BoundingRect for CubicBezierSegment<S> {
     type Scalar = S;
     fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect<S> { self.fast_bounding_rect() }
@@ -566,7 +553,7 @@ impl<S: Float> BoundingRect for CubicBezierSegment<S> {
     fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> FlattenedForEach for CubicBezierSegment<S> {
+impl<S: Scalar> FlattenedForEach for CubicBezierSegment<S> {
     fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         self.flattened_for_each(tolerance, call_back);
     }
