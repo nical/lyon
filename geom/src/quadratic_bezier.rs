@@ -228,7 +228,7 @@ impl<S: Float> QuadraticBezierSegment<S> {
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::c(0.00001);
+        let epsilon = S::c(0.000001);
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }
@@ -647,5 +647,55 @@ fn monotonic_solve_t_for_x() {
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
         let x_diff = curve.x(t) - curve.x(t2);
         assert!(x_diff.abs() <= tolerance);
+    }
+}
+
+#[test]
+#[ignore]
+fn fat_line() {
+    use math::point;
+
+    let c1 = QuadraticBezierSegment {
+        from: point(1.0f32, 2.0),
+        ctrl: point(1.0, 3.0),
+        to: point(11.0, 12.0),
+    };
+
+    let (l1, l2) = c1.fat_line();
+    println!("l1: {} {} {}",
+        l1.signed_distance_to_point(&c1.from),
+        l1.signed_distance_to_point(&c1.ctrl),
+        l1.signed_distance_to_point(&c1.to)
+    );
+    println!("l2: {} {} {}",
+        l2.signed_distance_to_point(&c1.from),
+        l2.signed_distance_to_point(&c1.ctrl),
+        l2.signed_distance_to_point(&c1.to)
+    );
+    assert!(l1.signed_distance_to_point(&c1.from) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c1.ctrl) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c1.to) <= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.from) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.ctrl) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.to) >= 0.0);
+}
+
+#[test]
+fn is_linear() {
+    let mut angle = 0.0;
+    let center = Point::new(1000.0, -700.0);
+    for _ in 0..100 {
+        for i in 0..10 {
+            let (sin, cos) = Float::sin_cos(angle);
+            let endpoint = Vector::new(cos * 100.0, sin * 100.0);
+            let curve = QuadraticBezierSegment {
+                from: center - endpoint,
+                ctrl: center + endpoint.lerp(-endpoint, i as f64 / 9.0),
+                to: center + endpoint,
+            };
+
+            assert!(curve.is_linear(1e-10));
+        }
+        angle += 0.001;
     }
 }

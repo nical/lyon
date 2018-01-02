@@ -172,7 +172,6 @@ impl<S: Float> CubicBezierSegment<S> {
             return false;
         }
         let line = self.baseline().to_line().equation();
-
         line.distance_to_point(&self.ctrl1) < tolerance
             && line.distance_to_point(&self.ctrl2) < tolerance
     }
@@ -748,6 +747,7 @@ fn monotonic_solve_t_for_x() {
 }
 
 #[test]
+#[ignore]
 fn fat_line() {
     use math::point;
 
@@ -758,13 +758,15 @@ fn fat_line() {
         to: point(11.0, 12.0),
     };
 
-    let (baseline, d1, d2) = c1.fat_line();
-    assert_eq!(baseline, LineSegment { from: c1.from, to: c1. to });
-    assert!(d1 <= 0.0);
-    assert!(d2 >= 0.0);
-    let sqrt_2_2: f32 = Float::sqrt(2.0)/2.0;
-    assert!(d1.approx_eq(&-sqrt_2_2));
-    assert!(d2.approx_eq(&sqrt_2_2));
+    let (l1, l2) = c1.fat_line();
+    assert!(l1.signed_distance_to_point(&c1.from) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c1.ctrl1) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c1.ctrl2) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c1.to) <= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.from) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.ctrl1) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.ctrl2) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c1.to) >= 0.0);
 
     let c2 = CubicBezierSegment {
         from: point(1.0f32, 2.0),
@@ -773,20 +775,35 @@ fn fat_line() {
         to: point(11.0, 12.0),
     };
 
-    let (baseline, d1, d2) = c2.fat_line();
-    assert_eq!(baseline, LineSegment { from: c1.from, to: c1. to });
-    assert!(d1.approx_eq(&(-2.0 * sqrt_2_2)));
-    assert!(d2.approx_eq(&0.0));
+    let (l1, l2) = c2.fat_line();
+    assert!(l1.signed_distance_to_point(&c2.from) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c2.ctrl1) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c2.ctrl2) <= 0.0);
+    assert!(l1.signed_distance_to_point(&c2.to) <= 0.0);
+    assert!(l2.signed_distance_to_point(&c2.from) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c2.ctrl1) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c2.ctrl2) >= 0.0);
+    assert!(l2.signed_distance_to_point(&c2.to) >= 0.0);
+}
 
-    let c3 = CubicBezierSegment {
-        from: point(1.0f32, 2.0),
-        ctrl1: point(1.0, 0.0),
-        ctrl2: point(11.0, 11.0),
-        to: point(11.0, 12.0),
-    };
-
-    let (baseline, d1, d2) = c3.fat_line();
-    assert_eq!(baseline, LineSegment { from: c1.from, to: c1. to });
-    assert!(d1.approx_eq(&0.0));
-    assert!(d2.approx_eq(&(2.0 * sqrt_2_2)));
+#[test]
+fn is_linear() {
+    let mut angle = 0.0;
+    let center = Point::new(1000.0, -700.0);
+    for _ in 0..100 {
+        for i in 0..10 {
+            for j in 0..10 {
+                let (sin, cos) = Float::sin_cos(angle);
+                let endpoint = Vector::new(cos * 100.0, sin * 100.0);
+                let curve = CubicBezierSegment {
+                    from: center - endpoint,
+                    ctrl1: center + endpoint.lerp(-endpoint, i as f64 / 9.0),
+                    ctrl2: center + endpoint.lerp(-endpoint, j as f64 / 9.0),
+                    to: center + endpoint,
+                };
+                assert!(curve.is_linear(1e-10));
+            }
+        }
+        angle += 0.001;
+    }
 }
