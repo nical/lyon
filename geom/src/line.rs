@@ -305,12 +305,12 @@ impl<S: Float> Line<S> {
     pub fn signed_distance_to_point(&self, p: &Point<S>) -> S where S : ApproxEq<S> {
         let v1 = self.point.to_vector();
         let v2 = v1 + self.vector;
-        (p.to_vector().cross(self.vector) + v2.cross(v1)) / self.vector.length()
+        (self.vector.cross(p.to_vector()) + v1.cross(v2)) / self.vector.length()
     }
 
     pub fn equation(&self) -> LineEquation<S> {
-        let a = self.vector.x;
-        let b = self.vector.y;
+        let a = -self.vector.y;
+        let b = self.vector.x;
         let c = -(a * self.point.x + b * self.point.y);
 
         LineEquation::new(a, b, c)
@@ -319,6 +319,7 @@ impl<S: Float> Line<S> {
 
 /// A line defined by the equation
 /// `a * x + b * y + c = 0; a * a + b * b = 1`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct LineEquation<S> {
     a: S,
     b: S,
@@ -327,7 +328,8 @@ pub struct LineEquation<S> {
 
 impl<S: Float> LineEquation<S> {
     pub fn new(a: S, b: S, c: S) -> Self {
-        let div = S::one() / (a * a + b * b);
+        debug_assert!(a != S::zero() || b != S::zero());
+        let div = S::one() / Float::sqrt(a * a + b * b);
         LineEquation { a: a * div, b: b * div, c: c * div }
     }
 
@@ -370,12 +372,45 @@ impl<S: Float> LineEquation<S> {
 
     #[inline]
     pub fn offset(&self, d: S) -> Self {
-        LineEquation { a: self.a, b: self.b, c: self.c + d }
+        LineEquation { a: self.a, b: self.b, c: self.c - d }
     }
 
     #[inline]
-    pub fn to_vector(&self) -> Vector<S> {
+    pub fn tangent(&self) -> Vector<S> {
+        vector(self.b, -self.a)
+    }
+
+    #[inline]
+    pub fn normal(&self) -> Vector<S> {
         vector(self.a, self.b)
+    }
+
+    #[inline]
+    pub fn solve_y_for_x(&self, x: S) -> Option<S> {
+        if self.b == S::zero() {
+            return None;
+        }
+
+        Some((self.a * x + self.c) / -self.b)
+    }
+
+    #[inline]
+    pub fn solve_x_for_y(&self, y: S) -> Option<S> {
+        if self.a == S::zero() {
+            return None;
+        }
+
+        Some((self.b * y + self.c) / -self.a)
+    }
+
+    #[inline]
+    pub fn is_horizontal(&self) -> bool {
+        self.a == S::zero()
+    }
+
+    #[inline]
+    pub fn is_vertical(&self) -> bool {
+        self.b == S::zero()
     }
 }
 
@@ -521,10 +556,69 @@ fn distance_to_point() {
         vector: vector(1.5, 1.5),
     };
 
-    assert!(l1.signed_distance_to_point(&point(1.1, 4.0)).approx_eq(&1.0));
-    assert!(l1.signed_distance_to_point(&point(2.3, 2.0)).approx_eq(&-1.0));
+    assert!(l1.signed_distance_to_point(&point(1.1, 4.0)).approx_eq(&-1.0));
+    assert!(l1.signed_distance_to_point(&point(2.3, 2.0)).approx_eq(&1.0));
 
-    assert!(l2.signed_distance_to_point(&point(1.0, 0.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
-    assert!(l2.signed_distance_to_point(&point(0.0, 1.0)).approx_eq(&(-f32::sqrt(2.0)/2.0)));
+    assert!(l2.signed_distance_to_point(&point(1.0, 0.0)).approx_eq(&(-f32::sqrt(2.0)/2.0)));
+    assert!(l2.signed_distance_to_point(&point(0.0, 1.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
+
+    assert!(l1.equation().distance_to_point(&point(1.1, 4.0)).approx_eq(&1.0));
+    assert!(l1.equation().distance_to_point(&point(2.3, 2.0)).approx_eq(&1.0));
+    assert!(l2.equation().distance_to_point(&point(1.0, 0.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
+    assert!(l2.equation().distance_to_point(&point(0.0, 1.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
+
+    assert!(l1.equation().signed_distance_to_point(&point(1.1, 4.0)).approx_eq(&l1.signed_distance_to_point(&point(1.1, 4.0))));
+    assert!(l1.equation().signed_distance_to_point(&point(2.3, 2.0)).approx_eq(&l1.signed_distance_to_point(&point(2.3, 2.0))));
+
+    assert!(l2.equation().signed_distance_to_point(&point(1.0, 0.0)).approx_eq(&l2.signed_distance_to_point(&point(1.0, 0.0))));
+    assert!(l2.equation().signed_distance_to_point(&point(0.0, 1.0)).approx_eq(&l2.signed_distance_to_point(&point(0.0, 1.0))));
 }
 
+#[test]
+fn solve_y_for_x() {
+
+    let line = Line {
+        point: Point::new(1.0, 1.0),
+        vector: Vector::new(2.0, 4.0),
+    };
+    let eqn = line.equation();
+
+    if let Some(y) = eqn.solve_y_for_x(line.point.x) {
+        println!("{:?} != {:?}", y, line.point.y);
+        assert!(f64::abs(y - line.point.y) < 0.000001)
+    }
+
+    if let Some(x) = eqn.solve_x_for_y(line.point.y) {
+        assert!(f64::abs(x - line.point.x) < 0.000001)
+    }
+
+    let mut angle = 0.1;
+    for _ in 0..100 {
+        let (sin, cos) = Float::sin_cos(angle);
+        let line = Line {
+            point: Point::new(-1000.0, 600.0),
+            vector: Vector::new(cos * 100.0, sin * 100.0),
+        };
+        let eqn = line.equation();
+
+        if let Some(y) = eqn.solve_y_for_x(line.point.x) {
+            println!("{:?} != {:?}", y, line.point.y);
+            assert!(f64::abs(y - line.point.y) < 0.000001)
+        }
+
+        if let Some(x) = eqn.solve_x_for_y(line.point.y) {
+            assert!(f64::abs(x - line.point.x) < 0.000001)
+        }
+
+        angle += 0.001;
+    }
+}
+
+#[test]
+fn offset() {
+    let l1 = LineEquation::new(2.0, 3.0, 1.0);
+    let p = Point::new(10.0, 3.0);
+    let d = l1.signed_distance_to_point(&p);
+    let l2 = l1.offset(d);
+    assert!(l2.distance_to_point(&p) < 0.0000001f64);
+}
