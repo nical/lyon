@@ -1,16 +1,16 @@
-use scalar::{Float, Trig};
+use scalar::Scalar;
 use generic_math::{Point, Rect, Size, Transform2D};
 use LineSegment;
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Triangle<S: Float> {
+pub struct Triangle<S> {
     pub a: Point<S>,
     pub b: Point<S>,
     pub c: Point<S>,
 }
 
-impl<S: Float> Triangle<S> {
+impl<S: Scalar> Triangle<S> {
     pub fn contains_point(&self, point: Point<S>) -> bool {
         // see http://blackpawn.com/texts/pointinpoly/
         let v0 = self.c - self.a;
@@ -71,9 +71,7 @@ impl<S: Float> Triangle<S> {
     pub fn ac(&self) -> LineSegment<S> {
         LineSegment { from: self.a, to: self.c }
     }
-}
 
-impl<S: Float + Trig> Triangle<S> {
     /// [Not implemented] Applies the transform to this triangle and returns the results.
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
@@ -83,9 +81,7 @@ impl<S: Float + Trig> Triangle<S> {
             c: transform.transform_point(&self.c)
         }
     }
-}
 
-impl<S: Float> Triangle<S> {
     /// Test for triangle-triangle intersection.
     pub fn intersects(&self, other: &Self) -> bool {
         // TODO: This should be optimized.

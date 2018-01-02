@@ -1,4 +1,4 @@
-use scalar::{Float, FloatExt, Trig, ApproxEq};
+use scalar::{Scalar, Float};
 use generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use monotonic::MonotonicSegment;
@@ -8,12 +8,12 @@ use std::ops::Range;
 
 /// A linear segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct LineSegment<S: Float> {
+pub struct LineSegment<S> {
     pub from: Point<S>,
     pub to: Point<S>,
 }
 
-impl<S: Float> LineSegment<S> {
+impl<S: Scalar> LineSegment<S> {
     /// Sample the segment at t (expecting t between 0 and 1).
     #[inline]
     pub fn sample(&self, t: S) -> Point<S> {
@@ -142,17 +142,13 @@ impl<S: Float> LineSegment<S> {
             vector: self.to - self.from,
         }
     }
-}
 
-impl<S: Float + ApproxEq<S>> LineSegment<S> {
     /// Computes the length of this segment.
     #[inline]
     pub fn length(&self) -> S {
         self.to_vector().length()
     }
-}
 
-impl<S: Float> LineSegment<S> {
     #[inline]
     pub fn translate(&mut self, by: Vector<S>) -> Self {
         LineSegment {
@@ -160,9 +156,7 @@ impl<S: Float> LineSegment<S> {
             to: self.to + by,
         }
     }
-}
 
-impl<S: Float + Trig> LineSegment<S> {
     /// Applies the transform to this segment and returns the results.
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
@@ -171,9 +165,7 @@ impl<S: Float + Trig> LineSegment<S> {
             to: transform.transform_point(&self.to),
         }
     }
-}
 
-impl<S: Float> LineSegment<S> {
     /// Computes the intersection (if any) between this segment and another one.
     ///
     /// The result is provided in the form of the `t` parameter of each
@@ -228,7 +220,7 @@ impl<S: Float> LineSegment<S> {
     }
 }
 
-impl<S: Float + ApproxEq<S>> Segment for LineSegment<S> {
+impl<S: Scalar> Segment for LineSegment<S> {
     type Scalar = S;
     fn from(&self) -> Point<S> { self.from }
     fn to(&self) -> Point<S> { self.to }
@@ -246,7 +238,7 @@ impl<S: Float + ApproxEq<S>> Segment for LineSegment<S> {
     fn approximate_length(&self, _tolerance: S) -> S { self.length() }
 }
 
-impl<S: Float> BoundingRect for LineSegment<S> {
+impl<S: Scalar> BoundingRect for LineSegment<S> {
     type Scalar = S;
     fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
     fn fast_bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
@@ -256,14 +248,14 @@ impl<S: Float> BoundingRect for LineSegment<S> {
     fn fast_bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
 }
 
-impl<S: Float> MonotonicSegment for LineSegment<S> {
+impl<S: Scalar> MonotonicSegment for LineSegment<S> {
     type Scalar = S;
     fn solve_t_for_x(&self, x: S, _t_range: Range<S>, _tolerance: S) -> S {
         self.solve_t_for_x(x)
     }
 }
 
-impl<S: Float + ApproxEq<S>> FlatteningStep for LineSegment<S> {
+impl<S: Scalar> FlatteningStep for LineSegment<S> {
     fn flattening_step(&self, _tolerance: S) -> S { S::one() }
 }
 
@@ -276,14 +268,14 @@ impl<S: Float + ApproxEq<S>> FlatteningStep for LineSegment<S> {
 
 /// An infinite line defined by a point and a vector.
 #[derive(Copy, Clone, Debug)]
-pub struct Line<S: Float> {
+pub struct Line<S> {
     pub point: Point<S>,
     pub vector: Vector<S>,
 }
 
-impl<S: Float> Line<S> {
+impl<S: Scalar> Line<S> {
     pub fn intersection(&self, other: &Self) -> Option<Point<S>> {
-        let epsilon = S::c(0.000001);
+        let epsilon = S::constant(0.000001);
         let det = self.vector.cross(other.vector);
         if det.abs() <= epsilon {
             // The lines are very close to parallel
@@ -302,7 +294,7 @@ impl<S: Float> Line<S> {
         );
     }
 
-    pub fn signed_distance_to_point(&self, p: &Point<S>) -> S where S : ApproxEq<S> {
+    pub fn signed_distance_to_point(&self, p: &Point<S>) -> S {
         let v1 = self.point.to_vector();
         let v2 = v1 + self.vector;
         (self.vector.cross(p.to_vector()) + v1.cross(v2)) / self.vector.length()
@@ -326,7 +318,7 @@ pub struct LineEquation<S> {
     c: S,
 }
 
-impl<S: Float> LineEquation<S> {
+impl<S: Scalar> LineEquation<S> {
     pub fn new(a: S, b: S, c: S) -> Self {
         debug_assert!(a != S::zero() || b != S::zero());
         let div = S::one() / Float::sqrt(a * a + b * b);
@@ -515,6 +507,8 @@ fn intersection_overlap() {
 
 #[cfg(test)]
 use euclid::rect;
+#[cfg(test)]
+use scalar::ApproxEq;
 
 #[test]
 fn bounding_rect() {

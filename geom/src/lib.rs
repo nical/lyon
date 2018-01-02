@@ -107,15 +107,51 @@ mod scalar {
     pub(crate) use euclid::Trig;
     pub(crate) use euclid::approxeq::ApproxEq; // FIXME: Remove ApproxEq bounds
 
-    pub(crate) trait FloatExt {
-        // Only use for constants
-        fn c(c: f64) -> Self;
+    use std::fmt::{Display, Debug};
+
+    pub trait Scalar
+        : Float
+        + NumCast
+        + FloatConst
+        + Sized
+        + Display
+        + Debug
+        + ApproxEq<Self>
+        + Trig
+    {
+        const HALF: Self;
+        const ZERO: Self;
+        const ONE: Self;
+        const TWO: Self;
+        const THREE: Self;
+        const FOUR: Self;
+        const FIVE: Self;
+
+        fn constant(v: f32) -> Self;
     }
 
-    impl<S: Float> FloatExt for S {
-        fn c(c: f64) -> Self {
-            cast(c).unwrap()
-        }
+    impl Scalar for f32 {
+        const HALF: Self = 0.5;
+        const ZERO: Self = 0.0;
+        const ONE: Self = 1.0;
+        const TWO: Self = 2.0;
+        const THREE: Self = 3.0;
+        const FOUR: Self = 4.0;
+        const FIVE: Self = 5.0;
+
+        fn constant(v: f32) -> Self { v }
+    }
+
+    impl Scalar for f64 {
+        const HALF: Self = 0.5;
+        const ZERO: Self = 0.0;
+        const ONE: Self = 1.0;
+        const TWO: Self = 2.0;
+        const THREE: Self = 3.0;
+        const FOUR: Self = 4.0;
+        const FIVE: Self = 5.0;
+
+        fn constant(v: f32) -> Self { v as f64 }
     }
 }
 

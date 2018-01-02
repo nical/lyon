@@ -1,5 +1,5 @@
 use segment::{Segment, BoundingRect};
-use scalar::{Float, FloatConst, FloatExt, NumCast, ApproxEq};
+use scalar::{Scalar, Float, NumCast};
 use generic_math::{Point, Vector, Rect};
 use std::ops::Range;
 use arrayvec::ArrayVec;
@@ -90,7 +90,7 @@ impl<T: BoundingRect> BoundingRect for Monotonic<T> {
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<QuadraticBezierSegment<S>> {
+impl<S: Scalar> Monotonic<QuadraticBezierSegment<S>> {
     pub fn solve_t_for_x(&self, x: S) -> S {
         Self::solve_t(
             NumCast::from(self.segment.from.x).unwrap(),
@@ -179,14 +179,14 @@ impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<QuadraticBezierSegment<S>> {
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> MonotonicSegment for Monotonic<QuadraticBezierSegment<S>> {
+impl<S: Scalar> MonotonicSegment for Monotonic<QuadraticBezierSegment<S>> {
     type Scalar = S;
     fn solve_t_for_x(&self, x: S, _t_range: Range<S>, _tolerance: S) -> S {
         self.solve_t_for_x(x)
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<CubicBezierSegment<S>> {
+impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
     pub fn solve_t_for_x(&self, x: S, t_range: Range<S>, tolerance: S) -> S {
         debug_assert!(t_range.start <= t_range.end);
         let from = self.x(t_range.start);
@@ -209,7 +209,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<CubicBezierSegment<S>> {
 
             let dx = self.dx(t);
 
-            if dx <= S::c(1e-5) {
+            if dx <= S::constant(1e-5) {
                 break
             }
 
@@ -219,7 +219,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<CubicBezierSegment<S>> {
         // Fall back to binary search.
         let mut min = t_range.start;
         let mut max = t_range.end;
-        let mut t = S::c(0.5);
+        let mut t = S::constant(0.5);
 
         while min < max {
             let x2 = self.x(t);
@@ -234,7 +234,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<CubicBezierSegment<S>> {
                 max = t;
             }
 
-            t = (max - min) * S::c(0.5) + min;
+            t = (max - min) * S::constant(0.5) + min;
         }
 
         return t;
@@ -243,11 +243,11 @@ impl<S: Float + FloatConst + ApproxEq<S>> Monotonic<CubicBezierSegment<S>> {
     #[inline]
     pub fn split_at_x(&self, x: S) -> (Self, Self) {
         // TODO tolerance param.
-        self.split(self.solve_t_for_x(x, S::zero()..S::one(), S::c(0.001)))
+        self.split(self.solve_t_for_x(x, S::zero()..S::one(), S::constant(0.001)))
     }
 }
 
-impl<S: Float + FloatConst + ApproxEq<S>> MonotonicSegment for Monotonic<CubicBezierSegment<S>> {
+impl<S: Scalar> MonotonicSegment for Monotonic<CubicBezierSegment<S>> {
     type Scalar = S;
     fn solve_t_for_x(&self, x: S, t_range: Range<S>, tolerance: S) -> S {
         self.solve_t_for_x(x, t_range, tolerance)
@@ -258,7 +258,7 @@ impl<S: Float + FloatConst + ApproxEq<S>> MonotonicSegment for Monotonic<CubicBe
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub(crate) fn first_monotonic_segment_intersecion<S: Float, A, B>(
+pub(crate) fn first_monotonic_segment_intersecion<S: Scalar, A, B>(
     a: &A, a_t_range: Range<S>,
     b: &B, b_t_range: Range<S>,
     tolerance: S,
@@ -272,7 +272,7 @@ where
 
     // We need to have a stricter tolerance in solve_t_for_x otherwise
     // the error accumulation becomes pretty bad.
-    let tx_tolerance = tolerance * S::c(0.1);
+    let tx_tolerance = tolerance * S::constant(0.1);
 
     let (a_min, a_max) = a.split_range(a_t_range).fast_bounding_range_x();
     let (b_min, b_max) = b.split_range(b_t_range).fast_bounding_range_x();
@@ -306,7 +306,7 @@ where
             return Some((t_max_a, t_max_b));
         }
 
-        let mid_x = (min_x + max_x) * S::c(0.5);
+        let mid_x = (min_x + max_x) * S::constant(0.5);
         let t_mid_a = a.solve_t_for_x(mid_x, t_min_a..t_max_a, tx_tolerance);
         let t_mid_b = b.solve_t_for_x(mid_x, t_min_b..t_max_b, tx_tolerance);
 
@@ -344,7 +344,7 @@ where
 /// segments.
 ///
 /// Both segments must be monotonically increasing in x.
-pub(crate) fn monotonic_segment_intersecions<S: Float, A, B>(
+pub(crate) fn monotonic_segment_intersecions<S: Scalar, A, B>(
     a: &A, a_t_range: Range<S>,
     b: &B, b_t_range: Range<S>,
     tolerance: S,
