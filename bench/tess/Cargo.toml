@@ -10,3 +10,4 @@ name = "tess_bench"
 [dependencies]
 lyon = { path = "../../" }
 bencher = "0.1.1"
+tess2 = { git = "https://github.com/turnage/tess2.git" }

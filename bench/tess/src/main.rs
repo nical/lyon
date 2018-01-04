@@ -1,6 +1,7 @@
 extern crate lyon;
 #[macro_use]
 extern crate bencher;
+extern crate tess2;
 
 use lyon::path::default::Path;
 use lyon::path::builder::*;
@@ -145,6 +146,66 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     })
 }
 
+fn fill_tess_06_libtess2(bench: &mut Bencher) {
+    use tess2::*;
+    use std::slice;
+    use std::os::raw::c_void;
+
+    use lyon::path::FlattenedEvent;
+
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut contours = Vec::new();
+
+    let tolerance = FillOptions::default().tolerance;
+    for evt in path.path_iter().flattened(tolerance) {
+        match evt {
+            FlattenedEvent::MoveTo(p) => {
+                contours.push(vec![p]);
+            }
+            FlattenedEvent::LineTo(p) => {
+                contours.last_mut().unwrap().push(p);
+            }
+            FlattenedEvent::Close => {}
+        }
+    }
+
+    bench.iter(|| {
+        unsafe {
+            let tess = tessNewTess(0 as *mut TESSalloc);
+            for _ in 0..N {
+                for contour in &contours {
+                    tessAddContour(
+                        tess,
+                        2,
+                        (&contour[0].x as *const f32) as *const c_void,
+                        8,
+                        contour.len() as i32
+                    );
+                }
+                let res = tessTesselate(tess,
+                    TessWindingRule::TESS_WINDING_NONZERO as i32,
+                    TessElementType::TESS_POLYGONS as i32,
+                    3,
+                    2,
+                    0 as *mut TESSreal
+                );
+                assert!(res == 1);
+
+                let raw_triangle_count = tessGetElementCount(tess);
+                let triangle_count = raw_triangle_count as usize;
+                assert!(triangle_count > 1);
+
+                let _vertex_buffer = slice::from_raw_parts(tessGetVertices(tess),
+                                                          tessGetVertexCount(tess) as usize * 2);
+                let _triangle_buffer = slice::from_raw_parts(tessGetElements(tess), triangle_count * 3);
+            }
+        }
+    });
+}
+
 fn fill_events_01_logo(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
@@ -244,7 +305,8 @@ benchmark_group!(fill_tess,
   fill_tess_02_logo_no_normals,
   fill_tess_03_logo_no_intersections,
   fill_tess_04_logo_no_normals_no_intersections,
-  fill_tess_05_logo_no_curve
+  fill_tess_05_logo_no_curve,
+  fill_tess_06_libtess2
 );
 
 benchmark_group!(fill_events,
