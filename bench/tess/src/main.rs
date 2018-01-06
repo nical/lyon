@@ -1,6 +1,7 @@
 extern crate lyon;
 #[macro_use]
 extern crate bencher;
+#[cfg(feature = "libtess2")]
 extern crate tess2;
 
 use lyon::path::default::Path;
@@ -13,7 +14,10 @@ use lyon::tessellation::{StrokeTessellator, StrokeOptions, StrokeVertex};
 
 use bencher::Bencher;
 
-const N: usize = 10;
+#[cfg(feature = "profiling")]
+const N: usize = 100;
+#[cfg(not(feature = "profiling"))]
+const N: usize = 1;
 
 fn flattening_01_logo_simple_iter(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
@@ -146,7 +150,8 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     })
 }
 
-fn fill_tess_06_libtess2(bench: &mut Bencher) {
+#[cfg(feature = "libtess2")]
+fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
     use tess2::*;
     use std::slice;
     use std::os::raw::c_void;
@@ -204,6 +209,28 @@ fn fill_tess_06_libtess2(bench: &mut Bencher) {
             }
         }
     });
+}
+
+#[cfg(feature = "libtess2")]
+fn cmp_02_lyon_rust_logo(bench: &mut Bencher) {
+    // To get this test case as comparable as possible with the libtess2 one:
+    // - The path is built and pre-flattened beforehand.
+    // - The tessellator and other allocations are not recycled between runs.
+    // - No normals.
+
+    let options = FillOptions::default().with_normals(false);
+    let mut path = Path::builder().flattened(options.tolerance).with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut tess = FillTessellator::new();
+            let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
+    })
 }
 
 fn fill_events_01_logo(bench: &mut Bencher) {
@@ -305,8 +332,13 @@ benchmark_group!(fill_tess,
   fill_tess_02_logo_no_normals,
   fill_tess_03_logo_no_intersections,
   fill_tess_04_logo_no_normals_no_intersections,
-  fill_tess_05_logo_no_curve,
-  fill_tess_06_libtess2
+  fill_tess_05_logo_no_curve
+);
+
+#[cfg(feature = "libtess2")]
+benchmark_group!(cmp_tess2,
+  cmp_01_libtess2_rust_logo,
+  cmp_02_lyon_rust_logo
 );
 
 benchmark_group!(fill_events,
@@ -321,4 +353,19 @@ benchmark_group!(flattening,
   flattening_03_logo_builder
 );
 
-benchmark_main!(fill_tess, fill_events, stroke_tess, flattening);
+#[cfg(feature = "libtess2")]
+benchmark_main!(
+    fill_tess,
+    cmp_tess2,
+    fill_events,
+    stroke_tess,
+    flattening
+);
+
+#[cfg(not(feature = "libtess2"))]
+benchmark_main!(
+    fill_tess,
+    fill_events,
+    stroke_tess,
+    flattening
+);
