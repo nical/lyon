@@ -734,7 +734,6 @@ fn monotonic_solve_t_for_x() {
 }
 
 #[test]
-#[ignore]
 fn fat_line() {
     use math::point;
 
@@ -746,14 +745,12 @@ fn fat_line() {
     };
 
     let (l1, l2) = c1.fat_line();
-    assert!(l1.signed_distance_to_point(&c1.from) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c1.ctrl1) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c1.ctrl2) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c1.to) <= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.from) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.ctrl1) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.ctrl2) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.to) >= 0.0);
+
+    for i in 0..100 {
+        let t = i as f32 / 99.0;
+        assert!(l1.signed_distance_to_point(&c1.sample(t)) >= -0.000001);
+        assert!(l2.signed_distance_to_point(&c1.sample(t)) <= 0.000001);
+    }
 
     let c2 = CubicBezierSegment {
         from: point(1.0f32, 2.0),
@@ -763,14 +760,12 @@ fn fat_line() {
     };
 
     let (l1, l2) = c2.fat_line();
-    assert!(l1.signed_distance_to_point(&c2.from) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c2.ctrl1) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c2.ctrl2) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c2.to) <= 0.0);
-    assert!(l2.signed_distance_to_point(&c2.from) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c2.ctrl1) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c2.ctrl2) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c2.to) >= 0.0);
+
+    for i in 0..100 {
+        let t = i as f32 / 99.0;
+        assert!(l1.signed_distance_to_point(&c2.sample(t)) >= -0.000001);
+        assert!(l2.signed_distance_to_point(&c2.sample(t)) <= 0.000001);
+    }
 }
 
 #[test]

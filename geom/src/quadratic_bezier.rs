@@ -243,10 +243,8 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// is fully contained.
     pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>) {
         let l1 = self.baseline().to_line().equation();
-        let d = l1.signed_distance_to_point(&self.ctrl);
-        let two = S::ONE + S::ONE;
-        let l2 = l1.offset(d / two);
-
+        let d = S::HALF * l1.signed_distance_to_point(&self.ctrl);
+        let l2 = l1.offset(d);
         if d >= S::zero() { (l1, l2) } else { (l2, l1) }
     }
 
@@ -635,7 +633,6 @@ fn monotonic_solve_t_for_x() {
 }
 
 #[test]
-#[ignore]
 fn fat_line() {
     use math::point;
 
@@ -646,22 +643,12 @@ fn fat_line() {
     };
 
     let (l1, l2) = c1.fat_line();
-    println!("l1: {} {} {}",
-        l1.signed_distance_to_point(&c1.from),
-        l1.signed_distance_to_point(&c1.ctrl),
-        l1.signed_distance_to_point(&c1.to)
-    );
-    println!("l2: {} {} {}",
-        l2.signed_distance_to_point(&c1.from),
-        l2.signed_distance_to_point(&c1.ctrl),
-        l2.signed_distance_to_point(&c1.to)
-    );
-    assert!(l1.signed_distance_to_point(&c1.from) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c1.ctrl) <= 0.0);
-    assert!(l1.signed_distance_to_point(&c1.to) <= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.from) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.ctrl) >= 0.0);
-    assert!(l2.signed_distance_to_point(&c1.to) >= 0.0);
+
+    for i in 0..100 {
+        let t = i as f32 / 99.0;
+        assert!(l1.signed_distance_to_point(&c1.sample(t)) >= -0.000001);
+        assert!(l2.signed_distance_to_point(&c1.sample(t)) <= 0.000001);
+    }
 }
 
 #[test]
