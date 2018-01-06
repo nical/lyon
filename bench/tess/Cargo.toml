@@ -7,7 +7,10 @@ workspace = "../.."
 [[bin]]
 name = "tess_bench"
 
+[features]
+libtess2 = ["tess2"]
+
 [dependencies]
 lyon = { path = "../../" }
 bencher = "0.1.1"
-tess2 = { git = "https://github.com/turnage/tess2.git" }
+tess2 = { git = "https://github.com/turnage/tess2.git", optional = true }
