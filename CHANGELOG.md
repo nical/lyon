@@ -1,6 +1,6 @@
 ## Change log
 
-### v0.8.0 (2019-01-07)
+### v0.8.0 (2019-01-08)
   - [lyon] Simplify the carte structure:
     - Rename the `lyon_bezier` crate into `lyon_geom`.
     - Merge `lyon_path_iterator` and `lyon_path_builder` into the `lyon_path` crate.
@@ -14,6 +14,7 @@
   - [tessellation] Fix some fill tessellation bugs found by the fuzzer.
   - [tessellation] Use trait objects instead of generics when using `GeometryBuilder` in the API.
   - [Tessellation] Fix incorrect rounded rectangle tessellation.
+  - [svg] Bump svgparser dependecy to 0.6.x.
 
 ### v0.8.5 (2017-11-05)
   - [tessellation] Fix several fill tessellation bugs found by the fuzzer.

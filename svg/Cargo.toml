@@ -15,4 +15,4 @@ path = "src/lib.rs"
 
 lyon_path = { version = "0.9.0", path = "../path" }
 
-svgparser = "0.4"
+svgparser = "0.6"

@@ -82,7 +82,7 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
         }
     }
 
-    let mut svg_path = svg::serializer::PathSerializer::new();
+    let mut svg_path = svg::path_utils::PathSerializer::new();
     println!(" ----------- reduced test case: -----------\n\n");
     println!("#[test]");
     println!("fn reduced_test_case() {{");

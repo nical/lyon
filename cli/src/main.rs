@@ -19,7 +19,7 @@ use commands::*;
 
 use std::fs::File;
 use std::io::{Read, Write, stdout, stderr};
-use lyon::svg::parser::build_path;
+use lyon::svg::path_utils::build_path;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
 use lyon_extra::debugging::find_reduced_test_case;
@@ -273,7 +273,7 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
         Ok(path) => { Some(path) }
         Err(e) => {
             println!("Error while parsing path: {}", path_str);
-            println!("{}", e);
+            println!("{:?}", e);
             None
         }
     }

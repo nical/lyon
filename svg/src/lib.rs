@@ -8,9 +8,7 @@
 
 #![allow(dead_code)]
 
-extern crate lyon_path as path;
+pub extern crate lyon_path as path;
+pub extern crate svgparser as parser;
 
-pub extern crate svgparser;
-
-pub mod parser;
-pub mod serializer;
+pub mod path_utils;
