@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate glium;
 extern crate clap;
-extern crate svgparser;
 extern crate glutin;
 extern crate rayon;
 extern crate lyon;
@@ -15,14 +14,15 @@ use glium::backend::glutin_backend::GlutinFacade as Display;
 use lyon::math::*;
 use lyon::path::default::Path;
 use lyon::path::builder::*;
-use lyon_svg::parser::Color;
 use lyon::tessellation::geometry_builder::{ VertexConstructor, VertexBuffers, BuffersBuilder };
 use lyon::tessellation::{ FillEvents, FillTessellator, FillOptions, FillVertex };
 use lyon::tessellation::{ StrokeTessellator, StrokeOptions };
 use lyon::tessellation::StrokeVertex;
 use lyon::geom::euclid::{Transform3D, vec3};
+use lyon_svg::parser as parser;
+use parser::Color;
+use parser::FromSpan;
 
-use svgparser::Tokenize;
 use clap::Arg;
 
 fn main() {
@@ -229,8 +229,7 @@ fn main() {
 
 use std::fs;
 use std::io::Read;
-use svgparser::svg as svg_parser;
-use svgparser::svg::Token as SvgToken;
+use parser::svg::Token as SvgToken;
 
 struct RenderItem {
     path: Path,
@@ -330,16 +329,12 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
     let mut render_items = Vec::new();
     let mut current_item = RenderItem::new();
 
-    let mut p = svg_parser::Tokenizer::from_str(&buffer);
-    while let Ok(item) = p.parse_next() {
+    for item in parser::svg::Tokenizer::from_str(&buffer) {
         match item {
-            SvgToken::EndOfStream => {
-                break;
-            }
-            SvgToken::SvgElementStart(svgparser::ElementId::Path) => {
+            Ok(SvgToken::ElementStart(parser::svg::Name::Svg(parser::ElementId::Path))) => {
                 current_item = RenderItem::new();
             }
-            SvgToken::ElementEnd(_) => {
+            Ok(SvgToken::ElementEnd(_)) => {
                 println!(" -- close path");
                 if current_item.fill.is_some() || current_item.stroke.is_some() {
                     let mut tmp = RenderItem::new();
@@ -347,11 +342,11 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
                     render_items.push(tmp);
                 }
             }
-            SvgToken::SvgAttribute(svgparser::AttributeId::Style, frame) => {
-                parse_style(frame, &mut current_item);
+            Ok(SvgToken::Attribute(parser::svg::Name::Svg(parser::AttributeId::Style), span)) => {
+                parse_style(span, &mut current_item);
             }
-            SvgToken::SvgAttribute(svgparser::AttributeId::Path, frame) => {
-                current_item.path = parse_path_data(frame);
+            Ok(SvgToken::Attribute(parser::svg::Name::Svg(parser::AttributeId::Path), span)) => {
+                current_item.path = parse_path_data(span);
             }
             _ => {}
         }
@@ -362,10 +357,10 @@ fn load_svg(file_name: &str) -> Vec<RenderItem> {
     return render_items;
 }
 
-fn parse_path_data(frame: svgparser::TextFrame) -> Path {
+fn parse_path_data(span: parser::StrSpan) -> Path {
     let mut builder = Path::builder().with_svg();
 
-    for item in lyon_svg::parser::PathTokenizer::from_frame(frame) {
+    for item in lyon_svg::path_utils::PathTokenizer::from_span(span) {
         match item {
             Ok(evt) => { builder.svg_event(evt) }
             Err(e) => { panic!("Warning: {:?}.", e); }
@@ -375,28 +370,34 @@ fn parse_path_data(frame: svgparser::TextFrame) -> Path {
     return builder.build();
 }
 
-fn parse_style(frame: svgparser::TextFrame, item: &mut RenderItem) {
-    use lyon_svg::parser::{AttributeId, AttributeValue, ValueId};
+fn parse_style(span: parser::StrSpan, item: &mut RenderItem) {
+    use parser::{AttributeId, AttributeValue, ValueId, ElementId};
 
-    for attr in lyon_svg::parser::StyleTokenizer::from_frame(frame) {
-        if let Ok(attr) = attr {
-            match attr.id {
+    for attr in parser::style::Tokenizer::from_span(span) {
+        if let Ok(parser::style::Token::SvgAttribute(id, span)) = attr {
+            let value = AttributeValue::from_span(
+                ElementId::Path,
+                AttributeId::Style,
+                span
+            ).unwrap_or(AttributeValue::PredefValue(ValueId::None));
+
+            match id {
                 AttributeId::Fill => {
-                    match attr.value {
+                    match value {
                         AttributeValue::Color(rgb) => { item.fill = Some(rgb); }
-                        AttributeValue::KeyWord(ValueId::None) => { item.fill = None; }
+                        AttributeValue::PredefValue(ValueId::None) => { item.fill = None; }
                         _ => { item.fill = Some(Color { red: 255, green: 0, blue: 0 }) }
                     }
                 }
                 AttributeId::Stroke => {
-                    match attr.value {
+                    match value {
                         AttributeValue::Color(rgb) => { item.stroke = Some(rgb); }
-                        AttributeValue::KeyWord(ValueId::None) => { item.stroke = None; }
+                        AttributeValue::PredefValue(ValueId::None) => { item.stroke = None; }
                         _ => { item.stroke = Some(Color { red: 255, green: 0, blue: 0 }) }
                     }
                 }
                 AttributeId::StrokeWidth => {
-                    match attr.value {
+                    match value {
                         AttributeValue::Number(n) => {
                             item.stroke_width = n as f32;
                         }
@@ -404,7 +405,7 @@ fn parse_style(frame: svgparser::TextFrame, item: &mut RenderItem) {
                             item.stroke_width = num as f32;
                         }
                         _=> {
-                            panic!(" stroke-width: {:?}", attr.value);
+                            panic!(" stroke-width: {:?}", value);
                         }
                     }
                 }
