@@ -65,36 +65,6 @@ The intent is for this library to be useful in projects like [Servo](https://ser
     );
 ```
 
-## Structure
-
-The project is split into several crates:
-
-* [![crate](http://meritbadge.herokuapp.com/lyon)](https://crates.io/crates/lyon)
-  [![doc](https://docs.rs/lyon/badge.svg)](https://docs.rs/lyon) -
-  **lyon** - A meta-crate that reexports the crates below for convenience.
-* [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
-  [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
-  **lyon_tessellation** - Path tessellation routines.
-* [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
-  [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
-  **lyon_path** - Tools to build and iterate over paths.
-* [![crate](http://meritbadge.herokuapp.com/lyon_geom)](https://crates.io/crates/lyon_geom)
-  [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
-  **lyon_geom** - Cubic and quadratic 2d bézier math.
-* [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
-  [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
-  **lyon_svg** - Create paths using SVG's path syntax.
-* [![crate](http://meritbadge.herokuapp.com/lyon_extra)](https://crates.io/crates/lyon_extra)
-  [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
-  **lyon_extra** - Additional testing and debugging tools.
-* [![crate](http://meritbadge.herokuapp.com/lyon_core)](https://crates.io/crates/lyon_core)
-  [![doc](https://docs.rs/lyon_core/badge.svg)](https://docs.rs/lyon_core) -
-  **lyon_core** - Common types to most lyon crates (mostly for internal use, reexported by the other crates).
-
-There is also a toy [command-line tool](cli) to tessellate SVG path from your favorite terminal.
-
-Have a look at the [basic](examples/gfx_basic) and [advanced](examples/gfx_advanced) gfx-rs examples to see how integrating the tessellators in a renderer can look like.
-
 ## FAQ
 
 ### In a nutshell, what is a tessellator?
