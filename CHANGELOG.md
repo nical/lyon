@@ -1,6 +1,21 @@
 ## Change log
 
-### v0.8.5 2017-11-05)
+### v0.8.0 (2019-01-07)
+  - [lyon] Simplify the carte structure:
+    - Rename the `lyon_bezier` crate into `lyon_geom`.
+    - Merge `lyon_path_iterator` and `lyon_path_builder` into the `lyon_path` crate.
+    - Remove the `lyon_core` crate.
+  - [geom] Implement new bézier intersection methods.
+  - [geom] Make geometrix types generic over float types.
+  - [geom] Rename `Vec2` into `Vector`.
+  - [geom] Implement new cubic to quadratic bézier approximations.
+  - [path] Support arcs in `PathEvent`.
+  - [path] Implement walking along a path at constant speed.
+  - [tessellation] Fix some fill tessellation bugs found by the fuzzer.
+  - [tessellation] Use trait objects instead of generics when using `GeometryBuilder` in the API.
+  - [Tessellation] Fix incorrect rounded rectangle tessellation.
+
+### v0.8.5 (2017-11-05)
   - [tessellation] Fix several fill tessellation bugs found by the fuzzer.
   - [tessellation] Implement Vertex normals in the fill tessellator.
   - [tessellation] Make the triangle winding order consistent.
