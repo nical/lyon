@@ -10,7 +10,7 @@
 
 extern crate lyon_path as path;
 
-extern crate svgparser;
+pub extern crate svgparser;
 
 pub mod parser;
 pub mod serializer;
