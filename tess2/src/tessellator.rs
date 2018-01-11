@@ -1,0 +1,134 @@
+use math::*;
+use flattened_path::FlattenedPath;
+
+use tess2_sys::*;
+use tessellation::{GeometryReceiver, FillOptions, FillRule, Count};
+use path::iterator::PathIterator;
+use path::builder::*;
+
+use std::slice;
+use std::os::raw::c_void;
+
+pub struct FillTessellator {
+    tess: *mut TESStesselator,
+}
+
+impl FillTessellator {
+    pub fn new() -> Self {
+        unsafe {
+            FillTessellator {
+                tess: tessNewTess(0 as *mut TESSalloc),
+            }
+        }
+    }
+
+    /// Compute the tessellation from a path iterator.
+    pub fn tessellate_path<Iter>(
+        &mut self,
+        it: Iter,
+        options: &FillOptions,
+        output: &mut GeometryReceiver<Point, i32>,
+    ) -> Result<Count, ()>
+    where
+        Iter: PathIterator,
+    {
+        let mut builder = FlattenedPath::builder().with_svg(options.tolerance);
+
+        for evt in it {
+            builder.path_event(evt);
+        }
+
+        let flattened_path = builder.build();
+
+        self.tessellate_flattened_path(
+            &flattened_path,
+            options,
+            output,
+        )
+    }
+
+    pub fn tessellate_flattened_path(
+        &mut self,
+        path: &FlattenedPath,
+        options: &FillOptions,
+        output: &mut GeometryReceiver<Point, i32>,
+    ) -> Result<Count, ()> {
+        self.prepare_path(path);
+
+        if !self.do_tessellate(options) {
+            return Err(());
+        }
+
+        Ok(self.process_output(output))
+    }
+
+    fn prepare_path(&mut self, path: &FlattenedPath) {
+        unsafe {
+            for sub_path in path.sub_paths() {
+                let first_point = &sub_path.points()[0];
+                let num_points = sub_path.points().len();
+                tessAddContour(
+                    self.tess,
+                    2,
+                    (&first_point.x as *const f32) as *const c_void,
+                    8,
+                    num_points as i32
+                );
+            }
+        }
+    }
+
+    fn do_tessellate(&mut self, options: &FillOptions) -> bool {
+        unsafe {
+            let winding_rule = match options.fill_rule {
+                FillRule::EvenOdd => {
+                    TessWindingRule::TESS_WINDING_ODD
+                }
+                FillRule::NonZero => {
+                    TessWindingRule::TESS_WINDING_NONZERO
+                }
+            };
+
+            let res = tessTesselate(self.tess,
+                winding_rule,
+                TessElementType::TESS_POLYGONS,
+                3,
+                2,
+                0 as *mut TESSreal
+            );
+
+            res == 1
+        }
+    }
+
+    fn process_output(&mut self, output: &mut GeometryReceiver<Point, i32>) -> Count {
+        unsafe {
+            let num_indices = tessGetElementCount(self.tess) as usize * 3;
+            let num_vertices = tessGetElementCount(self.tess) as usize;
+
+            let vertices = slice::from_raw_parts(
+                tessGetVertices(self.tess) as *const Point,
+                num_vertices
+            );
+            let indices = slice::from_raw_parts(
+                tessGetElements(self.tess),
+                num_indices,
+            );
+
+            output.set_geometry(vertices, indices);
+
+            Count {
+                vertices: num_indices as u32,
+                indices: num_indices as u32,
+            }
+        }
+    }
+}
+
+impl Drop for FillTessellator {
+    fn drop(&mut self) {
+        unsafe{
+            tessDeleteTess(self.tess);
+        }
+    }
+}

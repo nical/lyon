@@ -208,7 +208,7 @@ pub use path_fill::*;
 pub use path_stroke::*;
 
 #[doc(inline)]
-pub use geometry_builder::{GeometryBuilder, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
+pub use geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
 
 /// Left or right.
 #[derive(Copy, Clone, Debug, PartialEq)]

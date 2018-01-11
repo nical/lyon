@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate lyon;
 extern crate lyon_extra;
+extern crate lyon_tess2 as tess2;
 extern crate rand;
 #[macro_use]
 extern crate gfx;
@@ -250,6 +251,12 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .value_name("MITER_LIMIT")
         .takes_value(true)
     )
+    .arg(Arg::with_name("TESSELLATOR")
+        .long("tessellator")
+        .help("Select the tessellator to use")
+        .value_name("TESSELLATOR")
+        .takes_value(true)
+    )
 }
 
 fn get_path(matches: &ArgMatches) -> Option<Path> {
@@ -296,8 +303,8 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
 
 fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
     let path = get_path(command).expect("Need a path to tessellate");
-    let stroke_cmd = get_stroke(command);
-    let fill = if command.is_present("FILL") || !stroke_cmd.is_some() {
+    let stroke = get_stroke(command);
+    let fill = if command.is_present("FILL") || !stroke.is_some() {
         Some(FillOptions::tolerance(get_tolerance(&command)))
     } else {
         None
@@ -309,11 +316,14 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
         None
     };
 
+    let tessellator = get_tessellator(command);
+
     TessellateCmd {
-        path: path.clone(),
-        fill: fill,
-        stroke: stroke_cmd,
-        float_precision: float_precision,
+        path,
+        fill,
+        stroke,
+        float_precision,
+        tessellator,
     }
 }
 
@@ -393,4 +403,15 @@ fn get_output(matches: &ArgMatches) -> Box<Write> {
         }
     }
     return output;
+}
+
+fn get_tessellator(matches: &ArgMatches) -> Tessellator {
+    if let Some(stroke_str) = matches.value_of("TESSELLATOR") {
+        return match stroke_str {
+            "default" => Tessellator::Default,
+            "libtess2" => Tessellator::Tess2,
+            _ => Tessellator::Default,
+        }
+    }
+    return Tessellator::Default;
 }

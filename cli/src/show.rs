@@ -3,7 +3,8 @@ use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, Buf
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
-use commands::{TessellateCmd, AntiAliasing, RenderCmd};
+use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator};
+use tess2;
 
 use gfx;
 use gfx_window_glutin;
@@ -29,11 +30,22 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     }
 
     if let Some(options) = cmd.fill {
-        FillTessellator::new().tessellate_path(
-            cmd.path.path_iter(),
-            &options,
-            &mut BuffersBuilder::new(&mut geometry, WithId(0))
-        ).unwrap();
+        match cmd.tessellator {
+            Tessellator::Default => {
+                FillTessellator::new().tessellate_path(
+                    cmd.path.path_iter(),
+                    &options,
+                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
+                ).unwrap();
+            }
+            Tessellator::Tess2 => {
+                tess2::FillTessellator::new().tessellate_path(
+                    cmd.path.path_iter(),
+                    &options,
+                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
+                ).unwrap();
+            }
+        }
     }
 
     if geometry.vertices.is_empty() {
@@ -351,6 +363,18 @@ pub static FRAGMENT_SHADER: &'static str = &"
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
 pub struct WithId(pub i32);
+
+impl VertexConstructor<Point, GpuVertex> for WithId {
+    fn new_vertex(&mut self, point: Point) -> GpuVertex {
+        debug_assert!(!point.x.is_nan());
+        debug_assert!(!point.y.is_nan());
+        GpuVertex {
+            position: point.to_array(),
+            normal: [0.0, 0.0],
+            prim_id: self.0,
+        }
+    }
+}
 
 impl VertexConstructor<tessellation::FillVertex, GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {

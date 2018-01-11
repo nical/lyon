@@ -36,6 +36,7 @@ lyon_svg = { version = "0.9.0", path = "svg/" }
 members = [
     "path",
     "tessellation",
+    "tess2",
     "geom",
     "extra",
     "svg",
