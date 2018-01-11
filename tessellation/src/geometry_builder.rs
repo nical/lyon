@@ -222,6 +222,7 @@
 
 use std::marker::PhantomData;
 use std::ops::Add;
+use std::convert::From;
 
 pub type Index = u16;
 
@@ -235,6 +236,16 @@ pub struct VertexId(pub u16);
 
 impl VertexId {
     pub fn offset(&self) -> u16 { self.0 }
+}
+
+impl From<u16> for VertexId {
+    fn from(v: u16) -> VertexId { VertexId(v) }
+}
+impl From<u32> for VertexId {
+    fn from(v: u32) -> VertexId { VertexId(v as u16) }
+}
+impl From<i32> for VertexId {
+    fn from(v: i32) -> VertexId { VertexId(v as u16) }
 }
 
 /// An interface separating tessellators and other geometry generation algorithms from the
@@ -271,6 +282,21 @@ pub trait GeometryBuilder<Input> {
     fn abort_geometry(&mut self);
 }
 
+
+/// An interface with similar goals to `GeometryBuilder` for algorithms that pre-build
+/// the vertex and index buffers.
+///
+/// This is primarily intended for efficient interaction with the libtess2 tessellator
+/// from the `lyon_tess2` crate.
+pub trait GeometryReceiver<Vertex, Index> {
+
+    fn set_geometry(
+        &mut self,
+        vertices: &[Vertex],
+        indices: &[Index]
+    );
+}
+
 /// Structure that holds the vertex and index data.
 ///
 /// Usually writen into though temporary `BuffersBuilder` objects.
@@ -305,7 +331,7 @@ impl<VertexType> VertexBuffers<VertexType> {
 /// vertex attributes. The `VertexConstructor` does the translation from generic `Input` to `VertexType`.
 /// If your logic generates the actual vertex type directly, you can use the `SimpleBuffersBuilder`
 /// convenience typedef.
-pub struct BuffersBuilder<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>> {
+pub struct BuffersBuilder<'l, VertexType: 'l, Input, Ctor> {
     buffers: &'l mut VertexBuffers<VertexType>,
     vertex_offset: Index,
     index_offset: Index,
@@ -313,8 +339,7 @@ pub struct BuffersBuilder<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Inp
     _marker: PhantomData<Input>,
 }
 
-impl<'l, VertexType: 'l, Input, Ctor: VertexConstructor<Input, VertexType>>
-    BuffersBuilder<'l, VertexType, Input, Ctor> {
+impl<'l, VertexType: 'l, Input, Ctor> BuffersBuilder<'l, VertexType, Input, Ctor> {
     pub fn new(
         buffers: &'l mut VertexBuffers<VertexType>,
         ctor: Ctor,
@@ -412,9 +437,9 @@ where
 
     fn end_geometry(&mut self) -> Count {
         return Count {
-                   vertices: self.buffers.vertices.len() as u32 - self.vertex_offset as u32,
-                   indices: self.buffers.indices.len() as u32 - self.index_offset as u32,
-               };
+            vertices: self.buffers.vertices.len() as u32 - self.vertex_offset as u32,
+            indices: self.buffers.indices.len() as u32 - self.index_offset as u32,
+        };
     }
 
     fn add_vertex(&mut self, v: Input) -> VertexId {
@@ -431,6 +456,29 @@ where
     fn abort_geometry(&mut self) {
         self.buffers.vertices.truncate(self.vertex_offset as usize);
         self.buffers.indices.truncate(self.index_offset as usize);
+    }
+}
+
+impl<'l, VertexType, InputVertex, InputIndex, Ctor> GeometryReceiver<InputVertex, InputIndex>
+    for BuffersBuilder<'l, VertexType, InputVertex, Ctor>
+where
+    VertexType: 'l + Clone,
+    Ctor: VertexConstructor<InputVertex, VertexType>,
+    InputVertex: Clone,
+    InputIndex: Into<VertexId> + Clone,
+{
+    fn set_geometry(
+        &mut self,
+        vertices: &[InputVertex],
+        indices: &[InputIndex]
+    ) {
+        for v in vertices {
+            let vertex = self.vertex_constructor.new_vertex(v.clone());
+            self.buffers.vertices.push(vertex);
+        }
+        for idx in indices {
+            self.buffers.indices.push(idx.clone().into().offset());
+        }
     }
 }
 

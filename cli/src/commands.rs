@@ -2,12 +2,19 @@ use std::io;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions};
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Tessellator {
+    Default,
+    Tess2,
+}
+
 #[derive(Clone, Debug)]
 pub struct TessellateCmd {
     pub path: Path,
     pub fill: Option<FillOptions>,
     pub stroke: Option<StrokeOptions>,
     pub float_precision: Option<usize>,
+    pub tessellator: Tessellator,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
