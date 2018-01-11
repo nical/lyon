@@ -2,7 +2,7 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 #[cfg(feature = "libtess2")]
-extern crate tess2;
+extern crate tess2_sys as tess2;
 
 use lyon::path::default::Path;
 use lyon::path::builder::*;
@@ -191,8 +191,8 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
                     );
                 }
                 let res = tessTesselate(tess,
-                    TessWindingRule::TESS_WINDING_NONZERO as i32,
-                    TessElementType::TESS_POLYGONS as i32,
+                    TessWindingRule::TESS_WINDING_NONZERO,
+                    TessElementType::TESS_POLYGONS,
                     3,
                     2,
                     0 as *mut TESSreal
