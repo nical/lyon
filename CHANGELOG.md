@@ -1,6 +1,11 @@
 ## Change log
 
-### v0.8.0 (2019-01-08)
+### v0.9.1
+  - [tessellation] Fix missing vertices when normals are disabled.
+  - [tess2] Add an alternative tessellator based on libtess2.
+  - [cli] Expose the tess2 tessellator in the app.
+
+### v0.9.0 (2018-01-08)
   - [lyon] Simplify the carte structure:
     - Rename the `lyon_bezier` crate into `lyon_geom`.
     - Merge `lyon_path_iterator` and `lyon_path_builder` into the `lyon_path` crate.
@@ -13,8 +18,12 @@
   - [path] Implement walking along a path at constant speed.
   - [tessellation] Fix some fill tessellation bugs found by the fuzzer.
   - [tessellation] Use trait objects instead of generics when using `GeometryBuilder` in the API.
-  - [Tessellation] Fix incorrect rounded rectangle tessellation.
+  - [tessellation] Fix incorrect rounded rectangle tessellation.
   - [svg] Bump svgparser dependecy to 0.6.x.
+
+### v0.8.8 (2018-01-14)
+  - [tessellation] Fix missing vertices when normals are disabled.
+  - [tessellation] Fix incorrect rounded rectangle tessellation.
 
 ### v0.8.5 (2017-11-05)
   - [tessellation] Fix several fill tessellation bugs found by the fuzzer.
