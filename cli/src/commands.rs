@@ -42,4 +42,5 @@ pub struct FuzzCmd {
     pub stroke: bool,
     pub min_points: Option<u32>,
     pub max_points: Option<u32>,
+    pub tessellator: Tessellator,
 }

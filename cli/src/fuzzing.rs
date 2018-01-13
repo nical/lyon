@@ -8,8 +8,9 @@ use lyon::tessellation::{
 };
 use lyon_extra::debugging::find_reduced_test_case;
 use rand;
-use commands::FuzzCmd;
+use commands::{FuzzCmd, Tessellator};
 use std::cmp::{min, max};
+use tess2;
 
 fn random_point() -> Point {
     point(
@@ -68,11 +69,22 @@ pub fn run(cmd: FuzzCmd) -> bool {
         let path = generate_path(&cmd, i);
         if cmd.fill || !cmd.stroke {
             let status = ::std::panic::catch_unwind(|| {
-                FillTessellator::new().tessellate_path(
-                    path.path_iter(),
-                    &FillOptions::default(),
-                    &mut NoOutput::new()
-                ).unwrap();
+                match cmd.tessellator {
+                    Tessellator::Default => {
+                        FillTessellator::new().tessellate_path(
+                            path.path_iter(),
+                            &FillOptions::default(),
+                            &mut NoOutput::new()
+                        ).unwrap();
+                    }
+                    Tessellator::Tess2 => {
+                        tess2::FillTessellator::new().tessellate_path(
+                            path.path_iter(),
+                            &FillOptions::default(),
+                            &mut NoOutput::new()
+                        ).unwrap();
+                    }
+                }
             });
 
             if status.is_err() {
