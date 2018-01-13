@@ -232,7 +232,6 @@ enum PointType { In, Out, OnEdge(Side) }
 /// let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
 ///
 /// {
-///     // Create the destination vertex and index buffers.
 ///     let mut vertex_builder = simple_builder(&mut buffers);
 ///
 ///     // Create the tessellator.
