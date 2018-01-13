@@ -264,6 +264,11 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .value_name("TESSELLATOR")
         .takes_value(true)
     )
+    .arg(Arg::with_name("NORMALS")
+        .short("n")
+        .long("compute-normals")
+        .help("Enable computing vertex normals")
+    )
 }
 
 fn get_path(matches: &ArgMatches) -> Option<Path> {
@@ -311,8 +316,9 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
 fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
     let path = get_path(command).expect("Need a path to tessellate");
     let stroke = get_stroke(command);
+    let normals = command.is_present("NORMALS");
     let fill = if command.is_present("FILL") || !stroke.is_some() {
-        Some(FillOptions::tolerance(get_tolerance(&command)))
+        Some(FillOptions::tolerance(get_tolerance(&command)).with_normals(normals))
     } else {
         None
     };
