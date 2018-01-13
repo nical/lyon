@@ -105,7 +105,6 @@ mod scalar {
     pub(crate) use num_traits::One;
     pub(crate) use num_traits::cast::cast;
     pub(crate) use euclid::Trig;
-    pub(crate) use euclid::approxeq::ApproxEq; // FIXME: Remove ApproxEq bounds
 
     use std::fmt::{Display, Debug};
 
@@ -116,7 +115,6 @@ mod scalar {
         + Sized
         + Display
         + Debug
-        + ApproxEq<Self>
         + Trig
     {
         const HALF: Self;

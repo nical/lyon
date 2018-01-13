@@ -508,7 +508,7 @@ fn intersection_overlap() {
 #[cfg(test)]
 use euclid::rect;
 #[cfg(test)]
-use scalar::ApproxEq;
+use euclid::approxeq::ApproxEq;
 
 #[test]
 fn bounding_rect() {
