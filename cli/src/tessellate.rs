@@ -1,10 +1,11 @@
-use commands::TessellateCmd;
+use commands::{TessellateCmd, Tessellator};
 use lyon::math::*;
-use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor};
+use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor, Identity};
 use lyon::tessellation::{
     FillVertex, StrokeVertex,
     StrokeTessellator, FillTessellator
 };
+use tess2;
 use std::io;
 
 #[derive(Debug)]
@@ -30,11 +31,26 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessE
     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
 
     if let Some(options) = cmd.fill {
-        if FillTessellator::new().tessellate_path(
-            cmd.path.path_iter(),
-            &options,
-            &mut BuffersBuilder::new(&mut buffers, VertexCtor)
-        ).is_err() {
+
+        let ok = match cmd.tessellator {
+            Tessellator::Default => {
+                FillTessellator::new().tessellate_path(
+                    cmd.path.path_iter(),
+                    &options,
+                    &mut BuffersBuilder::new(&mut buffers, VertexCtor)
+                ).is_ok()
+            }
+            Tessellator::Tess2 => {
+                tess2::FillTessellator::new().tessellate_path(
+                    cmd.path.path_iter(),
+                    &options,
+                    &mut BuffersBuilder::new(&mut buffers, Identity)
+                ).is_ok()
+            }
+        };
+
+
+        if !ok {
             return Err(TessError::Fill);
         }
     }
@@ -112,4 +128,3 @@ impl VertexConstructor<FillVertex, Point> for VertexCtor {
         vertex.position
     }
 }
-
