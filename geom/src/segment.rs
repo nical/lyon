@@ -1,4 +1,4 @@
-use scalar::{Float, One, ApproxEq};
+use scalar::{Float, One};
 use generic_math::{Point, Vector, Rect};
 
 use std::ops::Range;
@@ -151,7 +151,7 @@ impl<S: Float, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
     }
 }
 
-pub(crate) fn approximate_length_from_flattening<S: Float + ApproxEq<S>, T>(curve: &T, tolerance: S) -> S
+pub(crate) fn approximate_length_from_flattening<S: Float, T>(curve: &T, tolerance: S) -> S
 where T: FlattenedForEach<Scalar=S>
 {
     let mut start = curve.from();
