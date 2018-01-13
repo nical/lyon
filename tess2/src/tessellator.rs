@@ -9,6 +9,12 @@ use path::builder::*;
 use std::slice;
 use std::os::raw::c_void;
 
+/// A fill tessellator implemented on top of [libtess2](https://github.com/memononen/libtess2).
+///
+/// When in doubt it is usually preferable to use
+/// [lyon_tessellation](https://docs.rs/lyon_tessellation/)'s `FillTessellator`.
+/// However in some cases, for example when the `NonZero` fill rule
+/// is needed, This tessellator provides a good fallback.
 pub struct FillTessellator {
     tess: *mut TESStesselator,
 }
@@ -47,6 +53,7 @@ impl FillTessellator {
         )
     }
 
+    /// Compute the tessellation from a pre-flattened path.
     pub fn tessellate_flattened_path(
         &mut self,
         path: &FlattenedPath,

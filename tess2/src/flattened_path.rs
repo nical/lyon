@@ -10,12 +10,15 @@ struct SubPathInfo {
     is_closed: bool,
 }
 
+/// A path data structure for pre-flattened paths and polygons.
+#[derive(Clone)]
 pub struct FlattenedPath {
     points: Vec<Point>,
     sub_paths: Vec<SubPathInfo>,
 }
 
 impl FlattenedPath {
+    /// Creates an empty path.
     pub fn new() -> Self {
         FlattenedPath {
             points: Vec::new(),
@@ -23,18 +26,22 @@ impl FlattenedPath {
         }
     }
 
+    /// Creates a builder for flattened paths.
     pub fn builder() -> Builder {
         Builder::new()
     }
 
+    /// Returns whether the path is empty.
     pub fn is_empty(&self) -> bool {
         self.points.is_empty()
     }
 
+    /// Returns a slice of all the points in the path.
     pub fn points(&self) -> &[Point] {
         &self.points
     }
 
+    /// Returns an iterator over the sub-paths.
     pub fn sub_paths(&self) -> SubPaths {
         SubPaths {
             points: &self.points,
@@ -42,6 +49,7 @@ impl FlattenedPath {
         }
     }
 
+    /// Returns the nth sub-paths.
     pub fn sub_path(&self, index: usize) -> SubPath {
         SubPath {
             points: &self.points[self.sub_paths[index].range.clone()],
@@ -49,11 +57,13 @@ impl FlattenedPath {
         }
     }
 
+    /// The number of sub-paths.
     pub fn num_sub_paths(&self) -> usize {
         self.sub_paths.len()
     }
 }
 
+/// An iterator of the sub paths of a flattened path.
 pub struct SubPaths<'l> {
     points: &'l[Point],
     sub_paths: &'l[SubPathInfo],
@@ -93,21 +103,25 @@ impl<'l> Iterator for SubPaths<'l> {
     }
 }
 
+/// An iterator over the points of a sub-path.
 pub struct SubPath<'l> {
     points: &'l[Point],
     is_closed: bool,
 }
 
 impl<'l> SubPath<'l> {
+    /// Returns a slice of the points of this sub-path.
     pub fn points(&self) -> &'l[Point] {
         self.points
     }
 
+    /// Returns whether this sub-path is closed.
     pub fn is_closed(&self) -> bool {
         self.is_closed
     }
 }
 
+/// A builder for flattened paths.
 pub struct Builder {
     points: Vec<Point>,
     sub_paths: Vec<SubPathInfo>,
@@ -134,6 +148,7 @@ impl Builder {
         SvgPathBuilder::new(FlatteningBuilder::new(self, tolerance))
     }
 
+    /// Add a closed polygon to the path.
     pub fn polygon(&mut self, points: &[Point]) {
         if points.is_empty() {
             return;
