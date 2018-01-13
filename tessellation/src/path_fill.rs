@@ -493,7 +493,7 @@ impl FillTessellator {
             tess_log!(self, "below:{:?}, above:{}", self.below, num_edges_above);
         }
 
-        let mut vertex_id = if self.compute_normals {
+        let mut vertex_id = if !self.compute_normals {
             let vec2_position = to_f32_point(current_position);
             output.add_vertex(
                 Vertex {
