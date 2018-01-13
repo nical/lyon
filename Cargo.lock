@@ -360,7 +360,7 @@ dependencies = [
  "gfx_device_gl 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.8.7",
+ "lyon 0.8.8",
  "lyon_renderer 0.8.0",
 ]
 
@@ -372,7 +372,7 @@ dependencies = [
  "gfx_device_gl 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.8.7",
+ "lyon 0.8.8",
 ]
 
 [[package]]
@@ -535,7 +535,7 @@ dependencies = [
  "gfx_device_gl 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.8.7",
+ "lyon 0.8.8",
  "lyon_renderer 0.8.0",
 ]
 
@@ -604,7 +604,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "lyon"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "lyon_bezier 0.8.5",
  "lyon_core 0.8.0",
@@ -613,7 +613,7 @@ dependencies = [
  "lyon_path_builder 0.8.6",
  "lyon_path_iterator 0.8.5",
  "lyon_svg 0.8.6",
- "lyon_tessellation 0.8.7",
+ "lyon_tessellation 0.8.8",
 ]
 
 [[package]]
@@ -633,7 +633,7 @@ dependencies = [
  "gfx_device_gl 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.8.7",
+ "lyon 0.8.8",
  "lyon_extra 0.8.6",
  "rand 0.3.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -693,7 +693,7 @@ dependencies = [
  "lyon_path 0.8.6",
  "lyon_path_builder 0.8.6",
  "lyon_path_iterator 0.8.5",
- "lyon_tessellation 0.8.7",
+ "lyon_tessellation 0.8.8",
 ]
 
 [[package]]
@@ -712,7 +712,7 @@ dependencies = [
  "clap 2.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.8.7",
+ "lyon 0.8.8",
  "lyon_svg 0.8.6",
  "rayon 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "svgparser 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "lyon_bezier 0.8.5",
  "lyon_core 0.8.0",
@@ -1003,7 +1003,7 @@ name = "tess_bench"
 version = "0.0.1"
 dependencies = [
  "bencher 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.8.7",
+ "lyon 0.8.8",
 ]
 
 [[package]]
