@@ -518,6 +518,10 @@ impl<T> GeometryBuilder<T> for NoOutput
     fn abort_geometry(&mut self) {}
 }
 
+impl<V, I> GeometryReceiver<V, I> for NoOutput {
+    fn set_geometry(&mut self, _vertices: &[V], _indices: &[I]) {}
+}
+
 // /// An extension to GeometryBuilder that can handle quadratic bézier segments.
 // pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
 //     /// Insert a quadratic bezier curve.

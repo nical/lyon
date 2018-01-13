@@ -112,6 +112,12 @@ fn main() {
                 .value_name("MIN_POINTS")
                 .takes_value(true)
             )
+            .arg(Arg::with_name("TESSELLATOR")
+                .long("tessellator")
+                .help("Select the tessellator to use")
+                .value_name("TESSELLATOR")
+                .takes_value(true)
+            )
         )
         .subcommand(
             declare_tess_params(SubCommand::with_name("show"))
@@ -180,6 +186,7 @@ fn main() {
             stroke: fuzz_matches.is_present("STROKE"),
             min_points: fuzz_matches.value_of("MIN_POINTS").and_then(|str_val| str_val.parse::<u32>().ok()),
             max_points: fuzz_matches.value_of("MAX_POINTS").and_then(|str_val| str_val.parse::<u32>().ok()),
+            tessellator: get_tessellator(fuzz_matches),
         });
     }
 
