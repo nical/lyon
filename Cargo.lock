@@ -355,7 +355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "euclid"
-version = "0.16.1"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -806,7 +806,7 @@ name = "lyon_geom"
 version = "0.9.0"
 dependencies = [
  "arrayvec 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "euclid 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "euclid 0.16.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.1.41 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1522,7 +1522,7 @@ dependencies = [
 "checksum dwmapi-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b44b6442aeab12e609aee505bd1066bdfd36b79c3fe5aad604aae91537623e76"
 "checksum either 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "740178ddf48b1a9e878e6d6509a1442a2d42fd2928aae8e7a6f8a36fb01981b3"
 "checksum error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ff511d5dc435d703f4971bc399647c9bc38e20cb41452e3b9feb4765419ed3f3"
-"checksum euclid 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1bb8335618a5dace6c5654a0945c4f29ac09039878fd8f3d36953950e9a363ce"
+"checksum euclid 0.16.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4d3555d2929527adbdf8011bc8091a06c9091a72f00fcc67d22b3a3799c2a757"
 "checksum fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 "checksum foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
 "checksum foreign-types-shared 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"

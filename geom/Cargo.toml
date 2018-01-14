@@ -13,6 +13,6 @@ workspace = ".."
 name = "lyon_geom"
 
 [dependencies]
-euclid = "0.16.1"
+euclid = "0.16.2"
 arrayvec = "0.4"
 num-traits = "0.1.40"
