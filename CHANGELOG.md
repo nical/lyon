@@ -1,6 +1,6 @@
 ## Change log
 
-### v0.9.1
+### v0.9.1 (2018-01-14)
   - [tessellation] Fix missing vertices when normals are disabled.
   - [tess2] Add an alternative tessellator based on libtess2.
   - [cli] Expose the tess2 tessellator in the app.

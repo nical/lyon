@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon_tess2"
-version = "0.9.0"
+version = "0.9.1"
 description = "An additional path tessellator for lyon using libtess2."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -16,5 +16,5 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_tessellation = { version = "0.9.0", path = "../tessellation" }
+lyon_tessellation = { version = "0.9.1", path = "../tessellation" }
 tess2-sys = "0.0.1"
