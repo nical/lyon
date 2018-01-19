@@ -5,8 +5,9 @@ use path_fill::*;
 use geom::math::*;
 use FillVertex as Vertex;
 use FillOptions;
+use OnError;
 
-fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
+fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usize, FillError> {
     let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
@@ -17,7 +18,7 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
         try!{
             tess.tessellate_path(
                 path.path_iter(),
-                &FillOptions::tolerance(0.05),
+                &FillOptions::tolerance(0.05).on_error(on_error),
                 &mut vertex_builder
             )
         };
@@ -26,19 +27,34 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
 }
 
 fn test_path(path: PathSlice) {
-    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
+    let on_error = OnError::Panic;
+    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false, on_error));
 
     if res.is_ok() {
         return;
     }
 
-    ::extra::debugging::find_reduced_test_case(
-        path,
-        &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
+    // First see if the tessellator detect the error without panicking
+    let recover_mode = ::std::panic::catch_unwind(
+        || tessellate_path(path, false, OnError::Recover)
     );
 
-    tessellate_path(path, true).unwrap();
-    panic!();
+
+    ::extra::debugging::find_reduced_test_case(
+        path,
+        &|path: Path| { return tessellate_path(path.as_slice(), false, on_error).is_err(); },
+    );
+
+    print!(" -- Tessellating with OnError::Recover ");
+    if let Ok(result) = recover_mode {
+        println!("returned {:?}.", result);
+    } else {
+        println!("panicked.");
+    }
+
+    tessellate_path(path, true, on_error).unwrap();
+
+    panic!("Test failed.");
 }
 
 #[test]
