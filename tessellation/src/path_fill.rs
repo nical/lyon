@@ -77,8 +77,16 @@ pub type FillResult = Result<Count, FillError>;
 /// The fill tessellator's error enumeration.
 #[derive(Clone, Debug)]
 pub enum FillError {
-    Unknown,
     UnsupportedParamater,
+    Internal(InternalError)
+}
+
+#[derive(Clone, Debug)]
+pub enum InternalError {
+    E01,
+    E02,
+    E03,
+    E04,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -557,11 +565,9 @@ impl FillTessellator {
         // later.
         prepare_pending_edges(&mut self.pending_edges, &mut self.intersections);
 
-        if self.log {
-            self.log_sl(first_edge_above);
-            tess_log!(self, "{:?}", point_type);
-            tess_log!(self, "above:{}", num_edges_above);
-        }
+        self.log_sl(first_edge_above);
+        tess_log!(self, "{:?}", point_type);
+        tess_log!(self, "above:{}", num_edges_above);
 
         let mut vertex_id = if !self.options.compute_normals {
             let vector_position = to_f32_point(self.current_position);
@@ -673,7 +679,7 @@ impl FillTessellator {
 
             self.merge_event(vertex_id, first_edge_above, output);
 
-        } else if num_edges_above == 1 {
+        } else if num_edges_above == 1 && num_pending_edges > 0 {
             // Left event.
             //
             //     /...
@@ -681,30 +687,36 @@ impl FillTessellator {
             //     \...
             //
 
-            debug_assert!(num_pending_edges > 0);
-
-            let vertex_pending_edge_id = self.pending_edges.len() - 1;
-            tess_log!(self, "(left event) {:?}    -> {:?}", above_idx, self.pending_edges[vertex_pending_edge_id].lower);
+            let vertex_below_id = self.pending_edges.len() - 1;
+            tess_log!(self, "(left event) {:?}    -> {:?}", above_idx, self.pending_edges[vertex_below_id].lower);
 
             if self.options.compute_normals {
                 let vertex_above = self.active_edges[above_idx].points.upper;
-                let vertex_below = self.pending_edges[vertex_pending_edge_id].lower;
+                let vertex_below = self.pending_edges[vertex_below_id].lower;
                 vertex_id = self.add_vertex_with_normal(&vertex_above, &vertex_below, output);
             }
             self.resolve_merge_vertices(above_idx, vertex_id, output);
-            self.insert_edge(above_idx, vertex_pending_edge_id, vertex_id);
+            self.insert_edge(above_idx, vertex_below_id, vertex_id);
 
             num_pending_edges -= 1;
             num_edges_above -= 1;
         }
-
         // Since we took care of left and right events already we should not have
         // an odd number of pending edges to work with by now.
-        debug_assert!(num_pending_edges % 2  == 0);
+        if num_pending_edges % 2 != 0 {
+            if self.error(InternalError::E01) {
+                return;
+            }
+            // TODO - We are in an invalid state, and trying to continue tessellating
+            // anyway. The code below assumes we have an even number
+            // of pending edges so let's pretend.
+            num_pending_edges -= 1;
+        }
 
         // Step 2, handle edges below the current vertex.
         if num_pending_edges > 0 {
             if point_type == PointType::In {
+                debug_assert!(num_pending_edges >= 2);
                 debug_assert!(even(above_idx));
                 // Split event.
                 //
@@ -762,8 +774,9 @@ impl FillTessellator {
 
         self.pending_edges.clear();
 
-        debug_assert_eq!(num_edges_above, 0);
-        debug_assert_eq!(num_pending_edges, 0);
+        if num_edges_above != 0 || num_pending_edges != 0 {
+            self.error(InternalError::E02);
+        }
     }
 
     fn find_interesting_active_edges(
@@ -801,10 +814,10 @@ impl FillTessellator {
                 );
             }
 
-            tess_log!(self,
-                "## point:{} edge:{} past:{}",
-                at_endpoint, on_edge, edge_after_point
-            );
+            //tess_log!(self,
+            //    "## point:{} edge:{} past:{}",
+            //    at_endpoint, on_edge, edge_after_point
+            //);
             if at_endpoint || on_edge {
                 // If at_endpoint or on_edge is true then edge_after_point
                 // should be false, otherwise we may break out of this loop
@@ -1123,38 +1136,53 @@ impl FillTessellator {
         self.monotone_tessellators.insert(span, tess);
     }
 
-    fn error(&mut self, err: FillError) {
+    #[inline(never)]
+    fn error(&mut self, err: InternalError) -> bool {
         tess_log!(self, " !! FillTessellator Error {:?}", err);
         if self.panic_on_errors() {
             panic!();
         }
-        self.error = Some(err);
+        if self.error.is_none() {
+            self.error = Some(FillError::Internal(err));
+        }
+
+        self.options.on_error == OnError::Stop
     }
 
     #[cfg(not(debug_assertions))]
-    fn debug_check_sl(&self) {}
+    fn debug_check_sl(&mut self) {}
 
     #[cfg(debug_assertions)]
-    fn debug_check_sl(&self) {
-        if !self.panic_on_errors() {
-            return;
-        }
+    fn debug_check_sl(&mut self) {
+        let mut ok = true;
         for edge in &self.active_edges {
-            if !edge.merge {
-                debug_assert!(
-                    !is_after(self.current_position, edge.points.lower),
-                    "current {:?} should not be below lower {:?}",
+            if edge.merge {
+                continue;
+            }
+            if is_after(self.current_position, edge.points.lower) {
+                tess_log!(self,
+                    "current vertex {:?} should not be below lower {:?}",
                     self.current_position,
                     edge.points.lower
                 );
-                debug_assert!(
-                    !is_after(edge.points.upper, edge.points.lower),
-                    "upper left {:?} should not be below lower {:?}",
+                ok = false;
+                break;
+            }
+            if is_after(edge.points.upper, edge.points.lower) {
+                tess_log!(self,
+                    "upper vertex {:?} should not be below lower vertex {:?}",
                     edge.points.upper,
                     edge.points.lower
                 );
+                ok = false;
+                break;
             }
         }
+
+        if !ok {
+            self.error(InternalError::E03);
+        }
+
         self.log_sl_winding();
         // TODO: There are a few failing tests to fix before this assertion
         // can be made.
@@ -1166,6 +1194,9 @@ impl FillTessellator {
 
     #[cfg(test)]
     fn log_sl(&self, first_edge_above: ActiveEdgeId) {
+        if !self.log {
+            return;
+        }
         println!("\n\n ----- current: {:?} ------ offset {:?} in sl", self.current_position, first_edge_above.handle);
         for b in &self.pending_edges {
             println!("   -- below: {:?}", b);
