@@ -191,7 +191,7 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
                     );
                 }
                 let res = tessTesselate(tess,
-                    TessWindingRule::TESS_WINDING_NONZERO,
+                    TessWindingRule::TESS_WINDING_ODD,
                     TessElementType::TESS_POLYGONS,
                     3,
                     2,
