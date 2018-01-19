@@ -43,4 +43,5 @@ pub struct FuzzCmd {
     pub min_points: Option<u32>,
     pub max_points: Option<u32>,
     pub tessellator: Tessellator,
+    pub ignore_errors: bool,
 }
