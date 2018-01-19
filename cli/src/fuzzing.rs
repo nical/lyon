@@ -4,7 +4,8 @@ use lyon::path::builder::*;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{
     StrokeOptions, StrokeTessellator,
-    FillOptions, FillTessellator
+    FillOptions, FillTessellator,
+    OnError,
 };
 use lyon_extra::debugging::find_reduced_test_case;
 use rand;
@@ -69,20 +70,33 @@ pub fn run(cmd: FuzzCmd) -> bool {
         let path = generate_path(&cmd, i);
         if cmd.fill || !cmd.stroke {
             let status = ::std::panic::catch_unwind(|| {
+                let options = FillOptions::default().on_error(
+                    if cmd.ignore_errors {
+                        OnError::Recover
+                    } else {
+                        OnError::Panic
+                    }
+                );
                 match cmd.tessellator {
                     Tessellator::Default => {
-                        FillTessellator::new().tessellate_path(
+                        let result = FillTessellator::new().tessellate_path(
                             path.path_iter(),
-                            &FillOptions::default(),
+                            &options,
                             &mut NoOutput::new()
-                        ).unwrap();
+                        );
+                        if !cmd.ignore_errors {
+                            result.unwrap();
+                        }
                     }
                     Tessellator::Tess2 => {
-                        tess2::FillTessellator::new().tessellate_path(
+                        let result = tess2::FillTessellator::new().tessellate_path(
                             path.path_iter(),
-                            &FillOptions::default(),
+                            &options,
                             &mut NoOutput::new()
-                        ).unwrap();
+                        );
+                        if !cmd.ignore_errors {
+                            result.unwrap();
+                        }
                     }
                 }
             });
