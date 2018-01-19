@@ -26,7 +26,7 @@ use std::cmp::{PartialOrd, Ordering};
 use sid::{Id, IdVec};
 
 use FillVertex as Vertex;
-use {FillOptions, FillRule, Side};
+use {FillOptions, FillRule, Side, OnError};
 use geom::math::*;
 use geom::euclid::{self, Trig};
 use math_utils::*;
@@ -78,6 +78,7 @@ pub type FillResult = Result<Count, FillError>;
 #[derive(Clone, Debug)]
 pub enum FillError {
     Unknown,
+    UnsupportedParamater,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -272,8 +273,7 @@ pub struct FillTessellator {
     current_position: TessPoint,
 
     // various options
-    assume_no_intersections: bool,
-    compute_normals: bool,
+    options: FillOptions,
     log: bool,
 
     // Events and intersections that haven't been processed yet.
@@ -297,8 +297,7 @@ impl FillTessellator {
             intersections: Vec::with_capacity(8),
             current_position: TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val()),
             error: None,
-            assume_no_intersections: true,
-            compute_normals: true,
+            options: FillOptions::DEFAULT,
             log: false,
             tess_pool: Vec::with_capacity(8),
         }
@@ -331,10 +330,14 @@ impl FillTessellator {
     ) -> FillResult {
         if options.fill_rule != FillRule::EvenOdd {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
+            match options.on_error {
+                OnError::Stop => { return Err(FillError::UnsupportedParamater); }
+                OnError::Panic => { panic!("Unsupported fill rule"); }
+                OnError::Recover => {}
+            }
         }
 
-        self.assume_no_intersections = options.assume_no_intersections;
-        self.compute_normals = options.compute_normals;
+        self.options = options.clone();
 
         self.begin_tessellation(output);
 
@@ -356,6 +359,10 @@ impl FillTessellator {
     /// Enable some verbose logging during the tessellation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
 
+    fn panic_on_errors(&self) -> bool {
+        self.options.on_error == OnError::Panic
+    }
+
     fn reset(&mut self) {
         self.active_edges.clear();
         self.monotone_tessellators.clear();
@@ -373,9 +380,12 @@ impl FillTessellator {
         &mut self,
         output: &mut GeometryBuilder<Vertex>,
     ) -> Count {
-        debug_assert!(self.active_edges.len() == 0);
-        debug_assert!(self.monotone_tessellators.is_empty());
-        debug_assert!(self.pending_edges.is_empty());
+        if self.panic_on_errors() {
+            debug_assert!(self.active_edges.len() == 0);
+            debug_assert!(self.monotone_tessellators.is_empty());
+            debug_assert!(self.pending_edges.is_empty());
+        }
+        self.reset();
         return output.end_geometry();
     }
 
@@ -391,7 +401,7 @@ impl FillTessellator {
         let mut next_edge = edge_iter.next();
         let mut next_vertex = vertex_iter.next();
         loop {
-            if self.error.is_some() {
+            if self.error.is_some() && self.options.on_error != OnError::Recover {
                 return;
             }
 
@@ -553,7 +563,7 @@ impl FillTessellator {
             tess_log!(self, "above:{}", num_edges_above);
         }
 
-        let mut vertex_id = if !self.compute_normals {
+        let mut vertex_id = if !self.options.compute_normals {
             let vector_position = to_f32_point(self.current_position);
             output.add_vertex(
                 Vertex {
@@ -601,7 +611,7 @@ impl FillTessellator {
                     debug_assert!(num_edges_above > 0);
                     debug_assert!(num_pending_edges > 0);
 
-                    if self.compute_normals {
+                    if self.options.compute_normals {
                         let vertex_above = self.active_edges[above_idx].points.upper;
                         let edge_to = self.pending_edges[0].lower;
                         vertex_id = self.add_vertex_with_normal(&edge_to, &vertex_above, output);
@@ -633,7 +643,7 @@ impl FillTessellator {
             //
             tess_log!(self, "(end event) {:?}", above_idx);
 
-            if self.compute_normals {
+            if self.options.compute_normals {
                 let left = self.active_edges[above_idx].points.upper;
                 let right = self.active_edges[above_idx+1].points.upper;
                 vertex_id = self.add_vertex_with_normal(&left, &right, output);
@@ -655,7 +665,7 @@ impl FillTessellator {
             tess_log!(self, "(merge event) {:?}", above_idx);
             debug_assert_eq!(num_edges_above, 0);
 
-            if self.compute_normals {
+            if self.options.compute_normals {
                 let left = self.active_edges[first_edge_above].points.upper;
                 let right = self.active_edges[first_edge_above+1].points.upper;
                 vertex_id = self.add_vertex_with_normal(&right, &left, output);
@@ -676,7 +686,7 @@ impl FillTessellator {
             let vertex_pending_edge_id = self.pending_edges.len() - 1;
             tess_log!(self, "(left event) {:?}    -> {:?}", above_idx, self.pending_edges[vertex_pending_edge_id].lower);
 
-            if self.compute_normals {
+            if self.options.compute_normals {
                 let vertex_above = self.active_edges[above_idx].points.upper;
                 let vertex_below = self.pending_edges[vertex_pending_edge_id].lower;
                 vertex_id = self.add_vertex_with_normal(&vertex_above, &vertex_below, output);
@@ -706,7 +716,7 @@ impl FillTessellator {
 
                 let left_idx = 0;
                 let right_idx = num_pending_edges - 1;
-                if self.compute_normals {
+                if self.options.compute_normals {
                     let left_vertex = self.pending_edges[left_idx].lower;
                     let right_vertex = self.pending_edges[right_idx].lower;
                     vertex_id = self.add_vertex_with_normal(
@@ -734,7 +744,7 @@ impl FillTessellator {
                 //
                 tess_log!(self, "(start event) {:?}", above_idx);
 
-                if self.compute_normals {
+                if self.options.compute_normals {
                     let left = self.pending_edges[pending_edge_id].lower;
                     let right = self.pending_edges[pending_edge_id + 1].lower;
                     vertex_id = self.add_vertex_with_normal(&right, &left, output);
@@ -1012,7 +1022,7 @@ impl FillTessellator {
         //
         // TODO: This function is more complicated (and slower) than it needs to be.
 
-        if self.assume_no_intersections {
+        if self.options.assume_no_intersections {
             return;
         }
 
@@ -1115,6 +1125,9 @@ impl FillTessellator {
 
     fn error(&mut self, err: FillError) {
         tess_log!(self, " !! FillTessellator Error {:?}", err);
+        if self.panic_on_errors() {
+            panic!();
+        }
         self.error = Some(err);
     }
 
@@ -1123,6 +1136,9 @@ impl FillTessellator {
 
     #[cfg(debug_assertions)]
     fn debug_check_sl(&self) {
+        if !self.panic_on_errors() {
+            return;
+        }
         for edge in &self.active_edges {
             if !edge.merge {
                 debug_assert!(
