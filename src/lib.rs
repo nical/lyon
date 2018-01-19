@@ -102,9 +102,7 @@
 //! use lyon::math::point;
 //! use lyon::path::default::Path;
 //! use lyon::path::builder::*;
-//! use lyon::path::iterator::PathIterator;
-//! use lyon::tessellation::{FillTessellator, FillOptions, VertexBuffers};
-//! use lyon::tessellation::geometry_builder::simple_builder;
+//! use lyon::tessellation::*;
 //!
 //! fn main() {
 //!     // Build a Path.
@@ -116,21 +114,26 @@
 //!     builder.close();
 //!     let path = builder.build();
 //!
+//!     // Let's use our own custom vertex type instead of the default one.
+//!     #[derive(Copy, Clone, Debug)]
+//!     struct MyVertex { position: [f32; 2], normal: [f32; 2] };
+//!
 //!     // Will contain the result of the tessellation.
 //!     let mut geometry = VertexBuffers::new();
 //!
 //!     let mut tessellator = FillTessellator::new();
 //!
 //!     {
-//!         let mut geom_builder = simple_builder(&mut geometry);
-//!
-//!         let tolerance = 0.1;
-//!
 //!         // Compute the tessellation.
 //!         tessellator.tessellate_path(
 //!             path.path_iter(),
 //!             &FillOptions::default(),
-//!             &mut geom_builder
+//!             &mut BuffersBuilder::new(&mut geometry, |vertex : FillVertex| {
+//!                 MyVertex {
+//!                     position: vertex.position.to_array(),
+//!                     normal: vertex.normal.to_array(),
+//!                 }
+//!             }),
 //!         ).unwrap();
 //!     }
 //!
