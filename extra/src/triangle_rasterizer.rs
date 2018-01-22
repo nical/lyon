@@ -1,7 +1,31 @@
 use std::cmp::{min, max};
+use std::ops::Add;
 
-use core::math::*;
+use math::*;
+use euclid;
 use image::MutableImageSlice;
+
+type IntVector = euclid::Vector2D<i32>;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct IntVec4 {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub w: i32,
+}
+
+impl Add for IntVec4 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        IntVec4 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+            w: self.w + rhs.w,
+        }
+    }
+}
 
 /// A software triangle rasterizer intended for ref testing and to help debugging
 /// the output of the various tessellation routines.
@@ -101,15 +125,16 @@ fn init_edge(v0: &IntVector, v1: &IntVector, origin: &IntVector) -> (IntVec4, In
 
     let sx = a * PX_GROUP_X;
     let sy = b * PX_GROUP_Y;
-    let step_x = int_vec4(sx, sx, sx, sx);
-    let step_y = int_vec4(sy, sy, sy, sy);
+    let step_x = IntVec4 { x: sx, y: sx, z: sx, w: sx };
+    let step_y = IntVec4 { x: sy, y: sy, z: sy, w: sy };
 
-    let swizzling_x = int_vec4(0, 1, 2, 3);
-    let swizzling_y = int_vec4(0, 0, 0, 0);
-    let dx = int_vec4(origin.x, origin.x, origin.x, origin.x) + swizzling_x;
-    let dy = int_vec4(origin.y, origin.y, origin.y, origin.y) + swizzling_y;
-    let row = int_vec4(a * dx.x, a * dx.y, a * dx.z, a * dx.w) +
-        int_vec4(b * dy.x, b * dy.y, b * dy.w, b * dy.w) + int_vec4(c, c, c, c);
+    let swizzling_x = IntVec4 { x: 0, y: 1, z: 2, w: 3 };
+    let swizzling_y = IntVec4 { x: 0, y: 0, z: 0, w: 0 };
+    let dx = IntVec4 { x: origin.x, y: origin.x, z: origin.x, w: origin.x } + swizzling_x;
+    let dy = IntVec4 { x: origin.y, y: origin.y, z: origin.y, w: origin.y } + swizzling_y;
+    let row = IntVec4 { x: a * dx.x, y: a * dx.y, z: a * dx.z, w: a * dx.w }
+        + IntVec4 { x: b * dy.x, y: b * dy.y, z: b * dy.w, w: b * dy.w }
+        + IntVec4 { x: c, y: c, z: c, w: c };
 
     return (step_x, step_y, row);
 }

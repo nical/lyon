@@ -6,7 +6,10 @@
 extern crate lyon_path as path;
 extern crate lyon_svg as svg;
 
+pub use path::geom::math;
+pub use path::geom::euclid;
+
 pub mod rust_logo;
-//pub mod triangle_rasterizer;
+pub mod triangle_rasterizer;
 pub mod debugging;
 pub mod image;
