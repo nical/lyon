@@ -101,7 +101,7 @@
 use std::iter;
 
 use math::*;
-use {PathEvent, SvgEvent, FlattenedEvent, PathState};
+use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
 use geom::utils::vector_angle;
 use geom::arc;
@@ -118,6 +118,11 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     /// Returns an iterator that turns curves into line segments.
     fn flattened(self, tolerance: f32) -> Flattened<Self> {
         Flattened::new(tolerance, self)
+    }
+
+    /// Returns an iterator applying a 2D transform to all of its events.
+    fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
+        Transformed::new(mat, self)
     }
 }
 
@@ -154,12 +159,40 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
         self.map(flattened_to_svg_event)
     }
 
+    /// Returns an iterator applying a 2D transform to all of its events.
+    fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
+        Transformed::new(mat, self)
+    }
+
     /// Walks along the path staring from `start` and applies a `Pattern`.
     fn walk(self, start: f32, pattern: &mut walk::Pattern) {
         let mut walker = walk::PathWalker::new(start, pattern);
         for evt in self {
             walker.flat_event(evt);
         }
+    }
+}
+
+/// An extension to the common Iterator interface, that adds information which is useful when
+/// chaining path-specific iterators.
+pub trait QuadraticPathIterator: Iterator<Item = QuadraticEvent> + Sized {
+    /// The returned structure exposes the current position, the first position in the current
+    /// sub-path, and the position of the last control point.
+    fn get_state(&self) -> &PathState;
+
+    /// Returns an iterator of path events.
+    fn path_events(self) -> iter::Map<Self, fn(QuadraticEvent) -> PathEvent> {
+        self.map(quadratic_to_path_event)
+    }
+
+    /// Returns an iterator of svg events.
+    fn svg_events(self) -> iter::Map<Self, fn(QuadraticEvent) -> SvgEvent> {
+        self.map(quadratic_to_svg_event)
+    }
+
+    /// Returns an iterator applying a 2D transform to all of its events.
+    fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
+        Transformed::new(mat, self)
     }
 }
 
@@ -381,8 +414,50 @@ where
     }
 }
 
+#[inline]
+fn quadratic_to_path_event(evt: QuadraticEvent) -> PathEvent { evt.to_path_event() }
+#[inline]
+fn quadratic_to_svg_event(evt: QuadraticEvent) -> SvgEvent { evt.to_svg_event() }
+#[inline]
 fn flattened_to_path_event(evt: FlattenedEvent) -> PathEvent { evt.to_path_event() }
+#[inline]
 fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg_event() }
+
+/// Applies a 2D transform to a path iterator and yields the resulting path iterator.
+pub struct Transformed<I> {
+    it: I,
+    transform: Transform2D,
+}
+
+impl<I, Event> Transformed<I>
+where
+    I: Iterator<Item = Event>,
+    Event: Transform
+{
+    /// Creates a new transformed path iterator from a path iterator.
+    #[inline]
+    pub fn new(transform: &Transform2D, it: I) -> Transformed<I> {
+        Transformed {
+            it,
+            transform: *transform,
+        }
+    }
+}
+
+impl<I, Event> Iterator for Transformed<I>
+where
+    I: Iterator<Item = Event>,
+    Event: Transform
+{
+    type Item = Event;
+    fn next(&mut self) -> Option<Event> {
+        match self.it.next() {
+            None => None,
+            Some(ref evt) => Some(evt.transform(&self.transform)),
+        }
+    }
+}
+
 
 /// An iterator that consumes an iterator of `Point`s and produces `FlattenedEvent`s.
 ///

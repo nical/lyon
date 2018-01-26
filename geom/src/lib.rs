@@ -229,6 +229,11 @@ pub mod math {
 
     /// Shorthand for `Size::new(x, y)`.
     pub use euclid::size2 as size;
+
+    /// Anything that can be transformed in 2D.
+    pub trait Transform {
+        fn transform(&self, mat: &Transform2D) -> Self;
+    }
 }
 
 
