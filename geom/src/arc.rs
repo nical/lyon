@@ -106,9 +106,7 @@ impl<S: Scalar> Arc<S> {
             x_rotation: arc.x_rotation
         }
     }
-}
 
-impl<S: Scalar> Arc<S> {
     pub fn to_svg_arc(&self) -> SvgArc<S> {
         let from = self.sample(S::zero());
         let to = self.sample(S::one());
@@ -124,9 +122,7 @@ impl<S: Scalar> Arc<S> {
             flags,
         }
     }
-}
 
-impl<S: Scalar> Arc<S> {
     #[inline]
     pub fn to_quadratic_beziers<F: FnMut(Point<S>, Point<S>)>(&self, cb: &mut F) {
         arc_to_to_quadratic_beziers(self, cb);
