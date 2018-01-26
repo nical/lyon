@@ -1,11 +1,11 @@
-use scalar::{Float, One};
+use scalar::{Scalar, One};
 use generic_math::{Point, Vector, Rect};
 
 use std::ops::Range;
 
 /// Common APIs to segment types.
 pub trait Segment: Copy + Sized {
-    type Scalar: Float;
+    type Scalar: Scalar;
 
     /// Start of the curve.
     fn from(&self) -> Point<Self::Scalar>;
@@ -53,7 +53,7 @@ pub trait Segment: Copy + Sized {
 }
 
 pub trait BoundingRect {
-    type Scalar: Float;
+    type Scalar: Scalar;
 
     /// Returns a rectangle that contains the curve.
     fn bounding_rect(&self) -> Rect<Self::Scalar>;
@@ -117,13 +117,13 @@ where T: FlatteningStep
 ///
 /// The iterator starts at the first point *after* the origin of the curve and ends at the
 /// destination.
-pub struct Flattened<S: Float, T> {
+pub struct Flattened<S, T> {
     curve: T,
     tolerance: S,
     done: bool,
 }
 
-impl<S: Float, T: FlatteningStep> Flattened<S, T> {
+impl<S: Scalar, T: FlatteningStep> Flattened<S, T> {
     pub fn new(curve: T, tolerance: S) -> Self {
         assert!(tolerance > S::zero());
         Flattened {
@@ -134,7 +134,7 @@ impl<S: Float, T: FlatteningStep> Flattened<S, T> {
     }
 }
 
-impl<S: Float, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
+impl<S: Scalar, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
 {
     type Item = Point<S>;
     fn next(&mut self) -> Option<Point<S>> {
@@ -151,7 +151,7 @@ impl<S: Float, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
     }
 }
 
-pub(crate) fn approximate_length_from_flattening<S: Float, T>(curve: &T, tolerance: S) -> S
+pub(crate) fn approximate_length_from_flattening<S: Scalar, T>(curve: &T, tolerance: S) -> S
 where T: FlattenedForEach<Scalar=S>
 {
     let mut start = curve.from();

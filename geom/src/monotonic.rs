@@ -1,5 +1,5 @@
 use segment::{Segment, BoundingRect};
-use scalar::{Scalar, Float, NumCast};
+use scalar::{Scalar, NumCast};
 use generic_math::{Point, Vector, Rect};
 use std::ops::Range;
 use arrayvec::ArrayVec;
@@ -8,7 +8,7 @@ use {QuadraticBezierSegment, CubicBezierSegment};
 use std::f64;
 
 pub(crate) trait MonotonicSegment {
-    type Scalar: Float;
+    type Scalar: Scalar;
     fn solve_t_for_x(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar;
 }
 

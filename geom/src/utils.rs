@@ -3,12 +3,12 @@ use generic_math::{Point, Vector, vector, Angle};
 use arrayvec::ArrayVec;
 
 #[inline]
-pub fn min_max<S: Float>(a: S, b: S) -> (S, S) {
+pub fn min_max<S: Scalar>(a: S, b: S) -> (S, S) {
     if a < b { (a, b) } else { (b, a) }
 }
 
 #[inline]
-pub fn tangent<S: Float>(v: Vector<S>) -> Vector<S> {
+pub fn tangent<S: Scalar>(v: Vector<S>) -> Vector<S> {
     vector(-v.y, v.x)
 }
 
@@ -93,7 +93,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
         }
     } else {
         let theta = (delta1 / (-delta0 * delta0 * delta0).sqrt()).acos();
-        let two_sqrt_delta0 = S::TWO * Float::sqrt(-delta0);
+        let two_sqrt_delta0 = S::TWO * (-delta0).sqrt();
         result.push(two_sqrt_delta0 * Float::cos(theta * frac_1_3) - bn * frac_1_3);
         result.push(two_sqrt_delta0 * Float::cos((theta + S::TWO * S::PI()) * frac_1_3) - bn * frac_1_3);
         result.push(two_sqrt_delta0 * Float::cos((theta + S::FOUR * S::PI()) * frac_1_3) - bn * frac_1_3);
