@@ -653,13 +653,11 @@ fn fat_line() {
 
 #[test]
 fn is_linear() {
-    use scalar::Float;
-
     let mut angle = 0.0;
     let center = Point::new(1000.0, -700.0);
     for _ in 0..100 {
         for i in 0..10 {
-            let (sin, cos) = Float::sin_cos(angle);
+            let (sin, cos) = f64::sin_cos(angle);
             let endpoint = Vector::new(cos * 100.0, sin * 100.0);
             let curve = QuadraticBezierSegment {
                 from: center - endpoint,

@@ -1,4 +1,4 @@
-use scalar::{Scalar, Float};
+use scalar::Scalar;
 use generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use monotonic::MonotonicSegment;
@@ -189,7 +189,7 @@ impl<S: Scalar> LineSegment<S> {
         }
 
         let sign_v1_cross_v2 = v1_cross_v2.signum();
-        let abs_v1_cross_v2 = Float::abs(v1_cross_v2);
+        let abs_v1_cross_v2 = v1_cross_v2.abs();
 
         let v3 = other.from - self.from;
 
@@ -321,7 +321,7 @@ pub struct LineEquation<S> {
 impl<S: Scalar> LineEquation<S> {
     pub fn new(a: S, b: S, c: S) -> Self {
         debug_assert!(a != S::zero() || b != S::zero());
-        let div = S::one() / Float::sqrt(a * a + b * b);
+        let div = S::one() / (a * a + b * b).sqrt();
         LineEquation { a: a * div, b: b * div, c: c * div }
     }
 
@@ -348,7 +348,7 @@ impl<S: Scalar> LineEquation<S> {
 
     #[inline]
     pub fn distance_to_point(&self, p: &Point<S>) -> S {
-        Float::abs(self.signed_distance_to_point(p))
+        self.signed_distance_to_point(p).abs()
     }
 
     #[inline]
@@ -588,7 +588,7 @@ fn solve_y_for_x() {
 
     let mut angle = 0.1;
     for _ in 0..100 {
-        let (sin, cos) = Float::sin_cos(angle);
+        let (sin, cos) = f64::sin_cos(angle);
         let line = Line {
             point: Point::new(-1000.0, 600.0),
             vector: Vector::new(cos * 100.0, sin * 100.0),

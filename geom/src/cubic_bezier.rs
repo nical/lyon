@@ -1,5 +1,5 @@
 use {Line, LineSegment, LineEquation};
-use scalar::{Scalar, Float};
+use scalar::Scalar;
 use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
@@ -187,8 +187,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
             baseline.signed_distance_to_point(&self.ctrl2),
         );
 
-        d1 = Float::min(d1, S::zero());
-        d2 = Float::max(d2, S::zero());
+        d1 = S::min(d1, S::zero());
+        d2 = S::max(d2, S::zero());
 
         let frac_3_4 = S::constant(3.0/4.0);
 
@@ -775,7 +775,7 @@ fn is_linear() {
     for _ in 0..100 {
         for i in 0..10 {
             for j in 0..10 {
-                let (sin, cos) = Float::sin_cos(angle);
+                let (sin, cos) = f64::sin_cos(angle);
                 let endpoint = Vector::new(cos * 100.0, sin * 100.0);
                 let curve = CubicBezierSegment {
                     from: center - endpoint,
