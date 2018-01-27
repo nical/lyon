@@ -2,6 +2,7 @@ use scalar::Scalar;
 use CubicBezierSegment;
 use QuadraticBezierSegment;
 use Line;
+use arrayvec::ArrayVec;
 
 /// Approximate a cubic bezier segment with a sequence of quadratic bezier segments.
 pub fn cubic_to_quadratic<S: Scalar, F>(cubic: &CubicBezierSegment<S>, _tolerance: S, cb: &mut F)
@@ -87,44 +88,50 @@ where
     }
 }
 
+
+// TODO(breaking change) - take the curve by reference in the callback.
 pub fn monotonic_approximation<S: Scalar, F>(curve: &CubicBezierSegment<S>, cb: &mut F)
 where
     F: FnMut(QuadraticBezierSegment<S>),
 {
-    let x_extrema = curve.find_local_x_extrema();
-    let y_extrema = curve.find_local_y_extrema();
+    curve.for_each_monotonic_range(|range| {
+        cb(curve.split_range(range).to_quadratic());
+    });
+}
 
-    let t = S::zero();
-    let mut it_x = x_extrema.iter().cloned();
-    let mut it_y = y_extrema.iter().cloned();
-    let mut tx = it_x.next();
-    let mut ty = it_y.next();
-    loop {
-        let next = match (tx, ty) {
-            (Some(a), Some(b)) => {
-                if a < b {
-                    tx = it_x.next();
-                    a
-                } else {
-                    ty = it_y.next();
-                    b
-                }
-            }
-            (Some(a), None) => {
-                tx = it_x.next();
-                a
-            }
-            (None, Some(b)) => {
-                ty = it_y.next();
-                b
-            }
-            (None, None) => {
-                S::one()
-            }
-        };
-        cb(single_curve_approximation(&curve.split_range(t..next)));
-        if next == S::one() {
-            return;
+pub struct MonotonicQuadraticBezierSegments<S> {
+    curve: CubicBezierSegment<S>,
+    splits: ArrayVec<[S; 4]>,
+    t0: S,
+    idx: u8,
+}
+
+impl<S: Scalar> MonotonicQuadraticBezierSegments<S> {
+    pub fn new(curve: &CubicBezierSegment<S>) -> Self {
+        let mut splits = ArrayVec::new();
+        curve.for_each_monotonic_t(|t| {
+            splits.push(t);
+        });
+        MonotonicQuadraticBezierSegments {
+            curve: *curve,
+            splits,
+            t0: S::ZERO,
+            idx: 0,
         }
+    }
+}
+
+impl<S: Scalar> Iterator for MonotonicQuadraticBezierSegments<S> {
+    type Item = QuadraticBezierSegment<S>;
+    fn next(&mut self) -> Option<QuadraticBezierSegment<S>> {
+        let i = self.idx as usize;
+        if i < self.splits.len() {
+            let a = self.t0;
+            let b = self.splits[i];
+            self.t0 = b;
+            self.idx += 1;
+            return Some(self.curve.split_range(a..b).to_quadratic());
+        }
+        None
     }
 }

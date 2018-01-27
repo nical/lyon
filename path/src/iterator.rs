@@ -111,6 +111,9 @@ use builder::FlatPathBuilder;
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
+    // TODO(breaking change) - return path state by value and provide access
+    // to first/previous/ctrl by value separately.
+
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
     fn get_state(&self) -> &PathState;
