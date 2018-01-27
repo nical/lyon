@@ -5,9 +5,11 @@ use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
 pub use cubic_to_quadratic::cubic_to_quadratic;
+use cubic_to_quadratic::single_curve_approximation;
 use monotonic::Monotonic;
 use utils::{min_max, cubic_polynomial_roots};
 use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
+use QuadraticBezierSegment;
 
 use std::ops::Range;
 
@@ -231,6 +233,60 @@ impl<S: Scalar> CubicBezierSegment<S> {
         Flattened::new(*self, tolerance)
     }
 
+    /// Invokes a callback between each monotonic part of the segment.
+    pub fn for_each_monotonic_t<F>(&self, mut cb: F)
+    where
+        F: FnMut(S),
+    {
+        let x_extrema = self.find_local_x_extrema();
+        let y_extrema = self.find_local_y_extrema();
+
+        let mut it_x = x_extrema.iter().cloned();
+        let mut it_y = y_extrema.iter().cloned();
+        let mut tx = it_x.next();
+        let mut ty = it_y.next();
+        loop {
+            let next = match (tx, ty) {
+                (Some(a), Some(b)) => {
+                    if a < b {
+                        tx = it_x.next();
+                        a
+                    } else {
+                        ty = it_y.next();
+                        b
+                    }
+                }
+                (Some(a), None) => {
+                    tx = it_x.next();
+                    a
+                }
+                (None, Some(b)) => {
+                    ty = it_y.next();
+                    b
+                }
+                (None, None) => {
+                    return
+                }
+            };
+            if next > S::ZERO && next < S::ONE {
+                cb(next);
+            }
+        }
+    }
+
+    /// Invokes a callback for each monotonic part of the segment..
+    pub fn for_each_monotonic_range<F>(&self, mut cb: F)
+    where
+        F: FnMut(Range<S>),
+    {
+        let mut t0 = S::ZERO;
+        self.for_each_monotonic_t(|t| {
+            cb(t0..t);
+            t0 = t;
+        });
+        cb(t0..S::ONE);
+    }
+
     /// Iterates through the curve invoking a callback at each point.
     pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
@@ -275,12 +331,12 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let discriminant = b * b - S::FOUR * a * c;
 
         // There is no Real solution for the equation
-        if discriminant < S::zero() {
+        if discriminant < S::ZERO {
             return ret;
         }
 
         // There is one Real solution for the equation
-        if discriminant == S::zero() {
+        if discriminant == S::ZERO {
             let t = -b / (S::TWO * a);
             if in_range(t) {
                 ret.push(t);
@@ -539,6 +595,14 @@ impl<S: Scalar> CubicBezierSegment<S> {
         }
 
         return result;
+    }
+
+    /// Approximates this segment with a quadratic bézier segment.
+    ///
+    /// This is can be a very crude approzimation dependending on the
+    /// original curve.
+    pub fn to_quadratic(&self) -> QuadraticBezierSegment<S> {
+        single_curve_approximation(self)
     }
 }
 
