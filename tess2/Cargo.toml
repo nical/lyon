@@ -14,7 +14,11 @@ workspace = ".."
 name = "lyon_tess2"
 path = "src/lib.rs"
 
+[features]
+serialization = ["serde", "lyon_tessellation/serialization"]
+
 [dependencies]
 
 lyon_tessellation = { version = "0.9.1", path = "../tessellation" }
+serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 tess2-sys = "0.0.1"

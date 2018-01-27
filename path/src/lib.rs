@@ -38,6 +38,10 @@
 
 pub extern crate lyon_geom as geom;
 
+#[cfg(feature = "serialization")]
+#[macro_use]
+pub extern crate serde;
+
 mod events;
 mod path_state;
 pub mod default;

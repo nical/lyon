@@ -14,10 +14,14 @@ workspace = ".."
 name = "lyon_tessellation"
 path = "src/lib.rs"
 
+[features]
+serialization = ["serde", "lyon_path/serialization"]
+
 [dependencies]
 
 lyon_path = { version = "0.9.0", path = "../path" }
 sid = "0.5"
+serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 
 [dev-dependencies]
 lyon_extra = { version = "0.9.0", path = "../extra" }

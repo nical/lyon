@@ -4,6 +4,7 @@ use LineSegment;
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Triangle<S> {
     pub a: Point<S>,
     pub b: Point<S>,

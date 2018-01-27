@@ -301,6 +301,7 @@ pub trait GeometryReceiver<Vertex, Index> {
 ///
 /// Usually writen into though temporary `BuffersBuilder` objects.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct VertexBuffers<VertexType> {
     pub vertices: Vec<VertexType>,
     pub indices: Vec<Index>,
@@ -409,6 +410,7 @@ pub fn simple_builder<VertexType>(buffers: &mut VertexBuffers<VertexType>)
 
 /// Number of vertices and indices added during the tessellation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Count {
     pub vertices: u32,
     pub indices: u32,

@@ -182,6 +182,10 @@ pub extern crate lyon_path as path;
 
 #[cfg(test)] extern crate lyon_extra as extra;
 
+#[cfg(feature = "serialization")]
+#[macro_use]
+pub extern crate serde;
+
 extern crate sid;
 
 pub mod basic_shapes;

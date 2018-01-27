@@ -17,6 +17,7 @@ use std::ops::Range;
 /// The curve is defined by equation:²
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)³ * from + 3 * (1 - t)² * t * ctrl1 + 3 * t² * (1 - t) * ctrl2 + t³ * to```
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct CubicBezierSegment<S> {
     pub from: Point<S>,
     pub ctrl1: Point<S>,

@@ -73,6 +73,10 @@ pub extern crate arrayvec;
 pub extern crate euclid;
 extern crate num_traits;
 
+#[cfg(feature = "serialization")]
+#[macro_use]
+pub extern crate serde;
+
 #[macro_use] mod segment;
 pub mod quadratic_bezier;
 pub mod cubic_bezier;

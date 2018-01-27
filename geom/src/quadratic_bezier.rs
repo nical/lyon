@@ -17,6 +17,7 @@ pub type Flattened<S> = segment::Flattened<S, QuadraticBezierSegment<S>>;
 /// The curve is defined by equation:
 /// ```∀ t ∈ [0..1],  P(t) = (1 - t)² * from + 2 * (1 - t) * t * ctrl + 2 * t² * to```
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct QuadraticBezierSegment<S> {
     pub from: Point<S>,
     pub ctrl: Point<S>,
