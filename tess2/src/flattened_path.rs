@@ -5,12 +5,14 @@ use std::ops::Range;
 use std::mem;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 struct SubPathInfo {
     range: Range<usize>,
     is_closed: bool,
 }
 
 /// A path data structure for pre-flattened paths and polygons.
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[derive(Clone)]
 pub struct FlattenedPath {
     points: Vec<Point>,

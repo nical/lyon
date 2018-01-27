@@ -26,6 +26,9 @@ path = "src/lib.rs"
 #[profile.release]
 #debug = true
 
+[features]
+serialization = ["lyon_tessellation/serialization"]
+
 [dependencies]
 
 lyon_tessellation = { version = "0.9.1", path = "tessellation/" }

@@ -12,6 +12,7 @@ use std::iter::IntoIterator;
 /// This is used by the [Path](struct.Path.html) data structure to store path events a tad
 /// more efficiently.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum Verb {
     MoveTo,
     LineTo,
@@ -25,6 +26,7 @@ pub enum Verb {
 ///
 /// It can be created using a [Builder](struct.Builder.html), and can be iterated over.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Path {
     points: Vec<Point>,
     verbs: Vec<Verb>,

@@ -8,6 +8,7 @@ use std::ops::Range;
 
 /// A linear segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct LineSegment<S> {
     pub from: Point<S>,
     pub to: Point<S>,
@@ -268,6 +269,7 @@ impl<S: Scalar> FlatteningStep for LineSegment<S> {
 
 /// An infinite line defined by a point and a vector.
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Line<S> {
     pub point: Point<S>,
     pub vector: Vector<S>,
@@ -312,6 +314,7 @@ impl<S: Scalar> Line<S> {
 /// A line defined by the equation
 /// `a * x + b * y + c = 0; a * a + b * b = 1`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct LineEquation<S> {
     a: S,
     b: S,
