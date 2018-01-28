@@ -268,13 +268,13 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
         let h = v1.x.hypot(v1.y);
 
-        if (v1_cross_v2 * h).abs() <= S::EPSILON {
+        if S::abs(v1_cross_v2 * h) <= S::EPSILON {
             return S::ONE;
         }
 
         let s2inv = h / v1_cross_v2;
 
-        let t = S::TWO * (tolerance * s2inv.abs() / S::THREE).sqrt();
+        let t = S::TWO * S::sqrt(tolerance * S::abs(s2inv) / S::THREE);
 
         if t > S::ONE {
             return S::ONE;
@@ -651,7 +651,7 @@ fn monotonic_solve_t_for_x() {
         // t should be pretty close to t2 but the only guarantee we have and can test
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
         let x_diff = curve.x(t) - curve.x(t2);
-        assert!(x_diff.abs() <= tolerance);
+        assert!(f32::abs(x_diff) <= tolerance);
     }
 }
 

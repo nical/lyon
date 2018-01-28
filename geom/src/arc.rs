@@ -74,7 +74,7 @@ impl<S: Scalar> Arc<S> {
         debug_assert_ne!(sum_of_sq, S::ZERO);
 
         let sign_coe = if arc.flags.large_arc == arc.flags.sweep {-S::ONE } else { S::ONE };
-        let coe = sign_coe * ((rxry * rxry - sum_of_sq) / sum_of_sq).abs().sqrt();
+        let coe = sign_coe * S::sqrt(S::abs((rxry * rxry - sum_of_sq) / sum_of_sq));
 
         let transformed_cx = coe * rxpy / ry;
         let transformed_cy = -coe * rypx / rx;
@@ -98,7 +98,7 @@ impl<S: Scalar> Arc<S> {
         let start_angle = Angle::radians(directed_angle(vector(S::ONE, S::ZERO), a));
 
         let sign_delta = if arc.flags.sweep { S::ONE } else { -S::ONE };
-        let sweep_angle = Angle::radians(sign_delta * (directed_angle(a, b).abs() % (S::TWO * S::PI())));
+        let sweep_angle = Angle::radians(sign_delta * (S::abs(directed_angle(a, b)) % (S::TWO * S::PI())));
 
         Arc {
             center: center,
@@ -326,9 +326,9 @@ fn arc_to_to_quadratic_beziers<S: Scalar, F: FnMut(Point<S>, Point<S>)>(
     arc: &Arc<S>,
     call_back: &mut F,
 ) {
-    let sweep_angle = arc.sweep_angle.get().abs().min(S::PI() * S::TWO);
+    let sweep_angle = S::abs(arc.sweep_angle.get()).min(S::PI() * S::TWO);
 
-    let n_steps = (sweep_angle / S::FRAC_PI_4()).ceil();
+    let n_steps = S::ceil(sweep_angle / S::FRAC_PI_4());
     let step = sweep_angle / n_steps;
 
     for i in 0..cast::<S, i32>(n_steps).unwrap() {

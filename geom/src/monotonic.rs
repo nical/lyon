@@ -203,7 +203,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
         for _ in 0..8 {
             let x2 = self.x(t);
 
-            if (x2 - x).abs() <= tolerance {
+            if S::abs(x2 - x) <= tolerance {
                 return t
             }
 
@@ -224,7 +224,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
         while min < max {
             let x2 = self.x(t);
 
-            if (x2 - x).abs() < tolerance {
+            if S::abs(x2 - x) < tolerance {
                 return t;
             }
 

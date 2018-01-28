@@ -56,14 +56,14 @@ pub fn vector_angle<S: Scalar>(v: Vector<S>) -> Angle<S> { Angle::radians(S::fas
 pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S; 3]> {
     let mut result = ArrayVec::new();
 
-    if a.abs() < S::EPSILON {
+    if S::abs(a) < S::EPSILON {
         // quadratic equation
         let delta = b * b - S::FOUR * a * c;
         if delta > S::ZERO {
-            let sqrt_delta = delta.sqrt();
+            let sqrt_delta = S::sqrt(delta);
             result.push((-b - sqrt_delta) / (S::TWO * a));
             result.push((-b + sqrt_delta) / (S::TWO * a));
-        } else if delta.abs() < S::EPSILON {
+        } else if S::abs(delta) < S::EPSILON {
             result.push(-b / (S::TWO * a));
         }
         return result;
@@ -80,20 +80,20 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
     let delta_01 = delta0 * delta0 * delta0 + delta1 * delta1;
 
     if delta_01 >= S::ZERO {
-        let delta_p_sqrt = delta1 + delta_01.sqrt();
-        let delta_m_sqrt = delta1 - delta_01.sqrt();
+        let delta_p_sqrt = delta1 + S::sqrt(delta_01);
+        let delta_m_sqrt = delta1 - S::sqrt(delta_01);
 
-        let s = delta_p_sqrt.signum() * delta_p_sqrt.abs().powf(frac_1_3);
-        let t = delta_m_sqrt.signum() * delta_m_sqrt.abs().powf(frac_1_3);
+        let s = delta_p_sqrt.signum() * S::abs(delta_p_sqrt).powf(frac_1_3);
+        let t = delta_m_sqrt.signum() * S::abs(delta_m_sqrt).powf(frac_1_3);
 
         result.push(-bn * frac_1_3 + (s + t));
 
-        if (s - t).abs() < S::EPSILON {
+        if S::abs(s - t) < S::EPSILON {
             result.push(-bn * frac_1_3 - (s + t) / S::TWO);
         }
     } else {
-        let theta = (delta1 / (-delta0 * delta0 * delta0).sqrt()).acos();
-        let two_sqrt_delta0 = S::TWO * Float::sqrt(-delta0);
+        let theta = S::acos(delta1 / S::sqrt(-delta0 * delta0 * delta0));
+        let two_sqrt_delta0 = S::TWO * S::sqrt(-delta0);
         result.push(two_sqrt_delta0 * Float::cos(theta * frac_1_3) - bn * frac_1_3);
         result.push(two_sqrt_delta0 * Float::cos((theta + S::TWO * S::PI()) * frac_1_3) - bn * frac_1_3);
         result.push(two_sqrt_delta0 * Float::cos((theta + S::FOUR * S::PI()) * frac_1_3) - bn * frac_1_3);
@@ -108,7 +108,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
 fn cubic_polynomial() {
     fn assert_approx_eq(a: ArrayVec<[f32; 3]>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
-            if (a[i] - b[i]).abs() > epsilon {
+            if f32::abs(a[i] - b[i]) > epsilon {
                 println!("{:?} != {:?}", a, b);
             }
             assert!((a[i] - b[i]).abs() <= epsilon);

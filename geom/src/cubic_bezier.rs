@@ -815,7 +815,7 @@ fn monotonic_solve_t_for_x() {
         // t should be pretty close to t2 but the only guarantee we have and can test
         // against is that x(t) - x(t2) is within the specified tolerance threshold.
         let x_diff = c1.x(t) - c1.x(t2);
-        assert!(x_diff.abs() <= tolerance);
+        assert!(f32::abs(x_diff) <= tolerance);
     }
 }
 
