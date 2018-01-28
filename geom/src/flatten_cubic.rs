@@ -199,7 +199,7 @@ fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tole
 
     // TODO: We start having floating point precision issues if this constant
     // is closer to 1.0 with a small enough tolerance threshold.
-    if t >= S::constant(0.995) || t == S::ZERO {
+    if t >= S::value(0.995) || t == S::ZERO {
         return S::ONE;
     }
 

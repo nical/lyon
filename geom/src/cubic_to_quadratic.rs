@@ -62,9 +62,9 @@ where
         F: FnMut(QuadraticBezierSegment<S>),
     {
         let dt = t1 - t0;
-        if dt > S::constant(0.01) {
+        if dt > S::value(0.01) {
             let sub_curve = curve.split_range(t0..t1);
-            if dt < S::constant(0.25) {
+            if dt < S::value(0.25) {
                 cb(single_curve_approximation(&sub_curve));
             } else {
                 mid_point_approximation(&sub_curve, cb);
@@ -77,7 +77,7 @@ where
     let mut t = S::ZERO;
     for inflection in inflections {
         // don't split if we are very close to the end.
-        let next = if inflection < S::constant(0.99) { inflection } else { S::ONE };
+        let next = if inflection < S::value(0.99) { inflection } else { S::ONE };
 
         step(curve, t, next, cb);
         t = next;
