@@ -44,6 +44,15 @@
 //! use lyon::tessellation::FillTessellator;
 //! ```
 //!
+//! # Feature flags
+//!
+//! serialization using serde can be enabled on each crate using the
+//! `serialization` feature flag (disabled by default).
+//!
+//! When using the main crate `lyon`, the `lyon_svg`, `lyon_tess2` and
+//! `lyon_extra` dependencies are disabled by default. They can be added
+//! with the feature flags `svg`, `tess2` and `extra`.
+//!
 //! # Additional documentation and links
 //!
 //! * [very basic gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_basic).
@@ -166,13 +175,15 @@
 //!
 
 pub extern crate lyon_tessellation;
-pub extern crate lyon_extra;
-pub extern crate lyon_svg;
+#[cfg(feature = "extra")] pub extern crate lyon_extra;
+#[cfg(feature = "svg")] pub extern crate lyon_svg;
+#[cfg(feature = "libtess2")] pub extern crate lyon_tess2;
 
 pub use lyon_tessellation as tessellation;
 pub use tessellation::path as path;
 pub use tessellation::geom as geom;
-pub use lyon_extra as extra;
-pub use lyon_svg as svg;
+#[cfg(feature = "svg")] pub use lyon_svg as svg;
+#[cfg(feature = "extra")] pub use lyon_extra as extra;
+#[cfg(feature = "libtess2")] pub use lyon_tess2 as tess2;
 
 pub use geom::math;

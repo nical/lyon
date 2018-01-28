@@ -7,11 +7,11 @@ use lyon::tessellation::{
     FillOptions, FillTessellator,
     OnError,
 };
-use lyon_extra::debugging::find_reduced_test_case;
+use lyon::extra::debugging::find_reduced_test_case;
 use rand;
 use commands::{FuzzCmd, Tessellator};
 use std::cmp::{min, max};
-use tess2;
+use lyon::tess2;
 
 fn random_point() -> Point {
     point(

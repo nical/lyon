@@ -14,7 +14,7 @@ pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
 
 /// An ellipic arc curve segment using the SVG notation.
 #[derive(Copy, Clone, Debug, PartialEq)]
-//#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SvgArc<S> {
     pub from: Point<S>,
     pub to: Point<S>,
@@ -25,7 +25,7 @@ pub struct SvgArc<S> {
 
 /// An ellipic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
-//#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Arc<S> {
     pub center: Point<S>,
     pub radii: Vector<S>,

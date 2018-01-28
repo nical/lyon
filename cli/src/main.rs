@@ -1,7 +1,5 @@
 extern crate clap;
 extern crate lyon;
-extern crate lyon_extra;
-extern crate lyon_tess2 as tess2;
 extern crate rand;
 #[macro_use]
 extern crate gfx;
@@ -23,7 +21,7 @@ use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::path_utils::build_path;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
-use lyon_extra::debugging::find_reduced_test_case;
+use lyon::extra::debugging::find_reduced_test_case;
 
 fn main() {
     let matches = App::new("Lyon command-line interface")

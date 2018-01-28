@@ -216,6 +216,7 @@ pub use geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, Buf
 
 /// Left or right.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum Side {
     Left,
     Right,
@@ -236,6 +237,7 @@ impl Side {
 
 /// Vertex produced by the stroke tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct StrokeVertex {
     /// Position of the vertex (on the path, the consumer should move the point along
     /// the provided normal in order to give the stroke a width).
@@ -251,6 +253,7 @@ pub struct StrokeVertex {
 
 /// Vertex produced by the fill tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct FillVertex {
     /// Position of the vertex (on the path).
     pub position: math::Point,
@@ -286,6 +289,7 @@ pub struct FillVertex {
 ///   </g>
 /// </svg>
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum LineCap {
     /// The stroke for each subpath does not extend beyond its two endpoints.
     /// A zero length subpath will therefore not have any stroke.
@@ -308,6 +312,7 @@ pub enum LineCap {
 ///
 /// See: https://svgwg.org/specs/strokes/#StrokeLinejoinProperty
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum LineJoin {
     /// A sharp corner is to be used to join path segments.
     Miter,
@@ -325,6 +330,7 @@ pub enum LineJoin {
 
 /// Parameters for the tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct StrokeOptions {
     /// What cap to use at the start of each sub-path.
     ///
@@ -460,13 +466,15 @@ impl StrokeOptions {
 ///
 /// See the SVG specification.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum FillRule {
     EvenOdd,
     NonZero,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
 /// Parameters for the fill tessellator.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct FillOptions {
     /// Maximum allowed distance to the path when building an approximation.
     ///
@@ -579,6 +587,7 @@ impl Default for FillOptions {
 /// Defines the tessellator the should try to behave when detecting
 /// an error.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum OnError {
     /// Panic as soon as the error is detected.
     ///

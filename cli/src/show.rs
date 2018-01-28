@@ -4,7 +4,7 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator};
-use tess2;
+use lyon::tess2;
 
 use gfx;
 use gfx_window_glutin;
