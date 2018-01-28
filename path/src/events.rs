@@ -3,6 +3,7 @@ use ArcFlags;
 use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum SvgEvent {
     MoveTo(Point),
     RelativeMoveTo(Vector),
@@ -26,6 +27,7 @@ pub enum SvgEvent {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum PathEvent {
     MoveTo(Point),
     LineTo(Point),
@@ -35,6 +37,7 @@ pub enum PathEvent {
     Close,
 }
 
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum QuadraticEvent {
     MoveTo(Point),
@@ -43,6 +46,7 @@ pub enum QuadraticEvent {
     Close,
 }
 
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FlattenedEvent {
     MoveTo(Point),
@@ -96,6 +100,7 @@ impl QuadraticEvent {
     }
 }
 
+// TODO: serialization
 #[derive(Copy, Clone, Debug)]
 pub enum Segment {
     Line(LineSegment<f32>),

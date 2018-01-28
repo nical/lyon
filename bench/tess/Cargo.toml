@@ -11,6 +11,6 @@ name = "tess_bench"
 libtess2 = ["tess2-sys"]
 
 [dependencies]
-lyon = { path = "../../" }
+lyon = { path = "../../", features = ["extra"] }
 bencher = "0.1.1"
 tess2-sys = { version = "0.0.1", optional = true }

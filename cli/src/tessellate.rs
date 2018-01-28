@@ -5,7 +5,7 @@ use lyon::tessellation::{
     FillVertex, StrokeVertex,
     StrokeTessellator, FillTessellator
 };
-use tess2;
+use lyon::tess2;
 use std::io;
 
 #[derive(Debug)]
