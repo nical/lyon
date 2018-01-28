@@ -125,7 +125,7 @@ pub struct Flattened<S, T> {
 
 impl<S: Scalar, T: FlatteningStep> Flattened<S, T> {
     pub fn new(curve: T, tolerance: S) -> Self {
-        assert!(tolerance > S::zero());
+        assert!(tolerance > S::ZERO);
         Flattened {
             curve: curve,
             tolerance: tolerance,
@@ -142,7 +142,7 @@ impl<S: Scalar, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
             return None;
         }
         let t = self.curve.flattening_step(self.tolerance);
-        if t == S::one() {
+        if t == S::ONE {
             self.done = true;
             return Some(self.curve.to());
         }
@@ -155,7 +155,7 @@ pub(crate) fn approximate_length_from_flattening<S: Scalar, T>(curve: &T, tolera
 where T: FlattenedForEach<Scalar=S>
 {
     let mut start = curve.from();
-    let mut len = S::zero();
+    let mut len = S::ZERO;
     curve.flattened_for_each(tolerance, &mut|p| {
         len = len + (p - start).length();
         start = p;

@@ -32,7 +32,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
         let t3 = t2 * t;
-        let one_t = S::one() - t;
+        let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from * one_t3 +
@@ -45,7 +45,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn x(&self, t: S) -> S {
         let t2 = t * t;
         let t3 = t2 * t;
-        let one_t = S::one() - t;
+        let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from.x * one_t3 +
@@ -58,7 +58,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn y(&self, t: S) -> S {
         let t2 = t * t;
         let t3 = t2 * t;
-        let one_t = S::one() - t;
+        let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
         return self.from.y * one_t3 +
@@ -71,9 +71,9 @@ impl<S: Scalar> CubicBezierSegment<S> {
     fn derivative_coefficients(&self, t: S) -> (S, S, S, S) {
         let t2 = t*t;
         (
-            - S::THREE * t2 + S::constant(6.0) * t - S::THREE,
-            S::constant(9.0) * t2 - S::constant(12.0) * t + S::THREE,
-            - S::constant(9.0) * t2 + S::constant(6.0) * t,
+            - S::THREE * t2 + S::SIX * t - S::THREE,
+            S::NINE * t2 - S::constant(12.0) * t + S::THREE,
+            - S::NINE * t2 + S::SIX * t,
             S::THREE * t2
         )
     }
@@ -104,7 +104,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// This is equivalent splitting at the range's end points.
     pub fn split_range(&self, t_range: Range<S>) -> Self {
         let t1 = t_range.start;
-        let t2 = (t_range.end - t_range.start) / (S::one() - t_range.start);
+        let t2 = (t_range.end - t_range.start) / (S::ONE - t_range.start);
 
         self.after_split(t1).before_split(t2)
     }
@@ -190,10 +190,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             baseline.signed_distance_to_point(&self.ctrl2),
         );
 
-        d1 = S::min(d1, S::zero());
-        d2 = S::max(d2, S::zero());
+        d1 = S::min(d1, S::ZERO);
+        d2 = S::max(d2, S::ZERO);
 
-        let frac_3_4 = S::constant(3.0/4.0);
+        let frac_3_4 = S::THREE / S::FOUR;
 
         if (d1 * d2).is_sign_positive() {
             d1 = d1 * frac_3_4;
@@ -310,15 +310,15 @@ impl<S: Scalar> CubicBezierSegment<S> {
         // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
         // f(x) = a * x² + b * x + c such as :
         let a = S::THREE * (self.to.x - S::THREE * self.ctrl2.x + S::THREE * self.ctrl1.x - self.from.x);
-        let b = S::constant(6.0) * (self.ctrl2.x - S::TWO * self.ctrl1.x + self.from.x);
+        let b = S::SIX * (self.ctrl2.x - S::TWO * self.ctrl1.x + self.from.x);
         let c = S::THREE * (self.ctrl1.x - self.from.x);
 
         // If the derivative is a linear function
-        if a == S::zero() {
-            if b == S::zero() {
+        if a == S::ZERO {
+            if b == S::ZERO {
                 // If the derivative is a constant function
-                if c == S::zero() {
-                    ret.push(S::zero());
+                if c == S::ZERO {
+                    ret.push(S::ZERO);
                 }
             } else {
                 ret.push(-c / b);
@@ -326,7 +326,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
             return ret;
         }
 
-        fn in_range<S: Scalar>(t: S) -> bool { t > S::zero() && t < S::one() }
+        fn in_range<S: Scalar>(t: S) -> bool { t > S::ZERO && t < S::ONE }
 
         let discriminant = b * b - S::FOUR * a * c;
 
@@ -378,10 +378,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// This returns the advancement along the curve, not the actual y position.
     pub fn find_y_maximum(&self) -> S {
-        let mut max_t = S::zero();
+        let mut max_t = S::ZERO;
         let mut max_y = self.from.y;
         if self.to.y > max_y {
-            max_t = S::one();
+            max_t = S::ONE;
             max_y = self.to.y;
         }
         for t in self.find_local_y_extrema() {
@@ -398,10 +398,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// This returns the advancement along the curve, not the actual y position.
     pub fn find_y_minimum(&self) -> S {
-        let mut min_t = S::zero();
+        let mut min_t = S::ZERO;
         let mut min_y = self.from.y;
         if self.to.y < min_y {
-            min_t = S::one();
+            min_t = S::ONE;
             min_y = self.to.y;
         }
         for t in self.find_local_y_extrema() {
@@ -418,10 +418,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// This returns the advancement along the curve, not the actual x position.
     pub fn find_x_maximum(&self) -> S {
-        let mut max_t = S::zero();
+        let mut max_t = S::ZERO;
         let mut max_x = self.from.x;
         if self.to.x > max_x {
-            max_t = S::one();
+            max_t = S::ONE;
             max_x = self.to.x;
         }
         for t in self.find_local_x_extrema() {
@@ -436,10 +436,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Find the x-least position in the curve.
     pub fn find_x_minimum(&self) -> S {
-        let mut min_t = S::zero();
+        let mut min_t = S::ZERO;
         let mut min_x = self.from.x;
         if self.to.x < min_x {
-            min_t = S::one();
+            min_t = S::ONE;
             min_x = self.to.x;
         }
         for t in self.find_local_x_extrema() {
@@ -462,6 +462,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
 
+    /// Returns a conservative range of x this curve is contained in.
     #[inline]
     pub fn fast_bounding_range_x(&self) -> (S, S) {
         let min_x = self.from.x.min(self.ctrl1.x).min(self.ctrl2.x).min(self.to.x);
@@ -470,6 +471,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         (min_x, max_x)
     }
 
+    /// Returns a conservative range of y this curve is contained in.
     #[inline]
     pub fn fast_bounding_range_y(&self) -> (S, S) {
         let min_y = self.from.y.min(self.ctrl1.y).min(self.ctrl2.y).min(self.to.y);
@@ -486,6 +488,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         return rect(min_x, min_y, max_x - min_x, max_y - min_y);
     }
 
+    /// Returns the smallest range of x this curve is contained in.
     #[inline]
     pub fn bounding_range_x(&self) -> (S, S) {
         let min_x = self.x(self.find_x_minimum());
@@ -494,6 +497,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         (min_x, max_x)
     }
 
+    /// Returns the smallest range of y this curve is contained in.
     #[inline]
     pub fn bounding_range_y(&self) -> (S, S) {
         let min_y = self.y(self.find_y_minimum());
@@ -508,13 +512,28 @@ impl<S: Scalar> CubicBezierSegment<S> {
         MonotonicCubicBezierSegment { segment: *self }
     }
 
+    /// Returns whether this segment is monotonic on the x axis.
+    pub fn is_x_monotonic(&self) -> bool {
+        self.find_local_x_extrema().is_empty()
+    }
+
+    /// Returns whether this segment is monotonic on the y axis.
+    pub fn is_y_monotonic(&self) -> bool {
+        self.find_local_y_extrema().is_empty()
+    }
+
+    /// Returns whether this segment is fully monotonic.
+    pub fn is_monotonic(&self) -> bool {
+        self.is_x_monotonic() && self.is_y_monotonic()
+    }
+
     /// Computes the intersections (if any) between this segment a line.
     ///
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
     pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<[S; 3]> {
-        if line.vector.square_length() < S::constant(1e-6) {
+        if line.vector.square_length() < S::EPSILON {
             return ArrayVec::new();
         }
 
@@ -540,7 +559,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut result = ArrayVec::new();
 
         for root in roots {
-            if root > S::zero() && root < S::one() {
+            if root > S::ZERO && root < S::ONE {
                 result.push(root);
             }
         }
@@ -582,8 +601,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
         return result;
     }
 
+    #[inline]
     pub fn from(&self) -> Point<S> { self.from }
 
+    #[inline]
     pub fn to(&self) -> Point<S> { self.to }
 
     pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[Point<S>; 3]> {

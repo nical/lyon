@@ -209,7 +209,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
 
             let dx = self.dx(t);
 
-            if dx <= S::constant(1e-5) {
+            if dx <= S::EPSILON {
                 break
             }
 
@@ -219,7 +219,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
         // Fall back to binary search.
         let mut min = t_range.start;
         let mut max = t_range.end;
-        let mut t = S::constant(0.5);
+        let mut t = S::HALF;
 
         while min < max {
             let x2 = self.x(t);
@@ -234,7 +234,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
                 max = t;
             }
 
-            t = (max - min) * S::constant(0.5) + min;
+            t = (max - min) * S::HALF + min;
         }
 
         return t;
@@ -243,7 +243,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
     #[inline]
     pub fn split_at_x(&self, x: S) -> (Self, Self) {
         // TODO tolerance param.
-        self.split(self.solve_t_for_x(x, S::zero()..S::one(), S::constant(0.001)))
+        self.split(self.solve_t_for_x(x, S::ZERO..S::ONE, S::constant(0.001)))
     }
 }
 
@@ -272,7 +272,7 @@ where
 
     // We need to have a stricter tolerance in solve_t_for_x otherwise
     // the error accumulation becomes pretty bad.
-    let tx_tolerance = tolerance * S::constant(0.1);
+    let tx_tolerance = tolerance / S::TEN;
 
     let (a_min, a_max) = a.split_range(a_t_range).fast_bounding_range_x();
     let (b_min, b_max) = b.split_range(b_t_range).fast_bounding_range_x();
@@ -284,10 +284,10 @@ where
     let mut min_x = S::max(a_min, b_min);
     let mut max_x = S::min(a_max, b_max);
 
-    let mut t_min_a = a.solve_t_for_x(min_x, S::zero()..S::one(), tx_tolerance);
-    let mut t_max_a = a.solve_t_for_x(max_x, t_min_a..S::one(), tx_tolerance);
-    let mut t_min_b = b.solve_t_for_x(min_x, S::zero()..S::one(), tx_tolerance);
-    let mut t_max_b = b.solve_t_for_x(max_x, t_min_b..S::one(), tx_tolerance);
+    let mut t_min_a = a.solve_t_for_x(min_x, S::ZERO..S::ONE, tx_tolerance);
+    let mut t_max_a = a.solve_t_for_x(max_x, t_min_a..S::ONE, tx_tolerance);
+    let mut t_min_b = b.solve_t_for_x(min_x, S::ZERO..S::ONE, tx_tolerance);
+    let mut t_max_b = b.solve_t_for_x(max_x, t_min_b..S::ONE, tx_tolerance);
 
     const MAX_ITERATIONS: u32 = 32;
     for _ in 0..MAX_ITERATIONS {
@@ -306,7 +306,7 @@ where
             return Some((t_max_a, t_max_b));
         }
 
-        let mid_x = (min_x + max_x) * S::constant(0.5);
+        let mid_x = (min_x + max_x) * S::HALF;
         let t_mid_a = a.solve_t_for_x(mid_x, t_min_a..t_max_a, tx_tolerance);
         let t_mid_b = b.solve_t_for_x(mid_x, t_min_b..t_max_b, tx_tolerance);
 

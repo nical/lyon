@@ -49,7 +49,7 @@ impl<S: Scalar> Flattened<S> {
             if let Some(&t2) = inflections.get(1) {
                 // Adjust the second inflection since we removed the part before the
                 // first inflection from the bezier curve.
-                let t2 = (t2 - t1) / (S::one() - t1);
+                let t2 = (t2 - t1) / (S::ONE - t1);
                 iter.following_inflection = Some(t2)
             }
 
@@ -96,7 +96,7 @@ impl<S: Scalar> Iterator for Flattened<S> {
 
             // We are iterating over a sub-curve that does not have inflections.
             let t = no_inflection_flattening_step(&sub_curve, self.tolerance);
-            if t >= S::one() {
+            if t >= S::ONE {
                 let to = sub_curve.to;
                 self.current_curve = None;
                 return Some(to);
@@ -123,7 +123,7 @@ pub fn flatten_cubic_bezier<S: Scalar, F: FnMut(Point<S>)>(
         if let Some(&t2) = inflections.get(1) {
             // Adjust the second inflection since we removed the part before the
             // first inflection from the bezier curve.
-            let t2 = (t2 - t1) / (S::one() - t1);
+            let t2 = (t2 - t1) / (S::ONE - t1);
             bezier = flatten_including_inflection(&bezier, t2, tolerance, call_back);
         }
     }
@@ -164,11 +164,11 @@ fn flatten_cubic_no_inflection<S: Scalar, F: FnMut(Point<S>)>(
 ) {
     let end = bezier.to;
 
-    let mut t = S::zero();
-    while t < S::one() {
+    let mut t = S::ZERO;
+    while t < S::ONE {
         t = no_inflection_flattening_step(&bezier, tolerance);
 
-        if t == S::one() {
+        if t == S::ONE {
             break;
         }
         bezier = bezier.after_split(t);
@@ -190,8 +190,8 @@ fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tole
     // s2 = (v2.x * v1.y - v2.y * v1.x) / hypot(v1.x, v1.y);
     // t = 2 * sqrt(tolerance / (3. * abs(s2)));
     let v2_cross_v1 = v2.cross(v1);
-    if v2_cross_v1 == S::zero() {
-        return S::one();
+    if v2_cross_v1 == S::ZERO {
+        return S::ONE;
     }
     let s2inv = v1.x.hypot(v1.y) / v2_cross_v1;
 
@@ -199,8 +199,8 @@ fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tole
 
     // TODO: We start having floating point precision issues if this constant
     // is closer to 1.0 with a small enough tolerance threshold.
-    if t >= S::constant(0.995) || t == S::zero() {
-        return S::one();
+    if t >= S::constant(0.995) || t == S::ZERO {
+        return S::ONE;
     }
 
     return t;
@@ -221,9 +221,9 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
 
     let mut ret = ArrayVec::new();
 
-    if a.abs() < S::constant(1e-5) {
+    if a.abs() < S::EPSILON {
         // Not a quadratic equation.
-        if b.abs() < S::constant(1e-5) {
+        if b.abs() < S::EPSILON {
             // Instead of a linear acceleration change we have a constant
             // acceleration change. This means the equation has no solution
             // and there are no inflection points, unless the constant is 0.
@@ -231,8 +231,8 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
             // the easiest way to deal with is is by saying there's an inflection
             // point at t == 0. The inflection point approximation range found will
             // automatically extend into infinity.
-            if c.abs() < S::constant(1e-5) {
-                ret.push(S::zero());
+            if c.abs() < S::EPSILON {
+                ret.push(S::ZERO);
             }
         } else {
             let t = -c / b;
@@ -244,15 +244,15 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
         return ret;
     }
 
-    fn in_range<S: Scalar>(t: S) -> bool { t >= S::zero() && t < S::one() }
+    fn in_range<S: Scalar>(t: S) -> bool { t >= S::ZERO && t < S::ONE }
 
     let discriminant = b * b - S::FOUR * a * c;
 
-    if discriminant < S::zero() {
+    if discriminant < S::ZERO {
         return ret;
     }
 
-    if discriminant.abs() < S::constant(1e-5) {
+    if discriminant.abs() < S::EPSILON {
         let t = -b / (S::TWO * a);
 
         if in_range(t) {
@@ -263,7 +263,7 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
     }
 
     let discriminant_sqrt = discriminant.sqrt();
-    let q = if b < S::zero() { b - discriminant_sqrt } else { b + discriminant_sqrt } * S::constant(-0.5);
+    let q = if b < S::ZERO { b - discriminant_sqrt } else { b + discriminant_sqrt } * S::EPSILON;
 
     let mut first_inflection = q / a;
     let mut second_inflection = c / q;
@@ -298,9 +298,9 @@ fn inflection_approximation_range<S: Scalar>(
 
     // Let s(t) = s3 * t^3 be the (signed) perpendicular distance of curve(t) from a line that will be determined below.
     let s3;
-    if p1.x.abs() < S::constant(1e-5) && p1.y.abs() < S::constant(1e-5) {
+    if p1.x.abs() < S::EPSILON && p1.y.abs() < S::EPSILON {
         // Assume p1 = 0.
-        if p2.x.abs() < S::constant(1e-5) && p2.y.abs() < S::constant(1e-5) {
+        if p2.x.abs() < S::EPSILON && p2.y.abs() < S::EPSILON {
             // Assume p2 = 0.
             // The curve itself is a line or a point.
             return None;
@@ -316,9 +316,9 @@ fn inflection_approximation_range<S: Scalar>(
     }
 
     // Calculate the maximal t value such that the (absolute) distance is within the tolerance.
-    let tf = (tolerance / s3).abs().powf(S::constant(1.0 / 3.0));
+    let tf = (tolerance / s3).abs().powf(S::ONE / S::THREE);
 
-    return if tf < S::one() { Some(tf) } else { None };
+    return if tf < S::ONE { Some(tf) } else { None };
 }
 
 #[cfg(test)]

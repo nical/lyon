@@ -51,7 +51,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     #[inline]
     fn derivative_coefficients(&self, t: S) -> (S, S, S) {
-        (S::TWO * t - S::TWO, S::constant(-4.0) * t + S::TWO, S::TWO * t)
+        (S::TWO * t - S::TWO, -S::FOUR * t + S::TWO, S::TWO * t)
     }
 
     /// Sample the curve's derivative at t (expecting t between 0 and 1).
@@ -91,7 +91,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.y > self.to.y { S::zero() } else { S::ONE };
+        return if self.from.y > self.to.y { S::ZERO } else { S::ONE };
     }
 
     /// Find the advancement of the y-least position in the curve.
@@ -104,17 +104,17 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.y < self.to.y { S::zero() } else { S::ONE };
+        return if self.from.y < self.to.y { S::ZERO } else { S::ONE };
     }
 
     /// Return the y inflection point or None if this curve is y-monotonic.
     pub fn find_local_y_extremum(&self) -> Option<S> {
         let div = self.from.y - S::TWO * self.ctrl.y + self.to.y;
-        if div == S::zero() {
+        if div == S::ZERO {
             return None;
         }
         let t = (self.from.y - self.ctrl.y) / div;
-        if t > S::zero() && t < S::ONE {
+        if t > S::ZERO && t < S::ONE {
             return Some(t);
         }
         return None;
@@ -130,7 +130,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.x > self.to.x { S::zero() } else { S::ONE };
+        return if self.from.x > self.to.x { S::ZERO } else { S::ONE };
     }
 
     /// Find the advancement of the x-least position in the curve.
@@ -143,17 +143,17 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.x < self.to.x { S::zero() } else { S::ONE };
+        return if self.from.x < self.to.x { S::ZERO } else { S::ONE };
     }
 
     /// Return the x inflection point or None if this curve is x-monotonic.
     pub fn find_local_x_extremum(&self) -> Option<S> {
         let div = self.from.x - S::TWO * self.ctrl.x + self.to.x;
-        if div == S::zero() {
+        if div == S::ZERO {
             return None;
         }
         let t = (self.from.x - self.ctrl.x) / div;
-        if t > S::zero() && t < S::ONE {
+        if t > S::ZERO && t < S::ONE {
             return Some(t);
         }
         return None;
@@ -166,7 +166,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let t1 = t_range.start;
         let t2 = t_range.end;
 
-        debug_assert!(t1 >= S::zero());
+        debug_assert!(t1 >= S::ZERO);
         debug_assert!(t2 <= S::ONE);
         debug_assert!(t1 <= t2);
         debug_assert!(t1 != S::ONE);
@@ -217,8 +217,8 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     pub fn to_cubic(&self) -> CubicBezierSegment<S> {
         CubicBezierSegment {
             from: self.from,
-            ctrl1: (self.from + self.ctrl.to_vector() * S::TWO) / S::constant(3.0),
-            ctrl2: (self.to + self.ctrl.to_vector() * S::TWO) / S::constant(3.0),
+            ctrl1: (self.from + self.ctrl.to_vector() * S::TWO) / S::THREE,
+            ctrl2: (self.to + self.ctrl.to_vector() * S::TWO) / S::THREE,
             to: self.to,
         }
     }
@@ -229,7 +229,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::constant(0.000001);
+        let epsilon = S::EPSILON;
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }
@@ -246,7 +246,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let l1 = self.baseline().to_line().equation();
         let d = S::HALF * l1.signed_distance_to_point(&self.ctrl);
         let l2 = l1.offset(d);
-        if d >= S::zero() { (l1, l2) } else { (l2, l1) }
+        if d >= S::ZERO { (l1, l2) } else { (l2, l1) }
     }
 
     /// Applies the transform to this curve and returns the results.
@@ -268,13 +268,13 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
         let h = v1.x.hypot(v1.y);
 
-        if (v1_cross_v2 * h).abs() <= S::constant(0.000001) {
+        if (v1_cross_v2 * h).abs() <= S::EPSILON {
             return S::ONE;
         }
 
         let s2inv = h / v1_cross_v2;
 
-        let t = S::TWO * (tolerance * s2inv.abs() / S::constant(3.0)).sqrt();
+        let t = S::TWO * (tolerance * s2inv.abs() / S::THREE).sqrt();
 
         if t > S::ONE {
             return S::ONE;
@@ -316,12 +316,14 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         rect(min_x, min_y, max_x - min_x, max_y - min_y)
     }
 
+    /// Returns a conservative range of x this curve is contained in.
     pub fn fast_bounding_range_x(&self) -> (S, S) {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
         let max_x = self.from.x.max(self.ctrl.x).max(self.to.x);
         (min_x, max_x)
     }
 
+    /// Returns a conservative range of y this curve is contained in.
     pub fn fast_bounding_range_y(&self) -> (S, S) {
         let min_y = self.from.y.min(self.ctrl.y).min(self.to.y);
         let max_y = self.from.y.max(self.ctrl.y).max(self.to.y);
@@ -336,15 +338,17 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         rect(min_x, min_y, max_x - min_x, max_y - min_y)
     }
 
+    /// Returns the smallest range of x this curve is contained in.
     pub fn bounding_range_x(&self) -> (S, S) {
-        let min_x = self.sample(self.find_x_minimum()).x;
-        let max_x = self.sample(self.find_x_maximum()).x;
+        let min_x = self.x(self.find_x_minimum());
+        let max_x = self.x(self.find_x_maximum());
         (min_x, max_x)
     }
 
+    /// Returns the smallest range of y this curve is contained in.
     pub fn bounding_range_y(&self) -> (S, S) {
-        let min_y = self.sample(self.find_y_minimum()).y;
-        let max_y = self.sample(self.find_y_maximum()).y;
+        let min_y = self.y(self.find_y_minimum());
+        let max_y = self.y(self.find_y_maximum());
         (min_y, max_y)
     }
 
@@ -352,6 +356,21 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// assumption is correct.
     pub fn assume_monotonic(&self) -> MonotonicQuadraticBezierSegment<S> {
         MonotonicQuadraticBezierSegment { segment: *self }
+    }
+
+    /// Returns whether this segment is monotonic on the x axis.
+    pub fn is_x_monotonic(&self) -> bool {
+        self.find_local_x_extremum().is_none()
+    }
+
+    /// Returns whether this segment is monotonic on the y axis.
+    pub fn is_y_monotonic(&self) -> bool {
+        self.find_local_y_extremum().is_none()
+    }
+
+    /// Returns whether this segment is fully monotonic.
+    pub fn is_monotonic(&self) -> bool {
+        self.is_x_monotonic() && self.is_y_monotonic()
     }
 
     /// Computes the intersections (if any) between this segment a line.
@@ -402,8 +421,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
         return result;
     }
+
+    #[inline]
     pub fn from(&self) -> Point<S> { self.from }
 
+    #[inline]
     pub fn to(&self) -> Point<S> { self.to }
 
     /// Computes the intersection points (if any) between this segment a line segment.

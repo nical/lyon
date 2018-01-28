@@ -48,16 +48,16 @@ impl<S: Scalar> Arc<S> {
         let ry = arc.radii.y;
 
         assert_ne!(arc.from, arc.to);
-        assert_ne!(rx, S::zero());
-        assert_ne!(ry, S::zero());
+        assert_ne!(rx, S::ZERO);
+        assert_ne!(ry, S::ZERO);
 
-        let xr = arc.x_rotation.get() % (S::constant(2.0) * S::PI());
+        let xr = arc.x_rotation.get() % (S::TWO * S::PI());
         let cos_phi = Float::cos(xr);
         let sin_phi = Float::sin(xr);
-        let hd_x = (arc.from.x - arc.to.x) / S::constant(2.0);
-        let hd_y = (arc.from.y - arc.to.y) / S::constant(2.0);
-        let hs_x = (arc.from.x + arc.to.x) / S::constant(2.0);
-        let hs_y = (arc.from.y + arc.to.y) / S::constant(2.0);
+        let hd_x = (arc.from.x - arc.to.x) / S::TWO;
+        let hd_y = (arc.from.y - arc.to.y) / S::TWO;
+        let hs_x = (arc.from.x + arc.to.x) / S::TWO;
+        let hs_y = (arc.from.y + arc.to.y) / S::TWO;
         // F6.5.1
         let p = Point::new(
             cos_phi * hd_x + sin_phi * hd_y,
@@ -71,9 +71,9 @@ impl<S: Scalar> Arc<S> {
         let rypx = ry * p.x;
         let sum_of_sq = rxpy * rxpy + rypx * rypx;
 
-        debug_assert_ne!(sum_of_sq, S::zero());
+        debug_assert_ne!(sum_of_sq, S::ZERO);
 
-        let sign_coe = if arc.flags.large_arc == arc.flags.sweep {-S::one() } else { S::one() };
+        let sign_coe = if arc.flags.large_arc == arc.flags.sweep {-S::ONE } else { S::ONE };
         let coe = sign_coe * ((rxry * rxry - sum_of_sq) / sum_of_sq).abs().sqrt();
 
         let transformed_cx = coe * rxpy / ry;
@@ -95,10 +95,10 @@ impl<S: Scalar> Arc<S> {
             (-p.y - transformed_cy) / ry,
         );
 
-        let start_angle = Angle::radians(directed_angle(vector(S::one(), S::zero()), a));
+        let start_angle = Angle::radians(directed_angle(vector(S::ONE, S::ZERO), a));
 
-        let sign_delta = if arc.flags.sweep { S::one() } else { -S::one() };
-        let sweep_angle = Angle::radians(sign_delta * (directed_angle(a, b).abs() % (S::constant(2.0) * S::PI())));
+        let sign_delta = if arc.flags.sweep { S::ONE } else { -S::ONE };
+        let sweep_angle = Angle::radians(sign_delta * (directed_angle(a, b).abs() % (S::TWO * S::PI())));
 
         Arc {
             center: center,
@@ -110,11 +110,11 @@ impl<S: Scalar> Arc<S> {
     }
 
     pub fn to_svg_arc(&self) -> SvgArc<S> {
-        let from = self.sample(S::zero());
-        let to = self.sample(S::one());
+        let from = self.sample(S::ZERO);
+        let to = self.sample(S::ONE);
         let flags = ArcFlags {
             sweep: S::abs(self.sweep_angle.get()) >= S::PI(),
-            large_arc: self.sweep_angle.get() >= S::zero(),
+            large_arc: self.sweep_angle.get() >= S::ZERO,
         };
         SvgArc {
             from,
@@ -162,12 +162,12 @@ impl<S: Scalar> Arc<S> {
 
     #[inline]
     pub fn from(&self) -> Point<S> {
-        self.sample(S::zero())
+        self.sample(S::ZERO)
     }
 
     #[inline]
     pub fn to(&self) -> Point<S> {
-        self.sample(S::one())
+        self.sample(S::ONE)
     }
 
     /// Return the sub-curve inside a given range of t.
@@ -250,7 +250,7 @@ impl<S: Scalar> Arc<S> {
         // Here we make the approximation that for small tolerance values we consider
         // the radius to be constant over each approximated segment.
         let r = (self.from() - self.center).length();
-        let a = S::constant(2.0) * tolerance * r - tolerance * tolerance;
+        let a = S::TWO * tolerance * r - tolerance * tolerance;
         S::acos((a * a) / r)
     }
 
@@ -265,7 +265,7 @@ impl<S: Scalar> Arc<S> {
         Transform2D::create_rotation(self.x_rotation).transform_rect(
             &Rect::new(
                 self.center - self.radii,
-                self.radii.to_size() * S::constant(2.0)
+                self.radii.to_size() * S::TWO
             )
         )
     }
@@ -326,7 +326,7 @@ fn arc_to_to_quadratic_beziers<S: Scalar, F: FnMut(Point<S>, Point<S>)>(
     arc: &Arc<S>,
     call_back: &mut F,
 ) {
-    let sweep_angle = arc.sweep_angle.get().abs().min(S::PI() * S::constant(2.0));
+    let sweep_angle = arc.sweep_angle.get().abs().min(S::PI() * S::TWO);
 
     let n_steps = (sweep_angle / S::FRAC_PI_4()).ceil();
     let step = sweep_angle / n_steps;
