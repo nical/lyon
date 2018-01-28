@@ -195,7 +195,7 @@ fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tole
     }
     let s2inv = v1.x.hypot(v1.y) / v2_cross_v1;
 
-    let t = S::TWO * (tolerance * s2inv.abs() / S::THREE).sqrt();
+    let t = S::TWO * S::sqrt(tolerance * S::abs(s2inv) / S::THREE);
 
     // TODO: We start having floating point precision issues if this constant
     // is closer to 1.0 with a small enough tolerance threshold.
@@ -221,9 +221,9 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
 
     let mut ret = ArrayVec::new();
 
-    if a.abs() < S::EPSILON {
+    if S::abs(a) < S::EPSILON {
         // Not a quadratic equation.
-        if b.abs() < S::EPSILON {
+        if S::abs(b) < S::EPSILON {
             // Instead of a linear acceleration change we have a constant
             // acceleration change. This means the equation has no solution
             // and there are no inflection points, unless the constant is 0.
@@ -231,7 +231,7 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
             // the easiest way to deal with is is by saying there's an inflection
             // point at t == 0. The inflection point approximation range found will
             // automatically extend into infinity.
-            if c.abs() < S::EPSILON {
+            if S::abs(c) < S::EPSILON {
                 ret.push(S::ZERO);
             }
         } else {
@@ -252,7 +252,7 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
         return ret;
     }
 
-    if discriminant.abs() < S::EPSILON {
+    if S::abs(discriminant) < S::EPSILON {
         let t = -b / (S::TWO * a);
 
         if in_range(t) {
@@ -262,7 +262,7 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
         return ret;
     }
 
-    let discriminant_sqrt = discriminant.sqrt();
+    let discriminant_sqrt = S::sqrt(discriminant);
     let q = if b < S::ZERO { b - discriminant_sqrt } else { b + discriminant_sqrt } * S::EPSILON;
 
     let mut first_inflection = q / a;
@@ -298,9 +298,9 @@ fn inflection_approximation_range<S: Scalar>(
 
     // Let s(t) = s3 * t^3 be the (signed) perpendicular distance of curve(t) from a line that will be determined below.
     let s3;
-    if p1.x.abs() < S::EPSILON && p1.y.abs() < S::EPSILON {
+    if S::abs(p1.x) < S::EPSILON && S::abs(p1.y) < S::EPSILON {
         // Assume p1 = 0.
-        if p2.x.abs() < S::EPSILON && p2.y.abs() < S::EPSILON {
+        if S::abs(p2.x) < S::EPSILON && S::abs(p2.y) < S::EPSILON {
             // Assume p2 = 0.
             // The curve itself is a line or a point.
             return None;
@@ -316,7 +316,7 @@ fn inflection_approximation_range<S: Scalar>(
     }
 
     // Calculate the maximal t value such that the (absolute) distance is within the tolerance.
-    let tf = (tolerance / s3).abs().powf(S::ONE / S::THREE);
+    let tf = S::abs(tolerance / s3).powf(S::ONE / S::THREE);
 
     return if tf < S::ONE { Some(tf) } else { None };
 }
@@ -334,7 +334,7 @@ fn assert_approx_eq(a: &[Point<f32>], b: &[Point<f32>]) {
         panic!("Lenths differ ({} != {})", a.len(), b.len());
     }
     for i in 0..a.len() {
-        if (a[i].x - b[i].x).abs() > 0.0000001 || (a[i].y - b[i].y).abs() > 0.0000001 {
+        if f32::abs(a[i].x - b[i].x) > 0.0000001 || f32::abs(a[i].y - b[i].y) > 0.0000001 {
             print_arrays(a, b);
             panic!("The arrays are not equal");
         }

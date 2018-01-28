@@ -189,8 +189,8 @@ impl<S: Scalar> LineSegment<S> {
             return None;
         }
 
-        let sign_v1_cross_v2 = v1_cross_v2.signum();
-        let abs_v1_cross_v2 = v1_cross_v2.abs();
+        let sign_v1_cross_v2 = S::signum(v1_cross_v2);
+        let abs_v1_cross_v2 = S::abs(v1_cross_v2);
 
         let v3 = other.from - self.from;
 
@@ -278,7 +278,7 @@ pub struct Line<S> {
 impl<S: Scalar> Line<S> {
     pub fn intersection(&self, other: &Self) -> Option<Point<S>> {
         let det = self.vector.cross(other.vector);
-        if det.abs() <= S::EPSILON {
+        if S::abs(det) <= S::EPSILON {
             // The lines are very close to parallel
             return None;
         }
@@ -323,7 +323,7 @@ pub struct LineEquation<S> {
 impl<S: Scalar> LineEquation<S> {
     pub fn new(a: S, b: S, c: S) -> Self {
         debug_assert!(a != S::ZERO || b != S::ZERO);
-        let div = S::ONE / (a * a + b * b).sqrt();
+        let div = S::ONE / S::sqrt(a * a + b * b);
         LineEquation { a: a * div, b: b * div, c: c * div }
     }
 
@@ -350,7 +350,7 @@ impl<S: Scalar> LineEquation<S> {
 
     #[inline]
     pub fn distance_to_point(&self, p: &Point<S>) -> S {
-        self.signed_distance_to_point(p).abs()
+        S::abs(self.signed_distance_to_point(p))
     }
 
     #[inline]
@@ -410,7 +410,7 @@ impl<S: Scalar> LineEquation<S> {
 
 #[cfg(test)]
 fn fuzzy_eq_f32(a: f32, b: f32, epsilon: f32) -> bool {
-    return (a - b).abs() <= epsilon;
+    return f32::abs(a - b) <= epsilon;
 }
 
 #[cfg(test)]
