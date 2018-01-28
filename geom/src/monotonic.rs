@@ -243,7 +243,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
     #[inline]
     pub fn split_at_x(&self, x: S) -> (Self, Self) {
         // TODO tolerance param.
-        self.split(self.solve_t_for_x(x, S::ZERO..S::ONE, S::constant(0.001)))
+        self.split(self.solve_t_for_x(x, S::ZERO..S::ONE, S::value(0.001)))
     }
 }
 

@@ -136,7 +136,7 @@ mod scalar {
 
         const EPSILON: Self;
 
-        fn constant(v: f32) -> Self;
+        fn value(v: f32) -> Self;
     }
 
     impl Scalar for f32 {
@@ -156,7 +156,7 @@ mod scalar {
         const EPSILON: Self = 1e-5;
 
         #[inline]
-        fn constant(v: f32) -> Self { v }
+        fn value(v: f32) -> Self { v }
     }
 
     impl Scalar for f64 {
@@ -176,7 +176,7 @@ mod scalar {
         const EPSILON: Self = 1e-8;
 
         #[inline]
-        fn constant(v: f32) -> Self { v as f64 }
+        fn value(v: f32) -> Self { v as f64 }
     }
 }
 

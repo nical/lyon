@@ -72,7 +72,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let t2 = t*t;
         (
             - S::THREE * t2 + S::SIX * t - S::THREE,
-            S::NINE * t2 - S::constant(12.0) * t + S::THREE,
+            S::NINE * t2 - S::value(12.0) * t + S::THREE,
             - S::NINE * t2 + S::SIX * t,
             S::THREE * t2
         )
@@ -170,7 +170,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::constant(0.00001);
+        let epsilon = S::value(0.00001);
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }

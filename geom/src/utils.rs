@@ -76,7 +76,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
     let dn = d / a;
 
     let delta0 = (S::THREE * cn - bn * bn) / S::NINE;
-    let delta1 = (S::NINE * bn * cn - S::constant(27.0) * dn - S::TWO * bn * bn * bn) / S::constant(54.0);
+    let delta1 = (S::NINE * bn * cn - S::value(27.0) * dn - S::TWO * bn * bn * bn) / S::value(54.0);
     let delta_01 = delta0 * delta0 * delta0 + delta1 * delta1;
 
     if delta_01 >= S::ZERO {
