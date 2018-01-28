@@ -74,17 +74,17 @@ where
 
     let inflections = curve.find_inflection_points();
 
-    let mut t = S::zero();
+    let mut t = S::ZERO;
     for inflection in inflections {
         // don't split if we are very close to the end.
-        let next = if inflection < S::constant(0.99) { inflection } else { S::one() };
+        let next = if inflection < S::constant(0.99) { inflection } else { S::ONE };
 
         step(curve, t, next, cb);
         t = next;
     }
 
-    if t < S::one() {
-        step(curve, t, S::one(), cb)
+    if t < S::ONE {
+        step(curve, t, S::ONE, cb)
     }
 }
 

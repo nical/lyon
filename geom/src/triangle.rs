@@ -23,11 +23,11 @@ impl<S: Scalar> Triangle<S> {
         let dot02 = v0.dot(v2);
         let dot11 = v1.dot(v1);
         let dot12 = v1.dot(v2);
-        let inv = S::one() / (dot00 * dot11 - dot01 * dot01);
+        let inv = S::ONE / (dot00 * dot11 - dot01 * dot01);
         let u = (dot11 * dot02 - dot01 * dot12) * inv;
         let v = (dot11 * dot12 - dot01 * dot02) * inv;
 
-        return u > S::zero() && v > S::zero() && u + v < S::one();
+        return u > S::ZERO && v > S::ZERO && u + v < S::ONE;
     }
 
     /// Return the minimum bounding rectangle.

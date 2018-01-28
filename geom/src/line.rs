@@ -24,13 +24,13 @@ impl<S: Scalar> LineSegment<S> {
     /// Sample the x coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
     pub fn x(&self, t: S) -> S {
-        self.from.x * (S::one() - t) + self.to.x * t
+        self.from.x * (S::ONE - t) + self.to.x * t
     }
 
     /// Sample the y coordinate of the segment at t (expecting t between 0 and 1).
     #[inline]
     pub fn y(&self, t: S) -> S {
-        self.from.y * (S::one() - t) + self.to.y * t
+        self.from.y * (S::ONE - t) + self.to.y * t
     }
 
     #[inline]
@@ -41,8 +41,8 @@ impl<S: Scalar> LineSegment<S> {
 
     pub fn solve_t_for_x(&self, x: S) -> S {
         let dx = self.to.x - self.from.x;
-        if dx == S::zero() {
-            return S::zero();
+        if dx == S::ZERO {
+            return S::ZERO;
         }
 
         (x - self.from.x) / dx
@@ -50,8 +50,8 @@ impl<S: Scalar> LineSegment<S> {
 
     pub fn solve_t_for_y(&self, y: S) -> S {
         let dy = self.to.y - self.from.y;
-        if dy == S::zero() {
-            return S::zero()
+        if dy == S::ZERO {
+            return S::ZERO
         }
 
         (y - self.from.y) / dy
@@ -184,7 +184,7 @@ impl<S: Scalar> LineSegment<S> {
 
         let v1_cross_v2 = v1.cross(v2);
 
-        if v1_cross_v2 == S::zero() {
+        if v1_cross_v2 == S::ZERO {
             // The segments are parallel
             return None;
         }
@@ -200,7 +200,7 @@ impl<S: Scalar> LineSegment<S> {
         let t = v3.cross(v2) * sign_v1_cross_v2;
         let u = v3.cross(v1) * sign_v1_cross_v2;
 
-        if t <= S::zero() || t >= abs_v1_cross_v2 || u <= S::zero() || u >= abs_v1_cross_v2 {
+        if t <= S::ZERO || t >= abs_v1_cross_v2 || u <= S::ZERO || u >= abs_v1_cross_v2 {
             return None;
         }
 
@@ -257,7 +257,7 @@ impl<S: Scalar> MonotonicSegment for LineSegment<S> {
 }
 
 impl<S: Scalar> FlatteningStep for LineSegment<S> {
-    fn flattening_step(&self, _tolerance: S) -> S { S::one() }
+    fn flattening_step(&self, _tolerance: S) -> S { S::ONE }
 }
 
 // TODO: we could implement this more efficiently with specialization
@@ -277,13 +277,12 @@ pub struct Line<S> {
 
 impl<S: Scalar> Line<S> {
     pub fn intersection(&self, other: &Self) -> Option<Point<S>> {
-        let epsilon = S::constant(0.000001);
         let det = self.vector.cross(other.vector);
-        if det.abs() <= epsilon {
+        if det.abs() <= S::EPSILON {
             // The lines are very close to parallel
             return None;
         }
-        let inv_det = S::one() / det;
+        let inv_det = S::ONE / det;
         let self_p2 = self.point + self.vector;
         let other_p2 = other.point + other.vector;
         let a = self.point.to_vector().cross(self_p2.to_vector());
@@ -323,8 +322,8 @@ pub struct LineEquation<S> {
 
 impl<S: Scalar> LineEquation<S> {
     pub fn new(a: S, b: S, c: S) -> Self {
-        debug_assert!(a != S::zero() || b != S::zero());
-        let div = S::one() / (a * a + b * b).sqrt();
+        debug_assert!(a != S::ZERO || b != S::ZERO);
+        let div = S::ONE / (a * a + b * b).sqrt();
         LineEquation { a: a * div, b: b * div, c: c * div }
     }
 
@@ -382,7 +381,7 @@ impl<S: Scalar> LineEquation<S> {
 
     #[inline]
     pub fn solve_y_for_x(&self, x: S) -> Option<S> {
-        if self.b == S::zero() {
+        if self.b == S::ZERO {
             return None;
         }
 
@@ -391,7 +390,7 @@ impl<S: Scalar> LineEquation<S> {
 
     #[inline]
     pub fn solve_x_for_y(&self, y: S) -> Option<S> {
-        if self.a == S::zero() {
+        if self.a == S::ZERO {
             return None;
         }
 
@@ -400,12 +399,12 @@ impl<S: Scalar> LineEquation<S> {
 
     #[inline]
     pub fn is_horizontal(&self) -> bool {
-        self.a == S::zero()
+        self.a == S::ZERO
     }
 
     #[inline]
     pub fn is_vertical(&self) -> bool {
-        self.b == S::zero()
+        self.b == S::ZERO
     }
 }
 

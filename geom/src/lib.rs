@@ -128,6 +128,13 @@ mod scalar {
         const THREE: Self;
         const FOUR: Self;
         const FIVE: Self;
+        const SIX: Self;
+        const SEVEN: Self;
+        const EIGHT: Self;
+        const NINE: Self;
+        const TEN: Self;
+
+        const EPSILON: Self;
 
         fn constant(v: f32) -> Self;
     }
@@ -140,7 +147,15 @@ mod scalar {
         const THREE: Self = 3.0;
         const FOUR: Self = 4.0;
         const FIVE: Self = 5.0;
+        const SIX: Self = 6.0;
+        const SEVEN: Self = 7.0;
+        const EIGHT: Self = 8.0;
+        const NINE: Self = 9.0;
+        const TEN: Self = 10.0;
 
+        const EPSILON: Self = 1e-5;
+
+        #[inline]
         fn constant(v: f32) -> Self { v }
     }
 
@@ -152,7 +167,15 @@ mod scalar {
         const THREE: Self = 3.0;
         const FOUR: Self = 4.0;
         const FIVE: Self = 5.0;
+        const SIX: Self = 6.0;
+        const SEVEN: Self = 7.0;
+        const EIGHT: Self = 8.0;
+        const NINE: Self = 9.0;
+        const TEN: Self = 10.0;
 
+        const EPSILON: Self = 1e-8;
+
+        #[inline]
         fn constant(v: f32) -> Self { v as f64 }
     }
 }
