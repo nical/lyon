@@ -79,7 +79,7 @@ pub trait BoundingRect {
 /// Types that implement call-back based iteration
 pub trait FlattenedForEach: Segment {
     /// Iterates through the curve invoking a callback at each point.
-    fn flattened_for_each<F: FnMut(Point<Self::Scalar>)>(&self, tolerance: Self::Scalar, call_back: &mut F);
+    fn for_each_flattened<F: FnMut(Point<Self::Scalar>)>(&self, tolerance: Self::Scalar, call_back: &mut F);
 }
 
 /// Types that implement local flattening approximation at the start of the curve.
@@ -98,7 +98,7 @@ pub trait FlatteningStep: FlattenedForEach {
 impl<T> FlattenedForEach for T
 where T: FlatteningStep
 {
-    fn flattened_for_each<F: FnMut(Point<Self::Scalar>)>(&self, tolerance: Self::Scalar, call_back: &mut F) {
+    fn for_each_flattened<F: FnMut(Point<Self::Scalar>)>(&self, tolerance: Self::Scalar, call_back: &mut F) {
         let mut iter = *self;
         loop {
             let t = iter.flattening_step(tolerance);
@@ -156,7 +156,7 @@ where T: FlattenedForEach<Scalar=S>
 {
     let mut start = curve.from();
     let mut len = S::ZERO;
-    curve.flattened_for_each(tolerance, &mut|p| {
+    curve.for_each_flattened(tolerance, &mut|p| {
         len = len + (p - start).length();
         start = p;
     });

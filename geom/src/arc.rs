@@ -8,6 +8,7 @@ use generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle,
 use utils::directed_angle;
 use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
 use segment;
+use QuadraticBezierSegment;
 
 /// A flattening iterator for arc segments.
 pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
@@ -126,7 +127,10 @@ impl<S: Scalar> Arc<S> {
     }
 
     #[inline]
-    pub fn to_quadratic_beziers<F: FnMut(Point<S>, Point<S>)>(&self, cb: &mut F) {
+    pub fn for_each_quadratic_bezier<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>)
+    {
         arc_to_to_quadratic_beziers(self, cb);
     }
 
@@ -241,8 +245,8 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Iterates through the curve invoking a callback at each point.
-    pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
-        <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
+    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
+        <Self as FlattenedForEach>::for_each_flattened(self, tolerance, call_back);
     }
 
     /// Iterates through the curve invoking a callback at each point.
@@ -300,8 +304,11 @@ impl<S: Scalar> Into<Arc<S>> for SvgArc<S> {
 impl<S: Scalar> SvgArc<S> {
     pub fn to_arc(&self) -> Arc<S> { Arc::from_svg_arc(self) }
 
-    pub fn to_quadratic_beziers<F: FnMut(Point<S>, Point<S>)>(&self, cb: &mut F) {
-        Arc::from_svg_arc(self).to_quadratic_beziers(cb);
+    pub fn for_each_quadratic_bezier<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>)
+    {
+        Arc::from_svg_arc(self).for_each_quadratic_bezier(cb);
     }
 }
 
@@ -322,10 +329,14 @@ impl Default for ArcFlags {
     }
 }
 
-fn arc_to_to_quadratic_beziers<S: Scalar, F: FnMut(Point<S>, Point<S>)>(
+fn arc_to_to_quadratic_beziers<S, F>(
     arc: &Arc<S>,
-    call_back: &mut F,
-) {
+    callback: &mut F,
+)
+where
+    S: Scalar,
+    F: FnMut(&QuadraticBezierSegment<S>)
+{
     let sweep_angle = S::abs(arc.sweep_angle.get()).min(S::PI() * S::TWO);
 
     let n_steps = S::ceil(sweep_angle / S::FRAC_PI_4());
@@ -337,13 +348,13 @@ fn arc_to_to_quadratic_beziers<S: Scalar, F: FnMut(Point<S>, Point<S>)>(
 
         let v1 = sample_ellipse(arc.radii, arc.x_rotation, Angle::radians(a1)).to_vector();
         let v2 = sample_ellipse(arc.radii, arc.x_rotation, Angle::radians(a2)).to_vector();
-        let p1 = arc.center + v1;
-        let p2 = arc.center + v2;
-        let l1 = Line { point: p1, vector: arc.tangent_at_angle(Angle::radians(a1)) };
-        let l2 = Line { point: p2, vector: arc.tangent_at_angle(Angle::radians(a2)) };
+        let from = arc.center + v1;
+        let to = arc.center + v2;
+        let l1 = Line { point: from, vector: arc.tangent_at_angle(Angle::radians(a1)) };
+        let l2 = Line { point: to, vector: arc.tangent_at_angle(Angle::radians(a2)) };
         let ctrl = l2.intersection(&l1).unwrap();
 
-        call_back(ctrl, p2);
+        callback(&QuadraticBezierSegment { from , ctrl, to });
     }
 }
 

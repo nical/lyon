@@ -230,7 +230,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             from: self.current,
             ctrl: ctrl,
             to: to,
-        }.flattened_for_each(
+        }.for_each_flattened(
             self.options.tolerance,
             &mut |point| {
                 self.edge_to(point, first);
@@ -247,7 +247,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             ctrl1: ctrl1,
             ctrl2: ctrl2,
             to: to,
-        }.flattened_for_each(
+        }.for_each_flattened(
             self.options.tolerance,
             &mut |point| {
                 self.edge_to(point, first);
@@ -271,7 +271,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             start_angle,
             sweep_angle,
             x_rotation,
-        }.flattened_for_each(
+        }.for_each_flattened(
             self.options.tolerance,
             &mut |point| {
                 self.edge_to(point, first);

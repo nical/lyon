@@ -398,8 +398,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
-        }.to_quadratic_beziers(&mut|ctrl, to|{
-            self.quadratic_bezier_to(ctrl, to);
+        }.for_each_quadratic_bezier(&mut|curve| {
+            self.quadratic_bezier_to(curve.ctrl, curve.to);
         })
     }
 
@@ -443,7 +443,7 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             from: self.current_position(),
             ctrl: ctrl,
             to: to,
-        }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
+        }.for_each_flattened(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
@@ -452,7 +452,7 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             ctrl1: ctrl1,
             ctrl2: ctrl2,
             to: to,
-        }.flattened_for_each(self.tolerance, &mut |point| { self.line_to(point); });
+        }.for_each_flattened(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn arc(
@@ -469,8 +469,8 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             start_angle,
             sweep_angle,
             x_rotation,
-        }.to_quadratic_beziers(&mut|ctrl, to| {
-            self.quadratic_bezier_to(ctrl, to);
+        }.for_each_quadratic_bezier(&mut|curve| {
+            self.quadratic_bezier_to(curve.ctrl, curve.to);
         });
     }
 }

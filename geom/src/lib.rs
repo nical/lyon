@@ -88,7 +88,6 @@ mod triangle;
 mod line;
 mod monotonic;
 
-pub use cubic_to_quadratic::cubic_to_quadratic;
 #[doc(inline)]
 pub use quadratic_bezier::QuadraticBezierSegment;
 #[doc(inline)]
