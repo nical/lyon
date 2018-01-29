@@ -677,9 +677,10 @@ pub fn fill_ellipse(
         options.tolerance
     ).with_svg();
 
+    // TODO don't need to go through quadratic bézier approximation here.
     path.move_to(arc.sample(0.0));
-    arc.to_quadratic_beziers(&mut|ctrl, to| {
-        path.quadratic_bezier_to(ctrl, to);
+    arc.for_each_quadratic_bezier(&mut|curve| {
+        path.quadratic_bezier_to(curve.ctrl, curve.to);
     });
     path.close();
 
@@ -719,8 +720,8 @@ pub fn stroke_ellipse(
         let mut path = FlatteningBuilder::new(StrokeBuilder::new(options, output), options.tolerance).with_svg();
 
         path.move_to(arc.sample(0.0));
-        arc.to_quadratic_beziers(&mut|ctrl, to| {
-            path.quadratic_bezier_to(ctrl, to);
+        arc.for_each_quadratic_bezier(&mut|curve| {
+            path.quadratic_bezier_to(curve.ctrl, curve.to);
         });
         path.close();
 

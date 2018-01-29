@@ -284,8 +284,8 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Iterates through the curve invoking a callback at each point.
-    pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
-        <Self as FlattenedForEach>::flattened_for_each(self, tolerance, call_back);
+    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
+        <Self as FlattenedForEach>::for_each_flattened(self, tolerance, call_back);
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the

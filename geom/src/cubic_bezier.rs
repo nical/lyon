@@ -4,8 +4,7 @@ use generic_math::{Point, Vector, Rect, rect, Transform2D};
 use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
-pub use cubic_to_quadratic::cubic_to_quadratic;
-use cubic_to_quadratic::single_curve_approximation;
+use cubic_to_quadratic::*;
 use monotonic::Monotonic;
 use utils::{min_max, cubic_polynomial_roots};
 use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
@@ -170,7 +169,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::value(0.00001);
+        let epsilon = S::EPSILON;
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }
@@ -287,8 +286,26 @@ impl<S: Scalar> CubicBezierSegment<S> {
         cb(t0..S::ONE);
     }
 
+    /// Approximates the cubic bézier curve with sequence of quadratic ones,
+    /// invoking a callback at each step.
+    pub fn for_each_quadratic_bezier<F>(&self, tolerance: S, cb: &mut F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>)
+    {
+        cubic_to_quadratics(self, tolerance, cb);
+    }
+
+    /// Approximates the cubic bézier curve with sequence of monotonic quadratic
+    /// ones, invoking a callback at each step.
+    pub fn for_each_monotonic_quadratic<F>(&self, tolerance: S, cb: &mut F)
+    where
+        F: FnMut(&Monotonic<QuadraticBezierSegment<S>>)
+    {
+        cubic_to_monotonic_quadratics(self, tolerance, cb);
+    }
+
     /// Iterates through the curve invoking a callback at each point.
-    pub fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
+    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
     }
 
@@ -617,14 +634,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
         return result;
     }
-
-    /// Approximates this segment with a quadratic bézier segment.
-    ///
-    /// This is can be a very crude approzimation dependending on the
-    /// original curve.
-    pub fn to_quadratic(&self) -> QuadraticBezierSegment<S> {
-        single_curve_approximation(self)
-    }
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> { impl_segment!(S); }
@@ -640,8 +649,8 @@ impl<S: Scalar> BoundingRect for CubicBezierSegment<S> {
 }
 
 impl<S: Scalar> FlattenedForEach for CubicBezierSegment<S> {
-    fn flattened_for_each<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
-        self.flattened_for_each(tolerance, call_back);
+    fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
+        self.for_each_flattened(tolerance, call_back);
     }
 }
 
@@ -874,4 +883,20 @@ fn is_linear() {
         }
         angle += 0.001;
     }
+}
+
+#[test]
+fn test_monotonic() {
+    use math::point;
+    let curve = CubicBezierSegment {
+        from: point(1.0, 1.0),
+        ctrl1: point(10.0, 2.0),
+        ctrl2: point(1.0, 3.0),
+        to: point(10.0, 4.0),
+    };
+
+    curve.for_each_monotonic_range(&mut|range| {
+        let sub_curve = curve.split_range(range);
+        assert!(sub_curve.is_monotonic());
+    });
 }

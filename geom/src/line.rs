@@ -262,7 +262,7 @@ impl<S: Scalar> FlatteningStep for LineSegment<S> {
 
 // TODO: we could implement this more efficiently with specialization
 // impl FlattenedForEach for LineSegment {
-//     fn flattened_for_each<F: FnMut(Point)>(&self, _tolerance: f32, call_back: &mut F) {
+//     fn for_each_flattened<F: FnMut(Point)>(&self, _tolerance: f32, call_back: &mut F) {
 //         call_back(self.to);
 //     }
 // }

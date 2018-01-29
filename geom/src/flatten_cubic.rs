@@ -352,7 +352,7 @@ fn test_iterator_builder_1() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
 
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -369,7 +369,7 @@ fn test_iterator_builder_2() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
 
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -386,7 +386,7 @@ fn test_iterator_builder_3() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
 
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -403,7 +403,7 @@ fn test_issue_19() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.flattened_for_each(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
 
     assert_approx_eq(&iter_points[..], &builder_points[..]);
 
@@ -420,7 +420,7 @@ fn test_issue_194() {
     };
 
     let mut points = Vec::new();
-    segment.flattened_for_each(0.1, &mut |p| {
+    segment.for_each_flattened(0.1, &mut |p| {
         points.push(p);
     });
 
