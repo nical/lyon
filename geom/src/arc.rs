@@ -337,21 +337,22 @@ where
     S: Scalar,
     F: FnMut(&QuadraticBezierSegment<S>)
 {
+    let sign = arc.sweep_angle.get().signum();
     let sweep_angle = S::abs(arc.sweep_angle.get()).min(S::PI() * S::TWO);
 
     let n_steps = S::ceil(sweep_angle / S::FRAC_PI_4());
-    let step = sweep_angle / n_steps;
+    let step = Angle::radians(sweep_angle / n_steps * sign);
 
     for i in 0..cast::<S, i32>(n_steps).unwrap() {
-        let a1 = arc.start_angle.get() + step * cast(i).unwrap();
-        let a2 = arc.start_angle.get() + step * cast(i+1).unwrap();
+        let a1 = arc.start_angle + step * cast(i).unwrap();
+        let a2 = arc.start_angle + step * cast(i+1).unwrap();
 
-        let v1 = sample_ellipse(arc.radii, arc.x_rotation, Angle::radians(a1)).to_vector();
-        let v2 = sample_ellipse(arc.radii, arc.x_rotation, Angle::radians(a2)).to_vector();
+        let v1 = sample_ellipse(arc.radii, arc.x_rotation, a1).to_vector();
+        let v2 = sample_ellipse(arc.radii, arc.x_rotation, a2).to_vector();
         let from = arc.center + v1;
         let to = arc.center + v2;
-        let l1 = Line { point: from, vector: arc.tangent_at_angle(Angle::radians(a1)) };
-        let l2 = Line { point: to, vector: arc.tangent_at_angle(Angle::radians(a2)) };
+        let l1 = Line { point: from, vector: arc.tangent_at_angle(a1) };
+        let l2 = Line { point: to, vector: arc.tangent_at_angle(a2) };
         let ctrl = l2.intersection(&l1).unwrap();
 
         callback(&QuadraticBezierSegment { from , ctrl, to });
@@ -396,4 +397,66 @@ impl<S: Scalar> FlatteningStep for Arc<S> {
     fn flattening_step(&self, tolerance: S) -> S {
         self.flattening_step(tolerance)
     }
+}
+
+#[test]
+fn test_to_quadratics() {
+    use euclid::approxeq::ApproxEq;
+
+    fn do_test(arc: &Arc<f32>, expexted_count: u32) {
+        let mut prev = arc.from();
+        let mut count = 0;
+        arc.for_each_quadratic_bezier(&mut|c| {
+            assert!(c.from.approx_eq(&prev));
+            prev = c.to;
+            count += 1;
+        });
+        let last = arc.to();
+        assert!(prev.approx_eq(&last));
+        assert_eq!(count, expexted_count);
+    }
+
+    do_test(
+        &Arc {
+            center: point(2.0, 3.0),
+            radii: vector(10.0, 3.0),
+            start_angle: Angle::radians(0.1),
+            sweep_angle: Angle::radians(3.0),
+            x_rotation: Angle::radians(0.5),
+        },
+        4
+    );
+
+    do_test(
+        &Arc {
+            center: point(4.0, 5.0),
+            radii: vector(3.0, 5.0),
+            start_angle: Angle::radians(2.0),
+            sweep_angle: Angle::radians(-3.0),
+            x_rotation: Angle::radians(1.3),
+        },
+        4
+    );
+
+    do_test(
+        &Arc {
+            center: point(0.0, 0.0),
+            radii: vector(100.0, 0.01),
+            start_angle: Angle::radians(-1.0),
+            sweep_angle: Angle::radians(0.1),
+            x_rotation: Angle::radians(0.3),
+        },
+        1
+    );
+
+    do_test(
+        &Arc {
+            center: point(0.0, 0.0),
+            radii: vector(1.0, 1.0),
+            start_angle: Angle::radians(3.0),
+            sweep_angle: Angle::radians(-0.1),
+            x_rotation: Angle::radians(-0.3),
+        },
+        1
+    );
 }
