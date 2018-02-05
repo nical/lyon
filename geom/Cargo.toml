@@ -13,10 +13,10 @@ workspace = ".."
 name = "lyon_geom"
 
 [features]
-serialization = ["serde"]
+serialization = ["serde", "euclid/serde"]
 
 [dependencies]
-euclid = "0.16.4"
+euclid = "0.17.0"
 arrayvec = "0.4"
 num-traits = "0.1.40"
 serde = {version = "1.0", optional = true, features = ["serde_derive"] }
