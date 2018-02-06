@@ -1,5 +1,13 @@
 ## Change log
 
+### v0.10.0 (2018-02-??)
+  - [geom] Fix several arc bugs.
+  - [geom] Implement a much better cubic to quadratic bézier approximation.
+  - [geom] Implement iteating over the monotonic parts of a bézier curve.
+  - [lyon] Make serde optional for all crates ("serialization" feature flags).
+  - [tessellation] Implement better error handling.
+  - [extra] Revive the toy software rasterizer.
+
 ### v0.9.1 (2018-01-14)
   - [tessellation] Fix missing vertices when normals are disabled.
   - [tess2] Add an alternative tessellator based on libtess2.
