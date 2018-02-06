@@ -264,12 +264,13 @@ impl<S: Scalar> Arc<S> {
         arc
     }
 
-    /// Iterates through the curve invoking a callback at each point.
+    /// Approximates the arc with a sequence of line segments.
     pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         <Self as FlattenedForEach>::for_each_flattened(self, tolerance, call_back);
     }
 
-    /// Iterates through the curve invoking a callback at each point.
+    /// Finds the interval of the begining of the curve that can be approximated with a
+    /// line segment.
     pub fn flattening_step(&self, tolerance: S) -> S {
         // Here we make the approximation that for small tolerance values we consider
         // the radius to be constant over each approximated segment.
@@ -337,7 +338,26 @@ impl<S: Scalar> SvgArc<S> {
     where
         F: FnMut(&QuadraticBezierSegment<S>)
     {
+        if self.is_straight_line() {
+            cb(&QuadraticBezierSegment{
+                from: self.from,
+                ctrl: self.from,
+                to: self.to,
+            });
+            return;
+        }
+
         Arc::from_svg_arc(self).for_each_quadratic_bezier(cb);
+    }
+
+    /// Approximates the arc with a sequence of line segments.
+    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, cb: &mut F) {
+        if self.is_straight_line() {
+            cb(self.to);
+            return;
+        }
+
+        Arc::from_svg_arc(self).for_each_flattened(tolerance, cb);
     }
 }
 
