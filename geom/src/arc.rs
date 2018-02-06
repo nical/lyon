@@ -5,7 +5,6 @@ use std::ops::Range;
 use Line;
 use scalar::{Scalar, Float, cast};
 use generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
-use utils::directed_angle;
 use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
 use segment;
 use QuadraticBezierSegment;
@@ -13,7 +12,7 @@ use QuadraticBezierSegment;
 /// A flattening iterator for arc segments.
 pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
 
-/// An ellipic arc curve segment using the SVG notation.
+/// An ellipic arc curve segment using the SVG's end-point notation.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SvgArc<S> {
@@ -45,10 +44,13 @@ impl<S: Scalar> Arc<S> {
         debug_assert!(!arc.radii.y.is_nan());
         debug_assert!(!arc.x_rotation.get().is_nan());
 
-        let rx = arc.radii.x;
-        let ry = arc.radii.y;
+        let rx = S::abs(arc.radii.x);
+        let ry = S::abs(arc.radii.y);
 
         assert_ne!(arc.from, arc.to);
+        // The SVG spec specifies what we should do if one of the two
+        // radii is zero and not the other, but it's better to handle
+        // this out of arc code and generate a line_to instead of an arc.
         assert_ne!(rx, S::ZERO);
         assert_ne!(ry, S::ZERO);
 
@@ -59,6 +61,7 @@ impl<S: Scalar> Arc<S> {
         let hd_y = (arc.from.y - arc.to.y) / S::TWO;
         let hs_x = (arc.from.x + arc.to.x) / S::TWO;
         let hs_y = (arc.from.y + arc.to.y) / S::TWO;
+
         // F6.5.1
         let p = Point::new(
             cos_phi * hd_x + sin_phi * hd_y,
@@ -74,9 +77,9 @@ impl<S: Scalar> Arc<S> {
 
         debug_assert_ne!(sum_of_sq, S::ZERO);
 
+        // F6.5.2
         let sign_coe = if arc.flags.large_arc == arc.flags.sweep {-S::ONE } else { S::ONE };
         let coe = sign_coe * S::sqrt(S::abs((rxry * rxry - sum_of_sq) / sum_of_sq));
-
         let transformed_cx = coe * rxpy / ry;
         let transformed_cy = -coe * rypx / rx;
 
@@ -86,26 +89,32 @@ impl<S: Scalar> Arc<S> {
             sin_phi * transformed_cx + cos_phi * transformed_cy + hs_y
         );
 
-        let a = vector(
+        let start_v: Vector<S> = vector(
             (p.x - transformed_cx) / rx,
             (p.y - transformed_cy) / ry,
         );
-        // TODO
-        let b = -vector(
+        let end_v: Vector<S> = vector(
             (-p.x - transformed_cx) / rx,
             (-p.y - transformed_cy) / ry,
         );
 
-        let start_angle = Angle::radians(directed_angle(vector(S::ONE, S::ZERO), a));
+        let two_pi = S::TWO * S::PI();
 
-        let sign_delta = if arc.flags.sweep { S::ONE } else { -S::ONE };
-        let sweep_angle = Angle::radians(sign_delta * (S::abs(directed_angle(a, b)) % (S::TWO * S::PI())));
+        let start_angle = start_v.angle_from_x_axis();
+
+        let mut sweep_angle = (end_v.angle_from_x_axis() - start_angle).radians % two_pi;
+
+        if arc.flags.sweep && sweep_angle < S::ZERO {
+            sweep_angle += two_pi;
+        } else if !arc.flags.sweep && sweep_angle > S::ZERO {
+            sweep_angle -= two_pi;
+        }
 
         Arc {
-            center: center,
+            center,
             radii: arc.radii,
-            start_angle: start_angle,
-            sweep_angle: sweep_angle,
+            start_angle,
+            sweep_angle: Angle::radians(sweep_angle),
             x_rotation: arc.x_rotation
         }
     }
@@ -396,6 +405,94 @@ impl<S: Scalar> BoundingRect for Arc<S> {
 impl<S: Scalar> FlatteningStep for Arc<S> {
     fn flattening_step(&self, tolerance: S) -> S {
         self.flattening_step(tolerance)
+    }
+}
+
+#[test]
+fn test_from_svg_arc() {
+    use euclid::approxeq::ApproxEq;
+    use math::vector;
+
+    let flags = ArcFlags { large_arc: false, sweep: false };
+
+    test_endpoints(&SvgArc {
+        from: point(0.0, -10.0),
+        to: point(10.0, 0.0),
+        radii: vector(10.0, 10.0),
+        x_rotation: Angle::radians(0.0),
+        flags,
+    });
+
+    test_endpoints(&SvgArc {
+        from: point(0.0, -10.0),
+        to: point(10.0, 0.0),
+        radii: vector(100.0, 10.0),
+        x_rotation: Angle::radians(0.0),
+        flags,
+    });
+
+    test_endpoints(&SvgArc {
+        from: point(0.0, -10.0),
+        to: point(10.0, 0.0),
+        radii: vector(10.0, 30.0),
+        x_rotation: Angle::radians(1.0),
+        flags,
+    });
+
+    test_endpoints(&SvgArc {
+        from: point(5.0, -10.0),
+        to: point(5.0, 5.0),
+        radii: vector(10.0, 30.0),
+        x_rotation: Angle::radians(-2.0),
+        flags,
+    });
+
+
+    fn test_endpoints(svg_arc: &SvgArc<f64>) {
+        do_test_endpoints(&SvgArc {
+            flags: ArcFlags {
+                large_arc: false,
+                sweep: false,
+            },
+            ..svg_arc.clone()
+        });
+
+        do_test_endpoints(&SvgArc {
+            flags: ArcFlags {
+                large_arc: true,
+                sweep: false,
+            },
+            ..svg_arc.clone()
+        });
+
+        do_test_endpoints(&SvgArc {
+            flags: ArcFlags {
+                large_arc: false,
+                sweep: true,
+            },
+            ..svg_arc.clone()
+        });
+
+        do_test_endpoints(&SvgArc {
+            flags: ArcFlags {
+                large_arc: true,
+                sweep: true,
+            },
+            ..svg_arc.clone()
+        });
+    }
+
+    fn do_test_endpoints(svg_arc: &SvgArc<f64>) {
+        let eps = point(0.01, 0.01);
+        let arc = svg_arc.to_arc();
+        assert!(arc.from().approx_eq_eps(&svg_arc.from, &eps),
+            "unexpected arc.from: {:?} == {:?}, flags: {:?}",
+            arc.from(), svg_arc.from, svg_arc.flags,
+        );
+        assert!(arc.to().approx_eq_eps(&svg_arc.to, &eps),
+            "unexpected arc.from: {:?} == {:?}, flags: {:?}",
+            arc.to(), svg_arc.to, svg_arc.flags,
+        );
     }
 }
 

@@ -110,6 +110,7 @@ mod scalar {
     pub(crate) use euclid::Trig;
 
     use std::fmt::{Display, Debug};
+    use std::ops::{AddAssign, SubAssign, MulAssign, DivAssign};
 
     pub trait Scalar
         : Float
@@ -119,6 +120,10 @@ mod scalar {
         + Display
         + Debug
         + Trig
+        + AddAssign
+        + SubAssign
+        + MulAssign
+        + DivAssign
     {
         const HALF: Self;
         const ZERO: Self;
