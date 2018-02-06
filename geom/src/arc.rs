@@ -44,8 +44,8 @@ impl<S: Scalar> Arc<S> {
         debug_assert!(!arc.radii.y.is_nan());
         debug_assert!(!arc.x_rotation.get().is_nan());
 
-        let rx = S::abs(arc.radii.x);
-        let ry = S::abs(arc.radii.y);
+        let mut rx = S::abs(arc.radii.x);
+        let mut ry = S::abs(arc.radii.y);
 
         assert_ne!(arc.from, arc.to);
         // The SVG spec specifies what we should do if one of the two
@@ -68,7 +68,18 @@ impl<S: Scalar> Arc<S> {
             -sin_phi * hd_x + cos_phi * hd_y,
         );
 
-        // TODO: sanitize radii
+        // Sanitize the radii.
+        // If rf > 1 it means the radii are too small for the arc to
+        // possibly connect the end points. In this situation we scale
+        // them up according to the formula provided by the SVG spec.
+
+        // F6.6.2
+        let rf = p.x * p.x / (rx * rx) + p.y * p.y / (ry * ry);
+        if rf > S::ONE {
+            let scale = S::sqrt(rf);
+            rx *= scale;
+            ry *= scale;
+        }
 
         let rxry = rx * ry;
         let rxpy = rx * p.y;
@@ -112,7 +123,7 @@ impl<S: Scalar> Arc<S> {
 
         Arc {
             center,
-            radii: arc.radii,
+            radii: vector(rx, ry),
             start_angle,
             sweep_angle: Angle::radians(sweep_angle),
             x_rotation: arc.x_rotation
@@ -311,8 +322,17 @@ impl<S: Scalar> Into<Arc<S>> for SvgArc<S> {
 }
 
 impl<S: Scalar> SvgArc<S> {
+    /// Converts this arc from endpoints to center notation.
     pub fn to_arc(&self) -> Arc<S> { Arc::from_svg_arc(self) }
 
+    /// Per SVG spec, this arc should be rendered as a line_to segment.
+    ///
+    /// Do not convert an `SvgArc` into an `arc` if this returns true.
+    pub fn is_straight_line(&self) -> bool {
+        self.radii.x == S::ZERO || self.radii.y == S::ZERO
+    }
+
+    /// Approximates the arc with a sequence of quadratic bézier segments.
     pub fn for_each_quadratic_bezier<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>)
@@ -447,6 +467,15 @@ fn test_from_svg_arc() {
         flags,
     });
 
+    // This arc has invalid radii (too small to connect the two endpoints),
+    // but the conversion needs to be able to cope with that.
+    test_endpoints(&SvgArc {
+        from: point(0.0, 0.0),
+        to: point(80.0, 60.0),
+        radii: vector(40.0, 40.0),
+        x_rotation: Angle::radians(0.0),
+        flags,
+    });
 
     fn test_endpoints(svg_arc: &SvgArc<f64>) {
         do_test_endpoints(&SvgArc {
