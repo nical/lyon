@@ -43,16 +43,13 @@ impl<S: Scalar> Arc<S> {
         debug_assert!(!arc.radii.x.is_nan());
         debug_assert!(!arc.radii.y.is_nan());
         debug_assert!(!arc.x_rotation.get().is_nan());
-
-        let mut rx = S::abs(arc.radii.x);
-        let mut ry = S::abs(arc.radii.y);
-
-        assert_ne!(arc.from, arc.to);
         // The SVG spec specifies what we should do if one of the two
         // radii is zero and not the other, but it's better to handle
         // this out of arc code and generate a line_to instead of an arc.
-        assert_ne!(rx, S::ZERO);
-        assert_ne!(ry, S::ZERO);
+        assert!(!arc.is_straight_line());
+
+        let mut rx = S::abs(arc.radii.x);
+        let mut ry = S::abs(arc.radii.y);
 
         let xr = arc.x_rotation.get() % (S::TWO * S::PI());
         let cos_phi = Float::cos(xr);
@@ -330,7 +327,9 @@ impl<S: Scalar> SvgArc<S> {
     ///
     /// Do not convert an `SvgArc` into an `arc` if this returns true.
     pub fn is_straight_line(&self) -> bool {
-        self.radii.x == S::ZERO || self.radii.y == S::ZERO
+        S::abs(self.radii.x) <= S::EPSILON
+            || S::abs(self.radii.y) <= S::EPSILON
+            || self.from == self.to
     }
 
     /// Approximates the arc with a sequence of quadratic bézier segments.
