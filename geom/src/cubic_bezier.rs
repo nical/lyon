@@ -322,28 +322,39 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// This returns the advancements along the curve, not the actual x position.
     pub fn find_local_x_extrema(&self) -> ArrayVec<[S; 2]> {
+        Self::find_local_extrema(self.from.x, self.ctrl1.x, self.ctrl2.x, self.to.x)
+    }
+
+    /// Return local y extrema or None if this curve is monotonic.
+    ///
+    /// This returns the advancements along the curve, not the actual y position.
+    pub fn find_local_y_extrema(&self) -> ArrayVec<[S; 2]> {
+        Self::find_local_extrema(self.from.y, self.ctrl1.y, self.ctrl2.y, self.to.y)
+    }
+
+
+    fn find_local_extrema(p0: S, p1: S, p2: S, p3: S) -> ArrayVec<[S; 2]> {
         let mut ret = ArrayVec::new();
         // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
         // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
         // f(x) = a * x² + b * x + c such as :
-        let a = S::THREE * (self.to.x - S::THREE * self.ctrl2.x + S::THREE * self.ctrl1.x - self.from.x);
-        let b = S::SIX * (self.ctrl2.x - S::TWO * self.ctrl1.x + self.from.x);
-        let c = S::THREE * (self.ctrl1.x - self.from.x);
+
+        let a = S::THREE * (p3 + S::THREE * (p1 - p2) - p0);
+        let b = S::SIX * (p2 - S::TWO * p1 + p0);
+        let c = S::THREE * (p1 - p0);
+
+        fn in_range<S: Scalar>(t: S) -> bool { t > S::ZERO && t < S::ONE }
 
         // If the derivative is a linear function
         if a == S::ZERO {
-            if b == S::ZERO {
-                // If the derivative is a constant function
-                if c == S::ZERO {
-                    ret.push(S::ZERO);
+            if b != S::ZERO {
+                let t = -c / b;
+                if in_range(t) {
+                    ret.push(t);
                 }
-            } else {
-                ret.push(-c / b);
             }
             return ret;
         }
-
-        fn in_range<S: Scalar>(t: S) -> bool { t > S::ZERO && t < S::ONE }
 
         let discriminant = b * b - S::FOUR * a * c;
 
@@ -377,20 +388,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
         ret
     }
 
-    /// Return local y extrema or None if this curve is monotonic.
-    ///
-    /// This returns the advancements along the curve, not the actual y position.
-    pub fn find_local_y_extrema(&self) -> ArrayVec<[S; 2]> {
-       let switched_segment = CubicBezierSegment {
-               from: self.from.yx(),
-               ctrl1: self.ctrl1.yx(),
-               ctrl2: self.ctrl2.yx(),
-               to: self.to.yx(),
-       };
-
-        switched_segment.find_local_x_extrema()
-    }
-
     /// Find the advancement of the y-most position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual y position.
@@ -402,10 +399,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             max_y = self.to.y;
         }
         for t in self.find_local_y_extrema() {
-            let point = self.sample(t);
-            if point.y > max_y {
+            let y = self.y(t);
+            if y > max_y {
                 max_t = t;
-                max_y = point.y;
+                max_y = y;
             }
         }
         return max_t;
@@ -422,10 +419,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             min_y = self.to.y;
         }
         for t in self.find_local_y_extrema() {
-            let point = self.sample(t);
-            if point.y < min_y {
+            let y = self.y(t);
+            if y < min_y {
                 min_t = t;
-                min_y = point.y;
+                min_y = y;
             }
         }
         return min_t;
@@ -442,10 +439,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             max_x = self.to.x;
         }
         for t in self.find_local_x_extrema() {
-            let point = self.sample(t);
-            if point.x > max_x {
+            let x = self.x(t);
+            if x > max_x {
                 max_t = t;
-                max_x = point.x;
+                max_x = x;
             }
         }
         return max_t;
@@ -460,10 +457,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             min_x = self.to.x;
         }
         for t in self.find_local_x_extrema() {
-            let point = self.sample(t);
-            if point.x < min_x {
+            let x = self.x(t);
+            if x < min_x {
                 min_t = t;
-                min_x = point.x;
+                min_x = x;
             }
         }
         return min_t;
