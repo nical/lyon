@@ -152,8 +152,7 @@ pub static VERTEX_SHADER: &'static str = "
     #version 140
     #line 266
 
-    in vector a_position;
-
+    in vec2 a_position;
     out vec4 v_color;
 
     void main() {
