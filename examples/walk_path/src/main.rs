@@ -150,7 +150,7 @@ fn main() {
     let mut frame_count: usize   = 0;
     while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
-        let (w, h) = window.get_inner_size_pixels().unwrap();
+        let (w, h) = window.get_inner_size().unwrap();
         scene.window_size = (w as f32, h as f32);
 
         cmd_queue.clear(&main_fbo.clone(), [1.0, 1.0, 1.0, 1.0]);
@@ -446,7 +446,7 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                 );
             }
             Event::WindowEvent {
-                event: WindowEvent::MouseMoved {
+                event: WindowEvent::CursorMoved {
                     position: (x, y),
                     ..},
             ..} => {

@@ -9,9 +9,9 @@ name = "walker_example"
 path = "src/main.rs"
 
 [dependencies]
-lyon = { path = "../../" }
+lyon = { path = "../../", features = ["extra"] }
 
-gfx = "0.16"
-gfx_device_gl = "0.14"
-gfx_window_glutin = "0.18"
-glutin = "0.10"
+gfx = "0.17.1"
+gfx_device_gl = "0.15.0"
+gfx_window_glutin = "0.20.0"
+glutin = "0.12.0"
