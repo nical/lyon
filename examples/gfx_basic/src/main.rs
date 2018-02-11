@@ -51,6 +51,8 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
+    WAT
+
     let mut tessellator = FillTessellator::new();
 
     let mut mesh = VertexBuffers::new();
