@@ -237,8 +237,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
     where
         F: FnMut(S),
     {
-        let x_extrema = self.find_local_x_extrema();
-        let y_extrema = self.find_local_y_extrema();
+        let mut x_extrema: ArrayVec<[S; 3]> = ArrayVec::new();
+        self.for_each_local_x_extremum_t(&mut|t| { x_extrema.push(t) });
+
+        let mut y_extrema: ArrayVec<[S; 3]> = ArrayVec::new();
+        self.for_each_local_y_extremum_t(&mut|t| { y_extrema.push(t) });
 
         let mut it_x = x_extrema.iter().cloned();
         let mut it_y = y_extrema.iter().cloned();
@@ -321,20 +324,22 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Return local x extrema or None if this curve is monotonic.
     ///
     /// This returns the advancements along the curve, not the actual x position.
-    pub fn find_local_x_extrema(&self) -> ArrayVec<[S; 2]> {
-        Self::find_local_extrema(self.from.x, self.ctrl1.x, self.ctrl2.x, self.to.x)
+    pub fn for_each_local_x_extremum_t<F>(&self, cb: &mut F)
+    where F: FnMut(S) {
+        Self::for_each_local_extremum(self.from.x, self.ctrl1.x, self.ctrl2.x, self.to.x, cb)
     }
 
     /// Return local y extrema or None if this curve is monotonic.
     ///
     /// This returns the advancements along the curve, not the actual y position.
-    pub fn find_local_y_extrema(&self) -> ArrayVec<[S; 2]> {
-        Self::find_local_extrema(self.from.y, self.ctrl1.y, self.ctrl2.y, self.to.y)
+    pub fn for_each_local_y_extremum_t<F>(&self, cb: &mut F)
+    where F: FnMut(S) {
+        Self::for_each_local_extremum(self.from.y, self.ctrl1.y, self.ctrl2.y, self.to.y, cb)
     }
 
 
-    fn find_local_extrema(p0: S, p1: S, p2: S, p3: S) -> ArrayVec<[S; 2]> {
-        let mut ret = ArrayVec::new();
+    fn for_each_local_extremum<F>(p0: S, p1: S, p2: S, p3: S, cb: &mut F)
+    where F: FnMut(S) {
         // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
         // The derivative of a cubic bezier curve is a curve representing a second degree polynomial function
         // f(x) = a * x² + b * x + c such as :
@@ -350,26 +355,26 @@ impl<S: Scalar> CubicBezierSegment<S> {
             if b != S::ZERO {
                 let t = -c / b;
                 if in_range(t) {
-                    ret.push(t);
+                    cb(t);
                 }
             }
-            return ret;
+            return;
         }
 
         let discriminant = b * b - S::FOUR * a * c;
 
         // There is no Real solution for the equation
         if discriminant < S::ZERO {
-            return ret;
+            return;
         }
 
         // There is one Real solution for the equation
         if discriminant == S::ZERO {
             let t = -b / (S::TWO * a);
             if in_range(t) {
-                ret.push(t);
+                cb(t);
             }
-            return ret;
+            return;
         }
 
         // There are two Real solutions for the equation
@@ -379,90 +384,89 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let second_extremum = (-b + discriminant_sqrt) / (S::TWO * a);
 
         if in_range(first_extremum) {
-            ret.push(first_extremum);
+            cb(first_extremum);
         }
 
         if in_range(second_extremum) {
-            ret.push(second_extremum);
+            cb(second_extremum);
         }
-        ret
     }
 
     /// Find the advancement of the y-most position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual y position.
-    pub fn find_y_maximum(&self) -> S {
+    pub fn y_maximum_t(&self) -> S {
         let mut max_t = S::ZERO;
         let mut max_y = self.from.y;
         if self.to.y > max_y {
             max_t = S::ONE;
             max_y = self.to.y;
         }
-        for t in self.find_local_y_extrema() {
+        self.for_each_local_y_extremum_t(&mut|t| {
             let y = self.y(t);
             if y > max_y {
                 max_t = t;
                 max_y = y;
             }
-        }
+        });
         return max_t;
     }
 
     /// Find the advancement of the y-least position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual y position.
-    pub fn find_y_minimum(&self) -> S {
+    pub fn y_minimum_t(&self) -> S {
         let mut min_t = S::ZERO;
         let mut min_y = self.from.y;
         if self.to.y < min_y {
             min_t = S::ONE;
             min_y = self.to.y;
         }
-        for t in self.find_local_y_extrema() {
+        self.for_each_local_y_extremum_t(&mut |t| {
             let y = self.y(t);
             if y < min_y {
                 min_t = t;
                 min_y = y;
             }
-        }
+        });
         return min_t;
     }
 
     /// Find the advancement of the x-most position in the curve.
     ///
     /// This returns the advancement along the curve, not the actual x position.
-    pub fn find_x_maximum(&self) -> S {
+    pub fn x_maximum_t(&self) -> S {
         let mut max_t = S::ZERO;
         let mut max_x = self.from.x;
         if self.to.x > max_x {
             max_t = S::ONE;
             max_x = self.to.x;
         }
-        for t in self.find_local_x_extrema() {
+        self.for_each_local_x_extremum_t(&mut |t| {
             let x = self.x(t);
             if x > max_x {
                 max_t = t;
                 max_x = x;
             }
-        }
+        });
         return max_t;
     }
 
     /// Find the x-least position in the curve.
-    pub fn find_x_minimum(&self) -> S {
+    pub fn x_minimum_t(&self) -> S {
         let mut min_t = S::ZERO;
         let mut min_x = self.from.x;
         if self.to.x < min_x {
             min_t = S::ONE;
             min_x = self.to.x;
         }
-        for t in self.find_local_x_extrema() {
+        self.for_each_local_x_extremum_t(&mut |t| {
             let x = self.x(t);
             if x < min_x {
                 min_t = t;
                 min_x = x;
             }
-        }
+        });
         return min_t;
     }
 
@@ -505,8 +509,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Returns the smallest range of x this curve is contained in.
     #[inline]
     pub fn bounding_range_x(&self) -> (S, S) {
-        let min_x = self.x(self.find_x_minimum());
-        let max_x = self.x(self.find_x_maximum());
+        let min_x = self.x(self.x_minimum_t());
+        let max_x = self.x(self.x_maximum_t());
 
         (min_x, max_x)
     }
@@ -514,8 +518,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Returns the smallest range of y this curve is contained in.
     #[inline]
     pub fn bounding_range_y(&self) -> (S, S) {
-        let min_y = self.y(self.find_y_minimum());
-        let max_y = self.y(self.find_y_maximum());
+        let min_y = self.y(self.y_minimum_t());
+        let max_y = self.y(self.y_maximum_t());
 
         (min_y, max_y)
     }
@@ -528,12 +532,16 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Returns whether this segment is monotonic on the x axis.
     pub fn is_x_monotonic(&self) -> bool {
-        self.find_local_x_extrema().is_empty()
+        let mut found = false;
+        self.for_each_local_x_extremum_t(&mut |_|{ found = true; });
+        !found
     }
 
     /// Returns whether this segment is monotonic on the y axis.
     pub fn is_y_monotonic(&self) -> bool {
-        self.find_local_y_extrema().is_empty()
+        let mut found = false;
+        self.for_each_local_y_extremum_t(&mut |_|{ found = true; });
+        !found
     }
 
     /// Returns whether this segment is fully monotonic.
@@ -689,7 +697,7 @@ fn minimum_bounding_rect_for_cubic_bezier_segment() {
 }
 
 #[test]
-fn find_y_maximum_for_simple_cubic_segment() {
+fn y_maximum_t_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(0.5, 1.0),
@@ -699,13 +707,13 @@ fn find_y_maximum_for_simple_cubic_segment() {
 
     let expected_y_maximum = 1.0;
 
-    let actual_y_maximum = a.find_y_maximum();
+    let actual_y_maximum = a.y_maximum_t();
 
     assert!(expected_y_maximum == actual_y_maximum)
 }
 
 #[test]
-fn find_y_minimum_for_simple_cubic_segment() {
+fn y_minimum_t_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(0.5, 1.0),
@@ -715,13 +723,13 @@ fn find_y_minimum_for_simple_cubic_segment() {
 
     let expected_y_minimum = 0.0;
 
-    let actual_y_minimum = a.find_y_minimum();
+    let actual_y_minimum = a.y_minimum_t();
 
     assert!(expected_y_minimum == actual_y_minimum)
 }
 
 #[test]
-fn find_y_extrema_for_simple_cubic_segment() {
+fn y_extrema_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(1.0, 2.0),
@@ -729,18 +737,16 @@ fn find_y_extrema_for_simple_cubic_segment() {
         to: Point::new(3.0, 0.0),
     };
 
-    let mut expected_y_extremums = Vec::new();
-    expected_y_extremums.push(0.5);
-
-    let actual_y_extremums = a.find_local_y_extrema();
-
-    for extremum in expected_y_extremums {
-        assert!(actual_y_extremums.contains(&extremum))
-    }
+    let mut n: u32 = 0;
+    a.for_each_local_y_extremum_t(&mut |t| {
+        assert_eq!(t, 0.5);
+        n += 1;
+    });
+    assert_eq!(n, 1);
 }
 
 #[test]
-fn find_x_extrema_for_simple_cubic_segment() {
+fn x_extrema_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(1.0, 2.0),
@@ -748,18 +754,16 @@ fn find_x_extrema_for_simple_cubic_segment() {
         to: Point::new(0.0, 0.0),
     };
 
-    let mut expected_x_extremums = Vec::new();
-    expected_x_extremums.push(0.5);
-
-    let actual_x_extremums = a.find_local_x_extrema();
-
-    for extremum in expected_x_extremums {
-        assert!(actual_x_extremums.contains(&extremum))
-    }
+    let mut n: u32 = 0;
+    a.for_each_local_x_extremum_t(&mut |t| {
+        assert_eq!(t, 0.5);
+        n += 1;
+    });
+    assert_eq!(n, 1);
 }
 
 #[test]
-fn find_x_maximum_for_simple_cubic_segment() {
+fn x_maximum_t_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(0.5, 1.0),
@@ -768,13 +772,13 @@ fn find_x_maximum_for_simple_cubic_segment() {
     };
     let expected_x_maximum = 1.0;
 
-    let actual_x_maximum = a.find_x_maximum();
+    let actual_x_maximum = a.x_maximum_t();
 
     assert!(expected_x_maximum == actual_x_maximum)
 }
 
 #[test]
-fn find_x_minimum_for_simple_cubic_segment() {
+fn x_minimum_t_for_simple_cubic_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(0.5, 1.0),
@@ -784,7 +788,7 @@ fn find_x_minimum_for_simple_cubic_segment() {
 
     let expected_x_minimum = 0.0;
 
-    let actual_x_minimum = a.find_x_minimum();
+    let actual_x_minimum = a.x_minimum_t();
 
     assert!(expected_x_minimum == actual_x_minimum)
 }
