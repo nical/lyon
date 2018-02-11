@@ -317,8 +317,9 @@ impl<S: Scalar> CubicBezierSegment<S> {
         approximate_length_from_flattening(self, tolerance)
     }
 
-    pub fn find_inflection_points(&self) -> ArrayVec<[S; 2]> {
-        find_cubic_bezier_inflection_points(self)
+    pub fn for_each_inflection_t<F>(&self, cb: &mut F)
+    where F: FnMut(S) {
+        find_cubic_bezier_inflection_points(self, cb);
     }
 
     /// Return local x extrema or None if this curve is monotonic.

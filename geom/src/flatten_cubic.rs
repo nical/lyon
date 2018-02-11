@@ -31,7 +31,8 @@ impl<S: Scalar> Flattened<S> {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment<S>, tolerance: S) -> Self {
-        let inflections = find_cubic_bezier_inflection_points(&bezier);
+        let mut inflections: ArrayVec<[S; 2]> = ArrayVec::new();
+        find_cubic_bezier_inflection_points(&bezier, &mut|t| { inflections.push(t); });
 
         let mut iter = Flattened {
             remaining_curve: bezier,
@@ -116,7 +117,8 @@ pub fn flatten_cubic_bezier<S: Scalar, F: FnMut(Point<S>)>(
     tolerance: S,
     call_back: &mut F,
 ) {
-    let inflections = find_cubic_bezier_inflection_points(&bezier);
+    let mut inflections: ArrayVec<[S; 2]> = ArrayVec::new();
+    find_cubic_bezier_inflection_points(&bezier, &mut|t| { inflections.push(t); });
 
     if let Some(&t1) = inflections.get(0) {
         bezier = flatten_including_inflection(&bezier, t1, tolerance, call_back);
@@ -207,7 +209,14 @@ fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tole
 }
 
 // Find the inflection points of a cubic bezier curve.
-pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegment<S>) -> ArrayVec<[S; 2]> {
+pub(crate) fn find_cubic_bezier_inflection_points<S, F>(
+    bezier: &CubicBezierSegment<S>,
+    cb: &mut F,
+)
+where
+    S: Scalar,
+    F: FnMut(S)
+{
     // Find inflection points.
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
@@ -218,8 +227,6 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
     let a = pb.cross(pc);
     let b = pa.cross(pc);
     let c = pa.cross(pb);
-
-    let mut ret = ArrayVec::new();
 
     if S::abs(a) < S::EPSILON {
         // Not a quadratic equation.
@@ -232,16 +239,16 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
             // point at t == 0. The inflection point approximation range found will
             // automatically extend into infinity.
             if S::abs(c) < S::EPSILON {
-                ret.push(S::ZERO);
+                cb(S::ZERO);
             }
         } else {
             let t = -c / b;
             if in_range(t) {
-                ret.push(t);
+                cb(t);
             }
         }
 
-        return ret;
+        return;
     }
 
     fn in_range<S: Scalar>(t: S) -> bool { t >= S::ZERO && t < S::ONE }
@@ -249,17 +256,17 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
     let discriminant = b * b - S::FOUR * a * c;
 
     if discriminant < S::ZERO {
-        return ret;
+        return;
     }
 
-    if S::abs(discriminant) < S::EPSILON {
+    if discriminant < S::EPSILON {
         let t = -b / (S::TWO * a);
 
         if in_range(t) {
-            ret.push(t);
+            cb(t);
         }
 
-        return ret;
+        return;
     }
 
     let discriminant_sqrt = S::sqrt(discriminant);
@@ -272,14 +279,12 @@ pub fn find_cubic_bezier_inflection_points<S: Scalar>(bezier: &CubicBezierSegmen
     }
 
     if in_range(first_inflection) {
-        ret.push(first_inflection);
+        cb(first_inflection);
     }
 
     if in_range(second_inflection) {
-        ret.push(second_inflection);
+        cb(second_inflection);
     }
-
-    ret
 }
 
 // Find the range around the start of the curve where the curve can locally be approximated
