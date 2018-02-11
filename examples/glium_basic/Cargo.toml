@@ -5,5 +5,5 @@ authors = ["orhanbalci <orhanbalci@gmail.com>"]
 workspace = "../.."
 
 [dependencies]
-lyon = { path = "../../" }
-glium = "0.19"
+lyon = { path = "../../", features = ["extra"] }
+glium = "0.20.0"
