@@ -301,6 +301,10 @@ impl<S: Scalar> Line<S> {
         (self.vector.cross(p.to_vector()) + v1.cross(v2)) / self.vector.length()
     }
 
+    pub fn distance_to_point(&self, p: &Point<S>) -> S {
+        S::abs(self.signed_distance_to_point(p))
+    }
+
     pub fn equation(&self) -> LineEquation<S> {
         let a = -self.vector.y;
         let b = self.vector.x;
