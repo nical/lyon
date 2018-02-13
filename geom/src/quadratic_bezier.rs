@@ -693,3 +693,59 @@ fn is_linear() {
         angle += 0.001;
     }
 }
+
+#[test]
+fn test_flattening() {
+    use generic_math::point;
+
+    let c1 = QuadraticBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl: point(5.0, 0.0),
+        to: point(5.0, 5.0),
+    };
+
+    let c2 = QuadraticBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl: point(50.0, 0.0),
+        to: point(50.0, 50.0),
+    };
+
+    let c3 = QuadraticBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl: point(100.0, 100.0),
+        to: point(5.0, 0.0),
+    };
+
+    fn check_tolerance(curve: &QuadraticBezierSegment<f64>, tolerance: f64) {
+        let mut c = curve.clone();
+        loop {
+            let t = c.flattening_step(tolerance);
+            if t >= 1.0 {
+                break;
+            }
+            let (before, after) = c.split(t);
+            let mid_point = before.sample(0.5);
+            let distance = before.baseline().to_line().equation().distance_to_point(&mid_point);
+            assert!(distance <= tolerance);
+            c = after;
+        }
+    }
+
+    check_tolerance(&c1, 1.0);
+    check_tolerance(&c1, 0.1);
+    check_tolerance(&c1, 0.01);
+    check_tolerance(&c1, 0.001);
+    check_tolerance(&c1, 0.0001);
+
+    check_tolerance(&c2, 1.0);
+    check_tolerance(&c2, 0.1);
+    check_tolerance(&c2, 0.01);
+    check_tolerance(&c2, 0.001);
+    check_tolerance(&c2, 0.0001);
+
+    check_tolerance(&c3, 1.0);
+    check_tolerance(&c3, 0.1);
+    check_tolerance(&c3, 0.01);
+    check_tolerance(&c3, 0.001);
+    check_tolerance(&c3, 0.0001);
+}
