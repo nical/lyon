@@ -7,25 +7,99 @@ use crate::{FillTessellator, TessellationError, FillOptions, FillVertex, OnError
 
 use std::env;
 
+#[cfg(feature = "experimental")]
+use crate::experimental;
+
+#[cfg(not(feature = "experimental"))]
 type Vertex = FillVertex;
+#[cfg(feature = "experimental")]
+type Vertex = Point;
 
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
-        let mut vertex_builder = simple_builder(&mut buffers);
-        let mut tess = FillTessellator::new();
-        if log {
-            tess.enable_logging();
+        let options = FillOptions::tolerance(0.05);
+
+        #[cfg(not(feature = "experimental"))] {
+            let mut tess = FillTessellator::new();
+            let mut vertex_builder = simple_builder(&mut buffers);
+            if log {
+                tess.enable_logging();
+            }
+            tess.tessellate_path(
+                path.path_iter(),
+                &options,
+                &mut vertex_builder
+            )?;
         }
-        tess.tessellate_path(
-            path.iter(),
-            &FillOptions::tolerance(0.05),
-            &mut vertex_builder
-        )?;
+
+        #[cfg(feature = "experimental")] {
+            use crate::path::builder::*;
+            use crate::path::iterator::*;
+
+            let mut builder = Path::builder();
+            for e in path.iter().flattened(0.05) {
+                builder.flat_event(e);
+            }
+
+            let mut vertex_builder = simple_builder(&mut buffers);
+            let mut tess = experimental::FillTessellator::new();
+            if log {
+                tess.enable_logging();
+            }
+            tess.tessellate_path(
+                &builder.build(),
+                &options,
+                &mut vertex_builder
+            );
+        }
     }
     return Ok(buffers.indices.len() / 3);
 }
 
+#[test]
+fn test_too_many_vertices() {
+    /// This test checks that the tessellator returns the proper error when
+    /// the geometry builder run out of vertex ids.
+
+    struct Builder { max_vertices: u32 }
+    impl<T> GeometryBuilder<T> for Builder
+    {
+        fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
+            if self.max_vertices == 0 {
+                return Err(GeometryBuilderError::TooManyVertices);
+            }
+            self.max_vertices -= 1;
+            Ok(VertexId(self.max_vertices))
+        }
+        fn begin_geometry(&mut self) {}
+        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+    }
+
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    let mut options = FillOptions::tolerance(0.05);
+    options.on_error = OnError::Stop;
+
+    assert_eq!(
+        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 0 }),
+        Err(TessellationError::TooManyVertices),
+    );
+    assert_eq!(
+        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 10 }),
+        Err(TessellationError::TooManyVertices),
+    );
+
+    assert_eq!(
+        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 100 }),
+        Err(TessellationError::TooManyVertices),
+    );
+}
 
 fn test_path(path: PathSlice) {
     test_path_internal(path, None);
@@ -90,50 +164,6 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 
         angle += step;
     }
-}
-
-#[test]
-fn test_too_many_vertices() {
-    /// This test checks that the tessellator returns the proper error when
-    /// the geometry builder run out of vertex ids.
-
-    struct Builder { max_vertices: u32 }
-    impl<T> GeometryBuilder<T> for Builder
-    {
-        fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
-            if self.max_vertices == 0 {
-                return Err(GeometryBuilderError::TooManyVertices);
-            }
-            self.max_vertices -= 1;
-            Ok(VertexId(self.max_vertices))
-        }
-        fn begin_geometry(&mut self) {}
-        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
-        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
-        fn abort_geometry(&mut self) {}
-    }
-
-    let mut path = Path::builder().with_svg();
-    build_logo_path(&mut path);
-    let path = path.build();
-
-    let mut tess = FillTessellator::new();
-    let mut options = FillOptions::tolerance(0.05);
-    options.on_error = OnError::Stop;
-
-    assert_eq!(
-        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 0 }),
-        Err(TessellationError::TooManyVertices),
-    );
-    assert_eq!(
-        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 10 }),
-        Err(TessellationError::TooManyVertices),
-    );
-
-    assert_eq!(
-        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 100 }),
-        Err(TessellationError::TooManyVertices),
-    );
 }
 
 #[test]
@@ -219,7 +249,10 @@ fn test_simple_1() {
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(4));
+
+    // "M 0 0 L 1 1 L 2 0 L 1 3 L 0 4 L 0 3 Z"
 }
+
 
 #[test]
 fn test_simple_2() {
@@ -984,7 +1017,7 @@ fn test_point_on_edge2() {
 }
 
 #[test]
-fn test_coincident_simple() {
+fn test_coincident_simple_1() {
     // 0___5
     //  \ /
     // 1 x 4
@@ -1007,6 +1040,7 @@ fn test_coincident_simple() {
 
     // "M 0 0 L 1 1 L 0 2 L 2 2 L 1 1 L 2 0 Z"
 }
+
 
 #[test]
 fn test_coincident_simple_2() {

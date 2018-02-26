@@ -446,6 +446,12 @@ where
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        debug_assert!(a != b);
+        debug_assert!(a != c);
+        debug_assert!(b != c);
+        debug_assert!(a != VertexId::INVALID);
+        debug_assert!(b != VertexId::INVALID);
+        debug_assert!(c != VertexId::INVALID);
         self.buffers.indices.push((a + self.vertex_offset).into());
         self.buffers.indices.push((b + self.vertex_offset).into());
         self.buffers.indices.push((c + self.vertex_offset).into());
