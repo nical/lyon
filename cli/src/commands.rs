@@ -7,6 +7,7 @@ use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
 pub enum Tessellator {
     Default,
     Tess2,
+    Experimental,
 }
 
 #[derive(Clone, Debug)]

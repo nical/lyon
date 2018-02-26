@@ -566,6 +566,7 @@ fn get_tessellator(matches: &ArgMatches) -> Tessellator {
         return match stroke_str {
             "default" => Tessellator::Default,
             "libtess2" => Tessellator::Tess2,
+            "experimental" => Tessellator::Experimental,
             _ => Tessellator::Default,
         }
     }

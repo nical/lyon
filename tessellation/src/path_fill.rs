@@ -1897,7 +1897,7 @@ impl FlatPathBuilder for EventsBuilder {
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the `FillTessellator`).
-struct MonotoneTessellator {
+pub(crate) struct MonotoneTessellator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
     triangles: Vec<(VertexId, VertexId, VertexId)>,
@@ -1925,6 +1925,7 @@ impl MonotoneTessellator {
     }
 
     pub fn begin(mut self, pos: Point, id: VertexId) -> MonotoneTessellator {
+        debug_assert!(id != VertexId::INVALID);
         let first = MonotoneVertex {
             pos,
             id,
@@ -1941,7 +1942,7 @@ impl MonotoneTessellator {
 
     pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
         let current = MonotoneVertex { pos, id, side };
-
+        debug_assert!(id != VertexId::INVALID);
         // cf. test_fixed_to_f32_precision
         // TODO: investigate whether we could do the conversion without this
         // precision issue. Otherwise we could also make MonotoneTessellator
@@ -2003,12 +2004,27 @@ impl MonotoneTessellator {
     }
 
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
+        debug_assert!(a.id != b.id);
+        debug_assert!(b.id != c.id);
+        debug_assert!(a.id != c.id);
+        debug_assert!(a.id != VertexId::INVALID);
+        debug_assert!(b.id != VertexId::INVALID);
+        debug_assert!(c.id != VertexId::INVALID);
+
         let threshold = -0.042; // Floating point errors stroke again :(
         debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
         self.triangles.push((a.id, b.id, c.id));
     }
 
     fn flush(&mut self, output: &mut dyn GeometryBuilder<Vertex>) {
+        for &(a, b, c) in &self.triangles {
+            output.add_triangle(a, b, c);
+        }
+        self.triangles.clear();
+    }
+
+    #[cfg(feature="experimental")]
+    pub(crate) fn flush_experimental(&mut self, output: &mut dyn GeometryBuilder<Point>) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }

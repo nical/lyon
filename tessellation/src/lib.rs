@@ -195,6 +195,9 @@ mod path_stroke;
 mod math_utils;
 mod fixed;
 
+#[cfg(feature = "experimental")]
+pub mod experimental;
+
 #[cfg(test)]
 mod earcut_tests;
 #[cfg(test)]

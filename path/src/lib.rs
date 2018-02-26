@@ -75,6 +75,31 @@ pub enum FillRule {
     NonZero,
 }
 
+impl FillRule {
+    pub fn is_in(&self, winding_number: i16) -> bool {
+        match *self {
+            FillRule::EvenOdd => { winding_number % 2 != 0 }
+            FillRule::NonZero => { winding_number != 0 }
+        }
+    }
+
+    pub fn transition(&self, prev_winding: i16, new_winding: i16) -> Transition {
+        match (self.is_in(prev_winding), self.is_in(new_winding)) {
+            (false, true) => Transition::In,
+            (true, false) => Transition::Out,
+            _ => Transition::None,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Transition {
+    In,
+    Out,
+    None,
+}
+
+
 /// A virtual vertex offset in a geometry.
 ///
 /// The `VertexId`s are only valid between `GeometryBuilder::begin_geometry` and
