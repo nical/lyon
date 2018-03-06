@@ -50,10 +50,11 @@ members = [
     "cli",
     "examples/gfx_advanced",
     "examples/gfx_basic",
-    "examples/intersections",
-    "examples/walk_path",
     "examples/glium_basic",
     "examples/glium_basic_shapes",
+    "examples/intersections",
+    "examples/svg_render",
+    "examples/walk_path",
     "bench/svg_bench",
     "bench/tess",
     "bench/geom"
