@@ -1,0 +1,20 @@
+[package]
+name = "svg_render"
+description = "A simple svg renderer based on resvg"
+version = "0.1.0"
+authors = ["Roland Kovacs <zen3ger@gmail.com>"]
+workspace = "../.."
+
+[[bin]]
+name = "svg_render"
+path = "src/main.rs"
+
+[dependencies]
+lyon = { path = "../../", features = ["extra"] }
+resvg = { git = "https://github.com/RazrFalcon/resvg.git" }
+
+cgmath = "0.16.0"
+gfx = "0.16.1"
+gfx_device_gl = "0.14.4"
+gfx_window_glutin = "0.18.0"
+glutin = "0.10.0"
