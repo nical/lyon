@@ -83,8 +83,8 @@ fn main() {
     println!("Use arrow keys to pan, quare brackes to zoom.");
 
     // get svg view box parameters
-    let vb_width = view_box.size.width as f32;
-    let vb_height = view_box.size.height as f32;
+    let vb_width = view_box.rect.size.width as f32;
+    let vb_height = view_box.rect.size.height as f32;
     let scale = vb_width / vb_height;
 
     // get x and y translation
