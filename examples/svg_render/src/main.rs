@@ -26,6 +26,9 @@ fn main() {
         return;
     }
 
+    // TODO commandline args.
+    let msaa = Some(8);
+
     let mut fill_tess = FillTessellator::new();
     let mut stroke_tess = StrokeTessellator::new();
     let mut mesh = VertexBuffers::new();
@@ -108,8 +111,6 @@ fn main() {
     let proj = cgmath::ortho(-scale, scale, -1.0, 1.0, -1.0, 1.0);
     let mut scene = Scene::new(zoom, pan, proj);
 
-    println!("Original {:?}", scene);
-
     // set up event processing and rendering
     let mut event_loop = glutin::EventsLoop::new();
     let glutin_builder = glutin::WindowBuilder::new()
@@ -117,7 +118,11 @@ fn main() {
         .with_decorations(true)
         .with_title("SVG Renderer");
 
-    let context = glutin::ContextBuilder::new().with_vsync(true);
+    let msaa_samples = msaa.unwrap_or(0);
+
+    let context = glutin::ContextBuilder::new()
+        .with_multisampling(msaa_samples)
+        .with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &event_loop);
@@ -129,11 +134,15 @@ fn main() {
         )
         .unwrap();
 
+    let mut rasterizer_state = gfx::state::Rasterizer::new_fill();
+    if msaa.is_some() {
+        rasterizer_state.samples = Some(gfx::state::MultiSample);
+    }
     let pso = factory
         .create_pipeline_from_program(
             &shader,
             gfx::Primitive::TriangleList,
-            gfx::state::Rasterizer::new_fill(),
+            rasterizer_state,
             fill_pipeline::new(),
         )
         .unwrap();
@@ -183,7 +192,6 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
             event: glutin::WindowEvent::Closed,
             ..
         } => {
-            println!("Window Closed!");
             status = false;
         }
         Event::WindowEvent {
@@ -206,35 +214,30 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
                 },
             ..
         } => {
-            println!("Preparing to update {:?}", scene);
-
             match key {
                 VirtualKeyCode::Escape => {
-                    println!("Closing");
                     status = false;
                 }
-                VirtualKeyCode::LBracket => {
+                VirtualKeyCode::PageDown => {
                     scene.zoom *= 0.8;
                 }
-                VirtualKeyCode::RBracket => {
+                VirtualKeyCode::PageUp => {
                     scene.zoom *= 1.2;
                 }
                 VirtualKeyCode::Left => {
-                    scene.pan[0] -= 0.2 / scene.zoom;
-                }
-                VirtualKeyCode::Right => {
                     scene.pan[0] += 0.2 / scene.zoom;
                 }
+                VirtualKeyCode::Right => {
+                    scene.pan[0] -= 0.2 / scene.zoom;
+                }
                 VirtualKeyCode::Up => {
-                    scene.pan[1] -= 0.2 / scene.zoom;
+                    scene.pan[1] += 0.2 / scene.zoom;
                 }
                 VirtualKeyCode::Down => {
-                    scene.pan[1] += 0.2 / scene.zoom;
+                    scene.pan[1] -= 0.2 / scene.zoom;
                 }
                 _key => {}
             };
-
-            println!("Updated {:?}", scene);
         }
         _ => {}
     });
