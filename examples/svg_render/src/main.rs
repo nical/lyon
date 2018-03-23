@@ -1,23 +1,35 @@
 extern crate cgmath;
+#[macro_use]
 extern crate gfx;
+extern crate gfx_device_gl;
 extern crate gfx_window_glutin;
 extern crate glutin;
 extern crate lyon;
 extern crate resvg;
 
-extern crate svg_render;
+mod path_convert;
+mod stroke_convert;
+mod render;
 
 use gfx::traits::{Device, FactoryExt};
 use glutin::GlContext;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
-use resvg::tree::TreeExt;
+use resvg::tree::{Color, TreeExt};
 
-use svg_render::FALLBACK_COLOR;
-use svg_render::render::{self, fill_pipeline, ColorFormat, DepthFormat, Scene, VertexCtor};
-use svg_render::{convert_path, convert_stroke};
+use path_convert::convert_path;
+use stroke_convert::convert_stroke;
+use render::{fill_pipeline, ColorFormat, DepthFormat, Scene, VertexCtor};
+
 
 const WINDOW_SIZE: f32 = 800.0;
+
+
+pub const FALLBACK_COLOR: Color = Color {
+    red: 0,
+    green: 0,
+    blue: 0,
+};
 
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
