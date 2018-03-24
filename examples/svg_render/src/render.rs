@@ -1,9 +1,9 @@
-use cgmath;
 use gfx;
 
 use lyon::tessellation::geometry_builder::VertexConstructor;
 use lyon::tessellation;
 use resvg::tree::Color;
+use Transform3D;
 
 pub type ColorFormat = gfx::format::Rgba8;
 pub type DepthFormat = gfx::format::DepthStencil;
@@ -17,7 +17,7 @@ gfx_defines!{
     constant Globals {
         zoom: [f32; 2] = "u_zoom",
         pan: [f32; 2] = "u_pan",
-        proj: [[f32;4];4] = "u_proj",
+        transform: [[f32;4];4] = "u_transform",
     }
 
     pipeline fill_pipeline {
@@ -81,28 +81,19 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuFillVertex> for VertexCtor
 pub struct Scene {
     pub zoom: f32,
     pub pan: [f32; 2],
-    pub proj: [[f32; 4]; 4],
+    pub transform: [[f32; 4]; 4],
 }
 
 impl Scene {
-    pub fn new(zoom: f32, pan: [f32; 2], proj: cgmath::Matrix4<f32>) -> Self {
-        let proj = Self::convert_mat4(proj);
+    pub fn new(zoom: f32, pan: [f32; 2], transform: &Transform3D<f32>) -> Self {
         Self {
             zoom: zoom,
             pan: pan,
-            proj: proj,
+            transform: transform.to_row_arrays(),
         }
     }
-    pub fn update_proj(&mut self, proj: cgmath::Matrix4<f32>) {
-        self.proj = Self::convert_mat4(proj);
-    }
-    fn convert_mat4(m: cgmath::Matrix4<f32>) -> [[f32; 4]; 4] {
-        [
-            [m.x.x, m.x.y, m.x.z, m.x.w],
-            [m.y.x, m.y.y, m.y.z, m.y.w],
-            [m.z.x, m.z.y, m.z.z, m.z.w],
-            [m.w.x, m.w.y, m.w.z, m.w.w],
-        ]
+    pub fn update_transform(&mut self, transform: &Transform3D<f32>) {
+        self.transform = transform.to_row_arrays();
     }
 }
 
@@ -112,7 +103,7 @@ impl From<Scene> for Globals {
         Globals {
             zoom: [scene.zoom, scene.zoom],
             pan: scene.pan,
-            proj: scene.proj,
+            transform: scene.transform,
         }
     }
 }
@@ -124,7 +115,7 @@ pub static VERTEX_SHADER: &'static str = "
     uniform Globals {
         vec2 u_zoom;
         vec2 u_pan;
-        mat4 u_proj;
+        mat4 u_transform;
     };
 
     in vec2 a_position;
@@ -133,7 +124,7 @@ pub static VERTEX_SHADER: &'static str = "
     out vec4 v_color;
 
     void main() {
-        gl_Position = u_proj * vec4((a_position + u_pan) * u_zoom, 0.0, 1.0);
+        gl_Position = u_transform * vec4((a_position + u_pan) * u_zoom, 0.0, 1.0);
         gl_Position.y *= -1.0;
         v_color = a_color;
     }
