@@ -1,4 +1,3 @@
-extern crate cgmath;
 #[macro_use]
 extern crate gfx;
 extern crate gfx_device_gl;
@@ -11,11 +10,12 @@ mod path_convert;
 mod stroke_convert;
 mod render;
 
+use resvg::tree::{Color, TreeExt};
 use gfx::traits::{Device, FactoryExt};
 use glutin::GlContext;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
-use resvg::tree::{Color, TreeExt};
+pub use lyon::geom::euclid::Transform3D;
 
 use path_convert::convert_path;
 use stroke_convert::convert_stroke;
@@ -120,8 +120,8 @@ fn main() {
     // use the viewBox, if available, to set the initial zoom and pan
     let pan = [vb_width / -2.0 + x_trans, vb_height / -2.0 + y_trans];
     let zoom = 2.0 / f32::max(vb_width, vb_height);
-    let proj = cgmath::ortho(-scale, scale, -1.0, 1.0, -1.0, 1.0);
-    let mut scene = Scene::new(zoom, pan, proj);
+    let transform = Transform3D::create_scale(1.0, width / height, 1.0);
+    let mut scene = Scene::new(zoom, pan, &transform);
 
     // set up event processing and rendering
     let mut event_loop = glutin::EventsLoop::new();
@@ -210,8 +210,9 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
             event: glutin::WindowEvent::Resized(w, h),
             ..
         } => {
-            let scl = w as f32 / h as f32;
-            scene.update_proj(cgmath::ortho(-scl, scl, -1.0, 1.0, -1.0, 1.0));
+            let ratio = w as f32 / h as f32;
+            let transform = Transform3D::create_scale(1.0, ratio, 1.0);
+            scene.update_transform(&transform);
         }
         Event::WindowEvent {
             event:

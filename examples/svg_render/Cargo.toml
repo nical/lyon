@@ -13,7 +13,6 @@ path = "src/main.rs"
 lyon = { path = "../../", features = ["extra"] }
 resvg = { git = "https://github.com/RazrFalcon/resvg.git" }
 
-cgmath = "0.16.0"
 gfx = "0.16.1"
 gfx_device_gl = "0.14.4"
 gfx_window_glutin = "0.18.0"
