@@ -82,6 +82,7 @@ pub struct Scene {
     pub zoom: f32,
     pub pan: [f32; 2],
     pub transform: [[f32; 4]; 4],
+    pub wireframe: bool,
 }
 
 impl Scene {
@@ -90,6 +91,7 @@ impl Scene {
             zoom: zoom,
             pan: pan,
             transform: transform.to_row_arrays(),
+            wireframe: false,
         }
     }
     pub fn update_transform(&mut self, transform: &Transform3D<f32>) {
