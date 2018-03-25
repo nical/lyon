@@ -55,7 +55,6 @@ members = [
     "examples/intersections",
     "examples/svg_render",
     "examples/walk_path",
-    "bench/svg_bench",
     "bench/tess",
     "bench/geom"
 ]
