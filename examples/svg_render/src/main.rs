@@ -159,6 +159,18 @@ fn main() {
         )
         .unwrap();
 
+
+    let mut rasterizer_state = gfx::state::Rasterizer::new_fill();
+    rasterizer_state.method = gfx::state::RasterMethod::Line(1);
+    let wireframe_pso = factory
+        .create_pipeline_from_program(
+            &shader,
+            gfx::Primitive::TriangleList,
+            rasterizer_state,
+            fill_pipeline::new(),
+        )
+        .unwrap();
+
     let (vbo, ibo) = factory.create_vertex_buffer_with_slice(&mesh.vertices[..], &mesh.indices[..]);
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -177,7 +189,7 @@ fn main() {
         cmd_queue.update_constant_buffer(&constants, &scene.into());
         cmd_queue.draw(
             &ibo,
-            &pso,
+            if scene.wireframe { &wireframe_pso } else { &pso },
             &fill_pipeline::Data {
                 vbo: vbo.clone(),
                 out_color: main_fbo.clone(),
@@ -248,6 +260,9 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
                 }
                 VirtualKeyCode::Down => {
                     scene.pan[1] -= 0.2 / scene.zoom;
+                }
+                VirtualKeyCode::W => {
+                    scene.wireframe = !scene.wireframe;
                 }
                 _key => {}
             };
