@@ -150,6 +150,13 @@ impl<S: Scalar> LineSegment<S> {
         self.to_vector().length()
     }
 
+    /// Changes the segment's length, moving destination point.
+    pub fn set_length(&mut self, new_length: S) {
+        let v = self.to_vector();
+        let old_length = v.length();
+        self.to = self.from + v * (new_length / old_length);
+    }
+
     #[inline]
     pub fn translate(&mut self, by: Vector<S>) -> Self {
         LineSegment {
@@ -621,4 +628,20 @@ fn offset() {
     let d = l1.signed_distance_to_point(&p);
     let l2 = l1.offset(d);
     assert!(l2.distance_to_point(&p) < 0.0000001f64);
+}
+
+#[test]
+fn set_length() {
+    let mut a = LineSegment {
+        from: point(10.0, 1.0),
+        to: point(100.0, -15.0),
+    };
+    a.set_length(1.0);
+    assert!(a.length().approx_eq(&1.0));
+    a.set_length(1.5);
+    assert!(a.length().approx_eq(&1.5));
+    a.set_length(100.0);
+    assert!(a.length().approx_eq(&100.0));
+    a.set_length(-1.0);
+    assert!(a.length().approx_eq(&1.0));
 }
