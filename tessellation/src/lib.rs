@@ -199,6 +199,8 @@ mod fixed;
 mod earcut_tests;
 
 #[cfg(test)]
+mod fill_tests;
+#[cfg(test)]
 mod fuzz_tests;
 
 pub use path::math;
