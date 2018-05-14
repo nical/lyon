@@ -10,7 +10,7 @@ mod path_convert;
 mod stroke_convert;
 mod render;
 
-use resvg::tree::{Color, TreeExt};
+use resvg::tree::Color;
 use gfx::traits::{Device, FactoryExt};
 use glutin::GlContext;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
@@ -51,13 +51,13 @@ fn main() {
     let view_box = rtree.svg_node().view_box;
     let mut transform = None;
     for node in rtree.root().descendants() {
-        if let resvg::tree::NodeKind::Path(ref p) = *node.value() {
+        if let resvg::tree::NodeKind::Path(ref p) = **node.borrow() {
             // use the first transform component
             if transform == None {
-                transform = Some(node.value().transform());
+                transform = Some(node.borrow().transform());
             }
 
-            if let Some(fill) = p.fill {
+            if let Some(ref fill) = p.fill {
                 // fall back to always use color fill
                 // no gradients (yet?)
                 let color = match fill.paint {
@@ -70,14 +70,14 @@ fn main() {
                     &FillOptions::tolerance(0.01),
                     &mut BuffersBuilder::new(
                         &mut mesh,
-                        VertexCtor::new(color, fill.opacity)
+                        VertexCtor::new(color, fill.opacity.value())
                     ),
                 ).expect("Error during tesselation!");
             }
 
             if let Some(ref stroke) = p.stroke {
                 let (stroke_color, stroke_opts) = convert_stroke(stroke);
-                let opacity = stroke.opacity;
+                let opacity = stroke.opacity.value();
                 let _ = stroke_tess.tessellate_path(
                     convert_path(p).path_iter(),
                     &stroke_opts.with_tolerance(0.01),
