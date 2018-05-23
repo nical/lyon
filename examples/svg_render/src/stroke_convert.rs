@@ -1,4 +1,4 @@
-use resvg::tree::{self, Color, Paint, Stroke};
+use usvg::tree::{self, Color, Paint, Stroke};
 use lyon::tessellation::{self, StrokeOptions};
 
 use super::FALLBACK_COLOR;

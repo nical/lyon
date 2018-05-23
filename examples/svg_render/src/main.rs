@@ -1,21 +1,23 @@
+extern crate clap;
 #[macro_use]
 extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glutin;
 extern crate glutin;
 extern crate lyon;
-extern crate resvg;
+extern crate usvg;
 
 mod path_convert;
 mod stroke_convert;
 mod render;
 
-use resvg::tree::Color;
+use clap::*;
 use gfx::traits::{Device, FactoryExt};
 use glutin::GlContext;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 pub use lyon::geom::euclid::Transform3D;
+use usvg::tree::Color;
 
 use path_convert::convert_path;
 use stroke_convert::convert_stroke;
@@ -32,26 +34,47 @@ pub const FALLBACK_COLOR: Color = Color {
 };
 
 fn main() {
-    let args = std::env::args().collect::<Vec<_>>();
-    if args.len() != 2 {
-        println!("Usage:\n\tsvg_render <file-name>");
-        return;
-    }
+    let app = App::new("Lyon svg_render example")
+        .version("0.1")
+        .arg(Arg::with_name("MSAA")
+            .long("msaa")
+            .short("m")
+            .help("Sets MSAA sample count (integer)")
+            .value_name("SAMPLES")
+            .takes_value(true)
+            .required(false))
+        .arg(Arg::with_name("INPUT")
+             .help("SVG or SVGZ file")
+             .value_name("INPUT")
+             .takes_value(true)
+             .required(true))
+        .get_matches();
 
-    // TODO commandline args.
-    let msaa = Some(8);
+    let msaa = if let Some(msaa) = app.value_of("MSAA") {
+        match msaa.parse::<u16>() {
+            Ok(n) => Some(n),
+            Err(_) => {
+                println!("ERROR: `{}` is not a number", msaa);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
+    let filename = app.value_of("INPUT").unwrap();
 
     let mut fill_tess = FillTessellator::new();
     let mut stroke_tess = StrokeTessellator::new();
     let mut mesh = VertexBuffers::new();
 
-    let opt = resvg::Options::default();
-    let rtree = resvg::parse_rtree_from_file(&args[1], &opt).unwrap();
+    let opt = usvg::Options::default();
+    let rtree = usvg::parse_tree_from_file(&filename, &opt).unwrap();
 
     let view_box = rtree.svg_node().view_box;
     let mut transform = None;
     for node in rtree.root().descendants() {
-        if let resvg::tree::NodeKind::Path(ref p) = **node.borrow() {
+        if let usvg::tree::NodeKind::Path(ref p) = **node.borrow() {
             // use the first transform component
             if transform == None {
                 transform = Some(node.borrow().transform());
@@ -61,7 +84,7 @@ fn main() {
                 // fall back to always use color fill
                 // no gradients (yet?)
                 let color = match fill.paint {
-                    resvg::tree::Paint::Color(c) => c,
+                    usvg::tree::Paint::Color(c) => c,
                     _ => FALLBACK_COLOR,
                 };
 
@@ -92,7 +115,7 @@ fn main() {
         mesh.vertices.len(),
         mesh.indices.len()
     );
-    println!("Use arrow keys to pan, quare brackes to zoom.");
+    println!("Use arrow keys to pan, pageup and pagedown to zoom.");
 
     // get svg view box parameters
     let vb_width = view_box.rect.size.width as f32;
@@ -200,6 +223,8 @@ fn main() {
         device.cleanup();
     }
 }
+
+
 
 fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool {
     use glutin::Event;

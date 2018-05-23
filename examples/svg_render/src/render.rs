@@ -2,7 +2,7 @@ use gfx;
 
 use lyon::tessellation::geometry_builder::VertexConstructor;
 use lyon::tessellation;
-use resvg::tree::Color;
+use usvg::tree::Color;
 use Transform3D;
 
 pub type ColorFormat = gfx::format::Rgba8;
@@ -51,7 +51,7 @@ impl VertexCtor {
     }
 }
 
-// handle conversions to the gfx vertex format
+// Handle conversions to the gfx vertex format
 impl VertexConstructor<tessellation::FillVertex, GpuFillVertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuFillVertex {
         assert!(!vertex.position.x.is_nan());
@@ -76,8 +76,8 @@ impl VertexConstructor<tessellation::StrokeVertex, GpuFillVertex> for VertexCtor
     }
 }
 
+// Default scene has all values set to zero
 #[derive(Copy, Clone, Debug, Default)]
-// default scene has all values set to zero
 pub struct Scene {
     pub zoom: f32,
     pub pan: [f32; 2],
@@ -99,7 +99,7 @@ impl Scene {
     }
 }
 
-// extract the relevant globals from the scene struct
+// Extract the relevant globals from the scene struct
 impl From<Scene> for Globals {
     fn from(scene: Scene) -> Self {
         Globals {
