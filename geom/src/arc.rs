@@ -401,7 +401,7 @@ where
         let to = arc.center + v2;
         let l1 = Line { point: from, vector: arc.tangent_at_angle(a1) };
         let l2 = Line { point: to, vector: arc.tangent_at_angle(a2) };
-        let ctrl = l2.intersection(&l1).unwrap();
+        let ctrl = l2.intersection(&l1).unwrap_or(from);
 
         callback(&QuadraticBezierSegment { from , ctrl, to });
     }
