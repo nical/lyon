@@ -838,19 +838,17 @@ impl<'l> StrokeBuilder<'l> {
             to: point(normal_limit.x + normal_limit.y, normal_limit.y - normal_limit.x)
         };
 
-        let l1 = LineSegment{
-            from : point(prev_normal.x, prev_normal.y),
-            to: point(normal.x, normal.y)
-        };
-        let l2 = LineSegment{
-            from: point(next_normal.x, next_normal.y),
-            to: point(normal.x, normal.y)
-        };
+        let prev_normal = prev_normal.to_point();
+        let next_normal = next_normal.to_point();
+        let normal = normal.to_point();
 
-        let i1 = l1.intersection(&normal_limit_perp).unwrap();
-        let i2 = l2.intersection(&normal_limit_perp).unwrap();
+        let l1 = LineSegment{ from : prev_normal, to: normal };
+        let l2 = LineSegment{ from: next_normal, to: normal };
 
-        (vector(i1.x, i1.y), vector(i2.x, i2.y))
+        let i1 = l1.intersection(&normal_limit_perp).unwrap_or(prev_normal).to_vector();
+        let i2 = l2.intersection(&normal_limit_perp).unwrap_or(next_normal).to_vector();
+
+        (i1, i2)
     }
 }
 
