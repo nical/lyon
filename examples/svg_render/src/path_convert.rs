@@ -5,13 +5,13 @@ use lyon::math::Point;
 use lyon::path::PathEvent;
 use lyon::path::iterator::PathIter;
 
-use resvg::tree::{Path, PathSegment};
+use usvg::tree::{Path, PathSegment};
 
 fn point(x: f64, y: f64) -> Point {
     Point::new(x as f32, y as f32)
 }
 
-// Map resvg::tree::PathSegment to lyon::path::PathEvent
+// Map usvg::tree::PathSegment to lyon::path::PathEvent
 fn as_event(ps: &PathSegment) -> PathEvent {
     match *ps {
         PathSegment::MoveTo { x, y } => PathEvent::MoveTo(point(x, y)),
@@ -25,7 +25,7 @@ fn as_event(ps: &PathSegment) -> PathEvent {
 
 pub struct PathConv<'a>(SegmentIter<'a>);
 
-// Alias for the iterator returned by resvg::tree::Path::iter()
+// Alias for the iterator returned by usvg::tree::Path::iter()
 type SegmentIter<'a> = slice::Iter<'a, PathSegment>;
 
 // Alias for our `interface` iterator
