@@ -17,7 +17,7 @@ use glutin::GlContext;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 pub use lyon::geom::euclid::Transform3D;
-use usvg::tree::Color;
+use usvg::Color;
 
 use path_convert::convert_path;
 use stroke_convert::convert_stroke;
@@ -69,12 +69,12 @@ fn main() {
     let mut mesh = VertexBuffers::new();
 
     let opt = usvg::Options::default();
-    let rtree = usvg::parse_tree_from_file(&filename, &opt).unwrap();
+    let rtree = usvg::Tree::from_file(&filename, &opt).unwrap();
 
     let view_box = rtree.svg_node().view_box;
     let mut transform = None;
     for node in rtree.root().descendants() {
-        if let usvg::tree::NodeKind::Path(ref p) = **node.borrow() {
+        if let usvg::NodeKind::Path(ref p) = *node.borrow() {
             // use the first transform component
             if transform == None {
                 transform = Some(node.borrow().transform());
@@ -84,7 +84,7 @@ fn main() {
                 // fall back to always use color fill
                 // no gradients (yet?)
                 let color = match fill.paint {
-                    usvg::tree::Paint::Color(c) => c,
+                    usvg::Paint::Color(c) => c,
                     _ => FALLBACK_COLOR,
                 };
 
@@ -118,8 +118,8 @@ fn main() {
     println!("Use arrow keys to pan, pageup and pagedown to zoom.");
 
     // get svg view box parameters
-    let vb_width = view_box.rect.size.width as f32;
-    let vb_height = view_box.rect.size.height as f32;
+    let vb_width = view_box.rect.size().width as f32;
+    let vb_height = view_box.rect.size().height as f32;
     let scale = vb_width / vb_height;
 
     // get x and y translation
