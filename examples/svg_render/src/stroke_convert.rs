@@ -1,4 +1,4 @@
-use usvg::tree::{self, Color, Paint, Stroke};
+use usvg::{self, Color, Paint, Stroke};
 use lyon::tessellation::{self, StrokeOptions};
 
 use super::FALLBACK_COLOR;
@@ -9,14 +9,14 @@ pub fn convert_stroke(s: &Stroke) -> (Color, StrokeOptions) {
         _ => FALLBACK_COLOR,
     };
     let linecap = match s.linecap {
-        tree::LineCap::Butt => tessellation::LineCap::Butt,
-        tree::LineCap::Square => tessellation::LineCap::Square,
-        tree::LineCap::Round => tessellation::LineCap::Round,
+        usvg::LineCap::Butt => tessellation::LineCap::Butt,
+        usvg::LineCap::Square => tessellation::LineCap::Square,
+        usvg::LineCap::Round => tessellation::LineCap::Round,
     };
     let linejoin = match s.linejoin {
-        tree::LineJoin::Miter => tessellation::LineJoin::Miter,
-        tree::LineJoin::Bevel => tessellation::LineJoin::Bevel,
-        tree::LineJoin::Round => tessellation::LineJoin::Round,
+        usvg::LineJoin::Miter => tessellation::LineJoin::Miter,
+        usvg::LineJoin::Bevel => tessellation::LineJoin::Bevel,
+        usvg::LineJoin::Round => tessellation::LineJoin::Round,
     };
 
     let opt = StrokeOptions::tolerance(0.01)

@@ -2,7 +2,7 @@ use gfx;
 
 use lyon::tessellation::geometry_builder::VertexConstructor;
 use lyon::tessellation;
-use usvg::tree::Color;
+use usvg::Color;
 use Transform3D;
 
 pub type ColorFormat = gfx::format::Rgba8;
