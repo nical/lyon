@@ -85,7 +85,7 @@ use std::f32::consts::PI;
 pub struct StrokeTessellator {}
 
 impl StrokeTessellator {
-    pub fn new() -> StrokeTessellator { StrokeTessellator {} }
+    pub fn new() -> Self { StrokeTessellator {} }
 
     /// Compute the tessellation from a path iterator.
     pub fn tessellate_path<Input>(
@@ -107,7 +107,7 @@ impl StrokeTessellator {
 
             stroker.build();
         }
-        return builder.end_geometry();
+        builder.end_geometry()
     }
 }
 
@@ -228,8 +228,8 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         let mut first = true;
         QuadraticBezierSegment {
             from: self.current,
-            ctrl: ctrl,
-            to: to,
+            ctrl,
+            to,
         }.for_each_flattened(
             self.options.tolerance,
             &mut |point| {
@@ -244,9 +244,9 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         let mut first = true;
         CubicBezierSegment {
             from: self.current,
-            ctrl1: ctrl1,
-            ctrl2: ctrl2,
-            to: to,
+            ctrl1,
+            ctrl2,
+            to,
         }.for_each_flattened(
             self.options.tolerance,
             &mut |point| {
@@ -287,7 +287,7 @@ impl<'l> StrokeBuilder<'l> {
         builder: &'l mut GeometryBuilder<Vertex>,
     ) -> Self {
         let zero = Point::new(0.0, 0.0);
-        return StrokeBuilder {
+        StrokeBuilder {
             first: zero,
             second: zero,
             previous: zero,
@@ -303,7 +303,7 @@ impl<'l> StrokeBuilder<'l> {
             options: *options,
             previous_command_was_move: false,
             output: builder,
-        };
+        }
     }
 
     pub fn set_options(&mut self, options: &StrokeOptions) { self.options = *options; }
@@ -532,7 +532,7 @@ impl<'l> StrokeBuilder<'l> {
             Vertex {
                 position: center,
                 normal: dir,
-                advancement: advancement,
+                advancement,
                 side: Side::Left,
             }
         );
@@ -894,7 +894,7 @@ fn tess_round_cap(
 
     let vertex = output.add_vertex(Vertex {
         position: center + normal * line_width,
-        normal: normal,
+        normal,
         advancement,
         side,
     });

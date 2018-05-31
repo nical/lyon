@@ -186,9 +186,9 @@ macro_rules! impl_fixed_point {
             /// Returns the same number with a different fractional precision.
             #[inline]
             pub fn to_fixed<NewF: FractionalBits>(self) -> $name<NewF> {
-                return if F::bits() == NewF::bits() { $name::from_raw(self.bits) }
-                       else if F::bits() < NewF::bits() { $name::from_raw(self.bits << (NewF::bits() - F::bits())) }
-                       else { $name::from_raw(self.bits >> (F::bits() - NewF::bits())) };
+                if F::bits() == NewF::bits() { $name::from_raw(self.bits) }
+                else if F::bits() < NewF::bits() { $name::from_raw(self.bits << (NewF::bits() - F::bits())) }
+                else { $name::from_raw(self.bits >> (F::bits() - NewF::bits())) }
             }
         }
 
@@ -340,7 +340,7 @@ impl<F: FractionalBits> Fp32<F> {
     #[inline]
     pub fn to_fp64<NewF: FractionalBits>(self) -> Fp64<NewF> {
         let tmp: Fp64<F> = Fp64::from_raw(self.bits as i64);
-        return tmp.to_fixed();
+        tmp.to_fixed()
     }
 
     // This is nice in theory but overflows with any Fp32<16> * Fp32<16> operation so it's not
@@ -379,7 +379,7 @@ impl<F: FractionalBits> Fp64<F> {
     /// Casts into a 32 bits fixed point number.
     pub fn to_fp32<NewF: FractionalBits>(self) -> Fp32<NewF> {
         let tmp = self.to_fixed::<NewF>();
-        return Fp32::from_raw(tmp.bits as i32);
+        Fp32::from_raw(tmp.bits as i32)
     }
 }
 
