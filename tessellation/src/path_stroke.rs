@@ -82,6 +82,7 @@ use std::f32::consts::PI;
 ///
 /// # }
 /// ```
+#[derive(Default)]
 pub struct StrokeTessellator {}
 
 impl StrokeTessellator {

@@ -1248,6 +1248,12 @@ impl FillTessellator {
     }
 }
 
+impl Default for FillTessellator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[inline]
 fn even(edge: ActiveEdgeId) -> bool { edge.handle % 2 == 0 }
 

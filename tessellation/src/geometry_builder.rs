@@ -300,7 +300,7 @@ pub trait GeometryReceiver<Vertex, Index> {
 /// Structure that holds the vertex and index data.
 ///
 /// Usually writen into though temporary `BuffersBuilder` objects.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct VertexBuffers<VertexType> {
     pub vertices: Vec<VertexType>,
@@ -439,8 +439,8 @@ where
 
     fn end_geometry(&mut self) -> Count {
         Count {
-            vertices: self.buffers.vertices.len() as u32 - self.vertex_offset as u32,
-            indices: self.buffers.indices.len() as u32 - self.index_offset as u32,
+            vertices: self.buffers.vertices.len() as u32 - u32::from(self.vertex_offset),
+            indices: self.buffers.indices.len() as u32 - u32::from(self.index_offset),
         }
     }
 
