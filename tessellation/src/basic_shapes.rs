@@ -76,7 +76,7 @@ pub fn fill_triangle(
 
     output.add_triangle(a, b, c);
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate the stroke for a triangle.
@@ -140,7 +140,7 @@ pub fn fill_quad(
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate the stroke for a quad.
@@ -190,7 +190,7 @@ pub fn fill_rectangle(
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate the stroke for an axis-aligne rectangle.
@@ -364,7 +364,7 @@ pub fn fill_rounded_rectangle(
         }
     }
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 // recursively tessellate the rounded corners.
@@ -384,11 +384,11 @@ fn fill_border_radius(
     let mid_angle = (angle.0 + angle.1) * 0.5;
 
     let normal = vector(mid_angle.cos(), mid_angle.sin());
-    let pos = center + normal * radius;
+    let position = center + normal * radius;
 
     let vertex = output.add_vertex(FillVertex {
-        position: pos,
-        normal: normal,
+        position,
+        normal,
     });
 
     output.add_triangle(vb, vertex, va);
@@ -522,7 +522,7 @@ pub fn stroke_rounded_rectangle(
         builder.close();
     }
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate a circle.
@@ -590,7 +590,7 @@ pub fn fill_circle(
         );
     }
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate the stroke for a circle.
@@ -626,7 +626,7 @@ pub fn stroke_circle(
         );
         builder.close();
     } // output borrow scope end
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 // tessellate the stroke for rounded corners using the inner points.
@@ -686,11 +686,11 @@ pub fn fill_ellipse(
 
     let events = path.build();
 
-    return FillTessellator::new().tessellate_events(
+    FillTessellator::new().tessellate_events(
         &events,
         &options.clone().assume_no_intersections(),
         output,
-    ).unwrap();
+    ).unwrap()
 }
 
 /// Tessellate the stroke for an ellipse.
@@ -725,10 +725,10 @@ pub fn stroke_ellipse(
         });
         path.close();
 
-        let _ = path.build();
+        path.build();
     }
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate a convex shape that is discribed by an iterator of points.
@@ -779,7 +779,7 @@ where
         }
     }
 
-    return output.end_geometry();
+    output.end_geometry()
 }
 
 /// Tessellate the stroke for a shape that is discribed by an iterator of points.
@@ -796,11 +796,11 @@ where
 {
     let mut tess = StrokeTessellator::new();
 
-    return tess.tessellate_path(
+    tess.tessellate_path(
         FromPolyline::new(is_closed, it).path_iter(),
         options,
         output
-    );
+    )
 }
 
 /// Tessellate an arbitray shape that is discribed by an iterator of points.

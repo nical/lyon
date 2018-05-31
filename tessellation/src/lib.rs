@@ -394,73 +394,73 @@ impl StrokeOptions {
     const DEFAULT_LINE_WIDTH: f32 = 1.0;
     const DEFAULT_TOLERANCE: f32 = 0.1;
 
-    const DEFAULT: StrokeOptions = StrokeOptions {
-        start_cap: StrokeOptions::DEFAULT_LINE_CAP,
-        end_cap: StrokeOptions::DEFAULT_LINE_CAP,
-        line_join: StrokeOptions::DEFAULT_LINE_JOIN,
-        line_width: StrokeOptions::DEFAULT_LINE_WIDTH,
-        miter_limit: StrokeOptions::DEFAULT_MITER_LIMIT,
-        tolerance: StrokeOptions::DEFAULT_TOLERANCE,
+    const DEFAULT: Self = StrokeOptions {
+        start_cap: Self::DEFAULT_LINE_CAP,
+        end_cap: Self::DEFAULT_LINE_CAP,
+        line_join: Self::DEFAULT_LINE_JOIN,
+        line_width: Self::DEFAULT_LINE_WIDTH,
+        miter_limit: Self::DEFAULT_MITER_LIMIT,
+        tolerance: Self::DEFAULT_TOLERANCE,
         apply_line_width: true,
         _private: (),
     };
 
     #[inline]
-    pub fn default() -> Self { StrokeOptions::DEFAULT }
+    pub fn default() -> Self { Self::DEFAULT }
 
     #[inline]
     pub fn tolerance(tolerance: f32) -> Self {
-        StrokeOptions::DEFAULT.with_tolerance(tolerance)
+        Self::DEFAULT.with_tolerance(tolerance)
     }
 
     #[inline]
     pub fn with_tolerance(mut self, tolerance: f32) -> Self {
         self.tolerance = tolerance;
-        return self;
+        self
     }
 
     #[inline]
     pub fn with_line_cap(mut self, cap: LineCap) -> Self {
         self.start_cap = cap;
         self.end_cap = cap;
-        return self;
+        self
     }
 
     #[inline]
     pub fn with_start_cap(mut self, cap: LineCap) -> Self {
         self.start_cap = cap;
-        return self;
+        self
     }
 
     #[inline]
     pub fn with_end_cap(mut self, cap: LineCap) -> Self {
         self.end_cap = cap;
-        return self;
+        self
     }
 
     #[inline]
     pub fn with_line_join(mut self, join: LineJoin) -> Self {
         self.line_join = join;
-        return self;
+        self
     }
 
     #[inline]
     pub fn with_line_width(mut self, width: f32) -> Self {
         self.line_width = width;
-        return self;
+        self
     }
 
     #[inline]
     pub fn with_miter_limit(mut self, limit: f32) -> Self {
-        assert!(limit >= StrokeOptions::MINIMUM_MITER_LIMIT);
+        assert!(limit >= Self::MINIMUM_MITER_LIMIT);
         self.miter_limit = limit;
-        return self;
+        self
     }
 
     #[inline]
     pub fn dont_apply_line_width(mut self) -> Self {
         self.apply_line_width = false;
-        return self;
+        self
     }
 }
 
@@ -521,7 +521,7 @@ pub struct FillOptions {
 }
 
 impl Default for StrokeOptions {
-    fn default() -> Self { StrokeOptions::DEFAULT }
+    fn default() -> Self { Self::DEFAULT }
 }
 
 impl FillOptions {
@@ -530,9 +530,9 @@ impl FillOptions {
     /// Default Fill rule.
     const DEFAULT_FILL_RULE: FillRule = FillRule::EvenOdd;
 
-    const DEFAULT: FillOptions = FillOptions {
-        tolerance: FillOptions::DEFAULT_TOLERANCE,
-        fill_rule: FillOptions::DEFAULT_FILL_RULE,
+    const DEFAULT: Self = FillOptions {
+        tolerance: Self::DEFAULT_TOLERANCE,
+        fill_rule: Self::DEFAULT_FILL_RULE,
         compute_normals: true,
         assume_no_intersections: false,
         on_error: OnError::DEFAULT,
@@ -540,19 +540,19 @@ impl FillOptions {
     };
 
     #[inline]
-    pub fn default() -> Self { FillOptions::DEFAULT }
+    pub fn default() -> Self { Self::DEFAULT }
 
     #[inline]
-    pub fn even_odd() -> Self { FillOptions::DEFAULT }
+    pub fn even_odd() -> Self { Self::DEFAULT }
 
     #[inline]
     pub fn tolerance(tolerance: f32) -> Self {
-        FillOptions::DEFAULT.with_tolerance(tolerance)
+        Self::DEFAULT.with_tolerance(tolerance)
     }
 
     #[inline]
     pub fn non_zero() -> Self {
-        let mut options = FillOptions::DEFAULT;
+        let mut options = Self::DEFAULT;
         options.fill_rule = FillRule::NonZero;
         options
     }
@@ -583,7 +583,7 @@ impl FillOptions {
 }
 
 impl Default for FillOptions {
-    fn default() -> Self { FillOptions::DEFAULT }
+    fn default() -> Self { Self::DEFAULT }
 }
 
 /// Defines the tessellator the should try to behave when detecting
@@ -611,7 +611,7 @@ impl OnError {
 }
 
 impl Default for OnError {
-    fn default() -> Self { OnError::DEFAULT }
+    fn default() -> Self { Self::DEFAULT }
 }
 
 

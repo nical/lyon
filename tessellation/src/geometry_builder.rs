@@ -215,7 +215,7 @@
 //!     output.add_triangle(a, b, c);
 //!     output.add_triangle(a, c, d);
 //!
-//!     return output.end_geometry();
+//!     output.end_geometry()
 //! }
 //! ```
 
@@ -239,13 +239,13 @@ impl VertexId {
 }
 
 impl From<u16> for VertexId {
-    fn from(v: u16) -> VertexId { VertexId(v) }
+    fn from(v: u16) -> Self { VertexId(v) }
 }
 impl From<u32> for VertexId {
-    fn from(v: u32) -> VertexId { VertexId(v as u16) }
+    fn from(v: u32) -> Self { VertexId(v as u16) }
 }
 impl From<i32> for VertexId {
-    fn from(v: i32) -> VertexId { VertexId(v as u16) }
+    fn from(v: i32) -> Self { VertexId(v as u16) }
 }
 
 /// An interface separating tessellators and other geometry generation algorithms from the
@@ -309,7 +309,7 @@ pub struct VertexBuffers<VertexType> {
 
 impl<VertexType> VertexBuffers<VertexType> {
     /// Constructor
-    pub fn new() -> VertexBuffers<VertexType> { VertexBuffers::with_capacity(512, 1024) }
+    pub fn new() -> Self { VertexBuffers::with_capacity(512, 1024) }
 
     /// Constructor
     pub fn with_capacity(num_vertices: usize, num_indices: usize) -> VertexBuffers<VertexType> {
@@ -344,13 +344,13 @@ impl<'l, VertexType: 'l, Input, Ctor> BuffersBuilder<'l, VertexType, Input, Ctor
     pub fn new(
         buffers: &'l mut VertexBuffers<VertexType>,
         ctor: Ctor,
-    ) -> BuffersBuilder<'l, VertexType, Input, Ctor> {
+    ) -> Self {
         let vertex_offset = buffers.vertices.len() as Index;
         let index_offset = buffers.indices.len() as Index;
         BuffersBuilder {
-            buffers: buffers,
-            vertex_offset: vertex_offset,
-            index_offset: index_offset,
+            buffers,
+            vertex_offset,
+            index_offset,
             vertex_constructor: ctor,
             _marker: PhantomData,
         }
@@ -400,9 +400,9 @@ pub fn simple_builder<VertexType>(buffers: &mut VertexBuffers<VertexType>)
     let vertex_offset = buffers.vertices.len() as Index;
     let index_offset = buffers.indices.len() as Index;
     BuffersBuilder {
-        buffers: buffers,
-        vertex_offset: vertex_offset,
-        index_offset: index_offset,
+        buffers,
+        vertex_offset,
+        index_offset,
         vertex_constructor: Identity,
         _marker: PhantomData,
     }
@@ -438,15 +438,15 @@ where
     }
 
     fn end_geometry(&mut self) -> Count {
-        return Count {
+        Count {
             vertices: self.buffers.vertices.len() as u32 - self.vertex_offset as u32,
             indices: self.buffers.indices.len() as u32 - self.index_offset as u32,
-        };
+        }
     }
 
     fn add_vertex(&mut self, v: Input) -> VertexId {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
-        return VertexId(self.buffers.vertices.len() as Index - 1 - self.vertex_offset);
+        VertexId(self.buffers.vertices.len() as Index - 1 - self.vertex_offset)
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -506,7 +506,7 @@ impl<T> GeometryBuilder<T> for NoOutput
 
     fn add_vertex(&mut self, _: T) -> VertexId {
         self.count.vertices += 1;
-        return VertexId(self.count.vertices as Index - 1);
+        VertexId(self.count.vertices as Index - 1)
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -585,7 +585,7 @@ fn test_simple_quad() {
         assert_eq!(count.vertices, 4);
         assert_eq!(count.indices, 6);
 
-        return count;
+        count
     }
 
 

@@ -70,7 +70,7 @@ pub fn segment_intersection(
         // Snap intersections to the edge if it is very close.
         // This helps with preventing small floating points errors from
         // accumulating when many edges intersect at the same position.
-        let threshold = 0.000001;
+        let threshold = 0.000_001;
         if 1.0 - t / abs_v1_cross_v2 < threshold {
             return Some(e1.lower);
         }
@@ -90,7 +90,7 @@ pub fn segment_intersection(
         }
     }
 
-    return None;
+    None
 }
 
 /// Compute a normal vector at a point P such that ```x ---e1----> P ---e2---> x```
@@ -124,7 +124,7 @@ pub fn compute_normal(v1: Vector, v2: Vector) -> Vector {
         return n1;
     }
 
-    return n / inv_len;
+    n / inv_len
 }
 
 #[test]

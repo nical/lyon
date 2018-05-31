@@ -296,7 +296,7 @@ pub struct FillTessellator {
 
 impl FillTessellator {
     /// Constructor.
-    pub fn new() -> FillTessellator {
+    pub fn new() -> Self {
         FillTessellator {
             events: FillEvents::new(),
             active_edges: ActiveEdges::with_capacity(16),
@@ -326,7 +326,8 @@ impl FillTessellator {
         events.set_path(options.tolerance, it);
         let result = self.tessellate_events(&events, options, output);
         self.events = events;
-        return result;
+
+        result
     }
 
     /// Compute the tessellation from pre-sorted events.
@@ -345,7 +346,7 @@ impl FillTessellator {
             }
         }
 
-        self.options = options.clone();
+        self.options = *options;
 
         self.begin_tessellation(output);
 
@@ -361,7 +362,8 @@ impl FillTessellator {
 
         let res = self.end_tessellation(output);
         self.reset();
-        return Ok(res);
+
+        Ok(res)
     }
 
     /// Enable some verbose logging during the tessellation, for debugging purposes.
@@ -378,7 +380,7 @@ impl FillTessellator {
     }
 
     fn begin_tessellation(&mut self, output: &mut GeometryBuilder<Vertex>) {
-        debug_assert!(self.active_edges.len() == 0);
+        debug_assert!(self.active_edges.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.pending_edges.is_empty());
         output.begin_geometry();
@@ -389,12 +391,12 @@ impl FillTessellator {
         output: &mut GeometryBuilder<Vertex>,
     ) -> Count {
         if self.panic_on_errors() {
-            debug_assert!(self.active_edges.len() == 0);
+            debug_assert!(self.active_edges.is_empty());
             debug_assert!(self.monotone_tessellators.is_empty());
             debug_assert!(self.pending_edges.is_empty());
         }
         self.reset();
-        return output.end_geometry();
+        output.end_geometry()
     }
 
     fn tessellator_loop(
@@ -587,52 +589,50 @@ impl FillTessellator {
 
         // Step 1, walk the sweep line, handle left/right events, handle the spans that end
         // at this vertex, as well as merge events.
-        if self.active_edges.has_id(first_edge_above) {
-            if point_type == PointType::OnEdge(Side::Right) {
-                debug_assert!(odd(first_edge_above));
-                if num_pending_edges == 0 {
-                    // we are on the right side of a span but there is nothing below, it means
-                    // that we are at a merge event.
-                    //
-                    //  .\  |../  /
-                    //  ..\ |./ /..
-                    //  -->\|//....
-                    //  ....x......
-                    //
-                    // we'll merge with the right most edge, there may be end events
-                    // in the middle so we handle the merge event later. Since end
-                    // events remove their spans, we don't need to remember the current
-                    // span index to process the merge.
-                    debug_assert!(num_edges_above >= 2);
-                    pending_merge = true;
-                    num_edges_above -= 2;
-                } else {
-                    // Right event.
-                    //
-                    //   ..../
-                    //   ...x
-                    //   ....\
-                    //
-                    tess_log!(self, "(right event) {:?}", above_idx);
-                    debug_assert!(num_edges_above > 0);
-                    debug_assert!(num_pending_edges > 0);
+        if self.active_edges.has_id(first_edge_above) && point_type == PointType::OnEdge(Side::Right) {
+            debug_assert!(odd(first_edge_above));
+            if num_pending_edges == 0 {
+                // we are on the right side of a span but there is nothing below, it means
+                // that we are at a merge event.
+                //
+                //  .\  |../  /
+                //  ..\ |./ /..
+                //  -->\|//....
+                //  ....x......
+                //
+                // we'll merge with the right most edge, there may be end events
+                // in the middle so we handle the merge event later. Since end
+                // events remove their spans, we don't need to remember the current
+                // span index to process the merge.
+                debug_assert!(num_edges_above >= 2);
+                pending_merge = true;
+                num_edges_above -= 2;
+            } else {
+                // Right event.
+                //
+                //   ..../
+                //   ...x
+                //   ....\
+                //
+                tess_log!(self, "(right event) {:?}", above_idx);
+                debug_assert!(num_edges_above > 0);
+                debug_assert!(num_pending_edges > 0);
 
-                    if self.options.compute_normals {
-                        let vertex_above = self.active_edges[above_idx].points.upper;
-                        let edge_to = self.pending_edges[0].lower;
-                        vertex_id = self.add_vertex_with_normal(&edge_to, &vertex_above, output);
-                    }
-                    self.insert_edge(above_idx, 0, vertex_id);
-
-                    // Update the initial state for the pass that will handle
-                    // the edges below the current vertex.
-                    pending_edge_id += 1;
-                    num_pending_edges -= 1;
-                    num_edges_above -= 1;
+                if self.options.compute_normals {
+                    let vertex_above = self.active_edges[above_idx].points.upper;
+                    let edge_to = self.pending_edges[0].lower;
+                    vertex_id = self.add_vertex_with_normal(&edge_to, &vertex_above, output);
                 }
+                self.insert_edge(above_idx, 0, vertex_id);
 
-                above_idx = above_idx + 1;
+                // Update the initial state for the pass that will handle
+                // the edges below the current vertex.
+                pending_edge_id += 1;
+                num_pending_edges -= 1;
+                num_edges_above -= 1;
             }
+
+            above_idx = above_idx + 1;
         }
 
         while num_edges_above >= 2 {
@@ -868,12 +868,12 @@ impl FillTessellator {
             }
         }
 
-        return (
+        (
             point_type.unwrap_or(PointType::Out),
             first_edge_above,
             num_edges_above,
             winding_number
-        );
+        )
     }
 
     // Look for eventual merge vertices on this span above the current vertex, and connect
@@ -1273,7 +1273,8 @@ fn compare_positions(a: TessPoint, b: TessPoint) -> Ordering {
     if a.x < b.x {
         return Ordering::Less;
     }
-    return Ordering::Equal;
+
+    Ordering::Equal
 }
 
 // Checks whether the edge touches the current position and if not,
@@ -1399,7 +1400,7 @@ fn to_f32_vector(v: TessVector) -> Vector { vector(v.x.to_f32(), v.y.to_f32()) }
 
 #[inline]
 fn edge_angle(v: TessVector) -> f32 {
-    return -Trig::fast_atan2(v.y.to_f32(), v.x.to_f32());
+    -Trig::fast_atan2(v.y.to_f32(), v.x.to_f32())
 }
 
 /// A sequence of edges sorted from top to bottom, to be used as the tessellator's input.
@@ -1412,7 +1413,8 @@ impl FillEvents {
     pub fn from_path<Iter: Iterator<Item = PathEvent>>(tolerance: f32, it: Iter) -> Self {
         let mut events = FillEvents::new();
         events.set_path(tolerance, it);
-        return events;
+
+        events
     }
 
     pub fn new() -> Self {
@@ -1548,10 +1550,8 @@ impl FlatPathBuilder for EventsBuilder {
             if self.nth > 1 {
                 self.vertex(current, first, second);
             }
-        } else {
-            if self.nth > 1 {
-                self.vertex(previous, first, second);
-            }
+        } else if self.nth > 1 {
+            self.vertex(previous, first, second);
         }
         self.nth = 0;
         self.current = self.first;
@@ -1563,10 +1563,10 @@ impl FlatPathBuilder for EventsBuilder {
         self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
         self.vertices.sort_by(|a, b| compare_positions(*a, *b));
 
-        return FillEvents {
+        FillEvents {
             edges: self.edges,
             vertices: self.vertices,
-        };
+        }
     }
 
     fn build_and_reset(&mut self) -> FillEvents {
@@ -1581,10 +1581,10 @@ impl FlatPathBuilder for EventsBuilder {
         self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
         self.vertices.sort_by(|a, b| compare_positions(*a, *b));
 
-        return FillEvents {
+        FillEvents {
             edges: replace(&mut self.edges, Vec::new()),
             vertices: replace(&mut self.vertices, Vec::new()),
-        };
+        }
     }
 
     fn current_position(&self) -> Point {
@@ -1623,8 +1623,8 @@ impl MonotoneTessellator {
 
     pub fn begin(mut self, pos: Point, id: VertexId) -> MonotoneTessellator {
         let first = MonotoneVertex {
-            pos: pos,
-            id: id,
+            pos,
+            id,
             side: Side::Left,
         };
         self.previous = first;
@@ -1637,11 +1637,7 @@ impl MonotoneTessellator {
     }
 
     pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
-        let current = MonotoneVertex {
-            pos: pos,
-            id: id,
-            side: side,
-        };
+        let current = MonotoneVertex { pos, id, side };
 
         // cf. test_fixed_to_f32_precision
         // TODO: investigate whether we could do the conversion without this
@@ -1778,7 +1774,8 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
             )
         };
     }
-    return Ok(buffers.indices.len() / 3);
+
+    Ok(buffers.indices.len() / 3)
 }
 
 #[cfg(test)]
