@@ -151,11 +151,11 @@ macro_rules! impl_fixed_point {
 
             /// Converts from a 64 bits floating point value.
             #[inline]
-            pub fn from_f64(val: f64) -> Self { Self::from_raw((val * (1 << F::bits()) as f64) as $bits_type) } // TODO
+            pub fn from_f64(val: f64) -> Self { Self::from_raw((val * f64::from(1 << F::bits())) as $bits_type) } // TODO
 
             /// Converts to a 64 bits floating point value.
             #[inline]
-            pub fn to_f64(self) -> f64 { self.bits as f64 / (1 << F::bits()) as f64 } // TODO
+            pub fn to_f64(self) -> f64 { self.bits as f64 / f64::from(1 << F::bits()) } // TODO
 
             /// Returns 1 if the number of positive, -1 if it is negative.
             #[inline]
@@ -249,8 +249,9 @@ macro_rules! impl_fixed_point {
         impl<F: FractionalBits> ops::Mul<$name<F>> for $name<F> {
             type Output = Self;
             #[inline]
+            #[cfg_attr(feature = "cargo-clippy", allow(suspicious_arithmetic_impl))]
             fn mul(self, other: Self) -> Self {
-                $name::from_raw(((self.bits as i64 * other.bits as i64) >> F::bits()) as $bits_type)
+                $name::from_raw(((i64::from(self.bits) * i64::from(other.bits)) >> F::bits()) as $bits_type)
             }
         }
 
@@ -327,7 +328,7 @@ impl<F: FractionalBits> Fp32<F> {
     /// and forth.
     #[inline]
     pub fn mul_div(self, m: Self, d: Self) -> Self {
-        Fp32::from_raw((self.bits as i64 * m.bits as i64 / d.bits as i64) as i32)
+        Fp32::from_raw((i64::from(self.bits) * i64::from(m.bits) / i64::from(d.bits)) as i32)
     }
 
     #[inline]
@@ -339,7 +340,7 @@ impl<F: FractionalBits> Fp32<F> {
     /// Casts into a 64 bits fixed point number.
     #[inline]
     pub fn to_fp64<NewF: FractionalBits>(self) -> Fp64<NewF> {
-        let tmp: Fp64<F> = Fp64::from_raw(self.bits as i64);
+        let tmp: Fp64<F> = Fp64::from_raw(i64::from(self.bits));
         tmp.to_fixed()
     }
 
@@ -353,9 +354,11 @@ impl<F: FractionalBits> Fp32<F> {
 
 impl<F: FractionalBits> ops::Div<Fp32<F>> for Fp32<F> {
     type Output = Self;
+    #[inline]
+    #[cfg_attr(feature = "cargo-clippy", allow(suspicious_arithmetic_impl))]
     fn div(self, other: Self) -> Self {
-        let self64: i64 = (self.bits as i64) << 32;
-        let other64: i64 = other.bits as i64;
+        let self64 = i64::from(self.bits) << 32;
+        let other64 = i64::from(other.bits);
         Fp32::from_raw(((self64 / other64) >> (32 - F::bits())) as i32)
     }
 }
@@ -386,6 +389,7 @@ impl<F: FractionalBits> Fp64<F> {
 impl<F: FractionalBits> ops::Div<Fp64<F>> for Fp64<F> {
     type Output = Self;
     #[inline]
+    #[cfg_attr(feature = "cargo-clippy", allow(suspicious_arithmetic_impl))]
     fn div(self, other: Self) -> Self { Fp64::from_raw((self.bits / other.bits) << F::bits()) }
 }
 
