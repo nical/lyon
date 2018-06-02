@@ -204,7 +204,7 @@ pub struct PathEvents<SvgIter> {
 }
 
 impl<SvgIter> PathEvents<SvgIter> {
-    pub fn new(it: SvgIter) -> Self { PathEvents { it: it } }
+    pub fn new(it: SvgIter) -> Self { PathEvents { it } }
 }
 
 impl<SvgIter> PathIterator for PathEvents<SvgIter>
@@ -245,9 +245,9 @@ impl<Iter: PathIterator> Flattened<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
         Flattened {
-            it: it,
+            it,
             current_curve: TmpFlatteningIter::None,
-            tolerance: tolerance,
+            tolerance,
         }
     }
 }
@@ -285,7 +285,8 @@ where
         }
         self.current_curve = TmpFlatteningIter::None;
         let current = self.get_state().current;
-        return match self.it.next() {
+
+        match self.it.next() {
             Some(PathEvent::MoveTo(to)) => Some(FlattenedEvent::MoveTo(to)),
             Some(PathEvent::LineTo(to)) => Some(FlattenedEvent::LineTo(to)),
             Some(PathEvent::Close) => Some(FlattenedEvent::Close),
@@ -293,22 +294,24 @@ where
                 self.current_curve = TmpFlatteningIter::Quadratic(
                     QuadraticBezierSegment {
                             from: current,
-                            ctrl: ctrl,
-                            to: to,
+                            ctrl,
+                            to,
                     }.flattened(self.tolerance)
                 );
-                return self.next();
+
+                self.next()
             }
             Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
                 self.current_curve = TmpFlatteningIter::Cubic(
                     CubicBezierSegment {
                         from: current,
-                        ctrl1: ctrl1,
-                        ctrl2: ctrl2,
-                        to: to,
+                        ctrl1,
+                        ctrl2,
+                        to,
                     }.flattened(self.tolerance)
                 );
-                return self.next();
+
+                self.next()
             }
             Some(PathEvent::Arc(center, radii, sweep_angle, x_rotation)) => {
                 let start_angle = vector_angle(current - center);
@@ -319,10 +322,11 @@ where
                         x_rotation
                     }.flattened(self.tolerance)
                 );
-                return self.next();
+
+                self.next()
             }
             None => None,
-        };
+        }
     }
 }
 
@@ -343,7 +347,7 @@ where
 {
     pub fn new(it: Iter) -> Self {
         SvgPathIter {
-            it: it,
+            it,
             state: PathState::new(),
         }
     }
@@ -369,7 +373,8 @@ where
             self.state.svg_event(svg_evt);
             return Some(svg_evt);
         }
-        return None;
+
+        None
     }
 }
 
@@ -386,7 +391,7 @@ where
 {
     pub fn new(it: Iter) -> Self {
         PathIter {
-            it: it,
+            it,
             state: PathState::new(),
         }
     }
@@ -413,7 +418,8 @@ where
             self.state.path_event(path_evt);
             return Some(path_evt);
         }
-        return None;
+
+        None
     }
 }
 
@@ -487,12 +493,12 @@ pub struct FromPolyline<Iter> {
 }
 
 impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
-    pub fn new(closed: bool, iter: Iter) -> Self {
+    pub fn new(close: bool, iter: Iter) -> Self {
         FromPolyline {
-            iter: iter,
+            iter,
             first: true,
             done: false,
-            close: closed,
+            close,
         }
     }
 
@@ -531,7 +537,7 @@ where
             return Some(FlattenedEvent::Close);
         }
 
-        return None;
+        None
     }
 }
 
