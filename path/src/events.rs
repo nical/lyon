@@ -56,19 +56,19 @@ pub enum FlattenedEvent {
 
 impl FlattenedEvent {
     pub fn to_svg_event(self) -> SvgEvent {
-        return match self {
+        match self {
             FlattenedEvent::MoveTo(to) => SvgEvent::MoveTo(to),
             FlattenedEvent::LineTo(to) => SvgEvent::LineTo(to),
             FlattenedEvent::Close => SvgEvent::Close,
-        };
+        }
     }
 
     pub fn to_path_event(self) -> PathEvent {
-        return match self {
+        match self {
             FlattenedEvent::MoveTo(to) => PathEvent::MoveTo(to),
             FlattenedEvent::LineTo(to) => PathEvent::LineTo(to),
             FlattenedEvent::Close => PathEvent::Close,
-        };
+        }
     }
 }
 
@@ -82,21 +82,21 @@ impl Into<SvgEvent> for FlattenedEvent {
 
 impl QuadraticEvent {
     pub fn to_svg_event(self) -> SvgEvent {
-        return match self {
+        match self {
             QuadraticEvent::MoveTo(to) => SvgEvent::MoveTo(to),
             QuadraticEvent::LineTo(to) => SvgEvent::LineTo(to),
             QuadraticEvent::QuadraticTo(ctrl, to) => SvgEvent::QuadraticTo(ctrl, to),
             QuadraticEvent::Close => SvgEvent::Close,
-        };
+        }
     }
 
     pub fn to_path_event(self) -> PathEvent {
-        return match self {
+        match self {
             QuadraticEvent::MoveTo(to) => PathEvent::MoveTo(to),
             QuadraticEvent::LineTo(to) => PathEvent::LineTo(to),
             QuadraticEvent::QuadraticTo(ctrl, to) => PathEvent::QuadraticTo(ctrl, to),
             QuadraticEvent::Close => PathEvent::Close,
-        };
+        }
     }
 }
 
@@ -112,13 +112,13 @@ pub enum Segment {
 impl Transform for FlattenedEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            &FlattenedEvent::MoveTo(ref to) => {
+            FlattenedEvent::MoveTo(ref to) => {
                 FlattenedEvent::MoveTo(mat.transform_point(to))
             }
-            &FlattenedEvent::LineTo(ref to) => {
+            FlattenedEvent::LineTo(ref to) => {
                 FlattenedEvent::LineTo(mat.transform_point(to))
             }
-            &FlattenedEvent::Close => { FlattenedEvent::Close }
+            FlattenedEvent::Close => { FlattenedEvent::Close }
         }
     }
 }
@@ -126,19 +126,19 @@ impl Transform for FlattenedEvent {
 impl Transform for QuadraticEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            &QuadraticEvent::MoveTo(ref to) => {
+            QuadraticEvent::MoveTo(ref to) => {
                 QuadraticEvent::MoveTo(mat.transform_point(to))
             }
-            &QuadraticEvent::LineTo(ref to) => {
+            QuadraticEvent::LineTo(ref to) => {
                 QuadraticEvent::LineTo(mat.transform_point(to))
             }
-            &QuadraticEvent::QuadraticTo(ref ctrl, ref to) => {
+            QuadraticEvent::QuadraticTo(ref ctrl, ref to) => {
                 QuadraticEvent::QuadraticTo(
                     mat.transform_point(ctrl),
                     mat.transform_point(to),
                 )
             }
-            &QuadraticEvent::Close => { QuadraticEvent::Close }
+            QuadraticEvent::Close => { QuadraticEvent::Close }
         }
     }
 }
@@ -146,29 +146,29 @@ impl Transform for QuadraticEvent {
 impl Transform for PathEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            &PathEvent::MoveTo(ref to) => {
+            PathEvent::MoveTo(ref to) => {
                 PathEvent::MoveTo(mat.transform_point(to))
             }
-            &PathEvent::LineTo(ref to) => {
+            PathEvent::LineTo(ref to) => {
                 PathEvent::LineTo(mat.transform_point(to))
             }
-            &PathEvent::QuadraticTo(ref ctrl, ref to) => {
+            PathEvent::QuadraticTo(ref ctrl, ref to) => {
                 PathEvent::QuadraticTo(
                     mat.transform_point(ctrl),
                     mat.transform_point(to),
                 )
             }
-            &PathEvent::CubicTo(ref ctrl1, ref ctrl2, ref to) => {
+            PathEvent::CubicTo(ref ctrl1, ref ctrl2, ref to) => {
                 PathEvent::CubicTo(
                     mat.transform_point(ctrl1),
                     mat.transform_point(ctrl2),
                     mat.transform_point(to),
                 )
             }
-            &PathEvent::Arc(..) => {
+            PathEvent::Arc(..) => {
                 unimplemented!(); // TODO!
             }
-            &PathEvent::Close => { PathEvent::Close }
+            PathEvent::Close => { PathEvent::Close }
         }
     }
 }

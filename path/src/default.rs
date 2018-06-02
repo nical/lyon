@@ -25,7 +25,7 @@ pub enum Verb {
 /// A simple path data structure.
 ///
 /// It can be created using a [Builder](struct.Builder.html), and can be iterated over.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Path {
     points: Vec<Point>,
@@ -102,8 +102,8 @@ impl<'l> IntoIterator for &'l Path {
 impl<'l> PathSlice<'l> {
     pub fn new(points: &'l [Point], verbs: &'l [Verb]) -> PathSlice<'l> {
         PathSlice {
-            points: points,
-            verbs: verbs,
+            points,
+            verbs,
         }
     }
 
@@ -206,7 +206,8 @@ impl FlatPathBuilder for Builder {
         self.building = false;
         let mut tmp = Path::with_capacity(self.path.verbs.len());
         ::std::mem::swap(&mut self.path, &mut tmp);
-        return tmp;
+
+        tmp
     }
 }
 
@@ -270,7 +271,7 @@ impl<'l> Iter<'l> {
 impl<'l> Iterator for Iter<'l> {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
-        return match self.verbs.next() {
+        match self.verbs.next() {
             Some(&Verb::MoveTo) => {
                 let to = *self.points.next().unwrap();
                 Some(PathEvent::MoveTo(to))
@@ -303,7 +304,7 @@ impl<'l> Iterator for Iter<'l> {
             }
             Some(&Verb::Close) => Some(PathEvent::Close),
             None => None,
-        };
+        }
     }
 }
 

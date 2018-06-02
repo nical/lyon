@@ -31,7 +31,7 @@ impl PathState {
                 self.move_to(to);
             }
             SvgEvent::RelativeMoveTo(to) => {
-                let to = self.from_relative(to);
+                let to = self.relative_to_absolute(to);
                 self.move_to(to);
             }
             SvgEvent::LineTo(to) => self.line_to(to),
@@ -46,17 +46,17 @@ impl PathState {
                 self.current = to;
             }
             SvgEvent::RelativeLineTo(to) => {
-                let to = self.from_relative(to);
+                let to = self.relative_to_absolute(to);
                 self.line_to(to);
             }
             SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-                let to = self.from_relative(to);
-                let ctrl = self.from_relative(ctrl);
+                let to = self.relative_to_absolute(to);
+                let ctrl = self.relative_to_absolute(ctrl);
                 self.curve_to(ctrl, to);
             }
             SvgEvent::RelativeCubicTo(_, ctrl2, to) => {
-                let to = self.from_relative(to);
-                let ctrl2 = self.from_relative(ctrl2);
+                let to = self.relative_to_absolute(to);
+                let ctrl2 = self.relative_to_absolute(ctrl2);
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::RelativeArcTo(_, _, _, to) => {
@@ -88,12 +88,12 @@ impl PathState {
             }
             SvgEvent::SmoothRelativeQuadraticTo(to) => {
                 let ctrl = self.get_smooth_ctrl();
-                let to = self.from_relative(to);
+                let to = self.relative_to_absolute(to);
                 self.curve_to(ctrl, to);
             }
             SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-                let ctrl2 = self.from_relative(ctrl2);
-                let to = self.from_relative(to);
+                let ctrl2 = self.relative_to_absolute(ctrl2);
+                let to = self.relative_to_absolute(to);
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::Close => {
@@ -172,11 +172,11 @@ impl PathState {
 
     pub fn next(&mut self, to: Point) { self.current = to; }
 
-    pub fn relative_next(&mut self, to: Vector) { self.current = self.from_relative(to); }
+    pub fn relative_next(&mut self, to: Vector) { self.current = self.relative_to_absolute(to); }
 
     pub fn get_smooth_ctrl(&self) -> Point { self.current + (self.current - self.last_ctrl) }
 
-    pub fn from_relative(&self, v: Vector) -> Point { self.current + v }
+    pub fn relative_to_absolute(&self, v: Vector) -> Point { self.current + v }
 
     pub fn svg_to_path_event(&self, event: SvgEvent) -> PathEvent {
         match event {
@@ -185,16 +185,16 @@ impl PathState {
             SvgEvent::QuadraticTo(ctrl, to) => PathEvent::QuadraticTo(ctrl, to),
             SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::CubicTo(ctrl1, ctrl2, to),
             SvgEvent::Close => PathEvent::Close,
-            SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(self.from_relative(to)),
-            SvgEvent::RelativeLineTo(to) => PathEvent::LineTo(self.from_relative(to)),
+            SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(self.relative_to_absolute(to)),
+            SvgEvent::RelativeLineTo(to) => PathEvent::LineTo(self.relative_to_absolute(to)),
             SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-                PathEvent::QuadraticTo(self.from_relative(ctrl), self.from_relative(to))
+                PathEvent::QuadraticTo(self.relative_to_absolute(ctrl), self.relative_to_absolute(to))
             }
             SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
                 PathEvent::CubicTo(
-                    self.from_relative(ctrl1),
-                    self.from_relative(ctrl2),
-                    self.from_relative(to),
+                    self.relative_to_absolute(ctrl1),
+                    self.relative_to_absolute(ctrl2),
+                    self.relative_to_absolute(to),
                 )
             }
             SvgEvent::HorizontalLineTo(x) => {
@@ -214,13 +214,13 @@ impl PathState {
                 PathEvent::CubicTo(self.get_smooth_ctrl(), ctrl2, to)
             }
             SvgEvent::SmoothRelativeQuadraticTo(to) => {
-                PathEvent::QuadraticTo(self.get_smooth_ctrl(), self.from_relative(to))
+                PathEvent::QuadraticTo(self.get_smooth_ctrl(), self.relative_to_absolute(to))
             }
             SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
                 PathEvent::CubicTo(
                     self.get_smooth_ctrl(),
-                    self.from_relative(ctrl2),
-                    self.from_relative(to),
+                    self.relative_to_absolute(ctrl2),
+                    self.relative_to_absolute(to),
                 )
             }
             SvgEvent::ArcTo(radii, x_rotation, flags, to) => {

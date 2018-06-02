@@ -267,7 +267,7 @@ pub struct SvgPathBuilder<Builder: PathBuilder> {
 impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     pub fn new(builder: Builder) -> SvgPathBuilder<Builder> {
         SvgPathBuilder {
-            builder: builder,
+            builder,
             last_ctrl: point(0.0, 0.0),
         }
     }
@@ -391,9 +391,9 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point) {
         SvgArc {
             from: self.current_position(),
-            to: to,
-            radii: radii,
-            x_rotation: x_rotation,
+            to,
+            radii,
+            x_rotation,
             flags: ArcFlags {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
@@ -441,17 +441,17 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         QuadraticBezierSegment {
             from: self.current_position(),
-            ctrl: ctrl,
-            to: to,
+            ctrl,
+            to,
         }.for_each_flattened(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         CubicBezierSegment {
             from: self.current_position(),
-            ctrl1: ctrl1,
-            ctrl2: ctrl2,
-            to: to,
+            ctrl1,
+            ctrl2,
+            to,
         }.for_each_flattened(self.tolerance, &mut |point| { self.line_to(point); });
     }
 
@@ -478,8 +478,8 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
 impl<Builder: FlatPathBuilder> FlatteningBuilder<Builder> {
     pub fn new(builder: Builder, tolerance: f32) -> FlatteningBuilder<Builder> {
         FlatteningBuilder {
-            builder: builder,
-            tolerance: tolerance,
+            builder,
+            tolerance,
         }
     }
 
