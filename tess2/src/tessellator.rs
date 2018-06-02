@@ -6,6 +6,7 @@ use tessellation::{GeometryReceiver, FillOptions, FillRule, Count};
 use path::iterator::PathIterator;
 use path::builder::*;
 
+use std::ptr;
 use std::slice;
 use std::os::raw::c_void;
 
@@ -23,7 +24,7 @@ impl FillTessellator {
     pub fn new() -> Self {
         unsafe {
             FillTessellator {
-                tess: tessNewTess(0 as *mut TESSalloc),
+                tess: tessNewTess(ptr::null_mut()),
             }
         }
     }
@@ -101,7 +102,7 @@ impl FillTessellator {
                 TessElementType::TESS_POLYGONS,
                 3,
                 2,
-                0 as *mut TESSreal
+                ptr::null_mut(),
             );
 
             res == 1
@@ -137,5 +138,11 @@ impl Drop for FillTessellator {
         unsafe{
             tessDeleteTess(self.tess);
         }
+    }
+}
+
+impl Default for FillTessellator {
+    fn default() -> Self {
+        Self::new()
     }
 }

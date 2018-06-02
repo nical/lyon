@@ -13,7 +13,7 @@ struct SubPathInfo {
 
 /// A path data structure for pre-flattened paths and polygons.
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct FlattenedPath {
     points: Vec<Point>,
     sub_paths: Vec<SubPathInfo>,
@@ -124,6 +124,7 @@ impl<'l> SubPath<'l> {
 }
 
 /// A builder for flattened paths.
+#[derive(Default)]
 pub struct Builder {
     points: Vec<Point>,
     sub_paths: Vec<SubPathInfo>,
