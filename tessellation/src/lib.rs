@@ -1,8 +1,6 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 
-//! # Lyon Tessellation
-//!
-//! This crate implements tools to compute the tessellation of 2d paths fill and stroke operations, in order to render them efficiently on the GPU.
+//! Tessellation of 2D fill and stroke operations.
 //!
 //! <svg viewBox="0 0 600.0 300.0" height="300" width="600">
 //!   <g transform="translate(0,-752.36216)">
