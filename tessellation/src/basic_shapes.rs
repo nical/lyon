@@ -686,9 +686,13 @@ pub fn fill_ellipse(
 
     let events = path.build();
 
+    // TODO: We could avoid checking for intersections, however the way we
+    // generate the path is a little silly and because of finite float precision,
+    // it will somtimes produce an intersection where the end of ellipse meets
+    // the beginning, which confuses the fill tessellator.
     FillTessellator::new().tessellate_events(
         &events,
-        &options.clone().assume_no_intersections(),
+        &options,
         output,
     ).unwrap()
 }
@@ -837,3 +841,15 @@ pub(crate) fn circle_flattening_step(radius:f32, tolerance: f32) -> f32 {
     2.0 * (2.0 * tolerance * radius - tolerance * tolerance).sqrt()
 }
 
+#[test]
+fn issue_358() {
+    use geometry_builder::NoOutput;
+
+    fill_ellipse(
+        point(25218.9902, 25669.6738),
+        vector(2.0, 2.0),
+        Angle { radians: 0.0 },
+        &FillOptions::tolerance(1.0),
+        &mut NoOutput::new(),
+    );
+}
