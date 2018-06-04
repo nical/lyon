@@ -1,8 +1,10 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 
+//! Simple 2D geometric primitives on top of euclid.
+//!
 //! # Overview.
 //!
-//! This crate implements simple 2D geometric primitives on top of euclid:
+//! This crate implements some of the maths to work with:
 //!
 //! - lines and line segments,
 //! - quadratic and cubic bézier curves,

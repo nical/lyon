@@ -1,9 +1,8 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 
-//! # Lyon path
+//! Data structures and traits to work with paths (vector graphics).
 //!
-//! A simple path data structure implementing the traits provided in the
-//! [builder](builder/index.html) and
+//! To build and consume paths, see the [builder](builder/index.html) and
 //! [iterator](iterator/index.html) modules.
 //!
 //! # Examples
