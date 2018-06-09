@@ -738,10 +738,19 @@ dependencies = [
 name = "lyon"
 version = "0.10.0"
 dependencies = [
+ "lyon_algorithms 0.11.0",
  "lyon_extra 0.10.0",
  "lyon_svg 0.10.0",
  "lyon_tess2 0.10.0",
  "lyon_tessellation 0.10.0",
+]
+
+[[package]]
+name = "lyon_algorithms"
+version = "0.11.0"
+dependencies = [
+ "lyon_path 0.10.0",
+ "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

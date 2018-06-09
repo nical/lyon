@@ -175,11 +175,13 @@
 //!
 
 pub extern crate lyon_tessellation;
+pub extern crate lyon_algorithms;
 #[cfg(feature = "extra")] pub extern crate lyon_extra;
 #[cfg(feature = "svg")] pub extern crate lyon_svg;
 #[cfg(feature = "libtess2")] pub extern crate lyon_tess2;
 
 pub use lyon_tessellation as tessellation;
+pub use lyon_algorithms as algorithms;
 pub use tessellation::path as path;
 pub use tessellation::geom as geom;
 #[cfg(feature = "svg")] pub use lyon_svg as svg;
