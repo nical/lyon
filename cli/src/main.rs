@@ -21,7 +21,9 @@ use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::path_utils::build_path;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
+use lyon::algorithms::hatching::HatchingOptions;
 use lyon::extra::debugging::find_reduced_test_case;
+use lyon::geom::euclid::Angle;
 
 fn main() {
     let matches = App::new("Lyon command-line interface")
@@ -229,6 +231,11 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .long("stroke")
         .help("Strokes the path")
     )
+    .arg(Arg::with_name("HATCH")
+        .long("hatch")
+        .help("Fill the path with a regular hatching pattern using the provided value as spacing")
+        .takes_value(true)
+    )
     .arg(Arg::with_name("TOLERANCE")
         .short("t")
         .long("tolerance")
@@ -271,6 +278,11 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .short("n")
         .long("compute-normals")
         .help("Enable computing vertex normals")
+    )
+    .arg(Arg::with_name("HATCHING_ANGLE")
+        .long("angle")
+        .help("Angle between the hatching and the x axis")
+        .takes_value(true)
     )
 }
 
@@ -319,8 +331,9 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
 fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
     let path = get_path(command).expect("Need a path to tessellate");
     let stroke = get_stroke(command);
+    let hatch = get_hatching(command);
     let normals = command.is_present("NORMALS");
-    let fill = if command.is_present("FILL") || !stroke.is_some() {
+    let fill = if command.is_present("FILL") || (!stroke.is_some() && !hatch.is_some()) {
         Some(FillOptions::tolerance(get_tolerance(&command)).with_normals(normals))
     } else {
         None
@@ -338,6 +351,7 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
         path,
         fill,
         stroke,
+        hatch,
         float_precision,
         tessellator,
     }
@@ -360,10 +374,40 @@ fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
         options.line_width = get_line_width(matches);
         options.line_join = get_line_join(matches);
         options.tolerance = get_tolerance(matches);
+        options.apply_line_width = false;
         if let Some(limit) = get_miter_limit(matches) {
             options.miter_limit = limit;
         }
         return Some(options);
+    }
+    return None;
+}
+
+fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {
+    if let Some(s) = matches.value_of("HATCH") {
+        let spacing = match s.parse() {
+            Ok(v) => v,
+            Err(_) => { return None; }
+        };
+
+        let mut stroke = StrokeOptions::default();
+        let cap = get_line_cap(matches);
+        stroke.start_cap = cap;
+        stroke.end_cap = cap;
+        stroke.line_width = get_line_width(matches);
+        stroke.line_join = get_line_join(matches);
+        stroke.tolerance = get_tolerance(matches);
+        stroke.apply_line_width = false;
+
+        let options = HatchingOptions::DEFAULT
+            .with_tolerance(stroke.tolerance)
+            .with_angle(get_hatching_angle(matches));
+
+        return Some(HatchingParams {
+            options,
+            stroke,
+            spacing,
+        });
     }
     return None;
 }
@@ -409,6 +453,15 @@ fn get_line_width(matches: &ArgMatches) -> f32 {
         }
     }
     return 1.0;
+}
+
+fn get_hatching_angle(matches: &ArgMatches) -> Angle<f32> {
+    if let Some(s) = matches.value_of("HATCHING_ANGLE") {
+        if let Ok(val) = s.parse() {
+            return Angle::radians(val);
+        }
+    }
+    return Angle::zero();
 }
 
 fn get_output(matches: &ArgMatches) -> Box<Write> {
