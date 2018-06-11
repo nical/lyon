@@ -498,7 +498,7 @@ pub fn stroke_rounded_rectangle(
         if radius > 0.0 {
             let arc_len = 0.5 * PI * radius;
             let step = circle_flattening_step(radius, options.tolerance);
-            (arc_len / step).ceil() as u32  - 1
+            (arc_len / step).ceil() as u32 - 1
         } else {
             0
         }
@@ -837,8 +837,10 @@ where
 //  r: the radius
 //  t: the tolerance threshold
 //  d: the line segment length
-pub(crate) fn circle_flattening_step(radius:f32, tolerance: f32) -> f32 {
-    2.0 * (2.0 * tolerance * radius - tolerance * tolerance).sqrt()
+pub(crate) fn circle_flattening_step(radius:f32, mut tolerance: f32) -> f32 {
+    // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
+    tolerance = f32::min(tolerance, radius);
+    2.0 * f32::sqrt(2.0 * tolerance * radius - tolerance * tolerance)
 }
 
 #[test]
@@ -850,6 +852,25 @@ fn issue_358() {
         vector(2.0, 2.0),
         Angle { radians: 0.0 },
         &FillOptions::tolerance(1.0),
+        &mut NoOutput::new(),
+    );
+}
+
+#[test]
+fn issue_366() {
+    use geometry_builder::NoOutput;
+
+    fill_circle(
+        point(0.0, 0.0),
+        1.0,
+        &FillOptions::tolerance(100.0),
+        &mut NoOutput::new(),
+    );
+
+    stroke_circle(
+        point(0.0, 0.0),
+        1.0,
+        &StrokeOptions::tolerance(100.0),
         &mut NoOutput::new(),
     );
 }
