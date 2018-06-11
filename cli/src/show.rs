@@ -3,6 +3,9 @@ use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, Buf
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
+use lyon::algorithms::hatching::*;
+use lyon::path::default::{Path, Builder as PathBuilder};
+use lyon::path::builder::*;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator};
 use lyon::tess2;
 
@@ -16,15 +19,56 @@ use glutin::ElementState::Pressed;
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
+struct StrokeHatches {
+    path: PathBuilder,
+    spacing: f32,
+}
+
+impl HatchBuilder for StrokeHatches {
+    fn add_segment(
+        &mut self,
+        a: &Point,
+        _ta: &Vector,
+        b: &Point,
+        _tb: &Vector,
+        _row: u32
+    ) {
+        self.path.move_to(*a);
+        self.path.line_to(*b);
+    }
+
+    fn next_offset(&mut self, _row: u32) -> f32 { self.spacing }
+}
+
 pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
     let mut stroke_width = 1.0;
-    if let Some(mut options) = cmd.stroke {
+    if let Some(options) = cmd.stroke {
         stroke_width = options.line_width;
-        options.apply_line_width = false;
         StrokeTessellator::new().tessellate_path(
             cmd.path.path_iter(),
             &options,
+            &mut BuffersBuilder::new(&mut geometry, WithId(1))
+        );
+    }
+
+    if let Some(hatch) = cmd.hatch {
+        let mut hatch_builder = StrokeHatches {
+            path: Path::builder(),
+            spacing: hatch.spacing,
+        };
+
+        let mut hatcher = Hatcher::new();
+        hatcher.hatch_path(
+            cmd.path.path_iter(),
+            &hatch.options,
+            &mut hatch_builder,
+        );
+        let hatched_path = hatch_builder.path.build();
+
+        StrokeTessellator::new().tessellate_path(
+            hatched_path.path_iter(),
+            &hatch.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
         );
     }

@@ -1,6 +1,7 @@
 use std::io;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions};
+use lyon::algorithms::hatching::HatchingOptions;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Tessellator {
@@ -13,8 +14,16 @@ pub struct TessellateCmd {
     pub path: Path,
     pub fill: Option<FillOptions>,
     pub stroke: Option<StrokeOptions>,
+    pub hatch: Option<HatchingParams>,
     pub float_precision: Option<usize>,
     pub tessellator: Tessellator,
+}
+
+#[derive(Clone, Debug)]
+pub struct HatchingParams {
+    pub options: HatchingOptions,
+    pub stroke: StrokeOptions,
+    pub spacing: f32,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
