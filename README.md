@@ -31,8 +31,15 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 ## Example
 
 ```rust
+extern crate lyon;
+use lyon::math::point;
+use lyon::path::default::Path;
+use lyon::path::builder::*;
+use lyon::tessellation::*;
+
+fn main() {
     // Build a Path.
-    let mut builder = SvgPathBuilder::new(Path::builder());
+    let mut builder = Path::builder();
     builder.move_to(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
@@ -40,29 +47,35 @@ The intent is for this library to be useful in projects like [Servo](https://ser
     builder.close();
     let path = builder.build();
 
+    // Let's use our own custom vertex type instead of the default one.
+    #[derive(Copy, Clone, Debug)]
+    struct MyVertex { position: [f32; 2], normal: [f32; 2] };
+
     // Will contain the result of the tessellation.
-    let mut geometry_cpu: VertexBuffers<Vec2> = VertexBuffers::new();
+    let mut geometry = VertexBuffers::new();
 
     let mut tessellator = FillTessellator::new();
 
     {
-        // The simple builder uses the tessellator's vertex type.
-        // You can implement the GeometryBuilder trait to create custom vertices.
-        let mut vertex_builder = simple_builder(&mut geometry_cpu);
-
         // Compute the tessellation.
         tessellator.tessellate_path(
             path.path_iter(),
             &FillOptions::default(),
-            &mut vertex_builder
+            &mut BuffersBuilder::new(&mut geometry, |vertex : FillVertex| {
+                MyVertex {
+                    position: vertex.position.to_array(),
+                    normal: vertex.normal.to_array(),
+                }
+            }),
         ).unwrap();
     }
 
     // The tessellated geometry is ready to be uploaded to the GPU.
     println!(" -- {} vertices {} indices",
-        geometry_cpu.vertices.len(),
-        geometry_cpu.indices.len()
+        geometry.vertices.len(),
+        geometry.indices.len()
     );
+}
 ```
 
 ## FAQ
