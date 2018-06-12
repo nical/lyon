@@ -382,17 +382,17 @@ impl StrokeOptions {
     /// Minimum miter limit as defined by the SVG specification.
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
-    const MINIMUM_MITER_LIMIT: f32 = 1.0;
+    pub const MINIMUM_MITER_LIMIT: f32 = 1.0;
     /// Default miter limit as defined by the SVG specification.
     ///
     /// See [StrokeMiterLimitProperty](https://svgwg.org/specs/strokes/#StrokeMiterlimitProperty)
-    const DEFAULT_MITER_LIMIT: f32 = 4.0;
-    const DEFAULT_LINE_CAP: LineCap = LineCap::Butt;
-    const DEFAULT_LINE_JOIN: LineJoin = LineJoin::Miter;
-    const DEFAULT_LINE_WIDTH: f32 = 1.0;
-    const DEFAULT_TOLERANCE: f32 = 0.1;
+    pub const DEFAULT_MITER_LIMIT: f32 = 4.0;
+    pub const DEFAULT_LINE_CAP: LineCap = LineCap::Butt;
+    pub const DEFAULT_LINE_JOIN: LineJoin = LineJoin::Miter;
+    pub const DEFAULT_LINE_WIDTH: f32 = 1.0;
+    pub const DEFAULT_TOLERANCE: f32 = 0.1;
 
-    const DEFAULT: Self = StrokeOptions {
+    pub const DEFAULT: Self = StrokeOptions {
         start_cap: Self::DEFAULT_LINE_CAP,
         end_cap: Self::DEFAULT_LINE_CAP,
         line_join: Self::DEFAULT_LINE_JOIN,
@@ -402,9 +402,6 @@ impl StrokeOptions {
         apply_line_width: true,
         _private: (),
     };
-
-    #[inline]
-    pub fn default() -> Self { Self::DEFAULT }
 
     #[inline]
     pub fn tolerance(tolerance: f32) -> Self {
@@ -524,11 +521,11 @@ impl Default for StrokeOptions {
 
 impl FillOptions {
     /// Default flattening tolerance.
-    const DEFAULT_TOLERANCE: f32 = 0.1;
+    pub const DEFAULT_TOLERANCE: f32 = 0.1;
     /// Default Fill rule.
-    const DEFAULT_FILL_RULE: FillRule = FillRule::EvenOdd;
+    pub const DEFAULT_FILL_RULE: FillRule = FillRule::EvenOdd;
 
-    const DEFAULT: Self = FillOptions {
+    pub const DEFAULT: Self = FillOptions {
         tolerance: Self::DEFAULT_TOLERANCE,
         fill_rule: Self::DEFAULT_FILL_RULE,
         compute_normals: true,
@@ -536,9 +533,6 @@ impl FillOptions {
         on_error: OnError::DEFAULT,
         _private: (),
     };
-
-    #[inline]
-    pub fn default() -> Self { Self::DEFAULT }
 
     #[inline]
     pub fn even_odd() -> Self { Self::DEFAULT }
@@ -603,9 +597,9 @@ pub enum OnError {
 
 impl OnError {
     #[cfg(test)]
-    const DEFAULT: Self = OnError::Panic;
+    pub const DEFAULT: Self = OnError::Panic;
     #[cfg(not(test))]
-    const DEFAULT: Self = OnError::Stop;
+    pub const DEFAULT: Self = OnError::Stop;
 }
 
 impl Default for OnError {
