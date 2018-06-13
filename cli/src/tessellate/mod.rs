@@ -8,6 +8,9 @@ use lyon::tessellation::{
 use lyon::tess2;
 use std::io;
 
+mod format;
+use self::format::format_output;
+
 #[derive(Debug)]
 pub enum TessError {
     Io(io::Error),
@@ -16,14 +19,6 @@ pub enum TessError {
 
 impl ::std::convert::From<::std::io::Error> for TessError {
     fn from(err: io::Error) -> Self { TessError::Io(err) }
-}
-
-fn format_float(value: f32, precision: Option<usize>) -> String {
-    if let Some(p) = precision {
-        format!("{0:.1$}", value, p)
-    } else {
-        format!("{}", value)
-    }
 }
 
 pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError> {
@@ -69,41 +64,20 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessE
 pub fn write_output(
     buffers: VertexBuffers<Point>,
     count: bool,
+    fmt_string: Option<&str>,
     float_precision: Option<usize>,
     mut output: Box<io::Write>
 ) -> Result<(), io::Error> {
 
     if count {
-        try!{ writeln!(&mut *output, "vertices: {}", buffers.vertices.len()) };
-        try!{ writeln!(&mut *output, "indices: {}", buffers.indices.len()) };
-        try!{ writeln!(&mut *output, "triangles: {}", buffers.indices.len() / 3) };
+        writeln!(&mut *output, "vertices: {}", buffers.vertices.len())?;
+        writeln!(&mut *output, "indices: {}", buffers.indices.len())?;
+        writeln!(&mut *output, "triangles: {}", buffers.indices.len() / 3)?;
 
         return Ok(());
     }
 
-    try!{ write!(&mut *output, "vertices: [") };
-    let mut is_first = true;
-    for vertex in &buffers.vertices {
-        if !is_first {
-            try!{ write!(&mut *output, ", ") };
-        }
-        try!{ write!(&mut *output, "({}, {})", format_float(vertex.x, float_precision),
-                                               format_float(vertex.y, float_precision)) };
-        is_first = false;
-    }
-    try!{ writeln!(&mut *output, "]") };
-
-    try!{ write!(&mut *output, "indices: [") };
-    let mut is_first = true;
-    for index in &buffers.indices {
-        if !is_first {
-            try!{ write!(&mut *output, ", ") };
-        }
-        try!{ write!(&mut *output, "{}", index) };
-        is_first = false;
-    }
-    try!{ writeln!(&mut *output, "]") };
-
+    writeln!(&mut *output, "{}", format_output(fmt_string, float_precision, &buffers))?;
     Ok(())
 }
 

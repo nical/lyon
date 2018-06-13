@@ -6,6 +6,8 @@ extern crate gfx;
 extern crate gfx_window_glutin;
 extern crate gfx_device_gl;
 extern crate glutin;
+extern crate regex;
+extern crate itertools;
 
 mod commands;
 mod tessellate;
@@ -57,6 +59,13 @@ fn main() {
                 .value_name("FLOAT_PRECISION")
                 .takes_value(true)
                 .required(false)
+            )
+            .arg(Arg::with_name("FORMAT")
+                 .long("format")
+                 .help("Prints the output with the specified format")
+                 .value_name("FORMAT_STRING")
+                 .takes_value(true)
+                 .required(false)
             )
         )
         .subcommand(
@@ -149,6 +158,7 @@ fn main() {
             Ok(Ok(buffers)) => {
                 tessellate::write_output(buffers,
                                          command.is_present("COUNT"),
+                                         command.value_of("FORMAT"),
                                          float_precision,
                                          output).unwrap();
             }
