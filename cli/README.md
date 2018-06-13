@@ -26,7 +26,7 @@ Tessellates an SVG path. The output is a vertex buffer and an index buffer in te
 
 Run ```$> lyon tessellate --help``` for more details.
 
-### examples
+### example
 
 ```
 $> lyon tessellate "M 0 0 L 10 0  10 10 L 0 10 z"
@@ -56,6 +56,48 @@ $> lyon tessellate "M 0 0 L 10 0  10 10 L 0 10 z" -c
 vertices: 4
 indices: 6
 triangles: 2
+```
+
+To specify the output format use ```--format <FORMAT_STRING>```.
+
+There are 3 format markers, one for *vertices*, *indices* and for *triangles* (triplets of indices). Each format marker starts with ```@```, has a separator block (```{sep=...}```), a format block (```{fmt=...}``` and it ends with ```@```. In the blocks ```{``` and ```}``` characters have to be escaped!
+
+
+#### list of format variables
+- ```@vertices```
+	* ```{position.x}``` or ```{pos.x}```
+	* ```{position.y}``` or ```{pos.y}```
+- ```@indices```
+	* ```{index}``` or ```{i}```
+- ```@triangles```
+	* ```{index0}``` or ```{i0}```
+	* ```{index1}``` or ```{i1}```
+	* ```{index2}``` or ```{i2}```
+
+#### examples
+
+```
+$> lyon tessellate --format "vertices: [@vertices{sep=, }{fmt=({position.x}, {position.y})}@]" "M 0 0 L 10 0  10 10 L 0 10 z"
+vertices: [(0, 0), (10, 0), (0, 10), (10, 10)]
+
+$> lyon tessellate --format "@indices{sep=, }{fmt=[{index}]}@" "M 0 0 L 10 0  10 10 L 0 10 z"
+[0], [1], [2], [2], [1], [3]
+
+$> lyon tessellate --format '\{\n "triangles": \{\n@triangles{sep=,\n}{fmt=  "triangle": \{\n   "{i0}",\n   "{i1}",\n   "{i2}"\n  \}}@\n \}\n\}' "M 0 0 L 10 0  10 10 L 0 10 z"
+{
+ "triangles": {
+  "triangle": {
+   "1",
+   "0",
+   "2"
+  },
+  "triangle": {
+   "1",
+   "2",
+   "3"
+  }
+ }
+}
 ```
 
 ## ```show```
