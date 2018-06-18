@@ -23,7 +23,7 @@ use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::path_utils::build_path;
 use lyon::path::default::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
-use lyon::algorithms::hatching::HatchingOptions;
+use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
 use lyon::extra::debugging::find_reduced_test_case;
 use lyon::geom::euclid::Angle;
 
@@ -246,6 +246,11 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .help("Fill the path with a regular hatching pattern using the provided value as spacing")
         .takes_value(true)
     )
+    .arg(Arg::with_name("DOT")
+        .long("dot")
+        .help("Fill the path with a regular dot pattern using the provided value as spacing")
+        .takes_value(true)
+    )
     .arg(Arg::with_name("TOLERANCE")
         .short("t")
         .long("tolerance")
@@ -342,8 +347,9 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
     let path = get_path(command).expect("Need a path to tessellate");
     let stroke = get_stroke(command);
     let hatch = get_hatching(command);
+    let dots = get_dots(command);
     let normals = command.is_present("NORMALS");
-    let fill = if command.is_present("FILL") || (!stroke.is_some() && !hatch.is_some()) {
+    let fill = if command.is_present("FILL") || (!stroke.is_some() && !hatch.is_some() && !dots.is_some()) {
         Some(FillOptions::tolerance(get_tolerance(&command)).with_normals(normals))
     } else {
         None
@@ -362,6 +368,7 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
         fill,
         stroke,
         hatch,
+        dots,
         float_precision,
         tessellator,
     }
@@ -414,6 +421,37 @@ fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {
             .with_angle(get_hatching_angle(matches));
 
         return Some(HatchingParams {
+            options,
+            stroke,
+            spacing,
+        });
+    }
+    return None;
+}
+
+fn get_dots(matches: &ArgMatches) -> Option<DotParams> {
+    if let Some(s) = matches.value_of("DOT") {
+        let spacing = match s.parse() {
+            Ok(v) => v,
+            Err(_) => { return None; }
+        };
+
+        let mut stroke = StrokeOptions::default();
+        let mut cap = get_line_cap(matches);
+        if cap == LineCap::Butt {
+            cap = LineCap::Square;
+        }
+        stroke.start_cap = cap;
+        stroke.end_cap = cap;
+        stroke.line_width = get_line_width(matches);
+        stroke.tolerance = get_tolerance(matches);
+        stroke.apply_line_width = false;
+
+        let options = DotOptions::DEFAULT
+            .with_tolerance(stroke.tolerance)
+            .with_angle(get_hatching_angle(matches));
+
+        return Some(DotParams {
             options,
             stroke,
             spacing,

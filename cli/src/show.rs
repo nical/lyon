@@ -4,7 +4,7 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::algorithms::hatching::*;
-use lyon::path::default::{Path, Builder as PathBuilder};
+use lyon::path::default::Path;
 use lyon::path::builder::*;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator};
 use lyon::tess2;
@@ -19,27 +19,6 @@ use glutin::ElementState::Pressed;
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
-struct StrokeHatches {
-    path: PathBuilder,
-    spacing: f32,
-}
-
-impl HatchBuilder for StrokeHatches {
-    fn add_segment(
-        &mut self,
-        a: &Point,
-        _ta: &Vector,
-        b: &Point,
-        _tb: &Vector,
-        _row: u32
-    ) {
-        self.path.move_to(*a);
-        self.path.line_to(*b);
-    }
-
-    fn next_offset(&mut self, _row: u32) -> f32 { self.spacing }
-}
-
 pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
     let mut stroke_width = 1.0;
@@ -53,22 +32,48 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     }
 
     if let Some(hatch) = cmd.hatch {
-        let mut hatch_builder = StrokeHatches {
-            path: Path::builder(),
-            spacing: hatch.spacing,
-        };
-
+        let mut path = Path::builder();
         let mut hatcher = Hatcher::new();
         hatcher.hatch_path(
             cmd.path.path_iter(),
             &hatch.options,
-            &mut hatch_builder,
+            &mut RegularHatchingPattern {
+                interval: hatch.spacing,
+                callback: &mut|segment: &HatchSegment| {
+                    path.move_to(segment.a.position);
+                    path.line_to(segment.b.position);
+                }
+            },
+
         );
-        let hatched_path = hatch_builder.path.build();
+        let hatched_path = path.build();
 
         StrokeTessellator::new().tessellate_path(
             hatched_path.path_iter(),
             &hatch.stroke,
+            &mut BuffersBuilder::new(&mut geometry, WithId(1))
+        );
+    }
+
+    if let Some(dots) = cmd.dots {
+        let mut path = Path::builder();
+        let mut hatcher = Hatcher::new();
+        hatcher.dot_path(
+            cmd.path.path_iter(),
+            &dots.options,
+            &mut RegularDotPattern {
+                row_interval: dots.spacing,
+                column_interval: dots.spacing,
+                callback: &mut|dot: &Dot| {
+                    path.move_to(dot.position);
+                }
+            },
+        );
+        let dotted_path = path.build();
+
+        StrokeTessellator::new().tessellate_path(
+            dotted_path.path_iter(),
+            &dots.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
         );
     }
