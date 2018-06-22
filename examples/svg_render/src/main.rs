@@ -18,14 +18,16 @@ use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 pub use lyon::geom::euclid::Transform3D;
 use usvg::Color;
+use usvg::prelude::*;
 
 use path_convert::convert_path;
 use stroke_convert::convert_stroke;
-use render::{fill_pipeline, ColorFormat, DepthFormat, Scene, VertexCtor};
-
+use render::{
+    fill_pipeline, ColorFormat, DepthFormat, Scene, VertexCtor, Transform, Primitive
+};
+use std::f64::NAN;
 
 const WINDOW_SIZE: f32 = 800.0;
-
 
 pub const FALLBACK_COLOR: Color = Color {
     red: 0,
@@ -68,17 +70,31 @@ fn main() {
     let mut stroke_tess = StrokeTessellator::new();
     let mut mesh = VertexBuffers::new();
 
+
     let opt = usvg::Options::default();
     let rtree = usvg::Tree::from_file(&filename, &opt).unwrap();
+    let mut transforms = Vec::new();
+    let mut primitives = Vec::new();
 
+    let mut prev_transform = usvg::Transform {
+        a: NAN, b: NAN,
+        c: NAN, d: NAN,
+        e: NAN, f: NAN,
+    };
     let view_box = rtree.svg_node().view_box;
-    let mut transform = None;
     for node in rtree.root().descendants() {
         if let usvg::NodeKind::Path(ref p) = *node.borrow() {
-            // use the first transform component
-            if transform == None {
-                transform = Some(node.borrow().transform());
+            let t = node.transform();
+            if t != prev_transform {
+                println!(" push transform");
+                transforms.push(Transform {
+                    data0: [t.a as f32, t.b as f32, t.c as f32, t.d as f32],
+                    data1: [t.e as f32, t.f as f32, 0.0, 0.0],
+                });
             }
+            prev_transform = t;
+
+            let transform_idx = transforms.len() as u32 - 1;
 
             if let Some(ref fill) = p.fill {
                 // fall back to always use color fill
@@ -88,23 +104,36 @@ fn main() {
                     _ => FALLBACK_COLOR,
                 };
 
+                primitives.push(Primitive::new(
+                    transform_idx,
+                    color,
+                    fill.opacity.value() as f32
+                ));
+
                 fill_tess.tessellate_path(
                     convert_path(p).path_iter(),
                     &FillOptions::tolerance(0.01),
                     &mut BuffersBuilder::new(
                         &mut mesh,
-                        VertexCtor::new(color, fill.opacity.value())
+                        VertexCtor { prim_id: primitives.len() as u32 - 1 }
                     ),
                 ).expect("Error during tesselation!");
             }
 
             if let Some(ref stroke) = p.stroke {
                 let (stroke_color, stroke_opts) = convert_stroke(stroke);
-                let opacity = stroke.opacity.value();
+                primitives.push(Primitive::new(
+                    transform_idx,
+                    stroke_color,
+                    stroke.opacity.value() as f32
+                ));
                 let _ = stroke_tess.tessellate_path(
                     convert_path(p).path_iter(),
                     &stroke_opts.with_tolerance(0.01),
-                    &mut BuffersBuilder::new(&mut mesh, VertexCtor::new(stroke_color, opacity)),
+                    &mut BuffersBuilder::new(
+                        &mut mesh,
+                        VertexCtor { prim_id: primitives.len() as u32 - 1 },
+                    ),
                 );
             }
         }
@@ -122,13 +151,6 @@ fn main() {
     let vb_height = view_box.rect.size().height as f32;
     let scale = vb_width / vb_height;
 
-    // get x and y translation
-    let (x_trans, y_trans) = if let Some(transform) = transform {
-        (transform.e as f32, transform.f as f32)
-    } else {
-        (0.0, 0.0)
-    };
-
     // set window scale
     let (width, height) = if scale < 1.0 {
         (WINDOW_SIZE, WINDOW_SIZE * scale)
@@ -138,10 +160,9 @@ fn main() {
 
     // init the scene object
     // use the viewBox, if available, to set the initial zoom and pan
-    let pan = [vb_width / -2.0 + x_trans, vb_height / -2.0 + y_trans];
+    let pan = [vb_width / -2.0, vb_height / -2.0];
     let zoom = 2.0 / f32::max(vb_width, vb_height);
-    let transform = Transform3D::create_scale(1.0, width / height, 1.0);
-    let mut scene = Scene::new(zoom, pan, &transform);
+    let mut scene = Scene::new(zoom, pan, width / height);
 
     // set up event processing and rendering
     let mut event_loop = glutin::EventsLoop::new();
@@ -159,43 +180,41 @@ fn main() {
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &event_loop);
 
-    let shader = factory
-        .link_program(
-            render::VERTEX_SHADER.as_bytes(),
-            render::FRAGMENT_SHADER.as_bytes(),
-        )
-        .unwrap();
+    let shader = factory.link_program(
+        render::VERTEX_SHADER.as_bytes(),
+        render::FRAGMENT_SHADER.as_bytes(),
+    ).unwrap();
 
     let mut rasterizer_state = gfx::state::Rasterizer::new_fill();
     if msaa.is_some() {
         rasterizer_state.samples = Some(gfx::state::MultiSample);
     }
-    let pso = factory
-        .create_pipeline_from_program(
-            &shader,
-            gfx::Primitive::TriangleList,
-            rasterizer_state,
-            fill_pipeline::new(),
-        )
-        .unwrap();
+    let pso = factory.create_pipeline_from_program(
+        &shader,
+        gfx::Primitive::TriangleList,
+        rasterizer_state,
+        fill_pipeline::new(),
+    ).unwrap();
 
 
     let mut rasterizer_state = gfx::state::Rasterizer::new_fill();
     rasterizer_state.method = gfx::state::RasterMethod::Line(1);
-    let wireframe_pso = factory
-        .create_pipeline_from_program(
-            &shader,
-            gfx::Primitive::TriangleList,
-            rasterizer_state,
-            fill_pipeline::new(),
-        )
-        .unwrap();
+    let wireframe_pso = factory.create_pipeline_from_program(
+        &shader,
+        gfx::Primitive::TriangleList,
+        rasterizer_state,
+        fill_pipeline::new(),
+    ).unwrap();
 
     let (vbo, ibo) = factory.create_vertex_buffer_with_slice(&mesh.vertices[..], &mesh.indices[..]);
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
     let constants = factory.create_constant_buffer(1);
+    let gpu_transforms = factory.create_constant_buffer(render::MAX_TRANSFORMS);
+    let gpu_primtives = factory.create_constant_buffer(render::MAX_PRIMITIVES);
+    cmd_queue.update_buffer(&gpu_transforms, &transforms[..], 0).unwrap();
+    cmd_queue.update_buffer(&gpu_primtives, &primitives[..], 0).unwrap();
 
     loop {
         if !update_inputs(&mut scene, &mut event_loop) {
@@ -214,6 +233,8 @@ fn main() {
                 vbo: vbo.clone(),
                 out_color: main_fbo.clone(),
                 constants: constants.clone(),
+                transforms: gpu_transforms.clone(),
+                primitives: gpu_primtives.clone(),
             },
         );
         cmd_queue.flush(&mut device);
@@ -244,9 +265,7 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
             event: glutin::WindowEvent::Resized(w, h),
             ..
         } => {
-            let ratio = w as f32 / h as f32;
-            let transform = Transform3D::create_scale(1.0, ratio, 1.0);
-            scene.update_transform(&transform);
+            scene.aspect_ratio = w as f32 / h as f32;
         }
         Event::WindowEvent {
             event:
