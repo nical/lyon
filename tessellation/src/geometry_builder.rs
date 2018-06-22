@@ -305,12 +305,12 @@ pub trait GeometryBuilder<Input> {
 ///
 /// This is primarily intended for efficient interaction with the libtess2 tessellator
 /// from the `lyon_tess2` crate.
-pub trait GeometryReceiver<Vertex, Index> {
+pub trait GeometryReceiver<Vertex> {
 
     fn set_geometry(
         &mut self,
         vertices: &[Vertex],
-        indices: &[Index]
+        indices: &[u32]
     );
 }
 
@@ -479,19 +479,18 @@ where
     }
 }
 
-impl<'l, VertexType, IndexType, InputVertex, InputIndex, Ctor> GeometryReceiver<InputVertex, InputIndex>
+impl<'l, VertexType, IndexType, InputVertex, Ctor> GeometryReceiver<InputVertex>
     for BuffersBuilder<'l, VertexType, IndexType, InputVertex, Ctor>
 where
     VertexType: 'l + Clone,
     IndexType: From<VertexId>,
     Ctor: VertexConstructor<InputVertex, VertexType>,
     InputVertex: Clone,
-    InputIndex: Into<VertexId> + Clone,
 {
     fn set_geometry(
         &mut self,
         vertices: &[InputVertex],
-        indices: &[InputIndex]
+        indices: &[u32]
     ) {
         for v in vertices {
             let vertex = self.vertex_constructor.new_vertex(v.clone());
@@ -539,8 +538,8 @@ impl<T> GeometryBuilder<T> for NoOutput
     fn abort_geometry(&mut self) {}
 }
 
-impl<V, I> GeometryReceiver<V, I> for NoOutput {
-    fn set_geometry(&mut self, _vertices: &[V], _indices: &[I]) {}
+impl<V> GeometryReceiver<V> for NoOutput {
+    fn set_geometry(&mut self, _vertices: &[V], _indices: &[u32]) {}
 }
 
 // /// An extension to GeometryBuilder that can handle quadratic bézier segments.
