@@ -61,7 +61,7 @@
 //!     let path = path_builder.build();
 //!
 //!     // Create the destination vertex and index buffers.
-//!     let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+//!     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 //!
 //!     {
 //!         // Create the tessellator.

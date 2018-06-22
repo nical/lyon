@@ -238,7 +238,7 @@ enum PointType { In, Out, OnEdge(Side) }
 /// let path = path_builder.build();
 ///
 /// // Create the destination vertex and index buffers.
-/// let mut buffers: VertexBuffers<FillVertex> = VertexBuffers::new();
+/// let mut buffers: VertexBuffers<FillVertex, u16> = VertexBuffers::new();
 ///
 /// {
 ///     let mut vertex_builder = simple_builder(&mut buffers);
@@ -1765,7 +1765,7 @@ fn test_monotone_tess() {
 
 #[cfg(test)]
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
-    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();

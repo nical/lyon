@@ -55,7 +55,7 @@ fn main() {
 
     let arrow_path = builder.build();
 
-    let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
+    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
     FillTessellator::new().tessellate_path(
         arrow_path.path_iter(),
@@ -63,7 +63,7 @@ fn main() {
         &mut BuffersBuilder::new(&mut geometry, WithId(0))
     ).unwrap();
 
-    let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
+    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),

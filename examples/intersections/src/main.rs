@@ -80,7 +80,7 @@ fn main() {
     builder.relative_line_to(line.vector);
     let line_path = builder.build();
 
-    let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
+    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
     let line_id = 0;
     let bezier_id = 1;
@@ -118,7 +118,7 @@ fn main() {
         ),
     );
 
-    let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
+    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),

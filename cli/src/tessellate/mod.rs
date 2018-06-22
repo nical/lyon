@@ -21,9 +21,9 @@ impl ::std::convert::From<::std::io::Error> for TessError {
     fn from(err: io::Error) -> Self { TessError::Io(err) }
 }
 
-pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessError> {
+pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, TessError> {
 
-    let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
     if let Some(options) = cmd.fill {
 
@@ -62,7 +62,7 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point>, TessE
 }
 
 pub fn write_output(
-    buffers: VertexBuffers<Point>,
+    buffers: VertexBuffers<Point, u16>,
     count: bool,
     fmt_string: Option<&str>,
     float_precision: Option<usize>,

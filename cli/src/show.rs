@@ -20,7 +20,7 @@ const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
 pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
-    let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
+    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
     let mut stroke_width = 1.0;
     if let Some(options) = cmd.stroke {
         stroke_width = options.line_width;
@@ -102,7 +102,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         return;
     }
 
-    let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
+    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),

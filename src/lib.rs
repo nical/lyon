@@ -74,12 +74,12 @@
 //! ```
 //! extern crate lyon;
 //! use lyon::math::rect;
-//! use lyon::tessellation::{VertexBuffers, FillOptions};
+//! use lyon::tessellation::{VertexBuffers, FillOptions, FillVertex};
 //! use lyon::tessellation::basic_shapes::*;
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
 //! fn main() {
-//!     let mut geometry = VertexBuffers::new();
+//!     let mut geometry: VertexBuffers<FillVertex, u16> = VertexBuffers::new();
 //!
 //!     let options = FillOptions::tolerance(0.1);
 //!
@@ -128,7 +128,7 @@
 //!     struct MyVertex { position: [f32; 2], normal: [f32; 2] };
 //!
 //!     // Will contain the result of the tessellation.
-//!     let mut geometry = VertexBuffers::new();
+//!     let mut geometry: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
 //!
 //!     let mut tessellator = FillTessellator::new();
 //!
