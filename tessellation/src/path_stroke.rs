@@ -60,7 +60,7 @@ use std::f32::consts::PI;
 /// let path = path_builder.build();
 ///
 /// // Create the destination vertex and index buffers.
-/// let mut buffers: VertexBuffers<StrokeVertex> = VertexBuffers::new();
+/// let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::new();
 ///
 /// {
 ///     // Create the destination vertex and index buffers.
@@ -985,7 +985,7 @@ fn test_path(
         }
     }
 
-    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
     let mut tess = StrokeTessellator::new();
     let count = tess.tessellate_path(

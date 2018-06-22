@@ -66,7 +66,7 @@ fn main() {
 
     let mut fill_tess = FillTessellator::new();
     let mut stroke_tess = StrokeTessellator::new();
-    let mut mesh = VertexBuffers::new();
+    let mut mesh: VertexBuffers<_, u16> = VertexBuffers::new();
 
     let opt = usvg::Options::default();
     let rtree = usvg::Tree::from_file(&filename, &opt).unwrap();

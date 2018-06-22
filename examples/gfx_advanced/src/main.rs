@@ -70,7 +70,7 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
-    let mut geometry: VertexBuffers<GpuVertex> = VertexBuffers::new();
+    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
     let stroke_prim_id = 0;
     let fill_prim_id = 1;
@@ -87,7 +87,7 @@ fn main() {
         &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32))
     );
 
-    let mut bg_geometry: VertexBuffers<BgVertex> = VertexBuffers::new();
+    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),

@@ -34,7 +34,7 @@ impl VertexConstructor<tessellation::StrokeVertex, Vertex> for VertexCtor {
 fn main() {
 
 
-    let mut mesh = VertexBuffers::new();
+    let mut mesh: VertexBuffers<Vertex, u16> = VertexBuffers::new();
 
     let fill_options = FillOptions::tolerance(0.01);
 

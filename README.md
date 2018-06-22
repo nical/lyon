@@ -52,7 +52,7 @@ fn main() {
     struct MyVertex { position: [f32; 2], normal: [f32; 2] };
 
     // Will contain the result of the tessellation.
-    let mut geometry = VertexBuffers::new();
+    let mut geometry: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
 
     let mut tessellator = FillTessellator::new();
 

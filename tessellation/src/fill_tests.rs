@@ -9,7 +9,7 @@ use {FillTessellator, FillError, FillOptions, FillVertex};
 type Vertex = FillVertex;
 
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
-    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();

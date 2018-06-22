@@ -53,7 +53,7 @@ fn main() {
 
     let mut tessellator = FillTessellator::new();
 
-    let mut mesh = VertexBuffers::new();
+    let mut mesh: VertexBuffers<GpuFillVertex, u16> = VertexBuffers::new();
 
     tessellator.tessellate_path(
         path.path_iter(),

@@ -21,7 +21,7 @@
 //!
 //! This modules provides with a basic implementation of these traits through the following types:
 //!
-//! * The struct [`VertexBuffers<T>`](struct.VertexBuffers.html) is a simple pair of vectors of u16
+//! * The struct [`VertexBuffers<T>`](struct.VertexBuffers.html) is a simple pair of vectors of u32
 //!   indices and T (generic parameter) vertices.
 //! * The struct [`BuffersBuilder`](struct.BuffersBuilder.html) which implements
 //!   [`BezierGeometryBuilder`](trait.BezierGeometryBuilder.html) and writes into a
@@ -51,7 +51,7 @@
 //!
 //! The exampe below implements the `VertexConstructor` trait in order to use a custom
 //! vertex type `MyVertex` (containing position and color), storing the tessellation in a
-//! `VertexBuffers<MyVertex>`, and tessellates two shapes with different colors.
+//! `VertexBuffers<MyVertex, u16>`, and tessellates two shapes with different colors.
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
@@ -84,7 +84,7 @@
 //! }
 //!
 //! fn main() {
-//!     let mut output = VertexBuffers::new();
+//!     let mut output: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
 //!     // Tessellate a red and a green circle.
 //!     fill_circle(
 //!         point(0.0, 0.0),
@@ -156,7 +156,7 @@
 //!     fn add_vertex(&mut self, vertex: Vertex) -> VertexId {
 //!         println!("vertex {:?}", vertex);
 //!         self.vertices += 1;
-//!         VertexId(self.vertices as u16 - 1)
+//!         VertexId(self.vertices as u32 - 1)
 //!     }
 //!
 //!     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -224,7 +224,7 @@ use std::marker::PhantomData;
 use std::ops::Add;
 use std::convert::From;
 
-pub type Index = u16;
+pub type Index = u32;
 
 /// A virtual vertex offset in a geometry.
 ///
@@ -232,20 +232,37 @@ pub type Index = u16;
 /// `GeometryBuilder::end_geometry`. `GeometryBuilder` implementations typically be translate
 /// the ids internally so that first `VertexId` after `begin_geometry` is zero.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct VertexId(pub u16);
+pub struct VertexId(pub Index);
 
 impl VertexId {
-    pub fn offset(&self) -> u16 { self.0 }
+    pub fn offset(&self) -> Index { self.0 }
+}
+
+impl Add<u32> for VertexId {
+    type Output = Self;
+    fn add(self, rhs: u32) -> Self {
+        VertexId(self.0 + rhs)
+    }
 }
 
 impl From<u16> for VertexId {
-    fn from(v: u16) -> Self { VertexId(v) }
+    fn from(v: u16) -> Self { VertexId(v as Index) }
 }
 impl From<u32> for VertexId {
-    fn from(v: u32) -> Self { VertexId(v as u16) }
+    fn from(v: u32) -> Self { VertexId(v) }
 }
 impl From<i32> for VertexId {
-    fn from(v: i32) -> Self { VertexId(v as u16) }
+    fn from(v: i32) -> Self { VertexId(v as Index) }
+}
+
+impl From<VertexId> for u16 {
+    fn from(v: VertexId) -> Self { v.0 as u16 }
+}
+impl From<VertexId> for u32 {
+    fn from(v: VertexId) -> Self { v.0 }
+}
+impl From<VertexId> for i32 {
+    fn from(v: VertexId) -> Self { v.0 as i32 }
 }
 
 /// An interface separating tessellators and other geometry generation algorithms from the
@@ -302,17 +319,17 @@ pub trait GeometryReceiver<Vertex, Index> {
 /// Usually writen into though temporary `BuffersBuilder` objects.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct VertexBuffers<VertexType> {
+pub struct VertexBuffers<VertexType, IndexType> {
     pub vertices: Vec<VertexType>,
-    pub indices: Vec<Index>,
+    pub indices: Vec<IndexType>,
 }
 
-impl<VertexType> VertexBuffers<VertexType> {
+impl<VertexType, IndexType> VertexBuffers<VertexType, IndexType> {
     /// Constructor
     pub fn new() -> Self { VertexBuffers::with_capacity(512, 1024) }
 
     /// Constructor
-    pub fn with_capacity(num_vertices: usize, num_indices: usize) -> VertexBuffers<VertexType> {
+    pub fn with_capacity(num_vertices: usize, num_indices: usize) -> Self {
         VertexBuffers {
             vertices: Vec::with_capacity(num_vertices),
             indices: Vec::with_capacity(num_indices),
@@ -332,17 +349,17 @@ impl<VertexType> VertexBuffers<VertexType> {
 /// vertex attributes. The `VertexConstructor` does the translation from generic `Input` to `VertexType`.
 /// If your logic generates the actual vertex type directly, you can use the `SimpleBuffersBuilder`
 /// convenience typedef.
-pub struct BuffersBuilder<'l, VertexType: 'l, Input, Ctor> {
-    buffers: &'l mut VertexBuffers<VertexType>,
+pub struct BuffersBuilder<'l, VertexType: 'l, IndexType:'l, Input, Ctor> {
+    buffers: &'l mut VertexBuffers<VertexType, IndexType>,
     vertex_offset: Index,
     index_offset: Index,
     vertex_constructor: Ctor,
     _marker: PhantomData<Input>,
 }
 
-impl<'l, VertexType: 'l, Input, Ctor> BuffersBuilder<'l, VertexType, Input, Ctor> {
+impl<'l, VertexType: 'l, IndexType:'l, Input, Ctor> BuffersBuilder<'l, VertexType, IndexType, Input, Ctor> {
     pub fn new(
-        buffers: &'l mut VertexBuffers<VertexType>,
+        buffers: &'l mut VertexBuffers<VertexType, IndexType>,
         ctor: Ctor,
     ) -> Self {
         let vertex_offset = buffers.vertices.len() as Index;
@@ -356,16 +373,16 @@ impl<'l, VertexType: 'l, Input, Ctor> BuffersBuilder<'l, VertexType, Input, Ctor
         }
     }
 
-    pub fn buffers<'a, 'b: 'a>(&'b self) -> &'a VertexBuffers<VertexType> {
+    pub fn buffers<'a, 'b: 'a>(&'b self) -> &'a VertexBuffers<VertexType, IndexType> {
         self.buffers
     }
 }
 
 /// Creates a `BuffersBuilder`.
-pub fn vertex_builder<VertexType, Input, Ctor>(
-    buffers: &mut VertexBuffers<VertexType>,
+pub fn vertex_builder<VertexType, IndexType, Input, Ctor>(
+    buffers: &mut VertexBuffers<VertexType, IndexType>,
     ctor: Ctor,
-) -> BuffersBuilder<VertexType, Input, Ctor>
+) -> BuffersBuilder<VertexType, IndexType, Input, Ctor>
 where
     Ctor: VertexConstructor<Input, VertexType>
 {
@@ -392,10 +409,10 @@ impl<F, Input, VertexType> VertexConstructor<Input, VertexType> for F
 }
 
 /// A `BuffersBuilder` that takes the actual vertex type as input.
-pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l, VertexType, VertexType, Identity>;
+pub type SimpleBuffersBuilder<'l, VertexType> = BuffersBuilder<'l, VertexType, u16, VertexType, Identity>;
 
 /// Creates a `SimpleBuffersBuilder`.
-pub fn simple_builder<VertexType>(buffers: &mut VertexBuffers<VertexType>)
+pub fn simple_builder<VertexType>(buffers: &mut VertexBuffers<VertexType, u16>)
     -> SimpleBuffersBuilder<VertexType> {
     let vertex_offset = buffers.vertices.len() as Index;
     let index_offset = buffers.indices.len() as Index;
@@ -426,10 +443,11 @@ impl Add for Count {
     }
 }
 
-impl<'l, VertexType, Input, Ctor> GeometryBuilder<Input>
-    for BuffersBuilder<'l, VertexType, Input, Ctor>
+impl<'l, VertexType, IndexType, Input, Ctor> GeometryBuilder<Input>
+    for BuffersBuilder<'l, VertexType, IndexType, Input, Ctor>
 where
     VertexType: 'l + Clone,
+    IndexType: Add + From<VertexId>,
     Ctor: VertexConstructor<Input, VertexType>,
 {
     fn begin_geometry(&mut self) {
@@ -439,8 +457,8 @@ where
 
     fn end_geometry(&mut self) -> Count {
         Count {
-            vertices: self.buffers.vertices.len() as u32 - u32::from(self.vertex_offset),
-            indices: self.buffers.indices.len() as u32 - u32::from(self.index_offset),
+            vertices: self.buffers.vertices.len() as u32 - self.vertex_offset,
+            indices: self.buffers.indices.len() as u32 - self.index_offset,
         }
     }
 
@@ -450,9 +468,9 @@ where
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
-        self.buffers.indices.push(a.offset() + self.vertex_offset);
-        self.buffers.indices.push(b.offset() + self.vertex_offset);
-        self.buffers.indices.push(c.offset() + self.vertex_offset);
+        self.buffers.indices.push((a + self.vertex_offset).into());
+        self.buffers.indices.push((b + self.vertex_offset).into());
+        self.buffers.indices.push((c + self.vertex_offset).into());
     }
 
     fn abort_geometry(&mut self) {
@@ -461,10 +479,11 @@ where
     }
 }
 
-impl<'l, VertexType, InputVertex, InputIndex, Ctor> GeometryReceiver<InputVertex, InputIndex>
-    for BuffersBuilder<'l, VertexType, InputVertex, Ctor>
+impl<'l, VertexType, IndexType, InputVertex, InputIndex, Ctor> GeometryReceiver<InputVertex, InputIndex>
+    for BuffersBuilder<'l, VertexType, IndexType, InputVertex, Ctor>
 where
     VertexType: 'l + Clone,
+    IndexType: From<VertexId>,
     Ctor: VertexConstructor<InputVertex, VertexType>,
     InputVertex: Clone,
     InputIndex: Into<VertexId> + Clone,
@@ -479,7 +498,7 @@ where
             self.buffers.vertices.push(vertex);
         }
         for idx in indices {
-            self.buffers.indices.push(idx.clone().into().offset());
+            self.buffers.indices.push(IndexType::from(idx.clone().into()));
         }
     }
 }
@@ -589,7 +608,7 @@ fn test_simple_quad() {
     }
 
 
-    let mut buffers: VertexBuffers<Vertex2d> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Vertex2d, u32> = VertexBuffers::new();
     let red = [1.0, 0.0, 0.0, 1.0];
     let green = [0.0, 1.0, 0.0, 1.0];
 
@@ -664,7 +683,7 @@ fn test_closure() {
 
     let translation = vector(1.0, 0.0);
 
-    let mut buffers: VertexBuffers<Point> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
     {
         // A builder that just translates all vertices by `translation`.

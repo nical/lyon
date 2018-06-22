@@ -9,7 +9,7 @@ const DEFAULT_FMT: &str = "vertices: [@vertices{sep=, }{fmt=({position.x}, {posi
 pub fn format_output(
     fmt_string: Option<&str>,
     precision: Option<usize>,
-    buffers: &VertexBuffers<Point>,
+    buffers: &VertexBuffers<Point, u16>,
 ) -> String {
     let fmt = fmt_string.unwrap_or(DEFAULT_FMT).split('@');
     let extract = Regex::new(r"^(.*)\{sep=(.+?)\}\{fmt=(.*)\}$").unwrap();
