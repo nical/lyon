@@ -657,6 +657,10 @@ pub fn fill_ellipse(
     options: &FillOptions,
     output: &mut GeometryBuilder<FillVertex>,
 ) -> Count {
+    if radii.x == radii.y {
+        return fill_circle(center, radii.x, options, output);
+    }
+
     // TODO: This is far from optimal compared to the circle tessellation, but it
     // correctly takes the tolerance threshold into account which is harder to do
     // than with circles.
