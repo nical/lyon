@@ -1,6 +1,7 @@
 use path::{PathEvent, QuadraticEvent, FlattenedEvent};
-use std::f32;
 use math::{Point, point, vector, Rect};
+use geom::{QuadraticBezierSegment, CubicBezierSegment, Arc};
+use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
 pub fn fast_bounding_rect<Iter, Evt>(path: Iter) -> Rect
@@ -25,6 +26,7 @@ where
     }
 }
 
+#[doc(Hidden)]
 pub trait FastBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
@@ -46,10 +48,9 @@ impl FastBoundingRect for PathEvent {
                 *max = Point::max(*max, Point::max(*ctrl1, Point::max(*ctrl2, *to)));
             }
             PathEvent::Arc(center, radii, _, _) => {
-                let rmax = f32::max(f32::abs(radii.x), f32::abs(radii.y));
-                let rmin = f32::min(f32::abs(radii.x), f32::abs(radii.y));
-                *max = Point::max(*max, *center - vector(rmax, rmax));
-                *min = Point::min(*min, *center - vector(rmin, rmin));
+                let r = f32::max(f32::abs(radii.x), f32::abs(radii.y));
+                *max = Point::max(*max, *center + vector(r, r));
+                *min = Point::min(*min, *center - vector(r, r));
             }
             PathEvent::Close => {}
         }
@@ -82,6 +83,123 @@ impl FastBoundingRect for FlattenedEvent {
                 *max = Point::max(*max, *to);
             }
             FlattenedEvent::Close => {}
+        }
+    }
+}
+
+pub fn bounding_rect<Iter, Evt>(path: Iter) -> Rect
+where
+    Iter: Iterator<Item=Evt>,
+    Evt: TightBoundingRect,
+{
+    let mut current = point(0.0, 0.0);
+    let mut first = point(0.0, 0.0);
+    let mut min = point(f32::MAX, f32::MAX);
+    let mut max = point(f32::MIN, f32::MIN);
+
+    for evt in path {
+        evt.min_max(&mut current, &mut first, &mut min, &mut max);
+    }
+
+    // Return an empty rectangle by default if there was no event in the path.
+    if min == point(f32::MAX, f32::MAX) {
+        return Rect::zero();
+    }
+
+    Rect {
+        origin: min,
+        size: (max - min).to_size(),
+    }
+}
+
+#[doc(Hidden)]
+pub trait TightBoundingRect {
+    fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point);
+}
+
+impl TightBoundingRect for PathEvent {
+    fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point) {
+        match self {
+            PathEvent::MoveTo(to) => {
+                *min = Point::min(*min, *to);
+                *max = Point::max(*max, *to);
+                *current = *to;
+                *first = *to;
+            }
+            PathEvent::LineTo(to) => {
+                *min = Point::min(*min, *to);
+                *max = Point::max(*max, *to);
+                *current = *to;
+            }
+            PathEvent::QuadraticTo(ctrl, to) => {
+                let r = QuadraticBezierSegment {
+                    from: *current,
+                    ctrl: *ctrl,
+                    to: *to,
+                }.bounding_rect();
+                *min = Point::min(*min, r.origin);
+                *max = Point::max(*max, r.bottom_right());
+                *current = *to;
+            }
+            PathEvent::CubicTo(ctrl1, ctrl2, to) => {
+                let r = CubicBezierSegment {
+                    from: *current,
+                    ctrl1: *ctrl1,
+                    ctrl2: *ctrl2,
+                    to: *to,
+                }.bounding_rect();
+                *min = Point::min(*min, r.origin);
+                *max = Point::max(*max, r.bottom_right());
+                *current = *to;
+            }
+            PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
+                let start_angle = (*center - *current).angle_from_x_axis();
+                let arc = Arc {
+                    center: *center,
+                    radii: *radii,
+                    start_angle,
+                    sweep_angle: *sweep_angle,
+                    x_rotation: *x_rotation,
+                };
+                let r = arc.bounding_rect();
+                *min = Point::min(*min, r.origin);
+                *max = Point::max(*max, r.bottom_right());
+                *current = arc.to();
+            }
+            PathEvent::Close => {
+                *current = *first;
+            }
+        }
+    }
+}
+
+impl TightBoundingRect for QuadraticEvent {
+    fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point) {
+        match self {
+            QuadraticEvent::MoveTo(to) => {
+                *min == Point::min(*min, *to);
+                *max == Point::max(*max, *to);
+                *current = *to;
+                *first = *to;
+            }
+            QuadraticEvent::LineTo(to) => {
+                *min == Point::min(*min, *to);
+                *max == Point::max(*max, *to);
+                *current = *to;
+            }
+            QuadraticEvent::QuadraticTo(ctrl, to) => {
+                let r = QuadraticBezierSegment {
+                    from: *current,
+                    ctrl: *ctrl,
+                    to: *to,
+                }.bounding_rect();
+                *min == Point::min(*min, r.origin);
+                *max == Point::max(*max, r.bottom_right());
+                *current = *to;
+            }
+            QuadraticEvent::Close => {
+                *current = *first;
+            }
         }
     }
 }

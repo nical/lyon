@@ -102,7 +102,7 @@ where T: FlatteningStep
         let mut iter = *self;
         loop {
             let t = iter.flattening_step(tolerance);
-            if t == Self::Scalar::one() {
+            if t >= Self::Scalar::one() {
                 call_back(iter.to());
                 break;
             }
@@ -142,7 +142,7 @@ impl<S: Scalar, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
             return None;
         }
         let t = self.curve.flattening_step(self.tolerance);
-        if t == S::ONE {
+        if t >= S::ONE {
             self.done = true;
             return Some(self.curve.to());
         }

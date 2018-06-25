@@ -1,6 +1,5 @@
 
 use math::{Point, Vector, point, vector};
-use geom::utils::vector_angle;
 use geom::{Arc, SvgArc};
 use events::{PathEvent, SvgEvent, FlattenedEvent};
 
@@ -117,7 +116,7 @@ impl PathState {
                 self.curve_to(ctrl2, to);
             }
             PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
-                let start_angle = vector_angle(self.current - center);
+                let start_angle = (self.current - center).angle_from_x_axis() - x_rotation;
                 let arc = Arc {
                     center,
                     radii,

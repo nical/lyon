@@ -1,5 +1,5 @@
 use scalar::{Scalar, Float};
-use generic_math::{Point, Vector, vector, Angle};
+use generic_math::{Point, Vector, vector};
 use arrayvec::ArrayVec;
 
 #[inline]
@@ -49,9 +49,6 @@ pub fn directed_angle<S: Scalar>(v1: Vector<S>, v2: Vector<S>) -> S {
 pub fn directed_angle2<S: Scalar>(center: Point<S>, a: Point<S>, b: Point<S>) -> S {
     directed_angle(a - center, b - center)
 }
-
-#[inline]
-pub fn vector_angle<S: Scalar>(v: Vector<S>) -> Angle<S> { Angle::radians(S::fast_atan2(v.y, v.x)) }
 
 pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S; 3]> {
     let mut result = ArrayVec::new();

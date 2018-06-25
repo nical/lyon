@@ -6,7 +6,7 @@ extern crate glutin;
 extern crate lyon;
 
 use lyon::path::builder::*;
-use lyon::geom::{Line, CubicBezierSegment};
+use lyon::geom::{Line, CubicBezierSegment, Arc};
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
@@ -66,12 +66,30 @@ fn main() {
         vector: vector(100.0, 45.0),
     };
 
-    let intersections = bezier.line_intersections(&line);
-    let num_points = intersections.len() as u16;
+    //let mut builder = SvgPathBuilder::new(Path::builder());
+    //builder.move_to(bezier.from);
+    //builder.cubic_bezier_to(bezier.ctrl1, bezier.ctrl2, bezier.to);
+    //let bezier_path = builder.build();
 
-    let mut builder = SvgPathBuilder::new(Path::builder());
-    builder.move_to(bezier.from);
-    builder.cubic_bezier_to(bezier.ctrl1, bezier.ctrl2, bezier.to);
+    let arc = Arc {
+        center: point(0.0, 0.0),
+        radii: vector(100.0, 100.0),
+        start_angle: Angle::pi(),
+        sweep_angle: Angle::pi(),
+        x_rotation: -Angle::pi() * 0.25,
+    };
+
+    let r = arc.bounding_rect();
+
+    let mut builder = Path::builder();
+    builder.move_to(arc.from());
+    builder.arc(arc.center, arc.radii, arc.sweep_angle, arc.x_rotation);
+    builder.close();
+    builder.move_to(r.origin);
+    builder.line_to(r.top_right());
+    builder.line_to(r.bottom_right());
+    builder.line_to(r.bottom_left());
+    builder.close();
     let bezier_path = builder.build();
 
 
@@ -79,6 +97,16 @@ fn main() {
     builder.move_to(line.point);
     builder.relative_line_to(line.vector);
     let line_path = builder.build();
+
+    //let intersections = bezier.line_intersections(&line);
+    let mut intersections = Vec::new();
+    arc.for_each_local_x_extremum_t(&mut|t| {
+        intersections.push(arc.sample(t));
+    });
+    arc.for_each_local_y_extremum_t(&mut|t| {
+        intersections.push(arc.sample(t));
+    });
+    let num_points = intersections.len() as u16;
 
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 

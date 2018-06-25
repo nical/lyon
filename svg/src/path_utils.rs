@@ -2,7 +2,6 @@ use parser::{StrSpan, FromSpan};
 use parser::path::{Tokenizer, Token};
 
 use path::geom::Arc;
-use path::geom::utils::vector_angle;
 use path::math::{Vector, vector, Point, point, Angle};
 use path::{SvgEvent, ArcFlags};
 use path::builder::*;
@@ -220,7 +219,7 @@ impl PathBuilder for PathSerializer {
         sweep_angle: Angle,
         x_rotation: Angle
     ) {
-        let start_angle = vector_angle(self.current - center);
+        let start_angle = (self.current - center).angle_from_x_axis() - x_rotation;
         let svg = Arc {
             center, radii, start_angle, sweep_angle, x_rotation
         }.to_svg_arc();
