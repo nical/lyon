@@ -1,7 +1,7 @@
 use math_utils::compute_normal;
 use geom::math::*;
 use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
-use geom::utils::{normalized_tangent, directed_angle, vector_angle};
+use geom::utils::{normalized_tangent, directed_angle};
 use geom::euclid::Trig;
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
@@ -264,7 +264,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         sweep_angle: Angle,
         x_rotation: Angle
     ) {
-        let start_angle = vector_angle(self.current - center);
+        let start_angle = (self.current - center).angle_from_x_axis() - x_rotation;
         let mut first = true;
         Arc {
             center,

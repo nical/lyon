@@ -79,7 +79,6 @@
 use math::*;
 use events::{PathEvent, FlattenedEvent, SvgEvent};
 use geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
-use geom::utils::vector_angle;
 
 /// The most basic path building interface. Does not handle any kind of curve.
 pub trait FlatPathBuilder: ::std::marker::Sized {
@@ -317,7 +316,7 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         x_rotation: Angle
     ) {
         let arc = Arc {
-            start_angle: vector_angle(self.current_position() - center),
+            start_angle: (self.current_position() - center).angle_from_x_axis() - x_rotation,
             center, radii, sweep_angle, x_rotation,
         };
         self.last_ctrl = arc.sample(1.0) - arc.sample_tangent(1.0);
@@ -462,7 +461,7 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
         sweep_angle: Angle,
         x_rotation: Angle
     ) {
-        let start_angle = vector_angle(self.current_position() - center);
+        let start_angle = (self.current_position() - center).angle_from_x_axis() - x_rotation;
         Arc {
             center,
             radii,

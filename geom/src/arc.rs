@@ -1,6 +1,7 @@
 //! Elliptic arc related maths and tools.
 
 use std::ops::Range;
+use std::mem::swap;
 
 use Line;
 use scalar::{Scalar, Float, cast};
@@ -266,14 +267,18 @@ impl<S: Scalar> Arc<S> {
         <Self as FlattenedForEach>::for_each_flattened(self, tolerance, call_back);
     }
 
-    /// Finds the interval of the begining of the curve that can be approximated with a
+    /// Finds the interval of the beginning of the curve that can be approximated with a
     /// line segment.
     pub fn flattening_step(&self, tolerance: S) -> S {
+        // cos(theta) = (r - tolerance) / r
+        // angle = 2 * theta
+        // s = angle / sweep
+
         // Here we make the approximation that for small tolerance values we consider
         // the radius to be constant over each approximated segment.
         let r = (self.from() - self.center).length();
-        let a = S::TWO * tolerance * r - tolerance * tolerance;
-        S::acos((a * a) / r)
+        let a = S::TWO * S::acos((r - tolerance) / r);
+        S::min(a / self.sweep_angle.radians, S::ONE)
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -283,13 +288,86 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Returns a conservative rectangle that contains the curve.
-    pub fn bounding_rect(&self) -> Rect<S> {
+    pub fn fast_bounding_rect(&self) -> Rect<S> {
         Transform2D::create_rotation(self.x_rotation).transform_rect(
             &Rect::new(
                 self.center - self.radii,
                 self.radii.to_size() * S::TWO
             )
         )
+    }
+
+    /// Returns a conservative rectangle that contains the curve.
+    pub fn bounding_rect(&self) -> Rect<S> {
+        let from = self.from();
+        let to = self.to();
+        let mut min = Point::min(from, to);
+        let mut max = Point::max(from, to);
+        self.for_each_local_x_extremum_t(&mut|t| {
+            let p = self.sample(t);
+            min.x = S::min(min.x, p.x);
+            max.x = S::max(max.x, p.x);
+        });
+        self.for_each_local_y_extremum_t(&mut|t| {
+            let p = self.sample(t);
+            min.y = S::min(min.y, p.y);
+            max.y = S::max(max.y, p.y);
+        });
+
+        Rect {
+            origin: min,
+            size: (max - min).to_size(),
+        }
+    }
+
+    pub fn for_each_local_x_extremum_t<F>(&self, cb: &mut F)
+    where F: FnMut(S) {
+        let rx = self.radii.x;
+        let ry = self.radii.y;
+        let a1 = Angle::radians(-S::atan(ry * Float::tan(self.x_rotation.radians) / rx));
+        let a2 = Angle::pi() + a1;
+
+        self.for_each_extremum_inner(a1, a2, cb);
+    }
+
+    pub fn for_each_local_y_extremum_t<F>(&self, cb: &mut F)
+    where F: FnMut(S) {
+        let rx = self.radii.x;
+        let ry = self.radii.y;
+        let a1 = Angle::radians(S::atan(ry / (Float::tan(self.x_rotation.radians) * rx)));
+        let a2 = Angle::pi() + a1;
+
+        self.for_each_extremum_inner(a1, a2, cb);
+    }
+
+    fn for_each_extremum_inner<F>(&self, a1: Angle<S>, a2: Angle<S>, cb: &mut F)
+    where F: FnMut(S) {
+        let sweep = self.sweep_angle.radians;
+        let abs_sweep = S::abs(sweep);
+        let sign = S::signum(sweep);
+
+        let mut a1 = (a1 - self.start_angle).positive().radians;
+        let mut a2 = (a2 - self.start_angle).positive().radians;
+        if a1 * sign > a2 * sign {
+            swap(&mut a1, &mut a2);
+        }
+
+        let two_pi = S::TWO * S::PI();
+        if sweep >= S::ZERO {
+            if a1 < abs_sweep {
+                cb(a1 / abs_sweep);
+            }
+            if a2 < abs_sweep {
+                cb(a2 / abs_sweep);
+            }
+        } else  {
+            if a1 > two_pi - abs_sweep {
+                cb(a1 / abs_sweep);
+            }
+            if a2 > two_pi - abs_sweep {
+                cb(a2 / abs_sweep);
+            }
+        }
     }
 
     pub fn bounding_range_x(&self) -> (S, S) {
@@ -299,6 +377,16 @@ impl<S: Scalar> Arc<S> {
 
     pub fn bounding_range_y(&self) -> (S, S) {
         let r = self.bounding_rect();
+        (r.min_y(), r.max_y())
+    }
+
+    pub fn fast_bounding_range_x(&self) -> (S, S) {
+        let r = self.fast_bounding_rect();
+        (r.min_x(), r.max_x())
+    }
+
+    pub fn fast_bounding_range_y(&self) -> (S, S) {
+        let r = self.fast_bounding_rect();
         (r.min_y(), r.max_y())
     }
 
@@ -434,11 +522,11 @@ impl<S: Scalar> Segment for Arc<S> {
 impl<S: Scalar> BoundingRect for Arc<S> {
     type Scalar = S;
     fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
-    fn fast_bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
+    fn fast_bounding_rect(&self) -> Rect<S> { self.fast_bounding_rect() }
     fn bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
     fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
-    fn fast_bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
-    fn fast_bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
+    fn fast_bounding_range_x(&self) -> (S, S) { self.fast_bounding_range_x() }
+    fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
 }
 
 impl<S: Scalar> FlatteningStep for Arc<S> {
@@ -604,4 +692,86 @@ fn test_to_quadratics() {
         },
         1
     );
+}
+
+#[test]
+fn test_bounding_rect() {
+    use euclid::approxeq::ApproxEq;
+    use math::rect;
+
+    fn approx_eq(r1: Rect<f32>, r2: Rect<f32>) -> bool {
+        if !r1.min_x().approx_eq(&r2.min_x()) ||
+           !r1.max_x().approx_eq(&r2.max_x()) ||
+           !r1.min_y().approx_eq(&r2.min_y()) ||
+           !r1.max_y().approx_eq(&r2.max_y()) {
+            println!("\n   left: {:?}\n   right: {:?}", r1, r2);
+            return false;
+        }
+
+        true
+    }
+
+    let r = Arc {
+        center: point(0.0, 0.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::pi(),
+        x_rotation: Angle::zero(),
+    }.bounding_rect();
+    assert!(approx_eq(r, rect(-1.0, 0.0, 2.0, 1.0)));
+
+    let r = Arc {
+        center: point(0.0, 0.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::pi(),
+        x_rotation: Angle::pi(),
+    }.bounding_rect();
+    assert!(approx_eq(r, rect(-1.0, -1.0, 2.0, 1.0)));
+
+    let r = Arc {
+        center: point(0.0, 0.0),
+        radii: vector(2.0, 1.0),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::pi(),
+        x_rotation: Angle::pi() * 0.5,
+    }.bounding_rect();
+    assert!(approx_eq(r, rect(-1.0, -2.0, 1.0, 4.0)));
+
+    let r = Arc {
+        center: point(1.0, 1.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::pi(),
+        sweep_angle: Angle::pi(),
+        x_rotation: -Angle::pi() * 0.25,
+    }.bounding_rect();
+    assert!(approx_eq(r, rect(0.0, 0.0, 1.707107, 1.707107)));
+
+    let mut angle = Angle::zero();
+    for _ in 0..10 {
+        println!("angle: {:?}", angle);
+        let r = Arc {
+            center: point(0.0, 0.0),
+            radii: vector(4.0, 4.0),
+            start_angle: angle,
+            sweep_angle: Angle::pi() * 2.0,
+            x_rotation: Angle::pi() * 0.25,
+        }.bounding_rect();
+        assert!(approx_eq(r, rect(-4.0, -4.0, 8.0, 8.0)));
+        angle += Angle::pi() * 2.0 / 10.0;
+    }
+
+    let mut angle = Angle::zero();
+    for _ in 0..10 {
+        println!("angle: {:?}", angle);
+        let r = Arc {
+            center: point(0.0, 0.0),
+            radii: vector(4.0, 4.0),
+            start_angle: Angle::zero(),
+            sweep_angle: Angle::pi() * 2.0,
+            x_rotation: angle,
+        }.bounding_rect();
+        assert!(approx_eq(r, rect(-4.0, -4.0, 8.0, 8.0)));
+        angle += Angle::pi() * 2.0 / 10.0;
+    }
 }

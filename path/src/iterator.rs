@@ -56,7 +56,7 @@
 //!
 //!     // Make it an iterator over even simpler primitives: FlattenedEvent,
 //!     // which do not contain any curve. To do so we approximate each curve
-//!     // linear segments according to a tolerance threashold which controls
+//!     // linear segments according to a tolerance threshold which controls
 //!     // the tradeoff between fidelity of the approximation and amount of
 //!     // generated events. Let's use a tolerance threshold of 0.01.
 //!     // The beauty of this approach is that the flattening happens lazily
@@ -103,7 +103,6 @@ use std::iter;
 use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
-use geom::utils::vector_angle;
 use geom::arc;
 use walk;
 use builder::FlatPathBuilder;
@@ -314,7 +313,7 @@ where
                 self.next()
             }
             Some(PathEvent::Arc(center, radii, sweep_angle, x_rotation)) => {
-                let start_angle = vector_angle(current - center);
+                let start_angle = (current - center).angle_from_x_axis() - x_rotation;
                 self.current_curve = TmpFlatteningIter::Arc(
                     arc::Arc {
                         center, radii,
