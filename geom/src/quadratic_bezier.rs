@@ -7,6 +7,7 @@ use segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
 use segment;
 
 use std::ops::Range;
+use std::mem;
 
 /// A flattening iterator for quadratic bézier segments.
 pub type Flattened<S> = segment::Flattened<S, QuadraticBezierSegment<S>>;
@@ -292,6 +293,59 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// current point.
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
         Flattened::new(*self, tolerance)
+    }
+
+    /// Invokes a callback between each monotonic part of the segment.
+    pub fn for_each_monotonic_t<F>(&self, mut cb: F)
+    where
+        F: FnMut(S),
+    {
+        let mut t0 = self.local_x_extremum_t();
+        let mut t1 = self.local_x_extremum_t();
+
+        let swap = match (t0, t1) {
+            (None, Some(_)) => { true }
+            (Some(tx), Some(ty)) => { tx > ty }
+            _ => { false }
+        };
+
+        if swap {
+            mem::swap(&mut t0, &mut t1);
+        }
+
+        if let Some(t) = t0 {
+            if t < S::ONE {
+                cb(t);
+            }
+        }
+
+        if let Some(t) = t1 {
+            if t < S::ONE {
+                cb(t);
+            }
+        }
+    }
+
+    /// Invokes a callback for each monotonic part of the segment..
+    pub fn for_each_monotonic_range<F>(&self, mut cb: F)
+    where
+        F: FnMut(Range<S>),
+    {
+        let mut t0 = S::ZERO;
+        self.for_each_monotonic_t(|t| {
+            cb(t0..t);
+            t0 = t;
+        });
+        cb(t0..S::ONE);
+    }
+
+    pub fn for_each_monotonic<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&Monotonic<QuadraticBezierSegment<S>>)
+    {
+        self.for_each_monotonic_range(|range| {
+            cb(&self.split_range(range).assume_monotonic())
+        });
     }
 
     /// Compute the length of the segment using a flattened approximation.
