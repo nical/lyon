@@ -13,7 +13,7 @@ use QuadraticBezierSegment;
 /// A flattening iterator for arc segments.
 pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
 
-/// An ellipic arc curve segment using the SVG's end-point notation.
+/// An elliptic arc curve segment using the SVG's end-point notation.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct SvgArc<S> {
@@ -24,7 +24,7 @@ pub struct SvgArc<S> {
     pub flags: ArcFlags,
 }
 
-/// An ellipic arc curve segment.
+/// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Arc<S> {

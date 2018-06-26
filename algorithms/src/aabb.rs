@@ -1,9 +1,14 @@
+//! Bounding rectangle computation for paths.
+
 use path::{PathEvent, QuadraticEvent, FlattenedEvent};
 use math::{Point, point, vector, Rect};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, Arc};
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
+///
+/// This bounding rectangle approximation is faster but less precise than
+/// [`building_rect`](fn.bounding_rect.html).
 pub fn fast_bounding_rect<Iter, Evt>(path: Iter) -> Rect
 where
     Iter: Iterator<Item=Evt>,
@@ -87,6 +92,7 @@ impl FastBoundingRect for FlattenedEvent {
     }
 }
 
+/// Computes the smallest axis-aligned rectangle that contains the path.
 pub fn bounding_rect<Iter, Evt>(path: Iter) -> Rect
 where
     Iter: Iterator<Item=Evt>,
