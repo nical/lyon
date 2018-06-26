@@ -3,6 +3,7 @@ use path::builder::{FlatPathBuilder, PathBuilder};
 use geom::LineSegment;
 use geom::math::{Point, Vector, point, vector};
 use geom::euclid::{Angle, Rotation2D};
+use std::marker::PhantomData;
 
 use std::cmp::Ordering;
 use std::mem;
@@ -28,7 +29,7 @@ pub struct HatchingOptions {
     pub compute_tangents: bool,
 
     /// The origin of the rotated uv coordinates.
-    pub uv_origin: [f32; 2],
+    pub uv_origin: Point,
 
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a StrokeOptions without calling the constructor.
@@ -44,12 +45,13 @@ impl HatchingOptions {
     pub const DEFAULT_TOLERANCE: f32 = 0.1;
     /// Default hatching angle.
     pub const DEFAULT_ANGLE: Angle<f32> = Angle { radians: 0.0 };
+    pub const DEFAULT_UV_ORIGIN: Point = Point { x: 0.0, y: 0.0, _unit: PhantomData };
 
     pub const DEFAULT: Self = HatchingOptions {
         tolerance: Self::DEFAULT_TOLERANCE,
         angle: Self::DEFAULT_ANGLE,
         compute_tangents: true,
-        uv_origin: [0.0, 0.0],
+        uv_origin: Self::DEFAULT_UV_ORIGIN,
         _private: (),
     };
 
@@ -97,7 +99,7 @@ pub struct DotOptions {
     /// Default value: `HatchingOptions::ANGLE`.
     pub angle: Angle<f32>,
     /// The origin of the rotated uv coordinates.
-    pub uv_origin: [f32; 2],
+    pub uv_origin: Point,
 
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a StrokeOptions without calling the constructor.
@@ -113,11 +115,12 @@ impl DotOptions {
     pub const DEFAULT_TOLERANCE: f32 = 0.1;
     /// Default inclination of the dot pattern.
     pub const DEFAULT_ANGLE: Angle<f32> = Angle { radians: 0.0 };
+    pub const DEFAULT_UV_ORIGIN: Point = Point { x: 0.0, y: 0.0, _unit: PhantomData };
 
     pub const DEFAULT: Self = DotOptions {
         tolerance: Self::DEFAULT_TOLERANCE,
         angle: Self::DEFAULT_ANGLE,
-        uv_origin: [0.0, 0.0],
+        uv_origin: Self::DEFAULT_UV_ORIGIN,
         _private: (),
     };
 
@@ -300,7 +303,7 @@ impl Hatcher {
     ) {
         self.transform = Rotation2D::new(-options.angle);
         self.uv_origin = Rotation2D::new(options.angle).transform_point(
-            &options.uv_origin.into()
+            &options.uv_origin
         );
         self.active_edges.clear();
         self.segment.row = 0;
