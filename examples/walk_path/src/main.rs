@@ -14,7 +14,7 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::path::default::Path;
-use lyon::path::walk;
+use lyon::algorithms::walk;
 
 use gfx::traits::{Device, FactoryExt};
 
@@ -158,28 +158,31 @@ fn main() {
 
         let mut i = 0;
         {
-            let mut pattern = walk::RepeatedPattern {
-                callback: |pos: Point, tangent: Vector, _| {
-                    if i >= PRIM_BUFFER_LEN {
-                        // don't want to overflow the primitive buffer,
-                        // just skip the remaining arrows.
-                        return false;
-                    }
-                    cpu_primitives[i] = Primitive {
-                        position: pos.to_array(),
-                        angle: tangent.angle_from_x_axis().get(),
-                        z_index: 1,
-                    };
-                    i += 1;
-                    true
-                },
-                intervals: &[scene.arrow_spacing, 3.0, 3.0],
-                index: 0,
-            };
             let offset = (frame_count as f32 * 0.1).rem(3.0+3.0+scene.arrow_spacing);
             // Walk along the logo and apply the pattern. This will invoke
             // the pattern's callback that fills the primitive buffer.
-            logo_path.path_iter().flattened(0.01).walk(offset, &mut pattern);
+            walk::walk_along_path(
+                logo_path.path_iter().flattened(0.01),
+                offset,
+                &mut walk::RepeatedPattern {
+                    callback: |pos: Point, tangent: Vector, _| {
+                        if i >= PRIM_BUFFER_LEN {
+                            // Don't want to overflow the primitive buffer,
+                            // just skip the remaining arrows.
+                            return false;
+                        }
+                        cpu_primitives[i] = Primitive {
+                            position: pos.to_array(),
+                            angle: tangent.angle_from_x_axis().get(),
+                            z_index: 1,
+                        };
+                        i += 1;
+                        true
+                    },
+                    intervals: &[scene.arrow_spacing, 3.0, 3.0],
+                    index: 0,
+                }
+            );
         }
         path_range.instances = Some((i as u32, 0));
 

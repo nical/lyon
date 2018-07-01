@@ -1,6 +1,6 @@
-//! # Path walking
+//! Move at a defined speed along a path.
 //!
-//! Path walking enables moving along a path.
+//! # Path walking
 //!
 //! ## Overview
 //!
@@ -12,10 +12,10 @@
 //! ## Example
 //!
 //! ```
-//! use lyon_path::walk::RegularPattern;
-//! use lyon_path::default::PathSlice;
-//! use lyon_path::iterator::*;
-//! use lyon_path::math::Point;
+//! use lyon_algorithms::walk::{RegularPattern, walk_along_path};
+//! use lyon_algorithms::path::default::PathSlice;
+//! use lyon_algorithms::path::iterator::*;
+//! use lyon_algorithms::path::math::Point;
 //!
 //! fn dots_along_path(path: PathSlice, dots: &mut Vec<Point>) {
 //!     let mut pattern = RegularPattern {
@@ -29,18 +29,30 @@
 //!
 //!     let tolerance = 0.01; // The path flattening tolerance.
 //!     let start_offset = 0.0; // Start walking at the beginning of the path.
-//!     path.path_iter()
-//!         .flattened(tolerance)
-//!         .walk(start_offset, &mut pattern);
+//!     walk_along_path(
+//!         path.path_iter().flattened(tolerance),
+//!         start_offset,
+//!         &mut pattern
+//!     );
 //! }
 //!
 //! ```
 //!
 
 use math::*;
-use builder::FlatPathBuilder;
+use path::builder::FlatPathBuilder;
+use path::FlattenedEvent;
 
 use std::f32;
+
+/// Walks along the path staring at offset `start` and applies a `Pattern`.
+pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut Pattern)
+where Iter: Iterator<Item=FlattenedEvent> {
+    let mut walker = PathWalker::new(start, pattern);
+    for evt in path {
+        walker.flat_event(evt);
+    }
+}
 
 /// Types implementing the `Pattern` can be used to walk along a path
 /// at constant speed.
