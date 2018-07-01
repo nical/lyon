@@ -1,6 +1,6 @@
-//! # Lyon path iterators
+//! Tools to iterate over paths.
 //!
-//! Tools to iterate over path objects.
+//! # Lyon path iterators
 //!
 //! ## Overview
 //!
@@ -104,8 +104,6 @@ use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
 use geom::arc;
-use walk;
-use builder::FlatPathBuilder;
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
@@ -164,14 +162,6 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     /// Returns an iterator applying a 2D transform to all of its events.
     fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
         Transformed::new(mat, self)
-    }
-
-    /// Walks along the path staring from `start` and applies a `Pattern`.
-    fn walk(self, start: f32, pattern: &mut walk::Pattern) {
-        let mut walker = walk::PathWalker::new(start, pattern);
-        for evt in self {
-            walker.flat_event(evt);
-        }
     }
 }
 

@@ -8,6 +8,7 @@
 pub extern crate lyon_path as path;
 
 pub mod hatching;
+pub mod walk;
 pub mod aabb;
 
 pub use path::math;
