@@ -6,7 +6,7 @@ use lyon::tessellation;
 use lyon::algorithms::hatching::*;
 use lyon::path::default::Path;
 use lyon::path::builder::*;
-use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator};
+use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
 use lyon::tess2;
 
 use gfx;
@@ -96,6 +96,12 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             }
         }
     }
+
+    let (bg_color, vignette_color) = match render_options.background {
+        Background::Blue => ([0.0, 0.47, 0.9, 1.0], [0.0, 0.1, 0.64, 1.0]),
+        Background::Clear => ([0.9, 0.9, 0.9, 1.0], [0.5, 0.5, 0.5, 1.0]),
+        Background::Dark => ([0.05, 0.05, 0.05, 1.0], [0.0, 0.0, 0.0, 1.0]),
+    };
 
     if geometry.vertices.is_empty() {
         println!("No geometry to show");
@@ -201,6 +207,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 resolution: [w as f32, h as f32],
                 zoom: scene.zoom,
                 scroll_offset: scene.scroll.to_array(),
+                bg_color,
+                vignette_color,
             },
         );
 
@@ -262,6 +270,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
 gfx_defines!{
     constant Globals {
+        bg_color: [f32; 4] = "u_bg_color",
+        vignette_color: [f32; 4] = "u_vignette_color",
         resolution: [f32; 2] = "u_resolution",
         scroll_offset: [f32; 2] = "u_scroll_offset",
         zoom: f32 = "u_zoom",
@@ -323,6 +333,8 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
 static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     #version 140
     uniform Globals {
+        vec4 u_bg_color;
+        vec4 u_vignette_color;
         vec2 u_resolution;
         vec2 u_scroll_offset;
         float u_zoom;
@@ -333,11 +345,10 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     void main() {
         vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
 
-        // #005fa4
         float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
         out_color = mix(
-            vec4(0.0, 0.47, 0.9, 1.0),
-            vec4(0.0, 0.1, 0.64, 1.0),
+            u_bg_color,
+            u_vignette_color,
             vignette
         );
 
@@ -367,6 +378,8 @@ pub static VERTEX_SHADER: &'static str = &"
     #define PRIM_BUFFER_LEN 64
 
     uniform Globals {
+        vec4 u_bg_color;
+        vec4 u_vignette_color;
         vec2 u_resolution;
         vec2 u_scroll_offset;
         float u_zoom;
@@ -474,7 +487,7 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
     use glutin::WindowEvent;
 
     let mut status = true;
-    
+
     events_loop.poll_events(|event| {
         match event {
             Event::WindowEvent {

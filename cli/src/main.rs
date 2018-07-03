@@ -141,6 +141,12 @@ fn main() {
                 .value_name("ANTIALIASING")
                 .takes_value(true)
             )
+            .arg(Arg::with_name("BACKGROUND")
+                .long("background")
+                .value_name("Blue|Dark|Clear")
+                .help("Change the color of the window's background")
+                .takes_value(true)
+            )
         )
         .get_matches();
 
@@ -340,6 +346,7 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
         } else {
             AntiAliasing::Msaa(8)
         },
+        background: get_background(matches),
     }
 }
 
@@ -398,6 +405,19 @@ fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
         return Some(options);
     }
     return None;
+}
+
+fn get_background(matches: &ArgMatches) -> Background {
+    if let Some(name) = matches.value_of("BACKGROUND") {
+        return match &name {
+            &"Blue" | &"blue" => Background::Blue,
+            &"Dark" | &"dark" => Background::Dark,
+            &"Clear" | &"clear" => Background::Clear,
+            _ => Background::Blue,
+        };
+    }
+
+    Background::Blue
 }
 
 fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {

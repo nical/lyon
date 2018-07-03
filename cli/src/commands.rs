@@ -43,6 +43,7 @@ pub enum AntiAliasing {
 #[derive(Clone, Debug)]
 pub struct RenderCmd {
     pub aa: AntiAliasing,
+    pub background: Background,
 }
 
 pub struct PathCmd {
@@ -61,4 +62,11 @@ pub struct FuzzCmd {
     pub max_points: Option<u32>,
     pub tessellator: Tessellator,
     pub ignore_errors: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Background {
+    Blue,
+    Clear,
+    Dark,
 }
