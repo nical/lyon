@@ -4,6 +4,7 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::algorithms::hatching::*;
+use lyon::algorithms::aabb::bounding_rect;
 use lyon::path::default::Path;
 use lyon::path::builder::*;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
@@ -177,11 +178,14 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let gpu_primitives = factory.create_constant_buffer(2);
     let constants = factory.create_constant_buffer(1);
 
+    let aabb = bounding_rect(cmd.path.iter());
+    let center = aabb.origin.lerp(aabb.bottom_right(), 0.5).to_vector();
+
     let mut scene = SceneParams {
         target_zoom: 1.0,
         zoom: 0.1,
-        target_scroll: vector(0.0, 0.0),
-        scroll: vector(0.0, 0.0),
+        target_scroll: center,
+        scroll: center,
         show_points: false,
         show_wireframe: false,
         stroke_width,
