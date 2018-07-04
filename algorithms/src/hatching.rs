@@ -377,7 +377,7 @@ impl Hatcher {
         self.segment.v = y - self.uv_origin.y;
 
         for active_edge in &self.active_edges {
-            if active_edge.to.y < y {
+            if active_edge.to.y <= y {
                 // TODO: we don't remove the edges during merge events so we can
                 // end up with extra edges that end above the sweep line and have
                 // to skip them. It would be better to properly manage the sweep
