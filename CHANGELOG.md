@@ -1,9 +1,29 @@
 ## Change log
 
+### v0.11.0 (2018-07-05)
+  - [tessellation] Move the VertexId representation from u16 to u32.
+  - [tessellation] Fix a circle tessellation bug with large tolerance values.
+  - [tessellation] Add a fast path for ellipses when the radii are equal.
+  - [algorithms] Added the lyon_algorithms crate.
+  - [algorithms] Implement a hatching pattern fill algorithm.
+  - [algorithms] Implement a dotted pattern fill algorithm.
+  - [algorithms] Implement path bounding rectangles.
+  - [algorithms] Implement rectangle fitting transform computation.
+  - [algorithms] Move path walking to the algorithms crate.
+  - [geom] Implement callback based iteration over the monotonic parts of an arc.
+  - [geom] Add LineSegment::set_length.
+  - [geom] Fix an elliptic arc bug.
+  - [geom] Implement precise elliptic arc bounding rectangle.
+  - [cli] Add support for custom formatting in the tessellate command.
+  - [cli] Allow changing the background in the show command.
+  - [cli] Automatically position the view in the show command.
+  - [examples] Add a simple SVG rendering example.
+  - [misc] Update usvg and euclid dependencies.
+
 ### v0.10.0 (2018-02-28)
   - [geom] Fix several arc bugs.
   - [geom] Implement a much better cubic to quadratic bézier approximation.
-  - [geom] Implement iteating over the monotonic parts of a bézier curve.
+  - [geom] Implement iterating over the monotonic parts of a bézier curve.
   - [geom] A few API changes.
   - [lyon] Make serde optional for all crates ("serialization" feature flags).
   - [tessellation] Implement better error handling.
