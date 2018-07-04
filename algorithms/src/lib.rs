@@ -1,6 +1,6 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 
-//! 2D Path transformation and manipulation algorithms.
+//! 2d Path transformation and manipulation algorithms.
 //!
 
 // TODO doc!
