@@ -17,11 +17,11 @@
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
 //!   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
 //!   **lyon_path** - Tools to build and iterate over paths.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
-//!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
-//!   **lyon_algorithms** - Various 2d path related algorithms.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_algorithms)](https://crates.io/crates/lyon_algorithms)
 //!   [![doc](https://docs.rs/lyon_algorithms/badge.svg)](https://docs.rs/lyon_algorithms) -
+//!   **lyon_algorithms** - Various 2d path related algorithms.
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_geom)](https://crates.io/crates/lyon_geom)
+//!   [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
 //!   **lyon_geom** - 2d utilities for cubic and quadratic bézier curves, arcs and more.
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
 //!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
