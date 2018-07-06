@@ -1,5 +1,12 @@
-use math::*;
+//! Fit paths into rectangles.
 
+use math::*;
+use aabb::bounding_rect;
+use path::default::Path;
+use path::iterator::*;
+use path::builder::*;
+
+/// The strategy to use when fitting (stretching, overflow, etc.)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FitStyle {
     /// Stretch vertically and horizontally to fit the destination rectangle exactly.
@@ -14,6 +21,7 @@ pub enum FitStyle {
     Vertical,
 }
 
+/// Computes a transform that fits a rectangle into another one.
 pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Transform2D {
     let scale: Vector = vector(
         dst_rect.size.width / src_rect.size.width,
@@ -40,6 +48,19 @@ pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Trans
     Transform2D::create_translation(-src_center.x, -src_center.y)
         .post_scale(scale.x, scale.y)
         .post_translate(dst_center.to_vector())
+}
+
+/// Fits a path into a rectangle.
+pub fn fit_path(path: &Path, output_rect: &Rect, style: FitStyle) -> Path {
+    let aabb = bounding_rect(path.iter());
+    let transform = fit_rectangle(&aabb, output_rect, style);
+
+    let mut builder = Path::builder();
+    for evt in path.path_iter().transformed(&transform) {
+        builder.path_event(evt)
+    }
+
+    builder.build()
 }
 
 #[test]
@@ -97,3 +118,4 @@ fn simple_fit() {
         &rect(0.0, -1.0, 4.0, 4.0)
     ));
 }
+
