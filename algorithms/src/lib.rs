@@ -6,7 +6,10 @@
 // TODO doc!
 
 pub extern crate lyon_path as path;
+extern crate sid;
 
+pub mod advanced_path;
+pub mod splitter;
 pub mod hatching;
 pub mod walk;
 pub mod aabb;
