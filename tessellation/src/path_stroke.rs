@@ -93,7 +93,7 @@ impl StrokeTessellator {
         &mut self,
         input: Input,
         options: &StrokeOptions,
-        builder: &mut GeometryBuilder<Vertex>,
+        builder: &mut dyn GeometryBuilder<Vertex>,
     ) -> Count
     where
         Input: PathIterator,
@@ -140,7 +140,7 @@ pub struct StrokeBuilder<'l> {
     sub_path_start_length: f32,
     options: StrokeOptions,
     previous_command_was_move: bool,
-    output: &'l mut GeometryBuilder<Vertex>,
+    output: &'l mut dyn GeometryBuilder<Vertex>,
 }
 
 impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
@@ -285,7 +285,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
 impl<'l> StrokeBuilder<'l> {
     pub fn new(
         options: &StrokeOptions,
-        builder: &'l mut GeometryBuilder<Vertex>,
+        builder: &'l mut dyn GeometryBuilder<Vertex>,
     ) -> Self {
         let zero = Point::new(0.0, 0.0);
         StrokeBuilder {
@@ -883,7 +883,7 @@ fn tess_round_cap(
     side: Side,
     line_width: f32,
     invert_winding: bool,
-    output: &mut GeometryBuilder<Vertex>
+    output: &mut dyn GeometryBuilder<Vertex>
 ) {
     if num_recursions == 0 {
         return;

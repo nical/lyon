@@ -1,4 +1,5 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+#![deny(bare_trait_objects)]
 
 //! Alternative fill tessellation implementation using
 //! [libtess2](https://github.com/memononen/libtess2).

@@ -316,7 +316,7 @@ impl FillTessellator {
         &mut self,
         it: Iter,
         options: &FillOptions,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) -> FillResult
     where
         Iter: PathIterator,
@@ -335,7 +335,7 @@ impl FillTessellator {
         &mut self,
         events: &FillEvents,
         options: &FillOptions,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) -> FillResult {
         if options.fill_rule != FillRule::EvenOdd {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
@@ -379,7 +379,7 @@ impl FillTessellator {
         self.pending_edges.clear();
     }
 
-    fn begin_tessellation(&mut self, output: &mut GeometryBuilder<Vertex>) {
+    fn begin_tessellation(&mut self, output: &mut dyn GeometryBuilder<Vertex>) {
         debug_assert!(self.active_edges.is_empty());
         debug_assert!(self.monotone_tessellators.is_empty());
         debug_assert!(self.pending_edges.is_empty());
@@ -388,7 +388,7 @@ impl FillTessellator {
 
     fn end_tessellation(
         &mut self,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) -> Count {
         if self.panic_on_errors() {
             debug_assert!(self.active_edges.is_empty());
@@ -402,7 +402,7 @@ impl FillTessellator {
     fn tessellator_loop(
         &mut self,
         events: &FillEvents,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) {
         self.current_position = TessPoint::new(FixedPoint32::min_val(), FixedPoint32::min_val());
 
@@ -519,7 +519,7 @@ impl FillTessellator {
         &mut self,
         prev: &TessPoint,
         next: &TessPoint,
-        output: &mut GeometryBuilder<Vertex>
+        output: &mut dyn GeometryBuilder<Vertex>
     ) -> VertexId {
         let position = to_f32_point(self.current_position);
         let prev = to_f32_point(*prev);
@@ -534,7 +534,7 @@ impl FillTessellator {
 
     fn process_vertex(
         &mut self,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) {
         // This is where the interesting things happen.
         // We go through the sweep line to find all of the edges that end at the current
@@ -883,7 +883,7 @@ impl FillTessellator {
         &mut self,
         edge_idx: ActiveEdgeId,
         id: VertexId,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) {
         // we are expecting this to be called with the index of the beginning (left side)
         // of a span, so the index should be even. This won't necessary hold true when we
@@ -928,7 +928,7 @@ impl FillTessellator {
         pending_left_id: usize,
         pending_right_id: usize,
         id: VertexId,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) {
         debug_assert!(even(edge_idx));
         // Look whether the span shares a merge vertex with the previous one
@@ -980,7 +980,7 @@ impl FillTessellator {
         &mut self,
         id: VertexId,
         edge_idx: ActiveEdgeId,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) {
         debug_assert!(odd(edge_idx));
         debug_assert!(self.active_edges.has_id(edge_idx + 2));
@@ -1108,7 +1108,7 @@ impl FillTessellator {
         &mut self,
         edge_idx: ActiveEdgeId,
         id: VertexId,
-        output: &mut GeometryBuilder<Vertex>,
+        output: &mut dyn GeometryBuilder<Vertex>,
     ) {
         // This assertion is only valid with the EvenOdd fill rule.
         debug_assert!(even(edge_idx));
@@ -1711,7 +1711,7 @@ impl MonotoneTessellator {
         self.triangles.push((a.id, b.id, c.id));
     }
 
-    fn flush(&mut self, output: &mut GeometryBuilder<Vertex>) {
+    fn flush(&mut self, output: &mut dyn GeometryBuilder<Vertex>) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }

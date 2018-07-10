@@ -41,7 +41,7 @@ pub fn fill_triangle(
     mut v2: Point,
     mut v3: Point,
     _options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -85,7 +85,7 @@ pub fn stroke_triangle(
     v2: Point,
     v3: Point,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>,
+    output: &mut dyn GeometryBuilder<StrokeVertex>,
 ) -> Count {
     stroke_polyline([v1, v2, v3].iter().cloned(), true, options, output)
 }
@@ -98,7 +98,7 @@ pub fn fill_quad(
     v3: Point,
     mut v4: Point,
     _options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -150,7 +150,7 @@ pub fn stroke_quad(
     v3: Point,
     v4: Point,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>,
+    output: &mut dyn GeometryBuilder<StrokeVertex>,
 ) -> Count {
     stroke_polyline([v1, v2, v3, v4].iter().cloned(), true, options, output)
 }
@@ -159,7 +159,7 @@ pub fn stroke_quad(
 pub fn fill_rectangle(
     rect: &Rect,
     _options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -197,7 +197,7 @@ pub fn fill_rectangle(
 pub fn stroke_rectangle(
     rect: &Rect,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>,
+    output: &mut dyn GeometryBuilder<StrokeVertex>,
 ) -> Count {
     stroke_quad(
         rect.origin,
@@ -248,7 +248,7 @@ pub fn fill_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
     options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -375,7 +375,7 @@ fn fill_border_radius(
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
-    output: &mut GeometryBuilder<FillVertex>
+    output: &mut dyn GeometryBuilder<FillVertex>
 ) {
     if num_recursions == 0 {
         return;
@@ -418,7 +418,7 @@ pub fn stroke_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>,
+    output: &mut dyn GeometryBuilder<StrokeVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -530,7 +530,7 @@ pub fn fill_circle(
     center: Point,
     radius: f32,
     options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<FillVertex>,
 ) -> Count {
     output.begin_geometry();
 
@@ -598,7 +598,7 @@ pub fn stroke_circle(
     center: Point,
     radius: f32,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>
+    output: &mut dyn GeometryBuilder<StrokeVertex>
 ) -> Count {
     output.begin_geometry();
 
@@ -655,7 +655,7 @@ pub fn fill_ellipse(
     radii: Vector,
     x_rotation: Angle,
     options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<FillVertex>,
 ) -> Count {
     if radii.x == radii.y {
         return fill_circle(center, radii.x, options, output);
@@ -707,7 +707,7 @@ pub fn stroke_ellipse(
     radii: Vector,
     x_rotation: Angle,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>,
+    output: &mut dyn GeometryBuilder<StrokeVertex>,
 ) -> Count {
     // TODO: This is far from optimal compared to the circle tessellation, but it
     // correctly takes the tolerance threshold into account which is harder to do
@@ -746,7 +746,7 @@ pub fn stroke_ellipse(
 pub fn fill_convex_polyline<Iter>(
     mut it: Iter,
     _options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>
+    output: &mut dyn GeometryBuilder<FillVertex>
 ) -> Count
 where
     Iter: Iterator<Item = Point> + Clone,
@@ -797,7 +797,7 @@ pub fn stroke_polyline<Iter>(
     it: Iter,
     is_closed: bool,
     options: &StrokeOptions,
-    output: &mut GeometryBuilder<StrokeVertex>
+    output: &mut dyn GeometryBuilder<StrokeVertex>
 ) -> Count
 where
     Iter: Iterator<Item = Point>,
@@ -816,7 +816,7 @@ pub fn fill_polyline<Iter>(
     polyline: Iter,
     tessellator: &mut FillTessellator,
     options: &FillOptions,
-    output: &mut GeometryBuilder<FillVertex>
+    output: &mut dyn GeometryBuilder<FillVertex>
 ) -> FillResult
 where
     Iter: Iterator<Item = Point>,

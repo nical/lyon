@@ -291,7 +291,7 @@ impl Hatcher {
         &mut self,
         it: Iter,
         options: &HatchingOptions,
-        output: &mut HatchBuilder,
+        output: &mut dyn HatchBuilder,
     )
     where
         Iter: Iterator<Item = PathEvent>,
@@ -309,7 +309,7 @@ impl Hatcher {
         &mut self,
         it: Iter,
         options: &DotOptions,
-        output: &mut DotBuilder,
+        output: &mut dyn DotBuilder,
     )
     where
         Iter: Iterator<Item = PathEvent>,
@@ -326,7 +326,7 @@ impl Hatcher {
         &mut self,
         events: &HatchingEvents,
         options: &HatchingOptions,
-        output: &mut HatchBuilder
+        output: &mut dyn HatchBuilder
     ) {
         self.transform = Rotation2D::new(-options.angle);
         self.uv_origin = Rotation2D::new(options.angle).transform_point(
@@ -369,7 +369,7 @@ impl Hatcher {
         &mut self,
         events: &HatchingEvents,
         options: &DotOptions,
-        output: &mut DotBuilder
+        output: &mut dyn DotBuilder
     ) {
         let mut dotted = HatchesToDots {
             builder: output,
@@ -394,7 +394,7 @@ impl Hatcher {
         self.active_edges.push(*edge);
     }
 
-    fn hatch_line(&mut self, y: f32, output: &mut HatchBuilder) {
+    fn hatch_line(&mut self, y: f32, output: &mut dyn HatchBuilder) {
         self.active_edges.sort_by_key(|e| { Ordered(e.solve_x_for_y(y)) });
 
         let mut inside = false;
@@ -625,7 +625,7 @@ impl<Cb: FnMut(&HatchSegment)> HatchBuilder for RegularHatchingPattern<Cb> {
 
 // Converts a hatching pattern into a dotted pattern.
 struct HatchesToDots<'l> {
-    builder: &'l mut DotBuilder,
+    builder: &'l mut dyn DotBuilder,
     column: u32,
 }
 

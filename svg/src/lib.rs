@@ -1,4 +1,5 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
+#![deny(bare_trait_objects)]
 
 //! Utilities to facilitate interfacing lyon with SVG.
 //!

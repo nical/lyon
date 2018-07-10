@@ -22,7 +22,7 @@ impl Splitter {
     pub fn segment_split(
         &mut self,
         path: &mut AdvancedPath,
-        selection: &SubPathSelection,
+        selection: &dyn SubPathSelection,
         segment: &LineSegment<f32>
     ) -> Vec<SubPathId> {
         self.intersecting_edges.clear();
