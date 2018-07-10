@@ -240,8 +240,8 @@ impl AdvancedPath {
 
     pub fn for_each_sub_path_id(
         &self,
-        selection: &SubPathSelection,
-        callback: &mut FnMut(&AdvancedPath, SubPathId),
+        selection: &dyn SubPathSelection,
+        callback: &mut dyn FnMut(&AdvancedPath, SubPathId),
     ) {
         for sp in self.sub_path_ids() {
             if selection.sub_path(self, sp) {
@@ -252,8 +252,8 @@ impl AdvancedPath {
 
     pub fn for_each_edge_id(
         &self,
-        selection: &SubPathSelection,
-        callback: &mut FnMut(&AdvancedPath, SubPathId, EdgeId),
+        selection: &dyn SubPathSelection,
+        callback: &mut dyn FnMut(&AdvancedPath, SubPathId, EdgeId),
     ) {
         for sp in self.sub_path_ids() {
             if selection.sub_path(self, sp) {
@@ -304,11 +304,11 @@ impl<'l> EdgeLoop<'l> {
         }
     }
 
-    pub fn for_each(&mut self, callback: &mut FnMut(EdgeId)) {
+    pub fn for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         while self.move_forward() { callback(self.current()); }
     }
 
-    pub fn reverse_for_each(&mut self, callback: &mut FnMut(EdgeId)) {
+    pub fn reverse_for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         while self.move_backward() { callback(self.current()); }
     }
 
@@ -346,11 +346,11 @@ impl<'l> MutEdgeLoop<'l> {
 
     pub fn path(&mut self) -> &mut AdvancedPath { self.path }
 
-    pub fn for_each(&mut self, callback: &mut FnMut(EdgeId)) {
+    pub fn for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         while self.move_forward() { callback(self.current()); }
     }
 
-    pub fn reverse_for_each(&mut self, callback: &mut FnMut(EdgeId)) {
+    pub fn reverse_for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         while self.move_backward() { callback(self.current()); }
     }
 }

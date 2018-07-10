@@ -46,7 +46,7 @@ use path::FlattenedEvent;
 use std::f32;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
-pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut Pattern)
+pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut dyn Pattern)
 where Iter: Iterator<Item=FlattenedEvent> {
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
@@ -79,11 +79,11 @@ pub struct PathWalker<'l> {
     next_distance: f32,
     first: Point,
 
-    pattern: &'l mut Pattern,
+    pattern: &'l mut dyn Pattern,
 }
 
 impl<'l> PathWalker<'l> {
-    pub fn new(start: f32, pattern: &'l mut Pattern) -> PathWalker<'l> {
+    pub fn new(start: f32, pattern: &'l mut dyn Pattern) -> PathWalker<'l> {
         let start = f32::max(start, 0.0);
         PathWalker {
             prev: point(0.0, 0.0),

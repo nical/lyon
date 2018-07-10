@@ -34,7 +34,7 @@ impl FillTessellator {
         &mut self,
         it: Iter,
         options: &FillOptions,
-        output: &mut GeometryReceiver<Point>,
+        output: &mut dyn GeometryReceiver<Point>,
     ) -> Result<Count, ()>
     where
         Iter: PathIterator,
@@ -59,7 +59,7 @@ impl FillTessellator {
         &mut self,
         path: &FlattenedPath,
         options: &FillOptions,
-        output: &mut GeometryReceiver<Point>,
+        output: &mut dyn GeometryReceiver<Point>,
     ) -> Result<Count, ()> {
         self.prepare_path(path);
 
@@ -109,7 +109,7 @@ impl FillTessellator {
         }
     }
 
-    fn process_output(&mut self, output: &mut GeometryReceiver<Point>) -> Count {
+    fn process_output(&mut self, output: &mut dyn GeometryReceiver<Point>) -> Count {
         unsafe {
             let num_indices = tessGetElementCount(self.tess) as usize * 3;
             let num_vertices = tessGetElementCount(self.tess) as usize;
