@@ -6,7 +6,7 @@ dependencies = [
  "gfx_device_gl 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -446,7 +446,7 @@ name = "geom_bench"
 version = "0.0.1"
 dependencies = [
  "bencher 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -468,7 +468,7 @@ dependencies = [
  "gfx_device_gl 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -479,7 +479,7 @@ dependencies = [
  "gfx_device_gl 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -590,7 +590,7 @@ name = "glium_basic"
 version = "0.1.0"
 dependencies = [
  "glium 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -598,7 +598,7 @@ name = "glium_basic_shapes"
 version = "0.1.0"
 dependencies = [
  "glium 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -658,7 +658,7 @@ dependencies = [
  "gfx_device_gl 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
 ]
 
 [[package]]
@@ -760,9 +760,9 @@ dependencies = [
 
 [[package]]
 name = "lyon"
-version = "0.11.1"
+version = "0.11.2"
 dependencies = [
- "lyon_algorithms 0.11.1",
+ "lyon_algorithms 0.11.2",
  "lyon_extra 0.11.0",
  "lyon_svg 0.11.0",
  "lyon_tess2 0.11.0",
@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_algorithms"
-version = "0.11.1"
+version = "0.11.2"
 dependencies = [
  "lyon_path 0.11.0",
  "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -787,7 +787,7 @@ dependencies = [
  "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
  "rand 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1139,7 +1139,7 @@ dependencies = [
  "gfx_device_gl 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
  "usvg 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1259,7 +1259,7 @@ name = "tess_bench"
 version = "0.0.1"
 dependencies = [
  "bencher 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
+ "lyon 0.11.2",
  "tess2-sys 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
