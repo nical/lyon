@@ -183,14 +183,14 @@ impl TightBoundingRect for QuadraticEvent {
     fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point) {
         match self {
             QuadraticEvent::MoveTo(to) => {
-                *min == Point::min(*min, *to);
-                *max == Point::max(*max, *to);
+                *min = Point::min(*min, *to);
+                *max = Point::max(*max, *to);
                 *current = *to;
                 *first = *to;
             }
             QuadraticEvent::LineTo(to) => {
-                *min == Point::min(*min, *to);
-                *max == Point::max(*max, *to);
+                *min = Point::min(*min, *to);
+                *max = Point::max(*max, *to);
                 *current = *to;
             }
             QuadraticEvent::QuadraticTo(ctrl, to) => {
@@ -199,8 +199,8 @@ impl TightBoundingRect for QuadraticEvent {
                     ctrl: *ctrl,
                     to: *to,
                 }.bounding_rect();
-                *min == Point::min(*min, r.origin);
-                *max == Point::max(*max, r.bottom_right());
+                *min = Point::min(*min, r.origin);
+                *max = Point::max(*max, r.bottom_right());
                 *current = *to;
             }
             QuadraticEvent::Close => {
