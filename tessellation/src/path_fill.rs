@@ -490,11 +490,8 @@ impl FillTessellator {
                 self.process_vertex(output);
 
                 if num_intersections != self.intersections.len() {
-                    // We found an intersection durign process_vertex, it has been added
-                    // to self.intersections.
 
-                    // Sort the intersection list.
-                    self.intersections.sort_by(|a, b| compare_positions(a.upper, b.upper));
+                    self.update_intersections();
 
                     // The next position may have changed so we go back to the beginning
                     // of the loop to determine the next position.
@@ -512,6 +509,61 @@ impl FillTessellator {
             } else {
                 return;
             }
+        }
+    }
+
+    #[inline(never)]
+    fn update_intersections(&mut self) {
+        // We found an intersection during process_vertex, it has been added
+        // to self.intersections.
+
+        // Sort the intersection list.
+        self.intersections.sort_by(|a, b| compare_positions(a.upper, b.upper));
+
+        // Because intersections aren't precise, splitting active edges may break
+        // their ordering.
+
+        // Go through the active edges and reorder them if need be.
+        // This is a poor man's sorting implementation that works best when the
+        // set is already sorted which is the vast majority of cases for us.
+        let stop = ActiveEdgeId::new(self.active_edges.len());
+        let mut id = ActiveEdgeId::new(0);
+        let mut prev_x = None;
+        while id.handle < stop.handle {
+            let edge = self.active_edges[id].points;
+            let v = edge.lower - edge.upper;
+
+            // TODO: This doesn't deal well with horizontal edges, skip them for now.
+            if v.y.raw() == 0 {
+                prev_x = None;
+                id = id + 1;
+                continue;
+            }
+
+            // Intersect the edge with the horizontal line passing at the current position.
+            let dy = self.current_position.y - edge.upper.y;
+            // TODO: this division is super high in the profiles when there are many intersections.
+            let x = edge.upper.x + dy.mul_div(v.x, v.y);
+
+            if let Some(px) = prev_x {
+                if px > x {
+                    // Swap.
+                    let tmp = self.active_edges[id - 1];
+                    self.active_edges[id - 1] = self.active_edges[id];
+                    self.active_edges[id] = tmp;
+                    // The edge we moved to the left might not be ordered with edges
+                    // even more to the left, so backtrack the scan.
+                    if id.handle > 1 {
+                        id = id - 2
+                    }
+                    prev_x = None;
+
+                    continue;
+                }
+            }
+
+            id = id + 1;
+            prev_x = Some(x);
         }
     }
 
@@ -1316,8 +1368,8 @@ fn compare_edge_against_position(
     }
 
     // Intersect the edge with the horizontal line passing at the current position.
-    let dy: FixedPoint64 = (position.y - edge.upper.y).to_fp64();
-    let x = edge.upper.x + dy.mul_div(v.x.to_fp64(), v.y.to_fp64()).to_fp32();
+    let dy = position.y - edge.upper.y;
+    let x = edge.upper.x + dy.mul_div(v.x, v.y);
 
     //println!("dx = {} ({})", x - position.x, (x - position.x).raw());
     *on_edge = (x - position.x).abs() <= threshold;

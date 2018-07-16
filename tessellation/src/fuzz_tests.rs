@@ -702,9 +702,10 @@ fn fuzzing_test_case_17() {
 }
 
 #[test]
-#[ignore]
 fn fuzzing_test_case_18() {
     let mut builder = Path::builder();
+
+    // This was fixed by re-sorting the active edges when finding intersections.
 
     builder.move_to(point(447.85165, 671.4307));
     builder.line_to(point(37.19008, 311.777));
