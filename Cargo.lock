@@ -813,11 +813,11 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "arrayvec 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "num-traits 0.1.43 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-traits 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -825,7 +825,7 @@ dependencies = [
 name = "lyon_path"
 version = "0.11.0"
 dependencies = [
- "lyon_geom 0.11.0",
+ "lyon_geom 0.12.0",
  "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
