@@ -1,4 +1,4 @@
-use parser::{StrSpan, FromSpan};
+use parser::xmlparser::{StrSpan, FromSpan};
 use parser::path::{Tokenizer, Token};
 
 use path::geom::Arc;
