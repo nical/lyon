@@ -147,6 +147,12 @@ fn main() {
                 .help("Change the color of the window's background")
                 .takes_value(true)
             )
+            .arg(Arg::with_name("DEBUGGER_2D")
+                .long("enable-debugger-2d")
+                .value_name("filter")
+                .help("Install a debugger 2d on the fill tessellator and display its output")
+                .takes_value(true)
+            )
         )
         .get_matches();
 
@@ -347,6 +353,7 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
             AntiAliasing::Msaa(8)
         },
         background: get_background(matches),
+        debugger: get_debugger(matches),
     }
 }
 
@@ -418,6 +425,18 @@ fn get_background(matches: &ArgMatches) -> Background {
     }
 
     Background::Blue
+}
+
+fn get_debugger(matches: &ArgMatches) -> Option<u32> {
+    if let Some(param) = matches.value_of("DEBUGGER_2D") {
+        return match &param {
+            &"None" => Some(0),
+            &"all" => Some(0xfffff),
+            other => other.parse().ok(),
+        };
+    }
+
+    None
 }
 
 fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {

@@ -189,6 +189,7 @@ extern crate sid;
 
 pub mod basic_shapes;
 pub mod geometry_builder;
+pub mod debugger;
 mod path_fill;
 mod path_stroke;
 mod math_utils;

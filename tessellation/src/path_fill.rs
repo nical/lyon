@@ -34,6 +34,7 @@ use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path::PathEvent;
 use path::builder::{FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
+use debugger::*;
 
 #[cfg(test)]
 use geometry_builder::{VertexBuffers, simple_builder};
@@ -70,6 +71,12 @@ type SpanId = Id<SpanTag, usize>;
 type PendingEdgeId = Id<PendingEdgeTag, usize>;
 type ActiveEdges = IdVec<ActiveEdgeId, ActiveEdge>;
 type EdgesBelow = IdVec<PendingEdgeId, PendingEdge>;
+
+#[cfg(feature="debugger")]
+pub mod dbg {
+    pub const MONOTONE_SPLIT: u32 = 1;
+    pub const INTERSECTION_POINT: u32 = 2;
+}
 
 /// The fill tessellator's result type.
 pub type FillResult = Result<Count, FillError>;
@@ -292,6 +299,9 @@ pub struct FillTessellator {
     tess_pool: Vec<MonotoneTessellator>,
 
     error: Option<FillError>,
+
+    #[cfg(feature="debugger")]
+    debugger: Option<Box<dyn Debugger2D>>,
 }
 
 impl FillTessellator {
@@ -308,6 +318,9 @@ impl FillTessellator {
             options: FillOptions::DEFAULT,
             log: false,
             tess_pool: Vec::with_capacity(8),
+
+            #[cfg(feature="debugger")]
+            debugger: None,
         }
     }
 
@@ -368,6 +381,11 @@ impl FillTessellator {
 
     /// Enable some verbose logging during the tessellation, for debugging purposes.
     pub fn enable_logging(&mut self) { self.log = true; }
+
+    #[cfg(feature="debugger")]
+    pub fn install_debugger(&mut self, dbg: Box<dyn Debugger2D>) {
+        self.debugger = Some(dbg)
+    }
 
     fn panic_on_errors(&self) -> bool {
         self.options.on_error == OnError::Panic
@@ -943,6 +961,9 @@ impl FillTessellator {
         debug_assert!(even(edge_idx));
 
         while self.active_edges[edge_idx + 1].merge {
+            #[cfg(feature="debugger")]
+            self.debugger_monotone_split(&self.active_edges[edge_idx + 2].points.upper, &self.current_position);
+
             //     \ /
             //  \   x   <-- merge vertex
             //   \ :
@@ -988,6 +1009,10 @@ impl FillTessellator {
             let left_span_edge = edge_idx - 1;
             let right_span_edge = edge_idx;
             debug_assert!(self.active_edges[left_span_edge].merge);
+
+            #[cfg(feature="debugger")]
+            self.debugger_monotone_split(&self.active_edges[edge_idx].points.lower, &self.current_position);
+
             //            \ /
             //             x   <-- merge vertex
             //  left_span  :  righ_span
@@ -1025,6 +1050,21 @@ impl FillTessellator {
             let vector_position = to_f32_point(self.current_position);
             self.monotone_tessellators[left_span].vertex(vector_position, id, Side::Right);
             self.monotone_tessellators[right_span].vertex(vector_position, id, Side::Left);
+
+            #[cfg(feature="debugger")]
+            self.debugger_monotone_split(&l2_upper, &self.current_position);
+        }
+    }
+
+    #[cfg(feature="debugger")]
+    fn debugger_monotone_split(&self, a: &TessPoint, b: &TessPoint) {
+        if let Some(ref dbg) = self.debugger {
+            dbg.edge(
+                &to_f32_point(*a),
+                &to_f32_point(*b),
+                DARK_RED,
+                dbg::MONOTONE_SPLIT,
+            );
         }
     }
 
@@ -1152,6 +1192,12 @@ impl FillTessellator {
             active_edge_lower,
             active_edge_winding
         ));
+
+        #[cfg(feature="debugger")] {
+            if let Some(ref mut dbg) = self.debugger {
+                dbg.point(&to_f32_point(intersection), RED, dbg::INTERSECTION_POINT);
+            }
+        }
 
         // We sill sort the intersection vector lazily.
     }

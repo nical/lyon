@@ -28,6 +28,7 @@ path = "src/lib.rs"
 
 [features]
 serialization = ["lyon_tessellation/serialization"]
+debugger = ["lyon_tessellation/debugger"]
 svg = ["lyon_svg"]
 extra = ["lyon_extra"]
 libtess2 = ["lyon_tess2"]

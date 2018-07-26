@@ -44,6 +44,7 @@ pub enum AntiAliasing {
 pub struct RenderCmd {
     pub aa: AntiAliasing,
     pub background: Background,
+    pub debugger: Option<u32>,
 }
 
 pub struct PathCmd {

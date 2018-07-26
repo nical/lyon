@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [features]
 serialization = ["serde", "lyon_path/serialization"]
+debugger = []
 
 [dependencies]
 
