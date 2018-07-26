@@ -123,6 +123,10 @@ impl AdvancedPath {
         self.points.as_slice()
     }
 
+    pub fn edge_from(&self, id: EdgeId) -> VertexId {
+        self.edges[id].vertex
+    }
+
     pub fn edge(&self, id: EdgeId) -> Edge {
         let from = self.edges[id].vertex;
         let to = self.edges[self.edges[id].next].vertex;
@@ -279,6 +283,9 @@ pub struct EdgeLoop<'l> {
     path: &'l AdvancedPath
 }
 
+// TODO: EdgeLoop should ignore the last edge for a non closed, path or provide
+// the information that it's not a real edge.
+
 impl<'l> EdgeLoop<'l> {
     pub fn move_forward(&mut self) -> bool {
         self.current = self.path.edges[self.current].next;
@@ -305,11 +312,21 @@ impl<'l> EdgeLoop<'l> {
     }
 
     pub fn for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
-        while self.move_forward() { callback(self.current()); }
+        loop {
+            callback(self.current());
+            if !self.move_forward() {
+                break;
+            }
+        }
     }
 
     pub fn reverse_for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
-        while self.move_backward() { callback(self.current()); }
+        loop {
+            callback(self.current());
+            if !self.move_backward() {
+                break;
+            }
+        }
     }
 
     pub fn path_iter(&self) ->  SubPathIter {
@@ -347,11 +364,21 @@ impl<'l> MutEdgeLoop<'l> {
     pub fn path(&mut self) -> &mut AdvancedPath { self.path }
 
     pub fn for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
-        while self.move_forward() { callback(self.current()); }
+        loop {
+            callback(self.current());
+            if !self.move_forward() {
+                break;
+            }
+        }
     }
 
     pub fn reverse_for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
-        while self.move_backward() { callback(self.current()); }
+        loop {
+            callback(self.current());
+            if !self.move_backward() {
+                break;
+            }
+        }
     }
 }
 

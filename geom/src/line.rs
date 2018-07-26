@@ -186,6 +186,13 @@ impl<S: Scalar> LineSegment<S> {
             return None;
         }
 
+        if self.to == other.to
+            || self.from == other.from
+            || self.from == other.to
+            || self.to == other.from {
+            return None;
+        }
+
         let v1 = self.to_vector();
         let v2 = other.to_vector();
 
@@ -207,7 +214,7 @@ impl<S: Scalar> LineSegment<S> {
         let t = v3.cross(v2) * sign_v1_cross_v2;
         let u = v3.cross(v1) * sign_v1_cross_v2;
 
-        if t <= S::ZERO || t >= abs_v1_cross_v2 || u <= S::ZERO || u >= abs_v1_cross_v2 {
+        if t < S::ZERO || t > abs_v1_cross_v2 || u < S::ZERO || u > abs_v1_cross_v2 {
             return None;
         }
 
