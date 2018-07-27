@@ -31,6 +31,7 @@ struct SubPath {
     is_closed: bool,
 }
 
+/// A flexible path data structure that can be efficiently traversed and modified.
 #[derive(Clone)]
 pub struct AdvancedPath {
     points: IdVec<VertexId, Point>,
@@ -39,6 +40,7 @@ pub struct AdvancedPath {
 }
 
 impl AdvancedPath {
+    /// Constructor.
     pub fn new() -> Self {
         AdvancedPath {
             points: IdVec::new(),
@@ -47,6 +49,7 @@ impl AdvancedPath {
         }
     }
 
+    /// Add a sub-path from a polyline.
     pub fn add_polyline(&mut self, points: &[Point], is_closed: bool) -> SubPathId {
         let len = points.len() as u16;
         let base = self.edges.len();
@@ -71,6 +74,7 @@ impl AdvancedPath {
         sub_path
     }
 
+    /// Returns an object that can circle around the edges of a sub-path.
     pub fn sub_path_edges(&self, sp: SubPathId) -> EdgeLoop {
         let edge = self.sub_paths[sp].first_edge;
         EdgeLoop {
@@ -80,6 +84,8 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns an object that can circle around the edges of a sub-path, starting from
+    /// a given edge.
     pub fn edge_loop(&self, first_edge: EdgeId) -> EdgeLoop {
         EdgeLoop {
             first: first_edge,
@@ -88,6 +94,8 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns an object that can mutably circle around the edges of a sub-path, starting
+    /// from a given edge.
     pub fn mut_edge_loop(&mut self, first_edge: EdgeId) -> MutEdgeLoop {
         MutEdgeLoop {
             first: first_edge,
@@ -96,6 +104,8 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns an object that can circle around the edge ids of a sub-path, starting from
+    /// a given edge.
     pub fn edge_id_loop(&self, edge_loop: EdgeId) -> EdgeIdLoop {
         EdgeIdLoop {
             path: self,
@@ -105,6 +115,7 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns an object that can circle around the edges ids of a sub-path.
     pub fn sub_path_edge_id_loop(&self, sub_path: SubPathId) -> EdgeIdLoop {
         let edge_loop = self.sub_paths[sub_path].first_edge;
         EdgeIdLoop {
@@ -115,18 +126,22 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns the range of all sub-path ids.
     pub fn sub_path_ids(&self) -> SubPathIdRange {
         self.sub_paths.ids()
     }
 
+    /// Returns a slice of all of the vertices.
     pub fn vertices(&self) -> VertexSlice<Point> {
         self.points.as_slice()
     }
 
+    /// Returns the vertex at the base of a given edge.
     pub fn edge_from(&self, id: EdgeId) -> VertexId {
         self.edges[id].vertex
     }
 
+    /// Returns the vertex ids of an edge.
     pub fn edge(&self, id: EdgeId) -> Edge {
         let from = self.edges[id].vertex;
         let to = self.edges[self.edges[id].next].vertex;
@@ -138,6 +153,7 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns the vertex positions from the vertex ids in an edge.
     pub fn edge_segment(&self, edge: Edge) -> Segment {
         Segment {
             from: self[edge.from],
@@ -146,18 +162,22 @@ impl AdvancedPath {
         }
     }
 
+    /// Returns the vertex positions of an edge.
     pub fn segment(&self, id: EdgeId) -> Segment {
         self.edge_segment(self.edge(id))
     }
 
+    /// Returns the id of the next edge on a sub-path.
     pub fn next_edge_id(&self, edge_id: EdgeId) -> EdgeId {
         self.edges[edge_id].next
     }
 
+    /// Returns the id of the previous edge on a sub-path.
     pub fn previous_edge_id(&self, edge_id: EdgeId) -> EdgeId {
         self.edges[edge_id].prev
     }
 
+    /// Splits an edge inserting a vertex at a given position.
     pub fn split_edge(&mut self, edge_id: EdgeId, position: Point) {
         // ------------e1------------->
         // -----e1----> / -----new---->
@@ -173,6 +193,10 @@ impl AdvancedPath {
         self.edges[edge_id].next = new_edge;
     }
 
+    /// Connects to edges e1 and e2 by inserting an edge that starts after e1 and ends
+    /// before e2.
+    ///
+    /// If connecting edges split a sub-path into two, returns the id of the new sub-path.
     pub fn connect_edges(&mut self, e1: EdgeId, e2: EdgeId) -> Option<SubPathId> {
         //
         //   -e1--> v1 --e1_next->
@@ -242,6 +266,7 @@ impl AdvancedPath {
         return None;
     }
 
+    /// Invokes a callback on each sub-path for a given selection.
     pub fn for_each_sub_path_id(
         &self,
         selection: &dyn SubPathSelection,
@@ -254,6 +279,7 @@ impl AdvancedPath {
         }
     }
 
+    /// Invokes a callback on each edge for a given selection.
     pub fn for_each_edge_id(
         &self,
         selection: &dyn SubPathSelection,
@@ -287,22 +313,30 @@ pub struct EdgeLoop<'l> {
 // the information that it's not a real edge.
 
 impl<'l> EdgeLoop<'l> {
+    /// Moves to the next edge on this sub-path, returning false when looping
+    /// back to the first edge.
     pub fn move_forward(&mut self) -> bool {
         self.current = self.path.edges[self.current].next;
         self.current != self.first
     }
 
+    /// Moves to the previous edge on this sub-path, returning false when
+    /// looping back to the first edge.
     pub fn move_backward(&mut self) -> bool {
         self.current = self.path.edges[self.current].prev;
         self.current != self.first
     }
 
+    /// Returns the current edge id.
     pub fn current(&self) -> EdgeId { self.current }
 
+    /// Returns the first edge id of this edge loop.
     pub fn first(&self) -> EdgeId { self.first }
 
+    /// Returns the borrowed path.
     pub fn path(&self) -> &'l AdvancedPath { self.path }
 
+    /// Creates a new edge loop that starts at the current edge.
     pub fn loop_from_here(&self) -> Self {
         EdgeLoop {
             current: self.current,
@@ -311,6 +345,8 @@ impl<'l> EdgeLoop<'l> {
         }
     }
 
+    /// Invokes a callback for each edge id from the current one to the last edge of
+    /// of the loop included.
     pub fn for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         loop {
             callback(self.current());
@@ -320,6 +356,8 @@ impl<'l> EdgeLoop<'l> {
         }
     }
 
+    /// Invokes a callback for each edge id from the current one to the last edge of
+    /// of the loop included, looping in the opposite direction.
     pub fn reverse_for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         loop {
             callback(self.current());
@@ -329,6 +367,7 @@ impl<'l> EdgeLoop<'l> {
         }
     }
 
+    /// Returns an iterator over the `PathEvent`s of this sub-path.
     pub fn path_iter(&self) ->  SubPathIter {
         let sp = self.path.edges[self.current].sub_path;
         SubPathIter {
@@ -347,22 +386,31 @@ pub struct MutEdgeLoop<'l> {
 }
 
 impl<'l> MutEdgeLoop<'l> {
+    /// Moves to the next edge on this sub-path, returning false when looping
+    /// back to the first edge.
     pub fn move_forward(&mut self) -> bool {
         self.current = self.path.edges[self.current].next;
         self.current != self.first
     }
 
+    /// Moves to the previous edge on this sub-path, returning false when
+    /// looping back to the first edge.
     pub fn move_backward(&mut self) -> bool {
         self.current = self.path.edges[self.current].prev;
         self.current != self.first
     }
 
+    /// Returns the current edge id.
     pub fn current(&self) -> EdgeId { self.current }
 
+    /// Returns the first edge id of this edge loop.
     pub fn first(&self) -> EdgeId { self.first }
 
+    /// Returns the borrowed path.
     pub fn path(&mut self) -> &mut AdvancedPath { self.path }
 
+    /// Invokes a callback for each edge id from the current one to the last edge of
+    /// of the loop included.
     pub fn for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         loop {
             callback(self.current());
@@ -372,6 +420,8 @@ impl<'l> MutEdgeLoop<'l> {
         }
     }
 
+    /// Invokes a callback for each edge id from the current one to the last edge of
+    /// of the loop included, looping in the opposite direction.
     pub fn reverse_for_each(&mut self, callback: &mut dyn FnMut(EdgeId)) {
         loop {
             callback(self.current());
@@ -382,7 +432,7 @@ impl<'l> MutEdgeLoop<'l> {
     }
 }
 
-/// Iterates over the edges around a face.
+/// Iterates over the edges around a sub-path.
 pub struct EdgeIdLoop<'l,> {
     path: &'l AdvancedPath,
     current_edge: EdgeId,
@@ -406,15 +456,18 @@ impl<'l> Iterator for EdgeIdLoop<'l> {
     }
 }
 
+/// Defines selection of sub-paths in an `AdvancedPath`.
 pub trait SubPathSelection {
     fn sub_path(&self, path: &AdvancedPath, sub_path: SubPathId) -> bool;
 }
 
+/// Selects all sub paths of an `AdvancedPath`.
 pub struct AllSubPaths;
 impl SubPathSelection for AllSubPaths {
     fn sub_path(&self, _p: &AdvancedPath, _sp: SubPathId) -> bool { true }
 }
 
+/// An iterator of `PathEvent` for a sub-path of an ~AdvancedPath`
 pub struct SubPathIter<'l> {
     edge_loop: EdgeLoop<'l>,
     start: bool,

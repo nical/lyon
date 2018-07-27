@@ -11,15 +11,20 @@ struct IntersectingEdge {
     t: f32,
 }
 
+/// A context object that can split the sub paths of `AdvancedPath`.
 pub struct Splitter {
     intersecting_edges: Vec<IntersectingEdge>,
 }
 
 impl Splitter {
+    /// Constructor.
     pub fn new() -> Self {
         Splitter { intersecting_edges: Vec::new(), }
     }
 
+    /// Split the selected portions of a path using a line segment.
+    ///
+    /// Returns the ids of the sub paths that were created in the process.
     pub fn split_with_segment(
         &mut self,
         path: &mut AdvancedPath,
@@ -55,6 +60,9 @@ impl Splitter {
         self.split(&line, path)
     }
 
+    /// Split the selected portions of a path using a line.
+    ///
+    /// Returns the ids of the sub paths that were created in the process.
     pub fn split_with_line(
         &mut self,
         path: &mut AdvancedPath,
