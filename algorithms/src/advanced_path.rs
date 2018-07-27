@@ -559,7 +559,7 @@ pub struct SubPathBuilder<'l> {
     path: &'l mut AdvancedPath,
     sub_path: SubPathId,
     current_edge: EdgeId,
-    closed: bool,
+    done: bool,
 }
 
 impl<'l> SubPathBuilder<'l> {
@@ -581,7 +581,7 @@ impl<'l> SubPathBuilder<'l> {
             path,
             sub_path,
             current_edge,
-            closed: false,
+            done: false,
         }
     }
 
@@ -609,24 +609,29 @@ impl<'l> SubPathBuilder<'l> {
     }
 
     pub fn close(mut self) -> SubPathId {
-        self.finish();
+        self.finish(true);
         self.sub_path
     }
 
-    fn finish(&mut self) {
-        if self.closed {
+    pub fn end_sub_path(mut self) -> SubPathId {
+        self.finish(false);
+        self.sub_path
+    }
+
+    fn finish(&mut self, closing: bool) {
+        if self.done {
             return;
         }
+        self.done = true;
         let first_edge = self.path.sub_paths[self.sub_path].first_edge;
         self.path.edges[self.current_edge].next = first_edge;
-        self.closed = true;
+        self.path.sub_paths[self.sub_path].is_closed = closing;
     }
 }
 
 impl<'l> Drop for SubPathBuilder<'l> {
     fn drop(&mut self) {
-        self.finish();
-        self.path.sub_paths[self.sub_path].is_closed = false;
+        self.finish(false);
     }
 }
 
@@ -695,7 +700,6 @@ fn sub_path_builder() {
         builder.line_to(point(1.0, 0.0));
         builder.line_to(point(1.0, 1.0));
         builder.line_to(point(0.0, 1.0));
-        // The builder automatically closes through RAII
     }
 
     let sp = path.sub_path_ids().start();
@@ -706,4 +710,31 @@ fn sub_path_builder() {
     assert_eq!(events[2], PathEvent::LineTo(point(1.0, 1.0)));
     assert_eq!(events[3], PathEvent::LineTo(point(0.0, 1.0)));
     assert_eq!(events.len(), 4);
+}
+
+#[test]
+fn empty_sub_path_1() {
+    let mut path = AdvancedPath::new();
+
+    {
+        SubPathBuilder::move_to(&mut path, point(0.0, 0.0));
+    }
+
+    let sp = path.sub_path_ids().start();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
+
+    assert_eq!(events[0], PathEvent::MoveTo(point(0.0, 0.0)));
+    assert_eq!(events.len(), 1);
+}
+
+#[test]
+fn empty_sub_path_2() {
+    let mut path = AdvancedPath::new();
+    path.add_polyline(&[point(0.0, 0.0)], false);
+
+    let sp = path.sub_path_ids().start();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
+
+    assert_eq!(events[0], PathEvent::MoveTo(point(0.0, 0.0)));
+    assert_eq!(events.len(), 1);
 }
