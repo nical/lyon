@@ -226,12 +226,46 @@ impl<S: Scalar> LineSegment<S> {
 
     #[inline]
     pub fn intersection(&self, other: &Self) -> Option<Point<S>> {
-        self.intersection_t(other).map(|(t, _)|{ self.sample(t) })
+        self.intersection_t(other).map(|(t, _)| self.sample(t))
+    }
+
+    pub fn line_intersection_t(&self, line: &Line<S>) -> Option<S> {
+        let v1 = self.to_vector();
+        let v2 = line.vector;
+
+        let v1_cross_v2 = v1.cross(v2);
+
+        if v1_cross_v2 == S::ZERO {
+            // The segments are parallel
+            return None;
+        }
+
+        let sign_v1_cross_v2 = S::signum(v1_cross_v2);
+        let abs_v1_cross_v2 = S::abs(v1_cross_v2);
+
+        let v3 = line.point - self.from;
+        let t = v3.cross(v2) * sign_v1_cross_v2;
+
+        if t < S::ZERO || t > abs_v1_cross_v2 {
+            return None;
+        }
+
+        Some(t / abs_v1_cross_v2)
+    }
+
+    #[inline]
+    pub fn line_intersection(&self, line: &Line<S>) -> Option<Point<S>> {
+        self.line_intersection_t(line).map(|t| self.sample(t))
     }
 
     #[inline]
     pub fn intersects(&self, other: &Self) -> bool {
         self.intersection_t(other).is_some()
+    }
+
+    #[inline]
+    pub fn intersects_line(&self, line: &Line<S>) -> bool {
+        self.line_intersection_t(line).is_some()
     }
 }
 
