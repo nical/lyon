@@ -13,6 +13,6 @@ path = "src/lib.rs"
 
 [dependencies]
 
-lyon_path = { version = "0.11.0", path = "../path" }
+lyon_path = { version = "0.12.0", path = "../path" }
 
 svgparser = "0.8"
