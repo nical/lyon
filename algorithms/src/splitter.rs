@@ -20,7 +20,7 @@ impl Splitter {
         Splitter { intersecting_edges: Vec::new(), }
     }
 
-    pub fn segment_split(
+    pub fn split_with_segment(
         &mut self,
         path: &mut AdvancedPath,
         selection: &dyn SubPathSelection,
@@ -52,6 +52,44 @@ impl Splitter {
             }
         });
 
+        self.split(&line, path)
+    }
+
+    pub fn split_with_line(
+        &mut self,
+        path: &mut AdvancedPath,
+        selection: &dyn SubPathSelection,
+        line: &Line<f32>
+    ) -> Vec<SubPathId> {
+        self.intersecting_edges.clear();
+
+        let v = line.vector;
+
+        // Find the edges that intersect the segment.
+        path.for_each_edge_id(selection, &mut|path, _sub_path, edge_id| {
+            let edge = path.edge(edge_id);
+            let edge_segment = LineSegment {
+                from: path[edge.from],
+                to: path[edge.to],
+            };
+
+            if let Some(t) = edge_segment.line_intersection_t(line) {
+                if t < 1.0 {
+                    let intersection = edge_segment.sample(t);
+                    self.intersecting_edges.push(IntersectingEdge {
+                        intersection,
+                        id: edge_id,
+                        d: v.dot(intersection - line.point),
+                        t,
+                    });
+                }
+            }
+        });
+
+        self.split(line, path)
+    }
+
+    fn split(&mut self, line: &Line<f32>, path: &mut AdvancedPath) -> Vec<SubPathId> {
         // Sort the intersecting edges along the segment.
         self.intersecting_edges.sort_by(|a, b| { a.d.partial_cmp(&b.d).unwrap() });
 
@@ -63,8 +101,8 @@ impl Splitter {
             if e.t == 0.0 {
                 let prev = path.edge_from(path.previous_edge_id(e.id));
                 let next = path.edge_from(path.next_edge_id(e.id));
-                let d1 = signed_pseudo_distance(&line, &path[prev]);
-                let d2 = signed_pseudo_distance(&line, &path[next]);
+                let d1 = signed_pseudo_distance(line, &path[prev]);
+                let d2 = signed_pseudo_distance(line, &path[next]);
                 let same_side = d1.signum() == d2.signum();
                 match (same_side, edge_in) {
                     (true, Some(e_in)) => {
@@ -134,7 +172,7 @@ fn signed_pseudo_distance(line: &Line<f32>, p: &Point) -> f32 {
 }
 
 #[test]
-fn segment_split_1() {
+fn split_with_segment_1() {
     use geom::euclid::approxeq::ApproxEq;
     use path::PathEvent;
 
@@ -150,7 +188,7 @@ fn segment_split_1() {
     );
 
     let mut splitter = Splitter::new();
-    let new_sub_paths = splitter.segment_split(
+    let new_sub_paths = splitter.split_with_segment(
         &mut path,
         &AllSubPaths,
         &LineSegment {
@@ -198,7 +236,7 @@ fn segment_split_1() {
 }
 
 #[test]
-fn segment_split_2() {
+fn split_with_segment_2() {
     use geom::euclid::approxeq::ApproxEq;
     use path::PathEvent;
 
@@ -225,7 +263,7 @@ fn segment_split_2() {
     );
 
     let mut splitter = Splitter::new();
-    let new_sub_paths = splitter.segment_split(
+    let new_sub_paths = splitter.split_with_segment(
         &mut path,
         &AllSubPaths,
         &LineSegment {
@@ -280,7 +318,7 @@ fn segment_split_2() {
 }
 
 #[test]
-fn segment_split_3() {
+fn split_with_segment_3() {
     use path::PathEvent;
 
     //  \____
@@ -302,7 +340,7 @@ fn segment_split_3() {
 
 
     let mut splitter = Splitter::new();
-    let new_sub_paths = splitter.segment_split(
+    let new_sub_paths = splitter.split_with_segment(
         &mut path,
         &AllSubPaths,
         &LineSegment {
@@ -331,7 +369,7 @@ fn segment_split_3() {
 
 #[test]
 #[ignore]
-fn segment_split_4() {
+fn split_with_segment_4() {
     use path::PathEvent;
 
     //  ________
@@ -357,7 +395,7 @@ fn segment_split_4() {
     );
 
     let mut splitter = Splitter::new();
-    let new_sub_paths = splitter.segment_split(
+    let new_sub_paths = splitter.split_with_segment(
         &mut path,
         &AllSubPaths,
         &LineSegment {
