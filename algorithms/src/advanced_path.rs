@@ -75,6 +75,19 @@ impl AdvancedPath {
         sub_path
     }
 
+    /// Add a rectangular sub-path.
+    pub fn add_rectangle(&mut self, rectangle: &Rect) -> SubPathId {
+        self.add_polyline(
+            &[
+                rectangle.origin,
+                rectangle.top_right(),
+                rectangle.bottom_right(),
+                rectangle.bottom_left(),
+            ],
+            true
+        )
+    }
+
     /// Returns an object that can circle around the edges of a sub-path.
     pub fn sub_path_edges(&self, sp: SubPathId) -> EdgeLoop {
         let edge = self.sub_paths[sp].first_edge;
@@ -179,10 +192,15 @@ impl AdvancedPath {
     }
 
     /// Splits an edge inserting a vertex at a given position.
-    pub fn split_edge(&mut self, edge_id: EdgeId, position: Point) {
+    pub fn split_edge(&mut self, edge_id: EdgeId, position: Point) -> EdgeId {
         // ------------e1------------->
         // -----e1----> / -----new---->
         let vertex = self.points.push(position);
+        self.split_edge_with_vertex(edge_id, vertex)
+    }
+
+    /// Splits an edge inserting at an existing vertex.
+    pub fn split_edge_with_vertex(&mut self, edge_id: EdgeId, vertex: VertexId) -> EdgeId {
         let e = self.edges[edge_id];
         let new_edge = self.edges.push(EdgeInfo {
             next: e.next,
@@ -192,8 +210,9 @@ impl AdvancedPath {
         });
         self.edges[e.next].prev = new_edge;
         self.edges[edge_id].next = new_edge;
-    }
 
+        new_edge
+    }
     /// Connects to edges e1 and e2 by inserting an edge that starts after e1 and ends
     /// before e2.
     ///
@@ -534,6 +553,84 @@ pub struct Segment {
     pub ctrl: Option<Point>,
 }
 
+/// A Builder object that can add single sub-path to an `AdvancedPath` through
+/// an incremental API similar to the path building interfaces in `lyon_path`.
+pub struct SubPathBuilder<'l> {
+    path: &'l mut AdvancedPath,
+    sub_path: SubPathId,
+    current_edge: EdgeId,
+    closed: bool,
+}
+
+impl<'l> SubPathBuilder<'l> {
+    pub fn move_to_id(path: &'l mut AdvancedPath, vertex: VertexId) -> Self {
+        let sub_path = SubPathId::new(path.sub_paths.len() as u16);
+        let current_edge = path.edges.push(EdgeInfo {
+            sub_path,
+            next: EdgeId::new(u16::MAX),
+            prev: EdgeId::new(u16::MAX),
+            vertex,
+        });
+
+        path.sub_paths.push(SubPath {
+            is_closed: true,
+            first_edge: current_edge,
+        });
+
+        SubPathBuilder {
+            path,
+            sub_path,
+            current_edge,
+            closed: false,
+        }
+    }
+
+    pub fn move_to(path: &'l mut AdvancedPath, to: Point) -> Self {
+        let vertex = path.points.push(to);
+        Self::move_to_id(path, vertex)
+    }
+
+    pub fn line_to_id(&mut self, vertex: VertexId) -> EdgeId {
+        let prev = self.current_edge;
+        self.current_edge = self.path.edges.push(EdgeInfo {
+            next: EdgeId::new(u16::MAX),
+            sub_path: self.sub_path,
+            prev,
+            vertex,
+        });
+        self.path.edges[prev].next = self.current_edge;
+
+        self.current_edge
+    }
+
+    pub fn line_to(&mut self, to: Point) -> EdgeId {
+        let vertex = self.path.points.push(to);
+        self.line_to_id(vertex)
+    }
+
+    pub fn close(mut self) -> SubPathId {
+        self.finish();
+        self.sub_path
+    }
+
+    fn finish(&mut self) {
+        if self.closed {
+            return;
+        }
+        let first_edge = self.path.sub_paths[self.sub_path].first_edge;
+        self.path.edges[self.current_edge].next = first_edge;
+        self.closed = true;
+    }
+}
+
+impl<'l> Drop for SubPathBuilder<'l> {
+    fn drop(&mut self) {
+        self.finish();
+        self.path.sub_paths[self.sub_path].is_closed = false;
+    }
+}
+
+
 #[test]
 fn polyline_to_path() {
     let mut path = AdvancedPath::new();
@@ -587,4 +684,26 @@ fn split_edge() {
     assert_eq!(events[4], PathEvent::LineTo(point(0.0, 1.0)));
     assert_eq!(events[5], PathEvent::Close);
     assert_eq!(events.len(), 6);
+}
+
+#[test]
+fn sub_path_builder() {
+    let mut path = AdvancedPath::new();
+
+    {
+        let mut builder = SubPathBuilder::move_to(&mut path, point(0.0, 0.0));
+        builder.line_to(point(1.0, 0.0));
+        builder.line_to(point(1.0, 1.0));
+        builder.line_to(point(0.0, 1.0));
+        // The builder automatically closes through RAII
+    }
+
+    let sp = path.sub_path_ids().start();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
+
+    assert_eq!(events[0], PathEvent::MoveTo(point(0.0, 0.0)));
+    assert_eq!(events[1], PathEvent::LineTo(point(1.0, 0.0)));
+    assert_eq!(events[2], PathEvent::LineTo(point(1.0, 1.0)));
+    assert_eq!(events[3], PathEvent::LineTo(point(0.0, 1.0)));
+    assert_eq!(events.len(), 4);
 }
