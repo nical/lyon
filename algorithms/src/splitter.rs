@@ -30,7 +30,7 @@ impl Splitter {
         path: &mut AdvancedPath,
         selection: &dyn SubPathSelection,
         segment: &LineSegment<f32>
-    ) -> Vec<SubPathId> {
+    ) -> SubPathIdRange {
         let line = segment.to_line();
         self.intersecting_edges.clear();
 
@@ -68,7 +68,7 @@ impl Splitter {
         path: &mut AdvancedPath,
         selection: &dyn SubPathSelection,
         line: &Line<f32>
-    ) -> Vec<SubPathId> {
+    ) -> SubPathIdRange {
         self.intersecting_edges.clear();
 
         let v = line.vector;
@@ -97,11 +97,12 @@ impl Splitter {
         self.split(line, path)
     }
 
-    fn split(&mut self, line: &Line<f32>, path: &mut AdvancedPath) -> Vec<SubPathId> {
+    fn split(&mut self, line: &Line<f32>, path: &mut AdvancedPath) -> SubPathIdRange {
         // Sort the intersecting edges along the segment.
         self.intersecting_edges.sort_by(|a, b| { a.d.partial_cmp(&b.d).unwrap() });
 
-        let mut new_sub_paths = Vec::new();
+        let start_index = path.sub_path_ids().end;
+        let mut new_sub_paths = SubPathIdRange::new(start_index..start_index);
 
         let mut edge_in = None;
         for i in 0..self.intersecting_edges.len() {
@@ -121,7 +122,8 @@ impl Splitter {
                         // Inside of the shape.
                         // Connect both left and right.
                         if let Some(sub_path) = path.connect_edges(e_in, e.id) {
-                            new_sub_paths.push(sub_path);
+                            debug_assert!(sub_path.handle == new_sub_paths.end);
+                            new_sub_paths.end += 1;
                         }
 
                         edge_in = Some(path.previous_edge_id(e.id));
@@ -138,7 +140,8 @@ impl Splitter {
                         // ---x---
                         // ../
                         if let Some(sub_path) = path.connect_edges(e_in, e.id) {
-                            new_sub_paths.push(sub_path);
+                            debug_assert!(sub_path.handle == new_sub_paths.end);
+                            new_sub_paths.end += 1;
                         }
                         edge_in = None;
                     }
@@ -157,7 +160,8 @@ impl Splitter {
                     // ....\
                     let e_out = path.next_edge_id(e.id);
                     if let Some(sub_path) = path.connect_edges(e_in, e_out) {
-                        new_sub_paths.push(sub_path);
+                        debug_assert!(sub_path.handle == new_sub_paths.end);
+                        new_sub_paths.end += 1;
                     }
                     edge_in = None;
                 } else {
@@ -206,7 +210,7 @@ fn split_with_segment_1() {
     );
 
     assert_eq!(new_sub_paths.len(), 1);
-    let sp2 = new_sub_paths[0];
+    let sp2 = new_sub_paths.nth(0);
 
     let events1: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
     let events2: Vec<PathEvent> = path.sub_path_edges(sp2).path_iter().collect();
@@ -281,8 +285,8 @@ fn split_with_segment_2() {
     );
 
     assert_eq!(new_sub_paths.len(), 2);
-    let sp2 = new_sub_paths[0];
-    let sp3 = new_sub_paths[1];
+    let sp2 = new_sub_paths.nth(0);
+    let sp3 = new_sub_paths.nth(1);
 
     let events1: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
@@ -365,7 +369,7 @@ fn split_with_segment_3() {
     assert_eq!(events1[2], PathEvent::LineTo(point(0.0, 2.0)));
     assert_eq!(events1[3], PathEvent::Close);
 
-    let sp2 = new_sub_paths[0];
+    let sp2 = new_sub_paths.nth(0);
     let events2: Vec<PathEvent> = path.sub_path_edges(sp2).path_iter().collect();
 
     assert_eq!(events2[0], PathEvent::MoveTo(point(1.0, 2.0)));
@@ -413,8 +417,8 @@ fn split_with_segment_4() {
     );
 
     assert_eq!(new_sub_paths.len(), 2);
-    let sp2 = new_sub_paths[0];
-    let sp3 = new_sub_paths[1];
+    let sp2 = new_sub_paths.nth(0);
+    let sp3 = new_sub_paths.nth(1);
 
     let events1: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
     let events2: Vec<PathEvent> = path.sub_path_edges(sp2).path_iter().collect();
