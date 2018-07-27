@@ -1,5 +1,6 @@
 use math::*;
-use path::PathEvent;
+use path::{default, PathEvent};
+use path::builder::*;
 use std::u16;
 use sid::{Id, IdRange, IdVec, IdSlice};
 use std::ops;
@@ -292,6 +293,21 @@ impl AdvancedPath {
                 });
             }
         }
+    }
+
+    /// Creates a path object using the default data structure from the `lyon_path`
+    /// from a selection of sub-paths.
+    pub fn to_path(&self, selection: &dyn SubPathSelection) -> default::Path {
+        let mut builder = default::Path::builder();
+        for sp in self.sub_path_ids() {
+            if selection.sub_path(self, sp) {
+                for evt in self.sub_path_edges(sp).path_iter() {
+                    builder.path_event(evt);
+                }
+            }
+        }
+
+        builder.build()
     }
 }
 
