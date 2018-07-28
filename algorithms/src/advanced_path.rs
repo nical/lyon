@@ -314,6 +314,23 @@ impl AdvancedPath {
         }
     }
 
+    /// Invert the winding order of a sub-path.
+    pub fn invert_sub_path(&mut self, sub_path: SubPathId) {
+        let first = self.sub_paths[sub_path].first_edge;
+        self.sub_paths[sub_path].first_edge = self.edges[first].prev;
+
+        let mut edge = first;
+        loop {
+            let e = self.edges[edge];
+            self.edges[edge].prev = e.next;
+            self.edges[edge].next = e.prev;
+            edge = e.next;
+            if edge == first {
+                break;
+            }
+        }
+    }
+
     /// Creates a path object using the default data structure from the `lyon_path`
     /// from a selection of sub-paths.
     pub fn to_path(&self, selection: &dyn SubPathSelection) -> default::Path {
@@ -737,4 +754,28 @@ fn empty_sub_path_2() {
 
     assert_eq!(events[0], PathEvent::MoveTo(point(0.0, 0.0)));
     assert_eq!(events.len(), 1);
+}
+
+#[test]
+fn invert_sub_path() {
+    let mut path = AdvancedPath::new();
+    let sp = path.add_polyline(
+        &[
+            point(0.0, 0.0),
+            point(1.0, 0.0),
+            point(1.0, 1.0),
+            point(0.0, 1.0),
+        ],
+        false,
+    );
+
+    path.invert_sub_path(sp);
+
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
+
+    assert_eq!(events[0], PathEvent::MoveTo(point(0.0, 1.0)));
+    assert_eq!(events[1], PathEvent::LineTo(point(1.0, 1.0)));
+    assert_eq!(events[2], PathEvent::LineTo(point(1.0, 0.0)));
+    assert_eq!(events[3], PathEvent::LineTo(point(0.0, 0.0)));
+    assert_eq!(events.len(), 4);
 }
