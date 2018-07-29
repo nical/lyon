@@ -31,7 +31,7 @@ use geom::math::*;
 use geom::Arc;
 use path::builder::FlatPathBuilder;
 use path::iterator::FromPolyline;
-use {FillOptions, FillVertex, StrokeVertex, StrokeOptions};
+use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
 
 use std::f32::consts::PI;
 
@@ -193,12 +193,17 @@ pub fn fill_rectangle(
     output.end_geometry()
 }
 
-/// Tessellate the stroke for an axis-aligne rectangle.
+/// Tessellate the stroke for an axis-aligned rectangle.
 pub fn stroke_rectangle(
     rect: &Rect,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
 ) -> Count {
+    let line_width = options.line_width;
+    if rect.size.width.abs() < line_width || rect.size.height < line_width {
+        return stroke_thin_rectangle(rect, options, output)
+    }
+
     stroke_quad(
         rect.origin,
         rect.top_right(),
@@ -207,6 +212,63 @@ pub fn stroke_rectangle(
         options,
         output
     )
+}
+
+// A fall-back that avoids off artifacts with zero-area rectangles as
+// well as overlapping triangles if the rectangle is smaller than the
+// line width in any dimension.
+#[inline(never)]
+fn stroke_thin_rectangle(
+    rect: &Rect,
+    options: &StrokeOptions,
+    output: &mut dyn GeometryBuilder<StrokeVertex>,
+) -> Count {
+    let rect = if options.apply_line_width {
+        let w = options.line_width * 0.5;
+        rect.inflate(w, w)
+    } else {
+        *rect
+    };
+
+    output.begin_geometry();
+
+    let a = output.add_vertex(
+        StrokeVertex {
+            position: rect.origin,
+            normal: vector(-1.0, -1.0),
+            advancement: 0.0,
+            side: Side::Left,
+        }
+    );
+    let b = output.add_vertex(
+        StrokeVertex {
+            position: rect.bottom_left(),
+            normal: vector(-1.0, 1.0),
+            advancement: 0.0,
+            side: Side::Left,
+        }
+    );
+    let c = output.add_vertex(
+        StrokeVertex {
+            position: rect.bottom_right(),
+            normal: vector(1.0, 1.0),
+            advancement: 1.0,
+            side: Side::Right,
+        }
+    );
+    let d = output.add_vertex(
+        StrokeVertex {
+            position: rect.top_right(),
+            normal: vector(1.0, -1.0),
+            advancement: 1.0,
+            side: Side::Right,
+        }
+    );
+
+    output.add_triangle(a, b, c);
+    output.add_triangle(a, c, d);
+
+    output.end_geometry()
 }
 
 /// The radius of each corner of a rounded rectangle.
