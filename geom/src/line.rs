@@ -3,6 +3,7 @@ use generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
 use segment::{Segment, FlatteningStep, BoundingRect};
 use monotonic::MonotonicSegment;
 use utils::min_max;
+use std::mem::swap;
 
 use std::ops::Range;
 
@@ -266,6 +267,64 @@ impl<S: Scalar> LineSegment<S> {
     #[inline]
     pub fn intersects_line(&self, line: &Line<S>) -> bool {
         self.line_intersection_t(line).is_some()
+    }
+
+    pub fn overlaps_line(&self, line: &Line<S>) -> bool {
+        let v1 = self.to_vector();
+        let v2 = line.vector;
+        let v3 = line.point - self.from;
+
+        v1.cross(v2) == S::ZERO && v1.cross(v3) == S::ZERO
+    }
+
+    pub fn overlaps_segment(&self, other: &LineSegment<S>) -> bool {
+        if !self.overlaps_line(&other.to_line()) {
+            return false;
+        }
+
+        let v1 = self.to - self.from;
+        let v2 = other.from - self.from;
+        let v3 = other.to - self.from;
+        let mut a = S::ZERO;
+        let mut b = v1.dot(v1);
+        let mut c = v1.dot(v2);
+        let mut d = v1.dot(v3);
+
+        if a > b {
+            swap(&mut a, &mut b);
+        }
+        if c > d {
+            swap(&mut d, &mut c);
+        }
+
+        (c > a && c < b)
+            || (d > a && d < b)
+            || (a > c && a < d)
+            || (b > c && b < d)
+            || (a == c && b == d)
+    }
+
+    pub fn contains_segment(&self, other: &LineSegment<S>) -> bool {
+        if !self.overlaps_line(&other.to_line()) {
+            return false;
+        }
+
+        let v1 = self.to - self.from;
+        let v2 = other.from - self.from;
+        let v3 = other.to - self.from;
+        let mut a = S::ZERO;
+        let mut b = v1.dot(v1);
+        let mut c = v1.dot(v2);
+        let mut d = v1.dot(v3);
+
+        if a > b {
+            swap(&mut a, &mut b);
+        }
+        if c > d {
+            swap(&mut d, &mut c);
+        }
+
+        c >= a && c <= b && d >= a && d <= b
     }
 }
 
@@ -685,4 +744,70 @@ fn set_length() {
     assert!(a.length().approx_eq(&100.0));
     a.set_length(-1.0);
     assert!(a.length().approx_eq(&1.0));
+}
+
+#[test]
+fn overlap() {
+    assert!(
+        LineSegment {
+            from: point(0.0, 0.0),
+            to: point(-1.0, 0.0),
+        }.overlaps_line(
+            &Line {
+                point: point(100.0, 0.0),
+                vector: vector(10.0, 0.0),
+            }
+        )
+    );
+
+    assert!(
+        LineSegment {
+            from: point(0.0, 0.0),
+            to: point(1.0, 0.0),
+        }.overlaps_line(
+            &Line {
+                point: point(0.0, 0.0),
+                vector: vector(1.0, 0.0),
+            }
+        )
+    );
+
+    assert!(
+        LineSegment {
+            from: point(0.0, 0.0),
+            to: point(1.0, 0.0),
+        }.overlaps_segment(
+            &LineSegment {
+                from: point(0.0, 0.0),
+                to: point(1.0, 0.0),
+            }
+        )
+    );
+
+    assert!(
+        !LineSegment {
+            from: point(0.0, 0.0),
+            to: point(1.0, 0.0),
+        }.overlaps_line(
+            &Line {
+                point: point(0.0, 1.0),
+                vector: vector(1.0, 1.0),
+            }
+        )
+    );
+}
+
+#[test]
+fn contains_segment() {
+    assert!(
+        LineSegment {
+            from: point(-1.0, 1.0),
+            to: point(4.0, 1.0),
+        }.contains_segment(
+            &LineSegment {
+                from: point(2.0, 1.0),
+                to: point(1.0, 1.0),
+            }
+        )
+    );
 }

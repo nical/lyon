@@ -230,6 +230,7 @@ impl AdvancedPath {
         // n: new edge
         // o: new opposite edge
 
+
         let sub_path = self.edges[e1].sub_path;
         let e1_next = self.edges[e1].next;
         let e2_prev = self.edges[e2].prev;
@@ -257,11 +258,15 @@ impl AdvancedPath {
         let mut need_new_loop = true;
         {
             let mut edge_loop = self.mut_edge_loop(new_edge);
-            while edge_loop.move_forward() {
+            loop {
                 let e = edge_loop.current();
                 edge_loop.path.edges[e].sub_path = sub_path;
                 if e == new_opposite_edge {
                     need_new_loop = false;
+                }
+
+                if !edge_loop.move_forward() {
+                    break;
                 }
             }
         }
@@ -274,10 +279,13 @@ impl AdvancedPath {
                 is_closed: true, // TODO
             });
 
-            let mut edge_loop = self.mut_edge_loop(new_edge);
-            while edge_loop.move_forward() {
+            let mut edge_loop = self.mut_edge_loop(new_opposite_edge);
+            loop {
                 let e = edge_loop.current();
                 edge_loop.path.edges[e].sub_path = new_sub_path;
+                if !edge_loop.move_forward() {
+                    break;
+                }
             }
 
             return Some(new_sub_path);
