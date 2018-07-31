@@ -278,7 +278,13 @@ impl<S: Scalar> Arc<S> {
         // the radius to be constant over each approximated segment.
         let r = (self.from() - self.center).length();
         let a = S::TWO * S::acos((r - tolerance) / r);
-        S::min(a / self.sweep_angle.radians, S::ONE)
+        let result = S::min(a / self.sweep_angle.radians, S::ONE);
+
+        if result < S::EPSILON {
+            return S::ONE;
+        }
+
+        result
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -774,4 +780,20 @@ fn test_bounding_rect() {
         assert!(approx_eq(r, rect(-4.0, -4.0, 8.0, 8.0)));
         angle += Angle::pi() * 2.0 / 10.0;
     }
+}
+
+#[test]
+fn negative_flattening_step() {
+    // These parameters were running into a precision issue which led the
+    // flattening step to never converge towards 1 and cause an infinite loop.
+
+    let arc = Arc {
+        center: point(-100.0, -150.0),
+        radii: vector(50.0, 50.0),
+        start_angle: Angle::radians(0.982944787),
+        sweep_angle: Angle::radians(-898.0),
+        x_rotation: Angle::zero(),
+    };
+
+    arc.for_each_flattened(0.100000001, &mut|_|{});
 }
