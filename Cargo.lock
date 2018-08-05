@@ -684,6 +684,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "lyon_wasm_test"
+version = "0.11.0"
+dependencies = [
+ "lyon 0.11.1",
+]
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
