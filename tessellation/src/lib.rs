@@ -26,6 +26,8 @@
 //!   </g>
 //! </svg>
 //!
+//! This crate is reexported in [lyon](https://docs.rs/lyon/).
+//!
 //! ## Overview
 //!
 //! The most interesting types and traits of this crate are:
@@ -33,10 +35,10 @@
 //! * [FillTessellator](struct.FillTessellator.html) - Tessellator for complex path fill operations.
 //! * [StrokeTessellator](struct.StrokeTessellator.html) - Tessellator for complex path stroke operations.
 //! * [`GeometryBuilder`](geometry_builder/trait.GeometryBuilder.html) - (See the documentation of the
-//!   [geometry_builder module](geometry_builder/index.html)) Which the above two are built on. This trait
+//!   [geometry_builder module](geometry_builder/index.html)) which the above two are built on. This trait
 //!   provides an interface for types that help with building and assembling the vertices and triangles that
 //!   form the tessellation, usually in the form of arbitrary vertex and index buffers.
-//! * The various specialised tessellators in the [`basic_shapes`](basic_shapes/index.html) modules.
+//! * The various specialized tessellators in the [`basic_shapes`](basic_shapes/index.html) modules.
 //!
 //! ## The tessellation pipeline
 //!
@@ -163,12 +165,12 @@
 //! approximated with sequences of line segments. This approximation depends on a `tolerance` parameter
 //! which represents the maximum distance between a curve and its flattened approximation.
 //!
-//! More explanaion about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
+//! More explanation about flattening and tolerance in the [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 //!
 //! ## Examples
 //!
-//! - [tessellating path fills](path_fill/struct.FillTessellator.html#examples).
-//! - [tessellating path strokes](path_stroke/struct.StrokeTessellator.html#examples).
+//! - [Tessellating path fills](path_fill/struct.FillTessellator.html#examples).
+//! - [Tessellating path strokes](path_stroke/struct.StrokeTessellator.html#examples).
 //! - [Generating custom vertices](geometry_builder/index.html#generating-custom-vertices).
 //! - [Generating completely custom output](geometry_builder/index.html#generating-a-completely-custom-output).
 //! - [Writing a tessellator](geometry_builder/index.html#writing-a-tessellator).
@@ -293,20 +295,20 @@ pub struct FillVertex {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum LineCap {
-    /// The stroke for each subpath does not extend beyond its two endpoints.
-    /// A zero length subpath will therefore not have any stroke.
+    /// The stroke for each sub-path does not extend beyond its two endpoints.
+    /// A zero length sub-path will therefore not have any stroke.
     Butt,
-    /// At the end of each subpath, the shape representing the stroke will be
+    /// At the end of each sub-path, the shape representing the stroke will be
     /// extended by a rectangle with the same width as the stroke width and
-    /// whose length is half of the stroke width. If a subpath has zero length,
-    /// then the resulting effect is that the stroke for that subpath consists
+    /// whose length is half of the stroke width. If a sub-path has zero length,
+    /// then the resulting effect is that the stroke for that sub-path consists
     /// solely of a square with side length equal to the stroke width, centered
-    /// at the subpath's point.
+    /// at the sub-path's point.
     Square,
-    /// At each end of each subpath, the shape representing the stroke will be extended
+    /// At each end of each sub-path, the shape representing the stroke will be extended
     /// by a half circle with a radius equal to the stroke width.
-    /// If a subpath has zero length, then the resulting effect is that the stroke for
-    /// that subpath consists solely of a full circle centered at the subpath's point.
+    /// If a sub-path has zero length, then the resulting effect is that the stroke for
+    /// that sub-path consists solely of a full circle centered at the sub-path's point.
     Round,
 }
 

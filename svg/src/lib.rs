@@ -5,6 +5,8 @@
 //!
 //! At the moment this is mostly a wrapper around the [svgparser](https://crates.io/crates/svgparser)
 //! crate.
+//!
+//! This crate is reexported in [lyon](https://docs.rs/lyon/).
 
 #![allow(dead_code)]
 

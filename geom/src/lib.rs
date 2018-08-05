@@ -3,6 +3,8 @@
 
 //! Simple 2D geometric primitives on top of euclid.
 //!
+//! This crate is reexported in [lyon](https://docs.rs/lyon/).
+//!
 //! # Overview.
 //!
 //! This crate implements some of the maths to work with:

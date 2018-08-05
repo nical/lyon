@@ -22,7 +22,7 @@ fn x_aabb_test(a1: FixedPoint32, b1: FixedPoint32, a2: FixedPoint32, b2: FixedPo
 }
 
 // TODO[optim]: This function shows up pretty high in the profiles.
-pub fn segment_intersection(
+pub(crate) fn segment_intersection(
     e1: &Edge, // The new edge.
     e2: &Edge, // An already inserted edge.
 ) -> Option<TessPoint> {

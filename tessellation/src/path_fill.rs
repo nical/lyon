@@ -97,9 +97,9 @@ pub enum InternalError {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Edge {
-    pub upper: TessPoint,
-    pub lower: TessPoint,
+pub(crate) struct Edge {
+    pub(crate) upper: TessPoint,
+    pub(crate) lower: TessPoint,
 }
 
 impl Edge {
@@ -112,10 +112,10 @@ impl Edge {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct OrientedEdge {
-    pub upper: TessPoint,
-    pub lower: TessPoint,
-    pub winding: i16,
+struct OrientedEdge {
+    upper: TessPoint,
+    lower: TessPoint,
+    winding: i16,
 }
 
 impl OrientedEdge {
