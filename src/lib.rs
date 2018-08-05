@@ -193,3 +193,6 @@ pub use tessellation::geom as geom;
 #[cfg(feature = "libtess2")] pub use lyon_tess2 as tess2;
 
 pub use geom::math;
+
+#[no_mangle]
+pub extern fn hello_lyon() -> u32 { 42 }
