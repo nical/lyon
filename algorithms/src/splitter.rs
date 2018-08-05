@@ -45,7 +45,6 @@ impl Splitter {
                 from: path[edge.from],
                 to: path[edge.to],
             };
-
             if let Some((t, _)) = edge_segment.intersection_t(&segment) {
                 if t < 1.0 {
                     let intersection = edge_segment.sample(t);

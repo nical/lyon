@@ -527,6 +527,16 @@ impl SubPathSelection for AllSubPaths {
     fn sub_path(&self, _p: &AdvancedPath, _sp: SubPathId) -> bool { true }
 }
 
+impl SubPathSelection for SubPathId {
+    fn sub_path(&self, _p: &AdvancedPath, sp: SubPathId) -> bool { sp == *self }
+}
+
+impl SubPathSelection for SubPathIdRange {
+    fn sub_path(&self, _p: &AdvancedPath, sp: SubPathId) -> bool {
+        sp.handle >= self.start && sp.handle < self.end
+    }
+}
+
 /// An iterator of `PathEvent` for a sub-path of an ~AdvancedPath`
 pub struct SubPathIter<'l> {
     edge_loop: EdgeLoop<'l>,
