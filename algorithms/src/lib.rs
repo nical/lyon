@@ -3,6 +3,7 @@
 
 //! 2d Path transformation and manipulation algorithms.
 //!
+//! This crate is reexported in [lyon](https://docs.rs/lyon/).
 
 // TODO doc!
 

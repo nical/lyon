@@ -1,5 +1,3 @@
-//! # Lyon path builder
-//!
 //! Tools to build path objects from a sequence of imperative commands.
 //!
 //! ## Examples

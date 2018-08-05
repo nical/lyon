@@ -6,6 +6,8 @@
 //! To build and consume paths, see the [builder](builder/index.html) and
 //! [iterator](iterator/index.html) modules.
 //!
+//! This crate is reexported in [lyon](https://docs.rs/lyon/).
+//!
 //! # Examples
 //!
 //! ```
