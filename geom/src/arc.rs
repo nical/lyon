@@ -36,6 +36,18 @@ pub struct Arc<S> {
 }
 
 impl<S: Scalar> Arc<S> {
+    /// Create simple circle.
+    pub fn circle(center: Point<S>, radius: S) -> Self {
+        Arc {
+            center,
+            radii: vector(radius, radius),
+            start_angle: Angle::zero(),
+            sweep_angle: Angle::two_pi(),
+            x_rotation: Angle::zero(),
+        }
+    }
+
+    /// Convert from the SVG arc notation.
     pub fn from_svg_arc(arc: &SvgArc<S>) -> Arc<S> {
         debug_assert!(!arc.from.x.is_nan());
         debug_assert!(!arc.from.y.is_nan());
@@ -128,6 +140,7 @@ impl<S: Scalar> Arc<S> {
         }
     }
 
+    /// Convert to the SVG arc notation.
     pub fn to_svg_arc(&self) -> SvgArc<S> {
         let from = self.sample(S::ZERO);
         let to = self.sample(S::ONE);
@@ -144,6 +157,7 @@ impl<S: Scalar> Arc<S> {
         }
     }
 
+    /// Approximate the arc with a sequence of quadratic bézier curves.
     #[inline]
     pub fn for_each_quadratic_bezier<F>(&self, cb: &mut F)
     where
