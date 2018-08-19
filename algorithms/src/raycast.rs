@@ -1,7 +1,7 @@
 //! Find the first collision between a ray and a path.
 
 use path::PathEvent;
-use math::{Point, point, Vector};
+use math::{Point, point, Vector, vector};
 use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc, Line};
 use std::f32;
 
@@ -10,15 +10,22 @@ pub struct Ray {
     pub direction: Vector,
 }
 
+// Position and normal at the point of contact between a ray and a shape.
+pub struct Hit {
+    pub position: Point,
+    pub normal: Vector,
+}
+
 // TODO: early out in the bézier/arc cases using bounding rect or circle
 // to speed things up.
 
 /// Find the closest collision between a ray and the path.
-pub fn raycast_path<Iter>(ray: &Ray, path: Iter, tolerance: f32) -> Option<Point>
+pub fn raycast_path<Iter>(ray: &Ray, path: Iter, tolerance: f32) -> Option<Hit>
 where
     Iter: Iterator<Item=PathEvent>,
 {
-    if ray.direction.square_length() == 0.0 {
+    let ray_len = ray.direction.square_length();
+    if ray_len == 0.0 || ray_len.is_nan() {
         return None;
     }
 
@@ -29,6 +36,7 @@ where
         },
         min_dot: f32::MAX,
         result: point(0.0, 0.0),
+        normal: vector(0.0, 0.0),
     };
 
     let mut prev = point(0.0, 0.0);
@@ -76,29 +84,37 @@ where
         return None;
     }
 
-    Some(state.result)
+    if state.normal.dot(ray.direction) > 0.0 {
+        state.normal = -state.normal;
+    }
+
+    Some(Hit {
+        position: state.result,
+        normal: state.normal.normalize(),
+    })
 }
 
 struct RayCastInner {
     ray: Line<f32>,
     min_dot: f32,
     result: Point,
+    normal: Vector,
 }
 
 fn test_segment(state: &mut RayCastInner, segment: &LineSegment<f32>) {
     if let Some(pos) = segment.line_intersection(&state.ray) {
-        let v = pos - state.ray.point;
-        let dot = v.dot(state.ray.vector);
+        let dot = (pos - state.ray.point).dot(state.ray.vector);
         if dot >= 0.0 && dot < state.min_dot {
             state.min_dot = dot;
             state.result = pos;
+            let v = segment.to_vector();
+            state.normal = vector(-v.y, v.x);
         }
     }
 }
 
 #[test]
 fn test_raycast() {
-    use geom::math::vector;
     use geom::euclid::approxeq::ApproxEq;
     use path::default::Path;
     use path::builder::*;
@@ -119,35 +135,33 @@ fn test_raycast() {
         ).is_none()
     );
 
-    assert!(
-        raycast_path(
-            &Ray { origin: point(-1.0, 0.5), direction: vector(1.0, 0.0) },
-            path.iter(),
-            0.1
-        ).unwrap().approx_eq(&point(0.0, 0.5))
-    );
+    let hit = raycast_path(
+        &Ray { origin: point(-1.0, 0.5), direction: vector(1.0, 0.0) },
+        path.iter(),
+        0.1
+    ).unwrap();
+    assert!(hit.position.approx_eq(&point(0.0, 0.5)));
+    assert!(hit.normal.approx_eq(&vector(-1.0, 0.0)));
 
-    assert!(
-        raycast_path(
-            &Ray { origin: point(-1.0, 0.0), direction: vector(1.0, 0.0) },
-            path.iter(),
-            0.1
-        ).unwrap().approx_eq(&point(0.0, 0.0))
-    );
+    let hit = raycast_path(
+        &Ray { origin: point(-1.0, 0.0), direction: vector(1.0, 0.0) },
+        path.iter(),
+        0.1
+    ).unwrap();
+    assert!(hit.position.approx_eq(&point(0.0, 0.0)));
 
-    assert!(
-        raycast_path(
-            &Ray { origin: point(0.5, 0.5), direction: vector(1.0, 0.0) },
-            path.iter(),
-            0.1
-        ).unwrap().approx_eq(&point(1.0, 0.5))
-    );
+    let hit = raycast_path(
+        &Ray { origin: point(0.5, 0.5), direction: vector(1.0, 0.0) },
+        path.iter(),
+        0.1
+    ).unwrap();
+    assert!(hit.position.approx_eq(&point(1.0, 0.5)));
+    assert!(hit.normal.approx_eq(&vector(-1.0, 0.0)));
 
-    assert!(
-        raycast_path(
-            &Ray { origin: point(0.0, -1.0), direction: vector(1.0, 1.0) },
-            path.iter(),
-            0.1
-        ).unwrap().approx_eq(&point(1.0, 0.0))
-    );
+    let hit = raycast_path(
+        &Ray { origin: point(0.0, -1.0), direction: vector(1.0, 1.0) },
+        path.iter(),
+        0.1
+    ).unwrap();
+    assert!(hit.position.approx_eq(&point(1.0, 0.0)));
 }
