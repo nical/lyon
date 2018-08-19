@@ -13,6 +13,7 @@ extern crate sid;
 pub mod advanced_path;
 pub mod splitter;
 pub mod hatching;
+pub mod raycast;
 pub mod walk;
 pub mod aabb;
 pub mod fit;
