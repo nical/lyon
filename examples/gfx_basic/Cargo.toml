@@ -1,5 +1,5 @@
 [package]
-name = "gfx-rs basic example"
+name = "gfx-rs-basic-example"
 version = "0.1.0"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 workspace = "../.."

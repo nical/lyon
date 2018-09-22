@@ -1,5 +1,5 @@
 [package]
-name = "glium_basic_shapes"
+name = "glium-basic-shapes-example"
 version = "0.1.0"
 workspace = "../.."
 

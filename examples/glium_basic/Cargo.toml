@@ -1,5 +1,5 @@
 [package]
-name = "glium_basic"
+name = "glium-basic-example"
 version = "0.1.0"
 authors = ["orhanbalci <orhanbalci@gmail.com>"]
 workspace = "../.."

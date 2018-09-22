@@ -1,15 +1,4 @@
 [[package]]
-name = "Path walking example"
-version = "0.1.0"
-dependencies = [
- "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx_device_gl 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.11.1",
-]
-
-[[package]]
 name = "adler32"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -369,7 +358,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gfx-rs advanced example"
+name = "gfx-rs-advanced-example"
 version = "0.1.0"
 dependencies = [
  "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -380,7 +369,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gfx-rs basic example"
+name = "gfx-rs-basic-example"
 version = "0.1.0"
 dependencies = [
  "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -471,7 +460,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "glium_basic"
+name = "glium-basic-example"
 version = "0.1.0"
 dependencies = [
  "glium 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -479,7 +468,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "glium_basic_shapes"
+name = "glium-basic-shapes-example"
 version = "0.1.0"
 dependencies = [
  "glium 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -509,7 +498,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "intersections example"
+name = "intersections-example"
 version = "0.1.0"
 dependencies = [
  "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -747,6 +736,17 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "shared_library 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "path-walking-example"
+version = "0.1.0"
+dependencies = [
+ "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx_device_gl 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx_window_glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glutin 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lyon 0.11.1",
 ]
 
 [[package]]
