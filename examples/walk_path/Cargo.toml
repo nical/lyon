@@ -1,5 +1,5 @@
 [package]
-name = "Path walking example"
+name = "path-walking-example"
 version = "0.1.0"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 workspace = "../.."
