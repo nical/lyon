@@ -22,6 +22,7 @@ gfx_defines!{
     constant Primitive {
         transform: u32 = "transform",
         color: u32 = "color",
+        _pad: [u32; 2] = "_pad",
     }
 
     constant Globals {
@@ -95,7 +96,7 @@ impl From<Scene> for Globals {
         Globals {
             zoom: [scene.zoom, scene.zoom],
             pan: scene.pan,
-            aspect_ratio: scene.aspect_ratio
+            aspect_ratio: scene.aspect_ratio,
         }
     }
 }
@@ -108,6 +109,7 @@ impl Primitive {
                 + ((color.green as u32) << 16)
                 + ((color.blue as u32) << 8)
                 + (alpha * 255.0) as u32,
+            _pad: [0; 2],
         }
     }
 }
@@ -119,7 +121,7 @@ pub static VERTEX_SHADER: &'static str = "
     #version 150
     #line 118
 
-    uniform Globals {
+    layout(std140) uniform Globals {
         vec2 u_zoom;
         vec2 u_pan;
         float u_aspect_ratio;
@@ -128,6 +130,7 @@ pub static VERTEX_SHADER: &'static str = "
     struct Primitive {
         uint transform;
         uint color;
+        uvec2 _pad;
     };
 
     struct Transform {
@@ -135,8 +138,8 @@ pub static VERTEX_SHADER: &'static str = "
         vec4 data1;
     };
 
-    uniform u_primitives { Primitive primitives[512]; };
-    uniform u_transforms { Transform transforms[512]; };
+    layout(std140) uniform u_primitives { Primitive primitives[512]; };
+    layout(std140) uniform u_transforms { Transform transforms[512]; };
 
     in vec2 a_position;
     in uint a_prim_id;

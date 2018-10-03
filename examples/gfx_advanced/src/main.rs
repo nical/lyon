@@ -120,7 +120,7 @@ fn main() {
         width: 0.0,
         translate: [0.0, 0.0],
     };
-    // Intance primitives
+    // Instance primitives
     for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances) {
         cpu_primitives[idx].z_index = (num_instances - idx + 1) as i32;
         cpu_primitives[idx].color = [
@@ -354,7 +354,7 @@ static BACKGROUND_VERTEX_SHADER: &'static str = &"
 // This shader is silly and slow, but it looks nice ;)
 static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
     #version 140
-    uniform Globals {
+    layout(std140) uniform Globals {
         vec2 u_resolution;
         vec2 u_scroll_offset;
         float u_zoom;
@@ -400,7 +400,7 @@ pub static VERTEX_SHADER: &'static str = &"
 
     #define PRIM_BUFFER_LEN 64
 
-    uniform Globals {
+    layout(std140) uniform Globals {
         vec2 u_resolution;
         vec2 u_scroll_offset;
         float u_zoom;
@@ -412,7 +412,7 @@ pub static VERTEX_SHADER: &'static str = &"
         float width;
         vec2 translate;
     };
-    uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
+    layout(std140) uniform u_primitives { Primitive primitives[PRIM_BUFFER_LEN]; };
 
     in vec2 a_position;
     in vec2 a_normal;
