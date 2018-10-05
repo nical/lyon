@@ -164,7 +164,7 @@ impl<S: Scalar> Arc<S> {
     where
         F: FnMut(&QuadraticBezierSegment<S>)
     {
-        arc_to_to_quadratic_beziers(self, cb);
+        arc_to_quadratic_beziers(self, cb);
     }
 
     /// Approximate the arc with a sequence of cubic bézier curves.
@@ -513,7 +513,7 @@ impl Default for ArcFlags {
     }
 }
 
-fn arc_to_to_quadratic_beziers<S, F>(
+fn arc_to_quadratic_beziers<S, F>(
     arc: &Arc<S>,
     callback: &mut F,
 )
