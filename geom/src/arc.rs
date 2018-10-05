@@ -9,6 +9,7 @@ use generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle,
 use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
 use segment;
 use QuadraticBezierSegment;
+use CubicBezierSegment;
 
 /// A flattening iterator for arc segments.
 pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
@@ -164,6 +165,15 @@ impl<S: Scalar> Arc<S> {
         F: FnMut(&QuadraticBezierSegment<S>)
     {
         arc_to_to_quadratic_beziers(self, cb);
+    }
+
+    /// Approximate the arc with a sequence of cubic bézier curves.
+    #[inline]
+    pub fn for_each_cubic_bezier<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&CubicBezierSegment<S>)
+    {
+        arc_to_cubic_beziers(self, cb);
     }
 
     /// Sample the curve at t (expecting t between 0 and 1).
@@ -457,6 +467,24 @@ impl<S: Scalar> SvgArc<S> {
         Arc::from_svg_arc(self).for_each_quadratic_bezier(cb);
     }
 
+    /// Approximates the arc with a sequence of cubic bézier segments.
+    pub fn for_each_cubic_bezier<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&CubicBezierSegment<S>)
+    {
+        if self.is_straight_line() {
+            cb(&CubicBezierSegment {
+                from: self.from,
+                ctrl1: self.from,
+                ctrl2: self.to,
+                to: self.to,
+            });
+            return;
+        }
+
+        Arc::from_svg_arc(self).for_each_cubic_bezier(cb);
+    }
+
     /// Approximates the arc with a sequence of line segments.
     pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, cb: &mut F) {
         if self.is_straight_line() {
@@ -512,6 +540,43 @@ where
         let ctrl = l2.intersection(&l1).unwrap_or(from);
 
         callback(&QuadraticBezierSegment { from , ctrl, to });
+    }
+}
+
+fn arc_to_cubic_beziers<S, F>(
+    arc: &Arc<S>,
+    callback: &mut F,
+)
+where
+    S: Scalar,
+    F: FnMut(&CubicBezierSegment<S>)
+{
+    let sign = arc.sweep_angle.get().signum();
+    let sweep_angle = S::abs(arc.sweep_angle.get()).min(S::PI() * S::TWO);
+
+    let n_steps = S::ceil(sweep_angle / S::FRAC_PI_2());
+    let step = Angle::radians(sweep_angle / n_steps * sign);
+
+    for i in 0..cast::<S, i32>(n_steps).unwrap() {
+        let a1 = arc.start_angle + step * cast(i).unwrap();
+        let a2 = arc.start_angle + step * cast(i+1).unwrap();
+
+        let v1 = sample_ellipse(arc.radii, arc.x_rotation, a1).to_vector();
+        let v2 = sample_ellipse(arc.radii, arc.x_rotation, a2).to_vector();
+        let from = arc.center + v1;
+        let to = arc.center + v2;
+
+        // From http://www.spaceroots.org/documents/ellipse/elliptical-arc.pdf
+        // Note that the parameterization used by Arc (see sample_ellipse for
+        // example) is the same as the eta-parameterization used at the link.
+        let delta_a = a2 - a1;
+        let tan_da = Float::tan(delta_a.get() * S::HALF);
+        let alpha_sqrt = S::sqrt(S::FOUR + S::THREE * tan_da * tan_da);
+        let alpha = Float::sin(delta_a.get()) * (alpha_sqrt - S::ONE) / S::THREE;
+        let ctrl1 = from + arc.tangent_at_angle(a1) * alpha;
+        let ctrl2 = to - arc.tangent_at_angle(a2) * alpha;
+
+        callback(&CubicBezierSegment { from , ctrl1, ctrl2, to });
     }
 }
 
@@ -653,20 +718,33 @@ fn test_from_svg_arc() {
 }
 
 #[test]
-fn test_to_quadratics() {
+fn test_to_quadratics_and_cubics() {
     use euclid::approxeq::ApproxEq;
 
-    fn do_test(arc: &Arc<f32>, expexted_count: u32) {
-        let mut prev = arc.from();
-        let mut count = 0;
-        arc.for_each_quadratic_bezier(&mut|c| {
-            assert!(c.from.approx_eq(&prev));
-            prev = c.to;
-            count += 1;
-        });
+    fn do_test(arc: &Arc<f32>, expected_quadratic_count: u32, expected_cubic_count: u32) {
         let last = arc.to();
-        assert!(prev.approx_eq(&last));
-        assert_eq!(count, expexted_count);
+        {
+            let mut prev = arc.from();
+            let mut count = 0;
+            arc.for_each_quadratic_bezier(&mut |c| {
+                assert!(c.from.approx_eq(&prev));
+                prev = c.to;
+                count += 1;
+            });
+            assert!(prev.approx_eq(&last));
+            assert_eq!(count, expected_quadratic_count);
+        }
+        {
+            let mut prev = arc.from();
+            let mut count = 0;
+            arc.for_each_cubic_bezier(&mut|c| {
+                assert!(c.from.approx_eq(&prev));
+                prev = c.to;
+                count += 1;
+            });
+            assert!(prev.approx_eq(&last));
+            assert_eq!(count, expected_cubic_count);
+        }
     }
 
     do_test(
@@ -677,7 +755,8 @@ fn test_to_quadratics() {
             sweep_angle: Angle::radians(3.0),
             x_rotation: Angle::radians(0.5),
         },
-        4
+        4,
+        2
     );
 
     do_test(
@@ -688,7 +767,8 @@ fn test_to_quadratics() {
             sweep_angle: Angle::radians(-3.0),
             x_rotation: Angle::radians(1.3),
         },
-        4
+        4,
+        2
     );
 
     do_test(
@@ -699,6 +779,7 @@ fn test_to_quadratics() {
             sweep_angle: Angle::radians(0.1),
             x_rotation: Angle::radians(0.3),
         },
+        1,
         1
     );
 
@@ -710,6 +791,7 @@ fn test_to_quadratics() {
             sweep_angle: Angle::radians(-0.1),
             x_rotation: Angle::radians(-0.3),
         },
+        1,
         1
     );
 }
