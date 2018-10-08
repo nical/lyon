@@ -88,6 +88,7 @@ pub mod cubic_bezier;
 pub mod arc;
 pub mod utils;
 pub mod cubic_to_quadratic;
+mod cubic_bezier_intersections;
 mod flatten_cubic;
 mod triangle;
 mod line;

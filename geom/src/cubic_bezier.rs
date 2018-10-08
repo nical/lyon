@@ -5,12 +5,14 @@ use arrayvec::ArrayVec;
 use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
 pub use flatten_cubic::Flattened;
 use cubic_to_quadratic::*;
+use cubic_bezier_intersections::cubic_bezier_intersections_t;
 use monotonic::Monotonic;
 use utils::{min_max, cubic_polynomial_roots};
 use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
 use QuadraticBezierSegment;
 
 use std::ops::Range;
+use std::cmp::Ordering::{Less, Equal, Greater};
 
 /// A 2d curve segment defined by four points: the beginning of the segment, two control
 /// points and the end of the segment.
@@ -626,6 +628,69 @@ impl<S: Scalar> CubicBezierSegment<S> {
         self.is_x_monotonic() && self.is_y_monotonic()
     }
 
+    /// Computes the intersections (if any) between this segment and another one.
+    ///
+    /// The result is provided in the form of the `t` parameters of each point along the curves. To
+    /// get the intersection points, sample the curves at the corresponding values.
+    ///
+    /// Returns endpoint intersections where an endpoint intersects the interior of the other curve,
+    /// but not endpoint/endpoint intersections.
+    ///
+    /// Returns no intersections if either curve is a point.
+    pub fn cubic_intersections_t(&self, curve: &CubicBezierSegment<S>) -> ArrayVec<[(S, S); 9]> {
+        cubic_bezier_intersections_t(self, curve)
+    }
+
+    pub fn cubic_intersections(&self, curve: &CubicBezierSegment<S>) -> ArrayVec<[Point<S>; 9]> {
+        let intersections = self.cubic_intersections_t(curve);
+
+        let mut result_with_repeats = ArrayVec::<[_; 9]>::new();
+        for (t, _) in intersections {
+            result_with_repeats.push(self.sample(t));
+        }
+
+        // We can have up to nine "repeated" values here (for example: two lines, each of which
+        // overlaps itself 3 times, intersecting in their 3-fold overlaps). We make an effort to
+        // dedupe the results, but that's hindered by not having predictable control over how far
+        // the repeated intersections can be from each other (and then by the fact that true
+        // intersections can be arbitrarily close), so the results will never be perfect.
+
+        let pair_cmp = |s: &Point<S>, t: &Point<S>| {
+            if s.x < t.x || (s.x == t.x && s.y < t.y) {
+                Less
+            } else if s.x == t.x && s.y == t.y {
+                Equal
+            } else {
+                Greater
+            }
+        };
+        result_with_repeats.sort_unstable_by(pair_cmp);
+        if result_with_repeats.len() <= 1 {
+            return result_with_repeats;
+        }
+
+        #[inline]
+        fn dist_sq<S: Scalar>(p1: &Point<S>, p2: &Point<S>) -> S {
+            (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y)
+        }
+
+        let epsilon_squared = S::EPSILON * S::EPSILON;
+        let mut result = ArrayVec::new();
+        let mut reference_intersection = &result_with_repeats[0];
+        result.push(*reference_intersection);
+        for i in 1..result_with_repeats.len() {
+            let intersection = &result_with_repeats[i];
+            if dist_sq(reference_intersection, intersection) < epsilon_squared {
+                continue;
+            } else {
+                result.push(*intersection);
+                reference_intersection = intersection;
+            }
+        }
+
+        result
+    }
+
     /// Computes the intersections (if any) between this segment and a line.
     ///
     /// The result is provided in the form of the `t` parameters of each
@@ -1078,4 +1143,51 @@ fn test_parameters_for_value() {
 
         assert_approx_eq(curve.parameters_for_y_value(10.0), &[], 0.0);
     }
+}
+
+#[test]
+fn test_cubic_intersection_deduping() {
+    use math::point;
+
+    let epsilon = 0.0001;
+
+    // Two "line segments" with 3-fold overlaps, intersecting in their overlaps for a total of nine
+    // parameter intersections.
+    let line1 = CubicBezierSegment {
+        from: point(-1_000_000.0, 0.0),
+        ctrl1: point(2_000_000.0, 3_000_000.0),
+        ctrl2: point(-2_000_000.0, -1_000_000.0),
+        to: point(1_000_000.0, 2_000_000.0),
+    };
+    let line2 = CubicBezierSegment {
+        from: point(-1_000_000.0, 2_000_000.0),
+        ctrl1: point(2_000_000.0, -1_000_000.0),
+        ctrl2: point(-2_000_000.0, 3_000_000.0),
+        to: point(1_000_000.0, 0.0),
+    };
+    let intersections = line1.cubic_intersections(&line2);
+    // (If you increase the coordinates above to 10s of millions, you get two returned intersection
+    // points; i.e. the test fails.)
+    assert_eq!(intersections.len(), 1);
+    assert!(f64::abs(intersections[0].x) < epsilon);
+    assert!(f64::abs(intersections[0].y - 1_000_000.0) < epsilon);
+
+    // Two self-intersecting curves that intersect in their self-intersections, for a total of four
+    // parameter intersections.
+    let curve1 = CubicBezierSegment {
+        from: point(-10.0, -13.636363636363636),
+        ctrl1: point(15.0, 11.363636363636363),
+        ctrl2: point(-15.0, 11.363636363636363),
+        to: point(10.0, -13.636363636363636),
+    };
+    let curve2 = CubicBezierSegment {
+        from: point(13.636363636363636, -10.0),
+        ctrl1: point(-11.363636363636363, 15.0),
+        ctrl2: point(-11.363636363636363, -15.0),
+        to: point(13.636363636363636, 10.0),
+    };
+    let intersections = curve1.cubic_intersections(&curve2);
+    assert_eq!(intersections.len(), 1);
+    assert!(f64::abs(intersections[0].x) < epsilon);
+    assert!(f64::abs(intersections[0].y) < epsilon);
 }
