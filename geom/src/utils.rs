@@ -55,13 +55,13 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
 
     if S::abs(a) < S::EPSILON {
         // quadratic equation
-        let delta = b * b - S::FOUR * a * c;
+        let delta = c * c - S::FOUR * b * d;
         if delta > S::ZERO {
             let sqrt_delta = S::sqrt(delta);
-            result.push((-b - sqrt_delta) / (S::TWO * a));
-            result.push((-b + sqrt_delta) / (S::TWO * a));
+            result.push((-c - sqrt_delta) / (S::TWO * b));
+            result.push((-c + sqrt_delta) / (S::TWO * b));
         } else if S::abs(delta) < S::EPSILON {
-            result.push(-b / (S::TWO * a));
+            result.push(-c / (S::TWO * b));
         }
         return result;
     }
@@ -116,4 +116,8 @@ fn cubic_polynomial() {
     assert_approx_eq(cubic_polynomial_roots(2.0, -4.0, 2.0, 0.0), &[0.0, 1.0], 0.0000001);
     assert_approx_eq(cubic_polynomial_roots(-1.0, 1.0, -1.0, 1.0), &[1.0], 0.000001);
     assert_approx_eq(cubic_polynomial_roots(-2.0, 2.0, -1.0, 10.0), &[2.0], 0.00005);
+
+    // Quadratics.
+    assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -5.0, -14.0), &[-2.0, 7.0], 0.00005);
+    assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -6.0, 9.0), &[3.0], 0.00005);
 }
