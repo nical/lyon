@@ -612,16 +612,29 @@ impl<S: Scalar> CubicBezierSegment<S> {
         }
 
         let intersections = self.line_intersections_t(&segment.to_line());
-        let aabb = segment.bounding_rect();
 
         let mut result = ArrayVec::new();
+        if intersections.len() == 0 {
+            return result;
+        }
+
+        let seg_is_mostly_vertical =
+            S::abs(segment.from.y - segment.to.y) >= S::abs(segment.from.x - segment.to.x);
+        let (seg_long_axis_min, seg_long_axis_max) = if seg_is_mostly_vertical {
+            segment.bounding_range_y()
+        } else {
+            segment.bounding_range_x()
+        };
+
         for t in intersections {
-            if aabb.contains(&self.sample(t)) {
+            let intersection_xy = if seg_is_mostly_vertical { self.y(t) } else { self.x(t) };
+            if intersection_xy >= seg_long_axis_min && intersection_xy <= seg_long_axis_max {
                 let t2 = (self.sample(t) - segment.from).length() / segment.length();
-                result.push((t,t2));
+                result.push((t, t2));
             }
         }
-        return result;
+
+        result
     }
 
     #[inline]
@@ -901,4 +914,40 @@ fn test_monotonic() {
         let sub_curve = curve.split_range(range);
         assert!(sub_curve.is_monotonic());
     });
+}
+
+#[test]
+fn test_line_segment_intersections() {
+    use math::point;
+    fn assert_approx_eq(a: ArrayVec<[(f32, f32); 3]>, b: &[(f32, f32)], epsilon: f32) {
+        for i in 0..a.len() {
+            if f32::abs(a[i].0 - b[i].0) > epsilon || f32::abs(a[i].1 - b[i].1) > epsilon {
+                println!("{:?} != {:?}", a, b);
+            }
+            assert!((a[i].0 - b[i].0).abs() <= epsilon && (a[i].1 - b[i].1).abs() <= epsilon);
+        }
+        assert_eq!(a.len(), b.len());
+    }
+
+    let epsilon = 0.0001;
+
+    // Make sure we find intersections with horizontal and vertical lines.
+
+    let curve1 = CubicBezierSegment {
+        from: point(-1.0, -1.0),
+        ctrl1: point(0.0, 4.0),
+        ctrl2: point(10.0, -4.0),
+        to: point(11.0, 1.0),
+    };
+    let seg1 = LineSegment { from: point(0.0, 0.0), to: point(10.0, 0.0) };
+    assert_approx_eq(curve1.line_segment_intersections_t(&seg1), &[(0.5, 0.5)], epsilon);
+
+    let curve2 = CubicBezierSegment {
+        from: point(-1.0, 0.0),
+        ctrl1: point(0.0, 5.0),
+        ctrl2: point(0.0, 5.0),
+        to: point(1.0, 0.0),
+    };
+    let seg2 = LineSegment { from: point(0.0, 0.0), to: point(0.0, 5.0) };
+    assert_approx_eq(curve2.line_segment_intersections_t(&seg2), &[(0.5, 0.75)], epsilon);
 }
