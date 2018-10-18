@@ -85,7 +85,8 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
 
         result.push(-bn * frac_1_3 + (s + t));
 
-        if S::abs(s - t) < S::EPSILON {
+        // Don't add the repeated root when s + t == 0.
+        if S::abs(s - t) < S::EPSILON && S::abs(s + t) >= S::EPSILON {
             result.push(-bn * frac_1_3 - (s + t) / S::TWO);
         }
     } else {
@@ -116,8 +117,11 @@ fn cubic_polynomial() {
     assert_approx_eq(cubic_polynomial_roots(2.0, -4.0, 2.0, 0.0), &[0.0, 1.0], 0.0000001);
     assert_approx_eq(cubic_polynomial_roots(-1.0, 1.0, -1.0, 1.0), &[1.0], 0.000001);
     assert_approx_eq(cubic_polynomial_roots(-2.0, 2.0, -1.0, 10.0), &[2.0], 0.00005);
+    // (x - 1)^3, with a triple root, should only return one root.
+    assert_approx_eq(cubic_polynomial_roots(1.0, -3.0, 3.0, -1.0), &[1.0], 0.00005);
 
     // Quadratics.
     assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -5.0, -14.0), &[-2.0, 7.0], 0.00005);
+    // (x - 3)^2, with a double root, should only return one root.
     assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -6.0, 9.0), &[3.0], 0.00005);
 }
