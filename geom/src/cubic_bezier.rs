@@ -100,8 +100,18 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Return the sub-curve inside a given range of t.
     ///
-    /// This is equivalent splitting at the range's end points.
+    /// This is equivalent to splitting at the range's end points.
     pub fn split_range(&self, t_range: Range<S>) -> Self {
+        if t_range.start == t_range.end {
+            let pt = self.sample(t_range.start);
+            return CubicBezierSegment {
+                from: pt,
+                ctrl1: pt,
+                ctrl2: pt,
+                to: pt,
+            };
+        }
+
         let t1 = t_range.start;
         let t2 = (t_range.end - t_range.start) / (S::ONE - t_range.start);
 
