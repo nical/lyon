@@ -51,6 +51,7 @@ members = [
     "extra",
     "svg",
     "cli",
+    "renderer",
     "wasm_test",
     "examples/gfx_advanced",
     "examples/gfx_basic",

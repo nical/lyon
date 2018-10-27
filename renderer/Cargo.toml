@@ -1,0 +1,30 @@
+[package]
+name = "lyon_renderer"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = ".."
+
+[features]
+vulkan = []
+
+[dependencies]
+lyon = "0.11"
+env_logger = "0.5"
+image = "0.19"
+log = "0.4"
+winit = "0.17"
+
+[dependencies.gfx-hal]
+git = "https://github.com/gfx-rs/gfx"
+rev = "76c67c60"
+
+[target.'cfg(target_os = "macos")'.dependencies.gfx-backend-metal]
+git = "https://github.com/gfx-rs/gfx"
+rev = "76c67c60"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies.gfx-backend-vulkan]
+git = "https://github.com/gfx-rs/gfx"
+rev = "76c67c60"
+
+[build-dependencies]
+shaderc = "0.3"

@@ -50,5 +50,4 @@
 .project
 .valgrindrc
 .vscode
-bin/
 **/target/
