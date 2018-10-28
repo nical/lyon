@@ -94,14 +94,40 @@ pub struct MemoryWriter {
     inner: Arc<MemoryWriterInner>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct AllocSize {
+    pub n_blocks: u32,
+}
+
+impl AllocSize {
+    pub fn blocks(n_blocks: u32) -> Self {
+        AllocSize { n_blocks }
+    }
+
+    pub fn bytes(size: usize) -> Self {
+        let block_size = size_of::<GpuBlock>() as u32;
+        AllocSize {
+            n_blocks: align_u32(size as u32, block_size) / block_size
+        }
+    }
+
+    pub fn in_bytes(&self) -> usize {
+        self.n_blocks as usize * size_of::<GpuBlock>()
+    }
+
+    pub fn in_blocks(&self) -> u32 {
+        self.n_blocks
+    }
+}
+
 impl MemoryWriter {
-    pub fn allocate_front(&self, n_blocks: u32) -> Result<(GpuBufferRange<GpuBlock>, &mut[GpuBlock]), AllocError> {
-        let range = self.inner.allocator.allocate_front(n_blocks)?;
+    pub fn allocate_front(&self, size: AllocSize) -> Result<(GpuBufferRange<GpuBlock>, &mut[GpuBlock]), AllocError> {
+        let range = self.inner.allocator.allocate_front(size.n_blocks)?;
         unsafe { Ok(self.allocated(range)) }
     }
 
-    pub fn allocate_back(&self, n_blocks: u32) -> Result<(GpuBufferRange<GpuBlock>, &mut[GpuBlock]), AllocError> {
-        let range = self.inner.allocator.allocate_back(n_blocks)?;
+    pub fn allocate_back(&self, size: AllocSize) -> Result<(GpuBufferRange<GpuBlock>, &mut[GpuBlock]), AllocError> {
+        let range = self.inner.allocator.allocate_back(size.n_blocks)?;
         unsafe { Ok(self.allocated(range)) }
     }
 
@@ -122,7 +148,8 @@ impl MemoryWriter {
     where T: GpuData {
         debug_assert!(size_of::<T>() % size_of::<GpuBlock>() == 0);
         let blocks = as_gpu_blocks(slice);
-        let (id, mem) = self.allocate_front(blocks.len() as u32)?;
+        let size = AllocSize::blocks(blocks.len() as u32);
+        let (id, mem) = self.allocate_front(size)?;
         mem.copy_from_slice(blocks);
 
         Ok(unsafe { id.cast() })
@@ -132,7 +159,8 @@ impl MemoryWriter {
     where T: GpuData {
         debug_assert!(size_of::<T>() % size_of::<GpuBlock>() == 0);
         let blocks = as_gpu_blocks(slice);
-        let (id, mem) = self.allocate_back(blocks.len() as u32)?;
+        let size = AllocSize::blocks(blocks.len() as u32);
+        let (id, mem) = self.allocate_back(size)?;
         mem.copy_from_slice(blocks);
 
         Ok(unsafe { id.cast() })
@@ -143,4 +171,9 @@ struct MemoryWriterInner {
     allocator: BumpAllocator,
     buffer_ptr: *mut GpuBlock,
     buffer_id: GpuBuffer<GpuBlock>,
+}
+
+pub fn align_u32(size: u32, alignment: u32) -> u32 {
+    let mask = alignment - 1;
+    (size + mask) & !mask
 }

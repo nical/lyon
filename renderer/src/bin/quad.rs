@@ -4,7 +4,6 @@
 )]
 
 extern crate lyon_renderer as renderer;
-extern crate env_logger;
 extern crate winit;
 
 use renderer::{GpuBlock, GpuBuffer, GpuData, CopyParams};
@@ -20,13 +19,11 @@ use gfx::{
     window::{Extent2D, Backbuffer, FrameSync},
     queue::Submission,
     pass::Subpass,
-    DescriptorPool, Primitive, SwapchainConfig,
-    Instance, PhysicalDevice, Surface, Swapchain,
+    Primitive, SwapchainConfig, PsoEntryPoint,
+    Instance,
 };
 
 use std::fs;
-use std::mem;
-use std::io::{Cursor, Read};
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const DIMS: Extent2D = Extent2D { width: 1024,height: 768 };
@@ -59,57 +56,114 @@ const COLOR_RANGE: image::SubresourceRange = image::SubresourceRange {
     layers: 0..1,
 };
 
-fn main() {
-    env_logger::init();
+pub struct WindowData {
+    pub window: Option<winit::Window>,
+    pub adapter: gfx::Adapter,
+    pub device: gfx::Device,
+    pub queue_group: gfx::QueueGroup<gfx::hal::Graphics>,
+    pub surface: gfx::Surface,
+    pub memory_properties: gfx::MemoryProperties,
+    pub limits: gfx::Limits,
+}
 
-    let mut events_loop = winit::EventsLoop::new();
-
+pub fn make_window(
+    events_loop: &winit::EventsLoop,
+    w: u32, h: u32, name: String,
+    select_adapter: &mut Fn(Vec<gfx::Adapter>) -> gfx::Adapter,
+) -> Option<WindowData> {
     let wb = winit::WindowBuilder::new()
-        .with_dimensions(winit::dpi::LogicalSize::new(
-            DIMS.width as _,
-            DIMS.height as _,
-        ))
-        .with_title("quad".to_string());
-    // instantiate backend
+        .with_dimensions(winit::dpi::LogicalSize::new(w as f64, h as f64))
+        .with_title(name);
+
     #[cfg(not(feature = "gl"))]
-    let (_window, _instance, mut adapters, mut surface) = {
-        let window = wb.build(&events_loop).unwrap();
+    let (window, _instance, adapters, surface) = {
+        let window = wb.build(events_loop).unwrap();
         let instance = Instance::create("gfx-rs quad", 1);
         let surface = instance.create_surface(&window);
         let adapters = instance.enumerate_adapters();
-        (window, instance, adapters, surface)
+        (Some(window), instance, adapters, surface)
     };
     #[cfg(feature = "gl")]
-    let (mut adapters, mut surface) = {
+    let (window, mut adapters, surface) = {
         let window = {
             let builder = gfx::backend::config_context(
                 gfx::backend::glutin::ContextBuilder::new(),
                 ColorFormat::SELF,
                 None
             ).with_vsync(true);
-            gfx::backend::glutin::GlWindow::new(wb, builder, &events_loop).unwrap()
+            gfx::backend::glutin::GlWindow::new(wb, builder, events_loop).unwrap()
         };
 
         let surface = gfx::backend::Surface::from_window(window);
         let adapters = surface.enumerate_adapters();
-        (adapters, surface)
+        (None, adapters, surface)
     };
 
-    for adapter in &adapters {
-        println!("{:?}", adapter.info);
-    }
-
-    let mut adapter = adapters.remove(0);
-    let memory_types = adapter.physical_device.memory_properties().memory_types;
-    let limits = adapter.physical_device.limits();
+    let mut adapter = select_adapter(adapters);
 
     // Build a new device and associated command queues
-    let (device, mut queue_group) = adapter
-        .open_with::<_, gfx::hal::Graphics>(1, |family| surface.supports_queue_family(family))
-        .unwrap();
+    let (device, queue_group) = adapter.open_with::<_, gfx::hal::Graphics>(
+        1,
+        |family| surface.supports_queue_family(family)
+    ).unwrap();
 
-    let mut command_pool =
-        device.create_command_pool_typed(&queue_group, pool::CommandPoolCreateFlags::empty(), 16);
+    let memory_properties = adapter.physical_device.memory_properties();
+    let limits = adapter.physical_device.limits();
+
+    Some(WindowData {
+        window,
+        adapter,
+        device,
+        queue_group,
+        surface,
+        memory_properties,
+        limits,
+    })
+}
+
+pub fn select_memory_type(
+    properties: &gfx::MemoryProperties,
+    requirements: &gfx::BufferRequirements,
+    cb: &dyn Fn(&gfx::MemoryType) -> bool,
+) -> Option<gfx::MemoryTypeId> {
+    properties
+        .memory_types
+        .iter()
+        .enumerate()
+        .position(|(idx, mem_type)| {
+            requirements.type_mask & (1 << idx) != 0
+                && cb(&mem_type)
+        })
+        .map(|idx| {
+            idx.into()
+        })
+}
+
+
+fn main() {
+    let mut events_loop = winit::EventsLoop::new();
+
+    let WindowData {
+        mut adapter,
+        mut queue_group,
+        mut surface,
+        device,
+        memory_properties,
+        limits,
+        window,
+    } = make_window(
+        &events_loop,
+        DIMS.width,
+        DIMS.height,
+        "gfx-hal".to_string(),
+        &mut |mut adapters| { adapters.remove(0) }
+    ).unwrap();
+
+    let mut command_pool = device.create_command_pool_typed(
+        &queue_group,
+        pool::CommandPoolCreateFlags::empty(),
+        16
+    );
 
     // Setup renderpass and pipeline
     let set_layout = device.create_descriptor_set_layout(
@@ -149,28 +203,24 @@ fn main() {
     let desc_set = desc_pool.allocate_set(&set_layout).unwrap();
 
     // Buffer allocations
-    println!("Memory types: {:?}", memory_types);
-
-    let buffer_stride = std::mem::size_of::<Vertex>() as u64;
-    let buffer_len = QUAD.len() as u64 * buffer_stride;
+    let buffer_len = QUAD.len() * std::mem::size_of::<Vertex>();
 
     let buffer_unbound = device
-        .create_buffer(buffer_len, buffer::Usage::VERTEX)
+        .create_buffer(buffer_len as u64, buffer::Usage::VERTEX)
         .unwrap();
     let buffer_req = device.get_buffer_requirements(&buffer_unbound);
 
-    let upload_type = memory_types
-        .iter()
-        .enumerate()
-        .position(|(id, mem_type)| {
-            buffer_req.type_mask & (1 << id) != 0
-                && mem_type.properties.contains(memory::Properties::CPU_VISIBLE)
-        })
-        .unwrap()
-        .into();
+    let upload_type_id = select_memory_type(
+        &memory_properties,
+        &buffer_req,
+        &|mem_type| {
+            mem_type.properties.contains(memory::Properties::CPU_VISIBLE)
+        },
+    ).unwrap();
+    println!("upload mem type: {:?}", upload_type_id);
 
     let buffer_memory = device
-        .allocate_memory(upload_type, buffer_req.size)
+        .allocate_memory(upload_type_id, buffer_req.size)
         .unwrap();
     let vertex_buffer = device
         .bind_buffer_memory(&buffer_memory, 0, buffer_unbound)
@@ -180,7 +230,8 @@ fn main() {
 
     {
         let mut vertices = device.acquire_mapping_writer::<GpuBlock>(
-            &buffer_memory, 0..buffer_req.size
+            &buffer_memory,
+            0..buffer_req.size
         ).unwrap();
         {
             let m = WritableMemory::new(&mut vertices, vbo_id.offset(0));
@@ -191,14 +242,12 @@ fn main() {
         device.release_mapping_writer(vertices);
     }
 
-    let width = 800;
-    let height = 400;
-    let bpp = 4;
-    let img = make_image(width, height);
+    let img_width = 800;
+    let img_height = 400;
+    let img_bpp = 4;
+    let img = make_image(img_width, img_height);
 
-    let kind = image::Kind::D2(width as image::Size, height as image::Size, 1, 1);
-
-    let img_params = CopyParams::image(width, height, bpp)
+    let img_params = CopyParams::image(img_width, img_height, img_bpp)
         .with_dst_alignment(limits.min_buffer_copy_pitch_alignment as u32);
 
     let image_buffer_unbound = device.create_buffer(
@@ -210,26 +259,40 @@ fn main() {
     assert!(img_params.dst_size() <= image_mem_reqs.size as u32);
 
     let image_upload_memory = device
-        .allocate_memory(upload_type, image_mem_reqs.size)
+        .allocate_memory(upload_type_id, image_mem_reqs.size)
         .unwrap();
     let image_upload_buffer = device
         .bind_buffer_memory(&image_upload_memory, 0, image_buffer_unbound)
         .unwrap();
 
+    let tex_id: GpuBuffer<GpuBlock> = GpuBuffer::new(1);
 
     // copy image data into staging buffer
     {
-        let mut data = device.acquire_mapping_writer::<u8>(
+        let mut data = device.acquire_mapping_writer::<GpuBlock>(
             &image_upload_memory,
             0..image_mem_reqs.size
         ).unwrap();
 
-        img_params.copy_bytes(&img, &mut data);
+        {
+            let m = WritableMemory::new(&mut data, tex_id.offset(0));
+            let writer = m.new_writer();
+            let (address, mapped_blocks) = writer.allocate_front(
+                AllocSize::bytes(image_mem_reqs.size as usize)
+            ).unwrap();
+            assert_eq!(address.range.start, 0);
+            let mappted_bytes = as_mut_bytes(mapped_blocks);
+            println!("mapped img bytes len: {} / {}", mappted_bytes.len(), image_mem_reqs.size);
+
+            img_params.copy_bytes(&img, mappted_bytes);
+        }
         device.release_mapping_writer(data);
     }
 
+    let img_kind = image::Kind::D2(img_width, img_height, 1, 1);
+
     let image_unbound = device.create_image(
-        kind,
+        img_kind,
         1,
         ColorFormat::SELF,
         image::Tiling::Optimal,
@@ -238,22 +301,21 @@ fn main() {
     ).unwrap(); // TODO: usage
     let image_req = device.get_image_requirements(&image_unbound);
 
-    let device_type = memory_types
-        .iter()
-        .enumerate()
-        .position(|(id, memory_type)| {
-            image_req.type_mask & (1 << id) != 0
-                && memory_type.properties.contains(memory::Properties::DEVICE_LOCAL)
-        })
-        .unwrap()
-        .into();
-    let image_memory = device.allocate_memory(device_type, image_req.size).unwrap();
+    let img_mem_type_id = select_memory_type(
+        &memory_properties,
+        &buffer_req,
+        &|mem_type| {
+            mem_type.properties.contains(memory::Properties::DEVICE_LOCAL)
+        },
+    ).unwrap();
 
-    let image_logo = device
+    let image_memory = device.allocate_memory(img_mem_type_id, image_req.size).unwrap();
+
+    let gpu_image = device
         .bind_image_memory(&image_memory, 0, image_unbound)
         .unwrap();
     let image_srv = device.create_image_view(
-        &image_logo,
+        &gpu_image,
         image::ViewKind::D2,
         ColorFormat::SELF,
         Swizzle::NO,
@@ -288,7 +350,7 @@ fn main() {
             let image_barrier = memory::Barrier::Image {
                 states: (image::Access::empty(), image::Layout::Undefined)
                     ..(image::Access::TRANSFER_WRITE, image::Layout::TransferDstOptimal),
-                target: &image_logo,
+                target: &gpu_image,
                 range: COLOR_RANGE.clone(),
             };
 
@@ -300,26 +362,30 @@ fn main() {
 
             cmd_buffer.copy_buffer_to_image(
                 &image_upload_buffer,
-                &image_logo,
+                &gpu_image,
                 image::Layout::TransferDstOptimal,
                 &[command::BufferImageCopy {
                     buffer_offset: 0,
-                    buffer_width: img_params.dst_row_pitch / bpp,
-                    buffer_height: height,
+                    buffer_width: img_params.dst_row_pitch / img_bpp,
+                    buffer_height: img_height,
                     image_layers: image::SubresourceLayers {
                         aspects: format::Aspects::COLOR,
                         level: 0,
                         layers: 0..1,
                     },
                     image_offset: image::Offset { x: 0, y: 0, z: 0 },
-                    image_extent: image::Extent { width, height, depth: 1 },
+                    image_extent: image::Extent {
+                        width: img_width,
+                        height: img_height,
+                        depth: 1,
+                    },
                 }],
             );
 
             let image_barrier = memory::Barrier::Image {
                 states: (image::Access::TRANSFER_WRITE, image::Layout::TransferDstOptimal)
                     ..(image::Access::SHADER_READ, image::Layout::ShaderReadOnlyOptimal),
-                target: &image_logo,
+                target: &gpu_image,
                 range: COLOR_RANGE.clone(),
             };
             cmd_buffer.pipeline_barrier(
@@ -383,29 +449,22 @@ fn main() {
     };
     let (mut frame_images, mut framebuffers) = match backbuffer {
         Backbuffer::Images(images) => {
-            let pairs = images
-                .into_iter()
-                .map(|image| {
-                    let rtv = device
-                        .create_image_view(
-                            &image,
-                            image::ViewKind::D2,
-                            format,
-                            Swizzle::NO,
-                            COLOR_RANGE.clone(),
-                        )
-                        .unwrap();
-                    (image, rtv)
-                })
-                .collect::<Vec<_>>();
-            let fbos = pairs
-                .iter()
-                .map(|&(_, ref rtv)| {
-                    device
-                        .create_framebuffer(&render_pass, Some(rtv), extent)
-                        .unwrap()
-                })
-                .collect();
+            let pairs = images.into_iter().map(|image| {
+                let rtv = device.create_image_view(
+                    &image,
+                    image::ViewKind::D2,
+                    format,
+                    Swizzle::NO,
+                    COLOR_RANGE.clone(),
+                ).unwrap();
+                (image, rtv)
+            }).collect::<Vec<_>>();
+            let fbos = pairs.iter().map(|&(_, ref rtv)| {
+                device.create_framebuffer(
+                    &render_pass,
+                    Some(rtv), extent
+                ).unwrap()
+            }).collect();
             (pairs, fbos)
         }
         Backbuffer::Framebuffer(fbo) => (Vec::new(), vec![fbo]),
@@ -428,7 +487,7 @@ fn main() {
 
         let pipeline = {
             let (vs_entry, fs_entry) = (
-                pso::EntryPoint::<gfx::Backend> {
+                PsoEntryPoint {
                     entry: ENTRY_NAME,
                     module: &vs_module,
                     specialization: pso::Specialization {
@@ -441,7 +500,7 @@ fn main() {
                         data: unsafe { std::mem::transmute::<&f32, &[u8; 4]>(&0.8f32) },
                     },
                 },
-                pso::EntryPoint::<gfx::Backend> {
+                PsoEntryPoint {
                     entry: ENTRY_NAME,
                     module: &fs_module,
                     specialization: pso::Specialization::default(),
@@ -515,7 +574,6 @@ fn main() {
         depth: 0.0..1.0,
     };
 
-    //
     let mut running = true;
     let mut recreate_swapchain = false;
     while running {
@@ -611,7 +669,7 @@ fn main() {
 
         device.reset_fence(&frame_fence);
         command_pool.reset();
-        let frame: gfx::hal::SwapImageIndex = {
+        let frame: gfx::SwapImageIndex = {
             match swap_chain.acquire_image(!0, FrameSync::Semaphore(&mut frame_semaphore)) {
                 Ok(i) => i,
                 Err(_) => {
@@ -667,7 +725,7 @@ fn main() {
 
     device.destroy_buffer(vertex_buffer);
     device.destroy_buffer(image_upload_buffer);
-    device.destroy_image(image_logo);
+    device.destroy_image(gpu_image);
     device.destroy_image_view(image_srv);
     device.destroy_sampler(sampler);
     device.destroy_fence(frame_fence);

@@ -46,11 +46,11 @@ impl<T> GpuBuffer<T> {
         GpuBuffer { handle, _marker: PhantomData }
     }
 
-    fn as_gpu_blocks(&self) -> GpuBuffer<GpuBlock> {
+    pub fn as_gpu_blocks(&self) -> GpuBuffer<GpuBlock> {
         unsafe { self.cast() }
     }
 
-    unsafe fn cast<T2: GpuData>(&self) -> GpuBuffer<T2> {
+    pub unsafe fn cast<T2: GpuData>(&self) -> GpuBuffer<T2> {
         GpuBuffer::new(self.handle)
     }
 
@@ -70,11 +70,11 @@ pub struct GpuBufferRange<T> {
 }
 
 impl<T> GpuBufferRange<T> {
-    fn as_gpu_blocks(&self) -> GpuBufferRange<GpuBlock> {
+    pub fn as_gpu_blocks(&self) -> GpuBufferRange<GpuBlock> {
         unsafe { self.cast() }
     }
 
-    unsafe fn cast<T2: GpuData>(&self) -> GpuBufferRange<T2> {
+    pub unsafe fn cast<T2: GpuData>(&self) -> GpuBufferRange<T2> {
         GpuBufferRange {
             buffer: self.buffer.cast(),
             range: self.range.clone(),

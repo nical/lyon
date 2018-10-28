@@ -5,11 +5,19 @@ pub use gfx_hal::{
     adapter, buffer, command, device, error, format, image,
     mapping, memory, pass, pool, pso, query, queue, range, window,
     Primitive, Features, Limits, SubmissionResult, SubmissionError,
-    SwapchainConfig, PresentMode,
+    SwapchainConfig, SwapImageIndex, PresentMode, MemoryProperties,
+    MemoryType, MemoryTypeId,
+    memory::Requirements as BufferRequirements,
 };
 
 pub use gfx_backend::{Backend, Device, PhysicalDevice, Instance};
 
+pub type Gpu = hal::Gpu<Backend>;
+pub type PsoEntryPoint<'l> = pso::EntryPoint<'l, Backend>;
+pub type Adapter = hal::Adapter<Backend>;
+pub type QueueGroup<Ty> = hal::QueueGroup<Backend, Ty>;
+//pub type FrameSync<'l> = hal::FrameSync<'l, Backend>;
+//pub type Backbuffer = hal::Backbuffer<Backend>;
 pub type Buffer = <Backend as hal::Backend>::Buffer;
 pub type BufferView = <Backend as hal::Backend>::BufferView;
 pub type UnboundBuffer = <Backend as hal::Backend>::UnboundBuffer;
@@ -34,9 +42,6 @@ pub type Image = <Backend as hal::Backend>::Image;
 pub type ImageView = <Backend as hal::Backend>::ImageView;
 pub type UnboundImage = <Backend as hal::Backend>::UnboundImage;
 pub type Surface = <Backend as hal::Backend>::Surface;
-pub type Gpu = hal::Gpu<Backend>;
-//pub type FrameSync<'l> = hal::FrameSync<'l, Backend>;
-//pub type Backbuffer = hal::Backbuffer<Backend>;
 
 pub mod traits {
     pub use super::hal::Instance as InstanceTrait;
