@@ -66,6 +66,56 @@ impl<S: Scalar> CubicBezierSegment<S> {
             self.to.y * t3;
     }
 
+    /// Return the parameter values corresponding to a given x coordinate.
+    pub fn parameters_for_x_value(&self, x: S) -> ArrayVec<[S; 3]> {
+        let mut result = ArrayVec::new();
+
+        if self.is_a_point(S::EPSILON)
+            || (self.is_linear(S::EPSILON) && self.baseline().from.x == self.baseline().to.x)
+        {
+            return result;
+        }
+
+        let a = -self.from.x + S::THREE * self.ctrl1.x - S::THREE * self.ctrl2.x + self.to.x;
+        let b = S::THREE * self.from.x - S::SIX * self.ctrl1.x + S::THREE * self.ctrl2.x;
+        let c = -S::THREE * self.from.x + S::THREE * self.ctrl1.x;
+        let d = self.from.x - x;
+
+        let roots = cubic_polynomial_roots(a, b, c, d);
+        for root in roots {
+            if root > S::ZERO && root < S::ONE {
+                result.push(root);
+            }
+        }
+
+        result
+    }
+
+    /// Return the parameter values corresponding to a given y coordinate.
+    pub fn parameters_for_y_value(&self, y: S) -> ArrayVec<[S; 3]> {
+        let mut result = ArrayVec::new();
+
+        if self.is_a_point(S::EPSILON)
+            || (self.is_linear(S::EPSILON) && self.baseline().from.y == self.baseline().to.y)
+        {
+            return result;
+        }
+
+        let a = -self.from.y + S::THREE * self.ctrl1.y - S::THREE * self.ctrl2.y + self.to.y;
+        let b = S::THREE * self.from.y - S::SIX * self.ctrl1.y + S::THREE * self.ctrl2.y;
+        let c = -S::THREE * self.from.y + S::THREE * self.ctrl1.y;
+        let d = self.from.y - y;
+
+        let roots = cubic_polynomial_roots(a, b, c, d);
+        for root in roots {
+            if root > S::ZERO && root < S::ONE {
+                result.push(root);
+            }
+        }
+
+        result
+    }
+
     #[inline]
     fn derivative_coefficients(&self, t: S) -> (S, S, S, S) {
         let t2 = t*t;
@@ -186,6 +236,14 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let line = self.baseline().to_line().equation();
         line.distance_to_point(&self.ctrl1) < tolerance
             && line.distance_to_point(&self.ctrl2) < tolerance
+    }
+
+    pub(crate) fn is_a_point(&self, tolerance: S) -> bool {
+        let tolerance_squared = tolerance * tolerance;
+        // Use <= so that tolerance can be zero.
+        (self.from - self.to).square_length() <= tolerance_squared
+            && (self.from - self.ctrl1).square_length() <= tolerance_squared
+            && (self.to - self.ctrl2).square_length() <= tolerance_squared
     }
 
     /// Computes a "fat line" of this segment.
@@ -960,4 +1018,41 @@ fn test_line_segment_intersections() {
     };
     let seg2 = LineSegment { from: point(0.0, 0.0), to: point(0.0, 5.0) };
     assert_approx_eq(curve2.line_segment_intersections_t(&seg2), &[(0.5, 0.75)], epsilon);
+}
+
+#[test]
+fn test_parameters_for_value() {
+    use math::point;
+    fn assert_approx_eq(a: ArrayVec<[f32; 3]>, b: &[f32], epsilon: f32) {
+        for i in 0..a.len() {
+            if f32::abs(a[i] - b[i]) > epsilon {
+                println!("{:?} != {:?}", a, b);
+            }
+            assert!((a[i] - b[i]).abs() <= epsilon);
+        }
+        assert_eq!(a.len(), b.len());
+    }
+
+    {
+        let curve = CubicBezierSegment {
+            from: point(0.0, 0.0),
+            ctrl1: point(0.0, 8.0),
+            ctrl2: point(10.0, 8.0),
+            to: point(10.0, 0.0)
+        };
+
+        let epsilon = 1e-4;
+        assert_approx_eq(curve.parameters_for_x_value(5.0), &[0.5], epsilon);
+        assert_approx_eq(curve.parameters_for_y_value(6.0), &[0.5], epsilon);
+    }
+    {
+        let curve = CubicBezierSegment {
+            from: point(0.0, 10.0),
+            ctrl1: point(0.0, 10.0),
+            ctrl2: point(10.0, 10.0),
+            to: point(10.0, 10.0)
+        };
+
+        assert_approx_eq(curve.parameters_for_y_value(10.0), &[], 0.0);
+    }
 }
