@@ -54,6 +54,14 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
     let mut result = ArrayVec::new();
 
     if S::abs(a) < S::EPSILON {
+        if S::abs(b) < S::EPSILON {
+            if S::abs(c) < S::EPSILON {
+                return result;
+            }
+            // linear equation
+            result.push(-d / c);
+            return result;
+        }
         // quadratic equation
         let delta = c * c - S::FOUR * b * d;
         if delta > S::ZERO {
@@ -124,4 +132,10 @@ fn cubic_polynomial() {
     assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -5.0, -14.0), &[-2.0, 7.0], 0.00005);
     // (x - 3)^2, with a double root, should only return one root.
     assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -6.0, 9.0), &[3.0], 0.00005);
+
+    // Linear.
+    assert_approx_eq(cubic_polynomial_roots(0.0, 0.0, 2.0, 1.0), &[-0.5], 0.00005);
+
+    // Constant.
+    assert_approx_eq(cubic_polynomial_roots(0.0, 0.0, 0.0, 0.0), &[], 0.00005);
 }
