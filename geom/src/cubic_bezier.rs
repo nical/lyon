@@ -246,29 +246,37 @@ impl<S: Scalar> CubicBezierSegment<S> {
             && (self.to - self.ctrl2).square_length() <= tolerance_squared
     }
 
+    /// Computes the signed distances (min <= 0 and max >= 0) from the baseline of this
+    /// curve to its two "fat line" boundary lines.
+    ///
+    /// A fat line is two convervative lines between which the segment
+    /// is fully contained.
+    pub(crate) fn fat_line_min_max(&self) -> (S, S) {
+        let baseline = self.baseline().to_line().equation();
+        let (d1, d2) = min_max(
+            baseline.signed_distance_to_point(&self.ctrl1),
+            baseline.signed_distance_to_point(&self.ctrl2),
+        );
+
+        let factor = if (d1 * d2) > S::ZERO {
+            S::THREE / S::FOUR
+        } else {
+            S::FOUR / S::NINE
+        };
+
+        let d_min = factor * S::min(d1, S::ZERO);
+        let d_max = factor * S::max(d2, S::ZERO);
+
+        (d_min, d_max)
+    }
+
     /// Computes a "fat line" of this segment.
     ///
     /// A fat line is two convervative lines between which the segment
     /// is fully contained.
     pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>) {
         let baseline = self.baseline().to_line().equation();
-        let (mut d1, mut d2) = min_max(
-            baseline.signed_distance_to_point(&self.ctrl1),
-            baseline.signed_distance_to_point(&self.ctrl2),
-        );
-
-        d1 = S::min(d1, S::ZERO);
-        d2 = S::max(d2, S::ZERO);
-
-        let frac_3_4 = S::THREE / S::FOUR;
-
-        if (d1 * d2).is_sign_positive() {
-            d1 = d1 * frac_3_4;
-            d2 = d2 * frac_3_4;
-        } else {
-            d1 = d1 * frac_3_4 * frac_3_4;
-            d2 = d2 * frac_3_4 * frac_3_4;
-        }
+        let (d1, d2) = self.fat_line_min_max();
 
         (baseline.offset(d1), baseline.offset(d2))
     }
@@ -943,6 +951,21 @@ fn fat_line() {
         let t = i as f32 / 99.0;
         assert!(l1.signed_distance_to_point(&c2.sample(t)) >= -0.000001);
         assert!(l2.signed_distance_to_point(&c2.sample(t)) <= 0.000001);
+    }
+
+    let c3 = CubicBezierSegment {
+        from: point(0.0f32, 1.0),
+        ctrl1: point(0.5, 0.0),
+        ctrl2: point(0.5, 0.0),
+        to: point(1.0, 1.0),
+    };
+
+    let (l1, l2) = c3.fat_line();
+
+    for i in 0..100 {
+        let t = i as f32 / 99.0;
+        assert!(l1.signed_distance_to_point(&c3.sample(t)) >= -0.000001);
+        assert!(l2.signed_distance_to_point(&c3.sample(t)) <= 0.000001);
     }
 }
 
