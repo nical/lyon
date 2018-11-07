@@ -497,7 +497,9 @@ fn add_intersection<S: Scalar>(
         }
     }
 
-    intersections.push((t1, t2));
+    if intersections.len() < 9 {
+        intersections.push((t1, t2));
+    }
 }
 
 // Returns an interval (t_min, t_max) with the property that for parameter values outside that
@@ -1202,6 +1204,20 @@ fn test_cubic_point_curve_intersections() {
         assert!(f32::abs(intersection_t2 - parameter2) < epsilon);
         assert!(f32::abs(intersection_t3 - parameter3) < epsilon);
     }
+}
+
+#[test]
+fn test_cubic_subcurve_intersections() {
+    let curve1 = CubicBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl1: point(0.0, 1.0),
+        ctrl2: point(0.0, 1.0),
+        to: point(1.0, 1.0),
+    };
+    let curve2 = curve1.split_range(0.25..0.75);
+    // The algorithm will find as many intersections as you let it, basically - make sure we're
+    // not allowing too many intersections to be added, and not crashing on out of resources.
+    do_test(&curve1, &curve2, 9);
 }
 
 #[test]
