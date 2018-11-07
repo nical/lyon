@@ -69,44 +69,43 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Return the parameter values corresponding to a given x coordinate.
+    /// See also solve_t_for_x for monotonic curves.
     pub fn parameters_for_x_value(&self, x: S) -> ArrayVec<[S; 3]> {
-        let mut result = ArrayVec::new();
-
-        if self.is_a_point(S::EPSILON)
-            || (self.is_linear(S::EPSILON) && self.baseline().from.x == self.baseline().to.x)
+        if self.is_a_point(S::ZERO)
+            || (self.non_point_is_linear(S::ZERO) && self.from.x == self.to.x)
         {
-            return result;
+            return ArrayVec::new();
         }
 
-        let a = -self.from.x + S::THREE * self.ctrl1.x - S::THREE * self.ctrl2.x + self.to.x;
-        let b = S::THREE * self.from.x - S::SIX * self.ctrl1.x + S::THREE * self.ctrl2.x;
-        let c = -S::THREE * self.from.x + S::THREE * self.ctrl1.x;
-        let d = self.from.x - x;
-
-        let roots = cubic_polynomial_roots(a, b, c, d);
-        for root in roots {
-            if root > S::ZERO && root < S::ONE {
-                result.push(root);
-            }
-        }
-
-        result
+        self.parameters_for_xy_value(x, self.from.x, self.ctrl1.x, self.ctrl2.x, self.to.x)
     }
 
     /// Return the parameter values corresponding to a given y coordinate.
+    /// See also solve_t_for_y for monotonic curves.
     pub fn parameters_for_y_value(&self, y: S) -> ArrayVec<[S; 3]> {
-        let mut result = ArrayVec::new();
-
-        if self.is_a_point(S::EPSILON)
-            || (self.is_linear(S::EPSILON) && self.baseline().from.y == self.baseline().to.y)
+        if self.is_a_point(S::ZERO)
+            || (self.non_point_is_linear(S::ZERO) && self.from.y == self.to.y)
         {
-            return result;
+            return ArrayVec::new();
         }
 
-        let a = -self.from.y + S::THREE * self.ctrl1.y - S::THREE * self.ctrl2.y + self.to.y;
-        let b = S::THREE * self.from.y - S::SIX * self.ctrl1.y + S::THREE * self.ctrl2.y;
-        let c = -S::THREE * self.from.y + S::THREE * self.ctrl1.y;
-        let d = self.from.y - y;
+        self.parameters_for_xy_value(y, self.from.y, self.ctrl1.y, self.ctrl2.y, self.to.y)
+    }
+
+    fn parameters_for_xy_value(
+        &self,
+        value: S,
+        from: S,
+        ctrl1: S,
+        ctrl2: S,
+        to: S,
+    ) -> ArrayVec<[S; 3]> {
+        let mut result = ArrayVec::new();
+
+        let a = -from + S::THREE * ctrl1 - S::THREE * ctrl2 + to;
+        let b = S::THREE * from - S::SIX * ctrl1 + S::THREE * ctrl2;
+        let c = -S::THREE * from + S::THREE * ctrl1;
+        let d = from - value;
 
         let roots = cubic_polynomial_roots(a, b, c, d);
         for root in roots {
@@ -235,9 +234,15 @@ impl<S: Scalar> CubicBezierSegment<S> {
         if (self.from - self.to).square_length() < epsilon {
             return false;
         }
+
+        self.non_point_is_linear(tolerance)
+    }
+
+    #[inline]
+    fn non_point_is_linear(&self, tolerance: S) -> bool {
         let line = self.baseline().to_line().equation();
-        line.distance_to_point(&self.ctrl1) < tolerance
-            && line.distance_to_point(&self.ctrl2) < tolerance
+        line.distance_to_point(&self.ctrl1) <= tolerance
+            && line.distance_to_point(&self.ctrl2) <= tolerance
     }
 
     pub(crate) fn is_a_point(&self, tolerance: S) -> bool {
