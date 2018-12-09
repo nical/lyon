@@ -259,7 +259,7 @@ fn add_curve_intersections<S: Scalar>(
         return call_count;
     }
 
-    let epsilon = if inputs_are_f32::<S>() { S::value(5e-6) } else { S::value(1e-12) };
+    let epsilon = if inputs_are_f32::<S>() { S::value(5e-6) } else { S::value(1e-9) };
 
     if domain2.start == domain2.end || curve2.is_a_point(S::ZERO) {
         add_point_curve_intersection(
@@ -367,7 +367,7 @@ fn add_curve_intersections<S: Scalar>(
         if domain2.end - domain2.start >= epsilon {
             call_count = add_curve_intersections(
                 curve2, curve1, domain2, new_domain1,
-                intersections,!flip, recursion_count, call_count,
+                intersections, !flip, recursion_count, call_count,
                 orig_curve2, orig_curve1,
             );
         } else {
