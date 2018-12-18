@@ -366,7 +366,7 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
         vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
 
         // #005fa4
-        float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
+        float vignette = clamp(0.7 * length(v_position), 0.0, 1.0);
         out_color = mix(
             vec4(0.0, 0.47, 0.9, 1.0),
             vec4(0.0, 0.1, 0.64, 1.0),
