@@ -15,7 +15,7 @@ use lyon::path::default::Path;
 
 use gfx::traits::{Device, FactoryExt};
 
-use glutin::GlContext;
+use glutin::dpi::LogicalSize;
 
 type ColorFormat = gfx::format::Rgba8;
 type DepthFormat = gfx::format::DepthStencil;
@@ -67,14 +67,14 @@ fn main() {
     let mut events_loop = glutin::EventsLoop::new();
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(700, 700)
+        .with_dimensions(LogicalSize{ width: 700.0, height: 700.0 })
         .with_decorations(true)
         .with_title("Simple tessellation".to_string());
 
     let context = glutin::ContextBuilder::new().with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &events_loop);
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &events_loop).unwrap();
 
     let shader = factory.link_program(
         VERTEX_SHADER.as_bytes(),
@@ -128,18 +128,19 @@ fn update_inputs(event_loop: &mut glutin::EventsLoop) -> bool {
 
     event_loop.poll_events(|event| {
         match event {
-            Event::WindowEvent {event: glutin::WindowEvent::Closed, ..} => {
+            Event::WindowEvent { event: glutin::WindowEvent::Destroyed, .. } => {
                 println!("Window Closed!");
                 status = false;
             },
-            Event::WindowEvent {event: glutin::WindowEvent::KeyboardInput {input: glutin::KeyboardInput {state: Pressed, virtual_keycode: Some(key), ..}, ..}, ..} => {
-                match key {
-                    VirtualKeyCode::Escape => {
-                        println!("Closing");
-                        status = false;
-                    }
-                    _key => {}
-                }
+            Event::WindowEvent {
+                event: glutin::WindowEvent::KeyboardInput {
+                    input: glutin::KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. },
+                    ..
+                },
+                ..
+            } => {
+                println!("Closing");
+                status = false;
             },
             _ => {}
         }

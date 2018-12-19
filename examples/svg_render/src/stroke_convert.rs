@@ -20,7 +20,7 @@ pub fn convert_stroke(s: &Stroke) -> (Color, StrokeOptions) {
     };
 
     let opt = StrokeOptions::tolerance(0.01)
-        .with_line_width(s.width as f32)
+        .with_line_width(s.width.value() as f32)
         .with_line_cap(linecap)
         .with_line_join(linejoin);
 

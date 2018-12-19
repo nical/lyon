@@ -15,8 +15,9 @@ use gfx;
 use gfx_window_glutin;
 use gfx::traits::{Device, FactoryExt};
 use glutin;
-use glutin::{GlContext, EventsLoop, KeyboardInput};
+use glutin::{EventsLoop, KeyboardInput};
 use glutin::ElementState::Pressed;
+use glutin::dpi::LogicalSize;
 
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
@@ -137,7 +138,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     );
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32)
+        .with_dimensions(LogicalSize { width: DEFAULT_WINDOW_WIDTH as f64, height: DEFAULT_WINDOW_HEIGHT as f64 })
         .with_decorations(true)
         .with_title("lyon".to_string());
 
@@ -152,7 +153,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut events_loop = glutin::EventsLoop::new();
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop);
+        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop).unwrap();
 
     let bg_pso = factory.create_pipeline_simple(
         BACKGROUND_VERTEX_SHADER.as_bytes(),
@@ -252,8 +253,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         }
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
-        let (w, h) = window.get_inner_size().unwrap();
-        scene.window_size = (w as f32, h as f32);
+        let size = window.get_inner_size().unwrap();
+        scene.window_size = (size.width as f32, size.height as f32);
 
         cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
         cmd_queue.clear_depth(&main_depth.clone(), 1.0);
@@ -261,7 +262,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         cmd_queue.update_constant_buffer(
             &constants,
             &Globals {
-                resolution: [w as f32, h as f32],
+                resolution: [size.width as f32, size.height as f32],
                 zoom: scene.zoom,
                 scroll_offset: scene.scroll.to_array(),
                 bg_color,
@@ -647,7 +648,7 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
     events_loop.poll_events(|event| {
         match event {
             Event::WindowEvent {
-                event: WindowEvent::Closed,
+                event: WindowEvent::Destroyed,
                 ..
             } => {
                 status = false;
@@ -665,11 +666,9 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                 );
             }
             Event::WindowEvent {
-                event: WindowEvent::CursorMoved {
-                    position: (x, y),
-                    ..},
+                event: WindowEvent::CursorMoved { position, .. },
             ..} => {
-                scene.cursor_position = (x as f32, y as f32);
+                scene.cursor_position = (position.x as f32, position.y as f32);
             }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
