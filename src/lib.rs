@@ -30,8 +30,8 @@
 //! * [![crate](http://meritbadge.herokuapp.com/lyon_extra)](https://crates.io/crates/lyon_extra)
 //!   [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
 //!   **lyon_extra** - Additional testing and debugging tools.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_tess2)](https://crates.io/crates/lyon_extra)
-//!   [![doc](https://docs.rs/lyon_tess2/badge.svg)](https://docs.rs/lyon_extra) -
+//! * [![crate](http://meritbadge.herokuapp.com/lyon_tess2)](https://crates.io/crates/lyon_tess2)
+//!   [![doc](https://docs.rs/lyon_tess2/badge.svg)](https://docs.rs/lyon_tess2) -
 //!   **lyon_tess2** - Alternative fill tessellation implementation using [libtess2](https://github.com/memononen/libtess2).
 //!
 //! Most `lyon_<name>` crate is reexported as a `<name>` module in `lyon`. For example:
