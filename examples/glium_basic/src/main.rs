@@ -3,7 +3,7 @@ extern crate glium;
 extern crate lyon;
 
 use glium::Surface;
-
+use glium::glutin::dpi::LogicalSize;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path::builder::*;
@@ -63,7 +63,7 @@ fn main() {
     let mut events_loop = glium::glutin::EventsLoop::new();
     let context = glium::glutin::ContextBuilder::new().with_vsync(true);
     let window = glium::glutin::WindowBuilder::new()
-        .with_dimensions(400, 400)
+        .with_dimensions(LogicalSize { width: 400.0, height: 400.0 })
         .with_decorations(true)
         .with_title("lyon + glium basic example");
     let display = glium::Display::new(window, context, &events_loop).unwrap();
@@ -96,9 +96,14 @@ fn main() {
         target.finish().unwrap();
 
         events_loop.poll_events(|event| {
+            use glium::glutin::{Event, WindowEvent};
             match event {
-                glium::glutin::Event::WindowEvent { event, .. } => match event {
-                    glium::glutin::WindowEvent::Closed => { status = false }
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::Destroyed => { status = false }
+                    WindowEvent::KeyboardInput {
+                        input: glium::glutin::KeyboardInput { virtual_keycode: Some(glium::glutin::VirtualKeyCode::Escape), .. },
+                        ..
+                    } => { status = false }
                     _ => (),
                 }
                 _ => (),

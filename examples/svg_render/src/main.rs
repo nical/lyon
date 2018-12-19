@@ -13,7 +13,7 @@ mod render;
 
 use clap::*;
 use gfx::traits::{Device, FactoryExt};
-use glutin::GlContext;
+use glutin::dpi::LogicalSize;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 pub use lyon::geom::euclid::Transform3D;
@@ -167,7 +167,7 @@ fn main() {
     // set up event processing and rendering
     let mut event_loop = glutin::EventsLoop::new();
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(width as u32, height as u32)
+        .with_dimensions(LogicalSize { width: width as f64, height: height as f64 })
         .with_decorations(true)
         .with_title("SVG Renderer");
 
@@ -178,7 +178,7 @@ fn main() {
         .with_vsync(true);
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &event_loop);
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(glutin_builder, context, &event_loop).unwrap();
 
     let shader = factory.link_program(
         render::VERTEX_SHADER.as_bytes(),
@@ -256,16 +256,16 @@ fn update_inputs(scene: &mut Scene, event_loop: &mut glutin::EventsLoop) -> bool
 
     event_loop.poll_events(|event| match event {
         Event::WindowEvent {
-            event: glutin::WindowEvent::Closed,
+            event: glutin::WindowEvent::Destroyed,
             ..
         } => {
             status = false;
         }
         Event::WindowEvent {
-            event: glutin::WindowEvent::Resized(w, h),
+            event: glutin::WindowEvent::Resized(size),
             ..
         } => {
-            scene.aspect_ratio = w as f32 / h as f32;
+            scene.aspect_ratio = size.width as f32 / size.height as f32;
         }
         Event::WindowEvent {
             event:

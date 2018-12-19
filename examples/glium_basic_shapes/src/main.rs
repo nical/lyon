@@ -3,6 +3,7 @@ extern crate glium;
 extern crate lyon;
 
 use glium::Surface;
+use glium::glutin::dpi::LogicalSize;
 
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
@@ -151,7 +152,7 @@ fn main() {
     let mut events_loop = glium::glutin::EventsLoop::new();
     let context = glium::glutin::ContextBuilder::new().with_vsync(true);
     let window = glium::glutin::WindowBuilder::new()
-        .with_dimensions(400, 400)
+        .with_dimensions(LogicalSize { width: 400.0, height: 400.0 })
         .with_decorations(true)
         .with_title("basic shapes");
     let display = glium::Display::new(window, context, &events_loop).unwrap();
@@ -186,7 +187,7 @@ fn main() {
         events_loop.poll_events(|event| {
             match event {
                 glium::glutin::Event::WindowEvent { event, .. } => match event {
-                    glium::glutin::WindowEvent::Closed => { status = false }
+                    glium::glutin::WindowEvent::Destroyed => { status = false }
                     _ => (),
                 }
                 _ => (),

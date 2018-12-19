@@ -6,4 +6,4 @@ workspace = "../.."
 
 [dependencies]
 lyon = { path = "../../", features = ["extra"] }
-glium = "0.20.0"
+glium = "0.22.0"
