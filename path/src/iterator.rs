@@ -163,6 +163,11 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
         Transformed::new(mat, self)
     }
+
+    /// Consumes the iterator and returns the length of the path.
+    fn length(self) -> f32 {
+        flattened_path_length(self)
+    }
 }
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -529,6 +534,39 @@ where
         None
     }
 }
+
+/// Computes the length of a flattened path.
+pub fn flattened_path_length<T>(iter: T) -> f32
+where T: Iterator<Item = FlattenedEvent> {
+    let mut length = 0.0;
+    let mut prev = None;
+    let mut first = None;
+    for evt in iter {
+        match evt {
+            FlattenedEvent::MoveTo(to) => {
+                prev = Some(to);
+                first = Some(to);
+            }
+            FlattenedEvent::LineTo(to) => {
+                if let Some(p) = prev {
+                    length += (to - p).length();
+                }
+                prev = Some(to);
+            }
+            FlattenedEvent::Close => {
+                if let Some(f) = first {
+                    if let Some(p) = prev {
+                        length += (f - p).length();
+                    }
+                    prev = Some(f);
+                }
+            }
+        }
+    }
+
+    length
+}
+
 
 #[test]
 fn test_from_polyline_open() {
