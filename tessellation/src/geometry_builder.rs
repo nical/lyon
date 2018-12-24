@@ -219,51 +219,11 @@
 //! }
 //! ```
 
+pub use path::{VertexId, Index};
 
 use std::marker::PhantomData;
 use std::ops::Add;
 use std::convert::From;
-
-pub type Index = u32;
-
-/// A virtual vertex offset in a geometry.
-///
-/// The `VertexId`s are only valid between `GeometryBuilder::begin_geometry` and
-/// `GeometryBuilder::end_geometry`. `GeometryBuilder` implementations typically be translate
-/// the ids internally so that first `VertexId` after `begin_geometry` is zero.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct VertexId(pub Index);
-
-impl VertexId {
-    pub fn offset(&self) -> Index { self.0 }
-}
-
-impl Add<u32> for VertexId {
-    type Output = Self;
-    fn add(self, rhs: u32) -> Self {
-        VertexId(self.0 + rhs)
-    }
-}
-
-impl From<u16> for VertexId {
-    fn from(v: u16) -> Self { VertexId(v as Index) }
-}
-impl From<u32> for VertexId {
-    fn from(v: u32) -> Self { VertexId(v) }
-}
-impl From<i32> for VertexId {
-    fn from(v: i32) -> Self { VertexId(v as Index) }
-}
-
-impl From<VertexId> for u16 {
-    fn from(v: VertexId) -> Self { v.0 as u16 }
-}
-impl From<VertexId> for u32 {
-    fn from(v: VertexId) -> Self { v.0 }
-}
-impl From<VertexId> for i32 {
-    fn from(v: VertexId) -> Self { v.0 as i32 }
-}
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.

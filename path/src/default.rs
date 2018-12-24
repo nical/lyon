@@ -2,9 +2,11 @@ use builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
 use iterator::PathIter;
 
 use PathEvent;
+use VertexId;
 use math::*;
 
 use std::iter::IntoIterator;
+use std::ops;
 
 /// Enumeration corresponding to the [PathEvent](https://docs.rs/lyon_core/*/lyon_core/events/enum.PathEvent.html) enum
 /// without the parameters.
@@ -20,6 +22,14 @@ pub enum Verb {
     CubicTo,
     Arc,
     Close,
+}
+
+/// A cursor refers to an event within a Path.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct Cursor {
+    vertex: VertexId,
+    verb: u32,
 }
 
 /// A simple path data structure.
@@ -89,6 +99,31 @@ impl Path {
 
         self
     }
+
+    pub fn event_at_cursor(&self, cursor: Cursor) -> PathEvent {
+        event_at_cursor(&cursor, &self.points, &self.verbs)
+    }
+
+    pub fn next_cursor(&self, cursor: Cursor) -> Option<Cursor> {
+        next_cursor(&cursor, &self.verbs)
+    }
+
+    pub fn previous_cursor(&self, cursor: Cursor) -> Option<Cursor> {
+        prev_cursor(&cursor, &self.verbs)
+    }
+
+    pub fn cursor(&self) -> Cursor {
+        Cursor {
+            vertex: VertexId(0),
+            verb: 0,
+        }
+    }
+
+    /// Returns whether this cursor points inside the storage of this path.
+    pub fn cursor_is_valid(&self, cursor: Cursor) -> bool {
+        (cursor.verb as usize) < self.verbs.len()
+            && cursor.vertex.to_usize() + n_stored_points(self.verbs[cursor.verb as usize]) as usize <= self.points.len()
+    }
 }
 
 impl<'l> IntoIterator for &'l Path {
@@ -107,13 +142,63 @@ impl<'l> PathSlice<'l> {
         }
     }
 
-    pub fn iter(&self) -> Iter { Iter::new(self.points, self.verbs) }
+    pub fn iter(&self) -> Iter {
+        Iter::new(self.points, self.verbs)
+    }
 
-    pub fn path_iter(&self) -> PathIter<Iter> { PathIter::new(self.iter()) }
+    pub fn iter_from(&self, cursor: Cursor) -> Iter {
+        Iter::new(
+            &self.points[cursor.vertex.offset() as usize..],
+            &self.verbs[cursor.verb as usize..],
+        )
+    }
+
+    pub fn iter_until(&self, cursor: Cursor) -> Iter {
+        Iter::new(
+            &self.points[..cursor.vertex.offset() as usize],
+            &self.verbs[..cursor.verb as usize],
+        )
+    }
+
+    pub fn iter_range(&self, cursor: ops::Range<Cursor>) -> Iter {
+        Iter::new(
+            &self.points[cursor.start.vertex.offset() as usize .. cursor.end.vertex.offset() as usize],
+            &self.verbs[cursor.start.verb as usize .. cursor.end.verb as usize],
+        )
+    }
+
+    pub fn path_iter(&self) -> PathIter<Iter> {
+        PathIter::new(self.iter())
+    }
+
+    pub fn path_iter_from(&self, cursor: Cursor) -> PathIter<Iter> {
+        PathIter::new(self.iter_from(cursor))
+    }
+
+    pub fn path_iter_until(&self, cursor: Cursor) -> PathIter<Iter> {
+        PathIter::new(self.iter_until(cursor))
+    }
+
+    pub fn path_iter_range(&self, cursor: ops::Range<Cursor>) -> PathIter<Iter> {
+        PathIter::new(self.iter_range(cursor))
+    }
 
     pub fn points(&self) -> &[Point] { self.points }
 
     pub fn verbs(&self) -> &[Verb] { self.verbs }
+
+    pub fn event_at_cursor(&self, cursor: Cursor) -> PathEvent {
+        event_at_cursor(&cursor, self.points, self.verbs)
+    }
+
+    pub fn next_cursor(&self, cursor: Cursor) -> Option<Cursor> {
+        next_cursor(&cursor, self.verbs)
+    }
+
+    pub fn previous_cursor(&self, cursor: Cursor) -> Option<Cursor> {
+        prev_cursor(&cursor, self.verbs)
+    }
+
 }
 
 //impl<'l> IntoIterator for PathSlice<'l> {
@@ -150,6 +235,14 @@ impl Builder {
     pub fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> {
         FlatteningBuilder::new(self, tolerance)
     }
+
+    /// Returns a cursor to the next path event.
+    pub fn cursor(&self) -> Cursor {
+        Cursor {
+            vertex: VertexId::from_usize(self.path.points.len()),
+            verb: self.path.verbs.len() as u32,
+        }
+    }
 }
 
 #[inline]
@@ -163,11 +256,6 @@ impl FlatPathBuilder for Builder {
 
     fn move_to(&mut self, to: Point) {
         nan_check(to);
-        //if self.path.verbs.last() == Some(&Verb::MoveTo) {
-        //    // previous op was also MoveTo, just overrwrite it.
-        //    self.path.vertices.pop();
-        //    self.path.verbs.pop();
-        //}
         self.first_position = to;
         self.current_position = to;
         self.building = true;
@@ -183,14 +271,6 @@ impl FlatPathBuilder for Builder {
     }
 
     fn close(&mut self) {
-        //if self.path.verbs.last() == Some(&Verb::MoveTo) {
-        //    // previous op was MoveTo we don't have a path to close, drop it.
-        //    self.path.points.pop();
-        //    self.path.verbs.pop();
-        //} else if self.path.verbs.last() == Some(&Verb::Close) {
-        //    return;
-        //}
-
         self.path.verbs.push(Verb::Close);
         self.current_position = self.first_position;
         self.building = false;
@@ -208,6 +288,26 @@ impl FlatPathBuilder for Builder {
         ::std::mem::swap(&mut self.path, &mut tmp);
 
         tmp
+    }
+}
+
+impl<'l> ops::Index<VertexId> for PathSlice<'l> {
+    type Output = Point;
+    fn index(&self, id: VertexId) -> &Point {
+        &self.points[id.offset() as usize]
+    }
+}
+
+impl ops::Index<VertexId> for Path {
+    type Output = Point;
+    fn index(&self, id: VertexId) -> &Point {
+        &self.points[id.offset() as usize]
+    }
+}
+
+impl ops::IndexMut<VertexId> for Path {
+    fn index_mut(&mut self, id: VertexId) -> &mut Point {
+        &mut self.points[id.offset() as usize]
     }
 }
 
@@ -305,6 +405,61 @@ impl<'l> Iterator for Iter<'l> {
             Some(&Verb::Close) => Some(PathEvent::Close),
             None => None,
         }
+    }
+}
+
+fn n_stored_points(verb: Verb) -> u32 {
+    match verb {
+        Verb::MoveTo => 1,
+        Verb::LineTo => 1,
+        Verb::QuadraticTo => 2,
+        Verb::CubicTo => 2,
+        Verb::Arc => 3,
+        Verb::Close => 0,
+    }
+}
+
+fn next_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
+    if cursor.verb as usize >= verbs.len() {
+        return None;
+    }
+    let verb = verbs[cursor.verb as usize];
+    Some(Cursor {
+        vertex: cursor.vertex + n_stored_points(verb),
+        verb: cursor.verb + 1,
+    })
+}
+
+fn prev_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
+    if cursor.verb == 0 {
+        return None;
+    }
+    let verb = verbs[cursor.verb as usize - 1];
+    Some(Cursor {
+        vertex: cursor.vertex - n_stored_points(verb),
+        verb: cursor.verb - 1,
+    })
+}
+
+fn event_at_cursor(cursor: &Cursor, points: &[Point], verbs: &[Verb]) -> PathEvent {
+    let p = &points[cursor.vertex.to_usize()..];
+    match verbs[cursor.verb as usize] {
+        Verb::MoveTo => PathEvent::MoveTo(p[0]),
+        Verb::LineTo => PathEvent::LineTo(p[0]),
+        Verb::QuadraticTo => PathEvent::QuadraticTo(p[0], p[1]),
+        Verb::CubicTo => PathEvent::CubicTo(p[0], p[1], p[2]),
+        Verb::Arc => {
+            let center = p[0];
+            let radii = p[1].to_vector();
+            let sweep_angle_x_rot = p[2];
+            PathEvent::Arc(
+                center,
+                radii,
+                Angle::radians(sweep_angle_x_rot.x),
+                Angle::radians(sweep_angle_x_rot.y),
+            )
+        }
+        Verb::Close => PathEvent::Close,
     }
 }
 
