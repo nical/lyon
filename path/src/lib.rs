@@ -66,6 +66,7 @@ pub type Index = u32;
 /// `GeometryBuilder::end_geometry`. `GeometryBuilder` implementations typically be translate
 /// the ids internally so that first `VertexId` after `begin_geometry` is zero.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct VertexId(pub Index);
 
 impl VertexId {
