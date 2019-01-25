@@ -646,6 +646,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         cubic_bezier_intersections_t(self, curve)
     }
 
+    /// Computes the intersection points (if any) between this segment and another one.
     pub fn cubic_intersections(&self, curve: &CubicBezierSegment<S>) -> ArrayVec<[Point<S>; 9]> {
         let intersections = self.cubic_intersections_t(curve);
 
@@ -696,6 +697,24 @@ impl<S: Scalar> CubicBezierSegment<S> {
         result
     }
 
+    /// Computes the intersections (if any) between this segment a quadratic bézier segment.
+    ///
+    /// The result is provided in the form of the `t` parameters of each point along the curves. To
+    /// get the intersection points, sample the curves at the corresponding values.
+    ///
+    /// Returns endpoint intersections where an endpoint intersects the interior of the other curve,
+    /// but not endpoint/endpoint intersections.
+    ///
+    /// Returns no intersections if either curve is a point.
+    pub fn quadratic_intersections_t(&self, curve: &QuadraticBezierSegment<S>) -> ArrayVec<[(S, S); 9]> {
+        self.cubic_intersections_t(&curve.to_cubic())
+    }
+
+    /// Computes the intersection points (if any) between this segment and a quadratic bézier segment.
+    pub fn quadratic_intersections(&self, curve: &QuadraticBezierSegment<S>) -> ArrayVec<[Point<S>; 9]> {
+        self.cubic_intersections(&curve.to_cubic())
+    }
+
     /// Computes the intersections (if any) between this segment and a line.
     ///
     /// The result is provided in the form of the `t` parameters of each
@@ -736,6 +755,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         return result;
     }
 
+    /// Computes the intersection points (if any) between this segment and a line.
     pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[Point<S>; 3]> {
         let intersections = self.line_intersections_t(&line);
 
