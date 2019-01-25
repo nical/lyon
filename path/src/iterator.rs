@@ -516,6 +516,8 @@ where
         }
 
         if let Some(next) = self.iter.next() {
+            debug_assert!(next.x.is_finite());
+            debug_assert!(next.y.is_finite());
             return Some(
                 if self.first {
                     self.first = false;
