@@ -247,8 +247,8 @@ impl Builder {
 
 #[inline]
 fn nan_check(p: Point) {
-    debug_assert!(!p.x.is_nan());
-    debug_assert!(!p.y.is_nan());
+    debug_assert!(p.x.is_finite());
+    debug_assert!(p.y.is_finite());
 }
 
 impl FlatPathBuilder for Builder {
