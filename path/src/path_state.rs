@@ -41,7 +41,7 @@ impl PathState {
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::ArcTo(_, _, _, to) => {
-                self.last_ctrl = self.current; // TODO
+                self.last_ctrl = self.current;
                 self.current = to;
             }
             SvgEvent::RelativeLineTo(to) => {
@@ -59,7 +59,7 @@ impl PathState {
                 self.curve_to(ctrl2, to);
             }
             SvgEvent::RelativeArcTo(_, _, _, to) => {
-                self.last_ctrl = self.current; // TODO
+                self.last_ctrl = self.current;
                 self.relative_next(to);
             }
             SvgEvent::HorizontalLineTo(x) => {
