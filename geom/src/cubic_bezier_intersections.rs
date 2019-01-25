@@ -103,8 +103,8 @@ fn point_curve_intersections<S: Scalar>(
         return result;
     }
 
-    let curve_x_t_params = curve.parameters_for_x_value(pt.x);
-    let curve_y_t_params = curve.parameters_for_y_value(pt.y);
+    let curve_x_t_params = curve.solve_t_for_x(pt.x);
+    let curve_y_t_params = curve.solve_t_for_y(pt.y);
     // We want to coalesce parameters representing the same intersection from the x and y
     // directions, but the parameter calculations aren't very accurate, so give a little more
     // leeway there (TODO: this isn't perfect, as you might expect - the dupes that pass here are
@@ -170,10 +170,10 @@ fn line_curve_intersections<S: Scalar>(
     for curve_t in curve_intersections {
         let line_intersections = if line_is_mostly_vertical {
             let intersection_y = curve.y(curve_t);
-            line_as_curve.parameters_for_y_value(intersection_y)
+            line_as_curve.solve_t_for_y(intersection_y)
         } else {
             let intersection_x = curve.x(curve_t);
-            line_as_curve.parameters_for_x_value(intersection_x)
+            line_as_curve.solve_t_for_x(intersection_x)
         };
 
         for line_t in line_intersections {
@@ -205,9 +205,9 @@ fn line_line_intersections<S: Scalar>(
         let line_is_mostly_vertical =
             S::abs(curve.from.y - curve.to.y) >= S::abs(curve.from.x - curve.to.x);
         if line_is_mostly_vertical {
-            curve.parameters_for_y_value(pt.y)
+            curve.solve_t_for_y(pt.y)
         } else {
-            curve.parameters_for_x_value(pt.x)
+            curve.solve_t_for_x(pt.x)
         }
     }
 

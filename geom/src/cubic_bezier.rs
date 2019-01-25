@@ -70,7 +70,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Return the parameter values corresponding to a given x coordinate.
     /// See also solve_t_for_x for monotonic curves.
-    pub fn parameters_for_x_value(&self, x: S) -> ArrayVec<[S; 3]> {
+    pub fn solve_t_for_x(&self, x: S) -> ArrayVec<[S; 3]> {
         if self.is_a_point(S::ZERO)
             || (self.non_point_is_linear(S::ZERO) && self.from.x == self.to.x)
         {
@@ -82,7 +82,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Return the parameter values corresponding to a given y coordinate.
     /// See also solve_t_for_y for monotonic curves.
-    pub fn parameters_for_y_value(&self, y: S) -> ArrayVec<[S; 3]> {
+    pub fn solve_t_for_y(&self, y: S) -> ArrayVec<[S; 3]> {
         if self.is_a_point(S::ZERO)
             || (self.non_point_is_linear(S::ZERO) && self.from.y == self.to.y)
         {
@@ -1135,8 +1135,8 @@ fn test_parameters_for_value() {
         };
 
         let epsilon = 1e-4;
-        assert_approx_eq(curve.parameters_for_x_value(5.0), &[0.5], epsilon);
-        assert_approx_eq(curve.parameters_for_y_value(6.0), &[0.5], epsilon);
+        assert_approx_eq(curve.solve_t_for_x(5.0), &[0.5], epsilon);
+        assert_approx_eq(curve.solve_t_for_y(6.0), &[0.5], epsilon);
     }
     {
         let curve = CubicBezierSegment {
@@ -1146,7 +1146,7 @@ fn test_parameters_for_value() {
             to: point(10.0, 10.0)
         };
 
-        assert_approx_eq(curve.parameters_for_y_value(10.0), &[], 0.0);
+        assert_approx_eq(curve.solve_t_for_y(10.0), &[], 0.0);
     }
 }
 
