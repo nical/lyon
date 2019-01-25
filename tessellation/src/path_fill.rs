@@ -2,7 +2,7 @@
 //
 // # Segment intersection
 //
-// segment-segment intersection is currently the most perf-sensituve function by far.
+// segment-segment intersection is currently the most perf-sensitive function by far.
 // A quick experiment replacing segment_intersection by a dummy function that always
 // return None made the tessellation of the log twice faster.
 // segment_intersection can be improved (it is currently a naive implementation).

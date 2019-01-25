@@ -256,7 +256,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Computes the signed distances (min <= 0 and max >= 0) from the baseline of this
     /// curve to its two "fat line" boundary lines.
     ///
-    /// A fat line is two convervative lines between which the segment
+    /// A fat line is two conservative lines between which the segment
     /// is fully contained.
     pub(crate) fn fat_line_min_max(&self) -> (S, S) {
         let baseline = self.baseline().to_line().equation();
@@ -279,7 +279,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Computes a "fat line" of this segment.
     ///
-    /// A fat line is two convervative lines between which the segment
+    /// A fat line is two conservative lines between which the segment
     /// is fully contained.
     pub fn fat_line(&self) -> (LineEquation<S>, LineEquation<S>) {
         let baseline = self.baseline().to_line().equation();
