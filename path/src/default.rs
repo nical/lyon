@@ -1,3 +1,5 @@
+//! The default path data structure.
+
 use builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
 use iterator::PathIter;
 
