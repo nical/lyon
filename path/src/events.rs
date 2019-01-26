@@ -2,6 +2,9 @@ use math::{Point, Vector, Angle, Transform2D, Transform};
 use ArcFlags;
 use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc};
 
+/// Path event enum that can represent all of SVG's path description syntax.
+///
+/// See the SVG specification: https://www.w3.org/TR/SVG/paths.html
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum SvgEvent {
@@ -13,7 +16,11 @@ pub enum SvgEvent {
     RelativeQuadraticTo(Vector, Vector),
     CubicTo(Point, Point, Point),
     RelativeCubicTo(Vector, Vector, Vector),
+    /// Elliptic arc represented with the radii, the x axis rotation, arc flags
+    /// and the destination point.
     ArcTo(Vector, Angle, ArcFlags, Point),
+    /// Elliptic arc represented with the radii, the x axis rotation, arc flags
+    /// and the vector from the current position to the destination point.
     RelativeArcTo(Vector, Angle, ArcFlags, Vector),
     HorizontalLineTo(f32),
     VerticalLineTo(f32),
@@ -26,6 +33,9 @@ pub enum SvgEvent {
     Close,
 }
 
+/// Path event enum that represents all operations in absolute coordinates.
+///
+/// Can express the same curves as `SvgEvent` with a simpler representation.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum PathEvent {
@@ -33,10 +43,14 @@ pub enum PathEvent {
     LineTo(Point),
     QuadraticTo(Point, Point),
     CubicTo(Point, Point, Point),
+    /// Elliptic arc represented with the center, the radii, the sweep angle and the x axis rotation.
     Arc(Point, Vector, Angle, Angle),
     Close,
 }
 
+/// Path event enum that can only present quadratic bézier curves and line segments.
+///
+/// Useful for algorithms that approximate all curves with quadratic béziers.
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum QuadraticEvent {
@@ -46,6 +60,9 @@ pub enum QuadraticEvent {
     Close,
 }
 
+/// Path event enum that can only present line segments.
+///
+/// Useful for algorithms that approximate all curves with line segments.
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FlattenedEvent {
@@ -98,15 +115,6 @@ impl QuadraticEvent {
             QuadraticEvent::Close => PathEvent::Close,
         }
     }
-}
-
-// TODO: serialization
-#[derive(Copy, Clone, Debug)]
-pub enum Segment {
-    Line(LineSegment<f32>),
-    Quadratic(QuadraticBezierSegment<f32>),
-    Cubic(CubicBezierSegment<f32>),
-    Arc(Arc<f32>),
 }
 
 impl Transform for FlattenedEvent {

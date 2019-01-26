@@ -34,7 +34,7 @@
 //!   [![doc](https://docs.rs/lyon_tess2/badge.svg)](https://docs.rs/lyon_tess2) -
 //!   **lyon_tess2** - Alternative fill tessellation implementation using [libtess2](https://github.com/memononen/libtess2).
 //!
-//! Most `lyon_<name>` crate is reexported as a `<name>` module in `lyon`. For example:
+//! Each `lyon_<name>` crate is reexported as a `<name>` module in `lyon`. For example:
 //!
 //! ```ignore
 //! extern crate lyon_tessellation;
