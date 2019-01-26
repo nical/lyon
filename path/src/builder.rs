@@ -77,6 +77,7 @@
 use math::*;
 use events::{PathEvent, FlattenedEvent, SvgEvent};
 use geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
+use path_state::PathState;
 
 /// The most basic path building interface. Does not handle any kind of curve.
 pub trait FlatPathBuilder: ::std::marker::Sized {
@@ -173,7 +174,6 @@ pub trait SvgBuilder: PathBuilder {
     fn relative_horizontal_line_to(&mut self, dx: f32);
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
-    // TODO: Would it be better to use an api closer to cairo/skia for arcs?
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point);
     fn relative_arc_to(
         &mut self,
@@ -258,14 +258,14 @@ pub trait PolygonBuilder {
 /// Implements the Svg building interface on top of a PathBuilder.
 pub struct SvgPathBuilder<Builder: PathBuilder> {
     builder: Builder,
-    last_ctrl: Point,
+    state: PathState,
 }
 
 impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     pub fn new(builder: Builder) -> SvgPathBuilder<Builder> {
         SvgPathBuilder {
             builder,
-            last_ctrl: point(0.0, 0.0),
+            state: PathState::new(),
         }
     }
 }
@@ -274,21 +274,21 @@ impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
     fn move_to(&mut self, to: Point) {
-        self.last_ctrl = to;
+        self.state.move_to(to);
         self.builder.move_to(to);
     }
 
     fn line_to(&mut self, to: Point) {
-        self.last_ctrl = self.current_position();
+        self.state.line_to(to);
         self.builder.line_to(to);
     }
 
     fn close(&mut self) {
-        self.last_ctrl = point(0.0, 0.0);
-        self.builder.close()
+        self.state.close();
+        self.builder.close();
     }
 
-    fn current_position(&self) -> Point { self.builder.current_position() }
+    fn current_position(&self) -> Point { self.state.current_position() }
 
     fn build(self) -> Builder::PathType { self.builder.build() }
 
@@ -297,12 +297,12 @@ impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
 
 impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
-        self.last_ctrl = ctrl;
+        self.state.quadratic_bezier_to(ctrl, to);
         self.builder.quadratic_bezier_to(ctrl, to);
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
-        self.last_ctrl = ctrl2;
+        self.state.cubic_bezier_to(ctrl1, ctrl2, to);
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
@@ -313,81 +313,83 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         sweep_angle: Angle,
         x_rotation: Angle
     ) {
-        let arc = Arc {
-            start_angle: (self.current_position() - center).angle_from_x_axis() - x_rotation,
-            center, radii, sweep_angle, x_rotation,
-        };
-        self.last_ctrl = arc.sample(1.0) - arc.sample_tangent(1.0);
+        self.state.arc(center, radii, sweep_angle, x_rotation);
         self.builder.arc(center, radii, sweep_angle, x_rotation);
     }
 }
 
 impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn relative_move_to(&mut self, to: Vector) {
-        let offset = self.builder.current_position();
-        self.move_to(offset + to);
+        self.state.relative_move_to(to);
+        self.builder.move_to(self.state.current_position());
     }
 
     fn relative_line_to(&mut self, to: Vector) {
-        let offset = self.builder.current_position();
-        self.line_to(offset + to);
+        self.state.relative_line_to(to);
+        self.builder.line_to(self.state.current_position());
     }
 
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vector, to: Vector) {
-        let offset = self.builder.current_position();
-        self.quadratic_bezier_to(offset + ctrl, offset + to);
+        let offset = self.state.current_position();
+        self.state.relative_quadratic_bezier_to(ctrl, to);
+        self.builder.quadratic_bezier_to(offset + ctrl, offset + to);
     }
 
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector) {
-        let offset = self.builder.current_position();
-        self.cubic_bezier_to(offset + ctrl1, offset + ctrl2, offset + to);
+        let offset = self.state.current_position();
+        self.state.relative_cubic_bezier_to(ctrl1, ctrl2, to);
+        self.builder.cubic_bezier_to(offset + ctrl1, offset + ctrl2, offset + to);
     }
 
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point) {
-        let ctrl = self.builder.current_position() +
-            (self.builder.current_position() - self.last_ctrl);
-        self.cubic_bezier_to(ctrl, ctrl2, to);
+        let ctrl1 = self.state.get_smooth_cubic_ctrl();
+        self.state.smooth_cubic_bezier_to(ctrl2, to);
+        self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
     fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vector, to: Vector) {
-        let ctrl = self.builder.current_position() - self.last_ctrl;
-        self.relative_cubic_bezier_to(ctrl, ctrl2, to);
+        let ctrl1 = self.state.get_smooth_cubic_ctrl();
+        let offset = self.state.current_position();
+        self.state.smooth_relative_cubic_bezier_to(ctrl2, to);
+        self.builder.cubic_bezier_to(ctrl1, offset + ctrl2, offset + to);
     }
 
     fn smooth_quadratic_bezier_to(&mut self, to: Point) {
-        let ctrl = self.builder.current_position() +
-            (self.builder.current_position() - self.last_ctrl);
-        self.quadratic_bezier_to(ctrl, to);
+        let ctrl = self.state.get_smooth_quadratic_ctrl();
+        self.state.smooth_quadratic_bezier_to(to);
+        self.builder.quadratic_bezier_to(ctrl, to);
     }
 
     fn smooth_relative_quadratic_bezier_to(&mut self, to: Vector) {
-        let ctrl = self.builder.current_position() - self.last_ctrl;
-        self.relative_quadratic_bezier_to(ctrl, to);
+        let ctrl = self.state.get_smooth_quadratic_ctrl();
+        let offset = self.state.current_position();
+        self.state.smooth_relative_quadratic_bezier_to(to);
+        self.builder.quadratic_bezier_to(ctrl, offset + to);
     }
 
     fn horizontal_line_to(&mut self, x: f32) {
-        let y = self.builder.current_position().y;
-        self.line_to(point(x, y));
+        self.state.horizontal_line_to(x);
+        self.builder.line_to(self.state.current_position());
     }
 
     fn relative_horizontal_line_to(&mut self, dx: f32) {
-        let p = self.builder.current_position();
-        self.line_to(point(p.x + dx, p.y));
+        self.state.relative_horizontal_line_to(dx);
+        self.builder.line_to(self.state.current_position());
     }
 
     fn vertical_line_to(&mut self, y: f32) {
-        let x = self.builder.current_position().x;
-        self.line_to(point(x, y));
+        self.state.vertical_line_to(y);
+        self.builder.line_to(self.state.current_position());
     }
 
     fn relative_vertical_line_to(&mut self, dy: f32) {
-        let p = self.builder.current_position();
-        self.line_to(point(p.x, p.y + dy));
+        self.state.relative_vertical_line_to(dy);
+        self.builder.line_to(self.state.current_position());
     }
 
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point) {
         SvgArc {
-            from: self.current_position(),
+            from: self.state.current_position(),
             to,
             radii,
             x_rotation,
@@ -397,7 +399,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             },
         }.for_each_quadratic_bezier(&mut|curve| {
             self.quadratic_bezier_to(curve.ctrl, curve.to);
-        })
+        });
+        self.state.arc_to(radii, x_rotation, flags, to);
     }
 
     fn relative_arc_to(
@@ -407,7 +410,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         flags: ArcFlags,
         to: Vector,
     ) {
-        let offset = self.builder.current_position();
+        let offset = self.state.current_position();
         self.arc_to(radii, x_rotation, flags, offset + to);
     }
 }
