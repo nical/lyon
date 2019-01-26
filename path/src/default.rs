@@ -271,6 +271,20 @@ impl FlatPathBuilder for Builder {
     }
 
     fn close(&mut self) {
+        // Relative path ops tend to accumulate small floating point imprecisions
+        // which results in the last segment ending almost but not quite at the
+        // start of the sub-path, causing a new edge to be inserted which often
+        // intersects with the first or last edge. This can affect algorithms that
+        // Don't handle self-intersecting paths.
+        // Deal with this by snapping the last point if it is very close to the
+        // start of the sub path.
+        if let Some(p) = self.path.points.last_mut() {
+            let d = (*p - self.first_position).abs();
+            if d.x + d.y < 0.0001 {
+                *p = self.first_position;
+            }
+        }
+
         self.path.verbs.push(Verb::Close);
         self.current_position = self.first_position;
         self.building = false;
