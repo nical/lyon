@@ -23,7 +23,7 @@ pub type Vertex = Point;
 type SpanIdx = i32;
 type EventId = u32;
 type ActiveEdgeIdx = usize;
-const INVALID_EVENT_ID: u32 = u32::MAX;
+const INVALID_EVENT_ID: EventId = u32::MAX;
 
 #[cfg(not(feature = "release"))]
 macro_rules! tess_log {
@@ -1455,12 +1455,65 @@ impl EventQueue {
     }
 
     pub fn push(&mut self, position: Point) {
+        if self.sorted {
+            self.push_sorted(position);
+        } else {
+            self.push_unsorted(position);
+        }
+    }
+
+    fn push_unsorted(&mut self, position: Point) {
         self.events.push(Event {
             position,
             next_sibling: INVALID_EVENT_ID,
             next_event: INVALID_EVENT_ID,
         });
-        self.sorted = false;
+    }
+
+    fn push_sorted(&mut self, position: Point) {
+        self.events.push(Event {
+            position,
+            next_sibling: u32::MAX,
+            next_event: u32::MAX,
+        });
+
+        let id = (self.events.len() - 1) as u32;
+        let mut current = self.first_id();
+        let mut prev = current;
+        while self.valid_id(current) {
+            let evt_pos = self.events[current as usize].position;
+            match compare_positions(position, evt_pos) {
+                Ordering::Greater => {}
+                Ordering::Equal => {
+                    // Add to sibling list.
+                    let mut current_sibling = current;
+                    let mut next_sibling = self.next_sibling_id(current);
+                    while self.valid_id(next_sibling) {
+                        current_sibling = next_sibling;
+                        next_sibling = self.next_sibling_id(current_sibling);
+                    }
+                    self.events[current_sibling as usize].next_sibling = id;
+                    return;
+                }
+                Ordering::Less => {
+                    if prev != current {
+                        // Insert between `prev` and `current`.
+                        self.events[prev as usize].next_event = id;
+                    } else {
+                        // It's the first element.
+                        self.first = id;
+                    }
+                    self.events[id as usize].next_event = current;
+                    return;
+                }
+            }
+
+            prev = current;
+            current = self.next_id(current);
+        }
+
+        // Append at the end.
+        self.events[prev as usize].next_event = id;
     }
 
     // Could start searching at the tessellator's current event id.
@@ -1589,7 +1642,7 @@ impl EventQueue {
                 let b_next = self.events[b as usize].next_event;
                 self.merge(a, b_next)
             }
-        }
+        };
     }
 
     fn find_last_sibling(&self, id: EventId) -> EventId {
@@ -1625,7 +1678,6 @@ impl EventQueue {
     }
 
     fn assert_sorted(&self) {
-        self.log();
         let mut current = self.first;
         let mut pos = point(f32::MIN, f32::MIN);
         let mut n = 0;
@@ -2131,6 +2183,30 @@ fn test_traversal_sort_5() {
     tx.push(point(0.0, 0.0));
 
     tx.sort();
+    tx.assert_sorted();
+}
+
+#[test]
+fn test_traversal_push_sorted() {
+    let mut tx = EventQueue::new();
+    tx.push(point(5.0, 0.0));
+    tx.push(point(4.0, 0.0));
+    tx.push(point(3.0, 0.0));
+    tx.push(point(2.0, 0.0));
+    tx.push(point(1.0, 0.0));
+    tx.push(point(0.0, 0.0));
+
+    tx.sort();
+    tx.push_sorted(point(1.5, 0.0));
+    tx.assert_sorted();
+
+    tx.push_sorted(point(2.5, 0.0));
+    tx.assert_sorted();
+
+    tx.push_sorted(point(2.5, 0.0));
+    tx.assert_sorted();
+
+    tx.push_sorted(point(6.5, 0.0));
     tx.assert_sorted();
 }
 
