@@ -104,6 +104,7 @@ use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
 use geom::arc;
+use builder::{FlatPathBuilder, PathBuilder, SvgBuilder};
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
@@ -278,7 +279,7 @@ where
             _ => {}
         }
         self.current_curve = TmpFlatteningIter::None;
-        let current = self.get_state().current;
+        let current = self.get_state().current_position();
 
         match self.it.next() {
             Some(PathEvent::MoveTo(to)) => Some(FlattenedEvent::MoveTo(to)),
