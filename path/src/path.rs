@@ -214,7 +214,6 @@ pub struct Builder {
     verbs: Vec<Verb>,
     current_position: Point,
     first_position: Point,
-    building: bool,
 }
 
 impl Builder {
@@ -226,7 +225,6 @@ impl Builder {
             verbs: Vec::with_capacity(cap),
             current_position: Point::new(0.0, 0.0),
             first_position: Point::new(0.0, 0.0),
-            building: false,
         }
     }
 
@@ -240,7 +238,6 @@ impl Builder {
         nan_check(to);
         self.first_position = to;
         self.current_position = to;
-        self.building = true;
         self.points.push(to);
         self.verbs.push(Verb::MoveTo);
     }
@@ -269,7 +266,6 @@ impl Builder {
 
         self.verbs.push(Verb::Close);
         self.current_position = self.first_position;
-        self.building = false;
     }
 
     pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
@@ -349,7 +345,6 @@ impl Build for Builder {
     fn build_and_reset(&mut self) -> Path {
         self.current_position = Point::new(0.0, 0.0);
         self.first_position = Point::new(0.0, 0.0);
-        self.building = false;
 
         Path {
             points: mem::replace(&mut self.points, Vec::new()).into_boxed_slice(),
