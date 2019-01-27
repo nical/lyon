@@ -13,7 +13,7 @@
 //!
 //! ```
 //! use lyon_algorithms::walk::{RegularPattern, walk_along_path};
-//! use lyon_algorithms::path::default::PathSlice;
+//! use lyon_algorithms::path::PathSlice;
 //! use lyon_algorithms::path::iterator::*;
 //! use lyon_algorithms::path::math::Point;
 //!

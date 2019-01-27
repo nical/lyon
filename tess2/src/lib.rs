@@ -45,7 +45,7 @@
 //! extern crate lyon_tess2 as tess2;
 //! use tess2::{FillTessellator, FillOptions};
 //! use tess2::math::{Point, point};
-//! use tess2::path::default::Path;
+//! use tess2::path::Path;
 //! use tess2::path::builder::*;
 //! use tess2::path::iterator::*;
 //! use tess2::flattened_path::FlattenedPath;

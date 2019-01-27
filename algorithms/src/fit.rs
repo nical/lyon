@@ -2,7 +2,7 @@
 
 use math::*;
 use aabb::bounding_rect;
-use path::default::Path;
+use path::Path;
 use path::iterator::*;
 use path::builder::*;
 

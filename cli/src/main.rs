@@ -21,7 +21,7 @@ use commands::*;
 use std::fs::File;
 use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::path_utils::build_path;
-use lyon::path::default::Path;
+use lyon::path::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
 use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
 use lyon::extra::debugging::find_reduced_test_case;

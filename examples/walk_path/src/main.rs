@@ -6,6 +6,7 @@ extern crate glutin;
 extern crate lyon;
 
 use lyon::extra::rust_logo::build_logo_path;
+use lyon::path::Path;
 use lyon::path::builder::*;
 use lyon::path::iterator::*;
 use lyon::math::*;
@@ -13,7 +14,6 @@ use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, Buf
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
-use lyon::path::default::Path;
 use lyon::algorithms::walk;
 
 use gfx::traits::{Device, FactoryExt};

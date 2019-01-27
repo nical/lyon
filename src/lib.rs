@@ -113,7 +113,7 @@
 //! ```
 //! extern crate lyon;
 //! use lyon::math::point;
-//! use lyon::path::default::Path;
+//! use lyon::path::Path;
 //! use lyon::path::builder::*;
 //! use lyon::tessellation::*;
 //!

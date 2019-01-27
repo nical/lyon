@@ -43,7 +43,7 @@ use std::f32::consts::PI;
 ///
 /// ```
 /// # extern crate lyon_tessellation as tess;
-/// # use tess::path::default::Path;
+/// # use tess::path::Path;
 /// # use tess::path::builder::*;
 /// # use tess::path::iterator::*;
 /// # use tess::geom::math::*;
@@ -938,7 +938,7 @@ fn tess_round_cap(
 }
 
 #[cfg(test)]
-use path::default::{Path, PathSlice};
+use path::{Path, PathSlice};
 #[cfg(test)]
 use geometry_builder::{
     SimpleBuffersBuilder, simple_builder, VertexBuffers,

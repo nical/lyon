@@ -1,5 +1,5 @@
 use std::io;
-use lyon::path::default::Path;
+use lyon::path::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions};
 use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
 

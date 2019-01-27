@@ -6,13 +6,13 @@ extern crate glutin;
 extern crate lyon;
 
 use lyon::path::builder::*;
+use lyon::path::Path;
 use lyon::geom::{Line, CubicBezierSegment};
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{StrokeTessellator, StrokeOptions, FillOptions};
 use lyon::tessellation;
-use lyon::path::default::Path;
 
 use gfx::traits::{Device, FactoryExt};
 

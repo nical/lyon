@@ -23,7 +23,7 @@ pub struct ParseError;
 /// ```
 /// # extern crate lyon_svg as svg;
 /// # extern crate lyon_path;
-/// # use lyon_path::default::Path;
+/// # use lyon_path::Path;
 /// # use svg::path_utils::build_path;
 /// # fn main() {
 /// // Create a simple path.

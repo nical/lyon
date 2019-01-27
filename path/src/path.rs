@@ -657,7 +657,7 @@ fn test_merge_paths() {
 
     let path2 = builder.build();
 
-    let path = path1.merge(path2);
+    let path = path1.merge(&path2);
 
     let mut it = path.iter();
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
@@ -668,32 +668,5 @@ fn test_merge_paths() {
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 4.0))));
     assert_eq!(it.next(), Some(PathEvent::Close));
-    assert_eq!(it.next(), None);
-}
-
-#[test]
-fn test_merge_missing_moveto() {
-    let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
-    builder.line_to(point(5.0, 0.0));
-    builder.line_to(point(5.0, 5.0));
-
-    let path1 = builder.build();
-
-    let mut builder = Path::builder();
-    builder.line_to(point(4.0, 0.0));
-    builder.line_to(point(4.0, 4.0));
-
-    let path2 = builder.build();
-
-    let path = path1.merge(path2);
-
-    let mut it = path.iter();
-    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(5.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(5.0, 5.0))));
-    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 4.0))));
     assert_eq!(it.next(), None);
 }

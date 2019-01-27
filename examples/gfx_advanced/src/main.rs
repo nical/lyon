@@ -7,13 +7,13 @@ extern crate lyon;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path::builder::*;
+use lyon::path::Path;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
-use lyon::path::default::Path;
 
 use gfx::traits::{Device, FactoryExt};
 

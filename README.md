@@ -33,7 +33,7 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 ```rust
 extern crate lyon;
 use lyon::math::point;
-use lyon::path::default::Path;
+use lyon::path::Path;
 use lyon::path::builder::*;
 use lyon::tessellation::*;
 

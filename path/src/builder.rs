@@ -7,7 +7,7 @@
 //! [FlatPathBuilder](traits.FlatPathBuilder.html) interface.
 //!
 //! ```ignore
-//! use lyon_path::default::Path;
+//! use lyon_path::Path;
 //! use lyon_core::math::{point};
 //! use lyon_path::builder::*;
 //!
