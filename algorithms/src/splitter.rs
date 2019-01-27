@@ -131,6 +131,7 @@ impl Splitter {
         let start_index = path.sub_path_ids().end;
         let mut new_sub_paths = SubPathIdRange::new(start_index..start_index);
 
+        let mut last_side = 0.0;
         let mut edge_in = None;
         for i in 0..self.intersecting_edges.len() {
             let e = &self.intersecting_edges[i];
@@ -190,7 +191,6 @@ impl Splitter {
                     Ty::DifferentSide
                 };
 
-                let mut last_side = 0.0;
                 match (configuration, edge_in) {
                     (Ty::SameSide, Some(e_in)) => {
                         // .\   /.
@@ -237,14 +237,14 @@ impl Splitter {
                             new_sub_paths.end += 1;
                         }
                         edge_in = None;
-                        last_side = d1.signum();
+                        last_side = -d1.signum();
                     }
                     (Ty::OverlapAfter, _) => {
                         //
                         // ---x====---
                         //   / . . . .
                         edge_in = None;
-                        last_side = -d1.signum();
+                        last_side = d1.signum();
                     }
                     (Ty::OverlapBefore, _) => {
                         // . . . . . .
