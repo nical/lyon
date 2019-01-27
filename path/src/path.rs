@@ -214,6 +214,7 @@ pub struct Builder {
     verbs: Vec<Verb>,
     current_position: Point,
     first_position: Point,
+    need_moveto: bool,
 }
 
 impl Builder {
@@ -225,6 +226,7 @@ impl Builder {
             verbs: Vec::with_capacity(cap),
             current_position: Point::new(0.0, 0.0),
             first_position: Point::new(0.0, 0.0),
+            need_moveto: true,
         }
     }
 
@@ -236,6 +238,7 @@ impl Builder {
 
     pub fn move_to(&mut self, to: Point) {
         nan_check(to);
+        self.need_moveto = false;
         self.first_position = to;
         self.current_position = to;
         self.points.push(to);
@@ -244,6 +247,7 @@ impl Builder {
 
     pub fn line_to(&mut self, to: Point) {
         nan_check(to);
+        self.move_to_if_needed();
         self.points.push(to);
         self.verbs.push(Verb::LineTo);
         self.current_position = to;
@@ -266,11 +270,13 @@ impl Builder {
 
         self.verbs.push(Verb::Close);
         self.current_position = self.first_position;
+        self.need_moveto = true;
     }
 
     pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         nan_check(ctrl);
         nan_check(to);
+        self.move_to_if_needed();
         self.points.push(ctrl);
         self.points.push(to);
         self.verbs.push(Verb::QuadraticTo);
@@ -281,6 +287,7 @@ impl Builder {
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
+        self.move_to_if_needed();
         self.points.push(ctrl1);
         self.points.push(ctrl2);
         self.points.push(to);
@@ -299,6 +306,7 @@ impl Builder {
         nan_check(radii.to_point());
         debug_assert!(!sweep_angle.get().is_nan());
         debug_assert!(!x_rotation.get().is_nan());
+
         let start_angle = (self.current_position - center).angle_from_x_axis() - x_rotation;
         let arc = Arc { start_angle, center, radii, sweep_angle, x_rotation };
         arc.for_each_quadratic_bezier(&mut|curve| {
@@ -311,6 +319,13 @@ impl Builder {
         self.points.reserve(points.len());
         self.verbs.reserve(points.len() + 1);
         build_polygon(self, points);
+    }
+
+    fn move_to_if_needed(&mut self) {
+        if self.need_moveto {
+            let first = self.first_position;
+            self.move_to(first);
+        }
     }
 
     pub fn current_position(&self) -> Point { self.current_position }
@@ -530,6 +545,7 @@ fn test_path_builder_1() {
     let path = p.build();
 
     let mut it = path.iter();
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(3.0, 0.0))));
@@ -594,8 +610,10 @@ fn test_path_builder_move_to_after_close() {
 
     let path = p.build();
     let mut it = path.iter();
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
     assert_eq!(it.next(), None);
 }
