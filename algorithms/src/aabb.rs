@@ -213,7 +213,6 @@ impl TightBoundingRect for QuadraticEvent {
 #[test]
 fn simple_bounding_rect() {
     use path::default::Path;
-    use path::builder::*;
     use math::{rect, Angle};
 
     let mut builder = Path::builder();

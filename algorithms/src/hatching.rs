@@ -26,7 +26,7 @@
 
 
 use path::PathEvent;
-use path::builder::{FlatPathBuilder, PathBuilder};
+use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use geom::LineSegment;
 use geom::math::{Point, Vector, point, vector};
 use geom::euclid::{Angle, Rotation2D};
@@ -480,9 +480,29 @@ impl EventsBuilder {
     }
 }
 
-impl FlatPathBuilder for EventsBuilder {
+impl Build for EventsBuilder {
     type PathType = HatchingEvents;
 
+    fn build(mut self) -> HatchingEvents {
+        self.build_and_reset()
+    }
+
+    fn build_and_reset(&mut self) -> HatchingEvents {
+        self.close();
+
+        self.first = point(0.0, 0.0);
+        self.current = point(0.0, 0.0);
+        self.nth = 0;
+
+        self.edges.sort_by(|a, b| compare_positions(a.from, b.from));
+
+        HatchingEvents {
+            edges: mem::replace(&mut self.edges, Vec::new()),
+        }
+    }
+}
+
+impl FlatPathBuilder for EventsBuilder {
     fn move_to(&mut self, to: Point) {
         self.close();
         let next = to;
@@ -515,24 +535,6 @@ impl FlatPathBuilder for EventsBuilder {
         }
         self.nth = 0;
         self.current = self.first;
-    }
-
-    fn build(mut self) -> HatchingEvents {
-        self.build_and_reset()
-    }
-
-    fn build_and_reset(&mut self) -> HatchingEvents {
-        self.close();
-
-        self.first = point(0.0, 0.0);
-        self.current = point(0.0, 0.0);
-        self.nth = 0;
-
-        self.edges.sort_by(|a, b| compare_positions(a.from, b.from));
-
-        HatchingEvents {
-            edges: mem::replace(&mut self.edges, Vec::new()),
-        }
     }
 
     fn current_position(&self) -> Point {

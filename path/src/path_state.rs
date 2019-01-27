@@ -173,21 +173,11 @@ impl PathState {
 }
 
 impl FlatPathBuilder for PathState {
-    type PathType = PathState;
-
     fn move_to(&mut self, to: Point) { self.move_to(to); }
 
     fn line_to(&mut self, to: Point) { self.line_to(to); }
 
     fn close(&mut self) { self.close(); }
-
-    fn build(self) -> PathState { self }
-
-    fn build_and_reset(&mut self) -> PathState {
-        let result = self.clone();
-        *self = PathState::new();
-        result
-    }
 
     fn current_position(&self) -> Point {
         self.current

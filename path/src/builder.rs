@@ -79,11 +79,19 @@ use events::{PathEvent, FlattenedEvent, SvgEvent};
 use geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
 use path_state::PathState;
 
-/// The most basic path building interface. Does not handle any kind of curve.
-pub trait FlatPathBuilder: ::std::marker::Sized {
+pub trait Build {
     /// The type of object that is created by this builder.
     type PathType;
 
+    /// Builds a path object and resets the builder so that it can be used again.
+    fn build(self) -> Self::PathType;
+
+    /// Builds a path object and resets the builder so that it can be used again.
+    fn build_and_reset(&mut self) -> Self::PathType;
+}
+
+/// The most basic path building interface. Does not handle any kind of curve.
+pub trait FlatPathBuilder: ::std::marker::Sized {
     /// Sets the current position in preparation for the next sub-path.
     /// If the current sub-path contains edges, this ends the sub-path without closing it.
     fn move_to(&mut self, to: Point);
@@ -96,12 +104,6 @@ pub trait FlatPathBuilder: ::std::marker::Sized {
     ///
     /// Subsequent commands will affect the next sub-path.
     fn close(&mut self);
-
-    /// Builds a path object and resets the builder so that it can be used again.
-    fn build(self) -> Self::PathType;
-
-    /// Builds a path object and resets the builder so that it can be used again.
-    fn build_and_reset(&mut self) -> Self::PathType;
 
     fn current_position(&self) -> Point;
 
@@ -270,9 +272,15 @@ impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
     }
 }
 
-impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
+impl<Builder: PathBuilder + Build> Build for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
+    fn build(self) -> Builder::PathType { self.builder.build() }
+
+    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
+}
+
+impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
     fn move_to(&mut self, to: Point) {
         self.state.move_to(to);
         self.builder.move_to(to);
@@ -289,10 +297,6 @@ impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
     }
 
     fn current_position(&self) -> Point { self.state.current_position() }
-
-    fn build(self) -> Builder::PathType { self.builder.build() }
-
-    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
 }
 
 impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
@@ -421,9 +425,15 @@ pub struct FlatteningBuilder<Builder> {
     tolerance: f32,
 }
 
-impl<Builder: FlatPathBuilder> FlatPathBuilder for FlatteningBuilder<Builder> {
+impl<Builder: Build> Build for FlatteningBuilder<Builder> {
     type PathType = Builder::PathType;
 
+    fn build(self) -> Builder::PathType { self.builder.build() }
+
+    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
+}
+
+impl<Builder: FlatPathBuilder> FlatPathBuilder for FlatteningBuilder<Builder> {
     fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
 
     fn line_to(&mut self, to: Point) { self.builder.line_to(to); }
@@ -431,10 +441,6 @@ impl<Builder: FlatPathBuilder> FlatPathBuilder for FlatteningBuilder<Builder> {
     fn close(&mut self) { self.builder.close() }
 
     fn current_position(&self) -> Point { self.builder.current_position() }
-
-    fn build(self) -> Builder::PathType { self.builder.build() }
-
-    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
 }
 
 impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {

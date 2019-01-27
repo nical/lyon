@@ -32,7 +32,7 @@ use geom::euclid::{self, Trig};
 use math_utils::*;
 use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path::PathEvent;
-use path::builder::{FlatPathBuilder, PathBuilder};
+use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
 
 #[cfg(feature="debugger")]
@@ -1596,9 +1596,41 @@ impl EventsBuilder {
     }
 }
 
-impl FlatPathBuilder for EventsBuilder {
+impl Build for EventsBuilder {
     type PathType = FillEvents;
 
+    fn build(mut self) -> FillEvents {
+        self.close();
+
+        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
+        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
+
+        FillEvents {
+            edges: self.edges,
+            vertices: self.vertices,
+        }
+    }
+
+    fn build_and_reset(&mut self) -> FillEvents {
+        self.close();
+
+        self.first = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.second = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.previous = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.current = TessPoint::new(fixed(0.0), fixed(0.0));
+        self.nth = 0;
+
+        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
+        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
+
+        FillEvents {
+            edges: replace(&mut self.edges, Vec::new()),
+            vertices: replace(&mut self.vertices, Vec::new()),
+        }
+    }
+}
+
+impl FlatPathBuilder for EventsBuilder {
     fn move_to(&mut self, to: Point) {
         // Because of the internal 16.16 fixed point representation,
         // the tessellator is unable to work with numbers that are
@@ -1660,36 +1692,6 @@ impl FlatPathBuilder for EventsBuilder {
         }
         self.nth = 0;
         self.current = self.first;
-    }
-
-    fn build(mut self) -> FillEvents {
-        self.close();
-
-        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
-        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
-
-        FillEvents {
-            edges: self.edges,
-            vertices: self.vertices,
-        }
-    }
-
-    fn build_and_reset(&mut self) -> FillEvents {
-        self.close();
-
-        self.first = TessPoint::new(fixed(0.0), fixed(0.0));
-        self.second = TessPoint::new(fixed(0.0), fixed(0.0));
-        self.previous = TessPoint::new(fixed(0.0), fixed(0.0));
-        self.current = TessPoint::new(fixed(0.0), fixed(0.0));
-        self.nth = 0;
-
-        self.edges.sort_by(|a, b| compare_positions(a.upper, b.upper));
-        self.vertices.sort_by(|a, b| compare_positions(*a, *b));
-
-        FillEvents {
-            edges: replace(&mut self.edges, Vec::new()),
-            vertices: replace(&mut self.vertices, Vec::new()),
-        }
     }
 
     fn current_position(&self) -> Point {

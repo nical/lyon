@@ -1,6 +1,6 @@
 use geom::math::*;
 use geometry_builder::{VertexBuffers, simple_builder};
-use path::builder::{FlatPathBuilder, PathBuilder};
+use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::default::{Path, PathSlice};
 use extra::rust_logo::build_logo_path;
 

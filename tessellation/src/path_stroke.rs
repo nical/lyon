@@ -5,7 +5,7 @@ use geom::utils::{normalized_tangent, directed_angle};
 use geom::euclid::Trig;
 use geometry_builder::{VertexId, GeometryBuilder, Count};
 use basic_shapes::circle_flattening_step;
-use path::builder::{FlatPathBuilder, PathBuilder};
+use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
 use StrokeVertex as Vertex;
 use {Side, LineCap, LineJoin, StrokeOptions};
@@ -143,9 +143,27 @@ pub struct StrokeBuilder<'l> {
     output: &'l mut dyn GeometryBuilder<Vertex>,
 }
 
-impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
+impl<'l> Build for StrokeBuilder<'l> {
     type PathType = ();
 
+    fn build(mut self) {
+        self.finish();
+    }
+
+    fn build_and_reset(&mut self) {
+        self.first = Point::new(0.0, 0.0);
+        self.previous = Point::new(0.0, 0.0);
+        self.current = Point::new(0.0, 0.0);
+        self.second = Point::new(0.0, 0.0);
+        self.prev_normal = Vector::new(0.0, 0.0);
+        self.nth = 0;
+        self.length = 0.0;
+        self.sub_path_start_length = 0.0;
+        self.previous_command_was_move = false;
+    }
+}
+
+impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
     fn move_to(&mut self, to: Point) {
         self.finish();
 
@@ -205,22 +223,6 @@ impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
     }
 
     fn current_position(&self) -> Point { self.current }
-
-    fn build(mut self) {
-        self.finish();
-    }
-
-    fn build_and_reset(&mut self) {
-        self.first = Point::new(0.0, 0.0);
-        self.previous = Point::new(0.0, 0.0);
-        self.current = Point::new(0.0, 0.0);
-        self.second = Point::new(0.0, 0.0);
-        self.prev_normal = Vector::new(0.0, 0.0);
-        self.nth = 0;
-        self.length = 0.0;
-        self.sub_path_start_length = 0.0;
-        self.previous_command_was_move = false;
-    }
 }
 
 impl<'l> PathBuilder for StrokeBuilder<'l> {
