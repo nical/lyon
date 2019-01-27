@@ -34,7 +34,7 @@ pub struct ParseError;
 /// ```
 pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParseError>
 where
-    Builder: SvgBuilder
+    Builder: SvgBuilder + Build
 {
     for item in PathTokenizer::new(src) {
         match item {
@@ -174,9 +174,18 @@ impl PathSerializer {
     }
 }
 
-impl FlatPathBuilder for PathSerializer {
+impl Build for PathSerializer {
     type PathType = String;
 
+    fn build(self) -> String { self.path }
+
+    fn build_and_reset(&mut self) -> String {
+        self.current = point(0.0, 0.0);
+        mem::replace(&mut self.path, String::new())
+    }
+}
+
+impl FlatPathBuilder for PathSerializer {
     fn move_to(&mut self, to: Point) {
         self.path += &format!("M {} {} ", to.x, to.y);
         self.current = to;
@@ -189,13 +198,6 @@ impl FlatPathBuilder for PathSerializer {
 
     fn close(&mut self) {
         self.path.push_str("Z");
-    }
-
-    fn build(self) -> String { self.path }
-
-    fn build_and_reset(&mut self) -> String {
-        self.current = point(0.0, 0.0);
-        mem::replace(&mut self.path, String::new())
     }
 
     fn current_position(&self) -> Point {

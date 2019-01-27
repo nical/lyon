@@ -168,9 +168,26 @@ impl Builder {
     }
 }
 
-impl FlatPathBuilder for Builder {
+impl Build for Builder {
     type PathType = FlattenedPath;
 
+    fn build(self) -> FlattenedPath {
+        FlattenedPath {
+            points: self.points,
+            sub_paths: self.sub_paths,
+        }
+    }
+
+    fn build_and_reset(&mut self) -> FlattenedPath {
+        self.sp_start = 0;
+        FlattenedPath {
+            points: mem::replace(&mut self.points, Vec::new()),
+            sub_paths: mem::replace(&mut self.sub_paths, Vec::new()),
+        }
+    }
+}
+
+impl FlatPathBuilder for Builder {
     fn move_to(&mut self, to: Point) {
         nan_check(to);
         let sp_end = self.points.len();
@@ -202,21 +219,6 @@ impl FlatPathBuilder for Builder {
 
     fn current_position(&self) -> Point {
         self.points.last().cloned().unwrap_or(Point::new(0.0, 0.0))
-    }
-
-    fn build(self) -> FlattenedPath {
-        FlattenedPath {
-            points: self.points,
-            sub_paths: self.sub_paths,
-        }
-    }
-
-    fn build_and_reset(&mut self) -> FlattenedPath {
-        self.sp_start = 0;
-        FlattenedPath {
-            points: mem::replace(&mut self.points, Vec::new()),
-            sub_paths: mem::replace(&mut self.sub_paths, Vec::new()),
-        }
     }
 }
 

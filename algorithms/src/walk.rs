@@ -97,8 +97,6 @@ impl<'l> PathWalker<'l> {
 }
 
 impl<'l> FlatPathBuilder for PathWalker<'l> {
-    type PathType = ();
-
     fn move_to(&mut self, to: Point) {
         self.first = to;
         self.prev = to;
@@ -135,14 +133,6 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
     fn close(&mut self) {
         let first = self.first;
         self.line_to(first);
-    }
-
-    fn build(self) -> () { () }
-
-    fn build_and_reset(&mut self) -> () {
-        self.first = point(0.0, 0.0);
-        self.prev = point(0.0, 0.0);
-        self.advancement = 0.0;
     }
 
     fn current_position(&self) -> Point { self.prev }
@@ -241,7 +231,6 @@ fn walk_square() {
     walker.line_to(point(6.0, 6.0));
     walker.line_to(point(0.0, 6.0));
     walker.close();
-    walker.build();
 }
 
 #[test]
@@ -276,7 +265,6 @@ fn walk_with_leftover() {
     walker.line_to(point(5.0, 5.0));
     walker.line_to(point(0.0, 5.0));
     walker.close();
-    walker.build();
 }
 
 #[test]
@@ -288,5 +276,4 @@ fn walk_starting_after() {
 
     walker.move_to(point(0.0, 0.0));
     walker.line_to(point(5.0, 0.0));
-    walker.build();
 }

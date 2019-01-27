@@ -1,6 +1,6 @@
 //! The default path data structure.
 
-use builder::{FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
+use builder::{Build, FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
 use iterator::PathIter;
 
 use PathEvent;
@@ -352,9 +352,23 @@ fn nan_check(p: Point) {
     debug_assert!(p.y.is_finite());
 }
 
-impl FlatPathBuilder for Builder {
+impl Build for Builder {
     type PathType = Path;
 
+    fn build(self) -> Path { self.path }
+
+    fn build_and_reset(&mut self) -> Path {
+        self.current_position = Point::new(0.0, 0.0);
+        self.first_position = Point::new(0.0, 0.0);
+        self.building = false;
+        let mut tmp = Path::with_capacity(self.path.verbs.len());
+        ::std::mem::swap(&mut self.path, &mut tmp);
+
+        tmp
+    }
+}
+
+impl FlatPathBuilder for Builder {
     fn move_to(&mut self, to: Point) {
         self.move_to(to);
     }
@@ -368,18 +382,6 @@ impl FlatPathBuilder for Builder {
     }
 
     fn current_position(&self) -> Point { self.current_position }
-
-    fn build(self) -> Path { self.path }
-
-    fn build_and_reset(&mut self) -> Path {
-        self.current_position = Point::new(0.0, 0.0);
-        self.first_position = Point::new(0.0, 0.0);
-        self.building = false;
-        let mut tmp = Path::with_capacity(self.path.verbs.len());
-        ::std::mem::swap(&mut self.path, &mut tmp);
-
-        tmp
-    }
 }
 
 impl<'l> ops::Index<VertexId> for PathSlice<'l> {

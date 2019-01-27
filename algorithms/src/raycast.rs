@@ -117,7 +117,6 @@ fn test_segment(state: &mut RayCastInner, segment: &LineSegment<f32>) {
 fn test_raycast() {
     use geom::euclid::approxeq::ApproxEq;
     use path::default::Path;
-    use path::builder::*;
 
     let mut builder = Path::builder();
     builder.move_to(point(0.0, 0.0));

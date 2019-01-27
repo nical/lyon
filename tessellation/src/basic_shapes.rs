@@ -735,7 +735,7 @@ pub fn fill_ellipse(
         sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
-    use path::builder::{PathBuilder, FlatteningBuilder};
+    use path::builder::{Build, PathBuilder, FlatteningBuilder};
     use path_fill::EventsBuilder;
 
     let mut path = FlatteningBuilder::new(
@@ -783,7 +783,7 @@ pub fn stroke_ellipse(
         sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
-    use path::builder::{PathBuilder, FlatteningBuilder};
+    use path::builder::{Build, PathBuilder, FlatteningBuilder};
 
     output.begin_geometry();
     {
