@@ -7,11 +7,11 @@ use glium::glutin::dpi::LogicalSize;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path::builder::*;
+use lyon::path::Path;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation;
-use lyon::path::default::Path;
 
 #[derive(Copy, Clone)]
 struct Vertex {

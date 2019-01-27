@@ -13,7 +13,7 @@
 //! ```
 //! # extern crate lyon_path;
 //! # fn main() {
-//! use lyon_path::default::Path;
+//! use lyon_path::Path;
 //! use lyon_path::math::{point};
 //! use lyon_path::builder::*;
 //!
@@ -46,10 +46,11 @@ pub extern crate serde;
 
 mod events;
 mod path_state;
-pub mod default;
+mod path;
 pub mod iterator;
 pub mod builder;
 
+pub use path::*;
 pub use events::*;
 pub use path_state::*;
 pub use geom::ArcFlags;

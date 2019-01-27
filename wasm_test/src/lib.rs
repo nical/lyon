@@ -3,7 +3,7 @@ extern crate lyon;
 use lyon::tessellation::{FillVertex, FillTessellator, FillOptions};
 use lyon::tessellation::geometry_builder::{VertexBuffers, simple_builder};
 use lyon::path::builder::*;
-use lyon::path::default::Path;
+use lyon::path::Path;
 use lyon::extra::rust_logo::build_logo_path;
 
 #[no_mangle]

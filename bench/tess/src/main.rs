@@ -4,7 +4,7 @@ extern crate bencher;
 #[cfg(feature = "libtess2")]
 extern crate tess2_sys as tess2;
 
-use lyon::path::default::Path;
+use lyon::path::Path;
 use lyon::path::builder::*;
 use lyon::path::iterator::PathIterator;
 use lyon::extra::rust_logo::build_logo_path;

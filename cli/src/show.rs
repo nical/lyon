@@ -6,7 +6,7 @@ use lyon::tessellation::debugger::*;
 use lyon::tessellation;
 use lyon::algorithms::hatching::*;
 use lyon::algorithms::aabb::bounding_rect;
-use lyon::path::default::Path;
+use lyon::path::Path;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
 use lyon::tess2;
 
