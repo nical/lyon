@@ -1,6 +1,6 @@
 //! The default path data structure.
 
-use builder::{Build, FlatPathBuilder, PathBuilder, SvgPathBuilder, FlatteningBuilder};
+use builder::*;
 use iterator::PathIter;
 
 use PathEvent;
@@ -327,6 +327,16 @@ impl Builder {
         self.verbs.push(Verb::Arc);
     }
 
+    pub fn add_polygon(&mut self, points: &[Point]) {
+        self.points.reserve(points.len());
+        self.verbs.reserve(points.len() + 1);
+        self.move_to(points[0]);
+        for p in &points[1..] {
+            self.line_to(*p);
+        }
+        self.close();
+    }
+
     pub fn current_position(&self) -> Point { self.current_position }
 
     /// Returns a cursor to the next path event.
@@ -382,6 +392,12 @@ impl FlatPathBuilder for Builder {
     }
 
     fn current_position(&self) -> Point { self.current_position }
+}
+
+impl PolygonBuilder for Builder {
+    fn add_polygon(&mut self, points: &[Point]) {
+        self.add_polygon(points);
+    }
 }
 
 impl<'l> ops::Index<VertexId> for PathSlice<'l> {

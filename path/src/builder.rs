@@ -254,7 +254,8 @@ pub trait SvgBuilder: PathBuilder {
 
 /// Build a path from a simple list of points.
 pub trait PolygonBuilder {
-    fn polygon(&mut self, points: &[Point]);
+    /// Add a closed polygon. 
+    fn add_polygon(&mut self, points: &[Point]);
 }
 
 /// Implements the Svg building interface on top of a PathBuilder.
@@ -490,16 +491,4 @@ impl<Builder: FlatPathBuilder> FlatteningBuilder<Builder> {
     }
 
     pub fn set_tolerance(&mut self, tolerance: f32) { self.tolerance = tolerance }
-}
-
-impl<Builder: FlatPathBuilder> PolygonBuilder for Builder {
-    fn polygon(&mut self, points: &[Point]) {
-        assert!(!points.is_empty());
-
-        self.move_to(points[0]);
-        for p in points[1..].iter() {
-            self.line_to(*p);
-        }
-        self.close();
-    }
 }
