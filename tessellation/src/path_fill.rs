@@ -34,8 +34,9 @@ use geometry_builder::{GeometryBuilder, Count, VertexId};
 use path::PathEvent;
 use path::builder::{FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
-use debugger::*;
 
+#[cfg(feature="debugger")]
+use debugger::*;
 #[cfg(test)]
 use geometry_builder::{VertexBuffers, simple_builder};
 #[cfg(test)]

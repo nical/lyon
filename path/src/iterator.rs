@@ -104,7 +104,7 @@ use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
 use geom::arc;
-use builder::{FlatPathBuilder, PathBuilder, SvgBuilder};
+use builder::{PathBuilder, SvgBuilder};
 
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.

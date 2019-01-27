@@ -1,6 +1,5 @@
 use math::{Point, Vector, Angle, Transform2D, Transform};
 use ArcFlags;
-use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc};
 
 /// Path event enum that can represent all of SVG's path description syntax.
 ///

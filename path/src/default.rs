@@ -6,6 +6,7 @@ use iterator::PathIter;
 use PathEvent;
 use VertexId;
 use math::*;
+use geom::Arc;
 
 use std::iter::IntoIterator;
 use std::ops;
@@ -32,6 +33,12 @@ pub enum Verb {
 pub struct Cursor {
     vertex: VertexId,
     verb: u32,
+}
+
+impl Cursor {
+    pub fn edge_index(&self) -> usize {
+        self.verb as usize
+    }
 }
 
 /// A simple path data structure.
@@ -100,6 +107,10 @@ impl Path {
         self.points.extend(other.points);
 
         self
+    }
+
+    pub fn position_before(&self, cursor: Cursor) -> Point {
+        self.points[u32::min(1, cursor.vertex.0) as usize - 1]
     }
 
     pub fn event_at_cursor(&self, cursor: Cursor) -> PathEvent {
@@ -189,6 +200,11 @@ impl<'l> PathSlice<'l> {
 
     pub fn verbs(&self) -> &[Verb] { self.verbs }
 
+    /// Returns starting position of the edge that the provided cursor refers to.
+    pub fn position_before(&self, cursor: Cursor) -> Point {
+        self.points[u32::min(cursor.vertex.0, 1) as usize - 1]
+    }
+
     pub fn event_at_cursor(&self, cursor: Cursor) -> PathEvent {
         event_at_cursor(&cursor, self.points, self.verbs)
     }
@@ -200,7 +216,6 @@ impl<'l> PathSlice<'l> {
     pub fn previous_cursor(&self, cursor: Cursor) -> Option<Cursor> {
         prev_cursor(&cursor, self.verbs)
     }
-
 }
 
 //impl<'l> IntoIterator for PathSlice<'l> {
@@ -238,25 +253,7 @@ impl Builder {
         FlatteningBuilder::new(self, tolerance)
     }
 
-    /// Returns a cursor to the next path event.
-    pub fn cursor(&self) -> Cursor {
-        Cursor {
-            vertex: VertexId::from_usize(self.path.points.len()),
-            verb: self.path.verbs.len() as u32,
-        }
-    }
-}
-
-#[inline]
-fn nan_check(p: Point) {
-    debug_assert!(p.x.is_finite());
-    debug_assert!(p.y.is_finite());
-}
-
-impl FlatPathBuilder for Builder {
-    type PathType = Path;
-
-    fn move_to(&mut self, to: Point) {
+    pub fn move_to(&mut self, to: Point) {
         nan_check(to);
         self.first_position = to;
         self.current_position = to;
@@ -265,14 +262,14 @@ impl FlatPathBuilder for Builder {
         self.path.verbs.push(Verb::MoveTo);
     }
 
-    fn line_to(&mut self, to: Point) {
+    pub fn line_to(&mut self, to: Point) {
         nan_check(to);
         self.path.points.push(to);
         self.path.verbs.push(Verb::LineTo);
         self.current_position = to;
     }
 
-    fn close(&mut self) {
+    pub fn close(&mut self) {
         // Relative path ops tend to accumulate small floating point imprecisions
         // which results in the last segment ending almost but not quite at the
         // start of the sub-path, causing a new edge to be inserted which often
@@ -290,6 +287,84 @@ impl FlatPathBuilder for Builder {
         self.path.verbs.push(Verb::Close);
         self.current_position = self.first_position;
         self.building = false;
+    }
+
+    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        nan_check(ctrl);
+        nan_check(to);
+        self.path.points.push(ctrl);
+        self.path.points.push(to);
+        self.path.verbs.push(Verb::QuadraticTo);
+        self.current_position = to;
+    }
+
+    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        nan_check(ctrl1);
+        nan_check(ctrl2);
+        nan_check(to);
+        self.path.points.push(ctrl1);
+        self.path.points.push(ctrl2);
+        self.path.points.push(to);
+        self.path.verbs.push(Verb::CubicTo);
+        self.current_position = to;
+    }
+
+    pub fn arc(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        sweep_angle: Angle,
+        x_rotation: Angle
+    ) {
+        nan_check(center);
+        nan_check(radii.to_point());
+        debug_assert!(!sweep_angle.get().is_nan());
+        debug_assert!(!x_rotation.get().is_nan());
+        self.path.points.push(center);
+        self.path.points.push(radii.to_point());
+        self.path.points.push(point(
+            sweep_angle.get(),
+            x_rotation.get(),
+        ));
+        let start_angle = (self.current_position - center).angle_from_x_axis() - x_rotation;
+        let arc = Arc { start_angle, center, radii, sweep_angle, x_rotation };
+        self.current_position = arc.sample(1.0);
+        self.path.points.push(self.current_position);
+        self.path.verbs.push(Verb::Arc);
+    }
+
+    pub fn current_position(&self) -> Point { self.current_position }
+
+    /// Returns a cursor to the next path event.
+    pub fn cursor(&self) -> Cursor {
+        Cursor {
+            vertex: VertexId::from_usize(self.path.points.len()),
+            verb: self.path.verbs.len() as u32,
+        }
+    }
+
+    pub fn build(self) -> Path { self.path }
+}
+
+#[inline]
+fn nan_check(p: Point) {
+    debug_assert!(p.x.is_finite());
+    debug_assert!(p.y.is_finite());
+}
+
+impl FlatPathBuilder for Builder {
+    type PathType = Path;
+
+    fn move_to(&mut self, to: Point) {
+        self.move_to(to);
+    }
+
+    fn line_to(&mut self, to: Point) {
+        self.line_to(to);
+    }
+
+    fn close(&mut self) {
+        self.close();
     }
 
     fn current_position(&self) -> Point { self.current_position }
@@ -329,23 +404,11 @@ impl ops::IndexMut<VertexId> for Path {
 
 impl PathBuilder for Builder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
-        nan_check(ctrl);
-        nan_check(to);
-        self.path.points.push(ctrl);
-        self.path.points.push(to);
-        self.path.verbs.push(Verb::QuadraticTo);
-        self.current_position = to;
+        self.quadratic_bezier_to(ctrl, to);
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
-        nan_check(ctrl1);
-        nan_check(ctrl2);
-        nan_check(to);
-        self.path.points.push(ctrl1);
-        self.path.points.push(ctrl2);
-        self.path.points.push(to);
-        self.path.verbs.push(Verb::CubicTo);
-        self.current_position = to;
+        self.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
     fn arc(
@@ -355,17 +418,7 @@ impl PathBuilder for Builder {
         sweep_angle: Angle,
         x_rotation: Angle
     ) {
-        nan_check(center);
-        nan_check(radii.to_point());
-        debug_assert!(!sweep_angle.get().is_nan());
-        debug_assert!(!x_rotation.get().is_nan());
-        self.path.points.push(center);
-        self.path.points.push(radii.to_point());
-        self.path.points.push(point(
-            sweep_angle.get(),
-            x_rotation.get(),
-        ));
-        self.path.verbs.push(Verb::Arc);
+        self.arc(center, radii, sweep_angle, x_rotation);
     }
 }
 
@@ -430,7 +483,7 @@ fn n_stored_points(verb: Verb) -> u32 {
         Verb::LineTo => 1,
         Verb::QuadraticTo => 2,
         Verb::CubicTo => 2,
-        Verb::Arc => 3,
+        Verb::Arc => 4,
         Verb::Close => 0,
     }
 }
