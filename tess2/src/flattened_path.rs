@@ -222,6 +222,14 @@ impl FlatPathBuilder for Builder {
     }
 }
 
+impl PolygonBuilder for Builder {
+    /// Add a closed polygon.
+    fn polygon(&mut self, points: &[Point]) {
+        self.points.reserve(points.len());
+        build_polygon(self, points)
+    }
+}
+
 #[inline]
 fn nan_check(p: Point) {
     debug_assert!(!p.x.is_nan());

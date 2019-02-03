@@ -40,7 +40,7 @@
 //!
 
 use math::*;
-use path::builder::FlatPathBuilder;
+use path::builder::{FlatPathBuilder, PolygonBuilder, build_polygon};
 use path::FlattenedEvent;
 
 use std::f32;
@@ -136,6 +136,13 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
     }
 
     fn current_position(&self) -> Point { self.prev }
+}
+
+impl<'l> PolygonBuilder for PathWalker<'l> {
+    /// Add a closed polygon.
+    fn polygon(&mut self, points: &[Point]) {
+        build_polygon(self, points);
+    }
 }
 
 /// A simple pattern that invokes a callback at regular intervals.

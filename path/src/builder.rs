@@ -252,10 +252,23 @@ pub trait SvgBuilder: PathBuilder {
     }
 }
 
-/// Build a path from a simple list of points.
+/// Build a path from simple lists of points.
 pub trait PolygonBuilder {
-    /// Add a closed polygon. 
-    fn add_polygon(&mut self, points: &[Point]);
+    /// Add a closed polygon.
+    fn polygon(&mut self, points: &[Point]);
+}
+
+#[doc(hidden)]
+pub fn build_polygon<Builder: FlatPathBuilder>(builder: &mut Builder, points: &[Point]) {
+    if points.len() < 2 {
+        return;
+    }
+
+    builder.move_to(points[0]);
+    for p in &points[1..] {
+        builder.line_to(*p);
+    }
+    builder.close();
 }
 
 /// Implements the Svg building interface on top of a PathBuilder.
