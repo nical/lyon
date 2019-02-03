@@ -10,7 +10,7 @@
 pub extern crate lyon_path as path;
 extern crate sid;
 
-pub mod advanced_path;
+pub(crate) mod advanced_path;
 pub mod splitter;
 pub mod hatching;
 pub mod raycast;

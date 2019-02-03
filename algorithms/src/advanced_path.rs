@@ -1,3 +1,8 @@
+#![allow(dead_code)]
+// TODO: decide whether to:
+//  - polish this data structure and expose it,
+//  - simplify/remove it.
+
 use math::*;
 use path::{Path, PathEvent};
 use path::builder::*;
