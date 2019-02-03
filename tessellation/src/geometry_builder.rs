@@ -224,6 +224,7 @@ pub use path::{VertexId, Index};
 use std::marker::PhantomData;
 use std::ops::Add;
 use std::convert::From;
+use std;
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
@@ -407,7 +408,7 @@ impl<'l, VertexType, IndexType, Input, Ctor> GeometryBuilder<Input>
     for BuffersBuilder<'l, VertexType, IndexType, Input, Ctor>
 where
     VertexType: 'l + Clone,
-    IndexType: Add + From<VertexId>,
+    IndexType: Add + From<VertexId> + MaxIndex,
     Ctor: VertexConstructor<Input, VertexType>,
 {
     fn begin_geometry(&mut self) {
@@ -424,7 +425,13 @@ where
 
     fn add_vertex(&mut self, v: Input) -> VertexId {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
-        VertexId(self.buffers.vertices.len() as Index - 1 - self.vertex_offset)
+        let len = self.buffers.vertices.len();
+        debug_assert!(
+            len <= IndexType::max_index(),
+            "Overflow attempting to create {:?} vertices.",
+            len
+        );
+        VertexId((len - 1) as Index - self.vertex_offset)
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -483,6 +490,10 @@ impl<T> GeometryBuilder<T> for NoOutput
     }
 
     fn add_vertex(&mut self, _: T) -> VertexId {
+        debug_assert!(
+            self.count.vertices < std::u32::MAX,
+            "Overflow attempting to create more than u32::MAX vertices."
+        );
         self.count.vertices += 1;
         VertexId(self.count.vertices as Index - 1)
     }
@@ -501,6 +512,27 @@ impl<T> GeometryBuilder<T> for NoOutput
 impl<V> GeometryReceiver<V> for NoOutput {
     fn set_geometry(&mut self, _vertices: &[V], _indices: &[u32]) {}
 }
+
+/// Provides the maximum value of an index.
+///
+/// This should be the maximum value representable by the index type up
+/// to u32::MAX because the tessellators can't internally represent more
+/// than u32::MAX indices.
+pub trait MaxIndex {
+    fn max_index() -> usize;
+}
+
+impl MaxIndex for u8 { fn max_index() -> usize { std::u8::MAX as usize } }
+impl MaxIndex for i8 { fn max_index() -> usize { std::i8::MAX as usize } }
+impl MaxIndex for u16 { fn max_index() -> usize { std::u16::MAX as usize } }
+impl MaxIndex for i16 { fn max_index() -> usize { std::i16::MAX as usize } }
+impl MaxIndex for u32 { fn max_index() -> usize { std::u32::MAX as usize } }
+impl MaxIndex for i32 { fn max_index() -> usize { std::i32::MAX as usize } }
+// The tessellators internally use u32 indices so we can't have more than u32::MAX
+impl MaxIndex for u64 { fn max_index() -> usize { std::u32::MAX as usize } }
+impl MaxIndex for i64 { fn max_index() -> usize { std::u32::MAX as usize } }
+impl MaxIndex for usize { fn max_index() -> usize { std::u32::MAX as usize } }
+impl MaxIndex for isize { fn max_index() -> usize { std::u32::MAX as usize } }
 
 // /// An extension to GeometryBuilder that can handle quadratic bézier segments.
 // pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
