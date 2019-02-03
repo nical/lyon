@@ -2,7 +2,7 @@
 use math::{Point, Vector, point, vector, Angle};
 use geom::{Arc, SvgArc, ArcFlags};
 use events::{PathEvent, SvgEvent};
-use builder::{FlatPathBuilder, PathBuilder, SvgBuilder};
+use builder::{FlatPathBuilder, PathBuilder, SvgBuilder, PolygonBuilder};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum LastCtrl {
@@ -274,5 +274,14 @@ impl SvgBuilder for PathState {
         let to = self.relative_to_absolute(to);
         self.last_ctrl = LastCtrl::None;
         self.current = to;
+    }
+}
+
+impl PolygonBuilder for PathState {
+    fn polygon(&mut self, points: &[Point]) {
+        self.last_ctrl = LastCtrl::None;
+        if let Some(p) = points.first() {
+            self.current = *p;
+        }
     }
 }

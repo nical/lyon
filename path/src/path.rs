@@ -327,14 +327,11 @@ impl Builder {
         self.verbs.push(Verb::Arc);
     }
 
-    pub fn add_polygon(&mut self, points: &[Point]) {
+    /// Add a closed polygon.
+    pub fn polygon(&mut self, points: &[Point]) {
         self.points.reserve(points.len());
         self.verbs.reserve(points.len() + 1);
-        self.move_to(points[0]);
-        for p in &points[1..] {
-            self.line_to(*p);
-        }
-        self.close();
+        build_polygon(self, points);
     }
 
     pub fn current_position(&self) -> Point { self.current_position }
@@ -395,8 +392,8 @@ impl FlatPathBuilder for Builder {
 }
 
 impl PolygonBuilder for Builder {
-    fn add_polygon(&mut self, points: &[Point]) {
-        self.add_polygon(points);
+    fn polygon(&mut self, points: &[Point]) {
+        self.polygon(points);
     }
 }
 

@@ -316,3 +316,9 @@ impl SvgBuilder for PathSerializer {
         );
     }
 }
+
+impl PolygonBuilder for PathSerializer {
+    fn polygon(&mut self, points: &[Point]) {
+        build_polygon(self, points);
+    }
+}
