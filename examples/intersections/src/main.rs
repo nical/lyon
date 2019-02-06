@@ -95,7 +95,7 @@ fn main() {
             &mut geometry,
             WithId(bezier_id)
         ),
-    );
+    ).unwrap();
     StrokeTessellator::new().tessellate_path(
         line_path.path_iter(),
         &stroke_options,
@@ -103,7 +103,7 @@ fn main() {
             &mut geometry,
             WithId(line_id)
         ),
-    );
+    ).unwrap();
 
 
     let circle_indices_start = geometry.indices.len() as u32;
@@ -116,14 +116,14 @@ fn main() {
             &mut geometry,
             WithId(point_ids_1)
         ),
-    );
+    ).unwrap();
 
     let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    );
+    ).unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {

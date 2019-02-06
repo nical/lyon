@@ -218,6 +218,28 @@ pub use path_stroke::*;
 #[doc(inline)]
 pub use geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
 
+
+
+/// The fill tessellator's result type.
+pub type TessellationResult = Result<Count, TessellationError>;
+
+/// The fill tessellator's error enumeration.
+#[derive(Clone, Debug)]
+pub enum TessellationError {
+    UnsupportedParamater,
+    InvalidVertex,
+    TooManyVertices,
+    Internal(InternalError)
+}
+
+#[derive(Clone, Debug)]
+pub enum InternalError {
+    E01,
+    E02,
+    E03,
+    E04,
+}
+
 /// Left or right.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]

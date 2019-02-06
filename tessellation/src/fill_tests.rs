@@ -4,11 +4,11 @@ use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::{Path, PathSlice};
 use extra::rust_logo::build_logo_path;
 
-use {FillTessellator, FillError, FillOptions, FillVertex};
+use {FillTessellator, TessellationError, FillOptions, FillVertex};
 
 type Vertex = FillVertex;
 
-fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
+fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
