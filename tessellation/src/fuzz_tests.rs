@@ -4,9 +4,10 @@ use path_fill::*;
 use geom::math::*;
 use FillVertex as Vertex;
 use FillOptions;
+use TessellationError;
 use OnError;
 
-fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usize, FillError> {
+fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);

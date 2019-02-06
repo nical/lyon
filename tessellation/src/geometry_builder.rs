@@ -11,13 +11,13 @@
 //! the [`GeometryBuilder`](trait.GeometryBuilder.html) and its extension the
 //! [`BezierGeometryBuilder`](trait.BezierGeometryBuilder.html) trait. The former exposes
 //! the methods to facilitate adding vertices and triangles. The latter adds a method to
-//! specifically handle quadratic bezier curves. Quadratic bezier curves have interesting
+//! specifically handle quadratic bezier curves. Quadratic bézier curves have interesting
 //! properties that make them a lot easier to render than most types of curves and we want
 //! to have the option to handle them separately in the renderer.
 //!
 //! See the [Rendering curves](https://github.com/nical/lyon/wiki/Experiments#rendering-curves)
 //! section in the project's wiki for more details about the advantages of handling quadratic
-//! bezier curves separately in the tessellator and the renderer.
+//! bézier curves separately in the tessellator and the renderer.
 //!
 //! This modules provides with a basic implementation of these traits through the following types:
 //!
@@ -33,7 +33,7 @@
 //!   This separates the construction of vertex values from the assembly of the vertex buffers.
 //!   Another, simpler example of vertex constructor is the [`Identity`](struct.Identity.html)
 //!   constructor which just returns its input, untransformed.
-//!   `VertexConstructor<Input, Ouput>` is implemented for all closures `Fn(Input) -> Output`.
+//!   `VertexConstructor<Input, Output>` is implemented for all closures `Fn(Input) -> Output`.
 //!
 //! Geometry builders are a practical way to add one last step to the tessellation pipeline,
 //! such as applying a transform or clipping the geometry.
@@ -49,7 +49,7 @@
 //!
 //! ### Generating custom vertices
 //!
-//! The exampe below implements the `VertexConstructor` trait in order to use a custom
+//! The example below implements the `VertexConstructor` trait in order to use a custom
 //! vertex type `MyVertex` (containing position and color), storing the tessellation in a
 //! `VertexBuffers<MyVertex, u16>`, and tessellates two shapes with different colors.
 //!
@@ -119,10 +119,11 @@
 //! ```
 //! extern crate lyon_tessellation as tess;
 //! use tess::{GeometryBuilder, StrokeOptions, Count};
-//! use tess::geometry_builder::VertexId;
+//! use tess::geometry_builder::{VertexId, GeometryBuilderError};
 //! use tess::basic_shapes::stroke_polyline;
 //! use tess::math::point;
 //! use std::fmt::Debug;
+//! use std::u32;
 //!
 //! // A geometry builder that writes the result of the tessellation to stdout instead
 //! // of filling vertex and index buffers.
@@ -153,10 +154,13 @@
 //!         }
 //!     }
 //!
-//!     fn add_vertex(&mut self, vertex: Vertex) -> VertexId {
+//!     fn add_vertex(&mut self, vertex: Vertex) -> Result<VertexId, GeometryBuilderError> {
 //!         println!("vertex {:?}", vertex);
+//!         if self.vertices >= u32::MAX {
+//!             return Err(GeometryBuilderError::TooManyVertices);
+//!         }
 //!         self.vertices += 1;
-//!         VertexId(self.vertices as u32 - 1)
+//!         Ok(VertexId(self.vertices as u32 - 1))
 //!     }
 //!
 //!     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -186,13 +190,13 @@
 //!
 //! ```
 //! use lyon_tessellation::geometry_builder::*;
-//! use lyon_tessellation::FillVertex;
+//! use lyon_tessellation::{FillVertex, TessellationResult};
 //! use lyon_tessellation::math::{Rect, vector};
 //!
 //! // A tessellator that generates an axis-aligned quad.
 //! // Returns a structure containing the number of vertices and number of indices allocated
 //! // during the execution of this method.
-//! pub fn fill_rectangle<Output>(rect: &Rect, output: &mut Output) -> Count
+//! pub fn fill_rectangle<Output>(rect: &Rect, output: &mut Output) -> TessellationResult
 //! where
 //!     Output: GeometryBuilder<FillVertex>
 //! {
@@ -200,22 +204,22 @@
 //!     // Create the vertices...
 //!     let a = output.add_vertex(
 //!         FillVertex { position: rect.origin, normal: vector(-1.0, -1.0) }
-//!     );
+//!     )?;
 //!     let b = output.add_vertex(
 //!         FillVertex { position: rect.top_right(), normal: vector(1.0, -1.0) }
-//!     );
+//!     )?;
 //!     let c = output.add_vertex(
 //!         FillVertex { position: rect.bottom_right(), normal: vector(1.0, 1.0) }
-//!     );
+//!     )?;
 //!     let d = output.add_vertex(
 //!         FillVertex { position: rect.bottom_left(), normal: vector(-1.0, 1.0) }
-//!     );
+//!     )?;
 //!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
 //!     // vertex buffer.
 //!     output.add_triangle(a, b, c);
 //!     output.add_triangle(a, c, d);
 //!
-//!     output.end_geometry()
+//!     Ok(output.end_geometry())
 //! }
 //! ```
 
@@ -225,6 +229,13 @@ use std::marker::PhantomData;
 use std::ops::Add;
 use std::convert::From;
 use std;
+
+/// An error that can happen while generating geometry.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum GeometryBuilderError {
+    InvalidVertex,
+    TooManyVertices,
+}
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
@@ -245,7 +256,7 @@ pub trait GeometryBuilder<Input> {
     /// Retuns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_vertex(&mut self, vertex: Input) -> VertexId;
+    fn add_vertex(&mut self, vertex: Input) -> Result<VertexId, GeometryBuilderError>;
 
     /// Insert a triangle made of vertices that were added after the last call to begin_geometry.
     ///
@@ -423,15 +434,13 @@ where
         }
     }
 
-    fn add_vertex(&mut self, v: Input) -> VertexId {
+    fn add_vertex(&mut self, v: Input) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
         let len = self.buffers.vertices.len();
-        debug_assert!(
-            len <= IndexType::max_index(),
-            "Overflow attempting to create {:?} vertices.",
-            len
-        );
-        VertexId((len - 1) as Index - self.vertex_offset)
+        if len > IndexType::max_index() {
+            return Err(GeometryBuilderError::TooManyVertices);
+        }
+        Ok(VertexId((len - 1) as Index - self.vertex_offset))
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -489,13 +498,12 @@ impl<T> GeometryBuilder<T> for NoOutput
         self.count.indices = 0;
     }
 
-    fn add_vertex(&mut self, _: T) -> VertexId {
-        debug_assert!(
-            self.count.vertices < std::u32::MAX,
-            "Overflow attempting to create more than u32::MAX vertices."
-        );
+    fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
+        if self.count.vertices >= std::u32::MAX {
+            return Err(GeometryBuilderError::TooManyVertices);
+        }
         self.count.vertices += 1;
-        VertexId(self.count.vertices as Index - 1)
+        Ok(VertexId(self.count.vertices as Index - 1))
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -572,17 +580,19 @@ fn test_simple_quad() {
         }
     }
 
-    // A typical "algortihm" that generates some geometry, in this case a simple axis-aligned quad.
+    use TessellationResult;
+
+    // A typical "algorithm" that generates some geometry, in this case a simple axis-aligned quad.
     fn add_quad<Builder: GeometryBuilder<[f32; 2]>>(
         top_left: [f32; 2],
         size: [f32; 2],
         mut out: Builder,
-    ) -> Count {
+    ) -> TessellationResult {
         out.begin_geometry();
-        let a = out.add_vertex(top_left);
-        let b = out.add_vertex([top_left[0] + size[0], top_left[1]]);
-        let c = out.add_vertex([top_left[0] + size[0], top_left[1] + size[1]]);
-        let d = out.add_vertex([top_left[0], top_left[1] + size[1]]);
+        let a = out.add_vertex(top_left)?;
+        let b = out.add_vertex([top_left[0] + size[0], top_left[1]])?;
+        let c = out.add_vertex([top_left[0] + size[0], top_left[1] + size[1]])?;
+        let d = out.add_vertex([top_left[0], top_left[1] + size[1]])?;
         out.add_triangle(a, b, c);
         out.add_triangle(a, c, d);
         let count = out.end_geometry();
@@ -595,7 +605,7 @@ fn test_simple_quad() {
         assert_eq!(count.vertices, 4);
         assert_eq!(count.indices, 6);
 
-        count
+        Ok(count)
     }
 
 
@@ -603,7 +613,7 @@ fn test_simple_quad() {
     let red = [1.0, 0.0, 0.0, 1.0];
     let green = [0.0, 1.0, 0.0, 1.0];
 
-    add_quad([0.0, 0.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(red)));
+    add_quad([0.0, 0.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(red))).unwrap();
 
     assert_eq!(
         buffers.vertices[0],
@@ -635,7 +645,7 @@ fn test_simple_quad() {
     );
     assert_eq!(&buffers.indices[..], &[0, 1, 2, 0, 2, 3]);
 
-    add_quad([10.0, 10.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(green)));
+    add_quad([10.0, 10.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(green))).unwrap();
 
     assert_eq!(
         buffers.vertices[4],
@@ -683,10 +693,10 @@ fn test_closure() {
         });
 
         builder.begin_geometry();
-        let a = builder.add_vertex(point(0.0, 0.0));
-        let b = builder.add_vertex(point(1.0, 0.0));
-        let c = builder.add_vertex(point(1.0, 1.0));
-        let d = builder.add_vertex(point(0.0, 1.0));
+        let a = builder.add_vertex(point(0.0, 0.0)).unwrap();
+        let b = builder.add_vertex(point(1.0, 0.0)).unwrap();
+        let c = builder.add_vertex(point(1.0, 1.0)).unwrap();
+        let d = builder.add_vertex(point(0.0, 1.0)).unwrap();
         builder.add_triangle(a, b, c);
         builder.add_triangle(a, c, d);
         builder.end_geometry();

@@ -26,11 +26,11 @@ use std::cmp::{PartialOrd, Ordering};
 use sid::{Id, IdVec};
 
 use FillVertex as Vertex;
-use {FillOptions, FillRule, Side, OnError};
+use {FillOptions, FillRule, Side, OnError, TessellationError, TessellationResult, InternalError};
 use geom::math::*;
 use geom::euclid::{self, Trig};
 use math_utils::*;
-use geometry_builder::{GeometryBuilder, Count, VertexId};
+use geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId};
 use path::PathEvent;
 use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
@@ -79,22 +79,18 @@ pub mod dbg {
     pub const INTERSECTION_POINT: u32 = 2;
 }
 
-/// The fill tessellator's result type.
-pub type FillResult = Result<Count, FillError>;
-
-/// The fill tessellator's error enumeration.
-#[derive(Clone, Debug)]
-pub enum FillError {
-    UnsupportedParamater,
-    Internal(InternalError)
+impl From<GeometryBuilderError> for TessellationError {
+    fn from(e: GeometryBuilderError) -> Self {
+        match e {
+            GeometryBuilderError::InvalidVertex => TessellationError::InvalidVertex,
+            GeometryBuilderError::TooManyVertices => TessellationError::TooManyVertices,
+        }
+    }
 }
-
-#[derive(Clone, Debug)]
-pub enum InternalError {
-    E01,
-    E02,
-    E03,
-    E04,
+impl From<InternalError> for TessellationError {
+    fn from(e: InternalError) -> Self {
+        TessellationError::Internal(e)
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -299,7 +295,7 @@ pub struct FillTessellator {
     monotone_tessellators: IdVec<SpanId, MonotoneTessellator>,
     tess_pool: Vec<MonotoneTessellator>,
 
-    error: Option<FillError>,
+    error: Option<TessellationError>,
 
     #[cfg(feature="debugger")]
     debugger: Option<Box<dyn Debugger2D>>,
@@ -331,7 +327,7 @@ impl FillTessellator {
         it: Iter,
         options: &FillOptions,
         output: &mut dyn GeometryBuilder<Vertex>,
-    ) -> FillResult
+    ) -> TessellationResult
     where
         Iter: PathIterator,
     {
@@ -350,11 +346,11 @@ impl FillTessellator {
         events: &FillEvents,
         options: &FillOptions,
         output: &mut dyn GeometryBuilder<Vertex>,
-    ) -> FillResult {
+    ) -> TessellationResult {
         if options.fill_rule != FillRule::EvenOdd {
             println!("warning: Fill rule {:?} is not supported yet.", options.fill_rule);
             match options.on_error {
-                OnError::Stop => { return Err(FillError::UnsupportedParamater); }
+                OnError::Stop => { return Err(TessellationError::UnsupportedParamater); }
                 OnError::Panic => { panic!("Unsupported fill rule"); }
                 OnError::Recover => {}
             }
@@ -506,7 +502,9 @@ impl FillTessellator {
 
             if pending_events {
                 let num_intersections = self.intersections.len();
-                self.process_vertex(output);
+                if let Err(e) = self.process_vertex(output) {
+                    self.builder_error(e);
+                }
 
                 if num_intersections != self.intersections.len() {
 
@@ -591,7 +589,7 @@ impl FillTessellator {
         prev: &TessPoint,
         next: &TessPoint,
         output: &mut dyn GeometryBuilder<Vertex>
-    ) -> VertexId {
+    ) -> Result<VertexId, GeometryBuilderError> {
         let position = to_f32_point(self.current_position);
         let prev = to_f32_point(*prev);
         let next = to_f32_point(*next);
@@ -606,7 +604,7 @@ impl FillTessellator {
     fn process_vertex(
         &mut self,
         output: &mut dyn GeometryBuilder<Vertex>,
-    ) {
+    ) -> Result<(), GeometryBuilderError> {
         // This is where the interesting things happen.
         // We go through the sweep line to find all of the edges that end at the current
         // position, and through the list of edges that start at the current position
@@ -649,8 +647,9 @@ impl FillTessellator {
                     position: vector_position,
                     normal: vector(0.0, 0.0),
                 }
-            )
+            )?
         } else {
+            // placeholder
             VertexId(0)
         };
 
@@ -692,7 +691,7 @@ impl FillTessellator {
                 if self.options.compute_normals {
                     let vertex_above = self.active_edges[above_idx].points.upper;
                     let edge_to = self.pending_edges[0].lower;
-                    vertex_id = self.add_vertex_with_normal(&edge_to, &vertex_above, output);
+                    vertex_id = self.add_vertex_with_normal(&edge_to, &vertex_above, output)?;
                 }
                 self.insert_edge(above_idx, 0, vertex_id);
 
@@ -723,7 +722,7 @@ impl FillTessellator {
             if self.options.compute_normals {
                 let left = self.active_edges[above_idx].points.upper;
                 let right = self.active_edges[above_idx+1].points.upper;
-                vertex_id = self.add_vertex_with_normal(&left, &right, output);
+                vertex_id = self.add_vertex_with_normal(&left, &right, output)?;
             }
 
             self.resolve_merge_vertices(above_idx, vertex_id, output);
@@ -745,7 +744,7 @@ impl FillTessellator {
             if self.options.compute_normals {
                 let left = self.active_edges[first_edge_above].points.upper;
                 let right = self.active_edges[first_edge_above+1].points.upper;
-                vertex_id = self.add_vertex_with_normal(&right, &left, output);
+                vertex_id = self.add_vertex_with_normal(&right, &left, output)?;
             }
 
             self.merge_event(vertex_id, first_edge_above, output);
@@ -764,7 +763,7 @@ impl FillTessellator {
             if self.options.compute_normals {
                 let vertex_above = self.active_edges[above_idx].points.upper;
                 let vertex_below = self.pending_edges[vertex_below_id].lower;
-                vertex_id = self.add_vertex_with_normal(&vertex_above, &vertex_below, output);
+                vertex_id = self.add_vertex_with_normal(&vertex_above, &vertex_below, output)?;
             }
             self.resolve_merge_vertices(above_idx, vertex_id, output);
             self.insert_edge(above_idx, vertex_below_id, vertex_id);
@@ -776,7 +775,7 @@ impl FillTessellator {
         // an odd number of pending edges to work with by now.
         if num_pending_edges % 2 != 0 {
             if self.error(InternalError::E01) {
-                return;
+                return Ok(());
             }
             // TODO - We are in an invalid state, and trying to continue tessellating
             // anyway. The code below assumes we have an even number
@@ -802,11 +801,7 @@ impl FillTessellator {
                 if self.options.compute_normals {
                     let left_vertex = self.pending_edges[left_idx].lower;
                     let right_vertex = self.pending_edges[right_idx].lower;
-                    vertex_id = self.add_vertex_with_normal(
-                        &left_vertex,
-                        &right_vertex,
-                        output
-                    );
+                    vertex_id = self.add_vertex_with_normal(&left_vertex, &right_vertex, output)?;
                 }
 
                 self.split_event(above_idx, left_idx, right_idx, vertex_id, output);
@@ -830,7 +825,7 @@ impl FillTessellator {
                 if self.options.compute_normals {
                     let left = self.pending_edges[pending_edge_id].lower;
                     let right = self.pending_edges[pending_edge_id + 1].lower;
-                    vertex_id = self.add_vertex_with_normal(&right, &left, output);
+                    vertex_id = self.add_vertex_with_normal(&right, &left, output)?;
                 }
 
                 self.start_event(above_idx, vertex_id, pending_edge_id);
@@ -848,6 +843,8 @@ impl FillTessellator {
         if num_edges_above != 0 || num_pending_edges != 0 {
             self.error(InternalError::E02);
         }
+
+        Ok(())
     }
 
     fn find_interesting_active_edges(
@@ -1235,6 +1232,7 @@ impl FillTessellator {
         self.monotone_tessellators.insert(span, tess);
     }
 
+    #[cold]
     #[inline(never)]
     fn error(&mut self, err: InternalError) -> bool {
         tess_log!(self, " !! FillTessellator Error {:?}", err);
@@ -1242,10 +1240,25 @@ impl FillTessellator {
             panic!();
         }
         if self.error.is_none() {
-            self.error = Some(FillError::Internal(err));
+            self.error = Some(TessellationError::Internal(err));
         }
 
         self.options.on_error == OnError::Stop
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn builder_error(&mut self, e: GeometryBuilderError) {
+        tess_log!(self, " !! GeometryBuilder error");
+        if self.panic_on_errors() {
+            panic!();
+        }
+        if self.error.is_none() {
+            self.error = Some(match e {
+                GeometryBuilderError::TooManyVertices => TessellationError::TooManyVertices,
+                GeometryBuilderError::InvalidVertex => TessellationError::InvalidVertex,
+            });
+        }
     }
 
     #[cfg(not(debug_assertions))]
@@ -1865,7 +1878,7 @@ fn test_monotone_tess() {
 }
 
 #[cfg(test)]
-fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
+fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);

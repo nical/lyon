@@ -30,7 +30,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             cmd.path.path_iter(),
             &options,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
-        );
+        ).unwrap();
     }
 
     if let Some(hatch) = cmd.hatch {
@@ -54,7 +54,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             hatched_path.path_iter(),
             &hatch.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
-        );
+        ).unwrap();
     }
 
     if let Some(dots) = cmd.dots {
@@ -77,7 +77,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             dotted_path.path_iter(),
             &dots.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
-        );
+        ).unwrap();
     }
 
     let mut debug_trace = Trace::new();
@@ -116,7 +116,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         1.0,
         &FillOptions::tolerance(0.01),
         &mut BuffersBuilder::new(&mut geometry, WithId(0)),
-    );
+    ).unwrap();
 
     let (bg_color, vignette_color) = match render_options.background {
         Background::Blue => ([0.0, 0.47, 0.9, 1.0], [0.0, 0.1, 0.64, 1.0]),
@@ -134,7 +134,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    );
+    ).unwrap();
 
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(LogicalSize { width: DEFAULT_WINDOW_WIDTH as f64, height: DEFAULT_WINDOW_HEIGHT as f64 })
@@ -420,7 +420,7 @@ fn get_debug_geometry(
         path.path_iter(),
         &StrokeOptions::default().dont_apply_line_width(),
         &mut BuffersBuilder::new(edges, WithId(2)),
-    );
+    ).unwrap();
 }
 
 gfx_defines!{

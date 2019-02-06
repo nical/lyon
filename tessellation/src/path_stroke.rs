@@ -3,12 +3,12 @@ use geom::math::*;
 use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
 use geom::utils::{normalized_tangent, directed_angle};
 use geom::euclid::Trig;
-use geometry_builder::{VertexId, GeometryBuilder, Count};
+use geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError};
 use basic_shapes::circle_flattening_step;
 use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::iterator::PathIterator;
 use StrokeVertex as Vertex;
-use {Side, LineCap, LineJoin, StrokeOptions};
+use {Side, LineCap, LineJoin, StrokeOptions, TessellationResult};
 
 use std::f32::consts::PI;
 
@@ -94,7 +94,7 @@ impl StrokeTessellator {
         input: Input,
         options: &StrokeOptions,
         builder: &mut dyn GeometryBuilder<Vertex>,
-    ) -> Count
+    ) -> TessellationResult
     where
         Input: PathIterator,
     {
@@ -106,9 +106,9 @@ impl StrokeTessellator {
                 stroker.path_event(evt);
             }
 
-            stroker.build();
+            stroker.build()?;
         }
-        builder.end_geometry()
+        Ok(builder.end_geometry())
     }
 }
 
@@ -120,7 +120,7 @@ macro_rules! add_vertex {
             v.position += v.normal * $builder.options.line_width / 2.0;
         }
 
-        $builder.output.add_vertex(v)
+        $builder.output.add_vertex(v).ok().unwrap() // TODO!
     }}
 }
 
@@ -144,13 +144,14 @@ pub struct StrokeBuilder<'l> {
 }
 
 impl<'l> Build for StrokeBuilder<'l> {
-    type PathType = ();
+    type PathType = Result<(), GeometryBuilderError>;
 
-    fn build(mut self) {
+    fn build(mut self) -> Result<(), GeometryBuilderError> {
         self.finish();
+        Ok(())
     }
 
-    fn build_and_reset(&mut self) {
+    fn build_and_reset(&mut self) -> Result<(), GeometryBuilderError> {
         self.first = Point::new(0.0, 0.0);
         self.previous = Point::new(0.0, 0.0);
         self.current = Point::new(0.0, 0.0);
@@ -160,6 +161,7 @@ impl<'l> Build for StrokeBuilder<'l> {
         self.length = 0.0;
         self.sub_path_start_length = 0.0;
         self.previous_command_was_move = false;
+        Ok(())
     }
 }
 
@@ -900,7 +902,7 @@ fn tess_round_cap(
         normal,
         advancement,
         side,
-    });
+    }).ok().unwrap(); // TODO
 
     let (v1, v2, v3) = if invert_winding {
         (vertex, vb, va)
@@ -940,9 +942,7 @@ fn tess_round_cap(
 #[cfg(test)]
 use path::{Path, PathSlice};
 #[cfg(test)]
-use geometry_builder::{
-    SimpleBuffersBuilder, simple_builder, VertexBuffers,
-};
+use geometry_builder::{SimpleBuffersBuilder, simple_builder, VertexBuffers, Count};
 
 #[cfg(test)]
 fn test_path(
@@ -962,7 +962,7 @@ fn test_path(
         fn end_geometry(&mut self) -> Count {
             self.builder.end_geometry()
         }
-        fn add_vertex(&mut self, vertex: Vertex) -> VertexId {
+        fn add_vertex(&mut self, vertex: Vertex) -> Result<VertexId, GeometryBuilderError> {
             assert!(!vertex.position.x.is_nan());
             assert!(!vertex.position.y.is_nan());
             assert!(!vertex.normal.x.is_nan());
@@ -996,7 +996,7 @@ fn test_path(
         &mut TestBuilder {
             builder: simple_builder(&mut buffers)
         }
-    );
+    ).unwrap();
 
     if let Some(triangles) = expected_triangle_count {
         assert_eq!(triangles, count.indices / 3, "Unexpected number of triangles");

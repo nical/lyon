@@ -25,6 +25,7 @@ use path_fill::*;
 use geom::math::*;
 use FillVertex as Vertex;
 use FillOptions;
+use TessellationError;
 
 #[test]
 fn bad_diagonal() {
@@ -1304,7 +1305,7 @@ fn earcut_test_f32(path: &[&[[f32; 2]]]) {
 }
 
 #[cfg(test)]
-fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, FillError> {
+fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);

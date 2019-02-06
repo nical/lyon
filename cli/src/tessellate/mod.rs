@@ -15,6 +15,7 @@ use self::format::format_output;
 pub enum TessError {
     Io(io::Error),
     Fill,
+    Stroke,
 }
 
 impl ::std::convert::From<::std::io::Error> for TessError {
@@ -51,11 +52,15 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
     }
 
     if let Some(options) = cmd.stroke {
-        StrokeTessellator::new().tessellate_path(
+        let ok = StrokeTessellator::new().tessellate_path(
             cmd.path.path_iter(),
             &options,
             &mut BuffersBuilder::new(&mut buffers, VertexCtor)
-        );
+        ).is_ok();
+
+        if !ok {
+            return Err(TessError::Stroke);
+        }
     }
 
     Ok(buffers)

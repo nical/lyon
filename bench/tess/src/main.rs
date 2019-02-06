@@ -284,7 +284,7 @@ fn stroke_01_logo_miter(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers));
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -300,7 +300,7 @@ fn stroke_02_logo_bevel(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers));
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -316,7 +316,7 @@ fn stroke_03_logo_round(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers));
+            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }

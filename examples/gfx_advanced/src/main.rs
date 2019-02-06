@@ -86,14 +86,14 @@ fn main() {
         path.path_iter(),
         &StrokeOptions::tolerance(tolerance).dont_apply_line_width(),
         &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32))
-    );
+    ).unwrap();
 
     let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    );
+    ).unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {

@@ -5,7 +5,7 @@
 //! #Overview
 //!
 //! This module contains tessellators for specific shapes that can
-//! benefit from having a specialised algorithm rather than using
+//! benefit from having a specialized algorithm rather than using
 //! the generic algorithm (for performance purposes or in some cases
 //! just for convenience).
 //!
@@ -23,15 +23,15 @@
 //! More explanation about flattening and tolerance in the
 //! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
-use geometry_builder::{GeometryBuilder, Count, VertexId};
+use geometry_builder::{GeometryBuilder, GeometryBuilderError, VertexId};
 use path_stroke::{StrokeTessellator, StrokeBuilder};
-use path_fill::{FillTessellator, FillResult};
 use math_utils::compute_normal;
 use geom::math::*;
 use geom::Arc;
 use path::builder::FlatPathBuilder;
 use path::iterator::FromPolyline;
 use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
+use {FillTessellator, TessellationResult};
 
 use std::f32::consts::PI;
 
@@ -42,7 +42,7 @@ pub fn fill_triangle(
     mut v3: Point,
     _options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>,
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     // Make sure the winding order is correct.
@@ -60,23 +60,23 @@ pub fn fill_triangle(
             position: v1,
             normal: compute_normal(t31, t12),
         }
-    );
+    )?;
     let b = output.add_vertex(
         FillVertex {
             position: v2,
             normal: compute_normal(t12, t23),
         }
-    );
+    )?;
     let c = output.add_vertex(
         FillVertex {
             position: v3,
             normal: compute_normal(t23, t31),
         }
-    );
+    )?;
 
     output.add_triangle(a, b, c);
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 /// Tessellate the stroke for a triangle.
@@ -86,7 +86,7 @@ pub fn stroke_triangle(
     v3: Point,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
-) -> Count {
+) -> TessellationResult {
     stroke_polyline([v1, v2, v3].iter().cloned(), true, options, output)
 }
 
@@ -99,7 +99,7 @@ pub fn fill_quad(
     mut v4: Point,
     _options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>,
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     // Make sure the winding order is correct.
@@ -118,29 +118,29 @@ pub fn fill_quad(
             position: v1,
             normal: compute_normal(t41, t12),
         }
-    );
+    )?;
     let b = output.add_vertex(
         FillVertex {
             position: v2,
             normal: compute_normal(t12, t23),
         }
-    );
+    )?;
     let c = output.add_vertex(
         FillVertex {
             position: v3,
             normal: compute_normal(t23, t34),
         }
-    );
+    )?;
     let d = output.add_vertex(
         FillVertex {
             position: v4,
             normal: compute_normal(t34, t41),
         }
-    );
+    )?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 /// Tessellate the stroke for a quad.
@@ -151,7 +151,7 @@ pub fn stroke_quad(
     v4: Point,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
-) -> Count {
+) -> TessellationResult {
     stroke_polyline([v1, v2, v3, v4].iter().cloned(), true, options, output)
 }
 
@@ -160,7 +160,7 @@ pub fn fill_rectangle(
     rect: &Rect,
     _options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>,
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     let a = output.add_vertex(
@@ -168,29 +168,29 @@ pub fn fill_rectangle(
             position: rect.origin,
             normal: vector(-1.0, -1.0),
         }
-    );
+    )?;
     let b = output.add_vertex(
         FillVertex {
             position: rect.bottom_left(),
             normal: vector(-1.0, 1.0),
         }
-    );
+    )?;
     let c = output.add_vertex(
         FillVertex {
             position: rect.bottom_right(),
             normal: vector(1.0, 1.0),
         }
-    );
+    )?;
     let d = output.add_vertex(
         FillVertex {
             position: rect.top_right(),
             normal: vector(1.0, -1.0),
         }
-    );
+    )?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 /// Tessellate the stroke for an axis-aligned rectangle.
@@ -198,7 +198,7 @@ pub fn stroke_rectangle(
     rect: &Rect,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
-) -> Count {
+) -> TessellationResult {
     let line_width = options.line_width;
     if rect.size.width.abs() < line_width || rect.size.height < line_width {
         return stroke_thin_rectangle(rect, options, output)
@@ -222,7 +222,7 @@ fn stroke_thin_rectangle(
     rect: &Rect,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
-) -> Count {
+) -> TessellationResult {
     let rect = if options.apply_line_width {
         let w = options.line_width * 0.5;
         rect.inflate(w, w)
@@ -239,7 +239,7 @@ fn stroke_thin_rectangle(
             advancement: 0.0,
             side: Side::Left,
         }
-    );
+    )?;
     let b = output.add_vertex(
         StrokeVertex {
             position: rect.bottom_left(),
@@ -247,7 +247,7 @@ fn stroke_thin_rectangle(
             advancement: 0.0,
             side: Side::Left,
         }
-    );
+    )?;
     let c = output.add_vertex(
         StrokeVertex {
             position: rect.bottom_right(),
@@ -255,7 +255,7 @@ fn stroke_thin_rectangle(
             advancement: 1.0,
             side: Side::Right,
         }
-    );
+    )?;
     let d = output.add_vertex(
         StrokeVertex {
             position: rect.top_right(),
@@ -263,12 +263,12 @@ fn stroke_thin_rectangle(
             advancement: 1.0,
             side: Side::Right,
         }
-    );
+    )?;
 
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 /// The radius of each corner of a rounded rectangle.
@@ -311,7 +311,7 @@ pub fn fill_rounded_rectangle(
     radii: &BorderRadii,
     options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>,
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     let w = rect.size.width;
@@ -371,14 +371,14 @@ pub fn fill_rounded_rectangle(
 
 
     let v = [
-        output.add_vertex(FillVertex { position: p7, normal: left }),
-        output.add_vertex(FillVertex { position: p6, normal: down }),
-        output.add_vertex(FillVertex { position: p5, normal: down }),
-        output.add_vertex(FillVertex { position: p4, normal: right }),
-        output.add_vertex(FillVertex { position: p3, normal: right }),
-        output.add_vertex(FillVertex { position: p2, normal: up }),
-        output.add_vertex(FillVertex { position: p1, normal: up }),
-        output.add_vertex(FillVertex { position: p0, normal: left }),
+        output.add_vertex(FillVertex { position: p7, normal: left })?,
+        output.add_vertex(FillVertex { position: p6, normal: down })?,
+        output.add_vertex(FillVertex { position: p5, normal: down })?,
+        output.add_vertex(FillVertex { position: p4, normal: right })?,
+        output.add_vertex(FillVertex { position: p3, normal: right })?,
+        output.add_vertex(FillVertex { position: p2, normal: up })?,
+        output.add_vertex(FillVertex { position: p1, normal: up })?,
+        output.add_vertex(FillVertex { position: p0, normal: left })?,
     ];
 
     output.add_triangle(v[6], v[7], v[0]);
@@ -422,11 +422,11 @@ pub fn fill_rounded_rectangle(
                 v[i*2],
                 num_recursions,
                 output,
-            );
+            )?;
         }
     }
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 // recursively tessellate the rounded corners.
@@ -438,9 +438,9 @@ fn fill_border_radius(
     vb: VertexId,
     num_recursions: u32,
     output: &mut dyn GeometryBuilder<FillVertex>
-) {
+) -> Result<(), GeometryBuilderError> {
     if num_recursions == 0 {
-        return;
+        return Ok(());
     }
 
     let mid_angle = (angle.0 + angle.1) * 0.5;
@@ -451,7 +451,7 @@ fn fill_border_radius(
     let vertex = output.add_vertex(FillVertex {
         position,
         normal,
-    });
+    })?;
 
     output.add_triangle(vb, vertex, va);
 
@@ -463,7 +463,7 @@ fn fill_border_radius(
         vertex,
         num_recursions - 1,
         output
-    );
+    )?;
     fill_border_radius(
         center,
         (mid_angle, angle.1),
@@ -472,7 +472,7 @@ fn fill_border_radius(
         vb,
         num_recursions - 1,
         output
-    );
+    )
 }
 
 /// Tessellate the stroke for an axis-aligned rounded rectangle.
@@ -481,7 +481,7 @@ pub fn stroke_rounded_rectangle(
     radii: &BorderRadii,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     let w = rect.size.width;
@@ -584,7 +584,7 @@ pub fn stroke_rounded_rectangle(
         builder.close();
     }
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 /// Tessellate a circle.
@@ -593,12 +593,12 @@ pub fn fill_circle(
     radius: f32,
     options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>,
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     let radius = radius.abs();
     if radius == 0.0 {
-        return output.end_geometry();
+        return Ok(output.end_geometry());
     }
 
     let up = vector(0.0, -1.0);
@@ -610,19 +610,19 @@ pub fn fill_circle(
         output.add_vertex(FillVertex {
             position: center + (left * radius),
             normal: left
-        }),
+        })?,
         output.add_vertex(FillVertex {
             position: center + (up * radius),
             normal: up
-        }),
+        })?,
         output.add_vertex(FillVertex {
             position: center + (right * radius),
             normal: right
-        }),
+        })?,
         output.add_vertex(FillVertex {
             position: center + (down * radius),
             normal: down
-        }),
+        })?,
     ];
 
     output.add_triangle(v[0], v[3], v[1]);
@@ -649,10 +649,10 @@ pub fn fill_circle(
             v[(i + 1) % 4],
             num_recursions,
             output,
-        );
+        )?;
     }
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
 /// Tessellate the stroke for a circle.
@@ -661,12 +661,12 @@ pub fn stroke_circle(
     radius: f32,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>
-) -> Count {
+) -> TessellationResult {
     output.begin_geometry();
 
     let radius = radius.abs();
     if radius == 0.0 {
-        return output.end_geometry();
+        return Ok(output.end_geometry());
     }
 
     let angle = (0.0, 2.0 * PI);
@@ -688,7 +688,8 @@ pub fn stroke_circle(
         );
         builder.close();
     } // output borrow scope end
-    output.end_geometry()
+
+    Ok(output.end_geometry())
 }
 
 // tessellate the stroke for rounded corners using the inner points.
@@ -718,9 +719,9 @@ pub fn fill_ellipse(
     x_rotation: Angle,
     options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>,
-) -> Count {
+) -> TessellationResult {
     if radii.x == radii.y {
-        return fill_circle(center, radii.x, options, output);
+        return Ok(fill_circle(center, radii.x, options, output)?);
     }
 
     // TODO: This is far from optimal compared to the circle tessellation, but it
@@ -754,13 +755,13 @@ pub fn fill_ellipse(
 
     // TODO: We could avoid checking for intersections, however the way we
     // generate the path is a little silly and because of finite float precision,
-    // it will somtimes produce an intersection where the end of ellipse meets
+    // it will sometimes produce an intersection where the end of ellipse meets
     // the beginning, which confuses the fill tessellator.
     FillTessellator::new().tessellate_events(
         &events,
         &options,
         output,
-    ).unwrap()
+    )
 }
 
 /// Tessellate the stroke for an ellipse.
@@ -770,7 +771,7 @@ pub fn stroke_ellipse(
     x_rotation: Angle,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>,
-) -> Count {
+) -> TessellationResult {
     // TODO: This is far from optimal compared to the circle tessellation, but it
     // correctly takes the tolerance threshold into account which is harder to do
     // than with circles.
@@ -795,13 +796,13 @@ pub fn stroke_ellipse(
         });
         path.close();
 
-        path.build();
+        path.build()?;
     }
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
-/// Tessellate a convex shape that is discribed by an iterator of points.
+/// Tessellate a convex shape that is described by an iterator of points.
 ///
 /// The shape is assumed to be convex, calling this function with a concave
 /// shape may produce incorrect results.
@@ -809,11 +810,11 @@ pub fn fill_convex_polyline<Iter>(
     mut it: Iter,
     _options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>
-) -> Count
+) -> TessellationResult
 where
     Iter: Iterator<Item = Point> + Clone,
 {
-    // We insert 2nd point on line first in order to have the neighbours for normal calculation.
+    // We insert 2nd point on line first in order to have the neighbors for normal calculation.
     let mut it1 = it.clone().cycle().skip(1);
     let mut it2 = it.clone().cycle().skip(2);
 
@@ -827,13 +828,13 @@ where
                 position: a2,
                 normal: compute_normal(a2 - a1, a3 - a2),
             }
-        );
+        )?;
         let mut b = output.add_vertex(
             FillVertex {
                 position: b3,
                 normal: compute_normal(b3 - b2, b4 - b3),
             }
-        );
+        )?;
 
         while let (Some(p1), Some(p2), Some(p3)) = (it.next(), it1.next(), it2.next()) {
             let c = output.add_vertex(
@@ -841,7 +842,7 @@ where
                     position: p2,
                     normal: compute_normal(p2 - p1, p3 - p2),
                 }
-            );
+            )?;
 
             output.add_triangle(a, b, c);
 
@@ -849,10 +850,10 @@ where
         }
     }
 
-    output.end_geometry()
+    Ok(output.end_geometry())
 }
 
-/// Tessellate the stroke for a shape that is discribed by an iterator of points.
+/// Tessellate the stroke for a shape that is described by an iterator of points.
 ///
 /// Convenient when tessellating a shape that is represented as a slice `&[Point]`.
 pub fn stroke_polyline<Iter>(
@@ -860,7 +861,7 @@ pub fn stroke_polyline<Iter>(
     is_closed: bool,
     options: &StrokeOptions,
     output: &mut dyn GeometryBuilder<StrokeVertex>
-) -> Count
+) -> TessellationResult
 where
     Iter: Iterator<Item = Point>,
 {
@@ -873,13 +874,13 @@ where
     )
 }
 
-/// Tessellate an arbitray shape that is discribed by an iterator of points.
+/// Tessellate an arbitrary shape that is described by an iterator of points.
 pub fn fill_polyline<Iter>(
     polyline: Iter,
     tessellator: &mut FillTessellator,
     options: &FillOptions,
     output: &mut dyn GeometryBuilder<FillVertex>
-) -> FillResult
+) -> TessellationResult
 where
     Iter: Iterator<Item = Point>,
 {
@@ -919,7 +920,7 @@ fn issue_358() {
         Angle { radians: 0.0 },
         &FillOptions::tolerance(1.0),
         &mut NoOutput::new(),
-    );
+    ).unwrap();
 }
 
 #[test]
@@ -931,12 +932,12 @@ fn issue_366() {
         1.0,
         &FillOptions::tolerance(100.0),
         &mut NoOutput::new(),
-    );
+    ).unwrap();
 
     stroke_circle(
         point(0.0, 0.0),
         1.0,
         &StrokeOptions::tolerance(100.0),
         &mut NoOutput::new(),
-    );
+    ).unwrap();
 }

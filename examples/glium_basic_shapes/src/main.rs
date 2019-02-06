@@ -45,13 +45,13 @@ fn main() {
         point(5.0, 4.0),
         &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     fill_rectangle(
         &rect(6.0, 1.0, 4.0, 3.0),
         &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     fill_quad(
         point(11.0, 1.0),
@@ -60,7 +60,7 @@ fn main() {
         point(12.0, 4.0),
         &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     fill_rounded_rectangle(
         &rect(15.0, 1.0, 4.0, 3.0),
@@ -72,14 +72,14 @@ fn main() {
         },
         &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     fill_circle(
         point(22.0, 3.0),
         2.0,
         &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     fill_ellipse(
         point(27.0, 3.0),
@@ -87,7 +87,7 @@ fn main() {
         Angle::radians(0.6),
         &fill_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
 
     let stroke_options = StrokeOptions::tolerance(0.01)
@@ -99,13 +99,13 @@ fn main() {
         point(5.0, 9.0),
         &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     stroke_rectangle(
         &rect(6.0, 6.0, 4.0, 3.0),
         &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     stroke_quad(
         point(11.0, 6.0),
@@ -114,7 +114,7 @@ fn main() {
         point(12.0, 9.0),
         &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     stroke_rounded_rectangle(
         &rect(15.0, 6.0, 4.0, 3.0),
@@ -126,14 +126,14 @@ fn main() {
         },
         &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     stroke_circle(
         point(22.0, 8.0),
         2.0,
         &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     stroke_ellipse(
         point(27.0, 8.0),
@@ -141,7 +141,7 @@ fn main() {
         Angle::radians(0.6),
         &stroke_options,
         &mut BuffersBuilder::new(&mut mesh, VertexCtor),
-    );
+    ).unwrap();
 
     println!(
         " -- fill: {} vertices {} indices",

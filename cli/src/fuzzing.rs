@@ -122,7 +122,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 path.path_iter(),
                 &StrokeOptions::default(),
                 &mut NoOutput::new()
-            );
+            ).unwrap();
         }
         i += 1;
         if i % 500 == 0 {
