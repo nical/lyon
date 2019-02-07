@@ -19,7 +19,7 @@ use std::mem;
 /// more efficiently.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum Verb {
+enum Verb {
     MoveTo,
     LineTo,
     QuadraticTo,
@@ -84,8 +84,6 @@ impl Path {
 
     pub fn mut_points(&mut self) -> &mut [Point] { &mut self.points[..] }
 
-    pub fn verbs(&self) -> &[Verb] { &self.verbs[..] }
-
     /// Concatenate two paths.
     pub fn merge(&self, other: &Self) -> Self {
         let mut verbs = Vec::with_capacity(self.verbs.len() + other.verbs.len());
@@ -140,12 +138,6 @@ impl<'l> IntoIterator for &'l Path {
 
 /// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
-    pub fn new(points: &'l [Point], verbs: &'l [Verb]) -> PathSlice<'l> {
-        PathSlice {
-            points,
-            verbs,
-        }
-    }
 
     pub fn iter(&self) -> Iter {
         Iter::new(self.points, self.verbs)
@@ -189,8 +181,6 @@ impl<'l> PathSlice<'l> {
     }
 
     pub fn points(&self) -> &[Point] { self.points }
-
-    pub fn verbs(&self) -> &[Verb] { self.verbs }
 
     /// Returns starting position of the edge that the provided cursor refers to.
     pub fn position_before(&self, cursor: Cursor) -> Point {
@@ -444,7 +434,7 @@ pub struct Iter<'l> {
 }
 
 impl<'l> Iter<'l> {
-    pub fn new(points: &'l [Point], verbs: &'l [Verb]) -> Self {
+    fn new(points: &'l [Point], verbs: &'l [Verb]) -> Self {
         Iter {
             points: points.iter(),
             verbs: verbs.iter(),
