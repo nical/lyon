@@ -1,8 +1,8 @@
 //! Bounding rectangle computation for paths.
 
 use path::{PathEvent, QuadraticEvent, FlattenedEvent};
-use math::{Point, point, vector, Rect};
-use geom::{QuadraticBezierSegment, CubicBezierSegment, Arc};
+use math::{Point, point, Rect};
+use geom::{QuadraticBezierSegment, CubicBezierSegment};
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
@@ -51,11 +51,6 @@ impl FastBoundingRect for PathEvent {
             PathEvent::CubicTo(ctrl1, ctrl2, to) => {
                 *min = Point::min(*min, Point::min(*ctrl1, Point::min(*ctrl2, *to)));
                 *max = Point::max(*max, Point::max(*ctrl1, Point::max(*ctrl2, *to)));
-            }
-            PathEvent::Arc(center, radii, _, _) => {
-                let r = f32::max(f32::abs(radii.x), f32::abs(radii.y));
-                *max = Point::max(*max, *center + vector(r, r));
-                *min = Point::min(*min, *center - vector(r, r));
             }
             PathEvent::Close => {}
         }
@@ -158,20 +153,6 @@ impl TightBoundingRect for PathEvent {
                 *max = Point::max(*max, r.bottom_right());
                 *current = *to;
             }
-            PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
-                let start_angle = (*center - *current).angle_from_x_axis();
-                let arc = Arc {
-                    center: *center,
-                    radii: *radii,
-                    start_angle,
-                    sweep_angle: *sweep_angle,
-                    x_rotation: *x_rotation,
-                };
-                let r = arc.bounding_rect();
-                *min = Point::min(*min, r.origin);
-                *max = Point::max(*max, r.bottom_right());
-                *current = arc.to();
-            }
             PathEvent::Close => {
                 *current = *first;
             }
@@ -213,7 +194,7 @@ impl TightBoundingRect for QuadraticEvent {
 #[test]
 fn simple_bounding_rect() {
     use path::Path;
-    use math::{rect, Angle};
+    use math::rect;
 
     let mut builder = Path::builder();
     builder.move_to(point(-10.0, -3.0));
@@ -230,16 +211,4 @@ fn simple_bounding_rect() {
     let path = builder.build();
 
     assert_eq!(fast_bounding_rect(path.iter()), rect(-1.0, -4.0, 4.0, 6.0));
-
-   let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
-    builder.arc(
-        point(1.0, 0.0),
-        vector(3.0, 4.0),
-        Angle::degrees(45.0),
-        Angle::degrees(90.0),
-    );
-    let path = builder.build();
-
-    assert_eq!(fast_bounding_rect(path.iter()), rect(-3.0, -4.0, 8.0, 8.0));
 }

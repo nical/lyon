@@ -1,7 +1,5 @@
-
 use math::{Point, Vector, point, vector, Angle};
-use geom::{Arc, SvgArc, ArcFlags};
-use events::{PathEvent, SvgEvent};
+use geom::{Arc, ArcFlags};
 use builder::{FlatPathBuilder, PathBuilder, SvgBuilder, PolygonBuilder};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -92,84 +90,6 @@ impl PathState {
     }
 
     pub fn relative_to_absolute(&self, v: Vector) -> Point { self.current + v }
-
-    pub fn svg_to_path_event(&self, event: SvgEvent) -> PathEvent {
-        match event {
-            SvgEvent::MoveTo(to) => PathEvent::MoveTo(to),
-            SvgEvent::LineTo(to) => PathEvent::LineTo(to),
-            SvgEvent::QuadraticTo(ctrl, to) => PathEvent::QuadraticTo(ctrl, to),
-            SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::CubicTo(ctrl1, ctrl2, to),
-            SvgEvent::Close => PathEvent::Close,
-            SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(self.relative_to_absolute(to)),
-            SvgEvent::RelativeLineTo(to) => PathEvent::LineTo(self.relative_to_absolute(to)),
-            SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-                PathEvent::QuadraticTo(self.relative_to_absolute(ctrl), self.relative_to_absolute(to))
-            }
-            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
-                PathEvent::CubicTo(
-                    self.relative_to_absolute(ctrl1),
-                    self.relative_to_absolute(ctrl2),
-                    self.relative_to_absolute(to),
-                )
-            }
-            SvgEvent::HorizontalLineTo(x) => {
-                PathEvent::LineTo(point(x, self.current.y))
-            }
-            SvgEvent::VerticalLineTo(y) => PathEvent::LineTo(point(self.current.x, y)),
-            SvgEvent::RelativeHorizontalLineTo(x) => {
-                PathEvent::LineTo(point(self.current.x + x, self.current.y))
-            }
-            SvgEvent::RelativeVerticalLineTo(y) => {
-                PathEvent::LineTo(point(self.current.x, self.current.y + y))
-            }
-            SvgEvent::SmoothQuadraticTo(to) => {
-                PathEvent::QuadraticTo(self.get_smooth_quadratic_ctrl(), to)
-            }
-            SvgEvent::SmoothCubicTo(ctrl2, to) => {
-                PathEvent::CubicTo(self.get_smooth_cubic_ctrl(), ctrl2, to)
-            }
-            SvgEvent::SmoothRelativeQuadraticTo(to) => {
-                PathEvent::QuadraticTo(self.get_smooth_quadratic_ctrl(), self.relative_to_absolute(to))
-            }
-            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-                PathEvent::CubicTo(
-                    self.get_smooth_cubic_ctrl(),
-                    self.relative_to_absolute(ctrl2),
-                    self.relative_to_absolute(to),
-                )
-            }
-            SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
-                let arc = Arc::from_svg_arc(&SvgArc {
-                    from: self.current,
-                    to,
-                    radii,
-                    x_rotation,
-                    flags,
-                });
-                PathEvent::Arc(
-                    arc.center,
-                    arc.radii,
-                    arc.sweep_angle,
-                    arc.x_rotation,
-                )
-            }
-            SvgEvent::RelativeArcTo(radii, x_rotation, flags, to) => {
-                let arc = Arc::from_svg_arc(&SvgArc {
-                    from: self.current,
-                    to: self.current + to,
-                    radii,
-                    x_rotation,
-                    flags,
-                });
-                PathEvent::Arc(
-                    arc.center,
-                    arc.radii,
-                    arc.sweep_angle,
-                    arc.x_rotation,
-                )
-            }
-        }
-    }
 }
 
 impl FlatPathBuilder for PathState {

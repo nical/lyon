@@ -24,7 +24,6 @@ enum Verb {
     LineTo,
     QuadraticTo,
     CubicTo,
-    Arc,
     Close,
 }
 
@@ -304,17 +303,11 @@ impl Builder {
         nan_check(radii.to_point());
         debug_assert!(!sweep_angle.get().is_nan());
         debug_assert!(!x_rotation.get().is_nan());
-        self.points.push(center);
-        self.points.push(radii.to_point());
-        self.points.push(point(
-            sweep_angle.get(),
-            x_rotation.get(),
-        ));
         let start_angle = (self.current_position - center).angle_from_x_axis() - x_rotation;
         let arc = Arc { start_angle, center, radii, sweep_angle, x_rotation };
-        self.current_position = arc.sample(1.0);
-        self.points.push(self.current_position);
-        self.verbs.push(Verb::Arc);
+        arc.for_each_quadratic_bezier(&mut|curve| {
+            self.quadratic_bezier_to(curve.ctrl, curve.to);
+        });
     }
 
     /// Add a closed polygon.
@@ -465,17 +458,6 @@ impl<'l> Iterator for Iter<'l> {
                 let to = *self.points.next().unwrap();
                 Some(PathEvent::CubicTo(ctrl1, ctrl2, to))
             }
-            Some(&Verb::Arc) => {
-                let center = *self.points.next().unwrap();
-                let radii = self.points.next().unwrap().to_vector();
-                let sweep_angle_x_rot = *self.points.next().unwrap();
-                Some(PathEvent::Arc(
-                    center,
-                    radii,
-                    Angle::radians(sweep_angle_x_rot.x),
-                    Angle::radians(sweep_angle_x_rot.y),
-                ))
-            }
             Some(&Verb::Close) => Some(PathEvent::Close),
             None => None,
         }
@@ -488,7 +470,6 @@ fn n_stored_points(verb: Verb) -> u32 {
         Verb::LineTo => 1,
         Verb::QuadraticTo => 2,
         Verb::CubicTo => 2,
-        Verb::Arc => 4,
         Verb::Close => 0,
     }
 }
@@ -522,17 +503,6 @@ fn event_at_cursor(cursor: &Cursor, points: &[Point], verbs: &[Verb]) -> PathEve
         Verb::LineTo => PathEvent::LineTo(p[0]),
         Verb::QuadraticTo => PathEvent::QuadraticTo(p[0], p[1]),
         Verb::CubicTo => PathEvent::CubicTo(p[0], p[1], p[2]),
-        Verb::Arc => {
-            let center = p[0];
-            let radii = p[1].to_vector();
-            let sweep_angle_x_rot = p[2];
-            PathEvent::Arc(
-                center,
-                radii,
-                Angle::radians(sweep_angle_x_rot.x),
-                Angle::radians(sweep_angle_x_rot.y),
-            )
-        }
         Verb::Close => PathEvent::Close,
     }
 }

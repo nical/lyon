@@ -2,7 +2,7 @@
 
 use path::PathEvent;
 use math::{Point, point, Vector, vector};
-use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc, Line};
+use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Line};
 use std::f32;
 
 pub struct Ray {
@@ -62,14 +62,6 @@ where
             PathEvent::CubicTo(ctrl1, ctrl2, to) => {
                 let cubic = CubicBezierSegment { from: prev, ctrl1, ctrl2, to };
                 cubic.for_each_flattened(tolerance, &mut|p| {
-                    test_segment(&mut state, &LineSegment { from: prev, to: p });
-                    prev = p;
-                });
-            }
-            PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
-                let start_angle = (prev - center).angle_from_x_axis();
-                let arc = Arc { center, radii, start_angle, sweep_angle, x_rotation };
-                arc.for_each_flattened(tolerance, &mut|p| {
                     test_segment(&mut state, &LineSegment { from: prev, to: p });
                     prev = p;
                 });
