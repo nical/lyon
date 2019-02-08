@@ -1,3 +1,4 @@
+use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
 use math::{Point, Vector, Angle, Transform2D, Transform};
 use ArcFlags;
 
@@ -39,9 +40,9 @@ pub enum SvgEvent {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum PathEvent {
     MoveTo(Point),
-    LineTo(Point),
-    QuadraticTo(Point, Point),
-    CubicTo(Point, Point, Point),
+    Line(LineSegment<f32>),
+    Quadratic(QuadraticBezierSegment<f32>),
+    Cubic(CubicBezierSegment<f32>),
     Close,
 }
 
@@ -52,8 +53,8 @@ pub enum PathEvent {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum QuadraticEvent {
     MoveTo(Point),
-    LineTo(Point),
-    QuadraticTo(Point, Point),
+    Line(LineSegment<f32>),
+    Quadratic(QuadraticBezierSegment<f32>),
     Close,
 }
 
@@ -64,7 +65,7 @@ pub enum QuadraticEvent {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FlattenedEvent {
     MoveTo(Point),
-    LineTo(Point),
+    Line(LineSegment<f32>),
     Close,
 }
 
@@ -72,7 +73,7 @@ impl FlattenedEvent {
     pub fn to_svg_event(self) -> SvgEvent {
         match self {
             FlattenedEvent::MoveTo(to) => SvgEvent::MoveTo(to),
-            FlattenedEvent::LineTo(to) => SvgEvent::LineTo(to),
+            FlattenedEvent::Line(segment) => SvgEvent::LineTo(segment.to),
             FlattenedEvent::Close => SvgEvent::Close,
         }
     }
@@ -80,7 +81,7 @@ impl FlattenedEvent {
     pub fn to_path_event(self) -> PathEvent {
         match self {
             FlattenedEvent::MoveTo(to) => PathEvent::MoveTo(to),
-            FlattenedEvent::LineTo(to) => PathEvent::LineTo(to),
+            FlattenedEvent::Line(segment) => PathEvent::Line(segment),
             FlattenedEvent::Close => PathEvent::Close,
         }
     }
@@ -98,8 +99,8 @@ impl QuadraticEvent {
     pub fn to_svg_event(self) -> SvgEvent {
         match self {
             QuadraticEvent::MoveTo(to) => SvgEvent::MoveTo(to),
-            QuadraticEvent::LineTo(to) => SvgEvent::LineTo(to),
-            QuadraticEvent::QuadraticTo(ctrl, to) => SvgEvent::QuadraticTo(ctrl, to),
+            QuadraticEvent::Line(segment) => SvgEvent::LineTo(segment.to),
+            QuadraticEvent::Quadratic(segment) => SvgEvent::QuadraticTo(segment.ctrl, segment.to),
             QuadraticEvent::Close => SvgEvent::Close,
         }
     }
@@ -107,8 +108,8 @@ impl QuadraticEvent {
     pub fn to_path_event(self) -> PathEvent {
         match self {
             QuadraticEvent::MoveTo(to) => PathEvent::MoveTo(to),
-            QuadraticEvent::LineTo(to) => PathEvent::LineTo(to),
-            QuadraticEvent::QuadraticTo(ctrl, to) => PathEvent::QuadraticTo(ctrl, to),
+            QuadraticEvent::Line(segment) => PathEvent::Line(segment),
+            QuadraticEvent::Quadratic(segment) => PathEvent::Quadratic(segment),
             QuadraticEvent::Close => PathEvent::Close,
         }
     }
@@ -120,8 +121,8 @@ impl Transform for FlattenedEvent {
             FlattenedEvent::MoveTo(ref to) => {
                 FlattenedEvent::MoveTo(mat.transform_point(to))
             }
-            FlattenedEvent::LineTo(ref to) => {
-                FlattenedEvent::LineTo(mat.transform_point(to))
+            FlattenedEvent::Line(ref segment) => {
+                FlattenedEvent::Line(segment.transform(mat))
             }
             FlattenedEvent::Close => { FlattenedEvent::Close }
         }
@@ -134,14 +135,11 @@ impl Transform for QuadraticEvent {
             QuadraticEvent::MoveTo(ref to) => {
                 QuadraticEvent::MoveTo(mat.transform_point(to))
             }
-            QuadraticEvent::LineTo(ref to) => {
-                QuadraticEvent::LineTo(mat.transform_point(to))
+            QuadraticEvent::Line(ref segment) => {
+                QuadraticEvent::Line(segment.transform(mat))
             }
-            QuadraticEvent::QuadraticTo(ref ctrl, ref to) => {
-                QuadraticEvent::QuadraticTo(
-                    mat.transform_point(ctrl),
-                    mat.transform_point(to),
-                )
+            QuadraticEvent::Quadratic(segment) => {
+                QuadraticEvent::Quadratic(segment.transform(mat))
             }
             QuadraticEvent::Close => { QuadraticEvent::Close }
         }
@@ -151,25 +149,10 @@ impl Transform for QuadraticEvent {
 impl Transform for PathEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            PathEvent::MoveTo(ref to) => {
-                PathEvent::MoveTo(mat.transform_point(to))
-            }
-            PathEvent::LineTo(ref to) => {
-                PathEvent::LineTo(mat.transform_point(to))
-            }
-            PathEvent::QuadraticTo(ref ctrl, ref to) => {
-                PathEvent::QuadraticTo(
-                    mat.transform_point(ctrl),
-                    mat.transform_point(to),
-                )
-            }
-            PathEvent::CubicTo(ref ctrl1, ref ctrl2, ref to) => {
-                PathEvent::CubicTo(
-                    mat.transform_point(ctrl1),
-                    mat.transform_point(ctrl2),
-                    mat.transform_point(to),
-                )
-            }
+            PathEvent::MoveTo(ref to) => { PathEvent::MoveTo(mat.transform_point(to)) }
+            PathEvent::Line(ref segment) => { PathEvent::Line(segment.transform(mat)) }
+            PathEvent::Quadratic(ref segment) => { PathEvent::Quadratic(segment.transform(mat)) }
+            PathEvent::Cubic(ref segment) => { PathEvent::Cubic(segment.transform(mat)) }
             PathEvent::Close => { PathEvent::Close }
         }
     }

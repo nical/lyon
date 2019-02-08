@@ -4,23 +4,12 @@ use std::slice;
 use lyon::math::Point;
 use lyon::path::PathEvent;
 use lyon::path::iterator::PathIter;
+use lyon::geom::{LineSegment, CubicBezierSegment};
 
 use usvg::{Path, PathSegment};
 
-fn point(x: f64, y: f64) -> Point {
-    Point::new(x as f32, y as f32)
-}
-
-// Map usvg::PathSegment to lyon::path::PathEvent
-fn as_event(ps: &PathSegment) -> PathEvent {
-    match *ps {
-        PathSegment::MoveTo { x, y } => PathEvent::MoveTo(point(x, y)),
-        PathSegment::LineTo { x, y } => PathEvent::LineTo(point(x, y)),
-        PathSegment::CurveTo { x1, y1, x2, y2, x, y, } => {
-            PathEvent::CubicTo(point(x1, y1), point(x2, y2), point(x, y))
-        }
-        PathSegment::ClosePath => PathEvent::Close,
-    }
+fn point(x: &f64, y: &f64) -> Point {
+    Point::new((*x) as f32, (*y) as f32)
 }
 
 pub struct PathConv<'a>(SegmentIter<'a>);
@@ -28,14 +17,45 @@ pub struct PathConv<'a>(SegmentIter<'a>);
 // Alias for the iterator returned by usvg::Path::iter()
 type SegmentIter<'a> = slice::Iter<'a, PathSegment>;
 
-// Alias for our `interface` iterator
-type PathConvIter<'a> = iter::Map<SegmentIter<'a>, fn(&PathSegment) -> PathEvent>;
+pub struct PathConvIter<'a> {
+    iter: slice::Iter<'a, PathSegment>,
+    prev: Point,
+}
 
 // Provide a function which gives back a PathIter which is compatible with
-// tesselators, so we don't have to implement the PathIterator trait
+// tessellators, so we don't have to implement the PathIterator trait
 impl<'a> PathConv<'a> {
     pub fn path_iter(self) -> PathIter<PathConvIter<'a>> {
-        PathIter::new(self.0.map(as_event))
+        PathIter::new(PathConvIter { iter: self.0, prev: Point::new(0.0, 0.0), })
+    }
+}
+
+impl<'l> Iterator for PathConvIter<'l> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
+        match self.iter.next() {
+            Some(PathSegment::MoveTo { x, y }) => {
+                self.prev = point(x, y);
+                Some(PathEvent::MoveTo(self.prev))
+            }
+            Some(PathSegment::LineTo { x, y }) => {
+                let from = self.prev;
+                self.prev = point(x, y);
+                Some(PathEvent::Line(LineSegment { from, to: self.prev }))
+            }
+            Some(PathSegment::CurveTo { x1, y1, x2, y2, x, y, }) => {
+                let from = self.prev;
+                self.prev = point(x, y);
+                Some(PathEvent::Cubic(CubicBezierSegment {
+                    from,
+                    ctrl1: point(x1, y1),
+                    ctrl2: point(x2, y2),
+                    to: self.prev,
+                }))
+            }
+            Some(PathSegment::ClosePath) => Some(PathEvent::Close),
+            None => None,
+        }
     }
 }
 

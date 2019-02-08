@@ -315,8 +315,8 @@ impl Splitter {
                     self.point_buffer.clear();
                     self.point_buffer.push(to)
                 }
-                FlattenedEvent::LineTo(to) => {
-                    self.point_buffer.push(to)
+                FlattenedEvent::Line(ref segment) => {
+                    self.point_buffer.push(segment.to)
                 }
                 FlattenedEvent::Close => {
                     if self.point_buffer.len() > 2 {
@@ -381,9 +381,9 @@ fn compare_path_events(actual: &[PathEvent], expected: &[PathEvent]) {
     for i in 0..expected.len() {
         let ok = match (actual[i], expected[i]) {
             (PathEvent::MoveTo(p1), PathEvent::MoveTo(p2)) => p1.approx_eq(&p2),
-            (PathEvent::LineTo(p1), PathEvent::LineTo(p2)) => p1.approx_eq(&p2),
-            (PathEvent::QuadraticTo(p1, ctrl1), PathEvent::QuadraticTo(p2, ctrl2)) => {
-                p1.approx_eq(&p2) && ctrl1.approx_eq(&ctrl2)
+            (PathEvent::Line(s1), PathEvent::Line(s2)) => s1.from.approx_eq(&s2.from) && s1.to.approx_eq(&s2.to),
+            (PathEvent::Quadratic(s1), PathEvent::Quadratic(s2)) => {
+                s1.from.approx_eq(&s2.from) && s1.ctrl.approx_eq(&s2.ctrl) && s1.to.approx_eq(&s2.to)
             }
             (PathEvent::Close, PathEvent::Close) => true,
             _ => false,
@@ -423,17 +423,17 @@ fn split_with_segment_1() {
 
     compare_path_events(&events1, &[
         PathEvent::MoveTo(point(1.0, 0.5)),
-        PathEvent::LineTo(point(0.0, 0.5)),
-        PathEvent::LineTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(1.0, 0.0)),
+        PathEvent::Line(LineSegment { from: point(1.0, 0.5), to: point(0.0, 0.5) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.5), to: point(0.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(1.0, 0.0) }),
         PathEvent::Close,
     ]);
 
     compare_path_events(&events2, &[
         PathEvent::MoveTo(point(0.0, 0.5)),
-        PathEvent::LineTo(point(1.0, 0.5)),
-        PathEvent::LineTo(point(1.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 1.0)),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.5), to: point(1.0, 0.5) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 0.5), to: point(1.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(0.0, 1.0) }),
         PathEvent::Close,
     ]);
 }
@@ -477,26 +477,26 @@ fn split_with_segment_2() {
 
     compare_path_events(&events1, &[
         PathEvent::MoveTo(point(3.0, 2.0)),
-        PathEvent::LineTo(point(2.0, 2.0)),
-        PathEvent::LineTo(point(2.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 2.0)),
-        PathEvent::LineTo(point(0.0, 2.0)),
-        PathEvent::LineTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(3.0, 0.0)),
+        PathEvent::Line(LineSegment { from: point(3.0, 2.0), to: point(2.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(2.0, 2.0), to: point(2.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(2.0, 1.0), to: point(1.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(1.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 2.0), to: point(0.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 2.0), to: point(0.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(3.0, 0.0) }),
         PathEvent::Close,
     ]);
 
     compare_path_events(&events2, &[
         PathEvent::MoveTo(point(0.0, 2.0)),
-        PathEvent::LineTo(point(1.0, 2.0)),
-        PathEvent::LineTo(point(1.0, 3.0)),
-        PathEvent::LineTo(point(0.0, 3.0)),
+        PathEvent::Line(LineSegment { from: point(0.0, 2.0), to: point(1.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 2.0), to: point(1.0, 3.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 3.0), to: point(0.0, 3.0) }),
         PathEvent::Close,
         PathEvent::MoveTo(point(2.0, 2.0)),
-        PathEvent::LineTo(point(3.0, 2.0)),
-        PathEvent::LineTo(point(3.0, 3.0)),
-        PathEvent::LineTo(point(2.0, 3.0)),
+        PathEvent::Line(LineSegment { from: point(2.0, 2.0), to: point(3.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 2.0), to: point(3.0, 3.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 3.0), to: point(2.0, 3.0) }),
         PathEvent::Close,
     ]);
 }
@@ -537,16 +537,16 @@ fn split_with_segment_3() {
 
     compare_path_events(&events1, &[
         PathEvent::MoveTo(point(1.0, 2.0)),
-        PathEvent::LineTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(2.0, 0.0)),
-        PathEvent::LineTo(point(2.0, 2.0)),
+        PathEvent::Line(LineSegment { from: point(1.0, 2.0), to: point(0.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(2.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(2.0, 0.0), to: point(2.0, 2.0) }),
         PathEvent::Close,
     ]);
 
     compare_path_events(&events2, &[
         PathEvent::MoveTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(1.0, 2.0)),
-        PathEvent::LineTo(point(0.0, 2.0)),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(1.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 2.0), to: point(0.0, 2.0) }),
         PathEvent::Close,
     ]);
 }
@@ -588,18 +588,18 @@ fn split_with_segment_4() {
 
     compare_path_events(&events1, &[
         PathEvent::MoveTo(point(1.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(3.0, 0.0)),
-        PathEvent::LineTo(point(3.0, 1.0)),
+        PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(0.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(0.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(3.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 0.0), to: point(3.0, 1.0) }),
         PathEvent::Close,
     ]);
 
     compare_path_events(&events2, &[
         PathEvent::MoveTo(point(0.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 2.0)),
-        PathEvent::LineTo(point(0.0, 2.0)),
+        PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(1.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(1.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 2.0), to: point(0.0, 2.0) }),
         PathEvent::Close,
     ]);
 }
@@ -641,18 +641,18 @@ fn split_with_segment_5() {
 
     compare_path_events(&events1, &[
         PathEvent::MoveTo(point(3.0, 1.0)),
-        PathEvent::LineTo(point(2.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(3.0, 0.0)),
+        PathEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(2.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(2.0, 1.0), to: point(0.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(0.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(3.0, 0.0) }),
         PathEvent::Close,
     ]);
 
     compare_path_events(&events2, &[
         PathEvent::MoveTo(point(2.0, 1.0)),
-        PathEvent::LineTo(point(3.0, 1.0)),
-        PathEvent::LineTo(point(3.0, 2.0)),
-        PathEvent::LineTo(point(2.0, 2.0)),
+        PathEvent::Line(LineSegment { from: point(2.0, 1.0), to: point(3.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(3.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 2.0), to: point(2.0, 2.0) }),
         PathEvent::Close
     ]);
 }
@@ -696,24 +696,24 @@ fn split_with_segment_6() {
 
     compare_path_events(&events1, &[
         PathEvent::MoveTo(point(3.0, 1.0)),
-        PathEvent::LineTo(point(2.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 1.0)),
-        PathEvent::LineTo(point(0.0, 0.0)),
-        PathEvent::LineTo(point(3.0, 0.0)),
+        PathEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(2.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(2.0, 1.0), to: point(1.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(0.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(0.0, 0.0) }),
+        PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(3.0, 0.0) }),
         PathEvent::Close,
     ]);
 
     compare_path_events(&events2, &[
         PathEvent::MoveTo(point(0.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 1.0)),
-        PathEvent::LineTo(point(1.0, 2.0)),
-        PathEvent::LineTo(point(0.0, 2.0)),
+        PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(1.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(1.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(1.0, 2.0), to: point(0.0, 2.0) }),
         PathEvent::Close,
         PathEvent::MoveTo(point(2.0, 1.0)),
-        PathEvent::LineTo(point(3.0, 1.0)),
-        PathEvent::LineTo(point(3.0, 2.0)),
-        PathEvent::LineTo(point(2.0, 2.0)),
+        PathEvent::Line(LineSegment { from: point(2.0, 1.0), to: point(3.0, 1.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(3.0, 2.0) }),
+        PathEvent::Line(LineSegment { from: point(3.0, 2.0), to: point(2.0, 2.0) }),
         PathEvent::Close,
     ]);
 }

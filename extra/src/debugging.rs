@@ -17,8 +17,8 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
                 }
                 poly = vec![to];
             }
-            PathEvent::LineTo(to) => {
-                poly.push(to);
+            PathEvent::Line(segment) => {
+                poly.push(segment.to);
             }
             PathEvent::Close => {
                 if !poly.is_empty() {
