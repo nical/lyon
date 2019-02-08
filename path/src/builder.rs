@@ -78,6 +78,7 @@ use math::*;
 use events::{PathEvent, FlattenedEvent, SvgEvent};
 use geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
 use path_state::PathState;
+use std::marker::Sized;
 
 pub trait Build {
     /// The type of object that is created by this builder.
@@ -91,7 +92,7 @@ pub trait Build {
 }
 
 /// The most basic path building interface. Does not handle any kind of curve.
-pub trait FlatPathBuilder: ::std::marker::Sized {
+pub trait FlatPathBuilder {
     /// Sets the current position in preparation for the next sub-path.
     /// If the current sub-path contains edges, this ends the sub-path without closing it.
     fn move_to(&mut self, to: Point);
@@ -122,7 +123,7 @@ pub trait FlatPathBuilder: ::std::marker::Sized {
     }
 
     /// Returns a builder that approximates all curves with sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> {
+    fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> where Self: Sized {
         FlatteningBuilder::new(self, tolerance)
     }
 }
@@ -155,7 +156,7 @@ pub trait PathBuilder: FlatPathBuilder {
     }
 
     /// Returns a builder that support svg commands.
-    fn with_svg(self) -> SvgPathBuilder<Self> { SvgPathBuilder::new(self) }
+    fn with_svg(self) -> SvgPathBuilder<Self> where Self : Sized { SvgPathBuilder::new(self) }
 }
 
 /// A path building interface that tries to stay close to SVG's path specification.
