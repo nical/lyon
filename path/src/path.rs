@@ -6,7 +6,7 @@ use iterator::PathIter;
 use PathEvent;
 use VertexId;
 use math::*;
-use geom::Arc;
+use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc};
 
 use std::iter::IntoIterator;
 use std::ops;
@@ -427,18 +427,22 @@ fn test_reverse_path() {
     let mut it = p2.iter();
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(21.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(21.0, 0.0), point(20.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Quadratic(QuadraticBezierSegment {
+        from: point(21.0, 1.0),
+        ctrl: point(21.0, 0.0),
+        to: point(20.0, 0.0),
+    })));
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(10.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(11.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(11.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(10.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(10.0, 1.0), to: point(11.0, 1.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(11.0, 1.0), to: point(11.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(11.0, 0.0), to: point(10.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::Close));
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(0.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(1.0, 1.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(1.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 0.0), to: point(0.0, 0.0) })));
 
     assert_eq!(it.next(), None);
 }
@@ -459,8 +463,8 @@ fn test_reverse_path_no_close() {
     let mut it = p2.iter();
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(0.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(1.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 0.0), to: point(0.0, 0.0) })));
     assert_eq!(it.next(), None);
 }
 
@@ -575,6 +579,7 @@ impl PathBuilder for Builder {
 pub struct Iter<'l> {
     points: ::std::slice::Iter<'l, Point>,
     verbs: ::std::slice::Iter<'l, Verb>,
+    current: Point,
 }
 
 impl<'l> Iter<'l> {
@@ -582,6 +587,7 @@ impl<'l> Iter<'l> {
         Iter {
             points: points.iter(),
             verbs: verbs.iter(),
+            current: point(0.0, 0.0),
         }
     }
 }
@@ -591,23 +597,32 @@ impl<'l> Iterator for Iter<'l> {
     fn next(&mut self) -> Option<PathEvent> {
         match self.verbs.next() {
             Some(&Verb::MoveTo) => {
-                let to = *self.points.next().unwrap();
-                Some(PathEvent::MoveTo(to))
+                self.current = *self.points.next().unwrap();
+                Some(PathEvent::MoveTo(self.current))
             }
             Some(&Verb::LineTo) => {
-                let to = *self.points.next().unwrap();
-                Some(PathEvent::LineTo(to))
+                let from = self.current;
+                self.current = *self.points.next().unwrap();
+                Some(PathEvent::Line(LineSegment {
+                    from, to: self.current
+                }))
             }
             Some(&Verb::QuadraticTo) => {
+                let from = self.current;
                 let ctrl = *self.points.next().unwrap();
-                let to = *self.points.next().unwrap();
-                Some(PathEvent::QuadraticTo(ctrl, to))
+                self.current = *self.points.next().unwrap();
+                Some(PathEvent::Quadratic(QuadraticBezierSegment {
+                    from, ctrl, to: self.current
+                }))
             }
             Some(&Verb::CubicTo) => {
+                let from = self.current;
                 let ctrl1 = *self.points.next().unwrap();
                 let ctrl2 = *self.points.next().unwrap();
-                let to = *self.points.next().unwrap();
-                Some(PathEvent::CubicTo(ctrl1, ctrl2, to))
+                self.current = *self.points.next().unwrap();
+                Some(PathEvent::Cubic(CubicBezierSegment {
+                    from, ctrl1, ctrl2, to: self.current
+                }))
             }
             Some(&Verb::Close) => Some(PathEvent::Close),
             None => None,
@@ -648,12 +663,24 @@ fn prev_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
 }
 
 fn event_at_cursor(cursor: &Cursor, points: &[Point], verbs: &[Verb]) -> PathEvent {
-    let p = &points[cursor.vertex.to_usize()..];
+    let p = cursor.vertex.to_usize();
     match verbs[cursor.verb as usize] {
-        Verb::MoveTo => PathEvent::MoveTo(p[0]),
-        Verb::LineTo => PathEvent::LineTo(p[0]),
-        Verb::QuadraticTo => PathEvent::QuadraticTo(p[0], p[1]),
-        Verb::CubicTo => PathEvent::CubicTo(p[0], p[1], p[2]),
+        Verb::MoveTo => PathEvent::MoveTo(points[p]),
+        Verb::LineTo => PathEvent::Line(LineSegment {
+            from: points[p - 1],
+            to: points[p],
+        }),
+        Verb::QuadraticTo => PathEvent::Quadratic(QuadraticBezierSegment {
+            from: points[p - 1],
+            ctrl: points[p],
+            to: points[p + 1],
+        }),
+        Verb::CubicTo => PathEvent::Cubic(CubicBezierSegment {
+            from: points[p - 1],
+            ctrl1: points[p],
+            ctrl2: points[p + 1],
+            to: points[p + 2],
+        }),
         Verb::Close => PathEvent::Close,
     }
 }
@@ -687,24 +714,42 @@ fn test_path_builder_1() {
 
     let mut it = path.iter();
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(3.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(4.0, 0.0), point(4.0, 1.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(1.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 0.0), to: point(2.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(2.0, 0.0), to: point(3.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Quadratic(QuadraticBezierSegment {
+        from: point(3.0, 0.0),
+        ctrl: point(4.0, 0.0),
+        to: point(4.0, 1.0)
+    })));
     assert_eq!(
         it.next(),
-        Some(PathEvent::CubicTo(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0)))
+        Some(PathEvent::Cubic(CubicBezierSegment {
+            from: point(4.0, 1.0),
+            ctrl1: point(5.0, 0.0),
+            ctrl2: point(5.0, 1.0),
+            to: point(5.0, 2.0)
+        }))
     );
     assert_eq!(it.next(), Some(PathEvent::Close));
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(10.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(11.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(12.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(13.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::QuadraticTo(point(14.0, 0.0), point(14.0, 1.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(10.0, 0.0), to: point(11.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(11.0, 0.0), to: point(12.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(12.0, 0.0), to: point(13.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Quadratic(QuadraticBezierSegment {
+        from: point(13.0, 0.0),
+        ctrl: point(14.0, 0.0),
+        to: point(14.0, 1.0),
+    })));
     assert_eq!(
         it.next(),
-        Some(PathEvent::CubicTo(point(15.0, 0.0), point(15.0, 1.0), point(15.0, 2.0)))
+        Some(PathEvent::Cubic(CubicBezierSegment {
+            from: point(14.0, 1.0),
+            ctrl1: point(15.0, 0.0),
+            ctrl2: point(15.0, 1.0),
+            to: point(15.0, 2.0),
+        }))
     );
     assert_eq!(it.next(), Some(PathEvent::Close));
 
@@ -712,7 +757,9 @@ fn test_path_builder_1() {
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 1.0))));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(2.0, 2.0))));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(3.0, 3.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 4.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment {
+        from: point(3.0, 3.0), to: point(4.0, 4.0),
+    })));
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);
     assert_eq!(it.next(), None);
@@ -743,7 +790,7 @@ fn test_path_builder_empty_move_to() {
 }
 
 #[test]
-fn test_path_builder_move_to_after_close() {
+fn test_path_builder_line_to_after_close() {
     let mut p = Path::builder();
     p.line_to(point(1.0, 0.0));
     p.close();
@@ -752,10 +799,10 @@ fn test_path_builder_move_to_after_close() {
     let path = p.build();
     let mut it = path.iter();
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(1.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(1.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::Close));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(2.0, 0.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment {from: point(0.0, 0.0), to: point(2.0, 0.0) })));
     assert_eq!(it.next(), None);
 }
 
@@ -788,12 +835,12 @@ fn test_merge_paths() {
 
     let mut it = path.iter();
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(5.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(5.0, 5.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(5.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(5.0, 0.0), to: point(5.0, 5.0) })));
     assert_eq!(it.next(), Some(PathEvent::Close));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 1.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 0.0))));
-    assert_eq!(it.next(), Some(PathEvent::LineTo(point(4.0, 4.0))));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(4.0, 0.0) })));
+    assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(4.0, 0.0), to: point(4.0, 4.0) })));
     assert_eq!(it.next(), Some(PathEvent::Close));
     assert_eq!(it.next(), None);
 }

@@ -68,7 +68,7 @@
 //!     for evt in flattened_iter {
 //!         match evt {
 //!             FlattenedEvent::MoveTo(p) => { println!(" - move to {:?}", p); }
-//!             FlattenedEvent::LineTo(p) => { println!(" - line to {:?}", p); }
+//!             FlattenedEvent::Line(segment) => { println!(" - line {:?}", segment); }
 //!             FlattenedEvent::Close => { println!(" - close"); }
 //!         }
 //!     }
@@ -102,7 +102,7 @@ use std::iter;
 
 use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
-use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
+use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
 use geom::arc::*;
 use geom::arrayvec::ArrayVec;
 use builder::{PathBuilder, SvgBuilder};
@@ -197,7 +197,7 @@ pub trait QuadraticPathIterator: Iterator<Item = QuadraticEvent> + Sized {
 
 pub struct PathEvents<SvgIter> {
     it: SvgIter,
-    arc_to_cubics: Vec<(Point, Point, Point)>,
+    arc_to_cubics: Vec<CubicBezierSegment<f32>>,
 }
 
 impl<SvgIter> PathEvents<SvgIter> {
@@ -222,8 +222,8 @@ where
 {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
-        if let Some((ctrl1, ctrl2, to)) = self.arc_to_cubics.pop() {
-            return Some(PathEvent::CubicTo(ctrl1, ctrl2, to));
+        if let Some(segment) = self.arc_to_cubics.pop() {
+            return Some(PathEvent::Cubic(segment));
         }
         match self.it.next() {
             Some(svg_evt) => Some(
@@ -241,51 +241,92 @@ where
 fn svg_to_path_event(
     event: SvgEvent,
     ps: &PathState,
-    arcs_to_cubic: &mut Vec<(Point, Point, Point)>
+    arcs_to_cubic: &mut Vec<CubicBezierSegment<f32>>
 ) -> PathEvent {
+    let from = ps.current_position();
     match event {
         SvgEvent::MoveTo(to) => PathEvent::MoveTo(to),
-        SvgEvent::LineTo(to) => PathEvent::LineTo(to),
-        SvgEvent::QuadraticTo(ctrl, to) => PathEvent::QuadraticTo(ctrl, to),
-        SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::CubicTo(ctrl1, ctrl2, to),
+        SvgEvent::LineTo(to) => PathEvent::Line(LineSegment { from, to }),
+        SvgEvent::QuadraticTo(ctrl, to) => PathEvent::Quadratic(QuadraticBezierSegment {
+            from, ctrl, to
+        }),
+        SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::Cubic(CubicBezierSegment {
+            from, ctrl1, ctrl2, to
+        }),
         SvgEvent::Close => PathEvent::Close,
         SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(ps.relative_to_absolute(to)),
-        SvgEvent::RelativeLineTo(to) => PathEvent::LineTo(ps.relative_to_absolute(to)),
+        SvgEvent::RelativeLineTo(to) => PathEvent::Line(LineSegment {
+            from,
+            to: ps.relative_to_absolute(to)
+        }),
         SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-            PathEvent::QuadraticTo(ps.relative_to_absolute(ctrl), ps.relative_to_absolute(to))
+            PathEvent::Quadratic(QuadraticBezierSegment {
+                from,
+                ctrl: ps.relative_to_absolute(ctrl),
+                to: ps.relative_to_absolute(to),
+            })
         }
         SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
-            PathEvent::CubicTo(
-                ps.relative_to_absolute(ctrl1),
-                ps.relative_to_absolute(ctrl2),
-                ps.relative_to_absolute(to),
-            )
+            PathEvent::Cubic(CubicBezierSegment {
+                from,
+                ctrl1: ps.relative_to_absolute(ctrl1),
+                ctrl2: ps.relative_to_absolute(ctrl2),
+                to: ps.relative_to_absolute(to),
+            })
         }
         SvgEvent::HorizontalLineTo(x) => {
-            PathEvent::LineTo(point(x, ps.current_position().y))
+            PathEvent::Line(LineSegment {
+                from,
+                to: point(x, ps.current_position().y)
+            })
         }
-        SvgEvent::VerticalLineTo(y) => PathEvent::LineTo(point(ps.current_position().x, y)),
+        SvgEvent::VerticalLineTo(y) => {
+            PathEvent::Line(LineSegment {
+                from,
+                to: point(ps.current_position().x, y)
+            })
+        }
         SvgEvent::RelativeHorizontalLineTo(x) => {
-            PathEvent::LineTo(point(ps.current_position().x + x, ps.current_position().y))
+            PathEvent::Line(LineSegment {
+                from,
+                to: point(ps.current_position().x + x, ps.current_position().y)
+            })
         }
         SvgEvent::RelativeVerticalLineTo(y) => {
-            PathEvent::LineTo(point(ps.current_position().x, ps.current_position().y + y))
+            PathEvent::Line(LineSegment {
+                from,
+                to: point(ps.current_position().x, ps.current_position().y + y)
+            })
         }
         SvgEvent::SmoothQuadraticTo(to) => {
-            PathEvent::QuadraticTo(ps.get_smooth_quadratic_ctrl(), to)
+            PathEvent::Quadratic(QuadraticBezierSegment {
+                from,
+                ctrl: ps.get_smooth_quadratic_ctrl(),
+                to
+            })
         }
         SvgEvent::SmoothCubicTo(ctrl2, to) => {
-            PathEvent::CubicTo(ps.get_smooth_cubic_ctrl(), ctrl2, to)
+            PathEvent::Cubic(CubicBezierSegment {
+                from,
+                ctrl1: ps.get_smooth_cubic_ctrl(),
+                ctrl2,
+                to
+            })
         }
         SvgEvent::SmoothRelativeQuadraticTo(to) => {
-            PathEvent::QuadraticTo(ps.get_smooth_quadratic_ctrl(), ps.relative_to_absolute(to))
+            PathEvent::Quadratic(QuadraticBezierSegment {
+                from,
+                ctrl: ps.get_smooth_quadratic_ctrl(),
+                to: ps.relative_to_absolute(to),
+            })
         }
         SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-            PathEvent::CubicTo(
-                ps.get_smooth_cubic_ctrl(),
-                ps.relative_to_absolute(ctrl2),
-                ps.relative_to_absolute(to),
-            )
+            PathEvent::Cubic(CubicBezierSegment {
+                from,
+                ctrl1: ps.get_smooth_cubic_ctrl(),
+                ctrl2: ps.relative_to_absolute(ctrl2),
+                to: ps.relative_to_absolute(to),
+            })
         }
         SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
             arc_to_path_events(
@@ -314,21 +355,22 @@ fn svg_to_path_event(
     }
 }
 
-fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<(Point, Point, Point)>) -> PathEvent {
-    let mut curves: ArrayVec<[(Point, Point, Point); 4]> = ArrayVec::new();
+fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<CubicBezierSegment<f32>>) -> PathEvent {
+    let mut curves: ArrayVec<[CubicBezierSegment<f32>; 4]> = ArrayVec::new();
     arc.for_each_cubic_bezier(&mut|curve: &CubicBezierSegment<f32>| {
-        curves.push((curve.ctrl1, curve.ctrl2, curve.to));
+        curves.push(*curve);
     });
     while curves.len() > 1 {
         // Append in reverse order.
         arcs_to_cubic.push(curves.pop().unwrap());
     }
-    PathEvent::CubicTo(curves[0].0, curves[0].1, curves[0].2)
+    PathEvent::Cubic(curves[0])
 }
 
 /// An iterator that consumes an PathIterator and yields FlattenedEvents.
 pub struct Flattened<Iter> {
     it: Iter,
+    current_position: Point,
     current_curve: TmpFlatteningIter,
     tolerance: f32,
 }
@@ -336,7 +378,6 @@ pub struct Flattened<Iter> {
 enum TmpFlatteningIter {
     Quadratic(quadratic_bezier::Flattened<f32>),
     Cubic(cubic_bezier::Flattened<f32>),
-    //Arc(arc::Flattened<f32>),
     None,
 }
 
@@ -345,6 +386,7 @@ impl<Iter: PathIterator> Flattened<Iter> {
     pub fn new(tolerance: f32, it: Iter) -> Self {
         Flattened {
             it,
+            current_position: point(0.0, 0.0),
             current_curve: TmpFlatteningIter::None,
             tolerance,
         }
@@ -366,50 +408,38 @@ where
     fn next(&mut self) -> Option<FlattenedEvent> {
         match self.current_curve {
             TmpFlatteningIter::Quadratic(ref mut it) => {
-                if let Some(point) = it.next() {
-                    return Some(FlattenedEvent::LineTo(point));
+                if let Some(to) = it.next() {
+                    let from = self.current_position;
+                    self.current_position = to;
+                    return Some(FlattenedEvent::Line(LineSegment { from, to }));
                 }
             }
             TmpFlatteningIter::Cubic(ref mut it) => {
-                if let Some(point) = it.next() {
-                    return Some(FlattenedEvent::LineTo(point));
+                if let Some(to) = it.next() {
+                    let from = self.current_position;
+                    self.current_position = to;
+                    return Some(FlattenedEvent::Line(LineSegment { from, to }));
                 }
             }
-            //TmpFlatteningIter::Arc(ref mut it) => {
-            //    if let Some(point) = it.next() {
-            //        return Some(FlattenedEvent::LineTo(point));
-            //    }
-            //}
             _ => {}
         }
         self.current_curve = TmpFlatteningIter::None;
-        let current = self.get_state().current_position();
-
         match self.it.next() {
             Some(PathEvent::MoveTo(to)) => Some(FlattenedEvent::MoveTo(to)),
-            Some(PathEvent::LineTo(to)) => Some(FlattenedEvent::LineTo(to)),
+            Some(PathEvent::Line(segment)) => Some(FlattenedEvent::Line(segment)),
             Some(PathEvent::Close) => Some(FlattenedEvent::Close),
-            Some(PathEvent::QuadraticTo(ctrl, to)) => {
+            Some(PathEvent::Quadratic(segment)) => {
+                self.current_position = self.get_state().current_position();
                 self.current_curve = TmpFlatteningIter::Quadratic(
-                    QuadraticBezierSegment {
-                            from: current,
-                            ctrl,
-                            to,
-                    }.flattened(self.tolerance)
+                    segment.flattened(self.tolerance)
                 );
-
                 self.next()
             }
-            Some(PathEvent::CubicTo(ctrl1, ctrl2, to)) => {
+            Some(PathEvent::Cubic(segment)) => {
+                self.current_position = self.get_state().current_position();
                 self.current_curve = TmpFlatteningIter::Cubic(
-                    CubicBezierSegment {
-                        from: current,
-                        ctrl1,
-                        ctrl2,
-                        to,
-                    }.flattened(self.tolerance)
+                    segment.flattened(self.tolerance)
                 );
-
                 self.next()
             }
             None => None,
@@ -574,6 +604,7 @@ where
 /// ```
 pub struct FromPolyline<Iter> {
     iter: Iter,
+    current: Point,
     first: bool,
     done: bool,
     close: bool,
@@ -583,6 +614,7 @@ impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
     pub fn new(close: bool, iter: Iter) -> Self {
         FromPolyline {
             iter,
+            current: point(0.0, 0.0),
             first: true,
             done: false,
             close,
@@ -614,9 +646,12 @@ where
             return Some(
                 if self.first {
                     self.first = false;
+                    self.current = next;
                     FlattenedEvent::MoveTo(next)
                 } else {
-                    FlattenedEvent::LineTo(next)
+                    let from = self.current;
+                    self.current = next;
+                    FlattenedEvent::Line(LineSegment { from, to: next })
                 }
             );
         }
@@ -634,19 +669,17 @@ where
 pub fn flattened_path_length<T>(iter: T) -> f32
 where T: Iterator<Item = FlattenedEvent> {
     let mut length = 0.0;
-    let mut prev = None;
     let mut first = None;
+    let mut prev = None;
     for evt in iter {
         match evt {
             FlattenedEvent::MoveTo(to) => {
                 prev = Some(to);
                 first = Some(to);
             }
-            FlattenedEvent::LineTo(to) => {
-                if let Some(p) = prev {
-                    length += (to - p).length();
-                }
-                prev = Some(to);
+            FlattenedEvent::Line(segment) => {
+                length += segment.length();
+                prev = Some(segment.to);
             }
             FlattenedEvent::Close => {
                 if let Some(f) = first {
@@ -662,7 +695,6 @@ where T: Iterator<Item = FlattenedEvent> {
     length
 }
 
-
 #[test]
 fn test_from_polyline_open() {
     let points = &[
@@ -675,9 +707,9 @@ fn test_from_polyline_open() {
     let mut evts = FromPolyline::open(points.iter().cloned());
 
     assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(3.0, 1.0) })));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(4.0, 5.0) })));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(4.0, 5.0), to: point(5.0, 2.0) })));
     assert_eq!(evts.next(), None);
 }
 
@@ -693,8 +725,8 @@ fn test_from_polyline_closed() {
     let mut evts = FromPolyline::closed(points.iter().cloned());
 
     assert_eq!(evts.next(), Some(FlattenedEvent::MoveTo(point(1.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(3.0, 1.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(4.0, 5.0))));
-    assert_eq!(evts.next(), Some(FlattenedEvent::LineTo(point(5.0, 2.0))));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(3.0, 1.0) })));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(4.0, 5.0) })));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(4.0, 5.0), to: point(5.0, 2.0) })));
     assert_eq!(evts.next(), Some(FlattenedEvent::Close));
 }

@@ -113,8 +113,8 @@ pub trait FlatPathBuilder {
             FlattenedEvent::MoveTo(to) => {
                 self.move_to(to);
             }
-            FlattenedEvent::LineTo(to) => {
-                self.line_to(to);
+            FlattenedEvent::Line(segment) => {
+                self.line_to(segment.to);
             }
             FlattenedEvent::Close => {
                 self.close();
@@ -140,14 +140,14 @@ pub trait PathBuilder: FlatPathBuilder {
             PathEvent::MoveTo(to) => {
                 self.move_to(to);
             }
-            PathEvent::LineTo(to) => {
-                self.line_to(to);
+            PathEvent::Line(segment) => {
+                self.line_to(segment.to);
             }
-            PathEvent::QuadraticTo(ctrl, to) => {
-                self.quadratic_bezier_to(ctrl, to);
+            PathEvent::Quadratic(segment) => {
+                self.quadratic_bezier_to(segment.ctrl, segment.to);
             }
-            PathEvent::CubicTo(ctrl1, ctrl2, to) => {
-                self.cubic_bezier_to(ctrl1, ctrl2, to);
+            PathEvent::Cubic(segment) => {
+                self.cubic_bezier_to(segment.ctrl1, segment.ctrl2, segment.to);
             }
             PathEvent::Close => {
                 self.close();

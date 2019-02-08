@@ -2,7 +2,6 @@
 
 use path::{PathEvent, QuadraticEvent, FlattenedEvent};
 use math::{Point, point, Rect};
-use geom::{QuadraticBezierSegment, CubicBezierSegment};
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
@@ -39,18 +38,21 @@ pub trait FastBoundingRect {
 impl FastBoundingRect for PathEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
-            PathEvent::MoveTo(to) |
-            PathEvent::LineTo(to) => {
+            PathEvent::MoveTo(to) => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
             }
-            PathEvent::QuadraticTo(ctrl, to) => {
-                *min = Point::min(*min, Point::min(*ctrl, *to));
-                *max = Point::max(*max, Point::max(*ctrl, *to));
+            PathEvent::Line(ref segment) => {
+                *min = Point::min(*min, segment.to);
+                *max = Point::max(*max, segment.to);
             }
-            PathEvent::CubicTo(ctrl1, ctrl2, to) => {
-                *min = Point::min(*min, Point::min(*ctrl1, Point::min(*ctrl2, *to)));
-                *max = Point::max(*max, Point::max(*ctrl1, Point::max(*ctrl2, *to)));
+            PathEvent::Quadratic(ref segment) => {
+                *min = Point::min(*min, Point::min(segment.ctrl, segment.to));
+                *max = Point::max(*max, Point::max(segment.ctrl, segment.to));
+            }
+            PathEvent::Cubic(ref segment) => {
+                *min = Point::min(*min, Point::min(segment.ctrl1, Point::min(segment.ctrl2, segment.to)));
+                *max = Point::max(*max, Point::max(segment.ctrl1, Point::max(segment.ctrl2, segment.to)));
             }
             PathEvent::Close => {}
         }
@@ -60,14 +62,17 @@ impl FastBoundingRect for PathEvent {
 impl FastBoundingRect for QuadraticEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
-            QuadraticEvent::MoveTo(to) |
-            QuadraticEvent::LineTo(to) => {
+            QuadraticEvent::MoveTo(to) => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
             }
-            QuadraticEvent::QuadraticTo(ctrl, to) => {
-                *min = Point::min(*min, Point::min(*ctrl, *to));
-                *max = Point::max(*max, Point::max(*ctrl, *to));
+            QuadraticEvent::Line(ref segment) => {
+                *min = Point::min(*min, segment.to);
+                *max = Point::max(*max, segment.to);
+            }
+            QuadraticEvent::Quadratic(ref segment) => {
+                *min = Point::min(*min, Point::min(segment.ctrl, segment.to));
+                *max = Point::max(*max, Point::max(segment.ctrl, segment.to));
             }
             QuadraticEvent::Close => {}
         }
@@ -77,10 +82,13 @@ impl FastBoundingRect for QuadraticEvent {
 impl FastBoundingRect for FlattenedEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
-            FlattenedEvent::MoveTo(to) |
-            FlattenedEvent::LineTo(to) => {
+            FlattenedEvent::MoveTo(to) => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
+            }
+            FlattenedEvent::Line(segment) => {
+                *min = Point::min(*min, segment.to);
+                *max = Point::max(*max, segment.to);
             }
             FlattenedEvent::Close => {}
         }
@@ -127,31 +135,22 @@ impl TightBoundingRect for PathEvent {
                 *current = *to;
                 *first = *to;
             }
-            PathEvent::LineTo(to) => {
-                *min = Point::min(*min, *to);
-                *max = Point::max(*max, *to);
-                *current = *to;
+            PathEvent::Line(ref segment) => {
+                *min = Point::min(*min, segment.to);
+                *max = Point::max(*max, segment.to);
+                *current = segment.to;
             }
-            PathEvent::QuadraticTo(ctrl, to) => {
-                let r = QuadraticBezierSegment {
-                    from: *current,
-                    ctrl: *ctrl,
-                    to: *to,
-                }.bounding_rect();
+            PathEvent::Quadratic(ref segment) => {
+                let r = segment.bounding_rect();
                 *min = Point::min(*min, r.origin);
                 *max = Point::max(*max, r.bottom_right());
-                *current = *to;
+                *current = segment.to;
             }
-            PathEvent::CubicTo(ctrl1, ctrl2, to) => {
-                let r = CubicBezierSegment {
-                    from: *current,
-                    ctrl1: *ctrl1,
-                    ctrl2: *ctrl2,
-                    to: *to,
-                }.bounding_rect();
+            PathEvent::Cubic(ref segment) => {
+                let r = segment.bounding_rect();
                 *min = Point::min(*min, r.origin);
                 *max = Point::max(*max, r.bottom_right());
-                *current = *to;
+                *current = segment.to;
             }
             PathEvent::Close => {
                 *current = *first;
@@ -169,20 +168,16 @@ impl TightBoundingRect for QuadraticEvent {
                 *current = *to;
                 *first = *to;
             }
-            QuadraticEvent::LineTo(to) => {
-                *min = Point::min(*min, *to);
-                *max = Point::max(*max, *to);
-                *current = *to;
+            QuadraticEvent::Line(segment) => {
+                *min = Point::min(*min, segment.to);
+                *max = Point::max(*max, segment.to);
+                *current = segment.to;
             }
-            QuadraticEvent::QuadraticTo(ctrl, to) => {
-                let r = QuadraticBezierSegment {
-                    from: *current,
-                    ctrl: *ctrl,
-                    to: *to,
-                }.bounding_rect();
+            QuadraticEvent::Quadratic(ref segment) => {
+                let r = segment.bounding_rect();
                 *min = Point::min(*min, r.origin);
                 *max = Point::max(*max, r.bottom_right());
-                *current = *to;
+                *current = segment.to;
             }
             QuadraticEvent::Close => {
                 *current = *first;
