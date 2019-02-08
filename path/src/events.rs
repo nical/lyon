@@ -42,8 +42,6 @@ pub enum PathEvent {
     LineTo(Point),
     QuadraticTo(Point, Point),
     CubicTo(Point, Point, Point),
-    /// Elliptic arc represented with the center, the radii, the sweep angle and the x axis rotation.
-    Arc(Point, Vector, Angle, Angle),
     Close,
 }
 
@@ -171,9 +169,6 @@ impl Transform for PathEvent {
                     mat.transform_point(ctrl2),
                     mat.transform_point(to),
                 )
-            }
-            PathEvent::Arc(..) => {
-                unimplemented!(); // TODO!
             }
             PathEvent::Close => { PathEvent::Close }
         }

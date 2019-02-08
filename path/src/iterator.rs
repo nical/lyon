@@ -60,7 +60,7 @@
 //!     // the tradeoff between fidelity of the approximation and amount of
 //!     // generated events. Let's use a tolerance threshold of 0.01.
 //!     // The beauty of this approach is that the flattening happens lazily
-//!     // while iterating with no memory allocation.
+//!     // while iterating without allocating memory for the path.
 //!     let flattened_iter = path_iter.flattened(0.01);
 //!     // equivalent to:
 //!     // let flattened = Flattened::new(0.01, path_iter);
@@ -103,7 +103,8 @@ use std::iter;
 use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, quadratic_bezier, cubic_bezier};
-use geom::arc;
+use geom::arc::*;
+use geom::arrayvec::ArrayVec;
 use builder::{PathBuilder, SvgBuilder};
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -196,10 +197,16 @@ pub trait QuadraticPathIterator: Iterator<Item = QuadraticEvent> + Sized {
 
 pub struct PathEvents<SvgIter> {
     it: SvgIter,
+    arc_to_cubics: Vec<(Point, Point, Point)>,
 }
 
 impl<SvgIter> PathEvents<SvgIter> {
-    pub fn new(it: SvgIter) -> Self { PathEvents { it } }
+    pub fn new(it: SvgIter) -> Self {
+        PathEvents {
+            it,
+            arc_to_cubics: Vec::new(),
+        }
+    }
 }
 
 impl<SvgIter> PathIterator for PathEvents<SvgIter>
@@ -215,11 +222,108 @@ where
 {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
+        if let Some((ctrl1, ctrl2, to)) = self.arc_to_cubics.pop() {
+            return Some(PathEvent::CubicTo(ctrl1, ctrl2, to));
+        }
         match self.it.next() {
-            Some(svg_evt) => Some(self.get_state().svg_to_path_event(svg_evt)),
+            Some(svg_evt) => Some(
+                svg_to_path_event(
+                    svg_evt,
+                    &self.get_state().clone(),
+                    &mut self.arc_to_cubics
+                )
+            ),
             None => None,
         }
     }
+}
+
+fn svg_to_path_event(
+    event: SvgEvent,
+    ps: &PathState,
+    arcs_to_cubic: &mut Vec<(Point, Point, Point)>
+) -> PathEvent {
+    match event {
+        SvgEvent::MoveTo(to) => PathEvent::MoveTo(to),
+        SvgEvent::LineTo(to) => PathEvent::LineTo(to),
+        SvgEvent::QuadraticTo(ctrl, to) => PathEvent::QuadraticTo(ctrl, to),
+        SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::CubicTo(ctrl1, ctrl2, to),
+        SvgEvent::Close => PathEvent::Close,
+        SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(ps.relative_to_absolute(to)),
+        SvgEvent::RelativeLineTo(to) => PathEvent::LineTo(ps.relative_to_absolute(to)),
+        SvgEvent::RelativeQuadraticTo(ctrl, to) => {
+            PathEvent::QuadraticTo(ps.relative_to_absolute(ctrl), ps.relative_to_absolute(to))
+        }
+        SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
+            PathEvent::CubicTo(
+                ps.relative_to_absolute(ctrl1),
+                ps.relative_to_absolute(ctrl2),
+                ps.relative_to_absolute(to),
+            )
+        }
+        SvgEvent::HorizontalLineTo(x) => {
+            PathEvent::LineTo(point(x, ps.current_position().y))
+        }
+        SvgEvent::VerticalLineTo(y) => PathEvent::LineTo(point(ps.current_position().x, y)),
+        SvgEvent::RelativeHorizontalLineTo(x) => {
+            PathEvent::LineTo(point(ps.current_position().x + x, ps.current_position().y))
+        }
+        SvgEvent::RelativeVerticalLineTo(y) => {
+            PathEvent::LineTo(point(ps.current_position().x, ps.current_position().y + y))
+        }
+        SvgEvent::SmoothQuadraticTo(to) => {
+            PathEvent::QuadraticTo(ps.get_smooth_quadratic_ctrl(), to)
+        }
+        SvgEvent::SmoothCubicTo(ctrl2, to) => {
+            PathEvent::CubicTo(ps.get_smooth_cubic_ctrl(), ctrl2, to)
+        }
+        SvgEvent::SmoothRelativeQuadraticTo(to) => {
+            PathEvent::QuadraticTo(ps.get_smooth_quadratic_ctrl(), ps.relative_to_absolute(to))
+        }
+        SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
+            PathEvent::CubicTo(
+                ps.get_smooth_cubic_ctrl(),
+                ps.relative_to_absolute(ctrl2),
+                ps.relative_to_absolute(to),
+            )
+        }
+        SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
+            arc_to_path_events(
+                &Arc::from_svg_arc(&SvgArc {
+                    from: ps.current_position(),
+                    to,
+                    radii,
+                    x_rotation,
+                    flags,
+                }),
+                arcs_to_cubic,
+            )
+        }
+        SvgEvent::RelativeArcTo(radii, x_rotation, flags, to) => {
+            arc_to_path_events(
+                &Arc::from_svg_arc(&SvgArc {
+                    from: ps.current_position(),
+                    to: ps.current_position() + to,
+                    radii,
+                    x_rotation,
+                    flags,
+                }),
+                arcs_to_cubic,
+            )
+        }
+    }
+}
+
+fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<(Point, Point, Point)>) -> PathEvent {
+    let mut curves: ArrayVec<[(Point, Point, Point); 4]> = ArrayVec::new();
+    arc.for_each_cubic_bezier(&mut|curve: &CubicBezierSegment<f32>| {
+        curves.push((curve.ctrl1, curve.ctrl2, curve.to));
+    });
+    while curves.len() > 1 {
+        // Append in reverse order.
+        arcs_to_cubic.push(curves.pop().unwrap());
+    }
+    PathEvent::CubicTo(curves[0].0, curves[0].1, curves[0].2)
 }
 
 /// An iterator that consumes an PathIterator and yields FlattenedEvents.
@@ -232,7 +336,7 @@ pub struct Flattened<Iter> {
 enum TmpFlatteningIter {
     Quadratic(quadratic_bezier::Flattened<f32>),
     Cubic(cubic_bezier::Flattened<f32>),
-    Arc(arc::Flattened<f32>),
+    //Arc(arc::Flattened<f32>),
     None,
 }
 
@@ -271,11 +375,11 @@ where
                     return Some(FlattenedEvent::LineTo(point));
                 }
             }
-            TmpFlatteningIter::Arc(ref mut it) => {
-                if let Some(point) = it.next() {
-                    return Some(FlattenedEvent::LineTo(point));
-                }
-            }
+            //TmpFlatteningIter::Arc(ref mut it) => {
+            //    if let Some(point) = it.next() {
+            //        return Some(FlattenedEvent::LineTo(point));
+            //    }
+            //}
             _ => {}
         }
         self.current_curve = TmpFlatteningIter::None;
@@ -303,18 +407,6 @@ where
                         ctrl1,
                         ctrl2,
                         to,
-                    }.flattened(self.tolerance)
-                );
-
-                self.next()
-            }
-            Some(PathEvent::Arc(center, radii, sweep_angle, x_rotation)) => {
-                let start_angle = (current - center).angle_from_x_axis() - x_rotation;
-                self.current_curve = TmpFlatteningIter::Arc(
-                    arc::Arc {
-                        center, radii,
-                        start_angle, sweep_angle,
-                        x_rotation
                     }.flattened(self.tolerance)
                 );
 

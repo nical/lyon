@@ -148,9 +148,6 @@ pub trait PathBuilder: FlatPathBuilder {
             PathEvent::CubicTo(ctrl1, ctrl2, to) => {
                 self.cubic_bezier_to(ctrl1, ctrl2, to);
             }
-            PathEvent::Arc(center, radii, sweep_angle, x_rotation) => {
-                self.arc(center, radii, sweep_angle, x_rotation);
-            }
             PathEvent::Close => {
                 self.close();
             }
