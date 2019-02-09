@@ -116,7 +116,7 @@ pub trait FlatPathBuilder {
             FlattenedEvent::Line(segment) => {
                 self.line_to(segment.to);
             }
-            FlattenedEvent::Close => {
+            FlattenedEvent::Close(..) => {
                 self.close();
             }
         }
@@ -149,7 +149,7 @@ pub trait PathBuilder: FlatPathBuilder {
             PathEvent::Cubic(segment) => {
                 self.cubic_bezier_to(segment.ctrl1, segment.ctrl2, segment.to);
             }
-            PathEvent::Close => {
+            PathEvent::Close(..) => {
                 self.close();
             }
         }

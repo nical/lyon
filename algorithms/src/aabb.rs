@@ -54,7 +54,7 @@ impl FastBoundingRect for PathEvent {
                 *min = Point::min(*min, Point::min(segment.ctrl1, Point::min(segment.ctrl2, segment.to)));
                 *max = Point::max(*max, Point::max(segment.ctrl1, Point::max(segment.ctrl2, segment.to)));
             }
-            PathEvent::Close => {}
+            PathEvent::Close(..) => {}
         }
     }
 }
@@ -74,7 +74,7 @@ impl FastBoundingRect for QuadraticEvent {
                 *min = Point::min(*min, Point::min(segment.ctrl, segment.to));
                 *max = Point::max(*max, Point::max(segment.ctrl, segment.to));
             }
-            QuadraticEvent::Close => {}
+            QuadraticEvent::Close(..) => {}
         }
     }
 }
@@ -90,7 +90,7 @@ impl FastBoundingRect for FlattenedEvent {
                 *min = Point::min(*min, segment.to);
                 *max = Point::max(*max, segment.to);
             }
-            FlattenedEvent::Close => {}
+            FlattenedEvent::Close(..) => {}
         }
     }
 }
@@ -101,13 +101,11 @@ where
     Iter: Iterator<Item=Evt>,
     Evt: TightBoundingRect,
 {
-    let mut current = point(0.0, 0.0);
-    let mut first = point(0.0, 0.0);
     let mut min = point(f32::MAX, f32::MAX);
     let mut max = point(f32::MIN, f32::MIN);
 
     for evt in path {
-        evt.min_max(&mut current, &mut first, &mut min, &mut max);
+        evt.min_max(&mut min, &mut max);
     }
 
     // Return an empty rectangle by default if there was no event in the path.
@@ -123,65 +121,52 @@ where
 
 #[doc(Hidden)]
 pub trait TightBoundingRect {
-    fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point);
+    fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
 impl TightBoundingRect for PathEvent {
-    fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point) {
+    fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
             PathEvent::MoveTo(to) => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
-                *current = *to;
-                *first = *to;
             }
             PathEvent::Line(ref segment) => {
                 *min = Point::min(*min, segment.to);
                 *max = Point::max(*max, segment.to);
-                *current = segment.to;
             }
             PathEvent::Quadratic(ref segment) => {
                 let r = segment.bounding_rect();
                 *min = Point::min(*min, r.origin);
                 *max = Point::max(*max, r.bottom_right());
-                *current = segment.to;
             }
             PathEvent::Cubic(ref segment) => {
                 let r = segment.bounding_rect();
                 *min = Point::min(*min, r.origin);
                 *max = Point::max(*max, r.bottom_right());
-                *current = segment.to;
             }
-            PathEvent::Close => {
-                *current = *first;
-            }
+            PathEvent::Close(..) => {}
         }
     }
 }
 
 impl TightBoundingRect for QuadraticEvent {
-    fn min_max(&self, current: &mut Point, first: &mut Point, min: &mut Point, max: &mut Point) {
+    fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
             QuadraticEvent::MoveTo(to) => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
-                *current = *to;
-                *first = *to;
             }
             QuadraticEvent::Line(segment) => {
                 *min = Point::min(*min, segment.to);
                 *max = Point::max(*max, segment.to);
-                *current = segment.to;
             }
             QuadraticEvent::Quadratic(ref segment) => {
                 let r = segment.bounding_rect();
                 *min = Point::min(*min, r.origin);
                 *max = Point::max(*max, r.bottom_right());
-                *current = segment.to;
             }
-            QuadraticEvent::Close => {
-                *current = *first;
-            }
+            QuadraticEvent::Close(..) => {}
         }
     }
 }

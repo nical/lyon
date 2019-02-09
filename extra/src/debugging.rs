@@ -20,7 +20,7 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
             PathEvent::Line(segment) => {
                 poly.push(segment.to);
             }
-            PathEvent::Close => {
+            PathEvent::Close(..) => {
                 if !poly.is_empty() {
                     polygons.push(poly);
                 }

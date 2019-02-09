@@ -43,7 +43,7 @@ pub enum PathEvent {
     Line(LineSegment<f32>),
     Quadratic(QuadraticBezierSegment<f32>),
     Cubic(CubicBezierSegment<f32>),
-    Close,
+    Close(LineSegment<f32>),
 }
 
 /// Path event enum that can only present quadratic bézier curves and line segments.
@@ -55,7 +55,7 @@ pub enum QuadraticEvent {
     MoveTo(Point),
     Line(LineSegment<f32>),
     Quadratic(QuadraticBezierSegment<f32>),
-    Close,
+    Close(LineSegment<f32>),
 }
 
 /// Path event enum that can only present line segments.
@@ -66,7 +66,7 @@ pub enum QuadraticEvent {
 pub enum FlattenedEvent {
     MoveTo(Point),
     Line(LineSegment<f32>),
-    Close,
+    Close(LineSegment<f32>),
 }
 
 impl FlattenedEvent {
@@ -74,7 +74,7 @@ impl FlattenedEvent {
         match self {
             FlattenedEvent::MoveTo(to) => SvgEvent::MoveTo(to),
             FlattenedEvent::Line(segment) => SvgEvent::LineTo(segment.to),
-            FlattenedEvent::Close => SvgEvent::Close,
+            FlattenedEvent::Close(..) => SvgEvent::Close,
         }
     }
 
@@ -82,7 +82,7 @@ impl FlattenedEvent {
         match self {
             FlattenedEvent::MoveTo(to) => PathEvent::MoveTo(to),
             FlattenedEvent::Line(segment) => PathEvent::Line(segment),
-            FlattenedEvent::Close => PathEvent::Close,
+            FlattenedEvent::Close(segment) => PathEvent::Close(segment),
         }
     }
 }
@@ -101,7 +101,7 @@ impl QuadraticEvent {
             QuadraticEvent::MoveTo(to) => SvgEvent::MoveTo(to),
             QuadraticEvent::Line(segment) => SvgEvent::LineTo(segment.to),
             QuadraticEvent::Quadratic(segment) => SvgEvent::QuadraticTo(segment.ctrl, segment.to),
-            QuadraticEvent::Close => SvgEvent::Close,
+            QuadraticEvent::Close(..) => SvgEvent::Close,
         }
     }
 
@@ -110,7 +110,7 @@ impl QuadraticEvent {
             QuadraticEvent::MoveTo(to) => PathEvent::MoveTo(to),
             QuadraticEvent::Line(segment) => PathEvent::Line(segment),
             QuadraticEvent::Quadratic(segment) => PathEvent::Quadratic(segment),
-            QuadraticEvent::Close => PathEvent::Close,
+            QuadraticEvent::Close(segment) => PathEvent::Close(segment),
         }
     }
 }
@@ -124,7 +124,9 @@ impl Transform for FlattenedEvent {
             FlattenedEvent::Line(ref segment) => {
                 FlattenedEvent::Line(segment.transform(mat))
             }
-            FlattenedEvent::Close => { FlattenedEvent::Close }
+            FlattenedEvent::Close(ref segment) => {
+                FlattenedEvent::Close(segment.transform(mat))
+            }
         }
     }
 }
@@ -138,10 +140,12 @@ impl Transform for QuadraticEvent {
             QuadraticEvent::Line(ref segment) => {
                 QuadraticEvent::Line(segment.transform(mat))
             }
-            QuadraticEvent::Quadratic(segment) => {
+            QuadraticEvent::Quadratic(ref segment) => {
                 QuadraticEvent::Quadratic(segment.transform(mat))
             }
-            QuadraticEvent::Close => { QuadraticEvent::Close }
+            QuadraticEvent::Close(ref segment) => {
+                QuadraticEvent::Close(segment.transform(mat))
+            }
         }
     }
 }
@@ -153,7 +157,7 @@ impl Transform for PathEvent {
             PathEvent::Line(ref segment) => { PathEvent::Line(segment.transform(mat)) }
             PathEvent::Quadratic(ref segment) => { PathEvent::Quadratic(segment.transform(mat)) }
             PathEvent::Cubic(ref segment) => { PathEvent::Cubic(segment.transform(mat)) }
-            PathEvent::Close => { PathEvent::Close }
+            PathEvent::Close(ref segment) => { PathEvent::Close(segment.transform(mat)) }
         }
     }
 }

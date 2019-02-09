@@ -33,6 +33,8 @@ enum Verb {
 pub struct Cursor {
     vertex: VertexId,
     verb: u32,
+    first_vertex: VertexId,
+    first_verb: u32,
 }
 
 impl Cursor {
@@ -118,6 +120,8 @@ impl Path {
         Cursor {
             vertex: VertexId(0),
             verb: 0,
+            first_vertex: VertexId(0),
+            first_verb: 0,
         }
     }
 
@@ -214,6 +218,8 @@ pub struct Builder {
     verbs: Vec<Verb>,
     current_position: Point,
     first_position: Point,
+    first_vertex: VertexId,
+    first_verb: u32,
     need_moveto: bool,
 }
 
@@ -226,6 +232,8 @@ impl Builder {
             verbs: Vec::with_capacity(cap),
             current_position: Point::new(0.0, 0.0),
             first_position: Point::new(0.0, 0.0),
+            first_vertex: VertexId(0),
+            first_verb: 0,
             need_moveto: true,
         }
     }
@@ -240,6 +248,8 @@ impl Builder {
         nan_check(to);
         self.need_moveto = false;
         self.first_position = to;
+        self.first_vertex = VertexId(self.points.len() as u32);
+        self.first_verb = self.verbs.len() as u32;
         self.current_position = to;
         self.points.push(to);
         self.verbs.push(Verb::MoveTo);
@@ -335,6 +345,8 @@ impl Builder {
         Cursor {
             vertex: VertexId::from_usize(self.points.len()),
             verb: self.verbs.len() as u32,
+            first_vertex: self.first_vertex,
+            first_verb: self.first_verb,
         }
     }
 
@@ -437,7 +449,7 @@ fn test_reverse_path() {
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(10.0, 1.0), to: point(11.0, 1.0) })));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(11.0, 1.0), to: point(11.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(11.0, 0.0), to: point(10.0, 0.0) })));
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(10.0, 0.0), to: point(10.0, 1.0) })));
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 1.0))));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 1.0), to: point(1.0, 1.0) })));
@@ -580,6 +592,7 @@ pub struct Iter<'l> {
     points: ::std::slice::Iter<'l, Point>,
     verbs: ::std::slice::Iter<'l, Verb>,
     current: Point,
+    first: Point,
 }
 
 impl<'l> Iter<'l> {
@@ -588,6 +601,7 @@ impl<'l> Iter<'l> {
             points: points.iter(),
             verbs: verbs.iter(),
             current: point(0.0, 0.0),
+            first: point(0.0, 0.0),
         }
     }
 }
@@ -598,6 +612,7 @@ impl<'l> Iterator for Iter<'l> {
         match self.verbs.next() {
             Some(&Verb::MoveTo) => {
                 self.current = *self.points.next().unwrap();
+                self.first = self.current;
                 Some(PathEvent::MoveTo(self.current))
             }
             Some(&Verb::LineTo) => {
@@ -624,7 +639,14 @@ impl<'l> Iterator for Iter<'l> {
                     from, ctrl1, ctrl2, to: self.current
                 }))
             }
-            Some(&Verb::Close) => Some(PathEvent::Close),
+            Some(&Verb::Close) => {
+                let from = self.current;
+                self.current = self.first;
+                Some(PathEvent::Close(LineSegment {
+                    from,
+                    to: self.first,
+                }))
+            }
             None => None,
         }
     }
@@ -645,9 +667,17 @@ fn next_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
         return None;
     }
     let verb = verbs[cursor.verb as usize];
+    let (first_vertex, first_verb) = if verb != Verb::MoveTo {
+        (cursor.first_vertex, cursor.first_verb)
+    } else {
+        (cursor.vertex, cursor.verb)
+    };
+
     Some(Cursor {
         vertex: cursor.vertex + n_stored_points(verb),
         verb: cursor.verb + 1,
+        first_vertex,
+        first_verb,
     })
 }
 
@@ -656,9 +686,16 @@ fn prev_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
         return None;
     }
     let verb = verbs[cursor.verb as usize - 1];
+    let (first_vertex, first_verb) = if verb != Verb::MoveTo {
+        (cursor.first_vertex, cursor.first_verb)
+    } else {
+        unimplemented!(); // TODO!
+    };
     Some(Cursor {
         vertex: cursor.vertex - n_stored_points(verb),
         verb: cursor.verb - 1,
+        first_vertex,
+        first_verb,
     })
 }
 
@@ -681,7 +718,10 @@ fn event_at_cursor(cursor: &Cursor, points: &[Point], verbs: &[Verb]) -> PathEve
             ctrl2: points[p + 1],
             to: points[p + 2],
         }),
-        Verb::Close => PathEvent::Close,
+        Verb::Close => PathEvent::Close(LineSegment {
+            from: points[p - 1],
+            to: points[cursor.first_vertex.to_usize()],
+        }),
     }
 }
 
@@ -731,7 +771,7 @@ fn test_path_builder_1() {
             to: point(5.0, 2.0)
         }))
     );
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(5.0, 2.0), to: point(0.0, 0.0) })));
 
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(10.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(10.0, 0.0), to: point(11.0, 0.0) })));
@@ -751,9 +791,12 @@ fn test_path_builder_1() {
             to: point(15.0, 2.0),
         }))
     );
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(15.0, 2.0), to: point(10.0, 0.0) })));
 
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    // Not clear that this is the most useful behavior.
+    // Closing when there is no path should probably be dropped.
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(10.0, 0.0), to: point(10.0, 0.0) })));
+
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 1.0))));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(2.0, 2.0))));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(3.0, 3.0))));
@@ -800,7 +843,7 @@ fn test_path_builder_line_to_after_close() {
     let mut it = path.iter();
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(1.0, 0.0) })));
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(1.0, 0.0), to: point(0.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment {from: point(0.0, 0.0), to: point(2.0, 0.0) })));
     assert_eq!(it.next(), None);
@@ -837,10 +880,10 @@ fn test_merge_paths() {
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(0.0, 0.0))));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(5.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(5.0, 0.0), to: point(5.0, 5.0) })));
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(5.0, 5.0), to: point(0.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::MoveTo(point(1.0, 1.0))));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(4.0, 0.0) })));
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(4.0, 0.0), to: point(4.0, 4.0) })));
-    assert_eq!(it.next(), Some(PathEvent::Close));
+    assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(4.0, 4.0), to: point(1.0, 1.0) })));
     assert_eq!(it.next(), None);
 }
