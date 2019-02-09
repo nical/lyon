@@ -39,33 +39,25 @@ where
         normal: vector(0.0, 0.0),
     };
 
-    let mut prev = point(0.0, 0.0);
-    let mut first = point(0.0, 0.0);
-
     for evt in path {
         match evt {
-            PathEvent::MoveTo(to) => {
-                prev = to;
-                first = to;
-            }
-            PathEvent::Line(ref segment) => {
+            PathEvent::MoveTo(..) => {}
+            PathEvent::Line(ref segment) | PathEvent::Close(ref segment) => {
                 test_segment(&mut state, segment);
-                prev = segment.to;
             }
             PathEvent::Quadratic(ref segment) => {
+                let mut prev = segment.from;
                 segment.for_each_flattened(tolerance, &mut|p| {
                     test_segment(&mut state, &LineSegment { from: prev, to: p });
                     prev = p;
                 });
             }
             PathEvent::Cubic(ref segment) => {
+                let mut prev = segment.from;
                 segment.for_each_flattened(tolerance, &mut|p| {
                     test_segment(&mut state, &LineSegment { from: prev, to: p });
                     prev = p;
                 });
-            }
-            PathEvent::Close => {
-                test_segment(&mut state, &LineSegment { from: prev, to: first });
             }
         }
     }

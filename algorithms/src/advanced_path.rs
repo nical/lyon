@@ -439,6 +439,7 @@ impl<'l> EdgeLoop<'l> {
         SubPathIter {
             edge_loop: self.clone(),
             prev: point(0.0, 0.0),
+            first: point(0.0, 0.0),
             start: true,
             done: false,
             close: self.path.sub_paths[sp].is_closed,
@@ -548,6 +549,7 @@ impl SubPathSelection for SubPathIdRange {
 pub struct SubPathIter<'l> {
     edge_loop: EdgeLoop<'l>,
     prev: Point,
+    first: Point,
     start: bool,
     done: bool,
     close: bool,
@@ -559,7 +561,10 @@ impl<'l> Iterator for SubPathIter<'l> {
         if self.done {
             if self.close {
                 self.close = false;
-                return Some(PathEvent::Close)
+                return Some(PathEvent::Close(LineSegment {
+                    from: self.prev,
+                    to: self.first
+                }));
             }
 
             return None;
@@ -577,6 +582,7 @@ impl<'l> Iterator for SubPathIter<'l> {
         self.prev = to;
         if self.start {
             self.start = false;
+            self.first = to;
             return Some(PathEvent::MoveTo(to));
         }
 
@@ -700,7 +706,7 @@ fn polyline_to_path() {
     assert_eq!(events[1], PathEvent::Line(LineSegment { from: point(0.0, 0.0), to: point(1.0, 0.0) }));
     assert_eq!(events[2], PathEvent::Line(LineSegment { from: point(1.0, 0.0), to: point(1.0, 1.0) }));
     assert_eq!(events[3], PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(0.0, 1.0) }));
-    assert_eq!(events[4], PathEvent::Close);
+    assert_eq!(events[4], PathEvent::Close(LineSegment { from: point(0.0, 1.0), to: point(0.0, 0.0) }));
     assert_eq!(events.len(), 5);
 }
 
@@ -732,7 +738,7 @@ fn split_edge() {
     assert_eq!(events[2], PathEvent::Line(LineSegment { from: point(0.5, 0.0), to: point(1.0, 0.0) }));
     assert_eq!(events[3], PathEvent::Line(LineSegment { from: point(1.0, 0.0), to: point(1.0, 1.0) }));
     assert_eq!(events[4], PathEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(0.0, 1.0) }));
-    assert_eq!(events[5], PathEvent::Close);
+    assert_eq!(events[5], PathEvent::Close(LineSegment { from: point(0.0, 1.0), to: point(0.0, 0.0) }));
     assert_eq!(events.len(), 6);
 }
 

@@ -69,7 +69,7 @@
 //!         match evt {
 //!             FlattenedEvent::MoveTo(p) => { println!(" - move to {:?}", p); }
 //!             FlattenedEvent::Line(segment) => { println!(" - line {:?}", segment); }
-//!             FlattenedEvent::Close => { println!(" - close"); }
+//!             FlattenedEvent::Close(segment) => { println!(" - close {:?}", segment); }
 //!         }
 //!     }
 //! }
@@ -253,7 +253,10 @@ fn svg_to_path_event(
         SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::Cubic(CubicBezierSegment {
             from, ctrl1, ctrl2, to
         }),
-        SvgEvent::Close => PathEvent::Close,
+        SvgEvent::Close => PathEvent::Close(LineSegment {
+            from: ps.current_position(),
+            to: ps.start_position(),
+        }),
         SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(ps.relative_to_absolute(to)),
         SvgEvent::RelativeLineTo(to) => PathEvent::Line(LineSegment {
             from,
@@ -427,7 +430,7 @@ where
         match self.it.next() {
             Some(PathEvent::MoveTo(to)) => Some(FlattenedEvent::MoveTo(to)),
             Some(PathEvent::Line(segment)) => Some(FlattenedEvent::Line(segment)),
-            Some(PathEvent::Close) => Some(FlattenedEvent::Close),
+            Some(PathEvent::Close(segment)) => Some(FlattenedEvent::Close(segment)),
             Some(PathEvent::Quadratic(segment)) => {
                 self.current_position = self.get_state().current_position();
                 self.current_curve = TmpFlatteningIter::Quadratic(
@@ -605,7 +608,8 @@ where
 pub struct FromPolyline<Iter> {
     iter: Iter,
     current: Point,
-    first: bool,
+    first: Point,
+    is_first: bool,
     done: bool,
     close: bool,
 }
@@ -615,7 +619,8 @@ impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
         FromPolyline {
             iter,
             current: point(0.0, 0.0),
-            first: true,
+            first: point(0.0, 0.0),
+            is_first: true,
             done: false,
             close,
         }
@@ -643,22 +648,23 @@ where
         if let Some(next) = self.iter.next() {
             debug_assert!(next.x.is_finite());
             debug_assert!(next.y.is_finite());
-            return Some(
-                if self.first {
-                    self.first = false;
-                    self.current = next;
-                    FlattenedEvent::MoveTo(next)
-                } else {
-                    let from = self.current;
-                    self.current = next;
-                    FlattenedEvent::Line(LineSegment { from, to: next })
-                }
-            );
+            let from = self.current;
+            self.current = next;
+            return if self.is_first {
+                self.is_first = false;
+                self.first = next;
+                Some(FlattenedEvent::MoveTo(next))
+            } else {
+                Some(FlattenedEvent::Line(LineSegment { from, to: next }))
+            }
         }
 
         self.done = true;
         if self.close {
-            return Some(FlattenedEvent::Close);
+            return Some(FlattenedEvent::Close(LineSegment {
+                from: self.current,
+                to: self.first,
+            }));
         }
 
         None
@@ -669,26 +675,11 @@ where
 pub fn flattened_path_length<T>(iter: T) -> f32
 where T: Iterator<Item = FlattenedEvent> {
     let mut length = 0.0;
-    let mut first = None;
-    let mut prev = None;
     for evt in iter {
         match evt {
-            FlattenedEvent::MoveTo(to) => {
-                prev = Some(to);
-                first = Some(to);
-            }
-            FlattenedEvent::Line(segment) => {
-                length += segment.length();
-                prev = Some(segment.to);
-            }
-            FlattenedEvent::Close => {
-                if let Some(f) = first {
-                    if let Some(p) = prev {
-                        length += (f - p).length();
-                    }
-                    prev = Some(f);
-                }
-            }
+            FlattenedEvent::MoveTo(..) => {}
+            FlattenedEvent::Line(segment) => { length += segment.length(); }
+            FlattenedEvent::Close(segment) => { length += segment.length(); }
         }
     }
 
@@ -728,5 +719,5 @@ fn test_from_polyline_closed() {
     assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(1.0, 1.0), to: point(3.0, 1.0) })));
     assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(3.0, 1.0), to: point(4.0, 5.0) })));
     assert_eq!(evts.next(), Some(FlattenedEvent::Line(LineSegment { from: point(4.0, 5.0), to: point(5.0, 2.0) })));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Close));
+    assert_eq!(evts.next(), Some(FlattenedEvent::Close(LineSegment { from: point(5.0, 2.0), to: point(1.0, 1.0) })));
 }
