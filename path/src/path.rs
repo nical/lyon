@@ -26,22 +26,6 @@ enum Verb {
     Close,
 }
 
-/// A cursor refers to an event within a Path.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Cursor {
-    vertex: VertexId,
-    verb: u32,
-    first_vertex: VertexId,
-    first_verb: u32,
-}
-
-impl Cursor {
-    pub fn edge_index(&self) -> usize {
-        self.verb as usize
-    }
-}
-
 /// A simple path data structure.
 ///
 /// It can be created using a [Builder](struct.Builder.html), and can be iterated over.
@@ -101,22 +85,7 @@ impl Path {
         }
     }
 
-    pub fn position_before(&self, cursor: Cursor) -> Point {
-        self.points[u32::min(1, cursor.vertex.0) as usize - 1]
-    }
-
-    pub fn event_at_cursor(&self, cursor: Cursor) -> PathEvent {
-        event_at_cursor(&cursor, &self.points, &self.verbs)
-    }
-
-    pub fn next_cursor(&self, cursor: Cursor) -> Option<Cursor> {
-        next_cursor(&cursor, &self.verbs)
-    }
-
-    pub fn previous_cursor(&self, cursor: Cursor) -> Option<Cursor> {
-        prev_cursor(&cursor, &self.verbs)
-    }
-
+    /// Returns a `Cursor` pointing to the start of this `Path`.
     pub fn cursor(&self) -> Cursor {
         Cursor {
             vertex: VertexId(0),
@@ -125,12 +94,6 @@ impl Path {
             first_verb: 0,
         }
     }
-
-    /// Returns whether this cursor points inside the storage of this path.
-    pub fn cursor_is_valid(&self, cursor: Cursor) -> bool {
-        (cursor.verb as usize) < self.verbs.len()
-            && cursor.vertex.to_usize() + n_stored_points(self.verbs[cursor.verb as usize]) as usize <= self.points.len()
-    }
 }
 
 impl<'l> IntoIterator for &'l Path {
@@ -138,6 +101,12 @@ impl<'l> IntoIterator for &'l Path {
     type IntoIter = Iter<'l>;
 
     fn into_iter(self) -> Iter<'l> { self.iter() }
+}
+
+impl<'l> Into<PathSlice<'l>> for &'l Path {
+    fn into(self) -> PathSlice<'l> {
+        self.as_slice()
+    }
 }
 
 /// An immutable view over a Path.
@@ -169,23 +138,6 @@ impl<'l> PathSlice<'l> {
     }
 
     pub fn points(&self) -> &[Point] { self.points }
-
-    /// Returns starting position of the edge that the provided cursor refers to.
-    pub fn position_before(&self, cursor: Cursor) -> Point {
-        self.points[u32::min(cursor.vertex.0, 1) as usize - 1]
-    }
-
-    pub fn event_at_cursor(&self, cursor: Cursor) -> PathEvent {
-        event_at_cursor(&cursor, self.points, self.verbs)
-    }
-
-    pub fn next_cursor(&self, cursor: Cursor) -> Option<Cursor> {
-        next_cursor(&cursor, self.verbs)
-    }
-
-    pub fn previous_cursor(&self, cursor: Cursor) -> Option<Cursor> {
-        prev_cursor(&cursor, self.verbs)
-    }
 }
 
 impl<'l> IntoIterator for PathSlice<'l> {
@@ -358,6 +310,41 @@ impl Builder {
             points: self.points.into_boxed_slice(),
             verbs: self.verbs.into_boxed_slice(),
         }
+    }
+}
+
+/// A cursor refers to an event within a Path.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct Cursor {
+    vertex: VertexId,
+    verb: u32,
+    first_vertex: VertexId,
+    first_verb: u32,
+}
+
+impl Cursor {
+    /// Move the cursor to the next event in the `Path`.
+    ///
+    /// Returns false if the cursor is already at the last event.
+    pub fn next<'l, P>(&mut self, path: P) -> bool
+    where P : Into<PathSlice<'l>> {
+        next_cursor(self, &path.into().verbs)
+    }
+
+    /// Move the cursor to the previous event in the `Path`.
+    ///
+    /// Returns false if the cursor is already at the first event.
+    pub fn previous<'l, P>(&mut self, path: P) -> bool
+    where P : Into<PathSlice<'l>> {
+        prev_cursor(self, &path.into().verbs)
+    }
+
+    /// Returns the `PathEvent` at the current cursor position in the path.
+    pub fn event<'l, P>(&self, path: P) -> PathEvent
+    where P : Into<PathSlice<'l>> {
+        let path = path.into();
+        event_at_cursor(self, &path.points, &path.verbs)
     }
 }
 
@@ -666,32 +653,29 @@ fn n_stored_points(verb: Verb) -> u32 {
     }
 }
 
-fn next_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
+fn next_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
     if cursor.verb as usize >= verbs.len() {
-        return None;
+        return false;
     }
-    let verb = verbs[cursor.verb as usize];
-    let (first_vertex, first_verb) = if verb != Verb::MoveTo {
-        (cursor.first_vertex, cursor.first_verb)
-    } else {
-        (cursor.vertex, cursor.verb)
-    };
 
-    Some(Cursor {
-        vertex: cursor.vertex + n_stored_points(verb),
-        verb: cursor.verb + 1,
-        first_vertex,
-        first_verb,
-    })
+    let verb = verbs[cursor.verb as usize + 1];
+    if verb == Verb::MoveTo {
+        cursor.first_vertex = cursor.vertex;
+        cursor.first_verb = cursor.verb;
+    }
+
+    cursor.vertex = cursor.vertex + n_stored_points(verb);
+    cursor.verb += 1;
+
+    true
 }
 
-fn prev_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
+fn prev_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
     if cursor.verb == 0 {
-        return None;
+        return false;
     }
-    let (first_vertex, first_verb) = if verbs[cursor.verb as usize] != Verb::MoveTo {
-        (cursor.first_vertex, cursor.first_verb)
-    } else {
+
+    if verbs[cursor.verb as usize] == Verb::MoveTo {
         let mut v = cursor.verb as usize;
         let mut p = cursor.vertex.0;
         while p > 0 {
@@ -702,14 +686,14 @@ fn prev_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
             }
         }
 
-        (VertexId(p), v as u32)
-    };
-    Some(Cursor {
-        vertex: cursor.vertex - n_stored_points(verbs[cursor.verb as usize - 1]),
-        verb: cursor.verb - 1,
-        first_vertex,
-        first_verb,
-    })
+        cursor.first_vertex = VertexId(p);
+        cursor.first_verb = v as u32;
+    }
+
+    cursor.vertex = cursor.vertex - n_stored_points(verbs[cursor.verb as usize - 1]);
+    cursor.verb = cursor.verb - 1;
+
+    true
 }
 
 fn event_at_cursor(cursor: &Cursor, points: &[Point], verbs: &[Verb]) -> PathEvent {
@@ -909,75 +893,74 @@ fn test_prev_cursor() {
     builder.line_to(point(2.0, 1.0));
     builder.quadratic_bezier_to(point(2.0, 2.0), point(3.0, 2.0));
     builder.cubic_bezier_to(point(4.0, 1.0), point(5.0, 2.0), point(6.0, 1.0));
-    let c1 = builder.cursor();
+    let mut c1 = builder.cursor();
     builder.move_to(point(11.0, 1.0));
     let start2 = builder.cursor();
     builder.line_to(point(12.0, 1.0));
     builder.quadratic_bezier_to(point(12.0, 2.0), point(13.0, 2.0));
     builder.cubic_bezier_to(point(14.0, 1.0), point(15.0, 2.0), point(16.0, 1.0));
-    let c2 = builder.cursor();
+    let mut c2 = builder.cursor();
     let path = builder.build();
 
-    assert_eq!(path.event_at_cursor(start1), PathEvent::MoveTo(point(1.0, 1.0)));
-    assert_eq!(path.event_at_cursor(start2), PathEvent::MoveTo(point(11.0, 1.0)));
+    assert_eq!(start1.event(&path), PathEvent::MoveTo(point(1.0, 1.0)));
+    assert_eq!(start2.event(&path), PathEvent::MoveTo(point(11.0, 1.0)));
 
-    assert_eq!(path.event_at_cursor(c1), PathEvent::Cubic(CubicBezierSegment {
+    assert_eq!(c1.event(&path), PathEvent::Cubic(CubicBezierSegment {
         from: point(3.0, 2.0),
         ctrl1: point(4.0, 1.0),
         ctrl2: point(5.0, 2.0),
         to: point(6.0, 1.0),
     }));
-    assert_eq!(path.event_at_cursor(c2), PathEvent::Cubic(CubicBezierSegment {
+    assert_eq!(c2.event(&path), PathEvent::Cubic(CubicBezierSegment {
         from: point(13.0, 2.0),
         ctrl1: point(14.0, 1.0),
         ctrl2: point(15.0, 2.0),
         to: point(16.0, 1.0),
     }));
 
-    let c1 = path.previous_cursor(c1).unwrap();
-    let c2 = path.previous_cursor(c2).unwrap();
+    assert!(c1.previous(&path));
+    assert!(c2.previous(&path));
     assert_eq!(c1.first_vertex, start1.vertex);
     assert_eq!(c1.first_verb, start1.verb);
 
-    assert_eq!(path.event_at_cursor(c1), PathEvent::Quadratic(QuadraticBezierSegment {
+    assert_eq!(c1.event(&path), PathEvent::Quadratic(QuadraticBezierSegment {
         from: point(2.0, 1.0),
         ctrl: point(2.0, 2.0),
         to: point(3.0, 2.0),
     }));
-    assert_eq!(path.event_at_cursor(c2), PathEvent::Quadratic(QuadraticBezierSegment {
+    assert_eq!(c2.event(&path), PathEvent::Quadratic(QuadraticBezierSegment {
         from: point(12.0, 1.0),
         ctrl: point(12.0, 2.0),
         to: point(13.0, 2.0),
     }));
 
-    let c1 = path.previous_cursor(c1).unwrap();
-    let c2 = path.previous_cursor(c2).unwrap();
+    assert!(c1.previous(&path));
+    assert!(c2.previous(&path));
     assert_eq!(c1.first_vertex, start1.vertex);
     assert_eq!(c1.first_verb, start1.verb);
 
-    assert_eq!(path.event_at_cursor(c1), PathEvent::Line(LineSegment {
+    assert_eq!(c1.event(&path), PathEvent::Line(LineSegment {
         from: point(1.0, 1.0),
         to: point(2.0, 1.0),
     }));
-    assert_eq!(path.event_at_cursor(c2), PathEvent::Line(LineSegment {
+    assert_eq!(c2.event(&path), PathEvent::Line(LineSegment {
         from: point(11.0, 1.0),
         to: point(12.0, 1.0),
     }));
 
-    let c1 = path.previous_cursor(c1).unwrap();
-    let c2 = path.previous_cursor(c2).unwrap();
+    assert!(c1.previous(&path));
+    assert!(c2.previous(&path));
     assert_eq!(c1.first_vertex, start1.vertex);
     assert_eq!(c1.first_verb, start1.verb);
     assert_eq!(c2, start2);
 
-    assert_eq!(path.event_at_cursor(c1), PathEvent::MoveTo(point(1.0, 1.0)));
-    assert_eq!(path.event_at_cursor(c2), PathEvent::MoveTo(point(11.0, 1.0)));
+    assert_eq!(c1.event(&path), PathEvent::MoveTo(point(1.0, 1.0)));
+    assert_eq!(c2.event(&path), PathEvent::MoveTo(point(11.0, 1.0)));
 
-    let c1 = path.previous_cursor(c1);
-    let c2 = path.previous_cursor(c2).unwrap();
+    assert!(!c1.previous(&path));
+    assert!(c2.previous(&path));
 
-    assert_eq!(c1, None);
-    assert_eq!(path.event_at_cursor(c2), PathEvent::Cubic(CubicBezierSegment {
+    assert_eq!(c2.event(&path), PathEvent::Cubic(CubicBezierSegment {
         from: point(3.0, 2.0),
         ctrl1: point(4.0, 1.0),
         ctrl2: point(5.0, 2.0),
