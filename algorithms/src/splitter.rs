@@ -49,7 +49,12 @@ impl Splitter {
     /// path and the vector of the splitting line.
     ///
     /// Curves are flattened.
-    pub fn split_with_segment(
+    pub fn split_with_segment<'l, P>(&mut self, path: P, segment: &LineSegment<f32>) -> (Path, Path)
+    where P: Into<PathSlice<'l>> {
+        self.split_with_segment_impl(path.into(), segment)
+    }
+
+    fn split_with_segment_impl(
         &mut self,
         path_slice: PathSlice,
         segment: &LineSegment<f32>
@@ -108,7 +113,12 @@ impl Splitter {
     /// path and the vector of the splitting line.
     ///
     /// Curves are flattened.
-    pub fn split_with_line(
+    pub fn split_with_line<'l, P>(&mut self, path: P, line: &Line<f32>) -> (Path, Path)
+    where P: Into<PathSlice<'l>> {
+        self.split_with_line_impl(path.into(), line)
+    }
+
+    fn split_with_line_impl(
         &mut self,
         path_slice: PathSlice,
         line: &Line<f32>
