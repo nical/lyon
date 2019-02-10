@@ -52,6 +52,7 @@ pub struct Path {
     verbs: Box<[Verb]>,
 }
 
+/// A view on a `Path`.
 #[derive(Copy, Clone, Debug)]
 pub struct PathSlice<'l> {
     points: &'l [Point],
@@ -62,6 +63,7 @@ impl Path {
     /// Creates a [Builder](struct.Builder.html) to create a path.
     pub fn builder() -> Builder { Builder::new() }
 
+    /// Creates an Empty `Path`.
     pub fn new() -> Path {
         Path {
             points: Box::new([]),
@@ -69,6 +71,7 @@ impl Path {
         }
     }
 
+    /// Returns a view on this `Path`.
     pub fn as_slice(&self) -> PathSlice {
         PathSlice {
             points: &self.points[..],
@@ -76,6 +79,7 @@ impl Path {
         }
     }
 
+    /// Iterates over the entire `Path`.
     pub fn iter(&self) -> Iter { Iter::new(&self.points[..], &self.verbs[..]) }
 
     pub fn points(&self) -> &[Point] { &self.points[..] }
@@ -586,6 +590,7 @@ impl PathBuilder for Builder {
     }
 }
 
+/// An iterator for `Path` and `PathSlice`.
 #[derive(Clone, Debug)]
 pub struct Iter<'l> {
     points: ::std::slice::Iter<'l, Point>,

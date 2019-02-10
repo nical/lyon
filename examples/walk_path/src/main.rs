@@ -322,7 +322,6 @@ static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
             vignette
         );
 
-        // TODO: properly adapt the grid while zooming in and out.
         float grid_scale = 5.0;
         if (u_zoom < 2.5) {
             grid_scale = 1.0;
