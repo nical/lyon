@@ -330,11 +330,22 @@ impl Builder {
 
     /// Returns a cursor to the next path event.
     pub fn cursor(&self) -> Cursor {
-        Cursor {
-            vertex: VertexId::from_usize(self.points.len()),
-            verb: self.verbs.len() as u32,
-            first_vertex: self.first_vertex,
-            first_verb: self.first_verb,
+        if let Some(verb) = self.verbs.last() {
+            let p = self.points.len() - n_stored_points(*verb) as usize;
+
+            Cursor {
+                vertex: VertexId::from_usize(p),
+                verb: self.verbs.len() as u32 - 1,
+                first_vertex: self.first_vertex,
+                first_verb: self.first_verb,
+            }
+        } else {
+            Cursor {
+                vertex: VertexId(0),
+                verb: 0,
+                first_vertex: VertexId(0),
+                first_verb: 0,
+            }
         }
     }
 
@@ -645,7 +656,7 @@ fn n_stored_points(verb: Verb) -> u32 {
         Verb::MoveTo => 1,
         Verb::LineTo => 1,
         Verb::QuadraticTo => 2,
-        Verb::CubicTo => 2,
+        Verb::CubicTo => 3,
         Verb::Close => 0,
     }
 }
@@ -673,14 +684,23 @@ fn prev_cursor(cursor: &Cursor, verbs: &[Verb]) -> Option<Cursor> {
     if cursor.verb == 0 {
         return None;
     }
-    let verb = verbs[cursor.verb as usize - 1];
-    let (first_vertex, first_verb) = if verb != Verb::MoveTo {
+    let (first_vertex, first_verb) = if verbs[cursor.verb as usize] != Verb::MoveTo {
         (cursor.first_vertex, cursor.first_verb)
     } else {
-        unimplemented!(); // TODO!
+        let mut v = cursor.verb as usize;
+        let mut p = cursor.vertex.0;
+        while p > 0 {
+            v -= 1;
+            p -= n_stored_points(verbs[v]);
+            if verbs[v] == Verb::MoveTo {
+                break;
+            }
+        }
+
+        (VertexId(p), v as u32)
     };
     Some(Cursor {
-        vertex: cursor.vertex - n_stored_points(verb),
+        vertex: cursor.vertex - n_stored_points(verbs[cursor.verb as usize - 1]),
         verb: cursor.verb - 1,
         first_vertex,
         first_verb,
@@ -874,4 +894,90 @@ fn test_merge_paths() {
     assert_eq!(it.next(), Some(PathEvent::Line(LineSegment { from: point(4.0, 0.0), to: point(4.0, 4.0) })));
     assert_eq!(it.next(), Some(PathEvent::Close(LineSegment { from: point(4.0, 4.0), to: point(1.0, 1.0) })));
     assert_eq!(it.next(), None);
+}
+
+#[test]
+fn test_prev_cursor() {
+    let mut builder = Path::builder();
+    let start1 = builder.cursor();
+    builder.move_to(point(1.0, 1.0));
+    builder.line_to(point(2.0, 1.0));
+    builder.quadratic_bezier_to(point(2.0, 2.0), point(3.0, 2.0));
+    builder.cubic_bezier_to(point(4.0, 1.0), point(5.0, 2.0), point(6.0, 1.0));
+    let c1 = builder.cursor();
+    builder.move_to(point(11.0, 1.0));
+    let start2 = builder.cursor();
+    builder.line_to(point(12.0, 1.0));
+    builder.quadratic_bezier_to(point(12.0, 2.0), point(13.0, 2.0));
+    builder.cubic_bezier_to(point(14.0, 1.0), point(15.0, 2.0), point(16.0, 1.0));
+    let c2 = builder.cursor();
+    let path = builder.build();
+
+    assert_eq!(path.event_at_cursor(start1), PathEvent::MoveTo(point(1.0, 1.0)));
+    assert_eq!(path.event_at_cursor(start2), PathEvent::MoveTo(point(11.0, 1.0)));
+
+    assert_eq!(path.event_at_cursor(c1), PathEvent::Cubic(CubicBezierSegment {
+        from: point(3.0, 2.0),
+        ctrl1: point(4.0, 1.0),
+        ctrl2: point(5.0, 2.0),
+        to: point(6.0, 1.0),
+    }));
+    assert_eq!(path.event_at_cursor(c2), PathEvent::Cubic(CubicBezierSegment {
+        from: point(13.0, 2.0),
+        ctrl1: point(14.0, 1.0),
+        ctrl2: point(15.0, 2.0),
+        to: point(16.0, 1.0),
+    }));
+
+    let c1 = path.previous_cursor(c1).unwrap();
+    let c2 = path.previous_cursor(c2).unwrap();
+    assert_eq!(c1.first_vertex, start1.vertex);
+    assert_eq!(c1.first_verb, start1.verb);
+
+    assert_eq!(path.event_at_cursor(c1), PathEvent::Quadratic(QuadraticBezierSegment {
+        from: point(2.0, 1.0),
+        ctrl: point(2.0, 2.0),
+        to: point(3.0, 2.0),
+    }));
+    assert_eq!(path.event_at_cursor(c2), PathEvent::Quadratic(QuadraticBezierSegment {
+        from: point(12.0, 1.0),
+        ctrl: point(12.0, 2.0),
+        to: point(13.0, 2.0),
+    }));
+
+    let c1 = path.previous_cursor(c1).unwrap();
+    let c2 = path.previous_cursor(c2).unwrap();
+    assert_eq!(c1.first_vertex, start1.vertex);
+    assert_eq!(c1.first_verb, start1.verb);
+
+    assert_eq!(path.event_at_cursor(c1), PathEvent::Line(LineSegment {
+        from: point(1.0, 1.0),
+        to: point(2.0, 1.0),
+    }));
+    assert_eq!(path.event_at_cursor(c2), PathEvent::Line(LineSegment {
+        from: point(11.0, 1.0),
+        to: point(12.0, 1.0),
+    }));
+
+    let c1 = path.previous_cursor(c1).unwrap();
+    let c2 = path.previous_cursor(c2).unwrap();
+    assert_eq!(c1.first_vertex, start1.vertex);
+    assert_eq!(c1.first_verb, start1.verb);
+    assert_eq!(c2, start2);
+
+    assert_eq!(path.event_at_cursor(c1), PathEvent::MoveTo(point(1.0, 1.0)));
+    assert_eq!(path.event_at_cursor(c2), PathEvent::MoveTo(point(11.0, 1.0)));
+
+    let c1 = path.previous_cursor(c1);
+    let c2 = path.previous_cursor(c2).unwrap();
+
+    assert_eq!(c1, None);
+    assert_eq!(path.event_at_cursor(c2), PathEvent::Cubic(CubicBezierSegment {
+        from: point(3.0, 2.0),
+        ctrl1: point(4.0, 1.0),
+        ctrl2: point(5.0, 2.0),
+        to: point(6.0, 1.0),
+    }));
+
+    assert_eq!(c2.first_verb, start1.verb);
 }
