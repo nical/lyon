@@ -61,7 +61,7 @@
 //!
 //! * [very basic gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_basic).
 //! * [advanced gfx-rs example](https://github.com/nical/lyon/tree/master/examples/gfx_advanced).
-//! * There is some useful documentaion on the project's [wiki](https://github.com/nical/lyon/wiki).
+//! * There is some useful documentation on the project's [wiki](https://github.com/nical/lyon/wiki).
 //! * The source code is available on the project's [git repository](https://github.com/nical/lyon).
 //! * Interested in contributing? Pull requests are welcome. If you would like to help but don't know
 //!   what to do specifically, have a look at the [github issues](https://github.com/nical/lyon/issues),
@@ -193,6 +193,3 @@ pub use tessellation::geom as geom;
 #[cfg(feature = "libtess2")] pub use lyon_tess2 as tess2;
 
 pub use geom::math;
-
-#[no_mangle]
-pub extern fn hello_lyon() -> u32 { 42 }

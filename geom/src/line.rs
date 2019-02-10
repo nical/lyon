@@ -367,13 +367,6 @@ impl<S: Scalar> FlatteningStep for LineSegment<S> {
     fn flattening_step(&self, _tolerance: S) -> S { S::ONE }
 }
 
-// TODO: we could implement this more efficiently with specialization
-// impl FlattenedForEach for LineSegment {
-//     fn for_each_flattened<F: FnMut(Point)>(&self, _tolerance: f32, call_back: &mut F) {
-//         call_back(self.to);
-//     }
-// }
-
 /// An infinite line defined by a point and a vector.
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]

@@ -542,25 +542,6 @@ impl MaxIndex for i64 { fn max_index() -> usize { std::u32::MAX as usize } }
 impl MaxIndex for usize { fn max_index() -> usize { std::u32::MAX as usize } }
 impl MaxIndex for isize { fn max_index() -> usize { std::u32::MAX as usize } }
 
-// /// An extension to GeometryBuilder that can handle quadratic bézier segments.
-// pub trait BezierGeometryBuilder<Input>: GeometryBuilder<Input> {
-//     /// Insert a quadratic bezier curve.
-//     /// The interrior is on the right side of the curve.
-//     ///
-//     /// This method can only be called between `begin_geometry` and `end_geometry`.
-//     fn add_quadratic_bezier(&mut self, from: VertexId, to: VertexId, ctrl: Input);
-// }
-// impl<'l, VertexType, Input, Ctor> BezierGeometryBuilder<Input>
-//     for BuffersBuilder<'l, VertexType, Input, Ctor>
-// where
-//     VertexType: 'l + Clone,
-//     Ctor: VertexConstructor<Input, VertexType>,
-// {
-//     fn add_quadratic_bezier(&mut self, _from: VertexId, _to: VertexId, _ctrl: Input) {
-//         unimplemented!();
-//     }
-// }
-
 #[test]
 fn test_simple_quad() {
     #[derive(Copy, Clone, PartialEq, Debug)]
