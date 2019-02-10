@@ -7,9 +7,7 @@ extern crate lyon;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::path::builder::*;
-use lyon::path::iterator::*;
 use lyon::path::Path;
-use lyon::path::SvgEvent;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
@@ -25,13 +23,6 @@ use glutin::dpi::LogicalSize;
 
 use std::ops::Rem;
 
-
-//type ColorFormat = gfx::format::Rgba8;
-//type DepthFormat = gfx::format::DepthStencil;
-//type Pso<T> = gfx::PipelineState<gfx_device_gl::Resources, T>;
-//type Vbo<T> = gfx::handle::Buffer<gfx_device_gl::Resources, T>;
-//type BufferObject<T> = gfx::handle::Buffer<gfx_device_gl::Resources, T>;
-//type IndexSlice = gfx::Slice<gfx_device_gl::Resources>;
 
 pub fn split_gfx_slice<R: gfx::Resources>(
     slice: gfx::Slice<R>,
@@ -68,39 +59,9 @@ fn main() {
     let num_instances = 32;
     let tolerance = 0.02;
 
-    use lyon::geom::{math::Angle, ArcFlags};
     // Build a Path for the rust logo.
     let mut builder = SvgPathBuilder::new(Path::builder());
-    //builder.move_to(point(600.0,350.0));
-    //builder.relative_line_to(vector(50.0,-25.0));
-    //builder.relative_arc_to(vector(25.0, 25.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0));
-    //builder.relative_line_to(vector(50.0,-25.0));
-    //builder.relative_arc_to(vector(25.0, 50.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0));
-    //builder.relative_line_to(vector(50.0,-25.0));
-    //builder.relative_arc_to(vector(25.0, 75.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0));
-    //builder.relative_line_to(vector(50.0,-25.0));
-    //builder.relative_arc_to(vector(25.0, 100.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0));
-    //builder.relative_line_to(vector(50.0,-25.0));
-
-    let evts = [
-    SvgEvent::MoveTo(point(600.0,350.0)),
-    SvgEvent::RelativeLineTo(vector(50.0,-25.0)),
-    SvgEvent::RelativeArcTo(vector(25.0, 25.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0)),
-    SvgEvent::RelativeLineTo(vector(50.0,-25.0)),
-    SvgEvent::RelativeArcTo(vector(25.0, 50.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0)),
-    SvgEvent::RelativeLineTo(vector(50.0,-25.0)),
-    SvgEvent::RelativeArcTo(vector(25.0, 75.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0)),
-    SvgEvent::RelativeLineTo(vector(50.0,-25.0)),
-    SvgEvent::RelativeArcTo(vector(25.0, 100.0), Angle::degrees(-30.0), ArcFlags { large_arc: false, sweep: true }, vector(50.0,-25.0)),
-    SvgEvent::RelativeLineTo(vector(50.0,-25.0)),
-    ];
-
-    for e in evts.iter() {
-        builder.svg_event(*e);
-    }
-
-
-    //build_logo_path(&mut builder);
+    build_logo_path(&mut builder);
     let path = builder.build();
 
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
