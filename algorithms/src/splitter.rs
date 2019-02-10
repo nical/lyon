@@ -306,7 +306,7 @@ impl Splitter {
 
     fn to_advanced_path(&mut self, path: PathSlice, adv: &mut AdvancedPath) {
         self.point_buffer.clear();
-        for evt in path.path_iter().flattened(self.flattening_tolerance) {
+        for evt in path.iter().flattened(self.flattening_tolerance) {
             match evt {
                 FlattenedEvent::MoveTo(to) => {
                     if self.point_buffer.len() > 2 {

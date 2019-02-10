@@ -23,7 +23,7 @@
 //! - More robust against precision errors when paths have many self
 //!   intersections very close to each other.
 //!
-//! Disdvantages:
+//! Disadvantages:
 //!
 //! - About twice slower than lyon_tessellation's fill tessellator.
 //! - Does not support computing vertex normals.
@@ -70,7 +70,7 @@
 //!
 //!         // Compute the tessellation.
 //!         let result = tessellator.tessellate_path(
-//!             path.path_iter(),
+//!             &path,
 //!             &FillOptions::default(),
 //!             &mut simple_builder(&mut buffers)
 //!         );

@@ -20,7 +20,7 @@ fn test_logo() {
     let mut tess = FillTessellator::new();
 
     tess.tessellate_path(
-        path.path_iter(),
+        &path,
         &FillOptions::tolerance(0.05),
         &mut simple_builder(&mut buffers)
     ).unwrap();

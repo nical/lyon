@@ -33,7 +33,6 @@ use math_utils::*;
 use geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId};
 use path::PathEvent;
 use path::builder::{Build, FlatPathBuilder, PathBuilder};
-use path::iterator::PathIterator;
 
 #[cfg(feature="debugger")]
 use debugger::*;
@@ -252,7 +251,7 @@ enum PointType { In, Out, OnEdge(Side) }
 ///
 ///     // Compute the tessellation.
 ///     let result = tessellator.tessellate_path(
-///         path.path_iter(),
+///         path.iter(),
 ///         &FillOptions::default(),
 ///         &mut vertex_builder
 ///     );
@@ -329,11 +328,11 @@ impl FillTessellator {
         output: &mut dyn GeometryBuilder<Vertex>,
     ) -> TessellationResult
     where
-        Iter: PathIterator,
+        Iter: IntoIterator<Item = PathEvent>,
     {
         let mut events = replace(&mut self.events, FillEvents::new());
         events.clear();
-        events.set_path(options.tolerance, it);
+        events.set_path(options.tolerance, it.into_iter());
         let result = self.tessellate_events(&events, options, output);
         self.events = events;
 
@@ -1888,7 +1887,7 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
         }
         try!{
             tess.tessellate_path(
-                path.path_iter(),
+                path.iter(),
                 &FillOptions::tolerance(0.05),
                 &mut vertex_builder
             )

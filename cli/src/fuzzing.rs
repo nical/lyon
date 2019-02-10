@@ -79,7 +79,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 match cmd.tessellator {
                     Tessellator::Default => {
                         let result = FillTessellator::new().tessellate_path(
-                            path.path_iter(),
+                            &path,
                             &options,
                             &mut NoOutput::new()
                         );
@@ -89,7 +89,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                     }
                     Tessellator::Tess2 => {
                         let result = tess2::FillTessellator::new().tessellate_path(
-                            path.path_iter(),
+                            &path,
                             &options,
                             &mut NoOutput::new()
                         );
@@ -107,7 +107,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                     path.as_slice(),
                     &|path: Path| {
                         FillTessellator::new().tessellate_path(
-                            path.path_iter(),
+                            &path,
                             &FillOptions::default(),
                             &mut NoOutput::new()
                         ).is_err()
@@ -119,7 +119,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
         }
         if cmd.stroke {
             StrokeTessellator::new().tessellate_path(
-                path.path_iter(),
+                &path,
                 &StrokeOptions::default(),
                 &mut NoOutput::new()
             ).unwrap();

@@ -3,8 +3,8 @@ use flattened_path::FlattenedPath;
 
 use tess2_sys::*;
 use tessellation::{GeometryReceiver, FillOptions, FillRule, Count};
-use path::iterator::PathIterator;
 use path::builder::*;
+use path::PathEvent;
 
 use std::ptr;
 use std::slice;
@@ -37,7 +37,7 @@ impl FillTessellator {
         output: &mut dyn GeometryReceiver<Point>,
     ) -> Result<Count, ()>
     where
-        Iter: PathIterator,
+        Iter: IntoIterator<Item = PathEvent>,
     {
         let mut builder = FlattenedPath::builder().with_svg(options.tolerance);
 

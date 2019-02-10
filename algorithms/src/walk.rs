@@ -30,7 +30,7 @@
 //!     let tolerance = 0.01; // The path flattening tolerance.
 //!     let start_offset = 0.0; // Start walking at the beginning of the path.
 //!     walk_along_path(
-//!         path.path_iter().flattened(tolerance),
+//!         path.iter().flattened(tolerance),
 //!         start_offset,
 //!         &mut pattern
 //!     );

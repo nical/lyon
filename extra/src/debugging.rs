@@ -9,7 +9,7 @@ pub type Polygons = Vec<Vec<Point>>;
 pub fn path_to_polygons(path: PathSlice) -> Polygons {
     let mut polygons = Vec::new();
     let mut poly = Vec::new();
-    for evt in path.path_iter() {
+    for evt in path {
         match evt {
             PathEvent::MoveTo(to) => {
                 if poly.len() > 0 {

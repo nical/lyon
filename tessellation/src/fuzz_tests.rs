@@ -17,7 +17,7 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
         }
         try!{
             tess.tessellate_path(
-                path.path_iter(),
+                path,
                 &FillOptions::tolerance(0.05).on_error(on_error),
                 &mut vertex_builder
             )

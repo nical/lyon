@@ -109,13 +109,13 @@ fn main() {
     let fill_prim_id = 1;
 
     let fill_count = FillTessellator::new().tessellate_path(
-        path.path_iter(),
+        &path,
         &FillOptions::tolerance(tolerance),
         &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32))
     ).unwrap();
 
     StrokeTessellator::new().tessellate_path(
-        path.path_iter(),
+        &path,
         &StrokeOptions::tolerance(tolerance).dont_apply_line_width(),
         &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32))
     ).unwrap();

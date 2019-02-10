@@ -111,7 +111,7 @@ fn main() {
                 ));
 
                 fill_tess.tessellate_path(
-                    convert_path(p).path_iter(),
+                    convert_path(p),
                     &FillOptions::tolerance(0.01),
                     &mut BuffersBuilder::new(
                         &mut mesh,
@@ -128,7 +128,7 @@ fn main() {
                     stroke.opacity.value() as f32
                 ));
                 let _ = stroke_tess.tessellate_path(
-                    convert_path(p).path_iter(),
+                    convert_path(p),
                     &stroke_opts.with_tolerance(0.01),
                     &mut BuffersBuilder::new(
                         &mut mesh,

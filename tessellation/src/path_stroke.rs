@@ -6,7 +6,7 @@ use geom::euclid::Trig;
 use geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError};
 use basic_shapes::circle_flattening_step;
 use path::builder::{Build, FlatPathBuilder, PathBuilder};
-use path::iterator::PathIterator;
+use path::PathEvent;
 use StrokeVertex as Vertex;
 use {Side, LineCap, LineJoin, StrokeOptions, TessellationResult};
 
@@ -17,9 +17,9 @@ use std::f32::consts::PI;
 /// ## Overview
 ///
 /// The stroke tessellation algorithm simply generates a strip of triangles along
-/// the path. This method is fast and simple to implement, howerver it means that
+/// the path. This method is fast and simple to implement, however it means that
 /// if the path overlap with itself (for example in the case of a self-intersecting
-/// path), some triangles will overlap in the interesecting region, which may not
+/// path), some triangles will overlap in the intersecting region, which may not
 /// be the desired behavior. This needs to be kept in mind when rendering transparent
 /// SVG strokes since the spec mandates that each point along a semi-transparent path
 /// is shaded once no matter how many times the path overlaps with itself at this
@@ -71,7 +71,7 @@ use std::f32::consts::PI;
 ///
 ///     // Compute the tessellation.
 ///     tessellator.tessellate_path(
-///         path.path_iter(),
+///         &path,
 ///         &StrokeOptions::default(),
 ///         &mut vertex_builder
 ///     );
@@ -96,7 +96,7 @@ impl StrokeTessellator {
         builder: &mut dyn GeometryBuilder<Vertex>,
     ) -> TessellationResult
     where
-        Input: PathIterator,
+        Input: IntoIterator<Item = PathEvent>,
     {
         builder.begin_geometry();
         {
@@ -991,7 +991,7 @@ fn test_path(
 
     let mut tess = StrokeTessellator::new();
     let count = tess.tessellate_path(
-        path.path_iter(),
+        path,
         &options,
         &mut TestBuilder {
             builder: simple_builder(&mut buffers)
