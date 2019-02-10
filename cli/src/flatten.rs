@@ -21,7 +21,7 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
         // TODO: when flatten is false we should count vertices, curves, etc.
         let mut num_paths = 0;
         let mut num_vertices = 0;
-        for event in cmd.path.path_iter().flattened(cmd.tolerance) {
+        for event in cmd.path.iter().flattened(cmd.tolerance) {
             match event {
                 FlattenedEvent::MoveTo(_) => {
                     num_vertices += 1;
@@ -40,7 +40,7 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
         return Ok(());
     }
 
-    for event in cmd.path.path_iter().flattened(cmd.tolerance) {
+    for event in cmd.path.iter().flattened(cmd.tolerance) {
         match event {
             FlattenedEvent::MoveTo(p) => {
                 try!{ write!(&mut *cmd.output, "M {} {} ", p.x, p.y) };

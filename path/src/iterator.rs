@@ -4,28 +4,19 @@
 //!
 //! ## Overview
 //!
-//! This module provides a collection of traits to extend the Iterator trait with
+//! This module provides a collection of traits to extend the `Iterator` trait with
 //! information about the state of the cursor moving along the path. This is useful
 //! because the way some events are described require to have information about the
 //! previous events. For example the event `LinTo` gives the next position and it is
 //! generally useful to have access to the current position in order to make something
-//! out of it. Likewise, Some Svg events are given in relative coordinates and/or
+//! out of it. Likewise, Some SVG events are given in relative coordinates and/or
 //! are expressed in a way that the first control point is deduced from the position
 //! of the previous control point.
-//!
-//! All of this extra information is conveniently exposed in the `PathState` struct
-//! that can be accessed by `PathIterator`, `SvgIterator` and `FlattenedIterator`.
-//!
-//! The `PathIter<Iter>` adapter automatically implements `PathIterator` for
-//! any `Iter` that implements `Iterator<PathEvent>`
 //!
 //! This module provides adapters between these iterator types. For example iterating
 //! over a sequence of SVG events can be automatically translated into iterating over
 //! simpler path events which express all positions with absolute coordinates, among
 //! other things.
-//!
-//! The trait `PathIterator` is what some of the tessellation algorithms
-//! of the `lyon_tessellation` crate take as input.
 //!
 //! ## Examples
 //!
@@ -49,7 +40,7 @@
 //!     // Make it a SvgIterator (keeps tracks of the path state).
 //!     let svg_path_iter = SvgPathIter::new(simple_iter);
 //!
-//!     // Make it a PathIterator (iterates on simpler PathEvents).
+//!     // Make it a PathEvent iterator.
 //!     let path_iter = svg_path_iter.path_events();
 //!     // Equivalent to:
 //!     // let path_iter = PathEvents::new(svg_path_iter);
@@ -105,17 +96,10 @@ use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
 use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
 use geom::arc::*;
 use geom::arrayvec::ArrayVec;
-use builder::{PathBuilder, SvgBuilder};
+use builder::SvgBuilder;
 
-/// An extension to the common Iterator interface, that adds information which is useful when
-/// chaining path-specific iterators.
+/// An extension trait for `PathEvent` iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
-    // TODO(breaking change) - return path state by value and provide access
-    // to first/previous/ctrl by value separately.
-
-    /// The returned structure exposes the current position, the first position in the current
-    /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PathState;
 
     /// Returns an iterator that turns curves into line segments.
     fn flattened(self, tolerance: f32) -> Flattened<Self> {
@@ -128,12 +112,17 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     }
 }
 
+impl<Iter> PathIterator for Iter
+where
+    Iter: Iterator<Item = PathEvent>,
+{}
+
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
 pub trait SvgIterator: Iterator<Item = SvgEvent> + Sized {
     /// The returned structure exposes the current position, the first position in the current
     /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PathState;
+    fn path_state(&self) -> &PathState;
 
     /// Returns an iterator of FlattenedEvents, turning curves into sequences of line segments.
     fn flattened(self, tolerance: f32) -> Flattened<PathEvents<Self>> {
@@ -147,9 +136,6 @@ pub trait SvgIterator: Iterator<Item = SvgEvent> + Sized {
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
 pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
-    /// The returned structure exposes the current position, the first position in the current
-    /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of path events.
     fn path_events(self) -> iter::Map<Self, fn(FlattenedEvent) -> PathEvent> {
@@ -172,12 +158,14 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     }
 }
 
+impl<Iter> FlattenedIterator for Iter
+where
+    Iter: Iterator<Item = FlattenedEvent>,
+{}
+
 /// An extension to the common Iterator interface, that adds information which is useful when
 /// chaining path-specific iterators.
 pub trait QuadraticPathIterator: Iterator<Item = QuadraticEvent> + Sized {
-    /// The returned structure exposes the current position, the first position in the current
-    /// sub-path, and the position of the last control point.
-    fn get_state(&self) -> &PathState;
 
     /// Returns an iterator of path events.
     fn path_events(self) -> iter::Map<Self, fn(QuadraticEvent) -> PathEvent> {
@@ -195,6 +183,11 @@ pub trait QuadraticPathIterator: Iterator<Item = QuadraticEvent> + Sized {
     }
 }
 
+impl<Iter> QuadraticPathIterator for Iter
+where
+    Iter: Iterator<Item = QuadraticEvent>,
+{}
+
 pub struct PathEvents<SvgIter> {
     it: SvgIter,
     arc_to_cubics: Vec<CubicBezierSegment<f32>>,
@@ -207,13 +200,6 @@ impl<SvgIter> PathEvents<SvgIter> {
             arc_to_cubics: Vec::new(),
         }
     }
-}
-
-impl<SvgIter> PathIterator for PathEvents<SvgIter>
-where
-    SvgIter: SvgIterator,
-{
-    fn get_state(&self) -> &PathState { self.it.get_state() }
 }
 
 impl<SvgIter> Iterator for PathEvents<SvgIter>
@@ -229,7 +215,7 @@ where
             Some(svg_evt) => Some(
                 svg_to_path_event(
                     svg_evt,
-                    &self.get_state().clone(),
+                    &self.it.path_state().clone(),
                     &mut self.arc_to_cubics
                 )
             ),
@@ -370,7 +356,7 @@ fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<CubicBezierSegment
     PathEvent::Cubic(curves[0])
 }
 
-/// An iterator that consumes an PathIterator and yields FlattenedEvents.
+/// An iterator that consumes `PathEvent` iterator and yields FlattenedEvents.
 pub struct Flattened<Iter> {
     it: Iter,
     current_position: Point,
@@ -384,7 +370,7 @@ enum TmpFlatteningIter {
     None,
 }
 
-impl<Iter: PathIterator> Flattened<Iter> {
+impl<Iter: Iterator<Item = PathEvent>> Flattened<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
         Flattened {
@@ -396,16 +382,9 @@ impl<Iter: PathIterator> Flattened<Iter> {
     }
 }
 
-impl<Iter> FlattenedIterator for Flattened<Iter>
-where
-    Iter: PathIterator,
-{
-    fn get_state(&self) -> &PathState { self.it.get_state() }
-}
-
 impl<Iter> Iterator for Flattened<Iter>
 where
-    Iter: PathIterator,
+    Iter: Iterator<Item = PathEvent>,
 {
     type Item = FlattenedEvent;
     fn next(&mut self) -> Option<FlattenedEvent> {
@@ -432,14 +411,14 @@ where
             Some(PathEvent::Line(segment)) => Some(FlattenedEvent::Line(segment)),
             Some(PathEvent::Close(segment)) => Some(FlattenedEvent::Close(segment)),
             Some(PathEvent::Quadratic(segment)) => {
-                self.current_position = self.get_state().current_position();
+                self.current_position = segment.from;
                 self.current_curve = TmpFlatteningIter::Quadratic(
                     segment.flattened(self.tolerance)
                 );
                 self.next()
             }
             Some(PathEvent::Cubic(segment)) => {
-                self.current_position = self.get_state().current_position();
+                self.current_position = segment.from;
                 self.current_curve = TmpFlatteningIter::Cubic(
                     segment.flattened(self.tolerance)
                 );
@@ -454,7 +433,7 @@ where
 // specialization to implement the Iterator trait depending on the type of
 // event but specialization isn't stable in rust yet.
 
-/// An adapater iterator that implements SvgIterator on top of an Iterator<Item=SvgEvent>.
+/// An adapter iterator that implements SvgIterator on top of an Iterator<Item=SvgEvent>.
 pub struct SvgPathIter<Iter> {
     it: Iter,
     state: PathState,
@@ -478,7 +457,7 @@ where
     E: Into<SvgEvent>,
     Iter: Iterator<Item = E>
 {
-    fn get_state(&self) -> &PathState { &self.state }
+    fn path_state(&self) -> &PathState { &self.state }
 }
 
 impl<E, Iter> Iterator for SvgPathIter<Iter>
@@ -492,51 +471,6 @@ where
             let svg_evt = evt.into();
             self.state.svg_event(svg_evt);
             return Some(svg_evt);
-        }
-
-        None
-    }
-}
-
-/// An adapater iterator that implements PathIterator on top of an Iterator<Item=PathEvent>.
-pub struct PathIter<Iter> {
-    it: Iter,
-    state: PathState,
-}
-
-impl<E, Iter> PathIter<Iter>
-where
-    E: Into<PathEvent>,
-    Iter: Iterator<Item = E>
-{
-    pub fn new(it: Iter) -> Self {
-        PathIter {
-            it,
-            state: PathState::new(),
-        }
-    }
-}
-
-
-impl<E, Iter> PathIterator for PathIter<Iter>
-where
-    E: Into<PathEvent>,
-    Iter: Iterator<Item = E>
-{
-    fn get_state(&self) -> &PathState { &self.state }
-}
-
-impl<E, Iter> Iterator for PathIter<Iter>
-where
-    E: Into<PathEvent>,
-    Iter: Iterator<Item = E>
-{
-    type Item = PathEvent;
-    fn next(&mut self) -> Option<PathEvent> {
-        if let Some(evt) = self.it.next() {
-            let path_evt = evt.into();
-            self.state.path_event(path_evt);
-            return Some(path_evt);
         }
 
         None
@@ -629,9 +563,6 @@ impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
     pub fn closed(iter: Iter) -> Self { FromPolyline::new(true, iter) }
 
     pub fn open(iter: Iter) -> Self { FromPolyline::new(false, iter) }
-
-    /// Consumes self and returns an adapter that implements PathIterator.
-    pub fn path_iter(self) -> PathIter<Self> { PathIter::new(self) }
 }
 
 impl<Iter> Iterator for FromPolyline<Iter>

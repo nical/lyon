@@ -26,7 +26,7 @@ fn flattening_01_logo_simple_iter(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            for _ in path.path_iter().flattened(0.05) {}
+            for _ in path.iter().flattened(0.05) {}
         }
     })
 }
@@ -41,7 +41,7 @@ fn flattening_02_logo_iter(bench: &mut Bencher) {
     bench.iter(|| {
         let mut builder = Path::builder();
         for _ in 0..N {
-            for evt in path.path_iter().flattened(0.05) {
+            for evt in path.iter().flattened(0.05) {
                 builder.flat_event(evt);
             }
         }
@@ -56,7 +56,7 @@ fn flattening_03_logo_builder(bench: &mut Bencher) {
     bench.iter(|| {
         let mut builder = Path::builder().flattened(0.05);
         for _ in 0..N {
-            for evt in path.path_iter() {
+            for evt in path.iter() {
                 builder.path_event(evt);
             }
         }
@@ -70,7 +70,7 @@ fn fill_tess_01_logo(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default();
-    let events = FillEvents::from_path(0.05, path.path_iter());
+    let events = FillEvents::from_path(0.05, path.iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -87,7 +87,7 @@ fn fill_tess_02_logo_no_normals(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default().with_normals(false);
-    let events = FillEvents::from_path(0.05, path.path_iter());
+    let events = FillEvents::from_path(0.05, path.iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -104,7 +104,7 @@ fn fill_tess_03_logo_no_intersections(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default().assume_no_intersections();
-    let events = FillEvents::from_path(0.05, path.path_iter());
+    let events = FillEvents::from_path(0.05, path.iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -123,7 +123,7 @@ fn fill_tess_04_logo_no_normals_no_intersections(bench: &mut Bencher) {
     let options = FillOptions::default()
         .with_normals(false)
         .assume_no_intersections();
-    let events = FillEvents::from_path(0.05, path.path_iter());
+    let events = FillEvents::from_path(0.05, path.iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -140,7 +140,7 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
 
     let mut tess = FillTessellator::new();
     let options = FillOptions::default();
-    let events = FillEvents::from_path(1000000.0, path.path_iter());
+    let events = FillEvents::from_path(1000000.0, path.iter());
 
     bench.iter(|| {
         for _ in 0..N {
@@ -165,7 +165,7 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
     let mut contours = Vec::new();
 
     let tolerance = FillOptions::default().tolerance;
-    for evt in path.path_iter().flattened(tolerance) {
+    for evt in path.iter().flattened(tolerance) {
         match evt {
             FlattenedEvent::MoveTo(p) => {
                 contours.push(vec![p]);
@@ -228,7 +228,7 @@ fn cmp_02_lyon_rust_logo(bench: &mut Bencher) {
         for _ in 0..N {
             let mut tess = FillTessellator::new();
             let mut buffers: VertexBuffers<FillVertex, u16> = VertexBuffers::new();
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -240,7 +240,7 @@ fn fill_events_01_logo(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            let _events = FillEvents::from_path(0.05, path.path_iter());
+            let _events = FillEvents::from_path(0.05, path.iter());
         }
     })
 }
@@ -252,7 +252,7 @@ fn fill_events_02_logo_pre_flattened(bench: &mut Bencher) {
 
     bench.iter(|| {
         for _ in 0..N {
-            let _events = FillEvents::from_path(0.05, path.path_iter());
+            let _events = FillEvents::from_path(0.05, path.iter());
         }
     })
 }
@@ -268,7 +268,7 @@ fn fill_events_03_logo_with_tess(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<FillVertex, u16> = VertexBuffers::new();
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -284,7 +284,7 @@ fn stroke_01_logo_miter(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -300,7 +300,7 @@ fn stroke_02_logo_bevel(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -316,7 +316,7 @@ fn stroke_03_logo_round(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(path.path_iter(), &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }

@@ -29,7 +29,7 @@ use math_utils::compute_normal;
 use geom::math::*;
 use geom::Arc;
 use path::builder::FlatPathBuilder;
-use path::iterator::FromPolyline;
+use path::iterator::{FlattenedIterator, FromPolyline};
 use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
 use {FillTessellator, TessellationResult};
 
@@ -868,7 +868,7 @@ where
     let mut tess = StrokeTessellator::new();
 
     tess.tessellate_path(
-        FromPolyline::new(is_closed, it).path_iter(),
+        FromPolyline::new(is_closed, it).path_events(),
         options,
         output
     )
@@ -885,7 +885,7 @@ where
     Iter: Iterator<Item = Point>,
 {
     tessellator.tessellate_path(
-        FromPolyline::closed(polyline).path_iter(),
+        FromPolyline::closed(polyline).path_events(),
         options,
         output
     )

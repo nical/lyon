@@ -56,7 +56,7 @@ pub fn fit_path(path: &Path, output_rect: &Rect, style: FitStyle) -> Path {
     let transform = fit_rectangle(&aabb, output_rect, style);
 
     let mut builder = Path::builder();
-    for evt in path.path_iter().transformed(&transform) {
+    for evt in path.iter().transformed(&transform) {
         builder.path_event(evt)
     }
 

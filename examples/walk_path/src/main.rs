@@ -59,7 +59,7 @@ fn main() {
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
     FillTessellator::new().tessellate_path(
-        arrow_path.path_iter(),
+        &arrow_path,
         &FillOptions::tolerance(tolerance),
         &mut BuffersBuilder::new(&mut geometry, WithId(0))
     ).unwrap();
@@ -163,7 +163,7 @@ fn main() {
             // Walk along the logo and apply the pattern. This will invoke
             // the pattern's callback that fills the primitive buffer.
             walk::walk_along_path(
-                logo_path.path_iter().flattened(0.01),
+                logo_path.iter().flattened(0.01),
                 offset,
                 &mut walk::RepeatedPattern {
                     callback: |pos: Point, tangent: Vector, _| {

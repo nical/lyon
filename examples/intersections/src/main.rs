@@ -89,7 +89,7 @@ fn main() {
 
     let stroke_options = StrokeOptions::tolerance(tolerance).dont_apply_line_width();
     StrokeTessellator::new().tessellate_path(
-        bezier_path.path_iter(),
+        &bezier_path,
         &stroke_options,
         &mut BuffersBuilder::new(
             &mut geometry,
@@ -97,7 +97,7 @@ fn main() {
         ),
     ).unwrap();
     StrokeTessellator::new().tessellate_path(
-        line_path.path_iter(),
+        &line_path,
         &stroke_options,
         &mut BuffersBuilder::new(
             &mut geometry,

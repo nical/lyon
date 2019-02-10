@@ -1,7 +1,6 @@
 //! The default path data structure.
 
 use builder::*;
-use iterator::PathIter;
 
 use PathEvent;
 use VertexId;
@@ -79,8 +78,6 @@ impl Path {
 
     pub fn iter(&self) -> Iter { Iter::new(&self.points[..], &self.verbs[..]) }
 
-    pub fn path_iter(&self) -> PathIter<Iter> { PathIter::new(self.iter()) }
-
     pub fn points(&self) -> &[Point] { &self.points[..] }
 
     pub fn mut_points(&mut self) -> &mut [Point] { &mut self.points[..] }
@@ -142,7 +139,7 @@ impl<'l> IntoIterator for &'l Path {
 /// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
 
-    pub fn iter(&self) -> Iter {
+    pub fn iter<'a>(&'a self) -> Iter<'l> {
         Iter::new(self.points, self.verbs)
     }
 
@@ -167,22 +164,6 @@ impl<'l> PathSlice<'l> {
         )
     }
 
-    pub fn path_iter(&self) -> PathIter<Iter> {
-        PathIter::new(self.iter())
-    }
-
-    pub fn path_iter_from(&self, cursor: Cursor) -> PathIter<Iter> {
-        PathIter::new(self.iter_from(cursor))
-    }
-
-    pub fn path_iter_until(&self, cursor: Cursor) -> PathIter<Iter> {
-        PathIter::new(self.iter_until(cursor))
-    }
-
-    pub fn path_iter_range(&self, cursor: ops::Range<Cursor>) -> PathIter<Iter> {
-        PathIter::new(self.iter_range(cursor))
-    }
-
     pub fn points(&self) -> &[Point] { self.points }
 
     /// Returns starting position of the edge that the provided cursor refers to.
@@ -203,12 +184,19 @@ impl<'l> PathSlice<'l> {
     }
 }
 
-//impl<'l> IntoIterator for PathSlice<'l> {
-//    type Item = PathEvent;
-//    type IntoIter = Iter<'l>;
-//
-//    fn into_iter(self) -> Iter<'l> { self.iter() }
-//}
+impl<'l> IntoIterator for PathSlice<'l> {
+    type Item = PathEvent;
+    type IntoIter = Iter<'l>;
+
+    fn into_iter(self) -> Iter<'l> { self.iter() }
+}
+
+impl<'l, 'a> IntoIterator for &'a PathSlice<'l> {
+    type Item = PathEvent;
+    type IntoIter = Iter<'l>;
+
+    fn into_iter(self) -> Iter<'l> { self.iter() }
+}
 
 /// Builds path object using the FlatPathBuilder interface.
 ///

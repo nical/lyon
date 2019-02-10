@@ -139,7 +139,7 @@
 //!     {
 //!         // Compute the tessellation.
 //!         tessellator.tessellate_path(
-//!             path.path_iter(),
+//!             &path,
 //!             &FillOptions::default(),
 //!             &mut BuffersBuilder::new(&mut geometry, |vertex : FillVertex| {
 //!                 MyVertex {

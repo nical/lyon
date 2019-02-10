@@ -31,14 +31,14 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
         let ok = match cmd.tessellator {
             Tessellator::Default => {
                 FillTessellator::new().tessellate_path(
-                    cmd.path.path_iter(),
+                    &cmd.path,
                     &options,
                     &mut BuffersBuilder::new(&mut buffers, VertexCtor)
                 ).is_ok()
             }
             Tessellator::Tess2 => {
                 tess2::FillTessellator::new().tessellate_path(
-                    cmd.path.path_iter(),
+                    &cmd.path,
                     &options,
                     &mut BuffersBuilder::new(&mut buffers, Identity)
                 ).is_ok()
@@ -53,7 +53,7 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
 
     if let Some(options) = cmd.stroke {
         let ok = StrokeTessellator::new().tessellate_path(
-            cmd.path.path_iter(),
+            &cmd.path,
             &options,
             &mut BuffersBuilder::new(&mut buffers, VertexCtor)
         ).is_ok();

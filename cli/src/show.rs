@@ -27,7 +27,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     if let Some(options) = cmd.stroke {
         stroke_width = options.line_width;
         StrokeTessellator::new().tessellate_path(
-            cmd.path.path_iter(),
+            cmd.path.iter(),
             &options,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
         ).unwrap();
@@ -37,7 +37,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         let mut path = Path::builder();
         let mut hatcher = Hatcher::new();
         hatcher.hatch_path(
-            cmd.path.path_iter(),
+            cmd.path.iter(),
             &hatch.options,
             &mut RegularHatchingPattern {
                 interval: hatch.spacing,
@@ -51,7 +51,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         let hatched_path = path.build();
 
         StrokeTessellator::new().tessellate_path(
-            hatched_path.path_iter(),
+            hatched_path.iter(),
             &hatch.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
         ).unwrap();
@@ -61,7 +61,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         let mut path = Path::builder();
         let mut hatcher = Hatcher::new();
         hatcher.dot_path(
-            cmd.path.path_iter(),
+            cmd.path.iter(),
             &dots.options,
             &mut RegularDotPattern {
                 row_interval: dots.spacing,
@@ -74,7 +74,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         let dotted_path = path.build();
 
         StrokeTessellator::new().tessellate_path(
-            dotted_path.path_iter(),
+            dotted_path.iter(),
             &dots.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
         ).unwrap();
@@ -91,7 +91,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                     dbg_rx
                 });
                 tess.tessellate_path(
-                    cmd.path.path_iter(),
+                    cmd.path.iter(),
                     &options,
                     &mut BuffersBuilder::new(&mut geometry, WithId(0))
                 ).unwrap();
@@ -101,7 +101,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             }
             Tessellator::Tess2 => {
                 tess2::FillTessellator::new().tessellate_path(
-                    cmd.path.path_iter(),
+                    cmd.path.iter(),
                     &options,
                     &mut BuffersBuilder::new(&mut geometry, WithId(0))
                 ).unwrap();
@@ -417,7 +417,7 @@ fn get_debug_geometry(
     let path = edge_path.build();
 
     StrokeTessellator::new().tessellate_path(
-        path.path_iter(),
+        path.iter(),
         &StrokeOptions::default().dont_apply_line_width(),
         &mut BuffersBuilder::new(edges, WithId(2)),
     ).unwrap();
