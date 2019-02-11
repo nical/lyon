@@ -105,7 +105,7 @@ pub use line::{LineSegment, Line, LineEquation};
 #[doc(inline)]
 pub use arc::{Arc, SvgArc, ArcFlags};
 #[doc(inline)]
-pub use segment::Segment;
+pub use segment::{Segment, BezierSegment};
 #[doc(inline)]
 pub use monotonic::Monotonic;
 
