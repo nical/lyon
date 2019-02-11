@@ -4,19 +4,8 @@
 //!
 //! ## Overview
 //!
-//! This module provides a collection of traits to extend the `Iterator` trait with
-//! information about the state of the cursor moving along the path. This is useful
-//! because the way some events are described require to have information about the
-//! previous events. For example the event `LinTo` gives the next position and it is
-//! generally useful to have access to the current position in order to make something
-//! out of it. Likewise, Some SVG events are given in relative coordinates and/or
-//! are expressed in a way that the first control point is deduced from the position
-//! of the previous control point.
-//!
-//! This module provides adapters between these iterator types. For example iterating
-//! over a sequence of SVG events can be automatically translated into iterating over
-//! simpler path events which express all positions with absolute coordinates, among
-//! other things.
+//! This module provides a collection of traits to extend the `Iterator` trait when
+//! iterating over paths.
 //!
 //! ## Examples
 //!
@@ -30,7 +19,7 @@
 //!     let events = vec![
 //!         SvgEvent::MoveTo(point(1.0, 1.0)),
 //!         SvgEvent::RelativeQuadraticTo(vector(4.0, 5.0), vector(-1.0, 4.0)),
-//!         SvgEvent::SmoothCubicTo(point(3.0, 1.0), point(10.0, -3.0)),
+//!         SvgEvent::CubicTo(point(3.0, 0.0), point(3.0, 1.0), point(10.0, -3.0)),
 //!         SvgEvent::Close,
 //!     ];
 //!
@@ -42,8 +31,6 @@
 //!
 //!     // Make it a PathEvent iterator.
 //!     let path_iter = svg_path_iter.path_events();
-//!     // Equivalent to:
-//!     // let path_iter = PathEvents::new(svg_path_iter);
 //!
 //!     // Make it an iterator over even simpler primitives: FlattenedEvent,
 //!     // which do not contain any curve. To do so we approximate each curve
@@ -53,8 +40,6 @@
 //!     // The beauty of this approach is that the flattening happens lazily
 //!     // while iterating without allocating memory for the path.
 //!     let flattened_iter = path_iter.flattened(0.01);
-//!     // equivalent to:
-//!     // let flattened = Flattened::new(0.01, path_iter);
 //!
 //!     for evt in flattened_iter {
 //!         match evt {
@@ -66,7 +51,7 @@
 //! }
 //! ```
 //!
-//! An equivalent (but shorter) version of the above code takes advantage of the
+//! An equivalent (shorter) version of the above code takes advantage of the
 //! fact you can get a flattening iterator directly from an `SvgIterator`:
 //!
 //! ```
@@ -88,12 +73,76 @@
 //!     }
 //! }
 //! ```
-
+//!
+//! Sometimes, working with segments directly without dealing with MoveTo/Close events
+//! can be more convenient:
+//!
+//! ```
+//! extern crate lyon_path;
+//! use lyon_path::iterator::*;
+//! use lyon_path::math::{point, vector};
+//! use lyon_path::geom::BezierSegment;
+//! use lyon_path::Path;
+//!
+//! fn main() {
+//!     // In practice it is more common to iterate over Path objects than vectors
+//!     // of SVG commands (the former can be constructed from the latter).
+//!     let mut builder = Path::builder();
+//!     builder.move_to(point(1.0, 1.0));
+//!     builder.line_to(point(2.0, 1.0));
+//!     builder.quadratic_bezier_to(point(2.0, 2.0), point(1.0, 2.0));
+//!     builder.cubic_bezier_to(point(0.0, 2.0), point(0.0, 0.0), point(1.0, 0.0));
+//!     let path = builder.build();
+//!
+//!     // Iterate over bézier segments directly.
+//!     for segment in path.iter().bezier_segments() {
+//!         match segment {
+//!             BezierSegment::Linear(segment) => { println!("{:?}", segment); }
+//!             BezierSegment::Quadratic(segment) => { println!("{:?}", segment); }
+//!             BezierSegment::Cubic(segment) => { println!("{:?}", segment); }
+//!         }
+//!     }
+//!
+//!     // It is also possible to iterate over line segments directly with flattened paths.
+//!     for segment in path.iter().flattened(0.1).line_segments() {
+//!         println!("line segment {:?} -> {:?}", segment.from, segment.to);
+//!     }
+//! }
+//! ```
+//!
+//! Chaining the provided iterators allow performing some path manipulations lazily
+//! without allocating actual path objects to hold the result of the transformations.
+//!
+//! ```
+//! extern crate lyon_path;
+//! use lyon_path::iterator::*;
+//! use lyon_path::geom::euclid::{Angle, Transform2D};
+//! use lyon_path::math::point;
+//! use lyon_path::Path;
+//!
+//! fn main() {
+//!     // In practice it is more common to iterate over Path objects than vectors
+//!     // of SVG commands (the former can be constructed from the latter).
+//!     let mut builder = Path::builder();
+//!     builder.move_to(point(1.0, 1.0));
+//!     builder.line_to(point(2.0, 1.0));
+//!     builder.quadratic_bezier_to(point(2.0, 2.0), point(1.0, 2.0));
+//!     builder.cubic_bezier_to(point(0.0, 2.0), point(0.0, 0.0), point(1.0, 0.0));
+//!     builder.close();
+//!     let path = builder.build();
+//!
+//!     let mut transform = Transform2D::create_rotation(Angle::radians(1.0));
+//!
+//!     for evt in path.iter().transformed(&transform).bezier_segments() {
+//!         // ...
+//!     }
+//! }
+//! ```
 use std::iter;
 
 use math::*;
 use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
-use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
+use geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
 use geom::arc::*;
 use geom::arrayvec::ArrayVec;
 use builder::SvgBuilder;
@@ -109,6 +158,11 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     /// Returns an iterator applying a 2D transform to all of its events.
     fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
         Transformed::new(mat, self)
+    }
+
+    /// Returns an iterator of segments.
+    fn bezier_segments(self) -> BezierSegments<Self> {
+        BezierSegments { iter: self }
     }
 }
 
@@ -156,6 +210,11 @@ pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
     fn length(self) -> f32 {
         flattened_path_length(self)
     }
+
+    /// Returns an iterator of line segments.
+    fn line_segments(self) -> LineSegments<Self> {
+        LineSegments { iter: self }
+    }
 }
 
 impl<Iter> FlattenedIterator for Iter
@@ -188,6 +247,7 @@ where
     Iter: Iterator<Item = QuadraticEvent>,
 {}
 
+/// Turns an iterator of SVG path commands into an iterator of `PathEvent`.
 pub struct PathEvents<SvgIter> {
     it: SvgIter,
     arc_to_cubics: Vec<CubicBezierSegment<f32>>,
@@ -602,8 +662,48 @@ where
     }
 }
 
+/// Turns an iterator of `PathEvent` into an iterator of `BezierSegment<f32>`.
+pub struct BezierSegments<Iter> {
+    iter: Iter
+}
+
+impl<Iter> Iterator for BezierSegments<Iter>
+where Iter: Iterator<Item = PathEvent> {
+    type Item = BezierSegment<f32>;
+    fn next(&mut self) -> Option<BezierSegment<f32>> {
+        match self.iter.next() {
+            Some(PathEvent::Line(segment))
+            | Some(PathEvent::Close(segment))
+            => Some(BezierSegment::Linear(segment)),
+            Some(PathEvent::Quadratic(segment)) => Some(BezierSegment::Quadratic(segment)),
+            Some(PathEvent::Cubic(segment)) => Some(BezierSegment::Cubic(segment)),
+            Some(PathEvent::MoveTo(..)) => self.next(),
+            None => None,
+        }
+    }
+}
+
+/// Turns an iterator of `FlattenedEvent` into an iterator of `LineSegment<f32>`.
+pub struct LineSegments<Iter> {
+    iter: Iter
+}
+
+impl<Iter> Iterator for LineSegments<Iter>
+where Iter: Iterator<Item = FlattenedEvent> {
+    type Item = LineSegment<f32>;
+    fn next(&mut self) -> Option<LineSegment<f32>> {
+        match self.iter.next() {
+            Some(FlattenedEvent::Line(segment))
+            | Some(FlattenedEvent::Close(segment))
+            => Some(segment),
+            Some(FlattenedEvent::MoveTo(..)) => self.next(),
+            None => None,
+        }
+    }
+}
+
 /// Computes the length of a flattened path.
-pub fn flattened_path_length<T>(iter: T) -> f32
+fn flattened_path_length<T>(iter: T) -> f32
 where T: Iterator<Item = FlattenedEvent> {
     let mut length = 0.0;
     for evt in iter {
