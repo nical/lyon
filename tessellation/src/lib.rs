@@ -224,7 +224,7 @@ pub use geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, Buf
 pub type TessellationResult = Result<Count, TessellationError>;
 
 /// The fill tessellator's error enumeration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TessellationError {
     UnsupportedParamater,
     InvalidVertex,
@@ -232,7 +232,7 @@ pub enum TessellationError {
     Internal(InternalError)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum InternalError {
     E01,
     E02,
@@ -611,13 +611,13 @@ impl Default for FillOptions {
 pub enum OnError {
     /// Panic as soon as the error is detected.
     ///
-    /// Most suitabke for testing.
+    /// Most suitable for testing.
     Panic,
-    /// Interrupt tesselation and return an error.
+    /// Interrupt tessellation and return an error.
     Stop,
     /// Attempt to continue if possible, stop otherwise.
     ///
-    /// The resulting tessellation may be locallt incorrect.
+    /// The resulting tessellation may be locally incorrect.
     Recover,
 }
 
