@@ -8,7 +8,7 @@ use basic_shapes::circle_flattening_step;
 use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::PathEvent;
 use StrokeVertex as Vertex;
-use {Side, LineCap, LineJoin, StrokeOptions, TessellationResult};
+use {Side, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult};
 
 use std::f32::consts::PI;
 
@@ -104,6 +104,10 @@ impl StrokeTessellator {
 
             for evt in input {
                 stroker.path_event(evt);
+                if let Some(error) = stroker.error {
+                    stroker.output.abort_geometry();
+                    return Err(error)
+                }
             }
 
             stroker.build()?;
@@ -120,7 +124,13 @@ macro_rules! add_vertex {
             v.position += v.normal * $builder.options.line_width / 2.0;
         }
 
-        $builder.output.add_vertex(v).ok().unwrap() // TODO!
+        match $builder.output.add_vertex(v) {
+            Ok(v) => v,
+            Err(e) => {
+                $builder.builder_error(e);
+                VertexId(0)
+            }
+        }
     }}
 }
 
@@ -140,6 +150,7 @@ pub struct StrokeBuilder<'l> {
     sub_path_start_length: f32,
     options: StrokeOptions,
     previous_command_was_move: bool,
+    error: Option<TessellationError>,
     output: &'l mut dyn GeometryBuilder<Vertex>,
 }
 
@@ -307,11 +318,19 @@ impl<'l> StrokeBuilder<'l> {
             sub_path_start_length: 0.0,
             options: *options,
             previous_command_was_move: false,
+            error: None,
             output: builder,
         }
     }
 
     pub fn set_options(&mut self, options: &StrokeOptions) { self.options = *options; }
+
+    #[cold]
+    fn builder_error(&mut self, e: GeometryBuilderError) {
+        if self.error.is_none() {
+            self.error = Some(e.into());
+        }
+    }
 
     fn tessellate_empty_square_cap(&mut self) {
         let a = add_vertex!(
@@ -555,7 +574,7 @@ impl<'l> StrokeBuilder<'l> {
             0.0
         };
 
-        tess_round_cap(
+        if let Err(e) = tess_round_cap(
             center,
             (left_angle, mid_angle),
             radius,
@@ -566,8 +585,10 @@ impl<'l> StrokeBuilder<'l> {
             apply_width,
             !is_start,
             self.output
-        );
-        tess_round_cap(
+        ) {
+            self.builder_error(e);
+        }
+        if let Err(e) = tess_round_cap(
             center,
             (mid_angle, right_angle),
             radius,
@@ -578,7 +599,9 @@ impl<'l> StrokeBuilder<'l> {
             apply_width,
             !is_start,
             self.output
-        );
+        ) {
+            self.builder_error(e);
+        }
     }
 
     fn tessellate_join(&mut self,
@@ -608,7 +631,7 @@ impl<'l> StrokeBuilder<'l> {
             }
         );
 
-        let threshold = 0.95; // TODO: look for a good constant here.
+        let threshold = 0.95;
         if prev_tangent.dot(next_tangent) >= threshold {
             // The two edges are almost aligned, just use a simple miter join.
             // TODO: the 0.95 threshold above is completely arbitrary and needs
@@ -888,9 +911,9 @@ fn tess_round_cap(
     line_width: f32,
     invert_winding: bool,
     output: &mut dyn GeometryBuilder<Vertex>
-) {
+) -> Result<(), GeometryBuilderError> {
     if num_recursions == 0 {
-        return;
+        return Ok(());
     }
 
     let mid_angle = (angle.0 + angle.1) * 0.5;
@@ -902,7 +925,7 @@ fn tess_round_cap(
         normal,
         advancement,
         side,
-    }).ok().unwrap(); // TODO
+    })?;
 
     let (v1, v2, v3) = if invert_winding {
         (vertex, vb, va)
@@ -923,7 +946,7 @@ fn tess_round_cap(
         line_width,
         invert_winding,
         output
-    );
+    )?;
     tess_round_cap(
         center,
         (mid_angle, angle.1),
@@ -936,7 +959,7 @@ fn tess_round_cap(
         line_width,
         invert_winding,
         output
-    );
+    )
 }
 
 #[cfg(test)]
