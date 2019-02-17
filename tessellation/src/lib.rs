@@ -232,6 +232,9 @@ pub enum TessellationError {
     Internal(InternalError)
 }
 
+/// Something unexpectedly put the tessellator in a bad state.
+///
+/// If you run into this error code, please [file an issue](https://github.com/nical/lyon/issues).
 #[derive(Clone, Debug, PartialEq)]
 pub enum InternalError {
     E01,

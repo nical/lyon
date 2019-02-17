@@ -1,7 +1,7 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
 
-//! 2d rendering on the GPU in rust.
+//! GPU-based 2D graphics rendering tools in Rust using path tessellation.
 //!
 //! ![logo](https://nical.github.io/lyon-doc/lyon-logo.svg)
 //!

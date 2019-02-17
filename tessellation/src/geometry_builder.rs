@@ -315,7 +315,7 @@ impl<VertexType, IndexType> VertexBuffers<VertexType, IndexType> {
 /// `BuffersBuilders` record the vertex offset from when they are created so that algorithms using
 /// them don't need to worry about offsetting indices if some geometry was added beforehand. This
 /// means that from the point of view of a `BuffersBuilder` user, the first added vertex is at always
-/// offset at the offset 0 and `VertexBuilfer` takes care of translating indices adequately.
+/// offset at the offset 0 and `VertexBuilder` takes care of translating indices adequately.
 ///
 /// Often, algorithms are built to generate vertex positions without knowledge of eventual other
 /// vertex attributes. The `VertexConstructor` does the translation from generic `Input` to `VertexType`.
