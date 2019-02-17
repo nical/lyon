@@ -1,3 +1,5 @@
+/// Split paths with a line or line segment.
+
 use math::*;
 use geom::{Line, LineSegment};
 use std::cmp::PartialOrd;
@@ -16,7 +18,10 @@ struct IntersectingEdge {
     positive: bool,
 }
 
-/// A context object that can split the sub paths of `AdvancedPath`.
+/// A context object that can split paths.
+///
+/// When splitting several paths, reusing the `Splitter` object can improve performance
+/// by reusing memory allocations.
 pub struct Splitter {
     intersecting_edges: Vec<IntersectingEdge>,
     point_buffer: Vec<Point>,
