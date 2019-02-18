@@ -1,0 +1,12 @@
+[package]
+name = "path_bench"
+version = "0.0.1"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+workspace = "../.."
+
+[[bin]]
+name = "path_bench"
+
+[dependencies]
+lyon = { path = "../../", features = ["extra"] }
+bencher = "0.1.1"

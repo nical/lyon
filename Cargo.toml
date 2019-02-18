@@ -57,5 +57,6 @@ members = [
     "examples/glium_basic_shapes",
     "examples/walk_path",
     "bench/tess",
+    "bench/path",
     "bench/geom"
 ]

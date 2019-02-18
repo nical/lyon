@@ -69,13 +69,13 @@
 //! builder.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0));
 //! builder.close();
 //!
-//! // The resulting path contains only MoveTo, LineTo and Close events.
+//! // The resulting path contains only Begin, Line and End events.
 //! let path = builder.build();
 //! ```
 //!
 
 use crate::math::*;
-use crate::events::{PathEvent, FlattenedEvent, SvgEvent};
+use crate::events::{PathEvent, FlattenedEvent};
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
 use crate::path_state::PathState;
 use std::marker::Sized;
@@ -108,16 +108,18 @@ pub trait FlatPathBuilder {
 
     fn current_position(&self) -> Point;
 
-    fn flat_event(&mut self, event: FlattenedEvent) {
+    fn flat_event(&mut self, event: FlattenedEvent<Point>) {
         match event {
-            FlattenedEvent::MoveTo(to) => {
-                self.move_to(to);
+            FlattenedEvent::Begin { at } => {
+                self.move_to(at);
             }
-            FlattenedEvent::Line(segment) => {
-                self.line_to(segment.to);
+            FlattenedEvent::Line { to, .. } => {
+                self.line_to(to);
             }
-            FlattenedEvent::Close(..) => {
+            FlattenedEvent::End { close: true, .. } => {
                 self.close();
+            }
+            FlattenedEvent::End { close: false, .. } => {
             }
         }
     }
@@ -135,22 +137,24 @@ pub trait PathBuilder: FlatPathBuilder {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
     fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle);
 
-    fn path_event(&mut self, event: PathEvent) {
+    fn path_event(&mut self, event: PathEvent<Point, Point>) {
         match event {
-            PathEvent::MoveTo(to) => {
-                self.move_to(to);
+            PathEvent::Begin { at } => {
+                self.move_to(at);
             }
-            PathEvent::Line(segment) => {
-                self.line_to(segment.to);
+            PathEvent::Line { to, .. } => {
+                self.line_to(to);
             }
-            PathEvent::Quadratic(segment) => {
-                self.quadratic_bezier_to(segment.ctrl, segment.to);
+            PathEvent::Quadratic { ctrl, to, .. } => {
+                self.quadratic_bezier_to(ctrl, to);
             }
-            PathEvent::Cubic(segment) => {
-                self.cubic_bezier_to(segment.ctrl1, segment.ctrl2, segment.to);
+            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                self.cubic_bezier_to(ctrl1, ctrl2, to);
             }
-            PathEvent::Close(..) => {
+            PathEvent::End { close : true, .. } => {
                 self.close();
+            }
+            PathEvent::End { close : false, .. } => {
             }
         }
     }
@@ -182,72 +186,6 @@ pub trait SvgBuilder: PathBuilder {
         flags: ArcFlags,
         to: Vector,
     );
-
-    fn svg_event(&mut self, event: SvgEvent) {
-        match event {
-            SvgEvent::MoveTo(to) => {
-                self.move_to(to);
-            }
-            SvgEvent::LineTo(to) => {
-                self.line_to(to);
-            }
-            SvgEvent::QuadraticTo(ctrl, to) => {
-                self.quadratic_bezier_to(ctrl, to);
-            }
-            SvgEvent::CubicTo(ctrl1, ctrl2, to) => {
-                self.cubic_bezier_to(ctrl1, ctrl2, to);
-            }
-            SvgEvent::Close => {
-                self.close();
-            }
-
-            SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
-                self.arc_to(radii, x_rotation, flags, to);
-            }
-            SvgEvent::RelativeArcTo(radii, x_rotation, flags, to) => {
-                self.relative_arc_to(radii, x_rotation, flags, to);
-            }
-
-            SvgEvent::RelativeMoveTo(to) => {
-                self.relative_move_to(to);
-            }
-            SvgEvent::RelativeLineTo(to) => {
-                self.relative_line_to(to);
-            }
-            SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-                self.relative_quadratic_bezier_to(ctrl, to);
-            }
-            SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
-                self.relative_cubic_bezier_to(ctrl1, ctrl2, to);
-            }
-
-            SvgEvent::HorizontalLineTo(x) => {
-                self.horizontal_line_to(x);
-            }
-            SvgEvent::VerticalLineTo(y) => {
-                self.vertical_line_to(y);
-            }
-            SvgEvent::RelativeHorizontalLineTo(x) => {
-                self.relative_horizontal_line_to(x);
-            }
-            SvgEvent::RelativeVerticalLineTo(y) => {
-                self.relative_vertical_line_to(y);
-            }
-
-            SvgEvent::SmoothQuadraticTo(to) => {
-                self.smooth_quadratic_bezier_to(to);
-            }
-            SvgEvent::SmoothCubicTo(ctrl2, to) => {
-                self.smooth_cubic_bezier_to(ctrl2, to);
-            }
-            SvgEvent::SmoothRelativeQuadraticTo(to) => {
-                self.smooth_relative_quadratic_bezier_to(to);
-            }
-            SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-                self.smooth_relative_cubic_bezier_to(ctrl2, to);
-            }
-        }
-    }
 }
 
 /// Build a path from simple lists of points.

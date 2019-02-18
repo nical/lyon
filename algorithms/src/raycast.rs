@@ -2,7 +2,7 @@
 
 use crate::path::PathEvent;
 use crate::math::{Point, point, Vector, vector};
-use crate::geom::{LineSegment, Line};
+use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Line};
 use std::f32;
 
 pub struct Ray {
@@ -22,7 +22,7 @@ pub struct Hit {
 /// Find the closest collision between a ray and the path.
 pub fn raycast_path<Iter>(ray: &Ray, path: Iter, tolerance: f32) -> Option<Hit>
 where
-    Iter: Iterator<Item=PathEvent>,
+    Iter: Iterator<Item=PathEvent<Point, Point>>,
 {
     let ray_len = ray.direction.square_length();
     if ray_len == 0.0 || ray_len.is_nan() {
@@ -41,23 +41,32 @@ where
 
     for evt in path {
         match evt {
-            PathEvent::MoveTo(..) => {}
-            PathEvent::Line(ref segment) | PathEvent::Close(ref segment) => {
-                test_segment(&mut state, segment);
+            PathEvent::Begin { .. } => {}
+            PathEvent::Line { from, to } => {
+                test_segment(&mut state, &LineSegment { from, to });
             }
-            PathEvent::Quadratic(ref segment) => {
-                let mut prev = segment.from;
-                segment.for_each_flattened(tolerance, &mut|p| {
-                    test_segment(&mut state, &LineSegment { from: prev, to: p });
-                    prev = p;
-                });
+            PathEvent::End { last, first, .. } => {
+                test_segment(&mut state, &LineSegment { from: last, to: first });
             }
-            PathEvent::Cubic(ref segment) => {
-                let mut prev = segment.from;
-                segment.for_each_flattened(tolerance, &mut|p| {
-                    test_segment(&mut state, &LineSegment { from: prev, to: p });
-                    prev = p;
-                });
+            PathEvent::Quadratic { from, ctrl, to } => {
+                let mut prev = from;
+                QuadraticBezierSegment { from, ctrl, to }.for_each_flattened(
+                    tolerance,
+                    &mut|p| {
+                        test_segment(&mut state, &LineSegment { from: prev, to: p });
+                        prev = p;
+                    }
+                );
+            }
+            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                let mut prev = from;
+                CubicBezierSegment { from, ctrl1, ctrl2, to }.for_each_flattened(
+                    tolerance,
+                    &mut|p| {
+                        test_segment(&mut state, &LineSegment { from: prev, to: p });
+                        prev = p;
+                    }
+                );
             }
         }
     }

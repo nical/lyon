@@ -1,7 +1,8 @@
 //! Bounding rectangle computation for paths.
 
-use crate::path::{PathEvent, QuadraticEvent, FlattenedEvent};
+use crate::path::{PathEvent, FlattenedEvent};
 use crate::math::{Point, point, Rect};
+use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
@@ -35,62 +36,42 @@ pub trait FastBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
-impl FastBoundingRect for PathEvent {
+impl FastBoundingRect for PathEvent<Point, Point> {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
-            PathEvent::MoveTo(to) => {
+            PathEvent::Begin { at } => {
+                *min = Point::min(*min, *at);
+                *max = Point::max(*max, *at);
+            }
+            PathEvent::Line { to, .. } => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
             }
-            PathEvent::Line(ref segment) => {
-                *min = Point::min(*min, segment.to);
-                *max = Point::max(*max, segment.to);
+            PathEvent::Quadratic { ctrl, to, .. } => {
+                *min = Point::min(*min, Point::min(*ctrl, *to));
+                *max = Point::max(*max, Point::max(*ctrl, *to));
             }
-            PathEvent::Quadratic(ref segment) => {
-                *min = Point::min(*min, Point::min(segment.ctrl, segment.to));
-                *max = Point::max(*max, Point::max(segment.ctrl, segment.to));
+            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                *min = Point::min(*min, Point::min(*ctrl1, Point::min(*ctrl2, *to)));
+                *max = Point::max(*max, Point::max(*ctrl1, Point::max(*ctrl2, *to)));
             }
-            PathEvent::Cubic(ref segment) => {
-                *min = Point::min(*min, Point::min(segment.ctrl1, Point::min(segment.ctrl2, segment.to)));
-                *max = Point::max(*max, Point::max(segment.ctrl1, Point::max(segment.ctrl2, segment.to)));
-            }
-            PathEvent::Close(..) => {}
+            PathEvent::End { .. } => {}
         }
     }
 }
 
-impl FastBoundingRect for QuadraticEvent {
+impl FastBoundingRect for FlattenedEvent<Point> {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
-            QuadraticEvent::MoveTo(to) => {
+            FlattenedEvent::Begin { at } => {
+                *min = Point::min(*min, *at);
+                *max = Point::max(*max, *at);
+            }
+            FlattenedEvent::Line { to, .. } => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
             }
-            QuadraticEvent::Line(ref segment) => {
-                *min = Point::min(*min, segment.to);
-                *max = Point::max(*max, segment.to);
-            }
-            QuadraticEvent::Quadratic(ref segment) => {
-                *min = Point::min(*min, Point::min(segment.ctrl, segment.to));
-                *max = Point::max(*max, Point::max(segment.ctrl, segment.to));
-            }
-            QuadraticEvent::Close(..) => {}
-        }
-    }
-}
-
-impl FastBoundingRect for FlattenedEvent {
-    fn min_max(&self, min: &mut Point, max: &mut Point) {
-        match self {
-            FlattenedEvent::MoveTo(to) => {
-                *min = Point::min(*min, *to);
-                *max = Point::max(*max, *to);
-            }
-            FlattenedEvent::Line(segment) => {
-                *min = Point::min(*min, segment.to);
-                *max = Point::max(*max, segment.to);
-            }
-            FlattenedEvent::Close(..) => {}
+            FlattenedEvent::End { .. } => {}
         }
     }
 }
@@ -124,49 +105,28 @@ pub trait TightBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
-impl TightBoundingRect for PathEvent {
+impl TightBoundingRect for PathEvent<Point, Point> {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
-            PathEvent::MoveTo(to) => {
+            PathEvent::Begin { at } => {
+                *min = Point::min(*min, *at);
+                *max = Point::max(*max, *at);
+            }
+            PathEvent::Line { to, .. } => {
                 *min = Point::min(*min, *to);
                 *max = Point::max(*max, *to);
             }
-            PathEvent::Line(ref segment) => {
-                *min = Point::min(*min, segment.to);
-                *max = Point::max(*max, segment.to);
-            }
-            PathEvent::Quadratic(ref segment) => {
-                let r = segment.bounding_rect();
+            PathEvent::Quadratic { from, ctrl, to } => {
+                let r = QuadraticBezierSegment { from: *from, ctrl: *ctrl, to: *to }.bounding_rect();
                 *min = Point::min(*min, r.min());
                 *max = Point::max(*max, r.max());
             }
-            PathEvent::Cubic(ref segment) => {
-                let r = segment.bounding_rect();
+            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                let r = CubicBezierSegment { from: *from, ctrl1: *ctrl1, ctrl2: *ctrl2, to: *to }.bounding_rect();
                 *min = Point::min(*min, r.min());
                 *max = Point::max(*max, r.max());
             }
-            PathEvent::Close(..) => {}
-        }
-    }
-}
-
-impl TightBoundingRect for QuadraticEvent {
-    fn min_max(&self, min: &mut Point, max: &mut Point) {
-        match self {
-            QuadraticEvent::MoveTo(to) => {
-                *min = Point::min(*min, *to);
-                *max = Point::max(*max, *to);
-            }
-            QuadraticEvent::Line(segment) => {
-                *min = Point::min(*min, segment.to);
-                *max = Point::max(*max, segment.to);
-            }
-            QuadraticEvent::Quadratic(ref segment) => {
-                let r = segment.bounding_rect();
-                *min = Point::min(*min, r.min());
-                *max = Point::max(*max, r.max());
-            }
-            QuadraticEvent::Close(..) => {}
+            PathEvent:: End { .. } => {}
         }
     }
 }
