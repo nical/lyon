@@ -1,9 +1,9 @@
-use crate::parser::xmlparser::{StrSpan, FromSpan};
+use crate::parser::xmlparser::FromSpan;
 use crate::parser::path::{Tokenizer, Token};
 
 use crate::path::geom::Arc;
 use crate::path::math::{Vector, vector, Point, point, Angle};
-use crate::path::{SvgEvent, ArcFlags};
+use crate::path::{ArcFlags};
 use crate::path::builder::*;
 
 use std::f32::consts::PI;
@@ -36,121 +36,83 @@ pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::P
 where
     Builder: SvgBuilder + Build
 {
-    for item in PathTokenizer::new(src) {
-        match item {
-            Ok(event) => { builder.svg_event(event); }
-            Err(err) => { return Err(err); }
-        }
+    for item in Tokenizer::from_str(src) {
+        svg_event(&item, &mut builder);
     }
 
     Ok(builder.build())
 }
 
-
-pub struct PathTokenizer<'l> {
-    tokenizer: Tokenizer<'l>
-}
-
-impl<'l> PathTokenizer<'l> {
-    pub fn new(text: &str) -> PathTokenizer {
-        PathTokenizer {
-            tokenizer: Tokenizer::from_str(text)
-        }
-    }
-
-    pub fn from_span(span: StrSpan) -> PathTokenizer {
-        PathTokenizer {
-            tokenizer: Tokenizer::from_span(span)
-        }
-    }
-}
-
-impl<'l> Iterator for PathTokenizer<'l> {
-    type Item = Result<SvgEvent, ParseError>;
-
-    fn next(&mut self) -> Option<Result<SvgEvent, ParseError>> {
-        self.tokenizer.next().map(|token| { Ok(svg_event(&token)) })
-    }
-}
-
-fn svg_event(token: &Token) -> SvgEvent {
+fn svg_event<Builder>(token: &Token, builder: &mut Builder)
+where Builder: SvgBuilder {
     fn vec2(x: f64, y: f64) -> Vector { vector(x as f32, y as f32) }
     fn point2(x: f64, y: f64) -> Point { point(x as f32, y as f32) }
     match *token {
-        Token::MoveTo { abs, x, y } => {
-            if abs {
-                SvgEvent::MoveTo(point2(x, y))
-            } else {
-                SvgEvent::RelativeMoveTo(vec2(x, y))
-            }
-        },
-        Token::LineTo { abs, x, y } => {
-            if abs {
-                SvgEvent::LineTo(point2(x, y))
-            } else {
-                SvgEvent::RelativeLineTo(vec2(x, y))
-            }
-        },
-        Token::HorizontalLineTo { abs, x } => {
-            if abs {
-                SvgEvent::HorizontalLineTo(x as f32)
-            } else {
-                SvgEvent::RelativeHorizontalLineTo(x as f32)
-            }
-        },
-        Token::VerticalLineTo { abs, y } => {
-            if abs {
-                SvgEvent::VerticalLineTo(y as f32)
-            } else {
-                SvgEvent::RelativeVerticalLineTo(y as f32)
-            }
-        },
-        Token::CurveTo { abs, x1, y1, x2, y2, x, y } => {
-            if abs {
-                SvgEvent::CubicTo(point2(x1, y1), point2(x2, y2), point2(x, y))
-            } else {
-                SvgEvent::RelativeCubicTo(vec2(x1, y1), vec2(x2, y2), vec2(x, y))
-            }
-        },
-        Token::SmoothCurveTo { abs, x2, y2, x, y } => {
-            if abs {
-                SvgEvent::SmoothCubicTo(point2(x2, y2), point2(x, y))
-            } else {
-                SvgEvent::SmoothRelativeCubicTo(vec2(x2, y2), vec2(x, y))
-            }
-        },
-        Token::Quadratic { abs, x1, y1, x, y } => {
-            if abs {
-                SvgEvent::QuadraticTo(point2(x1, y1), point2(x, y))
-            } else {
-                SvgEvent::RelativeQuadraticTo(vec2(x1, y1), vec2(x, y))
-            }
-        },
-        Token::SmoothQuadratic { abs, x, y } => {
-            if abs {
-                SvgEvent::SmoothQuadraticTo(point2(x, y))
-            } else {
-                SvgEvent::SmoothRelativeQuadraticTo(vec2(x, y))
-            }
-        },
-        Token::EllipticalArc { abs, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
-            if abs {
-                SvgEvent::ArcTo(
-                    vec2(rx, ry),
-                    Angle::degrees(x_axis_rotation as f32),
-                    ArcFlags { large_arc: large_arc, sweep: sweep },
-                    point2(x, y),
-                )
-            } else {
-                SvgEvent::RelativeArcTo(
-                    vec2(rx, ry),
-                    Angle::degrees(x_axis_rotation as f32),
-                    ArcFlags { large_arc: large_arc, sweep: sweep },
-                    vec2(x, y),
-                )
-            }
-        },
-        Token::ClosePath { .. } => { SvgEvent::Close },
+        Token::MoveTo { abs: true, x, y } => {
+            builder.move_to(point2(x, y));
+        }
+        Token::MoveTo { abs: false, x, y } => {
+            builder.relative_move_to(vec2(x, y));
+        }
+        Token::LineTo { abs: true, x, y } => {
+            builder.line_to(point2(x, y));
+        }
+        Token::LineTo { abs: false, x, y } => {
+            builder.relative_line_to(vec2(x, y));
+        }
+        Token::HorizontalLineTo { abs: true, x } => {
+            builder.horizontal_line_to(x as f32);
+        }
+        Token::HorizontalLineTo { abs: false, x } => {
+            builder.relative_horizontal_line_to(x as f32);
+        }
+        Token::VerticalLineTo { abs: true, y } => {
+            builder.vertical_line_to(y as f32);
+        }
+        Token::VerticalLineTo { abs: false, y } => {
+            builder.relative_vertical_line_to(y as f32);
+        }
+        Token::CurveTo { abs: true, x1, y1, x2, y2, x, y } => {
+            builder.cubic_bezier_to(point2(x1, y1), point2(x2, y2), point2(x, y));
+        }
+        Token::CurveTo { abs: false, x1, y1, x2, y2, x, y } => {
+            builder.relative_cubic_bezier_to(vec2(x1, y1), vec2(x2, y2), vec2(x, y));
+        }
+        Token::SmoothCurveTo { abs: true, x2, y2, x, y } => {
+            builder.smooth_cubic_bezier_to(point2(x2, y2), point2(x, y));
+        }
+        Token::SmoothCurveTo { abs: false, x2, y2, x, y } => {
+            builder.smooth_relative_cubic_bezier_to(vec2(x2, y2), vec2(x, y));
+        }
+        Token::Quadratic { abs: true, x1, y1, x, y } => {
+            builder.quadratic_bezier_to(point2(x1, y1), point2(x, y));
+        }
+        Token::Quadratic { abs: false, x1, y1, x, y } => {
+            builder.relative_quadratic_bezier_to(vec2(x1, y1), vec2(x, y));
+        }
+        Token::SmoothQuadratic { abs: true, x, y } => {
+            builder.smooth_quadratic_bezier_to(point2(x, y));
+        }
+        Token::SmoothQuadratic { abs: false, x, y } => {
+            builder.smooth_relative_quadratic_bezier_to(vec2(x, y));
+        }
+        Token::EllipticalArc { abs: true, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
+            builder.arc_to(
+                vec2(rx, ry),
+                Angle::degrees(x_axis_rotation as f32),
+                ArcFlags { large_arc: large_arc, sweep: sweep },
+                point2(x, y),
+            );
+        }
+        Token::EllipticalArc { abs: false, rx, ry, x_axis_rotation, large_arc, sweep, x, y } => {
+            builder.relative_arc_to(
+                vec2(rx, ry),
+                Angle::degrees(x_axis_rotation as f32),
+                ArcFlags { large_arc: large_arc, sweep: sweep },
+                vec2(x, y),
+            );
+        }
+        Token::ClosePath { .. } => { builder.close(); },
     }
 }
 
@@ -158,7 +120,7 @@ fn svg_event(token: &Token) -> SvgEvent {
 /// A `PathBuilder` that builds a `String` representation of the path
 /// using the SVG syntax.
 ///
-/// No effort is put into making the serializer performant or make the
+/// No effort is put into making the serializer fast or make the
 /// output compact. Intended primarily for debugging purposes.
 pub struct PathSerializer {
     path: String,

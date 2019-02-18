@@ -11,16 +11,16 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
     let mut poly = Vec::new();
     for evt in path {
         match evt {
-            PathEvent::MoveTo(to) => {
+            PathEvent::Begin { at } => {
                 if poly.len() > 0 {
                     polygons.push(poly);
                 }
-                poly = vec![to];
+                poly = vec![at];
             }
-            PathEvent::Line(segment) => {
-                poly.push(segment.to);
+            PathEvent::Line { to, .. } => {
+                poly.push(to);
             }
-            PathEvent::Close(..) => {
+            PathEvent::End { .. } => {
                 if !poly.is_empty() {
                     polygons.push(poly);
                 }

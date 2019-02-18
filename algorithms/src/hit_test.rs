@@ -2,13 +2,13 @@
 
 use crate::path::{PathEvent, FillRule};
 use crate::math::Point;
-use crate::geom::LineSegment;
+use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
 use std::f32;
 
 /// Returns whether the point is inside the path.
 pub fn hit_test_path<Iter>(point: &Point, path: Iter, fill_rule: FillRule, tolerance: f32) -> bool
 where
-    Iter: Iterator<Item=PathEvent>,
+    Iter: Iterator<Item=PathEvent<Point, Point>>,
 {
     let winding = path_winding_number_at_position(point, path, tolerance);
 
@@ -21,7 +21,7 @@ where
 /// Compute the winding number of a given position with respect to the path.
 pub fn path_winding_number_at_position<Iter>(point: &Point, path: Iter, tolerance: f32) -> i32
 where
-    Iter: Iterator<Item=PathEvent>,
+    Iter: Iterator<Item=PathEvent<Point, Point>>,
 {
     // Loop over the edges and compute the winding number at that point by accumulating the
     // winding of all edges intersecting the horizontal line passing through our point which are
@@ -30,11 +30,15 @@ where
 
     for evt in path {
         match evt {
-            PathEvent::MoveTo(..) => {}
-            PathEvent::Line(ref segment) | PathEvent::Close(ref segment) => {
-                test_segment(*point, segment, &mut winding);
+            PathEvent::Begin { .. } => {}
+            PathEvent::Line { from, to } => {
+                test_segment(*point, &LineSegment { from, to }, &mut winding);
             }
-            PathEvent::Quadratic(ref segment) => {
+            PathEvent::End { last, first, .. } => {
+                test_segment(*point, &LineSegment { from: last, to: first }, &mut winding);
+            }
+            PathEvent::Quadratic { from, ctrl, to } => {
+                let segment = QuadraticBezierSegment { from, ctrl, to };
                 let (min, max) = segment.fast_bounding_range_y();
                 if min > point.y || max < point.y {
                     continue;
@@ -45,7 +49,8 @@ where
                     prev = p;
                 });
             }
-            PathEvent::Cubic(ref segment) => {
+            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                let segment = CubicBezierSegment { from, ctrl1, ctrl2, to };
                 let (min, max) = segment.fast_bounding_range_y();
                 if min > point.y || max < point.y {
                     continue;

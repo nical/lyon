@@ -36,7 +36,7 @@ impl FillTessellator {
         output: &mut dyn GeometryReceiver<Point>,
     ) -> Result<Count, ()>
     where
-        Iter: IntoIterator<Item = PathEvent>,
+        Iter: IntoIterator<Item = PathEvent<Point, Point>>,
     {
         let mut builder = FlattenedPath::builder().with_svg(options.tolerance);
 

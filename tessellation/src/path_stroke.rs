@@ -97,7 +97,7 @@ impl StrokeTessellator {
         builder: &mut dyn GeometryBuilder<Vertex>,
     ) -> TessellationResult
     where
-        Input: IntoIterator<Item = PathEvent>,
+        Input: IntoIterator<Item = PathEvent<Point, Point>>,
     {
         builder.begin_geometry();
         {

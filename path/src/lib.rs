@@ -47,6 +47,8 @@ pub extern crate serde;
 mod events;
 mod path_state;
 mod path;
+pub mod generic;
+pub mod polygon;
 pub mod iterator;
 pub mod builder;
 
@@ -58,6 +60,8 @@ pub use crate::geom::math as math;
 
 use std::ops::{Add, Sub};
 use std::u32;
+use std::fmt;
+use math::Point;
 
 pub type Index = u32;
 
@@ -125,4 +129,52 @@ impl From<VertexId> for i32 {
 }
 impl From<VertexId> for usize {
     fn from(v: VertexId) -> Self { v.0 as usize }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct CtrlPointId(pub u32);
+impl CtrlPointId {
+    //pub(crate) const INVALID: Self = CtrlPointId(!0u32);
+    pub fn to_usize(&self) -> usize { self.0 as usize }
+}
+
+impl fmt::Debug for CtrlPointId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct EndpointId(pub u32);
+impl EndpointId {
+    //pub(crate) const INVALID: Self = EndpointId(!0u32);
+    pub fn to_usize(&self) -> usize { self.0 as usize }
+}
+
+impl fmt::Debug for EndpointId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+pub trait Position : Clone {
+    fn position(&self) -> Point;
+    fn set_position(&mut self, pos: Point);
+}
+
+impl<U> Position for crate::geom::euclid::Point2D<f32, U> {
+    fn position(&self) -> Point { self.to_untyped() }
+    fn set_position(&mut self, pos: Point) { *self = Self::from_untyped(pos); }
+}
+
+impl Position for (f32, f32) {
+    fn position(&self) -> Point { Point::new(self.0, self.1) }
+    fn set_position(&mut self, pos: Point) { *self = (pos.x, pos.y); }
+}
+
+impl Position for [f32; 2] {
+    fn position(&self) -> Point { Point::new(self[0], self[1]) }
+    fn set_position(&mut self, pos: Point) { *self = [pos.x, pos.y]; }
 }
