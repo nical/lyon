@@ -135,22 +135,24 @@ pub trait PathBuilder: FlatPathBuilder {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
     fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle);
 
-    fn path_event(&mut self, event: PathEvent) {
+    fn path_event(&mut self, event: PathEvent<Point, Point>) {
         match event {
-            PathEvent::MoveTo(to) => {
-                self.move_to(to);
+            PathEvent::Begin { at } => {
+                self.move_to(at);
             }
-            PathEvent::Line(segment) => {
-                self.line_to(segment.to);
+            PathEvent::Line { to, .. } => {
+                self.line_to(to);
             }
-            PathEvent::Quadratic(segment) => {
-                self.quadratic_bezier_to(segment.ctrl, segment.to);
+            PathEvent::Quadratic { ctrl, to, .. } => {
+                self.quadratic_bezier_to(ctrl, to);
             }
-            PathEvent::Cubic(segment) => {
-                self.cubic_bezier_to(segment.ctrl1, segment.ctrl2, segment.to);
+            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                self.cubic_bezier_to(ctrl1, ctrl2, to);
             }
-            PathEvent::Close(..) => {
+            PathEvent::End { close : true, .. } => {
                 self.close();
+            }
+            PathEvent::End { close : false, .. } => {
             }
         }
     }

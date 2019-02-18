@@ -1030,6 +1030,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "path_bench"
+version = "0.0.1"
+dependencies = [
+ "bencher 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lyon 0.14.1",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

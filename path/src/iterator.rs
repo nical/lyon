@@ -148,7 +148,7 @@ use crate::geom::arrayvec::ArrayVec;
 use crate::builder::SvgBuilder;
 
 /// An extension trait for `PathEvent` iterators.
-pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
+pub trait PathIterator: Iterator<Item = PathEvent<Point, Point>> + Sized {
 
     /// Returns an iterator that turns curves into line segments.
     fn flattened(self, tolerance: f32) -> Flattened<Self> {
@@ -168,7 +168,7 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
 
 impl<Iter> PathIterator for Iter
 where
-    Iter: Iterator<Item = PathEvent>,
+    Iter: Iterator<Item = PathEvent<Point, Point>>,
 {}
 
 /// An extension to the common Iterator interface, that adds information which is useful when
@@ -192,7 +192,7 @@ pub trait SvgIterator: Iterator<Item = SvgEvent> + Sized {
 pub trait FlattenedIterator: Iterator<Item = FlattenedEvent> + Sized {
 
     /// Returns an iterator of path events.
-    fn path_events(self) -> iter::Map<Self, fn(FlattenedEvent) -> PathEvent> {
+    fn path_events(self) -> iter::Map<Self, fn(FlattenedEvent) -> PathEvent<Point, Point>> {
         self.map(flattened_to_path_event)
     }
 
@@ -227,7 +227,7 @@ where
 pub trait QuadraticPathIterator: Iterator<Item = QuadraticEvent> + Sized {
 
     /// Returns an iterator of path events.
-    fn path_events(self) -> iter::Map<Self, fn(QuadraticEvent) -> PathEvent> {
+    fn path_events(self) -> iter::Map<Self, fn(QuadraticEvent) -> PathEvent<Point, Point>> {
         self.map(quadratic_to_path_event)
     }
 
@@ -266,10 +266,15 @@ impl<SvgIter> Iterator for PathEvents<SvgIter>
 where
     SvgIter: SvgIterator,
 {
-    type Item = PathEvent;
-    fn next(&mut self) -> Option<PathEvent> {
+    type Item = PathEvent<Point, Point>;
+    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
         if let Some(segment) = self.arc_to_cubics.pop() {
-            return Some(PathEvent::Cubic(segment));
+            return Some(PathEvent::Cubic {
+                from: segment.from,
+                ctrl1: segment.ctrl1,
+                ctrl2: segment.ctrl2,
+                to: segment.to,
+            });
         }
         match self.it.next() {
             Some(svg_evt) => Some(
@@ -288,94 +293,95 @@ fn svg_to_path_event(
     event: SvgEvent,
     ps: &PathState,
     arcs_to_cubic: &mut Vec<CubicBezierSegment<f32>>
-) -> PathEvent {
+) -> PathEvent<Point, Point> {
     let from = ps.current_position();
     match event {
-        SvgEvent::MoveTo(to) => PathEvent::MoveTo(to),
-        SvgEvent::LineTo(to) => PathEvent::Line(LineSegment { from, to }),
-        SvgEvent::QuadraticTo(ctrl, to) => PathEvent::Quadratic(QuadraticBezierSegment {
+        SvgEvent::MoveTo(at) => PathEvent::Begin { at },
+        SvgEvent::LineTo(to) => PathEvent::Line { from, to },
+        SvgEvent::QuadraticTo(ctrl, to) => PathEvent::Quadratic {
             from, ctrl, to
-        }),
-        SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::Cubic(CubicBezierSegment {
+        },
+        SvgEvent::CubicTo(ctrl1, ctrl2, to) => PathEvent::Cubic {
             from, ctrl1, ctrl2, to
-        }),
-        SvgEvent::Close => PathEvent::Close(LineSegment {
-            from: ps.current_position(),
-            to: ps.start_position(),
-        }),
-        SvgEvent::RelativeMoveTo(to) => PathEvent::MoveTo(ps.relative_to_absolute(to)),
-        SvgEvent::RelativeLineTo(to) => PathEvent::Line(LineSegment {
+        },
+        SvgEvent::Close => PathEvent::End {
+            last: ps.current_position(),
+            first: ps.start_position(),
+            close: true,
+        },
+        SvgEvent::RelativeMoveTo(to) => PathEvent::Begin { at: ps.relative_to_absolute(to) },
+        SvgEvent::RelativeLineTo(to) => PathEvent::Line {
             from,
             to: ps.relative_to_absolute(to)
-        }),
+        },
         SvgEvent::RelativeQuadraticTo(ctrl, to) => {
-            PathEvent::Quadratic(QuadraticBezierSegment {
+            PathEvent::Quadratic {
                 from,
                 ctrl: ps.relative_to_absolute(ctrl),
                 to: ps.relative_to_absolute(to),
-            })
+            }
         }
         SvgEvent::RelativeCubicTo(ctrl1, ctrl2, to) => {
-            PathEvent::Cubic(CubicBezierSegment {
+            PathEvent::Cubic {
                 from,
                 ctrl1: ps.relative_to_absolute(ctrl1),
                 ctrl2: ps.relative_to_absolute(ctrl2),
                 to: ps.relative_to_absolute(to),
-            })
+            }
         }
         SvgEvent::HorizontalLineTo(x) => {
-            PathEvent::Line(LineSegment {
+            PathEvent::Line {
                 from,
                 to: point(x, ps.current_position().y)
-            })
+            }
         }
         SvgEvent::VerticalLineTo(y) => {
-            PathEvent::Line(LineSegment {
+            PathEvent::Line {
                 from,
                 to: point(ps.current_position().x, y)
-            })
+            }
         }
         SvgEvent::RelativeHorizontalLineTo(x) => {
-            PathEvent::Line(LineSegment {
+            PathEvent::Line {
                 from,
                 to: point(ps.current_position().x + x, ps.current_position().y)
-            })
+            }
         }
         SvgEvent::RelativeVerticalLineTo(y) => {
-            PathEvent::Line(LineSegment {
+            PathEvent::Line {
                 from,
                 to: point(ps.current_position().x, ps.current_position().y + y)
-            })
+            }
         }
         SvgEvent::SmoothQuadraticTo(to) => {
-            PathEvent::Quadratic(QuadraticBezierSegment {
+            PathEvent::Quadratic {
                 from,
                 ctrl: ps.get_smooth_quadratic_ctrl(),
                 to
-            })
+            }
         }
         SvgEvent::SmoothCubicTo(ctrl2, to) => {
-            PathEvent::Cubic(CubicBezierSegment {
+            PathEvent::Cubic {
                 from,
                 ctrl1: ps.get_smooth_cubic_ctrl(),
                 ctrl2,
                 to
-            })
+            }
         }
         SvgEvent::SmoothRelativeQuadraticTo(to) => {
-            PathEvent::Quadratic(QuadraticBezierSegment {
+            PathEvent::Quadratic {
                 from,
                 ctrl: ps.get_smooth_quadratic_ctrl(),
                 to: ps.relative_to_absolute(to),
-            })
+            }
         }
         SvgEvent::SmoothRelativeCubicTo(ctrl2, to) => {
-            PathEvent::Cubic(CubicBezierSegment {
+            PathEvent::Cubic {
                 from,
                 ctrl1: ps.get_smooth_cubic_ctrl(),
                 ctrl2: ps.relative_to_absolute(ctrl2),
                 to: ps.relative_to_absolute(to),
-            })
+            }
         }
         SvgEvent::ArcTo(radii, x_rotation, flags, to) => {
             arc_to_path_events(
@@ -404,7 +410,7 @@ fn svg_to_path_event(
     }
 }
 
-fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<CubicBezierSegment<f32>>) -> PathEvent {
+fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<CubicBezierSegment<f32>>) -> PathEvent<Point, Point> {
     let mut curves: ArrayVec<[CubicBezierSegment<f32>; 4]> = ArrayVec::new();
     arc.for_each_cubic_bezier(&mut|curve: &CubicBezierSegment<f32>| {
         curves.push(*curve);
@@ -413,7 +419,12 @@ fn arc_to_path_events(arc: &Arc<f32>, arcs_to_cubic: &mut Vec<CubicBezierSegment
         // Append in reverse order.
         arcs_to_cubic.push(curves.pop().unwrap());
     }
-    PathEvent::Cubic(curves[0])
+    PathEvent::Cubic {
+        from: curves[0].from,
+        ctrl1: curves[0].ctrl1,
+        ctrl2: curves[0].ctrl2,
+        to: curves[0].to,
+    }
 }
 
 /// An iterator that consumes `PathEvent` iterator and yields FlattenedEvents.
@@ -430,7 +441,7 @@ enum TmpFlatteningIter {
     None,
 }
 
-impl<Iter: Iterator<Item = PathEvent>> Flattened<Iter> {
+impl<Iter: Iterator<Item = PathEvent<Point, Point>>> Flattened<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
         Flattened {
@@ -444,7 +455,7 @@ impl<Iter: Iterator<Item = PathEvent>> Flattened<Iter> {
 
 impl<Iter> Iterator for Flattened<Iter>
 where
-    Iter: Iterator<Item = PathEvent>,
+    Iter: Iterator<Item = PathEvent<Point, Point>>,
 {
     type Item = FlattenedEvent;
     fn next(&mut self) -> Option<FlattenedEvent> {
@@ -467,20 +478,21 @@ where
         }
         self.current_curve = TmpFlatteningIter::None;
         match self.it.next() {
-            Some(PathEvent::MoveTo(to)) => Some(FlattenedEvent::MoveTo(to)),
-            Some(PathEvent::Line(segment)) => Some(FlattenedEvent::Line(segment)),
-            Some(PathEvent::Close(segment)) => Some(FlattenedEvent::Close(segment)),
-            Some(PathEvent::Quadratic(segment)) => {
-                self.current_position = segment.from;
+            Some(PathEvent::Begin { at }) => Some(FlattenedEvent::MoveTo(at)),
+            Some(PathEvent::Line { from, to }) => Some(FlattenedEvent::Line(LineSegment { from, to })),
+            Some(PathEvent::End { last, first, close: true }) => Some(FlattenedEvent::Close(LineSegment { from: last, to: first })),
+            Some(PathEvent::End { last, first, close: false }) => unimplemented!(), // TODO
+            Some(PathEvent::Quadratic { from, ctrl, to }) => {
+                self.current_position = from;
                 self.current_curve = TmpFlatteningIter::Quadratic(
-                    segment.flattened(self.tolerance)
+                    QuadraticBezierSegment { from, ctrl, to }.flattened(self.tolerance)
                 );
                 self.next()
             }
-            Some(PathEvent::Cubic(segment)) => {
-                self.current_position = segment.from;
+            Some(PathEvent::Cubic { from, ctrl1, ctrl2, to }) => {
+                self.current_position = from;
                 self.current_curve = TmpFlatteningIter::Cubic(
-                    segment.flattened(self.tolerance)
+                    CubicBezierSegment { from, ctrl1, ctrl2, to }.flattened(self.tolerance)
                 );
                 self.next()
             }
@@ -538,11 +550,11 @@ where
 }
 
 #[inline]
-fn quadratic_to_path_event(evt: QuadraticEvent) -> PathEvent { evt.to_path_event() }
+fn quadratic_to_path_event(evt: QuadraticEvent) -> PathEvent<Point, Point> { evt.to_path_event() }
 #[inline]
 fn quadratic_to_svg_event(evt: QuadraticEvent) -> SvgEvent { evt.to_svg_event() }
 #[inline]
-fn flattened_to_path_event(evt: FlattenedEvent) -> PathEvent { evt.to_path_event() }
+fn flattened_to_path_event(evt: FlattenedEvent) -> PathEvent<Point, Point> { evt.to_path_event() }
 #[inline]
 fn flattened_to_svg_event(evt: FlattenedEvent) -> SvgEvent { evt.to_svg_event() }
 
@@ -668,16 +680,16 @@ pub struct BezierSegments<Iter> {
 }
 
 impl<Iter> Iterator for BezierSegments<Iter>
-where Iter: Iterator<Item = PathEvent> {
+where Iter: Iterator<Item = PathEvent<Point, Point>> {
     type Item = BezierSegment<f32>;
     fn next(&mut self) -> Option<BezierSegment<f32>> {
         match self.iter.next() {
-            Some(PathEvent::Line(segment))
-            | Some(PathEvent::Close(segment))
-            => Some(BezierSegment::Linear(segment)),
-            Some(PathEvent::Quadratic(segment)) => Some(BezierSegment::Quadratic(segment)),
-            Some(PathEvent::Cubic(segment)) => Some(BezierSegment::Cubic(segment)),
-            Some(PathEvent::MoveTo(..)) => self.next(),
+            Some(PathEvent::Line { from, to }) => Some(BezierSegment::Linear(LineSegment { from, to })),
+            Some(PathEvent::End { last, first, close: true })=> Some(BezierSegment::Linear(LineSegment { from: last, to: first })),
+            Some(PathEvent::End { close: false, .. }) => self.next(),
+            Some(PathEvent::Quadratic { from, ctrl, to }) => Some(BezierSegment::Quadratic(QuadraticBezierSegment { from, ctrl, to })),
+            Some(PathEvent::Cubic { from, ctrl1, ctrl2, to }) => Some(BezierSegment::Cubic(CubicBezierSegment { from, ctrl1, ctrl2, to })),
+            Some(PathEvent::Begin { .. }) => self.next(),
             None => None,
         }
     }

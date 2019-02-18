@@ -47,6 +47,8 @@ pub extern crate serde;
 mod events;
 mod path_state;
 mod path;
+pub mod new_path;
+pub mod id_path;
 pub mod iterator;
 pub mod builder;
 
@@ -125,4 +127,20 @@ impl From<VertexId> for i32 {
 }
 impl From<VertexId> for usize {
     fn from(v: VertexId) -> Self { v.0 as usize }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct CtrlPointId(pub u32);
+impl CtrlPointId {
+    //pub(crate) const INVALID: Self = CtrlPointId(!0u32);
+    pub fn to_usize(&self) -> usize { self.0 as usize }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct EndpointId(pub u32);
+impl EndpointId {
+    //pub(crate) const INVALID: Self = EndpointId(!0u32);
+    pub fn to_usize(&self) -> usize { self.0 as usize }
 }
