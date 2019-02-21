@@ -12,22 +12,21 @@ pub struct Triangle<S> {
 }
 
 impl<S: Scalar> Triangle<S> {
-    pub fn contains_point(&self, point: Point<S>) -> bool {
-        // see http://blackpawn.com/texts/pointinpoly/
-        let v0 = self.c - self.a;
-        let v1 = self.b - self.a;
+    #[inline]
+    fn get_barycentric_coords_for_point(&self, point: Point<S>) -> (S, S, S) {
+        let v0 = self.b - self.a;
+        let v1 = self.c - self.a;
         let v2 = point - self.a;
+        let inv = S::ONE / (v0.x * v1.y - v1.x * v0.y);
+        let a = (v0.x * v2.y - v2.x * v0.y) * inv;
+        let b = (v2.x * v1.y - v1.x * v2.y) * inv;
+        let c = S::ONE - a - b;
+        (a, b, c)
+    }
 
-        let dot00 = v0.dot(v0);
-        let dot01 = v0.dot(v1);
-        let dot02 = v0.dot(v2);
-        let dot11 = v1.dot(v1);
-        let dot12 = v1.dot(v2);
-        let inv = S::ONE / (dot00 * dot11 - dot01 * dot01);
-        let u = (dot11 * dot02 - dot01 * dot12) * inv;
-        let v = (dot11 * dot12 - dot01 * dot02) * inv;
-
-        return u > S::ZERO && v > S::ZERO && u + v < S::ONE;
+    pub fn contains_point(&self, point: Point<S>) -> bool {
+        let coords = self.get_barycentric_coords_for_point(point);
+        coords.0 > S::ZERO && coords.1 > S::ZERO && coords.2 > S::ZERO
     }
 
     /// Return the minimum bounding rectangle.
