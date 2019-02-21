@@ -17,9 +17,9 @@ impl<S: Scalar> Triangle<S> {
         let v0 = self.b - self.a;
         let v1 = self.c - self.a;
         let v2 = point - self.a;
-        let inv = S::ONE / (v0.x * v1.y - v1.x * v0.y);
-        let a = (v0.x * v2.y - v2.x * v0.y) * inv;
-        let b = (v2.x * v1.y - v1.x * v2.y) * inv;
+        let inv = S::ONE / v0.cross(v1);
+        let a = v0.cross(v2) * inv;
+        let b = v2.cross(v1) * inv;
         let c = S::ONE - a - b;
         (a, b, c)
     }
