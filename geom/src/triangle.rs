@@ -134,6 +134,15 @@ fn test_triangle_contains() {
         }.contains_point(point(1.2, 0.2))
     );
 
+    // Triangle vertex winding should not matter
+    assert!(
+        Triangle {
+            a: point(1.0, 0.0),
+            b: point(0.0, 0.0),
+            c: point(0.0, 1.0),
+        }.contains_point(point(0.2, 0.2))
+    );
+
     // Point exactly on the edge counts as outside the triangle.
     assert!(
         !Triangle {
