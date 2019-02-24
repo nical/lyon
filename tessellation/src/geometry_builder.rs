@@ -253,7 +253,7 @@ pub trait GeometryBuilder<Input> {
     fn end_geometry(&mut self) -> Count;
 
     /// Inserts a vertex, providing its position, and optionally a normal.
-    /// Retuns a vertex id that is only valid between begin_geometry and end_geometry.
+    /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
     fn add_vertex(&mut self, vertex: Input) -> Result<VertexId, GeometryBuilderError>;
@@ -263,7 +263,7 @@ pub trait GeometryBuilder<Input> {
     /// This method can only be called between begin_geometry and end_geometry.
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId);
 
-    /// abort_geometry is called instead of end_geometry if an error occured while producing
+    /// abort_geometry is called instead of end_geometry if an error occurred while producing
     /// the geometry and we won't be able to finish.
     ///
     /// The implementation is expected to discard the geometry that was generated since the last
@@ -288,7 +288,7 @@ pub trait GeometryReceiver<Vertex> {
 
 /// Structure that holds the vertex and index data.
 ///
-/// Usually writen into though temporary `BuffersBuilder` objects.
+/// Usually written into though temporary `BuffersBuilder` objects.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct VertexBuffers<VertexType, IndexType> {
