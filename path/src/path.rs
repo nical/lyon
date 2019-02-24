@@ -654,7 +654,7 @@ fn n_stored_points(verb: Verb) -> u32 {
 }
 
 fn next_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
-    if cursor.verb as usize >= verbs.len() {
+    if cursor.verb as usize >= verbs.len() - 1 {
         return false;
     }
 
