@@ -1,10 +1,10 @@
 use geom::math::*;
-use geometry_builder::{VertexBuffers, simple_builder};
+use geometry_builder::*;
 use path::builder::{Build, FlatPathBuilder, PathBuilder};
 use path::{Path, PathSlice};
 use extra::rust_logo::build_logo_path;
 
-use {FillTessellator, TessellationError, FillOptions, FillVertex};
+use {FillTessellator, TessellationError, FillOptions, FillVertex, OnError};
 
 type Vertex = FillVertex;
 
@@ -79,6 +79,50 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 
         angle += step;
     }
+}
+
+#[test]
+fn test_too_many_vertices() {
+    /// This test checks that the tessellator returns the proper error when
+    /// the geometry builder run out of vertex ids.
+
+    struct Builder { max_vertices: u32 }
+    impl<T> GeometryBuilder<T> for Builder
+    {
+        fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
+            if self.max_vertices == 0 {
+                return Err(GeometryBuilderError::TooManyVertices);
+            }
+            self.max_vertices -= 1;
+            Ok(VertexId(self.max_vertices))
+        }
+        fn begin_geometry(&mut self) {}
+        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+    }
+
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    let mut options = FillOptions::tolerance(0.05);
+    options.on_error = OnError::Stop;
+
+    assert_eq!(
+        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 0 }),
+        Err(TessellationError::TooManyVertices),
+    );
+    assert_eq!(
+        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 10 }),
+        Err(TessellationError::TooManyVertices),
+    );
+
+    assert_eq!(
+        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 100 }),
+        Err(TessellationError::TooManyVertices),
+    );
 }
 
 #[test]
