@@ -6,6 +6,8 @@ use extra::rust_logo::build_logo_path;
 
 use {FillTessellator, TessellationError, FillOptions, FillVertex, OnError};
 
+use std::env;
+
 type Vertex = FillVertex;
 
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
@@ -38,24 +40,36 @@ fn test_path_and_count_triangles(path: PathSlice, expected_triangle_count: usize
 }
 
 fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
-    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
+    let add_logging = env::var("LYON_ENABLE_LOGGING").is_ok();
+    let find_test_case = env::var("LYON_REDUCED_TESTCASE").is_ok();
+
+    let res = if find_test_case {
+        ::std::panic::catch_unwind(|| tessellate_path(path, false))
+    } else {
+        Ok(tessellate_path(path, false))
+    };
 
     if let Ok(Ok(num_triangles)) = res {
         if let Some(expected_triangles) = expected_triangle_count {
             if num_triangles != expected_triangles {
-                tessellate_path(path, true).unwrap();
+                tessellate_path(path, add_logging).unwrap();
                 panic!("expected {} triangles, got {}", expected_triangles, num_triangles);
             }
         }
         return;
     }
 
-    ::extra::debugging::find_reduced_test_case(
-        path,
-        &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
-    );
+    if find_test_case {
+        ::extra::debugging::find_reduced_test_case(
+            path,
+            &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
+        );
 
-    tessellate_path(path, true).unwrap();
+        if add_logging {
+            tessellate_path(path, true).unwrap();
+        }
+    }
+
     panic!();
 }
 
@@ -176,6 +190,8 @@ fn test_simple_merge_split() {
     path.close();
 
     test_path_with_rotations(path.build(), 0.001, Some(4));
+
+    // "M 0 0 L 1 1 L 2 0 L 1 3 L 0 4 L 0 3 Z"
 }
 
 #[test]
@@ -259,6 +275,24 @@ fn test_degenerate_same_position() {
 }
 
 #[test]
+fn test_intersecting_bow_tie() {
+    // Simple self-intersecting shape.
+    // x  x
+    // |\/|
+    // |/\|
+    // x  x
+    let mut path = Path::builder();
+
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(2.0, 2.0));
+    path.line_to(point(2.0, 0.0));
+    path.line_to(point(0.0, 2.0));
+    path.close();
+
+    test_path(path.build().as_slice());
+}
+
+#[test]
 fn test_auto_intersection_type1() {
     //  o.___
     //   \   'o
@@ -328,7 +362,7 @@ fn test_auto_intersection_multi() {
 }
 
 #[test]
-fn test_rust_logo() {
+fn test_rust_logo_no_intersection() {
     let mut path = Path::builder().flattened(0.011).with_svg();
 
     build_logo_path(&mut path);
@@ -398,7 +432,27 @@ fn test_rust_logo_scale_down2() {
 }
 
 #[test]
-fn test_double_merge() {
+fn test_simple_double_merge() {
+    // This test triggers the code path where a merge event is resolved during another
+    // merge event.
+    //     / \ /
+    //  \ / .-x    <-- merge vertex
+    //   x-'      <-- current merge vertex
+    let mut path = Path::builder();
+
+    path.move_to(point(0.0, 2.0));
+    path.line_to(point(1.0, 3.0));
+    path.line_to(point(2.0, 0.0));
+    path.line_to(point(3.0, 2.0));
+    path.line_to(point(4.0, 1.0));
+    path.line_to(point(2.0, 6.0));
+    path.close();
+
+    // "M 0 2 L 1 3 L 2 0 L 3 2 L 4 1 L 2 6 Z"
+}
+
+#[test]
+fn test_double_merge_with_intersection() {
     // This test triggers the code path where a merge event is resolved during another
     // merge event.
     //     / \ /
@@ -406,7 +460,7 @@ fn test_double_merge() {
     //   x-'      <-- current merge vertex
     //
     // The test case generated from a reduced rotation of
-    // test_rust_logo_with_intersection
+    // test_rust_logo_with_intersection and has a self-intersection.
     let mut path = Path::builder();
 
     path.move_to(point(80.041534, 19.24472));
@@ -424,6 +478,7 @@ fn test_double_merge() {
     path.close();
 
     test_path(path.build().as_slice());
+    // "M 80.041534 19.24472 L 76.56131 23.062233 L 67.26949 23.039438 L 65.989944 23.178522 L 59.90927 19.969215 L 56.916714 25.207449 L 50.333813 23.25274 L 48.42367 28.978098 M 130.32213, 28.568213 L 130.65213 58.5664 L 10.659382 59.88637 Z"
 }
 
 #[test]
@@ -530,6 +585,8 @@ fn test_chained_merge_split() {
     path.close();
 
     test_path_and_count_triangles(path.build().as_slice(), 8);
+
+    // "M 1 0 L 2 1 L 3 0 L 4 2 L 5 0 L 6 3 L 7 0 L 7 5 L 4 4 L 1 5 Z"
 }
 
 // TODO: Check that chained merge events can't mess with the way we handle complex events.
@@ -646,7 +703,7 @@ fn test_colinear_3() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -661,7 +718,7 @@ fn test_colinear_4() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -688,7 +745,7 @@ fn test_colinear_touching_squares() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -775,7 +832,7 @@ fn test_colinear_touching_squares2() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -803,7 +860,7 @@ fn test_colinear_touching_squares3() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 
@@ -874,7 +931,7 @@ fn test_point_on_edge_right() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -896,7 +953,7 @@ fn test_point_on_edge_left() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -949,7 +1006,9 @@ fn test_coincident_simple() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
+
+    // "M 0 0 L 1 1 L 0 2 L 2 2 L 1 1 L 2 0 Z"
 }
 
 #[test]
@@ -966,7 +1025,7 @@ fn test_coincident_simple_2() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -1005,7 +1064,7 @@ fn test_identical_squares() {
 
     let path = builder.build();
 
-    tessellate_path(path.as_slice(), true).unwrap();
+    test_path(path.as_slice());
 }
 
 #[test]
@@ -1053,4 +1112,20 @@ fn test_no_close() {
 #[test]
 fn test_empty_path() {
     test_path_and_count_triangles(Path::new().as_slice(), 0);
+}
+
+#[test]
+fn test_exp_no_intersection_01() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(80.041534, 19.24472));
+    builder.line_to(point(76.56131, 23.062233));
+    builder.line_to(point(67.26949, 23.039438));
+    builder.line_to(point(48.42367, 28.978098));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M 80.041534 19.24472 L 76.56131 23.062233 L 67.26949 23.039438 L 48.42367 28.978098 Z"
 }
