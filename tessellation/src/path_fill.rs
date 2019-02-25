@@ -4,7 +4,7 @@
 //
 // segment-segment intersection is currently the most perf-sensitive function by far.
 // A quick experiment replacing segment_intersection by a dummy function that always
-// return None made the tessellation of the log twice faster.
+// return None made the tessellation of the logo twice faster.
 // segment_intersection can be improved (it is currently a naive implementation).
 // It would be interesting to have a fast-path for non-intersecting polygons, though.
 // Other tessellators have similar optimizations (like FastUIDraw).
@@ -266,7 +266,7 @@ enum PointType { In, Out, OnEdge(Side) }
 ///
 /// # How the fill tessellator works
 ///
-/// Learn more about how the algrorithm works on the [tessellator wiki page](https://github.com/nical/lyon/wiki/Tessellator).
+/// Learn more about how the algorithm works on the [tessellator wiki page](https://github.com/nical/lyon/wiki/Tessellator).
 ///
 pub struct FillTessellator {
     // The edges that intersect with the sweep line.
