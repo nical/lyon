@@ -1,6 +1,6 @@
-use scalar::Scalar;
-use generic_math::{Point, Rect, Size, Transform2D};
-use LineSegment;
+use crate::scalar::Scalar;
+use crate::generic_math::{Point, Rect, Size, Transform2D};
+use crate::LineSegment;
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -113,7 +113,7 @@ impl<S: Scalar> Triangle<S> {
 }
 
 #[cfg(test)]
-use math::point;
+use crate::math::point;
 
 #[test]
 fn test_triangle_contains() {

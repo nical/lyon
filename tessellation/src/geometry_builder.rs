@@ -223,7 +223,7 @@
 //! }
 //! ```
 
-pub use path::{VertexId, Index};
+pub use crate::path::{VertexId, Index};
 
 use std::marker::PhantomData;
 use std::ops::Add;
@@ -561,7 +561,7 @@ fn test_simple_quad() {
         }
     }
 
-    use TessellationResult;
+    use crate::TessellationResult;
 
     // A typical "algorithm" that generates some geometry, in this case a simple axis-aligned quad.
     fn add_quad<Builder: GeometryBuilder<[f32; 2]>>(
@@ -661,7 +661,7 @@ fn test_simple_quad() {
 
 #[test]
 fn test_closure() {
-    use math::{Point, point, vector};
+    use crate::math::{Point, point, vector};
 
     let translation = vector(1.0, 0.0);
 

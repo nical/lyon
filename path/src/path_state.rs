@@ -1,6 +1,6 @@
-use math::{Point, Vector, point, vector, Angle};
-use geom::{Arc, ArcFlags};
-use builder::{FlatPathBuilder, PathBuilder, SvgBuilder, PolygonBuilder};
+use crate::math::{Point, Vector, point, vector, Angle};
+use crate::geom::{Arc, ArcFlags};
+use crate::builder::{FlatPathBuilder, PathBuilder, SvgBuilder, PolygonBuilder};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum LastCtrl {

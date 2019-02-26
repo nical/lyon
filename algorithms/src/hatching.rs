@@ -25,11 +25,11 @@
 //! ```
 
 
-use path::PathEvent;
-use path::builder::{Build, FlatPathBuilder, PathBuilder};
-use geom::LineSegment;
-use geom::math::{Point, Vector, point, vector};
-use geom::euclid::{Angle, Rotation2D};
+use crate::path::PathEvent;
+use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::geom::LineSegment;
+use crate::geom::math::{Point, Vector, point, vector};
+use crate::geom::euclid::{Angle, Rotation2D};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;

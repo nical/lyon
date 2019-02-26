@@ -1,4 +1,4 @@
-use geom::math::Point;
+use crate::geom::math::Point;
 
 use std::sync::mpsc::{channel, Sender, Receiver};
 

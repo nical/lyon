@@ -1,7 +1,7 @@
 //! Bounding rectangle computation for paths.
 
-use path::{PathEvent, QuadraticEvent, FlattenedEvent};
-use math::{Point, point, Rect};
+use crate::path::{PathEvent, QuadraticEvent, FlattenedEvent};
+use crate::math::{Point, point, Rect};
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
@@ -173,8 +173,8 @@ impl TightBoundingRect for QuadraticEvent {
 
 #[test]
 fn simple_bounding_rect() {
-    use path::Path;
-    use math::rect;
+    use crate::path::Path;
+    use crate::math::rect;
 
     let mut builder = Path::builder();
     builder.move_to(point(-10.0, -3.0));

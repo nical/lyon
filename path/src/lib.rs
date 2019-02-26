@@ -38,7 +38,7 @@
 //! ```
 //!
 
-pub extern crate lyon_geom as geom;
+pub use lyon_geom as geom;
 
 #[cfg(feature = "serialization")]
 #[macro_use]
@@ -50,11 +50,11 @@ mod path;
 pub mod iterator;
 pub mod builder;
 
-pub use path::*;
-pub use events::*;
-pub use path_state::*;
-pub use geom::ArcFlags;
-pub use geom::math as math;
+pub use crate::path::*;
+pub use crate::events::*;
+pub use crate::path_state::*;
+pub use crate::geom::ArcFlags;
+pub use crate::geom::math as math;
 
 use std::ops::{Add, Sub};
 use std::u32;

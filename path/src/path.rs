@@ -1,11 +1,10 @@
 //! The default path data structure.
 
-use builder::*;
-
-use PathEvent;
-use VertexId;
-use math::*;
-use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc};
+use crate::builder::*;
+use crate::PathEvent;
+use crate::VertexId;
+use crate::math::*;
+use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Arc};
 
 use std::iter::IntoIterator;
 use std::ops;

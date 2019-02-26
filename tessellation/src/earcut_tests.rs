@@ -19,13 +19,13 @@
 // THIS SOFTWARE.
 // -------------
 
-use geometry_builder::{VertexBuffers, simple_builder};
-use path::{Path, PathSlice};
-use path_fill::*;
-use geom::math::*;
-use FillVertex as Vertex;
-use FillOptions;
-use TessellationError;
+use crate::geometry_builder::{VertexBuffers, simple_builder};
+use crate::path::{Path, PathSlice};
+use crate::path_fill::*;
+use crate::geom::math::*;
+use crate::FillVertex as Vertex;
+use crate::FillOptions;
+use crate::TessellationError;
 
 #[test]
 fn bad_diagonal() {
@@ -1313,13 +1313,11 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
         if log {
             tess.enable_logging();
         }
-        try!{
-            tess.tessellate_path(
-                path.iter(),
-                &FillOptions::tolerance(0.05),
-                &mut vertex_builder
-            )
-        };
+        tess.tessellate_path(
+            path.iter(),
+            &FillOptions::tolerance(0.05),
+            &mut vertex_builder
+        )?;
     }
     return Ok(buffers.indices.len() / 3);
 }
@@ -1332,7 +1330,7 @@ fn test_path(path: PathSlice) {
         return;
     }
 
-    ::extra::debugging::find_reduced_test_case(
+    crate::extra::debugging::find_reduced_test_case(
         path,
         &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
     );

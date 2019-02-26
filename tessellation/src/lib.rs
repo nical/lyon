@@ -179,15 +179,13 @@
 #![allow(dead_code)]
 //#![allow(needless_return, new_without_default_derive)] // clippy
 
-pub extern crate lyon_path as path;
+pub use lyon_path as path;
 
-#[cfg(test)] extern crate lyon_extra as extra;
+#[cfg(test)] use lyon_extra as extra;
 
 #[cfg(feature = "serialization")]
 #[macro_use]
 pub extern crate serde;
-
-extern crate sid;
 
 pub mod basic_shapes;
 pub mod geometry_builder;
@@ -199,24 +197,23 @@ mod fixed;
 
 #[cfg(test)]
 mod earcut_tests;
-
 #[cfg(test)]
 mod fill_tests;
 #[cfg(test)]
 mod fuzz_tests;
 
-pub use path::math;
+pub use crate::path::math;
 
-pub use path::geom;
-
-#[doc(inline)]
-pub use path_fill::*;
+pub use crate::path::geom;
 
 #[doc(inline)]
-pub use path_stroke::*;
+pub use crate::path_fill::*;
 
 #[doc(inline)]
-pub use geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
+pub use crate::path_stroke::*;
+
+#[doc(inline)]
+pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
 
 
 

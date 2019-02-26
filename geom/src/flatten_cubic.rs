@@ -6,9 +6,9 @@
 ///! It produces a better approximations than the usual recursive subdivision approach (or
 ///! in other words, it generates less points for a given tolerance threshold).
 
-use CubicBezierSegment;
-use scalar::Scalar;
-use generic_math::Point;
+use crate::CubicBezierSegment;
+use crate::scalar::Scalar;
+use crate::generic_math::Point;
 use arrayvec::ArrayVec;
 use std::mem::swap;
 

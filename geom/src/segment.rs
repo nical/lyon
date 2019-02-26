@@ -1,6 +1,6 @@
-use scalar::{Scalar, One};
-use generic_math::{Point, Vector, Rect};
-use {LineSegment, QuadraticBezierSegment, CubicBezierSegment};
+use crate::scalar::{Scalar, One};
+use crate::generic_math::{Point, Vector, Rect};
+use crate::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
 
 use std::ops::Range;
 

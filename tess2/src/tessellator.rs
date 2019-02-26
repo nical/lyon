@@ -1,11 +1,10 @@
-use math::*;
-use flattened_path::FlattenedPath;
+use crate::math::*;
+use crate::flattened_path::FlattenedPath;
+use crate::tessellation::{GeometryReceiver, FillOptions, FillRule, Count};
+use crate::path::builder::*;
+use crate::path::PathEvent;
 
 use tess2_sys::*;
-use tessellation::{GeometryReceiver, FillOptions, FillRule, Count};
-use path::builder::*;
-use path::PathEvent;
-
 use std::ptr;
 use std::slice;
 use std::os::raw::c_void;

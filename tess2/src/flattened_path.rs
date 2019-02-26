@@ -1,5 +1,5 @@
-use path::builder::*;
-use math::*;
+use crate::path::builder::*;
+use crate::math::*;
 
 use std::ops::Range;
 use std::mem;

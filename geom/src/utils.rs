@@ -1,5 +1,5 @@
-use scalar::{Scalar, Float};
-use generic_math::{Point, Vector, vector};
+use crate::scalar::{Scalar, Float};
+use crate::generic_math::{Point, Vector, vector};
 use arrayvec::ArrayVec;
 
 #[inline]

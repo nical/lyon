@@ -1,8 +1,7 @@
-use scalar::Scalar;
-use CubicBezierSegment;
-use QuadraticBezierSegment;
-use monotonic::Monotonic;
-use math::point;
+use crate::scalar::Scalar;
+use crate::{QuadraticBezierSegment, CubicBezierSegment};
+use crate::monotonic::Monotonic;
+use crate::math::point;
 
 /// Approximates a cubic bézier segment with a sequence of quadratic béziers.
 pub fn cubic_to_quadratics<S: Scalar, F>(

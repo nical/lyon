@@ -140,12 +140,12 @@
 //! ```
 use std::iter;
 
-use math::*;
-use {PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
-use geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
-use geom::arc::*;
-use geom::arrayvec::ArrayVec;
-use builder::SvgBuilder;
+use crate::math::*;
+use crate::{PathEvent, SvgEvent, FlattenedEvent, QuadraticEvent, PathState};
+use crate::geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
+use crate::geom::arc::*;
+use crate::geom::arrayvec::ArrayVec;
+use crate::builder::SvgBuilder;
 
 /// An extension trait for `PathEvent` iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {

@@ -74,9 +74,9 @@
 
 //#![allow(needless_return)] // clippy
 
-pub extern crate arrayvec;
-pub extern crate euclid;
-extern crate num_traits;
+// Reexport dependencies.
+pub use arrayvec;
+pub use euclid;
 
 #[cfg(feature = "serialization")]
 #[macro_use]
@@ -95,19 +95,19 @@ mod line;
 mod monotonic;
 
 #[doc(inline)]
-pub use quadratic_bezier::QuadraticBezierSegment;
+pub use crate::quadratic_bezier::QuadraticBezierSegment;
 #[doc(inline)]
-pub use cubic_bezier::CubicBezierSegment;
+pub use crate::cubic_bezier::CubicBezierSegment;
 #[doc(inline)]
-pub use triangle::{Triangle};
+pub use crate::triangle::{Triangle};
 #[doc(inline)]
-pub use line::{LineSegment, Line, LineEquation};
+pub use crate::line::{LineSegment, Line, LineEquation};
 #[doc(inline)]
-pub use arc::{Arc, SvgArc, ArcFlags};
+pub use crate::arc::{Arc, SvgArc, ArcFlags};
 #[doc(inline)]
-pub use segment::{Segment, BezierSegment};
+pub use crate::segment::{Segment, BezierSegment};
 #[doc(inline)]
-pub use monotonic::Monotonic;
+pub use crate::monotonic::Monotonic;
 
 mod scalar {
     pub(crate) use num_traits::{Float, FloatConst, NumCast};
@@ -275,6 +275,6 @@ pub mod math {
 
 
 pub mod traits {
-    pub use segment::{Segment, FlattenedForEach, FlatteningStep};
+    pub use crate::segment::{Segment, FlattenedForEach, FlatteningStep};
     //pub use monotonic::MonotonicSegment;
 }

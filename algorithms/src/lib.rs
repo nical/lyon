@@ -8,7 +8,6 @@
 // TODO doc!
 
 pub extern crate lyon_path as path;
-extern crate sid;
 
 pub(crate) mod advanced_path;
 pub mod splitter;
@@ -18,5 +17,5 @@ pub mod walk;
 pub mod aabb;
 pub mod fit;
 
-pub use path::math;
-pub use path::geom;
+pub use crate::path::math;
+pub use crate::path::geom;

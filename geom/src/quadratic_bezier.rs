@@ -1,10 +1,10 @@
-use {CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
-use scalar::Scalar;
-use generic_math::{Point, Vector, Rect, rect, Transform2D};
-use monotonic::Monotonic;
+use crate::{CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
+use crate::scalar::Scalar;
+use crate::generic_math::{Point, Vector, Rect, rect, Transform2D};
+use crate::monotonic::Monotonic;
+use crate::segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
+use crate::segment;
 use arrayvec::ArrayVec;
-use segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
-use segment;
 
 use std::ops::Range;
 use std::mem;
@@ -711,7 +711,7 @@ fn monotonic_solve_t_for_x() {
 
 #[test]
 fn fat_line() {
-    use math::point;
+    use crate::math::point;
 
     let c1 = QuadraticBezierSegment {
         from: point(1.0f32, 2.0),
@@ -750,7 +750,7 @@ fn is_linear() {
 
 #[test]
 fn test_flattening() {
-    use generic_math::point;
+    use crate::generic_math::point;
 
     let c1 = QuadraticBezierSegment {
         from: point(0.0, 0.0),

@@ -1,13 +1,13 @@
 /// Split paths with a line or line segment.
 
-use math::*;
-use geom::{Line, LineSegment};
+use crate::math::*;
+use crate::geom::{Line, LineSegment};
+use crate::advanced_path::*;
+use crate::path::*;
+use crate::path::iterator::PathIterator;
+use crate::path::builder::PathBuilder;
 use std::cmp::PartialOrd;
-use advanced_path::*;
 use std::mem;
-use path::*;
-use path::iterator::PathIterator;
-use path::builder::PathBuilder;
 
 #[derive(Debug)]
 struct IntersectingEdge {
@@ -384,11 +384,11 @@ fn signed_pseudo_distance(line: &Line<f32>, p: &Point) -> f32 {
 }
 
 #[cfg(test)]
-use path::PathEvent;
+use crate::path::PathEvent;
 
 #[cfg(test)]
 fn compare_path_events(actual: &[PathEvent], expected: &[PathEvent]) {
-    use geom::euclid::approxeq::ApproxEq;
+    use crate::geom::euclid::approxeq::ApproxEq;
 
     if actual.len() != expected.len() {
         panic!("error: lengths don't match\nexpected {:?}\ngot: {:?}", expected, actual);
@@ -413,7 +413,7 @@ fn compare_path_events(actual: &[PathEvent], expected: &[PathEvent]) {
 
 #[test]
 fn split_with_segment_1() {
-    use path::PathEvent;
+    use crate::path::PathEvent;
 
     let mut path = Path::builder();
     path.polygon(
@@ -456,7 +456,7 @@ fn split_with_segment_1() {
 
 #[test]
 fn split_with_segment_2() {
-    use path::PathEvent;
+    use crate::path::PathEvent;
 
     //  ________
     // |   __   |
@@ -519,7 +519,7 @@ fn split_with_segment_2() {
 
 #[test]
 fn split_with_segment_3() {
-    use path::PathEvent;
+    use crate::path::PathEvent;
 
     //  \____
     //  |\   |
@@ -570,7 +570,7 @@ fn split_with_segment_3() {
 
 #[test]
 fn split_with_segment_4() {
-    use path::PathEvent;
+    use crate::path::PathEvent;
 
     //  ________
     // |        |
@@ -622,7 +622,7 @@ fn split_with_segment_4() {
 
 #[test]
 fn split_with_segment_5() {
-    use path::PathEvent;
+    use crate::path::PathEvent;
 
     //  ________
     // |        |
@@ -675,7 +675,7 @@ fn split_with_segment_5() {
 
 #[test]
 fn split_with_segment_6() {
-    use path::PathEvent;
+    use crate::path::PathEvent;
 
     //  ________
     // |        |

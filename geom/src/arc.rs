@@ -3,13 +3,13 @@
 use std::ops::Range;
 use std::mem::swap;
 
-use Line;
-use scalar::{Scalar, Float, cast};
-use generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
-use segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
-use segment;
-use QuadraticBezierSegment;
-use CubicBezierSegment;
+use crate::Line;
+use crate::scalar::{Scalar, Float, cast};
+use crate::generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
+use crate::segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
+use crate::segment;
+use crate::QuadraticBezierSegment;
+use crate::CubicBezierSegment;
 
 /// A flattening iterator for arc segments.
 pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
@@ -623,7 +623,7 @@ impl<S: Scalar> FlatteningStep for Arc<S> {
 #[test]
 fn test_from_svg_arc() {
     use euclid::approxeq::ApproxEq;
-    use math::vector;
+    use crate::math::vector;
 
     let flags = ArcFlags { large_arc: false, sweep: false };
 
@@ -799,7 +799,7 @@ fn test_to_quadratics_and_cubics() {
 #[test]
 fn test_bounding_rect() {
     use euclid::approxeq::ApproxEq;
-    use math::rect;
+    use crate::math::rect;
 
     fn approx_eq(r1: Rect<f32>, r2: Rect<f32>) -> bool {
         if !r1.min_x().approx_eq(&r2.min_x()) ||

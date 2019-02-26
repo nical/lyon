@@ -1,8 +1,8 @@
-use scalar::Scalar;
-use generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
-use segment::{Segment, FlatteningStep, BoundingRect};
-use monotonic::MonotonicSegment;
-use utils::min_max;
+use crate::scalar::Scalar;
+use crate::generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
+use crate::segment::{Segment, FlatteningStep, BoundingRect};
+use crate::monotonic::MonotonicSegment;
+use crate::utils::min_max;
 use std::mem::swap;
 
 use std::ops::Range;
@@ -644,7 +644,7 @@ fn bounding_rect() {
 
 #[test]
 fn distance_to_point() {
-    use math::vector;
+    use crate::math::vector;
 
     let l1 = Line {
         point: point(2.0f32, 3.0),

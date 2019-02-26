@@ -9,6 +9,7 @@ documentation = "https://docs.rs/lyon_tess2/"
 keywords = ["2d", "graphics", "tessellation", "svg"]
 license = "MIT/Apache-2.0"
 workspace = ".."
+edition = "2018"
 
 [lib]
 name = "lyon_tess2"

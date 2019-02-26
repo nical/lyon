@@ -1,10 +1,9 @@
-use geom::math::*;
-use geometry_builder::*;
-use path::builder::{Build, FlatPathBuilder, PathBuilder};
-use path::{Path, PathSlice};
-use extra::rust_logo::build_logo_path;
-
-use {FillTessellator, TessellationError, FillOptions, FillVertex, OnError};
+use crate::geom::math::*;
+use crate::geometry_builder::*;
+use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::path::{Path, PathSlice};
+use crate::extra::rust_logo::build_logo_path;
+use crate::{FillTessellator, TessellationError, FillOptions, FillVertex, OnError};
 
 use std::env;
 
@@ -18,13 +17,11 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
         if log {
             tess.enable_logging();
         }
-        try!{
-            tess.tessellate_path(
-                path.iter(),
-                &FillOptions::tolerance(0.05),
-                &mut vertex_builder
-            )
-        };
+        tess.tessellate_path(
+            path.iter(),
+            &FillOptions::tolerance(0.05),
+            &mut vertex_builder
+        )?;
     }
     return Ok(buffers.indices.len() / 3);
 }
@@ -60,7 +57,7 @@ fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
     }
 
     if find_test_case {
-        ::extra::debugging::find_reduced_test_case(
+        crate::extra::debugging::find_reduced_test_case(
             path,
             &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
         );

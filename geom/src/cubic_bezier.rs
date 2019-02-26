@@ -1,15 +1,14 @@
-use {Line, LineSegment, LineEquation};
-use scalar::Scalar;
-use generic_math::{Point, Vector, Rect, rect, Transform2D};
+pub use crate::flatten_cubic::Flattened;
+use crate::{Line, LineSegment, LineEquation, QuadraticBezierSegment};
+use crate::scalar::Scalar;
+use crate::generic_math::{Point, Vector, Rect, rect, Transform2D};
+use crate::flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
+use crate::cubic_to_quadratic::*;
+use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
+use crate::monotonic::Monotonic;
+use crate::utils::{min_max, cubic_polynomial_roots};
+use crate::segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
 use arrayvec::ArrayVec;
-use flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
-pub use flatten_cubic::Flattened;
-use cubic_to_quadratic::*;
-use cubic_bezier_intersections::cubic_bezier_intersections_t;
-use monotonic::Monotonic;
-use utils::{min_max, cubic_polynomial_roots};
-use segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
-use QuadraticBezierSegment;
 
 use std::ops::Range;
 use std::cmp::Ordering::{Less, Equal, Greater};
@@ -1011,7 +1010,7 @@ fn monotonic_solve_t_for_x() {
 
 #[test]
 fn fat_line() {
-    use math::point;
+    use crate::math::point;
 
     let c1 = CubicBezierSegment {
         from: point(1.0f32, 2.0),
@@ -1083,7 +1082,7 @@ fn is_linear() {
 
 #[test]
 fn test_monotonic() {
-    use math::point;
+    use crate::math::point;
     let curve = CubicBezierSegment {
         from: point(1.0, 1.0),
         ctrl1: point(10.0, 2.0),
@@ -1099,7 +1098,7 @@ fn test_monotonic() {
 
 #[test]
 fn test_line_segment_intersections() {
-    use math::point;
+    use crate::math::point;
     fn assert_approx_eq(a: ArrayVec<[(f32, f32); 3]>, b: &[(f32, f32)], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i].0 - b[i].0) > epsilon || f32::abs(a[i].1 - b[i].1) > epsilon {
@@ -1135,7 +1134,7 @@ fn test_line_segment_intersections() {
 
 #[test]
 fn test_parameters_for_value() {
-    use math::point;
+    use crate::math::point;
     fn assert_approx_eq(a: ArrayVec<[f32; 3]>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i] - b[i]) > epsilon {
@@ -1172,7 +1171,7 @@ fn test_parameters_for_value() {
 
 #[test]
 fn test_cubic_intersection_deduping() {
-    use math::point;
+    use crate::math::point;
 
     let epsilon = 0.0001;
 
