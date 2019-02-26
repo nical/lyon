@@ -1,10 +1,10 @@
-use parser::xmlparser::{StrSpan, FromSpan};
-use parser::path::{Tokenizer, Token};
+use crate::parser::xmlparser::{StrSpan, FromSpan};
+use crate::parser::path::{Tokenizer, Token};
 
-use path::geom::Arc;
-use path::math::{Vector, vector, Point, point, Angle};
-use path::{SvgEvent, ArcFlags};
-use path::builder::*;
+use crate::path::geom::Arc;
+use crate::path::math::{Vector, vector, Point, point, Angle};
+use crate::path::{SvgEvent, ArcFlags};
+use crate::path::builder::*;
 
 use std::f32::consts::PI;
 use std::mem;

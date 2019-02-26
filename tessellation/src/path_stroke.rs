@@ -1,14 +1,14 @@
-use math_utils::compute_normal;
-use geom::math::*;
-use geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
-use geom::utils::{normalized_tangent, directed_angle};
-use geom::euclid::Trig;
-use geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError};
-use basic_shapes::circle_flattening_step;
-use path::builder::{Build, FlatPathBuilder, PathBuilder};
-use path::PathEvent;
-use StrokeVertex as Vertex;
-use {Side, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult};
+use crate::math_utils::compute_normal;
+use crate::geom::math::*;
+use crate::geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
+use crate::geom::utils::{normalized_tangent, directed_angle};
+use crate::geom::euclid::Trig;
+use crate::geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError};
+use crate::basic_shapes::circle_flattening_step;
+use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::path::PathEvent;
+use crate::StrokeVertex as Vertex;
+use crate::{Side, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult};
 
 use std::f32::consts::PI;
 
@@ -963,9 +963,9 @@ fn tess_round_cap(
 }
 
 #[cfg(test)]
-use path::{Path, PathSlice};
+use crate::path::{Path, PathSlice};
 #[cfg(test)]
-use geometry_builder::{SimpleBuffersBuilder, simple_builder, VertexBuffers, Count};
+use crate::geometry_builder::{SimpleBuffersBuilder, simple_builder, VertexBuffers, Count};
 
 #[cfg(test)]
 fn test_path(
@@ -1135,7 +1135,7 @@ fn test_too_many_vertices() {
     /// This test checks that the tessellator returns the proper error when
     /// the geometry builder run out of vertex ids.
 
-    use extra::rust_logo::build_logo_path;
+    use crate::extra::rust_logo::build_logo_path;
 
     struct Builder { max_vertices: u32 }
     impl<T> GeometryBuilder<T> for Builder

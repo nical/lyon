@@ -1,6 +1,6 @@
-use geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
-use math::{Point, Vector, Angle, Transform2D, Transform};
-use ArcFlags;
+use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
+use crate::math::{Point, Vector, Angle, Transform2D, Transform};
+use crate::ArcFlags;
 
 /// Path event enum that can represent all of SVG's path description syntax.
 ///

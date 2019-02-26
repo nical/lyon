@@ -9,6 +9,7 @@ documentation = "https://docs.rs/lyon_algorithms/"
 keywords = ["2d", "graphics", "svg"]
 license = "MIT/Apache-2.0"
 workspace = ".."
+edition = "2018"
 
 [lib]
 name = "lyon_algorithms"

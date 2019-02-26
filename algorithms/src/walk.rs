@@ -39,9 +39,9 @@
 //! ```
 //!
 
-use math::*;
-use path::builder::{FlatPathBuilder, PolygonBuilder, build_polygon};
-use path::FlattenedEvent;
+use crate::math::*;
+use crate::path::builder::{FlatPathBuilder, PolygonBuilder, build_polygon};
+use crate::path::FlattenedEvent;
 
 use std::f32;
 

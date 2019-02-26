@@ -8,6 +8,7 @@ documentation = "https://docs.rs/lyon_geom/"
 keywords = ["2d", "graphics", "bezier", "geometry"]
 license = "MIT/Apache-2.0"
 workspace = ".."
+edition = "2018"
 
 [lib]
 name = "lyon_geom"

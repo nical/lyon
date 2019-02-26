@@ -1,8 +1,8 @@
 //! Find the first collision between a ray and a path.
 
-use path::PathEvent;
-use math::{Point, point, Vector, vector};
-use geom::{LineSegment, Line};
+use crate::path::PathEvent;
+use crate::math::{Point, point, Vector, vector};
+use crate::geom::{LineSegment, Line};
 use std::f32;
 
 pub struct Ray {
@@ -97,8 +97,8 @@ fn test_segment(state: &mut RayCastInner, segment: &LineSegment<f32>) {
 
 #[test]
 fn test_raycast() {
-    use geom::euclid::approxeq::ApproxEq;
-    use path::Path;
+    use crate::geom::euclid::approxeq::ApproxEq;
+    use crate::path::Path;
 
     let mut builder = Path::builder();
     builder.move_to(point(0.0, 0.0));

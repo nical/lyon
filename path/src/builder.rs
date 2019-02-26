@@ -74,10 +74,10 @@
 //! ```
 //!
 
-use math::*;
-use events::{PathEvent, FlattenedEvent, SvgEvent};
-use geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
-use path_state::PathState;
+use crate::math::*;
+use crate::events::{PathEvent, FlattenedEvent, SvgEvent};
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
+use crate::path_state::PathState;
 use std::marker::Sized;
 
 pub trait Build {

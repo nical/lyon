@@ -25,17 +25,17 @@ use std::cmp::{PartialOrd, Ordering};
 
 use sid::{Id, IdVec};
 
-use FillVertex as Vertex;
-use {FillOptions, FillRule, Side, OnError, TessellationError, TessellationResult, InternalError};
-use geom::math::*;
-use geom::euclid::{self, Trig};
-use math_utils::*;
-use geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId};
-use path::PathEvent;
-use path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::FillVertex as Vertex;
+use crate::{FillOptions, FillRule, Side, OnError, TessellationError, TessellationResult, InternalError};
+use crate::geom::math::*;
+use crate::geom::euclid::{self, Trig};
+use crate::math_utils::*;
+use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId};
+use crate::path::PathEvent;
+use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 
 #[cfg(feature="debugger")]
-use debugger::*;
+use crate::debugger::*;
 
 #[cfg(test)]
 macro_rules! tess_log {

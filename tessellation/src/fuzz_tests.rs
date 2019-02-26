@@ -1,11 +1,11 @@
-use geometry_builder::{VertexBuffers, simple_builder};
-use path::{Path, PathSlice};
-use path_fill::*;
-use geom::math::*;
-use FillVertex as Vertex;
-use FillOptions;
-use TessellationError;
-use OnError;
+use crate::geometry_builder::{VertexBuffers, simple_builder};
+use crate::path::{Path, PathSlice};
+use crate::path_fill::*;
+use crate::geom::math::*;
+use crate::FillVertex as Vertex;
+use crate::FillOptions;
+use crate::TessellationError;
+use crate::OnError;
 
 fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
@@ -15,13 +15,11 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
         if log {
             tess.enable_logging();
         }
-        try!{
-            tess.tessellate_path(
-                path,
-                &FillOptions::tolerance(0.05).on_error(on_error),
-                &mut vertex_builder
-            )
-        };
+        tess.tessellate_path(
+            path,
+            &FillOptions::tolerance(0.05).on_error(on_error),
+            &mut vertex_builder
+        )?;
     }
     return Ok(buffers.indices.len() / 3);
 }
@@ -40,7 +38,7 @@ fn test_path(path: PathSlice) {
     );
 
 
-    ::extra::debugging::find_reduced_test_case(
+    crate::extra::debugging::find_reduced_test_case(
         path,
         &|path: Path| { return tessellate_path(path.as_slice(), false, on_error).is_err(); },
     );

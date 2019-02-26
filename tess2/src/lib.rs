@@ -91,5 +91,5 @@ pub use tessellation::math;
 mod tessellator;
 pub mod flattened_path;
 
-pub use tessellator::FillTessellator;
-pub use tessellation::FillOptions;
+pub use crate::tessellator::FillTessellator;
+pub use crate::tessellation::FillOptions;

@@ -76,7 +76,6 @@
 //! to obtain the fill tessellation a rectangle with rounded corners:
 //!
 //! ```
-//! extern crate lyon;
 //! use lyon::math::rect;
 //! use lyon::tessellation::{VertexBuffers, FillOptions, FillVertex};
 //! use lyon::tessellation::basic_shapes::*;

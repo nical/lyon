@@ -1,10 +1,10 @@
 //! Fit paths into rectangles.
 
-use math::*;
-use aabb::bounding_rect;
-use path::Path;
-use path::iterator::*;
-use path::builder::*;
+use crate::math::*;
+use crate::aabb::bounding_rect;
+use crate::path::Path;
+use crate::path::iterator::*;
+use crate::path::builder::*;
 
 /// The strategy to use when fitting (stretching, overflow, etc.)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -66,7 +66,7 @@ pub fn fit_path(path: &Path, output_rect: &Rect, style: FitStyle) -> Path {
 #[test]
 fn simple_fit() {
     fn approx_eq(a: &Rect, b: &Rect) -> bool {
-        use geom::euclid::approxeq::ApproxEq;
+        use crate::geom::euclid::approxeq::ApproxEq;
         let result = a.origin.approx_eq(&b.origin) && a.bottom_right().approx_eq(&b.bottom_right());
         if !result {
             println!("{:?} == {:?}", a, b);

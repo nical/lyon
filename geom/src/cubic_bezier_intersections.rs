@@ -7,11 +7,10 @@
 ///! https://scholarsarchive.byu.edu/facpub/1/
 ///! for motivation and details of how the process works.
 
+use crate::generic_math::{point, Point, Rect};
+use crate::scalar::Scalar;
+use crate::CubicBezierSegment;
 use arrayvec::ArrayVec;
-use generic_math::{point, Point, Rect};
-use scalar::Scalar;
-use CubicBezierSegment;
-
 use std::ops::Range;
 
 // Computes the intersections (if any) between two cubic bézier curves in the form of the `t`

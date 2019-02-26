@@ -3,13 +3,13 @@
 //  - polish this data structure and expose it,
 //  - simplify/remove it.
 
-use math::*;
-use path::{Path, PathEvent};
-use path::builder::*;
+use crate::math::*;
+use crate::path::{Path, PathEvent};
+use crate::path::builder::*;
+use crate::geom::LineSegment;
 use std::u16;
-use sid::{Id, IdRange, IdVec, IdSlice};
 use std::ops;
-use geom::LineSegment;
+use sid::{Id, IdRange, IdVec, IdSlice};
 
 #[doc(hidden)] pub struct EdgeTag;
 pub type EdgeId = Id<EdgeTag, u16>;

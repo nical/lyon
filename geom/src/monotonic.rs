@@ -1,9 +1,9 @@
-use segment::{Segment, BoundingRect};
-use scalar::{Scalar, NumCast};
-use generic_math::{Point, Vector, Rect};
+use crate::segment::{Segment, BoundingRect};
+use crate::scalar::{Scalar, NumCast};
+use crate::generic_math::{Point, Vector, Rect};
+use crate::{QuadraticBezierSegment, CubicBezierSegment};
 use std::ops::Range;
 use arrayvec::ArrayVec;
-use {QuadraticBezierSegment, CubicBezierSegment};
 
 use std::f64;
 
@@ -379,8 +379,8 @@ where
 
 #[test]
 fn two_intersections() {
-    use QuadraticBezierSegment;
-    use math::point;
+    use crate::QuadraticBezierSegment;
+    use crate::math::point;
 
     let c1 = QuadraticBezierSegment {
         from: point(10.0, 0.0),

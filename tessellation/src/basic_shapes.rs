@@ -23,15 +23,15 @@
 //! More explanation about flattening and tolerance in the
 //! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
-use geometry_builder::{GeometryBuilder, GeometryBuilderError, VertexId};
-use path_stroke::{StrokeTessellator, StrokeBuilder};
-use math_utils::compute_normal;
-use geom::math::*;
-use geom::Arc;
-use path::builder::FlatPathBuilder;
-use path::iterator::{FlattenedIterator, FromPolyline};
-use {FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
-use {FillTessellator, TessellationResult};
+use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, VertexId};
+use crate::path_stroke::{StrokeTessellator, StrokeBuilder};
+use crate::math_utils::compute_normal;
+use crate::geom::math::*;
+use crate::geom::Arc;
+use crate::path::builder::FlatPathBuilder;
+use crate::path::iterator::{FlattenedIterator, FromPolyline};
+use crate::{FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
+use crate::{FillTessellator, TessellationResult};
 
 use std::f32::consts::PI;
 
@@ -736,8 +736,8 @@ pub fn fill_ellipse(
         sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
-    use path::builder::{Build, PathBuilder, FlatteningBuilder};
-    use path_fill::EventsBuilder;
+    use crate::path::builder::{Build, PathBuilder, FlatteningBuilder};
+    use crate::path_fill::EventsBuilder;
 
     let mut path = FlatteningBuilder::new(
         EventsBuilder::new(),
@@ -784,7 +784,7 @@ pub fn stroke_ellipse(
         sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
-    use path::builder::{Build, PathBuilder, FlatteningBuilder};
+    use crate::path::builder::{Build, PathBuilder, FlatteningBuilder};
 
     output.begin_geometry();
     {
@@ -912,7 +912,7 @@ pub(crate) fn circle_flattening_step(radius:f32, mut tolerance: f32) -> f32 {
 
 #[test]
 fn issue_358() {
-    use geometry_builder::NoOutput;
+    use crate::geometry_builder::NoOutput;
 
     fill_ellipse(
         point(25218.9902, 25669.6738),
@@ -925,7 +925,7 @@ fn issue_358() {
 
 #[test]
 fn issue_366() {
-    use geometry_builder::NoOutput;
+    use crate::geometry_builder::NoOutput;
 
     fill_circle(
         point(0.0, 0.0),
