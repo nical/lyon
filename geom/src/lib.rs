@@ -234,7 +234,7 @@ pub mod math {
     /// Alias for ```euclid::Point2D<f32>```.
     pub type Point = euclid::Point2D<f32>;
 
-    /// Alias for ```euclid::Point2D<f32>```.
+    /// Alias for ```euclid::Point2D<f64>```.
     pub type F64Point = euclid::Point2D<f64>;
 
     /// Alias for ```euclid::Point2D<f32>```.
