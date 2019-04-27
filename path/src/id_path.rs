@@ -1,7 +1,6 @@
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
-use crate::math::Point;
 
-use crate::{EndpointId, CtrlPointId};
+use crate::{EndpointId, CtrlPointId, Vertex};
 use crate::events::{PathEvent, IdEvent};
 
 use std::mem;
@@ -18,24 +17,12 @@ impl PathEventId {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 enum Verb {
-    LineTo = 0,
-    QuadraticTo = 1,
-    CubicTo = 2,
+    Line = 0,
+    Quadratic = 1,
+    Cubic = 2,
     Begin = 3,
     Close = 4,
     End = 5,
-}
-
-pub trait Vertex : Clone {
-    fn position(&self) -> Point;
-    fn set_position(&mut self, pos: Point);
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self;
-}
-
-impl Vertex for Point {
-    fn position(&self) -> Point { *self }
-    fn set_position(&mut self, pos: Point) { *self = pos; }
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self { a.lerp(*b, t) }
 }
 
 type PathOp = u32;
@@ -57,21 +44,21 @@ impl Cmd {
     };
 
     const LINE: Self = Cmd {
-        op: Verb::LineTo,
+        op: Verb::Line,
         data0: 0,
         data1: 0,
         data2: 0,
     };
 
     const QUAD: Self = Cmd {
-        op: Verb::QuadraticTo,
+        op: Verb::Quadratic,
         data0: 0,
         data1: 0,
         data2: 0,
     };
 
     const CUBIC: Self = Cmd {
-        op: Verb::CubicTo,
+        op: Verb::Cubic,
         data0: 0,
         data1: 0,
         data2: 0,
@@ -99,38 +86,17 @@ impl Cmd {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathCommands {
-    cmds: Vec<PathOp>,
+    cmds: Box<[PathOp]>,
 }
 
 impl PathCommands {
-    pub fn new() -> Self {
-        PathCommands {
-            cmds: Vec::new(),
-        }
-    }
-
-    pub fn with_capacity(cap: usize) -> Self {
-        PathCommands {
-            cmds: Vec::with_capacity(cap),
-        }
-    }
-
     pub fn builder() -> PathCommandsBuilder {
         PathCommandsBuilder::new()
     }
 
-    pub fn write<'a, 'b : 'a>(&'b mut self) -> PathCommandsWriter<'a> {
-        PathCommandsWriter::new(self)
-    }
-
-    pub fn iter_all(&self) -> IdIter {
-        let id = self.path_id();
-        self.iter(id)
-    }
-
-    pub fn iter(&self, path_id: PathId) -> IdIter {
+    pub fn iter(&self) -> IdIter {
         IdIter {
-            cmds: (&self.cmds[path_id.range()]).iter(),
+            cmds: self.cmds.iter(),
             first_endpoint: EndpointId(0),
             prev_endpoint: EndpointId(0),
         }
@@ -139,6 +105,70 @@ impl PathCommands {
     pub fn as_slice(&self) -> PathCommandsSlice {
         PathCommandsSlice {
             cmds: &self.cmds,
+        }
+    }
+
+    pub fn path_slice<'l, Endpoint, CtrlPoint>(
+        &'l self,
+        endpoints: &'l [Endpoint],
+        ctrl_points: &'l [CtrlPoint],
+    ) -> PathSlice<Endpoint, CtrlPoint> {
+        PathSlice {
+            endpoints,
+            ctrl_points,
+            cmds: self.as_slice(),
+        }
+    }
+
+    pub fn event(&self, id: PathEventId) -> IdEvent {
+        self.as_slice().event(id)
+    }
+
+    pub fn next_event_id_in_path(&self, id: PathEventId) -> Option<PathEventId> {
+        self.as_slice().next_event_id_in_path(id)
+    }
+
+    pub fn next_event_id_in_sub_path(&self, id: PathEventId) -> PathEventId {
+        self.as_slice().next_event_id_in_sub_path(id)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct PathCommandsBuffer {
+    cmds: Vec<PathOp>,
+}
+
+impl PathCommandsBuffer {
+    pub fn new() -> Self {
+        PathCommandsBuffer {
+            cmds: Vec::new(),
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        PathCommandsBuffer {
+            cmds: Vec::with_capacity(cap),
+        }
+    }
+
+    pub fn write<'a, 'b : 'a>(&'b mut self) -> PathCommandsWriter<'a> {
+        PathCommandsWriter::new(self)
+    }
+
+    pub fn iter_all(&self) -> IdIter {
+        IdIter {
+            cmds: self.cmds.iter(),
+            first_endpoint: EndpointId(0),
+            prev_endpoint: EndpointId(0),
+        }
+    }
+
+    pub fn iter(&self, path_id: PathId) -> IdIter {
+        IdIter {
+            cmds: (&self.cmds[path_id.range()]).iter(),
+            first_endpoint: EndpointId(0),
+            prev_endpoint: EndpointId(0),
         }
     }
 
@@ -160,10 +190,15 @@ impl PathCommands {
         self.as_slice().next_event_id_in_sub_path(id)
     }
 
-    fn path_id(&self) -> PathId {
-        PathId {
-            start: 0,
-            end: self.cmds.len() as u32,
+    pub fn into_path_commands(self) -> PathCommands {
+        PathCommands {
+            cmds: self.cmds.into_boxed_slice()
+        }
+    }
+
+    fn as_slice(&self) -> PathCommandsSlice {
+        PathCommandsSlice {
+            cmds: &self.cmds,
         }
     }
 }
@@ -173,7 +208,7 @@ impl<'l> IntoIterator for &'l PathCommands {
     type Item = PathEvent<EndpointId, CtrlPointId>;
     type IntoIter = IdIter<'l>;
 
-    fn into_iter(self) -> IdIter<'l> { self.iter_all() }
+    fn into_iter(self) -> IdIter<'l> { self.iter() }
 }
 
 impl<'l> Into<PathCommandsSlice<'l>> for &'l PathCommands {
@@ -200,16 +235,16 @@ impl<'l> PathCommandsSlice<'l> {
         let idx = id.to_usize();
         let cmd: Cmd = unsafe { mem::transmute(self.cmds[idx]) };
         match cmd.op {
-            Verb::LineTo => PathEvent::Line {
+            Verb::Line => PathEvent::Line {
                 from: EndpointId(self.cmds[idx - 1]),
                 to: EndpointId(self.cmds[idx + 1]),
             },
-            Verb::QuadraticTo => PathEvent::Quadratic {
+            Verb::Quadratic => PathEvent::Quadratic {
                 from: EndpointId(self.cmds[idx - 1]),
                 ctrl: CtrlPointId(self.cmds[idx + 1]),
                 to: EndpointId(self.cmds[idx + 2]),
             },
-            Verb::CubicTo => PathEvent::Cubic {
+            Verb::Cubic => PathEvent::Cubic {
                 from: EndpointId(self.cmds[idx - 1]),
                 ctrl1: CtrlPointId(self.cmds[idx + 1]),
                 ctrl2: CtrlPointId(self.cmds[idx + 2]),
@@ -241,9 +276,9 @@ impl<'l> PathCommandsSlice<'l> {
         let idx = id.to_usize();
         let cmd: Cmd = unsafe { mem::transmute(self.cmds[idx]) };
         match cmd.op {
-            Verb::LineTo | Verb::Begin => PathEventId(id.0 + 2),
-            Verb::QuadraticTo => PathEventId(id.0 + 3),
-            Verb::CubicTo => PathEventId(id.0 + 4),
+            Verb::Line | Verb::Begin => PathEventId(id.0 + 2),
+            Verb::Quadratic => PathEventId(id.0 + 3),
+            Verb::Cubic => PathEventId(id.0 + 4),
             Verb::End | Verb::Close => PathEventId(self.cmds[idx + 1]),
         }
     }
@@ -252,12 +287,12 @@ impl<'l> PathCommandsSlice<'l> {
         let idx = id.to_usize();
         let cmd: Cmd = unsafe { mem::transmute(self.cmds[idx]) };
         let next = match cmd.op {
-            Verb::LineTo
+            Verb::Line
             | Verb::Begin
             | Verb::End
             | Verb::Close => PathEventId(id.0 + 2),
-            Verb::QuadraticTo => PathEventId(id.0 + 3),
-            Verb::CubicTo => PathEventId(id.0 + 4),
+            Verb::Quadratic => PathEventId(id.0 + 3),
+            Verb::Cubic => PathEventId(id.0 + 4),
         };
 
         if next.0 < self.cmds.len() as u32 {
@@ -281,7 +316,7 @@ impl<Endpoint, CtrlPoint> Path<Endpoint, CtrlPoint> {
     }
 
     pub fn id_iter(&self) -> IdIter {
-        self.cmds.iter_all()
+        self.cmds.iter()
     }
 
     pub fn iter(&self) -> RefIter<Endpoint, CtrlPoint> {
@@ -405,7 +440,7 @@ impl<'l, Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for PathSlice<'l, End
 
 #[derive(Clone)]
 pub struct PathCommandsBuilder {
-    path: PathCommands,
+    path: PathCommandsBuffer,
     last_cmd: Verb,
     start: u32,
     first_event_index: u32,
@@ -415,7 +450,7 @@ impl PathCommandsBuilder {
     pub fn new() -> Self {
         Self {
             start: 0,
-            path: PathCommands::new(),
+            path: PathCommandsBuffer::new(),
             last_cmd: Verb::End,
             first_event_index: 0,
         }
@@ -424,13 +459,13 @@ impl PathCommandsBuilder {
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             start: 0,
-            path: PathCommands::with_capacity(cap),
+            path: PathCommandsBuffer::with_capacity(cap),
             last_cmd: Verb::End,
             first_event_index: 0,
         }
     }
 
-    pub fn from_commands(path: PathCommands) -> Self {
+    pub fn from_commands(path: PathCommandsBuffer) -> Self {
         Self {
             first_event_index: path.cmds.len() as u32,
             start: path.cmds.len() as u32,
@@ -448,45 +483,64 @@ impl PathCommandsBuilder {
     }
 
     pub fn line_to(&mut self, to: EndpointId) {
+        self.begin_if_needed();
         self.path.cmds.push(Cmd::LINE.to_u32());
         self.path.cmds.push(to.0 as PathOp);
-        self.last_cmd = Verb::LineTo;
+        self.last_cmd = Verb::Line;
     }
 
     pub fn quadratic_bezier_to(&mut self, ctrl: CtrlPointId, to: EndpointId) {
+        self.begin_if_needed();
         self.path.cmds.push(Cmd::QUAD.to_u32());
         self.path.cmds.push(ctrl.0 as PathOp);
         self.path.cmds.push(to.0 as PathOp);
-        self.last_cmd = Verb::QuadraticTo;
+        self.last_cmd = Verb::Quadratic;
     }
 
     pub fn cubic_bezier_to(&mut self, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId) {
+        self.begin_if_needed();
         self.path.cmds.push(Cmd::CUBIC.to_u32());
         self.path.cmds.push(ctrl1.0 as PathOp);
         self.path.cmds.push(ctrl2.0 as PathOp);
         self.path.cmds.push(to.0 as PathOp);
-        self.last_cmd = Verb::CubicTo;
+        self.last_cmd = Verb::Cubic;
     }
 
     pub fn close(&mut self) {
-        if (self.last_cmd as u8) >= (Verb::Close as u8) {
-            return;
+        match self.last_cmd {
+            Verb::Close | Verb::End => {
+                return;
+            }
+            _ => {}
         }
         self.path.cmds.push(Cmd::CLOSE.to_u32());
         self.path.cmds.push(self.first_event_index);
         self.last_cmd = Verb::Close;
     }
 
-    pub fn end_if_needed(&mut self) {
-        if (self.last_cmd as u8) <= (Verb::Begin as u8) {
-            self.path.cmds.push(Cmd::END.to_u32());
-            self.path.cmds.push(self.first_event_index);
+    fn begin_if_needed(&mut self) {
+        match self.last_cmd {
+            Verb::Close | Verb::End => {
+                let first = self.path.cmds.last().cloned().unwrap_or(0);
+                self.move_to(EndpointId(first));
+            }
+            _ => {}
+        }
+    }
+
+    fn end_if_needed(&mut self) {
+        match self.last_cmd {
+            Verb::Line | Verb::Quadratic | Verb::Cubic => {
+                self.path.cmds.push(Cmd::END.to_u32());
+                self.path.cmds.push(self.first_event_index);
+            }
+            _ => {}
         }
     }
 
     pub fn build(mut self) -> PathCommands {
         self.end_if_needed();
-        self.path
+        self.path.into_path_commands()
     }
 
     fn finish(&mut self) -> PathId {
@@ -501,14 +555,14 @@ impl PathCommandsBuilder {
 
 pub struct PathCommandsWriter<'l> {
     builder: PathCommandsBuilder,
-    storage: &'l mut PathCommands,
+    storage: &'l mut PathCommandsBuffer,
 }
 
 impl<'l> PathCommandsWriter<'l> {
-    pub fn new<'b>(storage: &'b mut PathCommands) -> Self  where 'b : 'l {
+    pub fn new<'b>(storage: &'b mut PathCommandsBuffer) -> Self  where 'b : 'l {
         PathCommandsWriter {
             builder: PathCommandsBuilder::from_commands(
-                mem::replace(storage, PathCommands::new()),
+                mem::replace(storage, PathCommandsBuffer::new()),
             ),
             storage,
         }
@@ -517,7 +571,7 @@ impl<'l> PathCommandsWriter<'l> {
 
 impl<'l> Drop for PathCommandsWriter<'l> {
     fn drop(&mut self) {
-        let mut cmds = mem::replace(&mut self.builder.path, PathCommands::new());
+        let mut cmds = mem::replace(&mut self.builder.path, PathCommandsBuffer::new());
         mem::swap(&mut cmds, &mut self.storage);
     }
 }
@@ -548,20 +602,20 @@ impl<'l> Iterator for IdIter<'l> {
                 self.first_endpoint = to;
                 Some(PathEvent::Begin { at: to })
             }
-            Some(&Cmd { op: Verb::LineTo, .. }) => {
+            Some(&Cmd { op: Verb::Line, .. }) => {
                 let to = EndpointId(*self.cmds.next().unwrap() as u32);
                 let from = self.prev_endpoint;
                 self.prev_endpoint = to;
                 Some(PathEvent::Line { from, to })
             }
-            Some(&Cmd { op: Verb::QuadraticTo, .. }) => {
+            Some(&Cmd { op: Verb::Quadratic, .. }) => {
                 let ctrl = CtrlPointId(*self.cmds.next().unwrap() as u32);
                 let to = EndpointId(*self.cmds.next().unwrap() as u32);
                 let from = self.prev_endpoint;
                 self.prev_endpoint = to;
                 Some(PathEvent::Quadratic { from, ctrl, to })
             }
-            Some(&Cmd { op: Verb::CubicTo, .. }) => {
+            Some(&Cmd { op: Verb::Cubic, .. }) => {
                 let ctrl1 = CtrlPointId(*self.cmds.next().unwrap() as u32);
                 let ctrl2 = CtrlPointId(*self.cmds.next().unwrap() as u32);
                 let to = EndpointId(*self.cmds.next().unwrap() as u32);
@@ -611,7 +665,7 @@ impl<'l, Endpoint, CtrlPoint> Iterator for RefIter<'l, Endpoint, CtrlPoint> {
                     at: &self.endpoints[to],
                 })
             }
-            Some(&Cmd { op: Verb::LineTo, .. }) => {
+            Some(&Cmd { op: Verb::Line, .. }) => {
                 let to = *self.cmds.next().unwrap() as usize;
                 let from = self.prev_endpoint;
                 self.prev_endpoint = to;
@@ -620,7 +674,7 @@ impl<'l, Endpoint, CtrlPoint> Iterator for RefIter<'l, Endpoint, CtrlPoint> {
                     to: &self.endpoints[to],
                 })
             }
-            Some(&Cmd { op: Verb::QuadraticTo, .. }) => {
+            Some(&Cmd { op: Verb::Quadratic, .. }) => {
                 let ctrl = *self.cmds.next().unwrap() as usize;
                 let to = *self.cmds.next().unwrap() as usize;
                 let from = self.prev_endpoint;
@@ -631,7 +685,7 @@ impl<'l, Endpoint, CtrlPoint> Iterator for RefIter<'l, Endpoint, CtrlPoint> {
                     to: &self.endpoints[to],
                 })
             }
-            Some(&Cmd { op: Verb::CubicTo, .. }) => {
+            Some(&Cmd { op: Verb::Cubic, .. }) => {
                 let ctrl1 = *self.cmds.next().unwrap() as usize;
                 let ctrl2 = *self.cmds.next().unwrap() as usize;
                 let to = *self.cmds.next().unwrap() as usize;
@@ -689,7 +743,7 @@ impl PathId {
 pub struct PathBuffer<Endpoint, CtrlPoint> {
     endpoints: Vec<Endpoint>,
     ctrl_points: Vec<CtrlPoint>,
-    cmds: PathCommands,
+    cmds: PathCommandsBuffer,
 }
 
 impl<Endpoint, CtrlPoint> PathBuffer<Endpoint, CtrlPoint> {
@@ -697,7 +751,7 @@ impl<Endpoint, CtrlPoint> PathBuffer<Endpoint, CtrlPoint> {
         PathBuffer {
             endpoints: Vec::new(),
             ctrl_points: Vec::new(),
-            cmds: PathCommands::new(),
+            cmds: PathCommandsBuffer::new(),
         }
     }
 
@@ -705,7 +759,7 @@ impl<Endpoint, CtrlPoint> PathBuffer<Endpoint, CtrlPoint> {
         PathBuffer {
             endpoints: Vec::with_capacity(endpoints),
             ctrl_points: Vec::with_capacity(ctrl_points),
-            cmds: PathCommands::with_capacity(edges + endpoints + ctrl_points),
+            cmds: PathCommandsBuffer::with_capacity(edges + endpoints + ctrl_points),
         }
     }
 
@@ -743,7 +797,7 @@ impl<Endpoint, CtrlPoint> PathBuffer<Endpoint, CtrlPoint> {
         Path {
             endpoints: self.endpoints.into_boxed_slice(),
             ctrl_points: self.ctrl_points.into_boxed_slice(),
-            cmds: self.cmds,
+            cmds: self.cmds.into_path_commands(),
         }
     }
 
@@ -835,7 +889,7 @@ impl<'l, Endpoint, CtrlPoint> PathWriter<'l, Endpoint, CtrlPoint> {
             endpoints: mem::replace(&mut buffer.endpoints, Vec::new()),
             ctrl_points: mem::replace(&mut buffer.ctrl_points, Vec::new()),
             cmds: PathCommandsBuilder::from_commands(
-                mem::replace(&mut buffer.cmds, PathCommands::new()),
+                mem::replace(&mut buffer.cmds, PathCommandsBuffer::new()),
             ),
         };
 
@@ -855,7 +909,7 @@ impl<'l, Endpoint, CtrlPoint> Drop for PathWriter<'l, Endpoint, CtrlPoint> {
         let mut buffer = PathBuffer {
             endpoints: mem::replace(&mut self.builder.endpoints, Vec::new()),
             ctrl_points: mem::replace(&mut self.builder.ctrl_points, Vec::new()),
-            cmds: mem::replace(&mut self.builder.cmds.path, PathCommands::new()),
+            cmds: mem::replace(&mut self.builder.cmds.path, PathCommandsBuffer::new()),
         };
         mem::swap(&mut buffer, &mut self.buffer);
     }

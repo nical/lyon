@@ -4,7 +4,7 @@ use crate::builder::*;
 use crate::VertexId;
 use crate::math::*;
 use crate::geom::Arc;
-use crate::PathEvent;
+use crate::{PathEvent, EndpointId, CtrlPointId};
 
 use std::iter::IntoIterator;
 use std::ops;
@@ -66,6 +66,9 @@ impl Path {
     /// Iterates over the entire `Path`.
     pub fn iter(&self) -> Iter { Iter::new(&self.points[..], &self.verbs[..]) }
 
+    /// Iterates over the endpoint and control point ids of the `Path`.
+    pub fn id_iter(&self) -> IdIter { IdIter::new(&self.verbs[..]) }
+
     pub fn points(&self) -> &[Point] { &self.points[..] }
 
     pub fn mut_points(&mut self) -> &mut [Point] { &mut self.points[..] }
@@ -93,6 +96,20 @@ impl Path {
             first_vertex: VertexId(0),
             first_verb: 0,
         }
+    }
+}
+
+impl std::ops::Index<EndpointId> for Path {
+    type Output = Point;
+    fn index(&self, id: EndpointId) -> &Point {
+        &self.points[id.to_usize()]
+    }
+}
+
+impl std::ops::Index<CtrlPointId> for Path {
+    type Output = Point;
+    fn index(&self, id: CtrlPointId) -> &Point {
+        &self.points[id.to_usize()]
     }
 }
 
@@ -369,11 +386,7 @@ pub fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
     let mut p = points.len();
     let mut need_close = false;
 
-    let mut n = 0;
-
     for v in path.verbs.iter().rev().cloned() {
-        println!("{:?}", v);
-        n += 1;
         match v {
             Verb::Close => {
                 need_close = true;
@@ -636,6 +649,72 @@ impl<'l> Iterator for Iter<'l> {
                 let last = self.current;
                 self.current = self.first;
                 Some(PathEvent::End { last, first: self.first, close: false, })
+            }
+            None => None,
+        }
+    }
+}
+
+/// An iterator of endpoint and control point ids for `Path` and `PathSlice`.
+#[derive(Clone, Debug)]
+pub struct IdIter<'l> {
+    verbs: ::std::slice::Iter<'l, Verb>,
+    current: u32,
+    first: u32,
+}
+
+impl<'l> IdIter<'l> {
+    fn new(verbs: &'l [Verb]) -> Self {
+        IdIter {
+            verbs: verbs.iter(),
+            current: 0,
+            first: 0,
+        }
+    }
+}
+
+impl<'l> Iterator for IdIter<'l> {
+    type Item = PathEvent<EndpointId, CtrlPointId>;
+    fn next(&mut self) -> Option<PathEvent<EndpointId, CtrlPointId>> {
+        match self.verbs.next() {
+            Some(&Verb::Begin) => {
+                let at = self.current;
+                self.first = at;
+                self.current += 1;
+                Some(PathEvent::Begin { at: EndpointId(at) })
+            }
+            Some(&Verb::LineTo) => {
+                let from = EndpointId(self.current);
+                let to = EndpointId(self.current + 1);
+                self.current += 1;
+                Some(PathEvent::Line { from, to })
+            }
+            Some(&Verb::QuadraticTo) => {
+                let from = EndpointId(self.current);
+                let ctrl = CtrlPointId(self.current + 1);
+                let to = EndpointId(self.current + 2);
+                self.current += 2;
+                Some(PathEvent::Quadratic { from, ctrl, to })
+            }
+            Some(&Verb::CubicTo) => {
+                let from = EndpointId(self.current);
+                let ctrl1 = CtrlPointId(self.current + 1);
+                let ctrl2 = CtrlPointId(self.current + 2);
+                let to = EndpointId(self.current + 3);
+                self.current += 3;
+                Some(PathEvent::Cubic { from, ctrl1, ctrl2, to })
+            }
+            Some(&Verb::Close) => {
+                let last = EndpointId(self.current);
+                let first = EndpointId(self.first);
+                self.current = self.first;
+                Some(PathEvent::End { last, first, close: true, })
+            }
+            Some(&Verb::End) => {
+                let last = EndpointId(self.current);
+                let first = EndpointId(self.first);
+                self.current = self.first;
+                Some(PathEvent::End { last, first, close: false, })
             }
             None => None,
         }

@@ -10,4 +10,3 @@ name = "path_bench"
 [dependencies]
 lyon = { path = "../../", features = ["extra"] }
 bencher = "0.1.1"
-

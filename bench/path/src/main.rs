@@ -5,7 +5,6 @@ extern crate bencher;
 use lyon::path::{Path, PathEvent};
 use lyon::path::new_path;
 use lyon::path::id_path;
-use lyon::path::new_path::Event;
 
 use lyon::math::point;
 
@@ -98,7 +97,7 @@ fn new_path_build_prealloc(bench: &mut Bencher) {
     });
 }
 
-fn newer_path_build_prealloc(bench: &mut Bencher) {
+fn id_path_build_prealloc(bench: &mut Bencher) {
     use lyon::math::Point;
     bench.iter(|| {
         let n_endpoints = 30010;
@@ -123,7 +122,7 @@ fn newer_path_build_prealloc(bench: &mut Bencher) {
     });
 }
 
-fn newer_id_path_build(bench: &mut Bencher) {
+fn id_id_path_build(bench: &mut Bencher) {
     use lyon::path::new_path::{EndpointId, CtrlPointId};
 
     bench.iter(|| {
@@ -149,7 +148,7 @@ fn newer_id_path_build(bench: &mut Bencher) {
     });
 }
 
-fn newer_path_build(bench: &mut Bencher) {
+fn id_path_build(bench: &mut Bencher) {
     use lyon::math::Point;
     bench.iter(|| {
         let mut path = id_path::PathBuilder::<Point, Point>::new();
@@ -191,22 +190,48 @@ fn old_path_iter(bench: &mut Bencher) {
     bench.iter(|| {
         for evt in path.iter() {
             p += match evt {
-                PathEvent::MoveTo(to) => {
-                    to
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_vector()
                 }
-                PathEvent::Line(segment) => {
-                    segment.to
+            };
+        }
+    });
+}
+
+fn old_path_id_iter(bench: &mut Bencher) {
+    let mut path = Path::builder();
+    for _ in 0..N {
+        for _ in 0..10 {
+            path.move_to(point(0.0, 0.0));
+            for _ in 0..1_000 {
+                path.line_to(point(1.0, 0.0));
+                path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
+                path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
+            }
+            path.close();
+        }
+    }
+
+    let path = path.build();
+
+    let mut i = 0;
+    bench.iter(|| {
+        for evt in path.id_iter() {
+            i += match evt {
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_usize()
                 }
-                PathEvent::Quadratic(segment) => {
-                    segment.to
-                }
-                PathEvent::Cubic(segment) => {
-                    segment.to
-                }
-                PathEvent::Close(segment) => {
-                    segment.to
-                }
-            }.to_vector();
+            };
         }
     });
 }
@@ -230,23 +255,16 @@ fn new_path_iter(bench: &mut Bencher) {
     let mut p = point(0.0, 0.0);
     bench.iter(|| {
         for evt in path.iter() {
-            match evt {
-                Event::Begin { at, .. } => {
-                    p += at.to_vector();
+            p += match evt {
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_vector()
                 }
-                Event::Line { to, ..} => {
-                    p += to.to_vector();
-                }
-                Event::Quadratic { to, .. } => {
-                    p += to.to_vector();
-                }
-                Event::Cubic { to, .. } => {
-                    p += to.to_vector();
-                }
-                Event::End { first, .. } => {
-                    p += first.to_vector();
-                }
-            }
+            };
         }
     });
 }
@@ -271,27 +289,20 @@ fn new_path_id_iter(bench: &mut Bencher) {
     bench.iter(|| {
         for evt in path.id_iter() {
             i += match evt {
-                Event::Begin { at, .. } => {
-                    at.to_usize()
-                }
-                Event::Line { to, .. } => {
-                    to.to_usize()
-                }
-                Event::Quadratic { to, .. } => {
-                    to.to_usize()
-                }
-                Event::Cubic { to, .. } => {
-                    to.to_usize()
-                }
-                Event::End { first, .. } => {
-                    first.to_usize()
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_usize()
                 }
             };
         }
     });
 }
 
-fn newer_path_id_iter(bench: &mut Bencher) {
+fn id_path_id_iter(bench: &mut Bencher) {
     use lyon::path::new_path::{EndpointId, CtrlPointId};
     let mut path = id_path::PathCommands::builder();
     let mut ep = 0;
@@ -315,29 +326,22 @@ fn newer_path_id_iter(bench: &mut Bencher) {
 
     let mut i = 0;
     bench.iter(|| {
-        for evt in path.iter_all() {
+        for evt in path.iter() {
             i += match evt {
-                id_path::Event::Begin { at, .. } => {
-                    at.to_usize()
-                }
-                id_path::Event::Line { to, .. } => {
-                    to.to_usize()
-                }
-                id_path::Event::Quadratic { to, .. } => {
-                    to.to_usize()
-                }
-                id_path::Event::Cubic { to, .. } => {
-                    to.to_usize()
-                }
-                id_path::Event::End { last, .. } => {
-                    last.to_usize()
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_usize()
                 }
             };
         }
     });
 }
 
-fn newer_path_iter(bench: &mut Bencher) {
+fn id_path_iter(bench: &mut Bencher) {
     use lyon::math::Point;
     let mut path = id_path::PathBuilder::<Point, Point>::new();
     for _ in 0..N {
@@ -357,23 +361,16 @@ fn newer_path_iter(bench: &mut Bencher) {
     let mut p = point(0.0, 0.0);
     bench.iter(|| {
         for evt in path.iter() {
-            match evt {
-                id_path::Event::Begin { at, .. } => {
-                    p += at.to_vector();
+            p += match evt {
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_vector()
                 }
-                id_path::Event::Line { to, ..} => {
-                    p += to.to_vector();
-                }
-                id_path::Event::Quadratic { to, .. } => {
-                    p += to.to_vector();
-                }
-                id_path::Event::Cubic { to, .. } => {
-                    p += to.to_vector();
-                }
-                id_path::Event::End { last, .. } => {
-                    p += last.to_vector();
-                }
-            }
+            };
         }
     });
 }
@@ -383,17 +380,18 @@ benchmark_group!(builder,
     old_path_build_prealloc,
     new_path_build,
     new_path_build_prealloc,
-    newer_path_build,
-    newer_id_path_build,
-    newer_path_build_prealloc,
+    id_path_build,
+    id_id_path_build,
+    id_path_build_prealloc,
 );
 
 benchmark_group!(iter,
     old_path_iter,
+    old_path_id_iter,
     new_path_id_iter,
     new_path_iter,
-    newer_path_id_iter,
-    newer_path_iter,
+    id_path_id_iter,
+    id_path_iter,
 );
 
 #[cfg(not(feature = "libtess2"))]

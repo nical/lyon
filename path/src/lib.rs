@@ -60,6 +60,7 @@ pub use crate::geom::math as math;
 
 use std::ops::{Add, Sub};
 use std::u32;
+use math::Point;
 
 pub type Index = u32;
 
@@ -143,4 +144,16 @@ pub struct EndpointId(pub u32);
 impl EndpointId {
     //pub(crate) const INVALID: Self = EndpointId(!0u32);
     pub fn to_usize(&self) -> usize { self.0 as usize }
+}
+
+pub trait Vertex : Clone {
+    fn position(&self) -> Point;
+    fn set_position(&mut self, pos: Point);
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self;
+}
+
+impl Vertex for Point {
+    fn position(&self) -> Point { *self }
+    fn set_position(&mut self, pos: Point) { *self = pos; }
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self { a.lerp(*b, t) }
 }

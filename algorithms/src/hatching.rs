@@ -294,7 +294,7 @@ impl Hatcher {
         output: &mut dyn HatchBuilder,
     )
     where
-        Iter: Iterator<Item = PathEvent>,
+        Iter: Iterator<Item = PathEvent<Point, Point>>,
     {
         let mut events = mem::replace(&mut self.events, HatchingEvents::new());
         events.set_path(options.tolerance, options.angle, it);
@@ -312,7 +312,7 @@ impl Hatcher {
         output: &mut dyn DotBuilder,
     )
     where
-        Iter: Iterator<Item = PathEvent>,
+        Iter: Iterator<Item = PathEvent<Point, Point>>,
     {
         let mut events = mem::replace(&mut self.events, HatchingEvents::new());
         events.set_path(options.tolerance, options.angle, it);
@@ -550,7 +550,7 @@ impl HatchingEvents {
         angle: Angle<f32>,
         it: Iter
     )
-        where Iter: Iterator<Item = PathEvent>
+        where Iter: Iterator<Item = PathEvent<Point, Point>>
     {
         self.edges.clear();
         let mut builder = EventsBuilder::new(angle);

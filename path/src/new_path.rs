@@ -14,7 +14,7 @@ enum Verb {
     LineTo = 0,
     QuadraticTo = 1,
     CubicTo = 2,
-    MoveTo = 3,
+    Begin = 3,
     Close = 4,
     End = 5,
 }
@@ -147,8 +147,8 @@ impl<Endpoint: Vertex, CtrlPoint: Vertex> Builder<Endpoint, CtrlPoint> {
         self.first_endpoint = EndpointId(self.endpoints.len() as u32);
         self.first_verb = self.verbs.len() as u32;
         self.endpoints.push(to);
-        self.verbs.push(Verb::MoveTo);
-        self.prev_cmd = Verb::MoveTo;
+        self.verbs.push(Verb::Begin);
+        self.prev_cmd = Verb::Begin;
     }
 
     pub fn line_to(&mut self, to: Endpoint) {
@@ -221,7 +221,7 @@ impl<Endpoint: Vertex, CtrlPoint: Vertex> Builder<Endpoint, CtrlPoint> {
     }
 
     fn edge_to(&mut self, to: Endpoint) -> bool {
-        if (self.prev_cmd as u8) < (Verb::MoveTo as u8) {
+        if (self.prev_cmd as u8) < (Verb::Begin as u8) {
             self.endpoints.push(to);
             return true;
         }
@@ -339,7 +339,7 @@ impl<'l> Iterator for IdIter<'l> {
                     close: false,
                 });
             }
-            Some(&Verb::MoveTo) => {
+            Some(&Verb::Begin) => {
                 self.current_endpoint += 1;
                 self.first_endpoint = self.current_endpoint;
                 return Some(PathEvent::Begin {
@@ -366,7 +366,7 @@ impl<'l, Endpoint, CtrlPoint> Iterator for RefIter<'l, Endpoint, CtrlPoint> {
     type Item = PathEvent<&'l Endpoint, &'l CtrlPoint>;
     fn next(&mut self) -> Option<PathEvent<&'l Endpoint, &'l CtrlPoint>> {
         match self.verbs.next() {
-            Some(&Verb::MoveTo) => {
+            Some(&Verb::Begin) => {
                 self.current_endpoint = self.endpoints.next().unwrap();
                 self.first_endpoint = self.current_endpoint;
                 Some(PathEvent::Begin {
