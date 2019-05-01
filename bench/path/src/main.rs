@@ -104,7 +104,14 @@ fn id_path_build_prealloc(bench: &mut Bencher) {
         let n_ctrl_points = 30000;
         let n_edges = N * 30_000 + N * 20;
 
-        let mut path = id_path::PathBuilder::<Point, Point>::with_capacity(n_endpoints, n_ctrl_points, n_edges);
+        let mut endpoints: Vec<Point> = Vec::new();
+        let mut ctrl_points: Vec<Point> = Vec::new();
+
+        let mut path = id_path::PathBuilder::with_capacity(
+            n_endpoints, n_ctrl_points, n_edges,
+            &mut endpoints,
+            &mut ctrl_points,
+        );
 
         for _ in 0..N {
             for _ in 0..10 {
@@ -150,8 +157,12 @@ fn id_id_path_build(bench: &mut Bencher) {
 
 fn id_path_build(bench: &mut Bencher) {
     use lyon::math::Point;
+
+    let mut endpoints: Vec<Point> = Vec::new();
+    let mut ctrl_points: Vec<Point> = Vec::new();
+
     bench.iter(|| {
-        let mut path = id_path::PathBuilder::<Point, Point>::new();
+        let mut path = id_path::PathBuilder::new(&mut endpoints, &mut ctrl_points);
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -343,24 +354,30 @@ fn id_path_id_iter(bench: &mut Bencher) {
 
 fn id_path_iter(bench: &mut Bencher) {
     use lyon::math::Point;
-    let mut path = id_path::PathBuilder::<Point, Point>::new();
-    for _ in 0..N {
-        for _ in 0..10 {
-            path.move_to(point(0.0, 0.0));
-            for _ in 0..1_000 {
-                path.line_to(point(1.0, 0.0));
-                path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
-                path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
-            }
-            path.close();
-        }
-    }
 
-    let path = path.build();
+    let mut endpoints: Vec<Point> = Vec::new();
+    let mut ctrl_points: Vec<Point> = Vec::new();
+
+    let path = {
+        let mut path = id_path::PathBuilder::new(&mut endpoints, &mut ctrl_points);
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(point(0.0, 0.0));
+                for _ in 0..1_000 {
+                    path.line_to(point(1.0, 0.0));
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
+                }
+                path.close();
+            }
+        }
+
+        path.build()
+    };
 
     let mut p = point(0.0, 0.0);
     bench.iter(|| {
-        for evt in path.iter() {
+        for evt in path.path_iter(&endpoints, &ctrl_points) {
             p += match evt {
                 PathEvent::Begin { at: p }
                 | PathEvent::Line { to: p, .. }

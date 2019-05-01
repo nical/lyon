@@ -608,54 +608,6 @@ impl<'l> Iterator for IdPolygonIter<'l> {
     }
 }
 
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Path<Endpoint, CtrlPoint> {
-    endpoints: Box<[Endpoint]>,
-    ctrl_points: Box<[CtrlPoint]>,
-    cmds: PathCommands,
-}
-
-impl<Endpoint, CtrlPoint> Path<Endpoint, CtrlPoint> {
-    pub fn builder() -> PathBuilder<Endpoint, CtrlPoint> {
-        PathBuilder::new()
-    }
-
-    pub fn id_iter(&self) -> IdIter {
-        self.cmds.iter()
-    }
-
-    pub fn iter(&self) -> RefIter<Endpoint, CtrlPoint> {
-        RefIter {
-            cmds: self.cmds.cmds.iter(),
-            first_endpoint: 0,
-            prev_endpoint: 0,
-            endpoints: &self.endpoints[..],
-            ctrl_points: &self.ctrl_points[..],
-        }
-    }
-
-    pub fn as_slice(&self) -> PathSlice<Endpoint, CtrlPoint> {
-        PathSlice {
-            endpoints: &self.endpoints,
-            ctrl_points: &self.ctrl_points,
-            cmds: self.cmds.as_slice(),
-        }
-    }
-}
-
-impl<'l, Endpoint, CtrlPoint> IntoIterator for &'l Path<Endpoint, CtrlPoint> {
-    type Item = PathEvent<&'l Endpoint, &'l CtrlPoint>;
-    type IntoIter = RefIter<'l, Endpoint, CtrlPoint>;
-
-    fn into_iter(self) -> RefIter<'l, Endpoint, CtrlPoint> { self.iter() }
-}
-
-impl<'l, Endpoint, CtrlPoint> Into<PathSlice<'l, Endpoint, CtrlPoint>> for &'l Path<Endpoint, CtrlPoint> {
-    fn into(self) -> PathSlice<'l, Endpoint, CtrlPoint> {
-        self.as_slice()
-    }
-}
-
 #[derive(Clone)]
 pub struct PathCommandsBuilder {
     path: PathCommandsBuffer,
@@ -760,15 +712,6 @@ impl PathCommandsBuilder {
         self.end_if_needed();
         self.path.into_path_commands()
     }
-
-    fn finish(&mut self) -> PathId {
-        self.end_if_needed();
-
-        PathId {
-            start: self.start,
-            end: self.path.cmds.len() as u32,
-        }
-    }
 }
 
 pub struct PathCommandsWriter<'l> {
@@ -801,95 +744,34 @@ impl<'l> std::ops::Deref for PathCommandsWriter<'l> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct PathBuffer<Endpoint, CtrlPoint> {
-    endpoints: Vec<Endpoint>,
-    ctrl_points: Vec<CtrlPoint>,
-    cmds: PathCommandsBuffer,
-}
-
-impl<Endpoint, CtrlPoint> PathBuffer<Endpoint, CtrlPoint> {
-    pub fn new() -> Self {
-        PathBuffer {
-            endpoints: Vec::new(),
-            ctrl_points: Vec::new(),
-            cmds: PathCommandsBuffer::new(),
-        }
-    }
-
-    pub fn with_capacity(endpoints: usize, ctrl_points: usize, edges: usize) -> Self {
-        PathBuffer {
-            endpoints: Vec::with_capacity(endpoints),
-            ctrl_points: Vec::with_capacity(ctrl_points),
-            cmds: PathCommandsBuffer::with_capacity(edges + endpoints + ctrl_points),
-        }
-    }
-
-    pub fn iter(&self, path_id: PathId) -> RefIter<Endpoint, CtrlPoint> {
-        RefIter {
-            cmds: (&self.cmds.cmds[path_id.range()]).iter(),
-            first_endpoint: 0,
-            prev_endpoint: 0,
-            endpoints: &self.endpoints[..],
-            ctrl_points: &self.ctrl_points[..],
-        }
-    }
-
-    pub fn id_iter(&self, path_id: PathId) -> IdIter {
-        IdIter {
-            cmds: (&self.cmds.cmds[path_id.range()]).iter(),
-            first_endpoint: EndpointId(0),
-            prev_endpoint: EndpointId(0),
-        }
-    }
-
-    pub fn slice(&self, path_id: PathId) -> PathSlice<Endpoint, CtrlPoint> {
-        PathSlice {
-            endpoints: &self.endpoints[..],
-            ctrl_points: &self.ctrl_points[..],
-            cmds: self.cmds.slice(path_id),
-        }
-    }
-
-    pub fn id_slice(&self, path_id: PathId) -> PathCommandsSlice {
-        self.cmds.slice(path_id)
-    }
-
-    pub fn into_path(self) -> Path<Endpoint, CtrlPoint> {
-        Path {
-            endpoints: self.endpoints.into_boxed_slice(),
-            ctrl_points: self.ctrl_points.into_boxed_slice(),
-            cmds: self.cmds.into_path_commands(),
-        }
-    }
-
-    pub fn write<'a, 'b : 'a>(&'b mut self) -> PathWriter<'a, Endpoint, CtrlPoint> {
-        PathWriter::new(self)
-    }
-}
-
-#[derive(Clone)]
-pub struct PathBuilder<Endpoint, CtrlPoint> {
-    endpoints: Vec<Endpoint>,
-    ctrl_points: Vec<CtrlPoint>,
+pub struct PathBuilder<'l, Endpoint, CtrlPoint> {
+    endpoints: &'l mut Vec<Endpoint>,
+    ctrl_points: &'l mut Vec<CtrlPoint>,
     cmds: PathCommandsBuilder,
 }
 
-impl<'l, Endpoint, CtrlPoint> PathBuilder<Endpoint, CtrlPoint> {
-    pub fn new() -> Self {
+impl<'l, Endpoint, CtrlPoint> PathBuilder<'l, Endpoint, CtrlPoint> {
+    pub fn new(endpoints: &'l mut Vec<Endpoint>, ctrl_points: &'l mut Vec<CtrlPoint>) -> Self {
         Self {
-            endpoints: Vec::new(),
-            ctrl_points: Vec::new(),
+            endpoints,
+            ctrl_points,
             cmds: PathCommandsBuilder::new(),
         }
     }
 
-    pub fn with_capacity(endpoints: usize, ctrl_points: usize, edges: usize) -> Self {
+    pub fn with_capacity(
+        n_endpoints: usize,
+        n_ctrl_points: usize,
+        n_edges: usize,
+        endpoints: &'l mut Vec<Endpoint>,
+        ctrl_points: &'l mut Vec<CtrlPoint>,
+        ) -> Self {
+        endpoints.reserve(n_endpoints);
+        ctrl_points.reserve(n_ctrl_points);
         Self {
-            endpoints: Vec::with_capacity(endpoints),
-            ctrl_points: Vec::with_capacity(ctrl_points),
-            cmds: PathCommandsBuilder::with_capacity(edges + endpoints + ctrl_points),
+            endpoints,
+            ctrl_points,
+            cmds: PathCommandsBuilder::with_capacity(n_edges + n_endpoints + n_ctrl_points),
         }
     }
 
@@ -920,68 +802,22 @@ impl<'l, Endpoint, CtrlPoint> PathBuilder<Endpoint, CtrlPoint> {
         self.cmds.close();
     }
 
-    pub fn build(self) -> Path<Endpoint, CtrlPoint> {
-        Path {
-            endpoints: self.endpoints.into_boxed_slice(),
-            ctrl_points: self.ctrl_points.into_boxed_slice(),
-            cmds: self.cmds.build(),
-        }
+    pub fn build(self) -> PathCommands {
+        self.cmds.build()
     }
 
+    #[inline]
     fn add_endpoint(&mut self, ep: Endpoint) -> EndpointId {
         let id = EndpointId(self.endpoints.len() as u32);
         self.endpoints.push(ep);
         id
     }
 
+    #[inline]
     fn add_ctrl_point(&mut self, cp: CtrlPoint) -> CtrlPointId {
         let id = CtrlPointId(self.ctrl_points.len() as u32);
         self.ctrl_points.push(cp);
         id
-    }
-}
-
-pub struct PathWriter<'l, Endpoint, CtrlPoint> {
-    builder: PathBuilder<Endpoint, CtrlPoint>,
-    buffer: &'l mut PathBuffer<Endpoint, CtrlPoint>,
-}
-
-impl<'l, Endpoint, CtrlPoint> PathWriter<'l, Endpoint, CtrlPoint> {
-    pub fn new(buffer: &'l mut PathBuffer<Endpoint, CtrlPoint>) -> Self {
-        let builder = PathBuilder {
-            endpoints: mem::replace(&mut buffer.endpoints, Vec::new()),
-            ctrl_points: mem::replace(&mut buffer.ctrl_points, Vec::new()),
-            cmds: PathCommandsBuilder::from_commands(
-                mem::replace(&mut buffer.cmds, PathCommandsBuffer::new()),
-            ),
-        };
-
-        PathWriter {
-            builder,
-            buffer,
-        }
-    }
-
-    pub fn build(mut self) -> PathId {
-        self.builder.cmds.finish()
-    }
-}
-
-impl<'l, Endpoint, CtrlPoint> Drop for PathWriter<'l, Endpoint, CtrlPoint> {
-    fn drop(&mut self) {
-        let mut buffer = PathBuffer {
-            endpoints: mem::replace(&mut self.builder.endpoints, Vec::new()),
-            ctrl_points: mem::replace(&mut self.builder.ctrl_points, Vec::new()),
-            cmds: mem::replace(&mut self.builder.cmds.path, PathCommandsBuffer::new()),
-        };
-        mem::swap(&mut buffer, &mut self.buffer);
-    }
-}
-
-impl<'l, Endpoint, CtrlPoint> std::ops::Deref for PathWriter<'l, Endpoint, CtrlPoint> {
-    type Target = PathBuilder<Endpoint, CtrlPoint>;
-    fn deref(&self) -> &PathBuilder<Endpoint, CtrlPoint> {
-        &self.builder
     }
 }
 
