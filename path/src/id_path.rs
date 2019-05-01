@@ -1,5 +1,5 @@
 use crate::{EndpointId, CtrlPointId};
-use crate::events::{PathEvent, FlattenedEvent, IdEvent};
+use crate::events::{PathEvent, IdEvent};
 
 use std::mem;
 use std::fmt;
@@ -61,8 +61,8 @@ impl PathCommands {
         &'l self,
         endpoints: &'l [Endpoint],
         ctrl_points: &'l [CtrlPoint],
-    ) -> PathSlice<Endpoint, CtrlPoint> {
-        PathSlice {
+    ) -> IdPathSlice<Endpoint, CtrlPoint> {
+        IdPathSlice {
             endpoints,
             ctrl_points,
             cmds: self.as_slice(),
@@ -296,13 +296,13 @@ impl<'l> fmt::Debug for PathCommandsSlice<'l> {
 
 /// A view on a `Path`.
 #[derive(Copy, Clone)]
-pub struct PathSlice<'l, Endpoint, CtrlPoint> {
+pub struct IdPathSlice<'l, Endpoint, CtrlPoint> {
     endpoints: &'l [Endpoint],
     ctrl_points: &'l [CtrlPoint],
     cmds: PathCommandsSlice<'l>,
 }
 
-impl<'l, Endpoint, CtrlPoint> PathSlice<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> IdPathSlice<'l, Endpoint, CtrlPoint> {
     pub fn id_iter(&self) -> IdIter {
         self.cmds.iter()
     }
@@ -318,21 +318,21 @@ impl<'l, Endpoint, CtrlPoint> PathSlice<'l, Endpoint, CtrlPoint> {
     }
 }
 
-impl<'l, Endpoint, CtrlPoint> std::ops::Index<EndpointId> for PathSlice<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> std::ops::Index<EndpointId> for IdPathSlice<'l, Endpoint, CtrlPoint> {
     type Output = Endpoint;
     fn index(&self, id: EndpointId) -> &Endpoint {
         &self.endpoints[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for PathSlice<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for IdPathSlice<'l, Endpoint, CtrlPoint> {
     type Output = CtrlPoint;
     fn index(&self, id: CtrlPointId) -> &CtrlPoint {
         &self.ctrl_points[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, CtrlPoint> fmt::Debug for PathSlice<'l, Endpoint, CtrlPoint>
+impl<'l, Endpoint, CtrlPoint> fmt::Debug for IdPathSlice<'l, Endpoint, CtrlPoint>
 where
     Endpoint: fmt::Debug,
     CtrlPoint: fmt::Debug,
@@ -510,55 +510,6 @@ impl PathId {
     }
 }
 
-pub struct IdPolygonSlice<'l> {
-    pub points: &'l[EndpointId],
-    pub closed: bool,
-}
-
-impl<'l> IdPolygonSlice<'l> {
-    pub fn iter(&self) -> IdPolygonIter<'l> {
-        IdPolygonIter {
-            points: self.points.iter(),
-            prev: None,
-            first: EndpointId(0),
-            closed: self.closed,
-        }
-    }
-}
-
-pub struct IdPolygonIter<'l> {
-    points: std::slice::Iter<'l, EndpointId>,
-    prev: Option<EndpointId>,
-    first: EndpointId,
-    closed: bool,
-}
-
-impl<'l> Iterator for IdPolygonIter<'l> {
-    type Item = FlattenedEvent<EndpointId>;
-    fn next(&mut self) -> Option<FlattenedEvent<EndpointId>> {
-        match (self.prev, self.points.next()) {
-            (Some(from), Some(to)) => {
-                self.prev = Some(*to);
-                Some(FlattenedEvent::Line { from, to: *to })
-            }
-            (None, Some(at)) => {
-                self.prev = Some(*at);
-                self.first = *at;
-                Some(FlattenedEvent::Begin { at: *at })
-            }
-            (Some(last), None) => {
-                self.prev = None;
-                Some(FlattenedEvent::End {
-                    last,
-                    first: self.first,
-                    close: self.closed,
-                })
-            }
-            (None, None) => None,
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct PathCommandsBuilder {
     path: PathCommandsBuffer,
@@ -695,13 +646,13 @@ impl<'l> std::ops::Deref for PathCommandsWriter<'l> {
     }
 }
 
-pub struct PathBuilder<'l, Endpoint, CtrlPoint> {
+pub struct IdPathBuilder<'l, Endpoint, CtrlPoint> {
     endpoints: &'l mut Vec<Endpoint>,
     ctrl_points: &'l mut Vec<CtrlPoint>,
     cmds: PathCommandsBuilder,
 }
 
-impl<'l, Endpoint, CtrlPoint> PathBuilder<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> IdPathBuilder<'l, Endpoint, CtrlPoint> {
     pub fn new(endpoints: &'l mut Vec<Endpoint>, ctrl_points: &'l mut Vec<CtrlPoint>) -> Self {
         Self {
             endpoints,
@@ -774,44 +725,42 @@ impl<'l, Endpoint, CtrlPoint> PathBuilder<'l, Endpoint, CtrlPoint> {
 
 #[test]
 fn simple_path() {
-    use crate::math::{point, Point};
+    let mut builder = PathCommands::builder();
+    builder.move_to(EndpointId(0));
+    builder.line_to(EndpointId(1));
+    builder.quadratic_bezier_to(CtrlPointId(2), EndpointId(3));
+    builder.cubic_bezier_to(CtrlPointId(4), CtrlPointId(5), EndpointId(6));
 
-    let mut builder = Path::<Point, Point>::builder();
-    builder.move_to(point(0.0, 0.0));
-    builder.line_to(point(1.0, 0.0));
-    builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
-    builder.cubic_bezier_to(point(2.0, 2.0), point(1.0, 2.0), point(0.0, 2.0));
-
-    builder.move_to(point(0.0, 10.0));
-    builder.line_to(point(1.0, 10.0));
-    builder.quadratic_bezier_to(point(2.0, 10.0), point(2.0, 11.0));
-    builder.cubic_bezier_to(point(2.0, 12.0), point(1.0, 12.0), point(0.0, 12.0));
+    builder.move_to(EndpointId(10));
+    builder.line_to(EndpointId(11));
+    builder.quadratic_bezier_to(CtrlPointId(12), EndpointId(13));
+    builder.cubic_bezier_to(CtrlPointId(14), CtrlPointId(15), EndpointId(16));
     builder.close();
 
-    builder.move_to(point(0.0, 20.0));
-    builder.line_to(point(1.0, 20.0));
-    builder.quadratic_bezier_to(point(2.0, 20.0), point(2.0, 21.0));
-    builder.cubic_bezier_to(point(2.0, 22.0), point(1.0, 22.0), point(0.0, 22.0));
+    builder.move_to(EndpointId(20));
+    builder.line_to(EndpointId(21));
+    builder.quadratic_bezier_to(CtrlPointId(22), EndpointId(23));
+    builder.cubic_bezier_to(CtrlPointId(24), CtrlPointId(25), EndpointId(26));
 
     let path = builder.build();
     let mut iter = path.iter();
-    assert_eq!(iter.next(), Some(PathEvent::Begin { at: &point(0.0, 0.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Line { from: &point(0.0, 0.0), to: &point(1.0, 0.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Quadratic { from: &point(1.0, 0.0), ctrl: &point(2.0, 0.0), to: &point(2.0, 1.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Cubic { from: &point(2.0, 1.0), ctrl1: &point(2.0, 2.0), ctrl2: &point(1.0, 2.0), to: &point(0.0, 2.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::End { last: &point(0.0, 2.0), first: &point(0.0, 0.0), close: false }));
+    assert_eq!(iter.next(), Some(PathEvent::Begin { at: EndpointId(0) }));
+    assert_eq!(iter.next(), Some(PathEvent::Line { from: EndpointId(0), to: EndpointId(1) }));
+    assert_eq!(iter.next(), Some(PathEvent::Quadratic { from: EndpointId(1), ctrl: CtrlPointId(2), to: EndpointId(3) }));
+    assert_eq!(iter.next(), Some(PathEvent::Cubic { from: EndpointId(3), ctrl1: CtrlPointId(4), ctrl2: CtrlPointId(5), to: EndpointId(6) }));
+    assert_eq!(iter.next(), Some(PathEvent::End { last: EndpointId(6), first: EndpointId(0), close: false }));
 
-    assert_eq!(iter.next(), Some(PathEvent::Begin { at: &point(0.0, 10.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Line { from: &point(0.0, 10.0), to: &point(1.0, 10.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Quadratic { from: &point(1.0, 10.0), ctrl: &point(2.0, 10.0), to: &point(2.0, 11.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Cubic { from: &point(2.0, 11.0), ctrl1: &point(2.0, 12.0), ctrl2: &point(1.0, 12.0), to: &point(0.0, 12.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::End { last: &point(0.0, 12.0), first: &point(0.0, 10.0), close: true }));
+    assert_eq!(iter.next(), Some(PathEvent::Begin { at: EndpointId(10) }));
+    assert_eq!(iter.next(), Some(PathEvent::Line { from: EndpointId(10), to: EndpointId(11) }));
+    assert_eq!(iter.next(), Some(PathEvent::Quadratic { from: EndpointId(11), ctrl: CtrlPointId(12), to: EndpointId(13) }));
+    assert_eq!(iter.next(), Some(PathEvent::Cubic { from: EndpointId(13), ctrl1: CtrlPointId(14), ctrl2: CtrlPointId(15), to: EndpointId(16) }));
+    assert_eq!(iter.next(), Some(PathEvent::End { last: EndpointId(16), first: EndpointId(10), close: true }));
 
-    assert_eq!(iter.next(), Some(PathEvent::Begin { at: &point(0.0, 20.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Line { from: &point(0.0, 20.0), to: &point(1.0, 20.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Quadratic { from: &point(1.0, 20.0), ctrl: &point(2.0, 20.0), to: &point(2.0, 21.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::Cubic { from: &point(2.0, 21.0), ctrl1: &point(2.0, 22.0), ctrl2: &point(1.0, 22.0), to: &point(0.0, 22.0) }));
-    assert_eq!(iter.next(), Some(PathEvent::End { last: &point(0.0, 22.0), first: &point(0.0, 20.0), close: false }));
+    assert_eq!(iter.next(), Some(PathEvent::Begin { at: EndpointId(20) }));
+    assert_eq!(iter.next(), Some(PathEvent::Line { from: EndpointId(20), to: EndpointId(21) }));
+    assert_eq!(iter.next(), Some(PathEvent::Quadratic { from: EndpointId(21), ctrl: CtrlPointId(22), to: EndpointId(23) }));
+    assert_eq!(iter.next(), Some(PathEvent::Cubic { from: EndpointId(23), ctrl1: CtrlPointId(24), ctrl2: CtrlPointId(25), to: EndpointId(26) }));
+    assert_eq!(iter.next(), Some(PathEvent::End { last: EndpointId(26), first: EndpointId(20), close: false }));
 
     assert_eq!(iter.next(), None);
 }

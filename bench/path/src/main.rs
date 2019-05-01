@@ -64,7 +64,7 @@ fn id_path_build_prealloc(bench: &mut Bencher) {
         let mut endpoints: Vec<Point> = Vec::new();
         let mut ctrl_points: Vec<Point> = Vec::new();
 
-        let mut path = id_path::PathBuilder::with_capacity(
+        let mut path = id_path::IdPathBuilder::with_capacity(
             n_endpoints, n_ctrl_points, n_edges,
             &mut endpoints,
             &mut ctrl_points,
@@ -117,7 +117,7 @@ fn id_path_build(bench: &mut Bencher) {
     let mut ctrl_points: Vec<Point> = Vec::new();
 
     bench.iter(|| {
-        let mut path = id_path::PathBuilder::new(&mut endpoints, &mut ctrl_points);
+        let mut path = id_path::IdPathBuilder::new(&mut endpoints, &mut ctrl_points);
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -247,7 +247,7 @@ fn id_path_iter(bench: &mut Bencher) {
     let mut ctrl_points: Vec<Point> = Vec::new();
 
     let path = {
-        let mut path = id_path::PathBuilder::new(&mut endpoints, &mut ctrl_points);
+        let mut path = id_path::IdPathBuilder::new(&mut endpoints, &mut ctrl_points);
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
