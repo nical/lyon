@@ -36,7 +36,7 @@ fn old_path_build(bench: &mut Bencher) {
 
 fn new_path_build(bench: &mut Bencher) {
     bench.iter(|| {
-        let mut path = lyon::path::new_path::Path::builder();
+        let mut path = new_path::Path::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -80,7 +80,7 @@ fn new_path_build_prealloc(bench: &mut Bencher) {
         let n_endpoints = 30010;
         let n_ctrl_points = 30000;
         let n_edges = N * 30_000 + N * 20;
-        let mut path = lyon::path::new_path::Builder::with_capacity(n_endpoints, n_ctrl_points, n_edges);
+        let mut path = new_path::Builder::with_capacity(n_endpoints, n_ctrl_points, n_edges);
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -130,7 +130,7 @@ fn id_path_build_prealloc(bench: &mut Bencher) {
 }
 
 fn id_id_path_build(bench: &mut Bencher) {
-    use lyon::path::new_path::{EndpointId, CtrlPointId};
+    use new_path::{EndpointId, CtrlPointId};
 
     bench.iter(|| {
         let mut path = id_path::PathCommandsBuilder::new();
@@ -248,7 +248,7 @@ fn old_path_id_iter(bench: &mut Bencher) {
 }
 
 fn new_path_iter(bench: &mut Bencher) {
-    let mut path = lyon::path::new_path::Path::builder();
+    let mut path = new_path::Path::builder();
     for _ in 0..N {
         for _ in 0..10 {
             path.move_to(point(0.0, 0.0));
@@ -281,7 +281,7 @@ fn new_path_iter(bench: &mut Bencher) {
 }
 
 fn new_path_id_iter(bench: &mut Bencher) {
-    let mut path = lyon::path::new_path::Path::builder();
+    let mut path = new_path::Path::builder();
     for _ in 0..N {
         for _ in 0..10 {
             path.move_to(point(0.0, 0.0));
@@ -314,7 +314,7 @@ fn new_path_id_iter(bench: &mut Bencher) {
 }
 
 fn id_path_id_iter(bench: &mut Bencher) {
-    use lyon::path::new_path::{EndpointId, CtrlPointId};
+    use new_path::{EndpointId, CtrlPointId};
     let mut path = id_path::PathCommands::builder();
     let mut ep = 0;
     let mut cp = 0;

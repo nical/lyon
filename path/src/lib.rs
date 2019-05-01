@@ -60,6 +60,7 @@ pub use crate::geom::math as math;
 
 use std::ops::{Add, Sub};
 use std::u32;
+use std::fmt;
 use math::Point;
 
 pub type Index = u32;
@@ -130,7 +131,7 @@ impl From<VertexId> for usize {
     fn from(v: VertexId) -> Self { v.0 as usize }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct CtrlPointId(pub u32);
 impl CtrlPointId {
@@ -138,12 +139,24 @@ impl CtrlPointId {
     pub fn to_usize(&self) -> usize { self.0 as usize }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+impl fmt::Debug for CtrlPointId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct EndpointId(pub u32);
 impl EndpointId {
     //pub(crate) const INVALID: Self = EndpointId(!0u32);
     pub fn to_usize(&self) -> usize { self.0 as usize }
+}
+
+impl fmt::Debug for EndpointId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "#{}", self.0)
+    }
 }
 
 pub trait Vertex : Clone {
