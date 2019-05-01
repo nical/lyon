@@ -10,9 +10,9 @@
 //! ## Examples
 //!
 //! ```
-//! extern crate lyon_path;
 //! use lyon_path::iterator::*;
 //! use lyon_path::math::{point, vector};
+//! use lyon_path::geom::BezierSegment;
 //! use lyon_path::{Path, PathEvent, FlattenedEvent};
 //!
 //! fn main() {
@@ -25,7 +25,7 @@
 //!     let path = builder.build();
 //!
 //!     // A simple std::iter::Iterator<PathEvent<Point, Point>>,
-//!     let simple_iter = path.iter().cloned();
+//!     let simple_iter = path.iter();
 //!
 //!     // Make it an iterator over simpler primitives: FlattenedEvent,
 //!     // which do not contain any curve. To do so we approximate each curve
@@ -34,7 +34,7 @@
 //!     // generated events. Let's use a tolerance threshold of 0.01.
 //!     // The beauty of this approach is that the flattening happens lazily
 //!     // while iterating without allocating memory for the path.
-//!     let flattened_iter = path_iter.flattened(0.01);
+//!     let flattened_iter = path.iter().flattened(0.01);
 //!
 //!     for evt in flattened_iter {
 //!         match evt {
@@ -42,9 +42,9 @@
 //!             FlattenedEvent::Line { from, to } => { println!(" - line {:?} -> {:?}", from, to); }
 //!             FlattenedEvent::End { last, first, close } => {
 //!                 if close {
-//!                     println!(" - close {:?} -> {:?}", first, last);
+//!                     println!(" - close {:?} -> {:?}", last, first);
 //!                 } else {
-//!                     println!(" - end);
+//!                     println!(" - end");
 //!                 }
 //!             }
 //!         }
