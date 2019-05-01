@@ -1,6 +1,4 @@
-use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
-
-use crate::{EndpointId, CtrlPointId, Vertex};
+use crate::{EndpointId, CtrlPointId};
 use crate::events::{PathEvent, FlattenedEvent, IdEvent};
 
 use std::mem;
@@ -316,55 +314,6 @@ impl<'l, Endpoint, CtrlPoint> PathSlice<'l, Endpoint, CtrlPoint> {
             prev_endpoint: 0,
             endpoints: &self.endpoints[..],
             ctrl_points: &self.ctrl_points[..],
-        }
-    }
-
-    pub fn sample_event(&self, evt: PathEventId, t: f32) -> Endpoint
-    where
-        Endpoint: Vertex,
-        CtrlPoint: Vertex,
-    {
-        match self.cmds.event(evt) {
-            PathEvent::Line { from, to } => Endpoint::interpolate(
-                &self.endpoints[from.to_usize()],
-                &self.endpoints[to.to_usize()],
-                t
-            ),
-            PathEvent::Quadratic { from, to, ctrl } => {
-                let from = &self.endpoints[from.to_usize()];
-                let to = &self.endpoints[to.to_usize()];
-                let mut result = Endpoint::interpolate(from, to, t);
-                result.set_position(
-                    QuadraticBezierSegment {
-                        from: to.position(),
-                        to: to.position(),
-                        ctrl: self.ctrl_points[ctrl.to_usize()].position(),
-                    }.sample(t)
-                );
-
-                result
-            }
-            PathEvent::Cubic { from, to, ctrl1, ctrl2 } => {
-                let from = &self.endpoints[from.to_usize()];
-                let to = &self.endpoints[to.to_usize()];
-                let mut result = Endpoint::interpolate(from, to, t);
-                result.set_position(
-                    CubicBezierSegment {
-                        from: to.position(),
-                        to: to.position(),
-                        ctrl1: self.ctrl_points[ctrl1.to_usize()].position(),
-                        ctrl2: self.ctrl_points[ctrl2.to_usize()].position(),
-                    }.sample(t)
-                );
-
-                result
-            }
-            PathEvent::Begin { at } => { self.endpoints[at.to_usize()].clone() }
-            PathEvent::End { last, first, .. } => Endpoint::interpolate(
-                &self.endpoints[last.to_usize()],
-                &self.endpoints[first.to_usize()],
-                t
-            ),
         }
     }
 }

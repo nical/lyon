@@ -1,5 +1,5 @@
 use crate::math::{Point, Transform2D, Transform};
-use crate::{EndpointId, CtrlPointId, Vertex};
+use crate::{EndpointId, CtrlPointId, Position};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -53,8 +53,8 @@ impl<Ep, Cp> PathEvent<Ep, Cp> {
 
     pub fn with_points(&self) -> PathEvent<Point, Point>
     where
-        Ep: Vertex,
-        Cp: Vertex,
+        Ep: Position,
+        Cp: Position,
     {
         match self {
             PathEvent::Line { from, to } => PathEvent::Line {

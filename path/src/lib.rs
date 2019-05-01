@@ -158,14 +158,22 @@ impl fmt::Debug for EndpointId {
     }
 }
 
-pub trait Vertex : Clone {
+pub trait Position : Clone {
     fn position(&self) -> Point;
     fn set_position(&mut self, pos: Point);
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self;
 }
 
-impl Vertex for Point {
-    fn position(&self) -> Point { *self }
-    fn set_position(&mut self, pos: Point) { *self = pos; }
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self { a.lerp(*b, t) }
+impl<U> Position for crate::geom::euclid::TypedPoint2D<f32, U> {
+    fn position(&self) -> Point { self.to_untyped() }
+    fn set_position(&mut self, pos: Point) { *self = Self::from_untyped(&pos); }
+}
+
+impl Position for (f32, f32) {
+    fn position(&self) -> Point { Point::new(self.0, self.1) }
+    fn set_position(&mut self, pos: Point) { *self = (pos.x, pos.y); }
+}
+
+impl Position for [f32; 2] {
+    fn position(&self) -> Point { Point::new(self[0], self[1]) }
+    fn set_position(&mut self, pos: Point) { *self = [pos.x, pos.y]; }
 }
