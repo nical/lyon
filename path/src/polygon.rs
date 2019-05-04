@@ -1,11 +1,13 @@
 use crate::{EndpointId, FlattenedEvent};
 
+/// A view over a sequence of endpoint IDs forming a polygon.
 pub struct IdPolygonSlice<'l> {
     pub points: &'l[EndpointId],
     pub closed: bool,
 }
 
 impl<'l> IdPolygonSlice<'l> {
+    // Returns an iterator over the endpoint IDs of the polygon.
     pub fn iter(&self) -> IdPolygonIter<'l> {
         IdPolygonIter {
             points: self.points.iter(),
@@ -16,6 +18,7 @@ impl<'l> IdPolygonSlice<'l> {
     }
 }
 
+// An iterator of `FlattenedEvent<EndpointId>`.
 pub struct IdPolygonIter<'l> {
     points: std::slice::Iter<'l, EndpointId>,
     prev: Option<EndpointId>,
@@ -49,6 +52,7 @@ impl<'l> Iterator for IdPolygonIter<'l> {
     }
 }
 
+/// A view over a sequence of endpoints forming a polygon.
 pub struct PolygonSlice<'l, T> {
     pub points: &'l[T],
     pub closed: bool,
@@ -65,6 +69,7 @@ impl<'l, T> PolygonSlice<'l, T> {
     }
 }
 
+// An iterator of `FlattenedEvent<&Endpoint>`.
 pub struct PolygonIter<'l, T> {
     points: std::slice::Iter<'l, T>,
     prev: Option<&'l T>,

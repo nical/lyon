@@ -4,6 +4,7 @@ use crate::events::{PathEvent, IdEvent};
 use std::mem;
 use std::fmt;
 
+/// Refers to an event in an `IdPathSlice` or `PathCommands`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathEventId(pub(crate) u32);
@@ -32,6 +33,12 @@ union PathOp {
     offset: u32,
 }
 
+/// The commands of a path encoded in a single array using IDs to refer
+/// to endpoints and control points.
+///
+/// `PathCommands` is a good fit when the a custom endpoint and control point
+/// types are needed or when their the user needs to control their position in
+/// the buffers.
 #[derive(Clone)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathCommands {
@@ -39,10 +46,12 @@ pub struct PathCommands {
 }
 
 impl PathCommands {
+    /// Creates a [PathCommandsBuilder](struct.PathCommandsBuilder.html) to create path commands.
     pub fn builder() -> PathCommandsBuilder {
         PathCommandsBuilder::new()
     }
 
+    /// Returns an iterator over the path commands.
     pub fn iter(&self) -> IdIter {
         IdIter {
             cmds: self.cmds.iter(),
@@ -51,12 +60,15 @@ impl PathCommands {
         }
     }
 
+    /// Returns a view on the path commands.
     pub fn as_slice(&self) -> PathCommandsSlice {
         PathCommandsSlice {
             cmds: &self.cmds,
         }
     }
 
+    /// Returns a view on a path made of these commands with endpoint and
+    /// control point slices.
     pub fn path_slice<'l, Endpoint, CtrlPoint>(
         &'l self,
         endpoints: &'l [Endpoint],
@@ -69,6 +81,7 @@ impl PathCommands {
         }
     }
 
+    /// Returns an iterator over the path, with endpoints and control points.
     pub fn path_iter<'l, Endpoint, CtrlPoint>(
         &'l self,
         endpoints: &'l [Endpoint],
@@ -83,14 +96,19 @@ impl PathCommands {
         }
     }
 
+    /// Returns the event for a given event ID.
     pub fn event(&self, id: PathEventId) -> IdEvent {
         self.as_slice().event(id)
     }
 
+    /// Returns the next event id within the path.
     pub fn next_event_id_in_path(&self, id: PathEventId) -> Option<PathEventId> {
         self.as_slice().next_event_id_in_path(id)
     }
 
+    /// Returns the next event id within the sub-path.
+    ///
+    /// Loops back to the first event after the end of the sub-path.
     pub fn next_event_id_in_sub_path(&self, id: PathEventId) -> PathEventId {
         self.as_slice().next_event_id_in_sub_path(id)
     }
@@ -102,6 +120,7 @@ impl fmt::Debug for PathCommands {
     }
 }
 
+/// A growable buffer of path commands.
 #[derive(Clone)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathCommandsBuffer {
@@ -109,22 +128,26 @@ pub struct PathCommandsBuffer {
 }
 
 impl PathCommandsBuffer {
+    /// Creates a buffer without allocating memory.
     pub fn new() -> Self {
         PathCommandsBuffer {
             cmds: Vec::new(),
         }
     }
 
+    /// Creates a preallocated buffer.
     pub fn with_capacity(cap: usize) -> Self {
         PathCommandsBuffer {
             cmds: Vec::with_capacity(cap),
         }
     }
 
+    /// Returns an object that can push commands into this buffer.
     pub fn write<'a, 'b : 'a>(&'b mut self) -> PathCommandsWriter<'a> {
         PathCommandsWriter::new(self)
     }
 
+    /// Returns an iterator over all path events in the buffer.
     pub fn iter_all(&self) -> IdIter {
         IdIter {
             cmds: self.cmds.iter(),
@@ -133,6 +156,7 @@ impl PathCommandsBuffer {
         }
     }
 
+    /// Returns an iterator over the path events associated to a given path ID.
     pub fn iter(&self, path_id: PathId) -> IdIter {
         IdIter {
             cmds: (&self.cmds[path_id.range()]).iter(),
@@ -141,24 +165,31 @@ impl PathCommandsBuffer {
         }
     }
 
+    /// Returns a view over the events associated to a given path ID.
     pub fn slice(&self, path_id: PathId) -> PathCommandsSlice {
         PathCommandsSlice {
             cmds: &self.cmds[path_id.range()],
         }
     }
 
+    /// Returns the event for a given event ID.
     pub fn event(&self, id: PathEventId) -> IdEvent {
         self.as_slice().event(id)
     }
 
+    /// Returns the next event id within the path.
     pub fn next_event_id_in_path(&self, id: PathEventId) -> Option<PathEventId> {
         self.as_slice().next_event_id_in_path(id)
     }
 
+    /// Returns the next event id within the sub-path.
+    ///
+    /// Loops back to the first event after the end of the sub-path.
     pub fn next_event_id_in_sub_path(&self, id: PathEventId) -> PathEventId {
         self.as_slice().next_event_id_in_sub_path(id)
     }
 
+    /// Consumes this buffer and turn it into a `PathCommands` object.
     pub fn into_path_commands(self) -> PathCommands {
         PathCommands {
             cmds: self.cmds.into_boxed_slice()
@@ -197,6 +228,7 @@ pub struct PathCommandsSlice<'l> {
 }
 
 impl<'l> PathCommandsSlice<'l> {
+    /// Returns an iterator over the path commands.
     pub fn iter(&self) -> IdIter {
         IdIter {
             cmds: self.cmds.iter(),
@@ -205,6 +237,7 @@ impl<'l> PathCommandsSlice<'l> {
         }
     }
 
+    /// Returns the event for a given event ID.
     pub fn event(&self, id: PathEventId) -> IdEvent {
         let idx = id.to_usize();
         unsafe {
@@ -247,6 +280,7 @@ impl<'l> PathCommandsSlice<'l> {
         }
     }
 
+    /// Returns the next event id within the path.
     pub fn next_event_id_in_sub_path(&self, id: PathEventId) -> PathEventId {
         let idx = id.to_usize();
         let cmd = unsafe { self.cmds[idx].verb };
@@ -258,6 +292,7 @@ impl<'l> PathCommandsSlice<'l> {
         }
     }
 
+    /// Returns the next event id within the path.
     pub fn next_event_id_in_path(&self, id: PathEventId) -> Option<PathEventId> {
         let idx = id.to_usize();
         let next = match unsafe { self.cmds[idx].verb } {
@@ -303,10 +338,13 @@ pub struct IdPathSlice<'l, Endpoint, CtrlPoint> {
 }
 
 impl<'l, Endpoint, CtrlPoint> IdPathSlice<'l, Endpoint, CtrlPoint> {
+    /// Returns an iterator over the events of the path using IDs.
     pub fn id_iter(&self) -> IdIter {
         self.cmds.iter()
     }
 
+    /// Returns an iterator over the events of the path using endpoint
+    /// and control point references.
     pub fn iter(&self) -> RefIter<Endpoint, CtrlPoint> {
         RefIter {
             cmds: self.cmds.cmds.iter(),
@@ -353,6 +391,7 @@ where
     }
 }
 
+/// An iterator of `PathEvent<EndpointId, CtrlPointId>`.
 #[derive(Clone)]
 pub struct IdIter<'l> {
     cmds: std::slice::Iter<'l, PathOp>,
@@ -413,6 +452,7 @@ impl<'l> Iterator for IdIter<'l> {
     }
 }
 
+/// An iterator of `PathEvent<&Endpoint, &CtrlPoint>`.
 #[derive(Clone)]
 pub struct RefIter<'l, Endpoint, CtrlPoint> {
     cmds: std::slice::Iter<'l, PathOp>,
@@ -497,6 +537,7 @@ impl<'l, Endpoint, CtrlPoint> Iterator for RefIter<'l, Endpoint, CtrlPoint> {
     }
 }
 
+/// Refers to a path within a PathBuffer.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathId {
@@ -510,6 +551,7 @@ impl PathId {
     }
 }
 
+/// Builds path commands.
 #[derive(Clone)]
 pub struct PathCommandsBuilder {
     path: PathCommandsBuffer,
@@ -519,6 +561,7 @@ pub struct PathCommandsBuilder {
 }
 
 impl PathCommandsBuilder {
+    /// Creates a builder without allocating memory.
     pub fn new() -> Self {
         Self {
             start: 0,
@@ -528,6 +571,7 @@ impl PathCommandsBuilder {
         }
     }
 
+    /// Creates a pre-allocated builder.
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             start: 0,
@@ -537,6 +581,8 @@ impl PathCommandsBuilder {
         }
     }
 
+    /// Consumes a `PathCommandsBuffer` and continues building from
+    /// the consumed buffer's commands.
     pub fn from_commands(path: PathCommandsBuffer) -> Self {
         Self {
             first_event_index: path.cmds.len() as u32,
@@ -610,12 +656,14 @@ impl PathCommandsBuilder {
         }
     }
 
+    /// Consumes the builder and returns path commands.
     pub fn build(mut self) -> PathCommands {
         self.end_if_needed();
         self.path.into_path_commands()
     }
 }
 
+/// Can write into a `PathCommandsBuffer`.
 pub struct PathCommandsWriter<'l> {
     builder: PathCommandsBuilder,
     storage: &'l mut PathCommandsBuffer,
@@ -646,6 +694,7 @@ impl<'l> std::ops::Deref for PathCommandsWriter<'l> {
     }
 }
 
+/// Builds path commands as well as endpoint and control point vectors.
 pub struct IdPathBuilder<'l, Endpoint, CtrlPoint> {
     endpoints: &'l mut Vec<Endpoint>,
     ctrl_points: &'l mut Vec<CtrlPoint>,
@@ -653,6 +702,7 @@ pub struct IdPathBuilder<'l, Endpoint, CtrlPoint> {
 }
 
 impl<'l, Endpoint, CtrlPoint> IdPathBuilder<'l, Endpoint, CtrlPoint> {
+    /// Creates a builder without allocating memory.
     pub fn new(endpoints: &'l mut Vec<Endpoint>, ctrl_points: &'l mut Vec<CtrlPoint>) -> Self {
         Self {
             endpoints,
@@ -661,6 +711,7 @@ impl<'l, Endpoint, CtrlPoint> IdPathBuilder<'l, Endpoint, CtrlPoint> {
         }
     }
 
+    /// Creates a pre-allocated builder.
     pub fn with_capacity(
         n_endpoints: usize,
         n_ctrl_points: usize,
@@ -704,6 +755,7 @@ impl<'l, Endpoint, CtrlPoint> IdPathBuilder<'l, Endpoint, CtrlPoint> {
         self.cmds.close();
     }
 
+    /// Consumes the builder and returns the generated path commands.
     pub fn build(self) -> PathCommands {
         self.cmds.build()
     }
