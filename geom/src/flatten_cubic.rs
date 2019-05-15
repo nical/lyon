@@ -268,10 +268,17 @@ where
         return;
     }
 
+    // This code is derived from https://www2.units.it/ipl/students_area/imm2/files/Numerical_Recipes.pdf page 184.
+    // Computing the roots this way avoids precision issues when a, c or both are small.
     let discriminant_sqrt = S::sqrt(discriminant);
-    let inv_2a = S::ONE / (S::TWO * a);
-    let first_inflection = (-b - discriminant_sqrt) * inv_2a;
-    let second_inflection = (-b + discriminant_sqrt) * inv_2a;
+    let sign_b = if b >= S::ZERO { S::ONE } else { -S::ONE };
+    let q = -S::HALF * (b + sign_b * discriminant_sqrt);
+    let mut first_inflection = q / a;
+    let mut second_inflection = c / q;
+
+    if first_inflection > second_inflection {
+        std::mem::swap(&mut first_inflection, &mut second_inflection);
+    }
 
     if in_range(first_inflection) {
         cb(first_inflection);
