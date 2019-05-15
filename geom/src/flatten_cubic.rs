@@ -10,7 +10,6 @@ use crate::CubicBezierSegment;
 use crate::scalar::Scalar;
 use crate::generic_math::Point;
 use arrayvec::ArrayVec;
-use std::mem::swap;
 
 /// An iterator over a cubic bezier segment that yields line segments approximating the
 /// curve for a given approximation threshold.
@@ -270,13 +269,9 @@ where
     }
 
     let discriminant_sqrt = S::sqrt(discriminant);
-    let q = if b < S::ZERO { b - discriminant_sqrt } else { b + discriminant_sqrt } * S::EPSILON;
-
-    let mut first_inflection = q / a;
-    let mut second_inflection = c / q;
-    if first_inflection > second_inflection {
-        swap(&mut first_inflection, &mut second_inflection);
-    }
+    let inv_2a = S::ONE / (S::TWO * a);
+    let first_inflection = (-b - discriminant_sqrt) * inv_2a;
+    let second_inflection = (-b + discriminant_sqrt) * inv_2a;
 
     if in_range(first_inflection) {
         cb(first_inflection);
