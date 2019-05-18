@@ -781,6 +781,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lyon_renderer"
+version = "0.13.0"
+dependencies = [
+ "lyon_tessellation 0.13.1",
+ "serde 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wgpu 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wgpu-native 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "lyon_svg"
 version = "0.13.0"
 dependencies = [

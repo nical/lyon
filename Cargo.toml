@@ -51,6 +51,7 @@ members = [
     "extra",
     "svg",
     "cli",
+    "renderer",
     "wasm_test",
     "examples/wgpu_advanced",
     "examples/wgpu_basic",
