@@ -4,8 +4,8 @@ pub use lyon_tessellation::geom;
 pub use lyon_tessellation::path;
 
 mod window;
-mod quads;
-mod mesh2d;
+mod quad_renderer;
+mod mesh_renderer_2d;
 mod gpu_data;
 mod pipeline;
 mod renderer;
@@ -14,8 +14,8 @@ mod allocator;
 mod transfer_buffer;
 
 pub use window::*;
-pub use quads::*;
-pub use mesh2d::*;
+pub use quad_renderer::*;
+pub use mesh_renderer_2d::*;
 pub use gpu_data::*;
 pub use pipeline::*;
 pub use renderer::*;

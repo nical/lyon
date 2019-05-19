@@ -11,8 +11,8 @@ pub trait CustomBatch {
 }
 
 pub struct Renderer {
-    pub quads: crate::quads::QuadRenderer,
-    pub meshes: crate::mesh2d::MeshRenderer,
+    pub quads: QuadRenderer,
+    pub meshes: MeshRenderer,
     pub globals: wgpu::Buffer,
 }
 
