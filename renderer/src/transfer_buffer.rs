@@ -55,6 +55,26 @@ impl TransferBufferWriter {
         self.write_back_bytes(as_bytes(slice), dst)
     }
 
+    pub fn allocate_front(&mut self, size_in_bytes: u32, dst: &GpuBufferAllocator) -> Result<(BufferRange, BufferRange, &mut[u8]), AllocError> {
+        let dst_range = dst.allocate_front(size_in_bytes)?;
+        let (src_range, slice) = self.writer.allocate_front(size_in_bytes)?;
+        let src_range = self.transfer_buffer_id().range(src_range);
+
+        self.copy_commands.push((src_range.clone(), dst_range.clone()));
+
+        Ok((src_range, dst_range, slice))
+    }
+
+    pub fn allocate_back(&mut self, size_in_bytes: u32, dst: &GpuBufferAllocator) -> Result<(BufferRange, BufferRange, &mut[u8]), AllocError> {
+        let dst_range = dst.allocate_back(size_in_bytes)?;
+        let (src_range, slice) = self.writer.allocate_front(size_in_bytes)?;
+        let src_range = self.transfer_buffer_id().range(src_range);
+
+        self.copy_commands.push((src_range.clone(), dst_range.clone()));
+
+        Ok((src_range, dst_range, slice))
+    }
+
     pub fn flush_copy_commands(&mut self) -> BufferCopyCommands {
         self.copy_commands.flush()
     }
@@ -64,10 +84,7 @@ impl TransferBufferWriter {
         let dst_range = dst.allocate_front(size)?;
         let src_range = self.writer.write_front(slice)?;
 
-        let src_range = BufferRange {
-            buffer: self.transfer_buffer_id(),
-            range: src_range,
-        };
+        let src_range = self.transfer_buffer_id().range(src_range);
 
         self.copy_commands.push((src_range.clone(), dst_range.clone()));
 
@@ -79,10 +96,7 @@ impl TransferBufferWriter {
         let dst_range = dst.allocate_front(size)?;
         let src_range = self.writer.write_back(slice)?;
 
-        let src_range = BufferRange {
-            buffer: self.transfer_buffer_id(),
-            range: src_range,
-        };
+        let src_range = self.transfer_buffer_id().range(src_range);
 
         self.copy_commands.push((src_range.clone(), dst_range.clone()));
 
