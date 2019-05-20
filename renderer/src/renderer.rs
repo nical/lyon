@@ -1,4 +1,9 @@
-use crate::{QuadRenderer, QuadBatch, MeshRenderer, MeshBatch, GpuGlobals, BufferId};
+use crate::{
+    QuadRenderer, QuadBatch, MeshRenderer, MeshBatch, GpuGlobals, BufferId,
+    GpuBufferAllocator, BumpAllocator, GpuData,
+};
+use std::ops::Range;
+use std::sync::Arc;
 
 pub enum Batch {
     Quads(QuadBatch),
@@ -10,22 +15,72 @@ pub trait CustomBatch {
     fn submit_batch(&self, renderer: &Renderer, pass: &mut wgpu::RenderPass);
 }
 
+pub struct Buffer {
+    pub handle: wgpu::Buffer,
+    pub descriptor: wgpu::BufferDescriptor,
+}
+
+impl Buffer {
+    pub fn new(device: &wgpu::Device, descriptor: wgpu::BufferDescriptor) -> Self {
+        Buffer {
+            handle: device.create_buffer(&descriptor),
+            descriptor,
+        }
+    }
+
+    pub fn from_data<T: GpuData + 'static>(
+        device: &wgpu::Device,
+        usage: wgpu::BufferUsageFlags,
+        data: &[T]
+    ) -> Self {
+        Buffer {
+            descriptor: wgpu::BufferDescriptor {
+                size: (data.len() * std::mem::size_of::<T>()) as u32,
+                usage,
+            },
+            handle: device.create_buffer_mapped(data.len(), usage)
+                .fill_from_slice(data),
+        }
+    }
+
+    pub fn resize(&mut self, new_size: u32, device: &wgpu::Device) {
+        self.descriptor.size = new_size;
+        self.handle = device.create_buffer(&self.descriptor);
+    }
+}
+
+pub struct CommonBuffers {
+    pub globals: Buffer,
+    pub transforms: Buffer,
+}
+
 pub struct Renderer {
     pub quads: QuadRenderer,
     pub meshes: MeshRenderer,
-    pub globals: wgpu::Buffer,
+    pub common: CommonBuffers,
 }
 
 impl Renderer {
     pub fn new(device: &wgpu::Device, cpu_globals: GpuGlobals) -> Self {
-        let globals = device
-            .create_buffer_mapped(1, wgpu::BufferUsageFlags::VERTEX)
-            .fill_from_slice(&[cpu_globals]);
+        let common = CommonBuffers {
+            globals: Buffer::from_data(
+                device,
+                wgpu::BufferUsageFlags::VERTEX,
+                &[cpu_globals],
+            ),
+            transforms: Buffer::new(
+                device,
+                wgpu::BufferDescriptor {
+                    size: 4096,
+                    usage: wgpu::BufferUsageFlags::VERTEX,
+                },
+            ),
+        };
 
         Renderer {
-            quads: QuadRenderer::new(&device, &globals),
-            meshes: MeshRenderer::new(&device, &globals),
-            globals,
+            quads: QuadRenderer::new(&device, &common),
+            meshes: MeshRenderer::new(&device, &common),
+            common,
         }
     }
 
@@ -111,13 +166,13 @@ impl std::ops::Index<BufferId> for Renderer {
     fn index(&self, id: BufferId) -> &wgpu::Buffer {
         match id {
             BufferId::Transfer(_idx) => unimplemented!(),
-            BufferId::QuadInstances => &self.quads.instances,
-            BufferId::Globals => &self.globals,
-            BufferId::MeshVertices => &self.meshes.vertices,
-            BufferId::MeshIndices => &self.meshes.indices,
-            BufferId::MeshInstances => &self.meshes.instances,
-            BufferId::MeshPrimitives => &self.meshes.primitives,
-            BufferId::Layers => unimplemented!(),
+            BufferId::QuadInstances => &self.quads.instances.handle,
+            BufferId::MeshVertices => &self.meshes.vertices.handle,
+            BufferId::MeshIndices => &self.meshes.indices.handle,
+            BufferId::MeshInstances => &self.meshes.instances.handle,
+            BufferId::MeshPrimitives => &self.meshes.primitives.handle,
+            BufferId::Globals => &self.common.globals.handle,
+            BufferId::Transforms => &self.common.transforms.handle,
             BufferId::Custom(_idx) => unimplemented!(),
         }
     }    
@@ -128,4 +183,46 @@ pub struct TargetPasses {
     pub clear_color: wgpu::Color,
     pub opaque_pass: Vec<Batch>,
     pub blend_pass: Vec<Batch>,
+}
+
+#[derive(Clone)]
+pub struct FrameDataAllocators {
+    pub mesh_vertices: GpuBufferAllocator,
+    pub mesh_indices: GpuBufferAllocator,
+    pub mesh_primitives: GpuBufferAllocator,
+    pub mesh_instances: GpuBufferAllocator,
+    pub quad_instances: GpuBufferAllocator,
+    pub transforms: GpuBufferAllocator,
+}
+
+impl FrameDataAllocators {
+    pub fn new(
+        mesh_vertices: Range<u32>,
+        mesh_indices: Range<u32>,
+        mesh_primitives: Range<u32>,
+        mesh_instances: Range<u32>,
+        quad_instances: Range<u32>,
+        transforms: Range<u32>,
+    ) -> Self {
+        FrameDataAllocators {
+            mesh_vertices: GpuBufferAllocator::new(BufferId::MeshVertices, Arc::new(BumpAllocator::new(mesh_vertices))),
+            mesh_indices: GpuBufferAllocator::new(BufferId::MeshIndices, Arc::new(BumpAllocator::new(mesh_indices))),
+            mesh_primitives: GpuBufferAllocator::new(BufferId::MeshPrimitives, Arc::new(BumpAllocator::new(mesh_primitives))),
+            mesh_instances: GpuBufferAllocator::new(BufferId::MeshInstances, Arc::new(BumpAllocator::new(mesh_instances))),
+            quad_instances: GpuBufferAllocator::new(BufferId::QuadInstances, Arc::new(BumpAllocator::new(quad_instances))),
+            transforms: GpuBufferAllocator::new(BufferId::Transforms, Arc::new(BumpAllocator::new(transforms))),
+        }
+    }
+
+    pub fn select(&self, id: BufferId) -> &GpuBufferAllocator {
+        match id {
+            BufferId::MeshVertices => &self.mesh_vertices,
+            BufferId::MeshIndices => &self.mesh_indices,
+            BufferId::MeshPrimitives => &self.mesh_primitives,
+            BufferId::MeshInstances => &self.mesh_instances,
+            BufferId::QuadInstances => &self.quad_instances,
+            BufferId::Transforms => &self.transforms,
+            _ => panic!("unsupported destination buffer"),
+        }
+    }
 }

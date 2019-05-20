@@ -1,10 +1,39 @@
 use crate::allocator::*;
 use crate::writer::*;
-use crate::{Renderer, GPU_BLOCK_SIZE, GpuData, BufferRange, BufferId};
+use crate::{Renderer, GPU_BLOCK_SIZE, GpuData, BufferRange, BufferId, FrameDataAllocators};
 
 use std::ops::Range;
 use std::sync::Arc;
 
+// TODO: better name
+pub trait GpuDataPipe {
+    fn write_bytes(&mut self, dst: BufferId, data: &[u8]) -> Result<(BufferRange, BufferRange), AllocError>;
+    fn allocate(&mut self, dst: BufferId, size_in_bytes: u32) -> Result<(BufferRange, BufferRange, &mut[u8]), AllocError>;
+    //fn update(&mut self, dst: BufferRange) -> Result<(BufferRange, &mut[u8]), AllocError>;
+}
+
+pub fn write_to_pipe<T: GpuData>(pipe: &mut GpuDataPipe, dst: BufferId, data: &[T]) -> Result<(BufferRange, BufferRange), AllocError> {
+    pipe.write_bytes(dst, as_bytes(data))
+}
+
+pub struct FrameDataPipe {
+    pub writer: TransferBufferWriter,
+    pub allocators: FrameDataAllocators,
+}
+
+impl GpuDataPipe for FrameDataPipe {
+    fn write_bytes(&mut self, dst_id: BufferId, data: &[u8]) -> Result<(BufferRange, BufferRange), AllocError> {
+        let dst = self.allocators.select(dst_id);
+        self.writer.write_front(data, dst)
+    }
+
+    fn allocate(&mut self, dst_id: BufferId, size_in_bytes: u32) -> Result<(BufferRange, BufferRange, &mut[u8]), AllocError> {
+        let dst = self.allocators.select(dst_id);
+        self.writer.allocate_front(size_in_bytes, dst)
+    }
+}
+
+#[derive(Clone)]
 pub struct GpuBufferAllocator {
     allocator: Arc<BumpAllocator>,
     buffer_id: BufferId,

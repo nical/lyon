@@ -1,6 +1,11 @@
 use std::ops::Range;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+pub trait Allocator {
+    fn allocate(&mut self, size: u32) -> Result<Range<u32>, AllocError>;
+}
+
+
 pub struct BumpAllocator {
     start: AtomicUsize,
     end: AtomicUsize,
@@ -48,10 +53,16 @@ impl BumpAllocator {
     }
 }
 
+impl Allocator for BumpAllocator {
+    fn allocate(&mut self, size: u32) -> Result<Range<u32>, AllocError> {
+        self.allocate_front(size)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct AllocatorSegmentId(u16);
 
-pub struct Allocator {
+pub struct SegmentAllocator {
     segments: Vec<AllocatorSegment>,
 }
 
@@ -61,9 +72,9 @@ struct AllocatorSegment {
     allocated: bool,
 }
 
-impl Allocator {
+impl SegmentAllocator {
     pub fn new(len: u32) -> Self {
-        Allocator {
+        SegmentAllocator {
             segments: vec![
                 AllocatorSegment { offset: 0, len, allocated: false },
             ],
@@ -158,9 +169,124 @@ impl Allocator {
     }
 }
 
+impl Allocator for SegmentAllocator {
+    fn allocate(&mut self, size: u32) -> Result<Range<u32>, AllocError> {
+        self.allocate(size)
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockAllocator {
+    blocks: Vec<bool>,
+    free_blocks: u16,
+    max_blocks: u16,
+}
+
+impl BlockAllocator {
+    pub fn new(max_blocks: u16) -> Self {
+        BlockAllocator {
+            blocks: Vec::new(),
+            free_blocks: 0,
+            max_blocks,
+        }
+    }
+
+    pub fn allocate(&mut self, n_blocks: u16) -> Result<Blocks, AllocError> {
+        if self.free_blocks > n_blocks {
+            let mut i = 0;
+            let end = self.blocks.len() as i32 - n_blocks as i32;
+            'outer: while i < end {
+                let mut j = 0;
+                while j < n_blocks {
+                    if self.blocks[(i + j as i32) as usize] {
+                        i += (j + 1) as i32;
+                        continue 'outer;
+                    }
+                    j += 1;
+                }
+
+                let allocated = Blocks {
+                    start: i as u16,
+                    end: i as u16 + j,
+                };
+
+                for block in &mut self.blocks[allocated.range()] {
+                    *block = true;
+                }
+
+                self.free_blocks -= n_blocks;
+
+                return Ok(allocated);
+            }
+        }
+
+        if n_blocks + (self.blocks.len() as u16) > self.max_blocks {
+            return Err(AllocError::Oom);
+        }
+
+        let range_start = self.blocks.len() as u16;
+        for _ in 0..n_blocks {
+            self.blocks.push(true);
+        }
+
+        Ok(Blocks {
+            start: range_start,
+            end: (range_start + n_blocks as u16),
+        })
+    }
+
+    pub fn deallocate(&mut self, blocks: Blocks) {
+        for block in &mut self.blocks[blocks.range()] {
+            assert!(*block, "Double-free!");
+            *block = false;
+        }
+
+        self.free_blocks += blocks.count();
+
+        if blocks.end == self.blocks.len() as u16 {
+            while let Some(false) = self.blocks.last() {
+                self.blocks.pop();
+                self.free_blocks -= 1;
+            }
+        }
+    }
+
+    pub fn num_blocks(&self) -> u16 {
+        self.blocks.len() as u16
+    }
+
+    pub fn num_free_blocks(&self) -> u16 {
+        self.free_blocks
+    }
+
+    pub fn num_allocated_blocks(&self) -> u16 {
+        self.num_blocks() - self.free_blocks
+    }
+
+    pub fn set_max_blocks(&mut self, max_blocks: u16) {
+        self.max_blocks = max_blocks.min(self.num_blocks());
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Blocks {
+    pub start: u16,
+    pub end: u16
+}
+
+impl Blocks {
+    pub fn count(&self) -> u16 {
+        self.end - self.start
+    }
+
+    fn range(&self) -> Range<usize> {
+        (self.start as usize) .. (self.end as usize)
+    }
+}
+
 #[test]
 fn test_allocator() {
-    let mut alloc = Allocator::new(100);
+    let mut alloc = SegmentAllocator::new(100);
 
     let a = alloc.allocate(10).unwrap();
     let b = alloc.allocate(20).unwrap();
@@ -173,4 +299,82 @@ fn test_allocator() {
     assert_eq!(e.start, a.start);
     assert_eq!(alloc.allocate(10), Err(AllocError::Oom));
     let f = alloc.allocate(5).unwrap();
+}
+
+#[test]
+fn block_allocator() {
+    let mut alloc = BlockAllocator::new(10);
+
+    assert_eq!(alloc.num_free_blocks(), 0);
+    assert_eq!(alloc.num_allocated_blocks(), 0);
+    assert_eq!(alloc.num_blocks(), 0);
+
+    let a = alloc.allocate(1).unwrap();
+    let b = alloc.allocate(2).unwrap();
+    let c = alloc.allocate(1).unwrap();
+    let d = alloc.allocate(4).unwrap();
+    let e = alloc.allocate(2).unwrap();
+
+    assert_eq!(
+        &alloc.blocks[..],
+        &[true, true, true, true, true, true, true, true, true, true]
+    );
+
+    assert_eq!(alloc.allocate(1), Err(AllocError::Oom));
+
+    assert_eq!(alloc.num_free_blocks(), 0);
+    assert_eq!(alloc.num_allocated_blocks(), 10);
+    assert_eq!(alloc.num_blocks(), 10);
+
+    alloc.deallocate(d);
+
+    assert_eq!(
+        &alloc.blocks[..],
+        &[true, true, true, true, false, false, false, false, true, true]
+    );
+
+    assert_eq!(alloc.num_free_blocks(), 4);
+    assert_eq!(alloc.num_allocated_blocks(), 6);
+    assert_eq!(alloc.num_blocks(), 10);
+
+    alloc.deallocate(b);
+
+    assert_eq!(
+        &alloc.blocks[..],
+        &[true, false, false, true, false, false, false, false, true, true]
+    );
+
+    assert_eq!(alloc.num_free_blocks(), 6);
+    assert_eq!(alloc.num_allocated_blocks(), 4);
+    assert_eq!(alloc.num_blocks(), 10);
+
+    let f = alloc.allocate(3).unwrap();
+
+    assert_eq!(
+        &alloc.blocks[..],
+        &[true, false, false, true, true, true, true, false, true, true]
+    );
+
+    assert_eq!(alloc.num_free_blocks(), 3);
+    assert_eq!(alloc.num_allocated_blocks(), 7);
+    assert_eq!(alloc.num_blocks(), 10);
+
+    alloc.deallocate(e);
+
+    assert_eq!(
+        &alloc.blocks[..],
+        &[true, false, false, true, true, true, true]
+    );
+
+    assert_eq!(alloc.num_free_blocks(), 2);
+    assert_eq!(alloc.num_allocated_blocks(), 5);
+    assert_eq!(alloc.num_blocks(), 7);
+
+    alloc.deallocate(a);
+    alloc.deallocate(c);
+    alloc.deallocate(f);
+
+    assert_eq!(alloc.num_free_blocks(), 0);
+    assert_eq!(alloc.num_allocated_blocks(), 0);
+    assert_eq!(alloc.num_blocks(), 0);
 }

@@ -40,7 +40,7 @@ pub enum BufferId {
     MeshIndices,
     MeshInstances,
     MeshPrimitives,
-    Layers,
+    Transforms,
     Custom(u16),
 }
 
@@ -113,6 +113,8 @@ impl GpuGlobals {
         }
     }
 }
+
+unsafe impl GpuData for GpuGlobals {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]

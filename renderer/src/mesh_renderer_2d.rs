@@ -1,4 +1,7 @@
-use crate::{GpuData, GpuGlobals, RenderTargetState, BlendMode, GpuColor};
+use crate::{
+    GpuData, GpuGlobals, RenderTargetState, BlendMode, GpuColor, GpuDataPipe, BufferId, write_to_pipe,
+    AllocError, CommonBuffers, Buffer,
+};
 
 
 #[repr(C)]
@@ -120,20 +123,30 @@ pub struct MeshBatch {
     pub base_vertex: i32,
 }
 
+impl MeshBatch {
+    pub fn with_blend_mode(&self, mode: BlendMode) -> Self {
+        let mut batch = self.clone();
+        batch.blend_mode = mode;
+        batch
+    }
+
+    pub fn instances(&self, mut range: std::ops::Range<u32>) -> Self {
+        range.end = self.instances.end.min(range.end);
+        range.start = self.instances.start.max(range.start);
+        let mut batch = self.clone();
+        batch.instances = range;
+        batch
+    }
+}
+
 pub struct MeshRenderer {
     pub opaque_pipeline: wgpu::RenderPipeline,
     pub alpha_pipeline: wgpu::RenderPipeline,
 
-    pub indices: wgpu::Buffer,
-    pub max_indices: usize,
-
-    pub vertices: wgpu::Buffer,
-    pub max_vertices: usize,
-
-    pub instances: wgpu::Buffer,
-    pub max_instances: usize,
-
-    pub primitives: wgpu::Buffer,
+    pub indices: Buffer,
+    pub vertices: Buffer,
+    pub instances: Buffer,
+    pub primitives: Buffer,
 
     pub pipeline_layout: wgpu::PipelineLayout,
     pub bind_group_layout: wgpu::BindGroupLayout,
@@ -141,7 +154,7 @@ pub struct MeshRenderer {
 }
 
 impl MeshRenderer {
-    pub fn new(device: &wgpu::Device, globals: &wgpu::Buffer) -> Self {
+    pub fn new(device: &wgpu::Device, common: &CommonBuffers) -> Self {
         let bind_group_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
                 bindings: &[
@@ -222,36 +235,43 @@ impl MeshRenderer {
 
         let alpha_pipeline = device.create_render_pipeline(&alpha_pipeline_descriptor);
 
-        let max_instances = 512;
-        let instances = device.create_buffer(&wgpu::BufferDescriptor {
-            size: (max_instances * std::mem::size_of::<GpuMeshInstance>()) as u32,
-            usage: wgpu::BufferUsageFlags::VERTEX,
-        });
+        let instances = Buffer::new(
+            device,
+            wgpu::BufferDescriptor {
+                size: 4096 * 4,
+                usage: wgpu::BufferUsageFlags::VERTEX,
+            },
+        );
 
-        let default_vbo_size = 4096 * 16;
-        let max_vertices = default_vbo_size / std::mem::size_of::<GpuMeshVertex>();
-        let vertices = device.create_buffer(&wgpu::BufferDescriptor {
-            size: default_vbo_size as u32,
-            usage: wgpu::BufferUsageFlags::VERTEX,
-        });
+        let vertices = Buffer::new(
+            device,
+            wgpu::BufferDescriptor {
+                size: 4096 * 16,
+                usage: wgpu::BufferUsageFlags::VERTEX,
+            },
+        );
 
-        let default_ibo_size = 4096 * 4;
-        let max_indices = default_ibo_size / std::mem::size_of::<u16>();
-        let indices = device.create_buffer(&wgpu::BufferDescriptor {
-            size: default_ibo_size as u32,
-            usage: wgpu::BufferUsageFlags::VERTEX,
-        });
+        let indices = Buffer::new(
+            device,
+            wgpu::BufferDescriptor {
+                size: 4096 * 4,
+                usage: wgpu::BufferUsageFlags::VERTEX,
+            },
+        );
 
-        let primitives = device.create_buffer(&wgpu::BufferDescriptor {
-            size: GpuMeshPrimitive::BUFFER_SIZE,
-            usage: wgpu::BufferUsageFlags::UNIFORM,
-        });
+        let primitives = Buffer::new(
+            device,
+            wgpu::BufferDescriptor {
+                size: GpuMeshPrimitive::BUFFER_SIZE,
+                usage: wgpu::BufferUsageFlags::UNIFORM,
+            },
+        );
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             bindings: &[
-                GpuGlobals::binding(globals),
-                GpuMeshPrimitive::binding(&primitives),
+                GpuGlobals::binding(&common.globals.handle),
+                GpuMeshPrimitive::binding(&primitives.handle),
             ],
         });
 
@@ -261,11 +281,8 @@ impl MeshRenderer {
             opaque_pipeline,
             alpha_pipeline,
             indices,
-            max_indices,
             vertices,
-            max_vertices,
             instances,
-            max_instances,
             primitives,
             bind_group,
         }
@@ -277,11 +294,42 @@ impl MeshRenderer {
             BlendMode::None => &self.opaque_pipeline,
         });
         pass.set_bind_group(0, &self.bind_group);
-        pass.set_index_buffer(&self.indices, 0);
+        pass.set_index_buffer(&self.indices.handle, 0);
         pass.set_vertex_buffers(&[
-            (&self.vertices, 0),
-            (&self.instances, 0),
+            (&self.vertices.handle, 0),
+            (&self.instances.handle, 0),
         ]);
         pass.draw_indexed(batch.indices.clone(), batch.base_vertex, batch.instances.clone());
     }
+
+    pub fn upload_mesh(pipe: &mut GpuDataPipe, mesh: CpuMeshSlice) -> Result<MeshOffsets, AllocError> {
+        Ok(MeshOffsets {
+            vertices: write_to_pipe(pipe, BufferId::MeshVertices, mesh.vertices)?.1.range,
+            indices: write_to_pipe(pipe, BufferId::MeshIndices, mesh.indices)?.1.range,
+            default_primitives: write_to_pipe(pipe, BufferId::MeshPrimitives, mesh.default_primitives)?.1.range,
+        })
+    }
+
+    pub fn upload_instances(pipe: &mut GpuDataPipe, mesh: &MeshOffsets, instances: &[GpuMeshInstance]) -> Result<MeshBatch, AllocError> {
+        let range = write_to_pipe(pipe, BufferId::MeshInstances, instances)?;
+        Ok(MeshBatch {
+            indices: mesh.indices.clone(),
+            instances: range.1.range,
+            blend_mode: BlendMode::None,
+            base_vertex: mesh.vertices.start as i32,
+        })
+    }
+}
+
+pub struct CpuMeshSlice<'l> {
+    pub vertices: &'l[GpuMeshVertex],
+    pub indices: &'l[u16],
+    pub default_primitives: &'l[GpuMeshPrimitive],
+}
+
+use std::ops::Range;
+pub struct MeshOffsets {
+    pub vertices: Range<u32>,
+    pub indices: Range<u32>,
+    pub default_primitives: Range<u32>,
 }

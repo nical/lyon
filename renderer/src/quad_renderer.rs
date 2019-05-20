@@ -1,4 +1,7 @@
-use crate::{GpuData, GpuGlobals, GpuColor, RenderTargetState, BlendMode};
+use crate::{
+    GpuData, GpuGlobals, GpuColor, RenderTargetState, BlendMode, BufferId, GpuDataPipe,
+    AllocError, write_to_pipe, CommonBuffers, Buffer,
+};
 
 
 #[repr(C)]
@@ -51,19 +54,34 @@ pub struct QuadBatch {
     pub instances: std::ops::Range<u32>, 
 }
 
+impl QuadBatch {
+    pub fn with_blend_mode(&self, mode: BlendMode) -> Self {
+        let mut batch = self.clone();
+        batch.blend_mode = mode;
+        batch
+    }
+
+    pub fn instances(&self, mut range: std::ops::Range<u32>) -> Self {
+        range.end = self.instances.end.min(range.end);
+        range.start = self.instances.start.max(range.start);
+        let mut batch = self.clone();
+        batch.instances = range;
+        batch
+    }
+}
+
 pub struct QuadRenderer {
     pub opaque_pipeline: wgpu::RenderPipeline,
     pub alpha_pipeline: wgpu::RenderPipeline,
-    pub index_buffer: wgpu::Buffer,
-    pub instances: wgpu::Buffer,
-    pub max_instances: usize,
+    pub index_buffer: Buffer,
+    pub instances: Buffer,
     pub pipeline_layout: wgpu::PipelineLayout,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
 }
 
 impl QuadRenderer {
-    pub fn new(device: &wgpu::Device, globals: &wgpu::Buffer) -> Self {
+    pub fn new(device: &wgpu::Device, common: &CommonBuffers) -> Self {
         let bind_group_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
                 bindings: &[
@@ -141,27 +159,24 @@ impl QuadRenderer {
 
         let alpha_pipeline = device.create_render_pipeline(&alpha_pipeline_descriptor);
 
-        let indices: &[u16] = &[0, 1, 2, 0, 2, 3];
-        let index_buffer = device
-            .create_buffer_mapped(indices.len(), wgpu::BufferUsageFlags::INDEX)
-            .fill_from_slice(indices);
+        let index_buffer = Buffer::from_data(
+            device,
+            wgpu::BufferUsageFlags::INDEX,
+            &[0u16, 1, 2, 0, 2, 3],
+        );
 
-        let max_instances = 512;
-        let instances = device.create_buffer(&wgpu::BufferDescriptor {
-            size: (max_instances * std::mem::size_of::<GpuQuad>()) as u32,
-            usage: wgpu::BufferUsageFlags::VERTEX,
-        });
+        let instances = Buffer::new(
+            device,
+            wgpu::BufferDescriptor {
+                size: 4096,
+                usage: wgpu::BufferUsageFlags::VERTEX,
+            },
+        );
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             bindings: &[
-                wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: globals,
-                        range: 0..(std::mem::size_of::<GpuGlobals>() as u32),
-                    },
-                },
+                GpuGlobals::binding(&common.globals.handle),
             ],
         });
 
@@ -172,7 +187,6 @@ impl QuadRenderer {
             alpha_pipeline,
             index_buffer,
             instances,
-            max_instances,
             bind_group,
         }
     }
@@ -183,9 +197,16 @@ impl QuadRenderer {
             BlendMode::None => &self.opaque_pipeline,
         });
         pass.set_bind_group(0, &self.bind_group);
-        pass.set_index_buffer(&self.index_buffer, 0);
-        pass.set_vertex_buffers(&[(&self.instances, 0)]);
+        pass.set_index_buffer(&self.index_buffer.handle, 0);
+        pass.set_vertex_buffers(&[(&self.instances.handle, 0)]);
         pass.draw_indexed(0..6, 0, batch.instances.clone());
     }
 
+    pub fn upload_instances(pipe: &mut GpuDataPipe, instances: &[GpuQuad]) -> Result<QuadBatch, AllocError> {
+        let range = write_to_pipe(pipe, BufferId::QuadInstances, instances)?;
+        Ok(QuadBatch {
+            instances: range.1.range,
+            blend_mode: BlendMode::None,
+        })
+    }
 }
