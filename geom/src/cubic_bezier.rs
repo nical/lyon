@@ -152,20 +152,21 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ///
     /// This is equivalent to splitting at the range's end points.
     pub fn split_range(&self, t_range: Range<S>) -> Self {
-        if t_range.start == t_range.end {
-            let pt = self.sample(t_range.start);
-            return CubicBezierSegment {
-                from: pt,
-                ctrl1: pt,
-                ctrl2: pt,
-                to: pt,
-            };
-        }
+        let (t0, t1) = (t_range.start, t_range.end);
+        let from = self.sample(t0);
+        let to = self.sample(t1);
 
-        let t1 = t_range.start;
-        let t2 = (t_range.end - t_range.start) / (S::ONE - t_range.start);
+        let d = QuadraticBezierSegment {
+            from: (self.ctrl1 - self.from).to_point() * S::THREE,
+            ctrl: (self.ctrl2 - self.ctrl1).to_point() * S::THREE,
+            to: (self.to - self.ctrl2).to_point() * S::THREE,
+        };
 
-        self.after_split(t1).before_split(t2)
+        let scale = (t1 - t0) * (S::ONE / S::THREE);
+        let ctrl1 = from + d.sample(t0).to_vector() * scale;
+        let ctrl2 = to - d.sample(t1).to_vector() * scale;
+
+        CubicBezierSegment { from, ctrl1, ctrl2, to }
     }
 
     /// Split this curve into two sub-curves.
