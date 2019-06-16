@@ -17,7 +17,7 @@ where
     let mut sub_curve = curve.clone();
     let mut range = S::ZERO..S::ONE;
     loop {
-        if single_curve_approximation_error(&sub_curve) <= tolerance {
+        if single_curve_approximation_test(&sub_curve, tolerance) {
             cb(&single_curve_approximation(&sub_curve));
             if range.end >= S::ONE {
                 return;
@@ -49,6 +49,11 @@ pub fn single_curve_approximation<S: Scalar>(cubic: &CubicBezierSegment<S>) -> Q
 pub fn single_curve_approximation_error<S: Scalar>(curve: &CubicBezierSegment<S>) -> S {
     // See http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
     S::sqrt(S::THREE) / S::value(36.0) * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from)).length()
+}
+
+// Similar to single_curve_approximation_error avoiding the square root.
+fn single_curve_approximation_test<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> bool {
+    S::THREE / S::value(1296.0) * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from)).square_length() <= tolerance * tolerance
 }
 
 pub fn cubic_to_monotonic_quadratics<S: Scalar, F>(
