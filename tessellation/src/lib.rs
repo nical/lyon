@@ -215,7 +215,7 @@ pub use crate::path_stroke::*;
 #[doc(inline)]
 pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
 
-
+pub use crate::path::FillRule;
 
 /// The fill tessellator's result type.
 pub type TessellationResult = Result<Count, TessellationError>;
@@ -483,16 +483,6 @@ impl StrokeOptions {
         self.apply_line_width = false;
         self
     }
-}
-
-/// The fill rule defines how to determine what is inside and what is outside of the shape.
-///
-/// See the SVG specification.
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum FillRule {
-    EvenOdd,
-    NonZero,
 }
 
 /// Parameters for the fill tessellator.

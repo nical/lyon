@@ -61,6 +61,16 @@ use std::u32;
 
 pub type Index = u32;
 
+/// The fill rule defines how to determine what is inside and what is outside of the shape.
+///
+/// See the SVG specification.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum FillRule {
+    EvenOdd,
+    NonZero,
+}
+
 /// A virtual vertex offset in a geometry.
 ///
 /// The `VertexId`s are only valid between `GeometryBuilder::begin_geometry` and

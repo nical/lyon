@@ -13,6 +13,7 @@ pub(crate) mod advanced_path;
 pub mod splitter;
 pub mod hatching;
 pub mod raycast;
+pub mod hit_test;
 pub mod walk;
 pub mod aabb;
 pub mod fit;
