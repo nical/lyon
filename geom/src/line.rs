@@ -259,6 +259,44 @@ impl<S: Scalar> LineSegment<S> {
         self.line_intersection_t(line).map(|t| self.sample(t))
     }
 
+    pub fn horizontal_line_intersection_t(&self, y: S) -> Option<S> {
+        Self::axis_aligned_intersection_1d(self.from.y, self.to.y, y)
+    }
+
+    pub fn vertical_line_intersection_t(&self, x: S) -> Option<S> {
+        Self::axis_aligned_intersection_1d(self.from.x, self.to.x, x)
+    }
+
+    #[inline]
+    pub fn horizontal_line_intersection(&self, y: S) -> Option<Point<S>> {
+        self.horizontal_line_intersection_t(y).map(|t| self.sample(t))
+    }
+
+    #[inline]
+    pub fn vertical_line_intersection(&self, x: S) -> Option<Point<S>> {
+        self.vertical_line_intersection_t(x).map(|t| self.sample(t))
+    }
+
+    fn axis_aligned_intersection_1d(mut a: S, mut b: S, v: S) -> Option<S> {
+        let swap = a > b;
+        if swap {
+            std::mem::swap(&mut a, &mut b);
+        }
+
+        let d = b - a;
+        if d == S::ZERO {
+            return None;
+        }
+
+        let t = (v - a) / d;
+
+        if t < S::ZERO || t > S::ONE {
+            return None;
+        }
+
+        Some(if swap { S::ONE - t } else { t })
+    }
+
     #[inline]
     pub fn intersects(&self, other: &Self) -> bool {
         self.intersection_t(other).is_some()
@@ -803,4 +841,35 @@ fn contains_segment() {
             }
         )
     );
+}
+
+#[test]
+fn horizontal_line_intersection() {
+    let segment = LineSegment {
+        from: point(1.0, 2.0),
+        to: point(2.0, 3.0),
+    };
+
+    assert_eq!(segment.horizontal_line_intersection_t(2.0), Some(0.0));
+    assert_eq!(segment.horizontal_line_intersection_t(2.25), Some(0.25));
+    assert_eq!(segment.horizontal_line_intersection_t(2.5), Some(0.5));
+    assert_eq!(segment.horizontal_line_intersection_t(2.75), Some(0.75));
+    assert_eq!(segment.horizontal_line_intersection_t(3.0), Some(1.0));
+
+    assert_eq!(segment.horizontal_line_intersection_t(1.5), None);
+    assert_eq!(segment.horizontal_line_intersection_t(3.5), None);
+
+    let segment = LineSegment {
+        from: point(2.0, 3.0),
+        to: point(1.0, 2.0),
+    };
+
+    assert_eq!(segment.horizontal_line_intersection_t(2.0), Some(1.0));
+    assert_eq!(segment.horizontal_line_intersection_t(2.25), Some(0.75));
+    assert_eq!(segment.horizontal_line_intersection_t(2.5), Some(0.5));
+    assert_eq!(segment.horizontal_line_intersection_t(2.75), Some(0.25));
+    assert_eq!(segment.horizontal_line_intersection_t(3.0), Some(0.0));
+
+    assert_eq!(segment.horizontal_line_intersection_t(1.5), None);
+    assert_eq!(segment.horizontal_line_intersection_t(3.5), None);
 }
