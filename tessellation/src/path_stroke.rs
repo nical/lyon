@@ -145,6 +145,7 @@ pub struct StrokeBuilder<'l> {
     second_left_id: VertexId,
     second_right_id: VertexId,
     prev_normal: Vector,
+    previous_front_side: Side,
     nth: u32,
     length: f32,
     sub_path_start_length: f32,
@@ -313,6 +314,7 @@ impl<'l> StrokeBuilder<'l> {
             previous_right_id: VertexId(0),
             second_left_id: VertexId(0),
             second_right_id: VertexId(0),
+            previous_front_side: Side::Left,  // per convention
             nth: 0,
             length: 0.0,
             sub_path_start_length: 0.0,
@@ -499,6 +501,7 @@ impl<'l> StrokeBuilder<'l> {
             start_right_id,
             end_left_id,
             end_right_id,
+            front_side,
         ) = self.tessellate_join(
             previous_edge / previous_edge_length,
             next_tangent,
@@ -507,10 +510,19 @@ impl<'l> StrokeBuilder<'l> {
 
         // Tessellate the edge
         if self.nth > 1 {
-            self.output.add_triangle(self.previous_right_id, self.previous_left_id, start_left_id);
-            self.output.add_triangle(self.previous_right_id, start_left_id, start_right_id);
+            match self.previous_front_side {
+                Side::Left => {
+                    self.output.add_triangle(self.previous_right_id, self.previous_left_id, start_right_id);
+                    self.output.add_triangle(self.previous_left_id, start_left_id, start_right_id);
+                },
+                Side::Right => {
+                    self.output.add_triangle(self.previous_right_id, self.previous_left_id, start_left_id);
+                    self.output.add_triangle(self.previous_right_id, start_left_id, start_right_id);
+                }
+            }
         }
 
+        self.previous_front_side = front_side;
         self.previous = self.current;
         self.previous_left_id = end_left_id;
         self.previous_right_id = end_right_id;
@@ -608,7 +620,7 @@ impl<'l> StrokeBuilder<'l> {
         prev_tangent: Vector,
         next_tangent: Vector,
         mut join_type: LineJoin,
-    ) -> (VertexId, VertexId, VertexId, VertexId) {
+    ) -> (VertexId, VertexId, VertexId, VertexId, Side) {
         // This function needs to differentiate the "front" of the join (aka. the pointy side)
         // from the back. The front is where subdivision or adjustments may be needed.
 
@@ -689,8 +701,8 @@ impl<'l> StrokeBuilder<'l> {
         };
 
         match front_side {
-            Side::Left => (start_vertex, back_vertex, end_vertex, back_vertex),
-            Side::Right => (back_vertex, start_vertex, back_vertex, end_vertex),
+            Side::Left => (start_vertex, back_vertex, end_vertex, back_vertex, front_side),
+            Side::Right => (back_vertex, start_vertex, back_vertex, end_vertex, front_side),
         }
     }
 
