@@ -8,9 +8,10 @@ use crate::basic_shapes::circle_flattening_step;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::path::PathEvent;
 use crate::StrokeVertex as Vertex;
-use crate::{Side, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult};
+use crate::{Side, Order, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult};
 
 use std::f32::consts::PI;
+const EPSILON: f32 = 1e-4;
 
 /// A Context object that can tessellate stroke operations for complex paths.
 ///
@@ -490,10 +491,7 @@ impl<'l> StrokeBuilder<'l> {
         }
 
         let previous_edge = self.current - self.previous;
-        let previous_edge_length = previous_edge.length();
-        let next_tangent = (to - self.current).normalize();
-        self.length += previous_edge_length;
-
+        let next_edge = to - self.current;
         let join_type = if with_join { self.options.line_join } else { LineJoin::Miter };
 
         let (
@@ -503,8 +501,8 @@ impl<'l> StrokeBuilder<'l> {
             end_right_id,
             front_side,
         ) = self.tessellate_join(
-            previous_edge / previous_edge_length,
-            next_tangent,
+            previous_edge,
+            next_edge,
             join_type,
         );
 
@@ -616,13 +614,85 @@ impl<'l> StrokeBuilder<'l> {
         }
     }
 
-    fn tessellate_join(&mut self,
-        prev_tangent: Vector,
+    fn tessellate_back_join(
+        &mut self, prev_tangent: Vector,
         next_tangent: Vector,
+        prev_length: f32,
+        next_length: f32,
+        front_side: Side,
+        front_normal: Vector)
+    -> (VertexId, VertexId, Option<Order>) {
+        // We must watch out for special cases where the previous or next edge is small relative
+        // to the line width inducing an overlap of the stroke of both edges.
+
+        let d_next = -self.options.line_width / 2.0 * front_normal.dot(next_tangent) - next_length;
+        let d_prev = -self.options.line_width / 2.0 * front_normal.dot(-prev_tangent) - prev_length;
+
+        let (d, t2, order) =
+            if d_prev > d_next { (d_prev, next_tangent, Order::Before) }
+            else { (d_next, -prev_tangent, Order::After) };
+
+        // Case of an overlapping stroke
+        // We must build the back join with two vertices in order to respect the correct shape
+        // This will induce some overlapping triangles and collinear triangles
+        if d > 0.0 {
+            let n2: Vector = match front_side {
+                Side::Right => vector(t2.y, -t2.x),
+                Side::Left => vector(-t2.y, t2.x)
+            } * if order.is_after() { -1.0 } else { 1.0 };
+            let back_end_vertex_normal = -n2;
+            let back_start_vertex_normal = vector(0.0, 0.0);
+            let back_start_vertex = add_vertex!(
+                self,
+                Vertex {
+                    position: self.current,
+                    normal: back_start_vertex_normal,
+                    advancement: self.length,
+                    side: front_side.opposite(),
+                }
+            );
+            let back_end_vertex = add_vertex!(
+                self,
+                Vertex {
+                    position: self.current,
+                    normal: back_end_vertex_normal,
+                    advancement: self.length,
+                    side: front_side.opposite(),
+                }
+            );
+            // return
+            return match order {
+                Order::Before => (back_start_vertex, back_end_vertex, Some(order)),
+                Order::After => (back_end_vertex, back_start_vertex, Some(order))
+            }
+        }
+
+        // Standard Case
+        let back_start_vertex = add_vertex!(
+            self,
+            Vertex {
+                position: self.current,
+                normal: -front_normal,
+                advancement: self.length,
+                side: front_side.opposite(),
+            }
+        );
+        let back_end_vertex = back_start_vertex;
+        (back_start_vertex, back_end_vertex, None)
+    }
+
+    fn tessellate_join(&mut self,
+        previous_edge: Vector,
+        next_edge: Vector,
         mut join_type: LineJoin,
     ) -> (VertexId, VertexId, VertexId, VertexId, Side) {
         // This function needs to differentiate the "front" of the join (aka. the pointy side)
         // from the back. The front is where subdivision or adjustments may be needed.
+        let prev_tangent = previous_edge.normalize();
+        let next_tangent = next_edge.normalize();
+        let previous_edge_length = previous_edge.length();
+        let next_edge_length = next_edge.length();
+        self.length += previous_edge_length;
 
         let normal = compute_normal(prev_tangent, next_tangent);
 
@@ -632,16 +702,13 @@ impl<'l> StrokeBuilder<'l> {
             (Side::Right, -normal)
         };
 
-        // Add a vertex at the back of the join
-        let back_vertex = add_vertex!(
-            self,
-            Vertex {
-                position: self.current,
-                normal: -front_normal,
-                advancement: self.length,
-                side: front_side.opposite(),
-            }
-        );
+        let (back_start_vertex, back_end_vertex, order) = self.tessellate_back_join(
+            prev_tangent,
+            next_tangent,
+            previous_edge_length,
+            next_edge_length,
+            front_side,
+            front_normal);
 
         let threshold = 0.95;
         if prev_tangent.dot(next_tangent) >= threshold {
@@ -657,13 +724,22 @@ impl<'l> StrokeBuilder<'l> {
             join_type = LineJoin::Miter;
         }
 
+        let back_join_vertex = if let Some(_order) = order {
+            match _order {
+                Order::Before => back_start_vertex,
+                Order::After => back_end_vertex
+            }
+        } else {
+            back_start_vertex
+        };
+
         let (start_vertex, end_vertex) = match join_type {
             LineJoin::Round => {
                 self.tessellate_round_join(
                     prev_tangent,
                     next_tangent,
                     front_side,
-                    back_vertex
+                    back_join_vertex
                 )
             }
             LineJoin::Bevel => {
@@ -671,7 +747,7 @@ impl<'l> StrokeBuilder<'l> {
                     prev_tangent,
                     next_tangent,
                     front_side,
-                    back_vertex
+                    back_join_vertex
                 )
             }
             LineJoin::MiterClip => {
@@ -679,13 +755,13 @@ impl<'l> StrokeBuilder<'l> {
                     prev_tangent,
                     next_tangent,
                     front_side,
-                    back_vertex,
+                    back_join_vertex,
                     normal
                 )
             }
             // Fallback to Miter for unimplemented line joins
             _ => {
-                let v = add_vertex!(
+                let end_vertex = add_vertex!(
                     self,
                     Vertex {
                         position: self.current,
@@ -696,13 +772,55 @@ impl<'l> StrokeBuilder<'l> {
                 );
                 self.prev_normal = normal;
 
-                (v, v)
+                if let Some(_order) = order {
+                    let t2 = match _order {
+                        Order::Before => next_tangent,
+                        Order::After => prev_tangent,
+                    };
+                    let n1: Vector = match front_side {
+                        Side::Right => vector(t2.y, -t2.x),
+                        Side::Left => vector(-t2.y, t2.x)
+                    };
+
+                    let start_vertex = add_vertex!(
+                        self,
+                        Vertex {
+                            position: self.current,
+                            normal: n1,
+                            advancement: self.length,
+                            side: front_side,
+                        }
+                    );
+                     self.output.add_triangle(start_vertex, end_vertex, back_join_vertex);
+                     match _order {
+                        Order::Before => (end_vertex, start_vertex),
+                        Order::After => (start_vertex, end_vertex)
+                    }
+                } else {
+                    (end_vertex, end_vertex)
+                }
             }
         };
 
+        if back_end_vertex != back_start_vertex {
+            let (a, b, c) = if let Some(_order) = order {
+                match _order {
+                    Order::Before => (back_end_vertex, end_vertex, back_start_vertex),
+                    Order::After => (back_end_vertex, start_vertex, back_start_vertex),
+                }
+            } else {
+                (back_end_vertex, end_vertex, back_start_vertex)
+            };
+            // preserve correct ccw winding
+            match front_side {
+                Side::Left => self.output.add_triangle(a, b, c),
+                Side::Right => self.output.add_triangle(a, c, b),
+            }
+        }
+
         match front_side {
-            Side::Left => (start_vertex, back_vertex, end_vertex, back_vertex, front_side),
-            Side::Right => (back_vertex, start_vertex, back_vertex, end_vertex, front_side),
+            Side::Left => (start_vertex, back_start_vertex, end_vertex, back_end_vertex, front_side),
+            Side::Right => (back_start_vertex, start_vertex, back_end_vertex, end_vertex, front_side),
         }
     }
 
