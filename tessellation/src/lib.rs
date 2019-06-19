@@ -261,6 +261,27 @@ impl Side {
     pub fn is_right(self) -> bool { self == Side::Right }
 }
 
+/// Before or After. Used to describe position relative to a join.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum Order {
+    Before,
+    After,
+}
+
+impl Order {
+    pub fn opposite(self) -> Self {
+        match self {
+            Order::Before => Order::After,
+            Order::After => Order::Before,
+        }
+    }
+
+    pub fn is_before(self) -> bool { self == Order::Before }
+
+    pub fn is_after(self) -> bool { self == Order::After }
+}
+
 /// Vertex produced by the stroke tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
