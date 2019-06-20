@@ -164,19 +164,12 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     ///
     /// This is equivalent splitting at the range's end points.
     pub fn split_range(&self, t_range: Range<S>) -> Self {
-        let t1 = t_range.start;
-        let t2 = t_range.end;
+        let t0 = t_range.start;
+        let t1 = t_range.end;
 
-        debug_assert!(t1 >= S::ZERO);
-        debug_assert!(t2 <= S::ONE);
-        debug_assert!(t1 <= t2);
-        debug_assert!(t1 != S::ONE);
-
-        let from = self.sample(t1);
-        let to = self.sample(t2);
-        let a = self.from.lerp(self.ctrl, t1);
-        let b = self.ctrl.lerp(self.to, t1);
-        let ctrl = a.lerp(b, (t2 - t1) / (S::ONE - t1));
+        let from = self.sample(t0);
+        let to = self.sample(t1);
+        let ctrl = from + (self.ctrl - self.from).lerp(self.to - self.ctrl, t0) * (t1 - t0);
 
         QuadraticBezierSegment { from, ctrl, to }
     }
