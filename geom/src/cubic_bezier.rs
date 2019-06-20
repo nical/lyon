@@ -157,14 +157,14 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let to = self.sample(t1);
 
         let d = QuadraticBezierSegment {
-            from: (self.ctrl1 - self.from).to_point() * S::THREE,
-            ctrl: (self.ctrl2 - self.ctrl1).to_point() * S::THREE,
-            to: (self.to - self.ctrl2).to_point() * S::THREE,
+            from: (self.ctrl1 - self.from).to_point(),
+            ctrl: (self.ctrl2 - self.ctrl1).to_point(),
+            to: (self.to - self.ctrl2).to_point(),
         };
 
-        let scale = (t1 - t0) * (S::ONE / S::THREE);
-        let ctrl1 = from + d.sample(t0).to_vector() * scale;
-        let ctrl2 = to - d.sample(t1).to_vector() * scale;
+        let dt = t1 - t0;
+        let ctrl1 = from + d.sample(t0).to_vector() * dt;
+        let ctrl2 = to - d.sample(t1).to_vector() * dt;
 
         CubicBezierSegment { from, ctrl1, ctrl2, to }
     }
