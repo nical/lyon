@@ -724,7 +724,7 @@ dependencies = [
 name = "lyon_algorithms"
 version = "0.13.1"
 dependencies = [
- "lyon_path 0.13.1",
+ "lyon_path 0.13.2",
  "serde 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
  "sid 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -748,7 +748,7 @@ dependencies = [
 name = "lyon_extra"
 version = "0.13.0"
 dependencies = [
- "lyon_path 0.13.1",
+ "lyon_path 0.13.2",
  "lyon_svg 0.13.0",
 ]
 
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "lyon_geom 0.12.7",
  "serde 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -784,7 +784,7 @@ dependencies = [
 name = "lyon_svg"
 version = "0.13.0"
 dependencies = [
- "lyon_path 0.13.1",
+ "lyon_path 0.13.2",
  "svgparser 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -802,7 +802,7 @@ name = "lyon_tessellation"
 version = "0.13.1"
 dependencies = [
  "lyon_extra 0.13.0",
- "lyon_path 0.13.1",
+ "lyon_path 0.13.2",
  "serde 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
  "sid 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
