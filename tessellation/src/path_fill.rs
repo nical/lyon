@@ -28,11 +28,12 @@ use sid::{Id, IdVec};
 use crate::FillVertex as Vertex;
 use crate::{FillOptions, FillRule, Side, OnError, TessellationError, TessellationResult, InternalError};
 use crate::geom::math::*;
+use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use crate::geom::euclid::{self, Trig};
 use crate::math_utils::*;
 use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId};
 use crate::path::PathEvent;
-use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::path::builder::{Build, FlatPathBuilder};
 
 #[cfg(feature="debugger")]
 use crate::debugger::*;
@@ -1547,10 +1548,26 @@ impl FillEvents {
 
         let mut builder = EventsBuilder::new();
         builder.recycle(tmp);
+        builder.tolerance = tolerance;
 
-        let mut builder = builder.flattened(tolerance);
         for evt in it {
-            builder.path_event(evt);
+            match evt {
+                PathEvent::MoveTo(to) => {
+                    builder.move_to(to);
+                }
+                PathEvent::Line(segment) => {
+                    builder.line_to(segment.to);
+                }
+                PathEvent::Quadratic(segment) => {
+                    builder.quadratic_segment(segment);
+                }
+                PathEvent::Cubic(segment) => {
+                    builder.cubic_segment(segment);
+                }
+                PathEvent::Close(..) => {
+                    builder.close();
+                }
+            }
         }
 
         swap(self, &mut builder.build());
@@ -1599,6 +1616,113 @@ impl EventsBuilder {
         if is_after(current, previous) && is_after(current, next) {
             self.vertices.push(current);
         }
+    }
+
+    fn quadratic_segment(&mut self, mut segment: QuadraticBezierSegment<f32>) {
+        // Swap the curve so that it always goes downwards. This way if two
+        // paths share the same edge with different windings, the flattening will
+        // play out the same way, which avoid cracks.
+
+        // We have to put special care into properly tracking the previous and second
+        // points as if we hadn't swapped.
+
+        let segment_from = to_internal(segment.from);
+        let segment_to = to_internal(segment.to);
+        if segment_from == segment_to {
+            return;
+        }
+
+        let needs_swap = is_after(segment_from, segment_to);
+
+        if needs_swap {
+            swap(&mut segment.from, &mut segment.to);
+        }
+
+        let mut from = to_internal(segment.from);
+        let mut prev = from;
+        let mut first = None;
+        let mut nth = self.nth;
+        segment.for_each_flattened(self.tolerance, &mut|to| {
+            let to = to_internal(to);
+            if first == None {
+                first = Some(to)
+                // We can't call vertex(prev, from, to) in the first iteration
+                // because if we swapped the edge, we don't have a proper value for
+                // the previous vertex yet.
+                // We'll handle it after the loop.
+            } else {
+                self.vertex(prev, from, to);
+            }
+
+            self.add_edge(from, to);
+
+            prev = from;
+            from = to;
+            nth += 1;
+        });
+
+        let first = first.unwrap();
+        let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+
+        if self.nth == 0 {
+            self.second = second;
+        } else {
+            // Handle the first vertex we took out of the loop above.
+            self.vertex(self.previous, segment_from, second);
+        }
+
+        self.previous = previous;
+        self.current = segment_to;
+        self.nth = nth;
+    }
+
+    fn cubic_segment(&mut self, mut segment: CubicBezierSegment<f32>) {
+        // This goes through the same gymnastics as quadratic_segment.
+
+        let segment_from = to_internal(segment.from);
+        let segment_to = to_internal(segment.to);
+        if segment_from == segment_to && to_internal(segment.ctrl1) == to_internal(segment.ctrl2) {
+            return;
+        }
+
+        let needs_swap = is_after(segment_from, segment_to);
+
+        if needs_swap {
+            swap(&mut segment.from, &mut segment.to);
+            swap(&mut segment.ctrl1, &mut segment.ctrl2);
+        }
+
+        let mut from = to_internal(segment.from);
+        let mut prev = from;
+        let mut first = None;
+        let mut nth = self.nth;
+        segment.for_each_flattened(self.tolerance, &mut|to| {
+            let to = to_internal(to);
+            if first == None {
+                first = Some(to)
+            } else {
+                self.vertex(prev, from, to);
+            }
+
+            self.add_edge(from, to);
+
+            prev = from;
+            from = to;
+            nth += 1;
+        });
+
+        let first = first.unwrap();
+
+        let second = if needs_swap { prev } else { first };
+        if self.nth == 0 {
+            self.second = second;
+        } else {
+            self.vertex(self.previous, segment_from, second);
+        }
+
+        self.previous = if needs_swap { first } else { prev };
+        self.current = segment_to;
+        self.nth = nth;
     }
 }
 
