@@ -1,7 +1,7 @@
 //! Determine whether a point is inside a path.
 
 use crate::path::{PathEvent, FillRule};
-use crate::math::{Point, vector};
+use crate::math::Point;
 use crate::geom::LineSegment;
 use std::f32;
 
