@@ -51,6 +51,9 @@ where Iter: Iterator<Item=FlattenedEvent> {
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
         walker.flat_event(evt);
+        if walker.done {
+            return;
+        }
     }
 }
 
@@ -67,8 +70,18 @@ where Iter: Iterator<Item=FlattenedEvent> {
 pub trait Pattern {
     /// This method is invoked at each step along the path.
     ///
-    /// If this method returns None, path walking stops.
+    /// If this method returns None, path walking stops. Otherwise the returned
+    /// value is the distance along the path to the next element in the pattern.
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32>;
+
+    /// Invoked at the start each sub-path.
+    ///
+    /// Takes the leftover requested distance from the previous sub-path path,
+    /// if any.
+    ///
+    /// If this method returns None, path walking stops. Otherwise the returned
+    /// value is the distance along the path to the next element in the pattern.
+    fn begin(&mut self, distance: f32) -> Option<f32> { Some(distance) }
 }
 
 /// A helper struct to walk along a flattened path using a builder API.
@@ -78,6 +91,8 @@ pub struct PathWalker<'l> {
     leftover: f32,
     next_distance: f32,
     first: Point,
+    need_moveto: bool,
+    done: bool,
 
     pattern: &'l mut dyn Pattern,
 }
@@ -91,6 +106,8 @@ impl<'l> PathWalker<'l> {
             advancement: 0.0,
             leftover: 0.0,
             next_distance: start,
+            need_moveto: true,
+            done: false,
             pattern,
         }
     }
@@ -98,11 +115,25 @@ impl<'l> PathWalker<'l> {
 
 impl<'l> FlatPathBuilder for PathWalker<'l> {
     fn move_to(&mut self, to: Point) {
+        self.need_moveto = false;
         self.first = to;
         self.prev = to;
+
+        if let Some(distance) = self.pattern.begin(self.next_distance) {
+            self.next_distance = distance;
+        } else {
+            self.done = true;
+        }
     }
 
     fn line_to(&mut self, to: Point) {
+        if self.need_moveto {
+            self.move_to(self.first);
+            if self.done {
+                return;
+            }
+        }
+
         let v = to - self.prev;
         let d = v.length();
 
@@ -120,9 +151,10 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
             self.advancement += self.next_distance;
             distance -= self.next_distance;
 
-            self.next_distance = match self.pattern.next(position, tangent, self.advancement) {
-                Some(distance) => distance,
-                None => { return; }
+            if let Some(distance) = self.pattern.next(position, tangent, self.advancement) {
+                self.next_distance = distance;
+            } else {
+                self.done = true;
             }
         }
 
@@ -133,6 +165,7 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
     fn close(&mut self) {
         let first = self.first;
         self.line_to(first);
+        self.need_moveto = true;
     }
 
     fn current_position(&self) -> Point { self.prev }
