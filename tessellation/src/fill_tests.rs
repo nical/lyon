@@ -27,7 +27,7 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
                 tess.enable_logging();
             }
             tess.tessellate_path(
-                path.path_iter(),
+                path.iter(),
                 &options,
                 &mut vertex_builder
             )?;
