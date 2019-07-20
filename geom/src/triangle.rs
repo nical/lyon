@@ -76,9 +76,9 @@ impl<S: Scalar> Triangle<S> {
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         Triangle {
-            a: transform.transform_point(&self.a),
-            b: transform.transform_point(&self.b),
-            c: transform.transform_point(&self.c)
+            a: transform.transform_point(self.a),
+            b: transform.transform_point(self.b),
+            c: transform.transform_point(self.c)
         }
     }
 

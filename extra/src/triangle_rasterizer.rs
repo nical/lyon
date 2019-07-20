@@ -5,7 +5,7 @@ use math::*;
 use euclid;
 use image::MutableImageSlice;
 
-type IntVector = euclid::Vector2D<i32>;
+type IntVector = euclid::default::Vector2D<i32>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct IntVec4 {

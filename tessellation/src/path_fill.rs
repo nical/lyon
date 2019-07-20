@@ -1498,7 +1498,7 @@ impl ActiveEdge {
 // If two points have the same y coordinate, the one on the right (x pointing to the right)
 // is the one after.
 #[inline]
-fn is_after<T: PartialOrd>(a: euclid::Point2D<T>, b: euclid::Point2D<T>) -> bool {
+fn is_after<T: PartialOrd>(a: euclid::default::Point2D<T>, b: euclid::default::Point2D<T>) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 

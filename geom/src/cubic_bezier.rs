@@ -292,10 +292,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         CubicBezierSegment {
-            from: transform.transform_point(&self.from),
-            ctrl1: transform.transform_point(&self.ctrl1),
-            ctrl2: transform.transform_point(&self.ctrl2),
-            to: transform.transform_point(&self.to)
+            from: transform.transform_point(self.from),
+            ctrl1: transform.transform_point(self.ctrl1),
+            ctrl2: transform.transform_point(self.ctrl2),
+            to: transform.transform_point(self.to)
         }
     }
 

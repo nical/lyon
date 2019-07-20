@@ -428,7 +428,7 @@ impl<S: Scalar> Arc<S> {
     fn tangent_at_angle(&self, angle: Angle<S>) -> Vector<S> {
         let a = angle.get();
         Rotation2D::new(self.x_rotation).transform_vector(
-            &vector(-self.radii.x * Float::sin(a), self.radii.y * Float::cos(a))
+            vector(-self.radii.x * Float::sin(a), self.radii.y * Float::cos(a))
         )
     }
 }
@@ -582,7 +582,7 @@ where
 
 fn sample_ellipse<S: Scalar>(radii: Vector<S>, x_rotation: Angle<S>, angle: Angle<S>) -> Point<S> {
     Rotation2D::new(x_rotation).transform_point(
-        &point(radii.x * Float::cos(angle.get()), radii.y * Float::sin(angle.get()))
+        point(radii.x * Float::cos(angle.get()), radii.y * Float::sin(angle.get()))
     )
 }
 

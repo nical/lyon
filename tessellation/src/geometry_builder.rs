@@ -191,7 +191,7 @@
 //! ```
 //! use lyon_tessellation::geometry_builder::*;
 //! use lyon_tessellation::{FillVertex, TessellationResult};
-//! use lyon_tessellation::math::{Rect, vector};
+//! use lyon_tessellation::math::{Rect, vector, point};
 //!
 //! // A tessellator that generates an axis-aligned quad.
 //! // Returns a structure containing the number of vertices and number of indices allocated
@@ -202,17 +202,19 @@
 //! {
 //!     output.begin_geometry();
 //!     // Create the vertices...
+//!     let min = rect.min();
+//!     let max = rect.min();
 //!     let a = output.add_vertex(
-//!         FillVertex { position: rect.origin, normal: vector(-1.0, -1.0) }
+//!         FillVertex { position: min, normal: vector(-1.0, -1.0) }
 //!     )?;
 //!     let b = output.add_vertex(
-//!         FillVertex { position: rect.top_right(), normal: vector(1.0, -1.0) }
+//!         FillVertex { position: point(max.x, min.y), normal: vector(1.0, -1.0) }
 //!     )?;
 //!     let c = output.add_vertex(
-//!         FillVertex { position: rect.bottom_right(), normal: vector(1.0, 1.0) }
+//!         FillVertex { position: max, normal: vector(1.0, 1.0) }
 //!     )?;
 //!     let d = output.add_vertex(
-//!         FillVertex { position: rect.bottom_left(), normal: vector(-1.0, 1.0) }
+//!         FillVertex { position: point(min.x, max.y), normal: vector(-1.0, 1.0) }
 //!     )?;
 //!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
 //!     // vertex buffer.

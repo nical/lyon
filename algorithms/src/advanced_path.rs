@@ -83,12 +83,14 @@ impl AdvancedPath {
 
     /// Add a rectangular sub-path.
     pub fn add_rectangle(&mut self, rectangle: &Rect) -> SubPathId {
+        let min = rectangle.min();
+        let max = rectangle.min();
         self.add_polyline(
             &[
-                rectangle.origin,
-                rectangle.top_right(),
-                rectangle.bottom_right(),
-                rectangle.bottom_left(),
+                min,
+                point(max.x, min.y),
+                max,
+                point(min.x, max.y),
             ],
             true
         )

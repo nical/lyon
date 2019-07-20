@@ -201,7 +201,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let constants = factory.create_constant_buffer(1);
 
     let aabb = bounding_rect(cmd.path.iter());
-    let center = aabb.origin.lerp(aabb.bottom_right(), 0.5).to_vector();
+    let center = aabb.origin.lerp(aabb.max(), 0.5).to_vector();
 
     let mut scene = SceneParams {
         target_zoom: 1.0,

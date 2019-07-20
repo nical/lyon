@@ -170,8 +170,8 @@ impl<S: Scalar> LineSegment<S> {
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         LineSegment {
-            from: transform.transform_point(&self.from),
-            to: transform.transform_point(&self.to),
+            from: transform.transform_point(self.from),
+            to: transform.transform_point(self.to),
         }
     }
 

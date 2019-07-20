@@ -137,13 +137,13 @@ impl TightBoundingRect for PathEvent {
             }
             PathEvent::Quadratic(ref segment) => {
                 let r = segment.bounding_rect();
-                *min = Point::min(*min, r.origin);
-                *max = Point::max(*max, r.bottom_right());
+                *min = Point::min(*min, r.min());
+                *max = Point::max(*max, r.max());
             }
             PathEvent::Cubic(ref segment) => {
                 let r = segment.bounding_rect();
-                *min = Point::min(*min, r.origin);
-                *max = Point::max(*max, r.bottom_right());
+                *min = Point::min(*min, r.min());
+                *max = Point::max(*max, r.max());
             }
             PathEvent::Close(..) => {}
         }
@@ -163,8 +163,8 @@ impl TightBoundingRect for QuadraticEvent {
             }
             QuadraticEvent::Quadratic(ref segment) => {
                 let r = segment.bounding_rect();
-                *min = Point::min(*min, r.origin);
-                *max = Point::max(*max, r.bottom_right());
+                *min = Point::min(*min, r.min());
+                *max = Point::max(*max, r.max());
             }
             QuadraticEvent::Close(..) => {}
         }

@@ -42,8 +42,8 @@ pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Trans
         FitStyle::Vertical => vector(scale.y, scale.y),
     };
 
-    let src_center = src_rect.origin.lerp(src_rect.bottom_right(), 0.5);
-    let dst_center = dst_rect.origin.lerp(dst_rect.bottom_right(), 0.5);
+    let src_center = src_rect.origin.lerp(src_rect.max(), 0.5);
+    let dst_center = dst_rect.origin.lerp(dst_rect.max(), 0.5);
 
     Transform2D::create_translation(-src_center.x, -src_center.y)
         .post_scale(scale.x, scale.y)
@@ -67,7 +67,7 @@ pub fn fit_path(path: &Path, output_rect: &Rect, style: FitStyle) -> Path {
 fn simple_fit() {
     fn approx_eq(a: &Rect, b: &Rect) -> bool {
         use crate::geom::euclid::approxeq::ApproxEq;
-        let result = a.origin.approx_eq(&b.origin) && a.bottom_right().approx_eq(&b.bottom_right());
+        let result = a.origin.approx_eq(&b.origin) && a.max().approx_eq(&b.max());
         if !result {
             println!("{:?} == {:?}", a, b);
         }

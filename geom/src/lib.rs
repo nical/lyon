@@ -191,23 +191,23 @@ mod scalar {
 }
 
 mod generic_math {
-    /// Alias for `euclid::Point2D`.
-    pub use euclid::Point2D as Point;
+    /// Alias for `euclid::default::Point2D`.
+    pub use euclid::default::Point2D as Point;
 
-    /// Alias for `euclid::Vector2D`.
-    pub use euclid::Vector2D as Vector;
+    /// Alias for `euclid::default::Vector2D`.
+    pub use euclid::default::Vector2D as Vector;
 
-    /// Alias for `euclid::Size2D`.
-    pub use euclid::Size2D as Size;
+    /// Alias for `euclid::default::Size2D`.
+    pub use euclid::default::Size2D as Size;
 
-    /// Alias for `euclid::Rect`
-    pub use euclid::Rect;
+    /// Alias for `euclid::default::Rect`
+    pub use euclid::default::Rect;
 
-    /// Alias for `euclid::Transform2D`
-    pub use euclid::Transform2D;
+    /// Alias for `euclid::default::Transform2D`
+    pub use euclid::default::Transform2D;
 
-    /// Alias for `euclid::Rotation2D`
-    pub use euclid::Rotation2D;
+    /// Alias for `euclid::default::Rotation2D`
+    pub use euclid::default::Rotation2D;
 
     /// An angle in radians.
     pub use euclid::Angle;
@@ -231,26 +231,26 @@ pub mod math {
 
     use euclid;
 
-    /// Alias for ```euclid::Point2D<f32>```.
-    pub type Point = euclid::Point2D<f32>;
+    /// Alias for ```euclid::default::Point2D<f32>```.
+    pub type Point = euclid::default::Point2D<f32>;
 
-    /// Alias for ```euclid::Point2D<f64>```.
-    pub type F64Point = euclid::Point2D<f64>;
+    /// Alias for ```euclid::default::Point2D<f64>```.
+    pub type F64Point = euclid::default::Point2D<f64>;
 
-    /// Alias for ```euclid::Point2D<f32>```.
-    pub type Vector = euclid::Vector2D<f32>;
+    /// Alias for ```euclid::default::Point2D<f32>```.
+    pub type Vector = euclid::default::Vector2D<f32>;
 
-    /// Alias for ```euclid::Size2D<f32>```.
-    pub type Size = euclid::Size2D<f32>;
+    /// Alias for ```euclid::default::Size2D<f32>```.
+    pub type Size = euclid::default::Size2D<f32>;
 
-    /// Alias for ```euclid::Rect<f32>```
-    pub type Rect = euclid::Rect<f32>;
+    /// Alias for ```euclid::default::Rect<f32>```
+    pub type Rect = euclid::default::Rect<f32>;
 
-    /// Alias for ```euclid::Transform2D<f32>```
-    pub type Transform2D = euclid::Transform2D<f32>;
+    /// Alias for ```euclid::default::Transform2D<f32>```
+    pub type Transform2D = euclid::default::Transform2D<f32>;
 
-    /// Alias for ```euclid::Rotation2D<f32>```
-    pub type Rotation2D = euclid::Rotation2D<f32>;
+    /// Alias for ```euclid::default::Rotation2D<f32>```
+    pub type Rotation2D = euclid::default::Rotation2D<f32>;
 
     /// An angle in radians (f32).
     pub type Angle = euclid::Angle<f32>;
