@@ -247,9 +247,9 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     #[inline]
     pub fn transform(&self, transform: &Transform2D<S>) -> Self {
         QuadraticBezierSegment {
-            from: transform.transform_point(&self.from),
-            ctrl: transform.transform_point(&self.ctrl),
-            to: transform.transform_point(&self.to)
+            from: transform.transform_point(self.from),
+            ctrl: transform.transform_point(self.ctrl),
+            to: transform.transform_point(self.to)
         }
     }
 

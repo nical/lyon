@@ -8,9 +8,9 @@ use std::f64;
 
 pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
 pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
-pub type TessVector = euclid::Vector2D<FixedPoint32>;
-pub type TessPoint = euclid::Point2D<FixedPoint32>;
-pub type TessPoint64 = euclid::Point2D<FixedPoint64>;
+pub type TessVector = euclid::default::Vector2D<FixedPoint32>;
+pub type TessPoint = euclid::default::Point2D<FixedPoint32>;
+pub type TessPoint64 = euclid::default::Point2D<FixedPoint64>;
 #[inline]
 pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }
 

@@ -35,6 +35,18 @@ use crate::{FillTessellator, TessellationResult};
 
 use std::f32::consts::PI;
 
+fn bottom_left(rect: &Rect) -> Point {
+    point(rect.min_x(), rect.max_y())
+}
+
+fn top_right(rect: &Rect) -> Point {
+    point(rect.max_x(), rect.min_y())
+}
+
+fn bottom_right(rect: &Rect) -> Point {
+    rect.max()
+}
+
 /// Tessellate a triangle.
 pub fn fill_triangle(
     v1: Point,
@@ -171,19 +183,19 @@ pub fn fill_rectangle(
     )?;
     let b = output.add_vertex(
         FillVertex {
-            position: rect.bottom_left(),
+            position: bottom_left(&rect),
             normal: vector(-1.0, 1.0),
         }
     )?;
     let c = output.add_vertex(
         FillVertex {
-            position: rect.bottom_right(),
+            position: bottom_right(&rect),
             normal: vector(1.0, 1.0),
         }
     )?;
     let d = output.add_vertex(
         FillVertex {
-            position: rect.top_right(),
+            position: top_right(&rect),
             normal: vector(1.0, -1.0),
         }
     )?;
@@ -206,9 +218,9 @@ pub fn stroke_rectangle(
 
     stroke_quad(
         rect.origin,
-        rect.top_right(),
-        rect.bottom_right(),
-        rect.bottom_left(),
+        top_right(&rect),
+        bottom_right(&rect),
+        bottom_left(&rect),
         options,
         output
     )
@@ -242,7 +254,7 @@ fn stroke_thin_rectangle(
     )?;
     let b = output.add_vertex(
         StrokeVertex {
-            position: rect.bottom_left(),
+            position: bottom_left(&rect),
             normal: vector(-1.0, 1.0),
             advancement: 0.0,
             side: Side::Left,
@@ -250,7 +262,7 @@ fn stroke_thin_rectangle(
     )?;
     let c = output.add_vertex(
         StrokeVertex {
-            position: rect.bottom_right(),
+            position: bottom_right(&rect),
             normal: vector(1.0, 1.0),
             advancement: 1.0,
             side: Side::Right,
@@ -258,7 +270,7 @@ fn stroke_thin_rectangle(
     )?;
     let d = output.add_vertex(
         StrokeVertex {
-            position: rect.top_right(),
+            position: top_right(&rect),
             normal: vector(1.0, -1.0),
             advancement: 1.0,
             side: Side::Right,

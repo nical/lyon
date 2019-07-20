@@ -118,8 +118,8 @@ impl QuadraticEvent {
 impl Transform for FlattenedEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            FlattenedEvent::MoveTo(ref to) => {
-                FlattenedEvent::MoveTo(mat.transform_point(to))
+            FlattenedEvent::MoveTo(to) => {
+                FlattenedEvent::MoveTo(mat.transform_point(*to))
             }
             FlattenedEvent::Line(ref segment) => {
                 FlattenedEvent::Line(segment.transform(mat))
@@ -134,8 +134,8 @@ impl Transform for FlattenedEvent {
 impl Transform for QuadraticEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            QuadraticEvent::MoveTo(ref to) => {
-                QuadraticEvent::MoveTo(mat.transform_point(to))
+            QuadraticEvent::MoveTo(to) => {
+                QuadraticEvent::MoveTo(mat.transform_point(*to))
             }
             QuadraticEvent::Line(ref segment) => {
                 QuadraticEvent::Line(segment.transform(mat))
@@ -153,7 +153,7 @@ impl Transform for QuadraticEvent {
 impl Transform for PathEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            PathEvent::MoveTo(ref to) => { PathEvent::MoveTo(mat.transform_point(to)) }
+            PathEvent::MoveTo(to) => { PathEvent::MoveTo(mat.transform_point(*to)) }
             PathEvent::Line(ref segment) => { PathEvent::Line(segment.transform(mat)) }
             PathEvent::Quadratic(ref segment) => { PathEvent::Quadratic(segment.transform(mat)) }
             PathEvent::Cubic(ref segment) => { PathEvent::Cubic(segment.transform(mat)) }

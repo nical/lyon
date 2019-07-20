@@ -16,5 +16,5 @@ name = "lyon_path"
 serialization = ["serde", "lyon_geom/serialization"]
 
 [dependencies]
-lyon_geom = { version = "0.12.7", path = "../geom" }
+lyon_geom = { version = "0.14.0", path = "../geom" }
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }

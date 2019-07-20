@@ -29,7 +29,7 @@ use crate::path::PathEvent;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::geom::LineSegment;
 use crate::geom::math::{Point, Vector, point, vector};
-use crate::geom::euclid::{Angle, Rotation2D};
+use crate::geom::euclid::{Angle, default::Rotation2D};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -330,7 +330,7 @@ impl Hatcher {
     ) {
         self.transform = Rotation2D::new(-options.angle);
         self.uv_origin = Rotation2D::new(options.angle).transform_point(
-            &options.uv_origin
+            options.uv_origin
         );
         self.active_edges.clear();
         self.segment.row = 0;
@@ -413,12 +413,12 @@ impl Hatcher {
             }
             let x = active_edge.solve_x_for_y(y);
             if self.compute_tangents {
-                tangent = self.transform.transform_vector(&active_edge.to_vector()).normalize();
+                tangent = self.transform.transform_vector(active_edge.to_vector()).normalize();
             }
 
             if inside {
-                self.segment.a.position = self.transform.transform_point(&point(prev_x, y));
-                self.segment.b.position = self.transform.transform_point(&point(x, y));
+                self.segment.a.position = self.transform.transform_point(point(prev_x, y));
+                self.segment.b.position = self.transform.transform_point(point(x, y));
                 self.segment.a.u = prev_x - self.uv_origin.x;
                 self.segment.b.u = x - self.uv_origin.x;
                 if self.compute_tangents {
@@ -471,8 +471,8 @@ impl EventsBuilder {
 
     fn add_edge(&mut self, from: Point, to: Point) {
         let rotation = Rotation2D::new(self.angle);
-        let mut from = rotation.transform_point(&from);
-        let mut to = rotation.transform_point(&to);
+        let mut from = rotation.transform_point(from);
+        let mut to = rotation.transform_point(to);
         if compare_positions(from, to) == Ordering::Greater {
             mem::swap(&mut from, &mut to);
         }
