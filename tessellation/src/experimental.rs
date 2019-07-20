@@ -383,16 +383,12 @@ impl FillTessellator {
                 false
             } else {
                 let ex = active_edge.solve_x_for_y(self.current_position.y);
-
-                if ex == current_x {
-                    tess_log!(self, " -- vertex on an edge!");
-                    edges_to_split.push(active_edge_idx);
-
+                if ex > current_x {
+                    false
+                } else if ex == current_x {
                     connecting_edges = true;
                     false
-                } else if ex > current_x {
-                    false
-                } else { // ex < current_x
+                } else {
                     true
                 }
             };
@@ -416,6 +412,7 @@ impl FillTessellator {
         let mut merges_to_resolve: Vec<(SpanIdx, usize)> = Vec::new();
         let mut spans_to_end = Vec::new();
 
+        tess_log!(self, "connecting_edges {} | {}", connecting_edges, active_edge_idx);
         if connecting_edges {
             // Iterate over edges connecting with the current point.
             for active_edge in &mut self.active.edges[active_edge_idx..] {
@@ -440,10 +437,11 @@ impl FillTessellator {
                     let mut is_on_edge = false;
 
                     if !is_error
-                        && active_edge.max_x > current_x
-                        && active_edge.min_x < current_x {
+                        && active_edge.max_x >= current_x
+                        && active_edge.min_x <= current_x {
 
                         let ex = active_edge.solve_x_for_y(self.current_position.y);
+                        tess_log!(self, "ex = {:?}", ex);
                         if ex == current_x {
                             tess_log!(self, " -- vertex on an edge!");
                             is_on_edge = true;
@@ -491,9 +489,8 @@ impl FillTessellator {
                             spans_to_end.push(winding.span_index);
                             winding.span_index += 1; // not sure
                         } else {
-                            // error!
                             tess_log!(self, "error B");
-                            return false;
+                            //return false; // TODO
                         }
                     }
                     (Transition::None, _) => {}
