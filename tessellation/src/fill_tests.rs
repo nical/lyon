@@ -1160,3 +1160,123 @@ fn test_exp_no_intersection_01() {
     // SVG path syntax:
     // "M 80.041534 19.24472 L 76.56131 23.062233 L 67.26949 23.039438 L 48.42367 28.978098 Z"
 }
+
+#[test]
+fn issue_476_original() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(10720.101,7120.1816));
+    builder.line_to(point(10720.099,7120.1816));
+    builder.line_to(point(10720.1,7120.182));
+    builder.line_to(point(10720.099,7120.1836));
+    builder.line_to(point(10720.101,7120.1846));
+    builder.line_to(point(10720.098,7120.1855));
+    builder.line_to(point(10720.096,7120.189));
+    builder.line_to(point(10720.096,7120.1885));
+    builder.line_to(point(10720.094,7120.188));
+    builder.line_to(point(10720.095,7120.1885));
+    builder.line_to(point(10720.095,7120.1885));
+    builder.line_to(point(10720.094,7120.189));
+    builder.line_to(point(10720.095,7120.1885));
+    builder.line_to(point(10720.091,7120.1865));
+    builder.line_to(point(10720.096,7120.1855));
+    builder.line_to(point(10720.097,7120.1836));
+    builder.line_to(point(10720.098,7120.1846));
+    builder.line_to(point(10720.099,7120.1816));
+    builder.line_to(point(10720.098,7120.1826));
+    builder.line_to(point(10720.097,7120.181));
+    builder.line_to(point(10720.1,7120.1807));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
+
+#[test]
+fn issue_476_reduced() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(10720.101, 7120.1816));
+    builder.line_to(point(10720.099, 7120.1816));
+    builder.line_to(point(10720.096, 7120.1855));
+    builder.line_to(point(10720.098, 7120.1846));
+    builder.line_to(point(10720.099, 7120.1816));
+    builder.line_to(point(10720.098, 7120.1826));
+    builder.line_to(point(10720.097, 7120.181));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M 10720.101 7120.1816 L 10720.099 7120.1816 L 10720.096 7120.1855 L 10720.098 7120.1846 L 10720.099 7120.1816 L 10720.098 7120.1826 L 10720.097 7120.181 Z"
+}
+
+#[test]
+fn issue_481_original() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(0.9177246,0.22070313));
+    builder.line_to(point(0.9111328,0.21826172));
+    builder.line_to(point(0.91625977,0.22265625));
+    builder.line_to(point(0.9111328,0.22753906));
+    builder.line_to(point(0.9309082,0.2397461));
+    builder.line_to(point(0.92163086,0.24121094));
+    builder.line_to(point(0.91796875,0.23486328));
+    builder.line_to(point(0.91845703,0.23999023));
+    builder.line_to(point(0.90649414,0.24633789));
+    builder.line_to(point(0.9038086,0.23022461));
+    builder.line_to(point(0.89575195,0.23779297));
+    builder.line_to(point(0.88671875,0.23583984));
+    builder.line_to(point(0.88427734,0.2277832));
+    builder.line_to(point(0.88671875,0.22143555));
+    builder.line_to(point(0.8964844,0.21972656));
+    builder.line_to(point(0.904541,0.22460938));
+    builder.line_to(point(0.9111328,0.21459961));
+    builder.line_to(point(0.907959,0.24072266));
+    builder.line_to(point(0.9094238,0.24169922));
+    builder.line_to(point(0.9104004,0.24047852));
+    builder.line_to(point(0.9111328,0.23950195));
+    builder.line_to(point(0.91674805,0.24047852));
+    builder.line_to(point(0.91259766,0.23803711));
+    builder.line_to(point(0.8864746,0.22998047));
+    builder.line_to(point(0.88793945,0.22998047));
+    builder.line_to(point(0.8874512,0.22827148));
+    builder.line_to(point(0.8852539,0.2265625));
+    builder.line_to(point(0.8864746,0.22924805));
+    builder.line_to(point(0.8869629,0.22607422));
+    builder.line_to(point(0.88793945,0.22827148));
+    builder.line_to(point(0.8894043,0.22729492));
+    builder.line_to(point(0.8869629,0.22607422));
+    builder.line_to(point(0.8918457,0.22680664));
+    builder.line_to(point(0.89453125,0.2265625));
+    builder.line_to(point(0.89282227,0.22558594));
+    builder.line_to(point(0.8911133,0.2241211));
+    builder.line_to(point(0.8898926,0.22436523));
+    builder.line_to(point(0.89038086,0.22558594));
+    builder.line_to(point(0.9238281,0.23022461));
+    builder.line_to(point(0.9213867,0.23022461));
+    builder.line_to(point(0.91918945,0.22729492));
+    builder.line_to(point(0.92211914,0.22680664));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
+
+#[test]
+fn issue_481_reduced() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(0.88427734, 0.2277832));
+    builder.line_to(point(0.88671875, 0.22143555));
+    builder.line_to(point(0.91259766, 0.23803711));
+    builder.line_to(point(0.8869629, 0.22607422));
+    builder.line_to(point(0.88793945, 0.22827148));
+    builder.line_to(point(0.8894043, 0.22729492));
+    builder.line_to(point(0.8869629, 0.22607422));
+    builder.line_to(point(0.89453125, 0.2265625));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M 0.88427734 0.2277832 L 0.88671875 0.22143555 L 0.91259766 0.23803711 L 0.8869629 0.22607422 L 0.88793945 0.22827148 L 0.8894043 0.22729492 L 0.8869629 0.22607422 L 0.89453125 0.2265625 Z"
+}
