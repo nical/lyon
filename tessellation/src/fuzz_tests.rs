@@ -58,6 +58,9 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
 }
 
 fn test_path(path: PathSlice) {
+    let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
+    let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
+
     let on_error = OnError::Panic;
     let res = ::std::panic::catch_unwind(|| tessellate_path(path, false, on_error));
 
@@ -70,11 +73,12 @@ fn test_path(path: PathSlice) {
         || tessellate_path(path, false, OnError::Recover)
     );
 
-
-    crate::extra::debugging::find_reduced_test_case(
-        path,
-        &|path: Path| { return tessellate_path(path.as_slice(), false, on_error).is_err(); },
-    );
+    if find_test_case {
+        crate::extra::debugging::find_reduced_test_case(
+            path,
+            &|path: Path| { return tessellate_path(path.as_slice(), false, on_error).is_err(); },
+        );
+    }
 
     print!(" -- Tessellating with OnError::Recover ");
     if let Ok(result) = recover_mode {
@@ -83,7 +87,9 @@ fn test_path(path: PathSlice) {
         println!("panicked.");
     }
 
-    tessellate_path(path, true, on_error).unwrap();
+    if add_logging {
+        tessellate_path(path, true, on_error).unwrap();
+    }
 
     panic!("Test failed.");
 }
