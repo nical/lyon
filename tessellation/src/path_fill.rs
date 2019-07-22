@@ -2024,7 +2024,7 @@ impl MonotoneTessellator {
     }
 
     #[cfg(feature="experimental")]
-    pub(crate) fn flush_experimental(&mut self, output: &mut dyn GeometryBuilder<Point>) {
+    pub(crate) fn flush_experimental(&mut self, output: &mut dyn GeometryBuilder<crate::experimental::Vertex>) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }

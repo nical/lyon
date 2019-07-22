@@ -227,6 +227,9 @@
 
 pub use crate::path::{VertexId, Index};
 
+#[cfg(feature = "experimental")]
+use crate::experimental::VertexSourceIterator;
+
 use std::marker::PhantomData;
 use std::ops::Add;
 use std::convert::From;
@@ -259,6 +262,12 @@ pub trait GeometryBuilder<Input> {
     ///
     /// This method can only be called between begin_geometry and end_geometry.
     fn add_vertex(&mut self, vertex: Input) -> Result<VertexId, GeometryBuilderError>;
+
+    // TODO
+    #[cfg(feature = "experimental")]
+    fn add_vertex_exp(&mut self, vertex: Input, _src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
+        self.add_vertex(vertex)
+    }
 
     /// Insert a triangle made of vertices that were added after the last call to begin_geometry.
     ///
