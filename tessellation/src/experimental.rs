@@ -833,8 +833,30 @@ impl FillTessellator {
 
         let y = self.current_position.y;
         self.active.edges.sort_by(|a, b| {
-            let ax = a.solve_x_for_y(y);
-            let bx = b.solve_x_for_y(y);
+            if a.min_x > b.max_x {
+                return Ordering::Greater;
+            }
+
+            if a.max_x < b.min_x {
+                return Ordering::Less;
+            }
+
+            let ax = if a.to.y == y {
+                a.to.x
+            } else if a.from.y == y {
+                a.from.x
+            } else {
+                a.solve_x_for_y(y)
+            };
+
+            let bx = if b.to.y == y {
+                b.to.x
+            } else if b.from.y == y {
+                b.from.x
+            } else {
+                b.solve_x_for_y(y)
+            };
+
             ax.partial_cmp(&bx).unwrap_or_else(||{
                 let angle_a = (a.to - a.from).angle_from_x_axis().radians;
                 let angle_b = (b.to - b.from).angle_from_x_axis().radians;
