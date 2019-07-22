@@ -5,7 +5,7 @@ use crate::geom::{LineSegment};
 use crate::geometry_builder::{GeometryBuilder, VertexId};
 use crate::path_fill::MonotoneTessellator;
 //use crate::path::builder::*;
-use crate::path::{PathEvent, Path, PathSlice, FillRule, Transition};
+use crate::path::{PathEvent, Path, PathSlice, FillRule, Transition, EndpointId, CtrlPointId};
 use std::{u32, f32};
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -246,13 +246,13 @@ impl FillTessellator {
     ) {
         self.fill_rule = options.fill_rule;
 
-        let mut tx_builder = TraversalBuilder::with_capacity(128);
+        let mut tx_builder = EventQueueBuilder::with_capacity(128);
         tx_builder.set_path(path.as_slice());
-        let (mut events, mut edge_data) = tx_builder.build();
+        let mut events = tx_builder.build();
 
         builder.begin_geometry();
 
-        self.tessellator_loop(path, &mut events, &mut edge_data, builder);
+        self.tessellator_loop(path, &mut events, builder);
 
         builder.end_geometry();
 
@@ -269,28 +269,34 @@ impl FillTessellator {
     fn tessellator_loop(
         &mut self,
         path: &Path,
-        events: &mut Traversal,
-        edge_data: &[EdgeData],
+        events: &mut EventQueue,
         output: &mut dyn GeometryBuilder<Vertex>
     ) {
         let mut current_event = events.first_id();
         while events.valid_id(current_event) {
             self.current_position = events.position(current_event);
-            let vertex_id = output.add_vertex(self.current_position).unwrap();
+
+            let src = VertexSourceIterator {
+                events: &events,
+                id: current_event,
+            };
+
+            let vertex_id = output.add_vertex_exp(self.current_position, src).unwrap();
 
             let mut current_sibling = current_event;
             while events.valid_id(current_sibling) {
-                let edge = &edge_data[current_sibling];
+                let edge = &events.edge_data[current_sibling];
                 // We insert "fake" edges when there are end events
                 // to make sure we process that vertex even if it has
                 // no edge below.
-                if edge.to == VertexId::INVALID {
+                if edge.to == EndpointId::INVALID {
                     current_sibling = events.next_sibling_id(current_sibling);
                     continue;
                 }
                 let to = path[edge.to];
-                let ctrl = if edge.ctrl != VertexId::INVALID {
-                    path[edge.ctrl]
+                let ctrl = if edge.ctrl != CtrlPointId::INVALID {
+                    // path[edge.ctrl]
+                    point(f32::NAN, f32::NAN) // TODO
                 } else {
                     point(f32::NAN, f32::NAN)
                 };
@@ -298,8 +304,6 @@ impl FillTessellator {
                     ctrl,
                     to,
                     angle: (to - self.current_position).angle_from_x_axis().radians,
-                    // TODO: To use the real vertices in the Path we have to stop
-                    // using GeometryBuilder::add_vertex.
                     //from_id: edge.from,
                     //ctrl_id: edge.ctrl,
                     //to_id: edge.to,
@@ -921,7 +925,7 @@ fn is_after(a: Point, b: Point) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
 }
 
-pub struct TraversalEvent {
+pub struct Event {
     next_sibling: usize,
     next_event: usize,
     position: Point,
@@ -929,32 +933,35 @@ pub struct TraversalEvent {
 
 #[derive(Clone, Debug)]
 struct EdgeData {
-    from: VertexId,
-    ctrl: VertexId,
-    to: VertexId,
+    from: EndpointId,
+    ctrl: CtrlPointId,
+    to: EndpointId,
     winding: i16,
 }
 
-pub struct Traversal {
-    events: Vec<TraversalEvent>,
+pub struct EventQueue {
+    events: Vec<Event>,
+    edge_data: Vec<EdgeData>,
     first: usize,
     sorted: bool,
 }
 
 use std::usize;
 
-impl Traversal {
+impl EventQueue {
     pub fn new() -> Self {
-        Traversal {
+        EventQueue {
             events: Vec::new(),
+            edge_data: Vec::new(),
             first: 0,
             sorted: false,
         }
     }
 
     pub fn with_capacity(cap: usize) -> Self {
-        Traversal {
+        EventQueue {
             events: Vec::with_capacity(cap),
+            edge_data: Vec::with_capacity(cap),
             first: 0,
             sorted: false,
         }
@@ -966,7 +973,7 @@ impl Traversal {
 
     pub fn push(&mut self, position: Point) {
         let next_event = self.events.len() + 1;
-        self.events.push(TraversalEvent {
+        self.events.push(Event {
             position,
             next_sibling: usize::MAX,
             next_event,
@@ -1110,30 +1117,28 @@ impl Traversal {
     }
 }
 
-struct TraversalBuilder {
+struct EventQueueBuilder {
     current: Point,
-    current_id: VertexId,
+    current_id: EndpointId,
     first: Point,
-    first_id: VertexId,
+    first_id: EndpointId,
     prev: Point,
     second: Point,
     nth: u32,
-    tx: Traversal,
-    edge_data: Vec<EdgeData>,
+    tx: EventQueue,
 }
 
-impl TraversalBuilder {
+impl EventQueueBuilder {
     fn with_capacity(cap: usize) -> Self {
-        TraversalBuilder {
+        EventQueueBuilder {
             current: point(f32::NAN, f32::NAN),
             first: point(f32::NAN, f32::NAN),
             prev: point(f32::NAN, f32::NAN),
             second: point(f32::NAN, f32::NAN),
-            current_id: VertexId::INVALID,
-            first_id: VertexId::INVALID,
+            current_id: EndpointId::INVALID,
+            first_id: EndpointId::INVALID,
             nth: 0,
-            tx: Traversal::with_capacity(cap),
-            edge_data: Vec::with_capacity(cap),
+            tx: EventQueue::with_capacity(cap),
         }
     }
 
@@ -1143,7 +1148,7 @@ impl TraversalBuilder {
         }
         let mut cursor = path.cursor();
         loop {
-            let vertex_id = cursor.vertex_id();
+            let vertex_id = cursor.endpoint_id();
             match cursor.event(path) {
                 PathEvent::MoveTo(to) => {
                     self.move_to(to, vertex_id);
@@ -1152,7 +1157,8 @@ impl TraversalBuilder {
                     self.line_to(segment.to, vertex_id);
                 }
                 PathEvent::Quadratic(segment) => {
-                    self.quad_to(segment.to, vertex_id, vertex_id + 1);
+                    // TODO: properly get these ids!
+                    self.quad_to(segment.to, CtrlPointId(vertex_id.0), EndpointId(vertex_id.0 + 1));
                 }
                 PathEvent::Close(..) => {
                     self.close();
@@ -1169,10 +1175,10 @@ impl TraversalBuilder {
 
     fn vertex_event(&mut self, at: Point) {
         self.tx.push(at);
-        self.edge_data.push(EdgeData {
-            from: VertexId::INVALID,
-            ctrl: VertexId::INVALID,
-            to: VertexId::INVALID,
+        self.tx.edge_data.push(EdgeData {
+            from: EndpointId::INVALID,
+            ctrl: CtrlPointId::INVALID,
+            to: EndpointId::INVALID,
             winding: 0,
         });
     }
@@ -1200,7 +1206,7 @@ impl TraversalBuilder {
         self.nth = 0;
     }
 
-    fn move_to(&mut self, to: Point, to_id: VertexId) {
+    fn move_to(&mut self, to: Point, to_id: EndpointId) {
         if self.nth > 0 {
             self.close();
         }
@@ -1212,11 +1218,11 @@ impl TraversalBuilder {
         self.current_id = to_id;
     }
 
-    fn line_to(&mut self, to: Point, to_id: VertexId) {
-        self.quad_to(to, VertexId::INVALID, to_id);
+    fn line_to(&mut self, to: Point, to_id: EndpointId) {
+        self.quad_to(to, CtrlPointId::INVALID, to_id);
     }
 
-    fn quad_to(&mut self, to: Point, ctrl_id: VertexId, mut to_id: VertexId) {
+    fn quad_to(&mut self, to: Point, ctrl_id: CtrlPointId, mut to_id: EndpointId) {
         if self.current == to {
             return;
         }
@@ -1236,10 +1242,10 @@ impl TraversalBuilder {
         }
 
         //println!("Edge {:?}/{:?} {:?} ->", from_id, to_id, from);
-        debug_assert!(from_id != VertexId::INVALID);
-        debug_assert!(to_id != VertexId::INVALID);
+        debug_assert!(from_id != EndpointId::INVALID);
+        debug_assert!(to_id != EndpointId::INVALID);
         self.tx.push(from);
-        self.edge_data.push(EdgeData {
+        self.tx.edge_data.push(EdgeData {
             from: from_id,
             ctrl: ctrl_id,
             to: to_id,
@@ -1256,17 +1262,42 @@ impl TraversalBuilder {
         self.current_id = next_id;
     }
 
-    fn build(mut self) -> (Traversal, Vec<EdgeData>) {
+    fn build(mut self) -> EventQueue {
         self.close();
         self.tx.sort();
 
-        (self.tx, self.edge_data)
+        self.tx
+    }
+}
+
+pub struct VertexSourceIterator<'l> {
+    events: &'l EventQueue,
+    id: usize,
+}
+
+pub enum VertexSource {
+    Endpoint { endpoint: EndpointId },
+    OnEdge { from: EndpointId, to: EndpointId, ctrl: Option<EndpointId>, t: f32 },
+}
+
+impl<'l> Iterator for VertexSourceIterator<'l> {
+    type Item = VertexSource;
+    fn next(&mut self) -> Option<VertexSource> {
+        if self.id == usize::MAX {
+            return None;
+        }
+
+        let endpoint = EndpointId(self.events.edge_data[self.id].from.0);
+
+        self.id = self.events.next_sibling_id(self.id);
+
+        Some(VertexSource::Endpoint { endpoint })
     }
 }
 
 #[test]
 fn test_traversal_sort_1() {
-    let mut tx = Traversal::new();
+    let mut tx = EventQueue::new();
     tx.push(point(0.0, 0.0));
     tx.push(point(4.0, 0.0));
     tx.push(point(2.0, 0.0));
@@ -1281,7 +1312,7 @@ fn test_traversal_sort_1() {
 
 #[test]
 fn test_traversal_sort_2() {
-    let mut tx = Traversal::new();
+    let mut tx = EventQueue::new();
     tx.push(point(0.0, 0.0));
     tx.push(point(0.0, 0.0));
     tx.push(point(0.0, 0.0));
@@ -1293,7 +1324,7 @@ fn test_traversal_sort_2() {
 
 #[test]
 fn test_traversal_sort_3() {
-    let mut tx = Traversal::new();
+    let mut tx = EventQueue::new();
     tx.push(point(0.0, 0.0));
     tx.push(point(1.0, 0.0));
     tx.push(point(2.0, 0.0));
@@ -1307,7 +1338,7 @@ fn test_traversal_sort_3() {
 
 #[test]
 fn test_traversal_sort_4() {
-    let mut tx = Traversal::new();
+    let mut tx = EventQueue::new();
     tx.push(point(5.0, 0.0));
     tx.push(point(4.0, 0.0));
     tx.push(point(3.0, 0.0));
@@ -1321,7 +1352,7 @@ fn test_traversal_sort_4() {
 
 #[test]
 fn test_traversal_sort_5() {
-    let mut tx = Traversal::new();
+    let mut tx = EventQueue::new();
     tx.push(point(5.0, 0.0));
     tx.push(point(5.0, 0.0));
     tx.push(point(4.0, 0.0));

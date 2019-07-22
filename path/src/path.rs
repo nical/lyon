@@ -9,6 +9,29 @@ use crate::{PathEvent, EndpointId, CtrlPointId};
 use std::iter::IntoIterator;
 use std::ops;
 use std::mem;
+use std::u32;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EndpointId(pub u32);
+
+impl EndpointId {
+    pub const INVALID: Self = EndpointId(u32::MAX);
+    pub fn offset(self) -> usize { self.0 as usize }
+    pub fn to_usize(self) -> usize { self.0 as usize }
+    pub fn from_usize(val: usize) -> Self { EndpointId(val as u32) }
+    fn add(&mut self, val: u32) { self.0 += val }
+    fn sub(&mut self, val: u32) { self.0 -= val }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CtrlPointId(pub u32);
+
+impl CtrlPointId {
+    pub const INVALID: Self = CtrlPointId(u32::MAX);
+    pub fn offset(self) -> usize { self.0 as usize }
+    pub fn to_usize(self) -> usize { self.0 as usize }
+    pub fn from_usize(val: usize) -> Self { CtrlPointId(val as u32) }
+}
 
 /// Enumeration corresponding to the [PathEvent](https://docs.rs/lyon_core/*/lyon_core/events/enum.PathEvent.html) enum
 /// without the parameters.
@@ -91,9 +114,9 @@ impl Path {
     /// Returns a `Cursor` pointing to the start of this `Path`.
     pub fn cursor(&self) -> Cursor {
         Cursor {
-            vertex: VertexId(0),
+            vertex: EndpointId(0),
             verb: 0,
-            first_vertex: VertexId(0),
+            first_vertex: EndpointId(0),
             first_verb: 0,
         }
     }
@@ -156,9 +179,9 @@ impl<'l> PathSlice<'l> {
 
     pub fn cursor(&self) -> Cursor {
         Cursor {
-            vertex: VertexId(0),
+            vertex: EndpointId(0),
             verb: 0,
-            first_vertex: VertexId(0),
+            first_vertex: EndpointId(0),
             first_verb: 0,
         }
     }
@@ -192,7 +215,7 @@ pub struct Builder {
     verbs: Vec<Verb>,
     current_position: Point,
     first_position: Point,
-    first_vertex: VertexId,
+    first_vertex: EndpointId,
     first_verb: u32,
     need_moveto: bool,
     last_cmd: Verb,
@@ -207,7 +230,7 @@ impl Builder {
             verbs: Vec::with_capacity(edges),
             current_position: Point::new(0.0, 0.0),
             first_position: Point::new(0.0, 0.0),
-            first_vertex: VertexId(0),
+            first_vertex: EndpointId(0),
             first_verb: 0,
             need_moveto: true,
             last_cmd: Verb::End,
@@ -225,7 +248,7 @@ impl Builder {
         self.end_if_needed();
         self.need_moveto = false;
         self.first_position = to;
-        self.first_vertex = VertexId(self.points.len() as u32);
+        self.first_vertex = EndpointId(self.points.len() as u32);
         self.first_verb = self.verbs.len() as u32;
         self.current_position = to;
         self.points.push(to);
@@ -334,16 +357,16 @@ impl Builder {
             let p = self.points.len() - n_stored_points(*verb) as usize;
 
             Cursor {
-                vertex: VertexId::from_usize(p),
+                vertex: EndpointId::from_usize(p),
                 verb: self.verbs.len() as u32 - 1,
                 first_vertex: self.first_vertex,
                 first_verb: self.first_verb,
             }
         } else {
             Cursor {
-                vertex: VertexId(0),
+                vertex: EndpointId(0),
                 verb: 0,
-                first_vertex: VertexId(0),
+                first_vertex: EndpointId(0),
                 first_verb: 0,
             }
         }
@@ -362,9 +385,9 @@ impl Builder {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Cursor {
-    vertex: VertexId,
+    vertex: EndpointId,
     verb: u32,
-    first_vertex: VertexId,
+    first_vertex: EndpointId,
     first_verb: u32,
 }
 
@@ -392,7 +415,7 @@ impl Cursor {
         event_at_cursor(self, &path.points, &path.verbs)
     }
 
-    pub fn vertex_id(&self) -> VertexId {
+    pub fn endpoint_id(&self) -> EndpointId {
         self.vertex
     }
 }
@@ -570,22 +593,22 @@ impl PolygonBuilder for Builder {
     }
 }
 
-impl<'l> ops::Index<VertexId> for PathSlice<'l> {
+impl<'l> ops::Index<EndpointId> for PathSlice<'l> {
     type Output = Point;
-    fn index(&self, id: VertexId) -> &Point {
+    fn index(&self, id: EndpointId) -> &Point {
         &self.points[id.offset() as usize]
     }
 }
 
-impl ops::Index<VertexId> for Path {
+impl ops::Index<EndpointId> for Path {
     type Output = Point;
-    fn index(&self, id: VertexId) -> &Point {
+    fn index(&self, id: EndpointId) -> &Point {
         &self.points[id.offset() as usize]
     }
 }
 
-impl ops::IndexMut<VertexId> for Path {
-    fn index_mut(&mut self, id: VertexId) -> &mut Point {
+impl ops::IndexMut<EndpointId> for Path {
+    fn index_mut(&mut self, id: EndpointId) -> &mut Point {
         &mut self.points[id.offset() as usize]
     }
 }
@@ -760,7 +783,7 @@ fn next_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
         cursor.first_verb = cursor.verb;
     }
 
-    cursor.vertex = cursor.vertex + n_stored_points(verb);
+    cursor.vertex.add(n_stored_points(verb));
     cursor.verb += 1;
 
     true
@@ -782,11 +805,11 @@ fn prev_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
             }
         }
 
-        cursor.first_vertex = VertexId(p);
+        cursor.first_vertex = EndpointId(p);
         cursor.first_verb = v as u32;
     }
 
-    cursor.vertex = cursor.vertex - n_stored_points(verbs[cursor.verb as usize - 1]);
+    cursor.vertex.sub(n_stored_points(verbs[cursor.verb as usize - 1]));
     cursor.verb = cursor.verb - 1;
 
     true
