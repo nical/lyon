@@ -594,6 +594,7 @@ impl FillTessellator {
         winding = winding_before_point;
 
         tess_log!(self, "connecting edges: {}..{} {:?}", above_start, above_end, winding.transition);
+        tess_log!(self, "winding state before point: {:?}", winding);
 
         self.sort_edges_below();
 
@@ -692,7 +693,7 @@ impl FillTessellator {
             #[cfg(feature="debugger")]
             debugger_monotone_split(&self.debugger, &upper_pos, &self.current_position);
 
-            winding.span_index += 1;
+            winding.update(self.fill_rule, self.edges_below[0].winding);
 
             below.start += 1;
             below.end -= 1;
@@ -707,6 +708,8 @@ impl FillTessellator {
             let pending_edge = &self.edges_below[i];
 
             winding.update(self.fill_rule, pending_edge.winding);
+
+            tess_log!(self, "edge below {}: {:?} span {}", i, winding.transition, winding.span_index);
 
             if let Some(idx) = pending_right {
                 // Right event.
@@ -776,7 +779,9 @@ impl FillTessellator {
                         );
                     }
                 }
-                Transition::None => {}
+                Transition::None => {
+                    tess_log!(self, "(transition: none)");
+                }
             }
         }
 
