@@ -19,6 +19,7 @@ use crate::path_fill::dbg;
 
 pub type Vertex = Point;
 
+#[cfg(feature = "debug")]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
         if $obj.log {
@@ -30,6 +31,12 @@ macro_rules! tess_log {
             println!($fmt, $($arg)*);
         }
     );
+}
+
+#[cfg(not(feature = "debug"))]
+macro_rules! tess_log {
+    ($obj:ident, $fmt:expr) => ();
+    ($obj:ident, $fmt:expr, $($arg:tt)*) => ();
 }
 
 pub struct FillTessellator {
@@ -76,6 +83,9 @@ struct ActiveEdge {
     from_id: VertexId,
     ctrl_id: VertexId,
     to_id: VertexId,
+
+    // Only valid when sorting the active edges.
+    sort_x: f32,
 }
 
 struct ActiveEdges {
@@ -254,10 +264,11 @@ impl FillTessellator {
 
         self.tessellator_loop(path, &mut events, builder);
 
-        builder.end_geometry();
-
         //assert!(self.active.edges.is_empty());
         //assert!(self.fill.spans.is_empty());
+        // TODO: go over the remaining spans and end them.
+
+        builder.end_geometry();
 
         tess_log!(self, "\n ***************** \n");
     }
@@ -615,6 +626,8 @@ impl FillTessellator {
             e.is_merge = true;
             e.from = e.to;
             e.ctrl = e.to;
+            e.min_x = e.to.x;
+            e.max_x = e.to.x;
             e.winding = 0;
             e.from_id = current_vertex;
             e.ctrl_id = VertexId::INVALID;
@@ -821,6 +834,7 @@ impl FillTessellator {
             self.active.edges.insert(idx, ActiveEdge {
                 min_x: from.x.min(edge.to.x),
                 max_x: from.x.max(edge.to.x),
+                sort_x: 0.0,
                 from,
                 to: edge.to,
                 ctrl: edge.ctrl,
@@ -833,41 +847,71 @@ impl FillTessellator {
         }
     }
 
+    fn sort_active_edges(&mut self) {
+        // Merge edges are a little subtle when it comes to sorting.
+        // They are points rather than edges and the best we can do is
+        // keep their relative ordering with their previous or next edge.
+
+        let y = self.current_position.y;
+
+        let mut prev_x = f32::NAN;
+        for edge in &mut self.active.edges {
+            if edge.is_merge {
+                debug_assert!(!prev_x.is_nan());
+                edge.sort_x = prev_x;
+            } else {
+                let x = if edge.to.y == y {
+                    edge.to.x
+                } else if edge.from.y == y {
+                    edge.from.x
+                } else {
+                    edge.solve_x_for_y(y)
+                };
+
+                edge.sort_x = x;
+                prev_x = x;
+            }
+        }
+
+        self.active.edges.sort_by(|a, b| {
+            match a.sort_x.partial_cmp(&b.sort_x).unwrap() {
+                Ordering::Less => Ordering::Less,
+                Ordering::Greater => Ordering::Greater,
+                Ordering::Equal => {
+                    match (a.is_merge, b.is_merge) {
+                        (false, false) => {
+                            let angle_a = (a.to - a.from).angle_from_x_axis().radians;
+                            let angle_b = (b.to - b.from).angle_from_x_axis().radians;
+                            angle_b.partial_cmp(&angle_a).unwrap_or(Ordering::Equal)
+                        }
+                        (true, false) => { Ordering::Greater }
+                        (false, true) => { Ordering::Less }
+                        (true, true) => { Ordering::Equal }
+                    }
+                }
+            }
+        });
+    }
+
     fn recover_from_error(&mut self) {
         tess_log!(self, "Attempt to recover from error");
 
-        let y = self.current_position.y;
-        self.active.edges.sort_by(|a, b| {
-            if a.min_x > b.max_x {
-                return Ordering::Greater;
-            }
+        self.sort_active_edges();
 
-            if a.max_x < b.min_x {
-                return Ordering::Less;
-            }
-
-            let ax = if a.to.y == y {
-                a.to.x
-            } else if a.from.y == y {
-                a.from.x
-            } else {
-                a.solve_x_for_y(y)
-            };
-
-            let bx = if b.to.y == y {
-                b.to.x
-            } else if b.from.y == y {
-                b.from.x
-            } else {
-                b.solve_x_for_y(y)
-            };
-
-            ax.partial_cmp(&bx).unwrap_or_else(||{
-                let angle_a = (a.to - a.from).angle_from_x_axis().radians;
-                let angle_b = (b.to - b.from).angle_from_x_axis().radians;
-                angle_b.partial_cmp(&angle_a).unwrap_or(Ordering::Equal)
-            })
-        });
+        debug_assert!(self.active.edges.first().map(|e| !e.is_merge).unwrap_or(true));
+        // This can only happen if we ignore self-intersections,
+        // so we are in a pretty broken state already.
+        // There isn't a fully correct solution for this (other
+        // than properly detecting self intersections and not
+        // getting into this situation), but the rest of the code
+        // doesn't deal with merge edges being at the last position
+        // so we artificially move them to avoid that.
+        // TODO: with self-intersections properly handled it may make more sense
+        // to turn this into an assertion.
+        let len = self.active.edges.len();
+        if len > 1 && self.active.edges[len - 1].is_merge {
+            self.active.edges.swap(len - 1, len - 2);
+        }
 
         // The span index starts at -1 so that entering the first span (of index 0) increments
         // it to zero.
