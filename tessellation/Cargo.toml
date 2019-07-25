@@ -25,6 +25,7 @@ experimental = []
 lyon_path = { version = "0.14.0", path = "../path" }
 sid = "0.6"
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
+arrayvec = "0.4"
 
 [dev-dependencies]
 lyon_extra = { version = "0.14.0", path = "../extra" }

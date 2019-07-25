@@ -19,7 +19,7 @@ use crate::path_fill::dbg;
 
 pub type Vertex = Point;
 
-#[cfg(feature = "debug")]
+#[cfg(not(feature = "release"))]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
         if $obj.log {
@@ -33,22 +33,10 @@ macro_rules! tess_log {
     );
 }
 
-#[cfg(not(feature = "debug"))]
+#[cfg(feature = "release")]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => ();
     ($obj:ident, $fmt:expr, $($arg:tt)*) => ();
-}
-
-pub struct FillTessellator {
-    current_position: Point,
-    active: ActiveEdges,
-    edges_below: Vec<PendingEdge>,
-    fill_rule: FillRule,
-    fill: Spans,
-    log: bool,
-
-    #[cfg(feature="debugger")]
-    debugger: Option<Box<dyn Debugger2D>>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -81,8 +69,7 @@ struct ActiveEdge {
     is_merge: bool,
 
     from_id: VertexId,
-    ctrl_id: VertexId,
-    to_id: VertexId,
+    src_edge: usize,
 
     // Only valid when sorting the active edges.
     sort_x: f32,
@@ -212,9 +199,8 @@ struct PendingEdge {
 
     angle: f32,
 
-    from_id: VertexId,
-    ctrl_id: VertexId,
-    to_id: VertexId,
+    // Index in events.edge_data
+    src_edge: usize,
 
     winding: i16,
 }
@@ -229,6 +215,22 @@ impl ActiveEdge {
     }
 }
 
+pub struct FillTessellator {
+    current_position: Point,
+    active: ActiveEdges,
+    edges_below: Vec<PendingEdge>,
+    fill_rule: FillRule,
+    fill: Spans,
+    log: bool,
+    assume_no_intersection: bool,
+
+    events: EventQueue,
+
+    #[cfg(feature="debugger")]
+    debugger: Option<Box<dyn Debugger2D>>,
+}
+
+
 impl FillTessellator {
     pub fn new() -> Self {
         FillTessellator {
@@ -242,6 +244,9 @@ impl FillTessellator {
                 spans: Vec::new(),
             },
             log: env::var("LYON_FORCE_LOGGING").is_ok(),
+            assume_no_intersection: false,
+
+            events: EventQueue::new(),
 
             #[cfg(feature="debugger")]
             debugger: None,
@@ -258,11 +263,11 @@ impl FillTessellator {
 
         let mut tx_builder = EventQueueBuilder::with_capacity(128);
         tx_builder.set_path(path.as_slice());
-        let mut events = tx_builder.build();
+        self.events = tx_builder.build();
 
         builder.begin_geometry();
 
-        self.tessellator_loop(path, &mut events, builder);
+        self.tessellator_loop(path, builder);
 
         //assert!(self.active.edges.is_empty());
         //assert!(self.fill.spans.is_empty());
@@ -280,28 +285,32 @@ impl FillTessellator {
     fn tessellator_loop(
         &mut self,
         path: &Path,
-        events: &mut EventQueue,
         output: &mut dyn GeometryBuilder<Vertex>
     ) {
-        let mut current_event = events.first_id();
-        while events.valid_id(current_event) {
-            self.current_position = events.position(current_event);
+        let mut prev_position = point(-1000000000.0, -1000000000.0);
+        let mut current_event = self.events.first_id();
+        while self.events.valid_id(current_event) {
+            self.current_position = self.events.position(current_event);
+            debug_assert!(is_after(self.current_position, prev_position));
+            prev_position = self.current_position;
+
+            tess_log!(self, "\n --- event #{}", current_event);
 
             let src = VertexSourceIterator {
-                events: &events,
+                events: &self.events,
                 id: current_event,
             };
 
             let vertex_id = output.add_vertex_exp(self.current_position, src).unwrap();
 
             let mut current_sibling = current_event;
-            while events.valid_id(current_sibling) {
-                let edge = &events.edge_data[current_sibling];
+            while self.events.valid_id(current_sibling) {
+                let edge = &self.events.edge_data[current_sibling];
                 // We insert "fake" edges when there are end events
                 // to make sure we process that vertex even if it has
                 // no edge below.
                 if edge.to == EndpointId::INVALID {
-                    current_sibling = events.next_sibling_id(current_sibling);
+                    current_sibling = self.events.next_sibling_id(current_sibling);
                     continue;
                 }
                 let to = path[edge.to];
@@ -315,17 +324,11 @@ impl FillTessellator {
                     ctrl,
                     to,
                     angle: (to - self.current_position).angle_from_x_axis().radians,
-                    //from_id: edge.from,
-                    //ctrl_id: edge.ctrl,
-                    //to_id: edge.to,
-                    from_id: vertex_id,
-                    ctrl_id: VertexId::INVALID,
-                    to_id: VertexId::INVALID,
-
+                    src_edge: current_sibling,
                     winding: edge.winding,
                 });
 
-                current_sibling = events.next_sibling_id(current_sibling);
+                current_sibling = self.events.next_sibling_id(current_sibling);
             }
 
             if !self.process_events(vertex_id, output) {
@@ -335,7 +338,7 @@ impl FillTessellator {
                 assert!(self.process_events(vertex_id, output));
             }
 
-            current_event = events.next_id(current_event);
+            current_event = self.events.next_id(current_event);
         }
     }
 
@@ -436,9 +439,6 @@ impl FillTessellator {
 
                     merges_to_resolve.push((winding.span_index, active_edge_idx));
                     active_edge.to = self.current_position;
-                    // This is probably not necessary but it's confusing to have the two
-                    // not matching.
-                    active_edge.to_id = current_vertex;
                     winding.span_index += 1;
                     active_edge_idx += 1;
 
@@ -591,15 +591,12 @@ impl FillTessellator {
 
                 angle: (to - self.current_position).angle_from_x_axis().radians,
 
-                from_id: current_vertex,
-                ctrl_id: VertexId::INVALID,
-                to_id: active_edge.to_id,
+                src_edge: active_edge.src_edge,
 
                 winding: active_edge.winding,
             });
 
             active_edge.to = self.current_position;
-            active_edge.to_id = current_vertex;
         }
 
         winding = winding_before_point;
@@ -630,8 +627,6 @@ impl FillTessellator {
             e.max_x = e.to.x;
             e.winding = 0;
             e.from_id = current_vertex;
-            e.ctrl_id = VertexId::INVALID;
-            e.to_id = VertexId::INVALID;
         }
 
         // The range of pending edges below the current vertex to look at in the
@@ -798,7 +793,7 @@ impl FillTessellator {
             }
         }
 
-        self.update_active_edges(above_start..above_end);
+        self.update_active_edges(above_start..above_end, current_vertex);
 
         tess_log!(self, "sweep line: {}", self.active.edges.len());
         for e in &self.active.edges {
@@ -813,7 +808,7 @@ impl FillTessellator {
         true
     }
 
-    fn update_active_edges(&mut self, above: Range<usize>) {
+    fn update_active_edges(&mut self, above: Range<usize>, current_vertex_id: VertexId) {
         // Remove all edges from the "above" range except merge
         // vertices.
         tess_log!(self, " remove {} edges ({}..{})", above.end - above.start, above.start, above.end);
@@ -824,6 +819,10 @@ impl FillTessellator {
             } else {
                 self.active.edges.remove(rm_index);
             }
+        }
+
+        if !self.assume_no_intersection {
+            self.handle_intersections();
         }
 
         // Insert the pending edges.
@@ -840,10 +839,107 @@ impl FillTessellator {
                 ctrl: edge.ctrl,
                 winding: edge.winding,
                 is_merge: false,
-                from_id: edge.from_id,
-                to_id: edge.to_id,
-                ctrl_id: edge.ctrl_id,
+                from_id: current_vertex_id,
+                src_edge: edge.src_edge,
             });
+        }
+    }
+
+    fn handle_intersections(&mut self) {
+        for edge_below in &mut self.edges_below {
+            let below_min_x = self.current_position.x.min(edge_below.to.x);
+            let below_max_x = self.current_position.x.max(edge_below.to.x);
+
+            let below_segment = LineSegment {
+                from: self.current_position.to_f64(),
+                to: edge_below.to.to_f64(),
+            };
+
+            let epsilon = 0.001;
+            let mut tb_min = 1.0 - epsilon;
+            let mut intersection = None;
+            for (i, active_edge) in self.active.edges.iter().enumerate() {
+                if active_edge.is_merge || below_min_x > active_edge.max_x {
+                    continue;
+                }
+                if below_max_x < active_edge.min_x {
+                    break;
+                }
+
+                let active_segment = LineSegment {
+                    from: active_edge.from.to_f64(),
+                    to: active_edge.to.to_f64(),
+                };
+
+                if let Some((ta, tb)) = active_segment.intersection_t(&below_segment) {
+                    if tb < tb_min && tb > epsilon && ta > epsilon && ta < 1.0 - epsilon {
+                        // we only want the closest intersection;
+                        tb_min = tb;
+                        intersection = Some((ta, tb, i));
+                    }
+                }
+            }
+
+            if let Some((ta, tb, active_edge_idx)) = intersection {
+                let mut intersection_position = below_segment.sample(tb).to_f32();
+
+                tess_log!(self, "-> intersection at: {:?} : {:?}", intersection_position, intersection);
+                tess_log!(self, "   from {:?}->{:?} and {:?}->{:?}",
+                    self.active.edges[active_edge_idx].from,
+                    self.active.edges[active_edge_idx].to,
+                    self.current_position,
+                    edge_below.to,
+                );
+
+                if intersection_position.y < self.current_position.y {
+                    tess_log!(self, "fixup the intersection because of y coordinate");
+                    intersection_position.y = self.current_position.y + std::f32::EPSILON; // TODO
+                } else if intersection_position.y == self.current_position.y
+                    && intersection_position.x < self.current_position.x {
+                    tess_log!(self, "fixup the intersection because of x coordinate");
+                    intersection_position.x = self.current_position.x;
+                }
+
+                let active_edge = &mut self.active.edges[active_edge_idx];
+
+                let a_src_edge_data = self.events.edge_data[active_edge.src_edge].clone();
+                let b_src_edge_data = self.events.edge_data[edge_below.src_edge].clone();
+
+                use arrayvec::ArrayVec;
+                let mut intersections: ArrayVec<[EdgeData; 2]> = ArrayVec::new();
+
+                if ta > 0.0 && ta < 1.0 {
+                    if !is_after(active_edge.to, intersection_position) {
+                    }
+                    debug_assert!(is_after(active_edge.to, intersection_position));
+                    active_edge.to = intersection_position;
+                    intersections.push(EdgeData {
+                        range: ta as f32 .. a_src_edge_data.range.end,
+                        .. a_src_edge_data
+                    });
+                }
+
+                if tb > 0.0 && tb < 1.0 {
+                    debug_assert!(is_after(edge_below.to, intersection_position));
+                    edge_below.to = intersection_position;
+                    intersections.push(EdgeData {
+                        range: tb as f32..b_src_edge_data.range.end,
+                        .. b_src_edge_data
+                    });
+                }
+
+                if let Some(edge_data) = intersections.pop() {
+                    let evt_idx = self.events.insert_sorted(intersection_position, edge_data);
+
+                    if let Some(edge_data) = intersections.pop() {
+                        self.events.insert_sibling(
+                            evt_idx,
+                            intersection_position,
+                            edge_data,
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -1007,6 +1103,7 @@ struct EdgeData {
     from: EndpointId,
     ctrl: CtrlPointId,
     to: EndpointId,
+    range: std::ops::Range<f32>,
     winding: i16,
 }
 
@@ -1050,6 +1147,55 @@ impl EventQueue {
             next_event,
         });
         self.sorted = false;
+    }
+
+    fn insert_sorted(&mut self, position: Point, data: EdgeData) -> usize {
+        debug_assert!(self.sorted);
+
+        let idx = self.events.len();
+        self.events.push(Event {
+            position,
+            next_sibling: usize::MAX,
+            next_event: usize::MAX,
+        });
+        self.edge_data.push(data);
+
+        let mut prev = self.first;
+        let mut current = self.first;
+        while self.valid_id(current) {
+            let pos = self.events[current].position;
+
+            if pos == position {
+                debug_assert!(prev != current);
+                self.events[idx].next_sibling = self.events[current].next_sibling;
+                self.events[current].next_sibling = idx;
+                break;
+            } else if is_after(pos, position) {
+                self.events[prev].next_event = idx;
+                self.events[idx].next_event = current;
+                break;
+            }
+
+            prev = current;
+            current = self.next_id(current);
+        }
+
+        idx
+    }
+
+    fn insert_sibling(&mut self, sibling: usize, position: Point, data: EdgeData) {
+        let idx = self.events.len();
+        let next_sibling = self.events[sibling].next_sibling;
+
+        self.events.push(Event {
+            position,
+            next_event: usize::MAX,
+            next_sibling,
+        });
+
+        self.edge_data.push(data);
+
+        self.events[sibling].next_sibling = idx;
     }
 
     pub fn clear(&mut self) {
@@ -1250,6 +1396,7 @@ impl EventQueueBuilder {
             from: EndpointId::INVALID,
             ctrl: CtrlPointId::INVALID,
             to: EndpointId::INVALID,
+            range: 0.0..1.0,
             winding: 0,
         });
     }
@@ -1320,6 +1467,7 @@ impl EventQueueBuilder {
             from: from_id,
             ctrl: ctrl_id,
             to: to_id,
+            range: 0.0..1.0,
             winding,
         });
 
@@ -1335,6 +1483,17 @@ impl EventQueueBuilder {
 
     fn build(mut self) -> EventQueue {
         self.close();
+
+        if let Some(evt) = self.tx.events.last_mut() {
+            // before sorting it is convenient to set the next event to point
+            // to the size of the vector so that it corresponds to the next
+            // event that will be added.
+            // For the built event queue however, the contract is that
+            // invalid next events are equal to usize::MAX so that we can
+            // insert new event without creating a loop.
+            evt.next_event = usize::MAX;
+        }
+
         self.tx.sort();
 
         self.tx
