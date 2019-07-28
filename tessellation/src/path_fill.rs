@@ -1016,7 +1016,7 @@ impl FillTessellator {
             // There may be more merge vertices chained on the right of the current span, now
             // we are in the same configuration as a left event.
             self.resolve_merge_vertices(edge_idx, id, output);
-        } else {
+        } else if is_after(self.active_edges[edge_idx].points.upper, self.active_edges[edge_idx + 1].points.upper) {
             //      /
             //     x
             //  l2/ :r2
@@ -1045,6 +1045,35 @@ impl FillTessellator {
 
             #[cfg(feature="debugger")]
             self.debugger_monotone_split(&l2_upper, &self.current_position);
+        } else {
+            //                              |
+            //                              x
+            //                           l2: \r2
+            // current split vertex -->   x   \
+            //                       left/ \right
+            self.handle_intersections(pending_left_id);
+            self.handle_intersections(pending_right_id);
+
+            let r2_upper = self.active_edges[edge_idx + 1].points.upper;
+            let r2_id = self.active_edges[edge_idx + 1].upper_id;
+
+            let left_idx = edge_idx + 1;
+            self.active_edges.insert_slice(left_idx, &[
+                self.pending_edges[pending_left_id].to_active_edge(self.current_position, id),
+                self.pending_edges[pending_right_id].to_active_edge(self.current_position, id),
+            ]);
+
+            let left_span = span_for_edge(left_idx);
+            let right_span = left_span + 1;
+
+            self.insert_span(right_span, r2_upper, r2_id);
+
+            let vector_position = to_f32_point(self.current_position);
+            self.monotone_tessellators[left_span].vertex(vector_position, id, Side::Right);
+            self.monotone_tessellators[right_span].vertex(vector_position, id, Side::Left);
+
+            #[cfg(feature="debugger")]
+            self.debugger_monotone_split(&r2_upper, &self.current_position);
         }
     }
 
