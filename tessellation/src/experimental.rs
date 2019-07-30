@@ -1811,3 +1811,32 @@ fn new_tess_overlapping_1() {
         &mut simple_builder(&mut buffers),
     );
 }
+
+#[test]
+fn reduced_test_case_01() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(0.73951757, 0.3810749));
+    builder.line_to(point(0.4420668, 0.05925262));
+    builder.line_to(point(0.54023945, 0.16737175));
+    builder.line_to(point(0.8839954, 0.39966547));
+    builder.line_to(point(0.77066493, 0.67880523));
+    builder.line_to(point(0.48341691, 0.09270251));
+    builder.line_to(point(0.053493023, 0.18919432));
+    builder.line_to(point(0.6088793, 0.57187665));
+    builder.line_to(point(0.2899257, 0.09821439));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 0.73951757 0.3810749 L 0.4420668 0.05925262 L 0.54023945 0.16737175 L 0.8839954 0.39966547 L 0.77066493 0.67880523 L 0.48341691 0.09270251 L 0.053493023 0.18919432 L 0.6088793 0.57187665 L 0.2899257 0.09821439 Z"
+}

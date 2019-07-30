@@ -95,7 +95,7 @@ fn test_path(path: PathSlice) {
 }
 
 #[test]
-fn fuzzing_test_case_1() {
+fn fuzzing_test_case_01() {
     let mut builder = Path::builder();
 
     builder.move_to(point(0.78730774, 0.48590088));
