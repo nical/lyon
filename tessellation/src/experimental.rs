@@ -211,6 +211,7 @@ impl ActiveEdge {
 
 pub struct FillTessellator {
     current_position: Point,
+    current_vertex: VertexId,
     active: ActiveEdges,
     edges_below: Vec<PendingEdge>,
     fill_rule: FillRule,
@@ -229,6 +230,7 @@ impl FillTessellator {
     pub fn new() -> Self {
         FillTessellator {
             current_position: point(f32::MIN, f32::MIN),
+            current_vertex: VertexId::INVALID,
             active: ActiveEdges {
                 edges: Vec::new(),
             },
@@ -295,7 +297,7 @@ impl FillTessellator {
                 id: current_event,
             };
 
-            let vertex_id = output.add_vertex_exp(self.current_position, src).unwrap();
+            self.current_vertex = output.add_vertex_exp(self.current_position, src).unwrap();
 
             let mut current_sibling = current_event;
             while self.events.valid_id(current_sibling) {
@@ -325,11 +327,11 @@ impl FillTessellator {
                 current_sibling = self.events.next_sibling_id(current_sibling);
             }
 
-            if !self.process_events(vertex_id, output) {
+            if !self.process_events(output) {
                 // Something went wrong, attempt to salvage the state of the sweep
                 // line and try again.
                 self.recover_from_error();
-                assert!(self.process_events(vertex_id, output));
+                assert!(self.process_events(output));
             }
 
             current_event = self.events.next_id(current_event);
@@ -338,7 +340,6 @@ impl FillTessellator {
 
     fn process_events(
         &mut self,
-        current_vertex: VertexId,
         output: &mut dyn GeometryBuilder<Vertex>,
     ) -> bool {
         debug_assert!(!self.current_position.x.is_nan() && !self.current_position.y.is_nan());
@@ -347,7 +348,7 @@ impl FillTessellator {
 
         tess_log!(self, "\n --- events at [{},{}] {:?}         {} edges below",
             current_x, self.current_position.y,
-            current_vertex,
+            self.current_vertex,
             self.edges_below.len(),
         );
 
@@ -551,7 +552,7 @@ impl FillTessellator {
             self.fill.merge_spans(
                 span_index,
                 &self.current_position,
-                current_vertex,
+                self.current_vertex,
                 &merge_position,
                 merge_vertex,
                 output,
@@ -568,7 +569,7 @@ impl FillTessellator {
             self.fill.end_span(
                 span_index,
                 &self.current_position,
-                current_vertex,
+                self.current_vertex,
                 output,
             );
         }
@@ -620,7 +621,7 @@ impl FillTessellator {
             e.min_x = e.to.x;
             e.max_x = e.to.x;
             e.winding = 0;
-            e.from_id = current_vertex;
+            e.from_id = self.current_vertex;
         }
 
         // The range of pending edges below the current vertex to look at in the
@@ -644,7 +645,6 @@ impl FillTessellator {
                 self.merge_split_event(
                     left_enclosing_edge_idx,
                     winding.span_index - 1,
-                    current_vertex,
                 );
                 // Remove the merge edge from the active edge list.
                 self.active.edges.remove(left_enclosing_edge_idx);
@@ -654,7 +654,6 @@ impl FillTessellator {
                 self.split_event(
                     left_enclosing_edge_idx,
                     winding.span_index,
-                    current_vertex
                 );
             }
 
@@ -688,7 +687,7 @@ impl FillTessellator {
 
                 self.fill.spans[winding.span_index as usize].tess.vertex(
                     self.current_position,
-                    current_vertex,
+                    self.current_vertex,
                     Side::Right,
                 );
 
@@ -710,7 +709,7 @@ impl FillTessellator {
 
                         self.fill.spans[winding.span_index as usize].tess.vertex(
                             self.current_position,
-                            current_vertex,
+                            self.current_vertex,
                             Side::Left,
                         );
                     } else {
@@ -735,12 +734,11 @@ impl FillTessellator {
                         // vertex in the path object and not the one we added with
                         // add_vertex
                         //let vertex = self.edges_below[in_idx].from_id;
-                        let vertex = current_vertex;
                         tess_log!(self, " begin span {} ({})", winding.span_index, self.fill.spans.len());
                         self.fill.begin_span(
                             winding.span_index,
                             &self.current_position,
-                            vertex
+                            self.current_vertex,
                         );
                     }
                 }
@@ -750,7 +748,7 @@ impl FillTessellator {
             }
         }
 
-        self.update_active_edges(above_start..above_end, current_vertex);
+        self.update_active_edges(above_start..above_end);
 
         tess_log!(self, "sweep line: {}", self.active.edges.len());
         for e in &self.active.edges {
@@ -765,7 +763,7 @@ impl FillTessellator {
         true
     }
 
-    fn update_active_edges(&mut self, above: Range<usize>, current_vertex_id: VertexId) {
+    fn update_active_edges(&mut self, above: Range<usize>) {
         // Remove all edges from the "above" range except merge
         // vertices.
         tess_log!(self, " remove {} edges ({}..{})", above.end - above.start, above.start, above.end);
@@ -796,13 +794,13 @@ impl FillTessellator {
                 ctrl: edge.ctrl,
                 winding: edge.winding,
                 is_merge: false,
-                from_id: current_vertex_id,
+                from_id: self.current_vertex,
                 src_edge: edge.src_edge,
             });
         }
     }
 
-    fn merge_split_event(&mut self, merge_idx: usize, left_span_idx: SpanIdx, current_vertex: VertexId) {
+    fn merge_split_event(&mut self, merge_idx: usize, left_span_idx: SpanIdx) {
         let upper_pos = self.active.edges[merge_idx].from;
         let upper_id = self.active.edges[merge_idx].from_id;
         tess_log!(self, " ** merge + split ** edge {} span: {} merge pos {:?}", merge_idx, left_span_idx, upper_pos);
@@ -826,7 +824,7 @@ impl FillTessellator {
         );
         self.fill.spans[left_span_idx].tess.vertex(
             self.current_position,
-            current_vertex,
+            self.current_vertex,
             Side::Right,
         );
 
@@ -837,12 +835,12 @@ impl FillTessellator {
         );
         self.fill.spans[right_span_idx].tess.vertex(
             self.current_position,
-            current_vertex,
+            self.current_vertex,
             Side::Left,
         );
     }
 
-    fn split_event(&mut self, left_enclosing_edge_idx: usize, left_span_idx: SpanIdx, current_vertex: VertexId) {
+    fn split_event(&mut self, left_enclosing_edge_idx: usize, left_span_idx: SpanIdx) {
         let right_enclosing_edge_idx = left_enclosing_edge_idx + 1;
 
         let upper_left = self.active.edges[left_enclosing_edge_idx].from;
@@ -876,7 +874,7 @@ impl FillTessellator {
 
         self.fill.split_span(
             new_span_idx, left_span_idx, right_span_idx,
-            &self.current_position, current_vertex,
+            &self.current_position, self.current_vertex,
             &upper_position, upper_id,
         );
     }
