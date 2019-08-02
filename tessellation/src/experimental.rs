@@ -19,6 +19,10 @@ use crate::path_fill::dbg;
 
 pub type Vertex = Point;
 
+type SpanIdx = i32;
+type EventId = usize;
+type ActiveEdgeIdx = usize;
+
 #[cfg(not(feature = "release"))]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
@@ -47,6 +51,16 @@ struct WindingState {
 }
 
 impl WindingState {
+    fn new() -> Self {
+        // The span index starts at -1 so that entering the first span (of index 0) increments
+        // it to zero.
+        WindingState {
+            span_index: -1,
+            number: 0,
+            transition: Transition::None,
+        }
+    }
+
     fn update(&mut self, fill_rule: FillRule, edge_winding: i16) {
         let prev_winding_number = self.number;
         self.number += edge_winding;
@@ -54,6 +68,43 @@ impl WindingState {
         if self.transition == Transition::In {
             self.span_index += 1;
         }
+    }
+}
+
+struct ActiveEdgeScan {
+    edges_to_split: Vec<ActiveEdgeIdx>,
+    spans_to_end: Vec<SpanIdx>,
+    merges_to_resolve: Vec<(SpanIdx, ActiveEdgeIdx)>,
+    pending_right: Option<ActiveEdgeIdx>,
+    pending_merge: Option<ActiveEdgeIdx>,
+    above_start: ActiveEdgeIdx,
+    above_end: ActiveEdgeIdx,
+    winding_before_point: WindingState,
+}
+
+impl ActiveEdgeScan {
+    fn new() -> Self {
+        ActiveEdgeScan {
+            edges_to_split: Vec::new(),
+            spans_to_end: Vec::new(),
+            merges_to_resolve: Vec::new(),
+            pending_right: None,
+            pending_merge: None,
+            above_start: 0,
+            above_end: 0,
+            winding_before_point: WindingState::new(),
+        }
+    }
+
+    fn reset(&mut self) {
+        self.edges_to_split.clear();
+        self.spans_to_end.clear();
+        self.merges_to_resolve.clear();
+        self.pending_right = None;
+        self.pending_merge = None;
+        self.above_start = 0;
+        self.above_end = 0;
+        self.winding_before_point = WindingState::new();
     }
 }
 
@@ -68,7 +119,7 @@ struct ActiveEdge {
     is_merge: bool,
 
     from_id: VertexId,
-    src_edge: usize,
+    src_edge: EventId,
 
     // Only valid when sorting the active edges.
     sort_x: f32,
@@ -77,8 +128,6 @@ struct ActiveEdge {
 struct ActiveEdges {
     edges: Vec<ActiveEdge>,
 }
-
-type SpanIdx = i32;
 
 struct Span {
     tess: MonotoneTessellator,
@@ -190,7 +239,7 @@ struct PendingEdge {
     to: Point,
     angle: f32,
     // Index in events.edge_data
-    src_edge: usize,
+    src_edge: EventId,
     winding: i16,
 }
 
@@ -278,84 +327,134 @@ impl FillTessellator {
         path: &Path,
         output: &mut dyn GeometryBuilder<Vertex>
     ) {
-        let mut prev_position = point(-1000000000.0, -1000000000.0);
+        let mut scan = ActiveEdgeScan::new();
+        let mut _prev_position = point(-1000000000.0, -1000000000.0); // TODO
         let mut current_event = self.events.first_id();
         while self.events.valid_id(current_event) {
-            self.current_position = self.events.position(current_event);
-            debug_assert!(is_after(self.current_position, prev_position));
-            prev_position = self.current_position;
 
-            tess_log!(self, "\n --- event #{}", current_event);
+            self.initialize_events(current_event, path, output);
 
-            let src = VertexSourceIterator {
-                events: &self.events,
-                id: current_event,
-            };
+            debug_assert!(is_after(self.current_position, _prev_position));
+            _prev_position = self.current_position;
 
-            self.current_vertex = output.add_vertex_exp(self.current_position, src).unwrap();
-
-            let mut current_sibling = current_event;
-            while self.events.valid_id(current_sibling) {
-                let edge = &self.events.edge_data[current_sibling];
-                // We insert "fake" edges when there are end events
-                // to make sure we process that vertex even if it has
-                // no edge below.
-                if edge.to == EndpointId::INVALID {
-                    current_sibling = self.events.next_sibling_id(current_sibling);
-                    continue;
-                }
-                let to = path[edge.to];
-                self.edges_below.push(PendingEdge {
-                    to,
-                    angle: (to - self.current_position).angle_from_x_axis().radians,
-                    src_edge: current_sibling,
-                    winding: edge.winding,
-                });
-
-                current_sibling = self.events.next_sibling_id(current_sibling);
-            }
-
-            if !self.process_events(output) {
+            if !self.process_events(&mut scan, output) {
                 // Something went wrong, attempt to salvage the state of the sweep
                 // line and try again.
                 self.recover_from_error();
-                assert!(self.process_events(output));
+                assert!(self.process_events(&mut scan, output));
             }
 
             current_event = self.events.next_id(current_event);
         }
     }
 
+    fn initialize_events(&mut self, current_event: EventId, path: &Path, output: &mut dyn GeometryBuilder<Vertex>) {
+        tess_log!(self, "\n --- event #{}", current_event);
+
+        self.current_position = self.events.position(current_event);
+
+        let src = VertexSourceIterator {
+            events: &self.events,
+            id: current_event,
+        };
+
+        self.current_vertex = output.add_vertex_exp(self.current_position, src).unwrap();
+
+        let mut current_sibling = current_event;
+        while self.events.valid_id(current_sibling) {
+            let edge = &self.events.edge_data[current_sibling];
+            // We insert "fake" edges when there are end events
+            // to make sure we process that vertex even if it has
+            // no edge below.
+            if edge.to == EndpointId::INVALID {
+                current_sibling = self.events.next_sibling_id(current_sibling);
+                continue;
+            }
+            let to = path[edge.to];
+            self.edges_below.push(PendingEdge {
+                to,
+                angle: (to - self.current_position).angle_from_x_axis().radians,
+                src_edge: current_sibling,
+                winding: edge.winding,
+            });
+
+            current_sibling = self.events.next_sibling_id(current_sibling);
+        }        
+    }
+
+    /// An iteration of the sweep line algorithm.
     fn process_events(
         &mut self,
+        scan: &mut ActiveEdgeScan,
         output: &mut dyn GeometryBuilder<Vertex>,
     ) -> bool {
         debug_assert!(!self.current_position.x.is_nan() && !self.current_position.y.is_nan());
 
-        let current_x = self.current_position.x;
-
-        tess_log!(self, "\n --- events at [{},{}] {:?}         {} edges below",
-            current_x, self.current_position.y,
+        tess_log!(self, "\n --- events at {:?} {:?}         {} edges below",
+            self.current_position,
             self.current_vertex,
             self.edges_below.len(),
         );
 
-        // The span index starts at -1 so that entering the first span (of index 0) increments
-        // it to zero.
-        let mut winding = WindingState {
-            span_index: -1,
-            number: 0,
-            transition: Transition::None,
-        };
+        // Step 1 - Scan the active edge list, deferring processing and detecting potential
+        // ordering issues in the active edges.
+        if !self.scan_active_edges(scan) {
+            return false;
+        }
 
+        // Step 2 - Do the necessary processing on edges that end at the current point.
+        self.process_edges_above(scan, output);
+
+        // Step 3 - Do the necessary processing on edges that start at the current point.
+        self.process_edges_below(scan);
+
+        // Step 4 - Insert/remove edges to the active edge as necessary and handle
+        // potential self-intersections.
+        self.update_active_edges(scan.above_start..scan.above_end);
+
+        #[cfg(not(feature = "release"))]
+        self.log_active_edges();
+
+        true
+    }
+
+    #[cfg(not(feature = "release"))]
+    fn log_active_edges(&self) {
+        tess_log!(self, "sweep line: {}", self.active.edges.len());
+        for e in &self.active.edges {
+            if e.is_merge {
+                tess_log!(self, "| (merge) {}", e.from);
+            } else {
+                tess_log!(self, "| {} -> {}", e.from, e.to);
+            }
+        }
+        tess_log!(self, "spans: {}", self.fill.spans.len());
+    }
+
+    /// Scan the active edges to find the information we will need for the tessellation, without
+    /// modifying the state of the sweep line and active spans.
+    ///
+    /// During this scan we also check that the ordering of the active edges is correct.
+    /// If an error is detected we bail out of the scan which will cause us to sort the active
+    /// edge list and try to scan again (this is why have to defer any modification to after
+    /// the scan).
+    ///
+    /// The scan happens in three steps:
+    /// - 1) Loop over the edges on the left of the current point to compute the winding number.
+    /// - 2) Loop over the edges that connect with the current point to determine what processing
+    ///      is needed (for example end events or right events).
+    /// - 3) Loop over the edges on the right of the current point to detect potential edges that should
+    ///      have been handled in the previous phases.
+    fn scan_active_edges(&self, scan: &mut ActiveEdgeScan) -> bool {
+
+        scan.reset();
+
+        let current_x = self.current_position.x;
         let mut connecting_edges = false;
-        let mut edges_to_split: Vec<usize> = Vec::new();
-
-        // First go through the sweep line and visit all edges that end at the
-        // current position.
-
         let mut active_edge_idx = 0;
-        // Iterate over edges before the current point.
+        let mut winding = WindingState::new();
+
+        // Step 1 - Iterate over edges *before* the current point.
         for active_edge in &self.active.edges {
             if active_edge.is_merge {
                 // \.....\ /...../
@@ -404,24 +503,22 @@ impl FillTessellator {
             tess_log!(self, " > {:?}", winding.transition);
         }
 
-        let mut above_start = active_edge_idx;
-        let winding_before_point = winding.clone();
+        scan.above_start = active_edge_idx;
+        scan.winding_before_point = winding.clone();
+
+
+        // Step 2 - Iterate over edges connecting with the current point.
+
         let mut is_first_transition = true;
         let mut prev_transition_in = None;
-        let mut pending_merge = None;
-        let mut pending_right = None;
-        let mut merges_to_resolve: Vec<(SpanIdx, usize)> = Vec::new();
-        let mut spans_to_end = Vec::new();
 
         tess_log!(self, "connecting_edges {} | {}", connecting_edges, active_edge_idx);
         if connecting_edges {
-            // Iterate over edges connecting with the current point.
-            for active_edge in &mut self.active.edges[active_edge_idx..] {
+            for active_edge in &self.active.edges[active_edge_idx..] {
                 if active_edge.is_merge {
                     tess_log!(self, "merge to resolve {}", active_edge_idx);
 
-                    merges_to_resolve.push((winding.span_index, active_edge_idx));
-                    active_edge.to = self.current_position;
+                    scan.merges_to_resolve.push((winding.span_index, active_edge_idx));
                     winding.span_index += 1;
                     active_edge_idx += 1;
 
@@ -443,7 +540,7 @@ impl FillTessellator {
                         if ex == current_x {
                             tess_log!(self, " -- vertex on an edge!");
                             is_on_edge = true;
-                            edges_to_split.push(active_edge_idx);
+                            scan.edges_to_split.push(active_edge_idx);
                         } else if ex < current_x {
                             is_error = true;
                         }
@@ -470,10 +567,10 @@ impl FillTessellator {
                     (Transition::Out, true) => {
                         if self.edges_below.is_empty() {
                             // Merge event.
-                            pending_merge = Some(active_edge_idx);
+                            scan.pending_merge = Some(active_edge_idx);
                         } else {
                             // Right event.
-                            pending_right = Some(active_edge_idx);
+                            scan.pending_right = Some(active_edge_idx);
                         }
                     }
                     (Transition::Out, false) => {
@@ -484,7 +581,7 @@ impl FillTessellator {
                         );
 
                         if winding.span_index < self.fill.spans.len() as i32 {
-                            spans_to_end.push(winding.span_index);
+                            scan.spans_to_end.push(winding.span_index);
                             winding.span_index += 1; // not sure
                         } else {
                             tess_log!(self, "error B");
@@ -502,11 +599,13 @@ impl FillTessellator {
             }
         }
 
-        let mut above_end = active_edge_idx;
+        scan.above_end = active_edge_idx;
 
-        // Now Iterate over edges after the current point.
+
+        // Step 3 - Now Iterate over edges after the current point.
         // We only do this to detect errors.
-        for active_edge in &mut self.active.edges[active_edge_idx..] {
+
+        for active_edge in &self.active.edges[active_edge_idx..] {
             if active_edge.is_merge {
                 continue;
             }
@@ -528,7 +627,12 @@ impl FillTessellator {
             }
         }
 
-        for (span_index, edge_idx) in merges_to_resolve {
+
+        true
+    }
+
+    fn process_edges_above(&mut self, scan: &mut ActiveEdgeScan, output: &mut dyn GeometryBuilder<Vertex>) {
+        for &(span_index, edge_idx) in &scan.merges_to_resolve {
             //  \...\ /.
             //   \...x..  <-- merge vertex
             //    \./...  <-- active_edge
@@ -536,6 +640,7 @@ impl FillTessellator {
             let active_edge: &mut ActiveEdge = &mut self.active.edges[edge_idx];
             let merge_vertex: VertexId = active_edge.from_id;
             let merge_position = active_edge.from;
+            active_edge.to = self.current_position;
             //println!("merge vertex {:?} -> {:?}", merge_vertex, current_vertex);
             self.fill.merge_spans(
                 span_index,
@@ -553,7 +658,7 @@ impl FillTessellator {
             debugger_monotone_split(&self.debugger, &merge_position, &self.current_position);
         }
 
-        for span_index in spans_to_end {
+        for &span_index in &scan.spans_to_end {
             self.fill.end_span(
                 span_index,
                 &self.current_position,
@@ -564,7 +669,7 @@ impl FillTessellator {
 
         self.fill.cleanup_spans();
 
-        for edge_idx in edges_to_split {
+        for &edge_idx in &scan.edges_to_split {
             let active_edge = &mut self.active.edges[edge_idx];
             let to = active_edge.to;
 
@@ -577,15 +682,17 @@ impl FillTessellator {
 
             active_edge.to = self.current_position;
         }
+    }
 
-        winding = winding_before_point;
+    fn process_edges_below(&mut self, scan: &mut ActiveEdgeScan) {
+        let mut winding = scan.winding_before_point.clone();
 
-        tess_log!(self, "connecting edges: {}..{} {:?}", above_start, above_end, winding.transition);
+        tess_log!(self, "connecting edges: {}..{} {:?}", scan.above_start, scan.above_end, winding.transition);
         tess_log!(self, "winding state before point: {:?}", winding);
 
         self.sort_edges_below();
 
-        if let Some(in_idx) = pending_merge {
+        if let Some(in_idx) = scan.pending_merge {
             // Merge event.
             //
             //  ...\   /...
@@ -594,7 +701,7 @@ impl FillTessellator {
             //
 
             tess_log!(self, " ** merge ** edges: [{},{}] span: {}",
-                in_idx, above_end - 1,
+                in_idx, scan.above_end - 1,
                 winding.span_index
             );
 
@@ -612,7 +719,7 @@ impl FillTessellator {
         let mut below = 0..self.edges_below.len();
 
         if self.fill_rule.is_in(winding.number)
-            && above_start == above_end
+            && scan.above_start == scan.above_end
             && self.edges_below.len() >= 2 {
 
             // Split event.
@@ -623,7 +730,7 @@ impl FillTessellator {
             //  .../   \...
             //
 
-            let left_enclosing_edge_idx = above_start - 1;
+            let left_enclosing_edge_idx = scan.above_start - 1;
             if self.active.edges[left_enclosing_edge_idx].is_merge {
                 self.merge_split_event(
                     left_enclosing_edge_idx,
@@ -631,8 +738,8 @@ impl FillTessellator {
                 );
                 // Remove the merge edge from the active edge list.
                 self.active.edges.remove(left_enclosing_edge_idx);
-                above_start -= 1;
-                above_end -= 1;
+                scan.above_start -= 1;
+                scan.above_end -= 1;
             } else {
                 self.split_event(
                     left_enclosing_edge_idx,
@@ -658,7 +765,7 @@ impl FillTessellator {
 
             tess_log!(self, "edge below {}: {:?} span {}", i, winding.transition, winding.span_index);
 
-            if let Some(idx) = pending_right {
+            if let Some(idx) = scan.pending_right {
                 // Right event.
                 //
                 //  ..\
@@ -674,7 +781,7 @@ impl FillTessellator {
                     Side::Right,
                 );
 
-                pending_right = None;
+                scan.pending_right = None;
 
                 continue;
             }
@@ -688,7 +795,7 @@ impl FillTessellator {
                         //    x....
                         //     \...
                         //
-                        tess_log!(self, " ** left ** edge {} span: {}", above_start, winding.span_index);
+                        tess_log!(self, " ** left ** edge {} span: {}", scan.above_start, winding.span_index);
 
                         self.fill.spans[winding.span_index as usize].tess.vertex(
                             self.current_position,
@@ -730,20 +837,6 @@ impl FillTessellator {
                 }
             }
         }
-
-        self.update_active_edges(above_start..above_end);
-
-        tess_log!(self, "sweep line: {}", self.active.edges.len());
-        for e in &self.active.edges {
-            if e.is_merge {
-                tess_log!(self, "| (merge) {}", e.from);
-            } else {
-                tess_log!(self, "| {} -> {}", e.from, e.to);
-            }
-        }
-        tess_log!(self, "spans: {}", self.fill.spans.len());
-
-        true
     }
 
     fn update_active_edges(&mut self, above: Range<usize>) {
@@ -782,7 +875,7 @@ impl FillTessellator {
         }
     }
 
-    fn merge_split_event(&mut self, merge_idx: usize, left_span_idx: SpanIdx) {
+    fn merge_split_event(&mut self, merge_idx: ActiveEdgeIdx, left_span_idx: SpanIdx) {
         let upper_pos = self.active.edges[merge_idx].from;
         let upper_id = self.active.edges[merge_idx].from_id;
         tess_log!(self, " ** merge + split ** edge {} span: {} merge pos {:?}", merge_idx, left_span_idx, upper_pos);
@@ -822,7 +915,7 @@ impl FillTessellator {
         );
     }
 
-    fn split_event(&mut self, left_enclosing_edge_idx: usize, left_span_idx: SpanIdx) {
+    fn split_event(&mut self, left_enclosing_edge_idx: ActiveEdgeIdx, left_span_idx: SpanIdx) {
         let right_enclosing_edge_idx = left_enclosing_edge_idx + 1;
 
         let upper_left = self.active.edges[left_enclosing_edge_idx].from;
@@ -1025,13 +1118,7 @@ impl FillTessellator {
             self.active.edges.swap(len - 1, len - 2);
         }
 
-        // The span index starts at -1 so that entering the first span (of index 0) increments
-        // it to zero.
-        let mut winding = WindingState {
-            span_index: -1,
-            number: 0,
-            transition: Transition::None,
-        };
+        let mut winding = WindingState::new();
 
         for edge in &self.active.edges {
             if edge.is_merge {
@@ -1109,8 +1196,8 @@ fn is_after(a: Point, b: Point) -> bool {
 }
 
 pub struct Event {
-    next_sibling: usize,
-    next_event: usize,
+    next_sibling: EventId,
+    next_event: EventId,
     position: Point,
 }
 
@@ -1125,7 +1212,7 @@ struct EdgeData {
 pub struct EventQueue {
     events: Vec<Event>,
     edge_data: Vec<EdgeData>,
-    first: usize,
+    first: EventId,
     sorted: bool,
 }
 
@@ -1198,7 +1285,7 @@ impl EventQueue {
         idx
     }
 
-    fn insert_sibling(&mut self, sibling: usize, position: Point, data: EdgeData) {
+    fn insert_sibling(&mut self, sibling: EventId, position: Point, data: EdgeData) {
         let idx = self.events.len();
         let next_sibling = self.events[sibling].next_sibling;
 
@@ -1221,13 +1308,13 @@ impl EventQueue {
 
     pub fn first_id(&self) -> usize { self.first }
 
-    pub fn next_id(&self, id: usize) -> usize { self.events[id].next_event }
+    pub fn next_id(&self, id: EventId) -> EventId { self.events[id].next_event }
 
-    pub fn next_sibling_id(&self, id: usize) -> usize { self.events[id].next_sibling }
+    pub fn next_sibling_id(&self, id: EventId) -> EventId { self.events[id].next_sibling }
 
-    pub fn valid_id(&self, id: usize) -> bool { id < self.events.len() }
+    pub fn valid_id(&self, id: EventId) -> bool { id < self.events.len() }
 
-    pub fn position(&self, id: usize) -> Point { self.events[id].position }
+    pub fn position(&self, id: EventId) -> Point { self.events[id].position }
 
     pub fn sort(&mut self) {
         // This is more or less a bubble-sort, the main difference being that elements with the same
@@ -1518,7 +1605,7 @@ impl EventQueueBuilder {
 
 pub struct VertexSourceIterator<'l> {
     events: &'l EventQueue,
-    id: usize,
+    id: EventId,
 }
 
 pub enum VertexSource {
