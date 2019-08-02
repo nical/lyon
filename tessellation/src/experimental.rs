@@ -119,30 +119,24 @@ impl Spans {
 
     fn split_span(
         &mut self,
-        span_idx: SpanIdx,
+        new_span_idx: SpanIdx,
+        left_span_idx: SpanIdx,
+        right_span_idx: SpanIdx,
         split_position: &Point,
         split_id: VertexId,
-        a_position: &Point,
-        a_id: VertexId
+        upper_position: &Point,
+        upper_id: VertexId,
     ) {
-        let idx = span_idx as usize;
-
-        //        /....
-        // a --> x.....
-        //      /.\....
-        //     /...x... <-- current split vertex
-        //    /.../ \..
-
         self.spans.insert(
-            idx,
+            new_span_idx as usize,
             Span {
-                tess: MonotoneTessellator::new().begin(*a_position, a_id),
+                tess: MonotoneTessellator::new().begin(*upper_position, upper_id),
                 remove: false,
             }
         );
 
-        self.spans[idx].tess.vertex(*split_position, split_id, Side::Right);
-        self.spans[idx + 1].tess.vertex(*split_position, split_id, Side::Left);
+        self.spans[left_span_idx as usize].tess.vertex(*split_position, split_id, Side::Right);
+        self.spans[right_span_idx as usize].tess.vertex(*split_position, split_id, Side::Left);
     }
 
     fn merge_spans(
@@ -244,7 +238,7 @@ impl FillTessellator {
                 spans: Vec::new(),
             },
             log: env::var("LYON_FORCE_LOGGING").is_ok(),
-            assume_no_intersection: false,
+            assume_no_intersection: true    ,
 
             events: EventQueue::new(),
 
@@ -645,61 +639,24 @@ impl FillTessellator {
             //  .../   \...
             //
 
-            let edge_above = above_start - 1;
-
-            let upper_pos = self.active.edges[edge_above].from;
-            let upper_id = self.active.edges[edge_above].from_id;
-            tess_log!(self, " ** split ** edge {} span: {} upper {:?}", edge_above, winding.span_index, upper_pos);
-
-            if self.active.edges[edge_above].is_merge {
-                // Split vertex under a merge vertex
-                //
-                //  ...\ /...
-                //  ....x....   <-- merge vertex (upper)
-                //  ....:....
-                //  ----x----   <-- current split vertex
-                //  .../ \...
-                //
-                tess_log!(self, "   -> merge+split");
-                let span_index = winding.span_index as usize;
-
-                self.fill.spans[span_index - 1].tess.vertex(
-                    upper_pos,
-                    upper_id,
-                    Side::Right,
-                );
-                self.fill.spans[span_index - 1].tess.vertex(
-                    self.current_position,
+            let left_enclosing_edge_idx = above_start - 1;
+            if self.active.edges[left_enclosing_edge_idx].is_merge {
+                self.merge_split_event(
+                    left_enclosing_edge_idx,
+                    winding.span_index - 1,
                     current_vertex,
-                    Side::Right,
                 );
-
-                self.fill.spans[span_index].tess.vertex(
-                    upper_pos,
-                    upper_id,
-                    Side::Left,
-                );
-                self.fill.spans[span_index].tess.vertex(
-                    self.current_position,
-                    current_vertex,
-                    Side::Left,
-                );
-
-                self.active.edges.remove(edge_above);
+                // Remove the merge edge from the active edge list.
+                self.active.edges.remove(left_enclosing_edge_idx);
                 above_start -= 1;
                 above_end -= 1;
             } else {
-                self.fill.split_span(
+                self.split_event(
+                    left_enclosing_edge_idx,
                     winding.span_index,
-                    &self.current_position,
-                    current_vertex,
-                    &upper_pos,
-                    upper_id,
+                    current_vertex
                 );
             }
-
-            #[cfg(feature="debugger")]
-            debugger_monotone_split(&self.debugger, &upper_pos, &self.current_position);
 
             winding.update(self.fill_rule, self.edges_below[0].winding);
 
@@ -843,6 +800,85 @@ impl FillTessellator {
                 src_edge: edge.src_edge,
             });
         }
+    }
+
+    fn merge_split_event(&mut self, merge_idx: usize, left_span_idx: SpanIdx, current_vertex: VertexId) {
+        let upper_pos = self.active.edges[merge_idx].from;
+        let upper_id = self.active.edges[merge_idx].from_id;
+        tess_log!(self, " ** merge + split ** edge {} span: {} merge pos {:?}", merge_idx, left_span_idx, upper_pos);
+
+        // Split vertex under a merge vertex
+        //
+        //  ...\ /...
+        //  ....x....   <-- merge vertex
+        //  ....:....
+        //  ----x----   <-- current split vertex
+        //  .../ \...
+        //
+
+        let left_span_idx = left_span_idx as usize;
+        let right_span_idx = left_span_idx + 1;
+
+        self.fill.spans[left_span_idx].tess.vertex(
+            upper_pos,
+            upper_id,
+            Side::Right,
+        );
+        self.fill.spans[left_span_idx].tess.vertex(
+            self.current_position,
+            current_vertex,
+            Side::Right,
+        );
+
+        self.fill.spans[right_span_idx].tess.vertex(
+            upper_pos,
+            upper_id,
+            Side::Left,
+        );
+        self.fill.spans[right_span_idx].tess.vertex(
+            self.current_position,
+            current_vertex,
+            Side::Left,
+        );
+    }
+
+    fn split_event(&mut self, left_enclosing_edge_idx: usize, left_span_idx: SpanIdx, current_vertex: VertexId) {
+        let right_enclosing_edge_idx = left_enclosing_edge_idx + 1;
+
+        let upper_left = self.active.edges[left_enclosing_edge_idx].from;
+        let upper_right = self.active.edges[right_enclosing_edge_idx].from;
+
+        let right_span_idx = left_span_idx + 1;
+
+        let (upper_position, upper_id, new_span_idx) = if is_after(upper_left, upper_right) {
+            //                |.....
+            // upper_left --> x.....
+            //               /.\....
+            //              /...x... <-- current split vertex
+            //             /.../ \..
+            (
+                upper_left,
+                self.active.edges[left_enclosing_edge_idx].from_id,
+                left_span_idx,
+            )
+        } else {
+            //                          .....|
+            //                          .....x <-- upper_right
+            //                          ..../.\
+            // current split vertex --> ...x...\
+            //                          ../ \...\
+            (
+                upper_right,
+                self.active.edges[right_enclosing_edge_idx].from_id,
+                right_span_idx,
+            )
+        };
+
+        self.fill.split_span(
+            new_span_idx, left_span_idx, right_span_idx,
+            &self.current_position, current_vertex,
+            &upper_position, upper_id,
+        );
     }
 
     fn handle_intersections(&mut self) {
