@@ -189,7 +189,7 @@ impl Spans {
 
     fn merge_spans(
         &mut self,
-        span_idx: SpanIdx,
+        left_span_idx: SpanIdx,
         current_position: &Point,
         current_vertex: VertexId,
         merge_position: &Point,
@@ -201,27 +201,22 @@ impl Spans {
         //    \./...  <-- active_edge
         //     x....  <-- current vertex
 
-        let idx = span_idx as usize;
-        if self.spans.len() <= idx + 1 {
-            // TODO: we can only run into this if the order of the sweep line
-            // is invalid. Need to re-sort it.
-            return
-        }
+        let right_span_idx = left_span_idx + 1;
 
-        self.spans[idx].tess.vertex(
+        self.spans[left_span_idx as usize].tess.vertex(
             *merge_position,
             merge_vertex,
             Side::Right,
         );
 
-        self.spans[idx + 1].tess.vertex(
+        self.spans[right_span_idx as usize].tess.vertex(
             *merge_position,
             merge_vertex,
             Side::Left,
         );
 
         self.end_span(
-            span_idx,
+            left_span_idx,
             current_position,
             current_vertex,
             output,
@@ -245,7 +240,6 @@ struct PendingEdge {
 
 impl ActiveEdge {
     fn solve_x_for_y(&self, y: f32) -> f32 {
-        // TODO: curves.
         LineSegment {
             from: self.from,
             to: self.to,
@@ -517,6 +511,11 @@ impl FillTessellator {
             for active_edge in &self.active.edges[active_edge_idx..] {
                 if active_edge.is_merge {
                     tess_log!(self, "merge to resolve {}", active_edge_idx);
+
+                    if self.fill.spans.len() as SpanIdx <= winding.span_index + 1 {
+                        tess_log!(self, "error: not enough active spans for merge event.");
+                        return false;
+                    }
 
                     scan.merges_to_resolve.push((winding.span_index, active_edge_idx));
                     winding.span_index += 1;
@@ -818,12 +817,6 @@ impl FillTessellator {
                         //    /...\
                         //
 
-                        // TODO: if this is an intersection we must create a vertex
-                        // and use it instead of the upper endpoint of the edge.
-                        // TODO: we should use from_id but right now it points to the
-                        // vertex in the path object and not the one we added with
-                        // add_vertex
-                        //let vertex = self.edges_below[in_idx].from_id;
                         tess_log!(self, " begin span {} ({})", winding.span_index, self.fill.spans.len());
                         self.fill.begin_span(
                             winding.span_index,
@@ -1127,7 +1120,7 @@ impl FillTessellator {
                 winding.update(self.fill_rule, edge.winding);
             }
 
-            if winding.span_index > self.fill.spans.len() as i32 {
+            if winding.span_index >= self.fill.spans.len() as i32 {
                 self.fill.begin_span(
                     winding.span_index,
                     &edge.from,
@@ -1148,7 +1141,6 @@ impl FillTessellator {
     }
 
     fn sort_edges_below(&mut self) {
-        // TODO: we'll need a better criterion than the tangent angle with quadratic béziers.
         self.edges_below.sort_by(|a, b| {
             b.angle.partial_cmp(&a.angle).unwrap_or(Ordering::Equal)
         });
@@ -1169,7 +1161,7 @@ fn debugger_monotone_split(debugger: &Option<Box<dyn Debugger2D>>, a: &Point, b:
 }
 
 fn points_are_equal(a: Point, b: Point) -> bool {
-    // TODO: Use the tolerance threshold.
+    // TODO: Use the tolerance threshold?
     a == b
 }
 
