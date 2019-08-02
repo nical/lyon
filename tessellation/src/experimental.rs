@@ -63,7 +63,6 @@ struct ActiveEdge {
 
     from: Point,
     to: Point,
-    ctrl: Point,
 
     winding: i16,
     is_merge: bool,
@@ -189,13 +188,9 @@ impl Spans {
 #[derive(Debug)]
 struct PendingEdge {
     to: Point,
-    ctrl: Point,
-
     angle: f32,
-
     // Index in events.edge_data
     src_edge: usize,
-
     winding: i16,
 }
 
@@ -310,14 +305,7 @@ impl FillTessellator {
                     continue;
                 }
                 let to = path[edge.to];
-                let ctrl = if edge.ctrl != CtrlPointId::INVALID {
-                    // path[edge.ctrl]
-                    point(f32::NAN, f32::NAN) // TODO
-                } else {
-                    point(f32::NAN, f32::NAN)
-                };
                 self.edges_below.push(PendingEdge {
-                    ctrl,
                     to,
                     angle: (to - self.current_position).angle_from_x_axis().radians,
                     src_edge: current_sibling,
@@ -577,17 +565,13 @@ impl FillTessellator {
         self.fill.cleanup_spans();
 
         for edge_idx in edges_to_split {
-            let active_edge: &mut ActiveEdge = &mut self.active.edges[edge_idx];
+            let active_edge = &mut self.active.edges[edge_idx];
             let to = active_edge.to;
 
             self.edges_below.push(PendingEdge {
-                ctrl: point(f32::NAN, f32::NAN),
                 to,
-
                 angle: (to - self.current_position).angle_from_x_axis().radians,
-
                 src_edge: active_edge.src_edge,
-
                 winding: active_edge.winding,
             });
 
@@ -617,7 +601,6 @@ impl FillTessellator {
             let e = &mut self.active.edges[in_idx];
             e.is_merge = true;
             e.from = e.to;
-            e.ctrl = e.to;
             e.min_x = e.to.x;
             e.max_x = e.to.x;
             e.winding = 0;
@@ -791,7 +774,6 @@ impl FillTessellator {
                 sort_x: 0.0,
                 from,
                 to: edge.to,
-                ctrl: edge.ctrl,
                 winding: edge.winding,
                 is_merge: false,
                 from_id: self.current_vertex,
@@ -1135,7 +1117,6 @@ pub struct Event {
 #[derive(Clone, Debug)]
 struct EdgeData {
     from: EndpointId,
-    ctrl: CtrlPointId,
     to: EndpointId,
     range: std::ops::Range<f32>,
     winding: i16,
@@ -1428,7 +1409,6 @@ impl EventQueueBuilder {
         self.tx.push(at);
         self.tx.edge_data.push(EdgeData {
             from: EndpointId::INVALID,
-            ctrl: CtrlPointId::INVALID,
             to: EndpointId::INVALID,
             range: 0.0..1.0,
             winding: 0,
@@ -1474,7 +1454,10 @@ impl EventQueueBuilder {
         self.quad_to(to, CtrlPointId::INVALID, to_id);
     }
 
-    fn quad_to(&mut self, to: Point, ctrl_id: CtrlPointId, mut to_id: EndpointId) {
+    fn quad_to(&mut self, to: Point, _ctrl_id: CtrlPointId, mut to_id: EndpointId) {
+        // We don't support curves in the tessellator yet.
+        debug_assert_eq!(_ctrl_id, CtrlPointId::INVALID);
+
         if self.current == to {
             return;
         }
@@ -1499,7 +1482,6 @@ impl EventQueueBuilder {
         self.tx.push(from);
         self.tx.edge_data.push(EdgeData {
             from: from_id,
-            ctrl: ctrl_id,
             to: to_id,
             range: 0.0..1.0,
             winding,
