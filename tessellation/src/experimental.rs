@@ -108,6 +108,7 @@ impl ActiveEdgeScan {
     }
 }
 
+#[derive(Debug)]
 struct ActiveEdge {
     min_x: f32,
     max_x: f32,
@@ -123,6 +124,17 @@ struct ActiveEdge {
 
     // Only valid when sorting the active edges.
     sort_x: f32,
+
+    range_end: f32,
+}
+
+impl ActiveEdge {
+    fn solve_x_for_y(&self, y: f32) -> f32 {
+        LineSegment {
+            from: self.from,
+            to: self.to,
+        }.solve_x_for_y(y)
+    }
 }
 
 struct ActiveEdges {
@@ -236,15 +248,7 @@ struct PendingEdge {
     // Index in events.edge_data
     src_edge: EventId,
     winding: i16,
-}
-
-impl ActiveEdge {
-    fn solve_x_for_y(&self, y: f32) -> f32 {
-        LineSegment {
-            from: self.from,
-            to: self.to,
-        }.solve_x_for_y(y)
-    }
+    range_end: f32,
 }
 
 pub struct FillTessellator {
@@ -278,7 +282,7 @@ impl FillTessellator {
                 spans: Vec::new(),
             },
             log: env::var("LYON_FORCE_LOGGING").is_ok(),
-            assume_no_intersection: true    ,
+            assume_no_intersection: false,
 
             events: EventQueue::new(),
 
@@ -301,7 +305,7 @@ impl FillTessellator {
 
         builder.begin_geometry();
 
-        self.tessellator_loop(path, builder);
+        self.tessellator_loop(builder);
 
         //assert!(self.active.edges.is_empty());
         //assert!(self.fill.spans.is_empty());
@@ -318,7 +322,6 @@ impl FillTessellator {
 
     fn tessellator_loop(
         &mut self,
-        path: &Path,
         output: &mut dyn GeometryBuilder<Vertex>
     ) {
         let mut scan = ActiveEdgeScan::new();
@@ -326,7 +329,7 @@ impl FillTessellator {
         let mut current_event = self.events.first_id();
         while self.events.valid_id(current_event) {
 
-            self.initialize_events(current_event, path, output);
+            self.initialize_events(current_event, output);
 
             debug_assert!(is_after(self.current_position, _prev_position));
             _prev_position = self.current_position;
@@ -342,7 +345,7 @@ impl FillTessellator {
         }
     }
 
-    fn initialize_events(&mut self, current_event: EventId, path: &Path, output: &mut dyn GeometryBuilder<Vertex>) {
+    fn initialize_events(&mut self, current_event: EventId, output: &mut dyn GeometryBuilder<Vertex>) {
         tess_log!(self, "\n --- event #{}", current_event);
 
         self.current_position = self.events.position(current_event);
@@ -360,16 +363,22 @@ impl FillTessellator {
             // We insert "fake" edges when there are end events
             // to make sure we process that vertex even if it has
             // no edge below.
-            if edge.to == EndpointId::INVALID {
+            if edge.to_id == EndpointId::INVALID {
                 current_sibling = self.events.next_sibling_id(current_sibling);
                 continue;
             }
-            let to = path[edge.to];
+            let to = edge.to;
+
+            if !is_after(to, self.current_position) {
+                tess_log!(self, "edge: {:?}  current: {:?} to: {:?}", edge, self.current_position, to);
+            }
+            debug_assert!(is_after(to, self.current_position));
             self.edges_below.push(PendingEdge {
                 to,
                 angle: (to - self.current_position).angle_from_x_axis().radians,
                 src_edge: current_sibling,
                 winding: edge.winding,
+                range_end: edge.range.end,
             });
 
             current_sibling = self.events.next_sibling_id(current_sibling);
@@ -419,7 +428,7 @@ impl FillTessellator {
             if e.is_merge {
                 tess_log!(self, "| (merge) {}", e.from);
             } else {
-                tess_log!(self, "| {} -> {}", e.from, e.to);
+                tess_log!(self, "| {} -> {} ({})", e.from, e.to, e.winding);
             }
         }
         tess_log!(self, "spans: {}", self.fill.spans.len());
@@ -537,7 +546,7 @@ impl FillTessellator {
                         let ex = active_edge.solve_x_for_y(self.current_position.y);
                         tess_log!(self, "ex = {:?}", ex);
                         if ex == current_x {
-                            tess_log!(self, " -- vertex on an edge!");
+                            tess_log!(self, " -- vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
                             is_on_edge = true;
                             scan.edges_to_split.push(active_edge_idx);
                         } else if ex < current_x {
@@ -672,12 +681,21 @@ impl FillTessellator {
             let active_edge = &mut self.active.edges[edge_idx];
             let to = active_edge.to;
 
+            debug_assert!(is_after(to, self.current_position));
+
             self.edges_below.push(PendingEdge {
                 to,
                 angle: (to - self.current_position).angle_from_x_axis().radians,
                 src_edge: active_edge.src_edge,
                 winding: active_edge.winding,
+                range_end: active_edge.range_end,
             });
+            tess_log!(self,
+                "add edge below {:?} -> {:?} ({:?})",
+                self.current_position,
+                self.edges_below.last().unwrap().to,
+                active_edge.winding,
+            );
 
             active_edge.to = self.current_position;
         }
@@ -864,6 +882,7 @@ impl FillTessellator {
                 is_merge: false,
                 from_id: self.current_vertex,
                 src_edge: edge.src_edge,
+                range_end: edge.range_end,
             });
         }
     }
@@ -957,7 +976,7 @@ impl FillTessellator {
                 to: edge_below.to.to_f64(),
             };
 
-            let epsilon = 0.001;
+            let epsilon = 0.00001;
             let mut tb_min = 1.0 - epsilon;
             let mut intersection = None;
             for (i, active_edge) in self.active.edges.iter().enumerate() {
@@ -1011,26 +1030,59 @@ impl FillTessellator {
                 let mut intersections: ArrayVec<[EdgeData; 2]> = ArrayVec::new();
 
                 if ta > 0.0 && ta < 1.0 {
-                    if !is_after(active_edge.to, intersection_position) {
-                    }
-                    debug_assert!(is_after(active_edge.to, intersection_position));
-                    active_edge.to = intersection_position;
+                    // TODO: the remapped ts look incorrect sometimes.
+                    let remapped_ta = remap_t_in_range(
+                        ta as f32,
+                        a_src_edge_data.range.start..active_edge.range_end,
+                    );
+
+                    let (range, winding) = if is_after(active_edge.to, intersection_position) {
+                        (remapped_ta as f32 .. active_edge.range_end, active_edge.winding)
+                    } else {
+                        tess_log!(self, "flip active edge after intersection");
+                        (active_edge.range_end .. remapped_ta as f32, -active_edge.winding)
+                    };
+
                     intersections.push(EdgeData {
-                        range: ta as f32 .. a_src_edge_data.range.end,
+                        range,
+                        winding,
+                        to: active_edge.to,
                         .. a_src_edge_data
                     });
+
+                    active_edge.to = intersection_position;
+                    active_edge.range_end = remapped_ta;
                 }
 
                 if tb > 0.0 && tb < 1.0 {
                     debug_assert!(is_after(edge_below.to, intersection_position));
-                    edge_below.to = intersection_position;
+
+                    let remapped_tb = remap_t_in_range(
+                        tb as f32,
+                        b_src_edge_data.range.start..edge_below.range_end,
+                    );
+
+                    let (range, winding) = if is_after(edge_below.to, intersection_position) {
+                        (remapped_tb as f32 .. edge_below.range_end, edge_below.winding)
+                    } else {
+                        tess_log!(self, "flip edge below after intersection");
+                        (edge_below.range_end .. remapped_tb as f32, -edge_below.winding)
+                    };
+
                     intersections.push(EdgeData {
-                        range: tb as f32..b_src_edge_data.range.end,
+                        range,
+                        winding,
+                        to: edge_below.to,
                         .. b_src_edge_data
                     });
+
+                    edge_below.to = intersection_position;
+                    edge_below.range_end = remapped_tb;
                 }
 
                 if let Some(edge_data) = intersections.pop() {
+                    // TODO: if we flipped the edge to maintain top-down ordering, the evt position
+                    // should be flipped as well.
                     let evt_idx = self.events.insert_sorted(intersection_position, edge_data);
 
                     if let Some(edge_data) = intersections.pop() {
@@ -1043,6 +1095,7 @@ impl FillTessellator {
                 }
             }
         }
+        self.log_active_edges();
     }
 
     fn sort_active_edges(&mut self) {
@@ -1195,8 +1248,9 @@ pub struct Event {
 
 #[derive(Clone, Debug)]
 struct EdgeData {
-    from: EndpointId,
-    to: EndpointId,
+    from_id: EndpointId,
+    to_id: EndpointId,
+    to: Point,
     range: std::ops::Range<f32>,
     winding: i16,
 }
@@ -1487,8 +1541,9 @@ impl EventQueueBuilder {
     fn vertex_event(&mut self, at: Point) {
         self.tx.push(at);
         self.tx.edge_data.push(EdgeData {
-            from: EndpointId::INVALID,
-            to: EndpointId::INVALID,
+            from_id: EndpointId::INVALID,
+            to_id: EndpointId::INVALID,
+            to: point(f32::NAN, f32::NAN),
             range: 0.0..1.0,
             winding: 0,
         });
@@ -1533,7 +1588,7 @@ impl EventQueueBuilder {
         self.quad_to(to, CtrlPointId::INVALID, to_id);
     }
 
-    fn quad_to(&mut self, to: Point, _ctrl_id: CtrlPointId, mut to_id: EndpointId) {
+    fn quad_to(&mut self, to: Point, _ctrl_id: CtrlPointId, to_id: EndpointId) {
         // We don't support curves in the tessellator yet.
         debug_assert_eq!(_ctrl_id, CtrlPointId::INVALID);
 
@@ -1542,27 +1597,31 @@ impl EventQueueBuilder {
         }
 
         let next_id = to_id;
-        let mut from = self.current;
-        let mut from_id = self.current_id;
+        let from_id = self.current_id;
+        let mut evt_pos = self.current;
+        let mut evt_to = to;
         let mut winding = 1;
-        if is_after(from, to) {
-            if self.nth > 0 && is_after(from, self.prev) {
-                self.vertex_event(from);
+        let mut t0 = 0.0;
+        let mut t1 = 1.0;
+        if is_after(evt_pos, to) {
+            if self.nth > 0 && is_after(evt_pos, self.prev) {
+                self.vertex_event(evt_pos);
             }
 
-            from = to;
-            swap(&mut from_id, &mut to_id);
+            evt_to = evt_pos;
+            evt_pos = to;
+            swap(&mut t0, &mut t1);
             winding = -1;
         }
 
-        //println!("Edge {:?}/{:?} {:?} ->", from_id, to_id, from);
         debug_assert!(from_id != EndpointId::INVALID);
         debug_assert!(to_id != EndpointId::INVALID);
-        self.tx.push(from);
+        self.tx.push(evt_pos);
         self.tx.edge_data.push(EdgeData {
-            from: from_id,
-            to: to_id,
-            range: 0.0..1.0,
+            from_id: from_id,
+            to_id: to_id,
+            to: evt_to,
+            range: t0..t1,
             winding,
         });
 
@@ -1612,11 +1671,21 @@ impl<'l> Iterator for VertexSourceIterator<'l> {
             return None;
         }
 
-        let endpoint = EndpointId(self.events.edge_data[self.id].from.0);
+        let endpoint = self.events.edge_data[self.id].from_id;
 
         self.id = self.events.next_sibling_id(self.id);
 
         Some(VertexSource::Endpoint { endpoint })
+    }
+}
+
+fn remap_t_in_range(val: f32, range: Range<f32>) -> f32 {
+    if range.end > range.start {
+        let d = range.end - range.start;
+        range.start + val * d
+    } else {
+        let d = range.start - range.end;
+        range.end + val * d
     }
 }
 

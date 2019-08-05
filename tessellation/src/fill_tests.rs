@@ -1167,6 +1167,24 @@ fn test_exp_no_intersection_01() {
     // "M 80.041534 19.24472 L 76.56131 23.062233 L 67.26949 23.039438 L 48.42367 28.978098 Z"
 }
 
+
+#[test]
+fn test_intersecting_star_shape() {
+    let mut builder = Path::builder();
+    builder.move_to(point(0.0, 0.0));
+    builder.line_to(point(100.0, 0.0));
+    builder.line_to(point(50.0, 50.0));
+    builder.close();
+    builder.move_to(point(0.0, 25.0));
+    builder.line_to(point(100.0, 25.0));
+    builder.line_to(point(50.0, -25.0));
+    builder.close();
+
+    let path = builder.build();
+
+    test_path_with_rotations(path, 0.01, None);
+}
+
 #[test]
 fn issue_476_original() {
     let mut builder = Path::builder();
