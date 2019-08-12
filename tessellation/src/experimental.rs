@@ -307,8 +307,11 @@ impl FillTessellator {
 
         self.tessellator_loop(builder);
 
-        //assert!(self.active.edges.is_empty());
-        //assert!(self.fill.spans.is_empty());
+        if !self.assume_no_intersection {
+            // TODO: only a few tests break from these assertions
+            //debug_assert!(self.active.edges.is_empty());
+            //debug_assert!(self.fill.spans.is_empty());
+        }
         // TODO: go over the remaining spans and end them.
 
         builder.end_geometry();
@@ -1288,11 +1291,10 @@ impl EventQueue {
     }
 
     pub fn push(&mut self, position: Point) {
-        let next_event = self.events.len() + 1;
         self.events.push(Event {
             position,
             next_sibling: usize::MAX,
-            next_event,
+            next_event: usize::MAX,
         });
         self.sorted = false;
     }
@@ -1362,87 +1364,77 @@ impl EventQueue {
 
     pub fn position(&self, id: EventId) -> Point { self.events[id].position }
 
-    pub fn sort(&mut self) {
-        // This is more or less a bubble-sort, the main difference being that elements with the same
-        // position are grouped in a "sibling" linked list.
-
-        if self.sorted {
-            return;
-        }
+    fn sort(&mut self) {
         self.sorted = true;
 
-        if self.events.len() <= 1 {
+        if self.events.is_empty() {
             return;
         }
 
-        let mut current = 0;
-        let mut prev = 0;
-        let mut last = self.events.len() - 1;
-        let mut swapped = false;
+        let range = 0..self.events.len();
+        self.first = self.merge_sort(range);
+    }
 
-        #[cfg(test)]
-        let mut iter_count = self.events.len() * self.events.len();
+    /// Merge sort with two twists:
+    /// - Events at the same position are grouped into a "sibling" list.
+    /// - We take advantage of having events stored contiguously in a vector
+    ///   by recursively splitting ranges of the array instead of traversing
+    ///   the lists to find a split point.
+    fn merge_sort(&mut self, range: Range<usize>) -> usize {
+        let split = (range.start + range.end) / 2;
 
-        loop {
-            #[cfg(test)] {
-                assert!(iter_count > 0);
-                iter_count -= 1;
+        if split == range.start {
+            return range.start;
+        }
+
+        let a_head = self.merge_sort(range.start..split);
+        let b_head = self.merge_sort(split..range.end);
+
+        self.merge(a_head, b_head)
+    }
+
+    fn merge(&mut self, a: usize, b: usize) -> usize {
+        if a == usize::MAX {
+            return b;
+        } else if b == usize::MAX {
+            return a;
+        }
+
+        debug_assert!(a != b);
+
+        return match compare_positions(self.events[a].position, self.events[b].position) {
+            Ordering::Less => {
+                let a_next = self.events[a].next_event;
+                self.events[a].next_event = self.merge(a_next, b);
+
+                a
             }
+            Ordering::Greater => {
+                let b_next = self.events[b].next_event;
+                self.events[b].next_event = self.merge(a, b_next);
 
-            let rewind = current == last ||
-                !self.valid_id(current) ||
-                !self.valid_id(self.next_id(current));
-
-            if rewind {
-                last = prev;
-                prev = self.first;
-                current = self.first;
-                if !swapped || last == self.first {
-                    return;
-                }
-                swapped = false;
+                b
             }
+            Ordering::Equal => {
+                // Add b to a's sibling list.
+                let a_sib = self.find_last_sibling(a);
+                self.events[a_sib].next_sibling = b;
 
-            let next = self.next_id(current);
-            let a = self.events[current].position;
-            let b = self.events[next].position;
-            match compare_positions(a, b) {
-                Ordering::Less => {
-                    // Already ordered.
-                    prev = current;
-                    current = next;
-                }
-                Ordering::Greater => {
-                    // Need to swap current and next.
-                    if prev != current && prev != next {
-                        self.events[prev].next_event = next;
-                    }
-                    if current == self.first {
-                        self.first = next;
-                    }
-                    if next == last {
-                        last = current;
-                    }
-                    let next_next = self.next_id(next);
-                    self.events[current].next_event = next_next;
-                    self.events[next].next_event = current;
-                    swapped = true;
-                    prev = next;
-                }
-                Ordering::Equal => {
-                    // Append next to current's sibling list.
-                    let next_next = self.next_id(next);
-                    self.events[current].next_event = next_next;
-                    let mut current_sibling = current;
-                    let mut next_sibling = self.next_sibling_id(current);
-                    while self.valid_id(next_sibling) {
-                        current_sibling = next_sibling;
-                        next_sibling = self.next_sibling_id(current_sibling);
-                    }
-                    self.events[current_sibling].next_sibling = next;
-                }
+                let b_next = self.events[b].next_event;
+                self.merge(a, b_next)
             }
         }
+    }
+
+    fn find_last_sibling(&self, id: usize) -> usize {
+        let mut current_sibling = id;
+        let mut next_sibling = self.next_sibling_id(id);
+        while self.valid_id(next_sibling) {
+            current_sibling = next_sibling;
+            next_sibling = self.next_sibling_id(current_sibling);
+        }
+
+        current_sibling
     }
 
     fn log(&self) {
@@ -1467,18 +1459,22 @@ impl EventQueue {
     }
 
     fn assert_sorted(&self) {
+        self.log();
         let mut current = self.first;
         let mut pos = point(f32::MIN, f32::MIN);
+        let mut n = 0;
         while self.valid_id(current) {
             assert!(is_after(self.events[current].position, pos));
             pos = self.events[current].position;
             let mut current_sibling = current;
             while self.valid_id(current_sibling) {
+                n += 1;
                 assert_eq!(self.events[current_sibling].position, pos);
                 current_sibling = self.next_sibling_id(current_sibling);
             }
             current = self.next_id(current);
         }
+        assert_eq!(n, self.events.len());
     }
 }
 
@@ -1637,16 +1633,6 @@ impl EventQueueBuilder {
 
     fn build(mut self) -> EventQueue {
         self.close();
-
-        if let Some(evt) = self.tx.events.last_mut() {
-            // before sorting it is convenient to set the next event to point
-            // to the size of the vector so that it corresponds to the next
-            // event that will be added.
-            // For the built event queue however, the contract is that
-            // invalid next events are equal to usize::MAX so that we can
-            // insert new event without creating a loop.
-            evt.next_event = usize::MAX;
-        }
 
         self.tx.sort();
 
