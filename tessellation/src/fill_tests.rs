@@ -122,12 +122,6 @@ fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
 
     if let Ok(Ok(num_triangles)) = res {
         if let Some(expected_triangles) = expected_triangle_count {
-            // TODO: at the moment the experimental tessellator does not insert points at
-            // self-intersections so it can't produce the expected triangle count for some
-            // tests.
-            #[cfg(feature = "experimental")]
-            return;
-
             if num_triangles != expected_triangles {
                 tessellate_path(path, add_logging).unwrap();
                 panic!("expected {} triangles, got {}", expected_triangles, num_triangles);
