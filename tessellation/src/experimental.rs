@@ -130,10 +130,14 @@ struct ActiveEdge {
 
 impl ActiveEdge {
     fn solve_x_for_y(&self, y: f32) -> f32 {
+        // Because of float precision hazard, solve_x_for_y can
+        // return something slightly out of the min/max range which
+        // causes the ordering to be inconsistent with the way the
+        // scan phase uses the min/max range.
         LineSegment {
             from: self.from,
             to: self.to,
-        }.solve_x_for_y(y)
+        }.solve_x_for_y(y).max(self.min_x).min(self.max_x)
     }
 }
 
@@ -171,6 +175,8 @@ impl Spans {
     ) {
         let idx = span_idx as usize;
 
+        debug_assert!(!self.spans[idx].remove);
+
         let span = &mut self.spans[idx];
         span.remove = true;
         span.tess.end(*position, id);
@@ -195,6 +201,8 @@ impl Spans {
             }
         );
 
+        debug_assert!(!self.spans[left_span_idx as usize].remove);
+        debug_assert!(!self.spans[right_span_idx as usize].remove);
         self.spans[left_span_idx as usize].tess.vertex(*split_position, split_id, Side::Right);
         self.spans[right_span_idx as usize].tess.vertex(*split_position, split_id, Side::Left);
     }
@@ -215,12 +223,14 @@ impl Spans {
 
         let right_span_idx = left_span_idx + 1;
 
+        debug_assert!(!self.spans[left_span_idx as usize].remove);
         self.spans[left_span_idx as usize].tess.vertex(
             *merge_position,
             merge_vertex,
             Side::Right,
         );
 
+        debug_assert!(!self.spans[right_span_idx as usize].remove);
         self.spans[right_span_idx as usize].tess.vertex(
             *merge_position,
             merge_vertex,
@@ -429,9 +439,9 @@ impl FillTessellator {
         tess_log!(self, "sweep line: {}", self.active.edges.len());
         for (i, e) in self.active.edges.iter().enumerate() {
             if e.is_merge {
-                tess_log!(self, "{} | (merge) {} sort:{}", i, e.from, e.sort_x);
+                tess_log!(self, "{} | (merge) {} sort:{}  {:?}", i, e.from, e.sort_x, e.from_id);
             } else {
-                tess_log!(self, "{} | {} -> {} ({})   x:[{}..{}] sort:{}", i, e.from, e.to, e.winding, e.min_x, e.max_x, e.sort_x);
+                tess_log!(self, "{} | {} -> {} ({})   x:[{}..{}] sort:{}  {:?}", i, e.from, e.to, e.winding, e.min_x, e.max_x, e.sort_x, e.from_id);
             }
         }
         tess_log!(self, "spans: {}", self.fill.spans.len());
@@ -541,18 +551,15 @@ impl FillTessellator {
                 }
 
                 if !points_are_equal(self.current_position, active_edge.to) {
-                    // This edge does not connect with the current position.
-                    // Before breaking out of this loop, check for errors.
-                    let mut is_error = active_edge.max_x < current_x || active_edge.to.y < self.current_position.y;
+                    let threshold = 0.001;
+
+                    let mut is_error = active_edge.max_x + threshold < current_x || active_edge.to.y < self.current_position.y;
                     let mut is_on_edge = false;
 
-                    if !is_error
-                        && active_edge.max_x >= current_x
-                        && active_edge.min_x <= current_x {
+                    if !is_error && active_edge.min_x <= current_x {
 
                         let ex = active_edge.solve_x_for_y(self.current_position.y);
                         tess_log!(self, "ex = {:?}", ex);
-                        let threshold = 0.001;
                         if (ex - current_x).abs() <= threshold {
                             tess_log!(self, " -- vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
                             is_on_edge = true;
@@ -652,6 +659,7 @@ impl FillTessellator {
     }
 
     fn process_edges_above(&mut self, scan: &mut ActiveEdgeScan, output: &mut dyn GeometryBuilder<Vertex>) {
+        tess_log!(self, "merges to resolve: {:?}", scan.merges_to_resolve);
         for &(span_index, edge_idx) in &scan.merges_to_resolve {
             //  \...\ /.
             //   \...x..  <-- merge vertex
@@ -661,7 +669,9 @@ impl FillTessellator {
             let merge_vertex: VertexId = active_edge.from_id;
             let merge_position = active_edge.from;
             active_edge.to = self.current_position;
-            //println!("merge vertex {:?} -> {:?}", merge_vertex, current_vertex);
+
+            tess_log!(self, " Resolve merge event {} at {:?} ending span {}", edge_idx, active_edge.to, span_index);
+
             self.fill.merge_spans(
                 span_index,
                 &self.current_position,
@@ -673,7 +683,6 @@ impl FillTessellator {
 
             active_edge.is_merge = false;
 
-            tess_log!(self, " Resolve merge event {} at {:?} ending span {}", edge_idx, active_edge.to, span_index);
             #[cfg(feature="debugger")]
             debugger_monotone_split(&self.debugger, &merge_position, &self.current_position);
         }
@@ -881,6 +890,7 @@ impl FillTessellator {
         let from = self.current_position;
         let first_edge_below = above.start;
         for (i, edge) in self.edges_below.drain(..).enumerate() {
+            assert!(from != edge.to);
             let idx = first_edge_below + i;
             self.active.edges.insert(idx, ActiveEdge {
                 min_x: from.x.min(edge.to.x),
@@ -1139,6 +1149,7 @@ impl FillTessellator {
                 }
             }
         }
+
         self.log_active_edges();
     }
 
@@ -1170,11 +1181,7 @@ impl FillTessellator {
                 } else if edge.from.y == y {
                     edge.from.x
                 } else {
-                    // Because of float precision hazard, solve_x_for_y can
-                    // return something slightly out of the min/max range which
-                    // causes the ordering to be inconsistent with the way the
-                    // scan phase uses the min/max range.
-                    edge.solve_x_for_y(y).max(edge.min_x).min(edge.max_x)
+                    edge.solve_x_for_y(y)
                 };
 
                 edge.sort_x = x;
