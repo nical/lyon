@@ -427,11 +427,11 @@ impl FillTessellator {
     #[cfg(not(feature = "release"))]
     fn log_active_edges(&self) {
         tess_log!(self, "sweep line: {}", self.active.edges.len());
-        for e in &self.active.edges {
+        for (i, e) in self.active.edges.iter().enumerate() {
             if e.is_merge {
-                tess_log!(self, "| (merge) {}", e.from);
+                tess_log!(self, "{} | (merge) {} sort:{}", i, e.from, e.sort_x);
             } else {
-                tess_log!(self, "| {} -> {} ({})", e.from, e.to, e.winding);
+                tess_log!(self, "{} | {} -> {} ({})   x:[{}..{}] sort:{}", i, e.from, e.to, e.winding, e.min_x, e.max_x, e.sort_x);
             }
         }
         tess_log!(self, "spans: {}", self.fill.spans.len());
@@ -478,21 +478,25 @@ impl FillTessellator {
                 continue;
             }
 
-            let egde_is_before_current_point = if active_edge.max_x < current_x {
+            let threshold = 0.001;
+            let egde_is_before_current_point = if points_are_equal(self.current_position, active_edge.to) {
+                // We just found our first edge that connects with the current point.
+                // We might find other ones in the next iterations.
+                connecting_edges = true;
+                false
+            } else if active_edge.max_x < current_x {
                 true
             } else if active_edge.min_x > current_x {
-                false
-            } else if points_are_equal(self.current_position, active_edge.to) {
-                // We just found our first edge that connects with the current point.
-                // We might find other ones in the next loop.
-                connecting_edges = true;
+                tess_log!(self, "min_x({:?}) > current_x({:?})", active_edge.min_x, current_x);
                 false
             } else {
                 let ex = active_edge.solve_x_for_y(self.current_position.y);
-                if ex > current_x {
-                    false
-                } else if ex == current_x {
+
+                if (ex - current_x).abs() <= threshold {
                     connecting_edges = true;
+                    false
+                } else if ex > current_x {
+                    tess_log!(self, "ex({:?}) > current_x({:?})", ex, current_x);
                     false
                 } else {
                     true
@@ -539,7 +543,7 @@ impl FillTessellator {
                 if !points_are_equal(self.current_position, active_edge.to) {
                     // This edge does not connect with the current position.
                     // Before breaking out of this loop, check for errors.
-                    let mut is_error = active_edge.max_x < current_x;
+                    let mut is_error = active_edge.max_x < current_x || active_edge.to.y < self.current_position.y;
                     let mut is_on_edge = false;
 
                     if !is_error
@@ -548,13 +552,15 @@ impl FillTessellator {
 
                         let ex = active_edge.solve_x_for_y(self.current_position.y);
                         tess_log!(self, "ex = {:?}", ex);
-                        if ex == current_x {
+                        let threshold = 0.001;
+                        if (ex - current_x).abs() <= threshold {
                             tess_log!(self, " -- vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
                             is_on_edge = true;
                             scan.edges_to_split.push(active_edge_idx);
                         } else if ex < current_x {
                             is_error = true;
                         }
+                        tess_log!(self, "ex = {:?} (diff={})", ex, ex - current_x);
                     }
 
                     if is_error {
@@ -564,6 +570,7 @@ impl FillTessellator {
                     }
 
                     if !is_on_edge {
+                        tess_log!(self, "!is_on_edge -> break {:?};", active_edge);
                         break;
                     }
                 }
@@ -610,6 +617,8 @@ impl FillTessellator {
             }
         }
 
+        tess_log!(self, "edges after | {}", active_edge_idx);
+
         scan.above_end = active_edge_idx;
 
 
@@ -627,7 +636,7 @@ impl FillTessellator {
             }
 
             if points_are_equal(self.current_position, active_edge.to) {
-                tess_log!(self, "error D");
+                tess_log!(self, "error D {:?} == {:?}", self.current_position, active_edge.to);
                 return false;
             }
 
@@ -683,8 +692,6 @@ impl FillTessellator {
         for &edge_idx in &scan.edges_to_split {
             let active_edge = &mut self.active.edges[edge_idx];
             let to = active_edge.to;
-
-            debug_assert!(is_after(to, self.current_position));
 
             self.edges_below.push(PendingEdge {
                 to,
@@ -979,8 +986,7 @@ impl FillTessellator {
                 to: edge_below.to.to_f64(),
             };
 
-            let epsilon = 0.00001;
-            let mut tb_min = 1.0 - epsilon;
+            let mut tb_min = 1.0;
             let mut intersection = None;
             for (i, active_edge) in self.active.edges.iter().enumerate() {
                 if active_edge.is_merge || below_min_x > active_edge.max_x {
@@ -996,7 +1002,7 @@ impl FillTessellator {
                 };
 
                 if let Some((ta, tb)) = active_segment.intersection_t(&below_segment) {
-                    if tb < tb_min && tb > epsilon && ta > epsilon && ta < 1.0 - epsilon {
+                    if tb < tb_min && tb > 0.0 && ta > 0.0 && ta <= 1.0 {
                         // we only want the closest intersection;
                         tb_min = tb;
                         intersection = Some((ta, tb, i));
@@ -1006,7 +1012,6 @@ impl FillTessellator {
 
             if let Some((ta, tb, active_edge_idx)) = intersection {
                 let mut intersection_position = below_segment.sample(tb).to_f32();
-
                 tess_log!(self, "-> intersection at: {:?} : {:?}", intersection_position, intersection);
                 tess_log!(self, "   from {:?}->{:?} and {:?}->{:?}",
                     self.active.edges[active_edge_idx].from,
@@ -1014,6 +1019,34 @@ impl FillTessellator {
                     self.current_position,
                     edge_below.to,
                 );
+
+                let active_edge = &mut self.active.edges[active_edge_idx];
+
+                if is_after(self.current_position, intersection_position) {
+                    intersection_position = self.current_position;
+                }
+
+                if is_after(active_edge.from, intersection_position) {
+                    intersection_position = active_edge.from;
+                }
+
+                if is_near(intersection_position, edge_below.to) {
+                    tess_log!(self, "intersection near below.to");
+                    intersection_position = edge_below.to;
+                }
+
+                if is_near(intersection_position, active_edge.to) {
+                    tess_log!(self, "intersection near below.to");
+                    intersection_position = active_edge.to;
+                }
+
+                if is_after(intersection_position, edge_below.to) {
+                    intersection_position = edge_below.to;
+                }
+
+                if is_after(intersection_position, active_edge.to) {
+                    intersection_position = active_edge.to;
+                }
 
                 if intersection_position.y < self.current_position.y {
                     tess_log!(self, "fixup the intersection because of y coordinate");
@@ -1024,40 +1057,49 @@ impl FillTessellator {
                     intersection_position.x = self.current_position.x;
                 }
 
-                let active_edge = &mut self.active.edges[active_edge_idx];
-
                 let a_src_edge_data = self.events.edge_data[active_edge.src_edge].clone();
                 let b_src_edge_data = self.events.edge_data[edge_below.src_edge].clone();
 
-                use arrayvec::ArrayVec;
-                let mut intersections: ArrayVec<[EdgeData; 2]> = ArrayVec::new();
+                let mut inserted_evt = None;
 
-                if ta > 0.0 && ta < 1.0 {
+                if active_edge.to != intersection_position
+                    && active_edge.from != intersection_position {
                     // TODO: the remapped ts look incorrect sometimes.
                     let remapped_ta = remap_t_in_range(
                         ta as f32,
                         a_src_edge_data.range.start..active_edge.range_end,
                     );
 
-                    let (range, winding) = if is_after(active_edge.to, intersection_position) {
-                        (remapped_ta as f32 .. active_edge.range_end, active_edge.winding)
+                    if is_after(active_edge.to, intersection_position) {
+                        // Should take this branch most of the time.
+                        inserted_evt = Some(self.events.insert_sorted(
+                            intersection_position,
+                            EdgeData {
+                                range: remapped_ta as f32 .. active_edge.range_end,
+                                winding: active_edge.winding,
+                                to: active_edge.to,
+                                .. a_src_edge_data
+                            }
+                        ));
                     } else {
                         tess_log!(self, "flip active edge after intersection");
-                        (active_edge.range_end .. remapped_ta as f32, -active_edge.winding)
-                    };
-
-                    intersections.push(EdgeData {
-                        range,
-                        winding,
-                        to: active_edge.to,
-                        .. a_src_edge_data
-                    });
+                        self.events.insert_sorted(
+                            active_edge.to,
+                            EdgeData {
+                                range: active_edge.range_end .. remapped_ta as f32,
+                                winding: -active_edge.winding,
+                                to: intersection_position,
+                                .. a_src_edge_data
+                            }
+                        );
+                    }
 
                     active_edge.to = intersection_position;
                     active_edge.range_end = remapped_ta;
                 }
 
-                if tb > 0.0 && tb < 1.0 {
+                if edge_below.to != intersection_position
+                    && self.current_position != intersection_position {
                     debug_assert!(is_after(edge_below.to, intersection_position));
 
                     let remapped_tb = remap_t_in_range(
@@ -1065,36 +1107,35 @@ impl FillTessellator {
                         b_src_edge_data.range.start..edge_below.range_end,
                     );
 
-                    let (range, winding) = if is_after(edge_below.to, intersection_position) {
-                        (remapped_tb as f32 .. edge_below.range_end, edge_below.winding)
+                    if is_after(edge_below.to, intersection_position) {
+                        let edge_data = EdgeData {
+                            range: remapped_tb as f32 .. edge_below.range_end,
+                            winding: edge_below.winding,
+                            to: edge_below.to,
+                            .. b_src_edge_data
+                        };
+
+                        if let Some(evt_idx) = inserted_evt {
+                            // Should take this branch most of the time.
+                            self.events.insert_sibling(evt_idx, intersection_position, edge_data);
+                        } else {
+                            self.events.insert_sorted(intersection_position, edge_data);
+                        }
                     } else {
                         tess_log!(self, "flip edge below after intersection");
-                        (edge_below.range_end .. remapped_tb as f32, -edge_below.winding)
+                        self.events.insert_sorted(
+                            edge_below.to,
+                            EdgeData {
+                                range: edge_below.range_end .. remapped_tb as f32,
+                                winding: -edge_below.winding,
+                                to: intersection_position,
+                                .. b_src_edge_data
+                            }
+                        );
                     };
-
-                    intersections.push(EdgeData {
-                        range,
-                        winding,
-                        to: edge_below.to,
-                        .. b_src_edge_data
-                    });
 
                     edge_below.to = intersection_position;
                     edge_below.range_end = remapped_tb;
-                }
-
-                if let Some(edge_data) = intersections.pop() {
-                    // TODO: if we flipped the edge to maintain top-down ordering, the evt position
-                    // should be flipped as well.
-                    let evt_idx = self.events.insert_sorted(intersection_position, edge_data);
-
-                    if let Some(edge_data) = intersections.pop() {
-                        self.events.insert_sibling(
-                            evt_idx,
-                            intersection_position,
-                            edge_data,
-                        );
-                    }
                 }
             }
         }
@@ -1108,23 +1149,41 @@ impl FillTessellator {
 
         let y = self.current_position.y;
 
+        // TODO: the code that updates the active edge list sometimes misses
+        // some edges to remove, which we fix here. See why that is and hopefully
+        // avoid handling this here.
+        let mut edges_to_remove = Vec::new();
+
         let mut prev_x = f32::NAN;
-        for edge in &mut self.active.edges {
+        for (i, edge) in self.active.edges.iter_mut().enumerate() {
             if edge.is_merge {
                 debug_assert!(!prev_x.is_nan());
                 edge.sort_x = prev_x;
             } else {
+                if is_after(self.current_position, edge.to) {
+                    edges_to_remove.push(i);
+                    continue;
+                }
+
                 let x = if edge.to.y == y {
                     edge.to.x
                 } else if edge.from.y == y {
                     edge.from.x
                 } else {
-                    edge.solve_x_for_y(y)
+                    // Because of float precision hazard, solve_x_for_y can
+                    // return something slightly out of the min/max range which
+                    // causes the ordering to be inconsistent with the way the
+                    // scan phase uses the min/max range.
+                    edge.solve_x_for_y(y).max(edge.min_x).min(edge.max_x)
                 };
 
                 edge.sort_x = x;
                 prev_x = x;
             }
+        }
+
+        for idx in edges_to_remove.iter().rev() {
+            self.active.edges.swap_remove(*idx);
         }
 
         self.active.edges.sort_by(|a, b| {
@@ -1185,15 +1244,8 @@ impl FillTessellator {
             }
         }
 
-        tess_log!(self, "sweep line: {}", self.active.edges.len());
-        for e in &self.active.edges {
-            if e.is_merge {
-                tess_log!(self, "| (merge) {}", e.from);
-            } else {
-                tess_log!(self, "| {} -> {}", e.from, e.to);
-            }
-        }
-        tess_log!(self, "spans: {}", self.fill.spans.len());
+        #[cfg(not(target = "release"))]
+        self.log_active_edges();
     }
 
     fn sort_edges_below(&mut self) {
@@ -1241,6 +1293,11 @@ fn compare_positions(a: Point, b: Point) -> Ordering {
 #[inline]
 fn is_after(a: Point, b: Point) -> bool {
     a.y > b.y || (a.y == b.y && a.x > b.x)
+}
+
+#[inline]
+fn is_near(a: Point, b: Point) -> bool {
+    (a - b).square_length() < 0.001
 }
 
 pub struct Event {
@@ -1301,6 +1358,7 @@ impl EventQueue {
 
     fn insert_sorted(&mut self, position: Point, data: EdgeData) -> usize {
         debug_assert!(self.sorted);
+        debug_assert!(is_after(data.to, position));
 
         let idx = self.events.len();
         self.events.push(Event {
@@ -1989,4 +2047,356 @@ fn reduced_test_case_01() {
 
     // SVG path syntax:
     // "M 0.73951757 0.3810749 L 0.4420668 0.05925262 L 0.54023945 0.16737175 L 0.8839954 0.39966547 L 0.77066493 0.67880523 L 0.48341691 0.09270251 L 0.053493023 0.18919432 L 0.6088793 0.57187665 L 0.2899257 0.09821439 Z"
+}
+
+#[test]
+fn reduced_test_case_02() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(-849.0441, 524.5503));
+    builder.line_to(point(857.67084, -518.10205));
+    builder.line_to(point(900.9668, -439.50897));
+    builder.line_to(point(-892.3401, 445.9572));
+    builder.line_to(point(-478.20224, -872.66327));
+    builder.line_to(point(486.82892, 879.1116));
+    builder.line_to(point(406.3725, 918.8378));
+    builder.line_to(point(-397.74573, -912.3896));
+    builder.line_to(point(-314.0522, -944.7439));
+    builder.line_to(point(236.42209, 975.91394));
+    builder.line_to(point(-227.79541, -969.4657));
+    builder.line_to(point(-139.66971, -986.356));
+    builder.line_to(point(148.29639, 992.80426));
+    builder.line_to(point(-50.38492, -995.2788));
+    builder.line_to(point(39.340546, -996.16223));
+    builder.line_to(point(-30.713806, 1002.6105));
+    builder.line_to(point(-120.157104, 995.44745));
+    builder.line_to(point(128.78381, -988.9992));
+    builder.line_to(point(217.22491, -973.84735));
+    builder.line_to(point(-208.5982, 980.2956));
+    builder.line_to(point(303.95184, -950.8286));
+    builder.line_to(point(388.26636, -920.12854));
+    builder.line_to(point(-379.63965, 926.5768));
+    builder.line_to(point(-460.8624, 888.4425));
+    builder.line_to(point(469.48914, -881.99426));
+    builder.line_to(point(546.96686, -836.73254));
+    builder.line_to(point(-538.3402, 843.1808));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M -849.0441 524.5503 L 857.67084 -518.10205 L 900.9668 -439.50897 L -892.3401 445.9572 L -478.20224 -872.66327 L 486.82892 879.1116 L 406.3725 918.8378 L -397.74573 -912.3896 L -314.0522 -944.7439 L 236.42209 975.91394 L -227.79541 -969.4657 L -139.66971 -986.356 L 148.29639 992.80426 L -50.38492 -995.2788 L 39.340546 -996.16223 L -30.713806 1002.6105 L -120.157104 995.44745 L 128.78381 -988.9992 L 217.22491 -973.84735 L -208.5982 980.2956 L 303.95184 -950.8286 L 388.26636 -920.12854 L -379.63965 926.5768 L -460.8624 888.4425 L 469.48914 -881.99426 L 546.96686 -836.73254 L -538.3402 843.1808 Z"
+}
+
+#[test]
+fn reduced_test_case_03() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(997.2859, 38.078064));
+    builder.line_to(point(-1000.8505, -48.24139));
+    builder.line_to(point(-980.1207, -212.09396));
+    builder.line_to(point(976.556, 201.93065));
+    builder.line_to(point(929.13965, 360.13647));
+    builder.line_to(point(-932.70435, -370.29977));
+    builder.line_to(point(-859.89484, -518.5434));
+    builder.line_to(point(856.33014, 508.38007));
+    builder.line_to(point(760.1136, 642.6178));
+    builder.line_to(point(-763.6783, -652.7811));
+    builder.line_to(point(-646.6792, -769.3514));
+    builder.line_to(point(643.1145, 759.188));
+    builder.line_to(point(508.52423, 854.91095));
+    builder.line_to(point(-512.0889, -865.0742));
+    builder.line_to(point(-363.57895, -937.33875));
+    builder.line_to(point(360.01428, 927.1754));
+    builder.line_to(point(201.63538, 974.01044));
+    builder.line_to(point(-205.20004, -984.1737));
+    builder.line_to(point(-41.272438, -1004.30164));
+    builder.line_to(point(37.707764, 994.1383));
+    builder.line_to(point(-127.297035, 987.01013));
+    builder.line_to(point(123.73236, -997.1734));
+    builder.line_to(point(285.31345, -962.9835));
+    builder.line_to(point(-288.8781, 952.82025));
+    builder.line_to(point(-442.62796, 892.5013));
+    builder.line_to(point(439.0633, -902.6646));
+    builder.line_to(point(580.7881, -817.8619));
+    builder.line_to(point(-584.3528, 807.6986));
+    builder.line_to(point(-710.18646, 700.7254));
+    builder.line_to(point(706.62177, -710.8888));
+    builder.line_to(point(813.13196, -584.6631));
+    builder.line_to(point(-816.69666, 574.49976));
+    builder.line_to(point(-900.9784, 432.46442));
+    builder.line_to(point(897.4137, -442.62775));
+    builder.line_to(point(957.1676, -288.65726));
+    builder.line_to(point(-960.7323, 278.49396));
+    builder.line_to(point(-994.3284, 116.7885));
+    builder.line_to(point(990.76373, -126.95181));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 997.2859 38.078064 L -1000.8505 -48.24139 L -980.1207 -212.09396 L 976.556 201.93065 L 929.13965 360.13647 L -932.70435 -370.29977 L -859.89484 -518.5434 L 856.33014 508.38007 L 760.1136 642.6178 L -763.6783 -652.7811 L -646.6792 -769.3514 L 643.1145 759.188 L 508.52423 854.91095 L -512.0889 -865.0742 L -363.57895 -937.33875 L 360.01428 927.1754 L 201.63538 974.01044 L -205.20004 -984.1737 L -41.272438 -1004.30164 L 37.707764 994.1383 L -127.297035 987.01013 L 123.73236 -997.1734 L 285.31345 -962.9835 L -288.8781 952.82025 L -442.62796 892.5013 L 439.0633 -902.6646 L 580.7881 -817.8619 L -584.3528 807.6986 L -710.18646 700.7254 L 706.62177 -710.8888 L 813.13196 -584.6631 L -816.69666 574.49976 L -900.9784 432.46442 L 897.4137 -442.62775 L 957.1676 -288.65726 L -960.7323 278.49396 L -994.3284 116.7885 L 990.76373 -126.95181 Z"
+}
+
+#[test]
+fn reduced_test_case_04() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(540.7645, 838.81036));
+    builder.line_to(point(-534.48315, -847.5593));
+    builder.line_to(point(-347.42682, -940.912));
+    builder.line_to(point(151.33032, 984.5845));
+    builder.line_to(point(-145.04895, -993.33344));
+    builder.line_to(point(63.80545, -1002.5327));
+    builder.line_to(point(-57.52408, 993.78375));
+    builder.line_to(point(-263.7273, 959.35864));
+    builder.line_to(point(270.00864, -968.1076));
+    builder.line_to(point(464.54828, -891.56274));
+    builder.line_to(point(-458.26697, 882.81384));
+    builder.line_to(point(-632.64087, 767.49457));
+    builder.line_to(point(638.9222, -776.2435));
+    builder.line_to(point(785.5095, -627.18994));
+    builder.line_to(point(-779.22815, 618.4409));
+    builder.line_to(point(-891.62213, 442.1673));
+    builder.line_to(point(897.9035, -450.91632));
+    builder.line_to(point(971.192, -255.12662));
+    builder.line_to(point(-964.9106, 246.37766));
+    builder.line_to(point(-927.4177, -370.5181));
+    builder.line_to(point(933.6991, 361.7691));
+    builder.line_to(point(837.23865, 547.24194));
+    builder.line_to(point(-830.9573, -555.9909));
+    builder.line_to(point(-698.0427, -717.3555));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 540.7645 838.81036 L -534.48315 -847.5593 L -347.42682 -940.912 L 151.33032 984.5845 L -145.04895 -993.33344 L 63.80545 -1002.5327 L -57.52408 993.78375 L -263.7273 959.35864 L 270.00864 -968.1076 L 464.54828 -891.56274 L -458.26697 882.81384 L -632.64087 767.49457 L 638.9222 -776.2435 L 785.5095 -627.18994 L -779.22815 618.4409 L -891.62213 442.1673 L 897.9035 -450.91632 L 971.192 -255.12662 L -964.9106 246.37766 L -927.4177 -370.5181 L 933.6991 361.7691 L 837.23865 547.24194 L -830.9573 -555.9909 L -698.0427 -717.3555 Z"
+}
+
+#[test]
+fn reduced_test_case_05() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(540.7645, 838.81036));
+    builder.line_to(point(-534.48315, -847.5593));
+    builder.line_to(point(-347.42682, -940.912));
+    builder.line_to(point(353.70816, 932.163));
+    builder.line_to(point(151.33032, 984.5845));
+    builder.line_to(point(-145.04895, -993.33344));
+    builder.line_to(point(63.80545, -1002.5327));
+    builder.line_to(point(-263.7273, 959.35864));
+    builder.line_to(point(270.00864, -968.1076));
+    builder.line_to(point(464.54828, -891.56274));
+    builder.line_to(point(-458.26697, 882.81384));
+    builder.line_to(point(-632.64087, 767.49457));
+    builder.line_to(point(638.9222, -776.2435));
+    builder.line_to(point(785.5095, -627.18994));
+    builder.line_to(point(-779.22815, 618.4409));
+    builder.line_to(point(-891.62213, 442.1673));
+    builder.line_to(point(897.9035, -450.91632));
+    builder.line_to(point(971.192, -255.12662));
+    builder.line_to(point(-964.9106, 246.37766));
+    builder.line_to(point(-995.89075, 39.628937));
+    builder.line_to(point(1002.1721, -48.3779));
+    builder.line_to(point(989.48975, 160.29398));
+    builder.line_to(point(-983.2084, -169.04297));
+    builder.line_to(point(-927.4177, -370.5181));
+    builder.line_to(point(933.6991, 361.7691));
+    builder.line_to(point(837.23865, 547.24194));
+    builder.line_to(point(-830.9573, -555.9909));
+    builder.line_to(point(-698.0427, -717.3555));
+    builder.line_to(point(704.3241, 708.6065));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 540.7645 838.81036 L -534.48315 -847.5593 L -347.42682 -940.912 L 353.70816 932.163 L 151.33032 984.5845 L -145.04895 -993.33344 L 63.80545 -1002.5327 L -263.7273 959.35864 L 270.00864 -968.1076 L 464.54828 -891.56274 L -458.26697 882.81384 L -632.64087 767.49457 L 638.9222 -776.2435 L 785.5095 -627.18994 L -779.22815 618.4409 L -891.62213 442.1673 L 897.9035 -450.91632 L 971.192 -255.12662 L -964.9106 246.37766 L -995.89075 39.628937 L 1002.1721 -48.3779 L 989.48975 160.29398 L -983.2084 -169.04297 L -927.4177 -370.5181 L 933.6991 361.7691 L 837.23865 547.24194 L -830.9573 -555.9909 L -698.0427 -717.3555 L 704.3241 708.6065 Z"
+}
+
+#[test]
+fn reduced_test_case_06() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(831.9957, 561.9206));
+    builder.line_to(point(-829.447, -551.4562));
+    builder.line_to(point(-505.64172, -856.7632));
+    builder.line_to(point(508.19046, 867.2276));
+    builder.line_to(point(83.98413, 1001.80585));
+    builder.line_to(point(-81.435394, -991.34143));
+    builder.line_to(point(359.1525, -928.5361));
+    builder.line_to(point(-356.60376, 939.0005));
+    builder.line_to(point(-726.3096, 691.25085));
+    builder.line_to(point(728.8583, -680.78644));
+    builder.line_to(point(-951.90845, 307.6267));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 831.9957 561.9206 L -829.447 -551.4562 L -505.64172 -856.7632 L 508.19046 867.2276 L 83.98413 1001.80585 L -81.435394 -991.34143 L 359.1525 -928.5361 L -356.60376 939.0005 L -726.3096 691.25085 L 728.8583 -680.78644 L -951.90845 307.6267 Z"
+}
+
+#[test]
+fn reduced_test_case_07() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(960.5097, -271.01678));
+    builder.line_to(point(-967.03217, 262.446));
+    builder.line_to(point(-987.3192, -182.13324));
+    builder.line_to(point(980.7969, 173.56247));
+    builder.line_to(point(806.1792, 582.91675));
+    builder.line_to(point(-812.7016, -591.48755));
+    builder.line_to(point(-477.76422, -884.53925));
+    builder.line_to(point(471.24182, 875.9685));
+    builder.line_to(point(42.32347, 994.6751));
+    builder.line_to(point(-48.845886, -1003.2459));
+    builder.line_to(point(389.10114, -924.0962));
+    builder.line_to(point(-395.62357, 915.5254));
+    builder.line_to(point(-755.85846, 654.19574));
+    builder.line_to(point(749.3361, -662.7665));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 960.5097 -271.01678 L -967.03217 262.446 L -987.3192 -182.13324 L 980.7969 173.56247 L 806.1792 582.91675 L -812.7016 -591.48755 L -477.76422 -884.53925 L 471.24182 875.9685 L 42.32347 994.6751 L -48.845886 -1003.2459 L 389.10114 -924.0962 L -395.62357 915.5254 L -755.85846 654.19574 L 749.3361 -662.7665 Z"
+}
+
+#[test]
+fn reduced_test_case_08() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(-85.92998, 24.945076));
+    builder.line_to(point(-79.567345, 28.325748));
+    builder.line_to(point(-91.54697, 35.518726));
+    builder.line_to(point(-85.92909, 24.945545));
+    builder.close();
+
+    builder.move_to(point(-57.761955, 34.452206));
+    builder.line_to(point(-113.631676, 63.3717));
+    builder.line_to(point(-113.67784, 63.347214));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M -85.92998 24.945076 L -79.567345 28.325748 L -91.54697 35.518726 L -85.92909 24.945545 ZM -57.761955 34.452206 L -113.631676 63.3717 L -113.67784 63.347214 Z"
+}
+
+#[test]
+fn reduced_test_case_09() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(659.9835, 415.86328));
+    builder.line_to(point(70.36328, 204.36978));
+    builder.line_to(point(74.12529, 89.01107));
+    builder.close();
+
+    builder.move_to(point(840.2258, 295.46188));
+    builder.line_to(point(259.41193, 272.18054));
+    builder.line_to(point(728.914, 281.41678));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 659.9835 415.86328 L 70.36328 204.36978 L 74.12529 89.01107 ZM 840.2258 295.46188 L 259.41193 272.18054 L 728.914 281.41678 Z"
+}
+
+#[test]
+fn reduced_test_case_10() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(993.5114, -94.67855));
+    builder.line_to(point(-938.76056, -355.94995));
+    builder.line_to(point(933.8779, 346.34995));
+    builder.line_to(point(-693.6775, -727.42883));
+    builder.line_to(point(-311.68665, -955.7822));
+    builder.line_to(point(306.80408, 946.1823));
+    builder.line_to(point(-136.43655, 986.182));
+    builder.line_to(point(131.55396, -995.782));
+    builder.line_to(point(548.25525, -839.50555));
+    builder.line_to(point(-553.13776, 829.9056));
+    builder.line_to(point(-860.76697, 508.30533));
+    builder.line_to(point(855.88434, -517.90533));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 993.5114 -94.67855 L -938.76056 -355.94995 L 933.8779 346.34995 L -693.6775 -727.42883 L -311.68665 -955.7822 L 306.80408 946.1823 L -136.43655 986.182 L 131.55396 -995.782 L 548.25525 -839.50555 L -553.13776 829.9056 L -860.76697 508.30533 L 855.88434 -517.90533 Z"
 }
