@@ -2011,7 +2011,7 @@ impl MonotoneTessellator {
         debug_assert!(b.id != VertexId::INVALID);
         debug_assert!(c.id != VertexId::INVALID);
 
-        let threshold = -0.042; // Floating point errors stroke again :(
+        let threshold = -0.0625; // Floating point errors stroke again :(
         debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
         self.triangles.push((a.id, b.id, c.id));
     }

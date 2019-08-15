@@ -398,6 +398,31 @@ fn test_auto_intersection_multi() {
 }
 
 #[test]
+fn three_edges_below() {
+    let mut builder = Path::builder();
+
+    //       .
+    //      /|
+    //     / |
+    //    x  |
+    //   /|\ |
+    //  / | \|
+    // /__|  .
+
+
+    builder.move_to(point(1.0, 0.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.line_to(point(2.0, 2.0));
+    builder.close();
+    builder.line_to(point(-1.0, 2.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.line_to(point(0.0, 2.0));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+}
+
+#[test]
 fn test_rust_logo_no_intersection() {
     let mut path = Path::builder().flattened(0.011).with_svg();
 
