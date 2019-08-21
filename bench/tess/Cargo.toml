@@ -9,6 +9,7 @@ name = "tess_bench"
 
 [features]
 libtess2 = ["tess2-sys"]
+experimental = ["lyon/experimental"]
 
 [dependencies]
 lyon = { path = "../../", features = ["extra"] }

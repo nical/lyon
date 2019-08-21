@@ -12,6 +12,9 @@ use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
 use lyon::tessellation::{FillEvents, FillTessellator, FillOptions, FillVertex, LineJoin};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions, StrokeVertex};
 
+#[cfg(feature = "experimental")]
+use lyon::tessellation::experimental;
+
 use bencher::Bencher;
 
 #[cfg(feature = "profiling")]
@@ -76,6 +79,23 @@ fn fill_tess_01_logo(bench: &mut Bencher) {
         for _ in 0..N {
             let mut buffers: VertexBuffers<FillVertex, u16> = VertexBuffers::with_capacity(512, 1450);
             tess.tessellate_events(&events, &options, &mut simple_builder(&mut buffers)).unwrap();
+        }
+    })
+}
+
+#[cfg(feature = "experimental")]
+fn fill_new_tess_01_logo(bench: &mut Bencher) {
+    let mut path = Path::builder().flattened(0.05).with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = experimental::FillTessellator::new();
+    let options = FillOptions::default();
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<experimental::Vertex, u16> = VertexBuffers::with_capacity(512, 1450);
+            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers));
         }
     })
 }
@@ -335,6 +355,11 @@ benchmark_group!(fill_tess,
   fill_tess_05_logo_no_curve
 );
 
+#[cfg(feature = "experimental")]
+benchmark_group!(new_tess,
+    fill_new_tess_01_logo
+);
+
 #[cfg(feature = "libtess2")]
 benchmark_group!(cmp_tess2,
   cmp_01_libtess2_rust_logo,
@@ -353,7 +378,7 @@ benchmark_group!(flattening,
   flattening_03_logo_builder
 );
 
-#[cfg(feature = "libtess2")]
+#[cfg(all(feature = "libtess2", not(feature = "experimental")))]
 benchmark_main!(
     fill_tess,
     cmp_tess2,
@@ -362,7 +387,16 @@ benchmark_main!(
     flattening
 );
 
-#[cfg(not(feature = "libtess2"))]
+#[cfg(feature = "experimental")]
+benchmark_main!(
+    fill_tess,
+    new_tess,
+    fill_events,
+    stroke_tess,
+    flattening
+);
+
+#[cfg(all(not(feature = "experimental"), not(feature = "libtess2")))]
 benchmark_main!(
     fill_tess,
     fill_events,
