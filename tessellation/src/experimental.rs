@@ -20,8 +20,9 @@ use crate::path_fill::dbg;
 pub type Vertex = Point;
 
 type SpanIdx = i32;
-type EventId = usize;
+type EventId = u32;
 type ActiveEdgeIdx = usize;
+const INVALID_EVENT_ID: u32 = u32::MAX;
 
 #[cfg(not(feature = "release"))]
 macro_rules! tess_log {
@@ -372,7 +373,7 @@ impl FillTessellator {
 
         let mut current_sibling = current_event;
         while self.events.valid_id(current_sibling) {
-            let edge = &self.events.edge_data[current_sibling];
+            let edge = &self.events.edge_data[current_sibling as usize];
             // We insert "fake" edges when there are end events
             // to make sure we process that vertex even if it has
             // no edge below.
@@ -1103,8 +1104,8 @@ impl FillTessellator {
                     intersection_position.x = self.current_position.x;
                 }
 
-                let a_src_edge_data = self.events.edge_data[active_edge.src_edge].clone();
-                let b_src_edge_data = self.events.edge_data[edge_below.src_edge].clone();
+                let a_src_edge_data = self.events.edge_data[active_edge.src_edge as usize].clone();
+                let b_src_edge_data = self.events.edge_data[edge_below.src_edge as usize].clone();
 
                 let mut inserted_evt = None;
 
@@ -1393,37 +1394,37 @@ impl EventQueue {
     pub fn push(&mut self, position: Point) {
         self.events.push(Event {
             position,
-            next_sibling: usize::MAX,
-            next_event: usize::MAX,
+            next_sibling: INVALID_EVENT_ID,
+            next_event: INVALID_EVENT_ID,
         });
         self.sorted = false;
     }
 
-    fn insert_sorted(&mut self, position: Point, data: EdgeData) -> usize {
+    fn insert_sorted(&mut self, position: Point, data: EdgeData) -> EventId {
         debug_assert!(self.sorted);
         debug_assert!(is_after(data.to, position));
 
-        let idx = self.events.len();
+        let idx = self.events.len() as EventId;
         self.events.push(Event {
             position,
-            next_sibling: usize::MAX,
-            next_event: usize::MAX,
+            next_sibling: INVALID_EVENT_ID,
+            next_event: INVALID_EVENT_ID,
         });
         self.edge_data.push(data);
 
         let mut prev = self.first;
         let mut current = self.first;
         while self.valid_id(current) {
-            let pos = self.events[current].position;
+            let pos = self.events[current as usize].position;
 
             if pos == position {
                 debug_assert!(prev != current);
-                self.events[idx].next_sibling = self.events[current].next_sibling;
-                self.events[current].next_sibling = idx;
+                self.events[idx as usize].next_sibling = self.events[current as usize].next_sibling;
+                self.events[current as usize].next_sibling = idx;
                 break;
             } else if is_after(pos, position) {
-                self.events[prev].next_event = idx;
-                self.events[idx].next_event = current;
+                self.events[prev as usize].next_event = idx;
+                self.events[idx as usize].next_event = current;
                 break;
             }
 
@@ -1435,18 +1436,18 @@ impl EventQueue {
     }
 
     fn insert_sibling(&mut self, sibling: EventId, position: Point, data: EdgeData) {
-        let idx = self.events.len();
-        let next_sibling = self.events[sibling].next_sibling;
+        let idx = self.events.len() as EventId;
+        let next_sibling = self.events[sibling as usize].next_sibling;
 
         self.events.push(Event {
             position,
-            next_event: usize::MAX,
+            next_event: INVALID_EVENT_ID,
             next_sibling,
         });
 
         self.edge_data.push(data);
 
-        self.events[sibling].next_sibling = idx;
+        self.events[sibling as usize].next_sibling = idx;
     }
 
     pub fn clear(&mut self) {
@@ -1455,15 +1456,15 @@ impl EventQueue {
         self.sorted = false;
     }
 
-    pub fn first_id(&self) -> usize { self.first }
+    pub fn first_id(&self) -> EventId { self.first }
 
-    pub fn next_id(&self, id: EventId) -> EventId { self.events[id].next_event }
+    pub fn next_id(&self, id: EventId) -> EventId { self.events[id as usize].next_event }
 
-    pub fn next_sibling_id(&self, id: EventId) -> EventId { self.events[id].next_sibling }
+    pub fn next_sibling_id(&self, id: EventId) -> EventId { self.events[id as usize].next_sibling }
 
-    pub fn valid_id(&self, id: EventId) -> bool { id < self.events.len() }
+    pub fn valid_id(&self, id: EventId) -> bool { (id as usize) < self.events.len() }
 
-    pub fn position(&self, id: EventId) -> Point { self.events[id].position }
+    pub fn position(&self, id: EventId) -> Point { self.events[id as usize].position }
 
     fn sort(&mut self) {
         self.sorted = true;
@@ -1481,11 +1482,11 @@ impl EventQueue {
     /// - We take advantage of having events stored contiguously in a vector
     ///   by recursively splitting ranges of the array instead of traversing
     ///   the lists to find a split point.
-    fn merge_sort(&mut self, range: Range<usize>) -> usize {
+    fn merge_sort(&mut self, range: Range<usize>) -> EventId {
         let split = (range.start + range.end) / 2;
 
         if split == range.start {
-            return range.start;
+            return range.start as EventId;
         }
 
         let a_head = self.merge_sort(range.start..split);
@@ -1494,40 +1495,40 @@ impl EventQueue {
         self.merge(a_head, b_head)
     }
 
-    fn merge(&mut self, a: usize, b: usize) -> usize {
-        if a == usize::MAX {
+    fn merge(&mut self, a: EventId, b: EventId) -> EventId {
+        if a == INVALID_EVENT_ID {
             return b;
-        } else if b == usize::MAX {
+        } else if b == INVALID_EVENT_ID {
             return a;
         }
 
         debug_assert!(a != b);
 
-        return match compare_positions(self.events[a].position, self.events[b].position) {
+        return match compare_positions(self.events[a as usize].position, self.events[b as usize].position) {
             Ordering::Less => {
-                let a_next = self.events[a].next_event;
-                self.events[a].next_event = self.merge(a_next, b);
+                let a_next = self.events[a as usize].next_event;
+                self.events[a as usize].next_event = self.merge(a_next, b);
 
                 a
             }
             Ordering::Greater => {
-                let b_next = self.events[b].next_event;
-                self.events[b].next_event = self.merge(a, b_next);
+                let b_next = self.events[b as usize].next_event;
+                self.events[b as usize].next_event = self.merge(a, b_next);
 
                 b
             }
             Ordering::Equal => {
                 // Add b to a's sibling list.
-                let a_sib = self.find_last_sibling(a);
+                let a_sib = self.find_last_sibling(a) as usize;
                 self.events[a_sib].next_sibling = b;
 
-                let b_next = self.events[b].next_event;
+                let b_next = self.events[b as usize].next_event;
                 self.merge(a, b_next)
             }
         }
     }
 
-    fn find_last_sibling(&self, id: usize) -> usize {
+    fn find_last_sibling(&self, id: EventId) -> EventId {
         let mut current_sibling = id;
         let mut next_sibling = self.next_sibling_id(id);
         while self.valid_id(next_sibling) {
@@ -1543,18 +1544,18 @@ impl EventQueue {
 
         println!("--");
         let mut current = self.first;
-        while current < self.events.len() {
+        while (current as usize) < self.events.len() {
             assert!(iter_count > 0);
             iter_count -= 1;
 
             print!("[");
             let mut current_sibling = current;
-            while current_sibling < self.events.len() {
-                print!("{:?},", self.events[current_sibling].position);
-                current_sibling = self.events[current_sibling].next_sibling;
+            while (current_sibling as usize) < self.events.len() {
+                print!("{:?},", self.events[current_sibling as usize].position);
+                current_sibling = self.events[current_sibling as usize].next_sibling;
             }
             print!("]  ");
-            current = self.events[current].next_event;
+            current = self.events[current as usize].next_event;
         }
         println!("\n--");
     }
@@ -1565,12 +1566,12 @@ impl EventQueue {
         let mut pos = point(f32::MIN, f32::MIN);
         let mut n = 0;
         while self.valid_id(current) {
-            assert!(is_after(self.events[current].position, pos));
-            pos = self.events[current].position;
+            assert!(is_after(self.events[current as usize].position, pos));
+            pos = self.events[current as usize].position;
             let mut current_sibling = current;
             while self.valid_id(current_sibling) {
                 n += 1;
-                assert_eq!(self.events[current_sibling].position, pos);
+                assert_eq!(self.events[current_sibling as usize].position, pos);
                 current_sibling = self.next_sibling_id(current_sibling);
             }
             current = self.next_id(current);
@@ -1754,11 +1755,11 @@ pub enum VertexSource {
 impl<'l> Iterator for VertexSourceIterator<'l> {
     type Item = VertexSource;
     fn next(&mut self) -> Option<VertexSource> {
-        if self.id == usize::MAX {
+        if self.id == INVALID_EVENT_ID {
             return None;
         }
 
-        let endpoint = self.events.edge_data[self.id].from_id;
+        let endpoint = self.events.edge_data[self.id as usize].from_id;
 
         self.id = self.events.next_sibling_id(self.id);
 
