@@ -564,6 +564,15 @@ impl FillTessellator {
                             tess_log!(self, " -- vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
                             is_on_edge = true;
                             scan.edges_to_split.push(active_edge_idx);
+                            // TODO: This is hacky: We only register a merge vertex
+                            // if there is no edge below the current vertex, except
+                            // that the "vertex on an edge" case can add an edge
+                            // below the current vertex after we have registered the
+                            // merge vertex. So we invert the decision.
+                            if let Some(idx) = scan.pending_merge {
+                                scan.pending_right = Some(idx);
+                                scan.pending_merge = None;
+                            }
                         } else if ex < current_x {
                             is_error = true;
                         }
@@ -590,11 +599,32 @@ impl FillTessellator {
                         prev_transition_in = Some(active_edge_idx);
                     }
                     (Transition::Out, true) => {
-                        if self.edges_below.is_empty() {
+                        // Only register a merge vertex if there is no edge below
+                        // the current vertex. In the vast majority of case we can
+                        // tell by looking at the current state of edges_below and
+                        // edges_to_split, but some times new elements can be added
+                        // to edges_to_split which invalidates this decision. So we
+                        // have to be careful about rolling back pending_edges if
+                        // we push into edges_to_split.
+                        let no_edge_below = self.edges_below.is_empty()
+                            && scan.edges_to_split.is_empty();
+
+                        if no_edge_below {
                             // Merge event.
+                            //
+                            //  .\  |../  /
+                            //  ..\ |./ /..
+                            //  -->\|//....
+                            //  ....x......
+                            //
                             scan.pending_merge = Some(active_edge_idx);
                         } else {
                             // Right event.
+                            //
+                            //   ..../
+                            //   ...x
+                            //   ....\
+                            //
                             scan.pending_right = Some(active_edge_idx);
                         }
                     }
@@ -606,6 +636,12 @@ impl FillTessellator {
                         );
 
                         if winding.span_index < self.fill.spans.len() as i32 {
+                            // End event.
+                            //
+                            //  \.../
+                            //   \./
+                            //    x
+                            //
                             scan.spans_to_end.push(winding.span_index);
                             winding.span_index += 1; // not sure
                         } else {
@@ -2406,4 +2442,60 @@ fn reduced_test_case_10() {
 
     // SVG path syntax:
     // "M 993.5114 -94.67855 L -938.76056 -355.94995 L 933.8779 346.34995 L -693.6775 -727.42883 L -311.68665 -955.7822 L 306.80408 946.1823 L -136.43655 986.182 L 131.55396 -995.782 L 548.25525 -839.50555 L -553.13776 829.9056 L -860.76697 508.30533 L 855.88434 -517.90533 Z"
+}
+
+#[test]
+fn reduced_test_case_11() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(10.0095005, 0.89995164));
+    builder.line_to(point(10.109498, 10.899451));
+    builder.line_to(point(0.10999817, 10.99945));
+    builder.close();
+
+    builder.move_to(point(19.999, -0.19999667));
+    builder.line_to(point(20.098999, 9.799503));
+    builder.line_to(point(10.099499, 9.899502));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 10.0095005 0.89995164 L 10.109498 10.899451 L 0.10999817 10.99945 ZM 19.999 -0.19999667 L 20.098999 9.799503 L 10.099499 9.899502 Z"
+}
+
+#[test]
+fn reduced_test_case_12() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(5.5114865, -8.40378));
+    builder.line_to(point(14.377752, -3.7789207));
+    builder.line_to(point(9.7528925, 5.0873456));
+    builder.close();
+
+    builder.move_to(point(4.62486, -8.866266));
+    builder.line_to(point(18.115986, -13.107673));
+    builder.line_to(point(13.491126, -4.2414064));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M 5.5114865 -8.40378 L 14.377752 -3.7789207 L 9.7528925 5.0873456 ZM 4.62486 -8.866266 L 18.115986 -13.107673 L 13.491126 -4.2414064 Z"
 }
