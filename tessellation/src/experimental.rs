@@ -281,6 +281,11 @@ pub struct FillTessellator {
 
 impl FillTessellator {
     pub fn new() -> Self {
+        #[cfg(not(feature = "release"))]
+        let log = env::var("LYON_FORCE_LOGGING").is_ok();
+        #[cfg(feature = "release")]
+        let log = false;
+
         FillTessellator {
             current_position: point(f32::MIN, f32::MIN),
             current_vertex: VertexId::INVALID,
@@ -292,7 +297,7 @@ impl FillTessellator {
             fill: Spans {
                 spans: Vec::new(),
             },
-            log: env::var("LYON_FORCE_LOGGING").is_ok(),
+            log,
             assume_no_intersection: false,
 
             events: EventQueue::new(),
@@ -319,11 +324,22 @@ impl FillTessellator {
         self.tessellator_loop(builder);
 
         if !self.assume_no_intersection {
-            // TODO: only a few tests break from these assertions
-            //debug_assert!(self.active.edges.is_empty());
+            debug_assert!(self.active.edges.is_empty());
+            // TODO: only a few tests break from this assertions
             //debug_assert!(self.fill.spans.is_empty());
         }
-        // TODO: go over the remaining spans and end them.
+
+        // There shouldn't be any span left after the tessellation ends.
+        // In practice there can be some in complicated self-intersection
+        // situations, so flush them in case they hold some uncommitted
+        // geometry.
+        for span in &mut self.fill.spans {
+            if !span.remove {
+                span.tess.flush_experimental(builder);
+            }
+        }
+
+        self.fill.spans.clear();
 
         builder.end_geometry();
 
