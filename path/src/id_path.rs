@@ -13,7 +13,7 @@ impl PathEventId {
     pub fn to_usize(&self) -> usize { self.0 as usize }
 }
 
-#[repr(u8)]
+#[repr(u32)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 enum Verb {
@@ -31,6 +31,21 @@ union PathOp {
     endpoint: EndpointId,
     ctrl_point: CtrlPointId,
     offset: u32,
+}
+
+impl PathOp {
+    #[inline]
+    fn get_verb(self) -> Verb {
+        assert_is_verb(self);
+        unsafe {
+            self.verb
+        }
+    }
+}
+
+#[inline]
+fn assert_is_verb(op: PathOp) {
+    unsafe { assert!(op.offset < 6) }
 }
 
 /// The commands of a path encoded in a single array using IDs to refer
@@ -241,7 +256,7 @@ impl<'l> PathCommandsSlice<'l> {
     pub fn event(&self, id: PathEventId) -> IdEvent {
         let idx = id.to_usize();
         unsafe {
-            match self.cmds[idx].verb {
+            match self.cmds[idx].get_verb() {
                 Verb::Line => PathEvent::Line {
                     from: self.cmds[idx - 1].endpoint,
                     to: self.cmds[idx + 1].endpoint,
@@ -283,7 +298,7 @@ impl<'l> PathCommandsSlice<'l> {
     /// Returns the next event id within the path.
     pub fn next_event_id_in_sub_path(&self, id: PathEventId) -> PathEventId {
         let idx = id.to_usize();
-        let cmd = unsafe { self.cmds[idx].verb };
+        let cmd = self.cmds[idx].get_verb();
         match cmd {
             Verb::Line | Verb::Begin => PathEventId(id.0 + 2),
             Verb::Quadratic => PathEventId(id.0 + 3),
@@ -295,7 +310,7 @@ impl<'l> PathCommandsSlice<'l> {
     /// Returns the next event id within the path.
     pub fn next_event_id_in_path(&self, id: PathEventId) -> Option<PathEventId> {
         let idx = id.to_usize();
-        let next = match unsafe { self.cmds[idx].verb } {
+        let next = match self.cmds[idx].get_verb() {
             Verb::Line
             | Verb::Begin
             | Verb::End
