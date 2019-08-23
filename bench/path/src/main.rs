@@ -5,7 +5,7 @@ extern crate bencher;
 use lyon::path::{Path, PathEvent, EndpointId, CtrlPointId};
 use lyon::path::id_path;
 
-use lyon::math::point;
+use lyon::math::{Point, point};
 
 use bencher::Bencher;
 
@@ -13,6 +13,8 @@ use bencher::Bencher;
 const N: usize = 100;
 #[cfg(not(feature = "profiling"))]
 const N: usize = 1;
+
+type IdPathBuilder = id_path::IdPathBuilder<Point, Point>;
 
 fn simple_path_build(bench: &mut Bencher) {
     bench.iter(|| {
@@ -61,13 +63,10 @@ fn id_path_build_prealloc(bench: &mut Bencher) {
         let n_ctrl_points = 30000;
         let n_edges = N * 30_000 + N * 20;
 
-        let mut endpoints: Vec<Point> = Vec::new();
-        let mut ctrl_points: Vec<Point> = Vec::new();
-
-        let mut path = id_path::IdPathBuilder::with_capacity(
-            n_endpoints, n_ctrl_points, n_edges,
-            &mut endpoints,
-            &mut ctrl_points,
+        let mut path: IdPathBuilder = id_path::IdPathBuilder::with_capacity(
+            n_endpoints,
+            n_ctrl_points,
+            n_edges,
         );
 
         for _ in 0..N {
@@ -113,11 +112,8 @@ fn id_id_path_build(bench: &mut Bencher) {
 fn id_path_build(bench: &mut Bencher) {
     use lyon::math::Point;
 
-    let mut endpoints: Vec<Point> = Vec::new();
-    let mut ctrl_points: Vec<Point> = Vec::new();
-
     bench.iter(|| {
-        let mut path = id_path::IdPathBuilder::new(&mut endpoints, &mut ctrl_points);
+        let mut path: IdPathBuilder = id_path::IdPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -133,8 +129,6 @@ fn id_path_build(bench: &mut Bencher) {
         let _ = path.build();
     });
 }
-
-
 
 fn simple_path_iter(bench: &mut Bencher) {
     let mut path = Path::builder();
@@ -243,11 +237,8 @@ fn id_path_id_iter(bench: &mut Bencher) {
 fn id_path_iter(bench: &mut Bencher) {
     use lyon::math::Point;
 
-    let mut endpoints: Vec<Point> = Vec::new();
-    let mut ctrl_points: Vec<Point> = Vec::new();
-
     let path = {
-        let mut path = id_path::IdPathBuilder::new(&mut endpoints, &mut ctrl_points);
+        let mut path: IdPathBuilder = id_path::IdPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -265,7 +256,7 @@ fn id_path_iter(bench: &mut Bencher) {
 
     let mut p = point(0.0, 0.0);
     bench.iter(|| {
-        for evt in path.path_iter(&endpoints, &ctrl_points) {
+        for evt in path.iter() {
             p += match evt {
                 PathEvent::Begin { at: p }
                 | PathEvent::Line { to: p, .. }
