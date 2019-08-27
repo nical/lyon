@@ -164,9 +164,9 @@ pub trait Position : Clone {
     fn set_position(&mut self, pos: Point);
 }
 
-impl<U> Position for crate::geom::euclid::TypedPoint2D<f32, U> {
+impl<U> Position for crate::geom::euclid::Point2D<f32, U> {
     fn position(&self) -> Point { self.to_untyped() }
-    fn set_position(&mut self, pos: Point) { *self = Self::from_untyped(&pos); }
+    fn set_position(&mut self, pos: Point) { *self = Self::from_untyped(pos); }
 }
 
 impl Position for (f32, f32) {

@@ -118,13 +118,13 @@ impl TightBoundingRect for PathEvent<Point, Point> {
             }
             PathEvent::Quadratic { from, ctrl, to } => {
                 let r = QuadraticBezierSegment { from: *from, ctrl: *ctrl, to: *to }.bounding_rect();
-                *min = Point::min(*min, r.origin);
-                *max = Point::max(*max, r.bottom_right());
+                *min = Point::min(*min, r.min());
+                *max = Point::max(*max, r.max());
             }
             PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
                 let r = CubicBezierSegment { from: *from, ctrl1: *ctrl1, ctrl2: *ctrl2, to: *to }.bounding_rect();
-                *min = Point::min(*min, r.origin);
-                *max = Point::max(*max, r.bottom_right());
+                *min = Point::min(*min, r.min());
+                *max = Point::max(*max, r.max());
             }
             PathEvent:: End { .. } => {}
         }

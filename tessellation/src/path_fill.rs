@@ -1581,21 +1581,26 @@ impl FillEvents {
 
         for evt in it {
             match evt {
-                PathEvent::MoveTo(to) => {
-                    builder.move_to(to);
+                PathEvent::Begin { at } => {
+                    builder.move_to(at);
                 }
-                PathEvent::Line(segment) => {
-                    builder.line_to(segment.to);
+                PathEvent::Line { to, .. } => {
+                    builder.line_to(to);
                 }
-                PathEvent::Quadratic(segment) => {
-                    builder.quadratic_segment(segment);
+                PathEvent::Quadratic { from, ctrl, to } => {
+                    builder.quadratic_segment(
+                        QuadraticBezierSegment { from, ctrl, to }
+                    );
                 }
-                PathEvent::Cubic(segment) => {
-                    builder.cubic_segment(segment);
+                PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                    builder.cubic_segment(
+                        CubicBezierSegment { from, ctrl1, ctrl2, to }
+                    );
                 }
-                PathEvent::Close(..) => {
+                PathEvent::End { close: true, .. } => {
                     builder.close();
                 }
+                PathEvent::End { close: false, .. } => {}
             }
         }
 
