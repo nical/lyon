@@ -48,6 +48,8 @@ mod events;
 mod path_state;
 mod path;
 pub mod id_path;
+pub mod id_path3;
+pub mod id_path4;
 pub mod polygon;
 pub mod iterator;
 pub mod builder;
