@@ -3,7 +3,7 @@ use crate::events::{PathEvent, IdEvent};
 
 use std::fmt;
 
-/// Refers to an event in an `IdPathSlice` or `PathCommands`.
+/// Refers to an event in an `GenericPathSlice` or `PathCommands`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathEventId(pub(crate) u32);
@@ -87,8 +87,8 @@ impl PathCommands {
         &'l self,
         endpoints: &'l [Endpoint],
         ctrl_points: &'l [CtrlPoint],
-    ) -> IdPathSlice<Endpoint, CtrlPoint> {
-        IdPathSlice {
+    ) -> GenericPathSlice<Endpoint, CtrlPoint> {
+        GenericPathSlice {
             endpoints,
             ctrl_points,
             cmds: self.as_slice(),
@@ -254,22 +254,22 @@ impl<'l> fmt::Debug for PathCommandsSlice<'l> {
     }
 }
 
-pub struct IdPath<Endpoint, CtrlPoint> {
+pub struct GenericPath<Endpoint, CtrlPoint> {
     cmds: PathCommands,
     endpoints: Box<[Endpoint]>,
     ctrl_points: Box<[CtrlPoint]>,
 }
 
-impl<Endpoint, CtrlPoint> IdPath<Endpoint, CtrlPoint> {
-    /// Creates a [IdPathBuilder](struct.IdPathBuilder.html).
-    pub fn builder() -> IdPathBuilder<Endpoint, CtrlPoint> {
-        IdPathBuilder::new()
+impl<Endpoint, CtrlPoint> GenericPath<Endpoint, CtrlPoint> {
+    /// Creates a [GenericPathBuilder](struct.GenericPathBuilder.html).
+    pub fn builder() -> GenericPathBuilder<Endpoint, CtrlPoint> {
+        GenericPathBuilder::new()
     }
 
     /// Returns a view on a path made of these commands with endpoint and
     /// control point slices.
-    pub fn as_slice(&self) -> IdPathSlice<Endpoint, CtrlPoint> {
-        IdPathSlice {
+    pub fn as_slice(&self) -> GenericPathSlice<Endpoint, CtrlPoint> {
+        GenericPathSlice {
             cmds: self.cmds.as_slice(),
             endpoints: &self.endpoints,
             ctrl_points: &self.ctrl_points,
@@ -283,8 +283,8 @@ impl<Endpoint, CtrlPoint> IdPath<Endpoint, CtrlPoint> {
     }
 
     /// Returns an iterator over the event ids of this path.
-    pub fn event_ids(&self) -> EventIdEvents {
-        EventIdEvents {
+    pub fn event_ids(&self) -> EventIds {
+        EventIds {
             cmds: &self.cmds.cmds[..],
             idx: 0,
         }
@@ -362,14 +362,14 @@ impl<Endpoint, CtrlPoint> IdPath<Endpoint, CtrlPoint> {
     pub fn ctrl_points(&self) -> &[CtrlPoint] { &self.ctrl_points }
 }
 
-impl<Endpoint, CtrlPoint> std::ops::Index<EndpointId> for IdPath<Endpoint, CtrlPoint> {
+impl<Endpoint, CtrlPoint> std::ops::Index<EndpointId> for GenericPath<Endpoint, CtrlPoint> {
     type Output = Endpoint;
     fn index(&self, id: EndpointId) -> &Endpoint {
         &self.endpoints[id.to_usize()]
     }
 }
 
-impl<Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for IdPath<Endpoint, CtrlPoint> {
+impl<Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for GenericPath<Endpoint, CtrlPoint> {
     type Output = CtrlPoint;
     fn index(&self, id: CtrlPointId) -> &CtrlPoint {
         &self.ctrl_points[id.to_usize()]
@@ -378,13 +378,13 @@ impl<Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for IdPath<Endpoint, Ctrl
 
 /// A view on a `Path`.
 #[derive(Copy, Clone)]
-pub struct IdPathSlice<'l, Endpoint, CtrlPoint> {
+pub struct GenericPathSlice<'l, Endpoint, CtrlPoint> {
     endpoints: &'l [Endpoint],
     ctrl_points: &'l [CtrlPoint],
     cmds: PathCommandsSlice<'l>,
 }
 
-impl<'l, Endpoint, CtrlPoint> IdPathSlice<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> GenericPathSlice<'l, Endpoint, CtrlPoint> {
     /// Returns an iterator over the events of the path using IDs.
     pub fn id_events(&self) -> IdEvents {
         self.cmds.id_events()
@@ -403,21 +403,21 @@ impl<'l, Endpoint, CtrlPoint> IdPathSlice<'l, Endpoint, CtrlPoint> {
     }
 }
 
-impl<'l, Endpoint, CtrlPoint> std::ops::Index<EndpointId> for IdPathSlice<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> std::ops::Index<EndpointId> for GenericPathSlice<'l, Endpoint, CtrlPoint> {
     type Output = Endpoint;
     fn index(&self, id: EndpointId) -> &Endpoint {
         &self.endpoints[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for IdPathSlice<'l, Endpoint, CtrlPoint> {
+impl<'l, Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for GenericPathSlice<'l, Endpoint, CtrlPoint> {
     type Output = CtrlPoint;
     fn index(&self, id: CtrlPointId) -> &CtrlPoint {
         &self.ctrl_points[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, CtrlPoint> fmt::Debug for IdPathSlice<'l, Endpoint, CtrlPoint>
+impl<'l, Endpoint, CtrlPoint> fmt::Debug for GenericPathSlice<'l, Endpoint, CtrlPoint>
 where
     Endpoint: fmt::Debug,
     CtrlPoint: fmt::Debug,
@@ -501,13 +501,13 @@ impl<'l> Iterator for IdEvents<'l> {
 
 /// An iterator of `PathEvent<EndpointId, CtrlPointId>`.
 #[derive(Clone)]
-pub struct EventIdEvents<'l> {
+pub struct EventIds<'l> {
     cmds: &'l[PathOp],
     idx: usize,
 
 }
 
-impl<'l> Iterator for EventIdEvents<'l> {
+impl<'l> Iterator for EventIds<'l> {
     type Item = PathEventId;
 
     fn next(&mut self) -> Option<PathEventId> {
@@ -550,33 +550,27 @@ impl<'l, Endpoint, CtrlPoint> Iterator for Events<'l, Endpoint, CtrlPoint> {
                     let to = self.cmds.next().unwrap().offset as usize;
                     self.prev_endpoint = to;
                     self.first_endpoint = to;
-                    Some(
-                        PathEvent::Begin { at: &self.endpoints[to] }
-                    )
+                    Some(PathEvent::Begin { at: &self.endpoints[to] })
                 }
                 Some(&PathOp { verb: Verb::Line }) => {
                     let to = self.cmds.next().unwrap().offset as usize;
                     let from = self.prev_endpoint;
                     self.prev_endpoint = to;
-                    Some(
-                        PathEvent::Line {
-                            from: &self.endpoints[from],
-                            to: &self.endpoints[to],
-                        },
-                    )
+                    Some(PathEvent::Line {
+                        from: &self.endpoints[from],
+                        to: &self.endpoints[to],
+                    })
                 }
                 Some(&PathOp { verb: Verb::Quadratic }) => {
                     let ctrl = self.cmds.next().unwrap().offset as usize;
                     let to = self.cmds.next().unwrap().offset as usize;
                     let from = self.prev_endpoint;
                     self.prev_endpoint = to;
-                    Some(
-                        PathEvent::Quadratic {
-                            from: &self.endpoints[from],
-                            ctrl: &self.ctrl_points[ctrl],
-                            to: &self.endpoints[to],
-                        }
-                    )
+                    Some(PathEvent::Quadratic {
+                        from: &self.endpoints[from],
+                        ctrl: &self.ctrl_points[ctrl],
+                        to: &self.endpoints[to],
+                    })
                 }
                 Some(&PathOp { verb: Verb::Cubic }) => {
                     let ctrl1 = self.cmds.next().unwrap().offset as usize;
@@ -584,40 +578,34 @@ impl<'l, Endpoint, CtrlPoint> Iterator for Events<'l, Endpoint, CtrlPoint> {
                     let to = self.cmds.next().unwrap().offset as usize;
                     let from = self.prev_endpoint;
                     self.prev_endpoint = to;
-                    Some(
-                        PathEvent::Cubic {
-                            from: &self.endpoints[from],
-                            ctrl1: &self.ctrl_points[ctrl1],
-                            ctrl2: &self.ctrl_points[ctrl2],
-                            to: &self.endpoints[to],
-                        }
-                    )
+                    Some(PathEvent::Cubic {
+                        from: &self.endpoints[from],
+                        ctrl1: &self.ctrl_points[ctrl1],
+                        ctrl2: &self.ctrl_points[ctrl2],
+                        to: &self.endpoints[to],
+                    })
                 }
                 Some(&PathOp { verb: Verb::End }) => {
                     let _first_index = self.cmds.next();
                     let last = self.prev_endpoint;
                     let first = self.first_endpoint;
                     self.prev_endpoint = first;
-                    Some(
-                        PathEvent::End {
-                            last: &self.endpoints[last],
-                            first: &self.endpoints[first],
-                            close: false,
-                        }
-                    )
+                    Some(PathEvent::End {
+                        last: &self.endpoints[last],
+                        first: &self.endpoints[first],
+                        close: false,
+                    })
                 }
                 Some(&PathOp { verb: Verb::Close }) => {
                     let _first_index = self.cmds.next();
                     let last = self.prev_endpoint;
                     let first = self.first_endpoint;
                     self.prev_endpoint = first;
-                    Some(
-                        PathEvent::End {
-                            last: &self.endpoints[last],
-                            first: &self.endpoints[first],
-                            close: true,
-                        }
-                    )
+                    Some(PathEvent::End {
+                        last: &self.endpoints[last],
+                        first: &self.endpoints[first],
+                        close: true,
+                    })
                 }
                 _ => None,
             }
@@ -797,7 +785,7 @@ impl PathCommandsBuilder {
         id
     }
 
-    pub fn cubic_bezier_to(&mut self, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId)  -> PathEventId {
+    pub fn cubic_bezier_to(&mut self, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId) -> PathEventId {
         self.begin_if_needed();
         let id = PathEventId(self.cmds.len() as u32);
         self.cmds.push(PathOp { verb: Verb::Cubic });
@@ -855,13 +843,13 @@ impl PathCommandsBuilder {
 }
 
 /// Builds path commands as well as endpoint and control point vectors.
-pub struct IdPathBuilder<Endpoint, CtrlPoint> {
+pub struct GenericPathBuilder<Endpoint, CtrlPoint> {
     endpoints: Vec<Endpoint>,
     ctrl_points: Vec<CtrlPoint>,
     cmds: PathCommandsBuilder,
 }
 
-impl<Endpoint, CtrlPoint> IdPathBuilder<Endpoint, CtrlPoint> {
+impl<Endpoint, CtrlPoint> GenericPathBuilder<Endpoint, CtrlPoint> {
     /// Creates a builder without allocating memory.
     pub fn new() -> Self {
         Self {
@@ -912,8 +900,8 @@ impl<Endpoint, CtrlPoint> IdPathBuilder<Endpoint, CtrlPoint> {
     }
 
     /// Consumes the builder and returns the generated path commands.
-    pub fn build(self) -> IdPath<Endpoint, CtrlPoint> {
-        IdPath {
+    pub fn build(self) -> GenericPath<Endpoint, CtrlPoint> {
+        GenericPath {
             cmds: self.cmds.build(),
             endpoints: self.endpoints.into_boxed_slice(),
             ctrl_points: self.ctrl_points.into_boxed_slice(),

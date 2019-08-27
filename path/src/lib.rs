@@ -47,15 +47,12 @@ pub extern crate serde;
 mod events;
 mod path_state;
 mod path;
-pub mod id_path;
-pub mod id_path3;
-pub mod id_path4;
+pub mod generic;
 pub mod polygon;
 pub mod iterator;
 pub mod builder;
 
 pub use crate::path::*;
-pub use crate::id_path::{PathCommands, PathCommandsBuilder, IdPathSlice, IdPathBuilder};
 pub use crate::events::*;
 pub use crate::path_state::*;
 pub use crate::geom::ArcFlags;
