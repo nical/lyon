@@ -1625,30 +1625,28 @@ impl EventQueueBuilder {
         if path.is_empty() {
             return;
         }
-        let mut cursor = path.cursor();
-        loop {
-            let vertex_id = cursor.endpoint_id();
-            match cursor.event(path) {
-                PathEvent::MoveTo(to) => {
-                    self.move_to(to, vertex_id);
+
+        let endpoint_id = EndpointId(0); // TODO
+        for evt in path.iter() {
+            match evt {
+                PathEvent::Begin { at } => {
+                    self.move_to(at, endpoint_id);
                 }
-                PathEvent::Line(segment) => {
-                    self.line_to(segment.to, vertex_id);
+                PathEvent::Line { to, .. } => {
+                    self.line_to(to, endpoint_id);
                 }
-                PathEvent::Quadratic(segment) => {
+                PathEvent::Quadratic { to, .. } => {
                     // TODO: properly get these ids!
-                    self.quad_to(segment.to, CtrlPointId(vertex_id.0), EndpointId(vertex_id.0 + 1));
+                    self.quad_to(to, CtrlPointId(endpoint_id.0), EndpointId(endpoint_id.0 + 1));
                 }
-                PathEvent::Close(..) => {
+                PathEvent::End { close: true, .. } => {
                     self.close();
                 }
+                PathEvent::End { close: false, .. } => {}
                 _ => { unimplemented!(); }
             }
-
-            if !cursor.next(path) {
-                break;
-            }
         }
+
         self.close();
     }
 

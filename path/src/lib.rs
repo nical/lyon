@@ -160,8 +160,10 @@ impl From<VertexId> for usize {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct CtrlPointId(pub u32);
 impl CtrlPointId {
-    //pub(crate) const INVALID: Self = CtrlPointId(!0u32);
-    pub fn to_usize(&self) -> usize { self.0 as usize }
+    pub const INVALID: Self = CtrlPointId(u32::MAX);
+    pub fn offset(self) -> usize { self.0 as usize }
+    pub fn to_usize(self) -> usize { self.0 as usize }
+    pub fn from_usize(val: usize) -> Self { CtrlPointId(val as u32) }
 }
 
 impl fmt::Debug for CtrlPointId {
@@ -174,8 +176,10 @@ impl fmt::Debug for CtrlPointId {
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct EndpointId(pub u32);
 impl EndpointId {
-    //pub(crate) const INVALID: Self = EndpointId(!0u32);
-    pub fn to_usize(&self) -> usize { self.0 as usize }
+    pub const INVALID: Self = EndpointId(u32::MAX);
+    pub fn offset(self) -> usize { self.0 as usize }
+    pub fn to_usize(self) -> usize { self.0 as usize }
+    pub fn from_usize(val: usize) -> Self { EndpointId(val as u32) }
 }
 
 impl fmt::Debug for EndpointId {

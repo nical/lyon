@@ -1,37 +1,13 @@
 //! The default path data structure.
 
 use crate::builder::*;
-use crate::VertexId;
 use crate::math::*;
 use crate::geom::Arc;
 use crate::{PathEvent, EndpointId, CtrlPointId};
 
 use std::iter::IntoIterator;
-use std::ops;
 use std::mem;
 use std::u32;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EndpointId(pub u32);
-
-impl EndpointId {
-    pub const INVALID: Self = EndpointId(u32::MAX);
-    pub fn offset(self) -> usize { self.0 as usize }
-    pub fn to_usize(self) -> usize { self.0 as usize }
-    pub fn from_usize(val: usize) -> Self { EndpointId(val as u32) }
-    fn add(&mut self, val: u32) { self.0 += val }
-    fn sub(&mut self, val: u32) { self.0 -= val }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct CtrlPointId(pub u32);
-
-impl CtrlPointId {
-    pub const INVALID: Self = CtrlPointId(u32::MAX);
-    pub fn offset(self) -> usize { self.0 as usize }
-    pub fn to_usize(self) -> usize { self.0 as usize }
-    pub fn from_usize(val: usize) -> Self { CtrlPointId(val as u32) }
-}
 
 /// Enumeration corresponding to the [PathEvent](https://docs.rs/lyon_core/*/lyon_core/events/enum.PathEvent.html) enum
 /// without the parameters.
@@ -110,16 +86,6 @@ impl Path {
             points: points.into_boxed_slice(),
         }
     }
-
-    /// Returns a `Cursor` pointing to the start of this `Path`.
-    pub fn cursor(&self) -> Cursor {
-        Cursor {
-            vertex: EndpointId(0),
-            verb: 0,
-            first_vertex: EndpointId(0),
-            first_verb: 0,
-        }
-    }
 }
 
 impl std::ops::Index<EndpointId> for Path {
@@ -154,36 +120,6 @@ impl<'l> PathSlice<'l> {
 
     pub fn iter<'a>(&'a self) -> Iter<'l> {
         Iter::new(self.points, self.verbs)
-    }
-
-    pub fn iter_from(&self, cursor: Cursor) -> Iter {
-        Iter::new(
-            &self.points[cursor.vertex.offset() as usize..],
-            &self.verbs[cursor.verb as usize..],
-        )
-    }
-
-    pub fn iter_until(&self, cursor: Cursor) -> Iter {
-        Iter::new(
-            &self.points[..cursor.vertex.offset() as usize],
-            &self.verbs[..cursor.verb as usize],
-        )
-    }
-
-    pub fn iter_range(&self, cursor: ops::Range<Cursor>) -> Iter {
-        Iter::new(
-            &self.points[cursor.start.vertex.offset() as usize .. cursor.end.vertex.offset() as usize],
-            &self.verbs[cursor.start.verb as usize .. cursor.end.verb as usize],
-        )
-    }
-
-    pub fn cursor(&self) -> Cursor {
-        Cursor {
-            vertex: EndpointId(0),
-            verb: 0,
-            first_vertex: EndpointId(0),
-            first_verb: 0,
-        }
     }
 
     pub fn points(&self) -> &[Point] { self.points }
@@ -351,72 +287,12 @@ impl Builder {
 
     pub fn current_position(&self) -> Point { self.current_position }
 
-    /// Returns a cursor to the next path event.
-    pub fn cursor(&self) -> Cursor {
-        if let Some(verb) = self.verbs.last() {
-            let p = self.points.len() - n_stored_points(*verb) as usize;
-
-            Cursor {
-                vertex: EndpointId::from_usize(p),
-                verb: self.verbs.len() as u32 - 1,
-                first_vertex: self.first_vertex,
-                first_verb: self.first_verb,
-            }
-        } else {
-            Cursor {
-                vertex: EndpointId(0),
-                verb: 0,
-                first_vertex: EndpointId(0),
-                first_verb: 0,
-            }
-        }
-    }
-
     pub fn build(mut self) -> Path {
         self.end_if_needed();
         Path {
             points: self.points.into_boxed_slice(),
             verbs: self.verbs.into_boxed_slice(),
         }
-    }
-}
-
-/// A cursor refers to an event within a Path.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Cursor {
-    vertex: EndpointId,
-    verb: u32,
-    first_vertex: EndpointId,
-    first_verb: u32,
-}
-
-impl Cursor {
-    /// Move the cursor to the next event in the `Path`.
-    ///
-    /// Returns false if the cursor is already at the last event.
-    pub fn next<'l, P>(&mut self, path: P) -> bool
-    where P : Into<PathSlice<'l>> {
-        next_cursor(self, &path.into().verbs)
-    }
-
-    /// Move the cursor to the previous event in the `Path`.
-    ///
-    /// Returns false if the cursor is already at the first event.
-    pub fn previous<'l, P>(&mut self, path: P) -> bool
-    where P : Into<PathSlice<'l>> {
-        prev_cursor(self, &path.into().verbs)
-    }
-
-    /// Returns the `PathEvent` at the current cursor position in the path.
-    pub fn event<'l, P>(&self, path: P) -> PathEvent<Point, Point>
-    where P : Into<PathSlice<'l>> {
-        let path = path.into();
-        event_at_cursor(self, &path.points, &path.verbs)
-    }
-
-    pub fn endpoint_id(&self) -> EndpointId {
-        self.vertex
     }
 }
 
@@ -593,26 +469,6 @@ impl PolygonBuilder for Builder {
     }
 }
 
-impl<'l> ops::Index<EndpointId> for PathSlice<'l> {
-    type Output = Point;
-    fn index(&self, id: EndpointId) -> &Point {
-        &self.points[id.offset() as usize]
-    }
-}
-
-impl ops::Index<EndpointId> for Path {
-    type Output = Point;
-    fn index(&self, id: EndpointId) -> &Point {
-        &self.points[id.offset() as usize]
-    }
-}
-
-impl ops::IndexMut<EndpointId> for Path {
-    fn index_mut(&mut self, id: EndpointId) -> &mut Point {
-        &mut self.points[id.offset() as usize]
-    }
-}
-
 impl PathBuilder for Builder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.quadratic_bezier_to(ctrl, to);
@@ -769,81 +625,6 @@ fn n_stored_points(verb: Verb) -> u32 {
         Verb::CubicTo => 3,
         Verb::Close => 0,
         Verb::End => 0,
-    }
-}
-
-fn next_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
-    if cursor.verb as usize >= verbs.len() - 1 {
-        return false;
-    }
-
-    let verb = verbs[cursor.verb as usize + 1];
-    if verb == Verb::Begin {
-        cursor.first_vertex = cursor.vertex;
-        cursor.first_verb = cursor.verb;
-    }
-
-    cursor.vertex.add(n_stored_points(verb));
-    cursor.verb += 1;
-
-    true
-}
-
-fn prev_cursor(cursor: &mut Cursor, verbs: &[Verb]) -> bool {
-    if cursor.verb == 0 {
-        return false;
-    }
-
-    if verbs[cursor.verb as usize] == Verb::Begin {
-        let mut v = cursor.verb as usize;
-        let mut p = cursor.vertex.0;
-        while p > 0 {
-            v -= 1;
-            p -= n_stored_points(verbs[v]);
-            if verbs[v] == Verb::Begin {
-                break;
-            }
-        }
-
-        cursor.first_vertex = EndpointId(p);
-        cursor.first_verb = v as u32;
-    }
-
-    cursor.vertex.sub(n_stored_points(verbs[cursor.verb as usize - 1]));
-    cursor.verb = cursor.verb - 1;
-
-    true
-}
-
-fn event_at_cursor(cursor: &Cursor, points: &[Point], verbs: &[Verb]) -> PathEvent<Point, Point> {
-    let p = cursor.vertex.to_usize();
-    match verbs[cursor.verb as usize] {
-        Verb::Begin => PathEvent::Begin { at: points[p] },
-        Verb::LineTo => PathEvent::Line {
-            from: points[p - 1],
-            to: points[p],
-        },
-        Verb::QuadraticTo => PathEvent::Quadratic {
-            from: points[p - 1],
-            ctrl: points[p],
-            to: points[p + 1],
-        },
-        Verb::CubicTo => PathEvent::Cubic {
-            from: points[p - 1],
-            ctrl1: points[p],
-            ctrl2: points[p + 1],
-            to: points[p + 2],
-        },
-        Verb::Close => PathEvent::End {
-            last: points[p - 1],
-            first: points[cursor.first_vertex.to_usize()],
-            close: true,
-        },
-        Verb::End => PathEvent::End {
-            last: points[p - 1],
-            first: points[cursor.first_vertex.to_usize()],
-            close: false,
-        },
     }
 }
 
