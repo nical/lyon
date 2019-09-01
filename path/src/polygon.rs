@@ -1,4 +1,5 @@
-use crate::{EndpointId, FlattenedEvent};
+use crate::{EndpointId, CtrlPointId, FlattenedEvent, Position, PositionStore};
+use crate::math::Point;
 
 /// A view over a sequence of endpoint IDs forming a polygon.
 pub struct IdPolygonSlice<'l> {
@@ -103,3 +104,15 @@ impl<'l, T> Iterator for PolygonIter<'l, T> {
     }
 }
 
+impl<'l, Endpoint> PositionStore for PolygonSlice<'l, Endpoint>
+where
+    Endpoint: Position,
+{
+    fn endpoint_position(&self, id: EndpointId) -> Point {
+        self.points[id.to_usize()].position()
+    }
+
+    fn ctrl_point_position(&self, _: CtrlPointId) -> Point {
+        panic!("Polygons do not have control points.");
+    }
+}
