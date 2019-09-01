@@ -29,7 +29,7 @@ use crate::math_utils::compute_normal;
 use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
-use crate::path::iterator::{FlattenedIterator, FromPolyline};
+use crate::path::iterator::FromPolyline;
 use crate::{FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
 use crate::{FillTessellator, TessellationResult};
 
@@ -880,7 +880,7 @@ where
     let mut tess = StrokeTessellator::new();
 
     tess.tessellate_path(
-        FromPolyline::new(is_closed, it).path_events(),
+        FromPolyline::new(is_closed, it),
         options,
         output
     )
@@ -897,7 +897,7 @@ where
     Iter: Iterator<Item = Point>,
 {
     tessellator.tessellate_path(
-        FromPolyline::closed(polyline).path_events(),
+        FromPolyline::closed(polyline),
         options,
         output
     )

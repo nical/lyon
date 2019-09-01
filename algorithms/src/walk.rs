@@ -40,17 +40,18 @@
 //!
 
 use crate::math::*;
-use crate::path::builder::{FlatPathBuilder, PolygonBuilder, build_polygon};
-use crate::path::FlattenedEvent;
+use crate::geom::{QuadraticBezierSegment, CubicBezierSegment, Arc};
+use crate::path::builder::*;
+use crate::path::PathEvent;
 
 use std::f32;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
 pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut dyn Pattern)
-where Iter: Iterator<Item=FlattenedEvent<Point>> {
+where Iter: Iterator<Item=PathEvent<Point, Point>> {
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
-        walker.flat_event(evt);
+        walker.path_event(evt);
         if walker.done {
             return;
         }
@@ -169,6 +170,44 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
     }
 
     fn current_position(&self) -> Point { self.prev }
+}
+
+impl<'l> PathBuilder for PathWalker<'l> {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        let curve = QuadraticBezierSegment {
+            from: self.prev,
+            ctrl,
+            to,
+        };
+        curve.for_each_flattened(0.01, &mut |p| {
+            self.line_to(p);
+        });
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        let curve = CubicBezierSegment {
+            from: self.prev,
+            ctrl1,
+            ctrl2,
+            to,
+        };
+        curve.for_each_flattened(0.01, &mut |p| {
+            self.line_to(p);
+        });
+    }
+
+    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
+        let start_angle = (self.current_position() - center).angle_from_x_axis() - x_rotation;
+        Arc {
+            center,
+            radii,
+            start_angle,
+            sweep_angle,
+            x_rotation,
+        }.for_each_flattened(0.01, &mut |p| {
+            self.line_to(p);
+        });
+    }
 }
 
 impl<'l> PolygonBuilder for PathWalker<'l> {

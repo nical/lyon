@@ -1,6 +1,6 @@
 //! Bounding rectangle computation for paths.
 
-use crate::path::{PathEvent, FlattenedEvent};
+use crate::path::PathEvent;
 use crate::math::{Point, point, Rect};
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use std::f32;
@@ -56,22 +56,6 @@ impl FastBoundingRect for PathEvent<Point, Point> {
                 *max = Point::max(*max, Point::max(*ctrl1, Point::max(*ctrl2, *to)));
             }
             PathEvent::End { .. } => {}
-        }
-    }
-}
-
-impl FastBoundingRect for FlattenedEvent<Point> {
-    fn min_max(&self, min: &mut Point, max: &mut Point) {
-        match self {
-            FlattenedEvent::Begin { at } => {
-                *min = Point::min(*min, *at);
-                *max = Point::max(*max, *at);
-            }
-            FlattenedEvent::Line { to, .. } => {
-                *min = Point::min(*min, *to);
-                *max = Point::max(*max, *to);
-            }
-            FlattenedEvent::End { .. } => {}
         }
     }
 }

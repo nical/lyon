@@ -75,7 +75,7 @@
 //!
 
 use crate::math::*;
-use crate::events::{PathEvent, FlattenedEvent};
+use crate::events::PathEvent;
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
 use crate::path_state::PathState;
 use std::marker::Sized;
@@ -107,22 +107,6 @@ pub trait FlatPathBuilder {
     fn close(&mut self);
 
     fn current_position(&self) -> Point;
-
-    fn flat_event(&mut self, event: FlattenedEvent<Point>) {
-        match event {
-            FlattenedEvent::Begin { at } => {
-                self.move_to(at);
-            }
-            FlattenedEvent::Line { to, .. } => {
-                self.line_to(to);
-            }
-            FlattenedEvent::End { close: true, .. } => {
-                self.close();
-            }
-            FlattenedEvent::End { close: false, .. } => {
-            }
-        }
-    }
 
     /// Returns a builder that approximates all curves with sequences of line segments.
     fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> where Self: Sized {

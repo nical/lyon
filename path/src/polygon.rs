@@ -1,4 +1,4 @@
-use crate::{EndpointId, CtrlPointId, FlattenedEvent, Position, PositionStore};
+use crate::{EndpointId, CtrlPointId, PathEvent, Position, PositionStore};
 use crate::math::Point;
 
 /// A view over a sequence of endpoint IDs forming a polygon.
@@ -19,7 +19,7 @@ impl<'l> IdPolygonSlice<'l> {
     }
 }
 
-// An iterator of `FlattenedEvent<EndpointId>`.
+// An iterator of `PathEvent<EndpointId, ()>`.
 pub struct IdPolygonIter<'l> {
     points: std::slice::Iter<'l, EndpointId>,
     prev: Option<EndpointId>,
@@ -28,21 +28,21 @@ pub struct IdPolygonIter<'l> {
 }
 
 impl<'l> Iterator for IdPolygonIter<'l> {
-    type Item = FlattenedEvent<EndpointId>;
-    fn next(&mut self) -> Option<FlattenedEvent<EndpointId>> {
+    type Item = PathEvent<EndpointId, ()>;
+    fn next(&mut self) -> Option<PathEvent<EndpointId, ()>> {
         match (self.prev, self.points.next()) {
             (Some(from), Some(to)) => {
                 self.prev = Some(*to);
-                Some(FlattenedEvent::Line { from, to: *to })
+                Some(PathEvent::Line { from, to: *to })
             }
             (None, Some(at)) => {
                 self.prev = Some(*at);
                 self.first = *at;
-                Some(FlattenedEvent::Begin { at: *at })
+                Some(PathEvent::Begin { at: *at })
             }
             (Some(last), None) => {
                 self.prev = None;
-                Some(FlattenedEvent::End {
+                Some(PathEvent::End {
                     last,
                     first: self.first,
                     close: self.closed,
@@ -70,7 +70,7 @@ impl<'l, T> PolygonSlice<'l, T> {
     }
 }
 
-// An iterator of `FlattenedEvent<&Endpoint>`.
+// An iterator of `PathEvent<&Endpoint, ()>`.
 pub struct PolygonIter<'l, T> {
     points: std::slice::Iter<'l, T>,
     prev: Option<&'l T>,
@@ -79,21 +79,21 @@ pub struct PolygonIter<'l, T> {
 }
 
 impl<'l, T> Iterator for PolygonIter<'l, T> {
-    type Item = FlattenedEvent<&'l T>;
-    fn next(&mut self) -> Option<FlattenedEvent<&'l T>> {
+    type Item = PathEvent<&'l T, ()>;
+    fn next(&mut self) -> Option<PathEvent<&'l T, ()>> {
         match (self.prev, self.points.next()) {
             (Some(from), Some(to)) => {
                 self.prev = Some(to);
-                Some(FlattenedEvent::Line { from, to })
+                Some(PathEvent::Line { from, to })
             }
             (None, Some(at)) => {
                 self.prev = Some(at);
                 self.first = Some(at);
-                Some(FlattenedEvent::Begin { at })
+                Some(PathEvent::Begin { at })
             }
             (Some(last), None) => {
                 self.prev = None;
-                Some(FlattenedEvent::End {
+                Some(PathEvent::End {
                     last,
                     first: self.first.unwrap(),
                     close: self.closed,

@@ -176,8 +176,6 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
     use std::slice;
     use std::os::raw::c_void;
 
-    use lyon::path::FlattenedEvent;
-
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
     let path = path.build();
@@ -187,13 +185,13 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
     let tolerance = FillOptions::default().tolerance;
     for evt in path.iter().flattened(tolerance) {
         match evt {
-            FlattenedEvent::MoveTo(p) => {
+            PathEvent::MoveTo(p) => {
                 contours.push(vec![p]);
             }
-            FlattenedEvent::LineTo(p) => {
+            PathEvent::LineTo(p) => {
                 contours.last_mut().unwrap().push(p);
             }
-            FlattenedEvent::Close => {}
+            _ => {}
         }
     }
 
