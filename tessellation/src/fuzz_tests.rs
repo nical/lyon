@@ -514,9 +514,9 @@ fn fuzzing_test_case_8() {
 #[test]
 fn fuzzing_test_case_9() {
     let mut builder = Path::builder();
-    // This test exerciese the usual precision robustness with a vertex
+    // This test exercises the usual precision robustness with a vertex
     // very close to an edge.
-    // It was fixed by adjusting the theshold in compare_edge_against_position.
+    // It was fixed by adjusting the threshold in compare_edge_against_position.
 
     builder.move_to(point(659.9835, 415.86328));
     builder.line_to(point(70.36328, 204.36978));
@@ -591,7 +591,7 @@ fn fuzzing_test_case_12() {
 fn fuzzing_test_case_13() {
     let mut builder = Path::builder();
 
-    // There are some very close almost horizontal segments somwhere around
+    // There are some very close almost horizontal segments somewhere around
     // y=773, most likely causing some floating point errors.
 
     builder.move_to(point(410.68304, 821.1684));
