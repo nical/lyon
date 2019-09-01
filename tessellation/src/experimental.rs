@@ -1,12 +1,12 @@
 use crate::{FillOptions, Side};
 use crate::geom::math::*;
 use crate::geom::{LineSegment};
-//use crate::geom::cubic_to_quadratic::cubic_to_monotonic_quadratics;
 use crate::geometry_builder::{GeometryBuilder, VertexId};
 use crate::path_fill::MonotoneTessellator;
-//use crate::path::builder::*;
-use crate::path::{PathEvent, Path, FillRule, Transition, EndpointId, Position};
-use crate::path::generic::PathEventId;
+use crate::path::{
+    PathEvent, IdEvent, Path, FillRule, Transition,
+    EndpointId, PathEventId, PositionStore,
+};
 use std::{u32, f32};
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -1651,25 +1651,29 @@ impl EventQueueBuilder {
         debug_assert!(!self.prev_evt_is_edge);
     }
 
-    fn set_path_with_event_ids(&mut self, path: impl Iterator<Item=(PathEvent<Point, Point>, PathEventId)>) {
-        for (evt, evt_id) in path {
+    fn set_path_with_event_ids(
+        &mut self,
+        path_events: impl Iterator<Item=IdEvent>,
+        points: &impl PositionStore,
+    ) {
+        for evt in path_events {
             match evt {
-                PathEvent::Begin { at } => {
-                    self.begin(at.position());
+                IdEvent::Begin { at } => {
+                    self.begin(points.endpoint_position(at));
                 }
-                PathEvent::Line { to, .. } => {
-                    self.add_edge(to.position(), evt_id);
+                IdEvent::Line { to, edge, .. } => {
+                    self.add_edge(points.endpoint_position(to), edge);
                 }
-                PathEvent::Quadratic { to, .. } => {
+                IdEvent::Quadratic { to, edge, .. } => {
                     // TODO: properly deal with curves!
-                    self.add_edge(to.position(), evt_id);
+                    self.add_edge(points.endpoint_position(to), edge);
                 }
-                PathEvent::Cubic { to, .. } => {
+                IdEvent::Cubic { to, edge, .. } => {
                     // TODO: properly deal with curves!
-                    self.add_edge(to.position(), evt_id);
+                    self.add_edge(points.endpoint_position(to), edge);
                 }
-                PathEvent::End { first, .. } => {
-                    self.end(first.position(), evt_id);
+                IdEvent::End { first, edge, .. } => {
+                    self.end(points.endpoint_position(first), edge);
                 }
             }
         }

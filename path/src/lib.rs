@@ -220,3 +220,8 @@ impl Position for (f32, f32) {
 impl Position for [f32; 2] {
     fn position(&self) -> Point { Point::new(self[0], self[1]) }
 }
+
+pub trait PositionStore {
+    fn endpoint_position(&self, id: EndpointId) -> Point;
+    fn ctrl_point_position(&self, id: CtrlPointId) -> Point;
+}
