@@ -4,6 +4,16 @@ use crate::math::Point;
 
 use std::fmt;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum Event<Edge, Endpoint, CtrlPoint> {
+    Begin { at: Endpoint, },
+    Line { edge: Edge, from: Endpoint, to: Endpoint },
+    Quadratic { edge: Edge, from: Endpoint, ctrl: CtrlPoint, to: Endpoint },
+    Cubic { edge: Edge, from: Endpoint, ctrl1: CtrlPoint, ctrl2: CtrlPoint, to: Endpoint },
+    End { edge: Edge, last: Endpoint, first: Endpoint, close: bool },
+}
+
 /// Refers to an event in an `GenericPathSlice` or `PathCommands`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -315,6 +325,38 @@ impl<Endpoint, CtrlPoint> GenericPath<Endpoint, CtrlPoint> {
             prev_endpoint: 0,
             endpoints: &self.endpoints,
             ctrl_points: &self.ctrl_points,
+        }
+    }
+
+    /// Returns an iterator over the path, with endpoints, control points and path event ids.
+    pub fn events_and_event_ids2(&self) -> EventsAndEventIds2<Endpoint, CtrlPoint> {
+        EventsAndEventIds2 {
+            cmds: self.cmds.cmds.iter(),
+            idx: 0,
+            first_endpoint: 0,
+            prev_endpoint: 0,
+            endpoints: &self.endpoints,
+            ctrl_points: &self.ctrl_points,
+        }
+    }
+
+    pub fn events_and_event_ids3(&self) -> EventsAndEventIds3<Endpoint, CtrlPoint> {
+        EventsAndEventIds3 {
+            cmds: self.cmds.cmds.iter(),
+            idx: 0,
+            first_endpoint: EndpointId(0),
+            prev_endpoint: EndpointId(0),
+            endpoints: &self.endpoints,
+            ctrl_points: &self.ctrl_points,
+        }
+    }
+
+    pub fn events_and_event_ids4(&self) -> EventsAndEventIds4 {
+        EventsAndEventIds4 {
+            cmds: self.cmds.cmds.iter(),
+            idx: 0,
+            first_endpoint: EndpointId(0),
+            prev_endpoint: EndpointId(0),
         }
     }
 
@@ -954,6 +996,337 @@ impl<'l, Endpoint, CtrlPoint> Iterator for EventsAndEventIds<'l, Endpoint, CtrlP
                         },
                         evt_idx,
                     ))
+                }
+                _ => None,
+            }
+        }
+    }
+}
+
+/// An iterator of `PathEvent<&Endpoint, &CtrlPoint>`.
+#[derive(Clone)]
+pub struct EventsAndEventIds2<'l, Endpoint, CtrlPoint> {
+    cmds: std::slice::Iter<'l, PathOp>,
+    idx: u32,
+    prev_endpoint: usize,
+    first_endpoint: usize,
+    endpoints: &'l[Endpoint],
+    ctrl_points: &'l[CtrlPoint],
+}
+
+impl<'l, Endpoint, CtrlPoint> Iterator for EventsAndEventIds2<'l, Endpoint, CtrlPoint> {
+    type Item = Event<PathEventId, &'l Endpoint, &'l CtrlPoint>;
+
+    fn next(&mut self) -> Option<Event<PathEventId, &'l Endpoint, &'l CtrlPoint>> {
+        let evt_idx = PathEventId(self.idx);
+
+        unsafe {
+            match self.cmds.next() {
+                Some(&PathOp { verb: Verb::Begin }) => {
+                    let to = self.cmds.next().unwrap().offset as usize;
+                    self.prev_endpoint = to;
+                    self.first_endpoint = to;
+                    self.idx += 2;
+                    Some(
+                        Event::Begin {
+                            at: &self.endpoints[to]
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Line }) => {
+                    let to = self.cmds.next().unwrap().offset as usize;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 2;
+                    Some(
+                        Event::Line {
+                            edge: evt_idx,
+                            from: &self.endpoints[from],
+                            to: &self.endpoints[to],
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Quadratic }) => {
+                    let ctrl = self.cmds.next().unwrap().offset as usize;
+                    let to = self.cmds.next().unwrap().offset as usize;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 3;
+                    Some(
+                        Event::Quadratic {
+                            edge: evt_idx,
+                            from: &self.endpoints[from],
+                            ctrl: &self.ctrl_points[ctrl],
+                            to: &self.endpoints[to],
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Cubic }) => {
+                    let ctrl1 = self.cmds.next().unwrap().offset as usize;
+                    let ctrl2 = self.cmds.next().unwrap().offset as usize;
+                    let to = self.cmds.next().unwrap().offset as usize;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 4;
+                    Some(
+                        Event::Cubic {
+                            edge: evt_idx,
+                            from: &self.endpoints[from],
+                            ctrl1: &self.ctrl_points[ctrl1],
+                            ctrl2: &self.ctrl_points[ctrl2],
+                            to: &self.endpoints[to],
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::End }) => {
+                    let _first_index = self.cmds.next();
+                    let last = self.prev_endpoint;
+                    let first = self.first_endpoint;
+                    self.prev_endpoint = first;
+                    self.idx += 2;
+                    Some(
+                        Event::End {
+                            edge: evt_idx,
+                            last: &self.endpoints[last],
+                            first: &self.endpoints[first],
+                            close: false,
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Close }) => {
+                    let _first_index = self.cmds.next();
+                    let last = self.prev_endpoint;
+                    let first = self.first_endpoint;
+                    self.prev_endpoint = first;
+                    self.idx += 2;
+                    Some(
+                        Event::End {
+                            edge: evt_idx,
+                            last: &self.endpoints[last],
+                            first: &self.endpoints[first],
+                            close: true,
+                        },
+                    )
+                }
+                _ => None,
+            }
+        }
+    }
+}
+
+/// An iterator of `PathEvent<&Endpoint, &CtrlPoint>`.
+#[derive(Clone)]
+pub struct EventsAndEventIds3<'l, Endpoint, CtrlPoint> {
+    cmds: std::slice::Iter<'l, PathOp>,
+    idx: u32,
+    prev_endpoint: EndpointId,
+    first_endpoint: EndpointId,
+    endpoints: &'l[Endpoint],
+    ctrl_points: &'l[CtrlPoint],
+}
+
+impl<'l, Endpoint, CtrlPoint> Iterator for EventsAndEventIds3<'l, Endpoint, CtrlPoint> {
+    type Item = Event<PathEventId, (&'l Endpoint, EndpointId), (&'l CtrlPoint, CtrlPointId)>;
+
+    fn next(&mut self) -> Option<Event<PathEventId, (&'l Endpoint, EndpointId), (&'l CtrlPoint, CtrlPointId)>> {
+        let evt_idx = PathEventId(self.idx);
+
+        unsafe {
+            match self.cmds.next() {
+                Some(&PathOp { verb: Verb::Begin }) => {
+                    let to = self.cmds.next().unwrap().endpoint;
+                    self.prev_endpoint = to;
+                    self.first_endpoint = to;
+                    self.idx += 2;
+                    Some(
+                        Event::Begin {
+                            at: (&self.endpoints[to.to_usize()], to)
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Line }) => {
+                    let to = self.cmds.next().unwrap().endpoint;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 2;
+                    Some(
+                        Event::Line {
+                            edge: evt_idx,
+                            from: (&self.endpoints[from.to_usize()], from),
+                            to: (&self.endpoints[to.to_usize()], to),
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Quadratic }) => {
+                    let ctrl = self.cmds.next().unwrap().ctrl_point;
+                    let to = self.cmds.next().unwrap().endpoint;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 3;
+                    Some(
+                        Event::Quadratic {
+                            edge: evt_idx,
+                            from: (&self.endpoints[from.to_usize()], from),
+                            ctrl: (&self.ctrl_points[ctrl.to_usize()], ctrl),
+                            to: (&self.endpoints[to.to_usize()], to),
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Cubic }) => {
+                    let ctrl1 = self.cmds.next().unwrap().ctrl_point;
+                    let ctrl2 = self.cmds.next().unwrap().ctrl_point;
+                    let to = self.cmds.next().unwrap().endpoint;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 4;
+                    Some(
+                        Event::Cubic {
+                            edge: evt_idx,
+                            from: (&self.endpoints[from.to_usize()], from),
+                            ctrl1: (&self.ctrl_points[ctrl1.to_usize()], ctrl1),
+                            ctrl2: (&self.ctrl_points[ctrl2.to_usize()], ctrl2),
+                            to: (&self.endpoints[to.to_usize()], to),
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::End }) => {
+                    let _first_index = self.cmds.next();
+                    let last = self.prev_endpoint;
+                    let first = self.first_endpoint;
+                    self.prev_endpoint = first;
+                    self.idx += 2;
+                    Some(
+                        Event::End {
+                            edge: evt_idx,
+                            last: (&self.endpoints[last.to_usize()], last),
+                            first: (&self.endpoints[first.to_usize()], first),
+                            close: false,
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Close }) => {
+                    let _first_index = self.cmds.next();
+                    let last = self.prev_endpoint;
+                    let first = self.first_endpoint;
+                    self.prev_endpoint = first;
+                    self.idx += 2;
+                    Some(
+                        Event::End {
+                            edge: evt_idx,
+                            last: (&self.endpoints[last.to_usize()], last),
+                            first: (&self.endpoints[first.to_usize()], first),
+                            close: true,
+                        },
+                    )
+                }
+                _ => None,
+            }
+        }
+    }
+}
+
+/// An iterator of `PathEvent<&Endpoint, &CtrlPoint>`.
+#[derive(Clone)]
+pub struct EventsAndEventIds4<'l> {
+    cmds: std::slice::Iter<'l, PathOp>,
+    idx: u32,
+    prev_endpoint: EndpointId,
+    first_endpoint: EndpointId,
+}
+
+impl<'l> Iterator for EventsAndEventIds4<'l> {
+    type Item = Event<PathEventId, EndpointId, CtrlPointId>;
+
+    fn next(&mut self) -> Option<Event<PathEventId, EndpointId, CtrlPointId>> {
+        let evt_idx = PathEventId(self.idx);
+
+        unsafe {
+            match self.cmds.next() {
+                Some(&PathOp { verb: Verb::Begin }) => {
+                    let to = self.cmds.next().unwrap().endpoint;
+                    self.prev_endpoint = to;
+                    self.first_endpoint = to;
+                    self.idx += 2;
+                    Some(
+                        Event::Begin {
+                            at: to
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Line }) => {
+                    let to = self.cmds.next().unwrap().endpoint;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 2;
+                    Some(
+                        Event::Line {
+                            edge: evt_idx,
+                            from: from,
+                            to: to,
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Quadratic }) => {
+                    let ctrl = self.cmds.next().unwrap().ctrl_point;
+                    let to = self.cmds.next().unwrap().endpoint;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 3;
+                    Some(
+                        Event::Quadratic {
+                            edge: evt_idx,
+                            from: from,
+                            ctrl: ctrl,
+                            to: to,
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Cubic }) => {
+                    let ctrl1 = self.cmds.next().unwrap().ctrl_point;
+                    let ctrl2 = self.cmds.next().unwrap().ctrl_point;
+                    let to = self.cmds.next().unwrap().endpoint;
+                    let from = self.prev_endpoint;
+                    self.prev_endpoint = to;
+                    self.idx += 4;
+                    Some(
+                        Event::Cubic {
+                            edge: evt_idx,
+                            from: from,
+                            ctrl1: ctrl1,
+                            ctrl2: ctrl2,
+                            to: to,
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::End }) => {
+                    let _first_index = self.cmds.next();
+                    let last = self.prev_endpoint;
+                    let first = self.first_endpoint;
+                    self.prev_endpoint = first;
+                    self.idx += 2;
+                    Some(
+                        Event::End {
+                            edge: evt_idx,
+                            last: last,
+                            first: first,
+                            close: false,
+                        },
+                    )
+                }
+                Some(&PathOp { verb: Verb::Close }) => {
+                    let _first_index = self.cmds.next();
+                    let last = self.prev_endpoint;
+                    let first = self.first_endpoint;
+                    self.prev_endpoint = first;
+                    self.idx += 2;
+                    Some(
+                        Event::End {
+                            edge: evt_idx,
+                            last: last,
+                            first: first,
+                            close: true,
+                        },
+                    )
                 }
                 _ => None,
             }
