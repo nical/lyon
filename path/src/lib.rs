@@ -188,22 +188,22 @@ impl fmt::Debug for EndpointId {
     }
 }
 
-pub trait Position : Clone {
+pub trait Position {
     fn position(&self) -> Point;
-    fn set_position(&mut self, pos: Point);
 }
 
 impl<U> Position for crate::geom::euclid::Point2D<f32, U> {
     fn position(&self) -> Point { self.to_untyped() }
-    fn set_position(&mut self, pos: Point) { *self = Self::from_untyped(pos); }
+}
+
+impl<'l, T: Position> Position for &'l T {
+    fn position(&self) -> Point { (*self).position() }
 }
 
 impl Position for (f32, f32) {
     fn position(&self) -> Point { Point::new(self.0, self.1) }
-    fn set_position(&mut self, pos: Point) { *self = (pos.x, pos.y); }
 }
 
 impl Position for [f32; 2] {
     fn position(&self) -> Point { Point::new(self[0], self[1]) }
-    fn set_position(&mut self, pos: Point) { *self = [pos.x, pos.y]; }
 }

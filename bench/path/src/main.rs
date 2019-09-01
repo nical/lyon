@@ -270,6 +270,43 @@ fn generic_iter(bench: &mut Bencher) {
     });
 }
 
+fn generic_points_iter(bench: &mut Bencher) {
+    use lyon::math::Point;
+
+    let path = {
+        let mut path: GenericPathBuilder = generic::GenericPath::builder();
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(point(0.0, 0.0));
+                for _ in 0..1_000 {
+                    path.line_to(point(1.0, 0.0));
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
+                }
+                path.close();
+            }
+        }
+
+        path.build()
+    };
+
+    let mut p = point(0.0, 0.0);
+    bench.iter(|| {
+        for evt in path.events().points() {
+            p += match evt {
+                PathEvent::Begin { at: p }
+                | PathEvent::Line { to: p, .. }
+                | PathEvent::Quadratic { to: p, .. }
+                | PathEvent::Cubic { to: p, .. }
+                | PathEvent::End { last: p, .. }
+                => {
+                    p.to_vector()
+                }
+            };
+        }
+    });
+}
+
 fn generic_with_evt_id_iter(bench: &mut Bencher) {
     use lyon::math::Point;
 
@@ -323,6 +360,7 @@ benchmark_group!(iter,
     simple_path_id_iter,
     generic_id_iter,
     generic_iter,
+    generic_points2_iter,
     generic_with_evt_id_iter,
 );
 
