@@ -39,7 +39,7 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
 
             let mut builder = Path::builder();
             for e in path.iter().flattened(0.05) {
-                builder.flat_event(e);
+                builder.path_event(e);
             }
 
             let mut vertex_builder = simple_builder(&mut buffers);

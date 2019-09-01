@@ -13,7 +13,7 @@
 //! use lyon_path::iterator::*;
 //! use lyon_path::math::{point, vector};
 //! use lyon_path::geom::BezierSegment;
-//! use lyon_path::{Path, PathEvent, FlattenedEvent};
+//! use lyon_path::{Path, PathEvent};
 //!
 //! fn main() {
 //!     // Start with a path.
@@ -27,7 +27,7 @@
 //!     // A simple std::iter::Iterator<PathEvent<Point, Point>>,
 //!     let simple_iter = path.iter();
 //!
-//!     // Make it an iterator over simpler primitives: FlattenedEvent,
+//!     // Make it an iterator over simpler primitives flattened events,
 //!     // which do not contain any curve. To do so we approximate each curve
 //!     // linear segments according to a tolerance threshold which controls
 //!     // the tradeoff between fidelity of the approximation and amount of
@@ -38,15 +38,16 @@
 //!
 //!     for evt in flattened_iter {
 //!         match evt {
-//!             FlattenedEvent::Begin { at } => { println!(" - move to {:?}", at); }
-//!             FlattenedEvent::Line { from, to } => { println!(" - line {:?} -> {:?}", from, to); }
-//!             FlattenedEvent::End { last, first, close } => {
+//!             PathEvent::Begin { at } => { println!(" - move to {:?}", at); }
+//!             PathEvent::Line { from, to } => { println!(" - line {:?} -> {:?}", from, to); }
+//!             PathEvent::End { last, first, close } => {
 //!                 if close {
 //!                     println!(" - close {:?} -> {:?}", last, first);
 //!                 } else {
 //!                     println!(" - end");
 //!                 }
 //!             }
+//!             _ => { panic!() }
 //!         }
 //!     }
 //!
@@ -58,11 +59,6 @@
 //!             BezierSegment::Quadratic(segment) => { println!("{:?}", segment); }
 //!             BezierSegment::Cubic(segment) => { println!("{:?}", segment); }
 //!         }
-//!     }
-//!
-//!     // It is also possible to iterate over line segments directly with flattened paths.
-//!     for segment in path.iter().flattened(0.1).line_segments() {
-//!         println!("line segment {:?} -> {:?}", segment.from, segment.to);
 //!     }
 //! }
 //! ```
@@ -96,10 +92,8 @@
 //! }
 //! ```
 
-use std::iter;
-
 use crate::math::*;
-use crate::{PathEvent, FlattenedEvent};
+use crate::PathEvent;
 use crate::geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
 
 /// An extension trait for `PathEvent` iterators.
@@ -126,37 +120,7 @@ where
     Iter: Iterator<Item = PathEvent<Point, Point>>,
 {}
 
-/// An extension to the common Iterator interface, that adds information which is useful when
-/// chaining path-specific iterators.
-pub trait FlattenedIterator: Iterator<Item = FlattenedEvent<Point>> + Sized {
-
-    /// Returns an iterator of path events.
-    fn path_events(self) -> iter::Map<Self, fn(FlattenedEvent<Point>) -> PathEvent<Point, Point>> {
-        self.map(flattened_to_path_event)
-    }
-
-    /// Returns an iterator applying a 2D transform to all of its events.
-    fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
-        Transformed::new(mat, self)
-    }
-
-    /// Consumes the iterator and returns the length of the path.
-    fn length(self) -> f32 {
-        flattened_path_length(self)
-    }
-
-    /// Returns an iterator of line segments.
-    fn line_segments(self) -> LineSegments<Self> {
-        LineSegments { iter: self }
-    }
-}
-
-impl<Iter> FlattenedIterator for Iter
-where
-    Iter: Iterator<Item = FlattenedEvent<Point>>,
-{}
-
-/// An iterator that consumes `PathEvent` iterator and yields FlattenedEvents.
+/// An iterator that consumes `PathEvent` iterator and yields flattend path events (with no curves).
 pub struct Flattened<Iter> {
     it: Iter,
     current_position: Point,
@@ -186,30 +150,30 @@ impl<Iter> Iterator for Flattened<Iter>
 where
     Iter: Iterator<Item = PathEvent<Point, Point>>,
 {
-    type Item = FlattenedEvent<Point>;
-    fn next(&mut self) -> Option<FlattenedEvent<Point>> {
+    type Item = PathEvent<Point, Point>;
+    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
         match self.current_curve {
             TmpFlatteningIter::Quadratic(ref mut it) => {
                 if let Some(to) = it.next() {
                     let from = self.current_position;
                     self.current_position = to;
-                    return Some(FlattenedEvent::Line { from, to });
+                    return Some(PathEvent::Line { from, to });
                 }
             }
             TmpFlatteningIter::Cubic(ref mut it) => {
                 if let Some(to) = it.next() {
                     let from = self.current_position;
                     self.current_position = to;
-                    return Some(FlattenedEvent::Line { from, to });
+                    return Some(PathEvent::Line { from, to });
                 }
             }
             _ => {}
         }
         self.current_curve = TmpFlatteningIter::None;
         match self.it.next() {
-            Some(PathEvent::Begin { at }) => Some(FlattenedEvent::Begin { at }),
-            Some(PathEvent::Line { from, to }) => Some(FlattenedEvent::Line { from, to }),
-            Some(PathEvent::End { last, first, close }) => Some(FlattenedEvent::End { last, first, close }),
+            Some(PathEvent::Begin { at }) => Some(PathEvent::Begin { at }),
+            Some(PathEvent::Line { from, to }) => Some(PathEvent::Line { from, to }),
+            Some(PathEvent::End { last, first, close }) => Some(PathEvent::End { last, first, close }),
             Some(PathEvent::Quadratic { from, ctrl, to }) => {
                 self.current_position = from;
                 self.current_curve = TmpFlatteningIter::Quadratic(
@@ -228,9 +192,6 @@ where
         }
     }
 }
-
-#[inline]
-fn flattened_to_path_event(evt: FlattenedEvent<Point>) -> PathEvent<Point, Point> { evt.to_path_event() }
 
 /// Applies a 2D transform to a path iterator and yields the resulting path iterator.
 pub struct Transformed<I> {
@@ -268,7 +229,7 @@ where
 }
 
 
-/// An iterator that consumes an iterator of `Point`s and produces `FlattenedEvent`s.
+/// An iterator that consumes an iterator of `Point`s and produces `PathEvent`s.
 ///
 /// # Example
 ///
@@ -315,9 +276,9 @@ impl<Iter> Iterator for FromPolyline<Iter>
 where
     Iter: Iterator<Item = Point>,
 {
-    type Item = FlattenedEvent<Point>;
+    type Item = PathEvent<Point, Point>;
 
-    fn next(&mut self) -> Option<FlattenedEvent<Point>> {
+    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
         if self.done {
             return None;
         }
@@ -330,15 +291,15 @@ where
             return if self.is_first {
                 self.is_first = false;
                 self.first = next;
-                Some(FlattenedEvent::Begin { at: next })
+                Some(PathEvent::Begin { at: next })
             } else {
-                Some(FlattenedEvent::Line { from, to: next })
+                Some(PathEvent::Line { from, to: next })
             }
         }
 
         self.done = true;
 
-        Some(FlattenedEvent::End {
+        Some(PathEvent::End {
             last: self.current,
             first: self.first,
             close: self.close,
@@ -367,40 +328,6 @@ where Iter: Iterator<Item = PathEvent<Point, Point>> {
     }
 }
 
-/// Turns an iterator of `FlattenedEvent` into an iterator of `LineSegment<f32>`.
-pub struct LineSegments<Iter> {
-    iter: Iter
-}
-
-impl<Iter> Iterator for LineSegments<Iter>
-where Iter: Iterator<Item = FlattenedEvent<Point>> {
-    type Item = LineSegment<f32>;
-    fn next(&mut self) -> Option<LineSegment<f32>> {
-        match self.iter.next() {
-            Some(FlattenedEvent::Line { from, to }) => Some(LineSegment { from, to }),
-            Some(FlattenedEvent::End { last, first, close: true }) => Some(LineSegment { from: last, to: first }),
-            Some(FlattenedEvent::End { close: false, .. }) => self.next(),
-            Some(FlattenedEvent::Begin { .. }) => self.next(),
-            None => None,
-        }
-    }
-}
-
-/// Computes the length of a flattened path.
-fn flattened_path_length<T>(iter: T) -> f32
-where T: Iterator<Item = FlattenedEvent<Point>> {
-    let mut length = 0.0;
-    for evt in iter {
-        match evt {
-            FlattenedEvent::Begin { .. } => {}
-            FlattenedEvent::Line { from, to } => { length += (to - from).length(); }
-            FlattenedEvent::End { last, first, .. } => { length += (first - last).length(); }
-        }
-    }
-
-    length
-}
-
 #[test]
 fn test_from_polyline_open() {
     let points = &[
@@ -412,11 +339,11 @@ fn test_from_polyline_open() {
 
     let mut evts = FromPolyline::open(points.iter().cloned());
 
-    assert_eq!(evts.next(), Some(FlattenedEvent::Begin { at: point(1.0, 1.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Line { from: point(1.0, 1.0), to: point(3.0, 1.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Line { from: point(3.0, 1.0), to: point(4.0, 5.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Line { from: point(4.0, 5.0), to: point(5.0, 2.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::End { last: point(5.0, 2.0), first: point(1.0, 1.0), close: false }));
+    assert_eq!(evts.next(), Some(PathEvent::Begin { at: point(1.0, 1.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(1.0, 1.0), to: point(3.0, 1.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(3.0, 1.0), to: point(4.0, 5.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(4.0, 5.0), to: point(5.0, 2.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::End { last: point(5.0, 2.0), first: point(1.0, 1.0), close: false }));
     assert_eq!(evts.next(), None);
 }
 
@@ -431,10 +358,10 @@ fn test_from_polyline_closed() {
 
     let mut evts = FromPolyline::closed(points.iter().cloned());
 
-    assert_eq!(evts.next(), Some(FlattenedEvent::Begin { at: point(1.0, 1.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Line { from: point(1.0, 1.0), to: point(3.0, 1.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Line { from: point(3.0, 1.0), to: point(4.0, 5.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::Line { from: point(4.0, 5.0), to: point(5.0, 2.0) }));
-    assert_eq!(evts.next(), Some(FlattenedEvent::End { last: point(5.0, 2.0), first: point(1.0, 1.0), close: true }));
+    assert_eq!(evts.next(), Some(PathEvent::Begin { at: point(1.0, 1.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(1.0, 1.0), to: point(3.0, 1.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(3.0, 1.0), to: point(4.0, 5.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(4.0, 5.0), to: point(5.0, 2.0) }));
+    assert_eq!(evts.next(), Some(PathEvent::End { last: point(5.0, 2.0), first: point(1.0, 1.0), close: true }));
     assert_eq!(evts.next(), None);
 }

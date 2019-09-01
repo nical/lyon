@@ -323,20 +323,21 @@ impl Splitter {
         self.point_buffer.clear();
         for evt in path.iter().flattened(self.flattening_tolerance) {
             match evt {
-                FlattenedEvent::Begin { at } => {
+                PathEvent::Begin { at } => {
                     debug_assert!(self.point_buffer.is_empty());
                     self.point_buffer.clear();
                     self.point_buffer.push(at)
                 }
-                FlattenedEvent::Line { to, .. } => {
+                PathEvent::Line { to, .. } => {
                     self.point_buffer.push(to)
                 }
-                FlattenedEvent::End { close, .. } => {
+                PathEvent::End { close, .. } => {
                     if self.point_buffer.len() > 2 {
                         adv.add_polyline(&self.point_buffer, close);
                     }
                     self.point_buffer.clear();
                 }
+                _ => { panic!(); }
             }
         }
     }

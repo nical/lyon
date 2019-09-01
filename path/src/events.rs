@@ -94,50 +94,6 @@ impl<Ep, Cp> PathEvent<Ep, Cp> {
     }
 }
 
-/// Path event enum that can only present line segments.
-///
-/// Useful for algorithms that approximate all curves with line segments.
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum FlattenedEvent<Endpoint> {
-    Begin { at: Endpoint },
-    Line { from: Endpoint, to: Endpoint },
-    End { last: Endpoint, first: Endpoint, close: bool },
-}
-
-impl<T> FlattenedEvent<T> {
-    pub fn to_path_event<Cp>(self) -> PathEvent<T, Cp> {
-        match self {
-            FlattenedEvent::Begin { at } => PathEvent::Begin { at },
-            FlattenedEvent::Line { from, to } => PathEvent::Line { from, to },
-            FlattenedEvent::End { last, first, close } => PathEvent::End { last, first, close, },
-        }
-    }
-}
-
-impl<Ep, Cp> Into<PathEvent<Ep, Cp>> for FlattenedEvent<Ep> {
-    fn into(self) -> PathEvent<Ep, Cp> { self.to_path_event() }
-}
-
-impl Transform for FlattenedEvent<Point> {
-    fn transform(&self, mat: &Transform2D) -> Self {
-        match self {
-            FlattenedEvent::Line { from, to } => FlattenedEvent::Line {
-                from: mat.transform_point(*from),
-                to: mat.transform_point(*to),
-            },
-            FlattenedEvent::Begin { at } => FlattenedEvent::Begin {
-                at: mat.transform_point(*at),
-            },
-            FlattenedEvent::End { first, last, close }  => FlattenedEvent::End {
-                last: mat.transform_point(*last),
-                first: mat.transform_point(*first),
-                close: *close,
-            },
-        }
-    }
-}
-
 impl Transform for PathEvent<Point, Point> {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
