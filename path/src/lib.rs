@@ -188,6 +188,19 @@ impl fmt::Debug for EndpointId {
     }
 }
 
+/// Refers to an event in a path.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct PathEventId(
+    #[doc(hidden)]
+    pub u32
+);
+
+impl PathEventId {
+    pub const INVALID: Self = PathEventId(std::u32::MAX);
+    pub fn to_usize(&self) -> usize { self.0 as usize }
+}
+
 pub trait Position {
     fn position(&self) -> Point;
 }

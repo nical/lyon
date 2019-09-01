@@ -2,7 +2,7 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
-use lyon::path::{Path, PathEvent, EndpointId, CtrlPointId};
+use lyon::path::{Path, PathEvent, IdEvent, EndpointId, CtrlPointId};
 use lyon::path::generic;
 use lyon::path::generic::Event;
 use lyon::math::{Point, point};
@@ -57,7 +57,6 @@ fn simple_path_build_prealloc(bench: &mut Bencher) {
 }
 
 fn generic_build_prealloc(bench: &mut Bencher) {
-    use lyon::math::Point;
     bench.iter(|| {
         let n_endpoints = 30010;
         let n_ctrl_points = 30000;
@@ -110,7 +109,6 @@ fn id_only_generic_build_empty(bench: &mut Bencher) {
 }
 
 fn generic_build_empty(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     bench.iter(|| {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -221,11 +219,11 @@ fn generic_id_iter(bench: &mut Bencher) {
     bench.iter(|| {
         for evt in path.id_events() {
             i += match evt {
-                PathEvent::Begin { at: p }
-                | PathEvent::Line { to: p, .. }
-                | PathEvent::Quadratic { to: p, .. }
-                | PathEvent::Cubic { to: p, .. }
-                | PathEvent::End { last: p, .. }
+                IdEvent::Begin { at: p }
+                | IdEvent::Line { to: p, .. }
+                | IdEvent::Quadratic { to: p, .. }
+                | IdEvent::Cubic { to: p, .. }
+                | IdEvent::End { last: p, .. }
                 => {
                     p.to_usize()
                 }
@@ -235,7 +233,6 @@ fn generic_id_iter(bench: &mut Bencher) {
 }
 
 fn generic_iter(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     let path = {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -272,7 +269,6 @@ fn generic_iter(bench: &mut Bencher) {
 }
 
 fn generic_points_iter(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     let path = {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -309,7 +305,6 @@ fn generic_points_iter(bench: &mut Bencher) {
 }
 
 fn generic_with_evt_id_iter(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     let path = {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -349,7 +344,6 @@ fn generic_with_evt_id_iter(bench: &mut Bencher) {
 }
 
 fn generic_with_evt_id2_iter(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     let path = {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -400,7 +394,6 @@ fn generic_with_evt_id2_iter(bench: &mut Bencher) {
 
 
 fn generic_with_evt_id3_iter(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     let path = {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -442,7 +435,6 @@ fn generic_with_evt_id3_iter(bench: &mut Bencher) {
 }
 
 fn generic_with_evt_id4_iter(bench: &mut Bencher) {
-    use lyon::math::Point;
 
     let path = {
         let mut path: GenericPathBuilder = generic::GenericPath::builder();
@@ -464,24 +456,24 @@ fn generic_with_evt_id4_iter(bench: &mut Bencher) {
     let mut p = point(0.0, 0.0);
     let mut e = 0;
     bench.iter(|| {
-        for evt in path.events_and_event_ids4() {
+        for evt in path.id_events() {
             p += match evt {
-                Event::Begin { at } => {
+                IdEvent::Begin { at } => {
                     path[at].to_vector()
                 }
-                | Event::Line { edge, to: p, .. }
-                | Event::End { edge, last: p, .. }
+                | IdEvent::Line { edge, to: p, .. }
+                | IdEvent::End { edge, last: p, .. }
                 => {
                     let a: u32 = unsafe { std::mem::transmute(edge) };
                     e += a;
                     path[p].to_vector()
                 }
-                Event::Quadratic { edge, ctrl, to, .. } => {
+                IdEvent::Quadratic { edge, ctrl, to, .. } => {
                     let a: u32 = unsafe { std::mem::transmute(edge) };
                     e += a;
                     path[ctrl].to_vector() + path[to].to_vector()
                 }
-                Event::Cubic { edge, ctrl1, ctrl2, to, .. } => {
+                IdEvent::Cubic { edge, ctrl1, ctrl2, to, .. } => {
                     let a: u32 = unsafe { std::mem::transmute(edge) };
                     e += a;
                     path[ctrl1].to_vector() + path[ctrl2].to_vector() + path[to].to_vector()

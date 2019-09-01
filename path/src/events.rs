@@ -1,14 +1,24 @@
 use crate::math::{Point, Transform2D, Transform};
-use crate::{EndpointId, CtrlPointId, Position};
+use crate::{EndpointId, CtrlPointId, PathEventId, Position};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum PathEvent<Endpoint, CtrlPoint> {
+    Begin { at: Endpoint, },
     Line { from: Endpoint, to: Endpoint },
     Quadratic { from: Endpoint, ctrl: CtrlPoint, to: Endpoint },
     Cubic { from: Endpoint, ctrl1: CtrlPoint, ctrl2: CtrlPoint, to: Endpoint },
-    Begin { at: Endpoint, },
     End { last: Endpoint, first: Endpoint, close: bool },
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum IdEvent {
+    Begin { at: EndpointId },
+    Line { from: EndpointId, to: EndpointId, edge: PathEventId },
+    Quadratic { from: EndpointId, ctrl: CtrlPointId, to: EndpointId, edge: PathEventId },
+    Cubic { from: EndpointId, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId, edge: PathEventId },
+    End { last: EndpointId, first: EndpointId, close: bool, edge: PathEventId },
 }
 
 impl<Ep, Cp> PathEvent<Ep, Cp> {
@@ -83,8 +93,6 @@ impl<Ep, Cp> PathEvent<Ep, Cp> {
         }
     }
 }
-
-pub type IdEvent = PathEvent<EndpointId, CtrlPointId>;
 
 /// Path event enum that can only present line segments.
 ///
