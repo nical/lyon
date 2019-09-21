@@ -85,6 +85,11 @@ impl<S: Scalar> Iterator for Flattened<S> {
         }
 
         if let Some(sub_curve) = self.current_curve {
+            if sub_curve.is_a_point(self.tolerance) {
+                self.current_curve = None;
+                return self.next();
+            }
+
             if self.check_inflection {
                 self.check_inflection = false;
                 if let Some(tf) = inflection_approximation_range(&sub_curve, self.tolerance) {
@@ -132,6 +137,37 @@ pub fn flatten_cubic_bezier<S: Scalar, F: FnMut(Point<S>)>(
     flatten_cubic_no_inflection(bezier, tolerance, call_back);
 }
 
+pub fn flatten_cubic_bezier_with_t<S: Scalar, F: FnMut(Point<S>, S)>(
+    mut bezier: CubicBezierSegment<S>,
+    tolerance: S,
+    call_back: &mut F,
+) {
+    let mut inflections: ArrayVec<[S; 2]> = ArrayVec::new();
+    find_cubic_bezier_inflection_points(&bezier, &mut|t| { inflections.push(t); });
+
+    let mut t = S::ZERO;
+    for t_inflection in inflections {
+        let (before, mut after) = bezier.split(t_inflection);
+
+        // Flatten up to the inflection point.
+        flatten_cubic_no_inflection_with_t(before, t, t_inflection, tolerance, call_back);
+
+        t = t_inflection;
+
+        // Approximate the inflection with a segment if need be.
+        if let Some(tf) = inflection_approximation_range(&after, tolerance) {
+            after = after.after_split(tf);
+            t += tf * (S::ONE - t);
+            call_back(after.from, t);
+        }
+
+        bezier = after;
+    }
+
+    // Do the rest of the curve.
+    flatten_cubic_no_inflection_with_t(bezier, t, S::ONE, tolerance, call_back);
+}
+
 // Flatten the curve up to the the inflection point and its approximation range included.
 fn flatten_including_inflection<S: Scalar, F: FnMut(Point<S>)>(
     bezier: &CubicBezierSegment<S>,
@@ -150,7 +186,6 @@ fn flatten_including_inflection<S: Scalar, F: FnMut(Point<S>)>(
     after
 }
 
-
 // The algorithm implemented here is based on:
 // http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
 //
@@ -159,24 +194,49 @@ fn flatten_including_inflection<S: Scalar, F: FnMut(Point<S>)>(
 // then be approximated by a quadratic equation for which the maximum
 // difference from a linear approximation can be much more easily determined.
 fn flatten_cubic_no_inflection<S: Scalar, F: FnMut(Point<S>)>(
-    mut bezier: CubicBezierSegment<S>,
+    mut curve: CubicBezierSegment<S>,
     tolerance: S,
     call_back: &mut F,
 ) {
-    let end = bezier.to;
+    let end = curve.to;
 
-    let mut t = S::ZERO;
-    while t < S::ONE {
-        t = no_inflection_flattening_step(&bezier, tolerance);
+    loop {
+        let step = no_inflection_flattening_step(&curve, tolerance);
 
-        if t == S::ONE {
+        if step >= S::ONE {
+            if !curve.is_a_point(S::ZERO) {
+                call_back(end);
+            }
+
             break;
         }
-        bezier = bezier.after_split(t);
-        call_back(bezier.from);
+        curve = curve.after_split(step);
+        call_back(curve.from);
     }
+}
 
-    call_back(end);
+fn flatten_cubic_no_inflection_with_t<S: Scalar, F: FnMut(Point<S>, S)>(
+    mut curve: CubicBezierSegment<S>,
+    mut t0: S,
+    t1: S,
+    tolerance: S,
+    call_back: &mut F,
+) {
+    let end = curve.to;
+    loop {
+        let step = no_inflection_flattening_step(&curve, tolerance);
+
+        if step >= S::ONE {
+            if t0 < t1 {
+                call_back(end, t1);
+            }
+            break;
+        }
+
+        curve = curve.after_split(step);
+        t0 += step * (t1 - t0);
+        call_back(curve.from, t0);
+    }
 }
 
 fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tolerance: S) -> S {
@@ -432,4 +492,38 @@ fn test_issue_194() {
     });
 
     assert!(points.len() > 2);
+}
+
+#[test]
+fn flatten_with_t() {
+    let segment = CubicBezierSegment {
+        from: Point::new(0.0f32, 0.0),
+        ctrl1: Point::new(0.0, 0.0),
+        ctrl2: Point::new(50.0, 70.0),
+        to: Point::new(100.0, 100.0),
+    };
+
+    for tolerance in &[0.1, 0.01, 0.001, 0.0001] {
+        let tolerance = *tolerance;
+
+        let mut a = Vec::new();
+        segment.for_each_flattened(tolerance, &mut|p| { a.push(p); });
+
+        let mut b = Vec::new();
+        let mut ts = Vec::new();
+        segment.for_each_flattened_with_t(tolerance, &mut|p, t| {
+            b.push(p);
+            ts.push(t);
+        });
+
+        assert_eq!(a, b);
+
+        for i in 0..b.len() {
+            let sampled = segment.sample(ts[i]);
+            let point = b[i];
+            let dist = (sampled - point).length();
+            assert!(dist <= tolerance);
+        }
+    }
+
 }

@@ -2,7 +2,7 @@ use crate::{CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
 use crate::scalar::Scalar;
 use crate::generic_math::{Point, Vector, Rect, rect, Transform2D};
 use crate::monotonic::Monotonic;
-use crate::segment::{Segment, FlatteningStep, FlattenedForEach, BoundingRect};
+use crate::segment::{Segment, FlatteningStep, BoundingRect};
 use crate::segment;
 use arrayvec::ArrayVec;
 
@@ -278,8 +278,19 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Iterates through the curve invoking a callback at each point.
-    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
-        <Self as FlattenedForEach>::for_each_flattened(self, tolerance, call_back);
+    pub fn for_each_flattened<F>(&self, tolerance: S, call_back: &mut F)
+    where
+        F: FnMut(Point<S>)
+    {
+        crate::segment::for_each_flattened(self, tolerance, call_back);
+    }
+
+    /// Iterates through the curve invoking a callback at each point.
+    pub fn for_each_flattened_with_t<F>(&self, tolerance: S, call_back: &mut F)
+    where
+        F: FnMut(Point<S>, S)
+    {
+        crate::segment::for_each_flattened_with_t(self, tolerance, call_back);
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -343,7 +354,14 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Compute the length of the segment using a flattened approximation.
     pub fn approximate_length(&self, tolerance: S) -> S {
-        segment::approximate_length_from_flattening(self, tolerance)
+        let mut from = self.from;
+        let mut len = S::ZERO;
+        self.for_each_flattened(tolerance, &mut|to| {
+            len = len + (to - from).length();
+            from = to;
+        });
+
+        len
     }
 
     /// Returns a triangle containing this curve segment.

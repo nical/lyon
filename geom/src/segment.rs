@@ -77,40 +77,51 @@ pub trait BoundingRect {
     fn fast_bounding_range_y(&self) -> (Self::Scalar, Self::Scalar);
 }
 
-/// Types that implement call-back based iteration
-pub trait FlattenedForEach: Segment {
-    /// Iterates through the curve invoking a callback at each point.
-    fn for_each_flattened<F: FnMut(Point<Self::Scalar>)>(&self, tolerance: Self::Scalar, call_back: &mut F);
-}
-
 /// Types that implement local flattening approximation at the start of the curve.
-pub trait FlatteningStep: FlattenedForEach {
+pub trait FlatteningStep: Segment {
     /// Find the interval of the begining of the curve that can be approximated with a
     /// line segment.
     fn flattening_step(&self, tolerance: Self::Scalar) -> Self::Scalar;
+}
 
-    /// Returns the flattened representation of the curve as an iterator, starting *after* the
-    /// current point.
-    fn flattened(self, tolerance: Self::Scalar) -> Flattened<Self::Scalar, Self> {
-        Flattened::new(self, tolerance)
+pub(crate) fn for_each_flattened<T, F>(curve: &T, tolerance: T::Scalar, call_back: &mut F)
+where
+    T: FlatteningStep,
+    F: FnMut(Point<T::Scalar>)
+{
+    let mut iter = curve.clone();
+    loop {
+        let t = iter.flattening_step(tolerance);
+        if t >= T::Scalar::one() {
+            call_back(iter.to());
+            break;
+        }
+        iter = iter.after_split(t);
+        call_back(iter.from());
     }
 }
 
-impl<T> FlattenedForEach for T
-where T: FlatteningStep
+pub(crate) fn for_each_flattened_with_t<T, F>(curve: &T, tolerance: T::Scalar, call_back: &mut F)
+where
+    T: FlatteningStep,
+    F: FnMut(Point<T::Scalar>, T::Scalar)
 {
-    fn for_each_flattened<F: FnMut(Point<Self::Scalar>)>(&self, tolerance: Self::Scalar, call_back: &mut F) {
-        let mut iter = *self;
-        loop {
-            let t = iter.flattening_step(tolerance);
-            if t >= Self::Scalar::one() {
-                call_back(iter.to());
-                break;
-            }
-            iter = iter.after_split(t);
-            call_back(iter.from());
+    let end = curve.to();
+    let mut curve = curve.clone();
+    let mut t0 = T::Scalar::ZERO;
+    loop {
+        let step = curve.flattening_step(tolerance);
+
+        if step >= T::Scalar::ONE {
+            break;
         }
+
+        curve = curve.after_split(step);
+        t0 += step * (T::Scalar::ONE - t0);
+        call_back(curve.from(), t0);
     }
+
+    call_back(end, T::Scalar::ONE);
 }
 
 /// An iterator over a generic curve segment that yields line segments approximating the
@@ -134,7 +145,6 @@ impl<S: Scalar, T: FlatteningStep> Flattened<S, T> {
         }
     }
 }
-
 impl<S: Scalar, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
 {
     type Item = Point<S>;
@@ -150,18 +160,6 @@ impl<S: Scalar, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
         self.curve = self.curve.after_split(t);
         return Some(self.curve.from());
     }
-}
-
-pub(crate) fn approximate_length_from_flattening<S: Scalar, T>(curve: &T, tolerance: S) -> S
-where T: FlattenedForEach<Scalar=S>
-{
-    let mut start = curve.from();
-    let mut len = S::ZERO;
-    curve.for_each_flattened(tolerance, &mut|p| {
-        len = len + (p - start).length();
-        start = p;
-    });
-    return len;
 }
 
 macro_rules! impl_segment {
