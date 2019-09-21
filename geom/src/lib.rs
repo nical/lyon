@@ -277,6 +277,6 @@ pub mod math {
 
 
 pub mod traits {
-    pub use crate::segment::{Segment, FlattenedForEach, FlatteningStep};
+    pub use crate::segment::{Segment, FlatteningStep};
     //pub use monotonic::MonotonicSegment;
 }

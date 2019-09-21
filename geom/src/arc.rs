@@ -6,7 +6,7 @@ use std::mem::swap;
 use crate::Line;
 use crate::scalar::{Scalar, Float, cast};
 use crate::generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
-use crate::segment::{Segment, FlattenedForEach, FlatteningStep, BoundingRect};
+use crate::segment::{Segment, FlatteningStep, BoundingRect};
 use crate::segment;
 use crate::QuadraticBezierSegment;
 use crate::CubicBezierSegment;
@@ -287,8 +287,19 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Approximates the arc with a sequence of line segments.
-    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
-        <Self as FlattenedForEach>::for_each_flattened(self, tolerance, call_back);
+    pub fn for_each_flattened<F>(&self, tolerance: S, call_back: &mut F)
+    where
+        F: FnMut(Point<S>)
+    {
+        crate::segment::for_each_flattened(self, tolerance, call_back);
+    }
+
+    /// Iterates through the curve invoking a callback at each point.
+    pub fn for_each_flattened_with_t<F>(&self, tolerance: S, call_back: &mut F)
+    where
+        F: FnMut(Point<S>, S)
+    {
+        crate::segment::for_each_flattened_with_t(self, tolerance, call_back);
     }
 
     /// Finds the interval of the beginning of the curve that can be approximated with a
@@ -421,7 +432,14 @@ impl<S: Scalar> Arc<S> {
     }
 
     pub fn approximate_length(&self, tolerance: S) -> S {
-        segment::approximate_length_from_flattening(self, tolerance)
+        let mut from = self.from();
+        let mut len = S::ZERO;
+        self.for_each_flattened(tolerance, &mut|to| {
+            len = len + (to - from).length();
+            from = to;
+        });
+
+        len
     }
 
     #[inline]

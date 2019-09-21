@@ -2,12 +2,12 @@ pub use crate::flatten_cubic::Flattened;
 use crate::{Line, LineSegment, LineEquation, QuadraticBezierSegment};
 use crate::scalar::Scalar;
 use crate::generic_math::{Point, Vector, Rect, rect, Transform2D};
-use crate::flatten_cubic::{flatten_cubic_bezier, find_cubic_bezier_inflection_points};
+use crate::flatten_cubic::{flatten_cubic_bezier, flatten_cubic_bezier_with_t, find_cubic_bezier_inflection_points};
 use crate::cubic_to_quadratic::*;
 use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::monotonic::Monotonic;
 use crate::utils::{min_max, cubic_polynomial_roots};
-use crate::segment::{Segment, FlattenedForEach, approximate_length_from_flattening, BoundingRect};
+use crate::segment::{Segment, BoundingRect};
 use arrayvec::ArrayVec;
 
 use std::ops::Range;
@@ -394,10 +394,21 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
         flatten_cubic_bezier(*self, tolerance, call_back);
     }
+    /// Iterates through the curve invoking a callback at each point.
+    pub fn for_each_flattened_with_t<F: FnMut(Point<S>, S)>(&self, tolerance: S, call_back: &mut F) {
+        flatten_cubic_bezier_with_t(*self, tolerance, call_back);
+    }
 
     /// Compute the length of the segment using a flattened approximation.
     pub fn approximate_length(&self, tolerance: S) -> S {
-        approximate_length_from_flattening(self, tolerance)
+        let mut from = self.from;
+        let mut len = S::ZERO;
+        self.for_each_flattened(tolerance, &mut|to| {
+            len = len + (to - from).length();
+            from = to;
+        });
+
+        len
     }
 
     pub fn for_each_inflection_t<F>(&self, cb: &mut F)
@@ -831,12 +842,6 @@ impl<S: Scalar> BoundingRect for CubicBezierSegment<S> {
     fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
     fn fast_bounding_range_x(&self) -> (S, S) { self.fast_bounding_range_x() }
     fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
-}
-
-impl<S: Scalar> FlattenedForEach for CubicBezierSegment<S> {
-    fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, call_back: &mut F) {
-        self.for_each_flattened(tolerance, call_back);
-    }
 }
 
 /// A monotonically increasing in x and y quadratic bézier curve segment
