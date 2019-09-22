@@ -1,6 +1,6 @@
 use crate::{FillOptions, Side};
 use crate::geom::math::*;
-use crate::geom::{LineSegment};
+use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
 use crate::geometry_builder::{GeometryBuilder, VertexId};
 use crate::path_fill::MonotoneTessellator;
 use crate::path::{
@@ -1607,6 +1607,7 @@ struct EventQueueBuilder {
     nth: u32,
     tx: EventQueue,
     prev_evt_is_edge: bool,
+    tolerance: f32,
 }
 
 impl EventQueueBuilder {
@@ -1618,6 +1619,7 @@ impl EventQueueBuilder {
             nth: 0,
             tx: EventQueue::with_capacity(cap),
             prev_evt_is_edge: false,
+            tolerance: 0.1,
         }
     }
 
@@ -1629,15 +1631,22 @@ impl EventQueueBuilder {
                     self.begin(at);
                 }
                 PathEvent::Line { to, .. } => {
-                    self.add_edge(to, evt_id);
+                    self.line_segment(to, evt_id, 0.0, 1.0);
                 }
-                PathEvent::Quadratic { to, .. } => {
-                    // TODO: properly deal with curves!
-                    self.add_edge(to, evt_id);
+                PathEvent::Quadratic { ctrl, to, .. } => {
+                    self.quadratic_bezier_segment(
+                        ctrl,
+                        to,
+                        evt_id,
+                    );
                 }
-                PathEvent::Cubic { to, .. } => {
-                    // TODO: properly deal with curves!
-                    self.add_edge(to, evt_id);
+                PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                    self.cubic_bezier_segment(
+                        ctrl1,
+                        ctrl2,
+                        to,
+                        evt_id,
+                    );
                 }
                 PathEvent::End { first, .. } => {
                     self.end(first, evt_id);
@@ -1662,15 +1671,22 @@ impl EventQueueBuilder {
                     self.begin(points.endpoint_position(at));
                 }
                 IdEvent::Line { to, edge, .. } => {
-                    self.add_edge(points.endpoint_position(to), edge);
+                    self.line_segment(points.endpoint_position(to), edge, 0.0, 1.0);
                 }
-                IdEvent::Quadratic { to, edge, .. } => {
-                    // TODO: properly deal with curves!
-                    self.add_edge(points.endpoint_position(to), edge);
+                IdEvent::Quadratic { ctrl, to, edge, .. } => {
+                    self.quadratic_bezier_segment(
+                        points.ctrl_point_position(ctrl),
+                        points.endpoint_position(to),
+                        edge,
+                    );
                 }
-                IdEvent::Cubic { to, edge, .. } => {
-                    // TODO: properly deal with curves!
-                    self.add_edge(points.endpoint_position(to), edge);
+                IdEvent::Cubic { ctrl1, ctrl2, to, edge, .. } => {
+                    self.cubic_bezier_segment(
+                        points.ctrl_point_position(ctrl1),
+                        points.ctrl_point_position(ctrl2),
+                        points.endpoint_position(to),
+                        edge,
+                    );
                 }
                 IdEvent::End { first, edge, .. } => {
                     self.end(points.endpoint_position(first), edge);
@@ -1701,7 +1717,7 @@ impl EventQueueBuilder {
         // Unless we are already back to the first point, we need to
         // to insert an edge.
         if self.current != first {
-            self.add_edge(first, evt_id)
+            self.line_segment(first, evt_id, 0.0, 0.0);
         }
 
         // Since we can only check for the need of a vertex event when
@@ -1723,27 +1739,14 @@ impl EventQueueBuilder {
         self.current = to;
     }
 
-    fn add_edge(&mut self, to: Point, evt_id: PathEventId) {
-        debug_assert!(evt_id != PathEventId::INVALID);
-
-        if self.current == to {
-            return;
-        }
-
-        let mut evt_pos = self.current;
+    fn add_edge(&mut self, from: Point, to: Point, mut winding: i16, evt_id: PathEventId, mut t0: f32, mut t1: f32) {
+        let mut evt_pos = from;
         let mut evt_to = to;
-        let mut winding = 1;
-        let mut t0 = 0.0;
-        let mut t1 = 1.0;
         if is_after(evt_pos, to) {
-            if self.nth > 0 && is_after(evt_pos, self.prev) {
-                self.vertex_event(evt_pos, evt_id);
-            }
-
             evt_to = evt_pos;
             evt_pos = to;
             swap(&mut t0, &mut t1);
-            winding = -1;
+            winding *= -1;
         }
 
         self.tx.push(evt_pos);
@@ -1755,14 +1758,167 @@ impl EventQueueBuilder {
             is_edge: true,
         });
 
+        self.nth += 1;
+        self.prev_evt_is_edge = true;
+    }
+
+    fn line_segment(&mut self, to: Point, evt_id: PathEventId, t0: f32, t1: f32) {
+        debug_assert!(evt_id != PathEventId::INVALID);
+
+        let from = self.current;
+        if from == to {
+            return;
+        }
+
+        if is_after(from, to) {
+            if self.nth > 0 && is_after(from, self.prev) {
+                self.vertex_event(from, evt_id);
+            }
+        }
+
         if self.nth == 0 {
             self.second = to;
         }
 
-        self.nth += 1;
+        self.add_edge(from, to, 1, evt_id, t0, t1);
+
         self.prev = self.current;
         self.current = to;
-        self.prev_evt_is_edge = true;
+    }
+
+    fn quadratic_bezier_segment(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        evt_id: PathEventId,
+    ) {
+        // Swap the curve so that it always goes downwards. This way if two
+        // paths share the same edge with different windings, the flattening will
+        // play out the same way, which avoid cracks.
+
+        // We have to put special care into properly tracking the previous and second
+        // points as if we hadn't swapped.
+
+        let original = QuadraticBezierSegment {
+            from: self.current,
+            ctrl,
+            to,
+        };
+
+        let needs_swap = is_after(original.from, original.to);
+
+        let mut segment = original;
+        let mut winding = 1;
+        if needs_swap {
+            swap(&mut segment.from, &mut segment.to);
+            winding = -1;
+        }
+
+        let mut t0 = 0.0;
+        let mut prev = segment.from;
+        let mut from = segment.from;
+        let mut first = None;
+        let is_first_edge = self.nth == 0;
+        segment.for_each_flattened_with_t(self.tolerance, &mut|to, t1| {
+            if first == None {
+                first = Some(to)
+                // We can't call vertex(prev, from, to) in the first iteration
+                // because if we flipped the curve, we don't have a proper value for
+                // the previous vertex yet.
+                // We'll handle it after the loop.
+            } else if is_after(from, to) && is_after(from, prev) {
+                self.vertex_event(from, evt_id);
+            }
+
+            self.add_edge(from, to, winding, evt_id, t0, t1);
+
+            t0 = t1;
+            prev = from;
+            from = to;
+        });
+
+        let first = first.unwrap();
+        let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+
+        if is_first_edge {
+            self.second = second;
+        } else if is_after(original.from, self.prev) && is_after(original.from, second) {
+            // Handle the first vertex we took out of the loop above.
+            // The missing vertex is always the origin of the edge (before the flip).
+            self.vertex_event(original.from, evt_id);
+        }
+
+        self.prev = previous;
+        self.current = original.to;
+    }
+
+    fn cubic_bezier_segment(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        evt_id: PathEventId,
+    ) {
+        // Swap the curve so that it always goes downwards. This way if two
+        // paths share the same edge with different windings, the flattening will
+        // play out the same way, which avoid cracks.
+
+        // We have to put special care into properly tracking the previous and second
+        // points as if we hadn't swapped.
+
+        let original = CubicBezierSegment {
+            from: self.current,
+            ctrl1,
+            ctrl2,
+            to,
+        };
+
+        let needs_swap = is_after(original.from, original.to);
+
+        let mut segment = original;
+        let mut winding = 1;
+        if needs_swap {
+            swap(&mut segment.from, &mut segment.to);
+            swap(&mut segment.ctrl1, &mut segment.ctrl2);
+            winding = -1;
+        }
+
+        let mut t0 = 0.0;
+        let mut prev = segment.from;
+        let mut from = segment.from;
+        let mut first = None;
+        let is_first_edge = self.nth == 0;
+        segment.for_each_flattened_with_t(self.tolerance, &mut|to, t1| {
+            if first == None {
+                first = Some(to)
+                // We can't call vertex(prev, from, to) in the first iteration
+                // because if we flipped the curve, we don't have a proper value for
+                // the previous vertex yet.
+                // We'll handle it after the loop.
+            } else if is_after(from, to) && is_after(from, prev) {
+                self.vertex_event(from, evt_id);
+            }
+
+            self.add_edge(from, to, winding, evt_id, t0, t1);
+
+            t0 = t1;
+            prev = from;
+            from = to;
+        });
+
+        let first = first.unwrap();
+        let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+
+        if is_first_edge {
+            self.second = second;
+        } else if is_after(original.from, self.prev) && is_after(original.from, second) {
+            // Handle the first vertex we took out of the loop above.
+            // The missing vertex is always the origin of the edge (before the flip).
+            self.vertex_event(original.from, evt_id);
+        }
+
+        self.prev = previous;
+        self.current = original.to;
     }
 
     fn build(mut self) -> EventQueue {

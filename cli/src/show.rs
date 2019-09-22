@@ -115,13 +115,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
                     println!(" -- running the experimental tessellator.");
 
-                    let mut builder = Path::builder();
-                    for e in cmd.path.iter().flattened(options.tolerance) {
-                        println!("{:?}", e);
-                        builder.flat_event(e);
-                    }
-
                     let mut tess = experimental::FillTessellator::new();
+
                     let dbg_receiver = render_options.debugger.map(|flags| {
                         let (dbg_tx, dbg_rx) = debugger_channel();
                         tess.install_debugger(Box::new(Filter::new(flags, dbg_tx)));
@@ -130,7 +125,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                     });
 
                     tess.tessellate_path(
-                        &builder.build(),
+                        &cmd.path,
                         &options,
                         &mut BuffersBuilder::new(&mut geometry, WithId(0))
                     );

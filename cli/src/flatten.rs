@@ -1,6 +1,6 @@
 use commands::PathCmd;
 use lyon::path::iterator::*;
-use lyon::path::FlattenedEvent;
+use lyon::path::PathEvent;
 use std::io;
 
 #[derive(Debug)]
@@ -23,14 +23,15 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
         let mut num_vertices = 0;
         for event in cmd.path.iter().flattened(cmd.tolerance) {
             match event {
-                FlattenedEvent::Begin { .. } => {
+                PathEvent::Begin { .. } => {
                     num_vertices += 1;
                     num_paths += 1;
                 }
-                FlattenedEvent::Line { .. } => {
+                PathEvent::Line { .. } => {
                     num_vertices += 1;
                 }
-                FlattenedEvent::End { .. } => {}
+                PathEvent::End { .. } => {}
+                _ => { panic!("Flattening produced curves."); }
             }
         }
 
@@ -42,13 +43,13 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
 
     for event in cmd.path.iter().flattened(cmd.tolerance) {
         match event {
-            FlattenedEvent::Begin { at } => {
+            PathEvent::Begin { at } => {
                 write!(&mut *cmd.output, "M {} {} ", at.x, at.y)?;
             }
-            FlattenedEvent::Line { to, .. } => {
+            PathEvent::Line { to, .. } => {
                 write!(&mut *cmd.output, "L {} {} ", to.x, to.y)?;
             }
-            FlattenedEvent::End { close: true, .. } => {
+            PathEvent::End { close: true, .. } => {
                 write!(&mut *cmd.output, "Z")?;
             }
             _ => {}
