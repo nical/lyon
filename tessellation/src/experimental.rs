@@ -1717,7 +1717,7 @@ impl EventQueueBuilder {
         // Unless we are already back to the first point, we need to
         // to insert an edge.
         if self.current != first {
-            self.line_segment(first, evt_id, 0.0, 0.0);
+            self.line_segment(first, evt_id, 0.0, 1.0);
         }
 
         // Since we can only check for the need of a vertex event when
@@ -1935,9 +1935,10 @@ pub struct VertexSourceIterator<'l> {
     id: EventId,
 }
 
+#[derive(Clone, Debug)]
 pub enum VertexSource {
     Endpoint { endpoint: EndpointId },
-    OnEdge { id: PathEventId, t: f32 },
+    Edge { id: PathEventId, t: f32 },
 }
 
 impl<'l> Iterator for VertexSourceIterator<'l> {
@@ -1951,7 +1952,7 @@ impl<'l> Iterator for VertexSourceIterator<'l> {
 
         self.id = self.events.next_sibling_id(self.id);
 
-        Some(VertexSource::OnEdge {
+        Some(VertexSource::Edge {
             id: edge.evt_id,
             t: edge.range.start,
         })
@@ -1964,7 +1965,7 @@ fn remap_t_in_range(val: f32, range: Range<f32>) -> f32 {
         range.start + val * d
     } else {
         let d = range.start - range.end;
-        range.end + val * d
+        range.end + (1.0 - val) * d
     }
 }
 
@@ -2690,4 +2691,90 @@ fn reduced_test_case_12() {
 
     // SVG path syntax:
     // "M 5.5114865 -8.40378 L 14.377752 -3.7789207 L 9.7528925 5.0873456 ZM 4.62486 -8.866266 L 18.115986 -13.107673 L 13.491126 -4.2414064 Z"
+}
+
+#[test]
+fn vertex_source_01() {
+    use crate::geometry_builder::*;
+
+    // Check the vertex sources of a simple self-intersecting shape.
+    //    _
+    //  _|_|_
+    // | | | |
+    // |_|_|_|
+    //   |_|
+    //
+
+    let mut builder = Path::builder();
+
+    builder.move_to(point(1.0, 0.0));
+    builder.line_to(point(2.0, 0.0));
+    builder.line_to(point(2.0, 4.0));
+    builder.line_to(point(1.0, 4.0));
+    builder.close();
+
+    builder.move_to(point(0.0, 1.0));
+    builder.line_to(point(0.0, 3.0));
+    builder.line_to(point(3.0, 3.0));
+    builder.line_to(point(3.0, 1.0));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut CheckVertexSources { next_vertex: 0 },
+    );
+
+    fn eq(a: Point, b: Point) -> bool {
+        (a.x - b.x).abs() < 0.00001 && (a.y - b.y).abs() < 0.00001
+    }
+
+    fn at_endpoint(src: &VertexSource) -> bool {
+        match src {
+            VertexSource::Edge { t, .. } => *t == 0.0 || *t == 1.0,
+            VertexSource::Endpoint { .. } => true,
+        }
+    }
+
+    fn on_edge(src: &VertexSource, d: f32) -> bool {
+        match src {
+            VertexSource::Edge { t, .. } => (d - *t).abs() < 0.00001 || (1.0 - d - *t).abs() <= 0.00001,
+            VertexSource::Endpoint { .. } => false,
+        }
+    }
+
+    struct CheckVertexSources {
+        next_vertex: u32,
+    }
+
+    impl GeometryBuilder<Vertex> for CheckVertexSources {
+        fn begin_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+        fn add_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> { panic!(); }
+        fn add_vertex_exp(&mut self, v: Vertex, src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
+            for src in src {
+                if eq(v, point(1.0, 0.0))
+                    || eq(v, point(2.0, 0.0))
+                    || eq(v, point(2.0, 4.0))
+                    || eq(v, point(1.0, 4.0))
+                    || eq(v, point(0.0, 1.0))
+                    || eq(v, point(0.0, 3.0))
+                    || eq(v, point(3.0, 3.0))
+                    || eq(v, point(3.0, 1.0)) {
+                    assert!(at_endpoint(&src));
+                } else {
+                    assert!(on_edge(&src, 1.0/3.0) || on_edge(&src, 0.25));
+                }
+            }
+
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
 }
