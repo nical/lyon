@@ -109,6 +109,8 @@ pub use crate::segment::{Segment, BezierSegment};
 #[doc(inline)]
 pub use crate::monotonic::Monotonic;
 
+pub use crate::scalar::Scalar;
+
 mod scalar {
     pub(crate) use num_traits::{Float, FloatConst, NumCast};
     pub(crate) use num_traits::One;
