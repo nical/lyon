@@ -377,7 +377,7 @@ impl FillTessellator {
     }
 
     fn initialize_events(&mut self, current_event: EventId, output: &mut dyn GeometryBuilder<Vertex>) {
-        tess_log!(self, "\n --- event #{}", current_event);
+        tess_log!(self, "\n\n<!--         event #{}          -->", current_event);
 
         self.current_position = self.events.position(current_event);
 
@@ -422,7 +422,8 @@ impl FillTessellator {
     ) -> bool {
         debug_assert!(!self.current_position.x.is_nan() && !self.current_position.y.is_nan());
 
-        tess_log!(self, "\n --- events at {:?} {:?}         {} edges below",
+        tess_log!(self, "<!--");
+        tess_log!(self, "     events at {:?} {:?}         {} edges below",
             self.current_position,
             self.current_vertex,
             self.edges_below.len(),
@@ -444,6 +445,8 @@ impl FillTessellator {
         // potential self-intersections.
         self.update_active_edges(scan.above_start..scan.above_end);
 
+        tess_log!(self, "-->");
+
         #[cfg(not(feature = "release"))]
         self.log_active_edges();
 
@@ -452,15 +455,33 @@ impl FillTessellator {
 
     #[cfg(not(feature = "release"))]
     fn log_active_edges(&self) {
-        tess_log!(self, "sweep line: {}", self.active.edges.len());
+
+        tess_log!(self, r#"<g style="opacity:0">"#);
+        tess_log!(self, r#"<path d="M 0 {} L 1000 {}" style="stroke:red;"/>"#,
+            self.current_position.y, self.current_position.y
+        );
+        tess_log!(self, "<!-- active edges: -->");
         for (i, e) in self.active.edges.iter().enumerate() {
             if e.is_merge {
-                tess_log!(self, "{} | (merge) {} sort:{}  {:?}", i, e.from, e.sort_x, e.from_id);
+                //tess_log!(self, "{} | (merge) {} sort:{}  {:?}", i, e.from, e.sort_x, e.from_id);
+                tess_log!(self, r#"  <circle cx="{}" cy="{}" r="3px" style="fill: yellow;"/>"#,
+                    e.from.x, e.from.y
+                );
             } else {
-                tess_log!(self, "{} | {} -> {} ({})   x:[{}..{}] sort:{}  {:?}", i, e.from, e.to, e.winding, e.min_x, e.max_x, e.sort_x, e.from_id);
+                //tess_log!(self, "{} | M {} {} L {} {} ({})   x:[{}..{}] sort:{}  {:?}",
+                //    i,
+                //    e.from.x, e.from.y,
+                //    e.to.x, e.to.y,
+                //    e.winding, e.min_x, e.max_x, e.sort_x, e.from_id
+                //);
+                tess_log!(self, r#"  <path d="M {} {} L {} {}"/>"#,
+                    e.from.x, e.from.y,
+                    e.to.x, e.to.y,
+                );
             }
         }
-        tess_log!(self, "spans: {}", self.fill.spans.len());
+        tess_log!(self, "<!-- spans: {}-->", self.fill.spans.len());
+        tess_log!(self, "</g>");
     }
 
     /// Scan the active edges to find the information we will need for the tessellation, without
@@ -602,7 +623,7 @@ impl FillTessellator {
                     }
 
                     if !is_on_edge {
-                        tess_log!(self, "!is_on_edge -> break {:?};", active_edge);
+                        //tess_log!(self, "!is_on_edge -> break {:?};", active_edge);
                         break;
                     }
                 }
@@ -711,7 +732,7 @@ impl FillTessellator {
     }
 
     fn process_edges_above(&mut self, scan: &mut ActiveEdgeScan, output: &mut dyn GeometryBuilder<Vertex>) {
-        tess_log!(self, "merges to resolve: {:?}", scan.merges_to_resolve);
+        //tess_log!(self, "merges to resolve: {:?}", scan.merges_to_resolve);
         for &(span_index, edge_idx) in &scan.merges_to_resolve {
             //  \...\ /.
             //   \...x..  <-- merge vertex
@@ -1054,8 +1075,21 @@ impl FillTessellator {
                 if active_edge.is_merge || below_min_x > active_edge.max_x {
                     continue;
                 }
+
                 if below_max_x < active_edge.min_x {
-                    break;
+                    // We can't early out because there might be edges further on the right
+                    // that extend further on the left which would be missed.
+                    //
+                    // sweep line -> =o===/==/==
+                    //                |\ /  /
+                    //                | o  /
+                    //  edge below -> |   /
+                    //                |  /
+                    //                | / <- missed active edge
+                    //                |/
+                    //                x <- missed intersection
+                    //               /|
+                    continue;
                 }
 
                 let active_segment = LineSegment {
@@ -1206,7 +1240,7 @@ impl FillTessellator {
             }
         }
 
-        self.log_active_edges();
+        //self.log_active_edges();
     }
 
     fn sort_active_edges(&mut self) {
