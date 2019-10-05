@@ -355,6 +355,8 @@ impl FillTessellator {
         &mut self,
         output: &mut dyn GeometryBuilder<Vertex>
     ) {
+        log_svg_preamble(self);
+
         let mut scan = ActiveEdgeScan::new();
         let mut _prev_position = point(-1000000000.0, -1000000000.0); // TODO
         let mut current_event = self.events.first_id();
@@ -456,15 +458,15 @@ impl FillTessellator {
     #[cfg(not(feature = "release"))]
     fn log_active_edges(&self) {
 
-        tess_log!(self, r#"<g style="opacity:0">"#);
-        tess_log!(self, r#"<path d="M 0 {} L 1000 {}" style="stroke:red;"/>"#,
+        tess_log!(self, r#"<g class="active-edges">"#);
+        tess_log!(self, r#"<path d="M 0 {} L 1000 {}" class="sweep-line"/>"#,
             self.current_position.y, self.current_position.y
         );
         tess_log!(self, "<!-- active edges: -->");
         for (i, e) in self.active.edges.iter().enumerate() {
             if e.is_merge {
                 //tess_log!(self, "{} | (merge) {} sort:{}  {:?}", i, e.from, e.sort_x, e.from_id);
-                tess_log!(self, r#"  <circle cx="{}" cy="{}" r="3px" style="fill: yellow;"/>"#,
+                tess_log!(self, r#"  <circle cx="{}" cy="{}" r="3px" class="merge"/>"#,
                     e.from.x, e.from.y
                 );
             } else {
@@ -474,7 +476,7 @@ impl FillTessellator {
                 //    e.to.x, e.to.y,
                 //    e.winding, e.min_x, e.max_x, e.sort_x, e.from_id
                 //);
-                tess_log!(self, r#"  <path d="M {} {} L {} {}"/>"#,
+                tess_log!(self, r#"  <path d="M {} {} L {} {}" class="edge"/>"#,
                     e.from.x, e.from.y,
                     e.to.x, e.to.y,
                 );
@@ -598,7 +600,7 @@ impl FillTessellator {
                         let ex = active_edge.solve_x_for_y(self.current_position.y);
                         tess_log!(self, "ex = {:?}", ex);
                         if (ex - current_x).abs() <= threshold {
-                            tess_log!(self, " -- vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
+                            tess_log!(self, "vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
                             is_on_edge = true;
                             scan.edges_to_split.push(active_edge_idx);
                             // TODO: This is hacky: We only register a merge vertex
@@ -1341,6 +1343,8 @@ impl FillTessellator {
             }
         }
 
+        tess_log!(self, "-->");
+
         #[cfg(not(target = "release"))]
         self.log_active_edges();
     }
@@ -2001,6 +2005,52 @@ fn remap_t_in_range(val: f32, range: Range<f32>) -> f32 {
         let d = range.start - range.end;
         range.end + (1.0 - val) * d
     }
+}
+
+fn log_svg_preamble(tess: &FillTessellator) {
+    tess_log!(tess, r#"
+<svg viewBox="0 0 1000 1000">
+
+<style type="text/css">
+<![CDATA[
+  path.sweep-line {{
+    stroke: red;
+    fill: none;
+  }}
+
+  path.edge {{
+    stroke: blue;
+    fill: none;
+  }}
+
+  path.edge.select {{
+    stroke: green;
+    fill: none;
+  }}
+
+  circle.merge {{
+    fill: yellow;
+    stroke: orange;
+    fill-opacity: 1;
+  }}
+
+  circle.current {{
+    fill: white;
+    stroke: grey;
+    fill-opacity: 1;
+  }}
+
+  g.active-edges {{
+    opacity: 0;
+  }}
+
+  g.active-edges.select {{
+    opacity: 1;
+  }}
+]]>
+</style>
+"#
+    );
 }
 
 #[test]

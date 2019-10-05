@@ -60,6 +60,7 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
 fn test_path(path: PathSlice) {
     let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
+    let try_with_recover = std::env::var("LYON_TEST_RECOVER").is_ok();
 
     let on_error = OnError::Panic;
     let res = ::std::panic::catch_unwind(|| tessellate_path(path, false, on_error));
@@ -68,10 +69,14 @@ fn test_path(path: PathSlice) {
         return;
     }
 
-    // First see if the tessellator detect the error without panicking
-    let recover_mode = ::std::panic::catch_unwind(
-        || tessellate_path(path, false, OnError::Recover)
-    );
+    let recover_mode = if try_with_recover {
+        // First see if the tessellator detect the error without panicking
+        Some(::std::panic::catch_unwind(
+            || tessellate_path(path, false, OnError::Recover)
+        ))
+    } else {
+        None
+    };
 
     if find_test_case {
         crate::extra::debugging::find_reduced_test_case(
@@ -80,11 +85,13 @@ fn test_path(path: PathSlice) {
         );
     }
 
-    print!(" -- Tessellating with OnError::Recover ");
-    if let Ok(result) = recover_mode {
-        println!("returned {:?}.", result);
-    } else {
-        println!("panicked.");
+    if let Some(recover_mode)  = recover_mode {
+        print!(" -- Tessellating with OnError::Recover ");
+        if let Ok(result) = recover_mode {
+            println!("returned {:?}.", result);
+        } else {
+            println!("panicked.");
+        }
     }
 
     if add_logging {
