@@ -559,7 +559,7 @@ impl FillTessellator {
             winding.update(self.fill_rule, active_edge.winding);
             active_edge_idx += 1;
 
-            tess_log!(self, " > {:?}", winding.transition);
+            tess_log!(self, " > {:?} (span {})", winding.transition, winding.span_index);
         }
 
         scan.above_start = active_edge_idx;
@@ -575,10 +575,16 @@ impl FillTessellator {
         if connecting_edges {
             for active_edge in &self.active.edges[active_edge_idx..] {
                 if active_edge.is_merge {
-                    tess_log!(self, "merge to resolve {}", active_edge_idx);
+                    if winding.transition == Transition::Out {
+                        tess_log!(self, "Merge vertex outside of the shape.");
+                        return false;
+                    }
+                    tess_log!(self, "merge to resolve {} span {}", active_edge_idx, winding.span_index);
 
                     if self.fill.spans.len() as SpanIdx <= winding.span_index + 1 {
-                        tess_log!(self, "error: not enough active spans for merge event.");
+                        tess_log!(self, "error: not enough active spans for merge event. spans: {}, winding span idx: {}",
+                            self.fill.spans.len(), winding.span_index
+                        );
                         return false;
                     }
 
@@ -631,7 +637,7 @@ impl FillTessellator {
                 }
 
                 winding.update(self.fill_rule, active_edge.winding);
-                tess_log!(self, " x {:?}", winding.transition);
+                tess_log!(self, " x {:?} (span {})", winding.transition, winding.span_index);
 
                 match (winding.transition, is_first_transition) {
                     (Transition::In, _) => {
@@ -682,10 +688,9 @@ impl FillTessellator {
                             //    x
                             //
                             scan.spans_to_end.push(winding.span_index);
-                            winding.span_index += 1; // not sure
                         } else {
                             tess_log!(self, "error B");
-                            //return false; // TODO
+                            return false;
                         }
                     }
                     (Transition::None, _) => {}
@@ -2775,6 +2780,43 @@ fn reduced_test_case_12() {
 
     // SVG path syntax:
     // "M 5.5114865 -8.40378 L 14.377752 -3.7789207 L 9.7528925 5.0873456 ZM 4.62486 -8.866266 L 18.115986 -13.107673 L 13.491126 -4.2414064 Z"
+}
+
+#[test]
+fn reduced_test_case_13() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(-989.1437, 132.75488));
+    builder.line_to(point(994.39124, -123.3494));
+    builder.line_to(point(518.279, 861.4989));
+    builder.line_to(point(-513.03143, -852.09344));
+    builder.line_to(point(-364.97452, -925.282));
+    builder.line_to(point(370.2221, 934.68744));
+    builder.line_to(point(-206.8905, -973.10284));
+    builder.line_to(point(-43.09149, -994.2518));
+    builder.line_to(point(48.33908, 1003.6572));
+    builder.line_to(point(-116.706924, 997.5573));
+    builder.line_to(point(121.95452, -988.15186));
+    builder.line_to(point(283.74548, -954.96936));
+    builder.line_to(point(-278.49792, 964.3749));
+    builder.line_to(point(-432.6207, 905.0151));
+    builder.line_to(point(437.86832, -895.6096));
+    builder.line_to(point(959.78815, -284.84253));
+    builder.line_to(point(-954.5406, 294.24802));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    );
+
+    // SVG path syntax:
+    // "M -989.1437 132.75488 L 994.39124 -123.3494 L 518.279 861.4989 L -513.03143 -852.09344 L -364.97452 -925.282 L 370.2221 934.68744 L -206.8905 -973.10284 L -43.09149 -994.2518 L 48.33908 1003.6572 L -116.706924 997.5573 L 121.95452 -988.15186 L 283.74548 -954.96936 L -278.49792 964.3749 L -432.6207 905.0151 L 437.86832 -895.6096 L 959.78815 -284.84253 L -954.5406 294.24802 Z"
 }
 
 #[test]
