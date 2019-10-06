@@ -374,6 +374,9 @@ impl FillTessellator {
                 assert!(self.process_events(&mut scan, output));
             }
 
+            #[cfg(not(target = "release"))]
+            self.check_active_edges();
+
             current_event = self.events.next_id(current_event);
         }
     }
@@ -484,6 +487,18 @@ impl FillTessellator {
         }
         tess_log!(self, "<!-- spans: {}-->", self.fill.spans.len());
         tess_log!(self, "</g>");
+    }
+
+    #[cfg(not(feature = "release"))]
+    fn check_active_edges(&self) {
+        let mut winding = 0;
+        for edge in &self.active.edges {
+            if !edge.is_merge {
+                assert!(!is_after(self.current_position, edge.to));
+                winding += edge.winding;
+            }
+        }
+        assert_eq!(winding, 0);
     }
 
     /// Scan the active edges to find the information we will need for the tessellation, without
@@ -805,6 +820,7 @@ impl FillTessellator {
 
         tess_log!(self, "connecting edges: {}..{} {:?}", scan.above_start, scan.above_end, winding.transition);
         tess_log!(self, "winding state before point: {:?}", winding);
+        tess_log!(self, "edges below: {:?}", self.edges_below);
 
         self.sort_edges_below();
 
@@ -958,6 +974,7 @@ impl FillTessellator {
             if self.active.edges[rm_index].is_merge {
                 rm_index += 1
             } else {
+                debug_assert!(!is_after(self.current_position, self.active.edges[rm_index].to));
                 self.active.edges.remove(rm_index);
             }
         }
@@ -1126,11 +1143,25 @@ impl FillTessellator {
                 let active_edge = &mut self.active.edges[active_edge_idx];
 
                 if is_after(self.current_position, intersection_position) {
+                    tess_log!(self, "fix intersection position to current_position");
                     intersection_position = self.current_position;
-                }
+                    // We moved the intersection to the current position to avoid breaking ordering.
+                    // This means we won't be adding an intersection event and we have to treat
+                    // splitting the two edges in a special way:
+                    // - the edge below does not need to be split.
+                    // - the active edge is split so that it's upper part now ends at the current
+                    //   position which means it must be removed, however removing edges ending at
+                    //   the current position happens before the intersection checks. So instead we
+                    //   modify it in place and don't add a new event.
+                    active_edge.from = intersection_position;
+                    let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
+                    let remapped_ta = remap_t_in_range(
+                        ta as f32,
+                        src_range.start..active_edge.range_end,
+                    );
+                    src_range.start = remapped_ta;
 
-                if is_after(active_edge.from, intersection_position) {
-                    intersection_position = active_edge.from;
+                    continue;
                 }
 
                 if is_near(intersection_position, edge_below.to) {
@@ -1287,6 +1318,7 @@ impl FillTessellator {
         }
 
         for idx in edges_to_remove.iter().rev() {
+            tess_log!(self, "remove {:?} above the sweep line", self.active.edges[*idx]);
             self.active.edges.swap_remove(*idx);
         }
 
