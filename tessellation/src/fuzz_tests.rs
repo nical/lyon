@@ -935,3 +935,59 @@ fn fuzzing_test_case_24() {
     // SVG path syntax:
     // "M 941.63104 887.768 L 463.6054 14.021694 L 786.8395 269.5232 L 206.39842 269.54257 ZM 655.32855 788.47534 L 584.65137 82.92281 L 778.00903 971.31165 Z"
 }
+
+
+#[test]
+fn fuzzing_test_case_25() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(228.2623, 592.0345));
+    builder.line_to(point(555.55634, 715.4452));
+    builder.line_to(point(45.484066, 768.08453));
+    builder.line_to(point(272.4859, 270.3846));
+    builder.line_to(point(32.61703, 116.03713));
+    builder.line_to(point(648.2618, 16.285301));
+    builder.line_to(point(580.95404, 245.59433));
+    builder.line_to(point(2.3566484, 313.12997));
+    builder.line_to(point(682.25903, 379.75262));
+    builder.line_to(point(384.63556, 691.0331));
+    builder.line_to(point(682.9832, 315.9526));
+    builder.line_to(point(681.6745, 402.3722));
+    builder.line_to(point(161.04358, 460.23523));
+    builder.line_to(point(78.16988, 270.75607));
+    builder.line_to(point(815.39343, 809.32715));
+    builder.line_to(point(167.37878, 545.24414));
+    builder.line_to(point(794.8285, 560.1468));
+    builder.line_to(point(906.44336, 914.9378));
+    builder.line_to(point(524.25665, 975.65204));
+    builder.line_to(point(57.97714, 42.538704));
+    builder.line_to(point(707.1242, 620.9942));
+    builder.line_to(point(749.42365, 584.4889));
+    builder.line_to(point(3.1077862, 311.23065));
+    builder.line_to(point(967.68823, 96.22514));
+    builder.line_to(point(358.70517, 197.10822));
+    builder.line_to(point(82.55285, 513.58606));
+    builder.line_to(point(463.12057, 558.3593));
+    builder.line_to(point(186.30815, 625.75366));
+    builder.line_to(point(534.1177, 10.356784));
+    builder.line_to(point(264.44156, 954.8361));
+    builder.line_to(point(748.1205, 837.29913));
+    builder.line_to(point(783.36115, 55.865704));
+    builder.line_to(point(735.61633, 431.23483));
+    builder.line_to(point(828.56244, 150.24745));
+    builder.line_to(point(579.3753, 912.09033));
+    builder.line_to(point(137.24046, 254.20135));
+    builder.line_to(point(932.8569, 346.02524));
+    builder.close();
+
+    builder.move_to(point(606.5896, 229.99667));
+    builder.line_to(point(199.31506, 755.65704));
+    builder.line_to(point(40.851532, 641.7679));
+    builder.line_to(point(853.695, 641.7656));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M 228.2623 592.0345 L 555.55634 715.4452 L 45.484066 768.08453 L 272.4859 270.3846 L 32.61703 116.03713 L 648.2618 16.285301 L 580.95404 245.59433 L 2.3566484 313.12997 L 682.25903 379.75262 L 384.63556 691.0331 L 682.9832 315.9526 L 681.6745 402.3722 L 161.04358 460.23523 L 78.16988 270.75607 L 815.39343 809.32715 L 167.37878 545.24414 L 794.8285 560.1468 L 906.44336 914.9378 L 524.25665 975.65204 L 57.97714 42.538704 L 707.1242 620.9942 L 749.42365 584.4889 L 3.1077862 311.23065 L 967.68823 96.22514 L 358.70517 197.10822 L 82.55285 513.58606 L 463.12057 558.3593 L 186.30815 625.75366 L 534.1177 10.356784 L 264.44156 954.8361 L 748.1205 837.29913 L 783.36115 55.865704 L 735.61633 431.23483 L 828.56244 150.24745 L 579.3753 912.09033 L 137.24046 254.20135 L 932.8569 346.02524 ZM 606.5896 229.99667 L 199.31506 755.65704 L 40.851532 641.7679 L 853.695 641.7656 Z"
+}

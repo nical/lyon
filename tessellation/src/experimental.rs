@@ -493,7 +493,9 @@ impl FillTessellator {
     fn check_active_edges(&self) {
         let mut winding = 0;
         for edge in &self.active.edges {
-            if !edge.is_merge {
+            if edge.is_merge {
+                assert!(self.fill_rule.is_in(winding));
+            } else {
                 assert!(!is_after(self.current_position, edge.to));
                 winding += edge.winding;
             }
@@ -1142,7 +1144,7 @@ impl FillTessellator {
 
                 let active_edge = &mut self.active.edges[active_edge_idx];
 
-                if is_after(self.current_position, intersection_position) {
+                if is_near(self.current_position, intersection_position) {
                     tess_log!(self, "fix intersection position to current_position");
                     intersection_position = self.current_position;
                     // We moved the intersection to the current position to avoid breaking ordering.
@@ -1164,31 +1166,27 @@ impl FillTessellator {
                     continue;
                 }
 
+                if intersection_position.y < self.current_position.y {
+                    tess_log!(self, "fixup the intersection because of y coordinate");
+                    intersection_position.y = self.current_position.y + 0.0001; // TODO
+                } else if intersection_position.y == self.current_position.y
+                    && intersection_position.x < self.current_position.x {
+                    tess_log!(self, "fixup the intersection because of x coordinate");
+                    intersection_position.y = self.current_position.y + 0.0001; // TODO
+                }
+
                 if is_near(intersection_position, edge_below.to) {
                     tess_log!(self, "intersection near below.to");
                     intersection_position = edge_below.to;
-                }
-
-                if is_near(intersection_position, active_edge.to) {
+                } else if is_near(intersection_position, active_edge.to) {
                     tess_log!(self, "intersection near below.to");
                     intersection_position = active_edge.to;
                 }
 
                 if is_after(intersection_position, edge_below.to) {
                     intersection_position = edge_below.to;
-                }
-
-                if is_after(intersection_position, active_edge.to) {
+                } else if is_after(intersection_position, active_edge.to) {
                     intersection_position = active_edge.to;
-                }
-
-                if intersection_position.y < self.current_position.y {
-                    tess_log!(self, "fixup the intersection because of y coordinate");
-                    intersection_position.y = self.current_position.y + std::f32::EPSILON; // TODO
-                } else if intersection_position.y == self.current_position.y
-                    && intersection_position.x < self.current_position.x {
-                    tess_log!(self, "fixup the intersection because of x coordinate");
-                    intersection_position.x = self.current_position.x;
                 }
 
                 let a_src_edge_data = self.events.edge_data[active_edge.src_edge as usize].clone();
@@ -1285,6 +1283,10 @@ impl FillTessellator {
         // Merge edges are a little subtle when it comes to sorting.
         // They are points rather than edges and the best we can do is
         // keep their relative ordering with their previous or next edge.
+        // Unfortunately this can cause merge vertices to end up outside of
+        // the shape.
+        // After sorting we go through the active edges and rearrange merge
+        // vertices to prevent that.
 
         let y = self.current_position.y;
 
@@ -1293,10 +1295,12 @@ impl FillTessellator {
         // avoid handling this here.
         let mut edges_to_remove = Vec::new();
 
+        let mut has_merge_vertex = false;
         let mut prev_x = f32::NAN;
         for (i, edge) in self.active.edges.iter_mut().enumerate() {
             if edge.is_merge {
                 debug_assert!(!prev_x.is_nan());
+                has_merge_vertex = true;
                 edge.sort_x = prev_x;
             } else {
                 if is_after(self.current_position, edge.to) {
@@ -1312,7 +1316,7 @@ impl FillTessellator {
                     edge.solve_x_for_y(y)
                 };
 
-                edge.sort_x = x;
+                edge.sort_x = x.max(edge.min_x);
                 prev_x = x;
             }
         }
@@ -1340,6 +1344,40 @@ impl FillTessellator {
                 }
             }
         });
+
+        if !has_merge_vertex {
+            return;
+        }
+
+        let mut winding_number = 0;
+        for i in 0..self.active.edges.len() {
+            let needs_swap = {
+                let edge = &self.active.edges[i];
+                if edge.is_merge {
+                    !self.fill_rule.is_in(winding_number)
+                } else {
+                    winding_number += edge.winding;
+                    false
+                }
+            };
+
+            if needs_swap {
+                let mut w = winding_number;
+                tess_log!(self, "Fixing up merge vertex after sort.");
+                let mut idx = i;
+                loop {
+                    // Roll back previous edge winding and swap.
+                    w -= self.active.edges[idx-1].winding;
+                    self.active.edges.swap(idx, idx-1);
+
+                    if self.fill_rule.is_in(w) {
+                        break;
+                    }
+
+                    idx -= 1;
+                }
+            }
+        }
     }
 
     fn recover_from_error(&mut self) {
@@ -1435,7 +1473,7 @@ fn is_after(a: Point, b: Point) -> bool {
 
 #[inline]
 fn is_near(a: Point, b: Point) -> bool {
-    (a - b).square_length() < 0.001
+    (a - b).square_length() < 0.0001
 }
 
 pub struct Event {
