@@ -551,8 +551,8 @@ fn get_hatching_angle(matches: &ArgMatches) -> Angle<f32> {
     return Angle::zero();
 }
 
-fn get_output(matches: &ArgMatches) -> Box<Write> {
-    let mut output: Box<Write> = Box::new(stdout());
+fn get_output(matches: &ArgMatches) -> Box<dyn Write> {
+    let mut output: Box<dyn Write> = Box::new(stdout());
     if let Some(output_file) = matches.value_of("OUTPUT") {
         if let Ok(file) = File::create(output_file) {
             output = Box::new(file);
