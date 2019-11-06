@@ -441,18 +441,18 @@ fn epsilon_for_point<S: Scalar>(pt: &Point<S>) -> S {
     let max = S::max(S::abs(pt.x), S::abs(pt.y));
     let epsilon = if inputs_are_f32::<S>() {
         match max.to_i32().unwrap() {
-            0 ... 10 => S::value(0.001),
-            10 ... 100 => S::value(0.01),
-            100 ... 1_000 => S::value(0.1),
-            1_000 ... 10_000 => S::value(0.25),
-            10_000 ... 1_000_000 => S::HALF,
+            0 ..= 9 => S::value(0.001),
+            10 ..= 99 => S::value(0.01),
+            100 ..= 999 => S::value(0.1),
+            1_000 ..= 9_999 => S::value(0.25),
+            10_000 ..= 999_999 => S::HALF,
             _ => S::ONE,
         }
     } else {
         match max.to_i64().unwrap() {
-            0 ... 100_000 => S::EPSILON,
-            100_000 ... 100_000_000 => S::value(1e-5),
-            100_000_000 ... 10_000_000_000 => S::value(1e-3),
+            0 ..= 99_999 => S::EPSILON,
+            100_000 ..= 99_999_999 => S::value(1e-5),
+            100_000_000 ..= 9_999_999_999 => S::value(1e-3),
             _ => S::value(1e-1),
         }
     };

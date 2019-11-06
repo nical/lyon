@@ -71,7 +71,7 @@ pub fn write_output(
     count: bool,
     fmt_string: Option<&str>,
     float_precision: Option<usize>,
-    mut output: Box<io::Write>
+    mut output: Box<dyn io::Write>
 ) -> Result<(), io::Error> {
 
     if count {

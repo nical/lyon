@@ -49,7 +49,7 @@ pub struct RenderCmd {
 
 pub struct PathCmd {
     pub path: Path,
-    pub output: Box<io::Write>,
+    pub output: Box<dyn io::Write>,
     pub tolerance: f32,
     pub count: bool,
     pub flatten: bool,
