@@ -34,8 +34,8 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
             }
         }
 
-        try!{ writeln!(&mut *cmd.output, "vertices: {}", num_vertices) };
-        try!{ writeln!(&mut *cmd.output, "paths: {}", num_paths) };
+        writeln!(&mut *cmd.output, "vertices: {}", num_vertices)?;
+        writeln!(&mut *cmd.output, "paths: {}", num_paths)?;
 
         return Ok(());
     }
@@ -43,17 +43,17 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
     for event in cmd.path.iter().flattened(cmd.tolerance) {
         match event {
             FlattenedEvent::MoveTo(p) => {
-                try!{ write!(&mut *cmd.output, "M {} {} ", p.x, p.y) };
+                write!(&mut *cmd.output, "M {} {} ", p.x, p.y)
             }
             FlattenedEvent::Line(segment) => {
-                try!{ write!(&mut *cmd.output, "L {} {} ", segment.to.x, segment.to.y) };
+                write!(&mut *cmd.output, "L {} {} ", segment.to.x, segment.to.y)
             }
             FlattenedEvent::Close(..) => {
-                try!{ write!(&mut *cmd.output, "Z") };
+                write!(&mut *cmd.output, "Z")
             }
-        }
+        }?;
     }
-    try!{ writeln!(&mut *cmd.output, "") };
+    writeln!(&mut *cmd.output, "")?;
 
     Ok(())
 }
