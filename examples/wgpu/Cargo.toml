@@ -1,5 +1,5 @@
 [package]
-name = "wgpu-advanced-example"
+name = "wgpu-example"
 version = "0.1.0"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 workspace = "../.."
