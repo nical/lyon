@@ -1,9 +1,0 @@
-[package]
-name = "glium-basic-example"
-version = "0.1.0"
-authors = ["orhanbalci <orhanbalci@gmail.com>"]
-workspace = "../.."
-
-[dependencies]
-lyon = { path = "../../", features = ["extra"] }
-glium = "0.22.0"
