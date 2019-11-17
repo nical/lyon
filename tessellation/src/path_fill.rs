@@ -687,6 +687,8 @@ impl FillTessellator {
                     let edge_to = self.pending_edges[0].lower;
                     vertex_id = self.add_vertex_with_normal(&edge_to, &vertex_above, output)?;
                 }
+
+                above_idx = self.resolve_merge_vertices_right(above_idx, vertex_id, output);
                 self.insert_edge(above_idx, 0, vertex_id);
 
                 // Update the initial state for the pass that will handle
@@ -963,6 +965,36 @@ impl FillTessellator {
             self.active_edges[edge_idx + 2].set_lower_vertex(self.current_position);
             self.end_span(edge_idx, id, output);
         }
+    }
+
+    // We also have to resolve merge vertes that are just before the current point.
+    // This is similar to the function above but mirorred.
+    // Since we may remove edges before the current edge id, return the fixed up id.
+    fn resolve_merge_vertices_right(
+        &mut self,
+        mut edge_idx: ActiveEdgeId,
+        id: VertexId,
+        output: &mut dyn GeometryBuilder<Vertex>,
+    ) -> ActiveEdgeId {
+        // we are expecting this to be called with the index of the beginning (left side)
+        // of a span, so the index should be even. This won't necessary hold true when we
+        // add support for other fill rules.
+        debug_assert!(odd(edge_idx));
+
+        edge_idx = edge_idx - 1;
+        while self.active_edges[edge_idx].merge {
+
+            //  \ /   /
+            //   x <-/-- merge vertex
+            //    : /
+            //     x <-- current vertex
+            self.active_edges[edge_idx - 1].set_lower_vertex(self.current_position);
+            self.end_span(edge_idx, id, output);
+
+            edge_idx = edge_idx - 2;
+        }
+
+        edge_idx + 1
     }
 
     fn start_event(
