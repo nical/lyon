@@ -8,8 +8,10 @@ use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 
-use wgpu::winit::{ElementState, Event, EventsLoop, KeyboardInput, VirtualKeyCode, Window, WindowEvent};
-use wgpu::winit::dpi::LogicalSize;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode,WindowEvent};
+use winit::event_loop::{EventLoop, ControlFlow};
+use winit::window::Window;
+use winit::dpi::LogicalSize;
 
 use std::ops::Rem;
 
@@ -44,7 +46,7 @@ const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
 fn main() {
-    println!("== gfx-rs example ==");
+    println!("== wgpu example ==");
     println!("Controls:");
     println!("  Arrow keys: scrolling");
     println!("  PgUp/PgDown: zoom in/out");
@@ -139,70 +141,75 @@ fn main() {
         size_changed: true,
     };
 
-    let instance = wgpu::Instance::new();
-    let adapter = instance.get_adapter(&wgpu::AdapterDescriptor {
+    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::LowPower,
-    });
-    let mut device = adapter.create_device(&wgpu::DeviceDescriptor {
+        backends: wgpu::BackendBit::PRIMARY,
+    }).unwrap();
+    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },
+        limits: wgpu::Limits::default(),
     });
 
     let vbo = device
-        .create_buffer_mapped(geometry.vertices.len(), wgpu::BufferUsageFlags::VERTEX)
+        .create_buffer_mapped(geometry.vertices.len(), wgpu::BufferUsage::VERTEX)
         .fill_from_slice(&geometry.vertices);
 
     let ibo = device
-        .create_buffer_mapped(geometry.indices.len(), wgpu::BufferUsageFlags::INDEX)
+        .create_buffer_mapped(geometry.indices.len(), wgpu::BufferUsage::INDEX)
         .fill_from_slice(&geometry.indices);
 
     let bg_vbo = device
-        .create_buffer_mapped(bg_geometry.vertices.len(), wgpu::BufferUsageFlags::VERTEX)
+        .create_buffer_mapped(bg_geometry.vertices.len(), wgpu::BufferUsage::VERTEX)
         .fill_from_slice(&bg_geometry.vertices);
 
     let bg_ibo = device
-        .create_buffer_mapped(bg_geometry.indices.len(), wgpu::BufferUsageFlags::INDEX)
+        .create_buffer_mapped(bg_geometry.indices.len(), wgpu::BufferUsage::INDEX)
         .fill_from_slice(&bg_geometry.indices);
 
-    let prim_buffer_byte_size = (PRIM_BUFFER_LEN * std::mem::size_of::<Primitive>()) as u32;
-    let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u32;
+    let prim_buffer_byte_size = (PRIM_BUFFER_LEN * std::mem::size_of::<Primitive>()) as u64;
+    let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
 
     let prims_ubo = device.create_buffer(
         &wgpu::BufferDescriptor {
             size: prim_buffer_byte_size,
-            usage: wgpu::BufferUsageFlags::UNIFORM,
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         }
     );
 
     let globals_ubo = device.create_buffer(
         &wgpu::BufferDescriptor {
             size: globals_buffer_byte_size,
-            usage: wgpu::BufferUsageFlags::UNIFORM,
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         }
     );
 
-    let vs_bytes = include_bytes!("./../shaders/geometry.vert.spv");
-    let fs_bytes = include_bytes!("./../shaders/geometry.frag.spv");
-    let bg_vs_bytes = include_bytes!("./../shaders/background.vert.spv");
-    let bg_fs_bytes = include_bytes!("./../shaders/background.frag.spv");
-    let vs_module = device.create_shader_module(vs_bytes);
-    let fs_module = device.create_shader_module(fs_bytes);
-    let bg_vs_module = device.create_shader_module(bg_vs_bytes);
-    let bg_fs_module = device.create_shader_module(bg_fs_bytes);
+    let vs_bytes = include_str!("./../shaders/geometry.glsl.vert");
+    let fs_bytes = include_str!("./../shaders/geometry.glsl.frag");
+    let vs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&vs_bytes[..], glsl_to_spirv::ShaderType::Vertex).unwrap()).unwrap();
+    let fs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&fs_bytes[..], glsl_to_spirv::ShaderType::Fragment).unwrap()).unwrap();
+    let bg_vs_bytes = include_str!("./../shaders/background.glsl.vert");
+    let bg_fs_bytes = include_str!("./../shaders/background.glsl.frag");
+    let bg_vs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&bg_vs_bytes[..], glsl_to_spirv::ShaderType::Vertex).unwrap()).unwrap();
+    let bg_fs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&bg_fs_bytes[..], glsl_to_spirv::ShaderType::Fragment).unwrap()).unwrap();
+    let vs_module = device.create_shader_module(&vs_spv);
+    let fs_module = device.create_shader_module(&fs_spv);
+    let bg_vs_module = device.create_shader_module(&bg_vs_spv);
+    let bg_fs_module = device.create_shader_module(&bg_fs_spv);
 
     let bind_group_layout = device.create_bind_group_layout(
         &wgpu::BindGroupLayoutDescriptor {
             bindings: &[
                 wgpu::BindGroupLayoutBinding {
                     binding: 0,
-                    visibility: wgpu::ShaderStageFlags::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 },
                 wgpu::BindGroupLayoutBinding {
                     binding: 1,
-                    visibility: wgpu::ShaderStageFlags::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 },
             ]
         }
@@ -232,7 +239,7 @@ fn main() {
     });
 
     let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
-        format: wgpu::TextureFormat::D32Float,
+        format: wgpu::TextureFormat::Depth32Float,
         depth_write_enabled: true,
         depth_compare: wgpu::CompareFunction::Greater,
         stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
@@ -243,54 +250,56 @@ fn main() {
 
     let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
         layout: &pipeline_layout,
-        vertex_stage: wgpu::PipelineStageDescriptor {
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
             module: &vs_module,
             entry_point: "main",
         },
-        fragment_stage: wgpu::PipelineStageDescriptor {
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
             module: &fs_module,
             entry_point: "main",
-        },
-        rasterization_state: wgpu::RasterizationStateDescriptor {
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: wgpu::CullMode::None,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
-        },
+        }),
         primitive_topology: wgpu::PrimitiveTopology::TriangleList,
         color_states: &[wgpu::ColorStateDescriptor {
             format: wgpu::TextureFormat::Bgra8Unorm,
-            color: wgpu::BlendDescriptor::REPLACE,
-            alpha: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWriteFlags::ALL,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: depth_stencil_state.clone(),
         index_format: wgpu::IndexFormat::Uint16,
         vertex_buffers: &[
             wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<GpuVertex>() as u32,
+                stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &[
                     wgpu::VertexAttributeDescriptor {
                         offset: 0,
                         format: wgpu::VertexFormat::Float2,
-                        attribute_index: 0,
+                        shader_location: 0,
                     },
                     wgpu::VertexAttributeDescriptor {
                         offset: 8,
                         format: wgpu::VertexFormat::Float2,
-                        attribute_index: 1,
+                        shader_location: 1,
                     },
                     wgpu::VertexAttributeDescriptor {
                         offset: 16,
                         format: wgpu::VertexFormat::Float,
-                        attribute_index: 2,
+                        shader_location: 2,
                     },
                 ],
             },
         ],
         sample_count: 1,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
     };
 
     let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
@@ -302,61 +311,61 @@ fn main() {
 
     let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         layout: &pipeline_layout,
-        vertex_stage: wgpu::PipelineStageDescriptor {
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
             module: &bg_vs_module,
             entry_point: "main",
         },
-        fragment_stage: wgpu::PipelineStageDescriptor {
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
             module: &bg_fs_module,
             entry_point: "main",
-        },
-        rasterization_state: wgpu::RasterizationStateDescriptor {
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: wgpu::CullMode::None,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
-        },
+        }),
         primitive_topology: wgpu::PrimitiveTopology::TriangleList,
         color_states: &[wgpu::ColorStateDescriptor {
             format: wgpu::TextureFormat::Bgra8Unorm,
-            color: wgpu::BlendDescriptor::REPLACE,
-            alpha: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWriteFlags::ALL,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: depth_stencil_state.clone(),
         index_format: wgpu::IndexFormat::Uint16,
         vertex_buffers: &[
             wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<Point>() as u32,
+                stride: std::mem::size_of::<Point>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &[
                     wgpu::VertexAttributeDescriptor {
                         offset: 0,
                         format: wgpu::VertexFormat::Float2,
-                        attribute_index: 0,
+                        shader_location: 0,
                     },
                 ],
             },
         ],
         sample_count: 1,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
     });
 
-    let mut events_loop = EventsLoop::new();
-    let window = Window::new(&events_loop).unwrap();
-    let size = window
-        .get_inner_size()
-        .unwrap()
-        .to_physical(window.get_hidpi_factor());
+    let event_loop = EventLoop::new();
+    let window = Window::new(&event_loop).unwrap();
+    let size = window.inner_size().to_physical(window.hidpi_factor());
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsageFlags::OUTPUT_ATTACHMENT,
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width.round() as u32,
         height: size.height.round() as u32,
+        present_mode: wgpu::PresentMode::Vsync,
     };
 
-    let window_surface = instance.create_surface(&window);
+    let window_surface = wgpu::Surface::create(&window);
     let mut swap_chain = device.create_swap_chain(
         &window_surface,
         &swap_chain_desc,
@@ -365,10 +374,15 @@ fn main() {
     let mut depth_texture_view = None;
 
     let mut frame_count: f32 = 0.0;
-    while update_inputs(&mut events_loop, &mut scene) {
+    event_loop.run(move |event, _, control_flow| {
+        if update_inputs(event, control_flow, &mut scene) {
+            // keep polling inputs.
+            return;
+        }
+
         if scene.size_changed {
             scene.size_changed = false;
-            let physical = scene.window_size.to_physical(window.get_hidpi_factor());
+            let physical = scene.window_size.to_physical(window.hidpi_factor());
             swap_chain_desc.width = physical.width.round() as u32;
             swap_chain_desc.height = physical.height.round() as u32;
             swap_chain = device.create_swap_chain(&window_surface, &swap_chain_desc);
@@ -379,10 +393,12 @@ fn main() {
                     height: swap_chain_desc.height,
                     depth: 1,
                 },
-                array_size: 1,
+                array_layer_count: 1,
+                mip_level_count: 1,
+                sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::D32Float,
-                usage: wgpu::TextureUsageFlags::OUTPUT_ATTACHMENT,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             });
 
             depth_texture_view = Some(depth_texture.create_default_view());
@@ -410,7 +426,7 @@ fn main() {
 
         let globals_transfer_buffer = device.create_buffer_mapped(
             1,
-            wgpu::BufferUsageFlags::TRANSFER_SRC,
+            wgpu::BufferUsage::COPY_SRC,
         ).fill_from_slice(&[Globals {
             resolution: [scene.window_size.width as f32, scene.window_size.height as f32],
             zoom: scene.zoom,
@@ -419,7 +435,7 @@ fn main() {
 
         let prim_transfer_buffer = device.create_buffer_mapped(
             cpu_primitives.len(),
-            wgpu::BufferUsageFlags::TRANSFER_SRC,
+            wgpu::BufferUsage::COPY_SRC,
         );
 
         for (i, prim) in cpu_primitives.iter().enumerate() {
@@ -445,6 +461,7 @@ fn main() {
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
                     clear_color: wgpu::Color::WHITE,
+                    resolve_target: None,
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: depth_texture_view.as_ref().unwrap(),
@@ -462,27 +479,27 @@ fn main() {
             } else {
                 pass.set_pipeline(&render_pipeline);
             }
-            pass.set_bind_group(0, &bind_group);
+            pass.set_bind_group(0, &bind_group, &[]);
             pass.set_index_buffer(&ibo, 0);
-            pass.set_vertex_buffers(&[(&vbo, 0)]);
+            pass.set_vertex_buffers(0, &[(&vbo, 0)]);
 
             pass.draw_indexed(fill_range.clone(), 0, 0..(num_instances as u32));
             pass.draw_indexed(stroke_range.clone(), 0, 0..1);
 
             if scene.draw_background {
                 pass.set_pipeline(&bg_pipeline);
-                pass.set_bind_group(0, &bind_group);
+                pass.set_bind_group(0, &bind_group, &[]);
                 pass.set_index_buffer(&bg_ibo, 0);
-                pass.set_vertex_buffers(&[(&bg_vbo, 0)]);
+                pass.set_vertex_buffers(0, &[(&bg_vbo, 0)]);
 
                 pass.draw_indexed(0..6, 0, 0..1);
             }
         }
 
-        device.get_queue().submit(&[encoder.finish()]);
+        queue.submit(&[encoder.finish()]);
 
         frame_count += 1.0;
-    }
+    });
 }
 
 struct BgVertexCtor;
@@ -540,90 +557,91 @@ struct SceneParams {
     size_changed: bool,
 }
 
-fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
-    let mut status = true;
-
-    events_loop.poll_events(|event| {
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::Destroyed,
-                ..
-            } => {
-                status = false;
-            },
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved {
-                    position,
-                    ..},
-            ..} => {
-                scene.cursor_position = (position.x as f32, position.y as f32);
-            }
-            Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
-                scene.window_size = size;
-                scene.size_changed = true
-            }
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(key),
-                        ..
-                    },
+fn update_inputs(event: Event<()>, control_flow: &mut ControlFlow, scene: &mut SceneParams) -> bool {
+    match event {
+        Event::EventsCleared => {
+            return false;
+        }
+        Event::WindowEvent { event: WindowEvent::Destroyed, .. }
+        | Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+            *control_flow = ControlFlow::Exit;
+            return false;
+        },
+        Event::WindowEvent {
+            event: WindowEvent::CursorMoved {
+                position,
+                ..},
+        ..} => {
+            scene.cursor_position = (position.x as f32, position.y as f32);
+        }
+        Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
+            scene.window_size = size;
+            scene.size_changed = true
+        }
+        Event::WindowEvent {
+            event: WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(key),
                     ..
                 },
                 ..
-            } => {
-                match key {
-                    VirtualKeyCode::Escape => {
-                        status = false;
-                    }
-                    VirtualKeyCode::PageDown => {
-                        scene.target_zoom *= 0.8;
-                    }
-                    VirtualKeyCode::PageUp => {
-                        scene.target_zoom *= 1.25;
-                    }
-                    VirtualKeyCode::Left => {
-                        scene.target_scroll.x -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Right => {
-                        scene.target_scroll.x += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Up => {
-                        scene.target_scroll.y -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Down => {
-                        scene.target_scroll.y += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::P => {
-                        scene.show_points = !scene.show_points;
-                    }
-                    VirtualKeyCode::W => {
-                        scene.show_wireframe = !scene.show_wireframe;
-                    }
-                    VirtualKeyCode::B => {
-                        scene.draw_background = !scene.draw_background;
-                    }
-                    VirtualKeyCode::A => {
-                        scene.target_stroke_width /= 0.8;
-                    }
-                    VirtualKeyCode::Z => {
-                        scene.target_stroke_width *= 0.8;
-                    }
-                    _key => {}
+            },
+            ..
+        } => {
+            match key {
+                VirtualKeyCode::Escape => {
+                    *control_flow = ControlFlow::Exit;
+                    return false;
                 }
-            }
-            _evt => {
-                //println!("{:?}", _evt);
+                VirtualKeyCode::PageDown => {
+                    scene.target_zoom *= 0.8;
+                }
+                VirtualKeyCode::PageUp => {
+                    scene.target_zoom *= 1.25;
+                }
+                VirtualKeyCode::Left => {
+                    scene.target_scroll.x -= 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Right => {
+                    scene.target_scroll.x += 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Up => {
+                    scene.target_scroll.y -= 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Down => {
+                    scene.target_scroll.y += 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::P => {
+                    scene.show_points = !scene.show_points;
+                }
+                VirtualKeyCode::W => {
+                    scene.show_wireframe = !scene.show_wireframe;
+                }
+                VirtualKeyCode::B => {
+                    scene.draw_background = !scene.draw_background;
+                }
+                VirtualKeyCode::A => {
+                    scene.target_stroke_width /= 0.8;
+                }
+                VirtualKeyCode::Z => {
+                    scene.target_stroke_width *= 0.8;
+                }
+                _key => {}
             }
         }
-        //println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
-    });
+        _evt => {
+            //println!("{:?}", _evt);
+        }
+    }
+    //println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
     scene.stroke_width = scene.stroke_width +
         (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    return status;
+    *control_flow = ControlFlow::Poll;
+
+    return true;
 }
