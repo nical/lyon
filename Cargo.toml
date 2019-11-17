@@ -52,7 +52,7 @@ members = [
     "svg",
     "cli",
     "wasm_test",
-    "examples/wgpu_advanced",
+    "examples/wgpu",
     "examples/glium_basic_shapes",
     "examples/intersections",
     "examples/svg_render",
