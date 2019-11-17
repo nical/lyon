@@ -788,17 +788,6 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "intersections-example"
-version = "0.1.0"
-dependencies = [
- "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx_device_gl 0.15.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx_window_glutin 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lyon 0.14.2",
-]
-
-[[package]]
 name = "iovec"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2118,7 +2107,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wgpu-advanced-example"
+name = "wgpu-example"
 version = "0.1.0"
 dependencies = [
  "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
