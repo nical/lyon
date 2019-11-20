@@ -4,17 +4,18 @@ description = "A simple svg renderer based on resvg"
 version = "0.1.0"
 authors = ["Roland Kovacs <zen3ger@gmail.com>"]
 workspace = "../.."
+edition = "2018"
 
 [[bin]]
-name = "svg_render"
+name = "wgpu_svg"
 path = "src/main.rs"
 
 [dependencies]
 lyon = { path = "../../", features = ["extra"] }
 
 clap = "2.32.0"
-gfx = "0.17.1"
-gfx_device_gl = "0.15.0"
-gfx_window_glutin = "0.28.0"
-glutin = "0.19.0"
+wgpu = "0.4"
+wgpu-native = "0.4"
+glsl-to-spirv = "0.1"
+winit = "0.20.0-alpha4"
 usvg = "0.4"

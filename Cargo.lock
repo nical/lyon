@@ -1696,12 +1696,12 @@ name = "svg-rendering-example"
 version = "0.1.0"
 dependencies = [
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx_device_gl 0.15.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "gfx_window_glutin 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glutin 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "lyon 0.14.2",
  "usvg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wgpu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wgpu-native 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winit 0.20.0-alpha4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
