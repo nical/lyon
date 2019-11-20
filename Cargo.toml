@@ -53,8 +53,8 @@ members = [
     "cli",
     "wasm_test",
     "examples/wgpu",
+    "examples/wgpu_svg",
     "examples/glium_basic_shapes",
-    "examples/svg_render",
     "examples/walk_path",
     "bench/tess",
     "bench/geom"

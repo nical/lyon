@@ -6,7 +6,7 @@ workspace = "../.."
 edition = "2018"
 
 [[bin]]
-name = "wgpu_advanced"
+name = "wgpu"
 path = "src/main.rs"
 
 [dependencies]
