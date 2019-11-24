@@ -73,20 +73,6 @@ pub mod dbg {
     pub const INTERSECTION_POINT: u32 = 2;
 }
 
-impl From<GeometryBuilderError> for TessellationError {
-    fn from(e: GeometryBuilderError) -> Self {
-        match e {
-            GeometryBuilderError::InvalidVertex => TessellationError::InvalidVertex,
-            GeometryBuilderError::TooManyVertices => TessellationError::TooManyVertices,
-        }
-    }
-}
-impl From<InternalError> for TessellationError {
-    fn from(e: InternalError) -> Self {
-        TessellationError::Internal(e)
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Edge {
     pub(crate) upper: TessPoint,
@@ -770,7 +756,7 @@ impl FillTessellator {
         // Since we took care of left and right events already we should not have
         // an odd number of pending edges to work with by now.
         if num_pending_edges % 2 != 0 {
-            if self.error(InternalError::E01) {
+            if self.error(InternalError::ErrorCode(1)) {
                 return Ok(());
             }
             // TODO - We are in an invalid state, and trying to continue tessellating
@@ -837,7 +823,7 @@ impl FillTessellator {
         self.pending_edges.clear();
 
         if num_edges_above != 0 || num_pending_edges != 0 {
-            self.error(InternalError::E02);
+            self.error(InternalError::ErrorCode(2));
         }
 
         Ok(())
@@ -1347,7 +1333,7 @@ impl FillTessellator {
         }
 
         if !ok {
-            self.error(InternalError::E03);
+            self.error(InternalError::ErrorCode(3));
         }
 
         self.log_sl_winding();
