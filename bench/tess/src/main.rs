@@ -45,7 +45,7 @@ fn flattening_02_logo_iter(bench: &mut Bencher) {
         let mut builder = Path::builder();
         for _ in 0..N {
             for evt in path.iter().flattened(0.05) {
-                builder.flat_event(evt);
+                builder.path_event(evt);
             }
         }
     })

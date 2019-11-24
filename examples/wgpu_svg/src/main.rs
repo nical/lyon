@@ -2,7 +2,6 @@ use clap::*;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers, VertexConstructor};
 use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeTessellator, StrokeOptions};
 use lyon::path::PathEvent;
-use lyon::geom::{LineSegment, CubicBezierSegment};
 use lyon::math::Point;
 use usvg::prelude::*;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode,WindowEvent};
@@ -632,38 +631,56 @@ pub struct PathConvIter<'a> {
     iter: std::slice::Iter<'a, usvg::PathSegment>,
     prev: Point,
     first: Point,
+    needs_end: bool,
+    deferred: Option<PathEvent<Point, Point>>,
 }
 
 impl<'l> Iterator for PathConvIter<'l> {
-    type Item = PathEvent;
-    fn next(&mut self) -> Option<PathEvent> {
+    type Item = PathEvent<Point, Point>;
+    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
+        if self.deferred.is_some()  {
+            return self.deferred.take()
+        }
+
         match self.iter.next() {
             Some(usvg::PathSegment::MoveTo { x, y }) => {
-                self.prev = point(x, y);
-                self.first = self.prev;
-                Some(PathEvent::MoveTo(self.prev))
+                if self.needs_end {
+                    let last = self.prev;
+                    let first = self.first;
+                    self.needs_end = false;
+                    self.deferred = Some(PathEvent::Begin { at: self.prev });
+                    self.prev = point(x, y);
+                    self.first = self.prev;
+                    Some(PathEvent::End { last, first, close: false })
+                } else {
+                    Some(PathEvent::Begin { at: self.prev })
+                }
             }
             Some(usvg::PathSegment::LineTo { x, y }) => {
+                self.needs_end = true;
                 let from = self.prev;
                 self.prev = point(x, y);
-                Some(PathEvent::Line(LineSegment { from, to: self.prev }))
+                Some(PathEvent::Line { from, to: self.prev })
             }
             Some(usvg::PathSegment::CurveTo { x1, y1, x2, y2, x, y, }) => {
+                self.needs_end = true;
                 let from = self.prev;
                 self.prev = point(x, y);
-                Some(PathEvent::Cubic(CubicBezierSegment {
+                Some(PathEvent::Cubic {
                     from,
                     ctrl1: point(x1, y1),
                     ctrl2: point(x2, y2),
                     to: self.prev,
-                }))
+                })
             }
             Some(usvg::PathSegment::ClosePath) => {
+                self.needs_end = false;
                 self.prev = self.first;
-                Some(PathEvent::Close(LineSegment {
-                    from: self.prev,
-                    to: self.first,
-                }))
+                Some(PathEvent::End {
+                    last: self.prev,
+                    first: self.first,
+                    close: true,
+                })
             }
             None => None,
         }
@@ -675,6 +692,8 @@ pub fn convert_path<'a>(p: &'a usvg::Path) -> PathConvIter<'a> {
         iter: p.segments.iter(),
         first: Point::new(0.0, 0.0),
         prev: Point::new(0.0, 0.0),
+        deferred: None,
+        needs_end: false,
     }
 }
 
