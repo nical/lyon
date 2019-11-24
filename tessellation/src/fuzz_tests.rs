@@ -30,13 +30,12 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
                 path.iter(),
                 &options,
                 &mut vertex_builder
-            )?;
+            ).unwrap();
         }
 
         #[cfg(feature = "experimental")] {
             use crate::path::builder::*;
             use crate::path::iterator::*;
-
             let mut builder = Path::builder();
             for e in path.iter().flattened(0.05) {
                 builder.path_event(e);
@@ -51,7 +50,7 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
                 &builder.build(),
                 &options,
                 &mut vertex_builder
-            )?;
+            ).unwrap();
         }
     }
     return Ok(buffers.indices.len() / 3);
@@ -990,4 +989,55 @@ fn fuzzing_test_case_25() {
 
     // SVG path syntax:
     // "M 228.2623 592.0345 L 555.55634 715.4452 L 45.484066 768.08453 L 272.4859 270.3846 L 32.61703 116.03713 L 648.2618 16.285301 L 580.95404 245.59433 L 2.3566484 313.12997 L 682.25903 379.75262 L 384.63556 691.0331 L 682.9832 315.9526 L 681.6745 402.3722 L 161.04358 460.23523 L 78.16988 270.75607 L 815.39343 809.32715 L 167.37878 545.24414 L 794.8285 560.1468 L 906.44336 914.9378 L 524.25665 975.65204 L 57.97714 42.538704 L 707.1242 620.9942 L 749.42365 584.4889 L 3.1077862 311.23065 L 967.68823 96.22514 L 358.70517 197.10822 L 82.55285 513.58606 L 463.12057 558.3593 L 186.30815 625.75366 L 534.1177 10.356784 L 264.44156 954.8361 L 748.1205 837.29913 L 783.36115 55.865704 L 735.61633 431.23483 L 828.56244 150.24745 L 579.3753 912.09033 L 137.24046 254.20135 L 932.8569 346.02524 ZM 606.5896 229.99667 L 199.31506 755.65704 L 40.851532 641.7679 L 853.695 641.7656 Z"
+}
+
+#[test]
+fn fuzzing_test_case_26() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(338.79803, 124.2612));
+    builder.line_to(point(93.79423, 293.62488));
+    builder.line_to(point(519.7297, 207.82262));
+    builder.line_to(point(109.83586, 935.8234));
+    builder.line_to(point(473.3689, 544.36597));
+    builder.line_to(point(228.83612, 487.7857));
+    builder.line_to(point(844.8811, 759.98035));
+    builder.line_to(point(204.86772, 447.48807));
+    builder.line_to(point(762.8039, 447.4875));
+    builder.line_to(point(717.20856, 187.1466));
+    builder.line_to(point(725.5502, 718.1507));
+    builder.line_to(point(354.4551, 133.0471));
+    builder.line_to(point(79.57357, 924.2797));
+    builder.line_to(point(113.65747, 7.6993704));
+    builder.close();
+
+    builder.move_to(point(473.30374, 933.1941));
+    builder.line_to(point(413.74387, 585.3911));
+    builder.line_to(point(383.29245, 86.36898));
+    builder.line_to(point(608.89056, 708.4878));
+    builder.line_to(point(613.6966, 557.6661));
+    builder.line_to(point(700.585, 93.54353));
+    builder.line_to(point(726.2056, 41.609226));
+    builder.line_to(point(886.1893, 601.08905));
+    builder.line_to(point(448.21848, 686.62616));
+    builder.line_to(point(416.16428, 715.7101));
+    builder.line_to(point(210.18976, 694.7306));
+    builder.line_to(point(80.262665, 297.84662));
+    builder.line_to(point(325.09494, 679.4497));
+    builder.line_to(point(404.01047, 309.32385));
+    builder.line_to(point(866.0461, 808.1123));
+    builder.line_to(point(466.7661, 404.0181));
+    builder.line_to(point(908.7635, 77.231766));
+    builder.line_to(point(3.31223, 60.035408));
+    builder.line_to(point(919.3632, 703.6854));
+    builder.line_to(point(910.4674, 612.88336));
+    builder.line_to(point(966.38995, 761.61743));
+    builder.line_to(point(815.1502, 654.41504));
+    builder.line_to(point(179.95155, 904.1613));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M 338.79803 124.2612 L 93.79423 293.62488 L 519.7297 207.82262 L 109.83586 935.8234 L 473.3689 544.36597 L 228.83612 487.7857 L 844.8811 759.98035 L 204.86772 447.48807 L 762.8039 447.4875 L 717.20856 187.1466 L 725.5502 718.1507 L 354.4551 133.0471 L 79.57357 924.2797 L 113.65747 7.6993704 ZM 473.30374 933.1941 L 413.74387 585.3911 L 383.29245 86.36898 L 608.89056 708.4878 L 613.6966 557.6661 L 700.585 93.54353 L 726.2056 41.609226 L 886.1893 601.08905 L 448.21848 686.62616 L 416.16428 715.7101 L 210.18976 694.7306 L 80.262665 297.84662 L 325.09494 679.4497 L 404.01047 309.32385 L 866.0461 808.1123 L 466.7661 404.0181 L 908.7635 77.231766 L 3.31223 60.035408 L 919.3632 703.6854 L 910.4674 612.88336 L 966.38995 761.61743 L 815.1502 654.41504 L 179.95155 904.1613 Z"
 }

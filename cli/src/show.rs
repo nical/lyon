@@ -128,7 +128,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                         &cmd.path,
                         &options,
                         &mut BuffersBuilder::new(&mut geometry, WithId(0))
-                    );
+                    ).unwrap();
                     if let Some(dbg) = dbg_receiver {
                         dbg.write_trace(&mut debug_trace);
                     }
