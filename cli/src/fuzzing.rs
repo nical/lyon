@@ -106,6 +106,10 @@ pub fn run(cmd: FuzzCmd) -> bool {
                             &options,
                             &mut NoOutput::new()
                         );
+                        if !cmd.ignore_errors {
+                            #[cfg(feature="experimental")]
+                            result.unwrap();
+                        }
                     }
                 }
             });
