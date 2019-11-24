@@ -246,6 +246,7 @@ struct PendingEdge {
 pub struct FillTessellator {
     current_position: Point,
     current_vertex: VertexId,
+    current_event_id: EventId,
     active: ActiveEdges,
     edges_below: Vec<PendingEdge>,
     fill_rule: FillRule,
@@ -270,6 +271,7 @@ impl FillTessellator {
         FillTessellator {
             current_position: point(f32::MIN, f32::MIN),
             current_vertex: VertexId::INVALID,
+            current_event_id: INVALID_EVENT_ID,
             active: ActiveEdges {
                 edges: Vec::new(),
             },
@@ -342,10 +344,10 @@ impl FillTessellator {
 
         let mut scan = ActiveEdgeScan::new();
         let mut _prev_position = point(-1000000000.0, -1000000000.0); // TODO
-        let mut current_event = self.events.first_id();
-        while self.events.valid_id(current_event) {
+        self.current_event_id = self.events.first_id();
+        while self.events.valid_id(self.current_event_id) {
 
-            self.initialize_events(current_event, output)?;
+            self.initialize_events(output)?;
 
             debug_assert!(is_after(self.current_position, _prev_position));
             _prev_position = self.current_position;
@@ -361,13 +363,15 @@ impl FillTessellator {
             #[cfg(not(target = "release"))]
             self.check_active_edges();
 
-            current_event = self.events.next_id(current_event);
+            self.current_event_id = self.events.next_id(self.current_event_id);
         }
 
         Ok(())
     }
 
-    fn initialize_events(&mut self, current_event: EventId, output: &mut dyn GeometryBuilder<Vertex>) -> Result<(), TessellationError> {
+    fn initialize_events(&mut self, output: &mut dyn GeometryBuilder<Vertex>) -> Result<(), TessellationError> {
+        let current_event = self.current_event_id;
+
         tess_log!(self, "\n\n<!--         event #{}          -->", current_event);
 
         self.current_position = self.events.position(current_event);
@@ -1158,7 +1162,8 @@ impl FillTessellator {
                                 to: active_edge.to,
                                 is_edge: true,
                                 .. a_src_edge_data
-                            }
+                            },
+                            self.current_event_id,
                         ));
                     } else {
                         tess_log!(self, "flip active edge after intersection");
@@ -1170,7 +1175,8 @@ impl FillTessellator {
                                 to: intersection_position,
                                 is_edge: true,
                                 .. a_src_edge_data
-                            }
+                            },
+                            self.current_event_id,
                         );
                     }
 
@@ -1203,7 +1209,7 @@ impl FillTessellator {
                             // Should take this branch most of the time.
                             self.events.insert_sibling(idx, intersection_position, edge_data);
                         } else {
-                            self.events.insert_sorted(intersection_position, edge_data);
+                            self.events.insert_sorted(intersection_position, edge_data, self.current_event_id);
                         }
                     } else {
                         tess_log!(self, "flip edge below after intersection");
@@ -1215,7 +1221,8 @@ impl FillTessellator {
                                 to: intersection_position,
                                 is_edge: true,
                                 .. b_src_edge_data
-                            }
+                            },
+                            self.current_event_id,
                         );
                     };
 
@@ -1535,7 +1542,7 @@ impl EventQueue {
     }
 
     // Could start searching at the tessellator's current event id.
-    fn insert_sorted(&mut self, position: Point, data: EdgeData) -> EventId {
+    fn insert_sorted(&mut self, position: Point, data: EdgeData, after: EventId) -> EventId {
         debug_assert!(self.sorted);
         debug_assert!(is_after(data.to, position));
 
@@ -1547,8 +1554,8 @@ impl EventQueue {
         });
         self.edge_data.push(data);
 
-        let mut prev = self.first;
-        let mut current = self.first;
+        let mut prev = after;
+        let mut current = after;
         while self.valid_id(current) {
             let pos = self.events[current as usize].position;
 
