@@ -216,12 +216,23 @@ pub use crate::path_fill::*;
 pub use crate::path_stroke::*;
 
 #[doc(inline)]
-pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count};
+pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError};
 
 pub use crate::path::FillRule;
 
 /// The fill tessellator's result type.
 pub type TessellationResult = Result<Count, TessellationError>;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum InternalError {
+    IncorrectActiveEdgeOrder(i16),
+    InsufficientNumberOfSpans,
+    InsufficientNumberOfEdges,
+    MergeVertexOutside,
+    InvalidNumberOfEdgesBelowVertex,
+    ErrorCode(i16),
+}
+
 
 /// The fill tessellator's error enumeration.
 #[derive(Clone, Debug, PartialEq)]
@@ -232,15 +243,18 @@ pub enum TessellationError {
     Internal(InternalError)
 }
 
-/// Something unexpectedly put the tessellator in a bad state.
-///
-/// If you run into this error code, please [file an issue](https://github.com/nical/lyon/issues).
-#[derive(Clone, Debug, PartialEq)]
-pub enum InternalError {
-    E01,
-    E02,
-    E03,
-    E04,
+impl From<GeometryBuilderError> for TessellationError {
+    fn from(e: GeometryBuilderError) -> Self {
+        match e {
+            GeometryBuilderError::InvalidVertex => TessellationError::InvalidVertex,
+            GeometryBuilderError::TooManyVertices => TessellationError::TooManyVertices,
+        }
+    }
+}
+impl From<InternalError> for TessellationError {
+    fn from(e: InternalError) -> Self {
+        TessellationError::Internal(e)
+    }
 }
 
 /// Left or right.

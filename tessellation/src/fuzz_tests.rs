@@ -51,7 +51,7 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
                 &builder.build(),
                 &options,
                 &mut vertex_builder
-            );
+            )?;
         }
     }
     return Ok(buffers.indices.len() / 3);
