@@ -10,8 +10,10 @@ use crate::path::{
 use std::{u32, f32};
 use std::cmp::Ordering;
 use std::ops::Range;
-use std::env;
 use std::mem::swap;
+
+#[cfg(debug_assertions)]
+use std::env;
 
 #[cfg(feature="debugger")]
 use crate::debugger::*;
@@ -25,7 +27,7 @@ type EventId = u32;
 type ActiveEdgeIdx = usize;
 const INVALID_EVENT_ID: EventId = u32::MAX;
 
-#[cfg(not(feature = "release"))]
+#[cfg(debug_assertions)]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
         if $obj.log {
@@ -39,7 +41,7 @@ macro_rules! tess_log {
     );
 }
 
-#[cfg(feature = "release")]
+#[cfg(not(debug_assertions))]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => ();
     ($obj:ident, $fmt:expr, $($arg:tt)*) => ();
@@ -263,9 +265,9 @@ pub struct FillTessellator {
 
 impl FillTessellator {
     pub fn new() -> Self {
-        #[cfg(not(feature = "release"))]
+        #[cfg(debug_assertions)]
         let log = env::var("LYON_FORCE_LOGGING").is_ok();
-        #[cfg(feature = "release")]
+        #[cfg(not(debug_assertions))]
         let log = false;
 
         FillTessellator {
@@ -360,7 +362,7 @@ impl FillTessellator {
                 self.process_events(&mut scan, output)?
             }
 
-            #[cfg(not(target = "release"))]
+            #[cfg(debug_assertions)]
             self.check_active_edges();
 
             self.current_event_id = self.events.next_id(self.current_event_id);
@@ -442,13 +444,13 @@ impl FillTessellator {
 
         tess_log!(self, "-->");
 
-        #[cfg(not(feature = "release"))]
+        #[cfg(debug_assertions)]
         self.log_active_edges();
 
         Ok(())
     }
 
-    #[cfg(not(feature = "release"))]
+    #[cfg(debug_assertions)]
     fn log_active_edges(&self) {
 
         tess_log!(self, r#"<g class="active-edges">"#);
@@ -475,7 +477,7 @@ impl FillTessellator {
         tess_log!(self, "</g>");
     }
 
-    #[cfg(not(feature = "release"))]
+    #[cfg(debug_assertions)]
     fn check_active_edges(&self) {
         let mut winding = 0;
         for edge in &self.active.edges {
@@ -1376,7 +1378,7 @@ impl FillTessellator {
 
         tess_log!(self, "-->");
 
-        #[cfg(not(target = "release"))]
+        #[cfg(debug_assertions)]
         self.log_active_edges();
     }
 
