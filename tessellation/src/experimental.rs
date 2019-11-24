@@ -458,10 +458,12 @@ impl FillTessellator {
                     e.from.x, e.from.y
                 );
             } else {
-                tess_log!(self, r#"  <path d="M {} {} L {} {}" class="edge", winding="{}"/>"#,
+                tess_log!(self, r#"  <path d="M {} {} L {} {}" class="edge", winding="{}" sort_x="{:.}" min_x="{:.}"/>"#,
                     e.from.x, e.from.y,
                     e.to.x, e.to.y,
                     e.winding,
+                    e.sort_x,
+                    e.min_x,
                 );
             }
         }
@@ -845,6 +847,7 @@ impl FillTessellator {
             );
 
             active_edge.to = self.current_position;
+            active_edge.min_x = active_edge.min_x.min(self.current_position.x)
         }
 
         if scan.merge_event {
@@ -1017,6 +1020,24 @@ impl FillTessellator {
     }
 
     fn handle_intersections(&mut self) {
+        // Do intersection checks for all of the new edges against already active edges.
+        //
+        // If several intersections are found on the same edges we only keep the top-most.
+        // the active and new edges are then truncated at the intersection position and the
+        // lower parts are added to the event queue.
+        //
+        // In order to not break invariants of the sweep line we need to ensure that:
+        // - the intersection position is never ordered before the current position,
+        // - after truncation, edges continue being oriented downwards,
+        // - the cached min_x value of the active edge is still correct.
+        //
+        // Floating-point precision (or the lack thereof) prevent us from taking the
+        // above properties from granted even though they make sense from a purely
+        // geometrical perspective. Therefore we have to take great care in checking
+        // whether these invariants aren't broken by the insertion of the intersection,
+        // manually fixing things up if need be and making sure to not break more
+        // invariants in doing so.
+
         for edge_below in &mut self.edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
             let below_max_x = self.current_position.x.max(edge_below.to.x);
@@ -1087,6 +1108,7 @@ impl FillTessellator {
                     //   the current position happens before the intersection checks. So instead we
                     //   modify it in place and don't add a new event.
                     active_edge.from = intersection_position;
+                    active_edge.min_x = active_edge.min_x.min(intersection_position.x);
                     let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
                     let remapped_ta = remap_t_in_range(
                         ta as f32,
@@ -1114,12 +1136,6 @@ impl FillTessellator {
                     intersection_position = active_edge.to;
                 }
 
-                if is_after(intersection_position, edge_below.to) {
-                    intersection_position = edge_below.to;
-                } else if is_after(intersection_position, active_edge.to) {
-                    intersection_position = active_edge.to;
-                }
-
                 let a_src_edge_data = self.events.edge_data[active_edge.src_edge as usize].clone();
                 let b_src_edge_data = self.events.edge_data[edge_below.src_edge as usize].clone();
 
@@ -1127,7 +1143,6 @@ impl FillTessellator {
 
                 if active_edge.to != intersection_position
                     && active_edge.from != intersection_position {
-                    // TODO: the remapped ts look incorrect sometimes.
                     let remapped_ta = remap_t_in_range(
                         ta as f32,
                         a_src_edge_data.range.start..active_edge.range_end,
@@ -1160,12 +1175,15 @@ impl FillTessellator {
                     }
 
                     active_edge.to = intersection_position;
+                    active_edge.min_x = active_edge.min_x.min(intersection_position.x);
                     active_edge.range_end = remapped_ta;
                 }
 
+                debug_assert!(active_edge.min_x <= active_edge.from.x);
+                debug_assert!(active_edge.min_x <= active_edge.to.x);
+
                 if edge_below.to != intersection_position
                     && self.current_position != intersection_position {
-                    debug_assert!(is_after(edge_below.to, intersection_position));
 
                     let remapped_tb = remap_t_in_range(
                         tb as f32,
