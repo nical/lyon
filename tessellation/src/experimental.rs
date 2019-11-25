@@ -15,11 +15,6 @@ use std::mem::swap;
 #[cfg(debug_assertions)]
 use std::env;
 
-#[cfg(feature="debugger")]
-use crate::debugger::*;
-#[cfg(feature="debugger")]
-use crate::path_fill::dbg;
-
 pub type Vertex = Point;
 
 type SpanIdx = i32;
@@ -257,9 +252,6 @@ pub struct FillTessellator {
     assume_no_intersection: bool,
 
     events: EventQueue,
-
-    #[cfg(feature="debugger")]
-    debugger: Option<Box<dyn Debugger2D>>,
 }
 
 
@@ -286,9 +278,6 @@ impl FillTessellator {
             assume_no_intersection: false,
 
             events: EventQueue::new(),
-
-            #[cfg(feature="debugger")]
-            debugger: None,
         }
     }
 
@@ -1386,19 +1375,6 @@ impl FillTessellator {
         self.edges_below.sort_by(|a, b| {
             b.angle.partial_cmp(&a.angle).unwrap_or(Ordering::Equal)
         });
-    }
-
-    #[cfg(feature="debugger")]
-    pub fn install_debugger(&mut self, dbg: Box<dyn Debugger2D>) {
-        self.debugger = Some(dbg)
-    }
-
-}
-
-#[cfg(feature="debugger")]
-fn debugger_monotone_split(debugger: &Option<Box<dyn Debugger2D>>, a: &Point, b: &Point) {
-    if let Some(ref dbg) = debugger {
-        dbg.edge(a, b, DARK_RED, dbg::MONOTONE_SPLIT);
     }
 }
 
