@@ -23,9 +23,16 @@ use crate::geometry_builder::{VertexBuffers, simple_builder};
 use crate::path::{Path, PathSlice};
 use crate::path_fill::*;
 use crate::geom::math::*;
-use crate::FillVertex as Vertex;
 use crate::FillOptions;
 use crate::TessellationError;
+
+#[cfg(feature = "experimental")]
+use crate::experimental;
+
+#[cfg(not(feature = "experimental"))]
+type Vertex = crate::FillVertex;
+#[cfg(feature = "experimental")]
+type Vertex = Point;
 
 #[test]
 fn bad_diagonal() {
@@ -1308,16 +1315,40 @@ fn earcut_test_f32(path: &[&[[f32; 2]]]) {
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     {
-        let mut vertex_builder = simple_builder(&mut buffers);
-        let mut tess = FillTessellator::new();
-        if log {
-            tess.enable_logging();
+        let options = FillOptions::tolerance(0.05);
+
+        #[cfg(not(feature = "experimental"))] {
+            let mut tess = FillTessellator::new();
+            let mut vertex_builder = simple_builder(&mut buffers);
+            if log {
+                tess.enable_logging();
+            }
+            tess.tessellate_path(
+                path.iter(),
+                &options,
+                &mut vertex_builder
+            ).unwrap();
         }
-        tess.tessellate_path(
-            path.iter(),
-            &FillOptions::tolerance(0.05),
-            &mut vertex_builder
-        )?;
+
+        #[cfg(feature = "experimental")] {
+            use crate::path::builder::*;
+            use crate::path::iterator::*;
+            let mut builder = Path::builder();
+            for e in path.iter().flattened(0.05) {
+                builder.path_event(e);
+            }
+
+            let mut vertex_builder = simple_builder(&mut buffers);
+            let mut tess = experimental::FillTessellator::new();
+            if log {
+                tess.enable_logging();
+            }
+            tess.tessellate_path(
+                &builder.build(),
+                &options,
+                &mut vertex_builder
+            ).unwrap();
+        }
     }
     return Ok(buffers.indices.len() / 3);
 }
