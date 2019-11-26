@@ -296,6 +296,7 @@ impl FillTessellator {
         builder.begin_geometry();
 
         if let Err(e) = self.tessellator_loop(builder) {
+            tess_log!(self, "Tessellation failed with error: {:?}.", e);
             builder.abort_geometry();
             return Err(e);
         }
@@ -316,8 +317,6 @@ impl FillTessellator {
 
         self.fill.spans.clear();
 
-        tess_log!(self, "\n ***************** \n");
-
         Ok(builder.end_geometry())
     }
 
@@ -332,7 +331,7 @@ impl FillTessellator {
         log_svg_preamble(self);
 
         let mut scan = ActiveEdgeScan::new();
-        let mut _prev_position = point(-1000000000.0, -1000000000.0); // TODO
+        let mut _prev_position = point(std::f32::MIN, std::f32::MIN);
         self.current_event_id = self.events.first_id();
         while self.events.valid_id(self.current_event_id) {
 
@@ -380,10 +379,6 @@ impl FillTessellator {
             // no edge below.
             if edge.is_edge {
                 let to = edge.to;
-
-                if !is_after(to, self.current_position) {
-                    tess_log!(self, "edge: {:?}  current: {:?} to: {:?}", edge, self.current_position, to);
-                }
                 debug_assert!(is_after(to, self.current_position));
                 self.edges_below.push(PendingEdge {
                     to,
@@ -1243,7 +1238,7 @@ impl FillTessellator {
 
         let mut has_merge_vertex = false;
         let mut prev_x = f32::NAN;
-        for (i, edge) in self.active.edges.iter_mut().enumerate() {
+        for edge in &mut self.active.edges {
             if edge.is_merge {
                 debug_assert!(!prev_x.is_nan());
                 has_merge_vertex = true;
@@ -1650,6 +1645,7 @@ impl EventQueue {
         current_sibling
     }
 
+    #[cfg(debug_assertions)]
     fn log(&self) {
         let mut iter_count = self.events.len() * self.events.len();
 
@@ -2955,7 +2951,7 @@ fn vertex_source_01() {
         &builder.build(),
         &FillOptions::default(),
         &mut CheckVertexSources { next_vertex: 0 },
-    );
+    ).unwrap();
 
     fn eq(a: Point, b: Point) -> bool {
         (a.x - b.x).abs() < 0.00001 && (a.y - b.y).abs() < 0.00001
