@@ -1355,17 +1355,25 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
 
 #[cfg(test)]
 fn test_path(path: PathSlice) {
+    let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
+    let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
+
     let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
 
     if let Ok(Ok(_)) = res {
         return;
     }
 
-    crate::extra::debugging::find_reduced_test_case(
-        path,
-        &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
-    );
+    if find_test_case {
+        crate::extra::debugging::find_reduced_test_case(
+            path,
+            &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
+        );
+    }
 
-    tessellate_path(path, true).unwrap();
+    if add_logging {
+        tessellate_path(path, true).unwrap();
+    }
+
     panic!();
 }

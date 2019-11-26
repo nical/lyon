@@ -784,8 +784,14 @@ impl FillTessellator {
             return Ok(false);
         }
 
-        let ex = active_edge.solve_x_for_y(self.current_position.y);
-        tess_log!(self, "ex = {:?}", ex);
+        let ex = if active_edge.from.y != active_edge.to.y {
+            active_edge.solve_x_for_y(self.current_position.y)
+        } else if active_edge.max_x >= current_x && active_edge.min_x <= current_x {
+            current_x
+        } else {
+            active_edge.to.y
+        };
+
         if (ex - current_x).abs() <= threshold {
             tess_log!(self, "vertex on an edge! {:?} -> {:?}", active_edge.from, active_edge.to);
             scan.edges_to_split.push(active_edge_idx);
@@ -793,7 +799,7 @@ impl FillTessellator {
         }
 
         if ex < current_x {
-            return Err(InternalError::IncorrectActiveEdgeOrder(4));
+            return Err(InternalError::IncorrectActiveEdgeOrder(5));
         }
 
         tess_log!(self, "ex = {:?} (diff={})", ex, ex - current_x);
@@ -1328,7 +1334,7 @@ impl FillTessellator {
     }
 
     fn recover_from_error(&mut self, _error: InternalError) {
-        tess_log!(self, "Attempt to recover from error");
+        tess_log!(self, "Attempt to recover error {:?}", _error);
 
         self.sort_active_edges();
 

@@ -136,9 +136,10 @@ fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
             &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
         );
 
-        if add_logging {
-            tessellate_path(path, true).unwrap();
-        }
+    }
+
+    if add_logging {
+        tessellate_path(path, true).unwrap();
     }
 
     panic!();
@@ -1322,4 +1323,20 @@ fn issue_481_reduced() {
 
     // SVG path syntax:
     // "M 0.88427734 0.2277832 L 0.88671875 0.22143555 L 0.91259766 0.23803711 L 0.8869629 0.22607422 L 0.88793945 0.22827148 L 0.8894043 0.22729492 L 0.8869629 0.22607422 L 0.89453125 0.2265625 Z"
+}
+
+#[test]
+fn overlapping_horizontal() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(10.0, 0.0));
+    builder.line_to(point(0.0, 0.0));
+    builder.line_to(point(15.0, 0.0));
+    builder.line_to(point(10.0, 5.0));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M 10 0 L 0 0 L 15 0 L 10 5 Z"
 }
