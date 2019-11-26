@@ -227,7 +227,6 @@
 
 pub use crate::path::{VertexId, Index};
 
-#[cfg(feature = "experimental")]
 use crate::experimental::VertexSourceIterator;
 
 use std::marker::PhantomData;
@@ -264,7 +263,6 @@ pub trait GeometryBuilder<Input> {
     fn add_vertex(&mut self, vertex: Input) -> Result<VertexId, GeometryBuilderError>;
 
     // TODO
-    #[cfg(feature = "experimental")]
     fn add_vertex_exp(&mut self, vertex: Input, _src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
         self.add_vertex(vertex)
     }
