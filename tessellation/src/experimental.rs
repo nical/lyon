@@ -1243,11 +1243,6 @@ impl FillTessellator {
 
         let y = self.current_position.y;
 
-        // TODO: the code that updates the active edge list sometimes misses
-        // some edges to remove, which we fix here. See why that is and hopefully
-        // avoid handling this here.
-        let mut edges_to_remove = Vec::new();
-
         let mut has_merge_vertex = false;
         let mut prev_x = f32::NAN;
         for (i, edge) in self.active.edges.iter_mut().enumerate() {
@@ -1256,10 +1251,7 @@ impl FillTessellator {
                 has_merge_vertex = true;
                 edge.sort_x = prev_x;
             } else {
-                if is_after(self.current_position, edge.to) {
-                    edges_to_remove.push(i);
-                    continue;
-                }
+                debug_assert!(!is_after(self.current_position, edge.to));
 
                 let x = if edge.to.y == y {
                     edge.to.x
@@ -1272,11 +1264,6 @@ impl FillTessellator {
                 edge.sort_x = x.max(edge.min_x);
                 prev_x = x;
             }
-        }
-
-        for idx in edges_to_remove.iter().rev() {
-            tess_log!(self, "remove {:?} above the sweep line", self.active.edges[*idx]);
-            self.active.edges.swap_remove(*idx);
         }
 
         self.active.edges.sort_by(|a, b| {
