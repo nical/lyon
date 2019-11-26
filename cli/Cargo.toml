@@ -8,11 +8,8 @@ workspace = ".."
 name = "lyon"
 path = "src/main.rs"
 
-[features]
-experimental = ["lyon/experimental"]
-
 [dependencies]
-lyon = { path = "../", features = ["svg", "extra", "libtess2", "debugger"]}
+lyon = { path = "../", features = ["svg", "extra", "libtess2", "debugger", "experimental"]}
 clap = "2.32.0"
 rand = "0.6"
 

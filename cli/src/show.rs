@@ -9,7 +9,6 @@ use lyon::algorithms::aabb::bounding_rect;
 use lyon::path::Path;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
 use lyon::tess2;
-#[cfg(feature = "experimental")]
 use lyon::tessellation::experimental;
 
 use gfx;
@@ -109,30 +108,25 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 ).unwrap();
             }
             Tessellator::Experimental => {
-                #[cfg(feature = "experimental")] {
-                    use lyon::path::builder::*;
-                    use lyon::path::iterator::*;
+                println!(" -- running the experimental tessellator.");
 
-                    println!(" -- running the experimental tessellator.");
+                let mut tess = experimental::FillTessellator::new();
 
-                    let mut tess = experimental::FillTessellator::new();
+                tess.tessellate_path(
+                    &cmd.path,
+                    &options,
+                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
+                ).unwrap();
 
-                    tess.tessellate_path(
-                        &cmd.path,
-                        &options,
-                        &mut BuffersBuilder::new(&mut geometry, WithId(0))
-                    ).unwrap();
-
-                    for (i, v) in geometry.vertices.iter().enumerate() {
-                        println!("{}: {:?}", i, v.position);
-                    }
-                    for i in 0..(geometry.indices.len() / 3) {
-                        println!("{}/{}/{}",
-                            geometry.indices[i*3],
-                            geometry.indices[i*3+1],
-                            geometry.indices[i*3+2],
-                        );
-                    }
+                for (i, v) in geometry.vertices.iter().enumerate() {
+                    println!("{}: {:?}", i, v.position);
+                }
+                for i in 0..(geometry.indices.len() / 3) {
+                    println!("{}/{}/{}",
+                        geometry.indices[i*3],
+                        geometry.indices[i*3+1],
+                        geometry.indices[i*3+2],
+                    );
                 }
             }
         }
