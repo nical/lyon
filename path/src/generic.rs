@@ -4,16 +4,6 @@ use crate::math::Point;
 
 use std::fmt;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum Event<Edge, Endpoint, CtrlPoint> {
-    Begin { at: Endpoint, },
-    Line { edge: Edge, from: Endpoint, to: Endpoint },
-    Quadratic { edge: Edge, from: Endpoint, ctrl: CtrlPoint, to: Endpoint },
-    Cubic { edge: Edge, from: Endpoint, ctrl1: CtrlPoint, ctrl2: CtrlPoint, to: Endpoint },
-    End { edge: Edge, last: Endpoint, first: Endpoint, close: bool },
-}
-
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
