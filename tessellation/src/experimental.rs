@@ -302,14 +302,12 @@ impl FillTessellator {
 
         if !self.assume_no_intersection {
             debug_assert!(self.active.edges.is_empty());
-            // TODO: only a few tests break from this assertions
-            //debug_assert!(self.fill.spans.is_empty());
+            debug_assert!(self.fill.spans.is_empty());
         }
 
         // There shouldn't be any span left after the tessellation ends.
-        // In practice there can be some in complicated self-intersection
-        // situations, so flush them in case they hold some uncommitted
-        // geometry.
+        // If for whatever reason (bug) there are, flush them so that we don't
+        // miss the triangles they contain.
         for span in &mut self.fill.spans {
             if !span.remove {
                 span.tess.flush_experimental(builder);
