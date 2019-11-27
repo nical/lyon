@@ -1,4 +1,4 @@
-use crate::{EndpointId, CtrlPointId, PathEventId, PathEvent, IdEvent, Position, PositionStore};
+use crate::{EndpointId, CtrlPointId, EventId, Event, IdEvent, Position, PositionStore};
 use crate::math::Point;
 
 /// A view over a sequence of endpoint IDs forming a polygon.
@@ -20,7 +20,7 @@ impl<'l> IdPolygonSlice<'l> {
     }
 
     /// Returns the event for a given event ID.
-    pub fn event(&self, id: PathEventId) -> IdEvent {
+    pub fn event(&self, id: EventId) -> IdEvent {
         let idx = id.0 as usize;
         if idx == 0 {
             IdEvent::Begin { at: self.points[0] }
@@ -41,7 +41,7 @@ impl<'l> IdPolygonSlice<'l> {
     }
 }
 
-// An iterator of `PathEvent<EndpointId, ()>`.
+// An iterator of `Event<EndpointId, ()>`.
 pub struct IdPolygonIter<'l> {
     points: std::slice::Iter<'l, EndpointId>,
     idx: u32,
@@ -53,7 +53,7 @@ pub struct IdPolygonIter<'l> {
 impl<'l> Iterator for IdPolygonIter<'l> {
     type Item = IdEvent;
     fn next(&mut self) -> Option<IdEvent> {
-        let edge = PathEventId(self.idx);
+        let edge = EventId(self.idx);
 
         match (self.prev, self.points.next()) {
             (Some(from), Some(to)) => {
@@ -98,18 +98,18 @@ impl<'l, T> PolygonSlice<'l, T> {
     }
 
     /// Returns the event for a given event ID.
-    pub fn event(&self, id: PathEventId) -> PathEvent<&T, ()> {
+    pub fn event(&self, id: EventId) -> Event<&T, ()> {
         let idx = id.0 as usize;
         if idx == 0 {
-            PathEvent::Begin { at: &self.points[0] }
+            Event::Begin { at: &self.points[0] }
         } else if idx as usize == self.points.len() - 1 {
-            PathEvent::End {
+            Event::End {
                 last: &self.points[self.points.len() - 1],
                 first: &self.points[0],
                 close: self.closed,
             }
         } else {
-            PathEvent::Line {
+            Event::Line {
                 from: &self.points[idx - 1],
                 to: &self.points[idx],
             }
@@ -117,7 +117,7 @@ impl<'l, T> PolygonSlice<'l, T> {
     }
 }
 
-// An iterator of `PathEvent<&Endpoint, ()>`.
+// An iterator of `Event<&Endpoint, ()>`.
 pub struct PolygonIter<'l, T> {
     points: std::slice::Iter<'l, T>,
     prev: Option<&'l T>,
@@ -126,21 +126,21 @@ pub struct PolygonIter<'l, T> {
 }
 
 impl<'l, T> Iterator for PolygonIter<'l, T> {
-    type Item = PathEvent<&'l T, ()>;
-    fn next(&mut self) -> Option<PathEvent<&'l T, ()>> {
+    type Item = Event<&'l T, ()>;
+    fn next(&mut self) -> Option<Event<&'l T, ()>> {
         match (self.prev, self.points.next()) {
             (Some(from), Some(to)) => {
                 self.prev = Some(to);
-                Some(PathEvent::Line { from, to })
+                Some(Event::Line { from, to })
             }
             (None, Some(at)) => {
                 self.prev = Some(at);
                 self.first = Some(at);
-                Some(PathEvent::Begin { at })
+                Some(Event::Begin { at })
             }
             (Some(last), None) => {
                 self.prev = None;
-                Some(PathEvent::End {
+                Some(Event::End {
                     last,
                     first: self.first.unwrap(),
                     close: self.closed,
@@ -171,18 +171,18 @@ fn event_ids() {
         closed: true,
     };
 
-    assert_eq!(poly.event(PathEventId(0)), IdEvent::Begin { at: EndpointId(0) });
-    assert_eq!(poly.event(PathEventId(1)), IdEvent::Line { from: EndpointId(0), to: EndpointId(1), edge: PathEventId(1) });
-    assert_eq!(poly.event(PathEventId(2)), IdEvent::Line { from: EndpointId(1), to: EndpointId(2), edge: PathEventId(2) });
-    assert_eq!(poly.event(PathEventId(3)), IdEvent::Line { from: EndpointId(2), to: EndpointId(3), edge: PathEventId(3) });
-    assert_eq!(poly.event(PathEventId(4)), IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true, edge: PathEventId(4) });
+    assert_eq!(poly.event(EventId(0)), IdEvent::Begin { at: EndpointId(0) });
+    assert_eq!(poly.event(EventId(1)), IdEvent::Line { from: EndpointId(0), to: EndpointId(1), edge: EventId(1) });
+    assert_eq!(poly.event(EventId(2)), IdEvent::Line { from: EndpointId(1), to: EndpointId(2), edge: EventId(2) });
+    assert_eq!(poly.event(EventId(3)), IdEvent::Line { from: EndpointId(2), to: EndpointId(3), edge: EventId(3) });
+    assert_eq!(poly.event(EventId(4)), IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true, edge: EventId(4) });
 
     let mut iter = poly.iter();
     assert_eq!(iter.next(), Some(IdEvent::Begin { at: EndpointId(0) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(0), to: EndpointId(1), edge: PathEventId(1) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(1), to: EndpointId(2), edge: PathEventId(2) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(2), to: EndpointId(3), edge: PathEventId(3) }));
-    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true, edge: PathEventId(4) }));
+    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(0), to: EndpointId(1), edge: EventId(1) }));
+    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(1), to: EndpointId(2), edge: EventId(2) }));
+    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(2), to: EndpointId(3), edge: EventId(3) }));
+    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true, edge: EventId(4) }));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.next(), None);
 }

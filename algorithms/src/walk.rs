@@ -48,7 +48,7 @@ use std::f32;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
 pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut dyn Pattern)
-where Iter: Iterator<Item=PathEvent<Point, Point>> {
+where Iter: Iterator<Item=PathEvent> {
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
         walker.path_event(evt);

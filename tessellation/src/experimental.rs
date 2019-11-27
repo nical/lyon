@@ -4,8 +4,9 @@ use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
 use crate::geometry_builder::{GeometryBuilder, VertexId};
 use crate::path_fill::MonotoneTessellator;
 use crate::path::{
+    self,
     PathEvent, IdEvent, Path, FillRule, Transition,
-    EndpointId, PathEventId, PositionStore,
+    EndpointId, PositionStore,
 };
 use std::{u32, f32};
 use std::cmp::Ordering;
@@ -18,9 +19,9 @@ use std::env;
 pub type Vertex = Point;
 
 type SpanIdx = i32;
-type EventId = u32;
+type TessEventId = u32;
 type ActiveEdgeIdx = usize;
-const INVALID_EVENT_ID: EventId = u32::MAX;
+const INVALID_EVENT_ID: TessEventId = u32::MAX;
 
 #[cfg(debug_assertions)]
 macro_rules! tess_log {
@@ -123,7 +124,7 @@ struct ActiveEdge {
     is_merge: bool,
 
     from_id: VertexId,
-    src_edge: EventId,
+    src_edge: TessEventId,
 
     // Only valid when sorting the active edges.
     sort_x: f32,
@@ -235,7 +236,7 @@ struct PendingEdge {
     to: Point,
     angle: f32,
     // Index in events.edge_data
-    src_edge: EventId,
+    src_edge: TessEventId,
     winding: i16,
     range_end: f32,
 }
@@ -243,7 +244,7 @@ struct PendingEdge {
 pub struct FillTessellator {
     current_position: Point,
     current_vertex: VertexId,
-    current_event_id: EventId,
+    current_event_id: TessEventId,
     active: ActiveEdges,
     edges_below: Vec<PendingEdge>,
     fill_rule: FillRule,
@@ -1397,14 +1398,14 @@ fn is_near(a: Point, b: Point) -> bool {
 }
 
 pub struct Event {
-    next_sibling: EventId,
-    next_event: EventId,
+    next_sibling: TessEventId,
+    next_event: TessEventId,
     position: Point,
 }
 
 #[derive(Clone, Debug)]
 struct EdgeData {
-    evt_id: PathEventId,
+    evt_id: path::EventId,
     to: Point,
     range: std::ops::Range<f32>,
     winding: i16,
@@ -1414,7 +1415,7 @@ struct EdgeData {
 pub struct EventQueue {
     events: Vec<Event>,
     edge_data: Vec<EdgeData>,
-    first: EventId,
+    first: TessEventId,
     sorted: bool,
 }
 
@@ -1506,11 +1507,11 @@ impl EventQueue {
     }
 
     // Could start searching at the tessellator's current event id.
-    fn insert_sorted(&mut self, position: Point, data: EdgeData, after: EventId) -> EventId {
+    fn insert_sorted(&mut self, position: Point, data: EdgeData, after: TessEventId) -> TessEventId {
         debug_assert!(self.sorted);
         debug_assert!(is_after(data.to, position));
 
-        let idx = self.events.len() as EventId;
+        let idx = self.events.len() as TessEventId;
         self.events.push(Event {
             position,
             next_sibling: INVALID_EVENT_ID,
@@ -1541,8 +1542,8 @@ impl EventQueue {
         idx
     }
 
-    fn insert_sibling(&mut self, sibling: EventId, position: Point, data: EdgeData) {
-        let idx = self.events.len() as EventId;
+    fn insert_sibling(&mut self, sibling: TessEventId, position: Point, data: EdgeData) {
+        let idx = self.events.len() as TessEventId;
         let next_sibling = self.events[sibling as usize].next_sibling;
 
         self.events.push(Event {
@@ -1562,15 +1563,15 @@ impl EventQueue {
         self.sorted = false;
     }
 
-    pub fn first_id(&self) -> EventId { self.first }
+    pub fn first_id(&self) -> TessEventId { self.first }
 
-    pub fn next_id(&self, id: EventId) -> EventId { self.events[id as usize].next_event }
+    pub fn next_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_event }
 
-    pub fn next_sibling_id(&self, id: EventId) -> EventId { self.events[id as usize].next_sibling }
+    pub fn next_sibling_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_sibling }
 
-    pub fn valid_id(&self, id: EventId) -> bool { (id as usize) < self.events.len() }
+    pub fn valid_id(&self, id: TessEventId) -> bool { (id as usize) < self.events.len() }
 
-    pub fn position(&self, id: EventId) -> Point { self.events[id as usize].position }
+    pub fn position(&self, id: TessEventId) -> Point { self.events[id as usize].position }
 
     fn sort(&mut self) {
         self.sorted = true;
@@ -1588,11 +1589,11 @@ impl EventQueue {
     /// - We take advantage of having events stored contiguously in a vector
     ///   by recursively splitting ranges of the array instead of traversing
     ///   the lists to find a split point.
-    fn merge_sort(&mut self, range: Range<usize>) -> EventId {
+    fn merge_sort(&mut self, range: Range<usize>) -> TessEventId {
         let split = (range.start + range.end) / 2;
 
         if split == range.start {
-            return range.start as EventId;
+            return range.start as TessEventId;
         }
 
         let a_head = self.merge_sort(range.start..split);
@@ -1601,7 +1602,7 @@ impl EventQueue {
         self.merge(a_head, b_head)
     }
 
-    fn merge(&mut self, a: EventId, b: EventId) -> EventId {
+    fn merge(&mut self, a: TessEventId, b: TessEventId) -> TessEventId {
         if a == INVALID_EVENT_ID {
             return b;
         } else if b == INVALID_EVENT_ID {
@@ -1634,7 +1635,7 @@ impl EventQueue {
         };
     }
 
-    fn find_last_sibling(&self, id: EventId) -> EventId {
+    fn find_last_sibling(&self, id: TessEventId) -> TessEventId {
         let mut current_sibling = id;
         let mut next_sibling = self.next_sibling_id(id);
         while self.valid_id(next_sibling) {
@@ -1709,8 +1710,8 @@ impl EventQueueBuilder {
         }
     }
 
-    fn set_path(&mut self, path: impl Iterator<Item=PathEvent<Point, Point>>) {
-        let mut evt_id = PathEventId(0);
+    fn set_path(&mut self, path: impl Iterator<Item=PathEvent>) {
+        let mut evt_id = path::EventId(0);
         for evt in path {
             match evt {
                 PathEvent::Begin { at } => {
@@ -1784,7 +1785,7 @@ impl EventQueueBuilder {
         debug_assert!(!self.prev_evt_is_edge);
     }
 
-    fn vertex_event(&mut self, at: Point, evt_id: PathEventId) {
+    fn vertex_event(&mut self, at: Point, evt_id: path::EventId) {
         self.tx.push(at);
         self.tx.edge_data.push(EdgeData {
             to: point(f32::NAN, f32::NAN),
@@ -1795,7 +1796,7 @@ impl EventQueueBuilder {
         });
     }
 
-    fn end(&mut self, first: Point, evt_id: PathEventId) {
+    fn end(&mut self, first: Point, evt_id: path::EventId) {
         if self.nth == 0 {
             return;
         }
@@ -1825,7 +1826,7 @@ impl EventQueueBuilder {
         self.current = to;
     }
 
-    fn add_edge(&mut self, from: Point, to: Point, mut winding: i16, evt_id: PathEventId, mut t0: f32, mut t1: f32) {
+    fn add_edge(&mut self, from: Point, to: Point, mut winding: i16, evt_id: path::EventId, mut t0: f32, mut t1: f32) {
         let mut evt_pos = from;
         let mut evt_to = to;
         if is_after(evt_pos, to) {
@@ -1848,8 +1849,8 @@ impl EventQueueBuilder {
         self.prev_evt_is_edge = true;
     }
 
-    fn line_segment(&mut self, to: Point, evt_id: PathEventId, t0: f32, t1: f32) {
-        debug_assert!(evt_id != PathEventId::INVALID);
+    fn line_segment(&mut self, to: Point, evt_id: path::EventId, t0: f32, t1: f32) {
+        debug_assert!(evt_id != path::EventId::INVALID);
 
         let from = self.current;
         if from == to {
@@ -1876,7 +1877,7 @@ impl EventQueueBuilder {
         &mut self,
         ctrl: Point,
         to: Point,
-        evt_id: PathEventId,
+        evt_id: path::EventId,
     ) {
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
@@ -1943,7 +1944,7 @@ impl EventQueueBuilder {
         ctrl1: Point,
         ctrl2: Point,
         to: Point,
-        evt_id: PathEventId,
+        evt_id: path::EventId,
     ) {
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
@@ -2018,13 +2019,13 @@ impl EventQueueBuilder {
 
 pub struct VertexSourceIterator<'l> {
     events: &'l EventQueue,
-    id: EventId,
+    id: TessEventId,
 }
 
 #[derive(Clone, Debug)]
 pub enum VertexSource {
     Endpoint { endpoint: EndpointId },
-    Edge { id: PathEventId, t: f32 },
+    Edge { id: path::EventId, t: f32 },
 }
 
 impl<'l> Iterator for VertexSourceIterator<'l> {

@@ -632,12 +632,12 @@ pub struct PathConvIter<'a> {
     prev: Point,
     first: Point,
     needs_end: bool,
-    deferred: Option<PathEvent<Point, Point>>,
+    deferred: Option<PathEvent>,
 }
 
 impl<'l> Iterator for PathConvIter<'l> {
-    type Item = PathEvent<Point, Point>;
-    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         if self.deferred.is_some()  {
             return self.deferred.take()
         }

@@ -8,7 +8,7 @@ use std::f32;
 /// Returns whether the point is inside the path.
 pub fn hit_test_path<Iter>(point: &Point, path: Iter, fill_rule: FillRule, tolerance: f32) -> bool
 where
-    Iter: Iterator<Item=PathEvent<Point, Point>>,
+    Iter: Iterator<Item=PathEvent>,
 {
     let winding = path_winding_number_at_position(point, path, tolerance);
 
@@ -21,7 +21,7 @@ where
 /// Compute the winding number of a given position with respect to the path.
 pub fn path_winding_number_at_position<Iter>(point: &Point, path: Iter, tolerance: f32) -> i32
 where
-    Iter: Iterator<Item=PathEvent<Point, Point>>,
+    Iter: Iterator<Item=PathEvent>,
 {
     // Loop over the edges and compute the winding number at that point by accumulating the
     // winding of all edges intersecting the horizontal line passing through our point which are

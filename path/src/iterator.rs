@@ -24,7 +24,7 @@
 //!     builder.close();
 //!     let path = builder.build();
 //!
-//!     // A simple std::iter::Iterator<PathEvent<Point, Point>>,
+//!     // A simple std::iter::Iterator<PathEvent>,
 //!     let simple_iter = path.iter();
 //!
 //!     // Make it an iterator over simpler primitives flattened events,
@@ -97,7 +97,7 @@ use crate::PathEvent;
 use crate::geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
 
 /// An extension trait for `PathEvent` iterators.
-pub trait PathIterator: Iterator<Item = PathEvent<Point, Point>> + Sized {
+pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
 
     /// Returns an iterator that turns curves into line segments.
     fn flattened(self, tolerance: f32) -> Flattened<Self> {
@@ -117,10 +117,10 @@ pub trait PathIterator: Iterator<Item = PathEvent<Point, Point>> + Sized {
 
 impl<Iter> PathIterator for Iter
 where
-    Iter: Iterator<Item = PathEvent<Point, Point>>,
+    Iter: Iterator<Item = PathEvent>,
 {}
 
-/// An iterator that consumes `PathEvent` iterator and yields flattend path events (with no curves).
+/// An iterator that consumes `Event` iterator and yields flattend path events (with no curves).
 pub struct Flattened<Iter> {
     it: Iter,
     current_position: Point,
@@ -134,7 +134,7 @@ enum TmpFlatteningIter {
     None,
 }
 
-impl<Iter: Iterator<Item = PathEvent<Point, Point>>> Flattened<Iter> {
+impl<Iter: Iterator<Item = PathEvent>> Flattened<Iter> {
     /// Create the iterator.
     pub fn new(tolerance: f32, it: Iter) -> Self {
         Flattened {
@@ -148,10 +148,10 @@ impl<Iter: Iterator<Item = PathEvent<Point, Point>>> Flattened<Iter> {
 
 impl<Iter> Iterator for Flattened<Iter>
 where
-    Iter: Iterator<Item = PathEvent<Point, Point>>,
+    Iter: Iterator<Item = PathEvent>,
 {
-    type Item = PathEvent<Point, Point>;
-    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         match self.current_curve {
             TmpFlatteningIter::Quadratic(ref mut it) => {
                 if let Some(to) = it.next() {
@@ -229,7 +229,7 @@ where
 }
 
 
-/// An iterator that consumes an iterator of `Point`s and produces `PathEvent`s.
+/// An iterator that consumes an iterator of `Point`s and produces `Event`s.
 ///
 /// # Example
 ///
@@ -276,9 +276,9 @@ impl<Iter> Iterator for FromPolyline<Iter>
 where
     Iter: Iterator<Item = Point>,
 {
-    type Item = PathEvent<Point, Point>;
+    type Item = PathEvent;
 
-    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
+    fn next(&mut self) -> Option<PathEvent> {
         if self.done {
             return None;
         }
@@ -307,13 +307,13 @@ where
     }
 }
 
-/// Turns an iterator of `PathEvent` into an iterator of `BezierSegment<f32>`.
+/// Turns an iterator of `Event` into an iterator of `BezierSegment<f32>`.
 pub struct BezierSegments<Iter> {
     iter: Iter
 }
 
 impl<Iter> Iterator for BezierSegments<Iter>
-where Iter: Iterator<Item = PathEvent<Point, Point>> {
+where Iter: Iterator<Item = PathEvent> {
     type Item = BezierSegment<f32>;
     fn next(&mut self) -> Option<BezierSegment<f32>> {
         match self.iter.next() {
