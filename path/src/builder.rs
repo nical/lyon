@@ -121,7 +121,7 @@ pub trait PathBuilder: FlatPathBuilder {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
     fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle);
 
-    fn path_event(&mut self, event: PathEvent<Point, Point>) {
+    fn path_event(&mut self, event: PathEvent) {
         match event {
             PathEvent::Begin { at } => {
                 self.move_to(at);

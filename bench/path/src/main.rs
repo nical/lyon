@@ -2,7 +2,7 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
-use lyon::path::{Path, PathEvent, IdEvent, EndpointId, CtrlPointId};
+use lyon::path::{Path, Event, PathEvent, IdEvent, EndpointId, CtrlPointId};
 use lyon::path::generic;
 use lyon::math::{Point, point};
 
@@ -180,11 +180,11 @@ fn simple_path_id_iter(bench: &mut Bencher) {
     bench.iter(|| {
         for evt in path.id_iter() {
             i += match evt {
-                PathEvent::Begin { at: p }
-                | PathEvent::Line { to: p, .. }
-                | PathEvent::Quadratic { to: p, .. }
-                | PathEvent::Cubic { to: p, .. }
-                | PathEvent::End { last: p, .. }
+                Event::Begin { at: p }
+                | Event::Line { to: p, .. }
+                | Event::Quadratic { to: p, .. }
+                | Event::Cubic { to: p, .. }
+                | Event::End { last: p, .. }
                 => {
                     p.to_usize()
                 }
@@ -254,11 +254,11 @@ fn generic_iter(bench: &mut Bencher) {
     bench.iter(|| {
         for evt in path.events() {
             p += match evt {
-                PathEvent::Begin { at: p }
-                | PathEvent::Line { to: p, .. }
-                | PathEvent::Quadratic { to: p, .. }
-                | PathEvent::Cubic { to: p, .. }
-                | PathEvent::End { last: p, .. }
+                Event::Begin { at: p }
+                | Event::Line { to: p, .. }
+                | Event::Quadratic { to: p, .. }
+                | Event::Cubic { to: p, .. }
+                | Event::End { last: p, .. }
                 => {
                     p.to_vector()
                 }

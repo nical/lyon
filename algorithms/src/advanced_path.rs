@@ -559,8 +559,8 @@ pub struct SubPathIter<'l> {
 }
 
 impl<'l> Iterator for SubPathIter<'l> {
-    type Item = PathEvent<Point, Point>;
-    fn next(&mut self) -> Option<PathEvent<Point, Point>> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         if self.end {
             if self.done {
                 return None;
@@ -704,7 +704,7 @@ fn polyline_to_path() {
         true,
     );
 
-    let events: Vec<PathEvent<Point, Point>> = path.sub_path_edges(sp).path_iter().collect();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
     assert_eq!(events[0], PathEvent::Begin { at: point(0.0, 0.0) });
     assert_eq!(events[1], PathEvent::Line { from: point(0.0, 0.0), to: point(1.0, 0.0) });
@@ -736,7 +736,7 @@ fn split_edge() {
 
     path.split_edge(edge_id.unwrap(), point(0.5, 0.0));
 
-    let events: Vec<PathEvent<Point, Point>> = path.sub_path_edges(sp).path_iter().collect();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
     assert_eq!(events[0], PathEvent::Begin { at: point(0.0, 0.0) });
     assert_eq!(events[1], PathEvent::Line { from: point(0.0, 0.0), to: point(0.5, 0.0) });
     assert_eq!(events[2], PathEvent::Line { from: point(0.5, 0.0), to: point(1.0, 0.0) });
@@ -758,7 +758,7 @@ fn sub_path_builder() {
     }
 
     let sp = path.sub_path_ids().start();
-    let events: Vec<PathEvent<Point, Point>> = path.sub_path_edges(sp).path_iter().collect();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
     assert_eq!(events[0], PathEvent::Begin { at: point(0.0, 0.0) });
     assert_eq!(events[1], PathEvent::Line { from: point(0.0, 0.0), to: point(1.0, 0.0) });
@@ -777,7 +777,7 @@ fn empty_sub_path_1() {
     }
 
     let sp = path.sub_path_ids().start();
-    let events: Vec<PathEvent<Point, Point>> = path.sub_path_edges(sp).path_iter().collect();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
     assert_eq!(events[0], PathEvent::Begin { at: point(0.0, 0.0) });
     assert_eq!(events[1], PathEvent::End { last: point(0.0, 0.0), first: point(0.0, 0.0), close: false });
@@ -790,7 +790,7 @@ fn empty_sub_path_2() {
     path.add_polyline(&[point(0.0, 0.0)], false);
 
     let sp = path.sub_path_ids().start();
-    let events: Vec<PathEvent<Point, Point>> = path.sub_path_edges(sp).path_iter().collect();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
     assert_eq!(events[0], PathEvent::Begin { at: point(0.0, 0.0) });
     assert_eq!(events[1], PathEvent::End { last: point(0.0, 0.0), first: point(0.0, 0.0), close: false });
@@ -812,7 +812,7 @@ fn invert_sub_path() {
 
     path.invert_sub_path(sp);
 
-    let events: Vec<PathEvent<Point, Point>> = path.sub_path_edges(sp).path_iter().collect();
+    let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
     assert_eq!(events[0], PathEvent::Begin { at: point(0.0, 1.0) });
     assert_eq!(events[1], PathEvent::Line { from: point(0.0, 1.0), to: point(1.0, 1.0) });

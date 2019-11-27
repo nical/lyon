@@ -1,9 +1,9 @@
 use crate::math::{Point, Transform2D, Transform};
-use crate::{EndpointId, CtrlPointId, PathEventId, Position};
+use crate::{EndpointId, CtrlPointId, EventId, Position};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum PathEvent<Endpoint, CtrlPoint> {
+pub enum Event<Endpoint, CtrlPoint> {
     Begin { at: Endpoint, },
     Line { from: Endpoint, to: Endpoint },
     Quadratic { from: Endpoint, ctrl: CtrlPoint, to: Endpoint },
@@ -11,23 +11,25 @@ pub enum PathEvent<Endpoint, CtrlPoint> {
     End { last: Endpoint, first: Endpoint, close: bool },
 }
 
+pub type PathEvent = Event<Point, Point>;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum IdEvent {
     Begin { at: EndpointId },
-    Line { from: EndpointId, to: EndpointId, edge: PathEventId },
-    Quadratic { from: EndpointId, ctrl: CtrlPointId, to: EndpointId, edge: PathEventId },
-    Cubic { from: EndpointId, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId, edge: PathEventId },
-    End { last: EndpointId, first: EndpointId, close: bool, edge: PathEventId },
+    Line { from: EndpointId, to: EndpointId, edge: EventId },
+    Quadratic { from: EndpointId, ctrl: CtrlPointId, to: EndpointId, edge: EventId },
+    Cubic { from: EndpointId, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId, edge: EventId },
+    End { last: EndpointId, first: EndpointId, close: bool, edge: EventId },
 }
 
-impl<Ep, Cp> PathEvent<Ep, Cp> {
+impl<Ep, Cp> Event<Ep, Cp> {
     pub fn is_edge(&self) -> bool {
         match self {
-            &PathEvent::Line { .. }
-            | &PathEvent::Quadratic { .. }
-            | &PathEvent::Cubic { .. }
-            | &PathEvent::End { close: true, .. }
+            &Event::Line { .. }
+            | &Event::Quadratic { .. }
+            | &Event::Cubic { .. }
+            | &Event::End { close: true, .. }
             => true,
             _ => false,
         }
@@ -36,11 +38,11 @@ impl<Ep, Cp> PathEvent<Ep, Cp> {
     pub fn from(&self) -> Ep
     where Ep: Clone {
         match &self {
-            &PathEvent::Line { from, .. }
-            | &PathEvent::Quadratic { from, .. }
-            | &PathEvent::Cubic { from, .. }
-            | &PathEvent::Begin { at: from }
-            | &PathEvent::End { last: from, .. }
+            &Event::Line { from, .. }
+            | &Event::Quadratic { from, .. }
+            | &Event::Cubic { from, .. }
+            | &Event::Begin { at: from }
+            | &Event::End { last: from, .. }
             => {
                 from.clone()
             }
@@ -50,42 +52,42 @@ impl<Ep, Cp> PathEvent<Ep, Cp> {
     pub fn to(&self) -> Ep
     where Ep: Clone {
         match &self {
-            &PathEvent::Line { to, .. }
-            | &PathEvent::Quadratic { to, .. }
-            | &PathEvent::Cubic { to, .. }
-            | &PathEvent::Begin { at: to }
-            | &PathEvent::End { first: to, .. }
+            &Event::Line { to, .. }
+            | &Event::Quadratic { to, .. }
+            | &Event::Cubic { to, .. }
+            | &Event::Begin { at: to }
+            | &Event::End { first: to, .. }
             => {
                 to.clone()
             }
         }
     }
 
-    pub fn with_points(&self) -> PathEvent<Point, Point>
+    pub fn with_points(&self) -> PathEvent
     where
         Ep: Position,
         Cp: Position,
     {
         match self {
-            PathEvent::Line { from, to } => PathEvent::Line {
+            Event::Line { from, to } => Event::Line {
                 from: from.position(),
                 to: to.position(),
             },
-            PathEvent::Quadratic { from, ctrl, to } => PathEvent::Quadratic {
+            Event::Quadratic { from, ctrl, to } => Event::Quadratic {
                 from: from.position(),
                 ctrl: ctrl.position(),
                 to: to.position(),
             },
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => PathEvent::Cubic {
+            Event::Cubic { from, ctrl1, ctrl2, to } => Event::Cubic {
                 from: from.position(),
                 ctrl1: ctrl1.position(),
                 ctrl2: ctrl2.position(),
                 to: to.position(),
             },
-            PathEvent::Begin { at } => PathEvent::Begin {
+            Event::Begin { at } => Event::Begin {
                 at: at.position(),
             },
-            PathEvent::End { last, first, close } => PathEvent::End {
+            Event::End { last, first, close } => Event::End {
                 last: last.position(),
                 first: first.position(),
                 close: *close
@@ -94,28 +96,28 @@ impl<Ep, Cp> PathEvent<Ep, Cp> {
     }
 }
 
-impl Transform for PathEvent<Point, Point> {
+impl Transform for PathEvent {
     fn transform(&self, mat: &Transform2D) -> Self {
         match self {
-            PathEvent::Line { from, to } => PathEvent::Line {
+            Event::Line { from, to } => Event::Line {
                 from: mat.transform_point(*from),
                 to: mat.transform_point(*to),
             },
-            PathEvent::Quadratic { from, ctrl, to } => PathEvent::Quadratic {
+            Event::Quadratic { from, ctrl, to } => Event::Quadratic {
                 from: mat.transform_point(*from),
                 ctrl: mat.transform_point(*ctrl),
                 to: mat.transform_point(*to),
             },
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => PathEvent::Cubic {
+            Event::Cubic { from, ctrl1, ctrl2, to } => Event::Cubic {
                 from: mat.transform_point(*from),
                 ctrl1: mat.transform_point(*ctrl1),
                 ctrl2: mat.transform_point(*ctrl2),
                 to: mat.transform_point(*to),
             },
-            PathEvent::Begin { at } => PathEvent::Begin {
+            Event::Begin { at } => Event::Begin {
                 at: mat.transform_point(*at),
             },
-            PathEvent::End { first, last, close } => PathEvent::End {
+            Event::End { first, last, close } => Event::End {
                 last: mat.transform_point(*last),
                 first: mat.transform_point(*first),
                 close: *close,

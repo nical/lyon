@@ -309,7 +309,7 @@ impl FillTessellator {
         output: &mut dyn GeometryBuilder<Vertex>,
     ) -> TessellationResult
     where
-        Iter: IntoIterator<Item = PathEvent<Point, Point>>,
+        Iter: IntoIterator<Item = PathEvent>,
     {
         let mut events = replace(&mut self.events, FillEvents::new());
         events.clear();
@@ -1569,7 +1569,7 @@ pub struct FillEvents {
 }
 
 impl FillEvents {
-    pub fn from_path<Iter: Iterator<Item = PathEvent<Point, Point>>>(tolerance: f32, it: Iter) -> Self {
+    pub fn from_path<Iter: Iterator<Item = PathEvent>>(tolerance: f32, it: Iter) -> Self {
         let mut events = FillEvents::new();
         events.set_path(tolerance, it);
 
@@ -1588,7 +1588,7 @@ impl FillEvents {
         self.vertices.clear();
     }
 
-    pub fn set_path<Iter: Iterator<Item = PathEvent<Point, Point>>>(&mut self, tolerance: f32, it: Iter) {
+    pub fn set_path<Iter: Iterator<Item = PathEvent>>(&mut self, tolerance: f32, it: Iter) {
         self.clear();
         let mut tmp = FillEvents::new();
         swap(self, &mut tmp);

@@ -36,7 +36,7 @@ pub trait FastBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
-impl FastBoundingRect for PathEvent<Point, Point> {
+impl FastBoundingRect for PathEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
             PathEvent::Begin { at } => {
@@ -89,7 +89,7 @@ pub trait TightBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
-impl TightBoundingRect for PathEvent<Point, Point> {
+impl TightBoundingRect for PathEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
             PathEvent::Begin { at } => {

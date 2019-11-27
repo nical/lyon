@@ -386,7 +386,7 @@ fn signed_pseudo_distance(line: &Line<f32>, p: &Point) -> f32 {
 use crate::path::PathEvent;
 
 #[cfg(test)]
-fn compare_path_events(actual: &[PathEvent<Point, Point>], expected: &[PathEvent<Point, Point>]) {
+fn compare_path_events(actual: &[PathEvent], expected: &[PathEvent]) {
     use crate::geom::euclid::approxeq::ApproxEq;
 
     if actual.len() != expected.len() {
@@ -446,8 +446,8 @@ fn split_with_segment_1() {
         },
     );
 
-    let events1: Vec<PathEvent<Point, Point>> = p1.iter().collect();
-    let events2: Vec<PathEvent<Point, Point>> = p2.iter().collect();
+    let events1: Vec<PathEvent> = p1.iter().collect();
+    let events2: Vec<PathEvent> = p2.iter().collect();
 
     compare_path_events(&events1, &[
         PathEvent::Begin { at: point(1.0, 0.5) },
@@ -500,8 +500,8 @@ fn split_with_segment_2() {
         },
     );
 
-    let events1: Vec<PathEvent<Point, Point>> = p1.iter().collect();
-    let events2: Vec<PathEvent<Point, Point>> = p2.iter().collect();
+    let events1: Vec<PathEvent> = p1.iter().collect();
+    let events2: Vec<PathEvent> = p2.iter().collect();
 
     compare_path_events(&events1, &[
         PathEvent::Begin { at: point(3.0, 2.0) },
@@ -560,8 +560,8 @@ fn split_with_segment_3() {
     );
 
 
-    let events1: Vec<PathEvent<Point, Point>> = p1.iter().collect();
-    let events2: Vec<PathEvent<Point, Point>> = p2.iter().collect();
+    let events1: Vec<PathEvent> = p1.iter().collect();
+    let events2: Vec<PathEvent> = p2.iter().collect();
 
     compare_path_events(&events1, &[
         PathEvent::Begin { at: point(1.0, 2.0) },
@@ -611,8 +611,8 @@ fn split_with_segment_4() {
         },
     );
 
-    let events1: Vec<PathEvent<Point, Point>> = p1.iter().collect();
-    let events2: Vec<PathEvent<Point, Point>> = p2.iter().collect();
+    let events1: Vec<PathEvent> = p1.iter().collect();
+    let events2: Vec<PathEvent> = p2.iter().collect();
 
     compare_path_events(&events1, &[
         PathEvent::Begin { at: point(1.0, 1.0) },
@@ -663,8 +663,8 @@ fn split_with_segment_5() {
         },
     );
 
-    let events1: Vec<PathEvent<Point, Point>> = p1.iter().collect();
-    let events2: Vec<PathEvent<Point, Point>> = p2.iter().collect();
+    let events1: Vec<PathEvent> = p1.iter().collect();
+    let events2: Vec<PathEvent> = p2.iter().collect();
 
 
     compare_path_events(&events1, &[
@@ -719,8 +719,8 @@ fn split_with_segment_6() {
         },
     );
 
-    let events1: Vec<PathEvent<Point, Point>> = p1.iter().collect();
-    let events2: Vec<PathEvent<Point, Point>> = p2.iter().collect();
+    let events1: Vec<PathEvent> = p1.iter().collect();
+    let events2: Vec<PathEvent> = p2.iter().collect();
 
     compare_path_events(&events1, &[
         PathEvent::Begin { at: point(3.0, 1.0) },

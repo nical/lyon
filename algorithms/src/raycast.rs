@@ -22,7 +22,7 @@ pub struct Hit {
 /// Find the closest collision between a ray and the path.
 pub fn raycast_path<Iter>(ray: &Ray, path: Iter, tolerance: f32) -> Option<Hit>
 where
-    Iter: Iterator<Item=PathEvent<Point, Point>>,
+    Iter: Iterator<Item=PathEvent>,
 {
     let ray_len = ray.direction.square_length();
     if ray_len == 0.0 || ray_len.is_nan() {
