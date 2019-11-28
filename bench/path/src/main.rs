@@ -180,11 +180,11 @@ fn simple_path_id_iter(bench: &mut Bencher) {
     bench.iter(|| {
         for evt in path.id_iter() {
             i += match evt {
-                Event::Begin { at: p }
-                | Event::Line { to: p, .. }
-                | Event::Quadratic { to: p, .. }
-                | Event::Cubic { to: p, .. }
-                | Event::End { last: p, .. }
+                IdEvent::Begin { at: p }
+                | IdEvent::Line { to: p, .. }
+                | IdEvent::Quadratic { to: p, .. }
+                | IdEvent::Cubic { to: p, .. }
+                | IdEvent::End { last: p, .. }
                 => {
                     p.to_usize()
                 }

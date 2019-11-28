@@ -3,7 +3,7 @@
 use crate::builder::*;
 use crate::math::*;
 use crate::geom::Arc;
-use crate::{Event, PathEvent, EndpointId, CtrlPointId};
+use crate::{PathEvent, IdEvent, EndpointId, CtrlPointId, EventId};
 
 use std::iter::IntoIterator;
 use std::mem;
@@ -516,35 +516,35 @@ impl<'l> Iterator for Iter<'l> {
             Some(&Verb::Begin) => {
                 self.current = *self.points.next().unwrap();
                 self.first = self.current;
-                Some(Event::Begin { at: self.current })
+                Some(PathEvent::Begin { at: self.current })
             }
             Some(&Verb::LineTo) => {
                 let from = self.current;
                 self.current = *self.points.next().unwrap();
-                Some(Event::Line { from, to: self.current })
+                Some(PathEvent::Line { from, to: self.current })
             }
             Some(&Verb::QuadraticTo) => {
                 let from = self.current;
                 let ctrl = *self.points.next().unwrap();
                 self.current = *self.points.next().unwrap();
-                Some(Event::Quadratic { from, ctrl, to: self.current })
+                Some(PathEvent::Quadratic { from, ctrl, to: self.current })
             }
             Some(&Verb::CubicTo) => {
                 let from = self.current;
                 let ctrl1 = *self.points.next().unwrap();
                 let ctrl2 = *self.points.next().unwrap();
                 self.current = *self.points.next().unwrap();
-                Some(Event::Cubic { from, ctrl1, ctrl2, to: self.current })
+                Some(PathEvent::Cubic { from, ctrl1, ctrl2, to: self.current })
             }
             Some(&Verb::Close) => {
                 let last = self.current;
                 self.current = self.first;
-                Some(Event::End { last, first: self.first, close: true, })
+                Some(PathEvent::End { last, first: self.first, close: true, })
             }
             Some(&Verb::End) => {
                 let last = self.current;
                 self.current = self.first;
-                Some(Event::End { last, first: self.first, close: false, })
+                Some(PathEvent::End { last, first: self.first, close: false, })
             }
             None => None,
         }
@@ -557,6 +557,7 @@ pub struct IdIter<'l> {
     verbs: ::std::slice::Iter<'l, Verb>,
     current: u32,
     first: u32,
+    evt: u32,
 }
 
 impl<'l> IdIter<'l> {
@@ -565,32 +566,36 @@ impl<'l> IdIter<'l> {
             verbs: verbs.iter(),
             current: 0,
             first: 0,
+            evt: 0,
         }
     }
 }
 
 impl<'l> Iterator for IdIter<'l> {
-    type Item = Event<EndpointId, CtrlPointId>; // TODO: IdEvent.
-    fn next(&mut self) -> Option<Event<EndpointId, CtrlPointId>> {
+    type Item = IdEvent;
+    fn next(&mut self) -> Option<IdEvent> {
+        let edge = EventId(self.evt);
         match self.verbs.next() {
             Some(&Verb::Begin) => {
                 let at = self.current;
                 self.first = at;
                 self.current += 1;
-                Some(Event::Begin { at: EndpointId(at) })
+                Some(IdEvent::Begin { at: EndpointId(at) })
             }
             Some(&Verb::LineTo) => {
                 let from = EndpointId(self.current);
                 let to = EndpointId(self.current + 1);
                 self.current += 1;
-                Some(Event::Line { from, to })
+                self.evt += 1;
+                Some(IdEvent::Line { from, to, edge })
             }
             Some(&Verb::QuadraticTo) => {
                 let from = EndpointId(self.current);
                 let ctrl = CtrlPointId(self.current + 1);
                 let to = EndpointId(self.current + 2);
                 self.current += 2;
-                Some(Event::Quadratic { from, ctrl, to })
+                self.evt += 1;
+                Some(IdEvent::Quadratic { from, ctrl, to, edge })
             }
             Some(&Verb::CubicTo) => {
                 let from = EndpointId(self.current);
@@ -598,19 +603,22 @@ impl<'l> Iterator for IdIter<'l> {
                 let ctrl2 = CtrlPointId(self.current + 2);
                 let to = EndpointId(self.current + 3);
                 self.current += 3;
-                Some(Event::Cubic { from, ctrl1, ctrl2, to })
+                self.evt += 1;
+                Some(IdEvent::Cubic { from, ctrl1, ctrl2, to, edge })
             }
             Some(&Verb::Close) => {
                 let last = EndpointId(self.current);
                 let first = EndpointId(self.first);
                 self.current = self.first;
-                Some(Event::End { last, first, close: true, })
+                self.evt += 1;
+                Some(IdEvent::End { last, first, close: true, edge })
             }
             Some(&Verb::End) => {
                 let last = EndpointId(self.current);
                 let first = EndpointId(self.first);
                 self.current = self.first;
-                Some(Event::End { last, first, close: false, })
+                self.evt += 1;
+                Some(IdEvent::End { last, first, close: false, edge })
             }
             None => None,
         }
