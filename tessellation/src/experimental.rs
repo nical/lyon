@@ -282,34 +282,62 @@ impl FillTessellator {
         }
     }
 
-    pub fn tessellate_path(
+    pub fn create_event_queue(&mut self) -> EventQueue {
+        std::mem::replace(&mut self.events, EventQueue::new())
+    }
+
+    pub fn tessellate_path<Iter>(
         &mut self,
-        path: &Path,
+        path: Iter,
+        options: &FillOptions,
+        builder: &mut dyn GeometryBuilder<Vertex>
+    ) -> TessellationResult
+    where
+        Iter: IntoIterator<Item = PathEvent>,
+    {
+
+        let mut queue_builder = self.create_event_queue().into_builder();
+
+        queue_builder.set_path(path.into_iter());
+
+        let mut event_queue = queue_builder.build();
+
+        std::mem::swap(&mut self.events, &mut event_queue);
+
+        self.tessellate_impl(options, builder)
+    }
+
+    pub fn tessellate_events(
+        &mut self,
+        events: &mut EventQueue,
         options: &FillOptions,
         builder: &mut dyn GeometryBuilder<Vertex>
     ) -> TessellationResult {
 
-        let mut tx_builder = EventQueueBuilder::with_capacity(128);
-        tx_builder.set_path(path.iter());
+        std::mem::swap(&mut self.events, events);
 
-        self.tessellate(tx_builder.build(), options, builder)
+        let result = self.tessellate_impl(options, builder);
+
+        std::mem::swap(&mut self.events, events);
+
+        result
     }
 
-    pub fn tessellate(
+    fn tessellate_impl(
         &mut self,
-        events: EventQueue,
         options: &FillOptions,
         builder: &mut dyn GeometryBuilder<Vertex>
     ) -> TessellationResult {
         self.fill_rule = options.fill_rule;
 
-        self.events = events;
-
         builder.begin_geometry();
 
-        if let Err(e) = self.tessellator_loop(builder) {
+        let result = self.tessellator_loop(builder);
+
+        if let Err(e) = result {
             tess_log!(self, "Tessellation failed with error: {:?}.", e);
             builder.abort_geometry();
+
             return Err(e);
         }
 
@@ -1453,6 +1481,27 @@ impl EventQueue {
         }
     }
 
+    pub fn from_path(path: impl Iterator<Item = PathEvent>) -> Self {
+        let (min, max) = path.size_hint();
+        let capacity = max.unwrap_or(min);
+        let mut builder = EventQueueBuilder::with_capacity(capacity);
+        builder.set_path(path);
+
+        builder.build()
+    }
+
+    pub fn from_path_with_ids(
+        path: impl Iterator<Item = IdEvent>,
+        positions: &impl PositionStore,
+    ) -> Self {
+        let (min, max) = path.size_hint();
+        let capacity = max.unwrap_or(min);
+        let mut builder = EventQueueBuilder::with_capacity(capacity);
+        builder.set_path_with_ids(path, positions);
+
+        builder.build()
+    }
+
     pub fn reserve(&mut self, n: usize) {
         self.events.reserve(n);
     }
@@ -1462,6 +1511,19 @@ impl EventQueue {
             self.push_sorted(position);
         } else {
             self.push_unsorted(position);
+        }
+    }
+
+    fn into_builder(self) -> EventQueueBuilder {
+        EventQueueBuilder {
+            queue: self,
+            current: point(f32::NAN, f32::NAN),
+            prev: point(f32::NAN, f32::NAN),
+            second: point(f32::NAN, f32::NAN),
+            nth: 0,
+            prev_evt_is_edge: false,
+            tolerance: 0.1,
+            prev_endpoint_id: EndpointId(std::u32::MAX),
         }
     }
 
@@ -1705,24 +1767,27 @@ struct EventQueueBuilder {
     prev: Point,
     second: Point,
     nth: u32,
-    tx: EventQueue,
+    queue: EventQueue,
     prev_evt_is_edge: bool,
     tolerance: f32,
     prev_endpoint_id: EndpointId,
 }
 
 impl EventQueueBuilder {
+    fn new() -> Self {
+        EventQueue::new().into_builder()
+    }
+
     fn with_capacity(cap: usize) -> Self {
-        EventQueueBuilder {
-            current: point(f32::NAN, f32::NAN),
-            prev: point(f32::NAN, f32::NAN),
-            second: point(f32::NAN, f32::NAN),
-            nth: 0,
-            tx: EventQueue::with_capacity(cap),
-            prev_evt_is_edge: false,
-            tolerance: 0.1,
-            prev_endpoint_id: EndpointId(std::u32::MAX),
-        }
+        EventQueue::with_capacity(cap).into_builder()
+    }
+
+    fn build(mut self) -> EventQueue {
+        debug_assert!(!self.prev_evt_is_edge);
+
+        self.queue.sort();
+
+        self.queue
     }
 
     fn set_path(&mut self, path: impl Iterator<Item=PathEvent>) {
@@ -1767,7 +1832,7 @@ impl EventQueueBuilder {
         debug_assert!(!self.prev_evt_is_edge);
     }
 
-    fn set_path_with_event_ids(
+    fn set_path_with_ids(
         &mut self,
         path_events: impl Iterator<Item=IdEvent>,
         points: &impl PositionStore,
@@ -1817,8 +1882,8 @@ impl EventQueueBuilder {
     }
 
     fn vertex_event(&mut self, at: Point, endpoint_id: EndpointId, evt_id: path::EventId) {
-        self.tx.push(at);
-        self.tx.edge_data.push(EdgeData {
+        self.queue.push(at);
+        self.queue.edge_data.push(EdgeData {
             to: point(f32::NAN, f32::NAN),
             range: 0.0..0.0,
             winding: 0,
@@ -1837,8 +1902,8 @@ impl EventQueueBuilder {
         to_id: EndpointId,
         evt_id: path::EventId,
     ) {
-        self.tx.push(at);
-        self.tx.edge_data.push(EdgeData {
+        self.queue.push(at);
+        self.queue.edge_data.push(EdgeData {
             to: point(f32::NAN, f32::NAN),
             range: t..t,
             winding: 0,
@@ -1900,8 +1965,8 @@ impl EventQueueBuilder {
             winding *= -1;
         }
 
-        self.tx.push(evt_pos);
-        self.tx.edge_data.push(EdgeData {
+        self.queue.push(evt_pos);
+        self.queue.edge_data.push(EdgeData {
             to: evt_to,
             range: t0..t1,
             winding,
@@ -2115,14 +2180,6 @@ impl EventQueueBuilder {
         self.prev = previous;
         self.current = original.to;
     }
-
-    fn build(mut self) -> EventQueue {
-        debug_assert!(!self.prev_evt_is_edge);
-
-        self.tx.sort();
-
-        self.tx
-    }
 }
 
 #[derive(Clone)]
@@ -2222,102 +2279,102 @@ fn log_svg_preamble(tess: &FillTessellator) {
 }
 
 #[test]
-fn test_traversal_sort_1() {
-    let mut tx = EventQueue::new();
-    tx.push(point(0.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(2.0, 0.0));
-    tx.push(point(3.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(0.0, 0.0));
-    tx.push(point(6.0, 0.0));
+fn test_event_queue_sort_1() {
+    let mut queue = EventQueue::new();
+    queue.push(point(0.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(2.0, 0.0));
+    queue.push(point(3.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(0.0, 0.0));
+    queue.push(point(6.0, 0.0));
 
-    tx.sort();
-    tx.assert_sorted();
+    queue.sort();
+    queue.assert_sorted();
 }
 
 #[test]
-fn test_traversal_sort_2() {
-    let mut tx = EventQueue::new();
-    tx.push(point(0.0, 0.0));
-    tx.push(point(0.0, 0.0));
-    tx.push(point(0.0, 0.0));
-    tx.push(point(0.0, 0.0));
+fn test_event_queue_sort_2() {
+    let mut queue = EventQueue::new();
+    queue.push(point(0.0, 0.0));
+    queue.push(point(0.0, 0.0));
+    queue.push(point(0.0, 0.0));
+    queue.push(point(0.0, 0.0));
 
-    tx.sort();
-    tx.assert_sorted();
+    queue.sort();
+    queue.assert_sorted();
 }
 
 #[test]
-fn test_traversal_sort_3() {
-    let mut tx = EventQueue::new();
-    tx.push(point(0.0, 0.0));
-    tx.push(point(1.0, 0.0));
-    tx.push(point(2.0, 0.0));
-    tx.push(point(3.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(5.0, 0.0));
+fn test_event_queue_sort_3() {
+    let mut queue = EventQueue::new();
+    queue.push(point(0.0, 0.0));
+    queue.push(point(1.0, 0.0));
+    queue.push(point(2.0, 0.0));
+    queue.push(point(3.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(5.0, 0.0));
 
-    tx.sort();
-    tx.assert_sorted();
+    queue.sort();
+    queue.assert_sorted();
 }
 
 #[test]
-fn test_traversal_sort_4() {
-    let mut tx = EventQueue::new();
-    tx.push(point(5.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(3.0, 0.0));
-    tx.push(point(2.0, 0.0));
-    tx.push(point(1.0, 0.0));
-    tx.push(point(0.0, 0.0));
+fn test_event_queue_sort_4() {
+    let mut queue = EventQueue::new();
+    queue.push(point(5.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(3.0, 0.0));
+    queue.push(point(2.0, 0.0));
+    queue.push(point(1.0, 0.0));
+    queue.push(point(0.0, 0.0));
 
-    tx.sort();
-    tx.assert_sorted();
+    queue.sort();
+    queue.assert_sorted();
 }
 
 #[test]
-fn test_traversal_sort_5() {
-    let mut tx = EventQueue::new();
-    tx.push(point(5.0, 0.0));
-    tx.push(point(5.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(3.0, 0.0));
-    tx.push(point(3.0, 0.0));
-    tx.push(point(2.0, 0.0));
-    tx.push(point(2.0, 0.0));
-    tx.push(point(1.0, 0.0));
-    tx.push(point(1.0, 0.0));
-    tx.push(point(0.0, 0.0));
-    tx.push(point(0.0, 0.0));
+fn test_event_queue_sort_5() {
+    let mut queue = EventQueue::new();
+    queue.push(point(5.0, 0.0));
+    queue.push(point(5.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(3.0, 0.0));
+    queue.push(point(3.0, 0.0));
+    queue.push(point(2.0, 0.0));
+    queue.push(point(2.0, 0.0));
+    queue.push(point(1.0, 0.0));
+    queue.push(point(1.0, 0.0));
+    queue.push(point(0.0, 0.0));
+    queue.push(point(0.0, 0.0));
 
-    tx.sort();
-    tx.assert_sorted();
+    queue.sort();
+    queue.assert_sorted();
 }
 
 #[test]
-fn test_traversal_push_sorted() {
-    let mut tx = EventQueue::new();
-    tx.push(point(5.0, 0.0));
-    tx.push(point(4.0, 0.0));
-    tx.push(point(3.0, 0.0));
-    tx.push(point(2.0, 0.0));
-    tx.push(point(1.0, 0.0));
-    tx.push(point(0.0, 0.0));
+fn test_event_queue_push_sorted() {
+    let mut queue = EventQueue::new();
+    queue.push(point(5.0, 0.0));
+    queue.push(point(4.0, 0.0));
+    queue.push(point(3.0, 0.0));
+    queue.push(point(2.0, 0.0));
+    queue.push(point(1.0, 0.0));
+    queue.push(point(0.0, 0.0));
 
-    tx.sort();
-    tx.push_sorted(point(1.5, 0.0));
-    tx.assert_sorted();
+    queue.sort();
+    queue.push_sorted(point(1.5, 0.0));
+    queue.assert_sorted();
 
-    tx.push_sorted(point(2.5, 0.0));
-    tx.assert_sorted();
+    queue.push_sorted(point(2.5, 0.0));
+    queue.assert_sorted();
 
-    tx.push_sorted(point(2.5, 0.0));
-    tx.assert_sorted();
+    queue.push_sorted(point(2.5, 0.0));
+    queue.assert_sorted();
 
-    tx.push_sorted(point(6.5, 0.0));
-    tx.assert_sorted();
+    queue.push_sorted(point(6.5, 0.0));
+    queue.assert_sorted();
 }
 
 #[cfg(test)]
@@ -3083,15 +3140,14 @@ fn vertex_source_01() {
 
     let cmds = cmds.build();
 
-    let mut queue = EventQueueBuilder::with_capacity(8);
-    queue.set_path_with_event_ids(
+    let mut queue = EventQueue::from_path_with_ids(
         cmds.id_events(),
         &(&endpoints[..], &endpoints[..]),
     );
 
     let mut tess = FillTessellator::new();
-    tess.tessellate(
-        queue.build(),
+    tess.tessellate_events(
+        &mut queue,
         &FillOptions::default(),
         &mut CheckVertexSources { next_vertex: 0 },
     ).unwrap();
@@ -3160,15 +3216,14 @@ fn vertex_source_02() {
 
     let cmds = cmds.build();
 
-    let mut queue = EventQueueBuilder::with_capacity(8);
-    queue.set_path_with_event_ids(
+    let mut queue = EventQueue::from_path_with_ids(
         cmds.id_events(),
         &(&endpoints[..], &endpoints[..]),
     );
 
     let mut tess = FillTessellator::new();
-    tess.tessellate(
-        queue.build(),
+    tess.tessellate_events(
+        &mut queue,
         &FillOptions::default(),
         &mut CheckVertexSources { next_vertex: 0 },
     ).unwrap();
