@@ -288,11 +288,22 @@ impl FillTessellator {
         options: &FillOptions,
         builder: &mut dyn GeometryBuilder<Vertex>
     ) -> TessellationResult {
-        self.fill_rule = options.fill_rule;
 
         let mut tx_builder = EventQueueBuilder::with_capacity(128);
         tx_builder.set_path(path.iter());
-        self.events = tx_builder.build();
+
+        self.tessellate(tx_builder.build(), options, builder)
+    }
+
+    pub fn tessellate(
+        &mut self,
+        events: EventQueue,
+        options: &FillOptions,
+        builder: &mut dyn GeometryBuilder<Vertex>
+    ) -> TessellationResult {
+        self.fill_rule = options.fill_rule;
+
+        self.events = events;
 
         builder.begin_geometry();
 
@@ -1405,11 +1416,13 @@ pub struct Event {
 
 #[derive(Clone, Debug)]
 struct EdgeData {
-    evt_id: path::EventId,
     to: Point,
     range: std::ops::Range<f32>,
     winding: i16,
     is_edge: bool,
+    evt_id: path::EventId,
+    from_id: path::EndpointId,
+    to_id: path::EndpointId,
 }
 
 pub struct EventQueue {
@@ -1695,6 +1708,7 @@ struct EventQueueBuilder {
     tx: EventQueue,
     prev_evt_is_edge: bool,
     tolerance: f32,
+    prev_endpoint_id: EndpointId,
 }
 
 impl EventQueueBuilder {
@@ -1707,23 +1721,26 @@ impl EventQueueBuilder {
             tx: EventQueue::with_capacity(cap),
             prev_evt_is_edge: false,
             tolerance: 0.1,
+            prev_endpoint_id: EndpointId(std::u32::MAX),
         }
     }
 
     fn set_path(&mut self, path: impl Iterator<Item=PathEvent>) {
         let mut evt_id = path::EventId(0);
+        let mut endpoint_id = EndpointId(0);
         for evt in path {
             match evt {
                 PathEvent::Begin { at } => {
                     self.begin(at);
                 }
                 PathEvent::Line { to, .. } => {
-                    self.line_segment(to, evt_id, 0.0, 1.0);
+                    self.line_segment(to, endpoint_id, evt_id, 0.0, 1.0);
                 }
                 PathEvent::Quadratic { ctrl, to, .. } => {
                     self.quadratic_bezier_segment(
                         ctrl,
                         to,
+                        endpoint_id,
                         evt_id,
                     );
                 }
@@ -1732,15 +1749,18 @@ impl EventQueueBuilder {
                         ctrl1,
                         ctrl2,
                         to,
+                        endpoint_id,
                         evt_id,
                     );
                 }
                 PathEvent::End { first, .. } => {
-                    self.end(first, evt_id);
+                    self.end(first, endpoint_id, evt_id);
                 }
             }
 
             evt_id.0 += 1;
+            self.prev_endpoint_id = endpoint_id;
+            endpoint_id.0 += 1;
         }
 
         // Should finish with an end event.
@@ -1756,27 +1776,38 @@ impl EventQueueBuilder {
             match evt {
                 IdEvent::Begin { at } => {
                     self.begin(points.endpoint_position(at));
+                    self.prev_endpoint_id = at;
                 }
                 IdEvent::Line { to, edge, .. } => {
-                    self.line_segment(points.endpoint_position(to), edge, 0.0, 1.0);
+                    self.line_segment(
+                        points.endpoint_position(to), to,
+                        edge,
+                        0.0, 1.0,
+                    );
+                    self.prev_endpoint_id = to;
                 }
                 IdEvent::Quadratic { ctrl, to, edge, .. } => {
                     self.quadratic_bezier_segment(
                         points.ctrl_point_position(ctrl),
                         points.endpoint_position(to),
+                        to,
                         edge,
                     );
+                    self.prev_endpoint_id = to;
                 }
                 IdEvent::Cubic { ctrl1, ctrl2, to, edge, .. } => {
                     self.cubic_bezier_segment(
                         points.ctrl_point_position(ctrl1),
                         points.ctrl_point_position(ctrl2),
                         points.endpoint_position(to),
+                        to,
                         edge,
                     );
+                    self.prev_endpoint_id = to;
                 }
                 IdEvent::End { first, edge, .. } => {
-                    self.end(points.endpoint_position(first), edge);
+                    self.end(points.endpoint_position(first), first, edge);
+                    self.prev_endpoint_id = first;
                 }
             }
         }
@@ -1785,18 +1816,40 @@ impl EventQueueBuilder {
         debug_assert!(!self.prev_evt_is_edge);
     }
 
-    fn vertex_event(&mut self, at: Point, evt_id: path::EventId) {
+    fn vertex_event(&mut self, at: Point, endpoint_id: EndpointId, evt_id: path::EventId) {
         self.tx.push(at);
         self.tx.edge_data.push(EdgeData {
             to: point(f32::NAN, f32::NAN),
             range: 0.0..0.0,
             winding: 0,
-            evt_id,
             is_edge: false,
+            evt_id,
+            from_id: endpoint_id,
+            to_id: endpoint_id,
         });
     }
 
-    fn end(&mut self, first: Point, evt_id: path::EventId) {
+    fn vertex_event_on_curve(
+        &mut self,
+        at: Point,
+        t: f32,
+        from_id: EndpointId,
+        to_id: EndpointId,
+        evt_id: path::EventId,
+    ) {
+        self.tx.push(at);
+        self.tx.edge_data.push(EdgeData {
+            to: point(f32::NAN, f32::NAN),
+            range: t..t,
+            winding: 0,
+            is_edge: false,
+            evt_id,
+            from_id,
+            to_id,
+        });
+    }
+
+    fn end(&mut self, first: Point, first_endpoint_id: EndpointId, evt_id: path::EventId) {
         if self.nth == 0 {
             return;
         }
@@ -1804,14 +1857,14 @@ impl EventQueueBuilder {
         // Unless we are already back to the first point, we need to
         // to insert an edge.
         if self.current != first {
-            self.line_segment(first, evt_id, 0.0, 1.0);
+            self.line_segment(first, first_endpoint_id, evt_id, 0.0, 1.0);
         }
 
         // Since we can only check for the need of a vertex event when
         // we have a previous edge, we skipped it for the first edge
         // and have to do it now.
         if is_after(first, self.prev) && is_after(first, self.second) {
-            self.vertex_event(first, evt_id);
+            self.vertex_event(first, first_endpoint_id, evt_id);
         }
 
         self.prev_evt_is_edge = false;
@@ -1826,30 +1879,49 @@ impl EventQueueBuilder {
         self.current = to;
     }
 
-    fn add_edge(&mut self, from: Point, to: Point, mut winding: i16, evt_id: path::EventId, mut t0: f32, mut t1: f32) {
+    fn add_edge(
+        &mut self,
+        from: Point,
+        to: Point,
+        mut winding: i16,
+        evt_id: path::EventId,
+        from_id: EndpointId,
+        to_id: EndpointId,
+        mut t0: f32,
+        mut t1: f32,
+    ) {
         let mut evt_pos = from;
         let mut evt_to = to;
         if is_after(evt_pos, to) {
             evt_to = evt_pos;
             evt_pos = to;
             swap(&mut t0, &mut t1);
+            //swap(&mut from_id, &mut to_id);
             winding *= -1;
         }
 
         self.tx.push(evt_pos);
         self.tx.edge_data.push(EdgeData {
-            evt_id,
             to: evt_to,
             range: t0..t1,
             winding,
             is_edge: true,
+            evt_id,
+            from_id,
+            to_id,
         });
 
         self.nth += 1;
         self.prev_evt_is_edge = true;
     }
 
-    fn line_segment(&mut self, to: Point, evt_id: path::EventId, t0: f32, t1: f32) {
+    fn line_segment(
+        &mut self,
+        to: Point,
+        to_id: EndpointId,
+        evt_id: path::EventId,
+        t0: f32, t1: f32,
+    ) {
         debug_assert!(evt_id != path::EventId::INVALID);
 
         let from = self.current;
@@ -1859,7 +1931,7 @@ impl EventQueueBuilder {
 
         if is_after(from, to) {
             if self.nth > 0 && is_after(from, self.prev) {
-                self.vertex_event(from, evt_id);
+                self.vertex_event(from, self.prev_endpoint_id, evt_id);
             }
         }
 
@@ -1867,9 +1939,17 @@ impl EventQueueBuilder {
             self.second = to;
         }
 
-        self.add_edge(from, to, 1, evt_id, t0, t1);
+        self.add_edge(
+            from, to,
+            1,
+            evt_id,
+            self.prev_endpoint_id,
+            to_id,
+            t0, t1
+        );
 
         self.prev = self.current;
+        self.prev_endpoint_id = to_id;
         self.current = to;
     }
 
@@ -1877,6 +1957,7 @@ impl EventQueueBuilder {
         &mut self,
         ctrl: Point,
         to: Point,
+        to_id: EndpointId,
         evt_id: path::EventId,
     ) {
         // Swap the curve so that it always goes downwards. This way if two
@@ -1914,10 +1995,23 @@ impl EventQueueBuilder {
                 // the previous vertex yet.
                 // We'll handle it after the loop.
             } else if is_after(from, to) && is_after(from, prev) {
-                self.vertex_event(from, evt_id);
+                self.vertex_event_on_curve(
+                    from,
+                    t0,
+                    self.prev_endpoint_id,
+                    to_id,
+                    evt_id,
+                );
             }
 
-            self.add_edge(from, to, winding, evt_id, t0, t1);
+            self.add_edge(
+                from, to,
+                winding,
+                evt_id,
+                self.prev_endpoint_id,
+                to_id,
+                t0, t1,
+            );
 
             t0 = t1;
             prev = from;
@@ -1932,7 +2026,7 @@ impl EventQueueBuilder {
         } else if is_after(original.from, self.prev) && is_after(original.from, second) {
             // Handle the first vertex we took out of the loop above.
             // The missing vertex is always the origin of the edge (before the flip).
-            self.vertex_event(original.from, evt_id);
+            self.vertex_event(original.from, self.prev_endpoint_id, evt_id);
         }
 
         self.prev = previous;
@@ -1944,6 +2038,7 @@ impl EventQueueBuilder {
         ctrl1: Point,
         ctrl2: Point,
         to: Point,
+        to_id: EndpointId,
         evt_id: path::EventId,
     ) {
         // Swap the curve so that it always goes downwards. This way if two
@@ -1983,10 +2078,23 @@ impl EventQueueBuilder {
                 // the previous vertex yet.
                 // We'll handle it after the loop.
             } else if is_after(from, to) && is_after(from, prev) {
-                self.vertex_event(from, evt_id);
+                self.vertex_event_on_curve(
+                    from,
+                    t0,
+                    self.prev_endpoint_id,
+                    to_id,
+                    evt_id,
+                );
             }
 
-            self.add_edge(from, to, winding, evt_id, t0, t1);
+            self.add_edge(
+                from, to,
+                winding,
+                evt_id,
+                self.prev_endpoint_id,
+                to_id,
+                t0, t1,
+            );
 
             t0 = t1;
             prev = from;
@@ -2001,7 +2109,7 @@ impl EventQueueBuilder {
         } else if is_after(original.from, self.prev) && is_after(original.from, second) {
             // Handle the first vertex we took out of the loop above.
             // The missing vertex is always the origin of the edge (before the flip).
-            self.vertex_event(original.from, evt_id);
+            self.vertex_event(original.from, self.prev_endpoint_id, evt_id);
         }
 
         self.prev = previous;
@@ -2017,6 +2125,7 @@ impl EventQueueBuilder {
     }
 }
 
+#[derive(Clone)]
 pub struct VertexSourceIterator<'l> {
     events: &'l EventQueue,
     id: TessEventId,
@@ -2024,8 +2133,8 @@ pub struct VertexSourceIterator<'l> {
 
 #[derive(Clone, Debug)]
 pub enum VertexSource {
-    Endpoint { endpoint: EndpointId },
-    Edge { id: path::EventId, t: f32 },
+    Endpoint { id: EndpointId },
+    Edge { edge: path::EventId, from: EndpointId, to: EndpointId, t: f32 },
 }
 
 impl<'l> Iterator for VertexSourceIterator<'l> {
@@ -2039,10 +2148,20 @@ impl<'l> Iterator for VertexSourceIterator<'l> {
 
         self.id = self.events.next_sibling_id(self.id);
 
-        Some(VertexSource::Edge {
-            id: edge.evt_id,
-            t: edge.range.start,
-        })
+        let t = edge.range.start;
+
+        if t == 0.0 {
+            Some(VertexSource::Endpoint { id: edge.from_id })
+        } else if t == 1.0 {
+            Some(VertexSource::Endpoint { id: edge.to_id })
+        } else {
+            Some(VertexSource::Edge {
+                edge: edge.evt_id,
+                from: edge.from_id,
+                to: edge.to_id,
+                t,
+            })
+        }
     }
 }
 
@@ -2920,57 +3039,62 @@ fn reduced_test_case_14() {
 }
 
 
+#[cfg(test)]
+fn eq(a: Point, b: Point) -> bool {
+    (a.x - b.x).abs() < 0.00001 && (a.y - b.y).abs() < 0.00001
+}
+
+#[cfg(test)]
+fn at_endpoint(src: &VertexSource, endpoint: EndpointId) -> bool {
+    match src {
+        VertexSource::Edge { .. } => false,
+        VertexSource::Endpoint { id } => *id == endpoint,
+    }
+}
+
+#[cfg(test)]
+fn on_edge(src: &VertexSource, from_id: EndpointId, to_id: EndpointId, d: f32) -> bool {
+    match src {
+        VertexSource::Edge { t, from, to, .. } => {
+            *from == from_id
+                && *to == to_id
+                && ((d - *t).abs() < 0.00001 || (1.0 - d - *t).abs() <= 0.00001)
+        },
+        VertexSource::Endpoint { .. } => false,
+    }
+}
+
 #[test]
 fn vertex_source_01() {
     use crate::geometry_builder::*;
+    use path::generic::PathCommandsBuilder;
 
-    // Check the vertex sources of a simple self-intersecting shape.
-    //    _
-    //  _|_|_
-    // | | | |
-    // |_|_|_|
-    //   |_|
-    //
+    let endpoints: Vec<Point> = vec![
+        point(0.0, 0.0),
+        point(1.0, 1.0),
+        point(0.0, 2.0),
+    ];
 
-    let mut builder = Path::builder();
+    let mut cmds = PathCommandsBuilder::new();
+    cmds.move_to(EndpointId(0));
+    cmds.line_to(EndpointId(1));
+    cmds.line_to(EndpointId(2));
+    cmds.close();
 
-    builder.move_to(point(1.0, 0.0));
-    builder.line_to(point(2.0, 0.0));
-    builder.line_to(point(2.0, 4.0));
-    builder.line_to(point(1.0, 4.0));
-    builder.close();
+    let cmds = cmds.build();
 
-    builder.move_to(point(0.0, 1.0));
-    builder.line_to(point(0.0, 3.0));
-    builder.line_to(point(3.0, 3.0));
-    builder.line_to(point(3.0, 1.0));
-    builder.close();
+    let mut queue = EventQueueBuilder::with_capacity(8);
+    queue.set_path_with_event_ids(
+        cmds.id_events(),
+        &(&endpoints[..], &endpoints[..]),
+    );
 
     let mut tess = FillTessellator::new();
-
-    tess.tessellate_path(
-        &builder.build(),
+    tess.tessellate(
+        queue.build(),
         &FillOptions::default(),
         &mut CheckVertexSources { next_vertex: 0 },
     ).unwrap();
-
-    fn eq(a: Point, b: Point) -> bool {
-        (a.x - b.x).abs() < 0.00001 && (a.y - b.y).abs() < 0.00001
-    }
-
-    fn at_endpoint(src: &VertexSource) -> bool {
-        match src {
-            VertexSource::Edge { t, .. } => *t == 0.0 || *t == 1.0,
-            VertexSource::Endpoint { .. } => true,
-        }
-    }
-
-    fn on_edge(src: &VertexSource, d: f32) -> bool {
-        match src {
-            VertexSource::Edge { t, .. } => (d - *t).abs() < 0.00001 || (1.0 - d - *t).abs() <= 0.00001,
-            VertexSource::Endpoint { .. } => false,
-        }
-    }
 
     struct CheckVertexSources {
         next_vertex: u32,
@@ -2983,18 +3107,96 @@ fn vertex_source_01() {
         fn add_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> { panic!(); }
         fn add_vertex_exp(&mut self, v: Vertex, src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
             for src in src {
-                if eq(v, point(1.0, 0.0))
-                    || eq(v, point(2.0, 0.0))
-                    || eq(v, point(2.0, 4.0))
-                    || eq(v, point(1.0, 4.0))
-                    || eq(v, point(0.0, 1.0))
-                    || eq(v, point(0.0, 3.0))
-                    || eq(v, point(3.0, 3.0))
-                    || eq(v, point(3.0, 1.0)) {
-                    assert!(at_endpoint(&src));
-                } else {
-                    assert!(on_edge(&src, 1.0/3.0) || on_edge(&src, 0.25));
-                }
+                if eq(v, point(0.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))) }
+                else if eq(v, point(1.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(1))) }
+                else if eq(v, point(0.0, 2.0)) { assert!(at_endpoint(&src, EndpointId(2))) }
+                else { panic!() }
+            }
+
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+}
+
+#[test]
+fn vertex_source_02() {
+    // Check the vertex sources of a simple self-intersecting shape.
+    //    _
+    //  _|_|_
+    // | | | |
+    // |_|_|_|
+    //   |_|
+    //
+
+    use crate::geometry_builder::*;
+    use path::generic::PathCommandsBuilder;
+
+    let endpoints: Vec<Point> = vec![
+        point(1.0, 0.0),
+        point(2.0, 0.0),
+        point(2.0, 4.0),
+        point(1.0, 4.0),
+        point(0.0, 1.0),
+        point(0.0, 3.0),
+        point(3.0, 3.0),
+        point(3.0, 1.0),
+    ];
+
+    let mut cmds = PathCommandsBuilder::new();
+    cmds.move_to(EndpointId(0));
+    cmds.line_to(EndpointId(1));
+    cmds.line_to(EndpointId(2));
+    cmds.line_to(EndpointId(3));
+    cmds.close();
+    cmds.move_to(EndpointId(4));
+    cmds.line_to(EndpointId(5));
+    cmds.line_to(EndpointId(6));
+    cmds.line_to(EndpointId(7));
+    cmds.close();
+
+    let cmds = cmds.build();
+
+    let mut queue = EventQueueBuilder::with_capacity(8);
+    queue.set_path_with_event_ids(
+        cmds.id_events(),
+        &(&endpoints[..], &endpoints[..]),
+    );
+
+    let mut tess = FillTessellator::new();
+    tess.tessellate(
+        queue.build(),
+        &FillOptions::default(),
+        &mut CheckVertexSources { next_vertex: 0 },
+    ).unwrap();
+
+    struct CheckVertexSources {
+        next_vertex: u32,
+    }
+
+    impl GeometryBuilder<Vertex> for CheckVertexSources {
+        fn begin_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+        fn add_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> { panic!(); }
+        fn add_vertex_exp(&mut self, v: Vertex, src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
+            for src in src {
+                if eq(v, point(1.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))); }
+                else if eq(v, point(2.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(1))); }
+                else if eq(v, point(2.0, 4.0)) { assert!(at_endpoint(&src, EndpointId(2))); }
+                else if eq(v, point(1.0, 4.0)) { assert!(at_endpoint(&src, EndpointId(3))); }
+                else if eq(v, point(0.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(4))); }
+                else if eq(v, point(0.0, 3.0)) { assert!(at_endpoint(&src, EndpointId(5))); }
+                else if eq(v, point(3.0, 3.0)) { assert!(at_endpoint(&src, EndpointId(6))); }
+                else if eq(v, point(3.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(7))); }
+                else if eq(v, point(1.0, 1.0)) { assert!(on_edge(&src, EndpointId(7), EndpointId(4), 2.0/3.0) || on_edge(&src, EndpointId(3), EndpointId(0), 3.0/4.0)); }
+                else if eq(v, point(2.0, 1.0)) { assert!(on_edge(&src, EndpointId(7), EndpointId(4), 1.0/3.0) || on_edge(&src, EndpointId(1), EndpointId(2), 1.0/4.0)); }
+                else if eq(v, point(1.0, 3.0)) { assert!(on_edge(&src, EndpointId(5), EndpointId(6), 1.0/3.0) || on_edge(&src, EndpointId(3), EndpointId(0), 1.0/4.0)); }
+                else if eq(v, point(2.0, 3.0)) { assert!(on_edge(&src, EndpointId(5), EndpointId(6), 2.0/3.0) || on_edge(&src, EndpointId(1), EndpointId(2), 3.0/4.0)); }
+                else { panic!() }
             }
 
             let id = self.next_vertex;

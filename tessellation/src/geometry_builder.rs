@@ -263,7 +263,7 @@ pub trait GeometryBuilder<Input> {
     fn add_vertex(&mut self, vertex: Input) -> Result<VertexId, GeometryBuilderError>;
 
     // TODO
-    fn add_vertex_exp(&mut self, vertex: Input, _src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
+    fn add_vertex_exp(&mut self, vertex: Input, mut _src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
         self.add_vertex(vertex)
     }
 

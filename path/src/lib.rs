@@ -226,3 +226,12 @@ pub trait PositionStore {
     fn endpoint_position(&self, id: EndpointId) -> Point;
     fn ctrl_point_position(&self, id: CtrlPointId) -> Point;
 }
+
+impl<'l> PositionStore for (&'l [Point], &'l [Point]) {
+    fn endpoint_position(&self, id: EndpointId) -> Point {
+        self.0[id.to_usize()]
+    }
+    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+        self.1[id.to_usize()]
+    }
+}
