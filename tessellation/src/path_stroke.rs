@@ -3,7 +3,7 @@ use crate::geom::math::*;
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
 use crate::geom::utils::{normalized_tangent, directed_angle};
 use crate::geom::euclid::Trig;
-use crate::geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError};
+use crate::geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError, VertexSource, NoSource};
 use crate::basic_shapes::circle_flattening_step;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::path::PathEvent;
@@ -125,7 +125,7 @@ macro_rules! add_vertex {
             v.position += v.normal * $builder.options.line_width / 2.0;
         }
 
-        match $builder.output.add_vertex(v) {
+        match $builder.output.add_vertex(v, &mut NoSource) {
             Ok(v) => v,
             Err(e) => {
                 $builder.builder_error(e);
@@ -1050,12 +1050,15 @@ fn tess_round_cap(
 
     let normal = vector(mid_angle.cos(), mid_angle.sin());
 
-    let vertex = output.add_vertex(Vertex {
-        position: center + normal * line_width,
-        normal,
-        advancement,
-        side,
-    })?;
+    let vertex = output.add_vertex(
+        Vertex {
+            position: center + normal * line_width,
+            normal,
+            advancement,
+            side,
+        },
+        &mut NoSource,
+    )?;
 
     let (v1, v2, v3) = if invert_winding {
         (vertex, vb, va)
@@ -1115,14 +1118,14 @@ fn test_path(
         fn end_geometry(&mut self) -> Count {
             self.builder.end_geometry()
         }
-        fn add_vertex(&mut self, vertex: Vertex) -> Result<VertexId, GeometryBuilderError> {
+        fn add_vertex(&mut self, vertex: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             assert!(!vertex.position.x.is_nan());
             assert!(!vertex.position.y.is_nan());
             assert!(!vertex.normal.x.is_nan());
             assert!(!vertex.normal.y.is_nan());
             assert!(vertex.normal.square_length() != 0.0);
             assert!(!vertex.advancement.is_nan());
-            self.builder.add_vertex(vertex)
+            self.builder.add_vertex(vertex, src)
         }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
             assert!(a != b);
@@ -1270,7 +1273,7 @@ fn test_too_many_vertices() {
     struct Builder { max_vertices: u32 }
     impl<T> GeometryBuilder<T> for Builder
     {
-        fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
+        fn add_vertex(&mut self, _: T, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
             }

@@ -65,7 +65,7 @@ fn test_too_many_vertices() {
     struct Builder { max_vertices: u32 }
     impl<T> GeometryBuilder<T> for Builder
     {
-        fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
+        fn add_vertex(&mut self, _: T, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
             }

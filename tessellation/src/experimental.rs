@@ -1,7 +1,7 @@
 use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError};
 use crate::geom::math::*;
 use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
-use crate::geometry_builder::{GeometryBuilder, VertexId};
+use crate::geometry_builder::{GeometryBuilder, VertexId, VertexSource};
 use crate::path_fill::MonotoneTessellator;
 use crate::path::{
     self,
@@ -404,12 +404,12 @@ impl FillTessellator {
 
         self.current_position = self.events.position(current_event);
 
-        let src = VertexSourceIterator {
+        let mut src = VertexSourceIterator {
             events: &self.events,
             id: current_event,
         };
 
-        self.current_vertex = output.add_vertex_exp(self.current_position, src).unwrap();
+        self.current_vertex = output.add_vertex(self.current_position, &mut src).unwrap();
 
         let mut current_sibling = current_event;
         while self.events.valid_id(current_sibling) {
@@ -2188,12 +2188,6 @@ pub struct VertexSourceIterator<'l> {
     id: TessEventId,
 }
 
-#[derive(Clone, Debug)]
-pub enum VertexSource {
-    Endpoint { id: EndpointId },
-    Edge { edge: path::EventId, from: EndpointId, to: EndpointId, t: f32 },
-}
-
 impl<'l> Iterator for VertexSourceIterator<'l> {
     type Item = VertexSource;
     fn next(&mut self) -> Option<VertexSource> {
@@ -3160,8 +3154,7 @@ fn vertex_source_01() {
         fn begin_geometry(&mut self) {}
         fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
         fn abort_geometry(&mut self) {}
-        fn add_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> { panic!(); }
-        fn add_vertex_exp(&mut self, v: Vertex, src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
+        fn add_vertex(&mut self, v: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             for src in src {
                 if eq(v, point(0.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))) }
                 else if eq(v, point(1.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(1))) }
@@ -3236,8 +3229,7 @@ fn vertex_source_02() {
         fn begin_geometry(&mut self) {}
         fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
         fn abort_geometry(&mut self) {}
-        fn add_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> { panic!(); }
-        fn add_vertex_exp(&mut self, v: Vertex, src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
+        fn add_vertex(&mut self, v: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             for src in src {
                 if eq(v, point(1.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))); }
                 else if eq(v, point(2.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(1))); }
