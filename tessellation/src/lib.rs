@@ -215,7 +215,7 @@ pub use crate::path_fill::*;
 pub use crate::path_stroke::*;
 
 #[doc(inline)]
-pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError};
+pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError, VertexSource, NoSource};
 
 pub use crate::path::FillRule;
 

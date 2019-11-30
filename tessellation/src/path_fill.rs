@@ -31,7 +31,7 @@ use crate::geom::math::*;
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use crate::geom::euclid::{self, Trig};
 use crate::math_utils::*;
-use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId};
+use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, Count, VertexId, NoSource};
 use crate::path::PathEvent;
 use crate::path::builder::{Build, FlatPathBuilder};
 
@@ -578,7 +578,7 @@ impl FillTessellator {
             (next - position).normalize(),
         );
 
-        output.add_vertex(Vertex { position, normal })
+        output.add_vertex(Vertex { position, normal }, &mut NoSource)
     }
 
     fn process_vertex(
@@ -626,7 +626,8 @@ impl FillTessellator {
                 Vertex {
                     position: vector_position,
                     normal: vector(0.0, 0.0),
-                }
+                },
+                &mut NoSource,
             )?
         } else {
             // placeholder

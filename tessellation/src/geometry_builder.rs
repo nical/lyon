@@ -119,7 +119,7 @@
 //! ```
 //! extern crate lyon_tessellation as tess;
 //! use tess::{GeometryBuilder, StrokeOptions, Count};
-//! use tess::geometry_builder::{VertexId, GeometryBuilderError};
+//! use tess::geometry_builder::{VertexId, GeometryBuilderError, VertexSource};
 //! use tess::basic_shapes::stroke_polyline;
 //! use tess::math::point;
 //! use std::fmt::Debug;
@@ -154,7 +154,7 @@
 //!         }
 //!     }
 //!
-//!     fn add_vertex(&mut self, vertex: Vertex) -> Result<VertexId, GeometryBuilderError> {
+//!     fn add_vertex(&mut self, vertex: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
 //!         println!("vertex {:?}", vertex);
 //!         if self.vertices >= u32::MAX {
 //!             return Err(GeometryBuilderError::TooManyVertices);
@@ -205,16 +205,20 @@
 //!     let min = rect.min();
 //!     let max = rect.min();
 //!     let a = output.add_vertex(
-//!         FillVertex { position: min, normal: vector(-1.0, -1.0) }
+//!         FillVertex { position: min, normal: vector(-1.0, -1.0) },
+//!         &mut NoSource,
 //!     )?;
 //!     let b = output.add_vertex(
-//!         FillVertex { position: point(max.x, min.y), normal: vector(1.0, -1.0) }
+//!         FillVertex { position: point(max.x, min.y), normal: vector(1.0, -1.0) },
+//!         &mut NoSource,
 //!     )?;
 //!     let c = output.add_vertex(
-//!         FillVertex { position: max, normal: vector(1.0, 1.0) }
+//!         FillVertex { position: max, normal: vector(1.0, 1.0) },
+//!         &mut NoSource,
 //!     )?;
 //!     let d = output.add_vertex(
-//!         FillVertex { position: point(min.x, max.y), normal: vector(-1.0, 1.0) }
+//!         FillVertex { position: point(min.x, max.y), normal: vector(-1.0, 1.0) },
+//!         &mut NoSource,
 //!     )?;
 //!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
 //!     // vertex buffer.
@@ -225,9 +229,7 @@
 //! }
 //! ```
 
-pub use crate::path::{VertexId, Index};
-
-use crate::experimental::VertexSourceIterator;
+pub use crate::path::{VertexId, EndpointId, EventId, Index};
 
 use std::marker::PhantomData;
 use std::ops::Add;
@@ -239,6 +241,18 @@ use std;
 pub enum GeometryBuilderError {
     InvalidVertex,
     TooManyVertices,
+}
+
+#[derive(Clone, Debug)]
+pub enum VertexSource {
+    Endpoint { id: EndpointId },
+    Edge { edge: EventId, from: EndpointId, to: EndpointId, t: f32 },
+}
+
+pub struct NoSource;
+impl Iterator for NoSource {
+    type Item = VertexSource;
+    fn next(&mut self) -> Option<VertexSource> { None }
 }
 
 /// An interface separating tessellators and other geometry generation algorithms from the
@@ -260,12 +274,7 @@ pub trait GeometryBuilder<Input> {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_vertex(&mut self, vertex: Input) -> Result<VertexId, GeometryBuilderError>;
-
-    // TODO
-    fn add_vertex_exp(&mut self, vertex: Input, mut _src: VertexSourceIterator) -> Result<VertexId, GeometryBuilderError> {
-        self.add_vertex(vertex)
-    }
+    fn add_vertex(&mut self, vertex: Input, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError>;
 
     /// Insert a triangle made of vertices that were added after the last call to begin_geometry.
     ///
@@ -443,7 +452,7 @@ where
         }
     }
 
-    fn add_vertex(&mut self, v: Input) -> Result<VertexId, GeometryBuilderError> {
+    fn add_vertex(&mut self, v: Input, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
         let len = self.buffers.vertices.len();
         if len > IndexType::max_index() {
@@ -513,7 +522,7 @@ impl<T> GeometryBuilder<T> for NoOutput
         self.count.indices = 0;
     }
 
-    fn add_vertex(&mut self, _: T) -> Result<VertexId, GeometryBuilderError> {
+    fn add_vertex(&mut self, _: T, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
@@ -585,10 +594,11 @@ fn test_simple_quad() {
         mut out: Builder,
     ) -> TessellationResult {
         out.begin_geometry();
-        let a = out.add_vertex(top_left)?;
-        let b = out.add_vertex([top_left[0] + size[0], top_left[1]])?;
-        let c = out.add_vertex([top_left[0] + size[0], top_left[1] + size[1]])?;
-        let d = out.add_vertex([top_left[0], top_left[1] + size[1]])?;
+        let mut src = NoSource;
+        let a = out.add_vertex(top_left, &mut src)?;
+        let b = out.add_vertex([top_left[0] + size[0], top_left[1]], &mut src)?;
+        let c = out.add_vertex([top_left[0] + size[0], top_left[1] + size[1]], &mut src)?;
+        let d = out.add_vertex([top_left[0], top_left[1] + size[1]], &mut src)?;
         out.add_triangle(a, b, c);
         out.add_triangle(a, c, d);
         let count = out.end_geometry();
@@ -689,10 +699,11 @@ fn test_closure() {
         });
 
         builder.begin_geometry();
-        let a = builder.add_vertex(point(0.0, 0.0)).unwrap();
-        let b = builder.add_vertex(point(1.0, 0.0)).unwrap();
-        let c = builder.add_vertex(point(1.0, 1.0)).unwrap();
-        let d = builder.add_vertex(point(0.0, 1.0)).unwrap();
+        let mut src = NoSource;
+        let a = builder.add_vertex(point(0.0, 0.0), &mut src).unwrap();
+        let b = builder.add_vertex(point(1.0, 0.0), &mut src).unwrap();
+        let c = builder.add_vertex(point(1.0, 1.0), &mut src).unwrap();
+        let d = builder.add_vertex(point(0.0, 1.0), &mut src).unwrap();
         builder.add_triangle(a, b, c);
         builder.add_triangle(a, c, d);
         builder.end_geometry();

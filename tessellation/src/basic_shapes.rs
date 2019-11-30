@@ -23,7 +23,7 @@
 //! More explanation about flattening and tolerance in the
 //! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
-use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, VertexId};
+use crate::geometry_builder::{GeometryBuilder, GeometryBuilderError, VertexId, NoSource};
 use crate::path_stroke::{StrokeTessellator, StrokeBuilder};
 use crate::math_utils::compute_normal;
 use crate::geom::math::*;
@@ -71,19 +71,22 @@ pub fn fill_triangle(
         FillVertex {
             position: v1,
             normal: compute_normal(t31, t12),
-        }
+        },
+        &mut NoSource,
     )?;
     let b = output.add_vertex(
         FillVertex {
             position: v2,
             normal: compute_normal(t12, t23),
-        }
+        },
+        &mut NoSource,
     )?;
     let c = output.add_vertex(
         FillVertex {
             position: v3,
             normal: compute_normal(t23, t31),
-        }
+        },
+        &mut NoSource,
     )?;
 
     output.add_triangle(a, b, c);
@@ -129,25 +132,29 @@ pub fn fill_quad(
         FillVertex {
             position: v1,
             normal: compute_normal(t41, t12),
-        }
+        },
+        &mut NoSource,
     )?;
     let b = output.add_vertex(
         FillVertex {
             position: v2,
             normal: compute_normal(t12, t23),
-        }
+        },
+        &mut NoSource,
     )?;
     let c = output.add_vertex(
         FillVertex {
             position: v3,
             normal: compute_normal(t23, t34),
-        }
+        },
+        &mut NoSource,
     )?;
     let d = output.add_vertex(
         FillVertex {
             position: v4,
             normal: compute_normal(t34, t41),
-        }
+        },
+        &mut NoSource,
     )?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
@@ -179,25 +186,29 @@ pub fn fill_rectangle(
         FillVertex {
             position: rect.origin,
             normal: vector(-1.0, -1.0),
-        }
+        },
+        &mut NoSource,
     )?;
     let b = output.add_vertex(
         FillVertex {
             position: bottom_left(&rect),
             normal: vector(-1.0, 1.0),
-        }
+        },
+        &mut NoSource,
     )?;
     let c = output.add_vertex(
         FillVertex {
             position: bottom_right(&rect),
             normal: vector(1.0, 1.0),
-        }
+        },
+        &mut NoSource,
     )?;
     let d = output.add_vertex(
         FillVertex {
             position: top_right(&rect),
             normal: vector(1.0, -1.0),
-        }
+        },
+        &mut NoSource,
     )?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
@@ -250,7 +261,8 @@ fn stroke_thin_rectangle(
             normal: vector(-1.0, -1.0),
             advancement: 0.0,
             side: Side::Left,
-        }
+        },
+        &mut NoSource,
     )?;
     let b = output.add_vertex(
         StrokeVertex {
@@ -258,7 +270,8 @@ fn stroke_thin_rectangle(
             normal: vector(-1.0, 1.0),
             advancement: 0.0,
             side: Side::Left,
-        }
+        },
+        &mut NoSource,
     )?;
     let c = output.add_vertex(
         StrokeVertex {
@@ -266,7 +279,8 @@ fn stroke_thin_rectangle(
             normal: vector(1.0, 1.0),
             advancement: 1.0,
             side: Side::Right,
-        }
+        },
+        &mut NoSource,
     )?;
     let d = output.add_vertex(
         StrokeVertex {
@@ -274,7 +288,8 @@ fn stroke_thin_rectangle(
             normal: vector(1.0, -1.0),
             advancement: 1.0,
             side: Side::Right,
-        }
+        },
+        &mut NoSource,
     )?;
 
     output.add_triangle(a, b, c);
@@ -383,14 +398,14 @@ pub fn fill_rounded_rectangle(
 
 
     let v = [
-        output.add_vertex(FillVertex { position: p7, normal: left })?,
-        output.add_vertex(FillVertex { position: p6, normal: down })?,
-        output.add_vertex(FillVertex { position: p5, normal: down })?,
-        output.add_vertex(FillVertex { position: p4, normal: right })?,
-        output.add_vertex(FillVertex { position: p3, normal: right })?,
-        output.add_vertex(FillVertex { position: p2, normal: up })?,
-        output.add_vertex(FillVertex { position: p1, normal: up })?,
-        output.add_vertex(FillVertex { position: p0, normal: left })?,
+        output.add_vertex(FillVertex { position: p7, normal: left }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p6, normal: down }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p5, normal: down }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p4, normal: right }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p3, normal: right }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p2, normal: up }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p1, normal: up }, &mut NoSource)?,
+        output.add_vertex(FillVertex { position: p0, normal: left }, &mut NoSource)?,
     ];
 
     output.add_triangle(v[6], v[7], v[0]);
@@ -460,10 +475,13 @@ fn fill_border_radius(
     let normal = vector(mid_angle.cos(), mid_angle.sin());
     let position = center + normal * radius;
 
-    let vertex = output.add_vertex(FillVertex {
-        position,
-        normal,
-    })?;
+    let vertex = output.add_vertex(
+        FillVertex {
+            position,
+            normal,
+        },
+        &mut NoSource,
+    )?;
 
     output.add_triangle(vb, vertex, va);
 
@@ -619,22 +637,34 @@ pub fn fill_circle(
     let right = vector(1.0, 0.0);
 
     let v = [
-        output.add_vertex(FillVertex {
-            position: center + (left * radius),
-            normal: left
-        })?,
-        output.add_vertex(FillVertex {
-            position: center + (up * radius),
-            normal: up
-        })?,
-        output.add_vertex(FillVertex {
-            position: center + (right * radius),
-            normal: right
-        })?,
-        output.add_vertex(FillVertex {
-            position: center + (down * radius),
-            normal: down
-        })?,
+        output.add_vertex(
+            FillVertex {
+                position: center + (left * radius),
+                normal: left
+            },
+            &mut NoSource,
+        )?,
+        output.add_vertex(
+            FillVertex {
+                position: center + (up * radius),
+                normal: up
+            },
+            &mut NoSource,
+        )?,
+        output.add_vertex(
+            FillVertex {
+                position: center + (right * radius),
+                normal: right
+            },
+            &mut NoSource,
+        )?,
+        output.add_vertex(
+            FillVertex {
+                position: center + (down * radius),
+                normal: down
+            },
+            &mut NoSource,
+        )?,
     ];
 
     output.add_triangle(v[0], v[3], v[1]);
@@ -839,13 +869,15 @@ where
             FillVertex {
                 position: a2,
                 normal: compute_normal(a2 - a1, a3 - a2),
-            }
+            },
+            &mut NoSource,
         )?;
         let mut b = output.add_vertex(
             FillVertex {
                 position: b3,
                 normal: compute_normal(b3 - b2, b4 - b3),
-            }
+            },
+            &mut NoSource,
         )?;
 
         while let (Some(p1), Some(p2), Some(p3)) = (it.next(), it1.next(), it2.next()) {
@@ -853,7 +885,8 @@ where
                 FillVertex {
                     position: p2,
                     normal: compute_normal(p2 - p1, p3 - p2),
-                }
+                },
+                &mut NoSource,
             )?;
 
             output.add_triangle(a, b, c);
