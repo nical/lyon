@@ -194,7 +194,6 @@ mod event_queue;
 mod path_stroke;
 mod math_utils;
 mod monotone;
-mod fixed;
 
 mod fill;
 

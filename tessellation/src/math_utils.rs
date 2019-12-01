@@ -1,16 +1,6 @@
 //! Various math tools that are mostly usefull for the tessellators.
 
-use crate::fixed;
 use crate::geom::math::*;
-use crate::geom::euclid;
-
-pub type FixedPoint32 = fixed::Fp32<fixed::_16>;
-pub type FixedPoint64 = fixed::Fp64<fixed::_16>;
-pub type TessVector = euclid::default::Vector2D<FixedPoint32>;
-pub type TessPoint = euclid::default::Point2D<FixedPoint32>;
-pub type TessPoint64 = euclid::default::Point2D<FixedPoint64>;
-#[inline]
-pub fn fixed(val: f32) -> FixedPoint32 { FixedPoint32::from_f32(val) }
 
 /// Compute a normal vector at a point P such that ```x ---e1----> P ---e2---> x```
 ///
