@@ -1,6 +1,6 @@
 use crate::math::Point;
-use crate::geometry_builder::{GeometryBuilder, VertexId};
-use crate::{FillVertex, Side};
+use crate::geometry_builder::{FillGeometryBuilder, VertexId};
+use crate::Side;
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the `FillTessellator`).
@@ -123,14 +123,7 @@ impl MonotoneTessellator {
         self.triangles.push((a.id, b.id, c.id));
     }
 
-    pub fn flush(&mut self, output: &mut dyn GeometryBuilder<FillVertex>) {
-        for &(a, b, c) in &self.triangles {
-            output.add_triangle(a, b, c);
-        }
-        self.triangles.clear();
-    }
-
-    pub fn flush_experimental(&mut self, output: &mut dyn GeometryBuilder<Point>) {
+    pub fn flush(&mut self, output: &mut dyn FillGeometryBuilder) {
         for &(a, b, c) in &self.triangles {
             output.add_triangle(a, b, c);
         }

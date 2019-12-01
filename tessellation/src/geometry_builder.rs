@@ -118,9 +118,9 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{GeometryBuilder, StrokeOptions, Count};
+//! use tess::{GeometryBuilder, FillGeometryBuilder, FillOptions, Count};
 //! use tess::geometry_builder::{VertexId, GeometryBuilderError, VertexSource};
-//! use tess::basic_shapes::stroke_polyline;
+//! use tess::basic_shapes::fill_polyline;
 //! use tess::math::point;
 //! use std::fmt::Debug;
 //! use std::u32;
@@ -138,7 +138,7 @@
 //!
 //! // This one takes any vertex type that implements Debug, so it will work with both
 //! // FillVertex and StrokeVertex.
-//! impl<Vertex: Debug> GeometryBuilder<Vertex> for ToStdOut {
+//! impl GeometryBuilder for ToStdOut {
 //!     fn begin_geometry(&mut self) {
 //!         // Reset the vertex in index counters.
 //!         self.vertices = 0;
@@ -154,15 +154,6 @@
 //!         }
 //!     }
 //!
-//!     fn add_vertex(&mut self, vertex: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-//!         println!("vertex {:?}", vertex);
-//!         if self.vertices >= u32::MAX {
-//!             return Err(GeometryBuilderError::TooManyVertices);
-//!         }
-//!         self.vertices += 1;
-//!         Ok(VertexId(self.vertices as u32 - 1))
-//!     }
-//!
 //!     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
 //!         println!("triangle ({}, {}, {})", a.offset(), b.offset(), c.offset());
 //!         self.indices += 3;
@@ -173,12 +164,23 @@
 //!     }
 //! }
 //!
+//! impl FillGeometryBuilder for ToStdOut {
+//!     fn add_fill_vertex(&mut self, position: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+//!         println!("vertex {:?}", position);
+//!         if self.vertices >= u32::MAX {
+//!             return Err(GeometryBuilderError::TooManyVertices);
+//!         }
+//!         self.vertices += 1;
+//!         Ok(VertexId(self.vertices as u32 - 1))
+//!     }
+//! }
+//!
 //! fn main() {
 //!     let mut output = ToStdOut::new();
-//!     stroke_polyline(
+//!     fill_polyline(
 //!         [point(0.0, 0.0), point(10.0, 0.0), point(5.0, 5.0)].iter().cloned(),
 //!         true,
-//!         &StrokeOptions::default(),
+//!         &FillOptions::default(),
 //!         &mut output,
 //!     );
 //! }
@@ -198,28 +200,20 @@
 //! // during the execution of this method.
 //! pub fn fill_rectangle<Output>(rect: &Rect, output: &mut Output) -> TessellationResult
 //! where
-//!     Output: GeometryBuilder<FillVertex>
+//!     Output: FillGeometryBuilder
 //! {
 //!     output.begin_geometry();
+//!     // The FillGeometryBuilder interface provides the ability to specify
+//!     // where vertices come from. To keep this example simple we pass a
+//!     // dummy "no-source" implementation.
+//!     let mut src = NoSource;
 //!     // Create the vertices...
 //!     let min = rect.min();
-//!     let max = rect.min();
-//!     let a = output.add_vertex(
-//!         FillVertex { position: min, normal: vector(-1.0, -1.0) },
-//!         &mut NoSource,
-//!     )?;
-//!     let b = output.add_vertex(
-//!         FillVertex { position: point(max.x, min.y), normal: vector(1.0, -1.0) },
-//!         &mut NoSource,
-//!     )?;
-//!     let c = output.add_vertex(
-//!         FillVertex { position: max, normal: vector(1.0, 1.0) },
-//!         &mut NoSource,
-//!     )?;
-//!     let d = output.add_vertex(
-//!         FillVertex { position: point(min.x, max.y), normal: vector(-1.0, 1.0) },
-//!         &mut NoSource,
-//!     )?;
+//!     let max = rect.max();
+//!     let a = output.add_fill_vertex(min, &mut src)?;
+//!     let b = output.add_fill_vertex(point(max.x, min.y), &mut src)?;
+//!     let c = output.add_fill_vertex(max, &mut src)?;
+//!     let d = output.add_fill_vertex(point(min.x, max.y), &mut src)?;
 //!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
 //!     // vertex buffer.
 //!     output.add_triangle(a, b, c);
@@ -230,6 +224,8 @@
 //! ```
 
 pub use crate::path::{VertexId, EndpointId, EventId, Index};
+use crate::math::Point;
+use crate::StrokeVertex;
 
 use std::marker::PhantomData;
 use std::ops::Add;
@@ -259,7 +255,7 @@ impl Iterator for NoSource {
 /// actual vertex construction.
 ///
 /// See the [`geometry_builder`](index.html) module documentation for more detailed explanation.
-pub trait GeometryBuilder<Input> {
+pub trait GeometryBuilder {
     /// Called at the beginning of a generation.
     ///
     /// end_geometry must be called before begin_geometry is called again.
@@ -269,12 +265,6 @@ pub trait GeometryBuilder<Input> {
     /// Returns the number of vertices and indices added since the last time begin_geometry was
     /// called.
     fn end_geometry(&mut self) -> Count;
-
-    /// Inserts a vertex, providing its position, and optionally a normal.
-    /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
-    ///
-    /// This method can only be called between begin_geometry and end_geometry.
-    fn add_vertex(&mut self, vertex: Input, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError>;
 
     /// Insert a triangle made of vertices that were added after the last call to begin_geometry.
     ///
@@ -287,6 +277,22 @@ pub trait GeometryBuilder<Input> {
     /// The implementation is expected to discard the geometry that was generated since the last
     /// time begin_geometry was called, and to remain in a usable state.
     fn abort_geometry(&mut self);
+}
+
+pub trait FillGeometryBuilder: GeometryBuilder {
+    /// Inserts a vertex, providing its position, and optionally a normal.
+    /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
+    ///
+    /// This method can only be called between begin_geometry and end_geometry.
+    fn add_fill_vertex(&mut self, vertex: Point, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError>;
+}
+
+pub trait StrokeGeometryBuilder: GeometryBuilder {
+    /// Inserts a vertex, providing its position, and optionally a normal.
+    /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
+    ///
+    /// This method can only be called between begin_geometry and end_geometry.
+    fn add_stroke_vertex(&mut self, vertex: StrokeVertex) -> Result<VertexId, GeometryBuilderError>;
 }
 
 
@@ -433,12 +439,11 @@ impl Add for Count {
     }
 }
 
-impl<'l, VertexType, IndexType, Input, Ctor> GeometryBuilder<Input>
-    for BuffersBuilder<'l, VertexType, IndexType, Input, Ctor>
+impl<'l, VertexType, IndexType, Vertex, Ctor> GeometryBuilder
+    for BuffersBuilder<'l, VertexType, IndexType, Vertex, Ctor>
 where
     VertexType: 'l + Clone,
     IndexType: Add + From<VertexId> + MaxIndex,
-    Ctor: VertexConstructor<Input, VertexType>,
 {
     fn begin_geometry(&mut self) {
         self.vertex_offset = self.buffers.vertices.len() as Index;
@@ -452,13 +457,9 @@ where
         }
     }
 
-    fn add_vertex(&mut self, v: Input, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
-        let len = self.buffers.vertices.len();
-        if len > IndexType::max_index() {
-            return Err(GeometryBuilderError::TooManyVertices);
-        }
-        Ok(VertexId((len - 1) as Index - self.vertex_offset))
+    fn abort_geometry(&mut self) {
+        self.buffers.vertices.truncate(self.vertex_offset as usize);
+        self.buffers.indices.truncate(self.index_offset as usize);
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -472,10 +473,39 @@ where
         self.buffers.indices.push((b + self.vertex_offset).into());
         self.buffers.indices.push((c + self.vertex_offset).into());
     }
+}
 
-    fn abort_geometry(&mut self) {
-        self.buffers.vertices.truncate(self.vertex_offset as usize);
-        self.buffers.indices.truncate(self.index_offset as usize);
+impl<'l, VertexType, IndexType, Ctor> FillGeometryBuilder
+    for BuffersBuilder<'l, VertexType, IndexType, Point, Ctor>
+where
+    VertexType: 'l + Clone,
+    IndexType: Add + From<VertexId> + MaxIndex,
+    Ctor: VertexConstructor<Point, VertexType>,
+{
+    fn add_fill_vertex(&mut self, v: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+        self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
+        let len = self.buffers.vertices.len();
+        if len > IndexType::max_index() {
+            return Err(GeometryBuilderError::TooManyVertices);
+        }
+        Ok(VertexId((len - 1) as Index - self.vertex_offset))
+    }
+}
+
+impl<'l, VertexType, IndexType, Ctor> StrokeGeometryBuilder
+    for BuffersBuilder<'l, VertexType, IndexType, StrokeVertex, Ctor>
+where
+    VertexType: 'l + Clone,
+    IndexType: Add + From<VertexId> + MaxIndex,
+    Ctor: VertexConstructor<StrokeVertex, VertexType>,
+{
+    fn add_stroke_vertex(&mut self, v: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
+        self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
+        let len = self.buffers.vertices.len();
+        if len > IndexType::max_index() {
+            return Err(GeometryBuilderError::TooManyVertices);
+        }
+        Ok(VertexId((len - 1) as Index - self.vertex_offset))
     }
 }
 
@@ -515,19 +545,10 @@ impl NoOutput {
     }
 }
 
-impl<T> GeometryBuilder<T> for NoOutput
-{
+impl GeometryBuilder for NoOutput {
     fn begin_geometry(&mut self) {
         self.count.vertices = 0;
         self.count.indices = 0;
-    }
-
-    fn add_vertex(&mut self, _: T, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-        if self.count.vertices >= std::u32::MAX {
-            return Err(GeometryBuilderError::TooManyVertices);
-        }
-        self.count.vertices += 1;
-        Ok(VertexId(self.count.vertices as Index - 1))
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -538,7 +559,28 @@ impl<T> GeometryBuilder<T> for NoOutput
     }
 
     fn end_geometry(&mut self) -> Count { self.count }
+
     fn abort_geometry(&mut self) {}
+}
+
+impl FillGeometryBuilder for NoOutput {
+    fn add_fill_vertex(&mut self, _: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+        if self.count.vertices >= std::u32::MAX {
+            return Err(GeometryBuilderError::TooManyVertices);
+        }
+        self.count.vertices += 1;
+        Ok(VertexId(self.count.vertices as Index - 1))
+    }
+}
+
+impl StrokeGeometryBuilder for NoOutput {
+    fn add_stroke_vertex(&mut self, _: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
+        if self.count.vertices >= std::u32::MAX {
+            return Err(GeometryBuilderError::TooManyVertices);
+        }
+        self.count.vertices += 1;
+        Ok(VertexId(self.count.vertices as Index - 1))
+    }
 }
 
 impl<V> GeometryReceiver<V> for NoOutput {
@@ -567,124 +609,6 @@ impl MaxIndex for usize { fn max_index() -> usize { std::u32::MAX as usize } }
 impl MaxIndex for isize { fn max_index() -> usize { std::u32::MAX as usize } }
 
 #[test]
-fn test_simple_quad() {
-    #[derive(Copy, Clone, PartialEq, Debug)]
-    struct Vertex2d {
-        position: [f32; 2],
-        color: [f32; 4],
-    }
-
-    struct WithColor([f32; 4]);
-
-    impl VertexConstructor<[f32; 2], Vertex2d> for WithColor {
-        fn new_vertex(&mut self, pos: [f32; 2]) -> Vertex2d {
-            Vertex2d {
-                position: pos,
-                color: self.0,
-            }
-        }
-    }
-
-    use crate::TessellationResult;
-
-    // A typical "algorithm" that generates some geometry, in this case a simple axis-aligned quad.
-    fn add_quad<Builder: GeometryBuilder<[f32; 2]>>(
-        top_left: [f32; 2],
-        size: [f32; 2],
-        mut out: Builder,
-    ) -> TessellationResult {
-        out.begin_geometry();
-        let mut src = NoSource;
-        let a = out.add_vertex(top_left, &mut src)?;
-        let b = out.add_vertex([top_left[0] + size[0], top_left[1]], &mut src)?;
-        let c = out.add_vertex([top_left[0] + size[0], top_left[1] + size[1]], &mut src)?;
-        let d = out.add_vertex([top_left[0], top_left[1] + size[1]], &mut src)?;
-        out.add_triangle(a, b, c);
-        out.add_triangle(a, c, d);
-        let count = out.end_geometry();
-        // offsets always start at zero after begin_geometry, regardless of where we are
-        // in the actual vbo. Algorithms can rely on this property when generating indices.
-        assert_eq!(a.offset(), 0);
-        assert_eq!(b.offset(), 1);
-        assert_eq!(c.offset(), 2);
-        assert_eq!(d.offset(), 3);
-        assert_eq!(count.vertices, 4);
-        assert_eq!(count.indices, 6);
-
-        Ok(count)
-    }
-
-
-    let mut buffers: VertexBuffers<Vertex2d, u32> = VertexBuffers::new();
-    let red = [1.0, 0.0, 0.0, 1.0];
-    let green = [0.0, 1.0, 0.0, 1.0];
-
-    add_quad([0.0, 0.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(red))).unwrap();
-
-    assert_eq!(
-        buffers.vertices[0],
-        Vertex2d {
-            position: [0.0, 0.0],
-            color: red,
-        }
-    );
-    assert_eq!(
-        buffers.vertices[1],
-        Vertex2d {
-            position: [1.0, 0.0],
-            color: red,
-        }
-    );
-    assert_eq!(
-        buffers.vertices[3],
-        Vertex2d {
-            position: [0.0, 1.0],
-            color: red,
-        }
-    );
-    assert_eq!(
-        buffers.vertices[2],
-        Vertex2d {
-            position: [1.0, 1.0],
-            color: red,
-        }
-    );
-    assert_eq!(&buffers.indices[..], &[0, 1, 2, 0, 2, 3]);
-
-    add_quad([10.0, 10.0], [1.0, 1.0], vertex_builder(&mut buffers, WithColor(green))).unwrap();
-
-    assert_eq!(
-        buffers.vertices[4],
-        Vertex2d {
-            position: [10.0, 10.0],
-            color: green,
-        }
-    );
-    assert_eq!(
-        buffers.vertices[5],
-        Vertex2d {
-            position: [11.0, 10.0],
-            color: green,
-        }
-    );
-    assert_eq!(
-        buffers.vertices[6],
-        Vertex2d {
-            position: [11.0, 11.0],
-            color: green,
-        }
-    );
-    assert_eq!(
-        buffers.vertices[7],
-        Vertex2d {
-            position: [10.0, 11.0],
-            color: green,
-        }
-    );
-    assert_eq!(&buffers.indices[..], &[0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
-}
-
-#[test]
 fn test_closure() {
     use crate::math::{Point, point, vector};
 
@@ -700,10 +624,10 @@ fn test_closure() {
 
         builder.begin_geometry();
         let mut src = NoSource;
-        let a = builder.add_vertex(point(0.0, 0.0), &mut src).unwrap();
-        let b = builder.add_vertex(point(1.0, 0.0), &mut src).unwrap();
-        let c = builder.add_vertex(point(1.0, 1.0), &mut src).unwrap();
-        let d = builder.add_vertex(point(0.0, 1.0), &mut src).unwrap();
+        let a = builder.add_fill_vertex(point(0.0, 0.0), &mut src).unwrap();
+        let b = builder.add_fill_vertex(point(1.0, 0.0), &mut src).unwrap();
+        let c = builder.add_fill_vertex(point(1.0, 1.0), &mut src).unwrap();
+        let d = builder.add_fill_vertex(point(0.0, 1.0), &mut src).unwrap();
         builder.add_triangle(a, b, c);
         builder.add_triangle(a, c, d);
         builder.end_geometry();
