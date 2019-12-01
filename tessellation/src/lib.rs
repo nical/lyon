@@ -169,7 +169,7 @@
 //!
 //! ## Examples
 //!
-//! - [Tessellating path fills](path_fill/struct.FillTessellator.html#examples).
+//! - [Tessellating path fills](fill/struct.FillTessellator.html#examples).
 //! - [Tessellating path strokes](path_stroke/struct.StrokeTessellator.html#examples).
 //! - [Generating custom vertices](geometry_builder/index.html#generating-custom-vertices).
 //! - [Generating completely custom output](geometry_builder/index.html#generating-a-completely-custom-output).
@@ -190,7 +190,6 @@ pub extern crate serde;
 pub mod basic_shapes;
 pub mod geometry_builder;
 pub mod debugger;
-mod path_fill;
 mod path_stroke;
 mod math_utils;
 mod monotone;
@@ -208,9 +207,6 @@ mod fuzz_tests;
 pub use crate::path::math;
 
 pub use crate::path::geom;
-
-#[doc(inline)]
-pub use crate::path_fill::*;
 
 #[doc(inline)]
 pub use crate::path_stroke::*;

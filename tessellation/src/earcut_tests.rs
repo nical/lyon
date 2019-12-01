@@ -21,7 +21,6 @@
 
 use crate::geometry_builder::{VertexBuffers, simple_builder};
 use crate::path::{Path, PathSlice};
-use crate::path_fill::*;
 use crate::geom::math::*;
 use crate::FillOptions;
 use crate::TessellationError;

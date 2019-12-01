@@ -1,6 +1,6 @@
 use clap::*;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers, VertexConstructor};
-use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeTessellator, StrokeOptions};
+use lyon::tessellation::{self, FillOptions, fill::FillTessellator, StrokeTessellator, StrokeOptions};
 use lyon::path::PathEvent;
 use lyon::math::Point;
 use usvg::prelude::*;
@@ -516,13 +516,13 @@ pub struct VertexCtor {
     pub prim_id: u32,
 }
 
-impl VertexConstructor<tessellation::FillVertex, GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
+impl VertexConstructor<Point, GpuVertex> for VertexCtor {
+    fn new_vertex(&mut self, vertex: Point) -> GpuVertex {
+        assert!(!vertex.x.is_nan());
+        assert!(!vertex.y.is_nan());
 
         GpuVertex {
-            position: vertex.position.to_array(),
+            position: vertex.to_array(),
             prim_id: self.prim_id,
         }
     }

@@ -3,7 +3,7 @@ use lyon::path::Path;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{
     StrokeOptions, StrokeTessellator,
-    FillOptions, FillTessellator,
+    FillOptions, fill::FillTessellator,
     OnError,
 };
 use lyon::extra::debugging::find_reduced_test_case;
@@ -11,9 +11,6 @@ use rand;
 use commands::{FuzzCmd, Tessellator};
 use std::cmp::{min, max};
 use lyon::tess2;
-#[cfg(feature="experimental")]
-use lyon::tessellation::experimental;
-use lyon::tessellation::fill;
 
 fn random_point() -> Point {
     point(
@@ -81,7 +78,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 );
                 match cmd.tessellator {
                     Tessellator::Default => {
-                        let result = fill::FillTessellator::new().tessellate_path(
+                        let result = FillTessellator::new().tessellate_path(
                             &path,
                             &options,
                             &mut NoOutput::new()

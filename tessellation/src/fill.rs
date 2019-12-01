@@ -298,7 +298,7 @@ impl FillTessellator {
 
         let mut queue_builder = self.create_event_queue().into_builder();
 
-        queue_builder.set_path(path.into_iter());
+        queue_builder.set_path(options.tolerance, path.into_iter());
 
         let mut event_queue = queue_builder.build();
 
@@ -1481,23 +1481,24 @@ impl EventQueue {
         }
     }
 
-    pub fn from_path(path: impl Iterator<Item = PathEvent>) -> Self {
+    pub fn from_path(tolerance: f32, path: impl Iterator<Item = PathEvent>) -> Self {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
         let mut builder = EventQueueBuilder::with_capacity(capacity);
-        builder.set_path(path);
+        builder.set_path(tolerance, path);
 
         builder.build()
     }
 
     pub fn from_path_with_ids(
+        tolerance: f32,
         path: impl Iterator<Item = IdEvent>,
         positions: &impl PositionStore,
     ) -> Self {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
         let mut builder = EventQueueBuilder::with_capacity(capacity);
-        builder.set_path_with_ids(path, positions);
+        builder.set_path_with_ids(tolerance, path, positions);
 
         builder.build()
     }
@@ -1790,7 +1791,8 @@ impl EventQueueBuilder {
         self.queue
     }
 
-    fn set_path(&mut self, path: impl Iterator<Item=PathEvent>) {
+    fn set_path(&mut self, tolerance: f32, path: impl Iterator<Item=PathEvent>) {
+        self.tolerance = tolerance;
         let mut evt_id = path::EventId(0);
         let mut endpoint_id = EndpointId(0);
         for evt in path {
@@ -1834,9 +1836,11 @@ impl EventQueueBuilder {
 
     fn set_path_with_ids(
         &mut self,
+        tolerance: f32,
         path_events: impl Iterator<Item=IdEvent>,
         points: &impl PositionStore,
     ) {
+        self.tolerance = tolerance;
         for evt in path_events {
             match evt {
                 IdEvent::Begin { at } => {
@@ -3137,6 +3141,7 @@ fn vertex_source_01() {
     let cmds = cmds.build();
 
     let mut queue = EventQueue::from_path_with_ids(
+        0.1,
         cmds.id_events(),
         &(&endpoints[..], &endpoints[..]),
     );
@@ -3212,6 +3217,7 @@ fn vertex_source_02() {
     let cmds = cmds.build();
 
     let mut queue = EventQueue::from_path_with_ids(
+        0.1,
         cmds.id_events(),
         &(&endpoints[..], &endpoints[..]),
     );
