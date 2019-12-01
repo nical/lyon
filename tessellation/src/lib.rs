@@ -190,6 +190,7 @@ pub extern crate serde;
 pub mod basic_shapes;
 pub mod geometry_builder;
 pub mod debugger;
+mod event_queue;
 mod path_stroke;
 mod math_utils;
 mod monotone;
