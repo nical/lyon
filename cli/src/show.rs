@@ -9,7 +9,7 @@ use lyon::algorithms::aabb::bounding_rect;
 use lyon::path::Path;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
 use lyon::tess2;
-use lyon::tessellation::experimental;
+use lyon::tessellation::fill;
 
 use gfx;
 use gfx_window_glutin;
@@ -85,32 +85,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     if let Some(options) = cmd.fill {
         match cmd.tessellator {
             Tessellator::Default => {
-                let mut tess = FillTessellator::new();
-                let dbg_receiver = render_options.debugger.map(|flags| {
-                    let (dbg_tx, dbg_rx) = debugger_channel();
-                    tess.install_debugger(Box::new(Filter::new(flags, dbg_tx)));
-                    dbg_rx
-                });
-                tess.tessellate_path(
-                    cmd.path.iter(),
-                    &options,
-                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
-                ).unwrap();
-                if let Some(dbg) = dbg_receiver {
-                    dbg.write_trace(&mut debug_trace);
-                }
-            }
-            Tessellator::Tess2 => {
-                tess2::FillTessellator::new().tessellate_path(
-                    cmd.path.iter(),
-                    &options,
-                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
-                ).unwrap();
-            }
-            Tessellator::Experimental => {
-                println!(" -- running the experimental tessellator.");
-
-                let mut tess = experimental::FillTessellator::new();
+                let mut tess = fill::FillTessellator::new();
 
                 tess.tessellate_path(
                     &cmd.path,
@@ -128,6 +103,13 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                         geometry.indices[i*3+2],
                     );
                 }
+            }
+            Tessellator::Tess2 => {
+                tess2::FillTessellator::new().tessellate_path(
+                    cmd.path.iter(),
+                    &options,
+                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
+                ).unwrap();
             }
         }
     }

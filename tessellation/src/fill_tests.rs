@@ -7,52 +7,31 @@ use crate::{FillTessellator, TessellationError, FillOptions, FillVertex, OnError
 
 use std::env;
 
-#[cfg(feature = "experimental")]
-use crate::experimental;
-
-#[cfg(not(feature = "experimental"))]
-type Vertex = FillVertex;
-#[cfg(feature = "experimental")]
-type Vertex = Point;
+use crate::fill;
 
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
-    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
         let options = FillOptions::tolerance(0.05);
 
-        #[cfg(not(feature = "experimental"))] {
-            let mut tess = FillTessellator::new();
-            let mut vertex_builder = simple_builder(&mut buffers);
-            if log {
-                tess.enable_logging();
-            }
-            tess.tessellate_path(
-                path.iter(),
-                &options,
-                &mut vertex_builder
-            )?;
+        use crate::path::builder::*;
+        use crate::path::iterator::*;
+
+        let mut builder = Path::builder();
+        for e in path.iter().flattened(0.05) {
+            builder.path_event(e);
         }
 
-        #[cfg(feature = "experimental")] {
-            use crate::path::builder::*;
-            use crate::path::iterator::*;
-
-            let mut builder = Path::builder();
-            for e in path.iter().flattened(0.05) {
-                builder.path_event(e);
-            }
-
-            let mut vertex_builder = simple_builder(&mut buffers);
-            let mut tess = experimental::FillTessellator::new();
-            if log {
-                tess.enable_logging();
-            }
-            tess.tessellate_path(
-                &builder.build(),
-                &options,
-                &mut vertex_builder
-            )?;
+        let mut vertex_builder = simple_builder(&mut buffers);
+        let mut tess = fill::FillTessellator::new();
+        if log {
+            tess.enable_logging();
         }
+        tess.tessellate_path(
+            &builder.build(),
+            &options,
+            &mut vertex_builder
+        )?;
     }
     return Ok(buffers.indices.len() / 3);
 }

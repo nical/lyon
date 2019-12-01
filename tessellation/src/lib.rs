@@ -193,9 +193,10 @@ pub mod debugger;
 mod path_fill;
 mod path_stroke;
 mod math_utils;
+mod monotone;
 mod fixed;
 
-pub mod experimental;
+pub mod fill;
 
 #[cfg(test)]
 mod earcut_tests;

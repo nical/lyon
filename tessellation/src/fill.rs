@@ -2,10 +2,10 @@ use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationEr
 use crate::geom::math::*;
 use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
 use crate::geometry_builder::{GeometryBuilder, VertexId, VertexSource};
-use crate::path_fill::MonotoneTessellator;
+use crate::monotone::*;
 use crate::path::{
     self,
-    PathEvent, IdEvent, Path, FillRule, Transition,
+    PathEvent, IdEvent, FillRule, Transition,
     EndpointId, PositionStore,
 };
 use std::{u32, f32};
@@ -2373,6 +2373,8 @@ fn test_event_queue_push_sorted() {
 
 #[cfg(test)]
 use crate::geometry_builder::{VertexBuffers, simple_builder};
+#[cfg(test)]
+use crate::path::Path;
 
 #[test]
 fn new_tess_triangle() {
