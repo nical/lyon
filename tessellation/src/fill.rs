@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError};
 use crate::geom::math::*;
 use crate::geom::LineSegment;
@@ -233,6 +235,87 @@ struct PendingEdge {
     range_end: f32,
 }
 
+/// A Context object that can tessellate fill operations for complex paths.
+///
+/// <svg version="1.1" viewBox="0 0 400 200" height="200" width="400">
+///   <g transform="translate(0,-852.36216)">
+///     <path style="fill:#aad400;stroke:none;" transform="translate(0,852.36216)" d="M 20 20 L 20 180 L 180.30273 180 L 180.30273 20 L 20 20 z M 100 55 L 145 145 L 55 145 L 100 55 z "/>
+///     <path style="fill:#aad400;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-" d="m 219.75767,872.36216 0,160.00004 160.30273,0 0,-160.00004 -160.30273,0 z m 80,35 45,90 -90,0 45,-90 z"/>
+///     <path style="fill:none;stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-" d="m 220,1032.3622 35,-35.00004 125,35.00004 -35,-35.00004 35,-125 -80,35 -80,-35 35,125"/>
+///     <circle r="5" cy="872.36218" cx="20" style="color:#000000;;fill:#ff6600;fill-;stroke:#000000;" />
+///     <circle r="5" cx="180.10918" cy="872.61475" style="fill:#ff6600;stroke:#000000;"/>
+///     <circle r="5" cy="1032.2189" cx="180.10918" style="fill:#ff6600;stroke:#000000;"/>
+///     <circle r="5" cx="20.505075" cy="1032.4714" style="fill:#ff6600;stroke:#000000;"/>
+///     <circle r="5" cy="907.21252" cx="99.802048" style="fill:#ff6600;stroke:#000000;"/>
+///     <circle r="5" cx="55.102798" cy="997.36865" style="fill:#ff6600;stroke:#000000;"/>
+///     <circle r="5" cy="997.62122" cx="145.25891" style="fill:#ff6600;stroke:#000000;"/>
+///   </g>
+/// </svg>
+///
+/// ## Overview
+///
+/// The most important structure is [`FillTessellator`](struct.FillTessellator.html).
+/// It implements the path fill tessellation algorithm which is by far the most advanced
+/// feature in all lyon crates.
+///
+/// The `FillTessellator` takes a [`FillEvents`](struct.FillEvents.html) object and
+/// [`FillOptions`](struct.FillOptions.html) as input. The former is an intermediate representation
+/// of the path, containing all edges sorted from top to bottom. `FillOption` contains
+/// some extra parameters (Some of which are not implemented yet).
+///
+/// The output of the tessellator is produced by the
+/// [`FillGeometryBuilder`](geometry_builder/trait.FillGeometryBuilder.html) (see the
+/// [`geometry_builder` documentation](geometry_builder/index.html) for more details about
+/// how tessellators produce their output geometry, and how to generate custom vertex layouts).
+///
+/// The [tessellator's wiki page](https://github.com/nical/lyon/wiki/Tessellator) is a good place
+/// to learn more about how the tessellator's algorithm works. The source code also contains
+/// inline documentation for the adventurous who want to delve into more details.
+///
+/// # Examples
+///
+/// ```
+/// # extern crate lyon_tessellation as tess;
+/// # use tess::path::Path;
+/// # use tess::path::builder::*;
+/// # use tess::path::iterator::*;
+/// # use tess::geom::math::{Point, point};
+/// # use tess::geometry_builder::{VertexBuffers, simple_builder};
+/// # use tess::*;
+/// # fn main() {
+/// // Create a simple path.
+/// let mut path_builder = Path::builder();
+/// path_builder.move_to(point(0.0, 0.0));
+/// path_builder.line_to(point(1.0, 2.0));
+/// path_builder.line_to(point(2.0, 0.0));
+/// path_builder.line_to(point(1.0, 1.0));
+/// path_builder.close();
+/// let path = path_builder.build();
+///
+/// // Create the destination vertex and index buffers.
+/// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+///
+/// {
+///     let mut vertex_builder = simple_builder(&mut buffers);
+///
+///     // Create the tessellator.
+///     let mut tessellator = FillTessellator::new();
+///
+///     // Compute the tessellation.
+///     let result = tessellator.tessellate_path(
+///         &path,
+///         &FillOptions::default(),
+///         &mut vertex_builder
+///     );
+///     assert!(result.is_ok());
+/// }
+///
+/// println!("The generated vertices are: {:?}.", &buffers.vertices[..]);
+/// println!("The generated indices are: {:?}.", &buffers.indices[..]);
+///
+/// # }
+/// ```
+///
 pub struct FillTessellator {
     current_position: Point,
     current_vertex: VertexId,
@@ -249,6 +332,7 @@ pub struct FillTessellator {
 
 
 impl FillTessellator {
+    /// Constructor.
     pub fn new() -> Self {
         #[cfg(debug_assertions)]
         let log = env::var("LYON_FORCE_LOGGING").is_ok();
@@ -274,10 +358,12 @@ impl FillTessellator {
         }
     }
 
+    /// Create and EventQueue.
     pub fn create_event_queue(&mut self) -> EventQueue {
         std::mem::replace(&mut self.events, EventQueue::new())
     }
 
+    /// Compute the tessellation from a path iterator.
     pub fn tessellate_path<Iter>(
         &mut self,
         path: Iter,
@@ -299,6 +385,7 @@ impl FillTessellator {
         self.tessellate_impl(options, builder)
     }
 
+    /// Compute the tessellation from a pre-built event queue.
     pub fn tessellate_events(
         &mut self,
         events: &mut EventQueue,
@@ -354,8 +441,10 @@ impl FillTessellator {
         Ok(builder.end_geometry())
     }
 
-    pub fn enable_logging(&mut self) {
-        self.log = true;
+    /// Enable/disable some verbose logging during the tessellation, for
+    /// debugging purposes.
+    pub fn set_logging(&mut self, is_enabled: bool) {
+        self.log = is_enabled;
     }
 
     fn tessellator_loop(
@@ -1439,6 +1528,7 @@ pub(crate) fn is_near(a: Point, b: Point) -> bool {
     (a - b).square_length() < 0.0001
 }
 
+/// An iterator over the sources of a given vertex.
 #[derive(Clone)]
 pub struct VertexSourceIterator<'l> {
     events: &'l EventQueue,

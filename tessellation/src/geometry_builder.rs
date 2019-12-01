@@ -57,7 +57,7 @@
 //! extern crate lyon_tessellation as tess;
 //! use tess::{VertexConstructor, VertexBuffers, BuffersBuilder, FillVertex, FillOptions};
 //! use tess::basic_shapes::fill_circle;
-//! use tess::math::point;
+//! use tess::math::{Point, point};
 //!
 //! // Our custom vertex.
 //! #[derive(Copy, Clone, Debug)]
@@ -70,14 +70,10 @@
 //! // verticex from the information provided by the tessellators.
 //! struct WithColor([f32; 4]);
 //!
-//! impl VertexConstructor<FillVertex, MyVertex> for WithColor {
-//!     fn new_vertex(&mut self, vertex: FillVertex) -> MyVertex {
-//!         // FillVertex also provides normals but we don't need it here.
+//! impl VertexConstructor<Point, MyVertex> for WithColor {
+//!     fn new_vertex(&mut self, vertex: Point) -> MyVertex {
 //!         MyVertex {
-//!             position: [
-//!                 vertex.position.x,
-//!                 vertex.position.y,
-//!             ],
+//!             position: [vertex.x, vertex.y],
 //!             color: self.0,
 //!         }
 //!     }
@@ -118,10 +114,10 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{GeometryBuilder, FillGeometryBuilder, FillOptions, Count};
+//! use tess::{GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, StrokeVertex, Count};
 //! use tess::geometry_builder::{VertexId, GeometryBuilderError, VertexSource};
-//! use tess::basic_shapes::fill_polyline;
-//! use tess::math::point;
+//! use tess::basic_shapes::stroke_polyline;
+//! use tess::math::{Point, point};
 //! use std::fmt::Debug;
 //! use std::u32;
 //!
@@ -164,9 +160,9 @@
 //!     }
 //! }
 //!
-//! impl FillGeometryBuilder for ToStdOut {
-//!     fn add_fill_vertex(&mut self, position: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-//!         println!("vertex {:?}", position);
+//! impl StrokeGeometryBuilder for ToStdOut {
+//!     fn add_stroke_vertex(&mut self, vertex: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
+//!         println!("vertex {:?}", vertex.position);
 //!         if self.vertices >= u32::MAX {
 //!             return Err(GeometryBuilderError::TooManyVertices);
 //!         }
@@ -177,10 +173,10 @@
 //!
 //! fn main() {
 //!     let mut output = ToStdOut::new();
-//!     fill_polyline(
+//!     stroke_polyline(
 //!         [point(0.0, 0.0), point(10.0, 0.0), point(5.0, 5.0)].iter().cloned(),
 //!         true,
-//!         &FillOptions::default(),
+//!         &StrokeOptions::default(),
 //!         &mut output,
 //!     );
 //! }
