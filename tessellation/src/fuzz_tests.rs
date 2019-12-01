@@ -17,9 +17,7 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
 
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();
-        if log {
-            tess.enable_logging();
-        }
+        tess.set_logging(log);
         tess.tessellate_path(
             &builder.build(),
             &options,

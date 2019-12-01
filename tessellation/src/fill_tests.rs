@@ -22,9 +22,7 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
 
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();
-        if log {
-            tess.enable_logging();
-        }
+        tess.set_logging(log);
         tess.tessellate_path(
             &builder.build(),
             &options,
@@ -1331,7 +1329,7 @@ fn triangle() {
     let path = builder.build();
 
     let mut tess = FillTessellator::new();
-    tess.enable_logging();
+    tess.set_logging(true);
 
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
