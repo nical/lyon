@@ -1,14 +1,14 @@
 use crate::geometry_builder::{VertexBuffers, simple_builder};
 use crate::path::{Path, PathSlice};
 use crate::geom::math::*;
-use crate::{FillTessellator, FillOptions, TessellationError, OnError};
+use crate::{FillTessellator, FillOptions, TessellationError};
 use crate::path::builder::*;
 use crate::path::iterator::*;
 
-fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usize, TessellationError> {
+fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
-        let options = FillOptions::tolerance(0.05).on_error(on_error);
+        let options = FillOptions::tolerance(0.05);
 
         let mut builder = Path::builder();
         for e in path.iter().flattened(0.05) {
@@ -30,42 +30,22 @@ fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usiz
 fn test_path(path: PathSlice) {
     let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
-    let try_with_recover = std::env::var("LYON_TEST_RECOVER").is_ok();
 
-    let on_error = OnError::Panic;
-    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false, on_error));
+    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
 
     if res.is_ok() {
         return;
     }
 
-    let recover_mode = if try_with_recover {
-        // First see if the tessellator detect the error without panicking
-        Some(::std::panic::catch_unwind(
-            || tessellate_path(path, false, OnError::Recover)
-        ))
-    } else {
-        None
-    };
-
     if find_test_case {
         crate::extra::debugging::find_reduced_test_case(
             path,
-            &|path: Path| { return tessellate_path(path.as_slice(), false, on_error).is_err(); },
+            &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
         );
     }
 
-    if let Some(recover_mode)  = recover_mode {
-        print!(" -- Tessellating with OnError::Recover ");
-        if let Ok(result) = recover_mode {
-            println!("returned {:?}.", result);
-        } else {
-            println!("panicked.");
-        }
-    }
-
     if add_logging {
-        tessellate_path(path, true, on_error).unwrap();
+        tessellate_path(path, true).unwrap();
     }
 
     panic!("Test failed.");
