@@ -3,7 +3,7 @@ use lyon::path::Path;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{
     StrokeOptions, StrokeTessellator,
-    FillOptions, fill::FillTessellator,
+    FillOptions, FillTessellator,
     OnError,
 };
 use lyon::extra::debugging::find_reduced_test_case;

@@ -24,7 +24,7 @@ use crate::path::{Path, PathSlice};
 use crate::geom::math::*;
 use crate::FillOptions;
 use crate::TessellationError;
-use crate::fill::FillTessellator;
+use crate::FillTessellator;
 
 #[test]
 fn bad_diagonal() {

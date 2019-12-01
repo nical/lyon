@@ -11,9 +11,8 @@ use lyon::extra::rust_logo::build_logo_path;
 use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
 use lyon::tessellation::{FillOptions, LineJoin};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions, StrokeVertex};
+use lyon::tessellation::{FillTessellator, EventQueue};
 use lyon::math::Point;
-
-use lyon::tessellation::fill::{FillTessellator, EventQueue};
 
 use bencher::Bencher;
 
