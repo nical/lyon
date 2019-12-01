@@ -191,11 +191,11 @@ pub mod basic_shapes;
 pub mod geometry_builder;
 pub mod debugger;
 mod event_queue;
-mod path_stroke;
+mod fill;
+mod stroke;
 mod math_utils;
 mod monotone;
 
-mod fill;
 
 #[cfg(test)]
 mod earcut_tests;
@@ -209,10 +209,10 @@ pub use crate::path::math;
 pub use crate::path::geom;
 
 #[doc(inline)]
-pub use crate::path_stroke::*;
+pub use crate::fill::*;
 
 #[doc(inline)]
-pub use crate::fill::*;
+pub use crate::stroke::*;
 
 #[doc(inline)]
 pub use crate::geometry_builder::{

@@ -24,7 +24,7 @@
 //! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
 use crate::geometry_builder::{StrokeGeometryBuilder, FillGeometryBuilder, GeometryBuilderError, VertexId, NoSource};
-use crate::path_stroke::{StrokeTessellator, StrokeBuilder};
+use crate::stroke::{StrokeTessellator, StrokeBuilder};
 use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
