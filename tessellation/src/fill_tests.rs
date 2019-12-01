@@ -3,7 +3,7 @@ use crate::geometry_builder::*;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::path::{Path, PathSlice};
 use crate::extra::rust_logo::build_logo_path;
-use crate::{FillTessellator, TessellationError, FillOptions, OnError};
+use crate::{FillTessellator, TessellationError, FillOptions};
 
 use std::env;
 
@@ -60,8 +60,7 @@ fn test_too_many_vertices() {
     let path = path.build();
 
     let mut tess = FillTessellator::new();
-    let mut options = FillOptions::tolerance(0.05);
-    options.on_error = OnError::Stop;
+    let options = FillOptions::tolerance(0.05);
 
     assert_eq!(
         tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 0 }),

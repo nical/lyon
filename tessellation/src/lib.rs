@@ -564,9 +564,6 @@ pub struct FillOptions {
     /// Default value: `false`.
     pub assume_no_intersections: bool,
 
-    /// What to do if the tessellator detects an error.
-    pub on_error: OnError,
-
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a FillOptions without the calling constructor.
     _private: (),
@@ -587,7 +584,6 @@ impl FillOptions {
         fill_rule: Self::DEFAULT_FILL_RULE,
         compute_normals: true,
         assume_no_intersections: false,
-        on_error: OnError::DEFAULT,
         _private: (),
     };
 
@@ -623,46 +619,11 @@ impl FillOptions {
         self.assume_no_intersections = true;
         self
     }
-
-    #[inline]
-    pub fn on_error(mut self, policy: OnError) -> Self {
-        self.on_error = policy;
-        self
-    }
 }
 
 impl Default for FillOptions {
     fn default() -> Self { Self::DEFAULT }
 }
-
-/// Defines the tessellator the should try to behave when detecting
-/// an error.
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum OnError {
-    /// Panic as soon as the error is detected.
-    ///
-    /// Most suitable for testing.
-    Panic,
-    /// Interrupt tessellation and return an error.
-    Stop,
-    /// Attempt to continue if possible, stop otherwise.
-    ///
-    /// The resulting tessellation may be locally incorrect.
-    Recover,
-}
-
-impl OnError {
-    #[cfg(test)]
-    pub const DEFAULT: Self = OnError::Panic;
-    #[cfg(not(test))]
-    pub const DEFAULT: Self = OnError::Stop;
-}
-
-impl Default for OnError {
-    fn default() -> Self { Self::DEFAULT }
-}
-
 
 #[test]
 fn test_without_miter_limit(){
