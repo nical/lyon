@@ -1,57 +1,35 @@
 use crate::geometry_builder::{VertexBuffers, simple_builder};
 use crate::path::{Path, PathSlice};
-use crate::path_fill::*;
 use crate::geom::math::*;
 use crate::FillVertex;
 use crate::FillOptions;
 use crate::TessellationError;
 use crate::OnError;
 
-#[cfg(feature = "experimental")]
-use crate::experimental;
-
-#[cfg(not(feature = "experimental"))]
-type Vertex = FillVertex;
-#[cfg(feature = "experimental")]
-type Vertex = Point;
+use crate::fill;
 
 fn tessellate_path(path: PathSlice, log: bool, on_error: OnError) -> Result<usize, TessellationError> {
-    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
         let options = FillOptions::tolerance(0.05).on_error(on_error);
 
-        #[cfg(not(feature = "experimental"))] {
-            let mut tess = FillTessellator::new();
-            let mut vertex_builder = simple_builder(&mut buffers);
-            if log {
-                tess.enable_logging();
-            }
-            tess.tessellate_path(
-                path.iter(),
-                &options,
-                &mut vertex_builder
-            ).unwrap();
+        use crate::path::builder::*;
+        use crate::path::iterator::*;
+        let mut builder = Path::builder();
+        for e in path.iter().flattened(0.05) {
+            builder.path_event(e);
         }
 
-        #[cfg(feature = "experimental")] {
-            use crate::path::builder::*;
-            use crate::path::iterator::*;
-            let mut builder = Path::builder();
-            for e in path.iter().flattened(0.05) {
-                builder.path_event(e);
-            }
-
-            let mut vertex_builder = simple_builder(&mut buffers);
-            let mut tess = experimental::FillTessellator::new();
-            if log {
-                tess.enable_logging();
-            }
-            tess.tessellate_path(
-                &builder.build(),
-                &options,
-                &mut vertex_builder
-            ).unwrap();
+        let mut vertex_builder = simple_builder(&mut buffers);
+        let mut tess = fill::FillTessellator::new();
+        if log {
+            tess.enable_logging();
         }
+        tess.tessellate_path(
+            &builder.build(),
+            &options,
+            &mut vertex_builder
+        ).unwrap();
     }
     return Ok(buffers.indices.len() / 3);
 }

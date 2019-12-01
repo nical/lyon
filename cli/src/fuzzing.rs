@@ -13,6 +13,7 @@ use std::cmp::{min, max};
 use lyon::tess2;
 #[cfg(feature="experimental")]
 use lyon::tessellation::experimental;
+use lyon::tessellation::fill;
 
 fn random_point() -> Point {
     point(
@@ -80,7 +81,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 );
                 match cmd.tessellator {
                     Tessellator::Default => {
-                        let result = FillTessellator::new().tessellate_path(
+                        let result = fill::FillTessellator::new().tessellate_path(
                             &path,
                             &options,
                             &mut NoOutput::new()
@@ -96,18 +97,6 @@ pub fn run(cmd: FuzzCmd) -> bool {
                             &mut NoOutput::new()
                         );
                         if !cmd.ignore_errors {
-                            result.unwrap();
-                        }
-                    }
-                    Tessellator::Experimental => {
-                        #[cfg(feature="experimental")]
-                        let result = experimental::FillTessellator::new().tessellate_path(
-                            &path,
-                            &options,
-                            &mut NoOutput::new()
-                        );
-                        if !cmd.ignore_errors {
-                            #[cfg(feature="experimental")]
                             result.unwrap();
                         }
                     }
