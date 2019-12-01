@@ -1,8 +1,0 @@
-[package]
-name = "glium-basic-shapes-example"
-version = "0.1.0"
-workspace = "../.."
-
-[dependencies]
-lyon = { path = "../../", features = ["extra"] }
-glium = "0.22"

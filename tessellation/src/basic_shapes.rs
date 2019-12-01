@@ -30,8 +30,8 @@ use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
-use crate::{FillOptions, FillVertex, StrokeVertex, StrokeOptions, Side};
-use crate::{FillTessellator, TessellationResult};
+use crate::{FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult};
+use crate::fill;
 
 use std::f32::consts::PI;
 
@@ -45,53 +45,6 @@ fn top_right(rect: &Rect) -> Point {
 
 fn bottom_right(rect: &Rect) -> Point {
     rect.max()
-}
-
-/// Tessellate a triangle.
-pub fn fill_triangle(
-    v1: Point,
-    mut v2: Point,
-    mut v3: Point,
-    _options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>,
-) -> TessellationResult {
-    output.begin_geometry();
-
-    // Make sure the winding order is correct.
-    if (v1 - v2).cross(v3 - v2) < 0.0 {
-        ::std::mem::swap(&mut v2, &mut v3);
-    }
-
-    // Tangents
-    let t31 = (v1 - v3).normalize();
-    let t12 = (v2 - v1).normalize();
-    let t23 = (v3 - v2).normalize();
-
-    let a = output.add_vertex(
-        FillVertex {
-            position: v1,
-            normal: compute_normal(t31, t12),
-        },
-        &mut NoSource,
-    )?;
-    let b = output.add_vertex(
-        FillVertex {
-            position: v2,
-            normal: compute_normal(t12, t23),
-        },
-        &mut NoSource,
-    )?;
-    let c = output.add_vertex(
-        FillVertex {
-            position: v3,
-            normal: compute_normal(t23, t31),
-        },
-        &mut NoSource,
-    )?;
-
-    output.add_triangle(a, b, c);
-
-    Ok(output.end_geometry())
 }
 
 /// Tessellate the stroke for a triangle.
@@ -113,7 +66,7 @@ pub fn fill_quad(
     v3: Point,
     mut v4: Point,
     _options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<Point>,
 ) -> TessellationResult {
     output.begin_geometry();
 
@@ -122,40 +75,10 @@ pub fn fill_quad(
         ::std::mem::swap(&mut v2, &mut v4);
     }
 
-    // Tangents
-    let t12 = (v2 - v1).normalize();
-    let t23 = (v3 - v2).normalize();
-    let t34 = (v4 - v3).normalize();
-    let t41 = (v1 - v4).normalize();
-
-    let a = output.add_vertex(
-        FillVertex {
-            position: v1,
-            normal: compute_normal(t41, t12),
-        },
-        &mut NoSource,
-    )?;
-    let b = output.add_vertex(
-        FillVertex {
-            position: v2,
-            normal: compute_normal(t12, t23),
-        },
-        &mut NoSource,
-    )?;
-    let c = output.add_vertex(
-        FillVertex {
-            position: v3,
-            normal: compute_normal(t23, t34),
-        },
-        &mut NoSource,
-    )?;
-    let d = output.add_vertex(
-        FillVertex {
-            position: v4,
-            normal: compute_normal(t34, t41),
-        },
-        &mut NoSource,
-    )?;
+    let a = output.add_vertex(v1, &mut NoSource)?;
+    let b = output.add_vertex(v2, &mut NoSource)?;
+    let c = output.add_vertex(v3, &mut NoSource)?;
+    let d = output.add_vertex(v4, &mut NoSource)?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
@@ -178,38 +101,14 @@ pub fn stroke_quad(
 pub fn fill_rectangle(
     rect: &Rect,
     _options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<Point>,
 ) -> TessellationResult {
     output.begin_geometry();
 
-    let a = output.add_vertex(
-        FillVertex {
-            position: rect.origin,
-            normal: vector(-1.0, -1.0),
-        },
-        &mut NoSource,
-    )?;
-    let b = output.add_vertex(
-        FillVertex {
-            position: bottom_left(&rect),
-            normal: vector(-1.0, 1.0),
-        },
-        &mut NoSource,
-    )?;
-    let c = output.add_vertex(
-        FillVertex {
-            position: bottom_right(&rect),
-            normal: vector(1.0, 1.0),
-        },
-        &mut NoSource,
-    )?;
-    let d = output.add_vertex(
-        FillVertex {
-            position: top_right(&rect),
-            normal: vector(1.0, -1.0),
-        },
-        &mut NoSource,
-    )?;
+    let a = output.add_vertex(rect.origin, &mut NoSource)?;
+    let b = output.add_vertex(bottom_left(&rect), &mut NoSource)?;
+    let c = output.add_vertex(bottom_right(&rect), &mut NoSource)?;
+    let d = output.add_vertex(top_right(&rect), &mut NoSource)?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
@@ -337,7 +236,7 @@ pub fn fill_rounded_rectangle(
     rect: &Rect,
     radii: &BorderRadii,
     options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<Point>,
 ) -> TessellationResult {
     output.begin_geometry();
 
@@ -391,21 +290,15 @@ pub fn fill_rounded_rectangle(
     let p0 = point(x_min, y_min + tl);
     let p7 = point(x_min, y_max - bl);
 
-    let up = vector(0.0, -1.0);
-    let down = vector(0.0, 1.0);
-    let left = vector(-1.0, 0.0);
-    let right = vector(1.0, 0.0);
-
-
     let v = [
-        output.add_vertex(FillVertex { position: p7, normal: left }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p6, normal: down }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p5, normal: down }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p4, normal: right }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p3, normal: right }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p2, normal: up }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p1, normal: up }, &mut NoSource)?,
-        output.add_vertex(FillVertex { position: p0, normal: left }, &mut NoSource)?,
+        output.add_vertex(p7, &mut NoSource)?,
+        output.add_vertex(p6, &mut NoSource)?,
+        output.add_vertex(p5, &mut NoSource)?,
+        output.add_vertex(p4, &mut NoSource)?,
+        output.add_vertex(p3, &mut NoSource)?,
+        output.add_vertex(p2, &mut NoSource)?,
+        output.add_vertex(p1, &mut NoSource)?,
+        output.add_vertex(p0, &mut NoSource)?,
     ];
 
     output.add_triangle(v[6], v[7], v[0]);
@@ -464,7 +357,7 @@ fn fill_border_radius(
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
-    output: &mut dyn GeometryBuilder<FillVertex>
+    output: &mut dyn GeometryBuilder<Point>
 ) -> Result<(), GeometryBuilderError> {
     if num_recursions == 0 {
         return Ok(());
@@ -475,13 +368,7 @@ fn fill_border_radius(
     let normal = vector(mid_angle.cos(), mid_angle.sin());
     let position = center + normal * radius;
 
-    let vertex = output.add_vertex(
-        FillVertex {
-            position,
-            normal,
-        },
-        &mut NoSource,
-    )?;
+    let vertex = output.add_vertex(position, &mut NoSource)?;
 
     output.add_triangle(vb, vertex, va);
 
@@ -622,7 +509,7 @@ pub fn fill_circle(
     center: Point,
     radius: f32,
     options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>,
+    output: &mut dyn GeometryBuilder<Point>,
 ) -> TessellationResult {
     output.begin_geometry();
 
@@ -638,31 +525,19 @@ pub fn fill_circle(
 
     let v = [
         output.add_vertex(
-            FillVertex {
-                position: center + (left * radius),
-                normal: left
-            },
+            center + (left * radius),
             &mut NoSource,
         )?,
         output.add_vertex(
-            FillVertex {
-                position: center + (up * radius),
-                normal: up
-            },
+            center + (up * radius),
             &mut NoSource,
         )?,
         output.add_vertex(
-            FillVertex {
-                position: center + (right * radius),
-                normal: right
-            },
+            center + (right * radius),
             &mut NoSource,
         )?,
         output.add_vertex(
-            FillVertex {
-                position: center + (down * radius),
-                normal: down
-            },
+            center + (down * radius),
             &mut NoSource,
         )?,
     ];
@@ -754,6 +629,7 @@ fn stroke_border_radius(
     }
 }
 
+/* TODO
 /// Tessellate an ellipse.
 pub fn fill_ellipse(
     center: Point,
@@ -805,6 +681,7 @@ pub fn fill_ellipse(
         output,
     )
 }
+*/
 
 /// Tessellate the stroke for an ellipse.
 pub fn stroke_ellipse(
@@ -849,53 +726,14 @@ pub fn stroke_ellipse(
 /// The shape is assumed to be convex, calling this function with a concave
 /// shape may produce incorrect results.
 pub fn fill_convex_polyline<Iter>(
-    mut it: Iter,
-    _options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>
+    it: Iter,
+    options: &FillOptions,
+    output: &mut dyn GeometryBuilder<Point>
 ) -> TessellationResult
 where
     Iter: Iterator<Item = Point> + Clone,
 {
-    // We insert 2nd point on line first in order to have the neighbors for normal calculation.
-    let mut it1 = it.clone().cycle().skip(1);
-    let mut it2 = it.clone().cycle().skip(2);
-
-    output.begin_geometry();
-
-    if let (Some(a1), Some(a2), Some(a3), Some(b2), Some(b3), Some(b4)) = (
-        it.next(), it1.next(), it2.next(), it.next(), it1.next(), it2.next()
-    ) {
-        let a = output.add_vertex(
-            FillVertex {
-                position: a2,
-                normal: compute_normal(a2 - a1, a3 - a2),
-            },
-            &mut NoSource,
-        )?;
-        let mut b = output.add_vertex(
-            FillVertex {
-                position: b3,
-                normal: compute_normal(b3 - b2, b4 - b3),
-            },
-            &mut NoSource,
-        )?;
-
-        while let (Some(p1), Some(p2), Some(p3)) = (it.next(), it1.next(), it2.next()) {
-            let c = output.add_vertex(
-                FillVertex {
-                    position: p2,
-                    normal: compute_normal(p2 - p1, p3 - p2),
-                },
-                &mut NoSource,
-            )?;
-
-            output.add_triangle(a, b, c);
-
-            b = c;
-        }
-    }
-
-    Ok(output.end_geometry())
+    fill_polyline(it, &mut fill::FillTessellator::new(), options, output)
 }
 
 /// Tessellate the stroke for a shape that is described by an iterator of points.
@@ -922,9 +760,9 @@ where
 /// Tessellate an arbitrary shape that is described by an iterator of points.
 pub fn fill_polyline<Iter>(
     polyline: Iter,
-    tessellator: &mut FillTessellator,
+    tessellator: &mut fill::FillTessellator,
     options: &FillOptions,
-    output: &mut dyn GeometryBuilder<FillVertex>
+    output: &mut dyn GeometryBuilder<Point>
 ) -> TessellationResult
 where
     Iter: Iterator<Item = Point>,

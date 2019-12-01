@@ -2,8 +2,7 @@ use commands::{TessellateCmd, Tessellator};
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor, Identity};
 use lyon::tessellation::{
-    FillVertex, StrokeVertex,
-    StrokeTessellator, FillTessellator
+    StrokeVertex, StrokeTessellator, fill::FillTessellator
 };
 use lyon::tess2;
 use std::io;
@@ -99,11 +98,11 @@ impl VertexConstructor<StrokeVertex, Point> for VertexCtor {
     }
 }
 
-impl VertexConstructor<FillVertex, Point> for VertexCtor {
-    fn new_vertex(&mut self, vertex: FillVertex) -> Point {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
+impl VertexConstructor<Point, Point> for VertexCtor {
+    fn new_vertex(&mut self, vertex: Point) -> Point {
+        assert!(!vertex.x.is_nan());
+        assert!(!vertex.y.is_nan());
 
-        vertex.position
+        vertex
     }
 }

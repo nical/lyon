@@ -1,15 +1,13 @@
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions, StrokeOptions};
-use lyon::tessellation::debugger::*;
+use lyon::tessellation::{fill::FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::algorithms::hatching::*;
 use lyon::algorithms::aabb::bounding_rect;
 use lyon::path::Path;
 use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
 use lyon::tess2;
-use lyon::tessellation::fill;
 
 use gfx;
 use gfx_window_glutin;
@@ -81,11 +79,10 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         ).unwrap();
     }
 
-    let mut debug_trace = Trace::new();
     if let Some(options) = cmd.fill {
         match cmd.tessellator {
             Tessellator::Default => {
-                let mut tess = fill::FillTessellator::new();
+                let mut tess = FillTessellator::new();
 
                 tess.tessellate_path(
                     &cmd.path,
@@ -200,7 +197,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         &geometry.indices[..]
     );
 
-    let (path_range, mut point_range) = vbo_range.split_at(geom_split);
+    let (path_range, _) = vbo_range.split_at(geom_split);
 
     let gpu_primitives = factory.create_constant_buffer(3);
     let constants = factory.create_constant_buffer(1);
@@ -220,41 +217,11 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         draw_background: true,
         cursor_position: (0.0, 0.0),
         window_size: (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
-        update_debugger: true,
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    let mut point_primitives = factory.create_constant_buffer(1);
-    let mut debug_points = Vec::new();
-    let mut debug_edges = VertexBuffers::new();
-    let mut gpu_debug_edges = None;
-
+    
     while update_inputs(&mut events_loop, &mut scene) {
-        if scene.update_debugger && render_options.debugger.is_some() {
-            scene.update_debugger = false;
-            debug_points.clear();
-            debug_edges.vertices.clear();
-            debug_edges.indices.clear();
-            get_debug_geometry(
-                &debug_trace,
-                &scene,
-                None,
-                0.5,
-                &mut debug_points,
-                &mut debug_edges
-            );
-            if !debug_points.is_empty() {
-                point_primitives = factory.create_constant_buffer(debug_points.len());
-                cmd_queue.update_buffer(&point_primitives, &debug_points, 0).unwrap();
-            }
-            point_range.instances = Some((debug_points.len() as u32, 0));
-            if !debug_edges.indices.is_empty() {
-                gpu_debug_edges = Some(factory.create_vertex_buffer_with_slice(
-                    &debug_edges.vertices[..],
-                    &debug_edges.indices[..]
-                ));
-            }
-        }
 
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let size = window.get_inner_size().unwrap();
@@ -306,35 +273,6 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             &path_pso
         };
 
-
-        if !debug_points.is_empty() {
-            cmd_queue.draw(
-                &point_range,
-                &pso,
-                &path_pipeline::Data {
-                    vbo: path_vbo.clone(),
-                    primitives: point_primitives.clone(),
-                    constants: constants.clone(),
-                    out_color: main_fbo.clone(),
-                    out_depth: main_depth.clone(),
-                },
-            );
-        }
-
-        if let Some((ref vbo, ref ibo)) = gpu_debug_edges {
-            cmd_queue.draw(
-                &ibo,
-                &path_pso,
-                &path_pipeline::Data {
-                    vbo: vbo.clone(),
-                    primitives: gpu_primitives.clone(),
-                    constants: constants.clone(),
-                    out_color: main_fbo.clone(),
-                    out_depth: main_depth.clone(),
-                },
-            );
-        }
-
         cmd_queue.draw(
             &path_range,
             &pso,
@@ -364,68 +302,6 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         window.swap_buffers().unwrap();
         device.cleanup();
     }
-}
-
-fn get_debug_geometry(
-    debug_trace: &Trace,
-    scene: &SceneParams,
-    target_frame: Option<u32>,
-    z_index: f32,
-    points: &mut Vec<Primitive>,
-    edges: &mut VertexBuffers<GpuVertex, u16>,
-) {
-    let mut edge_path = Path::builder();
-    let mut frame = 0;
-    for msg in &debug_trace.messages {
-        match msg {
-            DebuggerMsg::Point { position, color, .. } => {
-                if target_frame == Some(frame) || target_frame.is_none() {
-                    points.push(Primitive {
-                        color: [
-                            color.r as f32 * 255.0,
-                            color.g as f32 * 255.0,
-                            color.b as f32 * 255.0,
-                            color.a as f32 * 255.0,
-                        ],
-                        z_index,
-                        width: scene.target_stroke_width,
-                        translation: position.to_array(),
-                    });
-                    points.push(Primitive {
-                        color: [1.0, 1.0, 1.0, 1.0],
-                        z_index: z_index + 0.1,
-                        width: scene.target_stroke_width * 0.5,
-                        translation: position.to_array(),
-                    });
-                }
-            }
-            DebuggerMsg::Edge { from, to, .. } => {
-                if target_frame == Some(frame) || target_frame.is_none() {
-                    edge_path.move_to(*from);
-                    edge_path.line_to(*to);
-                }
-            }
-            DebuggerMsg::NewFrame { .. } => {
-                frame += 1;
-            }
-            DebuggerMsg::String { string, .. } => {
-                if target_frame == Some(frame) || target_frame.is_none() {
-                    println!("[debugger]: {}", string);
-                }
-            }
-            DebuggerMsg::Error { .. } => {
-                println!("[debugger]: received an error event");
-            }
-        }
-    }
-
-    let path = edge_path.build();
-
-    StrokeTessellator::new().tessellate_path(
-        path.iter(),
-        &StrokeOptions::default().dont_apply_line_width(),
-        &mut BuffersBuilder::new(edges, WithId(2)),
-    ).unwrap();
 }
 
 gfx_defines!{
@@ -471,9 +347,9 @@ gfx_defines!{
 }
 
 struct BgVertexCtor;
-impl VertexConstructor<tessellation::FillVertex, BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
-        BgVertex { position: vertex.position.to_array() }
+impl VertexConstructor<Point, BgVertex> for BgVertexCtor {
+    fn new_vertex(&mut self, vertex: Point) -> BgVertex {
+        BgVertex { position: vertex.to_array() }
     }
 }
 
@@ -639,7 +515,6 @@ struct SceneParams {
     draw_background: bool,
     cursor_position: (f32, f32),
     window_size: (f32, f32),
-    update_debugger: bool,
 }
 
 fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {

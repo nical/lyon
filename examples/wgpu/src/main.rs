@@ -4,7 +4,7 @@ use lyon::path::Path;
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, FillOptions};
+use lyon::tessellation::{fill::FillTessellator, FillOptions};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
 use lyon::tessellation;
 
@@ -503,25 +503,21 @@ fn main() {
 }
 
 struct BgVertexCtor;
-impl VertexConstructor<tessellation::FillVertex, Point> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> Point {
-        vertex.position
-    }
+impl VertexConstructor<Point, Point> for BgVertexCtor {
+    fn new_vertex(&mut self, vertex: Point) -> Point { vertex }
 }
 
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
 pub struct WithId(pub i32);
 
-impl VertexConstructor<tessellation::FillVertex, GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
-        debug_assert!(!vertex.position.x.is_nan());
-        debug_assert!(!vertex.position.y.is_nan());
-        debug_assert!(!vertex.normal.x.is_nan());
-        debug_assert!(!vertex.normal.y.is_nan());
+impl VertexConstructor<Point, GpuVertex> for WithId {
+    fn new_vertex(&mut self, vertex: Point) -> GpuVertex {
+        debug_assert!(!vertex.x.is_nan());
+        debug_assert!(!vertex.y.is_nan());
         GpuVertex {
-            position: vertex.position.to_array(),
-            normal: vertex.normal.to_array(),
+            position: vertex.to_array(),
+            normal: [0.0, 0.0],
             prim_id: self.0,
         }
     }
