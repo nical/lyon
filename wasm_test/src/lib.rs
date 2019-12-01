@@ -1,6 +1,6 @@
 extern crate lyon;
 
-use lyon::tessellation::fill::FillTessellator;
+use lyon::tessellation::FillTessellator;
 use lyon::tessellation::FillOptions;
 use lyon::tessellation::geometry_builder::{VertexBuffers, simple_builder};
 use lyon::path::builder::*;

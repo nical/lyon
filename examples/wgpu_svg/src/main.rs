@@ -1,6 +1,6 @@
 use clap::*;
 use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers, VertexConstructor};
-use lyon::tessellation::{self, FillOptions, fill::FillTessellator, StrokeTessellator, StrokeOptions};
+use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeTessellator, StrokeOptions};
 use lyon::path::PathEvent;
 use lyon::math::Point;
 use usvg::prelude::*;

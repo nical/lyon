@@ -7,8 +7,6 @@ use crate::{FillTessellator, TessellationError, FillOptions, FillVertex, OnError
 
 use std::env;
 
-use crate::fill;
-
 fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
@@ -23,7 +21,7 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
         }
 
         let mut vertex_builder = simple_builder(&mut buffers);
-        let mut tess = fill::FillTessellator::new();
+        let mut tess = FillTessellator::new();
         if log {
             tess.enable_logging();
         }

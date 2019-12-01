@@ -30,7 +30,7 @@ use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
-use crate::{FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult};
+use crate::{FillTessellator, FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult};
 use crate::fill;
 
 use std::f32::consts::PI;
@@ -733,7 +733,7 @@ pub fn fill_convex_polyline<Iter>(
 where
     Iter: Iterator<Item = Point> + Clone,
 {
-    fill_polyline(it, &mut fill::FillTessellator::new(), options, output)
+    fill_polyline(it, &mut FillTessellator::new(), options, output)
 }
 
 /// Tessellate the stroke for a shape that is described by an iterator of points.
@@ -760,7 +760,7 @@ where
 /// Tessellate an arbitrary shape that is described by an iterator of points.
 pub fn fill_polyline<Iter>(
     polyline: Iter,
-    tessellator: &mut fill::FillTessellator,
+    tessellator: &mut FillTessellator,
     options: &FillOptions,
     output: &mut dyn GeometryBuilder<Point>
 ) -> TessellationResult

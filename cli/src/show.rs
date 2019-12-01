@@ -1,7 +1,7 @@
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{fill::FillTessellator, StrokeTessellator, FillOptions};
+use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
 use lyon::tessellation;
 use lyon::algorithms::hatching::*;
 use lyon::algorithms::aabb::bounding_rect;

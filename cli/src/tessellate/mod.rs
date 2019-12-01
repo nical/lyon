@@ -2,7 +2,7 @@ use commands::{TessellateCmd, Tessellator};
 use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor, Identity};
 use lyon::tessellation::{
-    StrokeVertex, StrokeTessellator, fill::FillTessellator
+    StrokeVertex, StrokeTessellator, FillTessellator
 };
 use lyon::tess2;
 use std::io;

@@ -195,7 +195,7 @@ mod math_utils;
 mod monotone;
 mod fixed;
 
-pub mod fill;
+mod fill;
 
 #[cfg(test)]
 mod earcut_tests;
@@ -210,6 +210,9 @@ pub use crate::path::geom;
 
 #[doc(inline)]
 pub use crate::path_stroke::*;
+
+#[doc(inline)]
+pub use crate::fill::*;
 
 #[doc(inline)]
 pub use crate::geometry_builder::{GeometryBuilder, GeometryReceiver, VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError, VertexSource, NoSource};
