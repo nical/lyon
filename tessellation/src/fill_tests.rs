@@ -3,7 +3,7 @@ use crate::geometry_builder::*;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::path::{Path, PathSlice};
 use crate::extra::rust_logo::build_logo_path;
-use crate::{FillTessellator, TessellationError, FillOptions, FillVertex, OnError};
+use crate::{FillTessellator, TessellationError, FillOptions, OnError};
 
 use std::env;
 
@@ -40,19 +40,21 @@ fn test_too_many_vertices() {
     /// the geometry builder run out of vertex ids.
 
     struct Builder { max_vertices: u32 }
-    impl<T> GeometryBuilder<T> for Builder
-    {
-        fn add_vertex(&mut self, _: T, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+    impl GeometryBuilder for Builder {
+        fn begin_geometry(&mut self) {}
+        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+    }
+
+    impl FillGeometryBuilder for Builder {
+        fn add_fill_vertex(&mut self, _pos: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
             }
             self.max_vertices -= 1;
             Ok(VertexId(self.max_vertices))
         }
-        fn begin_geometry(&mut self) {}
-        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
-        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
-        fn abort_geometry(&mut self) {}
     }
 
     let mut path = Path::builder().with_svg();

@@ -3,7 +3,7 @@ use crate::geom::math::*;
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
 use crate::geom::utils::{normalized_tangent, directed_angle};
 use crate::geom::euclid::Trig;
-use crate::geometry_builder::{VertexId, GeometryBuilder, GeometryBuilderError, VertexSource, NoSource};
+use crate::geometry_builder::{VertexId, StrokeGeometryBuilder, GeometryBuilderError};
 use crate::basic_shapes::circle_flattening_step;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::path::PathEvent;
@@ -31,7 +31,7 @@ const EPSILON: f32 = 1e-4;
 ///
 /// This stroke tessellator takes an iterator of path events as inputs as well as
 /// a [`StrokeOption`](struct.StrokeOptions.html), and produces its outputs using
-/// a [`GeometryBuilder`](geometry_builder/trait.GeometryBuilder.html).
+/// a [`StrokeGeometryBuilder`](geometry_builder/trait.StrokeGeometryBuilder.html).
 ///
 ///
 /// See the [`geometry_builder` module documentation](geometry_builder/index.html)
@@ -94,7 +94,7 @@ impl StrokeTessellator {
         &mut self,
         input: Input,
         options: &StrokeOptions,
-        builder: &mut dyn GeometryBuilder<Vertex>,
+        builder: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult
     where
         Input: IntoIterator<Item = PathEvent>,
@@ -125,7 +125,7 @@ macro_rules! add_vertex {
             v.position += v.normal * $builder.options.line_width / 2.0;
         }
 
-        match $builder.output.add_vertex(v, &mut NoSource) {
+        match $builder.output.add_stroke_vertex(v) {
             Ok(v) => v,
             Err(e) => {
                 $builder.builder_error(e);
@@ -153,7 +153,7 @@ pub struct StrokeBuilder<'l> {
     options: StrokeOptions,
     previous_command_was_move: bool,
     error: Option<TessellationError>,
-    output: &'l mut dyn GeometryBuilder<Vertex>,
+    output: &'l mut dyn StrokeGeometryBuilder,
 }
 
 impl<'l> Build for StrokeBuilder<'l> {
@@ -302,7 +302,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
 impl<'l> StrokeBuilder<'l> {
     pub fn new(
         options: &StrokeOptions,
-        builder: &'l mut dyn GeometryBuilder<Vertex>,
+        builder: &'l mut dyn StrokeGeometryBuilder,
     ) -> Self {
         let zero = Point::new(0.0, 0.0);
         StrokeBuilder {
@@ -1040,7 +1040,7 @@ fn tess_round_cap(
     side: Side,
     line_width: f32,
     invert_winding: bool,
-    output: &mut dyn GeometryBuilder<Vertex>
+    output: &mut dyn StrokeGeometryBuilder
 ) -> Result<(), GeometryBuilderError> {
     if num_recursions == 0 {
         return Ok(());
@@ -1050,14 +1050,13 @@ fn tess_round_cap(
 
     let normal = vector(mid_angle.cos(), mid_angle.sin());
 
-    let vertex = output.add_vertex(
+    let vertex = output.add_stroke_vertex(
         Vertex {
             position: center + normal * line_width,
             normal,
             advancement,
             side,
         },
-        &mut NoSource,
     )?;
 
     let (v1, v2, v3) = if invert_winding {
@@ -1098,7 +1097,7 @@ fn tess_round_cap(
 #[cfg(test)]
 use crate::path::{Path, PathSlice};
 #[cfg(test)]
-use crate::geometry_builder::{SimpleBuffersBuilder, simple_builder, VertexBuffers, Count};
+use crate::geometry_builder::*;
 
 #[cfg(test)]
 fn test_path(
@@ -1111,21 +1110,12 @@ fn test_path(
         builder: SimpleBuffersBuilder<'l, Vertex>,
     }
 
-    impl<'l> GeometryBuilder<Vertex> for TestBuilder<'l> {
+    impl<'l> GeometryBuilder for TestBuilder<'l> {
         fn begin_geometry(&mut self) {
             self.builder.begin_geometry();
         }
         fn end_geometry(&mut self) -> Count {
             self.builder.end_geometry()
-        }
-        fn add_vertex(&mut self, vertex: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-            assert!(!vertex.position.x.is_nan());
-            assert!(!vertex.position.y.is_nan());
-            assert!(!vertex.normal.x.is_nan());
-            assert!(!vertex.normal.y.is_nan());
-            assert!(vertex.normal.square_length() != 0.0);
-            assert!(!vertex.advancement.is_nan());
-            self.builder.add_vertex(vertex, src)
         }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
             assert!(a != b);
@@ -1140,6 +1130,18 @@ fn test_path(
         }
         fn abort_geometry(&mut self) {
             panic!();
+        }
+    }
+
+    impl<'l> StrokeGeometryBuilder for TestBuilder<'l> {
+        fn add_stroke_vertex(&mut self, vertex: Vertex) -> Result<VertexId, GeometryBuilderError> {
+            assert!(!vertex.position.x.is_nan());
+            assert!(!vertex.position.y.is_nan());
+            assert!(!vertex.normal.x.is_nan());
+            assert!(!vertex.normal.y.is_nan());
+            assert!(vertex.normal.square_length() != 0.0);
+            assert!(!vertex.advancement.is_nan());
+            self.builder.add_stroke_vertex(vertex)
         }
     }
 
@@ -1269,21 +1271,24 @@ fn test_too_many_vertices() {
     /// the geometry builder run out of vertex ids.
 
     use crate::extra::rust_logo::build_logo_path;
+    use crate::GeometryBuilder;
 
     struct Builder { max_vertices: u32 }
-    impl<T> GeometryBuilder<T> for Builder
-    {
-        fn add_vertex(&mut self, _: T, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+    impl GeometryBuilder for Builder {
+        fn begin_geometry(&mut self) {}
+        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+    }
+
+    impl StrokeGeometryBuilder for Builder {
+        fn add_stroke_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
             }
             self.max_vertices -= 1;
             Ok(VertexId(self.max_vertices))
         }
-        fn begin_geometry(&mut self) {}
-        fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
-        fn end_geometry(&mut self) -> Count { Count { vertices: 0, indices: 0 } }
-        fn abort_geometry(&mut self) {}
     }
 
     let mut path = Path::builder().with_svg();

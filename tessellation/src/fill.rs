@@ -1,7 +1,7 @@
 use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError};
 use crate::geom::math::*;
 use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
-use crate::geometry_builder::{GeometryBuilder, VertexId, VertexSource};
+use crate::geometry_builder::{FillGeometryBuilder, VertexId, VertexSource};
 use crate::monotone::*;
 use crate::path::{
     self,
@@ -175,7 +175,7 @@ impl Spans {
         span_idx: SpanIdx,
         position: &Point,
         id: VertexId,
-        output: &mut dyn GeometryBuilder<Vertex>,
+        output: &mut dyn FillGeometryBuilder,
     ) {
         let idx = span_idx as usize;
 
@@ -184,7 +184,7 @@ impl Spans {
         let span = &mut self.spans[idx];
         span.remove = true;
         span.tess.end(*position, id);
-        span.tess.flush_experimental(output);
+        span.tess.flush(output);
     }
 
     fn merge_spans(
@@ -194,7 +194,7 @@ impl Spans {
         current_vertex: VertexId,
         merge_position: &Point,
         merge_vertex: VertexId,
-        output: &mut dyn GeometryBuilder<Vertex>,
+        output: &mut dyn FillGeometryBuilder,
     ) {
         //  \...\ /.
         //   \...x..  <-- merge vertex
@@ -290,7 +290,7 @@ impl FillTessellator {
         &mut self,
         path: Iter,
         options: &FillOptions,
-        builder: &mut dyn GeometryBuilder<Vertex>
+        builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult
     where
         Iter: IntoIterator<Item = PathEvent>,
@@ -311,7 +311,7 @@ impl FillTessellator {
         &mut self,
         events: &mut EventQueue,
         options: &FillOptions,
-        builder: &mut dyn GeometryBuilder<Vertex>
+        builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
 
         std::mem::swap(&mut self.events, events);
@@ -326,7 +326,7 @@ impl FillTessellator {
     fn tessellate_impl(
         &mut self,
         options: &FillOptions,
-        builder: &mut dyn GeometryBuilder<Vertex>
+        builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
         self.fill_rule = options.fill_rule;
 
@@ -351,7 +351,7 @@ impl FillTessellator {
         // miss the triangles they contain.
         for span in &mut self.fill.spans {
             if !span.remove {
-                span.tess.flush_experimental(builder);
+                span.tess.flush(builder);
             }
         }
 
@@ -366,7 +366,7 @@ impl FillTessellator {
 
     fn tessellator_loop(
         &mut self,
-        output: &mut dyn GeometryBuilder<Vertex>
+        output: &mut dyn FillGeometryBuilder
     ) -> Result<(), TessellationError> {
         log_svg_preamble(self);
 
@@ -397,7 +397,7 @@ impl FillTessellator {
         Ok(())
     }
 
-    fn initialize_events(&mut self, output: &mut dyn GeometryBuilder<Vertex>) -> Result<(), TessellationError> {
+    fn initialize_events(&mut self, output: &mut dyn FillGeometryBuilder) -> Result<(), TessellationError> {
         let current_event = self.current_event_id;
 
         tess_log!(self, "\n\n<!--         event #{}          -->", current_event);
@@ -409,7 +409,7 @@ impl FillTessellator {
             id: current_event,
         };
 
-        self.current_vertex = output.add_vertex(self.current_position, &mut src).unwrap();
+        self.current_vertex = output.add_fill_vertex(self.current_position, &mut src)?;
 
         let mut current_sibling = current_event;
         while self.events.valid_id(current_sibling) {
@@ -439,7 +439,7 @@ impl FillTessellator {
     fn process_events(
         &mut self,
         scan: &mut ActiveEdgeScan,
-        output: &mut dyn GeometryBuilder<Vertex>,
+        output: &mut dyn FillGeometryBuilder,
     ) -> Result<(), InternalError> {
         debug_assert!(!self.current_position.x.is_nan() && !self.current_position.y.is_nan());
 
@@ -840,7 +840,7 @@ impl FillTessellator {
         Ok(false)
     }
 
-    fn process_edges_above(&mut self, scan: &mut ActiveEdgeScan, output: &mut dyn GeometryBuilder<Vertex>) {
+    fn process_edges_above(&mut self, scan: &mut ActiveEdgeScan, output: &mut dyn FillGeometryBuilder) {
         for &(span_index, side) in &scan.vertex_events {
             tess_log!(self, "   -> Vertex {:?} / {:?}", span_index, side);
             self.fill.spans[span_index as usize].tess.vertex(
@@ -2376,7 +2376,7 @@ fn test_event_queue_push_sorted() {
 }
 
 #[cfg(test)]
-use crate::geometry_builder::{VertexBuffers, simple_builder};
+use crate::geometry_builder::*;
 #[cfg(test)]
 use crate::path::Path;
 
@@ -3123,7 +3123,6 @@ fn on_edge(src: &VertexSource, from_id: EndpointId, to_id: EndpointId, d: f32) -
 
 #[test]
 fn vertex_source_01() {
-    use crate::geometry_builder::*;
     use path::generic::PathCommandsBuilder;
 
     let endpoints: Vec<Point> = vec![
@@ -3157,11 +3156,15 @@ fn vertex_source_01() {
         next_vertex: u32,
     }
 
-    impl GeometryBuilder<Vertex> for CheckVertexSources {
+    impl GeometryBuilder for CheckVertexSources {
         fn begin_geometry(&mut self) {}
         fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
         fn abort_geometry(&mut self) {}
-        fn add_vertex(&mut self, v: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    impl FillGeometryBuilder for CheckVertexSources {
+        fn add_fill_vertex(&mut self, v: Point, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             for src in src {
                 if eq(v, point(0.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))) }
                 else if eq(v, point(1.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(1))) }
@@ -3174,7 +3177,6 @@ fn vertex_source_01() {
 
             Ok(VertexId(id))
         }
-        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
     }
 }
 
@@ -3188,7 +3190,6 @@ fn vertex_source_02() {
     //   |_|
     //
 
-    use crate::geometry_builder::*;
     use path::generic::PathCommandsBuilder;
 
     let endpoints: Vec<Point> = vec![
@@ -3233,11 +3234,15 @@ fn vertex_source_02() {
         next_vertex: u32,
     }
 
-    impl GeometryBuilder<Vertex> for CheckVertexSources {
+    impl GeometryBuilder for CheckVertexSources {
         fn begin_geometry(&mut self) {}
         fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
         fn abort_geometry(&mut self) {}
-        fn add_vertex(&mut self, v: Vertex, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    impl FillGeometryBuilder for CheckVertexSources {
+        fn add_fill_vertex(&mut self, v: Point, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
             for src in src {
                 if eq(v, point(1.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))); }
                 else if eq(v, point(2.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(1))); }
@@ -3259,6 +3264,5 @@ fn vertex_source_02() {
 
             Ok(VertexId(id))
         }
-        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
     }
 }

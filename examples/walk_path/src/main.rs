@@ -13,7 +13,6 @@ use lyon::math::*;
 use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, FillOptions};
-use lyon::tessellation;
 use lyon::algorithms::walk;
 
 use gfx::traits::{Device, FactoryExt};
