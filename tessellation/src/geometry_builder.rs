@@ -221,7 +221,7 @@
 
 pub use crate::path::{VertexId, EndpointId, EventId, Index};
 use crate::math::Point;
-use crate::StrokeVertex;
+use crate::{VertexSource, StrokeVertex};
 
 use std::marker::PhantomData;
 use std::ops::Add;
@@ -233,18 +233,6 @@ use std;
 pub enum GeometryBuilderError {
     InvalidVertex,
     TooManyVertices,
-}
-
-#[derive(Clone, Debug)]
-pub enum VertexSource {
-    Endpoint { id: EndpointId },
-    Edge { edge: EventId, from: EndpointId, to: EndpointId, t: f32 },
-}
-
-pub struct NoSource;
-impl Iterator for NoSource {
-    type Item = VertexSource;
-    fn next(&mut self) -> Option<VertexSource> { None }
 }
 
 /// An interface separating tessellators and other geometry generation algorithms from the

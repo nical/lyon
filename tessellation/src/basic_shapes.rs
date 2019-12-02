@@ -23,13 +23,13 @@
 //! More explanation about flattening and tolerance in the
 //! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
-use crate::geometry_builder::{StrokeGeometryBuilder, FillGeometryBuilder, GeometryBuilderError, VertexId, NoSource};
+use crate::geometry_builder::{StrokeGeometryBuilder, FillGeometryBuilder, GeometryBuilderError, VertexId};
 use crate::stroke::{StrokeTessellator, StrokeBuilder};
 use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
-use crate::{FillTessellator, FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult};
+use crate::{FillTessellator, FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult, NoSource};
 
 use std::f32::consts::PI;
 
