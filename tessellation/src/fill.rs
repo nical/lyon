@@ -1,9 +1,9 @@
 #![deny(missing_docs)]
 
-use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError};
+use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError, VertexSource};
 use crate::geom::math::*;
 use crate::geom::LineSegment;
-use crate::geometry_builder::{FillGeometryBuilder, VertexId, VertexSource};
+use crate::geometry_builder::{FillGeometryBuilder, VertexId};
 use crate::event_queue::*;
 use crate::monotone::*;
 use crate::path::{PathEvent, FillRule, Transition};

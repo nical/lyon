@@ -217,10 +217,12 @@ pub use crate::stroke::*;
 #[doc(inline)]
 pub use crate::geometry_builder::{
     GeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder, GeometryReceiver,
-    VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError, VertexSource, NoSource
-    };
+    VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError,
+};
 
 pub use crate::path::FillRule;
+
+use crate::path::{EndpointId, EventId};
 
 /// The fill tessellator's result type.
 pub type TessellationResult = Result<Count, TessellationError>;
@@ -318,17 +320,23 @@ pub struct StrokeVertex {
 }
 
 /// Vertex produced by the fill tessellators.
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct FillVertex {
+pub struct FillVertex<'l> {
     /// Position of the vertex (on the path).
     pub position: math::Point,
-    /// Normal at this vertex such that extruding the vertices along the normal would
-    /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
-    ///
-    /// Note that some tessellators aren't fully implemented and don't provide the
-    /// normal (a nil vector is provided instead). Refer the documentation of each tessellator.
-    pub normal: math::Vector,
+
+    src: &'l mut dyn Iterator<Item=VertexSource>,
+}
+
+#[derive(Clone, Debug)]
+pub enum VertexSource {
+    Endpoint { id: EndpointId },
+    Edge { edge: EventId, from: EndpointId, to: EndpointId, t: f32 },
+}
+
+pub struct NoSource;
+impl Iterator for NoSource {
+    type Item = VertexSource;
+    fn next(&mut self) -> Option<VertexSource> { None }
 }
 
 /// Line cap as defined by the SVG specification.
