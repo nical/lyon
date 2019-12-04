@@ -209,6 +209,9 @@ pub use crate::path::math;
 pub use crate::path::geom;
 
 #[doc(inline)]
+pub use crate::event_queue::*;
+
+#[doc(inline)]
 pub use crate::fill::*;
 
 #[doc(inline)]

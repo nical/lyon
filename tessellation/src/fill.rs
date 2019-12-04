@@ -17,6 +17,14 @@ use std::env;
 type SpanIdx = i32;
 type ActiveEdgeIdx = usize;
 
+///
+pub trait VertexAttributeStore {
+    ///
+    fn get(&self, id: crate::path::EndpointId) -> &[f32];
+    ///
+    fn num_attributes(&self) -> usize;
+}
+
 #[cfg(debug_assertions)]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
@@ -382,7 +390,7 @@ impl FillTessellator {
 
         std::mem::swap(&mut self.events, &mut event_queue);
 
-        self.tessellate_impl(options, builder)
+        self.tessellate_impl(options, None, builder)
     }
 
     /// Compute the tessellation from a pre-built event queue.
@@ -390,12 +398,13 @@ impl FillTessellator {
         &mut self,
         events: &mut EventQueue,
         options: &FillOptions,
+        custom_attributes: Option<&dyn VertexAttributeStore>,
         builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
 
         std::mem::swap(&mut self.events, events);
 
-        let result = self.tessellate_impl(options, builder);
+        let result = self.tessellate_impl(options, custom_attributes, builder);
 
         std::mem::swap(&mut self.events, events);
 
@@ -405,6 +414,7 @@ impl FillTessellator {
     fn tessellate_impl(
         &mut self,
         options: &FillOptions,
+        attrib_store: Option<&dyn VertexAttributeStore>,
         builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
         self.reset();
@@ -413,7 +423,7 @@ impl FillTessellator {
 
         builder.begin_geometry();
 
-        let result = self.tessellator_loop(builder);
+        let result = self.tessellator_loop(attrib_store, builder);
 
         if let Err(e) = result {
             tess_log!(self, "Tessellation failed with error: {:?}.", e);
@@ -449,6 +459,7 @@ impl FillTessellator {
 
     fn tessellator_loop(
         &mut self,
+        attrib_store: Option<&dyn VertexAttributeStore>,
         output: &mut dyn FillGeometryBuilder
     ) -> Result<(), TessellationError> {
         log_svg_preamble(self);
@@ -458,7 +469,7 @@ impl FillTessellator {
         self.current_event_id = self.events.first_id();
         while self.events.valid_id(self.current_event_id) {
 
-            self.initialize_events(output)?;
+            self.initialize_events(attrib_store, output)?;
 
             debug_assert!(is_after(self.current_position, _prev_position));
             _prev_position = self.current_position;
@@ -480,7 +491,11 @@ impl FillTessellator {
         Ok(())
     }
 
-    fn initialize_events(&mut self, output: &mut dyn FillGeometryBuilder) -> Result<(), TessellationError> {
+    fn initialize_events(
+        &mut self,
+        attrib_store: Option<&dyn VertexAttributeStore>,
+        output: &mut dyn FillGeometryBuilder,
+    ) -> Result<(), TessellationError> {
         let current_event = self.current_event_id;
 
         tess_log!(self, "\n\n<!--         event #{}          -->", current_event);
@@ -492,7 +507,58 @@ impl FillTessellator {
             id: current_event,
         };
 
-        self.current_vertex = output.add_fill_vertex(self.current_position, &mut src)?;
+        let mut attributes = vec![0.0; 16];
+        let mut direct_ref: Option<&[f32]> = None;
+
+        if let Some(store) = attrib_store {
+            let second = self.events.next_sibling_id(current_event);
+            if !self.events.valid_id(second) {
+                let edge = &self.events.edge_data[current_event as usize];
+                let t = edge.range.start;
+                if t == 0.0 {
+                    direct_ref = Some(store.get(edge.from_id));
+                }
+                if t == 1.0 {
+                    direct_ref = Some(store.get(edge.to_id));
+                }
+            }
+
+            if direct_ref.is_none() {
+                let mut div = 0.0;
+                let mut current_sibling = current_event;
+                while self.events.valid_id(current_sibling) {
+                    let edge = &self.events.edge_data[current_sibling as usize];
+                    let t = edge.range.start;
+
+                    if t < 1.0 {
+                        let one_t = 1.0 - t;
+                        div += one_t;
+                        for (i, value) in store.get(edge.from_id).iter().enumerate() {
+                            attributes[i] += *value * one_t;
+                        }
+                    }
+                    if t > 1.0 {
+                        div += t;
+                        for (i, value) in store.get(edge.to_id).iter().enumerate() {
+                            attributes[i] += *value * t;
+                        }
+                    }
+
+                    current_sibling = self.events.next_sibling_id(current_sibling);
+                }
+
+                if div > 1.0 {
+                    for attribute in &mut attributes {
+                        *attribute /= div;
+                    }
+                }
+            }
+        }
+
+        self.current_vertex = output.add_fill_vertex(
+            self.current_position,
+            direct_ref.unwrap_or(&attributes),
+        )?;
 
         let mut current_sibling = current_event;
         while self.events.valid_id(current_sibling) {
@@ -1619,6 +1685,7 @@ fn log_svg_preamble(tess: &FillTessellator) {
     );
 }
 
+/*
 #[cfg(test)]
 use crate::geometry_builder::*;
 
@@ -1655,6 +1722,12 @@ fn vertex_source_01() {
         point(0.0, 0.0),
         point(1.0, 1.0),
         point(0.0, 2.0),
+    ];
+
+    let attributes = [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
     ];
 
     let mut cmds = PathCommandsBuilder::new();
@@ -1792,3 +1865,4 @@ fn vertex_source_02() {
         }
     }
 }
+*/

@@ -474,20 +474,6 @@ impl VertexConstructor<Point, GpuVertex> for WithId {
     }
 }
 
-impl VertexConstructor<tessellation::FillVertex, GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
-        debug_assert!(!vertex.position.x.is_nan());
-        debug_assert!(!vertex.position.y.is_nan());
-        debug_assert!(!vertex.normal.x.is_nan());
-        debug_assert!(!vertex.normal.y.is_nan());
-        GpuVertex {
-            position: vertex.position.to_array(),
-            normal: vertex.normal.to_array(),
-            prim_id: self.0,
-        }
-    }
-}
-
 impl VertexConstructor<tessellation::StrokeVertex, GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
         debug_assert!(!vertex.position.x.is_nan());

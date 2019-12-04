@@ -93,7 +93,7 @@ fn fill_tess_03_logo_no_intersections(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_events(&mut events, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_events(&mut events, &options, None, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -110,7 +110,7 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_events(&mut events, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_events(&mut events, &options, None, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }

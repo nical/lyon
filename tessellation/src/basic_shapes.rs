@@ -73,10 +73,10 @@ pub fn fill_quad(
         ::std::mem::swap(&mut v2, &mut v4);
     }
 
-    let a = output.add_fill_vertex(v1, &mut NoSource)?;
-    let b = output.add_fill_vertex(v2, &mut NoSource)?;
-    let c = output.add_fill_vertex(v3, &mut NoSource)?;
-    let d = output.add_fill_vertex(v4, &mut NoSource)?;
+    let a = output.add_fill_vertex(v1, &[])?;
+    let b = output.add_fill_vertex(v2, &[])?;
+    let c = output.add_fill_vertex(v3, &[])?;
+    let d = output.add_fill_vertex(v4, &[])?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
@@ -103,10 +103,10 @@ pub fn fill_rectangle(
 ) -> TessellationResult {
     output.begin_geometry();
 
-    let a = output.add_fill_vertex(rect.origin, &mut NoSource)?;
-    let b = output.add_fill_vertex(bottom_left(&rect), &mut NoSource)?;
-    let c = output.add_fill_vertex(bottom_right(&rect), &mut NoSource)?;
-    let d = output.add_fill_vertex(top_right(&rect), &mut NoSource)?;
+    let a = output.add_fill_vertex(rect.origin, &[])?;
+    let b = output.add_fill_vertex(bottom_left(&rect), &[])?;
+    let c = output.add_fill_vertex(bottom_right(&rect), &[])?;
+    let d = output.add_fill_vertex(top_right(&rect), &[])?;
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
@@ -285,14 +285,14 @@ pub fn fill_rounded_rectangle(
     let p7 = point(x_min, y_max - bl);
 
     let v = [
-        output.add_fill_vertex(p7, &mut NoSource)?,
-        output.add_fill_vertex(p6, &mut NoSource)?,
-        output.add_fill_vertex(p5, &mut NoSource)?,
-        output.add_fill_vertex(p4, &mut NoSource)?,
-        output.add_fill_vertex(p3, &mut NoSource)?,
-        output.add_fill_vertex(p2, &mut NoSource)?,
-        output.add_fill_vertex(p1, &mut NoSource)?,
-        output.add_fill_vertex(p0, &mut NoSource)?,
+        output.add_fill_vertex(p7, &[])?,
+        output.add_fill_vertex(p6, &[])?,
+        output.add_fill_vertex(p5, &[])?,
+        output.add_fill_vertex(p4, &[])?,
+        output.add_fill_vertex(p3, &[])?,
+        output.add_fill_vertex(p2, &[])?,
+        output.add_fill_vertex(p1, &[])?,
+        output.add_fill_vertex(p0, &[])?,
     ];
 
     output.add_triangle(v[6], v[7], v[0]);
@@ -362,7 +362,7 @@ fn fill_border_radius(
     let normal = vector(mid_angle.cos(), mid_angle.sin());
     let position = center + normal * radius;
 
-    let vertex = output.add_fill_vertex(position, &mut NoSource)?;
+    let vertex = output.add_fill_vertex(position, &[])?;
 
     output.add_triangle(vb, vertex, va);
 
@@ -520,19 +520,19 @@ pub fn fill_circle(
     let v = [
         output.add_fill_vertex(
             center + (left * radius),
-            &mut NoSource,
+            &[],
         )?,
         output.add_fill_vertex(
             center + (up * radius),
-            &mut NoSource,
+            &[],
         )?,
         output.add_fill_vertex(
             center + (right * radius),
-            &mut NoSource,
+            &[],
         )?,
         output.add_fill_vertex(
             center + (down * radius),
-            &mut NoSource,
+            &[],
         )?,
     ];
 
@@ -764,7 +764,7 @@ where
     tessellator.tessellate_path(
         FromPolyline::closed(polyline),
         options,
-        output
+        output,
     )
 }
 
