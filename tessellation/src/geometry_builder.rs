@@ -199,17 +199,13 @@
 //!     Output: FillGeometryBuilder
 //! {
 //!     output.begin_geometry();
-//!     // The FillGeometryBuilder interface provides the ability to specify
-//!     // where vertices come from. To keep this example simple we pass a
-//!     // dummy "no-source" implementation.
-//!     let mut src = NoSource;
 //!     // Create the vertices...
 //!     let min = rect.min();
 //!     let max = rect.max();
-//!     let a = output.add_fill_vertex(min, &mut src)?;
-//!     let b = output.add_fill_vertex(point(max.x, min.y), &mut src)?;
-//!     let c = output.add_fill_vertex(max, &mut src)?;
-//!     let d = output.add_fill_vertex(point(min.x, max.y), &mut src)?;
+//!     let a = output.add_fill_vertex(min, &[])?;
+//!     let b = output.add_fill_vertex(point(max.x, min.y), &[])?;
+//!     let c = output.add_fill_vertex(max, &[])?;
+//!     let d = output.add_fill_vertex(point(min.x, max.y), &[])?;
 //!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
 //!     // vertex buffer.
 //!     output.add_triangle(a, b, c);
@@ -219,7 +215,7 @@
 //! }
 //! ```
 
-pub use crate::path::{VertexId, EndpointId, EventId, Index};
+pub use crate::path::{VertexId, Index};
 use crate::math::Point;
 use crate::{VertexSource, StrokeVertex};
 
@@ -268,7 +264,7 @@ pub trait FillGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_fill_vertex(&mut self, vertex: Point, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError>;
+    fn add_fill_vertex(&mut self, vertex: Point, attributes: &[f32]) -> Result<VertexId, GeometryBuilderError>;
 }
 
 pub trait StrokeGeometryBuilder: GeometryBuilder {
@@ -466,7 +462,7 @@ where
     IndexType: Add + From<VertexId> + MaxIndex,
     Ctor: VertexConstructor<Point, VertexType>,
 {
-    fn add_fill_vertex(&mut self, v: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+    fn add_fill_vertex(&mut self, v: Point, _: &[f32]) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(v));
         let len = self.buffers.vertices.len();
         if len > IndexType::max_index() {
@@ -548,7 +544,7 @@ impl GeometryBuilder for NoOutput {
 }
 
 impl FillGeometryBuilder for NoOutput {
-    fn add_fill_vertex(&mut self, _: Point, _src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
+    fn add_fill_vertex(&mut self, _: Point, _: &[f32]) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
@@ -607,11 +603,10 @@ fn test_closure() {
         });
 
         builder.begin_geometry();
-        let mut src = NoSource;
-        let a = builder.add_fill_vertex(point(0.0, 0.0), &mut src).unwrap();
-        let b = builder.add_fill_vertex(point(1.0, 0.0), &mut src).unwrap();
-        let c = builder.add_fill_vertex(point(1.0, 1.0), &mut src).unwrap();
-        let d = builder.add_fill_vertex(point(0.0, 1.0), &mut src).unwrap();
+        let a = builder.add_fill_vertex(point(0.0, 0.0), &[]).unwrap();
+        let b = builder.add_fill_vertex(point(1.0, 0.0), &[]).unwrap();
+        let c = builder.add_fill_vertex(point(1.0, 1.0), &[]).unwrap();
+        let d = builder.add_fill_vertex(point(0.0, 1.0), &[]).unwrap();
         builder.add_triangle(a, b, c);
         builder.add_triangle(a, c, d);
         builder.end_geometry();
