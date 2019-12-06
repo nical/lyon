@@ -8,9 +8,6 @@ use lyon::math::{Point, point};
 
 use bencher::Bencher;
 
-#[cfg(feature = "profiling")]
-const N: usize = 100;
-#[cfg(not(feature = "profiling"))]
 const N: usize = 1;
 
 type GenericPathBuilder = generic::GenericPathBuilder<Point, Point>;
@@ -231,6 +228,78 @@ fn generic_id_iter(bench: &mut Bencher) {
     });
 }
 
+fn no_attrib_iter(bench: &mut Bencher) {
+
+    let path = {
+        let mut path = Path::builder_with_attributes(0);
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(point(0.0, 0.0), &[]);
+                for _ in 0..1_000 {
+                    path.line_to(point(1.0, 0.0), &[]);
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0), &[]);
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), &[]);
+                }
+                path.close();
+            }
+        }
+
+        path.build()
+    };
+
+    let mut p = point(0.0, 0.0);
+    bench.iter(|| {
+        for evt in path.with_attributes() {
+            p += match evt {
+                Event::Begin { at: p }
+                | Event::Line { to: p, .. }
+                | Event::Quadratic { to: p, .. }
+                | Event::Cubic { to: p, .. }
+                | Event::End { last: p, .. }
+                => {
+                    p.to_vector()
+                }
+            };
+        }
+    });
+}
+
+fn f32x2_attrib_iter(bench: &mut Bencher) {
+
+    let path = {
+        let mut path = Path::builder_with_attributes(2);
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(point(0.0, 0.0), &[0.0, 1.0]);
+                for _ in 0..1_000 {
+                    path.line_to(point(1.0, 0.0), &[0.0, 1.0]);
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0), &[0.0, 1.0]);
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), &[0.0, 1.0]);
+                }
+                path.close();
+            }
+        }
+
+        path.build()
+    };
+
+    let mut p = point(0.0, 0.0);
+    bench.iter(|| {
+        for evt in path.with_attributes() {
+            p += match evt {
+                Event::Begin { at: p }
+                | Event::Line { to: p, .. }
+                | Event::Quadratic { to: p, .. }
+                | Event::Cubic { to: p, .. }
+                | Event::End { last: p, .. }
+                => {
+                    p.0.to_vector()
+                }
+            };
+        }
+    });
+}
+
 fn generic_iter(bench: &mut Bencher) {
 
     let path = {
@@ -261,6 +330,46 @@ fn generic_iter(bench: &mut Bencher) {
                 | Event::End { last: p, .. }
                 => {
                     p.to_vector()
+                }
+            };
+        }
+    });
+}
+
+fn f32x2_generic_iter(bench: &mut Bencher) {
+    struct A { x: f32, y: f32, _z: f32, _w: f32 }
+    fn p(x: f32, y: f32) -> A {
+        A { x, y, _z: x, _w: y }
+    }
+
+    let path = {
+        let mut path: generic::GenericPathBuilder<A, Point> = generic::GenericPath::builder();
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(p(0.0, 0.0));
+                for _ in 0..1_000 {
+                    path.line_to(p(1.0, 0.0));
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), p(2.0, 2.0));
+                    path.quadratic_bezier_to(point(2.0, 0.0), p(2.0, 1.0));
+                }
+                path.close();
+            }
+        }
+
+        path.build()
+    };
+
+    let mut p: Point = point(0.0, 0.0);
+    bench.iter(|| {
+        for evt in path.events() {
+            p += match evt {
+                Event::Begin { at: p }
+                | Event::Line { to: p, .. }
+                | Event::Quadratic { to: p, .. }
+                | Event::Cubic { to: p, .. }
+                | Event::End { last: p, .. }
+                => {
+                    point(p.x, p.y).to_vector()
                 }
             };
         }
@@ -367,6 +476,9 @@ benchmark_group!(iter,
     generic_iter,
     generic_points_iter,
     generic_with_evt_id4_iter,
+    no_attrib_iter,
+    f32x2_attrib_iter,
+    f32x2_generic_iter,
 );
 
 #[cfg(not(feature = "libtess2"))]
