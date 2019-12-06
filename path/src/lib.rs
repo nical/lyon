@@ -234,3 +234,12 @@ impl<'l> PositionStore for (&'l [Point], &'l [Point]) {
         self.1[id.to_usize()]
     }
 }
+
+///
+pub trait AttributeStore {
+    ///
+    fn get_attributes(&self, id: EndpointId) -> &[f32];
+    ///
+    fn num_attributes(&self) -> usize;
+}
+

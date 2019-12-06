@@ -124,22 +124,15 @@ fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
 fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Option<usize>) {
     use std::f32::consts::PI;
 
-    let mut angle = 0.0;
-    while angle < PI * 2.0 {
-        println!("\n\n ==================== angle = {}", angle);
+    let mut angle = Angle::radians(0.0);
+    while angle.radians < PI * 2.0 {
+        println!("\n\n ==================== angle = {:?}", angle);
 
-        let mut tranformed_path = path.clone();
-        let cos = angle.cos();
-        let sin = angle.sin();
-        for v in tranformed_path.mut_points() {
-            let (x, y) = (v.x, v.y);
-            v.x = x * cos + y * sin;
-            v.y = y * cos - x * sin;
-        }
+        let tranformed_path = path.transformed(&Transform2D::create_rotation(angle));
 
         test_path_internal(tranformed_path.as_slice(), expected_triangle_count);
 
-        angle += step;
+        angle.radians += step;
     }
 }
 
@@ -421,9 +414,7 @@ fn test_rust_logo_with_intersection() {
 
 #[cfg(test)]
 fn scale_path(path: &mut Path, scale: f32) {
-    for v in path.mut_points() {
-        *v = *v * scale;
-    }
+    *path = path.transformed(&Transform2D::create_scale(scale, scale))
 }
 
 #[test]

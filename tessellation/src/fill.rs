@@ -6,7 +6,7 @@ use crate::geom::LineSegment;
 use crate::geometry_builder::{FillGeometryBuilder, VertexId};
 use crate::event_queue::*;
 use crate::monotone::*;
-use crate::path::{PathEvent, FillRule, Transition};
+use crate::path::{PathEvent, FillRule, Transition, AttributeStore};
 use std::f32;
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -16,14 +16,6 @@ use std::env;
 
 type SpanIdx = i32;
 type ActiveEdgeIdx = usize;
-
-///
-pub trait VertexAttributeStore {
-    ///
-    fn get(&self, id: crate::path::EndpointId) -> &[f32];
-    ///
-    fn num_attributes(&self) -> usize;
-}
 
 #[cfg(debug_assertions)]
 macro_rules! tess_log {
@@ -398,7 +390,7 @@ impl FillTessellator {
         &mut self,
         events: &mut EventQueue,
         options: &FillOptions,
-        custom_attributes: Option<&dyn VertexAttributeStore>,
+        custom_attributes: Option<&dyn AttributeStore>,
         builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
 
@@ -414,7 +406,7 @@ impl FillTessellator {
     fn tessellate_impl(
         &mut self,
         options: &FillOptions,
-        attrib_store: Option<&dyn VertexAttributeStore>,
+        attrib_store: Option<&dyn AttributeStore>,
         builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
         self.reset();
@@ -459,7 +451,7 @@ impl FillTessellator {
 
     fn tessellator_loop(
         &mut self,
-        attrib_store: Option<&dyn VertexAttributeStore>,
+        attrib_store: Option<&dyn AttributeStore>,
         output: &mut dyn FillGeometryBuilder
     ) -> Result<(), TessellationError> {
         log_svg_preamble(self);
@@ -493,7 +485,7 @@ impl FillTessellator {
 
     fn initialize_events(
         &mut self,
-        attrib_store: Option<&dyn VertexAttributeStore>,
+        attrib_store: Option<&dyn AttributeStore>,
         output: &mut dyn FillGeometryBuilder,
     ) -> Result<(), TessellationError> {
         let current_event = self.current_event_id;
@@ -516,10 +508,10 @@ impl FillTessellator {
                 let edge = &self.events.edge_data[current_event as usize];
                 let t = edge.range.start;
                 if t == 0.0 {
-                    direct_ref = Some(store.get(edge.from_id));
+                    direct_ref = Some(store.get_attributes(edge.from_id));
                 }
                 if t == 1.0 {
-                    direct_ref = Some(store.get(edge.to_id));
+                    direct_ref = Some(store.get_attributes(edge.to_id));
                 }
             }
 
@@ -533,13 +525,13 @@ impl FillTessellator {
                     if t < 1.0 {
                         let one_t = 1.0 - t;
                         div += one_t;
-                        for (i, value) in store.get(edge.from_id).iter().enumerate() {
+                        for (i, value) in store.get_attributes(edge.from_id).iter().enumerate() {
                             attributes[i] += *value * one_t;
                         }
                     }
                     if t > 1.0 {
                         div += t;
-                        for (i, value) in store.get(edge.to_id).iter().enumerate() {
+                        for (i, value) in store.get_attributes(edge.to_id).iter().enumerate() {
                             attributes[i] += *value * t;
                         }
                     }

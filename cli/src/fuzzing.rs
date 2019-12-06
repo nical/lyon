@@ -95,7 +95,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
 
             if status.is_err() {
                 println!(" !! Error while tessellating");
-                println!("    Path #{} containing {} points", i, path.points().len());
+                println!("    Path #{}", i);
                 find_reduced_test_case(
                     path.as_slice(),
                     &|path: Path| {
@@ -119,7 +119,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
         }
         i += 1;
         if i % 500 == 0 {
-            println!(" -- tested {} paths (~{} points per path)", i, path.points().len());
+            println!(" -- tested {} paths", i);
         }
     }
 }

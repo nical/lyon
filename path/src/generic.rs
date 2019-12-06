@@ -634,7 +634,7 @@ pub struct Events<'l, Endpoint, CtrlPoint> {
 impl<'l, Endpoint, CtrlPoint> Iterator for Events<'l, Endpoint, CtrlPoint> {
     type Item = Event<&'l Endpoint, &'l CtrlPoint>;
 
-
+    #[inline]
     fn next(&mut self) -> Option<Event<&'l Endpoint, &'l CtrlPoint>> {
         match self.cmds.next() {
             Some(verb::BEGIN) => {
@@ -744,6 +744,7 @@ impl<'l> IdEvents<'l> {
 impl<'l> Iterator for IdEvents<'l> {
     type Item = IdEvent;
 
+    #[inline]
     fn next(&mut self) -> Option<IdEvent> {
         let evt_idx = EventId(self.idx);
         match self.cmds.next() {
@@ -841,6 +842,7 @@ where
 {
     type Item = PathEvent;
 
+    #[inline]
     fn next(&mut self) -> Option<PathEvent> {
         match self.cmds.next() {
             Some(verb::BEGIN) => {
