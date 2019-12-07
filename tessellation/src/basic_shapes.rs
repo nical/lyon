@@ -29,7 +29,7 @@ use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
-use crate::{FillTessellator, FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult, NoSource};
+use crate::{FillTessellator, FillOptions, StrokeVertex, StrokeOptions, Side, TessellationResult};
 
 use std::f32::consts::PI;
 

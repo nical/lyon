@@ -228,6 +228,7 @@ impl EventQueue {
 
     pub fn next_sibling_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_sibling }
 
+    // TODO: we should be able to simplify this and just compare with INVALID_EVENT_ID
     pub fn valid_id(&self, id: TessEventId) -> bool { (id as usize) < self.events.len() }
 
     pub fn position(&self, id: TessEventId) -> Point { self.events[id as usize].position }

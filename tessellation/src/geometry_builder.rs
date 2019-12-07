@@ -217,7 +217,7 @@
 
 pub use crate::path::{VertexId, Index};
 use crate::math::Point;
-use crate::{VertexSource, StrokeVertex};
+use crate::StrokeVertex;
 
 use std::marker::PhantomData;
 use std::ops::Add;

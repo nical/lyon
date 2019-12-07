@@ -6,7 +6,7 @@ use crate::geom::LineSegment;
 use crate::geometry_builder::{FillGeometryBuilder, VertexId};
 use crate::event_queue::*;
 use crate::monotone::*;
-use crate::path::{PathEvent, FillRule, Transition, AttributeStore};
+use crate::path::{PathEvent, FillRule, Transition, AttributeStore, EndpointId};
 use std::f32;
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -326,6 +326,7 @@ pub struct FillTessellator {
     fill: Spans,
     log: bool,
     assume_no_intersection: bool,
+    attrib_buffer: Vec<f32>,
 
     events: EventQueue,
 }
@@ -353,6 +354,7 @@ impl FillTessellator {
             },
             log,
             assume_no_intersection: false,
+            attrib_buffer: Vec::new(),
 
             events: EventQueue::new(),
         }
@@ -410,6 +412,12 @@ impl FillTessellator {
         builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
         self.reset();
+
+        if let Some(store) = attrib_store {
+            self.attrib_buffer.resize(store.num_attributes(), 0.0);
+        } else {
+            self.attrib_buffer.clear();
+        }
 
         self.fill_rule = options.fill_rule;
 
@@ -494,62 +502,16 @@ impl FillTessellator {
 
         self.current_position = self.events.position(current_event);
 
-        let mut src = VertexSourceIterator {
+        let mut vertex_ctx = VertexContext {
             events: &self.events,
-            id: current_event,
+            current_event,
+            attrib_store,
+            attrib_buffer: &mut self.attrib_buffer,
         };
-
-        let mut attributes = vec![0.0; 16];
-        let mut direct_ref: Option<&[f32]> = None;
-
-        if let Some(store) = attrib_store {
-            let second = self.events.next_sibling_id(current_event);
-            if !self.events.valid_id(second) {
-                let edge = &self.events.edge_data[current_event as usize];
-                let t = edge.range.start;
-                if t == 0.0 {
-                    direct_ref = Some(store.get_attributes(edge.from_id));
-                }
-                if t == 1.0 {
-                    direct_ref = Some(store.get_attributes(edge.to_id));
-                }
-            }
-
-            if direct_ref.is_none() {
-                let mut div = 0.0;
-                let mut current_sibling = current_event;
-                while self.events.valid_id(current_sibling) {
-                    let edge = &self.events.edge_data[current_sibling as usize];
-                    let t = edge.range.start;
-
-                    if t < 1.0 {
-                        let one_t = 1.0 - t;
-                        div += one_t;
-                        for (i, value) in store.get_attributes(edge.from_id).iter().enumerate() {
-                            attributes[i] += *value * one_t;
-                        }
-                    }
-                    if t > 1.0 {
-                        div += t;
-                        for (i, value) in store.get_attributes(edge.to_id).iter().enumerate() {
-                            attributes[i] += *value * t;
-                        }
-                    }
-
-                    current_sibling = self.events.next_sibling_id(current_sibling);
-                }
-
-                if div > 1.0 {
-                    for attribute in &mut attributes {
-                        *attribute /= div;
-                    }
-                }
-            }
-        }
 
         self.current_vertex = output.add_fill_vertex(
             self.current_position,
-            direct_ref.unwrap_or(&attributes),
+            vertex_ctx.get_attributes(),
         )?;
 
         let mut current_sibling = current_event;
@@ -1584,6 +1546,97 @@ pub(crate) fn is_after(a: Point, b: Point) -> bool {
 #[inline]
 pub(crate) fn is_near(a: Point, b: Point) -> bool {
     (a - b).square_length() < 0.0001
+}
+
+///
+pub struct VertexContext<'l> {
+    events: &'l EventQueue,
+    current_event: TessEventId,
+    attrib_buffer: &'l mut[f32],
+    attrib_store: Option<&'l dyn AttributeStore>,
+}
+
+impl<'l> VertexContext<'l> {
+    /// Return an iterator over the sources of the vertex.
+    pub fn sources(&self) -> VertexSourceIterator {
+        VertexSourceIterator {
+            events: self.events,
+            id: self.current_event,
+        }
+    }
+
+    /// If the vertex source is a single endpoint id, return its ID, None otherwise.
+    pub fn as_endpoint_id(&self) -> Option<EndpointId> {
+        let second = self.events.next_sibling_id(self.current_event);
+        if !self.events.valid_id(second) {
+            let edge = &self.events.edge_data[self.current_event as usize];
+            let t = edge.range.start;
+            if t == 0.0 {
+                return Some(edge.from_id);
+            }
+            if t == 1.0 {
+                return Some(edge.to_id);
+            }
+        }
+
+        None
+    }
+
+    /// Fetch or interpolate the custom attribute values at this vertex.
+    pub fn get_attributes(&mut self) -> &[f32] {
+        if self.attrib_store.is_none() {
+            return &[];
+        }
+
+        let store = self.attrib_store.unwrap();
+
+        let second = self.events.next_sibling_id(self.current_event);
+        if !self.events.valid_id(second) {
+            let edge = &self.events.edge_data[self.current_event as usize];
+            let t = edge.range.start;
+            if t == 0.0 {
+                return store.get_attributes(edge.from_id);
+            }
+            if t == 1.0 {
+                return store.get_attributes(edge.to_id);
+            }
+        }
+
+        for val in &mut self.attrib_buffer[..] {
+            *val = 0.0;
+        }
+
+        let mut div = 0.0;
+        let mut current_sibling = self.current_event;
+        while self.events.valid_id(current_sibling) {
+            let edge = &self.events.edge_data[current_sibling as usize];
+            let t = edge.range.start;
+
+            if t < 1.0 {
+                let one_t = 1.0 - t;
+                div += one_t;
+                for (i, value) in store.get_attributes(edge.from_id).iter().enumerate() {
+                    self.attrib_buffer[i] += *value * one_t;
+                }
+            }
+            if t > 1.0 {
+                div += t;
+                for (i, value) in store.get_attributes(edge.to_id).iter().enumerate() {
+                    self.attrib_buffer[i] += *value * t;
+                }
+            }
+
+            current_sibling = self.events.next_sibling_id(current_sibling);
+        }
+
+        if div > 1.0 {
+            for attribute in &mut self.attrib_buffer[..] {
+                *attribute /= div;
+            }
+        }
+
+        self.attrib_buffer
+    }
 }
 
 /// An iterator over the sources of a given vertex.
