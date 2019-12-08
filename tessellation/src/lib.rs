@@ -196,7 +196,6 @@ mod stroke;
 mod math_utils;
 mod monotone;
 
-
 #[cfg(test)]
 mod earcut_tests;
 #[cfg(test)]
@@ -220,12 +219,16 @@ pub use crate::stroke::*;
 #[doc(inline)]
 pub use crate::geometry_builder::{
     GeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder, GeometryReceiver,
-    VertexBuffers, BuffersBuilder, VertexConstructor, Count, GeometryBuilderError,
+    FillVertexConstructor, StrokeVertexConstructor, BasicVertexConstructor,
+    VertexBuffers, BuffersBuilder, Count, GeometryBuilderError,
 };
 
 pub use crate::path::FillRule;
 
 use crate::path::{EndpointId, EventId};
+
+use std::ops::{Add, Sub};
+use std::u32;
 
 /// The fill tessellator's result type.
 pub type TessellationResult = Result<Count, TessellationError>;
@@ -309,10 +312,7 @@ impl Order {
 /// Vertex produced by the stroke tessellators.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct StrokeVertex {
-    /// Position of the vertex (on the path, the consumer should move the point along
-    /// the provided normal in order to give the stroke a width).
-    pub position: math::Point,
+pub struct StrokeAttributes {
     /// Normal at this vertex such that extruding the vertices along the normal would
     /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
     pub normal: math::Vector,
@@ -322,13 +322,7 @@ pub struct StrokeVertex {
     pub side: Side,
 }
 
-/// Vertex produced by the fill tessellators.
-pub struct FillVertex<'l> {
-    /// Position of the vertex (on the path).
-    pub position: math::Point,
-
-    src: &'l mut dyn Iterator<Item=VertexSource>,
-}
+pub use fill::FillAttributes;
 
 #[derive(Clone, Debug)]
 pub enum VertexSource {
@@ -633,6 +627,64 @@ impl FillOptions {
 
 impl Default for FillOptions {
     fn default() -> Self { Self::DEFAULT }
+}
+
+type Index = u32;
+
+/// A virtual vertex offset in a geometry.
+///
+/// The `VertexId`s are only valid between `GeometryBuilder::begin_geometry` and
+/// `GeometryBuilder::end_geometry`. `GeometryBuilder` implementations typically be translate
+/// the ids internally so that first `VertexId` after `begin_geometry` is zero.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct VertexId(pub Index);
+
+impl VertexId {
+    pub const INVALID: VertexId = VertexId(u32::MAX);
+
+    pub fn offset(&self) -> Index { self.0 }
+
+    pub fn to_usize(&self) -> usize { self.0 as usize }
+
+    pub fn from_usize(v: usize) -> Self { VertexId(v as Index) }
+}
+
+impl Add<u32> for VertexId {
+    type Output = Self;
+    fn add(self, rhs: u32) -> Self {
+        VertexId(self.0 + rhs)
+    }
+}
+
+impl Sub<u32> for VertexId {
+    type Output = Self;
+    fn sub(self, rhs: u32) -> Self {
+        VertexId(self.0 - rhs)
+    }
+}
+
+impl From<u16> for VertexId {
+    fn from(v: u16) -> Self { VertexId(v as Index) }
+}
+impl From<u32> for VertexId {
+    fn from(v: u32) -> Self { VertexId(v) }
+}
+impl From<i32> for VertexId {
+    fn from(v: i32) -> Self { VertexId(v as Index) }
+}
+
+impl From<VertexId> for u16 {
+    fn from(v: VertexId) -> Self { v.0 as u16 }
+}
+impl From<VertexId> for u32 {
+    fn from(v: VertexId) -> Self { v.0 }
+}
+impl From<VertexId> for i32 {
+    fn from(v: VertexId) -> Self { v.0 as i32 }
+}
+impl From<VertexId> for usize {
+    fn from(v: VertexId) -> Self { v.0 as usize }
 }
 
 #[test]

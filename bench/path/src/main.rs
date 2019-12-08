@@ -257,7 +257,7 @@ fn no_attrib_iter(bench: &mut Bencher) {
                 | Event::Cubic { to: p, .. }
                 | Event::End { last: p, .. }
                 => {
-                    p.to_vector()
+                    p.0.to_vector()
                 }
             };
         }

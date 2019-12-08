@@ -58,12 +58,9 @@ pub use crate::path_state::*;
 pub use crate::geom::ArcFlags;
 pub use crate::geom::math as math;
 
-use std::ops::{Add, Sub};
 use std::u32;
 use std::fmt;
 use math::Point;
-
-pub type Index = u32;
 
 /// The fill rule defines how to determine what is inside and what is outside of the shape.
 ///
@@ -97,63 +94,6 @@ pub enum Transition {
     In,
     Out,
     None,
-}
-
-
-/// A virtual vertex offset in a geometry.
-///
-/// The `VertexId`s are only valid between `GeometryBuilder::begin_geometry` and
-/// `GeometryBuilder::end_geometry`. `GeometryBuilder` implementations typically be translate
-/// the ids internally so that first `VertexId` after `begin_geometry` is zero.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct VertexId(pub Index);
-
-impl VertexId {
-    pub const INVALID: VertexId = VertexId(u32::MAX);
-
-    pub fn offset(&self) -> Index { self.0 }
-
-    pub fn to_usize(&self) -> usize { self.0 as usize }
-
-    pub fn from_usize(v: usize) -> Self { VertexId(v as Index) }
-}
-
-impl Add<u32> for VertexId {
-    type Output = Self;
-    fn add(self, rhs: u32) -> Self {
-        VertexId(self.0 + rhs)
-    }
-}
-
-impl Sub<u32> for VertexId {
-    type Output = Self;
-    fn sub(self, rhs: u32) -> Self {
-        VertexId(self.0 - rhs)
-    }
-}
-
-impl From<u16> for VertexId {
-    fn from(v: u16) -> Self { VertexId(v as Index) }
-}
-impl From<u32> for VertexId {
-    fn from(v: u32) -> Self { VertexId(v) }
-}
-impl From<i32> for VertexId {
-    fn from(v: i32) -> Self { VertexId(v as Index) }
-}
-
-impl From<VertexId> for u16 {
-    fn from(v: VertexId) -> Self { v.0 as u16 }
-}
-impl From<VertexId> for u32 {
-    fn from(v: VertexId) -> Self { v.0 }
-}
-impl From<VertexId> for i32 {
-    fn from(v: VertexId) -> Self { v.0 as i32 }
-}
-impl From<VertexId> for usize {
-    fn from(v: VertexId) -> Self { v.0 as usize }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -243,3 +183,26 @@ pub trait AttributeStore {
     fn num_attributes(&self) -> usize;
 }
 
+pub struct AttributeSlice<'l> {
+    data: &'l [f32],
+    stride: usize,
+}
+
+impl<'l> AttributeSlice<'l> {
+    pub fn new(data: &'l[f32], num_attributes: usize) -> Self {
+        AttributeSlice {
+            data,
+            stride: num_attributes,
+        }
+    }
+}
+
+impl<'l> AttributeStore for AttributeSlice<'l> {
+    fn get_attributes(&self, id: EndpointId) -> &[f32] {
+        let start = id.to_usize() * self.stride;
+        let end = start + self.stride;
+        &self.data[start..end]
+    }
+
+    fn num_attributes(&self) -> usize { self.stride }
+}

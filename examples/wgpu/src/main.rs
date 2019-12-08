@@ -2,7 +2,7 @@ use lyon::extra::rust_logo::build_logo_path;
 use lyon::path::builder::*;
 use lyon::path::Path;
 use lyon::math::*;
-use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
+use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::{FillTessellator, FillOptions};
 use lyon::tessellation::{StrokeTessellator, StrokeOptions};
@@ -86,7 +86,7 @@ fn main() {
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
+        &mut BuffersBuilder::new(&mut bg_geometry, Positions),
     ).unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
@@ -502,37 +502,32 @@ fn main() {
     });
 }
 
-struct BgVertexCtor;
-impl VertexConstructor<Point, Point> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: Point) -> Point { vertex }
-}
-
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
 pub struct WithId(pub i32);
 
-impl VertexConstructor<Point, GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: Point) -> GpuVertex {
-        debug_assert!(!vertex.x.is_nan());
-        debug_assert!(!vertex.y.is_nan());
+impl FillVertexConstructor<GpuVertex> for WithId {
+    fn new_vertex(&mut self, position: Point, _attributes: tessellation::FillAttributes) -> GpuVertex {
+        debug_assert!(!position.x.is_nan());
+        debug_assert!(!position.y.is_nan());
         GpuVertex {
-            position: vertex.to_array(),
+            position: position.to_array(),
             normal: [0.0, 0.0],
             prim_id: self.0,
         }
     }
 }
 
-impl VertexConstructor<tessellation::StrokeVertex, GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
-        debug_assert!(!vertex.position.x.is_nan());
-        debug_assert!(!vertex.position.y.is_nan());
-        debug_assert!(!vertex.normal.x.is_nan());
-        debug_assert!(!vertex.normal.y.is_nan());
-        debug_assert!(!vertex.advancement.is_nan());
+impl StrokeVertexConstructor<GpuVertex> for WithId {
+    fn new_vertex(&mut self, position: Point, attributes: tessellation::StrokeAttributes) -> GpuVertex {
+        debug_assert!(!position.x.is_nan());
+        debug_assert!(!position.y.is_nan());
+        debug_assert!(!attributes.normal.x.is_nan());
+        debug_assert!(!attributes.normal.y.is_nan());
+        debug_assert!(!attributes.advancement.is_nan());
         GpuVertex {
-            position: vertex.position.to_array(),
-            normal: vertex.normal.to_array(),
+            position: position.to_array(),
+            normal: attributes.normal.to_array(),
             prim_id: self.0,
         }
     }

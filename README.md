@@ -31,11 +31,11 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 ## Example
 
 ```rust
-use lyon::math::point;
+extern crate lyon;
+use lyon::math::{point, Point};
 use lyon::path::Path;
 use lyon::path::builder::*;
 use lyon::tessellation::*;
-
 fn main() {
     // Build a Path.
     let mut builder = Path::builder();
@@ -45,30 +45,24 @@ fn main() {
     builder.cubic_bezier_to(point(1.0, 1.0), point(0.0, 1.0), point(0.0, 0.0));
     builder.close();
     let path = builder.build();
-
     // Let's use our own custom vertex type instead of the default one.
     #[derive(Copy, Clone, Debug)]
-    struct MyVertex { position: [f32; 2], normal: [f32; 2] };
-
+    struct MyVertex { position: [f32; 2] };
     // Will contain the result of the tessellation.
     let mut geometry: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
-
     let mut tessellator = FillTessellator::new();
-
     {
         // Compute the tessellation.
         tessellator.tessellate_path(
             &path,
             &FillOptions::default(),
-            &mut BuffersBuilder::new(&mut geometry, |vertex : FillVertex| {
+            &mut BuffersBuilder::new(&mut geometry, |pos: Point, _: FillAttributes| {
                 MyVertex {
                     position: vertex.position.to_array(),
-                    normal: vertex.normal.to_array(),
                 }
             }),
         ).unwrap();
     }
-
     // The tessellated geometry is ready to be uploaded to the GPU.
     println!(" -- {} vertices {} indices",
         geometry.vertices.len(),

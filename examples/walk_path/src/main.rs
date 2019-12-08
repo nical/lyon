@@ -10,9 +10,9 @@ use lyon::path::Path;
 use lyon::path::builder::*;
 use lyon::path::iterator::*;
 use lyon::math::*;
-use lyon::tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
+use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, FillOptions};
+use lyon::tessellation::{FillTessellator, FillOptions, FillAttributes};
 use lyon::algorithms::walk;
 
 use gfx::traits::{Device, FactoryExt};
@@ -280,13 +280,6 @@ gfx_defines!{
     }
 }
 
-struct BgVertexCtor;
-impl VertexConstructor<Point, BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: Point) -> BgVertex {
-        BgVertex { position: vertex.to_array() }
-    }
-}
-
 static BACKGROUND_VERTEX_SHADER: &'static str = &"
     #version 140
     in vec2 a_position;
@@ -393,13 +386,25 @@ pub static FRAGMENT_SHADER: &'static str = &"
 /// tessellators and add a shape id.
 pub struct WithId(pub i32);
 
-impl VertexConstructor<Point, GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: Point) -> GpuVertex {
-        debug_assert!(!vertex.x.is_nan());
-        debug_assert!(!vertex.y.is_nan());
+impl FillVertexConstructor<GpuVertex> for WithId {
+    fn new_vertex(&mut self, position: Point, _: FillAttributes) -> GpuVertex {
+        debug_assert!(!position.x.is_nan());
+        debug_assert!(!position.y.is_nan());
         GpuVertex {
-            position: vertex.to_array(),
+            position: position.to_array(),
             prim_id: self.0,
+        }
+    }
+}
+
+pub struct BgVertexCtor;
+
+impl BasicVertexConstructor<BgVertex> for BgVertexCtor {
+    fn new_vertex(&mut self, position: Point) -> BgVertex {
+        debug_assert!(!position.x.is_nan());
+        debug_assert!(!position.y.is_nan());
+        BgVertex {
+            position: position.to_array(),
         }
     }
 }

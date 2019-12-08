@@ -76,13 +76,13 @@
 //! to obtain the fill tessellation a rectangle with rounded corners:
 //!
 //! ```
-//! use lyon::math::rect;
-//! use lyon::tessellation::{VertexBuffers, FillOptions, FillVertex};
+//! use lyon::math::{rect, Point};
+//! use lyon::tessellation::{VertexBuffers, FillOptions};
 //! use lyon::tessellation::basic_shapes::*;
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
 //! fn main() {
-//!     let mut geometry: VertexBuffers<FillVertex, u16> = VertexBuffers::new();
+//!     let mut geometry: VertexBuffers<Point, u16> = VertexBuffers::new();
 //!
 //!     let options = FillOptions::tolerance(0.1);
 //!
@@ -111,7 +111,7 @@
 //!
 //! ```
 //! extern crate lyon;
-//! use lyon::math::point;
+//! use lyon::math::{point, Point};
 //! use lyon::path::Path;
 //! use lyon::path::builder::*;
 //! use lyon::tessellation::*;
@@ -128,7 +128,7 @@
 //!
 //!     // Let's use our own custom vertex type instead of the default one.
 //!     #[derive(Copy, Clone, Debug)]
-//!     struct MyVertex { position: [f32; 2], normal: [f32; 2] };
+//!     struct MyVertex { position: [f32; 2] };
 //!
 //!     // Will contain the result of the tessellation.
 //!     let mut geometry: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
@@ -140,10 +140,9 @@
 //!         tessellator.tessellate_path(
 //!             &path,
 //!             &FillOptions::default(),
-//!             &mut BuffersBuilder::new(&mut geometry, |vertex : FillVertex| {
+//!             &mut BuffersBuilder::new(&mut geometry, |pos: Point, _: FillAttributes| {
 //!                 MyVertex {
-//!                     position: vertex.position.to_array(),
-//!                     normal: vertex.normal.to_array(),
+//!                     position: pos.to_array(),
 //!                 }
 //!             }),
 //!         ).unwrap();
