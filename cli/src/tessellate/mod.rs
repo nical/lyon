@@ -1,9 +1,7 @@
 use commands::{TessellateCmd, Tessellator};
 use lyon::math::*;
-use lyon::tessellation::geometry_builder::{VertexBuffers, BuffersBuilder, VertexConstructor, Identity};
-use lyon::tessellation::{
-    StrokeVertex, StrokeTessellator, FillTessellator
-};
+use lyon::tessellation::geometry_builder::*;
+use lyon::tessellation::{StrokeTessellator, FillTessellator};
 use lyon::tess2;
 use std::io;
 
@@ -32,14 +30,14 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
                 FillTessellator::new().tessellate_path(
                     &cmd.path,
                     &options,
-                    &mut BuffersBuilder::new(&mut buffers, VertexCtor)
+                    &mut BuffersBuilder::new(&mut buffers, Positions)
                 ).is_ok()
             }
             Tessellator::Tess2 => {
                 tess2::FillTessellator::new().tessellate_path(
                     &cmd.path,
                     &options,
-                    &mut BuffersBuilder::new(&mut buffers, Identity)
+                    &mut BuffersBuilder::new(&mut buffers, Positions)
                 ).is_ok()
             }
         };
@@ -54,7 +52,7 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
         let ok = StrokeTessellator::new().tessellate_path(
             &cmd.path,
             &options,
-            &mut BuffersBuilder::new(&mut buffers, VertexCtor)
+            &mut BuffersBuilder::new(&mut buffers, Positions)
         ).is_ok();
 
         if !ok {
@@ -83,26 +81,4 @@ pub fn write_output(
 
     writeln!(&mut *output, "{}", format_output(fmt_string, float_precision, &buffers))?;
     Ok(())
-}
-
-struct VertexCtor;
-
-impl VertexConstructor<StrokeVertex, Point> for VertexCtor {
-    fn new_vertex(&mut self, vertex: StrokeVertex) -> Point {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
-        assert!(!vertex.normal.x.is_nan());
-        assert!(!vertex.normal.y.is_nan());
-
-        vertex.position
-    }
-}
-
-impl VertexConstructor<Point, Point> for VertexCtor {
-    fn new_vertex(&mut self, vertex: Point) -> Point {
-        assert!(!vertex.x.is_nan());
-        assert!(!vertex.y.is_nan());
-
-        vertex
-    }
 }

@@ -1,5 +1,5 @@
 use crate::math::Point;
-use crate::geometry_builder::{FillGeometryBuilder, VertexId};
+use crate::{FillGeometryBuilder, VertexId};
 use crate::Side;
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone

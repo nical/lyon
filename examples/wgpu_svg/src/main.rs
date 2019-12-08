@@ -1,5 +1,5 @@
 use clap::*;
-use lyon::tessellation::geometry_builder::{BuffersBuilder, VertexBuffers, VertexConstructor};
+use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeTessellator, StrokeOptions};
 use lyon::path::PathEvent;
 use lyon::math::Point;
@@ -516,25 +516,25 @@ pub struct VertexCtor {
     pub prim_id: u32,
 }
 
-impl VertexConstructor<Point, GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: Point) -> GpuVertex {
-        assert!(!vertex.x.is_nan());
-        assert!(!vertex.y.is_nan());
+impl FillVertexConstructor<GpuVertex> for VertexCtor {
+    fn new_vertex(&mut self, position: Point, _: tessellation::FillAttributes) -> GpuVertex {
+        assert!(!position.x.is_nan());
+        assert!(!position.y.is_nan());
 
         GpuVertex {
-            position: vertex.to_array(),
+            position: position.to_array(),
             prim_id: self.prim_id,
         }
     }
 }
 
-impl VertexConstructor<tessellation::StrokeVertex, GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
-        assert!(!vertex.position.x.is_nan());
-        assert!(!vertex.position.y.is_nan());
+impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
+    fn new_vertex(&mut self, position: Point, _: tessellation::StrokeAttributes) -> GpuVertex {
+        assert!(!position.x.is_nan());
+        assert!(!position.y.is_nan());
 
         GpuVertex {
-            position: vertex.position.to_array(),
+            position: position.to_array(),
             prim_id: self.prim_id,
         }
     }

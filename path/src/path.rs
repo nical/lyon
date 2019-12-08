@@ -519,28 +519,34 @@ impl BuilderWithAttributes {
         }
     }
 
-    pub fn move_to(&mut self, to: Point, attributes: &[f32]) {
+    pub fn move_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
         nan_check(to);
         self.end_if_needed();
+        let id = EndpointId(self.points.len() as u32);
         self.need_moveto = false;
         self.first_position = to;
-        self.first_vertex = EndpointId(self.points.len() as u32);
+        self.first_vertex = id;
         self.first_verb = self.verbs.len() as u32;
         self.current_position = to;
         self.points.push(to);
         self.push_attributes(attributes);
         self.verbs.push(Verb::Begin);
         self.last_cmd = Verb::Begin;
+
+        id
     }
 
-    pub fn line_to(&mut self, to: Point, attributes: &[f32]) {
+    pub fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
         nan_check(to);
         self.move_to_if_needed();
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.verbs.push(Verb::LineTo);
         self.push_attributes(attributes);
         self.current_position = to;
         self.last_cmd = Verb::LineTo;
+
+        id
     }
 
     pub fn close(&mut self) {
@@ -564,23 +570,27 @@ impl BuilderWithAttributes {
         self.last_cmd = Verb::Close;
     }
 
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) {
+    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
         nan_check(ctrl);
         nan_check(to);
         self.move_to_if_needed();
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(ctrl);
         self.points.push(to);
         self.push_attributes(attributes);
         self.verbs.push(Verb::QuadraticTo);
         self.current_position = to;
         self.last_cmd = Verb::QuadraticTo;
+
+        id
     }
 
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) {
+    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
         self.move_to_if_needed();
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(ctrl1);
         self.points.push(ctrl2);
         self.points.push(to);
@@ -588,6 +598,8 @@ impl BuilderWithAttributes {
         self.verbs.push(Verb::CubicTo);
         self.current_position = to;
         self.last_cmd = Verb::CubicTo;
+
+        id
     }
 
     fn move_to_if_needed(&mut self) {
@@ -932,7 +944,7 @@ impl<'l> Iterator for IdIter<'l> {
 #[inline]
 fn get_attributes(num_attributes: usize, points: &[Point], endpoint: EndpointId) -> &[f32] {
     let idx = endpoint.0 as usize + 1;
-    assert!(idx + (num_attributes + 1) / 2 < points.len());
+    assert!(idx + (num_attributes + 1) / 2 <= points.len());
 
     unsafe {
         let ptr = &points[idx].x as *const f32;

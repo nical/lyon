@@ -3,11 +3,11 @@ use crate::geom::math::*;
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment, LineSegment, Arc};
 use crate::geom::utils::{normalized_tangent, directed_angle};
 use crate::geom::euclid::Trig;
-use crate::geometry_builder::{VertexId, StrokeGeometryBuilder, GeometryBuilderError};
+use crate::{VertexId, StrokeGeometryBuilder, GeometryBuilderError};
 use crate::basic_shapes::circle_flattening_step;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::path::PathEvent;
-use crate::StrokeVertex as Vertex;
+use crate::StrokeAttributes;
 use crate::{Side, Order, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult};
 
 use std::f32::consts::PI;
@@ -61,7 +61,7 @@ const EPSILON: f32 = 1e-4;
 /// let path = path_builder.build();
 ///
 /// // Create the destination vertex and index buffers.
-/// let mut buffers: VertexBuffers<StrokeVertex, u16> = VertexBuffers::new();
+/// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 ///
 /// {
 ///     // Create the destination vertex and index buffers.
@@ -118,14 +118,15 @@ impl StrokeTessellator {
 }
 
 macro_rules! add_vertex {
-    ($builder: expr, $vertex: expr) => {{
-        let mut v = $vertex;
+    ($builder: expr, position: $position: expr, $attributes: expr) => {{
+        let attributes = $attributes;
+        let mut position = $position;
 
         if $builder.options.apply_line_width {
-            v.position += v.normal * $builder.options.line_width / 2.0;
+            position += attributes.normal * $builder.options.line_width / 2.0;
         }
 
-        match $builder.output.add_stroke_vertex(v) {
+        match $builder.output.add_stroke_vertex(position, attributes) {
             Ok(v) => v,
             Err(e) => {
                 $builder.builder_error(e);
@@ -211,8 +212,8 @@ impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
 
             let first_left_id = add_vertex!(
                 self,
-                Vertex {
-                    position: self.previous,
+                position: self.previous,
+                StrokeAttributes {
                     normal: self.prev_normal,
                     advancement: self.sub_path_start_length,
                     side: Side::Left,
@@ -220,8 +221,8 @@ impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
             );
             let first_right_id = add_vertex!(
                 self,
-                Vertex {
-                    position: self.previous,
+                position: self.previous,
+                StrokeAttributes {
                     normal: -self.prev_normal,
                     advancement: self.sub_path_start_length,
                     side: Side::Right,
@@ -338,8 +339,8 @@ impl<'l> StrokeBuilder<'l> {
     fn tessellate_empty_square_cap(&mut self) {
         let a = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: vector(1.0, 1.0),
                 advancement: 0.0,
                 side: Side::Right,
@@ -347,8 +348,8 @@ impl<'l> StrokeBuilder<'l> {
         );
         let b = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: vector(1.0, -1.0),
                 advancement: 0.0,
                 side: Side::Left,
@@ -356,8 +357,8 @@ impl<'l> StrokeBuilder<'l> {
         );
         let c = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: vector(-1.0, -1.0),
                 advancement: 0.0,
                 side: Side::Left,
@@ -365,8 +366,8 @@ impl<'l> StrokeBuilder<'l> {
         );
         let d = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: vector(-1.0, 1.0),
                 advancement: 0.0,
                 side: Side::Right,
@@ -380,8 +381,8 @@ impl<'l> StrokeBuilder<'l> {
         let center = self.current;
         let left_id = add_vertex!(
             self,
-            Vertex {
-                position: center,
+            position: center,
+            StrokeAttributes {
                 normal: vector(-1.0, 0.0),
                 advancement: 0.0,
                 side: Side::Left,
@@ -389,8 +390,8 @@ impl<'l> StrokeBuilder<'l> {
         );
         let right_id = add_vertex!(
             self,
-            Vertex {
-                position: center,
+            position: center,
+            StrokeAttributes {
                 normal: vector(1.0, 0.0),
                 advancement: 0.0,
                 side: Side::Right,
@@ -450,8 +451,8 @@ impl<'l> StrokeBuilder<'l> {
 
             let first_left_id = add_vertex!(
                 self,
-                Vertex {
-                    position: first,
+                position: first,
+                StrokeAttributes {
                     normal: n1,
                     advancement: self.sub_path_start_length,
                     side: Side::Left,
@@ -459,8 +460,8 @@ impl<'l> StrokeBuilder<'l> {
             );
             let first_right_id = add_vertex!(
                 self,
-                Vertex {
-                    position: first,
+                position: first,
+                StrokeAttributes {
                     normal: n2,
                     advancement: self.sub_path_start_length,
                     side: Side::Right,
@@ -563,8 +564,8 @@ impl<'l> StrokeBuilder<'l> {
 
         let mid_vertex = add_vertex!(
             self,
-            Vertex {
-                position: center,
+            position: center,
+            StrokeAttributes {
                 normal: dir,
                 advancement,
                 side: Side::Left,
@@ -644,8 +645,8 @@ impl<'l> StrokeBuilder<'l> {
             let back_start_vertex_normal = vector(0.0, 0.0);
             let back_start_vertex = add_vertex!(
                 self,
-                Vertex {
-                    position: self.current,
+                position: self.current,
+                StrokeAttributes {
                     normal: back_start_vertex_normal,
                     advancement: self.length,
                     side: front_side.opposite(),
@@ -653,8 +654,8 @@ impl<'l> StrokeBuilder<'l> {
             );
             let back_end_vertex = add_vertex!(
                 self,
-                Vertex {
-                    position: self.current,
+                position: self.current,
+                StrokeAttributes {
                     normal: back_end_vertex_normal,
                     advancement: self.length,
                     side: front_side.opposite(),
@@ -670,8 +671,8 @@ impl<'l> StrokeBuilder<'l> {
         // Standard Case
         let back_start_vertex = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: -front_normal,
                 advancement: self.length,
                 side: front_side.opposite(),
@@ -763,8 +764,8 @@ impl<'l> StrokeBuilder<'l> {
             _ => {
                 let end_vertex = add_vertex!(
                     self,
-                    Vertex {
-                        position: self.current,
+                    position: self.current,
+                    StrokeAttributes {
                         normal: front_normal,
                         advancement: self.length,
                         side: front_side,
@@ -784,8 +785,8 @@ impl<'l> StrokeBuilder<'l> {
 
                     let start_vertex = add_vertex!(
                         self,
-                        Vertex {
-                            position: self.current,
+                        position: self.current,
+                        StrokeAttributes {
                             normal: n1,
                             advancement: self.length,
                             side: front_side,
@@ -837,8 +838,8 @@ impl<'l> StrokeBuilder<'l> {
 
         let start_vertex = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: prev_normal * neg_if_right,
                 advancement: self.length,
                 side: front_side,
@@ -846,8 +847,8 @@ impl<'l> StrokeBuilder<'l> {
         );
         let last_vertex = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: next_normal * neg_if_right,
                 advancement: self.length,
                 side: front_side,
@@ -887,8 +888,8 @@ impl<'l> StrokeBuilder<'l> {
 
         let mut last_vertex = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: initial_normal,
                 advancement: self.length,
                 side: front_side,
@@ -914,8 +915,8 @@ impl<'l> StrokeBuilder<'l> {
 
             let current_vertex = add_vertex!(
                 self,
-                Vertex {
-                    position: self.current,
+                position: self.current,
+                StrokeAttributes {
                     normal: n,
                     advancement: self.length,
                     side: front_side,
@@ -953,8 +954,8 @@ impl<'l> StrokeBuilder<'l> {
 
         let start_vertex = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: v1 * neg_if_right,
                 advancement: self.length,
                 side: front_side,
@@ -963,8 +964,8 @@ impl<'l> StrokeBuilder<'l> {
 
         let last_vertex = add_vertex!(
             self,
-            Vertex {
-                position: self.current,
+            position: self.current,
+            StrokeAttributes {
                 normal: v2 * neg_if_right,
                 advancement: self.length,
                 side: front_side,
@@ -1051,8 +1052,8 @@ fn tess_round_cap(
     let normal = vector(mid_angle.cos(), mid_angle.sin());
 
     let vertex = output.add_stroke_vertex(
-        Vertex {
-            position: center + normal * line_width,
+        center + normal * line_width,
+        StrokeAttributes {
             normal,
             advancement,
             side,
@@ -1107,7 +1108,7 @@ fn test_path(
 ) {
 
     struct TestBuilder<'l> {
-        builder: SimpleBuffersBuilder<'l, Vertex>,
+        builder: SimpleBuffersBuilder<'l>,
     }
 
     impl<'l> GeometryBuilder for TestBuilder<'l> {
@@ -1121,9 +1122,9 @@ fn test_path(
             assert!(a != b);
             assert!(a != c);
             assert!(b != c);
-            let pa = self.builder.buffers().vertices[a.0 as usize].position;
-            let pb = self.builder.buffers().vertices[b.0 as usize].position;
-            let pc = self.builder.buffers().vertices[c.0 as usize].position;
+            let pa = self.builder.buffers().vertices[a.0 as usize];
+            let pb = self.builder.buffers().vertices[b.0 as usize];
+            let pc = self.builder.buffers().vertices[c.0 as usize];
             let threshold = -0.035; // Floating point errors :(
             assert!((pa - pb).cross(pc - pb) >= threshold);
             self.builder.add_triangle(a, b, c);
@@ -1134,18 +1135,18 @@ fn test_path(
     }
 
     impl<'l> StrokeGeometryBuilder for TestBuilder<'l> {
-        fn add_stroke_vertex(&mut self, vertex: Vertex) -> Result<VertexId, GeometryBuilderError> {
-            assert!(!vertex.position.x.is_nan());
-            assert!(!vertex.position.y.is_nan());
-            assert!(!vertex.normal.x.is_nan());
-            assert!(!vertex.normal.y.is_nan());
-            assert!(vertex.normal.square_length() != 0.0);
-            assert!(!vertex.advancement.is_nan());
-            self.builder.add_stroke_vertex(vertex)
+        fn add_stroke_vertex(&mut self, position: Point, attributes: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
+            assert!(!position.x.is_nan());
+            assert!(!position.y.is_nan());
+            assert!(!attributes.normal.x.is_nan());
+            assert!(!attributes.normal.y.is_nan());
+            assert!(attributes.normal.square_length() != 0.0);
+            assert!(!attributes.advancement.is_nan());
+            self.builder.add_stroke_vertex(position, attributes)
         }
     }
 
-    let mut buffers: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
     let mut tess = StrokeTessellator::new();
     let count = tess.tessellate_path(
@@ -1282,7 +1283,7 @@ fn test_too_many_vertices() {
     }
 
     impl StrokeGeometryBuilder for Builder {
-        fn add_stroke_vertex(&mut self, _: Vertex) -> Result<VertexId, GeometryBuilderError> {
+        fn add_stroke_vertex(&mut self, _position: Point, _: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
             }

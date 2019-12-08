@@ -1,9 +1,8 @@
-#![deny(missing_docs)]
 
 use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError, VertexSource};
+use crate::{FillGeometryBuilder, VertexId};
 use crate::geom::math::*;
 use crate::geom::LineSegment;
-use crate::geometry_builder::{FillGeometryBuilder, VertexId};
 use crate::event_queue::*;
 use crate::monotone::*;
 use crate::path::{PathEvent, FillRule, Transition, AttributeStore, EndpointId};
@@ -502,16 +501,14 @@ impl FillTessellator {
 
         self.current_position = self.events.position(current_event);
 
-        let mut vertex_ctx = VertexContext {
-            events: &self.events,
-            current_event,
-            attrib_store,
-            attrib_buffer: &mut self.attrib_buffer,
-        };
-
         self.current_vertex = output.add_fill_vertex(
             self.current_position,
-            vertex_ctx.get_attributes(),
+            FillAttributes {
+                events: &self.events,
+                current_event,
+                attrib_store,
+                attrib_buffer: &mut self.attrib_buffer,
+            },
         )?;
 
         let mut current_sibling = current_event;
@@ -1549,14 +1546,14 @@ pub(crate) fn is_near(a: Point, b: Point) -> bool {
 }
 
 ///
-pub struct VertexContext<'l> {
+pub struct FillAttributes<'l> {
     events: &'l EventQueue,
     current_event: TessEventId,
     attrib_buffer: &'l mut[f32],
     attrib_store: Option<&'l dyn AttributeStore>,
 }
 
-impl<'l> VertexContext<'l> {
+impl<'l> FillAttributes<'l> {
     /// Return an iterator over the sources of the vertex.
     pub fn sources(&self) -> VertexSourceIterator {
         VertexSourceIterator {
@@ -1611,7 +1608,6 @@ impl<'l> VertexContext<'l> {
         while self.events.valid_id(current_sibling) {
             let edge = &self.events.edge_data[current_sibling as usize];
             let t = edge.range.start;
-
             if t < 1.0 {
                 let one_t = 1.0 - t;
                 div += one_t;
@@ -1619,7 +1615,7 @@ impl<'l> VertexContext<'l> {
                     self.attrib_buffer[i] += *value * one_t;
                 }
             }
-            if t > 1.0 {
+            if t > 0.0 {
                 div += t;
                 for (i, value) in store.get_attributes(edge.to_id).iter().enumerate() {
                     self.attrib_buffer[i] += *value * t;
@@ -1730,7 +1726,6 @@ fn log_svg_preamble(tess: &FillTessellator) {
     );
 }
 
-/*
 #[cfg(test)]
 use crate::geometry_builder::*;
 
@@ -1762,6 +1757,7 @@ fn on_edge(src: &VertexSource, from_id: EndpointId, to_id: EndpointId, d: f32) -
 #[test]
 fn vertex_source_01() {
     use crate::path::generic::PathCommandsBuilder;
+    use crate::path::AttributeSlice;
 
     let endpoints: Vec<Point> = vec![
         point(0.0, 0.0),
@@ -1769,10 +1765,10 @@ fn vertex_source_01() {
         point(0.0, 2.0),
     ];
 
-    let attributes = [
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 1.0],
+    let attributes = &[
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0,
     ];
 
     let mut cmds = PathCommandsBuilder::new();
@@ -1793,6 +1789,7 @@ fn vertex_source_01() {
     tess.tessellate_events(
         &mut queue,
         &FillOptions::default(),
+        Some(&AttributeSlice::new(attributes, 3)),
         &mut CheckVertexSources { next_vertex: 0 },
     ).unwrap();
 
@@ -1808,13 +1805,17 @@ fn vertex_source_01() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(&mut self, v: Point, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-            for src in src {
+        fn add_fill_vertex(&mut self, v: Point, mut attr: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+            for src in attr.sources() {
                 if eq(v, point(0.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))) }
                 else if eq(v, point(1.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(1))) }
                 else if eq(v, point(0.0, 2.0)) { assert!(at_endpoint(&src, EndpointId(2))) }
                 else { panic!() }
             }
+
+            if eq(v, point(0.0, 0.0)) { assert_eq!(attr.get_attributes(), &[1.0, 0.0, 0.0]) }
+            else if eq(v, point(1.0, 1.0)) { assert_eq!(attr.get_attributes(), &[0.0, 1.0, 0.0]) }
+            else if eq(v, point(0.0, 2.0)) { assert_eq!(attr.get_attributes(), &[0.0, 0.0, 1.0]) }
 
             let id = self.next_vertex;
             self.next_vertex += 1;
@@ -1834,48 +1835,47 @@ fn vertex_source_02() {
     //   |_|
     //
 
-    use crate::path::generic::PathCommandsBuilder;
+    let mut path = crate::path::Path::builder_with_attributes(3);
+    let a = path.move_to(point(1.0, 0.0), &[1.0, 0.0, 1.0]);
+    let b = path.line_to(point(2.0, 0.0), &[2.0, 0.0, 1.0]);
+    let c = path.line_to(point(2.0, 4.0), &[3.0, 0.0, 1.0]);
+    let d = path.line_to(point(1.0, 4.0), &[4.0, 0.0, 1.0]);
+    path.close();
+    let e = path.move_to(point(0.0, 1.0), &[0.0, 1.0, 2.0]);
+    let f = path.line_to(point(0.0, 3.0), &[0.0, 2.0, 2.0]);
+    let g = path.line_to(point(3.0, 3.0), &[0.0, 3.0, 2.0]);
+    let h = path.line_to(point(3.0, 1.0), &[0.0, 4.0, 2.0]);
+    path.close();
 
-    let endpoints: Vec<Point> = vec![
-        point(1.0, 0.0),
-        point(2.0, 0.0),
-        point(2.0, 4.0),
-        point(1.0, 4.0),
-        point(0.0, 1.0),
-        point(0.0, 3.0),
-        point(3.0, 3.0),
-        point(3.0, 1.0),
-    ];
-
-    let mut cmds = PathCommandsBuilder::new();
-    cmds.move_to(EndpointId(0));
-    cmds.line_to(EndpointId(1));
-    cmds.line_to(EndpointId(2));
-    cmds.line_to(EndpointId(3));
-    cmds.close();
-    cmds.move_to(EndpointId(4));
-    cmds.line_to(EndpointId(5));
-    cmds.line_to(EndpointId(6));
-    cmds.line_to(EndpointId(7));
-    cmds.close();
-
-    let cmds = cmds.build();
+    let path = path.build();
 
     let mut queue = EventQueue::from_path_with_ids(
         0.1,
-        cmds.id_events(),
-        &(&endpoints[..], &endpoints[..]),
+        path.id_iter(),
+        &path,
     );
 
     let mut tess = FillTessellator::new();
     tess.tessellate_events(
         &mut queue,
         &FillOptions::default(),
-        &mut CheckVertexSources { next_vertex: 0 },
+        Some(&path),
+        &mut CheckVertexSources {
+            next_vertex: 0,
+            a, b, c, d, e, f, g, h,
+        },
     ).unwrap();
 
     struct CheckVertexSources {
         next_vertex: u32,
+        a: EndpointId,
+        b: EndpointId,
+        c: EndpointId,
+        d: EndpointId,
+        e: EndpointId,
+        f: EndpointId,
+        g: EndpointId,
+        h: EndpointId,
     }
 
     impl GeometryBuilder for CheckVertexSources {
@@ -1886,22 +1886,48 @@ fn vertex_source_02() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(&mut self, v: Point, src: &mut dyn Iterator<Item=VertexSource>) -> Result<VertexId, GeometryBuilderError> {
-            for src in src {
-                if eq(v, point(1.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(0))); }
-                else if eq(v, point(2.0, 0.0)) { assert!(at_endpoint(&src, EndpointId(1))); }
-                else if eq(v, point(2.0, 4.0)) { assert!(at_endpoint(&src, EndpointId(2))); }
-                else if eq(v, point(1.0, 4.0)) { assert!(at_endpoint(&src, EndpointId(3))); }
-                else if eq(v, point(0.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(4))); }
-                else if eq(v, point(0.0, 3.0)) { assert!(at_endpoint(&src, EndpointId(5))); }
-                else if eq(v, point(3.0, 3.0)) { assert!(at_endpoint(&src, EndpointId(6))); }
-                else if eq(v, point(3.0, 1.0)) { assert!(at_endpoint(&src, EndpointId(7))); }
-                else if eq(v, point(1.0, 1.0)) { assert!(on_edge(&src, EndpointId(7), EndpointId(4), 2.0/3.0) || on_edge(&src, EndpointId(3), EndpointId(0), 3.0/4.0)); }
-                else if eq(v, point(2.0, 1.0)) { assert!(on_edge(&src, EndpointId(7), EndpointId(4), 1.0/3.0) || on_edge(&src, EndpointId(1), EndpointId(2), 1.0/4.0)); }
-                else if eq(v, point(1.0, 3.0)) { assert!(on_edge(&src, EndpointId(5), EndpointId(6), 1.0/3.0) || on_edge(&src, EndpointId(3), EndpointId(0), 1.0/4.0)); }
-                else if eq(v, point(2.0, 3.0)) { assert!(on_edge(&src, EndpointId(5), EndpointId(6), 2.0/3.0) || on_edge(&src, EndpointId(1), EndpointId(2), 3.0/4.0)); }
+        fn add_fill_vertex(&mut self, v: Point, mut attributes: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+            for src in attributes.sources() {
+                if      eq(v, point(1.0, 0.0)) { assert!(at_endpoint(&src, self.a)); }
+                else if eq(v, point(2.0, 0.0)) { assert!(at_endpoint(&src, self.b)); }
+                else if eq(v, point(2.0, 4.0)) { assert!(at_endpoint(&src, self.c)); }
+                else if eq(v, point(1.0, 4.0)) { assert!(at_endpoint(&src, self.d)); }
+                else if eq(v, point(0.0, 1.0)) { assert!(at_endpoint(&src, self.e)); }
+                else if eq(v, point(0.0, 3.0)) { assert!(at_endpoint(&src, self.f)); }
+                else if eq(v, point(3.0, 3.0)) { assert!(at_endpoint(&src, self.g)); }
+                else if eq(v, point(3.0, 1.0)) { assert!(at_endpoint(&src, self.h)); }
+                else if eq(v, point(1.0, 1.0)) { assert!(on_edge(&src, self.h, self.e, 2.0/3.0) || on_edge(&src, self.d, self.a, 3.0/4.0)); }
+                else if eq(v, point(2.0, 1.0)) { assert!(on_edge(&src, self.h, self.e, 1.0/3.0) || on_edge(&src, self.b, self.c, 1.0/4.0)); }
+                else if eq(v, point(1.0, 3.0)) { assert!(on_edge(&src, self.f, self.g, 1.0/3.0) || on_edge(&src, self.d, self.a, 1.0/4.0)); }
+                else if eq(v, point(2.0, 3.0)) { assert!(on_edge(&src, self.f, self.g, 2.0/3.0) || on_edge(&src, self.b, self.c, 3.0/4.0)); }
                 else { panic!() }
             }
+
+            fn assert_attr(a: &[f32], b: &[f32]) {
+                for i in 0..a.len() {
+                    let are_equal = (a[i] - b[i]).abs() < 0.001;
+                    if !are_equal {
+                        println!("{:?} != {:?}", a, b);
+                    }
+                    assert!(are_equal);
+                }
+
+                assert_eq!(a.len(), b.len());
+            }
+
+            let attribs = attributes.get_attributes();
+            if      eq(v, point(1.0, 0.0)) { assert_attr(attribs, &[1.0, 0.0, 1.0]); }
+            else if eq(v, point(2.0, 0.0)) { assert_attr(attribs, &[2.0, 0.0, 1.0]); }
+            else if eq(v, point(2.0, 4.0)) { assert_attr(attribs, &[3.0, 0.0, 1.0]); }
+            else if eq(v, point(1.0, 4.0)) { assert_attr(attribs, &[4.0, 0.0, 1.0]); }
+            else if eq(v, point(0.0, 1.0)) { assert_attr(attribs, &[0.0, 1.0, 2.0]); }
+            else if eq(v, point(0.0, 3.0)) { assert_attr(attribs, &[0.0, 2.0, 2.0]); }
+            else if eq(v, point(3.0, 3.0)) { assert_attr(attribs, &[0.0, 3.0, 2.0]); }
+            else if eq(v, point(3.0, 1.0)) { assert_attr(attribs, &[0.0, 4.0, 2.0]); }
+            else if eq(v, point(1.0, 1.0)) { assert_attr(attribs, &[0.875, 1.0, 1.5]); }
+            else if eq(v, point(2.0, 1.0)) { assert_attr(attribs, &[1.125, 1.5, 1.5]); }
+            else if eq(v, point(1.0, 3.0)) { assert_attr(attribs, &[1.625, 1.16666, 1.5]); }
+            else if eq(v, point(2.0, 3.0)) { assert_attr(attribs, &[1.375, 1.33333, 1.5]); }
 
             let id = self.next_vertex;
             self.next_vertex += 1;
@@ -1910,4 +1936,3 @@ fn vertex_source_02() {
         }
     }
 }
-*/
