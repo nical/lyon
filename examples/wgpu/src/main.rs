@@ -185,14 +185,14 @@ fn main() {
         }
     );
 
-    let vs_bytes = include_str!("./../shaders/geometry.glsl.vert");
-    let fs_bytes = include_str!("./../shaders/geometry.glsl.frag");
-    let vs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&vs_bytes[..], glsl_to_spirv::ShaderType::Vertex).unwrap()).unwrap();
-    let fs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&fs_bytes[..], glsl_to_spirv::ShaderType::Fragment).unwrap()).unwrap();
-    let bg_vs_bytes = include_str!("./../shaders/background.glsl.vert");
-    let bg_fs_bytes = include_str!("./../shaders/background.glsl.frag");
-    let bg_vs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&bg_vs_bytes[..], glsl_to_spirv::ShaderType::Vertex).unwrap()).unwrap();
-    let bg_fs_spv = wgpu::read_spirv(glsl_to_spirv::compile(&bg_fs_bytes[..], glsl_to_spirv::ShaderType::Fragment).unwrap()).unwrap();
+    let vs_bytes = include_bytes!("./../shaders/geometry.vert.spv");
+    let fs_bytes = include_bytes!("./../shaders/geometry.frag.spv");
+    let vs_spv = wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap();
+    let fs_spv = wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap();
+    let bg_vs_bytes = include_bytes!("./../shaders/background.vert.spv");
+    let bg_fs_bytes = include_bytes!("./../shaders/background.frag.spv");
+    let bg_vs_spv = wgpu::read_spirv(std::io::Cursor::new(&bg_vs_bytes[..])).unwrap();
+    let bg_fs_spv = wgpu::read_spirv(std::io::Cursor::new(&bg_fs_bytes[..])).unwrap();
     let vs_module = device.create_shader_module(&vs_spv);
     let fs_module = device.create_shader_module(&fs_spv);
     let bg_vs_module = device.create_shader_module(&bg_vs_spv);

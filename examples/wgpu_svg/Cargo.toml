@@ -16,6 +16,5 @@ lyon = { path = "../../", features = ["extra"] }
 clap = "2.32.0"
 wgpu = "0.4"
 wgpu-native = "0.4"
-glsl-to-spirv = "0.1"
 winit = "0.20.0-alpha4"
 usvg = "0.4"

@@ -31,10 +31,6 @@ pub const FALLBACK_COLOR: usvg::Color = usvg::Color {
 //
 // Most of the code in this example is related to working with the GPU.
 
-
-const VERTEX_SHADER_SRC: &'static str = include_str!("geometry.vert.glsl");
-const FRAGMENT_SHADER_SRC: &'static str = include_str!("geometry.frag.glsl");
-
 fn main() {
 
     // Grab some parameters from the command line.
@@ -248,9 +244,11 @@ fn main() {
         wgpu::BufferUsage::COPY_SRC,
     ).fill_from_slice(&transforms);
 
-    let vs_spv = wgpu::read_spirv(glsl_to_spirv::compile(VERTEX_SHADER_SRC, glsl_to_spirv::ShaderType::Vertex).unwrap()).unwrap();
+    let vs_bytes = include_bytes!("../shaders/geometry.vert.spv");
+    let vs_spv = wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap();
     let vs_module = device.create_shader_module(&vs_spv);
-    let fs_spv = wgpu::read_spirv(glsl_to_spirv::compile(FRAGMENT_SHADER_SRC, glsl_to_spirv::ShaderType::Fragment).unwrap()).unwrap();
+    let fs_bytes = include_bytes!("../shaders/geometry.frag.spv");
+    let fs_spv = wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap();
     let fs_module = device.create_shader_module(&fs_spv);
 
     let bind_group_layout = device.create_bind_group_layout(
