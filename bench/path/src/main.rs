@@ -432,28 +432,21 @@ fn generic_with_evt_id4_iter(bench: &mut Bencher) {
     };
 
     let mut p = point(0.0, 0.0);
-    let mut e = 0;
     bench.iter(|| {
         for evt in path.id_events() {
             p += match evt {
                 IdEvent::Begin { at } => {
                     path[at].to_vector()
                 }
-                | IdEvent::Line { edge, to: p, .. }
-                | IdEvent::End { edge, last: p, .. }
+                | IdEvent::Line { to: p, .. }
+                | IdEvent::End { last: p, .. }
                 => {
-                    let a: u32 = unsafe { std::mem::transmute(edge) };
-                    e += a;
                     path[p].to_vector()
                 }
-                IdEvent::Quadratic { edge, ctrl, to, .. } => {
-                    let a: u32 = unsafe { std::mem::transmute(edge) };
-                    e += a;
+                IdEvent::Quadratic { ctrl, to, .. } => {
                     path[ctrl].to_vector() + path[to].to_vector()
                 }
-                IdEvent::Cubic { edge, ctrl1, ctrl2, to, .. } => {
-                    let a: u32 = unsafe { std::mem::transmute(edge) };
-                    e += a;
+                IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
                     path[ctrl1].to_vector() + path[ctrl2].to_vector() + path[to].to_vector()
                 }
             };

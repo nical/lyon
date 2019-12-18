@@ -1661,7 +1661,6 @@ impl<'l> Iterator for VertexSourceIterator<'l> {
             Some(VertexSource::Endpoint { id: edge.to_id })
         } else {
             Some(VertexSource::Edge {
-                edge: edge.evt_id,
                 from: edge.from_id,
                 to: edge.to_id,
                 t,
