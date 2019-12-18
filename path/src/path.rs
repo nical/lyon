@@ -1,4 +1,5 @@
 //! The default path data structure.
+//!
 
 use crate::math::*;
 use crate::builder::*;
@@ -26,7 +27,39 @@ enum Verb {
 
 /// A simple path data structure.
 ///
-/// It can be created using a [BuilderWithAttributes](struct.BuilderWithAttributes.html), and can be iterated over.
+/// # Custom attributes
+///
+/// Paths can store a fixed number of extra `f32` values per endpoint, called
+/// "custom attributes" or "interpolated attributes" through the documentation. 
+/// These can be handy to represent arbitrary attributes such as variable colors,
+/// line width, etc.
+///
+/// See also:
+/// - [`BuilderWithAttributes`](struct.BuilderWithAttributes.html).
+/// - [`Path::builder_with_attributes`](struct.Path.html#method.builder_with_attributes).
+/// - [`Path::attributes`](struct.Path.html#method.attributes).
+///
+/// # Representation
+///
+/// Paths contain two buffers:
+/// - a buffer of commands (Begin, Line, Quadratic, Cubic, Close or End),
+/// - and a buffer of pairs of floats that can be endpoints control points or custom attributes.
+///
+/// The order of storage for points is determined by the sequence of commands.
+/// Custom attributes (if any) always directly follow endpoints. If there is an odd number
+/// of attributes, the last float of the each attribute sequence is set to zero and is not used.
+///
+/// ```ascii
+///  __________________________
+/// |       |      |         |
+/// | Begin | Line |Quadratic| ...
+/// |_______|______|_________|_
+///  __________________________________________________________________________
+/// |         |          |         |          |         |         |          |
+/// |start x,y|attributes| to x, y |attributes|ctrl x,y | to x, y |attributes| ...
+/// |_________|__________|_________|__________|_________|_________|__________|_
+/// ```
+///
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Path {
@@ -41,30 +74,6 @@ pub struct PathSlice<'l> {
     points: &'l [Point],
     verbs: &'l [Verb],
     num_attributes: usize,
-}
-
-pub struct WithAttributes<'l>(PathSlice<'l>);
-
-impl<'l> std::ops::Deref for WithAttributes<'l> {
-    type Target = PathSlice<'l>;
-    fn deref(&self) -> &PathSlice<'l> { &self.0 }
-}
-
-impl<'l> WithAttributes<'l> {
-    pub fn iter(&self) -> IterWithAttributes<'l> {
-        IterWithAttributes::new(
-            self.num_attributes,
-            &self.points,
-            &self.verbs,
-        )
-    }
-}
-
-impl<'l> IntoIterator for WithAttributes<'l> {
-    type Item = Event<(Point, &'l[f32]), Point>;
-    type IntoIter = IterWithAttributes<'l>;
-
-    fn into_iter(self) -> IterWithAttributes<'l> { self.iter() }
 }
 
 impl Path {
@@ -97,14 +106,10 @@ impl Path {
         }
     }
 
+    /// Returns a slice over an endpoint's custom attributes.
     #[inline]
-    pub fn with_attributes(&self) -> WithAttributes {
-        WithAttributes(self.as_slice())
-    }
-
-    #[inline]
-    pub fn get_attributes(&self, endpoint: EndpointId) -> &[f32] {
-        get_attributes(self.num_attributes, &self.points, endpoint)
+    pub fn attributes(&self, endpoint: EndpointId) -> &[f32] {
+        interpolated_attributes(self.num_attributes, &self.points, endpoint)
     }
 
     /// Iterates over the entire `Path`.
@@ -115,11 +120,23 @@ impl Path {
         IdIter::new(self.num_attributes, &self.verbs[..])
     }
 
+
+    /// Applies a transform to all endpoints and control points of this path and
+    /// Returns the result.
     pub fn transformed(&self, transform: &Transform2D) -> Self {
         let mut result = self.clone();
         result.apply_transform(transform);
 
         result
+    }
+
+    /// Reversed version of this path with edge loops are specified in the opposite
+    /// order.
+    pub fn reversed(&self) -> Self {
+        let mut builder = Path::builder();
+        reverse_path(self.as_slice(), &mut builder);
+
+        builder.build()
     }
 
     fn apply_transform(&mut self, transform: &Transform2D) {
@@ -207,8 +224,8 @@ impl PositionStore for Path {
 }
 
 impl AttributeStore for Path {
-    fn get_attributes(&self, id: EndpointId) -> &[f32] {
-        get_attributes(self.num_attributes, &self.points, id)
+    fn interpolated_attributes(&self, id: EndpointId) -> &[f32] {
+        interpolated_attributes(self.num_attributes, &self.points, id)
     }
 
     fn num_attributes(&self) -> usize {
@@ -255,8 +272,8 @@ impl<'l> PositionStore for PathSlice<'l> {
 }
 
 impl<'l> AttributeStore for PathSlice<'l> {
-    fn get_attributes(&self, id: EndpointId) -> &[f32] {
-        get_attributes(self.num_attributes, self.points, id)
+    fn interpolated_attributes(&self, id: EndpointId) -> &[f32] {
+        interpolated_attributes(self.num_attributes, self.points, id)
     }
 
     fn num_attributes(&self) -> usize {
@@ -264,9 +281,7 @@ impl<'l> AttributeStore for PathSlice<'l> {
     }
 }
 
-/// Builds path object using the FlatPathBuilder interface.
-///
-/// See the [builder module](builder/index.html) documentation.
+/// Builds path objects.
 pub struct Builder {
     points: Vec<Point>,
     verbs: Vec<Verb>,
@@ -300,26 +315,32 @@ impl Builder {
         FlatteningBuilder::new(self, tolerance)
     }
 
-    pub fn move_to(&mut self, to: Point) {
+    pub fn move_to(&mut self, to: Point) -> EndpointId {
         nan_check(to);
         self.end_if_needed();
         self.need_moveto = false;
         self.first_position = to;
-        self.first_vertex = EndpointId(self.points.len() as u32);
+        let id = EndpointId(self.points.len() as u32);
+        self.first_vertex = id;
         self.first_verb = self.verbs.len() as u32;
         self.current_position = to;
         self.points.push(to);
         self.verbs.push(Verb::Begin);
         self.last_cmd = Verb::Begin;
+
+        id
     }
 
-    pub fn line_to(&mut self, to: Point) {
+    pub fn line_to(&mut self, to: Point) -> EndpointId {
         nan_check(to);
         self.move_to_if_needed();
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.verbs.push(Verb::LineTo);
         self.current_position = to;
         self.last_cmd = Verb::LineTo;
+
+        id
     }
 
     pub fn close(&mut self) {
@@ -343,28 +364,34 @@ impl Builder {
         self.last_cmd = Verb::Close;
     }
 
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
         nan_check(ctrl);
         nan_check(to);
         self.move_to_if_needed();
         self.points.push(ctrl);
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.verbs.push(Verb::QuadraticTo);
         self.current_position = to;
         self.last_cmd = Verb::QuadraticTo;
+
+        id
     }
 
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
         self.move_to_if_needed();
         self.points.push(ctrl1);
         self.points.push(ctrl2);
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.verbs.push(Verb::CubicTo);
         self.current_position = to;
         self.last_cmd = Verb::CubicTo;
+
+        id
     }
 
     pub fn arc(
@@ -477,6 +504,7 @@ impl PathBuilder for Builder {
     }
 }
 
+/// Builds path objects with custom attributes.
 pub struct BuilderWithAttributes {
     points: Vec<Point>,
     verbs: Vec<Verb>,
@@ -574,8 +602,8 @@ impl BuilderWithAttributes {
         nan_check(ctrl);
         nan_check(to);
         self.move_to_if_needed();
-        let id = EndpointId(self.points.len() as u32);
         self.points.push(ctrl);
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.push_attributes(attributes);
         self.verbs.push(Verb::QuadraticTo);
@@ -590,9 +618,9 @@ impl BuilderWithAttributes {
         nan_check(ctrl2);
         nan_check(to);
         self.move_to_if_needed();
-        let id = EndpointId(self.points.len() as u32);
         self.points.push(ctrl1);
         self.points.push(ctrl2);
+        let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.push_attributes(attributes);
         self.verbs.push(Verb::CubicTo);
@@ -784,16 +812,16 @@ pub struct IterWithAttributes<'l> {
 }
 
 impl<'l> IterWithAttributes<'l> {
-    fn new(num_attributes: usize, points: &'l[Point], verbs: &'l[Verb]) -> Self {
-        IterWithAttributes {
-            points: PointIter::new(points),
-            verbs: verbs.iter(),
-            current: (point(0.0, 0.0), &[]),
-            first: (point(0.0, 0.0), &[]),
-            num_attributes,
-            attrib_stride: (num_attributes + 1) / 2,
-        }
-    }
+    //fn new(num_attributes: usize, points: &'l[Point], verbs: &'l[Verb]) -> Self {
+    //    IterWithAttributes {
+    //        points: PointIter::new(points),
+    //        verbs: verbs.iter(),
+    //        current: (point(0.0, 0.0), &[]),
+    //        first: (point(0.0, 0.0), &[]),
+    //        num_attributes,
+    //        attrib_stride: (num_attributes + 1) / 2,
+    //    }
+    //}
 
     pub fn points(self) -> Iter<'l> {
         Iter {
@@ -941,7 +969,7 @@ impl<'l> Iterator for IdIter<'l> {
 }
 
 #[inline]
-fn get_attributes(num_attributes: usize, points: &[Point], endpoint: EndpointId) -> &[f32] {
+fn interpolated_attributes(num_attributes: usize, points: &[Point], endpoint: EndpointId) -> &[f32] {
     let idx = endpoint.0 as usize + 1;
     assert!(idx + (num_attributes + 1) / 2 <= points.len());
 
@@ -951,7 +979,7 @@ fn get_attributes(num_attributes: usize, points: &[Point], endpoint: EndpointId)
     }
 }
 
-pub fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
+fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
     let attrib_stride = (path.num_attributes() + 1) / 2;
     let points = &path.points[..];
     // At each iteration, p points to the first point after the current verb.

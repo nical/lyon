@@ -5,30 +5,34 @@
 //! While it would be possible for the tessellation algorithms to manually generate vertex
 //! and index buffers with a certain layout, it would mean that most code using the tessellators
 //! have to copy and convert all generated vertices in order to have their own vertex
-//! layout, or even several vertex layouts, which is a very common use-case.
+//! layout, or de-interleaved vertex formats, which is a very common use-case.
 //!
-//! In order to flexibly and efficiently build geometry of various flavors of geometry, this module
-//! contains a number of builder interfaces that centered around the idea of building vertex and
-//! index buffers without having to know about the final vertex and index types. 
+//! In order to flexibly and efficiently build geometry of various flavors, this module contains
+//! a number of builder interfaces that centered around the idea of building vertex and index
+//! buffers without having to know about the final vertex and index types.
 //!
 //! See:
 //!
-//! * [`GeometryBuilder`](struct.GeometryBuilder.html)
-//! * [`FillGeometryBuilder`](struct.FillGeometryBuilder.html)
-//! * [`StrokeGeometryBuilder`](struct.StrokeGeometryBuilder.html)
-//! * [`BasicGeometryBuilder`](struct.BasicGeometryBuilder.html)
+//! * [`GeometryBuilder`](trait.GeometryBuilder.html)
+//! * [`FillGeometryBuilder`](trait.FillGeometryBuilder.html)
+//! * [`StrokeGeometryBuilder`](trait.StrokeGeometryBuilder.html)
+//! * [`BasicGeometryBuilder`](trait.BasicGeometryBuilder.html)
 //!
-//! The traits above are what the tessellators interface with. Since it is very common to push
-//! vertices and indices into a pair of vectors, so to facilitate this pattern:
+//! The traits above are what the tessellators interface with. It is very common to push
+//! vertices and indices into a pair of vectors, so to facilitate this pattern this module
+//! also provides:
 //!
 //! * The struct [`VertexBuffers`](struct.VertexBuffers.html) is a simple pair of vectors of
 //!   indices and vertices (generic parameters).
-//! * The struct [`BuffersBuilder`](struct.BuffersBuilder.html) which implements
-//!   [`BezierGeometryBuilder`](trait.BezierGeometryBuilder.html) and writes into a
-//!   [`VertexBuffers`](struct.VertexBuffers.html).
-//! * The trait [`VertexConstructor`](trait.VertexConstructor.html) used by
+//! * The struct [`BuffersBuilder`](struct.BuffersBuilder.html) which writes into a
+//!   [`VertexBuffers`](struct.VertexBuffers.html) and implements the various gemoetry
+//!   builder traits. It takes care of filling the buffers while producing vertices is
+//!   delegated to a vertex constructor.
+//! * The traits [`FillVertexConstructor`](trait.FillVertexConstructor.html),
+//!   [`StrokeVertexConstructor`](trait.StrokeVertexConstructor.html) and
+//!   [`BasicVertexConstructor`](trait.BasicVertexConstructor.html), used by
 //!   [`BuffersBuilder`](struct.BuffersBuilder.html) in order to generate any vertex type. In the
-//!   example below, a struct `WithColor` implements the `VertexConstructor` trait in order to
+//!   first example below, a struct `WithColor` implements the `BasicVertexConstructor` trait in order to
 //!   create vertices composed of a 2d position and a color value from an input 2d position.
 //!   This separates the construction of vertex values from the assembly of the vertex buffers.
 //!   Another, simpler example of vertex constructor is the [`Positions`](struct.Positions.html)
@@ -44,11 +48,24 @@
 //! users of this crate to be able to adapt the output of the tessellators to their own
 //! needs.
 //!
+//! ## Do I need to implement geometry builders or vertex constructors?
+//!
+//! If you only generate a vertex buffer and an index buffer (as a pair of standard `Vec`),
+//! then the simplest option is to work with custom vertex constructors and use
+//! `VertexBuffers` and `BuffersBuilder`.
+//!
+//! For more specific or elaborate use cases where control over where the vertices as written
+//! is needed such as building de-interleaved vertex buffers or writing directly into a mapped
+//! GPU buffer, implementing custom geometry builders is the right thing to do.
+//!
+//! Which of the vertex constructor or geometry builder traits to implement (fill/stroke/basic
+//! variants), depends on which tessellators the builder or constructor will interface with.
+//!
 //! ## Examples
 //!
 //! ### Generating custom vertices
 //!
-//! The example below implements the `VertexConstructor` trait in order to use a custom
+//! The example below implements the `BasicVertexConstructor` trait in order to use a custom
 //! vertex type `MyVertex` (containing position and color), storing the tessellation in a
 //! `VertexBuffers<MyVertex, u16>`, and tessellates two shapes with different colors.
 //!
@@ -228,6 +245,13 @@ pub enum GeometryBuilderError {
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
 ///
+/// Depending on which tessellator a geometry builder interfaces with, it also has to
+/// implement one or several of the following traits (Which contain the hooks to generate
+/// vertices):
+///  - [`FillGeometryBuilder`](trait.FillGeometryBuilder.html)
+///  - [`StrokeGeometryBuilder`](trait.StrokeGeometryBuilder.html)
+///  - [`BasicGeometryBuilder`](trait.BasicGeometryBuilder.html)
+///
 /// See the [`geometry_builder`](index.html) module documentation for more detailed explanation.
 pub trait GeometryBuilder {
     /// Called at the beginning of a generation.
@@ -253,6 +277,9 @@ pub trait GeometryBuilder {
     fn abort_geometry(&mut self);
 }
 
+/// A Geometry builder to interface with the [`FillTessellator`](../struct.FillTessellator.html).
+///
+/// Types implementing this trait must also implement the [`GeometryBuilder`](trait.GeometryBuilder.html) trait.
 pub trait FillGeometryBuilder: GeometryBuilder {
     /// Inserts a vertex, providing its position, and optionally a normal.
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
@@ -261,6 +288,9 @@ pub trait FillGeometryBuilder: GeometryBuilder {
     fn add_fill_vertex(&mut self, position: Point, attributes: FillAttributes) -> Result<VertexId, GeometryBuilderError>;
 }
 
+/// A Geometry builder to interface with the [`StrokeTessellator`](../struct.StrokeTessellator.html).
+///
+/// Types implementing this trait must also implement the [`GeometryBuilder`](trait.GeometryBuilder.html) trait.
 pub trait StrokeGeometryBuilder: GeometryBuilder {
     /// Inserts a vertex, providing its position, and optionally a normal.
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
@@ -269,6 +299,11 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     fn add_stroke_vertex(&mut self, position: Point, attributes: StrokeAttributes) -> Result<VertexId, GeometryBuilderError>;
 }
 
+/// A Geometry builder to interface with some of the basic tessellators.
+///
+/// See the [`basic_shapes`](../basic_shapes/index.html) module.
+///
+/// Types implementing this trait must also implement the [`GeometryBuilder`](trait.GeometryBuilder.html) trait.
 pub trait BasicGeometryBuilder: GeometryBuilder {
     fn add_vertex(&mut self, position: Point) -> Result<VertexId, GeometryBuilderError>;
 }
@@ -495,7 +530,7 @@ where
     ) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(position, attributes));
         let len = self.buffers.vertices.len();
-        if len > OutputIndex::max_index() {
+        if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         Ok(VertexId((len - 1) as Index - self.vertex_offset))
@@ -512,7 +547,7 @@ where
     fn add_stroke_vertex(&mut self, p: Point, v: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(p, v));
         let len = self.buffers.vertices.len();
-        if len > OutputIndex::max_index() {
+        if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         Ok(VertexId((len - 1) as Index - self.vertex_offset))
@@ -529,7 +564,7 @@ where
     fn add_vertex(&mut self, p: Point) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(self.vertex_constructor.new_vertex(p));
         let len = self.buffers.vertices.len();
-        if len > OutputIndex::max_index() {
+        if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         Ok(VertexId((len - 1) as Index - self.vertex_offset))
@@ -628,17 +663,17 @@ impl GeometryReceiver for NoOutput {
 /// to u32::MAX because the tessellators can't internally represent more
 /// than u32::MAX indices.
 pub trait MaxIndex {
-    fn max_index() -> usize;
+    const MAX: usize;
 }
 
-impl MaxIndex for u8 { fn max_index() -> usize { std::u8::MAX as usize } }
-impl MaxIndex for i8 { fn max_index() -> usize { std::i8::MAX as usize } }
-impl MaxIndex for u16 { fn max_index() -> usize { std::u16::MAX as usize } }
-impl MaxIndex for i16 { fn max_index() -> usize { std::i16::MAX as usize } }
-impl MaxIndex for u32 { fn max_index() -> usize { std::u32::MAX as usize } }
-impl MaxIndex for i32 { fn max_index() -> usize { std::i32::MAX as usize } }
+impl MaxIndex for u8 { const MAX: usize = std::u8::MAX as usize; }
+impl MaxIndex for i8 { const MAX: usize = std::i8::MAX as usize; }
+impl MaxIndex for u16 { const MAX: usize = std::u16::MAX as usize; }
+impl MaxIndex for i16 { const MAX: usize = std::i16::MAX as usize; }
+impl MaxIndex for u32 { const MAX: usize = std::u32::MAX as usize; }
+impl MaxIndex for i32 { const MAX: usize = std::i32::MAX as usize; }
 // The tessellators internally use u32 indices so we can't have more than u32::MAX
-impl MaxIndex for u64 { fn max_index() -> usize { std::u32::MAX as usize } }
-impl MaxIndex for i64 { fn max_index() -> usize { std::u32::MAX as usize } }
-impl MaxIndex for usize { fn max_index() -> usize { std::u32::MAX as usize } }
-impl MaxIndex for isize { fn max_index() -> usize { std::u32::MAX as usize } }
+impl MaxIndex for u64 { const MAX: usize = std::u32::MAX as usize; }
+impl MaxIndex for i64 { const MAX: usize = std::u32::MAX as usize; }
+impl MaxIndex for usize { const MAX: usize = std::u32::MAX as usize; }
+impl MaxIndex for isize { const MAX: usize = std::u32::MAX as usize; }

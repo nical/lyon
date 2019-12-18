@@ -10,7 +10,7 @@ use bencher::Bencher;
 
 const N: usize = 1;
 
-type GenericPathBuilder = generic::GenericPathBuilder<Point, Point>;
+//type GenericPathBuilder = generic::GenericPathBuilder<Point, Point>;
 
 fn simple_path_build_empty(bench: &mut Bencher) {
     bench.iter(|| {
@@ -52,34 +52,6 @@ fn simple_path_build_prealloc(bench: &mut Bencher) {
     });
 }
 
-fn generic_build_prealloc(bench: &mut Bencher) {
-    bench.iter(|| {
-        let n_endpoints = 30010;
-        let n_ctrl_points = 30000;
-        let n_edges = N * 30_000 + N * 20;
-
-        let mut path: GenericPathBuilder = generic::GenericPathBuilder::with_capacity(
-            n_endpoints,
-            n_ctrl_points,
-            n_edges,
-        );
-
-        for _ in 0..N {
-            for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
-                for _ in 0..1_000 {
-                    path.line_to(point(1.0, 0.0));
-                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
-                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
-                }
-                path.close();
-            }
-        }
-
-        let _ = path.build();
-    });
-}
-
 fn id_only_generic_build_empty(bench: &mut Bencher) {
     bench.iter(|| {
         let mut path = generic::PathCommandsBuilder::new();
@@ -95,26 +67,6 @@ fn id_only_generic_build_empty(bench: &mut Bencher) {
                     path.quadratic_bezier_to(CtrlPointId(cp + 2), EndpointId(ep + 2));
                     cp += 3;
                     ep += 3;
-                }
-                path.close();
-            }
-        }
-
-        let _ = path.build();
-    });
-}
-
-fn generic_build_empty(bench: &mut Bencher) {
-
-    bench.iter(|| {
-        let mut path: GenericPathBuilder = generic::GenericPath::builder();
-        for _ in 0..N {
-            for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
-                for _ in 0..1_000 {
-                    path.line_to(point(1.0, 0.0));
-                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
-                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
                 }
                 path.close();
             }
@@ -300,6 +252,55 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
     });
 }
 
+/*
+fn generic_build_prealloc(bench: &mut Bencher) {
+    bench.iter(|| {
+        let n_endpoints = 30010;
+        let n_ctrl_points = 30000;
+        let n_edges = N * 30_000 + N * 20;
+
+        let mut path: GenericPathBuilder = generic::GenericPathBuilder::with_capacity(
+            n_endpoints,
+            n_ctrl_points,
+            n_edges,
+        );
+
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(point(0.0, 0.0));
+                for _ in 0..1_000 {
+                    path.line_to(point(1.0, 0.0));
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
+                }
+                path.close();
+            }
+        }
+
+        let _ = path.build();
+    });
+}
+
+fn generic_build_empty(bench: &mut Bencher) {
+
+    bench.iter(|| {
+        let mut path: GenericPathBuilder = generic::GenericPath::builder();
+        for _ in 0..N {
+            for _ in 0..10 {
+                path.move_to(point(0.0, 0.0));
+                for _ in 0..1_000 {
+                    path.line_to(point(1.0, 0.0));
+                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
+                }
+                path.close();
+            }
+        }
+
+        let _ = path.build();
+    });
+}
+
 fn generic_iter(bench: &mut Bencher) {
 
     let path = {
@@ -454,24 +455,26 @@ fn generic_with_evt_id4_iter(bench: &mut Bencher) {
     });
 }
 
+*/
+
 benchmark_group!(builder,
     simple_path_build_empty,
     simple_path_build_prealloc,
-    generic_build_empty,
     id_only_generic_build_empty,
-    generic_build_prealloc,
+    //generic_build_empty,
+    //generic_build_prealloc,
 );
 
 benchmark_group!(iter,
     simple_path_iter,
     simple_path_id_iter,
     generic_id_iter,
-    generic_iter,
-    generic_points_iter,
-    generic_with_evt_id4_iter,
     no_attrib_iter,
     f32x2_attrib_iter,
-    f32x2_generic_iter,
+    //generic_iter,
+    //generic_points_iter,
+    //generic_with_evt_id4_iter,
+    //f32x2_generic_iter,
 );
 
 #[cfg(not(feature = "libtess2"))]

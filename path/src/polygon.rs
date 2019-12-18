@@ -1,3 +1,5 @@
+//! Specific path types for polygons.
+
 use crate::{EndpointId, CtrlPointId, EventId, Event, IdEvent, Position, PositionStore};
 use crate::math::Point;
 

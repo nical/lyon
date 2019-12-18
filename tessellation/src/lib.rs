@@ -1,6 +1,8 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
 
+// TODO: Tessellation pipeline diagram needs to be updated.
+
 //! Tessellation of 2D fill and stroke operations.
 //!
 //! <svg viewBox="0 0 600.0 300.0" height="300" width="600">
@@ -118,8 +120,7 @@
 //!   </text>
 //! </svg>
 //!
-//! The figure above shows each step of the fill tessellation pipeline.
-//! Tessellating strokes works the same way using `StrokeVertex` instead of `FillVertex`.
+//! The figure above shows a simplified summary of each step of the fill tessellation pipeline.
 //!
 //! ### The input: iterators
 //!
@@ -155,8 +156,8 @@
 //! The tessellators produce geometry in the form of vertex and index buffers which are expected
 //! to be rendered using the equivalent of OpenGL's `glDrawElements` with mode `GL_TRIANGLES` available
 //! under various names in the different graphics APIs.
-//! There is a [basic example](https://github.com/nical/lyon/tree/master/examples/gfx_basic) showing how
-//! it can be done with gfx-rs.
+//! There is an [example](https://github.com/nical/lyon/tree/master/examples/wgpu) showing how
+//! it can be done with wgpu.
 //!
 //! ### Flattening and tolerance
 //!
@@ -189,7 +190,6 @@ pub extern crate serde;
 
 pub mod basic_shapes;
 pub mod geometry_builder;
-pub mod debugger;
 mod event_queue;
 mod fill;
 mod stroke;
@@ -233,6 +233,10 @@ use std::u32;
 /// The fill tessellator's result type.
 pub type TessellationResult = Result<Count, TessellationError>;
 
+/// Describes an unexpected error happening during tessellation.
+///
+/// If you run into one of these, please consider
+/// [filing an issue](https://github.com/nical/lyon/issues/new).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum InternalError {
     IncorrectActiveEdgeOrder(i16),
@@ -309,31 +313,42 @@ impl Order {
     pub fn is_after(self) -> bool { self == Order::After }
 }
 
-/// Vertex produced by the stroke tessellators.
+/// Extra vertex information from the `StrokeTessellator`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct StrokeAttributes {
+    pub(crate) normal: math::Vector,
+    pub(crate) advancement: f32,
+    pub(crate) side: Side,
+}
+
+impl StrokeAttributes {
     /// Normal at this vertex such that extruding the vertices along the normal would
     /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
-    pub normal: math::Vector,
+    #[inline]
+    pub fn normal(&self) -> math::Vector { self.normal }
+
     /// How far along the path this vertex is.
-    pub advancement: f32,
+    #[inline]
+    pub fn advancement(&self) -> f32 { self.advancement }
+
     /// Whether the vertex is on the left or right side of the path.
-    pub side: Side,
+    #[inline]
+    pub fn side(&self) -> Side { self.side }
 }
 
 pub use fill::FillAttributes;
 
+/// Where a vertex produced by a tessellator comes from in the original path.
+///
+/// In most cases, vertices come directly from an endpoint. However, Curve
+/// approximations and self-intersections can introduce vertices that are on
+/// one or several edges, at a certain parameter `t` between the two endpoints
+/// of the edge.
 #[derive(Clone, Debug)]
 pub enum VertexSource {
     Endpoint { id: EndpointId },
     Edge { from: EndpointId, to: EndpointId, t: f32 },
-}
-
-pub struct NoSource;
-impl Iterator for NoSource {
-    type Item = VertexSource;
-    fn next(&mut self) -> Option<VertexSource> { None }
 }
 
 /// Line cap as defined by the SVG specification.

@@ -471,12 +471,12 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, position: Point, attributes: tessellation::StrokeAttributes) -> GpuVertex {
         debug_assert!(!position.x.is_nan());
         debug_assert!(!position.y.is_nan());
-        debug_assert!(!attributes.normal.x.is_nan());
-        debug_assert!(!attributes.normal.y.is_nan());
-        debug_assert!(!attributes.advancement.is_nan());
+        debug_assert!(!attributes.normal().x.is_nan());
+        debug_assert!(!attributes.normal().y.is_nan());
+        debug_assert!(!attributes.advancement().is_nan());
         GpuVertex {
             position: position.to_array(),
-            normal: attributes.normal.to_array(),
+            normal: attributes.normal().to_array(),
             prim_id: self.0,
         }
     }

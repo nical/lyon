@@ -70,7 +70,7 @@ pub fn fill_quad(
 
     // Make sure the winding order is correct.
     if (v1 - v2).cross(v3 - v2) < 0.0 {
-        ::std::mem::swap(&mut v2, &mut v4);
+        std::mem::swap(&mut v2, &mut v4);
     }
 
     let a = output.add_vertex(v1)?;
@@ -728,12 +728,12 @@ pub fn stroke_polyline<Iter>(
     output: &mut dyn StrokeGeometryBuilder
 ) -> TessellationResult
 where
-    Iter: Iterator<Item = Point>,
+    Iter: IntoIterator<Item = Point>,
 {
     let mut tess = StrokeTessellator::new();
 
     tess.tessellate_path(
-        FromPolyline::new(is_closed, it),
+        FromPolyline::new(is_closed, it.into_iter()),
         options,
         output
     )
@@ -747,10 +747,10 @@ pub fn fill_polyline<Iter>(
     output: &mut dyn FillGeometryBuilder
 ) -> TessellationResult
 where
-    Iter: Iterator<Item = Point>,
+    Iter: IntoIterator<Item = Point>,
 {
     tessellator.tessellate_path(
-        FromPolyline::closed(polyline),
+        FromPolyline::closed(polyline.into_iter()),
         options,
         output,
     )

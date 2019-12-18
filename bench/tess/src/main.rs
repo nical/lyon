@@ -81,6 +81,28 @@ fn fill_tess_01_logo(bench: &mut Bencher) {
     })
 }
 
+fn fill_tess_06_logo_with_ids(bench: &mut Bencher) {
+    let mut path = Path::builder().flattened(0.05).with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    let options = FillOptions::default();
+
+    bench.iter(|| {
+        for _ in 0..N {
+            let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::with_capacity(512, 1450);
+            tess.tessellate_path_with_ids(
+                path.id_iter(),
+                &path,
+                None,
+                &options,
+                &mut simple_builder(&mut buffers),
+            ).unwrap();
+        }
+    })
+}
+
 fn fill_tess_03_logo_no_intersections(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
@@ -93,7 +115,7 @@ fn fill_tess_03_logo_no_intersections(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_events(&mut events, &options, None, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_events(&mut events, None, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -110,7 +132,7 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_events(&mut events, &options, None, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate_events(&mut events, None, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -120,6 +142,7 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
     use tess2::*;
     use std::slice;
     use std::os::raw::c_void;
+    use lyon::path::PathEvent;
 
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
@@ -130,11 +153,11 @@ fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
     let tolerance = FillOptions::default().tolerance;
     for evt in path.iter().flattened(tolerance) {
         match evt {
-            PathEvent::MoveTo(p) => {
-                contours.push(vec![p]);
+            PathEvent::Begin { at } => {
+                contours.push(vec![at]);
             }
-            PathEvent::LineTo(p) => {
-                contours.last_mut().unwrap().push(p);
+            PathEvent::Line { to, .. } => {
+                contours.last_mut().unwrap().push(to);
             }
             _ => {}
         }
@@ -292,6 +315,7 @@ benchmark_group!(stroke_tess,
 
 benchmark_group!(fill_tess,
   fill_tess_01_logo,
+  fill_tess_06_logo_with_ids,
   fill_tess_03_logo_no_intersections,
   fill_tess_05_logo_no_curve
 );

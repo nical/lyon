@@ -58,7 +58,7 @@ fn main() {
             &FillOptions::default(),
             &mut BuffersBuilder::new(&mut geometry, |pos: Point, _: FillAttributes| {
                 MyVertex {
-                    position: vertex.position.to_array(),
+                    position: pos.to_array(),
                 }
             }),
         ).unwrap();
