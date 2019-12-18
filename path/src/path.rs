@@ -2,7 +2,7 @@
 
 use crate::math::*;
 use crate::builder::*;
-use crate::{Event, PathEvent, IdEvent, EndpointId, CtrlPointId, EventId, AttributeStore, PositionStore};
+use crate::{Event, PathEvent, IdEvent, EndpointId, CtrlPointId, AttributeStore, PositionStore};
 use crate::geom::Arc;
 
 use std::iter::IntoIterator;
@@ -889,7 +889,6 @@ impl<'l> Iterator for IdIter<'l> {
     type Item = IdEvent;
     #[inline]
     fn next(&mut self) -> Option<IdEvent> {
-        let edge = EventId(self.evt);
         match self.verbs.next() {
             Some(&Verb::Begin) => {
                 let at = self.current;
@@ -901,7 +900,7 @@ impl<'l> Iterator for IdIter<'l> {
                 self.current += self.endpoint_stride;
                 let to = EndpointId(self.current);
                 self.evt += 1;
-                Some(IdEvent::Line { from, to, edge })
+                Some(IdEvent::Line { from, to })
             }
             Some(&Verb::QuadraticTo) => {
                 let from = EndpointId(self.current);
@@ -910,7 +909,7 @@ impl<'l> Iterator for IdIter<'l> {
                 let to = EndpointId(base + 1);
                 self.current = base + 1;
                 self.evt += 1;
-                Some(IdEvent::Quadratic { from, ctrl, to, edge })
+                Some(IdEvent::Quadratic { from, ctrl, to })
             }
             Some(&Verb::CubicTo) => {
                 let from = EndpointId(self.current);
@@ -920,21 +919,21 @@ impl<'l> Iterator for IdIter<'l> {
                 let to = EndpointId(base + 2);
                 self.current = base + 2;
                 self.evt += 1;
-                Some(IdEvent::Cubic { from, ctrl1, ctrl2, to, edge })
+                Some(IdEvent::Cubic { from, ctrl1, ctrl2, to })
             }
             Some(&Verb::Close) => {
                 let last = EndpointId(self.current);
                 let first = EndpointId(self.first);
                 self.current += self.endpoint_stride;
                 self.evt += 1;
-                Some(IdEvent::End { last, first, close: true, edge })
+                Some(IdEvent::End { last, first, close: true })
             }
             Some(&Verb::End) => {
                 let last = EndpointId(self.current);
                 let first = EndpointId(self.first);
                 self.current += self.endpoint_stride;
                 self.evt += 1;
-                Some(IdEvent::End { last, first, close: false, edge })
+                Some(IdEvent::End { last, first, close: false })
             }
             None => None,
         }

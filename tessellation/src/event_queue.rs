@@ -1,6 +1,5 @@
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use crate::math::{Point, point};
-use crate::path;
 use crate::path::{PathEvent, IdEvent, EndpointId, PositionStore};
 use crate::fill::{is_after, compare_positions};
 
@@ -25,7 +24,6 @@ pub struct EdgeData {
     pub range: std::ops::Range<f32>,
     pub winding: i16,
     pub is_edge: bool,
-    pub evt_id: path::EventId,
     pub from_id: EndpointId,
     pub to_id: EndpointId,
 }
@@ -378,7 +376,6 @@ impl EventQueueBuilder {
 
     pub fn set_path(&mut self, tolerance: f32, path: impl Iterator<Item=PathEvent>) {
         self.tolerance = tolerance;
-        let mut evt_id = path::EventId(0);
         let mut endpoint_id = EndpointId(0);
         for evt in path {
             match evt {
@@ -386,14 +383,13 @@ impl EventQueueBuilder {
                     self.begin(at);
                 }
                 PathEvent::Line { to, .. } => {
-                    self.line_segment(to, endpoint_id, evt_id, 0.0, 1.0);
+                    self.line_segment(to, endpoint_id, 0.0, 1.0);
                 }
                 PathEvent::Quadratic { ctrl, to, .. } => {
                     self.quadratic_bezier_segment(
                         ctrl,
                         to,
                         endpoint_id,
-                        evt_id,
                     );
                 }
                 PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
@@ -402,15 +398,13 @@ impl EventQueueBuilder {
                         ctrl2,
                         to,
                         endpoint_id,
-                        evt_id,
                     );
                 }
                 PathEvent::End { first, .. } => {
-                    self.end(first, endpoint_id, evt_id);
+                    self.end(first, endpoint_id);
                 }
             }
 
-            evt_id.0 += 1;
             self.prev_endpoint_id = endpoint_id;
             endpoint_id.0 += 1;
         }
@@ -432,35 +426,32 @@ impl EventQueueBuilder {
                     self.begin(points.endpoint_position(at));
                     self.prev_endpoint_id = at;
                 }
-                IdEvent::Line { to, edge, .. } => {
+                IdEvent::Line { to, .. } => {
                     self.line_segment(
                         points.endpoint_position(to), to,
-                        edge,
                         0.0, 1.0,
                     );
                     self.prev_endpoint_id = to;
                 }
-                IdEvent::Quadratic { ctrl, to, edge, .. } => {
+                IdEvent::Quadratic { ctrl, to, .. } => {
                     self.quadratic_bezier_segment(
                         points.ctrl_point_position(ctrl),
                         points.endpoint_position(to),
                         to,
-                        edge,
                     );
                     self.prev_endpoint_id = to;
                 }
-                IdEvent::Cubic { ctrl1, ctrl2, to, edge, .. } => {
+                IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
                     self.cubic_bezier_segment(
                         points.ctrl_point_position(ctrl1),
                         points.ctrl_point_position(ctrl2),
                         points.endpoint_position(to),
                         to,
-                        edge,
                     );
                     self.prev_endpoint_id = to;
                 }
-                IdEvent::End { first, edge, .. } => {
-                    self.end(points.endpoint_position(first), first, edge);
+                IdEvent::End { first, .. } => {
+                    self.end(points.endpoint_position(first), first);
                     self.prev_endpoint_id = first;
                 }
             }
@@ -470,14 +461,13 @@ impl EventQueueBuilder {
         debug_assert!(!self.prev_evt_is_edge);
     }
 
-    fn vertex_event(&mut self, at: Point, endpoint_id: EndpointId, evt_id: path::EventId) {
+    fn vertex_event(&mut self, at: Point, endpoint_id: EndpointId) {
         self.queue.push(at);
         self.queue.edge_data.push(EdgeData {
             to: point(f32::NAN, f32::NAN),
             range: 0.0..0.0,
             winding: 0,
             is_edge: false,
-            evt_id,
             from_id: endpoint_id,
             to_id: endpoint_id,
         });
@@ -489,7 +479,6 @@ impl EventQueueBuilder {
         t: f32,
         from_id: EndpointId,
         to_id: EndpointId,
-        evt_id: path::EventId,
     ) {
         self.queue.push(at);
         self.queue.edge_data.push(EdgeData {
@@ -497,13 +486,12 @@ impl EventQueueBuilder {
             range: t..t,
             winding: 0,
             is_edge: false,
-            evt_id,
             from_id,
             to_id,
         });
     }
 
-    fn end(&mut self, first: Point, first_endpoint_id: EndpointId, evt_id: path::EventId) {
+    fn end(&mut self, first: Point, first_endpoint_id: EndpointId) {
         if self.nth == 0 {
             return;
         }
@@ -511,14 +499,14 @@ impl EventQueueBuilder {
         // Unless we are already back to the first point, we need to
         // to insert an edge.
         if self.current != first {
-            self.line_segment(first, first_endpoint_id, evt_id, 0.0, 1.0);
+            self.line_segment(first, first_endpoint_id, 0.0, 1.0);
         }
 
         // Since we can only check for the need of a vertex event when
         // we have a previous edge, we skipped it for the first edge
         // and have to do it now.
         if is_after(first, self.prev) && is_after(first, self.second) {
-            self.vertex_event(first, first_endpoint_id, evt_id);
+            self.vertex_event(first, first_endpoint_id);
         }
 
         self.prev_evt_is_edge = false;
@@ -538,7 +526,6 @@ impl EventQueueBuilder {
         from: Point,
         to: Point,
         mut winding: i16,
-        evt_id: path::EventId,
         from_id: EndpointId,
         to_id: EndpointId,
         mut t0: f32,
@@ -560,7 +547,6 @@ impl EventQueueBuilder {
             range: t0..t1,
             winding,
             is_edge: true,
-            evt_id,
             from_id,
             to_id,
         });
@@ -573,11 +559,8 @@ impl EventQueueBuilder {
         &mut self,
         to: Point,
         to_id: EndpointId,
-        evt_id: path::EventId,
         t0: f32, t1: f32,
     ) {
-        debug_assert!(evt_id != path::EventId::INVALID);
-
         let from = self.current;
         if from == to {
             return;
@@ -585,7 +568,7 @@ impl EventQueueBuilder {
 
         if is_after(from, to) {
             if self.nth > 0 && is_after(from, self.prev) {
-                self.vertex_event(from, self.prev_endpoint_id, evt_id);
+                self.vertex_event(from, self.prev_endpoint_id);
             }
         }
 
@@ -596,7 +579,6 @@ impl EventQueueBuilder {
         self.add_edge(
             from, to,
             1,
-            evt_id,
             self.prev_endpoint_id,
             to_id,
             t0, t1
@@ -612,7 +594,6 @@ impl EventQueueBuilder {
         ctrl: Point,
         to: Point,
         to_id: EndpointId,
-        evt_id: path::EventId,
     ) {
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
@@ -654,14 +635,12 @@ impl EventQueueBuilder {
                     t0,
                     self.prev_endpoint_id,
                     to_id,
-                    evt_id,
                 );
             }
 
             self.add_edge(
                 from, to,
                 winding,
-                evt_id,
                 self.prev_endpoint_id,
                 to_id,
                 t0, t1,
@@ -680,7 +659,7 @@ impl EventQueueBuilder {
         } else if is_after(original.from, self.prev) && is_after(original.from, second) {
             // Handle the first vertex we took out of the loop above.
             // The missing vertex is always the origin of the edge (before the flip).
-            self.vertex_event(original.from, self.prev_endpoint_id, evt_id);
+            self.vertex_event(original.from, self.prev_endpoint_id);
         }
 
         self.prev = previous;
@@ -693,7 +672,6 @@ impl EventQueueBuilder {
         ctrl2: Point,
         to: Point,
         to_id: EndpointId,
-        evt_id: path::EventId,
     ) {
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
@@ -737,14 +715,12 @@ impl EventQueueBuilder {
                     t0,
                     self.prev_endpoint_id,
                     to_id,
-                    evt_id,
                 );
             }
 
             self.add_edge(
                 from, to,
                 winding,
-                evt_id,
                 self.prev_endpoint_id,
                 to_id,
                 t0, t1,
@@ -763,7 +739,7 @@ impl EventQueueBuilder {
         } else if is_after(original.from, self.prev) && is_after(original.from, second) {
             // Handle the first vertex we took out of the loop above.
             // The missing vertex is always the origin of the edge (before the flip).
-            self.vertex_event(original.from, self.prev_endpoint_id, evt_id);
+            self.vertex_event(original.from, self.prev_endpoint_id);
         }
 
         self.prev = previous;

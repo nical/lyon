@@ -225,7 +225,7 @@ pub use crate::geometry_builder::{
 
 pub use crate::path::FillRule;
 
-use crate::path::{EndpointId, EventId};
+use crate::path::EndpointId;
 
 use std::ops::{Add, Sub};
 use std::u32;
@@ -327,7 +327,7 @@ pub use fill::FillAttributes;
 #[derive(Clone, Debug)]
 pub enum VertexSource {
     Endpoint { id: EndpointId },
-    Edge { edge: EventId, from: EndpointId, to: EndpointId, t: f32 },
+    Edge { from: EndpointId, to: EndpointId, t: f32 },
 }
 
 pub struct NoSource;

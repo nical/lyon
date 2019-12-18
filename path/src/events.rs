@@ -1,5 +1,5 @@
 use crate::math::{Point, Transform2D, Transform};
-use crate::{EndpointId, CtrlPointId, EventId, Position};
+use crate::{EndpointId, CtrlPointId, Position};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -12,16 +12,7 @@ pub enum Event<Endpoint, CtrlPoint> {
 }
 
 pub type PathEvent = Event<Point, Point>;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub enum IdEvent {
-    Begin { at: EndpointId },
-    Line { from: EndpointId, to: EndpointId, edge: EventId },
-    Quadratic { from: EndpointId, ctrl: CtrlPointId, to: EndpointId, edge: EventId },
-    Cubic { from: EndpointId, ctrl1: CtrlPointId, ctrl2: CtrlPointId, to: EndpointId, edge: EventId },
-    End { last: EndpointId, first: EndpointId, close: bool, edge: EventId },
-}
+pub type IdEvent = Event<EndpointId, CtrlPointId>;
 
 impl<Ep, Cp> Event<Ep, Cp> {
     pub fn is_edge(&self) -> bool {

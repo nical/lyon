@@ -29,13 +29,11 @@ impl<'l> IdPolygonSlice<'l> {
                 last: self.points[self.points.len() - 1],
                 first: self.points[0],
                 close: self.closed,
-                edge: id,
             }
         } else {
             IdEvent::Line {
                 from: self.points[idx - 1],
                 to: self.points[idx],
-                edge: id,
             }
         }
     }
@@ -53,13 +51,11 @@ pub struct IdPolygonIter<'l> {
 impl<'l> Iterator for IdPolygonIter<'l> {
     type Item = IdEvent;
     fn next(&mut self) -> Option<IdEvent> {
-        let edge = EventId(self.idx);
-
         match (self.prev, self.points.next()) {
             (Some(from), Some(to)) => {
                 self.prev = Some(*to);
                 self.idx += 1;
-                Some(IdEvent::Line { from, to: *to, edge })
+                Some(IdEvent::Line { from, to: *to })
             }
             (None, Some(at)) => {
                 self.prev = Some(*at);
@@ -73,7 +69,6 @@ impl<'l> Iterator for IdPolygonIter<'l> {
                     last,
                     first: self.first,
                     close: self.closed,
-                    edge,
                 })
             }
             (None, None) => None,
@@ -172,18 +167,17 @@ fn event_ids() {
     };
 
     assert_eq!(poly.event(EventId(0)), IdEvent::Begin { at: EndpointId(0) });
-    assert_eq!(poly.event(EventId(1)), IdEvent::Line { from: EndpointId(0), to: EndpointId(1), edge: EventId(1) });
-    assert_eq!(poly.event(EventId(2)), IdEvent::Line { from: EndpointId(1), to: EndpointId(2), edge: EventId(2) });
-    assert_eq!(poly.event(EventId(3)), IdEvent::Line { from: EndpointId(2), to: EndpointId(3), edge: EventId(3) });
-    assert_eq!(poly.event(EventId(4)), IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true, edge: EventId(4) });
+    assert_eq!(poly.event(EventId(1)), IdEvent::Line { from: EndpointId(0), to: EndpointId(1) });
+    assert_eq!(poly.event(EventId(2)), IdEvent::Line { from: EndpointId(1), to: EndpointId(2) });
+    assert_eq!(poly.event(EventId(3)), IdEvent::Line { from: EndpointId(2), to: EndpointId(3) });
+    assert_eq!(poly.event(EventId(4)), IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true });
 
     let mut iter = poly.iter();
     assert_eq!(iter.next(), Some(IdEvent::Begin { at: EndpointId(0) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(0), to: EndpointId(1), edge: EventId(1) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(1), to: EndpointId(2), edge: EventId(2) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(2), to: EndpointId(3), edge: EventId(3) }));
-    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true, edge: EventId(4) }));
+    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(0), to: EndpointId(1) }));
+    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(1), to: EndpointId(2) }));
+    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(2), to: EndpointId(3) }));
+    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true }));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.next(), None);
 }
-
