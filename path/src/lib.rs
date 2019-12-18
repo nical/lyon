@@ -89,6 +89,7 @@ impl FillRule {
     }
 }
 
+#[doc(hidden)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Transition {
     In,
@@ -96,9 +97,11 @@ pub enum Transition {
     None,
 }
 
+/// ID of a control point in a path.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct CtrlPointId(pub u32);
+
 impl CtrlPointId {
     pub const INVALID: Self = CtrlPointId(u32::MAX);
     pub fn offset(self) -> usize { self.0 as usize }
@@ -112,6 +115,7 @@ impl fmt::Debug for CtrlPointId {
     }
 }
 
+/// ID of an endpoint point in a path.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct EndpointId(pub u32);
@@ -141,6 +145,8 @@ impl EventId {
     pub fn to_usize(&self) -> usize { self.0 as usize }
 }
 
+/// Interface for types types (typically endpoints and control points) that have
+/// a 2D position.
 pub trait Position {
     fn position(&self) -> Point;
 }
@@ -161,6 +167,10 @@ impl Position for [f32; 2] {
     fn position(&self) -> Point { Point::new(self[0], self[1]) }
 }
 
+/// Interface for objects storing endpoints and control points positions.
+///
+/// This interface can be implemented by path objects themselves or via external
+/// data structures.
 pub trait PositionStore {
     fn endpoint_position(&self, id: EndpointId) -> Point;
     fn ctrl_point_position(&self, id: CtrlPointId) -> Point;
@@ -175,14 +185,23 @@ impl<'l> PositionStore for (&'l [Point], &'l [Point]) {
     }
 }
 
+/// Interface for objects storing custom attributes associated with endpoints.
 ///
+/// This interface can be implemented by path objects themselves or via external
+/// data structures.
 pub trait AttributeStore {
+    /// Returns the endpoint's custom attributes as a slice of 32 bits floats.
     ///
-    fn get_attributes(&self, id: EndpointId) -> &[f32];
+    /// The size of the slice must be equal to the result of `num_attributes()`.
+    fn interpolated_attributes(&self, id: EndpointId) -> &[f32];
+
+    /// Returns the number of float attributes per endpoint.
     ///
+    /// All endpoints must have the same number of attributes.
     fn num_attributes(&self) -> usize;
 }
 
+/// A view over a contiguous storage of custom attributes. 
 pub struct AttributeSlice<'l> {
     data: &'l [f32],
     stride: usize,
@@ -198,7 +217,7 @@ impl<'l> AttributeSlice<'l> {
 }
 
 impl<'l> AttributeStore for AttributeSlice<'l> {
-    fn get_attributes(&self, id: EndpointId) -> &[f32] {
+    fn interpolated_attributes(&self, id: EndpointId) -> &[f32] {
         let start = id.to_usize() * self.stride;
         let end = start + self.stride;
         &self.data[start..end]

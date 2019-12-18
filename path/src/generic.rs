@@ -1,3 +1,61 @@
+//! A generic representation for paths that allow more control over how
+//! endpoints and control points are stored.
+//!
+//! # Motivation
+//!
+//! The default `Path` data structure in this crate is works well for the
+//! most common use cases. Sometimes, however, it is useful to be able to
+//! specify exactly how endpoints and control points are stored instead of
+//! relying on implicitly following the order of the events.
+//!
+//! This module contains bricks to help with building custom path representations.
+//! The central piece is the [`PathCommands`](struct.PathCommands.html) buffer and
+//! its [`PathCommandsBuilder`](struct.PathCommandsBuilder.html), providing a compact
+//! representation for path events with IDs instead of positions.
+//!
+//! # Examples
+//!
+//! The following example shows how `PathCommands` can be used together with an
+//! external buffers for positions to implement features similar to the default
+//! Path type with a different data structure.
+//!
+//! ```
+//! use lyon_path::{EndpointId, Event, IdEvent, generic::PathCommands};
+//! let points = &[
+//!     [0.0, 0.0],
+//!     [1.0, 1.0],
+//!     [0.0, 2.0],
+//! ];
+//!
+//! let mut cmds = PathCommands::builder();
+//! cmds.move_to(EndpointId(0));
+//! cmds.line_to(EndpointId(1));
+//! cmds.line_to(EndpointId(2));
+//! cmds.close();
+//!
+//! let cmds = cmds.build();
+//!
+//! for event in &cmds {
+//!     match event {
+//!         IdEvent::Begin { at } => { println!("move to {:?}", points[at.to_usize()]); }
+//!         IdEvent::Line { to, .. } => { println!("line to {:?}", points[to.to_usize()]); }
+//!         IdEvent::End { close: true, .. } => { println!("close"); }
+//!         _ => { panic!("unexpected event!") }
+//!     }
+//! }
+//!
+//! // Iterate over the points directly using GenericPathSlice
+//! for event in cmds.path_slice(points, points).events() {
+//!     match event {
+//!         Event::Begin { at } => { println!("move to {:?}", at); }
+//!         Event::Line { to, .. } => { println!("line to {:?}", to); }
+//!         Event::End { close: true, .. } => { println!("close"); }
+//!         _ => { panic!("unexpected event!") }
+//!     }
+//! }
+//!
+//! ```
+
 use crate::{EndpointId, CtrlPointId, EventId, Position, PositionStore};
 use crate::events::{Event, PathEvent, IdEvent};
 use crate::math::Point;
@@ -60,8 +118,20 @@ impl<'l> CmdIter<'l> {
 /// to endpoints and control points.
 ///
 /// `PathCommands` is a good fit when the a custom endpoint and control point
-/// types are needed or when their the user needs to control their position in
-/// the buffers.
+/// types are needed or when their the user needs full control over their storage.
+///
+/// # Representation
+///
+/// Path commands contains a single array of 32 bits integer values encoding path
+/// commands, endpoint IDs or control point IDs.
+///
+/// ```ascii
+///  _______________________________________________________________________
+/// |       |          |      |          |         |           |          |
+/// | Begin |EndpointID| Line |EndpointID|Quadratic|CtrlPointId|EndpointID| ...
+/// |_______|__________|______|__________|_________|___________|__________|_
+///
+/// ```
 #[derive(Clone)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathCommands {
@@ -152,6 +222,7 @@ impl<'l> Into<PathCommandsSlice<'l>> for &'l PathCommands {
     }
 }
 
+/// A view over [`PathCommands`](struct.PathCommands.html).
 #[derive(Copy, Clone)]
 pub struct PathCommandsSlice<'l> {
     cmds: &'l [u32],
@@ -251,6 +322,8 @@ impl<'l> fmt::Debug for PathCommandsSlice<'l> {
         write!(f, "}}")
     }
 }
+
+/* TODO: Should we provide this type or let users make their own.
 
 pub struct GenericPath<Endpoint, CtrlPoint> {
     cmds: PathCommands,
@@ -354,7 +427,105 @@ impl<Endpoint, CtrlPoint> std::ops::Index<CtrlPointId> for GenericPath<Endpoint,
     }
 }
 
-/// A view on a `Path`.
+/// Builds path commands as well as endpoint and control point vectors.
+pub struct GenericPathBuilder<Endpoint, CtrlPoint> {
+    endpoints: Vec<Endpoint>,
+    ctrl_points: Vec<CtrlPoint>,
+    cmds: PathCommandsBuilder,
+}
+
+impl<Endpoint, CtrlPoint> PositionStore for GenericPath<Endpoint, CtrlPoint>
+where
+    Endpoint: Position,
+    CtrlPoint: Position,
+{
+    fn endpoint_position(&self, id: EndpointId) -> Point {
+        self[id].position()
+    }
+
+    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+        self[id].position()
+    }
+}
+
+impl<Endpoint, CtrlPoint> GenericPathBuilder<Endpoint, CtrlPoint> {
+    /// Creates a builder without allocating memory.
+    pub fn new() -> Self {
+        Self {
+            endpoints: Vec::new(),
+            ctrl_points: Vec::new(),
+            cmds: PathCommandsBuilder::new(),
+        }
+    }
+
+    /// Creates a pre-allocated builder.
+    pub fn with_capacity(
+        n_endpoints: usize,
+        n_ctrl_points: usize,
+        n_edges: usize,
+    ) -> Self {
+        Self {
+            endpoints: Vec::with_capacity(n_endpoints),
+            ctrl_points: Vec::with_capacity(n_ctrl_points),
+            cmds: PathCommandsBuilder::with_capacity(n_edges + n_endpoints + n_ctrl_points),
+        }
+    }
+
+    pub fn move_to(&mut self, to: Endpoint) -> EventId {
+        let id = self.add_endpoint(to);
+        self.cmds.move_to(id)
+    }
+
+    pub fn line_to(&mut self, to: Endpoint) -> EventId {
+        let id = self.add_endpoint(to);
+        self.cmds.line_to(id)
+    }
+
+    pub fn quadratic_bezier_to(&mut self, ctrl: CtrlPoint, to: Endpoint) -> EventId {
+        let ctrl = self.add_ctrl_point(ctrl);
+        let to = self.add_endpoint(to);
+        self.cmds.quadratic_bezier_to(ctrl, to)
+    }
+
+    pub fn cubic_bezier_to(&mut self, ctrl1: CtrlPoint, ctrl2: CtrlPoint, to: Endpoint) -> EventId {
+        let ctrl1 = self.add_ctrl_point(ctrl1);
+        let ctrl2 = self.add_ctrl_point(ctrl2);
+        let to = self.add_endpoint(to);
+        self.cmds.cubic_bezier_to(ctrl1, ctrl2, to)
+    }
+
+    pub fn close(&mut self) -> EventId {
+        self.cmds.close()
+    }
+
+    /// Consumes the builder and returns the generated path commands.
+    pub fn build(self) -> GenericPath<Endpoint, CtrlPoint> {
+        GenericPath {
+            cmds: self.cmds.build(),
+            endpoints: self.endpoints.into_boxed_slice(),
+            ctrl_points: self.ctrl_points.into_boxed_slice(),
+        }
+    }
+
+    #[inline]
+    fn add_endpoint(&mut self, ep: Endpoint) -> EndpointId {
+        let id = EndpointId(self.endpoints.len() as u32);
+        self.endpoints.push(ep);
+        id
+    }
+
+    #[inline]
+    fn add_ctrl_point(&mut self, cp: CtrlPoint) -> CtrlPointId {
+        let id = CtrlPointId(self.ctrl_points.len() as u32);
+        self.ctrl_points.push(cp);
+        id
+    }
+}
+
+*/
+
+/// A view on a [`PathCommands`](struct.PathCommands.html) buffer and
+/// two slices for endpoints and control points.
 #[derive(Copy, Clone)]
 pub struct GenericPathSlice<'l, Endpoint, CtrlPoint> {
     endpoints: &'l [Endpoint],
@@ -417,6 +588,8 @@ where
 }
 
 /// Builds path commands.
+///
+/// See [`PathCommands`](struct.PathCommands.html).
 #[derive(Clone)]
 pub struct PathCommandsBuilder {
     cmds: Vec<u32>,
@@ -532,87 +705,6 @@ impl PathCommandsBuilder {
         PathCommands {
             cmds: self.cmds.into_boxed_slice(),
         }
-    }
-}
-
-/// Builds path commands as well as endpoint and control point vectors.
-pub struct GenericPathBuilder<Endpoint, CtrlPoint> {
-    endpoints: Vec<Endpoint>,
-    ctrl_points: Vec<CtrlPoint>,
-    cmds: PathCommandsBuilder,
-}
-
-impl<Endpoint, CtrlPoint> GenericPathBuilder<Endpoint, CtrlPoint> {
-    /// Creates a builder without allocating memory.
-    pub fn new() -> Self {
-        Self {
-            endpoints: Vec::new(),
-            ctrl_points: Vec::new(),
-            cmds: PathCommandsBuilder::new(),
-        }
-    }
-
-    /// Creates a pre-allocated builder.
-    pub fn with_capacity(
-        n_endpoints: usize,
-        n_ctrl_points: usize,
-        n_edges: usize,
-    ) -> Self {
-        Self {
-            endpoints: Vec::with_capacity(n_endpoints),
-            ctrl_points: Vec::with_capacity(n_ctrl_points),
-            cmds: PathCommandsBuilder::with_capacity(n_edges + n_endpoints + n_ctrl_points),
-        }
-    }
-
-    pub fn move_to(&mut self, to: Endpoint) -> EventId {
-        let id = self.add_endpoint(to);
-        self.cmds.move_to(id)
-    }
-
-    pub fn line_to(&mut self, to: Endpoint) -> EventId {
-        let id = self.add_endpoint(to);
-        self.cmds.line_to(id)
-    }
-
-    pub fn quadratic_bezier_to(&mut self, ctrl: CtrlPoint, to: Endpoint) -> EventId {
-        let ctrl = self.add_ctrl_point(ctrl);
-        let to = self.add_endpoint(to);
-        self.cmds.quadratic_bezier_to(ctrl, to)
-    }
-
-    pub fn cubic_bezier_to(&mut self, ctrl1: CtrlPoint, ctrl2: CtrlPoint, to: Endpoint) -> EventId {
-        let ctrl1 = self.add_ctrl_point(ctrl1);
-        let ctrl2 = self.add_ctrl_point(ctrl2);
-        let to = self.add_endpoint(to);
-        self.cmds.cubic_bezier_to(ctrl1, ctrl2, to)
-    }
-
-    pub fn close(&mut self) -> EventId {
-        self.cmds.close()
-    }
-
-    /// Consumes the builder and returns the generated path commands.
-    pub fn build(self) -> GenericPath<Endpoint, CtrlPoint> {
-        GenericPath {
-            cmds: self.cmds.build(),
-            endpoints: self.endpoints.into_boxed_slice(),
-            ctrl_points: self.ctrl_points.into_boxed_slice(),
-        }
-    }
-
-    #[inline]
-    fn add_endpoint(&mut self, ep: Endpoint) -> EndpointId {
-        let id = EndpointId(self.endpoints.len() as u32);
-        self.endpoints.push(ep);
-        id
-    }
-
-    #[inline]
-    fn add_ctrl_point(&mut self, cp: CtrlPoint) -> CtrlPointId {
-        let id = CtrlPointId(self.ctrl_points.len() as u32);
-        self.ctrl_points.push(cp);
-        id
     }
 }
 
@@ -903,20 +995,6 @@ where
 }
 
 impl<'l, Endpoint, CtrlPoint> PositionStore for GenericPathSlice<'l, Endpoint, CtrlPoint>
-where
-    Endpoint: Position,
-    CtrlPoint: Position,
-{
-    fn endpoint_position(&self, id: EndpointId) -> Point {
-        self[id].position()
-    }
-
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
-        self[id].position()
-    }
-}
-
-impl<Endpoint, CtrlPoint> PositionStore for GenericPath<Endpoint, CtrlPoint>
 where
     Endpoint: Position,
     CtrlPoint: Position,

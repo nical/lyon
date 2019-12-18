@@ -1,6 +1,7 @@
 use crate::math::{Point, Transform2D, Transform};
 use crate::{EndpointId, CtrlPointId, Position};
 
+/// Represents an event or edge of path.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum Event<Endpoint, CtrlPoint> {
@@ -11,7 +12,10 @@ pub enum Event<Endpoint, CtrlPoint> {
     End { last: Endpoint, first: Endpoint, close: bool },
 }
 
+/// A path event representing endpoints and control points as positions.
 pub type PathEvent = Event<Point, Point>;
+
+/// A path event representing endpoints and control points as IDs.
 pub type IdEvent = Event<EndpointId, CtrlPointId>;
 
 impl<Ep, Cp> Event<Ep, Cp> {
