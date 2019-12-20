@@ -314,12 +314,13 @@ impl Order {
 }
 
 /// Extra vertex information from the `StrokeTessellator`.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct StrokeAttributes {
     pub(crate) normal: math::Vector,
     pub(crate) advancement: f32,
     pub(crate) side: Side,
+    pub(crate) src: VertexSource,
 }
 
 impl StrokeAttributes {
@@ -335,6 +336,10 @@ impl StrokeAttributes {
     /// Whether the vertex is on the left or right side of the path.
     #[inline]
     pub fn side(&self) -> Side { self.side }
+
+    /// Returns the source of this vertex.
+    #[inline]
+    pub fn source(&self) -> VertexSource { self.src }
 }
 
 pub use fill::FillAttributes;
@@ -345,7 +350,7 @@ pub use fill::FillAttributes;
 /// approximations and self-intersections can introduce vertices that are on
 /// one or several edges, at a certain parameter `t` between the two endpoints
 /// of the edge.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VertexSource {
     Endpoint { id: EndpointId },
     Edge { from: EndpointId, to: EndpointId, t: f32 },
