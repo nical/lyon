@@ -2022,3 +2022,36 @@ fn reduced_test_case_14() {
     // SVG path syntax:
     // "M 0 0 L 100 200 100 100 400 250 500 0 500 600 400 300 400 600 300 600 400 300 200 600 100 600 400 300 0 600 Z"
 }
+
+#[test]
+fn issue_500() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(6.05, 11.65));
+    builder.line_to(point(5.6, 11.65));
+    builder.line_to(point(4.7, 12.25));
+    builder.line_to(point(5.15, 12.55));
+    builder.line_to(point(5.6, 11.65));
+    builder.line_to(point(5.6, 12.7));
+    builder.line_to(point(6.05, 11.65));
+    builder.line_to(point(8.3, 7.6));
+    builder.line_to(point(7.7, 7.6));
+    builder.line_to(point(8.0, 7.75));
+    builder.line_to(point(9.8, 7.15));
+    builder.line_to(point(9.8, 13.15));
+    builder.line_to(point(1.25, 13.15));
+    builder.line_to(point(1.25, 7.15));
+    builder.line_to(point(1.25, 7.15));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    tess.tessellate_path(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    ).unwrap();
+}
+
