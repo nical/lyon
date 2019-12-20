@@ -1896,11 +1896,11 @@ fn on_edge(src: &VertexSource, from_id: EndpointId, to_id: EndpointId, d: f32) -
 }
 
 #[test]
-fn vertex_source_01() {
+fn fill_vertex_source_01() {
     use crate::path::generic::PathCommandsBuilder;
     use crate::path::AttributeSlice;
 
-    let endpoints: Vec<Point> = vec![
+    let endpoints: &[Point] = &[
         point(0.0, 0.0),
         point(1.0, 1.0),
         point(0.0, 2.0),
@@ -1923,7 +1923,7 @@ fn vertex_source_01() {
     let mut queue = EventQueue::from_path_with_ids(
         0.1,
         cmds.id_events(),
-        &(&endpoints[..], &endpoints[..]),
+        &(endpoints, endpoints),
     );
 
     let mut tess = FillTessellator::new();
@@ -1967,7 +1967,7 @@ fn vertex_source_01() {
 }
 
 #[test]
-fn vertex_source_02() {
+fn fill_vertex_source_02() {
     // Check the vertex sources of a simple self-intersecting shape.
     //    _
     //  _|_|_

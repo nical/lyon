@@ -29,7 +29,8 @@ use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
-use crate::{FillTessellator, FillOptions, StrokeAttributes, StrokeOptions, Side, TessellationResult, VertexId};
+use crate::path::EndpointId;
+use crate::{FillTessellator, FillOptions, StrokeAttributes, StrokeOptions, Side, TessellationResult, VertexId, VertexSource};
 
 use std::f32::consts::PI;
 
@@ -158,6 +159,7 @@ fn stroke_thin_rectangle(
             normal: vector(-1.0, -1.0),
             advancement: 0.0,
             side: Side::Left,
+            src: VertexSource::Endpoint{ id: EndpointId(0) },
         },
     )?;
     let b = output.add_stroke_vertex(
@@ -166,6 +168,7 @@ fn stroke_thin_rectangle(
             normal: vector(-1.0, 1.0),
             advancement: 0.0,
             side: Side::Left,
+            src: VertexSource::Endpoint{ id: EndpointId(1) },
         },
     )?;
     let c = output.add_stroke_vertex(
@@ -174,6 +177,7 @@ fn stroke_thin_rectangle(
             normal: vector(1.0, 1.0),
             advancement: 1.0,
             side: Side::Right,
+            src: VertexSource::Endpoint{ id: EndpointId(2) },
         },
     )?;
     let d = output.add_stroke_vertex(
@@ -182,6 +186,7 @@ fn stroke_thin_rectangle(
             normal: vector(1.0, -1.0),
             advancement: 1.0,
             side: Side::Right,
+            src: VertexSource::Endpoint{ id: EndpointId(3) },
         },
     )?;
 
