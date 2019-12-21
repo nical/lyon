@@ -313,36 +313,9 @@ impl Order {
     pub fn is_after(self) -> bool { self == Order::After }
 }
 
-/// Extra vertex information from the `StrokeTessellator`.
-#[derive(Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct StrokeAttributes {
-    pub(crate) normal: math::Vector,
-    pub(crate) advancement: f32,
-    pub(crate) side: Side,
-    pub(crate) src: VertexSource,
-}
-
-impl StrokeAttributes {
-    /// Normal at this vertex such that extruding the vertices along the normal would
-    /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
-    #[inline]
-    pub fn normal(&self) -> math::Vector { self.normal }
-
-    /// How far along the path this vertex is.
-    #[inline]
-    pub fn advancement(&self) -> f32 { self.advancement }
-
-    /// Whether the vertex is on the left or right side of the path.
-    #[inline]
-    pub fn side(&self) -> Side { self.side }
-
-    /// Returns the source of this vertex.
-    #[inline]
-    pub fn source(&self) -> VertexSource { self.src }
-}
 
 pub use fill::FillAttributes;
+pub use stroke::StrokeAttributes;
 
 /// Where a vertex produced by a tessellator comes from in the original path.
 ///

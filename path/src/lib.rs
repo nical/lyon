@@ -201,6 +201,11 @@ pub trait AttributeStore {
     fn num_attributes(&self) -> usize;
 }
 
+impl AttributeStore for () {
+    fn num_attributes(&self) -> usize { 0 }
+    fn interpolated_attributes(&self, _: EndpointId) -> &[f32] { &[] }
+}
+
 /// A view over a contiguous storage of custom attributes. 
 pub struct AttributeSlice<'l> {
     data: &'l [f32],

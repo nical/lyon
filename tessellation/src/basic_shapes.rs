@@ -160,6 +160,9 @@ fn stroke_thin_rectangle(
             advancement: 0.0,
             side: Side::Left,
             src: VertexSource::Endpoint{ id: EndpointId(0) },
+            store: &(),
+            buffer: &mut [],
+            buffer_is_valid: true,
         },
     )?;
     let b = output.add_stroke_vertex(
@@ -169,6 +172,9 @@ fn stroke_thin_rectangle(
             advancement: 0.0,
             side: Side::Left,
             src: VertexSource::Endpoint{ id: EndpointId(1) },
+            store: &(),
+            buffer: &mut [],
+            buffer_is_valid: true,
         },
     )?;
     let c = output.add_stroke_vertex(
@@ -178,6 +184,9 @@ fn stroke_thin_rectangle(
             advancement: 1.0,
             side: Side::Right,
             src: VertexSource::Endpoint{ id: EndpointId(2) },
+            store: &(),
+            buffer: &mut [],
+            buffer_is_valid: true,
         },
     )?;
     let d = output.add_stroke_vertex(
@@ -187,6 +196,9 @@ fn stroke_thin_rectangle(
             advancement: 1.0,
             side: Side::Right,
             src: VertexSource::Endpoint{ id: EndpointId(3) },
+            store: &(),
+            buffer: &mut [],
+            buffer_is_valid: true,
         },
     )?;
 
@@ -483,7 +495,7 @@ pub fn stroke_rounded_rectangle(
     });
 
     {
-        let mut builder = StrokeBuilder::new(options, output);
+        let mut builder = StrokeBuilder::new(options, &(), output);
         builder.move_to(p0);
         for i in 0..4 {
             stroke_border_radius(
@@ -581,7 +593,7 @@ pub fn stroke_circle(
     let num_points = (arc_len / step).ceil() as u32 - 1;
 
     { // output borrow scope start
-        let mut builder = StrokeBuilder::new(options, output);
+        let mut builder = StrokeBuilder::new(options, &(), output);
         builder.move_to(starting_point);
         stroke_border_radius(
             center,
@@ -694,7 +706,7 @@ pub fn stroke_ellipse(
 
     output.begin_geometry();
     {
-        let mut path = FlatteningBuilder::new(StrokeBuilder::new(options, output), options.tolerance).with_svg();
+        let mut path = FlatteningBuilder::new(StrokeBuilder::new(options, &(), output), options.tolerance).with_svg();
 
         path.move_to(arc.sample(0.0));
         arc.for_each_quadratic_bezier(&mut|curve| {
