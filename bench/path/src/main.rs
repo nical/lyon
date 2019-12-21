@@ -4,13 +4,11 @@ extern crate bencher;
 
 use lyon::path::{Path, Event, PathEvent, IdEvent, EndpointId, CtrlPointId};
 use lyon::path::generic;
-use lyon::math::{Point, point};
+use lyon::math::point;
 
 use bencher::Bencher;
 
 const N: usize = 1;
-
-//type GenericPathBuilder = generic::GenericPathBuilder<Point, Point>;
 
 fn simple_path_build_empty(bench: &mut Bencher) {
     bench.iter(|| {
@@ -201,7 +199,7 @@ fn no_attrib_iter(bench: &mut Bencher) {
 
     let mut p = point(0.0, 0.0);
     bench.iter(|| {
-        for evt in path.with_attributes() {
+        for evt in path.iter_with_attributes() {
             p += match evt {
                 Event::Begin { at: p }
                 | Event::Line { to: p, .. }
@@ -237,7 +235,7 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
 
     let mut p = point(0.0, 0.0);
     bench.iter(|| {
-        for evt in path.with_attributes() {
+        for evt in path.iter_with_attributes() {
             p += match evt {
                 Event::Begin { at: p }
                 | Event::Line { to: p, .. }
