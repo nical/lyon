@@ -30,7 +30,7 @@ use crate::geom::Arc;
 use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
 use crate::path::EndpointId;
-use crate::{FillTessellator, FillOptions, StrokeAttributes, StrokeOptions, Side, TessellationResult, VertexId, VertexSource};
+use crate::{FillTessellator, FillOptions, StrokeAttributes, StrokeAttributesData, StrokeOptions, Side, TessellationResult, VertexId, VertexSource};
 
 use std::f32::consts::PI;
 
@@ -153,53 +153,45 @@ fn stroke_thin_rectangle(
 
     output.begin_geometry();
 
+    let mut attributes = StrokeAttributesData {
+        normal: vector(-1.0, -1.0),
+        advancement: 0.0,
+        side: Side::Left,
+        src: VertexSource::Endpoint{ id: EndpointId::INVALID },
+        store: &(),
+        buffer: &mut [],
+        buffer_is_valid: true,
+    };
+
     let a = output.add_stroke_vertex(
         rect.origin,
-        StrokeAttributes {
-            normal: vector(-1.0, -1.0),
-            advancement: 0.0,
-            side: Side::Left,
-            src: VertexSource::Endpoint{ id: EndpointId(0) },
-            store: &(),
-            buffer: &mut [],
-            buffer_is_valid: true,
-        },
+        StrokeAttributes(&mut attributes),
     )?;
+
+    attributes.normal = vector(-1.0, 1.0);
+    attributes.advancement += rect.size.height;
+
     let b = output.add_stroke_vertex(
         bottom_left(&rect),
-        StrokeAttributes {
-            normal: vector(-1.0, 1.0),
-            advancement: 0.0,
-            side: Side::Left,
-            src: VertexSource::Endpoint{ id: EndpointId(1) },
-            store: &(),
-            buffer: &mut [],
-            buffer_is_valid: true,
-        },
+        StrokeAttributes(&mut attributes),
     )?;
+
+    attributes.side = Side::Right;
+
+    attributes.normal = vector(1.0, 1.0);
+    attributes.advancement += rect.size.width;
+
     let c = output.add_stroke_vertex(
         bottom_right(&rect),
-        StrokeAttributes {
-            normal: vector(1.0, 1.0),
-            advancement: 1.0,
-            side: Side::Right,
-            src: VertexSource::Endpoint{ id: EndpointId(2) },
-            store: &(),
-            buffer: &mut [],
-            buffer_is_valid: true,
-        },
+        StrokeAttributes(&mut attributes),
     )?;
+
+    attributes.normal = vector(1.0, -1.0);
+    attributes.advancement += rect.size.height;
+
     let d = output.add_stroke_vertex(
         top_right(&rect),
-        StrokeAttributes {
-            normal: vector(1.0, -1.0),
-            advancement: 1.0,
-            side: Side::Right,
-            src: VertexSource::Endpoint{ id: EndpointId(3) },
-            store: &(),
-            buffer: &mut [],
-            buffer_is_valid: true,
-        },
+        StrokeAttributes(&mut attributes),
     )?;
 
     output.add_triangle(a, b, c);
@@ -495,7 +487,7 @@ pub fn stroke_rounded_rectangle(
     });
 
     {
-        let mut builder = StrokeBuilder::new(options, &(), output);
+        let mut builder = StrokeBuilder::new(options, &(), &mut[], output);
         builder.move_to(p0);
         for i in 0..4 {
             stroke_border_radius(
@@ -593,7 +585,7 @@ pub fn stroke_circle(
     let num_points = (arc_len / step).ceil() as u32 - 1;
 
     { // output borrow scope start
-        let mut builder = StrokeBuilder::new(options, &(), output);
+        let mut builder = StrokeBuilder::new(options, &(), &mut[], output);
         builder.move_to(starting_point);
         stroke_border_radius(
             center,
@@ -706,7 +698,7 @@ pub fn stroke_ellipse(
 
     output.begin_geometry();
     {
-        let mut path = FlatteningBuilder::new(StrokeBuilder::new(options, &(), output), options.tolerance).with_svg();
+        let mut path = FlatteningBuilder::new(StrokeBuilder::new(options, &(), &mut[], output), options.tolerance).with_svg();
 
         path.move_to(arc.sample(0.0));
         arc.for_each_quadratic_bezier(&mut|curve| {
