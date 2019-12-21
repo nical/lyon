@@ -120,6 +120,13 @@ impl Path {
         IdIter::new(self.num_attributes, &self.verbs[..])
     }
 
+    pub fn iter_with_attributes(&self) -> IterWithAttributes {
+        IterWithAttributes::new(
+            self.num_attributes(),
+            &self.points[..],
+            &self.verbs[..],
+        )
+    }
 
     /// Applies a transform to all endpoints and control points of this path and
     /// Returns the result.
@@ -812,16 +819,16 @@ pub struct IterWithAttributes<'l> {
 }
 
 impl<'l> IterWithAttributes<'l> {
-    //fn new(num_attributes: usize, points: &'l[Point], verbs: &'l[Verb]) -> Self {
-    //    IterWithAttributes {
-    //        points: PointIter::new(points),
-    //        verbs: verbs.iter(),
-    //        current: (point(0.0, 0.0), &[]),
-    //        first: (point(0.0, 0.0), &[]),
-    //        num_attributes,
-    //        attrib_stride: (num_attributes + 1) / 2,
-    //    }
-    //}
+    fn new(num_attributes: usize, points: &'l[Point], verbs: &'l[Verb]) -> Self {
+        IterWithAttributes {
+            points: PointIter::new(points),
+            verbs: verbs.iter(),
+            current: (point(0.0, 0.0), &[]),
+            first: (point(0.0, 0.0), &[]),
+            num_attributes,
+            attrib_stride: (num_attributes + 1) / 2,
+        }
+    }
 
     pub fn points(self) -> Iter<'l> {
         Iter {
@@ -1147,7 +1154,7 @@ fn test_path_builder_1() {
 
     let path = p.build();
 
-    let mut it = path.with_attributes().iter();
+    let mut it = path.iter_with_attributes();
     assert_eq!(it.next(), Some(Event::Begin { at: (point(0.0, 0.0), &[0.0][..]) }));
     assert_eq!(it.next(), Some(Event::Line { from: (point(0.0, 0.0), &[0.0][..]), to: (point(1.0, 0.0), &[1.0][..]) }));
     assert_eq!(it.next(), Some(Event::Line { from: (point(1.0, 0.0), &[1.0][..]), to: (point(2.0, 0.0), &[2.0][..]) }));
