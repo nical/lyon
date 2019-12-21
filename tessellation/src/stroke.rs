@@ -6,8 +6,7 @@ use crate::geom::euclid::Trig;
 use crate::{VertexId, StrokeGeometryBuilder, GeometryBuilderError};
 use crate::basic_shapes::circle_flattening_step;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
-use crate::path::{PathEvent, IdEvent, EndpointId, CtrlPointId, PositionStore, AttributeStore};
-use crate::StrokeAttributes;
+use crate::path::{PathEvent, IdEvent, EndpointId, PositionStore, AttributeStore};
 use crate::{Side, Order, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult, VertexSource};
 
 use std::f32::consts::PI;
@@ -98,7 +97,7 @@ impl StrokeTessellator {
     ) -> TessellationResult {
         builder.begin_geometry();
         {
-            let mut stroker = StrokeBuilder::new(options, builder);
+            let mut stroker = StrokeBuilder::new(options, &(), builder);
 
             for evt in input {
                 stroker.path_event(evt);
@@ -124,9 +123,10 @@ impl StrokeTessellator {
     ) -> TessellationResult {
         builder.begin_geometry();
         {
-            let mut stroker = StrokeBuilder::new(options, builder);
+            let custom_attributes = custom_attributes.unwrap_or(&());
+            let mut stroker = StrokeBuilder::new(options, custom_attributes, builder);
 
-            stroker.tessellate_path_with_ids(path, positions, custom_attributes);
+            stroker.tessellate_path_with_ids(path, positions);
 
             stroker.build()?;
         }
@@ -177,6 +177,8 @@ pub struct StrokeBuilder<'l> {
     options: StrokeOptions,
     previous_command_was_move: bool,
     error: Option<TessellationError>,
+    attrib_store: &'l dyn AttributeStore,
+    attrib_buffer: Vec<f32>,
     output: &'l mut dyn StrokeGeometryBuilder,
 }
 
@@ -283,8 +285,10 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
 impl<'l> StrokeBuilder<'l> {
     pub fn new(
         options: &StrokeOptions,
+        attrib_store: &'l dyn AttributeStore,
         builder: &'l mut dyn StrokeGeometryBuilder,
     ) -> Self {
+        let attrib_buffer = vec![0.0; attrib_store.num_attributes()];
         let zero = Point::new(0.0, 0.0);
         StrokeBuilder {
             first: zero,
@@ -309,6 +313,8 @@ impl<'l> StrokeBuilder<'l> {
             options: *options,
             previous_command_was_move: false,
             error: None,
+            attrib_store,
+            attrib_buffer,
             output: builder,
         }
     }
@@ -326,10 +332,7 @@ impl<'l> StrokeBuilder<'l> {
         &mut self,
         path: impl IntoIterator<Item = IdEvent>,
         positions: &impl PositionStore,
-        custom_attributes: Option<&dyn AttributeStore>,
     ) {
-        assert!(custom_attributes.is_none(), "Interpolated attributes are not implemented yet");
-
         for evt in path.into_iter() {
             match evt {
                 IdEvent::Begin { at } => {
@@ -423,6 +426,9 @@ impl<'l> StrokeBuilder<'l> {
                     advancement: self.sub_path_start_length,
                     side: Side::Left,
                     src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
             let first_right_id = add_vertex!(
@@ -433,6 +439,9 @@ impl<'l> StrokeBuilder<'l> {
                     advancement: self.sub_path_start_length,
                     side: Side::Right,
                     src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
 
@@ -454,6 +463,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 side: Side::Right,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let b = add_vertex!(
@@ -464,6 +476,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 side: Side::Left,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let c = add_vertex!(
@@ -474,6 +489,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 side: Side::Left,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let d = add_vertex!(
@@ -484,6 +502,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 side: Side::Right,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         self.output.add_triangle(a, b, c);
@@ -500,6 +521,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 side: Side::Left,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let right_id = add_vertex!(
@@ -510,6 +534,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 side: Side::Right,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         self.tessellate_round_cap(center, vector(0.0, -1.0), left_id, right_id, true, src);
@@ -576,6 +603,9 @@ impl<'l> StrokeBuilder<'l> {
                     advancement: self.sub_path_start_length,
                     side: Side::Left,
                     src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
             let first_right_id = add_vertex!(
@@ -586,6 +616,9 @@ impl<'l> StrokeBuilder<'l> {
                     advancement: self.sub_path_start_length,
                     side: Side::Right,
                     src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
 
@@ -700,6 +733,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement,
                 side: Side::Left,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
 
@@ -727,6 +763,8 @@ impl<'l> StrokeBuilder<'l> {
             apply_width,
             !is_start,
             src,
+            self.attrib_store,
+            &mut self.attrib_buffer,
             self.output
         ) {
             self.builder_error(e);
@@ -742,6 +780,8 @@ impl<'l> StrokeBuilder<'l> {
             apply_width,
             !is_start,
             src,
+            self.attrib_store,
+            &mut self.attrib_buffer,
             self.output
         ) {
             self.builder_error(e);
@@ -784,7 +824,10 @@ impl<'l> StrokeBuilder<'l> {
                     normal: back_start_vertex_normal,
                     advancement: self.length,
                     side: front_side.opposite(),
-                    src
+                    src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
             let back_end_vertex = add_vertex!(
@@ -795,6 +838,9 @@ impl<'l> StrokeBuilder<'l> {
                     advancement: self.length,
                     side: front_side.opposite(),
                     src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
             // return
@@ -813,6 +859,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: self.length,
                 side: front_side.opposite(),
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let back_end_vertex = back_start_vertex;
@@ -922,6 +971,9 @@ impl<'l> StrokeBuilder<'l> {
                         advancement: self.length,
                         side: front_side,
                         src,
+                        buffer: &mut self.attrib_buffer,
+                        store: self.attrib_store,
+                        buffer_is_valid: false,
                     }
                 );
                 self.prev_normal = normal;
@@ -944,6 +996,9 @@ impl<'l> StrokeBuilder<'l> {
                             advancement: self.length,
                             side: front_side,
                             src,
+                            buffer: &mut self.attrib_buffer,
+                            store: self.attrib_store,
+                            buffer_is_valid: false,
                         }
                     );
                      self.output.add_triangle(start_vertex, end_vertex, back_join_vertex);
@@ -999,6 +1054,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: self.length,
                 side: front_side,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let last_vertex = add_vertex!(
@@ -1009,6 +1067,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: self.length,
                 side: front_side,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         self.prev_normal = next_normal;
@@ -1052,6 +1113,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: self.length,
                 side: front_side,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
         let start_vertex = last_vertex;
@@ -1080,6 +1144,9 @@ impl<'l> StrokeBuilder<'l> {
                     advancement: self.length,
                     side: front_side,
                     src,
+                    buffer: &mut self.attrib_buffer,
+                    store: self.attrib_store,
+                    buffer_is_valid: false,
                 }
             );
 
@@ -1121,6 +1188,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: self.length,
                 side: front_side,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
 
@@ -1132,6 +1202,9 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: self.length,
                 side: front_side,
                 src,
+                buffer: &mut self.attrib_buffer,
+                store: self.attrib_store,
+                buffer_is_valid: false,
             }
         );
 
@@ -1205,6 +1278,8 @@ fn tess_round_cap(
     line_width: f32,
     invert_winding: bool,
     src: VertexSource,
+    store: &dyn AttributeStore,
+    buffer: &mut [f32],
     output: &mut dyn StrokeGeometryBuilder
 ) -> Result<(), GeometryBuilderError> {
     if num_recursions == 0 {
@@ -1222,6 +1297,9 @@ fn tess_round_cap(
             advancement,
             side,
             src,
+            buffer,
+            store,
+            buffer_is_valid: false,
         },
     )?;
 
@@ -1244,6 +1322,8 @@ fn tess_round_cap(
         line_width,
         invert_winding,
         src,
+        store,
+        buffer,
         output
     )?;
     tess_round_cap(
@@ -1258,8 +1338,62 @@ fn tess_round_cap(
         line_width,
         invert_winding,
         src,
+        store,
+        buffer,
         output
     )
+}
+
+/// Extra vertex information from the `StrokeTessellator`.
+pub struct StrokeAttributes<'l> {
+    pub(crate) normal: Vector,
+    pub(crate) advancement: f32,
+    pub(crate) side: Side,
+    pub(crate) src: VertexSource,
+    pub(crate) store: &'l dyn AttributeStore,
+    pub(crate) buffer: &'l mut [f32],
+    pub(crate) buffer_is_valid: bool,
+}
+
+impl<'l> StrokeAttributes<'l> {
+    /// Normal at this vertex such that extruding the vertices along the normal would
+    /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
+    #[inline]
+    pub fn normal(&self) -> Vector { self.normal }
+
+    /// How far along the path this vertex is.
+    #[inline]
+    pub fn advancement(&self) -> f32 { self.advancement }
+
+    /// Whether the vertex is on the left or right side of the path.
+    #[inline]
+    pub fn side(&self) -> Side { self.side }
+
+    /// Returns the source of this vertex.
+    #[inline]
+    pub fn source(&self) -> VertexSource { self.src }
+
+    /// Returns the source of this vertex.
+    #[inline]
+    pub fn interpolated_attributes(&mut self) -> &[f32] {
+        if self.buffer_is_valid {
+            return &self.buffer[..];
+        }
+
+        match self.src {
+            VertexSource::Endpoint { id } => self.store.interpolated_attributes(id),
+            VertexSource::Edge { from, to, t } => {
+                let a = self.store.interpolated_attributes(from);
+                let b = self.store.interpolated_attributes(to);
+                for i in 0..self.buffer.len() {
+                    self.buffer[i] = a[i] * (1.0 - t) + b[i] * t;
+                }
+                self.buffer_is_valid = true;
+
+                &self.buffer[..]
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1483,37 +1617,29 @@ fn test_too_many_vertices() {
 
 #[test]
 fn stroke_vertex_source_01() {
-    use crate::path::generic::PathCommandsBuilder;
 
-    let endpoints: &[Point] = &[
-        point(0.0, 0.0),
-        point(1.0, 1.0),
-        point(0.0, 2.0),
-    ];
+    let mut path = crate::path::Path::builder_with_attributes(1);
+    let a = path.move_to(point(0.0, 0.0), &[1.0]);
+    let b = path.line_to(point(1.0, 1.0), &[2.0]);
+    let c = path.quadratic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), &[3.0]);
+    path.close();
 
-    let ctrl_points: &[Point] = &[
-        point(1.0, 2.0),
-    ];
-
-    let mut cmds = PathCommandsBuilder::new();
-    cmds.move_to(EndpointId(0));
-    cmds.line_to(EndpointId(1));
-    cmds.quadratic_bezier_to(CtrlPointId(0), EndpointId(2));
-    cmds.close();
-
-    let cmds = cmds.build();
+    let path = path.build();
 
     let mut tess = StrokeTessellator::new();
     tess.tessellate_path_with_ids(
-        &mut cmds.id_events(),
-        &(endpoints, ctrl_points),
-        None,
+        &mut path.id_iter(),
+        &path,
+        Some(&path),
         &StrokeOptions::default().dont_apply_line_width(),
-        &mut CheckVertexSources { next_vertex: 0 },
+        &mut CheckVertexSources { next_vertex: 0, a, b, c },
     ).unwrap();
 
     struct CheckVertexSources {
         next_vertex: u32,
+        a: EndpointId,
+        b: EndpointId,
+        c: EndpointId,
     }
 
     impl GeometryBuilder for CheckVertexSources {
@@ -1528,19 +1654,31 @@ fn stroke_vertex_source_01() {
     }
 
     impl StrokeGeometryBuilder for CheckVertexSources {
-        fn add_stroke_vertex(&mut self, v: Point, attr: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
+        fn add_stroke_vertex(&mut self, v: Point, mut attr: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
             let src = attr.source();
-            if eq(v, point(0.0, 0.0)) { assert_eq!(src, VertexSource::Endpoint{ id: EndpointId(0) }) }
-            else if eq(v, point(1.0, 1.0)) { assert_eq!(src, VertexSource::Endpoint{ id: EndpointId(1) }) }
-            else if eq(v, point(0.0, 2.0)) { assert_eq!(src, VertexSource::Endpoint{ id: EndpointId(2) }) }
+            if eq(v, point(0.0, 0.0)) { assert_eq!(src, VertexSource::Endpoint{ id: self.a }) }
+            else if eq(v, point(1.0, 1.0)) { assert_eq!(src, VertexSource::Endpoint{ id: self.b }) }
+            else if eq(v, point(0.0, 2.0)) { assert_eq!(src, VertexSource::Endpoint{ id: self.c }) }
             else {
                 match src {
-                    VertexSource::Edge { from, to, .. } => {
-                        assert_eq!(from, EndpointId(1));
-                        assert_eq!(to, EndpointId(2));
+                    VertexSource::Edge { from, to, t } => {
+                        assert_eq!(from, self.b);
+                        assert_eq!(to, self.c);
+                        assert!(t < 1.0);
+                        assert!(t > 0.0);
                     }
                     _ => { panic!() }
                 }
+            }
+
+            let attributes = attr.interpolated_attributes();
+            if eq(v, point(0.0, 0.0)) { assert_eq!(attributes, &[1.0]) }
+            else if eq(v, point(1.0, 1.0)) { assert_eq!(attributes, &[2.0] ) }
+            else if eq(v, point(0.0, 2.0)) { assert_eq!(attributes, &[3.0] ) }
+            else {
+                assert_eq!(attributes.len(), 1);
+                assert!(attributes[0] > 2.0);
+                assert!(attributes[0] < 3.0);
             }
 
             let id = self.next_vertex;
