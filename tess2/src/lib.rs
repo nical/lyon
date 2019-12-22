@@ -69,7 +69,7 @@
 //!         let mut tessellator = FillTessellator::new();
 //!
 //!         // Compute the tessellation.
-//!         let result = tessellator.tessellate_path(
+//!         let result = tessellator.tessellate(
 //!             &path,
 //!             &FillOptions::default(),
 //!             &mut simple_builder(&mut buffers)

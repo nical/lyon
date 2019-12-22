@@ -741,7 +741,7 @@ where
 {
     let mut tess = StrokeTessellator::new();
 
-    tess.tessellate_path(
+    tess.tessellate(
         FromPolyline::new(is_closed, it.into_iter()),
         options,
         output
@@ -758,7 +758,7 @@ pub fn fill_polyline<Iter>(
 where
     Iter: IntoIterator<Item = Point>,
 {
-    tessellator.tessellate_path(
+    tessellator.tessellate(
         FromPolyline::closed(polyline.into_iter()),
         options,
         output,
