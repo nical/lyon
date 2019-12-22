@@ -71,7 +71,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 let options = FillOptions::default();
                 match cmd.tessellator {
                     Tessellator::Default => {
-                        let result = FillTessellator::new().tessellate_path(
+                        let result = FillTessellator::new().tessellate(
                             &path,
                             &options,
                             &mut NoOutput::new()
@@ -81,7 +81,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                         }
                     }
                     Tessellator::Tess2 => {
-                        let result = tess2::FillTessellator::new().tessellate_path(
+                        let result = tess2::FillTessellator::new().tessellate(
                             &path,
                             &options,
                             &mut NoOutput::new()
@@ -99,7 +99,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 find_reduced_test_case(
                     path.as_slice(),
                     &|path: Path| {
-                        FillTessellator::new().tessellate_path(
+                        FillTessellator::new().tessellate(
                             &path,
                             &FillOptions::default(),
                             &mut NoOutput::new()
@@ -111,7 +111,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
             }
         }
         if cmd.stroke {
-            StrokeTessellator::new().tessellate_path(
+            StrokeTessellator::new().tessellate(
                 &path,
                 &StrokeOptions::default(),
                 &mut NoOutput::new()

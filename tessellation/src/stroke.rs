@@ -6,7 +6,7 @@ use crate::geom::euclid::Trig;
 use crate::{VertexId, StrokeGeometryBuilder, GeometryBuilderError};
 use crate::basic_shapes::circle_flattening_step;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
-use crate::path::{PathEvent, IdEvent, EndpointId, PositionStore, AttributeStore};
+use crate::path::{PathEvent, IdEvent, EndpointId, PositionStore, AttributeStore, PathSlice};
 use crate::{Side, Order, LineCap, LineJoin, StrokeOptions, TessellationError, TessellationResult, VertexSource};
 
 use std::f32::consts::PI;
@@ -70,7 +70,7 @@ const EPSILON: f32 = 1e-4;
 ///     let mut tessellator = StrokeTessellator::new();
 ///
 ///     // Compute the tessellation.
-///     tessellator.tessellate_path(
+///     tessellator.tessellate(
 ///         &path,
 ///         &StrokeOptions::default(),
 ///         &mut vertex_builder
@@ -89,7 +89,7 @@ impl StrokeTessellator {
     pub fn new() -> Self { StrokeTessellator {} }
 
     /// Compute the tessellation from a path iterator.
-    pub fn tessellate_path(
+    pub fn tessellate(
         &mut self,
         input: impl IntoIterator<Item = PathEvent>,
         options: &StrokeOptions,
@@ -119,7 +119,7 @@ impl StrokeTessellator {
     }
 
     /// Compute the tessellation from a path iterator.
-    pub fn tessellate_path_with_ids(
+    pub fn tessellate_with_ids(
         &mut self,
         path: impl IntoIterator<Item = IdEvent>,
         positions: &impl PositionStore,
@@ -139,11 +139,41 @@ impl StrokeTessellator {
                 builder,
             );
 
-            stroker.tessellate_path_with_ids(path, positions);
+            stroker.tessellate_with_ids(path, positions);
 
             stroker.build()?;
         }
         Ok(builder.end_geometry())
+    }
+
+    /// Compute the tessellation from a path slice.
+    ///
+    /// The tessellator will internally only track vertex sources and interpolated
+    /// attributes if the path has interpolated attributes.
+    pub fn tessellate_path<'l>(
+        &'l mut self,
+        path: impl Into<PathSlice<'l>>,
+        options: &'l StrokeOptions,
+        builder: &'l mut dyn StrokeGeometryBuilder,
+    ) -> TessellationResult {
+
+        let path = path.into();
+
+        if path.num_attributes() > 0 {
+            self.tessellate_with_ids(
+                path.id_iter(),
+                &path,
+                Some(&path),
+                options,
+                builder,
+            )
+        } else {
+            self.tessellate(
+                path.iter(),
+                options,
+                builder,
+            )
+        }
     }
 }
 
@@ -351,7 +381,7 @@ impl<'l> StrokeBuilder<'l> {
         }
     }
 
-    fn tessellate_path_with_ids(
+    fn tessellate_with_ids(
         &mut self,
         path: impl IntoIterator<Item = IdEvent>,
         positions: &impl PositionStore,
@@ -1217,7 +1247,7 @@ impl<'a, 'b> StrokeAttributes<'a, 'b> {
 }
 
 #[cfg(test)]
-use crate::path::{Path, PathSlice};
+use crate::path::Path;
 #[cfg(test)]
 use crate::geometry_builder::*;
 
@@ -1270,7 +1300,7 @@ fn test_path(
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
     let mut tess = StrokeTessellator::new();
-    let count = tess.tessellate_path(
+    let count = tess.tessellate(
         path,
         &options,
         &mut TestBuilder {
@@ -1421,16 +1451,16 @@ fn test_too_many_vertices() {
     let options = StrokeOptions::tolerance(0.05);
 
     assert_eq!(
-        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 0 }),
+        tess.tessellate(&path, &options, &mut Builder { max_vertices: 0 }),
         Err(TessellationError::TooManyVertices),
     );
     assert_eq!(
-        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 10 }),
+        tess.tessellate(&path, &options, &mut Builder { max_vertices: 10 }),
         Err(TessellationError::TooManyVertices),
     );
 
     assert_eq!(
-        tess.tessellate_path(&path, &options, &mut Builder { max_vertices: 100 }),
+        tess.tessellate(&path, &options, &mut Builder { max_vertices: 100 }),
         Err(TessellationError::TooManyVertices),
     );
 }
@@ -1447,7 +1477,7 @@ fn stroke_vertex_source_01() {
     let path = path.build();
 
     let mut tess = StrokeTessellator::new();
-    tess.tessellate_path_with_ids(
+    tess.tessellate_with_ids(
         &mut path.id_iter(),
         &path,
         Some(&path),

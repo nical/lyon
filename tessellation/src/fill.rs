@@ -5,7 +5,7 @@ use crate::geom::math::*;
 use crate::geom::LineSegment;
 use crate::event_queue::*;
 use crate::monotone::*;
-use crate::path::{PathEvent, IdEvent, FillRule, PositionStore, AttributeStore, EndpointId};
+use crate::path::{PathEvent, IdEvent, PathSlice, FillRule, PositionStore, AttributeStore, EndpointId};
 use std::f32;
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -301,8 +301,8 @@ struct PendingEdge {
 /// of the way through edge BC, the source for this new vertex is `VertexSource::Edge { from: A, to: B, t: 0.5 }`
 /// and VertexSource::Edge { from: C, to: D, t: 0.666666 }` where A, B, C and D are endpoint IDs.
 ///
-/// To use this feature, make sure to use `FillTessellator::tessellate_path_with_ids` instead of
-/// `FillTessellator::tessellate_path`.
+/// To use this feature, make sure to use `FillTessellator::tessellate_with_ids` instead of
+/// `FillTessellator::tessellate`.
 ///
 /// ### Interpolated float attributes
 ///
@@ -321,8 +321,8 @@ struct PendingEdge {
 /// forward the slice of attributes from a provided `AttributeStore` when possible or
 /// generate the values via linear interpolation.
 ///
-/// To use this feature, make sure to use `FillTessellator::tessellate_path_with_ids` instead of
-/// `FillTessellator::tessellate_path`, and provide an `AttributeStore` as parameter.
+/// To use this feature, make sure to use `FillTessellator::tessellate_with_ids` instead of
+/// `FillTessellator::tessellate`, and provide an `AttributeStore` as parameter.
 ///
 /// Attributes are lazily computed when calling `FillAttributes::interpolated_attributes`.
 /// In other words they don't add overhead when not used, however it is best to avoid calling
@@ -420,11 +420,11 @@ struct PendingEdge {
 ///     // Create the tessellator.
 ///     let mut tessellator = FillTessellator::new();
 ///
-///     // Compute the tessellation. Here we use tessellate_path_with_ids
+///     // Compute the tessellation. Here we use tessellate_with_ids
 ///     // which has a slightlu more complicated interface. The provides
 ///     // the iterator as well as storage for positions and attributes at
 ///     // the same time.
-///     let result = tessellator.tessellate_path_with_ids(
+///     let result = tessellator.tessellate_with_ids(
 ///         path.id_iter(), // Iterator over ids in the path
 ///         &path,          // PositionStore
 ///         Some(&path),    // AttributeStore
@@ -486,7 +486,7 @@ impl FillTessellator {
     }
 
     /// Compute the tessellation from a path iterator.
-    pub fn tessellate_path(
+    pub fn tessellate(
         &mut self,
         path: impl IntoIterator<Item = PathEvent>,
         options: &FillOptions,
@@ -507,7 +507,7 @@ impl FillTessellator {
     /// Compute the tessellation using an iterator over endpoint and control
     /// point ids, storage for the positions and, optionally, storage for
     /// custom endpoint attributes.
-    pub fn tessellate_path_with_ids(
+    pub fn tessellate_with_ids(
         &mut self,
         path: impl IntoIterator<Item = IdEvent>,
         positions: &impl PositionStore,
@@ -543,6 +543,36 @@ impl FillTessellator {
         std::mem::swap(&mut self.events, events);
 
         result
+    }
+
+    /// Compute the tessellation from a path slice.
+    ///
+    /// The tessellator will internally only track vertex sources and interpolated
+    /// attributes if the path has interpolated attributes.
+    pub fn tessellate_path<'l>(
+        &'l mut self,
+        path: impl Into<PathSlice<'l>>,
+        options: &'l FillOptions,
+        builder: &'l mut dyn FillGeometryBuilder,
+    ) -> TessellationResult {
+
+        let path = path.into();
+
+        if path.num_attributes() > 0 {
+            self.tessellate_with_ids(
+                path.id_iter(),
+                &path,
+                Some(&path),
+                options,
+                builder,
+            )
+        } else {
+            self.tessellate(
+                path.iter(),
+                options,
+                builder,
+            )
+        }
     }
 
     fn tessellate_impl(

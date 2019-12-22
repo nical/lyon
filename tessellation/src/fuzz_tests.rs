@@ -5,7 +5,7 @@ use crate::{FillTessellator, FillOptions, TessellationError};
 use crate::path::builder::*;
 use crate::path::iterator::*;
 
-fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
+fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
         let options = FillOptions::tolerance(0.05);
@@ -18,7 +18,7 @@ fn tessellate_path(path: PathSlice, log: bool) -> Result<usize, TessellationErro
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();
         tess.set_logging(log);
-        tess.tessellate_path(
+        tess.tessellate(
             &builder.build(),
             &options,
             &mut vertex_builder
@@ -31,7 +31,7 @@ fn test_path(path: PathSlice) {
     let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
 
-    let res = ::std::panic::catch_unwind(|| tessellate_path(path, false));
+    let res = ::std::panic::catch_unwind(|| tessellate(path, false));
 
     if res.is_ok() {
         return;
@@ -40,12 +40,12 @@ fn test_path(path: PathSlice) {
     if find_test_case {
         crate::extra::debugging::find_reduced_test_case(
             path,
-            &|path: Path| { return tessellate_path(path.as_slice(), false).is_err(); },
+            &|path: Path| { return tessellate(path.as_slice(), false).is_err(); },
         );
     }
 
     if add_logging {
-        tessellate_path(path, true).unwrap();
+        tessellate(path, true).unwrap();
     }
 
     panic!("Test failed.");

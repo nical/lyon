@@ -3,6 +3,7 @@ use crate::flattened_path::FlattenedPath;
 use crate::tessellation::{GeometryReceiver, FillOptions, FillRule, Count};
 use crate::path::builder::*;
 use crate::path::PathEvent;
+use crate::path::PathSlice;
 
 use tess2_sys::*;
 use std::ptr;
@@ -29,7 +30,7 @@ impl FillTessellator {
     }
 
     /// Compute the tessellation from a path iterator.
-    pub fn tessellate_path<Iter>(
+    pub fn tessellate<Iter>(
         &mut self,
         it: Iter,
         options: &FillOptions,
@@ -67,6 +68,16 @@ impl FillTessellator {
         }
 
         Ok(self.process_output(output))
+    }
+
+    /// Compute the tessellation from a path slice.
+    pub fn tessellate_path<'l>(
+        &'l mut self,
+        path: impl Into<PathSlice<'l>>,
+        options: &'l FillOptions,
+        output: &mut dyn GeometryReceiver,
+    ) -> Result<Count, ()> {
+        self.tessellate(path.into().iter(), options, output)
     }
 
     fn prepare_path(&mut self, path: &FlattenedPath) {

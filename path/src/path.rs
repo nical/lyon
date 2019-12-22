@@ -243,11 +243,15 @@ impl AttributeStore for Path {
 /// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
 
+    /// Iterates over the path.
     pub fn iter<'a>(&'a self) -> Iter<'l> {
         Iter::new(self.num_attributes, self.points, self.verbs)
     }
 
-    pub fn points(&self) -> &[Point] { self.points }
+    /// Iterates over the endpoint and control point ids of the `Path`.
+    pub fn id_iter(&self) -> IdIter {
+        IdIter::new(self.num_attributes, self.verbs)
+    }
 
     pub fn is_empty(&self) -> bool {
         self.verbs.is_empty()

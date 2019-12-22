@@ -21,7 +21,7 @@ fn test_logo() {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     let mut tess = FillTessellator::new();
 
-    tess.tessellate_path(
+    tess.tessellate(
         &path,
         &FillOptions::tolerance(0.05),
         &mut simple_builder(&mut buffers)

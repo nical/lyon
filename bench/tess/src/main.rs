@@ -76,7 +76,7 @@ fn fill_tess_01_logo(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::with_capacity(512, 1450);
-            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -92,7 +92,7 @@ fn fill_tess_06_logo_with_ids(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::with_capacity(512, 1450);
-            tess.tessellate_path_with_ids(
+            tess.tessellate_with_ids(
                 path.id_iter(),
                 &path,
                 None,
@@ -214,7 +214,7 @@ fn cmp_02_lyon_rust_logo(bench: &mut Bencher) {
         for _ in 0..N {
             let mut tess = FillTessellator::new();
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -254,7 +254,7 @@ fn fill_events_03_logo_with_tess(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -270,7 +270,7 @@ fn stroke_01_logo_miter(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -286,7 +286,7 @@ fn stroke_02_logo_bevel(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }
@@ -302,7 +302,7 @@ fn stroke_03_logo_round(bench: &mut Bencher) {
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::with_capacity(1024, 3000);
-            tess.tessellate_path(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
+            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers)).unwrap();
         }
     })
 }

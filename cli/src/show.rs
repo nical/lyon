@@ -25,7 +25,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut stroke_width = 1.0;
     if let Some(options) = cmd.stroke {
         stroke_width = options.line_width;
-        StrokeTessellator::new().tessellate_path(
+        StrokeTessellator::new().tessellate(
             cmd.path.iter(),
             &options,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
@@ -49,7 +49,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         );
         let hatched_path = path.build();
 
-        StrokeTessellator::new().tessellate_path(
+        StrokeTessellator::new().tessellate(
             hatched_path.iter(),
             &hatch.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
@@ -72,7 +72,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         );
         let dotted_path = path.build();
 
-        StrokeTessellator::new().tessellate_path(
+        StrokeTessellator::new().tessellate(
             dotted_path.iter(),
             &dots.stroke,
             &mut BuffersBuilder::new(&mut geometry, WithId(1))
@@ -84,7 +84,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             Tessellator::Default => {
                 let mut tess = FillTessellator::new();
 
-                tess.tessellate_path(
+                tess.tessellate(
                     &cmd.path,
                     &options,
                     &mut BuffersBuilder::new(&mut geometry, WithId(0))
@@ -102,7 +102,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 }
             }
             Tessellator::Tess2 => {
-                tess2::FillTessellator::new().tessellate_path(
+                tess2::FillTessellator::new().tessellate(
                     cmd.path.iter(),
                     &options,
                     &mut BuffersBuilder::new(&mut geometry, WithId(0))
