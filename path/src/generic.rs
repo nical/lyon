@@ -439,11 +439,11 @@ where
     Endpoint: Position,
     CtrlPoint: Position,
 {
-    fn endpoint_position(&self, id: EndpointId) -> Point {
+    fn get_endpoint(&self, id: EndpointId) -> Point {
         self[id].position()
     }
 
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
         self[id].position()
     }
 }
@@ -999,11 +999,11 @@ where
     Endpoint: Position,
     CtrlPoint: Position,
 {
-    fn endpoint_position(&self, id: EndpointId) -> Point {
+    fn get_endpoint(&self, id: EndpointId) -> Point {
         self[id].position()
     }
 
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
         self[id].position()
     }
 }

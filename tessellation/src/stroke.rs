@@ -359,10 +359,10 @@ impl<'l> StrokeBuilder<'l> {
         for evt in path.into_iter() {
             match evt {
                 IdEvent::Begin { at } => {
-                    self.begin(positions.endpoint_position(at), at);
+                    self.begin(positions.get_endpoint(at), at);
                 }
                 IdEvent::Line { to, .. } => {
-                    self.edge_to(positions.endpoint_position(to), to, 0.0, true);
+                    self.edge_to(positions.get_endpoint(to), to, 0.0, true);
                 }
                 IdEvent::Quadratic { ctrl, to, .. } => {
                     let mut first = true;
@@ -373,8 +373,8 @@ impl<'l> StrokeBuilder<'l> {
                     let previous_endpoint = self.current_endpoint;
                     QuadraticBezierSegment {
                         from: self.current,
-                        ctrl: positions.ctrl_point_position(ctrl),
-                        to: positions.endpoint_position(to),
+                        ctrl: positions.get_ctrl_point(ctrl),
+                        to: positions.get_endpoint(to),
                     }.for_each_flattened_with_t(
                         self.options.tolerance,
                         &mut |point, t| {
@@ -389,9 +389,9 @@ impl<'l> StrokeBuilder<'l> {
                     let previous_endpoint = self.current_endpoint;
                     CubicBezierSegment {
                         from: self.current,
-                        ctrl1: positions.ctrl_point_position(ctrl1),
-                        ctrl2: positions.ctrl_point_position(ctrl2),
-                        to: positions.endpoint_position(to),
+                        ctrl1: positions.get_ctrl_point(ctrl1),
+                        ctrl2: positions.get_ctrl_point(ctrl2),
+                        to: positions.get_endpoint(to),
                     }.for_each_flattened_with_t(
                         self.options.tolerance,
                         &mut |point, t| {
@@ -1201,10 +1201,10 @@ impl<'a, 'b> StrokeAttributes<'a, 'b> {
         }
 
         match self.0.src {
-            VertexSource::Endpoint { id } => self.0.store.interpolated_attributes(id),
+            VertexSource::Endpoint { id } => self.0.store.get(id),
             VertexSource::Edge { from, to, t } => {
-                let a = self.0.store.interpolated_attributes(from);
-                let b = self.0.store.interpolated_attributes(to);
+                let a = self.0.store.get(from);
+                let b = self.0.store.get(to);
                 for i in 0..self.0.buffer.len() {
                     self.0.buffer[i] = a[i] * (1.0 - t) + b[i] * t;
                 }

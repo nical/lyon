@@ -152,11 +152,11 @@ impl<'l, Endpoint> PositionStore for PolygonSlice<'l, Endpoint>
 where
     Endpoint: Position,
 {
-    fn endpoint_position(&self, id: EndpointId) -> Point {
+    fn get_endpoint(&self, id: EndpointId) -> Point {
         self.points[id.to_usize()].position()
     }
 
-    fn ctrl_point_position(&self, _: CtrlPointId) -> Point {
+    fn get_ctrl_point(&self, _: CtrlPointId) -> Point {
         panic!("Polygons do not have control points.");
     }
 }

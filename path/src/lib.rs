@@ -162,15 +162,15 @@ impl Position for [f32; 2] {
 /// This interface can be implemented by path objects themselves or via external
 /// data structures.
 pub trait PositionStore {
-    fn endpoint_position(&self, id: EndpointId) -> Point;
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point;
+    fn get_endpoint(&self, id: EndpointId) -> Point;
+    fn get_ctrl_point(&self, id: CtrlPointId) -> Point;
 }
 
 impl<'l> PositionStore for (&'l [Point], &'l [Point]) {
-    fn endpoint_position(&self, id: EndpointId) -> Point {
+    fn get_endpoint(&self, id: EndpointId) -> Point {
         self.0[id.to_usize()]
     }
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
         self.1[id.to_usize()]
     }
 }
@@ -183,7 +183,7 @@ pub trait AttributeStore {
     /// Returns the endpoint's custom attributes as a slice of 32 bits floats.
     ///
     /// The size of the slice must be equal to the result of `num_attributes()`.
-    fn interpolated_attributes(&self, id: EndpointId) -> &[f32];
+    fn get(&self, id: EndpointId) -> &[f32];
 
     /// Returns the number of float attributes per endpoint.
     ///
@@ -193,7 +193,7 @@ pub trait AttributeStore {
 
 impl AttributeStore for () {
     fn num_attributes(&self) -> usize { 0 }
-    fn interpolated_attributes(&self, _: EndpointId) -> &[f32] { &[] }
+    fn get(&self, _: EndpointId) -> &[f32] { &[] }
 }
 
 /// A view over a contiguous storage of custom attributes. 
@@ -212,7 +212,7 @@ impl<'l> AttributeSlice<'l> {
 }
 
 impl<'l> AttributeStore for AttributeSlice<'l> {
-    fn interpolated_attributes(&self, id: EndpointId) -> &[f32] {
+    fn get(&self, id: EndpointId) -> &[f32] {
         let start = id.to_usize() * self.stride;
         let end = start + self.stride;
         &self.data[start..end]
