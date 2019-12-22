@@ -422,31 +422,31 @@ impl EventQueueBuilder {
         for evt in path_events {
             match evt {
                 IdEvent::Begin { at } => {
-                    self.begin(points.endpoint_position(at), at);
+                    self.begin(points.get_endpoint(at), at);
                 }
                 IdEvent::Line { to, .. } => {
                     self.line_segment(
-                        points.endpoint_position(to), to,
+                        points.get_endpoint(to), to,
                         0.0, 1.0,
                     );
                 }
                 IdEvent::Quadratic { ctrl, to, .. } => {
                     self.quadratic_bezier_segment(
-                        points.ctrl_point_position(ctrl),
-                        points.endpoint_position(to),
+                        points.get_ctrl_point(ctrl),
+                        points.get_endpoint(to),
                         to,
                     );
                 }
                 IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
                     self.cubic_bezier_segment(
-                        points.ctrl_point_position(ctrl1),
-                        points.ctrl_point_position(ctrl2),
-                        points.endpoint_position(to),
+                        points.get_ctrl_point(ctrl1),
+                        points.get_ctrl_point(ctrl2),
+                        points.get_endpoint(to),
                         to,
                     );
                 }
                 IdEvent::End { first, .. } => {
-                    self.end(points.endpoint_position(first), first);
+                    self.end(points.get_endpoint(first), first);
                 }
             }
         }

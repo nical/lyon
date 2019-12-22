@@ -1702,10 +1702,10 @@ impl<'l> FillAttributes<'l> {
             let edge = &self.events.edge_data[self.current_event as usize];
             let t = edge.range.start;
             if t == 0.0 {
-                return store.interpolated_attributes(edge.from_id);
+                return store.get(edge.from_id);
             }
             if t == 1.0 {
-                return store.interpolated_attributes(edge.to_id);
+                return store.get(edge.to_id);
             }
         }
 
@@ -1717,8 +1717,8 @@ impl<'l> FillAttributes<'l> {
             let edge = &self.events.edge_data[self.current_event as usize];
             let t = edge.range.start;
 
-            let a = store.interpolated_attributes(edge.from_id);
-            let b = store.interpolated_attributes(edge.to_id);
+            let a = store.get(edge.from_id);
+            let b = store.get(edge.to_id);
 
             assert!(a.len() == num_attributes);
             assert!(b.len() == num_attributes);
@@ -1733,8 +1733,8 @@ impl<'l> FillAttributes<'l> {
             let edge = &self.events.edge_data[current_sibling as usize];
             let t = edge.range.start;
 
-            let a = store.interpolated_attributes(edge.from_id);
-            let b = store.interpolated_attributes(edge.to_id);
+            let a = store.get(edge.from_id);
+            let b = store.get(edge.to_id);
 
             assert!(a.len() == num_attributes);
             assert!(b.len() == num_attributes);

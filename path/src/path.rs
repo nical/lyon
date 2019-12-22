@@ -221,17 +221,17 @@ impl<'l> Into<PathSlice<'l>> for &'l Path {
 
 
 impl PositionStore for Path {
-    fn endpoint_position(&self, id: EndpointId) -> Point {
+    fn get_endpoint(&self, id: EndpointId) -> Point {
         self.points[id.to_usize()]
     }
 
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
         self.points[id.to_usize()]
     }
 }
 
 impl AttributeStore for Path {
-    fn interpolated_attributes(&self, id: EndpointId) -> &[f32] {
+    fn get(&self, id: EndpointId) -> &[f32] {
         interpolated_attributes(self.num_attributes, &self.points, id)
     }
 
@@ -269,17 +269,17 @@ impl<'l, 'a> IntoIterator for &'a PathSlice<'l> {
 }
 
 impl<'l> PositionStore for PathSlice<'l> {
-    fn endpoint_position(&self, id: EndpointId) -> Point {
+    fn get_endpoint(&self, id: EndpointId) -> Point {
         self.points[id.to_usize()]
     }
 
-    fn ctrl_point_position(&self, id: CtrlPointId) -> Point {
+    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
         self.points[id.to_usize()]
     }
 }
 
 impl<'l> AttributeStore for PathSlice<'l> {
-    fn interpolated_attributes(&self, id: EndpointId) -> &[f32] {
+    fn get(&self, id: EndpointId) -> &[f32] {
         interpolated_attributes(self.num_attributes, self.points, id)
     }
 
