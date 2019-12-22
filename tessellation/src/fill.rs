@@ -1709,29 +1709,40 @@ impl<'l> FillAttributes<'l> {
             }
         }
 
-        for val in &mut self.attrib_buffer[..] {
-            *val = 0.0;
+        let num_attributes = store.num_attributes();
+        assert!(self.attrib_buffer.len() == num_attributes);
+
+        // First source taken out of the loop to avoid initializing the buffer.
+        {
+            let edge = &self.events.edge_data[self.current_event as usize];
+            let t = edge.range.start;
+
+            let a = store.interpolated_attributes(edge.from_id);
+            let b = store.interpolated_attributes(edge.to_id);
+
+            assert!(a.len() == num_attributes);
+            assert!(b.len() == num_attributes);
+            for i in 0..num_attributes {
+                self.attrib_buffer[i] = a[i] * (1.0 - t) + b[i] * t;
+            }
         }
 
-        let mut div = 0.0;
-        let mut current_sibling = self.current_event;
+        let mut div = 1.0;
+        let mut current_sibling = second;
         while self.events.valid_id(current_sibling) {
             let edge = &self.events.edge_data[current_sibling as usize];
             let t = edge.range.start;
-            if t < 1.0 {
-                let one_t = 1.0 - t;
-                div += one_t;
-                for (i, value) in store.interpolated_attributes(edge.from_id).iter().enumerate() {
-                    self.attrib_buffer[i] += *value * one_t;
-                }
-            }
-            if t > 0.0 {
-                div += t;
-                for (i, value) in store.interpolated_attributes(edge.to_id).iter().enumerate() {
-                    self.attrib_buffer[i] += *value * t;
-                }
+
+            let a = store.interpolated_attributes(edge.from_id);
+            let b = store.interpolated_attributes(edge.to_id);
+
+            assert!(a.len() == num_attributes);
+            assert!(b.len() == num_attributes);
+            for i in 0..num_attributes {
+                self.attrib_buffer[i] += a[i] * (1.0 - t) + b[i] * t;
             }
 
+            div += 1.0;
             current_sibling = self.events.next_sibling_id(current_sibling);
         }
 
