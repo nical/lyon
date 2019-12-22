@@ -623,6 +623,14 @@ impl<'l> StrokeBuilder<'l> {
             }
         }
 
+        if self.nth == 1 {
+            self.second = self.current;
+            self.second_endpoint = self.current_endpoint;
+            self.second_t = t;
+            self.second_left_id = start_left_id;
+            self.second_right_id = start_right_id;
+        }
+
         self.previous_command_was_move = false;
         self.previous_front_side = front_side;
         self.previous = self.current;
@@ -632,14 +640,6 @@ impl<'l> StrokeBuilder<'l> {
         self.current = to;
         self.current_endpoint = endpoint;
         self.current_t = t;
-
-        if self.nth == 1 {
-            self.second = self.current;
-            self.second_endpoint = self.current_endpoint;
-            self.second_t = t;
-            self.second_left_id = start_left_id;
-            self.second_right_id = start_right_id;
-        }
 
         self.nth += 1;
     }
