@@ -2,7 +2,7 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
-use lyon::path::{Path, Event, PathEvent, IdEvent, EndpointId, CtrlPointId};
+use lyon::path::{Path, Event, PathEvent, IdEvent, EndpointId, ControlPointId};
 use lyon::path::generic;
 use lyon::math::point;
 
@@ -61,8 +61,8 @@ fn id_only_generic_build_empty(bench: &mut Bencher) {
                 ep += 1;
                 for _ in 0..1_000 {
                     path.line_to(EndpointId(ep));
-                    path.cubic_bezier_to(CtrlPointId(cp), CtrlPointId(cp + 1), EndpointId(ep + 1));
-                    path.quadratic_bezier_to(CtrlPointId(cp + 2), EndpointId(ep + 2));
+                    path.cubic_bezier_to(ControlPointId(cp), ControlPointId(cp + 1), EndpointId(ep + 1));
+                    path.quadratic_bezier_to(ControlPointId(cp + 2), EndpointId(ep + 2));
                     cp += 3;
                     ep += 3;
                 }
@@ -150,8 +150,8 @@ fn generic_id_iter(bench: &mut Bencher) {
             ep += 1;
             for _ in 0..1_000 {
                 path.line_to(EndpointId(ep));
-                path.cubic_bezier_to(CtrlPointId(cp), CtrlPointId(cp + 1), EndpointId(ep + 1));
-                path.quadratic_bezier_to(CtrlPointId(cp + 2), EndpointId(ep + 2));
+                path.cubic_bezier_to(ControlPointId(cp), ControlPointId(cp + 1), EndpointId(ep + 1));
+                path.quadratic_bezier_to(ControlPointId(cp + 2), EndpointId(ep + 2));
                 cp += 3;
                 ep += 3;
             }

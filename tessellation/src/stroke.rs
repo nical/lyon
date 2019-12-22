@@ -373,7 +373,7 @@ impl<'l> StrokeBuilder<'l> {
                     let previous_endpoint = self.current_endpoint;
                     QuadraticBezierSegment {
                         from: self.current,
-                        ctrl: positions.get_ctrl_point(ctrl),
+                        ctrl: positions.get_control_point(ctrl),
                         to: positions.get_endpoint(to),
                     }.for_each_flattened_with_t(
                         self.options.tolerance,
@@ -389,8 +389,8 @@ impl<'l> StrokeBuilder<'l> {
                     let previous_endpoint = self.current_endpoint;
                     CubicBezierSegment {
                         from: self.current,
-                        ctrl1: positions.get_ctrl_point(ctrl1),
-                        ctrl2: positions.get_ctrl_point(ctrl2),
+                        ctrl1: positions.get_control_point(ctrl1),
+                        ctrl2: positions.get_control_point(ctrl2),
                         to: positions.get_endpoint(to),
                     }.for_each_flattened_with_t(
                         self.options.tolerance,

@@ -1,6 +1,6 @@
 //! Specific path types for polygons.
 
-use crate::{EndpointId, CtrlPointId, EventId, Event, IdEvent, Position, PositionStore};
+use crate::{EndpointId, ControlPointId, EventId, Event, IdEvent, Position, PositionStore};
 use crate::math::Point;
 
 /// A view over a sequence of endpoint IDs forming a polygon.
@@ -156,7 +156,7 @@ where
         self.points[id.to_usize()].position()
     }
 
-    fn get_ctrl_point(&self, _: CtrlPointId) -> Point {
+    fn get_control_point(&self, _: ControlPointId) -> Point {
         panic!("Polygons do not have control points.");
     }
 }

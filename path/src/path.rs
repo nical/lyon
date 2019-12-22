@@ -3,7 +3,7 @@
 
 use crate::math::*;
 use crate::builder::*;
-use crate::{Event, PathEvent, IdEvent, EndpointId, CtrlPointId, AttributeStore, PositionStore};
+use crate::{Event, PathEvent, IdEvent, EndpointId, ControlPointId, AttributeStore, PositionStore};
 use crate::geom::Arc;
 
 use std::iter::IntoIterator;
@@ -199,9 +199,9 @@ impl std::ops::Index<EndpointId> for Path {
     }
 }
 
-impl std::ops::Index<CtrlPointId> for Path {
+impl std::ops::Index<ControlPointId> for Path {
     type Output = Point;
-    fn index(&self, id: CtrlPointId) -> &Point {
+    fn index(&self, id: ControlPointId) -> &Point {
         &self.points[id.to_usize()]
     }
 }
@@ -225,7 +225,7 @@ impl PositionStore for Path {
         self.points[id.to_usize()]
     }
 
-    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
+    fn get_control_point(&self, id: ControlPointId) -> Point {
         self.points[id.to_usize()]
     }
 }
@@ -273,7 +273,7 @@ impl<'l> PositionStore for PathSlice<'l> {
         self.points[id.to_usize()]
     }
 
-    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
+    fn get_control_point(&self, id: ControlPointId) -> Point {
         self.points[id.to_usize()]
     }
 }
@@ -940,7 +940,7 @@ impl<'l> Iterator for IdIter<'l> {
             Some(&Verb::QuadraticTo) => {
                 let from = EndpointId(self.current);
                 let base = self.current + self.endpoint_stride;
-                let ctrl = CtrlPointId(base);
+                let ctrl = ControlPointId(base);
                 let to = EndpointId(base + 1);
                 self.current = base + 1;
                 self.evt += 1;
@@ -949,8 +949,8 @@ impl<'l> Iterator for IdIter<'l> {
             Some(&Verb::CubicTo) => {
                 let from = EndpointId(self.current);
                 let base = self.current + self.endpoint_stride;
-                let ctrl1 = CtrlPointId(base);
-                let ctrl2 = CtrlPointId(base + 1);
+                let ctrl1 = ControlPointId(base);
+                let ctrl2 = ControlPointId(base + 1);
                 let to = EndpointId(base + 2);
                 self.current = base + 2;
                 self.evt += 1;

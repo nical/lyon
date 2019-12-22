@@ -432,15 +432,15 @@ impl EventQueueBuilder {
                 }
                 IdEvent::Quadratic { ctrl, to, .. } => {
                     self.quadratic_bezier_segment(
-                        points.get_ctrl_point(ctrl),
+                        points.get_control_point(ctrl),
                         points.get_endpoint(to),
                         to,
                     );
                 }
                 IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
                     self.cubic_bezier_segment(
-                        points.get_ctrl_point(ctrl1),
-                        points.get_ctrl_point(ctrl2),
+                        points.get_control_point(ctrl1),
+                        points.get_control_point(ctrl2),
                         points.get_endpoint(to),
                         to,
                     );

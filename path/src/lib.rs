@@ -90,16 +90,16 @@ impl FillRule {
 /// ID of a control point in a path.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct CtrlPointId(pub u32);
+pub struct ControlPointId(pub u32);
 
-impl CtrlPointId {
-    pub const INVALID: Self = CtrlPointId(u32::MAX);
+impl ControlPointId {
+    pub const INVALID: Self = ControlPointId(u32::MAX);
     pub fn offset(self) -> usize { self.0 as usize }
     pub fn to_usize(self) -> usize { self.0 as usize }
-    pub fn from_usize(val: usize) -> Self { CtrlPointId(val as u32) }
+    pub fn from_usize(val: usize) -> Self { ControlPointId(val as u32) }
 }
 
-impl fmt::Debug for CtrlPointId {
+impl fmt::Debug for ControlPointId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "#{}", self.0)
     }
@@ -163,14 +163,14 @@ impl Position for [f32; 2] {
 /// data structures.
 pub trait PositionStore {
     fn get_endpoint(&self, id: EndpointId) -> Point;
-    fn get_ctrl_point(&self, id: CtrlPointId) -> Point;
+    fn get_control_point(&self, id: ControlPointId) -> Point;
 }
 
 impl<'l> PositionStore for (&'l [Point], &'l [Point]) {
     fn get_endpoint(&self, id: EndpointId) -> Point {
         self.0[id.to_usize()]
     }
-    fn get_ctrl_point(&self, id: CtrlPointId) -> Point {
+    fn get_control_point(&self, id: ControlPointId) -> Point {
         self.1[id.to_usize()]
     }
 }
