@@ -561,6 +561,7 @@ impl FillTessellator {
         }
 
         self.fill_rule = options.fill_rule;
+        self.assume_no_intersection = !options.handle_intersections;
 
         builder.begin_geometry();
 

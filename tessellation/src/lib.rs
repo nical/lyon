@@ -542,15 +542,6 @@ pub struct FillOptions {
     /// Default value: `EvenOdd`.
     pub fill_rule: FillRule,
 
-    /// Whether or not to compute the normal vector at each vertex.
-    ///
-    /// When set to false, all generated vertex normals are equal to `vector(0.0, 0.0)`.
-    /// Not computing vertex normals can speed up tessellation and enable generating less vertices
-    /// at intersections.
-    ///
-    /// Default value: `true`.
-    pub compute_normals: bool,
-
     /// A fast path to avoid some expensive operations if the path is known to
     /// not have any self-intersections.
     ///
@@ -559,7 +550,7 @@ pub struct FillOptions {
     /// change the default value.
     ///
     /// Default value: `false`.
-    pub assume_no_intersections: bool,
+    pub handle_intersections: bool,
 
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a FillOptions without the calling constructor.
@@ -579,8 +570,7 @@ impl FillOptions {
     pub const DEFAULT: Self = FillOptions {
         tolerance: Self::DEFAULT_TOLERANCE,
         fill_rule: Self::DEFAULT_FILL_RULE,
-        compute_normals: true,
-        assume_no_intersections: false,
+        handle_intersections: true,
         _private: (),
     };
 
@@ -606,14 +596,14 @@ impl FillOptions {
     }
 
     #[inline]
-    pub fn with_normals(mut self, normals: bool) -> Self {
-        self.compute_normals = normals;
+    pub fn with_fill_rule(mut self, rule: FillRule) -> Self {
+        self.fill_rule = rule;
         self
     }
 
     #[inline]
-    pub fn assume_no_intersections(mut self) -> Self {
-        self.assume_no_intersections = true;
+    pub fn with_intersections(mut self, intersections: bool) -> Self {
+        self.handle_intersections = intersections;
         self
     }
 }

@@ -22,7 +22,7 @@ use std::fs::File;
 use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::path_utils::build_path;
 use lyon::path::Path;
-use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap};
+use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap, FillRule};
 use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
 use lyon::extra::debugging::find_reduced_test_case;
 use lyon::geom::euclid::Angle;
@@ -295,16 +295,17 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .value_name("MITER_LIMIT")
         .takes_value(true)
     )
+    .arg(Arg::with_name("FILL_RULE")
+        .long("fill-rule")
+        .help("Fill rule")
+        .value_name("FILL_RULE")
+        .takes_value(true)
+    )
     .arg(Arg::with_name("TESSELLATOR")
         .long("tessellator")
         .help("Select the tessellator to use")
         .value_name("TESSELLATOR")
         .takes_value(true)
-    )
-    .arg(Arg::with_name("NORMALS")
-        .short("n")
-        .long("compute-normals")
-        .help("Enable computing vertex normals")
     )
     .arg(Arg::with_name("HATCHING_ANGLE")
         .long("angle")
@@ -362,9 +363,9 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
     let stroke = get_stroke(command);
     let hatch = get_hatching(command);
     let dots = get_dots(command);
-    let normals = command.is_present("NORMALS");
+    let fill_rule = get_fill_rule(command);
     let fill = if command.is_present("FILL") || (!stroke.is_some() && !hatch.is_some() && !dots.is_some()) {
-        Some(FillOptions::tolerance(get_tolerance(&command)).with_normals(normals))
+        Some(FillOptions::tolerance(get_tolerance(&command)).with_fill_rule(fill_rule))
     } else {
         None
     };
@@ -522,6 +523,17 @@ fn get_line_cap(matches: &ArgMatches) -> LineCap {
         }
     }
     return LineCap::Butt;
+}
+
+fn get_fill_rule(matches: &ArgMatches) -> FillRule {
+    if let Some(rule_str) = matches.value_of("FILL_RULE") {
+        return match rule_str {
+            "NonZero" | "nonzero" => FillRule::NonZero,
+            _ => FillRule::EvenOdd,
+        }
+    }
+
+    return FillRule::EvenOdd;
 }
 
 fn get_miter_limit(matches: &ArgMatches) -> Option<f32> {
