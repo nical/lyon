@@ -3,7 +3,7 @@ extern crate lyon;
 extern crate bencher;
 
 use lyon::path::{Path, Event, PathEvent, IdEvent, EndpointId, ControlPointId};
-use lyon::path::generic;
+use lyon::path::commands;
 use lyon::math::point;
 
 use bencher::Bencher;
@@ -50,9 +50,9 @@ fn simple_path_build_prealloc(bench: &mut Bencher) {
     });
 }
 
-fn id_only_generic_build_empty(bench: &mut Bencher) {
+fn id_only_commands_build_empty(bench: &mut Bencher) {
     bench.iter(|| {
-        let mut path = generic::PathCommandsBuilder::new();
+        let mut path = commands::PathCommandsBuilder::new();
         let mut ep = 0;
         let mut cp = 0;
         for _ in 0..N {
@@ -140,8 +140,8 @@ fn simple_path_id_iter(bench: &mut Bencher) {
     });
 }
 
-fn generic_id_iter(bench: &mut Bencher) {
-    let mut path = generic::PathCommands::builder();
+fn commands_id_iter(bench: &mut Bencher) {
+    let mut path = commands::PathCommands::builder();
     let mut ep = 0;
     let mut cp = 0;
     for _ in 0..N {
@@ -251,13 +251,13 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
 }
 
 /*
-fn generic_build_prealloc(bench: &mut Bencher) {
+fn commands_build_prealloc(bench: &mut Bencher) {
     bench.iter(|| {
         let n_endpoints = 30010;
         let n_ctrl_points = 30000;
         let n_edges = N * 30_000 + N * 20;
 
-        let mut path: GenericPathBuilder = generic::GenericPathBuilder::with_capacity(
+        let mut path: GenericPathBuilder = commands::GenericPathBuilder::with_capacity(
             n_endpoints,
             n_ctrl_points,
             n_edges,
@@ -279,10 +279,10 @@ fn generic_build_prealloc(bench: &mut Bencher) {
     });
 }
 
-fn generic_build_empty(bench: &mut Bencher) {
+fn commands_build_empty(bench: &mut Bencher) {
 
     bench.iter(|| {
-        let mut path: GenericPathBuilder = generic::GenericPath::builder();
+        let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -299,10 +299,10 @@ fn generic_build_empty(bench: &mut Bencher) {
     });
 }
 
-fn generic_iter(bench: &mut Bencher) {
+fn commands_iter(bench: &mut Bencher) {
 
     let path = {
-        let mut path: GenericPathBuilder = generic::GenericPath::builder();
+        let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -335,14 +335,14 @@ fn generic_iter(bench: &mut Bencher) {
     });
 }
 
-fn f32x2_generic_iter(bench: &mut Bencher) {
+fn f32x2_commands_iter(bench: &mut Bencher) {
     struct A { x: f32, y: f32, _z: f32, _w: f32 }
     fn p(x: f32, y: f32) -> A {
         A { x, y, _z: x, _w: y }
     }
 
     let path = {
-        let mut path: generic::GenericPathBuilder<A, Point> = generic::GenericPath::builder();
+        let mut path: commands::GenericPathBuilder<A, Point> = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(p(0.0, 0.0));
@@ -375,10 +375,10 @@ fn f32x2_generic_iter(bench: &mut Bencher) {
     });
 }
 
-fn generic_points_iter(bench: &mut Bencher) {
+fn commands_points_iter(bench: &mut Bencher) {
 
     let path = {
-        let mut path: GenericPathBuilder = generic::GenericPath::builder();
+        let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -411,10 +411,10 @@ fn generic_points_iter(bench: &mut Bencher) {
     });
 }
 
-fn generic_with_evt_id4_iter(bench: &mut Bencher) {
+fn commands_with_evt_id4_iter(bench: &mut Bencher) {
 
     let path = {
-        let mut path: GenericPathBuilder = generic::GenericPath::builder();
+        let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
                 path.move_to(point(0.0, 0.0));
@@ -458,21 +458,21 @@ fn generic_with_evt_id4_iter(bench: &mut Bencher) {
 benchmark_group!(builder,
     simple_path_build_empty,
     simple_path_build_prealloc,
-    id_only_generic_build_empty,
-    //generic_build_empty,
-    //generic_build_prealloc,
+    id_only_commands_build_empty,
+    //commands_build_empty,
+    //commands_build_prealloc,
 );
 
 benchmark_group!(iter,
     simple_path_iter,
     simple_path_id_iter,
-    generic_id_iter,
+    commands_id_iter,
     no_attrib_iter,
     f32x2_attrib_iter,
-    //generic_iter,
-    //generic_points_iter,
-    //generic_with_evt_id4_iter,
-    //f32x2_generic_iter,
+    //commands_iter,
+    //commands_points_iter,
+    //commands_with_evt_id4_iter,
+    //f32x2_commands_iter,
 );
 
 #[cfg(not(feature = "libtess2"))]

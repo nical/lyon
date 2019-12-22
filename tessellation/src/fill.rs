@@ -321,8 +321,8 @@ struct PendingEdge {
 /// forward the slice of attributes from a provided `AttributeStore` when possible or
 /// generate the values via linear interpolation.
 ///
-/// To use this feature, make sure to use `FillTessellator::tessellate_with_ids` instead of
-/// `FillTessellator::tessellate`, and provide an `AttributeStore` as parameter.
+/// To use this feature, make sure to use `FillTessellator::tessellate_path` or
+/// `FillTessellator::tessellate_with_ids` instead of `FillTessellator::tessellate`.
 ///
 /// Attributes are lazily computed when calling `FillAttributes::interpolated_attributes`.
 /// In other words they don't add overhead when not used, however it is best to avoid calling
@@ -1906,7 +1906,7 @@ fn on_edge(src: &VertexSource, from_id: EndpointId, to_id: EndpointId, d: f32) -
 
 #[test]
 fn fill_vertex_source_01() {
-    use crate::path::generic::PathCommandsBuilder;
+    use crate::path::commands::PathCommands;
     use crate::path::AttributeSlice;
 
     let endpoints: &[Point] = &[
@@ -1921,7 +1921,7 @@ fn fill_vertex_source_01() {
         0.0, 0.0, 1.0,
     ];
 
-    let mut cmds = PathCommandsBuilder::new();
+    let mut cmds = PathCommands::builder();
     cmds.move_to(EndpointId(0));
     cmds.line_to(EndpointId(1));
     cmds.line_to(EndpointId(2));

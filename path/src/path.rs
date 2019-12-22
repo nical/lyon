@@ -990,6 +990,7 @@ fn interpolated_attributes(num_attributes: usize, points: &[Point], endpoint: En
     }
 }
 
+// TODO: Handle custom attributes.
 fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
     let attrib_stride = (path.num_attributes() + 1) / 2;
     let points = &path.points[..];

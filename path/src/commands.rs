@@ -20,7 +20,7 @@
 //! Path type with a different data structure.
 //!
 //! ```
-//! use lyon_path::{EndpointId, Event, IdEvent, generic::PathCommands};
+//! use lyon_path::{EndpointId, Event, IdEvent, commands::PathCommands};
 //! let points = &[
 //!     [0.0, 0.0],
 //!     [1.0, 1.0],
@@ -44,7 +44,7 @@
 //!     }
 //! }
 //!
-//! // Iterate over the points directly using GenericPathSlice
+//! // Iterate over the points directly using CommandsPathSlice
 //! for event in cmds.path_slice(points, points).events() {
 //!     match event {
 //!         Event::Begin { at } => { println!("move to {:?}", at); }
@@ -150,8 +150,8 @@ impl PathCommands {
     }
 
     /// Returns a view on the path commands.
-    pub fn as_slice(&self) -> PathCommandsSlice {
-        PathCommandsSlice {
+    pub fn as_slice(&self) -> CommandsSlice {
+        CommandsSlice {
             cmds: &self.cmds,
         }
     }
@@ -162,8 +162,8 @@ impl PathCommands {
         &'l self,
         endpoints: &'l [Endpoint],
         control_points: &'l [ControlPoint],
-    ) -> GenericPathSlice<Endpoint, ControlPoint> {
-        GenericPathSlice {
+    ) -> CommandsPathSlice<Endpoint, ControlPoint> {
+        CommandsPathSlice {
             endpoints,
             control_points,
             cmds: self.as_slice(),
@@ -216,19 +216,19 @@ impl<'l> IntoIterator for &'l PathCommands {
     fn into_iter(self) -> IdEvents<'l> { self.id_events() }
 }
 
-impl<'l> Into<PathCommandsSlice<'l>> for &'l PathCommands {
-    fn into(self) -> PathCommandsSlice<'l> {
+impl<'l> Into<CommandsSlice<'l>> for &'l PathCommands {
+    fn into(self) -> CommandsSlice<'l> {
         self.as_slice()
     }
 }
 
 /// A view over [`PathCommands`](struct.PathCommands.html).
 #[derive(Copy, Clone)]
-pub struct PathCommandsSlice<'l> {
+pub struct CommandsSlice<'l> {
     cmds: &'l [u32],
 }
 
-impl<'l> PathCommandsSlice<'l> {
+impl<'l> CommandsSlice<'l> {
     /// Returns an iterator over the path commands.
     pub fn id_events(&self) -> IdEvents {
         IdEvents::new(self.cmds)
@@ -306,7 +306,7 @@ impl<'l> PathCommandsSlice<'l> {
     }
 }
 
-impl<'l> fmt::Debug for PathCommandsSlice<'l> {
+impl<'l> fmt::Debug for CommandsSlice<'l> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{ ")?;
         for evt in self.id_events() {
@@ -323,217 +323,17 @@ impl<'l> fmt::Debug for PathCommandsSlice<'l> {
     }
 }
 
-/* TODO: Should we provide this type or let users make their own.
-
-pub struct GenericPath<Endpoint, ControlPoint> {
-    cmds: PathCommands,
-    endpoints: Box<[Endpoint]>,
-    control_points: Box<[ControlPoint]>,
-}
-
-impl<Endpoint, ControlPoint> GenericPath<Endpoint, ControlPoint> {
-    /// Creates a [GenericPathBuilder](struct.GenericPathBuilder.html).
-    pub fn builder() -> GenericPathBuilder<Endpoint, ControlPoint> {
-        GenericPathBuilder::new()
-    }
-
-    /// Returns a view on a path made of these commands with endpoint and
-    /// control point slices.
-    pub fn as_slice(&self) -> GenericPathSlice<Endpoint, ControlPoint> {
-        GenericPathSlice {
-            cmds: self.cmds.as_slice(),
-            endpoints: &self.endpoints,
-            control_points: &self.control_points,
-        }
-    }
-
-    /// Returns an iterator over the path commands, using endpoint
-    /// and control point ids instead of positions.
-    pub fn id_events(&self) -> IdEvents {
-        self.cmds.id_events()
-    }
-
-    /// Returns an iterator over the path, with endpoints and control points.
-    pub fn events(&self) -> Events<Endpoint, ControlPoint> {
-        Events {
-            cmds: CmdIter::new(&self.cmds.cmds),
-            first_endpoint: 0,
-            prev_endpoint: 0,
-            endpoints: &self.endpoints,
-            control_points: &self.control_points,
-        }
-    }
-
-    /// Returns the event for a given event ID.
-    pub fn id_event(&self, id: EventId) -> IdEvent {
-        self.cmds.as_slice().event(id)
-    }
-
-    /// Returns the event for a given event ID.
-    pub fn event(&self, id: EventId) -> Event<&Endpoint, &ControlPoint> {
-        match self.id_event(id) {
-            IdEvent::Begin { at } => Event::Begin {
-                at: &self[at]
-            },
-            IdEvent::Line { from, to, .. } => Event::Line {
-                from: &self[from],
-                to: &self[to]
-            },
-            IdEvent::Quadratic { from, ctrl, to, .. } => Event::Quadratic {
-                from: &self[from],
-                ctrl: &self[ctrl],
-                to: &self[to]
-            },
-            IdEvent::Cubic { from, ctrl1, ctrl2, to, .. } => Event::Cubic {
-                from: &self[from],
-                ctrl1: &self[ctrl1],
-                ctrl2: &self[ctrl2],
-                to: &self[to]
-            },
-            IdEvent::End { last, first, close, .. } => Event::End {
-                last: &self[last],  first: &self[first], close
-            },
-        }
-    }
-
-    /// Returns the next event id within the path.
-    pub fn next_event_id_in_path(&self, id: EventId) -> Option<EventId> {
-        self.cmds.as_slice().next_event_id_in_path(id)
-    }
-
-    /// Returns the next event id within the sub-path.
-    ///
-    /// Loops back to the first event after the end of the sub-path.
-    pub fn next_event_id_in_sub_path(&self, id: EventId) -> EventId {
-        self.cmds.as_slice().next_event_id_in_sub_path(id)
-    }
-
-    pub fn endpoints(&self) -> &[Endpoint] { &self.endpoints }
-
-    pub fn control_points(&self) -> &[ControlPoint] { &self.control_points }
-}
-
-impl<Endpoint, ControlPoint> std::ops::Index<EndpointId> for GenericPath<Endpoint, ControlPoint> {
-    type Output = Endpoint;
-    fn index(&self, id: EndpointId) -> &Endpoint {
-        &self.endpoints[id.to_usize()]
-    }
-}
-
-impl<Endpoint, ControlPoint> std::ops::Index<ControlPointId> for GenericPath<Endpoint, ControlPoint> {
-    type Output = ControlPoint;
-    fn index(&self, id: ControlPointId) -> &ControlPoint {
-        &self.control_points[id.to_usize()]
-    }
-}
-
-/// Builds path commands as well as endpoint and control point vectors.
-pub struct GenericPathBuilder<Endpoint, ControlPoint> {
-    endpoints: Vec<Endpoint>,
-    control_points: Vec<ControlPoint>,
-    cmds: PathCommandsBuilder,
-}
-
-impl<Endpoint, ControlPoint> PositionStore for GenericPath<Endpoint, ControlPoint>
-where
-    Endpoint: Position,
-    ControlPoint: Position,
-{
-    fn get_endpoint(&self, id: EndpointId) -> Point {
-        self[id].position()
-    }
-
-    fn get_control_point(&self, id: ControlPointId) -> Point {
-        self[id].position()
-    }
-}
-
-impl<Endpoint, ControlPoint> GenericPathBuilder<Endpoint, ControlPoint> {
-    /// Creates a builder without allocating memory.
-    pub fn new() -> Self {
-        Self {
-            endpoints: Vec::new(),
-            control_points: Vec::new(),
-            cmds: PathCommandsBuilder::new(),
-        }
-    }
-
-    /// Creates a pre-allocated builder.
-    pub fn with_capacity(
-        n_endpoints: usize,
-        n_control_points: usize,
-        n_edges: usize,
-    ) -> Self {
-        Self {
-            endpoints: Vec::with_capacity(n_endpoints),
-            control_points: Vec::with_capacity(n_control_points),
-            cmds: PathCommandsBuilder::with_capacity(n_edges + n_endpoints + n_control_points),
-        }
-    }
-
-    pub fn move_to(&mut self, to: Endpoint) -> EventId {
-        let id = self.add_endpoint(to);
-        self.cmds.move_to(id)
-    }
-
-    pub fn line_to(&mut self, to: Endpoint) -> EventId {
-        let id = self.add_endpoint(to);
-        self.cmds.line_to(id)
-    }
-
-    pub fn quadratic_bezier_to(&mut self, ctrl: ControlPoint, to: Endpoint) -> EventId {
-        let ctrl = self.add_control_point(ctrl);
-        let to = self.add_endpoint(to);
-        self.cmds.quadratic_bezier_to(ctrl, to)
-    }
-
-    pub fn cubic_bezier_to(&mut self, ctrl1: ControlPoint, ctrl2: ControlPoint, to: Endpoint) -> EventId {
-        let ctrl1 = self.add_control_point(ctrl1);
-        let ctrl2 = self.add_control_point(ctrl2);
-        let to = self.add_endpoint(to);
-        self.cmds.cubic_bezier_to(ctrl1, ctrl2, to)
-    }
-
-    pub fn close(&mut self) -> EventId {
-        self.cmds.close()
-    }
-
-    /// Consumes the builder and returns the generated path commands.
-    pub fn build(self) -> GenericPath<Endpoint, ControlPoint> {
-        GenericPath {
-            cmds: self.cmds.build(),
-            endpoints: self.endpoints.into_boxed_slice(),
-            control_points: self.control_points.into_boxed_slice(),
-        }
-    }
-
-    #[inline]
-    fn add_endpoint(&mut self, ep: Endpoint) -> EndpointId {
-        let id = EndpointId(self.endpoints.len() as u32);
-        self.endpoints.push(ep);
-        id
-    }
-
-    #[inline]
-    fn add_control_point(&mut self, cp: ControlPoint) -> ControlPointId {
-        let id = ControlPointId(self.control_points.len() as u32);
-        self.control_points.push(cp);
-        id
-    }
-}
-
-*/
-
 /// A view on a [`PathCommands`](struct.PathCommands.html) buffer and
-/// two slices for endpoints and control points.
+/// two slices for endpoints and control points, providing similar
+/// functionalities as `PathSlice`.
 #[derive(Copy, Clone)]
-pub struct GenericPathSlice<'l, Endpoint, ControlPoint> {
+pub struct CommandsPathSlice<'l, Endpoint, ControlPoint> {
     endpoints: &'l [Endpoint],
     control_points: &'l [ControlPoint],
-    cmds: PathCommandsSlice<'l>,
+    cmds: CommandsSlice<'l>,
 }
 
-impl<'l, Endpoint, ControlPoint> GenericPathSlice<'l, Endpoint, ControlPoint> {
+impl<'l, Endpoint, ControlPoint> CommandsPathSlice<'l, Endpoint, ControlPoint> {
     /// Returns an iterator over the events of the path using IDs.
     pub fn id_events(&self) -> IdEvents {
         self.cmds.id_events()
@@ -552,21 +352,21 @@ impl<'l, Endpoint, ControlPoint> GenericPathSlice<'l, Endpoint, ControlPoint> {
     }
 }
 
-impl<'l, Endpoint, ControlPoint> std::ops::Index<EndpointId> for GenericPathSlice<'l, Endpoint, ControlPoint> {
+impl<'l, Endpoint, ControlPoint> std::ops::Index<EndpointId> for CommandsPathSlice<'l, Endpoint, ControlPoint> {
     type Output = Endpoint;
     fn index(&self, id: EndpointId) -> &Endpoint {
         &self.endpoints[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, ControlPoint> std::ops::Index<ControlPointId> for GenericPathSlice<'l, Endpoint, ControlPoint> {
+impl<'l, Endpoint, ControlPoint> std::ops::Index<ControlPointId> for CommandsPathSlice<'l, Endpoint, ControlPoint> {
     type Output = ControlPoint;
     fn index(&self, id: ControlPointId) -> &ControlPoint {
         &self.control_points[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, ControlPoint> fmt::Debug for GenericPathSlice<'l, Endpoint, ControlPoint>
+impl<'l, Endpoint, ControlPoint> fmt::Debug for CommandsPathSlice<'l, Endpoint, ControlPoint>
 where
     Endpoint: fmt::Debug,
     ControlPoint: fmt::Debug,
@@ -994,7 +794,7 @@ where
     }
 }
 
-impl<'l, Endpoint, ControlPoint> PositionStore for GenericPathSlice<'l, Endpoint, ControlPoint>
+impl<'l, Endpoint, ControlPoint> PositionStore for CommandsPathSlice<'l, Endpoint, ControlPoint>
 where
     Endpoint: Position,
     ControlPoint: Position,
