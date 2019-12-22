@@ -5,7 +5,7 @@ use crate::geom::math::*;
 use crate::geom::LineSegment;
 use crate::event_queue::*;
 use crate::monotone::*;
-use crate::path::{PathEvent, IdEvent, FillRule, Transition, PositionStore, AttributeStore, EndpointId};
+use crate::path::{PathEvent, IdEvent, FillRule, PositionStore, AttributeStore, EndpointId};
 use std::f32;
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -40,7 +40,7 @@ macro_rules! tess_log {
 struct WindingState {
     span_index: SpanIdx,
     number: i16,
-    transition: Transition,
+    is_in: bool,
 }
 
 impl WindingState {
@@ -50,15 +50,14 @@ impl WindingState {
         WindingState {
             span_index: -1,
             number: 0,
-            transition: Transition::None,
+            is_in: false,
         }
     }
 
     fn update(&mut self, fill_rule: FillRule, edge_winding: i16) {
-        let prev_winding_number = self.number;
         self.number += edge_winding;
-        self.transition = fill_rule.transition(prev_winding_number, self.number);
-        if self.transition == Transition::In {
+        self.is_in = fill_rule.is_in(self.number);
+        if self.is_in {
             self.span_index += 1;
         }
     }
@@ -832,7 +831,7 @@ impl FillTessellator {
             previous_was_merge = false;
             active_edge_idx += 1;
 
-            tess_log!(self, " > {:?} (span {})", winding.transition, winding.span_index);
+            tess_log!(self, " > span: {}, in: {}", winding.span_index, winding.is_in);
         }
 
         scan.above.start = active_edge_idx;
@@ -877,35 +876,22 @@ impl FillTessellator {
         //  ...x...
         //  ../ \..
         scan.split_event = !connecting_edges
-            && self.fill_rule.is_in(winding.number)
+            && winding.is_in
             && !scan.merge_split_event;
-
 
         // Step 2 - Iterate over edges connecting with the current point.
 
         tess_log!(self, "connecting_edges {} | edge {} | span {}", connecting_edges, active_edge_idx, winding.span_index);
         if connecting_edges {
 
-            // First transition while connecting with the current vertex.
-            let mut first_transition = if previous_was_merge {
-                Transition::Out
-            } else {
-                Transition::None
-            };
-
-            // Previous transition while connecting with the current vertex.
-            let mut previous_transition = if previous_was_merge {
-                Transition::In
-            } else {
-                Transition::None
-            };
+            let in_before_vertex = winding.is_in;
+            let mut first_connecting_edge = !previous_was_merge;
 
             for active_edge in &self.active.edges[active_edge_idx..] {
                 if active_edge.is_merge {
-                    if winding.transition == Transition::Out {
+                    if !winding.is_in {
                         return Err(InternalError::MergeVertexOutside);
                     }
-                    debug_assert_eq!(previous_transition, Transition::In);
 
                     // Merge above the current vertex to resolve.
                     //
@@ -936,10 +922,10 @@ impl FillTessellator {
                     //  ...:./
                     //  ...:/
                     //  ...X
-                    previous_transition = Transition::In;
 
                     winding.span_index += 1;
                     active_edge_idx += 1;
+                    first_connecting_edge = false;
 
                     continue;
                 }
@@ -948,16 +934,7 @@ impl FillTessellator {
                     break;
                 }
 
-                winding.update(self.fill_rule, active_edge.winding);
-                tess_log!(self, " x {:?} (span {})", winding.transition, winding.span_index);
-
-                if winding.transition == Transition::In && winding.span_index >= self.fill.spans.len() as i32 {
-                    return Err(InternalError::InsufficientNumberOfSpans);
-                }
-
-                if winding.transition == Transition::Out && previous_transition != Transition::None {
-                    debug_assert_eq!(previous_transition, Transition::In);
-
+                if !first_connecting_edge && winding.is_in {
                     // End event.
                     //
                     //  \.../
@@ -967,25 +944,23 @@ impl FillTessellator {
                     scan.spans_to_end.push(winding.span_index);
                 }
 
-                if winding.transition != Transition::None {
-                    previous_transition = winding.transition;
+                winding.update(self.fill_rule, active_edge.winding);
 
-                    if first_transition == Transition::None {
-                        first_transition = winding.transition;
-                    }
+                tess_log!(self, " x span: {} in: {}", winding.span_index, winding.is_in);
+
+                if winding.is_in && winding.span_index >= self.fill.spans.len() as i32 {
+                    return Err(InternalError::InsufficientNumberOfSpans);
                 }
 
                 active_edge_idx += 1;
+                first_connecting_edge = false;
             }
 
-            let vertex_is_merge_event = first_transition == Transition::Out
-                && previous_transition == Transition::In
+            let in_after_vertex = winding.is_in;
+
+            let vertex_is_merge_event = in_before_vertex && in_after_vertex
                 && self.edges_below.is_empty()
                 && scan.edges_to_split.is_empty();
-
-            tess_log!(self, "first_transition: {:?}, last_transition: {:?} is merge: {:?}",
-                first_transition, previous_transition, vertex_is_merge_event,
-            );
 
             if vertex_is_merge_event {
                 //  .\   /.      .\ |./ /.
@@ -995,7 +970,7 @@ impl FillTessellator {
                 scan.merge_event = true;
             }
 
-            if first_transition == Transition::Out {
+            if in_before_vertex {
                 //   ...|         ..\ /..
                 //   ...x    or   ...x...  (etc.)
                 //   ...|         ...:...
@@ -1003,7 +978,7 @@ impl FillTessellator {
                 scan.vertex_events.push((first_span_index, Side::Right));
             }
 
-            if previous_transition == Transition::In {
+            if in_after_vertex {
                 //    |...        ..\ /..
                 //    x...   or   ...x...  (etc.)
                 //    |...        ...:...
@@ -1085,7 +1060,7 @@ impl FillTessellator {
 
     fn process_edges_above(&mut self, scan: &mut ActiveEdgeScan, output: &mut dyn FillGeometryBuilder) {
         for &(span_index, side) in &scan.vertex_events {
-            tess_log!(self, "   -> Vertex {:?} / {:?}", span_index, side);
+            tess_log!(self, "   -> Vertex event, span: {:?} / {:?} / id: {:?}", span_index, side, self.current_vertex);
             self.fill.spans[span_index as usize].tess.vertex(
                 self.current_position,
                 self.current_vertex,
@@ -1150,7 +1125,7 @@ impl FillTessellator {
     fn process_edges_below(&mut self, scan: &mut ActiveEdgeScan) {
         let mut winding = scan.winding_before_point.clone();
 
-        tess_log!(self, "connecting edges: {}..{} {:?}", scan.above.start, scan.above.end, winding.transition);
+        tess_log!(self, "connecting edges: {}..{} in: {:?}", scan.above.start, scan.above.end, winding.is_in);
         tess_log!(self, "winding state before point: {:?}", winding);
         tess_log!(self, "edges below: {:?}", self.edges_below);
 
@@ -1167,6 +1142,8 @@ impl FillTessellator {
             //  .../   \...
             //
 
+            tess_log!(self, "split event");
+
             let left_enclosing_edge_idx = scan.above.start - 1;
             self.split_event(
                 left_enclosing_edge_idx,
@@ -1177,38 +1154,29 @@ impl FillTessellator {
         // Go through the edges that start at the current point and emit
         // start events for each time an in-out pair is found.
 
-        let mut prev_transition_in = false;
+        let mut first_pending_edge = true;
         for pending_edge in &self.edges_below {
+            if !first_pending_edge && winding.is_in {
+                // Start event.
+                //
+                //      x
+                //     /.\
+                //    /...\
+                //
 
+                tess_log!(self, " begin span {} ({})", winding.span_index, self.fill.spans.len());
+
+                self.fill.begin_span(
+                    winding.span_index,
+                    &self.current_position,
+                    self.current_vertex,
+                );
+            }
             winding.update(self.fill_rule, pending_edge.winding);
 
-            tess_log!(self, "edge below: {:?} span {}", winding.transition, winding.span_index);
+            tess_log!(self, "edge below: span: {}, in: {}", winding.span_index, winding.is_in);
 
-            match winding.transition {
-                Transition::In => {
-                    prev_transition_in = true;
-                }
-                Transition::Out => {
-                    if prev_transition_in {
-                        // Start event.
-                        //
-                        //      x
-                        //     /.\
-                        //    /...\
-                        //
-
-                        tess_log!(self, " begin span {} ({})", winding.span_index, self.fill.spans.len());
-                        self.fill.begin_span(
-                            winding.span_index,
-                            &self.current_position,
-                            self.current_vertex,
-                        );
-                    }
-                }
-                Transition::None => {
-                    tess_log!(self, "(transition: none)");
-                }
-            }
+            first_pending_edge = false;
         }
     }
 
@@ -1252,7 +1220,6 @@ impl FillTessellator {
     fn split_event(&mut self, left_enclosing_edge_idx: ActiveEdgeIdx, left_span_idx: SpanIdx) {
         let right_enclosing_edge_idx = left_enclosing_edge_idx + 1;
 
-        // TODO: we should be reasoning in transitions and not in edges.
         let upper_left = self.active.edges[left_enclosing_edge_idx].from;
         let upper_right = self.active.edges[right_enclosing_edge_idx].from;
 
