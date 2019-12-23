@@ -140,10 +140,7 @@ impl Path {
     /// Reversed version of this path with edge loops are specified in the opposite
     /// order.
     pub fn reversed(&self) -> Self {
-        let mut builder = Path::builder();
-        reverse_path(self.as_slice(), &mut builder);
-
-        builder.build()
+        reverse_path(self.as_slice())
     }
 
     fn apply_transform(&mut self, transform: &Transform2D) {
@@ -255,6 +252,12 @@ impl<'l> PathSlice<'l> {
 
     pub fn is_empty(&self) -> bool {
         self.verbs.is_empty()
+    }
+
+    /// Returns a slice over an endpoint's custom attributes.
+    #[inline]
+    pub fn attributes(&self, endpoint: EndpointId) -> &[f32] {
+        interpolated_attributes(self.num_attributes, &self.points, endpoint)
     }
 }
 
@@ -981,6 +984,10 @@ impl<'l> Iterator for IdIter<'l> {
 
 #[inline]
 fn interpolated_attributes(num_attributes: usize, points: &[Point], endpoint: EndpointId) -> &[f32] {
+    if num_attributes == 0 {
+        return &[];
+    }
+
     let idx = endpoint.0 as usize + 1;
     assert!(idx + (num_attributes + 1) / 2 <= points.len());
 
@@ -990,8 +997,9 @@ fn interpolated_attributes(num_attributes: usize, points: &[Point], endpoint: En
     }
 }
 
-// TODO: Handle custom attributes.
-fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
+fn reverse_path(path: PathSlice) -> Path {
+    let mut builder = Path::builder_with_attributes(path.num_attributes());
+
     let attrib_stride = (path.num_attributes() + 1) / 2;
     let points = &path.points[..];
     // At each iteration, p points to the first point after the current verb.
@@ -1001,12 +1009,14 @@ fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
     for v in path.verbs.iter().rev().cloned() {
         match v {
             Verb::Close => {
+                let idx = p - 1 - attrib_stride;
                 need_close = true;
-                builder.move_to(points[p - 1]);
+                builder.move_to(points[idx], path.attributes(EndpointId(idx as u32)));
             }
             Verb::End => {
+                let idx = p - 1 - attrib_stride;
                 need_close = false;
-                builder.move_to(points[p - 1]);
+                builder.move_to(points[idx], path.attributes(EndpointId(idx as u32)));
             }
             Verb::Begin => {
                 if need_close {
@@ -1015,17 +1025,25 @@ fn reverse_path(path: PathSlice, builder: &mut dyn PathBuilder) {
                 }
             }
             Verb::LineTo => {
-                builder.line_to(points[p - 2]);
+                let idx = p - 2 - attrib_stride * 2;
+                builder.line_to(points[idx], path.attributes(EndpointId(idx as u32)));
             }
             Verb::QuadraticTo => {
-                builder.quadratic_bezier_to(points[p - 2], points[p - 3]);
+                let ctrl_idx = p - attrib_stride - 2;
+                let to_idx = ctrl_idx - attrib_stride - 1;
+                builder.quadratic_bezier_to(points[ctrl_idx], points[to_idx], path.attributes(EndpointId(to_idx as u32)));
             }
             Verb::CubicTo => {
-                builder.cubic_bezier_to(points[p - 2], points[p - 3], points[p - 4]);
+                let ctrl1_idx = p - attrib_stride - 2;
+                let ctrl2_idx = ctrl1_idx - 1;
+                let to_idx = ctrl2_idx - attrib_stride - 1;
+                builder.cubic_bezier_to(points[ctrl1_idx], points[ctrl2_idx], points[to_idx], path.attributes(EndpointId(to_idx as u32)));
             }
         }
         p -= n_stored_points(v, attrib_stride);
     }
+
+    builder.build()
 }
 
 fn n_stored_points(verb: Verb, attrib_stride: usize) -> usize {
@@ -1041,49 +1059,60 @@ fn n_stored_points(verb: Verb, attrib_stride: usize) -> usize {
 
 #[test]
 fn test_reverse_path() {
-    let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
-    builder.line_to(point(1.0, 0.0));
-    builder.line_to(point(1.0, 1.0));
-    builder.line_to(point(0.0, 1.0));
+    let mut builder = Path::builder_with_attributes(1);
+    builder.move_to(point(0.0, 0.0), &[1.0]);
+    builder.line_to(point(1.0, 0.0), &[2.0]);
+    builder.line_to(point(1.0, 1.0), &[3.0]);
+    builder.line_to(point(0.0, 1.0), &[4.0]);
 
-    builder.move_to(point(10.0, 0.0));
-    builder.line_to(point(11.0, 0.0));
-    builder.line_to(point(11.0, 1.0));
-    builder.line_to(point(10.0, 1.0));
+    builder.move_to(point(10.0, 0.0), &[5.0]);
+    builder.line_to(point(11.0, 0.0), &[6.0]);
+    builder.line_to(point(11.0, 1.0), &[7.0]);
+    builder.line_to(point(10.0, 1.0), &[8.0]);
     builder.close();
 
-    builder.move_to(point(20.0, 0.0));
-    builder.quadratic_bezier_to(point(21.0, 0.0), point(21.0, 1.0));
+    builder.move_to(point(20.0, 0.0), &[9.0]);
+    builder.quadratic_bezier_to(point(21.0, 0.0), point(21.0, 1.0), &[10.0]);
 
     let p1 = builder.build();
-    let mut builder = Path::builder();
-    reverse_path(p1.as_slice(), &mut builder);
-    let p2 = builder.build();
+    let p2 = p1.reversed();
 
-    let mut it = p2.iter();
+    let mut it = p2.iter_with_attributes();
 
-    assert_eq!(it.next(), Some(PathEvent::Begin { at: point(21.0, 1.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Quadratic {
-        from: point(21.0, 1.0),
+    // Using a function that explicits the argument types works around type inference issue.
+    fn check<'l>(
+        a: Option<Event<(Point, &'l[f32]), Point>>,
+        b: Option<Event<(Point, &'l[f32]), Point>>,
+    ) -> bool {
+        if a != b {
+            println!("left: {:?}", a);
+            println!("right: {:?}", b);
+        }
+
+        a == b
+    }
+
+    assert!(check(it.next(), Some(Event::Begin { at: (point(21.0, 1.0), &[10.0]) })));
+    assert!(check(it.next(), Some(Event::Quadratic {
+        from: (point(21.0, 1.0), &[10.0]),
         ctrl: point(21.0, 0.0),
-        to: point(20.0, 0.0),
-    }));
-    assert_eq!(it.next(), Some(PathEvent::End { last: point(20.0, 0.0), first: point(21.0, 1.0), close: false }));
+        to: (point(20.0, 0.0), &[9.0]),
+    })));
+    assert!(check(it.next(), Some(Event::End { last: (point(20.0, 0.0), &[9.0]), first: (point(21.0, 1.0), &[10.0]), close: false })));
 
-    assert_eq!(it.next(), Some(PathEvent::Begin { at: point(10.0, 1.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Line { from: point(10.0, 1.0), to: point(11.0, 1.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Line { from: point(11.0, 1.0), to: point(11.0, 0.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Line { from: point(11.0, 0.0), to: point(10.0, 0.0) }));
-    assert_eq!(it.next(), Some(PathEvent::End { last: point(10.0, 0.0), first: point(10.0, 1.0), close: true }));
+    assert!(check(it.next(), Some(Event::Begin { at: (point(10.0, 1.0), &[8.0]) })));
+    assert!(check(it.next(), Some(Event::Line { from: (point(10.0, 1.0), &[8.0]), to: (point(11.0, 1.0), &[7.0]) })));
+    assert!(check(it.next(), Some(Event::Line { from: (point(11.0, 1.0), &[7.0]), to: (point(11.0, 0.0), &[6.0]) })));
+    assert!(check(it.next(), Some(Event::Line { from: (point(11.0, 0.0), &[6.0]), to: (point(10.0, 0.0), &[5.0]) })));
+    assert!(check(it.next(), Some(Event::End { last: (point(10.0, 0.0), &[5.0]), first: (point(10.0, 1.0), &[8.0]), close: true })));
 
-    assert_eq!(it.next(), Some(PathEvent::Begin { at: point(0.0, 1.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Line { from: point(0.0, 1.0), to: point(1.0, 1.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Line { from: point(1.0, 1.0), to: point(1.0, 0.0) }));
-    assert_eq!(it.next(), Some(PathEvent::Line { from: point(1.0, 0.0), to: point(0.0, 0.0) }));
-    assert_eq!(it.next(), Some(PathEvent::End { last: point(0.0, 0.0), first: point(0.0, 1.0), close: false }));
+    assert!(check(it.next(), Some(Event::Begin { at: (point(0.0, 1.0), &[4.0]) })));
+    assert!(check(it.next(), Some(Event::Line { from: (point(0.0, 1.0), &[4.0]), to: (point(1.0, 1.0), &[3.0]) })));
+    assert!(check(it.next(), Some(Event::Line { from: (point(1.0, 1.0), &[3.0]), to: (point(1.0, 0.0), &[2.0]) })));
+    assert!(check(it.next(), Some(Event::Line { from: (point(1.0, 0.0), &[2.0]), to: (point(0.0, 0.0), &[1.0]) })));
+    assert!(check(it.next(), Some(Event::End { last: (point(0.0, 0.0), &[1.0]), first: (point(0.0, 1.0), &[4.0]), close: false })));
 
-    assert_eq!(it.next(), None);
+    assert!(check(it.next(), None));
 }
 
 #[test]
@@ -1095,9 +1124,7 @@ fn test_reverse_path_no_close() {
 
     let p1 = builder.build();
 
-    let mut builder = Path::builder();
-    reverse_path(p1.as_slice(), &mut builder);
-    let p2 = builder.build();
+    let p2 = p1.reversed();
 
     let mut it = p2.iter();
 
@@ -1111,9 +1138,7 @@ fn test_reverse_path_no_close() {
 #[test]
 fn test_reverse_empty_path() {
     let p1 = Path::builder().build();
-    let mut builder = Path::builder();
-    reverse_path(p1.as_slice(), &mut builder);
-    let p2 = builder.build();
+    let p2 = p1.reversed();
     assert_eq!(p2.iter().next(), None);
 }
 
@@ -1122,9 +1147,7 @@ fn test_reverse_single_moveto() {
     let mut builder = Path::builder();
     builder.move_to(point(0.0, 0.0));
     let p1 = builder.build();
-    let mut builder = Path::builder();
-    reverse_path(p1.as_slice(), &mut builder);
-    let p2 = builder.build();
+    let p2 = p1.reversed();
     let mut it = p2.iter();
     assert_eq!(it.next(), Some(PathEvent::Begin { at: point(0.0, 0.0) }));
     assert_eq!(it.next(), Some(PathEvent::End { last: point(0.0, 0.0), first: point(0.0, 0.0), close: false }));
