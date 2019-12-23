@@ -480,6 +480,7 @@ impl FillTessellator {
         }
     }
 
+    #[doc(hidden)]
     /// Create and EventQueue.
     pub fn create_event_queue(&mut self) -> EventQueue {
         std::mem::replace(&mut self.events, EventQueue::new())
@@ -527,6 +528,7 @@ impl FillTessellator {
         self.tessellate_impl(options, custom_attributes, output)
     }
 
+    #[doc(hidden)]
     /// Compute the tessellation from a pre-built event queue.
     pub fn tessellate_events(
         &mut self,
@@ -1685,7 +1687,7 @@ pub(crate) fn is_near(a: Point, b: Point) -> bool {
     (a - b).square_length() < 0.0001
 }
 
-/// Extra vertex information from the `FillTessellator`.
+/// Extra vertex information from the `FillTessellator`, accessible when building vertices.
 pub struct FillAttributes<'l> {
     events: &'l EventQueue,
     current_event: TessEventId,

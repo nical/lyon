@@ -19,7 +19,7 @@ pub(crate) struct Event {
 }
 
 #[derive(Clone, Debug)]
-pub struct EdgeData {
+pub(crate) struct EdgeData {
     pub to: Point,
     pub range: std::ops::Range<f32>,
     pub winding: i16,
@@ -28,6 +28,8 @@ pub struct EdgeData {
     pub to_id: EndpointId,
 }
 
+#[doc(hidden)]
+/// A queue of sorted events for the fill tessellator's sweep-line algorithm.
 pub struct EventQueue {
     pub(crate) events: Vec<Event>,
     pub(crate) edge_data: Vec<EdgeData>,
@@ -36,7 +38,7 @@ pub struct EventQueue {
 }
 
 impl EventQueue {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         EventQueue {
             events: Vec::new(),
             edge_data: Vec::new(),
@@ -45,7 +47,7 @@ impl EventQueue {
         }
     }
 
-    pub fn with_capacity(cap: usize) -> Self {
+    pub(crate) fn with_capacity(cap: usize) -> Self {
         EventQueue {
             events: Vec::with_capacity(cap),
             edge_data: Vec::with_capacity(cap),
@@ -54,13 +56,18 @@ impl EventQueue {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.events.clear();
         self.edge_data.clear();
         self.first = 0;
         self.sorted = false;
     }
 
+    /// Creates an `EventQueue` from an iterator of path event and a tolerance threshold.
+    ///
+    /// The tolerance threshold is used for curve flattening approximation. See the
+    /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
+    /// crate documentation.
     pub fn from_path(tolerance: f32, path: impl Iterator<Item = PathEvent>) -> Self {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
@@ -70,6 +77,13 @@ impl EventQueue {
         builder.build()
     }
 
+    /// Creates an `EventQueue` from an an iterator over endpoint and control
+    /// point ids, storage for the positions and, optionally, storage for
+    /// custom endpoint attributes.
+    ///
+    /// The tolerance threshold is used for curve flattening approximation. See the
+    /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
+    /// crate documentation.
     pub fn from_path_with_ids(
         tolerance: f32,
         path: impl Iterator<Item = IdEvent>,
@@ -81,10 +95,6 @@ impl EventQueue {
         builder.set_path_with_ids(tolerance, path, positions);
 
         builder.build()
-    }
-
-    pub fn reserve(&mut self, n: usize) {
-        self.events.reserve(n);
     }
 
     pub(crate) fn into_builder(mut self) -> EventQueueBuilder {
@@ -99,6 +109,10 @@ impl EventQueue {
             tolerance: 0.1,
             prev_endpoint_id: EndpointId(std::u32::MAX),
         }
+    }
+
+    fn reserve(&mut self, n: usize) {
+        self.events.reserve(n);
     }
 
     fn push_unsorted(&mut self, position: Point) {
@@ -155,8 +169,8 @@ impl EventQueue {
         self.events[prev as usize].next_event = id;
     }
 
-    // Could start searching at the tessellator's current event id.
-    pub fn insert_sorted(&mut self, position: Point, data: EdgeData, after: TessEventId) -> TessEventId {
+
+    pub(crate) fn insert_sorted(&mut self, position: Point, data: EdgeData, after: TessEventId) -> TessEventId {
         debug_assert!(self.sorted);
         debug_assert!(is_after(data.to, position));
 
@@ -191,7 +205,7 @@ impl EventQueue {
         idx
     }
 
-    pub fn insert_sibling(&mut self, sibling: TessEventId, position: Point, data: EdgeData) {
+    pub(crate) fn insert_sibling(&mut self, sibling: TessEventId, position: Point, data: EdgeData) {
         let idx = self.events.len() as TessEventId;
         let next_sibling = self.events[sibling as usize].next_sibling;
 
@@ -206,22 +220,26 @@ impl EventQueue {
         self.events[sibling as usize].next_sibling = idx;
     }
 
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.events.clear();
         self.first = 0;
         self.sorted = false;
     }
 
-    pub fn first_id(&self) -> TessEventId { self.first }
+    /// Returns the ID of the first event in the queue.
+    pub(crate) fn first_id(&self) -> TessEventId { self.first }
 
-    pub fn next_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_event }
+    /// Returns the ID of the next (non-sibling) event after the provided one.
+    pub(crate) fn next_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_event }
 
-    pub fn next_sibling_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_sibling }
+    /// Returns the ID of the next sibling event after the provided one.
+    pub(crate) fn next_sibling_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_sibling }
 
     // TODO: we should be able to simplify this and just compare with INVALID_EVENT_ID
-    pub fn valid_id(&self, id: TessEventId) -> bool { (id as usize) < self.events.len() }
+    pub(crate) fn valid_id(&self, id: TessEventId) -> bool { (id as usize) < self.events.len() }
 
-    pub fn position(&self, id: TessEventId) -> Point { self.events[id as usize].position }
+    /// Returns the position of a given event in the queue.
+    pub(crate) fn position(&self, id: TessEventId) -> Point { self.events[id as usize].position }
 
     fn sort(&mut self) {
         self.sorted = true;
