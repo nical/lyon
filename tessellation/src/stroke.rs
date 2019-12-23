@@ -1192,7 +1192,7 @@ fn tess_round_cap(
 }
 
 /// Extra vertex information from the `StrokeTessellator`.
-pub struct StrokeAttributesData<'l> {
+pub(crate) struct StrokeAttributesData<'l> {
     pub(crate) normal: Vector,
     pub(crate) advancement: f32,
     pub(crate) side: Side,
@@ -1202,6 +1202,7 @@ pub struct StrokeAttributesData<'l> {
     pub(crate) buffer_is_valid: bool,
 }
 
+/// Extra vertex information from the `StrokeTessellator` accessible when building vertices.
 pub struct StrokeAttributes<'a, 'b>(pub(crate) &'b mut StrokeAttributesData<'a>);
 
 
