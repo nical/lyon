@@ -22,7 +22,7 @@ use std::fs::File;
 use std::io::{Read, Write, stdout, stderr};
 use lyon::svg::path_utils::build_path;
 use lyon::path::Path;
-use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap, FillRule};
+use lyon::tessellation::{FillOptions, StrokeOptions, LineJoin, LineCap, FillRule, Orientation};
 use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
 use lyon::extra::debugging::find_reduced_test_case;
 use lyon::geom::euclid::Angle;
@@ -301,6 +301,12 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         .value_name("FILL_RULE")
         .takes_value(true)
     )
+    .arg(Arg::with_name("SWEEP_ORIENTATION")
+        .long("sweep-orientation")
+        .help("Traverse the geometry vertically or horizontally.")
+        .value_name("SWEEP_ORIENTATION")
+        .takes_value(true)
+    )
     .arg(Arg::with_name("TESSELLATOR")
         .long("tessellator")
         .help("Select the tessellator to use")
@@ -364,8 +370,13 @@ fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
     let hatch = get_hatching(command);
     let dots = get_dots(command);
     let fill_rule = get_fill_rule(command);
+    let orientation = get_orientation(command);
     let fill = if command.is_present("FILL") || (!stroke.is_some() && !hatch.is_some() && !dots.is_some()) {
-        Some(FillOptions::tolerance(get_tolerance(&command)).with_fill_rule(fill_rule))
+        Some(
+            FillOptions::tolerance(get_tolerance(&command))
+                .with_fill_rule(fill_rule)
+                .with_sweep_orientation(orientation)
+        )
     } else {
         None
     };
@@ -534,6 +545,17 @@ fn get_fill_rule(matches: &ArgMatches) -> FillRule {
     }
 
     return FillRule::EvenOdd;
+}
+
+fn get_orientation(matches: &ArgMatches) -> Orientation {
+    if let Some(orientation_str) = matches.value_of("SWEEP_ORIENTATION") {
+        return match orientation_str {
+            "Horizontal" | "horizontal" | "h" => Orientation::Horizontal,
+            _ => Orientation::Vertical,
+        }
+    }
+
+    return Orientation::Vertical;
 }
 
 fn get_miter_limit(matches: &ArgMatches) -> Option<f32> {

@@ -1,6 +1,6 @@
 
 use crate::{FillOptions, Side, InternalError, TessellationResult, TessellationError, VertexSource};
-use crate::{FillGeometryBuilder, VertexId};
+use crate::{FillGeometryBuilder, VertexId, Orientation};
 use crate::geom::math::*;
 use crate::geom::LineSegment;
 use crate::event_queue::*;
@@ -443,6 +443,7 @@ pub struct FillTessellator {
     active: ActiveEdges,
     edges_below: Vec<PendingEdge>,
     fill_rule: FillRule,
+    orientation: Orientation,
     fill: Spans,
     log: bool,
     assume_no_intersection: bool,
@@ -469,6 +470,7 @@ impl FillTessellator {
             },
             edges_below: Vec::new(),
             fill_rule: FillRule::EvenOdd,
+            orientation: Orientation::Vertical,
             fill: Spans {
                 spans: Vec::new(),
             },
@@ -496,7 +498,7 @@ impl FillTessellator {
 
         let mut queue_builder = self.create_event_queue().into_builder();
 
-        queue_builder.set_path(options.tolerance, path.into_iter());
+        queue_builder.set_path(options.tolerance, options.sweep_orientation, path.into_iter());
 
         let mut event_queue = queue_builder.build();
 
@@ -519,7 +521,7 @@ impl FillTessellator {
 
         let mut queue_builder = self.create_event_queue().into_builder();
 
-        queue_builder.set_path_with_ids(options.tolerance, path.into_iter(), positions);
+        queue_builder.set_path_with_ids(options.tolerance, options.sweep_orientation, path.into_iter(), positions);
 
         let mut event_queue = queue_builder.build();
 
@@ -592,6 +594,7 @@ impl FillTessellator {
         }
 
         self.fill_rule = options.fill_rule;
+        self.orientation = options.sweep_orientation;
         self.assume_no_intersection = !options.handle_intersections;
 
         builder.begin_geometry();
@@ -675,8 +678,13 @@ impl FillTessellator {
 
         self.current_position = self.events.position(current_event);
 
+        let position = match self.orientation {
+            Orientation::Vertical => self.current_position,
+            Orientation::Horizontal => reorient(self.current_position),
+        };
+
         self.current_vertex = output.add_fill_vertex(
-            self.current_position,
+            position,
             FillAttributes {
                 events: &self.events,
                 current_event,
@@ -1687,6 +1695,11 @@ pub(crate) fn is_near(a: Point, b: Point) -> bool {
     (a - b).square_length() < 0.0001
 }
 
+#[inline]
+fn reorient(p: Point) -> Point {
+    point(p.y, -p.x)
+}
+
 /// Extra vertex information from the `FillTessellator`, accessible when building vertices.
 pub struct FillAttributes<'l> {
     events: &'l EventQueue,
@@ -1933,6 +1946,7 @@ fn fill_vertex_source_01() {
 
     let mut queue = EventQueue::from_path_with_ids(
         0.1,
+        FillOptions::DEFAULT_SWEEP_ORIENTATION,
         cmds.id_events(),
         &(endpoints, endpoints),
     );
@@ -2003,6 +2017,7 @@ fn fill_vertex_source_02() {
 
     let mut queue = EventQueue::from_path_with_ids(
         0.1,
+        FillOptions::DEFAULT_SWEEP_ORIENTATION,
         path.id_iter(),
         &path,
     );
