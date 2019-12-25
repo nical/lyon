@@ -1,13 +1,14 @@
 pub use crate::flatten_cubic::Flattened;
 use crate::{Line, LineSegment, LineEquation, QuadraticBezierSegment};
 use crate::scalar::Scalar;
-use crate::generic_math::{Point, Vector, Rect, rect, Transform2D};
+use crate::generic_math::{Point, Vector, Rect, rect};
 use crate::flatten_cubic::{flatten_cubic_bezier, flatten_cubic_bezier_with_t, find_cubic_bezier_inflection_points};
 use crate::cubic_to_quadratic::*;
 use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::monotonic::Monotonic;
 use crate::utils::{min_max, cubic_polynomial_roots};
 use crate::segment::{Segment, BoundingRect};
+use crate::traits::Transformation;
 use arrayvec::ArrayVec;
 
 use std::ops::Range;
@@ -290,7 +291,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Applies the transform to this curve and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
+    pub fn transformed<T: Transformation<S>>(&self, transform: &T) -> Self {
         CubicBezierSegment {
             from: transform.transform_point(self.from),
             ctrl1: transform.transform_point(self.ctrl1),

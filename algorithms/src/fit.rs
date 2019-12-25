@@ -22,7 +22,7 @@ pub enum FitStyle {
 }
 
 /// Computes a transform that fits a rectangle into another one.
-pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Transform2D {
+pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Transform {
     let scale: Vector = vector(
         dst_rect.size.width / src_rect.size.width,
         dst_rect.size.height / src_rect.size.height
@@ -45,7 +45,7 @@ pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Trans
     let src_center = src_rect.origin.lerp(src_rect.max(), 0.5);
     let dst_center = dst_rect.origin.lerp(dst_rect.max(), 0.5);
 
-    Transform2D::create_translation(-src_center.x, -src_center.y)
+    Transform::create_translation(-src_center.x, -src_center.y)
         .post_scale(scale.x, scale.y)
         .post_translate(dst_center.to_vector())
 }

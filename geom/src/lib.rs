@@ -206,10 +206,16 @@ mod generic_math {
     pub use euclid::default::Rect;
 
     /// Alias for `euclid::default::Transform2D`
-    pub use euclid::default::Transform2D;
+    pub type Transform<S> = euclid::default::Transform2D<S>;
 
     /// Alias for `euclid::default::Rotation2D`
-    pub use euclid::default::Rotation2D;
+    pub type Rotation<S> = euclid::default::Rotation2D<S>;
+
+    /// Alias for `euclid::default::Translation2D`
+    pub type Translation<S> = euclid::Translation2D<S, euclid::UnknownUnit, euclid::UnknownUnit>;
+
+    /// Alias for `euclid::default::Scale`
+    pub use euclid::default::Scale;
 
     /// An angle in radians.
     pub use euclid::Angle;
@@ -249,10 +255,16 @@ pub mod math {
     pub type Rect = euclid::default::Rect<f32>;
 
     /// Alias for ```euclid::default::Transform2D<f32>```
-    pub type Transform2D = euclid::default::Transform2D<f32>;
+    pub type Transform = euclid::default::Transform2D<f32>;
 
     /// Alias for ```euclid::default::Rotation2D<f32>```
-    pub type Rotation2D = euclid::default::Rotation2D<f32>;
+    pub type Rotation = euclid::default::Rotation2D<f32>;
+
+    /// Alias for ```euclid::default::Translation2D<f32>```
+    pub type Translation = euclid::Translation2D<f32, euclid::UnknownUnit, euclid::UnknownUnit>;
+
+    /// Alias for ```euclid::default::Scale<f32>```
+    pub type Scale = euclid::default::Scale<f32>;
 
     /// An angle in radians (f32).
     pub type Angle = euclid::Angle<f32>;
@@ -268,15 +280,57 @@ pub mod math {
 
     /// Shorthand for `Size::new(x, y)`.
     pub use euclid::size2 as size;
-
-    /// Anything that can be transformed in 2D.
-    pub trait Transform {
-        fn transform(&self, mat: &Transform2D) -> Self;
-    }
 }
-
 
 pub mod traits {
     pub use crate::segment::{Segment, FlatteningStep};
     //pub use monotonic::MonotonicSegment;
+
+    use crate::generic_math::{Point, Vector, Transform, Rotation, Translation, Scale};
+    use crate::Scalar;
+
+    pub trait Transformation<S> {
+        fn transform_point(&self, p: Point<S>) -> Point<S>;
+        fn transform_vector(&self, v: Vector<S>) -> Vector<S>;
+    }
+
+    impl<S: Scalar> Transformation<S> for Transform<S> {
+        fn transform_point(&self, p: Point<S>) -> Point<S> {
+            self.transform_point(p)
+        }
+
+        fn transform_vector(&self, v: Vector<S>) -> Vector<S> {
+            self.transform_vector(v)
+        }
+    }
+
+    impl<S: Scalar> Transformation<S> for Rotation<S> {
+        fn transform_point(&self, p: Point<S>) -> Point<S> {
+            self.transform_point(p)
+        }
+
+        fn transform_vector(&self, v: Vector<S>) -> Vector<S> {
+            self.transform_vector(v)
+        }
+    }
+
+    impl<S: Scalar> Transformation<S> for Translation<S> {
+        fn transform_point(&self, p: Point<S>) -> Point<S> {
+            self.transform_point(p)
+        }
+
+        fn transform_vector(&self, v: Vector<S>) -> Vector<S> {
+            v
+        }
+    }
+
+    impl<S: Scalar> Transformation<S> for Scale<S> {
+        fn transform_point(&self, p: Point<S>) -> Point<S> {
+            self.transform_point(p)
+        }
+
+        fn transform_vector(&self, v: Vector<S>) -> Vector<S> {
+            self.transform_vector(v)
+        }
+    }
 }

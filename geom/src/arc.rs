@@ -5,7 +5,7 @@ use std::mem::swap;
 
 use crate::Line;
 use crate::scalar::{Scalar, Float, cast};
-use crate::generic_math::{Point, point, Vector, vector, Rotation2D, Transform2D, Angle, Rect};
+use crate::generic_math::{Point, point, Vector, vector, Rotation, Transform, Angle, Rect};
 use crate::segment::{Segment, FlatteningStep, BoundingRect};
 use crate::segment;
 use crate::QuadraticBezierSegment;
@@ -330,7 +330,7 @@ impl<S: Scalar> Arc<S> {
 
     /// Returns a conservative rectangle that contains the curve.
     pub fn fast_bounding_rect(&self) -> Rect<S> {
-        Transform2D::create_rotation(self.x_rotation).transform_rect(
+        Transform::create_rotation(self.x_rotation).transform_rect(
             &Rect::new(
                 self.center - self.radii,
                 self.radii.to_size() * S::TWO
@@ -445,7 +445,7 @@ impl<S: Scalar> Arc<S> {
     #[inline]
     fn tangent_at_angle(&self, angle: Angle<S>) -> Vector<S> {
         let a = angle.get();
-        Rotation2D::new(self.x_rotation).transform_vector(
+        Rotation::new(self.x_rotation).transform_vector(
             vector(-self.radii.x * Float::sin(a), self.radii.y * Float::cos(a))
         )
     }
@@ -599,7 +599,7 @@ where
 }
 
 fn sample_ellipse<S: Scalar>(radii: Vector<S>, x_rotation: Angle<S>, angle: Angle<S>) -> Point<S> {
-    Rotation2D::new(x_rotation).transform_point(
+    Rotation::new(x_rotation).transform_point(
         point(radii.x * Float::cos(angle.get()), radii.y * Float::sin(angle.get()))
     )
 }

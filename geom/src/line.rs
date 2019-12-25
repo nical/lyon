@@ -1,8 +1,9 @@
 use crate::scalar::Scalar;
-use crate::generic_math::{Point, point, Vector, vector, Rect, Size, Transform2D};
+use crate::generic_math::{Point, point, Vector, vector, Rect, Size};
 use crate::segment::{Segment, FlatteningStep, BoundingRect};
 use crate::monotonic::MonotonicSegment;
 use crate::utils::min_max;
+use crate::traits::Transformation;
 use std::mem::swap;
 
 use std::ops::Range;
@@ -168,7 +169,7 @@ impl<S: Scalar> LineSegment<S> {
 
     /// Applies the transform to this segment and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
+    pub fn transformed<T: Transformation<S>>(&self, transform: &T) -> Self {
         LineSegment {
             from: transform.transform_point(self.from),
             to: transform.transform_point(self.to),

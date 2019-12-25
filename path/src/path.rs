@@ -5,6 +5,7 @@ use crate::math::*;
 use crate::builder::*;
 use crate::{Event, PathEvent, IdEvent, EndpointId, ControlPointId, AttributeStore, PositionStore};
 use crate::geom::Arc;
+use crate::geom::traits::Transformation;
 
 use std::iter::IntoIterator;
 use std::u32;
@@ -130,7 +131,7 @@ impl Path {
 
     /// Applies a transform to all endpoints and control points of this path and
     /// Returns the result.
-    pub fn transformed(&self, transform: &Transform2D) -> Self {
+    pub fn transformed<T: Transformation<f32>>(&self, transform: &T) -> Self {
         let mut result = self.clone();
         result.apply_transform(transform);
 
@@ -143,7 +144,7 @@ impl Path {
         reverse_path(self.as_slice())
     }
 
-    fn apply_transform(&mut self, transform: &Transform2D) {
+    fn apply_transform<T: Transformation<f32>>(&mut self, transform: &T) {
         let iter = IdIter::new(self.num_attributes, &self.verbs[..]);
 
         for evt in iter {

@@ -128,7 +128,7 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
     while angle.radians < PI * 2.0 {
         println!("\n\n ==================== angle = {:?}", angle);
 
-        let tranformed_path = path.transformed(&Transform2D::create_rotation(angle));
+        let tranformed_path = path.transformed(&Rotation::new(angle));
 
         test_path_internal(tranformed_path.as_slice(), expected_triangle_count);
 
@@ -414,12 +414,12 @@ fn test_rust_logo_with_intersection() {
 
 #[cfg(test)]
 fn scale_path(path: &mut Path, scale: f32) {
-    *path = path.transformed(&Transform2D::create_scale(scale, scale))
+    *path = path.transformed(&Scale::new(scale))
 }
 
 #[test]
 fn test_rust_logo_scale_up() {
-    // The goal of this test is to check how resistent the tessellator is against integer
+    // The goal of this test is to check how resistant the tessellator is against integer
     // overflows, and catch regressions.
 
     let mut builder = Path::builder().with_svg();
