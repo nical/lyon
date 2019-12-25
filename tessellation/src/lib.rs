@@ -392,6 +392,14 @@ pub enum LineJoin {
     Bevel,
 }
 
+/// Vertical or Horizontal.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum Orientation {
+    Horizontal,
+    Vertical,
+}
+
 /// Parameters for the tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -523,6 +531,10 @@ impl StrokeOptions {
     }
 }
 
+impl Default for StrokeOptions {
+    fn default() -> Self { Self::DEFAULT }
+}
+
 /// Parameters for the fill tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -542,6 +554,11 @@ pub struct FillOptions {
     /// Default value: `EvenOdd`.
     pub fill_rule: FillRule,
 
+    /// Whether to perform a vertical or horizontal traversal of the geometry.
+    ///
+    /// Default value: `Vertical`.
+    pub sweep_orientation: Orientation,
+
     /// A fast path to avoid some expensive operations if the path is known to
     /// not have any self-intersections.
     ///
@@ -557,19 +574,18 @@ pub struct FillOptions {
     _private: (),
 }
 
-impl Default for StrokeOptions {
-    fn default() -> Self { Self::DEFAULT }
-}
-
 impl FillOptions {
     /// Default flattening tolerance.
     pub const DEFAULT_TOLERANCE: f32 = 0.1;
     /// Default Fill rule.
     pub const DEFAULT_FILL_RULE: FillRule = FillRule::EvenOdd;
+    /// Default orientation.
+    pub const DEFAULT_SWEEP_ORIENTATION: Orientation = Orientation::Vertical;
 
     pub const DEFAULT: Self = FillOptions {
         tolerance: Self::DEFAULT_TOLERANCE,
         fill_rule: Self::DEFAULT_FILL_RULE,
+        sweep_orientation: Self::DEFAULT_SWEEP_ORIENTATION,
         handle_intersections: true,
         _private: (),
     };
@@ -598,6 +614,12 @@ impl FillOptions {
     #[inline]
     pub fn with_fill_rule(mut self, rule: FillRule) -> Self {
         self.fill_rule = rule;
+        self
+    }
+
+    #[inline]
+    pub fn with_sweep_orientation(mut self, orientation: Orientation) -> Self {
+        self.sweep_orientation = orientation;
         self
     }
 

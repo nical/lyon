@@ -2,11 +2,17 @@ use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use crate::math::{Point, point};
 use crate::path::{PathEvent, IdEvent, EndpointId, PositionStore};
 use crate::fill::{is_after, compare_positions};
+use crate::Orientation;
 
 use std::{f32, u32, usize};
 use std::cmp::Ordering;
 use std::ops::Range;
 use std::mem::swap;
+
+#[inline]
+fn reorient(p: Point) -> Point {
+    point(-p.y, p.x)
+}
 
 pub(crate) type TessEventId = u32;
 
@@ -72,7 +78,7 @@ impl EventQueue {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
         let mut builder = EventQueueBuilder::with_capacity(capacity);
-        builder.set_path(tolerance, path);
+        builder.set_path(tolerance, Orientation::Vertical, path);
 
         builder.build()
     }
@@ -86,13 +92,14 @@ impl EventQueue {
     /// crate documentation.
     pub fn from_path_with_ids(
         tolerance: f32,
+        sweep_orientation: Orientation,
         path: impl Iterator<Item = IdEvent>,
         positions: &impl PositionStore,
     ) -> Self {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
         let mut builder = EventQueueBuilder::with_capacity(capacity);
-        builder.set_path_with_ids(tolerance, path, positions);
+        builder.set_path_with_ids(tolerance, sweep_orientation, path, positions);
 
         builder.build()
     }
@@ -390,38 +397,75 @@ impl EventQueueBuilder {
         self.prev_evt_is_edge = false;
     }
 
-    pub fn set_path(&mut self, tolerance: f32, path: impl Iterator<Item=PathEvent>) {
+    pub fn set_path(
+        &mut self,
+        tolerance: f32,
+        sweep_orientation: Orientation,
+        path: impl Iterator<Item=PathEvent>,
+    ) {
         self.reset();
 
         self.tolerance = tolerance;
         let endpoint_id = EndpointId(std::u32::MAX);
-        for evt in path {
-            match evt {
-                PathEvent::Begin { at } => {
-                    self.begin(at, endpoint_id);
-                }
-                PathEvent::Line { to, .. } => {
-                    self.line_segment(to, endpoint_id, 0.0, 1.0);
-                }
-                PathEvent::Quadratic { ctrl, to, .. } => {
-                    self.quadratic_bezier_segment(
-                        ctrl,
-                        to,
-                        endpoint_id,
-                    );
-                }
-                PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
-                    self.cubic_bezier_segment(
-                        ctrl1,
-                        ctrl2,
-                        to,
-                        endpoint_id,
-                    );
-                }
-                PathEvent::End { first, .. } => {
-                    self.end(first, endpoint_id);
+        match sweep_orientation {
+            Orientation::Vertical => for evt in path {
+                match evt {
+                    PathEvent::Begin { at } => {
+                        self.begin(at, endpoint_id);
+                    }
+                    PathEvent::Line { to, .. } => {
+                        self.line_segment(to, endpoint_id, 0.0, 1.0);
+                    }
+                    PathEvent::Quadratic { ctrl, to, .. } => {
+                        self.quadratic_bezier_segment(
+                            ctrl,
+                            to,
+                            endpoint_id,
+                        );
+                    }
+                    PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                        self.cubic_bezier_segment(
+                            ctrl1,
+                            ctrl2,
+                            to,
+                            endpoint_id,
+                        );
+                    }
+                    PathEvent::End { first, .. } => {
+                        self.end(first, endpoint_id);
+                    }
                 }
             }
+
+            Orientation::Horizontal => for evt in path {
+                match evt {
+                    PathEvent::Begin { at } => {
+                        self.begin(reorient(at), endpoint_id);
+                    }
+                    PathEvent::Line { to, .. } => {
+                        self.line_segment(reorient(to), endpoint_id, 0.0, 1.0);
+                    }
+                    PathEvent::Quadratic { ctrl, to, .. } => {
+                        self.quadratic_bezier_segment(
+                            reorient(ctrl),
+                            reorient(to),
+                            endpoint_id,
+                        );
+                    }
+                    PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                        self.cubic_bezier_segment(
+                            reorient(ctrl1),
+                            reorient(ctrl2),
+                            reorient(to),
+                            endpoint_id,
+                        );
+                    }
+                    PathEvent::End { first, .. } => {
+                        self.end(reorient(first), endpoint_id);
+                    }
+                }
+            }
+
         }
 
         // Should finish with an end event.
@@ -431,40 +475,75 @@ impl EventQueueBuilder {
     pub fn set_path_with_ids(
         &mut self,
         tolerance: f32,
+        sweep_orientation: Orientation,
         path_events: impl Iterator<Item=IdEvent>,
         points: &impl PositionStore,
     ) {
         self.reset();
 
         self.tolerance = tolerance;
-        for evt in path_events {
-            match evt {
-                IdEvent::Begin { at } => {
-                    self.begin(points.get_endpoint(at), at);
+        match sweep_orientation {
+            Orientation::Vertical => for evt in path_events {
+                match evt {
+                    IdEvent::Begin { at } => {
+                        self.begin(points.get_endpoint(at), at);
+                    }
+                    IdEvent::Line { to, .. } => {
+                        self.line_segment(
+                            points.get_endpoint(to), to,
+                            0.0, 1.0,
+                        );
+                    }
+                    IdEvent::Quadratic { ctrl, to, .. } => {
+                        self.quadratic_bezier_segment(
+                            points.get_control_point(ctrl),
+                            points.get_endpoint(to),
+                            to,
+                        );
+                    }
+                    IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                        self.cubic_bezier_segment(
+                            points.get_control_point(ctrl1),
+                            points.get_control_point(ctrl2),
+                            points.get_endpoint(to),
+                            to,
+                        );
+                    }
+                    IdEvent::End { first, .. } => {
+                        self.end(points.get_endpoint(first), first);
+                    }
                 }
-                IdEvent::Line { to, .. } => {
-                    self.line_segment(
-                        points.get_endpoint(to), to,
-                        0.0, 1.0,
-                    );
-                }
-                IdEvent::Quadratic { ctrl, to, .. } => {
-                    self.quadratic_bezier_segment(
-                        points.get_control_point(ctrl),
-                        points.get_endpoint(to),
-                        to,
-                    );
-                }
-                IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
-                    self.cubic_bezier_segment(
-                        points.get_control_point(ctrl1),
-                        points.get_control_point(ctrl2),
-                        points.get_endpoint(to),
-                        to,
-                    );
-                }
-                IdEvent::End { first, .. } => {
-                    self.end(points.get_endpoint(first), first);
+            }
+
+            Orientation::Horizontal => for evt in path_events {
+                match evt {
+                    IdEvent::Begin { at } => {
+                        self.begin(reorient(points.get_endpoint(at)), at);
+                    }
+                    IdEvent::Line { to, .. } => {
+                        self.line_segment(
+                            reorient(points.get_endpoint(to)), to,
+                            0.0, 1.0,
+                        );
+                    }
+                    IdEvent::Quadratic { ctrl, to, .. } => {
+                        self.quadratic_bezier_segment(
+                            reorient(points.get_control_point(ctrl)),
+                            reorient(points.get_endpoint(to)),
+                            to,
+                        );
+                    }
+                    IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                        self.cubic_bezier_segment(
+                            reorient(points.get_control_point(ctrl1)),
+                            reorient(points.get_control_point(ctrl2)),
+                            reorient(points.get_endpoint(to)),
+                            to,
+                        );
+                    }
+                    IdEvent::End { first, .. } => {
+                        self.end(reorient(points.get_endpoint(first)), first);
+                    }
                 }
             }
         }
