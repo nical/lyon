@@ -1,5 +1,6 @@
 use crate::scalar::Scalar;
-use crate::generic_math::{Point, Rect, Size, Transform2D};
+use crate::generic_math::{Point, Rect, Size};
+use crate::traits::Transformation;
 use crate::LineSegment;
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
@@ -74,7 +75,7 @@ impl<S: Scalar> Triangle<S> {
 
     /// [Not implemented] Applies the transform to this triangle and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
+    pub fn transform<T: Transformation<S>>(&self, transform: &T) -> Self {
         Triangle {
             a: transform.transform_point(self.a),
             b: transform.transform_point(self.b),

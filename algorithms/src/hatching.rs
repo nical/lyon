@@ -28,8 +28,7 @@
 use crate::path::PathEvent;
 use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
 use crate::geom::LineSegment;
-use crate::geom::math::{Point, Vector, point, vector};
-use crate::geom::euclid::{Angle, default::Rotation2D};
+use crate::geom::math::{Point, Vector, point, vector, Angle, Rotation};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -49,7 +48,7 @@ pub struct HatchingOptions {
     /// Angle between the hatching pattern and the x axis.
     ///
     /// Default value: `HatchingOptions::ANGLE`.
-    pub angle: Angle<f32>,
+    pub angle: Angle,
     /// Whether to compute the tangent of the outline where it meets the hatching pattern.
     ///
     /// Default value: `true, .
@@ -71,7 +70,7 @@ impl HatchingOptions {
     /// Default flattening tolerance.
     pub const DEFAULT_TOLERANCE: f32 = 0.1;
     /// Default hatching angle.
-    pub const DEFAULT_ANGLE: Angle<f32> = Angle { radians: 0.0 };
+    pub const DEFAULT_ANGLE: Angle = Angle { radians: 0.0 };
     pub const DEFAULT_UV_ORIGIN: Point = Point { x: 0.0, y: 0.0, _unit: PhantomData };
 
     pub const DEFAULT: Self = HatchingOptions {
@@ -88,7 +87,7 @@ impl HatchingOptions {
     }
 
     #[inline]
-    pub fn angle(angle: Angle<f32>) -> Self {
+    pub fn angle(angle: Angle) -> Self {
         Self::DEFAULT.with_angle(angle)
     }
 
@@ -99,7 +98,7 @@ impl HatchingOptions {
     }
 
     #[inline]
-    pub fn with_angle(mut self, angle: Angle<f32>) -> Self {
+    pub fn with_angle(mut self, angle: Angle) -> Self {
         self.angle = angle;
         self
     }
@@ -124,7 +123,7 @@ pub struct DotOptions {
     /// Angle between the hatching pattern and the x axis.
     ///
     /// Default value: `HatchingOptions::ANGLE`.
-    pub angle: Angle<f32>,
+    pub angle: Angle,
     /// The origin of the rotated uv coordinates.
     pub uv_origin: Point,
 
@@ -141,7 +140,7 @@ impl DotOptions {
     /// Default flattening tolerance.
     pub const DEFAULT_TOLERANCE: f32 = 0.1;
     /// Default inclination of the dot pattern.
-    pub const DEFAULT_ANGLE: Angle<f32> = Angle { radians: 0.0 };
+    pub const DEFAULT_ANGLE: Angle = Angle { radians: 0.0 };
     pub const DEFAULT_UV_ORIGIN: Point = Point { x: 0.0, y: 0.0, _unit: PhantomData };
 
     pub const DEFAULT: Self = DotOptions {
@@ -157,7 +156,7 @@ impl DotOptions {
     }
 
     #[inline]
-    pub fn angle(angle: Angle<f32>) -> Self {
+    pub fn angle(angle: Angle) -> Self {
         Self::DEFAULT.with_angle(angle)
     }
 
@@ -168,7 +167,7 @@ impl DotOptions {
     }
 
     #[inline]
-    pub fn with_angle(mut self, angle: Angle<f32>) -> Self {
+    pub fn with_angle(mut self, angle: Angle) -> Self {
         self.angle = angle;
         self
     }
@@ -254,7 +253,7 @@ pub struct RegularDotPattern<Cb: FnMut(&Dot)> {
 pub struct Hatcher {
     events: HatchingEvents,
     active_edges: Vec<Edge>,
-    transform: Rotation2D<f32>,
+    transform: Rotation,
     compute_tangents: bool,
     segment: HatchSegment,
     uv_origin: Point,
@@ -266,7 +265,7 @@ impl Hatcher {
         Hatcher {
             events: HatchingEvents::new(),
             active_edges: Vec::new(),
-            transform: Rotation2D::identity(),
+            transform: Rotation::identity(),
             compute_tangents: true,
             segment: HatchSegment {
                 a: HatchEndpoint {
@@ -328,8 +327,8 @@ impl Hatcher {
         options: &HatchingOptions,
         output: &mut dyn HatchBuilder
     ) {
-        self.transform = Rotation2D::new(-options.angle);
-        self.uv_origin = Rotation2D::new(options.angle).transform_point(
+        self.transform = Rotation::new(-options.angle);
+        self.uv_origin = Rotation::new(options.angle).transform_point(
             options.uv_origin
         );
         self.active_edges.clear();
@@ -452,14 +451,14 @@ impl HatchingEvents {
 
 struct EventsBuilder {
     edges: Vec<Edge>,
-    angle: Angle<f32>,
+    angle: Angle,
     first: Point,
     current: Point,
     nth: u32,
 }
 
 impl EventsBuilder {
-    fn new(angle: Angle<f32>) -> Self {
+    fn new(angle: Angle) -> Self {
         EventsBuilder {
             edges: Vec::new(),
             angle,
@@ -470,7 +469,7 @@ impl EventsBuilder {
     }
 
     fn add_edge(&mut self, from: Point, to: Point) {
-        let rotation = Rotation2D::new(self.angle);
+        let rotation = Rotation::new(self.angle);
         let mut from = rotation.transform_point(from);
         let mut to = rotation.transform_point(to);
         if compare_positions(from, to) == Ordering::Greater {
@@ -547,7 +546,7 @@ impl HatchingEvents {
     pub fn set_path<Iter>(
         &mut self,
         tolerance: f32,
-        angle: Angle<f32>,
+        angle: Angle,
         it: Iter
     )
         where Iter: Iterator<Item = PathEvent>

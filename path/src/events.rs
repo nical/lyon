@@ -1,4 +1,5 @@
-use crate::math::{Point, Transform2D, Transform};
+use crate::math::Point;
+use crate::geom::traits::Transformation;
 use crate::{EndpointId, ControlPointId, Position};
 
 /// Represents an event or edge of path.
@@ -91,8 +92,8 @@ impl<Ep, Cp> Event<Ep, Cp> {
     }
 }
 
-impl Transform for PathEvent {
-    fn transform(&self, mat: &Transform2D) -> Self {
+impl PathEvent {
+    pub fn transformed<T: Transformation<f32>>(&self, mat: &T) -> Self {
         match self {
             Event::Line { from, to } => Event::Line {
                 from: mat.transform_point(*from),

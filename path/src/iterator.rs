@@ -69,8 +69,7 @@
 //! ```
 //! extern crate lyon_path;
 //! use lyon_path::iterator::*;
-//! use lyon_path::geom::euclid::{Angle, Transform2D};
-//! use lyon_path::math::point;
+//! use lyon_path::math::{point, Angle, Rotation};
 //! use lyon_path::Path;
 //!
 //! fn main() {
@@ -84,7 +83,7 @@
 //!     builder.close();
 //!     let path = builder.build();
 //!
-//!     let mut transform = Transform2D::create_rotation(Angle::radians(1.0));
+//!     let transform = Rotation::new(Angle::radians(1.0));
 //!
 //!     for evt in path.iter().transformed(&transform).bezier_segments() {
 //!         // ...
@@ -95,6 +94,7 @@
 use crate::math::*;
 use crate::PathEvent;
 use crate::geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
+use crate::geom::traits::Transformation;
 
 /// An extension trait for `PathEvent` iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
@@ -105,7 +105,7 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     }
 
     /// Returns an iterator applying a 2D transform to all of its events.
-    fn transformed(self, mat: &Transform2D) -> Transformed<Self> {
+    fn transformed<'l, T: Transformation<f32>>(self, mat: &'l T) -> Transformed<'l, Self, T> {
         Transformed::new(mat, self)
     }
 
@@ -194,36 +194,35 @@ where
 }
 
 /// Applies a 2D transform to a path iterator and yields the resulting path iterator.
-pub struct Transformed<I> {
+pub struct Transformed<'l, I, T> {
     it: I,
-    transform: Transform2D,
+    transform: &'l T,
 }
 
-impl<I, Event> Transformed<I>
+impl<'l, I, T: Transformation<f32>> Transformed<'l, I, T>
 where
-    I: Iterator<Item = Event>,
-    Event: Transform
+    I: Iterator<Item = PathEvent>,
 {
     /// Creates a new transformed path iterator from a path iterator.
     #[inline]
-    pub fn new(transform: &Transform2D, it: I) -> Transformed<I> {
+    pub fn new(transform: &'l T, it: I) -> Transformed<'l, I, T> {
         Transformed {
             it,
-            transform: *transform,
+            transform,
         }
     }
 }
 
-impl<I, Event> Iterator for Transformed<I>
+impl<'l, I, T> Iterator for Transformed<'l, I, T>
 where
-    I: Iterator<Item = Event>,
-    Event: Transform
+    I: Iterator<Item = PathEvent>,
+    T: Transformation<f32>
 {
-    type Item = Event;
-    fn next(&mut self) -> Option<Event> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
         match self.it.next() {
             None => None,
-            Some(ref evt) => Some(evt.transform(&self.transform)),
+            Some(ref evt) => Some(evt.transformed(self.transform)),
         }
     }
 }

@@ -1,9 +1,10 @@
 use crate::{CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
 use crate::scalar::Scalar;
-use crate::generic_math::{Point, Vector, Rect, rect, Transform2D};
+use crate::generic_math::{Point, Vector, Rect, rect};
 use crate::monotonic::Monotonic;
 use crate::segment::{Segment, FlatteningStep, BoundingRect};
 use crate::segment;
+use crate::traits::Transformation;
 use arrayvec::ArrayVec;
 
 use std::ops::Range;
@@ -245,7 +246,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Applies the transform to this curve and returns the results.
     #[inline]
-    pub fn transform(&self, transform: &Transform2D<S>) -> Self {
+    pub fn transformed<T: Transformation<S>>(&self, transform: &T) -> Self {
         QuadraticBezierSegment {
             from: transform.transform_point(self.from),
             ctrl: transform.transform_point(self.ctrl),
