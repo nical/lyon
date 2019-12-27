@@ -794,7 +794,7 @@ dependencies = [
 name = "lyon_algorithms"
 version = "0.15.0"
 dependencies = [
- "lyon_path 0.15.0",
+ "lyon_path 0.15.1",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "sid 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -818,7 +818,7 @@ dependencies = [
 name = "lyon_extra"
 version = "0.15.0"
 dependencies = [
- "lyon_path 0.15.0",
+ "lyon_path 0.15.1",
  "lyon_svg 0.15.0",
 ]
 
@@ -844,7 +844,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "lyon_geom 0.15.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -854,7 +854,7 @@ dependencies = [
 name = "lyon_svg"
 version = "0.15.0"
 dependencies = [
- "lyon_path 0.15.0",
+ "lyon_path 0.15.1",
  "svgparser 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -873,7 +873,7 @@ version = "0.15.0"
 dependencies = [
  "arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lyon_extra 0.15.0",
- "lyon_path 0.15.0",
+ "lyon_path 0.15.1",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "sid 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
