@@ -94,6 +94,10 @@ impl<'l, T> PolygonSlice<'l, T> {
         }
     }
 
+    pub fn id_iter(&self) -> PolygonIdIter {
+        PolygonIdIter::new(0..(self.points.len() as u32), self.closed)
+    }
+
     /// Returns the event for a given event ID.
     pub fn event(&self, id: EventId) -> Event<&T, ()> {
         let idx = id.0 as usize;
@@ -148,6 +152,45 @@ impl<'l, T> Iterator for PolygonIter<'l, T> {
     }
 }
 
+#[derive(Clone)]
+// An iterator of `IdEvent` for `PolygonSlice`.
+pub struct PolygonIdIter {
+    idx: u32,
+    start: u32,
+    end: u32,
+    closed: bool,
+}
+
+impl PolygonIdIter {
+    #[inline]
+    pub fn new(range: std::ops::Range<u32>, closed: bool) -> Self {
+        PolygonIdIter {
+            idx: range.start,
+            start: range.start,
+            end: range.end,
+            closed,
+        }
+    }
+}
+
+impl Iterator for PolygonIdIter {
+    type Item = IdEvent;
+    fn next(&mut self) -> Option<IdEvent> {
+        let idx = self.idx;
+        self.idx += 1;
+
+        return if idx == self.start {
+            Some(IdEvent::Begin { at: EndpointId(self.start) })
+        } else if idx < self.end {
+            Some(IdEvent::Line { from: EndpointId(idx - 1), to: EndpointId(idx) })
+        } else if idx == self.end {
+            Some(IdEvent::End { last: EndpointId(self.end - 1), first: EndpointId(self.start), close: self.closed })
+        } else {
+            None
+        };
+    }
+}
+
 impl<'l, Endpoint> PositionStore for PolygonSlice<'l, Endpoint>
 where
     Endpoint: Position,
@@ -182,4 +225,26 @@ fn event_ids() {
     assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(3), first: EndpointId(0), close: true }));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.next(), None);
+}
+
+#[test]
+fn polygon_slice_id_ite() {
+    let points: &[u32] = &[0, 1, 2, 3, 4, 5, 6];
+    let polygon = PolygonSlice {
+        points,
+        closed: true,
+    };
+
+    let mut it = polygon.id_iter();
+    assert_eq!(it.next(), Some(IdEvent::Begin { at: EndpointId(0) }));
+    assert_eq!(it.next(), Some(IdEvent::Line { from: EndpointId(0), to: EndpointId(1) }));
+    assert_eq!(it.next(), Some(IdEvent::Line { from: EndpointId(1), to: EndpointId(2) }));
+    assert_eq!(it.next(), Some(IdEvent::Line { from: EndpointId(2), to: EndpointId(3) }));
+    assert_eq!(it.next(), Some(IdEvent::Line { from: EndpointId(3), to: EndpointId(4) }));
+    assert_eq!(it.next(), Some(IdEvent::Line { from: EndpointId(4), to: EndpointId(5) }));
+    assert_eq!(it.next(), Some(IdEvent::Line { from: EndpointId(5), to: EndpointId(6) }));
+    assert_eq!(it.next(), Some(IdEvent::End { last: EndpointId(6), first: EndpointId(0), close: true }));
+    assert_eq!(it.next(), None);
+    assert_eq!(it.next(), None);
+    assert_eq!(it.next(), None);
 }
