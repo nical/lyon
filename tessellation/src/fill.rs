@@ -252,7 +252,7 @@ struct PendingEdge {
 /// It implements the path fill tessellation algorithm which is by far the most advanced
 /// feature in all lyon crates.
 ///
-/// The `FillTessellator` takes a a description of the input path and
+/// The `FillTessellator` takes a description of the input path and
 /// [`FillOptions`](struct.FillOptions.html) as input. The description of the path can be an
 /// `PathEvent` iterator, or an iterator of `IdEvent` with an implementation of`PositionStore`
 /// to retrieve positions form endpoint and control point ids, and optionally an `AttributeStore`
@@ -266,6 +266,8 @@ struct PendingEdge {
 /// The [tessellator's wiki page](https://github.com/nical/lyon/wiki/Tessellator) is a good place
 /// to learn more about how the tessellator's algorithm works. The source code also contains
 /// inline documentation for the adventurous who want to delve into more details.
+///
+/// The tessellator does not handle `NaN` values in any of its inputs.
 ///
 /// ## Associating custom attributes with vertices.
 ///
@@ -586,6 +588,10 @@ impl FillTessellator {
         attrib_store: Option<&dyn AttributeStore>,
         builder: &mut dyn FillGeometryBuilder
     ) -> TessellationResult {
+        if options.tolerance.is_nan() || options.tolerance <= 0.0 {
+            return Err(TessellationError::UnsupportedParamater);
+        }
+
         self.reset();
 
         if let Some(store) = attrib_store {
@@ -679,6 +685,10 @@ impl FillTessellator {
 
         self.current_position = self.events.position(current_event);
 
+        if self.current_position.x.is_nan() || self.current_position.y.is_nan() {
+            return Err(TessellationError::UnsupportedParamater)
+        }
+
         let position = match self.orientation {
             Orientation::Vertical => self.current_position,
             Orientation::Horizontal => reorient(self.current_position),
@@ -724,8 +734,6 @@ impl FillTessellator {
         scan: &mut ActiveEdgeScan,
         output: &mut dyn FillGeometryBuilder,
     ) -> Result<(), InternalError> {
-        debug_assert!(!self.current_position.x.is_nan() && !self.current_position.y.is_nan());
-
         tess_log!(self, "<!--");
         tess_log!(self, "     events at {:?} {:?}         {} edges below",
             self.current_position,
