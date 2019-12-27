@@ -2055,3 +2055,30 @@ fn issue_500() {
     ).unwrap();
 }
 
+#[test]
+fn very_large_path() {
+    /// Try tessellating a path with a large number of endpoints.
+    const N: usize = 1_000_000;
+
+    let mut d: f32 = 0.0;
+    let mut builder = Path::builder();
+    builder.move_to(point(0.0, 0.0));
+    for _ in 0 .. (N/2) {
+        builder.line_to(point(d.cos(), d));
+        d += 0.1;
+    }
+    for _ in 0 .. (N/2) {
+        builder.line_to(point(d.cos() + 30.0, d));
+        d -= 0.1;
+    }
+
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    tess.tessellate(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut NoOutput::new(),
+    ).unwrap();
+}
