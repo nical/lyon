@@ -1,8 +1,8 @@
 ///! Utilities to flatten cubic bezier curve segments, implmeneted both with callback and
 ///! iterator based APIs.
 ///!
-///! The algorithm implemented here is based on:
-///! http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
+///! The algorithm implemented here is based on: "Fast, precise flattening of cubic Bézier path and offset curves"
+///! http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.106.5344&rep=rep1&type=pdf
 ///! It produces a better approximations than the usual recursive subdivision approach (or
 ///! in other words, it generates less points for a given tolerance threshold).
 
@@ -186,8 +186,8 @@ fn flatten_including_inflection<S: Scalar, F: FnMut(Point<S>)>(
     after
 }
 
-// The algorithm implemented here is based on:
-// http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf
+// The algorithm implemented here is based on: "Fast, precise flattening of cubic Bézier path and offset curves"
+// http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.106.5344&rep=rep1&type=pdf
 //
 // The basic premise is that for a small t the third order term in the
 // equation of a cubic bezier curve is insignificantly small. This can
