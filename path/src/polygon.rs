@@ -118,6 +118,13 @@ impl<'l, T> PolygonSlice<'l, T> {
     }
 }
 
+impl<'l, T> std::ops::Index<EndpointId> for PolygonSlice<'l, T> {
+    type Output = T;
+    fn index(&self, id: EndpointId) -> &T {
+        &self.points[id.to_usize()]
+    }
+}
+
 // An iterator of `Event<&Endpoint, ()>`.
 pub struct PolygonIter<'l, T> {
     points: std::slice::Iter<'l, T>,
