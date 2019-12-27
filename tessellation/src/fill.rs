@@ -1718,11 +1718,19 @@ impl<'l> FillAttributes<'l> {
         }
     }
 
-    /// If the vertex source is a single endpoint id, return its ID, None otherwise.
+    /// Returns the first endpoint that this vertex is on, if any.
+    ///
+    /// This is meant to be used only in very simple cases where self-intersections,
+    /// overlapping vertices and curves are unexpected.
+    /// This will return `None` at self-intersections and between the endpoints of
+    /// a flattened curve. If two endpoints are at the same position only one of
+    /// them is returned.
+    ///
+    /// See also: `FillAttributes::sources`.
     pub fn as_endpoint_id(&self) -> Option<EndpointId> {
-        let second = self.events.next_sibling_id(self.current_event);
-        if !self.events.valid_id(second) {
-            let edge = &self.events.edge_data[self.current_event as usize];
+        let mut current = self.current_event;
+        while self.events.valid_id(current) {
+            let edge = &self.events.edge_data[current as usize];
             let t = edge.range.start;
             if t == 0.0 {
                 return Some(edge.from_id);
@@ -1730,6 +1738,8 @@ impl<'l> FillAttributes<'l> {
             if t == 1.0 {
                 return Some(edge.to_id);
             }
+
+            current = self.events.next_sibling_id(current)
         }
 
         None
