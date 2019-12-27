@@ -213,6 +213,7 @@ impl EventQueue {
     }
 
     pub(crate) fn insert_sibling(&mut self, sibling: TessEventId, position: Point, data: EdgeData) {
+        debug_assert!(is_after(data.to, position));
         let idx = self.events.len() as TessEventId;
         let next_sibling = self.events[sibling as usize].next_sibling;
 
@@ -656,6 +657,10 @@ impl EventQueueBuilder {
         mut t0: f32,
         mut t1: f32,
     ) {
+        if from == to {
+            return;
+        }
+
         let mut evt_pos = from;
         let mut evt_to = to;
         if is_after(evt_pos, to) {
@@ -748,6 +753,10 @@ impl EventQueueBuilder {
         let mut first = None;
         let is_first_edge = self.nth == 0;
         segment.for_each_flattened_with_t(self.tolerance, &mut|to, t1| {
+            if from == to {
+                return;
+            }
+
             if first == None {
                 first = Some(to)
                 // We can't call vertex(prev, from, to) in the first iteration
@@ -829,6 +838,10 @@ impl EventQueueBuilder {
         let mut first = None;
         let is_first_edge = self.nth == 0;
         segment.for_each_flattened_with_t(self.tolerance, &mut|to, t1| {
+            if from == to {
+                return;
+            }
+
             if first == None {
                 first = Some(to)
                 // We can't call vertex(prev, from, to) in the first iteration
