@@ -2056,6 +2056,70 @@ fn issue_500() {
 }
 
 #[test]
+fn issue_518_1() {
+    let mut builder = Path::builder();
+    builder.move_to(point(-76.95, -461.8));
+    builder.quadratic_bezier_to(
+        point(-75.95, -462.6),
+        point(-74.65, -462.8),
+    );
+    builder.line_to(point(-79.1, -456.4));
+    builder.line_to(point(-83.4, -464.75));
+    builder.line_to(point(-80.75, -464.75));
+    builder.line_to(point(-79.05, -458.1));
+    builder.quadratic_bezier_to(
+        point(-78.65, -460.2),
+        point(-77.35, -461.45),
+    );
+    builder.line_to(point(-77.1, -461.65));
+    builder.line_to(point(-76.95, -461.8));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    tess.tessellate(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    ).unwrap();
+}
+
+#[test]
+fn issue_518_2() {
+    let mut builder = Path::builder();
+    builder.move_to(point(-69.1, -465.5));
+    builder.line_to(point(-69.1, -461.65));
+    builder.quadratic_bezier_to(
+        point(-70.95, -462.8),
+        point(-72.95, -462.9),
+    );
+    builder.quadratic_bezier_to(
+        point(-75.65, -463.1),
+        point(-77.35, -461.45),
+    );
+    builder.quadratic_bezier_to(
+        point(-78.65, -460.2),
+        point(-79.05, -458.1),
+    );
+    builder.line_to(point(-80.55, -465.5));
+    builder.line_to(point(-69.1, -465.5));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    tess.tessellate(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut simple_builder(&mut buffers),
+    ).unwrap();
+}
+
+
+#[test]
 fn very_large_path() {
     /// Try tessellating a path with a large number of endpoints.
     const N: usize = 1_000_000;
