@@ -204,7 +204,7 @@ fn cmp_02_lyon_rust_logo(bench: &mut Bencher) {
     // - The tessellator and other allocations are not recycled between runs.
     // - No normals.
 
-    let options = FillOptions::default().with_normals(false);
+    let options = FillOptions::default();
     let mut path = Path::builder().flattened(options.tolerance).with_svg();
     build_logo_path(&mut path);
     let path = path.build();
