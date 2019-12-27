@@ -252,10 +252,11 @@ struct PendingEdge {
 /// It implements the path fill tessellation algorithm which is by far the most advanced
 /// feature in all lyon crates.
 ///
-/// The `FillTessellator` takes a [`FillEvents`](struct.FillEvents.html) object and
-/// [`FillOptions`](struct.FillOptions.html) as input. The former is an intermediate representation
-/// of the path, containing all edges sorted from top to bottom. `FillOption` contains
-/// some extra parameters (Some of which are not implemented yet).
+/// The `FillTessellator` takes a a description of the input path and
+/// [`FillOptions`](struct.FillOptions.html) as input. The description of the path can be an
+/// `PathEvent` iterator, or an iterator of `IdEvent` with an implementation of`PositionStore`
+/// to retrieve positions form endpoint and control point ids, and optionally an `AttributeStore`
+/// providing custom endpoint attributes that the tessellator can hand over to the geometry builder.
 ///
 /// The output of the tessellator is produced by the
 /// [`FillGeometryBuilder`](geometry_builder/trait.FillGeometryBuilder.html) (see the
@@ -421,7 +422,7 @@ struct PendingEdge {
 ///     let mut tessellator = FillTessellator::new();
 ///
 ///     // Compute the tessellation. Here we use tessellate_with_ids
-///     // which has a slightlu more complicated interface. The provides
+///     // which has a slightly more complicated interface. The provides
 ///     // the iterator as well as storage for positions and attributes at
 ///     // the same time.
 ///     let result = tessellator.tessellate_with_ids(
