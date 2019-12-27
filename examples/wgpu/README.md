@@ -1,4 +1,4 @@
-# gfx-rs example
+# wgpu example
 
 An example program showing what integrating lyon's tessellators in a GPU-based renderer could look like.
 
