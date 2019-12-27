@@ -277,7 +277,7 @@ impl EventQueue {
         self.merge(a_head, b_head)
     }
 
-    fn merge(&mut self, a: TessEventId, b: TessEventId) -> TessEventId {
+    fn merge(&mut self, mut a: TessEventId, mut b: TessEventId) -> TessEventId {
         if a == INVALID_EVENT_ID {
             return b;
         }
@@ -286,29 +286,61 @@ impl EventQueue {
         }
 
         debug_assert!(a != b);
+        let mut first = true;
+        let mut sorted_head = INVALID_EVENT_ID;
+        let mut prev = INVALID_EVENT_ID;
 
-        return match compare_positions(self.events[a as usize].position, self.events[b as usize].position) {
-            Ordering::Less => {
-                let a_next = self.events[a as usize].next_event;
-                self.events[a as usize].next_event = self.merge(a_next, b);
-
-                a
+        loop {
+            if a == INVALID_EVENT_ID {
+                if !first {
+                    self.events[prev as usize].next_event = b;
+                }
+                break;
             }
-            Ordering::Greater => {
-                let b_next = self.events[b as usize].next_event;
-                self.events[b as usize].next_event = self.merge(a, b_next);
 
-                b
+            if b == INVALID_EVENT_ID {
+                if !first {
+                    self.events[prev as usize].next_event = a;
+                }
+                break;
             }
-            Ordering::Equal => {
-                // Add b to a's sibling list.
-                let a_sib = self.find_last_sibling(a) as usize;
-                self.events[a_sib].next_sibling = b;
 
-                let b_next = self.events[b as usize].next_event;
-                self.merge(a, b_next)
+            let node;
+            match compare_positions(self.events[a as usize].position, self.events[b as usize].position) {
+                Ordering::Less => {
+                    node = a;
+                    a = self.events[a as usize].next_event;
+                }
+                Ordering::Greater => {
+                    node = b;
+                    b = self.events[b as usize].next_event;
+                }
+                Ordering::Equal => {
+                    // Add b to a's sibling list.
+                    let a_sib = self.find_last_sibling(a) as usize;
+                    self.events[a_sib].next_sibling = b;
+
+                    b = self.events[b as usize].next_event;
+
+                    continue;
+                }
             }
-        };
+
+            if first {
+                first = false;
+                sorted_head = node;
+            } else {
+                self.events[prev as usize].next_event = node;
+            }
+
+            prev = node;
+        }
+
+        if sorted_head == INVALID_EVENT_ID {
+            sorted_head = a;
+        }
+
+        return sorted_head;
     }
 
     fn find_last_sibling(&self, id: TessEventId) -> TessEventId {
