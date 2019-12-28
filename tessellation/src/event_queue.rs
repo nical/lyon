@@ -617,6 +617,7 @@ impl EventQueueBuilder {
 
     fn end(&mut self, first: Point, first_endpoint_id: EndpointId) {
         if self.nth == 0 {
+            self.prev_evt_is_edge = false;
             return;
         }
 
@@ -635,7 +636,6 @@ impl EventQueueBuilder {
 
         self.prev_evt_is_edge = false;
         self.prev_endpoint_id = first_endpoint_id;
-
         self.nth = 0;
     }
 
@@ -785,20 +785,21 @@ impl EventQueueBuilder {
             from = to;
         });
 
-        let first = first.unwrap();
-        let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+        if let Some(first) = first {
+            let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
 
-        if is_first_edge {
-            self.second = second;
-        } else if is_after(original.from, self.prev) && is_after(original.from, second) {
-            // Handle the first vertex we took out of the loop above.
-            // The missing vertex is always the origin of the edge (before the flip).
-            self.vertex_event(original.from, self.prev_endpoint_id);
+            if is_first_edge {
+                self.second = second;
+            } else if is_after(original.from, self.prev) && is_after(original.from, second) {
+                // Handle the first vertex we took out of the loop above.
+                // The missing vertex is always the origin of the edge (before the flip).
+                self.vertex_event(original.from, self.prev_endpoint_id);
+            }
+
+            self.prev = previous;
+            self.current = original.to;
+            self.prev_endpoint_id = to_id;
         }
-
-        self.prev = previous;
-        self.current = original.to;
-        self.prev_endpoint_id = to_id;
     }
 
     fn cubic_bezier_segment(
@@ -870,20 +871,21 @@ impl EventQueueBuilder {
             from = to;
         });
 
-        let first = first.unwrap();
-        let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+        if let Some(first) = first {
+            let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
 
-        if is_first_edge {
-            self.second = second;
-        } else if is_after(original.from, self.prev) && is_after(original.from, second) {
-            // Handle the first vertex we took out of the loop above.
-            // The missing vertex is always the origin of the edge (before the flip).
-            self.vertex_event(original.from, self.prev_endpoint_id);
+            if is_first_edge {
+                self.second = second;
+            } else if is_after(original.from, self.prev) && is_after(original.from, second) {
+                // Handle the first vertex we took out of the loop above.
+                // The missing vertex is always the origin of the edge (before the flip).
+                self.vertex_event(original.from, self.prev_endpoint_id);
+            }
+
+            self.prev = previous;
+            self.current = original.to;
+            self.prev_endpoint_id = to_id;
         }
-
-        self.prev = previous;
-        self.current = original.to;
-        self.prev_endpoint_id = to_id;
     }
 }
 
