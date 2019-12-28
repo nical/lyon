@@ -1723,6 +1723,7 @@ impl<'l> FillAttributes<'l> {
         VertexSourceIterator {
             events: self.events,
             id: self.current_event,
+            prev: None,
         }
     }
 
@@ -1761,53 +1762,73 @@ impl<'l> FillAttributes<'l> {
 
         let store = self.attrib_store.unwrap();
 
-        let second = self.events.next_sibling_id(self.current_event);
-        if !self.events.valid_id(second) {
-            let edge = &self.events.edge_data[self.current_event as usize];
-            let t = edge.range.start;
-            if t == 0.0 {
-                return store.get(edge.from_id);
-            }
-            if t == 1.0 {
-                return store.get(edge.to_id);
+        let mut sources = VertexSourceIterator {
+            events: self.events,
+            id: self.current_event,
+            prev: None,
+        };
+
+        let num_attributes = store.num_attributes();
+
+        let first = sources.next().unwrap();
+        let mut next = sources.next();
+
+        // Fast path for the single-source-single-endpoint common case.
+        if next.is_none() {
+            if let VertexSource::Endpoint { id } = first {
+                return store.get(id);
             }
         }
 
-        let num_attributes = store.num_attributes();
-        assert!(self.attrib_buffer.len() == num_attributes);
-
         // First source taken out of the loop to avoid initializing the buffer.
-        {
-            let edge = &self.events.edge_data[self.current_event as usize];
-            let t = edge.range.start;
-
-            let a = store.get(edge.from_id);
-            let b = store.get(edge.to_id);
-
-            assert!(a.len() == num_attributes);
-            assert!(b.len() == num_attributes);
-            for i in 0..num_attributes {
-                self.attrib_buffer[i] = a[i] * (1.0 - t) + b[i] * t;
+        match first {
+            VertexSource::Endpoint { id } => {
+                let a = store.get(id);
+                assert!(a.len() == num_attributes);
+                assert!(self.attrib_buffer.len() == num_attributes);
+                for i in 0..num_attributes {
+                    self.attrib_buffer[i] = a[i];
+                }
+            }
+            VertexSource::Edge { from, to, t } => {
+                let a = store.get(from);
+                let b = store.get(to);
+                assert!(a.len() == num_attributes);
+                assert!(b.len() == num_attributes);
+                assert!(self.attrib_buffer.len() == num_attributes);
+                for i in 0..num_attributes {
+                    self.attrib_buffer[i] = a[i] * (1.0 - t) + b[i] * t;
+                }
             }
         }
 
         let mut div = 1.0;
-        let mut current_sibling = second;
-        while self.events.valid_id(current_sibling) {
-            let edge = &self.events.edge_data[current_sibling as usize];
-            let t = edge.range.start;
-
-            let a = store.get(edge.from_id);
-            let b = store.get(edge.to_id);
-
-            assert!(a.len() == num_attributes);
-            assert!(b.len() == num_attributes);
-            for i in 0..num_attributes {
-                self.attrib_buffer[i] += a[i] * (1.0 - t) + b[i] * t;
+        loop {
+            match next {
+                Some(VertexSource::Endpoint { id }) => {
+                    let a = store.get(id);
+                    assert!(a.len() == num_attributes);
+                    assert!(self.attrib_buffer.len() == num_attributes);
+                    for i in 0..num_attributes {
+                        self.attrib_buffer[i] += a[i];
+                    }
+                }
+                Some(VertexSource::Edge { from, to, t }) => {
+                    let a = store.get(from);
+                    let b = store.get(to);
+                    assert!(a.len() == num_attributes);
+                    assert!(b.len() == num_attributes);
+                    assert!(self.attrib_buffer.len() == num_attributes);
+                    for i in 0..num_attributes {
+                        self.attrib_buffer[i] += a[i] * (1.0 - t) + b[i] * t;
+                    }
+                }
+                None => {
+                    break;
+                }
             }
-
             div += 1.0;
-            current_sibling = self.events.next_sibling_id(current_sibling);
+            next = sources.next();
         }
 
         if div > 1.0 {
@@ -1825,32 +1846,44 @@ impl<'l> FillAttributes<'l> {
 pub struct VertexSourceIterator<'l> {
     events: &'l EventQueue,
     id: TessEventId,
+    prev: Option<VertexSource>,
 }
 
 impl<'l> Iterator for VertexSourceIterator<'l> {
     type Item = VertexSource;
+    #[inline]
     fn next(&mut self) -> Option<VertexSource> {
-        if self.id == INVALID_EVENT_ID {
-            return None;
+        let mut src;
+        loop {
+            if self.id == INVALID_EVENT_ID {
+                return None;
+            }
+
+            let edge = &self.events.edge_data[self.id as usize];
+
+            self.id = self.events.next_sibling_id(self.id);
+
+            let t = edge.range.start;
+
+            src = if t == 0.0 {
+                Some(VertexSource::Endpoint { id: edge.from_id })
+            } else if t == 1.0 {
+                Some(VertexSource::Endpoint { id: edge.to_id })
+            } else {
+                Some(VertexSource::Edge {
+                    from: edge.from_id,
+                    to: edge.to_id,
+                    t,
+                })
+            };
+
+            if src != self.prev {
+                break;
+            }
         }
 
-        let edge = &self.events.edge_data[self.id as usize];
-
-        self.id = self.events.next_sibling_id(self.id);
-
-        let t = edge.range.start;
-
-        if t == 0.0 {
-            Some(VertexSource::Endpoint { id: edge.from_id })
-        } else if t == 1.0 {
-            Some(VertexSource::Endpoint { id: edge.to_id })
-        } else {
-            Some(VertexSource::Edge {
-                from: edge.from_id,
-                to: edge.to_id,
-                t,
-            })
-        }
+        self.prev = src;
+        src
     }
 }
 
@@ -2122,3 +2155,86 @@ fn fill_vertex_source_02() {
         }
     }
 }
+
+#[test]
+fn fill_vertex_source_03() {
+    use crate::path::commands::PathCommands;
+    use crate::path::AttributeSlice;
+
+    // x---x
+    //  \ /
+    //   x  <---
+    //  / \
+    // x---x
+    //
+    // check that the attribute interpolation is weighted correctly at
+    // start events.
+
+    let endpoints: &[Point] = &[
+        point(0.0, 0.0),
+        point(2.0, 0.0),
+        point(1.0, 1.0),
+        point(0.0, 2.0),
+        point(2.0, 2.0),
+        point(1.0, 1.0),
+    ];
+
+    let attributes = &[0.0, 0.0, 1.0, 0.0, 0.0, 2.0];
+
+    let mut cmds = PathCommands::builder();
+    cmds.move_to(EndpointId(0));
+    cmds.line_to(EndpointId(1));
+    cmds.line_to(EndpointId(2));
+    cmds.close();
+    cmds.move_to(EndpointId(3));
+    cmds.line_to(EndpointId(4));
+    cmds.line_to(EndpointId(5));
+    cmds.close();
+
+    let cmds = cmds.build();
+
+    let mut queue = EventQueue::from_path_with_ids(
+        0.1,
+        FillOptions::DEFAULT_SWEEP_ORIENTATION,
+        cmds.id_events(),
+        &(endpoints, endpoints),
+    );
+
+    let mut tess = FillTessellator::new();
+    tess.tessellate_events(
+        &mut queue,
+        Some(&AttributeSlice::new(attributes, 1)),
+        &FillOptions::default(),
+        &mut CheckVertexSources { next_vertex: 0 },
+    ).unwrap();
+
+    struct CheckVertexSources {
+        next_vertex: u32,
+    }
+
+    impl GeometryBuilder for CheckVertexSources {
+        fn begin_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count { Count { vertices: self.next_vertex, indices: 0 } }
+        fn abort_geometry(&mut self) {}
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    impl FillGeometryBuilder for CheckVertexSources {
+        fn add_fill_vertex(&mut self, v: Point, mut attr: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+            if eq(v, point(1.0, 1.0)) {
+                assert_eq!(attr.interpolated_attributes(), &[1.5]);
+                assert_eq!(attr.sources().count(), 2);
+            }
+            else {
+                assert_eq!(attr.interpolated_attributes(), &[0.0]);
+                assert_eq!(attr.sources().count(), 1);
+            }
+
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+    }
+}
+
