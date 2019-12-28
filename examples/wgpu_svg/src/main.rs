@@ -48,6 +48,13 @@ fn main() {
              .value_name("INPUT")
              .takes_value(true)
              .required(true))
+        .arg(Arg::with_name("TESS_ONLY")
+             .help("Perform the tessellation and exit without rendering")
+             .value_name("TESS_ONLY")
+             .long("tessellate-only")
+             .short("t")
+             .takes_value(false)
+             .required(false))
         .get_matches();
 
     let msaa_samples = if let Some(msaa) = app.value_of("MSAA") {
@@ -62,15 +69,13 @@ fn main() {
         1
     };
 
-
-
     // Parse and tessellate the geometry
 
     let filename = app.value_of("INPUT").unwrap();
 
     let mut fill_tess = FillTessellator::new();
     let mut stroke_tess = StrokeTessellator::new();
-    let mut mesh: VertexBuffers<_, u16> = VertexBuffers::new();
+    let mut mesh: VertexBuffers<_, u32> = VertexBuffers::new();
 
 
     let opt = usvg::Options::default();
@@ -140,14 +145,17 @@ fn main() {
         }
     }
 
+    if app.is_present("TESS_ONLY") {
+        return;
+    }
+
     println!(
         "Finished tesselation: {} vertices, {} indices",
         mesh.vertices.len(),
         mesh.indices.len()
     );
+
     println!("Use arrow keys to pan, pageup and pagedown to zoom.");
-
-
 
 
     // Initialize wgpu and send some data to the GPU.
@@ -328,7 +336,7 @@ fn main() {
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: None,
-        index_format: wgpu::IndexFormat::Uint16,
+        index_format: wgpu::IndexFormat::Uint32,
         vertex_buffers: &[
             wgpu::VertexBufferDescriptor {
                 stride: std::mem::size_of::<GpuVertex>() as u64,
@@ -642,18 +650,20 @@ impl<'l> Iterator for PathConvIter<'l> {
             return self.deferred.take()
         }
 
-        match self.iter.next() {
+        let next = self.iter.next();
+        match next {
             Some(usvg::PathSegment::MoveTo { x, y }) => {
                 if self.needs_end {
                     let last = self.prev;
                     let first = self.first;
                     self.needs_end = false;
-                    self.deferred = Some(PathEvent::Begin { at: self.prev });
                     self.prev = point(x, y);
+                    self.deferred = Some(PathEvent::Begin { at: self.prev });
                     self.first = self.prev;
                     Some(PathEvent::End { last, first, close: false })
                 } else {
-                    Some(PathEvent::Begin { at: self.prev })
+                    self.first = point(x, y);
+                    Some(PathEvent::Begin { at: self.first })
                 }
             }
             Some(usvg::PathSegment::LineTo { x, y }) => {
@@ -682,7 +692,16 @@ impl<'l> Iterator for PathConvIter<'l> {
                     close: true,
                 })
             }
-            None => None,
+            None => {
+                if self.needs_end {
+                    self.needs_end = false;
+                    let last = self.prev;
+                    let first = self.first;
+                    Some(PathEvent::End { last, first, close: false })
+                } else {
+                    None
+                }
+            }
         }
     }
 }
