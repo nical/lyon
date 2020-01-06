@@ -384,6 +384,7 @@ impl<'l, OutputVertex: 'l, OutputIndex:'l, Ctor> BuffersBuilder<'l, OutputVertex
     }
 }
 
+#[doc(hidden)]
 /// Creates a `BuffersBuilder`.
 pub fn vertex_builder<OutputVertex, OutputIndex, Input, Ctor>(
     buffers: &mut VertexBuffers<OutputVertex, OutputIndex>,

@@ -218,7 +218,7 @@ pub use crate::stroke::*;
 
 #[doc(inline)]
 pub use crate::geometry_builder::{
-    GeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder, GeometryReceiver,
+    GeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder, BasicGeometryBuilder, GeometryReceiver,
     FillVertexConstructor, StrokeVertexConstructor, BasicVertexConstructor,
     VertexBuffers, BuffersBuilder, Count, GeometryBuilderError,
 };
