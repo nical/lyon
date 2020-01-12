@@ -2146,3 +2146,29 @@ fn very_large_path() {
         &mut NoOutput::new(),
     ).unwrap();
 }
+
+#[test]
+fn issue_529() {
+    let mut builder = Path::builder();
+
+    builder.move_to(point(203.01, 174.67));
+    builder.line_to(point(203.04, 174.72));
+    builder.line_to(point(203.0, 174.68));
+    builder.close();
+
+    builder.move_to(point(203.0, 174.66));
+    builder.line_to(point(203.01, 174.68));
+    builder.line_to(point(202.99, 174.68));
+    builder.close();
+
+    let mut tess = FillTessellator::new();
+
+    tess.tessellate(
+        &builder.build(),
+        &FillOptions::default(),
+        &mut NoOutput::new(),
+    ).unwrap();
+
+    // SVG path syntax:
+    // "M 203.01 174.67 L 203.04 174.72 L 203 174.68 ZM 203 174.66 L 203.01 174.68 L 202.99 174.68 Z"
+}

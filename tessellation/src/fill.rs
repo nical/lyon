@@ -1545,10 +1545,20 @@ impl FillTessellator {
             } else {
                 debug_assert!(!is_after(self.current_position, edge.to));
 
-                let x = if edge.to.y == y {
-                    edge.to.x
-                } else if edge.from.y == y {
+                let eq_to = edge.to.y == y;
+                let eq_from = edge.from.y == y;
+
+                let x = if eq_to && eq_from {
+                    let current_x = self.current_position.x;
+                    if edge.max_x >= current_x && edge.min_x <= current_x {
+                        self.current_position.x
+                    } else {
+                        edge.min_x
+                    }
+                } else if eq_from {
                     edge.from.x
+                } else if eq_to {
+                    edge.to.x
                 } else {
                     edge.solve_x_for_y(y)
                 };
