@@ -83,7 +83,7 @@ Lyon is *not* an SVG renderer. For now lyon mainly provides primitives to tessel
 
 ### How do I render the output of the tessellators?
 
-Although the format of the output of the tessellators is customizable, the algorithms are designed to generate a vertex and an index buffer. See the [lyon::tessellation documentation](https://docs.rs/lyon_tessellation/0.7.4/lyon_tessellation/#the-output-geometry-builders) for more details.
+Although the format of the output of the tessellators is customizable, the algorithms are designed to generate a vertex and an index buffer. See the [lyon::tessellation documentation](https://docs.rs/lyon_tessellation/latest/lyon_tessellation/#the-output-geometry-builders) for more details.
 
 ### Is anti-aliasing supported?
 
