@@ -45,6 +45,29 @@ struct Primitive {
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
+/// Creates a texture that uses MSAA and fits a given swap chain
+fn create_multisampled_framebuffer(
+    device: &wgpu::Device,
+    sc_desc: &wgpu::SwapChainDescriptor,
+    sample_count: u32,
+) -> wgpu::TextureView {
+    let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+        size: wgpu::Extent3d {
+            width: sc_desc.width,
+            height: sc_desc.height,
+            depth: 1,
+        },
+        array_layer_count: 1,
+        mip_level_count: 1,
+        sample_count: sample_count,
+        dimension: wgpu::TextureDimension::D2,
+        format: sc_desc.format,
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+    };
+
+    device.create_texture(multisampled_frame_descriptor).create_default_view()
+}
+
 fn main() {
     println!("== wgpu example ==");
     println!("Controls:");
@@ -53,6 +76,10 @@ fn main() {
     println!("  w: toggle wireframe mode");
     println!("  b: toggle drawing the background");
     println!("  a/z: increase/decrease the stroke width");
+
+    // Number of samples for anti-aliasing
+    // Set to 1 to disable
+    let sample_count = 4;
 
     let num_instances: u32 = PRIM_BUFFER_LEN as u32 - 1;
     let tolerance = 0.02;
@@ -297,7 +324,7 @@ fn main() {
                 ],
             },
         ],
-        sample_count: 1,
+        sample_count: sample_count,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
     };
@@ -348,7 +375,7 @@ fn main() {
                 ],
             },
         ],
-        sample_count: 1,
+        sample_count: sample_count,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
     });
@@ -364,6 +391,8 @@ fn main() {
         height: size.height.round() as u32,
         present_mode: wgpu::PresentMode::Vsync,
     };
+
+    let mut multisampled_render_target = None;
 
     let window_surface = wgpu::Surface::create(&window);
     let mut swap_chain = device.create_swap_chain(
@@ -395,13 +424,19 @@ fn main() {
                 },
                 array_layer_count: 1,
                 mip_level_count: 1,
-                sample_count: 1,
+                sample_count: sample_count,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
                 usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             });
 
             depth_texture_view = Some(depth_texture.create_default_view());
+
+            multisampled_render_target = if sample_count > 1 {
+                Some(create_multisampled_framebuffer(&device, &swap_chain_desc, sample_count))
+            } else {
+                None
+            };
         }
 
         let frame = swap_chain.get_next_texture();
@@ -455,14 +490,28 @@ fn main() {
         );
 
         {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+            // A resolve target is only supported if the attachment actually uses anti-aliasing
+            // So if sample_count == 1 then we must render directly to the swapchain's buffer
+            let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
+                wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: msaa_target,
+                    load_op: wgpu::LoadOp::Clear,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color::WHITE,
+                    resolve_target: Some(&frame.view),
+                }
+            } else {
+                wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &frame.view,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
                     clear_color: wgpu::Color::WHITE,
                     resolve_target: None,
-                }],
+                }
+            };
+
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[color_attachment],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: depth_texture_view.as_ref().unwrap(),
                     depth_load_op: wgpu::LoadOp::Clear,
