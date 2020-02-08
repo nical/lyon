@@ -4,7 +4,7 @@
 //!
 //! The following example shows the Builder struct from the
 //! [lyon_path](https://docs.rs/lyon_path/*/lyon_path) crate using the
-//! [FlatPathBuilder](traits.FlatPathBuilder.html) interface.
+//! [FlatPathBuilder](trait.FlatPathBuilder.html) interface.
 //!
 //! ```ignore
 //! use lyon_path::Path;
@@ -25,8 +25,8 @@
 //! let path = builder.build();
 //! ```
 //!
-//! The next example uses the [PathBuilder](traits.PathBuilder.html) trait, which adds
-//! some simple curves to the [FlatPathBuilder](traits.FlatPathBuilder.html) trait.
+//! The next example uses the [PathBuilder](trait.PathBuilder.html) trait, which adds
+//! some simple curves to the [FlatPathBuilder](trait.FlatPathBuilder.html) trait.
 //!
 //! ```ignore
 //! let mut builder = Path::builder();
@@ -40,11 +40,11 @@
 //! let path = builder.build();
 //! ```
 //!
-//! The [SvgBuilder](trait.SvgBuilder.html) Adds to [PathBuilder](traits.PathBuilder.html)
+//! The [SvgBuilder](trait.SvgBuilder.html) Adds to [PathBuilder](trait.PathBuilder.html)
 //! the rest of the [SVG path](https://svgwg.org/specs/paths/) commands.
 //!
 //! These SVG commands can approximated with the simpler set of commands supported by
-//! [PathBuilder](traits.PathBuilder.html). Therefore it is possible to create an SvgBuilder
+//! [PathBuilder](trait.PathBuilder.html). Therefore it is possible to create an SvgBuilder
 //! adapter on top of a PathBuilder using the with_svg method:
 //!
 //! ```ignore

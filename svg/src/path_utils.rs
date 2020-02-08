@@ -15,7 +15,7 @@ pub struct ParseError;
 /// Builds path object using an SvgBuilder and a list of commands.
 /// Once the path is built you can tessellate it.
 ///
-/// The [SvgBuilder](trait.SvgBuilder.html) Adds to [PathBuilder](traits.PathBuilder.html)
+/// The [SvgBuilder](trait.SvgBuilder.html) Adds to [PathBuilder](trait.PathBuilder.html)
 /// the rest of the [SVG path](https://svgwg.org/specs/paths/) commands.
 ///
 /// # Examples
