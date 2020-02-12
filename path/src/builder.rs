@@ -326,7 +326,7 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     }
 
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point) {
-        SvgArc {
+        let arc = SvgArc {
             from: self.state.current_position(),
             to,
             radii,
@@ -335,7 +335,16 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
-        }.for_each_quadratic_bezier(&mut|curve| {
+        }.to_arc();
+
+        let arc_start = arc.from();
+        if (arc_start - self.current_position()).square_length() < 0.01 {
+            // TODO: if there is no point on the current sub-path we should do a
+            // move_to instead, but we don't have the information here.
+            self.line_to(arc_start);
+        }
+
+        arc.for_each_quadratic_bezier(&mut|curve| {
             self.quadratic_bezier_to(curve.ctrl, curve.to);
         });
         self.state.arc_to(radii, x_rotation, flags, to);
@@ -403,13 +412,22 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
         x_rotation: Angle
     ) {
         let start_angle = (self.current_position() - center).angle_from_x_axis() - x_rotation;
-        Arc {
+        let arc = Arc {
             center,
             radii,
             start_angle,
             sweep_angle,
             x_rotation,
-        }.for_each_quadratic_bezier(&mut|curve| {
+        };
+
+        let arc_start = arc.from();
+        if (arc_start - self.current_position()).square_length() < 0.01 {
+            // TODO: if there is no point on the current sub-path we should do a
+            // move_to instead, but we don't have the information here.
+            self.line_to(arc_start);
+        }
+
+        arc.for_each_quadratic_bezier(&mut|curve| {
             self.quadratic_bezier_to(curve.ctrl, curve.to);
         });
     }
