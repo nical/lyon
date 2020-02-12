@@ -562,11 +562,11 @@ pub struct FillOptions {
     /// A fast path to avoid some expensive operations if the path is known to
     /// not have any self-intersections.
     ///
-    /// Do not set this to `true` if the path may have intersecting edges else
+    /// Do not set this to `false` if the path may have intersecting edges else
     /// the tessellator may panic or produce incorrect results. In doubt, do not
     /// change the default value.
     ///
-    /// Default value: `false`.
+    /// Default value: `true`.
     pub handle_intersections: bool,
 
     // To be able to add fields without making it a breaking change, add an empty private field
