@@ -423,6 +423,18 @@ impl Builder {
 
         let start_angle = (self.current_position - center).angle_from_x_axis() - x_rotation;
         let arc = Arc { start_angle, center, radii, sweep_angle, x_rotation };
+
+        // If the current position is not on the arc, move or line to the beginning of the
+        // arc.
+        let arc_start = arc.from();
+        if (arc_start - self.current_position).square_length() < 0.01 {
+            if self.need_moveto {
+                self.move_to(arc_start);
+            } else {
+                self.line_to(arc_start);
+            }
+        }
+
         arc.for_each_quadratic_bezier(&mut|curve| {
             self.quadratic_bezier_to(curve.ctrl, curve.to);
         });

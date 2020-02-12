@@ -312,13 +312,24 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
     ) {
         let start_angle = (self.current - center).angle_from_x_axis() - x_rotation;
         let mut first = true;
-        Arc {
+        let arc = Arc {
             center,
             radii,
             start_angle,
             sweep_angle,
             x_rotation,
-        }.for_each_flattened(
+        };
+
+        let arc_start = arc.from();
+        if (arc_start - self.current).square_length() < 0.01 {
+            if self.nth == 0 && !self.previous_command_was_move {
+                self.move_to(arc_start);
+            } else {
+                self.line_to(arc_start);
+            }
+        }
+
+        arc.for_each_flattened(
             self.options.tolerance,
             &mut |point| {
                 self.edge_to(point, EndpointId::INVALID, 0.0, first);
