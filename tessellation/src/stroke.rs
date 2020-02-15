@@ -779,7 +779,11 @@ impl<'l> StrokeBuilder<'l> {
         // Case of an overlapping stroke
         // We must build the back join with two vertices in order to respect the correct shape
         // This will induce some overlapping triangles and collinear triangles
-        if d > 0.0 {
+        //
+        // TODO: Sometimes flattening generates a very small edge at the end of the curve which causes
+        // precision issues and cracks in the output geometry here. Work around it with a threshold
+        // but it would be better if the flattening code was able to avoid that in the first place.
+        if d > 0.01 {
             let n2: Vector = match front_side {
                 Side::Right => vector(t2.y, -t2.x),
                 Side::Left => vector(-t2.y, t2.x)
