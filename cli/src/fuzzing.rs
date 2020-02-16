@@ -1,15 +1,12 @@
+use commands::{FuzzCmd, Tessellator};
+use lyon::extra::debugging::find_reduced_test_case;
 use lyon::math::*;
 use lyon::path::Path;
-use lyon::tessellation::geometry_builder::NoOutput;
-use lyon::tessellation::{
-    StrokeOptions, StrokeTessellator,
-    FillOptions, FillTessellator,
-};
-use lyon::extra::debugging::find_reduced_test_case;
-use rand;
-use commands::{FuzzCmd, Tessellator};
-use std::cmp::{min, max};
 use lyon::tess2;
+use lyon::tessellation::geometry_builder::NoOutput;
+use lyon::tessellation::{FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
+use rand;
+use std::cmp::{max, min};
 
 fn random_point() -> Point {
     point(
@@ -74,7 +71,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                         let result = FillTessellator::new().tessellate(
                             &path,
                             &options,
-                            &mut NoOutput::new()
+                            &mut NoOutput::new(),
                         );
                         if !cmd.ignore_errors {
                             result.unwrap();
@@ -84,7 +81,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                         let result = tess2::FillTessellator::new().tessellate(
                             &path,
                             &options,
-                            &mut NoOutput::new()
+                            &mut NoOutput::new(),
                         );
                         if !cmd.ignore_errors {
                             result.unwrap();
@@ -96,26 +93,19 @@ pub fn run(cmd: FuzzCmd) -> bool {
             if status.is_err() {
                 println!(" !! Error while tessellating");
                 println!("    Path #{}", i);
-                find_reduced_test_case(
-                    path.as_slice(),
-                    &|path: Path| {
-                        FillTessellator::new().tessellate(
-                            &path,
-                            &FillOptions::default(),
-                            &mut NoOutput::new()
-                        ).is_err()
-                    },
-                );
+                find_reduced_test_case(path.as_slice(), &|path: Path| {
+                    FillTessellator::new()
+                        .tessellate(&path, &FillOptions::default(), &mut NoOutput::new())
+                        .is_err()
+                });
 
                 panic!("aborting");
             }
         }
         if cmd.stroke {
-            StrokeTessellator::new().tessellate(
-                &path,
-                &StrokeOptions::default(),
-                &mut NoOutput::new()
-            ).unwrap();
+            StrokeTessellator::new()
+                .tessellate(&path, &StrokeOptions::default(), &mut NoOutput::new())
+                .unwrap();
         }
         i += 1;
         if i % 500 == 0 {

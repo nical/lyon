@@ -44,23 +44,23 @@ pub use lyon_geom as geom;
 #[macro_use]
 pub extern crate serde;
 
-mod events;
-mod path_state;
-mod path;
-pub mod commands;
-pub mod polygon;
-pub mod iterator;
 pub mod builder;
+pub mod commands;
+mod events;
+pub mod iterator;
+mod path;
+mod path_state;
+pub mod polygon;
 
-pub use crate::path::*;
 pub use crate::events::*;
-pub use crate::path_state::*;
+pub use crate::geom::math;
 pub use crate::geom::ArcFlags;
-pub use crate::geom::math as math;
+pub use crate::path::*;
+pub use crate::path_state::*;
 
-use std::u32;
-use std::fmt;
 use math::Point;
+use std::fmt;
+use std::u32;
 
 /// The fill rule defines how to determine what is inside and what is outside of the shape.
 ///
@@ -76,8 +76,8 @@ impl FillRule {
     #[inline]
     pub fn is_in(&self, winding_number: i16) -> bool {
         match *self {
-            FillRule::EvenOdd => { winding_number % 2 != 0 }
-            FillRule::NonZero => { winding_number != 0 }
+            FillRule::EvenOdd => winding_number % 2 != 0,
+            FillRule::NonZero => winding_number != 0,
         }
     }
 
@@ -94,9 +94,15 @@ pub struct ControlPointId(pub u32);
 
 impl ControlPointId {
     pub const INVALID: Self = ControlPointId(u32::MAX);
-    pub fn offset(self) -> usize { self.0 as usize }
-    pub fn to_usize(self) -> usize { self.0 as usize }
-    pub fn from_usize(val: usize) -> Self { ControlPointId(val as u32) }
+    pub fn offset(self) -> usize {
+        self.0 as usize
+    }
+    pub fn to_usize(self) -> usize {
+        self.0 as usize
+    }
+    pub fn from_usize(val: usize) -> Self {
+        ControlPointId(val as u32)
+    }
 }
 
 impl fmt::Debug for ControlPointId {
@@ -111,9 +117,15 @@ impl fmt::Debug for ControlPointId {
 pub struct EndpointId(pub u32);
 impl EndpointId {
     pub const INVALID: Self = EndpointId(u32::MAX);
-    pub fn offset(self) -> usize { self.0 as usize }
-    pub fn to_usize(self) -> usize { self.0 as usize }
-    pub fn from_usize(val: usize) -> Self { EndpointId(val as u32) }
+    pub fn offset(self) -> usize {
+        self.0 as usize
+    }
+    pub fn to_usize(self) -> usize {
+        self.0 as usize
+    }
+    pub fn from_usize(val: usize) -> Self {
+        EndpointId(val as u32)
+    }
 }
 
 impl fmt::Debug for EndpointId {
@@ -125,14 +137,13 @@ impl fmt::Debug for EndpointId {
 /// Refers to an event in a path.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct EventId(
-    #[doc(hidden)]
-    pub u32
-);
+pub struct EventId(#[doc(hidden)] pub u32);
 
 impl EventId {
     pub const INVALID: Self = EventId(std::u32::MAX);
-    pub fn to_usize(&self) -> usize { self.0 as usize }
+    pub fn to_usize(&self) -> usize {
+        self.0 as usize
+    }
 }
 
 /// Interface for types types (typically endpoints and control points) that have
@@ -142,19 +153,27 @@ pub trait Position {
 }
 
 impl<U> Position for crate::geom::euclid::Point2D<f32, U> {
-    fn position(&self) -> Point { self.to_untyped() }
+    fn position(&self) -> Point {
+        self.to_untyped()
+    }
 }
 
 impl<'l, T: Position> Position for &'l T {
-    fn position(&self) -> Point { (*self).position() }
+    fn position(&self) -> Point {
+        (*self).position()
+    }
 }
 
 impl Position for (f32, f32) {
-    fn position(&self) -> Point { Point::new(self.0, self.1) }
+    fn position(&self) -> Point {
+        Point::new(self.0, self.1)
+    }
 }
 
 impl Position for [f32; 2] {
-    fn position(&self) -> Point { Point::new(self[0], self[1]) }
+    fn position(&self) -> Point {
+        Point::new(self[0], self[1])
+    }
 }
 
 /// Interface for objects storing endpoints and control points positions.
@@ -192,18 +211,22 @@ pub trait AttributeStore {
 }
 
 impl AttributeStore for () {
-    fn num_attributes(&self) -> usize { 0 }
-    fn get(&self, _: EndpointId) -> &[f32] { &[] }
+    fn num_attributes(&self) -> usize {
+        0
+    }
+    fn get(&self, _: EndpointId) -> &[f32] {
+        &[]
+    }
 }
 
-/// A view over a contiguous storage of custom attributes. 
+/// A view over a contiguous storage of custom attributes.
 pub struct AttributeSlice<'l> {
     data: &'l [f32],
     stride: usize,
 }
 
 impl<'l> AttributeSlice<'l> {
-    pub fn new(data: &'l[f32], num_attributes: usize) -> Self {
+    pub fn new(data: &'l [f32], num_attributes: usize) -> Self {
         AttributeSlice {
             data,
             stride: num_attributes,
@@ -218,5 +241,7 @@ impl<'l> AttributeStore for AttributeSlice<'l> {
         &self.data[start..end]
     }
 
-    fn num_attributes(&self) -> usize { self.stride }
+    fn num_attributes(&self) -> usize {
+        self.stride
+    }
 }

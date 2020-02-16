@@ -2,9 +2,9 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
-use lyon::path::{Path, Event, PathEvent, IdEvent, EndpointId, ControlPointId};
-use lyon::path::commands;
 use lyon::math::point;
+use lyon::path::commands;
+use lyon::path::{ControlPointId, EndpointId, Event, IdEvent, Path, PathEvent};
 
 use bencher::Bencher;
 
@@ -61,7 +61,11 @@ fn id_only_commands_build_empty(bench: &mut Bencher) {
                 ep += 1;
                 for _ in 0..1_000 {
                     path.line_to(EndpointId(ep));
-                    path.cubic_bezier_to(ControlPointId(cp), ControlPointId(cp + 1), EndpointId(ep + 1));
+                    path.cubic_bezier_to(
+                        ControlPointId(cp),
+                        ControlPointId(cp + 1),
+                        EndpointId(ep + 1),
+                    );
                     path.quadratic_bezier_to(ControlPointId(cp + 2), EndpointId(ep + 2));
                     cp += 3;
                     ep += 3;
@@ -98,10 +102,7 @@ fn simple_path_iter(bench: &mut Bencher) {
                 | PathEvent::Line { to: p, .. }
                 | PathEvent::Quadratic { to: p, .. }
                 | PathEvent::Cubic { to: p, .. }
-                | PathEvent::End { last: p, .. }
-                => {
-                    p.to_vector()
-                }
+                | PathEvent::End { last: p, .. } => p.to_vector(),
             };
         }
     });
@@ -131,10 +132,7 @@ fn simple_path_id_iter(bench: &mut Bencher) {
                 | IdEvent::Line { to: p, .. }
                 | IdEvent::Quadratic { to: p, .. }
                 | IdEvent::Cubic { to: p, .. }
-                | IdEvent::End { last: p, .. }
-                => {
-                    p.to_usize()
-                }
+                | IdEvent::End { last: p, .. } => p.to_usize(),
             };
         }
     });
@@ -150,7 +148,11 @@ fn commands_id_iter(bench: &mut Bencher) {
             ep += 1;
             for _ in 0..1_000 {
                 path.line_to(EndpointId(ep));
-                path.cubic_bezier_to(ControlPointId(cp), ControlPointId(cp + 1), EndpointId(ep + 1));
+                path.cubic_bezier_to(
+                    ControlPointId(cp),
+                    ControlPointId(cp + 1),
+                    EndpointId(ep + 1),
+                );
                 path.quadratic_bezier_to(ControlPointId(cp + 2), EndpointId(ep + 2));
                 cp += 3;
                 ep += 3;
@@ -169,17 +171,13 @@ fn commands_id_iter(bench: &mut Bencher) {
                 | IdEvent::Line { to: p, .. }
                 | IdEvent::Quadratic { to: p, .. }
                 | IdEvent::Cubic { to: p, .. }
-                | IdEvent::End { last: p, .. }
-                => {
-                    p.to_usize()
-                }
+                | IdEvent::End { last: p, .. } => p.to_usize(),
             };
         }
     });
 }
 
 fn no_attrib_iter(bench: &mut Bencher) {
-
     let path = {
         let mut path = Path::builder_with_attributes(0);
         for _ in 0..N {
@@ -205,17 +203,13 @@ fn no_attrib_iter(bench: &mut Bencher) {
                 | Event::Line { to: p, .. }
                 | Event::Quadratic { to: p, .. }
                 | Event::Cubic { to: p, .. }
-                | Event::End { last: p, .. }
-                => {
-                    p.0.to_vector()
-                }
+                | Event::End { last: p, .. } => p.0.to_vector(),
             };
         }
     });
 }
 
 fn f32x2_attrib_iter(bench: &mut Bencher) {
-
     let path = {
         let mut path = Path::builder_with_attributes(2);
         for _ in 0..N {
@@ -223,7 +217,12 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
                 path.move_to(point(0.0, 0.0), &[0.0, 1.0]);
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0), &[0.0, 1.0]);
-                    path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0), &[0.0, 1.0]);
+                    path.cubic_bezier_to(
+                        point(2.0, 0.0),
+                        point(2.0, 1.0),
+                        point(2.0, 2.0),
+                        &[0.0, 1.0],
+                    );
                     path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), &[0.0, 1.0]);
                 }
                 path.close();
@@ -241,10 +240,7 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
                 | Event::Line { to: p, .. }
                 | Event::Quadratic { to: p, .. }
                 | Event::Cubic { to: p, .. }
-                | Event::End { last: p, .. }
-                => {
-                    p.0.to_vector()
-                }
+                | Event::End { last: p, .. } => p.0.to_vector(),
             };
         }
     });
@@ -455,7 +451,8 @@ fn commands_with_evt_id4_iter(bench: &mut Bencher) {
 
 */
 
-benchmark_group!(builder,
+benchmark_group!(
+    builder,
     simple_path_build_empty,
     simple_path_build_prealloc,
     id_only_commands_build_empty,
@@ -463,7 +460,8 @@ benchmark_group!(builder,
     //commands_build_prealloc,
 );
 
-benchmark_group!(iter,
+benchmark_group!(
+    iter,
     simple_path_iter,
     simple_path_id_iter,
     commands_id_iter,
@@ -477,5 +475,3 @@ benchmark_group!(iter,
 
 #[cfg(not(feature = "libtess2"))]
 benchmark_main!(builder, iter);
-
-

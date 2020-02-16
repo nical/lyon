@@ -1,6 +1,5 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
-
 // TODO: Tessellation pipeline diagram needs to be updated.
 
 //! Tessellation of 2D fill and stroke operations.
@@ -182,19 +181,20 @@
 
 pub use lyon_path as path;
 
-#[cfg(test)] use lyon_extra as extra;
+#[cfg(test)]
+use lyon_extra as extra;
 
 #[cfg(feature = "serialization")]
 #[macro_use]
 pub extern crate serde;
 
 pub mod basic_shapes;
-pub mod geometry_builder;
 mod event_queue;
 mod fill;
-mod stroke;
+pub mod geometry_builder;
 mod math_utils;
 mod monotone;
+mod stroke;
 
 #[cfg(test)]
 mod earcut_tests;
@@ -218,9 +218,9 @@ pub use crate::stroke::*;
 
 #[doc(inline)]
 pub use crate::geometry_builder::{
-    GeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder, BasicGeometryBuilder, GeometryReceiver,
-    FillVertexConstructor, StrokeVertexConstructor, BasicVertexConstructor,
-    VertexBuffers, BuffersBuilder, Count, GeometryBuilderError,
+    BasicGeometryBuilder, BasicVertexConstructor, BuffersBuilder, Count, FillGeometryBuilder,
+    FillVertexConstructor, GeometryBuilder, GeometryBuilderError, GeometryReceiver,
+    StrokeGeometryBuilder, StrokeVertexConstructor, VertexBuffers,
 };
 
 pub use crate::path::FillRule;
@@ -247,14 +247,13 @@ pub enum InternalError {
     ErrorCode(i16),
 }
 
-
 /// The fill tessellator's error enumeration.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TessellationError {
     UnsupportedParamater,
     InvalidVertex,
     TooManyVertices,
-    Internal(InternalError)
+    Internal(InternalError),
 }
 
 impl From<GeometryBuilderError> for TessellationError {
@@ -287,9 +286,13 @@ impl Side {
         }
     }
 
-    pub fn is_left(self) -> bool { self == Side::Left }
+    pub fn is_left(self) -> bool {
+        self == Side::Left
+    }
 
-    pub fn is_right(self) -> bool { self == Side::Right }
+    pub fn is_right(self) -> bool {
+        self == Side::Right
+    }
 }
 
 /// Before or After. Used to describe position relative to a join.
@@ -308,11 +311,14 @@ impl Order {
         }
     }
 
-    pub fn is_before(self) -> bool { self == Order::Before }
+    pub fn is_before(self) -> bool {
+        self == Order::Before
+    }
 
-    pub fn is_after(self) -> bool { self == Order::After }
+    pub fn is_after(self) -> bool {
+        self == Order::After
+    }
 }
-
 
 pub use fill::FillAttributes;
 pub use stroke::StrokeAttributes;
@@ -325,8 +331,14 @@ pub use stroke::StrokeAttributes;
 /// of the edge.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VertexSource {
-    Endpoint { id: EndpointId },
-    Edge { from: EndpointId, to: EndpointId, t: f32 },
+    Endpoint {
+        id: EndpointId,
+    },
+    Edge {
+        from: EndpointId,
+        to: EndpointId,
+        t: f32,
+    },
 }
 
 /// Line cap as defined by the SVG specification.
@@ -532,7 +544,9 @@ impl StrokeOptions {
 }
 
 impl Default for StrokeOptions {
-    fn default() -> Self { Self::DEFAULT }
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 /// Parameters for the fill tessellator.
@@ -591,7 +605,9 @@ impl FillOptions {
     };
 
     #[inline]
-    pub fn even_odd() -> Self { Self::DEFAULT }
+    pub fn even_odd() -> Self {
+        Self::DEFAULT
+    }
 
     #[inline]
     pub fn tolerance(tolerance: f32) -> Self {
@@ -631,7 +647,9 @@ impl FillOptions {
 }
 
 impl Default for FillOptions {
-    fn default() -> Self { Self::DEFAULT }
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 type Index = u32;
@@ -648,11 +666,17 @@ pub struct VertexId(pub Index);
 impl VertexId {
     pub const INVALID: VertexId = VertexId(u32::MAX);
 
-    pub fn offset(&self) -> Index { self.0 }
+    pub fn offset(&self) -> Index {
+        self.0
+    }
 
-    pub fn to_usize(&self) -> usize { self.0 as usize }
+    pub fn to_usize(&self) -> usize {
+        self.0 as usize
+    }
 
-    pub fn from_usize(v: usize) -> Self { VertexId(v as Index) }
+    pub fn from_usize(v: usize) -> Self {
+        VertexId(v as Index)
+    }
 }
 
 impl Add<u32> for VertexId {
@@ -670,30 +694,44 @@ impl Sub<u32> for VertexId {
 }
 
 impl From<u16> for VertexId {
-    fn from(v: u16) -> Self { VertexId(v as Index) }
+    fn from(v: u16) -> Self {
+        VertexId(v as Index)
+    }
 }
 impl From<u32> for VertexId {
-    fn from(v: u32) -> Self { VertexId(v) }
+    fn from(v: u32) -> Self {
+        VertexId(v)
+    }
 }
 impl From<i32> for VertexId {
-    fn from(v: i32) -> Self { VertexId(v as Index) }
+    fn from(v: i32) -> Self {
+        VertexId(v as Index)
+    }
 }
 
 impl From<VertexId> for u16 {
-    fn from(v: VertexId) -> Self { v.0 as u16 }
+    fn from(v: VertexId) -> Self {
+        v.0 as u16
+    }
 }
 impl From<VertexId> for u32 {
-    fn from(v: VertexId) -> Self { v.0 }
+    fn from(v: VertexId) -> Self {
+        v.0
+    }
 }
 impl From<VertexId> for i32 {
-    fn from(v: VertexId) -> Self { v.0 as i32 }
+    fn from(v: VertexId) -> Self {
+        v.0 as i32
+    }
 }
 impl From<VertexId> for usize {
-    fn from(v: VertexId) -> Self { v.0 as usize }
+    fn from(v: VertexId) -> Self {
+        v.0 as usize
+    }
 }
 
 #[test]
-fn test_without_miter_limit(){
+fn test_without_miter_limit() {
     let expected_limit = 4.0;
     let stroke_options = StrokeOptions::default();
 
@@ -701,7 +739,7 @@ fn test_without_miter_limit(){
 }
 
 #[test]
-fn test_with_miter_limit(){
+fn test_with_miter_limit() {
     let expected_limit = 3.0;
     let stroke_options = StrokeOptions::default().with_miter_limit(expected_limit);
 
@@ -710,6 +748,6 @@ fn test_with_miter_limit(){
 
 #[test]
 #[should_panic]
-fn test_with_invalid_miter_limit(){
+fn test_with_invalid_miter_limit() {
     let _ = StrokeOptions::default().with_miter_limit(0.0);
 }

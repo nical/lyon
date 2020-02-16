@@ -229,11 +229,11 @@
 //! ```
 
 use crate::math::Point;
-use crate::{FillAttributes, StrokeAttributes, VertexId, Index};
+use crate::{FillAttributes, Index, StrokeAttributes, VertexId};
 
-use std::ops::Add;
-use std::convert::From;
 use std;
+use std::convert::From;
+use std::ops::Add;
 
 /// An error that can happen while generating geometry.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -285,7 +285,11 @@ pub trait FillGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_fill_vertex(&mut self, position: Point, attributes: FillAttributes) -> Result<VertexId, GeometryBuilderError>;
+    fn add_fill_vertex(
+        &mut self,
+        position: Point,
+        attributes: FillAttributes,
+    ) -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// A Geometry builder to interface with the [`StrokeTessellator`](../struct.StrokeTessellator.html).
@@ -296,7 +300,11 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_stroke_vertex(&mut self, position: Point, attributes: StrokeAttributes) -> Result<VertexId, GeometryBuilderError>;
+    fn add_stroke_vertex(
+        &mut self,
+        position: Point,
+        attributes: StrokeAttributes,
+    ) -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// A Geometry builder to interface with some of the basic tessellators.
@@ -314,12 +322,7 @@ pub trait BasicGeometryBuilder: GeometryBuilder {
 /// This is primarily intended for efficient interaction with the libtess2 tessellator
 /// from the `lyon_tess2` crate.
 pub trait GeometryReceiver {
-
-    fn set_geometry(
-        &mut self,
-        vertices: &[Point],
-        indices: &[u32]
-    );
+    fn set_geometry(&mut self, vertices: &[Point], indices: &[u32]);
 }
 
 /// Structure that holds the vertex and index data.
@@ -334,7 +337,9 @@ pub struct VertexBuffers<OutputVertex, OutputIndex> {
 
 impl<OutputVertex, OutputIndex> VertexBuffers<OutputVertex, OutputIndex> {
     /// Constructor
-    pub fn new() -> Self { VertexBuffers::with_capacity(512, 1024) }
+    pub fn new() -> Self {
+        VertexBuffers::with_capacity(512, 1024)
+    }
 
     /// Constructor
     pub fn with_capacity(num_vertices: usize, num_indices: usize) -> Self {
@@ -357,18 +362,17 @@ impl<OutputVertex, OutputIndex> VertexBuffers<OutputVertex, OutputIndex> {
 /// vertex attributes. The `VertexConstructor` does the translation from generic `Input` to `OutputVertex`.
 /// If your logic generates the actual vertex type directly, you can use the `SimpleBuffersBuilder`
 /// convenience typedef.
-pub struct BuffersBuilder<'l, OutputVertex: 'l, OutputIndex:'l, Ctor> {
+pub struct BuffersBuilder<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor> {
     buffers: &'l mut VertexBuffers<OutputVertex, OutputIndex>,
     vertex_offset: Index,
     index_offset: Index,
     vertex_constructor: Ctor,
 }
 
-impl<'l, OutputVertex: 'l, OutputIndex:'l, Ctor> BuffersBuilder<'l, OutputVertex, OutputIndex, Ctor> {
-    pub fn new(
-        buffers: &'l mut VertexBuffers<OutputVertex, OutputIndex>,
-        ctor: Ctor,
-    ) -> Self {
+impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
+    BuffersBuilder<'l, OutputVertex, OutputIndex, Ctor>
+{
+    pub fn new(buffers: &'l mut VertexBuffers<OutputVertex, OutputIndex>, ctor: Ctor) -> Self {
         let vertex_offset = buffers.vertices.len() as Index;
         let index_offset = buffers.indices.len() as Index;
         BuffersBuilder {
@@ -412,35 +416,44 @@ pub trait BasicVertexConstructor<OutputVertex> {
 pub struct Positions;
 
 impl FillVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, position: Point, _attributes: FillAttributes ) -> Point { position }
+    fn new_vertex(&mut self, position: Point, _attributes: FillAttributes) -> Point {
+        position
+    }
 }
 
 impl StrokeVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, position: Point, _attributes: StrokeAttributes ) -> Point { position }
+    fn new_vertex(&mut self, position: Point, _attributes: StrokeAttributes) -> Point {
+        position
+    }
 }
 
 impl BasicVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, position: Point) -> Point { position }
+    fn new_vertex(&mut self, position: Point) -> Point {
+        position
+    }
 }
 
 impl<F, OutputVertex> FillVertexConstructor<OutputVertex> for F
-    where F: Fn(Point, FillAttributes ) -> OutputVertex
+where
+    F: Fn(Point, FillAttributes) -> OutputVertex,
 {
-    fn new_vertex(&mut self, position: Point, attributes: FillAttributes ) -> OutputVertex {
+    fn new_vertex(&mut self, position: Point, attributes: FillAttributes) -> OutputVertex {
         self(position, attributes)
     }
 }
 
 impl<F, OutputVertex> StrokeVertexConstructor<OutputVertex> for F
-    where F: Fn(Point, StrokeAttributes ) -> OutputVertex
+where
+    F: Fn(Point, StrokeAttributes) -> OutputVertex,
 {
-    fn new_vertex(&mut self, position: Point, attributes: StrokeAttributes ) -> OutputVertex {
+    fn new_vertex(&mut self, position: Point, attributes: StrokeAttributes) -> OutputVertex {
         self(position, attributes)
     }
 }
 
 impl<F, OutputVertex> BasicVertexConstructor<OutputVertex> for F
-    where F: Fn(Point) -> OutputVertex
+where
+    F: Fn(Point) -> OutputVertex,
 {
     fn new_vertex(&mut self, position: Point) -> OutputVertex {
         self(position)
@@ -451,8 +464,7 @@ impl<F, OutputVertex> BasicVertexConstructor<OutputVertex> for F
 pub type SimpleBuffersBuilder<'l> = BuffersBuilder<'l, Point, u16, Positions>;
 
 /// Creates a `SimpleBuffersBuilder`.
-pub fn simple_builder(buffers: &mut VertexBuffers<Point, u16>)
-    -> SimpleBuffersBuilder {
+pub fn simple_builder(buffers: &mut VertexBuffers<Point, u16>) -> SimpleBuffersBuilder {
     let vertex_offset = buffers.vertices.len() as Index;
     let index_offset = buffers.indices.len() as Index;
     BuffersBuilder {
@@ -527,9 +539,11 @@ where
     fn add_fill_vertex(
         &mut self,
         position: Point,
-        attributes: FillAttributes ,
+        attributes: FillAttributes,
     ) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers.vertices.push(self.vertex_constructor.new_vertex(position, attributes));
+        self.buffers
+            .vertices
+            .push(self.vertex_constructor.new_vertex(position, attributes));
         let len = self.buffers.vertices.len();
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -545,8 +559,14 @@ where
     OutputIndex: Add + From<VertexId> + MaxIndex,
     Ctor: StrokeVertexConstructor<OutputVertex>,
 {
-    fn add_stroke_vertex(&mut self, p: Point, v: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers.vertices.push(self.vertex_constructor.new_vertex(p, v));
+    fn add_stroke_vertex(
+        &mut self,
+        p: Point,
+        v: StrokeAttributes,
+    ) -> Result<VertexId, GeometryBuilderError> {
+        self.buffers
+            .vertices
+            .push(self.vertex_constructor.new_vertex(p, v));
         let len = self.buffers.vertices.len();
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -563,7 +583,9 @@ where
     Ctor: BasicVertexConstructor<OutputVertex>,
 {
     fn add_vertex(&mut self, p: Point) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers.vertices.push(self.vertex_constructor.new_vertex(p));
+        self.buffers
+            .vertices
+            .push(self.vertex_constructor.new_vertex(p));
         let len = self.buffers.vertices.len();
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -578,11 +600,7 @@ where
     OutputIndex: From<VertexId>,
     Ctor: BasicVertexConstructor<OutputVertex>,
 {
-    fn set_geometry(
-        &mut self,
-        vertices: &[Point],
-        indices: &[u32]
-    ) {
+    fn set_geometry(&mut self, vertices: &[Point], indices: &[u32]) {
         for v in vertices {
             let vertex = self.vertex_constructor.new_vertex(*v);
             self.buffers.vertices.push(vertex);
@@ -602,7 +620,12 @@ pub struct NoOutput {
 
 impl NoOutput {
     pub fn new() -> Self {
-        NoOutput { count: Count { vertices: 0, indices: 0 } }
+        NoOutput {
+            count: Count {
+                vertices: 0,
+                indices: 0,
+            },
+        }
     }
 }
 
@@ -619,13 +642,19 @@ impl GeometryBuilder for NoOutput {
         self.count.indices += 3;
     }
 
-    fn end_geometry(&mut self) -> Count { self.count }
+    fn end_geometry(&mut self) -> Count {
+        self.count
+    }
 
     fn abort_geometry(&mut self) {}
 }
 
 impl FillGeometryBuilder for NoOutput {
-    fn add_fill_vertex(&mut self, _pos: Point, _attributes: FillAttributes ) -> Result<VertexId, GeometryBuilderError> {
+    fn add_fill_vertex(
+        &mut self,
+        _pos: Point,
+        _attributes: FillAttributes,
+    ) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
@@ -635,7 +664,11 @@ impl FillGeometryBuilder for NoOutput {
 }
 
 impl StrokeGeometryBuilder for NoOutput {
-    fn add_stroke_vertex(&mut self, _position: Point, _: StrokeAttributes ) -> Result<VertexId, GeometryBuilderError> {
+    fn add_stroke_vertex(
+        &mut self,
+        _position: Point,
+        _: StrokeAttributes,
+    ) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
@@ -667,14 +700,34 @@ pub trait MaxIndex {
     const MAX: usize;
 }
 
-impl MaxIndex for u8 { const MAX: usize = std::u8::MAX as usize; }
-impl MaxIndex for i8 { const MAX: usize = std::i8::MAX as usize; }
-impl MaxIndex for u16 { const MAX: usize = std::u16::MAX as usize; }
-impl MaxIndex for i16 { const MAX: usize = std::i16::MAX as usize; }
-impl MaxIndex for u32 { const MAX: usize = std::u32::MAX as usize; }
-impl MaxIndex for i32 { const MAX: usize = std::i32::MAX as usize; }
+impl MaxIndex for u8 {
+    const MAX: usize = std::u8::MAX as usize;
+}
+impl MaxIndex for i8 {
+    const MAX: usize = std::i8::MAX as usize;
+}
+impl MaxIndex for u16 {
+    const MAX: usize = std::u16::MAX as usize;
+}
+impl MaxIndex for i16 {
+    const MAX: usize = std::i16::MAX as usize;
+}
+impl MaxIndex for u32 {
+    const MAX: usize = std::u32::MAX as usize;
+}
+impl MaxIndex for i32 {
+    const MAX: usize = std::i32::MAX as usize;
+}
 // The tessellators internally use u32 indices so we can't have more than u32::MAX
-impl MaxIndex for u64 { const MAX: usize = std::u32::MAX as usize; }
-impl MaxIndex for i64 { const MAX: usize = std::u32::MAX as usize; }
-impl MaxIndex for usize { const MAX: usize = std::u32::MAX as usize; }
-impl MaxIndex for isize { const MAX: usize = std::u32::MAX as usize; }
+impl MaxIndex for u64 {
+    const MAX: usize = std::u32::MAX as usize;
+}
+impl MaxIndex for i64 {
+    const MAX: usize = std::u32::MAX as usize;
+}
+impl MaxIndex for usize {
+    const MAX: usize = std::u32::MAX as usize;
+}
+impl MaxIndex for isize {
+    const MAX: usize = std::u32::MAX as usize;
+}

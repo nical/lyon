@@ -4,8 +4,8 @@ extern crate bencher;
 
 use bencher::Bencher;
 
-use lyon::math::*;
 use lyon::geom::QuadraticBezierSegment;
+use lyon::math::*;
 
 const N: usize = 10;
 
@@ -15,12 +15,14 @@ fn monotonic_intersection(bench: &mut Bencher) {
         from: point(10.0, 0.0),
         ctrl: point(10.0, 90.0),
         to: point(100.0, 90.0),
-    }.assume_monotonic();
+    }
+    .assume_monotonic();
     let c2 = QuadraticBezierSegment {
         from: point(0.0, 10.0),
         ctrl: point(90.0, 10.0),
         to: point(90.0, 100.0),
-    }.assume_monotonic();
+    }
+    .assume_monotonic();
 
     bench.iter(|| {
         for _ in 0..N {
@@ -33,10 +35,6 @@ fn monotonic_intersection(bench: &mut Bencher) {
     });
 }
 
-benchmark_group!(intersections,
-  monotonic_intersection
-);
+benchmark_group!(intersections, monotonic_intersection);
 
-benchmark_main!(
-    intersections
-);
+benchmark_main!(intersections);

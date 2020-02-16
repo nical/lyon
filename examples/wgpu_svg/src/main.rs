@@ -1,13 +1,13 @@
 use clap::*;
-use lyon::tessellation::geometry_builder::*;
-use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeTessellator, StrokeOptions};
-use lyon::path::PathEvent;
 use lyon::math::Point;
+use lyon::path::PathEvent;
+use lyon::tessellation::geometry_builder::*;
+use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
 use usvg::prelude::*;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode,WindowEvent};
-use winit::event_loop::{EventLoop, ControlFlow};
-use winit::window::Window;
 use winit::dpi::LogicalSize;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::Window;
 
 use std::f64::NAN;
 
@@ -31,30 +31,35 @@ pub const FALLBACK_COLOR: usvg::Color = usvg::Color {
 // Most of the code in this example is related to working with the GPU.
 
 fn main() {
-
     // Grab some parameters from the command line.
 
     let app = App::new("Lyon svg_render example")
         .version("0.1")
-        .arg(Arg::with_name("MSAA")
-            .long("msaa")
-            .short("m")
-            .help("Sets MSAA sample count (integer)")
-            .value_name("SAMPLES")
-            .takes_value(true)
-            .required(false))
-        .arg(Arg::with_name("INPUT")
-             .help("SVG or SVGZ file")
-             .value_name("INPUT")
-             .takes_value(true)
-             .required(true))
-        .arg(Arg::with_name("TESS_ONLY")
-             .help("Perform the tessellation and exit without rendering")
-             .value_name("TESS_ONLY")
-             .long("tessellate-only")
-             .short("t")
-             .takes_value(false)
-             .required(false))
+        .arg(
+            Arg::with_name("MSAA")
+                .long("msaa")
+                .short("m")
+                .help("Sets MSAA sample count (integer)")
+                .value_name("SAMPLES")
+                .takes_value(true)
+                .required(false),
+        )
+        .arg(
+            Arg::with_name("INPUT")
+                .help("SVG or SVGZ file")
+                .value_name("INPUT")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("TESS_ONLY")
+                .help("Perform the tessellation and exit without rendering")
+                .value_name("TESS_ONLY")
+                .long("tessellate-only")
+                .short("t")
+                .takes_value(false)
+                .required(false),
+        )
         .get_matches();
 
     let msaa_samples = if let Some(msaa) = app.value_of("MSAA") {
@@ -77,16 +82,18 @@ fn main() {
     let mut stroke_tess = StrokeTessellator::new();
     let mut mesh: VertexBuffers<_, u32> = VertexBuffers::new();
 
-
     let opt = usvg::Options::default();
     let rtree = usvg::Tree::from_file(&filename, &opt).unwrap();
     let mut transforms = Vec::new();
     let mut primitives = Vec::new();
 
     let mut prev_transform = usvg::Transform {
-        a: NAN, b: NAN,
-        c: NAN, d: NAN,
-        e: NAN, f: NAN,
+        a: NAN,
+        b: NAN,
+        c: NAN,
+        d: NAN,
+        e: NAN,
+        f: NAN,
     };
     let view_box = rtree.svg_node().view_box;
     for node in rtree.root().descendants() {
@@ -113,17 +120,21 @@ fn main() {
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     color,
-                    fill.opacity.value() as f32
+                    fill.opacity.value() as f32,
                 ));
 
-                fill_tess.tessellate(
-                    convert_path(p),
-                    &FillOptions::tolerance(0.01),
-                    &mut BuffersBuilder::new(
-                        &mut mesh,
-                        VertexCtor { prim_id: primitives.len() as u32 - 1 }
-                    ),
-                ).expect("Error during tesselation!");
+                fill_tess
+                    .tessellate(
+                        convert_path(p),
+                        &FillOptions::tolerance(0.01),
+                        &mut BuffersBuilder::new(
+                            &mut mesh,
+                            VertexCtor {
+                                prim_id: primitives.len() as u32 - 1,
+                            },
+                        ),
+                    )
+                    .expect("Error during tesselation!");
             }
 
             if let Some(ref stroke) = p.stroke {
@@ -131,14 +142,16 @@ fn main() {
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     stroke_color,
-                    stroke.opacity.value() as f32
+                    stroke.opacity.value() as f32,
                 ));
                 let _ = stroke_tess.tessellate(
                     convert_path(p),
                     &stroke_opts.with_tolerance(0.01),
                     &mut BuffersBuilder::new(
                         &mut mesh,
-                        VertexCtor { prim_id: primitives.len() as u32 - 1 },
+                        VertexCtor {
+                            prim_id: primitives.len() as u32 - 1,
+                        },
                     ),
                 );
             }
@@ -156,7 +169,6 @@ fn main() {
     );
 
     println!("Use arrow keys to pan, pageup and pagedown to zoom.");
-
 
     // Initialize wgpu and send some data to the GPU.
 
@@ -187,7 +199,8 @@ fn main() {
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::LowPower,
         backends: wgpu::BackendBit::PRIMARY,
-    }).unwrap();
+    })
+    .unwrap();
 
     let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
@@ -220,36 +233,28 @@ fn main() {
     let transform_buffer_byte_size = (MAX_TRANSFORMS * std::mem::size_of::<GpuTransform>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<GpuGlobals>() as u64;
 
-    let prims_ubo = device.create_buffer(
-        &wgpu::BufferDescriptor {
-            size: prim_buffer_byte_size,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        }
-    );
+    let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        size: prim_buffer_byte_size,
+        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    });
 
-    let transforms_ubo = device.create_buffer(
-        &wgpu::BufferDescriptor {
-            size: transform_buffer_byte_size,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        }
-    );
+    let transforms_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        size: transform_buffer_byte_size,
+        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    });
 
-    let globals_ubo = device.create_buffer(
-        &wgpu::BufferDescriptor {
-            size: globals_buffer_byte_size,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        }
-    );
+    let globals_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        size: globals_buffer_byte_size,
+        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    });
 
-    let prim_transfer_buffer = device.create_buffer_mapped(
-        primitives.len(),
-        wgpu::BufferUsage::COPY_SRC,
-    ).fill_from_slice(&primitives);
+    let prim_transfer_buffer = device
+        .create_buffer_mapped(primitives.len(), wgpu::BufferUsage::COPY_SRC)
+        .fill_from_slice(&primitives);
 
-    let transform_transfer_buffer = device.create_buffer_mapped(
-        transforms.len(),
-        wgpu::BufferUsage::COPY_SRC,
-    ).fill_from_slice(&transforms);
+    let transform_transfer_buffer = device
+        .create_buffer_mapped(transforms.len(), wgpu::BufferUsage::COPY_SRC)
+        .fill_from_slice(&transforms);
 
     let vs_bytes = include_bytes!("../shaders/geometry.vert.spv");
     let vs_spv = wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap();
@@ -258,27 +263,25 @@ fn main() {
     let fs_spv = wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap();
     let fs_module = device.create_shader_module(&fs_spv);
 
-    let bind_group_layout = device.create_bind_group_layout(
-        &wgpu::BindGroupLayoutDescriptor {
-            bindings: &[
-                wgpu::BindGroupLayoutBinding {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                },
-                wgpu::BindGroupLayoutBinding {
-                    binding: 1,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                },
-                wgpu::BindGroupLayoutBinding {
-                    binding: 2,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                },
-            ]
-        }
-    );
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        bindings: &[
+            wgpu::BindGroupLayoutBinding {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+            wgpu::BindGroupLayoutBinding {
+                binding: 1,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+            wgpu::BindGroupLayoutBinding {
+                binding: 2,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+        ],
+    });
 
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &bind_group_layout,
@@ -337,24 +340,22 @@ fn main() {
         }],
         depth_stencil_state: None,
         index_format: wgpu::IndexFormat::Uint32,
-        vertex_buffers: &[
-            wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<GpuVertex>() as u64,
-                step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &[
-                    wgpu::VertexAttributeDescriptor {
-                        offset: 0,
-                        format: wgpu::VertexFormat::Float2,
-                        shader_location: 0,
-                    },
-                    wgpu::VertexAttributeDescriptor {
-                        offset: 8,
-                        format: wgpu::VertexFormat::Uint,
-                        shader_location: 1,
-                    },
-                ],
-            },
-        ],
+        vertex_buffers: &[wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<GpuVertex>() as u64,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    format: wgpu::VertexFormat::Float2,
+                    shader_location: 0,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: 8,
+                    format: wgpu::VertexFormat::Uint,
+                    shader_location: 1,
+                },
+            ],
+        }],
         sample_count: msaa_samples,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
@@ -367,27 +368,27 @@ fn main() {
     render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
-
     // Initializaition encode to same primitive and transform data that will not change over frames
-    let mut init_encoder = device.create_command_encoder(
-        &wgpu::CommandEncoderDescriptor { todo: 0 }
-    );
+    let mut init_encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
     init_encoder.copy_buffer_to_buffer(
-        &transform_transfer_buffer, 0,
-        &transforms_ubo, 0,
+        &transform_transfer_buffer,
+        0,
+        &transforms_ubo,
+        0,
         transform_buffer_byte_size,
     );
 
     init_encoder.copy_buffer_to_buffer(
-        &prim_transfer_buffer, 0,
-        &prims_ubo, 0,
+        &prim_transfer_buffer,
+        0,
+        &prims_ubo,
+        0,
         prim_buffer_byte_size,
     );
 
     queue.submit(&[init_encoder.finish()]);
-
-
 
     // The main loop.
 
@@ -404,42 +405,44 @@ fn main() {
             swap_chain_desc.height = physical.height.round() as u32;
             swap_chain = Some(device.create_swap_chain(&window_surface, &swap_chain_desc));
             if msaa_samples > 1 {
-                msaa_texture = Some(device.create_texture(
-                    &wgpu::TextureDescriptor {
-                        size: wgpu::Extent3d {
-                            width: swap_chain_desc.width,
-                            height: swap_chain_desc.height,
-                            depth: 1,
-                        },
-                        array_layer_count: 1,
-                        mip_level_count: 1,
-                        sample_count: msaa_samples,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: swap_chain_desc.format,
-                        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-                    }
-                ).create_default_view());
+                msaa_texture = Some(
+                    device
+                        .create_texture(&wgpu::TextureDescriptor {
+                            size: wgpu::Extent3d {
+                                width: swap_chain_desc.width,
+                                height: swap_chain_desc.height,
+                                depth: 1,
+                            },
+                            array_layer_count: 1,
+                            mip_level_count: 1,
+                            sample_count: msaa_samples,
+                            dimension: wgpu::TextureDimension::D2,
+                            format: swap_chain_desc.format,
+                            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                        })
+                        .create_default_view(),
+                );
             }
         }
 
         let swap_chain = swap_chain.as_mut().unwrap();
         let frame = swap_chain.get_next_texture();
-        let mut encoder = device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor { todo: 0 }
-        );
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-        let globals_transfer_buffer = device.create_buffer_mapped(
-            1,
-            wgpu::BufferUsage::COPY_SRC,
-        ).fill_from_slice(&[GpuGlobals {
-            aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
-            zoom: [scene.zoom, scene.zoom],
-            pan: scene.pan,
-        }]);
+        let globals_transfer_buffer = device
+            .create_buffer_mapped(1, wgpu::BufferUsage::COPY_SRC)
+            .fill_from_slice(&[GpuGlobals {
+                aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
+                zoom: [scene.zoom, scene.zoom],
+                pan: scene.pan,
+            }]);
 
         encoder.copy_buffer_to_buffer(
-            &globals_transfer_buffer, 0,
-            &globals_ubo, 0,
+            &globals_transfer_buffer,
+            0,
+            &globals_ubo,
+            0,
             globals_buffer_byte_size,
         );
 
@@ -474,7 +477,6 @@ fn main() {
         queue.submit(&[encoder.finish()]);
     });
 }
-
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -548,7 +550,6 @@ impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
     }
 }
 
-
 // These mush match the uniform buffer sizes in the vertex shader.
 pub static MAX_PRIMITIVES: usize = 512;
 pub static MAX_TRANSFORMS: usize = 512;
@@ -563,60 +564,73 @@ pub struct SceneGlobals {
     pub size_changed: bool,
 }
 
-fn update_inputs(event: Event<()>, control_flow: &mut ControlFlow, scene: &mut SceneGlobals) -> bool {
+fn update_inputs(
+    event: Event<()>,
+    control_flow: &mut ControlFlow,
+    scene: &mut SceneGlobals,
+) -> bool {
     match event {
         Event::EventsCleared => {
             return false;
         }
-        Event::WindowEvent { event: WindowEvent::Destroyed, .. }
-        | Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+        Event::WindowEvent {
+            event: WindowEvent::Destroyed,
+            ..
+        }
+        | Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } => {
             *control_flow = ControlFlow::Exit;
             return false;
-        },
-        Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
+        }
+        Event::WindowEvent {
+            event: WindowEvent::Resized(size),
+            ..
+        } => {
             scene.window_size = size;
             scene.size_changed = true
         }
         Event::WindowEvent {
-            event: WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state: ElementState::Pressed,
-                    virtual_keycode: Some(key),
+            event:
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(key),
+                            ..
+                        },
                     ..
                 },
-                ..
-            },
             ..
-        } => {
-            match key {
-                VirtualKeyCode::Escape => {
-                    *control_flow = ControlFlow::Exit;
-                    return false;
-                }
-                VirtualKeyCode::PageDown => {
-                    scene.zoom *= 0.8;
-                }
-                VirtualKeyCode::PageUp => {
-                    scene.zoom *= 1.25;
-                }
-                VirtualKeyCode::Left => {
-                    scene.pan[0] -= 50.0 / scene.pan[0];
-                }
-                VirtualKeyCode::Right => {
-                    scene.pan[0] += 50.0 / scene.pan[0];
-                }
-                VirtualKeyCode::Up => {
-                    scene.pan[1] += 50.0 / scene.pan[1];
-                }
-                VirtualKeyCode::Down => {
-                    scene.pan[1] -= 50.0 / scene.pan[1];
-                }
-                VirtualKeyCode::W => {
-                    scene.wireframe = !scene.wireframe;
-                }
-                _key => {}
+        } => match key {
+            VirtualKeyCode::Escape => {
+                *control_flow = ControlFlow::Exit;
+                return false;
             }
-        }
+            VirtualKeyCode::PageDown => {
+                scene.zoom *= 0.8;
+            }
+            VirtualKeyCode::PageUp => {
+                scene.zoom *= 1.25;
+            }
+            VirtualKeyCode::Left => {
+                scene.pan[0] -= 50.0 / scene.pan[0];
+            }
+            VirtualKeyCode::Right => {
+                scene.pan[0] += 50.0 / scene.pan[0];
+            }
+            VirtualKeyCode::Up => {
+                scene.pan[1] += 50.0 / scene.pan[1];
+            }
+            VirtualKeyCode::Down => {
+                scene.pan[1] -= 50.0 / scene.pan[1];
+            }
+            VirtualKeyCode::W => {
+                scene.wireframe = !scene.wireframe;
+            }
+            _key => {}
+        },
         _evt => {
             //println!("{:?}", _evt);
         }
@@ -626,8 +640,6 @@ fn update_inputs(event: Event<()>, control_flow: &mut ControlFlow, scene: &mut S
 
     return true;
 }
-
-
 
 /// Some glue between usvg's iterators and lyon's.
 
@@ -646,8 +658,8 @@ pub struct PathConvIter<'a> {
 impl<'l> Iterator for PathConvIter<'l> {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
-        if self.deferred.is_some()  {
-            return self.deferred.take()
+        if self.deferred.is_some() {
+            return self.deferred.take();
         }
 
         let next = self.iter.next();
@@ -660,7 +672,11 @@ impl<'l> Iterator for PathConvIter<'l> {
                     self.prev = point(x, y);
                     self.deferred = Some(PathEvent::Begin { at: self.prev });
                     self.first = self.prev;
-                    Some(PathEvent::End { last, first, close: false })
+                    Some(PathEvent::End {
+                        last,
+                        first,
+                        close: false,
+                    })
                 } else {
                     self.first = point(x, y);
                     Some(PathEvent::Begin { at: self.first })
@@ -670,9 +686,19 @@ impl<'l> Iterator for PathConvIter<'l> {
                 self.needs_end = true;
                 let from = self.prev;
                 self.prev = point(x, y);
-                Some(PathEvent::Line { from, to: self.prev })
+                Some(PathEvent::Line {
+                    from,
+                    to: self.prev,
+                })
             }
-            Some(usvg::PathSegment::CurveTo { x1, y1, x2, y2, x, y, }) => {
+            Some(usvg::PathSegment::CurveTo {
+                x1,
+                y1,
+                x2,
+                y2,
+                x,
+                y,
+            }) => {
                 self.needs_end = true;
                 let from = self.prev;
                 self.prev = point(x, y);
@@ -697,7 +723,11 @@ impl<'l> Iterator for PathConvIter<'l> {
                     self.needs_end = false;
                     let last = self.prev;
                     let first = self.first;
-                    Some(PathEvent::End { last, first, close: false })
+                    Some(PathEvent::End {
+                        last,
+                        first,
+                        close: false,
+                    })
                 } else {
                     None
                 }

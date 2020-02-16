@@ -1,9 +1,9 @@
-use crate::geometry_builder::{VertexBuffers, simple_builder};
-use crate::path::{Path, PathSlice};
 use crate::geom::math::*;
-use crate::{FillTessellator, FillOptions, TessellationError};
+use crate::geometry_builder::{simple_builder, VertexBuffers};
 use crate::path::builder::*;
 use crate::path::iterator::*;
+use crate::path::{Path, PathSlice};
+use crate::{FillOptions, FillTessellator, TessellationError};
 
 fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -18,11 +18,8 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tess = FillTessellator::new();
         tess.set_logging(log);
-        tess.tessellate(
-            &builder.build(),
-            &options,
-            &mut vertex_builder
-        ).unwrap();
+        tess.tessellate(&builder.build(), &options, &mut vertex_builder)
+            .unwrap();
     }
     return Ok(buffers.indices.len() / 3);
 }
@@ -38,10 +35,9 @@ fn test_path(path: PathSlice) {
     }
 
     if find_test_case {
-        crate::extra::debugging::find_reduced_test_case(
-            path,
-            &|path: Path| { return tessellate(path.as_slice(), false).is_err(); },
-        );
+        crate::extra::debugging::find_reduced_test_case(path, &|path: Path| {
+            return tessellate(path.as_slice(), false).is_err();
+        });
     }
 
     if add_logging {
@@ -862,7 +858,6 @@ fn fuzzing_test_case_23() {
     // "M 949.58344 345.19833 L 960.3916 653.2188 L 995.7124 886.1721 L 735.48004 158.09106 L 941.05005 558.6986 L 409.13748 895.7838 L 97.03964 277.3503 L 791.7723 800.5221 L 187.73573 209.4633 L 972.508 102.395 L 520.87006 973.1228 L 240.37582 800.1786 L 835.0868 779.7229 L 527.2956 546.0072 L 309.5284 647.3489 L 941.63104 887.768 L 463.6054 14.021694 L 780.2207 228.6902 L 27.88818 110.42708 L 808.9357 602.4522 L 521.5667 616.1369 L 99.32804 426.17722 L 946.2719 11.270226 L 437.45685 516.3412 L 786.8395 269.5232 L 206.39842 269.54257 L 366.09494 326.45267 L 782.8443 92.67318 L 292.73135 117.34903 L 676.53723 219.70242 L 816.4756 645.902 L 885.73834 129.1269 L 594.1776 407.71252 ZM 185.2966 443.2754 L 655.32855 788.47534 L 584.65137 82.92281 L 778.00903 971.31165 Z"
 }
 
-
 #[test]
 fn fuzzing_test_case_24() {
     // This test triggers the code path that moves the intersection position to the current
@@ -885,7 +880,6 @@ fn fuzzing_test_case_24() {
     // SVG path syntax:
     // "M 941.63104 887.768 L 463.6054 14.021694 L 786.8395 269.5232 L 206.39842 269.54257 ZM 655.32855 788.47534 L 584.65137 82.92281 L 778.00903 971.31165 Z"
 }
-
 
 #[test]
 fn fuzzing_test_case_25() {

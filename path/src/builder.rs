@@ -74,9 +74,9 @@
 //! ```
 //!
 
-use crate::math::*;
 use crate::events::PathEvent;
-use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, SvgArc, Arc, ArcFlags};
+use crate::geom::{Arc, ArcFlags, CubicBezierSegment, QuadraticBezierSegment, SvgArc};
+use crate::math::*;
 use crate::path_state::PathState;
 use std::marker::Sized;
 
@@ -109,7 +109,10 @@ pub trait FlatPathBuilder {
     fn current_position(&self) -> Point;
 
     /// Returns a builder that approximates all curves with sequences of line segments.
-    fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self> where Self: Sized {
+    fn flattened(self, tolerance: f32) -> FlatteningBuilder<Self>
+    where
+        Self: Sized,
+    {
         FlatteningBuilder::new(self, tolerance)
     }
 }
@@ -132,19 +135,25 @@ pub trait PathBuilder: FlatPathBuilder {
             PathEvent::Quadratic { ctrl, to, .. } => {
                 self.quadratic_bezier_to(ctrl, to);
             }
-            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+            PathEvent::Cubic {
+                ctrl1, ctrl2, to, ..
+            } => {
                 self.cubic_bezier_to(ctrl1, ctrl2, to);
             }
-            PathEvent::End { close : true, .. } => {
+            PathEvent::End { close: true, .. } => {
                 self.close();
             }
-            PathEvent::End { close : false, .. } => {
-            }
+            PathEvent::End { close: false, .. } => {}
         }
     }
 
     /// Returns a builder that support svg commands.
-    fn with_svg(self) -> SvgPathBuilder<Self> where Self : Sized { SvgPathBuilder::new(self) }
+    fn with_svg(self) -> SvgPathBuilder<Self>
+    where
+        Self: Sized,
+    {
+        SvgPathBuilder::new(self)
+    }
 }
 
 /// A path building interface that tries to stay close to SVG's path specification.
@@ -163,13 +172,7 @@ pub trait SvgBuilder: PathBuilder {
     fn vertical_line_to(&mut self, y: f32);
     fn relative_vertical_line_to(&mut self, dy: f32);
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point);
-    fn relative_arc_to(
-        &mut self,
-        radii: Vector,
-        x_rotation: Angle,
-        flags: ArcFlags,
-        to: Vector,
-    );
+    fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector);
 }
 
 /// Build a path from simple lists of points.
@@ -209,9 +212,13 @@ impl<Builder: PathBuilder> SvgPathBuilder<Builder> {
 impl<Builder: PathBuilder + Build> Build for SvgPathBuilder<Builder> {
     type PathType = Builder::PathType;
 
-    fn build(self) -> Builder::PathType { self.builder.build() }
+    fn build(self) -> Builder::PathType {
+        self.builder.build()
+    }
 
-    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
+    fn build_and_reset(&mut self) -> Builder::PathType {
+        self.builder.build_and_reset()
+    }
 }
 
 impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
@@ -230,7 +237,9 @@ impl<Builder: PathBuilder> FlatPathBuilder for SvgPathBuilder<Builder> {
         self.builder.close();
     }
 
-    fn current_position(&self) -> Point { self.state.current_position() }
+    fn current_position(&self) -> Point {
+        self.state.current_position()
+    }
 }
 
 impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
@@ -244,13 +253,7 @@ impl<Builder: PathBuilder> PathBuilder for SvgPathBuilder<Builder> {
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
     }
 
-    fn arc(
-        &mut self,
-        center: Point,
-        radii: Vector,
-        sweep_angle: Angle,
-        x_rotation: Angle
-    ) {
+    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
         self.state.arc(center, radii, sweep_angle, x_rotation);
         self.builder.arc(center, radii, sweep_angle, x_rotation);
     }
@@ -276,7 +279,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector) {
         let offset = self.state.current_position();
         self.state.relative_cubic_bezier_to(ctrl1, ctrl2, to);
-        self.builder.cubic_bezier_to(offset + ctrl1, offset + ctrl2, offset + to);
+        self.builder
+            .cubic_bezier_to(offset + ctrl1, offset + ctrl2, offset + to);
     }
 
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point) {
@@ -289,7 +293,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
         let ctrl1 = self.state.get_smooth_cubic_ctrl();
         let offset = self.state.current_position();
         self.state.smooth_relative_cubic_bezier_to(ctrl2, to);
-        self.builder.cubic_bezier_to(ctrl1, offset + ctrl2, offset + to);
+        self.builder
+            .cubic_bezier_to(ctrl1, offset + ctrl2, offset + to);
     }
 
     fn smooth_quadratic_bezier_to(&mut self, to: Point) {
@@ -335,7 +340,8 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
-        }.to_arc();
+        }
+        .to_arc();
 
         let arc_start = arc.from();
         if (arc_start - self.current_position()).square_length() < 0.01 {
@@ -344,19 +350,13 @@ impl<Builder: PathBuilder> SvgBuilder for SvgPathBuilder<Builder> {
             self.line_to(arc_start);
         }
 
-        arc.for_each_quadratic_bezier(&mut|curve| {
+        arc.for_each_quadratic_bezier(&mut |curve| {
             self.quadratic_bezier_to(curve.ctrl, curve.to);
         });
         self.state.arc_to(radii, x_rotation, flags, to);
     }
 
-    fn relative_arc_to(
-        &mut self,
-        radii: Vector,
-        x_rotation: Angle,
-        flags: ArcFlags,
-        to: Vector,
-    ) {
+    fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector) {
         let offset = self.state.current_position();
         self.arc_to(radii, x_rotation, flags, offset + to);
     }
@@ -371,19 +371,31 @@ pub struct FlatteningBuilder<Builder> {
 impl<Builder: Build> Build for FlatteningBuilder<Builder> {
     type PathType = Builder::PathType;
 
-    fn build(self) -> Builder::PathType { self.builder.build() }
+    fn build(self) -> Builder::PathType {
+        self.builder.build()
+    }
 
-    fn build_and_reset(&mut self) -> Builder::PathType { self.builder.build_and_reset() }
+    fn build_and_reset(&mut self) -> Builder::PathType {
+        self.builder.build_and_reset()
+    }
 }
 
 impl<Builder: FlatPathBuilder> FlatPathBuilder for FlatteningBuilder<Builder> {
-    fn move_to(&mut self, to: Point) { self.builder.move_to(to); }
+    fn move_to(&mut self, to: Point) {
+        self.builder.move_to(to);
+    }
 
-    fn line_to(&mut self, to: Point) { self.builder.line_to(to); }
+    fn line_to(&mut self, to: Point) {
+        self.builder.line_to(to);
+    }
 
-    fn close(&mut self) { self.builder.close() }
+    fn close(&mut self) {
+        self.builder.close()
+    }
 
-    fn current_position(&self) -> Point { self.builder.current_position() }
+    fn current_position(&self) -> Point {
+        self.builder.current_position()
+    }
 }
 
 impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
@@ -392,7 +404,10 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             from: self.current_position(),
             ctrl,
             to,
-        }.for_each_flattened(self.tolerance, &mut |point| { self.line_to(point); });
+        }
+        .for_each_flattened(self.tolerance, &mut |point| {
+            self.line_to(point);
+        });
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
@@ -401,16 +416,13 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             ctrl1,
             ctrl2,
             to,
-        }.for_each_flattened(self.tolerance, &mut |point| { self.line_to(point); });
+        }
+        .for_each_flattened(self.tolerance, &mut |point| {
+            self.line_to(point);
+        });
     }
 
-    fn arc(
-        &mut self,
-        center: Point,
-        radii: Vector,
-        sweep_angle: Angle,
-        x_rotation: Angle
-    ) {
+    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
         let start_angle = (self.current_position() - center).angle_from_x_axis() - x_rotation;
         let arc = Arc {
             center,
@@ -427,7 +439,7 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
             self.line_to(arc_start);
         }
 
-        arc.for_each_quadratic_bezier(&mut|curve| {
+        arc.for_each_quadratic_bezier(&mut |curve| {
             self.quadratic_bezier_to(curve.ctrl, curve.to);
         });
     }
@@ -435,11 +447,10 @@ impl<Builder: FlatPathBuilder> PathBuilder for FlatteningBuilder<Builder> {
 
 impl<Builder: FlatPathBuilder> FlatteningBuilder<Builder> {
     pub fn new(builder: Builder, tolerance: f32) -> FlatteningBuilder<Builder> {
-        FlatteningBuilder {
-            builder,
-            tolerance,
-        }
+        FlatteningBuilder { builder, tolerance }
     }
 
-    pub fn set_tolerance(&mut self, tolerance: f32) { self.tolerance = tolerance }
+    pub fn set_tolerance(&mut self, tolerance: f32) {
+        self.tolerance = tolerance
+    }
 }

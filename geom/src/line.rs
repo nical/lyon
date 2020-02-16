@@ -1,9 +1,9 @@
-use crate::scalar::Scalar;
-use crate::generic_math::{Point, point, Vector, vector, Rect, Size};
-use crate::segment::{Segment, FlatteningStep, BoundingRect};
+use crate::generic_math::{point, vector, Point, Rect, Size, Vector};
 use crate::monotonic::MonotonicSegment;
-use crate::utils::min_max;
+use crate::scalar::Scalar;
+use crate::segment::{BoundingRect, FlatteningStep, Segment};
 use crate::traits::Transformation;
+use crate::utils::min_max;
 use std::mem::swap;
 
 use std::ops::Range;
@@ -36,10 +36,14 @@ impl<S: Scalar> LineSegment<S> {
     }
 
     #[inline]
-    pub fn from(&self) -> Point<S> { self.from }
+    pub fn from(&self) -> Point<S> {
+        self.from
+    }
 
     #[inline]
-    pub fn to(&self) -> Point<S> { self.to }
+    pub fn to(&self) -> Point<S> {
+        self.to
+    }
 
     pub fn solve_t_for_x(&self, x: S) -> S {
         let dx = self.to.x - self.from.x;
@@ -53,7 +57,7 @@ impl<S: Scalar> LineSegment<S> {
     pub fn solve_t_for_y(&self, y: S) -> S {
         let dy = self.to.y - self.from.y;
         if dy == S::ZERO {
-            return S::ZERO
+            return S::ZERO;
         }
 
         (y - self.from.y) / dy
@@ -71,7 +75,10 @@ impl<S: Scalar> LineSegment<S> {
     /// points are swapped.
     #[inline]
     pub fn flip(&self) -> Self {
-        LineSegment { from: self.to, to: self.from }
+        LineSegment {
+            from: self.to,
+            to: self.from,
+        }
     }
 
     /// Return the sub-segment inside a given range of t.
@@ -89,21 +96,33 @@ impl<S: Scalar> LineSegment<S> {
     pub fn split(&self, t: S) -> (Self, Self) {
         let split_point = self.sample(t);
         return (
-            LineSegment { from: self.from, to: split_point },
-            LineSegment { from: split_point, to: self.to },
+            LineSegment {
+                from: self.from,
+                to: split_point,
+            },
+            LineSegment {
+                from: split_point,
+                to: self.to,
+            },
         );
     }
 
     /// Return the segment before the split point.
     #[inline]
     pub fn before_split(&self, t: S) -> Self {
-        LineSegment { from: self.from, to: self.sample(t) }
+        LineSegment {
+            from: self.from,
+            to: self.sample(t),
+        }
     }
 
     /// Return the segment after the split point.
     #[inline]
     pub fn after_split(&self, t: S) -> Self {
-        LineSegment { from: self.sample(t), to: self.to }
+        LineSegment {
+            from: self.sample(t),
+            to: self.to,
+        }
     }
 
     pub fn split_at_x(&self, x: S) -> (Self, Self) {
@@ -116,7 +135,7 @@ impl<S: Scalar> LineSegment<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        let width  = max_x - min_x;
+        let width = max_x - min_x;
         let height = max_y - min_y;
         Rect::new(Point::new(min_x, min_y), Size::new(width, height))
     }
@@ -191,7 +210,8 @@ impl<S: Scalar> LineSegment<S> {
         if self.to == other.to
             || self.from == other.from
             || self.from == other.to
-            || self.to == other.from {
+            || self.to == other.from
+        {
             return None;
         }
 
@@ -220,10 +240,7 @@ impl<S: Scalar> LineSegment<S> {
             return None;
         }
 
-        Some((
-            t / abs_v1_cross_v2,
-            u / abs_v1_cross_v2,
-        ))
+        Some((t / abs_v1_cross_v2, u / abs_v1_cross_v2))
     }
 
     #[inline]
@@ -270,7 +287,8 @@ impl<S: Scalar> LineSegment<S> {
 
     #[inline]
     pub fn horizontal_line_intersection(&self, y: S) -> Option<Point<S>> {
-        self.horizontal_line_intersection_t(y).map(|t| self.sample(t))
+        self.horizontal_line_intersection_t(y)
+            .map(|t| self.sample(t))
     }
 
     #[inline]
@@ -369,30 +387,70 @@ impl<S: Scalar> LineSegment<S> {
 
 impl<S: Scalar> Segment for LineSegment<S> {
     type Scalar = S;
-    fn from(&self) -> Point<S> { self.from }
-    fn to(&self) -> Point<S> { self.to }
-    fn sample(&self, t: S) -> Point<S> { self.sample(t) }
-    fn x(&self, t: S) -> S { self.x(t) }
-    fn y(&self, t: S) -> S { self.y(t) }
-    fn derivative(&self, _t: S) -> Vector<S> { self.to_vector() }
-    fn dx(&self, _t: S) -> S { self.to.x - self.from.x }
-    fn dy(&self, _t: S) -> S { self.to.y - self.from.y }
-    fn split_range(&self, t_range: Range<S>) -> Self { self.split_range(t_range) }
-    fn split(&self, t: S) -> (Self, Self) { self.split(t) }
-    fn before_split(&self, t: S) -> Self { self.before_split(t) }
-    fn after_split(&self, t: S) -> Self { self.after_split(t) }
-    fn flip(&self) -> Self { self.flip() }
-    fn approximate_length(&self, _tolerance: S) -> S { self.length() }
+    fn from(&self) -> Point<S> {
+        self.from
+    }
+    fn to(&self) -> Point<S> {
+        self.to
+    }
+    fn sample(&self, t: S) -> Point<S> {
+        self.sample(t)
+    }
+    fn x(&self, t: S) -> S {
+        self.x(t)
+    }
+    fn y(&self, t: S) -> S {
+        self.y(t)
+    }
+    fn derivative(&self, _t: S) -> Vector<S> {
+        self.to_vector()
+    }
+    fn dx(&self, _t: S) -> S {
+        self.to.x - self.from.x
+    }
+    fn dy(&self, _t: S) -> S {
+        self.to.y - self.from.y
+    }
+    fn split_range(&self, t_range: Range<S>) -> Self {
+        self.split_range(t_range)
+    }
+    fn split(&self, t: S) -> (Self, Self) {
+        self.split(t)
+    }
+    fn before_split(&self, t: S) -> Self {
+        self.before_split(t)
+    }
+    fn after_split(&self, t: S) -> Self {
+        self.after_split(t)
+    }
+    fn flip(&self) -> Self {
+        self.flip()
+    }
+    fn approximate_length(&self, _tolerance: S) -> S {
+        self.length()
+    }
 }
 
 impl<S: Scalar> BoundingRect for LineSegment<S> {
     type Scalar = S;
-    fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
-    fn fast_bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
-    fn bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
-    fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
-    fn fast_bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
-    fn fast_bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
+    fn bounding_rect(&self) -> Rect<S> {
+        self.bounding_rect()
+    }
+    fn fast_bounding_rect(&self) -> Rect<S> {
+        self.bounding_rect()
+    }
+    fn bounding_range_x(&self) -> (S, S) {
+        self.bounding_range_x()
+    }
+    fn bounding_range_y(&self) -> (S, S) {
+        self.bounding_range_y()
+    }
+    fn fast_bounding_range_x(&self) -> (S, S) {
+        self.bounding_range_x()
+    }
+    fn fast_bounding_range_y(&self) -> (S, S) {
+        self.bounding_range_y()
+    }
 }
 
 impl<S: Scalar> MonotonicSegment for LineSegment<S> {
@@ -403,7 +461,9 @@ impl<S: Scalar> MonotonicSegment for LineSegment<S> {
 }
 
 impl<S: Scalar> FlatteningStep for LineSegment<S> {
-    fn flattening_step(&self, _tolerance: S) -> S { S::ONE }
+    fn flattening_step(&self, _tolerance: S) -> S {
+        S::ONE
+    }
 }
 
 /// An infinite line defined by a point and a vector.
@@ -426,12 +486,10 @@ impl<S: Scalar> Line<S> {
         let other_p2 = other.point + other.vector;
         let a = self.point.to_vector().cross(self_p2.to_vector());
         let b = other.point.to_vector().cross(other_p2.to_vector());
-        return Some(
-            point(
-                (b * self.vector.x - a * other.vector.x) * inv_det,
-                (b * self.vector.y - a * other.vector.y) * inv_det,
-            )
-        );
+        return Some(point(
+            (b * self.vector.x - a * other.vector.x) * inv_det,
+            (b * self.vector.y - a * other.vector.y) * inv_det,
+        ));
     }
 
     pub fn signed_distance_to_point(&self, p: &Point<S>) -> S {
@@ -467,17 +525,27 @@ impl<S: Scalar> LineEquation<S> {
     pub fn new(a: S, b: S, c: S) -> Self {
         debug_assert!(a != S::ZERO || b != S::ZERO);
         let div = S::ONE / S::sqrt(a * a + b * b);
-        LineEquation { a: a * div, b: b * div, c: c * div }
+        LineEquation {
+            a: a * div,
+            b: b * div,
+            c: c * div,
+        }
     }
 
     #[inline]
-    pub fn a(&self) -> S { self.a }
+    pub fn a(&self) -> S {
+        self.a
+    }
 
     #[inline]
-    pub fn b(&self) -> S { self.b }
+    pub fn b(&self) -> S {
+        self.b
+    }
 
     #[inline]
-    pub fn c(&self) -> S { self.c }
+    pub fn c(&self) -> S {
+        self.c
+    }
 
     pub fn project_point(&self, p: &Point<S>) -> Point<S> {
         point(
@@ -498,18 +566,30 @@ impl<S: Scalar> LineEquation<S> {
 
     #[inline]
     pub fn invert(&self) -> Self {
-        LineEquation { a: -self.a, b: -self.b, c: -self.c }
+        LineEquation {
+            a: -self.a,
+            b: -self.b,
+            c: -self.c,
+        }
     }
 
     #[inline]
     pub fn parallel_line(&self, p: &Point<S>) -> Self {
         let c = -(self.a * p.x + self.b * p.y);
-        LineEquation { a: self.a, b: self.b, c }
+        LineEquation {
+            a: self.a,
+            b: self.b,
+            c,
+        }
     }
 
     #[inline]
     pub fn offset(&self, d: S) -> Self {
-        LineEquation { a: self.a, b: self.b, c: self.c - d }
+        LineEquation {
+            a: self.a,
+            b: self.b,
+            c: self.c - d,
+        }
     }
 
     #[inline]
@@ -594,21 +674,17 @@ fn intersection_rotated() {
 
             assert!(l1.intersects(&l2));
 
-            assert!(
-                fuzzy_eq_point(
-                    l1.sample(l1.intersection_t(&l2).unwrap().0),
-                    point(0.0, 0.0),
-                    epsilon
-                )
-            );
+            assert!(fuzzy_eq_point(
+                l1.sample(l1.intersection_t(&l2).unwrap().0),
+                point(0.0, 0.0),
+                epsilon
+            ));
 
-            assert!(
-                fuzzy_eq_point(
-                    l2.sample(l1.intersection_t(&l2).unwrap().1),
-                    point(0.0, 0.0),
-                    epsilon
-                )
-            );
+            assert!(fuzzy_eq_point(
+                l2.sample(l1.intersection_t(&l2).unwrap().1),
+                point(0.0, 0.0),
+                epsilon
+            ));
         }
     }
 }
@@ -651,9 +727,9 @@ fn intersection_overlap() {
 }
 
 #[cfg(test)]
-use euclid::rect;
-#[cfg(test)]
 use euclid::approxeq::ApproxEq;
+#[cfg(test)]
+use euclid::rect;
 
 #[test]
 fn bounding_rect() {
@@ -695,27 +771,58 @@ fn distance_to_point() {
         vector: vector(1.5, 1.5),
     };
 
-    assert!(l1.signed_distance_to_point(&point(1.1, 4.0)).approx_eq(&-1.0));
-    assert!(l1.signed_distance_to_point(&point(2.3, 2.0)).approx_eq(&1.0));
+    assert!(l1
+        .signed_distance_to_point(&point(1.1, 4.0))
+        .approx_eq(&-1.0));
+    assert!(l1
+        .signed_distance_to_point(&point(2.3, 2.0))
+        .approx_eq(&1.0));
 
-    assert!(l2.signed_distance_to_point(&point(1.0, 0.0)).approx_eq(&(-f32::sqrt(2.0)/2.0)));
-    assert!(l2.signed_distance_to_point(&point(0.0, 1.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
+    assert!(l2
+        .signed_distance_to_point(&point(1.0, 0.0))
+        .approx_eq(&(-f32::sqrt(2.0) / 2.0)));
+    assert!(l2
+        .signed_distance_to_point(&point(0.0, 1.0))
+        .approx_eq(&(f32::sqrt(2.0) / 2.0)));
 
-    assert!(l1.equation().distance_to_point(&point(1.1, 4.0)).approx_eq(&1.0));
-    assert!(l1.equation().distance_to_point(&point(2.3, 2.0)).approx_eq(&1.0));
-    assert!(l2.equation().distance_to_point(&point(1.0, 0.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
-    assert!(l2.equation().distance_to_point(&point(0.0, 1.0)).approx_eq(&(f32::sqrt(2.0)/2.0)));
+    assert!(l1
+        .equation()
+        .distance_to_point(&point(1.1, 4.0))
+        .approx_eq(&1.0));
+    assert!(l1
+        .equation()
+        .distance_to_point(&point(2.3, 2.0))
+        .approx_eq(&1.0));
+    assert!(l2
+        .equation()
+        .distance_to_point(&point(1.0, 0.0))
+        .approx_eq(&(f32::sqrt(2.0) / 2.0)));
+    assert!(l2
+        .equation()
+        .distance_to_point(&point(0.0, 1.0))
+        .approx_eq(&(f32::sqrt(2.0) / 2.0)));
 
-    assert!(l1.equation().signed_distance_to_point(&point(1.1, 4.0)).approx_eq(&l1.signed_distance_to_point(&point(1.1, 4.0))));
-    assert!(l1.equation().signed_distance_to_point(&point(2.3, 2.0)).approx_eq(&l1.signed_distance_to_point(&point(2.3, 2.0))));
+    assert!(l1
+        .equation()
+        .signed_distance_to_point(&point(1.1, 4.0))
+        .approx_eq(&l1.signed_distance_to_point(&point(1.1, 4.0))));
+    assert!(l1
+        .equation()
+        .signed_distance_to_point(&point(2.3, 2.0))
+        .approx_eq(&l1.signed_distance_to_point(&point(2.3, 2.0))));
 
-    assert!(l2.equation().signed_distance_to_point(&point(1.0, 0.0)).approx_eq(&l2.signed_distance_to_point(&point(1.0, 0.0))));
-    assert!(l2.equation().signed_distance_to_point(&point(0.0, 1.0)).approx_eq(&l2.signed_distance_to_point(&point(0.0, 1.0))));
+    assert!(l2
+        .equation()
+        .signed_distance_to_point(&point(1.0, 0.0))
+        .approx_eq(&l2.signed_distance_to_point(&point(1.0, 0.0))));
+    assert!(l2
+        .equation()
+        .signed_distance_to_point(&point(0.0, 1.0))
+        .approx_eq(&l2.signed_distance_to_point(&point(0.0, 1.0))));
 }
 
 #[test]
 fn solve_y_for_x() {
-
     let line = Line {
         point: Point::new(1.0, 1.0),
         vector: Vector::new(2.0, 4.0),
@@ -780,68 +887,53 @@ fn set_length() {
 
 #[test]
 fn overlap() {
-    assert!(
-        LineSegment {
-            from: point(0.0, 0.0),
-            to: point(-1.0, 0.0),
-        }.overlaps_line(
-            &Line {
-                point: point(100.0, 0.0),
-                vector: vector(10.0, 0.0),
-            }
-        )
-    );
+    assert!(LineSegment {
+        from: point(0.0, 0.0),
+        to: point(-1.0, 0.0),
+    }
+    .overlaps_line(&Line {
+        point: point(100.0, 0.0),
+        vector: vector(10.0, 0.0),
+    }));
 
-    assert!(
-        LineSegment {
-            from: point(0.0, 0.0),
-            to: point(1.0, 0.0),
-        }.overlaps_line(
-            &Line {
-                point: point(0.0, 0.0),
-                vector: vector(1.0, 0.0),
-            }
-        )
-    );
+    assert!(LineSegment {
+        from: point(0.0, 0.0),
+        to: point(1.0, 0.0),
+    }
+    .overlaps_line(&Line {
+        point: point(0.0, 0.0),
+        vector: vector(1.0, 0.0),
+    }));
 
-    assert!(
-        LineSegment {
-            from: point(0.0, 0.0),
-            to: point(1.0, 0.0),
-        }.overlaps_segment(
-            &LineSegment {
-                from: point(0.0, 0.0),
-                to: point(1.0, 0.0),
-            }
-        )
-    );
+    assert!(LineSegment {
+        from: point(0.0, 0.0),
+        to: point(1.0, 0.0),
+    }
+    .overlaps_segment(&LineSegment {
+        from: point(0.0, 0.0),
+        to: point(1.0, 0.0),
+    }));
 
-    assert!(
-        !LineSegment {
-            from: point(0.0, 0.0),
-            to: point(1.0, 0.0),
-        }.overlaps_line(
-            &Line {
-                point: point(0.0, 1.0),
-                vector: vector(1.0, 1.0),
-            }
-        )
-    );
+    assert!(!LineSegment {
+        from: point(0.0, 0.0),
+        to: point(1.0, 0.0),
+    }
+    .overlaps_line(&Line {
+        point: point(0.0, 1.0),
+        vector: vector(1.0, 1.0),
+    }));
 }
 
 #[test]
 fn contains_segment() {
-    assert!(
-        LineSegment {
-            from: point(-1.0, 1.0),
-            to: point(4.0, 1.0),
-        }.contains_segment(
-            &LineSegment {
-                from: point(2.0, 1.0),
-                to: point(1.0, 1.0),
-            }
-        )
-    );
+    assert!(LineSegment {
+        from: point(-1.0, 1.0),
+        to: point(4.0, 1.0),
+    }
+    .contains_segment(&LineSegment {
+        from: point(2.0, 1.0),
+        to: point(1.0, 1.0),
+    }));
 }
 
 #[test]

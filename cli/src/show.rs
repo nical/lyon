@@ -1,21 +1,21 @@
-use lyon::math::*;
-use lyon::tessellation::geometry_builder::*;
-use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, StrokeTessellator, FillOptions};
-use lyon::tessellation;
-use lyon::algorithms::hatching::*;
+use commands::{AntiAliasing, Background, RenderCmd, TessellateCmd, Tessellator};
 use lyon::algorithms::aabb::bounding_rect;
+use lyon::algorithms::hatching::*;
+use lyon::math::*;
 use lyon::path::Path;
-use commands::{TessellateCmd, AntiAliasing, RenderCmd, Tessellator, Background};
 use lyon::tess2;
+use lyon::tessellation;
+use lyon::tessellation::basic_shapes::*;
+use lyon::tessellation::geometry_builder::*;
+use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 
 use gfx;
-use gfx_window_glutin;
 use gfx::traits::{Device, FactoryExt};
+use gfx_window_glutin;
 use glutin;
-use glutin::{EventsLoop, KeyboardInput};
-use glutin::ElementState::Pressed;
 use glutin::dpi::LogicalSize;
+use glutin::ElementState::Pressed;
+use glutin::{EventsLoop, KeyboardInput};
 
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
@@ -25,11 +25,13 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut stroke_width = 1.0;
     if let Some(options) = cmd.stroke {
         stroke_width = options.line_width;
-        StrokeTessellator::new().tessellate(
-            cmd.path.iter(),
-            &options,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1))
-        ).unwrap();
+        StrokeTessellator::new()
+            .tessellate(
+                cmd.path.iter(),
+                &options,
+                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+            )
+            .unwrap();
     }
 
     if let Some(hatch) = cmd.hatch {
@@ -40,20 +42,21 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             &hatch.options,
             &mut RegularHatchingPattern {
                 interval: hatch.spacing,
-                callback: &mut|segment: &HatchSegment| {
+                callback: &mut |segment: &HatchSegment| {
                     path.move_to(segment.a.position);
                     path.line_to(segment.b.position);
-                }
+                },
             },
-
         );
         let hatched_path = path.build();
 
-        StrokeTessellator::new().tessellate(
-            hatched_path.iter(),
-            &hatch.stroke,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1))
-        ).unwrap();
+        StrokeTessellator::new()
+            .tessellate(
+                hatched_path.iter(),
+                &hatch.stroke,
+                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+            )
+            .unwrap();
     }
 
     if let Some(dots) = cmd.dots {
@@ -65,18 +68,20 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             &mut RegularDotPattern {
                 row_interval: dots.spacing,
                 column_interval: dots.spacing,
-                callback: &mut|dot: &Dot| {
+                callback: &mut |dot: &Dot| {
                     path.move_to(dot.position);
-                }
+                },
             },
         );
         let dotted_path = path.build();
 
-        StrokeTessellator::new().tessellate(
-            dotted_path.iter(),
-            &dots.stroke,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1))
-        ).unwrap();
+        StrokeTessellator::new()
+            .tessellate(
+                dotted_path.iter(),
+                &dots.stroke,
+                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+            )
+            .unwrap();
     }
 
     if let Some(options) = cmd.fill {
@@ -87,26 +92,30 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 tess.tessellate(
                     &cmd.path,
                     &options,
-                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
-                ).unwrap();
+                    &mut BuffersBuilder::new(&mut geometry, WithId(0)),
+                )
+                .unwrap();
 
                 for (i, v) in geometry.vertices.iter().enumerate() {
                     println!("{}: {:?}", i, v.position);
                 }
                 for i in 0..(geometry.indices.len() / 3) {
-                    println!("{}/{}/{}",
-                        geometry.indices[i*3],
-                        geometry.indices[i*3+1],
-                        geometry.indices[i*3+2],
+                    println!(
+                        "{}/{}/{}",
+                        geometry.indices[i * 3],
+                        geometry.indices[i * 3 + 1],
+                        geometry.indices[i * 3 + 2],
                     );
                 }
             }
             Tessellator::Tess2 => {
-                tess2::FillTessellator::new().tessellate(
-                    cmd.path.iter(),
-                    &options,
-                    &mut BuffersBuilder::new(&mut geometry, WithId(0))
-                ).unwrap();
+                tess2::FillTessellator::new()
+                    .tessellate(
+                        cmd.path.iter(),
+                        &options,
+                        &mut BuffersBuilder::new(&mut geometry, WithId(0)),
+                    )
+                    .unwrap();
             }
         }
     }
@@ -118,7 +127,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         1.0,
         &FillOptions::tolerance(0.01),
         &mut BuffersBuilder::new(&mut geometry, WithId(0)),
-    ).unwrap();
+    )
+    .unwrap();
 
     let (bg_color, vignette_color) = match render_options.background {
         Background::Blue => ([0.0, 0.47, 0.9, 1.0], [0.0, 0.1, 0.64, 1.0]),
@@ -136,10 +146,14 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    ).unwrap();
+    )
+    .unwrap();
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(LogicalSize { width: DEFAULT_WINDOW_WIDTH as f64, height: DEFAULT_WINDOW_HEIGHT as f64 })
+        .with_dimensions(LogicalSize {
+            width: DEFAULT_WINDOW_WIDTH as f64,
+            height: DEFAULT_WINDOW_HEIGHT as f64,
+        })
         .with_decorations(true)
         .with_title("lyon".to_string());
 
@@ -154,48 +168,54 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut events_loop = glutin::EventsLoop::new();
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop).unwrap();
+        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(
+            glutin_builder,
+            context,
+            &events_loop,
+        )
+        .unwrap();
 
-    let bg_pso = factory.create_pipeline_simple(
-        BACKGROUND_VERTEX_SHADER.as_bytes(),
-        BACKGROUND_FRAGMENT_SHADER.as_bytes(),
-        bg_pipeline::new(),
-    ).unwrap();
+    let bg_pso = factory
+        .create_pipeline_simple(
+            BACKGROUND_VERTEX_SHADER.as_bytes(),
+            BACKGROUND_FRAGMENT_SHADER.as_bytes(),
+            bg_pipeline::new(),
+        )
+        .unwrap();
 
-    let path_shader = factory.link_program(
-        VERTEX_SHADER.as_bytes(),
-        FRAGMENT_SHADER.as_bytes()
-    ).unwrap();
+    let path_shader = factory
+        .link_program(VERTEX_SHADER.as_bytes(), FRAGMENT_SHADER.as_bytes())
+        .unwrap();
 
     let mut rasterizer_state = gfx::state::Rasterizer::new_fill().with_cull_back();
     if let AntiAliasing::Msaa(_) = render_options.aa {
         rasterizer_state.samples = Some(gfx::state::MultiSample);
     }
-    let path_pso = factory.create_pipeline_from_program(
-        &path_shader,
-        gfx::Primitive::TriangleList,
-        rasterizer_state,
-        path_pipeline::new(),
-    ).unwrap();
+    let path_pso = factory
+        .create_pipeline_from_program(
+            &path_shader,
+            gfx::Primitive::TriangleList,
+            rasterizer_state,
+            path_pipeline::new(),
+        )
+        .unwrap();
 
     let mut wireframe_fill_mode = gfx::state::Rasterizer::new_fill();
     wireframe_fill_mode.method = gfx::state::RasterMethod::Line(1);
-    let wireframe_pso = factory.create_pipeline_from_program(
-        &path_shader,
-        gfx::Primitive::TriangleList,
-        wireframe_fill_mode,
-        path_pipeline::new(),
-    ).unwrap();
+    let wireframe_pso = factory
+        .create_pipeline_from_program(
+            &path_shader,
+            gfx::Primitive::TriangleList,
+            wireframe_fill_mode,
+            path_pipeline::new(),
+        )
+        .unwrap();
 
-    let (bg_vbo, bg_range) = factory.create_vertex_buffer_with_slice(
-        &bg_geometry.vertices[..],
-        &bg_geometry.indices[..]
-    );
+    let (bg_vbo, bg_range) = factory
+        .create_vertex_buffer_with_slice(&bg_geometry.vertices[..], &bg_geometry.indices[..]);
 
-    let (path_vbo, vbo_range) = factory.create_vertex_buffer_with_slice(
-        &geometry.vertices[..],
-        &geometry.indices[..]
-    );
+    let (path_vbo, vbo_range) =
+        factory.create_vertex_buffer_with_slice(&geometry.vertices[..], &geometry.indices[..]);
 
     let (path_range, _) = vbo_range.split_at(geom_split);
 
@@ -220,9 +240,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     };
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    
-    while update_inputs(&mut events_loop, &mut scene) {
 
+    while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let size = window.get_inner_size().unwrap();
         scene.window_size = (size.width as f32, size.height as f32);
@@ -241,31 +260,33 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             },
         );
 
-        cmd_queue.update_buffer(
-            &gpu_primitives,
-            &[
-                Primitive {
-                    color: [1.0, 1.0, 1.0, 1.0],
-                    z_index: 0.1,
-                    width: 0.0,
-                    translation: [0.0, 0.0],
-                },
-                Primitive {
-                    color: [0.0, 0.0, 0.0, 1.0],
-                    z_index: 0.2,
-                    width: scene.target_stroke_width,
-                    translation: [0.0, 0.0],
-                },
-                // TODO: Debug edges. Color is hard-coded.
-                Primitive {
-                    color: [0.5, 0.0, 0.0, 1.0],
-                    z_index: 0.4,
-                    width: scene.target_stroke_width * 0.5,
-                    translation: [0.0, 0.0],
-                },
-            ],
-            0
-        ).unwrap();
+        cmd_queue
+            .update_buffer(
+                &gpu_primitives,
+                &[
+                    Primitive {
+                        color: [1.0, 1.0, 1.0, 1.0],
+                        z_index: 0.1,
+                        width: 0.0,
+                        translation: [0.0, 0.0],
+                    },
+                    Primitive {
+                        color: [0.0, 0.0, 0.0, 1.0],
+                        z_index: 0.2,
+                        width: scene.target_stroke_width,
+                        translation: [0.0, 0.0],
+                    },
+                    // TODO: Debug edges. Color is hard-coded.
+                    Primitive {
+                        color: [0.5, 0.0, 0.0, 1.0],
+                        z_index: 0.4,
+                        width: scene.target_stroke_width * 0.5,
+                        translation: [0.0, 0.0],
+                    },
+                ],
+                0,
+            )
+            .unwrap();
 
         let pso = if scene.show_wireframe {
             &wireframe_pso
@@ -304,7 +325,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     }
 }
 
-gfx_defines!{
+gfx_defines! {
     constant Globals {
         bg_color: [f32; 4] = "u_bg_color",
         vignette_color: [f32; 4] = "u_vignette_color",
@@ -468,7 +489,11 @@ impl FillVertexConstructor<GpuVertex> for WithId {
 }
 
 impl StrokeVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, position: Point, attributes: tessellation::StrokeAttributes) -> GpuVertex {
+    fn new_vertex(
+        &mut self,
+        position: Point,
+        attributes: tessellation::StrokeAttributes,
+    ) -> GpuVertex {
         debug_assert!(!position.x.is_nan());
         debug_assert!(!position.y.is_nan());
         debug_assert!(!attributes.normal().x.is_nan());
@@ -506,7 +531,6 @@ impl BasicVertexConstructor<BgVertex> for BgVertexCtor {
     }
 }
 
-
 struct SceneParams {
     target_zoom: f32,
     zoom: f32,
@@ -535,75 +559,81 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                 ..
             } => {
                 status = false;
-            },
+            }
             Event::WindowEvent {
-                event: WindowEvent::MouseInput {
-                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
-                ..},
-            ..} => {
+                event:
+                    WindowEvent::MouseInput {
+                        state: glutin::ElementState::Pressed,
+                        button: glutin::MouseButton::Left,
+                        ..
+                    },
+                ..
+            } => {
                 let half_width = scene.window_size.0 * 0.5;
                 let half_height = scene.window_size.1 * 0.5;
-                println!("X: {}, Y: {}",
+                println!(
+                    "X: {}, Y: {}",
                     (scene.cursor_position.0 - half_width) / scene.zoom + scene.scroll.x,
                     (scene.cursor_position.1 - half_height) / scene.zoom + scene.scroll.y,
                 );
             }
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
-            ..} => {
+                ..
+            } => {
                 scene.cursor_position = (position.x as f32, position.y as f32);
             }
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state: Pressed,
-                        virtual_keycode: Some(key),
+                event:
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: Pressed,
+                                virtual_keycode: Some(key),
+                                ..
+                            },
                         ..
                     },
-                    ..
-                },
                 ..
-            } => {
-                match key {
-                    VirtualKeyCode::Escape => {
-                        status = false;
-                    }
-                    VirtualKeyCode::PageDown => {
-                        scene.target_zoom *= 0.8;
-                    }
-                    VirtualKeyCode::PageUp => {
-                        scene.target_zoom *= 1.25;
-                    }
-                    VirtualKeyCode::Left => {
-                        scene.target_scroll.x -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Right => {
-                        scene.target_scroll.x += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Up => {
-                        scene.target_scroll.y -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Down => {
-                        scene.target_scroll.y += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::P => {
-                        scene.show_points = !scene.show_points;
-                    }
-                    VirtualKeyCode::W => {
-                        scene.show_wireframe = !scene.show_wireframe;
-                    }
-                    VirtualKeyCode::B => {
-                        scene.draw_background = !scene.draw_background;
-                    }
-                    VirtualKeyCode::A => {
-                        scene.target_stroke_width /= 0.8;
-                    }
-                    VirtualKeyCode::Z => {
-                        scene.target_stroke_width *= 0.8;
-                    }
-                    _key => {}
+            } => match key {
+                VirtualKeyCode::Escape => {
+                    status = false;
                 }
-            }
+                VirtualKeyCode::PageDown => {
+                    scene.target_zoom *= 0.8;
+                }
+                VirtualKeyCode::PageUp => {
+                    scene.target_zoom *= 1.25;
+                }
+                VirtualKeyCode::Left => {
+                    scene.target_scroll.x -= 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Right => {
+                    scene.target_scroll.x += 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Up => {
+                    scene.target_scroll.y -= 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Down => {
+                    scene.target_scroll.y += 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::P => {
+                    scene.show_points = !scene.show_points;
+                }
+                VirtualKeyCode::W => {
+                    scene.show_wireframe = !scene.show_wireframe;
+                }
+                VirtualKeyCode::B => {
+                    scene.draw_background = !scene.draw_background;
+                }
+                VirtualKeyCode::A => {
+                    scene.target_stroke_width /= 0.8;
+                }
+                VirtualKeyCode::Z => {
+                    scene.target_stroke_width *= 0.8;
+                }
+                _key => {}
+            },
             _evt => {
                 //println!("{:?}", _evt);
             }
@@ -613,8 +643,8 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
-    scene.stroke_width = scene.stroke_width +
-        (scene.target_stroke_width - scene.stroke_width) / 5.0;
+    scene.stroke_width =
+        scene.stroke_width + (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
     return status;
 }

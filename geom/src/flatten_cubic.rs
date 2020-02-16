@@ -1,3 +1,5 @@
+use crate::generic_math::Point;
+use crate::scalar::Scalar;
 ///! Utilities to flatten cubic bezier curve segments, implmeneted both with callback and
 ///! iterator based APIs.
 ///!
@@ -5,10 +7,7 @@
 ///! http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.106.5344&rep=rep1&type=pdf
 ///! It produces a better approximations than the usual recursive subdivision approach (or
 ///! in other words, it generates less points for a given tolerance threshold).
-
 use crate::CubicBezierSegment;
-use crate::scalar::Scalar;
-use crate::generic_math::Point;
 use arrayvec::ArrayVec;
 
 /// An iterator over a cubic bezier segment that yields line segments approximating the
@@ -31,7 +30,9 @@ impl<S: Scalar> Flattened<S> {
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment<S>, tolerance: S) -> Self {
         let mut inflections: ArrayVec<[S; 2]> = ArrayVec::new();
-        find_cubic_bezier_inflection_points(&bezier, &mut|t| { inflections.push(t); });
+        find_cubic_bezier_inflection_points(&bezier, &mut |t| {
+            inflections.push(t);
+        });
 
         let mut iter = Flattened {
             remaining_curve: bezier,
@@ -65,7 +66,6 @@ impl<S: Scalar> Flattened<S> {
 impl<S: Scalar> Iterator for Flattened<S> {
     type Item = Point<S>;
     fn next(&mut self) -> Option<Point<S>> {
-
         if self.current_curve.is_none() && self.next_inflection.is_some() {
             if let Some(t2) = self.following_inflection {
                 // No need to re-map t2 in the curve because we already did iter_points
@@ -122,7 +122,9 @@ pub fn flatten_cubic_bezier<S: Scalar, F: FnMut(Point<S>)>(
     call_back: &mut F,
 ) {
     let mut inflections: ArrayVec<[S; 2]> = ArrayVec::new();
-    find_cubic_bezier_inflection_points(&bezier, &mut|t| { inflections.push(t); });
+    find_cubic_bezier_inflection_points(&bezier, &mut |t| {
+        inflections.push(t);
+    });
 
     if let Some(&t1) = inflections.get(0) {
         bezier = flatten_including_inflection(&bezier, t1, tolerance, call_back);
@@ -143,7 +145,9 @@ pub fn flatten_cubic_bezier_with_t<S: Scalar, F: FnMut(Point<S>, S)>(
     call_back: &mut F,
 ) {
     let mut inflections: ArrayVec<[S; 2]> = ArrayVec::new();
-    find_cubic_bezier_inflection_points(&bezier, &mut|t| { inflections.push(t); });
+    find_cubic_bezier_inflection_points(&bezier, &mut |t| {
+        inflections.push(t);
+    });
 
     let mut t = S::ZERO;
     for t_inflection in inflections {
@@ -268,20 +272,20 @@ fn no_inflection_flattening_step<S: Scalar>(bezier: &CubicBezierSegment<S>, tole
 }
 
 // Find the inflection points of a cubic bezier curve.
-pub(crate) fn find_cubic_bezier_inflection_points<S, F>(
-    bezier: &CubicBezierSegment<S>,
-    cb: &mut F,
-)
+pub(crate) fn find_cubic_bezier_inflection_points<S, F>(bezier: &CubicBezierSegment<S>, cb: &mut F)
 where
     S: Scalar,
-    F: FnMut(S)
+    F: FnMut(S),
 {
     // Find inflection points.
     // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
     // of this approach.
     let pa = bezier.ctrl1 - bezier.from;
-    let pb = bezier.ctrl2.to_vector() - (bezier.ctrl1.to_vector() * S::TWO) + bezier.from.to_vector();
-    let pc = bezier.to.to_vector() - (bezier.ctrl2.to_vector() * S::THREE) + (bezier.ctrl1.to_vector() * S::THREE) - bezier.from.to_vector();
+    let pb =
+        bezier.ctrl2.to_vector() - (bezier.ctrl1.to_vector() * S::TWO) + bezier.from.to_vector();
+    let pc = bezier.to.to_vector() - (bezier.ctrl2.to_vector() * S::THREE)
+        + (bezier.ctrl1.to_vector() * S::THREE)
+        - bezier.from.to_vector();
 
     let a = pb.cross(pc);
     let b = pa.cross(pc);
@@ -310,7 +314,9 @@ where
         return;
     }
 
-    fn in_range<S: Scalar>(t: S) -> bool { t >= S::ZERO && t < S::ONE }
+    fn in_range<S: Scalar>(t: S) -> bool {
+        t >= S::ZERO && t < S::ONE
+    }
 
     let discriminant = b * b - S::FOUR * a * c;
 
@@ -419,7 +425,9 @@ fn test_iterator_builder_1() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| {
+        builder_points.push(p);
+    });
 
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -436,7 +444,9 @@ fn test_iterator_builder_2() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| {
+        builder_points.push(p);
+    });
 
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -453,7 +463,9 @@ fn test_iterator_builder_3() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| {
+        builder_points.push(p);
+    });
 
     assert!(iter_points.len() > 2);
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -470,7 +482,9 @@ fn test_issue_19() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| { builder_points.push(p); });
+    c1.for_each_flattened(tolerance, &mut |p| {
+        builder_points.push(p);
+    });
 
     assert_approx_eq(&iter_points[..], &builder_points[..]);
 
@@ -507,11 +521,13 @@ fn flatten_with_t() {
         let tolerance = *tolerance;
 
         let mut a = Vec::new();
-        segment.for_each_flattened(tolerance, &mut|p| { a.push(p); });
+        segment.for_each_flattened(tolerance, &mut |p| {
+            a.push(p);
+        });
 
         let mut b = Vec::new();
         let mut ts = Vec::new();
-        segment.for_each_flattened_with_t(tolerance, &mut|p, t| {
+        segment.for_each_flattened_with_t(tolerance, &mut |p, t| {
             b.push(p);
             ts.push(t);
         });
@@ -525,5 +541,4 @@ fn flatten_with_t() {
             assert!(dist <= tolerance);
         }
     }
-
 }

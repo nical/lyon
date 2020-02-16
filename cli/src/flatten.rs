@@ -9,7 +9,9 @@ pub enum FlattenError {
 }
 
 impl ::std::convert::From<::std::io::Error> for FlattenError {
-    fn from(err: io::Error) -> Self { FlattenError::Io(err) }
+    fn from(err: io::Error) -> Self {
+        FlattenError::Io(err)
+    }
 }
 
 pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
@@ -31,7 +33,9 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
                     num_vertices += 1;
                 }
                 PathEvent::End { .. } => {}
-                _ => { panic!("Flattening produced curves."); }
+                _ => {
+                    panic!("Flattening produced curves.");
+                }
             }
         }
 

@@ -34,9 +34,13 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
         };
     }
 
-    pub fn pixel_offset(&self, x: usize, y: usize) -> usize { x + y * self.stride }
+    pub fn pixel_offset(&self, x: usize, y: usize) -> usize {
+        x + y * self.stride
+    }
 
-    pub fn contains_pixel(&self, x: usize, y: usize) -> bool { x <= self.width && y <= self.height }
+    pub fn contains_pixel(&self, x: usize, y: usize) -> bool {
+        x <= self.width && y <= self.height
+    }
 
     pub fn split_vertically(
         &'l mut self,
@@ -52,18 +56,20 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
             let pixels_left: &'l mut [Pixel] = from_raw_parts_mut(p, self.pixels.len());
             let pixels_right: &'l mut [Pixel] = from_raw_parts_mut(q, remainder);
 
-            return (MutableImageSlice {
-                width: split,
-                height: self.height,
-                stride: self.stride,
-                pixels: pixels_left,
-            },
-            MutableImageSlice {
-                width: self.width - split,
-                height: self.height,
-                stride: self.stride,
-                pixels: pixels_right,
-            });
+            return (
+                MutableImageSlice {
+                    width: split,
+                    height: self.height,
+                    stride: self.stride,
+                    pixels: pixels_left,
+                },
+                MutableImageSlice {
+                    width: self.width - split,
+                    height: self.height,
+                    stride: self.stride,
+                    pixels: pixels_right,
+                },
+            );
         }
     }
 
@@ -81,18 +87,20 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
             let pixels_left: &'l mut [Pixel] = from_raw_parts_mut(p, self.pixels.len());
             let pixels_right: &'l mut [Pixel] = from_raw_parts_mut(q, remainder);
 
-            return (MutableImageSlice {
-                width: self.width,
-                height: split,
-                stride: self.stride,
-                pixels: pixels_left,
-            },
-            MutableImageSlice {
-                width: self.width,
-                height: self.height - split,
-                stride: self.stride,
-                pixels: pixels_right,
-            });
+            return (
+                MutableImageSlice {
+                    width: self.width,
+                    height: split,
+                    stride: self.stride,
+                    pixels: pixels_left,
+                },
+                MutableImageSlice {
+                    width: self.width,
+                    height: self.height - split,
+                    stride: self.stride,
+                    pixels: pixels_right,
+                },
+            );
         }
     }
 }
