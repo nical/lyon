@@ -82,14 +82,14 @@
 //! }
 //! ```
 
-pub extern crate tess2_sys;
 pub extern crate lyon_tessellation as tessellation;
-pub use tessellation::path;
+pub extern crate tess2_sys;
 pub use tessellation::geom;
 pub use tessellation::math;
+pub use tessellation::path;
 
-mod tessellator;
 pub mod flattened_path;
+mod tessellator;
 
-pub use crate::tessellator::FillTessellator;
 pub use crate::tessellation::FillOptions;
+pub use crate::tessellator::FillTessellator;

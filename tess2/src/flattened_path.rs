@@ -1,8 +1,8 @@
-use crate::path::builder::*;
 use crate::math::*;
+use crate::path::builder::*;
 
-use std::ops::Range;
 use std::mem;
+use std::ops::Range;
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -67,8 +67,8 @@ impl FlattenedPath {
 
 /// An iterator of the sub paths of a flattened path.
 pub struct SubPaths<'l> {
-    points: &'l[Point],
-    sub_paths: &'l[SubPathInfo],
+    points: &'l [Point],
+    sub_paths: &'l [SubPathInfo],
 }
 
 impl<'l> SubPaths<'l> {
@@ -98,7 +98,7 @@ impl<'l> Iterator for SubPaths<'l> {
         let sp = self.sub_paths[0].clone();
         self.sub_paths = &self.sub_paths[1..];
 
-        Some(SubPath{
+        Some(SubPath {
             points: &self.points[sp.range],
             is_closed: sp.is_closed,
         })
@@ -107,13 +107,13 @@ impl<'l> Iterator for SubPaths<'l> {
 
 /// An iterator over the points of a sub-path.
 pub struct SubPath<'l> {
-    points: &'l[Point],
+    points: &'l [Point],
     is_closed: bool,
 }
 
 impl<'l> SubPath<'l> {
     /// Returns a slice of the points of this sub-path.
-    pub fn points(&self) -> &'l[Point] {
+    pub fn points(&self) -> &'l [Point] {
         self.points
     }
 

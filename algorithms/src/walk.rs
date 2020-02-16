@@ -39,8 +39,8 @@
 //! ```
 //!
 
+use crate::geom::{Arc, CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
-use crate::geom::{QuadraticBezierSegment, CubicBezierSegment, Arc};
 use crate::path::builder::*;
 use crate::path::PathEvent;
 
@@ -48,7 +48,9 @@ use std::f32;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
 pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut dyn Pattern)
-where Iter: Iterator<Item=PathEvent> {
+where
+    Iter: Iterator<Item = PathEvent>,
+{
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
         walker.path_event(evt);
@@ -82,7 +84,9 @@ pub trait Pattern {
     ///
     /// If this method returns None, path walking stops. Otherwise the returned
     /// value is the distance along the path to the next element in the pattern.
-    fn begin(&mut self, distance: f32) -> Option<f32> { Some(distance) }
+    fn begin(&mut self, distance: f32) -> Option<f32> {
+        Some(distance)
+    }
 }
 
 /// A helper struct to walk along a flattened path using a builder API.
@@ -169,7 +173,9 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
         self.need_moveto = true;
     }
 
-    fn current_position(&self) -> Point { self.prev }
+    fn current_position(&self) -> Point {
+        self.prev
+    }
 }
 
 impl<'l> PathBuilder for PathWalker<'l> {
@@ -204,7 +210,8 @@ impl<'l> PathBuilder for PathWalker<'l> {
             start_angle,
             sweep_angle,
             x_rotation,
-        }.for_each_flattened(0.01, &mut |p| {
+        }
+        .for_each_flattened(0.01, &mut |p| {
             self.line_to(p);
         });
     }
@@ -228,7 +235,9 @@ pub struct RegularPattern<Cb> {
 }
 
 impl<Cb> Pattern for RegularPattern<Cb>
-where Cb: FnMut(Point, Vector, f32) -> bool {
+where
+    Cb: FnMut(Point, Vector, f32) -> bool,
+{
     #[inline]
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32> {
         if !(self.callback)(position, tangent, distance) {
@@ -246,13 +255,15 @@ pub struct RepeatedPattern<'l, Cb> {
     /// The function to call at each step.
     pub callback: Cb,
     /// The repeated interval sequence.
-    pub intervals: &'l[f32],
+    pub intervals: &'l [f32],
     /// The index of the next interval in the sequence.
     pub index: usize,
 }
 
 impl<'l, Cb> Pattern for RepeatedPattern<'l, Cb>
-where Cb: FnMut(Point, Vector, f32) -> bool {
+where
+    Cb: FnMut(Point, Vector, f32) -> bool,
+{
     #[inline]
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32> {
         if !(self.callback)(position, tangent, distance) {
@@ -265,7 +276,9 @@ where Cb: FnMut(Point, Vector, f32) -> bool {
 }
 
 impl<Cb> Pattern for Cb
-where Cb: FnMut(Point, Vector, f32) -> Option<f32> {
+where
+    Cb: FnMut(Point, Vector, f32) -> Option<f32>,
+{
     #[inline]
     fn next(&mut self, position: Point, tangent: Vector, distance: f32) -> Option<f32> {
         (self)(position, tangent, distance)
@@ -334,7 +347,7 @@ fn walk_with_leftover() {
             assert_eq!(d, expected[i].2);
             i += 1;
             true
-        }
+        },
     };
 
     let mut walker = PathWalker::new(1.0, &mut pattern);

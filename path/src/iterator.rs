@@ -91,14 +91,16 @@
 //! }
 //! ```
 
+use crate::geom::traits::Transformation;
+use crate::geom::{
+    cubic_bezier, quadratic_bezier, BezierSegment, CubicBezierSegment, LineSegment,
+    QuadraticBezierSegment,
+};
 use crate::math::*;
 use crate::PathEvent;
-use crate::geom::{BezierSegment, QuadraticBezierSegment, CubicBezierSegment, LineSegment, quadratic_bezier, cubic_bezier};
-use crate::geom::traits::Transformation;
 
 /// An extension trait for `PathEvent` iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
-
     /// Returns an iterator that turns curves into line segments.
     fn flattened(self, tolerance: f32) -> Flattened<Self> {
         Flattened::new(tolerance, self)
@@ -115,10 +117,7 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     }
 }
 
-impl<Iter> PathIterator for Iter
-where
-    Iter: Iterator<Item = PathEvent>,
-{}
+impl<Iter> PathIterator for Iter where Iter: Iterator<Item = PathEvent> {}
 
 /// An iterator that consumes `Event` iterator and yields flattend path events (with no curves).
 pub struct Flattened<Iter> {
@@ -173,18 +172,31 @@ where
         match self.it.next() {
             Some(PathEvent::Begin { at }) => Some(PathEvent::Begin { at }),
             Some(PathEvent::Line { from, to }) => Some(PathEvent::Line { from, to }),
-            Some(PathEvent::End { last, first, close }) => Some(PathEvent::End { last, first, close }),
+            Some(PathEvent::End { last, first, close }) => {
+                Some(PathEvent::End { last, first, close })
+            }
             Some(PathEvent::Quadratic { from, ctrl, to }) => {
                 self.current_position = from;
                 self.current_curve = TmpFlatteningIter::Quadratic(
-                    QuadraticBezierSegment { from, ctrl, to }.flattened(self.tolerance)
+                    QuadraticBezierSegment { from, ctrl, to }.flattened(self.tolerance),
                 );
                 self.next()
             }
-            Some(PathEvent::Cubic { from, ctrl1, ctrl2, to }) => {
+            Some(PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            }) => {
                 self.current_position = from;
                 self.current_curve = TmpFlatteningIter::Cubic(
-                    CubicBezierSegment { from, ctrl1, ctrl2, to }.flattened(self.tolerance)
+                    CubicBezierSegment {
+                        from,
+                        ctrl1,
+                        ctrl2,
+                        to,
+                    }
+                    .flattened(self.tolerance),
                 );
                 self.next()
             }
@@ -206,17 +218,14 @@ where
     /// Creates a new transformed path iterator from a path iterator.
     #[inline]
     pub fn new(transform: &'l T, it: I) -> Transformed<'l, I, T> {
-        Transformed {
-            it,
-            transform,
-        }
+        Transformed { it, transform }
     }
 }
 
 impl<'l, I, T> Iterator for Transformed<'l, I, T>
 where
     I: Iterator<Item = PathEvent>,
-    T: Transformation<f32>
+    T: Transformation<f32>,
 {
     type Item = PathEvent;
     fn next(&mut self) -> Option<PathEvent> {
@@ -226,7 +235,6 @@ where
         }
     }
 }
-
 
 /// An iterator that consumes an iterator of `Point`s and produces `Event`s.
 ///
@@ -266,9 +274,13 @@ impl<Iter: Iterator<Item = Point>> FromPolyline<Iter> {
         }
     }
 
-    pub fn closed(iter: Iter) -> Self { FromPolyline::new(true, iter) }
+    pub fn closed(iter: Iter) -> Self {
+        FromPolyline::new(true, iter)
+    }
 
-    pub fn open(iter: Iter) -> Self { FromPolyline::new(false, iter) }
+    pub fn open(iter: Iter) -> Self {
+        FromPolyline::new(false, iter)
+    }
 }
 
 impl<Iter> Iterator for FromPolyline<Iter>
@@ -293,7 +305,7 @@ where
                 Some(PathEvent::Begin { at: next })
             } else {
                 Some(PathEvent::Line { from, to: next })
-            }
+            };
         }
 
         self.done = true;
@@ -308,19 +320,46 @@ where
 
 /// Turns an iterator of `Event` into an iterator of `BezierSegment<f32>`.
 pub struct BezierSegments<Iter> {
-    iter: Iter
+    iter: Iter,
 }
 
 impl<Iter> Iterator for BezierSegments<Iter>
-where Iter: Iterator<Item = PathEvent> {
+where
+    Iter: Iterator<Item = PathEvent>,
+{
     type Item = BezierSegment<f32>;
     fn next(&mut self) -> Option<BezierSegment<f32>> {
         match self.iter.next() {
-            Some(PathEvent::Line { from, to }) => Some(BezierSegment::Linear(LineSegment { from, to })),
-            Some(PathEvent::End { last, first, close: true })=> Some(BezierSegment::Linear(LineSegment { from: last, to: first })),
+            Some(PathEvent::Line { from, to }) => {
+                Some(BezierSegment::Linear(LineSegment { from, to }))
+            }
+            Some(PathEvent::End {
+                last,
+                first,
+                close: true,
+            }) => Some(BezierSegment::Linear(LineSegment {
+                from: last,
+                to: first,
+            })),
             Some(PathEvent::End { close: false, .. }) => self.next(),
-            Some(PathEvent::Quadratic { from, ctrl, to }) => Some(BezierSegment::Quadratic(QuadraticBezierSegment { from, ctrl, to })),
-            Some(PathEvent::Cubic { from, ctrl1, ctrl2, to }) => Some(BezierSegment::Cubic(CubicBezierSegment { from, ctrl1, ctrl2, to })),
+            Some(PathEvent::Quadratic { from, ctrl, to }) => {
+                Some(BezierSegment::Quadratic(QuadraticBezierSegment {
+                    from,
+                    ctrl,
+                    to,
+                }))
+            }
+            Some(PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            }) => Some(BezierSegment::Cubic(CubicBezierSegment {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            })),
             Some(PathEvent::Begin { .. }) => self.next(),
             None => None,
         }
@@ -338,11 +377,41 @@ fn test_from_polyline_open() {
 
     let mut evts = FromPolyline::open(points.iter().cloned());
 
-    assert_eq!(evts.next(), Some(PathEvent::Begin { at: point(1.0, 1.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(1.0, 1.0), to: point(3.0, 1.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(3.0, 1.0), to: point(4.0, 5.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(4.0, 5.0), to: point(5.0, 2.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::End { last: point(5.0, 2.0), first: point(1.0, 1.0), close: false }));
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Begin {
+            at: point(1.0, 1.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Line {
+            from: point(1.0, 1.0),
+            to: point(3.0, 1.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Line {
+            from: point(3.0, 1.0),
+            to: point(4.0, 5.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Line {
+            from: point(4.0, 5.0),
+            to: point(5.0, 2.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::End {
+            last: point(5.0, 2.0),
+            first: point(1.0, 1.0),
+            close: false
+        })
+    );
     assert_eq!(evts.next(), None);
 }
 
@@ -357,10 +426,40 @@ fn test_from_polyline_closed() {
 
     let mut evts = FromPolyline::closed(points.iter().cloned());
 
-    assert_eq!(evts.next(), Some(PathEvent::Begin { at: point(1.0, 1.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(1.0, 1.0), to: point(3.0, 1.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(3.0, 1.0), to: point(4.0, 5.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::Line { from: point(4.0, 5.0), to: point(5.0, 2.0) }));
-    assert_eq!(evts.next(), Some(PathEvent::End { last: point(5.0, 2.0), first: point(1.0, 1.0), close: true }));
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Begin {
+            at: point(1.0, 1.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Line {
+            from: point(1.0, 1.0),
+            to: point(3.0, 1.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Line {
+            from: point(3.0, 1.0),
+            to: point(4.0, 5.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::Line {
+            from: point(4.0, 5.0),
+            to: point(5.0, 2.0)
+        })
+    );
+    assert_eq!(
+        evts.next(),
+        Some(PathEvent::End {
+            last: point(5.0, 2.0),
+            first: point(1.0, 1.0),
+            close: true
+        })
+    );
     assert_eq!(evts.next(), None);
 }

@@ -56,9 +56,9 @@
 //!
 //! ```
 
-use crate::{EndpointId, ControlPointId, EventId, Position, PositionStore};
-use crate::events::{Event, PathEvent, IdEvent};
+use crate::events::{Event, IdEvent, PathEvent};
 use crate::math::Point;
+use crate::{ControlPointId, EndpointId, EventId, Position, PositionStore};
 
 use std::fmt;
 
@@ -151,9 +151,7 @@ impl PathCommands {
 
     /// Returns a view on the path commands.
     pub fn as_slice(&self) -> CommandsSlice {
-        CommandsSlice {
-            cmds: &self.cmds,
-        }
+        CommandsSlice { cmds: &self.cmds }
     }
 
     /// Returns a view on a path made of these commands with endpoint and
@@ -213,7 +211,9 @@ impl<'l> IntoIterator for &'l PathCommands {
     type Item = IdEvent;
     type IntoIter = IdEvents<'l>;
 
-    fn into_iter(self) -> IdEvents<'l> { self.id_events() }
+    fn into_iter(self) -> IdEvents<'l> {
+        self.id_events()
+    }
 }
 
 impl<'l> Into<CommandsSlice<'l>> for &'l PathCommands {
@@ -254,7 +254,7 @@ impl<'l> CommandsSlice<'l> {
                 to: EndpointId(self.cmds[idx + 3]),
             },
             verb::BEGIN => IdEvent::Begin {
-                at: EndpointId(self.cmds[idx + 1])
+                at: EndpointId(self.cmds[idx + 1]),
             },
             verb::END => {
                 let first_event = self.cmds[idx + 1] as usize;
@@ -311,12 +311,14 @@ impl<'l> fmt::Debug for CommandsSlice<'l> {
         write!(f, "{{ ")?;
         for evt in self.id_events() {
             match evt {
-                IdEvent::Line { to, .. } => { write!(f, "L {:?}", to) }
-                IdEvent::Quadratic { ctrl,  to, .. } => { write!(f, "Q {:?} {:?} ", ctrl, to) }
-                IdEvent::Cubic { ctrl1, ctrl2, to, .. } => { write!(f, "C {:?} {:?} {:?} ", ctrl1, ctrl2, to) }
-                IdEvent::Begin { at, .. } => { write!(f, "M {:?} ", at) }
-                IdEvent::End { close: true, .. } => { write!(f, "Z ") }
-                IdEvent::End { close: false, .. } => { Ok(()) }
+                IdEvent::Line { to, .. } => write!(f, "L {:?}", to),
+                IdEvent::Quadratic { ctrl, to, .. } => write!(f, "Q {:?} {:?} ", ctrl, to),
+                IdEvent::Cubic {
+                    ctrl1, ctrl2, to, ..
+                } => write!(f, "C {:?} {:?} {:?} ", ctrl1, ctrl2, to),
+                IdEvent::Begin { at, .. } => write!(f, "M {:?} ", at),
+                IdEvent::End { close: true, .. } => write!(f, "Z "),
+                IdEvent::End { close: false, .. } => Ok(()),
             }?;
         }
         write!(f, "}}")
@@ -352,14 +354,18 @@ impl<'l, Endpoint, ControlPoint> CommandsPathSlice<'l, Endpoint, ControlPoint> {
     }
 }
 
-impl<'l, Endpoint, ControlPoint> std::ops::Index<EndpointId> for CommandsPathSlice<'l, Endpoint, ControlPoint> {
+impl<'l, Endpoint, ControlPoint> std::ops::Index<EndpointId>
+    for CommandsPathSlice<'l, Endpoint, ControlPoint>
+{
     type Output = Endpoint;
     fn index(&self, id: EndpointId) -> &Endpoint {
         &self.endpoints[id.to_usize()]
     }
 }
 
-impl<'l, Endpoint, ControlPoint> std::ops::Index<ControlPointId> for CommandsPathSlice<'l, Endpoint, ControlPoint> {
+impl<'l, Endpoint, ControlPoint> std::ops::Index<ControlPointId>
+    for CommandsPathSlice<'l, Endpoint, ControlPoint>
+{
     type Output = ControlPoint;
     fn index(&self, id: ControlPointId) -> &ControlPoint {
         &self.control_points[id.to_usize()]
@@ -375,12 +381,14 @@ where
         write!(f, "{{ ")?;
         for evt in self.events() {
             match evt {
-                Event::Line { to, .. } => { write!(f, "L {:?}", to) }
-                Event::Quadratic { ctrl,  to, .. } => { write!(f, "Q {:?} {:?} ", ctrl, to) }
-                Event::Cubic { ctrl1, ctrl2, to, .. } => { write!(f, "C {:?} {:?} {:?} ", ctrl1, ctrl2, to) }
-                Event::Begin { at, .. } => { write!(f, "M {:?} ", at) }
-                Event::End { close: true, .. } => { write!(f, "Z ") }
-                Event::End { close: false, .. } => { Ok(()) }
+                Event::Line { to, .. } => write!(f, "L {:?}", to),
+                Event::Quadratic { ctrl, to, .. } => write!(f, "Q {:?} {:?} ", ctrl, to),
+                Event::Cubic {
+                    ctrl1, ctrl2, to, ..
+                } => write!(f, "C {:?} {:?} {:?} ", ctrl1, ctrl2, to),
+                Event::Begin { at, .. } => write!(f, "M {:?} ", at),
+                Event::End { close: true, .. } => write!(f, "Z "),
+                Event::End { close: false, .. } => Ok(()),
             }?;
         }
         write!(f, "}}")
@@ -451,7 +459,12 @@ impl PathCommandsBuilder {
         id
     }
 
-    pub fn cubic_bezier_to(&mut self, ctrl1: ControlPointId, ctrl2: ControlPointId, to: EndpointId) -> EventId {
+    pub fn cubic_bezier_to(
+        &mut self,
+        ctrl1: ControlPointId,
+        ctrl2: ControlPointId,
+        to: EndpointId,
+    ) -> EventId {
         self.begin_if_needed();
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::CUBIC);
@@ -514,8 +527,8 @@ pub struct Events<'l, Endpoint, ControlPoint> {
     cmds: CmdIter<'l>,
     prev_endpoint: usize,
     first_endpoint: usize,
-    endpoints: &'l[Endpoint],
-    control_points: &'l[ControlPoint],
+    endpoints: &'l [Endpoint],
+    control_points: &'l [ControlPoint],
 }
 
 impl<'l, Endpoint, ControlPoint> Iterator for Events<'l, Endpoint, ControlPoint> {
@@ -529,7 +542,7 @@ impl<'l, Endpoint, ControlPoint> Iterator for Events<'l, Endpoint, ControlPoint>
                 self.prev_endpoint = to;
                 self.first_endpoint = to;
                 Some(Event::Begin {
-                    at: &self.endpoints[to]
+                    at: &self.endpoints[to],
                 })
             }
             Some(verb::LINE) => {
@@ -588,7 +601,7 @@ impl<'l, Endpoint, ControlPoint> Iterator for Events<'l, Endpoint, ControlPoint>
                     close: true,
                 })
             }
-            None => None
+            None => None,
         }
     }
 }
@@ -621,7 +634,7 @@ impl<'l> IdEvents<'l> {
     fn new(cmds: &[u32]) -> Self {
         IdEvents {
             cmds: CmdIter::new(cmds),
-            idx:0,
+            idx: 0,
             prev_endpoint: EndpointId(0),
             first_endpoint: EndpointId(0),
         }
@@ -646,10 +659,7 @@ impl<'l> Iterator for IdEvents<'l> {
                 let from = self.prev_endpoint;
                 self.prev_endpoint = to;
                 self.idx += 2;
-                Some(IdEvent::Line {
-                    from: from,
-                    to: to,
-                })
+                Some(IdEvent::Line { from: from, to: to })
             }
             Some(verb::QUADRATIC) => {
                 let ctrl = ControlPointId(self.cmds.next().unwrap());
@@ -712,8 +722,8 @@ pub struct PointEvents<'l, Endpoint, ControlPoint> {
     cmds: CmdIter<'l>,
     prev_endpoint: usize,
     first_endpoint: usize,
-    endpoints: &'l[Endpoint],
-    control_points: &'l[ControlPoint],
+    endpoints: &'l [Endpoint],
+    control_points: &'l [ControlPoint],
 }
 
 impl<'l, Endpoint, ControlPoint> Iterator for PointEvents<'l, Endpoint, ControlPoint>
@@ -731,7 +741,7 @@ where
                 self.prev_endpoint = to;
                 self.first_endpoint = to;
                 Some(Event::Begin {
-                    at: self.endpoints[to].position()
+                    at: self.endpoints[to].position(),
                 })
             }
             Some(verb::LINE) => {
@@ -808,7 +818,6 @@ where
     }
 }
 
-
 #[test]
 fn simple_path() {
     let mut builder = PathCommands::builder();
@@ -831,22 +840,106 @@ fn simple_path() {
     let path = builder.build();
     let mut iter = path.id_events();
     assert_eq!(iter.next(), Some(IdEvent::Begin { at: EndpointId(0) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(0), to: EndpointId(1) }));
-    assert_eq!(iter.next(), Some(IdEvent::Quadratic { from: EndpointId(1), ctrl: ControlPointId(2), to: EndpointId(3) }));
-    assert_eq!(iter.next(), Some(IdEvent::Cubic { from: EndpointId(3), ctrl1: ControlPointId(4), ctrl2: ControlPointId(5), to: EndpointId(6) }));
-    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(6), first: EndpointId(0), close: false }));
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Line {
+            from: EndpointId(0),
+            to: EndpointId(1)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Quadratic {
+            from: EndpointId(1),
+            ctrl: ControlPointId(2),
+            to: EndpointId(3)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Cubic {
+            from: EndpointId(3),
+            ctrl1: ControlPointId(4),
+            ctrl2: ControlPointId(5),
+            to: EndpointId(6)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::End {
+            last: EndpointId(6),
+            first: EndpointId(0),
+            close: false
+        })
+    );
 
     assert_eq!(iter.next(), Some(IdEvent::Begin { at: EndpointId(10) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(10), to: EndpointId(11) }));
-    assert_eq!(iter.next(), Some(IdEvent::Quadratic { from: EndpointId(11), ctrl: ControlPointId(12), to: EndpointId(13) }));
-    assert_eq!(iter.next(), Some(IdEvent::Cubic { from: EndpointId(13), ctrl1: ControlPointId(14), ctrl2: ControlPointId(15), to: EndpointId(16) }));
-    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(16), first: EndpointId(10), close: true }));
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Line {
+            from: EndpointId(10),
+            to: EndpointId(11)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Quadratic {
+            from: EndpointId(11),
+            ctrl: ControlPointId(12),
+            to: EndpointId(13)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Cubic {
+            from: EndpointId(13),
+            ctrl1: ControlPointId(14),
+            ctrl2: ControlPointId(15),
+            to: EndpointId(16)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::End {
+            last: EndpointId(16),
+            first: EndpointId(10),
+            close: true
+        })
+    );
 
     assert_eq!(iter.next(), Some(IdEvent::Begin { at: EndpointId(20) }));
-    assert_eq!(iter.next(), Some(IdEvent::Line { from: EndpointId(20), to: EndpointId(21) }));
-    assert_eq!(iter.next(), Some(IdEvent::Quadratic { from: EndpointId(21), ctrl: ControlPointId(22), to: EndpointId(23) }));
-    assert_eq!(iter.next(), Some(IdEvent::Cubic { from: EndpointId(23), ctrl1: ControlPointId(24), ctrl2: ControlPointId(25), to: EndpointId(26) }));
-    assert_eq!(iter.next(), Some(IdEvent::End { last: EndpointId(26), first: EndpointId(20), close: false }));
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Line {
+            from: EndpointId(20),
+            to: EndpointId(21)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Quadratic {
+            from: EndpointId(21),
+            ctrl: ControlPointId(22),
+            to: EndpointId(23)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::Cubic {
+            from: EndpointId(23),
+            ctrl1: ControlPointId(24),
+            ctrl2: ControlPointId(25),
+            to: EndpointId(26)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(IdEvent::End {
+            last: EndpointId(26),
+            first: EndpointId(20),
+            close: false
+        })
+    );
 
     assert_eq!(iter.next(), None);
 }
@@ -876,13 +969,41 @@ fn next_event() {
     let first = id;
     assert_eq!(path.event(id), IdEvent::Begin { at: EndpointId(0) });
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Line { from: EndpointId(0), to: EndpointId(1) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Line {
+            from: EndpointId(0),
+            to: EndpointId(1)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Quadratic { from: EndpointId(1), ctrl: ControlPointId(2), to: EndpointId(3) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Quadratic {
+            from: EndpointId(1),
+            ctrl: ControlPointId(2),
+            to: EndpointId(3)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Cubic { from: EndpointId(3), ctrl1: ControlPointId(4), ctrl2: ControlPointId(5), to: EndpointId(6) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Cubic {
+            from: EndpointId(3),
+            ctrl1: ControlPointId(4),
+            ctrl2: ControlPointId(5),
+            to: EndpointId(6)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::End { last: EndpointId(6), first: EndpointId(0), close: false });
+    assert_eq!(
+        path.event(id),
+        IdEvent::End {
+            last: EndpointId(6),
+            first: EndpointId(0),
+            close: false
+        }
+    );
 
     assert_eq!(path.next_event_id_in_sub_path(id), first);
 
@@ -890,13 +1011,41 @@ fn next_event() {
     let first = id;
     assert_eq!(path.event(id), IdEvent::Begin { at: EndpointId(10) });
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Line { from: EndpointId(10), to: EndpointId(11) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Line {
+            from: EndpointId(10),
+            to: EndpointId(11)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Quadratic { from: EndpointId(11), ctrl: ControlPointId(12), to: EndpointId(13) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Quadratic {
+            from: EndpointId(11),
+            ctrl: ControlPointId(12),
+            to: EndpointId(13)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Cubic { from: EndpointId(13), ctrl1: ControlPointId(14), ctrl2: ControlPointId(15), to: EndpointId(16) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Cubic {
+            from: EndpointId(13),
+            ctrl1: ControlPointId(14),
+            ctrl2: ControlPointId(15),
+            to: EndpointId(16)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::End { last: EndpointId(16), first: EndpointId(10), close: true });
+    assert_eq!(
+        path.event(id),
+        IdEvent::End {
+            last: EndpointId(16),
+            first: EndpointId(10),
+            close: true
+        }
+    );
 
     assert_eq!(path.next_event_id_in_sub_path(id), first);
 
@@ -904,13 +1053,41 @@ fn next_event() {
     let first = id;
     assert_eq!(path.event(id), IdEvent::Begin { at: EndpointId(20) });
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Line { from: EndpointId(20), to: EndpointId(21) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Line {
+            from: EndpointId(20),
+            to: EndpointId(21)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Quadratic { from: EndpointId(21), ctrl: ControlPointId(22), to: EndpointId(23) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Quadratic {
+            from: EndpointId(21),
+            ctrl: ControlPointId(22),
+            to: EndpointId(23)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::Cubic { from: EndpointId(23), ctrl1: ControlPointId(24), ctrl2: ControlPointId(25), to: EndpointId(26) });
+    assert_eq!(
+        path.event(id),
+        IdEvent::Cubic {
+            from: EndpointId(23),
+            ctrl1: ControlPointId(24),
+            ctrl2: ControlPointId(25),
+            to: EndpointId(26)
+        }
+    );
     id = path.next_event_id_in_path(id).unwrap();
-    assert_eq!(path.event(id), IdEvent::End { last: EndpointId(26), first: EndpointId(20), close: false });
+    assert_eq!(
+        path.event(id),
+        IdEvent::End {
+            last: EndpointId(26),
+            first: EndpointId(20),
+            close: false
+        }
+    );
 
     assert_eq!(path.next_event_id_in_path(id), None);
     assert_eq!(path.next_event_id_in_sub_path(id), first);

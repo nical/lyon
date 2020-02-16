@@ -1,6 +1,6 @@
-use crate::scalar::{Scalar, One};
-use crate::generic_math::{Point, Vector, Rect};
-use crate::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
+use crate::generic_math::{Point, Rect, Vector};
+use crate::scalar::{One, Scalar};
+use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 
 use std::ops::Range;
 
@@ -18,19 +18,27 @@ pub trait Segment: Copy + Sized {
     fn sample(&self, t: Self::Scalar) -> Point<Self::Scalar>;
 
     /// Sample x at t (expecting t between 0 and 1).
-    fn x(&self, t: Self::Scalar) -> Self::Scalar { self.sample(t).x }
+    fn x(&self, t: Self::Scalar) -> Self::Scalar {
+        self.sample(t).x
+    }
 
     /// Sample y at t (expecting t between 0 and 1).
-    fn y(&self, t: Self::Scalar) -> Self::Scalar { self.sample(t).y }
+    fn y(&self, t: Self::Scalar) -> Self::Scalar {
+        self.sample(t).y
+    }
 
     /// Sample the derivative at t (expecting t between 0 and 1).
     fn derivative(&self, t: Self::Scalar) -> Vector<Self::Scalar>;
 
     /// Sample x derivative at t (expecting t between 0 and 1).
-    fn dx(&self, t: Self::Scalar) -> Self::Scalar { self.derivative(t).x }
+    fn dx(&self, t: Self::Scalar) -> Self::Scalar {
+        self.derivative(t).x
+    }
 
     /// Sample y derivative at t (expecting t between 0 and 1).
-    fn dy(&self, t: Self::Scalar) -> Self::Scalar { self.derivative(t).y }
+    fn dy(&self, t: Self::Scalar) -> Self::Scalar {
+        self.derivative(t).y
+    }
 
     /// Split this curve into two sub-curves.
     fn split(&self, t: Self::Scalar) -> (Self, Self);
@@ -62,7 +70,9 @@ pub trait BoundingRect {
     /// Returns a rectangle that contains the curve.
     ///
     /// This does not necessarily return the smallest possible bounding rectangle.
-    fn fast_bounding_rect(&self) -> Rect<Self::Scalar> { self.bounding_rect() }
+    fn fast_bounding_rect(&self) -> Rect<Self::Scalar> {
+        self.bounding_rect()
+    }
 
     /// Returns a range of x values that contains the curve.
     fn bounding_range_x(&self) -> (Self::Scalar, Self::Scalar);
@@ -87,7 +97,7 @@ pub trait FlatteningStep: Segment {
 pub(crate) fn for_each_flattened<T, F>(curve: &T, tolerance: T::Scalar, call_back: &mut F)
 where
     T: FlatteningStep,
-    F: FnMut(Point<T::Scalar>)
+    F: FnMut(Point<T::Scalar>),
 {
     let mut iter = curve.clone();
     loop {
@@ -104,7 +114,7 @@ where
 pub(crate) fn for_each_flattened_with_t<T, F>(curve: &T, tolerance: T::Scalar, call_back: &mut F)
 where
     T: FlatteningStep,
-    F: FnMut(Point<T::Scalar>, T::Scalar)
+    F: FnMut(Point<T::Scalar>, T::Scalar),
 {
     let end = curve.to();
     let mut curve = curve.clone();
@@ -145,8 +155,7 @@ impl<S: Scalar, T: FlatteningStep> Flattened<S, T> {
         }
     }
 }
-impl<S: Scalar, T: FlatteningStep<Scalar=S>> Iterator for Flattened<S, T>
-{
+impl<S: Scalar, T: FlatteningStep<Scalar = S>> Iterator for Flattened<S, T> {
     type Item = Point<S>;
     fn next(&mut self) -> Option<Point<S>> {
         if self.done {
@@ -274,4 +283,3 @@ impl<S> From<CubicBezierSegment<S>> for BezierSegment<S> {
         BezierSegment::Cubic(s)
     }
 }
-

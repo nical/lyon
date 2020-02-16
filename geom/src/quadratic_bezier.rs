@@ -1,14 +1,14 @@
-use crate::{CubicBezierSegment, Triangle, Line, LineSegment, LineEquation};
-use crate::scalar::Scalar;
-use crate::generic_math::{Point, Vector, Rect, rect};
+use crate::generic_math::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
-use crate::segment::{Segment, FlatteningStep, BoundingRect};
+use crate::scalar::Scalar;
 use crate::segment;
+use crate::segment::{BoundingRect, FlatteningStep, Segment};
 use crate::traits::Transformation;
+use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
 
-use std::ops::Range;
 use std::mem;
+use std::ops::Range;
 
 /// A flattening iterator for quadratic bézier segments.
 pub type Flattened<S> = segment::Flattened<S, QuadraticBezierSegment<S>>;
@@ -32,7 +32,9 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let t2 = t * t;
         let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
-        return self.from * one_t2 + self.ctrl.to_vector() * S::TWO * one_t * t + self.to.to_vector() * t2;
+        return self.from * one_t2
+            + self.ctrl.to_vector() * S::TWO * one_t * t
+            + self.to.to_vector() * t2;
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
@@ -93,7 +95,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.y > self.to.y { S::ZERO } else { S::ONE };
+        return if self.from.y > self.to.y {
+            S::ZERO
+        } else {
+            S::ONE
+        };
     }
 
     /// Find the advancement of the y-least position in the curve.
@@ -106,7 +112,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.y < self.to.y { S::ZERO } else { S::ONE };
+        return if self.from.y < self.to.y {
+            S::ZERO
+        } else {
+            S::ONE
+        };
     }
 
     /// Return the y inflection point or None if this curve is y-monotonic.
@@ -132,7 +142,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.x > self.to.x { S::ZERO } else { S::ONE };
+        return if self.from.x > self.to.x {
+            S::ZERO
+        } else {
+            S::ONE
+        };
     }
 
     /// Find the advancement of the x-least position in the curve.
@@ -145,7 +159,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 return t;
             }
         }
-        return if self.from.x < self.to.x { S::ZERO } else { S::ONE };
+        return if self.from.x < self.to.x {
+            S::ZERO
+        } else {
+            S::ONE
+        };
     }
 
     /// Return the x inflection point or None if this curve is x-monotonic.
@@ -178,16 +196,18 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Split this curve into two sub-curves.
     pub fn split(&self, t: S) -> (QuadraticBezierSegment<S>, QuadraticBezierSegment<S>) {
         let split_point = self.sample(t);
-        return (QuadraticBezierSegment {
-            from: self.from,
-            ctrl: self.from.lerp(self.ctrl, t),
-            to: split_point,
-        },
-        QuadraticBezierSegment {
-            from: split_point,
-            ctrl: self.ctrl.lerp(self.to, t),
-            to: self.to,
-        });
+        return (
+            QuadraticBezierSegment {
+                from: self.from,
+                ctrl: self.from.lerp(self.ctrl, t),
+                to: split_point,
+            },
+            QuadraticBezierSegment {
+                from: split_point,
+                ctrl: self.ctrl.lerp(self.to, t),
+                to: self.to,
+            },
+        );
     }
 
     /// Return the curve before the split point.
@@ -220,7 +240,10 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     #[inline]
     pub fn baseline(&self) -> LineSegment<S> {
-        LineSegment { from: self.from, to: self.to }
+        LineSegment {
+            from: self.from,
+            to: self.to,
+        }
     }
 
     pub fn is_linear(&self, tolerance: S) -> bool {
@@ -241,7 +264,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let l1 = self.baseline().to_line().equation();
         let d = S::HALF * l1.signed_distance_to_point(&self.ctrl);
         let l2 = l1.offset(d);
-        if d >= S::ZERO { (l1, l2) } else { (l2, l1) }
+        if d >= S::ZERO {
+            (l1, l2)
+        } else {
+            (l2, l1)
+        }
     }
 
     /// Applies the transform to this curve and returns the results.
@@ -250,7 +277,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         QuadraticBezierSegment {
             from: transform.transform_point(self.from),
             ctrl: transform.transform_point(self.ctrl),
-            to: transform.transform_point(self.to)
+            to: transform.transform_point(self.to),
         }
     }
 
@@ -281,7 +308,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn for_each_flattened<F>(&self, tolerance: S, call_back: &mut F)
     where
-        F: FnMut(Point<S>)
+        F: FnMut(Point<S>),
     {
         crate::segment::for_each_flattened(self, tolerance, call_back);
     }
@@ -289,7 +316,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Iterates through the curve invoking a callback at each point.
     pub fn for_each_flattened_with_t<F>(&self, tolerance: S, call_back: &mut F)
     where
-        F: FnMut(Point<S>, S)
+        F: FnMut(Point<S>, S),
     {
         crate::segment::for_each_flattened_with_t(self, tolerance, call_back);
     }
@@ -309,9 +336,9 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let mut t1 = self.local_x_extremum_t();
 
         let swap = match (t0, t1) {
-            (None, Some(_)) => { true }
-            (Some(tx), Some(ty)) => { tx > ty }
-            _ => { false }
+            (None, Some(_)) => true,
+            (Some(tx), Some(ty)) => tx > ty,
+            _ => false,
         };
 
         if swap {
@@ -346,18 +373,16 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     pub fn for_each_monotonic<F>(&self, cb: &mut F)
     where
-        F: FnMut(&Monotonic<QuadraticBezierSegment<S>>)
+        F: FnMut(&Monotonic<QuadraticBezierSegment<S>>),
     {
-        self.for_each_monotonic_range(|range| {
-            cb(&self.split_range(range).assume_monotonic())
-        });
+        self.for_each_monotonic_range(|range| cb(&self.split_range(range).assume_monotonic()));
     }
 
     /// Compute the length of the segment using a flattened approximation.
     pub fn approximate_length(&self, tolerance: S) -> S {
         let mut from = self.from;
         let mut len = S::ZERO;
-        self.for_each_flattened(tolerance, &mut|to| {
+        self.for_each_flattened(tolerance, &mut |to| {
             len = len + (to - from).length();
             from = to;
         });
@@ -458,7 +483,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Computes the intersection points (if any) between this segment a line.
-    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[Point<S>;2]> {
+    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[Point<S>; 2]> {
         let intersections = self.to_cubic().line_intersections_t(line);
 
         let mut result = ArrayVec::new();
@@ -489,10 +514,14 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     #[inline]
-    pub fn from(&self) -> Point<S> { self.from }
+    pub fn from(&self) -> Point<S> {
+        self.from
+    }
 
     #[inline]
-    pub fn to(&self) -> Point<S> { self.to }
+    pub fn to(&self) -> Point<S> {
+        self.to
+    }
 
     /// Computes the intersection points (if any) between this segment a line segment.
     pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[Point<S>; 2]> {
@@ -508,16 +537,30 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 }
 
-impl<S: Scalar> Segment for QuadraticBezierSegment<S> { impl_segment!(S); }
+impl<S: Scalar> Segment for QuadraticBezierSegment<S> {
+    impl_segment!(S);
+}
 
 impl<S: Scalar> BoundingRect for QuadraticBezierSegment<S> {
     type Scalar = S;
-    fn bounding_rect(&self) -> Rect<S> { self.bounding_rect() }
-    fn fast_bounding_rect(&self) -> Rect<S> { self.fast_bounding_rect() }
-    fn bounding_range_x(&self) -> (S, S) { self.bounding_range_x() }
-    fn bounding_range_y(&self) -> (S, S) { self.bounding_range_y() }
-    fn fast_bounding_range_x(&self) -> (S, S) { self.fast_bounding_range_x() }
-    fn fast_bounding_range_y(&self) -> (S, S) { self.fast_bounding_range_y() }
+    fn bounding_rect(&self) -> Rect<S> {
+        self.bounding_rect()
+    }
+    fn fast_bounding_rect(&self) -> Rect<S> {
+        self.fast_bounding_rect()
+    }
+    fn bounding_range_x(&self) -> (S, S) {
+        self.bounding_range_x()
+    }
+    fn bounding_range_y(&self) -> (S, S) {
+        self.bounding_range_y()
+    }
+    fn fast_bounding_range_x(&self) -> (S, S) {
+        self.fast_bounding_range_x()
+    }
+    fn fast_bounding_range_y(&self) -> (S, S) {
+        self.fast_bounding_range_y()
+    }
 }
 
 impl<S: Scalar> FlatteningStep for QuadraticBezierSegment<S> {
@@ -675,7 +718,8 @@ fn length_straight_line() {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
-    }.approximate_length(0.01);
+    }
+    .approximate_length(0.01);
     assert_eq!(len, 2.0);
 
     let len = CubicBezierSegment {
@@ -683,7 +727,8 @@ fn length_straight_line() {
         ctrl1: Point::new(1.0, 0.0),
         ctrl2: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
-    }.approximate_length(0.01);
+    }
+    .approximate_length(0.01);
     assert_eq!(len, 2.0);
 }
 
@@ -791,7 +836,11 @@ fn test_flattening() {
             }
             let (before, after) = c.split(t);
             let mid_point = before.sample(0.5);
-            let distance = before.baseline().to_line().equation().distance_to_point(&mid_point);
+            let distance = before
+                .baseline()
+                .to_line()
+                .equation()
+                .distance_to_point(&mid_point);
             assert!(distance <= tolerance);
             c = after;
         }

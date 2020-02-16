@@ -44,6 +44,12 @@ fn test_compute_normal() {
         }
     }
 
-    assert_almost_eq(compute_normal(vector(1.0, 0.0), vector(0.0, 1.0)), vector(-1.0, 1.0));
-    assert_almost_eq(compute_normal(vector(1.0, 0.0), vector(1.0, 0.0)), vector(0.0, 1.0));
+    assert_almost_eq(
+        compute_normal(vector(1.0, 0.0), vector(0.0, 1.0)),
+        vector(-1.0, 1.0),
+    );
+    assert_almost_eq(
+        compute_normal(vector(1.0, 0.0), vector(1.0, 0.0)),
+        vector(0.0, 1.0),
+    );
 }

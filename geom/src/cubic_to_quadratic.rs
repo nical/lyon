@@ -1,16 +1,12 @@
-use crate::scalar::Scalar;
-use crate::{QuadraticBezierSegment, CubicBezierSegment};
-use crate::monotonic::Monotonic;
 use crate::math::point;
+use crate::monotonic::Monotonic;
+use crate::scalar::Scalar;
+use crate::{CubicBezierSegment, QuadraticBezierSegment};
 
 /// Approximates a cubic bézier segment with a sequence of quadratic béziers.
-pub fn cubic_to_quadratics<S: Scalar, F>(
-    curve: &CubicBezierSegment<S>,
-    tolerance: S,
-    cb: &mut F
-)
+pub fn cubic_to_quadratics<S: Scalar, F>(curve: &CubicBezierSegment<S>, tolerance: S, cb: &mut F)
 where
-    F: FnMut(&QuadraticBezierSegment<S>)
+    F: FnMut(&QuadraticBezierSegment<S>),
 {
     debug_assert!(tolerance >= S::EPSILON);
 
@@ -34,7 +30,9 @@ where
 /// This is terrible as a general approximation but works if the cubic
 /// curve does not have inflection points and is "flat" enough. Typically
 /// usables after subdiving the curve a few times.
-pub fn single_curve_approximation<S: Scalar>(cubic: &CubicBezierSegment<S>) -> QuadraticBezierSegment<S> {
+pub fn single_curve_approximation<S: Scalar>(
+    cubic: &CubicBezierSegment<S>,
+) -> QuadraticBezierSegment<S> {
     let c1 = (cubic.ctrl1 * S::THREE - cubic.from) * S::HALF;
     let c2 = (cubic.ctrl2 * S::THREE - cubic.to) * S::HALF;
     QuadraticBezierSegment {
@@ -48,30 +46,29 @@ pub fn single_curve_approximation<S: Scalar>(cubic: &CubicBezierSegment<S>) -> Q
 /// and its quadratic approximation obtained using the single curve approximation.
 pub fn single_curve_approximation_error<S: Scalar>(curve: &CubicBezierSegment<S>) -> S {
     // See http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
-    S::sqrt(S::THREE) / S::value(36.0) * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from)).length()
+    S::sqrt(S::THREE) / S::value(36.0)
+        * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from)).length()
 }
 
 // Similar to single_curve_approximation_error avoiding the square root.
 fn single_curve_approximation_test<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> bool {
-    S::THREE / S::value(1296.0) * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from)).square_length() <= tolerance * tolerance
+    S::THREE / S::value(1296.0)
+        * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from))
+            .square_length()
+        <= tolerance * tolerance
 }
 
 pub fn cubic_to_monotonic_quadratics<S: Scalar, F>(
     curve: &CubicBezierSegment<S>,
     tolerance: S,
-    cb: &mut F
-)
-where
+    cb: &mut F,
+) where
     F: FnMut(&Monotonic<QuadraticBezierSegment<S>>),
 {
     curve.for_each_monotonic_range(|range| {
-        cubic_to_quadratics(
-            &curve.split_range(range),
-            tolerance,
-            &mut|c| {
-                cb(&make_monotonic(c))
-            }
-        );
+        cubic_to_quadratics(&curve.split_range(range), tolerance, &mut |c| {
+            cb(&make_monotonic(c))
+        });
     });
 }
 
@@ -79,7 +76,9 @@ where
 // curve into an almost-but-exactly monotonic quadratic segment, so we may
 // need to nudge the control point slightly to not break downstream code
 // that rely on the monotonicity.
-fn make_monotonic<S: Scalar>(curve: &QuadraticBezierSegment<S>) -> Monotonic<QuadraticBezierSegment<S>>{
+fn make_monotonic<S: Scalar>(
+    curve: &QuadraticBezierSegment<S>,
+) -> Monotonic<QuadraticBezierSegment<S>> {
     Monotonic {
         segment: QuadraticBezierSegment {
             from: curve.from,
@@ -88,7 +87,7 @@ fn make_monotonic<S: Scalar>(curve: &QuadraticBezierSegment<S>) -> Monotonic<Qua
                 S::min(S::max(curve.from.y, curve.ctrl.y), curve.to.y),
             ),
             to: curve.to,
-        }
+        },
     }
 }
 
@@ -142,7 +141,7 @@ fn test_cubic_to_quadratics() {
     };
 
     let mut count = 0;
-    cubic_to_quadratics(&quadratic.to_cubic(), 0.0001, &mut|c| {
+    cubic_to_quadratics(&quadratic.to_cubic(), 0.0001, &mut |c| {
         assert!(count == 0);
         assert!(c.from.approx_eq(&quadratic.from));
         assert!(c.ctrl.approx_eq(&quadratic.ctrl));
@@ -159,7 +158,7 @@ fn test_cubic_to_quadratics() {
 
     let mut prev = cubic.from;
     let mut count = 0;
-    cubic_to_quadratics(&cubic, 0.01, &mut|c| {
+    cubic_to_quadratics(&cubic, 0.01, &mut |c| {
         assert!(c.from.approx_eq(&prev));
         prev = c.to;
         count += 1;
@@ -182,7 +181,7 @@ fn test_cubic_to_monotonic_quadratics() {
 
     let mut prev = cubic.from;
     let mut count = 0;
-    cubic_to_monotonic_quadratics(&cubic, 0.01, &mut|c| {
+    cubic_to_monotonic_quadratics(&cubic, 0.01, &mut |c| {
         assert!(c.segment().from.approx_eq(&prev));
         prev = c.segment().to;
         assert!(c.segment().is_monotonic());

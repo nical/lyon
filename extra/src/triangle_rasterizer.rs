@@ -1,9 +1,9 @@
-use std::cmp::{min, max};
+use std::cmp::{max, min};
 use std::ops::Add;
 
-use math::*;
 use euclid;
 use image::MutableImageSlice;
+use math::*;
 
 type IntVector = euclid::default::Vector2D<i32>;
 
@@ -58,8 +58,14 @@ pub fn rasterize_triangles<Constants, Vertex: VertexData, Target>(
     let mut i = 0;
     while i < indices.len() {
         let v0 = vertices[indices[i] as usize].position().round().to_i32();
-        let v1 = vertices[indices[i + 1] as usize].position().round().to_i32();
-        let v2 = vertices[indices[i + 2] as usize].position().round().to_i32();
+        let v1 = vertices[indices[i + 1] as usize]
+            .position()
+            .round()
+            .to_i32();
+        let v2 = vertices[indices[i + 2] as usize]
+            .position()
+            .round()
+            .to_i32();
 
         let min_x = max(viewport_min_x, min(v0.x, min(v1.x, v2.x)));
         let max_x = min(viewport_max_x, max(v0.x, max(v1.x, v2.x)));
@@ -114,7 +120,6 @@ pub fn rasterize_triangles<Constants, Vertex: VertexData, Target>(
     }
 }
 
-
 const PX_GROUP_X: i32 = 4;
 const PX_GROUP_Y: i32 = 1;
 
@@ -125,20 +130,62 @@ fn init_edge(v0: &IntVector, v1: &IntVector, origin: &IntVector) -> (IntVec4, In
 
     let sx = a * PX_GROUP_X;
     let sy = b * PX_GROUP_Y;
-    let step_x = IntVec4 { x: sx, y: sx, z: sx, w: sx };
-    let step_y = IntVec4 { x: sy, y: sy, z: sy, w: sy };
+    let step_x = IntVec4 {
+        x: sx,
+        y: sx,
+        z: sx,
+        w: sx,
+    };
+    let step_y = IntVec4 {
+        x: sy,
+        y: sy,
+        z: sy,
+        w: sy,
+    };
 
-    let swizzling_x = IntVec4 { x: 0, y: 1, z: 2, w: 3 };
-    let swizzling_y = IntVec4 { x: 0, y: 0, z: 0, w: 0 };
-    let dx = IntVec4 { x: origin.x, y: origin.x, z: origin.x, w: origin.x } + swizzling_x;
-    let dy = IntVec4 { x: origin.y, y: origin.y, z: origin.y, w: origin.y } + swizzling_y;
-    let row = IntVec4 { x: a * dx.x, y: a * dx.y, z: a * dx.z, w: a * dx.w }
-        + IntVec4 { x: b * dy.x, y: b * dy.y, z: b * dy.w, w: b * dy.w }
-        + IntVec4 { x: c, y: c, z: c, w: c };
+    let swizzling_x = IntVec4 {
+        x: 0,
+        y: 1,
+        z: 2,
+        w: 3,
+    };
+    let swizzling_y = IntVec4 {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 0,
+    };
+    let dx = IntVec4 {
+        x: origin.x,
+        y: origin.x,
+        z: origin.x,
+        w: origin.x,
+    } + swizzling_x;
+    let dy = IntVec4 {
+        x: origin.y,
+        y: origin.y,
+        z: origin.y,
+        w: origin.y,
+    } + swizzling_y;
+    let row = IntVec4 {
+        x: a * dx.x,
+        y: a * dx.y,
+        z: a * dx.z,
+        w: a * dx.w,
+    } + IntVec4 {
+        x: b * dy.x,
+        y: b * dy.y,
+        z: b * dy.w,
+        w: b * dy.w,
+    } + IntVec4 {
+        x: c,
+        y: c,
+        z: c,
+        w: c,
+    };
 
     return (step_x, step_y, row);
 }
-
 
 pub trait ShadingStage<Vertex, Constants> {
     fn process_block(
@@ -174,15 +221,20 @@ pub trait GetColor<Pixel> {
     fn get_color(&self) -> Pixel;
 }
 
-
 impl<Pixel, Vertex: GetColor<Pixel>, Constants> PixelShader<Pixel, Vertex, Constants>
-for FillVertexColor {
-    fn shade(_: Pixel, vertex_pixels: &Vertex, _: &Constants) -> Pixel { vertex_pixels.get_color() }
+    for FillVertexColor
+{
+    fn shade(_: Pixel, vertex_pixels: &Vertex, _: &Constants) -> Pixel {
+        vertex_pixels.get_color()
+    }
 }
 
 impl<Pixel, Vertex, Constants: GetColor<Pixel>> PixelShader<Pixel, Vertex, Constants>
-for FillConstantColor {
-    fn shade(_: Pixel, _: &Vertex, constants: &Constants) -> Pixel { constants.get_color() }
+    for FillConstantColor
+{
+    fn shade(_: Pixel, _: &Vertex, constants: &Constants) -> Pixel {
+        constants.get_color()
+    }
 }
 
 impl VertexData for Vector {
@@ -191,7 +243,9 @@ impl VertexData for Vector {
         return (*a * wa + *b * wb + *c * wc) * inv_w;
     }
 
-    fn position(&self) -> Vector { *self }
+    fn position(&self) -> Vector {
+        *self
+    }
 }
 
 pub struct ColorTarget<'a, 'b: 'a, Pixel: Copy + 'static, Shader> {
@@ -200,7 +254,7 @@ pub struct ColorTarget<'a, 'b: 'a, Pixel: Copy + 'static, Shader> {
 }
 
 impl<'l, 'm, Pixel, Vertex, Constants, Shader> ShadingStage<Vertex, Constants>
-for ColorTarget<'l, 'm, Pixel, Shader>
+    for ColorTarget<'l, 'm, Pixel, Shader>
 where
     Pixel: Copy + 'static,
     Shader: PixelShader<Pixel, Vertex, Constants>,
@@ -236,10 +290,10 @@ where
         }
     }
 
-    fn get_size(&self) -> (usize, usize) { (self.target.width, self.target.height) }
+    fn get_size(&self) -> (usize, usize) {
+        (self.target.width, self.target.height)
+    }
 }
-
-
 
 #[test]
 fn test_rasterizer_simple() {
@@ -250,7 +304,9 @@ fn test_rasterizer_simple() {
         color: u8,
     }
     impl GetColor<u8> for Constants {
-        fn get_color(&self) -> u8 { self.color }
+        fn get_color(&self) -> u8 {
+            self.color
+        }
     }
 
     let mut buffer = Box::new([0; 256]);
@@ -261,14 +317,12 @@ fn test_rasterizer_simple() {
             vector(0.0, 0.0),
             vector(8.0, 0.0),
             vector(0.0, 8.0),
-
             vector(15.0, 15.0),
             vector(1.0, 15.0),
         ];
 
         let indices = &[
-            0, 1, 2,
-            //0, 2, 3,
+            0, 1, 2, //0, 2, 3,
             1, 3, 4,
         ];
 
@@ -278,9 +332,9 @@ fn test_rasterizer_simple() {
             indices,
             &Constants { color: 1 },
             &mut ColorTarget {
-                     target: &mut surface,
-                     shader: FillConstantColor,
-                 },
+                target: &mut surface,
+                shader: FillConstantColor,
+            },
         );
     }
 
@@ -299,7 +353,9 @@ fn test_rasterizer_simple() {
 }
 
 #[inline]
-pub fn int_vector(x: i32, y: i32) -> IntVector { vector(x, y) }
+pub fn int_vector(x: i32, y: i32) -> IntVector {
+    vector(x, y)
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BoolVec4 {
@@ -320,27 +376,47 @@ pub fn bvec4(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
 
 impl BoolVec4 {
     #[inline]
-    pub fn new(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 { bvec4(x, y, z, w) }
+    pub fn new(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
+        bvec4(x, y, z, w)
+    }
 
     #[inline]
-    pub fn any(self) -> bool { self.x || self.y || self.z || self.w }
+    pub fn any(self) -> bool {
+        self.x || self.y || self.z || self.w
+    }
 
     #[inline]
-    pub fn all(self) -> bool { self.x && self.y && self.z && self.w }
+    pub fn all(self) -> bool {
+        self.x && self.y && self.z && self.w
+    }
 
     #[inline]
     pub fn and(self, other: BoolVec4) -> BoolVec4 {
-        bvec4(self.x && other.x, self.y && other.y, self.z && other.z, self.w && other.w)
+        bvec4(
+            self.x && other.x,
+            self.y && other.y,
+            self.z && other.z,
+            self.w && other.w,
+        )
     }
 
     #[inline]
     pub fn or(self, other: BoolVec4) -> BoolVec4 {
-        bvec4(self.x || other.x, self.y || other.y, self.z || other.z, self.w || other.w)
+        bvec4(
+            self.x || other.x,
+            self.y || other.y,
+            self.z || other.z,
+            self.w || other.w,
+        )
     }
 
     #[inline]
-    pub fn tuple(&self) -> (bool, bool, bool, bool) { (self.x, self.y, self.z, self.w) }
+    pub fn tuple(&self) -> (bool, bool, bool, bool) {
+        (self.x, self.y, self.z, self.w)
+    }
 
     #[inline]
-    pub fn array(&self) -> [bool; 4] { [self.x, self.y, self.z, self.w] }
+    pub fn array(&self) -> [bool; 4] {
+        [self.x, self.y, self.z, self.w]
+    }
 }

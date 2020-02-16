@@ -1,7 +1,7 @@
-use path::math::Point;
-use path::{Path, PathSlice};
 use path::builder::{Build, FlatPathBuilder};
+use path::math::Point;
 use path::PathEvent;
+use path::{Path, PathSlice};
 use svg;
 
 pub type Polygons = Vec<Vec<Point>>;
@@ -27,7 +27,10 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
                 poly = Vec::new();
             }
             _ => {
-                println!(" -- path_to_polygons: warning! Unsupported event type {:?}", evt);
+                println!(
+                    " -- path_to_polygons: warning! Unsupported event type {:?}",
+                    evt
+                );
             }
         }
     }
@@ -46,8 +49,7 @@ pub fn polygons_to_path(polygons: &Polygons) -> Path {
     return builder.build();
 }
 
-pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe>
-    (
+pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe>(
     path: PathSlice,
     cb: &F,
 ) -> Path {
@@ -109,9 +111,9 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
 
 use std::panic;
 
-fn find_reduced_test_case_sp<F>(mut polygons: Polygons, cb: &F) -> Polygons 
+fn find_reduced_test_case_sp<F>(mut polygons: Polygons, cb: &F) -> Polygons
 where
-    F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe
+    F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe,
 {
     let mut i = 0;
     loop {

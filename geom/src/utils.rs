@@ -1,10 +1,14 @@
-use crate::scalar::{Scalar, Float};
-use crate::generic_math::{Point, Vector, vector};
+use crate::generic_math::{vector, Point, Vector};
+use crate::scalar::{Float, Scalar};
 use arrayvec::ArrayVec;
 
 #[inline]
 pub fn min_max<S: Float>(a: S, b: S) -> (S, S) {
-    if a < b { (a, b) } else { (b, a) }
+    if a < b {
+        (a, b)
+    } else {
+        (b, a)
+    }
 }
 
 #[inline]
@@ -43,7 +47,11 @@ pub fn normalized_tangent<S: Scalar>(v: Vector<S>) -> Vector<S> {
 #[inline]
 pub fn directed_angle<S: Scalar>(v1: Vector<S>, v2: Vector<S>) -> S {
     let angle = S::fast_atan2(v2.y, v2.x) - S::fast_atan2(v1.y, v1.x);
-    return if angle < S::ZERO { angle + S::TWO * S::PI() } else { angle };
+    return if angle < S::ZERO {
+        angle + S::TWO * S::PI()
+    } else {
+        angle
+    };
 }
 
 pub fn directed_angle2<S: Scalar>(center: Point<S>, a: Point<S>, b: Point<S>) -> S {
@@ -101,8 +109,12 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
         let theta = S::acos(delta1 / S::sqrt(-delta0 * delta0 * delta0));
         let two_sqrt_delta0 = S::TWO * S::sqrt(-delta0);
         result.push(two_sqrt_delta0 * Float::cos(theta * frac_1_3) - bn * frac_1_3);
-        result.push(two_sqrt_delta0 * Float::cos((theta + S::TWO * S::PI()) * frac_1_3) - bn * frac_1_3);
-        result.push(two_sqrt_delta0 * Float::cos((theta + S::FOUR * S::PI()) * frac_1_3) - bn * frac_1_3);
+        result.push(
+            two_sqrt_delta0 * Float::cos((theta + S::TWO * S::PI()) * frac_1_3) - bn * frac_1_3,
+        );
+        result.push(
+            two_sqrt_delta0 * Float::cos((theta + S::FOUR * S::PI()) * frac_1_3) - bn * frac_1_3,
+        );
     }
 
     //result.sort();
@@ -122,14 +134,34 @@ fn cubic_polynomial() {
         assert_eq!(a.len(), b.len());
     }
 
-    assert_approx_eq(cubic_polynomial_roots(2.0, -4.0, 2.0, 0.0), &[0.0, 1.0], 0.0000001);
-    assert_approx_eq(cubic_polynomial_roots(-1.0, 1.0, -1.0, 1.0), &[1.0], 0.000001);
-    assert_approx_eq(cubic_polynomial_roots(-2.0, 2.0, -1.0, 10.0), &[2.0], 0.00005);
+    assert_approx_eq(
+        cubic_polynomial_roots(2.0, -4.0, 2.0, 0.0),
+        &[0.0, 1.0],
+        0.0000001,
+    );
+    assert_approx_eq(
+        cubic_polynomial_roots(-1.0, 1.0, -1.0, 1.0),
+        &[1.0],
+        0.000001,
+    );
+    assert_approx_eq(
+        cubic_polynomial_roots(-2.0, 2.0, -1.0, 10.0),
+        &[2.0],
+        0.00005,
+    );
     // (x - 1)^3, with a triple root, should only return one root.
-    assert_approx_eq(cubic_polynomial_roots(1.0, -3.0, 3.0, -1.0), &[1.0], 0.00005);
+    assert_approx_eq(
+        cubic_polynomial_roots(1.0, -3.0, 3.0, -1.0),
+        &[1.0],
+        0.00005,
+    );
 
     // Quadratics.
-    assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -5.0, -14.0), &[-2.0, 7.0], 0.00005);
+    assert_approx_eq(
+        cubic_polynomial_roots(0.0, 1.0, -5.0, -14.0),
+        &[-2.0, 7.0],
+        0.00005,
+    );
     // (x - 3)^2, with a double root, should only return one root.
     assert_approx_eq(cubic_polynomial_roots(0.0, 1.0, -6.0, 9.0), &[3.0], 0.00005);
 

@@ -1,7 +1,7 @@
-use std::io;
+use lyon::algorithms::hatching::{DotOptions, HatchingOptions};
 use lyon::path::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions};
-use lyon::algorithms::hatching::{HatchingOptions, DotOptions};
+use std::io;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Tessellator {

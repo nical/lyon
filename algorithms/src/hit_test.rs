@@ -1,14 +1,14 @@
 //! Determine whether a point is inside a path.
 
-use crate::path::{PathEvent, FillRule};
+use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::Point;
-use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment};
+use crate::path::{FillRule, PathEvent};
 use std::f32;
 
 /// Returns whether the point is inside the path.
 pub fn hit_test_path<Iter>(point: &Point, path: Iter, fill_rule: FillRule, tolerance: f32) -> bool
 where
-    Iter: Iterator<Item=PathEvent>,
+    Iter: Iterator<Item = PathEvent>,
 {
     let winding = path_winding_number_at_position(point, path, tolerance);
 
@@ -21,7 +21,7 @@ where
 /// Compute the winding number of a given position with respect to the path.
 pub fn path_winding_number_at_position<Iter>(point: &Point, path: Iter, tolerance: f32) -> i32
 where
-    Iter: Iterator<Item=PathEvent>,
+    Iter: Iterator<Item = PathEvent>,
 {
     // Loop over the edges and compute the winding number at that point by accumulating the
     // winding of all edges intersecting the horizontal line passing through our point which are
@@ -35,7 +35,14 @@ where
                 test_segment(*point, &LineSegment { from, to }, &mut winding);
             }
             PathEvent::End { last, first, .. } => {
-                test_segment(*point, &LineSegment { from: last, to: first }, &mut winding);
+                test_segment(
+                    *point,
+                    &LineSegment {
+                        from: last,
+                        to: first,
+                    },
+                    &mut winding,
+                );
             }
             PathEvent::Quadratic { from, ctrl, to } => {
                 let segment = QuadraticBezierSegment { from, ctrl, to };
@@ -44,19 +51,29 @@ where
                     continue;
                 }
                 let mut prev = segment.from;
-                segment.for_each_flattened(tolerance, &mut|p| {
+                segment.for_each_flattened(tolerance, &mut |p| {
                     test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding);
                     prev = p;
                 });
             }
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
-                let segment = CubicBezierSegment { from, ctrl1, ctrl2, to };
+            PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            } => {
+                let segment = CubicBezierSegment {
+                    from,
+                    ctrl1,
+                    ctrl2,
+                    to,
+                };
                 let (min, max) = segment.fast_bounding_range_y();
                 if min > point.y || max < point.y {
                     continue;
                 }
                 let mut prev = segment.from;
-                segment.for_each_flattened(tolerance, &mut|p| {
+                segment.for_each_flattened(tolerance, &mut |p| {
                     test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding);
                     prev = p;
                 });
@@ -81,8 +98,8 @@ fn test_segment(point: Point, segment: &LineSegment<f32>, winding: &mut i32) {
 
 #[test]
 fn test_hit_test() {
-    use crate::path::Path;
     use crate::math::point;
+    use crate::path::Path;
 
     let mut builder = Path::builder();
     builder.move_to(point(0.0, 0.0));
@@ -97,14 +114,59 @@ fn test_hit_test() {
     builder.close();
     let path = builder.build();
 
-    assert!(!hit_test_path(&point(-1.0, 0.5), path.iter(), FillRule::EvenOdd, 0.1));
-    assert!(!hit_test_path(&point(2.0, 0.5), path.iter(), FillRule::EvenOdd, 0.1));
-    assert!(!hit_test_path(&point(2.0, 0.0), path.iter(), FillRule::EvenOdd, 0.1));
-    assert!(!hit_test_path(&point(0.5, -1.0), path.iter(), FillRule::EvenOdd, 0.1));
-    assert!(!hit_test_path(&point(0.5, 2.0), path.iter(), FillRule::EvenOdd, 0.1));
+    assert!(!hit_test_path(
+        &point(-1.0, 0.5),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
+    assert!(!hit_test_path(
+        &point(2.0, 0.5),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
+    assert!(!hit_test_path(
+        &point(2.0, 0.0),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
+    assert!(!hit_test_path(
+        &point(0.5, -1.0),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
+    assert!(!hit_test_path(
+        &point(0.5, 2.0),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
 
-    assert!(!hit_test_path(&point(0.5, 0.5), path.iter(), FillRule::EvenOdd, 0.1));
-    assert!(hit_test_path(&point(0.5, 0.5), path.iter(), FillRule::NonZero, 0.1));
-    assert!(hit_test_path(&point(0.2, 0.5), path.iter(), FillRule::EvenOdd, 0.1));
-    assert!(hit_test_path(&point(0.8, 0.5), path.iter(), FillRule::EvenOdd, 0.1));
+    assert!(!hit_test_path(
+        &point(0.5, 0.5),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
+    assert!(hit_test_path(
+        &point(0.5, 0.5),
+        path.iter(),
+        FillRule::NonZero,
+        0.1
+    ));
+    assert!(hit_test_path(
+        &point(0.2, 0.5),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
+    assert!(hit_test_path(
+        &point(0.8, 0.5),
+        path.iter(),
+        FillRule::EvenOdd,
+        0.1
+    ));
 }

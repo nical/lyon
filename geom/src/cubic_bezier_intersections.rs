@@ -6,7 +6,6 @@
 ///! See "Bézier Clipping method" in
 ///! https://scholarsarchive.byu.edu/facpub/1/
 ///! for motivation and details of how the process works.
-
 use crate::generic_math::{point, Point, Rect};
 use crate::scalar::Scalar;
 use crate::CubicBezierSegment;
@@ -24,7 +23,9 @@ pub fn cubic_bezier_intersections_t<S: Scalar>(
     curve1: &CubicBezierSegment<S>,
     curve2: &CubicBezierSegment<S>,
 ) -> ArrayVec<[(S, S); 9]> {
-    if !curve1.fast_bounding_rect().intersects(&curve2.fast_bounding_rect())
+    if !curve1
+        .fast_bounding_rect()
+        .intersects(&curve2.fast_bounding_rect())
         || curve1 == curve2
         || (curve1.from == curve2.to
             && curve1.ctrl1 == curve2.ctrl2
@@ -38,7 +39,10 @@ pub fn cubic_bezier_intersections_t<S: Scalar>(
 
     #[inline]
     fn midpoint<S: Scalar>(point1: &Point<S>, point2: &Point<S>) -> Point<S> {
-        point((point1.x + point2.x) * S::HALF, (point1.y + point2.y) * S::HALF)
+        point(
+            (point1.x + point2.x) * S::HALF,
+            (point1.y + point2.y) * S::HALF,
+        )
     }
 
     let curve1_is_a_point = curve1.is_a_point(S::EPSILON);
@@ -76,9 +80,16 @@ pub fn cubic_bezier_intersections_t<S: Scalar>(
         result = line_line_intersections(curve1, curve2);
     } else {
         add_curve_intersections(
-            &curve1, &curve2, &(S::ZERO..S::ONE), &(S::ZERO..S::ONE),
-            &mut result, /* flip */ false, /* recursion_count */ 0, /* call_count */ 0,
-            /* original curve1 */ &curve1, /* original curve2 */ &curve2,
+            &curve1,
+            &curve2,
+            &(S::ZERO..S::ONE),
+            &(S::ZERO..S::ONE),
+            &mut result,
+            /* flip */ false,
+            /* recursion_count */ 0,
+            /* call_count */ 0,
+            /* original curve1 */ &curve1,
+            /* original curve2 */ &curve2,
         );
     }
 
@@ -138,9 +149,13 @@ fn point_curve_intersections<S: Scalar>(
     // or if the curve has a cusp in one of the corners of its convex hull and pt is
     // diagonally just outside the hull.  This is a rare case (could we even ignore it?).
     #[inline]
-    fn maybe_add<S: Scalar>(t: S, pt: &Point<S>, curve: &CubicBezierSegment<S>, epsilon: S,
-                            result: &mut ArrayVec<[S; 9]>) -> bool
-    {
+    fn maybe_add<S: Scalar>(
+        t: S,
+        pt: &Point<S>,
+        curve: &CubicBezierSegment<S>,
+        epsilon: S,
+        result: &mut ArrayVec<[S; 9]>,
+    ) -> bool {
         if (curve.sample(t) - *pt).square_length() < epsilon {
             result.push(t);
             return true;
@@ -189,7 +204,10 @@ fn line_line_intersections<S: Scalar>(
 ) -> ArrayVec<[(S, S); 9]> {
     let mut result = ArrayVec::new();
 
-    let intersection = curve1.baseline().to_line().intersection(&curve2.baseline().to_line());
+    let intersection = curve1
+        .baseline()
+        .to_line()
+        .intersection(&curve2.baseline().to_line());
     if intersection.is_none() {
         return result;
     }
@@ -251,18 +269,28 @@ fn add_curve_intersections<S: Scalar>(
     mut call_count: u32,
     orig_curve1: &CubicBezierSegment<S>,
     orig_curve2: &CubicBezierSegment<S>,
-) -> u32  {
+) -> u32 {
     call_count += 1;
     recursion_count += 1;
     if call_count >= 4096 || recursion_count >= 60 {
         return call_count;
     }
 
-    let epsilon = if inputs_are_f32::<S>() { S::value(5e-6) } else { S::value(1e-9) };
+    let epsilon = if inputs_are_f32::<S>() {
+        S::value(5e-6)
+    } else {
+        S::value(1e-9)
+    };
 
     if domain2.start == domain2.end || curve2.is_a_point(S::ZERO) {
         add_point_curve_intersection(
-            &curve2, /* point is curve1 */ false, curve1, domain2, domain1, intersections, flip,
+            &curve2,
+            /* point is curve1 */ false,
+            curve1,
+            domain2,
+            domain1,
+            intersections,
+            flip,
         );
         return call_count;
     } else if curve2.from == curve2.to {
@@ -271,14 +299,28 @@ fn add_curve_intersections<S: Scalar>(
         let new_2_curves = orig_curve2.split_range(domain2.clone()).split(S::HALF);
         let domain2_mid = (domain2.start + domain2.end) * S::HALF;
         call_count = add_curve_intersections(
-            curve1, &new_2_curves.0, domain1, &(domain2.start..domain2_mid),
-            intersections, flip, recursion_count, call_count,
-            orig_curve1, orig_curve2,
+            curve1,
+            &new_2_curves.0,
+            domain1,
+            &(domain2.start..domain2_mid),
+            intersections,
+            flip,
+            recursion_count,
+            call_count,
+            orig_curve1,
+            orig_curve2,
         );
         call_count = add_curve_intersections(
-            curve1, &new_2_curves.1, domain1, &(domain2_mid..domain2.end),
-            intersections, flip, recursion_count, call_count,
-            orig_curve1, orig_curve2,
+            curve1,
+            &new_2_curves.1,
+            domain1,
+            &(domain2_mid..domain2.end),
+            intersections,
+            flip,
+            recursion_count,
+            call_count,
+            orig_curve1,
+            orig_curve2,
         );
         return call_count;
     }
@@ -299,7 +341,11 @@ fn add_curve_intersections<S: Scalar>(
     let new_domain1 =
         &(domain_value_at_t(&domain1, t_min_clip)..domain_value_at_t(&domain1, t_max_clip));
 
-    if S::max(domain2.end - domain2.start, new_domain1.end - new_domain1.start) < epsilon {
+    if S::max(
+        domain2.end - domain2.start,
+        new_domain1.end - new_domain1.start,
+    ) < epsilon
+    {
         let t1 = (new_domain1.start + new_domain1.end) * S::HALF;
         let t2 = (domain2.start + domain2.end) * S::HALF;
         if inputs_are_f32::<S>() {
@@ -325,8 +371,13 @@ fn add_curve_intersections<S: Scalar>(
     // is a point (but then curve1 will be very small).)
     if new_domain1.start == new_domain1.end || curve1.is_a_point(S::ZERO) {
         add_point_curve_intersection(
-            &curve1, /* point is curve1 */ true, curve2, new_domain1, domain2,
-            intersections, flip,
+            &curve1,
+            /* point is curve1 */ true,
+            curve2,
+            new_domain1,
+            domain2,
+            intersections,
+            flip,
         );
         return call_count;
     }
@@ -338,43 +389,85 @@ fn add_curve_intersections<S: Scalar>(
             let new_1_curves = curve1.split(S::HALF);
             let new_domain1_mid = (new_domain1.start + new_domain1.end) * S::HALF;
             call_count = add_curve_intersections(
-                curve2, &new_1_curves.0, domain2, &(new_domain1.start..new_domain1_mid),
-                intersections, !flip, recursion_count, call_count,
-                orig_curve2, orig_curve1,
+                curve2,
+                &new_1_curves.0,
+                domain2,
+                &(new_domain1.start..new_domain1_mid),
+                intersections,
+                !flip,
+                recursion_count,
+                call_count,
+                orig_curve2,
+                orig_curve1,
             );
             call_count = add_curve_intersections(
-                curve2, &new_1_curves.1, domain2, &(new_domain1_mid..new_domain1.end),
-                intersections, !flip, recursion_count, call_count,
-                orig_curve2, orig_curve1,
+                curve2,
+                &new_1_curves.1,
+                domain2,
+                &(new_domain1_mid..new_domain1.end),
+                intersections,
+                !flip,
+                recursion_count,
+                call_count,
+                orig_curve2,
+                orig_curve1,
             );
         } else {
             let new_2_curves = orig_curve2.split_range(domain2.clone()).split(S::HALF);
             let domain2_mid = (domain2.start + domain2.end) * S::HALF;
             call_count = add_curve_intersections(
-                &new_2_curves.0, curve1, &(domain2.start..domain2_mid), new_domain1,
-                intersections, !flip, recursion_count, call_count,
-                orig_curve2, orig_curve1,
+                &new_2_curves.0,
+                curve1,
+                &(domain2.start..domain2_mid),
+                new_domain1,
+                intersections,
+                !flip,
+                recursion_count,
+                call_count,
+                orig_curve2,
+                orig_curve1,
             );
             call_count = add_curve_intersections(
-                &new_2_curves.1, curve1, &(domain2_mid..domain2.end), new_domain1,
-                intersections, !flip, recursion_count, call_count,
-                orig_curve2, orig_curve1,
+                &new_2_curves.1,
+                curve1,
+                &(domain2_mid..domain2.end),
+                new_domain1,
+                intersections,
+                !flip,
+                recursion_count,
+                call_count,
+                orig_curve2,
+                orig_curve1,
             );
         }
     } else {
         // Iterate.
         if domain2.end - domain2.start >= epsilon {
             call_count = add_curve_intersections(
-                curve2, curve1, domain2, new_domain1,
-                intersections, !flip, recursion_count, call_count,
-                orig_curve2, orig_curve1,
+                curve2,
+                curve1,
+                domain2,
+                new_domain1,
+                intersections,
+                !flip,
+                recursion_count,
+                call_count,
+                orig_curve2,
+                orig_curve1,
             );
         } else {
             // The interval on curve2 is already tight enough, so just continue iterating on curve1.
             call_count = add_curve_intersections(
-                curve1, curve2, new_domain1, domain2,
-                intersections, flip, recursion_count, call_count,
-                orig_curve1, orig_curve2,
+                curve1,
+                curve2,
+                new_domain1,
+                domain2,
+                intersections,
+                flip,
+                recursion_count,
+                call_count,
+                orig_curve1,
+                orig_curve2,
             );
         }
     }
@@ -441,18 +534,18 @@ fn epsilon_for_point<S: Scalar>(pt: &Point<S>) -> S {
     let max = S::max(S::abs(pt.x), S::abs(pt.y));
     let epsilon = if inputs_are_f32::<S>() {
         match max.to_i32().unwrap() {
-            0 ..= 9 => S::value(0.001),
-            10 ..= 99 => S::value(0.01),
-            100 ..= 999 => S::value(0.1),
-            1_000 ..= 9_999 => S::value(0.25),
-            10_000 ..= 999_999 => S::HALF,
+            0..=9 => S::value(0.001),
+            10..=99 => S::value(0.01),
+            100..=999 => S::value(0.1),
+            1_000..=9_999 => S::value(0.25),
+            10_000..=999_999 => S::HALF,
             _ => S::ONE,
         }
     } else {
         match max.to_i64().unwrap() {
-            0 ..= 99_999 => S::EPSILON,
-            100_000 ..= 99_999_999 => S::value(1e-5),
-            100_000_000 ..= 9_999_999_999 => S::value(1e-3),
+            0..=99_999 => S::EPSILON,
+            100_000..=99_999_999 => S::value(1e-5),
+            100_000_000..=9_999_999_999 => S::value(1e-3),
             _ => S::value(1e-1),
         }
     };
@@ -470,7 +563,11 @@ fn add_intersection<S: Scalar>(
 ) {
     let (t1, t2) = if flip { (t2, t1) } else { (t1, t2) };
     // (This should probably depend in some way on how large our input coefficients are.)
-    let epsilon = if inputs_are_f32::<S>() { S::value(1e-3) } else { S::EPSILON };
+    let epsilon = if inputs_are_f32::<S>() {
+        S::value(1e-3)
+    } else {
+        S::EPSILON
+    };
     // Discard endpoint/endpoint intersections.
     let t1_is_an_endpoint = t1 < epsilon || t1 > S::ONE - epsilon;
     let t2_is_an_endpoint = t2 < epsilon || t2 > S::ONE - epsilon;
@@ -1126,46 +1223,42 @@ fn test_cubic_interior_endpoint() {
 fn test_cubic_point_curve_intersections() {
     let epsilon = 1e-5;
     {
-        let curve1 =
-            CubicBezierSegment {
-                from: point(0.0, 0.0),
-                ctrl1: point(0.0, 1.0),
-                ctrl2: point(0.0, 1.0),
-                to: point(1.0, 1.0),
-            };
+        let curve1 = CubicBezierSegment {
+            from: point(0.0, 0.0),
+            ctrl1: point(0.0, 1.0),
+            ctrl2: point(0.0, 1.0),
+            to: point(1.0, 1.0),
+        };
         let sample_t = 0.123456789;
         let pt = curve1.sample(sample_t);
-        let curve2 =
-            CubicBezierSegment {
-                from: pt,
-                ctrl1: pt,
-                ctrl2: pt,
-                to: pt,
-            };
+        let curve2 = CubicBezierSegment {
+            from: pt,
+            ctrl1: pt,
+            ctrl2: pt,
+            to: pt,
+        };
         let intersections = cubic_bezier_intersections_t(&curve1, &curve2);
         assert_eq!(intersections.len(), 1);
         let intersection_t = intersections[0].0;
         assert!(f64::abs(intersection_t - sample_t) < epsilon);
     }
     {
-        let curve1 =
-            CubicBezierSegment {
-                from: point(-10.0, -13.636363636363636),
-                ctrl1: point(15.0, 11.363636363636363),
-                ctrl2: point(-15.0, 11.363636363636363),
-                to: point(10.0, -13.636363636363636),
-            };
+        let curve1 = CubicBezierSegment {
+            from: point(-10.0, -13.636363636363636),
+            ctrl1: point(15.0, 11.363636363636363),
+            ctrl2: point(-15.0, 11.363636363636363),
+            to: point(10.0, -13.636363636363636),
+        };
         // curve1 has a self intersection at the following parameter values:
         let parameter1 = 0.7611164839335472;
         let parameter2 = 0.23888351606645375;
         let pt = curve1.sample(parameter1);
-        let curve2 =
-            CubicBezierSegment {
-                from: pt,
-                ctrl1: pt,
-                ctrl2: pt,
-                to: pt,
-            };
+        let curve2 = CubicBezierSegment {
+            from: pt,
+            ctrl1: pt,
+            ctrl2: pt,
+            to: pt,
+        };
         let intersections = cubic_bezier_intersections_t(&curve1, &curve2);
         assert_eq!(intersections.len(), 2);
         let intersection_t1 = intersections[0].0;
@@ -1175,25 +1268,23 @@ fn test_cubic_point_curve_intersections() {
     }
     {
         let epsilon = epsilon as f32;
-        let curve1 =
-            CubicBezierSegment {
-                from: point(0.0f32, 0.0),
-                ctrl1: point(50.0, 50.0),
-                ctrl2: point(-50.0, -50.0),
-                to: point(10.0, 10.0),
-            };
+        let curve1 = CubicBezierSegment {
+            from: point(0.0f32, 0.0),
+            ctrl1: point(50.0, 50.0),
+            ctrl2: point(-50.0, -50.0),
+            to: point(10.0, 10.0),
+        };
         // curve1 is a line that passes through (5.0, 5.0) three times:
         let parameter1 = 0.96984464;
         let parameter2 = 0.037427425;
         let parameter3 = 0.44434106;
         let pt = curve1.sample(parameter1);
-        let curve2 =
-            CubicBezierSegment {
-                from: pt,
-                ctrl1: pt,
-                ctrl2: pt,
-                to: pt,
-            };
+        let curve2 = CubicBezierSegment {
+            from: pt,
+            ctrl1: pt,
+            ctrl2: pt,
+            to: pt,
+        };
         let intersections = cubic_bezier_intersections_t(&curve1, &curve2);
         assert_eq!(intersections.len(), 3);
         let intersection_t1 = intersections[0].0;

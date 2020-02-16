@@ -1,15 +1,20 @@
-use crate::segment::{Segment, BoundingRect};
-use crate::scalar::{Scalar, NumCast};
-use crate::generic_math::{Point, Vector, Rect};
-use crate::{QuadraticBezierSegment, CubicBezierSegment};
-use std::ops::Range;
+use crate::generic_math::{Point, Rect, Vector};
+use crate::scalar::{NumCast, Scalar};
+use crate::segment::{BoundingRect, Segment};
+use crate::{CubicBezierSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
+use std::ops::Range;
 
 use std::f64;
 
 pub(crate) trait MonotonicSegment {
     type Scalar: Scalar;
-    fn solve_t_for_x(&self, x: Self::Scalar, t_range: Range<Self::Scalar>, tolerance: Self::Scalar) -> Self::Scalar;
+    fn solve_t_for_x(
+        &self,
+        x: Self::Scalar,
+        t_range: Range<Self::Scalar>,
+        tolerance: Self::Scalar,
+    ) -> Self::Scalar;
 }
 
 /// A x and y monotonic curve segment, for example `Monotonic<QuadraticBezierSegment>`.
@@ -20,26 +25,46 @@ pub struct Monotonic<T> {
 
 impl<T: Segment> Monotonic<T> {
     #[inline]
-    pub fn segment(&self) -> &T { &self.segment }
+    pub fn segment(&self) -> &T {
+        &self.segment
+    }
     #[inline]
-    pub fn from(&self) -> Point<T::Scalar> { self.segment.from() }
+    pub fn from(&self) -> Point<T::Scalar> {
+        self.segment.from()
+    }
     #[inline]
-    pub fn to(&self) -> Point<T::Scalar> { self.segment.to() }
+    pub fn to(&self) -> Point<T::Scalar> {
+        self.segment.to()
+    }
     #[inline]
-    pub fn sample(&self, t: T::Scalar) -> Point<T::Scalar> { self.segment.sample(t) }
+    pub fn sample(&self, t: T::Scalar) -> Point<T::Scalar> {
+        self.segment.sample(t)
+    }
     #[inline]
-    pub fn x(&self, t: T::Scalar) -> T::Scalar { self.segment.x(t) }
+    pub fn x(&self, t: T::Scalar) -> T::Scalar {
+        self.segment.x(t)
+    }
     #[inline]
-    pub fn y(&self, t: T::Scalar) -> T::Scalar { self.segment.y(t) }
+    pub fn y(&self, t: T::Scalar) -> T::Scalar {
+        self.segment.y(t)
+    }
     #[inline]
-    pub fn derivative(&self, t: T::Scalar) -> Vector<T::Scalar> { self.segment.derivative(t) }
+    pub fn derivative(&self, t: T::Scalar) -> Vector<T::Scalar> {
+        self.segment.derivative(t)
+    }
     #[inline]
-    pub fn dx(&self, t: T::Scalar) -> T::Scalar { self.segment.dx(t) }
+    pub fn dx(&self, t: T::Scalar) -> T::Scalar {
+        self.segment.dx(t)
+    }
     #[inline]
-    pub fn dy(&self, t: T::Scalar) -> T::Scalar { self.segment.dy(t) }
+    pub fn dy(&self, t: T::Scalar) -> T::Scalar {
+        self.segment.dy(t)
+    }
     #[inline]
     pub fn split_range(&self, t_range: Range<T::Scalar>) -> Self {
-        Self { segment: self.segment.split_range(t_range) }
+        Self {
+            segment: self.segment.split_range(t_range),
+        }
     }
     #[inline]
     pub fn split(&self, t: T::Scalar) -> (Self, Self) {
@@ -48,15 +73,21 @@ impl<T: Segment> Monotonic<T> {
     }
     #[inline]
     pub fn before_split(&self, t: T::Scalar) -> Self {
-        Self { segment: self.segment.before_split(t) }
+        Self {
+            segment: self.segment.before_split(t),
+        }
     }
     #[inline]
     pub fn after_split(&self, t: T::Scalar) -> Self {
-        Self { segment: self.segment.after_split(t) }
+        Self {
+            segment: self.segment.after_split(t),
+        }
     }
     #[inline]
     pub fn flip(&self) -> Self {
-        Self { segment: self.segment.flip() }
+        Self {
+            segment: self.segment.flip(),
+        }
     }
     #[inline]
     pub fn approximate_length(&self, tolerance: T::Scalar) -> T::Scalar {
@@ -64,7 +95,9 @@ impl<T: Segment> Monotonic<T> {
     }
 }
 
-impl<T: Segment> Segment for Monotonic<T> { impl_segment!(T::Scalar); }
+impl<T: Segment> Segment for Monotonic<T> {
+    impl_segment!(T::Scalar);
+}
 
 impl<T: BoundingRect> BoundingRect for Monotonic<T> {
     type Scalar = T::Scalar;
@@ -125,27 +158,24 @@ impl<S: Scalar> Monotonic<QuadraticBezierSegment<S>> {
     }
 
     pub fn intersections_t(
-        &self, self_t_range: Range<S>,
-        other: &Self, other_t_range: Range<S>,
+        &self,
+        self_t_range: Range<S>,
+        other: &Self,
+        other_t_range: Range<S>,
         tolerance: S,
-    ) -> ArrayVec<[(S, S);2]> {
-        monotonic_segment_intersecions(
-            self, self_t_range,
-            other, other_t_range,
-            tolerance
-        )
+    ) -> ArrayVec<[(S, S); 2]> {
+        monotonic_segment_intersecions(self, self_t_range, other, other_t_range, tolerance)
     }
 
     pub fn intersections(
-        &self, self_t_range: Range<S>,
-        other: &Self, other_t_range: Range<S>,
+        &self,
+        self_t_range: Range<S>,
+        other: &Self,
+        other_t_range: Range<S>,
         tolerance: S,
-    ) -> ArrayVec<[Point<S>;2]> {
-        let intersections = monotonic_segment_intersecions(
-            self, self_t_range,
-            other, other_t_range,
-            tolerance
-        );
+    ) -> ArrayVec<[Point<S>; 2]> {
+        let intersections =
+            monotonic_segment_intersecions(self, self_t_range, other, other_t_range, tolerance);
         let mut result = ArrayVec::new();
         for (t, _) in intersections {
             result.push(self.sample(t));
@@ -155,27 +185,24 @@ impl<S: Scalar> Monotonic<QuadraticBezierSegment<S>> {
     }
 
     pub fn first_intersection_t(
-        &self, self_t_range: Range<S>,
-        other: &Self, other_t_range: Range<S>,
+        &self,
+        self_t_range: Range<S>,
+        other: &Self,
+        other_t_range: Range<S>,
         tolerance: S,
     ) -> Option<(S, S)> {
-        first_monotonic_segment_intersecion(
-            self, self_t_range,
-            other, other_t_range,
-            tolerance
-        )
+        first_monotonic_segment_intersecion(self, self_t_range, other, other_t_range, tolerance)
     }
 
     pub fn first_intersection(
-        &self, self_t_range: Range<S>,
-        other: &Self, other_t_range: Range<S>,
+        &self,
+        self_t_range: Range<S>,
+        other: &Self,
+        other_t_range: Range<S>,
         tolerance: S,
     ) -> Option<Point<S>> {
-        first_monotonic_segment_intersecion(
-            self, self_t_range,
-            other, other_t_range,
-            tolerance
-        ).map(|(t, _)|{ self.sample(t) })
+        first_monotonic_segment_intersecion(self, self_t_range, other, other_t_range, tolerance)
+            .map(|(t, _)| self.sample(t))
     }
 }
 
@@ -204,13 +231,13 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
             let x2 = self.x(t);
 
             if S::abs(x2 - x) <= tolerance {
-                return t
+                return t;
             }
 
             let dx = self.dx(t);
 
             if dx <= S::EPSILON {
-                break
+                break;
             }
 
             t = t - (x2 - x) / dx;
@@ -259,13 +286,15 @@ impl<S: Scalar> MonotonicSegment for Monotonic<CubicBezierSegment<S>> {
 ///
 /// Both segments must be monotonically increasing in x.
 pub(crate) fn first_monotonic_segment_intersecion<S: Scalar, A, B>(
-    a: &A, a_t_range: Range<S>,
-    b: &B, b_t_range: Range<S>,
+    a: &A,
+    a_t_range: Range<S>,
+    b: &B,
+    b_t_range: Range<S>,
     tolerance: S,
 ) -> Option<(S, S)>
 where
-    A: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
-    B: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
+    A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
+    B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
 {
     debug_assert!(a.from().x <= a.to().x);
     debug_assert!(b.from().x <= b.to().x);
@@ -291,7 +320,6 @@ where
 
     const MAX_ITERATIONS: u32 = 32;
     for _ in 0..MAX_ITERATIONS {
-
         let y_max_a = a.y(t_max_a);
         let y_max_b = b.y(t_max_b);
         // It would seem more sensible to use the mid point instead of
@@ -345,32 +373,37 @@ where
 ///
 /// Both segments must be monotonically increasing in x.
 pub(crate) fn monotonic_segment_intersecions<S: Scalar, A, B>(
-    a: &A, a_t_range: Range<S>,
-    b: &B, b_t_range: Range<S>,
+    a: &A,
+    a_t_range: Range<S>,
+    b: &B,
+    b_t_range: Range<S>,
     tolerance: S,
 ) -> ArrayVec<[(S, S); 2]>
 where
-    A: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
-    B: Segment<Scalar=S> + MonotonicSegment<Scalar=S> + BoundingRect<Scalar=S>,
+    A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
+    B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
 {
     let (t1, t2) = match first_monotonic_segment_intersecion(
-        a, a_t_range.clone(),
-        b, b_t_range.clone(),
-        tolerance
+        a,
+        a_t_range.clone(),
+        b,
+        b_t_range.clone(),
+        tolerance,
     ) {
-        Some(intersection) => { intersection }
-        None => { return ArrayVec::new(); }
+        Some(intersection) => intersection,
+        None => {
+            return ArrayVec::new();
+        }
     };
 
     let mut result = ArrayVec::new();
     result.push((t1, t2));
 
-    match first_monotonic_segment_intersecion(
-        a, t1..a_t_range.end,
-        b, t2..b_t_range.end,
-        tolerance
-    ) {
-        Some(intersection) => { result.push(intersection); }
+    match first_monotonic_segment_intersecion(a, t1..a_t_range.end, b, t2..b_t_range.end, tolerance)
+    {
+        Some(intersection) => {
+            result.push(intersection);
+        }
         None => {}
     }
 
@@ -379,25 +412,23 @@ where
 
 #[test]
 fn two_intersections() {
-    use crate::QuadraticBezierSegment;
     use crate::math::point;
+    use crate::QuadraticBezierSegment;
 
     let c1 = QuadraticBezierSegment {
         from: point(10.0, 0.0),
         ctrl: point(10.0, 90.0),
         to: point(100.0, 90.0),
-    }.assume_monotonic();
+    }
+    .assume_monotonic();
     let c2 = QuadraticBezierSegment {
         from: point(0.0, 10.0),
         ctrl: point(90.0, 10.0),
         to: point(90.0, 100.0),
-    }.assume_monotonic();
+    }
+    .assume_monotonic();
 
-    let intersections = monotonic_segment_intersecions(
-        &c1, 0.0..1.0,
-        &c2, 0.0..1.0,
-        0.001,
-    );
+    let intersections = monotonic_segment_intersecions(&c1, 0.0..1.0, &c2, 0.0..1.0, 0.001);
 
     assert_eq!(intersections.len(), 2);
     assert!(intersections[0].0 < 0.1, "{:?} < 0.1", intersections[0].0);

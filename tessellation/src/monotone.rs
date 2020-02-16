@@ -1,6 +1,6 @@
 use crate::math::Point;
-use crate::{FillGeometryBuilder, VertexId};
 use crate::Side;
+use crate::{FillGeometryBuilder, VertexId};
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the `FillTessellator`).

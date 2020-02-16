@@ -1,6 +1,6 @@
-use crate::math::{Point, Vector, point, vector, Angle};
+use crate::builder::{FlatPathBuilder, PathBuilder, PolygonBuilder, SvgBuilder};
 use crate::geom::{Arc, ArcFlags};
-use crate::builder::{FlatPathBuilder, PathBuilder, SvgBuilder, PolygonBuilder};
+use crate::math::{point, vector, Angle, Point, Vector};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum LastCtrl {
@@ -30,10 +30,14 @@ impl PathState {
     }
 
     /// The current position.
-    pub fn current_position(&self) -> Point { self.current }
+    pub fn current_position(&self) -> Point {
+        self.current
+    }
 
     /// The position at the start of the current sub-path.
-    pub fn start_position(&self) -> Point { self.first }
+    pub fn start_position(&self) -> Point {
+        self.first
+    }
 
     pub fn move_to(&mut self, to: Point) {
         self.last_ctrl = LastCtrl::None;
@@ -89,15 +93,23 @@ impl PathState {
         }
     }
 
-    pub fn relative_to_absolute(&self, v: Vector) -> Point { self.current + v }
+    pub fn relative_to_absolute(&self, v: Vector) -> Point {
+        self.current + v
+    }
 }
 
 impl FlatPathBuilder for PathState {
-    fn move_to(&mut self, to: Point) { self.move_to(to); }
+    fn move_to(&mut self, to: Point) {
+        self.move_to(to);
+    }
 
-    fn line_to(&mut self, to: Point) { self.line_to(to); }
+    fn line_to(&mut self, to: Point) {
+        self.line_to(to);
+    }
 
-    fn close(&mut self) { self.close(); }
+    fn close(&mut self) {
+        self.close();
+    }
 
     fn current_position(&self) -> Point {
         self.current

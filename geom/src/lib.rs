@@ -82,46 +82,47 @@ pub use euclid;
 #[macro_use]
 pub extern crate serde;
 
-#[macro_use] mod segment;
-pub mod quadratic_bezier;
-pub mod cubic_bezier;
+#[macro_use]
+mod segment;
 pub mod arc;
-pub mod utils;
-pub mod cubic_to_quadratic;
+pub mod cubic_bezier;
 mod cubic_bezier_intersections;
+pub mod cubic_to_quadratic;
 mod flatten_cubic;
-mod triangle;
 mod line;
 mod monotonic;
+pub mod quadratic_bezier;
+mod triangle;
+pub mod utils;
 
 #[doc(inline)]
-pub use crate::quadratic_bezier::QuadraticBezierSegment;
+pub use crate::arc::{Arc, ArcFlags, SvgArc};
 #[doc(inline)]
 pub use crate::cubic_bezier::CubicBezierSegment;
 #[doc(inline)]
-pub use crate::triangle::{Triangle};
-#[doc(inline)]
-pub use crate::line::{LineSegment, Line, LineEquation};
-#[doc(inline)]
-pub use crate::arc::{Arc, SvgArc, ArcFlags};
-#[doc(inline)]
-pub use crate::segment::{Segment, BezierSegment};
+pub use crate::line::{Line, LineEquation, LineSegment};
 #[doc(inline)]
 pub use crate::monotonic::Monotonic;
+#[doc(inline)]
+pub use crate::quadratic_bezier::QuadraticBezierSegment;
+#[doc(inline)]
+pub use crate::segment::{BezierSegment, Segment};
+#[doc(inline)]
+pub use crate::triangle::Triangle;
 
 pub use crate::scalar::Scalar;
 
 mod scalar {
-    pub(crate) use num_traits::{Float, FloatConst, NumCast};
-    pub(crate) use num_traits::One;
-    pub(crate) use num_traits::cast::cast;
     pub(crate) use euclid::Trig;
+    pub(crate) use num_traits::cast::cast;
+    pub(crate) use num_traits::One;
+    pub(crate) use num_traits::{Float, FloatConst, NumCast};
 
-    use std::fmt::{Display, Debug};
-    use std::ops::{AddAssign, SubAssign, MulAssign, DivAssign};
+    use std::fmt::{Debug, Display};
+    use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-    pub trait Scalar
-        : Float
+    pub trait Scalar:
+        Float
         + NumCast
         + FloatConst
         + Sized
@@ -168,7 +169,9 @@ mod scalar {
         const EPSILON: Self = 1e-5;
 
         #[inline]
-        fn value(v: f32) -> Self { v }
+        fn value(v: f32) -> Self {
+            v
+        }
     }
 
     impl Scalar for f64 {
@@ -188,7 +191,9 @@ mod scalar {
         const EPSILON: Self = 1e-8;
 
         #[inline]
-        fn value(v: f32) -> Self { v as f64 }
+        fn value(v: f32) -> Self {
+            v as f64
+        }
     }
 }
 
@@ -283,10 +288,10 @@ pub mod math {
 }
 
 pub mod traits {
-    pub use crate::segment::{Segment, FlatteningStep};
+    pub use crate::segment::{FlatteningStep, Segment};
     //pub use monotonic::MonotonicSegment;
 
-    use crate::generic_math::{Point, Vector, Transform, Rotation, Translation, Scale};
+    use crate::generic_math::{Point, Rotation, Scale, Transform, Translation, Vector};
     use crate::Scalar;
 
     pub trait Transformation<S> {

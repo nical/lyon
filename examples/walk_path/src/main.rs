@@ -1,25 +1,25 @@
 #[macro_use]
 extern crate gfx;
-extern crate gfx_window_glutin;
 extern crate gfx_device_gl;
+extern crate gfx_window_glutin;
 extern crate glutin;
 extern crate lyon;
 
+use lyon::algorithms::walk;
 use lyon::extra::rust_logo::build_logo_path;
-use lyon::path::Path;
+use lyon::math::*;
 use lyon::path::builder::*;
 use lyon::path::iterator::*;
-use lyon::math::*;
-use lyon::tessellation::geometry_builder::*;
+use lyon::path::Path;
 use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::{FillTessellator, FillOptions, FillAttributes};
-use lyon::algorithms::walk;
+use lyon::tessellation::geometry_builder::*;
+use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 
 use gfx::traits::{Device, FactoryExt};
 
-use glutin::{EventsLoop, KeyboardInput};
-use glutin::ElementState::Pressed;
 use glutin::dpi::LogicalSize;
+use glutin::ElementState::Pressed;
+use glutin::{EventsLoop, KeyboardInput};
 
 use std::ops::Rem;
 
@@ -57,18 +57,21 @@ fn main() {
 
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
-    FillTessellator::new().tessellate_path(
-        &arrow_path,
-        &FillOptions::tolerance(tolerance),
-        &mut BuffersBuilder::new(&mut geometry, WithId(0))
-    ).unwrap();
+    FillTessellator::new()
+        .tessellate_path(
+            &arrow_path,
+            &FillOptions::tolerance(tolerance),
+            &mut BuffersBuilder::new(&mut geometry, WithId(0)),
+        )
+        .unwrap();
 
     let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
     fill_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::default(),
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {
@@ -80,7 +83,10 @@ fn main() {
     }
 
     let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(LogicalSize { width: DEFAULT_WINDOW_WIDTH as f64, height: DEFAULT_WINDOW_HEIGHT as f64 })
+        .with_dimensions(LogicalSize {
+            width: DEFAULT_WINDOW_WIDTH as f64,
+            height: DEFAULT_WINDOW_HEIGHT as f64,
+        })
         .with_decorations(true)
         .with_title("lyon".to_string());
 
@@ -89,44 +95,50 @@ fn main() {
     let mut events_loop = glutin::EventsLoop::new();
 
     let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(glutin_builder, context, &events_loop).unwrap();
+        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(
+            glutin_builder,
+            context,
+            &events_loop,
+        )
+        .unwrap();
 
-    let bg_pso = factory.create_pipeline_simple(
-        BACKGROUND_VERTEX_SHADER.as_bytes(),
-        BACKGROUND_FRAGMENT_SHADER.as_bytes(),
-        bg_pipeline::new(),
-    ).unwrap();
+    let bg_pso = factory
+        .create_pipeline_simple(
+            BACKGROUND_VERTEX_SHADER.as_bytes(),
+            BACKGROUND_FRAGMENT_SHADER.as_bytes(),
+            bg_pipeline::new(),
+        )
+        .unwrap();
 
-    let path_shader = factory.link_program(
-        VERTEX_SHADER.as_bytes(),
-        FRAGMENT_SHADER.as_bytes()
-    ).unwrap();
+    let path_shader = factory
+        .link_program(VERTEX_SHADER.as_bytes(), FRAGMENT_SHADER.as_bytes())
+        .unwrap();
 
-    let path_pso = factory.create_pipeline_from_program(
-        &path_shader,
-        gfx::Primitive::TriangleList,
-        gfx::state::Rasterizer::new_fill().with_cull_back(),
-        path_pipeline::new(),
-    ).unwrap();
+    let path_pso = factory
+        .create_pipeline_from_program(
+            &path_shader,
+            gfx::Primitive::TriangleList,
+            gfx::state::Rasterizer::new_fill().with_cull_back(),
+            path_pipeline::new(),
+        )
+        .unwrap();
 
     let mut wireframe_fill_mode = gfx::state::Rasterizer::new_fill();
     wireframe_fill_mode.method = gfx::state::RasterMethod::Line(1);
-    let wireframe_pso = factory.create_pipeline_from_program(
-        &path_shader,
-        gfx::Primitive::TriangleList,
-        wireframe_fill_mode,
-        path_pipeline::new(),
-    ).unwrap();
+    let wireframe_pso = factory
+        .create_pipeline_from_program(
+            &path_shader,
+            gfx::Primitive::TriangleList,
+            wireframe_fill_mode,
+            path_pipeline::new(),
+        )
+        .unwrap();
 
-    let (bg_vbo, bg_range) = factory.create_vertex_buffer_with_slice(
-        &bg_geometry.vertices[..],
-        &bg_geometry.indices[..]
-    );
+    let (bg_vbo, bg_range) = factory
+        .create_vertex_buffer_with_slice(&bg_geometry.vertices[..], &bg_geometry.indices[..]);
 
-    let (path_vbo, mut path_range) = factory.create_vertex_buffer_with_slice(
-        &geometry.vertices[..],
-        &geometry.indices[..]
-    );
+    let (path_vbo, mut path_range) =
+        factory.create_vertex_buffer_with_slice(&geometry.vertices[..], &geometry.indices[..]);
 
     let gpu_primitives = factory.create_constant_buffer(PRIM_BUFFER_LEN);
     let constants = factory.create_constant_buffer(1);
@@ -147,7 +159,7 @@ fn main() {
 
     let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
-    let mut frame_count: usize   = 0;
+    let mut frame_count: usize = 0;
     while update_inputs(&mut events_loop, &mut scene) {
         gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
         let size = window.get_inner_size().unwrap();
@@ -158,7 +170,7 @@ fn main() {
 
         let mut i = 0;
         {
-            let offset = (frame_count as f32 * 0.1).rem(3.0+3.0+scene.arrow_spacing);
+            let offset = (frame_count as f32 * 0.1).rem(3.0 + 3.0 + scene.arrow_spacing);
             // Walk along the logo and apply the pattern. This will invoke
             // the pattern's callback that fills the primitive buffer.
             walk::walk_along_path(
@@ -181,7 +193,7 @@ fn main() {
                     },
                     intervals: &[scene.arrow_spacing, 3.0, 3.0],
                     index: 0,
-                }
+                },
             );
         }
         path_range.instances = Some((i as u32, 0));
@@ -196,11 +208,9 @@ fn main() {
             },
         );
 
-        cmd_queue.update_buffer(
-            &gpu_primitives,
-            &cpu_primitives[..],
-            0
-        ).unwrap();
+        cmd_queue
+            .update_buffer(&gpu_primitives, &cpu_primitives[..], 0)
+            .unwrap();
 
         let pso = if scene.show_wireframe {
             &wireframe_pso
@@ -241,7 +251,7 @@ fn main() {
     }
 }
 
-gfx_defines!{
+gfx_defines! {
     constant Globals {
         resolution: [f32; 2] = "u_resolution",
         scroll_offset: [f32; 2] = "u_scroll_offset",
@@ -437,77 +447,81 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
                 ..
             } => {
                 status = false;
-            },
+            }
             Event::WindowEvent {
-                event: WindowEvent::MouseInput {
-                    state: glutin::ElementState::Pressed, button: glutin::MouseButton::Left,
-                ..},
-            ..} => {
+                event:
+                    WindowEvent::MouseInput {
+                        state: glutin::ElementState::Pressed,
+                        button: glutin::MouseButton::Left,
+                        ..
+                    },
+                ..
+            } => {
                 let half_width = scene.window_size.0 * 0.5;
                 let half_height = scene.window_size.1 * 0.5;
-                println!("X: {}, Y: {}",
+                println!(
+                    "X: {}, Y: {}",
                     (scene.cursor_position.0 - half_width) / scene.zoom + scene.scroll.x,
                     (scene.cursor_position.1 - half_height) / scene.zoom + scene.scroll.y,
                 );
             }
             Event::WindowEvent {
-                event: WindowEvent::CursorMoved {
-                    position,
-                    ..},
-            ..} => {
+                event: WindowEvent::CursorMoved { position, .. },
+                ..
+            } => {
                 scene.cursor_position = (position.x as f32, position.y as f32);
             }
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state: Pressed,
-                        virtual_keycode: Some(key),
+                event:
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: Pressed,
+                                virtual_keycode: Some(key),
+                                ..
+                            },
                         ..
                     },
-                    ..
-                },
                 ..
-            } => {
-                match key {
-                    VirtualKeyCode::Escape => {
-                        status = false;
-                    }
-                    VirtualKeyCode::PageDown => {
-                        scene.target_zoom *= 0.8;
-                    }
-                    VirtualKeyCode::PageUp => {
-                        scene.target_zoom *= 1.25;
-                    }
-                    VirtualKeyCode::Left => {
-                        scene.target_scroll.x -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Right => {
-                        scene.target_scroll.x += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Up => {
-                        scene.target_scroll.y -= 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::Down => {
-                        scene.target_scroll.y += 50.0 / scene.target_zoom;
-                    }
-                    VirtualKeyCode::P => {
-                        scene.show_points = !scene.show_points;
-                    }
-                    VirtualKeyCode::W => {
-                        scene.show_wireframe = !scene.show_wireframe;
-                    }
-                    VirtualKeyCode::B => {
-                        scene.draw_background = !scene.draw_background;
-                    }
-                    VirtualKeyCode::A => {
-                        scene.target_arrow_spacing /= 0.9;
-                    }
-                    VirtualKeyCode::Z => {
-                        scene.target_arrow_spacing *= 0.9;
-                    }
-                    _key => {}
+            } => match key {
+                VirtualKeyCode::Escape => {
+                    status = false;
                 }
-            }
+                VirtualKeyCode::PageDown => {
+                    scene.target_zoom *= 0.8;
+                }
+                VirtualKeyCode::PageUp => {
+                    scene.target_zoom *= 1.25;
+                }
+                VirtualKeyCode::Left => {
+                    scene.target_scroll.x -= 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Right => {
+                    scene.target_scroll.x += 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Up => {
+                    scene.target_scroll.y -= 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::Down => {
+                    scene.target_scroll.y += 50.0 / scene.target_zoom;
+                }
+                VirtualKeyCode::P => {
+                    scene.show_points = !scene.show_points;
+                }
+                VirtualKeyCode::W => {
+                    scene.show_wireframe = !scene.show_wireframe;
+                }
+                VirtualKeyCode::B => {
+                    scene.draw_background = !scene.draw_background;
+                }
+                VirtualKeyCode::A => {
+                    scene.target_arrow_spacing /= 0.9;
+                }
+                VirtualKeyCode::Z => {
+                    scene.target_arrow_spacing *= 0.9;
+                }
+                _key => {}
+            },
             _evt => {
                 //println!("{:?}", _evt);
             }
@@ -517,8 +531,8 @@ fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool 
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
-    scene.arrow_spacing = scene.arrow_spacing +
-        (scene.target_arrow_spacing - scene.arrow_spacing) / 5.0;
+    scene.arrow_spacing =
+        scene.arrow_spacing + (scene.target_arrow_spacing - scene.arrow_spacing) / 5.0;
 
     return status;
 }

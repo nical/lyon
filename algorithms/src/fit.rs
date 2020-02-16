@@ -1,10 +1,10 @@
 //! Fit paths into rectangles.
 
-use crate::math::*;
 use crate::aabb::bounding_rect;
-use crate::path::Path;
-use crate::path::iterator::*;
+use crate::math::*;
 use crate::path::builder::*;
+use crate::path::iterator::*;
+use crate::path::Path;
 
 /// The strategy to use when fitting (stretching, overflow, etc.)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -25,7 +25,7 @@ pub enum FitStyle {
 pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Transform {
     let scale: Vector = vector(
         dst_rect.size.width / src_rect.size.width,
-        dst_rect.size.height / src_rect.size.height
+        dst_rect.size.height / src_rect.size.height,
     );
 
     let scale = match style {
@@ -77,7 +77,7 @@ fn simple_fit() {
     let t = fit_rectangle(
         &rect(0.0, 0.0, 1.0, 1.0),
         &rect(0.0, 0.0, 2.0, 2.0),
-        FitStyle::Stretch
+        FitStyle::Stretch,
     );
 
     assert!(approx_eq(
@@ -88,7 +88,7 @@ fn simple_fit() {
     let t = fit_rectangle(
         &rect(1.0, 2.0, 4.0, 4.0),
         &rect(0.0, 0.0, 2.0, 8.0),
-        FitStyle::Stretch
+        FitStyle::Stretch,
     );
 
     assert!(approx_eq(
@@ -99,7 +99,7 @@ fn simple_fit() {
     let t = fit_rectangle(
         &rect(1.0, 2.0, 2.0, 4.0),
         &rect(0.0, 0.0, 2.0, 2.0),
-        FitStyle::Horizontal
+        FitStyle::Horizontal,
     );
 
     assert!(approx_eq(
@@ -110,7 +110,7 @@ fn simple_fit() {
     let t = fit_rectangle(
         &rect(1.0, 2.0, 2.0, 2.0),
         &rect(0.0, 0.0, 4.0, 2.0),
-        FitStyle::Horizontal
+        FitStyle::Horizontal,
     );
 
     assert!(approx_eq(
@@ -118,4 +118,3 @@ fn simple_fit() {
         &rect(0.0, -1.0, 4.0, 4.0)
     ));
 }
-

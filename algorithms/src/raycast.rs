@@ -1,8 +1,8 @@
 //! Find the first collision between a ray and a path.
 
+use crate::geom::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
+use crate::math::{point, vector, Point, Vector};
 use crate::path::PathEvent;
-use crate::math::{Point, point, Vector, vector};
-use crate::geom::{LineSegment, QuadraticBezierSegment, CubicBezierSegment, Line};
 use std::f32;
 
 pub struct Ray {
@@ -22,7 +22,7 @@ pub struct Hit {
 /// Find the closest collision between a ray and the path.
 pub fn raycast_path<Iter>(ray: &Ray, path: Iter, tolerance: f32) -> Option<Hit>
 where
-    Iter: Iterator<Item=PathEvent>,
+    Iter: Iterator<Item = PathEvent>,
 {
     let ray_len = ray.direction.square_length();
     if ray_len == 0.0 || ray_len.is_nan() {
@@ -46,27 +46,38 @@ where
                 test_segment(&mut state, &LineSegment { from, to });
             }
             PathEvent::End { last, first, .. } => {
-                test_segment(&mut state, &LineSegment { from: last, to: first });
+                test_segment(
+                    &mut state,
+                    &LineSegment {
+                        from: last,
+                        to: first,
+                    },
+                );
             }
             PathEvent::Quadratic { from, ctrl, to } => {
                 let mut prev = from;
-                QuadraticBezierSegment { from, ctrl, to }.for_each_flattened(
-                    tolerance,
-                    &mut|p| {
-                        test_segment(&mut state, &LineSegment { from: prev, to: p });
-                        prev = p;
-                    }
-                );
+                QuadraticBezierSegment { from, ctrl, to }.for_each_flattened(tolerance, &mut |p| {
+                    test_segment(&mut state, &LineSegment { from: prev, to: p });
+                    prev = p;
+                });
             }
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+            PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            } => {
                 let mut prev = from;
-                CubicBezierSegment { from, ctrl1, ctrl2, to }.for_each_flattened(
-                    tolerance,
-                    &mut|p| {
-                        test_segment(&mut state, &LineSegment { from: prev, to: p });
-                        prev = p;
-                    }
-                );
+                CubicBezierSegment {
+                    from,
+                    ctrl1,
+                    ctrl2,
+                    to,
+                }
+                .for_each_flattened(tolerance, &mut |p| {
+                    test_segment(&mut state, &LineSegment { from: prev, to: p });
+                    prev = p;
+                });
             }
         }
     }
@@ -117,41 +128,59 @@ fn test_raycast() {
     builder.close();
     let path = builder.build();
 
-    assert!(
-        raycast_path(
-            &Ray { origin: point(-1.0, 2.0), direction: vector(1.0, 0.0) },
-            path.iter(),
-            0.1
-        ).is_none()
-    );
-
-    let hit = raycast_path(
-        &Ray { origin: point(-1.0, 0.5), direction: vector(1.0, 0.0) },
+    assert!(raycast_path(
+        &Ray {
+            origin: point(-1.0, 2.0),
+            direction: vector(1.0, 0.0)
+        },
         path.iter(),
         0.1
-    ).unwrap();
+    )
+    .is_none());
+
+    let hit = raycast_path(
+        &Ray {
+            origin: point(-1.0, 0.5),
+            direction: vector(1.0, 0.0),
+        },
+        path.iter(),
+        0.1,
+    )
+    .unwrap();
     assert!(hit.position.approx_eq(&point(0.0, 0.5)));
     assert!(hit.normal.approx_eq(&vector(-1.0, 0.0)));
 
     let hit = raycast_path(
-        &Ray { origin: point(-1.0, 0.0), direction: vector(1.0, 0.0) },
+        &Ray {
+            origin: point(-1.0, 0.0),
+            direction: vector(1.0, 0.0),
+        },
         path.iter(),
-        0.1
-    ).unwrap();
+        0.1,
+    )
+    .unwrap();
     assert!(hit.position.approx_eq(&point(0.0, 0.0)));
 
     let hit = raycast_path(
-        &Ray { origin: point(0.5, 0.5), direction: vector(1.0, 0.0) },
+        &Ray {
+            origin: point(0.5, 0.5),
+            direction: vector(1.0, 0.0),
+        },
         path.iter(),
-        0.1
-    ).unwrap();
+        0.1,
+    )
+    .unwrap();
     assert!(hit.position.approx_eq(&point(1.0, 0.5)));
     assert!(hit.normal.approx_eq(&vector(-1.0, 0.0)));
 
     let hit = raycast_path(
-        &Ray { origin: point(0.0, -1.0), direction: vector(1.0, 1.0) },
+        &Ray {
+            origin: point(0.0, -1.0),
+            direction: vector(1.0, 1.0),
+        },
         path.iter(),
-        0.1
-    ).unwrap();
+        0.1,
+    )
+    .unwrap();
     assert!(hit.position.approx_eq(&point(1.0, 0.0)));
 }

@@ -1,13 +1,13 @@
-use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
-use crate::math::{Point, point};
-use crate::path::{PathEvent, IdEvent, EndpointId, PositionStore};
-use crate::fill::{is_after, compare_positions};
+use crate::fill::{compare_positions, is_after};
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
+use crate::math::{point, Point};
+use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
 use crate::Orientation;
 
-use std::{f32, u32, usize};
 use std::cmp::Ordering;
-use std::ops::Range;
 use std::mem::swap;
+use std::ops::Range;
+use std::{f32, u32, usize};
 
 #[inline]
 fn reorient(p: Point) -> Point {
@@ -176,8 +176,12 @@ impl EventQueue {
         self.events[prev as usize].next_event = id;
     }
 
-
-    pub(crate) fn insert_sorted(&mut self, position: Point, data: EdgeData, after: TessEventId) -> TessEventId {
+    pub(crate) fn insert_sorted(
+        &mut self,
+        position: Point,
+        data: EdgeData,
+        after: TessEventId,
+    ) -> TessEventId {
         debug_assert!(self.sorted);
         debug_assert!(is_after(data.to, position));
 
@@ -235,19 +239,29 @@ impl EventQueue {
     }
 
     /// Returns the ID of the first event in the queue.
-    pub(crate) fn first_id(&self) -> TessEventId { self.first }
+    pub(crate) fn first_id(&self) -> TessEventId {
+        self.first
+    }
 
     /// Returns the ID of the next (non-sibling) event after the provided one.
-    pub(crate) fn next_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_event }
+    pub(crate) fn next_id(&self, id: TessEventId) -> TessEventId {
+        self.events[id as usize].next_event
+    }
 
     /// Returns the ID of the next sibling event after the provided one.
-    pub(crate) fn next_sibling_id(&self, id: TessEventId) -> TessEventId { self.events[id as usize].next_sibling }
+    pub(crate) fn next_sibling_id(&self, id: TessEventId) -> TessEventId {
+        self.events[id as usize].next_sibling
+    }
 
     // TODO: we should be able to simplify this and just compare with INVALID_EVENT_ID
-    pub(crate) fn valid_id(&self, id: TessEventId) -> bool { (id as usize) < self.events.len() }
+    pub(crate) fn valid_id(&self, id: TessEventId) -> bool {
+        (id as usize) < self.events.len()
+    }
 
     /// Returns the position of a given event in the queue.
-    pub(crate) fn position(&self, id: TessEventId) -> Point { self.events[id as usize].position }
+    pub(crate) fn position(&self, id: TessEventId) -> Point {
+        self.events[id as usize].position
+    }
 
     fn sort(&mut self) {
         self.sorted = true;
@@ -307,7 +321,10 @@ impl EventQueue {
             }
 
             let node;
-            match compare_positions(self.events[a as usize].position, self.events[b as usize].position) {
+            match compare_positions(
+                self.events[a as usize].position,
+                self.events[b as usize].position,
+            ) {
                 Ordering::Less => {
                     node = a;
                     a = self.events[a as usize].next_event;
@@ -434,71 +451,69 @@ impl EventQueueBuilder {
         &mut self,
         tolerance: f32,
         sweep_orientation: Orientation,
-        path: impl Iterator<Item=PathEvent>,
+        path: impl Iterator<Item = PathEvent>,
     ) {
         self.reset();
 
         self.tolerance = tolerance;
         let endpoint_id = EndpointId(std::u32::MAX);
         match sweep_orientation {
-            Orientation::Vertical => for evt in path {
-                match evt {
-                    PathEvent::Begin { at } => {
-                        self.begin(at, endpoint_id);
-                    }
-                    PathEvent::Line { to, .. } => {
-                        self.line_segment(to, endpoint_id, 0.0, 1.0);
-                    }
-                    PathEvent::Quadratic { ctrl, to, .. } => {
-                        self.quadratic_bezier_segment(
-                            ctrl,
-                            to,
-                            endpoint_id,
-                        );
-                    }
-                    PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
-                        self.cubic_bezier_segment(
-                            ctrl1,
-                            ctrl2,
-                            to,
-                            endpoint_id,
-                        );
-                    }
-                    PathEvent::End { first, .. } => {
-                        self.end(first, endpoint_id);
+            Orientation::Vertical => {
+                for evt in path {
+                    match evt {
+                        PathEvent::Begin { at } => {
+                            self.begin(at, endpoint_id);
+                        }
+                        PathEvent::Line { to, .. } => {
+                            self.line_segment(to, endpoint_id, 0.0, 1.0);
+                        }
+                        PathEvent::Quadratic { ctrl, to, .. } => {
+                            self.quadratic_bezier_segment(ctrl, to, endpoint_id);
+                        }
+                        PathEvent::Cubic {
+                            ctrl1, ctrl2, to, ..
+                        } => {
+                            self.cubic_bezier_segment(ctrl1, ctrl2, to, endpoint_id);
+                        }
+                        PathEvent::End { first, .. } => {
+                            self.end(first, endpoint_id);
+                        }
                     }
                 }
             }
 
-            Orientation::Horizontal => for evt in path {
-                match evt {
-                    PathEvent::Begin { at } => {
-                        self.begin(reorient(at), endpoint_id);
-                    }
-                    PathEvent::Line { to, .. } => {
-                        self.line_segment(reorient(to), endpoint_id, 0.0, 1.0);
-                    }
-                    PathEvent::Quadratic { ctrl, to, .. } => {
-                        self.quadratic_bezier_segment(
-                            reorient(ctrl),
-                            reorient(to),
-                            endpoint_id,
-                        );
-                    }
-                    PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
-                        self.cubic_bezier_segment(
-                            reorient(ctrl1),
-                            reorient(ctrl2),
-                            reorient(to),
-                            endpoint_id,
-                        );
-                    }
-                    PathEvent::End { first, .. } => {
-                        self.end(reorient(first), endpoint_id);
+            Orientation::Horizontal => {
+                for evt in path {
+                    match evt {
+                        PathEvent::Begin { at } => {
+                            self.begin(reorient(at), endpoint_id);
+                        }
+                        PathEvent::Line { to, .. } => {
+                            self.line_segment(reorient(to), endpoint_id, 0.0, 1.0);
+                        }
+                        PathEvent::Quadratic { ctrl, to, .. } => {
+                            self.quadratic_bezier_segment(
+                                reorient(ctrl),
+                                reorient(to),
+                                endpoint_id,
+                            );
+                        }
+                        PathEvent::Cubic {
+                            ctrl1, ctrl2, to, ..
+                        } => {
+                            self.cubic_bezier_segment(
+                                reorient(ctrl1),
+                                reorient(ctrl2),
+                                reorient(to),
+                                endpoint_id,
+                            );
+                        }
+                        PathEvent::End { first, .. } => {
+                            self.end(reorient(first), endpoint_id);
+                        }
                     }
                 }
             }
-
         }
 
         // Should finish with an end event.
@@ -509,73 +524,75 @@ impl EventQueueBuilder {
         &mut self,
         tolerance: f32,
         sweep_orientation: Orientation,
-        path_events: impl Iterator<Item=IdEvent>,
+        path_events: impl Iterator<Item = IdEvent>,
         points: &impl PositionStore,
     ) {
         self.reset();
 
         self.tolerance = tolerance;
         match sweep_orientation {
-            Orientation::Vertical => for evt in path_events {
-                match evt {
-                    IdEvent::Begin { at } => {
-                        self.begin(points.get_endpoint(at), at);
-                    }
-                    IdEvent::Line { to, .. } => {
-                        self.line_segment(
-                            points.get_endpoint(to), to,
-                            0.0, 1.0,
-                        );
-                    }
-                    IdEvent::Quadratic { ctrl, to, .. } => {
-                        self.quadratic_bezier_segment(
-                            points.get_control_point(ctrl),
-                            points.get_endpoint(to),
-                            to,
-                        );
-                    }
-                    IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
-                        self.cubic_bezier_segment(
-                            points.get_control_point(ctrl1),
-                            points.get_control_point(ctrl2),
-                            points.get_endpoint(to),
-                            to,
-                        );
-                    }
-                    IdEvent::End { first, .. } => {
-                        self.end(points.get_endpoint(first), first);
+            Orientation::Vertical => {
+                for evt in path_events {
+                    match evt {
+                        IdEvent::Begin { at } => {
+                            self.begin(points.get_endpoint(at), at);
+                        }
+                        IdEvent::Line { to, .. } => {
+                            self.line_segment(points.get_endpoint(to), to, 0.0, 1.0);
+                        }
+                        IdEvent::Quadratic { ctrl, to, .. } => {
+                            self.quadratic_bezier_segment(
+                                points.get_control_point(ctrl),
+                                points.get_endpoint(to),
+                                to,
+                            );
+                        }
+                        IdEvent::Cubic {
+                            ctrl1, ctrl2, to, ..
+                        } => {
+                            self.cubic_bezier_segment(
+                                points.get_control_point(ctrl1),
+                                points.get_control_point(ctrl2),
+                                points.get_endpoint(to),
+                                to,
+                            );
+                        }
+                        IdEvent::End { first, .. } => {
+                            self.end(points.get_endpoint(first), first);
+                        }
                     }
                 }
             }
 
-            Orientation::Horizontal => for evt in path_events {
-                match evt {
-                    IdEvent::Begin { at } => {
-                        self.begin(reorient(points.get_endpoint(at)), at);
-                    }
-                    IdEvent::Line { to, .. } => {
-                        self.line_segment(
-                            reorient(points.get_endpoint(to)), to,
-                            0.0, 1.0,
-                        );
-                    }
-                    IdEvent::Quadratic { ctrl, to, .. } => {
-                        self.quadratic_bezier_segment(
-                            reorient(points.get_control_point(ctrl)),
-                            reorient(points.get_endpoint(to)),
-                            to,
-                        );
-                    }
-                    IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
-                        self.cubic_bezier_segment(
-                            reorient(points.get_control_point(ctrl1)),
-                            reorient(points.get_control_point(ctrl2)),
-                            reorient(points.get_endpoint(to)),
-                            to,
-                        );
-                    }
-                    IdEvent::End { first, .. } => {
-                        self.end(reorient(points.get_endpoint(first)), first);
+            Orientation::Horizontal => {
+                for evt in path_events {
+                    match evt {
+                        IdEvent::Begin { at } => {
+                            self.begin(reorient(points.get_endpoint(at)), at);
+                        }
+                        IdEvent::Line { to, .. } => {
+                            self.line_segment(reorient(points.get_endpoint(to)), to, 0.0, 1.0);
+                        }
+                        IdEvent::Quadratic { ctrl, to, .. } => {
+                            self.quadratic_bezier_segment(
+                                reorient(points.get_control_point(ctrl)),
+                                reorient(points.get_endpoint(to)),
+                                to,
+                            );
+                        }
+                        IdEvent::Cubic {
+                            ctrl1, ctrl2, to, ..
+                        } => {
+                            self.cubic_bezier_segment(
+                                reorient(points.get_control_point(ctrl1)),
+                                reorient(points.get_control_point(ctrl2)),
+                                reorient(points.get_endpoint(to)),
+                                to,
+                            );
+                        }
+                        IdEvent::End { first, .. } => {
+                            self.end(reorient(points.get_endpoint(first)), first);
+                        }
                     }
                 }
             }
@@ -597,13 +614,7 @@ impl EventQueueBuilder {
         });
     }
 
-    fn vertex_event_on_curve(
-        &mut self,
-        at: Point,
-        t: f32,
-        from_id: EndpointId,
-        to_id: EndpointId,
-    ) {
+    fn vertex_event_on_curve(&mut self, at: Point, t: f32, from_id: EndpointId, to_id: EndpointId) {
         self.queue.push_unsorted(at);
         self.queue.edge_data.push(EdgeData {
             to: point(f32::NAN, f32::NAN),
@@ -685,12 +696,7 @@ impl EventQueueBuilder {
         self.prev_evt_is_edge = true;
     }
 
-    fn line_segment(
-        &mut self,
-        to: Point,
-        to_id: EndpointId,
-        t0: f32, t1: f32,
-    ) {
+    fn line_segment(&mut self, to: Point, to_id: EndpointId, t0: f32, t1: f32) {
         let from = self.current;
         if from == to {
             return;
@@ -706,25 +712,14 @@ impl EventQueueBuilder {
             self.second = to;
         }
 
-        self.add_edge(
-            from, to,
-            1,
-            self.prev_endpoint_id,
-            to_id,
-            t0, t1
-        );
+        self.add_edge(from, to, 1, self.prev_endpoint_id, to_id, t0, t1);
 
         self.prev = self.current;
         self.prev_endpoint_id = to_id;
         self.current = to;
     }
 
-    fn quadratic_bezier_segment(
-        &mut self,
-        ctrl: Point,
-        to: Point,
-        to_id: EndpointId,
-    ) {
+    fn quadratic_bezier_segment(&mut self, ctrl: Point, to: Point, to_id: EndpointId) {
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
         // play out the same way, which avoid cracks.
@@ -752,33 +747,22 @@ impl EventQueueBuilder {
         let mut from = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut|to, t1| {
+        segment.for_each_flattened_with_t(self.tolerance, &mut |to, t1| {
             if from == to {
                 return;
             }
 
             if first == None {
                 first = Some(to)
-                // We can't call vertex(prev, from, to) in the first iteration
-                // because if we flipped the curve, we don't have a proper value for
-                // the previous vertex yet.
-                // We'll handle it after the loop.
+            // We can't call vertex(prev, from, to) in the first iteration
+            // because if we flipped the curve, we don't have a proper value for
+            // the previous vertex yet.
+            // We'll handle it after the loop.
             } else if is_after(from, to) && is_after(from, prev) {
-                self.vertex_event_on_curve(
-                    from,
-                    t0,
-                    self.prev_endpoint_id,
-                    to_id,
-                );
+                self.vertex_event_on_curve(from, t0, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(
-                from, to,
-                winding,
-                self.prev_endpoint_id,
-                to_id,
-                t0, t1,
-            );
+            self.add_edge(from, to, winding, self.prev_endpoint_id, to_id, t0, t1);
 
             t0 = t1;
             prev = from;
@@ -786,7 +770,11 @@ impl EventQueueBuilder {
         });
 
         if let Some(first) = first {
-            let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+            let (second, previous) = if needs_swap {
+                (prev, first)
+            } else {
+                (first, prev)
+            };
 
             if is_first_edge {
                 self.second = second;
@@ -802,13 +790,7 @@ impl EventQueueBuilder {
         }
     }
 
-    fn cubic_bezier_segment(
-        &mut self,
-        ctrl1: Point,
-        ctrl2: Point,
-        to: Point,
-        to_id: EndpointId,
-    ) {
+    fn cubic_bezier_segment(&mut self, ctrl1: Point, ctrl2: Point, to: Point, to_id: EndpointId) {
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
         // play out the same way, which avoid cracks.
@@ -838,33 +820,22 @@ impl EventQueueBuilder {
         let mut from = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut|to, t1| {
+        segment.for_each_flattened_with_t(self.tolerance, &mut |to, t1| {
             if from == to {
                 return;
             }
 
             if first == None {
                 first = Some(to)
-                // We can't call vertex(prev, from, to) in the first iteration
-                // because if we flipped the curve, we don't have a proper value for
-                // the previous vertex yet.
-                // We'll handle it after the loop.
+            // We can't call vertex(prev, from, to) in the first iteration
+            // because if we flipped the curve, we don't have a proper value for
+            // the previous vertex yet.
+            // We'll handle it after the loop.
             } else if is_after(from, to) && is_after(from, prev) {
-                self.vertex_event_on_curve(
-                    from,
-                    t0,
-                    self.prev_endpoint_id,
-                    to_id,
-                );
+                self.vertex_event_on_curve(from, t0, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(
-                from, to,
-                winding,
-                self.prev_endpoint_id,
-                to_id,
-                t0, t1,
-            );
+            self.add_edge(from, to, winding, self.prev_endpoint_id, to_id, t0, t1);
 
             t0 = t1;
             prev = from;
@@ -872,7 +843,11 @@ impl EventQueueBuilder {
         });
 
         if let Some(first) = first {
-            let (second, previous) = if needs_swap { (prev, first) } else { (first, prev) };
+            let (second, previous) = if needs_swap {
+                (prev, first)
+            } else {
+                (first, prev)
+            };
 
             if is_first_edge {
                 self.second = second;
@@ -990,18 +965,15 @@ fn test_event_queue_push_sorted() {
 
 #[test]
 fn test_logo() {
-    use crate::path::{Path, builder::Build};
+    use crate::path::{builder::Build, Path};
 
     let mut path = Path::builder().with_svg();
 
     crate::extra::rust_logo::build_logo_path(&mut path);
     let path = path.build();
 
-    crate::extra::debugging::find_reduced_test_case(
-        path.as_slice(),
-        &|path: Path| {
-            let _ = EventQueue::from_path(0.05, path.iter());
-            true
-        },
-    );
+    crate::extra::debugging::find_reduced_test_case(path.as_slice(), &|path: Path| {
+        let _ = EventQueue::from_path(0.05, path.iter());
+        true
+    });
 }

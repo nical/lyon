@@ -1,8 +1,8 @@
 //! Bounding rectangle computation for paths.
 
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
+use crate::math::{point, Point, Rect};
 use crate::path::PathEvent;
-use crate::math::{Point, point, Rect};
-use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
@@ -11,8 +11,8 @@ use std::f32;
 /// [`building_rect`](fn.bounding_rect.html).
 pub fn fast_bounding_rect<Iter, Evt>(path: Iter) -> Rect
 where
-    Iter: Iterator<Item=Evt>,
-    Evt: FastBoundingRect
+    Iter: Iterator<Item = Evt>,
+    Evt: FastBoundingRect,
 {
     let mut min = point(f32::MAX, f32::MAX);
     let mut max = point(f32::MIN, f32::MIN);
@@ -51,7 +51,9 @@ impl FastBoundingRect for PathEvent {
                 *min = Point::min(*min, Point::min(*ctrl, *to));
                 *max = Point::max(*max, Point::max(*ctrl, *to));
             }
-            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+            PathEvent::Cubic {
+                ctrl1, ctrl2, to, ..
+            } => {
                 *min = Point::min(*min, Point::min(*ctrl1, Point::min(*ctrl2, *to)));
                 *max = Point::max(*max, Point::max(*ctrl1, Point::max(*ctrl2, *to)));
             }
@@ -63,7 +65,7 @@ impl FastBoundingRect for PathEvent {
 /// Computes the smallest axis-aligned rectangle that contains the path.
 pub fn bounding_rect<Iter, Evt>(path: Iter) -> Rect
 where
-    Iter: Iterator<Item=Evt>,
+    Iter: Iterator<Item = Evt>,
     Evt: TightBoundingRect,
 {
     let mut min = point(f32::MAX, f32::MAX);
@@ -101,24 +103,40 @@ impl TightBoundingRect for PathEvent {
                 *max = Point::max(*max, *to);
             }
             PathEvent::Quadratic { from, ctrl, to } => {
-                let r = QuadraticBezierSegment { from: *from, ctrl: *ctrl, to: *to }.bounding_rect();
+                let r = QuadraticBezierSegment {
+                    from: *from,
+                    ctrl: *ctrl,
+                    to: *to,
+                }
+                .bounding_rect();
                 *min = Point::min(*min, r.min());
                 *max = Point::max(*max, r.max());
             }
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
-                let r = CubicBezierSegment { from: *from, ctrl1: *ctrl1, ctrl2: *ctrl2, to: *to }.bounding_rect();
+            PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            } => {
+                let r = CubicBezierSegment {
+                    from: *from,
+                    ctrl1: *ctrl1,
+                    ctrl2: *ctrl2,
+                    to: *to,
+                }
+                .bounding_rect();
                 *min = Point::min(*min, r.min());
                 *max = Point::max(*max, r.max());
             }
-            PathEvent:: End { .. } => {}
+            PathEvent::End { .. } => {}
         }
     }
 }
 
 #[test]
 fn simple_bounding_rect() {
-    use crate::path::Path;
     use crate::math::rect;
+    use crate::path::Path;
 
     let mut builder = Path::builder();
     builder.move_to(point(-10.0, -3.0));
@@ -127,9 +145,12 @@ fn simple_bounding_rect() {
     builder.close();
     let path = builder.build();
 
-    assert_eq!(fast_bounding_rect(path.iter()), rect(-10.0, -12.0, 15.0, 16.0));
+    assert_eq!(
+        fast_bounding_rect(path.iter()),
+        rect(-10.0, -12.0, 15.0, 16.0)
+    );
 
-   let mut builder = Path::builder();
+    let mut builder = Path::builder();
     builder.move_to(point(0.0, 0.0));
     builder.cubic_bezier_to(point(-1.0, 2.0), point(3.0, -4.0), point(1.0, -1.0));
     let path = builder.build();

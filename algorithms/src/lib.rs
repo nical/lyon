@@ -9,14 +9,14 @@
 
 pub extern crate lyon_path as path;
 
-pub(crate) mod advanced_path;
-pub mod splitter;
-pub mod hatching;
-pub mod raycast;
-pub mod hit_test;
-pub mod walk;
 pub mod aabb;
+pub(crate) mod advanced_path;
 pub mod fit;
+pub mod hatching;
+pub mod hit_test;
+pub mod raycast;
+pub mod splitter;
+pub mod walk;
 
-pub use crate::path::math;
 pub use crate::path::geom;
+pub use crate::path::math;
