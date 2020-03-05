@@ -1,7 +1,7 @@
 //! Specific path types for polygons.
 
 use crate::math::Point;
-use crate::{ControlPointId, EndpointId, Event, EventId, IdEvent, Position, PositionStore};
+use crate::{ControlPointId, EndpointId, Event, EventId, IdEvent, PathEvent, Position, PositionStore};
 
 /// A view over a sequence of endpoint IDs forming a polygon.
 pub struct IdPolygonSlice<'l> {
@@ -41,7 +41,7 @@ impl<'l> IdPolygonSlice<'l> {
     }
 }
 
-// An iterator of `Event<EndpointId, ()>`.
+/// An iterator of `Event<EndpointId, ()>`.
 pub struct IdPolygonIter<'l> {
     points: std::slice::Iter<'l, EndpointId>,
     idx: u32,
@@ -85,6 +85,7 @@ pub struct PolygonSlice<'l, T> {
 }
 
 impl<'l, T> PolygonSlice<'l, T> {
+    /// Returns an iterator of `Event<&T>`.
     pub fn iter(&self) -> PolygonIter<'l, T> {
         PolygonIter {
             points: self.points.iter(),
@@ -94,8 +95,22 @@ impl<'l, T> PolygonSlice<'l, T> {
         }
     }
 
+    /// Returns an iterator of `IdEvent`.
     pub fn id_iter(&self) -> PolygonIdIter {
         PolygonIdIter::new(0..(self.points.len() as u32), self.closed)
+    }
+
+    /// Returns an iterator of `PathEvent`.
+    pub fn path_events(&self) -> PathEvents<T>
+    where
+        T: Position,
+    {
+        PathEvents {
+            points: self.points.iter(),
+            first: None,
+            prev: None,
+            closed: self.closed,
+        }
     }
 
     /// Returns the event for a given event ID.
@@ -127,7 +142,7 @@ impl<'l, T> std::ops::Index<EndpointId> for PolygonSlice<'l, T> {
     }
 }
 
-// An iterator of `Event<&Endpoint, ()>`.
+/// An iterator of `Event<&Endpoint, ()>`.
 pub struct PolygonIter<'l, T> {
     points: std::slice::Iter<'l, T>,
     prev: Option<&'l T>,
@@ -161,8 +176,44 @@ impl<'l, T> Iterator for PolygonIter<'l, T> {
     }
 }
 
+/// An iterator of `PathEvent`.
+pub struct PathEvents<'l, T> {
+    points: std::slice::Iter<'l, T>,
+    prev: Option<Point>,
+    first: Option<Point>,
+    closed: bool,
+}
+
+impl<'l, T: Position> Iterator for PathEvents<'l, T> {
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
+        match (self.prev, self.points.next()) {
+            (Some(from), Some(to)) => {
+                let to = to.position();
+                self.prev = Some(to);
+                Some(Event::Line { from, to })
+            }
+            (None, Some(at)) => {
+                let at = at.position();
+                self.prev = Some(at);
+                self.first = Some(at);
+                Some(Event::Begin { at })
+            }
+            (Some(last), None) => {
+                self.prev = None;
+                Some(Event::End {
+                    last,
+                    first: self.first.unwrap(),
+                    close: self.closed,
+                })
+            }
+            (None, None) => None,
+        }
+    }
+}
+
 #[derive(Clone)]
-// An iterator of `IdEvent` for `PolygonSlice`.
+/// An iterator of `IdEvent` for `PolygonSlice`.
 pub struct PolygonIdIter {
     idx: u32,
     start: u32,
