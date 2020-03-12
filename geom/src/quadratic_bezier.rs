@@ -1,7 +1,6 @@
 use crate::generic_math::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
-use crate::segment;
 use crate::segment::{BoundingRect, FlatteningStep, Segment};
 use crate::traits::Transformation;
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
@@ -9,9 +8,6 @@ use arrayvec::ArrayVec;
 
 use std::mem;
 use std::ops::Range;
-
-/// A flattening iterator for quadratic bézier segments.
-pub type Flattened<S> = segment::Flattened<S, QuadraticBezierSegment<S>>;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
 /// point and the end of the segment.
@@ -281,8 +277,9 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
     }
 
-    /// Find the interval of the begining of the curve that can be approximated with a
+    /// Find the interval of the beginning of the curve that can be approximated with a
     /// line segment.
+    #[deprecated]
     pub fn flattening_step(&self, tolerance: S) -> S {
         let v1 = self.ctrl - self.from;
         let v2 = self.to - self.from;
@@ -305,26 +302,78 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         return t;
     }
 
-    /// Iterates through the curve invoking a callback at each point.
-    pub fn for_each_flattened<F>(&self, tolerance: S, call_back: &mut F)
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step.
+    ///
+    /// The callback takes the point on the curve at each step.
+    ///
+    /// This implements the algorithm described by Raph Levien at
+    /// https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>),
     {
-        crate::segment::for_each_flattened(self, tolerance, call_back);
+        self.for_each_flattened_t(tolerance, &mut|t| {
+            callback(self.sample(t))
+        });
     }
 
-    /// Iterates through the curve invoking a callback at each point.
-    pub fn for_each_flattened_with_t<F>(&self, tolerance: S, call_back: &mut F)
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step.
+    ///
+    /// The callback takes the curve parameter at each step.
+    ///
+    /// This implements the algorithm described by Raph Levien at
+    /// https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    pub fn for_each_flattened_t<F>(&self, tolerance: S, callback: &mut F)
+    where
+        F: FnMut(S),
+    {
+        let params = FlatteningParameters::from_curve(self, tolerance);
+
+        let mut i = S::ONE;
+        for _ in 1..params.count.to_u32().unwrap() {
+            let t = params.t_at_iteration(i);
+            i += S::ONE;
+
+            callback(t);
+        }
+
+        callback(S::ONE);
+    }
+
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step.
+    ///
+    /// The callback takes the point and corresponding curve parameter at each step.
+    ///
+    /// This implements the algorithm described by Raph Levien at
+    /// https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    pub fn for_each_flattened_with_t<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>, S),
     {
-        crate::segment::for_each_flattened_with_t(self, tolerance, call_back);
+        self.for_each_flattened_t(tolerance, &mut|t| {
+            callback(self.sample(t), t)
+        });
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
-        Flattened::new(*self, tolerance)
+        Flattened {
+            curve: *self,
+            params: FlatteningParameters::from_curve(self, tolerance),
+            i: S::ONE,
+        }
+    }
+    /// Returns the flattened representation of the curve as an iterator, starting *after* the
+    /// current point.
+    pub fn flattened_t(&self, tolerance: S) -> FlattenedT<S> {
+        FlattenedT {
+            params: FlatteningParameters::from_curve(self, tolerance),
+            i: S::ONE,
+        }
     }
 
     /// Invokes a callback between each monotonic part of the segment.
@@ -534,6 +583,138 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
 
         return result;
+    }
+}
+
+pub struct FlatteningParameters<S> {
+    count: S,
+    integral_from: S,
+    integral_step: S,
+    inv_integral_from: S,
+    div_inv_integral_diff: S,
+}
+
+impl<S: Scalar> FlatteningParameters<S> {
+    // See https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    // TODO: this does not handle having the control point aligned with the endpoints unless
+    // it is between the endpoints.
+
+    fn from_curve(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
+        // Map the quadratic bézier segment to y = x^2 parabola.
+        let ddx = S::TWO * curve.ctrl.x - curve.from.x - curve.to.x;
+        let ddy = S::TWO * curve.ctrl.y - curve.from.y - curve.to.y;
+        let cross = (curve.to.x - curve.from.x) * ddy - (curve.to.y - curve.from.y) * ddx;
+        let parabola_from = ((curve.ctrl.x - curve.from.x) * ddx + (curve.ctrl.y - curve.from.y) * ddy) / cross;
+        let parabola_to = ((curve.to.x - curve.ctrl.x) * ddx + (curve.to.y - curve.ctrl.y) * ddy) / cross;
+        // Note, scale can be NaN, for example with straight lines. When it happens the NaN will
+        // propagate to other parameters. We catch it all by setting the iteration count to zero
+        // and leave the rest as garbage.
+        let scale = cross.abs() / (ddx.hypot(ddy) * (parabola_to - parabola_from).abs());
+
+        let integral_from = approx_parabola_integral(parabola_from);
+        let integral_to = approx_parabola_integral(parabola_to);
+        let integral_diff = integral_to - integral_from;
+
+        let inv_integral_from = approx_parabola_inv_integral(integral_from);
+        let inv_integral_to = approx_parabola_inv_integral(integral_to);
+        let div_inv_integral_diff = S::ONE / (inv_integral_to - inv_integral_from);
+
+        // We could store this as an integer but the generic code makes that awkward and we'll
+        // use it as a scalar again while iterating, so it's kept as a scalar.
+        let mut count = (S::HALF * integral_diff.abs() * (scale / tolerance).sqrt()).ceil();
+        // If count is NaN the curve can be approximated by a single straight line or a point.
+        if !count.is_finite() {
+            count = S::ZERO;
+        }
+
+        let integral_step = integral_diff / count;
+
+        FlatteningParameters {
+            integral_from,
+            integral_step,
+            inv_integral_from,
+            div_inv_integral_diff,
+            count,
+        }
+    }
+
+    fn t_at_iteration(&self, iteration: S) -> S {
+        let u = approx_parabola_inv_integral(self.integral_from + self.integral_step * iteration);
+        let t = (u - self.inv_integral_from) * self.div_inv_integral_diff;
+
+        t
+    }
+}
+
+/// Compute an approximation to integral (1 + 4x^2) ^ -0.25 dx used in the flattening code.
+fn approx_parabola_integral<S: Scalar>(x: S) -> S {
+    let d = S::value(0.67);
+    let quarter = S::HALF * S::HALF;
+    x / (S::ONE - d + (d.powi(4) + quarter * x * x).powf(quarter))
+}
+
+/// Approximate the inverse of the function above.
+fn approx_parabola_inv_integral<S: Scalar>(x: S) -> S {
+    let b = S::value(0.39);
+    let quarter = S::HALF * S::HALF;
+    x * (S::ONE - b + (b * b + quarter * x * x).sqrt())
+}
+
+
+/// A flattening iterator for quadratic bézier segments.
+///
+/// Yields points at each iteration.
+pub struct Flattened<S> {
+    curve: QuadraticBezierSegment<S>,
+    params: FlatteningParameters<S>,
+    i: S,
+}
+
+impl<S: Scalar> Iterator for Flattened<S> {
+    type Item = Point<S>;
+
+    fn next(&mut self) -> Option<Point<S>> {
+        if self.i >= self.params.count - S::EPSILON {
+            return None;
+        }
+
+        let t = self.params.t_at_iteration(self.i);
+        self.i += S::ONE;
+
+        Some(self.curve.sample(t))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let count = (self.params.count + S::ONE - self.i).to_usize().unwrap();
+        (count, Some(count))
+    }
+}
+
+/// A flattening iterator for quadratic bézier segments.
+///
+/// Yields the curve parameter at each iteration.
+pub struct FlattenedT<S> {
+    params: FlatteningParameters<S>,
+    i: S,
+}
+
+impl<S: Scalar> Iterator for FlattenedT<S> {
+    type Item = S;
+
+    fn next(&mut self) -> Option<S> {
+        if self.i >= self.params.count - S::EPSILON {
+            return None;
+        }
+
+        let t = self.params.t_at_iteration(self.i);
+        self.i += S::ONE;
+
+        Some(t)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let count = (self.params.count + S::ONE - self.i).to_usize().unwrap();
+        (count, Some(count))
     }
 }
 
