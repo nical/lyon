@@ -193,6 +193,7 @@ fn stroke_thin_rectangle(
 }
 
 /// The radius of each corner of a rounded rectangle.
+#[derive(Copy, Clone)]
 pub struct BorderRadii {
     pub top_left: f32,
     pub top_right: f32,
