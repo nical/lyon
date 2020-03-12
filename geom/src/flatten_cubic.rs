@@ -179,9 +179,21 @@ fn flatten_including_inflection<S: Scalar, F: FnMut(Point<S>)>(
     tolerance: S,
     call_back: &mut F,
 ) -> CubicBezierSegment<S> {
-    let (before, mut after) = bezier.split(up_to_t);
+    let (mut before, mut after) = bezier.split(up_to_t);
+
+    // Approximate the start of #before with a straight line segment.
+    // This is necessary because at the start we *might* be close to an inflection point
+    // and this would cause #flatten_cubic_no_inflection to sometimes fail due to floating point errors.
+    if let Some(tf) = inflection_approximation_range(&before, tolerance) {
+        before = before.after_split(tf);
+        call_back(before.from);
+    }
+
     flatten_cubic_no_inflection(before, tolerance, call_back);
 
+    // Approximate the start of #after with a straight line segment.
+    // This is necessary because the start of #after is at an inflection point
+    // (we just split it at the inflection point so it better be)
     if let Some(tf) = inflection_approximation_range(&after, tolerance) {
         after = after.after_split(tf);
         call_back(after.from);
