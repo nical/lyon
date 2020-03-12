@@ -50,6 +50,7 @@ mod events;
 pub mod iterator;
 mod path;
 mod path_state;
+mod builder_tests;
 pub mod polygon;
 
 pub use crate::events::*;
