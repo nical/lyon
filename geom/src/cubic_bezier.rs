@@ -416,13 +416,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Iterates through the curve invoking a callback at each point.
-    pub fn for_each_flattened_deprecated<F: FnMut(Point<S>)>(&self, tolerance: S, callback: &mut F) {
-        crate::flatten_cubic::flatten_cubic_bezier_2(*self, tolerance, &mut |point| {
-            callback(point);
-        });
-    }
-
-    /// Iterates through the curve invoking a callback at each point.
     pub fn for_each_flattened_with_t<F: FnMut(Point<S>, S)>(
         &self,
         tolerance: S,
