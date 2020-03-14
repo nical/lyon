@@ -1,21 +1,133 @@
-use crate::generic_math::Point;
+use crate::generic_math::{Point, point};
 use crate::scalar::Scalar;
-///! Utilities to flatten cubic bezier curve segments, implmeneted both with callback and
+///! Utilities to flatten cubic bézier curve segments, implemented both with callback and
 ///! iterator based APIs.
 ///!
 ///! The algorithm implemented here is based on: "Fast, precise flattening of cubic Bézier path and offset curves"
 ///! http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.106.5344&rep=rep1&type=pdf
 ///! It produces a better approximations than the usual recursive subdivision approach (or
 ///! in other words, it generates less points for a given tolerance threshold).
-use crate::CubicBezierSegment;
+use crate::{CubicBezierSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
-/// An iterator over a cubic bezier segment that yields line segments approximating the
+pub fn square_approximation_error<S: Scalar>(curve: &CubicBezierSegment<S>) -> S {
+    // See http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
+    S::THREE / S::value(1296.0)
+        * ((curve.to - curve.ctrl2 * S::THREE) + (curve.ctrl1 * S::THREE - curve.from))
+            .square_length()
+}
+
+pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    F: FnMut(Point<S>, S),
+{
+    let quad_tolerance = tolerance * S::value(0.3);
+    let square_quad_tolerance = quad_tolerance * quad_tolerance;
+    let mut range = S::ZERO..S::ONE;
+    loop {
+        let sub_curve = curve.split_range(range.clone());
+        let square_err = square_approximation_error(&sub_curve);
+        if square_err < square_quad_tolerance {
+            let flattening_tolerance = tolerance - square_err.sqrt() * S::HALF;
+            let quadratic = crate::cubic_to_quadratic::single_curve_approximation(&sub_curve);
+
+            quadratic.for_each_flattened_with_t(flattening_tolerance, &mut |point, t_sub| {
+                let t = range.start + (range.end - range.start) * t_sub;
+                callback(point, t);
+            });
+
+            if range.end == S::ONE {
+                return;
+            }
+            range.start = range.end;
+            range.end = S::ONE;
+        } else {
+            range.end = (range.start + range.end) * S::HALF;
+        }
+    }
+
+}
+
+pub struct Flattened<S: Scalar> {
+    curve: CubicBezierSegment<S>,
+    current_curve: crate::quadratic_bezier::FlattenedT<S>,
+    range: std::ops::Range<S>,
+    tolerance: S,
+}
+
+impl<S: Scalar> Flattened<S> {
+    // TODO: pass by ref.
+    pub fn new(curve: CubicBezierSegment<S>, tolerance: S) -> Self {
+        let quad_tolerance = tolerance * S::value(0.3);
+        let square_quad_tolerance = quad_tolerance * quad_tolerance;
+        let mut first_range = S::ONE;
+        let mut sub_curve = curve;
+        loop {
+            let square_err = square_approximation_error(&sub_curve);
+            if square_err < square_quad_tolerance {
+                return Flattened {
+                    curve,
+                    current_curve: crate::quadratic_bezier::FlattenedT::new(
+                        &crate::cubic_to_quadratic::single_curve_approximation(&sub_curve),
+                        tolerance - square_err.sqrt() * S::HALF,
+                    ),
+                    range: S::ZERO..first_range,
+                    tolerance,
+                };
+            }
+
+            first_range = first_range * S::HALF;
+            sub_curve = curve.split_range(S::ZERO..first_range);
+        }
+    }
+}
+
+impl<S: Scalar> Iterator for Flattened<S> {
+    type Item = Point<S>;
+
+    fn next(&mut self) -> Option<Point<S>> {
+        let quad_tolerance = self.tolerance * S::value(0.3);
+        let square_quad_tolerance = quad_tolerance * quad_tolerance;
+
+        if let Some(t_inner) = self.current_curve.next() {
+            let t = self.range.start + t_inner * (self.range.end - self.range.start);
+            return Some(self.curve.sample(t));
+        }
+
+        if self.range.end == S::ONE {
+            return None;
+        }
+
+        self.range.start = self.range.end;
+        self.range.end = S::ONE;
+
+        loop {
+            let sub_curve = self.curve.split_range(self.range.clone());
+            let square_err = square_approximation_error(&sub_curve);
+            if square_err < square_quad_tolerance {
+                let flattening_tolerance = self.tolerance - square_err.sqrt() * S::HALF;
+                let quadratic = crate::cubic_to_quadratic::single_curve_approximation(&sub_curve);
+                self.current_curve = crate::quadratic_bezier::FlattenedT::new(
+                    &quadratic,
+                    flattening_tolerance,
+                );
+
+                if let Some(t_inner) = self.current_curve.next() {
+                    return Some(quadratic.sample(t_inner));
+                }
+            } else {
+                self.range.end = (self.range.start + self.range.end) * S::HALF;
+            }
+        }
+    }
+}
+
+/// An iterator over a cubic bézier segment that yields line segments approximating the
 /// curve for a given approximation threshold.
 ///
 /// The iterator starts at the first point *after* the origin of the curve and ends at the
 /// destination.
-pub struct Flattened<S: Scalar> {
+pub struct FlattenedDeprecated<S: Scalar> {
     remaining_curve: CubicBezierSegment<S>,
     // current portion of the curve, does not have inflections.
     current_curve: Option<CubicBezierSegment<S>>,
@@ -25,7 +137,7 @@ pub struct Flattened<S: Scalar> {
     check_inflection: bool,
 }
 
-impl<S: Scalar> Flattened<S> {
+impl<S: Scalar> FlattenedDeprecated<S> {
     /// Creates an iterator that yields points along a cubic bezier segment, useful to build a
     /// flattened approximation of the curve given a certain tolerance.
     pub fn new(bezier: CubicBezierSegment<S>, tolerance: S) -> Self {
@@ -34,7 +146,7 @@ impl<S: Scalar> Flattened<S> {
             inflections.push(t);
         });
 
-        let mut iter = Flattened {
+        let mut iter = FlattenedDeprecated {
             remaining_curve: bezier,
             current_curve: None,
             next_inflection: inflections.get(0).cloned(),
@@ -63,7 +175,7 @@ impl<S: Scalar> Flattened<S> {
     }
 }
 
-impl<S: Scalar> Iterator for Flattened<S> {
+impl<S: Scalar> Iterator for FlattenedDeprecated<S> {
     type Item = Point<S>;
     fn next(&mut self) -> Option<Point<S>> {
         if self.current_curve.is_none() && self.next_inflection.is_some() {
@@ -116,7 +228,7 @@ impl<S: Scalar> Iterator for Flattened<S> {
     }
 }
 
-pub fn flatten_cubic_bezier<S: Scalar, F: FnMut(Point<S>)>(
+pub fn flatten_cubic_bezier_2<S: Scalar, F: FnMut(Point<S>)>(
     mut bezier: CubicBezierSegment<S>,
     tolerance: S,
     call_back: &mut F,
@@ -139,7 +251,7 @@ pub fn flatten_cubic_bezier<S: Scalar, F: FnMut(Point<S>)>(
     flatten_cubic_no_inflection(bezier, tolerance, call_back);
 }
 
-pub fn flatten_cubic_bezier_with_t<S: Scalar, F: FnMut(Point<S>, S)>(
+pub fn flatten_cubic_bezier_with_t_2<S: Scalar, F: FnMut(Point<S>, S)>(
     mut bezier: CubicBezierSegment<S>,
     tolerance: S,
     call_back: &mut F,
@@ -404,11 +516,15 @@ fn print_arrays(a: &[Point<f32>], b: &[Point<f32>]) {
 fn assert_approx_eq(a: &[Point<f32>], b: &[Point<f32>]) {
     if a.len() != b.len() {
         print_arrays(a, b);
-        panic!("Lenths differ ({} != {})", a.len(), b.len());
+        panic!("Lengths differ ({} != {})", a.len(), b.len());
     }
     for i in 0..a.len() {
-        if f32::abs(a[i].x - b[i].x) > 0.0000001 || f32::abs(a[i].y - b[i].y) > 0.0000001 {
+        let threshold = 0.029;
+        let dx = f32::abs(a[i].x - b[i].x);
+        let dy = f32::abs(a[i].y - b[i].y);
+        if dx > threshold || dy > threshold {
             print_arrays(a, b);
+            println!("diff = {:?} {:?}", dx, dy);
             panic!("The arrays are not equal");
         }
     }
