@@ -27,6 +27,30 @@ where
     }
 }
 
+/// Approximates a cubic bézier segment with a sequence of quadratic béziers.
+pub fn cubic_to_quadratics_with_t<S: Scalar, F>(curve: &CubicBezierSegment<S>, tolerance: S, cb: &mut F)
+where
+    F: FnMut(&QuadraticBezierSegment<S>, std::ops::Range<S>),
+{
+    debug_assert!(tolerance >= S::EPSILON);
+
+    let mut sub_curve = curve.clone();
+    let mut range = S::ZERO..S::ONE;
+    loop {
+        if single_curve_approximation_test(&sub_curve, tolerance) {
+            cb(&single_curve_approximation(&sub_curve), range.clone());
+            if range.end >= S::ONE {
+                return;
+            }
+            range.start = range.end;
+            range.end = S::ONE;
+        } else {
+            range.end = (range.start + range.end) * S::HALF;
+        }
+        sub_curve = curve.split_range(range.clone());
+    }
+}
+
 /// This is terrible as a general approximation but works if the cubic
 /// curve does not have inflection points and is "flat" enough. Typically
 /// usables after subdiving the curve a few times.
