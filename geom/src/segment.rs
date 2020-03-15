@@ -1,5 +1,5 @@
 use crate::generic_math::{Point, Rect, Vector};
-use crate::scalar::{One, Scalar};
+use crate::scalar::Scalar;
 use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 
 use std::ops::Range;
@@ -85,91 +85,6 @@ pub trait BoundingRect {
 
     /// Returns a range of y values that contains the curve.
     fn fast_bounding_range_y(&self) -> (Self::Scalar, Self::Scalar);
-}
-
-/// Types that implement local flattening approximation at the start of the curve.
-pub trait FlatteningStep: Segment {
-    /// Find the interval of the begining of the curve that can be approximated with a
-    /// line segment.
-    fn flattening_step(&self, tolerance: Self::Scalar) -> Self::Scalar;
-}
-
-pub(crate) fn for_each_flattened<T, F>(curve: &T, tolerance: T::Scalar, call_back: &mut F)
-where
-    T: FlatteningStep,
-    F: FnMut(Point<T::Scalar>),
-{
-    let mut iter = *curve;
-    loop {
-        let t = iter.flattening_step(tolerance);
-        if t >= T::Scalar::one() {
-            call_back(iter.to());
-            break;
-        }
-        iter = iter.after_split(t);
-        call_back(iter.from());
-    }
-}
-
-pub(crate) fn for_each_flattened_with_t<T, F>(curve: &T, tolerance: T::Scalar, call_back: &mut F)
-where
-    T: FlatteningStep,
-    F: FnMut(Point<T::Scalar>, T::Scalar),
-{
-    let end = curve.to();
-    let mut curve = *curve;
-    let mut t0 = T::Scalar::ZERO;
-    loop {
-        let step = curve.flattening_step(tolerance);
-
-        if step >= T::Scalar::ONE {
-            break;
-        }
-
-        curve = curve.after_split(step);
-        t0 += step * (T::Scalar::ONE - t0);
-        call_back(curve.from(), t0);
-    }
-
-    call_back(end, T::Scalar::ONE);
-}
-
-/// An iterator over a generic curve segment that yields line segments approximating the
-/// curve for a given approximation threshold.
-///
-/// The iterator starts at the first point *after* the origin of the curve and ends at the
-/// destination.
-pub struct Flattened<S, T> {
-    curve: T,
-    tolerance: S,
-    done: bool,
-}
-
-impl<S: Scalar, T: FlatteningStep> Flattened<S, T> {
-    pub fn new(curve: T, tolerance: S) -> Self {
-        assert!(tolerance > S::ZERO);
-        Flattened {
-            curve,
-            tolerance,
-            done: false,
-        }
-    }
-}
-impl<S: Scalar, T: FlatteningStep<Scalar = S>> Iterator for Flattened<S, T> {
-    type Item = Point<S>;
-    fn next(&mut self) -> Option<Point<S>> {
-        if self.done {
-            return None;
-        }
-        let t = self.curve.flattening_step(self.tolerance);
-        if t >= S::ONE {
-            self.done = true;
-            return Some(self.curve.to());
-        }
-        self.curve = self.curve.after_split(t);
-
-        Some(self.curve.from())
-    }
 }
 
 macro_rules! impl_segment {
