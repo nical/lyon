@@ -670,7 +670,7 @@ pub struct Flattened<S> {
 
 impl<S: Scalar> Flattened<S> {
     #[inline]
-    pub fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
+    pub(crate) fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
         let params = FlatteningParameters::from_curve(curve, tolerance);
         let done = params.is_point;
 
@@ -721,7 +721,7 @@ pub struct FlattenedT<S> {
 
 impl<S: Scalar> FlattenedT<S> {
     #[inline]
-    pub fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
+    pub(crate) fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
         let params = FlatteningParameters::from_curve(curve, tolerance);
         FlattenedT {
             i: S::ONE,
