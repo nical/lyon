@@ -99,7 +99,7 @@ where
     T: FlatteningStep,
     F: FnMut(Point<T::Scalar>),
 {
-    let mut iter = curve.clone();
+    let mut iter = *curve;
     loop {
         let t = iter.flattening_step(tolerance);
         if t >= T::Scalar::one() {
@@ -117,7 +117,7 @@ where
     F: FnMut(Point<T::Scalar>, T::Scalar),
 {
     let end = curve.to();
-    let mut curve = curve.clone();
+    let mut curve = *curve;
     let mut t0 = T::Scalar::ZERO;
     loop {
         let step = curve.flattening_step(tolerance);
@@ -149,8 +149,8 @@ impl<S: Scalar, T: FlatteningStep> Flattened<S, T> {
     pub fn new(curve: T, tolerance: S) -> Self {
         assert!(tolerance > S::ZERO);
         Flattened {
-            curve: curve,
-            tolerance: tolerance,
+            curve,
+            tolerance,
             done: false,
         }
     }
@@ -167,7 +167,8 @@ impl<S: Scalar, T: FlatteningStep<Scalar = S>> Iterator for Flattened<S, T> {
             return Some(self.curve.to());
         }
         self.curve = self.curve.after_split(t);
-        return Some(self.curve.from());
+
+        Some(self.curve.from())
     }
 }
 

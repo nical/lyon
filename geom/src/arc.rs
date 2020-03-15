@@ -282,7 +282,7 @@ impl<S: Scalar> Arc<S> {
     /// Swap the direction of the segment.
     pub fn flip(&self) -> Self {
         let mut arc = *self;
-        arc.start_angle = arc.start_angle + self.sweep_angle;
+        arc.start_angle += self.sweep_angle;
         arc.sweep_angle = -self.sweep_angle;
 
         arc
@@ -441,7 +441,7 @@ impl<S: Scalar> Arc<S> {
         let mut from = self.from();
         let mut len = S::ZERO;
         self.for_each_flattened(tolerance, &mut |to| {
-            len = len + (to - from).length();
+            len += (to - from).length();
             from = to;
         });
 
