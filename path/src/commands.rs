@@ -439,7 +439,10 @@ impl PathCommandsBuilder {
     }
 
     pub fn line_to(&mut self, to: EndpointId) -> EventId {
-        self.begin_if_needed();
+        if let Some(id) = self.begin_if_needed(to) {
+            return id;
+        }
+
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::LINE);
         self.cmds.push(to.0);
@@ -449,7 +452,10 @@ impl PathCommandsBuilder {
     }
 
     pub fn quadratic_bezier_to(&mut self, ctrl: ControlPointId, to: EndpointId) -> EventId {
-        self.begin_if_needed();
+        if let Some(id) = self.begin_if_needed(to) {
+            return id;
+        }
+
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::QUADRATIC);
         self.cmds.push(ctrl.0);
@@ -465,7 +471,10 @@ impl PathCommandsBuilder {
         ctrl2: ControlPointId,
         to: EndpointId,
     ) -> EventId {
-        self.begin_if_needed();
+        if let Some(id) = self.begin_if_needed(to) {
+            return id;
+        }
+
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::CUBIC);
         self.cmds.push(ctrl1.0);
@@ -476,29 +485,45 @@ impl PathCommandsBuilder {
         id
     }
 
-    pub fn close(&mut self) -> EventId {
-        let id = EventId(self.cmds.len() as u32);
-        match self.last_cmd {
-            verb::CLOSE | verb::END => {
-                return id;
-            }
-            _ => {}
+    pub fn close(&mut self) -> Option<EventId> {
+        if self.need_moveto() {
+            return None;
         }
+
+        let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::CLOSE);
         self.cmds.push(self.first_event_index);
         self.last_cmd = verb::CLOSE;
 
-        id
+        Some(id)
     }
 
-    fn begin_if_needed(&mut self) {
-        match self.last_cmd {
-            verb::CLOSE | verb::END => {
-                let first = self.cmds.last().cloned().unwrap_or(0);
-                self.move_to(EndpointId(first));
-            }
-            _ => {}
+    fn need_moveto(&self) -> bool {
+        self.last_cmd == verb::CLOSE || self.last_cmd == verb::END
+    }
+
+    // Returns false if an inserted moveto event replaces the segment
+    #[inline(always)]
+    fn begin_if_needed(&mut self, default: EndpointId) -> Option<EventId> {
+        if self.need_moveto() {
+            return self.insert_move_to(default);
         }
+
+        None
+    }
+
+    #[inline(never)]
+    fn insert_move_to(&mut self, default: EndpointId) -> Option<EventId> {
+        if self.cmds.is_empty() {
+            let id = EventId(self.cmds.len() as u32);
+            self.move_to(default);
+            return Some(id);
+        }
+
+        let first = self.cmds.last().cloned().unwrap_or(0);
+        self.move_to(EndpointId(first));
+
+        None
     }
 
     fn end_if_needed(&mut self) {

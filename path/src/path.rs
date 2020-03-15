@@ -365,7 +365,11 @@ impl Builder {
 
     pub fn line_to(&mut self, to: Point) -> EndpointId {
         nan_check(to);
-        self.move_to_if_needed();
+
+        if let Some(id) = self.begin_if_needed(&to) {
+            return id;
+        }
+
         let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.verbs.push(Verb::LineTo);
@@ -376,6 +380,10 @@ impl Builder {
     }
 
     pub fn close(&mut self) {
+        if self.need_moveto {
+            return;
+        }
+
         // Relative path ops tend to accumulate small floating point imprecisions
         // which results in the last segment ending almost but not quite at the
         // start of the sub-path, causing a new edge to be inserted which often
@@ -399,7 +407,11 @@ impl Builder {
     pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
         nan_check(ctrl);
         nan_check(to);
-        self.move_to_if_needed();
+
+        if let Some(id) = self.begin_if_needed(&to) {
+            return id;
+        }
+
         self.points.push(ctrl);
         let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
@@ -414,7 +426,11 @@ impl Builder {
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
-        self.move_to_if_needed();
+
+        if let Some(id) = self.begin_if_needed(&to) {
+            return id;
+        }
+
         self.points.push(ctrl1);
         self.points.push(ctrl2);
         let id = EndpointId(self.points.len() as u32);
@@ -444,12 +460,10 @@ impl Builder {
         // If the current position is not on the arc, move or line to the beginning of the
         // arc.
         let arc_start = arc.from();
-        if (arc_start - self.current_position).square_length() < 0.01 {
-            if self.need_moveto {
-                self.move_to(arc_start);
-            } else {
-                self.line_to(arc_start);
-            }
+        if self.need_moveto {
+            self.move_to(arc_start);
+        } else if (arc_start - self.current_position).square_length() < 0.01 {
+            self.line_to(arc_start);
         }
 
         arc.for_each_quadratic_bezier(&mut |curve| {
@@ -464,11 +478,27 @@ impl Builder {
         build_polygon(self, points);
     }
 
-    fn move_to_if_needed(&mut self) {
+    /// Ensures the current sub-path has a moveto command.
+    ///
+    /// Returns an ID if the command should be skipped and the ID returned instead.
+    #[inline(always)]
+    fn begin_if_needed(&mut self, default: &Point) -> Option<EndpointId> {
         if self.need_moveto {
-            let first = self.first_position;
-            self.move_to(first);
+            return self.insert_move_to(default)
         }
+
+        None
+    }
+
+    #[inline(never)]
+    fn insert_move_to(&mut self, default: &Point) -> Option<EndpointId> {
+        if self.verbs.is_empty() {
+            return Some(self.move_to(*default))
+        }
+
+        self.move_to(self.first_position);
+
+        None
     }
 
     fn end_if_needed(&mut self) {
@@ -612,7 +642,11 @@ impl BuilderWithAttributes {
 
     pub fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
         nan_check(to);
-        self.move_to_if_needed();
+
+        if let Some(id) = self.begin_if_needed(&to, attributes) {
+            return id;
+        }
+
         let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
         self.verbs.push(Verb::LineTo);
@@ -624,6 +658,9 @@ impl BuilderWithAttributes {
     }
 
     pub fn close(&mut self) {
+        if self.need_moveto {
+            return;
+        }
         // Relative path ops tend to accumulate small floating point imprecisions
         // which results in the last segment ending almost but not quite at the
         // start of the sub-path, causing a new edge to be inserted which often
@@ -652,7 +689,11 @@ impl BuilderWithAttributes {
     ) -> EndpointId {
         nan_check(ctrl);
         nan_check(to);
-        self.move_to_if_needed();
+
+        if let Some(id) = self.begin_if_needed(&to, attributes) {
+            return id;
+        }
+
         self.points.push(ctrl);
         let id = EndpointId(self.points.len() as u32);
         self.points.push(to);
@@ -674,7 +715,10 @@ impl BuilderWithAttributes {
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
-        self.move_to_if_needed();
+        if let Some(id) = self.begin_if_needed(&to, attributes) {
+            return id;
+        }
+
         self.points.push(ctrl1);
         self.points.push(ctrl2);
         let id = EndpointId(self.points.len() as u32);
@@ -687,17 +731,27 @@ impl BuilderWithAttributes {
         id
     }
 
-    fn move_to_if_needed(&mut self) {
-        if !self.need_moveto {
-            return;
+    /// Ensures the current sub-path has a moveto command.
+    ///
+    /// Returns an ID if the command should be skipped and the ID returned instead.
+    #[inline(always)]
+    fn begin_if_needed(&mut self, default: &Point, default_attr: &[f32]) -> Option<EndpointId> {
+        if self.need_moveto {
+            return self.insert_move_to(default, default_attr);
         }
 
-        assert!(!self.points.is_empty());
+        None
+    }
 
-        let first = self.first_position;
+    #[inline(never)]
+    fn insert_move_to(&mut self, default: &Point, default_attr: &[f32]) -> Option<EndpointId> {
+        if self.points.is_empty() {
+            return Some(self.move_to(*default, default_attr));
+        }
+
         self.need_moveto = false;
-        self.current_position = first;
-        self.points.push(first);
+        self.current_position = self.first_position;
+        self.points.push(self.first_position);
         let first_idx = self.first_vertex.to_usize();
         for i in 0..(self.num_attributes + 1) / 2 {
             let val = self.points[first_idx + i];
@@ -705,6 +759,8 @@ impl BuilderWithAttributes {
         }
         self.verbs.push(Verb::Begin);
         self.last_cmd = Verb::Begin;
+
+        None
     }
 
     fn end_if_needed(&mut self) {
@@ -1515,17 +1571,6 @@ fn test_path_builder_1() {
         })
     );
 
-    // Not clear that this is the most useful behavior.
-    // Closing when there is no path should probably be dropped.
-    assert_eq!(
-        it.next(),
-        Some(Event::End {
-            last: (point(10.0, 0.0), &[6.0][..]),
-            first: (point(10.0, 0.0), &[6.0][..]),
-            close: true,
-        })
-    );
-
     assert_eq!(
         it.next(),
         Some(Event::Begin {
@@ -1655,34 +1700,27 @@ fn test_path_builder_line_to_after_close() {
     assert_eq!(
         it.next(),
         Some(PathEvent::Begin {
-            at: point(0.0, 0.0)
-        })
-    );
-    assert_eq!(
-        it.next(),
-        Some(PathEvent::Line {
-            from: point(0.0, 0.0),
-            to: point(1.0, 0.0)
+            at: point(1.0, 0.0)
         })
     );
     assert_eq!(
         it.next(),
         Some(PathEvent::End {
             last: point(1.0, 0.0),
-            first: point(0.0, 0.0),
+            first: point(1.0, 0.0),
             close: true
         })
     );
     assert_eq!(
         it.next(),
         Some(PathEvent::Begin {
-            at: point(0.0, 0.0)
+            at: point(1.0, 0.0)
         })
     );
     assert_eq!(
         it.next(),
         Some(PathEvent::Line {
-            from: point(0.0, 0.0),
+            from: point(1.0, 0.0),
             to: point(2.0, 0.0)
         })
     );
@@ -1690,7 +1728,7 @@ fn test_path_builder_line_to_after_close() {
         it.next(),
         Some(PathEvent::End {
             last: point(2.0, 0.0),
-            first: point(0.0, 0.0),
+            first: point(1.0, 0.0),
             close: false
         })
     );
