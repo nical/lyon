@@ -658,7 +658,7 @@ impl<S: Scalar> FlatteningParameters<S> {
 fn approx_parabola_integral<S: Scalar>(x: S) -> S {
     let d = S::value(0.67);
     let quarter = S::HALF * S::HALF;
-    x / (S::ONE - d + (d.powi(4) + quarter * x * x).powf(quarter))
+    x / (S::ONE - d + (d.powi(4) + quarter * x * x).sqrt().sqrt())
 }
 
 /// Approximate the inverse of the function above.
