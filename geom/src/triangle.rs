@@ -22,11 +22,13 @@ impl<S: Scalar> Triangle<S> {
         let a = v0.cross(v2) * inv;
         let b = v2.cross(v1) * inv;
         let c = S::ONE - a - b;
+
         (a, b, c)
     }
 
     pub fn contains_point(&self, point: Point<S>) -> bool {
         let coords = self.get_barycentric_coords_for_point(point);
+
         coords.0 > S::ZERO && coords.1 > S::ZERO && coords.2 > S::ZERO
     }
 
@@ -40,6 +42,7 @@ impl<S: Scalar> Triangle<S> {
 
         let width = max_x - min_x;
         let height = max_y - min_y;
+
         Rect::new(Point::new(min_x, min_y), Size::new(width, height))
     }
 
@@ -107,7 +110,7 @@ impl<S: Scalar> Triangle<S> {
         // A bounding rect check should speed this up dramatically.
         // Inlining and reusing intermediate computation of the intersections
         // functions below and using SIMD would help too.
-        return self.ab().intersects(&other.ab())
+        self.ab().intersects(&other.ab())
             || self.ab().intersects(&other.bc())
             || self.ab().intersects(&other.ac())
             || self.bc().intersects(&other.ab())
@@ -118,16 +121,16 @@ impl<S: Scalar> Triangle<S> {
             || self.ac().intersects(&other.ac())
             || self.contains_point(other.a)
             || other.contains_point(self.a)
-            || *self == *other;
+            || *self == *other
     }
 
     /// Test for triangle-segment intersection.
     #[inline]
     pub fn intersects_line_segment(&self, segment: &LineSegment<S>) -> bool {
-        return self.ab().intersects(segment)
+        self.ab().intersects(segment)
             || self.bc().intersects(segment)
             || self.ac().intersects(segment)
-            || self.contains_point(segment.from);
+            || self.contains_point(segment.from)
     }
 }
 

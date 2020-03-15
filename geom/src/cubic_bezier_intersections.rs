@@ -677,57 +677,52 @@ fn clip_convex_hull_to_fat_line<S: Scalar>(
     d_max: S,
 ) -> Option<(S, S)> {
     // Walk from the left corner of the convex hull until we enter the fat line limits:
-    let t_clip_min = walk_convex_hull_start_to_fat_line(&hull_top, &hull_bottom, d_min, d_max);
-    if let None = t_clip_min {
-        return None;
-    }
+    let t_clip_min = walk_convex_hull_start_to_fat_line(&hull_top, &hull_bottom, d_min, d_max)?;
+
     // Now walk from the right corner of the convex hull until we enter the fat line limits - to
     // walk right to left we just reverse the order of the hull vertices, so that hull_top and
     // hull_bottom start at the right corner now:
     hull_top.reverse();
     hull_bottom.reverse();
-    let t_clip_max = walk_convex_hull_start_to_fat_line(&hull_top, &hull_bottom, d_min, d_max);
-    if let None = t_clip_max {
-        return None;
-    }
-    Some((t_clip_min.unwrap(), t_clip_max.unwrap()))
+    let t_clip_max = walk_convex_hull_start_to_fat_line(&hull_top, &hull_bottom, d_min, d_max)?;
+
+    Some((t_clip_min, t_clip_max))
 }
 
 // Walk the edges of the convex hull until you hit a fat line offset value, starting from the
 // (first vertex in hull_top_vertices == first vertex in hull_bottom_vertices).
 fn walk_convex_hull_start_to_fat_line<S: Scalar>(
-    hull_top_vertices: &Vec<Point<S>>,
-    hull_bottom_vertices: &Vec<Point<S>>,
+    hull_top_vertices: &[Point<S>],
+    hull_bottom_vertices: &[Point<S>],
     d_min: S,
     d_max: S,
 ) -> Option<S> {
     let start_corner = hull_top_vertices[0];
 
     if start_corner.y < d_min {
-        return walk_convex_hull_edges_to_fat_line(hull_top_vertices, true, d_min);
+        walk_convex_hull_edges_to_fat_line(hull_top_vertices, true, d_min)
     } else if start_corner.y > d_max {
-        return walk_convex_hull_edges_to_fat_line(hull_bottom_vertices, false, d_max);
+        walk_convex_hull_edges_to_fat_line(hull_bottom_vertices, false, d_max)
     } else {
-        return Some(start_corner.x);
+        Some(start_corner.x)
     }
 }
 
 // Do the actual walking, starting from the first vertex of hull_vertices.
 fn walk_convex_hull_edges_to_fat_line<S: Scalar>(
-    hull_vertices: &Vec<Point<S>>,
+    hull_vertices: &[Point<S>],
     vertices_are_for_top: bool,
     threshold: S,
 ) -> Option<S> {
     for i in 0..hull_vertices.len() - 1 {
         let p = hull_vertices[i];
         let q = hull_vertices[i + 1];
-        if (vertices_are_for_top && q.y >= threshold) || (!vertices_are_for_top && q.y <= threshold)
-        {
-            if q.y == threshold {
-                return Some(q.x);
+        if (vertices_are_for_top && q.y >= threshold) || (!vertices_are_for_top && q.y <= threshold) {
+            return if q.y == threshold {
+                Some(q.x)
             } else {
-                return Some(p.x + (threshold - p.y) * (q.x - p.x) / (q.y - p.y));
-            }
+                Some(p.x + (threshold - p.y) * (q.x - p.x) / (q.y - p.y))
+            };
         }
     }
     // All points of the hull are outside the threshold:

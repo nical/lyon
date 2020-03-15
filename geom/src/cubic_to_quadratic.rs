@@ -10,7 +10,7 @@ where
 {
     debug_assert!(tolerance >= S::EPSILON);
 
-    let mut sub_curve = curve.clone();
+    let mut sub_curve = *curve;
     let mut range = S::ZERO..S::ONE;
     loop {
         if single_curve_approximation_test(&sub_curve, tolerance) {
@@ -34,7 +34,7 @@ where
 {
     debug_assert!(tolerance >= S::EPSILON);
 
-    let mut sub_curve = curve.clone();
+    let mut sub_curve = *curve;
     let mut range = S::ZERO..S::ONE;
     loop {
         if single_curve_approximation_test(&sub_curve, tolerance) {

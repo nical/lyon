@@ -36,10 +36,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
-        return self.from * one_t3
+
+        self.from * one_t3
             + self.ctrl1.to_vector() * S::THREE * one_t2 * t
             + self.ctrl2.to_vector() * S::THREE * one_t * t2
-            + self.to.to_vector() * t3;
+            + self.to.to_vector() * t3
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
@@ -49,10 +50,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
-        return self.from.x * one_t3
+
+        self.from.x * one_t3
             + self.ctrl1.x * S::THREE * one_t2 * t
             + self.ctrl2.x * S::THREE * one_t * t2
-            + self.to.x * t3;
+            + self.to.x * t3
     }
 
     /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
@@ -62,10 +64,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
         let one_t3 = one_t2 * one_t;
-        return self.from.y * one_t3
+
+        self.from.y * one_t3
             + self.ctrl1.y * S::THREE * one_t2 * t
             + self.ctrl2.y * S::THREE * one_t * t2
-            + self.to.y * t3;
+            + self.to.y * t3
     }
 
     /// Return the parameter values corresponding to a given x coordinate.
@@ -183,9 +186,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let ctrl3a = self.ctrl2 + (self.to - self.ctrl2) * t;
         let ctrl2aa = ctrl2a + (ctrl3a - ctrl2a) * t;
         let ctrl1aaa = ctrl1aa + (ctrl2aa - ctrl1aa) * t;
-        let to = self.to;
 
-        return (
+        (
             CubicBezierSegment {
                 from: self.from,
                 ctrl1: ctrl1a,
@@ -196,9 +198,9 @@ impl<S: Scalar> CubicBezierSegment<S> {
                 from: ctrl1aaa,
                 ctrl1: ctrl2aa,
                 ctrl2: ctrl3a,
-                to: to,
+                to: self.to,
             },
-        );
+        )
     }
 
     /// Return the curve before the split point.
@@ -209,12 +211,13 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let ctrl3a = self.ctrl2 + (self.to - self.ctrl2) * t;
         let ctrl2aa = ctrl2a + (ctrl3a - ctrl2a) * t;
         let ctrl1aaa = ctrl1aa + (ctrl2aa - ctrl1aa) * t;
-        return CubicBezierSegment {
+
+        CubicBezierSegment {
             from: self.from,
             ctrl1: ctrl1a,
             ctrl2: ctrl1aa,
             to: ctrl1aaa,
-        };
+        }
     }
 
     /// Return the curve after the split point.
@@ -224,12 +227,13 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let ctrl1aa = ctrl1a + (ctrl2a - ctrl1a) * t;
         let ctrl3a = self.ctrl2 + (self.to - self.ctrl2) * t;
         let ctrl2aa = ctrl2a + (ctrl3a - ctrl2a) * t;
-        return CubicBezierSegment {
+
+        CubicBezierSegment {
             from: ctrl1aa + (ctrl2aa - ctrl1aa) * t,
             ctrl1: ctrl2a + (ctrl3a - ctrl2a) * t,
             ctrl2: ctrl3a,
             to: self.to,
-        };
+        }
     }
 
     #[inline]
@@ -429,7 +433,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut from = self.from;
         let mut len = S::ZERO;
         self.for_each_flattened(tolerance, &mut |to| {
-            len = len + (to - from).length();
+            len += (to - from).length();
             from = to;
         });
 
@@ -538,7 +542,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
                 max_y = y;
             }
         });
-        return max_t;
+
+        max_t
     }
 
     /// Find the advancement of the y-least position in the curve.
@@ -558,7 +563,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
                 min_y = y;
             }
         });
-        return min_t;
+
+        min_t
     }
 
     /// Find the advancement of the x-most position in the curve.
@@ -578,7 +584,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
                 max_x = x;
             }
         });
-        return max_t;
+
+        max_t
     }
 
     /// Find the x-least position in the curve.
@@ -596,7 +603,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
                 min_x = x;
             }
         });
-        return min_t;
+
+        min_t
     }
 
     /// Returns a conservative rectangle the curve is contained in.
@@ -606,7 +614,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
 
-        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+        rect(min_x, min_y, max_x - min_x, max_y - min_y)
     }
 
     /// Returns a conservative range of x this curve is contained in.
@@ -652,7 +660,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        return rect(min_x, min_y, max_x - min_x, max_y - min_y);
+        rect(min_x, min_y, max_x - min_x, max_y - min_y)
     }
 
     /// Returns the smallest range of x this curve is contained in.
@@ -827,7 +835,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
             }
         }
 
-        return result;
+        result
     }
 
     /// Computes the intersection points (if any) between this segment and a line.
@@ -839,7 +847,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
             result.push(self.sample(t));
         }
 
-        return result;
+        result
     }
 
     /// Computes the intersections (if any) between this segment and a line segment.
@@ -903,7 +911,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
             result.push(self.sample(t));
         }
 
-        return result;
+        result
     }
 }
 

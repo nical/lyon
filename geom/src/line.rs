@@ -95,7 +95,8 @@ impl<S: Scalar> LineSegment<S> {
     #[inline]
     pub fn split(&self, t: S) -> (Self, Self) {
         let split_point = self.sample(t);
-        return (
+
+        (
             LineSegment {
                 from: self.from,
                 to: split_point,
@@ -104,7 +105,7 @@ impl<S: Scalar> LineSegment<S> {
                 from: split_point,
                 to: self.to,
             },
-        );
+        )
     }
 
     /// Return the segment before the split point.
@@ -486,10 +487,11 @@ impl<S: Scalar> Line<S> {
         let other_p2 = other.point + other.vector;
         let a = self.point.to_vector().cross(self_p2.to_vector());
         let b = other.point.to_vector().cross(other_p2.to_vector());
-        return Some(point(
+
+        Some(point(
             (b * self.vector.x - a * other.vector.x) * inv_det,
             (b * self.vector.y - a * other.vector.y) * inv_det,
-        ));
+        ))
     }
 
     pub fn signed_distance_to_point(&self, p: &Point<S>) -> S {

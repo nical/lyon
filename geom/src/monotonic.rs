@@ -240,7 +240,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
                 break;
             }
 
-            t = t - (x2 - x) / dx;
+            t -= (x2 - x) / dx;
         }
 
         // Fall back to binary search.
@@ -264,7 +264,7 @@ impl<S: Scalar> Monotonic<CubicBezierSegment<S>> {
             t = (max - min) * S::HALF + min;
         }
 
-        return t;
+        t
     }
 
     #[inline]
@@ -399,12 +399,8 @@ where
     let mut result = ArrayVec::new();
     result.push((t1, t2));
 
-    match first_monotonic_segment_intersecion(a, t1..a_t_range.end, b, t2..b_t_range.end, tolerance)
-    {
-        Some(intersection) => {
-            result.push(intersection);
-        }
-        None => {}
+    if let Some(intersection) = first_monotonic_segment_intersecion(a, t1..a_t_range.end, b, t2..b_t_range.end, tolerance) {
+        result.push(intersection);
     }
 
     result

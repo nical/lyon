@@ -47,11 +47,12 @@ pub fn normalized_tangent<S: Scalar>(v: Vector<S>) -> Vector<S> {
 #[inline]
 pub fn directed_angle<S: Scalar>(v1: Vector<S>, v2: Vector<S>) -> S {
     let angle = S::fast_atan2(v2.y, v2.x) - S::fast_atan2(v1.y, v1.x);
-    return if angle < S::ZERO {
+
+    if angle < S::ZERO {
         angle + S::TWO * S::PI()
     } else {
         angle
-    };
+    }
 }
 
 pub fn directed_angle2<S: Scalar>(center: Point<S>, a: Point<S>, b: Point<S>) -> S {
@@ -119,7 +120,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
 
     //result.sort();
 
-    return result;
+    result
 }
 
 #[test]
