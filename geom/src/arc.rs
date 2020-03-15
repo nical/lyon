@@ -715,7 +715,7 @@ pub struct Flattened<S> {
 }
 
 impl<S: Scalar> Flattened<S> {
-    pub fn new(arc: Arc<S>, tolerance: S) -> Self {
+    pub(crate) fn new(arc: Arc<S>, tolerance: S) -> Self {
         assert!(tolerance > S::ZERO);
         Flattened {
             arc,

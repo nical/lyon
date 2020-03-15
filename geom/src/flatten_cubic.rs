@@ -57,8 +57,8 @@ pub struct Flattened<S: Scalar> {
 }
 
 impl<S: Scalar> Flattened<S> {
-    // TODO: pass by ref.
-    pub fn new(curve: CubicBezierSegment<S>, tolerance: S) -> Self {
+
+    pub(crate) fn new(curve: &CubicBezierSegment<S>, tolerance: S) -> Self {
         debug_assert!(tolerance >= S::EPSILON);
 
         let quadratics_tolerance = tolerance * S::value(0.2);
@@ -77,7 +77,7 @@ impl<S: Scalar> Flattened<S> {
         );
 
         Flattened {
-            curve,
+            curve: *curve,
             current_curve,
             remaining_sub_curves: num_quadratics.to_i32().unwrap() - 1,
             tolerance: flattening_tolerance,

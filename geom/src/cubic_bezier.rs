@@ -327,7 +327,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
     /// current point.
     pub fn flattened(&self, tolerance: S) -> Flattened<S> {
-        Flattened::new(*self, tolerance)
+        Flattened::new(self, tolerance)
     }
 
     /// Invokes a callback between each monotonic part of the segment.
