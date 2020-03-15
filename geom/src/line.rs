@@ -1,7 +1,7 @@
 use crate::generic_math::{point, vector, Point, Rect, Size, Vector};
 use crate::monotonic::MonotonicSegment;
 use crate::scalar::Scalar;
-use crate::segment::{BoundingRect, FlatteningStep, Segment};
+use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::utils::min_max;
 use std::mem::swap;
@@ -458,12 +458,6 @@ impl<S: Scalar> MonotonicSegment for LineSegment<S> {
     type Scalar = S;
     fn solve_t_for_x(&self, x: S, _t_range: Range<S>, _tolerance: S) -> S {
         self.solve_t_for_x(x)
-    }
-}
-
-impl<S: Scalar> FlatteningStep for LineSegment<S> {
-    fn flattening_step(&self, _tolerance: S) -> S {
-        S::ONE
     }
 }
 

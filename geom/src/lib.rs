@@ -117,7 +117,6 @@ pub use crate::scalar::Scalar;
 mod scalar {
     pub(crate) use euclid::Trig;
     pub(crate) use num_traits::cast::cast;
-    pub(crate) use num_traits::One;
     pub(crate) use num_traits::{Float, FloatConst, NumCast};
 
     use std::fmt::{Debug, Display};
@@ -290,7 +289,7 @@ pub mod math {
 }
 
 pub mod traits {
-    pub use crate::segment::{FlatteningStep, Segment};
+    pub use crate::segment::Segment;
     //pub use monotonic::MonotonicSegment;
 
     use crate::generic_math::{Point, Rotation, Scale, Transform, Translation, Vector};

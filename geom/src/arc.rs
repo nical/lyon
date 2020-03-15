@@ -5,14 +5,10 @@ use std::ops::Range;
 
 use crate::generic_math::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector};
 use crate::scalar::{cast, Float, Scalar};
-use crate::segment;
-use crate::segment::{BoundingRect, FlatteningStep, Segment};
+use crate::segment::{BoundingRect, Segment};
 use crate::CubicBezierSegment;
 use crate::Line;
 use crate::QuadraticBezierSegment;
-
-/// A flattening iterator for arc segments.
-pub type Flattened<S> = segment::Flattened<S, Arc<S>>;
 
 /// An elliptic arc curve segment using the SVG's end-point notation.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -289,24 +285,49 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Approximates the arc with a sequence of line segments.
-    pub fn for_each_flattened<F>(&self, tolerance: S, call_back: &mut F)
+    pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>),
     {
-        crate::segment::for_each_flattened(self, tolerance, call_back);
+        let mut iter = self.clone();
+        loop {
+            let t = iter.flattening_step(tolerance);
+            if t >= S::ONE {
+                break;
+            }
+            iter = iter.after_split(t);
+            callback(iter.from());
+        }
+
+        callback(iter.to());
     }
 
     /// Iterates through the curve invoking a callback at each point.
-    pub fn for_each_flattened_with_t<F>(&self, tolerance: S, call_back: &mut F)
+    pub fn for_each_flattened_with_t<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>, S),
     {
-        crate::segment::for_each_flattened_with_t(self, tolerance, call_back);
+        let end = self.to();
+        let mut iter = self.clone();
+        let mut t0 = S::ZERO;
+        loop {
+            let step = iter.flattening_step(tolerance);
+
+            if step >= S::ONE {
+                break;
+            }
+    
+            iter = iter.after_split(step);
+            t0 += step * (S::ONE - t0);
+            callback(iter.from(), t0);
+        }
+
+        callback(end, S::ONE);
     }
 
     /// Finds the interval of the beginning of the curve that can be approximated with a
     /// line segment.
-    pub fn flattening_step(&self, tolerance: S) -> S {
+    fn flattening_step(&self, tolerance: S) -> S {
         // cos(theta) = (r - tolerance) / r
         // angle = 2 * theta
         // s = angle / sweep
@@ -683,9 +704,41 @@ impl<S: Scalar> BoundingRect for Arc<S> {
     }
 }
 
-impl<S: Scalar> FlatteningStep for Arc<S> {
-    fn flattening_step(&self, tolerance: S) -> S {
-        self.flattening_step(tolerance)
+/// Flattening iterator for arcs.
+///
+/// The iterator starts at the first point *after* the origin of the curve and ends at the
+/// destination.
+pub struct Flattened<S> {
+    arc: Arc<S>,
+    tolerance: S,
+    done: bool,
+}
+
+impl<S: Scalar> Flattened<S> {
+    pub fn new(arc: Arc<S>, tolerance: S) -> Self {
+        assert!(tolerance > S::ZERO);
+        Flattened {
+            arc,
+            tolerance,
+            done: false,
+        }
+    }
+}
+impl<S: Scalar> Iterator for Flattened<S> {
+    type Item = Point<S>;
+    fn next(&mut self) -> Option<Point<S>> {
+        if self.done {
+            return None;
+        }
+
+        let t = self.arc.flattening_step(self.tolerance);
+        if t >= S::ONE {
+            self.done = true;
+            return Some(self.arc.to());
+        }
+        self.arc = self.arc.after_split(t);
+
+        Some(self.arc.from())
     }
 }
 

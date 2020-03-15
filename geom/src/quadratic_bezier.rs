@@ -1,7 +1,7 @@
 use crate::generic_math::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
-use crate::segment::{BoundingRect, FlatteningStep, Segment};
+use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
@@ -781,12 +781,6 @@ impl<S: Scalar> BoundingRect for QuadraticBezierSegment<S> {
     }
     fn fast_bounding_range_y(&self) -> (S, S) {
         self.fast_bounding_range_y()
-    }
-}
-
-impl<S: Scalar> FlatteningStep for QuadraticBezierSegment<S> {
-    fn flattening_step(&self, tolerance: S) -> S {
-        self.flattening_step(tolerance)
     }
 }
 
