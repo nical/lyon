@@ -26,7 +26,7 @@
 
 use crate::geom::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::geom::LineSegment;
-use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::path::builder::{self, Build, PathBuilder};
 use crate::path::PathEvent;
 use std::marker::PhantomData;
 
@@ -458,16 +458,18 @@ struct EventsBuilder {
     first: Point,
     current: Point,
     nth: u32,
+    tolerance: f32,
 }
 
 impl EventsBuilder {
-    fn new(angle: Angle) -> Self {
+    fn new(angle: Angle, tolerance: f32) -> Self {
         EventsBuilder {
             edges: Vec::new(),
             angle,
             first: point(0.0, 0.0),
             current: point(0.0, 0.0),
             nth: 0,
+            tolerance,
         }
     }
 
@@ -504,7 +506,7 @@ impl Build for EventsBuilder {
     }
 }
 
-impl FlatPathBuilder for EventsBuilder {
+impl PathBuilder for EventsBuilder {
     fn move_to(&mut self, to: Point) {
         self.close();
         let next = to;
@@ -542,6 +544,26 @@ impl FlatPathBuilder for EventsBuilder {
     fn current_position(&self) -> Point {
         self.current
     }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        builder::flatten_quadratic_bezier(self.tolerance, self.current, ctrl, to, self);
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        builder::flatten_cubic_bezier(self.tolerance, self.current, ctrl1, ctrl2, to, self);
+    }
+
+    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
+        builder::flatten_arc(
+            self.tolerance,
+            self.current,
+            center,
+            radii,
+            sweep_angle,
+            x_rotation,
+            self,
+        );
+    }
 }
 
 impl HatchingEvents {
@@ -550,10 +572,9 @@ impl HatchingEvents {
         Iter: Iterator<Item = PathEvent>,
     {
         self.edges.clear();
-        let mut builder = EventsBuilder::new(angle);
+        let mut builder = EventsBuilder::new(angle, tolerance);
         builder.edges = mem::replace(&mut self.edges, Vec::new());
 
-        let mut builder = builder.flattened(tolerance);
         for evt in it {
             builder.path_event(evt);
         }

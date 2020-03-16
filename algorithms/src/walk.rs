@@ -118,7 +118,7 @@ impl<'l> PathWalker<'l> {
     }
 }
 
-impl<'l> FlatPathBuilder for PathWalker<'l> {
+impl<'l> PathBuilder for PathWalker<'l> {
     fn move_to(&mut self, to: Point) {
         self.need_moveto = false;
         self.first = to;
@@ -176,9 +176,7 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
     fn current_position(&self) -> Point {
         self.prev
     }
-}
 
-impl<'l> PathBuilder for PathWalker<'l> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         let curve = QuadraticBezierSegment {
             from: self.prev,

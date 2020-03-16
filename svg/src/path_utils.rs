@@ -220,7 +220,7 @@ impl Build for PathSerializer {
     }
 }
 
-impl FlatPathBuilder for PathSerializer {
+impl PathBuilder for PathSerializer {
     fn move_to(&mut self, to: Point) {
         self.path += &format!("M {} {} ", to.x, to.y);
         self.current = to;
@@ -238,9 +238,7 @@ impl FlatPathBuilder for PathSerializer {
     fn current_position(&self) -> Point {
         self.current
     }
-}
 
-impl PathBuilder for PathSerializer {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.path += &format!("Q {} {} {} {}", ctrl.x, ctrl.y, to.x, to.y);
     }

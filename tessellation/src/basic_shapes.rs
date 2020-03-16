@@ -26,8 +26,8 @@
 use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::geometry_builder::*;
-use crate::path::builder::FlatPathBuilder;
 use crate::path::iterator::FromPolyline;
+use crate::path::builder::{Build, FlatteningBuilder, PathBuilder};
 use crate::path::EndpointId;
 use crate::stroke::{StrokeBuilder, StrokeTessellator};
 use crate::{
@@ -670,8 +670,6 @@ pub fn stroke_ellipse(
         start_angle: Angle::radians(0.0),
         sweep_angle: Angle::radians(2.0 * PI - 0.01),
     };
-
-    use crate::path::builder::{Build, FlatteningBuilder, PathBuilder};
 
     output.begin_geometry();
     {

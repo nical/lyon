@@ -540,7 +540,13 @@ impl Build for Builder {
     }
 }
 
-impl FlatPathBuilder for Builder {
+impl PolygonBuilder for Builder {
+    fn polygon(&mut self, points: &[Point]) {
+        self.polygon(points);
+    }
+}
+
+impl PathBuilder for Builder {
     fn move_to(&mut self, to: Point) {
         self.move_to(to);
     }
@@ -553,18 +559,6 @@ impl FlatPathBuilder for Builder {
         self.close();
     }
 
-    fn current_position(&self) -> Point {
-        self.current_position
-    }
-}
-
-impl PolygonBuilder for Builder {
-    fn polygon(&mut self, points: &[Point]) {
-        self.polygon(points);
-    }
-}
-
-impl PathBuilder for Builder {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.quadratic_bezier_to(ctrl, to);
     }
@@ -575,6 +569,10 @@ impl PathBuilder for Builder {
 
     fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
         self.arc(center, radii, sweep_angle, x_rotation);
+    }
+
+    fn current_position(&self) -> Point {
+        self.current_position
     }
 }
 

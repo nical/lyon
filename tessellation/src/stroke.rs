@@ -4,7 +4,7 @@ use crate::geom::math::*;
 use crate::geom::utils::{directed_angle, normalized_tangent};
 use crate::geom::{Arc, CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math_utils::compute_normal;
-use crate::path::builder::{Build, FlatPathBuilder, PathBuilder};
+use crate::path::builder::{Build, PathBuilder};
 use crate::path::{AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore};
 use crate::{GeometryBuilderError, StrokeGeometryBuilder, VertexId};
 use crate::{
@@ -239,7 +239,7 @@ impl<'l> Build for StrokeBuilder<'l> {
     }
 }
 
-impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
+impl<'l> PathBuilder for StrokeBuilder<'l> {
     fn move_to(&mut self, to: Point) {
         self.begin(to, EndpointId::INVALID)
     }
@@ -255,9 +255,7 @@ impl<'l> FlatPathBuilder for StrokeBuilder<'l> {
     fn current_position(&self) -> Point {
         self.current
     }
-}
 
-impl<'l> PathBuilder for StrokeBuilder<'l> {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         let mut first = true;
         QuadraticBezierSegment {
