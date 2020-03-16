@@ -1,4 +1,4 @@
-use crate::builder::{FlatPathBuilder, PathBuilder, PolygonBuilder, SvgBuilder};
+use crate::builder::{PathBuilder, PolygonBuilder, SvgBuilder};
 use crate::geom::{Arc, ArcFlags};
 use crate::math::{point, vector, Angle, Point, Vector};
 
@@ -98,7 +98,7 @@ impl PathState {
     }
 }
 
-impl FlatPathBuilder for PathState {
+impl PathBuilder for PathState {
     fn move_to(&mut self, to: Point) {
         self.move_to(to);
     }
@@ -111,12 +111,6 @@ impl FlatPathBuilder for PathState {
         self.close();
     }
 
-    fn current_position(&self) -> Point {
-        self.current
-    }
-}
-
-impl PathBuilder for PathState {
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
         self.quadratic_bezier_to(ctrl, to);
     }
@@ -127,6 +121,10 @@ impl PathBuilder for PathState {
 
     fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
         self.arc(center, radii, sweep_angle, x_rotation);
+    }
+
+    fn current_position(&self) -> Point {
+        self.current
     }
 }
 

@@ -1,4 +1,4 @@
-use path::builder::{Build, FlatPathBuilder};
+use path::builder::*;
 use path::math::Point;
 use path::PathEvent;
 use path::{Path, PathSlice};
