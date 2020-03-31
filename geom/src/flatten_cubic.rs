@@ -12,14 +12,14 @@ use crate::quadratic_bezier::FlattenedT as FlattenedQuadraticSegment;
 // https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#section.10.6
 // and the error metric from the caffein owl blog post http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
 fn num_quadratics<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> S {
-    debug_assert!(tolerance >= S::EPSILON);
+    debug_assert!(tolerance > S::ZERO);
 
     let x = curve.from.x - S::THREE * curve.ctrl1.x + S::THREE * curve.ctrl2.x - curve.to.x;
     let y = curve.from.y - S::THREE * curve.ctrl1.y + S::THREE * curve.ctrl2.y - curve.to.y;
 
     let err = x * x + y * y;
 
-    (err / (S::value(432.0) * tolerance * tolerance)).powf(S::ONE / S::SIX).ceil()
+    (err / (S::value(432.0) * tolerance * tolerance)).powf(S::ONE / S::SIX).ceil().max(S::ONE)
 }
 
 pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
