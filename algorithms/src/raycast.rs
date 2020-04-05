@@ -121,11 +121,11 @@ fn test_raycast() {
     use crate::path::Path;
 
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(0.0, 1.0));
-    builder.close();
+    builder.end(true);
     let path = builder.build();
 
     assert!(raycast_path(

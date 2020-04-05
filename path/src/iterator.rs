@@ -18,10 +18,10 @@
 //! fn main() {
 //!     // Start with a path.
 //!     let mut builder = Path::builder();
-//!     builder.move_to(point(0.0, 0.0));
+//!     builder.begin(point(0.0, 0.0));
 //!     builder.line_to(point(10.0, 0.0));
 //!     builder.cubic_bezier_to(point(10.0, 10.0), point(0.0, 10.0), point(0.0, 5.0));
-//!     builder.close();
+//!     builder.end(true);
 //!     let path = builder.build();
 //!
 //!     // A simple std::iter::Iterator<PathEvent>,
@@ -76,11 +76,11 @@
 //!     // In practice it is more common to iterate over Path objects than vectors
 //!     // of SVG commands (the former can be constructed from the latter).
 //!     let mut builder = Path::builder();
-//!     builder.move_to(point(1.0, 1.0));
+//!     builder.begin(point(1.0, 1.0));
 //!     builder.line_to(point(2.0, 1.0));
 //!     builder.quadratic_bezier_to(point(2.0, 2.0), point(1.0, 2.0));
 //!     builder.cubic_bezier_to(point(0.0, 2.0), point(0.0, 0.0), point(1.0, 0.0));
-//!     builder.close();
+//!     builder.end(true);
 //!     let path = builder.build();
 //!
 //!     let transform = Rotation::new(Angle::radians(1.0));

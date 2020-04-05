@@ -39,7 +39,7 @@ impl FillTessellator {
     where
         Iter: IntoIterator<Item = PathEvent>,
     {
-        let mut builder = FlattenedPath::builder().with_svg(options.tolerance);
+        let mut builder = FlattenedPath::builder(options.tolerance);
 
         for evt in it {
             builder.path_event(evt);

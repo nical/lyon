@@ -2,7 +2,6 @@
 
 use crate::aabb::bounding_rect;
 use crate::math::*;
-use crate::path::builder::*;
 use crate::path::iterator::*;
 use crate::path::Path;
 

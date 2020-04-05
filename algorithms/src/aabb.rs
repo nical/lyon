@@ -139,10 +139,10 @@ fn simple_bounding_rect() {
     use crate::path::Path;
 
     let mut builder = Path::builder();
-    builder.move_to(point(-10.0, -3.0));
+    builder.begin(point(-10.0, -3.0));
     builder.line_to(point(0.0, -12.0));
     builder.quadratic_bezier_to(point(3.0, 4.0), point(5.0, 3.0));
-    builder.close();
+    builder.end(true);
     let path = builder.build();
 
     assert_eq!(
@@ -151,8 +151,9 @@ fn simple_bounding_rect() {
     );
 
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.cubic_bezier_to(point(-1.0, 2.0), point(3.0, -4.0), point(1.0, -1.0));
+    builder.end(false);
     let path = builder.build();
 
     assert_eq!(fast_bounding_rect(path.iter()), rect(-1.0, -4.0, 4.0, 6.0));

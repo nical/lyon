@@ -12,7 +12,6 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     {
         let options = FillOptions::tolerance(0.05);
 
-        use crate::path::builder::*;
         use crate::path::iterator::*;
 
         let mut builder = Path::builder();
@@ -146,10 +145,10 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 #[test]
 fn test_simple_triangle() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(1.0, 1.0));
     path.line_to(point(0.0, 1.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.01, Some(1));
 }
@@ -157,13 +156,13 @@ fn test_simple_triangle() {
 #[test]
 fn test_simple_monotone() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(-1.0, 1.0));
     path.line_to(point(-3.0, 2.0));
     path.line_to(point(-1.0, 3.0));
     path.line_to(point(-4.0, 5.0));
     path.line_to(point(0.0, 6.0));
-    path.close();
+    path.end(true);
 
     let path = path.build();
     test_path_and_count_triangles(path.as_slice(), 4);
@@ -172,12 +171,12 @@ fn test_simple_monotone() {
 #[test]
 fn test_simple_split() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(2.0, 1.0));
     path.line_to(point(2.0, 3.0));
     path.line_to(point(1.0, 2.0));
     path.line_to(point(0.0, 3.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, Some(3));
 }
@@ -185,13 +184,13 @@ fn test_simple_split() {
 #[test]
 fn test_simple_merge_split() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(1.0, 1.0));
     path.line_to(point(2.0, 0.0));
     path.line_to(point(2.0, 3.0));
     path.line_to(point(1.0, 2.0));
     path.line_to(point(0.0, 3.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, Some(4));
 
@@ -201,7 +200,7 @@ fn test_simple_merge_split() {
 #[test]
 fn test_simple_aligned() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(1.0, 0.0));
     path.line_to(point(2.0, 0.0));
     path.line_to(point(2.0, 1.0));
@@ -209,7 +208,7 @@ fn test_simple_aligned() {
     path.line_to(point(1.0, 2.0));
     path.line_to(point(0.0, 2.0));
     path.line_to(point(0.0, 1.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, Some(6));
 }
@@ -217,13 +216,13 @@ fn test_simple_aligned() {
 #[test]
 fn test_simple_1() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(1.0, 1.0));
     path.line_to(point(2.0, 0.0));
     path.line_to(point(1.0, 3.0));
     path.line_to(point(0.5, 4.0));
     path.line_to(point(0.0, 3.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, Some(4));
 
@@ -233,7 +232,7 @@ fn test_simple_1() {
 #[test]
 fn test_simple_2() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(1.0, 0.0));
     path.line_to(point(2.0, 0.0));
     path.line_to(point(3.0, 0.0));
@@ -245,7 +244,7 @@ fn test_simple_2() {
     path.line_to(point(0.0, 3.0));
     path.line_to(point(0.0, 2.0));
     path.line_to(point(0.0, 1.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, Some(10));
 }
@@ -253,15 +252,15 @@ fn test_simple_2() {
 #[test]
 fn test_hole_1() {
     let mut path = Path::builder();
-    path.move_to(point(-11.0, 5.0));
+    path.begin(point(-11.0, 5.0));
     path.line_to(point(0.0, -5.0));
     path.line_to(point(10.0, 5.0));
-    path.close();
+    path.end(true);
 
-    path.move_to(point(-5.0, 2.0));
+    path.begin(point(-5.0, 2.0));
     path.line_to(point(0.0, -2.0));
     path.line_to(point(4.0, 2.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, Some(6));
 }
@@ -269,13 +268,13 @@ fn test_hole_1() {
 #[test]
 fn test_degenerate_same_position() {
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(0.0, 0.0));
     path.line_to(point(0.0, 0.0));
     path.line_to(point(0.0, 0.0));
     path.line_to(point(0.0, 0.0));
     path.line_to(point(0.0, 0.0));
-    path.close();
+    path.end(true);
 
     test_path_with_rotations(path.build(), 0.001, None);
 }
@@ -289,11 +288,11 @@ fn test_intersecting_bow_tie() {
     // x  x
     let mut path = Path::builder();
 
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(2.0, 2.0));
     path.line_to(point(2.0, 0.0));
     path.line_to(point(0.0, 2.0));
-    path.close();
+    path.end(true);
 
     test_path(path.build().as_slice());
 }
@@ -308,11 +307,11 @@ fn test_auto_intersection_type1() {
     //  o.___\
     //       'o
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(2.0, 1.0));
     path.line_to(point(0.0, 2.0));
     path.line_to(point(2.0, 3.0));
-    path.close();
+    path.end(true);
 
     let path = path.build();
     test_path_and_count_triangles(path.as_slice(), 2);
@@ -328,11 +327,11 @@ fn test_auto_intersection_type2() {
     //  o'   \|
     //        o
     let mut path = Path::builder();
-    path.move_to(point(0.0, 0.0));
+    path.begin(point(0.0, 0.0));
     path.line_to(point(2.0, 3.0));
     path.line_to(point(2.0, 1.0));
     path.line_to(point(0.0, 2.0));
-    path.close();
+    path.end(true);
 
     let path = path.build();
     test_path_and_count_triangles(path.as_slice(), 2);
@@ -351,17 +350,17 @@ fn test_auto_intersection_multi() {
     //     \ /
     //      '
     let mut path = Path::builder();
-    path.move_to(point(20.0, 20.0));
+    path.begin(point(20.0, 20.0));
     path.line_to(point(60.0, 20.0));
     path.line_to(point(60.0, 60.0));
     path.line_to(point(20.0, 60.0));
-    path.close();
+    path.end(true);
 
-    path.move_to(point(40.0, 10.0));
+    path.begin(point(40.0, 10.0));
     path.line_to(point(70.0, 40.0));
     path.line_to(point(40.0, 70.0));
     path.line_to(point(10.0, 40.0));
-    path.close();
+    path.end(true);
 
     let path = path.build();
     test_path_with_rotations(path, 0.011, Some(8));
@@ -379,14 +378,16 @@ fn three_edges_below() {
     //  / | \|
     // /__|  .
 
-    builder.move_to(point(1.0, 0.0));
+    builder.begin(point(1.0, 0.0));
     builder.line_to(point(0.0, 1.0));
     builder.line_to(point(2.0, 2.0));
-    builder.close();
+    builder.end(true);
+
+    builder.begin(point(1.0, 0.0));
     builder.line_to(point(-1.0, 2.0));
     builder.line_to(point(0.0, 1.0));
     builder.line_to(point(0.0, 2.0));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -468,13 +469,13 @@ fn test_simple_double_merge() {
     //   x-'      <-- current merge vertex
     let mut path = Path::builder();
 
-    path.move_to(point(0.0, 2.0));
+    path.begin(point(0.0, 2.0));
     path.line_to(point(1.0, 3.0));
     path.line_to(point(2.0, 0.0));
     path.line_to(point(3.0, 2.0));
     path.line_to(point(4.0, 1.0));
     path.line_to(point(2.0, 6.0));
-    path.close();
+    path.end(true);
 
     // "M 0 2 L 1 3 L 2 0 L 3 2 L 4 1 L 2 6 Z"
 }
@@ -491,7 +492,7 @@ fn test_double_merge_with_intersection() {
     // test_rust_logo_with_intersection and has a self-intersection.
     let mut path = Path::builder();
 
-    path.move_to(point(80.041534, 19.24472));
+    path.begin(point(80.041534, 19.24472));
     path.line_to(point(76.56131, 23.062233));
     path.line_to(point(67.26949, 23.039438));
     path.line_to(point(65.989944, 23.178522));
@@ -499,11 +500,11 @@ fn test_double_merge_with_intersection() {
     path.line_to(point(56.916714, 25.207449));
     path.line_to(point(50.333813, 23.25274));
     path.line_to(point(48.42367, 28.978098));
-    path.close();
-    path.move_to(point(130.32213, 28.568213));
+    path.end(true);
+    path.begin(point(130.32213, 28.568213));
     path.line_to(point(130.65213, 58.5664));
     path.line_to(point(10.659382, 59.88637));
-    path.close();
+    path.end(true);
 
     test_path(path.build().as_slice());
     // "M 80.041534 19.24472 L 76.56131 23.062233 L 67.26949 23.039438 L 65.989944 23.178522 L 59.90927 19.969215 L 56.916714 25.207449 L 50.333813 23.25274 L 48.42367 28.978098 M 130.32213, 28.568213 L 130.65213 58.5664 L 10.659382 59.88637 Z"
@@ -523,7 +524,7 @@ fn test_chained_merge_end() {
     //       \/        < -- end
     let mut path = Path::builder();
 
-    path.move_to(point(1.0, 0.0));
+    path.begin(point(1.0, 0.0));
     path.line_to(point(2.0, 1.0)); // <-- merge
     path.line_to(point(3.0, 0.0));
     path.line_to(point(4.0, 2.0)); // <-- merge
@@ -531,7 +532,7 @@ fn test_chained_merge_end() {
     path.line_to(point(6.0, 3.0)); // <-- merge
     path.line_to(point(7.0, 0.0));
     path.line_to(point(5.0, 8.0)); // <-- end
-    path.close();
+    path.end(true);
 
     test_path_and_count_triangles(path.build().as_slice(), 6);
 }
@@ -548,7 +549,7 @@ fn test_chained_merge_left() {
     //   \          |
     let mut path = Path::builder();
 
-    path.move_to(point(1.0, 0.0));
+    path.begin(point(1.0, 0.0));
     path.line_to(point(2.0, 1.0)); // <-- merge
     path.line_to(point(3.0, 0.0));
     path.line_to(point(4.0, 2.0)); // <-- merge
@@ -557,7 +558,7 @@ fn test_chained_merge_left() {
     path.line_to(point(7.0, 0.0));
     path.line_to(point(7.0, 5.0));
     path.line_to(point(0.0, 4.0)); // <-- left
-    path.close();
+    path.end(true);
 
     test_path_and_count_triangles(path.build().as_slice(), 7);
 }
@@ -573,7 +574,7 @@ fn test_chained_merge_merge() {
     // |_________________|
     let mut path = Path::builder();
 
-    path.move_to(point(1.0, 0.0));
+    path.begin(point(1.0, 0.0));
     path.line_to(point(2.0, 1.0)); // <-- merge
     path.line_to(point(3.0, 0.0));
     path.line_to(point(4.0, 2.0)); // <-- merge
@@ -584,7 +585,7 @@ fn test_chained_merge_merge() {
     path.line_to(point(-1.0, 5.0));
     path.line_to(point(-1.0, 0.0));
     path.line_to(point(0.0, 4.0)); // <-- merge (resolving)
-    path.close();
+    path.end(true);
 
     test_path_and_count_triangles(path.build().as_slice(), 9);
 }
@@ -600,7 +601,7 @@ fn test_chained_merge_split() {
     // |     /\     |  <-- split
     let mut path = Path::builder();
 
-    path.move_to(point(1.0, 0.0));
+    path.begin(point(1.0, 0.0));
     path.line_to(point(2.0, 1.0)); // <-- merge
     path.line_to(point(3.0, 0.0));
     path.line_to(point(4.0, 2.0)); // <-- merge
@@ -610,7 +611,7 @@ fn test_chained_merge_split() {
     path.line_to(point(7.0, 5.0));
     path.line_to(point(4.0, 4.0)); // <-- split
     path.line_to(point(1.0, 5.0));
-    path.close();
+    path.end(true);
 
     test_path_and_count_triangles(path.build().as_slice(), 8);
 
@@ -630,15 +631,15 @@ fn test_intersection_horizontal_precision() {
     // invariant of the algorithm.
     let mut builder = Path::builder();
 
-    builder.move_to(point(-34.619564, 111.88655));
+    builder.begin(point(-34.619564, 111.88655));
     builder.line_to(point(-35.656174, 111.891));
     builder.line_to(point(-39.304527, 121.766914));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(1.4426613, 133.40884));
+    builder.begin(point(1.4426613, 133.40884));
     builder.line_to(point(-27.714422, 140.47032));
     builder.line_to(point(-55.960342, 23.841988));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -661,12 +662,12 @@ fn test_overlapping_with_intersection() {
 
     let mut builder = Path::builder();
 
-    builder.move_to(point(2.0, -1.0));
+    builder.begin(point(2.0, -1.0));
     builder.line_to(point(2.0, -3.0));
     builder.line_to(point(3.0, -2.0));
     builder.line_to(point(1.0, -2.0));
     builder.line_to(point(2.0, -3.0));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -679,14 +680,14 @@ fn test_split_with_intersections() {
 
     let mut builder = Path::builder();
 
-    builder.move_to(point(-21.004179, -71.57515));
+    builder.begin(point(-21.004179, -71.57515));
     builder.line_to(point(-21.927473, -70.94977));
     builder.line_to(point(-23.024633, -70.68942));
-    builder.close();
-    builder.move_to(point(16.036617, -27.254852));
+    builder.end(true);
+    builder.begin(point(16.036617, -27.254852));
     builder.line_to(point(-62.83691, -117.69249));
     builder.line_to(point(38.646027, -46.973236));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -696,9 +697,9 @@ fn test_split_with_intersections() {
 #[test]
 fn test_colinear_1() {
     let mut builder = Path::builder();
-    builder.move_to(point(20.0, 150.0));
+    builder.begin(point(20.0, 150.0));
     builder.line_to(point(80.0, 150.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -708,10 +709,10 @@ fn test_colinear_1() {
 #[test]
 fn test_colinear_2() {
     let mut builder = Path::builder();
-    builder.move_to(point(20.0, 150.0));
+    builder.begin(point(20.0, 150.0));
     builder.line_to(point(80.0, 150.0));
     builder.line_to(point(20.0, 150.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -722,12 +723,12 @@ fn test_colinear_2() {
 fn test_colinear_3() {
     let mut builder = Path::builder();
     // The path goes through many points along a line.
-    builder.move_to(point(0.0, 1.0));
+    builder.begin(point(0.0, 1.0));
     builder.line_to(point(0.0, 3.0));
     builder.line_to(point(0.0, 5.0));
     builder.line_to(point(0.0, 4.0));
     builder.line_to(point(0.0, 2.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -738,11 +739,11 @@ fn test_colinear_3() {
 fn test_colinear_4() {
     // The path goes back and forth along a line.
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 2.0));
+    builder.begin(point(0.0, 2.0));
     builder.line_to(point(0.0, 1.0));
     builder.line_to(point(0.0, 3.0));
     builder.line_to(point(0.0, 0.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -759,17 +760,17 @@ fn test_colinear_touching_squares() {
     // x-----x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(0.0, 1.0));
+    builder.end(true);
 
-    builder.move_to(point(1.0, 0.0));
+    builder.begin(point(1.0, 0.0));
     builder.line_to(point(2.0, 0.0));
     builder.line_to(point(2.0, 1.0));
     builder.line_to(point(1.0, 1.0));
-
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -783,12 +784,12 @@ fn angle_precision() {
     // wrong order in the sweep line.
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.007982401, 0.0121872));
+    builder.begin(point(0.007982401, 0.0121872));
     builder.line_to(point(0.008415101, 0.0116545));
     builder.line_to(point(0.008623006, 0.011589845));
     builder.line_to(point(0.008464893, 0.011639819));
     builder.line_to(point(0.0122631, 0.0069716));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -807,7 +808,7 @@ fn n_segments_intersecting() {
         let n = i * 4 - 1;
         let delta = PI / n as f32;
         let mut radius = 1000.0;
-        builder.move_to(center + vector(radius, 0.0));
+        builder.begin(center + vector(radius, 0.0));
         builder.line_to(center - vector(-radius, 0.0));
         for i in 0..n {
             let (s, c) = (i as f32 * delta).sin_cos();
@@ -815,7 +816,7 @@ fn n_segments_intersecting() {
             builder.line_to(center - vector(c, s) * radius);
             radius = -radius;
         }
-        builder.close();
+        builder.end(true);
 
         test_path_with_rotations(builder.build(), 0.03, None);
     }
@@ -826,11 +827,11 @@ fn back_along_previous_edge() {
     // This test has edges that come back along the previous edge.
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(0.8, 0.8));
     builder.line_to(point(1.5, 1.5));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -846,17 +847,17 @@ fn test_colinear_touching_squares2() {
     //       x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(10.0, 0.0));
     builder.line_to(point(10.0, 10.0));
     builder.line_to(point(0.0, 10.0));
+    builder.end(true);
 
-    builder.move_to(point(10.0, 1.0));
+    builder.begin(point(10.0, 1.0));
     builder.line_to(point(20.0, 1.0));
     builder.line_to(point(20.0, 11.0));
     builder.line_to(point(10.0, 11.0));
-
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -874,17 +875,17 @@ fn test_colinear_touching_squares3() {
     // x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 1.0));
+    builder.begin(point(0.0, 1.0));
     builder.line_to(point(10.0, 1.0));
     builder.line_to(point(10.0, 11.0));
     builder.line_to(point(0.0, 11.0));
+    builder.end(true);
 
-    builder.move_to(point(10.0, 0.0));
+    builder.begin(point(10.0, 0.0));
     builder.line_to(point(20.0, 0.0));
     builder.line_to(point(20.0, 10.0));
     builder.line_to(point(10.0, 10.0));
-
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -898,15 +899,15 @@ fn test_unknown_issue_1() {
     // TODO: figure out what the issue was and what fixed it.
     let mut builder = Path::builder();
 
-    builder.move_to(point(-3.3709216, 9.467676));
+    builder.begin(point(-3.3709216, 9.467676));
     builder.line_to(point(-13.078612, 7.0675235));
     builder.line_to(point(-10.67846, -2.6401677));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(-4.800305, 19.415382));
+    builder.begin(point(-4.800305, 19.415382));
     builder.line_to(point(-14.507996, 17.01523));
     builder.line_to(point(-12.107843, 7.307539));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -922,17 +923,17 @@ fn test_colinear_touching_squares_rotated() {
     // x-----x
     //
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 1.0));
+    builder.begin(point(0.0, 1.0));
     builder.line_to(point(10.0, 1.0));
     builder.line_to(point(10.0, 11.0));
     builder.line_to(point(0.0, 11.0));
+    builder.end(true);
 
-    builder.move_to(point(10.0, 0.0));
+    builder.begin(point(10.0, 0.0));
     builder.line_to(point(20.0, 0.0));
     builder.line_to(point(20.0, 10.0));
     builder.line_to(point(10.0, 10.0));
-
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -949,12 +950,12 @@ fn test_point_on_edge_right() {
     //     b--x
     //
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(0.0, 100.0));
     builder.line_to(point(50.0, 100.0));
     builder.line_to(point(0.0, 50.0));
     builder.line_to(point(-50.0, 100.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -971,12 +972,12 @@ fn test_point_on_edge_left() {
     //  x--b
     //
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(0.0, 100.0));
     builder.line_to(point(-50.0, 100.0));
     builder.line_to(point(0.0, 50.0));
     builder.line_to(point(50.0, 100.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -985,7 +986,7 @@ fn test_point_on_edge_left() {
 
 #[test]
 fn test_point_on_edge2() {
-    // Point b (from edges a-b and b-c) is positionned exactly on
+    // Point b (from edges a-b and b-c) is positioned exactly on
     // the edge d-e.
     //
     //     d-----+
@@ -997,18 +998,18 @@ fn test_point_on_edge2() {
     //     e-----+
     let mut builder = Path::builder();
 
-    builder.move_to(point(1.0, 1.0));
+    builder.begin(point(1.0, 1.0));
     builder.line_to(point(2.0, 1.0));
     builder.line_to(point(3.0, 1.0));
     builder.line_to(point(3.0, 2.0));
     builder.line_to(point(1.0, 2.0));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(2.0, 0.0));
+    builder.begin(point(2.0, 0.0));
     builder.line_to(point(2.0, 3.0));
     builder.line_to(point(4.0, 3.0));
     builder.line_to(point(4.0, 0.0));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -1023,13 +1024,13 @@ fn test_coincident_simple_1() {
 
     // A self-intersecting path with two points at the same position.
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 1.0)); // <--
     builder.line_to(point(0.0, 2.0));
     builder.line_to(point(2.0, 2.0));
     builder.line_to(point(1.0, 1.0)); // <--
     builder.line_to(point(2.0, 0.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1042,13 +1043,13 @@ fn test_coincident_simple_1() {
 fn test_coincident_simple_2() {
     // A self-intersecting path with two points at the same position.
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 1.0)); // <--
     builder.line_to(point(2.0, 0.0));
     builder.line_to(point(2.0, 2.0));
     builder.line_to(point(1.0, 1.0)); // <--
     builder.line_to(point(0.0, 2.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1060,13 +1061,13 @@ fn test_coincident_simple_rotated() {
     // Same as test_coincident_simple with the usual rotations
     // applied.
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 1.0)); // <--
     builder.line_to(point(0.0, 2.0));
     builder.line_to(point(2.0, 2.0));
     builder.line_to(point(1.0, 1.0)); // <--
     builder.line_to(point(2.0, 0.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1078,16 +1079,16 @@ fn test_identical_squares() {
     // Two identical sub paths. It is pretty much the worst type of input for
     // the tessellator as far as I know.
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(0.0, 1.0));
-    builder.close();
-    builder.move_to(point(0.0, 0.0));
+    builder.end(true);
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(0.0, 1.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1101,11 +1102,11 @@ fn test_close_at_first_position() {
     // test against the angle of (current, first, second)).
     let mut builder = Path::builder();
 
-    builder.move_to(point(107.400665, 91.79798));
+    builder.begin(point(107.400665, 91.79798));
     builder.line_to(point(108.93136, 91.51076));
     builder.line_to(point(107.84248, 91.79686));
     builder.line_to(point(107.400665, 91.79798));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -1116,11 +1117,11 @@ fn test_fixed_to_f32_precision() {
     // to f32, causing a point to appear slightly above another when it should not.
     let mut builder = Path::builder();
 
-    builder.move_to(point(68.97998, 796.05));
+    builder.begin(point(68.97998, 796.05));
     builder.line_to(point(61.27998, 805.35));
     builder.line_to(point(55.37999, 799.14996));
     builder.line_to(point(68.98, 796.05));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -1129,9 +1130,10 @@ fn test_fixed_to_f32_precision() {
 fn test_no_close() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(1.0, 1.0));
+    builder.begin(point(1.0, 1.0));
     builder.line_to(point(5.0, 1.0));
     builder.line_to(point(1.0, 5.0));
+    builder.end(false);
 
     test_path(builder.build().as_slice());
 }
@@ -1145,11 +1147,11 @@ fn test_empty_path() {
 fn test_exp_no_intersection_01() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(80.041534, 19.24472));
+    builder.begin(point(80.041534, 19.24472));
     builder.line_to(point(76.56131, 23.062233));
     builder.line_to(point(67.26949, 23.039438));
     builder.line_to(point(48.42367, 28.978098));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -1160,14 +1162,14 @@ fn test_exp_no_intersection_01() {
 #[test]
 fn test_intersecting_star_shape() {
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(100.0, 0.0));
     builder.line_to(point(50.0, 50.0));
-    builder.close();
-    builder.move_to(point(0.0, 25.0));
+    builder.end(true);
+    builder.begin(point(0.0, 25.0));
     builder.line_to(point(100.0, 25.0));
     builder.line_to(point(50.0, -25.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1178,7 +1180,7 @@ fn test_intersecting_star_shape() {
 fn issue_476_original() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(10720.101, 7120.1816));
+    builder.begin(point(10720.101, 7120.1816));
     builder.line_to(point(10720.099, 7120.1816));
     builder.line_to(point(10720.1, 7120.182));
     builder.line_to(point(10720.099, 7120.1836));
@@ -1199,7 +1201,7 @@ fn issue_476_original() {
     builder.line_to(point(10720.098, 7120.1826));
     builder.line_to(point(10720.097, 7120.181));
     builder.line_to(point(10720.1, 7120.1807));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -1208,14 +1210,14 @@ fn issue_476_original() {
 fn issue_476_reduced() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(10720.101, 7120.1816));
+    builder.begin(point(10720.101, 7120.1816));
     builder.line_to(point(10720.099, 7120.1816));
     builder.line_to(point(10720.096, 7120.1855));
     builder.line_to(point(10720.098, 7120.1846));
     builder.line_to(point(10720.099, 7120.1816));
     builder.line_to(point(10720.098, 7120.1826));
     builder.line_to(point(10720.097, 7120.181));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -1227,7 +1229,7 @@ fn issue_476_reduced() {
 fn issue_481_original() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.9177246, 0.22070313));
+    builder.begin(point(0.9177246, 0.22070313));
     builder.line_to(point(0.9111328, 0.21826172));
     builder.line_to(point(0.91625977, 0.22265625));
     builder.line_to(point(0.9111328, 0.22753906));
@@ -1269,7 +1271,7 @@ fn issue_481_original() {
     builder.line_to(point(0.9213867, 0.23022461));
     builder.line_to(point(0.91918945, 0.22729492));
     builder.line_to(point(0.92211914, 0.22680664));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -1278,7 +1280,7 @@ fn issue_481_original() {
 fn issue_481_reduced() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.88427734, 0.2277832));
+    builder.begin(point(0.88427734, 0.2277832));
     builder.line_to(point(0.88671875, 0.22143555));
     builder.line_to(point(0.91259766, 0.23803711));
     builder.line_to(point(0.8869629, 0.22607422));
@@ -1286,7 +1288,7 @@ fn issue_481_reduced() {
     builder.line_to(point(0.8894043, 0.22729492));
     builder.line_to(point(0.8869629, 0.22607422));
     builder.line_to(point(0.89453125, 0.2265625));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -1298,11 +1300,11 @@ fn issue_481_reduced() {
 fn overlapping_horizontal() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(10.0, 0.0));
+    builder.begin(point(10.0, 0.0));
     builder.line_to(point(0.0, 0.0));
     builder.line_to(point(15.0, 0.0));
     builder.line_to(point(10.0, 5.0));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -1313,10 +1315,10 @@ fn overlapping_horizontal() {
 #[test]
 fn triangle() {
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(5.0, 1.0));
     builder.line_to(point(3.0, 5.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1336,16 +1338,16 @@ fn triangle() {
 #[test]
 fn new_tess_1() {
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(5.0, 0.0));
     builder.line_to(point(5.0, 5.0));
     builder.line_to(point(0.0, 5.0));
-    builder.close();
-    builder.move_to(point(1.0, 1.0));
+    builder.end(true);
+    builder.begin(point(1.0, 1.0));
     builder.line_to(point(4.0, 1.0));
     builder.line_to(point(4.0, 4.0));
     builder.line_to(point(1.0, 4.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1364,7 +1366,7 @@ fn new_tess_1() {
 #[test]
 fn new_tess_2() {
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(5.0, -5.0));
     builder.line_to(point(10.0, 0.0));
     builder.line_to(point(9.0, 5.0));
@@ -1372,12 +1374,12 @@ fn new_tess_2() {
     builder.line_to(point(5.0, 6.0));
     builder.line_to(point(0.0, 10.0));
     builder.line_to(point(1.0, 5.0));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(20.0, -1.0));
+    builder.begin(point(20.0, -1.0));
     builder.line_to(point(25.0, 1.0));
     builder.line_to(point(25.0, 9.0));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1396,14 +1398,14 @@ fn new_tess_2() {
 #[test]
 fn new_tess_merge() {
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0)); // start
+    builder.begin(point(0.0, 0.0)); // start
     builder.line_to(point(5.0, 5.0)); // merge
     builder.line_to(point(5.0, 1.0)); // start
     builder.line_to(point(10.0, 6.0)); // merge
     builder.line_to(point(11.0, 2.0)); // start
     builder.line_to(point(11.0, 10.0)); // end
     builder.line_to(point(0.0, 9.0)); // left
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1425,15 +1427,15 @@ fn new_tess_merge() {
 fn test_intersection_1() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(118.82771, 64.41283));
+    builder.begin(point(118.82771, 64.41283));
     builder.line_to(point(23.451895, 50.336365));
     builder.line_to(point(123.39044, 68.36287));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(80.39975, 58.73177));
+    builder.begin(point(80.39975, 58.73177));
     builder.line_to(point(80.598236, 60.38033));
     builder.line_to(point(63.05017, 63.488304));
-    builder.close();
+    builder.end(true);
 
     let path = builder.build();
 
@@ -1458,11 +1460,11 @@ fn new_tess_points_too_close() {
 
     let mut builder = Path::builder();
 
-    builder.move_to(point(52.90753, -72.15962));
+    builder.begin(point(52.90753, -72.15962));
     builder.line_to(point(45.80301, -70.96051));
     builder.line_to(point(50.91391, -83.96548));
     builder.line_to(point(52.90654, -72.159454));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -1482,13 +1484,13 @@ fn new_tess_points_too_close() {
 fn new_tess_coincident_simple() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(0.0, 1.0));
     builder.line_to(point(0.0, 1.0));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1506,11 +1508,11 @@ fn new_tess_coincident_simple() {
 fn new_tess_overlapping_1() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(2.0, 2.0));
     builder.line_to(point(3.0, 1.0));
     builder.line_to(point(0.0, 4.0));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1528,7 +1530,7 @@ fn new_tess_overlapping_1() {
 fn reduced_test_case_01() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.73951757, 0.3810749));
+    builder.begin(point(0.73951757, 0.3810749));
     builder.line_to(point(0.4420668, 0.05925262));
     builder.line_to(point(0.54023945, 0.16737175));
     builder.line_to(point(0.8839954, 0.39966547));
@@ -1537,7 +1539,7 @@ fn reduced_test_case_01() {
     builder.line_to(point(0.053493023, 0.18919432));
     builder.line_to(point(0.6088793, 0.57187665));
     builder.line_to(point(0.2899257, 0.09821439));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1558,7 +1560,7 @@ fn reduced_test_case_01() {
 fn reduced_test_case_02() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(-849.0441, 524.5503));
+    builder.begin(point(-849.0441, 524.5503));
     builder.line_to(point(857.67084, -518.10205));
     builder.line_to(point(900.9668, -439.50897));
     builder.line_to(point(-892.3401, 445.9572));
@@ -1585,7 +1587,7 @@ fn reduced_test_case_02() {
     builder.line_to(point(469.48914, -881.99426));
     builder.line_to(point(546.96686, -836.73254));
     builder.line_to(point(-538.3402, 843.1808));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1606,7 +1608,7 @@ fn reduced_test_case_02() {
 fn reduced_test_case_03() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(997.2859, 38.078064));
+    builder.begin(point(997.2859, 38.078064));
     builder.line_to(point(-1000.8505, -48.24139));
     builder.line_to(point(-980.1207, -212.09396));
     builder.line_to(point(976.556, 201.93065));
@@ -1644,7 +1646,7 @@ fn reduced_test_case_03() {
     builder.line_to(point(-960.7323, 278.49396));
     builder.line_to(point(-994.3284, 116.7885));
     builder.line_to(point(990.76373, -126.95181));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1665,7 +1667,7 @@ fn reduced_test_case_03() {
 fn reduced_test_case_04() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(540.7645, 838.81036));
+    builder.begin(point(540.7645, 838.81036));
     builder.line_to(point(-534.48315, -847.5593));
     builder.line_to(point(-347.42682, -940.912));
     builder.line_to(point(151.33032, 984.5845));
@@ -1689,7 +1691,7 @@ fn reduced_test_case_04() {
     builder.line_to(point(837.23865, 547.24194));
     builder.line_to(point(-830.9573, -555.9909));
     builder.line_to(point(-698.0427, -717.3555));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1710,7 +1712,7 @@ fn reduced_test_case_04() {
 fn reduced_test_case_05() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(540.7645, 838.81036));
+    builder.begin(point(540.7645, 838.81036));
     builder.line_to(point(-534.48315, -847.5593));
     builder.line_to(point(-347.42682, -940.912));
     builder.line_to(point(353.70816, 932.163));
@@ -1739,7 +1741,7 @@ fn reduced_test_case_05() {
     builder.line_to(point(-830.9573, -555.9909));
     builder.line_to(point(-698.0427, -717.3555));
     builder.line_to(point(704.3241, 708.6065));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1760,7 +1762,7 @@ fn reduced_test_case_05() {
 fn reduced_test_case_06() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(831.9957, 561.9206));
+    builder.begin(point(831.9957, 561.9206));
     builder.line_to(point(-829.447, -551.4562));
     builder.line_to(point(-505.64172, -856.7632));
     builder.line_to(point(508.19046, 867.2276));
@@ -1771,7 +1773,7 @@ fn reduced_test_case_06() {
     builder.line_to(point(-726.3096, 691.25085));
     builder.line_to(point(728.8583, -680.78644));
     builder.line_to(point(-951.90845, 307.6267));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1792,7 +1794,7 @@ fn reduced_test_case_06() {
 fn reduced_test_case_07() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(960.5097, -271.01678));
+    builder.begin(point(960.5097, -271.01678));
     builder.line_to(point(-967.03217, 262.446));
     builder.line_to(point(-987.3192, -182.13324));
     builder.line_to(point(980.7969, 173.56247));
@@ -1806,7 +1808,7 @@ fn reduced_test_case_07() {
     builder.line_to(point(-395.62357, 915.5254));
     builder.line_to(point(-755.85846, 654.19574));
     builder.line_to(point(749.3361, -662.7665));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1827,16 +1829,16 @@ fn reduced_test_case_07() {
 fn reduced_test_case_08() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(-85.92998, 24.945076));
+    builder.begin(point(-85.92998, 24.945076));
     builder.line_to(point(-79.567345, 28.325748));
     builder.line_to(point(-91.54697, 35.518726));
     builder.line_to(point(-85.92909, 24.945545));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(-57.761955, 34.452206));
+    builder.begin(point(-57.761955, 34.452206));
     builder.line_to(point(-113.631676, 63.3717));
     builder.line_to(point(-113.67784, 63.347214));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1857,15 +1859,15 @@ fn reduced_test_case_08() {
 fn reduced_test_case_09() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(659.9835, 415.86328));
+    builder.begin(point(659.9835, 415.86328));
     builder.line_to(point(70.36328, 204.36978));
     builder.line_to(point(74.12529, 89.01107));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(840.2258, 295.46188));
+    builder.begin(point(840.2258, 295.46188));
     builder.line_to(point(259.41193, 272.18054));
     builder.line_to(point(728.914, 281.41678));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1886,7 +1888,7 @@ fn reduced_test_case_09() {
 fn reduced_test_case_10() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(993.5114, -94.67855));
+    builder.begin(point(993.5114, -94.67855));
     builder.line_to(point(-938.76056, -355.94995));
     builder.line_to(point(933.8779, 346.34995));
     builder.line_to(point(-693.6775, -727.42883));
@@ -1898,7 +1900,7 @@ fn reduced_test_case_10() {
     builder.line_to(point(-553.13776, 829.9056));
     builder.line_to(point(-860.76697, 508.30533));
     builder.line_to(point(855.88434, -517.90533));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1919,15 +1921,15 @@ fn reduced_test_case_10() {
 fn reduced_test_case_11() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(10.0095005, 0.89995164));
+    builder.begin(point(10.0095005, 0.89995164));
     builder.line_to(point(10.109498, 10.899451));
     builder.line_to(point(0.10999817, 10.99945));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(19.999, -0.19999667));
+    builder.begin(point(19.999, -0.19999667));
     builder.line_to(point(20.098999, 9.799503));
     builder.line_to(point(10.099499, 9.899502));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1948,15 +1950,15 @@ fn reduced_test_case_11() {
 fn reduced_test_case_12() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(5.5114865, -8.40378));
+    builder.begin(point(5.5114865, -8.40378));
     builder.line_to(point(14.377752, -3.7789207));
     builder.line_to(point(9.7528925, 5.0873456));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(4.62486, -8.866266));
+    builder.begin(point(4.62486, -8.866266));
     builder.line_to(point(18.115986, -13.107673));
     builder.line_to(point(13.491126, -4.2414064));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -1977,7 +1979,7 @@ fn reduced_test_case_12() {
 fn reduced_test_case_13() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(-989.1437, 132.75488));
+    builder.begin(point(-989.1437, 132.75488));
     builder.line_to(point(994.39124, -123.3494));
     builder.line_to(point(518.279, 861.4989));
     builder.line_to(point(-513.03143, -852.09344));
@@ -1994,7 +1996,7 @@ fn reduced_test_case_13() {
     builder.line_to(point(437.86832, -895.6096));
     builder.line_to(point(959.78815, -284.84253));
     builder.line_to(point(-954.5406, 294.24802));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -2015,7 +2017,7 @@ fn reduced_test_case_13() {
 fn reduced_test_case_14() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(10.0, 20.0));
     builder.line_to(point(10.0, 10.0));
     builder.line_to(point(40.0, 25.0));
@@ -2027,7 +2029,7 @@ fn reduced_test_case_14() {
     builder.line_to(point(40.0, 30.0));
     builder.line_to(point(20.0, 60.0));
     builder.line_to(point(0.0, 60.0));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -2048,7 +2050,7 @@ fn reduced_test_case_14() {
 fn issue_500() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(6.05, 11.65));
+    builder.begin(point(6.05, 11.65));
     builder.line_to(point(5.6, 11.65));
     builder.line_to(point(4.7, 12.25));
     builder.line_to(point(5.15, 12.55));
@@ -2063,7 +2065,7 @@ fn issue_500() {
     builder.line_to(point(1.25, 13.15));
     builder.line_to(point(1.25, 7.15));
     builder.line_to(point(1.25, 7.15));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -2080,7 +2082,7 @@ fn issue_500() {
 #[test]
 fn issue_518_1() {
     let mut builder = Path::builder();
-    builder.move_to(point(-76.95, -461.8));
+    builder.begin(point(-76.95, -461.8));
     builder.quadratic_bezier_to(point(-75.95, -462.6), point(-74.65, -462.8));
     builder.line_to(point(-79.1, -456.4));
     builder.line_to(point(-83.4, -464.75));
@@ -2089,7 +2091,7 @@ fn issue_518_1() {
     builder.quadratic_bezier_to(point(-78.65, -460.2), point(-77.35, -461.45));
     builder.line_to(point(-77.1, -461.65));
     builder.line_to(point(-76.95, -461.8));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -2106,14 +2108,14 @@ fn issue_518_1() {
 #[test]
 fn issue_518_2() {
     let mut builder = Path::builder();
-    builder.move_to(point(-69.1, -465.5));
+    builder.begin(point(-69.1, -465.5));
     builder.line_to(point(-69.1, -461.65));
     builder.quadratic_bezier_to(point(-70.95, -462.8), point(-72.95, -462.9));
     builder.quadratic_bezier_to(point(-75.65, -463.1), point(-77.35, -461.45));
     builder.quadratic_bezier_to(point(-78.65, -460.2), point(-79.05, -458.1));
     builder.line_to(point(-80.55, -465.5));
     builder.line_to(point(-69.1, -465.5));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -2134,7 +2136,7 @@ fn very_large_path() {
 
     let mut d: f32 = 0.0;
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     for _ in 0..(N / 2) {
         builder.line_to(point(d.cos(), d));
         d += 0.1;
@@ -2144,7 +2146,7 @@ fn very_large_path() {
         d -= 0.1;
     }
 
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 
@@ -2160,15 +2162,15 @@ fn very_large_path() {
 fn issue_529() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(203.01, 174.67));
+    builder.begin(point(203.01, 174.67));
     builder.line_to(point(203.04, 174.72));
     builder.line_to(point(203.0, 174.68));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(203.0, 174.66));
+    builder.begin(point(203.0, 174.66));
     builder.line_to(point(203.01, 174.68));
     builder.line_to(point(202.99, 174.68));
-    builder.close();
+    builder.end(true);
 
     let mut tess = FillTessellator::new();
 

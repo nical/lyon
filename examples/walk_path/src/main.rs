@@ -38,13 +38,13 @@ fn main() {
     let tolerance = 0.002;
 
     // Build a Path for the rust logo.
-    let mut builder = SvgPathBuilder::new(Path::builder());
+    let mut builder = Path::svg_builder();
     build_logo_path(&mut builder);
     let logo_path = builder.build();
 
     // Build a Path for the arrow.
     let mut builder = Path::builder();
-    builder.move_to(point(-1.0, -0.3));
+    builder.begin(point(-1.0, -0.3));
     builder.line_to(point(0.0, -0.3));
     builder.line_to(point(0.0, -1.0));
     builder.line_to(point(1.5, 0.0));

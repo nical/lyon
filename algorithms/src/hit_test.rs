@@ -102,16 +102,16 @@ fn test_hit_test() {
     use crate::path::Path;
 
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(0.0, 1.0));
-    builder.close();
-    builder.move_to(point(0.25, 0.25));
+    builder.end(true);
+    builder.begin(point(0.25, 0.25));
     builder.line_to(point(0.75, 0.25));
     builder.line_to(point(0.75, 0.75));
     builder.line_to(point(0.20, 0.75));
-    builder.close();
+    builder.end(true);
     let path = builder.build();
 
     assert!(!hit_test_path(

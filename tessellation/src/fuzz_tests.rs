@@ -1,6 +1,5 @@
 use crate::geom::math::*;
 use crate::geometry_builder::{simple_builder, VertexBuffers};
-use crate::path::builder::*;
 use crate::path::iterator::*;
 use crate::path::{Path, PathSlice};
 use crate::{FillOptions, FillTessellator, TessellationError};
@@ -51,7 +50,7 @@ fn test_path(path: PathSlice) {
 fn fuzzing_test_case_01() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.78730774, 0.48590088));
+    builder.begin(point(0.78730774, 0.48590088));
     builder.line_to(point(0.9696454, 0.6628016));
     builder.line_to(point(0.34390104, 0.16192567));
     builder.line_to(point(0.6777611, 0.27082264));
@@ -159,7 +158,7 @@ fn fuzzing_test_case_01() {
     builder.line_to(point(0.2899257, 0.09821439));
     builder.line_to(point(0.1324873, 0.9954816));
     builder.line_to(point(0.31996012, 0.2892481));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -168,7 +167,7 @@ fn fuzzing_test_case_01() {
 fn fuzzing_test_case_2() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(97.84245, 342.3357));
+    builder.begin(point(97.84245, 342.3357));
     builder.line_to(point(827.032, 869.6488));
     builder.line_to(point(100.65568, 711.0392));
     builder.line_to(point(160.9056, 325.1753));
@@ -199,9 +198,9 @@ fn fuzzing_test_case_2() {
     builder.line_to(point(95.98338, 8.636117));
     builder.line_to(point(330.69205, 291.2035));
     builder.line_to(point(588.3315, 422.37854));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(488.39163, 585.3933));
+    builder.begin(point(488.39163, 585.3933));
     builder.line_to(point(511.4907, 182.28484));
     builder.line_to(point(207.47495, 267.26733));
     builder.line_to(point(230.20506, 547.68085));
@@ -243,7 +242,7 @@ fn fuzzing_test_case_2() {
     builder.line_to(point(7.777691, 764.90674));
     builder.line_to(point(991.0443, 899.16394));
     builder.line_to(point(8.897662, 321.36823));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -252,7 +251,7 @@ fn fuzzing_test_case_2() {
 fn fuzzing_test_case_3() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(618.4506, 535.154));
+    builder.begin(point(618.4506, 535.154));
     builder.line_to(point(316.216, 147.39215));
     builder.line_to(point(865.08704, 400.41245));
     builder.line_to(point(569.64087, 800.3887));
@@ -262,9 +261,9 @@ fn fuzzing_test_case_3() {
     builder.line_to(point(99.32542, 539.7853));
     builder.line_to(point(385.5622, 93.48655));
     builder.line_to(point(582.3861, 313.66693));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(543.83075, 16.76654));
+    builder.begin(point(543.83075, 16.76654));
     builder.line_to(point(280.80618, 217.78273));
     builder.line_to(point(616.4985, 320.1716));
     builder.line_to(point(988.8271, 24.366737));
@@ -276,33 +275,33 @@ fn fuzzing_test_case_3() {
     builder.line_to(point(181.1322, 225.40283));
     builder.line_to(point(903.77435, 602.7105));
     builder.line_to(point(153.47314, 375.58127));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(419.81577, 161.57126));
+    builder.begin(point(419.81577, 161.57126));
     builder.line_to(point(792.4049, 316.38705));
     builder.line_to(point(313.65848, 115.52262));
     builder.line_to(point(724.5401, 494.85623));
     builder.line_to(point(761.3977, 883.6222));
     builder.line_to(point(253.74388, 125.26703));
     builder.line_to(point(887.2149, 296.896));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(492.68604, 396.9183));
+    builder.begin(point(492.68604, 396.9183));
     builder.line_to(point(401.23856, 3.8661957));
     builder.line_to(point(7.4135065, 557.9556));
     builder.line_to(point(960.5184, 431.21362));
     builder.line_to(point(357.84244, 43.77198));
     builder.line_to(point(267.17722, 698.9257));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(300.043, 142.35281));
+    builder.begin(point(300.043, 142.35281));
     builder.line_to(point(819.65137, 329.5263));
     builder.line_to(point(499.91537, 648.6261));
     builder.line_to(point(479.54404, 118.61658));
     builder.line_to(point(550.64795, 996.7805));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(858.48926, 195.46806));
+    builder.begin(point(858.48926, 195.46806));
     builder.line_to(point(878.9279, 955.1468));
     builder.line_to(point(244.70807, 148.27704));
     builder.line_to(point(670.0153, 170.3571));
@@ -314,9 +313,9 @@ fn fuzzing_test_case_3() {
     builder.line_to(point(430.8783, 381.18555));
     builder.line_to(point(881.6496, 199.04674));
     builder.line_to(point(648.9603, 32.69982));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(278.53656, 125.74196));
+    builder.begin(point(278.53656, 125.74196));
     builder.line_to(point(523.5966, 581.46954));
     builder.line_to(point(20.387054, 433.33923));
     builder.line_to(point(950.0582, 3.176093));
@@ -328,7 +327,7 @@ fn fuzzing_test_case_3() {
     builder.line_to(point(424.62277, 187.09552));
     builder.line_to(point(547.2676, 91.477394));
     builder.line_to(point(943.3191, 90.633514));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -344,15 +343,15 @@ fn fuzzing_test_case_4() {
     // properly testing for touching edges.
     let mut builder = Path::builder();
 
-    builder.move_to(point(953.18604, 567.57916));
+    builder.begin(point(953.18604, 567.57916));
     builder.line_to(point(149.4881, 273.67114));
     builder.line_to(point(643.7377, 436.15567));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(605.66626, 136.37721));
+    builder.begin(point(605.66626, 136.37721));
     builder.line_to(point(710.2989, 960.26587));
     builder.line_to(point(473.67264, 879.073));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -361,7 +360,7 @@ fn fuzzing_test_case_4() {
 fn fuzzing_test_case_5() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(280.44034, 16.12854));
+    builder.begin(point(280.44034, 16.12854));
     builder.line_to(point(317.7893, 459.68353));
     builder.line_to(point(267.34244, 17.728329));
     builder.line_to(point(656.3035, 126.39856));
@@ -377,9 +376,9 @@ fn fuzzing_test_case_5() {
     builder.line_to(point(755.3699, 812.03796));
     builder.line_to(point(79.84316, 340.46912));
     builder.line_to(point(617.79913, 614.2463));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(252.10011, 189.48198));
+    builder.begin(point(252.10011, 189.48198));
     builder.line_to(point(659.73224, 645.6623));
     builder.line_to(point(22.57371, 656.8426));
     builder.line_to(point(568.11584, 157.38916));
@@ -389,14 +388,14 @@ fn fuzzing_test_case_5() {
     builder.line_to(point(7.1537495, 530.7252));
     builder.line_to(point(21.84856, 302.0538));
     builder.line_to(point(34.8227, 193.36272));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(839.4768, 878.84283));
+    builder.begin(point(839.4768, 878.84283));
     builder.line_to(point(265.41888, 365.45013));
     builder.line_to(point(678.88605, 98.7531));
     builder.line_to(point(192.53146, 780.74335));
     builder.line_to(point(90.92653, 192.44206));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -409,12 +408,12 @@ fn fuzzing_test_case_6() {
     // prematurely because find_interesting_active_edges could sometimes
     // indicate that the point is both on the edge and left of it.
 
-    builder.move_to(point(908.77045, 59.34178));
+    builder.begin(point(908.77045, 59.34178));
     builder.line_to(point(177.41656, 803.875));
     builder.line_to(point(803.30835, 166.7068));
     builder.line_to(point(910.1411, 409.8233));
     builder.line_to(point(113.08825, 838.0237));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -423,19 +422,19 @@ fn fuzzing_test_case_6() {
 fn fuzzing_test_case_7() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(113.852264, 563.1574));
+    builder.begin(point(113.852264, 563.1574));
     builder.line_to(point(486.71103, 73.901535));
     builder.line_to(point(705.56006, 835.71826));
     builder.line_to(point(358.2251, 418.4035));
     builder.line_to(point(837.3598, 151.83974));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(359.5538, 4.9495697));
+    builder.begin(point(359.5538, 4.9495697));
     builder.line_to(point(825.8098, 129.8927));
     builder.line_to(point(389.28534, 429.343));
     builder.line_to(point(968.47296, 238.33));
     builder.line_to(point(371.02557, 307.2325));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -447,19 +446,19 @@ fn fuzzing_test_case_8() {
     // including three lines intersecting very close to a certain point.
     // The failure was fixed by increasing the threshold in compare_edge_against_position.
 
-    builder.move_to(point(786.3492, 715.7762));
+    builder.begin(point(786.3492, 715.7762));
     builder.line_to(point(108.706955, 396.7073));
     builder.line_to(point(744.5795, 645.1025));
     builder.line_to(point(359.92264, 194.16666));
     builder.line_to(point(432.9413, 690.4683));
     builder.line_to(point(592.9548, 277.76956));
     builder.line_to(point(145.36989, 641.0073));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(608.8108, 554.82874));
+    builder.begin(point(608.8108, 554.82874));
     builder.line_to(point(215.48784, 523.1583));
     builder.line_to(point(821.7586, 872.91003));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -471,15 +470,15 @@ fn fuzzing_test_case_9() {
     // very close to an edge.
     // It was fixed by adjusting the threshold in compare_edge_against_position.
 
-    builder.move_to(point(659.9835, 415.86328));
+    builder.begin(point(659.9835, 415.86328));
     builder.line_to(point(70.36328, 204.36978));
     builder.line_to(point(74.12529, 89.01107));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(840.2258, 295.46188));
+    builder.begin(point(840.2258, 295.46188));
     builder.line_to(point(259.41193, 272.18054));
     builder.line_to(point(728.914, 281.41678));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -488,12 +487,12 @@ fn fuzzing_test_case_9() {
 fn fuzzing_test_case_10() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(29.138443, 706.1346));
+    builder.begin(point(29.138443, 706.1346));
     builder.line_to(point(347.19098, 7.499695));
     builder.line_to(point(943.01306, 619.71893));
     builder.line_to(point(94.4196, 562.7375));
     builder.line_to(point(569.1717, 605.43097));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -505,7 +504,7 @@ fn fuzzing_test_case_11() {
     // 3 segments intersect very close to (329.9366912841797,614.3472747802734).
     // The fix was to bump the snapping threshold up to 24 in compare_edge_against_position.
 
-    builder.move_to(point(626.85846, 976.155));
+    builder.begin(point(626.85846, 976.155));
     builder.line_to(point(200.21939, 393.71896));
     builder.line_to(point(261.13367, 789.74426));
     builder.line_to(point(463.53662, 273.76627));
@@ -515,7 +514,7 @@ fn fuzzing_test_case_11() {
     builder.line_to(point(172.95158, 566.25415));
     builder.line_to(point(215.60406, 610.8441));
     builder.line_to(point(802.26874, 628.8196));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 }
@@ -524,7 +523,7 @@ fn fuzzing_test_case_11() {
 fn fuzzing_test_case_12() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(759.9981, 59.831726));
+    builder.begin(point(759.9981, 59.831726));
     builder.line_to(point(960.42285, 418.38144));
     builder.line_to(point(912.67645, 193.0542));
     builder.line_to(point(74.49103, 176.2433));
@@ -532,7 +531,7 @@ fn fuzzing_test_case_12() {
     builder.line_to(point(920.04016, 75.902466));
     builder.line_to(point(658.5332, 792.19904));
     builder.line_to(point(134.72163, 905.7226));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -547,7 +546,7 @@ fn fuzzing_test_case_13() {
     // There are some very close almost horizontal segments somewhere around
     // y=773, most likely causing some floating point errors.
 
-    builder.move_to(point(410.68304, 821.1684));
+    builder.begin(point(410.68304, 821.1684));
     builder.line_to(point(930.137, 143.92328));
     builder.line_to(point(104.892136, 433.69412));
     builder.line_to(point(660.3361, 814.7637));
@@ -572,7 +571,7 @@ fn fuzzing_test_case_13() {
     builder.line_to(point(333.66275, 314.22592));
     builder.line_to(point(110.678795, 817.20044));
     builder.line_to(point(303.23447, 681.25366));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -584,16 +583,16 @@ fn fuzzing_test_case_13() {
 fn fuzzing_test_case_14() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(906.73926, 854.04346));
+    builder.begin(point(906.73926, 854.04346));
     builder.line_to(point(631.4635, 795.7506));
     builder.line_to(point(131.3113, 798.18));
     builder.line_to(point(241.9132, 624.7822));
     builder.line_to(point(249.94122, 902.8816));
     builder.line_to(point(304.89624, 135.56683));
     builder.line_to(point(222.20158, 965.973));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(810.27686, 494.45905));
+    builder.begin(point(810.27686, 494.45905));
     builder.line_to(point(158.03587, 894.21405));
     builder.line_to(point(732.6424, 568.0493));
     builder.line_to(point(419.24048, 855.3553));
@@ -604,12 +603,12 @@ fn fuzzing_test_case_14() {
     builder.line_to(point(378.43298, 944.1428));
     builder.line_to(point(290.58493, 608.4501));
     builder.line_to(point(277.56857, 830.6742));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(450.25922, 792.10675));
+    builder.begin(point(450.25922, 792.10675));
     builder.line_to(point(776.7185, 58.490036));
     builder.line_to(point(202.77036, 797.8798));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -621,12 +620,12 @@ fn fuzzing_test_case_14() {
 fn fuzzing_test_case_15() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(458.30704, 64.10158));
+    builder.begin(point(458.30704, 64.10158));
     builder.line_to(point(53.061844, 909.0564));
     builder.line_to(point(809.2724, 900.3631));
     builder.line_to(point(59.2463, 896.16016));
     builder.line_to(point(355.03995, 899.7729));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -638,7 +637,7 @@ fn fuzzing_test_case_15() {
 fn fuzzing_test_case_16() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(424.31747, 191.76984));
+    builder.begin(point(424.31747, 191.76984));
     builder.line_to(point(201.27774, 381.03378));
     builder.line_to(point(234.58505, 661.9783));
     builder.line_to(point(487.03467, 23.73457));
@@ -662,7 +661,7 @@ fn fuzzing_test_case_16() {
     builder.line_to(point(81.67481, 989.1536));
     builder.line_to(point(58.23517, 72.05153));
     builder.line_to(point(414.9412, 485.44943));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -674,15 +673,15 @@ fn fuzzing_test_case_16() {
 fn fuzzing_test_case_17() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(80.462814, 526.54364));
+    builder.begin(point(80.462814, 526.54364));
     builder.line_to(point(900.2347, 526.31726));
     builder.line_to(point(237.45477, 531.3444));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(963.6296, 619.75024));
+    builder.begin(point(963.6296, 619.75024));
     builder.line_to(point(572.919, 43.936134));
     builder.line_to(point(837.3995, 894.56165));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -696,16 +695,16 @@ fn fuzzing_test_case_18() {
 
     // This was fixed by re-sorting the active edges when finding intersections.
 
-    builder.move_to(point(447.85165, 671.4307));
+    builder.begin(point(447.85165, 671.4307));
     builder.line_to(point(37.19008, 311.777));
     builder.line_to(point(138.24976, 143.74733));
     builder.line_to(point(159.06596, 538.88116));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(719.6205, 413.18356));
+    builder.begin(point(719.6205, 413.18356));
     builder.line_to(point(75.47033, 794.876));
     builder.line_to(point(25.042057, 412.58252));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -717,12 +716,12 @@ fn fuzzing_test_case_18() {
 fn fuzzing_test_case_19() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(0.5651398, 0.5119934));
+    builder.begin(point(0.5651398, 0.5119934));
     builder.line_to(point(0.10021269, 0.17348659));
     builder.line_to(point(0.77066493, 0.67880523));
     builder.line_to(point(0.48341691, 0.09270251));
     builder.line_to(point(0.053493023, 0.18919432));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -734,7 +733,7 @@ fn fuzzing_test_case_19() {
 fn fuzzing_test_case_20() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(300.44553, -951.7151));
+    builder.begin(point(300.44553, -951.7151));
     builder.line_to(point(-311.18967, 952.4652));
     builder.line_to(point(-694.0007, 725.4894));
     builder.line_to(point(683.2565, -724.7392));
@@ -742,7 +741,7 @@ fn fuzzing_test_case_20() {
     builder.line_to(point(548.32776, 833.09143));
     builder.line_to(point(132.19205, 990.868));
     builder.line_to(point(-142.93622, -990.1178));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -754,7 +753,7 @@ fn fuzzing_test_case_20() {
 fn fuzzing_test_case_21() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(690.76654, 894.95276));
+    builder.begin(point(690.76654, 894.95276));
     builder.line_to(point(780.0248, 420.038));
     builder.line_to(point(493.65942, 564.7695));
     builder.line_to(point(532.6401, 472.75937));
@@ -762,16 +761,16 @@ fn fuzzing_test_case_21() {
     builder.line_to(point(430.3896, 967.2256));
     builder.line_to(point(39.06959, 642.2578));
     builder.line_to(point(968.5843, 266.95288));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(376.42883, 428.52594));
+    builder.begin(point(376.42883, 428.52594));
     builder.line_to(point(951.4451, 525.3069));
     builder.line_to(point(436.47058, 807.3649));
     builder.line_to(point(374.1715, 430.63312));
     builder.line_to(point(622.33765, 681.116));
     builder.line_to(point(362.15186, 630.09955));
     builder.line_to(point(160.447, 491.8626));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -783,7 +782,7 @@ fn fuzzing_test_case_21() {
 fn fuzzing_test_case_22() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(413.729, 790.21967));
+    builder.begin(point(413.729, 790.21967));
     builder.line_to(point(471.004, 885.5238));
     builder.line_to(point(606.3949, 161.36282));
     builder.line_to(point(126.09965, 788.4484));
@@ -792,14 +791,14 @@ fn fuzzing_test_case_22() {
     builder.line_to(point(550.6986, 555.3587));
     builder.line_to(point(612.7963, 214.42032));
     builder.line_to(point(904.10315, 50.180733));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(369.59482, 961.0146));
+    builder.begin(point(369.59482, 961.0146));
     builder.line_to(point(531.0366, 22.063435));
     builder.line_to(point(164.5379, 259.71292));
     builder.line_to(point(400.10434, 353.1628));
     builder.line_to(point(456.14487, 474.83093));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -811,7 +810,7 @@ fn fuzzing_test_case_22() {
 fn fuzzing_test_case_23() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(949.58344, 345.19833));
+    builder.begin(point(949.58344, 345.19833));
     builder.line_to(point(960.3916, 653.2188));
     builder.line_to(point(995.7124, 886.1721));
     builder.line_to(point(735.48004, 158.09106));
@@ -844,13 +843,13 @@ fn fuzzing_test_case_23() {
     builder.line_to(point(816.4756, 645.902));
     builder.line_to(point(885.73834, 129.1269));
     builder.line_to(point(594.1776, 407.71252));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(185.2966, 443.2754));
+    builder.begin(point(185.2966, 443.2754));
     builder.line_to(point(655.32855, 788.47534));
     builder.line_to(point(584.65137, 82.92281));
     builder.line_to(point(778.00903, 971.31165));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -864,16 +863,16 @@ fn fuzzing_test_case_24() {
     // position to preserve event ordering.
     let mut builder = Path::builder();
 
-    builder.move_to(point(941.63104, 887.768));
+    builder.begin(point(941.63104, 887.768));
     builder.line_to(point(463.6054, 14.021694));
     builder.line_to(point(786.8395, 269.5232));
     builder.line_to(point(206.39842, 269.54257));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(655.32855, 788.47534));
+    builder.begin(point(655.32855, 788.47534));
     builder.line_to(point(584.65137, 82.92281));
     builder.line_to(point(778.00903, 971.31165));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -885,7 +884,7 @@ fn fuzzing_test_case_24() {
 fn fuzzing_test_case_25() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(228.2623, 592.0345));
+    builder.begin(point(228.2623, 592.0345));
     builder.line_to(point(555.55634, 715.4452));
     builder.line_to(point(45.484066, 768.08453));
     builder.line_to(point(272.4859, 270.3846));
@@ -922,13 +921,13 @@ fn fuzzing_test_case_25() {
     builder.line_to(point(579.3753, 912.09033));
     builder.line_to(point(137.24046, 254.20135));
     builder.line_to(point(932.8569, 346.02524));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(606.5896, 229.99667));
+    builder.begin(point(606.5896, 229.99667));
     builder.line_to(point(199.31506, 755.65704));
     builder.line_to(point(40.851532, 641.7679));
     builder.line_to(point(853.695, 641.7656));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 
@@ -940,7 +939,7 @@ fn fuzzing_test_case_25() {
 fn fuzzing_test_case_26() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(338.79803, 124.2612));
+    builder.begin(point(338.79803, 124.2612));
     builder.line_to(point(93.79423, 293.62488));
     builder.line_to(point(519.7297, 207.82262));
     builder.line_to(point(109.83586, 935.8234));
@@ -954,9 +953,9 @@ fn fuzzing_test_case_26() {
     builder.line_to(point(354.4551, 133.0471));
     builder.line_to(point(79.57357, 924.2797));
     builder.line_to(point(113.65747, 7.6993704));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(point(473.30374, 933.1941));
+    builder.begin(point(473.30374, 933.1941));
     builder.line_to(point(413.74387, 585.3911));
     builder.line_to(point(383.29245, 86.36898));
     builder.line_to(point(608.89056, 708.4878));
@@ -979,7 +978,7 @@ fn fuzzing_test_case_26() {
     builder.line_to(point(966.38995, 761.61743));
     builder.line_to(point(815.1502, 654.41504));
     builder.line_to(point(179.95155, 904.1613));
-    builder.close();
+    builder.end(true);
 
     test_path(builder.build().as_slice());
 

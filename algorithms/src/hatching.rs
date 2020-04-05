@@ -16,9 +16,11 @@
 //!     &mut RegularHatchingPattern {
 //!         interval: hatch.spacing,
 //!         callback: &mut|segment: &HatchSegment| {
-//!             path_builder.move_to(segment.a.position);
-//!             path_builder.line_to(segment.b.position);
-//!         }
+//!             path_builder.add_line_segment(&LineSegment {
+//!                 from: segment.a.position,
+//!                 to: segment.b.position.
+//!             });
+//!         },
 //!     },
 //! );
 //! let hatched_path = path_builder.build();
@@ -27,7 +29,7 @@
 use crate::geom::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::geom::LineSegment;
 use crate::path::builder::{self, Build, PathBuilder};
-use crate::path::PathEvent;
+use crate::path::{PathEvent, EndpointId};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -488,10 +490,6 @@ impl Build for EventsBuilder {
     type PathType = HatchingEvents;
 
     fn build(mut self) -> HatchingEvents {
-        self.build_and_reset()
-    }
-
-    fn build_and_reset(&mut self) -> HatchingEvents {
         self.close();
 
         self.first = point(0.0, 0.0);
@@ -507,7 +505,7 @@ impl Build for EventsBuilder {
 }
 
 impl PathBuilder for EventsBuilder {
-    fn move_to(&mut self, to: Point) {
+    fn begin(&mut self, to: Point) -> EndpointId {
         self.close();
         let next = to;
         if self.nth > 1 {
@@ -518,20 +516,11 @@ impl PathBuilder for EventsBuilder {
         self.first = next;
         self.current = next;
         self.nth = 0;
+
+        EndpointId::INVALID
     }
 
-    fn line_to(&mut self, to: Point) {
-        let next = to;
-        if next == self.current {
-            return;
-        }
-        let current = self.current;
-        self.add_edge(current, next);
-        self.current = next;
-        self.nth += 1;
-    }
-
-    fn close(&mut self) {
+    fn end(&mut self, _close: bool) {
         let current = self.current;
         let first = self.first;
         if self.current != self.first && self.nth > 0 {
@@ -541,28 +530,24 @@ impl PathBuilder for EventsBuilder {
         self.current = self.first;
     }
 
-    fn current_position(&self) -> Point {
-        self.current
+    fn line_to(&mut self, to: Point) -> EndpointId {
+        let next = to;
+        if next != self.current {
+            let current = self.current;
+            self.add_edge(current, next);
+            self.current = next;
+            self.nth += 1;
+        }
+
+        EndpointId::INVALID
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
-        builder::flatten_quadratic_bezier(self.tolerance, self.current, ctrl, to, self);
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+        builder::flatten_quadratic_bezier(self.tolerance, self.current, ctrl, to, self)
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
-        builder::flatten_cubic_bezier(self.tolerance, self.current, ctrl1, ctrl2, to, self);
-    }
-
-    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
-        builder::flatten_arc(
-            self.tolerance,
-            self.current,
-            center,
-            radii,
-            sweep_angle,
-            x_rotation,
-            self,
-        );
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+        builder::flatten_cubic_bezier(self.tolerance, self.current, ctrl1, ctrl2, to, self)
     }
 }
 

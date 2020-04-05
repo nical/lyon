@@ -1,21 +1,22 @@
 use crate::parser::path::{Token, Tokenizer};
 use crate::parser::xmlparser::FromSpan;
 
+use crate::path::EndpointId;
+use crate::path::svg::SvgPathBuilder;
 use crate::path::builder::*;
 use crate::path::geom::Arc;
 use crate::path::math::{point, vector, Angle, Point, Vector};
 use crate::path::ArcFlags;
 
 use std::f32::consts::PI;
-use std::mem;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParseError;
 
-/// Builds path object using an SvgBuilder and a list of commands.
+/// Builds path object using an SvgPathBuilder and a list of commands.
 /// Once the path is built you can tessellate it.
 ///
-/// The [SvgBuilder](trait.SvgBuilder.html) Adds to [PathBuilder](trait.PathBuilder.html)
+/// The [SvgPathBuilder](trait.SvgPathBuilder.html) Adds to [PathBuilder](trait.PathBuilder.html)
 /// the rest of the [SVG path](https://svgwg.org/specs/paths/) commands.
 ///
 /// # Examples
@@ -34,7 +35,7 @@ pub struct ParseError;
 /// ```
 pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::PathType, ParseError>
 where
-    Builder: SvgBuilder + Build,
+    Builder: SvgPathBuilder + Build,
 {
     for item in Tokenizer::from_str(src) {
         svg_event(&item, &mut builder);
@@ -45,7 +46,7 @@ where
 
 fn svg_event<Builder>(token: &Token, builder: &mut Builder)
 where
-    Builder: SvgBuilder,
+    Builder: SvgPathBuilder,
 {
     fn vec2(x: f64, y: f64) -> Vector {
         vector(x as f32, y as f32)
@@ -205,52 +206,8 @@ impl PathSerializer {
             current: point(0.0, 0.0),
         }
     }
-}
 
-impl Build for PathSerializer {
-    type PathType = String;
-
-    fn build(self) -> String {
-        self.path
-    }
-
-    fn build_and_reset(&mut self) -> String {
-        self.current = point(0.0, 0.0);
-        mem::replace(&mut self.path, String::new())
-    }
-}
-
-impl PathBuilder for PathSerializer {
-    fn move_to(&mut self, to: Point) {
-        self.path += &format!("M {} {} ", to.x, to.y);
-        self.current = to;
-    }
-
-    fn line_to(&mut self, to: Point) {
-        self.path += &format!("L {} {} ", to.x, to.y);
-        self.current = to;
-    }
-
-    fn close(&mut self) {
-        self.path.push_str("Z");
-    }
-
-    fn current_position(&self) -> Point {
-        self.current
-    }
-
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
-        self.path += &format!("Q {} {} {} {}", ctrl.x, ctrl.y, to.x, to.y);
-    }
-
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
-        self.path += &format!(
-            "C {} {} {} {} {} {}",
-            ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y
-        );
-    }
-
-    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
+    pub fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
         let start_angle = (self.current - center).angle_from_x_axis() - x_rotation;
         let svg = Arc {
             center,
@@ -273,7 +230,77 @@ impl PathBuilder for PathSerializer {
     }
 }
 
-impl SvgBuilder for PathSerializer {
+impl Build for PathSerializer {
+    type PathType = String;
+
+    fn build(self) -> String {
+        self.path
+    }
+}
+
+impl PathBuilder for PathSerializer {
+    fn begin(&mut self, to: Point) -> EndpointId {
+        self.path += &format!("M {} {} ", to.x, to.y);
+        self.current = to;
+
+        EndpointId::INVALID
+    }
+
+    fn end(&mut self, close: bool) {
+        if close {
+            self.path.push_str("Z");
+        }
+    }
+
+    fn line_to(&mut self, to: Point) -> EndpointId {
+        self.path += &format!("L {} {} ", to.x, to.y);
+        self.current = to;
+
+        EndpointId::INVALID
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+        self.path += &format!("Q {} {} {} {}", ctrl.x, ctrl.y, to.x, to.y);
+
+        EndpointId::INVALID
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+        self.path += &format!(
+            "C {} {} {} {} {} {}",
+            ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y
+        );
+
+        EndpointId::INVALID
+    }
+}
+
+impl SvgPathBuilder for PathSerializer {
+    fn move_to(&mut self, to: Point) {
+        self.path += &format!("M {} {} ", to.x, to.y);
+        self.current = to;
+    }
+
+    fn close(&mut self) {
+        self.path.push_str("Z");
+    }
+
+    fn line_to(&mut self, to: Point) {
+        self.path += &format!("L {} {} ", to.x, to.y);
+        self.current = to;
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+        self.path += &format!("Q {} {} {} {}", ctrl.x, ctrl.y, to.x, to.y);
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        self.path += &format!(
+            "C {} {} {} {} {} {}",
+            ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y
+        );
+    }
+
     fn relative_move_to(&mut self, to: Vector) {
         self.path += &format!("m {} {} ", to.x, to.y);
     }
@@ -349,11 +376,5 @@ impl SvgBuilder for PathSerializer {
             to.x,
             to.y
         );
-    }
-}
-
-impl PolygonBuilder for PathSerializer {
-    fn polygon(&mut self, points: &[Point]) {
-        build_polygon(self, points);
     }
 }

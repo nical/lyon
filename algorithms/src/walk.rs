@@ -39,10 +39,10 @@
 //! ```
 //!
 
-use crate::geom::{Arc, CubicBezierSegment, QuadraticBezierSegment};
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::PathEvent;
+use crate::path::{PathEvent, EndpointId};
 
 use std::f32;
 
@@ -119,7 +119,7 @@ impl<'l> PathWalker<'l> {
 }
 
 impl<'l> PathBuilder for PathWalker<'l> {
-    fn move_to(&mut self, to: Point) {
+    fn begin(&mut self, to: Point) -> EndpointId {
         self.need_moveto = false;
         self.first = to;
         self.prev = to;
@@ -129,21 +129,18 @@ impl<'l> PathBuilder for PathWalker<'l> {
         } else {
             self.done = true;
         }
+
+        EndpointId::INVALID
     }
 
-    fn line_to(&mut self, to: Point) {
-        if self.need_moveto {
-            self.move_to(self.first);
-            if self.done {
-                return;
-            }
-        }
+    fn line_to(&mut self, to: Point) -> EndpointId {
+        debug_assert!(!self.need_moveto);
 
         let v = to - self.prev;
         let d = v.length();
 
         if d < 1e-5 {
-            return;
+            return EndpointId::INVALID;
         }
 
         let tangent = v / d;
@@ -165,19 +162,19 @@ impl<'l> PathBuilder for PathWalker<'l> {
 
         self.prev = to;
         self.leftover = distance;
+
+        EndpointId::INVALID
     }
 
-    fn close(&mut self) {
-        let first = self.first;
-        self.line_to(first);
-        self.need_moveto = true;
+    fn end(&mut self, close: bool) {
+        if close {
+            let first = self.first;
+            self.line_to(first);
+            self.need_moveto = true;        
+        }
     }
 
-    fn current_position(&self) -> Point {
-        self.prev
-    }
-
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
         let curve = QuadraticBezierSegment {
             from: self.prev,
             ctrl,
@@ -186,9 +183,11 @@ impl<'l> PathBuilder for PathWalker<'l> {
         curve.for_each_flattened(0.01, &mut |p| {
             self.line_to(p);
         });
+
+        EndpointId::INVALID
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
         let curve = CubicBezierSegment {
             from: self.prev,
             ctrl1,
@@ -198,27 +197,8 @@ impl<'l> PathBuilder for PathWalker<'l> {
         curve.for_each_flattened(0.01, &mut |p| {
             self.line_to(p);
         });
-    }
 
-    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
-        let start_angle = (self.current_position() - center).angle_from_x_axis() - x_rotation;
-        Arc {
-            center,
-            radii,
-            start_angle,
-            sweep_angle,
-            x_rotation,
-        }
-        .for_each_flattened(0.01, &mut |p| {
-            self.line_to(p);
-        });
-    }
-}
-
-impl<'l> PolygonBuilder for PathWalker<'l> {
-    /// Add a closed polygon.
-    fn polygon(&mut self, points: &[Point]) {
-        build_polygon(self, points);
+        EndpointId::INVALID
     }
 }
 
@@ -316,7 +296,7 @@ fn walk_square() {
 
     let mut walker = PathWalker::new(0.0, &mut pattern);
 
-    walker.move_to(point(0.0, 0.0));
+    walker.begin(point(0.0, 0.0));
     walker.line_to(point(6.0, 0.0));
     walker.line_to(point(6.0, 6.0));
     walker.line_to(point(0.0, 6.0));
@@ -350,7 +330,7 @@ fn walk_with_leftover() {
 
     let mut walker = PathWalker::new(1.0, &mut pattern);
 
-    walker.move_to(point(0.0, 0.0));
+    walker.begin(point(0.0, 0.0));
     walker.line_to(point(5.0, 0.0));
     walker.line_to(point(5.0, 5.0));
     walker.line_to(point(0.0, 5.0));
@@ -364,6 +344,7 @@ fn walk_starting_after() {
     let cb = &mut |_, _, _| -> Option<f32> { panic!() };
     let mut walker = PathWalker::new(10.0, cb);
 
-    walker.move_to(point(0.0, 0.0));
+    walker.begin(point(0.0, 0.0));
     walker.line_to(point(5.0, 0.0));
+    walker.end(false);
 }

@@ -1,8 +1,10 @@
 use commands::{AntiAliasing, Background, RenderCmd, TessellateCmd, Tessellator};
 use lyon::algorithms::aabb::bounding_rect;
 use lyon::algorithms::hatching::*;
+use lyon::geom::LineSegment;
 use lyon::math::*;
 use lyon::path::Path;
+use lyon::path::builder::PathBuilder;
 use lyon::tess2;
 use lyon::tessellation;
 use lyon::tessellation::basic_shapes::*;
@@ -43,8 +45,10 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             &mut RegularHatchingPattern {
                 interval: hatch.spacing,
                 callback: &mut |segment: &HatchSegment| {
-                    path.move_to(segment.a.position);
-                    path.line_to(segment.b.position);
+                    path.add_line_segment(&LineSegment {
+                        from: segment.a.position,
+                        to: segment.b.position,
+                    });
                 },
             },
         );
@@ -69,7 +73,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 row_interval: dots.spacing,
                 column_interval: dots.spacing,
                 callback: &mut |dot: &Dot| {
-                    path.move_to(dot.position);
+                    path.add_point(dot.position);
                 },
             },
         );

@@ -2,7 +2,7 @@ use crate::basic_shapes::circle_flattening_step;
 use crate::geom::euclid::Trig;
 use crate::geom::math::*;
 use crate::geom::utils::{directed_angle, normalized_tangent};
-use crate::geom::{Arc, CubicBezierSegment, LineSegment, QuadraticBezierSegment};
+use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math_utils::compute_normal;
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::{AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore};
@@ -55,11 +55,11 @@ const EPSILON: f32 = 1e-4;
 /// # fn main() {
 /// // Create a simple path.
 /// let mut path_builder = Path::builder();
-/// path_builder.move_to(point(0.0, 0.0));
+/// path_builder.begin(point(0.0, 0.0));
 /// path_builder.line_to(point(1.0, 2.0));
 /// path_builder.line_to(point(2.0, 0.0));
 /// path_builder.line_to(point(1.0, 1.0));
-/// path_builder.close();
+/// path_builder.end(true);
 /// let path = path_builder.build();
 ///
 /// // Create the destination vertex and index buffers.
@@ -219,44 +219,28 @@ impl<'l> Build for StrokeBuilder<'l> {
         self.finish();
         Ok(())
     }
-
-    fn build_and_reset(&mut self) -> Result<(), GeometryBuilderError> {
-        self.first = Point::new(0.0, 0.0);
-        self.previous = Point::new(0.0, 0.0);
-        self.current = Point::new(0.0, 0.0);
-        self.second = Point::new(0.0, 0.0);
-        self.prev_normal = Vector::new(0.0, 0.0);
-        self.first_endpoint = EndpointId::INVALID;
-        self.second_endpoint = EndpointId::INVALID;
-        self.current_endpoint = EndpointId::INVALID;
-        self.current_t = 0.0;
-        self.second_t = 0.0;
-        self.nth = 0;
-        self.length = 0.0;
-        self.sub_path_start_length = 0.0;
-        self.previous_command_was_move = false;
-        Ok(())
-    }
 }
 
 impl<'l> PathBuilder for StrokeBuilder<'l> {
-    fn move_to(&mut self, to: Point) {
-        self.begin(to, EndpointId::INVALID)
+    fn begin(&mut self, to: Point) -> EndpointId {
+        self.begin(to, EndpointId::INVALID);
+
+        EndpointId::INVALID
     }
 
-    fn line_to(&mut self, to: Point) {
+    fn line_to(&mut self, to: Point) -> EndpointId {
         self.edge_to(to, EndpointId::INVALID, 0.0, true);
+
+        EndpointId::INVALID
     }
 
-    fn close(&mut self) {
-        self.close();
+    fn end(&mut self, close: bool) {
+        if close {
+            self.close();
+        }
     }
 
-    fn current_position(&self) -> Point {
-        self.current
-    }
-
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
         let mut first = true;
         QuadraticBezierSegment {
             from: self.current,
@@ -267,9 +251,11 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             self.edge_to(point, EndpointId::INVALID, 0.0, first);
             first = false;
         });
+
+        EndpointId::INVALID
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
         let mut first = true;
         CubicBezierSegment {
             from: self.current,
@@ -281,32 +267,8 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             self.edge_to(point, EndpointId::INVALID, 0.0, first);
             first = false;
         });
-    }
 
-    fn arc(&mut self, center: Point, radii: Vector, sweep_angle: Angle, x_rotation: Angle) {
-        let start_angle = (self.current - center).angle_from_x_axis() - x_rotation;
-        let mut first = true;
-        let arc = Arc {
-            center,
-            radii,
-            start_angle,
-            sweep_angle,
-            x_rotation,
-        };
-
-        let arc_start = arc.from();
-        if (arc_start - self.current).square_length() < 0.01 {
-            if self.nth == 0 && !self.previous_command_was_move {
-                self.move_to(arc_start);
-            } else {
-                self.line_to(arc_start);
-            }
-        }
-
-        arc.for_each_flattened(self.options.tolerance, &mut |point| {
-            self.edge_to(point, EndpointId::INVALID, 0.0, first);
-            first = false;
-        });
+        EndpointId::INVALID
     }
 }
 
@@ -422,7 +384,7 @@ impl<'l> StrokeBuilder<'l> {
                     );
                 }
                 IdEvent::End { close: true, .. } => {
-                    self.close();
+                    self.end(true);
                 }
                 IdEvent::End { close: false, .. } => {
                     self.finish();
@@ -1366,21 +1328,21 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
 fn test_square() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(-1.0, 1.0));
+    builder.begin(point(-1.0, 1.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(1.0, -1.0));
     builder.line_to(point(-1.0, -1.0));
-    builder.close();
+    builder.end(true);
 
     let path1 = builder.build();
 
     let mut builder = Path::builder();
 
-    builder.move_to(point(-1.0, -1.0));
+    builder.begin(point(-1.0, -1.0));
     builder.line_to(point(1.0, -1.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(-1.0, 1.0));
-    builder.close();
+    builder.end(true);
 
     let path2 = builder.build();
 
@@ -1443,9 +1405,9 @@ fn test_empty_path() {
 fn test_empty_caps() {
     let mut builder = Path::builder();
 
-    builder.move_to(point(1.0, 0.0));
-    builder.move_to(point(2.0, 0.0));
-    builder.move_to(point(3.0, 0.0));
+    builder.add_point(point(1.0, 0.0));
+    builder.add_point(point(2.0, 0.0));
+    builder.add_point(point(3.0, 0.0));
 
     let path = builder.build();
 
@@ -1527,10 +1489,10 @@ fn test_too_many_vertices() {
 #[test]
 fn stroke_vertex_source_01() {
     let mut path = crate::path::Path::builder_with_attributes(1);
-    let a = path.move_to(point(0.0, 0.0), &[1.0]);
+    let a = path.begin(point(0.0, 0.0), &[1.0]);
     let b = path.line_to(point(1.0, 1.0), &[2.0]);
     let c = path.quadratic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), &[3.0]);
-    path.close();
+    path.end(true);
 
     let path = path.build();
 

@@ -4,8 +4,8 @@
 //  - simplify/remove it.
 
 use crate::math::*;
-use crate::path::builder::*;
 use crate::path::{Path, PathEvent};
+use crate::path::polygon::PolygonSlice;
 use sid::{Id, IdRange, IdSlice, IdVec};
 use std::ops;
 use std::u16;
@@ -59,15 +59,15 @@ impl AdvancedPath {
     }
 
     /// Add a sub-path from a polyline.
-    pub fn add_polyline(&mut self, points: &[Point], is_closed: bool) -> SubPathId {
-        let len = points.len() as u16;
+    pub fn add_polygon(&mut self, polygon: PolygonSlice<Point>) -> SubPathId {
+        let len = polygon.points.len() as u16;
         let base = self.edges.len();
         let base_vertex = self.points.len();
         let sub_path = self.sub_paths.push(SubPath {
             first_edge: EdgeId::new(base),
-            is_closed,
+            is_closed: polygon.closed,
         });
-        for (i, point) in points.iter().enumerate() {
+        for (i, point) in polygon.points.iter().enumerate() {
             let i = i as u16;
             let prev = EdgeId::new(base + if i > 0 { i - 1 } else { len - 1 });
             let next = EdgeId::new(base + if i < len - 1 { i + 1 } else { 0 });
@@ -87,7 +87,10 @@ impl AdvancedPath {
     pub fn add_rectangle(&mut self, rectangle: &Rect) -> SubPathId {
         let min = rectangle.min();
         let max = rectangle.min();
-        self.add_polyline(&[min, point(max.x, min.y), max, point(min.x, max.y)], true)
+        self.add_polygon(PolygonSlice {
+            points: &[min, point(max.x, min.y), max, point(min.x, max.y)],
+            closed: true,
+        })
     }
 
     /// Returns an object that can circle around the edges of a sub-path.
@@ -703,15 +706,15 @@ impl<'l> Drop for SubPathBuilder<'l> {
 #[test]
 fn polyline_to_path() {
     let mut path = AdvancedPath::new();
-    let sp = path.add_polyline(
-        &[
+    let sp = path.add_polygon(PolygonSlice {
+        points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
             point(1.0, 1.0),
             point(0.0, 1.0),
         ],
-        true,
-    );
+        closed: true,
+    });
 
     let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
 
@@ -756,15 +759,15 @@ fn polyline_to_path() {
 #[test]
 fn split_edge() {
     let mut path = AdvancedPath::new();
-    let sp = path.add_polyline(
-        &[
+    let sp = path.add_polygon(PolygonSlice {
+        points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
             point(1.0, 1.0),
             point(0.0, 1.0),
         ],
-        true,
-    );
+        closed: true,
+    });
 
     let mut edge_id = None;
     for id in path.edge_id_loop(path.sub_paths[sp].first_edge) {
@@ -904,7 +907,10 @@ fn empty_sub_path_1() {
 #[test]
 fn empty_sub_path_2() {
     let mut path = AdvancedPath::new();
-    path.add_polyline(&[point(0.0, 0.0)], false);
+    path.add_polygon(PolygonSlice {
+        points: &[point(0.0, 0.0)],
+        closed: false,
+    });
 
     let sp = path.sub_path_ids().start();
     let events: Vec<PathEvent> = path.sub_path_edges(sp).path_iter().collect();
@@ -929,15 +935,15 @@ fn empty_sub_path_2() {
 #[test]
 fn invert_sub_path() {
     let mut path = AdvancedPath::new();
-    let sp = path.add_polyline(
-        &[
+    let sp = path.add_polygon(PolygonSlice {
+        points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
             point(1.0, 1.0),
             point(0.0, 1.0),
         ],
-        false,
-    );
+        closed: false,
+    });
 
     path.invert_sub_path(sp);
 
