@@ -2,9 +2,9 @@ use crate::advanced_path::*;
 use crate::geom::{Line, LineSegment};
 /// Split paths with a line or line segment.
 use crate::math::*;
-use crate::path::builder::PathBuilder;
-use crate::path::iterator::PathIterator;
 use crate::path::*;
+use crate::path::polygon::PolygonSlice;
+use crate::path::iterator::PathIterator;
 use std::cmp::PartialOrd;
 use std::mem;
 
@@ -333,7 +333,10 @@ impl Splitter {
                 PathEvent::Line { to, .. } => self.point_buffer.push(to),
                 PathEvent::End { close, .. } => {
                     if self.point_buffer.len() > 2 {
-                        adv.add_polyline(&self.point_buffer, close);
+                        adv.add_polygon(PolygonSlice {
+                            points: &self.point_buffer,
+                            closed: close,
+                        });
                     }
                     self.point_buffer.clear();
                 }
@@ -452,17 +455,23 @@ fn compare_path_events(actual: &[PathEvent], expected: &[PathEvent]) {
     }
 }
 
+#[cfg(test)]
+use crate::path::builder::PathBuilder;
+
 #[test]
 fn split_with_segment_1() {
     use crate::path::PathEvent;
 
     let mut path = Path::builder();
-    path.polygon(&[
-        point(0.0, 0.0),
-        point(1.0, 0.0),
-        point(1.0, 1.0),
-        point(0.0, 1.0),
-    ]);
+    path.add_polygon(PolygonSlice {
+        points: &[
+            point(0.0, 0.0),
+            point(1.0, 0.0),
+            point(1.0, 1.0),
+            point(0.0, 1.0),
+        ],
+        closed: true,
+    });
 
     let mut splitter = Splitter::new();
     let (p1, p2) = splitter.split_with_segment(
@@ -541,16 +550,20 @@ fn split_with_segment_2() {
     //
 
     let mut path = Path::builder();
-    path.polygon(&[
-        point(0.0, 0.0),
-        point(3.0, 0.0),
-        point(3.0, 3.0),
-        point(2.0, 3.0),
-        point(2.0, 1.0),
-        point(1.0, 1.0),
-        point(1.0, 3.0),
-        point(0.0, 3.0),
-    ]);
+
+    path.add_polygon(PolygonSlice {
+        points: &[
+            point(0.0, 0.0),
+            point(3.0, 0.0),
+            point(3.0, 3.0),
+            point(2.0, 3.0),
+            point(2.0, 1.0),
+            point(1.0, 1.0),
+            point(1.0, 3.0),
+            point(0.0, 3.0),
+        ],
+        closed: true,
+    });
 
     let mut splitter = Splitter::new();
     let (p1, p2) = splitter.split_with_segment(
@@ -663,12 +676,15 @@ fn split_with_segment_3() {
     //     \
 
     let mut path = Path::builder();
-    path.polygon(&[
-        point(0.0, 0.0),
-        point(2.0, 0.0),
-        point(2.0, 2.0),
-        point(0.0, 2.0),
-    ]);
+    path.add_polygon(PolygonSlice {
+        points: &[
+            point(0.0, 0.0),
+            point(2.0, 0.0),
+            point(2.0, 2.0),
+            point(0.0, 2.0),
+        ],
+        closed: true,
+    });
 
     let mut splitter = Splitter::new();
     let (p1, p2) = splitter.split_with_segment(
@@ -733,7 +749,6 @@ fn split_with_segment_3() {
 
 #[test]
 fn split_with_segment_4() {
-    use crate::path::PathEvent;
 
     //  ________
     // |        |
@@ -742,14 +757,17 @@ fn split_with_segment_4() {
     //
 
     let mut path = Path::builder();
-    path.polygon(&[
-        point(0.0, 0.0),
-        point(3.0, 0.0),
-        point(3.0, 1.0),
-        point(1.0, 1.0),
-        point(1.0, 2.0),
-        point(0.0, 2.0),
-    ]);
+    path.add_polygon(PolygonSlice {
+        points: &[
+            point(0.0, 0.0),
+            point(3.0, 0.0),
+            point(3.0, 1.0),
+            point(1.0, 1.0),
+            point(1.0, 2.0),
+            point(0.0, 2.0),
+        ],
+        closed: true,
+    });
 
     let mut splitter = Splitter::new();
     let (p1, p2) = splitter.split_with_segment(
@@ -831,14 +849,17 @@ fn split_with_segment_5() {
     //
 
     let mut path = Path::builder();
-    path.polygon(&[
-        point(0.0, 0.0),
-        point(3.0, 0.0),
-        point(3.0, 2.0),
-        point(2.0, 2.0),
-        point(2.0, 1.0),
-        point(0.0, 1.0),
-    ]);
+    path.add_polygon(PolygonSlice {
+        points: &[
+            point(0.0, 0.0),
+            point(3.0, 0.0),
+            point(3.0, 2.0),
+            point(2.0, 2.0),
+            point(2.0, 1.0),
+            point(0.0, 1.0),
+        ],
+        closed: true,
+    });
 
     let mut splitter = Splitter::new();
     let (p1, p2) = splitter.split_with_segment(
@@ -920,17 +941,20 @@ fn split_with_segment_6() {
     //
 
     let mut path = Path::builder();
-    path.polygon(&[
-        point(0.0, 0.0),
-        point(3.0, 0.0),
-        point(3.0, 2.0),
-        point(2.0, 2.0),
-        //point(2.5, 2.0),
-        point(2.0, 1.0),
-        point(1.0, 1.0),
-        point(1.0, 2.0),
-        point(0.0, 2.0),
-    ]);
+    path.add_polygon(PolygonSlice {
+        points: &[
+            point(0.0, 0.0),
+            point(3.0, 0.0),
+            point(3.0, 2.0),
+            point(2.0, 2.0),
+            //point(2.5, 2.0),
+            point(2.0, 1.0),
+            point(1.0, 1.0),
+            point(1.0, 2.0),
+            point(0.0, 2.0),
+        ],
+        closed: true,
+    });
 
     let mut splitter = Splitter::new();
     let (p1, p2) = splitter.split_with_segment(

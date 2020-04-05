@@ -40,7 +40,7 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
 pub fn polygons_to_path(polygons: &Polygons) -> Path {
     let mut builder = Path::builder().flattened(0.05);
     for poly in polygons.iter() {
-        builder.move_to(poly[0]);
+        builder.begin(poly[0]);
         for i in 1..poly.len() {
             builder.line_to(poly[i]);
         }
@@ -91,8 +91,8 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     println!("    let mut builder = Path::builder();\n");
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
-        println!("    builder.move_to(point({:.}, {:.}));", pos.x, pos.y);
-        svg_path.move_to(pos);
+        println!("    builder.begin(point({:.}, {:.}));", pos.x, pos.y);
+        svg_path.begin(pos);
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
             println!("    builder.line_to(point({:.}, {:.}));", pos.x, pos.y);

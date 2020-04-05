@@ -1,5 +1,6 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
+#![deny(unconditional_recursion)]
 
 //! Data structures and traits to work with paths (vector graphics).
 //!
@@ -22,11 +23,11 @@
 //!
 //! // Build a simple path.
 //! let mut builder = Path::builder();
-//! builder.move_to(point(0.0, 0.0));
+//! builder.begin(point(0.0, 0.0));
 //! builder.line_to(point(1.0, 2.0));
 //! builder.line_to(point(2.0, 0.0));
 //! builder.line_to(point(1.0, 1.0));
-//! builder.close();
+//! builder.end(true);
 //!
 //! // Generate the actual path object.
 //! let path = builder.build();
@@ -46,17 +47,16 @@ pub extern crate serde;
 
 pub mod builder;
 pub mod commands;
-mod events;
 pub mod iterator;
-mod path;
-mod path_state;
 pub mod polygon;
+pub mod svg;
+mod events;
+mod path;
 
 pub use crate::events::*;
 pub use crate::geom::math;
 pub use crate::geom::ArcFlags;
 pub use crate::path::*;
-pub use crate::path_state::*;
 
 use math::Point;
 use std::fmt;

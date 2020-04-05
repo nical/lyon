@@ -20190,11 +20190,11 @@ fn earcut_test(path: &[&[[i32; 2]]]) {
             continue;
         }
         let start = sub_path[0];
-        builder.move_to(point(start[0] as f32, start[0] as f32));
+        builder.begin(point(start[0] as f32, start[0] as f32));
         for p in sub_path {
             builder.line_to(point(p[0] as f32, p[1] as f32));
         }
-        builder.close();
+        builder.end(true);
     }
     let path = builder.build();
     test_path(path.as_slice());
@@ -20207,11 +20207,11 @@ fn earcut_test_f32(path: &[&[[f32; 2]]]) {
             continue;
         }
         let start = sub_path[0];
-        builder.move_to(point(start[0], start[0]));
+        builder.begin(point(start[0], start[0]));
         for p in sub_path {
             builder.line_to(point(p[0], p[1]));
         }
-        builder.close();
+        builder.end(true);
     }
     let path = builder.build();
     test_path(path.as_slice());
@@ -20223,7 +20223,6 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
     {
         let options = FillOptions::tolerance(0.05);
 
-        use crate::path::builder::*;
         use crate::path::iterator::*;
         let mut builder = Path::builder();
         for e in path.iter().flattened(0.05) {

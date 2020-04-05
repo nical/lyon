@@ -54,11 +54,11 @@
 //! fn main() {
 //!     // Create a simple path.
 //!     let mut path_builder = Path::builder();
-//!     path_builder.move_to(point(0.0, 0.0));
+//!     path_builder.begin(point(0.0, 0.0));
 //!     path_builder.line_to(point(1.0, 2.0));
 //!     path_builder.line_to(point(2.0, 0.0));
 //!     path_builder.line_to(point(1.0, 1.0));
-//!     path_builder.close();
+//!     path_builder.end(true);
 //!     let path = path_builder.build();
 //!
 //!     // Create the destination vertex and index buffers.

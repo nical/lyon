@@ -87,7 +87,7 @@ fn main() {
     let tolerance = 0.02;
 
     // Build a Path for the rust logo.
-    let mut builder = SvgPathBuilder::new(Path::builder());
+    let mut builder = Path::svg_builder();
     build_logo_path(&mut builder);
     let path = builder.build();
 

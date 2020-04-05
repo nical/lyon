@@ -15,7 +15,7 @@ fn simple_path_build_empty(bench: &mut Bencher) {
         let mut path = Path::builder();
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -36,7 +36,7 @@ fn simple_path_build_prealloc(bench: &mut Bencher) {
         let mut path = lyon::path::Builder::with_capacity(n_points, n_edges);
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -82,7 +82,7 @@ fn simple_path_iter(bench: &mut Bencher) {
     let mut path = Path::builder();
     for _ in 0..N {
         for _ in 0..10 {
-            path.move_to(point(0.0, 0.0));
+            path.begin(point(0.0, 0.0));
             for _ in 0..1_000 {
                 path.line_to(point(1.0, 0.0));
                 path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -112,7 +112,7 @@ fn simple_path_id_iter(bench: &mut Bencher) {
     let mut path = Path::builder();
     for _ in 0..N {
         for _ in 0..10 {
-            path.move_to(point(0.0, 0.0));
+            path.begin(point(0.0, 0.0));
             for _ in 0..1_000 {
                 path.line_to(point(1.0, 0.0));
                 path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -182,13 +182,13 @@ fn no_attrib_iter(bench: &mut Bencher) {
         let mut path = Path::builder_with_attributes(0);
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0), &[]);
+                path.begin(point(0.0, 0.0), &[]);
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0), &[]);
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0), &[]);
                     path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), &[]);
                 }
-                path.close();
+                path.end(true);
             }
         }
 
@@ -214,7 +214,7 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
         let mut path = Path::builder_with_attributes(2);
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0), &[0.0, 1.0]);
+                path.begin(point(0.0, 0.0), &[0.0, 1.0]);
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0), &[0.0, 1.0]);
                     path.cubic_bezier_to(
@@ -225,7 +225,7 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
                     );
                     path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), &[0.0, 1.0]);
                 }
-                path.close();
+                path.end(true);
             }
         }
 
@@ -261,7 +261,7 @@ fn commands_build_prealloc(bench: &mut Bencher) {
 
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -281,7 +281,7 @@ fn commands_build_empty(bench: &mut Bencher) {
         let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -301,7 +301,7 @@ fn commands_iter(bench: &mut Bencher) {
         let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -341,7 +341,7 @@ fn f32x2_commands_iter(bench: &mut Bencher) {
         let mut path: commands::GenericPathBuilder<A, Point> = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(p(0.0, 0.0));
+                path.begin(p(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(p(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), p(2.0, 2.0));
@@ -377,7 +377,7 @@ fn commands_points_iter(bench: &mut Bencher) {
         let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));
@@ -413,7 +413,7 @@ fn commands_with_evt_id4_iter(bench: &mut Bencher) {
         let mut path: GenericPathBuilder = commands::GenericPath::builder();
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(point(0.0, 0.0));
+                path.begin(point(0.0, 0.0));
                 for _ in 0..1_000 {
                     path.line_to(point(1.0, 0.0));
                     path.cubic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), point(2.0, 2.0));

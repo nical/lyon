@@ -28,7 +28,7 @@ fn generate_path(cmd: &FuzzCmd, iteration: u64) -> Path {
     loop {
         let num_cmds = 3 + rand::random::<u32>() % (target - num_points);
 
-        path.move_to(random_point());
+        path.begin(random_point());
         num_points += 1;
         for _ in 0..num_cmds {
             path.line_to(random_point());

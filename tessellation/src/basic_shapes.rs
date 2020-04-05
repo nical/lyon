@@ -27,7 +27,7 @@ use crate::geom::math::*;
 use crate::geom::Arc;
 use crate::geometry_builder::*;
 use crate::path::iterator::FromPolyline;
-use crate::path::builder::{Build, FlatteningBuilder, PathBuilder};
+use crate::path::builder::{Build, Flattened, PathBuilder};
 use crate::path::EndpointId;
 use crate::stroke::{StrokeBuilder, StrokeTessellator};
 use crate::{
@@ -470,7 +470,7 @@ pub fn stroke_rounded_rectangle(
 
     {
         let mut builder = StrokeBuilder::new(options, &(), &mut [], output);
-        builder.move_to(p0);
+        builder.begin(p0);
         for i in 0..4 {
             stroke_border_radius(
                 centers[i],
@@ -569,7 +569,7 @@ pub fn stroke_circle(
     {
         // output borrow scope start
         let mut builder = StrokeBuilder::new(options, &(), &mut [], output);
-        builder.move_to(starting_point);
+        builder.begin(starting_point);
         stroke_border_radius(center, angle, radius, num_points, &mut builder);
         builder.close();
     } // output borrow scope end
@@ -578,7 +578,7 @@ pub fn stroke_circle(
 }
 
 // tessellate the stroke for rounded corners using the inner points.
-// assumming the builder started with move_to().
+// assumming the builder started with begin().
 fn stroke_border_radius(
     center: Point,
     angle: (f32, f32),
@@ -593,7 +593,7 @@ fn stroke_border_radius(
         let new_angle = i as f32 * (angle_size) / (num_points + 1) as f32 + starting_angle;
         let normal = vector(new_angle.cos(), new_angle.sin());
 
-        builder.line_to(center + normal * radius)
+        builder.line_to(center + normal * radius);
     }
 }
 
@@ -622,10 +622,10 @@ pub fn fill_ellipse(
         sweep_angle: Angle::radians(2.0 * PI-0.01),
     };
 
-    use crate::path::builder::{Build, PathBuilder, FlatteningBuilder};
+    use crate::path::builder::{Build, PathBuilder, Flattened};
     use crate::path_fill::EventsBuilder;
 
-    let mut path = FlatteningBuilder::new(
+    let mut path = Flattened::new(
         EventsBuilder::new(),
         options.tolerance
     ).with_svg();
@@ -673,7 +673,7 @@ pub fn stroke_ellipse(
 
     output.begin_geometry();
     {
-        let mut path = FlatteningBuilder::new(
+        let mut path = Flattened::new(
             StrokeBuilder::new(options, &(), &mut [], output),
             options.tolerance,
         )
