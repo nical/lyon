@@ -4,6 +4,7 @@ use std::ops::Add;
 use euclid;
 use image::MutableImageSlice;
 use math::*;
+use euclid::vec2;
 
 type IntVector = euclid::default::Vector2D<i32>;
 
@@ -354,7 +355,7 @@ fn test_rasterizer_simple() {
 
 #[inline]
 pub fn int_vector(x: i32, y: i32) -> IntVector {
-    vector(x, y)
+    vec2(x, y)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

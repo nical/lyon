@@ -1,4 +1,4 @@
-use crate::generic_math::{vector, Point, Vector};
+use crate::{vector, Point, Vector};
 use crate::scalar::{Float, Scalar};
 use arrayvec::ArrayVec;
 

@@ -198,102 +198,62 @@ mod scalar {
     }
 }
 
-mod generic_math {
-    /// Alias for `euclid::default::Point2D`.
-    pub use euclid::default::Point2D as Point;
+/// Alias for `euclid::default::Point2D`.
+pub use euclid::default::Point2D as Point;
 
-    /// Alias for `euclid::default::Vector2D`.
-    pub use euclid::default::Vector2D as Vector;
+/// Alias for `euclid::default::Vector2D`.
+pub use euclid::default::Vector2D as Vector;
 
-    /// Alias for `euclid::default::Size2D`.
-    pub use euclid::default::Size2D as Size;
+/// Alias for `euclid::default::Size2D`.
+pub use euclid::default::Size2D as Size;
 
-    /// Alias for `euclid::default::Rect`
-    pub use euclid::default::Rect;
+/// Alias for `euclid::default::Rect`
+pub use euclid::default::Rect;
 
-    /// Alias for `euclid::default::Transform2D`
-    pub type Transform<S> = euclid::default::Transform2D<S>;
+/// Alias for `euclid::default::Transform2D`
+pub type Transform<S> = euclid::default::Transform2D<S>;
 
-    /// Alias for `euclid::default::Rotation2D`
-    pub type Rotation<S> = euclid::default::Rotation2D<S>;
+/// Alias for `euclid::default::Rotation2D`
+pub type Rotation<S> = euclid::default::Rotation2D<S>;
 
-    /// Alias for `euclid::default::Translation2D`
-    pub type Translation<S> = euclid::Translation2D<S, euclid::UnknownUnit, euclid::UnknownUnit>;
+/// Alias for `euclid::default::Translation2D`
+pub type Translation<S> = euclid::Translation2D<S, euclid::UnknownUnit, euclid::UnknownUnit>;
 
-    /// Alias for `euclid::default::Scale`
-    pub use euclid::default::Scale;
+/// Alias for `euclid::default::Scale`
+pub use euclid::default::Scale;
 
-    /// An angle in radians.
-    pub use euclid::Angle;
+/// An angle in radians.
+pub use euclid::Angle;
 
-    /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
-    pub use euclid::rect;
-
-    /// Shorthand for `Vector::new(x, y)`.
-    pub use euclid::vec2 as vector;
-
-    /// Shorthand for `Point::new(x, y)`.
-    pub use euclid::point2 as point;
-
-    /// Shorthand for `Size::new(x, y)`.
-    pub use euclid::size2 as size;
+/// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
+#[inline]
+pub fn rect<S>(x: S, y: S, w: S, h: S) -> Rect<S> {
+    Rect { origin: point(x, y), size: size(w, h) }
 }
 
-pub mod math {
-    //! Basic types that are used everywhere. Most other lyon crates
-    //! reexport them.
+/// Shorthand for `Vector::new(x, y)`.
+#[inline]
+pub fn vector<S>(x: S, y: S) -> Vector<S> {
+    Vector::new(x, y)
+}
 
-    use euclid;
+/// Shorthand for `Point::new(x, y)`.
+#[inline]
+pub fn point<S>(x: S, y: S) -> Point<S> {
+    Point::new(x, y)
+}
 
-    /// Alias for ```euclid::default::Point2D<f32>```.
-    pub type Point = euclid::default::Point2D<f32>;
-
-    /// Alias for ```euclid::default::Point2D<f64>```.
-    pub type F64Point = euclid::default::Point2D<f64>;
-
-    /// Alias for ```euclid::default::Point2D<f32>```.
-    pub type Vector = euclid::default::Vector2D<f32>;
-
-    /// Alias for ```euclid::default::Size2D<f32>```.
-    pub type Size = euclid::default::Size2D<f32>;
-
-    /// Alias for ```euclid::default::Rect<f32>```
-    pub type Rect = euclid::default::Rect<f32>;
-
-    /// Alias for ```euclid::default::Transform2D<f32>```
-    pub type Transform = euclid::default::Transform2D<f32>;
-
-    /// Alias for ```euclid::default::Rotation2D<f32>```
-    pub type Rotation = euclid::default::Rotation2D<f32>;
-
-    /// Alias for ```euclid::default::Translation2D<f32>```
-    pub type Translation = euclid::Translation2D<f32, euclid::UnknownUnit, euclid::UnknownUnit>;
-
-    /// Alias for ```euclid::default::Scale<f32>```
-    pub type Scale = euclid::default::Scale<f32>;
-
-    /// An angle in radians (f32).
-    pub type Angle = euclid::Angle<f32>;
-
-    /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
-    pub use euclid::rect;
-
-    /// Shorthand for `Vector::new(x, y)`.
-    pub use euclid::vec2 as vector;
-
-    /// Shorthand for `Point::new(x, y)`.
-    pub use euclid::point2 as point;
-
-    /// Shorthand for `Size::new(x, y)`.
-    pub use euclid::size2 as size;
+/// Shorthand for `Size::new(x, y)`.
+#[inline]
+pub fn size<S>(w: S, h: S) -> Size<S> {
+    Size::new(w, h)
 }
 
 pub mod traits {
     pub use crate::segment::Segment;
     //pub use monotonic::MonotonicSegment;
 
-    use crate::generic_math::{Point, Rotation, Scale, Transform, Translation, Vector};
-    use crate::Scalar;
+    use crate::{Scalar, Point, Rotation, Scale, Transform, Translation, Vector};
 
     pub trait Transformation<S> {
         fn transform_point(&self, p: Point<S>) -> Point<S>;

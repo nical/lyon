@@ -53,13 +53,71 @@ mod events;
 mod path;
 
 pub use crate::events::*;
-pub use crate::geom::math;
 pub use crate::geom::ArcFlags;
 pub use crate::path::*;
 
 use math::Point;
 use std::fmt;
 use std::u32;
+
+pub mod math {
+    //! f32 version of the lyon_geom types used everywhere. Most other lyon crates
+    //! reexport them.
+
+    use crate::geom::euclid;
+
+    /// Alias for ```euclid::default::Point2D<f32>```.
+    pub type Point = euclid::default::Point2D<f32>;
+
+    /// Alias for ```euclid::default::Point2D<f32>```.
+    pub type Vector = euclid::default::Vector2D<f32>;
+
+    /// Alias for ```euclid::default::Size2D<f32>```.
+    pub type Size = euclid::default::Size2D<f32>;
+
+    /// Alias for ```euclid::default::Rect<f32>```
+    pub type Rect = euclid::default::Rect<f32>;
+
+    /// Alias for ```euclid::default::Transform2D<f32>```
+    pub type Transform = euclid::default::Transform2D<f32>;
+
+    /// Alias for ```euclid::default::Rotation2D<f32>```
+    pub type Rotation = euclid::default::Rotation2D<f32>;
+
+    /// Alias for ```euclid::default::Translation2D<f32>```
+    pub type Translation = euclid::Translation2D<f32, euclid::UnknownUnit, euclid::UnknownUnit>;
+
+    /// Alias for ```euclid::default::Scale<f32>```
+    pub type Scale = euclid::default::Scale<f32>;
+
+    /// An angle in radians (f32).
+    pub type Angle = euclid::Angle<f32>;
+
+    /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
+    #[inline]
+    pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
+        Rect { origin: point(x, y), size: size(w, h) }
+    }
+
+    /// Shorthand for `Vector::new(x, y)`.
+    #[inline]
+    pub fn vector(x: f32, y: f32) -> Vector {
+        Vector::new(x, y)
+    }
+
+    /// Shorthand for `Point::new(x, y)`.
+    #[inline]
+    pub fn point(x: f32, y: f32) -> Point {
+        Point::new(x, y)
+    }
+
+    /// Shorthand for `Size::new(x, y)`.
+    #[inline]
+    pub fn size(w: f32, h: f32) -> Size {
+        Size::new(w, h)
+    }
+}
+
 
 /// The fill rule defines how to determine what is inside and what is outside of the shape.
 ///

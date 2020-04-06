@@ -1,4 +1,4 @@
-use crate::generic_math::{Point, Rect, Vector};
+use crate::{Point, Rect, Vector};
 use crate::scalar::{NumCast, Scalar};
 use crate::segment::{BoundingRect, Segment};
 use crate::{CubicBezierSegment, QuadraticBezierSegment};
@@ -408,7 +408,7 @@ where
 
 #[test]
 fn two_intersections() {
-    use crate::math::point;
+    use crate::point;
     use crate::QuadraticBezierSegment;
 
     let c1 = QuadraticBezierSegment {

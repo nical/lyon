@@ -7,7 +7,7 @@ extern crate lyon_path as path;
 extern crate lyon_svg as svg;
 
 pub use path::geom::euclid;
-pub use path::geom::math;
+pub use path::math;
 
 pub mod debugging;
 pub mod image;

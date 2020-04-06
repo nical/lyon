@@ -195,4 +195,4 @@ pub use lyon_tessellation as tessellation;
 pub use tessellation::geom;
 pub use tessellation::path;
 
-pub use geom::math;
+pub use path::math;

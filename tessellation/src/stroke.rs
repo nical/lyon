@@ -1,6 +1,6 @@
 use crate::basic_shapes::circle_flattening_step;
+use crate::math::*;
 use crate::geom::euclid::Trig;
-use crate::geom::math::*;
 use crate::geom::utils::{directed_angle, normalized_tangent};
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math_utils::compute_normal;
@@ -49,7 +49,7 @@ const EPSILON: f32 = 1e-4;
 /// # use tess::path::Path;
 /// # use tess::path::builder::*;
 /// # use tess::path::iterator::*;
-/// # use tess::geom::math::*;
+/// # use tess::math::*;
 /// # use tess::geometry_builder::{VertexBuffers, simple_builder};
 /// # use tess::*;
 /// # fn main() {

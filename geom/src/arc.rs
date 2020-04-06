@@ -3,7 +3,7 @@
 use std::mem::swap;
 use std::ops::Range;
 
-use crate::generic_math::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector};
+use crate::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector};
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::{BoundingRect, Segment};
 use crate::CubicBezierSegment;
@@ -744,7 +744,7 @@ impl<S: Scalar> Iterator for Flattened<S> {
 
 #[test]
 fn test_from_svg_arc() {
-    use crate::math::vector;
+    use crate::vector;
     use euclid::approxeq::ApproxEq;
 
     let flags = ArcFlags {
@@ -929,7 +929,7 @@ fn test_to_quadratics_and_cubics() {
 
 #[test]
 fn test_bounding_rect() {
-    use crate::math::rect;
+    use crate::rect;
     use euclid::approxeq::ApproxEq;
 
     fn approx_eq(r1: Rect<f32>, r2: Rect<f32>) -> bool {

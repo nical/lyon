@@ -1,4 +1,4 @@
-use crate::generic_math::{rect, Point, Rect, Vector};
+use crate::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
@@ -983,7 +983,7 @@ fn monotonic_solve_t_for_x() {
 
 #[test]
 fn fat_line() {
-    use crate::math::point;
+    use crate::point;
 
     let c1 = QuadraticBezierSegment {
         from: point(1.0f32, 2.0),
@@ -1022,7 +1022,7 @@ fn is_linear() {
 
 #[test]
 fn test_flattening() {
-    use crate::generic_math::point;
+    use crate::point;
 
     let c1 = QuadraticBezierSegment {
         from: point(0.0, 0.0),
@@ -1082,7 +1082,7 @@ fn test_flattening() {
 
 #[test]
 fn test_flattening_empty_curve() {
-    use crate::math::point;
+    use crate::point;
 
     let curve = QuadraticBezierSegment {
         from: point(0.0, 0.0),
@@ -1101,7 +1101,7 @@ fn test_flattening_empty_curve() {
 
 #[test]
 fn test_flattening_straight_line() {
-    use crate::math::point;
+    use crate::point;
 
     let curve = QuadraticBezierSegment {
         from: point(0.0, 0.0),

@@ -23,7 +23,7 @@
 //! More explanation about flattening and tolerance in the
 //! [lyon_geom crate](https://docs.rs/lyon_geom/#flattening).
 
-use crate::geom::math::*;
+use crate::math::*;
 use crate::geom::Arc;
 use crate::geometry_builder::*;
 use crate::path::iterator::FromPolyline;

@@ -1,4 +1,4 @@
-use crate::generic_math::{point, vector, Point, Rect, Size, Vector};
+use crate::{point, vector, Point, Rect, Size, Vector};
 use crate::monotonic::MonotonicSegment;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
@@ -755,7 +755,7 @@ fn bounding_rect() {
 
 #[test]
 fn distance_to_point() {
-    use crate::math::vector;
+    use crate::vector;
 
     let l1 = Line {
         point: point(2.0f32, 3.0),

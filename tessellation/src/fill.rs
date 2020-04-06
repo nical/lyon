@@ -1,5 +1,5 @@
 use crate::event_queue::*;
-use crate::geom::math::*;
+use crate::math::*;
 use crate::geom::LineSegment;
 use crate::monotone::*;
 use crate::path::{
@@ -335,7 +335,7 @@ struct PendingEdge {
 /// # use tess::path::Path;
 /// # use tess::path::builder::*;
 /// # use tess::path::iterator::*;
-/// # use tess::geom::math::{Point, point};
+/// # use tess::math::{Point, point};
 /// # use tess::geometry_builder::{VertexBuffers, simple_builder};
 /// # use tess::*;
 /// # fn main() {
@@ -377,7 +377,7 @@ struct PendingEdge {
 /// # use tess::path::Path;
 /// # use tess::path::builder::*;
 /// # use tess::path::iterator::*;
-/// # use tess::geom::math::{Point, point};
+/// # use tess::math::{Point, point};
 /// # use tess::geometry_builder::{VertexBuffers, simple_builder};
 /// # use tess::*;
 /// # fn main() {
