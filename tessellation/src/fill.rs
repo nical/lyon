@@ -2074,10 +2074,10 @@ fn fill_vertex_source_01() {
     let attributes = &[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
     let mut cmds = PathCommands::builder();
-    cmds.move_to(EndpointId(0));
+    cmds.begin(EndpointId(0));
     cmds.line_to(EndpointId(1));
     cmds.line_to(EndpointId(2));
-    cmds.close();
+    cmds.end(true);
 
     let cmds = cmds.build();
 
@@ -2342,14 +2342,14 @@ fn fill_vertex_source_03() {
     let attributes = &[0.0, 0.0, 1.0, 0.0, 0.0, 2.0];
 
     let mut cmds = PathCommands::builder();
-    cmds.move_to(EndpointId(0));
+    cmds.begin(EndpointId(0));
     cmds.line_to(EndpointId(1));
     cmds.line_to(EndpointId(2));
-    cmds.close();
-    cmds.move_to(EndpointId(3));
+    cmds.end(true);
+    cmds.begin(EndpointId(3));
     cmds.line_to(EndpointId(4));
     cmds.line_to(EndpointId(5));
-    cmds.close();
+    cmds.end(true);
 
     let cmds = cmds.build();
 
