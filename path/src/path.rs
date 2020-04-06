@@ -8,6 +8,7 @@ use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEven
 
 use std::iter::IntoIterator;
 use std::u32;
+use std::fmt;
 
 /// Enumeration corresponding to the [Event](https://docs.rs/lyon_core/*/lyon_core/events/enum.Event.html) enum
 /// without the parameters.
@@ -60,7 +61,7 @@ pub(crate) enum Verb {
 /// |_________|__________|_________|__________|_________|_________|__________|_
 /// ```
 ///
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct Path {
     points: Box<[Point]>,
@@ -69,7 +70,7 @@ pub struct Path {
 }
 
 /// A view on a `Path`.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct PathSlice<'l> {
     points: &'l [Point],
     verbs: &'l [Verb],
@@ -253,6 +254,12 @@ impl AttributeStore for Path {
     }
 }
 
+impl fmt::Debug for Path {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        self.as_slice().fmt(formatter)
+    }
+}
+
 /// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
     /// Iterates over the path.
@@ -273,6 +280,49 @@ impl<'l> PathSlice<'l> {
     #[inline]
     pub fn attributes(&self, endpoint: EndpointId) -> &[f32] {
         interpolated_attributes(self.num_attributes, &self.points, endpoint)
+    }
+}
+
+impl<'l> fmt::Debug for PathSlice<'l> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn write_point(formatter: &mut fmt::Formatter, point: Point) -> fmt::Result {
+            write!(formatter, " ")?;
+            fmt::Debug::fmt(&point.x, formatter)?;
+            write!(formatter, " ")?;
+            fmt::Debug::fmt(&point.y, formatter)
+        }
+
+        write!(formatter, "\"")?;
+        for evt in self {
+            match evt {
+                PathEvent::Begin { at } => {
+                    write!(formatter, " M")?;
+                    write_point(formatter, at)?;
+                }
+                PathEvent::End { close, .. } => {
+                    if close {
+                        write!(formatter, " Z")?;
+                    }
+                }
+                PathEvent::Line { to, .. } => {
+                    write!(formatter, " L")?;
+                    write_point(formatter, to)?;
+                }
+                PathEvent::Quadratic { ctrl, to, .. } => {
+                    write!(formatter, " Q")?;
+                    write_point(formatter, ctrl)?;
+                    write_point(formatter, to)?;
+                }
+                PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                    write!(formatter, " C")?;
+                    write_point(formatter, ctrl1)?;
+                    write_point(formatter, ctrl2)?;
+                    write_point(formatter, to)?;
+                }
+            }
+        }
+
+        write!(formatter, "\"")
     }
 }
 

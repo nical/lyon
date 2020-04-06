@@ -308,7 +308,7 @@ impl<'l> CommandsSlice<'l> {
 
 impl<'l> fmt::Debug for CommandsSlice<'l> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{{ ")?;
+        write!(f, "\"")?;
         for evt in self.id_events() {
             match evt {
                 IdEvent::Line { to, .. } => write!(f, "L {:?}", to),
@@ -321,7 +321,7 @@ impl<'l> fmt::Debug for CommandsSlice<'l> {
                 IdEvent::End { close: false, .. } => Ok(()),
             }?;
         }
-        write!(f, "}}")
+        write!(f, "\"")
     }
 }
 
