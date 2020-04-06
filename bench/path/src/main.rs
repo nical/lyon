@@ -57,7 +57,7 @@ fn id_only_commands_build_empty(bench: &mut Bencher) {
         let mut cp = 0;
         for _ in 0..N {
             for _ in 0..10 {
-                path.move_to(EndpointId(ep));
+                path.begin(EndpointId(ep));
                 ep += 1;
                 for _ in 0..1_000 {
                     path.line_to(EndpointId(ep));
@@ -70,7 +70,7 @@ fn id_only_commands_build_empty(bench: &mut Bencher) {
                     cp += 3;
                     ep += 3;
                 }
-                path.close();
+                path.end(true);
             }
         }
 
@@ -144,7 +144,7 @@ fn commands_id_iter(bench: &mut Bencher) {
     let mut cp = 0;
     for _ in 0..N {
         for _ in 0..10 {
-            path.move_to(EndpointId(ep));
+            path.begin(EndpointId(ep));
             ep += 1;
             for _ in 0..1_000 {
                 path.line_to(EndpointId(ep));
@@ -157,7 +157,7 @@ fn commands_id_iter(bench: &mut Bencher) {
                 cp += 3;
                 ep += 3;
             }
-            path.close();
+            path.end(true);
         }
     }
 

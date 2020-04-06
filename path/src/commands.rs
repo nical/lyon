@@ -28,10 +28,10 @@
 //! ];
 //!
 //! let mut cmds = PathCommands::builder();
-//! cmds.move_to(EndpointId(0));
+//! cmds.begin(EndpointId(0));
 //! cmds.line_to(EndpointId(1));
 //! cmds.line_to(EndpointId(2));
-//! cmds.close();
+//! cmds.end(true);
 //!
 //! let cmds = cmds.build();
 //!
@@ -401,9 +401,9 @@ where
 #[derive(Clone)]
 pub struct PathCommandsBuilder {
     cmds: Vec<u32>,
-    last_cmd: u32,
     start: u32,
     first_event_index: u32,
+    in_subpath: bool,
 }
 
 impl PathCommandsBuilder {
@@ -412,7 +412,7 @@ impl PathCommandsBuilder {
         Self {
             start: 0,
             cmds: Vec::new(),
-            last_cmd: verb::END,
+            in_subpath: false,
             first_event_index: 0,
         }
     }
@@ -422,45 +422,57 @@ impl PathCommandsBuilder {
         Self {
             start: 0,
             cmds: Vec::with_capacity(cap),
-            last_cmd: verb::END,
+            in_subpath: false,
             first_event_index: 0,
         }
     }
 
-    pub fn move_to(&mut self, to: EndpointId) -> EventId {
-        self.end_if_needed();
+    pub fn begin(&mut self, to: EndpointId) -> EventId {
+        debug_assert!(!self.in_subpath);
+        self.in_subpath = true;
+
         self.first_event_index = self.cmds.len() as u32;
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::BEGIN);
         self.cmds.push(to.0);
-        self.last_cmd = verb::BEGIN;
 
         id
     }
 
+    pub fn end(&mut self, close: bool) -> Option<EventId> {
+        debug_assert!(self.in_subpath);
+        self.in_subpath = false;
+
+        let id = EventId(self.cmds.len() as u32);
+        let cmd = if close {
+            verb::CLOSE
+        } else {
+            verb::END
+        };
+        self.cmds.push(cmd);
+        self.cmds.push(self.first_event_index);
+
+        Some(id)
+    }
+
+
     pub fn line_to(&mut self, to: EndpointId) -> EventId {
-        if let Some(id) = self.begin_if_needed(to) {
-            return id;
-        }
+        debug_assert!(self.in_subpath);
 
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::LINE);
         self.cmds.push(to.0);
-        self.last_cmd = verb::LINE;
 
         id
     }
 
     pub fn quadratic_bezier_to(&mut self, ctrl: ControlPointId, to: EndpointId) -> EventId {
-        if let Some(id) = self.begin_if_needed(to) {
-            return id;
-        }
+        debug_assert!(self.in_subpath);
 
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::QUADRATIC);
         self.cmds.push(ctrl.0);
         self.cmds.push(to.0);
-        self.last_cmd = verb::QUADRATIC;
 
         id
     }
@@ -471,74 +483,20 @@ impl PathCommandsBuilder {
         ctrl2: ControlPointId,
         to: EndpointId,
     ) -> EventId {
-        if let Some(id) = self.begin_if_needed(to) {
-            return id;
-        }
+        debug_assert!(self.in_subpath);
 
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::CUBIC);
         self.cmds.push(ctrl1.0);
         self.cmds.push(ctrl2.0);
         self.cmds.push(to.0);
-        self.last_cmd = verb::CUBIC;
 
         id
     }
 
-    pub fn close(&mut self) -> Option<EventId> {
-        if self.need_moveto() {
-            return None;
-        }
-
-        let id = EventId(self.cmds.len() as u32);
-        self.cmds.push(verb::CLOSE);
-        self.cmds.push(self.first_event_index);
-        self.last_cmd = verb::CLOSE;
-
-        Some(id)
-    }
-
-    fn need_moveto(&self) -> bool {
-        self.last_cmd == verb::CLOSE || self.last_cmd == verb::END
-    }
-
-    // Returns false if an inserted moveto event replaces the segment
-    #[inline(always)]
-    fn begin_if_needed(&mut self, default: EndpointId) -> Option<EventId> {
-        if self.need_moveto() {
-            return self.insert_move_to(default);
-        }
-
-        None
-    }
-
-    #[inline(never)]
-    fn insert_move_to(&mut self, default: EndpointId) -> Option<EventId> {
-        if self.cmds.is_empty() {
-            let id = EventId(self.cmds.len() as u32);
-            self.move_to(default);
-            return Some(id);
-        }
-
-        let first = self.cmds.last().cloned().unwrap_or(0);
-        self.move_to(EndpointId(first));
-
-        None
-    }
-
-    fn end_if_needed(&mut self) {
-        match self.last_cmd {
-            verb::LINE | verb::QUADRATIC | verb::CUBIC => {
-                self.cmds.push(verb::END);
-                self.cmds.push(self.first_event_index);
-            }
-            _ => {}
-        }
-    }
-
     /// Consumes the builder and returns path commands.
-    pub fn build(mut self) -> PathCommands {
-        self.end_if_needed();
+    pub fn build(self) -> PathCommands {
+        debug_assert!(!self.in_subpath);
 
         PathCommands {
             cmds: self.cmds.into_boxed_slice(),
@@ -843,24 +801,63 @@ where
     }
 }
 
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic]
+fn missing_begin_1() {
+    let mut builder = PathCommands::builder();
+    builder.line_to(EndpointId(1));
+    builder.end(true);
+
+    builder.build();
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic]
+fn missing_begin_2() {
+    let mut builder = PathCommands::builder();
+    builder.begin(EndpointId(0));
+    builder.line_to(EndpointId(1));
+    builder.end(true);
+
+    builder.line_to(EndpointId(1));
+    builder.end(true);
+
+    builder.build();
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic]
+fn missing_end() {
+    let mut builder = PathCommands::builder();
+    builder.begin(EndpointId(0));
+    builder.line_to(EndpointId(1));
+
+    builder.build();
+}
+
 #[test]
 fn simple_path() {
     let mut builder = PathCommands::builder();
-    builder.move_to(EndpointId(0));
+    builder.begin(EndpointId(0));
     builder.line_to(EndpointId(1));
     builder.quadratic_bezier_to(ControlPointId(2), EndpointId(3));
     builder.cubic_bezier_to(ControlPointId(4), ControlPointId(5), EndpointId(6));
+    builder.end(false);
 
-    builder.move_to(EndpointId(10));
+    builder.begin(EndpointId(10));
     builder.line_to(EndpointId(11));
     builder.quadratic_bezier_to(ControlPointId(12), EndpointId(13));
     builder.cubic_bezier_to(ControlPointId(14), ControlPointId(15), EndpointId(16));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(EndpointId(20));
+    builder.begin(EndpointId(20));
     builder.line_to(EndpointId(21));
     builder.quadratic_bezier_to(ControlPointId(22), EndpointId(23));
     builder.cubic_bezier_to(ControlPointId(24), ControlPointId(25), EndpointId(26));
+    builder.end(false);
 
     let path = builder.build();
     let mut iter = path.id_events();
@@ -972,21 +969,23 @@ fn simple_path() {
 #[test]
 fn next_event() {
     let mut builder = PathCommands::builder();
-    builder.move_to(EndpointId(0));
+    builder.begin(EndpointId(0));
     builder.line_to(EndpointId(1));
     builder.quadratic_bezier_to(ControlPointId(2), EndpointId(3));
     builder.cubic_bezier_to(ControlPointId(4), ControlPointId(5), EndpointId(6));
+    builder.end(false);
 
-    builder.move_to(EndpointId(10));
+    builder.begin(EndpointId(10));
     builder.line_to(EndpointId(11));
     builder.quadratic_bezier_to(ControlPointId(12), EndpointId(13));
     builder.cubic_bezier_to(ControlPointId(14), ControlPointId(15), EndpointId(16));
-    builder.close();
+    builder.end(true);
 
-    builder.move_to(EndpointId(20));
+    builder.begin(EndpointId(20));
     builder.line_to(EndpointId(21));
     builder.quadratic_bezier_to(ControlPointId(22), EndpointId(23));
     builder.cubic_bezier_to(ControlPointId(24), ControlPointId(25), EndpointId(26));
+    builder.end(false);
 
     let path = builder.build();
 
