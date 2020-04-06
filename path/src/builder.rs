@@ -169,20 +169,6 @@ pub trait SvgPathBuilder {
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector);
 }
 
-// TODO remove
-#[doc(hidden)]
-pub fn build_polygon<Builder: PathBuilder>(builder: &mut Builder, points: &[Point]) {
-    if points.len() < 2 {
-        return;
-    }
-
-    builder.begin(points[0]);
-    for p in &points[1..] {
-        builder.line_to(*p);
-    }
-    builder.close();
-}
-
 /// Generates flattened paths
 pub struct Flattened<Builder> {
     builder: Builder,
@@ -196,65 +182,6 @@ impl<Builder: Build> Build for Flattened<Builder> {
     fn build(self) -> Builder::PathType {
         self.builder.build()
     }
-}
-
-pub fn build_arc_as_quadratic_beziers(
-    current_position: Point,
-    center: Point,
-    radii: Vector,
-    sweep_angle: Angle,
-    x_rotation: Angle,
-    builder: &mut impl PathBuilder,
-) {
-    let start_angle = (current_position - center).angle_from_x_axis() - x_rotation;
-    let arc = Arc {
-        center,
-        radii,
-        start_angle,
-        sweep_angle,
-        x_rotation,
-    };
-
-    let arc_start = arc.from();
-    if (arc_start - current_position).square_length() < 0.01 {
-        // TODO: if there is no point on the current sub-path we should do a
-        // move_to instead, but we don't have the information here.
-        builder.line_to(arc_start);
-    }
-
-    arc.for_each_quadratic_bezier(&mut |curve| {
-        builder.quadratic_bezier_to(curve.ctrl, curve.to);
-    });
-}
-
-pub fn flatten_arc(
-    tolerance: f32,
-    current_position: Point,
-    center: Point,
-    radii: Vector,
-    sweep_angle: Angle,
-    x_rotation: Angle,
-    builder: &mut impl PathBuilder,
-) {
-    let start_angle = (current_position - center).angle_from_x_axis() - x_rotation;
-    let arc = Arc {
-        center,
-        radii,
-        start_angle,
-        sweep_angle,
-        x_rotation,
-    };
-
-    let arc_start = arc.from();
-    if (arc_start - current_position).square_length() < 0.01 {
-        // TODO: if there is no point on the current sub-path we should do a
-        // move_to instead, but we don't have the information here.
-        builder.line_to(arc_start);
-    }
-
-    arc.for_each_flattened(tolerance, &mut |to| {
-        builder.line_to(to);
-    });
 }
 
 pub fn flatten_quadratic_bezier(
