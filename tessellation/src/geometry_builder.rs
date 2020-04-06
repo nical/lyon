@@ -388,15 +388,6 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
     }
 }
 
-#[doc(hidden)]
-/// Creates a `BuffersBuilder`.
-pub fn vertex_builder<OutputVertex, OutputIndex, Input, Ctor>(
-    buffers: &mut VertexBuffers<OutputVertex, OutputIndex>,
-    ctor: Ctor,
-) -> BuffersBuilder<OutputVertex, OutputIndex, Ctor> {
-    BuffersBuilder::new(buffers, ctor)
-}
-
 /// A trait specifying how to create vertex values.
 pub trait FillVertexConstructor<OutputVertex> {
     fn new_vertex(&mut self, point: Point, attributes: FillAttributes) -> OutputVertex;
