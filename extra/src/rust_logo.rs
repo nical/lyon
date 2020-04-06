@@ -1,4 +1,4 @@
-use path::svg::SvgPathBuilder;
+use path::builder::SvgPathBuilder;
 use path::math::{point, vector};
 
 pub fn build_logo_path<Builder: SvgPathBuilder>(path: &mut Builder) {

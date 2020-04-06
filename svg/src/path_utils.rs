@@ -1,8 +1,6 @@
 use crate::parser::path::{Token, Tokenizer};
 use crate::parser::xmlparser::FromSpan;
 
-use crate::path::EndpointId;
-use crate::path::svg::SvgPathBuilder;
 use crate::path::builder::*;
 use crate::path::geom::Arc;
 use crate::path::math::{point, vector, Angle, Point, Vector};
@@ -189,7 +187,7 @@ where
     }
 }
 
-/// A `PathBuilder` that builds a `String` representation of the path
+/// An `SvgPathBuilder` that builds a `String` representation of the path
 /// using the SVG syntax.
 ///
 /// No effort is put into making the serializer fast or make the
@@ -215,8 +213,8 @@ impl PathSerializer {
             start_angle,
             sweep_angle,
             x_rotation,
-        }
-        .to_svg_arc();
+        }.to_svg_arc();
+
         self.path += &format!(
             "A {} {} {} {} {} {} {}",
             radii.x,
@@ -235,43 +233,6 @@ impl Build for PathSerializer {
 
     fn build(self) -> String {
         self.path
-    }
-}
-
-impl PathBuilder for PathSerializer {
-    fn begin(&mut self, to: Point) -> EndpointId {
-        self.path += &format!("M {} {} ", to.x, to.y);
-        self.current = to;
-
-        EndpointId::INVALID
-    }
-
-    fn end(&mut self, close: bool) {
-        if close {
-            self.path.push_str("Z");
-        }
-    }
-
-    fn line_to(&mut self, to: Point) -> EndpointId {
-        self.path += &format!("L {} {} ", to.x, to.y);
-        self.current = to;
-
-        EndpointId::INVALID
-    }
-
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
-        self.path += &format!("Q {} {} {} {}", ctrl.x, ctrl.y, to.x, to.y);
-
-        EndpointId::INVALID
-    }
-
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
-        self.path += &format!(
-            "C {} {} {} {} {} {}",
-            ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y
-        );
-
-        EndpointId::INVALID
     }
 }
 
