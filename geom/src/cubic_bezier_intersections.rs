@@ -6,7 +6,7 @@
 ///! See "Bézier Clipping method" in
 ///! https://scholarsarchive.byu.edu/facpub/1/
 ///! for motivation and details of how the process works.
-use crate::generic_math::{point, Point, Rect};
+use crate::{point, Point, Rect};
 use crate::scalar::Scalar;
 use crate::CubicBezierSegment;
 use arrayvec::ArrayVec;

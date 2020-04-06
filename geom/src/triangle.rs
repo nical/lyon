@@ -1,4 +1,4 @@
-use crate::generic_math::{Point, Rect, Size};
+use crate::{Point, Rect, Size};
 use crate::scalar::Scalar;
 use crate::traits::Transformation;
 use crate::LineSegment;
@@ -135,7 +135,7 @@ impl<S: Scalar> Triangle<S> {
 }
 
 #[cfg(test)]
-use crate::math::point;
+use crate::point;
 
 #[test]
 fn test_triangle_contains() {

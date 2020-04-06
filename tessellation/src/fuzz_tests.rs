@@ -1,4 +1,4 @@
-use crate::geom::math::*;
+use crate::math::*;
 use crate::geometry_builder::{simple_builder, VertexBuffers};
 use crate::path::iterator::*;
 use crate::path::{Path, PathSlice};

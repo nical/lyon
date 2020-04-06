@@ -1,4 +1,4 @@
-use crate::math::point;
+use crate::point;
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::{CubicBezierSegment, QuadraticBezierSegment};

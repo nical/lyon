@@ -26,7 +26,7 @@
 //! let hatched_path = path_builder.build();
 //! ```
 
-use crate::geom::math::{point, vector, Angle, Point, Rotation, Vector};
+use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::geom::LineSegment;
 use crate::path::builder::{self, Build, PathBuilder};
 use crate::path::{PathEvent, EndpointId};

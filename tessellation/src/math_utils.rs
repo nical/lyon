@@ -1,6 +1,6 @@
 //! Various math tools that are mostly usefull for the tessellators.
 
-use crate::geom::math::*;
+use crate::math::*;
 
 /// Compute a normal vector at a point P such that ```x ---e1----> P ---e2---> x```
 ///

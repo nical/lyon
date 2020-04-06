@@ -1,7 +1,7 @@
 ///! Utilities to flatten cubic bézier curve segments, implemented both with callback and
 ///! iterator based APIs.
 
-use crate::generic_math::Point;
+use crate::Point;
 use crate::scalar::Scalar;
 use crate::CubicBezierSegment;
 use crate::cubic_to_quadratic::single_curve_approximation;

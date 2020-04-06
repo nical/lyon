@@ -2,7 +2,7 @@ use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::cubic_to_quadratic::*;
 pub use crate::flatten_cubic::Flattened;
 use crate::flatten_cubic::{find_cubic_bezier_inflection_points, flatten_cubic_bezier_with_t};
-use crate::generic_math::{rect, Point, Rect, Vector};
+use crate::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
@@ -1115,7 +1115,7 @@ fn monotonic_solve_t_for_x() {
 
 #[test]
 fn fat_line() {
-    use crate::math::point;
+    use crate::point;
 
     let c1 = CubicBezierSegment {
         from: point(1.0f32, 2.0),
@@ -1187,7 +1187,7 @@ fn is_linear() {
 
 #[test]
 fn test_monotonic() {
-    use crate::math::point;
+    use crate::point;
     let curve = CubicBezierSegment {
         from: point(1.0, 1.0),
         ctrl1: point(10.0, 2.0),
@@ -1203,7 +1203,7 @@ fn test_monotonic() {
 
 #[test]
 fn test_line_segment_intersections() {
-    use crate::math::point;
+    use crate::point;
     fn assert_approx_eq(a: ArrayVec<[(f32, f32); 3]>, b: &[(f32, f32)], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i].0 - b[i].0) > epsilon || f32::abs(a[i].1 - b[i].1) > epsilon {
@@ -1253,7 +1253,7 @@ fn test_line_segment_intersections() {
 
 #[test]
 fn test_parameters_for_value() {
-    use crate::math::point;
+    use crate::point;
     fn assert_approx_eq(a: ArrayVec<[f32; 3]>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i] - b[i]) > epsilon {
@@ -1290,7 +1290,7 @@ fn test_parameters_for_value() {
 
 #[test]
 fn test_cubic_intersection_deduping() {
-    use crate::math::point;
+    use crate::point;
 
     let epsilon = 0.0001;
 

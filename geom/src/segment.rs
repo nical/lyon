@@ -1,4 +1,4 @@
-use crate::generic_math::{Point, Rect, Vector};
+use crate::{Point, Rect, Vector};
 use crate::scalar::Scalar;
 use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 
