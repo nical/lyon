@@ -1,7 +1,6 @@
 use crate::math::*;
 use crate::path::builder::*;
 use crate::path::EndpointId;
-use crate::path::svg::SvgBuilder;
 
 use std::ops::Range;
 
@@ -150,8 +149,8 @@ impl Builder {
         }
     }
 
-    pub fn with_svg(self, tolerance: f32) -> SvgBuilder<Flattened<Self>> {
-        SvgBuilder::new(Flattened::new(self, tolerance))
+    pub fn with_svg(self, tolerance: f32) -> WithSvg<Flattened<Self>> {
+        WithSvg::new(Flattened::new(self, tolerance))
     }
 
     pub fn current_position(&self) -> Point {

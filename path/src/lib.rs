@@ -49,7 +49,6 @@ pub mod builder;
 pub mod commands;
 pub mod iterator;
 pub mod polygon;
-pub mod svg;
 mod events;
 mod path;
 

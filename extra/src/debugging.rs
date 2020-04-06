@@ -92,7 +92,7 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     for p in 0..polygons.len() {
         let pos = polygons[p][0];
         println!("    builder.begin(point({:.}, {:.}));", pos.x, pos.y);
-        svg_path.begin(pos);
+        svg_path.move_to(pos);
         for v in 1..polygons[p].len() {
             let pos = polygons[p][v];
             println!("    builder.line_to(point({:.}, {:.}));", pos.x, pos.y);

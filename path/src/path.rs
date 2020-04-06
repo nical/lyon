@@ -2,7 +2,6 @@
 //!
 
 use crate::builder::*;
-use crate::svg::SvgBuilder;
 use crate::geom::traits::Transformation;
 use crate::math::*;
 use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
@@ -83,15 +82,16 @@ impl Path {
         Builder::new()
     }
 
-    /// Creates a [Builder](struct.Builder.html) to build a path.
-    pub fn svg_builder() -> SvgBuilder<Builder> {
-        SvgBuilder::new(Self::builder())
-    }
-
     /// Creates a [BuilderWithAttributes](struct.BuilderWithAttributes.html) to build a path
     /// with custom attributes.
     pub fn builder_with_attributes(num_attributes: usize) -> BuilderWithAttributes {
         BuilderWithAttributes::new(num_attributes)
+    }
+
+    /// Creates an [WithSvg](../builder/struct.WithSvg.html) to build a path
+    /// with a rich set of commands.
+    pub fn extended_builder() -> WithSvg<Builder> {
+        WithSvg::new(Self::builder())
     }
 
     /// Creates an Empty `Path`.
@@ -335,8 +335,9 @@ impl Builder {
         }
     }
 
-    pub fn with_svg(self) -> SvgBuilder<Self> {
-        SvgBuilder::new(self)
+    pub fn with_svg(self) -> WithSvg<Self> {
+        assert!(self.verbs.is_empty());
+        WithSvg::new(self)
     }
 
     #[inline]
