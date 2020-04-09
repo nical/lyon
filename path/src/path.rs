@@ -72,9 +72,9 @@ pub struct Path {
 /// A view on a `Path`.
 #[derive(Copy, Clone)]
 pub struct PathSlice<'l> {
-    points: &'l [Point],
-    verbs: &'l [Verb],
-    num_attributes: usize,
+    pub(crate) points: &'l [Point],
+    pub(crate) verbs: &'l [Verb],
+    pub(crate) num_attributes: usize,
 }
 
 impl Path {
@@ -366,8 +366,8 @@ impl<'l> AttributeStore for PathSlice<'l> {
 
 /// TODO(doc)
 pub struct Builder {
-    points: Vec<Point>,
-    verbs: Vec<Verb>,
+    pub(crate) points: Vec<Point>,
+    pub(crate) verbs: Vec<Verb>,
 }
 
 impl Builder {
@@ -543,8 +543,8 @@ impl Build for Builder {
 }
 
 pub struct BuilderWithAttributes {
-    builder: Builder,
-    num_attributes: usize,
+    pub(crate) builder: Builder,
+    pub(crate) num_attributes: usize,
 }
 
 impl BuilderWithAttributes {
