@@ -383,7 +383,7 @@ fn simple() {
   builder.begin(point(0.0, 0.0));
   builder.line_to(point(10.0, 0.0));
   builder.line_to(point(10.0, 10.0));
-  builder.line_to(point(0.0, 10.0));
+  let a = builder.line_to(point(0.0, 10.0));
   builder.end(true);
 
   let p1 = builder.build();
@@ -392,7 +392,7 @@ fn simple() {
   builder.begin(point(0.0, 0.0));
   builder.line_to(point(20.0, 0.0));
   builder.line_to(point(20.0, 20.0));
-  builder.line_to(point(0.0, 20.0));
+  let b = builder.line_to(point(0.0, 20.0));
   builder.end(false);
 
   let p2 = builder.build();
@@ -412,4 +412,7 @@ fn simple() {
   assert_eq!(iter.next(), Some(PathEvent::Line { from: point(20.0, 20.0), to: point(0.0, 20.0) }));
   assert_eq!(iter.next(), Some(PathEvent::End { last: point(0.0, 20.0), first: point(0.0, 0.0), close: false }));
   assert_eq!(iter.next(), None);
+
+  assert_eq!(buffer.get(p1)[a], point(0.0, 10.0));
+  assert_eq!(buffer.get(p2)[b], point(0.0, 20.0));
 }
