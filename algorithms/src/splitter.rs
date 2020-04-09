@@ -3,7 +3,7 @@ use crate::geom::{Line, LineSegment};
 /// Split paths with a line or line segment.
 use crate::math::*;
 use crate::path::*;
-use crate::path::polygon::PolygonSlice;
+use crate::path::polygon::Polygon;
 use crate::path::iterator::PathIterator;
 use std::cmp::PartialOrd;
 use std::mem;
@@ -333,7 +333,7 @@ impl Splitter {
                 PathEvent::Line { to, .. } => self.point_buffer.push(to),
                 PathEvent::End { close, .. } => {
                     if self.point_buffer.len() > 2 {
-                        adv.add_polygon(PolygonSlice {
+                        adv.add_polygon(Polygon {
                             points: &self.point_buffer,
                             closed: close,
                         });
@@ -463,7 +463,7 @@ fn split_with_segment_1() {
     use crate::path::PathEvent;
 
     let mut path = Path::builder();
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
@@ -551,7 +551,7 @@ fn split_with_segment_2() {
 
     let mut path = Path::builder();
 
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(3.0, 0.0),
@@ -676,7 +676,7 @@ fn split_with_segment_3() {
     //     \
 
     let mut path = Path::builder();
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(2.0, 0.0),
@@ -757,7 +757,7 @@ fn split_with_segment_4() {
     //
 
     let mut path = Path::builder();
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(3.0, 0.0),
@@ -849,7 +849,7 @@ fn split_with_segment_5() {
     //
 
     let mut path = Path::builder();
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(3.0, 0.0),
@@ -941,7 +941,7 @@ fn split_with_segment_6() {
     //
 
     let mut path = Path::builder();
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(3.0, 0.0),
