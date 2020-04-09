@@ -37,7 +37,7 @@
 use crate::events::PathEvent;
 use crate::geom::{Arc, ArcFlags, SvgArc, CubicBezierSegment, QuadraticBezierSegment, LineSegment};
 use crate::math::*;
-use crate::polygon::PolygonSlice;
+use crate::polygon::Polygon;
 use crate::path::Verb;
 use crate::EndpointId;
 
@@ -97,7 +97,7 @@ pub trait PathBuilder {
         }
     }
 
-    fn add_polygon(&mut self, polygon: PolygonSlice<Point>) {
+    fn add_polygon(&mut self, polygon: Polygon<Point>) {
         if polygon.points.is_empty() {
             return;
         }

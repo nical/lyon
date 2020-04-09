@@ -4,12 +4,12 @@ use crate::math::Point;
 use crate::{ControlPointId, EndpointId, Event, EventId, IdEvent, PathEvent, Position, PositionStore};
 
 /// A view over a sequence of endpoint IDs forming a polygon.
-pub struct IdPolygonSlice<'l> {
+pub struct IdPolygon<'l> {
     pub points: &'l [EndpointId],
     pub closed: bool,
 }
 
-impl<'l> IdPolygonSlice<'l> {
+impl<'l> IdPolygon<'l> {
     // Returns an iterator over the endpoint IDs of the polygon.
     pub fn iter(&self) -> IdPolygonIter<'l> {
         IdPolygonIter {
@@ -79,12 +79,12 @@ impl<'l> Iterator for IdPolygonIter<'l> {
 }
 
 /// A view over a sequence of endpoints forming a polygon.
-pub struct PolygonSlice<'l, T> {
+pub struct Polygon<'l, T> {
     pub points: &'l [T],
     pub closed: bool,
 }
 
-impl<'l, T> PolygonSlice<'l, T> {
+impl<'l, T> Polygon<'l, T> {
     /// Returns an iterator of `Event<&T>`.
     pub fn iter(&self) -> PolygonIter<'l, T> {
         PolygonIter {
@@ -135,7 +135,7 @@ impl<'l, T> PolygonSlice<'l, T> {
     }
 }
 
-impl<'l, T> std::ops::Index<EndpointId> for PolygonSlice<'l, T> {
+impl<'l, T> std::ops::Index<EndpointId> for Polygon<'l, T> {
     type Output = T;
     fn index(&self, id: EndpointId) -> &T {
         &self.points[id.to_usize()]
@@ -213,7 +213,7 @@ impl<'l, T: Position> Iterator for PathEvents<'l, T> {
 }
 
 #[derive(Clone)]
-/// An iterator of `IdEvent` for `PolygonSlice`.
+/// An iterator of `IdEvent` for `Polygon`.
 pub struct PolygonIdIter {
     idx: u32,
     start: u32,
@@ -260,7 +260,7 @@ impl Iterator for PolygonIdIter {
     }
 }
 
-impl<'l, Endpoint> PositionStore for PolygonSlice<'l, Endpoint>
+impl<'l, Endpoint> PositionStore for Polygon<'l, Endpoint>
 where
     Endpoint: Position,
 {
@@ -275,7 +275,7 @@ where
 
 #[test]
 fn event_ids() {
-    let poly = IdPolygonSlice {
+    let poly = IdPolygon {
         points: &[EndpointId(0), EndpointId(1), EndpointId(2), EndpointId(3)],
         closed: true,
     };
@@ -349,7 +349,7 @@ fn event_ids() {
 #[test]
 fn polygon_slice_id_ite() {
     let points: &[u32] = &[0, 1, 2, 3, 4, 5, 6];
-    let polygon = PolygonSlice {
+    let polygon = Polygon {
         points,
         closed: true,
     };

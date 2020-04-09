@@ -5,7 +5,7 @@
 
 use crate::math::*;
 use crate::path::{Path, PathEvent};
-use crate::path::polygon::PolygonSlice;
+use crate::path::polygon::Polygon;
 use sid::{Id, IdRange, IdSlice, IdVec};
 use std::ops;
 use std::u16;
@@ -59,7 +59,7 @@ impl AdvancedPath {
     }
 
     /// Add a sub-path from a polyline.
-    pub fn add_polygon(&mut self, polygon: PolygonSlice<Point>) -> SubPathId {
+    pub fn add_polygon(&mut self, polygon: Polygon<Point>) -> SubPathId {
         let len = polygon.points.len() as u16;
         let base = self.edges.len();
         let base_vertex = self.points.len();
@@ -87,7 +87,7 @@ impl AdvancedPath {
     pub fn add_rectangle(&mut self, rectangle: &Rect) -> SubPathId {
         let min = rectangle.min();
         let max = rectangle.min();
-        self.add_polygon(PolygonSlice {
+        self.add_polygon(Polygon {
             points: &[min, point(max.x, min.y), max, point(min.x, max.y)],
             closed: true,
         })
@@ -706,7 +706,7 @@ impl<'l> Drop for SubPathBuilder<'l> {
 #[test]
 fn polyline_to_path() {
     let mut path = AdvancedPath::new();
-    let sp = path.add_polygon(PolygonSlice {
+    let sp = path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
@@ -759,7 +759,7 @@ fn polyline_to_path() {
 #[test]
 fn split_edge() {
     let mut path = AdvancedPath::new();
-    let sp = path.add_polygon(PolygonSlice {
+    let sp = path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
@@ -907,7 +907,7 @@ fn empty_sub_path_1() {
 #[test]
 fn empty_sub_path_2() {
     let mut path = AdvancedPath::new();
-    path.add_polygon(PolygonSlice {
+    path.add_polygon(Polygon {
         points: &[point(0.0, 0.0)],
         closed: false,
     });
@@ -935,7 +935,7 @@ fn empty_sub_path_2() {
 #[test]
 fn invert_sub_path() {
     let mut path = AdvancedPath::new();
-    let sp = path.add_polygon(PolygonSlice {
+    let sp = path.add_polygon(Polygon {
         points: &[
             point(0.0, 0.0),
             point(1.0, 0.0),
