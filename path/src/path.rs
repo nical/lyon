@@ -326,6 +326,20 @@ impl<'l> fmt::Debug for PathSlice<'l> {
     }
 }
 
+impl<'l> std::ops::Index<EndpointId> for PathSlice<'l> {
+    type Output = Point;
+    fn index(&self, id: EndpointId) -> &Point {
+        &self.points[id.to_usize()]
+    }
+}
+
+impl<'l> std::ops::Index<ControlPointId> for PathSlice<'l> {
+    type Output = Point;
+    fn index(&self, id: ControlPointId) -> &Point {
+        &self.points[id.to_usize()]
+    }
+}
+
 impl<'l> IntoIterator for PathSlice<'l> {
     type Item = PathEvent;
     type IntoIter = Iter<'l>;
