@@ -49,6 +49,7 @@ pub mod builder;
 pub mod commands;
 pub mod iterator;
 pub mod polygon;
+pub mod path_buffer;
 mod events;
 mod path;
 
