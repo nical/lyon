@@ -35,7 +35,11 @@
 //!
 
 use crate::events::PathEvent;
-use crate::geom::{Arc, ArcFlags, SvgArc, CubicBezierSegment, QuadraticBezierSegment, LineSegment};
+use crate::geom::{
+    Arc, ArcFlags, SvgArc,
+    CubicBezierSegment, QuadraticBezierSegment, LineSegment,
+    traits::Transformation
+};
 use crate::math::*;
 use crate::polygon::Polygon;
 use crate::path::Verb;
@@ -133,6 +137,15 @@ pub trait PathBuilder {
         Self: Sized,
     {
         Flattened::new(self, tolerance)
+    }
+
+    /// Returns a builder that applies the given transformation to all positions.
+    fn transformed<Transform>(self, transform: Transform) -> Transformed<Self, Transform>
+    where
+        Self: Sized,
+        Transform: Transformation<f32>
+    {
+        Transformed::new(self, transform)
     }
 
     /// Returns a builder that support svg commands.
@@ -258,6 +271,74 @@ impl<Builder: PathBuilder> Flattened<Builder> {
     }
 }
 
+/// Builds a path with a transformation applied.
+pub struct Transformed<Builder, Transform> {
+    builder: Builder,
+    transform: Transform,
+}
+
+impl<Builder, Transform> Transformed<Builder, Transform> {
+    #[inline]
+    pub fn new(builder: Builder, transform: Transform) -> Self {
+        Transformed {
+            builder,
+            transform,
+        }
+    }
+
+    #[inline]
+    pub fn set_transform(&mut self, transform: Transform) {
+        self.transform = transform;
+    }
+}
+
+impl<Builder: Build, Transform> Build for Transformed<Builder, Transform> {
+    type PathType = Builder::PathType;
+
+    #[inline]
+    fn build(self) -> Builder::PathType {
+        self.builder.build()
+    }
+}
+
+impl<Builder, Transform> PathBuilder for Transformed<Builder, Transform>
+where
+    Builder: PathBuilder,
+    Transform: Transformation<f32>,
+{
+    #[inline]
+    fn begin(&mut self, at: Point) -> EndpointId {
+        self.builder.begin(self.transform.transform_point(at))
+    }
+
+    #[inline]
+    fn end(&mut self, close: bool) {
+        self.builder.end(close)
+    }
+
+    #[inline]
+    fn line_to(&mut self, to: Point) -> EndpointId {
+        self.builder.line_to(self.transform.transform_point(to))
+    }
+
+    #[inline]
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+        self.builder.quadratic_bezier_to(
+            self.transform.transform_point(ctrl),
+            self.transform.transform_point(to),
+        )
+    }
+
+    #[inline]
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+        self.builder.cubic_bezier_to(
+            self.transform.transform_point(ctrl1),
+            self.transform.transform_point(ctrl2),
+            self.transform.transform_point(to),
+        )
+    }
+}
+
 /// Implements the Svg building interface on top of a PathBuilder.
 pub struct WithSvg<Builder: PathBuilder> {
     builder: Builder,
@@ -286,6 +367,13 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
 
     pub fn flattened(self, tolerance: f32) -> WithSvg<Flattened<Builder>> {
         WithSvg::new(Flattened::new(self.builder, tolerance))
+    }
+
+    pub fn transformed<Transform>(self, transform: Transform) -> WithSvg<Transformed<Builder, Transform>>
+    where
+        Transform: Transformation<f32>
+    {
+        WithSvg::new(Transformed::new(self.builder, transform))
     }
 
     pub fn move_to(&mut self, to: Point) -> EndpointId {
