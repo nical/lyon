@@ -180,6 +180,7 @@ pub trait SvgPathBuilder {
     fn relative_vertical_line_to(&mut self, dy: f32);
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point);
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector);
+    fn reserve(&mut self, _endpoints: usize, _ctrl_points: usize) {}
 }
 
 /// Generates flattened paths
@@ -254,6 +255,10 @@ impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
         self.current_position = to;
         flatten_cubic_bezier(self.tolerance, self.current_position, ctrl1, ctrl2, to, self)
+    }
+
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.builder.reserve(endpoints, ctrl_points);
     }
 }
 
@@ -336,6 +341,11 @@ where
             self.transform.transform_point(ctrl2),
             self.transform.transform_point(to),
         )
+    }
+
+    #[inline]
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.builder.reserve(endpoints, ctrl_points);
     }
 }
 
@@ -517,6 +527,10 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         self.current_position
     }
 
+    pub fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.builder.reserve(endpoints, ctrl_points);
+    }
+
     fn get_smooth_cubic_ctrl(&self) -> Point {
         match self.last_cmd {
             Verb::CubicTo => self.current_position + (self.current_position - self.last_ctrl),
@@ -650,6 +664,10 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector) {
         let to = self.relative_to_absolute(to);
         self.arc_to(radii, x_rotation, flags, to);
+    }
+
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.builder.reserve(endpoints, ctrl_points);
     }
 }
 
