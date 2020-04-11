@@ -10,17 +10,6 @@ use crate::CubicBezierSegment;
 use crate::Line;
 use crate::QuadraticBezierSegment;
 
-/// An elliptic arc curve segment using the SVG's end-point notation.
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct SvgArc<S> {
-    pub from: Point<S>,
-    pub to: Point<S>,
-    pub radii: Vector<S>,
-    pub x_rotation: Angle<S>,
-    pub flags: ArcFlags,
-}
-
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
@@ -30,6 +19,17 @@ pub struct Arc<S> {
     pub start_angle: Angle<S>,
     pub sweep_angle: Angle<S>,
     pub x_rotation: Angle<S>,
+}
+
+/// An elliptic arc curve segment using the SVG's end-point notation.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct SvgArc<S> {
+    pub from: Point<S>,
+    pub to: Point<S>,
+    pub radii: Vector<S>,
+    pub x_rotation: Angle<S>,
+    pub flags: ArcFlags,
 }
 
 impl<S: Scalar> Arc<S> {
@@ -547,10 +547,29 @@ impl<S: Scalar> SvgArc<S> {
 }
 
 /// Flag parameters for arcs as described by the SVG specification.
+///
+/// For most situations using the SVG arc notation, there are four different arcs
+/// (two different ellipses, each with two different arc sweeps) that satisfy the
+/// arc parameters. The `large_arc` and `sweep` flags indicate which one of the
+/// four arcs are drawn, as follows:
+///
+/// See more examples in the [SVG specification](https://svgwg.org/specs/paths/)
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ArcFlags {
+    /// Of the four candidate arc sweeps, two will represent an arc sweep of greater
+    /// than or equal to 180 degrees (the "large-arc"), and two will represent an arc
+    /// sweep of less than or equal to 180 degrees (the "small arc"). If `large_arc`
+    /// is `true`, then one of the two larger arc sweeps will be chosen; otherwise, if
+    /// `large_arc` is `false`, one of the smaller arc sweeps will be chosen.
     pub large_arc: bool,
+    /// If `sweep` is `true`, then the arc will be drawn in a "positive-angle" direction
+    /// (the ellipse formula `x=cx+rx*cos(theta)` and `y=cy+ry*sin(theta)` is evaluated
+    /// such that theta starts at an angle corresponding to the current point and increases
+    /// positively until the arc reaches the destination position). A value of `false`
+    /// causes the arc to be drawn in a "negative-angle" direction (theta starts at an
+    /// angle value corresponding to the current point and decreases until the arc reaches
+    /// the destination position).
     pub sweep: bool,
 }
 

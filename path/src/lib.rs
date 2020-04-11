@@ -50,16 +50,26 @@ pub mod commands;
 pub mod iterator;
 pub mod polygon;
 pub mod path_buffer;
+pub mod path;
 mod events;
-mod path;
 
 pub use crate::events::*;
 pub use crate::geom::ArcFlags;
-pub use crate::path::*;
+pub use crate::path::{Path, PathSlice};
+pub use crate::path_buffer::{PathBuffer, PathBufferSlice};
 
 use math::Point;
 use std::fmt;
 use std::u32;
+
+pub mod traits {
+    //! `lyon_path` traits reexported here for convenience.
+
+    pub use crate::builder::PathBuilder;
+    pub use crate::builder::SvgPathBuilder;
+    pub use crate::builder::Build;
+    pub use crate::iterator::PathIterator;
+}
 
 pub mod math {
     //! f32 version of the lyon_geom types used everywhere. Most other lyon crates

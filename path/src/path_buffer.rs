@@ -1,3 +1,5 @@
+//! A container to store multiple paths contiguously.
+
 use crate::math::*;
 use crate::builder::*;
 use crate::path;
@@ -65,8 +67,8 @@ impl PathBuffer {
     }
 
     #[inline]
-    pub fn ids(&self) -> PathIdRange {
-        PathIdRange {
+    pub fn ids(&self) -> PathIds {
+        PathIds {
             range: 0..self.paths.len() as u32,
         }
     }
@@ -115,8 +117,8 @@ impl<'l> PathBufferSlice<'l> {
     }
 
     #[inline]
-    pub fn ids(&self) -> PathIdRange {
-        PathIdRange {
+    pub fn ids(&self) -> PathIds {
+        PathIds {
             range: 0..self.paths.len() as u32,
         }
     }
@@ -272,11 +274,12 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 }
 
-pub struct PathIdRange {
+/// An iterator of `PathId`s in a `PathBuffer`.
+pub struct PathIds {
     range: std::ops::Range<u32>,
 }
 
-impl Iterator for PathIdRange {
+impl Iterator for PathIds {
     type Item = PathId;
     #[inline]
     fn next(&mut self) -> Option<PathId> {
