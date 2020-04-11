@@ -33,7 +33,7 @@ fn simple_path_build_prealloc(bench: &mut Bencher) {
     bench.iter(|| {
         let n_points = 60010;
         let n_edges = N * 30_000 + N * 20;
-        let mut path = lyon::path::Builder::with_capacity(n_points, n_edges);
+        let mut path = lyon::path::path::Builder::with_capacity(n_points, n_edges);
         for _ in 0..N {
             for _ in 0..10 {
                 path.begin(point(0.0, 0.0));

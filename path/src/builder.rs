@@ -47,25 +47,30 @@ use crate::EndpointId;
 
 use std::marker::Sized;
 
-pub trait Build {
-    /// The type of object that is created by this builder.
-    type PathType;
-
-    /// Builds a path object and resets the builder so that it can be used again.
-    fn build(self) -> Self::PathType;
-}
-
-/// The main path building interface. More elaborate interfaces are built on top
-/// of the provided primitives.
+/// The base path building interface.
+///
+/// Unlike `SvgPathBuilder`, this interface strictly requires sub-paths to be manually
+/// started and ended (See the `begin` and `end` methods).
+/// All positions are provided in absolute coordinates.
+///
+/// The goal of this interface is to abstract over simple and fast implementations that
+/// do not deal with corner cases such as adding segments without starting a sub-path.
+///
+/// More elaborate interfaces are built on top of the provided primitives. In particular,
+/// the `SvgPathBuilder` trait providing more permissive and richer interface is
+/// automatically implemented via the `WithSvg` adapter (See the `with_svg` method).
 pub trait PathBuilder {
-    /// Sets the current position in preparation for the next sub-path.
-    /// If the current sub-path contains edges, this ends the sub-path without closing it.
-    fn begin(&mut self, to: Point) -> EndpointId;
-
-    /// Adds a line segment to the current sub-path and set the current position.
-    fn line_to(&mut self, to: Point) -> EndpointId;
+    /// Starts a new sub-path at a given position.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// `at` becomes the current position of the sub-path.
+    fn begin(&mut self, at: Point) -> EndpointId;
 
     /// Ends the current sub path.
+    ///
+    /// A sub-path must be in progress when this method is called.
+    /// After this method is called, there is no sub-path in progress until
+    /// `begin` is called again.
     fn end(&mut self, close: bool);
 
     /// Closes the current sub path.
@@ -75,12 +80,34 @@ pub trait PathBuilder {
         self.end(true)
     }
 
+    /// Adds a line segment to the current sub-path.
+    ///
+    /// A sub-path must be in progress when this method is called.
+    fn line_to(&mut self, to: Point) -> EndpointId;
+
+    /// Adds a quadratic bézier curve to the current sub-path.
+    ///
+    /// A sub-path must be in progress when this method is called.
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId;
 
+    /// Adds a cubic bézier curve to the current sub-path.
+    ///
+    /// A sub-path must be in progress when this method is called.
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId;
 
+    /// Hints at the builder that a certain number of endpoints and control
+    /// points will be added.
+    ///
+    /// The Builder implementation may use this information to pre-allocate
+    /// memory as an optimization.
     fn reserve(&mut self, _endpoints: usize, _ctrl_points: usize) {}
 
+    /// Applies the provided path event.
+    ///
+    /// By default this calls one of `begin`, `end`, `line`, `quadratic_bezier_segment`,
+    /// or `cubic_bezier_segment` according to the path event.
+    ///
+    /// The requirements for each method apply to the corresponding event.
     fn path_event(&mut self, event: PathEvent) {
         match event {
             PathEvent::Begin { at } => {
@@ -101,6 +128,10 @@ pub trait PathBuilder {
         }
     }
 
+    /// Adds a sub-path from a polygon.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
     fn add_polygon(&mut self, polygon: Polygon<Point>) {
         if polygon.points.is_empty() {
             return;
@@ -116,6 +147,10 @@ pub trait PathBuilder {
         self.end(polygon.closed);
     }
 
+    /// Adds a sub-path containing a single point.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
     fn add_point(&mut self, at: Point) -> EndpointId {
         let id = self.begin(at);
         self.end(false);
@@ -123,6 +158,10 @@ pub trait PathBuilder {
         id
     }
 
+    /// Adds a sub-path containing a single line segment.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
     fn add_line_segment(&mut self, line: &LineSegment<f32>) -> (EndpointId, EndpointId) {
         let a = self.begin(line.from);
         let b = self.line_to(line.to);
@@ -148,7 +187,9 @@ pub trait PathBuilder {
         Transformed::new(self, transform)
     }
 
-    /// Returns a builder that support svg commands.
+    /// Returns a builder that support SVG commands.
+    ///
+    /// This must be called before starting to add any sub-path.
     fn with_svg(self) -> WithSvg<Self>
     where
         Self: Sized,
@@ -159,31 +200,200 @@ pub trait PathBuilder {
 
 /// A path building interface that tries to stay close to SVG's path specification.
 /// https://svgwg.org/specs/paths/
+///
+/// Some of the wording in the documentation of this trait is borrowed from the SVG
+/// specification.
+///
+/// Unlike `PathBuilder`, implementations of this trait are expected to deal with
+/// various corners cases such as adding segments without starting a sub-path.
 pub trait SvgPathBuilder {
+    /// Start a new sub-path at the given position.
+    ///
+    /// Corresponding SVG command: `M`.
+    ///
+    /// This command establishes a new initial point and a new current point. The effect
+    /// is as if the "pen" were lifted and moved to a new location.
+    /// If a sub-path is in progress, it is ended without being closed.
     fn move_to(&mut self, to: Point);
-    fn line_to(&mut self, to: Point);
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
+
+    /// ends the current sub-path by connecting it back to its initial point.
+    ///
+    /// Corresponding SVG command: `Z`.
+    ///
+    /// A straight line is drawn from the current point to the initial point of the
+    /// current sub-path.
+    /// The current position is set to the initial position of the sub-path that was
+    /// closed.
     fn close(&mut self);
 
+    /// Adds a line segment to the current sub-path.
+    ///
+    /// Corresponding SVG command: `L`.
+    ///
+    /// The segment starts at the builder's current position.
+    /// If this is the very first command of the path (the builder therefore does not
+    /// have a current position), the `line_to` command is replaced with a `move_to(to)`.
+    fn line_to(&mut self, to: Point);
+
+    /// Adds a quadratic bézier segment to the current sub-path.
+    ///
+    /// Corresponding SVG command: `Q`.
+    ///
+    /// The segment starts at the builder's current position.
+    /// If this is the very first command of the path (the builder therefore does not
+    /// have a current position), the `quadratic_bezier_to` command is replaced with
+    /// a `move_to(to)`.
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
+
+    /// Adds a cubic bézier segment to the current sub-path.
+    ///
+    /// Corresponding SVG command: `C`.
+    ///
+    /// The segment starts at the builder's current position.
+    /// If this is the very first command of the path (the builder therefore does not
+    /// have a current position), the `cubic_bezier_to` command is replaced with
+    /// a `move_to(to)`.
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point);
+
+    /// Equivalent to `move_to` in relative coordinates.
+    ///
+    /// Corresponding SVG command: `m`.
+    ///
+    /// the provided coordinates are offsets relative to the current position of
+    /// the builder.
     fn relative_move_to(&mut self, to: Vector);
+
+    /// Equivalent to `line_to` in relative coordinates.
+    ///
+    /// Corresponding SVG command: `l`.
+    ///
+    /// the provided coordinates are offsets relative to the current position of
+    /// the builder.
     fn relative_line_to(&mut self, to: Vector);
+
+    /// Equivalent to `quadratic_bezier_to` in relative coordinates.
+    ///
+    /// Corresponding SVG command: `q`.
+    ///
+    /// the provided coordinates are offsets relative to the current position of
+    /// the builder.
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vector, to: Vector);
+
+    /// Equivalent to `cubic_bezier_to` in relative coordinates.
+    ///
+    /// the provided coordinates are offsets relative to the current position of
+    /// the builder.
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector);
+
+    /// Equivalent to `cubic_bezier_to` with implicit first control point.
+    ///
+    /// Corresponding SVG command: `S`.
+    ///
+    /// The first control point is assumed to be the reflection of the second
+    /// control point on the previous command relative to the current point.
+    /// If there is no previous command or if the previous command was not a
+    /// cubic bézier segment, the first control point is coincident with
+    /// the current position.
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point);
+
+    /// Equivalent to `smooth_cubic_bezier_to` in relative coordinates.
+    ///
+    /// Corresponding SVG command: `s`.
+    ///
+    /// the provided coordinates are offsets relative to the current position of
+    /// the builder.
     fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vector, to: Vector);
+
+    /// Equivalent to `quadratic_bezier_to` with implicit control point.
+    ///
+    /// Corresponding SVG command: `T`.
+    ///
+    /// The control point is assumed to be the reflection of the control
+    /// point on the previous command relative to the current point.
+    /// If there is no previous command or if the previous command was not a
+    /// quadratic bézier segment, a line segment is added instead.
     fn smooth_quadratic_bezier_to(&mut self, to: Point);
+
+    /// Equivalent to `smooth_quadratic_bezier_to` in relative coordinates.
+    ///
+    /// Corresponding SVG command: `t`.
+    ///
+    /// the provided coordinates are offsets relative to the current position of
+    /// the builder.
     fn smooth_relative_quadratic_bezier_to(&mut self, to: Vector);
+
+    /// Adds an horizontal line segment.
+    ///
+    /// Corresponding SVG command: `L`.
+    ///
+    /// Equivalent to `line_to`, using the y coordinate of the current position.
     fn horizontal_line_to(&mut self, x: f32);
+
+    /// Adds an horizontal line segment in relative coordinates.
+    ///
+    /// Corresponding SVG command: `l`.
+    ///
+    /// Equivalent to `line_to`, using the y coordinate of the current position.
+    /// `dx` is the horizontal offset relative to the current position.
     fn relative_horizontal_line_to(&mut self, dx: f32);
+
+    /// Adds a vertical line segment.
+    ///
+    /// Corresponding SVG command: `V`.
+    ///
+    /// Equivalent to `line_to`, using the x coordinate of the current position.
     fn vertical_line_to(&mut self, y: f32);
+
+    /// Adds a vertical line segment in relative coordinates.
+    ///
+    /// Corresponding SVG command: `v`.
+    ///
+    /// Equivalent to `line_to`, using the y coordinate of the current position.
+    /// `dy` is the horizontal offset relative to the current position.
     fn relative_vertical_line_to(&mut self, dy: f32);
+
+    /// Adds an elliptical arc.
+    ///
+    /// Corresponding SVG command: `A`.
+    ///
+    /// The arc starts at the current point and ends at `to`.
+    /// The size and orientation of the ellipse are defined by `radii` and an `x_rotation`,
+    /// which indicates how the ellipse as a whole is rotated relative to the current coordinate
+    /// system. The center of the ellipse is calculated automatically to satisfy the constraints
+    /// imposed by the other parameters. the arc `flags` contribute to the automatic calculations
+    /// and help determine how the arc is built.
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point);
+
+    /// Equivalent to `arc_to` in relative coordinates.
+    ///
+    /// Corresponding SVG command: `a`.
+    ///
+    /// the provided `to` coordinates are offsets relative to the current position of
+    /// the builder.
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector);
+
+    /// Hints at the builder that a certain number of endpoints and control
+    /// points will be added.
+    ///
+    /// The Builder implementation may use this information to pre-allocate
+    /// memory as an optimization.
     fn reserve(&mut self, _endpoints: usize, _ctrl_points: usize) {}
 }
 
-/// Generates flattened paths
+/// Builds a path.
+///
+/// This trait is separate from `PathBuilder` and `SvgPathBuilder` to allow them to
+/// be used as trait object (which isn't when a method returns an associated type).
+pub trait Build {
+    /// The type of object that is created by this builder.
+    type PathType;
+
+    /// Builds a path object and resets the builder so that it can be used again.
+    fn build(self) -> Self::PathType;
+}
+
+
+/// A Builder that approximates curves with successions of line segments.
 pub struct Flattened<Builder> {
     builder: Builder,
     current_position: Point,
@@ -196,39 +406,6 @@ impl<Builder: Build> Build for Flattened<Builder> {
     fn build(self) -> Builder::PathType {
         self.builder.build()
     }
-}
-
-pub fn flatten_quadratic_bezier(
-    tolerance: f32,
-    from: Point,
-    ctrl: Point,
-    to: Point,
-    builder: &mut impl PathBuilder,
-) -> EndpointId {
-    let curve = QuadraticBezierSegment { from, ctrl, to, };
-    let mut id = EndpointId::INVALID;
-    curve.for_each_flattened(tolerance, &mut |point| {
-        id = builder.line_to(point);
-    });
-
-    id
-}
-
-pub fn flatten_cubic_bezier(
-    tolerance: f32,
-    from: Point,
-    ctrl1: Point,
-    ctrl2: Point,
-    to: Point,
-    builder: &mut impl PathBuilder,
-) -> EndpointId {
-    let curve = CubicBezierSegment { from, ctrl1, ctrl2, to };
-    let mut id = EndpointId::INVALID;
-    curve.for_each_flattened(tolerance, &mut |point| {
-        id = builder.line_to(point);
-    });
-
-    id
 }
 
 impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
@@ -349,7 +526,7 @@ where
     }
 }
 
-/// Implements the Svg building interface on top of a PathBuilder.
+/// Implements an SVG-like building interface on top of a PathBuilder.
 pub struct WithSvg<Builder: PathBuilder> {
     builder: Builder,
 
@@ -669,6 +846,41 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
         self.builder.reserve(endpoints, ctrl_points);
     }
+}
+
+#[doc(hidden)]
+pub fn flatten_quadratic_bezier(
+    tolerance: f32,
+    from: Point,
+    ctrl: Point,
+    to: Point,
+    builder: &mut impl PathBuilder,
+) -> EndpointId {
+    let curve = QuadraticBezierSegment { from, ctrl, to, };
+    let mut id = EndpointId::INVALID;
+    curve.for_each_flattened(tolerance, &mut |point| {
+        id = builder.line_to(point);
+    });
+
+    id
+}
+
+#[doc(hidden)]
+pub fn flatten_cubic_bezier(
+    tolerance: f32,
+    from: Point,
+    ctrl1: Point,
+    ctrl2: Point,
+    to: Point,
+    builder: &mut impl PathBuilder,
+) -> EndpointId {
+    let curve = CubicBezierSegment { from, ctrl1, ctrl2, to };
+    let mut id = EndpointId::INVALID;
+    curve.for_each_flattened(tolerance, &mut |point| {
+        id = builder.line_to(point);
+    });
+
+    id
 }
 
 #[inline]
