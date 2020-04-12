@@ -382,6 +382,7 @@ impl<'l> AttributeStore for PathSlice<'l> {
 pub struct Builder {
     pub(crate) points: Vec<Point>,
     pub(crate) verbs: Vec<Verb>,
+    validator: DebugValidator,
 }
 
 impl Builder {
@@ -389,6 +390,7 @@ impl Builder {
         Builder {
             points: Vec::new(),
             verbs: Vec::new(),
+            validator: DebugValidator::new(),
         }
     }
 
@@ -396,6 +398,7 @@ impl Builder {
         Builder {
             points: Vec::with_capacity(points),
             verbs: Vec::with_capacity(edges),
+            validator: DebugValidator::new(),
         }
     }
 
@@ -406,7 +409,7 @@ impl Builder {
 
     #[inline]
     pub fn begin(&mut self, at: Point) -> EndpointId {
-        debug_assert!(!self.need_end());
+        self.validator.begin();
         nan_check(at);
 
         let id = EndpointId(self.points.len() as u32);
@@ -418,7 +421,8 @@ impl Builder {
 
     #[inline]
     pub fn end(&mut self, close: bool) {
-        debug_assert!(self.need_end());
+        self.validator.end();
+
         self.verbs.push(if close { Verb::Close } else { Verb::End });
     }
 
@@ -429,7 +433,7 @@ impl Builder {
 
     #[inline]
     pub fn line_to(&mut self, to: Point) -> EndpointId {
-        debug_assert!(!self.need_begin());
+        self.validator.edge();
         nan_check(to);
 
         let id = EndpointId(self.points.len() as u32);
@@ -441,7 +445,7 @@ impl Builder {
 
     #[inline]
     pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
-        debug_assert!(!self.need_begin());
+        self.validator.edge();
         nan_check(ctrl);
         nan_check(to);
 
@@ -455,7 +459,7 @@ impl Builder {
 
     #[inline]
     pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
-        debug_assert!(!self.need_begin());
+        self.validator.edge();
         nan_check(ctrl1);
         nan_check(ctrl2);
         nan_check(to);
@@ -471,7 +475,7 @@ impl Builder {
 
     #[inline]
     pub fn build(self) -> Path {
-        debug_assert!(!self.need_end());
+        self.validator.build();
         Path {
             points: self.points.into_boxed_slice(),
             verbs: self.verbs.into_boxed_slice(),
@@ -505,20 +509,6 @@ impl Builder {
     pub fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
         self.points.reserve(endpoints + ctrl_points);
         self.verbs.reserve(endpoints);
-    }
-
-    fn need_begin(&self) -> bool {
-        match *self.verbs.last().unwrap_or(&Verb::End) {
-            Verb::End | Verb::Close => true,
-            _ => false
-        }
-    }
-
-    fn need_end(&self) -> bool {
-        match *self.verbs.last().unwrap_or(&Verb::End) {
-            Verb::End | Verb::Close => false,
-            _ => true
-        }
     }
 }
 
@@ -569,10 +559,7 @@ impl BuilderWithAttributes {
 
     pub fn new(num_attributes: usize) -> Self {
         BuilderWithAttributes {
-            builder: Builder {
-                points: Vec::new(),
-                verbs: Vec::new(),
-            },
+            builder: Builder::new(),
             num_attributes: num_attributes,
         }
     }
@@ -628,7 +615,7 @@ impl BuilderWithAttributes {
 
     #[inline]
     pub fn build(self) -> Path {
-        debug_assert!(!self.builder.need_end());
+        self.builder.validator.build();
         Path {
             points: self.builder.points.into_boxed_slice(),
             verbs: self.builder.verbs.into_boxed_slice(),

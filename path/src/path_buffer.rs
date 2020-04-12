@@ -155,16 +155,14 @@ pub struct Builder<'l> {
 impl<'l> Builder<'l> {
     #[inline]
     fn new(buffer: &'l mut PathBuffer) -> Self {
-        let points = std::mem::replace(&mut buffer.points, Vec::new());
-        let verbs = std::mem::replace(&mut buffer.verbs, Vec::new());
-        let points_start = points.len() as u32;
-        let verbs_start = verbs.len() as u32;
+        let mut builder = path::Builder::new();
+        std::mem::swap(&mut buffer.points, &mut builder.points);
+        std::mem::swap(&mut buffer.verbs, &mut builder.verbs);
+        let points_start = builder.points.len() as u32;
+        let verbs_start = builder.verbs.len() as u32;
         Builder {
             buffer,
-            builder: path::Builder {
-                points,
-                verbs,
-            },
+            builder,
             points_start,
             verbs_start,
         }
@@ -295,17 +293,15 @@ pub struct BuilderWithAttributes<'l> {
 impl<'l> BuilderWithAttributes<'l> {
     #[inline]
     pub fn new(buffer: &'l mut PathBuffer, num_attributes: usize) -> Self {
-        let points = std::mem::replace(&mut buffer.points, Vec::new());
-        let verbs = std::mem::replace(&mut buffer.verbs, Vec::new());
-        let points_start = points.len() as u32;
-        let verbs_start = verbs.len() as u32;
+        let mut builder = path::Builder::new();
+        std::mem::swap(&mut buffer.points, &mut builder.points);
+        std::mem::swap(&mut buffer.verbs, &mut builder.verbs);
+        let points_start = builder.points.len() as u32;
+        let verbs_start = builder.verbs.len() as u32;
         BuilderWithAttributes {
             buffer,
             builder: path::BuilderWithAttributes {
-                builder: path::Builder {
-                    points,
-                    verbs,
-                },
+                builder,
                 num_attributes,
             },
             points_start,
