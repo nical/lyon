@@ -848,6 +848,54 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     }
 }
 
+// TODO: not sure whether we want to expose this.
+#[doc(hidden)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct DebugValidator {
+    #[cfg(debug_assertions)]
+    in_subpath: bool,
+}
+
+impl DebugValidator {
+    #[inline(always)]
+    pub fn new() -> Self {
+        DebugValidator {
+            #[cfg(debug_assertions)]
+            in_subpath: false,
+        }
+    }
+
+    #[inline(always)]
+    pub fn begin(&mut self) {
+        #[cfg(debug_assertions)] {
+            assert!(!self.in_subpath);
+            self.in_subpath = true;
+        }
+    }
+
+    #[inline(always)]
+    pub fn end(&mut self) {
+        #[cfg(debug_assertions)] {
+            assert!(self.in_subpath);
+            self.in_subpath = false;
+        }
+    }
+
+    #[inline(always)]
+    pub fn edge(&self) {
+        #[cfg(debug_assertions)] {
+            assert!(self.in_subpath);
+        }
+    }
+
+    #[inline(always)]
+    pub fn build(&self) {
+        #[cfg(debug_assertions)] {
+            assert!(!self.in_subpath);
+        }
+    }
+}
+
 #[doc(hidden)]
 pub fn flatten_quadratic_bezier(
     tolerance: f32,
