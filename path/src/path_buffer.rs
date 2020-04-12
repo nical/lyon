@@ -6,6 +6,7 @@ use crate::path;
 use crate::{EndpointId, PathSlice};
 
 use std::fmt;
+use std::ops::Range;
 
 #[derive(Clone, Debug)]
 struct PathDescriptor {
@@ -22,16 +23,8 @@ pub struct PathBuffer {
     paths: Vec<PathDescriptor>,
 }
 
-/// Refers to a path in a `PathBuffer`.
-#[derive(Copy, Clone, Debug)]
-pub struct PathId(pub u32);
-
-impl PathId {
-    #[inline]
-    pub fn to_usize(&self) -> usize { self.0 as usize }
-}
-
 impl PathBuffer {
+    #[inline]
     pub fn new() -> Self {
         PathBuffer {
             points: Vec::new(),
@@ -40,6 +33,7 @@ impl PathBuffer {
         }
     }
 
+    #[inline]
     pub fn with_capacity(endpoints: usize, ctrl_points: usize, paths: usize) -> Self {
         let mut buffer = PathBuffer::new();
         buffer.reserve(endpoints, ctrl_points, paths);
@@ -57,8 +51,8 @@ impl PathBuffer {
     }
 
     #[inline]
-    pub fn get(&self, id: PathId) -> PathSlice {
-        let desc = &self.paths[id.0 as usize];
+    pub fn get(&self, index: usize) -> PathSlice {
+        let desc = &self.paths[index];
         PathSlice {
             points: &self.points[desc.points.0 as usize..desc.points.1 as usize],
             verbs: &self.verbs[desc.verbs.0 as usize..desc.verbs.1 as usize],
@@ -67,10 +61,14 @@ impl PathBuffer {
     }
 
     #[inline]
-    pub fn ids(&self) -> PathIds {
-        PathIds {
-            range: 0..self.paths.len() as u32,
-        }
+    pub fn indices(&self) -> Range<usize> {
+        0..self.paths.len()
+    }
+
+    #[inline]
+    /// Returns the number of paths in the path buffer.
+    pub fn len(&self) -> usize {
+        self.paths.len()
     }
 
     #[inline]
@@ -107,8 +105,8 @@ pub struct PathBufferSlice<'l> {
 
 impl<'l> PathBufferSlice<'l> {
     #[inline]
-    pub fn get(&self, id: PathId) -> PathSlice {
-        let desc = &self.paths[id.0 as usize];
+    pub fn get(&self, index: usize) -> PathSlice {
+        let desc = &self.paths[index];
         PathSlice {
             points: &self.points[desc.points.0 as usize..desc.points.1 as usize],
             verbs: &self.verbs[desc.verbs.0 as usize..desc.verbs.1 as usize],
@@ -117,10 +115,14 @@ impl<'l> PathBufferSlice<'l> {
     }
 
     #[inline]
-    pub fn ids(&self) -> PathIds {
-        PathIds {
-            range: 0..self.paths.len() as u32,
-        }
+    pub fn indices(&self) -> Range<usize> {
+        0..self.paths.len()
+    }
+
+    /// Returns the number of paths in the path buffer.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.paths.len()
     }
 }
 
@@ -131,9 +133,9 @@ impl<'l> fmt::Debug for PathBufferSlice<'l> {
             self.points.len(),
             self.verbs.len(),
         )?;
-        for path in self.ids() {
-            write!(formatter, "#{:?}: ", path.0)?;
-            self.get(path).fmt(formatter)?;
+        for idx in self.indices() {
+            write!(formatter, "#{:?}: ", idx)?;
+            self.get(idx).fmt(formatter)?;
             write!(formatter, ", ")?;
         }
         write!(formatter, " }}")
@@ -184,20 +186,20 @@ impl<'l> Builder<'l> {
     }
 
     #[inline]
-    pub fn build(mut self) -> PathId {
+    pub fn build(mut self) -> usize {
         let points_end = self.builder.points.len() as u32;
         let verbs_end = self.builder.verbs.len() as u32;
         std::mem::swap(&mut self.builder.points, &mut self.buffer.points);
         std::mem::swap(&mut self.builder.verbs, &mut self.buffer.verbs);
 
-        let id = PathId(self.buffer.paths.len() as u32);
+        let index = self.buffer.paths.len();
         self.buffer.paths.push(PathDescriptor {
             points: (self.points_start, points_end),
             verbs: (self.verbs_start, verbs_end),
             num_attributes: 0,
         });
 
-        id
+        index
     }
 
     #[inline]
@@ -274,20 +276,6 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 }
 
-/// An iterator of `PathId`s in a `PathBuffer`.
-pub struct PathIds {
-    range: std::ops::Range<u32>,
-}
-
-impl Iterator for PathIds {
-    type Item = PathId;
-    #[inline]
-    fn next(&mut self) -> Option<PathId> {
-        self.range.next().map(|idx| PathId(idx))
-    }
-}
-
-
 /// A Builder that appends a path to an existing PathBuffer, with custom attributes.
 pub struct BuilderWithAttributes<'l> {
     buffer: &'l mut PathBuffer,
@@ -318,20 +306,20 @@ impl<'l> BuilderWithAttributes<'l> {
     }
 
     #[inline]
-    pub fn build(mut self) -> PathId {
+    pub fn build(mut self) -> usize {
         let points_end = self.builder.builder.points.len() as u32;
         let verbs_end = self.builder.builder.verbs.len() as u32;
         std::mem::swap(&mut self.builder.builder.points, &mut self.buffer.points);
         std::mem::swap(&mut self.builder.builder.verbs, &mut self.buffer.verbs);
 
-        let id = PathId(self.buffer.paths.len() as u32);
+        let index = self.buffer.paths.len();
         self.buffer.paths.push(PathDescriptor {
             points: (self.points_start, points_end),
             verbs: (self.verbs_start, verbs_end),
             num_attributes: 0,
         });
 
-        id
+        index
     }
 
     #[inline]
