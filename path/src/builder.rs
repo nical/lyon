@@ -727,6 +727,18 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
     }
 }
 
+impl<Builder, Transform> WithSvg<Transformed<Builder, Transform>>
+where
+    Builder: PathBuilder,
+    Transform: Transformation<f32>,
+{
+    #[inline]
+    pub fn set_transform(&mut self, transform: Transform) {
+        self.builder.set_transform(transform);
+    }
+}
+
+
 impl<Builder: PathBuilder + Build> Build for WithSvg<Builder> {
     type PathType = Builder::PathType;
 
