@@ -276,6 +276,14 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 }
 
+impl<'l> Build for Builder<'l> {
+    type PathType = usize;
+    fn build(self) -> usize {
+        self.build()
+    }
+}
+
+
 /// A Builder that appends a path to an existing PathBuffer, with custom attributes.
 pub struct BuilderWithAttributes<'l> {
     buffer: &'l mut PathBuffer,
