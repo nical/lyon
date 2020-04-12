@@ -2,13 +2,28 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
+use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::point;
 use lyon::path::commands;
+use lyon::path::PathBuffer;
+use lyon::path::traits::*;
 use lyon::path::{ControlPointId, EndpointId, Event, IdEvent, Path, PathEvent};
 
 use bencher::Bencher;
 
 const N: usize = 1;
+
+fn path_buffer_logo(bench: &mut Bencher) {
+    bench.iter(|| {
+        let mut buffer = PathBuffer::new();
+        for _ in 0..N {
+            let mut builder = buffer.builder().with_svg();
+            build_logo_path(&mut builder);
+            let _ = builder.build();
+        }
+    });
+}
+
 
 fn simple_path_build_empty(bench: &mut Bencher) {
     bench.iter(|| {
@@ -453,6 +468,7 @@ fn commands_with_evt_id4_iter(bench: &mut Bencher) {
 
 benchmark_group!(
     builder,
+    path_buffer_logo,
     simple_path_build_empty,
     simple_path_build_prealloc,
     id_only_commands_build_empty,
