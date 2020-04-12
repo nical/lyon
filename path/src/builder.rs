@@ -378,6 +378,27 @@ pub trait SvgPathBuilder {
     /// The Builder implementation may use this information to pre-allocate
     /// memory as an optimization.
     fn reserve(&mut self, _endpoints: usize, _ctrl_points: usize) {}
+
+    /// Adds a sub-path from a polygon.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
+    fn add_polygon(&mut self, polygon: Polygon<Point>) {
+        if polygon.points.is_empty() {
+            return;
+        }
+
+        self.reserve(polygon.points.len(), 0);
+
+        self.move_to(polygon.points[0]);
+        for p in &polygon.points[1..] {
+            self.line_to(*p);
+        }
+
+        if polygon.closed {
+            self.close();
+        }
+    }
 }
 
 /// Builds a path.
