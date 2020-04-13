@@ -45,7 +45,7 @@ pub struct EventQueue {
 }
 
 impl EventQueue {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         EventQueue {
             events: Vec::new(),
             edge_data: Vec::new(),
@@ -54,7 +54,7 @@ impl EventQueue {
         }
     }
 
-    pub(crate) fn with_capacity(cap: usize) -> Self {
+    pub fn with_capacity(cap: usize) -> Self {
         EventQueue {
             events: Vec::with_capacity(cap),
             edge_data: Vec::with_capacity(cap),
@@ -63,7 +63,7 @@ impl EventQueue {
         }
     }
 
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.events.clear();
         self.edge_data.clear();
         self.first = 0;
@@ -105,7 +105,7 @@ impl EventQueue {
         builder.build()
     }
 
-    pub(crate) fn into_builder(mut self) -> EventQueueBuilder {
+    pub fn into_builder(mut self) -> EventQueueBuilder {
         self.reset();
         EventQueueBuilder {
             queue: self,
@@ -119,7 +119,7 @@ impl EventQueue {
         }
     }
 
-    fn reserve(&mut self, n: usize) {
+    pub fn reserve(&mut self, n: usize) {
         self.events.reserve(n);
     }
 
@@ -414,7 +414,7 @@ impl EventQueue {
     }
 }
 
-pub(crate) struct EventQueueBuilder {
+pub struct EventQueueBuilder {
     current: Point,
     prev: Point,
     second: Point,
@@ -440,11 +440,6 @@ impl EventQueueBuilder {
         self.queue.sort();
 
         self.queue
-    }
-
-    fn reset(&mut self) {
-        self.queue.reset();
-        self.nth = 0;
     }
 
     pub fn set_path(
@@ -596,6 +591,11 @@ impl EventQueueBuilder {
         }
     }
 
+    fn reset(&mut self) {
+        self.queue.reset();
+        self.nth = 0;
+    }
+
     fn vertex_event(&mut self, at: Point, endpoint_id: EndpointId) {
         self.queue.push_unsorted(at);
         self.queue.edge_data.push(EdgeData {
@@ -620,7 +620,7 @@ impl EventQueueBuilder {
         });
     }
 
-    fn end(&mut self, first: Point, first_endpoint_id: EndpointId) {
+    pub fn end(&mut self, first: Point, first_endpoint_id: EndpointId) {
         if self.nth == 0 {
             self.validator.end();
             return;
@@ -643,7 +643,7 @@ impl EventQueueBuilder {
         self.nth = 0;
     }
 
-    fn begin(&mut self, to: Point, to_id: EndpointId) {
+    pub fn begin(&mut self, to: Point, to_id: EndpointId) {
         self.validator.begin();
 
         self.nth = 0;
@@ -688,7 +688,7 @@ impl EventQueueBuilder {
         self.nth += 1;
     }
 
-    fn line_segment(&mut self, to: Point, to_id: EndpointId, t0: f32, t1: f32) {
+    pub fn line_segment(&mut self, to: Point, to_id: EndpointId, t0: f32, t1: f32) {
         self.validator.edge();
 
         let from = self.current;
@@ -713,7 +713,7 @@ impl EventQueueBuilder {
         self.current = to;
     }
 
-    fn quadratic_bezier_segment(&mut self, ctrl: Point, to: Point, to_id: EndpointId) {
+    pub fn quadratic_bezier_segment(&mut self, ctrl: Point, to: Point, to_id: EndpointId) {
         self.validator.edge();
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
@@ -785,7 +785,7 @@ impl EventQueueBuilder {
         }
     }
 
-    fn cubic_bezier_segment(&mut self, ctrl1: Point, ctrl2: Point, to: Point, to_id: EndpointId) {
+    pub fn cubic_bezier_segment(&mut self, ctrl1: Point, ctrl2: Point, to: Point, to_id: EndpointId) {
         self.validator.edge();
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
@@ -857,6 +857,10 @@ impl EventQueueBuilder {
             self.current = original.to;
             self.prev_endpoint_id = to_id;
         }
+    }
+
+    pub fn reserve(&mut self, n: usize) {
+        self.queue.reserve(n);
     }
 }
 
