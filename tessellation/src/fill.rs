@@ -5,6 +5,7 @@ use crate::monotone::*;
 use crate::path::{
     AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore,
 };
+use crate::path::traits::{PathBuilder, Build};
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
     FillOptions, InternalError, Side, TessellationError, TessellationResult, VertexSource,
@@ -282,7 +283,7 @@ struct PendingEdge {
 /// - When several vertices are at the same position, they are merged into a single vertex
 ///   from the point of view of the tessellator.
 /// - The tessellator does not handle curves, and uses an approximation that introduces a
-///   number of line segments and therefeore endpoints between the original endpoints of any
+///   number of line segments and therefore endpoints between the original endpoints of any
 ///   quadratic or cubic bézier curve.
 ///
 /// This complicates the task of adding extra data to vertices without loosing the association
@@ -299,7 +300,7 @@ struct PendingEdge {
 /// More complicated cases can be expressed.
 /// For example if a vertex is inserted at an intersection halfway in the edge AB and two thirds
 /// of the way through edge BC, the source for this new vertex is `VertexSource::Edge { from: A, to: B, t: 0.5 }`
-/// and VertexSource::Edge { from: C, to: D, t: 0.666666 }` where A, B, C and D are endpoint IDs.
+/// and `VertexSource::Edge { from: C, to: D, t: 0.666666 }` where A, B, C and D are endpoint IDs.
 ///
 /// To use this feature, make sure to use `FillTessellator::tessellate_with_ids` instead of
 /// `FillTessellator::tessellate`.
@@ -479,7 +480,7 @@ impl FillTessellator {
 
     #[doc(hidden)]
     /// Create and EventQueue.
-    pub fn create_event_queue(&mut self) -> EventQueue {
+    fn create_event_queue(&mut self) -> EventQueue {
         std::mem::replace(&mut self.events, EventQueue::new())
     }
 
@@ -532,24 +533,6 @@ impl FillTessellator {
         self.tessellate_impl(options, custom_attributes, output)
     }
 
-    #[doc(hidden)]
-    /// Compute the tessellation from a pre-built event queue.
-    pub fn tessellate_events(
-        &mut self,
-        events: &mut EventQueue,
-        custom_attributes: Option<&dyn AttributeStore>,
-        options: &FillOptions,
-        builder: &mut dyn FillGeometryBuilder,
-    ) -> TessellationResult {
-        std::mem::swap(&mut self.events, events);
-
-        let result = self.tessellate_impl(options, custom_attributes, builder);
-
-        std::mem::swap(&mut self.events, events);
-
-        result
-    }
-
     /// Compute the tessellation from a path slice.
     ///
     /// The tessellator will internally only track vertex sources and interpolated
@@ -567,6 +550,51 @@ impl FillTessellator {
         } else {
             self.tessellate(path.iter(), options, builder)
         }
+    }
+
+    /// Tessellate directly from a sequence of `PathBuilder` commands, without
+    /// creating an intermediate path data structure.
+    ///
+    /// The returned builder implements the [`lyon_path::traits::PathBuilder`] trait,
+    /// is compatible with the all `PathBuilder` adapters.
+    /// It also has all requirements documented in `PathBuilder` (All sub-paths must be
+    /// wrapped in a `begin`/`end` pair).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lyon_tessellation::{FillTessellator, FillOptions};
+    /// use lyon_tessellation::geometry_builder::{simple_builder, VertexBuffers};
+    /// use lyon_tessellation::path::traits::*;
+    /// use lyon_tessellation::math::{Point, point};
+    ///
+    /// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+    /// let mut vertex_builder = simple_builder(&mut buffers);
+    /// let mut tessellator = FillTessellator::new();
+    /// let options = FillOptions::default();
+    ///
+    /// // Create a temporary builder (borrows the tessellator).
+    /// let mut builder = tessellator.builder(&options, &mut vertex_builder);
+    ///
+    /// // Build the path directly in the tessellator, skipping an intermediate data
+    /// // structure.
+    /// builder.begin(point(0.0, 0.0));
+    /// builder.line_to(point(10.0, 0.0));
+    /// builder.line_to(point(10.0, 10.0));
+    /// builder.line_to(point(0.0, 10.0));
+    /// builder.end(true);
+    ///
+    /// // Finish the tessellation and get the result.
+    /// let result = builder.build();
+    /// ```
+    ///
+    /// [`lyon_path::traits::PathBuilder`]: https://docs.rs/lyon_path/*/lyon_path/traits/trait.PathBuilder.html
+    pub fn builder<'l>(
+        &'l mut self,
+        options: &'l FillOptions,
+        output: &'l mut dyn FillGeometryBuilder,
+    ) -> FillBuilder<'l> {
+        FillBuilder::new(self, options, output)
     }
 
     fn tessellate_impl(
@@ -1988,6 +2016,109 @@ fn remap_t_in_range(val: f32, range: Range<f32>) -> f32 {
     }
 }
 
+pub struct FillBuilder<'l> {
+    events: EventQueueBuilder,
+    next_id: EndpointId,
+    first_id: EndpointId,
+    first_position: Point,
+    horizontal_sweep: bool,
+    tessellator: &'l mut FillTessellator,
+    output: &'l mut dyn FillGeometryBuilder,
+    options: &'l FillOptions,
+}
+
+impl<'l> FillBuilder<'l> {
+    fn new(
+        tessellator: &'l mut FillTessellator,
+        options: &'l FillOptions,
+        output: &'l mut dyn FillGeometryBuilder,
+    ) -> Self {
+        let event_queue = std::mem::replace(&mut tessellator.events, EventQueue::new());
+        FillBuilder {
+            events: event_queue.into_builder(),
+            next_id: EndpointId(0),
+            first_id: EndpointId(0),
+            horizontal_sweep: options.sweep_orientation == Orientation::Horizontal,
+            first_position: point(0.0, 0.0),
+            tessellator,
+            options,
+            output
+        }
+    }
+
+    #[inline]
+    fn position(&self, p: Point) -> Point {
+        if self.horizontal_sweep {
+            point(-p.y, p.x)
+        } else {
+            p
+        }
+    }
+}
+
+impl<'l> PathBuilder for FillBuilder<'l> {
+    fn begin(&mut self, at: Point) -> EndpointId {
+        let at = self.position(at);
+        let id = self.next_id;
+        self.next_id.0 += 1;
+        self.first_id = id;
+        self.first_position = at;
+        self.events.begin(at, id);
+
+        id
+    }
+
+    fn end(&mut self, _close: bool) {
+        self.events.end(self.first_position, self.first_id);
+    }
+
+    fn line_to(&mut self, to: Point) -> EndpointId {
+        let to = self.position(to);
+        let id = self.next_id;
+        self.next_id.0 += 1;
+        self.events.line_segment(to, id, 0.0, 1.0);
+
+        id
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+        let ctrl = self.position(ctrl);
+        let to = self.position(to);
+        let id = self.next_id;
+        self.next_id.0 += 1;
+        self.events.quadratic_bezier_segment(ctrl, to, id);
+
+        id
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+        let ctrl1 = self.position(ctrl1);
+        let ctrl2 = self.position(ctrl2);
+        let to = self.position(to);
+        let id = self.next_id;
+        self.next_id.0 += 1;
+        self.events.cubic_bezier_segment(ctrl1, ctrl2, to, id);
+
+        id
+    }
+
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.events.reserve(endpoints + ctrl_points * 2);
+    }
+}
+
+impl<'l> Build for FillBuilder<'l> {
+    type PathType = TessellationResult;
+
+    #[inline]
+    fn build(self) -> TessellationResult {
+        let mut event_queue = self.events.build();
+        std::mem::swap(&mut self.tessellator.events, &mut event_queue);
+
+        self.tessellator.tessellate_impl(self.options, None, self.output)
+    }
+}
+
 fn log_svg_preamble(_tess: &FillTessellator) {
     tess_log!(
         _tess,
@@ -2081,16 +2212,10 @@ fn fill_vertex_source_01() {
 
     let cmds = cmds.build();
 
-    let mut queue = EventQueue::from_path_with_ids(
-        0.1,
-        FillOptions::DEFAULT_SWEEP_ORIENTATION,
+    let mut tess = FillTessellator::new();
+    tess.tessellate_with_ids(
         cmds.id_events(),
         &(endpoints, endpoints),
-    );
-
-    let mut tess = FillTessellator::new();
-    tess.tessellate_events(
-        &mut queue,
         Some(&AttributeSlice::new(attributes, 3)),
         &FillOptions::default(),
         &mut CheckVertexSources { next_vertex: 0 },
@@ -2171,16 +2296,10 @@ fn fill_vertex_source_02() {
 
     let path = path.build();
 
-    let mut queue = EventQueue::from_path_with_ids(
-        0.1,
-        FillOptions::DEFAULT_SWEEP_ORIENTATION,
+    let mut tess = FillTessellator::new();
+    tess.tessellate_with_ids(
         path.id_iter(),
         &path,
-    );
-
-    let mut tess = FillTessellator::new();
-    tess.tessellate_events(
-        &mut queue,
         Some(&path),
         &FillOptions::default(),
         &mut CheckVertexSources {
@@ -2353,16 +2472,10 @@ fn fill_vertex_source_03() {
 
     let cmds = cmds.build();
 
-    let mut queue = EventQueue::from_path_with_ids(
-        0.1,
-        FillOptions::DEFAULT_SWEEP_ORIENTATION,
+    let mut tess = FillTessellator::new();
+    tess.tessellate_with_ids(
         cmds.id_events(),
         &(endpoints, endpoints),
-    );
-
-    let mut tess = FillTessellator::new();
-    tess.tessellate_events(
-        &mut queue,
         Some(&AttributeSlice::new(attributes, 1)),
         &FillOptions::default(),
         &mut CheckVertexSources { next_vertex: 0 },
@@ -2397,6 +2510,63 @@ fn fill_vertex_source_03() {
             } else {
                 assert_eq!(attr.interpolated_attributes(), &[0.0]);
                 assert_eq!(attr.sources().count(), 1);
+            }
+
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+    }
+}
+
+#[test]
+fn fill_builder_vertex_source() {
+    let mut tess = FillTessellator::new();
+    let options = FillOptions::default();
+
+    let mut check = CheckVertexSources { next_vertex: 0 };
+    let mut builder = tess.builder(&options, &mut check);
+
+    assert_eq!(builder.begin(point(0.0, 0.0)), EndpointId(0));
+    assert_eq!(builder.line_to(point(1.0, 1.0)), EndpointId(1));
+    assert_eq!(builder.line_to(point(0.0, 2.0)), EndpointId(2));
+    builder.end(true);
+
+    builder.build().unwrap();
+
+    struct CheckVertexSources {
+        next_vertex: u32,
+    }
+
+    impl GeometryBuilder for CheckVertexSources {
+        fn begin_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count {
+            Count {
+                vertices: self.next_vertex,
+                indices: 0,
+            }
+        }
+        fn abort_geometry(&mut self) {}
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    impl FillGeometryBuilder for CheckVertexSources {
+        fn add_fill_vertex(
+            &mut self,
+            v: Point,
+            attr: FillAttributes,
+        ) -> Result<VertexId, GeometryBuilderError> {
+            for src in attr.sources() {
+                if eq(v, point(0.0, 0.0)) {
+                    assert!(at_endpoint(&src, EndpointId(0)))
+                } else if eq(v, point(1.0, 1.0)) {
+                    assert!(at_endpoint(&src, EndpointId(1)))
+                } else if eq(v, point(0.0, 2.0)) {
+                    assert!(at_endpoint(&src, EndpointId(2)))
+                } else {
+                    panic!()
+                }
             }
 
             let id = self.next_vertex;

@@ -111,15 +111,15 @@ fn fill_tess_03_logo_no_intersections(bench: &mut Bencher) {
     let path = path.build();
 
     let mut tess = FillTessellator::new();
-    let options = FillOptions::default().with_intersections(false);
-    let mut events = EventQueue::from_path(0.05, path.iter());
+    let options = FillOptions::default()
+        .with_tolerance(0.05)
+        .with_intersections(false);
 
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_events(
-                &mut events,
-                None,
+            tess.tessellate_path(
+                &path,
                 &options,
                 &mut simple_builder(&mut buffers),
             )
@@ -134,15 +134,13 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     let path = path.build();
 
     let mut tess = FillTessellator::new();
-    let options = FillOptions::default();
-    let mut events = EventQueue::from_path(1000000.0, path.iter());
+    let options = FillOptions::default().with_tolerance(1000000.0);
 
     bench.iter(|| {
         for _ in 0..N {
             let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate_events(
-                &mut events,
-                None,
+            tess.tessellate_path(
+                &path,
                 &options,
                 &mut simple_builder(&mut buffers),
             )
