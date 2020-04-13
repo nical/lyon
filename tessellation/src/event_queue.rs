@@ -2,6 +2,7 @@ use crate::fill::{compare_positions, is_after};
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::{point, Point};
 use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
+use crate::path::builder::DebugValidator;
 use crate::Orientation;
 
 use std::cmp::Ordering;
@@ -112,9 +113,9 @@ impl EventQueue {
             prev: point(f32::NAN, f32::NAN),
             second: point(f32::NAN, f32::NAN),
             nth: 0,
-            prev_evt_is_edge: false,
             tolerance: 0.1,
             prev_endpoint_id: EndpointId(std::u32::MAX),
+            validator: DebugValidator::new(),
         }
     }
 
@@ -419,9 +420,9 @@ pub(crate) struct EventQueueBuilder {
     second: Point,
     nth: u32,
     queue: EventQueue,
-    prev_evt_is_edge: bool,
     tolerance: f32,
     prev_endpoint_id: EndpointId,
+    validator: DebugValidator,
 }
 
 impl EventQueueBuilder {
@@ -434,7 +435,7 @@ impl EventQueueBuilder {
     }
 
     pub fn build(mut self) -> EventQueue {
-        debug_assert!(!self.prev_evt_is_edge);
+        self.validator.build();
 
         self.queue.sort();
 
@@ -444,7 +445,6 @@ impl EventQueueBuilder {
     fn reset(&mut self) {
         self.queue.reset();
         self.nth = 0;
-        self.prev_evt_is_edge = false;
     }
 
     pub fn set_path(
@@ -515,9 +515,6 @@ impl EventQueueBuilder {
                 }
             }
         }
-
-        // Should finish with an end event.
-        debug_assert!(!self.prev_evt_is_edge);
     }
 
     pub fn set_path_with_ids(
@@ -597,9 +594,6 @@ impl EventQueueBuilder {
                 }
             }
         }
-
-        // Should finish with an end event.
-        debug_assert!(!self.prev_evt_is_edge);
     }
 
     fn vertex_event(&mut self, at: Point, endpoint_id: EndpointId) {
@@ -628,15 +622,13 @@ impl EventQueueBuilder {
 
     fn end(&mut self, first: Point, first_endpoint_id: EndpointId) {
         if self.nth == 0 {
-            self.prev_evt_is_edge = false;
+            self.validator.end();
             return;
         }
 
         // Unless we are already back to the first point, we need to
         // to insert an edge.
-        if self.current != first {
-            self.line_segment(first, first_endpoint_id, 0.0, 1.0);
-        }
+        self.line_segment(first, first_endpoint_id, 0.0, 1.0);
 
         // Since we can only check for the need of a vertex event when
         // we have a previous edge, we skipped it for the first edge
@@ -645,13 +637,14 @@ impl EventQueueBuilder {
             self.vertex_event(first, first_endpoint_id);
         }
 
-        self.prev_evt_is_edge = false;
+        self.validator.end();
+
         self.prev_endpoint_id = first_endpoint_id;
         self.nth = 0;
     }
 
     fn begin(&mut self, to: Point, to_id: EndpointId) {
-        debug_assert!(!self.prev_evt_is_edge);
+        self.validator.begin();
 
         self.nth = 0;
         self.current = to;
@@ -693,10 +686,11 @@ impl EventQueueBuilder {
         });
 
         self.nth += 1;
-        self.prev_evt_is_edge = true;
     }
 
     fn line_segment(&mut self, to: Point, to_id: EndpointId, t0: f32, t1: f32) {
+        self.validator.edge();
+
         let from = self.current;
         if from == to {
             return;
@@ -720,6 +714,7 @@ impl EventQueueBuilder {
     }
 
     fn quadratic_bezier_segment(&mut self, ctrl: Point, to: Point, to_id: EndpointId) {
+        self.validator.edge();
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
         // play out the same way, which avoid cracks.
@@ -791,6 +786,7 @@ impl EventQueueBuilder {
     }
 
     fn cubic_bezier_segment(&mut self, ctrl1: Point, ctrl2: Point, to: Point, to_id: EndpointId) {
+        self.validator.edge();
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will
         // play out the same way, which avoid cracks.
