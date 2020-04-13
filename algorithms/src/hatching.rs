@@ -28,7 +28,7 @@
 
 use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::geom::LineSegment;
-use crate::path::builder::{self, Build, PathBuilder};
+use crate::path::builder::{self, Build, PathBuilder, DebugValidator};
 use crate::path::{PathEvent, EndpointId};
 use std::marker::PhantomData;
 
@@ -459,8 +459,8 @@ struct EventsBuilder {
     angle: Angle,
     first: Point,
     current: Point,
-    nth: u32,
     tolerance: f32,
+    validator: DebugValidator,
 }
 
 impl EventsBuilder {
@@ -470,12 +470,16 @@ impl EventsBuilder {
             angle,
             first: point(0.0, 0.0),
             current: point(0.0, 0.0),
-            nth: 0,
             tolerance,
+            validator: DebugValidator::new(),
         }
     }
 
     fn add_edge(&mut self, from: Point, to: Point) {
+        if from == to {
+            return;
+        }
+
         let rotation = Rotation::new(self.angle);
         let mut from = rotation.transform_point(from);
         let mut to = rotation.transform_point(to);
@@ -494,7 +498,6 @@ impl Build for EventsBuilder {
 
         self.first = point(0.0, 0.0);
         self.current = point(0.0, 0.0);
-        self.nth = 0;
 
         self.edges.sort_by(|a, b| compare_positions(a.from, b.from));
 
@@ -506,38 +509,22 @@ impl Build for EventsBuilder {
 
 impl PathBuilder for EventsBuilder {
     fn begin(&mut self, to: Point) -> EndpointId {
-        self.close();
-        let next = to;
-        if self.nth > 1 {
-            let current = self.current;
-            let first = self.first;
-            self.add_edge(current, first);
-        }
-        self.first = next;
-        self.current = next;
-        self.nth = 0;
+        self.validator.begin();
+        self.first = to;
+        self.current = to;
 
         EndpointId::INVALID
     }
 
     fn end(&mut self, _close: bool) {
-        let current = self.current;
-        let first = self.first;
-        if self.current != self.first && self.nth > 0 {
-            self.add_edge(current, first);
-        }
-        self.nth = 0;
-        self.current = self.first;
+        self.validator.end();
+        self.add_edge(self.current, self.first);
     }
 
     fn line_to(&mut self, to: Point) -> EndpointId {
-        let next = to;
-        if next != self.current {
-            let current = self.current;
-            self.add_edge(current, next);
-            self.current = next;
-            self.nth += 1;
-        }
+        self.validator.edge();
+        self.add_edge(self.current, to);
+        self.current = to;
 
         EndpointId::INVALID
     }
