@@ -86,11 +86,15 @@ const EPSILON: f32 = 1e-4;
 /// # }
 /// ```
 #[derive(Default)]
-pub struct StrokeTessellator {}
+pub struct StrokeTessellator {
+    attrib_buffer: Vec<f32>,
+}
 
 impl StrokeTessellator {
     pub fn new() -> Self {
-        StrokeTessellator {}
+        StrokeTessellator {
+            attrib_buffer: Vec::new(),
+        }
     }
 
     /// Compute the tessellation from a path iterator.
@@ -102,8 +106,7 @@ impl StrokeTessellator {
     ) -> TessellationResult {
         builder.begin_geometry();
         {
-            let mut attrib_buffer: Vec<f32> = Vec::new();
-            let mut stroker = StrokeBuilder::new(options, &(), &mut attrib_buffer, builder);
+            let mut stroker = StrokeBuilder::new(options, &(), &mut self.attrib_buffer, builder);
 
             for evt in input {
                 stroker.path_event(evt);
@@ -127,19 +130,17 @@ impl StrokeTessellator {
         options: &StrokeOptions,
         builder: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
-        builder.begin_geometry();
-        {
-            let custom_attributes = custom_attributes.unwrap_or(&());
-            let mut attrib_buffer = vec![0.0; custom_attributes.num_attributes()];
+        let custom_attributes = custom_attributes.unwrap_or(&());
+        let mut stroker = StrokeBuilder::new(
+            options,
+            custom_attributes,
+            &mut self.attrib_buffer,
+            builder,
+        );
 
-            let mut stroker =
-                StrokeBuilder::new(options, custom_attributes, &mut attrib_buffer, builder);
+        stroker.tessellate_with_ids(path, positions);
 
-            stroker.tessellate_with_ids(path, positions);
-
-            stroker.build()?;
-        }
-        Ok(builder.end_geometry())
+        stroker.build()
     }
 
     /// Compute the tessellation from a path slice.
@@ -159,6 +160,51 @@ impl StrokeTessellator {
         } else {
             self.tessellate(path.iter(), options, builder)
         }
+    }
+
+    /// Tessellate directly from a sequence of `PathBuilder` commands, without
+    /// creating an intermediate path data structure.
+    ///
+    /// The returned builder implements the [`lyon_path::traits::PathBuilder`] trait,
+    /// is compatible with the all `PathBuilder` adapters.
+    /// It also has all requirements documented in `PathBuilder` (All sub-paths must be
+    /// wrapped in a `begin`/`end` pair).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lyon_tessellation::{StrokeTessellator, StrokeOptions};
+    /// use lyon_tessellation::geometry_builder::{simple_builder, VertexBuffers};
+    /// use lyon_tessellation::path::traits::*;
+    /// use lyon_tessellation::math::{Point, point};
+    ///
+    /// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+    /// let mut vertex_builder = simple_builder(&mut buffers);
+    /// let mut tessellator = StrokeTessellator::new();
+    /// let options = StrokeOptions::default();
+    ///
+    /// // Create a temporary builder (borrows the tessellator).
+    /// let mut builder = tessellator.builder(&options, &mut vertex_builder);
+    ///
+    /// // Build the path directly in the tessellator, skipping an intermediate data
+    /// // structure.
+    /// builder.begin(point(0.0, 0.0));
+    /// builder.line_to(point(10.0, 0.0));
+    /// builder.line_to(point(10.0, 10.0));
+    /// builder.line_to(point(0.0, 10.0));
+    /// builder.end(true);
+    ///
+    /// // Finish the tessellation and get the result.
+    /// let result = builder.build();
+    /// ```
+    ///
+    /// [`lyon_path::traits::PathBuilder`]: https://docs.rs/lyon_path/*/lyon_path/traits/trait.PathBuilder.html
+    pub fn builder<'l>(
+        &'l mut self,
+        options: &'l StrokeOptions,
+        output: &'l mut dyn StrokeGeometryBuilder,
+    ) -> StrokeBuilder<'l> {
+        StrokeBuilder::new(options, &(), &mut self.attrib_buffer, output)
     }
 }
 
@@ -210,23 +256,26 @@ pub struct StrokeBuilder<'l> {
     output: &'l mut dyn StrokeGeometryBuilder,
     attributes: StrokeAttributesData<'l>,
     validator: DebugValidator,
+    next_endpoint_id: EndpointId,
 }
 
 impl<'l> Build for StrokeBuilder<'l> {
-    type PathType = Result<(), GeometryBuilderError>;
+    type PathType = TessellationResult;
 
-    fn build(self) -> Result<(), GeometryBuilderError> {
+    fn build(self) -> TessellationResult {
         self.validator.build();
-        Ok(())
+
+        Ok(self.output.end_geometry())
     }
 }
 
 impl<'l> PathBuilder for StrokeBuilder<'l> {
     fn begin(&mut self, to: Point) -> EndpointId {
         self.validator.begin();
-        self.begin(to, EndpointId::INVALID);
+        let id = self.next_endpoint_id();
+        self.begin(to, id);
 
-        EndpointId::INVALID
+        id
     }
 
     fn end(&mut self, close: bool) {
@@ -240,29 +289,32 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
 
     fn line_to(&mut self, to: Point) -> EndpointId {
         self.validator.edge();
-        self.edge_to(to, EndpointId::INVALID, 0.0, true);
+        let id = self.next_endpoint_id();
+        self.edge_to(to, id, 1.0, true);
 
-        EndpointId::INVALID
+        id
     }
 
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
         self.validator.edge();
+        let id = self.next_endpoint_id();
         let mut first = true;
         QuadraticBezierSegment {
             from: self.current,
             ctrl,
             to,
         }
-        .for_each_flattened(self.options.tolerance, &mut |point| {
-            self.edge_to(point, EndpointId::INVALID, 0.0, first);
+        .for_each_flattened_with_t(self.options.tolerance, &mut |point, t| {
+            self.edge_to(point, id, t, first);
             first = false;
         });
 
-        EndpointId::INVALID
+        id
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
         self.validator.edge();
+        let id = self.next_endpoint_id();
         let mut first = true;
         CubicBezierSegment {
             from: self.current,
@@ -270,22 +322,29 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             ctrl2,
             to,
         }
-        .for_each_flattened(self.options.tolerance, &mut |point| {
-            self.edge_to(point, EndpointId::INVALID, 0.0, first);
+        .for_each_flattened_with_t(self.options.tolerance, &mut |point, t| {
+            self.edge_to(point, id, t, first);
             first = false;
         });
 
-        EndpointId::INVALID
+        id
     }
 }
 
 impl<'l> StrokeBuilder<'l> {
-    pub fn new(
+    fn new(
         options: &StrokeOptions,
         attrib_store: &'l dyn AttributeStore,
-        attrib_buffer: &'l mut [f32],
-        builder: &'l mut dyn StrokeGeometryBuilder,
+        attrib_buffer: &'l mut Vec<f32>,
+        output: &'l mut dyn StrokeGeometryBuilder,
     ) -> Self {
+        attrib_buffer.clear();
+        for _ in 0..attrib_store.num_attributes() {
+            attrib_buffer.push(0.0);
+        }
+
+        output.begin_geometry();
+
         let zero = Point::new(0.0, 0.0);
         StrokeBuilder {
             first: zero,
@@ -309,7 +368,7 @@ impl<'l> StrokeBuilder<'l> {
             sub_path_start_length: 0.0,
             options: *options,
             error: None,
-            output: builder,
+            output,
             attributes: StrokeAttributesData {
                 normal: vector(0.0, 0.0),
                 advancement: 0.0,
@@ -322,11 +381,39 @@ impl<'l> StrokeBuilder<'l> {
                 buffer_is_valid: false,
             },
             validator: DebugValidator::new(),
+            next_endpoint_id: EndpointId(0),
         }
     }
 
-    pub fn set_options(&mut self, options: &StrokeOptions) {
+    fn set_options(&mut self, options: &StrokeOptions) {
         self.options = *options;
+    }
+
+    #[inline]
+    pub fn set_line_join(&mut self, join: LineJoin) {
+        self.options.line_join = join;
+    }
+
+    #[inline]
+    pub fn set_start_cap(&mut self, cap: LineCap) {
+        self.options.start_cap = cap;
+    }
+
+    #[inline]
+    pub fn set_end_cap(&mut self, cap: LineCap) {
+        self.options.end_cap = cap;
+    }
+
+    #[inline]
+    pub fn set_miter_limit(&mut self, limit: f32) {
+        self.options.miter_limit = limit;
+    }
+
+    fn next_endpoint_id(&mut self) -> EndpointId {
+        let id = self.next_endpoint_id;
+        self.next_endpoint_id.0 += 1;
+
+        id
     }
 
     #[cold]

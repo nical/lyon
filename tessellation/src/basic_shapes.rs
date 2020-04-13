@@ -27,7 +27,7 @@ use crate::math::*;
 use crate::geom::Arc;
 use crate::geometry_builder::*;
 use crate::path::iterator::FromPolyline;
-use crate::path::builder::{Build, Flattened, PathBuilder};
+use crate::path::builder::{Build, PathBuilder};
 use crate::path::EndpointId;
 use crate::stroke::{StrokeBuilder, StrokeTessellator};
 use crate::{
@@ -389,8 +389,6 @@ pub fn stroke_rounded_rectangle(
     options: &StrokeOptions,
     output: &mut dyn StrokeGeometryBuilder,
 ) -> TessellationResult {
-    output.begin_geometry();
-
     let w = rect.size.width;
     let h = rect.size.height;
     let x_min = rect.min_x();
@@ -468,25 +466,28 @@ pub fn stroke_rounded_rectangle(
         }
     });
 
-    {
-        let mut builder = StrokeBuilder::new(options, &(), &mut [], output);
-        builder.begin(p0);
-        for i in 0..4 {
-            stroke_border_radius(
-                centers[i],
-                angles[i],
-                radii[i],
-                nums.next().unwrap(),
-                &mut builder,
-            );
+    let mut tess = StrokeTessellator::new();
+    let mut builder = tess.builder(
+        options,
+        output,
+    );
 
-            builder.line_to(sides[i][0]);
-            builder.line_to(sides[i][1]);
-        }
-        builder.close();
+    builder.begin(p0);
+    for i in 0..4 {
+        stroke_border_radius(
+            centers[i],
+            angles[i],
+            radii[i],
+            nums.next().unwrap(),
+            &mut builder,
+        );
+
+        builder.line_to(sides[i][0]);
+        builder.line_to(sides[i][1]);
     }
+    builder.close();
 
-    Ok(output.end_geometry())
+    builder.build()
 }
 
 /// Tessellate a circle.
@@ -552,8 +553,6 @@ pub fn stroke_circle(
     options: &StrokeOptions,
     output: &mut dyn StrokeGeometryBuilder,
 ) -> TessellationResult {
-    output.begin_geometry();
-
     let radius = radius.abs();
     if radius == 0.0 {
         return Ok(output.end_geometry());
@@ -566,15 +565,14 @@ pub fn stroke_circle(
     let step = circle_flattening_step(radius, options.tolerance);
     let num_points = (arc_len / step).ceil() as u32 - 1;
 
-    {
-        // output borrow scope start
-        let mut builder = StrokeBuilder::new(options, &(), &mut [], output);
-        builder.begin(starting_point);
-        stroke_border_radius(center, angle, radius, num_points, &mut builder);
-        builder.close();
-    } // output borrow scope end
+    let mut tess = StrokeTessellator::new();
+    let mut builder = tess.builder(options, output);
 
-    Ok(output.end_geometry())
+    builder.begin(starting_point);
+    stroke_border_radius(center, angle, radius, num_points, &mut builder);
+    builder.end(true);
+
+    builder.build()
 }
 
 // tessellate the stroke for rounded corners using the inner points.
@@ -671,24 +669,17 @@ pub fn stroke_ellipse(
         sweep_angle: Angle::radians(2.0 * PI - 0.01),
     };
 
-    output.begin_geometry();
-    {
-        let mut path = Flattened::new(
-            StrokeBuilder::new(options, &(), &mut [], output),
-            options.tolerance,
-        )
-        .with_svg();
 
-        path.move_to(arc.sample(0.0));
-        arc.for_each_quadratic_bezier(&mut |curve| {
-            path.quadratic_bezier_to(curve.ctrl, curve.to);
-        });
-        path.close();
+    let mut tess = StrokeTessellator::new();
+    let mut builder = tess.builder(options, output).with_svg();
 
-        path.build()?;
-    }
+    builder.move_to(arc.sample(0.0));
+    arc.for_each_quadratic_bezier(&mut |curve| {
+        builder.quadratic_bezier_to(curve.ctrl, curve.to);
+    });
+    builder.close();
 
-    Ok(output.end_geometry())
+    builder.build()
 }
 
 /// Tessellate a convex shape that is described by an iterator of points.
