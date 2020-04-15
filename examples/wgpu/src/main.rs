@@ -3,7 +3,6 @@ use lyon::math::*;
 use lyon::path::builder::*;
 use lyon::path::Path;
 use lyon::tessellation;
-use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator};
@@ -86,42 +85,41 @@ fn main() {
     let num_instances: u32 = PRIM_BUFFER_LEN as u32 - 1;
     let tolerance = 0.02;
 
+    let stroke_prim_id = 0;
+    let fill_prim_id = 1;
+
+    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
+
+    let mut fill_tess = FillTessellator::new();
+    let mut stroke_tess = StrokeTessellator::new();
+
     // Build a Path for the rust logo.
     let mut builder = Path::builder().with_svg();
     build_logo_path(&mut builder);
     let path = builder.build();
 
-    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
-    let stroke_prim_id = 0;
-    let fill_prim_id = 1;
+    let fill_count = fill_tess.tessellate_path(
+        &path,
+        &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
+        &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
+    ).unwrap();
 
-    let fill_count = FillTessellator::new()
-        .tessellate_path(
-            &path,
-            &FillOptions::tolerance(tolerance),
-            &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
-        )
-        .unwrap();
-
-    StrokeTessellator::new()
-        .tessellate_path(
-            &path,
-            &StrokeOptions::tolerance(tolerance).dont_apply_line_width(),
-            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
-        )
-        .unwrap();
+    stroke_tess.tessellate_path(
+        &path,
+        &StrokeOptions::tolerance(tolerance).dont_apply_line_width(),
+        &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
+    ).unwrap();
 
     let fill_range = 0..fill_count.indices;
     let stroke_range = fill_range.end..(geometry.indices.len() as u32);
-
     let mut bg_geometry: VertexBuffers<Point, u16> = VertexBuffers::new();
-    fill_rectangle(
+
+    fill_tess.tessellate_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &FillOptions::default(),
+        &FillOptions::DEFAULT,
         &mut BuffersBuilder::new(&mut bg_geometry, Positions),
-    )
-    .unwrap();
+    ).unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {

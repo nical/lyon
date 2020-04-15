@@ -71,8 +71,7 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{BasicVertexConstructor, VertexBuffers, BuffersBuilder, FillOptions};
-//! use tess::basic_shapes::fill_circle;
+//! use tess::{FillVertexConstructor, VertexBuffers, BuffersBuilder, FillOptions, FillTessellator, FillAttributes};
 //! use tess::math::{Point, point};
 //!
 //! // Our custom vertex.
@@ -86,8 +85,8 @@
 //! // verticex from the information provided by the tessellators.
 //! struct WithColor([f32; 4]);
 //!
-//! impl BasicVertexConstructor<MyVertex> for WithColor {
-//!     fn new_vertex(&mut self, position: Point) -> MyVertex {
+//! impl FillVertexConstructor<MyVertex> for WithColor {
+//!     fn new_vertex(&mut self, position: Point, _: FillAttributes) -> MyVertex {
 //!         MyVertex {
 //!             position: [position.x, position.y],
 //!             color: self.0,
@@ -97,8 +96,9 @@
 //!
 //! fn main() {
 //!     let mut output: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
+//!     let mut tessellator = FillTessellator::new();
 //!     // Tessellate a red and a green circle.
-//!     fill_circle(
+//!     tessellator.tessellate_circle(
 //!         point(0.0, 0.0),
 //!         10.0,
 //!         &FillOptions::tolerance(0.05),
@@ -107,7 +107,7 @@
 //!             WithColor([1.0, 0.0, 0.0, 1.0])
 //!         ),
 //!     );
-//!     fill_circle(
+//!     tessellator.tessellate_circle(
 //!         point(10.0, 0.0),
 //!         5.0,
 //!         &FillOptions::tolerance(0.05),
@@ -130,9 +130,9 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, Count, GeometryBuilderError, StrokeAttributes, VertexId};
-//! use tess::basic_shapes::stroke_polyline;
+//! use tess::{StrokeTessellator, GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, Count, GeometryBuilderError, StrokeAttributes, VertexId};
 //! use tess::math::{Point, point};
+//! use tess::path::polygon::Polygon;
 //! use std::fmt::Debug;
 //! use std::u32;
 //!
@@ -186,9 +186,12 @@
 //!
 //! fn main() {
 //!     let mut output = ToStdOut::new();
-//!     stroke_polyline(
-//!         [point(0.0, 0.0), point(10.0, 0.0), point(5.0, 5.0)].iter().cloned(),
-//!         true,
+//!     let mut tessellator = StrokeTessellator::new();
+//!     tessellator.tessellate_polygon(
+//!         Polygon {
+//!             points: &[point(0.0, 0.0), point(10.0, 0.0), point(5.0, 5.0)],
+//!             closed: true,
+//!         },
 //!         &StrokeOptions::default(),
 //!         &mut output,
 //!     );
@@ -197,7 +200,7 @@
 //!
 //! ### Writing a tessellator
 //!
-//! The example below is the implementation of `basic_shapes::fill_rectangle`.
+//! The example below is the implementation of a very basic tessellator for rectangles.
 //!
 //! ```
 //! use lyon_tessellation::geometry_builder::*;
@@ -307,9 +310,9 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     ) -> Result<VertexId, GeometryBuilderError>;
 }
 
+// TODO: remove BasicGeometryBuilder ?
+
 /// A Geometry builder to interface with some of the basic tessellators.
-///
-/// See the [`basic_shapes`](../basic_shapes/index.html) module.
 ///
 /// Types implementing this trait must also implement the [`GeometryBuilder`](trait.GeometryBuilder.html) trait.
 pub trait BasicGeometryBuilder: GeometryBuilder {

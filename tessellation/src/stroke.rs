@@ -1,11 +1,11 @@
-use crate::basic_shapes::circle_flattening_step;
 use crate::math::*;
 use crate::geom::euclid::Trig;
 use crate::geom::utils::{directed_angle, normalized_tangent};
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math_utils::compute_normal;
 use crate::path::builder::{Build, PathBuilder, DebugValidator};
-use crate::path::{AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore};
+use crate::path::{AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore, Winding};
+use crate::path::polygon::Polygon;
 use crate::{GeometryBuilderError, StrokeGeometryBuilder, VertexId};
 use crate::{
     LineCap, LineJoin, Order, Side, StrokeOptions, TessellationError, TessellationResult,
@@ -104,21 +104,17 @@ impl StrokeTessellator {
         options: &StrokeOptions,
         builder: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
-        builder.begin_geometry();
-        {
-            let mut stroker = StrokeBuilder::new(options, &(), &mut self.attrib_buffer, builder);
+        let mut stroker = StrokeBuilder::new(options, &(), &mut self.attrib_buffer, builder);
 
-            for evt in input {
-                stroker.path_event(evt);
-                if let Some(error) = stroker.error {
-                    stroker.output.abort_geometry();
-                    return Err(error);
-                }
+        for evt in input {
+            stroker.path_event(evt);
+            if let Some(error) = stroker.error {
+                stroker.output.abort_geometry();
+                return Err(error);
             }
-
-            stroker.build()?;
         }
-        Ok(builder.end_geometry())
+
+        stroker.build()
     }
 
     /// Compute the tessellation from a path iterator.
@@ -205,6 +201,63 @@ impl StrokeTessellator {
         output: &'l mut dyn StrokeGeometryBuilder,
     ) -> StrokeBuilder<'l> {
         StrokeBuilder::new(options, &(), &mut self.attrib_buffer, output)
+    }
+
+    /// Tessellate the stroke for a `Polygon`.
+    pub fn tessellate_polygon(
+        &mut self,
+        polygon: Polygon<Point>,
+        options: &StrokeOptions,
+        output: &mut dyn StrokeGeometryBuilder,
+    ) -> TessellationResult {
+        self.tessellate(
+            polygon.path_events(),
+            options,
+            output,
+        )
+    }
+
+    /// Tessellate the stroke for an axis-aligned rectangle.
+    pub fn tessellate_rectangle(
+        &mut self,
+        rect: &Rect,
+        options: &StrokeOptions,
+        output: &mut dyn StrokeGeometryBuilder,
+    ) -> TessellationResult {
+        let mut builder = self.builder(options, output);
+        builder.add_rectangle(rect, Winding::Positive);
+
+        builder.build()
+    }
+
+    /// Tessellate the stroke for a circle.
+    pub fn tessellate_circle(
+        &mut self,
+        center: Point,
+        radius: f32,
+        options: &StrokeOptions,
+        output: &mut dyn StrokeGeometryBuilder,
+    ) -> TessellationResult {
+        let mut builder = self.builder(options, output);
+        builder.add_circle(center, radius, Winding::Positive);
+
+        builder.build()
+    }
+
+    /// Tessellate the stroke for an ellipse.
+    pub fn tessellate_ellipse(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        x_rotation: Angle,
+        winding: Winding,
+        options: &StrokeOptions,
+        output: &mut dyn StrokeGeometryBuilder,
+    ) -> TessellationResult {
+        let mut builder = self.builder(options, output);
+        builder.add_ellipse(center, radii, x_rotation, winding);
+
+        builder.build()
     }
 }
 
@@ -328,6 +381,36 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         });
 
         id
+    }
+
+    fn add_rectangle(&mut self, rect: &Rect, winding: Winding) {
+        if rect.size.width.abs() < self.options.line_width
+            || rect.size.height.abs() < self.options.line_width {
+
+            let _ = tess_thin_rectangle(rect, &self.options, self.output);
+            return;
+        }
+
+        match winding {
+            Winding::Positive => self.add_polygon(Polygon {
+                points: &[
+                    rect.min(),
+                    point(rect.max_x(), rect.min_y()),
+                    rect.max(),
+                    point(rect.min_x(), rect.max_y()),
+                ],
+                closed: true,
+            }),
+            Winding::Negative => self.add_polygon(Polygon {
+                points: &[
+                    rect.min(),
+                    point(rect.min_x(), rect.max_y()),
+                    rect.max(),
+                    point(rect.max_x(), rect.min_y()),
+                ],
+                closed: true,
+            }),
+        };
     }
 }
 
@@ -1283,6 +1366,59 @@ fn tess_round_cap(
     )
 }
 
+// A fall-back that avoids off artifacts with zero-area rectangles as
+// well as overlapping triangles if the rectangle is smaller than the
+// line width in any dimension.
+#[inline(never)]
+fn tess_thin_rectangle(
+    rect: &Rect,
+    options: &StrokeOptions,
+    output: &mut dyn StrokeGeometryBuilder,
+) -> Result<(), TessellationError> {
+    let rect = if options.apply_line_width {
+        let w = options.line_width * 0.5;
+        rect.inflate(w, w)
+    } else {
+        *rect
+    };
+
+    let mut attributes = StrokeAttributesData {
+        normal: vector(-1.0, -1.0),
+        advancement: 0.0,
+        side: Side::Left,
+        src: VertexSource::Endpoint {
+            id: EndpointId::INVALID,
+        },
+        store: &(),
+        buffer: &mut [],
+        buffer_is_valid: true,
+    };
+
+    let a = output.add_stroke_vertex(rect.origin, StrokeAttributes(&mut attributes))?;
+
+    attributes.normal = vector(-1.0, 1.0);
+    attributes.advancement += rect.size.height;
+
+    let b = output.add_stroke_vertex(point(rect.min_x(), rect.max_y()), StrokeAttributes(&mut attributes))?;
+
+    attributes.side = Side::Right;
+
+    attributes.normal = vector(1.0, 1.0);
+    attributes.advancement += rect.size.width;
+
+    let c = output.add_stroke_vertex(point(rect.max_x(), rect.max_y()), StrokeAttributes(&mut attributes))?;
+
+    attributes.normal = vector(1.0, -1.0);
+    attributes.advancement += rect.size.height;
+
+    let d = output.add_stroke_vertex(point(rect.max_x(), rect.min_y()), StrokeAttributes(&mut attributes))?;
+
+    output.add_triangle(a, b, c);
+    output.add_triangle(a, c, d);
+
+    Ok(())
+}
+
 /// Extra vertex information from the `StrokeTessellator`.
 pub(crate) struct StrokeAttributesData<'l> {
     pub(crate) normal: Vector,
@@ -1344,6 +1480,12 @@ impl<'a, 'b> StrokeAttributes<'a, 'b> {
             }
         }
     }
+}
+
+fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
+    // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
+    tolerance = f32::min(tolerance, radius);
+    2.0 * f32::sqrt(2.0 * tolerance * radius - tolerance * tolerance)
 }
 
 #[cfg(test)]

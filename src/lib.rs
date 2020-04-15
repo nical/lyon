@@ -78,16 +78,22 @@
 //!
 //! ```
 //! use lyon::math::{rect, Point};
-//! use lyon::tessellation::{VertexBuffers, FillOptions};
-//! use lyon::tessellation::basic_shapes::*;
+//! use lyon::path::builder::*;
+//! use lyon::tessellation::{FillTessellator, FillOptions, VertexBuffers};
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
 //! fn main() {
 //!     let mut geometry: VertexBuffers<Point, u16> = VertexBuffers::new();
-//!
+//!     let mut geometry_builder = simple_builder(&mut geometry);
 //!     let options = FillOptions::tolerance(0.1);
+//!     let mut tessellator = FillTessellator::new();
 //!
-//!     fill_rounded_rectangle(
+//!     let mut builder = tessellator.builder(
+//!         &options,
+//!         &mut geometry_builder,
+//!     );
+//!
+//!     builder.add_rounded_rectangle(
 //!         &rect(0.0, 0.0, 100.0, 50.0),
 //!         &BorderRadii {
 //!             top_left: 10.0,
@@ -95,9 +101,10 @@
 //!             bottom_left: 20.0,
 //!             bottom_right: 25.0,
 //!         },
-//!         &options,
-//!         &mut simple_builder(&mut geometry),
+//!         Winding::Positive
 //!     );
+//!
+//!     builder.build();
 //!
 //!     // The tessellated geometry is ready to be uploaded to the GPU.
 //!     println!(" -- {} vertices {} indices",

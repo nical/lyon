@@ -155,6 +155,16 @@ impl FillRule {
     }
 }
 
+/// The two possible orientations for the edges of a shape to be built in.
+///
+/// Positive winding corresponds to the positive orientation in trigonometry.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum Winding {
+    Positive,
+    Negative,
+}
+
 /// ID of a control point in a path.
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]

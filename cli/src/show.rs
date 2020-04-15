@@ -7,7 +7,6 @@ use lyon::path::Path;
 use lyon::path::builder::PathBuilder;
 use lyon::tess2;
 use lyon::tessellation;
-use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 
@@ -25,15 +24,17 @@ const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
     let mut stroke_width = 1.0;
+
+    let mut fill = FillTessellator::new();
+    let mut stroke = StrokeTessellator::new();
+
     if let Some(options) = cmd.stroke {
         stroke_width = options.line_width;
-        StrokeTessellator::new()
-            .tessellate(
-                cmd.path.iter(),
-                &options,
-                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
-            )
-            .unwrap();
+        stroke.tessellate(
+            cmd.path.iter(),
+            &options,
+            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+        ).unwrap();
     }
 
     if let Some(hatch) = cmd.hatch {
@@ -54,13 +55,11 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         );
         let hatched_path = path.build();
 
-        StrokeTessellator::new()
-            .tessellate(
-                hatched_path.iter(),
-                &hatch.stroke,
-                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
-            )
-            .unwrap();
+        stroke.tessellate(
+            hatched_path.iter(),
+            &hatch.stroke,
+            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+        ).unwrap();
     }
 
     if let Some(dots) = cmd.dots {
@@ -79,21 +78,18 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         );
         let dotted_path = path.build();
 
-        StrokeTessellator::new()
-            .tessellate(
-                dotted_path.iter(),
-                &dots.stroke,
-                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
-            )
-            .unwrap();
+        stroke.tessellate(
+            dotted_path.iter(),
+            &dots.stroke,
+            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+        ).unwrap();
     }
 
     if let Some(options) = cmd.fill {
         match cmd.tessellator {
             Tessellator::Default => {
-                let mut tess = FillTessellator::new();
 
-                tess.tessellate(
+                fill.tessellate(
                     &cmd.path,
                     &options,
                     &mut BuffersBuilder::new(&mut geometry, WithId(0)),
@@ -126,14 +122,6 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
     let geom_split = geometry.indices.len() as u32;
 
-    fill_circle(
-        point(0.0, 0.0),
-        1.0,
-        &FillOptions::tolerance(0.01),
-        &mut BuffersBuilder::new(&mut geometry, WithId(0)),
-    )
-    .unwrap();
-
     let (bg_color, vignette_color) = match render_options.background {
         Background::Blue => ([0.0, 0.47, 0.9, 1.0], [0.0, 0.1, 0.64, 1.0]),
         Background::Clear => ([0.9, 0.9, 0.9, 1.0], [0.5, 0.5, 0.5, 1.0]),
@@ -146,12 +134,12 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     }
 
     let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
-    fill_rectangle(
+
+    fill.tessellate_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &FillOptions::default(),
+        &FillOptions::DEFAULT,
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    )
-    .unwrap();
+    ).unwrap();
 
     let glutin_builder = glutin::WindowBuilder::new()
         .with_dimensions(LogicalSize {
@@ -492,6 +480,18 @@ impl FillVertexConstructor<GpuVertex> for WithId {
     }
 }
 
+impl BasicVertexConstructor<GpuVertex> for WithId {
+    fn new_vertex(&mut self, position: Point) -> GpuVertex {
+        debug_assert!(!position.x.is_nan());
+        debug_assert!(!position.y.is_nan());
+        GpuVertex {
+            position: position.to_array(),
+            normal: [0.0, 0.0],
+            prim_id: self.0,
+        }
+    }
+}
+
 impl StrokeVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(
         &mut self,
@@ -511,22 +511,10 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
     }
 }
 
-impl BasicVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, position: Point) -> GpuVertex {
-        debug_assert!(!position.x.is_nan());
-        debug_assert!(!position.y.is_nan());
-        GpuVertex {
-            position: position.to_array(),
-            normal: [0.0, 0.0],
-            prim_id: self.0,
-        }
-    }
-}
-
 struct BgVertexCtor;
 
-impl BasicVertexConstructor<BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, position: Point) -> BgVertex {
+impl FillVertexConstructor<BgVertex> for BgVertexCtor {
+    fn new_vertex(&mut self, position: Point, _: tessellation::FillAttributes) -> BgVertex {
         debug_assert!(!position.x.is_nan());
         debug_assert!(!position.y.is_nan());
         BgVertex {
