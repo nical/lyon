@@ -43,9 +43,30 @@ use crate::geom::{
 use crate::math::*;
 use crate::polygon::Polygon;
 use crate::path::Verb;
-use crate::EndpointId;
+use crate::{EndpointId, Winding};
 
 use std::marker::Sized;
+
+/// The radius of each corner of a rounded rectangle.
+#[derive(Copy, Clone)]
+pub struct BorderRadii {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_left: f32,
+    pub bottom_right: f32,
+}
+
+impl BorderRadii {
+    pub fn new(radius: f32) -> Self {
+        let r = radius.abs();
+        BorderRadii {
+            top_left: r,
+            top_right: r,
+            bottom_left: r,
+            bottom_right: r,
+        }
+    }
+}
 
 /// The base path building interface.
 ///
@@ -168,6 +189,81 @@ pub trait PathBuilder {
         self.end(false);
 
         (a, b)
+    }
+
+    /// Adds a sub-path containing an ellipse.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
+    fn add_ellipse(&mut self, center: Point, radii: Vector, x_rotation: Angle, winding: Winding) {
+        let dir = match winding {
+            Winding::Positive => 1.0,
+            Winding::Negative => -1.0,
+        };
+
+        use std::f32::consts::PI;
+        let arc = Arc {
+            center,
+            radii,
+            x_rotation,
+            start_angle: Angle::radians(0.0),
+            sweep_angle: Angle::radians(2.0 * PI) * dir,
+        };
+
+        self.begin(arc.sample(0.0));
+        arc.for_each_quadratic_bezier(&mut |curve| {
+            self.quadratic_bezier_to(curve.ctrl, curve.to);
+        });
+        self.end(true);
+    }
+
+    /// Adds a sub-path containing a circle.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
+    fn add_circle(&mut self, center: Point, radius: f32, winding: Winding)
+    where
+        Self: Sized
+    {
+        add_circle(self, center, radius, winding);
+    }
+
+    /// Adds a sub-path containing a rectangle.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
+    fn add_rectangle(&mut self, rect: &Rect, winding: Winding) {
+        match winding {
+            Winding::Positive => self.add_polygon(Polygon {
+                points: &[
+                    rect.min(),
+                    point(rect.max_x(), rect.min_y()),
+                    rect.max(),
+                    point(rect.min_x(), rect.max_y()),
+                ],
+                closed: true,
+            }),
+            Winding::Negative => self.add_polygon(Polygon {
+                points: &[
+                    rect.min(),
+                    point(rect.min_x(), rect.max_y()),
+                    rect.max(),
+                    point(rect.max_x(), rect.min_y()),
+                ],
+                closed: true,
+            }),
+        };
+    }
+
+    /// Adds a sub-path containing a rectangle.
+    ///
+    /// There must be no sub-path in progress when this method is called.
+    /// No sub-path is in progress after the method is called.
+    fn add_rounded_rectangle(&mut self, rect: &Rect, radii: &BorderRadii, winding: Winding)
+    where
+        Self: Sized
+    {
+        add_rounded_rectangle(self, rect, radii, winding);
     }
 
     /// Returns a builder that approximates all curves with sequences of line segments.
@@ -962,6 +1058,158 @@ pub fn flatten_cubic_bezier(
     });
 
     id
+}
+
+/// Tessellate the stroke for an axis-aligned rounded rectangle.
+fn add_circle<Builder: PathBuilder>(
+    builder: &mut Builder,
+    center: Point,
+    radius: f32,
+    winding: Winding,
+) {
+    let radius = radius.abs();
+    let dir = match winding {
+        Winding::Positive => 1.0,
+        Winding::Negative => -1.0,
+    };
+
+    let tan_pi_over_8 = 0.41421356237;
+    let cos_pi_over_4 = 0.70710678118;
+    let d = radius * tan_pi_over_8;
+
+    builder.begin(center + vector(-radius, 0.0));
+
+    let ctrl_0 = center + vector(-radius, -d * dir);
+    let mid_0 = center + vector(-1.0, -dir) * radius * cos_pi_over_4;
+    let ctrl_1 = center + vector(-d, -radius * dir);
+    let mid_1 = center + vector(0.0, -radius * dir);
+    builder.quadratic_bezier_to(ctrl_0, mid_0);
+    builder.quadratic_bezier_to(ctrl_1, mid_1);
+
+    let ctrl_0 = center + vector(d, -radius * dir);
+    let mid_0 = center + vector(1.0, -dir) * radius * cos_pi_over_4;
+    let ctrl_1 = center + vector(radius, -d * dir);
+    let mid_1 = center + vector(radius, 0.0);
+    builder.quadratic_bezier_to(ctrl_0, mid_0);
+    builder.quadratic_bezier_to(ctrl_1, mid_1);
+
+    let ctrl_0 = center + vector(radius, d * dir);
+    let mid_0 = center + vector(1.0, dir) * radius * cos_pi_over_4;
+    let ctrl_1 = center + vector(d, radius * dir);
+    let mid_1 = center + vector(0.0, radius * dir);
+    builder.quadratic_bezier_to(ctrl_0, mid_0);
+    builder.quadratic_bezier_to(ctrl_1, mid_1);
+
+    let ctrl_0 = center + vector(-d, radius * dir);
+    let mid_0 = center + vector(-1.0, dir) * radius * cos_pi_over_4;
+    let ctrl_1 = center + vector(-radius, d * dir);
+    let mid_1 = center + vector(-radius, 0.0);
+    builder.quadratic_bezier_to(ctrl_0, mid_0);
+    builder.quadratic_bezier_to(ctrl_1, mid_1);
+
+    builder.close();
+}
+
+/// Tessellate the stroke for an axis-aligned rounded rectangle.
+fn add_rounded_rectangle<Builder: PathBuilder>(
+    builder: &mut Builder,
+    rect: &Rect,
+    radii: &BorderRadii,
+    winding: Winding,
+) {
+    if winding == Winding::Negative {
+        unimplemented!("TODO!");
+    }
+
+    let w = rect.size.width;
+    let h = rect.size.height;
+    let x_min = rect.min_x();
+    let y_min = rect.min_y();
+    let x_max = rect.max_x();
+    let y_max = rect.max_y();
+    let min_wh = w.min(h);
+    let mut tl = radii.top_left.abs().min(min_wh);
+    let mut tr = radii.top_right.abs().min(min_wh);
+    let mut bl = radii.bottom_left.abs().min(min_wh);
+    let mut br = radii.bottom_right.abs().min(min_wh);
+
+    // clamp border radii if they don't fit in the rectangle.
+    if tl + tr > w {
+        let x = (tl + tr - w) * 0.5;
+        tl -= x;
+        tr -= x;
+    }
+    if bl + br > w {
+        let x = (bl + br - w) * 0.5;
+        bl -= x;
+        br -= x;
+    }
+    if tr + br > h {
+        let x = (tr + br - h) * 0.5;
+        tr -= x;
+        br -= x;
+    }
+    if tl + bl > h {
+        let x = (tl + bl - h) * 0.5;
+        tl -= x;
+        bl -= x;
+    }
+
+    let tan_pi_over_8 = 0.41421356237;
+    let cos_pi_over_4 = 0.70710678118;
+    builder.begin(point(x_min, y_min + tl));
+    if tl > 0.0 {
+        let radius = tl;
+        let d = radius * tan_pi_over_8;
+        let corner = point(x_min, y_min);
+        let ctrl_0 = corner + vector(0.0, radius - d);
+        let mid_0 = corner + vector(1.0, 1.0) * radius * (1.0 - cos_pi_over_4);
+        let ctrl_1 = corner + vector(radius - d, 0.0);
+        let mid_1 = corner + vector(radius, 0.0);
+        builder.quadratic_bezier_to(ctrl_0, mid_0);
+        builder.quadratic_bezier_to(ctrl_1, mid_1);
+    }
+    builder.line_to(point(x_max - tr, y_min));
+
+    if tr > 0.0 {
+        let radius = tr;
+        let d = radius * tan_pi_over_8;
+        let corner = point(x_max, y_min);
+        let ctrl_0 = corner + vector(-radius + d, 0.0);
+        let mid_0 = corner + vector(-1.0, 1.0) * radius * (1.0 - cos_pi_over_4);
+        let ctrl_1 = corner + vector(0.0, radius - d);
+        let mid_1 = corner + vector(0.0, radius);
+        builder.quadratic_bezier_to(ctrl_0, mid_0);
+        builder.quadratic_bezier_to(ctrl_1, mid_1);
+    }
+    builder.line_to(point(x_max, y_max - br));
+
+    if br > 0.0 {
+        let radius = br;
+        let d = radius * tan_pi_over_8;
+        let corner = point(x_max, y_max);
+        let ctrl_0 = corner + vector(0.0, -radius + d);
+        let mid_0 = corner + vector(-1.0, -1.0) * radius * (1.0 - cos_pi_over_4);
+        let ctrl_1 = corner + vector(-radius + d, 0.0);
+        let mid_1 = corner + vector(-radius, 0.0);
+        builder.quadratic_bezier_to(ctrl_0, mid_0);
+        builder.quadratic_bezier_to(ctrl_1, mid_1);
+    }
+    builder.line_to(point(x_min + bl, y_max));
+
+    if bl > 0.0 {
+        let radius = bl;
+        let d = radius * tan_pi_over_8;
+        let corner = point(x_min, y_max);
+        let ctrl_0 = corner + vector(radius - d, 0.0);
+        let mid_0 = corner + vector(1.0, -1.0) * radius * (1.0 - cos_pi_over_4);
+        let ctrl_1 = corner + vector(0.0, -radius + d);
+        let mid_1 = corner + vector(0.0, -radius);
+        builder.quadratic_bezier_to(ctrl_0, mid_0);
+        builder.quadratic_bezier_to(ctrl_1, mid_1);
+    }
+
+    builder.close();
 }
 
 #[inline]

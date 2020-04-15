@@ -11,7 +11,6 @@ use lyon::math::*;
 use lyon::path::builder::*;
 use lyon::path::iterator::*;
 use lyon::path::Path;
-use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
 
@@ -57,21 +56,20 @@ fn main() {
 
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
-    FillTessellator::new()
-        .tessellate_path(
-            &arrow_path,
-            &FillOptions::tolerance(tolerance),
-            &mut BuffersBuilder::new(&mut geometry, WithId(0)),
-        )
-        .unwrap();
-
-    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
-    fill_rectangle(
-        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &FillOptions::default(),
-        &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
+    let mut tess = FillTessellator::new();
+    tess.tessellate_path(
+        &arrow_path,
+        &FillOptions::tolerance(tolerance),
+        &mut BuffersBuilder::new(&mut geometry, WithId(0)),
     )
     .unwrap();
+
+    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
+    tess.tessellate_rectangle(
+        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+        &FillOptions::DEFAULT,
+        &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
+    ).unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {
@@ -409,8 +407,8 @@ impl FillVertexConstructor<GpuVertex> for WithId {
 
 pub struct BgVertexCtor;
 
-impl BasicVertexConstructor<BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, position: Point) -> BgVertex {
+impl FillVertexConstructor<BgVertex> for BgVertexCtor {
+    fn new_vertex(&mut self, position: Point, _: FillAttributes) -> BgVertex {
         debug_assert!(!position.x.is_nan());
         debug_assert!(!position.y.is_nan());
         BgVertex {

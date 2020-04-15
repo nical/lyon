@@ -39,7 +39,6 @@
 //!   [geometry_builder module](geometry_builder/index.html)) which the above two are built on. This trait
 //!   provides an interface for types that help with building and assembling the vertices and triangles that
 //!   form the tessellation, usually in the form of arbitrary vertex and index buffers.
-//! * The various specialized tessellators in the [`basic_shapes`](basic_shapes/index.html) modules.
 //!
 //! ## The tessellation pipeline
 //!
@@ -188,7 +187,6 @@ use lyon_extra as extra;
 #[macro_use]
 pub extern crate serde;
 
-pub mod basic_shapes;
 mod event_queue;
 mod fill;
 pub mod geometry_builder;

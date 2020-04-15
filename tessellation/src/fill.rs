@@ -2,8 +2,9 @@ use crate::event_queue::*;
 use crate::math::*;
 use crate::geom::LineSegment;
 use crate::monotone::*;
+use crate::path::polygon::Polygon;
 use crate::path::{
-    AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore,
+    AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore, Winding
 };
 use crate::path::traits::{PathBuilder, Build};
 use crate::{FillGeometryBuilder, Orientation, VertexId};
@@ -550,6 +551,63 @@ impl FillTessellator {
         } else {
             self.tessellate(path.iter(), options, builder)
         }
+    }
+
+    /// Tessellate a `Polygon`.
+    pub fn tessellate_polygon(
+        &mut self,
+        polygon: Polygon<Point>,
+        options: &FillOptions,
+        output: &mut dyn FillGeometryBuilder,
+    ) -> TessellationResult {
+        self.tessellate(
+            polygon.path_events(),
+            options,
+            output,
+        )
+    }
+
+    /// Tessellate an axis-aligned rectangle.
+    pub fn tessellate_rectangle(
+        &mut self,
+        rect: &Rect,
+        options: &FillOptions,
+        output: &mut dyn FillGeometryBuilder,
+    ) -> TessellationResult {
+        let mut builder = self.builder(options, output);
+        builder.add_rectangle(rect, Winding::Positive);
+
+        builder.build()
+    }
+
+    /// Tessellate a circle.
+    pub fn tessellate_circle(
+        &mut self,
+        center: Point,
+        radius: f32,
+        options: &FillOptions,
+        output: &mut dyn FillGeometryBuilder,
+    ) -> TessellationResult {
+        let mut builder = self.builder(options, output);
+        builder.add_circle(center, radius, Winding::Positive);
+
+        builder.build()
+    }
+
+    /// Tessellate an ellipse.
+    pub fn tessellate_ellipse(
+        &mut self,
+        center: Point,
+        radii: Vector,
+        x_rotation: Angle,
+        winding: Winding,
+        options: &FillOptions,
+        output: &mut dyn FillGeometryBuilder,
+    ) -> TessellationResult {
+        let mut builder = self.builder(options, output);
+        builder.add_ellipse(center, radii, x_rotation, winding);
+
+        builder.build()
     }
 
     /// Tessellate directly from a sequence of `PathBuilder` commands, without
@@ -2104,6 +2162,87 @@ impl<'l> PathBuilder for FillBuilder<'l> {
 
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
         self.events.reserve(endpoints + ctrl_points * 2);
+    }
+
+    /// Tessellate the stroke for an axis-aligned rounded rectangle.
+    fn add_circle(
+        &mut self,
+        center: Point,
+        radius: f32,
+        winding: Winding,
+    ) {
+        // This specialized routine extracts the curves into separate sub-paths
+        // to nudge the tessellator towards putting them in their own monotonic
+        // spans. This avoids generating thin triangles from one side of the circle
+        // to the other.
+        // We can do this because we know shape is convex and we don't need to trace
+        // the outline.
+
+        let radius = radius.abs();
+        let dir = match winding {
+            Winding::Positive => 1.0,
+            Winding::Negative => -1.0,
+        };
+
+        self.reserve(16, 8);
+
+        let tan_pi_over_8 = 0.41421356237;
+        let cos_pi_over_4 = 0.70710678118;
+        let d = radius * tan_pi_over_8;
+
+        let start = center + vector(-radius, 0.0);
+        self.begin(start);
+        let ctrl_0 = center + vector(-radius, -d * dir);
+        let mid_0 = center + vector(-1.0, -dir) * radius * cos_pi_over_4;
+        let ctrl_1 = center + vector(-d, -radius * dir);
+        let mid_1 = center + vector(0.0, -radius * dir);
+        self.quadratic_bezier_to(ctrl_0, mid_0);
+        self.end(false);
+        self.begin(mid_0);
+        self.quadratic_bezier_to(ctrl_1, mid_1);
+        self.end(false);
+
+        self.begin(mid_1);
+        let ctrl_0 = center + vector(d, -radius * dir);
+        let mid_2 = center + vector(1.0, -dir) * radius * cos_pi_over_4;
+        let ctrl_1 = center + vector(radius, -d * dir);
+        let mid_3 = center + vector(radius, 0.0);
+        self.quadratic_bezier_to(ctrl_0, mid_2);
+        self.end(false);
+        self.begin(mid_2);
+        self.quadratic_bezier_to(ctrl_1, mid_3);
+        self.end(false);
+
+        self.begin(mid_3);
+        let ctrl_0 = center + vector(radius, d * dir);
+        let mid_4 = center + vector(1.0, dir) * radius * cos_pi_over_4;
+        let ctrl_1 = center + vector(d, radius * dir);
+        let mid_5 = center + vector(0.0, radius * dir);
+        self.quadratic_bezier_to(ctrl_0, mid_4);
+        self.end(false);
+        self.begin(mid_4);
+        self.quadratic_bezier_to(ctrl_1, mid_5);
+        self.end(false);
+
+        self.begin(mid_5);
+        let ctrl_0 = center + vector(-d, radius * dir);
+        let mid_6 = center + vector(-1.0, dir) * radius * cos_pi_over_4;
+        let ctrl_1 = center + vector(-radius, d * dir);
+        self.quadratic_bezier_to(ctrl_0, mid_6);
+        self.end(false);
+        self.begin(mid_6);
+        self.quadratic_bezier_to(ctrl_1, start);
+        self.end(false);
+
+        self.begin(start);
+        self.line_to(mid_0);
+        self.line_to(mid_1);
+        self.line_to(mid_2);
+        self.line_to(mid_3);
+        self.line_to(mid_4);
+        self.line_to(mid_5);
+        self.line_to(mid_6);
+        self.close();
     }
 }
 
