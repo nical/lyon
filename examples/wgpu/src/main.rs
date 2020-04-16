@@ -14,6 +14,9 @@ use winit::window::Window;
 
 use std::ops::Rem;
 
+#[macro_use]
+use log;
+
 const PRIM_BUFFER_LEN: usize = 64;
 
 #[repr(C)]
@@ -70,6 +73,7 @@ fn create_multisampled_framebuffer(
 }
 
 fn main() {
+    env_logger::init();
     println!("== wgpu example ==");
     println!("Controls:");
     println!("  Arrow keys: scrolling");

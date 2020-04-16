@@ -11,6 +11,8 @@ path = "src/main.rs"
 
 [dependencies]
 lyon = { path = "../../", features = ["extra"] }
+env_logger = "0.7"
+log = "0.4"
 
 wgpu = "0.4"
 wgpu-native = "0.4"
