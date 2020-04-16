@@ -319,7 +319,7 @@ fn main() {
                 },
                 wgpu::VertexAttributeDescriptor {
                     offset: 16,
-                    format: wgpu::VertexFormat::Float,
+                    format: wgpu::VertexFormat::Int,
                     shader_location: 2,
                 },
             ],
