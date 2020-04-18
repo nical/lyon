@@ -106,7 +106,7 @@ impl ActiveEdgeScan {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 struct ActiveEdge {
     min_x: f32,
     max_x: f32,
@@ -119,9 +119,6 @@ struct ActiveEdge {
 
     from_id: VertexId,
     src_edge: TessEventId,
-
-    // Only valid when sorting the active edges.
-    sort_x: f32,
 
     range_end: f32,
 }
@@ -879,13 +876,12 @@ impl FillTessellator {
             } else {
                 tess_log!(
                     self,
-                    r#"  <path d="M {:.5?} {:.5?} L {:.5?} {:.5?}" class="edge", winding="{:>2}" sort_x="{:.}" min_x="{:.}"/>"#,
+                    r#"  <path d="M {:.5?} {:.5?} L {:.5?} {:.5?}" class="edge", winding="{:>2}" min_x="{:.}"/>"#,
                     e.from.x,
                     e.from.y,
                     e.to.x,
                     e.to.y,
                     e.winding,
-                    e.sort_x,
                     e.min_x,
                 );
             }
@@ -1423,7 +1419,6 @@ impl FillTessellator {
                 ActiveEdge {
                     min_x: from.x.min(edge.to.x),
                     max_x: from.x.max(edge.to.x),
-                    sort_x: 0.0,
                     from,
                     to: edge.to,
                     winding: edge.winding,
@@ -1737,13 +1732,15 @@ impl FillTessellator {
 
         let y = self.current_position.y;
 
+        let mut keys = Vec::with_capacity(self.active.edges.len());
+
         let mut has_merge_vertex = false;
         let mut prev_x = f32::NAN;
-        for edge in &mut self.active.edges {
+        for (i, edge) in self.active.edges.iter().enumerate() {
             if edge.is_merge {
                 debug_assert!(!prev_x.is_nan());
                 has_merge_vertex = true;
-                edge.sort_x = prev_x;
+                keys.push((prev_x, i));
             } else {
                 debug_assert!(!is_after(self.current_position, edge.to));
 
@@ -1765,17 +1762,18 @@ impl FillTessellator {
                     edge.solve_x_for_y(y)
                 };
 
-                edge.sort_x = x.max(edge.min_x);
+                keys.push((x.max(edge.min_x), i));
                 prev_x = x;
             }
         }
 
-        self.active
-            .edges
-            .sort_by(|a, b| match a.sort_x.partial_cmp(&b.sort_x).unwrap() {
-                Ordering::Less => Ordering::Less,
-                Ordering::Greater => Ordering::Greater,
-                Ordering::Equal => match (a.is_merge, b.is_merge) {
+        keys.sort_by(|a, b| match a.0.partial_cmp(&b.0).unwrap() {
+            Ordering::Less => Ordering::Less,
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Equal => {
+                let a = &self.active.edges[a.1];
+                let b = &self.active.edges[b.1];
+                match (a.is_merge, b.is_merge) {
                     (false, false) => {
                         let angle_a = (a.to - a.from).angle_from_x_axis().radians;
                         let angle_b = (b.to - b.from).angle_from_x_axis().radians;
@@ -1784,8 +1782,16 @@ impl FillTessellator {
                     (true, false) => Ordering::Greater,
                     (false, true) => Ordering::Less,
                     (true, true) => Ordering::Equal,
-                },
-            });
+                }
+            },
+        });
+
+        let mut new_active_edges = Vec::with_capacity(self.active.edges.len());
+        for &(_, idx) in &keys {
+            new_active_edges.push(self.active.edges[idx]);
+        }
+
+        self.active.edges = new_active_edges;
 
         if !has_merge_vertex {
             return;
