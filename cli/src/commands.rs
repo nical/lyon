@@ -55,10 +55,9 @@ pub struct PathCmd {
     pub flatten: bool,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct FuzzCmd {
-    pub fill: bool,
-    pub stroke: bool,
+    pub tess: TessellateCmd,
     pub min_points: Option<u32>,
     pub max_points: Option<u32>,
     pub tessellator: Tessellator,
