@@ -108,9 +108,6 @@ impl ActiveEdgeScan {
 
 #[derive(Copy, Clone, Debug)]
 struct ActiveEdge {
-    min_x: f32,
-    max_x: f32,
-
     from: Point,
     to: Point,
 
@@ -121,6 +118,24 @@ struct ActiveEdge {
     src_edge: TessEventId,
 
     range_end: f32,
+}
+
+#[test]
+fn active_edge_size() {
+    // We want to be careful about the size of the struct.
+    assert_eq!(std::mem::size_of::<ActiveEdge>(), 32);
+}
+
+impl ActiveEdge {
+    #[inline(always)]
+    fn min_x(&self) -> f32 {
+        self.from.x.min(self.to.x)
+    }
+
+    #[inline(always)]
+    fn max_x(&self) -> f32 {
+        self.from.x.max(self.to.x)
+    }
 }
 
 impl ActiveEdge {
@@ -134,8 +149,8 @@ impl ActiveEdge {
             to: self.to,
         }
         .solve_x_for_y(y)
-        .max(self.min_x)
-        .min(self.max_x)
+        .max(self.min_x())
+        .min(self.max_x())
     }
 }
 
@@ -876,13 +891,12 @@ impl FillTessellator {
             } else {
                 tess_log!(
                     self,
-                    r#"  <path d="M {:.5?} {:.5?} L {:.5?} {:.5?}" class="edge", winding="{:>2}" min_x="{:.}"/>"#,
+                    r#"  <path d="M {:.5?} {:.5?} L {:.5?} {:.5?}" class="edge", winding="{:>2}"/>"#,
                     e.from.x,
                     e.from.y,
                     e.to.x,
                     e.to.y,
                     e.winding,
-                    e.min_x,
                 );
             }
         }
@@ -956,13 +970,13 @@ impl FillTessellator {
                     // We might find other ones in the next iterations.
                     connecting_edges = true;
                     false
-                } else if active_edge.max_x < current_x {
+                } else if active_edge.max_x() < current_x {
                     true
-                } else if active_edge.min_x > current_x {
+                } else if active_edge.min_x() > current_x {
                     tess_log!(
                         self,
                         "min_x({:?}) > current_x({:?})",
-                        active_edge.min_x,
+                        active_edge.min_x(),
                         current_x
                     );
                     false
@@ -1170,7 +1184,7 @@ impl FillTessellator {
                 continue;
             }
 
-            if active_edge.max_x < current_x {
+            if active_edge.max_x() < current_x {
                 return Err(InternalError::IncorrectActiveEdgeOrder(1));
             }
 
@@ -1178,7 +1192,7 @@ impl FillTessellator {
                 return Err(InternalError::IncorrectActiveEdgeOrder(2));
             }
 
-            if active_edge.min_x < current_x
+            if active_edge.min_x() < current_x
                 && active_edge.solve_x_for_y(self.current_position.y) < current_x
             {
                 return Err(InternalError::IncorrectActiveEdgeOrder(3));
@@ -1203,17 +1217,20 @@ impl FillTessellator {
         let current_x = self.current_position.x;
         let threshold = 0.001;
 
-        if active_edge.max_x + threshold < current_x || active_edge.to.y < self.current_position.y {
+        let min_x = active_edge.min_x();
+        let max_x = active_edge.max_x();
+
+        if max_x + threshold < current_x || active_edge.to.y < self.current_position.y {
             return Err(InternalError::IncorrectActiveEdgeOrder(4));
         }
 
-        if active_edge.min_x > current_x {
+        if min_x > current_x {
             return Ok(false);
         }
 
         let ex = if active_edge.from.y != active_edge.to.y {
             active_edge.solve_x_for_y(self.current_position.y)
-        } else if active_edge.max_x >= current_x && active_edge.min_x <= current_x {
+        } else if max_x >= current_x && min_x <= current_x {
             current_x
         } else {
             active_edge.to.y
@@ -1293,7 +1310,6 @@ impl FillTessellator {
             );
 
             active_edge.to = self.current_position;
-            active_edge.min_x = active_edge.min_x.min(self.current_position.x)
         }
 
         if scan.merge_event {
@@ -1306,8 +1322,6 @@ impl FillTessellator {
             let edge = &mut self.active.edges[scan.above.start];
             edge.is_merge = true;
             edge.from = edge.to;
-            edge.min_x = edge.to.x;
-            edge.max_x = edge.to.x;
             edge.winding = 0;
             edge.from_id = self.current_vertex;
 
@@ -1417,8 +1431,6 @@ impl FillTessellator {
             above,
             self.edges_below.iter().map(|edge| {
                 ActiveEdge {
-                    min_x: from.x.min(edge.to.x),
-                    max_x: from.x.max(edge.to.x),
                     from,
                     to: edge.to,
                     winding: edge.winding,
@@ -1498,7 +1510,6 @@ impl FillTessellator {
         // In order to not break invariants of the sweep line we need to ensure that:
         // - the intersection position is never ordered before the current position,
         // - after truncation, edges continue being oriented downwards,
-        // - the cached min_x value of the active edge is still correct.
         //
         // Floating-point precision (or the lack thereof) prevent us from taking the
         // above properties from granted even though they make sense from a purely
@@ -1522,11 +1533,11 @@ impl FillTessellator {
                 if skip_range.contains(&i) {
                     continue;
                 }
-                if active_edge.is_merge || below_min_x > active_edge.max_x {
+                if active_edge.is_merge || below_min_x > active_edge.max_x() {
                     continue;
                 }
 
-                if below_max_x < active_edge.min_x {
+                if below_max_x < active_edge.min_x() {
                     // We can't early out because there might be edges further on the right
                     // that extend further on the left which would be missed.
                     //
@@ -1577,7 +1588,6 @@ impl FillTessellator {
 
                 if self.current_position == intersection_position {
                     active_edge.from = intersection_position;
-                    active_edge.min_x = active_edge.min_x.min(intersection_position.x);
                     let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
                     let remapped_ta =
                         remap_t_in_range(ta as f32, src_range.start..active_edge.range_end);
@@ -1648,12 +1658,8 @@ impl FillTessellator {
                     }
 
                     active_edge.to = intersection_position;
-                    active_edge.min_x = active_edge.min_x.min(intersection_position.x);
                     active_edge.range_end = remapped_ta;
                 }
-
-                debug_assert!(active_edge.min_x <= active_edge.from.x);
-                debug_assert!(active_edge.min_x <= active_edge.to.x);
 
                 if edge_below.to != intersection_position
                     && self.current_position != intersection_position
@@ -1749,10 +1755,10 @@ impl FillTessellator {
 
                 let x = if eq_to && eq_from {
                     let current_x = self.current_position.x;
-                    if edge.max_x >= current_x && edge.min_x <= current_x {
+                    if edge.max_x() >= current_x && edge.min_x() <= current_x {
                         self.current_position.x
                     } else {
-                        edge.min_x
+                        edge.min_x()
                     }
                 } else if eq_from {
                     edge.from.x
@@ -1762,7 +1768,7 @@ impl FillTessellator {
                     edge.solve_x_for_y(y)
                 };
 
-                keys.push((x.max(edge.min_x), i));
+                keys.push((x.max(edge.min_x()), i));
                 prev_x = x;
             }
         }
@@ -1880,8 +1886,9 @@ impl FillTessellator {
     }
 
     fn sort_edges_below(&mut self) {
-        self.edges_below
-            .sort_by(|a, b| b.angle.partial_cmp(&a.angle).unwrap_or(Ordering::Equal));
+        self.edges_below.sort_unstable_by(
+            |a, b| b.angle.partial_cmp(&a.angle).unwrap()
+        );
     }
 
     fn handle_coincident_edges_below(&mut self) {
