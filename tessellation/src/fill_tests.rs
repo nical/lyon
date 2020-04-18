@@ -3,14 +3,15 @@ use crate::math::*;
 use crate::geometry_builder::*;
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::{Path, PathSlice};
-use crate::{FillAttributes, FillOptions, FillTessellator, TessellationError, VertexId};
+use crate::{FillAttributes, FillOptions, FillRule, FillTessellator, TessellationError, VertexId};
 
 use std::env;
 
-fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
+fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
-        let options = FillOptions::tolerance(0.05);
+        let options = FillOptions::tolerance(0.05)
+            .with_fill_rule(fill_rule);
 
         use crate::path::iterator::*;
 
@@ -84,27 +85,29 @@ fn test_too_many_vertices() {
 }
 
 fn test_path(path: PathSlice) {
-    test_path_internal(path, None);
+    test_path_internal(path, FillRule::EvenOdd, None);
+    test_path_internal(path, FillRule::NonZero, None);
 }
 
 fn test_path_and_count_triangles(path: PathSlice, expected_triangle_count: usize) {
-    test_path_internal(path, Some(expected_triangle_count));
+    test_path_internal(path, FillRule::EvenOdd, Some(expected_triangle_count));
+    test_path_internal(path, FillRule::NonZero, None);
 }
 
-fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
+fn test_path_internal(path: PathSlice, fill_rule: FillRule, expected_triangle_count: Option<usize>) {
     let add_logging = env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = env::var("LYON_REDUCED_TESTCASE").is_ok();
 
     let res = if find_test_case {
-        ::std::panic::catch_unwind(|| tessellate(path, false))
+        ::std::panic::catch_unwind(|| tessellate(path, fill_rule, false))
     } else {
-        Ok(tessellate(path, false))
+        Ok(tessellate(path, fill_rule, false))
     };
 
     if let Ok(Ok(num_triangles)) = res {
         if let Some(expected_triangles) = expected_triangle_count {
             if num_triangles != expected_triangles {
-                tessellate(path, add_logging).unwrap();
+                tessellate(path, fill_rule, add_logging).unwrap();
                 panic!(
                     "expected {} triangles, got {}",
                     expected_triangles, num_triangles
@@ -116,15 +119,15 @@ fn test_path_internal(path: PathSlice, expected_triangle_count: Option<usize>) {
 
     if find_test_case {
         crate::extra::debugging::find_reduced_test_case(path, &|path: Path| {
-            return tessellate(path.as_slice(), false).is_err();
+            return tessellate(path.as_slice(), fill_rule, false).is_err();
         });
     }
 
     if add_logging {
-        tessellate(path, true).unwrap();
+        tessellate(path, fill_rule, true).unwrap();
     }
 
-    panic!();
+    panic!("Test failed with fill rule {:?}.", fill_rule);
 }
 
 fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Option<usize>) {
@@ -136,7 +139,8 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 
         let tranformed_path = path.transformed(&Rotation::new(angle));
 
-        test_path_internal(tranformed_path.as_slice(), expected_triangle_count);
+        test_path_internal(tranformed_path.as_slice(), FillRule::EvenOdd, expected_triangle_count);
+        test_path_internal(tranformed_path.as_slice(), FillRule::NonZero, None);
 
         angle.radians += step;
     }

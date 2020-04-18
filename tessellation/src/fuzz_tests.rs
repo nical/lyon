@@ -2,12 +2,13 @@ use crate::math::*;
 use crate::geometry_builder::{simple_builder, VertexBuffers};
 use crate::path::iterator::*;
 use crate::path::{Path, PathSlice};
-use crate::{FillOptions, FillTessellator, TessellationError};
+use crate::{FillOptions, FillRule, FillTessellator, TessellationError};
 
-fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
+fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
-        let options = FillOptions::tolerance(0.05);
+        let options = FillOptions::tolerance(0.05)
+            .with_fill_rule(fill_rule);
 
         let mut builder = Path::builder();
         for e in path.iter().flattened(0.05) {
@@ -24,10 +25,15 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
 }
 
 fn test_path(path: PathSlice) {
+    test_path_with_fill_rule(path, FillRule::EvenOdd);
+    test_path_with_fill_rule(path, FillRule::NonZero);
+}
+
+fn test_path_with_fill_rule(path: PathSlice, fill_rule: FillRule) {
     let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
 
-    let res = ::std::panic::catch_unwind(|| tessellate(path, false));
+    let res = ::std::panic::catch_unwind(|| tessellate(path, fill_rule, false));
 
     if res.is_ok() {
         return;
@@ -35,15 +41,15 @@ fn test_path(path: PathSlice) {
 
     if find_test_case {
         crate::extra::debugging::find_reduced_test_case(path, &|path: Path| {
-            return tessellate(path.as_slice(), false).is_err();
+            return tessellate(path.as_slice(), fill_rule, false).is_err();
         });
     }
 
     if add_logging {
-        tessellate(path, true).unwrap();
+        tessellate(path, fill_rule, true).unwrap();
     }
 
-    panic!("Test failed.");
+    panic!("Test failed with fill rule {:?}.", fill_rule);
 }
 
 #[test]

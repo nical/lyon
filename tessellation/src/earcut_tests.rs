@@ -22,9 +22,7 @@
 use crate::math::*;
 use crate::geometry_builder::{simple_builder, VertexBuffers};
 use crate::path::{Path, PathSlice};
-use crate::FillOptions;
-use crate::FillTessellator;
-use crate::TessellationError;
+use crate::{FillTessellator, FillOptions, FillRule, TessellationError};
 
 #[test]
 fn bad_diagonal() {
@@ -20197,7 +20195,8 @@ fn earcut_test(path: &[&[[i32; 2]]]) {
         builder.end(true);
     }
     let path = builder.build();
-    test_path(path.as_slice());
+    test_path(path.as_slice(), FillRule::EvenOdd);
+    test_path(path.as_slice(), FillRule::NonZero);
 }
 
 fn earcut_test_f32(path: &[&[[f32; 2]]]) {
@@ -20214,14 +20213,16 @@ fn earcut_test_f32(path: &[&[[f32; 2]]]) {
         builder.end(true);
     }
     let path = builder.build();
-    test_path(path.as_slice());
+    test_path(path.as_slice(), FillRule::EvenOdd);
+    test_path(path.as_slice(), FillRule::NonZero);
 }
 
 #[cfg(test)]
-fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
+fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
-        let options = FillOptions::tolerance(0.05);
+        let options = FillOptions::tolerance(0.05)
+            .with_fill_rule(fill_rule);
 
         use crate::path::iterator::*;
         let mut builder = Path::builder();
@@ -20239,11 +20240,11 @@ fn tessellate(path: PathSlice, log: bool) -> Result<usize, TessellationError> {
 }
 
 #[cfg(test)]
-fn test_path(path: PathSlice) {
+fn test_path(path: PathSlice, fill_rule: FillRule) {
     let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
 
-    let res = ::std::panic::catch_unwind(|| tessellate(path, false));
+    let res = ::std::panic::catch_unwind(|| tessellate(path, fill_rule, false));
 
     if let Ok(Ok(_)) = res {
         return;
@@ -20251,13 +20252,13 @@ fn test_path(path: PathSlice) {
 
     if find_test_case {
         crate::extra::debugging::find_reduced_test_case(path, &|path: Path| {
-            return tessellate(path.as_slice(), false).is_err();
+            return tessellate(path.as_slice(), fill_rule, false).is_err();
         });
     }
 
     if add_logging {
-        tessellate(path, true).unwrap();
+        tessellate(path, fill_rule, true).unwrap();
     }
 
-    panic!();
+    panic!("Test failed with fill rule {:?}.", fill_rule);
 }
