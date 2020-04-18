@@ -14,6 +14,7 @@ use crate::{
 use std::cmp::Ordering;
 use std::f32;
 use std::ops::Range;
+use std::mem;
 
 #[cfg(debug_assertions)]
 use std::env;
@@ -451,6 +452,7 @@ pub struct FillTessellator {
     assume_no_intersection: bool,
     attrib_buffer: Vec<f32>,
 
+    scan: ActiveEdgeScan,
     events: EventQueue,
 }
 
@@ -475,6 +477,7 @@ impl FillTessellator {
             assume_no_intersection: false,
             attrib_buffer: Vec::new(),
 
+            scan: ActiveEdgeScan::new(),
             events: EventQueue::new(),
         }
     }
@@ -679,7 +682,11 @@ impl FillTessellator {
 
         builder.begin_geometry();
 
-        let result = self.tessellator_loop(attrib_store, builder);
+        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new());
+
+        let result = self.tessellator_loop(attrib_store, &mut scan, builder);
+
+        mem::swap(&mut self.scan, &mut scan);
 
         if let Err(e) = result {
             tess_log!(self, "Tessellation failed with error: {:?}.", e);
@@ -723,11 +730,11 @@ impl FillTessellator {
     fn tessellator_loop(
         &mut self,
         attrib_store: Option<&dyn AttributeStore>,
+        scan: &mut ActiveEdgeScan,
         output: &mut dyn FillGeometryBuilder,
     ) -> Result<(), TessellationError> {
         log_svg_preamble(self);
 
-        let mut scan = ActiveEdgeScan::new();
         let mut _prev_position = point(std::f32::MIN, std::f32::MIN);
         self.current_event_id = self.events.first_id();
         while self.events.valid_id(self.current_event_id) {
@@ -736,12 +743,12 @@ impl FillTessellator {
             debug_assert!(is_after(self.current_position, _prev_position));
             _prev_position = self.current_position;
 
-            if let Err(e) = self.process_events(&mut scan, output) {
+            if let Err(e) = self.process_events(scan, output) {
                 // Something went wrong, attempt to salvage the state of the sweep
                 // line
                 self.recover_from_error(e, output);
                 // ... and try again.
-                self.process_events(&mut scan, output)?
+                self.process_events(scan, output)?
             }
 
             #[cfg(debug_assertions)]
