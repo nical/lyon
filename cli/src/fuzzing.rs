@@ -2,9 +2,12 @@ use commands::{FuzzCmd, Tessellator};
 use lyon::extra::debugging::find_reduced_test_case;
 use lyon::math::*;
 use lyon::path::Path;
+use lyon::path::traits::PathBuilder;
 use lyon::tess2;
 use lyon::tessellation::geometry_builder::NoOutput;
-use lyon::tessellation::{FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
+use lyon::tessellation::{FillTessellator, StrokeTessellator};
+use lyon::algorithms::hatching::*;
+use lyon::geom::LineSegment;
 use rand;
 use std::cmp::{max, min};
 
@@ -48,9 +51,9 @@ pub fn run(cmd: FuzzCmd) -> bool {
     println!("----");
     println!(
         "Fuzzing {} tessellation:",
-        match (cmd.fill, cmd.stroke) {
-            (true, true) => "fill and stroke",
-            (_, true) => "stroke",
+        match (cmd.tess.fill, cmd.tess.stroke) {
+            (Some(..), Some(..)) => "fill and stroke",
+            (_, Some(..)) => "stroke",
             _ => "fill",
         }
     );
@@ -63,10 +66,9 @@ pub fn run(cmd: FuzzCmd) -> bool {
     println!("----");
     loop {
         let path = generate_path(&cmd, i);
-        if cmd.fill || !cmd.stroke {
+        if let Some(options) = cmd.tess.fill {
             let status = ::std::panic::catch_unwind(|| {
-                let options = FillOptions::default();
-                match cmd.tessellator {
+                match cmd.tess.tessellator {
                     Tessellator::Default => {
                         let result = FillTessellator::new().tessellate(
                             &path,
@@ -95,18 +97,55 @@ pub fn run(cmd: FuzzCmd) -> bool {
                 println!("    Path #{}", i);
                 find_reduced_test_case(path.as_slice(), &|path: Path| {
                     FillTessellator::new()
-                        .tessellate(&path, &FillOptions::default(), &mut NoOutput::new())
+                        .tessellate(&path, &options, &mut NoOutput::new())
                         .is_err()
                 });
 
                 panic!("aborting");
             }
         }
-        if cmd.stroke {
+        if let Some(options) = cmd.tess.stroke {
             StrokeTessellator::new()
-                .tessellate(&path, &StrokeOptions::default(), &mut NoOutput::new())
+                .tessellate(&path, &options, &mut NoOutput::new())
                 .unwrap();
         }
+
+        if let Some(ref hatch) = cmd.tess.hatch {
+            let mut builder = Path::builder();
+            let mut hatcher = Hatcher::new();
+            hatcher.hatch_path(
+                path.iter(),
+                &hatch.options,
+                &mut RegularHatchingPattern {
+                    interval: hatch.spacing,
+                    callback: &mut |segment: &HatchSegment| {
+                        builder.add_line_segment(&LineSegment {
+                            from: segment.a.position,
+                            to: segment.b.position,
+                        });
+                    },
+                },
+            );
+            let _hatched_path = builder.build();
+        }
+
+        if let Some(ref dots) = cmd.tess.dots {
+            let mut builder = Path::builder();
+            let mut hatcher = Hatcher::new();
+            hatcher.dot_path(
+                path.iter(),
+                &dots.options,
+                &mut RegularDotPattern {
+                    row_interval: dots.spacing,
+                    column_interval: dots.spacing,
+                    callback: &mut |dot: &Dot| {
+                        builder.add_point(dot.position);
+                    },
+                },
+            );
+            let _dotted_path = builder.build();
+        }
+
         i += 1;
         if i % 500 == 0 {
             println!(" -- tested {} paths", i);

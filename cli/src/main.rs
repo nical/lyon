@@ -33,7 +33,7 @@ fn main() {
         .author("Nicolas Silva <nical@fastmail.com>")
         .about("Path tessellator")
         .subcommand(
-            declare_tess_params(SubCommand::with_name("tessellate"))
+            declare_tess_params(SubCommand::with_name("tessellate"), true)
                 .about("Tessellates a path")
                 .arg(
                     Arg::with_name("DEBUG")
@@ -107,20 +107,8 @@ fn main() {
                 ),
         )
         .subcommand(
-            SubCommand::with_name("fuzz")
+            declare_tess_params(SubCommand::with_name("fuzz"), false)
                 .about("tessellates random paths in order to find potential bugs")
-                .arg(
-                    Arg::with_name("FILL")
-                        .short("f")
-                        .long("fill")
-                        .help("Fills the path"),
-                )
-                .arg(
-                    Arg::with_name("STROKE")
-                        .short("s")
-                        .long("stroke")
-                        .help("Strokes the path"),
-                )
                 .arg(
                     Arg::with_name("MAX_POINTS")
                         .long("max-points")
@@ -136,20 +124,13 @@ fn main() {
                         .takes_value(true),
                 )
                 .arg(
-                    Arg::with_name("TESSELLATOR")
-                        .long("tessellator")
-                        .help("Select the tessellator to use")
-                        .value_name("TESSELLATOR")
-                        .takes_value(true),
-                )
-                .arg(
                     Arg::with_name("IGNORE_ERRORS")
                         .long("ignore-errors")
                         .help("Try to continue when encoutering errors unless it is a panic."),
                 ),
         )
         .subcommand(
-            declare_tess_params(SubCommand::with_name("show"))
+            declare_tess_params(SubCommand::with_name("show"), true)
                 .about("Renders a path in an interactive window")
                 .arg(
                     Arg::with_name("ANTIALIASING")
@@ -179,7 +160,7 @@ fn main() {
 
     if let Some(command) = matches.subcommand_matches("tessellate") {
         let output = get_output(&command);
-        let cmd = get_tess_command(&command);
+        let cmd = get_tess_command(&command, true);
         let cmd_copy = cmd.clone();
         let float_precision = cmd.float_precision;
 
@@ -227,8 +208,7 @@ fn main() {
 
     if let Some(fuzz_matches) = matches.subcommand_matches("fuzz") {
         fuzzing::run(FuzzCmd {
-            fill: fuzz_matches.is_present("FILL"),
-            stroke: fuzz_matches.is_present("STROKE"),
+            tess: get_tess_command(fuzz_matches, false),
             min_points: fuzz_matches
                 .value_of("MIN_POINTS")
                 .and_then(|str_val| str_val.parse::<u32>().ok()),
@@ -241,7 +221,7 @@ fn main() {
     }
 
     if let Some(command) = matches.subcommand_matches("show") {
-        let cmd = get_tess_command(command);
+        let cmd = get_tess_command(command, true);
         let render_params = get_render_params(command);
         show::show_path(cmd, render_params);
     }
@@ -266,8 +246,12 @@ fn declare_input_path<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
     )
 }
 
-fn declare_tess_params<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
-    declare_input_path(app)
+fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b> {
+    if need_path {
+        declare_input_path(app)
+    } else {
+        app
+    }
     .arg(Arg::with_name("FILL")
         .short("f")
         .long("fill")
@@ -388,8 +372,13 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
     }
 }
 
-fn get_tess_command(command: &ArgMatches) -> TessellateCmd {
-    let path = get_path(command).expect("Need a path to tessellate");
+fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
+    let path = if need_path {
+        get_path(command).expect("Need a path to tessellate")
+    } else {
+        Path::new()
+    };
+
     let stroke = get_stroke(command);
     let hatch = get_hatching(command);
     let dots = get_dots(command);
