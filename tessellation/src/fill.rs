@@ -624,7 +624,13 @@ impl FillTessellator {
     /// Enable/disable some verbose logging during the tessellation, for
     /// debugging purposes.
     pub fn set_logging(&mut self, is_enabled: bool) {
-        self.log = is_enabled;
+        #[cfg(debug_assertions)]
+        let forced = env::var("LYON_FORCE_LOGGING").is_ok();
+
+        #[cfg(not(debug_assertions))]
+        let forced = false;
+
+        self.log = is_enabled || forced;
     }
 
     fn tessellator_loop(
@@ -646,7 +652,7 @@ impl FillTessellator {
             if let Err(e) = self.process_events(&mut scan, output) {
                 // Something went wrong, attempt to salvage the state of the sweep
                 // line
-                self.recover_from_error(e);
+                self.recover_from_error(e, output);
                 // ... and try again.
                 self.process_events(&mut scan, output)?
             }
@@ -733,6 +739,8 @@ impl FillTessellator {
             self.edges_below.len(),
         );
 
+        tess_log!(self, "edges below (initially): {:#?}", self.edges_below);
+
         // Step 1 - Scan the active edge list, deferring processing and detecting potential
         // ordering issues in the active edges.
         self.scan_active_edges(scan)?;
@@ -776,7 +784,7 @@ impl FillTessellator {
             } else {
                 tess_log!(
                     self,
-                    r#"  <path d="M {} {} L {} {}" class="edge", winding="{}" sort_x="{:.}" min_x="{:.}"/>"#,
+                    r#"  <path d="M {:.5?} {:.5?} L {:.5?} {:.5?}" class="edge", winding="{:>2}" sort_x="{:.}" min_x="{:.}"/>"#,
                     e.from.x,
                     e.from.y,
                     e.to.x,
@@ -793,16 +801,18 @@ impl FillTessellator {
 
     #[cfg(debug_assertions)]
     fn check_active_edges(&self) {
-        let mut winding = 0;
-        for edge in &self.active.edges {
+        let mut winding = WindingState::new();
+        for (idx, edge) in self.active.edges.iter().enumerate() {
+            winding.update(self.fill_rule, edge.winding);
             if edge.is_merge {
-                assert!(self.fill_rule.is_in(winding));
+                assert!(self.fill_rule.is_in(winding.number));
             } else {
-                assert!(!is_after(self.current_position, edge.to));
-                winding += edge.winding;
+                assert!(!is_after(self.current_position, edge.to), "error at edge {}, position {:?}", idx, edge.to);
             }
         }
-        assert_eq!(winding, 0);
+        assert_eq!(winding.number, 0);
+        let expected_span_count = (winding.span_index + 1) as usize;
+        assert_eq!(self.fill.spans.len(), expected_span_count);
     }
 
     /// Scan the active edges to find the information we will need for the tessellation, without
@@ -1182,7 +1192,8 @@ impl FillTessellator {
             });
             tess_log!(
                 self,
-                "add edge below {:?} -> {:?} ({:?})",
+                "split {:?}, add edge below {:?} -> {:?} ({:?})",
+                edge_idx,
                 self.current_position,
                 self.edges_below.last().unwrap().to,
                 active_edge.winding,
@@ -1223,13 +1234,13 @@ impl FillTessellator {
             winding.is_in
         );
         tess_log!(self, "winding state before point: {:?}", winding);
-        tess_log!(self, "edges below: {:?}", self.edges_below);
+        tess_log!(self, "edges below: {:#?}", self.edges_below);
 
         self.sort_edges_below();
 
-        if scan.split_event {
-            debug_assert!(self.edges_below.len() >= 2);
+        self.handle_coincident_edges_below();
 
+        if scan.split_event {
             // Split event.
             //
             //  ...........
@@ -1467,17 +1478,7 @@ impl FillTessellator {
 
                 let active_edge = &mut self.active.edges[active_edge_idx];
 
-                if is_near(self.current_position, intersection_position) {
-                    tess_log!(self, "fix intersection position to current_position");
-                    intersection_position = self.current_position;
-                    // We moved the intersection to the current position to avoid breaking ordering.
-                    // This means we won't be adding an intersection event and we have to treat
-                    // splitting the two edges in a special way:
-                    // - the edge below does not need to be split.
-                    // - the active edge is split so that it's upper part now ends at the current
-                    //   position which means it must be removed, however removing edges ending at
-                    //   the current position happens before the intersection checks. So instead we
-                    //   modify it in place and don't add a new event.
+                if self.current_position == intersection_position {
                     active_edge.from = intersection_position;
                     active_edge.min_x = active_edge.min_x.min(intersection_position.x);
                     let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
@@ -1502,7 +1503,7 @@ impl FillTessellator {
                     tess_log!(self, "intersection near below.to");
                     intersection_position = edge_below.to;
                 } else if is_near(intersection_position, active_edge.to) {
-                    tess_log!(self, "intersection near below.to");
+                    tess_log!(self, "intersection near active_edge.to");
                     intersection_position = active_edge.to;
                 }
 
@@ -1510,6 +1511,7 @@ impl FillTessellator {
                 let b_src_edge_data = self.events.edge_data[edge_below.src_edge as usize].clone();
 
                 let mut inserted_evt = None;
+                let mut flipped_active = false;
 
                 if active_edge.to != intersection_position
                     && active_edge.from != intersection_position
@@ -1534,6 +1536,7 @@ impl FillTessellator {
                         ));
                     } else {
                         tess_log!(self, "flip active edge after intersection");
+                        flipped_active = true;
                         self.events.insert_sorted(
                             active_edge.to,
                             EdgeData {
@@ -1596,11 +1599,25 @@ impl FillTessellator {
                             },
                             self.current_event_id,
                         );
-                    };
+
+                        if flipped_active {
+                            // It is extremely rare but if we end up flipping both of the
+                            // edges that are inserted in the event queue, then we created a
+                            // merge event which means we have to insert a vertex event into
+                            // the queue, otherwise the tessellator will skip over the end of
+                            // these two edges.
+                            self.events.vertex_event_sorted(
+                                intersection_position,
+                                b_src_edge_data.to_id,
+                                self.current_event_id,
+                            );
+                        }
+                    }
 
                     edge_below.to = intersection_position;
                     edge_below.range_end = remapped_tb;
                 }
+
             }
         }
 
@@ -1703,7 +1720,7 @@ impl FillTessellator {
         }
     }
 
-    fn recover_from_error(&mut self, _error: InternalError) {
+    fn recover_from_error(&mut self, _error: InternalError, output: &mut dyn FillGeometryBuilder) {
         tess_log!(self, "Attempt to recover error {:?}", _error);
 
         self.sort_active_edges();
@@ -1743,6 +1760,11 @@ impl FillTessellator {
             }
         }
 
+        while self.fill.spans.len() > (winding.span_index + 1) as usize {
+            self.fill.spans.last_mut().unwrap().tess.flush(output);
+            self.fill.spans.pop();
+        }
+
         tess_log!(self, "-->");
 
         #[cfg(debug_assertions)]
@@ -1753,6 +1775,69 @@ impl FillTessellator {
         self.edges_below
             .sort_by(|a, b| b.angle.partial_cmp(&a.angle).unwrap_or(Ordering::Equal));
     }
+
+    fn handle_coincident_edges_below(&mut self) {
+        if self.edges_below.len() < 2 {
+            return;
+        }
+
+        for idx in (0..(self.edges_below.len() - 1)).rev() {
+            let a_idx = idx;
+            let b_idx = idx + 1;
+            let a_angle = self.edges_below[a_idx].angle;
+            let b_angle = self.edges_below[b_idx].angle;
+            if (a_angle - b_angle).abs() > 0.001 {
+                continue;
+            }
+
+            let a_to = self.edges_below[a_idx].to;
+            let b_to = self.edges_below[b_idx].to;
+            let (lower_idx, upper_idx, split) = match compare_positions(a_to, b_to) {
+                Ordering::Greater => (a_idx, b_idx, true),
+                Ordering::Less => (b_idx, a_idx, true),
+                Ordering::Equal => (a_idx, b_idx, false),
+            };
+
+            tess_log!(self, "coincident edges {:?} -> {:?} / {:?}", self.current_position, a_to, b_to);
+
+            tess_log!(self, "update winding: {:?} -> {:?}", self.edges_below[upper_idx].winding, self.edges_below[upper_idx].winding + self.edges_below[lower_idx].winding);
+            self.edges_below[upper_idx].winding += self.edges_below[lower_idx].winding;
+            let split_point = self.edges_below[upper_idx].to;
+
+            tess_log!(self, "remove coincident edge {:?}, split:{:?}", idx, split);
+            let edge = self.edges_below.remove(lower_idx);
+
+            if !split {
+                continue;
+            }
+
+            let src_edge_data = self.events.edge_data[edge.src_edge as usize].clone();
+
+            let t = LineSegment {
+                from: self.current_position,
+                to: edge.to,
+            }.solve_t_for_y(split_point.y);
+
+            let src_range = src_edge_data.range.start..edge.range_end;
+            let t_remapped = remap_t_in_range(t, src_range);
+
+            let edge_data = EdgeData {
+                range: t_remapped..edge.range_end,
+                winding: edge.winding,
+                to: edge.to,
+                is_edge: true,
+                ..src_edge_data
+            };
+
+            self.events.insert_sorted(
+                split_point,
+                edge_data,
+                self.current_event_id,
+            );
+        }
+
+    }
+
 
     fn reset(&mut self) {
         self.current_position = point(f32::MIN, f32::MIN);
@@ -1792,7 +1877,7 @@ pub(crate) fn is_after(a: Point, b: Point) -> bool {
 
 #[inline]
 pub(crate) fn is_near(a: Point, b: Point) -> bool {
-    (a - b).square_length() < 0.0001
+    (a - b).square_length() < 0.000000001
 }
 
 #[inline]
