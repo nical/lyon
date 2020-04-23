@@ -184,7 +184,7 @@ impl EventQueue {
         after: TessEventId,
     ) -> TessEventId {
         debug_assert!(self.sorted);
-        debug_assert!(is_after(data.to, position));
+        debug_assert!(is_after(data.to, position), "{:?} should be after {:?}", data.to, position);
 
         let idx = self.events.len() as TessEventId;
         self.events.push(Event {
@@ -194,6 +194,49 @@ impl EventQueue {
         });
         self.edge_data.push(data);
 
+        self.insert_into_sorted_list(idx, position, after);
+
+        idx
+    }
+
+    pub(crate) fn insert_sibling(&mut self, sibling: TessEventId, position: Point, data: EdgeData) {
+        debug_assert!(is_after(data.to, position));
+        let idx = self.events.len() as TessEventId;
+        let next_sibling = self.events[sibling as usize].next_sibling;
+
+        self.events.push(Event {
+            position,
+            next_event: INVALID_EVENT_ID,
+            next_sibling,
+        });
+
+        self.edge_data.push(data);
+
+        self.events[sibling as usize].next_sibling = idx;
+    }
+
+    pub(crate) fn vertex_event_sorted(
+        &mut self,
+        position: Point,
+        endpoint_id: EndpointId,
+        after: TessEventId,
+    ) {
+        let idx = self.events.len() as TessEventId;
+
+        self.push_unsorted(position);
+        self.edge_data.push(EdgeData {
+            to: point(f32::NAN, f32::NAN),
+            range: 0.0..0.0,
+            winding: 0,
+            is_edge: false,
+            from_id: endpoint_id,
+            to_id: endpoint_id,
+        });
+
+        self.insert_into_sorted_list(idx, position, after);
+    }
+
+    fn insert_into_sorted_list(&mut self, idx: TessEventId, position: Point, after: TessEventId) {
         let mut prev = after;
         let mut current = after;
         while self.valid_id(current) {
@@ -213,24 +256,6 @@ impl EventQueue {
             prev = current;
             current = self.next_id(current);
         }
-
-        idx
-    }
-
-    pub(crate) fn insert_sibling(&mut self, sibling: TessEventId, position: Point, data: EdgeData) {
-        debug_assert!(is_after(data.to, position));
-        let idx = self.events.len() as TessEventId;
-        let next_sibling = self.events[sibling as usize].next_sibling;
-
-        self.events.push(Event {
-            position,
-            next_event: INVALID_EVENT_ID,
-            next_sibling,
-        });
-
-        self.edge_data.push(data);
-
-        self.events[sibling as usize].next_sibling = idx;
     }
 
     pub(crate) fn clear(&mut self) {
