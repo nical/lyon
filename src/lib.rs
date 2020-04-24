@@ -78,7 +78,7 @@
 //!
 //! ```
 //! use lyon::math::{rect, Point};
-//! use lyon::path::builder::*;
+//! use lyon::path::{builder::*, Winding};
 //! use lyon::tessellation::{FillTessellator, FillOptions, VertexBuffers};
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
