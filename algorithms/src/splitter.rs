@@ -460,6 +460,8 @@ use crate::path::builder::PathBuilder;
 
 #[test]
 fn split_with_segment_1() {
+    panic!("JEEJ");
+
     use crate::path::PathEvent;
 
     let mut path = Path::builder();
