@@ -1518,7 +1518,8 @@ impl FillTessellator {
         // manually fixing things up if need be and making sure to not break more
         // invariants in doing so.
 
-        for edge_below in &mut self.edges_below {
+        let mut edges_below = mem::replace(&mut self.edges_below, Vec::new());
+        for edge_below in &mut edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
             let below_max_x = self.current_position.x.max(edge_below.to.x);
 
@@ -1568,163 +1569,170 @@ impl FillTessellator {
             }
 
             if let Some((ta, tb, active_edge_idx)) = intersection {
-                let mut intersection_position = below_segment.sample(tb).to_f32();
-                tess_log!(
-                    self,
-                    "-> intersection at: {:?} : {:?}",
-                    intersection_position,
-                    intersection
-                );
-                tess_log!(
-                    self,
-                    "   from {:?}->{:?} and {:?}->{:?}",
-                    self.active.edges[active_edge_idx].from,
-                    self.active.edges[active_edge_idx].to,
-                    self.current_position,
-                    edge_below.to,
-                );
-
-                let active_edge = &mut self.active.edges[active_edge_idx];
-
-                if self.current_position == intersection_position {
-                    active_edge.from = intersection_position;
-                    let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
-                    let remapped_ta =
-                        remap_t_in_range(ta as f32, src_range.start..active_edge.range_end);
-                    src_range.start = remapped_ta;
-
-                    continue;
-                }
-
-                if intersection_position.y < self.current_position.y {
-                    tess_log!(self, "fixup the intersection because of y coordinate");
-                    intersection_position.y = self.current_position.y + 0.0001; // TODO
-                } else if intersection_position.y == self.current_position.y
-                    && intersection_position.x < self.current_position.x
-                {
-                    tess_log!(self, "fixup the intersection because of x coordinate");
-                    intersection_position.y = self.current_position.y + 0.0001; // TODO
-                }
-
-                if is_near(intersection_position, edge_below.to) {
-                    tess_log!(self, "intersection near below.to");
-                    intersection_position = edge_below.to;
-                } else if is_near(intersection_position, active_edge.to) {
-                    tess_log!(self, "intersection near active_edge.to");
-                    intersection_position = active_edge.to;
-                }
-
-                let a_src_edge_data = self.events.edge_data[active_edge.src_edge as usize].clone();
-                let b_src_edge_data = self.events.edge_data[edge_below.src_edge as usize].clone();
-
-                let mut inserted_evt = None;
-                let mut flipped_active = false;
-
-                if active_edge.to != intersection_position
-                    && active_edge.from != intersection_position
-                {
-                    let remapped_ta = remap_t_in_range(
-                        ta as f32,
-                        a_src_edge_data.range.start..active_edge.range_end,
-                    );
-
-                    if is_after(active_edge.to, intersection_position) {
-                        // Should take this branch most of the time.
-                        inserted_evt = Some(self.events.insert_sorted(
-                            intersection_position,
-                            EdgeData {
-                                range: remapped_ta as f32..active_edge.range_end,
-                                winding: active_edge.winding,
-                                to: active_edge.to,
-                                is_edge: true,
-                                ..a_src_edge_data
-                            },
-                            self.current_event_id,
-                        ));
-                    } else {
-                        tess_log!(self, "flip active edge after intersection");
-                        flipped_active = true;
-                        self.events.insert_sorted(
-                            active_edge.to,
-                            EdgeData {
-                                range: active_edge.range_end..remapped_ta as f32,
-                                winding: -active_edge.winding,
-                                to: intersection_position,
-                                is_edge: true,
-                                ..a_src_edge_data
-                            },
-                            self.current_event_id,
-                        );
-                    }
-
-                    active_edge.to = intersection_position;
-                    active_edge.range_end = remapped_ta;
-                }
-
-                if edge_below.to != intersection_position
-                    && self.current_position != intersection_position
-                {
-                    let remapped_tb = remap_t_in_range(
-                        tb as f32,
-                        b_src_edge_data.range.start..edge_below.range_end,
-                    );
-
-                    if is_after(edge_below.to, intersection_position) {
-                        let edge_data = EdgeData {
-                            range: remapped_tb as f32..edge_below.range_end,
-                            winding: edge_below.winding,
-                            to: edge_below.to,
-                            is_edge: true,
-                            ..b_src_edge_data
-                        };
-
-                        if let Some(idx) = inserted_evt {
-                            // Should take this branch most of the time.
-                            self.events
-                                .insert_sibling(idx, intersection_position, edge_data);
-                        } else {
-                            self.events.insert_sorted(
-                                intersection_position,
-                                edge_data,
-                                self.current_event_id,
-                            );
-                        }
-                    } else {
-                        tess_log!(self, "flip edge below after intersection");
-                        self.events.insert_sorted(
-                            edge_below.to,
-                            EdgeData {
-                                range: edge_below.range_end..remapped_tb as f32,
-                                winding: -edge_below.winding,
-                                to: intersection_position,
-                                is_edge: true,
-                                ..b_src_edge_data
-                            },
-                            self.current_event_id,
-                        );
-
-                        if flipped_active {
-                            // It is extremely rare but if we end up flipping both of the
-                            // edges that are inserted in the event queue, then we created a
-                            // merge event which means we have to insert a vertex event into
-                            // the queue, otherwise the tessellator will skip over the end of
-                            // these two edges.
-                            self.events.vertex_event_sorted(
-                                intersection_position,
-                                b_src_edge_data.to_id,
-                                self.current_event_id,
-                            );
-                        }
-                    }
-
-                    edge_below.to = intersection_position;
-                    edge_below.range_end = remapped_tb;
-                }
-
+                self.process_intersection(ta, tb, active_edge_idx, edge_below, &below_segment);
             }
         }
+        self.edges_below = edges_below;
 
         //self.log_active_edges();
+    }
+
+    #[inline(never)]
+    fn process_intersection(
+        &mut self,
+        ta: f64,
+        tb: f64,
+        active_edge_idx: usize,
+        edge_below: &mut PendingEdge,
+        below_segment: &LineSegment<f64>
+    ) {
+        let mut intersection_position = below_segment.sample(tb).to_f32();
+        tess_log!(self, "-> intersection at: {:?} t={:?}|{:?}", intersection_position, ta, tb);
+        tess_log!(
+            self,
+            "   from {:?}->{:?} and {:?}->{:?}",
+            self.active.edges[active_edge_idx].from,
+            self.active.edges[active_edge_idx].to,
+            self.current_position,
+            edge_below.to,
+        );
+
+        let active_edge = &mut self.active.edges[active_edge_idx];
+
+        if self.current_position == intersection_position {
+            active_edge.from = intersection_position;
+            let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
+            let remapped_ta =
+                remap_t_in_range(ta as f32, src_range.start..active_edge.range_end);
+            src_range.start = remapped_ta;
+
+            return;
+        }
+
+        if intersection_position.y < self.current_position.y {
+            tess_log!(self, "fixup the intersection because of y coordinate");
+            intersection_position.y = self.current_position.y + 0.0001; // TODO
+        } else if intersection_position.y == self.current_position.y
+            && intersection_position.x < self.current_position.x
+        {
+            tess_log!(self, "fixup the intersection because of x coordinate");
+            intersection_position.y = self.current_position.y + 0.0001; // TODO
+        }
+
+        if is_near(intersection_position, edge_below.to) {
+            tess_log!(self, "intersection near below.to");
+            intersection_position = edge_below.to;
+        } else if is_near(intersection_position, active_edge.to) {
+            tess_log!(self, "intersection near active_edge.to");
+            intersection_position = active_edge.to;
+        }
+
+        let a_src_edge_data = self.events.edge_data[active_edge.src_edge as usize].clone();
+        let b_src_edge_data = self.events.edge_data[edge_below.src_edge as usize].clone();
+
+        let mut inserted_evt = None;
+        let mut flipped_active = false;
+
+        if active_edge.to != intersection_position
+            && active_edge.from != intersection_position
+        {
+            let remapped_ta = remap_t_in_range(
+                ta as f32,
+                a_src_edge_data.range.start..active_edge.range_end,
+            );
+
+            if is_after(active_edge.to, intersection_position) {
+                // Should take this branch most of the time.
+                inserted_evt = Some(self.events.insert_sorted(
+                    intersection_position,
+                    EdgeData {
+                        range: remapped_ta as f32..active_edge.range_end,
+                        winding: active_edge.winding,
+                        to: active_edge.to,
+                        is_edge: true,
+                        ..a_src_edge_data
+                    },
+                    self.current_event_id,
+                ));
+            } else {
+                tess_log!(self, "flip active edge after intersection");
+                flipped_active = true;
+                self.events.insert_sorted(
+                    active_edge.to,
+                    EdgeData {
+                        range: active_edge.range_end..remapped_ta as f32,
+                        winding: -active_edge.winding,
+                        to: intersection_position,
+                        is_edge: true,
+                        ..a_src_edge_data
+                    },
+                    self.current_event_id,
+                );
+            }
+
+            active_edge.to = intersection_position;
+            active_edge.range_end = remapped_ta;
+        }
+
+        if edge_below.to != intersection_position
+            && self.current_position != intersection_position
+        {
+            let remapped_tb = remap_t_in_range(
+                tb as f32,
+                b_src_edge_data.range.start..edge_below.range_end,
+            );
+
+            if is_after(edge_below.to, intersection_position) {
+                let edge_data = EdgeData {
+                    range: remapped_tb as f32..edge_below.range_end,
+                    winding: edge_below.winding,
+                    to: edge_below.to,
+                    is_edge: true,
+                    ..b_src_edge_data
+                };
+
+                if let Some(idx) = inserted_evt {
+                    // Should take this branch most of the time.
+                    self.events
+                        .insert_sibling(idx, intersection_position, edge_data);
+                } else {
+                    self.events.insert_sorted(
+                        intersection_position,
+                        edge_data,
+                        self.current_event_id,
+                    );
+                }
+            } else {
+                tess_log!(self, "flip edge below after intersection");
+                self.events.insert_sorted(
+                    edge_below.to,
+                    EdgeData {
+                        range: edge_below.range_end..remapped_tb as f32,
+                        winding: -edge_below.winding,
+                        to: intersection_position,
+                        is_edge: true,
+                        ..b_src_edge_data
+                    },
+                    self.current_event_id,
+                );
+
+                if flipped_active {
+                    // It is extremely rare but if we end up flipping both of the
+                    // edges that are inserted in the event queue, then we created a
+                    // merge event which means we have to insert a vertex event into
+                    // the queue, otherwise the tessellator will skip over the end of
+                    // these two edges.
+                    self.events.vertex_event_sorted(
+                        intersection_position,
+                        b_src_edge_data.to_id,
+                        self.current_event_id,
+                    );
+                }
+            }
+
+            edge_below.to = intersection_position;
+            edge_below.range_end = remapped_tb;
+        }
     }
 
     fn sort_active_edges(&mut self) {
