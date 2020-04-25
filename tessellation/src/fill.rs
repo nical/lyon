@@ -738,7 +738,7 @@ impl FillTessellator {
         self.log = is_enabled || forced;
     }
 
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn tessellator_loop(
         &mut self,
         attrib_store: Option<&dyn AttributeStore>,
@@ -831,7 +831,7 @@ impl FillTessellator {
     }
 
     /// An iteration of the sweep line algorithm.
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn process_events(
         &mut self,
         scan: &mut ActiveEdgeScan,
@@ -934,7 +934,7 @@ impl FillTessellator {
     ///      is needed (for example end events or right events).
     /// - 3) Loop over the edges on the right of the current point to detect potential edges that should
     ///      have been handled in the previous phases.
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn scan_active_edges(&self, scan: &mut ActiveEdgeScan) -> Result<(), InternalError> {
         scan.reset();
 
@@ -1256,7 +1256,7 @@ impl FillTessellator {
         Ok(false)
     }
 
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn process_edges_above(
         &mut self,
         scan: &mut ActiveEdgeScan,
@@ -1330,7 +1330,7 @@ impl FillTessellator {
         }
     }
 
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn process_edges_below(&mut self, scan: &mut ActiveEdgeScan) {
         let mut winding = scan.winding_before_point.clone();
 
@@ -1402,7 +1402,7 @@ impl FillTessellator {
         }
     }
 
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn update_active_edges(&mut self, scan: &ActiveEdgeScan) {
         let above = scan.above.start..scan.above.end;
 
@@ -1499,7 +1499,7 @@ impl FillTessellator {
         );
     }
 
-    //#[inline(never)]
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn handle_intersections(&mut self, skip_range: Range<usize>) {
         // Do intersection checks for all of the new edges against already active edges.
         //
@@ -1842,6 +1842,7 @@ impl FillTessellator {
         }
     }
 
+    #[inline(never)]
     fn recover_from_error(&mut self, _error: InternalError, output: &mut dyn FillGeometryBuilder) {
         tess_log!(self, "Attempt to recover error {:?}", _error);
 
@@ -1893,12 +1894,14 @@ impl FillTessellator {
         self.log_active_edges();
     }
 
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn sort_edges_below(&mut self) {
         self.edges_below.sort_unstable_by(
             |a, b| b.angle.partial_cmp(&a.angle).unwrap()
         );
     }
 
+    #[cfg_attr(feature = "profiling", inline(never))]
     fn handle_coincident_edges_below(&mut self) {
         if self.edges_below.len() < 2 {
             return;
