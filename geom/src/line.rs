@@ -202,11 +202,6 @@ impl<S: Scalar> LineSegment<S> {
     /// segment. To get the intersection point, sample one of the segments
     /// at the corresponding value.
     pub fn intersection_t(&self, other: &Self) -> Option<(S, S)> {
-        let (min1, max1) = self.bounding_range_x();
-        let (min2, max2) = other.bounding_range_x();
-        if min1 > max2 || max1 < min2 {
-            return None;
-        }
 
         if self.to == other.to
             || self.from == other.from
