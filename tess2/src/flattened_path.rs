@@ -1,6 +1,7 @@
 use crate::math::*;
 use crate::path::builder::*;
 use crate::path::EndpointId;
+use crate::path::private::{flatten_quadratic_bezier, flatten_cubic_bezier};
 
 use std::ops::Range;
 

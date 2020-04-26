@@ -35,11 +35,7 @@
 //!
 
 use crate::events::PathEvent;
-use crate::geom::{
-    Arc, ArcFlags, SvgArc,
-    CubicBezierSegment, QuadraticBezierSegment, LineSegment,
-    traits::Transformation
-};
+use crate::geom::{Arc, ArcFlags, SvgArc, LineSegment, traits::Transformation};
 use crate::math::*;
 use crate::polygon::Polygon;
 use crate::path::Verb;
@@ -543,12 +539,12 @@ impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
 
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
         self.current_position = to;
-        flatten_quadratic_bezier(self.tolerance, self.current_position, ctrl, to, self)
+        crate::private::flatten_quadratic_bezier(self.tolerance, self.current_position, ctrl, to, self)
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
         self.current_position = to;
-        flatten_cubic_bezier(self.tolerance, self.current_position, ctrl1, ctrl2, to, self)
+        crate::private::flatten_cubic_bezier(self.tolerance, self.current_position, ctrl1, ctrl2, to, self)
     }
 
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
@@ -975,89 +971,6 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
         self.builder.reserve(endpoints, ctrl_points);
     }
-}
-
-// TODO: not sure whether we want to expose this.
-#[doc(hidden)]
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct DebugValidator {
-    #[cfg(debug_assertions)]
-    in_subpath: bool,
-}
-
-impl DebugValidator {
-    #[inline(always)]
-    pub fn new() -> Self {
-        DebugValidator {
-            #[cfg(debug_assertions)]
-            in_subpath: false,
-        }
-    }
-
-    #[inline(always)]
-    pub fn begin(&mut self) {
-        #[cfg(debug_assertions)] {
-            assert!(!self.in_subpath);
-            self.in_subpath = true;
-        }
-    }
-
-    #[inline(always)]
-    pub fn end(&mut self) {
-        #[cfg(debug_assertions)] {
-            assert!(self.in_subpath);
-            self.in_subpath = false;
-        }
-    }
-
-    #[inline(always)]
-    pub fn edge(&self) {
-        #[cfg(debug_assertions)] {
-            assert!(self.in_subpath);
-        }
-    }
-
-    #[inline(always)]
-    pub fn build(&self) {
-        #[cfg(debug_assertions)] {
-            assert!(!self.in_subpath);
-        }
-    }
-}
-
-#[doc(hidden)]
-pub fn flatten_quadratic_bezier(
-    tolerance: f32,
-    from: Point,
-    ctrl: Point,
-    to: Point,
-    builder: &mut impl PathBuilder,
-) -> EndpointId {
-    let curve = QuadraticBezierSegment { from, ctrl, to, };
-    let mut id = EndpointId::INVALID;
-    curve.for_each_flattened(tolerance, &mut |point| {
-        id = builder.line_to(point);
-    });
-
-    id
-}
-
-#[doc(hidden)]
-pub fn flatten_cubic_bezier(
-    tolerance: f32,
-    from: Point,
-    ctrl1: Point,
-    ctrl2: Point,
-    to: Point,
-    builder: &mut impl PathBuilder,
-) -> EndpointId {
-    let curve = CubicBezierSegment { from, ctrl1, ctrl2, to };
-    let mut id = EndpointId::INVALID;
-    curve.for_each_flattened(tolerance, &mut |point| {
-        id = builder.line_to(point);
-    });
-
-    id
 }
 
 /// Tessellate the stroke for an axis-aligned rounded rectangle.

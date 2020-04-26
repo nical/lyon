@@ -2,7 +2,7 @@ use crate::fill::{compare_positions, is_after};
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::{point, Point};
 use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
-use crate::path::builder::DebugValidator;
+use crate::path::private::DebugValidator;
 use crate::Orientation;
 
 use std::cmp::Ordering;
