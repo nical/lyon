@@ -1056,10 +1056,6 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
     radii: &BorderRadii,
     winding: Winding,
 ) {
-    if winding == Winding::Negative {
-        unimplemented!("TODO!");
-    }
-
     let w = rect.size.width;
     let h = rect.size.height;
     let x_min = rect.min_x();
@@ -1096,59 +1092,87 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
 
     let tan_pi_over_8 = 0.41421356237;
     let cos_pi_over_4 = 0.70710678118;
-    builder.begin(point(x_min, y_min + tl));
-    if tl > 0.0 {
-        let radius = tl;
-        let d = radius * tan_pi_over_8;
-        let corner = point(x_min, y_min);
-        let ctrl_0 = corner + vector(0.0, radius - d);
-        let mid_0 = corner + vector(1.0, 1.0) * radius * (1.0 - cos_pi_over_4);
-        let ctrl_1 = corner + vector(radius - d, 0.0);
-        let mid_1 = corner + vector(radius, 0.0);
-        builder.quadratic_bezier_to(ctrl_0, mid_0);
-        builder.quadratic_bezier_to(ctrl_1, mid_1);
-    }
-    builder.line_to(point(x_max - tr, y_min));
 
-    if tr > 0.0 {
-        let radius = tr;
-        let d = radius * tan_pi_over_8;
-        let corner = point(x_max, y_min);
-        let ctrl_0 = corner + vector(-radius + d, 0.0);
-        let mid_0 = corner + vector(-1.0, 1.0) * radius * (1.0 - cos_pi_over_4);
-        let ctrl_1 = corner + vector(0.0, radius - d);
-        let mid_1 = corner + vector(0.0, radius);
-        builder.quadratic_bezier_to(ctrl_0, mid_0);
-        builder.quadratic_bezier_to(ctrl_1, mid_1);
-    }
-    builder.line_to(point(x_max, y_max - br));
+    let tl_d = tl * tan_pi_over_8;
+    let tl_corner = point(x_min, y_min);
 
-    if br > 0.0 {
-        let radius = br;
-        let d = radius * tan_pi_over_8;
-        let corner = point(x_max, y_max);
-        let ctrl_0 = corner + vector(0.0, -radius + d);
-        let mid_0 = corner + vector(-1.0, -1.0) * radius * (1.0 - cos_pi_over_4);
-        let ctrl_1 = corner + vector(-radius + d, 0.0);
-        let mid_1 = corner + vector(-radius, 0.0);
-        builder.quadratic_bezier_to(ctrl_0, mid_0);
-        builder.quadratic_bezier_to(ctrl_1, mid_1);
-    }
-    builder.line_to(point(x_min + bl, y_max));
+    let tr_d = tr * tan_pi_over_8;
+    let tr_corner = point(x_max, y_min);
 
-    if bl > 0.0 {
-        let radius = bl;
-        let d = radius * tan_pi_over_8;
-        let corner = point(x_min, y_max);
-        let ctrl_0 = corner + vector(radius - d, 0.0);
-        let mid_0 = corner + vector(1.0, -1.0) * radius * (1.0 - cos_pi_over_4);
-        let ctrl_1 = corner + vector(0.0, -radius + d);
-        let mid_1 = corner + vector(0.0, -radius);
-        builder.quadratic_bezier_to(ctrl_0, mid_0);
-        builder.quadratic_bezier_to(ctrl_1, mid_1);
-    }
+    let br_d = br * tan_pi_over_8;
+    let br_corner = point(x_max, y_max);
 
-    builder.close();
+    let bl_d = bl * tan_pi_over_8;
+    let bl_corner = point(x_min, y_max);
+
+    let points = [
+        point(x_min, y_min + tl),
+        tl_corner + vector(0.0, tl - tl_d),
+        tl_corner + vector(1.0, 1.0) * tl * (1.0 - cos_pi_over_4),
+        tl_corner + vector(tl - tl_d, 0.0),
+        tl_corner + vector(tl, 0.0),
+        point(x_max - tr, y_min),
+        tr_corner + vector(-tr + tr_d, 0.0),
+        tr_corner + vector(-1.0, 1.0) * tr * (1.0 - cos_pi_over_4),
+        tr_corner + vector(0.0, tr - tr_d),
+        tr_corner + vector(0.0, tr),
+        point(x_max, y_max - br),
+        br_corner + vector(0.0, -br + br_d),
+        br_corner + vector(-1.0, -1.0) * br * (1.0 - cos_pi_over_4),
+        br_corner + vector(-br + br_d, 0.0),
+        br_corner + vector(-br, 0.0),
+        point(x_min + bl, y_max),
+        bl_corner + vector(bl - bl_d, 0.0),
+        bl_corner + vector(1.0, -1.0) * bl * (1.0 - cos_pi_over_4),
+        bl_corner + vector(0.0, -bl + bl_d),
+        bl_corner + vector(0.0, -bl),
+    ];
+
+    if winding == Winding::Positive {
+        builder.begin(points[0]);
+        if tl > 0.0 {
+            builder.quadratic_bezier_to(points[1], points[2]);
+            builder.quadratic_bezier_to(points[3], points[4]);
+        }
+        builder.line_to(points[5]);
+        if tl > 0.0 {
+            builder.quadratic_bezier_to(points[6], points[7]);
+            builder.quadratic_bezier_to(points[8], points[9]);
+        }
+        builder.line_to(points[10]);
+        if br > 0.0 {
+            builder.quadratic_bezier_to(points[11], points[12]);
+            builder.quadratic_bezier_to(points[13], points[14]);
+        }
+        builder.line_to(points[15]);
+        if bl > 0.0 {
+            builder.quadratic_bezier_to(points[16], points[17]);
+            builder.quadratic_bezier_to(points[18], points[19]);
+        }
+        builder.end(true);
+    } else {
+        builder.begin(points[19]);
+        if bl > 0.0 {
+            builder.quadratic_bezier_to(points[18], points[17]);
+            builder.quadratic_bezier_to(points[16], points[15]);
+        }
+        builder.line_to(points[14]);
+        if br > 0.0 {
+            builder.quadratic_bezier_to(points[13], points[12]);
+            builder.quadratic_bezier_to(points[11], points[10]);
+        }
+        builder.line_to(points[9]);
+        if tl > 0.0 {
+            builder.quadratic_bezier_to(points[8], points[7]);
+            builder.quadratic_bezier_to(points[6], points[5]);
+        }
+        builder.line_to(points[4]);
+        if tl > 0.0 {
+            builder.quadratic_bezier_to(points[3], points[2]);
+            builder.quadratic_bezier_to(points[1], points[0]);
+        }
+        builder.end(true);
+    }
 }
 
 #[inline]
