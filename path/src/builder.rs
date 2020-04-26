@@ -1,33 +1,36 @@
-//! Tools to build path objects from a sequence of imperative commands.
+//! Path building utilities.
 //!
 //! ## Examples
 //!
-//! The following example shows the Builder struct from the
-//! [lyon_path](https://docs.rs/lyon_path/*/lyon_path) crate using the
+//! The following example shows how to create a simple path using the
 //! [PathBuilder](trait.PathBuilder.html) interface.
 //!
-//! ```ignore
+//! ```
+//! use lyon_path::{Path, geom::point};
+//!
 //! let mut builder = Path::builder();
 //!
-//! builder.move_to(point(0.0, 0.0));
+//! builder.begin(point(0.0, 0.0));
 //! builder.line_to(point(1.0, 0.0));
 //! builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
 //! builder.cubic_bezier_to(point(2.0, 2.0), point(0.0, 2.0), point(0.0, 0.0));
-//! builder.close();
+//! builder.end(true);
 //!
 //! let path = builder.build();
 //! ```
 //!
-//! To build a path that approximates curves with a sequence of line segments, use a
-//! flattened builder:
+//! Implementors of the `PathBuilder` trait automatically gain access to a few adapters.
+//! For example a builder that approximates curves with a sequence of line segments:
 //!
-//! ```ignore
+//! ```
+//! use lyon_path::{Path, traits::PathBuilder, geom::point};
+//!
 //! let tolerance = 0.05;// maximum distance between a curve and its approximation.
 //! let mut builder = Path::builder().flattened(tolerance);
 //!
-//! builder.move_to(point(0.0, 0.0));
+//! builder.begin(point(0.0, 0.0));
 //! builder.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0));
-//! builder.close();
+//! builder.end(true);
 //!
 //! // The resulting path contains only Begin, Line and End events.
 //! let path = builder.build();
@@ -46,6 +49,7 @@ use crate::path::Verb;
 use crate::{EndpointId, Winding};
 
 use std::marker::Sized;
+use std::iter::IntoIterator;
 
 /// The radius of each corner of a rounded rectangle.
 #[derive(Copy, Clone)]
@@ -146,6 +150,16 @@ pub trait PathBuilder {
             PathEvent::End { close, .. } => {
                 self.end(close);
             }
+        }
+    }
+
+    /// Adds events from an iterator.
+    fn extend<Evts>(&mut self, events: Evts)
+    where
+        Evts: IntoIterator<Item = PathEvent>
+    {
+        for evt in events.into_iter() {
+            self.path_event(evt)
         }
     }
 
@@ -500,7 +514,8 @@ pub trait SvgPathBuilder {
 /// Builds a path.
 ///
 /// This trait is separate from `PathBuilder` and `SvgPathBuilder` to allow them to
-/// be used as trait object (which isn't when a method returns an associated type).
+/// be used as trait object (which isn't possible when a method returns an associated
+/// type).
 pub trait Build {
     /// The type of object that is created by this builder.
     type PathType;
@@ -567,6 +582,12 @@ impl<Builder: PathBuilder> Flattened<Builder> {
 
     pub fn set_tolerance(&mut self, tolerance: f32) {
         self.tolerance = tolerance
+    }
+}
+
+impl<Builder: Build> Flattened<Builder> {
+    pub fn build(self) -> Builder::PathType {
+        self.builder.build()
     }
 }
 
@@ -852,6 +873,11 @@ where
     #[inline]
     pub fn set_transform(&mut self, transform: Transform) {
         self.builder.set_transform(transform);
+    }
+
+    pub fn build(mut self) -> Builder::PathType where Builder: Build {
+        self.end_if_needed();
+        self.builder.build()
     }
 }
 
@@ -1219,11 +1245,11 @@ fn nan_check(p: Point) {
 }
 
 #[test]
-fn extended_builder_line_to_after_close() {
+fn svg_builder_line_to_after_close() {
     use crate::Path;
     use crate::PathEvent;
 
-    let mut p = Path::extended_builder();
+    let mut p = Path::svg_builder();
     p.line_to(point(1.0, 0.0));
     p.close();
     p.line_to(point(2.0, 0.0));

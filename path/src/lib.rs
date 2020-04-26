@@ -55,8 +55,14 @@ mod events;
 
 pub use crate::events::*;
 pub use crate::geom::ArcFlags;
+#[doc(inline)]
 pub use crate::path::{Path, PathSlice};
+#[doc(inline)]
 pub use crate::path_buffer::{PathBuffer, PathBufferSlice};
+#[doc(inline)]
+pub use crate::polygon::{Polygon, IdPolygon};
+#[doc(inline)]
+pub use crate::commands::{PathCommands, PathCommandsSlice};
 
 use math::Point;
 use std::fmt;

@@ -2237,6 +2237,13 @@ impl<'l> FillBuilder<'l> {
             p
         }
     }
+
+    pub fn build(self) -> TessellationResult {
+        let mut event_queue = self.events.build();
+        std::mem::swap(&mut self.tessellator.events, &mut event_queue);
+
+        self.tessellator.tessellate_impl(self.options, None, self.output)
+    }
 }
 
 impl<'l> PathBuilder for FillBuilder<'l> {
@@ -2376,10 +2383,7 @@ impl<'l> Build for FillBuilder<'l> {
 
     #[inline]
     fn build(self) -> TessellationResult {
-        let mut event_queue = self.events.build();
-        std::mem::swap(&mut self.tessellator.events, &mut event_queue);
-
-        self.tessellator.tessellate_impl(self.options, None, self.output)
+        self.build()
     }
 }
 
@@ -2478,7 +2482,7 @@ fn fill_vertex_source_01() {
 
     let mut tess = FillTessellator::new();
     tess.tessellate_with_ids(
-        cmds.id_events(),
+        cmds.iter(),
         &(endpoints, endpoints),
         Some(&AttributeSlice::new(attributes, 3)),
         &FillOptions::default(),
@@ -2738,7 +2742,7 @@ fn fill_vertex_source_03() {
 
     let mut tess = FillTessellator::new();
     tess.tessellate_with_ids(
-        cmds.id_events(),
+        cmds.iter(),
         &(endpoints, endpoints),
         Some(&AttributeSlice::new(attributes, 1)),
         &FillOptions::default(),

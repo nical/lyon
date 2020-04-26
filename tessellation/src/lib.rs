@@ -1,5 +1,6 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
+#![deny(unconditional_recursion)]
 // TODO: Tessellation pipeline diagram needs to be updated.
 
 //! Tessellation of 2D fill and stroke operations.
