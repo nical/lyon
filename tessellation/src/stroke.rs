@@ -1,7 +1,7 @@
 use crate::math::*;
 use crate::geom::euclid::Trig;
-use crate::geom::utils::{directed_angle, normalized_tangent};
-use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
+use crate::geom::utils::{directed_angle, normalized_tangent, tangent};
+use crate::geom::{CubicBezierSegment, Line, QuadraticBezierSegment};
 use crate::math_utils::compute_normal;
 use crate::path::builder::{Build, PathBuilder, DebugValidator};
 use crate::path::{AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore, Winding};
@@ -1235,7 +1235,7 @@ impl<'l> StrokeBuilder<'l> {
     }
 
     fn miter_limit_is_exceeded(&self, normal: Vector) -> bool {
-        normal.square_length() > self.options.miter_limit * self.options.miter_limit
+        normal.square_length() > self.options.miter_limit * self.options.miter_limit * 0.5
     }
 
     fn get_clip_intersections(
@@ -1244,40 +1244,28 @@ impl<'l> StrokeBuilder<'l> {
         next_normal: Vector,
         normal: Vector,
     ) -> (Vector, Vector) {
-        let miter_length = self.options.miter_limit * self.options.line_width;
-        let normal_limit = normal.normalize() * miter_length;
-
-        let normal_limit_perp = LineSegment {
-            from: point(
-                normal_limit.x - normal_limit.y,
-                normal_limit.y + normal_limit.x,
-            ),
-            to: point(
-                normal_limit.x + normal_limit.y,
-                normal_limit.y - normal_limit.x,
-            ),
+        let clip_line = Line {
+            point: normal.normalize().to_point() * self.options.miter_limit  * 0.5,
+            vector: tangent(normal),
         };
 
-        let previous_normal = previous_normal.to_point();
-        let next_normal = next_normal.to_point();
-        let normal = normal.to_point();
-
-        let l1 = LineSegment {
-            from: previous_normal,
-            to: normal,
-        };
-        let l2 = LineSegment {
-            from: next_normal,
-            to: normal,
+        let prev_line = Line {
+            point: previous_normal.to_point(),
+            vector: tangent(previous_normal),
         };
 
-        let i1 = l1
-            .intersection(&normal_limit_perp)
-            .unwrap_or(previous_normal)
+        let next_line = Line {
+            point: next_normal.to_point(),
+            vector: tangent(next_normal),
+        };
+
+        let i1 = clip_line
+            .intersection(&prev_line)
+            .unwrap_or(normal.to_point())
             .to_vector();
-        let i2 = l2
-            .intersection(&normal_limit_perp)
-            .unwrap_or(next_normal)
+        let i2 = clip_line
+            .intersection(&next_line)
+            .unwrap_or(normal.to_point())
             .to_vector();
 
         (i1, i2)
