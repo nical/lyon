@@ -1124,11 +1124,11 @@ impl<'l> StrokeBuilder<'l> {
 
         let i1 = clip_line
             .intersection(&prev_line)
-            .unwrap_or(prev_normal.to_point())
+            .unwrap_or(normal.to_point())
             .to_vector();
         let i2 = clip_line
             .intersection(&next_line)
-            .unwrap_or(next_normal.to_point())
+            .unwrap_or(normal.to_point())
             .to_vector();
 
         (i1, i2)
