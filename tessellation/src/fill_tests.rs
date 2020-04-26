@@ -137,7 +137,7 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
     while angle.radians < PI * 2.0 {
         //println!("\n\n ==================== angle = {:?}", angle);
 
-        let tranformed_path = path.transformed(&Rotation::new(angle));
+        let tranformed_path = path.clone().transformed(&Rotation::new(angle));
 
         test_path_internal(tranformed_path.as_slice(), FillRule::EvenOdd, expected_triangle_count);
         test_path_internal(tranformed_path.as_slice(), FillRule::NonZero, None);
@@ -424,7 +424,7 @@ fn test_rust_logo_with_intersection() {
 
 #[cfg(test)]
 fn scale_path(path: &mut Path, scale: f32) {
-    *path = path.transformed(&Scale::new(scale))
+    *path = path.clone().transformed(&Scale::new(scale))
 }
 
 #[test]

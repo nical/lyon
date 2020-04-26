@@ -115,7 +115,7 @@ impl<'l> CmdIter<'l> {
 }
 
 /// The commands of a path encoded in a single array using IDs to refer
-/// to endpoints and control points.
+/// to endpoints and control points externally.
 ///
 /// `PathCommands` is a good fit when the a custom endpoint and control point
 /// types are needed or when their the user needs full control over their storage.
@@ -132,6 +132,21 @@ impl<'l> CmdIter<'l> {
 /// |_______|__________|______|__________|_________|______________|__________|_
 ///
 /// ```
+///
+/// # Example
+///
+/// ```
+/// use lyon_path::{EndpointId, PathCommands};
+///
+/// let mut cmds = PathCommands::builder();
+///
+/// cmds.begin(EndpointId(0));
+/// cmds.line_to(EndpointId(1));
+/// cmds.line_to(EndpointId(2));
+/// cmds.end(true);
+///
+/// let cmds = cmds.build();
+///
 #[derive(Clone)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct PathCommands {
@@ -145,13 +160,13 @@ impl PathCommands {
     }
 
     /// Returns an iterator over the path commands.
-    pub fn id_events(&self) -> IdEvents {
-        IdEvents::new(&self.cmds)
+    pub fn iter(&self) -> Iter {
+        Iter::new(&self.cmds)
     }
 
     /// Returns a view on the path commands.
-    pub fn as_slice(&self) -> CommandsSlice {
-        CommandsSlice { cmds: &self.cmds }
+    pub fn as_slice(&self) -> PathCommandsSlice {
+        PathCommandsSlice { cmds: &self.cmds }
     }
 
     /// Returns a view on a path made of these commands with endpoint and
@@ -209,29 +224,29 @@ impl fmt::Debug for PathCommands {
 
 impl<'l> IntoIterator for &'l PathCommands {
     type Item = IdEvent;
-    type IntoIter = IdEvents<'l>;
+    type IntoIter = Iter<'l>;
 
-    fn into_iter(self) -> IdEvents<'l> {
-        self.id_events()
+    fn into_iter(self) -> Iter<'l> {
+        self.iter()
     }
 }
 
-impl<'l> Into<CommandsSlice<'l>> for &'l PathCommands {
-    fn into(self) -> CommandsSlice<'l> {
+impl<'l> Into<PathCommandsSlice<'l>> for &'l PathCommands {
+    fn into(self) -> PathCommandsSlice<'l> {
         self.as_slice()
     }
 }
 
 /// A view over [`PathCommands`](struct.PathCommands.html).
 #[derive(Copy, Clone)]
-pub struct CommandsSlice<'l> {
+pub struct PathCommandsSlice<'l> {
     cmds: &'l [u32],
 }
 
-impl<'l> CommandsSlice<'l> {
+impl<'l> PathCommandsSlice<'l> {
     /// Returns an iterator over the path commands.
-    pub fn id_events(&self) -> IdEvents {
-        IdEvents::new(self.cmds)
+    pub fn iter(&self) -> Iter {
+        Iter::new(self.cmds)
     }
 
     /// Returns the event for a given event ID.
@@ -306,10 +321,10 @@ impl<'l> CommandsSlice<'l> {
     }
 }
 
-impl<'l> fmt::Debug for CommandsSlice<'l> {
+impl<'l> fmt::Debug for PathCommandsSlice<'l> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\"")?;
-        for evt in self.id_events() {
+        for evt in self.iter() {
             match evt {
                 IdEvent::Line { to, .. } => write!(f, "L {:?}", to),
                 IdEvent::Quadratic { ctrl, to, .. } => write!(f, "Q {:?} {:?} ", ctrl, to),
@@ -332,13 +347,13 @@ impl<'l> fmt::Debug for CommandsSlice<'l> {
 pub struct CommandsPathSlice<'l, Endpoint, ControlPoint> {
     endpoints: &'l [Endpoint],
     control_points: &'l [ControlPoint],
-    cmds: CommandsSlice<'l>,
+    cmds: PathCommandsSlice<'l>,
 }
 
 impl<'l, Endpoint, ControlPoint> CommandsPathSlice<'l, Endpoint, ControlPoint> {
     /// Returns an iterator over the events of the path using IDs.
-    pub fn id_events(&self) -> IdEvents {
-        self.cmds.id_events()
+    pub fn iter(&self) -> Iter {
+        self.cmds.iter()
     }
 
     /// Returns an iterator over the events of the path using endpoint
@@ -606,16 +621,16 @@ where
 }
 /// An iterator of `Event<&Endpoint, &ControlPoint>`.
 #[derive(Clone)]
-pub struct IdEvents<'l> {
+pub struct Iter<'l> {
     cmds: CmdIter<'l>,
     idx: u32,
     prev_endpoint: EndpointId,
     first_endpoint: EndpointId,
 }
 
-impl<'l> IdEvents<'l> {
+impl<'l> Iter<'l> {
     fn new(cmds: &[u32]) -> Self {
-        IdEvents {
+        Iter {
             cmds: CmdIter::new(cmds),
             idx: 0,
             prev_endpoint: EndpointId(0),
@@ -624,7 +639,7 @@ impl<'l> IdEvents<'l> {
     }
 }
 
-impl<'l> Iterator for IdEvents<'l> {
+impl<'l> Iterator for Iter<'l> {
     type Item = IdEvent;
 
     #[inline]
@@ -860,7 +875,7 @@ fn simple_path() {
     builder.end(false);
 
     let path = builder.build();
-    let mut iter = path.id_events();
+    let mut iter = path.iter();
     assert_eq!(iter.next(), Some(IdEvent::Begin { at: EndpointId(0) }));
     assert_eq!(
         iter.next(),

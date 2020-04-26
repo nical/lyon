@@ -180,7 +180,7 @@ fn commands_id_iter(bench: &mut Bencher) {
 
     let mut i = 0;
     bench.iter(|| {
-        for evt in path.id_events() {
+        for evt in &path {
             i += match evt {
                 IdEvent::Begin { at: p }
                 | IdEvent::Line { to: p, .. }

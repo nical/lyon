@@ -92,7 +92,7 @@ impl Path {
 
     /// Creates an [WithSvg](../builder/struct.WithSvg.html) to build a path
     /// with a rich set of commands.
-    pub fn extended_builder() -> WithSvg<Builder> {
+    pub fn svg_builder() -> WithSvg<Builder> {
         WithSvg::new(Self::builder())
     }
 
@@ -138,14 +138,13 @@ impl Path {
 
     /// Applies a transform to all endpoints and control points of this path and
     /// Returns the result.
-    pub fn transformed<T: Transformation<f32>>(&self, transform: &T) -> Self {
-        let mut result = self.clone();
-        result.apply_transform(transform);
+    pub fn transformed<T: Transformation<f32>>(mut self, transform: &T) -> Self {
+        self.apply_transform(transform);
 
-        result
+        self
     }
 
-    /// Reversed version of this path with edge loops are specified in the opposite
+    /// Returns a reversed version of this path with edge loops specified in the opposite
     /// order.
     pub fn reversed(&self) -> Self {
         reverse_path(self.as_slice())
@@ -182,26 +181,6 @@ impl Path {
                 }
                 IdEvent::End { .. } => {}
             }
-        }
-    }
-
-    /// Concatenate two paths.
-    ///
-    /// They must have the same number of custom attributes.
-    pub fn merge(&self, other: &Self) -> Self {
-        assert_eq!(self.num_attributes, other.num_attributes);
-
-        let mut verbs = Vec::with_capacity(self.verbs.len() + other.verbs.len());
-        let mut points = Vec::with_capacity(self.points.len() + other.points.len());
-        verbs.extend_from_slice(&self.verbs);
-        verbs.extend_from_slice(&other.verbs);
-        points.extend_from_slice(&self.points);
-        points.extend_from_slice(&other.points);
-
-        Path {
-            verbs: verbs.into_boxed_slice(),
-            points: points.into_boxed_slice(),
-            num_attributes: self.num_attributes,
         }
     }
 }
@@ -511,6 +490,11 @@ impl Builder {
         self.points.reserve(endpoints + ctrl_points);
         self.verbs.reserve(endpoints);
     }
+
+    #[inline]
+    pub fn concatenate(&mut self, paths: &[PathSlice]) {
+        concatenate_paths(&mut self.points, &mut self.verbs, paths, 0);
+    }
 }
 
 impl PathBuilder for Builder {
@@ -622,6 +606,16 @@ impl BuilderWithAttributes {
             verbs: self.builder.verbs.into_boxed_slice(),
             num_attributes: self.num_attributes,
         }
+    }
+
+    #[inline]
+    pub fn concatenate(&mut self, paths: &[PathSlice]) {
+        concatenate_paths(
+            &mut self.builder.points,
+            &mut self.builder.verbs,
+            paths,
+            self.num_attributes,
+        );
     }
 
     fn push_attributes(&mut self, attributes: &[f32]) {
@@ -1007,6 +1001,30 @@ fn interpolated_attributes(
     unsafe {
         let ptr = &points[idx].x as *const f32;
         std::slice::from_raw_parts(ptr, num_attributes)
+    }
+}
+
+fn concatenate_paths(
+    points: &mut Vec<Point>,
+    verbs: &mut Vec<Verb>,
+    paths: &[PathSlice],
+    num_attributes: usize,
+) {
+    let mut np = 0;
+    let mut nv = 0;
+
+    for path in paths {
+        assert_eq!(path.num_attributes(), num_attributes);
+        np += path.points.len();
+        nv += path.verbs.len();
+    }
+
+    verbs.reserve(nv);
+    points.reserve(np);
+
+    for path in paths {
+        verbs.extend_from_slice(&path.verbs);
+        points.extend_from_slice(&path.points);
     }
 }
 
@@ -1619,7 +1637,7 @@ fn test_path_builder_empty_begin() {
 
 
 #[test]
-fn test_merge_paths() {
+fn test_concatenate() {
     let mut builder = Path::builder();
     builder.begin(point(0.0, 0.0));
     builder.line_to(point(5.0, 0.0));
@@ -1636,7 +1654,12 @@ fn test_merge_paths() {
 
     let path2 = builder.build();
 
-    let path = path1.merge(&path2);
+    let mut builder = Path::builder();
+    builder.concatenate(&[
+        path1.as_slice(),
+        path2.as_slice(),
+    ]);
+    let path = builder.build();
 
     let mut it = path.iter();
     assert_eq!(
