@@ -53,6 +53,9 @@ pub mod path_buffer;
 pub mod path;
 mod events;
 
+#[doc(hidden)]
+pub mod private;
+
 pub use crate::events::*;
 pub use crate::geom::ArcFlags;
 pub use crate::path::{Path, PathSlice};

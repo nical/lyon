@@ -5,6 +5,7 @@ use crate::builder::*;
 use crate::geom::traits::Transformation;
 use crate::math::*;
 use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
+use crate::private::DebugValidator;
 
 use std::iter::IntoIterator;
 use std::u32;

@@ -494,12 +494,6 @@ impl FillTessellator {
         }
     }
 
-    #[doc(hidden)]
-    /// Create and EventQueue.
-    fn create_event_queue(&mut self) -> EventQueue {
-        std::mem::replace(&mut self.events, EventQueue::new())
-    }
-
     /// Compute the tessellation from a path iterator.
     pub fn tessellate(
         &mut self,
@@ -507,7 +501,8 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let mut queue_builder = self.create_event_queue().into_builder();
+        let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
+        let mut queue_builder = event_queue.into_builder();
 
         queue_builder.set_path(
             options.tolerance,
@@ -515,9 +510,7 @@ impl FillTessellator {
             path.into_iter(),
         );
 
-        let mut event_queue = queue_builder.build();
-
-        std::mem::swap(&mut self.events, &mut event_queue);
+        self.events = queue_builder.build();
 
         self.tessellate_impl(options, None, output)
     }
@@ -533,7 +526,8 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let mut queue_builder = self.create_event_queue().into_builder();
+        let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
+        let mut queue_builder = event_queue.into_builder();
 
         queue_builder.set_path_with_ids(
             options.tolerance,
@@ -542,9 +536,7 @@ impl FillTessellator {
             positions,
         );
 
-        let mut event_queue = queue_builder.build();
-
-        std::mem::swap(&mut self.events, &mut event_queue);
+        self.events = queue_builder.build();
 
         self.tessellate_impl(options, custom_attributes, output)
     }
