@@ -3,7 +3,8 @@ use crate::math::*;
 use crate::path::builder::*;
 use crate::path::PathEvent;
 use crate::path::PathSlice;
-use crate::tessellation::{Count, FillOptions, FillRule, GeometryReceiver};
+use crate::tessellation::{Count, FillOptions, FillRule};
+use crate::geometry_builder::GeometryReceiver;
 
 use std::os::raw::c_void;
 use std::ptr;

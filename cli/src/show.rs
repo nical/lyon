@@ -113,7 +113,10 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                     .tessellate(
                         cmd.path.iter(),
                         &options,
-                        &mut BuffersBuilder::new(&mut geometry, WithId(0)),
+                        &mut tess2::geometry_builder::BuffersBuilder::new(
+                            &mut geometry,
+                            WithId(0),
+                        ),
                     )
                     .unwrap();
             }
@@ -480,7 +483,7 @@ impl FillVertexConstructor<GpuVertex> for WithId {
     }
 }
 
-impl BasicVertexConstructor<GpuVertex> for WithId {
+impl tess2::geometry_builder::BasicVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, position: Point) -> GpuVertex {
         debug_assert!(!position.x.is_nan());
         debug_assert!(!position.y.is_nan());
