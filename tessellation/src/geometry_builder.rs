@@ -16,7 +16,6 @@
 //! * [`GeometryBuilder`](trait.GeometryBuilder.html)
 //! * [`FillGeometryBuilder`](trait.FillGeometryBuilder.html)
 //! * [`StrokeGeometryBuilder`](trait.StrokeGeometryBuilder.html)
-//! * [`BasicGeometryBuilder`](trait.BasicGeometryBuilder.html)
 //!
 //! The traits above are what the tessellators interface with. It is very common to push
 //! vertices and indices into a pair of vectors, so to facilitate this pattern this module
@@ -30,9 +29,8 @@
 //!   delegated to a vertex constructor.
 //! * The traits [`FillVertexConstructor`](trait.FillVertexConstructor.html),
 //!   [`StrokeVertexConstructor`](trait.StrokeVertexConstructor.html) and
-//!   [`BasicVertexConstructor`](trait.BasicVertexConstructor.html), used by
 //!   [`BuffersBuilder`](struct.BuffersBuilder.html) in order to generate any vertex type. In the
-//!   first example below, a struct `WithColor` implements the `BasicVertexConstructor` trait in order to
+//!   first example below, a struct `WithColor` implements the `FillVertexConstructor` trait in order to
 //!   create vertices composed of a 2d position and a color value from an input 2d position.
 //!   This separates the construction of vertex values from the assembly of the vertex buffers.
 //!   Another, simpler example of vertex constructor is the [`Positions`](struct.Positions.html)
@@ -65,7 +63,7 @@
 //!
 //! ### Generating custom vertices
 //!
-//! The example below implements the `BasicVertexConstructor` trait in order to use a custom
+//! The example below implements the `FillVertexConstructor` trait in order to use a custom
 //! vertex type `MyVertex` (containing position and color), storing the tessellation in a
 //! `VertexBuffers<MyVertex, u16>`, and tessellates two shapes with different colors.
 //!
@@ -198,38 +196,6 @@
 //! }
 //! ```
 //!
-//! ### Writing a tessellator
-//!
-//! The example below is the implementation of a very basic tessellator for rectangles.
-//!
-//! ```
-//! use lyon_tessellation::geometry_builder::*;
-//! use lyon_tessellation::{FillAttributes, TessellationResult};
-//! use lyon_tessellation::math::{Rect, vector, point};
-//!
-//! // A tessellator that generates an axis-aligned quad.
-//! // Returns a structure containing the number of vertices and number of indices allocated
-//! // during the execution of this method.
-//! pub fn fill_rectangle<Output>(rect: &Rect, output: &mut Output) -> TessellationResult
-//! where
-//!     Output: BasicGeometryBuilder
-//! {
-//!     output.begin_geometry();
-//!     // Create the vertices...
-//!     let min = rect.min();
-//!     let max = rect.max();
-//!     let a = output.add_vertex(min)?;
-//!     let b = output.add_vertex(point(max.x, min.y))?;
-//!     let c = output.add_vertex(max)?;
-//!     let d = output.add_vertex(point(min.x, max.y))?;
-//!     // ...and create triangle form these points. a, b, c, and d are relative offsets in the
-//!     // vertex buffer.
-//!     output.add_triangle(a, b, c);
-//!     output.add_triangle(a, c, d);
-//!
-//!     Ok(output.end_geometry())
-//! }
-//! ```
 
 use crate::math::Point;
 use crate::{FillAttributes, Index, StrokeAttributes, VertexId};
@@ -253,7 +219,6 @@ pub enum GeometryBuilderError {
 /// vertices):
 ///  - [`FillGeometryBuilder`](trait.FillGeometryBuilder.html)
 ///  - [`StrokeGeometryBuilder`](trait.StrokeGeometryBuilder.html)
-///  - [`BasicGeometryBuilder`](trait.BasicGeometryBuilder.html)
 ///
 /// See the [`geometry_builder`](index.html) module documentation for more detailed explanation.
 pub trait GeometryBuilder {
@@ -308,24 +273,6 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
         position: Point,
         attributes: StrokeAttributes,
     ) -> Result<VertexId, GeometryBuilderError>;
-}
-
-// TODO: remove BasicGeometryBuilder ?
-
-/// A Geometry builder to interface with some of the basic tessellators.
-///
-/// Types implementing this trait must also implement the [`GeometryBuilder`](trait.GeometryBuilder.html) trait.
-pub trait BasicGeometryBuilder: GeometryBuilder {
-    fn add_vertex(&mut self, position: Point) -> Result<VertexId, GeometryBuilderError>;
-}
-
-/// An interface with similar goals to `GeometryBuilder` for algorithms that pre-build
-/// the vertex and index buffers.
-///
-/// This is primarily intended for efficient interaction with the libtess2 tessellator
-/// from the `lyon_tess2` crate.
-pub trait GeometryReceiver {
-    fn set_geometry(&mut self, vertices: &[Point], indices: &[u32]);
 }
 
 /// Structure that holds the vertex and index data.
@@ -401,11 +348,6 @@ pub trait StrokeVertexConstructor<OutputVertex> {
     fn new_vertex(&mut self, point: Point, attributes: StrokeAttributes) -> OutputVertex;
 }
 
-/// A trait specifying how to create vertex values.
-pub trait BasicVertexConstructor<OutputVertex> {
-    fn new_vertex(&mut self, point: Point) -> OutputVertex;
-}
-
 /// A simple vertex constructor that just takes the position.
 pub struct Positions;
 
@@ -417,12 +359,6 @@ impl FillVertexConstructor<Point> for Positions {
 
 impl StrokeVertexConstructor<Point> for Positions {
     fn new_vertex(&mut self, position: Point, _attributes: StrokeAttributes) -> Point {
-        position
-    }
-}
-
-impl BasicVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, position: Point) -> Point {
         position
     }
 }
@@ -442,15 +378,6 @@ where
 {
     fn new_vertex(&mut self, position: Point, attributes: StrokeAttributes) -> OutputVertex {
         self(position, attributes)
-    }
-}
-
-impl<F, OutputVertex> BasicVertexConstructor<OutputVertex> for F
-where
-    F: Fn(Point) -> OutputVertex,
-{
-    fn new_vertex(&mut self, position: Point) -> OutputVertex {
-        self(position)
     }
 }
 
@@ -569,42 +496,6 @@ where
     }
 }
 
-impl<'l, OutputVertex, OutputIndex, Ctor> BasicGeometryBuilder
-    for BuffersBuilder<'l, OutputVertex, OutputIndex, Ctor>
-where
-    OutputVertex: 'l,
-    OutputIndex: Add + From<VertexId> + MaxIndex,
-    Ctor: BasicVertexConstructor<OutputVertex>,
-{
-    fn add_vertex(&mut self, p: Point) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers
-            .vertices
-            .push(self.vertex_constructor.new_vertex(p));
-        let len = self.buffers.vertices.len();
-        if len > OutputIndex::MAX {
-            return Err(GeometryBuilderError::TooManyVertices);
-        }
-        Ok(VertexId((len - 1) as Index - self.vertex_offset))
-    }
-}
-
-impl<'l, OutputVertex, OutputIndex, Ctor> GeometryReceiver
-    for BuffersBuilder<'l, OutputVertex, OutputIndex, Ctor>
-where
-    OutputIndex: From<VertexId>,
-    Ctor: BasicVertexConstructor<OutputVertex>,
-{
-    fn set_geometry(&mut self, vertices: &[Point], indices: &[u32]) {
-        for v in vertices {
-            let vertex = self.vertex_constructor.new_vertex(*v);
-            self.buffers.vertices.push(vertex);
-        }
-        for idx in indices {
-            self.buffers.indices.push(OutputIndex::from((*idx).into()));
-        }
-    }
-}
-
 /// A geometry builder that does not output any geometry.
 ///
 /// Mostly useful for testing.
@@ -669,20 +560,6 @@ impl StrokeGeometryBuilder for NoOutput {
         self.count.vertices += 1;
         Ok(VertexId(self.count.vertices as Index - 1))
     }
-}
-
-impl BasicGeometryBuilder for NoOutput {
-    fn add_vertex(&mut self, _pos: Point) -> Result<VertexId, GeometryBuilderError> {
-        if self.count.vertices >= std::u32::MAX {
-            return Err(GeometryBuilderError::TooManyVertices);
-        }
-        self.count.vertices += 1;
-        Ok(VertexId(self.count.vertices as Index - 1))
-    }
-}
-
-impl GeometryReceiver for NoOutput {
-    fn set_geometry(&mut self, _vertices: &[Point], _indices: &[u32]) {}
 }
 
 /// Provides the maximum value of an index.

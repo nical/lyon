@@ -37,7 +37,10 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
                 .tessellate_path(
                     &cmd.path,
                     &options,
-                    &mut BuffersBuilder::new(&mut buffers, Positions),
+                    &mut lyon::tess2::geometry_builder::BuffersBuilder::new(
+                        &mut buffers,
+                        Positions,
+                    ),
                 )
                 .is_ok(),
         };
