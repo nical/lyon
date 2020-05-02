@@ -1140,14 +1140,8 @@ impl<'l> StrokeBuilder<'l> {
         let (sin, cos) = segment_angle.sin_cos();
         let rotation_matrix = [[cos, sin], [-sin, cos]];
 
-        // The round join is a triangle fan around either the back vertex or, if the join
-        // is folded, the front vertex attached to the previous edge.
-        let fan_pivot_vertex = if let Some(back_vertex) = back_vertex {
-            back_vertex
-        } else {
-            front_start_vertex
-        };
-
+        // The round part of the join is a triangle fan around front vertex attached
+        // to the previous edge.
         let mut n = initial_normal;
         for _ in 0..num_segments {
             // Incrementally rotate the normal.
@@ -1161,11 +1155,11 @@ impl<'l> StrokeBuilder<'l> {
 
             let current_vertex = add_vertex!(self, position: self.current)?;
 
-            if fan_pivot_vertex != last_vertex {
+            if front_start_vertex != last_vertex {
                 let (v1, v2, v3) = if front_side.is_left() {
-                    (fan_pivot_vertex, last_vertex, current_vertex)
+                    (front_start_vertex, last_vertex, current_vertex)
                 } else {
-                    (fan_pivot_vertex, current_vertex, last_vertex)
+                    (front_start_vertex, current_vertex, last_vertex)
                 };
                 self.output.add_triangle(v1, v2, v3);
             }
@@ -1173,9 +1167,22 @@ impl<'l> StrokeBuilder<'l> {
             last_vertex = current_vertex;
         }
 
+        let front_end_vertex = last_vertex;
+
+        // Triangle connecting the back vertex and the front vertices.
+        if let Some(back_vertex) = back_vertex {
+            let (v1, v2, v3) = if front_side.is_left() {
+                (back_vertex, front_start_vertex, front_end_vertex)
+            } else {
+                (back_vertex, front_end_vertex, front_start_vertex)
+            };
+
+            self.output.add_triangle(v1, v2, v3);
+        }
+
         self.previous_normal = n * neg_if_right;
 
-        Ok((front_start_vertex, last_vertex))
+        Ok((front_start_vertex, front_end_vertex))
     }
 
     fn tessellate_miter_clip_join(
