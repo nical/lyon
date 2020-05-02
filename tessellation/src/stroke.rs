@@ -609,37 +609,16 @@ impl<'l> StrokeBuilder<'l> {
                 return;
             }
 
-            self.attributes.normal = self.previous_normal;
-            self.attributes.side = Side::Left;
-            self.attributes.src = VertexSource::Endpoint {
-                id: self.previous_endpoint,
-            };
-            self.attributes.advancement = self.sub_path_start_length;
-            self.attributes.buffer_is_valid = false;
-
-            let first_left_id = match add_vertex!(self, position: self.previous) {
-                Ok(id) => id,
-                Err(e) => {
-                    self.error(e);
-                    return;
-                }
-            };
-
-            self.attributes.normal = -self.previous_normal;
-            self.attributes.side = Side::Right;
-
-            let first_right_id = match add_vertex!(self, position: self.previous) {
-                Ok(id) => id,
-                Err(e) => {
-                    self.error(e);
-                    return;
-                }
-            };
-
-            self.output
-                .add_triangle(first_right_id, first_left_id, self.second_right_id);
-            self.output
-                .add_triangle(first_left_id, self.second_left_id, self.second_right_id);
+            self.output.add_triangle(
+                self.previous_right_id,
+                self.previous_left_id,
+                self.second_right_id,
+            );
+            self.output.add_triangle(
+                self.previous_left_id,
+                self.second_left_id,
+                self.second_right_id,
+            );
         }
 
         self.sub_path_start_length = self.length;
@@ -780,7 +759,7 @@ impl<'l> StrokeBuilder<'l> {
     }
 
     fn edge_to(&mut self, to: Point, endpoint: EndpointId, t: f32, with_join: bool) {
-        if to == self.current {
+        if (to - self.current).square_length() < self.options.tolerance * self.options.tolerance {
             return;
         }
 
