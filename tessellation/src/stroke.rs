@@ -1,5 +1,4 @@
 use crate::math::*;
-use crate::geom::euclid::Trig;
 use crate::geom::utils::{directed_angle, normalized_tangent, tangent};
 use crate::geom::{CubicBezierSegment, Line, QuadraticBezierSegment};
 use crate::math_utils::compute_normal;
@@ -1115,61 +1114,34 @@ impl<'l> StrokeBuilder<'l> {
         front_side: Side,
         back_vertex: Option<VertexId>,
     ) -> Result<(VertexId, VertexId), TessellationError> {
-        let join_angle = get_join_angle(prev_tangent, next_tangent);
-
-        let max_radius_segment_angle =
-            compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
-        let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
-        debug_assert!(num_segments > 0);
-        // Calculate angle of each step.
-        let segment_angle = join_angle as f32 / num_segments as f32;
-
+        let radius = self.options.line_width * 0.5;
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
 
         // Calculate the initial front normal.
-        let initial_normal = vector(-prev_tangent.y, prev_tangent.x) * neg_if_right;
+        let start_normal = vector(-prev_tangent.y, prev_tangent.x) * neg_if_right;
+        let end_normal = vector(-next_tangent.y, next_tangent.x) * neg_if_right;
 
-        self.attributes.normal = initial_normal;
+        // We need to pick the final angle such that it's
+        let start_angle = start_normal.angle_from_x_axis();
+        let diff = angle_diff(start_angle, end_normal.angle_from_x_axis());
+        let end_angle = start_angle + diff;
+
+        // Compute the required number of subdivisions,
+        let arc_len = radius.abs() * diff.radians.abs();
+        let step = circle_flattening_step(radius, self.options.tolerance);
+        let num_segments = (arc_len / step).ceil();
+        let num_subdivisions = num_segments.log2() as u32 * 2;
+
+        // Create start and end front vertices.
         self.attributes.side = front_side;
 
+        self.attributes.normal = start_normal;
         let front_start_vertex = add_vertex!(self, position: self.current)?;
-        let mut last_vertex = front_start_vertex;
 
-        // Plot each point along the radius by using a matrix to
-        // rotate the normal at each step.
-        let (sin, cos) = segment_angle.sin_cos();
-        let rotation_matrix = [[cos, sin], [-sin, cos]];
+        self.attributes.normal = end_normal;
+        let front_end_vertex = add_vertex!(self, position: self.current)?;
 
-        // The round part of the join is a triangle fan around front vertex attached
-        // to the previous edge.
-        let mut n = initial_normal;
-        for _ in 0..num_segments {
-            // Incrementally rotate the normal.
-            n = vector(
-                n.x * rotation_matrix[0][0] + n.y * rotation_matrix[0][1],
-                n.x * rotation_matrix[1][0] + n.y * rotation_matrix[1][1],
-            );
-
-            self.attributes.normal = n;
-            self.attributes.side = front_side;
-
-            let current_vertex = add_vertex!(self, position: self.current)?;
-
-            if front_start_vertex != last_vertex {
-                let (v1, v2, v3) = if front_side.is_left() {
-                    (front_start_vertex, last_vertex, current_vertex)
-                } else {
-                    (front_start_vertex, current_vertex, last_vertex)
-                };
-                self.output.add_triangle(v1, v2, v3);
-            }
-
-            last_vertex = current_vertex;
-        }
-
-        let front_end_vertex = last_vertex;
-
-        // Triangle connecting the back vertex and the front vertices.
+        // Add the triangle joining the back vertex and the start/end front vertices.
         if let Some(back_vertex) = back_vertex {
             let (v1, v2, v3) = if front_side.is_left() {
                 (back_vertex, front_start_vertex, front_end_vertex)
@@ -1180,7 +1152,21 @@ impl<'l> StrokeBuilder<'l> {
             self.output.add_triangle(v1, v2, v3);
         }
 
-        self.previous_normal = n * neg_if_right;
+        let applied_width = if self.options.apply_line_width { radius } else { 0.0 };
+
+        tess_round_cap(
+            self.current,
+            (start_angle.radians, end_angle.radians),
+            radius,
+            front_start_vertex,
+            front_end_vertex,
+            num_subdivisions,
+            front_side,
+            applied_width,
+            front_side.is_left(),
+            &mut self.attributes,
+            self.output,
+        )?;
 
         Ok((front_start_vertex, front_end_vertex))
     }
@@ -1259,26 +1245,6 @@ impl<'l> StrokeBuilder<'l> {
 
         (i1, i2)
     }
-}
-
-// Computes the max angle of a radius segment for a given tolerance
-fn compute_max_radius_segment_angle(radius: f32, tolerance: f32) -> f32 {
-    let t = radius - tolerance;
-    ((radius * radius - t * t) * 4.0).sqrt() / radius
-}
-
-fn get_join_angle(prev_tangent: Vector, next_tangent: Vector) -> f32 {
-    let mut join_angle = Trig::fast_atan2(prev_tangent.y, prev_tangent.x)
-        - Trig::fast_atan2(next_tangent.y, next_tangent.x);
-
-    // Make sure to stay within the [-Pi, Pi] range.
-    if join_angle > PI {
-        join_angle -= 2.0 * PI;
-    } else if join_angle < -PI {
-        join_angle += 2.0 * PI;
-    }
-
-    join_angle
 }
 
 fn tess_round_cap(
@@ -1463,6 +1429,13 @@ fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
     // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
     tolerance = f32::min(tolerance, radius);
     2.0 * f32::sqrt(2.0 * tolerance * radius - tolerance * tolerance)
+}
+
+// TODO: move into euclid.
+fn angle_diff(a: Angle, b: Angle) -> Angle {
+    let max = PI * 2.0;
+    let d = (b.radians - a.radians) % max;
+    return Angle::radians(2.0 * d % max - d);
 }
 
 #[cfg(test)]
