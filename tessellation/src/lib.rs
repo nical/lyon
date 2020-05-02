@@ -750,3 +750,32 @@ fn test_with_miter_limit() {
 fn test_with_invalid_miter_limit() {
     let _ = StrokeOptions::default().with_miter_limit(0.0);
 }
+
+#[test]
+fn test_line_width() {
+    use crate::math::{Point, point};
+    let mut builder = crate::path::Path::builder();
+    builder.begin(point(0.0, 1.0));
+    builder.line_to(point(2.0, 1.0));
+    builder.end(false);
+    let path = builder.build();
+
+    let options = StrokeOptions::DEFAULT.with_line_width(2.0);
+    let mut geometry: VertexBuffers<Point, u16> = VertexBuffers::new();
+    StrokeTessellator::new().tessellate(
+        path.iter(),
+        &options,
+        &mut crate::geometry_builder::simple_builder(&mut geometry),
+    ).unwrap();
+
+
+    for p in &geometry.vertices {
+        assert!(
+            *p == point(0.0, 0.0)
+            || *p == point(0.0, 2.0)
+            || *p == point(2.0, 0.0)
+            || *p == point(2.0, 2.0)
+        );
+    }
+}
+

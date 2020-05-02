@@ -29,6 +29,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut stroke = StrokeTessellator::new();
 
     if let Some(options) = cmd.stroke {
+        let options = options.dont_apply_line_width();
         stroke_width = options.line_width;
         stroke.tessellate(
             cmd.path.iter(),
@@ -448,7 +449,7 @@ pub static VERTEX_SHADER: &'static str = &"
         int id = a_prim_id + gl_InstanceID;
         Primitive prim = primitives[id];
 
-        vec2 local_pos = a_position + a_normal * prim.width + prim.translation;
+        vec2 local_pos = a_position + a_normal * prim.width * 0.5 + prim.translation;
         vec2 world_pos = local_pos - u_scroll_offset;
         vec2 transformed_pos = world_pos * u_zoom / (vec2(0.5, -0.5) * u_resolution);
 
