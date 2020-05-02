@@ -9,7 +9,7 @@ use crate::path::{AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, Pos
 use crate::path::polygon::Polygon;
 use crate::{StrokeGeometryBuilder, VertexId};
 use crate::{
-    LineCap, LineJoin, Order, Side, StrokeOptions, TessellationError, TessellationResult,
+    LineCap, LineJoin, Side, StrokeOptions, TessellationError, TessellationResult,
     VertexSource,
 };
 
@@ -821,6 +821,8 @@ impl<'l> StrokeBuilder<'l> {
             }
         };
 
+        debug_assert!(end_left_id != end_right_id);
+
         // Tessellate the edge
         if self.nth > 1 {
             match self.previous_front_side {
@@ -830,8 +832,11 @@ impl<'l> StrokeBuilder<'l> {
                         self.previous_left_id,
                         start_right_id,
                     );
-                    self.output
-                        .add_triangle(self.previous_left_id, start_left_id, start_right_id);
+                    self.output.add_triangle(
+                        self.previous_left_id,
+                        start_left_id,
+                        start_right_id,
+                    );
                 }
                 Side::Right => {
                     self.output.add_triangle(
@@ -839,8 +844,11 @@ impl<'l> StrokeBuilder<'l> {
                         self.previous_left_id,
                         start_left_id,
                     );
-                    self.output
-                        .add_triangle(self.previous_right_id, start_left_id, start_right_id);
+                    self.output.add_triangle(
+                        self.previous_right_id,
+                        start_left_id,
+                        start_right_id,
+                    );
                 }
             }
         }
@@ -937,7 +945,7 @@ impl<'l> StrokeBuilder<'l> {
         )
     }
 
-    fn tessellate_back_join(
+    fn create_back_vertex(
         &mut self,
         prev_tangent: Vector,
         next_tangent: Vector,
@@ -945,59 +953,34 @@ impl<'l> StrokeBuilder<'l> {
         next_length: f32,
         front_side: Side,
         front_normal: Vector,
-    ) -> Result<(VertexId, VertexId, Option<Order>), TessellationError> {
+    ) -> Result<Option<VertexId>, TessellationError> {
         // We must watch out for special cases where the previous or next edge is small relative
-        // to the line width inducing an overlap of the stroke of both edges.
+        // to the line width. Our workaround only applies to "sharp" angles (more than 90 degrees).
+        let angle_is_sharp = next_tangent.dot(prev_tangent) < 0.0;
 
-        let d_next = -self.options.line_width / 2.0 * front_normal.dot(next_tangent) - next_length;
-        let d_prev = -self.options.line_width / 2.0 * front_normal.dot(-prev_tangent) - prev_length;
+        if angle_is_sharp {
+            // Project the back vertex on the previous and next edges and subtract the edge length
+            // to see if the back vertex ends up further than the opposite endpoint of the edge.
+            let extruded_normal = front_normal * self.options.line_width * 0.5;
+            let d_next = extruded_normal.dot(-next_tangent) - next_length;
+            let d_prev = extruded_normal.dot(prev_tangent) - prev_length;
 
-        let (d, t2, order) = if d_prev > d_next {
-            (d_prev, next_tangent, Order::Before)
-        } else {
-            (d_next, -prev_tangent, Order::After)
-        };
-
-        // Case of an overlapping stroke
-        // We must build the back join with two vertices in order to respect the correct shape
-        // This will induce some overlapping triangles and collinear triangles
-        //
-        // TODO: Sometimes flattening generates a very small edge at the end of the curve which causes
-        // precision issues and cracks in the output geometry here. Work around it with a threshold
-        // but it would be better if the flattening code was able to avoid that in the first place.
-        if d > 0.01 {
-            let n2: Vector = match front_side {
-                Side::Right => vector(t2.y, -t2.x),
-                Side::Left => vector(-t2.y, t2.x),
-            } * if order.is_after() { -1.0 } else { 1.0 };
-            let back_end_vertex_normal = -n2;
-            let back_start_vertex_normal = vector(0.0, 0.0);
-
-            self.attributes.normal = back_start_vertex_normal;
-            self.attributes.side = front_side.opposite();
-
-            let back_start_vertex = add_vertex!(self, position: self.current)?;
-
-            self.attributes.normal = back_end_vertex_normal;
-            self.attributes.side = front_side.opposite();
-
-            let back_end_vertex = add_vertex!(self, position: self.current)?;
-
-            return Ok(match order {
-                Order::Before => (back_start_vertex, back_end_vertex, Some(order)),
-                Order::After => (back_end_vertex, back_start_vertex, Some(order)),
-            });
+            if d_next.min(d_prev) > 0.0 {
+                // Case of an overlapping stroke. In order to prevent the back vertex to create a
+                // spike outside of the stroke, we simply don't create it and we'll "fold" the join
+                // instead.
+                return Ok(None);
+            }
         }
+
+        // Common case.
 
         self.attributes.normal = -front_normal;
         self.attributes.side = front_side.opposite();
 
-        // Standard Case
-        let back_start_vertex = add_vertex!(self, position: self.current)?;
-
-        let back_end_vertex = back_start_vertex;
+        let back_vertex = add_vertex!(self, position: self.current)?;
         
-        Ok((back_start_vertex, back_end_vertex, None))
+        Ok(Some(back_vertex))
     }
 
     fn tessellate_join(
@@ -1038,7 +1021,7 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.buffer_is_valid = false;
         self.attributes.advancement = self.length;
 
-        let (back_start_vertex, back_end_vertex, order) = self.tessellate_back_join(
+        let back_vertex = self.create_back_vertex(
             prev_tangent,
             next_tangent,
             previous_edge_length,
@@ -1053,103 +1036,62 @@ impl<'l> StrokeBuilder<'l> {
             // TODO: the 0.95 threshold above is completely arbitrary and needs
             // adjustments.
             join_type = LineJoin::Miter;
-        } else if join_type == LineJoin::Miter && self.miter_limit_is_exceeded(normal) {
+        } else if join_type == LineJoin::Miter && (self.miter_limit_is_exceeded(normal) || back_vertex.is_none()) {
             // Per SVG spec: If the stroke-miterlimit is exceeded, the line join
             // falls back to bevel.
             join_type = LineJoin::Bevel;
-        } else if join_type == LineJoin::MiterClip && !self.miter_limit_is_exceeded(normal) {
+        } else if join_type == LineJoin::MiterClip && back_vertex.is_some() && !self.miter_limit_is_exceeded(normal) {
             join_type = LineJoin::Miter;
         }
 
-        let back_join_vertex = if let Some(_order) = order {
-            match _order {
-                Order::Before => back_start_vertex,
-                Order::After => back_end_vertex,
-            }
-        } else {
-            back_start_vertex
-        };
-
-        let (start_vertex, end_vertex) = match join_type {
-            LineJoin::Round => {
-                self.tessellate_round_join(prev_tangent, next_tangent, front_side, back_join_vertex)?
-            }
-            LineJoin::Bevel => {
-                self.tessellate_bevel_join(prev_tangent, next_tangent, front_side, back_join_vertex)?
-            }
+        let (front_start_vertex, front_end_vertex) = match join_type {
+            LineJoin::Round => self.tessellate_round_join(
+                prev_tangent,
+                next_tangent,
+                front_side,
+                back_vertex,
+            )?,
+            LineJoin::Bevel => self.tessellate_bevel_join(
+                prev_tangent,
+                next_tangent,
+                front_side,
+                back_vertex,
+            )?,
             LineJoin::MiterClip => self.tessellate_miter_clip_join(
                 prev_tangent,
                 next_tangent,
                 front_side,
-                back_join_vertex,
+                back_vertex,
                 normal,
             )?,
-            // Fallback to Miter for unimplemented line joins
-            _ => {
+            LineJoin::Miter => {
                 self.attributes.normal = front_normal;
                 self.attributes.side = front_side;
-                let end_vertex = add_vertex!(self, position: self.current)?;
+                let front_vertex = add_vertex!(self, position: self.current)?;
                 self.previous_normal = normal;
 
-                if let Some(_order) = order {
-                    let t2 = match _order {
-                        Order::Before => next_tangent,
-                        Order::After => prev_tangent,
-                    };
-                    let n1: Vector = match front_side {
-                        Side::Right => vector(t2.y, -t2.x),
-                        Side::Left => vector(-t2.y, t2.x),
-                    };
+                debug_assert!(back_vertex.is_some());
 
-                    self.attributes.normal = n1;
-                    self.attributes.side = front_side;
-
-                    let start_vertex = add_vertex!(self, position: self.current)?;
-                    self.output
-                        .add_triangle(start_vertex, end_vertex, back_join_vertex);
-
-                    match _order {
-                        Order::Before => (end_vertex, start_vertex),
-                        Order::After => (start_vertex, end_vertex),
-                    }
-                } else {
-                    (end_vertex, end_vertex)
-                }
+                (front_vertex, front_vertex)
             }
         };
 
-        if back_end_vertex != back_start_vertex {
-            let (a, b, c) = if let Some(_order) = order {
-                match _order {
-                    Order::Before => (back_end_vertex, end_vertex, back_start_vertex),
-                    Order::After => (back_end_vertex, start_vertex, back_start_vertex),
-                }
-            } else {
-                (back_end_vertex, end_vertex, back_start_vertex)
-            };
-            // preserve correct ccw winding
-            match front_side {
-                Side::Left => self.output.add_triangle(a, b, c),
-                Side::Right => self.output.add_triangle(a, c, b),
-            }
+        let mut start_0 = front_start_vertex;
+        let mut start_1 = back_vertex.unwrap_or(front_end_vertex);
+        let mut end_0 = front_end_vertex;
+        let mut end_1 = back_vertex.unwrap_or(front_start_vertex);
+        if front_side == Side::Right {
+            std::mem::swap(&mut start_0, &mut start_1);
+            std::mem::swap(&mut end_0, &mut end_1);
         }
 
-        Ok(match front_side {
-            Side::Left => (
-                start_vertex,
-                back_start_vertex,
-                end_vertex,
-                back_end_vertex,
-                front_side,
-            ),
-            Side::Right => (
-                back_start_vertex,
-                start_vertex,
-                back_end_vertex,
-                end_vertex,
-                front_side,
-            ),
-        })
+        Ok((
+            start_0,
+            start_1,
+            end_0,
+            end_1,
+            front_side,
+        ))
     }
 
     fn tessellate_bevel_join(
@@ -1157,7 +1099,7 @@ impl<'l> StrokeBuilder<'l> {
         prev_tangent: Vector,
         next_tangent: Vector,
         front_side: Side,
-        back_vertex: VertexId,
+        back_vertex: Option<VertexId>,
     ) -> Result<(VertexId, VertexId), TessellationError> {
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
         let previous_normal = vector(-prev_tangent.y, prev_tangent.x);
@@ -1166,23 +1108,25 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.normal = previous_normal * neg_if_right;
         self.attributes.side = front_side;
 
-        let start_vertex = add_vertex!(self, position: self.current)?;
+        let front_start_vertex = add_vertex!(self, position: self.current)?;
 
         self.attributes.normal = next_normal * neg_if_right;
         self.attributes.side = front_side;
 
-        let last_vertex = add_vertex!(self, position: self.current)?;
+        let front_end_vertex = add_vertex!(self, position: self.current)?;
 
         self.previous_normal = next_normal;
 
-        let (v1, v2, v3) = if front_side.is_left() {
-            (start_vertex, last_vertex, back_vertex)
-        } else {
-            (last_vertex, start_vertex, back_vertex)
-        };
-        self.output.add_triangle(v1, v2, v3);
+        if let Some(back_vertex) = back_vertex {
+            let (v1, v2, v3) = if front_side.is_left() {
+                (front_start_vertex, front_end_vertex, back_vertex)
+            } else {
+                (front_end_vertex, front_start_vertex, back_vertex)
+            };
+            self.output.add_triangle(v1, v2, v3);
+        }
 
-        Ok((start_vertex, last_vertex))
+        Ok((front_start_vertex, front_end_vertex))
     }
 
     fn tessellate_round_join(
@@ -1190,7 +1134,7 @@ impl<'l> StrokeBuilder<'l> {
         prev_tangent: Vector,
         next_tangent: Vector,
         front_side: Side,
-        back_vertex: VertexId,
+        back_vertex: Option<VertexId>,
     ) -> Result<(VertexId, VertexId), TessellationError> {
         let join_angle = get_join_angle(prev_tangent, next_tangent);
 
@@ -1198,28 +1142,36 @@ impl<'l> StrokeBuilder<'l> {
             compute_max_radius_segment_angle(self.options.line_width / 2.0, self.options.tolerance);
         let num_segments = (join_angle.abs() as f32 / max_radius_segment_angle).ceil() as u32;
         debug_assert!(num_segments > 0);
-        // Calculate angle of each step
+        // Calculate angle of each step.
         let segment_angle = join_angle as f32 / num_segments as f32;
 
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
 
-        // Calculate the initial front normal
+        // Calculate the initial front normal.
         let initial_normal = vector(-prev_tangent.y, prev_tangent.x) * neg_if_right;
 
         self.attributes.normal = initial_normal;
         self.attributes.side = front_side;
 
-        let mut last_vertex = add_vertex!(self, position: self.current)?;
-        let start_vertex = last_vertex;
+        let front_start_vertex = add_vertex!(self, position: self.current)?;
+        let mut last_vertex = front_start_vertex;
 
         // Plot each point along the radius by using a matrix to
-        // rotate the normal at each step
+        // rotate the normal at each step.
         let (sin, cos) = segment_angle.sin_cos();
         let rotation_matrix = [[cos, sin], [-sin, cos]];
 
+        // The round join is a triangle fan around either the back vertex or, if the join
+        // is folded, the front vertex attached to the previous edge.
+        let fan_pivot_vertex = if let Some(back_vertex) = back_vertex {
+            back_vertex
+        } else {
+            front_start_vertex
+        };
+
         let mut n = initial_normal;
         for _ in 0..num_segments {
-            // incrementally rotate the normal
+            // Incrementally rotate the normal.
             n = vector(
                 n.x * rotation_matrix[0][0] + n.y * rotation_matrix[0][1],
                 n.x * rotation_matrix[1][0] + n.y * rotation_matrix[1][1],
@@ -1230,19 +1182,21 @@ impl<'l> StrokeBuilder<'l> {
 
             let current_vertex = add_vertex!(self, position: self.current)?;
 
-            let (v1, v2, v3) = if front_side.is_left() {
-                (back_vertex, last_vertex, current_vertex)
-            } else {
-                (back_vertex, current_vertex, last_vertex)
-            };
-            self.output.add_triangle(v1, v2, v3);
+            if fan_pivot_vertex != last_vertex {
+                let (v1, v2, v3) = if front_side.is_left() {
+                    (fan_pivot_vertex, last_vertex, current_vertex)
+                } else {
+                    (fan_pivot_vertex, current_vertex, last_vertex)
+                };
+                self.output.add_triangle(v1, v2, v3);
+            }
 
             last_vertex = current_vertex;
         }
 
         self.previous_normal = n * neg_if_right;
 
-        Ok((start_vertex, last_vertex))
+        Ok((front_start_vertex, last_vertex))
     }
 
     fn tessellate_miter_clip_join(
@@ -1250,7 +1204,7 @@ impl<'l> StrokeBuilder<'l> {
         prev_tangent: Vector,
         next_tangent: Vector,
         front_side: Side,
-        back_vertex: VertexId,
+        back_vertex: Option<VertexId>,
         normal: Vector,
     ) -> Result<(VertexId, VertexId), TessellationError> {
         let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
@@ -1262,23 +1216,25 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.normal = v1 * neg_if_right;
         self.attributes.side = front_side;
 
-        let start_vertex = add_vertex!(self, position: self.current)?;
+        let front_start_vertex = add_vertex!(self, position: self.current)?;
 
         self.attributes.normal = v2 * neg_if_right;
         self.attributes.side = front_side;
 
-        let last_vertex = add_vertex!(self, position: self.current)?;
+        let front_end_vertex = add_vertex!(self, position: self.current)?;
 
         self.previous_normal = normal;
 
-        let (v1, v2, v3) = if front_side.is_left() {
-            (back_vertex, start_vertex, last_vertex)
-        } else {
-            (back_vertex, last_vertex, start_vertex)
-        };
-        self.output.add_triangle(v1, v2, v3);
+        if let Some(back_vertex) = back_vertex {
+            let (v1, v2, v3) = if front_side.is_left() {
+                (back_vertex, front_start_vertex, front_end_vertex)
+            } else {
+                (back_vertex, front_end_vertex, front_start_vertex)
+            };
+            self.output.add_triangle(v1, v2, v3);
+        }
 
-        Ok((start_vertex, last_vertex))
+        Ok((front_start_vertex, front_end_vertex))
     }
 
     fn miter_limit_is_exceeded(&self, normal: Vector) -> bool {
