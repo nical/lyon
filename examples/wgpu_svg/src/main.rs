@@ -539,7 +539,8 @@ impl FillVertexConstructor<GpuVertex> for VertexCtor {
 }
 
 impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, position: Point, _: tessellation::StrokeAttributes) -> GpuVertex {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeAttributes) -> GpuVertex {
+        let position = vertex.position();
         assert!(!position.x.is_nan());
         assert!(!position.y.is_nan());
 
