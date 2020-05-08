@@ -111,7 +111,7 @@ fn main() {
 
     stroke_tess.tessellate_path(
         &path,
-        &StrokeOptions::tolerance(tolerance).dont_apply_line_width(),
+        &StrokeOptions::tolerance(tolerance),
         &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
     ).unwrap();
 
@@ -583,7 +583,7 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
         debug_assert!(!attributes.normal().y.is_nan());
         debug_assert!(!attributes.advancement().is_nan());
         GpuVertex {
-            position: position.to_array(),
+            position: attributes.position_on_path().to_array(),
             normal: attributes.normal().to_array(),
             prim_id: self.0,
         }

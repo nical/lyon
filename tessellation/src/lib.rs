@@ -447,15 +447,6 @@ pub struct StrokeOptions {
     /// Default value: `StrokeOptions::DEFAULT_TOLERANCE`.
     pub tolerance: f32,
 
-    /// Apply line width
-    ///
-    /// When set to false, the generated vertices will all be positioned in the centre
-    /// of the line. The width can be applied later on (eg in a vertex shader) by adding
-    /// the vertex normal multiplied by the line with to each vertex position.
-    ///
-    /// Default value: `true`.
-    pub apply_line_width: bool,
-
     // To be able to add fields without making it a breaking change, add an empty private field
     // which makes it impossible to create a StrokeOptions without calling the constructor.
     _private: (),
@@ -482,7 +473,6 @@ impl StrokeOptions {
         line_width: Self::DEFAULT_LINE_WIDTH,
         miter_limit: Self::DEFAULT_MITER_LIMIT,
         tolerance: Self::DEFAULT_TOLERANCE,
-        apply_line_width: true,
         _private: (),
     };
 
@@ -532,12 +522,6 @@ impl StrokeOptions {
     pub fn with_miter_limit(mut self, limit: f32) -> Self {
         assert!(limit >= Self::MINIMUM_MITER_LIMIT);
         self.miter_limit = limit;
-        self
-    }
-
-    #[inline]
-    pub fn dont_apply_line_width(mut self) -> Self {
-        self.apply_line_width = false;
         self
     }
 }

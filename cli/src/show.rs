@@ -29,7 +29,6 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut stroke = StrokeTessellator::new();
 
     if let Some(options) = cmd.stroke {
-        let options = options.dont_apply_line_width();
         stroke_width = options.line_width;
         stroke.tessellate(
             cmd.path.iter(),
@@ -508,7 +507,7 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
         debug_assert!(!attributes.normal().y.is_nan());
         debug_assert!(!attributes.advancement().is_nan());
         GpuVertex {
-            position: position.to_array(),
+            position: attributes.position_on_path().to_array(),
             normal: attributes.normal().to_array(),
             prim_id: self.0,
         }
