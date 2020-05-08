@@ -527,12 +527,9 @@ pub struct VertexCtor {
 }
 
 impl FillVertexConstructor<GpuVertex> for VertexCtor {
-    fn new_vertex(&mut self, position: Point, _: tessellation::FillAttributes) -> GpuVertex {
-        assert!(!position.x.is_nan());
-        assert!(!position.y.is_nan());
-
+    fn new_vertex(&mut self, vertex: tessellation::FillAttributes) -> GpuVertex {
         GpuVertex {
-            position: position.to_array(),
+            position: vertex.position().to_array(),
             prim_id: self.prim_id,
         }
     }
@@ -540,12 +537,8 @@ impl FillVertexConstructor<GpuVertex> for VertexCtor {
 
 impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::StrokeAttributes) -> GpuVertex {
-        let position = vertex.position();
-        assert!(!position.x.is_nan());
-        assert!(!position.y.is_nan());
-
         GpuVertex {
-            position: position.to_array(),
+            position: vertex.position().to_array(),
             prim_id: self.prim_id,
         }
     }

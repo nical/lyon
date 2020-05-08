@@ -84,9 +84,9 @@
 //! struct WithColor([f32; 4]);
 //!
 //! impl FillVertexConstructor<MyVertex> for WithColor {
-//!     fn new_vertex(&mut self, position: Point, _: FillAttributes) -> MyVertex {
+//!     fn new_vertex(&mut self, vertex: FillAttributes) -> MyVertex {
 //!         MyVertex {
-//!             position: [position.x, position.y],
+//!             position: vertex.position().to_array(),
 //!             color: self.0,
 //!         }
 //!     }
@@ -253,11 +253,7 @@ pub trait FillGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_fill_vertex(
-        &mut self,
-        position: Point,
-        attributes: FillAttributes,
-    ) -> Result<VertexId, GeometryBuilderError>;
+    fn add_fill_vertex(&mut self, vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// A Geometry builder to interface with the [`StrokeTessellator`](../struct.StrokeTessellator.html).
@@ -268,10 +264,7 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_stroke_vertex(
-        &mut self,
-        attributes: StrokeAttributes,
-    ) -> Result<VertexId, GeometryBuilderError>;
+    fn add_stroke_vertex(&mut self, vertex: StrokeAttributes) -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// Structure that holds the vertex and index data.
@@ -339,20 +332,20 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
 
 /// A trait specifying how to create vertex values.
 pub trait FillVertexConstructor<OutputVertex> {
-    fn new_vertex(&mut self, point: Point, attributes: FillAttributes) -> OutputVertex;
+    fn new_vertex(&mut self, vertex: FillAttributes) -> OutputVertex;
 }
 
 /// A trait specifying how to create vertex values.
 pub trait StrokeVertexConstructor<OutputVertex> {
-    fn new_vertex(&mut self, attributes: StrokeAttributes) -> OutputVertex;
+    fn new_vertex(&mut self, vertex: StrokeAttributes) -> OutputVertex;
 }
 
 /// A simple vertex constructor that just takes the position.
 pub struct Positions;
 
 impl FillVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, position: Point, _attributes: FillAttributes) -> Point {
-        position
+    fn new_vertex(&mut self, attributes: FillAttributes) -> Point {
+        attributes.position()
     }
 }
 
@@ -364,10 +357,10 @@ impl StrokeVertexConstructor<Point> for Positions {
 
 impl<F, OutputVertex> FillVertexConstructor<OutputVertex> for F
 where
-    F: Fn(Point, FillAttributes) -> OutputVertex,
+    F: Fn(FillAttributes) -> OutputVertex,
 {
-    fn new_vertex(&mut self, position: Point, attributes: FillAttributes) -> OutputVertex {
-        self(position, attributes)
+    fn new_vertex(&mut self, attributes: FillAttributes) -> OutputVertex {
+        self(attributes)
     }
 }
 
@@ -456,14 +449,10 @@ where
     OutputIndex: Add + From<VertexId> + MaxIndex,
     Ctor: FillVertexConstructor<OutputVertex>,
 {
-    fn add_fill_vertex(
-        &mut self,
-        position: Point,
-        attributes: FillAttributes,
-    ) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers
-            .vertices
-            .push(self.vertex_constructor.new_vertex(position, attributes));
+    fn add_fill_vertex(&mut self, vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+        self.buffers.vertices.push(
+            self.vertex_constructor.new_vertex(vertex)
+        );
         let len = self.buffers.vertices.len();
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -535,8 +524,7 @@ impl GeometryBuilder for NoOutput {
 impl FillGeometryBuilder for NoOutput {
     fn add_fill_vertex(
         &mut self,
-        _pos: Point,
-        _attributes: FillAttributes,
+        _vertex: FillAttributes,
     ) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
