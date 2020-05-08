@@ -148,9 +148,9 @@
 //!         tessellator.tessellate_path(
 //!             &path,
 //!             &FillOptions::default(),
-//!             &mut BuffersBuilder::new(&mut geometry, |pos: Point, _: FillAttributes| {
+//!             &mut BuffersBuilder::new(&mut geometry, |vertex: FillAttributes| {
 //!                 MyVertex {
-//!                     position: pos.to_array(),
+//!                     position: vertex.position().to_array(),
 //!                 }
 //!             }),
 //!         ).unwrap();

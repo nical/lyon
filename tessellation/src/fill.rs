@@ -412,8 +412,9 @@ struct PendingEdge {
 /// // A custom vertex constructor, see the geometry_builder module.
 /// struct Ctor;
 /// impl FillVertexConstructor<MyVertex> for Ctor {
-///     fn new_vertex(&mut self, position: Point, mut attributes: FillAttributes) -> MyVertex {
-///         let attrs = attributes.interpolated_attributes();
+///     fn new_vertex(&mut self, mut vertex: FillAttributes) -> MyVertex {
+///         let position = vertex.position();
+///         let attrs = vertex.interpolated_attributes();
 ///         MyVertex {
 ///             x: position.x,
 ///             y: position.y,
@@ -789,8 +790,8 @@ impl FillTessellator {
         };
 
         self.current_vertex = output.add_fill_vertex(
-            position,
             FillAttributes {
+                position,
                 events: &self.events,
                 current_event,
                 attrib_store,
@@ -2005,6 +2006,7 @@ fn reorient(p: Point) -> Point {
 
 /// Extra vertex information from the `FillTessellator`, accessible when building vertices.
 pub struct FillAttributes<'l> {
+    position: Point,
     events: &'l EventQueue,
     current_event: TessEventId,
     attrib_buffer: &'l mut [f32],
@@ -2012,6 +2014,10 @@ pub struct FillAttributes<'l> {
 }
 
 impl<'l> FillAttributes<'l> {
+    pub fn position(&self) -> Point {
+        self.position
+    }
+
     /// Return an iterator over the sources of the vertex.
     pub fn sources(&self) -> VertexSourceIterator {
         VertexSourceIterator {
@@ -2501,27 +2507,27 @@ fn fill_vertex_source_01() {
     impl FillGeometryBuilder for CheckVertexSources {
         fn add_fill_vertex(
             &mut self,
-            v: Point,
-            mut attr: FillAttributes,
+            mut vertex: FillAttributes,
         ) -> Result<VertexId, GeometryBuilderError> {
-            for src in attr.sources() {
-                if eq(v, point(0.0, 0.0)) {
+            let pos = vertex.position();
+            for src in vertex.sources() {
+                if eq(pos, point(0.0, 0.0)) {
                     assert!(at_endpoint(&src, EndpointId(0)))
-                } else if eq(v, point(1.0, 1.0)) {
+                } else if eq(pos, point(1.0, 1.0)) {
                     assert!(at_endpoint(&src, EndpointId(1)))
-                } else if eq(v, point(0.0, 2.0)) {
+                } else if eq(pos, point(0.0, 2.0)) {
                     assert!(at_endpoint(&src, EndpointId(2)))
                 } else {
                     panic!()
                 }
             }
 
-            if eq(v, point(0.0, 0.0)) {
-                assert_eq!(attr.interpolated_attributes(), &[1.0, 0.0, 0.0])
-            } else if eq(v, point(1.0, 1.0)) {
-                assert_eq!(attr.interpolated_attributes(), &[0.0, 1.0, 0.0])
-            } else if eq(v, point(0.0, 2.0)) {
-                assert_eq!(attr.interpolated_attributes(), &[0.0, 0.0, 1.0])
+            if eq(pos, point(0.0, 0.0)) {
+                assert_eq!(vertex.interpolated_attributes(), &[1.0, 0.0, 0.0])
+            } else if eq(pos, point(1.0, 1.0)) {
+                assert_eq!(vertex.interpolated_attributes(), &[0.0, 1.0, 0.0])
+            } else if eq(pos, point(0.0, 2.0)) {
+                assert_eq!(vertex.interpolated_attributes(), &[0.0, 0.0, 1.0])
             }
 
             let id = self.next_vertex;
@@ -2603,42 +2609,42 @@ fn fill_vertex_source_02() {
     impl FillGeometryBuilder for CheckVertexSources {
         fn add_fill_vertex(
             &mut self,
-            v: Point,
-            mut attributes: FillAttributes,
+            mut vertex: FillAttributes,
         ) -> Result<VertexId, GeometryBuilderError> {
-            for src in attributes.sources() {
-                if eq(v, point(1.0, 0.0)) {
+            let pos = vertex.position();
+            for src in vertex.sources() {
+                if eq(pos, point(1.0, 0.0)) {
                     assert!(at_endpoint(&src, self.a));
-                } else if eq(v, point(2.0, 0.0)) {
+                } else if eq(pos, point(2.0, 0.0)) {
                     assert!(at_endpoint(&src, self.b));
-                } else if eq(v, point(2.0, 4.0)) {
+                } else if eq(pos, point(2.0, 4.0)) {
                     assert!(at_endpoint(&src, self.c));
-                } else if eq(v, point(1.0, 4.0)) {
+                } else if eq(pos, point(1.0, 4.0)) {
                     assert!(at_endpoint(&src, self.d));
-                } else if eq(v, point(0.0, 1.0)) {
+                } else if eq(pos, point(0.0, 1.0)) {
                     assert!(at_endpoint(&src, self.e));
-                } else if eq(v, point(0.0, 3.0)) {
+                } else if eq(pos, point(0.0, 3.0)) {
                     assert!(at_endpoint(&src, self.f));
-                } else if eq(v, point(3.0, 3.0)) {
+                } else if eq(pos, point(3.0, 3.0)) {
                     assert!(at_endpoint(&src, self.g));
-                } else if eq(v, point(3.0, 1.0)) {
+                } else if eq(pos, point(3.0, 1.0)) {
                     assert!(at_endpoint(&src, self.h));
-                } else if eq(v, point(1.0, 1.0)) {
+                } else if eq(pos, point(1.0, 1.0)) {
                     assert!(
                         on_edge(&src, self.h, self.e, 2.0 / 3.0)
                             || on_edge(&src, self.d, self.a, 3.0 / 4.0)
                     );
-                } else if eq(v, point(2.0, 1.0)) {
+                } else if eq(pos, point(2.0, 1.0)) {
                     assert!(
                         on_edge(&src, self.h, self.e, 1.0 / 3.0)
                             || on_edge(&src, self.b, self.c, 1.0 / 4.0)
                     );
-                } else if eq(v, point(1.0, 3.0)) {
+                } else if eq(pos, point(1.0, 3.0)) {
                     assert!(
                         on_edge(&src, self.f, self.g, 1.0 / 3.0)
                             || on_edge(&src, self.d, self.a, 1.0 / 4.0)
                     );
-                } else if eq(v, point(2.0, 3.0)) {
+                } else if eq(pos, point(2.0, 3.0)) {
                     assert!(
                         on_edge(&src, self.f, self.g, 2.0 / 3.0)
                             || on_edge(&src, self.b, self.c, 3.0 / 4.0)
@@ -2660,30 +2666,31 @@ fn fill_vertex_source_02() {
                 assert_eq!(a.len(), b.len());
             }
 
-            let attribs = attributes.interpolated_attributes();
-            if eq(v, point(1.0, 0.0)) {
+            let pos = vertex.position();
+            let attribs = vertex.interpolated_attributes();
+            if eq(pos, point(1.0, 0.0)) {
                 assert_attr(attribs, &[1.0, 0.0, 1.0]);
-            } else if eq(v, point(2.0, 0.0)) {
+            } else if eq(pos, point(2.0, 0.0)) {
                 assert_attr(attribs, &[2.0, 0.0, 1.0]);
-            } else if eq(v, point(2.0, 4.0)) {
+            } else if eq(pos, point(2.0, 4.0)) {
                 assert_attr(attribs, &[3.0, 0.0, 1.0]);
-            } else if eq(v, point(1.0, 4.0)) {
+            } else if eq(pos, point(1.0, 4.0)) {
                 assert_attr(attribs, &[4.0, 0.0, 1.0]);
-            } else if eq(v, point(0.0, 1.0)) {
+            } else if eq(pos, point(0.0, 1.0)) {
                 assert_attr(attribs, &[0.0, 1.0, 2.0]);
-            } else if eq(v, point(0.0, 3.0)) {
+            } else if eq(pos, point(0.0, 3.0)) {
                 assert_attr(attribs, &[0.0, 2.0, 2.0]);
-            } else if eq(v, point(3.0, 3.0)) {
+            } else if eq(pos, point(3.0, 3.0)) {
                 assert_attr(attribs, &[0.0, 3.0, 2.0]);
-            } else if eq(v, point(3.0, 1.0)) {
+            } else if eq(pos, point(3.0, 1.0)) {
                 assert_attr(attribs, &[0.0, 4.0, 2.0]);
-            } else if eq(v, point(1.0, 1.0)) {
+            } else if eq(pos, point(1.0, 1.0)) {
                 assert_attr(attribs, &[0.875, 1.0, 1.5]);
-            } else if eq(v, point(2.0, 1.0)) {
+            } else if eq(pos, point(2.0, 1.0)) {
                 assert_attr(attribs, &[1.125, 1.5, 1.5]);
-            } else if eq(v, point(1.0, 3.0)) {
+            } else if eq(pos, point(1.0, 3.0)) {
                 assert_attr(attribs, &[1.625, 1.16666, 1.5]);
-            } else if eq(v, point(2.0, 3.0)) {
+            } else if eq(pos, point(2.0, 3.0)) {
                 assert_attr(attribs, &[1.375, 1.33333, 1.5]);
             }
 
@@ -2759,17 +2766,13 @@ fn fill_vertex_source_03() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(
-            &mut self,
-            v: Point,
-            mut attr: FillAttributes,
-        ) -> Result<VertexId, GeometryBuilderError> {
-            if eq(v, point(1.0, 1.0)) {
-                assert_eq!(attr.interpolated_attributes(), &[1.5]);
-                assert_eq!(attr.sources().count(), 2);
+        fn add_fill_vertex(&mut self, mut vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+            if eq(vertex.position(), point(1.0, 1.0)) {
+                assert_eq!(vertex.interpolated_attributes(), &[1.5]);
+                assert_eq!(vertex.sources().count(), 2);
             } else {
-                assert_eq!(attr.interpolated_attributes(), &[0.0]);
-                assert_eq!(attr.sources().count(), 1);
+                assert_eq!(vertex.interpolated_attributes(), &[0.0]);
+                assert_eq!(vertex.sources().count(), 1);
             }
 
             let id = self.next_vertex;
@@ -2812,17 +2815,14 @@ fn fill_builder_vertex_source() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(
-            &mut self,
-            v: Point,
-            attr: FillAttributes,
-        ) -> Result<VertexId, GeometryBuilderError> {
-            for src in attr.sources() {
-                if eq(v, point(0.0, 0.0)) {
+        fn add_fill_vertex(&mut self, vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+            let pos = vertex.position();
+            for src in vertex.sources() {
+                if eq(pos, point(0.0, 0.0)) {
                     assert!(at_endpoint(&src, EndpointId(0)))
-                } else if eq(v, point(1.0, 1.0)) {
+                } else if eq(pos, point(1.0, 1.0)) {
                     assert!(at_endpoint(&src, EndpointId(1)))
-                } else if eq(v, point(0.0, 2.0)) {
+                } else if eq(pos, point(0.0, 2.0)) {
                     assert!(at_endpoint(&src, EndpointId(2)))
                 } else {
                     panic!()

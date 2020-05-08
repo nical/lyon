@@ -472,11 +472,11 @@ pub static FRAGMENT_SHADER: &'static str = &"
 pub struct WithId(pub i32);
 
 impl FillVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, position: Point, _: tessellation::FillAttributes) -> GpuVertex {
-        debug_assert!(!position.x.is_nan());
-        debug_assert!(!position.y.is_nan());
+    fn new_vertex(&mut self, vertex: tessellation::FillAttributes) -> GpuVertex {
+        debug_assert!(!vertex.position().x.is_nan());
+        debug_assert!(!vertex.position().y.is_nan());
         GpuVertex {
-            position: position.to_array(),
+            position: vertex.position().to_array(),
             normal: [0.0, 0.0],
             prim_id: self.0,
         }
@@ -513,11 +513,11 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
 struct BgVertexCtor;
 
 impl FillVertexConstructor<BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, position: Point, _: tessellation::FillAttributes) -> BgVertex {
-        debug_assert!(!position.x.is_nan());
-        debug_assert!(!position.y.is_nan());
+    fn new_vertex(&mut self, vertex: tessellation::FillAttributes) -> BgVertex {
+        debug_assert!(!vertex.position().x.is_nan());
+        debug_assert!(!vertex.position().y.is_nan());
         BgVertex {
-            position: position.to_array(),
+            position: vertex.position().to_array(),
         }
     }
 }

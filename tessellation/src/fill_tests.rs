@@ -51,8 +51,7 @@ fn test_too_many_vertices() {
     impl FillGeometryBuilder for Builder {
         fn add_fill_vertex(
             &mut self,
-            _pos: Point,
-            _attrib: FillAttributes,
+            _: FillAttributes,
         ) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
