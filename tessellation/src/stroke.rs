@@ -262,12 +262,9 @@ impl StrokeTessellator {
 }
 
 macro_rules! add_vertex {
-    ($builder: expr, position: $position: expr) => {{
-        let mut position = $position;
-
-        if $builder.options.apply_line_width {
-            position += $builder.attributes.normal * $builder.options.line_width / 2.0;
-        }
+    ($builder: expr) => {{
+        let position = $builder.attributes.position_on_path
+            + $builder.attributes.normal * $builder.options.line_width * 0.5;
 
         $builder.output.add_stroke_vertex(
             position,
@@ -450,6 +447,7 @@ impl<'l> StrokeBuilder<'l> {
             error: None,
             output,
             attributes: StrokeAttributesData {
+                position_on_path: zero,
                 normal: vector(0.0, 0.0),
                 advancement: 0.0,
                 buffer: attrib_buffer,
@@ -624,25 +622,27 @@ impl<'l> StrokeBuilder<'l> {
     }
 
     fn tessellate_empty_square_cap(&mut self)  -> Result<(), TessellationError> {
+        self.attributes.position_on_path = self.current;
+
         self.attributes.normal = vector(1.0, 1.0);
         self.attributes.side = Side::Right;
 
-        let a = add_vertex!(self, position: self.current)?;
+        let a = add_vertex!(self)?;
 
         self.attributes.normal = vector(1.0, -1.0);
         self.attributes.side = Side::Left;
 
-        let b = add_vertex!(self, position: self.current)?;
+        let b = add_vertex!(self)?;
 
         self.attributes.normal = vector(-1.0, -1.0);
         self.attributes.side = Side::Left;
 
-        let c = add_vertex!(self, position: self.current)?;
+        let c = add_vertex!(self)?;
 
         self.attributes.normal = vector(-1.0, 1.0);
         self.attributes.side = Side::Right;
 
-        let d = add_vertex!(self, position: self.current)?;
+        let d = add_vertex!(self)?;
 
         self.output.add_triangle(a, b, c);
         self.output.add_triangle(a, c, d);
@@ -652,16 +652,17 @@ impl<'l> StrokeBuilder<'l> {
 
     fn tessellate_empty_round_cap(&mut self) -> Result<(), TessellationError> {
         let center = self.current;
+        self.attributes.position_on_path = center;
 
         self.attributes.normal = vector(-1.0, 0.0);
         self.attributes.side = Side::Left;
 
-        let left_id = add_vertex!(self, position: center)?;
+        let left_id = add_vertex!(self)?;
 
         self.attributes.normal = vector(1.0, 0.0);
         self.attributes.side = Side::Right;
 
-        let right_id = add_vertex!(self, position: center)?;
+        let right_id = add_vertex!(self)?;
 
         self.tessellate_round_cap(center, vector(0.0, -1.0), left_id, right_id, true)?;
         self.tessellate_round_cap(center, vector(0.0, 1.0), left_id, right_id, false)
@@ -733,16 +734,17 @@ impl<'l> StrokeBuilder<'l> {
             let n1 = -n2;
 
             self.attributes.advancement = self.sub_path_start_length;
+            self.attributes.position_on_path = first;
 
             self.attributes.normal = n1;
             self.attributes.side = Side::Left;
 
-            let first_left_id = add_vertex!(self, position: first)?;
+            let first_left_id = add_vertex!(self)?;
 
             self.attributes.normal = n2;
             self.attributes.side = Side::Right;
 
-            let first_right_id = add_vertex!(self, position: first)?;
+            let first_right_id = add_vertex!(self)?;
 
             if self.options.start_cap == LineCap::Round {
                 self.tessellate_round_cap(first, d, first_left_id, first_right_id, true)?;
@@ -876,10 +878,11 @@ impl<'l> StrokeBuilder<'l> {
         let left_angle = mid_angle + quarter_angle;
         let right_angle = mid_angle - quarter_angle;
 
+        debug_assert_eq!(self.attributes.position_on_path, center);
         self.attributes.normal = dir;
         self.attributes.side = Side::Left;
 
-        let mid_vertex = add_vertex!(self, position: center)?;
+        let mid_vertex = add_vertex!(self)?;
 
         let (v1, v2, v3) = if is_start {
             (left, right, mid_vertex)
@@ -887,12 +890,6 @@ impl<'l> StrokeBuilder<'l> {
             (left, mid_vertex, right)
         };
         self.output.add_triangle(v1, v2, v3);
-
-        let apply_width = if self.options.apply_line_width {
-            self.options.line_width * 0.5
-        } else {
-            0.0
-        };
 
         tess_round_cap(
             center,
@@ -902,7 +899,6 @@ impl<'l> StrokeBuilder<'l> {
             mid_vertex,
             num_recursions,
             Side::Left,
-            apply_width,
             !is_start,
             &mut self.attributes,
             self.output,
@@ -916,7 +912,6 @@ impl<'l> StrokeBuilder<'l> {
             right,
             num_recursions,
             Side::Right,
-            apply_width,
             !is_start,
             &mut self.attributes,
             self.output,
@@ -956,7 +951,7 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.normal = -front_normal;
         self.attributes.side = front_side.opposite();
 
-        let back_vertex = add_vertex!(self, position: self.current)?;
+        let back_vertex = add_vertex!(self)?;
         
         Ok(Some(back_vertex))
     }
@@ -998,6 +993,7 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.src = src;
         self.attributes.buffer_is_valid = false;
         self.attributes.advancement = self.length;
+        self.attributes.position_on_path = self.current;
 
         let back_vertex = self.create_back_vertex(
             prev_tangent,
@@ -1045,7 +1041,7 @@ impl<'l> StrokeBuilder<'l> {
             LineJoin::Miter => {
                 self.attributes.normal = front_normal;
                 self.attributes.side = front_side;
-                let front_vertex = add_vertex!(self, position: self.current)?;
+                let front_vertex = add_vertex!(self)?;
                 self.previous_normal = normal;
 
                 debug_assert!(back_vertex.is_some());
@@ -1086,12 +1082,12 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.normal = previous_normal * neg_if_right;
         self.attributes.side = front_side;
 
-        let front_start_vertex = add_vertex!(self, position: self.current)?;
+        let front_start_vertex = add_vertex!(self)?;
 
         self.attributes.normal = next_normal * neg_if_right;
         self.attributes.side = front_side;
 
-        let front_end_vertex = add_vertex!(self, position: self.current)?;
+        let front_end_vertex = add_vertex!(self)?;
 
         self.previous_normal = next_normal;
 
@@ -1136,10 +1132,10 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.side = front_side;
 
         self.attributes.normal = start_normal;
-        let front_start_vertex = add_vertex!(self, position: self.current)?;
+        let front_start_vertex = add_vertex!(self)?;
 
         self.attributes.normal = end_normal;
-        let front_end_vertex = add_vertex!(self, position: self.current)?;
+        let front_end_vertex = add_vertex!(self)?;
 
         // Add the triangle joining the back vertex and the start/end front vertices.
         if let Some(back_vertex) = back_vertex {
@@ -1152,8 +1148,6 @@ impl<'l> StrokeBuilder<'l> {
             self.output.add_triangle(v1, v2, v3);
         }
 
-        let applied_width = if self.options.apply_line_width { radius } else { 0.0 };
-
         tess_round_cap(
             self.current,
             (start_angle.radians, end_angle.radians),
@@ -1162,7 +1156,6 @@ impl<'l> StrokeBuilder<'l> {
             front_end_vertex,
             num_subdivisions,
             front_side,
-            applied_width,
             front_side.is_left(),
             &mut self.attributes,
             self.output,
@@ -1188,12 +1181,12 @@ impl<'l> StrokeBuilder<'l> {
         self.attributes.normal = v1 * neg_if_right;
         self.attributes.side = front_side;
 
-        let front_start_vertex = add_vertex!(self, position: self.current)?;
+        let front_start_vertex = add_vertex!(self)?;
 
         self.attributes.normal = v2 * neg_if_right;
         self.attributes.side = front_side;
 
-        let front_end_vertex = add_vertex!(self, position: self.current)?;
+        let front_end_vertex = add_vertex!(self)?;
 
         self.previous_normal = normal;
 
@@ -1255,7 +1248,6 @@ fn tess_round_cap(
     vb: VertexId,
     num_recursions: u32,
     side: Side,
-    line_width: f32,
     invert_winding: bool,
     attributes: &mut StrokeAttributesData,
     output: &mut dyn StrokeGeometryBuilder,
@@ -1272,7 +1264,7 @@ fn tess_round_cap(
     attributes.side = side;
 
     let vertex =
-        output.add_stroke_vertex(center + normal * line_width, StrokeAttributes(attributes))?;
+        output.add_stroke_vertex(center + normal * radius, StrokeAttributes(attributes))?;
 
     let (v1, v2, v3) = if invert_winding {
         (vertex, vb, va)
@@ -1289,7 +1281,6 @@ fn tess_round_cap(
         vertex,
         num_recursions - 1,
         side,
-        line_width,
         invert_winding,
         attributes,
         output,
@@ -1302,7 +1293,6 @@ fn tess_round_cap(
         vb,
         num_recursions - 1,
         side,
-        line_width,
         invert_winding,
         attributes,
         output,
@@ -1318,14 +1308,16 @@ fn tess_thin_rectangle(
     options: &StrokeOptions,
     output: &mut dyn StrokeGeometryBuilder,
 ) -> Result<(), TessellationError> {
-    let rect = if options.apply_line_width {
-        let w = options.line_width * 0.5;
-        rect.inflate(w, w)
-    } else {
-        *rect
-    };
+    let w = options.line_width * 0.5;
+    let rect = rect.inflate(w, w);
+
+    let tl = rect.origin;
+    let tr = point(rect.max_x(), rect.min_y());
+    let bl = point(rect.min_x(), rect.max_y());
+    let br = point(rect.max_x(), rect.max_y());
 
     let mut attributes = StrokeAttributesData {
+        position_on_path: tl.lerp(bl, 0.5),
         normal: vector(-1.0, -1.0),
         advancement: 0.0,
         side: Side::Left,
@@ -1337,24 +1329,25 @@ fn tess_thin_rectangle(
         buffer_is_valid: true,
     };
 
-    let a = output.add_stroke_vertex(rect.origin, StrokeAttributes(&mut attributes))?;
+    let a = output.add_stroke_vertex(tl, StrokeAttributes(&mut attributes))?;
 
     attributes.normal = vector(-1.0, 1.0);
     attributes.advancement += rect.size.height;
 
-    let b = output.add_stroke_vertex(point(rect.min_x(), rect.max_y()), StrokeAttributes(&mut attributes))?;
+    let b = output.add_stroke_vertex(bl, StrokeAttributes(&mut attributes))?;
 
     attributes.side = Side::Right;
 
+    attributes.position_on_path = tr.lerp(br, 0.5);
     attributes.normal = vector(1.0, 1.0);
     attributes.advancement += rect.size.width;
 
-    let c = output.add_stroke_vertex(point(rect.max_x(), rect.max_y()), StrokeAttributes(&mut attributes))?;
+    let c = output.add_stroke_vertex(br, StrokeAttributes(&mut attributes))?;
 
     attributes.normal = vector(1.0, -1.0);
     attributes.advancement += rect.size.height;
 
-    let d = output.add_stroke_vertex(point(rect.max_x(), rect.min_y()), StrokeAttributes(&mut attributes))?;
+    let d = output.add_stroke_vertex(tr, StrokeAttributes(&mut attributes))?;
 
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
@@ -1364,6 +1357,7 @@ fn tess_thin_rectangle(
 
 /// Extra vertex information from the `StrokeTessellator`.
 pub(crate) struct StrokeAttributesData<'l> {
+    pub(crate) position_on_path: Point,
     pub(crate) normal: Vector,
     pub(crate) advancement: f32,
     pub(crate) side: Side,
@@ -1377,11 +1371,19 @@ pub(crate) struct StrokeAttributesData<'l> {
 pub struct StrokeAttributes<'a, 'b>(pub(crate) &'b mut StrokeAttributesData<'a>);
 
 impl<'a, 'b> StrokeAttributes<'a, 'b> {
-    /// Normal at this vertex such that extruding the vertices along the normal would
-    /// produce a stroke of width 2.0 (1.0 on each side). This vector is not normalized.
+    /// Normal at this vertex.
+    ///
+    /// The length of the provided normal is such that displacing the vertex along it
+    /// inflates the stroke by 2.0 (1.0 on each side).
     #[inline]
     pub fn normal(&self) -> Vector {
         self.0.normal
+    }
+
+    /// Position of this vertex on the path, unaffected by the line width.
+    #[inline]
+    pub fn position_on_path(&self) -> Point {
+        self.0.position_on_path
     }
 
     /// How far along the path this vertex is.
@@ -1689,7 +1691,7 @@ fn stroke_vertex_source_01() {
         &mut path.id_iter(),
         &path,
         Some(&path),
-        &StrokeOptions::default().dont_apply_line_width(),
+        &StrokeOptions::default(),
         &mut CheckVertexSources {
             next_vertex: 0,
             a,
@@ -1725,15 +1727,16 @@ fn stroke_vertex_source_01() {
     impl StrokeGeometryBuilder for CheckVertexSources {
         fn add_stroke_vertex(
             &mut self,
-            v: Point,
+            _: Point,
             mut attr: StrokeAttributes,
         ) -> Result<VertexId, GeometryBuilderError> {
+            let pos = attr.position_on_path();
             let src = attr.source();
-            if eq(v, point(0.0, 0.0)) {
+            if eq(pos, point(0.0, 0.0)) {
                 assert_eq!(src, VertexSource::Endpoint { id: self.a })
-            } else if eq(v, point(1.0, 1.0)) {
+            } else if eq(pos, point(1.0, 1.0)) {
                 assert_eq!(src, VertexSource::Endpoint { id: self.b })
-            } else if eq(v, point(0.0, 2.0)) {
+            } else if eq(pos, point(0.0, 2.0)) {
                 assert_eq!(src, VertexSource::Endpoint { id: self.c })
             } else {
                 match src {
@@ -1748,11 +1751,11 @@ fn stroke_vertex_source_01() {
             }
 
             let attributes = attr.interpolated_attributes();
-            if eq(v, point(0.0, 0.0)) {
+            if eq(pos, point(0.0, 0.0)) {
                 assert_eq!(attributes, &[1.0])
-            } else if eq(v, point(1.0, 1.0)) {
+            } else if eq(pos, point(1.0, 1.0)) {
                 assert_eq!(attributes, &[2.0])
-            } else if eq(v, point(0.0, 2.0)) {
+            } else if eq(pos, point(0.0, 2.0)) {
                 assert_eq!(attributes, &[3.0])
             } else {
                 assert_eq!(attributes.len(), 1);

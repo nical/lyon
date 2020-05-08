@@ -436,7 +436,6 @@ fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
         options.line_width = get_line_width(matches);
         options.line_join = get_line_join(matches);
         options.tolerance = get_tolerance(matches);
-        options.apply_line_width = false;
         if let Some(limit) = get_miter_limit(matches) {
             options.miter_limit = limit;
         }
@@ -486,7 +485,6 @@ fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {
         stroke.line_width = get_line_width(matches);
         stroke.line_join = get_line_join(matches);
         stroke.tolerance = get_tolerance(matches);
-        stroke.apply_line_width = false;
 
         let options = HatchingOptions::DEFAULT
             .with_tolerance(stroke.tolerance)
@@ -519,7 +517,6 @@ fn get_dots(matches: &ArgMatches) -> Option<DotParams> {
         stroke.end_cap = cap;
         stroke.line_width = get_line_width(matches);
         stroke.tolerance = get_tolerance(matches);
-        stroke.apply_line_width = false;
 
         let options = DotOptions::DEFAULT
             .with_tolerance(stroke.tolerance)
