@@ -172,8 +172,8 @@
 //! }
 //!
 //! impl StrokeGeometryBuilder for ToStdOut {
-//!     fn add_stroke_vertex(&mut self, position: Point, _: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
-//!         println!("vertex {:?}", position);
+//!     fn add_stroke_vertex(&mut self, vertex: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
+//!         println!("vertex {:?}", vertex.position());
 //!         if self.vertices >= u32::MAX {
 //!             return Err(GeometryBuilderError::TooManyVertices);
 //!         }
@@ -270,7 +270,6 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     /// This method can only be called between begin_geometry and end_geometry.
     fn add_stroke_vertex(
         &mut self,
-        position: Point,
         attributes: StrokeAttributes,
     ) -> Result<VertexId, GeometryBuilderError>;
 }
@@ -345,7 +344,7 @@ pub trait FillVertexConstructor<OutputVertex> {
 
 /// A trait specifying how to create vertex values.
 pub trait StrokeVertexConstructor<OutputVertex> {
-    fn new_vertex(&mut self, point: Point, attributes: StrokeAttributes) -> OutputVertex;
+    fn new_vertex(&mut self, attributes: StrokeAttributes) -> OutputVertex;
 }
 
 /// A simple vertex constructor that just takes the position.
@@ -358,8 +357,8 @@ impl FillVertexConstructor<Point> for Positions {
 }
 
 impl StrokeVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, position: Point, _attributes: StrokeAttributes) -> Point {
-        position
+    fn new_vertex(&mut self, attributes: StrokeAttributes) -> Point {
+        attributes.position()
     }
 }
 
@@ -374,10 +373,10 @@ where
 
 impl<F, OutputVertex> StrokeVertexConstructor<OutputVertex> for F
 where
-    F: Fn(Point, StrokeAttributes) -> OutputVertex,
+    F: Fn(StrokeAttributes) -> OutputVertex,
 {
-    fn new_vertex(&mut self, position: Point, attributes: StrokeAttributes) -> OutputVertex {
-        self(position, attributes)
+    fn new_vertex(&mut self, attributes: StrokeAttributes) -> OutputVertex {
+        self(attributes)
     }
 }
 
@@ -482,12 +481,11 @@ where
 {
     fn add_stroke_vertex(
         &mut self,
-        p: Point,
         v: StrokeAttributes,
     ) -> Result<VertexId, GeometryBuilderError> {
         self.buffers
             .vertices
-            .push(self.vertex_constructor.new_vertex(p, v));
+            .push(self.vertex_constructor.new_vertex(v));
         let len = self.buffers.vertices.len();
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -551,7 +549,6 @@ impl FillGeometryBuilder for NoOutput {
 impl StrokeGeometryBuilder for NoOutput {
     fn add_stroke_vertex(
         &mut self,
-        _position: Point,
         _: StrokeAttributes,
     ) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
