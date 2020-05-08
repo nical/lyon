@@ -3,7 +3,7 @@ use crate::math::*;
 use crate::geometry_builder::*;
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::{Path, PathSlice};
-use crate::{FillAttributes, FillOptions, FillRule, FillTessellator, TessellationError, VertexId};
+use crate::{FillVertex, FillOptions, FillRule, FillTessellator, TessellationError, VertexId};
 
 use std::env;
 
@@ -51,7 +51,7 @@ fn test_too_many_vertices() {
     impl FillGeometryBuilder for Builder {
         fn add_fill_vertex(
             &mut self,
-            _: FillAttributes,
+            _: FillVertex,
         ) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);

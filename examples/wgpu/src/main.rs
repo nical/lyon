@@ -556,7 +556,7 @@ fn main() {
 pub struct WithId(pub i32);
 
 impl FillVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::FillAttributes) -> GpuVertex {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
         GpuVertex {
             position: vertex.position().to_array(),
             normal: [0.0, 0.0],
@@ -566,7 +566,7 @@ impl FillVertexConstructor<GpuVertex> for WithId {
 }
 
 impl StrokeVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeAttributes) -> GpuVertex {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
         GpuVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),

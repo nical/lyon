@@ -472,7 +472,7 @@ pub static FRAGMENT_SHADER: &'static str = &"
 pub struct WithId(pub i32);
 
 impl FillVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::FillAttributes) -> GpuVertex {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
         debug_assert!(!vertex.position().x.is_nan());
         debug_assert!(!vertex.position().y.is_nan());
         GpuVertex {
@@ -496,7 +496,7 @@ impl tess2::geometry_builder::BasicVertexConstructor<GpuVertex> for WithId {
 }
 
 impl StrokeVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeAttributes) -> GpuVertex {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
         debug_assert!(!vertex.position().x.is_nan());
         debug_assert!(!vertex.position().y.is_nan());
         debug_assert!(!vertex.normal().x.is_nan());
@@ -513,7 +513,7 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
 struct BgVertexCtor;
 
 impl FillVertexConstructor<BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::FillAttributes) -> BgVertex {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
         debug_assert!(!vertex.position().x.is_nan());
         debug_assert!(!vertex.position().y.is_nan());
         BgVertex {

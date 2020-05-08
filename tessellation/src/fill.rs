@@ -307,7 +307,7 @@ struct PendingEdge {
 ///
 /// This is the complicated, but most powerful mechanism. The tessellator keeps track of where
 /// each vertex comes from in the original path, and provides access to this information via
-/// an iterator of [`VertexSource`](enum.VertexSource.html) in `FillAttributes::sources`.
+/// an iterator of [`VertexSource`](enum.VertexSource.html) in `FillVertex::sources`.
 ///
 /// It is most common for the vertex source iterator to yield a single `VertexSource::Endpoint`
 /// source, which happens when the vertex directly corresponds to an endpoint of the original path.
@@ -330,7 +330,7 @@ struct PendingEdge {
 /// of the edges they originate from.
 ///
 /// Custom endpoint attributes are represented as `&[f32]` slices accessible via
-/// `FillAttributes::interpolated_attributes`. All vertices, whether they originate from a single
+/// `FillVertex::interpolated_attributes`. All vertices, whether they originate from a single
 /// endpoint or some more complex source, have exactly the same number of attributes.
 /// Without having to know about the meaning of attributes, the tessellator can either
 /// forward the slice of attributes from a provided `AttributeStore` when possible or
@@ -339,7 +339,7 @@ struct PendingEdge {
 /// To use this feature, make sure to use `FillTessellator::tessellate_path` or
 /// `FillTessellator::tessellate_with_ids` instead of `FillTessellator::tessellate`.
 ///
-/// Attributes are lazily computed when calling `FillAttributes::interpolated_attributes`.
+/// Attributes are lazily computed when calling `FillVertex::interpolated_attributes`.
 /// In other words they don't add overhead when not used, however it is best to avoid calling
 /// interpolated_attributes several times per vertex.
 ///
@@ -412,7 +412,7 @@ struct PendingEdge {
 /// // A custom vertex constructor, see the geometry_builder module.
 /// struct Ctor;
 /// impl FillVertexConstructor<MyVertex> for Ctor {
-///     fn new_vertex(&mut self, mut vertex: FillAttributes) -> MyVertex {
+///     fn new_vertex(&mut self, mut vertex: FillVertex) -> MyVertex {
 ///         let position = vertex.position();
 ///         let attrs = vertex.interpolated_attributes();
 ///         MyVertex {
@@ -790,7 +790,7 @@ impl FillTessellator {
         };
 
         self.current_vertex = output.add_fill_vertex(
-            FillAttributes {
+            FillVertex {
                 position,
                 events: &self.events,
                 current_event,
@@ -2005,7 +2005,7 @@ fn reorient(p: Point) -> Point {
 }
 
 /// Extra vertex information from the `FillTessellator`, accessible when building vertices.
-pub struct FillAttributes<'l> {
+pub struct FillVertex<'l> {
     position: Point,
     events: &'l EventQueue,
     current_event: TessEventId,
@@ -2013,7 +2013,7 @@ pub struct FillAttributes<'l> {
     attrib_store: Option<&'l dyn AttributeStore>,
 }
 
-impl<'l> FillAttributes<'l> {
+impl<'l> FillVertex<'l> {
     pub fn position(&self) -> Point {
         self.position
     }
@@ -2035,7 +2035,7 @@ impl<'l> FillAttributes<'l> {
     /// a flattened curve. If two endpoints are at the same position only one of
     /// them is returned.
     ///
-    /// See also: `FillAttributes::sources`.
+    /// See also: `FillVertex::sources`.
     pub fn as_endpoint_id(&self) -> Option<EndpointId> {
         let mut current = self.current_event;
         while self.events.valid_id(current) {
@@ -2507,7 +2507,7 @@ fn fill_vertex_source_01() {
     impl FillGeometryBuilder for CheckVertexSources {
         fn add_fill_vertex(
             &mut self,
-            mut vertex: FillAttributes,
+            mut vertex: FillVertex,
         ) -> Result<VertexId, GeometryBuilderError> {
             let pos = vertex.position();
             for src in vertex.sources() {
@@ -2609,7 +2609,7 @@ fn fill_vertex_source_02() {
     impl FillGeometryBuilder for CheckVertexSources {
         fn add_fill_vertex(
             &mut self,
-            mut vertex: FillAttributes,
+            mut vertex: FillVertex,
         ) -> Result<VertexId, GeometryBuilderError> {
             let pos = vertex.position();
             for src in vertex.sources() {
@@ -2766,7 +2766,7 @@ fn fill_vertex_source_03() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(&mut self, mut vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+        fn add_fill_vertex(&mut self, mut vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
             if eq(vertex.position(), point(1.0, 1.0)) {
                 assert_eq!(vertex.interpolated_attributes(), &[1.5]);
                 assert_eq!(vertex.sources().count(), 2);
@@ -2815,7 +2815,7 @@ fn fill_builder_vertex_source() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(&mut self, vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+        fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
             let pos = vertex.position();
             for src in vertex.sources() {
                 if eq(pos, point(0.0, 0.0)) {
