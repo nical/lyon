@@ -69,7 +69,7 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{FillVertexConstructor, VertexBuffers, BuffersBuilder, FillOptions, FillTessellator, FillAttributes};
+//! use tess::{FillVertexConstructor, VertexBuffers, BuffersBuilder, FillOptions, FillTessellator, FillVertex};
 //! use tess::math::{Point, point};
 //!
 //! // Our custom vertex.
@@ -84,7 +84,7 @@
 //! struct WithColor([f32; 4]);
 //!
 //! impl FillVertexConstructor<MyVertex> for WithColor {
-//!     fn new_vertex(&mut self, vertex: FillAttributes) -> MyVertex {
+//!     fn new_vertex(&mut self, vertex: FillVertex) -> MyVertex {
 //!         MyVertex {
 //!             position: vertex.position().to_array(),
 //!             color: self.0,
@@ -128,7 +128,7 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{StrokeTessellator, GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, Count, GeometryBuilderError, StrokeAttributes, VertexId};
+//! use tess::{StrokeTessellator, GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, Count, GeometryBuilderError, StrokeVertex, VertexId};
 //! use tess::math::{Point, point};
 //! use tess::path::polygon::Polygon;
 //! use std::fmt::Debug;
@@ -172,7 +172,7 @@
 //! }
 //!
 //! impl StrokeGeometryBuilder for ToStdOut {
-//!     fn add_stroke_vertex(&mut self, vertex: StrokeAttributes) -> Result<VertexId, GeometryBuilderError> {
+//!     fn add_stroke_vertex(&mut self, vertex: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
 //!         println!("vertex {:?}", vertex.position());
 //!         if self.vertices >= u32::MAX {
 //!             return Err(GeometryBuilderError::TooManyVertices);
@@ -198,7 +198,7 @@
 //!
 
 use crate::math::Point;
-use crate::{FillAttributes, Index, StrokeAttributes, VertexId};
+use crate::{FillVertex, Index, StrokeVertex, VertexId};
 
 use std;
 use std::convert::From;
@@ -253,7 +253,7 @@ pub trait FillGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_fill_vertex(&mut self, vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError>;
+    fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// A Geometry builder to interface with the [`StrokeTessellator`](../struct.StrokeTessellator.html).
@@ -264,7 +264,7 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_stroke_vertex(&mut self, vertex: StrokeAttributes) -> Result<VertexId, GeometryBuilderError>;
+    fn add_stroke_vertex(&mut self, vertex: StrokeVertex) -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// Structure that holds the vertex and index data.
@@ -301,7 +301,7 @@ impl<OutputVertex, OutputIndex> VertexBuffers<OutputVertex, OutputIndex> {
 /// offset at the offset 0 and `VertexBuilder` takes care of translating indices adequately.
 ///
 /// Often, algorithms are built to generate vertex positions without knowledge of eventual other
-/// vertex attributes. The `VertexConstructor` does the translation from generic `Input` to `OutputVertex`.
+/// vertex vertex. The `VertexConstructor` does the translation from generic `Input` to `OutputVertex`.
 /// If your logic generates the actual vertex type directly, you can use the `SimpleBuffersBuilder`
 /// convenience typedef.
 pub struct BuffersBuilder<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor> {
@@ -332,44 +332,44 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
 
 /// A trait specifying how to create vertex values.
 pub trait FillVertexConstructor<OutputVertex> {
-    fn new_vertex(&mut self, vertex: FillAttributes) -> OutputVertex;
+    fn new_vertex(&mut self, vertex: FillVertex) -> OutputVertex;
 }
 
 /// A trait specifying how to create vertex values.
 pub trait StrokeVertexConstructor<OutputVertex> {
-    fn new_vertex(&mut self, vertex: StrokeAttributes) -> OutputVertex;
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> OutputVertex;
 }
 
 /// A simple vertex constructor that just takes the position.
 pub struct Positions;
 
 impl FillVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, attributes: FillAttributes) -> Point {
-        attributes.position()
+    fn new_vertex(&mut self, vertex: FillVertex) -> Point {
+        vertex.position()
     }
 }
 
 impl StrokeVertexConstructor<Point> for Positions {
-    fn new_vertex(&mut self, attributes: StrokeAttributes) -> Point {
-        attributes.position()
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> Point {
+        vertex.position()
     }
 }
 
 impl<F, OutputVertex> FillVertexConstructor<OutputVertex> for F
 where
-    F: Fn(FillAttributes) -> OutputVertex,
+    F: Fn(FillVertex) -> OutputVertex,
 {
-    fn new_vertex(&mut self, attributes: FillAttributes) -> OutputVertex {
-        self(attributes)
+    fn new_vertex(&mut self, vertex: FillVertex) -> OutputVertex {
+        self(vertex)
     }
 }
 
 impl<F, OutputVertex> StrokeVertexConstructor<OutputVertex> for F
 where
-    F: Fn(StrokeAttributes) -> OutputVertex,
+    F: Fn(StrokeVertex) -> OutputVertex,
 {
-    fn new_vertex(&mut self, attributes: StrokeAttributes) -> OutputVertex {
-        self(attributes)
+    fn new_vertex(&mut self, vertex: StrokeVertex) -> OutputVertex {
+        self(vertex)
     }
 }
 
@@ -449,7 +449,7 @@ where
     OutputIndex: Add + From<VertexId> + MaxIndex,
     Ctor: FillVertexConstructor<OutputVertex>,
 {
-    fn add_fill_vertex(&mut self, vertex: FillAttributes) -> Result<VertexId, GeometryBuilderError> {
+    fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
         self.buffers.vertices.push(
             self.vertex_constructor.new_vertex(vertex)
         );
@@ -470,7 +470,7 @@ where
 {
     fn add_stroke_vertex(
         &mut self,
-        v: StrokeAttributes,
+        v: StrokeVertex,
     ) -> Result<VertexId, GeometryBuilderError> {
         self.buffers
             .vertices
@@ -524,7 +524,7 @@ impl GeometryBuilder for NoOutput {
 impl FillGeometryBuilder for NoOutput {
     fn add_fill_vertex(
         &mut self,
-        _vertex: FillAttributes,
+        _vertex: FillVertex,
     ) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -537,7 +537,7 @@ impl FillGeometryBuilder for NoOutput {
 impl StrokeGeometryBuilder for NoOutput {
     fn add_stroke_vertex(
         &mut self,
-        _: StrokeAttributes,
+        _: StrokeVertex,
     ) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);

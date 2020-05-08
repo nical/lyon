@@ -319,8 +319,8 @@ impl Order {
     }
 }
 
-pub use fill::FillAttributes;
-pub use stroke::StrokeAttributes;
+pub use fill::FillVertex;
+pub use stroke::StrokeVertex;
 
 /// Where a vertex produced by a tessellator comes from in the original path.
 ///

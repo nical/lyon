@@ -12,7 +12,7 @@ use lyon::path::builder::*;
 use lyon::path::iterator::*;
 use lyon::path::Path;
 use lyon::tessellation::geometry_builder::*;
-use lyon::tessellation::{FillAttributes, FillOptions, FillTessellator};
+use lyon::tessellation::{FillVertex, FillOptions, FillTessellator};
 
 use gfx::traits::{Device, FactoryExt};
 
@@ -395,7 +395,7 @@ pub static FRAGMENT_SHADER: &'static str = &"
 pub struct WithId(pub i32);
 
 impl FillVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: FillAttributes) -> GpuVertex {
+    fn new_vertex(&mut self, vertex: FillVertex) -> GpuVertex {
         GpuVertex {
             position: vertex.position().to_array(),
             prim_id: self.0,
@@ -406,7 +406,7 @@ impl FillVertexConstructor<GpuVertex> for WithId {
 pub struct BgVertexCtor;
 
 impl FillVertexConstructor<BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: FillAttributes) -> BgVertex {
+    fn new_vertex(&mut self, vertex: FillVertex) -> BgVertex {
         BgVertex {
             position: vertex.position().to_array(),
         }
