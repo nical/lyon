@@ -96,17 +96,17 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 )
                 .unwrap();
 
-                for (i, v) in geometry.vertices.iter().enumerate() {
-                    println!("{}: {:?}", i, v.position);
-                }
-                for i in 0..(geometry.indices.len() / 3) {
-                    println!(
-                        "{}/{}/{}",
-                        geometry.indices[i * 3],
-                        geometry.indices[i * 3 + 1],
-                        geometry.indices[i * 3 + 2],
-                    );
-                }
+                //for (i, v) in geometry.vertices.iter().enumerate() {
+                //    println!("{}: {:?}", i, v.position);
+                //}
+                //for i in 0..(geometry.indices.len() / 3) {
+                //    println!(
+                //        "{}/{}/{}",
+                //        geometry.indices[i * 3],
+                //        geometry.indices[i * 3 + 1],
+                //        geometry.indices[i * 3 + 2],
+                //    );
+                //}
             }
             Tessellator::Tess2 => {
                 tess2::FillTessellator::new()

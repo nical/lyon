@@ -165,17 +165,21 @@ struct Span {
 
 struct Spans {
     spans: Vec<Span>,
+    pool: Vec<MonotoneTessellator>,
 }
 
 impl Spans {
     fn begin_span(&mut self, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
-        let idx = span_idx as usize;
+        let tess = self.pool.pop()
+            .unwrap_or_else(MonotoneTessellator::new)
+            .begin(*position, vertex);
+
         self.spans.insert(
-            idx,
+            span_idx as usize,
             Span {
-                tess: MonotoneTessellator::new().begin(*position, vertex),
+                tess,
                 remove: false,
-            },
+            }
         );
     }
 
@@ -194,6 +198,8 @@ impl Spans {
         span.remove = true;
         span.tess.end(*position, id);
         span.tess.flush(output);
+        // Recycle the allocations for future use.
+        self.pool.push(mem::replace(&mut span.tess, MonotoneTessellator::new()));
     }
 
     fn merge_spans(
@@ -487,7 +493,7 @@ impl FillTessellator {
             fill_rule: FillRule::EvenOdd,
             orientation: Orientation::Vertical,
             tolerance: FillOptions::DEFAULT_TOLERANCE,
-            fill: Spans { spans: Vec::new() },
+            fill: Spans { spans: Vec::new(), pool: Vec::new() },
             log,
             assume_no_intersection: false,
             attrib_buffer: Vec::new(),
@@ -1475,13 +1481,7 @@ impl FillTessellator {
             )
         };
 
-        self.fill.spans.insert(
-            new_span_idx as usize,
-            Span {
-                tess: MonotoneTessellator::new().begin(upper_position, upper_id),
-                remove: false,
-            },
-        );
+        self.fill.begin_span(new_span_idx, &upper_position, upper_id);
 
         debug_assert!(!self.fill.spans[left_span_idx as usize].remove);
         debug_assert!(!self.fill.spans[right_span_idx as usize].remove);

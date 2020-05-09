@@ -1,10 +1,11 @@
-use crate::math::Point;
+use crate::math::{Point, point};
 use crate::Side;
 use crate::{FillGeometryBuilder, VertexId};
+use crate::fill::is_after;
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the `FillTessellator`).
-pub(crate) struct MonotoneTessellator {
+pub(crate) struct BasicMonotoneTessellator {
     stack: Vec<MonotoneVertex>,
     previous: MonotoneVertex,
     triangles: Vec<(VertexId, VertexId, VertexId)>,
@@ -17,11 +18,11 @@ struct MonotoneVertex {
     side: Side,
 }
 
-impl MonotoneTessellator {
+impl BasicMonotoneTessellator {
     pub fn new() -> Self {
-        MonotoneTessellator {
-            stack: Vec::with_capacity(16),
-            triangles: Vec::with_capacity(128),
+        BasicMonotoneTessellator {
+            stack: Vec::new(),
+            triangles: Vec::new(),
             // Some placeholder value that will be replaced right away.
             previous: MonotoneVertex {
                 pos: Point::new(0.0, 0.0),
@@ -31,7 +32,7 @@ impl MonotoneTessellator {
         }
     }
 
-    pub fn begin(mut self, pos: Point, id: VertexId) -> MonotoneTessellator {
+    pub fn begin(mut self, pos: Point, id: VertexId) -> Self {
         debug_assert!(id != VertexId::INVALID);
         let first = MonotoneVertex {
             pos,
@@ -41,21 +42,25 @@ impl MonotoneTessellator {
         self.previous = first;
 
         self.triangles.clear();
+        self.triangles.reserve(16);
+
         self.stack.clear();
+        self.stack.reserve(16);
         self.stack.push(first);
 
         self
     }
 
+    #[inline]
     pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
-        let current = MonotoneVertex { pos, id, side };
-        debug_assert!(id != VertexId::INVALID);
+        self.monotone_vertex(MonotoneVertex { pos, id, side });
+    }
+
+    fn monotone_vertex(&mut self, current: MonotoneVertex) {
+
+        debug_assert!(current.id != VertexId::INVALID);
         // cf. test_fixed_to_f32_precision
-        // TODO: investigate whether we could do the conversion without this
-        // precision issue. Otherwise we could also make MonotoneTessellator
-        // manipulate fixed-point values instead of f32 to preverve the assertion.
-        //
-        //debug_assert!(is_after(current.pos, self.previous.pos));
+        debug_assert!(current.pos.y >= self.previous.pos.y);
         debug_assert!(!self.stack.is_empty());
 
         let changed_side = current.side != self.previous.side;
@@ -110,17 +115,23 @@ impl MonotoneTessellator {
         self.stack.clear();
     }
 
+    #[inline]
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
-        debug_assert!(a.id != b.id);
-        debug_assert!(b.id != c.id);
-        debug_assert!(a.id != c.id);
-        debug_assert!(a.id != VertexId::INVALID);
-        debug_assert!(b.id != VertexId::INVALID);
-        debug_assert!(c.id != VertexId::INVALID);
-
         let threshold = -0.0625; // Floating point errors stroke again :(
         debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
-        self.triangles.push((a.id, b.id, c.id));
+
+        self.push_triangle_ids(a.id, b.id, c.id);
+    }
+
+    fn push_triangle_ids(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        debug_assert!(a != b);
+        debug_assert!(b != c);
+        debug_assert!(a != c);
+        debug_assert!(a != VertexId::INVALID);
+        debug_assert!(b != VertexId::INVALID);
+        debug_assert!(c != VertexId::INVALID);
+
+        self.triangles.push((a, b, c));
     }
 
     pub fn flush(&mut self, output: &mut dyn FillGeometryBuilder) {
@@ -131,21 +142,18 @@ impl MonotoneTessellator {
     }
 }
 
-#[cfg(test)]
-use crate::math::point;
-
 #[test]
 fn test_monotone_tess() {
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
         tess.end(point(1.0, 2.0), VertexId(2));
         assert_eq!(tess.triangles.len(), 1);
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
         tess.vertex(point(-1.5, 2.0), VertexId(2), Side::Left);
         tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
@@ -155,7 +163,7 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
         tess.vertex(point(3.0, 2.0), VertexId(2), Side::Right);
         tess.vertex(point(1.0, 3.0), VertexId(3), Side::Right);
@@ -166,7 +174,7 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = MonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
         tess.vertex(point(-3.0, 2.0), VertexId(2), Side::Left);
         tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
@@ -177,3 +185,199 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
 }
+
+
+struct SideEvents {
+    reference_point: Point,
+    events: Vec<VertexId>,
+    prev: Point,
+    last: MonotoneVertex,
+}
+
+impl SideEvents {
+    #[inline]
+    fn push(&mut self, vertex: MonotoneVertex) {
+        self.events.push(vertex.id);
+        self.prev = self.last.pos;
+        self.last = vertex;
+    }
+}
+
+pub struct AdvancedMonotoneTessellator {
+    tess: BasicMonotoneTessellator,
+    left: SideEvents,
+    right: SideEvents,
+    flushing: bool,
+}
+
+impl AdvancedMonotoneTessellator {
+    pub fn new() -> Self {
+        let zero = point(0.0, 0.0);
+        let dummy_vtx = MonotoneVertex {
+            pos: zero,
+            id: VertexId(0),
+            side: Side::Left,
+        };
+        AdvancedMonotoneTessellator {
+            left: SideEvents {
+                events: Vec::with_capacity(16),
+                reference_point: zero,
+                prev: zero,
+                last: dummy_vtx,
+            },
+            right: SideEvents {
+                events: Vec::with_capacity(16),
+                reference_point: zero,
+                prev: zero,
+                last: dummy_vtx,
+            },
+            tess: BasicMonotoneTessellator::new(),
+            flushing: false,
+        }
+    }
+
+    pub fn begin(mut self, pos: Point, id: VertexId) -> Self {
+        self.tess = self.tess.begin(pos, id);
+        self.left.reference_point = pos;
+        self.right.reference_point = pos;
+        self.left.prev = pos;
+        self.right.prev = pos;
+        self.flushing = false;
+
+        self.left.events.clear();
+        self.right.events.clear();
+        self.left.push(MonotoneVertex { pos, id, side: Side::Left });
+        self.right.push(MonotoneVertex { pos, id, side: Side::Right });
+
+        self
+    }
+
+    pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
+        match side {
+            Side::Left => {
+                self.left.reference_point.x = self.left.reference_point.x.max(pos.x);
+            }
+            Side::Right => {
+                self.right.reference_point.x = self.right.reference_point.x.min(pos.x);
+            }
+        }
+
+        let dx = self.right.reference_point.x - self.left.reference_point.x;
+
+        let mut side_ev = &mut self.left;
+        let mut opposite_side_ev = &mut self.right;
+        if side.is_right() {
+            std::mem::swap(&mut side_ev, &mut opposite_side_ev);
+        }
+
+        let dy = pos.y - side_ev.reference_point.y;
+        let sides_are_close = dx < dy * 0.1;
+
+        let len = side_ev.events.len();
+        let outward_turn = if !sides_are_close && len >= 2 {
+            let sign = match side {
+                Side::Left => 1.0,
+                Side::Right => -1.0,
+            };
+            let prev = side_ev.prev;
+            let last = side_ev.last.pos;
+            (prev - last).cross(pos - last) * sign < 0.0
+        } else {
+            false
+        };
+
+        if outward_turn || sides_are_close {
+            // To ensure that we don't break the ordering of the vertices forwarded to
+            // the inner tessellator we have to flush the opposite side as well
+            let must_flush_opposite_side = is_after(side_ev.last.pos, opposite_side_ev.last.pos);
+
+            if must_flush_opposite_side {
+                if let Some(v) = flush_side(opposite_side_ev, side.opposite(), &mut self.tess) {
+                    self.tess.monotone_vertex(v);
+                }
+            }
+
+            if let Some(v) = flush_side(side_ev, side, &mut self.tess) {
+                self.tess.monotone_vertex(v);
+            }
+        }
+
+        side_ev.push(MonotoneVertex { pos, id, side });
+    }
+
+    pub fn end(&mut self, pos: Point, id: VertexId) {
+        let a = flush_side(&mut self.left, Side::Left, &mut self.tess);
+        let b = flush_side(&mut self.right, Side::Right, &mut self.tess);
+        match (a, b) {
+            (Some(v), None) | (None, Some(v)) => {
+                self.tess.monotone_vertex(v);
+            }
+            (Some(mut v1), Some(mut v2)) => {
+                if is_after(v1.pos, v2.pos) {
+                    std::mem::swap(&mut v1, &mut v2);
+                }
+                self.tess.monotone_vertex(v1);
+                self.tess.monotone_vertex(v2);
+            }
+            (None, None) => {}
+        }
+
+        self.tess.end(pos, id);
+    }
+
+    pub fn flush(&mut self, output: &mut dyn FillGeometryBuilder) {
+        self.tess.flush(output);
+    }
+}
+
+#[inline(never)]
+fn flush_side(side: &mut SideEvents, s: Side, tess: &mut BasicMonotoneTessellator) -> Option<MonotoneVertex> {
+    let len = side.events.len();
+    if len < 2 {
+        return None;
+    }
+
+    let mut step = 1;
+    while step * 2 < len {
+        let mut last_index = 0;
+        let imax = (len - 1) / (2 * step);
+        for i in 0 .. imax {
+            let mut a = i * 2 * step;
+            let mut b = a + step;
+            last_index = b + step;
+            if s == Side::Right {
+                std::mem::swap(&mut a, &mut b);
+            }
+            tess.push_triangle_ids(
+                side.events[a],
+                side.events[b],
+                side.events[last_index],
+            );
+        }
+
+        if last_index + step < len {
+            let mut b = last_index;
+            let mut c = last_index + step;
+            if s == Side::Right {
+                std::mem::swap(&mut b, &mut c);
+            }
+
+            tess.push_triangle_ids(
+                side.events[0],
+                side.events[b],
+                side.events[c],
+            );
+        }
+
+        step *= 2;
+    }
+
+    side.events.clear();
+    side.push(side.last);
+    side.reference_point = side.last.pos;
+
+    Some(side.last)
+}
+
+
+pub type MonotoneTessellator = AdvancedMonotoneTessellator;
