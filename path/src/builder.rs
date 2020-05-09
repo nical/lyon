@@ -548,18 +548,24 @@ impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
     }
 
     fn line_to(&mut self, to: Point) -> EndpointId {
+        let id = self.builder.line_to(to);
         self.current_position = to;
-        self.builder.line_to(to) 
+
+        id
     }
 
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+        let id = crate::private::flatten_quadratic_bezier(self.tolerance, self.current_position, ctrl, to, self);
         self.current_position = to;
-        crate::private::flatten_quadratic_bezier(self.tolerance, self.current_position, ctrl, to, self)
+
+        id
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+        let id = crate::private::flatten_cubic_bezier(self.tolerance, self.current_position, ctrl1, ctrl2, to, self);
         self.current_position = to;
-        crate::private::flatten_cubic_bezier(self.tolerance, self.current_position, ctrl1, ctrl2, to, self)
+
+        id
     }
 
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
