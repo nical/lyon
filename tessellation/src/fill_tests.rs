@@ -2385,3 +2385,22 @@ fn issue_562_8() {
     // "M 997.84753 -18.145767 L -1001.9789 8.1993265 L 690.0551 716.8084 L -694.1865 -726.7548 L -589.4575 -814.2759 L 585.3262 804.3294 L 469.6551 876.7747 L -473.78647 -886.7211 L -349.32822 -942.74115 L 345.1968 932.7947 L -218.4011 -981.2923 L -83.44396 -1001.6565 L -57.160374 993.50793 L 53.02899 -1003.4543 L 188.47563 -986.65234 L -192.60701 976.7059 L -324.50436 941.61707 L 320.37296 -951.56354 L 446.26376 -898.84155 L -450.39514 888.89514 L -567.9344 819.52203 L 563.80304 -829.4685 L 670.8013 -744.73676 L -769.3966 636.2781 L 909.81805 -415.4218 Z"
 }
 
+#[test]
+fn low_tolerance_01() {
+    let mut builder = Path::builder();
+
+    builder.begin(point(0.0, 0.0));
+    builder.cubic_bezier_to(point(100.0, 0.0), point(100.0, 100.0), point(100.0, 200.0));
+    builder.end(true);
+
+    let path = builder.build();
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    let mut tess = FillTessellator::new();
+    tess.tessellate(
+        &path,
+        &FillOptions::tolerance(0.00001),
+        &mut simple_builder(&mut buffers),
+    ).unwrap();
+}
