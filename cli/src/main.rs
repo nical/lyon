@@ -14,6 +14,7 @@ mod flatten;
 mod fuzzing;
 mod show;
 mod tessellate;
+mod reduce;
 
 use clap::*;
 use commands::*;
@@ -156,6 +157,10 @@ fn main() {
                         .takes_value(true),
                 ),
         )
+        .subcommand(
+            declare_tess_params(SubCommand::with_name("reduce"), true)
+                .about("Find a reduced testcase")
+        )
         .get_matches();
 
     if let Some(command) = matches.subcommand_matches("tessellate") {
@@ -224,6 +229,11 @@ fn main() {
         let cmd = get_tess_command(command, true);
         let render_params = get_render_params(command);
         show::show_path(cmd, render_params);
+    }
+
+    if let Some(command) = matches.subcommand_matches("reduce") {
+        let cmd = get_tess_command(command, true);
+        reduce::reduce_testcase(cmd);
     }
 }
 
