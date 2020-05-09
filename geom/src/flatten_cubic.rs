@@ -32,9 +32,9 @@ where
 
     let num_quadratics = num_quadratics(&curve, quadratics_tolerance);
     let step = S::ONE / num_quadratics;
-
+    let n = num_quadratics.to_u32().unwrap();
     let mut t0 = S::ZERO;
-    for _ in 0..num_quadratics.to_u32().unwrap() {
+    for _ in 0..(n - 1) {
         let t1 = t0 + step;
 
         let quadratic = single_curve_approximation(&curve.split_range(t0..t1));
@@ -45,6 +45,13 @@ where
 
         t0 = t1;
     }
+
+    // Do the last step manually to make sure we finish at t = 1.0 exactly.
+    let quadratic = single_curve_approximation(&curve.split_range(t0..S::ONE));
+    quadratic.for_each_flattened_with_t(flattening_tolerance, &mut |point, t_sub| {
+        let t = t0 + step * t_sub;
+        callback(point, t);
+    });
 }
 
 pub struct Flattened<S: Scalar> {
@@ -359,4 +366,38 @@ fn flatten_with_t() {
             assert!(dist <= tolerance);
         }
     }
+}
+
+#[test]
+fn test_flatten_end() {
+    let segment = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(100.0, 0.0),
+        ctrl2: Point::new(100.0, 100.0),
+        to: Point::new(100.0, 200.0),
+    };
+
+    let mut last = segment.from;
+    segment.for_each_flattened(0.0001, &mut |p| {
+        last = p;
+    });
+
+    assert_eq!(last, segment.to);
+}
+
+#[test]
+fn test_flatten_point() {
+    let segment = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(0.0, 0.0),
+        ctrl2: Point::new(0.0, 0.0),
+        to: Point::new(0.0, 0.0),
+    };
+
+    let mut last = segment.from;
+    segment.for_each_flattened(0.0001, &mut |p| {
+        last = p;
+    });
+
+    assert_eq!(last, segment.to);
 }
