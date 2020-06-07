@@ -12,6 +12,7 @@ use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEve
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
+use futures::executor::block_on;
 use std::ops::Rem;
 
 #[macro_use]
@@ -27,6 +28,9 @@ struct Globals {
     zoom: f32,
 }
 
+unsafe impl bytemuck::Pod for Globals {}
+unsafe impl bytemuck::Zeroable for Globals {}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 struct GpuVertex {
@@ -34,6 +38,8 @@ struct GpuVertex {
     normal: [f32; 2],
     prim_id: i32,
 }
+unsafe impl bytemuck::Pod for GpuVertex {}
+unsafe impl bytemuck::Zeroable for GpuVertex {}
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -43,6 +49,16 @@ struct Primitive {
     z_index: i32,
     width: f32,
 }
+unsafe impl bytemuck::Pod for Primitive {}
+unsafe impl bytemuck::Zeroable for Primitive {}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct BgPoint {
+    point: [f32; 2],
+}
+unsafe impl bytemuck::Pod for BgPoint {}
+unsafe impl bytemuck::Zeroable for BgPoint {}
 
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
@@ -54,6 +70,7 @@ fn create_multisampled_framebuffer(
     sample_count: u32,
 ) -> wgpu::TextureView {
     let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+        label: Some("Multisampled frame descriptor"),
         size: wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
@@ -102,28 +119,33 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
+    let fill_count = fill_tess
+        .tessellate_path(
+            &path,
+            &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
+            &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
+        )
+        .unwrap();
 
-    let fill_count = fill_tess.tessellate_path(
-        &path,
-        &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
-        &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
-    ).unwrap();
-
-    stroke_tess.tessellate_path(
-        &path,
-        &StrokeOptions::tolerance(tolerance),
-        &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
-    ).unwrap();
+    stroke_tess
+        .tessellate_path(
+            &path,
+            &StrokeOptions::tolerance(tolerance),
+            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
+        )
+        .unwrap();
 
     let fill_range = 0..fill_count.indices;
     let stroke_range = fill_range.end..(geometry.indices.len() as u32);
-    let mut bg_geometry: VertexBuffers<Point, u16> = VertexBuffers::new();
+    let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
 
-    fill_tess.tessellate_rectangle(
-        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &FillOptions::DEFAULT,
-        &mut BuffersBuilder::new(&mut bg_geometry, Positions),
-    ).unwrap();
+    fill_tess
+        .tessellate_rectangle(
+            &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+            &FillOptions::DEFAULT,
+            &mut BuffersBuilder::new(&mut bg_geometry, Custom),
+        )
+        .unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {
@@ -175,43 +197,58 @@ fn main() {
         size_changed: true,
     };
 
-    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::LowPower,
-        backends: wgpu::BackendBit::PRIMARY,
-    })
+    let event_loop = EventLoop::new();
+    let window = Window::new(&event_loop).unwrap();
+
+    let surface = wgpu::Surface::create(&window);
+
+    let adapter = block_on(wgpu::Adapter::request(
+        &wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::LowPower,
+            compatible_surface: Some(&surface),
+        },
+        wgpu::BackendBit::PRIMARY,
+    ))
     .unwrap();
-    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+
+    let (device, mut queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },
         limits: wgpu::Limits::default(),
-    });
+    }));
 
-    let vbo = device
-        .create_buffer_mapped(geometry.vertices.len(), wgpu::BufferUsage::VERTEX)
-        .fill_from_slice(&geometry.vertices);
+    let vbo = device.create_buffer_with_data(
+        bytemuck::cast_slice(&geometry.vertices),
+        wgpu::BufferUsage::VERTEX,
+    );
 
-    let ibo = device
-        .create_buffer_mapped(geometry.indices.len(), wgpu::BufferUsage::INDEX)
-        .fill_from_slice(&geometry.indices);
+    let ibo = device.create_buffer_with_data(
+        bytemuck::cast_slice(&geometry.indices),
+        wgpu::BufferUsage::INDEX,
+    );
 
-    let bg_vbo = device
-        .create_buffer_mapped(bg_geometry.vertices.len(), wgpu::BufferUsage::VERTEX)
-        .fill_from_slice(&bg_geometry.vertices);
+    let bg_vbo = device.create_buffer_with_data(
+        bytemuck::cast_slice(&bg_geometry.vertices),
+        wgpu::BufferUsage::VERTEX,
+    );
 
-    let bg_ibo = device
-        .create_buffer_mapped(bg_geometry.indices.len(), wgpu::BufferUsage::INDEX)
-        .fill_from_slice(&bg_geometry.indices);
+    let bg_ibo = device.create_buffer_with_data(
+        bytemuck::cast_slice(&bg_geometry.indices),
+        wgpu::BufferUsage::INDEX,
+    );
 
     let prim_buffer_byte_size = (PRIM_BUFFER_LEN * std::mem::size_of::<Primitive>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
 
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Prims ubo"),
         size: prim_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
 
     let globals_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Globals ubo"),
         size: globals_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
@@ -230,13 +267,14 @@ fn main() {
     let bg_fs_module = device.create_shader_module(&bg_fs_spv);
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Bind group layout"),
         bindings: &[
-            wgpu::BindGroupLayoutBinding {
+            wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::UniformBuffer { dynamic: false },
             },
-            wgpu::BindGroupLayoutBinding {
+            wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::UniformBuffer { dynamic: false },
@@ -244,6 +282,7 @@ fn main() {
         ],
     });
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Bind group"),
         layout: &bind_group_layout,
         bindings: &[
             wgpu::Binding {
@@ -302,28 +341,30 @@ fn main() {
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: depth_stencil_state.clone(),
-        index_format: wgpu::IndexFormat::Uint16,
-        vertex_buffers: &[wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<GpuVertex>() as u64,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    format: wgpu::VertexFormat::Float2,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: 8,
-                    format: wgpu::VertexFormat::Float2,
-                    shader_location: 1,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: 16,
-                    format: wgpu::VertexFormat::Int,
-                    shader_location: 2,
-                },
-            ],
-        }],
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint16,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<GpuVertex>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 0,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 8,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 16,
+                        format: wgpu::VertexFormat::Int,
+                        shader_location: 2,
+                    },
+                ],
+            }],
+        },
         sample_count: sample_count,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
@@ -361,23 +402,23 @@ fn main() {
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: depth_stencil_state.clone(),
-        index_format: wgpu::IndexFormat::Uint16,
-        vertex_buffers: &[wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<Point>() as u64,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[wgpu::VertexAttributeDescriptor {
-                offset: 0,
-                format: wgpu::VertexFormat::Float2,
-                shader_location: 0,
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint16,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<Point>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    format: wgpu::VertexFormat::Float2,
+                    shader_location: 0,
+                }],
             }],
-        }],
+        },
         sample_count: sample_count,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
     });
 
-    let event_loop = EventLoop::new();
-    let window = Window::new(&event_loop).unwrap();
     let size = window.inner_size().to_physical(window.hidpi_factor());
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
@@ -385,7 +426,7 @@ fn main() {
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width.round() as u32,
         height: size.height.round() as u32,
-        present_mode: wgpu::PresentMode::Vsync,
+        present_mode: wgpu::PresentMode::Fifo,
     };
 
     let mut multisampled_render_target = None;
@@ -410,6 +451,7 @@ fn main() {
             swap_chain = device.create_swap_chain(&window_surface, &swap_chain_desc);
 
             let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Depth texture"),
                 size: wgpu::Extent3d {
                     width: swap_chain_desc.width,
                     height: swap_chain_desc.height,
@@ -436,9 +478,10 @@ fn main() {
             };
         }
 
-        let frame = swap_chain.get_next_texture();
-        let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+        let frame = swap_chain.get_next_texture().unwrap();
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Encoder"),
+        });
 
         cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
         cpu_primitives[stroke_prim_id as usize].color = [
@@ -455,23 +498,22 @@ fn main() {
             ];
         }
 
-        let globals_transfer_buffer = device
-            .create_buffer_mapped(1, wgpu::BufferUsage::COPY_SRC)
-            .fill_from_slice(&[Globals {
+        let globals_transfer_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&[Globals {
                 resolution: [
                     scene.window_size.width as f32,
                     scene.window_size.height as f32,
                 ],
                 zoom: scene.zoom,
                 scroll_offset: scene.scroll.to_array(),
-            }]);
+            }]),
+            wgpu::BufferUsage::COPY_SRC,
+        );
 
-        let prim_transfer_buffer =
-            device.create_buffer_mapped(cpu_primitives.len(), wgpu::BufferUsage::COPY_SRC);
-
-        for (i, prim) in cpu_primitives.iter().enumerate() {
-            prim_transfer_buffer.data[i] = *prim;
-        }
+        let prim_transfer_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&cpu_primitives),
+            wgpu::BufferUsage::COPY_SRC,
+        );
 
         encoder.copy_buffer_to_buffer(
             &globals_transfer_buffer,
@@ -482,7 +524,7 @@ fn main() {
         );
 
         encoder.copy_buffer_to_buffer(
-            &prim_transfer_buffer.finish(),
+            &prim_transfer_buffer,
             0,
             &prims_ubo,
             0,
@@ -529,8 +571,8 @@ fn main() {
                 pass.set_pipeline(&render_pipeline);
             }
             pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_index_buffer(&ibo, 0);
-            pass.set_vertex_buffers(0, &[(&vbo, 0)]);
+            pass.set_index_buffer(&ibo, 0, 0);
+            pass.set_vertex_buffer(0, &vbo, 0, 0);
 
             pass.draw_indexed(fill_range.clone(), 0, 0..(num_instances as u32));
             pass.draw_indexed(stroke_range.clone(), 0, 0..1);
@@ -538,8 +580,8 @@ fn main() {
             if scene.draw_background {
                 pass.set_pipeline(&bg_pipeline);
                 pass.set_bind_group(0, &bind_group, &[]);
-                pass.set_index_buffer(&bg_ibo, 0);
-                pass.set_vertex_buffers(0, &[(&bg_vbo, 0)]);
+                pass.set_index_buffer(&bg_ibo, 0, 0);
+                pass.set_vertex_buffer(0, &bg_vbo, 0, 0);
 
                 pass.draw_indexed(0..6, 0, 0..1);
             }
@@ -571,6 +613,16 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),
             prim_id: self.0,
+        }
+    }
+}
+
+pub struct Custom;
+
+impl FillVertexConstructor<BgPoint> for Custom {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgPoint {
+        BgPoint {
+            point: vertex.position().to_array(),
         }
     }
 }
