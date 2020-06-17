@@ -39,11 +39,11 @@ use lyon::tessellation::*;
 fn main() {
     // Build a Path.
     let mut builder = Path::builder();
-    builder.move_to(point(0.0, 0.0));
+    builder.begin(point(0.0, 0.0));
     builder.line_to(point(1.0, 0.0));
     builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
     builder.cubic_bezier_to(point(1.0, 1.0), point(0.0, 1.0), point(0.0, 0.0));
-    builder.close();
+    builder.end(true);
     let path = builder.build();
     // Let's use our own custom vertex type instead of the default one.
     #[derive(Copy, Clone, Debug)]
