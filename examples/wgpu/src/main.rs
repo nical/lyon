@@ -15,8 +15,7 @@ use winit::window::Window;
 use futures::executor::block_on;
 use std::ops::Rem;
 
-#[macro_use]
-use log;
+//use log;
 
 const PRIM_BUFFER_LEN: usize = 64;
 
@@ -211,7 +210,7 @@ fn main() {
     ))
     .unwrap();
 
-    let (device, mut queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+    let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },

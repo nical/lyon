@@ -9,6 +9,8 @@ use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEve
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
+use futures::executor::block_on;
+
 use std::f64::NAN;
 
 const WINDOW_SIZE: f32 = 800.0;
@@ -194,67 +196,70 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = Window::new(&event_loop).unwrap();
-    let size = window.inner_size().to_physical(window.hidpi_factor());
 
-    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::LowPower,
-        backends: wgpu::BackendBit::PRIMARY,
-    })
+    let surface = wgpu::Surface::create(&window);
+
+    let adapter = block_on(wgpu::Adapter::request(
+        &wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::LowPower,
+            compatible_surface: Some(&surface),
+        },
+        wgpu::BackendBit::PRIMARY,
+    ))
     .unwrap();
 
-    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+    let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },
         limits: wgpu::Limits::default(),
-    });
+    }));
+
+    let size = window.inner_size().to_physical(window.hidpi_factor());
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width.round() as u32,
         height: size.height.round() as u32,
-        present_mode: wgpu::PresentMode::Vsync,
+        present_mode: wgpu::PresentMode::Fifo,
     };
 
     let window_surface = wgpu::Surface::create(&window);
     let mut swap_chain = None;
     let mut msaa_texture = None;
 
-    let vbo = device
-        .create_buffer_mapped(mesh.vertices.len(), wgpu::BufferUsage::VERTEX)
-        .fill_from_slice(&mesh.vertices);
+    let vbo = device.create_buffer_with_data(
+        bytemuck::cast_slice(&mesh.vertices),
+        wgpu::BufferUsage::VERTEX,
+    );
 
-    let ibo = device
-        .create_buffer_mapped(mesh.indices.len(), wgpu::BufferUsage::INDEX)
-        .fill_from_slice(&mesh.indices);
+    let ibo = device.create_buffer_with_data(
+        bytemuck::cast_slice(&mesh.indices),
+        wgpu::BufferUsage::INDEX,
+    );
 
     let prim_buffer_byte_size = (MAX_PRIMITIVES * std::mem::size_of::<GpuPrimitive>()) as u64;
     let transform_buffer_byte_size = (MAX_TRANSFORMS * std::mem::size_of::<GpuTransform>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<GpuGlobals>() as u64;
 
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Prims ubo"),
         size: prim_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
 
     let transforms_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Transforms ubo"),
         size: transform_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
 
     let globals_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Globals ubo"),
         size: globals_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
-
-    let prim_transfer_buffer = device
-        .create_buffer_mapped(primitives.len(), wgpu::BufferUsage::COPY_SRC)
-        .fill_from_slice(&primitives);
-
-    let transform_transfer_buffer = device
-        .create_buffer_mapped(transforms.len(), wgpu::BufferUsage::COPY_SRC)
-        .fill_from_slice(&transforms);
 
     let vs_bytes = include_bytes!("../shaders/geometry.vert.spv");
     let vs_spv = wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap();
@@ -264,18 +269,19 @@ fn main() {
     let fs_module = device.create_shader_module(&fs_spv);
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Bind group layout"),
         bindings: &[
-            wgpu::BindGroupLayoutBinding {
+            wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::UniformBuffer { dynamic: false },
             },
-            wgpu::BindGroupLayoutBinding {
+            wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::UniformBuffer { dynamic: false },
             },
-            wgpu::BindGroupLayoutBinding {
+            wgpu::BindGroupLayoutEntry {
                 binding: 2,
                 visibility: wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::UniformBuffer { dynamic: false },
@@ -284,6 +290,7 @@ fn main() {
     });
 
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Bind group"),
         layout: &bind_group_layout,
         bindings: &[
             wgpu::Binding {
@@ -339,23 +346,25 @@ fn main() {
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: None,
-        index_format: wgpu::IndexFormat::Uint32,
-        vertex_buffers: &[wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<GpuVertex>() as u64,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    format: wgpu::VertexFormat::Float2,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: 8,
-                    format: wgpu::VertexFormat::Uint,
-                    shader_location: 1,
-                },
-            ],
-        }],
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint32,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<GpuVertex>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 0,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 8,
+                        format: wgpu::VertexFormat::Uint,
+                        shader_location: 1,
+                    },
+                ],
+            }],
+        },
         sample_count: msaa_samples,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
@@ -368,9 +377,19 @@ fn main() {
     render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
+    let prim_transfer_buffer = device.create_buffer_with_data(
+        bytemuck::cast_slice(&primitives),
+        wgpu::BufferUsage::COPY_SRC,
+    );
+
+    let transform_transfer_buffer = device.create_buffer_with_data(
+        bytemuck::cast_slice(&transforms),
+        wgpu::BufferUsage::COPY_SRC,
+    );
+
     // Initializaition encode to same primitive and transform data that will not change over frames
     let mut init_encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Init encoder") });
 
     init_encoder.copy_buffer_to_buffer(
         &transform_transfer_buffer,
@@ -406,37 +425,38 @@ fn main() {
             swap_chain = Some(device.create_swap_chain(&window_surface, &swap_chain_desc));
             if msaa_samples > 1 {
                 msaa_texture = Some(
-                    device
-                        .create_texture(&wgpu::TextureDescriptor {
-                            size: wgpu::Extent3d {
-                                width: swap_chain_desc.width,
-                                height: swap_chain_desc.height,
-                                depth: 1,
-                            },
-                            array_layer_count: 1,
-                            mip_level_count: 1,
-                            sample_count: msaa_samples,
-                            dimension: wgpu::TextureDimension::D2,
-                            format: swap_chain_desc.format,
-                            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-                        })
-                        .create_default_view(),
+                    device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Multisampled frame descriptor"),
+                        size: wgpu::Extent3d {
+                            width: swap_chain_desc.width,
+                            height: swap_chain_desc.height,
+                            depth: 1,
+                        },
+                        array_layer_count: 1,
+                        mip_level_count: 1,
+                        sample_count: msaa_samples,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: swap_chain_desc.format,
+                        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                    }).create_default_view(),
                 );
             }
         }
 
         let swap_chain = swap_chain.as_mut().unwrap();
-        let frame = swap_chain.get_next_texture();
+        let frame = swap_chain.get_next_texture().unwrap();
         let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Encoder") });
 
-        let globals_transfer_buffer = device
-            .create_buffer_mapped(1, wgpu::BufferUsage::COPY_SRC)
-            .fill_from_slice(&[GpuGlobals {
+
+        let globals_transfer_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&[GpuGlobals {
                 aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
                 zoom: [scene.zoom, scene.zoom],
                 pan: scene.pan,
-            }]);
+            }]),
+            wgpu::BufferUsage::COPY_SRC,
+        );
 
         encoder.copy_buffer_to_buffer(
             &globals_transfer_buffer,
@@ -468,8 +488,8 @@ fn main() {
                 pass.set_pipeline(&render_pipeline);
             }
             pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_index_buffer(&ibo, 0);
-            pass.set_vertex_buffers(0, &[(&vbo, 0)]);
+            pass.set_index_buffer(&ibo, 0, 0);
+            pass.set_vertex_buffer(0, &vbo, 0, 0);
 
             pass.draw_indexed(0..(mesh.indices.len() as u32), 0, 0..1);
         }
@@ -763,3 +783,12 @@ pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
 
     (color, opt)
 }
+
+unsafe impl bytemuck::Pod for GpuGlobals {}
+unsafe impl bytemuck::Zeroable for GpuGlobals {}
+unsafe impl bytemuck::Pod for GpuVertex {}
+unsafe impl bytemuck::Zeroable for GpuVertex {}
+unsafe impl bytemuck::Pod for GpuPrimitive {}
+unsafe impl bytemuck::Zeroable for GpuPrimitive {}
+unsafe impl bytemuck::Pod for GpuTransform {}
+unsafe impl bytemuck::Zeroable for GpuTransform {}
