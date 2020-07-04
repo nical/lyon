@@ -9,7 +9,8 @@ layout(location = 0) out vec4 out_color;
 
 
 void main() {
-    vec2 px_position = v_position * v_resolution * 0.5;
+    vec2 invert_y = vec2(1.0, -1.0);
+    vec2 px_position = v_position * v_resolution * 0.5 * invert_y;
 
     // #005fa4
     float vignette = clamp(0.7 * length(v_position), 0.0, 1.0);

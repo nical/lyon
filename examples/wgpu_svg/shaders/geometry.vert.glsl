@@ -36,8 +36,10 @@ void main() {
         t.data1.x, t.data1.y, 1.0
     );
 
+    vec2 invert_y = vec2(1.0, -1.0);
+
     vec2 pos = (transform * vec3(a_position, 1.0)).xy;
-    gl_Position = vec4((pos.xy + u_pan) * u_zoom, 0.0, 1.0);
+    gl_Position = vec4((pos.xy + u_pan) * u_zoom * invert_y, 0.0, 1.0);
     gl_Position.x /= u_aspect_ratio;
 
     uint mask = 0x000000FFu;
