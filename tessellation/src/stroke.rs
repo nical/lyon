@@ -535,20 +535,25 @@ impl<'l> StrokeBuilder<'l> {
         };
         self.attributes.buffer_is_valid = false;
 
-        if self.nth == 0 && self.previous_command_was_move {
-            self.attributes.advancement = 0.0;
+        if self.nth == 0 {
+            if self.previous_command_was_move {
+                self.attributes.advancement = 0.0;
 
-            match self.options.start_cap {
-                LineCap::Square => {
-                    // Even if there is no edge, if we are using square caps we have to place a square
-                    // at the current position.
-                    self.tessellate_empty_square_cap();
+                match self.options.start_cap {
+                    LineCap::Square => {
+                        // Even if there is no edge, if we are using square caps we have to place a square
+                        // at the current position.
+                        self.tessellate_empty_square_cap();
+                    }
+                    LineCap::Round => {
+                        // Same thing for round caps.
+                        self.tessellate_empty_round_cap();
+                    }
+                    _ => {}
                 }
-                LineCap::Round => {
-                    // Same thing for round caps.
-                    self.tessellate_empty_round_cap();
-                }
-                _ => {}
+            } else {
+                // finish() called multiple times in a row.
+                return;
             }
         }
 
@@ -584,11 +589,14 @@ impl<'l> StrokeBuilder<'l> {
             let n2 = normalized_tangent(d);
             let n1 = -n2;
 
+            self.attributes.src = VertexSource::Endpoint {
+                id: self.first_endpoint,
+            };
+
             self.attributes.advancement = self.sub_path_start_length;
 
             self.attributes.normal = n1;
             self.attributes.side = Side::Left;
-
             let first_left_id = add_vertex!(self, position: first);
 
             self.attributes.normal = n2;
@@ -605,6 +613,9 @@ impl<'l> StrokeBuilder<'l> {
             self.output
                 .add_triangle(first_left_id, self.second_left_id, self.second_right_id);
         }
+
+        self.nth = 0;
+        self.previous_command_was_move = false;
     }
 
     fn edge_to(&mut self, to: Point, endpoint: EndpointId, t: f32, with_join: bool) {
