@@ -728,6 +728,9 @@ impl<'l> StrokeBuilder<'l> {
             let n2 = normalized_tangent(d);
             let n1 = -n2;
 
+            self.attributes.src = VertexSource::Endpoint {
+                id: self.first_endpoint,
+            };
             self.attributes.advancement = self.sub_path_start_length;
             self.attributes.position_on_path = first;
 
