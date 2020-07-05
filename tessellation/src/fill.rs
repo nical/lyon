@@ -874,6 +874,9 @@ impl FillTessellator {
                         current_x
                     );
                     false
+                } else if active_edge.from.y == active_edge.to.y {
+                    connecting_edges = true;
+                    false
                 } else {
                     let ex = active_edge.solve_x_for_y(self.current_position.y);
 
