@@ -157,6 +157,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
                 self.next_distance = distance;
             } else {
                 self.done = true;
+                return EndpointId::INVALID;
             }
         }
 
@@ -347,4 +348,23 @@ fn walk_starting_after() {
     walker.begin(point(0.0, 0.0));
     walker.line_to(point(5.0, 0.0));
     walker.end(false);
+}
+
+#[test]
+fn walk_abort_early() {
+    let mut callback_counter = 0;
+    let mut pattern = RegularPattern {
+        interval: 3.0,
+        callback: |_pos, _n, _d| {
+            callback_counter += 1;
+            false
+        },
+    };
+
+    let mut walker = PathWalker::new(1.0, &mut pattern);
+
+    walker.begin(point(0.0, 0.0));
+    walker.line_to(point(100.0, 0.0));
+
+    assert_eq!(callback_counter, 1);
 }
