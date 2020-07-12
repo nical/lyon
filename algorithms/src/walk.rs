@@ -160,6 +160,7 @@ impl<'l> FlatPathBuilder for PathWalker<'l> {
                 self.next_distance = distance;
             } else {
                 self.done = true;
+                return;
             }
         }
 
