@@ -39,6 +39,21 @@ impl DebugValidator {
     }
 
     #[inline(always)]
+    pub fn open(&mut self) {
+        #[cfg(debug_assertions)] {
+            assert!(!self.in_subpath);
+            self.in_subpath = true;
+        }
+    }
+
+    #[inline(always)]
+    pub fn pop(&mut self) {
+        #[cfg(debug_assertions)] {
+            assert!(self.in_subpath);
+        }
+    }
+
+    #[inline(always)]
     pub fn edge(&self) {
         #[cfg(debug_assertions)] {
             assert!(self.in_subpath);

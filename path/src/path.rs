@@ -412,6 +412,33 @@ impl Builder {
     }
 
     #[inline]
+    pub fn open(&mut self) {
+        self.validator.open();
+        self.verbs.pop();
+    }
+
+    #[inline]
+    pub fn pop(&mut self) {
+        self.validator.pop();
+        let verb = self.verbs.pop();
+        match verb {
+            Some(Verb::LineTo) => {
+                self.points.pop();
+            }
+            Some(Verb::QuadraticTo) => {
+                self.points.pop();
+                self.points.pop();
+            }
+            Some(Verb::CubicTo) => {
+                self.points.pop();
+                self.points.pop();
+                self.points.pop();
+            }
+            _ => ()
+        };
+    }
+
+    #[inline]
     pub fn line_to(&mut self, to: Point) -> EndpointId {
         self.validator.edge();
         nan_check(to);
@@ -1715,6 +1742,53 @@ fn test_concatenate() {
         Some(PathEvent::End {
             last: point(4.0, 4.0),
             first: point(1.0, 1.0),
+            close: true
+        })
+    );
+    assert_eq!(it.next(), None);
+}
+
+#[test]
+fn test_pop(){
+    let mut builder = Path::builder();
+    builder.begin(point(0.0, 0.0));
+    builder.line_to(point(5.0, 0.0));
+    builder.line_to(point(5.0, 5.0));
+    builder.end(true);
+
+    builder.open();
+    builder.pop();
+    builder.line_to(point(7.0, 7.0));
+    builder.end(true);
+
+    let path = builder.build();
+
+    let mut it = path.iter();
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::Begin {
+            at: point(0.0, 0.0)
+        })
+    );
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::Line {
+            from: point(0.0, 0.0),
+            to: point(5.0, 0.0)
+        })
+    );
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::Line {
+            from: point(5.0, 0.0),
+            to: point(7.0, 7.0)
+        })
+    );
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::End {
+            last: point(7.0, 7.0),
+            first: point(0.0, 0.0),
             close: true
         })
     );
