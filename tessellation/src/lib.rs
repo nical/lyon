@@ -170,7 +170,7 @@
 //! ## Examples
 //!
 //! - [Tessellating path fills](fill/struct.FillTessellator.html#examples).
-//! - [Tessellating path strokes](path_stroke/struct.StrokeTessellator.html#examples).
+//! - [Tessellating path strokes](stroke/struct.StrokeTessellator.html#examples).
 //! - [Generating custom vertices](geometry_builder/index.html#generating-custom-vertices).
 //! - [Generating completely custom output](geometry_builder/index.html#generating-a-completely-custom-output).
 //! - [Writing a tessellator](geometry_builder/index.html#writing-a-tessellator).
