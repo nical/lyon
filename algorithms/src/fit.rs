@@ -44,9 +44,9 @@ pub fn fit_rectangle(src_rect: &Rect, dst_rect: &Rect, style: FitStyle) -> Trans
     let src_center = src_rect.origin.lerp(src_rect.max(), 0.5);
     let dst_center = dst_rect.origin.lerp(dst_rect.max(), 0.5);
 
-    Transform::create_translation(-src_center.x, -src_center.y)
-        .post_scale(scale.x, scale.y)
-        .post_translate(dst_center.to_vector())
+    Transform::translation(-src_center.x, -src_center.y)
+        .then_scale(scale.x, scale.y)
+        .then_translate(dst_center.to_vector())
 }
 
 /// Fits a path into a rectangle.
@@ -80,7 +80,7 @@ fn simple_fit() {
     );
 
     assert!(approx_eq(
-        &t.transform_rect(&rect(0.0, 0.0, 1.0, 1.0)),
+        &t.outer_transformed_rect(&rect(0.0, 0.0, 1.0, 1.0)),
         &rect(0.0, 0.0, 2.0, 2.0)
     ));
 
@@ -91,7 +91,7 @@ fn simple_fit() {
     );
 
     assert!(approx_eq(
-        &t.transform_rect(&rect(1.0, 2.0, 4.0, 4.0)),
+        &t.outer_transformed_rect(&rect(1.0, 2.0, 4.0, 4.0)),
         &rect(0.0, 0.0, 2.0, 8.0)
     ));
 
@@ -102,7 +102,7 @@ fn simple_fit() {
     );
 
     assert!(approx_eq(
-        &t.transform_rect(&rect(1.0, 2.0, 2.0, 4.0)),
+        &t.outer_transformed_rect(&rect(1.0, 2.0, 2.0, 4.0)),
         &rect(0.0, -1.0, 2.0, 4.0)
     ));
 
@@ -113,7 +113,7 @@ fn simple_fit() {
     );
 
     assert!(approx_eq(
-        &t.transform_rect(&rect(1.0, 2.0, 2.0, 2.0)),
+        &t.outer_transformed_rect(&rect(1.0, 2.0, 2.0, 2.0)),
         &rect(0.0, -1.0, 4.0, 4.0)
     ));
 }
