@@ -3,12 +3,12 @@
 use std::mem::swap;
 use std::ops::Range;
 
-use crate::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector};
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::{BoundingRect, Segment};
 use crate::CubicBezierSegment;
 use crate::Line;
 use crate::QuadraticBezierSegment;
+use crate::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector};
 
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -316,7 +316,7 @@ impl<S: Scalar> Arc<S> {
             if step >= S::ONE {
                 break;
             }
-    
+
             iter = iter.after_split(step);
             t0 += step * (S::ONE - t0);
             callback(iter.from(), t0);
@@ -353,7 +353,7 @@ impl<S: Scalar> Arc<S> {
 
     /// Returns a conservative rectangle that contains the curve.
     pub fn fast_bounding_rect(&self) -> Rect<S> {
-        Transform::create_rotation(self.x_rotation).transform_rect(&Rect::new(
+        Transform::rotation(self.x_rotation).outer_transformed_rect(&Rect::new(
             self.center - self.radii,
             self.radii.to_size() * S::TWO,
         ))

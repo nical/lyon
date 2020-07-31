@@ -229,7 +229,10 @@ pub use euclid::Angle;
 /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
 #[inline]
 pub fn rect<S>(x: S, y: S, w: S, h: S) -> Rect<S> {
-    Rect { origin: point(x, y), size: size(w, h) }
+    Rect {
+        origin: point(x, y),
+        size: size(w, h),
+    }
 }
 
 /// Shorthand for `Vector::new(x, y)`.
@@ -254,7 +257,7 @@ pub mod traits {
     pub use crate::segment::Segment;
     //pub use monotonic::MonotonicSegment;
 
-    use crate::{Scalar, Point, Rotation, Scale, Transform, Translation, Vector};
+    use crate::{Point, Rotation, Scalar, Scale, Transform, Translation, Vector};
 
     pub trait Transformation<S> {
         fn transform_point(&self, p: Point<S>) -> Point<S>;
@@ -293,11 +296,11 @@ pub mod traits {
 
     impl<S: Scalar> Transformation<S> for Scale<S> {
         fn transform_point(&self, p: Point<S>) -> Point<S> {
-            self.transform_point(p)
+            (*self).transform_point(p)
         }
 
         fn transform_vector(&self, v: Vector<S>) -> Vector<S> {
-            self.transform_vector(v)
+            (*self).transform_vector(v)
         }
     }
 
