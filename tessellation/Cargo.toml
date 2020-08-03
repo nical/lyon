@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon_tessellation"
-version = "0.15.9"
+version = "0.16.0"
 description = "A low level path tessellation library."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -22,10 +22,10 @@ experimental = []
 
 [dependencies]
 
-lyon_path = { version = "0.15.2", path = "../path" }
+lyon_path = { version = "0.16", path = "../path" }
 sid = "0.6"
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 arrayvec = "0.5"
 
 [dev-dependencies]
-lyon_extra = { version = "0.15.0", path = "../extra" }
+lyon_extra = { version = "0.16.0", path = "../extra" }
