@@ -333,11 +333,11 @@ pub mod traits {
 
     impl<S: Scalar> Transformation<S> for Scale<S> {
         fn transform_point(&self, p: Point<S>) -> Point<S> {
-            self.transform_point(p)
+            (*self).transform_point(p)
         }
 
         fn transform_vector(&self, v: Vector<S>) -> Vector<S> {
-            self.transform_vector(v)
+            (*self).transform_vector(v)
         }
     }
 }

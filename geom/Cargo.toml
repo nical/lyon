@@ -17,7 +17,7 @@ name = "lyon_geom"
 serialization = ["serde", "euclid/serde"]
 
 [dependencies]
-euclid = "0.20.0"
+euclid = "0.22.0"
 arrayvec = "0.5"
 num-traits = "0.2"
 serde = {version = "1.0", optional = true, features = ["serde_derive"] }

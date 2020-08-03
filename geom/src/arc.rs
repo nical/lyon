@@ -332,7 +332,7 @@ impl<S: Scalar> Arc<S> {
 
     /// Returns a conservative rectangle that contains the curve.
     pub fn fast_bounding_rect(&self) -> Rect<S> {
-        Transform::create_rotation(self.x_rotation).transform_rect(&Rect::new(
+        Transform::rotation(self.x_rotation).outer_transformed_rect(&Rect::new(
             self.center - self.radii,
             self.radii.to_size() * S::TWO,
         ))
