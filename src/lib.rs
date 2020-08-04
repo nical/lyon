@@ -5,32 +5,32 @@
 //!
 //! ![logo](https://nical.github.io/lyon-doc/lyon-logo.svg)
 //!
-//! [![crate](http://meritbadge.herokuapp.com/lyon)](https://crates.io/crates/lyon)
+//! [![crate](https://img.shields.io/crates/v/lyon.svg)](https://crates.io/crates/lyon)
 //! [![ci](https://img.shields.io/travis/nical/lyon/master.svg)](https://travis-ci.org/nical/lyon)
 //!
 //! # Crates
 //!
 //! This meta-crate (`lyon`) reexports the following sub-crates for convenience:
 //!
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_tessellation)](https://crates.io/crates/lyon_tessellation)
+//! * [![crate](https://img.shields.io/crates/v/lyon_tessellation.svg)](https://crates.io/crates/lyon_tessellation)
 //!   [![doc](https://docs.rs/lyon_tessellation/badge.svg)](https://docs.rs/lyon_tessellation) -
 //!   **lyon_tessellation** - Path tessellation routines.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_path)](https://crates.io/crates/lyon_path)
+//! * [![crate](https://img.shields.io/crates/v/lyon_path.svg)](https://crates.io/crates/lyon_path)
 //!   [![doc](https://docs.rs/lyon_path/badge.svg)](https://docs.rs/lyon_path) -
 //!   **lyon_path** - Tools to build and iterate over paths.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_algorithms)](https://crates.io/crates/lyon_algorithms)
+//! * [![crate](https://img.shields.io/crates/v/lyon_algorithms.svg)](https://crates.io/crates/lyon_algorithms)
 //!   [![doc](https://docs.rs/lyon_algorithms/badge.svg)](https://docs.rs/lyon_algorithms) -
 //!   **lyon_algorithms** - Various 2d path related algorithms.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_geom)](https://crates.io/crates/lyon_geom)
+//! * [![crate](https://img.shields.io/crates/v/lyon_geom.svg)](https://crates.io/crates/lyon_geom)
 //!   [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
 //!   **lyon_geom** - 2d utilities for cubic and quadratic bézier curves, arcs and more.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_svg)](https://crates.io/crates/lyon_svg)
+//! * [![crate](https://img.shields.io/crates/v/lyon_svg.svg)](https://crates.io/crates/lyon_svg)
 //!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
 //!   **lyon_svg** - Create paths using SVG's path syntax.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_extra)](https://crates.io/crates/lyon_extra)
+//! * [![crate](https://img.shields.io/crates/v/lyon_extra.svg)](https://crates.io/crates/lyon_extra)
 //!   [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
 //!   **lyon_extra** - Additional testing and debugging tools.
-//! * [![crate](http://meritbadge.herokuapp.com/lyon_tess2)](https://crates.io/crates/lyon_tess2)
+//! * [![crate](https://img.shields.io/crates/v/lyon_tess2.svg)](https://crates.io/crates/lyon_tess2)
 //!   [![doc](https://docs.rs/lyon_tess2/badge.svg)](https://docs.rs/lyon_tess2) -
 //!   **lyon_tess2** - Alternative fill tessellation implementation using [libtess2](https://github.com/memononen/libtess2).
 //!
