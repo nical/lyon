@@ -464,23 +464,14 @@ fn main() {
             label: Some("Encoder"),
         });
 
-        let globals_transfer_buffer =
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&[GpuGlobals {
-                    aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
-                    zoom: [scene.zoom, scene.zoom],
-                    pan: scene.pan,
-                }]),
-                usage: wgpu::BufferUsage::COPY_SRC,
-            });
-
-        encoder.copy_buffer_to_buffer(
-            &globals_transfer_buffer,
-            0,
+        queue.write_buffer(
             &globals_ubo,
             0,
-            globals_buffer_byte_size,
+            bytemuck::cast_slice(&[GpuGlobals {
+                aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
+                zoom: [scene.zoom, scene.zoom],
+                pan: scene.pan,
+            }]),
         );
 
         {
