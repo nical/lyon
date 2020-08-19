@@ -388,40 +388,9 @@ fn main() {
     render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
-    let prim_transfer_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: None,
-        contents: bytemuck::cast_slice(&primitives),
-        usage: wgpu::BufferUsage::COPY_SRC,
-    });
+    queue.write_buffer(&transforms_ubo, 0, bytemuck::cast_slice(&transforms));
 
-    let transform_transfer_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: None,
-        contents: bytemuck::cast_slice(&transforms),
-        usage: wgpu::BufferUsage::COPY_SRC,
-    });
-
-    // Initializaition encode to same primitive and transform data that will not change over frames
-    let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("Init encoder"),
-    });
-
-    init_encoder.copy_buffer_to_buffer(
-        &transform_transfer_buffer,
-        0,
-        &transforms_ubo,
-        0,
-        transform_buffer_byte_size,
-    );
-
-    init_encoder.copy_buffer_to_buffer(
-        &prim_transfer_buffer,
-        0,
-        &prims_ubo,
-        0,
-        prim_buffer_byte_size,
-    );
-
-    queue.submit(Some(init_encoder.finish()));
+    queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&primitives));
 
     // The main loop.
 
