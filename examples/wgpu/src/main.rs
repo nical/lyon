@@ -509,41 +509,20 @@ fn main() {
             ];
         }
 
-        let globals_transfer_buffer =
-            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: None,
-                contents: bytemuck::cast_slice(&[Globals {
-                    resolution: [
-                        scene.window_size.width as f32,
-                        scene.window_size.height as f32,
-                    ],
-                    zoom: scene.zoom,
-                    scroll_offset: scene.scroll.to_array(),
-                }]),
-                usage: wgpu::BufferUsage::COPY_SRC,
-            });
-
-        let prim_transfer_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&cpu_primitives),
-            usage: wgpu::BufferUsage::COPY_SRC,
-        });
-
-        encoder.copy_buffer_to_buffer(
-            &globals_transfer_buffer,
-            0,
+        queue.write_buffer(
             &globals_ubo,
             0,
-            globals_buffer_byte_size,
+            bytemuck::cast_slice(&[Globals {
+                resolution: [
+                    scene.window_size.width as f32,
+                    scene.window_size.height as f32,
+                ],
+                zoom: scene.zoom,
+                scroll_offset: scene.scroll.to_array(),
+            }]),
         );
 
-        encoder.copy_buffer_to_buffer(
-            &prim_transfer_buffer,
-            0,
-            &prims_ubo,
-            0,
-            prim_buffer_byte_size,
-        );
+        queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&cpu_primitives));
 
         {
             // A resolve target is only supported if the attachment actually uses anti-aliasing
