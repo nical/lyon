@@ -11,6 +11,8 @@ use winit::window::Window;
 
 use futures::executor::block_on;
 
+use wgpu::util::DeviceExt;
+
 use std::f64::NAN;
 
 const WINDOW_SIZE: f32 = 800.0;
@@ -197,23 +199,28 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = Window::new(&event_loop).unwrap();
 
-    let surface = wgpu::Surface::create(&window);
+    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 
-    let adapter = block_on(wgpu::Adapter::request(
-        &wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: Some(&surface),
-        },
-        wgpu::BackendBit::PRIMARY,
-    ))
+    let surface = unsafe { instance.create_surface(&window) };
+
+    // create an adapter
+    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::Default,
+        compatible_surface: Some(&surface),
+    }))
     .unwrap();
 
-    let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-            anisotropic_filtering: false,
+    // create a device and a queue
+    let (device, queue) = block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            features: wgpu::Features::default(),
+            limits: wgpu::Limits::default(),
+            shader_validation: true,
         },
-        limits: wgpu::Limits::default(),
-    }));
+        // trace_path can be used for API call tracing
+        None,
+    ))
+    .unwrap();
 
     let size = window.inner_size().to_physical(window.hidpi_factor());
 
@@ -225,19 +232,20 @@ fn main() {
         present_mode: wgpu::PresentMode::Fifo,
     };
 
-    let window_surface = wgpu::Surface::create(&window);
     let mut swap_chain = None;
     let mut msaa_texture = None;
 
-    let vbo = device.create_buffer_with_data(
-        bytemuck::cast_slice(&mesh.vertices),
-        wgpu::BufferUsage::VERTEX,
-    );
+    let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&mesh.vertices),
+        usage: wgpu::BufferUsage::VERTEX,
+    });
 
-    let ibo = device.create_buffer_with_data(
-        bytemuck::cast_slice(&mesh.indices),
-        wgpu::BufferUsage::INDEX,
-    );
+    let ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&mesh.indices),
+        usage: wgpu::BufferUsage::INDEX,
+    });
 
     let prim_buffer_byte_size = (MAX_PRIMITIVES * std::mem::size_of::<GpuPrimitive>()) as u64;
     let transform_buffer_byte_size = (MAX_TRANSFORMS * std::mem::size_of::<GpuTransform>()) as u64;
@@ -247,44 +255,55 @@ fn main() {
         label: Some("Prims ubo"),
         size: prim_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        mapped_at_creation: false,
     });
 
     let transforms_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Transforms ubo"),
         size: transform_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        mapped_at_creation: false,
     });
 
     let globals_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Globals ubo"),
         size: globals_buffer_byte_size,
         usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        mapped_at_creation: false,
     });
-
-    let vs_bytes = include_bytes!("../shaders/geometry.vert.spv");
-    let vs_spv = wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap();
-    let vs_module = device.create_shader_module(&vs_spv);
-    let fs_bytes = include_bytes!("../shaders/geometry.frag.spv");
-    let fs_spv = wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap();
-    let fs_module = device.create_shader_module(&fs_spv);
-
+    let vs_module =
+        &device.create_shader_module(wgpu::include_spirv!("../shaders/geometry.vert.spv"));
+    let fs_module =
+        &device.create_shader_module(wgpu::include_spirv!("../shaders/geometry.frag.spv"));
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
-        bindings: &[
+        entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: wgpu::BufferSize::new(globals_buffer_byte_size),
+                },
+                count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: wgpu::BufferSize::new(prim_buffer_byte_size),
+                },
+                count: None,
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 2,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: wgpu::BufferSize::new(transform_buffer_byte_size),
+                },
+                count: None,
             },
         ],
     });
@@ -292,37 +311,30 @@ fn main() {
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Bind group"),
         layout: &bind_group_layout,
-        bindings: &[
-            wgpu::Binding {
+        entries: &[
+            wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &globals_ubo,
-                    range: 0..globals_buffer_byte_size,
-                },
+                resource: wgpu::BindingResource::Buffer(globals_ubo.slice(..)),
             },
-            wgpu::Binding {
+            wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &prims_ubo,
-                    range: 0..prim_buffer_byte_size,
-                },
+                resource: wgpu::BindingResource::Buffer(prims_ubo.slice(..)),
             },
-            wgpu::Binding {
+            wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &transforms_ubo,
-                    range: 0..transform_buffer_byte_size,
-                },
+                resource: wgpu::BindingResource::Buffer(transforms_ubo.slice(..)),
             },
         ],
     });
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[&bind_group_layout],
+        push_constant_ranges: &[],
+        label: None,
     });
 
     let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-        layout: &pipeline_layout,
+        layout: Some(&pipeline_layout),
         vertex_stage: wgpu::ProgrammableStageDescriptor {
             module: &vs_module,
             entry_point: "main",
@@ -334,9 +346,7 @@ fn main() {
         rasterization_state: Some(wgpu::RasterizationStateDescriptor {
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: wgpu::CullMode::None,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
-            depth_bias_clamp: 0.0,
+            ..Default::default()
         }),
         primitive_topology: wgpu::PrimitiveTopology::TriangleList,
         color_states: &[wgpu::ColorStateDescriptor {
@@ -368,6 +378,7 @@ fn main() {
         sample_count: msaa_samples,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
+        label: None,
     };
 
     let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
@@ -377,19 +388,22 @@ fn main() {
     render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
-    let prim_transfer_buffer = device.create_buffer_with_data(
-        bytemuck::cast_slice(&primitives),
-        wgpu::BufferUsage::COPY_SRC,
-    );
+    let prim_transfer_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&primitives),
+        usage: wgpu::BufferUsage::COPY_SRC,
+    });
 
-    let transform_transfer_buffer = device.create_buffer_with_data(
-        bytemuck::cast_slice(&transforms),
-        wgpu::BufferUsage::COPY_SRC,
-    );
+    let transform_transfer_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&transforms),
+        usage: wgpu::BufferUsage::COPY_SRC,
+    });
 
     // Initializaition encode to same primitive and transform data that will not change over frames
-    let mut init_encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Init encoder") });
+    let mut init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Init encoder"),
+    });
 
     init_encoder.copy_buffer_to_buffer(
         &transform_transfer_buffer,
@@ -407,7 +421,7 @@ fn main() {
         prim_buffer_byte_size,
     );
 
-    queue.submit(&[init_encoder.finish()]);
+    queue.submit(Some(init_encoder.finish()));
 
     // The main loop.
 
@@ -422,41 +436,44 @@ fn main() {
             let physical = scene.window_size.to_physical(window.hidpi_factor());
             swap_chain_desc.width = physical.width.round() as u32;
             swap_chain_desc.height = physical.height.round() as u32;
-            swap_chain = Some(device.create_swap_chain(&window_surface, &swap_chain_desc));
+            swap_chain = Some(device.create_swap_chain(&surface, &swap_chain_desc));
             if msaa_samples > 1 {
                 msaa_texture = Some(
-                    device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("Multisampled frame descriptor"),
-                        size: wgpu::Extent3d {
-                            width: swap_chain_desc.width,
-                            height: swap_chain_desc.height,
-                            depth: 1,
-                        },
-                        array_layer_count: 1,
-                        mip_level_count: 1,
-                        sample_count: msaa_samples,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: swap_chain_desc.format,
-                        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-                    }).create_default_view(),
+                    device
+                        .create_texture(&wgpu::TextureDescriptor {
+                            label: Some("Multisampled frame descriptor"),
+                            size: wgpu::Extent3d {
+                                width: swap_chain_desc.width,
+                                height: swap_chain_desc.height,
+                                depth: 1,
+                            },
+                            mip_level_count: 1,
+                            sample_count: msaa_samples,
+                            dimension: wgpu::TextureDimension::D2,
+                            format: swap_chain_desc.format,
+                            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                        })
+                        .create_view(&wgpu::TextureViewDescriptor::default()),
                 );
             }
         }
 
         let swap_chain = swap_chain.as_mut().unwrap();
-        let frame = swap_chain.get_next_texture().unwrap();
-        let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Encoder") });
+        let frame = swap_chain.get_current_frame().unwrap();
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Encoder"),
+        });
 
-
-        let globals_transfer_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&[GpuGlobals {
-                aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
-                zoom: [scene.zoom, scene.zoom],
-                pan: scene.pan,
-            }]),
-            wgpu::BufferUsage::COPY_SRC,
-        );
+        let globals_transfer_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&[GpuGlobals {
+                    aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
+                    zoom: [scene.zoom, scene.zoom],
+                    pan: scene.pan,
+                }]),
+                usage: wgpu::BufferUsage::COPY_SRC,
+            });
 
         encoder.copy_buffer_to_buffer(
             &globals_transfer_buffer,
@@ -469,12 +486,13 @@ fn main() {
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: msaa_texture.as_ref().unwrap_or(&frame.view),
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color::WHITE,
+                    attachment: msaa_texture.as_ref().unwrap_or(&frame.output.view),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: true,
+                    },
                     resolve_target: if msaa_texture.is_some() {
-                        Some(&frame.view)
+                        Some(&frame.output.view)
                     } else {
                         None
                     },
@@ -488,13 +506,13 @@ fn main() {
                 pass.set_pipeline(&render_pipeline);
             }
             pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_index_buffer(&ibo, 0, 0);
-            pass.set_vertex_buffer(0, &vbo, 0, 0);
+            pass.set_index_buffer(ibo.slice(..));
+            pass.set_vertex_buffer(0, vbo.slice(..));
 
             pass.draw_indexed(0..(mesh.indices.len() as u32), 0, 0..1);
         }
 
-        queue.submit(&[encoder.finish()]);
+        queue.submit(Some(encoder.finish()));
     });
 }
 
