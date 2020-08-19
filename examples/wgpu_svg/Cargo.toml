@@ -14,7 +14,7 @@ path = "src/main.rs"
 lyon = { path = "../../", features = ["extra"] }
 
 clap = "2.32.0"
-wgpu = "0.5.0"
+wgpu = "0.6.0"
 wgpu-native = "0.5.0"
 winit = "0.20.0-alpha4"
 usvg = "0.4"
