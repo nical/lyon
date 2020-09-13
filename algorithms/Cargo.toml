@@ -17,6 +17,7 @@ path = "src/lib.rs"
 
 [features]
 serialization = ["serde", "lyon_path/serialization"]
+euclid_mint = ["lyon_path/euclid_mint"]
 
 [dependencies]
 

@@ -33,6 +33,7 @@ experimental = ["lyon_tessellation/experimental"]
 svg = ["lyon_svg"]
 extra = ["lyon_extra"]
 libtess2 = ["lyon_tess2"]
+euclid_mint = ["lyon_tessellation/euclid_mint", "lyon_tess2/euclid_mint", "lyon_algorithms/euclid_mint", "lyon_extra/euclid_mint", "lyon_svg/euclid_mint"]
 
 [dependencies]
 

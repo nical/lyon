@@ -12,6 +12,9 @@ workspace = ".."
 [lib]
 name = "lyon_extra"
 
+[features]
+euclid_mint = ["lyon_path/euclid_mint", "lyon_svg/euclid_mint"]
+
 [dependencies]
 
 lyon_path = { version = "0.16.0", path = "../path" }

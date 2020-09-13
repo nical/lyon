@@ -14,6 +14,7 @@ name = "lyon_path"
 
 [features]
 serialization = ["serde", "lyon_geom/serialization"]
+euclid_mint = ["lyon_geom/euclid_mint"]
 
 [dependencies]
 lyon_geom = { version = "0.16.0", path = "../geom" }

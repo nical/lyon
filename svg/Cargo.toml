@@ -12,6 +12,10 @@ edition = "2018"
 name = "lyon_svg"
 path = "src/lib.rs"
 
+
+[features]
+euclid_mint = ["lyon_path/euclid_mint"]
+
 [dependencies]
 
 lyon_path = { version = "0.16.0", path = "../path" }

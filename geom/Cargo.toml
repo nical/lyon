@@ -15,6 +15,7 @@ name = "lyon_geom"
 
 [features]
 serialization = ["serde", "euclid/serde"]
+euclid_mint = ["euclid/mint"]
 
 [dependencies]
 euclid = "0.22.0"

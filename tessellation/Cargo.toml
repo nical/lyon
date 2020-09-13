@@ -19,6 +19,7 @@ path = "src/lib.rs"
 serialization = ["serde", "lyon_path/serialization"]
 debugger = []
 experimental = []
+euclid_mint = ["lyon_path/euclid_mint"]
 
 [dependencies]
 
