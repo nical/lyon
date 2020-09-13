@@ -1,0 +1,9 @@
+[package]
+name = "glue"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+edition = "2018"
+workspace = "../.."
+
+[dependencies]
+lyon_geom = "0.15"

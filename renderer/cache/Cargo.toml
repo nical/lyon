@@ -1,0 +1,13 @@
+[package]
+name = "cache"
+version = "0.1.0"
+authors = ["Nicolas Silva <nical@fastmail.com>"]
+edition = "2018"
+workspace = "../.."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glue = { path = "../glue" }
+pipe = { path = "../pipe" }
+guillotiere = "0.6.0"
