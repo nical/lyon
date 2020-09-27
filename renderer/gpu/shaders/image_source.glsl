@@ -9,6 +9,6 @@ struct ImageSource {
     vec4 parameters;
 };
 
-layout(std140, binding = IMAGE_SOURCES) uniform u_image_sources { ImageSource image_sources[512]; };
+layout(std140, set = COMMON_SET, binding = IMAGE_SOURCES) buffer u_image_sources { ImageSource image_sources[]; };
 
 #endif

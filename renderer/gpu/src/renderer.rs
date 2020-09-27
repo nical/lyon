@@ -1,95 +1,42 @@
-use crate::QuadRenderer;
+use crate::transform2d::GpuTransform2D;
 use crate::gpu_data::*;
+use crate::registry::Registry;
+use crate::shaders::*;
 use glue::*;
-use std::ops::Index;
-use std::collections::HashMap;
 
-pub struct SharedResources {
-    pub bind_groups: BindGroupRegistry,
-    pub buffers: BufferRegistry,
-    pub textures: TextureRegistry,
 
-    pub globals: wgpu::Buffer,
+// TODO: don't really want that here.
+pub struct CommonResources {
+    pub instances: BufferKind,
+    pub globals: BufferKind,
+    pub transforms: BufferKind,
+    pub rects: BufferKind,
+    pub image_sources: BufferKind,
 
-    // TODO: use texture and buffer caches.
-    pub transforms: wgpu::Buffer,
-    pub rects: wgpu::Buffer,
-    pub prim_data: wgpu::Buffer,
-    pub image_sources: wgpu::Buffer,
-    pub instances: wgpu::Buffer,
+    pub mask_texture_kind: TextureKind,
+    pub color_atlas_texture_kind: TextureKind,
+
+    pub base_bind_group_layout: BindGroupLayoutId,
+    pub textures_bind_group_layout: BindGroupLayoutId,
+
     pub default_sampler: wgpu::Sampler,
-    pub mask_texture_id: TextureId,
-    pub color_atlas_texture_id: TextureId,
-}
-
-impl Index<TextureId> for SharedResources {
-    type Output = TextureEntry;
-    fn index(&self, id: TextureId) -> &TextureEntry {
-        self.textures.get(id).unwrap()
-    }
-}
-
-impl Index<BufferId> for SharedResources {
-    type Output = wgpu::Buffer;
-    fn index(&self, id: BufferId) -> &wgpu::Buffer {
-        self.buffers.get(id).unwrap()
-    }
-}
-
-impl Index<BindGroupId> for SharedResources {
-    type Output = wgpu::BindGroup;
-    fn index(&self, id: BindGroupId) -> &wgpu::BindGroup {
-        self.bind_groups.get_bind_group(id)
-    }
 }
 
 pub struct Renderer {
-    pub quads: QuadRenderer,
-    pub resources: SharedResources,
+    pub common: CommonResources,
+    pub resources: Registry,
 }
 
 impl Renderer {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
 
-        let mut textures = TextureRegistry::new();
-        let bind_groups = BindGroupRegistry::new();
-        let buffers = BufferRegistry::new();
+        let mut resources = Registry::new();
 
-        let globals = device.create_buffer(&GpuGlobals::buffer_descriptor());
-        let prim_data = device.create_buffer(&GpuPrimitiveData::buffer_descriptor());
-        let rects = device.create_buffer(&GpuPrimitiveRects::buffer_descriptor());
-        let transforms = device.create_buffer(&GpuTransform2D::buffer_descriptor());
-        let image_sources = device.create_buffer(&GpuImageSource::buffer_descriptor());
-        let instances = device.create_buffer(&GpuInstance::buffer_descriptor(16384));
-
-        let color_atlas_texture_kind = TextureKindId(0);
-        let mask_texture_kind = TextureKindId(1);
-
-        textures.register_texture_kind(mask_texture_kind, wgpu::TextureDescriptor {
-            label: Some("Mask texture"),
-            size: U8AlphaMask::SIZE,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-            mip_level_count: 1,
-            sample_count: 1,
-        });
-
-        textures.register_texture_kind(color_atlas_texture_kind, wgpu::TextureDescriptor {
-            label: Some("Atlas texture"),
-            size: ColorAtlasTexture::SIZE,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-            mip_level_count: 1,
-            sample_count: 1,
-        });
-
-        let mask_texture_id = mask_texture_kind.texture_id(ResourceId(0));
-        let color_atlas_texture_id = color_atlas_texture_kind.texture_id(ResourceId(0));
-
-        textures.allocate_texture(device, mask_texture_id);
-        textures.allocate_texture(device, color_atlas_texture_id);
+        let globals = resources.register_buffer_kind(GpuGlobals::buffer_descriptor());
+        let rects = resources.register_buffer_kind(GpuPrimitiveRects::buffer_descriptor(2048));
+        let transforms = resources.register_buffer_kind(GpuTransform2D::buffer_descriptor(512));
+        let image_sources = resources.register_buffer_kind(GpuImageSource::buffer_descriptor(512));
+        let instances = resources.register_buffer_kind(GpuInstance::buffer_descriptor(16384));
 
         let default_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Default sampler"),
@@ -102,142 +49,137 @@ impl Renderer {
             ..Default::default()
         });
 
-        let mut resources = SharedResources {
+
+        let color_atlas_texture_kind= resources.register_texture_kind(wgpu::TextureDescriptor {
+            label: Some("Atlas texture"),
+            size: ColorAtlasTexture::SIZE,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            mip_level_count: 1,
+            sample_count: 1,
+        });
+
+        let mask_texture_kind = resources.register_texture_kind(wgpu::TextureDescriptor {
+            label: Some("Mask texture"),
+            size: U8AlphaMask::SIZE,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R8Unorm,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            mip_level_count: 1,
+            sample_count: 1,
+        });
+
+        let base_bind_group_layout = device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                label: Some("quad bind group layout"),
+                entries: &[
+                    GpuGlobals::bind_group_layout_entry(),
+                    GpuPrimitiveRects::bind_group_layout_entry(),
+                    GpuTransform2D::bind_group_layout_entry(),
+                    GpuImageSource::bind_group_layout_entry(),
+                ]
+            }
+        );
+
+        let textures_bind_group_layout = device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                label: Some("quad input textures layout"),
+                entries: &[
+                    ColorAtlasTexture::bind_group_layout_entry(),
+                    U8AlphaMask::bind_group_layout_entry(),
+                    DefaultSampler::bind_group_layout_entry(),
+                ]
+            }
+        );
+
+        let base_bind_group_layout = resources.register_bind_group_layout(base_bind_group_layout);
+        let textures_bind_group_layout = resources.register_bind_group_layout(textures_bind_group_layout);
+
+        let common = CommonResources {
+            instances,
             globals,
             transforms,
             rects,
-            prim_data,
             image_sources,
-            instances,
             default_sampler,
 
-            mask_texture_id,
-            color_atlas_texture_id,
-
-            bind_groups,
-            buffers,
-            textures,
+            color_atlas_texture_kind,
+            mask_texture_kind,
+            base_bind_group_layout,
+            textures_bind_group_layout,
         };
 
         Renderer {
-            quads: QuadRenderer::new(device, queue, &mut resources),
+            common,
             resources,
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum BindGroupInput {
-    Buffer(BufferId),
-    Texture(TextureId),
+pub struct BatchKey {
+    pub pipeline: PipelineKey,
+    pub ibo: BufferId,
+    pub vbos: [Option<BufferId>; 4],
+    pub bind_groups: [Option<BindGroupId>; 4],
 }
 
-
-pub struct BindGroupRegistry {
-    bind_groups: HashMap<BindGroupId, wgpu::BindGroup>,
-    layouts: Vec<wgpu::BindGroupLayout>,
+pub struct Batch {
+    pub key: BatchKey,
+    pub index_range: std::ops::Range<u32>,
+    pub base_vertex: i32,
+    pub instance_range: std::ops::Range<u32>,
 }
 
-impl BindGroupRegistry {
+pub struct DrawState {
+    pipeline: Option<PipelineKey>,
+    ibo: Option<BufferId>,
+    bind_groups: [Option<BindGroupId>; 4],
+    vbos: [Option<BufferId>; 4],
+}
+
+impl DrawState {
     pub fn new() -> Self {
-        BindGroupRegistry {
-            bind_groups: HashMap::new(),
-            layouts: Vec::new(),
+        DrawState {
+            pipeline: None,
+            bind_groups: [None; 4],
+            vbos: [None; 4],
+            ibo: None,
         }
     }
 
-    pub fn register_bind_group_layout(&mut self, layout: wgpu::BindGroupLayout) -> BindGroupLayoutId {
-        let id = BindGroupLayoutId(ResourceId(self.layouts.len() as u16));
-        self.layouts.push(layout);
-
-        id
-    }
-
-    pub fn add_bind_group(&mut self, id: BindGroupId, bind_group: wgpu::BindGroup) {
-        self.bind_groups.insert(id, bind_group);
-    }
-
-    pub fn get_bind_group(&self, id: BindGroupId) -> &wgpu::BindGroup {
-        self.bind_groups.get(&id).unwrap()
-    }
-}
-
-pub struct BufferRegistry {
-    descriptors: HashMap<BufferKindId, wgpu::BufferDescriptor<'static>>,
-    buffers: HashMap<BufferId, wgpu::Buffer>,
-}
-
-impl BufferRegistry {
-    pub fn new() -> Self {
-        BufferRegistry {
-            descriptors: HashMap::new(),
-            buffers: HashMap::new(),
+    pub fn submit_batch<'l>(&mut self, pass: &mut wgpu::RenderPass<'l>, registry: &'l Registry, batch: &Batch) {
+        if self.pipeline != Some(batch.key.pipeline) {
+            let (pipeline, real_key) = registry.get_compatible_render_pipeline(batch.key.pipeline).unwrap();
+            if self.pipeline != Some(real_key) {
+                pass.set_pipeline(pipeline);
+            }
+            self.pipeline = Some(real_key);
         }
-    }
 
-    pub fn register_buffer_kind(&mut self, id: BufferKindId, descriptor: wgpu::BufferDescriptor<'static>) {
-        self.descriptors.insert(id, descriptor);
-    }
-
-    pub fn allocate_buffer(&mut self, device: &wgpu::Device, id: BufferId) {
-        let descriptor = self.descriptors.get(&id.kind).unwrap();
-        let buffer = device.create_buffer(descriptor);
-        self.buffers.insert(id, buffer);
-    }
-
-    pub fn deallocate_buffer(&mut self, id: BufferId) {
-        self.buffers.remove(&id);
-    }
-
-    pub fn get(&self, id: BufferId) -> Option<&wgpu::Buffer> {
-        self.buffers.get(&id)
-    }
-}
-
-pub struct TextureEntry {
-    pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-}
-
-pub struct TextureRegistry {
-    descriptors: HashMap<TextureKindId, wgpu::TextureDescriptor<'static>>,
-    textures: HashMap<TextureId, TextureEntry>,
-}
-
-impl TextureRegistry {
-    pub fn new() -> Self {
-        TextureRegistry {
-            descriptors: HashMap::new(),
-            textures: HashMap::new(),
+        if self.ibo != Some(batch.key.ibo) {
+            pass.set_index_buffer(registry[batch.key.ibo].slice(..));
+            self.ibo = Some(batch.key.ibo);
         }
-    }
 
-    pub fn register_texture_kind(&mut self, id: TextureKindId, descriptor: wgpu::TextureDescriptor<'static>) {
-        self.descriptors.insert(id, descriptor);
-    }
+        for i in 0..4 {
+            if let Some(vbo) = batch.key.vbos[i] {
+                if self.vbos[i] != Some(vbo) {
+                    pass.set_vertex_buffer(i as u32, registry[vbo].slice(..));
+                    self.vbos[i] = Some(vbo);
+                }
+            }
+        }
 
-    pub fn allocate_texture(&mut self, device: &wgpu::Device, id: TextureId) {
-        let descriptor = self.descriptors.get(&id.kind).unwrap();
-        let texture = device.create_texture(descriptor);
-        let view = texture.create_view(&wgpu::TextureViewDescriptor {
-            label: descriptor.label,
-            format: Some(descriptor.format),
-            dimension: None,
-            aspect: wgpu::TextureAspect::All,
-            base_mip_level: 0,
-            level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-        });
-        self.textures.insert(id, TextureEntry { texture, view });
-    }
+        for i in 0..4 {
+            if let Some(bind_group) = batch.key.bind_groups[i] {
+                if self.bind_groups[i] != Some(bind_group) {
+                    pass.set_bind_group(i as u32, &registry[bind_group], &[]);
+                    self.bind_groups[i] = Some(bind_group);
+                }
+            }
+        }
 
-    pub fn deallocate_texture(&mut self, id: TextureId) {
-        self.textures.remove(&id);
-    }
-
-    pub fn get(&self, id: TextureId) -> Option<&TextureEntry> {
-        self.textures.get(&id)
+        pass.draw_indexed(batch.index_range.clone(), batch.base_vertex, batch.instance_range.clone());
     }
 }
-

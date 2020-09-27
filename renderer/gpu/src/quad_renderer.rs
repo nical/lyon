@@ -1,112 +1,66 @@
-use crate::{RenderTargetState, BlendMode, SharedResources};
+use crate::{RenderTargetState, BlendMode, Registry, CommonResources};
+use crate::transform2d::GpuTransform2D;
 use crate::bindings;
 use crate::gpu_data::*;
-use glue::{BindGroupId, BindGroupLayoutId, ResourceId};
+use glue::*;
 
 pub struct QuadRenderer {
-    pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-    pub opaque_pipeline: wgpu::RenderPipeline,
-    pub alpha_pipeline: wgpu::RenderPipeline,
+    pub vertex_buffer: BufferId,
+    pub index_buffer: BufferId,
+    pub opaque_pipeline_key: PipelineKey,
+    pub alpha_pipeline_key: PipelineKey,
     pub pipeline_layout: wgpu::PipelineLayout,
-
-    pub bind_group_layout_id: BindGroupLayoutId,
-    pub textures_bind_group_layout_id: BindGroupLayoutId,
-    // TODO: generate bind groups lazily
-    pub bind_group_id: BindGroupId,
-    pub textures_bind_group_id: BindGroupId,
 }
 
+
 impl QuadRenderer {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, resources: &mut SharedResources) -> Self {
-
-        let bind_group_layout = device.create_bind_group_layout(
-            &wgpu::BindGroupLayoutDescriptor {
-                label: Some("quad bind group layout"),
-                entries: &[
-                    GpuGlobals::bind_group_layout_entry(),
-                    GpuPrimitiveRects::bind_group_layout_entry(),
-                    GpuPrimitiveData::bind_group_layout_entry(),
-                    GpuTransform2D::bind_group_layout_entry(),
-                    GpuImageSource::bind_group_layout_entry(),
-                ]
-            }
-        );
-
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("quad bind group"),
-            layout: &bind_group_layout,
-            entries: &[
-                GpuGlobals::bind_group_entry(&resources.globals),
-                GpuPrimitiveRects::bind_group_entry(&resources.rects),
-                GpuPrimitiveData::bind_group_entry(&resources.prim_data),
-                GpuTransform2D::bind_group_entry(&resources.transforms),
-                GpuImageSource::bind_group_entry(&resources.image_sources),
-            ],
-        });
-
-        let textures_bind_group_layout = device.create_bind_group_layout(
-            &wgpu::BindGroupLayoutDescriptor {
-                label: Some("quad input textures layout"),
-                entries: &[
-                    ColorAtlasTexture::bind_group_layout_entry(),
-                    U8AlphaMask::bind_group_layout_entry(),
-                    DefaultSampler::bind_group_layout_entry(),
-                ]
-            }
-        );
-
-        let textures_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("quad textures bind group"),
-            layout: &textures_bind_group_layout,
-            entries: &[
-                ColorAtlasTexture::bind_group_entry(&resources[resources.color_atlas_texture_id].view),
-                U8AlphaMask::bind_group_entry(&resources[resources.mask_texture_id].view),
-                DefaultSampler::bind_group_entry(&resources.default_sampler),
-            ],
-        });
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, common: &CommonResources, resources: &mut Registry) -> Self {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some(&"quad layout"),
-            bind_group_layouts: &[&bind_group_layout, &textures_bind_group_layout],
+            bind_group_layouts: &[
+                &resources[common.base_bind_group_layout],
+                &resources[common.textures_bind_group_layout],
+            ],
             push_constant_ranges: &[],
         });
 
-        let bind_group_layout_id = resources.bind_groups.register_bind_group_layout(bind_group_layout);
-        let textures_bind_group_layout_id = resources.bind_groups.register_bind_group_layout(textures_bind_group_layout);
-
-        let bind_group_id = BindGroupId(ResourceId(0)); // TODO
-        resources.bind_groups.add_bind_group(bind_group_id, bind_group);
-
-        let textures_bind_group_id = BindGroupId(ResourceId(1));
-        resources.bind_groups.add_bind_group(textures_bind_group_id, textures_bind_group);
-
-        let vs: wgpu::ShaderModuleSource = wgpu::include_spirv!("./../shaders/quad.vert.spv");
-        let fs: wgpu::ShaderModuleSource = wgpu::include_spirv!("./../shaders/quad.frag.spv");
-        let vs_module = device.create_shader_module(vs);
-        let fs_module = device.create_shader_module(fs);
-
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let vertex_buffer = resources.register_buffer_kind(wgpu::BufferDescriptor {
             label: Some("quad vbo"),
             size: std::mem::size_of::<[f32; 2]>() as u64 * 4,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
-        });
-        queue.write_buffer(&vertex_buffer, 0, pipe::as_bytes(&[
+        }).buffer_id(ResourceIndex(0, 0));
+
+        let index_buffer = resources.register_buffer_kind(wgpu::BufferDescriptor {
+            label: Some("quad ibo"),
+            size: std::mem::size_of::<u16>() as u64 * 6,
+            usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+        }).buffer_id(ResourceIndex(0, 0));
+
+        resources.allocate_buffer(device, vertex_buffer);
+        resources.allocate_buffer(device, index_buffer);
+
+        queue.write_buffer(&resources[vertex_buffer], 0, pipe::as_bytes(&[
             [0.0f32, 0.0],
             [1.0f32, 0.0],
             [1.0f32, 1.0],
             [0.0f32, 1.0],
         ]));
 
-        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("quad ibo"),
-            size: std::mem::size_of::<u16>() as u64 * 6,
-            usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&index_buffer, 0, pipe::as_bytes(&[0u16, 1, 2, 0, 3, 2]));
+        queue.write_buffer(&resources[index_buffer], 0, pipe::as_bytes(&[0u16, 1, 2, 0, 3, 2]));
+
+        let opaque_pipeline_kind = resources.add_render_pipeline_kind();
+        let alpha_pipeline_kind = resources.add_render_pipeline_kind();
+
+        let opaque_pipeline_key = opaque_pipeline_kind.with_no_feature();
+        let alpha_pipeline_key = alpha_pipeline_kind.with_no_feature();
+
+        let vs: wgpu::ShaderModuleSource = wgpu::include_spirv!("./../shaders/quad.vert.spv");
+        let fs: wgpu::ShaderModuleSource = wgpu::include_spirv!("./../shaders/quad.frag.spv");
+        let vs_module = device.create_shader_module(vs);
+        let fs_module = device.create_shader_module(fs);
 
         let vbo_desc = wgpu::VertexBufferDescriptor {
             stride: std::mem::size_of::<[f32; 2]>() as u64,
@@ -154,6 +108,7 @@ impl QuadRenderer {
         };
 
         let opaque_pipeline = device.create_render_pipeline(&opaque_pipeline_descriptor);
+        resources.add_render_pipeline(opaque_pipeline_key, opaque_pipeline);
 
         let alpha_target = RenderTargetState::blend_pass(BlendMode::Alpha);
         //let alpha_target = RenderTargetState::blend_pass_with_depth_test(BlendMode::Alpha);
@@ -187,19 +142,14 @@ impl QuadRenderer {
         };
 
         let alpha_pipeline = device.create_render_pipeline(&alpha_pipeline_descriptor);
+        resources.add_render_pipeline(alpha_pipeline_key, alpha_pipeline);
 
         QuadRenderer {
             pipeline_layout,
-            opaque_pipeline,
-            alpha_pipeline,
+            opaque_pipeline_key,
+            alpha_pipeline_key,
             index_buffer,
             vertex_buffer,
-
-            bind_group_layout_id,
-            textures_bind_group_layout_id,
-
-            bind_group_id,
-            textures_bind_group_id,
         }
     }
 }

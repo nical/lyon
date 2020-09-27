@@ -20,14 +20,7 @@ layout(set = INPUT_SAMPLERS_SET, binding = DEFAULT_SAMPLER)  uniform sampler u_d
 #include "transform.glsl"
 #include "color.glsl"
 
-layout(std140, binding = PRIMITIVE_RECTS) uniform u_prim_rects { Rect prim_rects[1024]; };
-
-//vec2[4] unit_quad = vec2[4](
-//    vec2(0.0, 0.0),
-//    vec2(1.0, 0.0),
-//    vec2(1.0, 1.0),
-//    vec2(0.0, 1.0)
-//);
+layout(std140, binding = PRIMITIVE_RECTS) buffer u_prim_rects { Rect prim_rects[]; };
 
 layout(location = A_POSITION) in vec2 a_position;
 
@@ -42,8 +35,7 @@ void main() {
     Rect local_rect = prim_rects[instance.rect_id];
     vec2 local_position = rect_sample(local_rect, a_position);
 
-    mat3 transform = unpack_transform(transforms[instance.transform_id]);
-    vec2 transformed_position = (transform * vec3(local_position, 1.0)).xy;
+    vec2 transformed_position = apply_transform(local_position, instance.transform_id);
 
     write_image_data(instance.src_color_id, a_position);
 

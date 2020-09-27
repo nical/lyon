@@ -3,16 +3,15 @@
 
 // Constants must match the ones in bindings.rs.
 
-// Uniform buffers
+// Buffers
 #define GLOBALS 0
 #define TRANSFORMS 1
 #define PRIMITIVE_RECTS 2
 #define PRIMITIVE_DATA 3
 #define IMAGE_SOURCES 4
-
+#define SUB_MESHES 5
 #define F32_DATA 6
 #define U32_DATA 7
-#define TILING_INFO 2
 
 // Textures.
 #define INPUT_COLOR_0 10
@@ -29,6 +28,7 @@
 // Vertex attributes
 #define A_INSTANCE 0
 #define A_POSITION 1
+#define A_SUB_MESH 2
 
 // Varyings
 #define V_IMAGE_UV 0

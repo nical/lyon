@@ -1,11 +1,15 @@
 use glue::units::*;
-use glue::FrameStamp;
+use glue::*;
 use gpu::*;
 use pipe::*;
+use cache::*;
 use futures::executor::block_on;
 
 use winit::event::{WindowEvent, Event};
 use winit::event_loop::{EventLoop, ControlFlow};
+
+use lyon::tessellation::*;
+use lyon::extra::rust_logo::build_logo_path;
 
 struct Image {
     data: Vec<u8>,
@@ -25,7 +29,6 @@ impl Scene {
     fn new() -> Self {
         let mask_texture = mask_tex();
         let atlas_texture = color_tex();
-
         Scene {
             instances: vec![
                 Instance {
@@ -176,6 +179,49 @@ fn color_tex() -> Image {
     Image { data, descriptor }
 }
 
+fn mesh() -> (VertexBuffers<GpuMeshVertex, u32>, Vec<GpuSubMesh>, Vec<GpuInstance>) {
+    use lyon::tessellation::geometry_builder::*;
+    use lyon::path::builder::Build;
+
+    let mut geometry: VertexBuffers<GpuMeshVertex, u32> = VertexBuffers::new();
+
+    let mut fill_tess = FillTessellator::new();
+
+    let mut builder = lyon::path::Path::builder().with_svg();
+    build_logo_path(&mut builder);
+    let path = builder.build();
+
+    let mut sub_meshes = Vec::new();
+    let mut mesh_instances = Vec::new();
+    fill_tess.tessellate_path(
+        &path,
+        &FillOptions::tolerance(0.01).with_fill_rule(FillRule::NonZero),
+        &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+            let p = vertex.position();
+            GpuMeshVertex {
+                x: p.x,
+                y: p.y,
+                sub_mesh: 0,
+            }
+        }),
+    ).unwrap();
+
+    sub_meshes.push(SubMeshData {
+        transform_id: 0,
+        src_color_id: 0,
+        dest_color_rect: Box2D { min: point2(0.0, 0.0), max: point2(100.0, 100.0)  },
+        opacity: 1.0,
+    }.pack());
+    mesh_instances.push(MeshInstance {
+        sub_mesh_offset: 0,
+        transform_id: 0,
+        user_data: 0,
+        z: 1,
+    }.pack());
+
+    (geometry, sub_meshes, mesh_instances)
+}
+
 fn main() {
     //std::env::set_var("WINIT_UNIX_BACKEND", "x11");
 
@@ -218,11 +264,19 @@ fn main() {
         &swap_chain_desc,
     );
 
-    let renderer = Renderer::new(&device, &queue);
+    let mut renderer = Renderer::new(&device, &queue);
+    let quad_renderer = QuadRenderer::new(&device, &queue, &renderer.common, &mut renderer.resources);
+    let mesh_renderer = MeshRenderer::new(&device, &queue, &renderer.common, &mut renderer.resources);
+
+    let mut common_bind_group_cache = BindGroupCache::new(renderer.common.base_bind_group_layout);
+    let mut textures_bind_group_cache = BindGroupCache::new(renderer.common.textures_bind_group_layout);
+    let mut mesh_bind_group_cache = BindGroupCache::new(mesh_renderer.mesh_bind_group_layout);
 
     let cpu = Scene::new();
 
-    let globals = &[
+    let (cpu_geometry, cpu_sub_meshes, cpu_mesh_instances) = mesh();
+
+    let cpu_globals = &[
         GpuGlobals {
             resolution: [
                 physical_width as f32,
@@ -231,11 +285,78 @@ fn main() {
         }
     ];
 
-    queue.write_buffer(&renderer.resources.globals, 0, as_bytes(globals));
-    queue.write_buffer(&renderer.resources.instances, 0, as_bytes(&cpu.instances));
-    queue.write_buffer(&renderer.resources.transforms, 0, as_bytes(&cpu.transforms));
-    queue.write_buffer(&renderer.resources.rects, 0, as_bytes(&cpu.rects));
-    queue.write_buffer(&renderer.resources.image_sources, 0, as_bytes(&cpu.image_sources));
+    let globals = renderer.common.globals.buffer_id(ResourceIndex(0, 0));
+    let rects = renderer.common.rects.buffer_id(ResourceIndex(0, 0));
+    let transforms = renderer.common.transforms.buffer_id(ResourceIndex(0, 0));
+    let image_sources = renderer.common.image_sources.buffer_id(ResourceIndex(0, 0));
+    let instances = renderer.common.instances.buffer_id(ResourceIndex(0, 0));
+
+    renderer.resources.allocate_buffer(&device, globals);
+    renderer.resources.allocate_buffer(&device, rects);
+    renderer.resources.allocate_buffer(&device, transforms);
+    renderer.resources.allocate_buffer(&device, image_sources);
+    renderer.resources.allocate_buffer(&device, instances);
+
+    let mask = renderer.common.mask_texture_kind.texture_id(ResourceIndex(0, 0));
+    let color_atlas = renderer.common.color_atlas_texture_kind.texture_id(ResourceIndex(0, 0));
+
+    renderer.resources.allocate_texture(&device, mask);
+    renderer.resources.allocate_texture(&device, color_atlas);
+
+    let base_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("base bind group"),
+        layout: &renderer.resources[renderer.common.base_bind_group_layout],
+        entries: &[
+            GpuGlobals::bind_group_entry(&renderer.resources[globals]),
+            GpuPrimitiveRects::bind_group_entry(&renderer.resources[rects]),
+            GpuTransform2D::bind_group_entry(&renderer.resources[transforms]),
+            GpuImageSource::bind_group_entry(&renderer.resources[image_sources]),
+        ],
+    });
+
+    let textures_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("textures bind group"),
+        layout: &renderer.resources[renderer.common.textures_bind_group_layout],
+        entries: &[
+            ColorAtlasTexture::bind_group_entry(&renderer.resources[color_atlas].view),
+            U8AlphaMask::bind_group_entry(&renderer.resources[mask].view),
+            DefaultSampler::bind_group_entry(&renderer.common.default_sampler),
+        ],
+    });
+
+    let base_bind_group_id = renderer.common.base_bind_group_layout.bind_group_id(ResourceIndex(0, 0)); // TODO
+    renderer.resources.add_bind_group(base_bind_group_id, base_bind_group);
+
+    let textures_bind_group_id = renderer.common.textures_bind_group_layout.bind_group_id(ResourceIndex(1, 0));
+    renderer.resources.add_bind_group(textures_bind_group_id, textures_bind_group);
+
+    let mesh_vertex_buffer = mesh_renderer.vbo_kind.buffer_id(ResourceIndex(0, 0));
+    let mesh_index_buffer = mesh_renderer.ibo_kind.buffer_id(ResourceIndex(0, 0));
+    let sub_meshes = mesh_renderer.sub_meshes.buffer_id(ResourceIndex(0, 0));
+    renderer.resources.allocate_buffer(&device, mesh_vertex_buffer);
+    renderer.resources.allocate_buffer(&device, mesh_index_buffer);
+    renderer.resources.allocate_buffer(&device, sub_meshes);
+
+    let mesh_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("mesh bind group"),
+        layout: &renderer.resources[mesh_renderer.mesh_bind_group_layout],
+        entries: &[
+            GpuSubMesh::bind_group_entry(&renderer.resources[sub_meshes]),
+        ],
+    });
+    let mesh_bind_group_id = mesh_renderer.mesh_bind_group_layout.bind_group_id(ResourceIndex(1, 0));
+    renderer.resources.add_bind_group(mesh_bind_group_id, mesh_bind_group);
+
+    queue.write_buffer(&renderer.resources[instances], 0, as_bytes(&cpu.instances));
+    queue.write_buffer(&renderer.resources[globals], 0, as_bytes(cpu_globals));
+    queue.write_buffer(&renderer.resources[transforms], 0, as_bytes(&cpu.transforms));
+    queue.write_buffer(&renderer.resources[rects], 0, as_bytes(&cpu.rects));
+    queue.write_buffer(&renderer.resources[image_sources], 0, as_bytes(&cpu.image_sources));
+
+    queue.write_buffer(&renderer.resources[instances], as_bytes(&cpu.instances).len() as u64, as_bytes(&cpu_mesh_instances));
+    queue.write_buffer(&renderer.resources[mesh_vertex_buffer], 0, as_bytes(&cpu_geometry.vertices));
+    queue.write_buffer(&renderer.resources[mesh_index_buffer], 0, as_bytes(&cpu_geometry.indices));
+    queue.write_buffer(&renderer.resources[sub_meshes], 0, as_bytes(&cpu_sub_meshes));
 
     let mut depth_buffer = DepthBuffer::new(
         physical_width,
@@ -245,7 +366,7 @@ fn main() {
 
     queue.write_texture(
         wgpu::TextureCopyView {
-            texture: &renderer.resources[renderer.resources.mask_texture_id].texture,
+            texture: &renderer.resources[mask].texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
         },
@@ -260,7 +381,7 @@ fn main() {
 
     queue.write_texture(
         wgpu::TextureCopyView {
-            texture: &renderer.resources[renderer.resources.color_atlas_texture_id].texture,
+            texture: &renderer.resources[color_atlas].texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
         },
@@ -310,6 +431,8 @@ fn main() {
             );
         };
 
+        let mut state = DrawState::new();
+
         let frame = swap_chain.get_current_frame().unwrap();
         let mut encoder = device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor { label: Some(&"drawing commands") }
@@ -336,19 +459,53 @@ fn main() {
                 //}),
             });
 
-            // Frame-level stuff
-            let bind_group = &renderer.resources[renderer.quads.bind_group_id];
-            pass.set_bind_group(bindings::COMMON_SET, bind_group, &[]);
+            let batch = Batch {
+                key: BatchKey {
+                    pipeline: quad_renderer.alpha_pipeline_key,
+                    ibo: quad_renderer.index_buffer,
+                    vbos: [
+                        Some(instances),
+                        Some(quad_renderer.vertex_buffer),
+                        None,
+                        None,
+                    ],
+                    bind_groups: [
+                        Some(base_bind_group_id),
+                        Some(textures_bind_group_id),
+                        None,
+                        None,
+                    ],
+                },
+                base_vertex: 0,
+                index_range: 0..6,
+                instance_range: 0..4,
+            };
 
-            let tex_bind_group = &renderer.resources[renderer.quads.textures_bind_group_id];
-            pass.set_bind_group(bindings::INPUT_SAMPLERS_SET, tex_bind_group, &[]);
+            state.submit_batch(&mut pass, &renderer.resources, &batch);
 
-            // Quad batch
-            pass.set_pipeline(&renderer.quads.alpha_pipeline);
-            pass.set_index_buffer(renderer.quads.index_buffer.slice(..));
-            pass.set_vertex_buffer(bindings::A_INSTANCE, renderer.resources.instances.slice(..));
-            pass.set_vertex_buffer(bindings::A_POSITION, renderer.quads.vertex_buffer.slice(..));
-            pass.draw_indexed(0..6, 0, 0..4);
+            let batch = Batch {
+                key: BatchKey {
+                    pipeline: mesh_renderer.alpha_pipeline_key,
+                    ibo: mesh_index_buffer,
+                    vbos: [
+                        Some(instances),
+                        Some(mesh_vertex_buffer),
+                        None,
+                        None,
+                    ],
+                    bind_groups: [
+                        Some(base_bind_group_id),
+                        Some(textures_bind_group_id),
+                        Some(mesh_bind_group_id),
+                        None,
+                    ],
+                },
+                base_vertex: 0,
+                index_range: 0..(cpu_geometry.indices.len() as u32),
+                instance_range: 6..7,
+            };
+
+            state.submit_batch(&mut pass, &renderer.resources, &batch);
         }
 
         queue.submit(Some(encoder.finish()));

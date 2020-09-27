@@ -10,7 +10,7 @@ glue = { path = "../glue" }
 gpu = { path = "../gpu" }
 pipe = { path = "../pipe" }
 cache = { path = "../cache" }
-lyon = "0.15.5"
+lyon = { path = "../../", features = ["extra"] }
 
 wgpu = "0.6"
 winit = "0.20.0-alpha4"

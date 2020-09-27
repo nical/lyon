@@ -12,7 +12,6 @@ struct Instance {
     float z;
 };
 
- // TODO: put in a single uvec4
 layout(location = A_INSTANCE) in uvec4 a_instance;
 
 Instance unpack_instance() {

@@ -6,4 +6,4 @@ edition = "2018"
 workspace = "../.."
 
 [dependencies]
-lyon_geom = "0.15"
+lyon_geom = { path = "../../geom" }

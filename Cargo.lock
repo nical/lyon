@@ -621,15 +621,6 @@ dependencies = [
 
 [[package]]
 name = "euclid"
-version = "0.20.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bb7ef65b3777a325d1eeefefab5b6d4959da54747e33bd6258e789640f307ad"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "euclid"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5337024b8293bdce5265dc9570ef6e608a34bfacbbc87fe1a5dcb5f1dac2f4e2"
@@ -822,7 +813,7 @@ name = "geom_bench"
 version = "0.0.1"
 dependencies = [
  "bencher",
- "lyon 0.17.3",
+ "lyon",
 ]
 
 [[package]]
@@ -1218,7 +1209,7 @@ dependencies = [
 name = "glue"
 version = "0.1.0"
 dependencies = [
- "lyon_geom 0.15.3",
+ "lyon_geom 0.17.0",
 ]
 
 [[package]]
@@ -1465,40 +1456,20 @@ dependencies = [
 
 [[package]]
 name = "lyon"
-version = "0.15.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed142d912ddc611081d50acd84ce1b8612da909aa4cf369642ba92cf51f09b40"
-dependencies = [
- "lyon_algorithms 0.15.1",
- "lyon_tessellation 0.15.9",
-]
-
-[[package]]
-name = "lyon"
 version = "0.17.3"
 dependencies = [
- "lyon_algorithms 0.17.1",
+ "lyon_algorithms",
  "lyon_extra",
  "lyon_svg",
  "lyon_tess2",
- "lyon_tessellation 0.17.3",
-]
-
-[[package]]
-name = "lyon_algorithms"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef5d79947342462427efed6f49b1361d700c0f5dad97a1bac96a5f84d2d1abb1"
-dependencies = [
- "lyon_path 0.15.2",
- "sid",
+ "lyon_tessellation",
 ]
 
 [[package]]
 name = "lyon_algorithms"
 version = "0.17.1"
 dependencies = [
- "lyon_path 0.17.1",
+ "lyon_path",
  "serde",
  "sid",
 ]
@@ -1513,7 +1484,7 @@ dependencies = [
  "futures",
  "itertools",
  "log",
- "lyon 0.17.3",
+ "lyon",
  "rand",
  "regex",
  "wgpu",
@@ -1525,7 +1496,7 @@ dependencies = [
 name = "lyon_extra"
 version = "0.17.1"
 dependencies = [
- "lyon_path 0.17.1",
+ "lyon_path",
  "lyon_svg",
 ]
 
@@ -1542,32 +1513,12 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "0.15.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9962a2ba81382716b87d7d358493cb71844c1f9165ddad763cd9f4d3f5474df2"
-dependencies = [
- "arrayvec 0.5.2",
- "euclid 0.20.14",
- "num-traits",
-]
-
-[[package]]
-name = "lyon_geom"
 version = "0.17.0"
 dependencies = [
  "arrayvec 0.5.2",
  "euclid 0.22.1",
  "num-traits",
  "serde",
-]
-
-[[package]]
-name = "lyon_path"
-version = "0.15.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c81a044414965c051b7b4785770820d23146480a2d8573cd825f03a00a5b8dd8"
-dependencies = [
- "lyon_geom 0.15.3",
 ]
 
 [[package]]
@@ -1591,7 +1542,7 @@ dependencies = [
 name = "lyon_svg"
 version = "0.17.1"
 dependencies = [
- "lyon_path 0.17.1",
+ "lyon_path",
  "svgtypes 0.5.0",
 ]
 
@@ -1599,20 +1550,9 @@ dependencies = [
 name = "lyon_tess2"
 version = "0.17.1"
 dependencies = [
- "lyon_tessellation 0.17.3",
+ "lyon_tessellation",
  "serde",
  "tess2-sys",
-]
-
-[[package]]
-name = "lyon_tessellation"
-version = "0.15.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71c45e7eb8cf9cba513aa72efd59894f861a91acabc9a100caeb0fe6e6315b71"
-dependencies = [
- "arrayvec 0.5.2",
- "lyon_path 0.15.2",
- "sid",
 ]
 
 [[package]]
@@ -1621,7 +1561,7 @@ version = "0.17.3"
 dependencies = [
  "arrayvec 0.5.2",
  "lyon_extra",
- "lyon_path 0.17.1",
+ "lyon_path",
  "serde",
  "sid",
 ]
@@ -1630,7 +1570,7 @@ dependencies = [
 name = "lyon_wasm_test"
 version = "0.11.0"
 dependencies = [
- "lyon 0.17.3",
+ "lyon",
 ]
 
 [[package]]
@@ -2029,7 +1969,7 @@ dependencies = [
  "gfx_device_gl",
  "gfx_window_glutin",
  "glutin",
- "lyon 0.17.3",
+ "lyon",
 ]
 
 [[package]]
@@ -2037,7 +1977,7 @@ name = "path_bench"
 version = "0.0.1"
 dependencies = [
  "bencher",
- "lyon 0.17.3",
+ "lyon",
 ]
 
 [[package]]
@@ -2122,7 +2062,7 @@ dependencies = [
  "futures",
  "glue",
  "gpu",
- "lyon 0.15.9",
+ "lyon",
  "pipe",
  "wgpu",
  "winit 0.20.0",
@@ -2658,7 +2598,7 @@ dependencies = [
  "bytemuck",
  "clap",
  "futures",
- "lyon 0.17.3",
+ "lyon",
  "usvg",
  "wgpu",
  "wgpu-native",
@@ -2767,7 +2707,7 @@ name = "tess_bench"
 version = "0.0.1"
 dependencies = [
  "bencher",
- "lyon 0.17.3",
+ "lyon",
  "tess2-sys",
 ]
 
@@ -3276,7 +3216,7 @@ dependencies = [
  "env_logger",
  "futures",
  "log",
- "lyon 0.17.3",
+ "lyon",
  "wgpu",
  "wgpu-native",
  "winit 0.23.0",

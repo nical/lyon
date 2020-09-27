@@ -5,7 +5,7 @@ version = "0.1.0"
 description = "2D Graphics rendering experiment."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 license = "MIT/Apache-2.0"
-worskapce = ".."
+workspace = ".."
 
 exclude = [
     ".vscode/*",
