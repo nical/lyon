@@ -444,6 +444,7 @@ pub struct FillTessellator {
     edges_below: Vec<PendingEdge>,
     fill_rule: FillRule,
     orientation: Orientation,
+    tolerance: f32,
     fill: Spans,
     log: bool,
     assume_no_intersection: bool,
@@ -468,6 +469,7 @@ impl FillTessellator {
             edges_below: Vec::new(),
             fill_rule: FillRule::EvenOdd,
             orientation: Orientation::Vertical,
+            tolerance: FillOptions::DEFAULT_TOLERANCE,
             fill: Spans { spans: Vec::new() },
             log,
             assume_no_intersection: false,
@@ -589,6 +591,7 @@ impl FillTessellator {
 
         self.fill_rule = options.fill_rule;
         self.orientation = options.sweep_orientation;
+        self.tolerance = options.tolerance * 0.5;
         self.assume_no_intersection = !options.handle_intersections;
 
         builder.begin_geometry();
@@ -857,7 +860,6 @@ impl FillTessellator {
                 continue;
             }
 
-            let threshold = 0.001;
             let egde_is_before_current_point =
                 if points_are_equal(self.current_position, active_edge.to) {
                     // We just found our first edge that connects with the current point.
@@ -880,7 +882,7 @@ impl FillTessellator {
                 } else {
                     let ex = active_edge.solve_x_for_y(self.current_position.y);
 
-                    if (ex - current_x).abs() <= threshold {
+                    if (ex - current_x).abs() <= self.tolerance {
                         connecting_edges = true;
                         false
                     } else if ex > current_x {
@@ -1112,7 +1114,7 @@ impl FillTessellator {
         }
 
         let current_x = self.current_position.x;
-        let threshold = 0.001;
+        let threshold = self.tolerance;
 
         if active_edge.max_x + threshold < current_x || active_edge.to.y < self.current_position.y {
             return Err(InternalError::IncorrectActiveEdgeOrder(4));
@@ -1789,7 +1791,7 @@ impl FillTessellator {
             let b_idx = idx + 1;
             let a_angle = self.edges_below[a_idx].angle;
             let b_angle = self.edges_below[b_idx].angle;
-            if (a_angle - b_angle).abs() > 0.001 {
+            if (a_angle - b_angle).abs() > 0.0001 {
                 continue;
             }
 
