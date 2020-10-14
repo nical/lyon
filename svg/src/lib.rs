@@ -11,6 +11,6 @@
 #![allow(dead_code)]
 
 pub extern crate lyon_path as path;
-pub extern crate svgparser as parser;
+pub extern crate svgtypes as parser;
 
 pub mod path_utils;

@@ -1,5 +1,4 @@
-use crate::parser::path::{Token, Tokenizer};
-use crate::parser::xmlparser::FromSpan;
+use crate::parser::{PathSegment, PathParser};
 
 use crate::path::builder::*;
 use crate::path::geom::Arc;
@@ -35,14 +34,16 @@ pub fn build_path<Builder>(mut builder: Builder, src: &str) -> Result<Builder::P
 where
     Builder: SvgPathBuilder + Build,
 {
-    for item in Tokenizer::from_str(src) {
-        svg_event(&item, &mut builder);
+    for item in PathParser::from(src) {
+        if let Ok(segment) = item {
+            svg_event(&segment, &mut builder)
+        }
     }
 
     Ok(builder.build())
 }
 
-fn svg_event<Builder>(token: &Token, builder: &mut Builder)
+fn svg_event<Builder>(token: &PathSegment, builder: &mut Builder)
 where
     Builder: SvgPathBuilder,
 {
@@ -53,31 +54,31 @@ where
         point(x as f32, y as f32)
     }
     match *token {
-        Token::MoveTo { abs: true, x, y } => {
+        PathSegment::MoveTo { abs: true, x, y } => {
             builder.move_to(point2(x, y));
         }
-        Token::MoveTo { abs: false, x, y } => {
+        PathSegment::MoveTo { abs: false, x, y } => {
             builder.relative_move_to(vec2(x, y));
         }
-        Token::LineTo { abs: true, x, y } => {
+        PathSegment::LineTo { abs: true, x, y } => {
             builder.line_to(point2(x, y));
         }
-        Token::LineTo { abs: false, x, y } => {
+        PathSegment::LineTo { abs: false, x, y } => {
             builder.relative_line_to(vec2(x, y));
         }
-        Token::HorizontalLineTo { abs: true, x } => {
+        PathSegment::HorizontalLineTo { abs: true, x } => {
             builder.horizontal_line_to(x as f32);
         }
-        Token::HorizontalLineTo { abs: false, x } => {
+        PathSegment::HorizontalLineTo { abs: false, x } => {
             builder.relative_horizontal_line_to(x as f32);
         }
-        Token::VerticalLineTo { abs: true, y } => {
+        PathSegment::VerticalLineTo { abs: true, y } => {
             builder.vertical_line_to(y as f32);
         }
-        Token::VerticalLineTo { abs: false, y } => {
+        PathSegment::VerticalLineTo { abs: false, y } => {
             builder.relative_vertical_line_to(y as f32);
         }
-        Token::CurveTo {
+        PathSegment::CurveTo {
             abs: true,
             x1,
             y1,
@@ -88,7 +89,7 @@ where
         } => {
             builder.cubic_bezier_to(point2(x1, y1), point2(x2, y2), point2(x, y));
         }
-        Token::CurveTo {
+        PathSegment::CurveTo {
             abs: false,
             x1,
             y1,
@@ -99,7 +100,7 @@ where
         } => {
             builder.relative_cubic_bezier_to(vec2(x1, y1), vec2(x2, y2), vec2(x, y));
         }
-        Token::SmoothCurveTo {
+        PathSegment::SmoothCurveTo {
             abs: true,
             x2,
             y2,
@@ -108,7 +109,7 @@ where
         } => {
             builder.smooth_cubic_bezier_to(point2(x2, y2), point2(x, y));
         }
-        Token::SmoothCurveTo {
+        PathSegment::SmoothCurveTo {
             abs: false,
             x2,
             y2,
@@ -117,7 +118,7 @@ where
         } => {
             builder.smooth_relative_cubic_bezier_to(vec2(x2, y2), vec2(x, y));
         }
-        Token::Quadratic {
+        PathSegment::Quadratic {
             abs: true,
             x1,
             y1,
@@ -126,7 +127,7 @@ where
         } => {
             builder.quadratic_bezier_to(point2(x1, y1), point2(x, y));
         }
-        Token::Quadratic {
+        PathSegment::Quadratic {
             abs: false,
             x1,
             y1,
@@ -135,13 +136,13 @@ where
         } => {
             builder.relative_quadratic_bezier_to(vec2(x1, y1), vec2(x, y));
         }
-        Token::SmoothQuadratic { abs: true, x, y } => {
+        PathSegment::SmoothQuadratic { abs: true, x, y } => {
             builder.smooth_quadratic_bezier_to(point2(x, y));
         }
-        Token::SmoothQuadratic { abs: false, x, y } => {
+        PathSegment::SmoothQuadratic { abs: false, x, y } => {
             builder.smooth_relative_quadratic_bezier_to(vec2(x, y));
         }
-        Token::EllipticalArc {
+        PathSegment::EllipticalArc {
             abs: true,
             rx,
             ry,
@@ -161,7 +162,7 @@ where
                 point2(x, y),
             );
         }
-        Token::EllipticalArc {
+        PathSegment::EllipticalArc {
             abs: false,
             rx,
             ry,
@@ -181,7 +182,7 @@ where
                 vec2(x, y),
             );
         }
-        Token::ClosePath { .. } => {
+        PathSegment::ClosePath { .. } => {
             builder.close();
         }
     }
