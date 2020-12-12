@@ -289,7 +289,7 @@ impl<S: Scalar> Arc<S> {
     where
         F: FnMut(Point<S>),
     {
-        let mut iter = self.clone();
+        let mut iter = *self;
         loop {
             let t = iter.flattening_step(tolerance);
             if t >= S::ONE {
@@ -308,7 +308,7 @@ impl<S: Scalar> Arc<S> {
         F: FnMut(Point<S>, S),
     {
         let end = self.to();
-        let mut iter = self.clone();
+        let mut iter = *self;
         let mut t0 = S::ZERO;
         loop {
             let step = iter.flattening_step(tolerance);
