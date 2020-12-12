@@ -750,7 +750,7 @@ struct PointIter<'l> {
 impl<'l> PointIter<'l> {
     fn new(slice: &[Point]) -> Self {
         let ptr = slice.as_ptr();
-        let end = unsafe { ptr.offset(slice.len() as isize) };
+        let end = unsafe { ptr.add(slice.len()) };
         PointIter {
             ptr,
             end,
@@ -778,7 +778,7 @@ impl<'l> PointIter<'l> {
     #[inline]
     fn advance_n(&mut self, n: usize) {
         unsafe {
-            self.ptr = self.ptr.offset(n as isize);
+            self.ptr = self.ptr.add(n);
             assert!(self.ptr <= self.end)
         }
     }

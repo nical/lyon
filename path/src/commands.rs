@@ -91,7 +91,7 @@ struct CmdIter<'l> {
 impl<'l> CmdIter<'l> {
     fn new(slice: &[u32]) -> Self {
         let ptr = slice.as_ptr();
-        let end = unsafe { ptr.offset(slice.len() as isize) };
+        let end = unsafe { ptr.add(slice.len()) };
         CmdIter {
             ptr,
             end,
