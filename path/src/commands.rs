@@ -657,7 +657,7 @@ impl<'l> Iterator for Iter<'l> {
                 let from = self.prev_endpoint;
                 self.prev_endpoint = to;
                 self.idx += 2;
-                Some(IdEvent::Line { from: from, to: to })
+                Some(IdEvent::Line { from, to })
             }
             Some(verb::QUADRATIC) => {
                 let ctrl = ControlPointId(self.cmds.next().unwrap());
@@ -666,9 +666,9 @@ impl<'l> Iterator for Iter<'l> {
                 self.prev_endpoint = to;
                 self.idx += 3;
                 Some(IdEvent::Quadratic {
-                    from: from,
-                    ctrl: ctrl,
-                    to: to,
+                    from,
+                    ctrl,
+                    to,
                 })
             }
             Some(verb::CUBIC) => {
@@ -679,10 +679,10 @@ impl<'l> Iterator for Iter<'l> {
                 self.prev_endpoint = to;
                 self.idx += 4;
                 Some(IdEvent::Cubic {
-                    from: from,
-                    ctrl1: ctrl1,
-                    ctrl2: ctrl2,
-                    to: to,
+                    from,
+                    ctrl1,
+                    ctrl2,
+                    to,
                 })
             }
             Some(verb::END) => {
@@ -692,8 +692,8 @@ impl<'l> Iterator for Iter<'l> {
                 self.prev_endpoint = first;
                 self.idx += 2;
                 Some(IdEvent::End {
-                    last: last,
-                    first: first,
+                    last,
+                    first,
                     close: false,
                 })
             }
@@ -704,8 +704,8 @@ impl<'l> Iterator for Iter<'l> {
                 self.prev_endpoint = first;
                 self.idx += 2;
                 Some(IdEvent::End {
-                    last: last,
-                    first: first,
+                    last,
+                    first,
                     close: true,
                 })
             }
