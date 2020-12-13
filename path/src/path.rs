@@ -545,7 +545,7 @@ impl BuilderWithAttributes {
     pub fn new(num_attributes: usize) -> Self {
         BuilderWithAttributes {
             builder: Builder::new(),
-            num_attributes: num_attributes,
+            num_attributes,
         }
     }
 
