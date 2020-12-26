@@ -1,4 +1,4 @@
-use commands::{TessellateCmd, Tessellator};
+use crate::commands::{TessellateCmd, Tessellator};
 use lyon::path::Path;
 use lyon::path::traits::*;
 use lyon::tessellation::geometry_builder::*;
