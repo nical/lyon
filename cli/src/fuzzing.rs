@@ -1,4 +1,4 @@
-use commands::{FuzzCmd, Tessellator};
+use crate::commands::{FuzzCmd, Tessellator};
 use lyon::extra::debugging::find_reduced_test_case;
 use lyon::math::*;
 use lyon::path::Path;

@@ -1,4 +1,15 @@
-use commands::{AntiAliasing, Background, RenderCmd, TessellateCmd, Tessellator};
+use winit::dpi::LogicalSize;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::Window;
+
+// For create_buffer_init()
+use wgpu::util::DeviceExt;
+
+use futures::executor::block_on;
+use std::ops::Rem;
+
+use crate::commands::{AntiAliasing, Background, RenderCmd, TessellateCmd, Tessellator};
 use lyon::algorithms::aabb::bounding_rect;
 use lyon::algorithms::hatching::*;
 use lyon::geom::LineSegment;
@@ -10,26 +21,124 @@ use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
 
-use gfx;
-use gfx::traits::{Device, FactoryExt};
-use gfx_window_glutin;
-use glutin;
-use glutin::dpi::LogicalSize;
-use glutin::ElementState::Pressed;
-use glutin::{EventsLoop, KeyboardInput};
+const PRIM_BUFFER_LEN: usize = 64;
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct Globals {
+    resolution: [f32; 2],
+    scroll_offset: [f32; 2],
+    bg_color: [f32; 4],
+    vignette_color: [f32; 4],
+    zoom: f32,
+}
+
+unsafe impl bytemuck::Pod for Globals {}
+unsafe impl bytemuck::Zeroable for Globals {}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct GpuVertex {
+    position: [f32; 2],
+    normal: [f32; 2],
+    prim_id: i32,
+}
+unsafe impl bytemuck::Pod for GpuVertex {}
+unsafe impl bytemuck::Zeroable for GpuVertex {}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct Primitive {
+    color: [f32; 4],
+    translate: [f32; 2],
+    z_index: i32,
+    width: f32,
+}
+unsafe impl bytemuck::Pod for Primitive {}
+unsafe impl bytemuck::Zeroable for Primitive {}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct BgVertex {
+    point: [f32; 2],
+}
+unsafe impl bytemuck::Pod for BgVertex {}
+unsafe impl bytemuck::Zeroable for BgVertex {}
 
 const DEFAULT_WINDOW_WIDTH: f32 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 
+/// Creates a texture that uses MSAA and fits a given swap chain
+fn create_multisampled_framebuffer(
+    device: &wgpu::Device,
+    sc_desc: &wgpu::SwapChainDescriptor,
+    sample_count: u32,
+) -> wgpu::TextureView {
+    let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+        label: Some("Multisampled frame descriptor"),
+        size: wgpu::Extent3d {
+            width: sc_desc.width,
+            height: sc_desc.height,
+            depth: 1,
+        },
+        mip_level_count: 1,
+        sample_count: sample_count,
+        dimension: wgpu::TextureDimension::D2,
+        format: sc_desc.format,
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+    };
+
+    device
+        .create_texture(multisampled_frame_descriptor)
+        .create_view(&wgpu::TextureViewDescriptor::default())
+}
+
 pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
-    let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
-    let mut stroke_width = 1.0;
+    let mut geometry: VertexBuffers<GpuVertex, u32> = VertexBuffers::new();
+
+    let fill_prim_id = 0;
+    let stroke_prim_id = 1;
 
     let mut fill = FillTessellator::new();
     let mut stroke = StrokeTessellator::new();
 
+    if let Some(options) = cmd.fill {
+        match cmd.tessellator {
+            Tessellator::Default => {
+
+                fill.tessellate(
+                    &cmd.path,
+                    &options,
+                    &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id)),
+                )
+                .unwrap();
+
+                //for (i, v) in geometry.vertices.iter().enumerate() {
+                //    println!("{}: {:?}", i, v.position);
+                //}
+                //for i in 0..(geometry.indices.len() / 3) {
+                //    println!(
+                //        "{}/{}/{}",
+                //        geometry.indices[i * 3],
+                //        geometry.indices[i * 3 + 1],
+                //        geometry.indices[i * 3 + 2],
+                //    );
+                //}
+            }
+            Tessellator::Tess2 => {
+                tess2::FillTessellator::new().tessellate(
+                    cmd.path.iter(),
+                    &options,
+                    &mut tess2::geometry_builder::BuffersBuilder::new(
+                        &mut geometry,
+                        WithId(0),
+                    ),
+                ).unwrap();
+            }
+        }
+    }
+
     if let Some(options) = cmd.stroke {
-        stroke_width = options.line_width;
         stroke.tessellate(
             cmd.path.iter(),
             &options,
@@ -58,7 +167,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         stroke.tessellate(
             hatched_path.iter(),
             &hatch.stroke,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
         ).unwrap();
     }
 
@@ -81,49 +190,9 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         stroke.tessellate(
             dotted_path.iter(),
             &dots.stroke,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
         ).unwrap();
     }
-
-    if let Some(options) = cmd.fill {
-        match cmd.tessellator {
-            Tessellator::Default => {
-
-                fill.tessellate(
-                    &cmd.path,
-                    &options,
-                    &mut BuffersBuilder::new(&mut geometry, WithId(0)),
-                )
-                .unwrap();
-
-                //for (i, v) in geometry.vertices.iter().enumerate() {
-                //    println!("{}: {:?}", i, v.position);
-                //}
-                //for i in 0..(geometry.indices.len() / 3) {
-                //    println!(
-                //        "{}/{}/{}",
-                //        geometry.indices[i * 3],
-                //        geometry.indices[i * 3 + 1],
-                //        geometry.indices[i * 3 + 2],
-                //    );
-                //}
-            }
-            Tessellator::Tess2 => {
-                tess2::FillTessellator::new()
-                    .tessellate(
-                        cmd.path.iter(),
-                        &options,
-                        &mut tess2::geometry_builder::BuffersBuilder::new(
-                            &mut geometry,
-                            WithId(0),
-                        ),
-                    )
-                    .unwrap();
-            }
-        }
-    }
-
-    let geom_split = geometry.indices.len() as u32;
 
     let (bg_color, vignette_color) = match render_options.background {
         Background::Blue => ([0.0, 0.47, 0.9, 1.0], [0.0, 0.1, 0.64, 1.0]),
@@ -136,7 +205,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         return;
     }
 
-    let mut bg_geometry: VertexBuffers<BgVertex, u16> = VertexBuffers::new();
+    let mut bg_geometry: VertexBuffers<BgVertex, u32> = VertexBuffers::new();
 
     fill.tessellate_rectangle(
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
@@ -144,341 +213,537 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     ).unwrap();
 
-    let glutin_builder = glutin::WindowBuilder::new()
-        .with_dimensions(LogicalSize {
-            width: DEFAULT_WINDOW_WIDTH as f64,
-            height: DEFAULT_WINDOW_HEIGHT as f64,
-        })
-        .with_decorations(true)
-        .with_title("lyon".to_string());
 
-    let msaa = match render_options.aa {
-        AntiAliasing::Msaa(samples) => samples,
-        _ => 0,
+    let sample_count = match render_options.aa {
+        AntiAliasing::Msaa(samples) => samples as u32,
+        _ => 1,
     };
-    let context = glutin::ContextBuilder::new()
-        .with_multisampling(msaa)
-        .with_vsync(true);
 
-    let mut events_loop = glutin::EventsLoop::new();
+    let num_instances: u32 = PRIM_BUFFER_LEN as u32 - 1;
 
-    let (window, mut device, mut factory, mut main_fbo, mut main_depth) =
-        gfx_window_glutin::init::<gfx::format::Rgba8, gfx::format::DepthStencil>(
-            glutin_builder,
-            context,
-            &events_loop,
-        )
-        .unwrap();
-
-    let bg_pso = factory
-        .create_pipeline_simple(
-            BACKGROUND_VERTEX_SHADER.as_bytes(),
-            BACKGROUND_FRAGMENT_SHADER.as_bytes(),
-            bg_pipeline::new(),
-        )
-        .unwrap();
-
-    let path_shader = factory
-        .link_program(VERTEX_SHADER.as_bytes(), FRAGMENT_SHADER.as_bytes())
-        .unwrap();
-
-    let mut rasterizer_state = gfx::state::Rasterizer::new_fill().with_cull_back();
-    if let AntiAliasing::Msaa(_) = render_options.aa {
-        rasterizer_state.samples = Some(gfx::state::MultiSample);
+    let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
+    for _ in 0..PRIM_BUFFER_LEN {
+        cpu_primitives.push(Primitive {
+            color: [1.0, 0.0, 0.0, 1.0],
+            z_index: 0,
+            width: 0.0,
+            translate: [0.0, 0.0],
+        });
     }
-    let path_pso = factory
-        .create_pipeline_from_program(
-            &path_shader,
-            gfx::Primitive::TriangleList,
-            rasterizer_state,
-            path_pipeline::new(),
-        )
-        .unwrap();
 
-    let mut wireframe_fill_mode = gfx::state::Rasterizer::new_fill();
-    wireframe_fill_mode.method = gfx::state::RasterMethod::Line(1);
-    let wireframe_pso = factory
-        .create_pipeline_from_program(
-            &path_shader,
-            gfx::Primitive::TriangleList,
-            wireframe_fill_mode,
-            path_pipeline::new(),
-        )
-        .unwrap();
-
-    let (bg_vbo, bg_range) = factory
-        .create_vertex_buffer_with_slice(&bg_geometry.vertices[..], &bg_geometry.indices[..]);
-
-    let (path_vbo, vbo_range) =
-        factory.create_vertex_buffer_with_slice(&geometry.vertices[..], &geometry.indices[..]);
-
-    let (path_range, _) = vbo_range.split_at(geom_split);
-
-    let gpu_primitives = factory.create_constant_buffer(3);
-    let constants = factory.create_constant_buffer(1);
+    // Stroke primitive
+    cpu_primitives[stroke_prim_id] = Primitive {
+        color: [0.0, 0.0, 0.0, 1.0],
+        z_index: num_instances as i32 + 2,
+        width: 1.0,
+        translate: [0.0, 0.0],
+    };
+    // Main fill primitive
+    cpu_primitives[fill_prim_id] = Primitive {
+        color: [1.0, 1.0, 1.0, 1.0],
+        z_index: num_instances as i32 + 1,
+        width: 0.0,
+        translate: [0.0, 0.0],
+    };
+    // Instance primitives
+    for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances as usize) {
+        cpu_primitives[idx].z_index = (idx as u32 + 1) as i32;
+        cpu_primitives[idx].color = [
+            (0.1 * idx as f32).rem(1.0),
+            (0.5 * idx as f32).rem(1.0),
+            (0.9 * idx as f32).rem(1.0),
+            1.0,
+        ];
+    }
 
     let aabb = bounding_rect(cmd.path.iter());
     let center = aabb.origin.lerp(aabb.max(), 0.5).to_vector();
 
     let mut scene = SceneParams {
-        target_zoom: 1.0,
-        zoom: 0.1,
+        target_zoom: 5.0,
+        zoom: 5.0,
         target_scroll: center,
         scroll: center,
         show_points: false,
         show_wireframe: false,
-        stroke_width,
-        target_stroke_width: stroke_width,
+        stroke_width: 1.0,
+        target_stroke_width: 1.0,
         draw_background: true,
         cursor_position: (0.0, 0.0),
-        window_size: (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
+        window_size: LogicalSize::new(DEFAULT_WINDOW_WIDTH as f64, DEFAULT_WINDOW_HEIGHT as f64),
+        size_changed: true,
     };
 
-    let mut cmd_queue: gfx::Encoder<_, _> = factory.create_command_buffer().into();
+    let event_loop = EventLoop::new();
+    let window = Window::new(&event_loop).unwrap();
 
-    while update_inputs(&mut events_loop, &mut scene) {
-        gfx_window_glutin::update_views(&window, &mut main_fbo, &mut main_depth);
-        let size = window.get_inner_size().unwrap();
-        scene.window_size = (size.width as f32, size.height as f32);
+    // create an instance
+    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 
-        cmd_queue.clear(&main_fbo.clone(), [0.0, 0.0, 0.0, 0.0]);
-        cmd_queue.clear_depth(&main_depth.clone(), 1.0);
+    // create an surface
+    let surface = unsafe { instance.create_surface(&window) };
 
-        cmd_queue.update_constant_buffer(
-            &constants,
-            &Globals {
-                resolution: [size.width as f32, size.height as f32],
+    // create an adapter
+    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::Default,
+        compatible_surface: Some(&surface),
+    }))
+    .unwrap();
+    // create a device and a queue
+    let (device, queue) = block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            features: wgpu::Features::default(),
+            limits: wgpu::Limits::default(),
+            shader_validation: true,
+        },
+        None,
+    ))
+    .unwrap();
+
+    let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&geometry.vertices),
+        usage: wgpu::BufferUsage::VERTEX,
+    });
+
+    let ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&geometry.indices),
+        usage: wgpu::BufferUsage::INDEX,
+    });
+
+    let bg_vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&bg_geometry.vertices),
+        usage: wgpu::BufferUsage::VERTEX,
+    });
+
+    let bg_ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&bg_geometry.indices),
+        usage: wgpu::BufferUsage::INDEX,
+    });
+
+    let prim_buffer_byte_size = (PRIM_BUFFER_LEN * std::mem::size_of::<Primitive>()) as u64;
+    let globals_buffer_byte_size = std::mem::size_of::<Globals>() as u64;
+
+    let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Prims ubo"),
+        size: prim_buffer_byte_size,
+        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let globals_ubo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Globals ubo"),
+        size: globals_buffer_byte_size,
+        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let vs_module =
+        &device.create_shader_module(wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
+    let fs_module =
+        &device.create_shader_module(wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
+    let bg_vs_module =
+        &device.create_shader_module(wgpu::include_spirv!("./../shaders/background.vert.spv"));
+    let bg_fs_module =
+        &device.create_shader_module(wgpu::include_spirv!("./../shaders/background.frag.spv"));
+
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Bind group layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: wgpu::BufferSize::new(globals_buffer_byte_size),
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: wgpu::BufferSize::new(prim_buffer_byte_size),
+                },
+                count: None,
+            },
+        ],
+    });
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Bind group"),
+        layout: &bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(globals_ubo.slice(..)),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer(prims_ubo.slice(..)),
+            },
+        ],
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        bind_group_layouts: &[&bind_group_layout],
+        push_constant_ranges: &[],
+        label: None,
+    });
+
+    let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
+        format: wgpu::TextureFormat::Depth32Float,
+        depth_write_enabled: true,
+        depth_compare: wgpu::CompareFunction::Greater,
+        stencil: wgpu::StencilStateDescriptor {
+            front: wgpu::StencilStateFaceDescriptor::IGNORE,
+            back: wgpu::StencilStateFaceDescriptor::IGNORE,
+            read_mask: 0,
+            write_mask: 0,
+        },
+    });
+
+    let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
+        layout: Some(&pipeline_layout),
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
+            module: &vs_module,
+            entry_point: "main",
+        },
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            module: &fs_module,
+            entry_point: "main",
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
+        }),
+        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+        color_states: &[wgpu::ColorStateDescriptor {
+            format: wgpu::TextureFormat::Bgra8Unorm,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }],
+        depth_stencil_state: depth_stencil_state.clone(),
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint32,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<GpuVertex>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 0,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 8,
+                        format: wgpu::VertexFormat::Float2,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttributeDescriptor {
+                        offset: 16,
+                        format: wgpu::VertexFormat::Int,
+                        shader_location: 2,
+                    },
+                ],
+            }],
+        },
+        sample_count: sample_count,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
+        label: None,
+    };
+
+    let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
+
+    // TODO: this isn't what we want: we'd need the equivalent of VK_POLYGON_MODE_LINE,
+    // but it doesn't seem to be exposed by wgpu?
+    render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
+    let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
+
+    let wireframe_indices = build_wireframe_indices(&geometry.indices);
+    let wireframe_ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(&wireframe_indices),
+        usage: wgpu::BufferUsage::INDEX,
+    });
+
+    let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        layout: Some(&pipeline_layout),
+        vertex_stage: wgpu::ProgrammableStageDescriptor {
+            module: &bg_vs_module,
+            entry_point: "main",
+        },
+        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            module: &bg_fs_module,
+            entry_point: "main",
+        }),
+        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: wgpu::CullMode::None,
+            ..Default::default()
+        }),
+        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+        color_states: &[wgpu::ColorStateDescriptor {
+            format: wgpu::TextureFormat::Bgra8Unorm,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        }],
+        depth_stencil_state: depth_stencil_state.clone(),
+        vertex_state: wgpu::VertexStateDescriptor {
+            index_format: wgpu::IndexFormat::Uint32,
+            vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                stride: std::mem::size_of::<Point>() as u64,
+                step_mode: wgpu::InputStepMode::Vertex,
+                attributes: &[wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    format: wgpu::VertexFormat::Float2,
+                    shader_location: 0,
+                }],
+            }],
+        },
+        sample_count: sample_count,
+        sample_mask: !0,
+        alpha_to_coverage_enabled: false,
+        label: None,
+    });
+
+    let size = window.inner_size().to_physical(window.hidpi_factor());
+
+    let mut swap_chain_desc = wgpu::SwapChainDescriptor {
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        format: wgpu::TextureFormat::Bgra8Unorm,
+        width: size.width.round() as u32,
+        height: size.height.round() as u32,
+        present_mode: wgpu::PresentMode::Fifo,
+    };
+
+    let mut multisampled_render_target = None;
+
+    let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
+
+    let mut depth_texture_view = None;
+
+    let mut frame_count: f32 = 0.0;
+    event_loop.run(move |event, _, control_flow| {
+        if update_inputs(event, control_flow, &mut scene) {
+            // keep polling inputs.
+            return;
+        }
+
+        if scene.size_changed {
+            scene.size_changed = false;
+            let physical = scene.window_size.to_physical(window.hidpi_factor());
+            swap_chain_desc.width = physical.width.round() as u32;
+            swap_chain_desc.height = physical.height.round() as u32;
+            swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
+
+            let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Depth texture"),
+                size: wgpu::Extent3d {
+                    width: swap_chain_desc.width,
+                    height: swap_chain_desc.height,
+                    depth: 1,
+                },
+                mip_level_count: 1,
+                sample_count,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            });
+
+            depth_texture_view =
+                Some(depth_texture.create_view(&wgpu::TextureViewDescriptor::default()));
+
+            multisampled_render_target = if sample_count > 1 {
+                Some(create_multisampled_framebuffer(
+                    &device,
+                    &swap_chain_desc,
+                    sample_count,
+                ))
+            } else {
+                None
+            };
+        }
+
+        let frame = swap_chain.get_current_frame().unwrap();
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Encoder"),
+        });
+
+        cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
+        cpu_primitives[stroke_prim_id as usize].color = [
+            (frame_count * 0.008 - 1.6).sin() * 0.1 + 0.1,
+            (frame_count * 0.005 - 1.6).sin() * 0.1 + 0.1,
+            (frame_count * 0.01 - 1.6).sin() * 0.1 + 0.1,
+            1.0,
+        ];
+
+        for idx in 2..(num_instances + 1) {
+            cpu_primitives[idx as usize].translate = [
+                (frame_count * 0.001 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
+                (frame_count * 0.002 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
+            ];
+        }
+
+        queue.write_buffer(
+            &globals_ubo,
+            0,
+            bytemuck::cast_slice(&[Globals {
+                resolution: [
+                    scene.window_size.width as f32,
+                    scene.window_size.height as f32,
+                ],
                 zoom: scene.zoom,
                 scroll_offset: scene.scroll.to_array(),
                 bg_color,
                 vignette_color,
-            },
+            }]),
         );
 
-        cmd_queue
-            .update_buffer(
-                &gpu_primitives,
-                &[
-                    Primitive {
-                        color: [1.0, 1.0, 1.0, 1.0],
-                        z_index: 0.1,
-                        width: 0.0,
-                        translation: [0.0, 0.0],
-                    },
-                    Primitive {
-                        color: [0.0, 0.0, 0.0, 1.0],
-                        z_index: 0.2,
-                        width: scene.target_stroke_width,
-                        translation: [0.0, 0.0],
-                    },
-                    // TODO: Debug edges. Color is hard-coded.
-                    Primitive {
-                        color: [0.5, 0.0, 0.0, 1.0],
-                        z_index: 0.4,
-                        width: scene.target_stroke_width * 0.5,
-                        translation: [0.0, 0.0],
-                    },
-                ],
-                0,
-            )
-            .unwrap();
+        queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&cpu_primitives));
 
-        let pso = if scene.show_wireframe {
-            &wireframe_pso
+        {
+            // A resolve target is only supported if the attachment actually uses anti-aliasing
+            // So if sample_count == 1 then we must render directly to the swapchain's buffer
+            let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
+                wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: msaa_target,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: true,
+                    },
+                    resolve_target: Some(&frame.output.view),
+                }
+            } else {
+                wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.output.view,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: true,
+                    },
+                    resolve_target: None,
+                }
+            };
+
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[color_attachment],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: depth_texture_view.as_ref().unwrap(),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0.0),
+                        store: true,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: true,
+                    }),
+                }),
+            });
+
+            let index_range;
+            if scene.show_wireframe {
+                pass.set_pipeline(&wireframe_render_pipeline);
+                pass.set_index_buffer(wireframe_ibo.slice(..));
+                index_range = 0..(wireframe_indices.len() as u32);
+            } else {
+                pass.set_pipeline(&render_pipeline);
+                pass.set_index_buffer(ibo.slice(..));
+                index_range = 0..(geometry.indices.len() as u32);
+            }
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.set_vertex_buffer(0, vbo.slice(..));
+
+            pass.draw_indexed(index_range, 0, 0..1);
+
+            if scene.draw_background {
+                pass.set_pipeline(&bg_pipeline);
+                pass.set_bind_group(0, &bind_group, &[]);
+                pass.set_index_buffer(bg_ibo.slice(..));
+                pass.set_vertex_buffer(0, bg_vbo.slice(..));
+
+                pass.draw_indexed(0..6, 0, 0..1);
+            }
+        }
+
+        queue.submit(Some(encoder.finish()));
+
+        frame_count += 1.0;
+    });
+
+}
+
+fn build_wireframe_indices(indices: &[u32]) -> Vec<u32> {
+    let mut set = std::collections::HashSet::new();
+    let check = &mut |a: u32, b: u32| {
+        let (i1, i2) = if a < b {
+            (a, b)
         } else {
-            &path_pso
+            (b, a)
         };
 
-        cmd_queue.draw(
-            &path_range,
-            &pso,
-            &path_pipeline::Data {
-                vbo: path_vbo.clone(),
-                primitives: gpu_primitives.clone(),
-                constants: constants.clone(),
-                out_color: main_fbo.clone(),
-                out_depth: main_depth.clone(),
-            },
-        );
+        set.insert((i1, i2))
+    };
 
-        if scene.draw_background {
-            cmd_queue.draw(
-                &bg_range,
-                &bg_pso,
-                &bg_pipeline::Data {
-                    vbo: bg_vbo.clone(),
-                    out_color: main_fbo.clone(),
-                    out_depth: main_depth.clone(),
-                    constants: constants.clone(),
-                },
-            );
+    let mut output = Vec::new();
+
+    for triangle in indices.chunks(3) {
+        let a = triangle[0];
+        let b = triangle[1];
+        let c = triangle[2];
+        if check(a, b) {
+            output.push(a);
+            output.push(b);
         }
-
-        cmd_queue.flush(&mut device);
-        window.swap_buffers().unwrap();
-        device.cleanup();
+        if check(b, c) {
+            output.push(b);
+            output.push(c);
+        }
+        if check(a, c) {
+            output.push(a);
+            output.push(c);
+        }
     }
+
+    output
 }
-
-gfx_defines! {
-    constant Globals {
-        bg_color: [f32; 4] = "u_bg_color",
-        vignette_color: [f32; 4] = "u_vignette_color",
-        resolution: [f32; 2] = "u_resolution",
-        scroll_offset: [f32; 2] = "u_scroll_offset",
-        zoom: f32 = "u_zoom",
-    }
-
-    vertex GpuVertex {
-        position: [f32; 2] = "a_position",
-        normal: [f32; 2] = "a_normal",
-        prim_id: i32 = "a_prim_id", // An id pointing to the PrimData struct above.
-    }
-
-    constant Primitive {
-        color: [f32; 4] = "color",
-        z_index: f32 = "z_index",
-        width: f32 = "width",
-        translation: [f32; 2] = "translation",
-    }
-
-    pipeline path_pipeline {
-        vbo: gfx::VertexBuffer<GpuVertex> = (),
-        out_color: gfx::RenderTarget<gfx::format::Rgba8> = "out_color",
-        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-        constants: gfx::ConstantBuffer<Globals> = "Globals",
-        primitives: gfx::ConstantBuffer<Primitive> = "u_primitives",
-    }
-
-    vertex BgVertex {
-        position: [f32; 2] = "a_position",
-    }
-
-    pipeline bg_pipeline {
-        vbo: gfx::VertexBuffer<BgVertex> = (),
-        out_color: gfx::RenderTarget<gfx::format::Rgba8> = "out_color",
-        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-        constants: gfx::ConstantBuffer<Globals> = "Globals",
-    }
-}
-
-static BACKGROUND_VERTEX_SHADER: &'static str = &"
-    #version 140
-    in vec2 a_position;
-    out vec2 v_position;
-
-    void main() {
-        gl_Position = vec4(a_position, 1.0, 1.0);
-        v_position = a_position;
-    }
-";
-
-// The background.
-// This shader is silly and slow, but it looks nice ;)
-static BACKGROUND_FRAGMENT_SHADER: &'static str = &"
-    #version 140
-    uniform Globals {
-        vec4 u_bg_color;
-        vec4 u_vignette_color;
-        vec2 u_resolution;
-        vec2 u_scroll_offset;
-        float u_zoom;
-    };
-    in vec2 v_position;
-    out vec4 out_color;
-
-    void main() {
-        vec2 px_position = v_position * vec2(1.0, -1.0) * u_resolution * 0.5;
-
-        float vignette = clamp(0.0, 1.0, (0.7*length(v_position)));
-        out_color = mix(
-            u_bg_color,
-            u_vignette_color,
-            vignette
-        );
-
-        // TODO: properly adapt the grid while zooming in and out.
-        float grid_scale = 5.0;
-        if (u_zoom < 2.5) {
-            grid_scale = 1.0;
-        }
-
-        vec2 pos = px_position + u_scroll_offset * u_zoom;
-
-        if (mod(pos.x, 20.0 / grid_scale * u_zoom) <= 1.0 ||
-            mod(pos.y, 20.0 / grid_scale * u_zoom) <= 1.0) {
-            out_color *= 1.2;
-        }
-
-        if (mod(pos.x, 100.0 / grid_scale * u_zoom) <= 2.0 ||
-            mod(pos.y, 100.0 / grid_scale * u_zoom) <= 2.0) {
-            out_color *= 1.2;
-        }
-    }
-";
-
-pub static VERTEX_SHADER: &'static str = &"
-    #version 140
-
-    #define PRIM_BUFFER_LEN 64
-
-    uniform Globals {
-        vec4 u_bg_color;
-        vec4 u_vignette_color;
-        vec2 u_resolution;
-        vec2 u_scroll_offset;
-        float u_zoom;
-    };
-
-    struct Primitive {
-        vec4 color;
-        float z_index;
-        float width;
-        vec2 translation;
-    };
-    uniform u_primitives { Primitive primitives[2]; };
-
-    in vec2 a_position;
-    in vec2 a_normal;
-    in int a_prim_id;
-
-    out vec4 v_color;
-
-    void main() {
-        int id = a_prim_id + gl_InstanceID;
-        Primitive prim = primitives[id];
-
-        vec2 local_pos = a_position + a_normal * prim.width * 0.5 + prim.translation;
-        vec2 world_pos = local_pos - u_scroll_offset;
-        vec2 transformed_pos = world_pos * u_zoom / (vec2(0.5, -0.5) * u_resolution);
-
-        gl_Position = vec4(transformed_pos, 1.0 - prim.z_index, 1.0);
-        v_color = prim.color;
-    }
-";
-
-pub static FRAGMENT_SHADER: &'static str = &"
-    #version 140
-    in vec4 v_color;
-    out vec4 out_color;
-
-    void main() {
-        out_color = v_color;
-    }
-";
 
 /// This vertex constructor forwards the positions and normals provided by the
 /// tessellators and add a shape id.
-pub struct WithId(pub i32);
+pub struct WithId(pub usize);
 
 impl FillVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> GpuVertex {
-        debug_assert!(!vertex.position().x.is_nan());
-        debug_assert!(!vertex.position().y.is_nan());
         GpuVertex {
             position: vertex.position().to_array(),
             normal: [0.0, 0.0],
-            prim_id: self.0,
+            prim_id: self.0 as i32,
+        }
+    }
+}
+
+impl StrokeVertexConstructor<GpuVertex> for WithId {
+    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
+        GpuVertex {
+            position: vertex.position_on_path().to_array(),
+            normal: vertex.normal().to_array(),
+            prim_id: self.0 as i32,
+        }
+    }
+}
+
+pub struct BgVertexCtor;
+
+impl FillVertexConstructor<BgVertex> for BgVertexCtor {
+    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
+        BgVertex {
+            point: vertex.position().to_array(),
         }
     }
 }
@@ -490,34 +755,7 @@ impl tess2::geometry_builder::BasicVertexConstructor<GpuVertex> for WithId {
         GpuVertex {
             position: position.to_array(),
             normal: [0.0, 0.0],
-            prim_id: self.0,
-        }
-    }
-}
-
-impl StrokeVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
-        debug_assert!(!vertex.position().x.is_nan());
-        debug_assert!(!vertex.position().y.is_nan());
-        debug_assert!(!vertex.normal().x.is_nan());
-        debug_assert!(!vertex.normal().y.is_nan());
-        debug_assert!(!vertex.advancement().is_nan());
-        GpuVertex {
-            position: vertex.position_on_path().to_array(),
-            normal: vertex.normal().to_array(),
-            prim_id: self.0,
-        }
-    }
-}
-
-struct BgVertexCtor;
-
-impl FillVertexConstructor<BgVertex> for BgVertexCtor {
-    fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
-        debug_assert!(!vertex.position().x.is_nan());
-        debug_assert!(!vertex.position().y.is_nan());
-        BgVertex {
-            position: vertex.position().to_array(),
+            prim_id: self.0 as i32,
         }
     }
 }
@@ -533,109 +771,107 @@ struct SceneParams {
     target_stroke_width: f32,
     draw_background: bool,
     cursor_position: (f32, f32),
-    window_size: (f32, f32),
+    window_size: LogicalSize,
+    size_changed: bool,
 }
 
-fn update_inputs(events_loop: &mut EventsLoop, scene: &mut SceneParams) -> bool {
-    use glutin::Event;
-    use glutin::VirtualKeyCode;
-    use glutin::WindowEvent;
-
-    let mut status = true;
-
-    events_loop.poll_events(|event| {
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::Destroyed,
-                ..
-            } => {
-                status = false;
-            }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseInput {
-                        state: glutin::ElementState::Pressed,
-                        button: glutin::MouseButton::Left,
-                        ..
-                    },
-                ..
-            } => {
-                let half_width = scene.window_size.0 * 0.5;
-                let half_height = scene.window_size.1 * 0.5;
-                println!(
-                    "X: {}, Y: {}",
-                    (scene.cursor_position.0 - half_width) / scene.zoom + scene.scroll.x,
-                    (scene.cursor_position.1 - half_height) / scene.zoom + scene.scroll.y,
-                );
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { position, .. },
-                ..
-            } => {
-                scene.cursor_position = (position.x as f32, position.y as f32);
-            }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: Pressed,
-                                virtual_keycode: Some(key),
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            } => match key {
-                VirtualKeyCode::Escape => {
-                    status = false;
-                }
-                VirtualKeyCode::PageDown => {
-                    scene.target_zoom *= 0.8;
-                }
-                VirtualKeyCode::PageUp => {
-                    scene.target_zoom *= 1.25;
-                }
-                VirtualKeyCode::Left => {
-                    scene.target_scroll.x -= 50.0 / scene.target_zoom;
-                }
-                VirtualKeyCode::Right => {
-                    scene.target_scroll.x += 50.0 / scene.target_zoom;
-                }
-                VirtualKeyCode::Up => {
-                    scene.target_scroll.y -= 50.0 / scene.target_zoom;
-                }
-                VirtualKeyCode::Down => {
-                    scene.target_scroll.y += 50.0 / scene.target_zoom;
-                }
-                VirtualKeyCode::P => {
-                    scene.show_points = !scene.show_points;
-                }
-                VirtualKeyCode::W => {
-                    scene.show_wireframe = !scene.show_wireframe;
-                }
-                VirtualKeyCode::B => {
-                    scene.draw_background = !scene.draw_background;
-                }
-                VirtualKeyCode::A => {
-                    scene.target_stroke_width /= 0.8;
-                }
-                VirtualKeyCode::Z => {
-                    scene.target_stroke_width *= 0.8;
-                }
-                _key => {}
-            },
-            _evt => {
-                //println!("{:?}", _evt);
-            }
+fn update_inputs(
+    event: Event<()>,
+    control_flow: &mut ControlFlow,
+    scene: &mut SceneParams,
+) -> bool {
+    match event {
+        Event::EventsCleared => {
+            return false;
         }
-        //println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
-    });
+        Event::WindowEvent {
+            event: WindowEvent::Destroyed,
+            ..
+        }
+        | Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } => {
+            *control_flow = ControlFlow::Exit;
+            return false;
+        }
+        Event::WindowEvent {
+            event: WindowEvent::CursorMoved { position, .. },
+            ..
+        } => {
+            scene.cursor_position = (position.x as f32, position.y as f32);
+        }
+        Event::WindowEvent {
+            event: WindowEvent::Resized(size),
+            ..
+        } => {
+            scene.window_size = size;
+            scene.size_changed = true
+        }
+        Event::WindowEvent {
+            event:
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(key),
+                            ..
+                        },
+                    ..
+                },
+            ..
+        } => match key {
+            VirtualKeyCode::Escape => {
+                *control_flow = ControlFlow::Exit;
+                return false;
+            }
+            VirtualKeyCode::PageDown => {
+                scene.target_zoom *= 0.8;
+            }
+            VirtualKeyCode::PageUp => {
+                scene.target_zoom *= 1.25;
+            }
+            VirtualKeyCode::Left => {
+                scene.target_scroll.x -= 50.0 / scene.target_zoom;
+            }
+            VirtualKeyCode::Right => {
+                scene.target_scroll.x += 50.0 / scene.target_zoom;
+            }
+            VirtualKeyCode::Up => {
+                scene.target_scroll.y -= 50.0 / scene.target_zoom;
+            }
+            VirtualKeyCode::Down => {
+                scene.target_scroll.y += 50.0 / scene.target_zoom;
+            }
+            VirtualKeyCode::P => {
+                scene.show_points = !scene.show_points;
+            }
+            VirtualKeyCode::W => {
+                scene.show_wireframe = !scene.show_wireframe;
+            }
+            VirtualKeyCode::B => {
+                scene.draw_background = !scene.draw_background;
+            }
+            VirtualKeyCode::A => {
+                scene.target_stroke_width /= 0.8;
+            }
+            VirtualKeyCode::Z => {
+                scene.target_stroke_width *= 0.8;
+            }
+            _key => {}
+        },
+        _evt => {
+            //println!("{:?}", _evt);
+        }
+    }
+    //println!(" -- zoom: {}, scroll: {:?}", scene.target_zoom, scene.target_scroll);
 
     scene.zoom += (scene.target_zoom - scene.zoom) / 3.0;
     scene.scroll = scene.scroll + (scene.target_scroll - scene.scroll) / 3.0;
     scene.stroke_width =
         scene.stroke_width + (scene.target_stroke_width - scene.stroke_width) / 5.0;
 
-    return status;
+    *control_flow = ControlFlow::Poll;
+
+    return true;
 }

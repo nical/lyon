@@ -1,4 +1,4 @@
-use commands::PathCmd;
+use crate::commands::PathCmd;
 use lyon::path::iterator::*;
 use lyon::path::PathEvent;
 use std::io;
