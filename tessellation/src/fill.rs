@@ -22,6 +22,17 @@ use std::env;
 type SpanIdx = i32;
 type ActiveEdgeIdx = usize;
 
+// It's a bit odd but this consistently performs a bit better than f32::max, probably
+// because the latter deals with NaN.
+#[inline(always)]
+fn fmax(a: f32, b: f32) -> f32 {
+    if a > b { a } else { b }
+}
+
+fn slope(v: Vector) -> f32 {
+    v.x / (v.y.max(std::f32::MIN))
+}
+
 #[cfg(debug_assertions)]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
@@ -134,7 +145,7 @@ impl ActiveEdge {
 
     #[inline(always)]
     fn max_x(&self) -> f32 {
-        self.from.x.max(self.to.x)
+        fmax(self.from.x, self.to.x)
     }
 }
 
@@ -240,7 +251,7 @@ impl Spans {
 #[derive(Copy, Clone, Debug)]
 struct PendingEdge {
     to: Point,
-    angle: f32,
+    sort_key: f32,
     // Index in events.edge_data
     src_edge: TessEventId,
     winding: i16,
@@ -819,7 +830,7 @@ impl FillTessellator {
                 debug_assert!(is_after(to, self.current_position));
                 self.edges_below.push(PendingEdge {
                     to,
-                    angle: (to - self.current_position).angle_from_x_axis().radians,
+                    sort_key: slope(to - self.current_position), //.angle_from_x_axis().radians,
                     src_edge: current_sibling,
                     winding: edge.winding,
                     range_end: edge.range.end,
@@ -1182,7 +1193,15 @@ impl FillTessellator {
 
         // Step 3 - Now Iterate over edges after the current point.
         // We only do this to detect errors.
+        self.check_remaining_edges(active_edge_idx, current_x)
+    }
 
+    #[cfg_attr(feature = "profiling", inline(never))]
+    #[cfg_attr(not(feature = "profiling"), inline(always))]
+    fn check_remaining_edges(&self, active_edge_idx: usize, current_x: f32) -> Result<(), InternalError> {
+        // This function typically takes about 2.5% ~ 3% of the profile, so not necessarily the best
+        // target for optimization. That said all of the work done here is only robustness checks
+        // so we could add an option to skip it.
         for active_edge in &self.active.edges[active_edge_idx..] {
             if active_edge.is_merge {
                 continue;
@@ -1299,7 +1318,7 @@ impl FillTessellator {
 
             self.edges_below.push(PendingEdge {
                 to,
-                angle: (to - self.current_position).angle_from_x_axis().radians,
+                sort_key: slope(to - self.current_position),
                 src_edge: active_edge.src_edge,
                 winding: active_edge.winding,
                 range_end: active_edge.range_end,
@@ -1519,7 +1538,7 @@ impl FillTessellator {
         let mut edges_below = mem::replace(&mut self.edges_below, Vec::new());
         for edge_below in &mut edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
-            let below_max_x = self.current_position.x.max(edge_below.to.x);
+            let below_max_x = fmax(self.current_position.x, edge_below.to.x);
 
             let below_segment = LineSegment {
                 from: self.current_position.to_f64(),
@@ -1774,7 +1793,7 @@ impl FillTessellator {
                     edge.solve_x_for_y(y)
                 };
 
-                keys.push((x.max(edge.min_x()), i));
+                keys.push((fmax(x, edge.min_x()), i));
                 prev_x = x;
             }
         }
@@ -1787,9 +1806,9 @@ impl FillTessellator {
                 let b = &self.active.edges[b.1];
                 match (a.is_merge, b.is_merge) {
                     (false, false) => {
-                        let angle_a = (a.to - a.from).angle_from_x_axis().radians;
-                        let angle_b = (b.to - b.from).angle_from_x_axis().radians;
-                        angle_b.partial_cmp(&angle_a).unwrap_or(Ordering::Equal)
+                        let slope_a = slope(a.to - a.from);
+                        let slope_b = slope(b.to - b.from);
+                        slope_b.partial_cmp(&slope_a).unwrap_or(Ordering::Equal)
                     }
                     (true, false) => Ordering::Greater,
                     (false, true) => Ordering::Less,
@@ -1895,7 +1914,7 @@ impl FillTessellator {
     #[cfg_attr(feature = "profiling", inline(never))]
     fn sort_edges_below(&mut self) {
         self.edges_below.sort_unstable_by(
-            |a, b| b.angle.partial_cmp(&a.angle).unwrap()
+            |a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap()
         );
     }
 
@@ -1908,58 +1927,74 @@ impl FillTessellator {
         for idx in (0..(self.edges_below.len() - 1)).rev() {
             let a_idx = idx;
             let b_idx = idx + 1;
-            let a_angle = self.edges_below[a_idx].angle;
-            let b_angle = self.edges_below[b_idx].angle;
-            if (a_angle - b_angle).abs() > 0.0001 {
-                continue;
-            }
 
-            let a_to = self.edges_below[a_idx].to;
-            let b_to = self.edges_below[b_idx].to;
-            let (lower_idx, upper_idx, split) = match compare_positions(a_to, b_to) {
-                Ordering::Greater => (a_idx, b_idx, true),
-                Ordering::Less => (b_idx, a_idx, true),
-                Ordering::Equal => (a_idx, b_idx, false),
+            let a_slope = self.edges_below[a_idx].sort_key;
+            let b_slope = self.edges_below[b_idx].sort_key;
+
+            const THRESHOLD: f32 = 0.00005;
+
+            // The slope function preserves the ordering for sorting but isn't a very good approximation
+            // of the angle as edges get closer to horizontal.
+            // When edges are larger in x than y, comparing the inverse is a better approximation.
+            let angle_is_close = if a_slope.abs() <= 1.0 {
+                (a_slope - b_slope).abs() < THRESHOLD
+            } else {
+                (1.0 / a_slope - 1.0 / b_slope).abs() < THRESHOLD
             };
 
-            tess_log!(self, "coincident edges {:?} -> {:?} / {:?}", self.current_position, a_to, b_to);
-
-            tess_log!(self, "update winding: {:?} -> {:?}", self.edges_below[upper_idx].winding, self.edges_below[upper_idx].winding + self.edges_below[lower_idx].winding);
-            self.edges_below[upper_idx].winding += self.edges_below[lower_idx].winding;
-            let split_point = self.edges_below[upper_idx].to;
-
-            tess_log!(self, "remove coincident edge {:?}, split:{:?}", idx, split);
-            let edge = self.edges_below.remove(lower_idx);
-
-            if !split {
-                continue;
+            if angle_is_close {
+                self.merge_coincident_edges(a_idx, b_idx);
             }
+        }
+    }
 
-            let src_edge_data = self.events.edge_data[edge.src_edge as usize].clone();
+    #[cold]
+    fn merge_coincident_edges(&mut self, a_idx: usize, b_idx: usize) {
+        let a_to = self.edges_below[a_idx].to;
+        let b_to = self.edges_below[b_idx].to;
 
-            let t = LineSegment {
-                from: self.current_position,
-                to: edge.to,
-            }.solve_t_for_y(split_point.y);
+        let (lower_idx, upper_idx, split) = match compare_positions(a_to, b_to) {
+            Ordering::Greater => (a_idx, b_idx, true),
+            Ordering::Less => (b_idx, a_idx, true),
+            Ordering::Equal => (a_idx, b_idx, false),
+        };
 
-            let src_range = src_edge_data.range.start..edge.range_end;
-            let t_remapped = remap_t_in_range(t, src_range);
+        tess_log!(self, "coincident edges {:?} -> {:?} / {:?}", self.current_position, a_to, b_to);
 
-            let edge_data = EdgeData {
-                range: t_remapped..edge.range_end,
-                winding: edge.winding,
-                to: edge.to,
-                is_edge: true,
-                ..src_edge_data
-            };
+        tess_log!(self, "update winding: {:?} -> {:?}", self.edges_below[upper_idx].winding, self.edges_below[upper_idx].winding + self.edges_below[lower_idx].winding);
+        self.edges_below[upper_idx].winding += self.edges_below[lower_idx].winding;
+        let split_point = self.edges_below[upper_idx].to;
 
-            self.events.insert_sorted(
-                split_point,
-                edge_data,
-                self.current_event_id,
-            );
+        tess_log!(self, "remove coincident edge {:?}, split:{:?}", a_idx, split);
+        let edge = self.edges_below.remove(lower_idx);
+
+        if !split {
+            return;
         }
 
+        let src_edge_data = self.events.edge_data[edge.src_edge as usize].clone();
+
+        let t = LineSegment {
+            from: self.current_position,
+            to: edge.to,
+        }.solve_t_for_y(split_point.y);
+
+        let src_range = src_edge_data.range.start..edge.range_end;
+        let t_remapped = remap_t_in_range(t, src_range);
+
+        let edge_data = EdgeData {
+            range: t_remapped..edge.range_end,
+            winding: edge.winding,
+            to: edge.to,
+            is_edge: true,
+            ..src_edge_data
+        };
+
+        self.events.insert_sorted(
+            split_point,
+            edge_data,
+            self.current_event_id,
+        );
     }
 
 
@@ -1979,6 +2014,10 @@ pub(crate) fn points_are_equal(a: Point, b: Point) -> bool {
 }
 
 pub(crate) fn compare_positions(a: Point, b: Point) -> Ordering {
+    // This function is somewhat hot during the sorting phase but it might be that inlining
+    // moves the cost of fetching the positions here.
+    // The y coordinates are rarely equal (typically less than 7% of the time) but it's
+    // unclear whether moving the x comparison out into a cold function helps in practice.
     if a.y > b.y {
         return Ordering::Greater;
     }
