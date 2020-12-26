@@ -264,11 +264,10 @@ impl AdvancedMonotoneTessellator {
 
         let dx = self.right.reference_point.x - self.left.reference_point.x;
 
-        let mut side_ev = &mut self.left;
-        let mut opposite_side_ev = &mut self.right;
-        if side.is_right() {
-            std::mem::swap(&mut side_ev, &mut opposite_side_ev);
-        }
+        let (side_ev, opposite_side_ev) = match side {
+            Side::Left => (&mut self.left, &mut self.right),
+            Side::Right => (&mut self.right, &mut self.left),
+        };
 
         let dy = pos.y - side_ev.reference_point.y;
         let sides_are_close = dx < dy * 0.1;
