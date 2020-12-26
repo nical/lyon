@@ -1,4 +1,4 @@
-use crate::{RenderTargetState, BlendMode, Registry, CommonResources};
+use crate::{RenderTargetState, BlendMode, Registry, Pipeline, CommonResources};
 use crate::transform2d::GpuTransform2D;
 use crate::bindings;
 use crate::gpu_data::*;
@@ -188,12 +188,6 @@ impl MeshRenderer {
         let vs_module = device.create_shader_module(vs);
         let fs_module = device.create_shader_module(fs);
 
-        let opaque_pipeline_kind = resources.add_render_pipeline_kind();
-        let alpha_pipeline_kind = resources.add_render_pipeline_kind();
-
-        let opaque_pipeline_key = opaque_pipeline_kind.with_no_feature();
-        let alpha_pipeline_key = alpha_pipeline_kind.with_no_feature();
-
         let vertex_buffers = &[
             GpuInstance::vertex_buffer_descriptor(),
             GpuMeshVertex::vertex_buffer_descriptor(),
@@ -228,8 +222,6 @@ impl MeshRenderer {
         };
 
         let opaque_pipeline = device.create_render_pipeline(&opaque_pipeline_descriptor);
-        resources.add_render_pipeline(opaque_pipeline_key, opaque_pipeline);
-
         let alpha_target = RenderTargetState::blend_pass(BlendMode::Alpha);
         //let alpha_target = RenderTargetState::blend_pass_with_depth_test(BlendMode::Alpha);
         let alpha_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
@@ -262,7 +254,16 @@ impl MeshRenderer {
         };
 
         let alpha_pipeline = device.create_render_pipeline(&alpha_pipeline_descriptor);
-        resources.add_render_pipeline(alpha_pipeline_key, alpha_pipeline);
+
+        let opaque_pipeline_kind = resources.add_render_pipeline_kind(vec![
+            Pipeline::from_handle(PipelineFeatures::opaque(), opaque_pipeline),
+        ]);
+        let alpha_pipeline_kind = resources.add_render_pipeline_kind(vec![
+            Pipeline::from_handle(PipelineFeatures::blending(), alpha_pipeline)
+        ]);
+
+        let opaque_pipeline_key = opaque_pipeline_kind.with_no_feature();
+        let alpha_pipeline_key = alpha_pipeline_kind.with_no_feature();
 
         MeshRenderer {
             pipeline_layout,

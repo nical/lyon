@@ -1,4 +1,4 @@
-use std::num::NonZeroU16;
+use std::num::{NonZeroU16, NonZeroU32};
 use std::ops::Index;
 use std::collections::HashMap;
 
@@ -20,7 +20,8 @@ pub struct Registry {
     bind_groups: HashMap<BindGroupId, wgpu::BindGroup>,
     bind_group_layouts: Vec<wgpu::BindGroupLayout>,
 
-    pipelines: Pipelines,
+    pipeline_kinds: HashMap<PipelineKind, Vec<Pipeline>>,
+    next_pipeline_key: u32,
 }
 
 impl Registry {
@@ -32,7 +33,9 @@ impl Registry {
             textures: HashMap::new(),
             bind_group_layouts: Vec::new(),
             bind_groups: HashMap::new(),
-            pipelines: Pipelines::new()
+            pipeline_kinds: HashMap::new(),
+            next_pipeline_key: 1,
+
         }
     }
 
@@ -96,19 +99,92 @@ impl Registry {
         self.textures.remove(&id);
     }
 
-    pub fn add_render_pipeline_kind(&mut self) -> PipelineKind {
-        self.pipelines.add_pipeline_kind()
-    }
-
-    pub fn add_render_pipeline(&mut self, key: PipelineKey, handle: wgpu::RenderPipeline) {
-        self.pipelines.add_pipeline(key, handle);
-    }
-
     pub fn get_compatible_render_pipeline(&self, key: PipelineKey) -> Option<(&wgpu::RenderPipeline, PipelineKey)> {
-        self.pipelines.get_compatible_pipeline(key)
+        let kind = self.pipeline_kinds.get(&key.kind)?;
+
+        for p in kind {
+            if p.features & key.features == key.features {
+                if let Some(handle) = &p.handle {
+                    return Some((handle, PipelineKey { features: p.features, .. key }));
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn ensure_compatible_render_pipeline(
+        &mut self,
+        key: PipelineKey,
+        device: &wgpu::Device,
+    ) -> bool {
+        // TODO: ugly borrow-ck dance.
+        let mut pipeline_kinds = std::mem::take(&mut self.pipeline_kinds);
+        let mut exists = false;
+
+        if let Some(kind) = pipeline_kinds.get_mut(&key.kind) {
+            for p in kind {
+                if p.features & key.features == key.features {
+                    p.ensure_pipeline(device, self);
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        self.pipeline_kinds = pipeline_kinds;
+
+        exists
+    }
+
+    pub fn add_render_pipeline_kind(&mut self, pipelines: Vec<Pipeline>) -> PipelineKind {
+        let key = PipelineKind(NonZeroU32::new(self.next_pipeline_key).unwrap());
+
+        self.pipeline_kinds.insert(key, pipelines);
+
+        self.next_pipeline_key += 1;
+
+        key
+    }
+
+    pub fn remove_pipeline_kind(&mut self, key: PipelineKind) {
+        self.pipeline_kinds.remove(&key);
     }
 }
 
+pub struct Pipeline {
+    handle: Option<wgpu::RenderPipeline>,
+    lazy_init: Option<Box<FnOnce(&wgpu::Device, &Registry) -> wgpu::RenderPipeline>>,
+    features: PipelineFeatures,
+}
+
+impl Pipeline {
+    pub fn from_handle(features: PipelineFeatures, handle: wgpu::RenderPipeline) -> Self {
+        Pipeline {
+            handle: Some(handle),
+            lazy_init: None,
+            features,
+        }
+    }
+
+    pub fn lazily_initialized(features: PipelineFeatures, callback: Box<dyn FnOnce(&wgpu::Device, &Registry) -> wgpu::RenderPipeline>) -> Self {
+        Pipeline {
+            handle: None,
+            lazy_init: Some(callback),
+            features,
+        }
+    }
+
+    fn ensure_pipeline(&mut self, device: &wgpu::Device, resources: &Registry) {
+        if self.handle.is_some() {
+            return;
+        }
+
+        let cb = self.lazy_init.take().unwrap();
+
+        self.handle = Some(cb(device, resources));
+    }
+}
 
 impl Index<TextureId> for Registry {
     type Output = TextureEntry;

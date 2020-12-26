@@ -459,53 +459,47 @@ fn main() {
                 //}),
             });
 
-            let batch = Batch {
-                key: BatchKey {
-                    pipeline: quad_renderer.alpha_pipeline_key,
-                    ibo: quad_renderer.index_buffer,
-                    vbos: [
-                        Some(instances),
-                        Some(quad_renderer.vertex_buffer),
-                        None,
-                        None,
-                    ],
-                    bind_groups: [
-                        Some(base_bind_group_id),
-                        Some(textures_bind_group_id),
-                        None,
-                        None,
-                    ],
-                },
+            let batch = BatchDescriptor {
+                pipeline: quad_renderer.alpha_pipeline_key,
+                ibo: quad_renderer.index_buffer,
+                vbos: [
+                    Some(instances),
+                    Some(quad_renderer.vertex_buffer),
+                    None,
+                    None,
+                ],
+                bind_groups: [
+                    Some(base_bind_group_id),
+                    Some(textures_bind_group_id),
+                    None,
+                    None,
+                ],
                 base_vertex: 0,
-                index_range: 0..6,
-                instance_range: 0..4,
+                index_range: (0, 6),
             };
 
-            state.submit_batch(&mut pass, &renderer.resources, &batch);
+            state.submit_batch(&mut pass, &renderer.resources, &batch, 0..4);
 
-            let batch = Batch {
-                key: BatchKey {
-                    pipeline: mesh_renderer.alpha_pipeline_key,
-                    ibo: mesh_index_buffer,
-                    vbos: [
-                        Some(instances),
-                        Some(mesh_vertex_buffer),
-                        None,
-                        None,
-                    ],
-                    bind_groups: [
-                        Some(base_bind_group_id),
-                        Some(textures_bind_group_id),
-                        Some(mesh_bind_group_id),
-                        None,
-                    ],
-                },
+            let batch = BatchDescriptor {
+                pipeline: mesh_renderer.alpha_pipeline_key,
+                ibo: mesh_index_buffer,
+                vbos: [
+                    Some(instances),
+                    Some(mesh_vertex_buffer),
+                    None,
+                    None,
+                ],
+                bind_groups: [
+                    Some(base_bind_group_id),
+                    Some(textures_bind_group_id),
+                    Some(mesh_bind_group_id),
+                    None,
+                ],
                 base_vertex: 0,
-                index_range: 0..(cpu_geometry.indices.len() as u32),
-                instance_range: 6..7,
+                index_range: (0, (cpu_geometry.indices.len() as u32)),
             };
 
-            state.submit_batch(&mut pass, &renderer.resources, &batch);
+            state.submit_batch(&mut pass, &renderer.resources, &batch, 6..7);
         }
 
         queue.submit(Some(encoder.finish()));

@@ -7,6 +7,7 @@ mod quad_renderer;
 mod mesh_renderer;
 mod shaders;
 mod transform2d;
+mod batching;
 
 pub use quad_renderer::*;
 pub use mesh_renderer::*;
@@ -16,5 +17,6 @@ pub use renderer::*;
 pub use shaders::*;
 pub use registry::*;
 pub use transform2d::*;
+pub use batching::*;
 
 pub use glue::geom;

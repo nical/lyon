@@ -1,4 +1,4 @@
-use crate::{RenderTargetState, BlendMode, Registry, CommonResources};
+use crate::{RenderTargetState, BlendMode, Registry, Pipeline, CommonResources};
 use crate::transform2d::GpuTransform2D;
 use crate::bindings;
 use crate::gpu_data::*;
@@ -51,12 +51,6 @@ impl QuadRenderer {
 
         queue.write_buffer(&resources[index_buffer], 0, pipe::as_bytes(&[0u16, 1, 2, 0, 3, 2]));
 
-        let opaque_pipeline_kind = resources.add_render_pipeline_kind();
-        let alpha_pipeline_kind = resources.add_render_pipeline_kind();
-
-        let opaque_pipeline_key = opaque_pipeline_kind.with_no_feature();
-        let alpha_pipeline_key = alpha_pipeline_kind.with_no_feature();
-
         let vs: wgpu::ShaderModuleSource = wgpu::include_spirv!("./../shaders/quad.vert.spv");
         let fs: wgpu::ShaderModuleSource = wgpu::include_spirv!("./../shaders/quad.frag.spv");
         let vs_module = device.create_shader_module(vs);
@@ -108,7 +102,6 @@ impl QuadRenderer {
         };
 
         let opaque_pipeline = device.create_render_pipeline(&opaque_pipeline_descriptor);
-        resources.add_render_pipeline(opaque_pipeline_key, opaque_pipeline);
 
         let alpha_target = RenderTargetState::blend_pass(BlendMode::Alpha);
         //let alpha_target = RenderTargetState::blend_pass_with_depth_test(BlendMode::Alpha);
@@ -142,7 +135,15 @@ impl QuadRenderer {
         };
 
         let alpha_pipeline = device.create_render_pipeline(&alpha_pipeline_descriptor);
-        resources.add_render_pipeline(alpha_pipeline_key, alpha_pipeline);
+
+        let opaque_pipeline_kind = resources.add_render_pipeline_kind(vec![
+            Pipeline::from_handle(PipelineFeatures::opaque(), opaque_pipeline),
+        ]);
+        let alpha_pipeline_kind = resources.add_render_pipeline_kind(vec![
+            Pipeline::from_handle(PipelineFeatures::blending(), alpha_pipeline)
+        ]);
+        let opaque_pipeline_key = opaque_pipeline_kind.with_no_feature();
+        let alpha_pipeline_key = alpha_pipeline_kind.with_no_feature();
 
         QuadRenderer {
             pipeline_layout,

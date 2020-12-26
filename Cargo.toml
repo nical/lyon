@@ -57,6 +57,7 @@ members = [
     "renderer/pipe",
     "renderer/cache",
     "renderer/playground",
+    "renderer/shading",
     "cli",
     "wasm_test",
     "examples/wgpu",

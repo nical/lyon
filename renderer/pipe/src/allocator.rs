@@ -67,9 +67,6 @@ impl Allocator for BumpAllocator {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct AllocatorSegmentId(u16);
-
 pub struct SegmentAllocator {
     segments: Vec<AllocatorSegment>,
 }

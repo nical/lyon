@@ -150,7 +150,62 @@ pub enum BindGroupInputKind {
     Texture(TextureKind),
 }
 
-pub type PipelineFeatures = u32;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PipelineFeatures {
+    bits: u32,
+}
+
+const BLENDING_FEATURE_BIT: u32       = 1 << 0;
+const MASK_FEATURE_BIT: u32         = 1 << 1;
+const TRANSFORM_FEATURE_BIT: u32    = 1 << 2;
+
+impl PipelineFeatures {
+    pub const fn opaque() -> Self {
+        PipelineFeatures {
+            bits: 0,
+        }
+    }
+
+    pub const fn blending() -> Self {
+        PipelineFeatures {
+            bits: BLENDING_FEATURE_BIT,
+        }
+    }
+
+    pub const fn default() -> Self {
+        Self::blending()
+    }
+
+    pub fn is_opaque(&self) -> bool {
+        self.bits & BLENDING_FEATURE_BIT == 0
+    }
+}
+
+impl std::ops::BitAnd for PipelineFeatures {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        PipelineFeatures { bits: self.bits & rhs.bits }
+    }
+}
+
+impl std::ops::BitAndAssign for PipelineFeatures {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.bits &= rhs.bits;
+    }
+}
+
+impl std::ops::BitOr for PipelineFeatures {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        PipelineFeatures { bits: self.bits | rhs.bits }
+    }
+}
+
+impl std::ops::BitOrAssign for PipelineFeatures {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.bits |= rhs.bits;
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PipelineKey {
@@ -163,7 +218,7 @@ pub struct PipelineKind(pub NonZeroU32);
 
 impl PipelineKind {
     pub fn with_no_feature(&self) -> PipelineKey {
-        self.with_features(0)
+        self.with_features(PipelineFeatures::default())
     }
  
     pub fn with_features(&self, features: PipelineFeatures) -> PipelineKey {

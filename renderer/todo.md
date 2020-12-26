@@ -59,6 +59,43 @@ cons:
 data bundles can be collections of allocation handles to manually managed sub-buffer allocations to get some of the benefit of bundles without groups.
 
 
+# Buffer sub-allocation
+
+ use cases:
+  - (A) long lived data, allocation and content is kept
+  - (B) long lived allocation, data is updated every frame (probably same bucket as (A)).
+  - (C) allocation and data change every frame
+
+alloc lifetime:
+ - manual
+ - LRU cache
+
+
+Tempting to have a separate agnostic LRU cache logic but if the LRU mechanism is part of the buffer allocator, we can do smarter things like only evicting when we actually need some room for new allocations.
+
+Allocations:
+ - buckets of fixed size (64?)
+ - buckets of arbitrary size (rounded up to small bucket size)
+ - single element ? (maybe start without support for that)
+ - special single elements (hard coded handles like identity transform)
+
+
+allocator:
+
+large "pages" (1024 elts),
+each page has chunks of a given size (16 elts)
+
+
+# GPU uploads
+
+
+ - pool of large-ish staging buffers split into chunks
+ - pipe::Writer writing into a chunk
+ - BufferWriter contains a pip::Writer + stagingBufferId, + BufferId + pointer to the gpu pipe
+
+Gpu pipe contains an atomic linked list of mapped buffer with bump allocators. so that we only lock when
+we need to allocate a new staging buffer.
+
 
 # Batch submission
 
@@ -71,6 +108,10 @@ Either:
 (A) maybe more convenient because the batcher will spit out agnostic data already, we also need to keep track of already active resources anyway.
 
 Is (A) too limiting ?
+
+TODO: Replace BatchKey in the batchers with a binding ID + pipeline features. It should make batching a tad cheaper and perhaps more generic (not dependent on what fits in the batch key).
+Also maybe use that to deal with the lifetime of bind groups instead of marking them as used for each primitive.
+TODO: right now it takes the pipeline features in the key which it shouldn't do.
 
 
 # Mesh format:
