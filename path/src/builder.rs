@@ -569,7 +569,7 @@ impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
     }
 
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
-        self.builder.reserve(endpoints, ctrl_points);
+        self.builder.reserve(endpoints + ctrl_points * 4, 0);
     }
 }
 
