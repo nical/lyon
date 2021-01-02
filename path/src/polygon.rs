@@ -3,6 +3,92 @@
 use crate::math::Point;
 use crate::{ControlPointId, EndpointId, Event, EventId, IdEvent, PathEvent, Position, PositionStore};
 
+
+/// A view over a sequence of endpoints forming a polygon.
+///
+/// ## Example
+///
+/// ```
+/// use lyon_path::polygon::Polygon;
+/// use lyon_path::geom::point;
+///
+/// let path = Polygon {
+///     points: &[
+///         point(0.0, 0.0),
+///         point(10.0, 10.0),
+///         point(0.0, 10.0),
+///     ],
+///     closed: true,
+/// };
+///
+/// for event in path.path_events() {
+///     // same as iterating a regular `Path` object.
+/// }
+/// ```
+pub struct Polygon<'l, T> {
+    pub points: &'l [T],
+    pub closed: bool,
+}
+
+impl<'l, T> Polygon<'l, T> {
+    /// Returns an iterator of `Event<&T>`.
+    pub fn iter(&self) -> PolygonIter<'l, T> {
+        PolygonIter {
+            points: self.points.iter(),
+            prev: None,
+            first: None,
+            closed: self.closed,
+        }
+    }
+
+    /// Returns an iterator of `IdEvent`.
+    pub fn id_iter(&self) -> PolygonIdIter {
+        PolygonIdIter::new(0..(self.points.len() as u32), self.closed)
+    }
+
+    /// Returns an iterator of `PathEvent`.
+    pub fn path_events(&self) -> PathEvents<T>
+    where
+        T: Position,
+    {
+        PathEvents {
+            points: self.points.iter(),
+            first: None,
+            prev: None,
+            closed: self.closed,
+        }
+    }
+
+    /// Returns the event for a given event ID.
+    pub fn event(&self, id: EventId) -> Event<&T, ()> {
+        let idx = id.0 as usize;
+        if idx == 0 {
+            Event::Begin {
+                at: &self.points[0],
+            }
+        } else if idx as usize == self.points.len() - 1 {
+            Event::End {
+                last: &self.points[self.points.len() - 1],
+                first: &self.points[0],
+                close: self.closed,
+            }
+        } else {
+            Event::Line {
+                from: &self.points[idx - 1],
+                to: &self.points[idx],
+            }
+        }
+    }
+}
+
+impl<'l, T> std::ops::Index<EndpointId> for Polygon<'l, T> {
+    type Output = T;
+    fn index(&self, id: EndpointId) -> &T {
+        &self.points[id.to_usize()]
+    }
+}
+
+
 /// A view over a sequence of endpoint IDs forming a polygon.
 pub struct IdPolygon<'l> {
     pub points: &'l [EndpointId],
@@ -75,70 +161,6 @@ impl<'l> Iterator for IdPolygonIter<'l> {
             }
             (None, None) => None,
         }
-    }
-}
-
-/// A view over a sequence of endpoints forming a polygon.
-pub struct Polygon<'l, T> {
-    pub points: &'l [T],
-    pub closed: bool,
-}
-
-impl<'l, T> Polygon<'l, T> {
-    /// Returns an iterator of `Event<&T>`.
-    pub fn iter(&self) -> PolygonIter<'l, T> {
-        PolygonIter {
-            points: self.points.iter(),
-            prev: None,
-            first: None,
-            closed: self.closed,
-        }
-    }
-
-    /// Returns an iterator of `IdEvent`.
-    pub fn id_iter(&self) -> PolygonIdIter {
-        PolygonIdIter::new(0..(self.points.len() as u32), self.closed)
-    }
-
-    /// Returns an iterator of `PathEvent`.
-    pub fn path_events(&self) -> PathEvents<T>
-    where
-        T: Position,
-    {
-        PathEvents {
-            points: self.points.iter(),
-            first: None,
-            prev: None,
-            closed: self.closed,
-        }
-    }
-
-    /// Returns the event for a given event ID.
-    pub fn event(&self, id: EventId) -> Event<&T, ()> {
-        let idx = id.0 as usize;
-        if idx == 0 {
-            Event::Begin {
-                at: &self.points[0],
-            }
-        } else if idx as usize == self.points.len() - 1 {
-            Event::End {
-                last: &self.points[self.points.len() - 1],
-                first: &self.points[0],
-                close: self.closed,
-            }
-        } else {
-            Event::Line {
-                from: &self.points[idx - 1],
-                to: &self.points[idx],
-            }
-        }
-    }
-}
-
-impl<'l, T> std::ops::Index<EndpointId> for Polygon<'l, T> {
-    type Output = T;
-    fn index(&self, id: EndpointId) -> &T {
-        &self.points[id.to_usize()]
     }
 }
 
