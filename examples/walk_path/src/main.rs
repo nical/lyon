@@ -8,7 +8,6 @@ extern crate lyon;
 use lyon::algorithms::walk;
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::*;
-use lyon::path::builder::*;
 use lyon::path::iterator::*;
 use lyon::path::Path;
 use lyon::tessellation::geometry_builder::*;
