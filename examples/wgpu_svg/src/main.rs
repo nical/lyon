@@ -4,7 +4,7 @@ use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
 use usvg::prelude::*;
-use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
@@ -191,7 +191,7 @@ fn main() {
     let mut scene = SceneGlobals {
         zoom,
         pan,
-        window_size: LogicalSize::new(width as f64, height as f64),
+        window_size: PhysicalSize::new(width as u32, height as u32),
         wireframe: false,
         size_changed: true,
     };
@@ -222,14 +222,14 @@ fn main() {
     ))
     .unwrap();
 
-    let size = window.inner_size().to_physical(window.hidpi_factor());
+    let size = window.inner_size();
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
-        width: size.width.round() as u32,
-        height: size.height.round() as u32,
-        present_mode: wgpu::PresentMode::Fifo,
+        width: size.width,
+        height: size.height,
+        present_mode: wgpu::PresentMode::Mailbox,
     };
 
     let mut swap_chain = None;
@@ -402,9 +402,9 @@ fn main() {
 
         if scene.size_changed || swap_chain.is_none() {
             scene.size_changed = false;
-            let physical = scene.window_size.to_physical(window.hidpi_factor());
-            swap_chain_desc.width = physical.width.round() as u32;
-            swap_chain_desc.height = physical.height.round() as u32;
+            let physical = scene.window_size;
+            swap_chain_desc.width = physical.width;
+            swap_chain_desc.height = physical.height;
             swap_chain = Some(device.create_swap_chain(&surface, &swap_chain_desc));
             if msaa_samples > 1 {
                 msaa_texture = Some(
@@ -428,7 +428,15 @@ fn main() {
         }
 
         let swap_chain = swap_chain.as_mut().unwrap();
-        let frame = swap_chain.get_current_frame().unwrap();
+
+        let frame = match swap_chain.get_current_frame() {
+            Ok(frame) => frame,
+            Err(e) => {
+                println!("Swap-chain error: {:?}", e);
+                return;
+            }
+        };
+
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Encoder"),
         });
@@ -551,7 +559,7 @@ pub static MAX_TRANSFORMS: usize = 512;
 pub struct SceneGlobals {
     pub zoom: f32,
     pub pan: [f32; 2],
-    pub window_size: LogicalSize,
+    pub window_size: PhysicalSize<u32>,
     pub wireframe: bool,
     pub size_changed: bool,
 }
@@ -562,7 +570,7 @@ fn update_inputs(
     scene: &mut SceneGlobals,
 ) -> bool {
     match event {
-        Event::EventsCleared => {
+        Event::MainEventsCleared => {
             return false;
         }
         Event::WindowEvent {
