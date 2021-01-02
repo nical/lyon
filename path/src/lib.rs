@@ -27,7 +27,7 @@
 //! builder.line_to(point(1.0, 2.0));
 //! builder.line_to(point(2.0, 0.0));
 //! builder.line_to(point(1.0, 1.0));
-//! builder.end(true);
+//! builder.close();
 //!
 //! // Generate the actual path object.
 //! let path = builder.build();

@@ -131,7 +131,7 @@
 //!     builder.line_to(point(1.0, 0.0));
 //!     builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
 //!     builder.cubic_bezier_to(point(1.0, 1.0), point(0.0, 1.0), point(0.0, 0.0));
-//!     builder.end(true);
+//!     builder.close();
 //!     let path = builder.build();
 //!
 //!     // Let's use our own custom vertex type instead of the default one.
