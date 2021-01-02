@@ -1,4 +1,4 @@
-use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
@@ -270,7 +270,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         target_stroke_width: 1.0,
         draw_background: true,
         cursor_position: (0.0, 0.0),
-        window_size: LogicalSize::new(DEFAULT_WINDOW_WIDTH as f64, DEFAULT_WINDOW_HEIGHT as f64),
+        window_size: PhysicalSize::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
         size_changed: true,
     };
 
@@ -514,14 +514,14 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         label: None,
     });
 
-    let size = window.inner_size().to_physical(window.hidpi_factor());
+    let size = window.inner_size();
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
-        width: size.width.round() as u32,
-        height: size.height.round() as u32,
-        present_mode: wgpu::PresentMode::Fifo,
+        width: size.width,
+        height: size.height,
+        present_mode: wgpu::PresentMode::Mailbox,
     };
 
     let mut multisampled_render_target = None;
@@ -539,9 +539,9 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
         if scene.size_changed {
             scene.size_changed = false;
-            let physical = scene.window_size.to_physical(window.hidpi_factor());
-            swap_chain_desc.width = physical.width.round() as u32;
-            swap_chain_desc.height = physical.height.round() as u32;
+            let physical = scene.window_size;
+            swap_chain_desc.width = physical.width;
+            swap_chain_desc.height = physical.height;
             swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
             let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -572,7 +572,14 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             };
         }
 
-        let frame = swap_chain.get_current_frame().unwrap();
+        let frame = match swap_chain.get_current_frame() {
+            Ok(frame) => frame,
+            Err(e) => {
+                println!("Swap-chain error: {:?}", e);
+                return;
+            }
+        };
+
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Encoder"),
         });
@@ -771,7 +778,7 @@ struct SceneParams {
     target_stroke_width: f32,
     draw_background: bool,
     cursor_position: (f32, f32),
-    window_size: LogicalSize,
+    window_size: PhysicalSize<u32>,
     size_changed: bool,
 }
 
@@ -781,7 +788,7 @@ fn update_inputs(
     scene: &mut SceneParams,
 ) -> bool {
     match event {
-        Event::EventsCleared => {
+        Event::MainEventsCleared => {
             return false;
         }
         Event::WindowEvent {
