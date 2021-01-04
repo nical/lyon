@@ -1290,7 +1290,7 @@ dependencies = [
 
 [[package]]
 name = "lyon"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_algorithms"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "lyon_path",
  "serde",
@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_extra"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "lyon_path",
  "lyon_svg",
@@ -1347,7 +1347,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "0.16.3"
+version = "0.17.0"
 dependencies = [
  "arrayvec 0.5.1",
  "euclid 0.22.0",
@@ -1357,15 +1357,15 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
- "lyon_geom 0.16.3",
+ "lyon_geom 0.17.0",
  "serde",
 ]
 
 [[package]]
 name = "lyon_svg"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "lyon_path",
  "svgtypes 0.5.0",
@@ -1373,7 +1373,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tess2"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "lyon_tessellation",
  "serde",
@@ -1382,7 +1382,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "arrayvec 0.5.1",
  "lyon_extra",
