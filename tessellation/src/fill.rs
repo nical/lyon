@@ -170,27 +170,36 @@ struct ActiveEdges {
 }
 
 struct Span {
-    tess: MonotoneTessellator,
-    remove: bool,
+    tess: Option<Box<MonotoneTessellator>>,
+}
+
+impl Span {
+    fn tess(&mut self) -> &mut Box<MonotoneTessellator> {
+        // this should only ever be called on a "live" span.
+        match self.tess.as_mut() {
+            None => {
+                debug_assert!(false);
+                unreachable!();
+            },
+            Some(tess) => tess
+        }
+    }
 }
 
 struct Spans {
     spans: Vec<Span>,
-    pool: Vec<MonotoneTessellator>,
+    pool: Vec<Box<MonotoneTessellator>>,
 }
 
 impl Spans {
     fn begin_span(&mut self, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
-        let tess = self.pool.pop()
-            .unwrap_or_else(MonotoneTessellator::new)
-            .begin(*position, vertex);
+        let mut tess = self.pool.pop()
+            .unwrap_or_else(|| Box::new(MonotoneTessellator::new()));
+        tess.begin(*position, vertex);
 
         self.spans.insert(
             span_idx as usize,
-            Span {
-                tess,
-                remove: false,
-            }
+            Span { tess: Some(tess), }
         );
     }
 
@@ -203,14 +212,16 @@ impl Spans {
     ) {
         let idx = span_idx as usize;
 
-        debug_assert!(!self.spans[idx].remove);
-
         let span = &mut self.spans[idx];
-        span.remove = true;
-        span.tess.end(*position, id);
-        span.tess.flush(output);
-        // Recycle the allocations for future use.
-        self.pool.push(mem::replace(&mut span.tess, MonotoneTessellator::new()));
+        if let Some(mut tess) = span.tess.take() {
+            tess.end(*position, id);
+            tess.flush(output);
+            // Recycle the allocations for future use.
+            self.pool.push(tess);
+        } else {
+            debug_assert!(false);
+            unreachable!();
+        }
     }
 
     fn merge_spans(
@@ -229,14 +240,12 @@ impl Spans {
 
         let right_span_idx = left_span_idx + 1;
 
-        debug_assert!(!self.spans[left_span_idx as usize].remove);
         self.spans[left_span_idx as usize]
-            .tess
+            .tess()
             .vertex(*merge_position, merge_vertex, Side::Right);
 
-        debug_assert!(!self.spans[right_span_idx as usize].remove);
         self.spans[right_span_idx as usize]
-            .tess
+            .tess()
             .vertex(*merge_position, merge_vertex, Side::Left);
 
         self.end_span(left_span_idx, current_position, current_vertex, output);
@@ -244,7 +253,7 @@ impl Spans {
 
     fn cleanup_spans(&mut self) {
         // Get rid of the spans that were marked for removal.
-        self.spans.retain(|span| !span.remove);
+        self.spans.retain(|span| !span.tess.is_none());
     }
 }
 
@@ -729,8 +738,8 @@ impl FillTessellator {
         // If for whatever reason (bug) there are, flush them so that we don't
         // miss the triangles they contain.
         for span in &mut self.fill.spans {
-            if !span.remove {
-                span.tess.flush(builder);
+            if let Some(tess) = span.tess.as_mut() {
+                tess.flush(builder);
             }
         }
 
@@ -1293,7 +1302,7 @@ impl FillTessellator {
                 side,
                 self.current_vertex
             );
-            self.fill.spans[span_index as usize].tess.vertex(
+            self.fill.spans[span_index as usize].tess().vertex(
                 self.current_position,
                 self.current_vertex,
                 side,
@@ -1502,14 +1511,12 @@ impl FillTessellator {
 
         self.fill.begin_span(new_span_idx, &upper_position, upper_id);
 
-        debug_assert!(!self.fill.spans[left_span_idx as usize].remove);
-        debug_assert!(!self.fill.spans[right_span_idx as usize].remove);
-        self.fill.spans[left_span_idx as usize].tess.vertex(
+        self.fill.spans[left_span_idx as usize].tess().vertex(
             self.current_position,
             self.current_vertex,
             Side::Right,
         );
-        self.fill.spans[right_span_idx as usize].tess.vertex(
+        self.fill.spans[right_span_idx as usize].tess().vertex(
             self.current_position,
             self.current_vertex,
             Side::Left,
@@ -1901,7 +1908,7 @@ impl FillTessellator {
         }
 
         while self.fill.spans.len() > (winding.span_index + 1) as usize {
-            self.fill.spans.last_mut().unwrap().tess.flush(output);
+            self.fill.spans.last_mut().unwrap().tess().flush(output);
             self.fill.spans.pop();
         }
 
