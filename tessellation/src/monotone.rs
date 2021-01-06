@@ -32,7 +32,7 @@ impl BasicMonotoneTessellator {
         }
     }
 
-    pub fn begin(mut self, pos: Point, id: VertexId) -> Self {
+    pub fn begin(&mut self, pos: Point, id: VertexId) {
         debug_assert!(id != VertexId::INVALID);
         let first = MonotoneVertex {
             pos,
@@ -47,8 +47,6 @@ impl BasicMonotoneTessellator {
         self.stack.clear();
         self.stack.reserve(16);
         self.stack.push(first);
-
-        self
     }
 
     #[inline]
@@ -146,14 +144,16 @@ impl BasicMonotoneTessellator {
 fn test_monotone_tess() {
     println!(" ------------ ");
     {
-        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new();
+        tess.begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
         tess.end(point(1.0, 2.0), VertexId(2));
         assert_eq!(tess.triangles.len(), 1);
     }
     println!(" ------------ ");
     {
-        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new();
+        tess.begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
         tess.vertex(point(-1.5, 2.0), VertexId(2), Side::Left);
         tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
@@ -163,7 +163,8 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new();
+        tess.begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(1.0, 1.0), VertexId(1), Side::Right);
         tess.vertex(point(3.0, 2.0), VertexId(2), Side::Right);
         tess.vertex(point(1.0, 3.0), VertexId(3), Side::Right);
@@ -174,7 +175,8 @@ fn test_monotone_tess() {
     }
     println!(" ------------ ");
     {
-        let mut tess = BasicMonotoneTessellator::new().begin(point(0.0, 0.0), VertexId(0));
+        let mut tess = BasicMonotoneTessellator::new();
+        tess.begin(point(0.0, 0.0), VertexId(0));
         tess.vertex(point(-1.0, 1.0), VertexId(1), Side::Left);
         tess.vertex(point(-3.0, 2.0), VertexId(2), Side::Left);
         tess.vertex(point(-1.0, 3.0), VertexId(3), Side::Left);
@@ -236,8 +238,8 @@ impl AdvancedMonotoneTessellator {
         }
     }
 
-    pub fn begin(mut self, pos: Point, id: VertexId) -> Self {
-        self.tess = self.tess.begin(pos, id);
+    pub fn begin(&mut self, pos: Point, id: VertexId) {
+        self.tess.begin(pos, id);
         self.left.reference_point = pos;
         self.right.reference_point = pos;
         self.left.prev = pos;
@@ -248,8 +250,6 @@ impl AdvancedMonotoneTessellator {
         self.right.events.clear();
         self.left.push(MonotoneVertex { pos, id, side: Side::Left });
         self.right.push(MonotoneVertex { pos, id, side: Side::Right });
-
-        self
     }
 
     pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
