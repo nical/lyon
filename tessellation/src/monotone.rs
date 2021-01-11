@@ -55,7 +55,6 @@ impl BasicMonotoneTessellator {
     }
 
     fn monotone_vertex(&mut self, current: MonotoneVertex) {
-
         debug_assert!(current.id != VertexId::INVALID);
         // cf. test_fixed_to_f32_precision
         debug_assert!(current.pos.y >= self.previous.pos.y);
@@ -190,7 +189,17 @@ fn test_monotone_tess() {
 
 
 struct SideEvents {
+    // We decide whether we have to flush a convex vertex chain based on
+    // whether the two sides are far apart. reference_point.x contains the
+    // center-most x coordinate of the current chain of vertex. It is not
+    // enough because a previous chain on one side can still interfere with
+    // a chain of vertex on the opposite side that is still current, so we
+    // also keep track of a conservative reference x value which is not not
+    // relaxed until the opposite side has is flushed. See issue #623.
     reference_point: Point,
+    conservative_reference_x: f32,
+    // A convex chain of vertex events for this side that can be tessellated
+    // without interference from the other side.
     events: Vec<VertexId>,
     prev: Point,
     last: MonotoneVertex,
@@ -224,12 +233,14 @@ impl AdvancedMonotoneTessellator {
             left: SideEvents {
                 events: Vec::with_capacity(16),
                 reference_point: zero,
+                conservative_reference_x: 0.0,
                 prev: zero,
                 last: dummy_vtx,
             },
             right: SideEvents {
                 events: Vec::with_capacity(16),
                 reference_point: zero,
+                conservative_reference_x: 0.0,
                 prev: zero,
                 last: dummy_vtx,
             },
@@ -241,7 +252,9 @@ impl AdvancedMonotoneTessellator {
     pub fn begin(&mut self, pos: Point, id: VertexId) {
         self.tess.begin(pos, id);
         self.left.reference_point = pos;
+        self.left.conservative_reference_x = pos.x;
         self.right.reference_point = pos;
+        self.right.conservative_reference_x = pos.x;
         self.left.prev = pos;
         self.right.prev = pos;
         self.flushing = false;
@@ -256,13 +269,15 @@ impl AdvancedMonotoneTessellator {
         match side {
             Side::Left => {
                 self.left.reference_point.x = self.left.reference_point.x.max(pos.x);
+                self.left.conservative_reference_x = self.left.conservative_reference_x.max(self.left.reference_point.x);
             }
             Side::Right => {
                 self.right.reference_point.x = self.right.reference_point.x.min(pos.x);
+                self.right.conservative_reference_x = self.right.conservative_reference_x.max(self.right.reference_point.x);
             }
         }
 
-        let dx = self.right.reference_point.x - self.left.reference_point.x;
+        let dx = self.right.conservative_reference_x - self.left.conservative_reference_x;
 
         let (side_ev, opposite_side_ev) = match side {
             Side::Left => (&mut self.left, &mut self.right),
@@ -293,11 +308,13 @@ impl AdvancedMonotoneTessellator {
             if must_flush_opposite_side {
                 if let Some(v) = flush_side(opposite_side_ev, side.opposite(), &mut self.tess) {
                     self.tess.monotone_vertex(v);
+                    side_ev.conservative_reference_x = side_ev.reference_point.x;
                 }
             }
 
             if let Some(v) = flush_side(side_ev, side, &mut self.tess) {
                 self.tess.monotone_vertex(v);
+                opposite_side_ev.conservative_reference_x = opposite_side_ev.reference_point.x;
             }
         }
 
