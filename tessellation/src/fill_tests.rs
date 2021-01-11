@@ -1,7 +1,7 @@
 use crate::extra::rust_logo::build_logo_path;
 use crate::math::*;
 use crate::geometry_builder::*;
-use crate::path::builder::{Build, PathBuilder};
+use crate::path::builder::PathBuilder;
 use crate::path::{Path, PathSlice};
 use crate::{FillVertex, FillOptions, FillRule, FillTessellator, TessellationError, VertexId};
 

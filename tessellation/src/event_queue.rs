@@ -990,7 +990,7 @@ fn test_event_queue_push_sorted() {
 
 #[test]
 fn test_logo() {
-    use crate::path::{builder::Build, Path};
+    use crate::path::Path;
 
     let mut path = Path::builder().with_svg();
 
