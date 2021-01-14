@@ -56,7 +56,6 @@ members = [
     "wasm_test",
     "examples/wgpu",
     "examples/wgpu_svg",
-    "examples/walk_path",
     "bench/tess",
     "bench/path",
     "bench/geom"
