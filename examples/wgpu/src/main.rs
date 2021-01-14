@@ -1,10 +1,13 @@
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::*;
 use lyon::path::Path;
+use lyon::path::iterator::PathIterator;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator};
+
+use lyon::algorithms::walk;
 
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -19,7 +22,7 @@ use std::ops::Rem;
 
 //use log;
 
-const PRIM_BUFFER_LEN: usize = 64;
+const PRIM_BUFFER_LEN: usize = 256;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -49,7 +52,25 @@ struct Primitive {
     translate: [f32; 2],
     z_index: i32,
     width: f32,
+    angle: f32,
+    scale: f32,
+    _pad1: i32,
+    _pad2: i32,
 }
+
+impl Primitive {
+    const DEFAULT: Self = Primitive {
+        color: [0.0; 4],
+        translate: [0.0; 2],
+        z_index: 0,
+        width: 0.0,
+        angle: 0.0,
+        scale: 1.0,
+        _pad1: 0,
+        _pad2: 0,
+    };
+}
+
 unsafe impl bytemuck::Pod for Primitive {}
 unsafe impl bytemuck::Zeroable for Primitive {}
 
@@ -95,7 +116,6 @@ fn main() {
     println!("Controls:");
     println!("  Arrow keys: scrolling");
     println!("  PgUp/PgDown: zoom in/out");
-    println!("  w: toggle wireframe mode");
     println!("  b: toggle drawing the background");
     println!("  a/z: increase/decrease the stroke width");
 
@@ -103,11 +123,12 @@ fn main() {
     // Set to 1 to disable
     let sample_count = 4;
 
-    let num_instances: u32 = PRIM_BUFFER_LEN as u32 - 1;
+    let num_instances: u32 = 32;
     let tolerance = 0.02;
 
     let stroke_prim_id = 0;
     let fill_prim_id = 1;
+    let arrows_prim_id = num_instances + 1;
 
     let mut geometry: VertexBuffers<GpuVertex, u16> = VertexBuffers::new();
 
@@ -119,33 +140,50 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
-    let fill_count = fill_tess
-        .tessellate_path(
-            &path,
-            &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
-            &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
-        )
-        .unwrap();
+    // Build a Path for the arrow.
+    let mut builder = Path::builder();
+    builder.begin(point(-1.0, -0.3));
+    builder.line_to(point(0.0, -0.3));
+    builder.line_to(point(0.0, -1.0));
+    builder.line_to(point(1.5, 0.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.line_to(point(0.0, 0.3));
+    builder.line_to(point(-1.0, 0.3));
+    builder.close();
+    let arrow_path = builder.build();
 
-    stroke_tess
-        .tessellate_path(
-            &path,
-            &StrokeOptions::tolerance(tolerance),
-            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
-        )
-        .unwrap();
+    fill_tess.tessellate_path(
+        &path,
+        &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
+        &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
+    ).unwrap();
 
-    let fill_range = 0..fill_count.indices;
+    let fill_range = 0..(geometry.indices.len() as u32);
+
+    stroke_tess.tessellate_path(
+        &path,
+        &StrokeOptions::tolerance(tolerance),
+        &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
+    ).unwrap();
+
     let stroke_range = fill_range.end..(geometry.indices.len() as u32);
+
+    fill_tess.tessellate_path(
+        &arrow_path,
+        &FillOptions::tolerance(tolerance),
+        &mut BuffersBuilder::new(&mut geometry, WithId(arrows_prim_id as i32)),
+    ).unwrap();
+
+
+    let arrow_range = stroke_range.end..(geometry.indices.len() as u32);
+
     let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
 
-    fill_tess
-        .tessellate_rectangle(
-            &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-            &FillOptions::DEFAULT,
-            &mut BuffersBuilder::new(&mut bg_geometry, Custom),
-        )
-        .unwrap();
+    fill_tess.tessellate_rectangle(
+        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+        &FillOptions::DEFAULT,
+        &mut BuffersBuilder::new(&mut bg_geometry, Custom),
+    ).unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {
@@ -154,6 +192,8 @@ fn main() {
             z_index: 0,
             width: 0.0,
             translate: [0.0, 0.0],
+            angle: 0.0,
+            .. Primitive::DEFAULT
         });
     }
 
@@ -162,14 +202,13 @@ fn main() {
         color: [0.0, 0.0, 0.0, 1.0],
         z_index: num_instances as i32 + 2,
         width: 1.0,
-        translate: [0.0, 0.0],
+        .. Primitive::DEFAULT
     };
     // Main fill primitive
     cpu_primitives[fill_prim_id] = Primitive {
         color: [1.0, 1.0, 1.0, 1.0],
         z_index: num_instances as i32 + 1,
-        width: 0.0,
-        translate: [0.0, 0.0],
+        .. Primitive::DEFAULT
     };
     // Instance primitives
     for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances as usize) {
@@ -188,7 +227,6 @@ fn main() {
         target_scroll: vector(70.0, 70.0),
         scroll: vector(70.0, 70.0),
         show_points: false,
-        show_wireframe: false,
         stroke_width: 1.0,
         target_stroke_width: 1.0,
         draw_background: true,
@@ -387,7 +425,6 @@ fn main() {
     // TODO: this isn't what we want: we'd need the equivalent of VK_POLYGON_MODE_LINE,
     // but it doesn't seem to be exposed by wgpu?
     render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
-    let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
     let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         layout: Some(&pipeline_layout),
@@ -510,10 +547,38 @@ fn main() {
 
         for idx in 2..(num_instances + 1) {
             cpu_primitives[idx as usize].translate = [
+                (frame_count * 0.0005 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
                 (frame_count * 0.001 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
-                (frame_count * 0.002 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
             ];
         }
+
+        let mut arrow_count = 0;
+        let offset = (frame_count as f32 * 0.1).rem(5.0);
+        walk::walk_along_path(
+            path.iter().flattened(0.01),
+            offset,
+            &mut walk::RepeatedPattern {
+                callback: |pos: Point, tangent: Vector, _| {
+                    if arrow_count + num_instances as usize + 1 >= PRIM_BUFFER_LEN {
+                        // Don't want to overflow the primitive buffer,
+                        // just skip the remaining arrows.
+                        return false;
+                    }
+                    cpu_primitives[arrows_prim_id as usize + arrow_count] = Primitive {
+                        color: [0.7, 0.9, 0.8, 1.0],
+                        translate: (pos * 2.3 - vector(80.0, 80.0)).to_array(),
+                        angle: tangent.angle_from_x_axis().get(),
+                        scale: 2.0,
+                        z_index: arrows_prim_id as i32,
+                        .. Primitive::DEFAULT
+                    };
+                    arrow_count += 1;
+                    true
+                },
+                intervals: &[5.0, 5.0, 5.0],
+                index: 0,
+            },
+        );
 
         queue.write_buffer(
             &globals_ubo,
@@ -568,17 +633,14 @@ fn main() {
                 }),
             });
 
-            if scene.show_wireframe {
-                pass.set_pipeline(&wireframe_render_pipeline);
-            } else {
-                pass.set_pipeline(&render_pipeline);
-            }
+            pass.set_pipeline(&render_pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             pass.set_index_buffer(ibo.slice(..));
             pass.set_vertex_buffer(0, vbo.slice(..));
 
             pass.draw_indexed(fill_range.clone(), 0, 0..(num_instances as u32));
             pass.draw_indexed(stroke_range.clone(), 0, 0..1);
+            pass.draw_indexed(arrow_range.clone(), 0, 0..(arrow_count as u32));
 
             if scene.draw_background {
                 pass.set_pipeline(&bg_pipeline);
@@ -636,7 +698,6 @@ struct SceneParams {
     target_scroll: Vector,
     scroll: Vector,
     show_points: bool,
-    show_wireframe: bool,
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
@@ -715,9 +776,6 @@ fn update_inputs(
             }
             VirtualKeyCode::P => {
                 scene.show_points = !scene.show_points;
-            }
-            VirtualKeyCode::W => {
-                scene.show_wireframe = !scene.show_wireframe;
             }
             VirtualKeyCode::B => {
                 scene.draw_background = !scene.draw_background;
