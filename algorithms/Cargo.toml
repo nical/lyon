@@ -10,6 +10,7 @@ keywords = ["2d", "graphics", "svg"]
 license = "MIT/Apache-2.0"
 workspace = ".."
 edition = "2018"
+exclude = [".backup*"]
 
 [lib]
 name = "lyon_algorithms"

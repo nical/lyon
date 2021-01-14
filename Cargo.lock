@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "lyon"
-version = "0.17.1"
+version = "0.17.3"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
