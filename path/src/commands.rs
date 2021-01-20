@@ -89,7 +89,7 @@ struct CmdIter<'l> {
 }
 
 impl<'l> CmdIter<'l> {
-    fn new(slice: &[u32]) -> Self {
+    fn new(slice: &'l [u32]) -> Self {
         let ptr = slice.as_ptr();
         let end = unsafe { ptr.add(slice.len()) };
         CmdIter {
@@ -629,7 +629,7 @@ pub struct Iter<'l> {
 }
 
 impl<'l> Iter<'l> {
-    fn new(cmds: &[u32]) -> Self {
+    fn new(cmds: &'l [u32]) -> Self {
         Iter {
             cmds: CmdIter::new(cmds),
             idx: 0,
