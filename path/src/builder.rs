@@ -407,7 +407,7 @@ pub trait SvgPathBuilder {
     ///
     /// Corresponding SVG command: `m`.
     ///
-    /// the provided coordinates are offsets relative to the current position of
+    /// The provided coordinates are offsets relative to the current position of
     /// the builder.
     fn relative_move_to(&mut self, to: Vector);
 
@@ -415,7 +415,7 @@ pub trait SvgPathBuilder {
     ///
     /// Corresponding SVG command: `l`.
     ///
-    /// the provided coordinates are offsets relative to the current position of
+    /// The provided coordinates are offsets relative to the current position of
     /// the builder.
     fn relative_line_to(&mut self, to: Vector);
 
@@ -429,7 +429,7 @@ pub trait SvgPathBuilder {
 
     /// Equivalent to `cubic_bezier_to` in relative coordinates.
     ///
-    /// the provided coordinates are offsets relative to the current position of
+    /// The provided coordinates are offsets relative to the current position of
     /// the builder.
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector);
 
@@ -448,7 +448,7 @@ pub trait SvgPathBuilder {
     ///
     /// Corresponding SVG command: `s`.
     ///
-    /// the provided coordinates are offsets relative to the current position of
+    /// The provided coordinates are offsets relative to the current position of
     /// the builder.
     fn smooth_relative_cubic_bezier_to(&mut self, ctrl2: Vector, to: Vector);
 
@@ -466,7 +466,7 @@ pub trait SvgPathBuilder {
     ///
     /// Corresponding SVG command: `t`.
     ///
-    /// the provided coordinates are offsets relative to the current position of
+    /// The provided coordinates are offsets relative to the current position of
     /// the builder.
     fn smooth_relative_quadratic_bezier_to(&mut self, to: Vector);
 
@@ -516,7 +516,7 @@ pub trait SvgPathBuilder {
     ///
     /// Corresponding SVG command: `a`.
     ///
-    /// the provided `to` coordinates are offsets relative to the current position of
+    /// The provided `to` coordinates are offsets relative to the current position of
     /// the builder.
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector);
 
