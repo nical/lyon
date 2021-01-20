@@ -748,7 +748,7 @@ struct PointIter<'l> {
 }
 
 impl<'l> PointIter<'l> {
-    fn new(slice: &[Point]) -> Self {
+    fn new(slice: &'l [Point]) -> Self {
         let ptr = slice.as_ptr();
         let end = unsafe { ptr.add(slice.len()) };
         PointIter {
@@ -777,10 +777,9 @@ impl<'l> PointIter<'l> {
 
     #[inline]
     fn advance_n(&mut self, n: usize) {
-        unsafe {
-            self.ptr = self.ptr.add(n);
-            assert!(self.ptr <= self.end)
-        }
+        let ptr = self.ptr.wrapping_add(n);
+        assert!(ptr <= self.end);
+        self.ptr = ptr;
     }
 }
 
@@ -821,12 +820,12 @@ impl<'l> IterWithAttributes<'l> {
     #[inline]
     fn pop_endpoint(&mut self) -> (Point, &'l [f32]) {
         let position = self.points.next();
+        let attributes_ptr = self.points.ptr as *const f32;
+        self.points.advance_n(self.attrib_stride);        
         let attributes = unsafe {
-            let ptr = &(*self.points.ptr).x as *const f32;
-            std::slice::from_raw_parts(ptr, self.num_attributes)
+            // SAFETY: advance_n would have panicked if the slice is out of bounds
+            std::slice::from_raw_parts(attributes_ptr, self.num_attributes)
         };
-
-        self.points.advance_n(self.attrib_stride);
 
         (position, attributes)
     }
