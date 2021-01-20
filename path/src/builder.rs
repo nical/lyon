@@ -364,7 +364,7 @@ pub trait SvgPathBuilder {
     /// If a sub-path is in progress, it is ended without being closed.
     fn move_to(&mut self, to: Point);
 
-    /// ends the current sub-path by connecting it back to its initial point.
+    /// Ends the current sub-path by connecting it back to its initial point.
     ///
     /// Corresponding SVG command: `Z`.
     ///
