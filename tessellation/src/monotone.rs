@@ -273,7 +273,7 @@ impl AdvancedMonotoneTessellator {
             }
             Side::Right => {
                 self.right.reference_point.x = self.right.reference_point.x.min(pos.x);
-                self.right.conservative_reference_x = self.right.conservative_reference_x.max(self.right.reference_point.x);
+                self.right.conservative_reference_x = self.right.conservative_reference_x.min(self.right.reference_point.x);
             }
         }
 
