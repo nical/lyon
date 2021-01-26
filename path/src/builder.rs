@@ -967,7 +967,7 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     fn relative_quadratic_bezier_to(&mut self, ctrl: Vector, to: Vector) {
         let ctrl = self.relative_to_absolute(ctrl);
         let to = self.relative_to_absolute(to);
-        self.builder.quadratic_bezier_to(ctrl, to);
+        self.quadratic_bezier_to(ctrl, to);
     }
 
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector) {
@@ -1272,6 +1272,50 @@ fn svg_builder_line_to_after_close() {
             last: point(2.0, 0.0),
             first: point(1.0, 0.0),
             close: false
+        })
+    );
+    assert_eq!(it.next(), None);
+}
+
+#[test]
+fn svg_builder_relative_curves() {
+    use crate::Path;
+    use crate::PathEvent;
+
+    let mut p = Path::svg_builder();
+    p.move_to(point(0.0, 0.0));
+    p.relative_quadratic_bezier_to( vector(0., 100.), vector(-100., 100.));
+    p.relative_line_to(vector(-50., 0.));
+
+    let path = p.build();
+    let mut it = path.iter();
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::Begin {
+            at: point(0.0, 0.0)
+        })
+    );
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::Quadratic {
+            from: point(0.0, 0.0),
+            ctrl: point(0.0, 100.0),
+            to: point(-100., 100.),
+        })
+    );
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::Line {
+            from: point(-100.0, 100.0),
+            to: point(-150., 100.)
+        })
+    );
+    assert_eq!(
+        it.next(),
+        Some(PathEvent::End {
+            first: point(0.0, 0.0),
+            last: point(-150., 100.),
+            close: false,
         })
     );
     assert_eq!(it.next(), None);
