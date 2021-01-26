@@ -759,6 +759,11 @@ impl<'l> PointIter<'l> {
     }
 
     #[inline]
+    fn remaining_len(&self) -> usize {
+        (self.end as usize - self.ptr as usize) / std::mem::size_of::<Point>()
+    }
+
+    #[inline]
     fn next(&mut self) -> Point {
         // Don't bother panicking here. calls to next
         // are always followed by advance_n which will
@@ -777,9 +782,10 @@ impl<'l> PointIter<'l> {
 
     #[inline]
     fn advance_n(&mut self, n: usize) {
-        let ptr = self.ptr.wrapping_add(n);
-        assert!(ptr <= self.end);
-        self.ptr = ptr;
+        unsafe {
+            assert!(self.remaining_len() >= n);
+            self.ptr = self.ptr.add(n);
+        }
     }
 }
 
