@@ -1,7 +1,7 @@
 [package]
 
 name = "lyon"
-version = "0.17.4"
+version = "0.17.5"
 description = "2D Graphics rendering on the GPU using tessellation."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -37,7 +37,7 @@ profiling = ["lyon_tessellation/profiling"]
 
 [dependencies]
 
-lyon_tessellation = { version = "0.17.4", path = "tessellation/" }
+lyon_tessellation = { version = "0.17.5", path = "tessellation/" }
 lyon_algorithms = { version = "0.17.1", path = "algorithms/" }
 lyon_extra = { version = "0.17.1", optional = true, path = "extra/" }
 lyon_svg = { version = "0.17.1", optional = true, path = "svg/" }

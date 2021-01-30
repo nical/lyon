@@ -935,7 +935,7 @@ dependencies = [
 
 [[package]]
 name = "lyon"
-version = "0.17.4"
+version = "0.17.5"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "0.17.4"
+version = "0.17.5"
 dependencies = [
  "arrayvec 0.5.2",
  "lyon_extra",
