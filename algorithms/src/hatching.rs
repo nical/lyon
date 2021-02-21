@@ -8,22 +8,22 @@
 //!
 //! ```ignore
 //! // Generate a path representing a hatching of the original path.
-//! let mut path_builder = Path::builder();
+//! let mut hatches = Path::builder();
 //! let mut hatcher = Hatcher::new();
 //! hatcher.hatch_path(
-//!     original_path.path_iter(),
-//!     &options,
+//!     original_path.iter(),
+//!     &HatchingOptions::DEFAULT,
 //!     &mut RegularHatchingPattern {
-//!         interval: hatch.spacing,
+//!         interval: 1.0,
 //!         callback: &mut|segment: &HatchSegment| {
-//!             path_builder.add_line_segment(&LineSegment {
+//!             hatches.add_line_segment(&LineSegment {
 //!                 from: segment.a.position,
-//!                 to: segment.b.position.
+//!                 to: segment.b.position,
 //!             });
 //!         },
 //!     },
 //! );
-//! let hatched_path = path_builder.build();
+//! let hatched_path = hatches.build();
 //! ```
 
 use crate::math::{point, vector, Angle, Point, Rotation, Vector};
@@ -495,7 +495,7 @@ impl Build for EventsBuilder {
     type PathType = HatchingEvents;
 
     fn build(mut self) -> HatchingEvents {
-        self.close();
+        self.validator.build();
 
         self.first = point(0.0, 0.0);
         self.current = point(0.0, 0.0);
@@ -683,4 +683,35 @@ fn modulo(a: f32, m: f32) -> f32 {
     } else {
         m + (a % m)
     }
+}
+
+#[test]
+fn simple_hatching() {
+    use lyon_path::Path;
+
+    let mut original_path = Path::builder();
+    original_path.begin(point(0.0, 0.0));
+    original_path.line_to(point(10.0, 0.0));
+    original_path.line_to(point(10.0, 10.0));
+    original_path.line_to(point(0.0, 10.0));
+    original_path.end(true);
+
+    let original_path = original_path.build();
+
+    let mut hatches = Path::builder();
+    let mut hatcher = Hatcher::new();
+    hatcher.hatch_path(
+        original_path.iter(),
+        &HatchingOptions::DEFAULT,
+        &mut RegularHatchingPattern {
+            interval: 1.0,
+            callback: &mut|segment: &HatchSegment| {
+                hatches.add_line_segment(&LineSegment {
+                    from: segment.a.position,
+                    to: segment.b.position,
+                });
+            },
+        },
+    );
+    let _ = hatches.build();
 }
