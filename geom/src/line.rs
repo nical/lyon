@@ -273,6 +273,7 @@ impl<S: Scalar> LineSegment<S> {
         self.line_intersection_t(line).map(|t| self.sample(t))
     }
 
+    // TODO: Consider only intersecting in the [0, 1[ range instead of [0, 1]
     pub fn horizontal_line_intersection_t(&self, y: S) -> Option<S> {
         Self::axis_aligned_intersection_1d(self.from.y, self.to.y, y)
     }
@@ -293,6 +294,7 @@ impl<S: Scalar> LineSegment<S> {
     }
 
     fn axis_aligned_intersection_1d(mut a: S, mut b: S, v: S) -> Option<S> {
+        // TODO: is it really useful to swap?
         let swap = a > b;
         if swap {
             std::mem::swap(&mut a, &mut b);
