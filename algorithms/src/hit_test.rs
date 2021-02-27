@@ -27,12 +27,15 @@ where
     // winding of all edges intersecting the horizontal line passing through our point which are
     // left of it.
     let mut winding = 0;
+    let mut prev_winding = None;
 
     for evt in path {
         match evt {
-            PathEvent::Begin { .. } => {}
+            PathEvent::Begin { .. } => {
+                prev_winding = None;
+            }
             PathEvent::Line { from, to } => {
-                test_segment(*point, &LineSegment { from, to }, &mut winding);
+                test_segment(*point, &LineSegment { from, to }, &mut winding, &mut prev_winding);
             }
             PathEvent::End { last, first, .. } => {
                 test_segment(
@@ -42,6 +45,7 @@ where
                         to: first,
                     },
                     &mut winding,
+                    &mut prev_winding,
                 );
             }
             PathEvent::Quadratic { from, ctrl, to } => {
@@ -52,7 +56,7 @@ where
                 }
                 let mut prev = segment.from;
                 segment.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding);
+                    test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding, &mut prev_winding);
                     prev = p;
                 });
             }
@@ -74,7 +78,7 @@ where
                 }
                 let mut prev = segment.from;
                 segment.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding);
+                    test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding, &mut prev_winding);
                     prev = p;
                 });
             }
@@ -84,15 +88,65 @@ where
     winding
 }
 
-fn test_segment(point: Point, segment: &LineSegment<f32>, winding: &mut i32) {
-    if let Some(pos) = segment.horizontal_line_intersection(point.y) {
-        if pos.x < point.x {
-            if segment.to.y > segment.from.y {
-                *winding += 1;
-            } else if segment.to.y < segment.from.y {
-                *winding -= 1;
-            }
+fn test_segment(point: Point, segment: &LineSegment<f32>, winding: &mut i32, prev_winding: &mut Option<i32>) {
+    let y0  = segment.from.y;
+    let y1  = segment.to.y;
+    if f32::min(y0, y1) > point.y
+        || f32::max(y0, y1) < point.y
+        || f32::min(segment.from.x, segment.to.x) > point.x
+        || y0 == y1 {
+
+        return;
+    }
+
+    let d = y1 - y0;
+
+    let t = (point.y - y0) / d;
+    let x = segment.sample(t).x;
+
+    if x < point.x {
+        let w = if segment.to.y > segment.from.y {
+            1
+        } else if segment.to.y < segment.from.y {
+            -1
+        } else if segment.to.x > segment.from.x {
+            1
+        } else {
+            -1
+        };
+
+        // Compare against the previous affecting edge winding to avoid double counting
+        // in cases like:
+        //
+        // ```
+        //   |
+        //   |
+        // --x-------p
+        //   |
+        //   |
+        // ```
+        //
+        //
+        // ```
+        //   |
+        //   x-----x-----p
+        //         |
+        //         |
+        // ```
+        //
+        // ```
+        //   x-----x-----p
+        //   |     |
+        //   |     |
+        // ```
+        //
+        // The main idea is that within a sub-path we can't have consecutive affecting edges
+        // of the same winding sign, so if we find some it means we are double-counting.
+        if *prev_winding != Some(w)  {
+            *winding += w;
         }
+
+        *prev_winding = Some(w);
     }
 }
 
@@ -126,6 +180,7 @@ fn test_hit_test() {
         FillRule::EvenOdd,
         0.1
     ));
+    println!("winding {:?}", path_winding_number_at_position(&point(2.0, 0.0), path.iter(), 0.1));
     assert!(!hit_test_path(
         &point(2.0, 0.0),
         path.iter(),
@@ -169,4 +224,24 @@ fn test_hit_test() {
         FillRule::EvenOdd,
         0.1
     ));
+}
+
+#[test]
+fn hit_test_point_aligned() {
+    use crate::math::point;
+    use crate::path::polygon::Polygon;
+
+    let poly = Polygon {
+        points: &[
+            point(-10.0, 10.0),
+            point(10.0, 10.0),
+            point(10.0, 5.0),
+            point(10.0, -10.0),
+            point(-10.0, -10.0),
+        ],
+        closed: true,
+    };
+
+    assert!(hit_test_path(&point(0.0, 5.0), poly.path_events(), FillRule::NonZero, 0.1));
+    assert!(!hit_test_path(&point(15.0, 5.0), poly.path_events(), FillRule::NonZero, 0.1));
 }
