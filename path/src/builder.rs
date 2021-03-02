@@ -90,7 +90,7 @@ use std::marker::Sized;
 use std::iter::IntoIterator;
 
 /// The radius of each corner of a rounded rectangle.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct BorderRadii {
     pub top_left: f32,
     pub top_right: f32,
@@ -107,6 +107,17 @@ impl BorderRadii {
             bottom_left: r,
             bottom_right: r,
         }
+    }
+}
+
+impl std::fmt::Display for BorderRadii {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // In the order of a well known convention (CSS) clockwise from top left
+        write!(
+            f,
+            "BorderRadii({}, {}, {}, {})",
+            self.top_left, self.top_right, self.bottom_left, self.bottom_right
+        )
     }
 }
 
