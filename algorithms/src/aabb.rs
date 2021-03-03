@@ -31,7 +31,7 @@ where
     }
 }
 
-#[doc(Hidden)]
+#[doc(hidden)]
 pub trait FastBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
@@ -86,7 +86,7 @@ where
     }
 }
 
-#[doc(Hidden)]
+#[doc(hidden)]
 pub trait TightBoundingRect {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
