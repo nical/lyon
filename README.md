@@ -32,9 +32,8 @@ The intent is for this library to be useful in projects like [Servo](https://ser
 
 ```rust
 extern crate lyon;
-use lyon::math::{point, Point};
+use lyon::math::point;
 use lyon::path::Path;
-use lyon::path::builder::*;
 use lyon::tessellation::*;
 fn main() {
     // Build a Path.
@@ -56,9 +55,9 @@ fn main() {
         tessellator.tessellate_path(
             &path,
             &FillOptions::default(),
-            &mut BuffersBuilder::new(&mut geometry, |pos: Point, _: FillAttributes| {
+            &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
                 MyVertex {
-                    position: pos.to_array(),
+                    position: vertex.position().to_array(),
                 }
             }),
         ).unwrap();
