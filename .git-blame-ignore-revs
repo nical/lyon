@@ -1,0 +1,4 @@
+# To ignore bulk formatting changes changes in git blame: 
+#    git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+22e3f834b62e6f8a09766e229af279f1a6694281
