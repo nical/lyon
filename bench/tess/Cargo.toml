@@ -13,6 +13,6 @@ experimental = ["lyon/experimental"]
 profiling = ["lyon/profiling"]
 
 [dependencies]
-lyon = { path = "../../", features = ["extra"] }
+lyon = { path = "../../crates/lyon", features = ["extra"] }
 bencher = "0.1.1"
 tess2-sys = { version = "0.0.1", optional = true }

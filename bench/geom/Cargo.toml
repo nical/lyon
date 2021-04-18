@@ -8,5 +8,5 @@ workspace = "../.."
 name = "geom_bench"
 
 [dependencies]
-lyon = { path = "../../" }
+lyon = { path = "../../crates/lyon" }
 bencher = "0.1.1"
