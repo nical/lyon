@@ -2265,9 +2265,12 @@ impl<'l> FillBuilder<'l> {
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let event_queue = std::mem::replace(&mut tessellator.events, EventQueue::new());
+        let mut events = std::mem::replace(&mut tessellator.events, EventQueue::new())
+            .into_builder();
+        events.set_tolerance(options.tolerance);
+
         FillBuilder {
-            events: event_queue.into_builder(),
+            events,
             next_id: EndpointId(0),
             first_id: EndpointId(0),
             horizontal_sweep: options.sweep_orientation == Orientation::Horizontal,
