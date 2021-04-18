@@ -1,5 +1,4 @@
 [package]
-
 name = "lyon_tess2"
 version = "0.17.1"
 description = "An additional path tessellator for lyon using libtess2."
@@ -8,7 +7,7 @@ repository = "https://github.com/nical/lyon"
 documentation = "https://docs.rs/lyon_tess2/"
 keywords = ["2d", "graphics", "tessellation", "svg"]
 license = "MIT/Apache-2.0"
-workspace = ".."
+workspace = "../.."
 edition = "2018"
 
 [lib]
@@ -19,7 +18,6 @@ path = "src/lib.rs"
 serialization = ["serde", "lyon_tessellation/serialization"]
 
 [dependencies]
-
 lyon_tessellation = { version = "0.17.1", path = "../tessellation" }
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 tess2-sys = "0.0.1"

@@ -1,5 +1,4 @@
 [package]
-
 name = "lyon"
 version = "0.17.5"
 description = "2D Graphics rendering on the GPU using tessellation."
@@ -9,18 +8,9 @@ documentation = "https://docs.rs/lyon/"
 keywords = ["2d", "graphics", "tessellation", "svg"]
 license = "MIT/Apache-2.0"
 
-exclude = [
-    "assets/*",
-    "examples/*",
-    "bench/*",
-    "cli/*",
-    ".vscode/*",
-    "all.sh"
-]
-
 [lib]
 name = "lyon"
-path = "src/lib.rs"
+path = "crates/lyon/src/lib.rs"
 
 # Uncomment this when profiling.
 #[profile.release]
@@ -36,22 +26,21 @@ libtess2 = ["lyon_tess2"]
 profiling = ["lyon_tessellation/profiling"]
 
 [dependencies]
-
-lyon_tessellation = { version = "0.17.5", path = "tessellation/" }
-lyon_algorithms = { version = "0.17.1", path = "algorithms/" }
-lyon_extra = { version = "0.17.1", optional = true, path = "extra/" }
-lyon_svg = { version = "0.17.1", optional = true, path = "svg/" }
-lyon_tess2 = { version = "0.17.1", optional = true, path = "tess2/" }
+lyon_tessellation = { version = "0.17.5", path = "crates/tessellation/" }
+lyon_algorithms = { version = "0.17.1", path = "crates/algorithms/" }
+lyon_extra = { version = "0.17.1", optional = true, path = "crates/extra/" }
+lyon_svg = { version = "0.17.1", optional = true, path = "crates/svg/" }
+lyon_tess2 = { version = "0.17.1", optional = true, path = "crates/tess2/" }
 
 [workspace]
 members = [
-    "path",
-    "tessellation",
-    "algorithms",
-    "tess2",
-    "geom",
-    "extra",
-    "svg",
+    "crates/path",
+    "crates/tessellation",
+    "crates/algorithms",
+    "crates/tess2",
+    "crates/geom",
+    "crates/extra",
+    "crates/svg",
     "cli",
     "wasm_test",
     "examples/wgpu",
@@ -60,3 +49,13 @@ members = [
     "bench/path",
     "bench/geom"
 ]
+
+exclude = [
+    ".vscode/*",
+    "all.sh",
+    "assets/*",
+    "examples/*",
+    "bench/*",
+    "cli/*",
+]
+

@@ -1,5 +1,4 @@
 [package]
-
 name = "lyon_tessellation"
 version = "0.17.6"
 description = "A low level path tessellation library."
@@ -8,7 +7,7 @@ repository = "https://github.com/nical/lyon"
 documentation = "https://docs.rs/lyon_tessellation/"
 keywords = ["2d", "graphics", "tessellation", "svg"]
 license = "MIT/Apache-2.0"
-workspace = ".."
+workspace = "../.."
 edition = "2018"
 
 [lib]
@@ -22,7 +21,6 @@ experimental = []
 profiling = []
 
 [dependencies]
-
 lyon_path = { version = "0.17.1", path = "../path" }
 sid = "0.6"
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }

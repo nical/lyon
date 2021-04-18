@@ -3,7 +3,7 @@ name = "lyon_cli"
 version = "0.1.0"
 authors = ["Nicolas Silva <nical@fastmail.com>"]
 edition = "2018"
-workspace = ".."
+workspace = "../"
 
 [[bin]]
 name = "lyon"
