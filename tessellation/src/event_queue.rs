@@ -105,6 +105,7 @@ impl EventQueue {
         builder.build()
     }
 
+    // TODO: this should take the tolerance as parameter.
     pub fn into_builder(mut self) -> EventQueueBuilder {
         self.reset();
         EventQueueBuilder {
@@ -451,12 +452,17 @@ pub struct EventQueueBuilder {
 }
 
 impl EventQueueBuilder {
+    // TODO: this should take the tolerance as parameter.
     pub fn new() -> Self {
         EventQueue::new().into_builder()
     }
 
     pub fn with_capacity(cap: usize) -> Self {
         EventQueue::with_capacity(cap).into_builder()
+    }
+
+    pub fn set_tolerance(&mut self, tolerance: f32) {
+        self.tolerance = tolerance;
     }
 
     pub fn build(mut self) -> EventQueue {
