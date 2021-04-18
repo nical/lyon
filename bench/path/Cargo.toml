@@ -8,5 +8,5 @@ workspace = "../.."
 name = "path_bench"
 
 [dependencies]
-lyon = { path = "../../", features = ["extra"] }
+lyon = { path = "../../crates/lyon", features = ["extra"] }
 bencher = "0.1.1"

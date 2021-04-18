@@ -11,7 +11,7 @@ name = "wgpu_svg"
 path = "src/main.rs"
 
 [dependencies]
-lyon = { path = "../../", features = ["extra"] }
+lyon = { path = "../../crates/lyon", features = ["extra"] }
 
 clap = "2.32.0"
 wgpu = "0.6.0"

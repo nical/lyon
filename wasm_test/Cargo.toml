@@ -12,4 +12,4 @@ name = "wasm_test"
 crate-type = ["cdylib"]
 
 [dependencies]
-lyon = { path = "../", features = ["extra"] }
+lyon = { path = "../crates/lyon", features = ["extra"] }

@@ -10,7 +10,7 @@ name = "wgpu"
 path = "src/main.rs"
 
 [dependencies]
-lyon = { path = "../../", features = ["extra"] }
+lyon = { path = "../../crates/lyon", features = ["extra"] }
 env_logger = "0.7"
 log = "0.4"
 
