@@ -1,5 +1,4 @@
 [package]
-
 name = "lyon_wasm_test"
 version = "0.11.0"
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
@@ -13,5 +12,4 @@ name = "wasm_test"
 crate-type = ["cdylib"]
 
 [dependencies]
-
-lyon = { path = "..", features = ["extra"] }
+lyon = { path = "../", features = ["extra"] }

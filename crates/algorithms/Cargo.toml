@@ -1,5 +1,4 @@
 [package]
-
 name = "lyon_algorithms"
 version = "0.17.4"
 description = "2D Path manipulation/transformation algorithms."
@@ -8,7 +7,7 @@ repository = "https://github.com/nical/lyon"
 documentation = "https://docs.rs/lyon_algorithms/"
 keywords = ["2d", "graphics", "svg"]
 license = "MIT/Apache-2.0"
-workspace = ".."
+workspace = "../.."
 edition = "2018"
 exclude = [".backup*"]
 
@@ -20,7 +19,6 @@ path = "src/lib.rs"
 serialization = ["serde", "lyon_path/serialization"]
 
 [dependencies]
-
 lyon_path = { version = "0.17.1", path = "../path" }
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 sid = "0.6"
