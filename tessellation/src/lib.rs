@@ -196,6 +196,7 @@ mod monotone;
 mod stroke;
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod earcut_tests;
 #[cfg(test)]
 mod fill_tests;
