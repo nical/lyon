@@ -2,9 +2,9 @@ use crate::advanced_path::*;
 use crate::geom::{Line, LineSegment};
 /// Split paths with a line or line segment.
 use crate::math::*;
-use crate::path::*;
-use crate::path::polygon::Polygon;
 use crate::path::iterator::PathIterator;
+use crate::path::polygon::Polygon;
+use crate::path::*;
 use std::cmp::PartialOrd;
 use std::mem;
 
@@ -749,7 +749,6 @@ fn split_with_segment_3() {
 
 #[test]
 fn split_with_segment_4() {
-
     //  ________
     // |        |
     //-+--+-----+-

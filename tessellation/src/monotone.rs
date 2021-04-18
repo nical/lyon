@@ -1,7 +1,7 @@
-use crate::math::{Point, point};
+use crate::fill::is_after;
+use crate::math::{point, Point};
 use crate::Side;
 use crate::{FillGeometryBuilder, VertexId};
-use crate::fill::is_after;
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
 /// polygon (used internally by the `FillTessellator`).
@@ -187,7 +187,6 @@ fn test_monotone_tess() {
     println!(" ------------ ");
 }
 
-
 struct SideEvents {
     // We decide whether we have to flush a convex vertex chain based on
     // whether the two sides are far apart. reference_point.x contains the
@@ -261,19 +260,33 @@ impl AdvancedMonotoneTessellator {
 
         self.left.events.clear();
         self.right.events.clear();
-        self.left.push(MonotoneVertex { pos, id, side: Side::Left });
-        self.right.push(MonotoneVertex { pos, id, side: Side::Right });
+        self.left.push(MonotoneVertex {
+            pos,
+            id,
+            side: Side::Left,
+        });
+        self.right.push(MonotoneVertex {
+            pos,
+            id,
+            side: Side::Right,
+        });
     }
 
     pub fn vertex(&mut self, pos: Point, id: VertexId, side: Side) {
         match side {
             Side::Left => {
                 self.left.reference_point.x = self.left.reference_point.x.max(pos.x);
-                self.left.conservative_reference_x = self.left.conservative_reference_x.max(self.left.reference_point.x);
+                self.left.conservative_reference_x = self
+                    .left
+                    .conservative_reference_x
+                    .max(self.left.reference_point.x);
             }
             Side::Right => {
                 self.right.reference_point.x = self.right.reference_point.x.min(pos.x);
-                self.right.conservative_reference_x = self.right.conservative_reference_x.min(self.right.reference_point.x);
+                self.right.conservative_reference_x = self
+                    .right
+                    .conservative_reference_x
+                    .min(self.right.reference_point.x);
             }
         }
 
@@ -347,7 +360,11 @@ impl AdvancedMonotoneTessellator {
 }
 
 #[inline(never)]
-fn flush_side(side: &mut SideEvents, s: Side, tess: &mut BasicMonotoneTessellator) -> Option<MonotoneVertex> {
+fn flush_side(
+    side: &mut SideEvents,
+    s: Side,
+    tess: &mut BasicMonotoneTessellator,
+) -> Option<MonotoneVertex> {
     let len = side.events.len();
     if len < 2 {
         return None;
@@ -357,18 +374,14 @@ fn flush_side(side: &mut SideEvents, s: Side, tess: &mut BasicMonotoneTessellato
     while step * 2 < len {
         let mut last_index = 0;
         let imax = (len - 1) / (2 * step);
-        for i in 0 .. imax {
+        for i in 0..imax {
             let mut a = i * 2 * step;
             let mut b = a + step;
             last_index = b + step;
             if s == Side::Right {
                 std::mem::swap(&mut a, &mut b);
             }
-            tess.push_triangle_ids(
-                side.events[a],
-                side.events[b],
-                side.events[last_index],
-            );
+            tess.push_triangle_ids(side.events[a], side.events[b], side.events[last_index]);
         }
 
         if last_index + step < len {
@@ -378,11 +391,7 @@ fn flush_side(side: &mut SideEvents, s: Side, tess: &mut BasicMonotoneTessellato
                 std::mem::swap(&mut b, &mut c);
             }
 
-            tess.push_triangle_ids(
-                side.events[0],
-                side.events[b],
-                side.events[c],
-            );
+            tess.push_triangle_ids(side.events[0], side.events[b], side.events[c]);
         }
 
         step *= 2;
@@ -394,6 +403,5 @@ fn flush_side(side: &mut SideEvents, s: Side, tess: &mut BasicMonotoneTessellato
 
     Some(side.last)
 }
-
 
 pub type MonotoneTessellator = AdvancedMonotoneTessellator;

@@ -1,11 +1,10 @@
-///! Utilities to flatten cubic bézier curve segments, implemented both with callback and
-///! iterator based APIs.
-
-use crate::Point;
-use crate::scalar::Scalar;
-use crate::CubicBezierSegment;
 use crate::cubic_to_quadratic::single_curve_approximation;
 use crate::quadratic_bezier::FlattenedT as FlattenedQuadraticSegment;
+use crate::scalar::Scalar;
+use crate::CubicBezierSegment;
+///! Utilities to flatten cubic bézier curve segments, implemented both with callback and
+///! iterator based APIs.
+use crate::Point;
 
 // Computes the number of quadratic bézier segments to approximate a cubic one.
 // Derived by Raph Levien from section 10.6 of Sedeberg's CAGD notes
@@ -19,11 +18,17 @@ fn num_quadratics<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> S {
 
     let err = x * x + y * y;
 
-    (err / (S::value(432.0) * tolerance * tolerance)).powf(S::ONE / S::SIX).ceil().max(S::ONE)
+    (err / (S::value(432.0) * tolerance * tolerance))
+        .powf(S::ONE / S::SIX)
+        .ceil()
+        .max(S::ONE)
 }
 
-pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
-where
+pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(
+    curve: &CubicBezierSegment<S>,
+    tolerance: S,
+    callback: &mut F,
+) where
     F: FnMut(Point<S>, S),
 {
     debug_assert!(tolerance >= S::EPSILON);
@@ -64,7 +69,6 @@ pub struct Flattened<S: Scalar> {
 }
 
 impl<S: Scalar> Flattened<S> {
-
     pub(crate) fn new(curve: &CubicBezierSegment<S>, tolerance: S) -> Self {
         debug_assert!(tolerance >= S::EPSILON);
 
@@ -75,13 +79,8 @@ impl<S: Scalar> Flattened<S> {
 
         let range_step = S::ONE / num_quadratics;
 
-        let quadratic = single_curve_approximation(
-            &curve.split_range(S::ZERO..range_step),
-        );
-        let current_curve = FlattenedQuadraticSegment::new(
-            &quadratic,
-            flattening_tolerance,
-        );
+        let quadratic = single_curve_approximation(&curve.split_range(S::ZERO..range_step));
+        let current_curve = FlattenedQuadraticSegment::new(&quadratic, flattening_tolerance);
 
         Flattened {
             curve: *curve,
@@ -112,13 +111,8 @@ impl<S: Scalar> Iterator for Flattened<S> {
         let t1 = self.range_start + self.range_step;
         self.remaining_sub_curves -= 1;
 
-        let quadratic = single_curve_approximation(
-            &self.curve.split_range(t0..t1),
-        );
-        self.current_curve = FlattenedQuadraticSegment::new(
-            &quadratic,
-            self.tolerance,
-        );
+        let quadratic = single_curve_approximation(&self.curve.split_range(t0..t1));
+        self.current_curve = FlattenedQuadraticSegment::new(&quadratic, self.tolerance);
 
         let t_inner = self.current_curve.next().unwrap();
         let t = t0 + t_inner * self.range_step;
@@ -127,7 +121,10 @@ impl<S: Scalar> Iterator for Flattened<S> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.remaining_sub_curves as usize * self.current_curve.size_hint().0, None)
+        (
+            self.remaining_sub_curves as usize * self.current_curve.size_hint().0,
+            None,
+        )
     }
 }
 

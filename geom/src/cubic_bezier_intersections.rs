@@ -1,3 +1,5 @@
+use crate::scalar::Scalar;
+use crate::CubicBezierSegment;
 ///! Computes intersection parameters for two cubic bézier curves using bézier clipping, also known
 ///! as fat line clipping.
 ///!
@@ -7,8 +9,6 @@
 ///! https://scholarsarchive.byu.edu/facpub/1/
 ///! for motivation and details of how the process works.
 use crate::{point, Point, Rect};
-use crate::scalar::Scalar;
-use crate::CubicBezierSegment;
 use arrayvec::ArrayVec;
 use std::ops::Range;
 
@@ -717,7 +717,8 @@ fn walk_convex_hull_edges_to_fat_line<S: Scalar>(
     for i in 0..hull_vertices.len() - 1 {
         let p = hull_vertices[i];
         let q = hull_vertices[i + 1];
-        if (vertices_are_for_top && q.y >= threshold) || (!vertices_are_for_top && q.y <= threshold) {
+        if (vertices_are_for_top && q.y >= threshold) || (!vertices_are_for_top && q.y <= threshold)
+        {
             return if q.y == threshold {
                 Some(q.x)
             } else {

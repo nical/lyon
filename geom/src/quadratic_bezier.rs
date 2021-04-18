@@ -1,8 +1,8 @@
-use crate::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
+use crate::{rect, Point, Rect, Vector};
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
 
@@ -29,9 +29,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let one_t = S::ONE - t;
         let one_t2 = one_t * one_t;
 
-        self.from * one_t2
-            + self.ctrl.to_vector() * S::TWO * one_t * t
-            + self.to.to_vector() * t2
+        self.from * one_t2 + self.ctrl.to_vector() * S::TWO * one_t * t + self.to.to_vector() * t2
     }
 
     /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
@@ -95,7 +93,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             }
         }
 
-        if self.from.y > self.to.y { S::ZERO } else { S::ONE }
+        if self.from.y > self.to.y {
+            S::ZERO
+        } else {
+            S::ONE
+        }
     }
 
     /// Find the advancement of the y-least position in the curve.
@@ -109,7 +111,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             }
         }
 
-        if self.from.y < self.to.y { S::ZERO } else { S::ONE }
+        if self.from.y < self.to.y {
+            S::ZERO
+        } else {
+            S::ONE
+        }
     }
 
     /// Return the y inflection point or None if this curve is y-monotonic.
@@ -137,7 +143,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             }
         }
 
-        if self.from.x > self.to.x { S::ZERO } else { S::ONE }
+        if self.from.x > self.to.x {
+            S::ZERO
+        } else {
+            S::ONE
+        }
     }
 
     /// Find the advancement of the x-least position in the curve.
@@ -151,7 +161,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             }
         }
 
-        if self.from.x < self.to.x { S::ZERO } else { S::ONE }
+        if self.from.x < self.to.x {
+            S::ZERO
+        } else {
+            S::ONE
+        }
     }
 
     /// Return the x inflection point or None if this curve is x-monotonic.
@@ -306,9 +320,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     where
         F: FnMut(Point<S>),
     {
-        self.for_each_flattened_t(tolerance, &mut|t| {
-            callback(self.sample(t))
-        });
+        self.for_each_flattened_t(tolerance, &mut |t| callback(self.sample(t)));
     }
 
     /// Compute a flattened approximation of the curve, invoking a callback at
@@ -349,9 +361,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     where
         F: FnMut(Point<S>, S),
     {
-        self.for_each_flattened_t(tolerance, &mut|t| {
-            callback(self.sample(t), t)
-        });
+        self.for_each_flattened_t(tolerance, &mut |t| callback(self.sample(t), t));
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -598,8 +608,10 @@ impl<S: Scalar> FlatteningParameters<S> {
         let ddx = S::TWO * curve.ctrl.x - curve.from.x - curve.to.x;
         let ddy = S::TWO * curve.ctrl.y - curve.from.y - curve.to.y;
         let cross = (curve.to.x - curve.from.x) * ddy - (curve.to.y - curve.from.y) * ddx;
-        let parabola_from = ((curve.ctrl.x - curve.from.x) * ddx + (curve.ctrl.y - curve.from.y) * ddy) / cross;
-        let parabola_to = ((curve.to.x - curve.ctrl.x) * ddx + (curve.to.y - curve.ctrl.y) * ddy) / cross;
+        let parabola_from =
+            ((curve.ctrl.x - curve.from.x) * ddx + (curve.ctrl.y - curve.from.y) * ddy) / cross;
+        let parabola_to =
+            ((curve.to.x - curve.ctrl.x) * ddx + (curve.to.y - curve.ctrl.y) * ddy) / cross;
         // Note, scale can be NaN, for example with straight lines. When it happens the NaN will
         // propagate to other parameters. We catch it all by setting the iteration count to zero
         // and leave the rest as garbage.
@@ -656,7 +668,6 @@ fn approx_parabola_inv_integral<S: Scalar>(x: S) -> S {
     let quarter = S::HALF * S::HALF;
     x * (S::ONE - b + (b * b + quarter * x * x).sqrt())
 }
-
 
 /// A flattening iterator for quadratic bézier segments.
 ///
@@ -1095,7 +1106,7 @@ fn test_flattening_empty_curve() {
     assert!(iter.next().is_none());
 
     let mut count: u32 = 0;
-    curve.for_each_flattened(0.1, &mut |_| { count += 1 });
+    curve.for_each_flattened(0.1, &mut |_| count += 1);
     assert_eq!(count, 0);
 }
 
@@ -1115,6 +1126,6 @@ fn test_flattening_straight_line() {
     assert!(iter.next().is_none());
 
     let mut count: u32 = 0;
-    curve.for_each_flattened(0.1, &mut |_| { count += 1 });
+    curve.for_each_flattened(0.1, &mut |_| count += 1);
     assert_eq!(count, 1);
 }

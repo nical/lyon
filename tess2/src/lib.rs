@@ -93,9 +93,9 @@ pub use crate::tessellation::FillOptions;
 pub use crate::tessellator::FillTessellator;
 
 pub mod geometry_builder {
-    pub use crate::tessellation::geometry_builder::{Positions, NoOutput, VertexBuffers};
-    pub use crate::tessellation::VertexId;
     use crate::math::Point;
+    pub use crate::tessellation::geometry_builder::{NoOutput, Positions, VertexBuffers};
+    pub use crate::tessellation::VertexId;
 
     /// An interface with similar goals to `GeometryBuilder` for algorithms that pre-build
     /// the vertex and index buffers.

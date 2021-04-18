@@ -4,12 +4,12 @@
 use crate::builder::*;
 use crate::geom::traits::Transformation;
 use crate::math::*;
-use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
 use crate::private::DebugValidator;
+use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
 
+use std::fmt;
 use std::iter::IntoIterator;
 use std::u32;
-use std::fmt;
 
 /// Enumeration corresponding to the [Event](https://docs.rs/lyon_core/*/lyon_core/events/enum.Event.html) enum
 /// without the parameters.
@@ -293,7 +293,9 @@ impl<'l> fmt::Debug for PathSlice<'l> {
                     write_point(formatter, ctrl)?;
                     write_point(formatter, to)?;
                 }
-                PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                PathEvent::Cubic {
+                    ctrl1, ctrl2, to, ..
+                } => {
                     write!(formatter, " C")?;
                     write_point(formatter, ctrl1)?;
                     write_point(formatter, ctrl2)?;
@@ -474,7 +476,9 @@ impl Builder {
             PathEvent::Quadratic { ctrl, to, .. } => {
                 self.quadratic_bezier_to(ctrl, to);
             }
-            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+            PathEvent::Cubic {
+                ctrl1, ctrl2, to, ..
+            } => {
                 self.cubic_bezier_to(ctrl1, ctrl2, to);
             }
             PathEvent::End { close: true, .. } => {
@@ -541,7 +545,6 @@ pub struct BuilderWithAttributes {
 }
 
 impl BuilderWithAttributes {
-
     pub fn new(num_attributes: usize) -> Self {
         BuilderWithAttributes {
             builder: Builder::new(),
@@ -583,7 +586,12 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    pub fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: &[f32],
+    ) -> EndpointId {
         let id = self.builder.quadratic_bezier_to(ctrl, to);
         self.push_attributes(attributes);
 
@@ -591,7 +599,13 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    pub fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: &[f32],
+    ) -> EndpointId {
         let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
         self.push_attributes(attributes);
 
@@ -827,7 +841,7 @@ impl<'l> IterWithAttributes<'l> {
     fn pop_endpoint(&mut self) -> (Point, &'l [f32]) {
         let position = self.points.next();
         let attributes_ptr = self.points.ptr as *const f32;
-        self.points.advance_n(self.attrib_stride);        
+        self.points.advance_n(self.attrib_stride);
         let attributes = unsafe {
             // SAFETY: advance_n would have panicked if the slice is out of bounds
             std::slice::from_raw_parts(attributes_ptr, self.num_attributes)
@@ -1640,7 +1654,6 @@ fn test_path_builder_empty_begin() {
     assert_eq!(it.next(), None);
 }
 
-
 #[test]
 fn test_concatenate() {
     let mut builder = Path::builder();
@@ -1660,10 +1673,7 @@ fn test_concatenate() {
     let path2 = builder.build();
 
     let mut builder = Path::builder();
-    builder.concatenate(&[
-        path1.as_slice(),
-        path2.as_slice(),
-    ]);
+    builder.concatenate(&[path1.as_slice(), path2.as_slice()]);
     let path = builder.build();
 
     let mut it = path.iter();

@@ -1,4 +1,4 @@
-use crate::parser::{PathSegment, PathParser};
+use crate::parser::{PathParser, PathSegment};
 
 use crate::path::builder::*;
 use crate::path::geom::Arc;
@@ -214,7 +214,8 @@ impl PathSerializer {
             start_angle,
             sweep_angle,
             x_rotation,
-        }.to_svg_arc();
+        }
+        .to_svg_arc();
 
         self.path += &format!(
             "A {} {} {} {} {} {} {}",

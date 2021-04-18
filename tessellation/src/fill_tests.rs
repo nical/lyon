@@ -1,17 +1,16 @@
 use crate::extra::rust_logo::build_logo_path;
-use crate::math::*;
 use crate::geometry_builder::*;
+use crate::math::*;
 use crate::path::builder::PathBuilder;
 use crate::path::{Path, PathSlice};
-use crate::{FillVertex, FillOptions, FillRule, FillTessellator, TessellationError, VertexId};
+use crate::{FillOptions, FillRule, FillTessellator, FillVertex, TessellationError, VertexId};
 
 use std::env;
 
 fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
-        let options = FillOptions::tolerance(0.05)
-            .with_fill_rule(fill_rule);
+        let options = FillOptions::tolerance(0.05).with_fill_rule(fill_rule);
 
         use crate::path::iterator::*;
 
@@ -49,10 +48,7 @@ fn test_too_many_vertices() {
     }
 
     impl FillGeometryBuilder for Builder {
-        fn add_fill_vertex(
-            &mut self,
-            _: FillVertex,
-        ) -> Result<VertexId, GeometryBuilderError> {
+        fn add_fill_vertex(&mut self, _: FillVertex) -> Result<VertexId, GeometryBuilderError> {
             if self.max_vertices == 0 {
                 return Err(GeometryBuilderError::TooManyVertices);
             }
@@ -93,7 +89,11 @@ fn test_path_and_count_triangles(path: PathSlice, expected_triangle_count: usize
     test_path_internal(path, FillRule::NonZero, None);
 }
 
-fn test_path_internal(path: PathSlice, fill_rule: FillRule, expected_triangle_count: Option<usize>) {
+fn test_path_internal(
+    path: PathSlice,
+    fill_rule: FillRule,
+    expected_triangle_count: Option<usize>,
+) {
     let add_logging = env::var("LYON_ENABLE_LOGGING").is_ok();
     let find_test_case = env::var("LYON_REDUCED_TESTCASE").is_ok();
 
@@ -138,7 +138,11 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
 
         let tranformed_path = path.clone().transformed(&Rotation::new(angle));
 
-        test_path_internal(tranformed_path.as_slice(), FillRule::EvenOdd, expected_triangle_count);
+        test_path_internal(
+            tranformed_path.as_slice(),
+            FillRule::EvenOdd,
+            expected_triangle_count,
+        );
         test_path_internal(tranformed_path.as_slice(), FillRule::NonZero, None);
 
         angle.radians += step;
@@ -2402,5 +2406,6 @@ fn low_tolerance_01() {
         &path,
         &FillOptions::tolerance(0.00001),
         &mut simple_builder(&mut buffers),
-    ).unwrap();
+    )
+    .unwrap();
 }

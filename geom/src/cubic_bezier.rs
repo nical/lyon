@@ -2,12 +2,12 @@ use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::cubic_to_quadratic::*;
 pub use crate::flatten_cubic::Flattened;
 use crate::flatten_cubic::{find_cubic_bezier_inflection_points, flatten_cubic_bezier_with_t};
-use crate::{rect, Point, Rect, Vector};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::utils::{cubic_polynomial_roots, min_max};
+use crate::{rect, Point, Rect, Vector};
 use crate::{Line, LineEquation, LineSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
@@ -420,11 +420,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Iterates through the curve invoking a callback at each point.
-    pub fn for_each_flattened_with_t<F: FnMut(Point<S>, S)>(
-        &self,
-        tolerance: S,
-        callback: &mut F,
-    ) {
+    pub fn for_each_flattened_with_t<F: FnMut(Point<S>, S)>(&self, tolerance: S, callback: &mut F) {
         flatten_cubic_bezier_with_t(self, tolerance, callback);
     }
 

@@ -1,7 +1,7 @@
 //! A container to store multiple paths contiguously.
 
-use crate::math::*;
 use crate::builder::*;
+use crate::math::*;
 use crate::path;
 use crate::{EndpointId, PathSlice};
 
@@ -128,7 +128,9 @@ impl<'l> PathBufferSlice<'l> {
 
 impl<'l> fmt::Debug for PathBufferSlice<'l> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "PathBuffer {{ paths: {:?}, points: {:?}, verbs: {:?}, ",
+        write!(
+            formatter,
+            "PathBuffer {{ paths: {:?}, points: {:?}, verbs: {:?}, ",
             self.paths.len(),
             self.points.len(),
             self.verbs.len(),
@@ -281,7 +283,6 @@ impl<'l> Build for Builder<'l> {
     }
 }
 
-
 /// A Builder that appends a path to an existing PathBuffer, with custom attributes.
 pub struct BuilderWithAttributes<'l> {
     buffer: &'l mut PathBuffer,
@@ -351,13 +352,24 @@ impl<'l> BuilderWithAttributes<'l> {
     }
 
     #[inline]
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    pub fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: &[f32],
+    ) -> EndpointId {
         let id = self.builder.quadratic_bezier_to(ctrl, to, attributes);
         self.adjust_id(id)
     }
 
     #[inline]
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    pub fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: &[f32],
+    ) -> EndpointId {
         let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to, attributes);
         self.adjust_id(id)
     }
@@ -370,44 +382,104 @@ impl<'l> BuilderWithAttributes<'l> {
 
 #[test]
 fn simple() {
-  use crate::PathEvent;
+    use crate::PathEvent;
 
-  let mut buffer = PathBuffer::new();
+    let mut buffer = PathBuffer::new();
 
-  let mut builder = buffer.builder();
-  builder.begin(point(0.0, 0.0));
-  builder.line_to(point(10.0, 0.0));
-  builder.line_to(point(10.0, 10.0));
-  let a = builder.line_to(point(0.0, 10.0));
-  builder.end(true);
+    let mut builder = buffer.builder();
+    builder.begin(point(0.0, 0.0));
+    builder.line_to(point(10.0, 0.0));
+    builder.line_to(point(10.0, 10.0));
+    let a = builder.line_to(point(0.0, 10.0));
+    builder.end(true);
 
-  let p1 = builder.build();
+    let p1 = builder.build();
 
-  let mut builder = buffer.builder();
-  builder.begin(point(0.0, 0.0));
-  builder.line_to(point(20.0, 0.0));
-  builder.line_to(point(20.0, 20.0));
-  let b = builder.line_to(point(0.0, 20.0));
-  builder.end(false);
+    let mut builder = buffer.builder();
+    builder.begin(point(0.0, 0.0));
+    builder.line_to(point(20.0, 0.0));
+    builder.line_to(point(20.0, 20.0));
+    let b = builder.line_to(point(0.0, 20.0));
+    builder.end(false);
 
-  let p2 = builder.build();
+    let p2 = builder.build();
 
-  let mut iter = buffer.get(p1).iter();
-  assert_eq!(iter.next(), Some(PathEvent::Begin { at: point(0.0, 0.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::Line { from: point(0.0, 0.0), to: point(10.0, 0.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::Line { from: point(10.0, 0.0), to: point(10.0, 10.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::Line { from: point(10.0, 10.0), to: point(0.0, 10.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::End { last: point(0.0, 10.0), first: point(0.0, 0.0), close: true }));
-  assert_eq!(iter.next(), None);
+    let mut iter = buffer.get(p1).iter();
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Begin {
+            at: point(0.0, 0.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Line {
+            from: point(0.0, 0.0),
+            to: point(10.0, 0.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Line {
+            from: point(10.0, 0.0),
+            to: point(10.0, 10.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Line {
+            from: point(10.0, 10.0),
+            to: point(0.0, 10.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::End {
+            last: point(0.0, 10.0),
+            first: point(0.0, 0.0),
+            close: true
+        })
+    );
+    assert_eq!(iter.next(), None);
 
-  let mut iter = buffer.get(p2).iter();
-  assert_eq!(iter.next(), Some(PathEvent::Begin { at: point(0.0, 0.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::Line { from: point(0.0, 0.0), to: point(20.0, 0.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::Line { from: point(20.0, 0.0), to: point(20.0, 20.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::Line { from: point(20.0, 20.0), to: point(0.0, 20.0) }));
-  assert_eq!(iter.next(), Some(PathEvent::End { last: point(0.0, 20.0), first: point(0.0, 0.0), close: false }));
-  assert_eq!(iter.next(), None);
+    let mut iter = buffer.get(p2).iter();
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Begin {
+            at: point(0.0, 0.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Line {
+            from: point(0.0, 0.0),
+            to: point(20.0, 0.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Line {
+            from: point(20.0, 0.0),
+            to: point(20.0, 20.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Line {
+            from: point(20.0, 20.0),
+            to: point(0.0, 20.0)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::End {
+            last: point(0.0, 20.0),
+            first: point(0.0, 0.0),
+            close: false
+        })
+    );
+    assert_eq!(iter.next(), None);
 
-  assert_eq!(buffer.get(p1)[a], point(0.0, 10.0));
-  assert_eq!(buffer.get(p2)[b], point(0.0, 20.0));
+    assert_eq!(buffer.get(p1)[a], point(0.0, 10.0));
+    assert_eq!(buffer.get(p2)[b], point(0.0, 20.0));
 }

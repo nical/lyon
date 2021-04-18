@@ -1,7 +1,7 @@
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::*;
-use lyon::path::Path;
 use lyon::path::iterator::PathIterator;
+use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
@@ -152,38 +152,45 @@ fn main() {
     builder.close();
     let arrow_path = builder.build();
 
-    fill_tess.tessellate_path(
-        &path,
-        &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
-        &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
-    ).unwrap();
+    fill_tess
+        .tessellate_path(
+            &path,
+            &FillOptions::tolerance(tolerance).with_fill_rule(tessellation::FillRule::NonZero),
+            &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id as i32)),
+        )
+        .unwrap();
 
     let fill_range = 0..(geometry.indices.len() as u32);
 
-    stroke_tess.tessellate_path(
-        &path,
-        &StrokeOptions::tolerance(tolerance),
-        &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
-    ).unwrap();
+    stroke_tess
+        .tessellate_path(
+            &path,
+            &StrokeOptions::tolerance(tolerance),
+            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id as i32)),
+        )
+        .unwrap();
 
     let stroke_range = fill_range.end..(geometry.indices.len() as u32);
 
-    fill_tess.tessellate_path(
-        &arrow_path,
-        &FillOptions::tolerance(tolerance),
-        &mut BuffersBuilder::new(&mut geometry, WithId(arrows_prim_id as i32)),
-    ).unwrap();
-
+    fill_tess
+        .tessellate_path(
+            &arrow_path,
+            &FillOptions::tolerance(tolerance),
+            &mut BuffersBuilder::new(&mut geometry, WithId(arrows_prim_id as i32)),
+        )
+        .unwrap();
 
     let arrow_range = stroke_range.end..(geometry.indices.len() as u32);
 
     let mut bg_geometry: VertexBuffers<BgPoint, u16> = VertexBuffers::new();
 
-    fill_tess.tessellate_rectangle(
-        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
-        &FillOptions::DEFAULT,
-        &mut BuffersBuilder::new(&mut bg_geometry, Custom),
-    ).unwrap();
+    fill_tess
+        .tessellate_rectangle(
+            &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+            &FillOptions::DEFAULT,
+            &mut BuffersBuilder::new(&mut bg_geometry, Custom),
+        )
+        .unwrap();
 
     let mut cpu_primitives = Vec::with_capacity(PRIM_BUFFER_LEN);
     for _ in 0..PRIM_BUFFER_LEN {
@@ -193,7 +200,7 @@ fn main() {
             width: 0.0,
             translate: [0.0, 0.0],
             angle: 0.0,
-            .. Primitive::DEFAULT
+            ..Primitive::DEFAULT
         });
     }
 
@@ -202,13 +209,13 @@ fn main() {
         color: [0.0, 0.0, 0.0, 1.0],
         z_index: num_instances as i32 + 2,
         width: 1.0,
-        .. Primitive::DEFAULT
+        ..Primitive::DEFAULT
     };
     // Main fill primitive
     cpu_primitives[fill_prim_id] = Primitive {
         color: [1.0, 1.0, 1.0, 1.0],
         z_index: num_instances as i32 + 1,
-        .. Primitive::DEFAULT
+        ..Primitive::DEFAULT
     };
     // Instance primitives
     for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances as usize) {
@@ -570,7 +577,7 @@ fn main() {
                         angle: tangent.angle_from_x_axis().get(),
                         scale: 2.0,
                         z_index: arrows_prim_id as i32,
-                        .. Primitive::DEFAULT
+                        ..Primitive::DEFAULT
                     };
                     arrow_count += 1;
                     true

@@ -1,5 +1,5 @@
-use crate::point;
 use crate::monotonic::Monotonic;
+use crate::point;
 use crate::scalar::Scalar;
 use crate::{CubicBezierSegment, QuadraticBezierSegment};
 
@@ -28,8 +28,11 @@ where
 }
 
 /// Approximates a cubic bézier segment with a sequence of quadratic béziers.
-pub fn cubic_to_quadratics_with_t<S: Scalar, F>(curve: &CubicBezierSegment<S>, tolerance: S, cb: &mut F)
-where
+pub fn cubic_to_quadratics_with_t<S: Scalar, F>(
+    curve: &CubicBezierSegment<S>,
+    tolerance: S,
+    cb: &mut F,
+) where
     F: FnMut(&QuadraticBezierSegment<S>, std::ops::Range<S>),
 {
     debug_assert!(tolerance >= S::EPSILON);

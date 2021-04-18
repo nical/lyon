@@ -1,8 +1,9 @@
 //! Specific path types for polygons.
 
 use crate::math::Point;
-use crate::{ControlPointId, EndpointId, Event, EventId, IdEvent, PathEvent, Position, PositionStore};
-
+use crate::{
+    ControlPointId, EndpointId, Event, EventId, IdEvent, PathEvent, Position, PositionStore,
+};
 
 /// A view over a sequence of endpoints forming a polygon.
 ///
@@ -87,7 +88,6 @@ impl<'l, T> std::ops::Index<EndpointId> for Polygon<'l, T> {
         &self.points[id.to_usize()]
     }
 }
-
 
 /// A view over a sequence of endpoint IDs forming a polygon.
 pub struct IdPolygon<'l> {

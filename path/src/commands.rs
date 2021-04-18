@@ -459,17 +459,12 @@ impl PathCommandsBuilder {
         self.in_subpath = false;
 
         let id = EventId(self.cmds.len() as u32);
-        let cmd = if close {
-            verb::CLOSE
-        } else {
-            verb::END
-        };
+        let cmd = if close { verb::CLOSE } else { verb::END };
         self.cmds.push(cmd);
         self.cmds.push(self.first_event_index);
 
         Some(id)
     }
-
 
     pub fn line_to(&mut self, to: EndpointId) -> EventId {
         debug_assert!(self.in_subpath);
@@ -665,11 +660,7 @@ impl<'l> Iterator for Iter<'l> {
                 let from = self.prev_endpoint;
                 self.prev_endpoint = to;
                 self.idx += 3;
-                Some(IdEvent::Quadratic {
-                    from,
-                    ctrl,
-                    to,
-                })
+                Some(IdEvent::Quadratic { from, ctrl, to })
             }
             Some(verb::CUBIC) => {
                 let ctrl1 = ControlPointId(self.cmds.next().unwrap());

@@ -47,15 +47,17 @@ pub extern crate serde;
 
 pub mod builder;
 pub mod commands;
-pub mod iterator;
-pub mod polygon;
-pub mod path_buffer;
-pub mod path;
 mod events;
+pub mod iterator;
+pub mod path;
+pub mod path_buffer;
+pub mod polygon;
 
 #[doc(hidden)]
 pub mod private;
 
+#[doc(inline)]
+pub use crate::commands::{PathCommands, PathCommandsSlice};
 pub use crate::events::*;
 pub use crate::geom::ArcFlags;
 #[doc(inline)]
@@ -63,9 +65,7 @@ pub use crate::path::{Path, PathSlice};
 #[doc(inline)]
 pub use crate::path_buffer::{PathBuffer, PathBufferSlice};
 #[doc(inline)]
-pub use crate::polygon::{Polygon, IdPolygon};
-#[doc(inline)]
-pub use crate::commands::{PathCommands, PathCommandsSlice};
+pub use crate::polygon::{IdPolygon, Polygon};
 
 use math::Point;
 use std::fmt;
@@ -74,9 +74,9 @@ use std::u32;
 pub mod traits {
     //! `lyon_path` traits reexported here for convenience.
 
+    pub use crate::builder::Build;
     pub use crate::builder::PathBuilder;
     pub use crate::builder::SvgPathBuilder;
-    pub use crate::builder::Build;
     pub use crate::iterator::PathIterator;
 }
 
@@ -116,7 +116,10 @@ pub mod math {
     /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
     #[inline]
     pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
-        Rect { origin: point(x, y), size: size(w, h) }
+        Rect {
+            origin: point(x, y),
+            size: size(w, h),
+        }
     }
 
     /// Shorthand for `Vector::new(x, y)`.
@@ -137,7 +140,6 @@ pub mod math {
         Size::new(w, h)
     }
 }
-
 
 /// The fill rule defines how to determine what is inside and what is outside of the shape.
 ///
