@@ -1,15 +1,15 @@
 extern crate clap;
+extern crate itertools;
 extern crate lyon;
 extern crate rand;
-extern crate itertools;
 extern crate regex;
 
 mod commands;
 mod flatten;
 mod fuzzing;
+mod reduce;
 mod show;
 mod tessellate;
-mod reduce;
 
 use clap::*;
 use commands::*;
@@ -154,7 +154,7 @@ fn main() {
         )
         .subcommand(
             declare_tess_params(SubCommand::with_name("reduce"), true)
-                .about("Find a reduced testcase")
+                .about("Find a reduced testcase"),
         )
         .get_matches();
 
@@ -257,80 +257,95 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b>
     } else {
         app
     }
-    .arg(Arg::with_name("FILL")
-        .short("f")
-        .long("fill")
-        .help("Fills the path")
+    .arg(
+        Arg::with_name("FILL")
+            .short("f")
+            .long("fill")
+            .help("Fills the path"),
     )
-    .arg(Arg::with_name("STROKE")
-        .short("s")
-        .long("stroke")
-        .help("Strokes the path")
+    .arg(
+        Arg::with_name("STROKE")
+            .short("s")
+            .long("stroke")
+            .help("Strokes the path"),
     )
-    .arg(Arg::with_name("HATCH")
-        .long("hatch")
-        .help("Fill the path with a regular hatching pattern using the provided value as spacing")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("HATCH")
+            .long("hatch")
+            .help(
+                "Fill the path with a regular hatching pattern using the provided value as spacing",
+            )
+            .takes_value(true),
     )
-    .arg(Arg::with_name("DOT")
-        .long("dot")
-        .help("Fill the path with a regular dot pattern using the provided value as spacing")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("DOT")
+            .long("dot")
+            .help("Fill the path with a regular dot pattern using the provided value as spacing")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("TOLERANCE")
-        .short("t")
-        .long("tolerance")
-        .help("Sets the tolerance threshold for flattening (0.5 by default)")
-        .value_name("TOLERANCE")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("TOLERANCE")
+            .short("t")
+            .long("tolerance")
+            .help("Sets the tolerance threshold for flattening (0.5 by default)")
+            .value_name("TOLERANCE")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("LINE_WIDTH")
-        .short("w")
-        .long("line-width")
-        .help("The line width for strokes")
-        .value_name("LINE_WIDTH")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("LINE_WIDTH")
+            .short("w")
+            .long("line-width")
+            .help("The line width for strokes")
+            .value_name("LINE_WIDTH")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("LINE_JOIN")
-        .long("line-join")
-        .help("The line-join type for strokes")
-        .value_name("LINE_JOIN")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("LINE_JOIN")
+            .long("line-join")
+            .help("The line-join type for strokes")
+            .value_name("LINE_JOIN")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("LINE_CAP")
-        .long("line-cap")
-        .help("The line-cap type for strokes")
-        .value_name("LINE_CAP")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("LINE_CAP")
+            .long("line-cap")
+            .help("The line-cap type for strokes")
+            .value_name("LINE_CAP")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("MITER_LIMIT")
-        .long("miter-limit")
-        .help("The miter limit for strokes")
-        .value_name("MITER_LIMIT")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("MITER_LIMIT")
+            .long("miter-limit")
+            .help("The miter limit for strokes")
+            .value_name("MITER_LIMIT")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("FILL_RULE")
-        .long("fill-rule")
-        .help("Fill rule")
-        .value_name("FILL_RULE")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("FILL_RULE")
+            .long("fill-rule")
+            .help("Fill rule")
+            .value_name("FILL_RULE")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("SWEEP_ORIENTATION")
-        .long("sweep-orientation")
-        .help("Traverse the geometry vertically or horizontally.")
-        .value_name("SWEEP_ORIENTATION")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("SWEEP_ORIENTATION")
+            .long("sweep-orientation")
+            .help("Traverse the geometry vertically or horizontally.")
+            .value_name("SWEEP_ORIENTATION")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("TESSELLATOR")
-        .long("tessellator")
-        .help("Select the tessellator to use")
-        .value_name("TESSELLATOR")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("TESSELLATOR")
+            .long("tessellator")
+            .help("Select the tessellator to use")
+            .value_name("TESSELLATOR")
+            .takes_value(true),
     )
-    .arg(Arg::with_name("HATCHING_ANGLE")
-        .long("angle")
-        .help("Angle between the hatching and the x axis")
-        .takes_value(true)
+    .arg(
+        Arg::with_name("HATCHING_ANGLE")
+            .long("angle")
+            .help("Angle between the hatching and the x axis")
+            .takes_value(true),
     )
 }
 

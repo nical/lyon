@@ -1,9 +1,9 @@
-use crate::{point, vector, Point, Rect, Size, Vector};
 use crate::monotonic::MonotonicSegment;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::utils::min_max;
+use crate::{point, vector, Point, Rect, Size, Vector};
 use std::mem::swap;
 
 use std::ops::Range;
@@ -202,7 +202,6 @@ impl<S: Scalar> LineSegment<S> {
     /// segment. To get the intersection point, sample one of the segments
     /// at the corresponding value.
     pub fn intersection_t(&self, other: &Self) -> Option<(S, S)> {
-
         if self.to == other.to
             || self.from == other.from
             || self.from == other.to

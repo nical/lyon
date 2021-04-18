@@ -1,5 +1,5 @@
-use crate::math::*;
 use crate::geometry_builder::{simple_builder, VertexBuffers};
+use crate::math::*;
 use crate::path::iterator::*;
 use crate::path::{Path, PathSlice};
 use crate::{FillOptions, FillRule, FillTessellator, TessellationError};
@@ -7,8 +7,7 @@ use crate::{FillOptions, FillRule, FillTessellator, TessellationError};
 fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
     {
-        let options = FillOptions::tolerance(0.05)
-            .with_fill_rule(fill_rule);
+        let options = FillOptions::tolerance(0.05).with_fill_rule(fill_rule);
 
         let mut builder = Path::builder();
         for e in path.iter().flattened(0.05) {

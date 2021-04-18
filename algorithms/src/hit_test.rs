@@ -35,7 +35,12 @@ where
                 prev_winding = None;
             }
             PathEvent::Line { from, to } => {
-                test_segment(*point, &LineSegment { from, to }, &mut winding, &mut prev_winding);
+                test_segment(
+                    *point,
+                    &LineSegment { from, to },
+                    &mut winding,
+                    &mut prev_winding,
+                );
             }
             PathEvent::End { last, first, .. } => {
                 test_segment(
@@ -56,7 +61,12 @@ where
                 }
                 let mut prev = segment.from;
                 segment.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding, &mut prev_winding);
+                    test_segment(
+                        *point,
+                        &LineSegment { from: prev, to: p },
+                        &mut winding,
+                        &mut prev_winding,
+                    );
                     prev = p;
                 });
             }
@@ -78,7 +88,12 @@ where
                 }
                 let mut prev = segment.from;
                 segment.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(*point, &LineSegment { from: prev, to: p }, &mut winding, &mut prev_winding);
+                    test_segment(
+                        *point,
+                        &LineSegment { from: prev, to: p },
+                        &mut winding,
+                        &mut prev_winding,
+                    );
                     prev = p;
                 });
             }
@@ -88,14 +103,19 @@ where
     winding
 }
 
-fn test_segment(point: Point, segment: &LineSegment<f32>, winding: &mut i32, prev_winding: &mut Option<i32>) {
-    let y0  = segment.from.y;
-    let y1  = segment.to.y;
+fn test_segment(
+    point: Point,
+    segment: &LineSegment<f32>,
+    winding: &mut i32,
+    prev_winding: &mut Option<i32>,
+) {
+    let y0 = segment.from.y;
+    let y1 = segment.to.y;
     if f32::min(y0, y1) > point.y
         || f32::max(y0, y1) < point.y
         || f32::min(segment.from.x, segment.to.x) > point.x
-        || y0 == y1 {
-
+        || y0 == y1
+    {
         return;
     }
 
@@ -142,7 +162,7 @@ fn test_segment(point: Point, segment: &LineSegment<f32>, winding: &mut i32, pre
         //
         // The main idea is that within a sub-path we can't have consecutive affecting edges
         // of the same winding sign, so if we find some it means we are double-counting.
-        if *prev_winding != Some(w)  {
+        if *prev_winding != Some(w) {
             *winding += w;
         }
 
@@ -180,7 +200,10 @@ fn test_hit_test() {
         FillRule::EvenOdd,
         0.1
     ));
-    println!("winding {:?}", path_winding_number_at_position(&point(2.0, 0.0), path.iter(), 0.1));
+    println!(
+        "winding {:?}",
+        path_winding_number_at_position(&point(2.0, 0.0), path.iter(), 0.1)
+    );
     assert!(!hit_test_path(
         &point(2.0, 0.0),
         path.iter(),
@@ -242,6 +265,16 @@ fn hit_test_point_aligned() {
         closed: true,
     };
 
-    assert!(hit_test_path(&point(0.0, 5.0), poly.path_events(), FillRule::NonZero, 0.1));
-    assert!(!hit_test_path(&point(15.0, 5.0), poly.path_events(), FillRule::NonZero, 0.1));
+    assert!(hit_test_path(
+        &point(0.0, 5.0),
+        poly.path_events(),
+        FillRule::NonZero,
+        0.1
+    ));
+    assert!(!hit_test_path(
+        &point(15.0, 5.0),
+        poly.path_events(),
+        FillRule::NonZero,
+        0.1
+    ));
 }

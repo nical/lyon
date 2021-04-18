@@ -1,6 +1,6 @@
-use crate::{Point, Rect, Vector};
 use crate::scalar::Scalar;
 use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
+use crate::{Point, Rect, Vector};
 
 use std::ops::Range;
 
@@ -88,25 +88,51 @@ pub trait BoundingRect {
 }
 
 macro_rules! impl_segment {
-    ($S:ty) => (
+    ($S:ty) => {
         type Scalar = $S;
-        fn from(&self) -> Point<$S> { self.from() }
-        fn to(&self) -> Point<$S> { self.to() }
-        fn sample(&self, t: $S) -> Point<$S> { self.sample(t) }
-        fn x(&self, t: $S) -> $S { self.x(t) }
-        fn y(&self, t: $S) -> $S { self.y(t) }
-        fn derivative(&self, t: $S) -> Vector<$S> { self.derivative(t) }
-        fn dx(&self, t: $S) -> $S { self.dx(t) }
-        fn dy(&self, t: $S) -> $S { self.dy(t) }
-        fn split(&self, t: $S) -> (Self, Self) { self.split(t) }
-        fn before_split(&self, t: $S) -> Self { self.before_split(t) }
-        fn after_split(&self, t: $S) -> Self { self.after_split(t) }
-        fn split_range(&self, t_range: Range<$S>) -> Self { self.split_range(t_range) }
-        fn flip(&self) -> Self { self.flip() }
+        fn from(&self) -> Point<$S> {
+            self.from()
+        }
+        fn to(&self) -> Point<$S> {
+            self.to()
+        }
+        fn sample(&self, t: $S) -> Point<$S> {
+            self.sample(t)
+        }
+        fn x(&self, t: $S) -> $S {
+            self.x(t)
+        }
+        fn y(&self, t: $S) -> $S {
+            self.y(t)
+        }
+        fn derivative(&self, t: $S) -> Vector<$S> {
+            self.derivative(t)
+        }
+        fn dx(&self, t: $S) -> $S {
+            self.dx(t)
+        }
+        fn dy(&self, t: $S) -> $S {
+            self.dy(t)
+        }
+        fn split(&self, t: $S) -> (Self, Self) {
+            self.split(t)
+        }
+        fn before_split(&self, t: $S) -> Self {
+            self.before_split(t)
+        }
+        fn after_split(&self, t: $S) -> Self {
+            self.after_split(t)
+        }
+        fn split_range(&self, t_range: Range<$S>) -> Self {
+            self.split_range(t_range)
+        }
+        fn flip(&self) -> Self {
+            self.flip()
+        }
         fn approximate_length(&self, tolerance: $S) -> $S {
             self.approximate_length(tolerance)
         }
-    )
+    };
 }
 
 /// Either a cubic, quadratic or linear bézier segment.

@@ -4,8 +4,8 @@
 //  - simplify/remove it.
 
 use crate::math::*;
-use crate::path::{Path, PathEvent};
 use crate::path::polygon::Polygon;
+use crate::path::{Path, PathEvent};
 use sid::{Id, IdRange, IdSlice, IdVec};
 use std::ops;
 use std::u16;

@@ -1,7 +1,7 @@
-use crate::{Point, Rect, Vector};
 use crate::scalar::{NumCast, Scalar};
 use crate::segment::{BoundingRect, Segment};
 use crate::{CubicBezierSegment, QuadraticBezierSegment};
+use crate::{Point, Rect, Vector};
 use arrayvec::ArrayVec;
 use std::ops::Range;
 
@@ -399,7 +399,9 @@ where
     let mut result = ArrayVec::new();
     result.push((t1, t2));
 
-    if let Some(intersection) = first_monotonic_segment_intersecion(a, t1..a_t_range.end, b, t2..b_t_range.end, tolerance) {
+    if let Some(intersection) =
+        first_monotonic_segment_intersecion(a, t1..a_t_range.end, b, t2..b_t_range.end, tolerance)
+    {
         result.push(intersection);
     }
 

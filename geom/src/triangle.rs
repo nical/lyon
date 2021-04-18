@@ -1,7 +1,7 @@
-use crate::{Point, Rect, Size};
 use crate::scalar::Scalar;
 use crate::traits::Transformation;
 use crate::LineSegment;
+use crate::{Point, Rect, Size};
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]

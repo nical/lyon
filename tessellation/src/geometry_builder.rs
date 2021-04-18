@@ -264,7 +264,8 @@ pub trait StrokeGeometryBuilder: GeometryBuilder {
     /// Returns a vertex id that is only valid between begin_geometry and end_geometry.
     ///
     /// This method can only be called between begin_geometry and end_geometry.
-    fn add_stroke_vertex(&mut self, vertex: StrokeVertex) -> Result<VertexId, GeometryBuilderError>;
+    fn add_stroke_vertex(&mut self, vertex: StrokeVertex)
+        -> Result<VertexId, GeometryBuilderError>;
 }
 
 /// Structure that holds the vertex and index data.
@@ -453,9 +454,9 @@ where
     Ctor: FillVertexConstructor<OutputVertex>,
 {
     fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers.vertices.push(
-            self.vertex_constructor.new_vertex(vertex)
-        );
+        self.buffers
+            .vertices
+            .push(self.vertex_constructor.new_vertex(vertex));
         let len = self.buffers.vertices.len();
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
@@ -471,10 +472,7 @@ where
     OutputIndex: Add + From<VertexId> + MaxIndex,
     Ctor: StrokeVertexConstructor<OutputVertex>,
 {
-    fn add_stroke_vertex(
-        &mut self,
-        v: StrokeVertex,
-    ) -> Result<VertexId, GeometryBuilderError> {
+    fn add_stroke_vertex(&mut self, v: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
         self.buffers
             .vertices
             .push(self.vertex_constructor.new_vertex(v));
@@ -525,10 +523,7 @@ impl GeometryBuilder for NoOutput {
 }
 
 impl FillGeometryBuilder for NoOutput {
-    fn add_fill_vertex(
-        &mut self,
-        _vertex: FillVertex,
-    ) -> Result<VertexId, GeometryBuilderError> {
+    fn add_fill_vertex(&mut self, _vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
@@ -538,10 +533,7 @@ impl FillGeometryBuilder for NoOutput {
 }
 
 impl StrokeGeometryBuilder for NoOutput {
-    fn add_stroke_vertex(
-        &mut self,
-        _: StrokeVertex,
-    ) -> Result<VertexId, GeometryBuilderError> {
+    fn add_stroke_vertex(&mut self, _: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
         if self.count.vertices >= std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }

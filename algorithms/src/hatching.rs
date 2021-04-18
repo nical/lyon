@@ -26,11 +26,11 @@
 //! let hatched_path = hatches.build();
 //! ```
 
-use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::geom::LineSegment;
+use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::private::DebugValidator;
-use crate::path::{self, PathEvent, EndpointId};
+use crate::path::{self, EndpointId, PathEvent};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -705,7 +705,7 @@ fn simple_hatching() {
         &HatchingOptions::DEFAULT,
         &mut RegularHatchingPattern {
             interval: 1.0,
-            callback: &mut|segment: &HatchSegment| {
+            callback: &mut |segment: &HatchSegment| {
                 hatches.add_line_segment(&LineSegment {
                     from: segment.a.position,
                     to: segment.b.position,

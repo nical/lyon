@@ -42,7 +42,7 @@
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::{PathEvent, EndpointId};
+use crate::path::{EndpointId, PathEvent};
 
 use std::f32;
 
@@ -171,7 +171,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
         if close {
             let first = self.first;
             self.line_to(first);
-            self.need_moveto = true;        
+            self.need_moveto = true;
         }
     }
 

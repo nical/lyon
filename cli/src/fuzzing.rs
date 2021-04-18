@@ -1,13 +1,13 @@
 use crate::commands::{FuzzCmd, Tessellator};
+use lyon::algorithms::hatching::*;
 use lyon::extra::debugging::find_reduced_test_case;
+use lyon::geom::LineSegment;
 use lyon::math::*;
-use lyon::path::Path;
 use lyon::path::traits::PathBuilder;
+use lyon::path::Path;
 use lyon::tess2;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
-use lyon::algorithms::hatching::*;
-use lyon::geom::LineSegment;
 use rand;
 use std::cmp::{max, min};
 
@@ -67,27 +67,22 @@ pub fn run(cmd: FuzzCmd) -> bool {
     loop {
         let path = generate_path(&cmd, i);
         if let Some(options) = cmd.tess.fill {
-            let status = ::std::panic::catch_unwind(|| {
-                match cmd.tess.tessellator {
-                    Tessellator::Default => {
-                        let result = FillTessellator::new().tessellate(
-                            &path,
-                            &options,
-                            &mut NoOutput::new(),
-                        );
-                        if !cmd.ignore_errors {
-                            result.unwrap();
-                        }
+            let status = ::std::panic::catch_unwind(|| match cmd.tess.tessellator {
+                Tessellator::Default => {
+                    let result =
+                        FillTessellator::new().tessellate(&path, &options, &mut NoOutput::new());
+                    if !cmd.ignore_errors {
+                        result.unwrap();
                     }
-                    Tessellator::Tess2 => {
-                        let result = tess2::FillTessellator::new().tessellate(
-                            &path,
-                            &options,
-                            &mut NoOutput::new(),
-                        );
-                        if !cmd.ignore_errors {
-                            result.unwrap();
-                        }
+                }
+                Tessellator::Tess2 => {
+                    let result = tess2::FillTessellator::new().tessellate(
+                        &path,
+                        &options,
+                        &mut NoOutput::new(),
+                    );
+                    if !cmd.ignore_errors {
+                        result.unwrap();
                     }
                 }
             });

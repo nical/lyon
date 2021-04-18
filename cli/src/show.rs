@@ -14,8 +14,8 @@ use lyon::algorithms::aabb::bounding_rect;
 use lyon::algorithms::hatching::*;
 use lyon::geom::LineSegment;
 use lyon::math::*;
-use lyon::path::Path;
 use lyon::path::builder::PathBuilder;
+use lyon::path::Path;
 use lyon::tess2;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
@@ -105,7 +105,6 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     if let Some(options) = cmd.fill {
         match cmd.tessellator {
             Tessellator::Default => {
-
                 fill.tessellate(
                     &cmd.path,
                     &options,
@@ -126,24 +125,25 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 //}
             }
             Tessellator::Tess2 => {
-                tess2::FillTessellator::new().tessellate(
-                    cmd.path.iter(),
-                    &options,
-                    &mut tess2::geometry_builder::BuffersBuilder::new(
-                        &mut geometry,
-                        WithId(0),
-                    ),
-                ).unwrap();
+                tess2::FillTessellator::new()
+                    .tessellate(
+                        cmd.path.iter(),
+                        &options,
+                        &mut tess2::geometry_builder::BuffersBuilder::new(&mut geometry, WithId(0)),
+                    )
+                    .unwrap();
             }
         }
     }
 
     if let Some(options) = cmd.stroke {
-        stroke.tessellate(
-            cmd.path.iter(),
-            &options,
-            &mut BuffersBuilder::new(&mut geometry, WithId(1)),
-        ).unwrap();
+        stroke
+            .tessellate(
+                cmd.path.iter(),
+                &options,
+                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+            )
+            .unwrap();
     }
 
     if let Some(hatch) = cmd.hatch {
@@ -164,11 +164,13 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         );
         let hatched_path = path.build();
 
-        stroke.tessellate(
-            hatched_path.iter(),
-            &hatch.stroke,
-            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
-        ).unwrap();
+        stroke
+            .tessellate(
+                hatched_path.iter(),
+                &hatch.stroke,
+                &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
+            )
+            .unwrap();
     }
 
     if let Some(dots) = cmd.dots {
@@ -187,11 +189,13 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         );
         let dotted_path = path.build();
 
-        stroke.tessellate(
-            dotted_path.iter(),
-            &dots.stroke,
-            &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
-        ).unwrap();
+        stroke
+            .tessellate(
+                dotted_path.iter(),
+                &dots.stroke,
+                &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
+            )
+            .unwrap();
     }
 
     let (bg_color, vignette_color) = match render_options.background {
@@ -211,8 +215,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
         &FillOptions::DEFAULT,
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
-    ).unwrap();
-
+    )
+    .unwrap();
 
     let sample_count = match render_options.aa {
         AntiAliasing::Msaa(samples) => samples as u32,
@@ -683,17 +687,12 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
         frame_count += 1.0;
     });
-
 }
 
 fn build_wireframe_indices(indices: &[u32]) -> Vec<u32> {
     let mut set = std::collections::HashSet::new();
     let check = &mut |a: u32, b: u32| {
-        let (i1, i2) = if a < b {
-            (a, b)
-        } else {
-            (b, a)
-        };
+        let (i1, i2) = if a < b { (a, b) } else { (b, a) };
 
         set.insert((i1, i2))
     };

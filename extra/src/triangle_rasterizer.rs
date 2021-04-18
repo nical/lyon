@@ -2,9 +2,9 @@ use std::cmp::{max, min};
 use std::ops::Add;
 
 use euclid;
+use euclid::vec2;
 use image::MutableImageSlice;
 use math::*;
-use euclid::vec2;
 
 type IntVector = euclid::default::Vector2D<i32>;
 

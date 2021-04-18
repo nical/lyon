@@ -80,14 +80,14 @@
 //!
 
 use crate::events::PathEvent;
-use crate::geom::{Arc, ArcFlags, SvgArc, LineSegment, traits::Transformation};
+use crate::geom::{traits::Transformation, Arc, ArcFlags, LineSegment, SvgArc};
 use crate::math::*;
-use crate::polygon::Polygon;
 use crate::path::Verb;
+use crate::polygon::Polygon;
 use crate::{EndpointId, Winding};
 
-use std::marker::Sized;
 use std::iter::IntoIterator;
+use std::marker::Sized;
 
 /// The radius of each corner of a rounded rectangle.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
@@ -193,7 +193,9 @@ pub trait PathBuilder {
             PathEvent::Quadratic { ctrl, to, .. } => {
                 self.quadratic_bezier_to(ctrl, to);
             }
-            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+            PathEvent::Cubic {
+                ctrl1, ctrl2, to, ..
+            } => {
                 self.cubic_bezier_to(ctrl1, ctrl2, to);
             }
             PathEvent::End { close, .. } => {
@@ -205,7 +207,7 @@ pub trait PathBuilder {
     /// Adds events from an iterator.
     fn extend<Evts>(&mut self, events: Evts)
     where
-        Evts: IntoIterator<Item = PathEvent>
+        Evts: IntoIterator<Item = PathEvent>,
     {
         for evt in events.into_iter() {
             self.path_event(evt)
@@ -286,7 +288,7 @@ pub trait PathBuilder {
     /// No sub-path is in progress after the method is called.
     fn add_circle(&mut self, center: Point, radius: f32, winding: Winding)
     where
-        Self: Sized
+        Self: Sized,
     {
         add_circle(self, center, radius, winding);
     }
@@ -324,7 +326,7 @@ pub trait PathBuilder {
     /// No sub-path is in progress after the method is called.
     fn add_rounded_rectangle(&mut self, rect: &Rect, radii: &BorderRadii, winding: Winding)
     where
-        Self: Sized
+        Self: Sized,
     {
         add_rounded_rectangle(self, rect, radii, winding);
     }
@@ -341,7 +343,7 @@ pub trait PathBuilder {
     fn transformed<Transform>(self, transform: Transform) -> Transformed<Self, Transform>
     where
         Self: Sized,
-        Transform: Transformation<f32>
+        Transform: Transformation<f32>,
     {
         Transformed::new(self, transform)
     }
@@ -573,7 +575,6 @@ pub trait Build {
     fn build(self) -> Self::PathType;
 }
 
-
 /// A Builder that approximates curves with successions of line segments.
 pub struct Flattened<Builder> {
     builder: Builder,
@@ -590,7 +591,6 @@ impl<Builder: Build> Build for Flattened<Builder> {
 }
 
 impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
-
     fn begin(&mut self, at: Point) -> EndpointId {
         self.current_position = at;
         self.builder.begin(at)
@@ -608,14 +608,27 @@ impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
     }
 
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
-        let id = crate::private::flatten_quadratic_bezier(self.tolerance, self.current_position, ctrl, to, self);
+        let id = crate::private::flatten_quadratic_bezier(
+            self.tolerance,
+            self.current_position,
+            ctrl,
+            to,
+            self,
+        );
         self.current_position = to;
 
         id
     }
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
-        let id = crate::private::flatten_cubic_bezier(self.tolerance, self.current_position, ctrl1, ctrl2, to, self);
+        let id = crate::private::flatten_cubic_bezier(
+            self.tolerance,
+            self.current_position,
+            ctrl1,
+            ctrl2,
+            to,
+            self,
+        );
         self.current_position = to;
 
         id
@@ -635,7 +648,10 @@ impl<Builder: PathBuilder> Flattened<Builder> {
         }
     }
 
-    pub fn build(self) -> Builder::PathType where Builder: Build {
+    pub fn build(self) -> Builder::PathType
+    where
+        Builder: Build,
+    {
         self.builder.build()
     }
 
@@ -653,10 +669,7 @@ pub struct Transformed<Builder, Transform> {
 impl<Builder, Transform> Transformed<Builder, Transform> {
     #[inline]
     pub fn new(builder: Builder, transform: Transform) -> Self {
-        Transformed {
-            builder,
-            transform,
-        }
+        Transformed { builder, transform }
     }
 
     #[inline]
@@ -730,7 +743,6 @@ pub struct WithSvg<Builder: PathBuilder> {
 }
 
 impl<Builder: PathBuilder> WithSvg<Builder> {
-
     pub fn new(builder: Builder) -> Self {
         WithSvg {
             builder,
@@ -743,7 +755,10 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         }
     }
 
-    pub fn build(mut self) -> Builder::PathType where Builder: Build {
+    pub fn build(mut self) -> Builder::PathType
+    where
+        Builder: Build,
+    {
         self.end_if_needed();
         self.builder.build()
     }
@@ -752,9 +767,12 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         WithSvg::new(Flattened::new(self.builder, tolerance))
     }
 
-    pub fn transformed<Transform>(self, transform: Transform) -> WithSvg<Transformed<Builder, Transform>>
+    pub fn transformed<Transform>(
+        self,
+        transform: Transform,
+    ) -> WithSvg<Transformed<Builder, Transform>>
     where
-        Transform: Transformation<f32>
+        Transform: Transformation<f32>,
     {
         WithSvg::new(Transformed::new(self.builder, transform))
     }
@@ -873,7 +891,7 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
     #[inline(always)]
     fn begin_if_needed(&mut self, default: &Point) -> Option<EndpointId> {
         if self.need_moveto {
-            return self.insert_move_to(default)
+            return self.insert_move_to(default);
         }
 
         None
@@ -882,7 +900,7 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
     #[inline(never)]
     fn insert_move_to(&mut self, default: &Point) -> Option<EndpointId> {
         if self.is_empty {
-            return Some(self.move_to(*default))
+            return Some(self.move_to(*default));
         }
 
         self.move_to(self.first_position);
@@ -933,7 +951,6 @@ where
         self.builder.set_transform(transform);
     }
 }
-
 
 impl<Builder: PathBuilder + Build> Build for WithSvg<Builder> {
     type PathType = Builder::PathType;
@@ -1041,7 +1058,8 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
-        }.to_arc();
+        }
+        .to_arc();
 
         self.arc(arc.center, arc.radii, arc.sweep_angle, arc.x_rotation);
     }
@@ -1275,7 +1293,7 @@ fn svg_builder_relative_curves() {
 
     let mut p = Path::svg_builder();
     p.move_to(point(0.0, 0.0));
-    p.relative_quadratic_bezier_to( vector(0., 100.), vector(-100., 100.));
+    p.relative_quadratic_bezier_to(vector(0., 100.), vector(-100., 100.));
     p.relative_line_to(vector(-50., 0.));
 
     let path = p.build();

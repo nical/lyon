@@ -1,8 +1,8 @@
 use crate::fill::{compare_positions, is_after};
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::{point, Point};
-use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
 use crate::path::private::DebugValidator;
+use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
 use crate::Orientation;
 
 use std::cmp::Ordering;
@@ -185,7 +185,12 @@ impl EventQueue {
         after: TessEventId,
     ) -> TessEventId {
         debug_assert!(self.sorted);
-        debug_assert!(is_after(data.to, position), "{:?} should be after {:?}", data.to, position);
+        debug_assert!(
+            is_after(data.to, position),
+            "{:?} should be after {:?}",
+            data.to,
+            position
+        );
 
         let idx = self.events.len() as TessEventId;
         self.events.push(Event {
@@ -816,7 +821,13 @@ impl EventQueueBuilder {
         }
     }
 
-    pub fn cubic_bezier_segment(&mut self, ctrl1: Point, ctrl2: Point, to: Point, to_id: EndpointId) {
+    pub fn cubic_bezier_segment(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        to_id: EndpointId,
+    ) {
         self.validator.edge();
         // Swap the curve so that it always goes downwards. This way if two
         // paths share the same edge with different windings, the flattening will

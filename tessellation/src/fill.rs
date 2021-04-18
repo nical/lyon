@@ -1,20 +1,20 @@
 use crate::event_queue::*;
-use crate::math::*;
 use crate::geom::LineSegment;
+use crate::math::*;
 use crate::monotone::*;
 use crate::path::polygon::Polygon;
+use crate::path::traits::{Build, PathBuilder};
 use crate::path::{
-    AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore, Winding
+    AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore, Winding,
 };
-use crate::path::traits::{PathBuilder, Build};
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
     FillOptions, InternalError, Side, TessellationError, TessellationResult, VertexSource,
 };
 use std::cmp::Ordering;
 use std::f32;
-use std::ops::Range;
 use std::mem;
+use std::ops::Range;
 
 #[cfg(debug_assertions)]
 use std::env;
@@ -26,7 +26,11 @@ type ActiveEdgeIdx = usize;
 // because the latter deals with NaN.
 #[inline(always)]
 fn fmax(a: f32, b: f32) -> f32 {
-    if a > b { a } else { b }
+    if a > b {
+        a
+    } else {
+        b
+    }
 }
 
 fn slope(v: Vector) -> f32 {
@@ -180,8 +184,8 @@ impl Span {
             None => {
                 debug_assert!(false);
                 unreachable!();
-            },
-            Some(tess) => tess
+            }
+            Some(tess) => tess,
         }
     }
 }
@@ -193,14 +197,14 @@ struct Spans {
 
 impl Spans {
     fn begin_span(&mut self, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
-        let mut tess = self.pool.pop()
+        let mut tess = self
+            .pool
+            .pop()
             .unwrap_or_else(|| Box::new(MonotoneTessellator::new()));
         tess.begin(*position, vertex);
 
-        self.spans.insert(
-            span_idx as usize,
-            Span { tess: Some(tess), }
-        );
+        self.spans
+            .insert(span_idx as usize, Span { tess: Some(tess) });
     }
 
     fn end_span(
@@ -240,13 +244,17 @@ impl Spans {
 
         let right_span_idx = left_span_idx + 1;
 
-        self.spans[left_span_idx as usize]
-            .tess()
-            .vertex(*merge_position, merge_vertex, Side::Right);
+        self.spans[left_span_idx as usize].tess().vertex(
+            *merge_position,
+            merge_vertex,
+            Side::Right,
+        );
 
-        self.spans[right_span_idx as usize]
-            .tess()
-            .vertex(*merge_position, merge_vertex, Side::Left);
+        self.spans[right_span_idx as usize].tess().vertex(
+            *merge_position,
+            merge_vertex,
+            Side::Left,
+        );
 
         self.end_span(left_span_idx, current_position, current_vertex, output);
     }
@@ -513,7 +521,10 @@ impl FillTessellator {
             fill_rule: FillRule::EvenOdd,
             orientation: Orientation::Vertical,
             tolerance: FillOptions::DEFAULT_TOLERANCE,
-            fill: Spans { spans: Vec::new(), pool: Vec::new() },
+            fill: Spans {
+                spans: Vec::new(),
+                pool: Vec::new(),
+            },
             log,
             assume_no_intersection: false,
             attrib_buffer: Vec::new(),
@@ -596,11 +607,7 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        self.tessellate(
-            polygon.path_events(),
-            options,
-            output,
-        )
+        self.tessellate(polygon.path_events(), options, output)
     }
 
     /// Tessellate an axis-aligned rectangle.
@@ -818,15 +825,13 @@ impl FillTessellator {
             Orientation::Horizontal => reorient(self.current_position),
         };
 
-        self.current_vertex = output.add_fill_vertex(
-            FillVertex {
-                position,
-                events: &self.events,
-                current_event,
-                attrib_store,
-                attrib_buffer: &mut self.attrib_buffer,
-            },
-        )?;
+        self.current_vertex = output.add_fill_vertex(FillVertex {
+            position,
+            events: &self.events,
+            current_event,
+            attrib_store,
+            attrib_buffer: &mut self.attrib_buffer,
+        })?;
 
         let mut current_sibling = current_event;
         while self.events.valid_id(current_sibling) {
@@ -934,7 +939,12 @@ impl FillTessellator {
             if edge.is_merge {
                 assert!(self.fill_rule.is_in(winding.number));
             } else {
-                assert!(!is_after(self.current_position, edge.to), "error at edge {}, position {:?}", idx, edge.to);
+                assert!(
+                    !is_after(self.current_position, edge.to),
+                    "error at edge {}, position {:?}",
+                    idx,
+                    edge.to
+                );
             }
         }
         assert_eq!(winding.number, 0);
@@ -1207,7 +1217,11 @@ impl FillTessellator {
 
     #[cfg_attr(feature = "profiling", inline(never))]
     #[cfg_attr(not(feature = "profiling"), inline(always))]
-    fn check_remaining_edges(&self, active_edge_idx: usize, current_x: f32) -> Result<(), InternalError> {
+    fn check_remaining_edges(
+        &self,
+        active_edge_idx: usize,
+        current_x: f32,
+    ) -> Result<(), InternalError> {
         // This function typically takes about 2.5% ~ 3% of the profile, so not necessarily the best
         // target for optimization. That said all of the work done here is only robustness checks
         // so we could add an option to skip it.
@@ -1452,25 +1466,21 @@ impl FillTessellator {
 
         #[cfg(debug_assertions)]
         for active_edge in &self.active.edges[above.clone()] {
-            debug_assert!(
-                active_edge.is_merge || !is_after(self.current_position, active_edge.to)
-            );
+            debug_assert!(active_edge.is_merge || !is_after(self.current_position, active_edge.to));
         }
 
         let from = self.current_position;
         let from_id = self.current_vertex;
         self.active.edges.splice(
             above,
-            self.edges_below.iter().map(|edge| {
-                ActiveEdge {
-                    from,
-                    to: edge.to,
-                    winding: edge.winding,
-                    is_merge: false,
-                    from_id,
-                    src_edge: edge.src_edge,
-                    range_end: edge.range_end,
-                }
+            self.edges_below.iter().map(|edge| ActiveEdge {
+                from,
+                to: edge.to,
+                winding: edge.winding,
+                is_merge: false,
+                from_id,
+                src_edge: edge.src_edge,
+                range_end: edge.range_end,
             }),
         );
 
@@ -1509,7 +1519,8 @@ impl FillTessellator {
             )
         };
 
-        self.fill.begin_span(new_span_idx, &upper_position, upper_id);
+        self.fill
+            .begin_span(new_span_idx, &upper_position, upper_id);
 
         self.fill.spans[left_span_idx as usize].tess().vertex(
             self.current_position,
@@ -1608,10 +1619,16 @@ impl FillTessellator {
         tb: f64,
         active_edge_idx: usize,
         edge_below: &mut PendingEdge,
-        below_segment: &LineSegment<f64>
+        below_segment: &LineSegment<f64>,
     ) {
         let mut intersection_position = below_segment.sample(tb).to_f32();
-        tess_log!(self, "-> intersection at: {:?} t={:?}|{:?}", intersection_position, ta, tb);
+        tess_log!(
+            self,
+            "-> intersection at: {:?} t={:?}|{:?}",
+            intersection_position,
+            ta,
+            tb
+        );
         tess_log!(
             self,
             "   from {:?}->{:?} and {:?}->{:?}",
@@ -1626,8 +1643,7 @@ impl FillTessellator {
         if self.current_position == intersection_position {
             active_edge.from = intersection_position;
             let src_range = &mut self.events.edge_data[active_edge.src_edge as usize].range;
-            let remapped_ta =
-                remap_t_in_range(ta as f32, src_range.start..active_edge.range_end);
+            let remapped_ta = remap_t_in_range(ta as f32, src_range.start..active_edge.range_end);
             src_range.start = remapped_ta;
 
             return;
@@ -1657,9 +1673,7 @@ impl FillTessellator {
         let mut inserted_evt = None;
         let mut flipped_active = false;
 
-        if active_edge.to != intersection_position
-            && active_edge.from != intersection_position
-        {
+        if active_edge.to != intersection_position && active_edge.from != intersection_position {
             let remapped_ta = remap_t_in_range(
                 ta as f32,
                 a_src_edge_data.range.start..active_edge.range_end,
@@ -1698,13 +1712,10 @@ impl FillTessellator {
             active_edge.range_end = remapped_ta;
         }
 
-        if edge_below.to != intersection_position
-            && self.current_position != intersection_position
+        if edge_below.to != intersection_position && self.current_position != intersection_position
         {
-            let remapped_tb = remap_t_in_range(
-                tb as f32,
-                b_src_edge_data.range.start..edge_below.range_end,
-            );
+            let remapped_tb =
+                remap_t_in_range(tb as f32, b_src_edge_data.range.start..edge_below.range_end);
 
             if is_after(edge_below.to, intersection_position) {
                 let edge_data = EdgeData {
@@ -1821,7 +1832,7 @@ impl FillTessellator {
                     (false, true) => Ordering::Less,
                     (true, true) => Ordering::Equal,
                 }
-            },
+            }
         });
 
         let mut new_active_edges = Vec::with_capacity(self.active.edges.len());
@@ -1920,9 +1931,8 @@ impl FillTessellator {
 
     #[cfg_attr(feature = "profiling", inline(never))]
     fn sort_edges_below(&mut self) {
-        self.edges_below.sort_unstable_by(
-            |a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap()
-        );
+        self.edges_below
+            .sort_unstable_by(|a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap());
     }
 
     #[cfg_attr(feature = "profiling", inline(never))]
@@ -1966,13 +1976,29 @@ impl FillTessellator {
             Ordering::Equal => (a_idx, b_idx, false),
         };
 
-        tess_log!(self, "coincident edges {:?} -> {:?} / {:?}", self.current_position, a_to, b_to);
+        tess_log!(
+            self,
+            "coincident edges {:?} -> {:?} / {:?}",
+            self.current_position,
+            a_to,
+            b_to
+        );
 
-        tess_log!(self, "update winding: {:?} -> {:?}", self.edges_below[upper_idx].winding, self.edges_below[upper_idx].winding + self.edges_below[lower_idx].winding);
+        tess_log!(
+            self,
+            "update winding: {:?} -> {:?}",
+            self.edges_below[upper_idx].winding,
+            self.edges_below[upper_idx].winding + self.edges_below[lower_idx].winding
+        );
         self.edges_below[upper_idx].winding += self.edges_below[lower_idx].winding;
         let split_point = self.edges_below[upper_idx].to;
 
-        tess_log!(self, "remove coincident edge {:?}, split:{:?}", a_idx, split);
+        tess_log!(
+            self,
+            "remove coincident edge {:?}, split:{:?}",
+            a_idx,
+            split
+        );
         let edge = self.edges_below.remove(lower_idx);
 
         if !split {
@@ -1984,7 +2010,8 @@ impl FillTessellator {
         let t = LineSegment {
             from: self.current_position,
             to: edge.to,
-        }.solve_t_for_y(split_point.y);
+        }
+        .solve_t_for_y(split_point.y);
 
         let src_range = src_edge_data.range.start..edge.range_end;
         let t_remapped = remap_t_in_range(t, src_range);
@@ -1997,13 +2024,9 @@ impl FillTessellator {
             ..src_edge_data
         };
 
-        self.events.insert_sorted(
-            split_point,
-            edge_data,
-            self.current_event_id,
-        );
+        self.events
+            .insert_sorted(split_point, edge_data, self.current_event_id);
     }
-
 
     fn reset(&mut self) {
         self.current_position = point(f32::MIN, f32::MIN);
@@ -2265,8 +2288,8 @@ impl<'l> FillBuilder<'l> {
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let mut events = std::mem::replace(&mut tessellator.events, EventQueue::new())
-            .into_builder();
+        let mut events =
+            std::mem::replace(&mut tessellator.events, EventQueue::new()).into_builder();
         events.set_tolerance(options.tolerance);
 
         FillBuilder {
@@ -2277,7 +2300,7 @@ impl<'l> FillBuilder<'l> {
             first_position: point(0.0, 0.0),
             tessellator,
             options,
-            output
+            output,
         }
     }
 
@@ -2294,7 +2317,8 @@ impl<'l> FillBuilder<'l> {
         let mut event_queue = self.events.build();
         std::mem::swap(&mut self.tessellator.events, &mut event_queue);
 
-        self.tessellator.tessellate_impl(self.options, None, self.output)
+        self.tessellator
+            .tessellate_impl(self.options, None, self.output)
     }
 }
 
@@ -2349,12 +2373,7 @@ impl<'l> PathBuilder for FillBuilder<'l> {
     }
 
     /// Tessellate the stroke for an axis-aligned rounded rectangle.
-    fn add_circle(
-        &mut self,
-        center: Point,
-        radius: f32,
-        winding: Winding,
-    ) {
+    fn add_circle(&mut self, center: Point, radius: f32, winding: Winding) {
         // This specialized routine extracts the curves into separate sub-paths
         // to nudge the tessellator towards putting them in their own monotonic
         // spans. This avoids generating thin triangles from one side of the circle
@@ -2820,7 +2839,10 @@ fn fill_vertex_source_03() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(&mut self, mut vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
+        fn add_fill_vertex(
+            &mut self,
+            mut vertex: FillVertex,
+        ) -> Result<VertexId, GeometryBuilderError> {
             if eq(vertex.position(), point(1.0, 1.0)) {
                 assert_eq!(vertex.interpolated_attributes(), &[1.5]);
                 assert_eq!(vertex.sources().count(), 2);
@@ -2869,7 +2891,10 @@ fn fill_builder_vertex_source() {
     }
 
     impl FillGeometryBuilder for CheckVertexSources {
-        fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
+        fn add_fill_vertex(
+            &mut self,
+            vertex: FillVertex,
+        ) -> Result<VertexId, GeometryBuilderError> {
             let pos = vertex.position();
             for src in vertex.sources() {
                 if eq(pos, point(0.0, 0.0)) {

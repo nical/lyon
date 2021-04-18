@@ -218,9 +218,8 @@ pub use crate::stroke::*;
 
 #[doc(inline)]
 pub use crate::geometry_builder::{
-    BuffersBuilder, Count, FillGeometryBuilder,
-    FillVertexConstructor, GeometryBuilder, GeometryBuilderError,
-    StrokeGeometryBuilder, StrokeVertexConstructor, VertexBuffers,
+    BuffersBuilder, Count, FillGeometryBuilder, FillVertexConstructor, GeometryBuilder,
+    GeometryBuilderError, StrokeGeometryBuilder, StrokeVertexConstructor, VertexBuffers,
 };
 
 pub use crate::path::FillRule;
@@ -738,7 +737,7 @@ fn test_with_invalid_miter_limit() {
 
 #[test]
 fn test_line_width() {
-    use crate::math::{Point, point};
+    use crate::math::{point, Point};
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 1.0));
     builder.line_to(point(2.0, 1.0));
@@ -747,20 +746,20 @@ fn test_line_width() {
 
     let options = StrokeOptions::DEFAULT.with_line_width(2.0);
     let mut geometry: VertexBuffers<Point, u16> = VertexBuffers::new();
-    StrokeTessellator::new().tessellate(
-        path.iter(),
-        &options,
-        &mut crate::geometry_builder::simple_builder(&mut geometry),
-    ).unwrap();
-
+    StrokeTessellator::new()
+        .tessellate(
+            path.iter(),
+            &options,
+            &mut crate::geometry_builder::simple_builder(&mut geometry),
+        )
+        .unwrap();
 
     for p in &geometry.vertices {
         assert!(
             *p == point(0.0, 0.0)
-            || *p == point(0.0, 2.0)
-            || *p == point(2.0, 0.0)
-            || *p == point(2.0, 2.0)
+                || *p == point(0.0, 2.0)
+                || *p == point(2.0, 0.0)
+                || *p == point(2.0, 2.0)
         );
     }
 }
-

@@ -5,8 +5,8 @@ extern crate bencher;
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::point;
 use lyon::path::commands;
-use lyon::path::PathBuffer;
 use lyon::path::traits::*;
+use lyon::path::PathBuffer;
 use lyon::path::{ControlPointId, EndpointId, Event, IdEvent, Path, PathEvent};
 
 use bencher::Bencher;
@@ -23,7 +23,6 @@ fn path_buffer_logo(bench: &mut Bencher) {
         }
     });
 }
-
 
 fn simple_path_build_empty(bench: &mut Bencher) {
     bench.iter(|| {
