@@ -860,7 +860,18 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         debug_assert!(!sweep_angle.get().is_nan());
         debug_assert!(!x_rotation.get().is_nan());
 
+        self.last_ctrl = self.current_position;
+
+        // If the center is equal to the current position, the start and end angles aren't
+        // defined, so we just skip the arc to avoid generating NaNs that will cause issues
+        // later.
+        use lyon_geom::euclid::approxeq::ApproxEq;
+        if self.current_position.approx_eq(&center) {
+            return;
+        }
+
         let start_angle = (self.current_position - center).angle_from_x_axis() - x_rotation;
+
         let arc = Arc {
             start_angle,
             center,
@@ -881,8 +892,6 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         arc.for_each_quadratic_bezier(&mut |curve| {
             self.builder.quadratic_bezier_to(curve.ctrl, curve.to);
         });
-
-        self.last_ctrl = self.current_position;
     }
 
     /// Ensures the current sub-path has a moveto command.
@@ -1328,4 +1337,17 @@ fn svg_builder_relative_curves() {
         })
     );
     assert_eq!(it.next(), None);
+}
+
+#[test]
+fn issue_650() {
+    use std::f32::consts::PI;
+    let mut builder = crate::path::Builder::new().with_svg();
+    builder.arc(
+        point(0.0, 0.0),
+        vector(50.0, 50.0),
+        Angle::radians(PI),
+        Angle::radians(0.0),
+    );
+    builder.build();
 }
