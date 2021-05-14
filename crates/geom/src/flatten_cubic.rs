@@ -114,7 +114,7 @@ impl<S: Scalar> Iterator for Flattened<S> {
         let quadratic = single_curve_approximation(&self.curve.split_range(t0..t1));
         self.current_curve = FlattenedQuadraticSegment::new(&quadratic, self.tolerance);
 
-        let t_inner = self.current_curve.next().unwrap();
+        let t_inner = self.current_curve.next().unwrap_or(S::ONE);
         let t = t0 + t_inner * self.range_step;
 
         Some(self.curve.sample(t))
@@ -397,4 +397,24 @@ fn test_flatten_point() {
     });
 
     assert_eq!(last, segment.to);
+}
+
+#[test]
+fn issue_652() {
+    use crate::point;
+
+    let curve = CubicBezierSegment {
+        from: point(-1061.0, -3327.0),
+        ctrl1: point(-1061.0, -3177.0),
+        ctrl2: point(-1061.0, -3477.0),
+        to: point(-1061.0, -3327.0),
+    };
+
+    for _ in curve.flattened(1.0) {}
+    for _ in curve.flattened(0.1) {}
+    for _ in curve.flattened(0.01) {}
+
+    curve.for_each_flattened(1.0, &mut |_| {});
+    curve.for_each_flattened(0.1, &mut |_| {});
+    curve.for_each_flattened(0.01, &mut |_| {});
 }
