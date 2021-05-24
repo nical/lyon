@@ -68,7 +68,7 @@ fn main() {
 
     let msaa_samples = if let Some(msaa) = app.value_of("MSAA") {
         match msaa.parse::<u32>() {
-            Ok(n) => n.min(1),
+            Ok(n) => n.max(1),
             Err(_) => {
                 println!("ERROR: `{}` is not a number", msaa);
                 std::process::exit(1);
