@@ -891,6 +891,7 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
 
         arc.for_each_quadratic_bezier(&mut |curve| {
             self.builder.quadratic_bezier_to(curve.ctrl, curve.to);
+            self.current_position = curve.to;
         });
     }
 
@@ -1337,6 +1338,22 @@ fn svg_builder_relative_curves() {
         })
     );
     assert_eq!(it.next(), None);
+}
+
+#[test]
+fn svg_builder_arc_to_update_position() {
+    use crate::Path;
+
+    let mut p = Path::svg_builder();
+    p.move_to(point(0.0, 0.0));
+    assert_eq!(p.current_position(), point(0.0, 0.0));
+    p.arc_to(
+        vector(100., 100.),
+        Angle::degrees(0.),
+        ArcFlags::default(),
+        point(0.0, 100.0),
+    );
+    assert_ne!(p.current_position(), point(0.0, 0.0));
 }
 
 #[test]
