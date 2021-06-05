@@ -679,6 +679,7 @@ impl<'l> Iterator for PathConvIter<'l> {
                     })
                 } else {
                     self.first = point(x, y);
+                    self.needs_end = true;
                     Some(PathEvent::Begin { at: self.first })
                 }
             }
