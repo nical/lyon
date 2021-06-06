@@ -2409,3 +2409,19 @@ fn low_tolerance_01() {
     )
     .unwrap();
 }
+
+#[test]
+fn issue_599() {
+    let mut builder = Path::builder();
+
+    builder.begin(point(-0.044577092, 0.69268686));
+    builder.line_to(point(0.04457296, 0.69263));
+    builder.line_to(point(0.044570256, 0.69263405));
+    builder.line_to(point(-0.043470938, 0.6761849));
+    builder.close();
+
+    test_path(builder.build().as_slice());
+
+    // SVG path syntax:
+    // "M -0.044577092 0.69268686 L 0.04457296 0.69263 L 0.044570256 0.69263405 L -0.043470938 0.6761849 Z"
+}

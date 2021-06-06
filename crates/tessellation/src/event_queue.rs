@@ -252,16 +252,18 @@ impl EventQueue {
                 debug_assert!(prev != current);
                 self.events[idx as usize].next_sibling = self.events[current as usize].next_sibling;
                 self.events[current as usize].next_sibling = idx;
-                break;
+                return;
             } else if is_after(pos, position) {
                 self.events[prev as usize].next_event = idx;
                 self.events[idx as usize].next_event = current;
-                break;
+                return;
             }
 
             prev = current;
             current = self.next_id(current);
         }
+
+        self.events[prev as usize].next_event = idx;
     }
 
     pub(crate) fn clear(&mut self) {
