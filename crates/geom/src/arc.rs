@@ -336,7 +336,7 @@ impl<S: Scalar> Arc<S> {
         // the radius to be constant over each approximated segment.
         let r = (self.from() - self.center).length();
         let a = S::TWO * S::acos((r - tolerance) / r);
-        let result = S::min(a / self.sweep_angle.radians, S::ONE);
+        let result = S::min(a / self.sweep_angle.radians.abs(), S::ONE);
 
         if result < S::EPSILON {
             return S::ONE;
@@ -1049,4 +1049,20 @@ fn negative_flattening_step() {
     };
 
     arc.for_each_flattened(0.100000001, &mut |_| {});
+
+    // There was also an issue with negative sweep_angle leading to a negative step
+    // causing the arc to be approximated with a single line segment.
+
+    let arc = Arc {
+        center: point(0.0, 0.0),
+        radii: vector(100.0, 10.0),
+        start_angle: Angle::radians(0.2),
+        sweep_angle: Angle::radians(-2.0),
+        x_rotation: Angle::zero(),
+    };
+
+    let flattened: Vec<_> = arc.flattened(0.1).collect();
+
+    assert!(flattened.len() > 1);
 }
+
