@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "arrayvec 0.7.1",
  "euclid 0.22.1",
@@ -1009,7 +1009,7 @@ dependencies = [
 name = "lyon_path"
 version = "0.17.3"
 dependencies = [
- "lyon_geom 0.17.1",
+ "lyon_geom 0.17.2",
  "serde",
 ]
 
