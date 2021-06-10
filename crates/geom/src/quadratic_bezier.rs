@@ -531,7 +531,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
-    pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<[S; 2]> {
+    pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<S, 2> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
         let intersections = self.to_cubic().line_intersections_t(line);
@@ -545,7 +545,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Computes the intersection points (if any) between this segment a line.
-    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<[Point<S>; 2]> {
+    pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<Point<S>, 2> {
         let intersections = self.to_cubic().line_intersections_t(line);
 
         let mut result = ArrayVec::new();
@@ -561,7 +561,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve and segment. To get the intersection points, sample
     /// the segments at the corresponding values.
-    pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 2]> {
+    pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<(S, S), 2> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
         let intersections = self.to_cubic().line_segment_intersections_t(&segment);
@@ -586,7 +586,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Computes the intersection points (if any) between this segment a line segment.
-    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<[Point<S>; 2]> {
+    pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<Point<S>, 2> {
         let intersections = self.to_cubic().line_segment_intersections_t(&segment);
         assert!(intersections.len() <= 2);
 

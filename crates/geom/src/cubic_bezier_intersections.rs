@@ -22,7 +22,7 @@ use std::ops::Range;
 pub fn cubic_bezier_intersections_t<S: Scalar>(
     curve1: &CubicBezierSegment<S>,
     curve2: &CubicBezierSegment<S>,
-) -> ArrayVec<[(S, S); 9]> {
+) -> ArrayVec<(S, S), 9> {
     if !curve1
         .fast_bounding_rect()
         .intersects(&curve2.fast_bounding_rect())
@@ -100,7 +100,7 @@ fn point_curve_intersections<S: Scalar>(
     pt: &Point<S>,
     curve: &CubicBezierSegment<S>,
     epsilon: S,
-) -> ArrayVec<[S; 9]> {
+) -> ArrayVec<S, 9> {
     let mut result = ArrayVec::new();
 
     // (If both endpoints are epsilon close, we only return S::ZERO.)
@@ -154,7 +154,7 @@ fn point_curve_intersections<S: Scalar>(
         pt: &Point<S>,
         curve: &CubicBezierSegment<S>,
         epsilon: S,
-        result: &mut ArrayVec<[S; 9]>,
+        result: &mut ArrayVec<S, 9>,
     ) -> bool {
         if (curve.sample(t) - *pt).square_length() < epsilon {
             result.push(t);
@@ -175,7 +175,7 @@ fn line_curve_intersections<S: Scalar>(
     line_as_curve: &CubicBezierSegment<S>,
     curve: &CubicBezierSegment<S>,
     flip: bool,
-) -> ArrayVec<[(S, S); 9]> {
+) -> ArrayVec<(S, S), 9> {
     let mut result = ArrayVec::new();
     let baseline = line_as_curve.baseline();
     let curve_intersections = curve.line_intersections_t(&baseline.to_line());
@@ -201,7 +201,7 @@ fn line_curve_intersections<S: Scalar>(
 fn line_line_intersections<S: Scalar>(
     curve1: &CubicBezierSegment<S>,
     curve2: &CubicBezierSegment<S>,
-) -> ArrayVec<[(S, S); 9]> {
+) -> ArrayVec<(S, S), 9> {
     let mut result = ArrayVec::new();
 
     let intersection = curve1
@@ -218,7 +218,7 @@ fn line_line_intersections<S: Scalar>(
     fn parameters_for_line_point<S: Scalar>(
         curve: &CubicBezierSegment<S>,
         pt: &Point<S>,
-    ) -> ArrayVec<[S; 3]> {
+    ) -> ArrayVec<S, 3> {
         let line_is_mostly_vertical =
             S::abs(curve.from.y - curve.to.y) >= S::abs(curve.from.x - curve.to.x);
         if line_is_mostly_vertical {
@@ -264,7 +264,7 @@ fn add_curve_intersections<S: Scalar>(
     curve2: &CubicBezierSegment<S>,
     domain1: &Range<S>,
     domain2: &Range<S>,
-    intersections: &mut ArrayVec<[(S, S); 9]>,
+    intersections: &mut ArrayVec<(S, S), 9>,
     flip: bool,
     mut recursion_count: u32,
     mut call_count: u32,
@@ -482,7 +482,7 @@ fn add_point_curve_intersection<S: Scalar>(
     curve: &CubicBezierSegment<S>,
     pt_domain: &Range<S>,
     curve_domain: &Range<S>,
-    intersections: &mut ArrayVec<[(S, S); 9]>,
+    intersections: &mut ArrayVec<(S, S), 9>,
     flip: bool,
 ) {
     let pt = pt_curve.from;
@@ -561,7 +561,7 @@ fn add_intersection<S: Scalar>(
     t2: S,
     orig_curve2: &CubicBezierSegment<S>,
     flip: bool,
-    intersections: &mut ArrayVec<[(S, S); 9]>,
+    intersections: &mut ArrayVec<(S, S), 9>,
 ) {
     let (t1, t2) = if flip { (t2, t1) } else { (t1, t2) };
     // (This should probably depend in some way on how large our input coefficients are.)

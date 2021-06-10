@@ -59,7 +59,7 @@ pub fn directed_angle2<S: Scalar>(center: Point<S>, a: Point<S>, b: Point<S>) ->
     directed_angle(a - center, b - center)
 }
 
-pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S; 3]> {
+pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 3> {
     let mut result = ArrayVec::new();
 
     let m = a.abs().max(b.abs()).max(c.abs()).max(d.abs());
@@ -128,7 +128,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<[S;
 
 #[test]
 fn cubic_polynomial() {
-    fn assert_approx_eq(a: ArrayVec<[f32; 3]>, b: &[f32], epsilon: f32) {
+    fn assert_approx_eq(a: ArrayVec<f32, 3>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i] - b[i]) > epsilon {
                 println!("{:?} != {:?}", a, b);
