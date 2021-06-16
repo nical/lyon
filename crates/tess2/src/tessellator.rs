@@ -11,6 +11,18 @@ use std::ptr;
 use std::slice;
 use tess2_sys::*;
 
+/// A unit struct that represents any error occuring during tesselation.
+#[derive(Debug)]
+pub struct TessellationError;
+
+impl std::fmt::Display for TessellationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "an unknown error occurred during tessellation")
+    }
+}
+
+impl std::error::Error for TessellationError {}
+
 /// A fill tessellator implemented on top of [libtess2](https://github.com/memononen/libtess2).
 ///
 /// When in doubt it is usually preferable to use
@@ -36,7 +48,7 @@ impl FillTessellator {
         it: Iter,
         options: &FillOptions,
         output: &mut dyn GeometryReceiver,
-    ) -> Result<Count, ()>
+    ) -> Result<Count, TessellationError>
     where
         Iter: IntoIterator<Item = PathEvent>,
     {
@@ -57,11 +69,11 @@ impl FillTessellator {
         path: &FlattenedPath,
         options: &FillOptions,
         output: &mut dyn GeometryReceiver,
-    ) -> Result<Count, ()> {
+    ) -> Result<Count, TessellationError> {
         self.prepare_path(path);
 
         if !self.do_tessellate(options) {
-            return Err(());
+            return Err(TessellationError);
         }
 
         Ok(self.process_output(output))
@@ -73,7 +85,7 @@ impl FillTessellator {
         path: impl Into<PathSlice<'l>>,
         options: &'l FillOptions,
         output: &mut dyn GeometryReceiver,
-    ) -> Result<Count, ()> {
+    ) -> Result<Count, TessellationError> {
         self.tessellate(path.into().iter(), options, output)
     }
 
