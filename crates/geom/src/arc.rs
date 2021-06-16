@@ -1065,4 +1065,3 @@ fn negative_flattening_step() {
 
     assert!(flattened.len() > 1);
 }
-
