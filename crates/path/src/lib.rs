@@ -230,7 +230,7 @@ pub struct EventId(#[doc(hidden)] pub u32);
 
 impl EventId {
     pub const INVALID: Self = EventId(std::u32::MAX);
-    pub fn to_usize(&self) -> usize {
+    pub fn to_usize(self) -> usize {
         self.0 as usize
     }
 }
