@@ -5,6 +5,7 @@ use path::{Path, PathSlice};
 use svg;
 
 pub type Polygons = Vec<Vec<Point>>;
+pub type PolygonsRef<'a> = &'a [Vec<Point>];
 
 pub fn path_to_polygons(path: PathSlice) -> Polygons {
     let mut polygons = Vec::new();
@@ -37,7 +38,7 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
     return polygons;
 }
 
-pub fn polygons_to_path(polygons: &Polygons) -> Path {
+pub fn polygons_to_path(polygons: PolygonsRef) -> Path {
     let mut builder = Path::builder().flattened(0.05);
     for poly in polygons.iter() {
         builder.begin(poly[0]);
