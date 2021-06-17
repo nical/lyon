@@ -35,8 +35,9 @@ where
     Builder: SvgPathBuilder + Build,
 {
     for item in PathParser::from(src) {
-        if let Ok(segment) = item {
-            svg_event(&segment, &mut builder)
+        match item {
+            Ok(segment) => svg_event(&segment, &mut builder),
+            Err(_) => return Err(ParseError),
         }
     }
 
@@ -340,4 +341,11 @@ impl SvgPathBuilder for PathSerializer {
             to.y
         );
     }
+}
+
+#[test]
+fn test_parse_error() {
+    let invalid_commands = &"This is certainly not an SVG command string";
+    let svg_builder = lyon_path::Path::builder().with_svg();
+    assert!(build_path(svg_builder, invalid_commands).is_err());
 }
