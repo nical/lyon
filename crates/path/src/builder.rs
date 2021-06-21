@@ -1059,7 +1059,7 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     }
 
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point) {
-        let arc = SvgArc {
+        let svg_arc = SvgArc {
             from: self.current_position,
             to,
             radii,
@@ -1068,10 +1068,14 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
-        }
-        .to_arc();
+        };
 
-        self.arc(arc.center, arc.radii, arc.sweep_angle, arc.x_rotation);
+        if svg_arc.is_straight_line() {
+            self.line_to(to);
+        } else {
+            let arc = svg_arc.to_arc();
+            self.arc(arc.center, arc.radii, arc.sweep_angle, arc.x_rotation);
+        }
     }
 
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector) {
@@ -1367,4 +1371,19 @@ fn issue_650() {
         Angle::radians(0.0),
     );
     builder.build();
+}
+
+#[test]
+fn straight_line_arc() {
+    use crate::Path;
+
+    let mut p = Path::svg_builder();
+    p.move_to(point(100.0, 0.0));
+    // Don't assert on a "false" arc that's a straight line
+    p.arc_to(
+        vector(100., 100.),
+        Angle::degrees(0.),
+        ArcFlags::default(),
+        point(100.0, 0.0),
+    );
 }
