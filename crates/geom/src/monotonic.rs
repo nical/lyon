@@ -163,7 +163,7 @@ impl<S: Scalar> Monotonic<QuadraticBezierSegment<S>> {
         other: &Self,
         other_t_range: Range<S>,
         tolerance: S,
-    ) -> ArrayVec<[(S, S); 2]> {
+    ) -> ArrayVec<(S, S), 2> {
         monotonic_segment_intersecions(self, self_t_range, other, other_t_range, tolerance)
     }
 
@@ -173,7 +173,7 @@ impl<S: Scalar> Monotonic<QuadraticBezierSegment<S>> {
         other: &Self,
         other_t_range: Range<S>,
         tolerance: S,
-    ) -> ArrayVec<[Point<S>; 2]> {
+    ) -> ArrayVec<Point<S>, 2> {
         let intersections =
             monotonic_segment_intersecions(self, self_t_range, other, other_t_range, tolerance);
         let mut result = ArrayVec::new();
@@ -378,7 +378,7 @@ pub(crate) fn monotonic_segment_intersecions<S: Scalar, A, B>(
     b: &B,
     b_t_range: Range<S>,
     tolerance: S,
-) -> ArrayVec<[(S, S); 2]>
+) -> ArrayVec<(S, S), 2>
 where
     A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
     B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
