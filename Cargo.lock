@@ -1009,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_svg"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "lyon_path",
  "svgtypes 0.5.0",
