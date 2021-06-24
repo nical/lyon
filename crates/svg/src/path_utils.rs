@@ -25,7 +25,7 @@ pub struct ParseError;
 /// # use svg::path_utils::build_path;
 /// # fn main() {
 /// // Create a simple path.
-/// let commands = &"M 0 0 L 10 0 L 10 10 L 0 10 z";
+/// let commands = "M 0 0 L 10 0 L 10 10 L 0 10 z";
 /// let svg_builder = Path::builder().with_svg();
 /// let path = build_path(svg_builder, commands);
 /// # }
@@ -156,10 +156,7 @@ where
             builder.arc_to(
                 vec2(rx, ry),
                 Angle::degrees(x_axis_rotation as f32),
-                ArcFlags {
-                    large_arc: large_arc,
-                    sweep: sweep,
-                },
+                ArcFlags { large_arc, sweep },
                 point2(x, y),
             );
         }
@@ -176,10 +173,7 @@ where
             builder.relative_arc_to(
                 vec2(rx, ry),
                 Angle::degrees(x_axis_rotation as f32),
-                ArcFlags {
-                    large_arc: large_arc,
-                    sweep: sweep,
-                },
+                ArcFlags { large_arc, sweep },
                 vec2(x, y),
             );
         }
@@ -197,6 +191,12 @@ where
 pub struct PathSerializer {
     path: String,
     current: Point,
+}
+
+impl Default for PathSerializer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PathSerializer {
@@ -246,7 +246,7 @@ impl SvgPathBuilder for PathSerializer {
     }
 
     fn close(&mut self) {
-        self.path.push_str("Z");
+        self.path.push('Z');
     }
 
     fn line_to(&mut self, to: Point) {

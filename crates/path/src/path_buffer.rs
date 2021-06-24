@@ -16,7 +16,7 @@ struct PathDescriptor {
 }
 
 /// An object that stores multiple paths contiguously.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PathBuffer {
     points: Vec<Point>,
     verbs: Vec<path::Verb>,
@@ -71,6 +71,12 @@ impl PathBuffer {
         self.paths.len()
     }
 
+    /// Returns whether the path buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.paths.is_empty()
+    }
+
     #[inline]
     pub fn builder(&mut self) -> Builder {
         Builder::new(self)
@@ -123,6 +129,12 @@ impl<'l> PathBufferSlice<'l> {
     #[inline]
     pub fn len(&self) -> usize {
         self.paths.len()
+    }
+
+    /// Returns whether the path buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.paths.is_empty()
     }
 }
 

@@ -862,7 +862,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let intersections = self.line_intersections_t(&segment.to_line());
 
         let mut result = ArrayVec::new();
-        if intersections.len() == 0 {
+        if intersections.is_empty() {
             return result;
         }
 

@@ -15,50 +15,48 @@
 //! use lyon_path::geom::BezierSegment;
 //! use lyon_path::{Path, PathEvent};
 //!
-//! fn main() {
-//!     // Start with a path.
-//!     let mut builder = Path::builder();
-//!     builder.begin(point(0.0, 0.0));
-//!     builder.line_to(point(10.0, 0.0));
-//!     builder.cubic_bezier_to(point(10.0, 10.0), point(0.0, 10.0), point(0.0, 5.0));
-//!     builder.end(true);
-//!     let path = builder.build();
+//! // Start with a path.
+//! let mut builder = Path::builder();
+//! builder.begin(point(0.0, 0.0));
+//! builder.line_to(point(10.0, 0.0));
+//! builder.cubic_bezier_to(point(10.0, 10.0), point(0.0, 10.0), point(0.0, 5.0));
+//! builder.end(true);
+//! let path = builder.build();
 //!
-//!     // A simple std::iter::Iterator<PathEvent>,
-//!     let simple_iter = path.iter();
+//! // A simple std::iter::Iterator<PathEvent>,
+//! let simple_iter = path.iter();
 //!
-//!     // Make it an iterator over simpler primitives flattened events,
-//!     // which do not contain any curve. To do so we approximate each curve
-//!     // linear segments according to a tolerance threshold which controls
-//!     // the tradeoff between fidelity of the approximation and amount of
-//!     // generated events. Let's use a tolerance threshold of 0.01.
-//!     // The beauty of this approach is that the flattening happens lazily
-//!     // while iterating without allocating memory for the path.
-//!     let flattened_iter = path.iter().flattened(0.01);
+//! // Make it an iterator over simpler primitives flattened events,
+//! // which do not contain any curve. To do so we approximate each curve
+//! // linear segments according to a tolerance threshold which controls
+//! // the tradeoff between fidelity of the approximation and amount of
+//! // generated events. Let's use a tolerance threshold of 0.01.
+//! // The beauty of this approach is that the flattening happens lazily
+//! // while iterating without allocating memory for the path.
+//! let flattened_iter = path.iter().flattened(0.01);
 //!
-//!     for evt in flattened_iter {
-//!         match evt {
-//!             PathEvent::Begin { at } => { println!(" - move to {:?}", at); }
-//!             PathEvent::Line { from, to } => { println!(" - line {:?} -> {:?}", from, to); }
-//!             PathEvent::End { last, first, close } => {
-//!                 if close {
-//!                     println!(" - close {:?} -> {:?}", last, first);
-//!                 } else {
-//!                     println!(" - end");
-//!                 }
+//! for evt in flattened_iter {
+//!     match evt {
+//!         PathEvent::Begin { at } => { println!(" - move to {:?}", at); }
+//!         PathEvent::Line { from, to } => { println!(" - line {:?} -> {:?}", from, to); }
+//!         PathEvent::End { last, first, close } => {
+//!             if close {
+//!                 println!(" - close {:?} -> {:?}", last, first);
+//!             } else {
+//!                 println!(" - end");
 //!             }
-//!             _ => { panic!() }
 //!         }
+//!         _ => { panic!() }
 //!     }
+//! }
 //!
-//!     // Sometimes, working with segments directly without dealing with Begin/End events
-//!     // can be more convenient:
-//!     for segment in path.iter().bezier_segments() {
-//!         match segment {
-//!             BezierSegment::Linear(segment) => { println!("{:?}", segment); }
-//!             BezierSegment::Quadratic(segment) => { println!("{:?}", segment); }
-//!             BezierSegment::Cubic(segment) => { println!("{:?}", segment); }
-//!         }
+//! // Sometimes, working with segments directly without dealing with Begin/End events
+//! // can be more convenient:
+//! for segment in path.iter().bezier_segments() {
+//!     match segment {
+//!         BezierSegment::Linear(segment) => { println!("{:?}", segment); }
+//!         BezierSegment::Quadratic(segment) => { println!("{:?}", segment); }
+//!         BezierSegment::Cubic(segment) => { println!("{:?}", segment); }
 //!     }
 //! }
 //! ```
@@ -107,7 +105,7 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     }
 
     /// Returns an iterator applying a 2D transform to all of its events.
-    fn transformed<'l, T: Transformation<f32>>(self, mat: &'l T) -> Transformed<'l, Self, T> {
+    fn transformed<T: Transformation<f32>>(self, mat: &T) -> Transformed<Self, T> {
         Transformed::new(mat, self)
     }
 

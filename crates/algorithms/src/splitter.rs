@@ -27,6 +27,12 @@ pub struct Splitter {
     flattening_tolerance: f32,
 }
 
+impl Default for Splitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Splitter {
     /// Constructor.
     pub fn new() -> Self {
@@ -68,8 +74,7 @@ impl Splitter {
         let line = segment.to_line();
         self.intersecting_edges.clear();
 
-        let mut path = AdvancedPath::new();
-        self.to_advanced_path(path_slice, &mut path);
+        let mut path = self.advanced_path(path_slice);
 
         let v = segment.to_vector();
 
@@ -129,8 +134,7 @@ impl Splitter {
 
     fn split_with_line_impl(&mut self, path_slice: PathSlice, line: &Line<f32>) -> (Path, Path) {
         self.intersecting_edges.clear();
-        let mut path = AdvancedPath::new();
-        self.to_advanced_path(path_slice, &mut path);
+        let mut path = self.advanced_path(path_slice);
 
         let v = line.vector;
 
@@ -321,7 +325,8 @@ impl Splitter {
         from_advanced_path(&path, line)
     }
 
-    fn to_advanced_path(&mut self, path: PathSlice, adv: &mut AdvancedPath) {
+    fn advanced_path(&mut self, path: PathSlice) -> AdvancedPath {
+        let mut adv = AdvancedPath::new();
         self.point_buffer.clear();
         for evt in path.iter().flattened(self.flattening_tolerance) {
             match evt {
@@ -345,6 +350,8 @@ impl Splitter {
                 }
             }
         }
+
+        adv
     }
 }
 

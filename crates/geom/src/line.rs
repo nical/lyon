@@ -201,6 +201,7 @@ impl<S: Scalar> LineSegment<S> {
     /// The result is provided in the form of the `t` parameter of each
     /// segment. To get the intersection point, sample one of the segments
     /// at the corresponding value.
+    #[allow(clippy::suspicious_operation_groupings)]
     pub fn intersection_t(&self, other: &Self) -> Option<(S, S)> {
         if self.to == other.to
             || self.from == other.from

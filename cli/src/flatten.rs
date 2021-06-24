@@ -60,7 +60,7 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
         }
     }
 
-    writeln!(&mut *cmd.output, "")?;
+    writeln!(&mut *cmd.output)?;
 
     Ok(())
 }

@@ -82,7 +82,7 @@ fn create_multisampled_framebuffer(
             depth: 1,
         },
         mip_level_count: 1,
-        sample_count: sample_count,
+        sample_count,
         dimension: wgpu::TextureDimension::D2,
         format: sc_desc.format,
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -250,9 +250,14 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         translate: [0.0, 0.0],
     };
     // Instance primitives
-    for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances as usize) {
-        cpu_primitives[idx].z_index = (idx as u32 + 1) as i32;
-        cpu_primitives[idx].color = [
+    for (idx, cpu_prim) in cpu_primitives
+        .iter_mut()
+        .enumerate()
+        .skip(fill_prim_id + 1)
+        .take(num_instances as usize - 1)
+    {
+        cpu_prim.z_index = (idx as u32 + 1) as i32;
+        cpu_prim.color = [
             (0.1 * idx as f32).rem(1.0),
             (0.5 * idx as f32).rem(1.0),
             (0.9 * idx as f32).rem(1.0),
@@ -457,7 +462,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 ],
             }],
         },
-        sample_count: sample_count,
+        sample_count,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
         label: None,
@@ -499,7 +504,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             alpha_blend: wgpu::BlendDescriptor::REPLACE,
             write_mask: wgpu::ColorWrite::ALL,
         }],
-        depth_stencil_state: depth_stencil_state.clone(),
+        depth_stencil_state,
         vertex_state: wgpu::VertexStateDescriptor {
             index_format: wgpu::IndexFormat::Uint32,
             vertex_buffers: &[wgpu::VertexBufferDescriptor {
@@ -512,7 +517,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 }],
             }],
         },
-        sample_count: sample_count,
+        sample_count,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
         label: None,
@@ -879,5 +884,5 @@ fn update_inputs(
 
     *control_flow = ControlFlow::Poll;
 
-    return true;
+    true
 }

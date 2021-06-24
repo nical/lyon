@@ -40,6 +40,7 @@ use std::mem;
 /// Parameters for the hatcher.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct HatchingOptions {
     /// Maximum allowed distance to the path when building an approximation.
     ///
@@ -58,10 +59,6 @@ pub struct HatchingOptions {
 
     /// The origin of the rotated uv coordinates.
     pub uv_origin: Point,
-
-    // To be able to add fields without making it a breaking change, add an empty private field
-    // which makes it impossible to create a StrokeOptions without calling the constructor.
-    _private: (),
 }
 
 impl Default for HatchingOptions {
@@ -86,7 +83,6 @@ impl HatchingOptions {
         angle: Self::DEFAULT_ANGLE,
         compute_tangents: true,
         uv_origin: Self::DEFAULT_UV_ORIGIN,
-        _private: (),
     };
 
     #[inline]
@@ -121,6 +117,7 @@ impl HatchingOptions {
 /// Parameters for generating dot patterns.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct DotOptions {
     /// Maximum allowed distance to the path when building an approximation.
     ///
@@ -134,10 +131,6 @@ pub struct DotOptions {
     pub angle: Angle,
     /// The origin of the rotated uv coordinates.
     pub uv_origin: Point,
-
-    // To be able to add fields without making it a breaking change, add an empty private field
-    // which makes it impossible to create a StrokeOptions without calling the constructor.
-    _private: (),
 }
 
 impl Default for DotOptions {
@@ -161,7 +154,6 @@ impl DotOptions {
         tolerance: Self::DEFAULT_TOLERANCE,
         angle: Self::DEFAULT_ANGLE,
         uv_origin: Self::DEFAULT_UV_ORIGIN,
-        _private: (),
     };
 
     #[inline]
@@ -277,6 +269,12 @@ pub struct Hatcher {
     uv_origin: Point,
 }
 
+impl Default for Hatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Hatcher {
     /// Constructor.
     pub fn new() -> Self {
@@ -385,7 +383,6 @@ impl Hatcher {
             angle: options.angle,
             uv_origin: options.uv_origin,
             compute_tangents: false,
-            _private: (),
         };
 
         self.hatch(events, &options, &mut dotted);
@@ -503,7 +500,7 @@ impl Build for EventsBuilder {
         self.edges.sort_by(|a, b| compare_positions(a.from, b.from));
 
         HatchingEvents {
-            edges: mem::replace(&mut self.edges, Vec::new()),
+            edges: mem::take(&mut self.edges),
         }
     }
 }
@@ -546,7 +543,7 @@ impl HatchingEvents {
     {
         self.edges.clear();
         let mut builder = EventsBuilder::new(angle, tolerance);
-        builder.edges = mem::replace(&mut self.edges, Vec::new());
+        builder.edges = mem::take(&mut self.edges);
 
         for evt in it {
             builder.path_event(evt);

@@ -174,11 +174,13 @@ struct ActiveEdges {
 }
 
 struct Span {
+    /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
+    /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     tess: Option<Box<MonotoneTessellator>>,
 }
 
 impl Span {
-    fn tess(&mut self) -> &mut Box<MonotoneTessellator> {
+    fn tess(&mut self) -> &mut MonotoneTessellator {
         // this should only ever be called on a "live" span.
         match self.tess.as_mut() {
             None => {
@@ -192,6 +194,10 @@ impl Span {
 
 struct Spans {
     spans: Vec<Span>,
+
+    /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
+    /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
+    #[allow(clippy::vec_box)]
     pool: Vec<Box<MonotoneTessellator>>,
 }
 
@@ -261,7 +267,7 @@ impl Spans {
 
     fn cleanup_spans(&mut self) {
         // Get rid of the spans that were marked for removal.
-        self.spans.retain(|span| !span.tess.is_none());
+        self.spans.retain(|span| span.tess.is_some());
     }
 }
 
@@ -502,6 +508,12 @@ pub struct FillTessellator {
 
     scan: ActiveEdgeScan,
     events: EventQueue,
+}
+
+impl Default for FillTessellator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FillTessellator {
@@ -1045,7 +1057,7 @@ impl FillTessellator {
         }
 
         scan.above.start = active_edge_idx;
-        scan.winding_before_point = winding.clone();
+        scan.winding_before_point = winding;
 
         if previous_was_merge {
             scan.winding_before_point.span_index -= 1;
@@ -1378,7 +1390,7 @@ impl FillTessellator {
 
     #[cfg_attr(feature = "profiling", inline(never))]
     fn process_edges_below(&mut self, scan: &mut ActiveEdgeScan) {
-        let mut winding = scan.winding_before_point.clone();
+        let mut winding = scan.winding_before_point;
 
         tess_log!(
             self,
@@ -1553,7 +1565,7 @@ impl FillTessellator {
         // manually fixing things up if need be and making sure to not break more
         // invariants in doing so.
 
-        let mut edges_below = mem::replace(&mut self.edges_below, Vec::new());
+        let mut edges_below = mem::take(&mut self.edges_below);
         for edge_below in &mut edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
             let below_max_x = fmax(self.current_position.x, edge_below.to.x);
@@ -2060,7 +2072,8 @@ pub(crate) fn compare_positions(a: Point, b: Point) -> Ordering {
     if a.x < b.x {
         return Ordering::Less;
     }
-    return Ordering::Equal;
+
+    Ordering::Equal
 }
 
 #[inline]
@@ -2160,9 +2173,7 @@ impl<'l> FillVertex<'l> {
                 let a = store.get(id);
                 assert!(a.len() == num_attributes);
                 assert!(self.attrib_buffer.len() == num_attributes);
-                for i in 0..num_attributes {
-                    self.attrib_buffer[i] = a[i];
-                }
+                self.attrib_buffer[..num_attributes].clone_from_slice(&a[..num_attributes]);
             }
             VertexSource::Edge { from, to, t } => {
                 let a = store.get(from);
@@ -2183,8 +2194,8 @@ impl<'l> FillVertex<'l> {
                     let a = store.get(id);
                     assert!(a.len() == num_attributes);
                     assert!(self.attrib_buffer.len() == num_attributes);
-                    for i in 0..num_attributes {
-                        self.attrib_buffer[i] += a[i];
+                    for (i, &att) in a.iter().enumerate() {
+                        self.attrib_buffer[i] += att;
                     }
                 }
                 Some(VertexSource::Edge { from, to, t }) => {
@@ -2206,7 +2217,7 @@ impl<'l> FillVertex<'l> {
         }
 
         if div > 1.0 {
-            for attribute in &mut self.attrib_buffer[..] {
+            for attribute in self.attrib_buffer.iter_mut() {
                 *attribute /= div;
             }
         }
@@ -2389,8 +2400,8 @@ impl<'l> PathBuilder for FillBuilder<'l> {
 
         self.reserve(16, 8);
 
-        let tan_pi_over_8 = 0.41421356237;
-        let cos_pi_over_4 = 0.70710678118;
+        let tan_pi_over_8 = 0.41421357;
+        let cos_pi_over_4 = f32::consts::FRAC_1_SQRT_2;
         let d = radius * tan_pi_over_8;
 
         let start = center + vector(-radius, 0.0);

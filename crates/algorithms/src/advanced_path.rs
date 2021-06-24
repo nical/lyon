@@ -295,7 +295,7 @@ impl AdvancedPath {
             return Some(new_sub_path);
         }
 
-        return None;
+        None
     }
 
     /// Invokes a callback on each sub-path for a given selection.
@@ -531,7 +531,8 @@ impl<'l> Iterator for EdgeIdLoop<'l> {
             self.done = true;
         }
         self.current_edge = self.path.edges[self.current_edge].next;
-        return Some(res);
+
+        Some(res)
     }
 }
 
@@ -603,7 +604,7 @@ impl<'l> Iterator for SubPathIter<'l> {
             return Some(PathEvent::Begin { at: to });
         }
 
-        return Some(PathEvent::Line { from, to });
+        Some(PathEvent::Line { from, to })
     }
 }
 
