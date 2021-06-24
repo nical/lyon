@@ -8,7 +8,6 @@ use lyon::path::Path;
 use lyon::tess2;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
-use rand;
 use std::cmp::{max, min};
 
 fn random_point() -> Point {
@@ -43,7 +42,8 @@ fn generate_path(cmd: &FuzzCmd, iteration: u64) -> Path {
             break;
         }
     }
-    return path.build();
+
+    path.build()
 }
 
 pub fn run(cmd: FuzzCmd) -> bool {

@@ -231,9 +231,9 @@ impl<'l> IntoIterator for &'l PathCommands {
     }
 }
 
-impl<'l> Into<PathCommandsSlice<'l>> for &'l PathCommands {
-    fn into(self) -> PathCommandsSlice<'l> {
-        self.as_slice()
+impl<'l> From<&'l PathCommands> for PathCommandsSlice<'l> {
+    fn from(commands: &'l PathCommands) -> Self {
+        commands.as_slice()
     }
 }
 
@@ -363,8 +363,8 @@ impl<'l, Endpoint, ControlPoint> CommandsPathSlice<'l, Endpoint, ControlPoint> {
             cmds: CmdIter::new(&self.cmds.cmds),
             first_endpoint: 0,
             prev_endpoint: 0,
-            endpoints: &self.endpoints[..],
-            control_points: &self.control_points[..],
+            endpoints: self.endpoints,
+            control_points: self.control_points,
         }
     }
 }
@@ -419,6 +419,12 @@ pub struct PathCommandsBuilder {
     start: u32,
     first_event_index: u32,
     in_subpath: bool,
+}
+
+impl Default for PathCommandsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PathCommandsBuilder {

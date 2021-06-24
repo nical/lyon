@@ -1,6 +1,7 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
 #![deny(unconditional_recursion)]
+#![allow(clippy::match_like_matches_macro)]
 
 //! Data structures and traits to work with paths (vector graphics).
 //!

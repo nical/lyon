@@ -2,7 +2,6 @@ use itertools::{Itertools, Tuples};
 use lyon::math::Point;
 use lyon::tessellation::geometry_builder::VertexBuffers;
 use regex::Regex;
-use std;
 
 const DEFAULT_FMT: &str = "vertices: [@vertices{sep=, }{fmt=({position.x}, {position.y})}@]\\nindices: [@indices{sep=, }{fmt={index}}@]";
 

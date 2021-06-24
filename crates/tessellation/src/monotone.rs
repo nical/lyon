@@ -102,8 +102,6 @@ impl BasicMonotoneTessellator {
 
         self.stack.push(current);
         self.previous = current;
-
-        return;
     }
 
     pub fn end(&mut self, pos: Point, id: VertexId) {

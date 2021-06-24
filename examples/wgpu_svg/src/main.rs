@@ -638,7 +638,7 @@ fn update_inputs(
 
     *control_flow = ControlFlow::Poll;
 
-    return true;
+    true
 }
 
 /// Some glue between usvg's iterators and lyon's.
@@ -737,7 +737,7 @@ impl<'l> Iterator for PathConvIter<'l> {
     }
 }
 
-pub fn convert_path<'a>(p: &'a usvg::Path) -> PathConvIter<'a> {
+pub fn convert_path(p: &usvg::Path) -> PathConvIter {
     PathConvIter {
         iter: p.segments.iter(),
         first: Point::new(0.0, 0.0),

@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 use path::builder::SvgPathBuilder;
 use path::math::{point, vector};
 

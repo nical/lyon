@@ -139,7 +139,7 @@ fn point_curve_intersections<S: Scalar>(
         }
     }
 
-    if result.len() > 0 {
+    if !result.is_empty() {
         return result;
     }
 
@@ -229,12 +229,12 @@ fn line_line_intersections<S: Scalar>(
     }
 
     let line1_params = parameters_for_line_point(&curve1, &intersection);
-    if line1_params.len() == 0 {
+    if line1_params.is_empty() {
         return result;
     }
 
     let line2_params = parameters_for_line_point(&curve2, &intersection);
-    if line2_params.len() == 0 {
+    if line2_params.is_empty() {
         return result;
     }
 
@@ -258,6 +258,7 @@ fn line_line_intersections<S: Scalar>(
 // similarly for curve2.  domain1 and domain2 shrink (or stay the same) at each stage and describe
 // which subdomain of an original curve the current curve1 and curve2 correspond to. (The domains of
 // curve1 and curve2 are 0..1 at every stage.)
+#[allow(clippy::too_many_arguments)]
 fn add_curve_intersections<S: Scalar>(
     curve1: &CubicBezierSegment<S>,
     curve2: &CubicBezierSegment<S>,

@@ -1,6 +1,7 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
 #![deny(unconditional_recursion)]
+#![allow(clippy::float_cmp)]
 // TODO: Tessellation pipeline diagram needs to be updated.
 
 //! Tessellation of 2D fill and stroke operations.
@@ -342,7 +343,7 @@ pub enum VertexSource {
 
 /// Line cap as defined by the SVG specification.
 ///
-/// See: https://svgwg.org/specs/strokes/#StrokeLinecapProperty
+/// See: <https://svgwg.org/specs/strokes/#StrokeLinecapProperty>
 ///
 /// <svg viewBox="0 0 400 399.99998" height="400" width="400">
 ///   <g transform="translate(0,-652.36229)">
@@ -385,7 +386,7 @@ pub enum LineCap {
 
 /// Line join as defined by the SVG specification.
 ///
-/// See: https://svgwg.org/specs/strokes/#StrokeLinejoinProperty
+/// See: <https://svgwg.org/specs/strokes/#StrokeLinejoinProperty>
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum LineJoin {
@@ -414,6 +415,7 @@ pub enum Orientation {
 /// Parameters for the tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct StrokeOptions {
     /// What cap to use at the start of each sub-path.
     ///
@@ -446,10 +448,6 @@ pub struct StrokeOptions {
     /// See [Flattening and tolerance](index.html#flattening-and-tolerance).
     /// Default value: `StrokeOptions::DEFAULT_TOLERANCE`.
     pub tolerance: f32,
-
-    // To be able to add fields without making it a breaking change, add an empty private field
-    // which makes it impossible to create a StrokeOptions without calling the constructor.
-    _private: (),
 }
 
 impl StrokeOptions {
@@ -473,7 +471,6 @@ impl StrokeOptions {
         line_width: Self::DEFAULT_LINE_WIDTH,
         miter_limit: Self::DEFAULT_MITER_LIMIT,
         tolerance: Self::DEFAULT_TOLERANCE,
-        _private: (),
     };
 
     #[inline]
@@ -535,6 +532,7 @@ impl Default for StrokeOptions {
 /// Parameters for the fill tessellator.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct FillOptions {
     /// Maximum allowed distance to the path when building an approximation.
     ///
@@ -565,10 +563,6 @@ pub struct FillOptions {
     ///
     /// Default value: `true`.
     pub handle_intersections: bool,
-
-    // To be able to add fields without making it a breaking change, add an empty private field
-    // which makes it impossible to create a FillOptions without the calling constructor.
-    _private: (),
 }
 
 impl FillOptions {
@@ -584,7 +578,6 @@ impl FillOptions {
         fill_rule: Self::DEFAULT_FILL_RULE,
         sweep_orientation: Self::DEFAULT_SWEEP_ORIENTATION,
         handle_intersections: true,
-        _private: (),
     };
 
     #[inline]

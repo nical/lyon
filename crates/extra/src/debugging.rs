@@ -12,7 +12,7 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
     for evt in path {
         match evt {
             PathEvent::Begin { at } => {
-                if poly.len() > 0 {
+                if !poly.is_empty() {
                     polygons.push(poly);
                 }
                 poly = vec![at];
@@ -34,19 +34,20 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
             }
         }
     }
-    return polygons;
+    polygons
 }
 
 pub fn polygons_to_path(polygons: &Polygons) -> Path {
     let mut builder = Path::builder().flattened(0.05);
     for poly in polygons.iter() {
-        builder.begin(poly[0]);
-        for i in 1..poly.len() {
-            builder.line_to(poly[i]);
+        let mut poly_iter = poly.iter();
+        builder.begin(*poly_iter.next().unwrap());
+        for v in poly_iter {
+            builder.line_to(*v);
         }
         builder.close();
     }
-    return builder.build();
+    builder.build()
 }
 
 pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::RefUnwindSafe>(
@@ -89,14 +90,14 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     println!("#[test]");
     println!("fn reduced_test_case() {{");
     println!("    let mut builder = Path::builder();\n");
-    for p in 0..polygons.len() {
-        let pos = polygons[p][0];
+    for poly in &polygons {
+        let mut poly_iter = poly.iter();
+        let pos = *poly_iter.next().unwrap();
         println!("    builder.begin(point({:.}, {:.}));", pos.x, pos.y);
         svg_path.move_to(pos);
-        for v in 1..polygons[p].len() {
-            let pos = polygons[p][v];
+        for pos in poly_iter {
             println!("    builder.line_to(point({:.}, {:.}));", pos.x, pos.y);
-            svg_path.line_to(pos);
+            svg_path.line_to(*pos);
         }
         println!("    builder.close();\n");
         svg_path.close();
@@ -106,7 +107,7 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     println!("    // \"{}\"", svg_path.build());
     println!("}}\n\n");
 
-    return polygons_to_path(&polygons);
+    polygons_to_path(&polygons)
 }
 
 use std::panic;

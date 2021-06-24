@@ -208,9 +208,9 @@ impl<'l> IntoIterator for &'l Path {
     }
 }
 
-impl<'l> Into<PathSlice<'l>> for &'l Path {
-    fn into(self) -> PathSlice<'l> {
-        self.as_slice()
+impl<'l> From<&'l Path> for PathSlice<'l> {
+    fn from(path: &'l Path) -> Self {
+        path.as_slice()
     }
 }
 
@@ -365,6 +365,12 @@ pub struct Builder {
     pub(crate) points: Vec<Point>,
     pub(crate) verbs: Vec<Verb>,
     validator: DebugValidator,
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Builder {
@@ -790,7 +796,7 @@ impl<'l> PointIter<'l> {
             let output = *self.ptr;
             self.ptr = self.ptr.offset(1);
 
-            return output;
+            output
         }
     }
 
@@ -1051,7 +1057,7 @@ fn reverse_path(path: PathSlice) -> Path {
     let mut builder = Path::builder_with_attributes(path.num_attributes());
 
     let attrib_stride = (path.num_attributes() + 1) / 2;
-    let points = &path.points[..];
+    let points = path.points;
     // At each iteration, p points to the first point after the current verb.
     let mut p = points.len();
     let mut need_close = false;

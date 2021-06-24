@@ -40,7 +40,7 @@ const EPSILON: f32 = 1e-4;
 /// See the [`geometry_builder` module documentation](geometry_builder/index.html)
 /// for more details about how to output custom vertex layouts.
 ///
-/// See https://github.com/nical/lyon/wiki/Stroke-tessellation for some notes
+/// See <https://github.com/nical/lyon/wiki/Stroke-tessellation> for some notes
 /// about how the path stroke tessellator is implemented.
 ///
 /// # Examples
@@ -1236,17 +1236,18 @@ impl<'l> StrokeBuilder<'l> {
 
         let i1 = clip_line
             .intersection(&prev_line)
-            .unwrap_or(normal.to_point())
+            .unwrap_or_else(|| normal.to_point())
             .to_vector();
         let i2 = clip_line
             .intersection(&next_line)
-            .unwrap_or(normal.to_point())
+            .unwrap_or_else(|| normal.to_point())
             .to_vector();
 
         (i1, i2)
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn tess_round_cap(
     center: Point,
     angle: (f32, f32),
@@ -1327,7 +1328,7 @@ fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Rect) {
     };
 
     // Save the builder options.
-    let options = builder.options.clone();
+    let options = builder.options;
 
     let cap = match options.line_join {
         LineJoin::Round => LineCap::Round,
@@ -1433,7 +1434,7 @@ fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
 fn angle_diff(a: Angle, b: Angle) -> Angle {
     let max = PI * 2.0;
     let d = (b.radians - a.radians) % max;
-    return Angle::radians(2.0 * d % max - d);
+    Angle::radians(2.0 * d % max - d)
 }
 
 #[cfg(test)]

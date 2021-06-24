@@ -13,6 +13,12 @@ pub struct DebugValidator {
     in_subpath: bool,
 }
 
+impl Default for DebugValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebugValidator {
     #[inline(always)]
     pub fn new() -> Self {

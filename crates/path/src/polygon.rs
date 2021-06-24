@@ -261,7 +261,7 @@ impl Iterator for PolygonIdIter {
         let idx = self.idx;
         self.idx += 1;
 
-        return if idx == self.start {
+        if idx == self.start {
             Some(IdEvent::Begin {
                 at: EndpointId(self.start),
             })
@@ -278,7 +278,7 @@ impl Iterator for PolygonIdIter {
             })
         } else {
             None
-        };
+        }
     }
 }
 

@@ -479,9 +479,9 @@ impl<S: Scalar> Arc<S> {
     }
 }
 
-impl<S: Scalar> Into<Arc<S>> for SvgArc<S> {
-    fn into(self) -> Arc<S> {
-        self.to_arc()
+impl<S: Scalar> From<SvgArc<S>> for Arc<S> {
+    fn from(svg: SvgArc<S>) -> Self {
+        svg.to_arc()
     }
 }
 
@@ -1065,4 +1065,3 @@ fn negative_flattening_step() {
 
     assert!(flattened.len() > 1);
 }
-

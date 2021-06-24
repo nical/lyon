@@ -315,7 +315,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// The callback takes the point on the curve at each step.
     ///
     /// This implements the algorithm described by Raph Levien at
-    /// https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>),
@@ -329,7 +329,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// The callback takes the curve parameter at each step.
     ///
     /// This implements the algorithm described by Raph Levien at
-    /// https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened_t<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(S),
@@ -356,7 +356,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// The callback takes the point and corresponding curve parameter at each step.
     ///
     /// This implements the algorithm described by Raph Levien at
-    /// https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
+    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened_with_t<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>, S),
@@ -638,11 +638,11 @@ impl<S: Scalar> FlatteningParameters<S> {
         let integral_step = integral_diff / count;
 
         FlatteningParameters {
+            count,
             integral_from,
             integral_step,
             inv_integral_from,
             div_inv_integral_diff,
-            count,
             is_point,
         }
     }
