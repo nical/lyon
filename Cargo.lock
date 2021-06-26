@@ -1055,7 +1055,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "0.17.7"
+version = "0.17.8"
 dependencies = [
  "arrayvec 0.5.2",
  "float_next_after",
