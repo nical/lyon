@@ -959,3 +959,27 @@ fn horizontal_line_intersection() {
     assert_eq!(segment.horizontal_line_intersection_t(1.5), None);
     assert_eq!(segment.horizontal_line_intersection_t(3.5), None);
 }
+
+#[test]
+fn intersection_on_endpoint() {
+    let l1 = LineSegment {
+        from: point(0.0, 0.0),
+        to: point(0.0, 10.0),
+    };
+
+    let l2 = LineSegment {
+        from: point(0.0, 5.0),
+        to: point(10.0, 5.0),
+    };
+
+    assert_eq!(l1.intersection_t(&l2), Some((0.5, 0.0)));
+    assert_eq!(l2.intersection_t(&l1), Some((0.0, 0.5)));
+
+    let l3 = LineSegment {
+        from: point(10.0, 5.0),
+        to: point(0.0, 5.0),
+    };
+
+    assert_eq!(l1.intersection_t(&l3), Some((0.5, 1.0)));
+    assert_eq!(l3.intersection_t(&l1), Some((1.0, 0.5)));
+}

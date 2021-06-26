@@ -826,10 +826,12 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut result = ArrayVec::new();
 
         for root in roots {
-            if root > S::ZERO && root < S::ONE {
+            if root >= S::ZERO && root <= S::ONE {
                 result.push(root);
             }
         }
+
+        // TODO: sort the intersections?
 
         result
     }
@@ -853,8 +855,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// the segments at the corresponding values.
     pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<[(S, S); 3]> {
         if !self
-            .fast_bounding_rect()
-            .intersects(&segment.bounding_rect())
+            .fast_bounding_rect().inflate(S::EPSILON, S::EPSILON)
+            .intersects(&segment.bounding_rect().inflate(S::EPSILON, S::EPSILON))
         {
             return ArrayVec::new();
         }
@@ -882,7 +884,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             };
             if intersection_xy >= seg_long_axis_min && intersection_xy <= seg_long_axis_max {
                 let t2 = (self.sample(t) - segment.from).length() / segment.length();
-                result.push((t, t2));
+                // Don't take intersections that are on endpoints of both curves at the same time.
+                if (t != S::ZERO && t != S::ONE) || (t2 != S::ZERO && t2 != S::ONE) {
+                    result.push((t, t2));
+                }
             }
         }
 
@@ -1329,4 +1334,52 @@ fn test_cubic_intersection_deduping() {
     assert_eq!(intersections.len(), 1);
     assert!(f64::abs(intersections[0].x) < epsilon);
     assert!(f64::abs(intersections[0].y) < epsilon);
+}
+
+#[test]
+fn cubic_line_intersection_on_endpoint() {
+    let l1 = LineSegment {
+      from: Point::new(0.0, -100.0),
+      to: Point::new(0.0, 100.0),
+    };
+
+    let cubic = CubicBezierSegment {
+      from: Point::new(0.0, 0.0),
+      ctrl1: Point::new(20.0, 20.0),
+      ctrl2: Point::new(20.0, 40.0),
+      to: Point::new(0.0, 60.0),
+    };
+
+    let intersections = cubic.line_segment_intersections_t(&l1);
+
+    assert_eq!(intersections.len(), 2);
+    assert_eq!(intersections[0], (1.0, 0.8));
+    assert_eq!(intersections[1], (0.0, 0.5));
+
+    let l2 = LineSegment {
+      from: Point::new(0.0, 0.0),
+      to: Point::new(0.0, 60.0),
+    };
+
+    let intersections = cubic.line_segment_intersections_t(&l2);
+
+    assert!(intersections.is_empty());
+
+    let c1 = CubicBezierSegment {
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(20.0, 0.0),
+        ctrl2: Point::new(20.0, 20.0),
+        to: Point::new(0.0, 60.0),
+    };
+
+    let c2 = CubicBezierSegment {
+        from: Point::new(0.0, 60.0),
+        ctrl1: Point::new(-40.0, 4.0),
+        ctrl2: Point::new(-20.0, 20.0),
+        to: Point::new(0.0, 00.0),
+    };
+
+    let intersections = c1.cubic_intersections_t(&c2);
+
+    assert!(intersections.is_empty());
 }
