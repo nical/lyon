@@ -23,6 +23,7 @@ profiling = []
 [dependencies]
 lyon_path = { version = "0.17.1", path = "../path" }
 sid = "0.6"
+float_next_after = "0.1.5"
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 arrayvec = "0.5"
 

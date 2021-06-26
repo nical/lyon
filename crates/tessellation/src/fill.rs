@@ -15,6 +15,7 @@ use std::cmp::Ordering;
 use std::f32;
 use std::mem;
 use std::ops::Range;
+use float_next_after::NextAfter;
 
 #[cfg(debug_assertions)]
 use std::env;
@@ -953,9 +954,10 @@ impl FillTessellator {
             } else {
                 assert!(
                     !is_after(self.current_position, edge.to),
-                    "error at edge {}, position {:?}",
+                    "error at edge {}, position {:.6?} (current: {:.6?}",
                     idx,
-                    edge.to
+                    edge.to,
+                    self.current_position,
                 );
             }
         }
@@ -1661,15 +1663,12 @@ impl FillTessellator {
             return;
         }
 
-        if intersection_position.y < self.current_position.y {
-            tess_log!(self, "fixup the intersection because of y coordinate");
-            intersection_position.y = self.current_position.y + 0.0001; // TODO
-        } else if intersection_position.y == self.current_position.y
-            && intersection_position.x < self.current_position.x
-        {
-            tess_log!(self, "fixup the intersection because of x coordinate");
-            intersection_position.y = self.current_position.y + 0.0001; // TODO
+        if !is_after(intersection_position, self.current_position) {
+            tess_log!(self, "fixup the intersection");
+            intersection_position.y = self.current_position.y.next_after(std::f32::INFINITY);
         }
+
+        assert!(is_after(intersection_position, self.current_position), "!!! {:.9?} {:.9?}", intersection_position, self.current_position);
 
         if is_near(intersection_position, edge_below.to) {
             tess_log!(self, "intersection near below.to");
