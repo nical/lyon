@@ -31,7 +31,7 @@ pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(
 ) where
     F: FnMut(Point<S>, S),
 {
-    debug_assert!(tolerance >= S::EPSILON);
+    debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
     let quadratics_tolerance = tolerance * S::value(0.2);
     let flattening_tolerance = tolerance * S::value(0.8);
 
@@ -70,7 +70,7 @@ pub struct Flattened<S: Scalar> {
 
 impl<S: Scalar> Flattened<S> {
     pub(crate) fn new(curve: &CubicBezierSegment<S>, tolerance: S) -> Self {
-        debug_assert!(tolerance >= S::EPSILON);
+        debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
         let quadratics_tolerance = tolerance * S::value(0.2);
         let flattening_tolerance = tolerance * S::value(0.8);

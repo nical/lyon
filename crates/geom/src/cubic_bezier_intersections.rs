@@ -529,6 +529,7 @@ fn add_point_curve_intersection<S: Scalar>(
     }
 }
 
+// TODO: replace with Scalar::epsilon_for?
 // If we're comparing distances between samples of curves, our epsilon should depend on how big the
 // points we're comparing are. This function returns an epsilon appropriate for the size of pt.
 fn epsilon_for_point<S: Scalar>(pt: &Point<S>) -> S {

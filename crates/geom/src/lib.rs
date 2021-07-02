@@ -150,6 +150,12 @@ mod scalar {
         const TEN: Self;
 
         const EPSILON: Self;
+        const DIV_EPSILON: Self = Self::EPSILON;
+
+        /// Epsilon constants are usually not a good way to deal with float precision.
+        /// Float precision depends on the magnitude of the values and so should appropriate
+        /// epsilons.
+        fn epsilon_for(_reference: Self) -> Self { Self::EPSILON }
 
         fn value(v: f32) -> Self;
     }
@@ -168,14 +174,33 @@ mod scalar {
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
 
-        const EPSILON: Self = 1e-5;
+        const EPSILON: Self = 1e-4;
 
         #[inline]
         fn value(v: f32) -> Self {
             v
         }
+
+        fn epsilon_for(reference: Self) -> Self {
+            // The thresholds are chosen by looking at the table at
+            // https://blog.demofox.org/2017/11/21/floating-point-precision/ plus a bit
+            // of trial and error. They might change in the future.
+            // TODO: instead of casting to an integer, could look at the exponent directly.
+            let magnitude = reference.abs() as i32;
+            match magnitude {
+                0 ..= 7 => 1e-5,
+                8 ..= 1023 => 1e-3,
+                1024 ..= 4095 => 1e-2,
+                5096 ..= 65535 => 1e-1,
+                65536 ..= 8_388_607 => 0.5,
+                _ => 1.0,
+            }
+        }
     }
 
+    // Epsilon constants are usually not a good way to deal with float precision.
+    // Float precision depends on the magnitude of the values and so should appropriate
+    // epsilons. This function addresses this somewhat empirically.
     impl Scalar for f64 {
         const HALF: Self = 0.5;
         const ZERO: Self = 0.0;
@@ -195,6 +220,16 @@ mod scalar {
         #[inline]
         fn value(v: f32) -> Self {
             v as f64
+        }
+
+        fn epsilon_for(reference: Self) -> Self {
+            let magnitude = reference.abs() as i64;
+            match magnitude {
+                0 ..= 65_535 => 1e-8,
+                65_536 ..=  83_88_607 => 1e-5,
+                83_88_608 ..= 4_294_967_295 => 1e-3,
+                _ => 1e-1,
+            }
         }
     }
 }

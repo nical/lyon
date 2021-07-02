@@ -1129,3 +1129,29 @@ fn test_flattening_straight_line() {
     curve.for_each_flattened(0.1, &mut |_| count += 1);
     assert_eq!(count, 1);
 }
+
+#[test]
+fn issue_678() {
+    let points = [
+        [-7768.80859375f32, -35563.80859375],
+        [-38463.125, -10941.41796875],
+        [-21846.12890625, -13518.1953125],
+        [-11727.439453125, -22080.33203125],
+    ];
+
+    let quadratic = QuadraticBezierSegment {
+        from: Point::new(points[0][0], points[0][1]),
+        ctrl: Point::new(points[1][0], points[1][1]),
+        to: Point::new(points[2][0], points[2][1]),
+    };
+
+    let line = Line {
+        point: Point::new(points[3][0], points[3][1]),
+        vector: Vector::new(-0.5, -0.5).normalize(),
+    };
+
+    let intersections = quadratic.line_intersections(&line);
+    println!("{:?}", intersections);
+
+    assert_eq!(intersections.len(), 1);
+}
