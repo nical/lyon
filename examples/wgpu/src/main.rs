@@ -19,6 +19,7 @@ use wgpu::util::DeviceExt;
 
 use futures::executor::block_on;
 use std::ops::Rem;
+use std::time::{Duration, Instant};
 
 //use log;
 
@@ -495,7 +496,11 @@ fn main() {
 
     let mut depth_texture_view = None;
 
-    let mut frame_count: f32 = 0.0;
+    let start = Instant::now();
+    let mut next_report = start + Duration::from_secs(1);
+    let mut frame_count: u32 = 0;
+    let mut time_secs: f32 = 0.0;
+
     event_loop.run(move |event, _, control_flow| {
         if update_inputs(event, control_flow, &mut scene) {
             // keep polling inputs.
@@ -551,21 +556,21 @@ fn main() {
 
         cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
         cpu_primitives[stroke_prim_id as usize].color = [
-            (frame_count * 0.008 - 1.6).sin() * 0.1 + 0.1,
-            (frame_count * 0.005 - 1.6).sin() * 0.1 + 0.1,
-            (frame_count * 0.01 - 1.6).sin() * 0.1 + 0.1,
+            (time_secs * 0.8 - 1.6).sin() * 0.1 + 0.1,
+            (time_secs * 0.5 - 1.6).sin() * 0.1 + 0.1,
+            (time_secs - 1.6).sin() * 0.1 + 0.1,
             1.0,
         ];
 
         for idx in 2..(num_instances + 1) {
             cpu_primitives[idx as usize].translate = [
-                (frame_count * 0.0005 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
-                (frame_count * 0.001 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
+                (time_secs * 0.05 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
+                (time_secs * 0.1 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
             ];
         }
 
         let mut arrow_count = 0;
-        let offset = (frame_count as f32 * 0.1).rem(5.0);
+        let offset = (time_secs * 10.0).rem(5.0);
         walk::walk_along_path(
             path.iter().flattened(0.01),
             offset,
@@ -666,7 +671,14 @@ fn main() {
 
         queue.submit(Some(encoder.finish()));
 
-        frame_count += 1.0;
+        frame_count += 1;
+        let now = Instant::now();
+        time_secs = (now - start).as_secs_f32();
+        if now >= next_report {
+            println!("{} FPS", frame_count);
+            frame_count = 0;
+            next_report = now + Duration::from_secs(1);
+        }
     });
 }
 
