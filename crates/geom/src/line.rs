@@ -153,13 +153,13 @@ impl<S: Scalar> LineSegment<S> {
 
     /// Returns the vector between this segment's `from` and `to` points.
     #[inline]
-    pub fn to_vector(&self) -> Vector<S> {
+    pub fn to_vector(self) -> Vector<S> {
         self.to - self.from
     }
 
     /// Returns the line containing this segment.
     #[inline]
-    pub fn to_line(&self) -> Line<S> {
+    pub fn to_line(self) -> Line<S> {
         Line {
             point: self.from,
             vector: self.to - self.from,

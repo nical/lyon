@@ -136,7 +136,7 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Convert to the SVG arc notation.
-    pub fn to_svg_arc(&self) -> SvgArc<S> {
+    pub fn to_svg_arc(self) -> SvgArc<S> {
         let from = self.sample(S::ZERO);
         let to = self.sample(S::ONE);
         let flags = ArcFlags {
@@ -487,8 +487,8 @@ impl<S: Scalar> From<SvgArc<S>> for Arc<S> {
 
 impl<S: Scalar> SvgArc<S> {
     /// Converts this arc from endpoints to center notation.
-    pub fn to_arc(&self) -> Arc<S> {
-        Arc::from_svg_arc(self)
+    pub fn to_arc(self) -> Arc<S> {
+        Arc::from_svg_arc(&self)
     }
 
     /// Per SVG spec, this arc should be rendered as a line_to segment.

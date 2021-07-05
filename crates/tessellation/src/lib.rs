@@ -646,7 +646,7 @@ impl VertexId {
         self.0
     }
 
-    pub fn to_usize(&self) -> usize {
+    pub fn to_usize(self) -> usize {
         self.0 as usize
     }
 

@@ -233,7 +233,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Elevate this curve to a third order bézier.
-    pub fn to_cubic(&self) -> CubicBezierSegment<S> {
+    pub fn to_cubic(self) -> CubicBezierSegment<S> {
         CubicBezierSegment {
             from: self.from,
             ctrl1: (self.from + self.ctrl.to_vector() * S::TWO) / S::THREE,
