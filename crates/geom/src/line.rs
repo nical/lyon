@@ -3,7 +3,7 @@ use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::utils::min_max;
-use crate::{point, vector, Point, Rect, Size, Vector};
+use crate::{point, vector, Point, Rect, Vector, Box2D};
 use std::mem::swap;
 
 use std::ops::Range;
@@ -130,15 +130,21 @@ impl<S: Scalar> LineSegment<S> {
         self.split(self.solve_t_for_x(x))
     }
 
-    /// Return the minimum bounding rectangle
+    /// Return the smallest rectangle containing this segment.
     #[inline]
-    pub fn bounding_rect(&self) -> Rect<S> {
+    pub fn bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        let width = max_x - min_x;
-        let height = max_y - min_y;
-        Rect::new(Point::new(min_x, min_y), Size::new(width, height))
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
+    }
+
+    /// Return the smallest rectangle containing this segment.
+    pub fn bounding_rect(&self) -> Rect<S> {
+        self.bounding_box().to_rect()
     }
 
     #[inline]

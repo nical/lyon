@@ -246,6 +246,9 @@ pub use euclid::default::Size2D as Size;
 /// Alias for `euclid::default::Rect`
 pub use euclid::default::Rect;
 
+/// Alias for `euclid::default::Box2D`
+pub use euclid::default::Box2D;
+
 /// Alias for `euclid::default::Transform2D`
 pub type Transform<S> = euclid::default::Transform2D<S>;
 
