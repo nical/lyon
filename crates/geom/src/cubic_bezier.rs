@@ -7,7 +7,7 @@ use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::utils::{cubic_polynomial_roots, min_max};
-use crate::{rect, Point, Rect, Vector};
+use crate::{Point, Rect, Vector, Box2D, point};
 use crate::{Line, LineEquation, LineSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
@@ -606,14 +606,19 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Returns a conservative rectangle the curve is contained in.
     ///
     /// This method is faster than `bounding_rect` but more conservative.
-    pub fn fast_bounding_rect(&self) -> Rect<S> {
+    pub fn fast_bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
 
-        rect(min_x, min_y, max_x - min_x, max_y - min_y)
+        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
     }
 
-    /// Returns a conservative range of x this curve is contained in.
+    /// Returns a conservative rectangle that contains the curve.
+    pub fn fast_bounding_rect(&self) -> Rect<S> {
+        self.fast_bounding_box().to_rect()
+    }
+
+    /// Returns a conservative range of x that contains this curve.
     #[inline]
     pub fn fast_bounding_range_x(&self) -> (S, S) {
         let min_x = self
@@ -632,7 +637,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         (min_x, max_x)
     }
 
-    /// Returns a conservative range of y this curve is contained in.
+    /// Returns a conservative range of y that contains this curve.
     #[inline]
     pub fn fast_bounding_range_y(&self) -> (S, S) {
         let min_y = self
@@ -651,15 +656,22 @@ impl<S: Scalar> CubicBezierSegment<S> {
         (min_y, max_y)
     }
 
-    /// Returns the smallest rectangle the curve is contained in
-    pub fn bounding_rect(&self) -> Rect<S> {
+    /// Returns a conservative rectangle that contains the curve.
+    #[inline]
+    pub fn bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        rect(min_x, min_y, max_x - min_x, max_y - min_y)
+        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
     }
 
-    /// Returns the smallest range of x this curve is contained in.
+    /// Returns a conservative rectangle that contains the curve.
+    #[inline]
+    pub fn bounding_rect(&self) -> Rect<S> {
+        self.bounding_box().to_rect()
+    }
+
+    /// Returns the smallest range of x that contains this curve.
     #[inline]
     pub fn bounding_range_x(&self) -> (S, S) {
         let min_x = self.x(self.x_minimum_t());
@@ -668,7 +680,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         (min_x, max_x)
     }
 
-    /// Returns the smallest range of y this curve is contained in.
+    /// Returns the smallest range of y that contains this curve.
     #[inline]
     pub fn bounding_range_y(&self) -> (S, S) {
         let min_y = self.y(self.y_minimum_t());
@@ -944,6 +956,9 @@ impl<S: Scalar> BoundingRect for CubicBezierSegment<S> {
 
 /// A monotonically increasing in x and y quadratic bézier curve segment
 pub type MonotonicCubicBezierSegment<S> = Monotonic<CubicBezierSegment<S>>;
+
+#[cfg(test)]
+use crate::rect;
 
 #[test]
 fn fast_bounding_rect_for_cubic_bezier_segment() {
