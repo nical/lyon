@@ -24,6 +24,8 @@ use std::fs::File;
 use std::io::{stderr, stdout, Read, Write};
 
 fn main() {
+    env_logger::init();
+
     let matches = App::new("Lyon command-line interface")
         .version("0.1")
         .author("Nicolas Silva <nical@fastmail.com>")

@@ -31,6 +31,7 @@ struct Globals {
     bg_color: [f32; 4],
     vignette_color: [f32; 4],
     zoom: f32,
+    _pad: [f32; 3],
 }
 
 unsafe impl bytemuck::Pod for Globals {}
@@ -79,13 +80,13 @@ fn create_multisampled_framebuffer(
         size: wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
-            depth: 1,
+            depth_or_array_layers: 1,
         },
         mip_level_count: 1,
         sample_count,
         dimension: wgpu::TextureDimension::D2,
         format: sc_desc.format,
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
     };
 
     device
@@ -294,16 +295,16 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
     // create an adapter
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::Default,
+        power_preference: wgpu::PowerPreference::LowPower,
         compatible_surface: Some(&surface),
     }))
     .unwrap();
     // create a device and a queue
     let (device, queue) = block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
+            label: None,
             features: wgpu::Features::default(),
             limits: wgpu::Limits::default(),
-            shader_validation: true,
         },
         None,
     ))
@@ -351,22 +352,23 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     });
 
     let vs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
     let fs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
     let bg_vs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/background.vert.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.vert.spv"));
     let bg_fs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/background.frag.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.frag.spv"));
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(globals_buffer_byte_size),
                 },
                 count: None,
@@ -374,8 +376,9 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(prim_buffer_byte_size),
                 },
                 count: None,
@@ -388,11 +391,11 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(globals_ubo.slice(..)),
+                resource: wgpu::BindingResource::Buffer(globals_ubo.as_entire_buffer_binding()),
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Buffer(prims_ubo.slice(..)),
+                resource: wgpu::BindingResource::Buffer(prims_ubo.as_entire_buffer_binding()),
             },
         ],
     });
@@ -403,76 +406,80 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         label: None,
     });
 
-    let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
+    let depth_stencil_state = Some(wgpu::DepthStencilState {
         format: wgpu::TextureFormat::Depth32Float,
         depth_write_enabled: true,
         depth_compare: wgpu::CompareFunction::Greater,
-        stencil: wgpu::StencilStateDescriptor {
-            front: wgpu::StencilStateFaceDescriptor::IGNORE,
-            back: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil: wgpu::StencilState {
+            front: wgpu::StencilFaceState::IGNORE,
+            back: wgpu::StencilFaceState::IGNORE,
             read_mask: 0,
             write_mask: 0,
         },
+        bias: wgpu::DepthBiasState::default(),
     });
 
     let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
+        label: None,
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &vs_module,
             entry_point: "main",
-        },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-            module: &fs_module,
-            entry_point: "main",
-        }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8Unorm,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state: depth_stencil_state.clone(),
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint32,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<GpuVertex>() as u64,
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &[
-                    wgpu::VertexAttributeDescriptor {
+                    wgpu::VertexAttribute {
                         offset: 0,
-                        format: wgpu::VertexFormat::Float2,
+                        format: wgpu::VertexFormat::Float32x2,
                         shader_location: 0,
                     },
-                    wgpu::VertexAttributeDescriptor {
+                    wgpu::VertexAttribute {
                         offset: 8,
-                        format: wgpu::VertexFormat::Float2,
+                        format: wgpu::VertexFormat::Float32x2,
                         shader_location: 1,
                     },
-                    wgpu::VertexAttributeDescriptor {
+                    wgpu::VertexAttribute {
                         offset: 16,
-                        format: wgpu::VertexFormat::Int,
+                        format: wgpu::VertexFormat::Sint32,
                         shader_location: 2,
                     },
                 ],
             }],
         },
-        sample_count,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
-        label: None,
+        fragment: Some(wgpu::FragmentState {
+            module: &fs_module,
+            entry_point: "main",
+            targets: &[
+                wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    blend: None,
+                    write_mask: wgpu::ColorWrite::ALL,
+                },
+            ],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            front_face: wgpu::FrontFace::Ccw,
+            strip_index_format: None,
+            cull_mode: None,
+            clamp_depth: false,
+            conservative: false,
+        },
+        depth_stencil: depth_stencil_state.clone(),
+        multisample: wgpu::MultisampleState {
+            count: sample_count,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
     };
 
     let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
     // TODO: this isn't what we want: we'd need the equivalent of VK_POLYGON_MODE_LINE,
     // but it doesn't seem to be exposed by wgpu?
-    render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
+    render_pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::LineList;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
     let wireframe_indices = build_wireframe_indices(&geometry.indices);
@@ -483,50 +490,53 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     });
 
     let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: None,
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &bg_vs_module,
             entry_point: "main",
-        },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-            module: &bg_fs_module,
-            entry_point: "main",
-        }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8Unorm,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state,
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint32,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<Point>() as u64,
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<Point>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &[wgpu::VertexAttributeDescriptor {
+                attributes: &[wgpu::VertexAttribute {
                     offset: 0,
-                    format: wgpu::VertexFormat::Float2,
+                    format: wgpu::VertexFormat::Float32x2,
                     shader_location: 0,
                 }],
             }],
         },
-        sample_count,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
-        label: None,
+        fragment: Some(wgpu::FragmentState {
+            module: &bg_fs_module,
+            entry_point: "main",
+            targets: &[
+                wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    blend: None,
+                    write_mask: wgpu::ColorWrite::ALL,
+                },
+            ],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            front_face: wgpu::FrontFace::Ccw,
+            strip_index_format: None,
+            cull_mode: None,
+            clamp_depth: false,
+            conservative: false,
+        },
+        depth_stencil: depth_stencil_state.clone(),
+        multisample: wgpu::MultisampleState {
+            count: sample_count,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
     });
 
     let size = window.inner_size();
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
@@ -558,13 +568,13 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 size: wgpu::Extent3d {
                     width: swap_chain_desc.width,
                     height: swap_chain_desc.height,
-                    depth: 1,
+                    depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             });
 
             depth_texture_view =
@@ -620,6 +630,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 scroll_offset: scene.scroll.to_array(),
                 bg_color,
                 vignette_color,
+                _pad: [0.0; 3],
             }]),
         );
 
@@ -629,8 +640,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             // A resolve target is only supported if the attachment actually uses anti-aliasing
             // So if sample_count == 1 then we must render directly to the swapchain's buffer
             let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
-                wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: msaa_target,
+                wgpu::RenderPassColorAttachment {
+                    view: msaa_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
@@ -638,8 +649,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                     resolve_target: Some(&frame.output.view),
                 }
             } else {
-                wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.output.view,
+                wgpu::RenderPassColorAttachment {
+                    view: &frame.output.view,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
@@ -649,9 +660,10 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             };
 
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
                 color_attachments: &[color_attachment],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: depth_texture_view.as_ref().unwrap(),
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: depth_texture_view.as_ref().unwrap(),
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(0.0),
                         store: true,
@@ -666,11 +678,11 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             let index_range;
             if scene.show_wireframe {
                 pass.set_pipeline(&wireframe_render_pipeline);
-                pass.set_index_buffer(wireframe_ibo.slice(..));
+                pass.set_index_buffer(wireframe_ibo.slice(..), wgpu::IndexFormat::Uint32);
                 index_range = 0..(wireframe_indices.len() as u32);
             } else {
                 pass.set_pipeline(&render_pipeline);
-                pass.set_index_buffer(ibo.slice(..));
+                pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint32);
                 index_range = 0..(geometry.indices.len() as u32);
             }
             pass.set_bind_group(0, &bind_group, &[]);
@@ -681,7 +693,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             if scene.draw_background {
                 pass.set_pipeline(&bg_pipeline);
                 pass.set_bind_group(0, &bind_group, &[]);
-                pass.set_index_buffer(bg_ibo.slice(..));
+                pass.set_index_buffer(bg_ibo.slice(..), wgpu::IndexFormat::Uint32);
                 pass.set_vertex_buffer(0, bg_vbo.slice(..));
 
                 pass.draw_indexed(0..6, 0, 0..1);
