@@ -11,11 +11,11 @@ use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
     FillOptions, InternalError, Side, TessellationError, TessellationResult, VertexSource,
 };
+use float_next_after::NextAfter;
 use std::cmp::Ordering;
 use std::f32;
 use std::mem;
 use std::ops::Range;
-use float_next_after::NextAfter;
 
 #[cfg(debug_assertions)]
 use std::env;
@@ -1668,7 +1668,12 @@ impl FillTessellator {
             intersection_position.y = self.current_position.y.next_after(std::f32::INFINITY);
         }
 
-        assert!(is_after(intersection_position, self.current_position), "!!! {:.9?} {:.9?}", intersection_position, self.current_position);
+        assert!(
+            is_after(intersection_position, self.current_position),
+            "!!! {:.9?} {:.9?}",
+            intersection_position,
+            self.current_position
+        );
 
         if is_near(intersection_position, edge_below.to) {
             tess_log!(self, "intersection near below.to");
@@ -2039,7 +2044,7 @@ impl FillTessellator {
             .insert_sorted(split_point, edge_data, self.current_event_id);
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.current_position = point(f32::MIN, f32::MIN);
         self.current_vertex = VertexId::INVALID;
         self.current_event_id = INVALID_EVENT_ID;
