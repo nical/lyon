@@ -201,6 +201,19 @@ where
             None => None,
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // At minimum, the inner iterator's size hint plus the flattening iterator's size hint can form the lower
+        // bracket.
+        // We can't determine a maximum limit.
+        let mut lo = self.it.size_hint().0;
+        match &self.current_curve {
+             TmpFlatteningIter::Quadratic(t) => { lo += t.size_hint().0; },
+             TmpFlatteningIter::Cubic(t) => { lo += t.size_hint().0; },
+             _ => {},
+        }
+        (lo, None)
+    }
 }
 
 /// Applies a 2D transform to a path iterator and yields the resulting path iterator.
