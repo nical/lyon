@@ -8,7 +8,7 @@ use crate::private::DebugValidator;
 use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
 
 use std::fmt;
-use std::iter::IntoIterator;
+use std::iter::{FromIterator, IntoIterator};
 use std::u32;
 
 /// Enumeration corresponding to the [Event](https://docs.rs/lyon_core/*/lyon_core/events/enum.Event.html) enum
@@ -182,6 +182,15 @@ impl Path {
                 IdEvent::End { .. } => {}
             }
         }
+    }
+}
+
+impl FromIterator<PathEvent> for Path {
+    fn from_iter<T: IntoIterator<Item = PathEvent>>(iter: T) -> Path {
+        iter.into_iter().fold(Path::builder(), |mut builder, event| {
+            builder.path_event(event);
+            builder
+        }).build()
     }
 }
 
