@@ -89,7 +89,8 @@ fn main() {
     let mut mesh: VertexBuffers<_, u32> = VertexBuffers::new();
 
     let opt = usvg::Options::default();
-    let rtree = usvg::Tree::from_file(&filename, &opt).unwrap();
+    let file_data = std::fs::read(filename).unwrap();
+    let rtree = usvg::Tree::from_data(&file_data, &opt).unwrap();
     let mut transforms = Vec::new();
     let mut primitives = Vec::new();
 
@@ -178,8 +179,8 @@ fn main() {
 
     // Initialize wgpu and send some data to the GPU.
 
-    let vb_width = view_box.rect.size().width as f32;
-    let vb_height = view_box.rect.size().height as f32;
+    let vb_width = view_box.rect.size().width() as f32;
+    let vb_height = view_box.rect.size().height() as f32;
     let scale = vb_width / vb_height;
 
     let (width, height) = if scale < 1.0 {
@@ -750,7 +751,7 @@ impl<'l> Iterator for PathConvIter<'l> {
 
 pub fn convert_path(p: &usvg::Path) -> PathConvIter {
     PathConvIter {
-        iter: p.segments.iter(),
+        iter: p.data.iter(),
         first: Point::new(0.0, 0.0),
         prev: Point::new(0.0, 0.0),
         deferred: None,
