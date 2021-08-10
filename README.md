@@ -7,7 +7,7 @@ A path tessellation library written in rust for GPU-based 2D graphics rendering.
 
 <p align="center">
   <a href="https://crates.io/crates/lyon">
-      <img src="http://meritbadge.herokuapp.com/lyon" alt="crates.io">
+      <img src="https://img.shields.io/crates/v/lyon.svg" alt="crates.io">
   </a>
   <a href="https://travis-ci.org/nical/lyon">
       <img src="https://img.shields.io/travis/nical/lyon/master.svg" alt="Travis Build Status">
