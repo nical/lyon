@@ -120,6 +120,7 @@ impl<'l> FromIterator<PathSlice<'l>> for PathBuffer {
 }
 
 /// A view on a `PathBuffer`.
+#[derive(Clone)]
 pub struct PathBufferSlice<'l> {
     points: &'l [Point],
     verbs: &'l [path::Verb],
@@ -413,6 +414,7 @@ impl<'l> BuilderWithAttributes<'l> {
 }
 
 /// Iterator over the paths in a [`PathBufferSlice`].
+#[derive(Clone)]
 pub struct Iter<'l> {
     points: &'l [Point],
     verbs: &'l [path::Verb],

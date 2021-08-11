@@ -370,6 +370,7 @@ impl<'l> AttributeStore for PathSlice<'l> {
 }
 
 /// The default builder for `Path`.
+#[derive(Clone)]
 pub struct Builder {
     pub(crate) points: Vec<Point>,
     pub(crate) verbs: Vec<Verb>,
@@ -554,6 +555,7 @@ impl Build for Builder {
 ///
 /// Custom attributes are a fixed number of `f32` values associated with each endpoint.
 /// All endpoints must have the same number of custom attributes,
+#[derive(Clone)]
 pub struct BuilderWithAttributes {
     pub(crate) builder: Builder,
     pub(crate) num_attributes: usize,

@@ -26,6 +26,7 @@ use crate::{
 ///     // same as iterating a regular `Path` object.
 /// }
 /// ```
+#[derive(Clone)]
 pub struct Polygon<'l, T> {
     pub points: &'l [T],
     pub closed: bool,
@@ -90,6 +91,7 @@ impl<'l, T> std::ops::Index<EndpointId> for Polygon<'l, T> {
 }
 
 /// A view over a sequence of endpoint IDs forming a polygon.
+#[derive(Clone)]
 pub struct IdPolygon<'l> {
     pub points: &'l [EndpointId],
     pub closed: bool,
@@ -128,6 +130,7 @@ impl<'l> IdPolygon<'l> {
 }
 
 /// An iterator of `Event<EndpointId, ()>`.
+#[derive(Clone)]
 pub struct IdPolygonIter<'l> {
     points: std::slice::Iter<'l, EndpointId>,
     idx: u32,
@@ -165,6 +168,7 @@ impl<'l> Iterator for IdPolygonIter<'l> {
 }
 
 /// An iterator of `Event<&Endpoint, ()>`.
+#[derive(Clone)]
 pub struct PolygonIter<'l, T> {
     points: std::slice::Iter<'l, T>,
     prev: Option<&'l T>,
@@ -199,6 +203,7 @@ impl<'l, T> Iterator for PolygonIter<'l, T> {
 }
 
 /// An iterator of `PathEvent`.
+#[derive(Clone)]
 pub struct PathEvents<'l, T> {
     points: std::slice::Iter<'l, T>,
     prev: Option<Point>,
@@ -234,8 +239,8 @@ impl<'l, T: Position> Iterator for PathEvents<'l, T> {
     }
 }
 
-#[derive(Clone)]
 /// An iterator of `IdEvent` for `Polygon`.
+#[derive(Clone)]
 pub struct PolygonIdIter {
     idx: u32,
     start: u32,
