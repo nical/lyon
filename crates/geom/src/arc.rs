@@ -140,8 +140,8 @@ impl<S: Scalar> Arc<S> {
         let from = self.sample(S::ZERO);
         let to = self.sample(S::ONE);
         let flags = ArcFlags {
-            sweep: S::abs(self.sweep_angle.get()) >= S::PI(),
-            large_arc: self.sweep_angle.get() >= S::ZERO,
+            sweep: self.sweep_angle.get() >= S::ZERO,
+            large_arc: S::abs(self.sweep_angle.get()) >= S::PI(),
         };
         SvgArc {
             from,
