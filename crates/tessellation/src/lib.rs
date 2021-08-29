@@ -195,6 +195,7 @@ pub mod geometry_builder;
 mod math_utils;
 mod monotone;
 mod stroke;
+mod basic_shapes;
 
 #[cfg(test)]
 #[rustfmt::skip]

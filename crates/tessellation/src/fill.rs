@@ -627,13 +627,10 @@ impl FillTessellator {
     pub fn tessellate_rectangle(
         &mut self,
         rect: &Rect,
-        options: &FillOptions,
+        _options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let mut builder = self.builder(options, output);
-        builder.add_rectangle(rect, Winding::Positive);
-
-        builder.build()
+        crate::basic_shapes::fill_rectangle(rect, output)
     }
 
     /// Tessellate a circle.
@@ -644,10 +641,7 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let mut builder = self.builder(options, output);
-        builder.add_circle(center, radius, Winding::Positive);
-
-        builder.build()
+        crate::basic_shapes::fill_circle(center, radius, options, output)
     }
 
     /// Tessellate an ellipse.
@@ -660,7 +654,9 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let mut builder = self.builder(options, output);
+        let options = options.clone().with_intersections(false);
+
+        let mut builder = self.builder(&options, output);
         builder.add_ellipse(center, radii, x_rotation, winding);
 
         builder.build()
@@ -2092,11 +2088,11 @@ fn reorient(p: Point) -> Point {
 
 /// Extra vertex information from the `FillTessellator`, accessible when building vertices.
 pub struct FillVertex<'l> {
-    position: Point,
-    events: &'l EventQueue,
-    current_event: TessEventId,
-    attrib_buffer: &'l mut [f32],
-    attrib_store: Option<&'l dyn AttributeStore>,
+    pub(crate) position: Point,
+    pub(crate) events: &'l EventQueue,
+    pub(crate) current_event: TessEventId,
+    pub(crate) attrib_buffer: &'l mut [f32],
+    pub(crate) attrib_store: Option<&'l dyn AttributeStore>,
 }
 
 impl<'l> FillVertex<'l> {
