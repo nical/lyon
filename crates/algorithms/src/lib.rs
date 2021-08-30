@@ -18,6 +18,7 @@ pub mod hit_test;
 pub mod raycast;
 pub mod splitter;
 pub mod walk;
+pub mod length;
 
 pub use crate::path::geom;
 pub use crate::path::math;
