@@ -1172,7 +1172,6 @@ dependencies = [
  "env_logger 0.7.1",
  "futures",
  "itertools",
- "log",
  "lyon",
  "rand",
  "regex",
@@ -1227,12 +1226,10 @@ dependencies = [
 name = "lyon_tessellation"
 version = "0.17.9"
 dependencies = [
- "arrayvec",
  "float_next_after",
  "lyon_extra",
  "lyon_path",
  "serde",
- "sid",
 ]
 
 [[package]]
@@ -2446,7 +2443,6 @@ dependencies = [
  "bytemuck",
  "env_logger 0.9.0",
  "futures",
- "log",
  "lyon",
  "wgpu",
  "winit",
