@@ -6,14 +6,20 @@ use crate::path::EndpointId;
 use std::ops::Range;
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 struct SubPathInfo {
     range: Range<usize>,
     is_closed: bool,
 }
 
 /// A path data structure for pre-flattened paths and polygons.
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Default)]
 pub struct FlattenedPath {
     points: Vec<Point>,

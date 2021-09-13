@@ -39,7 +39,10 @@ use std::mem;
 
 /// Parameters for the hatcher.
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[non_exhaustive]
 pub struct HatchingOptions {
     /// Maximum allowed distance to the path when building an approximation.
@@ -116,7 +119,10 @@ impl HatchingOptions {
 
 /// Parameters for generating dot patterns.
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[non_exhaustive]
 pub struct DotOptions {
     /// Maximum allowed distance to the path when building an approximation.
