@@ -3,6 +3,7 @@
 
 use crate::builder::*;
 use crate::geom::traits::Transformation;
+use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use crate::math::*;
 use crate::private::DebugValidator;
 use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
@@ -851,6 +852,90 @@ impl<'l> IterWithAttributes<'l> {
             first: self.first.0,
             num_attributes: self.num_attributes,
             attrib_stride: self.attrib_stride,
+        }
+    }
+
+    /// Iterate on a flattened approximation of the path with interpolated custom attributes
+    /// using callbacks.
+    ///
+    /// At the time of writing, it is impossible to implement this efficiently
+    /// with the `Iterator` trait, because of the need to express some lifetime
+    /// constraints in an associated type, see #701.
+    pub fn for_each_flattened<F>(self, tolerance: f32, callback: &mut F)
+    where
+        F: FnMut(&Event<(Point, &[f32]), Point>)
+    {
+        let num_attributes = self.num_attributes;
+        // Some scratch space for writing the interpolated custom attributes.
+        let mut stack_buffer = [0.0; 16];
+        let mut vec_buffer;
+        // No need to allocate memory if the number of custom attributes is small,
+        // which is likely the common case.
+        let buffer = if num_attributes <= 8 {
+            &mut stack_buffer[..]
+        } else {
+            vec_buffer = vec![0.0; num_attributes * 2];
+            &mut vec_buffer[..]
+        };
+
+        for evt in self {
+            match evt {
+                Event::Begin { at } => {
+                    callback(&Event::Begin { at });
+                }
+                Event::End { last, first, close } => {
+                    callback(&Event::End { last, first, close });
+                }
+                Event::Line { from, to } => {
+                    callback(&Event::Line { from, to });
+                }
+                Event::Quadratic { from, ctrl, to } => {
+                    let from_attr = from.1;
+                    let to_attr = to.1;
+                    let curve = QuadraticBezierSegment { from: from.0, ctrl, to: to.0 };
+                    let mut prev_pos = from.0;
+                    let mut offset = num_attributes;
+                    buffer[0..num_attributes].copy_from_slice(from_attr);
+                    curve.for_each_flattened_with_t(tolerance, &mut|pos, t| {
+                        for i in 0..num_attributes {
+                            buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
+                        }
+
+                        let next_offset =  if offset == 0 { num_attributes } else { 0 };
+
+                        callback(&Event::Line {
+                            from: (prev_pos, &buffer[next_offset..(next_offset + num_attributes)]),
+                            to: (pos, &buffer[offset..(offset + num_attributes)]),
+                        });
+
+                        offset = next_offset;
+                        prev_pos = pos;
+                    });
+                }
+                Event::Cubic { from, ctrl1, ctrl2, to } => {
+                    let from_attr = from.1;
+                    let to_attr = to.1;
+                    let curve = CubicBezierSegment { from: from.0, ctrl1, ctrl2, to: to.0 };
+                    let mut prev_pos = from.0;
+                    let mut offset = num_attributes;
+                    buffer[0..num_attributes].copy_from_slice(from_attr);
+                    curve.for_each_flattened_with_t(tolerance, &mut|pos, t| {
+                        for i in 0..num_attributes {
+                            buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
+                        }
+
+                        let next_offset =  if offset == 0 { num_attributes } else { 0 };
+
+                        callback(&Event::Line {
+                            from: (prev_pos, &buffer[next_offset..(next_offset + num_attributes)]),
+                            to: (pos, &buffer[offset..(offset + num_attributes)]),
+                        });
+
+                        offset = next_offset;
+                        prev_pos = pos;
+                    });
+                }
+            }
         }
     }
 
@@ -1752,3 +1837,38 @@ fn test_concatenate() {
     );
     assert_eq!(it.next(), None);
 }
+
+#[test]
+fn flattened_custom_attributes() {
+    let mut path = Path::builder_with_attributes(1);
+    path.begin(point(0.0, 0.0), &[0.0]);
+    path.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0), &[1.0]);
+    path.cubic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), point(0.0, 1.0), &[2.0]);
+    path.end(false);
+
+    let path = path.build();
+
+    let mut prev = -1.0;
+    path.iter_with_attributes().for_each_flattened(0.01, &mut|evt| {
+        let attribute = match evt {
+            Event::Begin { at: (_, attr) } => attr[0],
+            Event::Line { from: (_, from_attr), to: (_, to_attr) } => {
+                assert_eq!(from_attr[0], prev);
+                to_attr[0]
+            }
+            Event::End { last: (_, last_attr), .. } => {
+                assert_eq!(last_attr[0], prev);
+                return;
+            }
+            Event::Quadratic { .. }
+            | Event::Cubic { .. }
+            => {
+                panic!("Should not get a curve in for_each_flattened");
+            }
+        };
+
+        assert!(attribute > prev);
+        prev = attribute;
+    });
+}
+
