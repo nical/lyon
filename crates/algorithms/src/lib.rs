@@ -20,6 +20,7 @@ pub mod splitter;
 pub mod walk;
 pub mod length;
 pub mod winding;
+pub mod area;
 
 pub use crate::path::geom;
 pub use crate::path::math;
