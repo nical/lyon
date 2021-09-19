@@ -677,7 +677,6 @@ pub struct Iter<'l> {
     verbs: ::std::slice::Iter<'l, Verb>,
     current: Point,
     first: Point,
-    num_attributes: usize,
     // Number of slots in the points array occupied by the custom attributes.
     attrib_stride: usize,
 }
@@ -689,7 +688,6 @@ impl<'l> Iter<'l> {
             verbs: verbs.iter(),
             current: point(0.0, 0.0),
             first: point(0.0, 0.0),
-            num_attributes,
             attrib_stride: (num_attributes + 1) / 2,
         }
     }
@@ -850,7 +848,6 @@ impl<'l> IterWithAttributes<'l> {
             verbs: self.verbs,
             current: self.current.0,
             first: self.first.0,
-            num_attributes: self.num_attributes,
             attrib_stride: self.attrib_stride,
         }
     }
