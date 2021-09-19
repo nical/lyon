@@ -19,6 +19,7 @@ pub mod raycast;
 pub mod splitter;
 pub mod walk;
 pub mod length;
+pub mod winding;
 
 pub use crate::path::geom;
 pub use crate::path::math;
