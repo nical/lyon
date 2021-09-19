@@ -25,6 +25,7 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
+      - uses: Swatinem/rust-cache@v1
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -51,6 +52,7 @@ jobs:
           toolchain: nightly
           override: true
           target: "wasm32-unknown-unknown"
+      - uses: Swatinem/rust-cache@v1
 
       - name: Use Node.js
         uses: actions/setup-node@v1
