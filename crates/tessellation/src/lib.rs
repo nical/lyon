@@ -195,6 +195,7 @@ pub mod geometry_builder;
 mod math_utils;
 mod monotone;
 mod stroke;
+pub mod variable_stroke;
 mod basic_shapes;
 
 #[cfg(test)]
@@ -438,6 +439,12 @@ pub struct StrokeOptions {
     /// Default value: `StrokeOptions::DEFAULT_LINE_WIDTH`.
     pub line_width: f32,
 
+    /// Index of a custom attribute defining a per-vertex
+    /// factor to modulate the line width.
+    ///
+    /// Default value: `None`.
+    pub variable_line_width: Option<u32>,
+
     /// See the SVG specification.
     ///
     /// Must be greater than or equal to 1.0.
@@ -470,6 +477,7 @@ impl StrokeOptions {
         end_cap: Self::DEFAULT_LINE_CAP,
         line_join: Self::DEFAULT_LINE_JOIN,
         line_width: Self::DEFAULT_LINE_WIDTH,
+        variable_line_width: None,
         miter_limit: Self::DEFAULT_MITER_LIMIT,
         tolerance: Self::DEFAULT_TOLERANCE,
     };
@@ -520,6 +528,12 @@ impl StrokeOptions {
     pub fn with_miter_limit(mut self, limit: f32) -> Self {
         assert!(limit >= Self::MINIMUM_MITER_LIMIT);
         self.miter_limit = limit;
+        self
+    }
+
+    #[inline]
+    pub fn with_variable_line_width(mut self, attribute_index: u32) -> Self {
+        self.variable_line_width = Some(attribute_index);
         self
     }
 }
