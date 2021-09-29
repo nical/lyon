@@ -19,6 +19,7 @@ use wgpu::util::DeviceExt;
 
 use futures::executor::block_on;
 use std::ops::Rem;
+use std::time::{Duration, Instant};
 
 //use log;
 
@@ -30,6 +31,7 @@ struct Globals {
     resolution: [f32; 2],
     scroll_offset: [f32; 2],
     zoom: f32,
+    _pad: f32,
 }
 
 unsafe impl bytemuck::Pod for Globals {}
@@ -96,13 +98,13 @@ fn create_multisampled_framebuffer(
         size: wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
-            depth: 1,
+            depth_or_array_layers: 1,
         },
         mip_level_count: 1,
-        sample_count: sample_count,
+        sample_count,
         dimension: wgpu::TextureDimension::D2,
         format: sc_desc.format,
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
     };
 
     device
@@ -218,9 +220,14 @@ fn main() {
         ..Primitive::DEFAULT
     };
     // Instance primitives
-    for idx in (fill_prim_id + 1)..(fill_prim_id + num_instances as usize) {
-        cpu_primitives[idx].z_index = (idx as u32 + 1) as i32;
-        cpu_primitives[idx].color = [
+    for (idx, cpu_prim) in cpu_primitives
+        .iter_mut()
+        .enumerate()
+        .skip(fill_prim_id + 1)
+        .take(num_instances as usize - 1)
+    {
+        cpu_prim.z_index = (idx as u32 + 1) as i32;
+        cpu_prim.color = [
             (0.1 * idx as f32).rem(1.0),
             (0.5 * idx as f32).rem(1.0),
             (0.9 * idx as f32).rem(1.0),
@@ -253,16 +260,16 @@ fn main() {
 
     // create an adapter
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::Default,
+        power_preference: wgpu::PowerPreference::LowPower,
         compatible_surface: Some(&surface),
     }))
     .unwrap();
     // create a device and a queue
     let (device, queue) = block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
+            label: None,
             features: wgpu::Features::default(),
             limits: wgpu::Limits::default(),
-            shader_validation: true,
         },
         None,
     ))
@@ -310,13 +317,13 @@ fn main() {
     });
 
     let vs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
     let fs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
     let bg_vs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/background.vert.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.vert.spv"));
     let bg_fs_module =
-        &device.create_shader_module(wgpu::include_spirv!("./../shaders/background.frag.spv"));
+        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.frag.spv"));
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
@@ -324,8 +331,9 @@ fn main() {
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(globals_buffer_byte_size),
                 },
                 count: None,
@@ -333,8 +341,9 @@ fn main() {
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(prim_buffer_byte_size),
                 },
                 count: None,
@@ -347,11 +356,11 @@ fn main() {
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(globals_ubo.slice(..)),
+                resource: wgpu::BindingResource::Buffer(globals_ubo.as_entire_buffer_binding()),
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Buffer(prims_ubo.slice(..)),
+                resource: wgpu::BindingResource::Buffer(prims_ubo.as_entire_buffer_binding()),
             },
         ],
     });
@@ -362,122 +371,129 @@ fn main() {
         label: None,
     });
 
-    let depth_stencil_state = Some(wgpu::DepthStencilStateDescriptor {
+    let depth_stencil_state = Some(wgpu::DepthStencilState {
         format: wgpu::TextureFormat::Depth32Float,
         depth_write_enabled: true,
         depth_compare: wgpu::CompareFunction::Greater,
-        stencil: wgpu::StencilStateDescriptor {
-            front: wgpu::StencilStateFaceDescriptor::IGNORE,
-            back: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil: wgpu::StencilState {
+            front: wgpu::StencilFaceState::IGNORE,
+            back: wgpu::StencilFaceState::IGNORE,
             read_mask: 0,
             write_mask: 0,
         },
+        bias: wgpu::DepthBiasState::default(),
     });
 
     let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
+        label: None,
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &vs_module,
             entry_point: "main",
-        },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-            module: &fs_module,
-            entry_point: "main",
-        }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8Unorm,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state: depth_stencil_state.clone(),
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<GpuVertex>() as u64,
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<GpuVertex>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
                 attributes: &[
-                    wgpu::VertexAttributeDescriptor {
+                    wgpu::VertexAttribute {
                         offset: 0,
-                        format: wgpu::VertexFormat::Float2,
+                        format: wgpu::VertexFormat::Float32x2,
                         shader_location: 0,
                     },
-                    wgpu::VertexAttributeDescriptor {
+                    wgpu::VertexAttribute {
                         offset: 8,
-                        format: wgpu::VertexFormat::Float2,
+                        format: wgpu::VertexFormat::Float32x2,
                         shader_location: 1,
                     },
-                    wgpu::VertexAttributeDescriptor {
+                    wgpu::VertexAttribute {
                         offset: 16,
-                        format: wgpu::VertexFormat::Int,
+                        format: wgpu::VertexFormat::Sint32,
                         shader_location: 2,
                     },
                 ],
             }],
         },
-        sample_count: sample_count,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
-        label: None,
+        fragment: Some(wgpu::FragmentState {
+            module: &fs_module,
+            entry_point: "main",
+            targets: &[
+                wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    blend: None,
+                    write_mask: wgpu::ColorWrite::ALL,
+                },
+            ],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            front_face: wgpu::FrontFace::Ccw,
+            strip_index_format: None,
+            cull_mode: None,
+            clamp_depth: false,
+            conservative: false,
+        },
+        depth_stencil: depth_stencil_state.clone(),
+        multisample: wgpu::MultisampleState {
+            count: sample_count,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
     };
 
     let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
     // TODO: this isn't what we want: we'd need the equivalent of VK_POLYGON_MODE_LINE,
     // but it doesn't seem to be exposed by wgpu?
-    render_pipeline_descriptor.primitive_topology = wgpu::PrimitiveTopology::LineList;
+    render_pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::LineList;
 
     let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: None,
         layout: Some(&pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: &bg_vs_module,
             entry_point: "main",
-        },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-            module: &bg_fs_module,
-            entry_point: "main",
-        }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            ..Default::default()
-        }),
-        primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8Unorm,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        depth_stencil_state: depth_stencil_state.clone(),
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                stride: std::mem::size_of::<Point>() as u64,
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<Point>() as u64,
                 step_mode: wgpu::InputStepMode::Vertex,
-                attributes: &[wgpu::VertexAttributeDescriptor {
+                attributes: &[wgpu::VertexAttribute {
                     offset: 0,
-                    format: wgpu::VertexFormat::Float2,
+                    format: wgpu::VertexFormat::Float32x2,
                     shader_location: 0,
                 }],
             }],
         },
-        sample_count: sample_count,
-        sample_mask: !0,
-        alpha_to_coverage_enabled: false,
-        label: None,
+        fragment: Some(wgpu::FragmentState {
+            module: &bg_fs_module,
+            entry_point: "main",
+            targets: &[
+                wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Bgra8Unorm,
+                    blend: None,
+                    write_mask: wgpu::ColorWrite::ALL,
+                },
+            ],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            front_face: wgpu::FrontFace::Ccw,
+            strip_index_format: None,
+            cull_mode: None,
+            clamp_depth: false,
+            conservative: false,
+        },
+        depth_stencil: depth_stencil_state.clone(),
+        multisample: wgpu::MultisampleState {
+            count: sample_count,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
     });
 
     let size = window.inner_size();
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
@@ -490,7 +506,11 @@ fn main() {
 
     let mut depth_texture_view = None;
 
-    let mut frame_count: f32 = 0.0;
+    let start = Instant::now();
+    let mut next_report = start + Duration::from_secs(1);
+    let mut frame_count: u32 = 0;
+    let mut time_secs: f32 = 0.0;
+
     event_loop.run(move |event, _, control_flow| {
         if update_inputs(event, control_flow, &mut scene) {
             // keep polling inputs.
@@ -509,13 +529,13 @@ fn main() {
                 size: wgpu::Extent3d {
                     width: swap_chain_desc.width,
                     height: swap_chain_desc.height,
-                    depth: 1,
+                    depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
-                sample_count: sample_count,
+                sample_count,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
             });
 
             depth_texture_view =
@@ -546,21 +566,21 @@ fn main() {
 
         cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
         cpu_primitives[stroke_prim_id as usize].color = [
-            (frame_count * 0.008 - 1.6).sin() * 0.1 + 0.1,
-            (frame_count * 0.005 - 1.6).sin() * 0.1 + 0.1,
-            (frame_count * 0.01 - 1.6).sin() * 0.1 + 0.1,
+            (time_secs * 0.8 - 1.6).sin() * 0.1 + 0.1,
+            (time_secs * 0.5 - 1.6).sin() * 0.1 + 0.1,
+            (time_secs - 1.6).sin() * 0.1 + 0.1,
             1.0,
         ];
 
         for idx in 2..(num_instances + 1) {
             cpu_primitives[idx as usize].translate = [
-                (frame_count * 0.0005 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
-                (frame_count * 0.001 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
+                (time_secs * 0.05 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
+                (time_secs * 0.1 * idx as f32).sin() * (100.0 + idx as f32 * 10.0),
             ];
         }
 
         let mut arrow_count = 0;
-        let offset = (frame_count as f32 * 0.1).rem(5.0);
+        let offset = (time_secs * 10.0).rem(5.0);
         walk::walk_along_path(
             path.iter().flattened(0.01),
             offset,
@@ -597,6 +617,7 @@ fn main() {
                 ],
                 zoom: scene.zoom,
                 scroll_offset: scene.scroll.to_array(),
+                _pad: 0.0,
             }]),
         );
 
@@ -606,8 +627,8 @@ fn main() {
             // A resolve target is only supported if the attachment actually uses anti-aliasing
             // So if sample_count == 1 then we must render directly to the swapchain's buffer
             let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
-                wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: msaa_target,
+                wgpu::RenderPassColorAttachment {
+                    view: msaa_target,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
@@ -615,8 +636,8 @@ fn main() {
                     resolve_target: Some(&frame.output.view),
                 }
             } else {
-                wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.output.view,
+                wgpu::RenderPassColorAttachment {
+                    view: &frame.output.view,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
@@ -626,9 +647,10 @@ fn main() {
             };
 
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
                 color_attachments: &[color_attachment],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: depth_texture_view.as_ref().unwrap(),
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: depth_texture_view.as_ref().unwrap(),
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(0.0),
                         store: true,
@@ -642,7 +664,7 @@ fn main() {
 
             pass.set_pipeline(&render_pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_index_buffer(ibo.slice(..));
+            pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint16);
             pass.set_vertex_buffer(0, vbo.slice(..));
 
             pass.draw_indexed(fill_range.clone(), 0, 0..(num_instances as u32));
@@ -652,7 +674,7 @@ fn main() {
             if scene.draw_background {
                 pass.set_pipeline(&bg_pipeline);
                 pass.set_bind_group(0, &bind_group, &[]);
-                pass.set_index_buffer(bg_ibo.slice(..));
+                pass.set_index_buffer(bg_ibo.slice(..), wgpu::IndexFormat::Uint16);
                 pass.set_vertex_buffer(0, bg_vbo.slice(..));
 
                 pass.draw_indexed(0..6, 0, 0..1);
@@ -661,7 +683,14 @@ fn main() {
 
         queue.submit(Some(encoder.finish()));
 
-        frame_count += 1.0;
+        frame_count += 1;
+        let now = Instant::now();
+        time_secs = (now - start).as_secs_f32();
+        if now >= next_report {
+            println!("{} FPS", frame_count);
+            frame_count = 0;
+            next_report = now + Duration::from_secs(1);
+        }
     });
 }
 
@@ -808,5 +837,5 @@ fn update_inputs(
 
     *control_flow = ControlFlow::Poll;
 
-    return true;
+    true
 }

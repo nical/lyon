@@ -360,7 +360,7 @@ pub trait PathBuilder {
 }
 
 /// A path building interface that tries to stay close to SVG's path specification.
-/// https://svgwg.org/specs/paths/
+/// <https://svgwg.org/specs/paths/>
 ///
 /// Some of the wording in the documentation of this trait is borrowed from the SVG
 /// specification.
@@ -873,9 +873,9 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         let start_angle = (self.current_position - center).angle_from_x_axis() - x_rotation;
 
         let arc = Arc {
-            start_angle,
             center,
             radii,
+            start_angle,
             sweep_angle,
             x_rotation,
         };
@@ -1059,7 +1059,7 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
     }
 
     fn arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Point) {
-        let arc = SvgArc {
+        let svg_arc = SvgArc {
             from: self.current_position,
             to,
             radii,
@@ -1068,10 +1068,14 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
                 large_arc: flags.large_arc,
                 sweep: flags.sweep,
             },
-        }
-        .to_arc();
+        };
 
-        self.arc(arc.center, arc.radii, arc.sweep_angle, arc.x_rotation);
+        if svg_arc.is_straight_line() {
+            self.line_to(to);
+        } else {
+            let arc = svg_arc.to_arc();
+            self.arc(arc.center, arc.radii, arc.sweep_angle, arc.x_rotation);
+        }
     }
 
     fn relative_arc_to(&mut self, radii: Vector, x_rotation: Angle, flags: ArcFlags, to: Vector) {
@@ -1097,9 +1101,9 @@ fn add_circle<Builder: PathBuilder>(
         Winding::Negative => -1.0,
     };
 
-    let constant = 0.551915024494;
-
-    let d = radius * constant;
+    // https://spencermortensen.com/articles/bezier-circle/
+    const CONSTANT_FACTOR: f32 = 0.55191505;
+    let d = radius * CONSTANT_FACTOR;
 
     builder.begin(center + vector(-radius, 0.0));
 
@@ -1168,18 +1172,18 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
     }
 
     // https://spencermortensen.com/articles/bezier-circle/
-    let constant = 0.551915024494;
+    const CONSTANT_FACTOR: f32 = 0.55191505;
 
-    let tl_d = tl * constant;
+    let tl_d = tl * CONSTANT_FACTOR;
     let tl_corner = point(x_min, y_min);
 
-    let tr_d = tr * constant;
+    let tr_d = tr * CONSTANT_FACTOR;
     let tr_corner = point(x_max, y_min);
 
-    let br_d = br * constant;
+    let br_d = br * CONSTANT_FACTOR;
     let br_corner = point(x_max, y_max);
 
-    let bl_d = bl * constant;
+    let bl_d = bl * CONSTANT_FACTOR;
     let bl_corner = point(x_min, y_max);
 
     let points = [
@@ -1218,7 +1222,6 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
         if bl > 0.0 {
             builder.cubic_bezier_to(points[13], points[14], points[15]);
         }
-        builder.end(true);
     } else {
         builder.begin(points[15]);
         if bl > 0.0 {
@@ -1236,8 +1239,8 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
         if tl > 0.0 {
             builder.cubic_bezier_to(points[2], points[1], points[0]);
         }
-        builder.end(true);
     }
+    builder.end(true);
 }
 
 #[inline]
@@ -1367,4 +1370,19 @@ fn issue_650() {
         Angle::radians(0.0),
     );
     builder.build();
+}
+
+#[test]
+fn straight_line_arc() {
+    use crate::Path;
+
+    let mut p = Path::svg_builder();
+    p.move_to(point(100.0, 0.0));
+    // Don't assert on a "false" arc that's a straight line
+    p.arc_to(
+        vector(100., 100.),
+        Angle::degrees(0.),
+        ArcFlags::default(),
+        point(100.0, 0.0),
+    );
 }

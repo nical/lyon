@@ -200,7 +200,6 @@
 use crate::math::Point;
 use crate::{FillVertex, Index, StrokeVertex, VertexId};
 
-use std;
 use std::convert::From;
 use std::ops::Add;
 
@@ -502,6 +501,12 @@ impl NoOutput {
     }
 }
 
+impl Default for NoOutput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GeometryBuilder for NoOutput {
     fn begin_geometry(&mut self) {
         self.count.vertices = 0;
@@ -524,7 +529,7 @@ impl GeometryBuilder for NoOutput {
 
 impl FillGeometryBuilder for NoOutput {
     fn add_fill_vertex(&mut self, _vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        if self.count.vertices >= std::u32::MAX {
+        if self.count.vertices == std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         self.count.vertices += 1;
@@ -534,7 +539,7 @@ impl FillGeometryBuilder for NoOutput {
 
 impl StrokeGeometryBuilder for NoOutput {
     fn add_stroke_vertex(&mut self, _: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
-        if self.count.vertices >= std::u32::MAX {
+        if self.count.vertices == std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         self.count.vertices += 1;

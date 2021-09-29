@@ -1,7 +1,7 @@
 use crate::scalar::Scalar;
 use crate::traits::Transformation;
 use crate::LineSegment;
-use crate::{Point, Rect, Size};
+use crate::{Point, Rect, point, Box2D};
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -32,18 +32,37 @@ impl<S: Scalar> Triangle<S> {
         coords.0 > S::ZERO && coords.1 > S::ZERO && coords.2 > S::ZERO
     }
 
-    /// Return the minimum bounding rectangle.
+    /// Returns a conservative range of x that contains this triangle.
+    #[inline]
+    pub fn bounding_range_x(&self) -> (S, S) {
+        let min_x = self.a.x.min(self.b.x).min(self.c.x);
+        let max_x = self.a.x.max(self.b.x).max(self.c.x);
+
+        (min_x, max_x)
+    }
+
+    /// Returns a conservative range of y that contains this triangle.
+    #[inline]
+    pub fn bounding_range_y(&self) -> (S, S) {
+        let min_y = self.a.y.min(self.b.y).min(self.c.y);
+        let max_y = self.a.y.max(self.b.y).max(self.c.y);
+
+        (min_y, max_y)
+    }
+
+    /// Returns the smallest rectangle that contains this triangle.
+    #[inline]
+    pub fn bounding_box(&self) -> Box2D<S> {
+        let (min_x, max_x) = self.bounding_range_x();
+        let (min_y, max_y) = self.bounding_range_y();
+
+        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
+    }
+
+    /// Returns the smallest rectangle that contains this triangle.
     #[inline]
     pub fn bounding_rect(&self) -> Rect<S> {
-        let max_x = self.a.x.max(self.b.x).max(self.c.x);
-        let min_x = self.a.x.min(self.b.x).min(self.c.x);
-        let max_y = self.a.y.max(self.b.y).max(self.c.y);
-        let min_y = self.a.y.min(self.b.y).min(self.c.y);
-
-        let width = max_x - min_x;
-        let height = max_y - min_y;
-
-        Rect::new(Point::new(min_x, min_y), Size::new(width, height))
+        self.bounding_box().to_rect()
     }
 
     #[inline]
@@ -133,9 +152,6 @@ impl<S: Scalar> Triangle<S> {
             || self.contains_point(segment.from)
     }
 }
-
-#[cfg(test)]
-use crate::point;
 
 #[test]
 fn test_triangle_contains() {
@@ -248,7 +264,7 @@ fn test_segment_intersection() {
 
     assert!(!tri.intersects_line_segment(&l2));
 
-    // The segement is entirely inside the triangle.
+    // The segment is entirely inside the triangle.
     let inside = LineSegment {
         from: point(2.0, 2.0),
         to: point(5.0, 2.0),

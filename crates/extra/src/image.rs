@@ -14,7 +14,7 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
         height: usize,
         pixels: &'l mut [Pixel],
     ) -> MutableImageSlice<'l, Pixel> {
-        return MutableImageSlice::with_stride(width, height, width, pixels);
+        MutableImageSlice::with_stride(width, height, width, pixels)
     }
 
     pub fn with_stride(
@@ -26,12 +26,12 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
         assert!(width <= stride);
         assert!(pixels.len() >= height * stride);
 
-        return MutableImageSlice {
-            width: width,
-            height: height,
-            stride: stride,
-            pixels: pixels,
-        };
+        MutableImageSlice {
+            width,
+            height,
+            stride,
+            pixels,
+        }
     }
 
     pub fn pixel_offset(&self, x: usize, y: usize) -> usize {
@@ -50,13 +50,13 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
             let split = if at < self.width { at } else { self.width };
 
             let p: *mut Pixel = &mut self.pixels[0];
-            let q: *mut Pixel = p.offset(split as isize);
+            let q: *mut Pixel = p.add(split);
             let remainder = self.pixels.len() - split;
 
             let pixels_left: &'l mut [Pixel] = from_raw_parts_mut(p, self.pixels.len());
             let pixels_right: &'l mut [Pixel] = from_raw_parts_mut(q, remainder);
 
-            return (
+            (
                 MutableImageSlice {
                     width: split,
                     height: self.height,
@@ -69,7 +69,7 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
                     stride: self.stride,
                     pixels: pixels_right,
                 },
-            );
+            )
         }
     }
 
@@ -81,13 +81,13 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
             let split = if at < self.width { at } else { self.width };
 
             let p: *mut Pixel = &mut self.pixels[0];
-            let q: *mut Pixel = p.offset((self.stride * split) as isize);
+            let q: *mut Pixel = p.add(self.stride * split);
             let remainder = self.pixels.len() - self.stride * split;
 
             let pixels_left: &'l mut [Pixel] = from_raw_parts_mut(p, self.pixels.len());
             let pixels_right: &'l mut [Pixel] = from_raw_parts_mut(q, remainder);
 
-            return (
+            (
                 MutableImageSlice {
                     width: self.width,
                     height: split,
@@ -100,7 +100,7 @@ impl<'l, Pixel: Copy + 'static> MutableImageSlice<'l, Pixel> {
                     stride: self.stride,
                     pixels: pixels_right,
                 },
-            );
+            )
         }
     }
 }

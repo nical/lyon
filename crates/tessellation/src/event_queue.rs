@@ -44,6 +44,12 @@ pub struct EventQueue {
     sorted: bool,
 }
 
+impl Default for EventQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventQueue {
     pub fn new() -> Self {
         EventQueue {
@@ -392,7 +398,7 @@ impl EventQueue {
             sorted_head = a;
         }
 
-        return sorted_head;
+        sorted_head
     }
 
     fn find_last_sibling(&self, id: TessEventId) -> TessEventId {
@@ -456,6 +462,12 @@ pub struct EventQueueBuilder {
     tolerance: f32,
     prev_endpoint_id: EndpointId,
     validator: DebugValidator,
+}
+
+impl Default for EventQueueBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EventQueueBuilder {
@@ -689,6 +701,7 @@ impl EventQueueBuilder {
         self.prev_endpoint_id = to_id;
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_edge(
         &mut self,
         from: Point,
@@ -734,10 +747,8 @@ impl EventQueueBuilder {
             return;
         }
 
-        if is_after(from, to) {
-            if self.nth > 0 && is_after(from, self.prev) {
-                self.vertex_event(from, self.prev_endpoint_id);
-            }
+        if is_after(from, to) && self.nth > 0 && is_after(from, self.prev) {
+            self.vertex_event(from, self.prev_endpoint_id);
         }
 
         if self.nth == 0 {

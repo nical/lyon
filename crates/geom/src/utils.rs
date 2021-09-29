@@ -62,9 +62,12 @@ pub fn directed_angle2<S: Scalar>(center: Point<S>, a: Point<S>, b: Point<S>) ->
 pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 3> {
     let mut result = ArrayVec::new();
 
-    if S::abs(a) < S::EPSILON {
-        if S::abs(b) < S::EPSILON {
-            if S::abs(c) < S::EPSILON {
+    let m = a.abs().max(b.abs()).max(c.abs()).max(d.abs());
+    let epsilon = S::epsilon_for(m);
+
+    if S::abs(a) < epsilon {
+        if S::abs(b) < epsilon {
+            if S::abs(c) < epsilon {
                 return result;
             }
             // linear equation
@@ -77,7 +80,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 
             let sqrt_delta = S::sqrt(delta);
             result.push((-c - sqrt_delta) / (S::TWO * b));
             result.push((-c + sqrt_delta) / (S::TWO * b));
-        } else if S::abs(delta) < S::EPSILON {
+        } else if S::abs(delta) < epsilon {
             result.push(-c / (S::TWO * b));
         }
         return result;
@@ -103,7 +106,7 @@ pub fn cubic_polynomial_roots<S: Scalar>(a: S, b: S, c: S, d: S) -> ArrayVec<S, 
         result.push(-bn * frac_1_3 + (s + t));
 
         // Don't add the repeated root when s + t == 0.
-        if S::abs(s - t) < S::EPSILON && S::abs(s + t) >= S::EPSILON {
+        if S::abs(s - t) < epsilon && S::abs(s + t) >= epsilon {
             result.push(-bn * frac_1_3 - (s + t) / S::TWO);
         }
     } else {

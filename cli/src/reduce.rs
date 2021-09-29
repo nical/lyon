@@ -17,11 +17,11 @@ pub fn reduce_testcase(cmd: TessellateCmd) {
         });
     }
 
-    if let Some(_) = cmd.hatch {
+    if cmd.hatch.is_some() {
         unimplemented!();
     }
 
-    if let Some(_) = cmd.dots {
+    if cmd.dots.is_some() {
         unimplemented!();
     }
 

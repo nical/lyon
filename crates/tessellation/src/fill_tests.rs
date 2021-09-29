@@ -2425,3 +2425,33 @@ fn issue_599() {
     // SVG path syntax:
     // "M -0.044577092 0.69268686 L 0.04457296 0.69263 L 0.044570256 0.69263405 L -0.043470938 0.6761849 Z"
 }
+
+#[test]
+fn issue_674() {
+    let mut builder = Path::builder();
+
+    builder.begin(point(-87887.734375, 73202.125));
+    builder.line_to(point(-79942.6640625, 73202.125));
+    builder.line_to(point(-79942.671875, 90023.078125));
+    builder.line_to(point(-79942.6640625, 86661.3046875));
+    builder.line_to(point(-87887.734375, 87599.5546875));
+    builder.line_to(point(-90541.25, 83022.0625));
+    builder.close();
+
+    let path = builder.build();
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+    let mut tess = FillTessellator::new();
+    tess.tessellate(
+        &path,
+        &FillOptions::tolerance(0.01),
+        &mut simple_builder(&mut buffers),
+    ).unwrap();
+
+    // The issue was happening with tolerance 0.01 and not with 0.05 used in test_path
+    // but run it anyway for good measure.
+    test_path(path.as_slice());
+
+    // SVG path syntax:
+    // "M -87887.734375 73202.125 L -79942.6640625 73202.125 L -79942.671875 90023.078125 L -79942.6640625 86661.3046875 L -87887.734375 87599.5546875 L -90541.25 83022.0625"
+}

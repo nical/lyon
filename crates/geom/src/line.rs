@@ -3,7 +3,7 @@ use crate::scalar::Scalar;
 use crate::segment::{BoundingRect, Segment};
 use crate::traits::Transformation;
 use crate::utils::min_max;
-use crate::{point, vector, Point, Rect, Size, Vector};
+use crate::{point, vector, Point, Rect, Vector, Box2D};
 use std::mem::swap;
 
 use std::ops::Range;
@@ -130,15 +130,21 @@ impl<S: Scalar> LineSegment<S> {
         self.split(self.solve_t_for_x(x))
     }
 
-    /// Return the minimum bounding rectangle
+    /// Return the smallest rectangle containing this segment.
     #[inline]
-    pub fn bounding_rect(&self) -> Rect<S> {
+    pub fn bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        let width = max_x - min_x;
-        let height = max_y - min_y;
-        Rect::new(Point::new(min_x, min_y), Size::new(width, height))
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
+    }
+
+    /// Return the smallest rectangle containing this segment.
+    pub fn bounding_rect(&self) -> Rect<S> {
+        self.bounding_box().to_rect()
     }
 
     #[inline]
@@ -201,6 +207,7 @@ impl<S: Scalar> LineSegment<S> {
     /// The result is provided in the form of the `t` parameter of each
     /// segment. To get the intersection point, sample one of the segments
     /// at the corresponding value.
+    #[allow(clippy::suspicious_operation_groupings)]
     pub fn intersection_t(&self, other: &Self) -> Option<(S, S)> {
         if self.to == other.to
             || self.from == other.from
@@ -380,6 +387,56 @@ impl<S: Scalar> LineSegment<S> {
 
         c >= a && c <= b && d >= a && d <= b
     }
+
+    pub fn clipped_x(&self, clip: Range<S>) -> Option<Self> {
+        if (self.from.x < clip.start && self.to.x < clip.start)
+            || (self.from.x > clip.start && self.to.x > clip.end) {
+
+            return None;
+        }
+
+        let mut flipped = false;
+        let mut result = *self;
+
+        if result.from.x > result.to.x {
+            flipped = true;
+            result = result.flip();
+        }
+
+        if result.from.x >= clip.start && result.to.x <= clip.end {
+            return Some(*self);
+        }
+
+        if result.from.x < clip.start {
+            let t = result.vertical_line_intersection_t(clip.start).unwrap_or(S::ZERO);
+            result.from.x = clip.start;
+            result.from.y = result.y(t);
+        }
+
+        if result.to.x > clip.end {
+            let t = result.vertical_line_intersection_t(clip.end).unwrap_or(S::ZERO);
+            result.to.x = clip.end;
+            result.to.y = result.y(t);
+        }
+
+        if flipped {
+            result = result.flip();
+        }
+
+        Some(result)
+    }
+
+    pub fn clipped_y(&self, clip: Range<S>) -> Option<Self> {
+        fn transpose<S: Copy>(r: &LineSegment<S>) -> LineSegment<S> {
+            LineSegment { from: r.from.yx(), to: r.to.yx() }
+        }
+
+        Some(transpose(&transpose(&self).clipped_x(clip)?))
+    }
+
+    pub fn clipped(&self, clip: &Box2D<S>) -> Option<Self> {
+        self.clipped_x(clip.x_range())?.clipped_y(clip.y_range())
+    }
 }
 
 impl<S: Scalar> Segment for LineSegment<S> {
@@ -500,6 +557,25 @@ impl<S: Scalar> Line<S> {
         let c = -(a * self.point.x + b * self.point.y);
 
         LineEquation::new(a, b, c)
+    }
+
+    pub fn intersects_box(&self, rect: &Box2D<S>) -> bool {
+        let v = self.vector;
+
+        let diagonal = if (v.y >= S::ZERO) ^ (v.x >= S::ZERO) {
+            LineSegment { from: rect.min, to: rect.max }
+        } else {
+            LineSegment {
+                from: point(rect.max.x, rect.min.y),
+                to: point(rect.min.x, rect.max.y),
+            }
+        };
+
+        diagonal.intersects_line(self)
+    }
+
+    pub fn intersects_rect(&self, rect: &Rect<S>) -> bool {
+        self.intersects_box(&rect.to_box2d())
     }
 }
 
@@ -957,4 +1033,113 @@ fn horizontal_line_intersection() {
 
     assert_eq!(segment.horizontal_line_intersection_t(1.5), None);
     assert_eq!(segment.horizontal_line_intersection_t(3.5), None);
+}
+
+#[test]
+fn intersection_on_endpoint() {
+    let l1 = LineSegment {
+        from: point(0.0, 0.0),
+        to: point(0.0, 10.0),
+    };
+
+    let l2 = LineSegment {
+        from: point(0.0, 5.0),
+        to: point(10.0, 5.0),
+    };
+
+    assert_eq!(l1.intersection_t(&l2), Some((0.5, 0.0)));
+    assert_eq!(l2.intersection_t(&l1), Some((0.0, 0.5)));
+
+    let l3 = LineSegment {
+        from: point(10.0, 5.0),
+        to: point(0.0, 5.0),
+    };
+
+    assert_eq!(l1.intersection_t(&l3), Some((0.5, 1.0)));
+    assert_eq!(l3.intersection_t(&l1), Some((1.0, 0.5)));
+}
+
+#[test]
+fn intersects_box() {
+    let b = Box2D {
+        min: point(1.0, 2.0),
+        max: point(4.0, 4.0),
+    };
+
+    assert!(!Line { point: point(0.0, 0.0), vector: vector(1.0, 0.0) }.intersects_box(&b));
+    assert!(!Line { point: point(0.0, 0.0), vector: vector(0.0, 1.0) }.intersects_box(&b));
+    assert!(!Line { point: point(10.0, 0.0), vector: vector(10.0, 10.0) }.intersects_box(&b));
+    assert!(!Line { point: point(0.0, 10.0), vector: vector(10.0, 10.0) }.intersects_box(&b));
+
+    assert!(Line { point: point(1.5, 0.0), vector: vector(1.0, 6.0) }.intersects_box(&b));
+    assert!(Line { point: point(1.5, 0.0), vector: vector(-1.0, 6.0) }.intersects_box(&b));
+    assert!(Line { point: point(1.5, 2.5), vector: vector(1.0, 0.5) }.intersects_box(&b));
+    assert!(Line { point: point(1.5, 2.5), vector: vector(-1.0, -2.0) }.intersects_box(&b));
+}
+
+#[test]
+fn clipped() {
+    let b = Box2D {
+        min: point(1.0, 2.0),
+        max: point(3.0, 4.0),
+    };
+
+    fn approx_eq(a: LineSegment<f32>, b: LineSegment<f32>) -> bool {
+        let ok = a.from.approx_eq(&b.from) && a.to.approx_eq(&b.to);
+        if !ok {
+            println!("{:?} != {:?}", a, b);
+        }
+
+        ok
+    }
+
+    assert_eq!(LineSegment { from: point(0.0, 1.0), to: point(4.0, 1.0) }.clipped(&b), None);
+    assert_eq!(LineSegment { from: point(0.0, 2.0), to: point(4.0, 2.0) }.clipped(&b), Some(LineSegment { from: point(1.0, 2.0), to: point(3.0, 2.0) }));
+    assert_eq!(LineSegment { from: point(0.0, 3.0), to: point(4.0, 3.0) }.clipped(&b), Some(LineSegment { from: point(1.0, 3.0), to: point(3.0, 3.0) }));
+    assert_eq!(LineSegment { from: point(0.0, 4.0), to: point(4.0, 4.0) }.clipped(&b), Some(LineSegment { from: point(1.0, 4.0), to: point(3.0, 4.0) }));
+    assert_eq!(LineSegment { from: point(0.0, 5.0), to: point(4.0, 5.0) }.clipped(&b), None);
+
+    assert_eq!(LineSegment { from: point(4.0, 1.0), to: point(0.0, 1.0) }.clipped(&b), None);
+    assert_eq!(LineSegment { from: point(4.0, 2.0), to: point(0.0, 2.0) }.clipped(&b), Some(LineSegment { from: point(3.0, 2.0), to: point(1.0, 2.0) }));
+    assert_eq!(LineSegment { from: point(4.0, 3.0), to: point(0.0, 3.0) }.clipped(&b), Some(LineSegment { from: point(3.0, 3.0), to: point(1.0, 3.0) }));
+    assert_eq!(LineSegment { from: point(4.0, 4.0), to: point(0.0, 4.0) }.clipped(&b), Some(LineSegment { from: point(3.0, 4.0), to: point(1.0, 4.0) }));
+    assert_eq!(LineSegment { from: point(4.0, 5.0), to: point(0.0, 5.0) }.clipped(&b), None);
+
+    assert_eq!(LineSegment { from: point(0.0, 0.0), to: point(0.0, 5.0) }.clipped(&b), None);
+    assert_eq!(LineSegment { from: point(1.0, 0.0), to: point(1.0, 5.0) }.clipped(&b), Some(LineSegment { from: point(1.0, 2.0), to: point(1.0, 4.0) }));
+    assert_eq!(LineSegment { from: point(2.0, 0.0), to: point(2.0, 5.0) }.clipped(&b), Some(LineSegment { from: point(2.0, 2.0), to: point(2.0, 4.0) }));
+    assert_eq!(LineSegment { from: point(3.0, 0.0), to: point(3.0, 5.0) }.clipped(&b), Some(LineSegment { from: point(3.0, 2.0), to: point(3.0, 4.0) }));
+    assert_eq!(LineSegment { from: point(4.0, 0.0), to: point(4.0, 5.0) }.clipped(&b), None);
+
+    assert_eq!(LineSegment { from: point(0.0, 5.0), to: point(0.0, 0.0) }.clipped(&b), None);
+    assert_eq!(LineSegment { from: point(1.0, 5.0), to: point(1.0, 0.0) }.clipped(&b), Some(LineSegment { from: point(1.0, 4.0), to: point(1.0, 2.0) }));
+    assert_eq!(LineSegment { from: point(2.0, 5.0), to: point(2.0, 0.0) }.clipped(&b), Some(LineSegment { from: point(2.0, 4.0), to: point(2.0, 2.0) }));
+    assert_eq!(LineSegment { from: point(3.0, 5.0), to: point(3.0, 0.0) }.clipped(&b), Some(LineSegment { from: point(3.0, 4.0), to: point(3.0, 2.0) }));
+    assert_eq!(LineSegment { from: point(4.0, 5.0), to: point(4.0, 0.0) }.clipped(&b), None);
+
+    assert!(approx_eq(LineSegment { from: point(0.0, 2.0), to: point(4.0, 4.0) }.clipped(&b).unwrap(), LineSegment { from: point(1.0, 2.5), to: point(3.0, 3.5) }));
+    assert!(approx_eq(LineSegment { from: point(4.0, 4.0), to: point(0.0, 2.0) }.clipped(&b).unwrap(), LineSegment { from: point(3.0, 3.5), to: point(1.0, 2.5) }));
+
+
+    let inside = [
+        LineSegment { from: point(1.0, 2.0), to: point(3.0, 4.0) },
+        LineSegment { from: point(1.5, 2.0), to: point(1.0, 4.0) },
+        LineSegment { from: point(1.0, 3.0), to: point(2.0, 3.0) },
+    ];
+
+    for segment in &inside {
+        assert_eq!(segment.clipped(&b), Some(*segment));
+        assert_eq!(segment.flip().clipped(&b), Some(segment.flip()));
+    }
+
+
+    let outside = [
+        LineSegment { from: point(2.0, 0.0), to: point(5.0, 3.0) },
+        LineSegment { from: point(-20.0, 0.0), to: point(4.0, 8.0) },
+    ];
+
+    for segment in &outside {
+        assert_eq!(segment.clipped(&b), None);
+        assert_eq!(segment.flip().clipped(&b), None);
+    }
 }

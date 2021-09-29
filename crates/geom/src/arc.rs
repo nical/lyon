@@ -8,7 +8,7 @@ use crate::segment::{BoundingRect, Segment};
 use crate::CubicBezierSegment;
 use crate::Line;
 use crate::QuadraticBezierSegment;
-use crate::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector};
+use crate::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector, Box2D};
 
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -140,8 +140,8 @@ impl<S: Scalar> Arc<S> {
         let from = self.sample(S::ZERO);
         let to = self.sample(S::ONE);
         let flags = ArcFlags {
-            sweep: S::abs(self.sweep_angle.get()) >= S::PI(),
-            large_arc: self.sweep_angle.get() >= S::ZERO,
+            sweep: self.sweep_angle.get() >= S::ZERO,
+            large_arc: S::abs(self.sweep_angle.get()) >= S::PI(),
         };
         SvgArc {
             from,
@@ -352,15 +352,20 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Returns a conservative rectangle that contains the curve.
-    pub fn fast_bounding_rect(&self) -> Rect<S> {
-        Transform::rotation(self.x_rotation).outer_transformed_rect(&Rect::new(
-            self.center - self.radii,
-            self.radii.to_size() * S::TWO,
-        ))
+    pub fn fast_bounding_box(&self) -> Box2D<S> {
+        Transform::rotation(self.x_rotation).outer_transformed_box(&Box2D {
+            min: self.center - self.radii,
+            max: self.center + self.radii,
+        })
     }
 
     /// Returns a conservative rectangle that contains the curve.
-    pub fn bounding_rect(&self) -> Rect<S> {
+    pub fn fast_bounding_rect(&self) -> Rect<S> {
+        self.fast_bounding_box().to_rect()
+    }
+
+    /// Returns a conservative rectangle that contains the curve.
+    pub fn bounding_box(&self) -> Box2D<S> {
         let from = self.from();
         let to = self.to();
         let mut min = Point::min(from, to);
@@ -376,10 +381,13 @@ impl<S: Scalar> Arc<S> {
             max.y = S::max(max.y, p.y);
         });
 
-        Rect {
-            origin: min,
-            size: (max - min).to_size(),
-        }
+        Box2D { min, max }
+    }
+
+    /// Returns a conservative rectangle that contains the curve.
+    #[inline]
+    pub fn bounding_rect(&self) -> Rect<S> {
+        self.bounding_box().to_rect()
     }
 
     pub fn for_each_local_x_extremum_t<F>(&self, cb: &mut F)
@@ -479,9 +487,9 @@ impl<S: Scalar> Arc<S> {
     }
 }
 
-impl<S: Scalar> Into<Arc<S>> for SvgArc<S> {
-    fn into(self) -> Arc<S> {
-        self.to_arc()
+impl<S: Scalar> From<SvgArc<S>> for Arc<S> {
+    fn from(svg: SvgArc<S>) -> Self {
+        svg.to_arc()
     }
 }
 
@@ -1065,4 +1073,3 @@ fn negative_flattening_step() {
 
     assert!(flattened.len() > 1);
 }
-

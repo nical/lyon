@@ -33,9 +33,13 @@ impl Add for IntVec4 {
 ///
 /// The triangles are defined by sequences of 3 indices in the input buffers.
 /// For example, the first triangle is:
+/// ```ignore
 /// { vertices[indices[0]], vertices[indices[1]], vertices[indices[2]] }
+/// ```
 /// the second triangle is:
+/// ```ignore
 /// { vertices[indices[3]], vertices[indices[4]], vertices[indices[5]] }
+/// ```
 /// etc.
 ///
 /// The rasterizer processes pixels by block of 4 and hands blocks containing at
@@ -185,7 +189,7 @@ fn init_edge(v0: &IntVector, v1: &IntVector, origin: &IntVector) -> (IntVec4, In
         w: c,
     };
 
-    return (step_x, step_y, row);
+    (step_x, step_y, row)
 }
 
 pub trait ShadingStage<Vertex, Constants> {
@@ -241,7 +245,8 @@ impl<Pixel, Vertex, Constants: GetColor<Pixel>> PixelShader<Pixel, Vertex, Const
 impl VertexData for Vector {
     fn interpolate(a: &Vector, b: &Vector, c: &Vector, wa: f32, wb: f32, wc: f32) -> Vector {
         let inv_w = 1.0 / (wa + wb + wc);
-        return (*a * wa + *b * wb + *c * wc) * inv_w;
+
+        (*a * wa + *b * wb + *c * wc) * inv_w
     }
 
     fn position(&self) -> Vector {
@@ -367,12 +372,7 @@ pub struct BoolVec4 {
 }
 
 pub fn bvec4(x: bool, y: bool, z: bool, w: bool) -> BoolVec4 {
-    BoolVec4 {
-        x: x,
-        y: y,
-        z: z,
-        w: w,
-    }
+    BoolVec4 { x, y, z, w }
 }
 
 impl BoolVec4 {

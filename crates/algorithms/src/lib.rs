@@ -1,5 +1,6 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
+#![allow(clippy::float_cmp)]
 
 //! 2d Path transformation and manipulation algorithms.
 //!
@@ -17,6 +18,9 @@ pub mod hit_test;
 pub mod raycast;
 pub mod splitter;
 pub mod walk;
+pub mod length;
+pub mod winding;
+pub mod area;
 
 pub use crate::path::geom;
 pub use crate::path::math;

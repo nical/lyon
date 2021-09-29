@@ -24,6 +24,8 @@ use std::fs::File;
 use std::io::{stderr, stdout, Read, Write};
 
 fn main() {
+    env_logger::init();
+
     let matches = App::new("Lyon command-line interface")
         .version("0.1")
         .author("Nicolas Silva <nical@fastmail.com>")
@@ -350,7 +352,7 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b>
 }
 
 fn get_path(matches: &ArgMatches) -> Option<Path> {
-    let mut path_str = matches.value_of("PATH").unwrap_or(&"").to_string();
+    let mut path_str = matches.value_of("PATH").unwrap_or_default().to_string();
 
     if let Some(input_file) = matches.value_of("INPUT") {
         if let Ok(mut file) = File::open(input_file) {
@@ -365,14 +367,14 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
         return None;
     }
 
-    return match build_path(Path::builder().with_svg(), &path_str) {
+    match build_path(Path::builder().with_svg(), &path_str) {
         Ok(path) => Some(path),
         Err(e) => {
             println!("Error while parsing path: {}", path_str);
             println!("{:?}", e);
             None
         }
-    };
+    }
 }
 
 fn get_render_params(matches: &ArgMatches) -> RenderCmd {
@@ -404,27 +406,22 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
     let dots = get_dots(command);
     let fill_rule = get_fill_rule(command);
     let orientation = get_orientation(command);
-    let fill = if command.is_present("FILL")
-        || (!stroke.is_some() && !hatch.is_some() && !dots.is_some())
-    {
-        Some(
-            FillOptions::tolerance(get_tolerance(&command))
-                .with_fill_rule(fill_rule)
-                .with_sweep_orientation(orientation),
-        )
-    } else {
-        None
-    };
+    let fill =
+        if command.is_present("FILL") || (stroke.is_none() && hatch.is_none() && dots.is_none()) {
+            Some(
+                FillOptions::tolerance(get_tolerance(&command))
+                    .with_fill_rule(fill_rule)
+                    .with_sweep_orientation(orientation),
+            )
+        } else {
+            None
+        };
 
-    let float_precision = if let Some(fp) = command.value_of("FLOAT_PRECISION") {
-        Some(
-            fp.parse::<usize>()
-                .expect("Precision must be an integer")
-                .min(7),
-        )
-    } else {
-        None
-    };
+    let float_precision = command.value_of("FLOAT_PRECISION").map(|fp| {
+        fp.parse::<usize>()
+            .expect("Precision must be an integer")
+            .min(7)
+    });
 
     let tessellator = get_tessellator(command);
 
@@ -442,9 +439,10 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
 fn get_tolerance(matches: &ArgMatches) -> f32 {
     let default = 0.2;
     if let Some(tolerance_str) = matches.value_of("TOLERANCE") {
-        return tolerance_str.parse().unwrap_or(default);
+        tolerance_str.parse().unwrap_or(default)
+    } else {
+        default
     }
-    return default;
 }
 
 fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
@@ -459,34 +457,35 @@ fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
         if let Some(limit) = get_miter_limit(matches) {
             options.miter_limit = limit;
         }
-        return Some(options);
+        Some(options)
+    } else {
+        None
     }
-    return None;
 }
 
 fn get_background(matches: &ArgMatches) -> Background {
     if let Some(name) = matches.value_of("BACKGROUND") {
-        return match &name {
-            &"Blue" | &"blue" => Background::Blue,
-            &"Dark" | &"dark" => Background::Dark,
-            &"Clear" | &"clear" => Background::Clear,
+        match name {
+            "Blue" | "blue" => Background::Blue,
+            "Dark" | "dark" => Background::Dark,
+            "Clear" | "clear" => Background::Clear,
             _ => Background::Blue,
-        };
+        }
+    } else {
+        Background::Blue
     }
-
-    Background::Blue
 }
 
 fn get_debugger(matches: &ArgMatches) -> Option<u32> {
     if let Some(param) = matches.value_of("DEBUGGER_2D") {
-        return match &param {
-            &"None" => Some(0),
-            &"all" => Some(0xfffff),
+        match param {
+            "None" => Some(0),
+            "all" => Some(0xfffff),
             other => other.parse().ok(),
-        };
+        }
+    } else {
+        None
     }
-
-    None
 }
 
 fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {
@@ -510,13 +509,14 @@ fn get_hatching(matches: &ArgMatches) -> Option<HatchingParams> {
             .with_tolerance(stroke.tolerance)
             .with_angle(get_hatching_angle(matches));
 
-        return Some(HatchingParams {
+        Some(HatchingParams {
             options,
             stroke,
             spacing,
-        });
+        })
+    } else {
+        None
     }
-    return None;
 }
 
 fn get_dots(matches: &ArgMatches) -> Option<DotParams> {
@@ -542,60 +542,63 @@ fn get_dots(matches: &ArgMatches) -> Option<DotParams> {
             .with_tolerance(stroke.tolerance)
             .with_angle(get_hatching_angle(matches));
 
-        return Some(DotParams {
+        Some(DotParams {
             options,
             stroke,
             spacing,
-        });
+        })
+    } else {
+        None
     }
-    return None;
 }
 
 fn get_line_join(matches: &ArgMatches) -> LineJoin {
     if let Some(stroke_str) = matches.value_of("LINE_JOIN") {
-        return match stroke_str {
+        match stroke_str {
             "Miter" => LineJoin::Miter,
             "MiterClip" => LineJoin::MiterClip,
             "Round" => LineJoin::Round,
             "Bevel" => LineJoin::Bevel,
             _ => LineJoin::Miter,
-        };
+        }
+    } else {
+        LineJoin::Miter
     }
-    return LineJoin::Miter;
 }
 
 fn get_line_cap(matches: &ArgMatches) -> LineCap {
     if let Some(stroke_str) = matches.value_of("LINE_CAP") {
-        return match stroke_str {
+        match stroke_str {
             "Butt" => LineCap::Butt,
             "Square" => LineCap::Square,
             "Round" => LineCap::Round,
             _ => LineCap::Butt,
-        };
+        }
+    } else {
+        LineCap::Butt
     }
-    return LineCap::Butt;
 }
 
 fn get_fill_rule(matches: &ArgMatches) -> FillRule {
     if let Some(rule_str) = matches.value_of("FILL_RULE") {
-        return match rule_str {
+        match rule_str {
             "NonZero" | "nonzero" => FillRule::NonZero,
             _ => FillRule::EvenOdd,
-        };
+        }
+    } else {
+        FillRule::EvenOdd
     }
-
-    return FillRule::EvenOdd;
 }
 
 fn get_orientation(matches: &ArgMatches) -> Orientation {
     if let Some(orientation_str) = matches.value_of("SWEEP_ORIENTATION") {
-        return match orientation_str {
+        match orientation_str {
             "Horizontal" | "horizontal" | "h" => Orientation::Horizontal,
             _ => Orientation::Vertical,
-        };
+        }
+    } else {
+        Orientation::Vertical
     }
-
-    return Orientation::Vertical;
 }
 
 fn get_miter_limit(matches: &ArgMatches) -> Option<f32> {
@@ -604,7 +607,8 @@ fn get_miter_limit(matches: &ArgMatches) -> Option<f32> {
             return Some(val);
         }
     }
-    return None;
+
+    None
 }
 
 fn get_line_width(matches: &ArgMatches) -> f32 {
@@ -613,7 +617,8 @@ fn get_line_width(matches: &ArgMatches) -> f32 {
             return val;
         }
     }
-    return 1.0;
+
+    1.0
 }
 
 fn get_hatching_angle(matches: &ArgMatches) -> Angle<f32> {
@@ -622,7 +627,8 @@ fn get_hatching_angle(matches: &ArgMatches) -> Angle<f32> {
             return Angle::radians(val);
         }
     }
-    return Angle::zero();
+
+    Angle::zero()
 }
 
 fn get_output(matches: &ArgMatches) -> Box<dyn Write> {
@@ -632,16 +638,18 @@ fn get_output(matches: &ArgMatches) -> Box<dyn Write> {
             output = Box::new(file);
         }
     }
-    return output;
+
+    output
 }
 
 fn get_tessellator(matches: &ArgMatches) -> Tessellator {
     if let Some(stroke_str) = matches.value_of("TESSELLATOR") {
-        return match stroke_str {
+        match stroke_str {
             "default" => Tessellator::Default,
             "libtess2" => Tessellator::Tess2,
             _ => Tessellator::Default,
-        };
+        }
+    } else {
+        Tessellator::Default
     }
-    return Tessellator::Default;
 }

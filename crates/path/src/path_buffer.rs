@@ -6,6 +6,7 @@ use crate::path;
 use crate::{EndpointId, PathSlice};
 
 use std::fmt;
+use std::iter::{FusedIterator, FromIterator, IntoIterator};
 use std::ops::Range;
 
 #[derive(Clone, Debug)]
@@ -16,7 +17,7 @@ struct PathDescriptor {
 }
 
 /// An object that stores multiple paths contiguously.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PathBuffer {
     points: Vec<Point>,
     verbs: Vec<path::Verb>,
@@ -66,9 +67,18 @@ impl PathBuffer {
     }
 
     #[inline]
+    pub fn iter(&self) -> Iter<'_> { Iter::new(&self.points, &self.verbs, &self.paths) }
+
+    #[inline]
     /// Returns the number of paths in the path buffer.
     pub fn len(&self) -> usize {
         self.paths.len()
+    }
+
+    /// Returns whether the path buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.paths.is_empty()
     }
 
     #[inline]
@@ -96,7 +106,21 @@ impl fmt::Debug for PathBuffer {
     }
 }
 
+impl<'l> FromIterator<PathSlice<'l>> for PathBuffer {
+    fn from_iter<T: IntoIterator<Item = PathSlice<'l>>>(iter: T) -> PathBuffer {
+         iter.into_iter().fold(PathBuffer::new(), |mut buffer, path| {
+             let builder = buffer.builder();
+             path.iter().fold(builder, |mut builder, event| {
+                 builder.path_event(event);
+                 builder
+             }).build();
+             buffer
+         })
+    }
+}
+
 /// A view on a `PathBuffer`.
+#[derive(Clone)]
 pub struct PathBufferSlice<'l> {
     points: &'l [Point],
     verbs: &'l [path::Verb],
@@ -119,10 +143,19 @@ impl<'l> PathBufferSlice<'l> {
         0..self.paths.len()
     }
 
+    #[inline]
+    pub fn iter(&self) -> Iter<'_> { Iter::new(&self.points, &self.verbs, &self.paths) }
+
     /// Returns the number of paths in the path buffer.
     #[inline]
     pub fn len(&self) -> usize {
         self.paths.len()
+    }
+
+    /// Returns whether the path buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.paths.is_empty()
     }
 }
 
@@ -377,6 +410,52 @@ impl<'l> BuilderWithAttributes<'l> {
     #[inline]
     pub fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
         self.builder.reserve(endpoints, ctrl_points);
+    }
+}
+
+/// Iterator over the paths in a [`PathBufferSlice`].
+#[derive(Clone)]
+pub struct Iter<'l> {
+    points: &'l [Point],
+    verbs: &'l [path::Verb],
+    paths: ::std::slice::Iter<'l, PathDescriptor>,
+}
+
+impl<'l> Iter<'l> {
+    fn new(points: &'l [Point], verbs: &'l [path::Verb], paths: &'l [PathDescriptor]) -> Iter<'l> {
+        Iter { points, verbs, paths: paths.iter() }
+    }
+}
+
+impl<'l> Iterator for Iter<'l> {
+    type Item = PathSlice<'l>;
+
+    fn next(&mut self) -> Option<PathSlice<'l>> {
+        let path = self.paths.next()?;
+        Some(PathSlice {
+            points: &self.points[path.points.0 as usize..path.points.1 as usize],
+            verbs: &self.verbs[path.verbs.0 as usize..path.verbs.1 as usize],
+            num_attributes: path.num_attributes as usize,
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.paths.size_hint()
+    }
+}
+
+// slice::Iter is Fused and ExactSize
+impl<'l> FusedIterator for Iter<'l> {}
+impl<'l> ExactSizeIterator for Iter<'l> {}
+
+impl<'l> DoubleEndedIterator for Iter<'l> {
+    fn next_back(&mut self) -> Option<PathSlice<'l>> {
+        let path = self.paths.next_back()?;
+        Some(PathSlice {
+            points: &self.points[path.points.0 as usize..path.points.1 as usize],
+            verbs: &self.verbs[path.verbs.0 as usize..path.verbs.1 as usize],
+            num_attributes: path.num_attributes as usize,
+        })
     }
 }
 
