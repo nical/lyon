@@ -84,7 +84,7 @@ impl EventQueue {
     pub fn from_path(tolerance: f32, path: impl Iterator<Item = PathEvent>) -> Self {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
-        let mut builder = EventQueueBuilder::with_capacity(capacity);
+        let mut builder = EventQueueBuilder::with_capacity(capacity, tolerance);
         builder.set_path(tolerance, Orientation::Vertical, path);
 
         builder.build()
@@ -105,14 +105,13 @@ impl EventQueue {
     ) -> Self {
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
-        let mut builder = EventQueueBuilder::with_capacity(capacity);
+        let mut builder = EventQueueBuilder::with_capacity(capacity, tolerance);
         builder.set_path_with_ids(tolerance, sweep_orientation, path, positions);
 
         builder.build()
     }
 
-    // TODO: this should take the tolerance as parameter.
-    pub fn into_builder(mut self) -> EventQueueBuilder {
+    pub fn into_builder(mut self, tolerance: f32) -> EventQueueBuilder {
         self.reset();
         EventQueueBuilder {
             queue: self,
@@ -120,7 +119,7 @@ impl EventQueue {
             prev: point(f32::NAN, f32::NAN),
             second: point(f32::NAN, f32::NAN),
             nth: 0,
-            tolerance: 0.1,
+            tolerance,
             prev_endpoint_id: EndpointId(std::u32::MAX),
             validator: DebugValidator::new(),
         }
@@ -464,20 +463,13 @@ pub struct EventQueueBuilder {
     validator: DebugValidator,
 }
 
-impl Default for EventQueueBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl EventQueueBuilder {
-    // TODO: this should take the tolerance as parameter.
-    pub fn new() -> Self {
-        EventQueue::new().into_builder()
+    pub fn new(tolerance: f32) -> Self {
+        EventQueue::new().into_builder(tolerance)
     }
 
-    pub fn with_capacity(cap: usize) -> Self {
-        EventQueue::with_capacity(cap).into_builder()
+    pub fn with_capacity(cap: usize, tolerance: f32) -> Self {
+        EventQueue::with_capacity(cap).into_builder(tolerance)
     }
 
     pub fn set_tolerance(&mut self, tolerance: f32) {

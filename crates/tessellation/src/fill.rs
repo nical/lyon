@@ -555,7 +555,7 @@ impl FillTessellator {
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
         let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
-        let mut queue_builder = event_queue.into_builder();
+        let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path(
             options.tolerance,
@@ -580,7 +580,7 @@ impl FillTessellator {
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
         let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
-        let mut queue_builder = event_queue.into_builder();
+        let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path_with_ids(
             options.tolerance,
@@ -2294,9 +2294,10 @@ impl<'l> FillBuilder<'l> {
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let mut events =
-            std::mem::replace(&mut tessellator.events, EventQueue::new()).into_builder();
-        events.set_tolerance(options.tolerance);
+        let events = std::mem::replace(
+            &mut tessellator.events,
+            EventQueue::new(),
+        ).into_builder(options.tolerance);
 
         FillBuilder {
             events,
