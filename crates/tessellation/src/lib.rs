@@ -657,11 +657,11 @@ pub struct VertexId(pub Index);
 impl VertexId {
     pub const INVALID: VertexId = VertexId(u32::MAX);
 
-    pub fn offset(&self) -> Index {
+    pub fn offset(self) -> Index {
         self.0
     }
 
-    pub fn to_usize(&self) -> usize {
+    pub fn to_usize(self) -> usize {
         self.0 as usize
     }
 
