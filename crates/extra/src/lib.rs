@@ -10,6 +10,4 @@ pub use path::geom::euclid;
 pub use path::math;
 
 pub mod debugging;
-pub mod image;
 pub mod rust_logo;
-pub mod triangle_rasterizer;
