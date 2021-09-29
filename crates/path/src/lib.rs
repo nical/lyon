@@ -142,6 +142,94 @@ pub mod math {
     }
 }
 
+/// Line cap as defined by the SVG specification.
+///
+/// See: <https://svgwg.org/specs/strokes/#StrokeLinecapProperty>
+///
+/// <svg viewBox="0 0 400 399.99998" height="400" width="400">
+///   <g transform="translate(0,-652.36229)">
+///     <path style="opacity:1;fill:#80b3ff;stroke:#000000;stroke-width:1;stroke-linejoin:round;" d="m 240,983 a 30,30 0 0 1 -25,-15 30,30 0 0 1 0,-30.00001 30,30 0 0 1 25.98076,-15 l 0,30 z"/>
+///     <path style="fill:#80b3ff;stroke:#000000;stroke-width:1px;stroke-linecap:butt;" d="m 390,782.6 -150,0 0,-60 150,0.5"/>
+///     <circle style="opacity:1;fill:#ff7f2a;stroke:#000000;stroke-width:1;stroke-linejoin:round;" r="10" cy="752.89227" cx="240.86813"/>
+///     <path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linejoin:round;" d="m 240,722.6 150,60"/>
+///     <path style="fill:#80b3ff;stroke:#000000;stroke-width:1px;stroke-linecap:butt;" d="m 390,882 -180,0 0,-60 180,0.4"/>
+///     <circle style="opacity:1;fill:#ff7f2a;stroke:#000000;stroke-width:1;stroke-linejoin:round;" cx="239.86813" cy="852.20868" r="10" />
+///     <path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linejoin:round;" d="m 210.1,822.3 180,60"/>
+///     <path style="fill:#80b3ff;stroke:#000000;stroke-width:1px;stroke-linecap:butt;" d="m 390,983 -150,0 0,-60 150,0.4"/>
+///     <circle style="opacity:1;fill:#ff7f2a;stroke:#000000;stroke-width:1;stroke-linejoin:round;" cx="239.86813" cy="953.39734" r="10" />
+///     <path style="fill:none;stroke:#000000;stroke-width:1px;stroke-linejoin:round;" d="m 390,983 -150,-60 L 210,953 l 30,30 -21.5,-9.5 L 210,953 218.3,932.5 240,923.4"/>
+///     <text y="757.61273" x="183.65314" style="font-style:normal;font-weight:normal;font-size:20px;line-height:125%;font-family:Sans;text-align:end;text-anchor:end;fill:#000000;stroke:none;">
+///        <tspan y="757.61273" x="183.65314">LineCap::Butt</tspan>
+///        <tspan y="857.61273" x="183.65314">LineCap::Square</tspan>
+///        <tspan y="957.61273" x="183.65314">LineCap::Round</tspan>
+///      </text>
+///   </g>
+/// </svg>
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum LineCap {
+    /// The stroke for each sub-path does not extend beyond its two endpoints.
+    /// A zero length sub-path will therefore not have any stroke.
+    Butt,
+    /// At the end of each sub-path, the shape representing the stroke will be
+    /// extended by a rectangle with the same width as the stroke width and
+    /// whose length is half of the stroke width. If a sub-path has zero length,
+    /// then the resulting effect is that the stroke for that sub-path consists
+    /// solely of a square with side length equal to the stroke width, centered
+    /// at the sub-path's point.
+    Square,
+    /// At each end of each sub-path, the shape representing the stroke will be extended
+    /// by a half circle with a radius equal to the stroke width.
+    /// If a sub-path has zero length, then the resulting effect is that the stroke for
+    /// that sub-path consists solely of a full circle centered at the sub-path's point.
+    Round,
+}
+
+/// Line join as defined by the SVG specification.
+///
+/// See: <https://svgwg.org/specs/strokes/#StrokeLinejoinProperty>
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum LineJoin {
+    /// A sharp corner is to be used to join path segments.
+    Miter,
+    /// Same as a miter join, but if the miter limit is exceeded,
+    /// the miter is clipped at a miter length equal to the miter limit value
+    /// multiplied by the stroke width.
+    MiterClip,
+    /// A round corner is to be used to join path segments.
+    Round,
+    /// A bevelled corner is to be used to join path segments.
+    /// The bevel shape is a triangle that fills the area between the two stroked
+    /// segments.
+    Bevel,
+}
+
+/// Left or right.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub enum Side {
+    Left,
+    Right,
+}
+
+impl Side {
+    pub fn opposite(self) -> Self {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+
+    pub fn is_left(self) -> bool {
+        self == Side::Left
+    }
+
+    pub fn is_right(self) -> bool {
+        self == Side::Right
+    }
+}
+
 /// The fill rule defines how to determine what is inside and what is outside of the shape.
 ///
 /// See the SVG specification.
