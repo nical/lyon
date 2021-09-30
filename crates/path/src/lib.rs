@@ -199,34 +199,58 @@ pub enum LineJoin {
     MiterClip,
     /// A round corner is to be used to join path segments.
     Round,
-    /// A bevelled corner is to be used to join path segments.
+    /// A beveled corner is to be used to join path segments.
     /// The bevel shape is a triangle that fills the area between the two stroked
     /// segments.
     Bevel,
 }
 
-/// Left or right.
+/// The positive or negative side of a vector or segment.
+///
+/// Given a reference vector `v0`, a vector `v1` is on the positive side
+/// if the sign of the cross product `v0 x v1` is positive.
+///
+/// This type does not use the left/right terminology to avoid confusion with
+/// left-handed / right-handed coordinate systems. Right-handed coordinate systems
+/// seem to be what a lot of people are most familiar with (especially in 2D), however
+/// most vector graphics specifications use y-down left-handed coordinate systems.
+/// Unfortunately mirroring the y axis inverts the meaning of "left" and "right", which
+/// causes confusion. In practice:
+///
+/// - In a y-down left-handed coordinate system such as `SVG`'s, `Side::Positive` is the right side.
+/// - In a y-up right-handed coordinate system, `Side::Positive` is the left side.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub enum Side {
-    Left,
-    Right,
+    Positive,
+    Negative,
 }
 
 impl Side {
+    #[inline]
     pub fn opposite(self) -> Self {
         match self {
-            Side::Left => Side::Right,
-            Side::Right => Side::Left,
+            Side::Positive => Side::Negative,
+            Side::Negative => Side::Positive,
         }
     }
 
-    pub fn is_left(self) -> bool {
-        self == Side::Left
+    #[inline]
+    pub fn is_positive(self) -> bool {
+        self == Side::Positive
     }
 
-    pub fn is_right(self) -> bool {
-        self == Side::Right
+    #[inline]
+    pub fn is_negative(self) -> bool {
+        self == Side::Negative
+    }
+
+    #[inline]
+    pub fn to_f32(self) -> f32 {
+        match self {
+            Side::Positive => 1.0,
+            Side::Negative => -1.0,
+        }
     }
 }
 
