@@ -16,8 +16,8 @@ const EPSILON: f32 = 1e-4;
 
 use crate::stroke::{StrokeVertex, StrokeVertexData};
 
-const SIDE_LEFT: usize = 0;
-const SIDE_RIGHT: usize = 1;
+const SIDE_POSITIVE: usize = 0;
+const SIDE_NEGATIVE: usize = 1;
 
 #[derive(Copy, Clone, Debug)]
 struct SidePoints {
@@ -98,7 +98,7 @@ impl<'l> VariableStrokeBuilder<'l> {
                 advancement: 0.0,
                 buffer: attrib_buffer,
                 store: attrib_store,
-                side: Side::Left,
+                side: Side::Negative,
                 src: VertexSource::Endpoint {
                     id: EndpointId::INVALID,
                 },
@@ -381,16 +381,16 @@ impl<'l> VariableStrokeBuilder<'l> {
         if count > 1 {
             let (prev, join) = self.point_buffer.last_two_mut();
 
-            compute_join_side_positions(prev, join, &next, self.options.miter_limit, SIDE_LEFT);
-            compute_join_side_positions(prev, join, &next, self.options.miter_limit, SIDE_RIGHT);
+            compute_join_side_positions(prev, join, &next, self.options.miter_limit, SIDE_POSITIVE);
+            compute_join_side_positions(prev, join, &next, self.options.miter_limit, SIDE_NEGATIVE);
 
 
             self.attributes.src = join.src;
             self.attributes.position_on_path = join.position;
             self.attributes.half_width = join.half_width;
             self.attributes.advancement = join.advancement;
-            add_join_base_vertices(join, &mut self.attributes, self.output, Side::Left)?;
-            add_join_base_vertices(join, &mut self.attributes, self.output, Side::Right)?;
+            add_join_base_vertices(join, &mut self.attributes, self.output, Side::Negative)?;
+            add_join_base_vertices(join, &mut self.attributes, self.output, Side::Positive)?;
 
             if count > 2 {
                 add_edge_triangles(prev, join, self.output);
@@ -419,15 +419,15 @@ fn compute_edge_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
     // sin(vwidth_angle) = (hw1 - hw0) / d
     let vwidth_angle = ((p1.half_width - p0.half_width) / d).asin();
 
-    compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_LEFT);
-    compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_RIGHT);
+    compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_POSITIVE);
+    compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_NEGATIVE);
 
     p1.advancement = p0.advancement + d;
 }
 
 fn compute_side_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointData, edge_angle: f32, vwidth_angle: f32, side: usize) {
 
-    let nl = negative_if_left(side);
+    let nl = side_sign(side);
 
     let normal_angle = edge_angle + nl * (PI * 0.5 + vwidth_angle);
     let normal = vector(normal_angle.cos(), normal_angle.sin());
@@ -437,32 +437,27 @@ fn compute_side_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
 }
 
 fn add_edge_triangles(p0: &EndpointData, p1: &EndpointData, output: &mut dyn StrokeGeometryBuilder) {    
-    let mut p0_left = p0.side_points[SIDE_LEFT].next_vertex;
-    let mut p0_right = p0.side_points[SIDE_RIGHT].next_vertex;
-    let mut p1_left = p1.side_points[SIDE_LEFT].prev_vertex;
-    let mut p1_right = p1.side_points[SIDE_RIGHT].prev_vertex;
+    let mut p0_neg = p0.side_points[SIDE_POSITIVE].next_vertex;
+    let mut p0_pos = p0.side_points[SIDE_NEGATIVE].next_vertex;
+    let mut p1_neg = p1.side_points[SIDE_POSITIVE].prev_vertex;
+    let mut p1_pos = p1.side_points[SIDE_NEGATIVE].prev_vertex;
 
-    let mut _p0_left = p0.side_points[SIDE_LEFT].next;
-    let mut _p0_right = p0.side_points[SIDE_RIGHT].next;
-    let mut _p1_left = p1.side_points[SIDE_LEFT].prev;
-    let mut _p1_right = p1.side_points[SIDE_RIGHT].prev;
-
-    if p0.fold[SIDE_LEFT] {
-        p0_left = p0.side_points[SIDE_RIGHT].prev_vertex;
+    if p0.fold[SIDE_POSITIVE] {
+        p0_neg = p0.side_points[SIDE_NEGATIVE].prev_vertex;
     }
-    if p0.fold[SIDE_RIGHT] {
-        p0_right = p0.side_points[SIDE_LEFT].prev_vertex;
+    if p0.fold[SIDE_NEGATIVE] {
+        p0_pos = p0.side_points[SIDE_POSITIVE].prev_vertex;
     }
-    if p1.fold[SIDE_LEFT] {
-        p1_left = p1.side_points[SIDE_RIGHT].next_vertex;
+    if p1.fold[SIDE_POSITIVE] {
+        p1_neg = p1.side_points[SIDE_NEGATIVE].next_vertex;
     }
-    if p1.fold[SIDE_RIGHT] {
-        p1_right = p1.side_points[SIDE_LEFT].next_vertex;
+    if p1.fold[SIDE_NEGATIVE] {
+        p1_pos = p1.side_points[SIDE_POSITIVE].next_vertex;
     }
 
-    output.add_triangle(p0_left, p0_right, p1_right);
+    output.add_triangle(p0_neg, p0_pos, p1_pos);
 
-    output.add_triangle(p0_left, p1_right, p1_left);
+    output.add_triangle(p0_neg, p1_pos, p1_neg);
 }
 
 fn tessellate_join(
@@ -472,55 +467,55 @@ fn tessellate_join(
     output: &mut dyn StrokeGeometryBuilder,
 ) -> Result<(), TessellationError> {
     let side_needs_join = [
-        join.side_points[SIDE_LEFT].single_vertex.is_none(),
-        join.side_points[SIDE_RIGHT].single_vertex.is_none(),
+        join.side_points[SIDE_POSITIVE].single_vertex.is_none(),
+        join.side_points[SIDE_NEGATIVE].single_vertex.is_none(),
     ];
 
-    if !join.fold[SIDE_LEFT] && !join.fold[SIDE_RIGHT] {
+    if !join.fold[SIDE_POSITIVE] && !join.fold[SIDE_NEGATIVE] {
         // Tessellate the interior of the join.
         match side_needs_join {
             [true, true] => {
-                let a = join.side_points[SIDE_LEFT].prev;
-                let b = join.side_points[SIDE_LEFT].next;
-                let c = join.side_points[SIDE_RIGHT].next;
+                let a = join.side_points[SIDE_POSITIVE].prev;
+                let b = join.side_points[SIDE_POSITIVE].next;
+                let c = join.side_points[SIDE_NEGATIVE].next;
                 assert!((a - b).cross(c - b) > 0.0);
 
                 output.add_triangle(
-                    join.side_points[SIDE_LEFT].prev_vertex,
-                    join.side_points[SIDE_LEFT].next_vertex,
-                    join.side_points[SIDE_RIGHT].next_vertex,
+                    join.side_points[SIDE_POSITIVE].prev_vertex,
+                    join.side_points[SIDE_POSITIVE].next_vertex,
+                    join.side_points[SIDE_NEGATIVE].next_vertex,
                 );
 
-                let a = join.side_points[SIDE_LEFT].prev;
-                let b = join.side_points[SIDE_RIGHT].next;
-                let c = join.side_points[SIDE_RIGHT].prev;
+                let a = join.side_points[SIDE_POSITIVE].prev;
+                let b = join.side_points[SIDE_NEGATIVE].next;
+                let c = join.side_points[SIDE_NEGATIVE].prev;
                 assert!((a - b).cross(c - b) > 0.0);
                 output.add_triangle(
-                    join.side_points[SIDE_LEFT].prev_vertex,
-                    join.side_points[SIDE_RIGHT].next_vertex,
-                    join.side_points[SIDE_RIGHT].prev_vertex,
+                    join.side_points[SIDE_POSITIVE].prev_vertex,
+                    join.side_points[SIDE_NEGATIVE].next_vertex,
+                    join.side_points[SIDE_NEGATIVE].prev_vertex,
                 );
             }
             [false, true] => {
-                let a = join.side_points[SIDE_LEFT].prev;
-                let b = join.side_points[SIDE_RIGHT].prev;
-                let c = join.side_points[SIDE_RIGHT].next;
+                let a = join.side_points[SIDE_NEGATIVE].prev;
+                let b = join.side_points[SIDE_POSITIVE].prev;
+                let c = join.side_points[SIDE_NEGATIVE].next;
                 assert!((a - b).cross(c - b) > 0.0);
                 output.add_triangle(
-                    join.side_points[SIDE_LEFT].prev_vertex,
-                    join.side_points[SIDE_RIGHT].prev_vertex,
-                    join.side_points[SIDE_RIGHT].next_vertex,
+                    join.side_points[SIDE_NEGATIVE].prev_vertex,
+                    join.side_points[SIDE_POSITIVE].prev_vertex,
+                    join.side_points[SIDE_NEGATIVE].next_vertex,
                 );
             }
             [true, false] => {
-                let a = join.side_points[SIDE_LEFT].prev;
-                let b = join.side_points[SIDE_RIGHT].prev;
-                let c = join.side_points[SIDE_LEFT].next;
+                let a = join.side_points[SIDE_NEGATIVE].prev;
+                let b = join.side_points[SIDE_POSITIVE].prev;
+                let c = join.side_points[SIDE_POSITIVE].next;
                 assert!((a - b).cross(c - b) > 0.0);
                 output.add_triangle(
-                    join.side_points[SIDE_LEFT].prev_vertex,
-                    join.side_points[SIDE_RIGHT].prev_vertex,
-                    join.side_points[SIDE_LEFT].next_vertex,
+                    join.side_points[SIDE_NEGATIVE].prev_vertex,
+                    join.side_points[SIDE_POSITIVE].prev_vertex,
+                    join.side_points[SIDE_POSITIVE].next_vertex,
                 );
             }
             [false, false] => {}
@@ -550,23 +545,27 @@ fn tessellate_round_join(
 ) -> Result<(), TessellationError> {
     let center = join.position;
     let radius = join.half_width;
-
     let start_normal = join.side_points[side].prev - center;
     let end_normal = join.side_points[side].next - center;
 
     let mut start_vertex = join.side_points[side].prev_vertex;
     let mut end_vertex = join.side_points[side].next_vertex;
 
-    let angle_sign = if side == SIDE_LEFT { 1.0 } else { -1.0 };
+    let angle_sign = if side == SIDE_NEGATIVE { 1.0 } else { -1.0 };
+
 
     let mut start_angle = start_normal.angle_from_x_axis();
     let mut diff = start_angle.angle_to(end_normal.angle_from_x_axis());
+    println!(" side {:?} diff {:?}, sign {:?}", side, diff, angle_sign);
+    // if the angle is doesn't have the desired sign, adjust it.
     if diff.radians * angle_sign < 0.0 {
-        diff.radians -= 2.0 * PI;
+        diff.radians = angle_sign * (2.0 * PI - diff.radians.abs());
     }
     let mut end_angle = start_angle + diff;
 
-    if side == SIDE_LEFT {
+    println!(" -> diff {:?}", diff);
+
+    if side == SIDE_POSITIVE {
         // Flip to keep consistent winding order.
         std::mem::swap(&mut start_angle, &mut end_angle);
         std::mem::swap(&mut start_vertex, &mut end_vertex);
@@ -581,7 +580,7 @@ fn tessellate_round_join(
     attributes.position_on_path = center;
     attributes.half_width = radius;
     attributes.advancement = join.advancement;
-    attributes.side = if side == SIDE_LEFT { Side::Left } else { Side::Right };
+    attributes.side = if side == SIDE_POSITIVE { Side::Positive } else { Side::Negative };
     attributes.src = join.src;
 
     crate::stroke::tessellate_arc(
@@ -590,7 +589,6 @@ fn tessellate_round_join(
         start_vertex,
         end_vertex,
         num_subdivisions,
-        attributes.side,
         attributes,
         output,
     )
@@ -605,8 +603,8 @@ fn add_join_base_vertices(
     attributes.side = side;
 
     let side = match side {
-        Side::Left => SIDE_LEFT,
-        Side::Right => SIDE_RIGHT,
+        Side::Positive => SIDE_POSITIVE,
+        Side::Negative => SIDE_NEGATIVE,
     };
 
     if let Some(pos) = join.side_points[side].single_vertex {
@@ -631,13 +629,13 @@ fn add_join_base_vertices(
 // TODO: the naming is a bit confusing. We do half of the work to compute the join's side positions
 // in compute_side_attachment_positions.
 fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, next: &EndpointData, miter_limit: f32, side: usize) {
-    let nl = negative_if_left(side);
+    let sign = side_sign(side);
     let v0 = (join.side_points[side].prev - prev.side_points[side].next).normalize();
     let v1 = (next.side_points[side].prev - join.side_points[side].next).normalize();
-    let inward =  v0.cross(v1) * nl > 0.0;
+    let inward =  v0.cross(v1) * sign > 0.0;
     let forward = v0.dot(v1) > 0.0;
 
-    let normal = compute_normal(v0, v1) * nl;
+    let normal = compute_normal(v0, v1) * sign;
     let path_v0 = (join.position - prev.position).normalize();
     let path_v1 = (next.position - join.position).normalize();
 
@@ -700,15 +698,18 @@ fn tessellate_last_edge(
     let v = p1.position - p0.position;
     let mut p2 = *p1;
     p2.position += v;
-    p2.side_points[SIDE_LEFT].prev += v;
-    p2.side_points[SIDE_RIGHT].prev += v;
+    p2.side_points[SIDE_POSITIVE].prev += v;
+    p2.side_points[SIDE_NEGATIVE].prev += v;
 
     attributes.src = p1.src;
     attributes.position_on_path = p1.position;
     attributes.advancement = p1.advancement;
     attributes.half_width = p1.half_width;
 
+    let sides = [Side::Positive, Side::Negative];
+
     for side in 0..2 {
+        attributes.side = sides[side];
         attributes.normal = (p1.side_points[side].prev - p1.position) / p1.half_width;
         let prev_vertex = output.add_stroke_vertex(StrokeVertex(attributes))?;
         p1.side_points[side].prev_vertex = prev_vertex;
@@ -723,11 +724,12 @@ fn tessellate_last_edge(
         crate::stroke::tessellate_round_cap(
             p1.position,
             p1.half_width,
-            p1.side_points[SIDE_RIGHT].prev - p1.position,
-            p1.side_points[SIDE_RIGHT].prev_vertex,
-            p1.side_points[SIDE_LEFT].prev_vertex,
+            p1.side_points[SIDE_NEGATIVE].prev - p1.position,
+            p1.side_points[SIDE_NEGATIVE].prev_vertex,
+            p1.side_points[SIDE_POSITIVE].prev_vertex,
             v,
             options,
+            false,
             attributes,
             output,
         )?;
@@ -748,6 +750,8 @@ fn tessellate_first_edge(
     attributes.position_on_path = first.position;
     attributes.advancement = first.advancement;
     attributes.half_width = first.half_width;
+
+    let sides = [Side::Positive, Side::Negative];
 
     for side in 0..2 {
         let mut side_position = first.side_points[side].next;
@@ -772,6 +776,7 @@ fn tessellate_first_edge(
             side_position = intersection;
         }
 
+        attributes.side = sides[side];
         attributes.normal = (side_position - first.position) / first.half_width;
         first.side_points[side].next_vertex = output.add_stroke_vertex(StrokeVertex(attributes))?;
     }
@@ -783,11 +788,12 @@ fn tessellate_first_edge(
         LineCap::Round => crate::stroke::tessellate_round_cap(
             first.position,
             first.half_width,
-            first.side_points[SIDE_LEFT].next - first.position,
-            first.side_points[SIDE_LEFT].next_vertex,
-            first.side_points[SIDE_RIGHT].next_vertex,
+            first.side_points[SIDE_POSITIVE].next - first.position,
+            first.side_points[SIDE_POSITIVE].next_vertex,
+            first.side_points[SIDE_NEGATIVE].next_vertex,
             first.position - second.position,
             options,
+            true,
             attributes,
             output,
         ),
@@ -834,8 +840,8 @@ fn miter_limit_is_exceeded(normal: Vector, miter_limit: f32) -> bool {
     normal.square_length() > miter_limit * miter_limit * 0.5
 }
 
-fn negative_if_left(side: usize) -> f32 {
-    if side == SIDE_LEFT { -1.0 } else { 1.0 }
+fn side_sign(side: usize) -> f32 {
+    if side == SIDE_NEGATIVE { -1.0 } else { 1.0 }
 }
 
 fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {

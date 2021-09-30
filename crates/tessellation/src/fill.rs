@@ -9,7 +9,7 @@ use crate::path::{
 };
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
-    FillOptions, InternalError, Side, TessellationError, TessellationResult, VertexSource,
+    FillOptions, InternalError, TessellationError, TessellationResult, VertexSource,
 };
 use std::cmp::Ordering;
 use std::f32;
@@ -19,6 +19,29 @@ use float_next_after::NextAfter;
 
 #[cfg(debug_assertions)]
 use std::env;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Side {
+    Left,
+    Right
+}
+
+impl Side {
+    pub fn opposite(self) -> Self {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+
+    pub fn is_left(self) -> bool {
+        self == Side::Left
+    }
+
+    pub fn is_right(self) -> bool {
+        self == Side::Right
+    }
+}
 
 type SpanIdx = i32;
 type ActiveEdgeIdx = usize;

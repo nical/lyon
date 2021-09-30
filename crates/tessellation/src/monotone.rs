@@ -1,6 +1,5 @@
-use crate::fill::is_after;
+use crate::fill::{is_after, Side};
 use crate::math::{point, Point};
-use crate::Side;
 use crate::{FillGeometryBuilder, VertexId};
 
 /// Helper class that generates a triangulation from a sequence of vertices describing a monotone
@@ -211,7 +210,7 @@ impl SideEvents {
     }
 }
 
-pub struct AdvancedMonotoneTessellator {
+pub(crate) struct AdvancedMonotoneTessellator {
     tess: BasicMonotoneTessellator,
     left: SideEvents,
     right: SideEvents,
@@ -402,4 +401,4 @@ fn flush_side(
     Some(side.last)
 }
 
-pub type MonotoneTessellator = AdvancedMonotoneTessellator;
+pub(crate) type MonotoneTessellator = AdvancedMonotoneTessellator;

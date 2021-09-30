@@ -436,7 +436,7 @@ impl<'l> StrokeBuilder<'l> {
             second_endpoint: EndpointId::INVALID,
             current_t: 0.0,
             second_t: 0.0,
-            previous_front_side: Side::Left, // per convention
+            previous_front_side: Side::Positive, // per convention
             nth: 0,
             length: 0.0,
             sub_path_start_length: 0.0,
@@ -450,7 +450,7 @@ impl<'l> StrokeBuilder<'l> {
                 advancement: 0.0,
                 buffer: attrib_buffer,
                 store: attrib_store,
-                side: Side::Left,
+                side: Side::Positive,
                 src: VertexSource::Endpoint {
                     id: EndpointId::INVALID,
                 },
@@ -681,6 +681,7 @@ impl<'l> StrokeBuilder<'l> {
                     right_id,
                     d,
                     &self.options,
+                    false,
                     &mut self.attributes,
                     self.output,
                 )?;
@@ -705,14 +706,14 @@ impl<'l> StrokeBuilder<'l> {
             self.attributes.position_on_path = first;
 
             self.attributes.normal = n1;
-            self.attributes.side = Side::Left;
+            self.attributes.side = Side::Positive;
 
             let first_left_id = self
                 .output
                 .add_stroke_vertex(StrokeVertex(&mut self.attributes))?;
 
             self.attributes.normal = n2;
-            self.attributes.side = Side::Right;
+            self.attributes.side = Side::Negative;
 
             let first_right_id = self
                 .output
@@ -728,6 +729,7 @@ impl<'l> StrokeBuilder<'l> {
                     first_left_id,
                     d,
                     &self.options,
+                    true,
                     &mut self.attributes,
                     self.output,
                 )?;
@@ -784,7 +786,7 @@ impl<'l> StrokeBuilder<'l> {
         // Tessellate the edge
         if self.nth > 1 {
             match self.previous_front_side {
-                Side::Left => {
+                Side::Positive => {
                     self.output.add_triangle(
                         self.previous_right_id,
                         self.previous_left_id,
@@ -793,7 +795,7 @@ impl<'l> StrokeBuilder<'l> {
                     self.output
                         .add_triangle(self.previous_left_id, start_left_id, start_right_id);
                 }
-                Side::Right => {
+                Side::Negative => {
                     self.output.add_triangle(
                         self.previous_right_id,
                         self.previous_left_id,
@@ -894,9 +896,9 @@ impl<'l> StrokeBuilder<'l> {
         let normal = compute_normal(prev_tangent, next_tangent);
 
         let (front_side, front_normal) = if next_tangent.cross(prev_tangent) >= 0.0 {
-            (Side::Left, normal)
+            (Side::Positive, normal)
         } else {
-            (Side::Right, -normal)
+            (Side::Negative, -normal)
         };
 
         self.attributes.src = src;
@@ -963,7 +965,7 @@ impl<'l> StrokeBuilder<'l> {
         let mut start_1 = back_vertex.unwrap_or(front_end_vertex);
         let mut end_0 = front_end_vertex;
         let mut end_1 = back_vertex.unwrap_or(front_start_vertex);
-        if front_side == Side::Right {
+        if front_side == Side::Negative {
             std::mem::swap(&mut start_0, &mut start_1);
             std::mem::swap(&mut end_0, &mut end_1);
         }
@@ -978,18 +980,18 @@ impl<'l> StrokeBuilder<'l> {
         front_side: Side,
         back_vertex: Option<VertexId>,
     ) -> Result<(VertexId, VertexId), TessellationError> {
-        let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+        let sign = front_side.to_f32();
         let previous_normal = vector(-prev_tangent.y, prev_tangent.x);
         let next_normal = vector(-next_tangent.y, next_tangent.x);
 
-        self.attributes.normal = previous_normal * neg_if_right;
+        self.attributes.normal = previous_normal * sign;
         self.attributes.side = front_side;
 
         let front_start_vertex = self
             .output
             .add_stroke_vertex(StrokeVertex(&mut self.attributes))?;
 
-        self.attributes.normal = next_normal * neg_if_right;
+        self.attributes.normal = next_normal * sign;
         self.attributes.side = front_side;
 
         let front_end_vertex = self
@@ -997,7 +999,7 @@ impl<'l> StrokeBuilder<'l> {
             .add_stroke_vertex(StrokeVertex(&mut self.attributes))?;
 
         if let Some(back_vertex) = back_vertex {
-            let (v1, v2, v3) = if front_side.is_left() {
+            let (v1, v2, v3) = if front_side.is_positive() {
                 (front_start_vertex, front_end_vertex, back_vertex)
             } else {
                 (front_end_vertex, front_start_vertex, back_vertex)
@@ -1016,11 +1018,11 @@ impl<'l> StrokeBuilder<'l> {
         back_vertex: Option<VertexId>,
     ) -> Result<(VertexId, VertexId), TessellationError> {
         let radius = self.options.line_width * 0.5;
-        let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+        let sign = front_side.to_f32();
 
         // Calculate the initial front normal.
-        let start_normal = vector(-prev_tangent.y, prev_tangent.x) * neg_if_right;
-        let end_normal = vector(-next_tangent.y, next_tangent.x) * neg_if_right;
+        let start_normal = vector(-prev_tangent.y, prev_tangent.x) * sign;
+        let end_normal = vector(-next_tangent.y, next_tangent.x) * sign;
 
         // We need to pick the final angle such that it's
         let mut start_angle = start_normal.angle_from_x_axis();
@@ -1049,7 +1051,7 @@ impl<'l> StrokeBuilder<'l> {
         let mut v0 = front_start_vertex;
         let mut v1 = front_end_vertex;
 
-        if front_side.is_right() {
+        if front_side.is_negative() {
             std::mem::swap(&mut v0, &mut v1);
             std::mem::swap(&mut start_angle, &mut end_angle);
         }
@@ -1065,7 +1067,6 @@ impl<'l> StrokeBuilder<'l> {
             v0,
             v1,
             num_subdivisions,
-            front_side,
             &mut self.attributes,
             self.output,
         )?;
@@ -1081,20 +1082,20 @@ impl<'l> StrokeBuilder<'l> {
         back_vertex: Option<VertexId>,
         normal: Vector,
     ) -> Result<(VertexId, VertexId), TessellationError> {
-        let neg_if_right = if front_side.is_left() { 1.0 } else { -1.0 };
+        let sign = front_side.to_f32();
         let previous_normal: Vector = vector(-prev_tangent.y, prev_tangent.x);
         let next_normal: Vector = vector(-next_tangent.y, next_tangent.x);
 
         let (v1, v2) = self.get_clip_intersections(previous_normal, next_normal, normal);
 
-        self.attributes.normal = v1 * neg_if_right;
+        self.attributes.normal = v1 * sign;
         self.attributes.side = front_side;
 
         let front_start_vertex = self
             .output
             .add_stroke_vertex(StrokeVertex(&mut self.attributes))?;
 
-        self.attributes.normal = v2 * neg_if_right;
+        self.attributes.normal = v2 * sign;
         self.attributes.side = front_side;
 
         let front_end_vertex = self
@@ -1102,7 +1103,7 @@ impl<'l> StrokeBuilder<'l> {
             .add_stroke_vertex(StrokeVertex(&mut self.attributes))?;
 
         if let Some(back_vertex) = back_vertex {
-            let (v1, v2, v3) = if front_side.is_left() {
+            let (v1, v2, v3) = if front_side.is_positive() {
                 (back_vertex, front_start_vertex, front_end_vertex)
             } else {
                 (back_vertex, front_end_vertex, front_start_vertex)
@@ -1159,12 +1160,19 @@ pub(crate) fn tessellate_round_cap(
     end_vertex: VertexId,
     edge_normal: Vector,
     options: &StrokeOptions,
+    is_start: bool,
     attributes: &mut StrokeVertexData,
     output: &mut dyn StrokeGeometryBuilder,
 ) -> Result<(), TessellationError> {
     if radius < options.tolerance {
         return Ok(());
     }
+
+    let first_side = if is_start ^ (edge_normal.cross(start_normal) >= 0.0) {
+        Side::Positive
+    } else {
+        Side::Negative
+    };
 
     let start_angle = start_normal.angle_from_x_axis();
     let diff = start_angle.angle_to(edge_normal.angle_from_x_axis());
@@ -1179,7 +1187,7 @@ pub(crate) fn tessellate_round_cap(
 
     attributes.position_on_path = center;
     attributes.half_width = radius;
-    attributes.side = Side::Left;
+    attributes.side = first_side;
 
     attributes.normal = edge_normal.normalize();
     let mid_vertex = output.add_stroke_vertex(StrokeVertex(attributes))?;
@@ -1192,12 +1200,11 @@ pub(crate) fn tessellate_round_cap(
         start_vertex,
         mid_vertex,
         num_subdivisions,
-        attributes.side,
         attributes,
         output,
     )?;
 
-    attributes.side = Side::Right;
+    attributes.side = first_side.opposite();
 
     tessellate_arc(
         (mid_angle.radians, end_angle.radians),
@@ -1205,7 +1212,6 @@ pub(crate) fn tessellate_round_cap(
         mid_vertex,
         end_vertex,
         num_subdivisions,
-        attributes.side,
         attributes,
         output,
     )?;
@@ -1221,22 +1227,22 @@ pub(crate) fn tessellate_empty_square_cap(
     attributes.position_on_path = position;
 
     attributes.normal = vector(1.0, 1.0);
-    attributes.side = Side::Right;
+    attributes.side = Side::Negative;
 
     let a = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
     attributes.normal = vector(1.0, -1.0);
-    attributes.side = Side::Left;
+    attributes.side = Side::Positive;
 
     let b = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
     attributes.normal = vector(-1.0, -1.0);
-    attributes.side = Side::Left;
+    attributes.side = Side::Positive;
 
     let c = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
     attributes.normal = vector(-1.0, 1.0);
-    attributes.side = Side::Right;
+    attributes.side = Side::Negative;
 
     let d = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
@@ -1256,12 +1262,12 @@ pub(crate) fn tessellate_empty_round_cap(
 
     attributes.position_on_path = center;
     attributes.normal = vector(-1.0, 0.0);
-    attributes.side = Side::Left;
+    attributes.side = Side::Positive;
 
     let left_id = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
     attributes.normal = vector(1.0, 0.0);
-    attributes.side = Side::Right;
+    attributes.side = Side::Negative;
 
     let right_id = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
@@ -1273,6 +1279,7 @@ pub(crate) fn tessellate_empty_round_cap(
         right_id,
         vector(0.0, 1.0),
         options,
+        true,
         attributes,
         output,
     )?;
@@ -1285,6 +1292,7 @@ pub(crate) fn tessellate_empty_round_cap(
         left_id,
         vector(0.0, -1.0),
         options,
+        false,
         attributes,
         output,
     )?;
@@ -1300,7 +1308,6 @@ pub(crate) fn tessellate_arc(
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
-    side: Side,
     attributes: &mut StrokeVertexData,
     output: &mut dyn StrokeGeometryBuilder,
 ) -> Result<(), TessellationError> {
@@ -1313,7 +1320,6 @@ pub(crate) fn tessellate_arc(
     let normal = vector(mid_angle.cos(), mid_angle.sin());
 
     attributes.normal = normal;
-    attributes.side = side;
 
     let vertex = output.add_stroke_vertex(StrokeVertex(attributes))?;
 
@@ -1325,7 +1331,6 @@ pub(crate) fn tessellate_arc(
         va,
         vertex,
         num_recursions - 1,
-        side,
         attributes,
         output,
     )?;
@@ -1335,7 +1340,6 @@ pub(crate) fn tessellate_arc(
         vertex,
         vb,
         num_recursions - 1,
-        side,
         attributes,
         output,
     )
@@ -1429,7 +1433,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
         self.0.advancement
     }
 
-    /// Whether the vertex is on the left or right side of the path.
+    /// Whether the vertex is on the positive or negative side of the path.
     #[inline]
     pub fn side(&self) -> Side {
         self.0.side
