@@ -165,17 +165,17 @@ impl<'l> VariableStrokeBuilder<'l> {
                         self.options.tolerance,
                         &mut |position, t| {
                             let width = start_width * (1.0 - t) + end_width * t;
-                            let line_join = if t >= 1.0 {
-                                self.options.line_join
+                            let (line_join, src) = if t >= 1.0 {
+                                (self.options.line_join, VertexSource::Endpoint { id: to })
                             } else {
-                                LineJoin::Miter
+                                (LineJoin::Miter, VertexSource::Edge { from, to, t })
                             };
 
                             let r = self.step(EndpointData {
                                 position,
                                 half_width: width * 0.5,
                                 line_join,
-                                src: VertexSource::Edge { from, to, t },
+                                src,
                                 ..Default::default()
                             });
 
@@ -205,17 +205,17 @@ impl<'l> VariableStrokeBuilder<'l> {
                         self.options.tolerance,
                         &mut |point, t| {
                             let width = start_width * (1.0 - t) + end_width * t;
-                            let line_join = if t >= 1.0 {
-                                self.options.line_join
+                            let (line_join, src) = if t >= 1.0 {
+                                (self.options.line_join, VertexSource::Endpoint { id: to })
                             } else {
-                                LineJoin::Miter
+                                (LineJoin::Miter, VertexSource::Edge { from, to, t })
                             };
 
                             let r = self.step(EndpointData {
                                 position: point,
                                 half_width: width * 0.5,
                                 line_join,
-                                src: VertexSource::Edge { from, to, t },
+                                src,
                                 ..Default::default()
                             });
 
@@ -389,6 +389,7 @@ impl<'l> VariableStrokeBuilder<'l> {
             self.attributes.position_on_path = join.position;
             self.attributes.half_width = join.half_width;
             self.attributes.advancement = join.advancement;
+            self.attributes.buffer_is_valid = false;
             add_join_base_vertices(join, &mut self.attributes, self.output, Side::Negative)?;
             add_join_base_vertices(join, &mut self.attributes, self.output, Side::Positive)?;
 
@@ -475,21 +476,12 @@ fn tessellate_join(
         // Tessellate the interior of the join.
         match side_needs_join {
             [true, true] => {
-                let a = join.side_points[SIDE_POSITIVE].prev;
-                let b = join.side_points[SIDE_POSITIVE].next;
-                let c = join.side_points[SIDE_NEGATIVE].next;
-                assert!((a - b).cross(c - b) > 0.0);
-
                 output.add_triangle(
                     join.side_points[SIDE_POSITIVE].prev_vertex,
                     join.side_points[SIDE_POSITIVE].next_vertex,
                     join.side_points[SIDE_NEGATIVE].next_vertex,
                 );
 
-                let a = join.side_points[SIDE_POSITIVE].prev;
-                let b = join.side_points[SIDE_NEGATIVE].next;
-                let c = join.side_points[SIDE_NEGATIVE].prev;
-                assert!((a - b).cross(c - b) > 0.0);
                 output.add_triangle(
                     join.side_points[SIDE_POSITIVE].prev_vertex,
                     join.side_points[SIDE_NEGATIVE].next_vertex,
@@ -497,10 +489,6 @@ fn tessellate_join(
                 );
             }
             [false, true] => {
-                let a = join.side_points[SIDE_NEGATIVE].prev;
-                let b = join.side_points[SIDE_POSITIVE].prev;
-                let c = join.side_points[SIDE_NEGATIVE].next;
-                assert!((a - b).cross(c - b) > 0.0);
                 output.add_triangle(
                     join.side_points[SIDE_NEGATIVE].prev_vertex,
                     join.side_points[SIDE_POSITIVE].prev_vertex,
@@ -508,10 +496,6 @@ fn tessellate_join(
                 );
             }
             [true, false] => {
-                let a = join.side_points[SIDE_NEGATIVE].prev;
-                let b = join.side_points[SIDE_POSITIVE].prev;
-                let c = join.side_points[SIDE_POSITIVE].next;
-                assert!((a - b).cross(c - b) > 0.0);
                 output.add_triangle(
                     join.side_points[SIDE_NEGATIVE].prev_vertex,
                     join.side_points[SIDE_POSITIVE].prev_vertex,
@@ -556,14 +540,12 @@ fn tessellate_round_join(
 
     let mut start_angle = start_normal.angle_from_x_axis();
     let mut diff = start_angle.angle_to(end_normal.angle_from_x_axis());
-    println!(" side {:?} diff {:?}, sign {:?}", side, diff, angle_sign);
+
     // if the angle is doesn't have the desired sign, adjust it.
     if diff.radians * angle_sign < 0.0 {
         diff.radians = angle_sign * (2.0 * PI - diff.radians.abs());
     }
     let mut end_angle = start_angle + diff;
-
-    println!(" -> diff {:?}", diff);
 
     if side == SIDE_POSITIVE {
         // Flip to keep consistent winding order.
@@ -577,11 +559,7 @@ fn tessellate_round_join(
     let num_segments = (arc_len / step).ceil();
     let num_subdivisions = num_segments.log2() as u32 * 2;
 
-    attributes.position_on_path = center;
-    attributes.half_width = radius;
-    attributes.advancement = join.advancement;
     attributes.side = if side == SIDE_POSITIVE { Side::Positive } else { Side::Negative };
-    attributes.src = join.src;
 
     crate::stroke::tessellate_arc(
         (start_angle.radians, end_angle.radians),
@@ -649,7 +627,7 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
         // to see if the back vertex ends up further than the opposite endpoint of the edge.
         let extruded_normal = normal * join.half_width;
         let prev_length = join.advancement - prev.advancement;
-        let next_length = next.advancement - next.advancement;
+        let next_length = next.advancement - join.advancement;
         let d_next = extruded_normal.dot(v1) - next_length;
         let d_prev = extruded_normal.dot(-v0) - prev_length;
 
@@ -705,6 +683,7 @@ fn tessellate_last_edge(
     attributes.position_on_path = p1.position;
     attributes.advancement = p1.advancement;
     attributes.half_width = p1.half_width;
+    attributes.buffer_is_valid = false;
 
     let sides = [Side::Positive, Side::Negative];
 
@@ -750,6 +729,7 @@ fn tessellate_first_edge(
     attributes.position_on_path = first.position;
     attributes.advancement = first.advancement;
     attributes.half_width = first.half_width;
+    attributes.buffer_is_valid = false;
 
     let sides = [Side::Positive, Side::Negative];
 
@@ -921,3 +901,296 @@ impl PointBuffer {
     }
 }
 
+#[cfg(test)]
+use crate::geometry_builder::*;
+#[cfg(test)]
+use crate::path::{Path, PathSlice};
+#[cfg(test)]
+use crate::StrokeTessellator;
+
+#[cfg(test)]
+fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: Option<u32>) {
+    struct TestBuilder<'l> {
+        builder: SimpleBuffersBuilder<'l>,
+    }
+
+    impl<'l> GeometryBuilder for TestBuilder<'l> {
+        fn begin_geometry(&mut self) {
+            self.builder.begin_geometry();
+        }
+        fn end_geometry(&mut self) -> Count {
+            self.builder.end_geometry()
+        }
+        fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+            assert!(a != b);
+            assert!(a != c);
+            assert!(b != c);
+            let pa = self.builder.buffers().vertices[a.0 as usize];
+            let pb = self.builder.buffers().vertices[b.0 as usize];
+            let pc = self.builder.buffers().vertices[c.0 as usize];
+            let threshold = -0.035; // Floating point errors :(
+            assert!((pa - pb).cross(pc - pb) >= threshold);
+            self.builder.add_triangle(a, b, c);
+        }
+        fn abort_geometry(&mut self) {
+            panic!();
+        }
+    }
+
+    impl<'l> StrokeGeometryBuilder for TestBuilder<'l> {
+        fn add_stroke_vertex(
+            &mut self,
+            attributes: StrokeVertex,
+        ) -> Result<VertexId, GeometryBuilderError> {
+            assert!(!attributes.position().x.is_nan());
+            assert!(!attributes.position().y.is_nan());
+            assert!(!attributes.normal().x.is_nan());
+            assert!(!attributes.normal().y.is_nan());
+            assert!(attributes.normal().square_length() != 0.0);
+            assert!(!attributes.advancement().is_nan());
+            self.builder.add_stroke_vertex(attributes)
+        }
+    }
+
+    let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
+
+    let mut tess = StrokeTessellator::new();
+    let count = tess
+        .tessellate(
+            path,
+            &options,
+            &mut TestBuilder {
+                builder: simple_builder(&mut buffers),
+            },
+        )
+        .unwrap();
+
+    if let Some(triangles) = expected_triangle_count {
+        assert_eq!(
+            triangles,
+            count.indices / 3,
+            "Unexpected number of triangles"
+        );
+    }
+}
+
+#[test]
+fn test_square() {
+    let mut builder = Path::builder_with_attributes(1);
+
+    builder.begin(point(-1.0, 1.0), &[1.0]);
+    builder.line_to(point(1.0, 1.0), &[1.0]);
+    builder.line_to(point(1.0, -1.0), &[1.0]);
+    builder.line_to(point(-1.0, -1.0), &[1.0]);
+    builder.end(true);
+
+    let path1 = builder.build();
+
+    let mut builder = Path::builder_with_attributes(1);
+
+    builder.begin(point(-1.0, -1.0), &[1.0]);
+    builder.line_to(point(1.0, -1.0), &[1.0]);
+    builder.line_to(point(1.0, 1.0), &[1.0]);
+    builder.line_to(point(-1.0, 1.0), &[1.0]);
+    builder.end(true);
+
+    let path2 = builder.build();
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::Miter)
+            .with_variable_line_width(0),
+        Some(8),
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::Miter)
+            .with_variable_line_width(0),
+        Some(8),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::Bevel)
+            .with_variable_line_width(0),
+        Some(12),
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::Bevel)
+            .with_variable_line_width(0),
+        Some(12),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::MiterClip)
+            .with_miter_limit(1.0)
+            .with_variable_line_width(0),
+        Some(12),
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::default()
+            .with_line_join(LineJoin::MiterClip)
+            .with_miter_limit(1.0)
+            .with_variable_line_width(0),
+        Some(12),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &StrokeOptions::tolerance(0.001)
+            .with_line_join(LineJoin::Round)
+            .with_variable_line_width(0),
+        None,
+    );
+    test_path(
+        path2.as_slice(),
+        &StrokeOptions::tolerance(0.001)
+            .with_line_join(LineJoin::Round)
+            .with_variable_line_width(0),
+        None,
+    );
+}
+
+#[test]
+fn test_empty_path() {
+    let path = Path::builder_with_attributes(1).build();
+    test_path(path.as_slice(), &StrokeOptions::default(), Some(0));
+}
+
+#[test]
+fn test_empty_caps() {
+    let mut builder = Path::builder_with_attributes(1);
+
+    builder.begin(point(1.0, 0.0), &[1.0]);
+    builder.end(false);
+    builder.begin(point(2.0, 0.0), &[1.0]);
+    builder.end(false);
+    builder.begin(point(3.0, 0.0), &[1.0]);
+    builder.end(false);
+
+    let path = builder.build();
+
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default()
+            .with_line_cap(LineCap::Butt)
+            .with_variable_line_width(0),
+        Some(0),
+    );
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default()
+            .with_line_cap(LineCap::Square)
+            .with_variable_line_width(0),
+        Some(6),
+    );
+    test_path(
+        path.as_slice(),
+        &StrokeOptions::default()
+            .with_line_cap(LineCap::Round)
+            .with_variable_line_width(0),
+        None,
+    );
+}
+
+#[test]
+fn stroke_vertex_source_01() {
+    let mut path = crate::path::Path::builder_with_attributes(1);
+    let a = path.begin(point(0.0, 0.0), &[1.0]);
+    let b = path.line_to(point(10.0, 10.0), &[2.0]);
+    let c = path.quadratic_bezier_to(point(10.0, 20.0), point(0.0, 20.0), &[3.0]);
+    path.end(true);
+
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    tess.tessellate_with_ids(
+        &mut path.id_iter(),
+        &path,
+        Some(&path),
+        &StrokeOptions::default().with_variable_line_width(0),
+        &mut CheckVertexSources {
+            next_vertex: 0,
+            a,
+            b,
+            c,
+        },
+    )
+    .unwrap();
+
+    struct CheckVertexSources {
+        next_vertex: u32,
+        a: EndpointId,
+        b: EndpointId,
+        c: EndpointId,
+    }
+
+    impl GeometryBuilder for CheckVertexSources {
+        fn begin_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count {
+            Count {
+                vertices: self.next_vertex,
+                indices: 0,
+            }
+        }
+        fn abort_geometry(&mut self) {}
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    fn eq(a: Point, b: Point) -> bool {
+        (a.x - b.x).abs() < 0.00001 && (a.y - b.y).abs() < 0.00001
+    }
+
+    impl StrokeGeometryBuilder for CheckVertexSources {
+        fn add_stroke_vertex(
+            &mut self,
+            mut attr: StrokeVertex,
+        ) -> Result<VertexId, GeometryBuilderError> {
+            let pos = attr.position_on_path();
+            let src = attr.source();
+            if eq(pos, point(0.0, 0.0)) {
+                assert_eq!(src, VertexSource::Endpoint { id: self.a })
+            } else if eq(pos, point(10.0, 10.0)) {
+                assert_eq!(src, VertexSource::Endpoint { id: self.b })
+            } else if eq(pos, point(0.0, 20.0)) {
+                assert_eq!(src, VertexSource::Endpoint { id: self.c })
+            } else {
+                match src {
+                    VertexSource::Edge { from, to, t } => {
+                        assert_eq!(from, self.b);
+                        assert_eq!(to, self.c);
+                        assert!(t < 1.0);
+                        assert!(t > 0.0);
+                    }
+                    _ => panic!("{:?} at {:?}", src, pos),
+                }
+            }
+
+            let attributes = attr.interpolated_attributes();
+            if eq(pos, point(0.0, 0.0)) {
+                assert_eq!(attributes, &[1.0])
+            } else if eq(pos, point(10.0, 10.0)) {
+                assert_eq!(attributes, &[2.0])
+            } else if eq(pos, point(0.0, 20.0)) {
+                assert_eq!(attributes, &[3.0])
+            } else {
+                assert_eq!(attributes.len(), 1);
+                assert!(attributes[0] > 2.0);
+                assert!(attributes[0] < 3.0);
+            }
+
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+    }
+}
