@@ -11,12 +11,10 @@
 pub extern crate lyon_path as path;
 
 pub mod aabb;
-pub(crate) mod advanced_path;
 pub mod fit;
 pub mod hatching;
 pub mod hit_test;
 pub mod raycast;
-pub mod splitter;
 pub mod walk;
 pub mod length;
 pub mod winding;
