@@ -11,7 +11,7 @@ use std::f32;
 /// [`building_box`](fn.bounding_box.html).
 pub fn fast_bounding_box<Iter, Evt>(path: Iter) -> Box2D
 where
-    Iter: Iterator<Item = Evt>,
+    Iter: IntoIterator<Item = Evt>,
     Evt: FastBoundingBox,
 {
     let mut min = point(f32::MAX, f32::MAX);
@@ -62,7 +62,7 @@ impl FastBoundingBox for PathEvent {
 /// Computes the smallest axis-aligned rectangle that contains the path.
 pub fn bounding_box<Iter, Evt>(path: Iter) -> Box2D
 where
-    Iter: Iterator<Item = Evt>,
+    Iter: IntoIterator<Item = Evt>,
     Evt: TightBoundingBox,
 {
     let mut min = point(f32::MAX, f32::MAX);
@@ -139,7 +139,7 @@ fn simple_bounding_box() {
     let path = builder.build();
 
     assert_eq!(
-        fast_bounding_box(path.iter()),
+        fast_bounding_box(&path),
         Box2D { min: point(-10.0, -12.0), max: point(5.0, 4.0) },
     );
 

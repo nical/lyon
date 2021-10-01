@@ -314,7 +314,7 @@ impl Hatcher {
         options: &HatchingOptions,
         output: &mut dyn HatchBuilder,
     ) where
-        Iter: Iterator<Item = PathEvent>,
+        Iter: IntoIterator<Item = PathEvent>,
     {
         let mut events = mem::replace(&mut self.events, HatchingEvents::new());
         events.set_path(options.tolerance, options.angle, it);
@@ -327,7 +327,7 @@ impl Hatcher {
     /// Generate dots for a path.
     pub fn dot_path<Iter>(&mut self, it: Iter, options: &DotOptions, output: &mut dyn DotBuilder)
     where
-        Iter: Iterator<Item = PathEvent>,
+        Iter: IntoIterator<Item = PathEvent>,
     {
         let mut events = mem::replace(&mut self.events, HatchingEvents::new());
         events.set_path(options.tolerance, options.angle, it);
@@ -545,7 +545,7 @@ impl PathBuilder for EventsBuilder {
 impl HatchingEvents {
     pub fn set_path<Iter>(&mut self, tolerance: f32, angle: Angle, it: Iter)
     where
-        Iter: Iterator<Item = PathEvent>,
+        Iter: IntoIterator<Item = PathEvent>,
     {
         self.edges.clear();
         let mut builder = EventsBuilder::new(angle, tolerance);
