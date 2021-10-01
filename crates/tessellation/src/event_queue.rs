@@ -55,7 +55,7 @@ impl EventQueue {
         EventQueue {
             events: Vec::new(),
             edge_data: Vec::new(),
-            first: 0,
+            first: INVALID_EVENT_ID,
             sorted: false,
         }
     }
@@ -72,7 +72,7 @@ impl EventQueue {
     pub fn reset(&mut self) {
         self.events.clear();
         self.edge_data.clear();
-        self.first = 0;
+        self.first = INVALID_EVENT_ID;
         self.sorted = false;
     }
 
@@ -275,7 +275,7 @@ impl EventQueue {
 
     pub(crate) fn clear(&mut self) {
         self.events.clear();
-        self.first = 0;
+        self.first = INVALID_EVENT_ID;
         self.sorted = false;
     }
 
@@ -296,7 +296,8 @@ impl EventQueue {
 
     // TODO: we should be able to simplify this and just compare with INVALID_EVENT_ID
     pub(crate) fn valid_id(&self, id: TessEventId) -> bool {
-        (id as usize) < self.events.len()
+        id != INVALID_EVENT_ID
+//        (id as usize) < self.events.len()
     }
 
     /// Returns the position of a given event in the queue.
