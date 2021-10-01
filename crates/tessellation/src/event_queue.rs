@@ -81,7 +81,8 @@ impl EventQueue {
     /// The tolerance threshold is used for curve flattening approximation. See the
     /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
     /// crate documentation.
-    pub fn from_path(tolerance: f32, path: impl Iterator<Item = PathEvent>) -> Self {
+    pub fn from_path(tolerance: f32, path: impl IntoIterator<Item = PathEvent>) -> Self {
+        let path = path.into_iter();
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
         let mut builder = EventQueueBuilder::with_capacity(capacity, tolerance);
@@ -100,9 +101,10 @@ impl EventQueue {
     pub fn from_path_with_ids(
         tolerance: f32,
         sweep_orientation: Orientation,
-        path: impl Iterator<Item = IdEvent>,
+        path: impl IntoIterator<Item = IdEvent>,
         positions: &impl PositionStore,
     ) -> Self {
+        let path = path.into_iter();
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
         let mut builder = EventQueueBuilder::with_capacity(capacity, tolerance);
@@ -488,7 +490,7 @@ impl EventQueueBuilder {
         &mut self,
         tolerance: f32,
         sweep_orientation: Orientation,
-        path: impl Iterator<Item = PathEvent>,
+        path: impl IntoIterator<Item = PathEvent>,
     ) {
         self.reset();
 
@@ -558,7 +560,7 @@ impl EventQueueBuilder {
         &mut self,
         tolerance: f32,
         sweep_orientation: Orientation,
-        path_events: impl Iterator<Item = IdEvent>,
+        path_events: impl IntoIterator<Item = IdEvent>,
         points: &impl PositionStore,
     ) {
         self.reset();

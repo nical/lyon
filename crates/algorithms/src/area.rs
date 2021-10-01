@@ -3,10 +3,11 @@ use crate::path::{PathEvent, iterator::PathIterator};
 
 
 /// Compute the signed area of a path by summing the signed areas of its sub-paths.
-pub fn approximate_signed_area<Iter>(tolerance: f32, mut path: Iter) -> f32
+pub fn approximate_signed_area<Iter>(tolerance: f32, path: Iter) -> f32
 where
-    Iter: Iterator<Item = PathEvent>
+    Iter: IntoIterator<Item = PathEvent>
 {
+    let mut path = path.into_iter();
     let mut area = 0.0;
     while let Some(sp_area) = approximate_sub_path_signed_area(tolerance, &mut path) {
         area += sp_area;
