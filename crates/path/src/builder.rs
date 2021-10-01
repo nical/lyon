@@ -297,23 +297,23 @@ pub trait PathBuilder {
     ///
     /// There must be no sub-path in progress when this method is called.
     /// No sub-path is in progress after the method is called.
-    fn add_rectangle(&mut self, rect: &Rect, winding: Winding) {
+    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding) {
         match winding {
             Winding::Positive => self.add_polygon(Polygon {
                 points: &[
-                    rect.min(),
-                    point(rect.max_x(), rect.min_y()),
-                    rect.max(),
-                    point(rect.min_x(), rect.max_y()),
+                    rect.min,
+                    point(rect.max.x, rect.min.y),
+                    rect.max,
+                    point(rect.min.x, rect.max.y),
                 ],
                 closed: true,
             }),
             Winding::Negative => self.add_polygon(Polygon {
                 points: &[
-                    rect.min(),
-                    point(rect.min_x(), rect.max_y()),
-                    rect.max(),
-                    point(rect.max_x(), rect.min_y()),
+                    rect.min,
+                    point(rect.min.x, rect.max.y),
+                    rect.max,
+                    point(rect.max.x, rect.min.y),
                 ],
                 closed: true,
             }),
@@ -324,7 +324,7 @@ pub trait PathBuilder {
     ///
     /// There must be no sub-path in progress when this method is called.
     /// No sub-path is in progress after the method is called.
-    fn add_rounded_rectangle(&mut self, rect: &Rect, radii: &BorderRadii, winding: Winding)
+    fn add_rounded_rectangle(&mut self, rect: &Box2D, radii: &BorderRadii, winding: Winding)
     where
         Self: Sized,
     {
@@ -1133,16 +1133,16 @@ fn add_circle<Builder: PathBuilder>(
 /// Tessellate the stroke for an axis-aligned rounded rectangle.
 fn add_rounded_rectangle<Builder: PathBuilder>(
     builder: &mut Builder,
-    rect: &Rect,
+    rect: &Box2D,
     radii: &BorderRadii,
     winding: Winding,
 ) {
-    let w = rect.size.width;
-    let h = rect.size.height;
-    let x_min = rect.min_x();
-    let y_min = rect.min_y();
-    let x_max = rect.max_x();
-    let y_max = rect.max_y();
+    let w = rect.width();
+    let h = rect.height();
+    let x_min = rect.min.x;
+    let y_min = rect.min.y;
+    let x_max = rect.max.x;
+    let y_max = rect.max.y;
     let min_wh = w.min(h);
     let mut tl = radii.top_left.abs().min(min_wh);
     let mut tr = radii.top_right.abs().min(min_wh);

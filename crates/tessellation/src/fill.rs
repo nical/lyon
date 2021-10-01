@@ -649,7 +649,7 @@ impl FillTessellator {
     /// Tessellate an axis-aligned rectangle.
     pub fn tessellate_rectangle(
         &mut self,
-        rect: &Rect,
+        rect: &Box2D,
         _options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {

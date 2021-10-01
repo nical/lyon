@@ -96,8 +96,8 @@ pub mod math {
     /// Alias for ```euclid::default::Size2D<f32>```.
     pub type Size = euclid::default::Size2D<f32>;
 
-    /// Alias for ```euclid::default::Rect<f32>```
-    pub type Rect = euclid::default::Rect<f32>;
+    /// Alias for ```euclid::default::Box2D<f32>```
+    pub type Box2D = euclid::default::Box2D<f32>;
 
     /// Alias for ```euclid::default::Transform2D<f32>```
     pub type Transform = euclid::default::Transform2D<f32>;
@@ -113,15 +113,6 @@ pub mod math {
 
     /// An angle in radians (f32).
     pub type Angle = euclid::Angle<f32>;
-
-    /// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
-    #[inline]
-    pub fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
-        Rect {
-            origin: point(x, y),
-            size: size(w, h),
-        }
-    }
 
     /// Shorthand for `Vector::new(x, y)`.
     #[inline]

@@ -4,10 +4,10 @@ pub use crate::flatten_cubic::Flattened;
 use crate::flatten_cubic::{find_cubic_bezier_inflection_points, flatten_cubic_bezier_with_t};
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
-use crate::segment::{BoundingRect, Segment};
+use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
 use crate::utils::{cubic_polynomial_roots, min_max};
-use crate::{Point, Rect, Vector, Box2D, point};
+use crate::{Point, Vector, Box2D, point};
 use crate::{Line, LineEquation, LineSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
@@ -605,17 +605,12 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Returns a conservative rectangle the curve is contained in.
     ///
-    /// This method is faster than `bounding_rect` but more conservative.
+    /// This method is faster than `bounding_box` but more conservative.
     pub fn fast_bounding_box(&self) -> Box2D<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
 
         Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
-    }
-
-    /// Returns a conservative rectangle that contains the curve.
-    pub fn fast_bounding_rect(&self) -> Rect<S> {
-        self.fast_bounding_box().to_rect()
     }
 
     /// Returns a conservative range of x that contains this curve.
@@ -663,12 +658,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let (min_y, max_y) = self.bounding_range_y();
 
         Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
-    }
-
-    /// Returns a conservative rectangle that contains the curve.
-    #[inline]
-    pub fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_box().to_rect()
     }
 
     /// Returns the smallest range of x that contains this curve.
@@ -867,8 +856,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// the segments at the corresponding values.
     pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<(S, S), 3> {
         if !self
-            .fast_bounding_rect().inflate(S::EPSILON, S::EPSILON)
-            .intersects(&segment.bounding_rect().inflate(S::EPSILON, S::EPSILON))
+            .fast_bounding_box().inflate(S::EPSILON, S::EPSILON)
+            .intersects(&segment.bounding_box().inflate(S::EPSILON, S::EPSILON))
         {
             return ArrayVec::new();
         }
@@ -932,14 +921,8 @@ impl<S: Scalar> Segment for CubicBezierSegment<S> {
     impl_segment!(S);
 }
 
-impl<S: Scalar> BoundingRect for CubicBezierSegment<S> {
+impl<S: Scalar> BoundingBox for CubicBezierSegment<S> {
     type Scalar = S;
-    fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_rect()
-    }
-    fn fast_bounding_rect(&self) -> Rect<S> {
-        self.fast_bounding_rect()
-    }
     fn bounding_range_x(&self) -> (S, S) {
         self.bounding_range_x()
     }
@@ -957,11 +940,8 @@ impl<S: Scalar> BoundingRect for CubicBezierSegment<S> {
 /// A monotonically increasing in x and y quadratic bézier curve segment
 pub type MonotonicCubicBezierSegment<S> = Monotonic<CubicBezierSegment<S>>;
 
-#[cfg(test)]
-use crate::rect;
-
 #[test]
-fn fast_bounding_rect_for_cubic_bezier_segment() {
+fn fast_bounding_box_for_cubic_bezier_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(0.5, 1.0),
@@ -969,15 +949,15 @@ fn fast_bounding_rect_for_cubic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bounding_rect = rect(0.0, -1.0, 2.0, 2.0);
+    let expected_aabb = Box2D { min: point(0.0, -1.0), max: point(2.0, 1.0) };
 
-    let actual_bounding_rect = a.fast_bounding_rect();
+    let actual_aabb = a.fast_bounding_box();
 
-    assert!(expected_bounding_rect == actual_bounding_rect)
+    assert!(expected_aabb == actual_aabb)
 }
 
 #[test]
-fn minimum_bounding_rect_for_cubic_bezier_segment() {
+fn minimum_bounding_box_for_cubic_bezier_segment() {
     let a = CubicBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl1: Point::new(0.5, 2.0),
@@ -985,13 +965,13 @@ fn minimum_bounding_rect_for_cubic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bigger_bounding_rect: Rect<f32> = rect(0.0, -0.6, 2.0, 1.2);
-    let expected_smaller_bounding_rect: Rect<f32> = rect(0.1, -0.5, 1.9, 1.0);
+    let expected_bigger_aabb: Box2D<f32> = Box2D { min: point(0.0, -0.6), max: point(2.0, 0.6) };
+    let expected_smaller_aabb: Box2D<f32> = Box2D { min: point(0.1, -0.5), max: point(2.0, 0.5) };
 
-    let actual_minimum_bounding_rect: Rect<f32> = a.bounding_rect();
+    let actual_minimum_aabb = a.bounding_box();
 
-    assert!(expected_bigger_bounding_rect.contains_rect(&actual_minimum_bounding_rect));
-    assert!(actual_minimum_bounding_rect.contains_rect(&expected_smaller_bounding_rect));
+    assert!(expected_bigger_aabb.contains_box(&actual_minimum_aabb));
+    assert!(actual_minimum_aabb.contains_box(&expected_smaller_aabb));
 }
 
 #[test]

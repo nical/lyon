@@ -1,8 +1,8 @@
 use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
-use crate::segment::{BoundingRect, Segment};
+use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
-use crate::{Point, Rect, Vector, Box2D, point};
+use crate::{Point, Vector, Box2D, point};
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
 
@@ -455,11 +455,6 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
     }
 
-    /// Returns a conservative rectangle that contains the curve.
-    pub fn fast_bounding_rect(&self) -> Rect<S> {
-        self.fast_bounding_box().to_rect()
-    }
-
     /// Returns a conservative range of x that contains this curve.
     pub fn fast_bounding_range_x(&self) -> (S, S) {
         let min_x = self.from.x.min(self.ctrl.x).min(self.to.x);
@@ -482,11 +477,6 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let (min_y, max_y) = self.bounding_range_y();
 
         Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
-    }
-
-    /// Returns the smallest rectangle the curve is contained in
-    pub fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_box().to_rect()
     }
 
     /// Returns the smallest range of x that contains this curve.
@@ -783,13 +773,13 @@ impl<S: Scalar> Segment for QuadraticBezierSegment<S> {
     impl_segment!(S);
 }
 
-impl<S: Scalar> BoundingRect for QuadraticBezierSegment<S> {
+impl<S: Scalar> BoundingBox for QuadraticBezierSegment<S> {
     type Scalar = S;
-    fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_rect()
+    fn bounding_box(&self) -> Box2D<S> {
+        self.bounding_box()
     }
-    fn fast_bounding_rect(&self) -> Rect<S> {
-        self.fast_bounding_rect()
+    fn fast_bounding_box(&self) -> Box2D<S> {
+        self.fast_bounding_box()
     }
     fn bounding_range_x(&self) -> (S, S) {
         self.bounding_range_x()
@@ -808,52 +798,49 @@ impl<S: Scalar> BoundingRect for QuadraticBezierSegment<S> {
 /// A monotonically increasing in x and y quadratic bézier curve segment
 pub type MonotonicQuadraticBezierSegment<S> = Monotonic<QuadraticBezierSegment<S>>;
 
-#[cfg(test)]
-use crate::rect;
-
 #[test]
-fn bounding_rect_for_monotonic_quadratic_bezier_segment() {
+fn bounding_box_for_monotonic_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(0.0, 0.0),
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bounding_rect = rect(0.0, 0.0, 2.0, 0.0);
+    let expected_aabb = Box2D { min: point(0.0, 0.0), max: point(2.0, 0.0) };
 
-    let actual_bounding_rect = a.bounding_rect();
+    let actual_aabb = a.bounding_box();
 
-    assert!(expected_bounding_rect == actual_bounding_rect)
+    assert!(expected_aabb == actual_aabb)
 }
 
 #[test]
-fn fast_bounding_rect_for_quadratic_bezier_segment() {
+fn fast_bounding_box_for_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 1.0),
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bounding_rect = rect(0.0, 0.0, 2.0, 1.0);
+    let expected_aabb = Box2D { min: point(0.0, 0.0), max: point(2.0, 1.0) };
 
-    let actual_bounding_rect = a.fast_bounding_rect();
+    let actual_aabb = a.fast_bounding_box();
 
-    assert!(expected_bounding_rect == actual_bounding_rect)
+    assert!(expected_aabb == actual_aabb)
 }
 
 #[test]
-fn minimum_bounding_rect_for_quadratic_bezier_segment() {
+fn minimum_bounding_box_for_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
         from: Point::new(0.0, 0.0),
         ctrl: Point::new(1.0, 1.0),
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bounding_rect = rect(0.0, 0.0, 2.0, 0.5);
+    let expected_aabb = Box2D { min: point(0.0, 0.0), max: point(2.0, 0.5) };
 
-    let actual_bounding_rect = a.bounding_rect();
+    let actual_aabb = a.bounding_box();
 
-    assert!(expected_bounding_rect == actual_bounding_rect)
+    assert!(expected_aabb == actual_aabb)
 }
 
 #[test]
