@@ -1,9 +1,9 @@
 use crate::monotonic::MonotonicSegment;
 use crate::scalar::Scalar;
-use crate::segment::{BoundingRect, Segment};
+use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
 use crate::utils::min_max;
-use crate::{point, vector, Point, Rect, Vector, Box2D};
+use crate::{point, vector, Point, Vector, Box2D};
 use std::mem::swap;
 
 use std::ops::Range;
@@ -140,11 +140,6 @@ impl<S: Scalar> LineSegment<S> {
             min: point(min_x, min_y),
             max: point(max_x, max_y),
         }
-    }
-
-    /// Return the smallest rectangle containing this segment.
-    pub fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_box().to_rect()
     }
 
     #[inline]
@@ -485,14 +480,8 @@ impl<S: Scalar> Segment for LineSegment<S> {
     }
 }
 
-impl<S: Scalar> BoundingRect for LineSegment<S> {
+impl<S: Scalar> BoundingBox for LineSegment<S> {
     type Scalar = S;
-    fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_rect()
-    }
-    fn fast_bounding_rect(&self) -> Rect<S> {
-        self.bounding_rect()
-    }
     fn bounding_range_x(&self) -> (S, S) {
         self.bounding_range_x()
     }
@@ -572,10 +561,6 @@ impl<S: Scalar> Line<S> {
         };
 
         diagonal.intersects_line(self)
-    }
-
-    pub fn intersects_rect(&self, rect: &Rect<S>) -> bool {
-        self.intersects_box(&rect.to_box2d())
     }
 }
 
@@ -796,32 +781,30 @@ fn intersection_overlap() {
 
 #[cfg(test)]
 use euclid::approxeq::ApproxEq;
-#[cfg(test)]
-use euclid::rect;
 
 #[test]
-fn bounding_rect() {
+fn bounding_box() {
     let l1 = LineSegment {
-        from: point(1., 5.),
-        to: point(5., 7.),
+        from: point(1.0, 5.0),
+        to: point(5.0, 7.0),
     };
-    let r1 = rect(1., 5., 4., 2.);
+    let r1 = Box2D { min: point(1.0, 5.0), max: point(5.0, 7.0) };
 
     let l2 = LineSegment {
-        from: point(5., 5.),
-        to: point(1., 1.),
+        from: point(5.0, 5.0),
+        to: point(1.0, 1.0),
     };
-    let r2 = rect(1., 1., 4., 4.);
+    let r2 = Box2D { min: point(1.0, 1.0), max: point(5.0, 5.0) };
 
     let l3 = LineSegment {
-        from: point(3., 3.),
-        to: point(1., 5.),
+        from: point(3.0, 3.0),
+        to: point(1.0, 5.0),
     };
-    let r3 = rect(1., 3., 2., 2.);
+    let r3 = Box2D { min: point(1.0, 3.0), max: point(3.0, 5.0) };
 
     let cases = vec![(l1, r1), (l2, r2), (l3, r3)];
     for &(ls, r) in &cases {
-        assert_eq!(ls.bounding_rect(), r);
+        assert_eq!(ls.bounding_box(), r);
     }
 }
 

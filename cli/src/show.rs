@@ -10,7 +10,7 @@ use futures::executor::block_on;
 use std::ops::Rem;
 
 use crate::commands::{AntiAliasing, Background, RenderCmd, TessellateCmd, Tessellator};
-use lyon::algorithms::aabb::bounding_rect;
+use lyon::algorithms::aabb::bounding_box;
 use lyon::algorithms::hatching::*;
 use lyon::geom::LineSegment;
 use lyon::math::*;
@@ -213,7 +213,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut bg_geometry: VertexBuffers<BgVertex, u32> = VertexBuffers::new();
 
     fill.tessellate_rectangle(
-        &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+        &Box2D { min: point(-1.0, -1.0), max: point(1.0, 1.0) },
         &FillOptions::DEFAULT,
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     )
@@ -266,8 +266,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         ];
     }
 
-    let aabb = bounding_rect(cmd.path.iter());
-    let center = aabb.origin.lerp(aabb.max(), 0.5).to_vector();
+    let aabb = bounding_box(cmd.path.iter());
+    let center = aabb.center().to_vector();
 
     let mut scene = SceneParams {
         target_zoom: 5.0,

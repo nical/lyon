@@ -1,7 +1,7 @@
 use crate::scalar::Scalar;
 use crate::traits::Transformation;
 use crate::LineSegment;
-use crate::{Point, Rect, point, Box2D};
+use crate::{Point, point, Box2D};
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -57,12 +57,6 @@ impl<S: Scalar> Triangle<S> {
         let (min_y, max_y) = self.bounding_range_y();
 
         Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
-    }
-
-    /// Returns the smallest rectangle that contains this triangle.
-    #[inline]
-    pub fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_box().to_rect()
     }
 
     #[inline]
@@ -278,34 +272,31 @@ fn test_segment_intersection() {
     assert!(!tri.intersects_line_segment(&tri.ac()));
 }
 
-#[cfg(test)]
-use euclid::rect;
-
 #[test]
-fn test_bounding_rect() {
+fn test_bounding_box() {
     let t1 = Triangle {
-        a: point(10., 20.),
-        b: point(35., 40.),
-        c: point(50., 10.),
+        a: point(10.0, 20.0),
+        b: point(35.0, 40.0),
+        c: point(50.0, 10.0),
     };
-    let r1 = rect(10., 10., 40., 30.);
+    let r1 = Box2D { min: point(10.0, 10.0), max: point(50.0, 40.0) };
 
     let t2 = Triangle {
-        a: point(5., 30.),
-        b: point(25., 10.),
-        c: point(35., 40.),
+        a: point(5.0, 30.0),
+        b: point(25.0, 10.0),
+        c: point(35.0, 40.0),
     };
-    let r2 = rect(5., 10., 30., 30.);
+    let r2 = Box2D { min: point(5.0, 10.0), max: point(35.0, 40.0) };
 
     let t3 = Triangle {
-        a: point(1., 1.),
-        b: point(2., 5.),
-        c: point(0., 4.),
+        a: point(1.0, 1.0),
+        b: point(2.0, 5.0),
+        c: point(0.0, 4.0),
     };
-    let r3 = rect(0., 1., 2., 4.);
+    let r3 = Box2D { min: point(0.0, 1.0), max: point(2.0, 5.0) };
 
     let cases = vec![(t1, r1), (t2, r2), (t3, r3)];
     for &(tri, r) in &cases {
-        assert_eq!(tri.bounding_rect(), r);
+        assert_eq!(tri.bounding_box(), r);
     }
 }

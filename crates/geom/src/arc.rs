@@ -4,11 +4,11 @@ use std::mem::swap;
 use std::ops::Range;
 
 use crate::scalar::{cast, Float, Scalar};
-use crate::segment::{BoundingRect, Segment};
+use crate::segment::{BoundingBox, Segment};
 use crate::CubicBezierSegment;
 use crate::Line;
 use crate::QuadraticBezierSegment;
-use crate::{point, vector, Angle, Point, Rect, Rotation, Transform, Vector, Box2D};
+use crate::{point, vector, Angle, Point, Rotation, Transform, Vector, Box2D};
 
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -360,11 +360,6 @@ impl<S: Scalar> Arc<S> {
     }
 
     /// Returns a conservative rectangle that contains the curve.
-    pub fn fast_bounding_rect(&self) -> Rect<S> {
-        self.fast_bounding_box().to_rect()
-    }
-
-    /// Returns a conservative rectangle that contains the curve.
     pub fn bounding_box(&self) -> Box2D<S> {
         let from = self.from();
         let to = self.to();
@@ -382,12 +377,6 @@ impl<S: Scalar> Arc<S> {
         });
 
         Box2D { min, max }
-    }
-
-    /// Returns a conservative rectangle that contains the curve.
-    #[inline]
-    pub fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_box().to_rect()
     }
 
     pub fn for_each_local_x_extremum_t<F>(&self, cb: &mut F)
@@ -447,23 +436,23 @@ impl<S: Scalar> Arc<S> {
     }
 
     pub fn bounding_range_x(&self) -> (S, S) {
-        let r = self.bounding_rect();
-        (r.min_x(), r.max_x())
+        let r = self.bounding_box();
+        (r.min.x, r.max.x)
     }
 
     pub fn bounding_range_y(&self) -> (S, S) {
-        let r = self.bounding_rect();
-        (r.min_y(), r.max_y())
+        let r = self.bounding_box();
+        (r.min.y, r.max.y)
     }
 
     pub fn fast_bounding_range_x(&self) -> (S, S) {
-        let r = self.fast_bounding_rect();
-        (r.min_x(), r.max_x())
+        let r = self.fast_bounding_box();
+        (r.min.x, r.max.x)
     }
 
     pub fn fast_bounding_range_y(&self) -> (S, S) {
-        let r = self.fast_bounding_rect();
-        (r.min_y(), r.max_y())
+        let r = self.fast_bounding_box();
+        (r.min.y, r.max.y)
     }
 
     pub fn approximate_length(&self, tolerance: S) -> S {
@@ -709,14 +698,8 @@ impl<S: Scalar> Segment for Arc<S> {
     }
 }
 
-impl<S: Scalar> BoundingRect for Arc<S> {
+impl<S: Scalar> BoundingBox for Arc<S> {
     type Scalar = S;
-    fn bounding_rect(&self) -> Rect<S> {
-        self.bounding_rect()
-    }
-    fn fast_bounding_rect(&self) -> Rect<S> {
-        self.fast_bounding_rect()
-    }
     fn bounding_range_x(&self) -> (S, S) {
         self.bounding_range_x()
     }
@@ -955,15 +938,14 @@ fn test_to_quadratics_and_cubics() {
 }
 
 #[test]
-fn test_bounding_rect() {
-    use crate::rect;
+fn test_bounding_box() {
     use euclid::approxeq::ApproxEq;
 
-    fn approx_eq(r1: Rect<f32>, r2: Rect<f32>) -> bool {
-        if !r1.min_x().approx_eq(&r2.min_x())
-            || !r1.max_x().approx_eq(&r2.max_x())
-            || !r1.min_y().approx_eq(&r2.min_y())
-            || !r1.max_y().approx_eq(&r2.max_y())
+    fn approx_eq(r1: Box2D<f32>, r2: Box2D<f32>) -> bool {
+        if !r1.min.x.approx_eq(&r2.min.x)
+            || !r1.max.x.approx_eq(&r2.max.x)
+            || !r1.min.y.approx_eq(&r2.min.y)
+            || !r1.max.y.approx_eq(&r2.max.y)
         {
             println!("\n   left: {:?}\n   right: {:?}", r1, r2);
             return false;
@@ -979,8 +961,8 @@ fn test_bounding_rect() {
         sweep_angle: Angle::pi(),
         x_rotation: Angle::zero(),
     }
-    .bounding_rect();
-    assert!(approx_eq(r, rect(-1.0, 0.0, 2.0, 1.0)));
+    .bounding_box();
+    assert!(approx_eq(r, Box2D { min: point(-1.0, 0.0), max: point(1.0, 1.0) }));
 
     let r = Arc {
         center: point(0.0, 0.0),
@@ -989,8 +971,8 @@ fn test_bounding_rect() {
         sweep_angle: Angle::pi(),
         x_rotation: Angle::pi(),
     }
-    .bounding_rect();
-    assert!(approx_eq(r, rect(-1.0, -1.0, 2.0, 1.0)));
+    .bounding_box();
+    assert!(approx_eq(r, Box2D { min: point(-1.0, -1.0), max: point(1.0, 0.0) }));
 
     let r = Arc {
         center: point(0.0, 0.0),
@@ -999,8 +981,8 @@ fn test_bounding_rect() {
         sweep_angle: Angle::pi(),
         x_rotation: Angle::pi() * 0.5,
     }
-    .bounding_rect();
-    assert!(approx_eq(r, rect(-1.0, -2.0, 1.0, 4.0)));
+    .bounding_box();
+    assert!(approx_eq(r, Box2D { min: point(-1.0, -2.0), max: point(0.0, 2.0) }));
 
     let r = Arc {
         center: point(1.0, 1.0),
@@ -1009,8 +991,8 @@ fn test_bounding_rect() {
         sweep_angle: Angle::pi(),
         x_rotation: -Angle::pi() * 0.25,
     }
-    .bounding_rect();
-    assert!(approx_eq(r, rect(0.0, 0.0, 1.707107, 1.707107)));
+    .bounding_box();
+    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(1.707107, 1.707107) }));
 
     let mut angle = Angle::zero();
     for _ in 0..10 {
@@ -1022,8 +1004,8 @@ fn test_bounding_rect() {
             sweep_angle: Angle::pi() * 2.0,
             x_rotation: Angle::pi() * 0.25,
         }
-        .bounding_rect();
-        assert!(approx_eq(r, rect(-4.0, -4.0, 8.0, 8.0)));
+        .bounding_box();
+        assert!(approx_eq(r, Box2D { min: point(-4.0, -4.0), max: point(4.0, 4.0) }));
         angle += Angle::pi() * 2.0 / 10.0;
     }
 
@@ -1037,8 +1019,8 @@ fn test_bounding_rect() {
             sweep_angle: Angle::pi() * 2.0,
             x_rotation: angle,
         }
-        .bounding_rect();
-        assert!(approx_eq(r, rect(-4.0, -4.0, 8.0, 8.0)));
+        .bounding_box();
+        assert!(approx_eq(r, Box2D { min: point(-4.0, -4.0), max: point(4.0, 4.0) }));
         angle += Angle::pi() * 2.0 / 10.0;
     }
 }

@@ -1,7 +1,7 @@
 use crate::scalar::{NumCast, Scalar};
-use crate::segment::{BoundingRect, Segment};
+use crate::segment::{BoundingBox, Segment};
 use crate::{CubicBezierSegment, QuadraticBezierSegment};
-use crate::{Point, Rect, Vector};
+use crate::{Point, Box2D, Vector};
 use arrayvec::ArrayVec;
 use std::ops::Range;
 
@@ -99,15 +99,15 @@ impl<T: Segment> Segment for Monotonic<T> {
     impl_segment!(T::Scalar);
 }
 
-impl<T: BoundingRect> BoundingRect for Monotonic<T> {
+impl<T: BoundingBox> BoundingBox for Monotonic<T> {
     type Scalar = T::Scalar;
-    fn bounding_rect(&self) -> Rect<T::Scalar> {
-        // For monotonic segments the fast bounding rect approximation
+    fn bounding_box(&self) -> Box2D<T::Scalar> {
+        // For monotonic segments the fast bounding box approximation
         // is exact.
-        self.segment.fast_bounding_rect()
+        self.segment.fast_bounding_box()
     }
-    fn fast_bounding_rect(&self) -> Rect<T::Scalar> {
-        self.segment.fast_bounding_rect()
+    fn fast_bounding_box(&self) -> Box2D<T::Scalar> {
+        self.segment.fast_bounding_box()
     }
     fn bounding_range_x(&self) -> (T::Scalar, T::Scalar) {
         self.segment.bounding_range_x()
@@ -293,8 +293,8 @@ pub(crate) fn first_monotonic_segment_intersecion<S: Scalar, A, B>(
     tolerance: S,
 ) -> Option<(S, S)>
 where
-    A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
-    B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
+    A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingBox<Scalar = S>,
+    B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingBox<Scalar = S>,
 {
     debug_assert!(a.from().x <= a.to().x);
     debug_assert!(b.from().x <= b.to().x);
@@ -380,8 +380,8 @@ pub(crate) fn monotonic_segment_intersecions<S: Scalar, A, B>(
     tolerance: S,
 ) -> ArrayVec<(S, S), 2>
 where
-    A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
-    B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingRect<Scalar = S>,
+    A: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingBox<Scalar = S>,
+    B: Segment<Scalar = S> + MonotonicSegment<Scalar = S> + BoundingBox<Scalar = S>,
 {
     let (t1, t2) = match first_monotonic_segment_intersecion(
         a,

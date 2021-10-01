@@ -1,6 +1,6 @@
 use crate::scalar::Scalar;
 use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
-use crate::{Point, Rect, Vector, Box2D, point};
+use crate::{Point, Vector, Box2D, point};
 
 use std::ops::Range;
 
@@ -62,7 +62,7 @@ pub trait Segment: Copy + Sized {
 }
 
 // TODO: replace with BoundingBox trait.
-pub trait BoundingRect {
+pub trait BoundingBox {
     type Scalar: Scalar;
 
     /// Returns the smallest rectangle that contains the curve.
@@ -76,11 +76,6 @@ pub trait BoundingRect {
         }
     }
 
-    /// Returns the smallest rectangle that contains the curve.
-    fn bounding_rect(&self) -> Rect<Self::Scalar> {
-        self.bounding_box().to_rect()
-    }
-
     /// Returns a conservative rectangle that contains the curve.
     ///
     /// This does not necessarily return the smallest possible bounding rectangle.
@@ -92,13 +87,6 @@ pub trait BoundingRect {
             min: point(min_x, min_y),
             max: point(max_x, max_y),
         }
-    }
-
-    /// Returns a conservative rectangle that contains the curve.
-    ///
-    /// This does not necessarily return the smallest possible bounding rectangle.
-    fn fast_bounding_rect(&self) -> Rect<Self::Scalar> {
-        self.fast_bounding_box().to_rect()
     }
 
     /// Returns a range of x values that contains the curve.

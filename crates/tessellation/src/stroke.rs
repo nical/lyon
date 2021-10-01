@@ -225,7 +225,7 @@ impl StrokeTessellator {
     /// Tessellate the stroke for an axis-aligned rectangle.
     pub fn tessellate_rectangle(
         &mut self,
-        rect: &Rect,
+        rect: &Box2D,
         options: &StrokeOptions,
         output: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
@@ -369,7 +369,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn add_rectangle(&mut self, rect: &Rect, winding: Winding) {
+    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding) {
         // The thin rectangle approximation for works best with miter joins. We
         // only use it with other joins if the rectangle is much smaller than the
         // line width.
@@ -378,7 +378,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
             _ => 0.05,
         } * self.options.line_width;
 
-        if rect.size.width.abs() < threshold || rect.size.height.abs() < threshold {
+        if rect.width().abs() < threshold || rect.height().abs() < threshold {
             approximate_thin_rectangle(self, rect);
             return;
         }
@@ -386,19 +386,19 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         match winding {
             Winding::Positive => self.add_polygon(Polygon {
                 points: &[
-                    rect.min(),
-                    point(rect.max_x(), rect.min_y()),
-                    rect.max(),
-                    point(rect.min_x(), rect.max_y()),
+                    rect.min,
+                    point(rect.max.x, rect.min.y),
+                    rect.max,
+                    point(rect.min.x, rect.max.y),
                 ],
                 closed: true,
             }),
             Winding::Negative => self.add_polygon(Polygon {
                 points: &[
-                    rect.min(),
-                    point(rect.min_x(), rect.max_y()),
-                    rect.max(),
-                    point(rect.max_x(), rect.min_y()),
+                    rect.min,
+                    point(rect.min.x, rect.max.y),
+                    rect.max,
+                    point(rect.max.x, rect.min.y),
                 ],
                 closed: true,
             }),
@@ -1349,19 +1349,19 @@ pub(crate) fn tessellate_arc(
 // well as overlapping triangles if the rectangle is much smaller than the
 // line width in any dimension.
 #[inline(never)]
-fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Rect) {
-    let (from, to, d) = if rect.size.width > rect.size.height {
-        let d = rect.size.height * 0.5;
-        let min_x = rect.min_x() + d;
-        let max_x = rect.max_x() - d;
-        let y = (rect.min_y() + rect.max_y()) * 0.5;
+fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Box2D) {
+    let (from, to, d) = if rect.width() > rect.height() {
+        let d = rect.height() * 0.5;
+        let min_x = rect.min.x + d;
+        let max_x = rect.max.x - d;
+        let y = (rect.min.y + rect.max.y) * 0.5;
 
         (point(min_x, y), point(max_x, y), d)
     } else {
-        let d = rect.size.width * 0.5;
-        let min_y = rect.min_y() + d;
-        let max_y = rect.max_y() - d;
-        let x = (rect.min_x() + rect.max_x()) * 0.5;
+        let d = rect.width() * 0.5;
+        let min_y = rect.min.y + d;
+        let max_y = rect.max.y - d;
+        let x = (rect.min.x + rect.max.x) * 0.5;
 
         (point(x, min_y), point(x, max_y), d)
     };

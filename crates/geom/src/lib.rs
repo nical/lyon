@@ -243,9 +243,6 @@ pub use euclid::default::Vector2D as Vector;
 /// Alias for `euclid::default::Size2D`.
 pub use euclid::default::Size2D as Size;
 
-/// Alias for `euclid::default::Rect`
-pub use euclid::default::Rect;
-
 /// Alias for `euclid::default::Box2D`
 pub use euclid::default::Box2D;
 
@@ -263,15 +260,6 @@ pub use euclid::default::Scale;
 
 /// An angle in radians.
 pub use euclid::Angle;
-
-/// Shorthand for `Rect::new(Point::new(x, y), Size::new(w, h))`.
-#[inline]
-pub fn rect<S>(x: S, y: S, w: S, h: S) -> Rect<S> {
-    Rect {
-        origin: point(x, y),
-        size: size(w, h),
-    }
-}
 
 /// Shorthand for `Vector::new(x, y)`.
 #[inline]

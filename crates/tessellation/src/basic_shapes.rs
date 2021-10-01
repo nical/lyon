@@ -5,7 +5,7 @@ use crate::math::*;
 use std::f32::consts::PI;
 
 pub fn fill_rectangle(
-    rect: &Rect,
+    rect: &Box2D,
     output: &mut dyn FillGeometryBuilder,
 ) -> TessellationResult {
     output.begin_geometry();
@@ -22,7 +22,7 @@ pub fn fill_rectangle(
         })            
     };
 
-    let a = vertex(rect.origin)?;
+    let a = vertex(rect.min)?;
     let b = vertex(bottom_left(&rect))?;
     let c = vertex(bottom_right(&rect))?;
     let d = vertex(top_right(&rect))?;
@@ -117,16 +117,16 @@ pub fn fill_circle(
     Ok(output.end_geometry())
 }
 
-fn bottom_left(rect: &Rect) -> Point {
-    point(rect.min_x(), rect.max_y())
+fn bottom_left(rect: &Box2D) -> Point {
+    point(rect.min.x, rect.max.y)
 }
 
-fn top_right(rect: &Rect) -> Point {
-    point(rect.max_x(), rect.min_y())
+fn top_right(rect: &Box2D) -> Point {
+    point(rect.max.x, rect.min.y)
 }
 
-fn bottom_right(rect: &Rect) -> Point {
-    rect.max()
+fn bottom_right(rect: &Box2D) -> Point {
+    rect.max
 }
 
 
@@ -209,7 +209,7 @@ fn basic_shapes() {
     let mut tess = crate::FillTessellator::new();
 
     tess.tessellate_rectangle(
-        &Rect { origin: point(0.0, 1.0), size: size(2.0, 3.0 ) },
+        &Box2D { min: point(0.0, 1.0), max: point(2.0, 4.0 ) },
         &FillOptions::DEFAULT,
         &mut Builder { next_vertex: 0 },
     ).unwrap();

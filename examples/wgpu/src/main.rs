@@ -188,7 +188,7 @@ fn main() {
 
     fill_tess
         .tessellate_rectangle(
-            &Rect::new(point(-1.0, -1.0), size(2.0, 2.0)),
+            &Box2D { min: point(-1.0, -1.0), max: point(1.0, 1.0) },
             &FillOptions::DEFAULT,
             &mut BuffersBuilder::new(&mut bg_geometry, Custom),
         )

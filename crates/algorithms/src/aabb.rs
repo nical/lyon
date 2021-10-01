@@ -1,18 +1,18 @@
 //! Bounding rectangle computation for paths.
 
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
-use crate::math::{point, Point, Rect};
+use crate::math::{point, Point, Box2D};
 use crate::path::PathEvent;
 use std::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
 ///
 /// This bounding rectangle approximation is faster but less precise than
-/// [`building_rect`](fn.bounding_rect.html).
-pub fn fast_bounding_rect<Iter, Evt>(path: Iter) -> Rect
+/// [`building_box`](fn.bounding_box.html).
+pub fn fast_bounding_box<Iter, Evt>(path: Iter) -> Box2D
 where
     Iter: Iterator<Item = Evt>,
-    Evt: FastBoundingRect,
+    Evt: FastBoundingBox,
 {
     let mut min = point(f32::MAX, f32::MAX);
     let mut max = point(f32::MIN, f32::MIN);
@@ -22,21 +22,18 @@ where
 
     // Return an empty rectangle by default if there was no event in the path.
     if min == point(f32::MAX, f32::MAX) {
-        return Rect::zero();
+        return Box2D::zero();
     }
 
-    Rect {
-        origin: min,
-        size: (max - min).to_size(),
-    }
+    Box2D { min, max }
 }
 
 #[doc(hidden)]
-pub trait FastBoundingRect {
+pub trait FastBoundingBox {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
-impl FastBoundingRect for PathEvent {
+impl FastBoundingBox for PathEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
             PathEvent::Begin { at } => {
@@ -63,10 +60,10 @@ impl FastBoundingRect for PathEvent {
 }
 
 /// Computes the smallest axis-aligned rectangle that contains the path.
-pub fn bounding_rect<Iter, Evt>(path: Iter) -> Rect
+pub fn bounding_box<Iter, Evt>(path: Iter) -> Box2D
 where
     Iter: Iterator<Item = Evt>,
-    Evt: TightBoundingRect,
+    Evt: TightBoundingBox,
 {
     let mut min = point(f32::MAX, f32::MAX);
     let mut max = point(f32::MIN, f32::MIN);
@@ -77,21 +74,18 @@ where
 
     // Return an empty rectangle by default if there was no event in the path.
     if min == point(f32::MAX, f32::MAX) {
-        return Rect::zero();
+        return Box2D::zero();
     }
 
-    Rect {
-        origin: min,
-        size: (max - min).to_size(),
-    }
+    Box2D { min, max }
 }
 
 #[doc(hidden)]
-pub trait TightBoundingRect {
+pub trait TightBoundingBox {
     fn min_max(&self, min: &mut Point, max: &mut Point);
 }
 
-impl TightBoundingRect for PathEvent {
+impl TightBoundingBox for PathEvent {
     fn min_max(&self, min: &mut Point, max: &mut Point) {
         match self {
             PathEvent::Begin { at } => {
@@ -108,9 +102,9 @@ impl TightBoundingRect for PathEvent {
                     ctrl: *ctrl,
                     to: *to,
                 }
-                .bounding_rect();
-                *min = Point::min(*min, r.min());
-                *max = Point::max(*max, r.max());
+                .bounding_box();
+                *min = Point::min(*min, r.min);
+                *max = Point::max(*max, r.max);
             }
             PathEvent::Cubic {
                 from,
@@ -124,9 +118,9 @@ impl TightBoundingRect for PathEvent {
                     ctrl2: *ctrl2,
                     to: *to,
                 }
-                .bounding_rect();
-                *min = Point::min(*min, r.min());
-                *max = Point::max(*max, r.max());
+                .bounding_box();
+                *min = Point::min(*min, r.min);
+                *max = Point::max(*max, r.max);
             }
             PathEvent::End { .. } => {}
         }
@@ -134,8 +128,7 @@ impl TightBoundingRect for PathEvent {
 }
 
 #[test]
-fn simple_bounding_rect() {
-    use crate::math::rect;
+fn simple_bounding_box() {
     use crate::path::Path;
 
     let mut builder = Path::builder();
@@ -146,8 +139,8 @@ fn simple_bounding_rect() {
     let path = builder.build();
 
     assert_eq!(
-        fast_bounding_rect(path.iter()),
-        rect(-10.0, -12.0, 15.0, 16.0)
+        fast_bounding_box(path.iter()),
+        Box2D { min: point(-10.0, -12.0), max: point(5.0, 4.0) },
     );
 
     let mut builder = Path::builder();
@@ -156,5 +149,8 @@ fn simple_bounding_rect() {
     builder.end(false);
     let path = builder.build();
 
-    assert_eq!(fast_bounding_rect(path.iter()), rect(-1.0, -4.0, 4.0, 6.0));
+    assert_eq!(
+        fast_bounding_box(path.iter()),
+        Box2D { min: point(-1.0, -4.0), max: point(3.0, 2.0) },
+    );
 }

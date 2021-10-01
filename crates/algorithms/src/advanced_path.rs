@@ -84,9 +84,9 @@ impl AdvancedPath {
     }
 
     /// Add a rectangular sub-path.
-    pub fn add_rectangle(&mut self, rectangle: &Rect) -> SubPathId {
-        let min = rectangle.min();
-        let max = rectangle.min();
+    pub fn add_rectangle(&mut self, rectangle: &Box2D) -> SubPathId {
+        let min = rectangle.min;
+        let max = rectangle.max;
         self.add_polygon(Polygon {
             points: &[min, point(max.x, min.y), max, point(min.x, max.y)],
             closed: true,
