@@ -1190,7 +1190,7 @@ name = "lyon_extra"
 version = "0.17.1"
 dependencies = [
  "lyon_path",
- "lyon_svg",
+ "serde",
 ]
 
 [[package]]

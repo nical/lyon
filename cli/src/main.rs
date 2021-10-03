@@ -16,9 +16,9 @@ use commands::*;
 
 use lyon::algorithms::hatching::{DotOptions, HatchingOptions};
 use lyon::extra::debugging::find_reduced_test_case;
+use lyon::extra::parser::*;
 use lyon::geom::euclid::Angle;
 use lyon::path::Path;
-use lyon::svg::path_utils::build_path;
 use lyon::tessellation::{FillOptions, FillRule, LineCap, LineJoin, Orientation, StrokeOptions};
 use std::fs::File;
 use std::io::{stderr, stdout, Read, Write};
@@ -367,14 +367,20 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
         return None;
     }
 
-    match build_path(Path::builder().with_svg(), &path_str) {
-        Ok(path) => Some(path),
+    let mut parser = PathParser::new();
+
+    let options = ParserOptions::DEFAULT;
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
+
+    match parser.parse(&options, &mut Source::new(path_str.chars()), &mut builder) {
         Err(e) => {
             println!("Error while parsing path: {}", path_str);
             println!("{:?}", e);
-            None
         }
+        _ => {}
     }
+
+    Some(builder.build())
 }
 
 fn get_render_params(matches: &ArgMatches) -> RenderCmd {
