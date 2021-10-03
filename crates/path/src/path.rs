@@ -123,7 +123,7 @@ impl Path {
         interpolated_attributes(self.num_attributes, &self.points, endpoint)
     }
 
-    /// Iterates over the entire `Path`.
+    /// Iterates over the entire `Path`, ignoring custom attributes.
     pub fn iter(&self) -> Iter {
         Iter::new(self.num_attributes, &self.points[..], &self.verbs[..])
     }
@@ -133,6 +133,7 @@ impl Path {
         IdIter::new(self.num_attributes, &self.verbs[..])
     }
 
+    /// Iterates over the entire `Path` with custom attributes.
     pub fn iter_with_attributes(&self) -> IterWithAttributes {
         IterWithAttributes::new(self.num_attributes(), &self.points[..], &self.verbs[..])
     }
@@ -262,6 +263,11 @@ impl<'l> PathSlice<'l> {
         IdIter::new(self.num_attributes, self.verbs)
     }
 
+    /// Iterates over the entire `Path` with custom attributes.
+    pub fn iter_with_attributes(&self) -> IterWithAttributes {
+        IterWithAttributes::new(self.num_attributes(), &self.points[..], &self.verbs[..])
+    }
+
     pub fn is_empty(&self) -> bool {
         self.verbs.is_empty()
     }
@@ -282,34 +288,46 @@ impl<'l> fmt::Debug for PathSlice<'l> {
             fmt::Debug::fmt(&point.y, formatter)
         }
 
+        fn write_attributes(formatter: &mut fmt::Formatter, attributes: &[f32]) -> fmt::Result {
+            for val in attributes {
+                write!(formatter, " ")?;
+                fmt::Debug::fmt(val, formatter)?;
+            }
+
+            Ok(())
+        }
+
         write!(formatter, "\"")?;
-        for evt in self {
+
+        for evt in self.iter_with_attributes() {
             match evt {
-                PathEvent::Begin { at } => {
+                Event::Begin { at: (at, attributes) } => {
                     write!(formatter, " M")?;
                     write_point(formatter, at)?;
+                    write_attributes(formatter, attributes)?;
                 }
-                PathEvent::End { close, .. } => {
+                Event::End { close, .. } => {
                     if close {
                         write!(formatter, " Z")?;
                     }
                 }
-                PathEvent::Line { to, .. } => {
+                Event::Line { to: (to, attributes), .. } => {
                     write!(formatter, " L")?;
                     write_point(formatter, to)?;
+                    write_attributes(formatter, attributes)?;
                 }
-                PathEvent::Quadratic { ctrl, to, .. } => {
+                Event::Quadratic { ctrl, to: (to, attributes), .. } => {
                     write!(formatter, " Q")?;
                     write_point(formatter, ctrl)?;
                     write_point(formatter, to)?;
+                    write_attributes(formatter, attributes)?;
                 }
-                PathEvent::Cubic {
-                    ctrl1, ctrl2, to, ..
-                } => {
+                Event::Cubic { ctrl1, ctrl2, to: (to, attributes), .. } => {
                     write!(formatter, " C")?;
                     write_point(formatter, ctrl1)?;
                     write_point(formatter, ctrl2)?;
                     write_point(formatter, to)?;
+                    write_attributes(formatter, attributes)?;
                 }
             }
         }
