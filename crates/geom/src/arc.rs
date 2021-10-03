@@ -158,7 +158,16 @@ impl<S: Scalar> Arc<S> {
     where
         F: FnMut(&QuadraticBezierSegment<S>),
     {
-        arc_to_quadratic_beziers(self, cb);
+        arc_to_quadratic_beziers_with_t(self, &mut |curve, _| cb(curve));
+    }
+
+    /// Approximate the arc with a sequence of quadratic bézier curves.
+    #[inline]
+    pub fn for_each_quadratic_bezier_with_t<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>, Range<S>),
+    {
+        arc_to_quadratic_beziers_with_t(self, cb);
     }
 
     /// Approximate the arc with a sequence of cubic bézier curves.
@@ -514,6 +523,26 @@ impl<S: Scalar> SvgArc<S> {
         Arc::from_svg_arc(self).for_each_quadratic_bezier(cb);
     }
 
+    /// Approximates the arc with a sequence of quadratic bézier segments.
+    pub fn for_each_quadratic_bezier_with_t<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>, Range<S>),
+    {
+        if self.is_straight_line() {
+            cb(
+                &QuadraticBezierSegment {
+                    from: self.from,
+                    ctrl: self.from,
+                    to: self.to,
+                },
+                S::ZERO .. S::ONE
+            );
+            return;
+        }
+
+        Arc::from_svg_arc(self).for_each_quadratic_bezier_with_t(cb);
+    }
+
     /// Approximates the arc with a sequence of cubic bézier segments.
     pub fn for_each_cubic_bezier<F>(&self, cb: &mut F)
     where
@@ -579,10 +608,10 @@ impl Default for ArcFlags {
     }
 }
 
-fn arc_to_quadratic_beziers<S, F>(arc: &Arc<S>, callback: &mut F)
+fn arc_to_quadratic_beziers_with_t<S, F>(arc: &Arc<S>, callback: &mut F)
 where
     S: Scalar,
-    F: FnMut(&QuadraticBezierSegment<S>),
+    F: FnMut(&QuadraticBezierSegment<S>, Range<S>),
 {
     let sign = arc.sweep_angle.get().signum();
     let sweep_angle = S::abs(arc.sweep_angle.get()).min(S::PI() * S::TWO);
@@ -590,7 +619,11 @@ where
     let n_steps = S::ceil(sweep_angle / S::FRAC_PI_4());
     let step = Angle::radians(sweep_angle / n_steps * sign);
 
-    for i in 0..cast::<S, i32>(n_steps).unwrap() {
+    let mut t0 = S::ZERO;
+    let dt = S::ONE / n_steps;
+
+    let n = cast::<S, i32>(n_steps).unwrap();
+    for i in 0..n {
         let a1 = arc.start_angle + step * cast(i).unwrap();
         let a2 = arc.start_angle + step * cast(i + 1).unwrap();
 
@@ -608,7 +641,14 @@ where
         };
         let ctrl = l2.intersection(&l1).unwrap_or(from);
 
-        callback(&QuadraticBezierSegment { from, ctrl, to });
+        let t1 = if i + 1 == n {
+            S::ONE
+        } else {
+            t0 + dt
+        };
+
+        callback(&QuadraticBezierSegment { from, ctrl, to }, t0..t1);
+        t0 = t1;
     }
 }
 
