@@ -1155,7 +1155,6 @@ version = "0.17.5"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
- "lyon_svg",
  "lyon_tess2",
  "lyon_tessellation",
 ]
@@ -1209,14 +1208,6 @@ version = "0.17.7"
 dependencies = [
  "lyon_geom",
  "serde",
-]
-
-[[package]]
-name = "lyon_svg"
-version = "0.17.2"
-dependencies = [
- "lyon_path",
- "svgtypes",
 ]
 
 [[package]]
