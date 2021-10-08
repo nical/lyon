@@ -90,21 +90,21 @@ const DEFAULT_WINDOW_HEIGHT: f32 = 800.0;
 /// Creates a texture that uses MSAA and fits a given swap chain
 fn create_multisampled_framebuffer(
     device: &wgpu::Device,
-    sc_desc: &wgpu::SwapChainDescriptor,
+    desc: &wgpu::SurfaceConfiguration,
     sample_count: u32,
 ) -> wgpu::TextureView {
     let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
         label: Some("Multisampled frame descriptor"),
         size: wgpu::Extent3d {
-            width: sc_desc.width,
-            height: sc_desc.height,
+            width: desc.width,
+            height: desc.height,
             depth_or_array_layers: 1,
         },
         mip_level_count: 1,
         sample_count,
         dimension: wgpu::TextureDimension::D2,
-        format: sc_desc.format,
-        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+        format: desc.format,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
     };
 
     device
@@ -253,7 +253,7 @@ fn main() {
     let window = Window::new(&event_loop).unwrap();
 
     // create an instance
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::all());
 
     // create an surface
     let surface = unsafe { instance.create_surface(&window) };
@@ -262,6 +262,7 @@ fn main() {
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::LowPower,
         compatible_surface: Some(&surface),
+        force_fallback_adapter: false,
     }))
     .unwrap();
     // create a device and a queue
@@ -278,25 +279,25 @@ fn main() {
     let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&geometry.vertices),
-        usage: wgpu::BufferUsage::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX,
     });
 
     let ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&geometry.indices),
-        usage: wgpu::BufferUsage::INDEX,
+        usage: wgpu::BufferUsages::INDEX,
     });
 
     let bg_vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&bg_geometry.vertices),
-        usage: wgpu::BufferUsage::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX,
     });
 
     let bg_ibo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: bytemuck::cast_slice(&bg_geometry.indices),
-        usage: wgpu::BufferUsage::INDEX,
+        usage: wgpu::BufferUsages::INDEX,
     });
 
     let prim_buffer_byte_size = (PRIM_BUFFER_LEN * std::mem::size_of::<Primitive>()) as u64;
@@ -305,32 +306,36 @@ fn main() {
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Prims ubo"),
         size: prim_buffer_byte_size,
-        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
     let globals_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Globals ubo"),
         size: globals_buffer_byte_size,
-        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let vs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
-    let fs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
-    let bg_vs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.vert.spv"));
-    let bg_fs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.frag.spv"));
+    let vs_module = &device.create_shader_module(
+        &wgpu::include_spirv!("./../shaders/geometry.vert.spv"),
+    );
+    let fs_module = &device.create_shader_module(
+        &wgpu::include_spirv!("./../shaders/geometry.frag.spv"),
+    );
+    let bg_vs_module = &device.create_shader_module(
+        &wgpu::include_spirv!("./../shaders/background.vert.spv"),
+    );
+    let bg_fs_module = &device.create_shader_module(
+        &wgpu::include_spirv!("./../shaders/background.frag.spv"),
+    );
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -340,7 +345,7 @@ fn main() {
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
-                visibility: wgpu::ShaderStage::VERTEX,
+                visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -392,7 +397,7 @@ fn main() {
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
-                step_mode: wgpu::InputStepMode::Vertex,
+                step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &[
                     wgpu::VertexAttribute {
                         offset: 0,
@@ -419,7 +424,7 @@ fn main() {
                 wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: None,
-                    write_mask: wgpu::ColorWrite::ALL,
+                    write_mask: wgpu::ColorWrites::ALL,
                 },
             ],
         }),
@@ -454,7 +459,7 @@ fn main() {
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<Point>() as u64,
-                step_mode: wgpu::InputStepMode::Vertex,
+                step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &[wgpu::VertexAttribute {
                     offset: 0,
                     format: wgpu::VertexFormat::Float32x2,
@@ -469,7 +474,7 @@ fn main() {
                 wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: None,
-                    write_mask: wgpu::ColorWrite::ALL,
+                    write_mask: wgpu::ColorWrites::ALL,
                 },
             ],
         }),
@@ -492,8 +497,8 @@ fn main() {
 
     let size = window.inner_size();
 
-    let mut swap_chain_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+    let mut surface_desc = wgpu::SurfaceConfiguration {
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
@@ -502,7 +507,7 @@ fn main() {
 
     let mut multisampled_render_target = None;
 
-    let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
+    surface.configure(&device, &surface_desc);
 
     let mut depth_texture_view = None;
 
@@ -520,22 +525,22 @@ fn main() {
         if scene.size_changed {
             scene.size_changed = false;
             let physical = scene.window_size;
-            swap_chain_desc.width = physical.width;
-            swap_chain_desc.height = physical.height;
-            swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
+            surface_desc.width = physical.width;
+            surface_desc.height = physical.height;
+            surface.configure(&device, &surface_desc);
 
             let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("Depth texture"),
                 size: wgpu::Extent3d {
-                    width: swap_chain_desc.width,
-                    height: swap_chain_desc.height,
+                    width: surface_desc.width,
+                    height: surface_desc.height,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             });
 
             depth_texture_view =
@@ -544,7 +549,7 @@ fn main() {
             multisampled_render_target = if sample_count > 1 {
                 Some(create_multisampled_framebuffer(
                     &device,
-                    &swap_chain_desc,
+                    &surface_desc,
                     sample_count,
                 ))
             } else {
@@ -552,13 +557,15 @@ fn main() {
             };
         }
 
-        let frame = match swap_chain.get_current_frame() {
-            Ok(frame) => frame,
+        let frame = match surface.get_current_texture() {
+            Ok(texture) => texture,
             Err(e) => {
                 println!("Swap-chain error: {:?}", e);
                 return;
             }
         };
+
+        let frame_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Encoder"),
@@ -625,7 +632,7 @@ fn main() {
 
         {
             // A resolve target is only supported if the attachment actually uses anti-aliasing
-            // So if sample_count == 1 then we must render directly to the swapchain's buffer
+            // So if sample_count == 1 then we must render directly to the surface's buffer
             let color_attachment = if let Some(msaa_target) = &multisampled_render_target {
                 wgpu::RenderPassColorAttachment {
                     view: msaa_target,
@@ -633,11 +640,11 @@ fn main() {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
                     },
-                    resolve_target: Some(&frame.output.view),
+                    resolve_target: Some(&frame_view),
                 }
             } else {
                 wgpu::RenderPassColorAttachment {
-                    view: &frame.output.view,
+                    view: &frame_view,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: true,
@@ -682,6 +689,7 @@ fn main() {
         }
 
         queue.submit(Some(encoder.finish()));
+        frame.present();
 
         frame_count += 1;
         let now = Instant::now();

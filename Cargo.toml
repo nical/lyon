@@ -25,6 +25,8 @@ exclude = [
     "cli/*",
 ]
 
+resolver = "2"
+
 # Uncomment this when profiling.
 #[profile.release]
 #debug = true

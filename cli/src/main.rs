@@ -388,12 +388,13 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
         aa: if let Some(aa) = matches.value_of("ANTIALIASING") {
             match aa {
                 "msaa4" => AntiAliasing::Msaa(4),
+                // TODO: getting invalid sample count errors with msaa 8 and 16 on wgpu 0.10
                 "msaa8" => AntiAliasing::Msaa(8),
                 "msaa16" => AntiAliasing::Msaa(16),
                 _ => AntiAliasing::None,
             }
         } else {
-            AntiAliasing::Msaa(8)
+            AntiAliasing::Msaa(4)
         },
         background: get_background(matches),
         debugger: get_debugger(matches),
