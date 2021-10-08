@@ -13,7 +13,7 @@ path = "src/main.rs"
 lyon = { path = "../../crates/lyon", features = ["extra"] }
 env_logger = "0.9.0"
 
-wgpu = "0.9.0"
+wgpu = { version = "0.11.0", features = ["spirv"] }
 winit = "0.25"
 futures = "0.3.5"
 bytemuck = "1.2.0"
