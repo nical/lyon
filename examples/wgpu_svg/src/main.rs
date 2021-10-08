@@ -45,9 +45,9 @@ fn main() {
             Arg::with_name("MSAA")
                 .long("msaa")
                 .short("m")
-                .help("Sets MSAA sample count (integer)")
+                .help("Enable msaa")
                 .value_name("SAMPLES")
-                .takes_value(true)
+                .takes_value(false)
                 .required(false),
         )
         .arg(
@@ -68,14 +68,8 @@ fn main() {
         )
         .get_matches();
 
-    let msaa_samples = if let Some(msaa) = app.value_of("MSAA") {
-        match msaa.parse::<u32>() {
-            Ok(n) => n.max(1),
-            Err(_) => {
-                println!("ERROR: `{}` is not a number", msaa);
-                std::process::exit(1);
-            }
-        }
+    let msaa_samples = if app.is_present("MSAA") {
+        4
     } else {
         1
     };
