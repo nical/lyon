@@ -42,7 +42,7 @@ unsafe impl bytemuck::Zeroable for Globals {}
 struct GpuVertex {
     position: [f32; 2],
     normal: [f32; 2],
-    prim_id: i32,
+    prim_id: u32,
 }
 unsafe impl bytemuck::Pod for GpuVertex {}
 unsafe impl bytemuck::Zeroable for GpuVertex {}
@@ -352,14 +352,22 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         mapped_at_creation: false,
     });
 
-    let vs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.vert.spv"));
-    let fs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/geometry.frag.spv"));
-    let bg_vs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.vert.spv"));
-    let bg_fs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("./../shaders/background.frag.spv"));
+    let vs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Geometry vs"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/geometry.vs.wgsl").into()),
+    });
+    let fs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Geometry fs"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/geometry.fs.wgsl").into()),
+    });
+    let bg_vs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Background vs"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/background.vs.wgsl").into()),
+    });
+    let bg_fs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Background fs"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/background.fs.wgsl").into()),
+    });
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
@@ -442,7 +450,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                     },
                     wgpu::VertexAttribute {
                         offset: 16,
-                        format: wgpu::VertexFormat::Sint32,
+                        format: wgpu::VertexFormat::Uint32,
                         shader_location: 2,
                     },
                 ],
@@ -750,7 +758,7 @@ impl FillVertexConstructor<GpuVertex> for WithId {
         GpuVertex {
             position: vertex.position().to_array(),
             normal: [0.0, 0.0],
-            prim_id: self.0 as i32,
+            prim_id: self.0 as u32,
         }
     }
 }
@@ -760,7 +768,7 @@ impl StrokeVertexConstructor<GpuVertex> for WithId {
         GpuVertex {
             position: vertex.position_on_path().to_array(),
             normal: vertex.normal().to_array(),
-            prim_id: self.0 as i32,
+            prim_id: self.0 as u32,
         }
     }
 }
@@ -782,7 +790,7 @@ impl tess2::geometry_builder::BasicVertexConstructor<GpuVertex> for WithId {
         GpuVertex {
             position: position.to_array(),
             normal: [0.0, 0.0],
-            prim_id: self.0 as i32,
+            prim_id: self.0 as u32,
         }
     }
 }
