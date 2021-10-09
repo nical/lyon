@@ -14,7 +14,7 @@ lyon = { path = "../crates/lyon", features = ["extra", "libtess2", "debugger"]}
 clap = "2.32.0"
 rand = "0.6"
 env_logger = "0.7"
-wgpu = { version = "0.11.0", features = ["spirv"] }
+wgpu = "0.11.0"
 winit = "0.25"
 futures = "0.3.5"
 bytemuck = "1.2.0"

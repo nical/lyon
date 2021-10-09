@@ -268,10 +268,14 @@ fn main() {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let vs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("../shaders/geometry.vert.spv"));
-    let fs_module =
-        &device.create_shader_module(&wgpu::include_spirv!("../shaders/geometry.frag.spv"));
+    let vs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Geometry vs"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/geometry.vs.wgsl").into()),
+    });
+    let fs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        label: Some("Geometry fs"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/geometry.fs.wgsl").into()),
+    });
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
         entries: &[
@@ -402,7 +406,6 @@ fn main() {
             // keep polling inputs.
             return;
         }
-
         if scene.size_changed {
             scene.size_changed = false;
             let physical = scene.window_size;
