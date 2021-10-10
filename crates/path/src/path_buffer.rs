@@ -111,7 +111,7 @@ impl<'l> FromIterator<PathSlice<'l>> for PathBuffer {
          iter.into_iter().fold(PathBuffer::new(), |mut buffer, path| {
              let builder = buffer.builder();
              path.iter().fold(builder, |mut builder, event| {
-                 builder.path_event(event);
+                 builder.path_event(event, &[]);
                  builder
              }).build();
              buffer
@@ -279,7 +279,12 @@ impl<'l> Builder<'l> {
 
 impl<'l> PathBuilder for Builder<'l> {
     #[inline]
-    fn begin(&mut self, at: Point) -> EndpointId {
+    fn num_attributes(&self) -> usize {
+        self.builder.num_attributes()
+    }
+
+    #[inline]
+    fn begin(&mut self, at: Point, _attributes: &[f32]) -> EndpointId {
         self.begin(at)
     }
 
@@ -289,17 +294,17 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 
     #[inline]
-    fn line_to(&mut self, to: Point) -> EndpointId {
+    fn line_to(&mut self, to: Point, _attributes: &[f32]) -> EndpointId {
         self.line_to(to)
     }
 
     #[inline]
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: &[f32]) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to)
     }
 
     #[inline]
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: &[f32]) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to)
     }
 
@@ -412,6 +417,51 @@ impl<'l> BuilderWithAttributes<'l> {
         self.builder.reserve(endpoints, ctrl_points);
     }
 }
+
+impl<'l> PathBuilder for BuilderWithAttributes<'l> {
+    #[inline]
+    fn num_attributes(&self) -> usize {
+        self.builder.num_attributes()
+    }
+
+    #[inline]
+    fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+        self.begin(at, attributes)
+    }
+
+    #[inline]
+    fn end(&mut self, close: bool) {
+        self.end(close);
+    }
+
+    #[inline]
+    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+        self.line_to(to, attributes)
+    }
+
+    #[inline]
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+        self.quadratic_bezier_to(ctrl, to, attributes)
+    }
+
+    #[inline]
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+        self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
+    }
+
+    #[inline]
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.reserve(endpoints, ctrl_points);
+    }
+}
+
+impl<'l> Build for BuilderWithAttributes<'l> {
+    type PathType = usize;
+    fn build(self) -> usize {
+        self.build()
+    }
+}
+
 
 /// Iterator over the paths in a [`PathBufferSlice`].
 #[derive(Clone)]

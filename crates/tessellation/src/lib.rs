@@ -633,6 +633,57 @@ impl From<VertexId> for usize {
     }
 }
 
+pub(crate) struct SimpleAttributeStore {
+    data: Vec<f32>,
+    num_attributes: usize,
+    next_id: EndpointId,
+}
+
+impl path::AttributeStore for SimpleAttributeStore {
+    fn get(&self, id: EndpointId) -> &[f32] {
+        let start = id.0 as usize * self.num_attributes;
+        let end = start + self.num_attributes;
+        &self.data[start..end]
+    }
+
+    fn num_attributes(&self) -> usize { self.num_attributes }
+}
+
+impl Default for SimpleAttributeStore {
+    fn default() -> Self {
+        SimpleAttributeStore::new(0)
+    }
+}
+
+impl SimpleAttributeStore {
+    pub fn new(num_attributes: usize) -> Self {
+        SimpleAttributeStore {
+            data: Vec::new(),
+            num_attributes,
+            next_id: EndpointId(0),
+        }
+    }
+
+    pub fn add(&mut self, attributes: &[f32]) -> EndpointId {
+        debug_assert_eq!(attributes.len(), self.num_attributes);
+        self.data.extend_from_slice(attributes);
+        let id = self.next_id;
+        self.next_id.0 += 1;
+        id
+    }
+
+    pub fn reserve(&mut self, n: usize) {
+        self.data.reserve(n * self.num_attributes);
+    }
+
+    pub fn reset(&mut self, num_attributes: usize) {
+        self.data.clear();
+        self.next_id = EndpointId(0);
+        self.num_attributes = num_attributes;
+    }
+}
+
+
 #[test]
 fn test_without_miter_limit() {
     let expected_limit = 4.0;

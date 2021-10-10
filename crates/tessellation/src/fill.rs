@@ -10,6 +10,7 @@ use crate::path::{
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
     FillOptions, InternalError, TessellationError, TessellationResult, VertexSource,
+    SimpleAttributeStore,
 };
 use std::cmp::Ordering;
 use std::f32;
@@ -680,7 +681,7 @@ impl FillTessellator {
         let options = options.clone().with_intersections(false);
 
         let mut builder = self.builder(&options, output);
-        builder.add_ellipse(center, radii, x_rotation, winding);
+        builder.add_ellipse(center, radii, x_rotation, winding, &[]);
 
         builder.build()
     }
@@ -711,10 +712,10 @@ impl FillTessellator {
     ///
     /// // Build the path directly in the tessellator, skipping an intermediate data
     /// // structure.
-    /// builder.begin(point(0.0, 0.0));
-    /// builder.line_to(point(10.0, 0.0));
-    /// builder.line_to(point(10.0, 10.0));
-    /// builder.line_to(point(0.0, 10.0));
+    /// builder.begin(point(0.0, 0.0), &[]);
+    /// builder.line_to(point(10.0, 0.0), &[]);
+    /// builder.line_to(point(10.0, 10.0), &[]);
+    /// builder.line_to(point(0.0, 10.0), &[]);
     /// builder.end(true);
     ///
     /// // Finish the tessellation and get the result.
@@ -727,7 +728,20 @@ impl FillTessellator {
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> FillBuilder<'l> {
-        FillBuilder::new(self, options, output)
+        FillBuilder::new(0, self, options, output)
+    }
+
+    /// Tessellate directly from a sequence of `PathBuilder` commands, without
+    /// creating an intermediate path data structure.
+    ///
+    /// Similar to `FillTessellator::builder` with custom attributes.
+    pub fn builder_with_attributes<'l>(
+        &'l mut self,
+        num_attributes: usize,
+        options: &'l FillOptions,
+        output: &'l mut dyn FillGeometryBuilder,
+    ) -> FillBuilder<'l> {
+        FillBuilder::new(num_attributes, self, options, output)
     }
 
     fn tessellate_impl(
@@ -2306,6 +2320,7 @@ pub struct FillBuilder<'l> {
     first_id: EndpointId,
     first_position: Point,
     horizontal_sweep: bool,
+    attrib_store: SimpleAttributeStore,
     tessellator: &'l mut FillTessellator,
     output: &'l mut dyn FillGeometryBuilder,
     options: &'l FillOptions,
@@ -2313,6 +2328,7 @@ pub struct FillBuilder<'l> {
 
 impl<'l> FillBuilder<'l> {
     fn new(
+        num_attributes: usize,
         tessellator: &'l mut FillTessellator,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
@@ -2331,6 +2347,7 @@ impl<'l> FillBuilder<'l> {
             tessellator,
             options,
             output,
+            attrib_store: SimpleAttributeStore::new(num_attributes),
         }
     }
 
@@ -2347,16 +2364,23 @@ impl<'l> FillBuilder<'l> {
         let mut event_queue = self.events.build();
         std::mem::swap(&mut self.tessellator.events, &mut event_queue);
 
+        let attrib_store = if self.attrib_store.num_attributes > 0 {
+            Some(&self.attrib_store as &dyn AttributeStore)
+        } else {
+            None
+        };
+
         self.tessellator
-            .tessellate_impl(self.options, None, self.output)
+            .tessellate_impl(self.options, attrib_store, self.output)
     }
 }
 
 impl<'l> PathBuilder for FillBuilder<'l> {
-    fn begin(&mut self, at: Point) -> EndpointId {
+    fn num_attributes(&self) -> usize { self.attrib_store.num_attributes() }
+
+    fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
         let at = self.position(at);
-        let id = self.next_id;
-        self.next_id.0 += 1;
+        let id = self.attrib_store.add(attributes);
         self.first_id = id;
         self.first_position = at;
         self.events.begin(at, id);
@@ -2368,42 +2392,40 @@ impl<'l> PathBuilder for FillBuilder<'l> {
         self.events.end(self.first_position, self.first_id);
     }
 
-    fn line_to(&mut self, to: Point) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
         let to = self.position(to);
-        let id = self.next_id;
-        self.next_id.0 += 1;
+        let id = self.attrib_store.add(attributes);
         self.events.line_segment(to, id, 0.0, 1.0);
 
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
         let ctrl = self.position(ctrl);
         let to = self.position(to);
-        let id = self.next_id;
-        self.next_id.0 += 1;
+        let id = self.attrib_store.add(attributes);
         self.events.quadratic_bezier_segment(ctrl, to, id);
 
         id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
         let ctrl1 = self.position(ctrl1);
         let ctrl2 = self.position(ctrl2);
         let to = self.position(to);
-        let id = self.next_id;
-        self.next_id.0 += 1;
+        let id = self.attrib_store.add(attributes);
         self.events.cubic_bezier_segment(ctrl1, ctrl2, to, id);
 
         id
     }
 
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.attrib_store.reserve(endpoints);
         self.events.reserve(endpoints + ctrl_points * 2);
     }
 
     /// Tessellate the stroke for an axis-aligned rounded rectangle.
-    fn add_circle(&mut self, center: Point, radius: f32, winding: Winding) {
+    fn add_circle(&mut self, center: Point, radius: f32, winding: Winding, attributes: &[f32]) {
         // This specialized routine extracts the curves into separate sub-paths
         // to nudge the tessellator towards putting them in their own monotonic
         // spans. This avoids generating thin triangles from one side of the circle
@@ -2424,57 +2446,57 @@ impl<'l> PathBuilder for FillBuilder<'l> {
         let d = radius * tan_pi_over_8;
 
         let start = center + vector(-radius, 0.0);
-        self.begin(start);
+        self.begin(start, attributes);
         let ctrl_0 = center + vector(-radius, -d * dir);
         let mid_0 = center + vector(-1.0, -dir) * radius * cos_pi_over_4;
         let ctrl_1 = center + vector(-d, -radius * dir);
         let mid_1 = center + vector(0.0, -radius * dir);
-        self.quadratic_bezier_to(ctrl_0, mid_0);
+        self.quadratic_bezier_to(ctrl_0, mid_0, attributes);
         self.end(false);
-        self.begin(mid_0);
-        self.quadratic_bezier_to(ctrl_1, mid_1);
+        self.begin(mid_0, attributes);
+        self.quadratic_bezier_to(ctrl_1, mid_1, attributes);
         self.end(false);
 
-        self.begin(mid_1);
+        self.begin(mid_1, attributes);
         let ctrl_0 = center + vector(d, -radius * dir);
         let mid_2 = center + vector(1.0, -dir) * radius * cos_pi_over_4;
         let ctrl_1 = center + vector(radius, -d * dir);
         let mid_3 = center + vector(radius, 0.0);
-        self.quadratic_bezier_to(ctrl_0, mid_2);
+        self.quadratic_bezier_to(ctrl_0, mid_2, attributes);
         self.end(false);
-        self.begin(mid_2);
-        self.quadratic_bezier_to(ctrl_1, mid_3);
+        self.begin(mid_2, attributes);
+        self.quadratic_bezier_to(ctrl_1, mid_3, attributes);
         self.end(false);
 
-        self.begin(mid_3);
+        self.begin(mid_3, attributes);
         let ctrl_0 = center + vector(radius, d * dir);
         let mid_4 = center + vector(1.0, dir) * radius * cos_pi_over_4;
         let ctrl_1 = center + vector(d, radius * dir);
         let mid_5 = center + vector(0.0, radius * dir);
-        self.quadratic_bezier_to(ctrl_0, mid_4);
+        self.quadratic_bezier_to(ctrl_0, mid_4, attributes);
         self.end(false);
-        self.begin(mid_4);
-        self.quadratic_bezier_to(ctrl_1, mid_5);
+        self.begin(mid_4, attributes);
+        self.quadratic_bezier_to(ctrl_1, mid_5, attributes);
         self.end(false);
 
-        self.begin(mid_5);
+        self.begin(mid_5, attributes);
         let ctrl_0 = center + vector(-d, radius * dir);
         let mid_6 = center + vector(-1.0, dir) * radius * cos_pi_over_4;
         let ctrl_1 = center + vector(-radius, d * dir);
-        self.quadratic_bezier_to(ctrl_0, mid_6);
+        self.quadratic_bezier_to(ctrl_0, mid_6, attributes);
         self.end(false);
-        self.begin(mid_6);
-        self.quadratic_bezier_to(ctrl_1, start);
+        self.begin(mid_6, attributes);
+        self.quadratic_bezier_to(ctrl_1, start, attributes);
         self.end(false);
 
-        self.begin(start);
-        self.line_to(mid_0);
-        self.line_to(mid_1);
-        self.line_to(mid_2);
-        self.line_to(mid_3);
-        self.line_to(mid_4);
-        self.line_to(mid_5);
-        self.line_to(mid_6);
+        self.begin(start, attributes);
+        self.line_to(mid_0, attributes);
+        self.line_to(mid_1, attributes);
+        self.line_to(mid_2, attributes);
+        self.line_to(mid_3, attributes);
+        self.line_to(mid_4, attributes);
+        self.line_to(mid_5, attributes);
+        self.line_to(mid_6, attributes);
         self.close();
     }
 }
@@ -2897,9 +2919,9 @@ fn fill_builder_vertex_source() {
     let mut check = CheckVertexSources { next_vertex: 0 };
     let mut builder = tess.builder(&options, &mut check);
 
-    assert_eq!(builder.begin(point(0.0, 0.0)), EndpointId(0));
-    assert_eq!(builder.line_to(point(1.0, 1.0)), EndpointId(1));
-    assert_eq!(builder.line_to(point(0.0, 2.0)), EndpointId(2));
+    assert_eq!(builder.begin(point(0.0, 0.0), &[]), EndpointId(0));
+    assert_eq!(builder.line_to(point(1.0, 1.0), &[]), EndpointId(1));
+    assert_eq!(builder.line_to(point(0.0, 2.0), &[]), EndpointId(2));
     builder.end(true);
 
     builder.build().unwrap();
