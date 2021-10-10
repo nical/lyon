@@ -462,10 +462,10 @@ fn compute_side_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
 }
 
 fn add_edge_triangles(p0: &EndpointData, p1: &EndpointData, output: &mut dyn StrokeGeometryBuilder) {    
-    let mut p0_neg = p0.side_points[SIDE_POSITIVE].next_vertex;
-    let mut p0_pos = p0.side_points[SIDE_NEGATIVE].next_vertex;
-    let mut p1_neg = p1.side_points[SIDE_POSITIVE].prev_vertex;
-    let mut p1_pos = p1.side_points[SIDE_NEGATIVE].prev_vertex;
+    let mut p0_neg = p0.side_points[SIDE_NEGATIVE].next_vertex;
+    let mut p0_pos = p0.side_points[SIDE_POSITIVE].next_vertex;
+    let mut p1_neg = p1.side_points[SIDE_NEGATIVE].prev_vertex;
+    let mut p1_pos = p1.side_points[SIDE_POSITIVE].prev_vertex;
 
     if p0.fold[SIDE_POSITIVE] {
         p0_neg = p0.side_points[SIDE_NEGATIVE].prev_vertex;
@@ -684,7 +684,7 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
         // This way the rest of the code doesn't differentiate between miter and miter-clip.
         let n0 = join.side_points[side].prev - join.position;
         let n1 = join.side_points[side].next - join.position;
-        let (prev_normal, next_normal) = get_clip_intersections(n0, n1, normal, miter_limit);
+        let (prev_normal, next_normal) = get_clip_intersections(n0, n1, normal, miter_limit * join.half_width);
         join.side_points[side].prev = join.position + prev_normal;
         join.side_points[side].next = join.position + next_normal;
     }
@@ -822,7 +822,7 @@ fn get_clip_intersections(
     miter_limit: f32,
 ) -> (Vector, Vector) {
     let clip_line = Line {
-        point: normal.normalize().to_point() * miter_limit * 0.5,
+        point: normal.normalize().to_point() * miter_limit,
         vector: tangent(normal),
     };
 
@@ -960,8 +960,12 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
             let pa = self.builder.buffers().vertices[a.0 as usize];
             let pb = self.builder.buffers().vertices[b.0 as usize];
             let pc = self.builder.buffers().vertices[c.0 as usize];
-            let threshold = -0.035; // Floating point errors :(
-            assert!((pa - pb).cross(pc - pb) >= threshold);
+            let threshold = 0.035; // Floating point errors :(
+            let correct_winding = (pb - pa).cross(pc - pb) <= threshold;
+            if !correct_winding {
+                println!(" {:?} {:?} {:?}", pa, pb, pc);
+            }
+            assert!(correct_winding);
             self.builder.add_triangle(a, b, c);
         }
         fn abort_geometry(&mut self) {
