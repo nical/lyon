@@ -596,7 +596,7 @@ fn main() {
             path.iter().flattened(0.01),
             offset,
             &mut walk::RepeatedPattern {
-                callback: |pos: Point, tangent: Vector, _| {
+                callback: |event: walk::WalkerEvent| {
                     if arrow_count + num_instances as usize + 1 >= PRIM_BUFFER_LEN {
                         // Don't want to overflow the primitive buffer,
                         // just skip the remaining arrows.
@@ -604,8 +604,8 @@ fn main() {
                     }
                     cpu_primitives[arrows_prim_id as usize + arrow_count] = Primitive {
                         color: [0.7, 0.9, 0.8, 1.0],
-                        translate: (pos * 2.3 - vector(80.0, 80.0)).to_array(),
-                        angle: tangent.angle_from_x_axis().get(),
+                        translate: (event.position * 2.3 - vector(80.0, 80.0)).to_array(),
+                        angle: event.tangent.angle_from_x_axis().get(),
                         scale: 2.0,
                         z_index: arrows_prim_id as i32,
                         ..Primitive::DEFAULT

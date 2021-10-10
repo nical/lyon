@@ -19,8 +19,8 @@
 //!
 //! fn dots_along_path(path: PathSlice, dots: &mut Vec<Point>) {
 //!     let mut pattern = RegularPattern {
-//!         callback: &mut |position, _tangent, _distance, _attributes: &[f32]| {
-//!             dots.push(position);
+//!         callback: &mut |event: WalkerEvent| {
+//!             dots.push(event.position);
 //!             true // Return true to continue walking the path.
 //!         },
 //!         // Invoke the callback above at a regular interval of 3 units.
@@ -60,6 +60,14 @@ where
     }
 }
 
+#[derive(Debug)]
+pub struct WalkerEvent<'l> {
+    pub position: Point,
+    pub tangent: Vector,
+    pub distance: f32,
+    pub attributes: &'l [f32],
+}
+
 /// Types implementing the `Pattern` can be used to walk along a path
 /// at constant speed.
 ///
@@ -69,13 +77,13 @@ where
 ///
 /// See the `RegularPattern` and `RepeatedPattern` implementations.
 /// This trait is also implemented for all functions/closures with signature
-/// `FnMut(Point, Vector, f32, &[f32]) -> Option<f32>`.
+/// `FnMut(WalkerEvent) -> Option<f32>`.
 pub trait Pattern {
     /// This method is invoked at each step along the path.
     ///
     /// If this method returns None, path walking stops. Otherwise the returned
     /// value is the distance along the path to the next element in the pattern.
-    fn next(&mut self, position: Point, tangent: Vector, distance: f32, attributes: &[f32]) -> Option<f32>;
+    fn next(&mut self, event: WalkerEvent) -> Option<f32>;
 
     /// Invoked at the start each sub-path.
     ///
@@ -128,7 +136,6 @@ impl<'l> PathWalker<'l> {
         }
     }
 
-    // TODO: interpolate the custom attributes and pass them to the pattern.
     fn edge(&mut self, to: Point, t: f32, attributes: &[f32]) {
         debug_assert!(!self.need_moveto);
 
@@ -155,7 +162,13 @@ impl<'l> PathWalker<'l> {
             self.advancement += self.next_distance;
             distance -= self.next_distance;
 
-            if let Some(distance) = self.pattern.next(position, tangent, self.advancement, &self.attribute_buffer[..]) {
+            let event = WalkerEvent {
+                position,
+                tangent,
+                distance: self.advancement,
+                attributes: &self.attribute_buffer[..],
+            };
+            if let Some(distance) = self.pattern.next(event) {
                 self.next_distance = distance;
             } else {
                 self.done = true;
@@ -251,21 +264,13 @@ pub struct RegularPattern<Cb> {
     pub interval: f32,
 }
 
-// TODO: lambdas get much less ergonomic when unused arguments have a lifetime.
-// For example `RegularPattern { callback: &mut |position, _, _, _| { }, .. }` does not
-// compile today because "one type is more general than the other".
-// The error message is a bit confusing and it doesn't help the user figure out that they
-// have to add an explicit type to the last unused argument argument.
-//
-// Maybe a more ergonomic solution would be to pass a single argument with multiple members.
-
 impl<Cb> Pattern for RegularPattern<Cb>
 where
-    Cb: FnMut(Point, Vector, f32, &[f32]) -> bool,
+    Cb: FnMut(WalkerEvent) -> bool,
 {
     #[inline]
-    fn next(&mut self, position: Point, tangent: Vector, distance: f32, attributes: &[f32]) -> Option<f32> {
-        if !(self.callback)(position, tangent, distance, attributes) {
+    fn next(&mut self, event: WalkerEvent) -> Option<f32> {
+        if !(self.callback)(event) {
             return None;
         }
         Some(self.interval)
@@ -287,11 +292,11 @@ pub struct RepeatedPattern<'l, Cb> {
 
 impl<'l, Cb> Pattern for RepeatedPattern<'l, Cb>
 where
-    Cb: FnMut(Point, Vector, f32, &[f32]) -> bool,
+    Cb: FnMut(WalkerEvent) -> bool,
 {
     #[inline]
-    fn next(&mut self, position: Point, tangent: Vector, distance: f32, attributes: &[f32]) -> Option<f32> {
-        if !(self.callback)(position, tangent, distance, attributes) {
+    fn next(&mut self, event: WalkerEvent) -> Option<f32> {
+        if !(self.callback)(event) {
             return None;
         }
         let idx = self.index % self.intervals.len();
@@ -302,11 +307,11 @@ where
 
 impl<Cb> Pattern for Cb
 where
-    Cb: FnMut(Point, Vector, f32, &[f32]) -> Option<f32>,
+    Cb: FnMut(WalkerEvent) -> Option<f32>,
 {
     #[inline]
-    fn next(&mut self, position: Point, tangent: Vector, distance: f32, attributes: &[f32]) -> Option<f32> {
-        (self)(position, tangent, distance, attributes)
+    fn next(&mut self, event: WalkerEvent) -> Option<f32> {
+        (self)(event)
     }
 }
 
