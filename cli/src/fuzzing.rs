@@ -4,7 +4,7 @@ use lyon::extra::debugging::find_reduced_test_case;
 use lyon::geom::LineSegment;
 use lyon::math::*;
 use lyon::path::traits::PathBuilder;
-use lyon::path::Path;
+use lyon::path::{Path, Attributes};
 use lyon::tess2;
 use lyon::tessellation::geometry_builder::NoOutput;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
@@ -117,7 +117,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                         builder.add_line_segment(&LineSegment {
                             from: segment.a.position,
                             to: segment.b.position,
-                        });
+                        }, Attributes::NONE);
                     },
                 },
             );
@@ -134,7 +134,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
                     row_interval: dots.spacing,
                     column_interval: dots.spacing,
                     callback: &mut |dot: &Dot| {
-                        builder.add_point(dot.position);
+                        builder.add_point(dot.position, Attributes::NONE);
                     },
                 },
             );

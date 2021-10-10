@@ -1,13 +1,13 @@
 use crate::commands::{TessellateCmd, Tessellator};
 use lyon::path::traits::*;
-use lyon::path::Path;
+use lyon::path::{Path, Attributes};
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
 
 pub fn reduce_testcase(cmd: TessellateCmd) {
     if let Some(options) = cmd.stroke {
         let mut flattener = Path::builder().flattened(options.tolerance);
-        flattener.extend(cmd.path.iter());
+        flattener.extend(cmd.path.iter(), Attributes::NONE);
         let path = flattener.build();
 
         lyon::extra::debugging::find_reduced_test_case(path.as_slice(), &|path: Path| {
@@ -27,7 +27,7 @@ pub fn reduce_testcase(cmd: TessellateCmd) {
 
     if let Some(options) = cmd.fill {
         let mut flattener = Path::builder().flattened(options.tolerance);
-        flattener.extend(cmd.path.iter());
+        flattener.extend(cmd.path.iter(), Attributes::NONE);
         let path = flattener.build();
 
         match cmd.tessellator {
