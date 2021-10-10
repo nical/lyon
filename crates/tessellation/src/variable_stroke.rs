@@ -1,21 +1,24 @@
-use crate::geom::utils::tangent;
-use crate::geom::{Line, QuadraticBezierSegment, CubicBezierSegment, arrayvec::ArrayVec};
+use crate::geom::{
+    Line, LineSegment, QuadraticBezierSegment, CubicBezierSegment,
+    arrayvec::ArrayVec,
+    utils::tangent,
+};
 use crate::math::*;
 use crate::math_utils::compute_normal;
 use crate::path::private::DebugValidator;
 use crate::path::{
-    AttributeStore, EndpointId, IdEvent, PositionStore,
+    AttributeStore, EndpointId, IdEvent, PositionStore, Polygon, Winding,
+    builder::{PathBuilder, Build},
 };
 use crate::{
     LineCap, LineJoin, Side, StrokeOptions, TessellationError, VertexSource,
-    SimpleAttributeStore,
+    SimpleAttributeStore, StrokeGeometryBuilder, VertexId, TessellationResult,
 };
-use crate::{StrokeGeometryBuilder, VertexId, TessellationResult};
+
+use crate::stroke::{StrokeVertex, StrokeVertexData};
 
 use std::f32::consts::PI;
 const EPSILON: f32 = 1e-4;
-
-use crate::stroke::{StrokeVertex, StrokeVertexData};
 
 const SIDE_POSITIVE: usize = 0;
 const SIDE_NEGATIVE: usize = 1;
@@ -61,11 +64,234 @@ impl Default for EndpointData {
     }
 }
 
-pub(crate) struct VariableStrokeBuilder<'l> {
+/// A builder object that tessellates a stroked path via the `PathBuilder`
+/// interface.
+///
+/// Can be created using `StrokeTessellator::builder_with_attributes`.
+pub struct VariableStrokeBuilder<'l> {
     builder: VariableStrokeBuilderImpl<'l>,
     attrib_store: &'l mut SimpleAttributeStore,
+    validator: DebugValidator,
+    prev: (Point, EndpointId, f32),
 }
 
+impl<'l> VariableStrokeBuilder<'l> {
+    pub(crate) fn new(
+        options: &StrokeOptions,
+        attrib_buffer: &'l mut Vec<f32>,
+        attrib_store: &'l mut SimpleAttributeStore,
+        output: &'l mut dyn StrokeGeometryBuilder,
+    ) -> Self {
+        VariableStrokeBuilder {
+            builder: VariableStrokeBuilderImpl::new(
+                options,
+                attrib_buffer,
+                output,
+            ),
+            attrib_store,
+            validator: DebugValidator::new(),
+            prev: (Point::zero(), EndpointId::INVALID, 0.0),
+        }
+    }
+
+    #[inline]
+    pub fn set_line_join(&mut self, join: LineJoin) {
+        self.builder.options.line_join = join;
+    }
+
+    #[inline]
+    pub fn set_start_cap(&mut self, cap: LineCap) {
+        self.builder.options.start_cap = cap;
+    }
+
+    #[inline]
+    pub fn set_end_cap(&mut self, cap: LineCap) {
+        self.builder.options.end_cap = cap;
+    }
+
+    #[inline]
+    pub fn set_miter_limit(&mut self, limit: f32) {
+        self.builder.options.miter_limit = limit;
+    }
+
+    fn get_width(&self, attributes: &[f32]) -> f32 {
+        if let Some(idx) = self.builder.options.variable_line_width {
+            self.builder.options.line_width * attributes[idx as usize]
+        } else {
+            self.builder.options.line_width
+        }
+    }
+}
+
+impl<'l> PathBuilder for VariableStrokeBuilder<'l> {
+    fn num_attributes(&self) -> usize {
+        self.attrib_store.num_attributes()
+    }
+
+    fn begin(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+        self.validator.begin();
+        let id = self.attrib_store.add(attributes);
+        let width = self.get_width(attributes);
+        self.builder.begin(to, id, width, self.attrib_store);
+
+        id
+    }
+
+    fn end(&mut self, close: bool) {
+        self.validator.end();
+        self.builder.end(close, self.attrib_store);
+    }
+
+    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+        let id = self.attrib_store.add(attributes);
+        let width = self.get_width(attributes);
+        self.validator.edge();
+        self.builder.line_to(to, id, width, self.attrib_store);
+
+        self.prev = (to, id, width);
+
+        id
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+        self.validator.edge();
+        let id = self.attrib_store.add(attributes);
+
+        let start_width = self.prev.2;
+        let end_width = self.get_width(attributes);
+
+        QuadraticBezierSegment {
+            from: self.prev.0,
+            ctrl,
+            to,
+        }.for_each_flattened_with_t(
+            self.builder.options.tolerance,
+            &mut |position, t| {
+                let width = start_width * (1.0 - t) + end_width * t;
+                let (line_join, src) = if t >= 1.0 {
+                    (self.builder.options.line_join, VertexSource::Endpoint { id })
+                } else {
+                    (LineJoin::Miter, VertexSource::Edge { from: self.prev.1, to: id, t })
+                };
+
+                let r = self.builder.step(
+                    EndpointData {
+                        position,
+                        half_width: width * 0.5,
+                        line_join,
+                        src,
+                        ..Default::default()
+                    },
+                    self.attrib_store,
+                );
+
+                if let Err(e) = r {
+                    self.builder.error(e);
+                }
+            },
+        );
+
+        self.prev = (to, id, end_width);
+
+        id
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+        self.validator.edge();
+        let id = self.attrib_store.add(attributes);
+
+        let start_width = self.prev.2;
+        let end_width = self.get_width(attributes);
+
+        CubicBezierSegment {
+            from: self.prev.0,
+            ctrl1,
+            ctrl2,
+            to,
+        }.for_each_flattened_with_t(
+            self.builder.options.tolerance,
+            &mut |point, t| {
+                let width = start_width * (1.0 - t) + end_width * t;
+                let (line_join, src) = if t >= 1.0 {
+                    (self.builder.options.line_join, VertexSource::Endpoint { id })
+                } else {
+                    (LineJoin::Miter, VertexSource::Edge { from: self.prev.1, to: id, t })
+                };
+
+                let r = self.builder.step(
+                    EndpointData {
+                        position: point,
+                        half_width: width * 0.5,
+                        line_join,
+                        src,
+                        ..Default::default()
+                    },
+                    self.attrib_store,
+                );
+
+                if let Err(e) = r {
+                    self.builder.error(e);
+                }
+            },
+        );
+
+        self.prev = (to, id, end_width);
+
+        id
+    }
+
+    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: &[f32]) {
+        // The thin rectangle approximation for works best with miter joins. We
+        // only use it with other joins if the rectangle is much smaller than the
+        // line width.
+        let threshold = match self.builder.options.line_join {
+            LineJoin::Miter => 1.0,
+            _ => 0.05,
+        } * self.builder.options.line_width;
+
+        if self.builder.options.variable_line_width.is_none()
+            && (rect.width().abs() < threshold || rect.height().abs() < threshold) {
+
+            approximate_thin_rectangle(self, rect, attributes);
+            return;
+        }
+
+        match winding {
+            Winding::Positive => self.add_polygon(
+                Polygon {
+                    points: &[
+                        rect.min,
+                        point(rect.max.x, rect.min.y),
+                        rect.max,
+                        point(rect.min.x, rect.max.y),
+                    ],
+                    closed: true,
+                },
+                attributes,
+            ),
+            Winding::Negative => self.add_polygon(
+                Polygon {
+                    points: &[
+                        rect.min,
+                        point(rect.min.x, rect.max.y),
+                        rect.max,
+                        point(rect.max.x, rect.min.y),
+                    ],
+                    closed: true,
+                },
+                attributes,
+            ),
+        };
+    }
+}
+
+impl<'l> Build for VariableStrokeBuilder<'l> {
+    type PathType = TessellationResult;
+
+    fn build(self) -> TessellationResult {
+        self.builder.build()
+    }
+}
 
 /// A builder that tessellates a stroke directly without allocating any intermediate data structure.
 pub(crate) struct VariableStrokeBuilderImpl<'l> {
@@ -860,6 +1086,45 @@ fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
     // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
     tolerance = f32::min(tolerance, radius);
     2.0 * f32::sqrt(2.0 * tolerance * radius - tolerance * tolerance)
+}
+
+// A fall-back that avoids off artifacts with zero-area rectangles as
+// well as overlapping triangles if the rectangle is much smaller than the
+// line width in any dimension.
+#[inline(never)]
+fn approximate_thin_rectangle(builder: &mut VariableStrokeBuilder, rect: &Box2D, attributes: &[f32]) {
+    let (from, to, d) = if rect.width() > rect.height() {
+        let d = rect.height() * 0.5;
+        let min_x = rect.min.x + d;
+        let max_x = rect.max.x - d;
+        let y = (rect.min.y + rect.max.y) * 0.5;
+
+        (point(min_x, y), point(max_x, y), d)
+    } else {
+        let d = rect.width() * 0.5;
+        let min_y = rect.min.y + d;
+        let max_y = rect.max.y - d;
+        let x = (rect.min.x + rect.max.x) * 0.5;
+
+        (point(x, min_y), point(x, max_y), d)
+    };
+
+    // Save the builder options.
+    let options = builder.builder.options;
+
+    let cap = match options.line_join {
+        LineJoin::Round => LineCap::Round,
+        _ => LineCap::Square,
+    };
+
+    builder.builder.options.line_width += d;
+    builder.builder.options.start_cap = cap;
+    builder.builder.options.end_cap = cap;
+
+    builder.add_line_segment(&LineSegment { from, to }, attributes);
+
+    // Restore the builder options.
+    builder.builder.options = options;
 }
 
 struct PointBuffer {

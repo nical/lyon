@@ -13,7 +13,7 @@ use crate::{
     SimpleAttributeStore,
 };
 use crate::{StrokeGeometryBuilder, VertexId};
-use crate::variable_stroke::VariableStrokeBuilderImpl;
+use crate::variable_stroke::{VariableStrokeBuilder, VariableStrokeBuilderImpl};
 
 /// A Context object that can tessellate stroke operations for complex paths.
 ///
@@ -275,23 +275,20 @@ impl StrokeTessellator {
         num_attributes: usize,
         options: &'l StrokeOptions,
         output: &'l mut dyn StrokeGeometryBuilder,
-    ) -> StrokeBuilder<'l> {
-        assert!(options.variable_line_width.is_none()); // TODO
+    ) -> VariableStrokeBuilder<'l> {
 
         self.builder_attrib_store.reset(num_attributes);
         self.attrib_buffer.clear();
         for _ in 0..num_attributes {
             self.attrib_buffer.push(0.0);
         }
-        StrokeBuilder {
-            builder: StrokeBuilderImpl::new(
-                options,
-                &mut self.attrib_buffer,
-                output,
-            ),
-            attrib_store: &mut self.builder_attrib_store,
-            validator: DebugValidator::new(),
-        }
+
+        VariableStrokeBuilder::new(
+            options,
+            &mut self.attrib_buffer,
+            &mut self.builder_attrib_store,
+            output,
+        )
     }
 
     /// Tessellate the stroke for a `Polygon`.
