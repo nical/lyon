@@ -537,7 +537,9 @@ impl Builder {
 }
 
 impl PathBuilder for Builder {
-    fn begin(&mut self, at: Point) -> EndpointId {
+    fn num_attributes(&self) -> usize { 0 }
+
+    fn begin(&mut self, at: Point, _attributes: &[f32]) -> EndpointId {
         self.begin(at)
     }
 
@@ -545,15 +547,15 @@ impl PathBuilder for Builder {
         self.end(close);
     }
 
-    fn line_to(&mut self, to: Point) -> EndpointId {
+    fn line_to(&mut self, to: Point, _attributes: &[f32]) -> EndpointId {
         self.line_to(to)
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: &[f32]) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to)
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: &[f32]) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to)
     }
 
@@ -561,6 +563,7 @@ impl PathBuilder for Builder {
         self.reserve(endpoints, ctrl_points);
     }
 }
+
 
 impl Build for Builder {
     type PathType = Path;
@@ -681,6 +684,35 @@ impl BuilderWithAttributes {
         }
     }
 }
+
+impl PathBuilder for BuilderWithAttributes {
+    fn num_attributes(&self) -> usize { self.num_attributes }
+
+    fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+        self.begin(at, attributes)
+    }
+
+    fn end(&mut self, close: bool) {
+        self.end(close);
+    }
+
+    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+        self.line_to(to, attributes)
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+        self.quadratic_bezier_to(ctrl, to, attributes)
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+        self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
+    }
+
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.reserve(endpoints, ctrl_points);
+    }
+}
+
 
 #[inline]
 fn nan_check(p: Point) {

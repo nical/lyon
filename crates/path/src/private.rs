@@ -68,12 +68,24 @@ pub fn flatten_quadratic_bezier(
     from: Point,
     ctrl: Point,
     to: Point,
+    attributes: &[f32],
+    prev_attributes: &[f32],
     builder: &mut impl PathBuilder,
+    buffer: &mut [f32],
 ) -> EndpointId {
     let curve = QuadraticBezierSegment { from, ctrl, to };
+    let n = attributes.len();
     let mut id = EndpointId::INVALID;
-    curve.for_each_flattened(tolerance, &mut |point| {
-        id = builder.line_to(point);
+    curve.for_each_flattened_with_t(tolerance, &mut |point, t| {
+        let attr = if t == 1.0 {
+            attributes
+        } else {
+            for i in 0..n {
+                buffer[i] = prev_attributes[i] * (1.0 - t) + attributes[i] * t;
+            }
+            &buffer[..]
+        };
+        id = builder.line_to(point, attr);
     });
 
     id
@@ -85,7 +97,10 @@ pub fn flatten_cubic_bezier(
     ctrl1: Point,
     ctrl2: Point,
     to: Point,
+    attributes: &[f32],
+    prev_attributes: &[f32],
     builder: &mut impl PathBuilder,
+    buffer: &mut [f32],
 ) -> EndpointId {
     let curve = CubicBezierSegment {
         from,
@@ -93,9 +108,18 @@ pub fn flatten_cubic_bezier(
         ctrl2,
         to,
     };
+    let n = attributes.len();
     let mut id = EndpointId::INVALID;
-    curve.for_each_flattened(tolerance, &mut |point| {
-        id = builder.line_to(point);
+    curve.for_each_flattened_with_t(tolerance, &mut |point, t| {
+        let attr = if t == 1.0 {
+            attributes
+        } else {
+            for i in 0..n {
+                buffer[i] = prev_attributes[i] * (1.0 - t) + attributes[i] * t;
+            }
+            &buffer[..]
+        };
+        id = builder.line_to(point, attr);
     });
 
     id

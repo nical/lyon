@@ -41,9 +41,9 @@ pub fn polygons_to_path(polygons: PolygonsRef) -> Path {
     let mut builder = Path::builder().flattened(0.05);
     for poly in polygons.iter() {
         let mut poly_iter = poly.iter();
-        builder.begin(*poly_iter.next().unwrap());
+        builder.begin(*poly_iter.next().unwrap(), &[]);
         for v in poly_iter {
-            builder.line_to(*v);
+            builder.line_to(*v, &[]);
         }
         builder.close();
     }
