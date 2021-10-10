@@ -7,12 +7,12 @@ use crate::path::polygon::Polygon;
 use crate::path::private::DebugValidator;
 use crate::path::{
     AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore, Winding,
+    Attributes,
 };
 use crate::{
     LineCap, LineJoin, Side, StrokeOptions, TessellationError, TessellationResult, VertexSource,
-    SimpleAttributeStore,
+    SimpleAttributeStore, StrokeGeometryBuilder, VertexId,
 };
-use crate::{StrokeGeometryBuilder, VertexId};
 use crate::variable_stroke::{VariableStrokeBuilder, VariableStrokeBuilderImpl};
 
 /// A Context object that can tessellate stroke operations for complex paths.
@@ -226,7 +226,7 @@ impl StrokeTessellator {
     /// ```rust
     /// use lyon_tessellation::{StrokeTessellator, StrokeOptions};
     /// use lyon_tessellation::geometry_builder::{simple_builder, VertexBuffers};
-    /// use lyon_tessellation::path::traits::*;
+    /// use lyon_tessellation::path::{traits::*, Attributes};
     /// use lyon_tessellation::math::{Point, point};
     ///
     /// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -239,10 +239,10 @@ impl StrokeTessellator {
     ///
     /// // Build the path directly in the tessellator, skipping an intermediate data
     /// // structure.
-    /// builder.begin(point(0.0, 0.0), &[]);
-    /// builder.line_to(point(10.0, 0.0), &[]);
-    /// builder.line_to(point(10.0, 10.0), &[]);
-    /// builder.line_to(point(0.0, 10.0), &[]);
+    /// builder.begin(point(0.0, 0.0), Attributes::NONE);
+    /// builder.line_to(point(10.0, 0.0), Attributes::NONE);
+    /// builder.line_to(point(10.0, 10.0), Attributes::NONE);
+    /// builder.line_to(point(0.0, 10.0), Attributes::NONE);
     /// builder.end(true);
     ///
     /// // Finish the tessellation and get the result.
@@ -311,7 +311,7 @@ impl StrokeTessellator {
         assert!(options.variable_line_width.is_none());
 
         let mut builder = self.builder(options, output);
-        builder.add_rectangle(rect, Winding::Positive, &[]);
+        builder.add_rectangle(rect, Winding::Positive, Attributes::NONE);
 
         builder.build()
     }
@@ -325,7 +325,7 @@ impl StrokeTessellator {
         output: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
         let mut builder = self.builder(options, output);
-        builder.add_circle(center, radius, Winding::Positive, &[]);
+        builder.add_circle(center, radius, Winding::Positive, Attributes::NONE);
 
         builder.build()
     }
@@ -341,7 +341,7 @@ impl StrokeTessellator {
         output: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
         let mut builder = self.builder(options, output);
-        builder.add_ellipse(center, radii, x_rotation, winding, &[]);
+        builder.add_ellipse(center, radii, x_rotation, winding, Attributes::NONE);
 
         builder.build()
     }
@@ -415,7 +415,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         self.attrib_store.num_attributes()
     }
 
-    fn begin(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.begin();
         let id = self.attrib_store.add(attributes);
         self.builder.begin(to, id);
@@ -428,7 +428,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         self.builder.end(close, self.attrib_store);
     }
 
-    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         let id = self.attrib_store.add(attributes);
         self.validator.edge();
         self.builder.edge_to(to, id, 1.0, true, self.attrib_store);
@@ -436,7 +436,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.edge();
         let id = self.attrib_store.add(attributes);
         self.builder.quadratic_bezier_to(ctrl, to, id, self.attrib_store);
@@ -444,7 +444,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.edge();
         let id = self.attrib_store.add(attributes);
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to, id, self.attrib_store);
@@ -452,7 +452,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: &[f32]) {
+    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: Attributes) {
         // The thin rectangle approximation for works best with miter joins. We
         // only use it with other joins if the rectangle is much smaller than the
         // line width.
@@ -1470,7 +1470,7 @@ pub(crate) fn tessellate_arc(
 // well as overlapping triangles if the rectangle is much smaller than the
 // line width in any dimension.
 #[inline(never)]
-fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Box2D, attributes: &[f32]) {
+fn approximate_thin_rectangle(builder: &mut StrokeBuilder, rect: &Box2D, attributes: Attributes) {
     let (from, to, d) = if rect.width() > rect.height() {
         let d = rect.height() * 0.5;
         let min_x = rect.min.x + d;
@@ -1570,9 +1570,9 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
 
     /// Returns the source of this vertex.
     #[inline]
-    pub fn interpolated_attributes(&mut self) -> &[f32] {
+    pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.0.buffer_is_valid {
-            return &self.0.buffer[..];
+            return Attributes(&self.0.buffer[..]);
         }
 
         match self.0.src {
@@ -1585,7 +1585,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
                 }
                 self.0.buffer_is_valid = true;
 
-                &self.0.buffer[..]
+                Attributes(&self.0.buffer[..])
             }
         }
     }
@@ -1749,9 +1749,9 @@ fn test_empty_path() {
 fn test_empty_caps() {
     let mut builder = Path::builder();
 
-    builder.add_point(point(1.0, 0.0), &[]);
-    builder.add_point(point(2.0, 0.0), &[]);
-    builder.add_point(point(3.0, 0.0), &[]);
+    builder.add_point(point(1.0, 0.0), Attributes::NONE);
+    builder.add_point(point(2.0, 0.0), Attributes::NONE);
+    builder.add_point(point(3.0, 0.0), Attributes::NONE);
 
     let path = builder.build();
 
@@ -1847,9 +1847,9 @@ fn stroke_vertex_source_01() {
             check,
         );
 
-        let a = builder.begin(point(0.0, 0.0), &[1.0]);
-        let b = builder.line_to(point(1.0, 1.0), &[2.0]);
-        let c = builder.quadratic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), &[3.0]);
+        let a = builder.begin(point(0.0, 0.0), Attributes(&[1.0]));
+        let b = builder.line_to(point(1.0, 1.0), Attributes(&[2.0]));
+        let c = builder.quadratic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), Attributes(&[3.0]));
         builder.end(true);
         builder.build().unwrap();
 
@@ -1860,9 +1860,9 @@ fn stroke_vertex_source_01() {
 
     // Test the path API.
     let mut path = crate::path::Path::builder_with_attributes(1);
-    let a = path.begin(point(0.0, 0.0), &[1.0]);
-    let b = path.line_to(point(1.0, 1.0), &[2.0]);
-    let c = path.quadratic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), &[3.0]);
+    let a = path.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    let b = path.line_to(point(1.0, 1.0), Attributes(&[2.0]));
+    let c = path.quadratic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), Attributes(&[3.0]));
     path.end(true);
 
     let path = path.build();
@@ -1931,11 +1931,11 @@ fn stroke_vertex_source_01() {
 
             let attributes = attr.interpolated_attributes();
             if eq(pos, point(0.0, 0.0)) {
-                assert_eq!(attributes, &[1.0])
+                assert_eq!(attributes, Attributes(&[1.0]))
             } else if eq(pos, point(1.0, 1.0)) {
-                assert_eq!(attributes, &[2.0])
+                assert_eq!(attributes, Attributes(&[2.0]))
             } else if eq(pos, point(0.0, 2.0)) {
-                assert_eq!(attributes, &[3.0])
+                assert_eq!(attributes, Attributes(&[3.0]))
             } else {
                 assert_eq!(attributes.len(), 1);
                 assert!(attributes[0] > 2.0);

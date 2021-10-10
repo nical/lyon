@@ -225,7 +225,7 @@ pub use crate::geometry_builder::{
     GeometryBuilderError, StrokeGeometryBuilder, StrokeVertexConstructor, VertexBuffers,
 };
 
-pub use crate::path::{FillRule, LineJoin, LineCap, Side};
+pub use crate::path::{FillRule, LineJoin, LineCap, Side, Attributes, AttributeIndex};
 
 use crate::path::EndpointId;
 
@@ -355,7 +355,7 @@ pub struct StrokeOptions {
     /// factor to modulate the line width.
     ///
     /// Default value: `None`.
-    pub variable_line_width: Option<u32>,
+    pub variable_line_width: Option<AttributeIndex>,
 
     /// See the SVG specification.
     ///
@@ -444,8 +444,8 @@ impl StrokeOptions {
     }
 
     #[inline]
-    pub fn with_variable_line_width(mut self, attribute_index: u32) -> Self {
-        self.variable_line_width = Some(attribute_index);
+    pub fn with_variable_line_width(mut self, idx: AttributeIndex) -> Self {
+        self.variable_line_width = Some(idx);
         self
     }
 }
@@ -640,10 +640,10 @@ pub(crate) struct SimpleAttributeStore {
 }
 
 impl path::AttributeStore for SimpleAttributeStore {
-    fn get(&self, id: EndpointId) -> &[f32] {
+    fn get(&self, id: EndpointId) -> Attributes {
         let start = id.0 as usize * self.num_attributes;
         let end = start + self.num_attributes;
-        &self.data[start..end]
+        Attributes(&self.data[start..end])
     }
 
     fn num_attributes(&self) -> usize { self.num_attributes }
@@ -664,9 +664,9 @@ impl SimpleAttributeStore {
         }
     }
 
-    pub fn add(&mut self, attributes: &[f32]) -> EndpointId {
+    pub fn add(&mut self, attributes: Attributes) -> EndpointId {
         debug_assert_eq!(attributes.len(), self.num_attributes);
-        self.data.extend_from_slice(attributes);
+        self.data.extend_from_slice(attributes.as_slice());
         let id = self.next_id;
         self.next_id.0 += 1;
         id

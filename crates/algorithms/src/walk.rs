@@ -12,7 +12,7 @@
 //! ## Example
 //!
 //! ```
-//! use lyon_algorithms::walk::{RegularPattern, walk_along_path};
+//! use lyon_algorithms::walk::{RegularPattern, walk_along_path, WalkerEvent};
 //! use lyon_algorithms::path::PathSlice;
 //! use lyon_algorithms::path::iterator::*;
 //! use lyon_algorithms::path::math::Point;
@@ -42,7 +42,7 @@
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::{EndpointId, PathEvent};
+use crate::path::{EndpointId, PathEvent, Attributes};
 
 use std::f32;
 
@@ -53,7 +53,7 @@ where
 {
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
-        walker.path_event(evt, &[]);
+        walker.path_event(evt, Attributes::NONE);
         if walker.done {
             return;
         }
@@ -65,7 +65,7 @@ pub struct WalkerEvent<'l> {
     pub position: Point,
     pub tangent: Vector,
     pub distance: f32,
-    pub attributes: &'l [f32],
+    pub attributes: Attributes<'l>,
 }
 
 /// Types implementing the `Pattern` can be used to walk along a path
@@ -136,7 +136,7 @@ impl<'l> PathWalker<'l> {
         }
     }
 
-    fn edge(&mut self, to: Point, t: f32, attributes: &[f32]) {
+    fn edge(&mut self, to: Point, t: f32, attributes: Attributes) {
         debug_assert!(!self.need_moveto);
 
         let v = to - self.prev;
@@ -166,7 +166,7 @@ impl<'l> PathWalker<'l> {
                 position,
                 tangent,
                 distance: self.advancement,
-                attributes: &self.attribute_buffer[..],
+                attributes: Attributes(&self.attribute_buffer[..]),
             };
             if let Some(distance) = self.pattern.next(event) {
                 self.next_distance = distance;
@@ -184,7 +184,7 @@ impl<'l> PathWalker<'l> {
 impl<'l> PathBuilder for PathWalker<'l> {
     fn num_attributes(&self) -> usize { self.num_attributes }
 
-    fn begin(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.need_moveto = false;
         self.first = to;
         self.prev = to;
@@ -195,18 +195,18 @@ impl<'l> PathBuilder for PathWalker<'l> {
             self.done = true;
         }
 
-        self.prev_attributes.copy_from_slice(attributes);
-        self.first_attributes.copy_from_slice(attributes);
+        self.prev_attributes.copy_from_slice(attributes.as_slice());
+        self.first_attributes.copy_from_slice(attributes.as_slice());
 
         EndpointId::INVALID
     }
 
-    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         debug_assert!(!self.need_moveto);
 
         self.edge(to, 1.0, attributes);
 
-        self.prev_attributes.copy_from_slice(attributes);
+        self.prev_attributes.copy_from_slice(attributes.as_slice());
 
         EndpointId::INVALID
     }
@@ -215,13 +215,13 @@ impl<'l> PathBuilder for PathWalker<'l> {
         if close {
             let first = self.first;
             let attributes = std::mem::take(&mut self.first_attributes);
-            self.edge(first, 1.0, &attributes);
+            self.edge(first, 1.0, Attributes(&attributes));
             self.first_attributes = attributes;
             self.need_moveto = true;
         }
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         let curve = QuadraticBezierSegment {
             from: self.prev,
             ctrl,
@@ -231,12 +231,12 @@ impl<'l> PathBuilder for PathWalker<'l> {
             self.edge(p, t, attributes);
         });
 
-        self.prev_attributes.copy_from_slice(attributes);
+        self.prev_attributes.copy_from_slice(attributes.as_slice());
 
         EndpointId::INVALID
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         let curve = CubicBezierSegment {
             from: self.prev,
             ctrl1,
@@ -248,7 +248,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
             self.edge(p, t, attributes);
         });
 
-        self.prev_attributes.copy_from_slice(attributes);
+        self.prev_attributes.copy_from_slice(attributes.as_slice());
 
         EndpointId::INVALID
     }
@@ -336,11 +336,10 @@ fn walk_square() {
     let mut i = 0;
     let mut pattern = RegularPattern {
         interval: 2.0,
-        callback: |pos, n, d, _a: &[f32]| {
-            println!("p:{:?} n:{:?} d:{:?}", pos, n, d);
-            assert_eq!(pos, expected[i].0);
-            assert_eq!(n, expected[i].1);
-            assert_eq!(d, expected[i].2);
+        callback: |event: WalkerEvent| {
+            assert_eq!(event.position, expected[i].0);
+            assert_eq!(event.tangent, expected[i].1);
+            assert_eq!(event.distance, expected[i].2);
             i += 1;
             true
         },
@@ -348,10 +347,10 @@ fn walk_square() {
 
     let mut walker = PathWalker::new(0.0, &mut pattern);
 
-    walker.begin(point(0.0, 0.0), &[]);
-    walker.line_to(point(6.0, 0.0), &[]);
-    walker.line_to(point(6.0, 6.0), &[]);
-    walker.line_to(point(0.0, 6.0), &[]);
+    walker.begin(point(0.0, 0.0), Attributes::NONE);
+    walker.line_to(point(6.0, 0.0), Attributes::NONE);
+    walker.line_to(point(6.0, 6.0), Attributes::NONE);
+    walker.line_to(point(0.0, 6.0), Attributes::NONE);
     walker.close();
 }
 
@@ -370,11 +369,10 @@ fn walk_with_leftover() {
     let mut i = 0;
     let mut pattern = RegularPattern {
         interval: 3.0,
-        callback: |pos, n, d, _a: &[f32]| {
-            println!("p:{:?} n:{:?} d:{:?}", pos, n, d);
-            assert_eq!(pos, expected[i].0);
-            assert_eq!(n, expected[i].1);
-            assert_eq!(d, expected[i].2);
+        callback: |event: WalkerEvent| {
+            assert_eq!(event.position, expected[i].0);
+            assert_eq!(event.tangent, expected[i].1);
+            assert_eq!(event.distance, expected[i].2);
             i += 1;
             true
         },
@@ -382,10 +380,10 @@ fn walk_with_leftover() {
 
     let mut walker = PathWalker::new(1.0, &mut pattern);
 
-    walker.begin(point(0.0, 0.0), &[]);
-    walker.line_to(point(5.0, 0.0), &[]);
-    walker.line_to(point(5.0, 5.0), &[]);
-    walker.line_to(point(0.0, 5.0), &[]);
+    walker.begin(point(0.0, 0.0), Attributes::NONE);
+    walker.line_to(point(5.0, 0.0), Attributes::NONE);
+    walker.line_to(point(5.0, 5.0), Attributes::NONE);
+    walker.line_to(point(0.0, 5.0), Attributes::NONE);
     walker.close();
 }
 
@@ -393,11 +391,11 @@ fn walk_with_leftover() {
 fn walk_starting_after() {
     // With a starting distance that is greater than the path, the
     // callback should never be called.
-    let cb = &mut |_, _, _, _a: &[f32]| -> Option<f32> { panic!() };
+    let cb = &mut |_event: WalkerEvent| -> Option<f32> { panic!() };
     let mut walker = PathWalker::new(10.0, cb);
 
-    walker.begin(point(0.0, 0.0), &[]);
-    walker.line_to(point(5.0, 0.0), &[]);
+    walker.begin(point(0.0, 0.0), Attributes::NONE);
+    walker.line_to(point(5.0, 0.0), Attributes::NONE);
     walker.end(false);
 }
 
@@ -406,7 +404,7 @@ fn walk_abort_early() {
     let mut callback_counter = 0;
     let mut pattern = RegularPattern {
         interval: 3.0,
-        callback: |_pos, _n, _d, _a: &[f32]| {
+        callback: |_event: WalkerEvent| {
             callback_counter += 1;
             false
         },
@@ -414,8 +412,8 @@ fn walk_abort_early() {
 
     let mut walker = PathWalker::new(1.0, &mut pattern);
 
-    walker.begin(point(0.0, 0.0), &[]);
-    walker.line_to(point(100.0, 0.0), &[]);
+    walker.begin(point(0.0, 0.0), Attributes::NONE);
+    walker.line_to(point(100.0, 0.0), Attributes::NONE);
 
     assert_eq!(callback_counter, 1);
 }

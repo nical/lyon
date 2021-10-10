@@ -8,6 +8,7 @@ use crate::math_utils::compute_normal;
 use crate::path::private::DebugValidator;
 use crate::path::{
     AttributeStore, EndpointId, IdEvent, PositionStore, Polygon, Winding,
+    Attributes,
     builder::{PathBuilder, Build},
 };
 use crate::{
@@ -114,9 +115,9 @@ impl<'l> VariableStrokeBuilder<'l> {
         self.builder.options.miter_limit = limit;
     }
 
-    fn get_width(&self, attributes: &[f32]) -> f32 {
+    fn get_width(&self, attributes: Attributes) -> f32 {
         if let Some(idx) = self.builder.options.variable_line_width {
-            self.builder.options.line_width * attributes[idx as usize]
+            self.builder.options.line_width * attributes[idx]
         } else {
             self.builder.options.line_width
         }
@@ -128,7 +129,7 @@ impl<'l> PathBuilder for VariableStrokeBuilder<'l> {
         self.attrib_store.num_attributes()
     }
 
-    fn begin(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.begin();
         let id = self.attrib_store.add(attributes);
         let width = self.get_width(attributes);
@@ -142,7 +143,7 @@ impl<'l> PathBuilder for VariableStrokeBuilder<'l> {
         self.builder.end(close, self.attrib_store);
     }
 
-    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         let id = self.attrib_store.add(attributes);
         let width = self.get_width(attributes);
         self.validator.edge();
@@ -153,7 +154,7 @@ impl<'l> PathBuilder for VariableStrokeBuilder<'l> {
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.edge();
         let id = self.attrib_store.add(attributes);
 
@@ -196,7 +197,7 @@ impl<'l> PathBuilder for VariableStrokeBuilder<'l> {
         id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.edge();
         let id = self.attrib_store.add(attributes);
 
@@ -240,7 +241,7 @@ impl<'l> PathBuilder for VariableStrokeBuilder<'l> {
         id
     }
 
-    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: &[f32]) {
+    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: Attributes) {
         // The thin rectangle approximation for works best with miter joins. We
         // only use it with other joins if the rectangle is much smaller than the
         // line width.
@@ -351,7 +352,7 @@ impl<'l> VariableStrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) -> TessellationResult {
         let base_width = self.options.line_width;
-        let attrib_index = self.options.variable_line_width.unwrap() as usize;
+        let attrib_index = self.options.variable_line_width.unwrap();
 
         let mut validator = DebugValidator::new();
 
@@ -1092,7 +1093,7 @@ fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
 // well as overlapping triangles if the rectangle is much smaller than the
 // line width in any dimension.
 #[inline(never)]
-fn approximate_thin_rectangle(builder: &mut VariableStrokeBuilder, rect: &Box2D, attributes: &[f32]) {
+fn approximate_thin_rectangle(builder: &mut VariableStrokeBuilder, rect: &Box2D, attributes: Attributes) {
     let (from, to, d) = if rect.width() > rect.height() {
         let d = rect.height() * 0.5;
         let min_x = rect.min.x + d;
@@ -1201,7 +1202,7 @@ impl PointBuffer {
 #[cfg(test)]
 use crate::geometry_builder::*;
 #[cfg(test)]
-use crate::path::{Path, PathSlice};
+use crate::path::{Path, PathSlice, AttributeIndex};
 #[cfg(test)]
 use crate::StrokeTessellator;
 
@@ -1279,20 +1280,20 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
 fn test_square() {
     let mut builder = Path::builder_with_attributes(1);
 
-    builder.begin(point(-1.0, 1.0), &[0.3]);
-    builder.line_to(point(1.0, 1.0), &[0.3]);
-    builder.line_to(point(1.0, -1.0), &[0.3]);
-    builder.line_to(point(-1.0, -1.0), &[0.3]);
+    builder.begin(point(-1.0, 1.0), Attributes(&[0.3]));
+    builder.line_to(point(1.0, 1.0), Attributes(&[0.3]));
+    builder.line_to(point(1.0, -1.0), Attributes(&[0.3]));
+    builder.line_to(point(-1.0, -1.0), Attributes(&[0.3]));
     builder.end(true);
 
     let path1 = builder.build();
 
     let mut builder = Path::builder_with_attributes(1);
 
-    builder.begin(point(-1.0, -1.0), &[0.3]);
-    builder.line_to(point(1.0, -1.0), &[0.3]);
-    builder.line_to(point(1.0, 1.0), &[0.3]);
-    builder.line_to(point(-1.0, 1.0), &[0.3]);
+    builder.begin(point(-1.0, -1.0), Attributes(&[0.3]));
+    builder.line_to(point(1.0, -1.0), Attributes(&[0.3]));
+    builder.line_to(point(1.0, 1.0), Attributes(&[0.3]));
+    builder.line_to(point(-1.0, 1.0), Attributes(&[0.3]));
     builder.end(true);
 
     let path2 = builder.build();
@@ -1301,14 +1302,14 @@ fn test_square() {
         path1.as_slice(),
         &StrokeOptions::default()
             .with_line_join(LineJoin::Miter)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(8),
     );
     test_path(
         path2.as_slice(),
         &StrokeOptions::default()
             .with_line_join(LineJoin::Miter)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(8),
     );
 
@@ -1316,14 +1317,14 @@ fn test_square() {
         path1.as_slice(),
         &StrokeOptions::default()
             .with_line_join(LineJoin::Bevel)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(12),
     );
     test_path(
         path2.as_slice(),
         &StrokeOptions::default()
             .with_line_join(LineJoin::Bevel)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(12),
     );
 
@@ -1332,7 +1333,7 @@ fn test_square() {
         &StrokeOptions::default()
             .with_line_join(LineJoin::MiterClip)
             .with_miter_limit(1.0)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(12),
     );
     test_path(
@@ -1340,7 +1341,7 @@ fn test_square() {
         &StrokeOptions::default()
             .with_line_join(LineJoin::MiterClip)
             .with_miter_limit(1.0)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(12),
     );
 
@@ -1348,14 +1349,14 @@ fn test_square() {
         path1.as_slice(),
         &StrokeOptions::tolerance(0.001)
             .with_line_join(LineJoin::Round)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         None,
     );
     test_path(
         path2.as_slice(),
         &StrokeOptions::tolerance(0.001)
             .with_line_join(LineJoin::Round)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         None,
     );
 }
@@ -1370,11 +1371,11 @@ fn test_empty_path() {
 fn test_empty_caps() {
     let mut builder = Path::builder_with_attributes(1);
 
-    builder.begin(point(1.0, 0.0), &[1.0]);
+    builder.begin(point(1.0, 0.0), Attributes(&[1.0]));
     builder.end(false);
-    builder.begin(point(2.0, 0.0), &[1.0]);
+    builder.begin(point(2.0, 0.0), Attributes(&[1.0]));
     builder.end(false);
-    builder.begin(point(3.0, 0.0), &[1.0]);
+    builder.begin(point(3.0, 0.0), Attributes(&[1.0]));
     builder.end(false);
 
     let path = builder.build();
@@ -1383,21 +1384,21 @@ fn test_empty_caps() {
         path.as_slice(),
         &StrokeOptions::default()
             .with_line_cap(LineCap::Butt)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(0),
     );
     test_path(
         path.as_slice(),
         &StrokeOptions::default()
             .with_line_cap(LineCap::Square)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         Some(6),
     );
     test_path(
         path.as_slice(),
         &StrokeOptions::default()
             .with_line_cap(LineCap::Round)
-            .with_variable_line_width(0),
+            .with_variable_line_width(AttributeIndex(0)),
         None,
     );
 }
@@ -1405,9 +1406,9 @@ fn test_empty_caps() {
 #[test]
 fn stroke_vertex_source_01() {
     let mut path = crate::path::Path::builder_with_attributes(1);
-    let a = path.begin(point(0.0, 0.0), &[1.0]);
-    let b = path.line_to(point(10.0, 10.0), &[2.0]);
-    let c = path.quadratic_bezier_to(point(10.0, 20.0), point(0.0, 20.0), &[3.0]);
+    let a = path.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    let b = path.line_to(point(10.0, 10.0), Attributes(&[2.0]));
+    let c = path.quadratic_bezier_to(point(10.0, 20.0), point(0.0, 20.0), Attributes(&[3.0]));
     path.end(true);
 
     let path = path.build();
@@ -1417,7 +1418,7 @@ fn stroke_vertex_source_01() {
         &mut path.id_iter(),
         &path,
         Some(&path),
-        &StrokeOptions::default().with_variable_line_width(0),
+        &StrokeOptions::default().with_variable_line_width(AttributeIndex(0)),
         &mut CheckVertexSources {
             next_vertex: 0,
             a,
@@ -1477,11 +1478,11 @@ fn stroke_vertex_source_01() {
 
             let vertex = attr.interpolated_attributes();
             if eq(pos, point(0.0, 0.0)) {
-                assert_eq!(vertex, &[1.0])
+                assert_eq!(vertex, Attributes(&[1.0]))
             } else if eq(pos, point(10.0, 10.0)) {
-                assert_eq!(vertex, &[2.0])
+                assert_eq!(vertex, Attributes(&[2.0]))
             } else if eq(pos, point(0.0, 20.0)) {
-                assert_eq!(vertex, &[3.0])
+                assert_eq!(vertex, Attributes(&[3.0]))
             } else {
                 assert_eq!(vertex.len(), 1);
                 assert!(vertex[0] > 2.0);

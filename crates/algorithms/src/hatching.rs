@@ -30,7 +30,7 @@ use crate::geom::LineSegment;
 use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::private::DebugValidator;
-use crate::path::{self, EndpointId, PathEvent};
+use crate::path::{self, EndpointId, PathEvent, Attributes};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -514,7 +514,7 @@ impl Build for EventsBuilder {
 impl PathBuilder for EventsBuilder {
     fn num_attributes(&self) -> usize { 0 }
 
-    fn begin(&mut self, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
         self.validator.begin();
         self.first = to;
         self.current = to;
@@ -527,7 +527,7 @@ impl PathBuilder for EventsBuilder {
         self.add_edge(self.current, self.first);
     }
 
-    fn line_to(&mut self, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
         self.validator.edge();
         self.add_edge(self.current, to);
         self.current = to;
@@ -535,12 +535,31 @@ impl PathBuilder for EventsBuilder {
         EndpointId::INVALID
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: &[f32]) -> EndpointId {
-        path::private::flatten_quadratic_bezier(self.tolerance, self.current, ctrl, to, &[], &[], self, &mut[])
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
+        path::private::flatten_quadratic_bezier(
+            self.tolerance,
+            self.current,
+            ctrl,
+            to,
+            Attributes::NONE,
+            Attributes::NONE,
+            self,
+            &mut[],
+        )
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: &[f32]) -> EndpointId {
-        path::private::flatten_cubic_bezier(self.tolerance, self.current, ctrl1, ctrl2, to, &[], &[], self, &mut[])
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
+        path::private::flatten_cubic_bezier(
+            self.tolerance,
+            self.current,
+            ctrl1,
+            ctrl2,
+            to,
+            Attributes::NONE,
+            Attributes::NONE,
+            self,
+            &mut[],
+        )
     }
 }
 
@@ -554,7 +573,7 @@ impl HatchingEvents {
         builder.edges = mem::take(&mut self.edges);
 
         for evt in it {
-            builder.path_event(evt, &[]);
+            builder.path_event(evt, Attributes::NONE);
         }
         mem::swap(self, &mut builder.build());
     }
@@ -714,7 +733,7 @@ fn simple_hatching() {
                 hatches.add_line_segment(&LineSegment {
                     from: segment.a.position,
                     to: segment.b.position,
-                }, &[]);
+                }, Attributes::NONE);
             },
         },
     );
