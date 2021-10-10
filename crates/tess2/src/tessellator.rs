@@ -2,8 +2,7 @@ use crate::flattened_path::FlattenedPath;
 use crate::geometry_builder::GeometryReceiver;
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::PathEvent;
-use crate::path::PathSlice;
+use crate::path::{PathEvent, PathSlice, Attributes};
 use crate::tessellation::{Count, FillOptions, FillRule};
 
 use std::os::raw::c_void;
@@ -55,7 +54,7 @@ impl FillTessellator {
         let mut builder = FlattenedPath::builder(options.tolerance);
 
         for evt in it {
-            builder.path_event(evt);
+            builder.path_event(evt, Attributes::NONE);
         }
 
         let flattened_path = builder.build();
