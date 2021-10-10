@@ -5,7 +5,8 @@ use crate::monotone::*;
 use crate::path::polygon::Polygon;
 use crate::path::traits::{Build, PathBuilder};
 use crate::path::{
-    AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore, Winding,
+    AttributeStore, EndpointId, FillRule, IdEvent, PathEvent, PathSlice, PositionStore,
+    Winding, Attributes,
 };
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
@@ -463,10 +464,10 @@ struct PendingEdge {
 /// # fn main() {
 /// // Create a path with three custom endpoint attributes.
 /// let mut path_builder = Path::builder_with_attributes(3);
-/// path_builder.begin(point(0.0, 0.0), &[0.0, 0.1, 0.5]);
-/// path_builder.line_to(point(1.0, 2.0), &[1.0, 1.0, 0.1]);
-/// path_builder.line_to(point(2.0, 0.0), &[1.0, 0.0, 0.8]);
-/// path_builder.line_to(point(1.0, 1.0), &[0.1, 0.3, 0.5]);
+/// path_builder.begin(point(0.0, 0.0), Attributes(&[0.0, 0.1, 0.5]));
+/// path_builder.line_to(point(1.0, 2.0), Attributes(&[1.0, 1.0, 0.1]));
+/// path_builder.line_to(point(2.0, 0.0), Attributes(&[1.0, 0.0, 0.8]));
+/// path_builder.line_to(point(1.0, 1.0), Attributes(&[0.1, 0.3, 0.5]));
 /// path_builder.end(true);
 /// let path = path_builder.build();
 ///
@@ -681,7 +682,7 @@ impl FillTessellator {
         let options = options.clone().with_intersections(false);
 
         let mut builder = self.builder(&options, output);
-        builder.add_ellipse(center, radii, x_rotation, winding, &[]);
+        builder.add_ellipse(center, radii, x_rotation, winding, Attributes::NONE);
 
         builder.build()
     }
@@ -699,7 +700,7 @@ impl FillTessellator {
     /// ```rust
     /// use lyon_tessellation::{FillTessellator, FillOptions};
     /// use lyon_tessellation::geometry_builder::{simple_builder, VertexBuffers};
-    /// use lyon_tessellation::path::traits::*;
+    /// use lyon_tessellation::path::{traits::*, Attributes};
     /// use lyon_tessellation::math::{Point, point};
     ///
     /// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -712,10 +713,10 @@ impl FillTessellator {
     ///
     /// // Build the path directly in the tessellator, skipping an intermediate data
     /// // structure.
-    /// builder.begin(point(0.0, 0.0), &[]);
-    /// builder.line_to(point(10.0, 0.0), &[]);
-    /// builder.line_to(point(10.0, 10.0), &[]);
-    /// builder.line_to(point(0.0, 10.0), &[]);
+    /// builder.begin(point(0.0, 0.0), Attributes::NONE);
+    /// builder.line_to(point(10.0, 0.0), Attributes::NONE);
+    /// builder.line_to(point(10.0, 10.0), Attributes::NONE);
+    /// builder.line_to(point(0.0, 10.0), Attributes::NONE);
     /// builder.end(true);
     ///
     /// // Finish the tessellation and get the result.
@@ -2174,9 +2175,9 @@ impl<'l> FillVertex<'l> {
     }
 
     /// Fetch or interpolate the custom attribute values at this vertex.
-    pub fn interpolated_attributes(&mut self) -> &[f32] {
+    pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.attrib_store.is_none() {
-            return &[];
+            return Attributes::NONE;
         }
 
         let store = self.attrib_store.unwrap();
@@ -2205,7 +2206,7 @@ impl<'l> FillVertex<'l> {
                 let a = store.get(id);
                 assert!(a.len() == num_attributes);
                 assert!(self.attrib_buffer.len() == num_attributes);
-                self.attrib_buffer[..num_attributes].clone_from_slice(&a[..num_attributes]);
+                self.attrib_buffer[..num_attributes].clone_from_slice(&a.as_slice()[..num_attributes]);
             }
             VertexSource::Edge { from, to, t } => {
                 let a = store.get(from);
@@ -2226,7 +2227,7 @@ impl<'l> FillVertex<'l> {
                     let a = store.get(id);
                     assert!(a.len() == num_attributes);
                     assert!(self.attrib_buffer.len() == num_attributes);
-                    for (i, &att) in a.iter().enumerate() {
+                    for (i, &att) in a.as_slice().iter().enumerate() {
                         self.attrib_buffer[i] += att;
                     }
                 }
@@ -2254,7 +2255,7 @@ impl<'l> FillVertex<'l> {
             }
         }
 
-        self.attrib_buffer
+        Attributes(self.attrib_buffer)
     }
 }
 
@@ -2378,7 +2379,7 @@ impl<'l> FillBuilder<'l> {
 impl<'l> PathBuilder for FillBuilder<'l> {
     fn num_attributes(&self) -> usize { self.attrib_store.num_attributes() }
 
-    fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         let at = self.position(at);
         let id = self.attrib_store.add(attributes);
         self.first_id = id;
@@ -2392,7 +2393,7 @@ impl<'l> PathBuilder for FillBuilder<'l> {
         self.events.end(self.first_position, self.first_id);
     }
 
-    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         let to = self.position(to);
         let id = self.attrib_store.add(attributes);
         self.events.line_segment(to, id, 0.0, 1.0);
@@ -2400,7 +2401,7 @@ impl<'l> PathBuilder for FillBuilder<'l> {
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         let ctrl = self.position(ctrl);
         let to = self.position(to);
         let id = self.attrib_store.add(attributes);
@@ -2409,7 +2410,7 @@ impl<'l> PathBuilder for FillBuilder<'l> {
         id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         let ctrl1 = self.position(ctrl1);
         let ctrl2 = self.position(ctrl2);
         let to = self.position(to);
@@ -2425,7 +2426,7 @@ impl<'l> PathBuilder for FillBuilder<'l> {
     }
 
     /// Tessellate the stroke for an axis-aligned rounded rectangle.
-    fn add_circle(&mut self, center: Point, radius: f32, winding: Winding, attributes: &[f32]) {
+    fn add_circle(&mut self, center: Point, radius: f32, winding: Winding, attributes: Attributes) {
         // This specialized routine extracts the curves into separate sub-paths
         // to nudge the tessellator towards putting them in their own monotonic
         // spans. This avoids generating thin triangles from one side of the circle
@@ -2648,11 +2649,11 @@ fn fill_vertex_source_01() {
             }
 
             if eq(pos, point(0.0, 0.0)) {
-                assert_eq!(vertex.interpolated_attributes(), &[1.0, 0.0, 0.0])
+                assert_eq!(vertex.interpolated_attributes(), Attributes(&[1.0, 0.0, 0.0]))
             } else if eq(pos, point(1.0, 1.0)) {
-                assert_eq!(vertex.interpolated_attributes(), &[0.0, 1.0, 0.0])
+                assert_eq!(vertex.interpolated_attributes(), Attributes(&[0.0, 1.0, 0.0]))
             } else if eq(pos, point(0.0, 2.0)) {
-                assert_eq!(vertex.interpolated_attributes(), &[0.0, 0.0, 1.0])
+                assert_eq!(vertex.interpolated_attributes(), Attributes(&[0.0, 0.0, 1.0]))
             }
 
             let id = self.next_vertex;
@@ -2674,15 +2675,15 @@ fn fill_vertex_source_02() {
     //
 
     let mut path = crate::path::Path::builder_with_attributes(3);
-    let a = path.begin(point(1.0, 0.0), &[1.0, 0.0, 1.0]);
-    let b = path.line_to(point(2.0, 0.0), &[2.0, 0.0, 1.0]);
-    let c = path.line_to(point(2.0, 4.0), &[3.0, 0.0, 1.0]);
-    let d = path.line_to(point(1.0, 4.0), &[4.0, 0.0, 1.0]);
+    let a = path.begin(point(1.0, 0.0), Attributes(&[1.0, 0.0, 1.0]));
+    let b = path.line_to(point(2.0, 0.0), Attributes(&[2.0, 0.0, 1.0]));
+    let c = path.line_to(point(2.0, 4.0), Attributes(&[3.0, 0.0, 1.0]));
+    let d = path.line_to(point(1.0, 4.0), Attributes(&[4.0, 0.0, 1.0]));
     path.end(true);
-    let e = path.begin(point(0.0, 1.0), &[0.0, 1.0, 2.0]);
-    let f = path.line_to(point(0.0, 3.0), &[0.0, 2.0, 2.0]);
-    let g = path.line_to(point(3.0, 3.0), &[0.0, 3.0, 2.0]);
-    let h = path.line_to(point(3.0, 1.0), &[0.0, 4.0, 2.0]);
+    let e = path.begin(point(0.0, 1.0), Attributes(&[0.0, 1.0, 2.0]));
+    let f = path.line_to(point(0.0, 3.0), Attributes(&[0.0, 2.0, 2.0]));
+    let g = path.line_to(point(3.0, 3.0), Attributes(&[0.0, 3.0, 2.0]));
+    let h = path.line_to(point(3.0, 1.0), Attributes(&[0.0, 4.0, 2.0]));
     path.end(true);
 
     let path = path.build();
@@ -2779,7 +2780,7 @@ fn fill_vertex_source_02() {
                 }
             }
 
-            fn assert_attr(a: &[f32], b: &[f32]) {
+            fn assert_attr(a: Attributes, b: Attributes) {
                 for i in 0..a.len() {
                     let are_equal = (a[i] - b[i]).abs() < 0.001;
                     if !are_equal {
@@ -2794,29 +2795,29 @@ fn fill_vertex_source_02() {
             let pos = vertex.position();
             let attribs = vertex.interpolated_attributes();
             if eq(pos, point(1.0, 0.0)) {
-                assert_attr(attribs, &[1.0, 0.0, 1.0]);
+                assert_attr(attribs, Attributes(&[1.0, 0.0, 1.0]));
             } else if eq(pos, point(2.0, 0.0)) {
-                assert_attr(attribs, &[2.0, 0.0, 1.0]);
+                assert_attr(attribs, Attributes(&[2.0, 0.0, 1.0]));
             } else if eq(pos, point(2.0, 4.0)) {
-                assert_attr(attribs, &[3.0, 0.0, 1.0]);
+                assert_attr(attribs, Attributes(&[3.0, 0.0, 1.0]));
             } else if eq(pos, point(1.0, 4.0)) {
-                assert_attr(attribs, &[4.0, 0.0, 1.0]);
+                assert_attr(attribs, Attributes(&[4.0, 0.0, 1.0]));
             } else if eq(pos, point(0.0, 1.0)) {
-                assert_attr(attribs, &[0.0, 1.0, 2.0]);
+                assert_attr(attribs, Attributes(&[0.0, 1.0, 2.0]));
             } else if eq(pos, point(0.0, 3.0)) {
-                assert_attr(attribs, &[0.0, 2.0, 2.0]);
+                assert_attr(attribs, Attributes(&[0.0, 2.0, 2.0]));
             } else if eq(pos, point(3.0, 3.0)) {
-                assert_attr(attribs, &[0.0, 3.0, 2.0]);
+                assert_attr(attribs, Attributes(&[0.0, 3.0, 2.0]));
             } else if eq(pos, point(3.0, 1.0)) {
-                assert_attr(attribs, &[0.0, 4.0, 2.0]);
+                assert_attr(attribs, Attributes(&[0.0, 4.0, 2.0]));
             } else if eq(pos, point(1.0, 1.0)) {
-                assert_attr(attribs, &[0.875, 1.0, 1.5]);
+                assert_attr(attribs, Attributes(&[0.875, 1.0, 1.5]));
             } else if eq(pos, point(2.0, 1.0)) {
-                assert_attr(attribs, &[1.125, 1.5, 1.5]);
+                assert_attr(attribs, Attributes(&[1.125, 1.5, 1.5]));
             } else if eq(pos, point(1.0, 3.0)) {
-                assert_attr(attribs, &[1.625, 1.16666, 1.5]);
+                assert_attr(attribs, Attributes(&[1.625, 1.16666, 1.5]));
             } else if eq(pos, point(2.0, 3.0)) {
-                assert_attr(attribs, &[1.375, 1.33333, 1.5]);
+                assert_attr(attribs, Attributes(&[1.375, 1.33333, 1.5]));
             }
 
             let id = self.next_vertex;
@@ -2896,10 +2897,10 @@ fn fill_vertex_source_03() {
             mut vertex: FillVertex,
         ) -> Result<VertexId, GeometryBuilderError> {
             if eq(vertex.position(), point(1.0, 1.0)) {
-                assert_eq!(vertex.interpolated_attributes(), &[1.5]);
+                assert_eq!(vertex.interpolated_attributes(), Attributes(&[1.5]));
                 assert_eq!(vertex.sources().count(), 2);
             } else {
-                assert_eq!(vertex.interpolated_attributes(), &[0.0]);
+                assert_eq!(vertex.interpolated_attributes(), Attributes(&[0.0]));
                 assert_eq!(vertex.sources().count(), 1);
             }
 
@@ -2919,9 +2920,9 @@ fn fill_builder_vertex_source() {
     let mut check = CheckVertexSources { next_vertex: 0 };
     let mut builder = tess.builder(&options, &mut check);
 
-    assert_eq!(builder.begin(point(0.0, 0.0), &[]), EndpointId(0));
-    assert_eq!(builder.line_to(point(1.0, 1.0), &[]), EndpointId(1));
-    assert_eq!(builder.line_to(point(0.0, 2.0), &[]), EndpointId(2));
+    assert_eq!(builder.begin(point(0.0, 0.0), Attributes::NONE), EndpointId(0));
+    assert_eq!(builder.line_to(point(1.0, 1.0), Attributes::NONE), EndpointId(1));
+    assert_eq!(builder.line_to(point(0.0, 2.0), Attributes::NONE), EndpointId(2));
     builder.end(true);
 
     builder.build().unwrap();

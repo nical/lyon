@@ -3,7 +3,7 @@
 use crate::builder::*;
 use crate::math::*;
 use crate::path;
-use crate::{EndpointId, PathSlice};
+use crate::{EndpointId, PathSlice, Attributes};
 
 use std::fmt;
 use std::iter::{FusedIterator, FromIterator, IntoIterator};
@@ -111,7 +111,7 @@ impl<'l> FromIterator<PathSlice<'l>> for PathBuffer {
          iter.into_iter().fold(PathBuffer::new(), |mut buffer, path| {
              let builder = buffer.builder();
              path.iter().fold(builder, |mut builder, event| {
-                 builder.path_event(event, &[]);
+                 builder.path_event(event, Attributes::NONE);
                  builder
              }).build();
              buffer
@@ -284,7 +284,7 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 
     #[inline]
-    fn begin(&mut self, at: Point, _attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, at: Point, _attributes: Attributes) -> EndpointId {
         self.begin(at)
     }
 
@@ -294,17 +294,17 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 
     #[inline]
-    fn line_to(&mut self, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
         self.line_to(to)
     }
 
     #[inline]
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to)
     }
 
     #[inline]
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to)
     }
 
@@ -373,7 +373,7 @@ impl<'l> BuilderWithAttributes<'l> {
     }
 
     #[inline]
-    pub fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+    pub fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         let id = self.builder.begin(at, attributes);
         self.adjust_id(id)
     }
@@ -384,7 +384,7 @@ impl<'l> BuilderWithAttributes<'l> {
     }
 
     #[inline]
-    pub fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         let id = self.builder.line_to(to, attributes);
         self.adjust_id(id)
     }
@@ -394,7 +394,7 @@ impl<'l> BuilderWithAttributes<'l> {
         &mut self,
         ctrl: Point,
         to: Point,
-        attributes: &[f32],
+        attributes: Attributes,
     ) -> EndpointId {
         let id = self.builder.quadratic_bezier_to(ctrl, to, attributes);
         self.adjust_id(id)
@@ -406,7 +406,7 @@ impl<'l> BuilderWithAttributes<'l> {
         ctrl1: Point,
         ctrl2: Point,
         to: Point,
-        attributes: &[f32],
+        attributes: Attributes,
     ) -> EndpointId {
         let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to, attributes);
         self.adjust_id(id)
@@ -425,7 +425,7 @@ impl<'l> PathBuilder for BuilderWithAttributes<'l> {
     }
 
     #[inline]
-    fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         self.begin(at, attributes)
     }
 
@@ -435,17 +435,17 @@ impl<'l> PathBuilder for BuilderWithAttributes<'l> {
     }
 
     #[inline]
-    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.line_to(to, attributes)
     }
 
     #[inline]
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to, attributes)
     }
 
     #[inline]
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
     }
 

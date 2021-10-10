@@ -6,7 +6,10 @@ use crate::geom::traits::Transformation;
 use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
 use crate::math::*;
 use crate::private::DebugValidator;
-use crate::{AttributeStore, ControlPointId, EndpointId, Event, IdEvent, PathEvent, PositionStore};
+use crate::{
+    AttributeStore, ControlPointId, EndpointId, Event, IdEvent,
+    PathEvent, PositionStore, Attributes,
+};
 
 use std::fmt;
 use std::iter::{FromIterator, IntoIterator};
@@ -119,7 +122,7 @@ impl Path {
 
     /// Returns a slice over an endpoint's custom attributes.
     #[inline]
-    pub fn attributes(&self, endpoint: EndpointId) -> &[f32] {
+    pub fn attributes(&self, endpoint: EndpointId) -> Attributes {
         interpolated_attributes(self.num_attributes, &self.points, endpoint)
     }
 
@@ -236,7 +239,7 @@ impl PositionStore for Path {
 }
 
 impl AttributeStore for Path {
-    fn get(&self, id: EndpointId) -> &[f32] {
+    fn get(&self, id: EndpointId) -> Attributes {
         interpolated_attributes(self.num_attributes, &self.points, id)
     }
 
@@ -274,7 +277,7 @@ impl<'l> PathSlice<'l> {
 
     /// Returns a slice over an endpoint's custom attributes.
     #[inline]
-    pub fn attributes(&self, endpoint: EndpointId) -> &[f32] {
+    pub fn attributes(&self, endpoint: EndpointId) -> Attributes {
         interpolated_attributes(self.num_attributes, &self.points, endpoint)
     }
 }
@@ -288,8 +291,8 @@ impl<'l> fmt::Debug for PathSlice<'l> {
             fmt::Debug::fmt(&point.y, formatter)
         }
 
-        fn write_attributes(formatter: &mut fmt::Formatter, attributes: &[f32]) -> fmt::Result {
-            for val in attributes {
+        fn write_attributes(formatter: &mut fmt::Formatter, attributes: Attributes) -> fmt::Result {
+            for val in attributes.as_slice() {
                 write!(formatter, " ")?;
                 fmt::Debug::fmt(val, formatter)?;
             }
@@ -379,7 +382,7 @@ impl<'l> PositionStore for PathSlice<'l> {
 }
 
 impl<'l> AttributeStore for PathSlice<'l> {
-    fn get(&self, id: EndpointId) -> &[f32] {
+    fn get(&self, id: EndpointId) -> Attributes {
         interpolated_attributes(self.num_attributes, self.points, id)
     }
 
@@ -539,7 +542,7 @@ impl Builder {
 impl PathBuilder for Builder {
     fn num_attributes(&self) -> usize { 0 }
 
-    fn begin(&mut self, at: Point, _attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, at: Point, _attributes: Attributes) -> EndpointId {
         self.begin(at)
     }
 
@@ -547,15 +550,15 @@ impl PathBuilder for Builder {
         self.end(close);
     }
 
-    fn line_to(&mut self, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
         self.line_to(to)
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to)
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to)
     }
 
@@ -599,7 +602,7 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+    pub fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         let id = self.builder.begin(at);
         self.push_attributes(attributes);
 
@@ -617,7 +620,7 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         let id = self.builder.line_to(to);
         self.push_attributes(attributes);
 
@@ -629,7 +632,7 @@ impl BuilderWithAttributes {
         &mut self,
         ctrl: Point,
         to: Point,
-        attributes: &[f32],
+        attributes: Attributes,
     ) -> EndpointId {
         let id = self.builder.quadratic_bezier_to(ctrl, to);
         self.push_attributes(attributes);
@@ -643,7 +646,7 @@ impl BuilderWithAttributes {
         ctrl1: Point,
         ctrl2: Point,
         to: Point,
-        attributes: &[f32],
+        attributes: Attributes,
     ) -> EndpointId {
         let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
         self.push_attributes(attributes);
@@ -671,7 +674,7 @@ impl BuilderWithAttributes {
         );
     }
 
-    fn push_attributes(&mut self, attributes: &[f32]) {
+    fn push_attributes(&mut self, attributes: Attributes) {
         assert_eq!(attributes.len(), self.num_attributes);
         for i in 0..(self.num_attributes / 2) {
             let x = attributes[i * 2];
@@ -688,7 +691,7 @@ impl BuilderWithAttributes {
 impl PathBuilder for BuilderWithAttributes {
     fn num_attributes(&self) -> usize { self.num_attributes }
 
-    fn begin(&mut self, at: Point, attributes: &[f32]) -> EndpointId {
+    fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         self.begin(at, attributes)
     }
 
@@ -696,15 +699,15 @@ impl PathBuilder for BuilderWithAttributes {
         self.end(close);
     }
 
-    fn line_to(&mut self, to: Point, attributes: &[f32]) -> EndpointId {
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.line_to(to, attributes)
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to, attributes)
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: &[f32]) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
     }
 
@@ -874,8 +877,8 @@ impl<'l> PointIter<'l> {
 pub struct IterWithAttributes<'l> {
     points: PointIter<'l>,
     verbs: ::std::slice::Iter<'l, Verb>,
-    current: (Point, &'l [f32]),
-    first: (Point, &'l [f32]),
+    current: (Point, Attributes<'l>),
+    first: (Point, Attributes<'l>),
     num_attributes: usize,
     attrib_stride: usize,
 }
@@ -885,8 +888,8 @@ impl<'l> IterWithAttributes<'l> {
         IterWithAttributes {
             points: PointIter::new(points),
             verbs: verbs.iter(),
-            current: (point(0.0, 0.0), &[]),
-            first: (point(0.0, 0.0), &[]),
+            current: (point(0.0, 0.0), Attributes::NONE),
+            first: (point(0.0, 0.0), Attributes::NONE),
             num_attributes,
             attrib_stride: (num_attributes + 1) / 2,
         }
@@ -910,7 +913,7 @@ impl<'l> IterWithAttributes<'l> {
     /// constraints in an associated type, see #701.
     pub fn for_each_flattened<F>(self, tolerance: f32, callback: &mut F)
     where
-        F: FnMut(&Event<(Point, &[f32]), Point>)
+        F: FnMut(&Event<(Point, Attributes), Point>)
     {
         let num_attributes = self.num_attributes;
         // Some scratch space for writing the interpolated custom attributes.
@@ -942,7 +945,7 @@ impl<'l> IterWithAttributes<'l> {
                     let curve = QuadraticBezierSegment { from: from.0, ctrl, to: to.0 };
                     let mut prev_pos = from.0;
                     let mut offset = num_attributes;
-                    buffer[0..num_attributes].copy_from_slice(from_attr);
+                    buffer[0..num_attributes].copy_from_slice(from_attr.as_slice());
                     curve.for_each_flattened_with_t(tolerance, &mut|pos, t| {
                         for i in 0..num_attributes {
                             buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
@@ -951,8 +954,8 @@ impl<'l> IterWithAttributes<'l> {
                         let next_offset =  if offset == 0 { num_attributes } else { 0 };
 
                         callback(&Event::Line {
-                            from: (prev_pos, &buffer[next_offset..(next_offset + num_attributes)]),
-                            to: (pos, &buffer[offset..(offset + num_attributes)]),
+                            from: (prev_pos, Attributes(&buffer[next_offset..(next_offset + num_attributes)])),
+                            to: (pos, Attributes(&buffer[offset..(offset + num_attributes)])),
                         });
 
                         offset = next_offset;
@@ -965,7 +968,7 @@ impl<'l> IterWithAttributes<'l> {
                     let curve = CubicBezierSegment { from: from.0, ctrl1, ctrl2, to: to.0 };
                     let mut prev_pos = from.0;
                     let mut offset = num_attributes;
-                    buffer[0..num_attributes].copy_from_slice(from_attr);
+                    buffer[0..num_attributes].copy_from_slice(from_attr.as_slice());
                     curve.for_each_flattened_with_t(tolerance, &mut|pos, t| {
                         for i in 0..num_attributes {
                             buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
@@ -974,8 +977,8 @@ impl<'l> IterWithAttributes<'l> {
                         let next_offset =  if offset == 0 { num_attributes } else { 0 };
 
                         callback(&Event::Line {
-                            from: (prev_pos, &buffer[next_offset..(next_offset + num_attributes)]),
-                            to: (pos, &buffer[offset..(offset + num_attributes)]),
+                            from: (prev_pos, Attributes(&buffer[next_offset..(next_offset + num_attributes)])),
+                            to: (pos, Attributes(&buffer[offset..(offset + num_attributes)])),
                         });
 
                         offset = next_offset;
@@ -987,7 +990,7 @@ impl<'l> IterWithAttributes<'l> {
     }
 
     #[inline]
-    fn pop_endpoint(&mut self) -> (Point, &'l [f32]) {
+    fn pop_endpoint(&mut self) -> (Point, Attributes<'l>) {
         let position = self.points.next();
         let attributes_ptr = self.points.ptr as *const f32;
         self.points.advance_n(self.attrib_stride);
@@ -996,12 +999,12 @@ impl<'l> IterWithAttributes<'l> {
             std::slice::from_raw_parts(attributes_ptr, self.num_attributes)
         };
 
-        (position, attributes)
+        (position, Attributes(attributes))
     }
 }
 
 impl<'l> Iterator for IterWithAttributes<'l> {
-    type Item = Event<(Point, &'l [f32]), Point>;
+    type Item = Event<(Point, Attributes<'l>), Point>;
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.verbs.next() {
@@ -1158,9 +1161,9 @@ fn interpolated_attributes(
     num_attributes: usize,
     points: &[Point],
     endpoint: EndpointId,
-) -> &[f32] {
+) -> Attributes {
     if num_attributes == 0 {
-        return &[];
+        return Attributes(&[]);
     }
 
     let idx = endpoint.0 as usize + 1;
@@ -1168,7 +1171,7 @@ fn interpolated_attributes(
 
     unsafe {
         let ptr = &points[idx].x as *const f32;
-        std::slice::from_raw_parts(ptr, num_attributes)
+        Attributes(std::slice::from_raw_parts(ptr, num_attributes))
     }
 }
 
@@ -1266,10 +1269,10 @@ fn n_stored_points(verb: Verb, attrib_stride: usize) -> usize {
 #[test]
 fn test_reverse_path_simple() {
     let mut builder = Path::builder_with_attributes(1);
-    builder.begin(point(0.0, 0.0), &[1.0]);
-    builder.line_to(point(1.0, 0.0), &[2.0]);
-    builder.line_to(point(1.0, 1.0), &[3.0]);
-    builder.line_to(point(0.0, 1.0), &[4.0]);
+    builder.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(1.0, 0.0), Attributes(&[2.0]));
+    builder.line_to(point(1.0, 1.0), Attributes(&[3.0]));
+    builder.line_to(point(0.0, 1.0), Attributes(&[4.0]));
     builder.end(false);
 
     let p1 = builder.build();
@@ -1279,8 +1282,8 @@ fn test_reverse_path_simple() {
 
     // Using a function that explicits the argument types works around type inference issue.
     fn check<'l>(
-        a: Option<Event<(Point, &'l [f32]), Point>>,
-        b: Option<Event<(Point, &'l [f32]), Point>>,
+        a: Option<Event<(Point, Attributes<'l>), Point>>,
+        b: Option<Event<(Point, Attributes<'l>), Point>>,
     ) -> bool {
         if a != b {
             println!("left: {:?}", a);
@@ -1293,35 +1296,35 @@ fn test_reverse_path_simple() {
     assert!(check(
         it.next(),
         Some(Event::Begin {
-            at: (point(0.0, 1.0), &[4.0])
+            at: (point(0.0, 1.0), Attributes(&[4.0]))
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(0.0, 1.0), &[4.0]),
-            to: (point(1.0, 1.0), &[3.0])
+            from: (point(0.0, 1.0), Attributes(&[4.0])),
+            to: (point(1.0, 1.0), Attributes(&[3.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(1.0, 1.0), &[3.0]),
-            to: (point(1.0, 0.0), &[2.0])
+            from: (point(1.0, 1.0), Attributes(&[3.0])),
+            to: (point(1.0, 0.0), Attributes(&[2.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(1.0, 0.0), &[2.0]),
-            to: (point(0.0, 0.0), &[1.0])
+            from: (point(1.0, 0.0), Attributes(&[2.0])),
+            to: (point(0.0, 0.0), Attributes(&[1.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::End {
-            last: (point(0.0, 0.0), &[1.0]),
-            first: (point(0.0, 1.0), &[4.0]),
+            last: (point(0.0, 0.0), Attributes(&[1.0])),
+            first: (point(0.0, 1.0), Attributes(&[4.0])),
             close: false
         })
     ));
@@ -1332,20 +1335,20 @@ fn test_reverse_path_simple() {
 #[test]
 fn test_reverse_path() {
     let mut builder = Path::builder_with_attributes(1);
-    builder.begin(point(0.0, 0.0), &[1.0]);
-    builder.line_to(point(1.0, 0.0), &[2.0]);
-    builder.line_to(point(1.0, 1.0), &[3.0]);
-    builder.line_to(point(0.0, 1.0), &[4.0]);
+    builder.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(1.0, 0.0), Attributes(&[2.0]));
+    builder.line_to(point(1.0, 1.0), Attributes(&[3.0]));
+    builder.line_to(point(0.0, 1.0), Attributes(&[4.0]));
     builder.end(false);
 
-    builder.begin(point(10.0, 0.0), &[5.0]);
-    builder.line_to(point(11.0, 0.0), &[6.0]);
-    builder.line_to(point(11.0, 1.0), &[7.0]);
-    builder.line_to(point(10.0, 1.0), &[8.0]);
+    builder.begin(point(10.0, 0.0), Attributes(&[5.0]));
+    builder.line_to(point(11.0, 0.0), Attributes(&[6.0]));
+    builder.line_to(point(11.0, 1.0), Attributes(&[7.0]));
+    builder.line_to(point(10.0, 1.0), Attributes(&[8.0]));
     builder.end(true);
 
-    builder.begin(point(20.0, 0.0), &[9.0]);
-    builder.quadratic_bezier_to(point(21.0, 0.0), point(21.0, 1.0), &[10.0]);
+    builder.begin(point(20.0, 0.0), Attributes(&[9.0]));
+    builder.quadratic_bezier_to(point(21.0, 0.0), point(21.0, 1.0), Attributes(&[10.0]));
     builder.end(false);
 
     let p1 = builder.build();
@@ -1355,8 +1358,8 @@ fn test_reverse_path() {
 
     // Using a function that explicits the argument types works around type inference issue.
     fn check<'l>(
-        a: Option<Event<(Point, &'l [f32]), Point>>,
-        b: Option<Event<(Point, &'l [f32]), Point>>,
+        a: Option<Event<(Point, Attributes<'l>), Point>>,
+        b: Option<Event<(Point, Attributes<'l>), Point>>,
     ) -> bool {
         if a != b {
             println!("left: {:?}", a);
@@ -1369,22 +1372,22 @@ fn test_reverse_path() {
     assert!(check(
         it.next(),
         Some(Event::Begin {
-            at: (point(21.0, 1.0), &[10.0])
+            at: (point(21.0, 1.0), Attributes(&[10.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Quadratic {
-            from: (point(21.0, 1.0), &[10.0]),
+            from: (point(21.0, 1.0), Attributes(&[10.0])),
             ctrl: point(21.0, 0.0),
-            to: (point(20.0, 0.0), &[9.0]),
+            to: (point(20.0, 0.0), Attributes(&[9.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::End {
-            last: (point(20.0, 0.0), &[9.0]),
-            first: (point(21.0, 1.0), &[10.0]),
+            last: (point(20.0, 0.0), Attributes(&[9.0])),
+            first: (point(21.0, 1.0), Attributes(&[10.0])),
             close: false
         })
     ));
@@ -1392,35 +1395,35 @@ fn test_reverse_path() {
     assert!(check(
         it.next(),
         Some(Event::Begin {
-            at: (point(10.0, 1.0), &[8.0])
+            at: (point(10.0, 1.0), Attributes(&[8.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(10.0, 1.0), &[8.0]),
-            to: (point(11.0, 1.0), &[7.0])
+            from: (point(10.0, 1.0), Attributes(&[8.0])),
+            to: (point(11.0, 1.0), Attributes(&[7.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(11.0, 1.0), &[7.0]),
-            to: (point(11.0, 0.0), &[6.0])
+            from: (point(11.0, 1.0), Attributes(&[7.0])),
+            to: (point(11.0, 0.0), Attributes(&[6.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(11.0, 0.0), &[6.0]),
-            to: (point(10.0, 0.0), &[5.0])
+            from: (point(11.0, 0.0), Attributes(&[6.0])),
+            to: (point(10.0, 0.0), Attributes(&[5.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::End {
-            last: (point(10.0, 0.0), &[5.0]),
-            first: (point(10.0, 1.0), &[8.0]),
+            last: (point(10.0, 0.0), Attributes(&[5.0])),
+            first: (point(10.0, 1.0), Attributes(&[8.0])),
             close: true
         })
     ));
@@ -1428,35 +1431,35 @@ fn test_reverse_path() {
     assert!(check(
         it.next(),
         Some(Event::Begin {
-            at: (point(0.0, 1.0), &[4.0])
+            at: (point(0.0, 1.0), Attributes(&[4.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(0.0, 1.0), &[4.0]),
-            to: (point(1.0, 1.0), &[3.0])
+            from: (point(0.0, 1.0), Attributes(&[4.0])),
+            to: (point(1.0, 1.0), Attributes(&[3.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(1.0, 1.0), &[3.0]),
-            to: (point(1.0, 0.0), &[2.0])
+            from: (point(1.0, 1.0), Attributes(&[3.0])),
+            to: (point(1.0, 0.0), Attributes(&[2.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::Line {
-            from: (point(1.0, 0.0), &[2.0]),
-            to: (point(0.0, 0.0), &[1.0])
+            from: (point(1.0, 0.0), Attributes(&[2.0])),
+            to: (point(0.0, 0.0), Attributes(&[1.0])),
         })
     ));
     assert!(check(
         it.next(),
         Some(Event::End {
-            last: (point(0.0, 0.0), &[1.0]),
-            first: (point(0.0, 1.0), &[4.0]),
+            last: (point(0.0, 0.0), Attributes(&[1.0])),
+            first: (point(0.0, 1.0), Attributes(&[4.0])),
             close: false
         })
     ));
@@ -1545,33 +1548,33 @@ fn test_reverse_single_point() {
 #[test]
 fn test_path_builder_1() {
     let mut p = BuilderWithAttributes::new(1);
-    p.begin(point(0.0, 0.0), &[0.0]);
-    p.line_to(point(1.0, 0.0), &[1.0]);
-    p.line_to(point(2.0, 0.0), &[2.0]);
-    p.line_to(point(3.0, 0.0), &[3.0]);
-    p.quadratic_bezier_to(point(4.0, 0.0), point(4.0, 1.0), &[4.0]);
-    p.cubic_bezier_to(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0), &[5.0]);
+    p.begin(point(0.0, 0.0), Attributes(&[0.0]));
+    p.line_to(point(1.0, 0.0), Attributes(&[1.0]));
+    p.line_to(point(2.0, 0.0), Attributes(&[2.0]));
+    p.line_to(point(3.0, 0.0), Attributes(&[3.0]));
+    p.quadratic_bezier_to(point(4.0, 0.0), point(4.0, 1.0), Attributes(&[4.0]));
+    p.cubic_bezier_to(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0), Attributes(&[5.0]));
     p.end(true);
 
-    p.begin(point(10.0, 0.0), &[6.0]);
-    p.line_to(point(11.0, 0.0), &[7.0]);
-    p.line_to(point(12.0, 0.0), &[8.0]);
-    p.line_to(point(13.0, 0.0), &[9.0]);
-    p.quadratic_bezier_to(point(14.0, 0.0), point(14.0, 1.0), &[10.0]);
+    p.begin(point(10.0, 0.0), Attributes(&[6.0]));
+    p.line_to(point(11.0, 0.0), Attributes(&[7.0]));
+    p.line_to(point(12.0, 0.0), Attributes(&[8.0]));
+    p.line_to(point(13.0, 0.0), Attributes(&[9.0]));
+    p.quadratic_bezier_to(point(14.0, 0.0), point(14.0, 1.0), Attributes(&[10.0]));
     p.cubic_bezier_to(
         point(15.0, 0.0),
         point(15.0, 1.0),
         point(15.0, 2.0),
-        &[11.0],
+        Attributes(&[11.0]),
     );
     p.end(true);
 
-    p.begin(point(1.0, 1.0), &[12.0]);
+    p.begin(point(1.0, 1.0), Attributes(&[12.0]));
     p.end(false);
-    p.begin(point(2.0, 2.0), &[13.0]);
+    p.begin(point(2.0, 2.0), Attributes(&[13.0]));
     p.end(false);
-    p.begin(point(3.0, 3.0), &[14.0]);
-    p.line_to(point(4.0, 4.0), &[15.0]);
+    p.begin(point(3.0, 3.0), Attributes(&[14.0]));
+    p.line_to(point(4.0, 4.0), Attributes(&[15.0]));
     p.end(false);
 
     let path = p.build();
@@ -1580,52 +1583,52 @@ fn test_path_builder_1() {
     assert_eq!(
         it.next(),
         Some(Event::Begin {
-            at: (point(0.0, 0.0), &[0.0][..])
+            at: (point(0.0, 0.0), Attributes(&[0.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(0.0, 0.0), &[0.0][..]),
-            to: (point(1.0, 0.0), &[1.0][..])
+            from: (point(0.0, 0.0), Attributes(&[0.0])),
+            to: (point(1.0, 0.0), Attributes(&[1.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(1.0, 0.0), &[1.0][..]),
-            to: (point(2.0, 0.0), &[2.0][..])
+            from: (point(1.0, 0.0), Attributes(&[1.0])),
+            to: (point(2.0, 0.0), Attributes(&[2.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(2.0, 0.0), &[2.0][..]),
-            to: (point(3.0, 0.0), &[3.0][..])
+            from: (point(2.0, 0.0), Attributes(&[2.0])),
+            to: (point(3.0, 0.0), Attributes(&[3.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Quadratic {
-            from: (point(3.0, 0.0), &[3.0][..]),
+            from: (point(3.0, 0.0), Attributes(&[3.0])),
             ctrl: point(4.0, 0.0),
-            to: (point(4.0, 1.0), &[4.0][..])
+            to: (point(4.0, 1.0), Attributes(&[4.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Cubic {
-            from: (point(4.0, 1.0), &[4.0][..]),
+            from: (point(4.0, 1.0), Attributes(&[4.0])),
             ctrl1: point(5.0, 0.0),
             ctrl2: point(5.0, 1.0),
-            to: (point(5.0, 2.0), &[5.0][..]),
+            to: (point(5.0, 2.0), Attributes(&[5.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::End {
-            last: (point(5.0, 2.0), &[5.0][..]),
-            first: (point(0.0, 0.0), &[0.0][..]),
+            last: (point(5.0, 2.0), Attributes(&[5.0])),
+            first: (point(0.0, 0.0), Attributes(&[0.0])),
             close: true
         })
     );
@@ -1633,52 +1636,52 @@ fn test_path_builder_1() {
     assert_eq!(
         it.next(),
         Some(Event::Begin {
-            at: (point(10.0, 0.0), &[6.0][..])
+            at: (point(10.0, 0.0), Attributes(&[6.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(10.0, 0.0), &[6.0][..]),
-            to: (point(11.0, 0.0), &[7.0][..])
+            from: (point(10.0, 0.0), Attributes(&[6.0])),
+            to: (point(11.0, 0.0), Attributes(&[7.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(11.0, 0.0), &[7.0][..]),
-            to: (point(12.0, 0.0), &[8.0][..])
+            from: (point(11.0, 0.0), Attributes(&[7.0])),
+            to: (point(12.0, 0.0), Attributes(&[8.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(12.0, 0.0), &[8.0][..]),
-            to: (point(13.0, 0.0), &[9.0][..])
+            from: (point(12.0, 0.0), Attributes(&[8.0])),
+            to: (point(13.0, 0.0), Attributes(&[9.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Quadratic {
-            from: (point(13.0, 0.0), &[9.0][..]),
+            from: (point(13.0, 0.0), Attributes(&[9.0])),
             ctrl: point(14.0, 0.0),
-            to: (point(14.0, 1.0), &[10.0][..]),
+            to: (point(14.0, 1.0), Attributes(&[10.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Cubic {
-            from: (point(14.0, 1.0), &[10.0][..]),
+            from: (point(14.0, 1.0), Attributes(&[10.0])),
             ctrl1: point(15.0, 0.0),
             ctrl2: point(15.0, 1.0),
-            to: (point(15.0, 2.0), &[11.0][..]),
+            to: (point(15.0, 2.0), Attributes(&[11.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::End {
-            last: (point(15.0, 2.0), &[11.0][..]),
-            first: (point(10.0, 0.0), &[6.0][..]),
+            last: (point(15.0, 2.0), Attributes(&[11.0])),
+            first: (point(10.0, 0.0), Attributes(&[6.0])),
             close: true
         })
     );
@@ -1686,49 +1689,49 @@ fn test_path_builder_1() {
     assert_eq!(
         it.next(),
         Some(Event::Begin {
-            at: (point(1.0, 1.0), &[12.0][..])
+            at: (point(1.0, 1.0), Attributes(&[12.0]))
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::End {
-            last: (point(1.0, 1.0), &[12.0][..]),
-            first: (point(1.0, 1.0), &[12.0][..]),
+            last: (point(1.0, 1.0), Attributes(&[12.0])),
+            first: (point(1.0, 1.0), Attributes(&[12.0])),
             close: false
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Begin {
-            at: (point(2.0, 2.0), &[13.0][..])
+            at: (point(2.0, 2.0), Attributes(&[13.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::End {
-            last: (point(2.0, 2.0), &[13.0][..]),
-            first: (point(2.0, 2.0), &[13.0][..]),
+            last: (point(2.0, 2.0), Attributes(&[13.0])),
+            first: (point(2.0, 2.0), Attributes(&[13.0])),
             close: false
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Begin {
-            at: (point(3.0, 3.0), &[14.0][..])
+            at: (point(3.0, 3.0), Attributes(&[14.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::Line {
-            from: (point(3.0, 3.0), &[14.0][..]),
-            to: (point(4.0, 4.0), &[15.0][..])
+            from: (point(3.0, 3.0), Attributes(&[14.0])),
+            to: (point(4.0, 4.0), Attributes(&[15.0])),
         })
     );
     assert_eq!(
         it.next(),
         Some(Event::End {
-            last: (point(4.0, 4.0), &[15.0][..]),
-            first: (point(3.0, 3.0), &[14.0][..]),
+            last: (point(4.0, 4.0), Attributes(&[15.0])),
+            first: (point(3.0, 3.0), Attributes(&[14.0])),
             close: false
         })
     );
@@ -1748,11 +1751,11 @@ fn test_path_builder_empty() {
 #[test]
 fn test_path_builder_empty_begin() {
     let mut p = Path::builder_with_attributes(1);
-    p.begin(point(1.0, 2.0), &[0.0]);
+    p.begin(point(1.0, 2.0), Attributes(&[0.0]));
     p.end(false);
-    p.begin(point(3.0, 4.0), &[1.0]);
+    p.begin(point(3.0, 4.0), Attributes(&[1.0]));
     p.end(false);
-    p.begin(point(5.0, 6.0), &[2.0]);
+    p.begin(point(5.0, 6.0), Attributes(&[2.0]));
     p.end(false);
 
     let path = p.build();
@@ -1888,9 +1891,9 @@ fn test_concatenate() {
 #[test]
 fn flattened_custom_attributes() {
     let mut path = Path::builder_with_attributes(1);
-    path.begin(point(0.0, 0.0), &[0.0]);
-    path.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0), &[1.0]);
-    path.cubic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), point(0.0, 1.0), &[2.0]);
+    path.begin(point(0.0, 0.0), Attributes(&[0.0]));
+    path.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0), Attributes(&[1.0]));
+    path.cubic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), point(0.0, 1.0), Attributes(&[2.0]));
     path.end(false);
 
     let path = path.build();

@@ -5,7 +5,7 @@
 pub use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 pub use crate::math::Point;
 pub use crate::traits::PathBuilder;
-pub use crate::EndpointId;
+pub use crate::{EndpointId, Attributes};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct DebugValidator {
@@ -68,8 +68,8 @@ pub fn flatten_quadratic_bezier(
     from: Point,
     ctrl: Point,
     to: Point,
-    attributes: &[f32],
-    prev_attributes: &[f32],
+    attributes: Attributes,
+    prev_attributes: Attributes,
     builder: &mut impl PathBuilder,
     buffer: &mut [f32],
 ) -> EndpointId {
@@ -83,7 +83,7 @@ pub fn flatten_quadratic_bezier(
             for i in 0..n {
                 buffer[i] = prev_attributes[i] * (1.0 - t) + attributes[i] * t;
             }
-            &buffer[..]
+            Attributes(&buffer[..])
         };
         id = builder.line_to(point, attr);
     });
@@ -97,8 +97,8 @@ pub fn flatten_cubic_bezier(
     ctrl1: Point,
     ctrl2: Point,
     to: Point,
-    attributes: &[f32],
-    prev_attributes: &[f32],
+    attributes: Attributes,
+    prev_attributes: Attributes,
     builder: &mut impl PathBuilder,
     buffer: &mut [f32],
 ) -> EndpointId {
@@ -117,7 +117,7 @@ pub fn flatten_cubic_bezier(
             for i in 0..n {
                 buffer[i] = prev_attributes[i] * (1.0 - t) + attributes[i] * t;
             }
-            &buffer[..]
+            Attributes(&buffer[..])
         };
         id = builder.line_to(point, attr);
     });
