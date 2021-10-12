@@ -275,6 +275,7 @@ pub struct StrokeBuilder<'l> {
     nth: u32,
     length: f32,
     sub_path_start_length: f32,
+    square_merge_threshold: f32,
     options: StrokeOptions,
     error: Option<TessellationError>,
     output: &'l mut dyn StrokeGeometryBuilder,
@@ -407,6 +408,10 @@ impl<'l> StrokeBuilder<'l> {
             attrib_buffer.push(0.0);
         }
 
+        let square_merge_threshold = (options.tolerance * options.tolerance * 0.5)
+            .min(options.line_width * options.line_width * 0.05)
+            .max(1e-8);
+
         output.begin_geometry();
 
         let zero = Point::new(0.0, 0.0);
@@ -430,6 +435,7 @@ impl<'l> StrokeBuilder<'l> {
             nth: 0,
             length: 0.0,
             sub_path_start_length: 0.0,
+            square_merge_threshold,
             options: *options,
             error: None,
             output,
@@ -449,6 +455,10 @@ impl<'l> StrokeBuilder<'l> {
             validator: DebugValidator::new(),
             next_endpoint_id: EndpointId(0),
         }
+    }
+
+    fn points_are_too_close(&self, p0: Point, p1: Point) -> bool {
+        (p0 - p1).square_length() < self.square_merge_threshold
     }
 
     fn set_options(&mut self, options: &StrokeOptions) {
@@ -574,17 +584,9 @@ impl<'l> StrokeBuilder<'l> {
     }
 
     fn close(&mut self) {
-        // If we close almost at the first edge, then we have to
-        // skip connecting the last and first edges otherwise the
-        // normal will be plagued with floating point precision
-        // issues.
-        let threshold = 0.001;
-        if (self.first - self.current).square_length() > threshold {
-            let first = self.first;
-            self.edge_to(first, self.first_endpoint, 1.0, true);
-            if self.error.is_some() {
-                return;
-            }
+        self.edge_to(self.first, self.first_endpoint, 1.0, true);
+        if self.error.is_some() {
+            return;
         }
 
         if self.nth > 1 {
@@ -767,7 +769,7 @@ impl<'l> StrokeBuilder<'l> {
     }
 
     fn edge_to(&mut self, to: Point, endpoint: EndpointId, t: f32, with_join: bool) {
-        if (to - self.current).square_length() < self.options.tolerance * self.options.tolerance {
+        if self.points_are_too_close(to, self.current) {
             return;
         }
 
