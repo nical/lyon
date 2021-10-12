@@ -191,6 +191,7 @@ fn main() {
         window_size: PhysicalSize::new(width as u32, height as u32),
         wireframe: false,
         size_changed: true,
+        render: false,
     };
 
     let event_loop = EventLoop::new();
@@ -399,10 +400,12 @@ fn main() {
 
     queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&primitives));
 
+    window.request_redraw();
+
     // The main loop.
 
     event_loop.run(move |event, _, control_flow| {
-        if update_inputs(event, control_flow, &mut scene) {
+        if !update_inputs(event, &window, control_flow, &mut scene) {
             // keep polling inputs.
             return;
         }
@@ -432,6 +435,11 @@ fn main() {
                 );
             }
         }
+
+        if !scene.render {
+            return;
+        }
+        scene.render = false;
 
         let frame = match surface.get_current_texture() {
             Ok(frame) => frame,
@@ -572,16 +580,19 @@ pub struct SceneGlobals {
     pub window_size: PhysicalSize<u32>,
     pub wireframe: bool,
     pub size_changed: bool,
+    pub render: bool,
 }
 
 fn update_inputs(
     event: Event<()>,
+    window: &Window,
     control_flow: &mut ControlFlow,
     scene: &mut SceneGlobals,
 ) -> bool {
+    let mut redraw = false;
     match event {
-        Event::MainEventsCleared => {
-            return false;
+        Event::RedrawRequested(_) => {
+            scene.render = true;
         }
         Event::WindowEvent {
             event: WindowEvent::Destroyed,
@@ -620,24 +631,31 @@ fn update_inputs(
             }
             VirtualKeyCode::PageDown => {
                 scene.zoom *= 0.8;
+                redraw = true;
             }
             VirtualKeyCode::PageUp => {
                 scene.zoom *= 1.25;
+                redraw = true;
             }
             VirtualKeyCode::Left => {
                 scene.pan[0] -= 50.0 / scene.pan[0];
+                redraw = true;
             }
             VirtualKeyCode::Right => {
                 scene.pan[0] += 50.0 / scene.pan[0];
+                redraw = true;
             }
             VirtualKeyCode::Up => {
                 scene.pan[1] += 50.0 / scene.pan[1];
+                redraw = true;
             }
             VirtualKeyCode::Down => {
                 scene.pan[1] -= 50.0 / scene.pan[1];
+                redraw = true;
             }
             VirtualKeyCode::W => {
                 scene.wireframe = !scene.wireframe;
+                redraw = true;
             }
             _key => {}
         },
@@ -647,6 +665,10 @@ fn update_inputs(
     }
 
     *control_flow = ControlFlow::Poll;
+
+    if redraw {
+        window.request_redraw();
+    }
 
     true
 }
