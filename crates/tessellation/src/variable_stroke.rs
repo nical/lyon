@@ -304,6 +304,7 @@ pub(crate) struct VariableStrokeBuilderImpl<'l> {
     firsts: ArrayVec<EndpointData, 2>,
     previous: Option<EndpointData>,
     sub_path_start_advancement: f32,
+    square_merge_threshold: f32,
 }
 
 impl<'l> VariableStrokeBuilderImpl<'l> {
@@ -313,6 +314,15 @@ impl<'l> VariableStrokeBuilderImpl<'l> {
         output: &'l mut dyn StrokeGeometryBuilder,
     ) -> Self {
         output.begin_geometry();
+
+        // Ideally we'd use the bounding rect of the path as an indication
+        // of what is considered a very small distance between two points,
+        // but we don't have this information so we use a combination of the
+        // tolerance threshold and, in case the latter is high to get "low-poly"
+        // curves, the line width.
+        let square_merge_threshold = (options.tolerance * options.tolerance * 0.5)
+            .min(options.line_width * options.line_width * 0.05)
+            .max(1e-8);
 
         let zero = Point::new(0.0, 0.0);
         VariableStrokeBuilderImpl {
@@ -335,6 +345,7 @@ impl<'l> VariableStrokeBuilderImpl<'l> {
             firsts: ArrayVec::new(),
             previous: None,
             sub_path_start_advancement: 0.0,
+            square_merge_threshold,
         }
     }
 
@@ -537,6 +548,8 @@ impl<'l> VariableStrokeBuilderImpl<'l> {
     }
 
     fn close(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
+        assert!(self.firsts.len() >= 1);
+
         let p = self.firsts[0];
         self.step(p, attributes)?;
 
@@ -550,6 +563,10 @@ impl<'l> VariableStrokeBuilderImpl<'l> {
         }
 
         Ok(())
+    }
+
+    fn points_are_too_close(&self, p0: Point, p1: Point) -> bool {
+        (p0 - p1).square_length() < self.square_merge_threshold
     }
 
     fn end_with_caps(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
@@ -614,7 +631,7 @@ impl<'l> VariableStrokeBuilderImpl<'l> {
     fn step(&mut self, mut next: EndpointData, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
         let count = self.point_buffer.count();
 
-        if count > 0 && (self.point_buffer.last_mut().position - next.position).square_length() < self.options.tolerance {
+        if count > 0 && self.points_are_too_close(self.point_buffer.last().position, next.position) {
             // TODO: should do something like:
             // - add the endpoint
             // - only allow two consecutive endpoints at the same position
@@ -1181,6 +1198,11 @@ impl PointBuffer {
         let idx = (idx + self.start) % 3;
 
         &mut self.points[idx]
+    }
+
+    fn last(&self) -> &EndpointData {
+        assert!(self.count > 0);
+        self.get(self.count - 1)
     }
 
     fn last_mut(&mut self) -> &mut EndpointData {
