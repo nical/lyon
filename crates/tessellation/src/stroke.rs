@@ -367,6 +367,9 @@ struct StrokeBuilderImpl<'l> {
     nth: u32,
     length: f32,
     sub_path_start_length: f32,
+    /// If the square distance between two points is smaller than
+    /// this threshold, merge them.
+    square_merge_threshold: f32,
     options: StrokeOptions,
     error: Option<TessellationError>,
     output: &'l mut dyn StrokeGeometryBuilder,
@@ -503,6 +506,15 @@ impl<'l> StrokeBuilderImpl<'l> {
     ) -> Self {
         output.begin_geometry();
 
+        // Ideally we'd use the bounding rect of the path as an indication
+        // of what is considered a very small distance between two points,
+        // but we don't have this information so we use a combination of the
+        // tolerance threshold and, in case the latter is high to get "low-poly"
+        // curves, the line width.
+        let square_merge_threshold = (options.tolerance * options.tolerance * 0.5)
+            .min(options.line_width * options.line_width * 0.05)
+            .max(1e-8);
+
         let zero = Point::new(0.0, 0.0);
         StrokeBuilderImpl {
             first: zero,
@@ -523,6 +535,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             nth: 0,
             length: 0.0,
             sub_path_start_length: 0.0,
+            square_merge_threshold,
             options: *options,
             error: None,
             output,
@@ -540,6 +553,10 @@ impl<'l> StrokeBuilderImpl<'l> {
             },
             next_endpoint_id: EndpointId(0),
         }
+    }
+
+    fn points_are_too_close(&self, p0: Point, p1: Point) -> bool {
+        (p0 - p1).square_length() < self.square_merge_threshold
     }
 
     fn set_options(&mut self, options: &StrokeOptions) {
@@ -678,17 +695,9 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 
     fn close(&mut self, attributes: &dyn AttributeStore) {
-        // If we close almost at the first edge, then we have to
-        // skip connecting the last and first edges otherwise the
-        // normal will be plagued with floating point precision
-        // issues.
-        let threshold = 0.001;
-        if (self.first - self.current).square_length() > threshold {
-            let first = self.first;
-            self.edge_to(first, self.first_endpoint, 1.0, true, attributes);
-            if self.error.is_some() {
-                return;
-            }
+        self.edge_to(self.first, self.first_endpoint, 1.0, true, attributes);
+        if self.error.is_some() {
+            return;
         }
 
         if self.nth > 1 {
@@ -844,7 +853,10 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 
     fn edge_to(&mut self, to: Point, endpoint: EndpointId, t: f32, with_join: bool, attributes: &dyn AttributeStore) {
-        if (to - self.current).square_length() < self.options.tolerance * self.options.tolerance {
+        // If the points are almost at the same position then we have to
+        // skip connecting them otherwise the normal will be plagued with
+        // floating point precision issues.
+        if self.points_are_too_close(to, self.current) {
             return;
         }
 
