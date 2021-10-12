@@ -244,9 +244,9 @@ fn main() {
         stroke_width: 1.0,
         target_stroke_width: 1.0,
         draw_background: true,
-        cursor_position: (0.0, 0.0),
         window_size: PhysicalSize::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
         size_changed: true,
+        render: false,
     };
 
     let event_loop = EventLoop::new();
@@ -520,8 +520,10 @@ fn main() {
     let mut frame_count: u32 = 0;
     let mut time_secs: f32 = 0.0;
 
+    window.request_redraw();
+
     event_loop.run(move |event, _, control_flow| {
-        if update_inputs(event, control_flow, &mut scene) {
+        if !update_inputs(event, &window, control_flow, &mut scene) {
             // keep polling inputs.
             return;
         }
@@ -560,6 +562,12 @@ fn main() {
                 None
             };
         }
+
+        if !scene.render {
+            return;
+        }
+
+        scene.render = false;
 
         let frame = match surface.get_current_texture() {
             Ok(texture) => texture,
@@ -749,19 +757,23 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
-    cursor_position: (f32, f32),
     window_size: PhysicalSize<u32>,
     size_changed: bool,
+    render: bool,
 }
 
 fn update_inputs(
     event: Event<()>,
+    window: &Window,
     control_flow: &mut ControlFlow,
     scene: &mut SceneParams,
 ) -> bool {
     match event {
-        Event::MainEventsCleared => {
-            return false;
+        Event::RedrawRequested(_) => {
+            scene.render = true;
+        }
+        Event::RedrawEventsCleared => {
+            window.request_redraw();
         }
         Event::WindowEvent {
             event: WindowEvent::Destroyed,
@@ -773,12 +785,6 @@ fn update_inputs(
         } => {
             *control_flow = ControlFlow::Exit;
             return false;
-        }
-        Event::WindowEvent {
-            event: WindowEvent::CursorMoved { position, .. },
-            ..
-        } => {
-            scene.cursor_position = (position.x as f32, position.y as f32);
         }
         Event::WindowEvent {
             event: WindowEvent::Resized(size),
