@@ -6,9 +6,8 @@ extern crate tess2_sys as tess2;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::Point;
-use lyon::path::builder::*;
 use lyon::path::iterator::PathIterator;
-use lyon::path::{Path, Attributes};
+use lyon::path::Path;
 use lyon::tessellation::geometry_builder::{simple_builder, VertexBuffers};
 use lyon::tessellation::{EventQueue, FillTessellator};
 use lyon::tessellation::{FillOptions, LineJoin};
@@ -59,7 +58,7 @@ fn flattening_03_logo_builder(bench: &mut Bencher) {
         let mut builder = Path::builder().flattened(0.05);
         for _ in 0..N {
             for evt in path.iter() {
-                builder.path_event(evt, Attributes::NONE);
+                builder.path_event(evt);
             }
         }
     })

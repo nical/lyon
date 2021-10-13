@@ -14,8 +14,7 @@ use lyon::algorithms::aabb::bounding_box;
 use lyon::algorithms::hatching::*;
 use lyon::geom::LineSegment;
 use lyon::math::*;
-use lyon::path::builder::PathBuilder;
-use lyon::path::{Path, Attributes};
+use lyon::path::Path;
 use lyon::tess2;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
@@ -159,7 +158,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                     path.add_line_segment(&LineSegment {
                         from: segment.a.position,
                         to: segment.b.position,
-                    }, Attributes::NONE);
+                    });
                 },
             },
         );
@@ -184,7 +183,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 row_interval: dots.spacing,
                 column_interval: dots.spacing,
                 callback: &mut |dot: &Dot| {
-                    path.add_point(dot.position, Attributes::NONE);
+                    path.add_point(dot.position);
                 },
             },
         );

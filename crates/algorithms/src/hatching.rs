@@ -733,7 +733,7 @@ fn simple_hatching() {
                 hatches.add_line_segment(&LineSegment {
                     from: segment.a.position,
                     to: segment.b.position,
-                }, Attributes::NONE);
+                });
             },
         },
     );

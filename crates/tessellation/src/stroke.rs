@@ -2,7 +2,7 @@ use crate::geom::utils::{normalized_tangent, tangent};
 use crate::geom::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::math_utils::compute_normal;
-use crate::path::builder::{Build, PathBuilder};
+use crate::path::builder::{Build, PathBuilder, NoAttributes};
 use crate::path::polygon::Polygon;
 use crate::path::private::DebugValidator;
 use crate::path::{
@@ -226,7 +226,6 @@ impl StrokeTessellator {
     /// ```rust
     /// use lyon_tessellation::{StrokeTessellator, StrokeOptions};
     /// use lyon_tessellation::geometry_builder::{simple_builder, VertexBuffers};
-    /// use lyon_tessellation::path::{traits::*, Attributes};
     /// use lyon_tessellation::math::{Point, point};
     ///
     /// let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -239,10 +238,10 @@ impl StrokeTessellator {
     ///
     /// // Build the path directly in the tessellator, skipping an intermediate data
     /// // structure.
-    /// builder.begin(point(0.0, 0.0), Attributes::NONE);
-    /// builder.line_to(point(10.0, 0.0), Attributes::NONE);
-    /// builder.line_to(point(10.0, 10.0), Attributes::NONE);
-    /// builder.line_to(point(0.0, 10.0), Attributes::NONE);
+    /// builder.begin(point(0.0, 0.0));
+    /// builder.line_to(point(10.0, 0.0));
+    /// builder.line_to(point(10.0, 10.0));
+    /// builder.line_to(point(0.0, 10.0));
     /// builder.end(true);
     ///
     /// // Finish the tessellation and get the result.
@@ -254,16 +253,16 @@ impl StrokeTessellator {
         &'l mut self,
         options: &'l StrokeOptions,
         output: &'l mut dyn StrokeGeometryBuilder,
-    ) -> StrokeBuilder<'l> {
+    ) -> NoAttributes<StrokeBuilder<'l>> {
         assert!(options.variable_line_width.is_none()); // TODO
 
         self.builder_attrib_store.reset(0);
         self.attrib_buffer.clear();
-        StrokeBuilder {
+        NoAttributes::wrap(StrokeBuilder {
             builder: StrokeBuilderImpl::new(options, &mut self.attrib_buffer, output),
             attrib_store: &mut self.builder_attrib_store,
             validator: DebugValidator::new(),
-        }
+        })
     }
 
     /// Tessellate directly from a sequence of `PathBuilder` commands, without
@@ -311,7 +310,7 @@ impl StrokeTessellator {
         assert!(options.variable_line_width.is_none());
 
         let mut builder = self.builder(options, output);
-        builder.add_rectangle(rect, Winding::Positive, Attributes::NONE);
+        builder.add_rectangle(rect, Winding::Positive);
 
         builder.build()
     }
@@ -325,7 +324,7 @@ impl StrokeTessellator {
         output: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
         let mut builder = self.builder(options, output);
-        builder.add_circle(center, radius, Winding::Positive, Attributes::NONE);
+        builder.add_circle(center, radius, Winding::Positive);
 
         builder.build()
     }
@@ -341,7 +340,7 @@ impl StrokeTessellator {
         output: &mut dyn StrokeGeometryBuilder,
     ) -> TessellationResult {
         let mut builder = self.builder(options, output);
-        builder.add_ellipse(center, radii, x_rotation, winding, Attributes::NONE);
+        builder.add_ellipse(center, radii, x_rotation, winding);
 
         builder.build()
     }
@@ -402,23 +401,14 @@ impl<'l> StrokeBuilder<'l> {
     #[inline]
     pub fn set_miter_limit(&mut self, limit: f32) {
         self.builder.options.miter_limit = limit;
-    }    
-}
-
-impl<'l> Build for StrokeBuilder<'l> {
-    type PathType = TessellationResult;
-
-    fn build(self) -> TessellationResult {
-        self.builder.build()
     }
-}
 
-impl<'l> PathBuilder for StrokeBuilder<'l> {
-    fn num_attributes(&self) -> usize {
+    #[inline]
+    pub fn num_attributes(&self) -> usize {
         self.attrib_store.num_attributes()
     }
 
-    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.begin();
         let id = self.attrib_store.add(attributes);
         self.builder.begin(to, id);
@@ -426,12 +416,12 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn end(&mut self, close: bool) {
+    pub fn end(&mut self, close: bool) {
         self.validator.end();
         self.builder.end(close, self.attrib_store);
     }
 
-    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         let id = self.attrib_store.add(attributes);
         self.validator.edge();
         self.builder.edge_to(to, id, 1.0, true, self.attrib_store);
@@ -439,7 +429,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.edge();
         let id = self.attrib_store.add(attributes);
         self.builder.quadratic_bezier_to(ctrl, to, id, self.attrib_store);
@@ -447,7 +437,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.validator.edge();
         let id = self.attrib_store.add(attributes);
         self.builder.cubic_bezier_to(ctrl1, ctrl2, to, id, self.attrib_store);
@@ -455,7 +445,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: Attributes) {
+    pub fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: Attributes) {
         // The thin rectangle approximation for works best with miter joins. We
         // only use it with other joins if the rectangle is much smaller than the
         // line width.
@@ -495,6 +485,48 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
                 attributes,
             ),
         };
+    }
+
+    pub fn build(self) -> TessellationResult {
+        self.builder.build()
+    }
+}
+
+impl<'l> Build for StrokeBuilder<'l> {
+    type PathType = TessellationResult;
+
+    fn build(self) -> TessellationResult {
+        self.builder.build()
+    }
+}
+
+impl<'l> PathBuilder for StrokeBuilder<'l> {
+    fn num_attributes(&self) -> usize {
+        self.num_attributes()
+    }
+
+    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+        self.begin(to, attributes)
+    }
+
+    fn end(&mut self, close: bool) {
+        self.end(close)
+    }
+
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+        self.line_to(to, attributes)
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+        self.quadratic_bezier_to(ctrl, to, attributes)
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+        self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
+    }
+
+    fn add_rectangle(&mut self, rect: &Box2D, winding: Winding, attributes: Attributes) {
+        self.add_rectangle(rect, winding, attributes)
     }
 }
 
@@ -1761,9 +1793,9 @@ fn test_empty_path() {
 fn test_empty_caps() {
     let mut builder = Path::builder();
 
-    builder.add_point(point(1.0, 0.0), Attributes::NONE);
-    builder.add_point(point(2.0, 0.0), Attributes::NONE);
-    builder.add_point(point(3.0, 0.0), Attributes::NONE);
+    builder.add_point(point(1.0, 0.0));
+    builder.add_point(point(2.0, 0.0));
+    builder.add_point(point(3.0, 0.0));
 
     let path = builder.build();
 

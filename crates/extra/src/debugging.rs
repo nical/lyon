@@ -1,7 +1,6 @@
-use path::builder::*;
 use path::math::Point;
 use path::PathEvent;
-use path::{Path, PathSlice, Attributes};
+use path::{Path, PathSlice};
 
 pub type Polygons = Vec<Vec<Point>>;
 pub type PolygonsRef<'a> = &'a [Vec<Point>];
@@ -41,9 +40,9 @@ pub fn polygons_to_path(polygons: PolygonsRef) -> Path {
     let mut builder = Path::builder().flattened(0.05);
     for poly in polygons.iter() {
         let mut poly_iter = poly.iter();
-        builder.begin(*poly_iter.next().unwrap(), Attributes::NONE);
+        builder.begin(*poly_iter.next().unwrap());
         for v in poly_iter {
-            builder.line_to(*v, Attributes::NONE);
+            builder.line_to(*v);
         }
         builder.close();
     }

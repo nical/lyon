@@ -82,10 +82,12 @@ pub struct PathSlice<'l> {
     pub(crate) num_attributes: usize,
 }
 
+pub type Builder = NoAttributes<BuilderImpl>;
+
 impl Path {
     /// Creates a [Builder](struct.Builder.html) to build a path.
     pub fn builder() -> Builder {
-        Builder::new()
+        NoAttributes::wrap(BuilderImpl::new())
     }
 
     /// Creates a [BuilderWithAttributes](struct.BuilderWithAttributes.html) to build a path
@@ -96,8 +98,8 @@ impl Path {
 
     /// Creates an [WithSvg](../builder/struct.WithSvg.html) to build a path
     /// with a rich set of commands.
-    pub fn svg_builder() -> WithSvg<Builder> {
-        WithSvg::new(Self::builder())
+    pub fn svg_builder() -> WithSvg<BuilderImpl> {
+        WithSvg::new(BuilderImpl::new())
     }
 
     /// Creates an Empty `Path`.
@@ -391,23 +393,20 @@ impl<'l> AttributeStore for PathSlice<'l> {
     }
 }
 
+// TODO: measure the overhead of building no attributes and
+// see if BuilderImpl and BuilderWithAttributes can be merged.
+
 /// The default builder for `Path`.
 #[derive(Clone)]
-pub struct Builder {
+pub struct BuilderImpl {
     pub(crate) points: Vec<Point>,
     pub(crate) verbs: Vec<Verb>,
     validator: DebugValidator,
 }
 
-impl Default for Builder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Builder {
+impl BuilderImpl {
     pub fn new() -> Self {
-        Builder {
+        BuilderImpl {
             points: Vec::new(),
             verbs: Vec::new(),
             validator: DebugValidator::new(),
@@ -415,7 +414,7 @@ impl Builder {
     }
 
     pub fn with_capacity(points: usize, edges: usize) -> Self {
-        Builder {
+        BuilderImpl {
             points: Vec::with_capacity(points),
             verbs: Vec::with_capacity(edges),
             validator: DebugValidator::new(),
@@ -428,7 +427,22 @@ impl Builder {
     }
 
     #[inline]
-    pub fn begin(&mut self, at: Point) -> EndpointId {
+    pub fn extend_from_paths(&mut self, paths: &[PathSlice]) {
+        concatenate_paths(&mut self.points, &mut self.verbs, paths, 0);
+    }
+}
+
+impl NoAttributes<BuilderImpl> {
+    #[inline]
+    pub fn extend_from_paths(&mut self, paths: &[PathSlice]) {
+        concatenate_paths(&mut self.inner.points, &mut self.inner.verbs, paths, 0);
+    }
+}
+
+impl PathBuilder for BuilderImpl {
+    fn num_attributes(&self) -> usize { 0 }
+
+    fn begin(&mut self, at: Point, _attributes: Attributes) -> EndpointId {
         self.validator.begin();
         nan_check(at);
 
@@ -439,20 +453,13 @@ impl Builder {
         id
     }
 
-    #[inline]
-    pub fn end(&mut self, close: bool) {
+    fn end(&mut self, close: bool) {
         self.validator.end();
 
         self.verbs.push(if close { Verb::Close } else { Verb::End });
     }
 
-    #[inline]
-    pub fn close(&mut self) {
-        self.end(true);
-    }
-
-    #[inline]
-    pub fn line_to(&mut self, to: Point) -> EndpointId {
+    fn line_to(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
         self.validator.edge();
         nan_check(to);
 
@@ -463,8 +470,7 @@ impl Builder {
         id
     }
 
-    #[inline]
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point) -> EndpointId {
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
         self.validator.edge();
         nan_check(ctrl);
         nan_check(to);
@@ -477,8 +483,7 @@ impl Builder {
         id
     }
 
-    #[inline]
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
         self.validator.edge();
         nan_check(ctrl1);
         nan_check(ctrl2);
@@ -493,8 +498,17 @@ impl Builder {
         id
     }
 
-    #[inline]
-    pub fn build(self) -> Path {
+    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        self.points.reserve(endpoints + ctrl_points);
+        self.verbs.reserve(endpoints);
+    }
+}
+
+
+impl Build for BuilderImpl {
+    type PathType = Path;
+
+    fn build(self) -> Path {
         self.validator.build();
         Path {
             points: self.points.into_boxed_slice(),
@@ -502,77 +516,11 @@ impl Builder {
             num_attributes: 0,
         }
     }
-
-    pub fn path_event(&mut self, event: PathEvent) {
-        match event {
-            PathEvent::Begin { at } => {
-                self.begin(at);
-            }
-            PathEvent::Line { to, .. } => {
-                self.line_to(to);
-            }
-            PathEvent::Quadratic { ctrl, to, .. } => {
-                self.quadratic_bezier_to(ctrl, to);
-            }
-            PathEvent::Cubic {
-                ctrl1, ctrl2, to, ..
-            } => {
-                self.cubic_bezier_to(ctrl1, ctrl2, to);
-            }
-            PathEvent::End { close: true, .. } => {
-                self.end(true);
-            }
-            PathEvent::End { close: false, .. } => {
-                self.end(false);
-            }
-        }
-    }
-
-    pub fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
-        self.points.reserve(endpoints + ctrl_points);
-        self.verbs.reserve(endpoints);
-    }
-
-    #[inline]
-    pub fn concatenate(&mut self, paths: &[PathSlice]) {
-        concatenate_paths(&mut self.points, &mut self.verbs, paths, 0);
-    }
 }
 
-impl PathBuilder for Builder {
-    fn num_attributes(&self) -> usize { 0 }
-
-    fn begin(&mut self, at: Point, _attributes: Attributes) -> EndpointId {
-        self.begin(at)
-    }
-
-    fn end(&mut self, close: bool) {
-        self.end(close);
-    }
-
-    fn line_to(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
-        self.line_to(to)
-    }
-
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
-        self.quadratic_bezier_to(ctrl, to)
-    }
-
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
-        self.cubic_bezier_to(ctrl1, ctrl2, to)
-    }
-
-    fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
-        self.reserve(endpoints, ctrl_points);
-    }
-}
-
-
-impl Build for Builder {
-    type PathType = Path;
-
-    fn build(self) -> Path {
-        self.build()
+impl Default for BuilderImpl {
+    fn default() -> Self {
+        BuilderImpl::new()
     }
 }
 
@@ -582,90 +530,20 @@ impl Build for Builder {
 /// All endpoints must have the same number of custom attributes,
 #[derive(Clone)]
 pub struct BuilderWithAttributes {
-    pub(crate) builder: Builder,
+    pub(crate) builder: BuilderImpl,
     pub(crate) num_attributes: usize,
 }
 
 impl BuilderWithAttributes {
     pub fn new(num_attributes: usize) -> Self {
         BuilderWithAttributes {
-            builder: Builder::new(),
+            builder: BuilderImpl::new(),
             num_attributes,
         }
     }
 
-    pub fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
-        let attr = self.num_attributes / 2 + self.num_attributes % 2;
-        let n_points = endpoints * (1 + attr) + ctrl_points;
-        self.builder.points.reserve(n_points);
-        self.builder.verbs.reserve(endpoints);
-    }
-
     #[inline]
-    pub fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
-        let id = self.builder.begin(at);
-        self.push_attributes(attributes);
-
-        id
-    }
-
-    #[inline]
-    pub fn end(&mut self, close: bool) {
-        self.builder.end(close);
-    }
-
-    #[inline]
-    pub fn close(&mut self) {
-        self.builder.end(true);
-    }
-
-    #[inline]
-    pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
-        let id = self.builder.line_to(to);
-        self.push_attributes(attributes);
-
-        id
-    }
-
-    #[inline]
-    pub fn quadratic_bezier_to(
-        &mut self,
-        ctrl: Point,
-        to: Point,
-        attributes: Attributes,
-    ) -> EndpointId {
-        let id = self.builder.quadratic_bezier_to(ctrl, to);
-        self.push_attributes(attributes);
-
-        id
-    }
-
-    #[inline]
-    pub fn cubic_bezier_to(
-        &mut self,
-        ctrl1: Point,
-        ctrl2: Point,
-        to: Point,
-        attributes: Attributes,
-    ) -> EndpointId {
-        let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to);
-        self.push_attributes(attributes);
-
-        id
-    }
-
-    #[inline]
-    pub fn build(self) -> Path {
-        self.builder.validator.build();
-        Path {
-            points: self.builder.points.into_boxed_slice(),
-            verbs: self.builder.verbs.into_boxed_slice(),
-            num_attributes: self.num_attributes,
-        }
-    }
-
-    #[inline]
-    pub fn concatenate(&mut self, paths: &[PathSlice]) {
+    pub fn extend_from_paths(&mut self, paths: &[PathSlice]) {
         concatenate_paths(
             &mut self.builder.points,
             &mut self.builder.verbs,
@@ -686,36 +564,110 @@ impl BuilderWithAttributes {
             self.builder.points.push(point(x, 0.0));
         }
     }
+
+    #[inline]
+    pub fn num_attributes(&self) -> usize { self.num_attributes }
+
+    #[inline]
+    pub fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
+        let id = self.builder.begin(at, attributes);
+        self.push_attributes(attributes);
+
+        id
+    }
+
+    #[inline]
+    pub fn end(&mut self, close: bool) {
+        self.builder.end(close);
+    }
+
+    #[inline]
+    pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+        let id = self.builder.line_to(to, attributes);
+        self.push_attributes(attributes);
+
+        id
+    }
+
+    #[inline]
+    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+        let id = self.builder.quadratic_bezier_to(ctrl, to, attributes);
+        self.push_attributes(attributes);
+
+        id
+    }
+
+    #[inline]
+    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+        let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to, attributes);
+        self.push_attributes(attributes);
+
+        id
+    }
+
+    #[inline]
+    pub fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
+        let attr = self.num_attributes / 2 + self.num_attributes % 2;
+        let n_points = endpoints * (1 + attr) + ctrl_points;
+        self.builder.points.reserve(n_points);
+        self.builder.verbs.reserve(endpoints);
+    }
+
+    #[inline]
+    pub fn build(self) -> Path {
+        self.builder.validator.build();
+        Path {
+            points: self.builder.points.into_boxed_slice(),
+            verbs: self.builder.verbs.into_boxed_slice(),
+            num_attributes: self.num_attributes,
+        }
+    }
 }
 
 impl PathBuilder for BuilderWithAttributes {
-    fn num_attributes(&self) -> usize { self.num_attributes }
+    #[inline]
+    fn num_attributes(&self) -> usize {
+        self.num_attributes()
+    }
 
+    #[inline]
     fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         self.begin(at, attributes)
     }
 
+    #[inline]
     fn end(&mut self, close: bool) {
         self.end(close);
     }
 
+    #[inline]
     fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.line_to(to, attributes)
     }
 
+    #[inline]
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to, attributes)
     }
 
+    #[inline]
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
     }
 
+    #[inline]
     fn reserve(&mut self, endpoints: usize, ctrl_points: usize) {
-        self.reserve(endpoints, ctrl_points);
+        self.reserve(endpoints, ctrl_points)
     }
 }
 
+impl Build for BuilderWithAttributes {
+    type PathType = Path;
+
+    fn build(self) -> Path {
+        self.build()
+    }
+}
 
 #[inline]
 fn nan_check(p: Point) {
@@ -1807,7 +1759,7 @@ fn test_path_builder_empty_begin() {
 }
 
 #[test]
-fn test_concatenate() {
+fn test_extend_from_paths() {
     let mut builder = Path::builder();
     builder.begin(point(0.0, 0.0));
     builder.line_to(point(5.0, 0.0));
@@ -1825,7 +1777,7 @@ fn test_concatenate() {
     let path2 = builder.build();
 
     let mut builder = Path::builder();
-    builder.concatenate(&[path1.as_slice(), path2.as_slice()]);
+    builder.extend_from_paths(&[path1.as_slice(), path2.as_slice()]);
     let path = builder.build();
 
     let mut it = path.iter();

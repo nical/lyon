@@ -78,7 +78,7 @@
 //!
 //! ```
 //! use lyon::math::{Box2D, Point, point};
-//! use lyon::path::{builder::*, Winding, Attributes};
+//! use lyon::path::{Winding, builder::BorderRadii};
 //! use lyon::tessellation::{FillTessellator, FillOptions, VertexBuffers};
 //! use lyon::tessellation::geometry_builder::simple_builder;
 //!
@@ -102,7 +102,6 @@
 //!             bottom_right: 25.0,
 //!         },
 //!         Winding::Positive,
-//!         Attributes::NONE,
 //!     );
 //!
 //!     builder.build();
