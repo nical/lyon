@@ -1,7 +1,7 @@
 use path::{
     Attributes,
     math::{Angle, Point, point, vector},
-    path::BuilderWithAttributes,
+    traits::PathBuilder,
     geom::{SvgArc, ArcFlags},
 };
 
@@ -157,8 +157,11 @@ impl PathParser {
         }
     }
 
-    pub fn parse<Iter>(&mut self, options: &ParserOptions, src: &mut Source<Iter>, output: &mut BuilderWithAttributes) -> Result<(), ParseError>
-    where Iter: Iterator<Item = char> {
+    pub fn parse<Iter, Builder>(&mut self, options: &ParserOptions, src: &mut Source<Iter>, output: &mut Builder) -> Result<(), ParseError>
+    where
+        Iter: Iterator<Item = char>,
+        Builder: PathBuilder,
+    {
         self.num_attributes = options.num_attributes;
         self.stop_at = options.stop_at;
         self.need_end = false;
@@ -173,7 +176,7 @@ impl PathParser {
     }
 
 
-    fn parse_path(&mut self, src: &mut Source<impl Iterator<Item=char>>, output: &mut BuilderWithAttributes) -> Result<(), ParseError> {
+    fn parse_path(&mut self, src: &mut Source<impl Iterator<Item=char>>, output: &mut impl PathBuilder) -> Result<(), ParseError> {
         // Per-spec: "If a relative moveto (m) appears as the first element of the path, then it is
         // treated as a pair of absolute coordinates."
         self.current_position = point(0.0, 0.0);
@@ -453,6 +456,9 @@ impl PathParser {
     }
 }
 
+#[cfg(test)]
+use crate::path::{Path, path::BuilderWithAttributes};
+
 #[test]
 fn empty() {
     let options = ParserOptions {
@@ -462,10 +468,10 @@ fn empty() {
 
     let mut parser = PathParser::new();
 
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     parser.parse(&options, &mut Source::new("".chars()), &mut builder).unwrap();
 
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     parser.parse(&options, &mut Source::new(" ".chars()), &mut builder).unwrap();
 }
 
@@ -477,7 +483,7 @@ fn simple_square() {
         .. ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let mut src = Source::new("M 0 0 L 1 0 L 1 1 L 0 1 Z".chars());
 
     parser.parse(&options, &mut src, &mut builder).unwrap();
@@ -491,7 +497,7 @@ fn simple_attr() {
         .. ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let mut src = Source::new("M 0 0 1.0 L 1 0 2.0 L 1 1 3.0 L 0 1 4.0 Z".chars());
 
     parser.parse(&options, &mut src, &mut builder).unwrap();
@@ -504,7 +510,7 @@ fn implicit_polyline() {
         .. ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let mut src = Source::new("0 0 0 1 1 1.0 2 2 2.0 3 3 3".chars());
 
     parser.parse(&options, &mut src, &mut builder).unwrap();
@@ -519,11 +525,11 @@ fn invalid_cmd() {
     let mut parser = PathParser::new();
     let mut src = Source::new("x 0 0 0".chars());
 
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let result = parser.parse(&options, &mut src, &mut builder).err().unwrap();
     assert_eq!(result, ParseError::Command { command: 'x', line: 0, column: 0 });
 
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let mut src = Source::new("\n M 0 \n0 1 x 1 1 1".chars());
 
     let result = parser.parse(&options, &mut src, &mut builder).err().unwrap();
@@ -540,7 +546,7 @@ fn number_01() {
 
     // Per SVG spec, this is equivalent to "M 0.6 0.5".
     let mut src = Source::new("M 0.6.5".chars());
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
 
     parser.parse(&options, &mut src, &mut builder).unwrap();
     let path = builder.build();
@@ -559,7 +565,7 @@ fn number_scientific_notation() {
         .. ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let mut src = Source::new("M 1e-2 -1E3".chars());
 
     parser.parse(&options, &mut src, &mut builder).unwrap();
@@ -584,7 +590,7 @@ fn bad_numbers() {
         }
     }
 
-    fn builder(num_attributes: usize) -> BuilderWithAttributes { BuilderWithAttributes::new(num_attributes) }
+    fn builder(num_attributes: usize) -> BuilderWithAttributes { Path::builder_with_attributes(num_attributes) }
 
     assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 a".chars()), &mut builder(0))));
     assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 --1".chars()), &mut builder(0))));
@@ -605,7 +611,7 @@ fn stop() {
     };
     let mut parser = PathParser::new();
 
-    fn builder(num_attributes: usize) -> BuilderWithAttributes { BuilderWithAttributes::new(num_attributes) }
+    fn builder(num_attributes: usize) -> BuilderWithAttributes { Path::builder_with_attributes(num_attributes) }
 
     parser.parse(&options, &mut Source::new("M 0 0 | xxxxxx".chars()), &mut builder(0)).unwrap();
     parser.parse(&options, &mut Source::new("M 0 0| xxxxxx".chars()), &mut builder(0)).unwrap();
@@ -622,7 +628,7 @@ fn need_start() {
     };
     let mut parser = PathParser::new();
 
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     let res = parser.parse(&options, &mut Source::new("M 0 0 Z L 1 1 2 2 L 3 3 Z M 4 4".chars()), &mut builder);
     let p1 = builder.build();
     match res {
@@ -630,7 +636,7 @@ fn need_start() {
         _ => { panic!("{:?}", res); }
     }
 
-    let mut builder = BuilderWithAttributes::new(options.num_attributes);
+    let mut builder = Path::builder_with_attributes(options.num_attributes);
     parser.parse(&options, &mut Source::new("M 0 0 Z".chars()), &mut builder).unwrap();
     let p2 = builder.build();
 

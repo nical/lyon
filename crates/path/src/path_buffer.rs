@@ -190,11 +190,11 @@ pub struct Builder<'l> {
 impl<'l> Builder<'l> {
     #[inline]
     fn new(buffer: &'l mut PathBuffer) -> Self {
-        let mut builder = path::Builder::new();
-        std::mem::swap(&mut buffer.points, &mut builder.points);
-        std::mem::swap(&mut buffer.verbs, &mut builder.verbs);
-        let points_start = builder.points.len() as u32;
-        let verbs_start = builder.verbs.len() as u32;
+        let mut builder = path::Path::builder();
+        std::mem::swap(&mut buffer.points, &mut builder.inner_mut().points);
+        std::mem::swap(&mut buffer.verbs, &mut builder.inner_mut().verbs);
+        let points_start = builder.inner().points.len() as u32;
+        let verbs_start = builder.inner().verbs.len() as u32;
         Builder {
             buffer,
             builder,
@@ -205,12 +205,12 @@ impl<'l> Builder<'l> {
 
     #[inline]
     pub fn with_attributes(self, num_attributes: usize) -> BuilderWithAttributes<'l> {
-        assert_eq!(self.builder.verbs.len(), self.verbs_start as usize);
+        assert_eq!(self.builder.inner().verbs.len(), self.verbs_start as usize);
 
         BuilderWithAttributes {
             buffer: self.buffer,
             builder: path::BuilderWithAttributes {
-                builder: self.builder,
+                builder: self.builder.into_inner(),
                 num_attributes,
             },
             points_start: self.points_start,
@@ -220,10 +220,10 @@ impl<'l> Builder<'l> {
 
     #[inline]
     pub fn build(mut self) -> usize {
-        let points_end = self.builder.points.len() as u32;
-        let verbs_end = self.builder.verbs.len() as u32;
-        std::mem::swap(&mut self.builder.points, &mut self.buffer.points);
-        std::mem::swap(&mut self.builder.verbs, &mut self.buffer.verbs);
+        let points_end = self.builder.inner().points.len() as u32;
+        let verbs_end = self.builder.inner().verbs.len() as u32;
+        std::mem::swap(&mut self.builder.inner_mut().points, &mut self.buffer.points);
+        std::mem::swap(&mut self.builder.inner_mut().verbs, &mut self.buffer.verbs);
 
         let index = self.buffer.paths.len();
         self.buffer.paths.push(PathDescriptor {
@@ -279,9 +279,7 @@ impl<'l> Builder<'l> {
 
 impl<'l> PathBuilder for Builder<'l> {
     #[inline]
-    fn num_attributes(&self) -> usize {
-        self.builder.num_attributes()
-    }
+    fn num_attributes(&self) -> usize { 0 }
 
     #[inline]
     fn begin(&mut self, at: Point, _attributes: Attributes) -> EndpointId {
@@ -332,7 +330,7 @@ pub struct BuilderWithAttributes<'l> {
 impl<'l> BuilderWithAttributes<'l> {
     #[inline]
     pub fn new(buffer: &'l mut PathBuffer, num_attributes: usize) -> Self {
-        let mut builder = path::Builder::new();
+        let mut builder = path::Path::builder().into_inner();
         std::mem::swap(&mut buffer.points, &mut builder.points);
         std::mem::swap(&mut buffer.verbs, &mut builder.verbs);
         let points_start = builder.points.len() as u32;
@@ -461,7 +459,6 @@ impl<'l> Build for BuilderWithAttributes<'l> {
         self.build()
     }
 }
-
 
 /// Iterator over the paths in a [`PathBufferSlice`].
 #[derive(Clone)]

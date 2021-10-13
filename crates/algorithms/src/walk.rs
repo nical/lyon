@@ -53,8 +53,8 @@ where
 {
     let mut walker = PathWalker::new(start, pattern);
     for evt in path {
-        walker.path_event(evt, Attributes::NONE);
-        if walker.done {
+        walker.path_event(evt);
+        if walker.inner().done {
             return;
         }
     }
@@ -115,10 +115,11 @@ pub struct PathWalker<'l> {
 }
 
 impl<'l> PathWalker<'l> {
-    pub fn new(start: f32, pattern: &'l mut dyn Pattern) -> PathWalker<'l> {
-        Self::with_attributes(0, start, pattern)
+    pub fn new(start: f32, pattern: &'l mut dyn Pattern) -> NoAttributes<Self> {
+        NoAttributes::wrap(Self::with_attributes(0, start, pattern))
     }
-    pub fn with_attributes(num_attributes: usize, start: f32, pattern: &'l mut dyn Pattern) -> PathWalker<'l> {
+
+    pub fn with_attributes(num_attributes: usize, start: f32, pattern: &'l mut dyn Pattern) -> Self {
         let start = f32::max(start, 0.0);
         PathWalker {
             prev: point(0.0, 0.0),
@@ -179,12 +180,10 @@ impl<'l> PathWalker<'l> {
         self.prev = to;
         self.leftover = distance;
     }
-}
 
-impl<'l> PathBuilder for PathWalker<'l> {
-    fn num_attributes(&self) -> usize { self.num_attributes }
+    pub fn num_attributes(&self) -> usize { self.num_attributes }
 
-    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.need_moveto = false;
         self.first = to;
         self.prev = to;
@@ -201,7 +200,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
         EndpointId::INVALID
     }
 
-    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         debug_assert!(!self.need_moveto);
 
         self.edge(to, 1.0, attributes);
@@ -211,7 +210,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
         EndpointId::INVALID
     }
 
-    fn end(&mut self, close: bool) {
+    pub fn end(&mut self, close: bool) {
         if close {
             let first = self.first;
             let attributes = std::mem::take(&mut self.first_attributes);
@@ -221,7 +220,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
         }
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
         let curve = QuadraticBezierSegment {
             from: self.prev,
             ctrl,
@@ -236,7 +235,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
         EndpointId::INVALID
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
         let curve = CubicBezierSegment {
             from: self.prev,
             ctrl1,
@@ -253,6 +252,37 @@ impl<'l> PathBuilder for PathWalker<'l> {
         EndpointId::INVALID
     }
 }
+
+impl<'l> PathBuilder for PathWalker<'l> {
+    fn num_attributes(&self) -> usize { self.num_attributes }
+
+    fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+        self.begin(to, attributes)
+    }
+
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+        self.line_to(to, attributes)
+    }
+
+    fn end(&mut self, close: bool) {
+        self.end(close)
+    }
+
+    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+        self.quadratic_bezier_to(ctrl, to, attributes)
+    }
+
+    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+        self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
+    }
+}
+
+impl<'l> Build for PathWalker<'l> {
+    type PathType = ();
+
+    fn build(self) -> () {}
+}
+
 
 /// A simple pattern that invokes a callback at regular intervals.
 ///
@@ -347,10 +377,10 @@ fn walk_square() {
 
     let mut walker = PathWalker::new(0.0, &mut pattern);
 
-    walker.begin(point(0.0, 0.0), Attributes::NONE);
-    walker.line_to(point(6.0, 0.0), Attributes::NONE);
-    walker.line_to(point(6.0, 6.0), Attributes::NONE);
-    walker.line_to(point(0.0, 6.0), Attributes::NONE);
+    walker.begin(point(0.0, 0.0));
+    walker.line_to(point(6.0, 0.0));
+    walker.line_to(point(6.0, 6.0));
+    walker.line_to(point(0.0, 6.0));
     walker.close();
 }
 
@@ -380,10 +410,10 @@ fn walk_with_leftover() {
 
     let mut walker = PathWalker::new(1.0, &mut pattern);
 
-    walker.begin(point(0.0, 0.0), Attributes::NONE);
-    walker.line_to(point(5.0, 0.0), Attributes::NONE);
-    walker.line_to(point(5.0, 5.0), Attributes::NONE);
-    walker.line_to(point(0.0, 5.0), Attributes::NONE);
+    walker.begin(point(0.0, 0.0));
+    walker.line_to(point(5.0, 0.0));
+    walker.line_to(point(5.0, 5.0));
+    walker.line_to(point(0.0, 5.0));
     walker.close();
 }
 
@@ -394,8 +424,8 @@ fn walk_starting_after() {
     let cb = &mut |_event: WalkerEvent| -> Option<f32> { panic!() };
     let mut walker = PathWalker::new(10.0, cb);
 
-    walker.begin(point(0.0, 0.0), Attributes::NONE);
-    walker.line_to(point(5.0, 0.0), Attributes::NONE);
+    walker.begin(point(0.0, 0.0));
+    walker.line_to(point(5.0, 0.0));
     walker.end(false);
 }
 
@@ -412,8 +442,8 @@ fn walk_abort_early() {
 
     let mut walker = PathWalker::new(1.0, &mut pattern);
 
-    walker.begin(point(0.0, 0.0), Attributes::NONE);
-    walker.line_to(point(100.0, 0.0), Attributes::NONE);
+    walker.begin(point(0.0, 0.0));
+    walker.line_to(point(100.0, 0.0));
 
     assert_eq!(callback_counter, 1);
 }
