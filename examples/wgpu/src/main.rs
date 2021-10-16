@@ -437,7 +437,7 @@ fn main() {
             polygon_mode: wgpu::PolygonMode::Fill,
             front_face: wgpu::FrontFace::Ccw,
             strip_index_format: None,
-            cull_mode: None,
+            cull_mode: Some(wgpu::Face::Back),
             clamp_depth: false,
             conservative: false,
         },
