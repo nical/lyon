@@ -126,8 +126,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             }
             Tessellator::Tess2 => {
                 tess2::FillTessellator::new()
-                    .tessellate(
-                        cmd.path.iter(),
+                    .tessellate_path(
+                        &cmd.path,
                         &options,
                         &mut tess2::geometry_builder::BuffersBuilder::new(&mut geometry, WithId(0)),
                     )
@@ -138,8 +138,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
 
     if let Some(options) = cmd.stroke {
         stroke
-            .tessellate(
-                cmd.path.iter(),
+            .tessellate_path(
+                &cmd.path,
                 &options,
                 &mut BuffersBuilder::new(&mut geometry, WithId(1)),
             )
@@ -764,9 +764,10 @@ impl FillVertexConstructor<GpuVertex> for WithId {
 
 impl StrokeVertexConstructor<GpuVertex> for WithId {
     fn new_vertex(&mut self, vertex: tessellation::StrokeVertex) -> GpuVertex {
+        let p = vertex.position_on_path();
         GpuVertex {
-            position: vertex.position_on_path().to_array(),
-            normal: vertex.normal().to_array(),
+            position: p.to_array(),
+            normal: (vertex.position() - p).to_array(),
             prim_id: self.0 as u32,
         }
     }

@@ -16,7 +16,8 @@ use crate::{
     SimpleAttributeStore, StrokeGeometryBuilder, VertexId, TessellationResult,
 };
 
-use crate::stroke::{StrokeVertex, StrokeVertexData};
+use crate::stroke::{StrokeVertex, StrokeVertexData, circle_flattening_step};
+
 
 use std::f32::consts::PI;
 const EPSILON: f32 = 1e-4;
@@ -824,10 +825,9 @@ fn tessellate_round_join(
     }
 
     // Compute the required number of subdivisions,
-    let arc_len = radius.abs() * diff.radians.abs();
     let step = circle_flattening_step(radius, options.tolerance);
-    let num_segments = (arc_len / step).ceil();
-    let num_subdivisions = num_segments.log2() as u32 * 2;
+    let num_segments = (diff.radians.abs() / step).ceil();
+    let num_subdivisions = num_segments.log2().round() as u32;
 
     vertex.side = if side == SIDE_POSITIVE { Side::Positive } else { Side::Negative };
 
@@ -1100,11 +1100,6 @@ fn side_sign(side: usize) -> f32 {
     if side == SIDE_NEGATIVE { -1.0 } else { 1.0 }
 }
 
-fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
-    // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
-    tolerance = f32::min(tolerance, radius);
-    2.0 * f32::sqrt(2.0 * tolerance * radius - tolerance * tolerance)
-}
 
 // A fall-back that avoids off artifacts with zero-area rectangles as
 // well as overlapping triangles if the rectangle is much smaller than the
