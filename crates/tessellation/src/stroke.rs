@@ -1173,17 +1173,6 @@ impl<'l> StrokeBuilderImpl<'l> {
         let start_normal = vector(-prev_tangent.y, prev_tangent.x) * sign;
         let end_normal = vector(-next_tangent.y, next_tangent.x) * sign;
 
-        // We need to pick the final angle such that it's
-        let mut start_angle = start_normal.angle_from_x_axis();
-        let diff = start_angle.angle_to(end_normal.angle_from_x_axis());
-        let mut end_angle = start_angle + diff;
-
-        // Compute the required number of subdivisions,
-        let arc_len = radius.abs() * diff.radians.abs();
-        let step = circle_flattening_step(radius, self.options.tolerance);
-        let num_segments = (arc_len / step).ceil();
-        let num_subdivisions = num_segments.log2() as u32 * 2;
-
         // Create start and end front vertices.
         self.vertex.side = front_side;
 
@@ -1197,13 +1186,22 @@ impl<'l> StrokeBuilderImpl<'l> {
             .output
             .add_stroke_vertex(StrokeVertex(&mut self.vertex, attributes))?;
 
+        let mut start_angle = start_normal.angle_from_x_axis();
+        let diff = start_angle.angle_to(end_normal.angle_from_x_axis());
+        let mut end_angle = start_angle + diff;
+
         let mut v0 = front_start_vertex;
         let mut v1 = front_end_vertex;
 
-        if front_side.is_negative() {
+        if front_side.is_positive() {
             std::mem::swap(&mut v0, &mut v1);
             std::mem::swap(&mut start_angle, &mut end_angle);
         }
+
+        // Compute the required number of subdivisions,
+        let step = circle_flattening_step(radius, self.options.tolerance);
+        let num_segments = (diff.radians.abs() / step).ceil();
+        let num_subdivisions = num_segments.log2().round() as u32;
 
         // Add the triangle joining the back vertex and the start/end front vertices.
         if let Some(back_vertex) = back_vertex {
@@ -1336,10 +1334,9 @@ pub(crate) fn tessellate_round_cap(
     let end_angle = mid_angle + diff;
 
     // Compute the required number of subdivisions on each side,
-    let arc_len = radius.abs() * diff.radians.abs();
     let step = circle_flattening_step(radius, options.tolerance);
-    let num_segments = (arc_len / step).ceil();
-    let num_subdivisions = num_segments.log2() as u32 * 2;
+    let num_segments = (diff.radians.abs() / step).ceil();
+    let num_subdivisions = num_segments.log2().round() as u32;
 
     vertex.position_on_path = center;
     vertex.half_width = radius;
@@ -1635,10 +1632,10 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
     }
 }
 
-fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
+pub(crate) fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
     // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
     tolerance = f32::min(tolerance, radius);
-    2.0 * f32::sqrt(2.0 * tolerance * radius - tolerance * tolerance)
+    2.0 * ((radius - tolerance) / radius).acos()
 }
 
 #[cfg(test)]
