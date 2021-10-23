@@ -1193,7 +1193,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         let mut v0 = front_start_vertex;
         let mut v1 = front_end_vertex;
 
-        if front_side.is_positive() {
+        if front_side.is_negative() {
             std::mem::swap(&mut v0, &mut v1);
             std::mem::swap(&mut start_angle, &mut end_angle);
         }
@@ -1717,7 +1717,7 @@ fn test_square() {
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(1.0, -1.0));
     builder.line_to(point(-1.0, -1.0));
-    builder.end(true);
+    builder.end(false);
 
     let path1 = builder.build();
 
@@ -1727,55 +1727,65 @@ fn test_square() {
     builder.line_to(point(1.0, -1.0));
     builder.line_to(point(1.0, 1.0));
     builder.line_to(point(-1.0, 1.0));
-    builder.end(true);
+    builder.end(false);
 
     let path2 = builder.build();
 
+    let options = StrokeOptions::default();
+
     test_path(
         path1.as_slice(),
-        &StrokeOptions::default().with_line_join(LineJoin::Miter),
+        &options.with_line_join(LineJoin::Miter)
+            .with_line_cap(LineCap::Butt),
+        Some(6),
+    );
+    test_path(
+        path2.as_slice(),
+        &options.with_line_join(LineJoin::Miter)
+            .with_line_cap(LineCap::Butt),
+        Some(6),
+    );
+
+    test_path(
+        path1.as_slice(),
+        &options.with_line_join(LineJoin::Bevel)
+            .with_line_cap(LineCap::Square),
         Some(8),
     );
     test_path(
         path2.as_slice(),
-        &StrokeOptions::default().with_line_join(LineJoin::Miter),
+        &options.with_line_join(LineJoin::Bevel)
+            .with_line_cap(LineCap::Square),
         Some(8),
     );
 
     test_path(
         path1.as_slice(),
-        &StrokeOptions::default().with_line_join(LineJoin::Bevel),
-        Some(12),
-    );
-    test_path(
-        path2.as_slice(),
-        &StrokeOptions::default().with_line_join(LineJoin::Bevel),
-        Some(12),
-    );
-
-    test_path(
-        path1.as_slice(),
-        &StrokeOptions::default()
-            .with_line_join(LineJoin::MiterClip)
-            .with_miter_limit(1.0),
-        Some(12),
-    );
-    test_path(
-        path2.as_slice(),
-        &StrokeOptions::default()
-            .with_line_join(LineJoin::MiterClip)
-            .with_miter_limit(1.0),
-        Some(12),
-    );
-
-    test_path(
-        path1.as_slice(),
-        &StrokeOptions::tolerance(0.001).with_line_join(LineJoin::Round),
+        &options.with_line_join(LineJoin::MiterClip)
+            .with_miter_limit(1.0)
+            .with_line_cap(LineCap::Round),
         None,
     );
     test_path(
         path2.as_slice(),
-        &StrokeOptions::tolerance(0.001).with_line_join(LineJoin::Round),
+        &options.with_line_join(LineJoin::MiterClip)
+            .with_miter_limit(1.0)
+            .with_line_cap(LineCap::Round),
+        None,
+    );
+
+    test_path(
+        path1.as_slice(),
+        &options.with_tolerance(0.001)
+            .with_line_join(LineJoin::Round)
+            .with_line_cap(LineCap::Round),
+        None,
+    );
+    test_path(
+        path2.as_slice(),
+        &options.with_tolerance(0.001)
+            .with_line_join(LineJoin::Round)
+            .with_line_cap(LineCap::Round),
         None,
     );
 }
