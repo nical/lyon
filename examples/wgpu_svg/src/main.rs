@@ -68,11 +68,7 @@ fn main() {
         )
         .get_matches();
 
-    let msaa_samples = if app.is_present("MSAA") {
-        4
-    } else {
-        1
-    };
+    let msaa_samples = if app.is_present("MSAA") { 4 } else { 1 };
 
     // Parse and tessellate the geometry
 
@@ -252,14 +248,18 @@ fn main() {
     let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Prims ubo"),
         size: prim_buffer_byte_size,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        usage: wgpu::BufferUsages::VERTEX
+            | wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
     let transforms_ubo = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Transforms ubo"),
         size: transform_buffer_byte_size,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        usage: wgpu::BufferUsages::VERTEX
+            | wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
@@ -294,7 +294,7 @@ fn main() {
                 binding: 1,
                 visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(prim_buffer_byte_size),
                 },
@@ -304,7 +304,7 @@ fn main() {
                 binding: 2,
                 visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(transform_buffer_byte_size),
                 },
@@ -364,13 +364,11 @@ fn main() {
         fragment: Some(wgpu::FragmentState {
             module: &fs_module,
             entry_point: "main",
-            targets: &[
-                wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8Unorm,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                },
-            ],
+            targets: &[wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            }],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -449,7 +447,9 @@ fn main() {
             }
         };
 
-        let frame_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let frame_view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Encoder"),
@@ -569,8 +569,8 @@ impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
 }
 
 // These mush match the uniform buffer sizes in the vertex shader.
-pub static MAX_PRIMITIVES: usize = 512;
-pub static MAX_TRANSFORMS: usize = 512;
+pub static MAX_PRIMITIVES: usize = 16384;
+pub static MAX_TRANSFORMS: usize = 16384;
 
 // Default scene has all values set to zero
 #[derive(Copy, Clone, Debug)]

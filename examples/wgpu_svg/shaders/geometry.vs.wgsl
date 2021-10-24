@@ -18,17 +18,17 @@ struct Transform {
 
 [[block]]
 struct Primitives {
-    primitives: [[stride(16)]] array<Primitive, 512>;
+    primitives: [[stride(16)]] array<Primitive,16384>;
 };
 
 [[block]]
 struct Transforms {
-    transforms: [[stride(32)]] array<Transform, 512>;
+    transforms: [[stride(32)]] array<Transform,16384>;
 };
 
 [[group(0), binding(0)]] var<uniform> global: Globals;
-[[group(0), binding(1)]] var<uniform> u_primitives: Primitives;
-[[group(0), binding(2)]] var<uniform> u_transforms: Transforms;
+[[group(0), binding(1)]] var<storage, read> u_primitives: Primitives;
+[[group(0), binding(2)]] var<storage, read> u_transforms: Transforms;
 
 struct VertexOutput {
     [[location(0)]] v_color: vec4<f32>;
