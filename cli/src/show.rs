@@ -141,7 +141,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             .tessellate_path(
                 &cmd.path,
                 &options,
-                &mut BuffersBuilder::new(&mut geometry, WithId(1)),
+                &mut BuffersBuilder::new(&mut geometry, WithId(stroke_prim_id)),
             )
             .unwrap();
     }
