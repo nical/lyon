@@ -241,12 +241,13 @@ fn main() {
         usage: wgpu::BufferUsages::INDEX,
     });
 
-    let prim_buffer_byte_size = (MAX_PRIMITIVES * std::mem::size_of::<GpuPrimitive>()) as u64;
-    let transform_buffer_byte_size = (MAX_TRANSFORMS * std::mem::size_of::<GpuTransform>()) as u64;
+    let prim_buffer_byte_size = (primitives.len() * std::mem::size_of::<GpuPrimitive>()) as u64;
+    let transform_buffer_byte_size =
+        (transforms.len() * std::mem::size_of::<GpuTransform>()) as u64;
     let globals_buffer_byte_size = std::mem::size_of::<GpuGlobals>() as u64;
 
-    let prims_ubo = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Prims ubo"),
+    let prims_ssbo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Prims ssbo"),
         size: prim_buffer_byte_size,
         usage: wgpu::BufferUsages::VERTEX
             | wgpu::BufferUsages::STORAGE
@@ -254,8 +255,8 @@ fn main() {
         mapped_at_creation: false,
     });
 
-    let transforms_ubo = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Transforms ubo"),
+    let transforms_ssbo = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Transforms ssbo"),
         size: transform_buffer_byte_size,
         usage: wgpu::BufferUsages::VERTEX
             | wgpu::BufferUsages::STORAGE
@@ -323,11 +324,11 @@ fn main() {
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Buffer(prims_ubo.as_entire_buffer_binding()),
+                resource: wgpu::BindingResource::Buffer(prims_ssbo.as_entire_buffer_binding()),
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::Buffer(transforms_ubo.as_entire_buffer_binding()),
+                resource: wgpu::BindingResource::Buffer(transforms_ssbo.as_entire_buffer_binding()),
             },
         ],
     });
@@ -394,9 +395,9 @@ fn main() {
     render_pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::LineList;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
-    queue.write_buffer(&transforms_ubo, 0, bytemuck::cast_slice(&transforms));
+    queue.write_buffer(&transforms_ssbo, 0, bytemuck::cast_slice(&transforms));
 
-    queue.write_buffer(&prims_ubo, 0, bytemuck::cast_slice(&primitives));
+    queue.write_buffer(&prims_ssbo, 0, bytemuck::cast_slice(&primitives));
 
     window.request_redraw();
 
