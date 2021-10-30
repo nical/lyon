@@ -564,10 +564,6 @@ impl StrokeVertexConstructor<GpuVertex> for VertexCtor {
     }
 }
 
-// These mush match the uniform buffer sizes in the vertex shader.
-pub static MAX_PRIMITIVES: usize = 16384;
-pub static MAX_TRANSFORMS: usize = 16384;
-
 // Default scene has all values set to zero
 #[derive(Copy, Clone, Debug)]
 pub struct SceneGlobals {
