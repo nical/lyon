@@ -4,6 +4,7 @@ use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
 use usvg::prelude::*;
+use wgpu::include_wgsl;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -270,14 +271,8 @@ fn main() {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let vs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-        label: Some("Geometry vs"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/geometry.vs.wgsl").into()),
-    });
-    let fs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-        label: Some("Geometry fs"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/geometry.fs.wgsl").into()),
-    });
+    let vs_module = device.create_shader_module(&include_wgsl!("../shaders/geometry.vs.wgsl"));
+    let fs_module = device.create_shader_module(&include_wgsl!("../shaders/geometry.fs.wgsl"));
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
         entries: &[
