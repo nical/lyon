@@ -61,7 +61,6 @@ pub trait Segment: Copy + Sized {
     fn approximate_length(&self, tolerance: Self::Scalar) -> Self::Scalar;
 }
 
-// TODO: replace with BoundingBox trait.
 pub trait BoundingBox {
     type Scalar: Scalar;
 

@@ -2084,7 +2084,6 @@ impl FillTessellator {
 }
 
 pub(crate) fn points_are_equal(a: Point, b: Point) -> bool {
-    // TODO: Use the tolerance threshold?
     a == b
 }
 
