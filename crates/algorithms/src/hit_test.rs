@@ -114,8 +114,12 @@ fn test_segment(
     if f32::min(y0, y1) > point.y
         || f32::max(y0, y1) < point.y
         || f32::min(segment.from.x, segment.to.x) > point.x
-        || y0 == y1
     {
+        *prev_winding = None;
+        return;
+    }
+
+    if y0 == y1 {
         return;
     }
 
@@ -167,6 +171,8 @@ fn test_segment(
         }
 
         *prev_winding = Some(w);
+    } else {
+        *prev_winding = None;
     }
 }
 
@@ -277,4 +283,44 @@ fn hit_test_point_aligned() {
         FillRule::NonZero,
         0.1
     ));
+}
+
+#[test]
+fn hit_test_double_square() {
+    use crate::math::point;
+    use crate::path::Path;
+
+    let mut builder = Path::builder();
+    builder.begin(point(0.0, 0.0));
+    builder.line_to(point(1.0, 0.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.line_to(point(0.0, 0.0));
+    builder.line_to(point(1.0, 0.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.end(true);
+    let path = builder.build();
+
+    assert_eq!(path_winding_number_at_position(&point(0.5, 0.5), &path, 0.1), -2);
+}
+
+#[test]
+fn hit_test_double_count() {
+    use crate::math::point;
+    use crate::path::Path;
+
+    let mut builder = Path::builder();
+    builder.begin(point(0.0, 0.0));
+    builder.line_to(point(0.0, 1.0));
+    builder.line_to(point(1.0, 1.0));
+    builder.line_to(point(1.0, 2.0));
+    builder.line_to(point(1.0, 3.0));
+    builder.line_to(point(3.0, 3.0));
+    builder.line_to(point(3.0, 0.0));
+    builder.end(true);
+    let path = builder.build();
+
+    assert_eq!(path_winding_number_at_position(&point(2.0, 1.0), &path, 0.1), 1);
+    assert_eq!(path_winding_number_at_position(&point(2.0, 2.0), &path, 0.1), 1);
 }
