@@ -1156,7 +1156,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_algorithms"
-version = "0.17.6"
+version = "0.17.7"
 dependencies = [
  "lyon_path",
  "serde",
