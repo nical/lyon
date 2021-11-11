@@ -121,8 +121,6 @@ impl std::fmt::Display for BorderRadii {
     }
 }
 
-// TODO: implement PathBuilder for NoAttrbutes<>
-
 /// A convenience wrapper for `PathBuilder` without custom attributes.
 ///
 /// See the [PathBuilder] trait.
@@ -512,7 +510,6 @@ pub trait PathBuilder {
         }
     }
 
-    // TODO add equivalent with attributes
     /// Adds events from an iterator.
     fn extend<Evts>(&mut self, events: Evts, attributes: Attributes)
     where

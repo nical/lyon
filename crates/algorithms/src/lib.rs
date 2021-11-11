@@ -6,8 +6,6 @@
 //!
 //! This crate is reexported in [lyon](https://docs.rs/lyon/).
 
-// TODO doc!
-
 pub extern crate lyon_path as path;
 
 pub mod aabb;
