@@ -441,6 +441,7 @@ impl<'l> AttributeStore for AttributeSlice<'l> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct AttributeIndex(pub u8);
 
 #[derive(Copy, Clone, Debug, PartialEq)]
