@@ -21,4 +21,3 @@ serialization = ["serde", "lyon_path/serialization"]
 [dependencies]
 lyon_path = { version = "0.17.1", path = "../path" }
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
-sid = "0.6"
