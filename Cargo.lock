@@ -975,7 +975,6 @@ version = "0.17.6"
 dependencies = [
  "lyon_path",
  "serde",
- "sid",
 ]
 
 [[package]]
@@ -999,7 +998,6 @@ name = "lyon_extra"
 version = "0.17.1"
 dependencies = [
  "lyon_path",
- "serde",
 ]
 
 [[package]]
@@ -1695,15 +1693,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "sid"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd5ac56c121948b4879bba9e519852c211bcdd8f014efff766441deff0b91bdb"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
