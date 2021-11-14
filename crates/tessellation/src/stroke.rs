@@ -764,7 +764,6 @@ impl<'l> StrokeBuilderImpl<'l> {
         for evt in path.into_iter() {
             match evt {
                 IdEvent::Begin { at } => {
-                    println!(" -- begin {:?}", self.sub_path_start_advancement);
                     validator.begin();
                     current_endpoint = at;
                     current_position = positions.get_endpoint(at);
@@ -1255,16 +1254,18 @@ impl<'l> StrokeBuilderImpl<'l> {
         }
 
         if count > 0 {
-            let p0 = self.point_buffer.last_mut();
+            let join = self.point_buffer.last_mut();
             // Compute the position of the vertices that act as reference the edge between
             // p0 and next
-            if p0.src.is_endpoint() || next.src.is_endpoint() {
-                compute_edge_attachment_positions(p0, &mut next);
+            if join.src.is_endpoint() || next.src.is_endpoint() {
+                compute_edge_attachment_positions(join, &mut next);
             }
         }
 
         if count > 1 {
             let (prev, join) = self.point_buffer.last_two_mut();
+            debug_assert!(!join.advancement.is_nan());
+            debug_assert!(!prev.advancement.is_nan());
 
             self.vertex.src = join.src;
             self.vertex.position_on_path = join.position;
@@ -1325,6 +1326,8 @@ impl<'l> StrokeBuilderImpl<'l> {
                 let length = edge.length();
 
                 if next.advancement.is_nan() {
+                    debug_assert!(!first.advancement.is_nan());
+                    debug_assert!(!length.is_nan());
                     next.advancement = first.advancement + length;
                 }
 
@@ -1399,6 +1402,8 @@ fn compute_join_side_positions_fixed_width(
     let next_tangent = next_tangent / next_length;
 
     if join.advancement.is_nan() {
+        debug_assert!(!prev.advancement.is_nan());
+        debug_assert!(!prev_length.is_nan());
         join.advancement = prev.advancement + prev_length;
     }
     vertex.advancement = join.advancement;
@@ -1472,11 +1477,21 @@ fn flattened_step(
     let prev_edge = join.position - prev.position;
     let prev_length = prev_edge.length();
     let prev_tangent = prev_edge / prev_length;
-    let next_tangent = (next.position - join.position).normalize();
+    let next_edge = next.position - join.position;
+    let next_length = next_edge.length();
+    let next_tangent = next_edge / next_length;
     let normal = compute_normal(prev_tangent, next_tangent);
 
     if join.advancement.is_nan() {
+        debug_assert!(!prev.advancement.is_nan());
+        debug_assert!(!prev_length.is_nan());
         join.advancement = prev.advancement + prev_length;
+    }
+
+    if next.advancement.is_nan() {
+        debug_assert!(!join.advancement.is_nan());
+        debug_assert!(!next_length.is_nan());
+        next.advancement = join.advancement + next_length;
     }
 
     vertex.advancement = join.advancement;
@@ -1526,6 +1541,8 @@ fn compute_edge_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
     compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_NEGATIVE);
 
     if p1.advancement.is_nan() {
+        debug_assert!(!p0.advancement.is_nan());
+        debug_assert!(!d.is_nan());
         p1.advancement = p0.advancement + d;
     }
 }
