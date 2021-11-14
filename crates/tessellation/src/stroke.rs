@@ -2563,16 +2563,16 @@ fn test_too_many_vertices() {
 
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 0 }),
-        Err(TessellationError::TooManyVertices),
+        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
     );
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 10 }),
-        Err(TessellationError::TooManyVertices),
+        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
     );
 
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 100 }),
-        Err(TessellationError::TooManyVertices),
+        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
     );
 }
 
