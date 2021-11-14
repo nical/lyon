@@ -12,7 +12,7 @@ use crate::path::{
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
     FillOptions, InternalError, TessellationError, TessellationResult, VertexSource,
-    SimpleAttributeStore,
+    SimpleAttributeStore, UnsupportedParamater,
 };
 use std::cmp::Ordering;
 use std::f32;
@@ -752,7 +752,7 @@ impl FillTessellator {
         builder: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
         if options.tolerance.is_nan() || options.tolerance <= 0.0 {
-            return Err(TessellationError::UnsupportedParamater);
+            return Err(TessellationError::UnsupportedParamater(UnsupportedParamater::ToleranceIsNaN));
         }
 
         self.reset();
@@ -777,7 +777,7 @@ impl FillTessellator {
         mem::swap(&mut self.scan, &mut scan);
 
         if let Err(e) = result {
-            tess_log!(self, "Tessellation failed with error: {:?}.", e);
+            tess_log!(self, "Tessellation failed with error: {}.", e);
             builder.abort_geometry();
 
             return Err(e);
@@ -864,7 +864,7 @@ impl FillTessellator {
         self.current_position = self.events.position(current_event);
 
         if self.current_position.x.is_nan() || self.current_position.y.is_nan() {
-            return Err(TessellationError::UnsupportedParamater);
+            return Err(TessellationError::UnsupportedParamater(UnsupportedParamater::PositionIsNaN));
         }
 
         let position = match self.orientation {

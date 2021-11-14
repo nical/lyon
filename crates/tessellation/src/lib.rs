@@ -251,18 +251,20 @@ pub enum InternalError {
 /// The fill tessellator's error enumeration.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TessellationError {
-    UnsupportedParamater,
-    InvalidVertex,
-    TooManyVertices,
+    UnsupportedParamater(UnsupportedParamater),
+    GeometryBuilder(GeometryBuilderError),
     Internal(InternalError),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum UnsupportedParamater {
+    PositionIsNaN,
+    ToleranceIsNaN,
 }
 
 impl From<GeometryBuilderError> for TessellationError {
     fn from(e: GeometryBuilderError) -> Self {
-        match e {
-            GeometryBuilderError::InvalidVertex => TessellationError::InvalidVertex,
-            GeometryBuilderError::TooManyVertices => TessellationError::TooManyVertices,
-        }
+        TessellationError::GeometryBuilder(e)
     }
 }
 impl From<InternalError> for TessellationError {
@@ -270,6 +272,63 @@ impl From<InternalError> for TessellationError {
         TessellationError::Internal(e)
     }
 }
+
+impl std::fmt::Display for TessellationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TessellationError::UnsupportedParamater(e) => {
+                write!(f, "Unsupported parameter: {}", e)
+            }
+            TessellationError::GeometryBuilder(e) => {
+                write!(f, "Geometry builder error: {}", e)
+            }
+            TessellationError::Internal(e) => {
+                write!(f, "Internal error: {}", e)
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for UnsupportedParamater {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnsupportedParamater::PositionIsNaN => {
+                write!(f, "Position is not a number")
+            }
+            UnsupportedParamater::ToleranceIsNaN => {
+                write!(f, "Tolerance threshold is not a number")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for InternalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InternalError::IncorrectActiveEdgeOrder(i) => {
+                write!(f, "Incorrect active edge order ({})", i)
+            }
+            InternalError::InsufficientNumberOfSpans => {
+                write!(f, "Insufficient number of spans")
+            }
+            InternalError::InsufficientNumberOfEdges => {
+                write!(f, "Insufficient number of edges")
+            }
+            InternalError::MergeVertexOutside => {
+                write!(f, "Merge vertex is outside of the shape")
+            }
+            InternalError::InvalidNumberOfEdgesBelowVertex => {
+                write!(f, "Unexpected number of edges below a vertex")
+            }
+            InternalError::ErrorCode(code)  => {
+                write!(f, "Error code #{}", code)
+            }
+        }
+    }
+}
+
+impl std::error::Error for TessellationError {}
+impl std::error::Error for InternalError {}
 
 /// Before or After. Used to describe position relative to a join.
 #[derive(Copy, Clone, Debug, PartialEq)]
