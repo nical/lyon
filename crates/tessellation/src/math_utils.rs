@@ -21,7 +21,7 @@ pub fn compute_normal(v1: Vector, v2: Vector) -> Vector {
     let v12 = v1 + v2;
 
     if v12.square_length() < epsilon {
-        return n1;
+        return vector(0.0, 0.0);
     }
 
     let tangent = v12.normalize();
