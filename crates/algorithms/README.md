@@ -21,4 +21,4 @@ A collection of various vector path manipulation algorithms.
  - Path ray casting
  - walking along a path
 
-`lyon_algorithms can be used as a standalone crate or as part of[lyon](https://docs.rs/lyon/) via the `lyon::algorithms` module. 
+`lyon_algorithms` can be used as a standalone crate or as part of [lyon](https://docs.rs/lyon/) via the `lyon::algorithms` module.

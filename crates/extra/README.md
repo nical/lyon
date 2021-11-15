@@ -15,5 +15,5 @@ Various optional functionalities to extend `lyon`.
  - A parser for lyon's extended path syntax.
 
 
-`lyon_extra` can be used as a standalone crate or as part of[lyon](https://docs.rs/lyon/) via the `lyon::extra` module. 
+`lyon_extra` can be used as a standalone crate or as part of [lyon](https://docs.rs/lyon/) via the `lyon::extra` module.
 
