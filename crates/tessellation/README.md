@@ -11,5 +11,5 @@ Tessellation of filled and stroked 2D paths.
   </a>
 </p>
 
-`lyon_tessellation` can be used as a standalone crate or as part of[lyon](https://docs.rs/lyon/) via the `lyon::tessellation` module. 
+`lyon_tessellation` can be used as a standalone crate or as part of [lyon](https://docs.rs/lyon/) via the `lyon::tessellation` module.
 

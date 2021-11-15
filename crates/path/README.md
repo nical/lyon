@@ -11,5 +11,5 @@ Path data structures and tools for vector graphics.
   </a>
 </p>
 
-`lyon_path` can be used as a standalone crate or as part of[lyon](https://docs.rs/lyon/) via the `lyon::path` module. 
+`lyon_path` can be used as a standalone crate or as part of [lyon](https://docs.rs/lyon/) via the `lyon::path` module.
 

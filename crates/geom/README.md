@@ -11,4 +11,4 @@
   </a>
 </p>
 
-`lyon_geom` can be used as a standalone crate or as part of[lyon](https://docs.rs/lyon/) via the `lyon::geom` module. 
+`lyon_geom` can be used as a standalone crate or as part of [lyon](https://docs.rs/lyon/) via the `lyon::geom` module.
