@@ -1425,7 +1425,7 @@ fn compute_join_side_positions_fixed_width(
         let extruded_normal = front_normal * vertex.half_width;
         let d_next = extruded_normal.dot(-next_tangent) - next_length;
         let d_prev = extruded_normal.dot(prev_tangent) - prev_length;
-        if d_next.min(d_prev) > 0.0 {
+        if d_next.min(d_prev) > 0.0 || normal.square_length() < 1e-4 {
             // Case of an overlapping stroke. In order to prevent the back vertex to create a
             // spike outside of the stroke, we simply don't create it and we'll "fold" the join
             // instead.
@@ -1760,8 +1760,7 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
         let next_length = next.advancement - join.advancement;
         let d_next = extruded_normal.dot(v1) - next_length;
         let d_prev = extruded_normal.dot(-v0) - prev_length;
-
-        if d_next.min(d_prev) > 0.0 {
+        if d_next.min(d_prev) >= 0.0 || normal.square_length() < 1e-4 {
             // Case of an overlapping stroke. In order to prevent the back vertex to create a
             // spike outside of the stroke, we simply don't create it and we'll "fold" the join
             // instead.
