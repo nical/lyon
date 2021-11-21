@@ -20,6 +20,9 @@ use std::f32::consts::PI;
 const SIDE_POSITIVE: usize = 0;
 const SIDE_NEGATIVE: usize = 1;
 
+macro_rules! nan_check {
+    ($($v:expr),+) => { $(debug_assert!(!$v.is_nan());)+ };
+}
 
 /// A Context object that can tessellate stroke operations for complex paths.
 ///
@@ -1264,8 +1267,8 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         if count > 1 {
             let (prev, join) = self.point_buffer.last_two_mut();
-            debug_assert!(!join.advancement.is_nan());
-            debug_assert!(!prev.advancement.is_nan());
+            nan_check!(join.advancement);
+            nan_check!(prev.advancement);
 
             self.vertex.src = join.src;
             self.vertex.position_on_path = join.position;
@@ -1326,8 +1329,8 @@ impl<'l> StrokeBuilderImpl<'l> {
                 let length = edge.length();
 
                 if next.advancement.is_nan() {
-                    debug_assert!(!first.advancement.is_nan());
-                    debug_assert!(!length.is_nan());
+                    nan_check!(first.advancement);
+                    nan_check!(length);
                     next.advancement = first.advancement + length;
                 }
 
@@ -1402,8 +1405,8 @@ fn compute_join_side_positions_fixed_width(
     let next_tangent = next_tangent / next_length;
 
     if join.advancement.is_nan() {
-        debug_assert!(!prev.advancement.is_nan());
-        debug_assert!(!prev_length.is_nan());
+        nan_check!(prev.advancement);
+        nan_check!(prev_length);
         join.advancement = prev.advancement + prev_length;
     }
     vertex.advancement = join.advancement;
@@ -1483,25 +1486,27 @@ fn flattened_step(
     let normal = compute_normal(prev_tangent, next_tangent);
 
     if join.advancement.is_nan() {
-        debug_assert!(!prev.advancement.is_nan());
-        debug_assert!(!prev_length.is_nan());
+        nan_check!(prev.advancement);
+        nan_check!(prev_length);
         join.advancement = prev.advancement + prev_length;
     }
 
     if next.advancement.is_nan() {
-        debug_assert!(!join.advancement.is_nan());
-        debug_assert!(!next_length.is_nan());
+        nan_check!(join.advancement);
+        nan_check!(next_length);
         next.advancement = join.advancement + next_length;
     }
 
     vertex.advancement = join.advancement;
 
     let p0 = join.position + normal * vertex.half_width;
+    nan_check!(p0);
     join.side_points[SIDE_POSITIVE].prev = p0;
     join.side_points[SIDE_POSITIVE].next = p0;
     join.side_points[SIDE_POSITIVE].single_vertex = Some(p0);
 
     let p1 = join.position - normal * vertex.half_width;
+    nan_check!(p1);
     join.side_points[SIDE_NEGATIVE].prev = p1;
     join.side_points[SIDE_NEGATIVE].next = p1;
     join.side_points[SIDE_NEGATIVE].single_vertex = Some(p1);
@@ -1535,27 +1540,50 @@ fn compute_edge_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
 
     // Extra angle produced by the varying stroke width.
     // sin(vwidth_angle) = (hw1 - hw0) / d
-    let vwidth_angle = ((p1.half_width - p0.half_width) / d).asin();
+    let sin_vwidth_angle = (p1.half_width - p0.half_width) / d;
+    let mut vwidth_angle = sin_vwidth_angle.asin();
+    // If the distance between the joins (d) is smaller than either of the half
+    // widths, we end up in a situation where sin_vwidth_angle is not in [-1, 1],
+    // which causes vwidth_anfle to be NaN. Prevent that here for safety's sake
+    // but it would be better to handle that earlier to do something that looks
+    // more plausible with round joins.
+    if vwidth_angle.is_nan() {
+        vwidth_angle = 0.0;
+    }
+
+    nan_check!(d, p0.half_width, p1.half_width, vwidth_angle);
 
     compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_POSITIVE);
     compute_side_attachment_positions(p0, p1, edge_angle, vwidth_angle, SIDE_NEGATIVE);
 
     if p1.advancement.is_nan() {
-        debug_assert!(!p0.advancement.is_nan());
-        debug_assert!(!d.is_nan());
+        nan_check!(p0.advancement, d);
         p1.advancement = p0.advancement + d;
     }
 }
 
 fn compute_side_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointData, edge_angle: f32, vwidth_angle: f32, side: usize) {
+    nan_check!(
+        edge_angle,
+        vwidth_angle,
+        p0.position,
+        p1.position,
+        p0.half_width,
+        p1.half_width
+    );
 
     let nl = side_sign(side);
 
     let normal_angle = edge_angle + nl * (PI * 0.5 + vwidth_angle);
     let normal = vector(normal_angle.cos(), normal_angle.sin());
 
+    nan_check!(normal);
+
     p0.side_points[side].next = p0.position + normal * p0.half_width;
     p1.side_points[side].prev = p1.position + normal * p1.half_width;
+
+    nan_check!(p0.side_points[side].next);
+    nan_check!(p1.side_points[side].prev);
 }
 
 #[cfg_attr(feature = "profiling", inline(never))]
@@ -1737,6 +1765,10 @@ fn add_join_base_vertices(
 // in compute_side_attachment_positions.
 #[cfg_attr(feature = "profiling", inline(never))]
 fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, next: &EndpointData, miter_limit: f32, side: usize) {
+    nan_check!(join.position);
+    nan_check!(prev.side_points[side].next);
+    nan_check!(join.side_points[side].next);
+
     let sign = side_sign(side);
     let v0 = (join.side_points[side].prev - prev.side_points[side].next).normalize();
     let v1 = (next.side_points[side].prev - join.side_points[side].next).normalize();
@@ -1746,6 +1778,8 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
     let normal = compute_normal(v0, v1) * sign;
     let path_v0 = (join.position - prev.position).normalize();
     let path_v1 = (next.position - join.position).normalize();
+
+    nan_check!(v0, v1);
 
     let normal_same_side = (v0 + v1).dot(path_v0 + path_v1) >= 0.0;
 
@@ -1788,6 +1822,9 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
         let (prev_normal, next_normal) = get_clip_intersections(n0, n1, normal, miter_limit * 0.5 * join.half_width);
         join.side_points[side].prev = join.position + prev_normal;
         join.side_points[side].next = join.position + next_normal;
+        nan_check!(n0, n1, prev_normal, next_normal);
+        nan_check!(join.side_points[side].prev);
+        nan_check!(join.side_points[side].next);
     }
 }
 
@@ -2713,5 +2750,27 @@ fn test_line_width() {
                 || p.approx_eq(&point(2.0, 0.0))
                 || p.approx_eq(&point(2.0, 2.0))
         );
+    }
+}
+
+trait IsNan {
+    fn is_nan(&self) -> bool;
+}
+
+impl IsNan for f32 {
+    fn is_nan(&self) -> bool {
+        f32::is_nan(*self)
+    }
+}
+
+impl IsNan for Point {
+    fn is_nan(&self) -> bool {
+        self.x.is_nan() || self.y.is_nan()
+    }
+}
+
+impl IsNan for Vector {
+    fn is_nan(&self) -> bool {
+        self.x.is_nan() || self.y.is_nan()
     }
 }
