@@ -12,7 +12,7 @@ use lyon::algorithms::walk;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::Window;
+use winit::window::{Window, WindowBuilder};
 
 // For create_buffer_init()
 use wgpu::util::DeviceExt;
@@ -250,7 +250,8 @@ fn main() {
     };
 
     let event_loop = EventLoop::new();
-    let window = Window::new(&event_loop).unwrap();
+    let window_builder = WindowBuilder::new().with_inner_size(scene.window_size);
+    let window = window_builder.build(&event_loop).unwrap();
 
     // create an instance
     let instance = wgpu::Instance::new(wgpu::Backends::all());
