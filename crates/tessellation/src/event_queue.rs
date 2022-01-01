@@ -294,10 +294,9 @@ impl EventQueue {
         self.events[id as usize].next_sibling
     }
 
-    // TODO: we should be able to simplify this and just compare with INVALID_EVENT_ID
+    /// Returns whether or not the given event ID is valid.
     pub(crate) fn valid_id(&self, id: TessEventId) -> bool {
         id != INVALID_EVENT_ID
-//        (id as usize) < self.events.len()
     }
 
     /// Returns the position of a given event in the queue.
