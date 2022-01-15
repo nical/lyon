@@ -292,7 +292,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let v2 = self.to - self.from;
 
         let v1_cross_v2 = v2.x * v1.y - v2.y * v1.x;
-        let h = v1.x.hypot(v1.y);
+        let h = S::sqrt(v1.x * v1.x + v1.y * v1.y);
 
         if S::abs(v1_cross_v2 * h) <= S::EPSILON {
             return S::ONE;
@@ -608,14 +608,15 @@ impl<S: Scalar> FlatteningParameters<S> {
         let ddx = S::TWO * curve.ctrl.x - curve.from.x - curve.to.x;
         let ddy = S::TWO * curve.ctrl.y - curve.from.y - curve.to.y;
         let cross = (curve.to.x - curve.from.x) * ddy - (curve.to.y - curve.from.y) * ddx;
+        let inv_cross = S::ONE / cross;
         let parabola_from =
-            ((curve.ctrl.x - curve.from.x) * ddx + (curve.ctrl.y - curve.from.y) * ddy) / cross;
+            ((curve.ctrl.x - curve.from.x) * ddx + (curve.ctrl.y - curve.from.y) * ddy) * inv_cross;
         let parabola_to =
-            ((curve.to.x - curve.ctrl.x) * ddx + (curve.to.y - curve.ctrl.y) * ddy) / cross;
+            ((curve.to.x - curve.ctrl.x) * ddx + (curve.to.y - curve.ctrl.y) * ddy) * inv_cross;
         // Note, scale can be NaN, for example with straight lines. When it happens the NaN will
         // propagate to other parameters. We catch it all by setting the iteration count to zero
         // and leave the rest as garbage.
-        let scale = cross.abs() / (ddx.hypot(ddy) * (parabola_to - parabola_from).abs());
+        let scale = cross.abs() / (S::sqrt(ddx * ddx + ddy * ddy) * (parabola_to - parabola_from).abs());
 
         let integral_from = approx_parabola_integral(parabola_from);
         let integral_to = approx_parabola_integral(parabola_to);
