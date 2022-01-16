@@ -2,7 +2,7 @@ use crate::flattened_path::FlattenedPath;
 use crate::geometry_builder::GeometryReceiver;
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::{PathEvent, PathSlice, Attributes};
+use crate::path::{Attributes, PathEvent, PathSlice};
 use crate::tessellation::{Count, FillOptions, FillRule};
 
 use std::os::raw::c_void;

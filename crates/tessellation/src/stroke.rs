@@ -1,18 +1,17 @@
-use crate::geom::utils::tangent;
 use crate::geom::arrayvec::ArrayVec;
+use crate::geom::utils::tangent;
 use crate::geom::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::math_utils::compute_normal;
-use crate::path::builder::{Build, PathBuilder, NoAttributes};
+use crate::path::builder::{Build, NoAttributes, PathBuilder};
 use crate::path::polygon::Polygon;
 use crate::path::private::DebugValidator;
 use crate::path::{
-    AttributeStore, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore, Winding,
-    Attributes,
+    AttributeStore, Attributes, EndpointId, IdEvent, PathEvent, PathSlice, PositionStore, Winding,
 };
 use crate::{
-    LineCap, LineJoin, Side, StrokeOptions, TessellationError, TessellationResult, VertexSource,
-    SimpleAttributeStore, StrokeGeometryBuilder, VertexId,
+    LineCap, LineJoin, Side, SimpleAttributeStore, StrokeGeometryBuilder, StrokeOptions,
+    TessellationError, TessellationResult, VertexId, VertexSource,
 };
 
 use std::f32::consts::PI;
@@ -142,17 +141,9 @@ impl StrokeTessellator {
             self.attrib_buffer.push(0.0);
         }
 
-        let stroker = StrokeBuilderImpl::new(
-            options,
-            &mut self.attrib_buffer,
-            output,
-        );
+        let stroker = StrokeBuilderImpl::new(options, &mut self.attrib_buffer, output);
 
-        stroker.tessellate_with_ids(
-            path,
-            positions,
-            custom_attributes,
-        )
+        stroker.tessellate_with_ids(path, positions, custom_attributes)
     }
 
     /// Compute the tessellation from a path slice.
@@ -235,7 +226,6 @@ impl StrokeTessellator {
         options: &'l StrokeOptions,
         output: &'l mut dyn StrokeGeometryBuilder,
     ) -> StrokeBuilder<'l> {
-
         self.builder_attrib_store.reset(num_attributes);
         self.attrib_buffer.clear();
         for _ in 0..num_attributes {
@@ -333,15 +323,16 @@ impl Default for EndpointData {
             half_width: std::f32::NAN,
             advancement: std::f32::NAN,
             line_join: LineJoin::Miter,
-            src: VertexSource::Endpoint { id: EndpointId::INVALID },
-            side_points: [
-                SidePoints {
-                    prev: point(std::f32::NAN, std::f32::NAN), prev_vertex: VertexId(std::u32::MAX),
-                    next: point(std::f32::NAN, std::f32::NAN), next_vertex: VertexId(std::u32::MAX),
-                    single_vertex: None,
-                };
-                2
-            ],
+            src: VertexSource::Endpoint {
+                id: EndpointId::INVALID,
+            },
+            side_points: [SidePoints {
+                prev: point(std::f32::NAN, std::f32::NAN),
+                prev_vertex: VertexId(std::u32::MAX),
+                next: point(std::f32::NAN, std::f32::NAN),
+                next_vertex: VertexId(std::u32::MAX),
+                single_vertex: None,
+            }; 2],
             fold: [false, false],
         }
     }
@@ -366,11 +357,7 @@ impl<'l> StrokeBuilder<'l> {
         output: &'l mut dyn StrokeGeometryBuilder,
     ) -> Self {
         StrokeBuilder {
-            builder: StrokeBuilderImpl::new(
-                options,
-                attrib_buffer,
-                output,
-            ),
+            builder: StrokeBuilderImpl::new(options, attrib_buffer, output),
             attrib_store,
             validator: DebugValidator::new(),
             prev: (Point::zero(), EndpointId::INVALID, 0.0),
@@ -444,7 +431,12 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         self.validator.edge();
         let (from, from_id, start_width) = self.prev;
         let to_id = self.attrib_store.add(attributes);
@@ -464,12 +456,8 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
 
             self.prev = (to, to_id, end_width);
         } else {
-            self.builder.quadratic_bezier_to_fw(
-                &curve,
-                from_id,
-                to_id,
-                self.attrib_store,
-            );
+            self.builder
+                .quadratic_bezier_to_fw(&curve, from_id, to_id, self.attrib_store);
 
             self.prev = (to, to_id, self.builder.options.line_width);
         }
@@ -477,12 +465,23 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         to_id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         self.validator.edge();
         let (from, from_id, start_width) = self.prev;
         let to_id = self.attrib_store.add(attributes);
 
-        let curve = CubicBezierSegment { from, ctrl1, ctrl2, to };
+        let curve = CubicBezierSegment {
+            from,
+            ctrl1,
+            ctrl2,
+            to,
+        };
 
         if let Some(attrib_index) = self.builder.options.variable_line_width {
             let end_width = self.builder.options.line_width * attributes[attrib_index];
@@ -497,12 +496,8 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
 
             self.prev = (to, to_id, end_width);
         } else {
-            self.builder.cubic_bezier_to_fw(
-                &curve,
-                from_id,
-                to_id,
-                self.attrib_store,
-            );
+            self.builder
+                .cubic_bezier_to_fw(&curve, from_id, to_id, self.attrib_store);
 
             self.prev = (to, to_id, self.builder.options.line_width);
         }
@@ -520,8 +515,8 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         } * self.builder.options.line_width;
 
         if self.builder.options.variable_line_width.is_none()
-            && (rect.width().abs() < threshold || rect.height().abs() < threshold) {
-
+            && (rect.width().abs() < threshold || rect.height().abs() < threshold)
+        {
             approximate_thin_rectangle(self, rect, attributes);
             return;
         }
@@ -713,7 +708,9 @@ impl<'l> StrokeBuilderImpl<'l> {
                         attributes,
                     );
                 }
-                IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                IdEvent::Cubic {
+                    ctrl1, ctrl2, to, ..
+                } => {
                     validator.edge();
 
                     let start_width = base_width * attributes.get(current_endpoint)[attrib_index];
@@ -819,7 +816,9 @@ impl<'l> StrokeBuilderImpl<'l> {
                         attributes,
                     );
                 }
-                IdEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                IdEvent::Cubic {
+                    ctrl1, ctrl2, to, ..
+                } => {
                     validator.edge();
                     let from = current_endpoint;
                     let from_pos = current_position;
@@ -898,7 +897,9 @@ impl<'l> StrokeBuilderImpl<'l> {
 
                     id.0 += 1;
                 }
-                PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+                PathEvent::Cubic {
+                    ctrl1, ctrl2, to, ..
+                } => {
                     validator.edge();
                     let prev_id = EndpointId(id.0 - 1);
 
@@ -906,7 +907,12 @@ impl<'l> StrokeBuilderImpl<'l> {
                     current_position = to;
 
                     self.cubic_bezier_to_fw(
-                        &CubicBezierSegment { from, ctrl1, ctrl2, to },
+                        &CubicBezierSegment {
+                            from,
+                            ctrl1,
+                            ctrl2,
+                            to,
+                        },
                         prev_id,
                         id,
                         &(),
@@ -930,7 +936,13 @@ impl<'l> StrokeBuilderImpl<'l> {
         self.build()
     }
 
-    pub(crate) fn begin(&mut self, position: Point, endpoint: EndpointId, width: f32, attributes: &dyn AttributeStore) {
+    pub(crate) fn begin(
+        &mut self,
+        position: Point,
+        endpoint: EndpointId,
+        width: f32,
+        attributes: &dyn AttributeStore,
+    ) {
         self.may_need_empty_cap = false;
         let half_width = width * 0.5;
         self.step(
@@ -946,7 +958,13 @@ impl<'l> StrokeBuilderImpl<'l> {
         );
     }
 
-    pub(crate) fn line_to(&mut self, to: Point, endpoint: EndpointId, width: f32, attributes: &dyn AttributeStore) {
+    pub(crate) fn line_to(
+        &mut self,
+        to: Point,
+        endpoint: EndpointId,
+        width: f32,
+        attributes: &dyn AttributeStore,
+    ) {
         let half_width = width * 0.5;
         self.step(
             EndpointData {
@@ -967,30 +985,34 @@ impl<'l> StrokeBuilderImpl<'l> {
         to_id: EndpointId,
         start_width: f32,
         end_width: f32,
-        attributes: &dyn AttributeStore
+        attributes: &dyn AttributeStore,
     ) {
-        curve.for_each_flattened_with_t(
-            self.options.tolerance,
-            &mut |position, t| {
-                let width = start_width * (1.0 - t) + end_width * t;
-                let (line_join, src) = if t >= 1.0 {
-                    (self.options.line_join, VertexSource::Endpoint { id: to_id })
-                } else {
-                    (LineJoin::Miter, VertexSource::Edge { from: from_id, to: to_id, t })
-                };
-
-                self.step(
-                    EndpointData {
-                        position,
-                        half_width: width * 0.5,
-                        line_join,
-                        src,
-                        ..Default::default()
+        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
+            let width = start_width * (1.0 - t) + end_width * t;
+            let (line_join, src) = if t >= 1.0 {
+                (self.options.line_join, VertexSource::Endpoint { id: to_id })
+            } else {
+                (
+                    LineJoin::Miter,
+                    VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
                     },
-                    attributes,
-                );
-            },
-        );
+                )
+            };
+
+            self.step(
+                EndpointData {
+                    position,
+                    half_width: width * 0.5,
+                    line_join,
+                    src,
+                    ..Default::default()
+                },
+                attributes,
+            );
+        });
     }
 
     pub(crate) fn cubic_bezier_to(
@@ -1000,33 +1022,42 @@ impl<'l> StrokeBuilderImpl<'l> {
         to_id: EndpointId,
         start_width: f32,
         end_width: f32,
-        attributes: &dyn AttributeStore
+        attributes: &dyn AttributeStore,
     ) {
-        curve.for_each_flattened_with_t(
-            self.options.tolerance,
-            &mut |position, t| {
-                let width = start_width * (1.0 - t) + end_width * t;
-                let (line_join, src) = if t >= 1.0 {
-                    (self.options.line_join, VertexSource::Endpoint { id: to_id })
-                } else {
-                    (LineJoin::Miter, VertexSource::Edge { from: from_id, to: to_id, t })
-                };
-
-                self.step(
-                    EndpointData {
-                        position,
-                        half_width: width * 0.5,
-                        line_join,
-                        src,
-                        ..Default::default()
+        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
+            let width = start_width * (1.0 - t) + end_width * t;
+            let (line_join, src) = if t >= 1.0 {
+                (self.options.line_join, VertexSource::Endpoint { id: to_id })
+            } else {
+                (
+                    LineJoin::Miter,
+                    VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
                     },
-                    attributes,
-                );
-            },
-        );
+                )
+            };
+
+            self.step(
+                EndpointData {
+                    position,
+                    half_width: width * 0.5,
+                    line_join,
+                    src,
+                    ..Default::default()
+                },
+                attributes,
+            );
+        });
     }
 
-    pub(crate) fn begin_fw(&mut self, position: Point, endpoint: EndpointId, attributes: &dyn AttributeStore) {
+    pub(crate) fn begin_fw(
+        &mut self,
+        position: Point,
+        endpoint: EndpointId,
+        attributes: &dyn AttributeStore,
+    ) {
         self.may_need_empty_cap = false;
         self.fixed_width_step(
             EndpointData {
@@ -1041,7 +1072,12 @@ impl<'l> StrokeBuilderImpl<'l> {
         );
     }
 
-    pub(crate) fn line_to_fw(&mut self, to: Point, endpoint: EndpointId, attributes: &dyn AttributeStore) {
+    pub(crate) fn line_to_fw(
+        &mut self,
+        to: Point,
+        endpoint: EndpointId,
+        attributes: &dyn AttributeStore,
+    ) {
         let half_width = self.options.line_width * 0.5;
         self.fixed_width_step(
             EndpointData {
@@ -1060,30 +1096,34 @@ impl<'l> StrokeBuilderImpl<'l> {
         curve: &QuadraticBezierSegment<f32>,
         from_id: EndpointId,
         to_id: EndpointId,
-        attributes: &dyn AttributeStore
+        attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        curve.for_each_flattened_with_t(
-            self.options.tolerance,
-            &mut |position, t| {
-                let (line_join, src) = if t >= 1.0 {
-                    (self.options.line_join, VertexSource::Endpoint { id: to_id })
-                } else {
-                    (LineJoin::Miter, VertexSource::Edge { from: from_id, to: to_id, t })
-                };
-
-                self.fixed_width_step(
-                    EndpointData {
-                        position,
-                        half_width,
-                        line_join,
-                        src,
-                        ..Default::default()
+        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
+            let (line_join, src) = if t >= 1.0 {
+                (self.options.line_join, VertexSource::Endpoint { id: to_id })
+            } else {
+                (
+                    LineJoin::Miter,
+                    VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
                     },
-                    attributes,
-                );
-            },
-        );
+                )
+            };
+
+            self.fixed_width_step(
+                EndpointData {
+                    position,
+                    half_width,
+                    line_join,
+                    src,
+                    ..Default::default()
+                },
+                attributes,
+            );
+        });
     }
 
     pub(crate) fn cubic_bezier_to_fw(
@@ -1091,35 +1131,38 @@ impl<'l> StrokeBuilderImpl<'l> {
         curve: &CubicBezierSegment<f32>,
         from_id: EndpointId,
         to_id: EndpointId,
-        attributes: &dyn AttributeStore
+        attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        curve.for_each_flattened_with_t(
-            self.options.tolerance,
-            &mut |position, t| {
-                let (line_join, src) = if t >= 1.0 {
-                    (self.options.line_join, VertexSource::Endpoint { id: to_id })
-                } else {
-                    (LineJoin::Miter, VertexSource::Edge { from: from_id, to: to_id, t })
-                };
-
-                self.fixed_width_step(
-                    EndpointData {
-                        position,
-                        half_width,
-                        line_join,
-                        src,
-                        ..Default::default()
+        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
+            let (line_join, src) = if t >= 1.0 {
+                (self.options.line_join, VertexSource::Endpoint { id: to_id })
+            } else {
+                (
+                    LineJoin::Miter,
+                    VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
                     },
-                    attributes,
-                );
-            },
-        );
+                )
+            };
+
+            self.fixed_width_step(
+                EndpointData {
+                    position,
+                    half_width,
+                    line_join,
+                    src,
+                    ..Default::default()
+                },
+                attributes,
+            );
+        });
     }
 
-
     pub(crate) fn end(&mut self, close: bool, attributes: &dyn AttributeStore) {
-        let e = if close && self.point_buffer.count() > 0{
+        let e = if close && self.point_buffer.count() > 0 {
             self.close(attributes)
         } else {
             self.end_with_caps(attributes)
@@ -1148,7 +1191,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         }
 
         if self.point_buffer.count() <= 2 {
-            return Ok(())
+            return Ok(());
         }
 
         assert!(self.firsts.len() >= 1);
@@ -1177,7 +1220,10 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 
     #[cold]
-    fn tessellate_empty_cap(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
+    fn tessellate_empty_cap(
+        &mut self,
+        attributes: &dyn AttributeStore,
+    ) -> Result<(), TessellationError> {
         let point = self.point_buffer.get(0);
 
         self.vertex.advancement = point.advancement;
@@ -1242,7 +1288,15 @@ impl<'l> StrokeBuilderImpl<'l> {
             }
 
             let is_first = count == 2;
-            tessellate_last_edge(&p0, &mut p1, is_first,  &self.options, &mut self.vertex, attributes, self.output)?;
+            tessellate_last_edge(
+                &p0,
+                &mut p1,
+                is_first,
+                &self.options,
+                &mut self.vertex,
+                attributes,
+                self.output,
+            )?;
 
             self.sub_path_start_advancement = p1.advancement;
 
@@ -1252,18 +1306,30 @@ impl<'l> StrokeBuilderImpl<'l> {
             }
 
             // First edge.
-            tessellate_first_edge(&mut p0, &p1, &self.options, &mut self.vertex, attributes, self.output)?;
+            tessellate_first_edge(
+                &mut p0,
+                &p1,
+                &self.options,
+                &mut self.vertex,
+                attributes,
+                self.output,
+            )?;
         }
 
         Ok(())
     }
 
-    pub(crate) fn step_impl(&mut self, mut next: EndpointData, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
+    pub(crate) fn step_impl(
+        &mut self,
+        mut next: EndpointData,
+        attributes: &dyn AttributeStore,
+    ) -> Result<(), TessellationError> {
         let count = self.point_buffer.count();
 
         debug_assert!(self.options.variable_line_width.is_some());
 
-        if count > 0 && self.points_are_too_close(self.point_buffer.last().position, next.position) {
+        if count > 0 && self.points_are_too_close(self.point_buffer.last().position, next.position)
+        {
             if count == 1 {
                 // move-to followed by empty segment and end of paths means we have to generate
                 // an empty cap.
@@ -1299,20 +1365,57 @@ impl<'l> StrokeBuilderImpl<'l> {
             self.vertex.buffer_is_valid = false;
             if join.src.is_edge() {
                 // can fast-path.
-                flattened_step(prev, join, &mut next, &mut self.vertex, attributes, self.output)?;
+                flattened_step(
+                    prev,
+                    join,
+                    &mut next,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                )?;
             } else {
-                compute_join_side_positions(prev, join, &next, self.options.miter_limit, SIDE_POSITIVE);
-                compute_join_side_positions(prev, join, &next, self.options.miter_limit, SIDE_NEGATIVE);
+                compute_join_side_positions(
+                    prev,
+                    join,
+                    &next,
+                    self.options.miter_limit,
+                    SIDE_POSITIVE,
+                );
+                compute_join_side_positions(
+                    prev,
+                    join,
+                    &next,
+                    self.options.miter_limit,
+                    SIDE_NEGATIVE,
+                );
 
-                add_join_base_vertices(join, &mut self.vertex, attributes, self.output, Side::Negative)?;
-                add_join_base_vertices(join, &mut self.vertex, attributes, self.output, Side::Positive)?;
+                add_join_base_vertices(
+                    join,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                    Side::Negative,
+                )?;
+                add_join_base_vertices(
+                    join,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                    Side::Positive,
+                )?;
             }
 
             if count > 2 {
                 add_edge_triangles(prev, join, self.output);
             }
 
-            tessellate_join(join, &self.options, &mut self.vertex, attributes, self.output)?;
+            tessellate_join(
+                join,
+                &self.options,
+                &mut self.vertex,
+                attributes,
+                self.output,
+            )?;
 
             if count == 2 {
                 self.firsts.push(*prev);
@@ -1332,7 +1435,11 @@ impl<'l> StrokeBuilderImpl<'l> {
         }
     }
 
-    pub(crate) fn fixed_width_step_impl(&mut self, mut next: EndpointData, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
+    pub(crate) fn fixed_width_step_impl(
+        &mut self,
+        mut next: EndpointData,
+        attributes: &dyn AttributeStore,
+    ) -> Result<(), TessellationError> {
         let count = self.point_buffer.count();
 
         debug_assert!(self.options.variable_line_width.is_none());
@@ -1375,23 +1482,50 @@ impl<'l> StrokeBuilderImpl<'l> {
             self.vertex.buffer_is_valid = false;
             if join.src.is_edge() {
                 // can fast-path.
-                flattened_step(prev, join, &mut next, &mut self.vertex, attributes, self.output)?;
+                flattened_step(
+                    prev,
+                    join,
+                    &mut next,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                )?;
             } else {
                 compute_join_side_positions_fixed_width(
-                    &prev, join, &next,
+                    &prev,
+                    join,
+                    &next,
                     self.options.miter_limit,
                     &mut self.vertex,
                 )?;
 
-                add_join_base_vertices(join, &mut self.vertex, attributes, self.output, Side::Negative)?;
-                add_join_base_vertices(join, &mut self.vertex, attributes, self.output, Side::Positive)?;
+                add_join_base_vertices(
+                    join,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                    Side::Negative,
+                )?;
+                add_join_base_vertices(
+                    join,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                    Side::Positive,
+                )?;
             }
 
             if count > 2 {
                 add_edge_triangles(prev, join, self.output);
             }
 
-            tessellate_join(join, &self.options, &mut self.vertex, attributes, self.output)?;
+            tessellate_join(
+                join,
+                &self.options,
+                &mut self.vertex,
+                attributes,
+                self.output,
+            )?;
 
             if count == 2 {
                 self.firsts.push(*prev);
@@ -1411,8 +1545,6 @@ impl<'l> StrokeBuilderImpl<'l> {
         }
     }
 }
-
-
 
 #[cfg_attr(feature = "profiling", inline(never))]
 fn compute_join_side_positions_fixed_width(
@@ -1477,12 +1609,14 @@ fn compute_join_side_positions_fixed_width(
     if !fold {
         join.side_points[back_side].single_vertex = Some(miter_pos[back_side]);
         if (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-            && !miter_limit_is_exceeded(front_normal, miter_limit) {
+            && !miter_limit_is_exceeded(front_normal, miter_limit)
+        {
             join.side_points[front_side].single_vertex = Some(miter_pos[front_side]);
         } else if join.line_join == LineJoin::MiterClip {
             let n0 = join.side_points[front_side].prev - join.position;
             let n1 = join.side_points[front_side].next - join.position;
-            let (prev_normal, next_normal) = get_clip_intersections(n0, n1, front_normal, miter_limit * 0.5 * vertex.half_width);
+            let (prev_normal, next_normal) =
+                get_clip_intersections(n0, n1, front_normal, miter_limit * 0.5 * vertex.half_width);
             join.side_points[front_side].prev = join.position + prev_normal;
             join.side_points[front_side].next = join.position + next_normal;
         }
@@ -1538,15 +1672,11 @@ fn flattened_step(
 
     vertex.normal = normal;
     vertex.side = Side::Positive;
-    let pos_vertex = output.add_stroke_vertex(
-        StrokeVertex(vertex, attributes)
-    )?;
+    let pos_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
 
     vertex.normal = -normal;
     vertex.side = Side::Negative;
-    let neg_vertex = output.add_stroke_vertex(
-        StrokeVertex(vertex, attributes)
-    )?;
+    let neg_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
 
     join.side_points[SIDE_POSITIVE].prev_vertex = pos_vertex;
     join.side_points[SIDE_POSITIVE].next_vertex = pos_vertex;
@@ -1587,7 +1717,13 @@ fn compute_edge_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
     }
 }
 
-fn compute_side_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointData, edge_angle: f32, vwidth_angle: f32, side: usize) {
+fn compute_side_attachment_positions(
+    p0: &mut EndpointData,
+    p1: &mut EndpointData,
+    edge_angle: f32,
+    vwidth_angle: f32,
+    side: usize,
+) {
     nan_check!(
         edge_angle,
         vwidth_angle,
@@ -1612,7 +1748,11 @@ fn compute_side_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
 }
 
 #[cfg_attr(feature = "profiling", inline(never))]
-fn add_edge_triangles(p0: &EndpointData, p1: &EndpointData, output: &mut dyn StrokeGeometryBuilder) {
+fn add_edge_triangles(
+    p0: &EndpointData,
+    p1: &EndpointData,
+    output: &mut dyn StrokeGeometryBuilder,
+) {
     let mut p0_neg = p0.side_points[SIDE_NEGATIVE].next_vertex;
     let mut p0_pos = p0.side_points[SIDE_POSITIVE].next_vertex;
     let mut p1_neg = p1.side_points[SIDE_NEGATIVE].prev_vertex;
@@ -1716,7 +1856,6 @@ fn tessellate_round_join(
 
     let angle_sign = if side == SIDE_NEGATIVE { 1.0 } else { -1.0 };
 
-
     let mut start_angle = start_normal.angle_from_x_axis();
     let mut diff = start_angle.angle_to(end_normal.angle_from_x_axis());
 
@@ -1737,7 +1876,11 @@ fn tessellate_round_join(
     let num_segments = (diff.radians.abs() / step).ceil();
     let num_subdivisions = num_segments.log2().round() as u32;
 
-    vertex.side = if side == SIDE_POSITIVE { Side::Positive } else { Side::Negative };
+    vertex.side = if side == SIDE_POSITIVE {
+        Side::Positive
+    } else {
+        Side::Negative
+    };
 
     crate::stroke::tessellate_arc(
         (start_angle.radians, end_angle.radians),
@@ -1750,7 +1893,6 @@ fn tessellate_round_join(
         output,
     )
 }
-
 
 #[cfg_attr(feature = "profiling", inline(never))]
 fn add_join_base_vertices(
@@ -1772,7 +1914,7 @@ fn add_join_base_vertices(
         let vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
         join.side_points[side].prev_vertex = vertex;
         join.side_points[side].next_vertex = vertex;
-    } else{
+    } else {
         vertex.normal = (join.side_points[side].prev - join.position) / join.half_width;
         let prev_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
 
@@ -1789,7 +1931,13 @@ fn add_join_base_vertices(
 // TODO: the naming is a bit confusing. We do half of the work to compute the join's side positions
 // in compute_side_attachment_positions.
 #[cfg_attr(feature = "profiling", inline(never))]
-fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, next: &EndpointData, miter_limit: f32, side: usize) {
+fn compute_join_side_positions(
+    prev: &EndpointData,
+    join: &mut EndpointData,
+    next: &EndpointData,
+    miter_limit: f32,
+    side: usize,
+) {
     nan_check!(join.position);
     nan_check!(prev.side_points[side].next);
     nan_check!(join.side_points[side].next);
@@ -1797,7 +1945,7 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
     let sign = side_sign(side);
     let v0 = (join.side_points[side].prev - prev.side_points[side].next).normalize();
     let v1 = (next.side_points[side].prev - join.side_points[side].next).normalize();
-    let inward =  v0.cross(v1) * sign > 0.0;
+    let inward = v0.cross(v1) * sign > 0.0;
     let forward = v0.dot(v1) > 0.0;
 
     let normal = compute_normal(v0, v1) * sign;
@@ -1834,8 +1982,8 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
         let p = join.position + normal * join.half_width;
         join.side_points[side].single_vertex = Some(p);
     } else if (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-        && !miter_limit_is_exceeded(normal, miter_limit) {
-
+        && !miter_limit_is_exceeded(normal, miter_limit)
+    {
         let p = join.position + normal * join.half_width;
         join.side_points[side].single_vertex = Some(p);
     } else if join.line_join == LineJoin::MiterClip {
@@ -1844,7 +1992,8 @@ fn compute_join_side_positions(prev: &EndpointData, join: &mut EndpointData, nex
         // This way the rest of the code doesn't differentiate between miter and miter-clip.
         let n0 = join.side_points[side].prev - join.position;
         let n1 = join.side_points[side].next - join.position;
-        let (prev_normal, next_normal) = get_clip_intersections(n0, n1, normal, miter_limit * 0.5 * join.half_width);
+        let (prev_normal, next_normal) =
+            get_clip_intersections(n0, n1, normal, miter_limit * 0.5 * join.half_width);
         join.side_points[side].prev = join.position + prev_normal;
         join.side_points[side].next = join.position + next_normal;
         nan_check!(n0, n1, prev_normal, next_normal);
@@ -1862,7 +2011,6 @@ fn tessellate_last_edge(
     attributes: &dyn AttributeStore,
     output: &mut dyn StrokeGeometryBuilder,
 ) -> Result<(), TessellationError> {
-
     let v = p1.position - p0.position;
     p1.advancement = p0.advancement + v.length();
 
@@ -1940,13 +2088,16 @@ fn tessellate_first_edge(
                 vector: side_position - second.side_points[side].prev,
             };
 
-            let intersection = clip_line.intersection(&side_line).unwrap_or(first.side_points[side].next);
+            let intersection = clip_line
+                .intersection(&side_line)
+                .unwrap_or(first.side_points[side].next);
             side_position = intersection;
         }
 
         vertex.side = sides[side];
         vertex.normal = (side_position - first.position) / first.half_width;
-        first.side_points[side].next_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
+        first.side_points[side].next_vertex =
+            output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
     }
 
     // Tessellate the edge between prev and join.
@@ -1966,9 +2117,7 @@ fn tessellate_first_edge(
             attributes,
             output,
         ),
-        _ => {
-            Ok(())
-        }
+        _ => Ok(()),
     }
 }
 
@@ -2011,9 +2160,12 @@ fn miter_limit_is_exceeded(normal: Vector, miter_limit: f32) -> bool {
 }
 
 fn side_sign(side: usize) -> f32 {
-    if side == SIDE_NEGATIVE { -1.0 } else { 1.0 }
+    if side == SIDE_NEGATIVE {
+        -1.0
+    } else {
+        1.0
+    }
 }
-
 
 // A fall-back that avoids off artifacts with zero-area rectangles as
 // well as overlapping triangles if the rectangle is much smaller than the
@@ -2073,7 +2225,7 @@ impl PointBuffer {
         if self.count < 3 {
             self.points[self.count] = point;
             self.count += 1;
-            return
+            return;
         }
 
         self.points[self.start] = point;
@@ -2088,7 +2240,9 @@ impl PointBuffer {
         self.start = 0;
     }
 
-    fn count(&self) -> usize { self.count }
+    fn count(&self) -> usize {
+        self.count
+    }
 
     fn get(&self, idx: usize) -> &EndpointData {
         assert!(idx < self.count);
@@ -2123,10 +2277,12 @@ impl PointBuffer {
         assert!(self.count >= 2);
         let i0 = (self.start + self.count - 1) % 3;
         let i1 = (self.start + self.count - 2) % 3;
-        unsafe {(
-            &mut *(self.points.get_unchecked_mut(i1) as *mut _),
-            &mut *(self.points.get_unchecked_mut(i0) as *mut _),
-        )}
+        unsafe {
+            (
+                &mut *(self.points.get_unchecked_mut(i1) as *mut _),
+                &mut *(self.points.get_unchecked_mut(i0) as *mut _),
+            )
+        }
     }
 }
 
@@ -2284,7 +2440,6 @@ pub(crate) fn tessellate_empty_round_cap(
     Ok(())
 }
 
-
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn tessellate_arc(
     angle: (f32, f32),
@@ -2427,7 +2582,7 @@ pub(crate) fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
 #[cfg(test)]
 use crate::geometry_builder::*;
 #[cfg(test)]
-use crate::path::{Path, AttributeIndex};
+use crate::path::{AttributeIndex, Path};
 
 #[cfg(test)]
 fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: Option<u32>) {
@@ -2522,21 +2677,24 @@ fn test_square() {
     for options in options {
         test_path(
             path.as_slice(),
-            &options.with_line_join(LineJoin::Miter)
+            &options
+                .with_line_join(LineJoin::Miter)
                 .with_line_cap(LineCap::Butt),
             Some(12),
         );
 
         test_path(
             path.as_slice(),
-            &options.with_line_join(LineJoin::Bevel)
+            &options
+                .with_line_join(LineJoin::Bevel)
                 .with_line_cap(LineCap::Square),
             Some(16),
         );
 
         test_path(
             path.as_slice(),
-            &options.with_line_join(LineJoin::MiterClip)
+            &options
+                .with_line_join(LineJoin::MiterClip)
                 .with_miter_limit(1.0)
                 .with_line_cap(LineCap::Round),
             None,
@@ -2544,7 +2702,8 @@ fn test_square() {
 
         test_path(
             path.as_slice(),
-            &options.with_tolerance(0.001)
+            &options
+                .with_tolerance(0.001)
                 .with_line_join(LineJoin::Round)
                 .with_line_cap(LineCap::Round),
             None,
@@ -2659,16 +2818,22 @@ fn test_too_many_vertices() {
 
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 0 }),
-        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
+        Err(TessellationError::GeometryBuilder(
+            GeometryBuilderError::TooManyVertices
+        )),
     );
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 10 }),
-        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
+        Err(TessellationError::GeometryBuilder(
+            GeometryBuilderError::TooManyVertices
+        )),
     );
 
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 100 }),
-        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
+        Err(TessellationError::GeometryBuilder(
+            GeometryBuilderError::TooManyVertices
+        )),
     );
 }
 
@@ -2768,8 +2933,8 @@ fn stroke_vertex_source_01() {
 
 #[test]
 fn test_line_width() {
-    use crate::math::{point, Point};
     use crate::geom::euclid::approxeq::ApproxEq;
+    use crate::math::{point, Point};
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 1.0));
     builder.line_to(point(2.0, 1.0));

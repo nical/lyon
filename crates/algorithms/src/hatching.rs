@@ -30,7 +30,7 @@ use crate::geom::LineSegment;
 use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::private::DebugValidator;
-use crate::path::{self, EndpointId, PathEvent, Attributes};
+use crate::path::{self, Attributes, EndpointId, PathEvent};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -512,7 +512,9 @@ impl Build for EventsBuilder {
 }
 
 impl PathBuilder for EventsBuilder {
-    fn num_attributes(&self) -> usize { 0 }
+    fn num_attributes(&self) -> usize {
+        0
+    }
 
     fn begin(&mut self, to: Point, _attributes: Attributes) -> EndpointId {
         self.validator.begin();
@@ -535,7 +537,12 @@ impl PathBuilder for EventsBuilder {
         EndpointId::INVALID
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
+    fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        _attributes: Attributes,
+    ) -> EndpointId {
         path::private::flatten_quadratic_bezier(
             self.tolerance,
             self.current,
@@ -544,11 +551,17 @@ impl PathBuilder for EventsBuilder {
             Attributes::NONE,
             Attributes::NONE,
             self,
-            &mut[],
+            &mut [],
         )
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
+    fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        _attributes: Attributes,
+    ) -> EndpointId {
         path::private::flatten_cubic_bezier(
             self.tolerance,
             self.current,
@@ -558,7 +571,7 @@ impl PathBuilder for EventsBuilder {
             Attributes::NONE,
             Attributes::NONE,
             self,
-            &mut[],
+            &mut [],
         )
     }
 }

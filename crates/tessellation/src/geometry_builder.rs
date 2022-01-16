@@ -381,7 +381,10 @@ impl<B: FillGeometryBuilder> FillGeometryBuilder for InvertWinding<B> {
 
 impl<B: StrokeGeometryBuilder> StrokeGeometryBuilder for InvertWinding<B> {
     #[inline]
-    fn add_stroke_vertex(&mut self, vertex: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
+    fn add_stroke_vertex(
+        &mut self,
+        vertex: StrokeVertex,
+    ) -> Result<VertexId, GeometryBuilderError> {
         self.0.add_stroke_vertex(vertex)
     }
 }

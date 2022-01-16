@@ -65,16 +65,22 @@ fn test_too_many_vertices() {
 
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 0 }),
-        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
+        Err(TessellationError::GeometryBuilder(
+            GeometryBuilderError::TooManyVertices
+        )),
     );
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 10 }),
-        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
+        Err(TessellationError::GeometryBuilder(
+            GeometryBuilderError::TooManyVertices
+        )),
     );
 
     assert_eq!(
         tess.tessellate(&path, &options, &mut Builder { max_vertices: 100 }),
-        Err(TessellationError::GeometryBuilder(GeometryBuilderError::TooManyVertices)),
+        Err(TessellationError::GeometryBuilder(
+            GeometryBuilderError::TooManyVertices
+        )),
     );
 }
 
@@ -2445,7 +2451,8 @@ fn issue_674() {
         &path,
         &FillOptions::tolerance(0.01),
         &mut simple_builder(&mut buffers),
-    ).unwrap();
+    )
+    .unwrap();
 
     // The issue was happening with tolerance 0.01 and not with 0.05 used in test_path
     // but run it anyway for good measure.

@@ -42,7 +42,7 @@
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::{EndpointId, PathEvent, Attributes};
+use crate::path::{Attributes, EndpointId, PathEvent};
 
 use std::f32;
 
@@ -119,7 +119,11 @@ impl<'l> PathWalker<'l> {
         NoAttributes::wrap(Self::with_attributes(0, start, pattern))
     }
 
-    pub fn with_attributes(num_attributes: usize, start: f32, pattern: &'l mut dyn Pattern) -> Self {
+    pub fn with_attributes(
+        num_attributes: usize,
+        start: f32,
+        pattern: &'l mut dyn Pattern,
+    ) -> Self {
         let start = f32::max(start, 0.0);
         PathWalker {
             prev: point(0.0, 0.0),
@@ -154,7 +158,8 @@ impl<'l> PathWalker<'l> {
             if self.num_attributes > 0 {
                 let t2 = t * self.next_distance / distance;
                 for i in 0..self.num_attributes {
-                    self.attribute_buffer[i] = self.prev_attributes[i] * (1.0 - t2) + attributes[i] * t2;
+                    self.attribute_buffer[i] =
+                        self.prev_attributes[i] * (1.0 - t2) + attributes[i] * t2;
                 }
             }
             let position = self.prev + tangent * (self.next_distance - self.leftover);
@@ -181,7 +186,9 @@ impl<'l> PathWalker<'l> {
         self.leftover = distance;
     }
 
-    pub fn num_attributes(&self) -> usize { self.num_attributes }
+    pub fn num_attributes(&self) -> usize {
+        self.num_attributes
+    }
 
     pub fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.need_moveto = false;
@@ -220,7 +227,12 @@ impl<'l> PathWalker<'l> {
         }
     }
 
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         let curve = QuadraticBezierSegment {
             from: self.prev,
             ctrl,
@@ -235,7 +247,13 @@ impl<'l> PathWalker<'l> {
         EndpointId::INVALID
     }
 
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         let curve = CubicBezierSegment {
             from: self.prev,
             ctrl1,
@@ -254,7 +272,9 @@ impl<'l> PathWalker<'l> {
 }
 
 impl<'l> PathBuilder for PathWalker<'l> {
-    fn num_attributes(&self) -> usize { self.num_attributes }
+    fn num_attributes(&self) -> usize {
+        self.num_attributes
+    }
 
     fn begin(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         self.begin(to, attributes)
@@ -268,11 +288,22 @@ impl<'l> PathBuilder for PathWalker<'l> {
         self.end(close)
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to, attributes)
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
     }
 }
@@ -282,7 +313,6 @@ impl<'l> Build for PathWalker<'l> {
 
     fn build(self) -> () {}
 }
-
 
 /// A simple pattern that invokes a callback at regular intervals.
 ///

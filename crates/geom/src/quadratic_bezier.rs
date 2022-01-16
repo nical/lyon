@@ -1238,17 +1238,40 @@ fn issue_678() {
 
 #[test]
 fn line_intersections_t() {
-    let curve = QuadraticBezierSegment { from: point(0.0f64, 0.0), ctrl: point(100.0, 0.0), to: point(100.0, 500.0) };
+    let curve = QuadraticBezierSegment {
+        from: point(0.0f64, 0.0),
+        ctrl: point(100.0, 0.0),
+        to: point(100.0, 500.0),
+    };
     let cubic = curve.to_cubic();
 
-    let line = Line { point: point(0.0, -50.0), vector: crate::vector(100.0, 500.0), };
+    let line = Line {
+        point: point(0.0, -50.0),
+        vector: crate::vector(100.0, 500.0),
+    };
 
     let mut i1 = curve.line_intersections_t(&line);
     let mut i2 = curve.to_cubic().line_intersections_t(&line);
 
     use std::cmp::Ordering::{Equal, Greater, Less};
-    i1.sort_by(|a, b| { if a == b { Equal} else if a > b { Greater } else { Less } });
-    i2.sort_by(|a, b| { if a == b { Equal} else if a > b { Greater } else { Less } });
+    i1.sort_by(|a, b| {
+        if a == b {
+            Equal
+        } else if a > b {
+            Greater
+        } else {
+            Less
+        }
+    });
+    i2.sort_by(|a, b| {
+        if a == b {
+            Equal
+        } else if a > b {
+            Greater
+        } else {
+            Less
+        }
+    });
 
     for (t1, t2) in i1.iter().zip(i2.iter()) {
         use euclid::approxeq::ApproxEq;

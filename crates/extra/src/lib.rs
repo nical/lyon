@@ -9,5 +9,5 @@ pub use path::geom::euclid;
 pub use path::math;
 
 pub mod debugging;
-pub mod rust_logo;
 pub mod parser;
+pub mod rust_logo;

@@ -1,13 +1,12 @@
-use crate::{FillVertex, VertexId, FillOptions, FillGeometryBuilder, TessellationResult, TessellationError};
 use crate::event_queue::{EventQueue, INVALID_EVENT_ID};
 use crate::math::*;
+use crate::{
+    FillGeometryBuilder, FillOptions, FillVertex, TessellationError, TessellationResult, VertexId,
+};
 
 use std::f32::consts::PI;
 
-pub fn fill_rectangle(
-    rect: &Box2D,
-    output: &mut dyn FillGeometryBuilder,
-) -> TessellationResult {
+pub fn fill_rectangle(rect: &Box2D, output: &mut dyn FillGeometryBuilder) -> TessellationResult {
     output.begin_geometry();
 
     let dummy_queue = EventQueue::new();
@@ -19,7 +18,7 @@ pub fn fill_rectangle(
             current_event: INVALID_EVENT_ID,
             attrib_store: None,
             attrib_buffer: &mut [],
-        })            
+        })
     };
 
     let a = vertex(rect.min)?;
@@ -61,28 +60,28 @@ pub fn fill_circle(
             events,
             current_event,
             attrib_store,
-            attrib_buffer: &mut[]
+            attrib_buffer: &mut [],
         })?,
         output.add_fill_vertex(FillVertex {
             position: center + (up * radius),
             events,
             current_event,
             attrib_store,
-            attrib_buffer: &mut[]
+            attrib_buffer: &mut [],
         })?,
         output.add_fill_vertex(FillVertex {
             position: center + (right * radius),
             events,
             current_event,
             attrib_store,
-            attrib_buffer: &mut[]
+            attrib_buffer: &mut [],
         })?,
         output.add_fill_vertex(FillVertex {
             position: center + (down * radius),
             events,
             current_event,
             attrib_store,
-            attrib_buffer: &mut[]
+            attrib_buffer: &mut [],
         })?,
     ];
 
@@ -128,7 +127,6 @@ fn top_right(rect: &Box2D) -> Point {
 fn bottom_right(rect: &Box2D) -> Point {
     rect.max
 }
-
 
 // Returns the maximum length of individual line segments when approximating a
 // circle.
@@ -201,27 +199,29 @@ fn fill_border_radius(
     )
 }
 
-
 #[test]
 fn basic_shapes() {
-    use crate::{GeometryBuilderError, Count};
+    use crate::{Count, GeometryBuilderError};
 
     let mut tess = crate::FillTessellator::new();
 
     tess.tessellate_rectangle(
-        &Box2D { min: point(0.0, 1.0), max: point(2.0, 4.0 ) },
+        &Box2D {
+            min: point(0.0, 1.0),
+            max: point(2.0, 4.0),
+        },
         &FillOptions::DEFAULT,
         &mut Builder { next_vertex: 0 },
-    ).unwrap();
-
+    )
+    .unwrap();
 
     tess.tessellate_circle(
         point(1.0, 2.0),
         100.0,
         &FillOptions::DEFAULT,
         &mut Builder { next_vertex: 0 },
-    ).unwrap();
-
+    )
+    .unwrap();
 
     struct Builder {
         next_vertex: u32,
