@@ -1,7 +1,7 @@
 use crate::scalar::Scalar;
 use crate::traits::Transformation;
 use crate::LineSegment;
-use crate::{Point, point, Box2D};
+use crate::{point, Box2D, Point};
 
 /// A 2D triangle defined by three points `a`, `b` and `c`.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -56,7 +56,10 @@ impl<S: Scalar> Triangle<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
     }
 
     #[inline]
@@ -279,21 +282,30 @@ fn test_bounding_box() {
         b: point(35.0, 40.0),
         c: point(50.0, 10.0),
     };
-    let r1 = Box2D { min: point(10.0, 10.0), max: point(50.0, 40.0) };
+    let r1 = Box2D {
+        min: point(10.0, 10.0),
+        max: point(50.0, 40.0),
+    };
 
     let t2 = Triangle {
         a: point(5.0, 30.0),
         b: point(25.0, 10.0),
         c: point(35.0, 40.0),
     };
-    let r2 = Box2D { min: point(5.0, 10.0), max: point(35.0, 40.0) };
+    let r2 = Box2D {
+        min: point(5.0, 10.0),
+        max: point(35.0, 40.0),
+    };
 
     let t3 = Triangle {
         a: point(1.0, 1.0),
         b: point(2.0, 5.0),
         c: point(0.0, 4.0),
     };
-    let r3 = Box2D { min: point(0.0, 1.0), max: point(2.0, 5.0) };
+    let r3 = Box2D {
+        min: point(0.0, 1.0),
+        max: point(2.0, 5.0),
+    };
 
     let cases = vec![(t1, r1), (t2, r2), (t3, r3)];
     for &(tri, r) in &cases {

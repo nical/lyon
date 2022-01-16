@@ -1,6 +1,6 @@
 use crate::scalar::Scalar;
+use crate::{point, Box2D, Point, Vector};
 use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
-use crate::{Point, Vector, Box2D, point};
 
 use std::ops::Range;
 

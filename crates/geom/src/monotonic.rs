@@ -1,7 +1,7 @@
 use crate::scalar::{NumCast, Scalar};
 use crate::segment::{BoundingBox, Segment};
+use crate::{Box2D, Point, Vector};
 use crate::{CubicBezierSegment, QuadraticBezierSegment};
-use crate::{Point, Box2D, Vector};
 use arrayvec::ArrayVec;
 use std::ops::Range;
 

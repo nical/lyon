@@ -2,7 +2,7 @@ use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
-use crate::{Point, Vector, Box2D, point};
+use crate::{point, Box2D, Point, Vector};
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
 
@@ -452,7 +452,10 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
 
-        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
     }
 
     /// Returns a conservative range of x that contains this curve.
@@ -476,7 +479,10 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
     }
 
     /// Returns the smallest range of x that contains this curve.
@@ -616,7 +622,8 @@ impl<S: Scalar> FlatteningParameters<S> {
         // Note, scale can be NaN, for example with straight lines. When it happens the NaN will
         // propagate to other parameters. We catch it all by setting the iteration count to zero
         // and leave the rest as garbage.
-        let scale = cross.abs() / (S::sqrt(ddx * ddx + ddy * ddy) * (parabola_to - parabola_from).abs());
+        let scale =
+            cross.abs() / (S::sqrt(ddx * ddx + ddy * ddy) * (parabola_to - parabola_from).abs());
 
         let integral_from = approx_parabola_integral(parabola_from);
         let integral_to = approx_parabola_integral(parabola_to);
@@ -807,7 +814,10 @@ fn bounding_box_for_monotonic_quadratic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_aabb = Box2D { min: point(0.0, 0.0), max: point(2.0, 0.0) };
+    let expected_aabb = Box2D {
+        min: point(0.0, 0.0),
+        max: point(2.0, 0.0),
+    };
 
     let actual_aabb = a.bounding_box();
 
@@ -822,7 +832,10 @@ fn fast_bounding_box_for_quadratic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_aabb = Box2D { min: point(0.0, 0.0), max: point(2.0, 1.0) };
+    let expected_aabb = Box2D {
+        min: point(0.0, 0.0),
+        max: point(2.0, 1.0),
+    };
 
     let actual_aabb = a.fast_bounding_box();
 
@@ -837,7 +850,10 @@ fn minimum_bounding_box_for_quadratic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_aabb = Box2D { min: point(0.0, 0.0), max: point(2.0, 0.5) };
+    let expected_aabb = Box2D {
+        min: point(0.0, 0.0),
+        max: point(2.0, 0.5),
+    };
 
     let actual_aabb = a.bounding_box();
 

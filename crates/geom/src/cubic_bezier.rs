@@ -7,7 +7,7 @@ use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
 use crate::utils::{cubic_polynomial_roots, min_max};
-use crate::{Point, Vector, Box2D, point};
+use crate::{point, Box2D, Point, Vector};
 use crate::{Line, LineEquation, LineSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
@@ -610,7 +610,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let (min_x, max_x) = self.fast_bounding_range_x();
         let (min_y, max_y) = self.fast_bounding_range_y();
 
-        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
     }
 
     /// Returns a conservative range of x that contains this curve.
@@ -657,7 +660,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let (min_x, max_x) = self.bounding_range_x();
         let (min_y, max_y) = self.bounding_range_y();
 
-        Box2D { min: point(min_x, min_y), max: point(max_x, max_y) }
+        Box2D {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+        }
     }
 
     /// Returns the smallest range of x that contains this curve.
@@ -856,7 +862,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// the segments at the corresponding values.
     pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<(S, S), 3> {
         if !self
-            .fast_bounding_box().inflate(S::EPSILON, S::EPSILON)
+            .fast_bounding_box()
+            .inflate(S::EPSILON, S::EPSILON)
             .intersects(&segment.bounding_box().inflate(S::EPSILON, S::EPSILON))
         {
             return ArrayVec::new();
@@ -949,7 +956,10 @@ fn fast_bounding_box_for_cubic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_aabb = Box2D { min: point(0.0, -1.0), max: point(2.0, 1.0) };
+    let expected_aabb = Box2D {
+        min: point(0.0, -1.0),
+        max: point(2.0, 1.0),
+    };
 
     let actual_aabb = a.fast_bounding_box();
 
@@ -965,8 +975,14 @@ fn minimum_bounding_box_for_cubic_bezier_segment() {
         to: Point::new(2.0, 0.0),
     };
 
-    let expected_bigger_aabb: Box2D<f32> = Box2D { min: point(0.0, -0.6), max: point(2.0, 0.6) };
-    let expected_smaller_aabb: Box2D<f32> = Box2D { min: point(0.1, -0.5), max: point(2.0, 0.5) };
+    let expected_bigger_aabb: Box2D<f32> = Box2D {
+        min: point(0.0, -0.6),
+        max: point(2.0, 0.6),
+    };
+    let expected_smaller_aabb: Box2D<f32> = Box2D {
+        min: point(0.1, -0.5),
+        max: point(2.0, 0.5),
+    };
 
     let actual_minimum_aabb = a.bounding_box();
 
@@ -1334,15 +1350,15 @@ fn test_cubic_intersection_deduping() {
 #[test]
 fn cubic_line_intersection_on_endpoint() {
     let l1 = LineSegment {
-      from: Point::new(0.0, -100.0),
-      to: Point::new(0.0, 100.0),
+        from: Point::new(0.0, -100.0),
+        to: Point::new(0.0, 100.0),
     };
 
     let cubic = CubicBezierSegment {
-      from: Point::new(0.0, 0.0),
-      ctrl1: Point::new(20.0, 20.0),
-      ctrl2: Point::new(20.0, 40.0),
-      to: Point::new(0.0, 60.0),
+        from: Point::new(0.0, 0.0),
+        ctrl1: Point::new(20.0, 20.0),
+        ctrl2: Point::new(20.0, 40.0),
+        to: Point::new(0.0, 60.0),
     };
 
     let intersections = cubic.line_segment_intersections_t(&l1);
@@ -1352,8 +1368,8 @@ fn cubic_line_intersection_on_endpoint() {
     assert_eq!(intersections[1], (0.0, 0.5));
 
     let l2 = LineSegment {
-      from: Point::new(0.0, 0.0),
-      to: Point::new(0.0, 60.0),
+        from: Point::new(0.0, 0.0),
+        to: Point::new(0.0, 60.0),
     };
 
     let intersections = cubic.line_segment_intersections_t(&l2);

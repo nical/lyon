@@ -155,7 +155,9 @@ mod scalar {
         /// Epsilon constants are usually not a good way to deal with float precision.
         /// Float precision depends on the magnitude of the values and so should appropriate
         /// epsilons.
-        fn epsilon_for(_reference: Self) -> Self { Self::EPSILON }
+        fn epsilon_for(_reference: Self) -> Self {
+            Self::EPSILON
+        }
 
         fn value(v: f32) -> Self;
     }
@@ -188,11 +190,11 @@ mod scalar {
             // TODO: instead of casting to an integer, could look at the exponent directly.
             let magnitude = reference.abs() as i32;
             match magnitude {
-                0 ..= 7 => 1e-5,
-                8 ..= 1023 => 1e-3,
-                1024 ..= 4095 => 1e-2,
-                5096 ..= 65535 => 1e-1,
-                65536 ..= 8_388_607 => 0.5,
+                0..=7 => 1e-5,
+                8..=1023 => 1e-3,
+                1024..=4095 => 1e-2,
+                5096..=65535 => 1e-1,
+                65536..=8_388_607 => 0.5,
                 _ => 1.0,
             }
         }
@@ -225,9 +227,9 @@ mod scalar {
         fn epsilon_for(reference: Self) -> Self {
             let magnitude = reference.abs() as i64;
             match magnitude {
-                0 ..= 65_535 => 1e-8,
-                65_536 ..=  8_388_607 => 1e-5,
-                8_388_608 ..= 4_294_967_295 => 1e-3,
+                0..=65_535 => 1e-8,
+                65_536..=8_388_607 => 1e-5,
+                8_388_608..=4_294_967_295 => 1e-3,
                 _ => 1e-1,
             }
         }
