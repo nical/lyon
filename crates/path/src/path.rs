@@ -3,12 +3,12 @@
 
 use crate::builder::*;
 use crate::geom::traits::Transformation;
-use crate::geom::{QuadraticBezierSegment, CubicBezierSegment};
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::private::DebugValidator;
 use crate::{
-    AttributeStore, ControlPointId, EndpointId, Event, IdEvent,
-    PathEvent, PositionStore, Attributes,
+    AttributeStore, Attributes, ControlPointId, EndpointId, Event, IdEvent, PathEvent,
+    PositionStore,
 };
 
 use std::fmt;
@@ -194,10 +194,12 @@ impl Path {
 
 impl FromIterator<PathEvent> for Path {
     fn from_iter<T: IntoIterator<Item = PathEvent>>(iter: T) -> Path {
-        iter.into_iter().fold(Path::builder(), |mut builder, event| {
-            builder.path_event(event);
-            builder
-        }).build()
+        iter.into_iter()
+            .fold(Path::builder(), |mut builder, event| {
+                builder.path_event(event);
+                builder
+            })
+            .build()
     }
 }
 
@@ -306,7 +308,9 @@ impl<'l> fmt::Debug for PathSlice<'l> {
 
         for evt in self.iter_with_attributes() {
             match evt {
-                Event::Begin { at: (at, attributes) } => {
+                Event::Begin {
+                    at: (at, attributes),
+                } => {
                     write!(formatter, " M")?;
                     write_point(formatter, at)?;
                     write_attributes(formatter, attributes)?;
@@ -316,18 +320,30 @@ impl<'l> fmt::Debug for PathSlice<'l> {
                         write!(formatter, " Z")?;
                     }
                 }
-                Event::Line { to: (to, attributes), .. } => {
+                Event::Line {
+                    to: (to, attributes),
+                    ..
+                } => {
                     write!(formatter, " L")?;
                     write_point(formatter, to)?;
                     write_attributes(formatter, attributes)?;
                 }
-                Event::Quadratic { ctrl, to: (to, attributes), .. } => {
+                Event::Quadratic {
+                    ctrl,
+                    to: (to, attributes),
+                    ..
+                } => {
                     write!(formatter, " Q")?;
                     write_point(formatter, ctrl)?;
                     write_point(formatter, to)?;
                     write_attributes(formatter, attributes)?;
                 }
-                Event::Cubic { ctrl1, ctrl2, to: (to, attributes), .. } => {
+                Event::Cubic {
+                    ctrl1,
+                    ctrl2,
+                    to: (to, attributes),
+                    ..
+                } => {
                     write!(formatter, " C")?;
                     write_point(formatter, ctrl1)?;
                     write_point(formatter, ctrl2)?;
@@ -440,7 +456,9 @@ impl NoAttributes<BuilderImpl> {
 }
 
 impl PathBuilder for BuilderImpl {
-    fn num_attributes(&self) -> usize { 0 }
+    fn num_attributes(&self) -> usize {
+        0
+    }
 
     fn begin(&mut self, at: Point, _attributes: Attributes) -> EndpointId {
         self.validator.begin();
@@ -470,7 +488,12 @@ impl PathBuilder for BuilderImpl {
         id
     }
 
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, _attributes: Attributes) -> EndpointId {
+    fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        _attributes: Attributes,
+    ) -> EndpointId {
         self.validator.edge();
         nan_check(ctrl);
         nan_check(to);
@@ -483,7 +506,13 @@ impl PathBuilder for BuilderImpl {
         id
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _attributes: Attributes) -> EndpointId {
+    fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        _attributes: Attributes,
+    ) -> EndpointId {
         self.validator.edge();
         nan_check(ctrl1);
         nan_check(ctrl2);
@@ -503,7 +532,6 @@ impl PathBuilder for BuilderImpl {
         self.verbs.reserve(endpoints);
     }
 }
-
 
 impl Build for BuilderImpl {
     type PathType = Path;
@@ -566,7 +594,9 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn num_attributes(&self) -> usize { self.num_attributes }
+    pub fn num_attributes(&self) -> usize {
+        self.num_attributes
+    }
 
     #[inline]
     pub fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
@@ -590,7 +620,12 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         let id = self.builder.quadratic_bezier_to(ctrl, to, attributes);
         self.push_attributes(attributes);
 
@@ -598,7 +633,13 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    pub fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         let id = self.builder.cubic_bezier_to(ctrl1, ctrl2, to, attributes);
         self.push_attributes(attributes);
 
@@ -646,12 +687,23 @@ impl PathBuilder for BuilderWithAttributes {
     }
 
     #[inline]
-    fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point, attributes: Attributes) -> EndpointId {
+    fn quadratic_bezier_to(
+        &mut self,
+        ctrl: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         self.quadratic_bezier_to(ctrl, to, attributes)
     }
 
     #[inline]
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, attributes: Attributes) -> EndpointId {
+    fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        attributes: Attributes,
+    ) -> EndpointId {
         self.cubic_bezier_to(ctrl1, ctrl2, to, attributes)
     }
 
@@ -865,7 +917,7 @@ impl<'l> IterWithAttributes<'l> {
     /// constraints in an associated type, see #701.
     pub fn for_each_flattened<F>(self, tolerance: f32, callback: &mut F)
     where
-        F: FnMut(&Event<(Point, Attributes), Point>)
+        F: FnMut(&Event<(Point, Attributes), Point>),
     {
         let num_attributes = self.num_attributes;
         // Some scratch space for writing the interpolated custom attributes.
@@ -894,19 +946,26 @@ impl<'l> IterWithAttributes<'l> {
                 Event::Quadratic { from, ctrl, to } => {
                     let from_attr = from.1;
                     let to_attr = to.1;
-                    let curve = QuadraticBezierSegment { from: from.0, ctrl, to: to.0 };
+                    let curve = QuadraticBezierSegment {
+                        from: from.0,
+                        ctrl,
+                        to: to.0,
+                    };
                     let mut prev_pos = from.0;
                     let mut offset = num_attributes;
                     buffer[0..num_attributes].copy_from_slice(from_attr.as_slice());
-                    curve.for_each_flattened_with_t(tolerance, &mut|pos, t| {
+                    curve.for_each_flattened_with_t(tolerance, &mut |pos, t| {
                         for i in 0..num_attributes {
                             buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
                         }
 
-                        let next_offset =  if offset == 0 { num_attributes } else { 0 };
+                        let next_offset = if offset == 0 { num_attributes } else { 0 };
 
                         callback(&Event::Line {
-                            from: (prev_pos, Attributes(&buffer[next_offset..(next_offset + num_attributes)])),
+                            from: (
+                                prev_pos,
+                                Attributes(&buffer[next_offset..(next_offset + num_attributes)]),
+                            ),
                             to: (pos, Attributes(&buffer[offset..(offset + num_attributes)])),
                         });
 
@@ -914,22 +973,35 @@ impl<'l> IterWithAttributes<'l> {
                         prev_pos = pos;
                     });
                 }
-                Event::Cubic { from, ctrl1, ctrl2, to } => {
+                Event::Cubic {
+                    from,
+                    ctrl1,
+                    ctrl2,
+                    to,
+                } => {
                     let from_attr = from.1;
                     let to_attr = to.1;
-                    let curve = CubicBezierSegment { from: from.0, ctrl1, ctrl2, to: to.0 };
+                    let curve = CubicBezierSegment {
+                        from: from.0,
+                        ctrl1,
+                        ctrl2,
+                        to: to.0,
+                    };
                     let mut prev_pos = from.0;
                     let mut offset = num_attributes;
                     buffer[0..num_attributes].copy_from_slice(from_attr.as_slice());
-                    curve.for_each_flattened_with_t(tolerance, &mut|pos, t| {
+                    curve.for_each_flattened_with_t(tolerance, &mut |pos, t| {
                         for i in 0..num_attributes {
                             buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
                         }
 
-                        let next_offset =  if offset == 0 { num_attributes } else { 0 };
+                        let next_offset = if offset == 0 { num_attributes } else { 0 };
 
                         callback(&Event::Line {
-                            from: (prev_pos, Attributes(&buffer[next_offset..(next_offset + num_attributes)])),
+                            from: (
+                                prev_pos,
+                                Attributes(&buffer[next_offset..(next_offset + num_attributes)]),
+                            ),
                             to: (pos, Attributes(&buffer[offset..(offset + num_attributes)])),
                         });
 
@@ -1505,7 +1577,12 @@ fn test_path_builder_1() {
     p.line_to(point(2.0, 0.0), Attributes(&[2.0]));
     p.line_to(point(3.0, 0.0), Attributes(&[3.0]));
     p.quadratic_bezier_to(point(4.0, 0.0), point(4.0, 1.0), Attributes(&[4.0]));
-    p.cubic_bezier_to(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0), Attributes(&[5.0]));
+    p.cubic_bezier_to(
+        point(5.0, 0.0),
+        point(5.0, 1.0),
+        point(5.0, 2.0),
+        Attributes(&[5.0]),
+    );
     p.end(true);
 
     p.begin(point(10.0, 0.0), Attributes(&[6.0]));
@@ -1845,32 +1922,41 @@ fn flattened_custom_attributes() {
     let mut path = Path::builder_with_attributes(1);
     path.begin(point(0.0, 0.0), Attributes(&[0.0]));
     path.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0), Attributes(&[1.0]));
-    path.cubic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), point(0.0, 1.0), Attributes(&[2.0]));
+    path.cubic_bezier_to(
+        point(1.0, 2.0),
+        point(0.0, 2.0),
+        point(0.0, 1.0),
+        Attributes(&[2.0]),
+    );
     path.end(false);
 
     let path = path.build();
 
     let mut prev = -1.0;
-    path.iter_with_attributes().for_each_flattened(0.01, &mut|evt| {
-        let attribute = match evt {
-            Event::Begin { at: (_, attr) } => attr[0],
-            Event::Line { from: (_, from_attr), to: (_, to_attr) } => {
-                assert_eq!(from_attr[0], prev);
-                to_attr[0]
-            }
-            Event::End { last: (_, last_attr), .. } => {
-                assert_eq!(last_attr[0], prev);
-                return;
-            }
-            Event::Quadratic { .. }
-            | Event::Cubic { .. }
-            => {
-                panic!("Should not get a curve in for_each_flattened");
-            }
-        };
+    path.iter_with_attributes()
+        .for_each_flattened(0.01, &mut |evt| {
+            let attribute = match evt {
+                Event::Begin { at: (_, attr) } => attr[0],
+                Event::Line {
+                    from: (_, from_attr),
+                    to: (_, to_attr),
+                } => {
+                    assert_eq!(from_attr[0], prev);
+                    to_attr[0]
+                }
+                Event::End {
+                    last: (_, last_attr),
+                    ..
+                } => {
+                    assert_eq!(last_attr[0], prev);
+                    return;
+                }
+                Event::Quadratic { .. } | Event::Cubic { .. } => {
+                    panic!("Should not get a curve in for_each_flattened");
+                }
+            };
 
-        assert!(attribute > prev);
-        prev = attribute;
-    });
+            assert!(attribute > prev);
+            prev = attribute;
+        });
 }
-

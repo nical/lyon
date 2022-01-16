@@ -1,11 +1,10 @@
 use crate::geom::vector;
-use crate::path::{PathEvent, iterator::PathIterator};
-
+use crate::path::{iterator::PathIterator, PathEvent};
 
 /// Compute the signed area of a path by summing the signed areas of its sub-paths.
 pub fn approximate_signed_area<Iter>(tolerance: f32, path: Iter) -> f32
 where
-    Iter: IntoIterator<Item = PathEvent>
+    Iter: IntoIterator<Item = PathEvent>,
 {
     let mut path = path.into_iter();
     let mut area = 0.0;
@@ -24,7 +23,7 @@ where
 /// Returns `None` if there is no more sub-path or if the the iterator is malformed.
 pub fn approximate_sub_path_signed_area<Iter>(tolerance: f32, path: &mut Iter) -> Option<f32>
 where
-    Iter: Iterator<Item = PathEvent>
+    Iter: Iterator<Item = PathEvent>,
 {
     let first = if let Some(PathEvent::Begin { at }) = path.next() {
         at
@@ -91,7 +90,10 @@ fn sub_path_signed_area() {
     let mut iter = path.iter();
 
     assert_eq!(approximate_sub_path_signed_area(0.01, &mut iter), Some(1.0));
-    assert_eq!(approximate_sub_path_signed_area(0.01, &mut iter), Some(-1.0));
+    assert_eq!(
+        approximate_sub_path_signed_area(0.01, &mut iter),
+        Some(-1.0)
+    );
     assert_eq!(approximate_sub_path_signed_area(0.01, &mut iter), None);
 
     let mut path = crate::path::Path::builder();

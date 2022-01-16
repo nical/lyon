@@ -5,7 +5,7 @@
 pub use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 pub use crate::math::Point;
 pub use crate::traits::PathBuilder;
-pub use crate::{EndpointId, Attributes};
+pub use crate::{Attributes, EndpointId};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct DebugValidator {

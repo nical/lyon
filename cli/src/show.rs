@@ -212,7 +212,10 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut bg_geometry: VertexBuffers<BgVertex, u32> = VertexBuffers::new();
 
     fill.tessellate_rectangle(
-        &Box2D { min: point(-1.0, -1.0), max: point(1.0, 1.0) },
+        &Box2D {
+            min: point(-1.0, -1.0),
+            max: point(1.0, 1.0),
+        },
         &FillOptions::DEFAULT,
         &mut BuffersBuilder::new(&mut bg_geometry, BgVertexCtor),
     )
@@ -458,13 +461,11 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         fragment: Some(wgpu::FragmentState {
             module: &fs_module,
             entry_point: "main",
-            targets: &[
-                wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8Unorm,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                },
-            ],
+            targets: &[wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            }],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -514,13 +515,11 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         fragment: Some(wgpu::FragmentState {
             module: &bg_fs_module,
             entry_point: "main",
-            targets: &[
-                wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Bgra8Unorm,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                },
-            ],
+            targets: &[wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Bgra8Unorm,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            }],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -605,7 +604,9 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             }
         };
 
-        let frame_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let frame_view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Encoder"),

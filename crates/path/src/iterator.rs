@@ -208,9 +208,13 @@ where
         // We can't determine a maximum limit.
         let mut lo = self.it.size_hint().0;
         match &self.current_curve {
-             TmpFlatteningIter::Quadratic(t) => { lo += t.size_hint().0; },
-             TmpFlatteningIter::Cubic(t) => { lo += t.size_hint().0; },
-             _ => {},
+            TmpFlatteningIter::Quadratic(t) => {
+                lo += t.size_hint().0;
+            }
+            TmpFlatteningIter::Cubic(t) => {
+                lo += t.size_hint().0;
+            }
+            _ => {}
         }
         (lo, None)
     }

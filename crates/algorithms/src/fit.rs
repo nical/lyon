@@ -74,46 +74,94 @@ fn simple_fit() {
     }
 
     let t = fit_box(
-        &Box2D { min: point(0.0, 0.0), max: point(1.0, 1.0) },
-        &Box2D { min: point(0.0, 0.0), max: point(2.0, 2.0) },
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(1.0, 1.0),
+        },
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(2.0, 2.0),
+        },
         FitStyle::Stretch,
     );
 
     assert!(approx_eq(
-        &t.outer_transformed_box(&Box2D { min: point(0.0, 0.0), max:point(1.0, 1.0) }),
-        &Box2D { min: point(0.0, 0.0), max: point(2.0, 2.0) },
+        &t.outer_transformed_box(&Box2D {
+            min: point(0.0, 0.0),
+            max: point(1.0, 1.0)
+        }),
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(2.0, 2.0)
+        },
     ));
 
     let t = fit_box(
-        &Box2D { min: point(1.0, 2.0), max: point(5.0, 6.0) },
-        &Box2D { min: point(0.0, 0.0), max: point(2.0, 8.0) },
+        &Box2D {
+            min: point(1.0, 2.0),
+            max: point(5.0, 6.0),
+        },
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(2.0, 8.0),
+        },
         FitStyle::Stretch,
     );
 
     assert!(approx_eq(
-        &t.outer_transformed_box(&Box2D { min: point(1.0, 2.0), max: point(5.0, 6.0) }),
-        &Box2D { min: point(0.0, 0.0), max: point(2.0, 8.0) },
+        &t.outer_transformed_box(&Box2D {
+            min: point(1.0, 2.0),
+            max: point(5.0, 6.0)
+        }),
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(2.0, 8.0)
+        },
     ));
 
     let t = fit_box(
-        &Box2D { min: point(1.0, 2.0), max: point(3.0, 6.0) },
-        &Box2D { min: point(0.0, 0.0), max: point(2.0, 2.0) },
+        &Box2D {
+            min: point(1.0, 2.0),
+            max: point(3.0, 6.0),
+        },
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(2.0, 2.0),
+        },
         FitStyle::Horizontal,
     );
 
     assert!(approx_eq(
-        &t.outer_transformed_box(&Box2D { min: point(1.0, 2.0), max: point(3.0, 6.0) }),
-        &Box2D { min: point(0.0, -1.0), max: point(2.0, 3.0) },
+        &t.outer_transformed_box(&Box2D {
+            min: point(1.0, 2.0),
+            max: point(3.0, 6.0)
+        }),
+        &Box2D {
+            min: point(0.0, -1.0),
+            max: point(2.0, 3.0)
+        },
     ));
 
     let t = fit_box(
-        &Box2D { min: point(1.0, 2.0), max: point(3.0, 4.0) },
-        &Box2D { min: point(0.0, 0.0), max: point(4.0, 2.0) },
+        &Box2D {
+            min: point(1.0, 2.0),
+            max: point(3.0, 4.0),
+        },
+        &Box2D {
+            min: point(0.0, 0.0),
+            max: point(4.0, 2.0),
+        },
         FitStyle::Horizontal,
     );
 
     assert!(approx_eq(
-        &t.outer_transformed_box(&Box2D { min: point(1.0, 2.0), max: point(3.0, 4.0) }),
-        &Box2D { min: point(0.0, -1.0), max: point(4.0, 3.0) },
+        &t.outer_transformed_box(&Box2D {
+            min: point(1.0, 2.0),
+            max: point(3.0, 4.0)
+        }),
+        &Box2D {
+            min: point(0.0, -1.0),
+            max: point(4.0, 3.0)
+        },
     ));
 }

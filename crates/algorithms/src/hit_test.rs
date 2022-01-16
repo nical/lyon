@@ -302,7 +302,10 @@ fn hit_test_double_square() {
     builder.end(true);
     let path = builder.build();
 
-    assert_eq!(path_winding_number_at_position(&point(0.5, 0.5), &path, 0.1), -2);
+    assert_eq!(
+        path_winding_number_at_position(&point(0.5, 0.5), &path, 0.1),
+        -2
+    );
 }
 
 #[test]
@@ -321,6 +324,12 @@ fn hit_test_double_count() {
     builder.end(true);
     let path = builder.build();
 
-    assert_eq!(path_winding_number_at_position(&point(2.0, 1.0), &path, 0.1), 1);
-    assert_eq!(path_winding_number_at_position(&point(2.0, 2.0), &path, 0.1), 1);
+    assert_eq!(
+        path_winding_number_at_position(&point(2.0, 1.0), &path, 0.1),
+        1
+    );
+    assert_eq!(
+        path_winding_number_at_position(&point(2.0, 2.0), &path, 0.1),
+        1
+    );
 }

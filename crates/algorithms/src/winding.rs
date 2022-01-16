@@ -12,7 +12,7 @@ use crate::path::{PathEvent, Winding};
 /// Returns `None` if there is no more sub-path or if the the iterator is malformed.
 pub fn compute_winding<Iter>(path: &mut Iter) -> Option<Winding>
 where
-    Iter: Iterator<Item = PathEvent>
+    Iter: Iterator<Item = PathEvent>,
 {
     let first = if let Some(PathEvent::Begin { at }) = path.next() {
         at
@@ -48,7 +48,9 @@ where
                 area += v0.cross(v1) + v1.cross(v2);
                 v0 = v2;
             }
-            PathEvent::Cubic { ctrl1, ctrl2, to, .. } => {
+            PathEvent::Cubic {
+                ctrl1, ctrl2, to, ..
+            } => {
                 let v1 = ctrl1 - first;
                 let v2 = ctrl2 - first;
                 let v3 = to - first;
@@ -96,4 +98,3 @@ fn path_winding() {
     assert_eq!(compute_winding(&mut iter), Some(Winding::Negative));
     assert_eq!(compute_winding(&mut iter), None);
 }
-

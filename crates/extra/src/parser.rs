@@ -1,8 +1,8 @@
 use path::{
-    Attributes,
-    math::{Angle, Point, point, vector},
+    geom::{ArcFlags, SvgArc},
+    math::{point, vector, Angle, Point},
     traits::PathBuilder,
-    geom::{SvgArc, ArcFlags},
+    Attributes,
 };
 
 use std::fmt;
@@ -10,26 +10,66 @@ use std::fmt;
 #[non_exhaustive]
 #[derive(Clone, PartialEq)]
 pub enum ParseError {
-    Number { src: String, line: i32, column: i32, },
-    Flag { src: char, line: i32, column: i32, },
-    Command { command: char, line: i32, column: i32, },
-    MissingMoveTo { command: char, line: i32, column: i32, },
+    Number {
+        src: String,
+        line: i32,
+        column: i32,
+    },
+    Flag {
+        src: char,
+        line: i32,
+        column: i32,
+    },
+    Command {
+        command: char,
+        line: i32,
+        column: i32,
+    },
+    MissingMoveTo {
+        command: char,
+        line: i32,
+        column: i32,
+    },
 }
 
 impl fmt::Debug for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             ParseError::Number { src, line, column } => {
-                write!(f, "Line {} Column {}: Expected number, got {:?}.", line, column, src)
+                write!(
+                    f,
+                    "Line {} Column {}: Expected number, got {:?}.",
+                    line, column, src
+                )
             }
             ParseError::Flag { src, line, column } => {
-                write!(f, "Line {} Column {}: Expected flag (0/1), got {:?}.", line, column, src)
+                write!(
+                    f,
+                    "Line {} Column {}: Expected flag (0/1), got {:?}.",
+                    line, column, src
+                )
             }
-            ParseError::Command { command, line, column } => {
-                write!(f, "Line {} Column {}: Invalid command {:?}.", line, column, command)
+            ParseError::Command {
+                command,
+                line,
+                column,
+            } => {
+                write!(
+                    f,
+                    "Line {} Column {}: Invalid command {:?}.",
+                    line, column, command
+                )
             }
-            ParseError::MissingMoveTo { command, line, column } => {
-                write!(f, "Line {} Column {}: Expected move-to command, got {:?}.", line, column, command)
+            ParseError::MissingMoveTo {
+                command,
+                line,
+                column,
+            } => {
+                write!(
+                    f,
+                    "Line {} Column {}: Expected move-to command, got {:?}.",
+                    line, column, command
+                )
             }
         }
     }
@@ -56,18 +96,22 @@ pub struct Source<Iter> {
     src: Iter,
     current: char,
     line: i32,
-    col: i32,    
+    col: i32,
     finished: bool,
 }
 
-impl<Iter: Iterator<Item=char>> Source<Iter> {
+impl<Iter: Iterator<Item = char>> Source<Iter> {
     pub fn new<IntoIter>(src: IntoIter) -> Self
-    where IntoIter: IntoIterator<IntoIter = Iter> {
+    where
+        IntoIter: IntoIterator<IntoIter = Iter>,
+    {
         Self::with_position(0, 0, src)
     }
 
     pub fn with_position<IntoIter>(line: i32, column: i32, src: IntoIter) -> Self
-    where IntoIter: IntoIterator<IntoIter = Iter> {
+    where
+        IntoIter: IntoIterator<IntoIter = Iter>,
+    {
         let mut src = src.into_iter();
 
         let (current, finished) = match src.next() {
@@ -157,7 +201,12 @@ impl PathParser {
         }
     }
 
-    pub fn parse<Iter, Builder>(&mut self, options: &ParserOptions, src: &mut Source<Iter>, output: &mut Builder) -> Result<(), ParseError>
+    pub fn parse<Iter, Builder>(
+        &mut self,
+        options: &ParserOptions,
+        src: &mut Source<Iter>,
+        output: &mut Builder,
+    ) -> Result<(), ParseError>
     where
         Iter: Iterator<Item = char>,
         Builder: PathBuilder,
@@ -175,8 +224,11 @@ impl PathParser {
         res
     }
 
-
-    fn parse_path(&mut self, src: &mut Source<impl Iterator<Item=char>>, output: &mut impl PathBuilder) -> Result<(), ParseError> {
+    fn parse_path(
+        &mut self,
+        src: &mut Source<impl Iterator<Item = char>>,
+        output: &mut impl PathBuilder,
+    ) -> Result<(), ParseError> {
         // Per-spec: "If a relative moveto (m) appears as the first element of the path, then it is
         // treated as a pair of absolute coordinates."
         self.current_position = point(0.0, 0.0);
@@ -205,7 +257,11 @@ impl PathParser {
             }
 
             if need_start && cmd != 'm' && cmd != 'M' {
-                return Err(ParseError::MissingMoveTo { command: cmd, line: cmd_line, column: cmd_col });
+                return Err(ParseError::MissingMoveTo {
+                    command: cmd,
+                    line: cmd_line,
+                    column: cmd_col,
+                });
             }
 
             //println!("{:?} at line {:?} column {:?}", cmd, cmd_line, cmd_col);
@@ -279,18 +335,20 @@ impl PathParser {
                         to,
                         radii: vector(rx, ry),
                         x_rotation: Angle::degrees(x_rotation),
-                        flags: ArcFlags {
-                            large_arc,
-                            sweep,
-                        },
-                    }.to_arc();
+                        flags: ArcFlags { large_arc, sweep },
+                    }
+                    .to_arc();
 
                     arc.for_each_quadratic_bezier_with_t(&mut |curve, range| {
                         for i in 0..self.num_attributes {
                             interpolated_attributes[i] = prev_attributes[i] * (1.0 - range.end)
                                 + self.attribute_buffer[i] * range.end;
                         }
-                        output.quadratic_bezier_to(curve.ctrl, curve.to, Attributes(&interpolated_attributes));
+                        output.quadratic_bezier_to(
+                            curve.ctrl,
+                            curve.to,
+                            Attributes(&interpolated_attributes),
+                        );
                     });
                 }
                 'm' | 'M' => {
@@ -328,7 +386,7 @@ impl PathParser {
                 }
                 _ => {
                     prev_cubic_ctrl = None;
-                    prev_quadratic_ctrl = None;                
+                    prev_quadratic_ctrl = None;
                 }
             }
 
@@ -354,7 +412,11 @@ impl PathParser {
         }
     }
 
-    fn parse_endpoint(&mut self, is_relatve: bool, src: &mut Source<impl Iterator<Item=char>>) -> Result<Point, ParseError> {
+    fn parse_endpoint(
+        &mut self,
+        is_relatve: bool,
+        src: &mut Source<impl Iterator<Item = char>>,
+    ) -> Result<Point, ParseError> {
         let position = self.parse_point(is_relatve, src)?;
         self.current_position = position;
 
@@ -363,7 +425,10 @@ impl PathParser {
         Ok(position)
     }
 
-    fn parse_attributes(&mut self, src: &mut Source<impl Iterator<Item=char>>) -> Result<(), ParseError> {
+    fn parse_attributes(
+        &mut self,
+        src: &mut Source<impl Iterator<Item = char>>,
+    ) -> Result<(), ParseError> {
         self.attribute_buffer.clear();
         for _ in 0..self.num_attributes {
             let value = self.parse_number(src)?;
@@ -373,7 +438,11 @@ impl PathParser {
         Ok(())
     }
 
-    fn parse_point(&mut self, is_relatve: bool, src: &mut Source<impl Iterator<Item=char>>) -> Result<Point, ParseError> {
+    fn parse_point(
+        &mut self,
+        is_relatve: bool,
+        src: &mut Source<impl Iterator<Item = char>>,
+    ) -> Result<Point, ParseError> {
         let mut x = self.parse_number(src)?;
         let mut y = self.parse_number(src)?;
 
@@ -385,7 +454,10 @@ impl PathParser {
         Ok(point(x, y))
     }
 
-    fn parse_number(&mut self, src: &mut Source<impl Iterator<Item=char>>) -> Result<f32, ParseError> {
+    fn parse_number(
+        &mut self,
+        src: &mut Source<impl Iterator<Item = char>>,
+    ) -> Result<f32, ParseError> {
         self.float_buffer.clear();
 
         src.skip_whitespace();
@@ -430,57 +502,59 @@ impl PathParser {
 
         match self.float_buffer.parse::<f32>() {
             Ok(val) => Ok(val),
-            Err(_) => {
-                Err(ParseError::Number {
-                    src: std::mem::take(&mut self.float_buffer),
-                    line,
-                    column,
-                })
-            }
+            Err(_) => Err(ParseError::Number {
+                src: std::mem::take(&mut self.float_buffer),
+                line,
+                column,
+            }),
         }
     }
 
-    fn parse_flag(&mut self, src: &mut Source<impl Iterator<Item=char>>) -> Result<bool, ParseError> {
+    fn parse_flag(
+        &mut self,
+        src: &mut Source<impl Iterator<Item = char>>,
+    ) -> Result<bool, ParseError> {
         src.skip_whitespace();
         match src.current {
             '1' => Ok(true),
             '0' => Ok(false),
-            _ => {
-                Err(ParseError::Flag {
-                    src: src.current,
-                    line: src.line,
-                    column: src.col,
-                })
-            }
+            _ => Err(ParseError::Flag {
+                src: src.current,
+                line: src.line,
+                column: src.col,
+            }),
         }
     }
 }
 
 #[cfg(test)]
-use crate::path::{Path, path::BuilderWithAttributes};
+use crate::path::{path::BuilderWithAttributes, Path};
 
 #[test]
 fn empty() {
     let options = ParserOptions {
         num_attributes: 0,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
 
     let mut parser = PathParser::new();
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
-    parser.parse(&options, &mut Source::new("".chars()), &mut builder).unwrap();
+    parser
+        .parse(&options, &mut Source::new("".chars()), &mut builder)
+        .unwrap();
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
-    parser.parse(&options, &mut Source::new(" ".chars()), &mut builder).unwrap();
+    parser
+        .parse(&options, &mut Source::new(" ".chars()), &mut builder)
+        .unwrap();
 }
-
 
 #[test]
 fn simple_square() {
     let options = ParserOptions {
         num_attributes: 0,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
     let mut builder = Path::builder_with_attributes(options.num_attributes);
@@ -489,12 +563,11 @@ fn simple_square() {
     parser.parse(&options, &mut src, &mut builder).unwrap();
 }
 
-
 #[test]
 fn simple_attr() {
     let options = ParserOptions {
         num_attributes: 1,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
     let mut builder = Path::builder_with_attributes(options.num_attributes);
@@ -507,7 +580,7 @@ fn simple_attr() {
 fn implicit_polyline() {
     let options = ParserOptions {
         num_attributes: 1,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
     let mut builder = Path::builder_with_attributes(options.num_attributes);
@@ -520,27 +593,47 @@ fn implicit_polyline() {
 fn invalid_cmd() {
     let options = ParserOptions {
         num_attributes: 1,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
     let mut src = Source::new("x 0 0 0".chars());
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
-    let result = parser.parse(&options, &mut src, &mut builder).err().unwrap();
-    assert_eq!(result, ParseError::Command { command: 'x', line: 0, column: 0 });
+    let result = parser
+        .parse(&options, &mut src, &mut builder)
+        .err()
+        .unwrap();
+    assert_eq!(
+        result,
+        ParseError::Command {
+            command: 'x',
+            line: 0,
+            column: 0
+        }
+    );
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
     let mut src = Source::new("\n M 0 \n0 1 x 1 1 1".chars());
 
-    let result = parser.parse(&options, &mut src, &mut builder).err().unwrap();
-    assert_eq!(result, ParseError::Command { command: 'x', line: 2, column: 4 });
+    let result = parser
+        .parse(&options, &mut src, &mut builder)
+        .err()
+        .unwrap();
+    assert_eq!(
+        result,
+        ParseError::Command {
+            command: 'x',
+            line: 2,
+            column: 4
+        }
+    );
 }
 
 #[test]
 fn number_01() {
     let options = ParserOptions {
         num_attributes: 0,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
 
@@ -553,8 +646,20 @@ fn number_01() {
 
     let mut iter = path.iter();
     use path::PathEvent;
-    assert_eq!(iter.next(), Some(PathEvent::Begin { at: point(0.6, 0.5) }));
-    assert_eq!(iter.next(), Some(PathEvent::End { last: point(0.6, 0.5), first: point(0.6, 0.5), close: false }));
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::Begin {
+            at: point(0.6, 0.5)
+        })
+    );
+    assert_eq!(
+        iter.next(),
+        Some(PathEvent::End {
+            last: point(0.6, 0.5),
+            first: point(0.6, 0.5),
+            close: false
+        })
+    );
     assert_eq!(iter.next(), None);
 }
 
@@ -562,7 +667,7 @@ fn number_01() {
 fn number_scientific_notation() {
     let options = ParserOptions {
         num_attributes: 0,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
     let mut builder = Path::builder_with_attributes(options.num_attributes);
@@ -571,12 +676,11 @@ fn number_scientific_notation() {
     parser.parse(&options, &mut src, &mut builder).unwrap();
 }
 
-
 #[test]
 fn bad_numbers() {
     let options = ParserOptions {
         num_attributes: 0,
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
 
@@ -590,16 +694,50 @@ fn bad_numbers() {
         }
     }
 
-    fn builder(num_attributes: usize) -> BuilderWithAttributes { Path::builder_with_attributes(num_attributes) }
+    fn builder(num_attributes: usize) -> BuilderWithAttributes {
+        Path::builder_with_attributes(num_attributes)
+    }
 
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 a".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 --1".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 1ee2".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 1e--1".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 *2".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 e".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 1e".chars()), &mut builder(0))));
-    assert!(bad_number(parser.parse(&options, &mut Source::new("M 0 +1".chars()), &mut builder(0))));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 a".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 --1".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 1ee2".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 1e--1".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 *2".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 e".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 1e".chars()),
+        &mut builder(0)
+    )));
+    assert!(bad_number(parser.parse(
+        &options,
+        &mut Source::new("M 0 +1".chars()),
+        &mut builder(0)
+    )));
 }
 
 #[test]
@@ -607,16 +745,42 @@ fn stop() {
     let options = ParserOptions {
         num_attributes: 0,
         stop_at: Some('|'),
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
 
-    fn builder(num_attributes: usize) -> BuilderWithAttributes { Path::builder_with_attributes(num_attributes) }
+    fn builder(num_attributes: usize) -> BuilderWithAttributes {
+        Path::builder_with_attributes(num_attributes)
+    }
 
-    parser.parse(&options, &mut Source::new("M 0 0 | xxxxxx".chars()), &mut builder(0)).unwrap();
-    parser.parse(&options, &mut Source::new("M 0 0| xxxxxx".chars()), &mut builder(0)).unwrap();
-    parser.parse(&options, &mut Source::new("| xxxxxx".chars()), &mut builder(0)).unwrap();
-    parser.parse(&options, &mut Source::new("    | xxxxxx".chars()), &mut builder(0)).unwrap();
+    parser
+        .parse(
+            &options,
+            &mut Source::new("M 0 0 | xxxxxx".chars()),
+            &mut builder(0),
+        )
+        .unwrap();
+    parser
+        .parse(
+            &options,
+            &mut Source::new("M 0 0| xxxxxx".chars()),
+            &mut builder(0),
+        )
+        .unwrap();
+    parser
+        .parse(
+            &options,
+            &mut Source::new("| xxxxxx".chars()),
+            &mut builder(0),
+        )
+        .unwrap();
+    parser
+        .parse(
+            &options,
+            &mut Source::new("    | xxxxxx".chars()),
+            &mut builder(0),
+        )
+        .unwrap();
 }
 
 #[test]
@@ -624,20 +788,28 @@ fn need_start() {
     let options = ParserOptions {
         num_attributes: 0,
         stop_at: Some('|'),
-        .. ParserOptions::DEFAULT
+        ..ParserOptions::DEFAULT
     };
     let mut parser = PathParser::new();
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
-    let res = parser.parse(&options, &mut Source::new("M 0 0 Z L 1 1 2 2 L 3 3 Z M 4 4".chars()), &mut builder);
+    let res = parser.parse(
+        &options,
+        &mut Source::new("M 0 0 Z L 1 1 2 2 L 3 3 Z M 4 4".chars()),
+        &mut builder,
+    );
     let p1 = builder.build();
     match res {
         Err(ParseError::MissingMoveTo { .. }) => {}
-        _ => { panic!("{:?}", res); }
+        _ => {
+            panic!("{:?}", res);
+        }
     }
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
-    parser.parse(&options, &mut Source::new("M 0 0 Z".chars()), &mut builder).unwrap();
+    parser
+        .parse(&options, &mut Source::new("M 0 0 Z".chars()), &mut builder)
+        .unwrap();
     let p2 = builder.build();
 
     let mut p1 = p1.iter();

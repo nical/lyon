@@ -1,7 +1,7 @@
 use crate::math::*;
 use crate::path::builder::*;
 use crate::path::private::{flatten_cubic_bezier, flatten_quadratic_bezier};
-use crate::path::{EndpointId, Attributes};
+use crate::path::{Attributes, EndpointId};
 
 use std::ops::Range;
 
@@ -177,7 +177,9 @@ impl Build for Builder {
 }
 
 impl PathBuilder for Builder {
-    fn num_attributes(&self) -> usize { 0 }
+    fn num_attributes(&self) -> usize {
+        0
+    }
 
     fn begin(&mut self, to: Point, _: Attributes) -> EndpointId {
         nan_check(to);
@@ -222,11 +224,17 @@ impl PathBuilder for Builder {
             Attributes::NONE,
             Attributes::NONE,
             self,
-            &mut []
+            &mut [],
         )
     }
 
-    fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point, _: Attributes) -> EndpointId {
+    fn cubic_bezier_to(
+        &mut self,
+        ctrl1: Point,
+        ctrl2: Point,
+        to: Point,
+        _: Attributes,
+    ) -> EndpointId {
         flatten_cubic_bezier(
             self.tolerance,
             self.current_position(),
@@ -236,7 +244,7 @@ impl PathBuilder for Builder {
             Attributes::NONE,
             Attributes::NONE,
             self,
-            &mut []
+            &mut [],
         )
     }
 }

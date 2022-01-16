@@ -1,7 +1,7 @@
 //! Bounding rectangle computation for paths.
 
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
-use crate::math::{point, Point, Box2D};
+use crate::math::{point, Box2D, Point};
 use crate::path::PathEvent;
 use std::f32;
 
@@ -140,7 +140,10 @@ fn simple_bounding_box() {
 
     assert_eq!(
         fast_bounding_box(&path),
-        Box2D { min: point(-10.0, -12.0), max: point(5.0, 4.0) },
+        Box2D {
+            min: point(-10.0, -12.0),
+            max: point(5.0, 4.0)
+        },
     );
 
     let mut builder = Path::builder();
@@ -151,6 +154,9 @@ fn simple_bounding_box() {
 
     assert_eq!(
         fast_bounding_box(path.iter()),
-        Box2D { min: point(-1.0, -4.0), max: point(3.0, 2.0) },
+        Box2D {
+            min: point(-1.0, -4.0),
+            max: point(3.0, 2.0)
+        },
     );
 }

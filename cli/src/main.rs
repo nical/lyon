@@ -434,7 +434,8 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
             Some(
                 FillOptions::tolerance(get_tolerance(&command))
                     .with_fill_rule(fill_rule)
-                    .with_sweep_orientation(orientation))
+                    .with_sweep_orientation(orientation),
+            )
         } else {
             None
         };

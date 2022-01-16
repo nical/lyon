@@ -1,13 +1,13 @@
 //! Approximate path length.
 
-use crate::geom::{LineSegment, CubicBezierSegment, QuadraticBezierSegment};
+use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::path::PathEvent;
 
 use std::iter::IntoIterator;
 
 pub fn approximate_length<Iter>(path: Iter, tolerance: f32) -> f32
 where
-    Iter: IntoIterator<Item = PathEvent>
+    Iter: IntoIterator<Item = PathEvent>,
 {
     let tolerance = tolerance.max(1e-4);
 
@@ -15,17 +15,34 @@ where
 
     for evt in path.into_iter() {
         match evt {
-            PathEvent::Line { from, to } => {
-                length += LineSegment { from, to }.length()
-            }
+            PathEvent::Line { from, to } => length += LineSegment { from, to }.length(),
             PathEvent::Quadratic { from, ctrl, to } => {
                 length += QuadraticBezierSegment { from, ctrl, to }.approximate_length(tolerance)
             }
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
-                length += CubicBezierSegment { from, ctrl1, ctrl2, to }.approximate_length(tolerance)
+            PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            } => {
+                length += CubicBezierSegment {
+                    from,
+                    ctrl1,
+                    ctrl2,
+                    to,
+                }
+                .approximate_length(tolerance)
             }
-            PathEvent::End { last, first, close: true } => {
-                length += LineSegment { from: last, to: first }.length()
+            PathEvent::End {
+                last,
+                first,
+                close: true,
+            } => {
+                length += LineSegment {
+                    from: last,
+                    to: first,
+                }
+                .length()
             }
             _ => {}
         }
