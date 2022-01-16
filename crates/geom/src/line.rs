@@ -1388,3 +1388,23 @@ fn clipped() {
         assert_eq!(segment.flip().clipped(&b), None);
     }
 }
+
+#[test]
+fn equation() {
+    let lines = [
+        Line { point: point(100.0f64, 20.0), vector: vector(-1.0, 3.0) },
+        Line { point: point(-30.0, 150.0), vector: vector(10.0, 2.0) },
+        Line { point: point(50.0, -10.0), vector: vector(5.0, -1.0) },
+    ];
+
+    for line in &lines {
+        let eqn = line.equation();
+        use euclid::approxeq::ApproxEq;
+        for t in [-100.0, -50.0, 0.0, 25.0, 325.0] {
+            let p = line.point + line.vector * t;
+            assert!(eqn.solve_y_for_x(p.x).unwrap().approx_eq(&p.y));
+            assert!(eqn.solve_x_for_y(p.y).unwrap().approx_eq(&p.x));
+        }
+    }
+}
+

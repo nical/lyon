@@ -528,13 +528,49 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// point along curve. To get the intersection points, sample the curve
     /// at the corresponding values.
     pub fn line_intersections_t(&self, line: &Line<S>) -> ArrayVec<S, 2> {
-        // TODO: a specific quadratic bézier vs line intersection function
-        // would allow for better performance.
-        let intersections = self.to_cubic().line_intersections_t(line);
+        // take the quadratic bezier formulation and inject it in
+        // the line equation ax + by + c = 0.
+        let eqn = line.equation();
+        let i = eqn.a() * self.from.x + eqn.b() * self.from.y;
+        let j = eqn.a() * self.ctrl.x + eqn.b() * self.ctrl.y;
+        let k = eqn.a() * self.to.x + eqn.b() * self.to.y;
+        // Solve "(i - 2j + k)t² + (2j - 2i)t + (i + c) = 0"
+        let a = i - j - j + k;
+        let b = j + j - i - i;
+        let c = i + eqn.c();
 
         let mut result = ArrayVec::new();
-        for t in intersections {
-            result.push(t);
+
+        if a == S::ZERO {
+            // Linear equation bt + c = 0.
+            let t = c / b;
+            if t >= S::ZERO && t <= S::ONE {
+                result.push(t);
+                return result;
+            }
+        }
+
+        let delta = b * b - S::FOUR * a * c;
+        if delta >= S::ZERO {
+            // To avoid potential float precision issues when b is close to
+            // sqrt_delta, we exploit the fact that given the roots t1 and t2,
+            // t2 = c / (a * t1) and t1 = c / (a * t2).
+            let sqrt_delta = S::sqrt(delta);
+            let s_sqrt_delta = -b.signum() * sqrt_delta;
+            let mut t1 = (-b + s_sqrt_delta) / (S::TWO * a);
+            let mut t2 = c / (a * t1);
+
+            if t1 > t2 {
+                std::mem::swap(&mut t1, &mut t2);
+            }
+
+            if t1 >= S::ZERO && t1 <= S::ONE {
+                result.push(t1);
+            }
+
+            if t2 >= S::ZERO && t2 <= S::ONE && t1 != t2 {
+                result.push(t2);
+            }
         }
 
         result
@@ -542,7 +578,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Computes the intersection points (if any) between this segment a line.
     pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<Point<S>, 2> {
-        let intersections = self.to_cubic().line_intersections_t(line);
+        let intersections = self.line_intersections_t(line);
 
         let mut result = ArrayVec::new();
         for t in intersections {
@@ -558,14 +594,42 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// point along curve and segment. To get the intersection points, sample
     /// the segments at the corresponding values.
     pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<(S, S), 2> {
-        // TODO: a specific quadratic bézier vs line intersection function
-        // would allow for better performance.
-        let intersections = self.to_cubic().line_segment_intersections_t(segment);
-        assert!(intersections.len() <= 2);
+        if !self
+            .fast_bounding_box()
+            .inflate(S::EPSILON, S::EPSILON)
+            .intersects(&segment.bounding_box().inflate(S::EPSILON, S::EPSILON))
+        {
+            return ArrayVec::new();
+        }
+
+        let intersections = self.line_intersections_t(&segment.to_line());
 
         let mut result = ArrayVec::new();
+        if intersections.is_empty() {
+            return result;
+        }
+
+        let seg_is_mostly_vertical =
+            S::abs(segment.from.y - segment.to.y) >= S::abs(segment.from.x - segment.to.x);
+        let (seg_long_axis_min, seg_long_axis_max) = if seg_is_mostly_vertical {
+            segment.bounding_range_y()
+        } else {
+            segment.bounding_range_x()
+        };
+
         for t in intersections {
-            result.push(t);
+            let intersection_xy = if seg_is_mostly_vertical {
+                self.y(t)
+            } else {
+                self.x(t)
+            };
+            if intersection_xy >= seg_long_axis_min && intersection_xy <= seg_long_axis_max {
+                let t2 = (self.sample(t) - segment.from).length() / segment.length();
+                // Don't take intersections that are on endpoints of both curves at the same time.
+                if (t != S::ZERO && t != S::ONE) || (t2 != S::ZERO && t2 != S::ONE) {
+                    result.push((t, t2));
+                }
+            }
         }
 
         result
@@ -583,8 +647,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Computes the intersection points (if any) between this segment a line segment.
     pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<Point<S>, 2> {
-        let intersections = self.to_cubic().line_segment_intersections_t(segment);
-        assert!(intersections.len() <= 2);
+        let intersections = self.line_segment_intersections_t(segment);
 
         let mut result = ArrayVec::new();
         for (t, _) in intersections {
@@ -1171,4 +1234,28 @@ fn issue_678() {
     println!("{:?}", intersections);
 
     assert_eq!(intersections.len(), 1);
+}
+
+#[test]
+fn line_intersections_t() {
+    let curve = QuadraticBezierSegment { from: point(0.0f64, 0.0), ctrl: point(100.0, 0.0), to: point(100.0, 500.0) };
+    let cubic = curve.to_cubic();
+
+    let line = Line { point: point(0.0, -50.0), vector: crate::vector(100.0, 500.0), };
+
+    let mut i1 = curve.line_intersections_t(&line);
+    let mut i2 = curve.to_cubic().line_intersections_t(&line);
+
+    use std::cmp::Ordering::{Equal, Greater, Less};
+    i1.sort_by(|a, b| { if a == b { Equal} else if a > b { Greater } else { Less } });
+    i2.sort_by(|a, b| { if a == b { Equal} else if a > b { Greater } else { Less } });
+
+    for (t1, t2) in i1.iter().zip(i2.iter()) {
+        use euclid::approxeq::ApproxEq;
+        let p1 = curve.sample(*t1);
+        let p2 = cubic.sample(*t2);
+        assert!(p1.approx_eq(&p2), "{:?} == {:?}", p1, p2);
+    }
+    assert_eq!(i2.len(), 2);
+    assert_eq!(i1.len(), 2);
 }
