@@ -49,7 +49,7 @@ pub fn cubic_bezier_intersections_t<S: Scalar>(
     let curve2_is_a_point = curve2.is_a_point(S::EPSILON);
     if curve1_is_a_point && !curve2_is_a_point {
         let point1 = midpoint(&curve1.from, &curve1.to);
-        let curve_params = point_curve_intersections(&point1, &curve2, S::EPSILON);
+        let curve_params = point_curve_intersections(&point1, curve2, S::EPSILON);
         for t in curve_params {
             if t > S::EPSILON && t < S::ONE - S::EPSILON {
                 result.push((S::ZERO, t));
@@ -57,7 +57,7 @@ pub fn cubic_bezier_intersections_t<S: Scalar>(
         }
     } else if !curve1_is_a_point && curve2_is_a_point {
         let point2 = midpoint(&curve2.from, &curve2.to);
-        let curve_params = point_curve_intersections(&point2, &curve1, S::EPSILON);
+        let curve_params = point_curve_intersections(&point2, curve1, S::EPSILON);
         for t in curve_params {
             if t > S::EPSILON && t < S::ONE - S::EPSILON {
                 result.push((t, S::ZERO));
@@ -80,16 +80,16 @@ pub fn cubic_bezier_intersections_t<S: Scalar>(
         result = line_line_intersections(curve1, curve2);
     } else {
         add_curve_intersections(
-            &curve1,
-            &curve2,
+            curve1,
+            curve2,
             &(S::ZERO..S::ONE),
             &(S::ZERO..S::ONE),
             &mut result,
             /* flip */ false,
             /* recursion_count */ 0,
             /* call_count */ 0,
-            /* original curve1 */ &curve1,
-            /* original curve2 */ &curve2,
+            /* original curve1 */ curve1,
+            /* original curve2 */ curve2,
         );
     }
 
@@ -228,12 +228,12 @@ fn line_line_intersections<S: Scalar>(
         }
     }
 
-    let line1_params = parameters_for_line_point(&curve1, &intersection);
+    let line1_params = parameters_for_line_point(curve1, &intersection);
     if line1_params.is_empty() {
         return result;
     }
 
-    let line2_params = parameters_for_line_point(&curve2, &intersection);
+    let line2_params = parameters_for_line_point(curve2, &intersection);
     if line2_params.is_empty() {
         return result;
     }
@@ -285,7 +285,7 @@ fn add_curve_intersections<S: Scalar>(
 
     if domain2.start == domain2.end || curve2.is_a_point(S::ZERO) {
         add_point_curve_intersection(
-            &curve2,
+            curve2,
             /* point is curve1 */ false,
             curve1,
             domain2,
@@ -340,7 +340,7 @@ fn add_curve_intersections<S: Scalar>(
     // t_min_clip and t_max_clip are (0, 1)-based, so project them back to get the new restricted
     // range:
     let new_domain1 =
-        &(domain_value_at_t(&domain1, t_min_clip)..domain_value_at_t(&domain1, t_max_clip));
+        &(domain_value_at_t(domain1, t_min_clip)..domain_value_at_t(domain1, t_max_clip));
 
     if S::max(
         domain2.end - domain2.start,
@@ -372,7 +372,7 @@ fn add_curve_intersections<S: Scalar>(
     // is a point (but then curve1 will be very small).)
     if new_domain1.start == new_domain1.end || curve1.is_a_point(S::ZERO) {
         add_point_curve_intersection(
-            &curve1,
+            curve1,
             /* point is curve1 */ true,
             curve2,
             new_domain1,
@@ -679,14 +679,14 @@ fn clip_convex_hull_to_fat_line<S: Scalar>(
     d_max: S,
 ) -> Option<(S, S)> {
     // Walk from the left corner of the convex hull until we enter the fat line limits:
-    let t_clip_min = walk_convex_hull_start_to_fat_line(&hull_top, &hull_bottom, d_min, d_max)?;
+    let t_clip_min = walk_convex_hull_start_to_fat_line(hull_top, hull_bottom, d_min, d_max)?;
 
     // Now walk from the right corner of the convex hull until we enter the fat line limits - to
     // walk right to left we just reverse the order of the hull vertices, so that hull_top and
     // hull_bottom start at the right corner now:
     hull_top.reverse();
     hull_bottom.reverse();
-    let t_clip_max = walk_convex_hull_start_to_fat_line(&hull_top, &hull_bottom, d_min, d_max)?;
+    let t_clip_max = walk_convex_hull_start_to_fat_line(hull_top, hull_bottom, d_min, d_max)?;
 
     Some((t_clip_min, t_clip_max))
 }
