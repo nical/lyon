@@ -580,7 +580,7 @@ impl<S: Scalar> SvgArc<S> {
 /// four arcs are drawn, as follows:
 ///
 /// See more examples in the [SVG specification](https://svgwg.org/specs/paths/)
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
 pub struct ArcFlags {
     /// Of the four candidate arc sweeps, two will represent an arc sweep of greater
@@ -597,15 +597,6 @@ pub struct ArcFlags {
     /// angle value corresponding to the current point and decreases until the arc reaches
     /// the destination position).
     pub sweep: bool,
-}
-
-impl Default for ArcFlags {
-    fn default() -> Self {
-        ArcFlags {
-            large_arc: false,
-            sweep: false,
-        }
-    }
 }
 
 fn arc_to_quadratic_beziers_with_t<S, F>(arc: &Arc<S>, callback: &mut F)

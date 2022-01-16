@@ -426,7 +426,7 @@ impl<S: Scalar> LineSegment<S> {
             LineSegment { from: r.from.yx(), to: r.to.yx() }
         }
 
-        Some(transpose(&transpose(&self).clipped_x(clip)?))
+        Some(transpose(&transpose(self).clipped_x(clip)?))
     }
 
     pub fn clipped(&self, clip: &Box2D<S>) -> Option<Self> {

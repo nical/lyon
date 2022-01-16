@@ -35,7 +35,7 @@ pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(
     let quadratics_tolerance = tolerance * S::value(0.2);
     let flattening_tolerance = tolerance * S::value(0.8);
 
-    let num_quadratics = num_quadratics(&curve, quadratics_tolerance);
+    let num_quadratics = num_quadratics(curve, quadratics_tolerance);
     let step = S::ONE / num_quadratics;
     let n = num_quadratics.to_u32().unwrap();
     let mut t0 = S::ZERO;
@@ -75,7 +75,7 @@ impl<S: Scalar> Flattened<S> {
         let quadratics_tolerance = tolerance * S::value(0.2);
         let flattening_tolerance = tolerance * S::value(0.8);
 
-        let num_quadratics = num_quadratics(&curve, quadratics_tolerance);
+        let num_quadratics = num_quadratics(curve, quadratics_tolerance);
 
         let range_step = S::ONE / num_quadratics;
 

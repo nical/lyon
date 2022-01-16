@@ -554,7 +554,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     pub fn line_segment_intersections_t(&self, segment: &LineSegment<S>) -> ArrayVec<(S, S), 2> {
         // TODO: a specific quadratic bézier vs line intersection function
         // would allow for better performance.
-        let intersections = self.to_cubic().line_segment_intersections_t(&segment);
+        let intersections = self.to_cubic().line_segment_intersections_t(segment);
         assert!(intersections.len() <= 2);
 
         let mut result = ArrayVec::new();
@@ -577,7 +577,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     /// Computes the intersection points (if any) between this segment a line segment.
     pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<Point<S>, 2> {
-        let intersections = self.to_cubic().line_segment_intersections_t(&segment);
+        let intersections = self.to_cubic().line_segment_intersections_t(segment);
         assert!(intersections.len() <= 2);
 
         let mut result = ArrayVec::new();

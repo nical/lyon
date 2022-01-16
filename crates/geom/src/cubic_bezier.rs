@@ -839,7 +839,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Computes the intersection points (if any) between this segment and a line.
     pub fn line_intersections(&self, line: &Line<S>) -> ArrayVec<Point<S>, 3> {
-        let intersections = self.line_intersections_t(&line);
+        let intersections = self.line_intersections_t(line);
 
         let mut result = ArrayVec::new();
         for t in intersections {
@@ -906,7 +906,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     pub fn line_segment_intersections(&self, segment: &LineSegment<S>) -> ArrayVec<Point<S>, 3> {
-        let intersections = self.line_segment_intersections_t(&segment);
+        let intersections = self.line_segment_intersections_t(segment);
 
         let mut result = ArrayVec::new();
         for (t, _) in intersections {
