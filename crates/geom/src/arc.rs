@@ -8,7 +8,7 @@ use crate::segment::{BoundingBox, Segment};
 use crate::CubicBezierSegment;
 use crate::Line;
 use crate::QuadraticBezierSegment;
-use crate::{point, vector, Angle, Point, Rotation, Transform, Vector, Box2D};
+use crate::{point, vector, Angle, Box2D, Point, Rotation, Transform, Vector};
 
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -535,7 +535,7 @@ impl<S: Scalar> SvgArc<S> {
                     ctrl: self.from,
                     to: self.to,
                 },
-                S::ZERO .. S::ONE
+                S::ZERO..S::ONE,
             );
             return;
         }
@@ -632,11 +632,7 @@ where
         };
         let ctrl = l2.intersection(&l1).unwrap_or(from);
 
-        let t1 = if i + 1 == n {
-            S::ONE
-        } else {
-            t0 + dt
-        };
+        let t1 = if i + 1 == n { S::ONE } else { t0 + dt };
 
         callback(&QuadraticBezierSegment { from, ctrl, to }, t0..t1);
         t0 = t1;
@@ -993,7 +989,13 @@ fn test_bounding_box() {
         x_rotation: Angle::zero(),
     }
     .bounding_box();
-    assert!(approx_eq(r, Box2D { min: point(-1.0, 0.0), max: point(1.0, 1.0) }));
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(-1.0, 0.0),
+            max: point(1.0, 1.0)
+        }
+    ));
 
     let r = Arc {
         center: point(0.0, 0.0),
@@ -1003,7 +1005,13 @@ fn test_bounding_box() {
         x_rotation: Angle::pi(),
     }
     .bounding_box();
-    assert!(approx_eq(r, Box2D { min: point(-1.0, -1.0), max: point(1.0, 0.0) }));
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(-1.0, -1.0),
+            max: point(1.0, 0.0)
+        }
+    ));
 
     let r = Arc {
         center: point(0.0, 0.0),
@@ -1013,7 +1021,13 @@ fn test_bounding_box() {
         x_rotation: Angle::pi() * 0.5,
     }
     .bounding_box();
-    assert!(approx_eq(r, Box2D { min: point(-1.0, -2.0), max: point(0.0, 2.0) }));
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(-1.0, -2.0),
+            max: point(0.0, 2.0)
+        }
+    ));
 
     let r = Arc {
         center: point(1.0, 1.0),
@@ -1023,7 +1037,13 @@ fn test_bounding_box() {
         x_rotation: -Angle::pi() * 0.25,
     }
     .bounding_box();
-    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(1.707107, 1.707107) }));
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(0.0, 0.0),
+            max: point(1.707107, 1.707107)
+        }
+    ));
 
     let mut angle = Angle::zero();
     for _ in 0..10 {
@@ -1036,7 +1056,13 @@ fn test_bounding_box() {
             x_rotation: Angle::pi() * 0.25,
         }
         .bounding_box();
-        assert!(approx_eq(r, Box2D { min: point(-4.0, -4.0), max: point(4.0, 4.0) }));
+        assert!(approx_eq(
+            r,
+            Box2D {
+                min: point(-4.0, -4.0),
+                max: point(4.0, 4.0)
+            }
+        ));
         angle += Angle::pi() * 2.0 / 10.0;
     }
 
@@ -1051,7 +1077,13 @@ fn test_bounding_box() {
             x_rotation: angle,
         }
         .bounding_box();
-        assert!(approx_eq(r, Box2D { min: point(-4.0, -4.0), max: point(4.0, 4.0) }));
+        assert!(approx_eq(
+            r,
+            Box2D {
+                min: point(-4.0, -4.0),
+                max: point(4.0, 4.0)
+            }
+        ));
         angle += Angle::pi() * 2.0 / 10.0;
     }
 }

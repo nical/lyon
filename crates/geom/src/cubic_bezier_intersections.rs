@@ -8,7 +8,7 @@ use crate::CubicBezierSegment;
 ///! See "Bézier Clipping method" in
 ///! https://scholarsarchive.byu.edu/facpub/1/
 ///! for motivation and details of how the process works.
-use crate::{point, Point, Box2D};
+use crate::{point, Box2D, Point};
 use arrayvec::ArrayVec;
 use std::ops::Range;
 
@@ -746,10 +746,7 @@ fn domain_value_at_t<S: Scalar>(domain: &Range<S>, t: S) -> S {
 #[inline]
 // Box2D::intersects doesn't count edge/corner intersections, this version does.
 fn rectangles_overlap<S: Scalar>(r1: &Box2D<S>, r2: &Box2D<S>) -> bool {
-    r1.min.x <= r2.max.x
-        && r2.min.x <= r1.max.x
-        && r1.min.y <= r2.max.y
-        && r2.min.y <= r1.max.y
+    r1.min.x <= r2.max.x && r2.min.x <= r1.max.x && r1.min.y <= r2.max.y && r2.min.y <= r1.max.y
 }
 
 #[cfg(test)]
