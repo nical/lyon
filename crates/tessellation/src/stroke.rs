@@ -574,6 +574,7 @@ pub(crate) struct StrokeBuilderImpl<'l> {
     previous: Option<EndpointData>,
     sub_path_start_advancement: f32,
     square_merge_threshold: f32,
+    may_need_empty_cap: bool,
 }
 
 impl<'l> StrokeBuilderImpl<'l> {
@@ -615,6 +616,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             previous: None,
             sub_path_start_advancement: 0.0,
             square_merge_threshold,
+            may_need_empty_cap: false,
         }
     }
 
@@ -659,6 +661,7 @@ impl<'l> StrokeBuilderImpl<'l> {
                     let half_width = base_width * attributes.get(at)[attrib_index] * 0.5;
                     current_endpoint = at;
                     current_position = positions.get_endpoint(at);
+                    self.may_need_empty_cap = false;
                     self.step(
                         EndpointData {
                             position: current_position,
@@ -770,6 +773,7 @@ impl<'l> StrokeBuilderImpl<'l> {
                     validator.begin();
                     current_endpoint = at;
                     current_position = positions.get_endpoint(at);
+                    self.may_need_empty_cap = false;
                     self.fixed_width_step(
                         EndpointData {
                             position: current_position,
@@ -927,6 +931,7 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 
     pub(crate) fn begin(&mut self, position: Point, endpoint: EndpointId, width: f32, attributes: &dyn AttributeStore) {
+        self.may_need_empty_cap = false;
         let half_width = width * 0.5;
         self.step(
             EndpointData {
@@ -1022,6 +1027,7 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 
     pub(crate) fn begin_fw(&mut self, position: Point, endpoint: EndpointId, attributes: &dyn AttributeStore) {
+        self.may_need_empty_cap = false;
         self.fixed_width_step(
             EndpointData {
                 position,
@@ -1113,13 +1119,15 @@ impl<'l> StrokeBuilderImpl<'l> {
 
 
     pub(crate) fn end(&mut self, close: bool, attributes: &dyn AttributeStore) {
-        if close && self.point_buffer.count() > 2{
+        let e = if close && self.point_buffer.count() > 0{
             self.close(attributes)
         } else {
-            if let Err(e) = self.end_with_caps(attributes) {
-                self.error(e);
-            }
+            self.end_with_caps(attributes)
         };
+
+        if let Err(e) = e {
+            self.error(e);
+        }
 
         self.point_buffer.clear();
         self.firsts.clear();
@@ -1134,37 +1142,73 @@ impl<'l> StrokeBuilderImpl<'l> {
         Ok(self.output.end_geometry())
     }
 
-    fn close(&mut self, attributes: &dyn AttributeStore) {
-        assert!(self.firsts.len() >= 1);
+    fn close(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
+        if self.point_buffer.count() == 1 {
+            self.tessellate_empty_cap(attributes)?;
+        }
 
+        if self.point_buffer.count() <= 2 {
+            return Ok(())
+        }
+
+        assert!(self.firsts.len() >= 1);
 
         let p = self.firsts[0];
         if self.options.variable_line_width.is_some() {
-            self.step(p, attributes);
+            self.step_impl(p, attributes)?;
         } else {
-            self.fixed_width_step(p, attributes);
-        }
-
-        if self.error.is_some() {
-            return;
+            self.fixed_width_step_impl(p, attributes)?;
         }
 
         if self.firsts.len() >= 2 {
             let p2 = self.firsts[1];
             if self.options.variable_line_width.is_some() {
-                self.step(p2, attributes);
+                self.step_impl(p2, attributes)?;
             } else {
-                self.fixed_width_step(p2, attributes);
-            }
-
-            if self.error.is_some() {
-                return;
+                self.fixed_width_step_impl(p2, attributes)?;
             }
 
             let (p0, p1) = self.point_buffer.last_two_mut();
 
             add_edge_triangles(p0, p1, self.output);
         }
+
+        Ok(())
+    }
+
+    #[cold]
+    fn tessellate_empty_cap(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
+        let point = self.point_buffer.get(0);
+
+        self.vertex.advancement = point.advancement;
+        self.vertex.src = point.src;
+        self.vertex.half_width = point.half_width;
+
+        match self.options.start_cap {
+            LineCap::Square => {
+                // Even if there is no edge, if we are using square caps we have to place a square
+                // at the current position.
+                crate::stroke::tessellate_empty_square_cap(
+                    point.position,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                )?;
+            }
+            LineCap::Round => {
+                // Same thing for round caps.
+                crate::stroke::tessellate_empty_round_cap(
+                    point.position,
+                    &self.options,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                )?;
+            }
+            _ => {}
+        }
+
+        Ok(())
     }
 
     fn points_are_too_close(&self, p0: Point, p1: Point) -> bool {
@@ -1173,6 +1217,11 @@ impl<'l> StrokeBuilderImpl<'l> {
 
     fn end_with_caps(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
         let count = self.point_buffer.count();
+
+        if self.may_need_empty_cap && count == 1 {
+            return self.tessellate_empty_cap(attributes);
+        }
+
         if count >= 2 {
             // Last edge.
 
@@ -1206,38 +1255,6 @@ impl<'l> StrokeBuilderImpl<'l> {
             tessellate_first_edge(&mut p0, &p1, &self.options, &mut self.vertex, attributes, self.output)?;
         }
 
-        if count == 1 {
-            let point = self.point_buffer.get(0);
-
-            self.vertex.advancement = point.advancement;
-            self.vertex.src = point.src;
-            self.vertex.half_width = point.half_width;
-
-            match self.options.start_cap {
-                LineCap::Square => {
-                    // Even if there is no edge, if we are using square caps we have to place a square
-                    // at the current position.
-                    crate::stroke::tessellate_empty_square_cap(
-                        point.position,
-                        &mut self.vertex,
-                        attributes,
-                        self.output,
-                    )?;
-                }
-                LineCap::Round => {
-                    // Same thing for round caps.
-                    crate::stroke::tessellate_empty_round_cap(
-                        point.position,
-                        &self.options,
-                        &mut self.vertex,
-                        attributes,
-                        self.output,
-                    )?;
-                }
-                _ => {}
-            }
-        }
-
         Ok(())
     }
 
@@ -1247,6 +1264,11 @@ impl<'l> StrokeBuilderImpl<'l> {
         debug_assert!(self.options.variable_line_width.is_some());
 
         if count > 0 && self.points_are_too_close(self.point_buffer.last().position, next.position) {
+            if count == 1 {
+                // move-to followed by empty segment and end of paths means we have to generate
+                // an empty cap.
+                self.may_need_empty_cap = true;
+            }
             // TODO: should do something like:
             // - add the endpoint
             // - only allow two consecutive endpoints at the same position
@@ -1317,6 +1339,9 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         if count > 0 {
             if self.points_are_too_close(self.point_buffer.last().position, next.position) {
+                if count == 1 {
+                    self.may_need_empty_cap = true;
+                }
                 return Ok(());
             }
 
@@ -2540,11 +2565,29 @@ fn test_empty_path() {
 fn test_empty_caps() {
     let mut builder = Path::builder_with_attributes(1);
 
+    // moveto + close: empty cap.
     builder.begin(point(1.0, 0.0), Attributes(&[1.0]));
-    builder.end(false);
+    builder.end(true);
+
+    // Only moveto + lineto at same position: empty cap.
     builder.begin(point(2.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(2.0, 0.0), Attributes(&[1.0]));
     builder.end(false);
+
+    // Only moveto + lineto at same position: empty cap.
     builder.begin(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.end(true);
+
+    // Only moveto + multiple lineto at same position: empty cap.
+    builder.begin(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.end(true);
+
+    // moveto then end (not closed): no empty cap.
+    builder.begin(point(4.0, 0.0), Attributes(&[1.0]));
     builder.end(false);
 
     let path = builder.build();
@@ -2563,7 +2606,7 @@ fn test_empty_caps() {
         test_path(
             path.as_slice(),
             &options.with_line_cap(LineCap::Square),
-            Some(6),
+            Some(8),
         );
         test_path(
             path.as_slice(),
