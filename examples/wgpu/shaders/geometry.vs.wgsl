@@ -1,4 +1,3 @@
-[[block]]
 struct Globals {
     resolution: vec2<f32>;
     scroll_offset: vec2<f32>;
@@ -16,7 +15,6 @@ struct Primitive {
     pad2: i32;
 };
 
-[[block]]
 struct Primitives {
     primitives: [[stride(48)]] array<Primitive, 256>;
 };

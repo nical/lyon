@@ -473,7 +473,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             front_face: wgpu::FrontFace::Ccw,
             strip_index_format: None,
             cull_mode: Some(wgpu::Face::Back),
-            clamp_depth: false,
+            unclipped_depth: false,
             conservative: false,
         },
         depth_stencil: depth_stencil_state.clone(),
@@ -482,6 +482,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
+        multiview: None,
     };
 
     let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
@@ -527,7 +528,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             front_face: wgpu::FrontFace::Ccw,
             strip_index_format: None,
             cull_mode: None,
-            clamp_depth: false,
+            unclipped_depth: false,
             conservative: false,
         },
         depth_stencil: depth_stencil_state.clone(),
@@ -536,6 +537,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             mask: !0,
             alpha_to_coverage_enabled: false,
         },
+        multiview: None,
     });
 
     let size = window.inner_size();

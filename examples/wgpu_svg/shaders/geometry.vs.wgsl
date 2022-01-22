@@ -1,4 +1,3 @@
-[[block]]
 struct Globals {
     u_zoom: vec2<f32>;
     u_pan: vec2<f32>;
@@ -16,12 +15,10 @@ struct Transform {
     data1: vec4<f32>;
 };
 
-[[block]]
 struct Primitives {
     primitives: [[stride(16)]] array<Primitive>;
 };
 
-[[block]]
 struct Transforms {
     transforms: [[stride(32)]] array<Transform>;
 };

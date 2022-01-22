@@ -1,5 +1,4 @@
 
-[[block]]
 struct Globals {
     resolution: vec2<f32>;
     scroll_offset: vec2<f32>;
@@ -31,12 +30,12 @@ fn main([[location(0)]] v_position: vec2<f32>) -> Output {
     var pos = px_position + globals.scroll_offset * globals.zoom;
 
     var small_cell = 20.0 / grid_scale * globals.zoom;
-    if (pos.x % small_cell <= 1.0 || pos.y % small_cell <= 1.0) {
+    if (abs(pos.x) % small_cell <= 1.0 || abs(pos.y) % small_cell <= 1.0) {
         color = color * 1.2;
     }
 
     var large_cell = 100.0 / grid_scale * globals.zoom;
-    if (pos.x % large_cell <= 2.0 || pos.y % large_cell <= 2.0) {
+    if (abs(pos.x) % large_cell <= 2.0 || abs(pos.y) % large_cell <= 2.0) {
         color = color * 1.2;
     }
 

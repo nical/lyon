@@ -28,12 +28,12 @@ fn main(
     var pos = px_position + v_scroll_offset * v_zoom;
 
     var small_cell = 20.0 / grid_scale * v_zoom;
-    if (pos.x % small_cell <= 1.0 || pos.y % small_cell <= 1.0) {
+    if (abs(pos.x) % small_cell <= 1.0 || abs(pos.y) % small_cell <= 1.0) {
         color = color * 1.2;
     }
 
     var large_cell = 100.0 / grid_scale * v_zoom;
-    if (pos.x % large_cell <= 2.0 || pos.y % large_cell <= 2.0) {
+    if (abs(pos.x) % large_cell <= 2.0 || abs(pos.y) % large_cell <= 2.0) {
         color = color * 1.2;
     }
 
