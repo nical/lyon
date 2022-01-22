@@ -656,6 +656,25 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
         result
     }
+
+    // Returns a quadratic bézier curve built by dragging this curve's point at `t`
+    // to a new position.
+    pub fn drag(&self, t: S, new_position: Point<S>) -> Self {
+        let t2 = t * t;
+        let one_t = S::ONE - t;
+        let one_t2 = one_t * one_t;
+
+        let u = t2 / (t2 + one_t2);
+        let c = self.from.lerp(self.to, u);
+
+        let inv_r = S::abs((t2 + one_t2) / (t2 + one_t2 - S::ONE));
+
+        QuadraticBezierSegment {
+            from: self.from,
+            ctrl: new_position + (new_position - c) * inv_r,
+            to: self.to
+        }
+    }
 }
 
 pub struct FlatteningParameters<S> {
@@ -1281,4 +1300,23 @@ fn line_intersections_t() {
     }
     assert_eq!(i2.len(), 2);
     assert_eq!(i1.len(), 2);
+}
+
+#[test]
+fn drag() {
+    let curve = QuadraticBezierSegment {
+        from: point(0.0f32, 0.0),
+        ctrl: point(100.0, 0.0),
+        to: point(100.0, 100.0),
+    };
+
+    for t in [0.5, 0.25, 0.1, 0.4, 0.7] {
+        let target = point(0.0, 10.0);
+
+        let dragged = curve.drag(t, target);
+
+        use euclid::approxeq::ApproxEq;
+        let p1 = dragged.sample(t);
+        assert!(p1.approx_eq_eps(&target, &point(0.001, 0.001)), "{:?} == {:?}", p1, target);
+    }
 }
