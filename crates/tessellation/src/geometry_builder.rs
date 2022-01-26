@@ -340,6 +340,10 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
         }
     }
 
+    pub fn with_vertex_offset(self, offset: Index) -> OffsetVertices<Self> {
+        OffsetVertices(self, offset)
+    }
+
     /// Consumes self and returns a builder with opposite triangle face winding.
     pub fn with_inverted_winding(self) -> InvertWinding<Self> {
         InvertWinding(self)
@@ -350,8 +354,58 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
     }
 }
 
+pub struct OffsetVertices<B>(B, Index);
+
+impl<B> OffsetVertices<B> {
+    pub fn with_inverted_winding(self) -> InvertWinding<Self> {
+        InvertWinding(self)
+    }
+}
+
+impl<B: GeometryBuilder> GeometryBuilder for OffsetVertices<B> {
+    fn begin_geometry(&mut self) {
+        self.0.begin_geometry();
+    }
+
+    fn end_geometry(&mut self) -> Count {
+        self.0.end_geometry()
+    }
+
+    fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        // Invert the triangle winding by flipping b and c.
+        self.0.add_triangle(a + self.1, c + self.1, b + self.1);
+    }
+
+    fn abort_geometry(&mut self) {
+        self.0.abort_geometry();
+    }
+}
+
+impl<B: FillGeometryBuilder> FillGeometryBuilder for OffsetVertices<B> {
+    #[inline]
+    fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
+        self.0.add_fill_vertex(vertex)
+    }
+}
+
+impl<B: StrokeGeometryBuilder> StrokeGeometryBuilder for OffsetVertices<B> {
+    #[inline]
+    fn add_stroke_vertex(
+        &mut self,
+        vertex: StrokeVertex,
+    ) -> Result<VertexId, GeometryBuilderError> {
+        self.0.add_stroke_vertex(vertex)
+    }
+}
+
 /// A wrapper for stroke and fill geometry builders that inverts the triangle face winding.
 pub struct InvertWinding<B>(B);
+
+impl<B> InvertWinding<B> {
+    pub fn with_vertex_offset(self, offset: Index) -> OffsetVertices<Self> {
+        OffsetVertices(self, offset)
+    }
+}
 
 impl<B: GeometryBuilder> GeometryBuilder for InvertWinding<B> {
     fn begin_geometry(&mut self) {
