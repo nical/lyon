@@ -312,48 +312,17 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Compute a flattened approximation of the curve, invoking a callback at
     /// each step.
     ///
-    /// The callback takes the point on the curve at each step.
-    ///
     /// This implements the algorithm described by Raph Levien at
     /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(Point<S>),
     {
-        self.for_each_flattened_t(tolerance, &mut |t| callback(self.sample(t)));
+        self.for_each_flattened_with_t(tolerance, &mut |position, _| callback(position));
     }
 
     /// Compute a flattened approximation of the curve, invoking a callback at
-    /// each step.
-    ///
-    /// The callback takes the curve parameter at each step.
-    ///
-    /// This implements the algorithm described by Raph Levien at
-    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
-    pub fn for_each_flattened_t<F>(&self, tolerance: S, callback: &mut F)
-    where
-        F: FnMut(S),
-    {
-        let params = FlatteningParameters::from_curve(self, tolerance);
-        if params.is_point {
-            return;
-        }
-
-        let mut i = S::ONE;
-        for _ in 1..params.count.to_u32().unwrap() {
-            let t = params.t_at_iteration(i);
-            i += S::ONE;
-
-            callback(t);
-        }
-
-        callback(S::ONE);
-    }
-
-    /// Compute a flattened approximation of the curve, invoking a callback at
-    /// each step.
-    ///
-    /// The callback takes the point and corresponding curve parameter at each step.
+    /// each step, including the final endpoint.
     ///
     /// This implements the algorithm described by Raph Levien at
     /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
@@ -361,7 +330,41 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     where
         F: FnMut(Point<S>, S),
     {
-        self.for_each_flattened_t(tolerance, &mut |t| callback(self.sample(t), t));
+        if self.for_each_flattened_with_t_impl(tolerance, callback) {
+            callback(self.to, S::ONE);
+        }
+    }
+
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step, excluding the final endpoint.
+    ///
+    /// This implements the algorithm described by Raph Levien at
+    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
+    pub fn for_each_flattened_with_t_intermediate<F>(&self, tolerance: S, callback: &mut F)
+    where
+        F: FnMut(Point<S>, S),
+    {
+        self.for_each_flattened_with_t_impl(tolerance, callback);
+    }
+
+    fn for_each_flattened_with_t_impl<F>(&self, tolerance: S, callback: &mut F) -> bool
+    where
+        F: FnMut(Point<S>, S),
+    {
+        let params = FlatteningParameters::from_curve(self, tolerance);
+        if params.is_point {
+            return false;
+        }
+
+        let mut i = S::ONE;
+        for _ in 1..params.count.to_u32().unwrap() {
+            let t = params.t_at_iteration(i);
+            i += S::ONE;
+
+            callback(self.sample(t), t);
+        }
+
+        return true;
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the

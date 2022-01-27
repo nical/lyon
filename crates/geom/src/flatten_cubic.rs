@@ -53,7 +53,7 @@ pub fn flatten_cubic_bezier_with_t<S: Scalar, F>(
 
     // Do the last step manually to make sure we finish at t = 1.0 exactly.
     let quadratic = single_curve_approximation(&curve.split_range(t0..S::ONE));
-    quadratic.for_each_flattened_with_t(flattening_tolerance, &mut |point, t_sub| {
+    quadratic.for_each_flattened_with_t_intermediate(flattening_tolerance, &mut |point, t_sub| {
         let t = t0 + step * t_sub;
         callback(point, t);
     });

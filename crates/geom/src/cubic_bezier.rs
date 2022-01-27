@@ -412,15 +412,25 @@ impl<S: Scalar> CubicBezierSegment<S> {
         cubic_to_monotonic_quadratics(self, tolerance, cb);
     }
 
-    /// Iterates through the curve invoking a callback at each point.
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step.
     pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, callback: &mut F) {
-        flatten_cubic_bezier_with_t(self, tolerance, &mut |point, _| {
-            callback(point);
-        });
+        flatten_cubic_bezier_with_t(self, tolerance, &mut |point, _| callback(point));
+
+        callback(self.to);
     }
 
-    /// Iterates through the curve invoking a callback at each point.
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step, including the final endpoint.
     pub fn for_each_flattened_with_t<F: FnMut(Point<S>, S)>(&self, tolerance: S, callback: &mut F) {
+        flatten_cubic_bezier_with_t(self, tolerance, callback);
+
+        callback(self.to, S::ONE);
+    }
+
+    /// Compute a flattened approximation of the curve, invoking a callback at
+    /// each step, excluding the final endpoint.
+    pub fn for_each_flattened_with_t_intermediate<F: FnMut(Point<S>, S)>(&self, tolerance: S, callback: &mut F) {
         flatten_cubic_bezier_with_t(self, tolerance, callback);
     }
 
