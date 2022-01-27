@@ -314,6 +314,7 @@ pub(crate) struct EndpointData {
     pub src: VertexSource,
     pub side_points: [SidePoints; 2],
     pub fold: [bool; 2],
+    pub is_flattening_step: bool,
 }
 
 impl Default for EndpointData {
@@ -334,6 +335,7 @@ impl Default for EndpointData {
                 single_vertex: None,
             }; 2],
             fold: [false, false],
+            is_flattening_step: false,
         }
     }
 }
@@ -987,32 +989,101 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
-        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
-            let width = start_width * (1.0 - t) + end_width * t;
-            let (line_join, src) = if t >= 1.0 {
-                (self.options.line_join, VertexSource::Endpoint { id: to_id })
-            } else {
-                (
-                    LineJoin::Miter,
-                    VertexSource::Edge {
-                        from: from_id,
-                        to: to_id,
-                        t,
+        if let Some(t_split) = find_sharp_turn(curve) {
+            let (before, after) = curve.split(t_split);
+
+            before.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+                let t = t * t_split;
+                self.step(
+                    EndpointData {
+                        position,
+                        half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
+                        line_join: LineJoin::Miter,
+                        src: VertexSource::Edge {
+                            from: from_id,
+                            to: to_id,
+                            t,
+                        },
+                        ..Default::default()
                     },
-                )
-            };
+                    attributes,
+                );
+            });
 
             self.step(
                 EndpointData {
-                    position,
-                    half_width: width * 0.5,
-                    line_join,
-                    src,
+                    position: before.to,
+                    half_width: (start_width * (1.0 - t_split) + end_width * t_split) * 0.5,
+                    line_join: self.options.line_join,
+                    src: VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t: t_split,
+                    },
                     ..Default::default()
                 },
                 attributes,
             );
-        });
+
+            after.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+                let t = t_split + t * (1.0 - t_split);
+                self.step(
+                    EndpointData {
+                        position,
+                        half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
+                        line_join: LineJoin::Miter,
+                        src: VertexSource::Edge {
+                            from: from_id,
+                            to: to_id,
+                            t,
+                        },
+                        is_flattening_step: true,
+                        ..Default::default()
+                    },
+                    attributes,
+                );
+            });
+
+            self.step(
+                EndpointData {
+                    position: after.to,
+                    half_width: end_width * 0.5,
+                    line_join: self.options.line_join,
+                    src: VertexSource::Endpoint { id: to_id },
+                    ..Default::default()
+                },
+                attributes,
+            );
+        } else {
+            curve.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+                self.step(
+                    EndpointData {
+                        position,
+                        half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
+                        line_join: LineJoin::Miter,
+                        src: VertexSource::Edge {
+                            from: from_id,
+                            to: to_id,
+                            t,
+                        },
+                        is_flattening_step: true,
+                        ..Default::default()
+                    },
+                    attributes,
+                );
+            });
+
+            self.step(
+                EndpointData {
+                    position: curve.to,
+                    half_width: end_width * 0.5,
+                    line_join: self.options.line_join,
+                    src: VertexSource::Endpoint { id: to_id },
+                    ..Default::default()
+                },
+                attributes,
+            );
+        }
     }
 
     pub(crate) fn cubic_bezier_to(
@@ -1024,32 +1095,34 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
-        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
-            let width = start_width * (1.0 - t) + end_width * t;
-            let (line_join, src) = if t >= 1.0 {
-                (self.options.line_join, VertexSource::Endpoint { id: to_id })
-            } else {
-                (
-                    LineJoin::Miter,
-                    VertexSource::Edge {
+        curve.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+            self.step(
+                EndpointData {
+                    position,
+                    half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
+                    line_join: LineJoin::Miter,
+                    src: VertexSource::Edge {
                         from: from_id,
                         to: to_id,
                         t,
                     },
-                )
-            };
-
-            self.step(
-                EndpointData {
-                    position,
-                    half_width: width * 0.5,
-                    line_join,
-                    src,
+                    is_flattening_step: true,
                     ..Default::default()
                 },
                 attributes,
             );
         });
+
+        self.step(
+            EndpointData {
+                position: curve.to,
+                half_width: end_width * 0.5,
+                line_join: self.options.line_join,
+                src: VertexSource::Endpoint { id: to_id },
+                ..Default::default()
+            },
+            attributes,
+        );
     }
 
     pub(crate) fn begin_fw(
@@ -1099,31 +1172,99 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
-            let (line_join, src) = if t >= 1.0 {
-                (self.options.line_join, VertexSource::Endpoint { id: to_id })
-            } else {
-                (
-                    LineJoin::Miter,
-                    VertexSource::Edge {
-                        from: from_id,
-                        to: to_id,
-                        t,
+
+        if let Some(t_split) = find_sharp_turn(curve) {
+            let (before, after) = curve.split(t_split);
+            before.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+                self.fixed_width_step(
+                    EndpointData {
+                        position,
+                        half_width,
+                        line_join: LineJoin::Miter,
+                        src: VertexSource::Edge {
+                            from: from_id,
+                            to: to_id,
+                            t: t * t_split,
+                        },
+                        is_flattening_step: true,
+                        ..Default::default()
                     },
-                )
-            };
+                    attributes,
+                );
+            });
 
             self.fixed_width_step(
                 EndpointData {
-                    position,
+                    position: before.to,
                     half_width,
-                    line_join,
-                    src,
+                    line_join: self.options.line_join,
+                    src: VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t: t_split,
+                    },
                     ..Default::default()
                 },
                 attributes,
             );
-        });
+
+            after.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+                self.fixed_width_step(
+                    EndpointData {
+                        position,
+                        half_width,
+                        line_join: LineJoin::Miter,
+                        src: VertexSource::Edge {
+                            from: from_id,
+                            to: to_id,
+                            t: t_split + t * (1.0 - t_split),
+                        },
+                        is_flattening_step: true,
+                        ..Default::default()
+                    },
+                    attributes,
+                );
+            });
+
+            self.fixed_width_step(
+                EndpointData {
+                    position: after.to,
+                    half_width,
+                    line_join: self.options.line_join,
+                    src: VertexSource::Endpoint { id: to_id },
+                    ..Default::default()
+                },
+                attributes,
+            );
+        } else {
+            curve.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+                self.fixed_width_step(
+                    EndpointData {
+                        position,
+                        half_width,
+                        line_join: LineJoin::Miter,
+                        src: VertexSource::Edge {
+                            from: from_id,
+                            to: to_id,
+                            t,
+                        },
+                        is_flattening_step: true,
+                        ..Default::default()
+                    },
+                    attributes,
+                );
+            });
+            self.fixed_width_step(
+                EndpointData {
+                    position: curve.to,
+                    half_width,
+                    line_join: self.options.line_join,
+                    src: VertexSource::Endpoint { id: to_id },
+                    ..Default::default()
+                },
+                attributes,
+            );
+        }
     }
 
     pub(crate) fn cubic_bezier_to_fw(
@@ -1134,31 +1275,34 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        curve.for_each_flattened_with_t(self.options.tolerance, &mut |position, t| {
-            let (line_join, src) = if t >= 1.0 {
-                (self.options.line_join, VertexSource::Endpoint { id: to_id })
-            } else {
-                (
-                    LineJoin::Miter,
-                    VertexSource::Edge {
-                        from: from_id,
-                        to: to_id,
-                        t,
-                    },
-                )
-            };
-
+        curve.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
             self.fixed_width_step(
                 EndpointData {
                     position,
                     half_width,
-                    line_join,
-                    src,
+                    line_join: LineJoin::Miter,
+                    src: VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
+                    },
+                    is_flattening_step: true,
                     ..Default::default()
                 },
                 attributes,
             );
         });
+
+        self.fixed_width_step(
+            EndpointData {
+                position: curve.to,
+                half_width,
+                line_join: self.options.line_join,
+                src: VertexSource::Endpoint { id: to_id },
+                ..Default::default()
+            },
+            attributes,
+        );
     }
 
     pub(crate) fn end(&mut self, close: bool, attributes: &dyn AttributeStore) {
@@ -1480,7 +1624,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             self.vertex.position_on_path = join.position;
             self.vertex.half_width = join.half_width;
             self.vertex.buffer_is_valid = false;
-            if join.src.is_edge() {
+            if join.is_flattening_step {
                 // can fast-path.
                 flattened_step(
                     prev,
@@ -2981,4 +3125,38 @@ impl IsNan for Vector {
     fn is_nan(&self) -> bool {
         self.x.is_nan() || self.y.is_nan()
     }
+}
+
+fn find_sharp_turn(curve: &QuadraticBezierSegment<f32>) -> Option<f32> {
+    // TODO: The various thresholds here should take the line width into account.
+
+    let baseline = curve.to - curve.from;
+    let v = curve.ctrl - curve.from;
+    let n = vector(-baseline.y, baseline.x);
+    let v_dot_b = v.dot(baseline);
+    let v_dot_n = v.dot(n);
+
+    // If the projection of the control point on the baseline is between the endpoint, we
+    // can only get a sharp turn with a control point that is very far away.
+    let long_axis = if (v_dot_b >= 0.0 && v_dot_b <= baseline.dot(baseline)) || v_dot_n.abs() * 2.0 >= v_dot_b.abs() {
+        // The control point is far enough from the endpoints It can cause a sharp turn.
+        if baseline.square_length() * 30.0 > v.square_length() {
+            return None;
+        }
+
+        v
+    } else {
+        baseline
+    };
+
+    // Rotate the curve to find its extremum along the long axis, where we should split to
+    // avoid the sharp turn.
+    let rot = crate::geom::euclid::Rotation2D::new(-long_axis.angle_from_x_axis());
+    let rotated = QuadraticBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl: rot.transform_vector(v).to_point(),
+        to: rot.transform_vector(baseline).to_point(),
+    };
+
+    rotated.local_x_extremum_t()
 }
