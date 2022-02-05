@@ -201,7 +201,7 @@ fn fill_border_radius(
 
 #[test]
 fn basic_shapes() {
-    use crate::{Count, GeometryBuilderError};
+    use crate::{GeometryBuilderError};
 
     let mut tess = crate::FillTessellator::new();
 
@@ -228,14 +228,6 @@ fn basic_shapes() {
     }
 
     impl crate::GeometryBuilder for Builder {
-        fn begin_geometry(&mut self) {}
-        fn end_geometry(&mut self) -> Count {
-            Count {
-                vertices: self.next_vertex,
-                indices: 0,
-            }
-        }
-        fn abort_geometry(&mut self) {}
         fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
     }
 

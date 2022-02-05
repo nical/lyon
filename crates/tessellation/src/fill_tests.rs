@@ -35,15 +35,7 @@ fn test_too_many_vertices() {
         max_vertices: u32,
     }
     impl GeometryBuilder for Builder {
-        fn begin_geometry(&mut self) {}
         fn add_triangle(&mut self, _a: VertexId, _b: VertexId, _c: VertexId) {}
-        fn end_geometry(&mut self) -> Count {
-            Count {
-                vertices: 0,
-                indices: 0,
-            }
-        }
-        fn abort_geometry(&mut self) {}
     }
 
     impl FillGeometryBuilder for Builder {
@@ -2464,7 +2456,7 @@ fn issue_674() {
 
 #[test]
 fn test_triangle_winding() {
-    use crate::math::{point, Point};
+    use crate::math::Point;
     use crate::extra::rust_logo::build_logo_path;
     use crate::GeometryBuilder;
 
@@ -2473,14 +2465,6 @@ fn test_triangle_winding() {
     }
 
     impl GeometryBuilder for Builder {
-        fn begin_geometry(&mut self) {}
-        fn abort_geometry(&mut self) {}
-        fn end_geometry(&mut self) -> Count {
-            Count {
-                vertices: 0,
-                indices: 0,
-            }
-        }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
             let a = self.vertices[a.to_usize()];
             let b = self.vertices[b.to_usize()];
@@ -2505,5 +2489,5 @@ fn test_triangle_winding() {
     let mut tess = FillTessellator::new();
     let options = FillOptions::tolerance(0.05);
 
-    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() });
+    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() }).unwrap();
 }

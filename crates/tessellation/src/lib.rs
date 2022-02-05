@@ -220,7 +220,7 @@ pub use crate::stroke::*;
 
 #[doc(inline)]
 pub use crate::geometry_builder::{
-    BuffersBuilder, Count, FillGeometryBuilder, FillVertexConstructor, GeometryBuilder,
+    BuffersBuilder, FillGeometryBuilder, FillVertexConstructor, GeometryBuilder,
     GeometryBuilderError, StrokeGeometryBuilder, StrokeVertexConstructor, VertexBuffers,
 };
 
@@ -232,7 +232,7 @@ use std::ops::{Add, Sub};
 use std::u32;
 
 /// The fill tessellator's result type.
-pub type TessellationResult = Result<Count, TessellationError>;
+pub type TessellationResult = Result<(), TessellationError>;
 
 /// Describes an unexpected error happening during tessellation.
 ///
