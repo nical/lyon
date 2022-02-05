@@ -3,7 +3,7 @@ use crate::geometry_builder::GeometryReceiver;
 use crate::math::*;
 use crate::path::builder::*;
 use crate::path::{Attributes, PathEvent, PathSlice};
-use crate::tessellation::{Count, FillOptions, FillRule};
+use crate::tessellation::{FillOptions, FillRule};
 
 use std::os::raw::c_void;
 use std::ptr;
@@ -47,7 +47,7 @@ impl FillTessellator {
         it: Iter,
         options: &FillOptions,
         output: &mut dyn GeometryReceiver,
-    ) -> Result<Count, TessellationError>
+    ) -> Result<(), TessellationError>
     where
         Iter: IntoIterator<Item = PathEvent>,
     {
@@ -68,7 +68,7 @@ impl FillTessellator {
         path: &FlattenedPath,
         options: &FillOptions,
         output: &mut dyn GeometryReceiver,
-    ) -> Result<Count, TessellationError> {
+    ) -> Result<(), TessellationError> {
         self.prepare_path(path);
 
         if !self.do_tessellate(options) {
@@ -84,7 +84,7 @@ impl FillTessellator {
         path: impl Into<PathSlice<'l>>,
         options: &'l FillOptions,
         output: &mut dyn GeometryReceiver,
-    ) -> Result<Count, TessellationError> {
+    ) -> Result<(), TessellationError> {
         self.tessellate(path.into().iter(), options, output)
     }
 
@@ -124,7 +124,7 @@ impl FillTessellator {
         }
     }
 
-    fn process_output(&mut self, output: &mut dyn GeometryReceiver) -> Count {
+    fn process_output(&mut self, output: &mut dyn GeometryReceiver) {
         unsafe {
             let num_indices = tessGetElementCount(self.tess) as usize * 3;
             let num_vertices = tessGetElementCount(self.tess) as usize;
@@ -135,11 +135,6 @@ impl FillTessellator {
                 slice::from_raw_parts(tessGetElements(self.tess) as *const u32, num_indices);
 
             output.set_geometry(vertices, indices);
-
-            Count {
-                vertices: num_indices as u32,
-                indices: num_indices as u32,
-            }
         }
     }
 }

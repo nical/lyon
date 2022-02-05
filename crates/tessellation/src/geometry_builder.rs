@@ -128,7 +128,7 @@
 //!
 //! ```
 //! extern crate lyon_tessellation as tess;
-//! use tess::{StrokeTessellator, GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, Count, GeometryBuilderError, StrokeVertex, VertexId};
+//! use tess::{StrokeTessellator, GeometryBuilder, StrokeGeometryBuilder, StrokeOptions, GeometryBuilderError, StrokeVertex, VertexId};
 //! use tess::math::{Point, point};
 //! use tess::path::polygon::Polygon;
 //! use std::fmt::Debug;
@@ -151,14 +151,6 @@
 //!         self.vertices = 0;
 //!         self.indices = 0;
 //!         println!(" -- begin geometry");
-//!     }
-//!
-//!     fn end_geometry(&mut self) -> Count {
-//!         println!(" -- end geometry, {} vertices, {} indices", self.vertices, self.indices);
-//!         Count {
-//!             vertices: self.vertices,
-//!             indices: self.indices,
-//!         }
 //!     }
 //!
 //!     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -239,12 +231,12 @@ pub trait GeometryBuilder {
     /// Called at the beginning of a generation.
     ///
     /// end_geometry must be called before begin_geometry is called again.
-    fn begin_geometry(&mut self);
+    fn begin_geometry(&mut self) {}
 
     /// Called at the end of a generation.
     /// Returns the number of vertices and indices added since the last time begin_geometry was
     /// called.
-    fn end_geometry(&mut self) -> Count;
+    fn end_geometry(&mut self) {}
 
     /// Insert a triangle made of vertices that were added after the last call to begin_geometry.
     ///
@@ -256,7 +248,7 @@ pub trait GeometryBuilder {
     ///
     /// The implementation is expected to discard the geometry that was generated since the last
     /// time begin_geometry was called, and to remain in a usable state.
-    fn abort_geometry(&mut self);
+    fn abort_geometry(&mut self) {}
 }
 
 /// A Geometry builder to interface with the [`FillTessellator`](../struct.FillTessellator.html).
@@ -367,7 +359,7 @@ impl<B: GeometryBuilder> GeometryBuilder for OffsetVertices<B> {
         self.0.begin_geometry();
     }
 
-    fn end_geometry(&mut self) -> Count {
+    fn end_geometry(&mut self) {
         self.0.end_geometry()
     }
 
@@ -412,7 +404,7 @@ impl<B: GeometryBuilder> GeometryBuilder for InvertWinding<B> {
         self.0.begin_geometry();
     }
 
-    fn end_geometry(&mut self) -> Count {
+    fn end_geometry(&mut self) {
         self.0.end_geometry()
     }
 
@@ -501,24 +493,6 @@ pub fn simple_builder(buffers: &mut VertexBuffers<Point, u16>) -> SimpleBuffersB
     }
 }
 
-/// Number of vertices and indices added during the tessellation.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Count {
-    pub vertices: u32,
-    pub indices: u32,
-}
-
-impl Add for Count {
-    type Output = Count;
-    fn add(self, other: Count) -> Count {
-        Count {
-            vertices: self.vertices + other.vertices,
-            indices: self.indices + other.indices,
-        }
-    }
-}
-
 impl<'l, OutputVertex, OutputIndex, Ctor> GeometryBuilder
     for BuffersBuilder<'l, OutputVertex, OutputIndex, Ctor>
 where
@@ -528,13 +502,6 @@ where
     fn begin_geometry(&mut self) {
         self.vertex_offset = self.buffers.vertices.len() as Index;
         self.index_offset = self.buffers.indices.len() as Index;
-    }
-
-    fn end_geometry(&mut self) -> Count {
-        Count {
-            vertices: self.buffers.vertices.len() as u32 - self.vertex_offset,
-            indices: self.buffers.indices.len() as u32 - self.index_offset,
-        }
     }
 
     fn abort_geometry(&mut self) {
@@ -600,17 +567,12 @@ where
 ///
 /// Mostly useful for testing.
 pub struct NoOutput {
-    count: Count,
+    next_vertex: u32,
 }
 
 impl NoOutput {
     pub fn new() -> Self {
-        NoOutput {
-            count: Count {
-                vertices: 0,
-                indices: 0,
-            },
-        }
+        NoOutput { next_vertex: 0 }
     }
 }
 
@@ -621,42 +583,30 @@ impl Default for NoOutput {
 }
 
 impl GeometryBuilder for NoOutput {
-    fn begin_geometry(&mut self) {
-        self.count.vertices = 0;
-        self.count.indices = 0;
-    }
-
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
         debug_assert!(a != b);
         debug_assert!(a != c);
         debug_assert!(b != c);
-        self.count.indices += 3;
     }
-
-    fn end_geometry(&mut self) -> Count {
-        self.count
-    }
-
-    fn abort_geometry(&mut self) {}
 }
 
 impl FillGeometryBuilder for NoOutput {
     fn add_fill_vertex(&mut self, _vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        if self.count.vertices == std::u32::MAX {
+        if self.next_vertex == std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
-        self.count.vertices += 1;
-        Ok(VertexId(self.count.vertices as Index - 1))
+        self.next_vertex += 1;
+        Ok(VertexId(self.next_vertex - 1))
     }
 }
 
 impl StrokeGeometryBuilder for NoOutput {
     fn add_stroke_vertex(&mut self, _: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
-        if self.count.vertices == std::u32::MAX {
+        if self.next_vertex == std::u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
-        self.count.vertices += 1;
-        Ok(VertexId(self.count.vertices as Index - 1))
+        self.next_vertex += 1;
+        Ok(VertexId(self.next_vertex - 1))
     }
 }
 

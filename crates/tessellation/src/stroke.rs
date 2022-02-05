@@ -2740,8 +2740,8 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
         fn begin_geometry(&mut self) {
             self.builder.begin_geometry();
         }
-        fn end_geometry(&mut self) -> Count {
-            self.builder.end_geometry()
+        fn end_geometry(&mut self) {
+            self.builder.end_geometry();
         }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
             assert!(a != b);
@@ -2777,8 +2777,7 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
     let mut tess = StrokeTessellator::new();
-    let count = tess
-        .tessellate_path(
+    tess.tessellate_path(
             path,
             &options,
             &mut TestBuilder {
@@ -2790,7 +2789,7 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
     if let Some(triangles) = expected_triangle_count {
         assert_eq!(
             triangles,
-            count.indices / 3,
+            buffers.indices.len() as u32 / 3,
             "Unexpected number of triangles"
         );
     }
@@ -2938,7 +2937,7 @@ fn test_too_many_vertices() {
             assert!(a != c);
             assert!(b != c);
         }
-        fn end_geometry(&mut self) -> Count {
+        fn end_geometry(&mut self) {
             // Expected to abort the geometry.
             panic!();
         }
@@ -3016,13 +3015,6 @@ fn stroke_vertex_source_01() {
     }
 
     impl GeometryBuilder for CheckVertexSources {
-        fn begin_geometry(&mut self) {}
-        fn end_geometry(&mut self) -> Count {
-            Count {
-                vertices: self.next_vertex,
-                indices: 0,
-            }
-        }
         fn abort_geometry(&mut self) {}
         fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
     }
@@ -3166,7 +3158,6 @@ fn find_sharp_turn(curve: &QuadraticBezierSegment<f32>) -> Option<f32> {
 #[test]
 fn test_triangle_winding() {
     use crate::math::{point, Point};
-    use crate::extra::rust_logo::build_logo_path;
     use crate::GeometryBuilder;
 
     struct Builder {
@@ -3174,14 +3165,6 @@ fn test_triangle_winding() {
     }
 
     impl GeometryBuilder for Builder {
-        fn begin_geometry(&mut self) {}
-        fn abort_geometry(&mut self) {}
-        fn end_geometry(&mut self) -> Count {
-            Count {
-                vertices: 0,
-                indices: 0,
-            }
-        }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
             let a = self.vertices[a.to_usize()];
             let b = self.vertices[b.to_usize()];
@@ -3202,11 +3185,10 @@ fn test_triangle_winding() {
     let mut path = Path::builder().with_svg();
     path.move_to(point(0.0, 0.0));
     path.quadratic_bezier_to(point(100.0, 0.0), point(100.0, 100.0));
-    //build_logo_path(&mut path);
     let path = path.build();
 
     let mut tess = StrokeTessellator::new();
     let options = StrokeOptions::tolerance(0.05);
 
-    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() });
+    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() }).unwrap();
 }
