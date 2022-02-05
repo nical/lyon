@@ -2461,3 +2461,49 @@ fn issue_674() {
     // SVG path syntax:
     // "M -87887.734375 73202.125 L -79942.6640625 73202.125 L -79942.671875 90023.078125 L -79942.6640625 86661.3046875 L -87887.734375 87599.5546875 L -90541.25 83022.0625"
 }
+
+#[test]
+fn test_triangle_winding() {
+    use crate::math::{point, Point};
+    use crate::extra::rust_logo::build_logo_path;
+    use crate::GeometryBuilder;
+
+    struct Builder {
+        vertices: Vec<Point>,
+    }
+
+    impl GeometryBuilder for Builder {
+        fn begin_geometry(&mut self) {}
+        fn abort_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count {
+            Count {
+                vertices: 0,
+                indices: 0,
+            }
+        }
+        fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+            let a = self.vertices[a.to_usize()];
+            let b = self.vertices[b.to_usize()];
+            let c = self.vertices[c.to_usize()];
+            assert!((b - a).cross(c - b) <= 0.0);
+        }
+    }
+
+    impl FillGeometryBuilder for Builder {
+        fn add_fill_vertex(&mut self, v: FillVertex) -> Result<VertexId, GeometryBuilderError> {
+            let id = VertexId(self.vertices.len() as u32);
+            self.vertices.push(v.position());
+
+            Ok(id)
+        }
+    }
+
+    let mut path = Path::builder().with_svg();
+    build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    let options = FillOptions::tolerance(0.05);
+
+    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() });
+}
