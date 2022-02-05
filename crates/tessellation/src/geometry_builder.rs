@@ -373,7 +373,7 @@ impl<B: GeometryBuilder> GeometryBuilder for OffsetVertices<B> {
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
         // Invert the triangle winding by flipping b and c.
-        self.0.add_triangle(a + self.1, c + self.1, b + self.1);
+        self.0.add_triangle(a + self.1, b + self.1, c + self.1);
     }
 
     fn abort_geometry(&mut self) {

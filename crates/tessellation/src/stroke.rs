@@ -1004,6 +1004,7 @@ impl<'l> StrokeBuilderImpl<'l> {
                             to: to_id,
                             t,
                         },
+                        is_flattening_step: true,
                         ..Default::default()
                     },
                     attributes,
@@ -1020,6 +1021,7 @@ impl<'l> StrokeBuilderImpl<'l> {
                         to: to_id,
                         t: t_split,
                     },
+                    is_flattening_step: false,
                     ..Default::default()
                 },
                 attributes,
@@ -1492,7 +1494,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             let join = self.point_buffer.last_mut();
             // Compute the position of the vertices that act as reference the edge between
             // p0 and next
-            if join.src.is_endpoint() || next.src.is_endpoint() {
+            if !join.is_flattening_step || !next.is_flattening_step {
                 compute_edge_attachment_positions(join, &mut next);
             }
         }
@@ -1507,7 +1509,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             self.vertex.half_width = join.half_width;
             self.vertex.advancement = join.advancement;
             self.vertex.buffer_is_valid = false;
-            if join.src.is_edge() {
+            if join.is_flattening_step {
                 // can fast-path.
                 flattened_step(
                     prev,
@@ -3159,4 +3161,52 @@ fn find_sharp_turn(curve: &QuadraticBezierSegment<f32>) -> Option<f32> {
     };
 
     rotated.local_x_extremum_t()
+}
+
+#[test]
+fn test_triangle_winding() {
+    use crate::math::{point, Point};
+    use crate::extra::rust_logo::build_logo_path;
+    use crate::GeometryBuilder;
+
+    struct Builder {
+        vertices: Vec<Point>,
+    }
+
+    impl GeometryBuilder for Builder {
+        fn begin_geometry(&mut self) {}
+        fn abort_geometry(&mut self) {}
+        fn end_geometry(&mut self) -> Count {
+            Count {
+                vertices: 0,
+                indices: 0,
+            }
+        }
+        fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+            let a = self.vertices[a.to_usize()];
+            let b = self.vertices[b.to_usize()];
+            let c = self.vertices[c.to_usize()];
+            assert!((b - a).cross(c - b) <= 0.0);
+        }
+    }
+
+    impl StrokeGeometryBuilder for Builder {
+        fn add_stroke_vertex(&mut self, v: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
+            let id = VertexId(self.vertices.len() as u32);
+            self.vertices.push(v.position());
+
+            Ok(id)
+        }
+    }
+
+    let mut path = Path::builder().with_svg();
+    path.move_to(point(0.0, 0.0));
+    path.quadratic_bezier_to(point(100.0, 0.0), point(100.0, 100.0));
+    //build_logo_path(&mut path);
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::tolerance(0.05);
+
+    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() });
 }
