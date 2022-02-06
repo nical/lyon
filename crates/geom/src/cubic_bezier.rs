@@ -2,7 +2,6 @@ use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::cubic_to_quadratic::*;
 pub use crate::flatten_cubic::Flattened;
 use crate::flatten_cubic::{find_cubic_bezier_inflection_points, flatten_cubic_bezier_with_t};
-use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
@@ -407,7 +406,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// ones, invoking a callback at each step.
     pub fn for_each_monotonic_quadratic<F>(&self, tolerance: S, cb: &mut F)
     where
-        F: FnMut(&Monotonic<QuadraticBezierSegment<S>>),
+        F: FnMut(&QuadraticBezierSegment<S>),
     {
         cubic_to_monotonic_quadratics(self, tolerance, cb);
     }
@@ -694,12 +693,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
         (min_y, max_y)
     }
 
-    /// Cast this curve into a monotonic curve without checking that the monotonicity
-    /// assumption is correct.
-    pub fn assume_monotonic(&self) -> MonotonicCubicBezierSegment<S> {
-        MonotonicCubicBezierSegment { segment: *self }
-    }
-
     /// Returns whether this segment is monotonic on the x axis.
     pub fn is_x_monotonic(&self) -> bool {
         let mut found = false;
@@ -954,9 +947,6 @@ impl<S: Scalar> BoundingBox for CubicBezierSegment<S> {
     }
 }
 
-/// A monotonically increasing in x and y quadratic bézier curve segment
-pub type MonotonicCubicBezierSegment<S> = Monotonic<CubicBezierSegment<S>>;
-
 #[test]
 fn fast_bounding_box_for_cubic_bezier_segment() {
     let a = CubicBezierSegment {
@@ -1109,30 +1099,6 @@ fn derivatives() {
     assert_eq!(c1.dx(0.0), 0.0);
     assert_eq!(c1.dx(1.0), 0.0);
     assert_eq!(c1.dy(0.5), 0.0);
-}
-
-#[test]
-fn monotonic_solve_t_for_x() {
-    let c1 = CubicBezierSegment {
-        from: Point::new(1.0, 1.0),
-        ctrl1: Point::new(1.0, 2.0),
-        ctrl2: Point::new(2.0, 1.0),
-        to: Point::new(2.0, 2.0),
-    };
-
-    let tolerance = 0.0001;
-
-    for i in 0..10u32 {
-        let t = i as f32 / 10.0;
-        let p = c1.sample(t);
-        let t2 = c1
-            .assume_monotonic()
-            .solve_t_for_x(p.x, 0.0..1.0, tolerance);
-        // t should be pretty close to t2 but the only guarantee we have and can test
-        // against is that x(t) - x(t2) is within the specified tolerance threshold.
-        let x_diff = c1.x(t) - c1.x(t2);
-        assert!(f32::abs(x_diff) <= tolerance);
-    }
 }
 
 #[test]

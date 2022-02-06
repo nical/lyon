@@ -1,4 +1,3 @@
-use crate::monotonic::Monotonic;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
@@ -424,9 +423,9 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
     pub fn for_each_monotonic<F>(&self, cb: &mut F)
     where
-        F: FnMut(&Monotonic<QuadraticBezierSegment<S>>),
+        F: FnMut(&QuadraticBezierSegment<S>),
     {
-        self.for_each_monotonic_range(|range| cb(&self.split_range(range).assume_monotonic()));
+        self.for_each_monotonic_range(|range| cb(&self.split_range(range)));
     }
 
     /// Compute the length of the segment using a flattened approximation.
@@ -502,12 +501,6 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let max_y = self.y(self.y_maximum_t());
 
         (min_y, max_y)
-    }
-
-    /// Cast this curve into a monotonic curve without checking that the monotonicity
-    /// assumption is correct.
-    pub fn assume_monotonic(&self) -> MonotonicQuadraticBezierSegment<S> {
-        MonotonicQuadraticBezierSegment { segment: *self }
     }
 
     /// Returns whether this segment is monotonic on the x axis.
@@ -888,9 +881,6 @@ impl<S: Scalar> BoundingBox for QuadraticBezierSegment<S> {
     }
 }
 
-/// A monotonically increasing in x and y quadratic bézier curve segment
-pub type MonotonicQuadraticBezierSegment<S> = Monotonic<QuadraticBezierSegment<S>>;
-
 #[test]
 fn bounding_box_for_monotonic_quadratic_bezier_segment() {
     let a = QuadraticBezierSegment {
@@ -1071,27 +1061,6 @@ fn derivatives() {
     assert_eq!(c1.dy(0.0), 0.0);
     assert_eq!(c1.dx(1.0), 0.0);
     assert_eq!(c1.dy(0.5), c1.dx(0.5));
-}
-
-#[test]
-fn monotonic_solve_t_for_x() {
-    let curve = QuadraticBezierSegment {
-        from: Point::new(1.0, 1.0),
-        ctrl: Point::new(5.0, 5.0),
-        to: Point::new(10.0, 2.0),
-    };
-
-    let tolerance = 0.0001;
-
-    for i in 0..10u32 {
-        let t = i as f32 / 10.0;
-        let p = curve.sample(t);
-        let t2 = curve.assume_monotonic().solve_t_for_x(p.x);
-        // t should be pretty close to t2 but the only guarantee we have and can test
-        // against is that x(t) - x(t2) is within the specified tolerance threshold.
-        let x_diff = curve.x(t) - curve.x(t2);
-        assert!(f32::abs(x_diff) <= tolerance);
-    }
 }
 
 #[test]

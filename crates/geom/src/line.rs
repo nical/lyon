@@ -1,4 +1,3 @@
-use crate::monotonic::MonotonicSegment;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
@@ -500,13 +499,6 @@ impl<S: Scalar> BoundingBox for LineSegment<S> {
     }
     fn fast_bounding_range_y(&self) -> (S, S) {
         self.bounding_range_y()
-    }
-}
-
-impl<S: Scalar> MonotonicSegment for LineSegment<S> {
-    type Scalar = S;
-    fn solve_t_for_x(&self, x: S, _t_range: Range<S>, _tolerance: S) -> S {
-        self.solve_t_for_x(x)
     }
 }
 
