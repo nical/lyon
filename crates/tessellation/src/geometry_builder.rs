@@ -24,7 +24,7 @@
 //! * The struct [`VertexBuffers`](struct.VertexBuffers.html) is a simple pair of vectors of
 //!   indices and vertices (generic parameters).
 //! * The struct [`BuffersBuilder`](struct.BuffersBuilder.html) which writes into a
-//!   [`VertexBuffers`](struct.VertexBuffers.html) and implements the various gemoetry
+//!   [`VertexBuffers`](struct.VertexBuffers.html) and implements the various geometry
 //!   builder traits. It takes care of filling the buffers while producing vertices is
 //!   delegated to a vertex constructor.
 //! * The traits [`FillVertexConstructor`](trait.FillVertexConstructor.html),
