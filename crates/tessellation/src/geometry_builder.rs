@@ -313,8 +313,9 @@ impl<OutputVertex, OutputIndex> VertexBuffers<OutputVertex, OutputIndex> {
 /// convenience typedef.
 pub struct BuffersBuilder<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor> {
     buffers: &'l mut VertexBuffers<OutputVertex, OutputIndex>,
+    first_vertex: Index,
+    first_index: Index,
     vertex_offset: Index,
-    index_offset: Index,
     vertex_constructor: Ctor,
 }
 
@@ -322,18 +323,21 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
     BuffersBuilder<'l, OutputVertex, OutputIndex, Ctor>
 {
     pub fn new(buffers: &'l mut VertexBuffers<OutputVertex, OutputIndex>, ctor: Ctor) -> Self {
-        let vertex_offset = buffers.vertices.len() as Index;
-        let index_offset = buffers.indices.len() as Index;
+        let first_vertex = buffers.vertices.len() as Index;
+        let first_index = buffers.indices.len() as Index;
         BuffersBuilder {
             buffers,
-            vertex_offset,
-            index_offset,
+            first_vertex,
+            first_index,
+            vertex_offset: 0,
             vertex_constructor: ctor,
         }
     }
 
-    pub fn with_vertex_offset(self, offset: Index) -> OffsetVertices<Self> {
-        OffsetVertices(self, offset)
+    pub fn with_vertex_offset(mut self, offset: Index) -> Self {
+        self.vertex_offset = offset;
+
+        self
     }
 
     /// Consumes self and returns a builder with opposite triangle face winding.
@@ -346,58 +350,8 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
     }
 }
 
-pub struct OffsetVertices<B>(B, Index);
-
-impl<B> OffsetVertices<B> {
-    pub fn with_inverted_winding(self) -> InvertWinding<Self> {
-        InvertWinding(self)
-    }
-}
-
-impl<B: GeometryBuilder> GeometryBuilder for OffsetVertices<B> {
-    fn begin_geometry(&mut self) {
-        self.0.begin_geometry();
-    }
-
-    fn end_geometry(&mut self) {
-        self.0.end_geometry()
-    }
-
-    fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
-        // Invert the triangle winding by flipping b and c.
-        self.0.add_triangle(a + self.1, b + self.1, c + self.1);
-    }
-
-    fn abort_geometry(&mut self) {
-        self.0.abort_geometry();
-    }
-}
-
-impl<B: FillGeometryBuilder> FillGeometryBuilder for OffsetVertices<B> {
-    #[inline]
-    fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        self.0.add_fill_vertex(vertex)
-    }
-}
-
-impl<B: StrokeGeometryBuilder> StrokeGeometryBuilder for OffsetVertices<B> {
-    #[inline]
-    fn add_stroke_vertex(
-        &mut self,
-        vertex: StrokeVertex,
-    ) -> Result<VertexId, GeometryBuilderError> {
-        self.0.add_stroke_vertex(vertex)
-    }
-}
-
 /// A wrapper for stroke and fill geometry builders that inverts the triangle face winding.
 pub struct InvertWinding<B>(B);
-
-impl<B> InvertWinding<B> {
-    pub fn with_vertex_offset(self, offset: Index) -> OffsetVertices<Self> {
-        OffsetVertices(self, offset)
-    }
-}
 
 impl<B: GeometryBuilder> GeometryBuilder for InvertWinding<B> {
     fn begin_geometry(&mut self) {
@@ -483,12 +437,13 @@ pub type SimpleBuffersBuilder<'l> = BuffersBuilder<'l, Point, u16, Positions>;
 
 /// Creates a `SimpleBuffersBuilder`.
 pub fn simple_builder(buffers: &mut VertexBuffers<Point, u16>) -> SimpleBuffersBuilder {
-    let vertex_offset = buffers.vertices.len() as Index;
-    let index_offset = buffers.indices.len() as Index;
+    let first_vertex = buffers.vertices.len() as Index;
+    let first_index = buffers.indices.len() as Index;
     BuffersBuilder {
         buffers,
-        vertex_offset,
-        index_offset,
+        first_vertex,
+        first_index,
+        vertex_offset: 0,
         vertex_constructor: Positions,
     }
 }
@@ -500,13 +455,13 @@ where
     OutputIndex: Add + From<VertexId> + MaxIndex,
 {
     fn begin_geometry(&mut self) {
-        self.vertex_offset = self.buffers.vertices.len() as Index;
-        self.index_offset = self.buffers.indices.len() as Index;
+        self.first_vertex = self.buffers.vertices.len() as Index;
+        self.first_index = self.buffers.indices.len() as Index;
     }
 
     fn abort_geometry(&mut self) {
-        self.buffers.vertices.truncate(self.vertex_offset as usize);
-        self.buffers.indices.truncate(self.index_offset as usize);
+        self.buffers.vertices.truncate(self.first_vertex as usize);
+        self.buffers.indices.truncate(self.first_index as usize);
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
@@ -540,7 +495,7 @@ where
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
-        Ok(VertexId((len - 1) as Index - self.vertex_offset))
+        Ok(VertexId((len - 1) as Index))
     }
 }
 
@@ -559,7 +514,7 @@ where
         if len > OutputIndex::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
-        Ok(VertexId((len - 1) as Index - self.vertex_offset))
+        Ok(VertexId((len - 1) as Index))
     }
 }
 
