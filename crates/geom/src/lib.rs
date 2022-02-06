@@ -93,7 +93,6 @@ mod cubic_bezier_intersections;
 pub mod cubic_to_quadratic;
 mod flatten_cubic;
 mod line;
-mod monotonic;
 pub mod quadratic_bezier;
 mod triangle;
 pub mod utils;
@@ -104,8 +103,6 @@ pub use crate::arc::{Arc, ArcFlags, SvgArc};
 pub use crate::cubic_bezier::CubicBezierSegment;
 #[doc(inline)]
 pub use crate::line::{Line, LineEquation, LineSegment};
-#[doc(inline)]
-pub use crate::monotonic::Monotonic;
 #[doc(inline)]
 pub use crate::quadratic_bezier::QuadraticBezierSegment;
 #[doc(inline)]
@@ -283,7 +280,6 @@ pub fn size<S>(w: S, h: S) -> Size<S> {
 
 pub mod traits {
     pub use crate::segment::Segment;
-    //pub use monotonic::MonotonicSegment;
 
     use crate::{Point, Rotation, Scalar, Scale, Transform, Translation, Vector};
 
