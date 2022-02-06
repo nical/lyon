@@ -1,6 +1,5 @@
-use crate::commands::{TessellateCmd, Tessellator};
+use crate::commands::TessellateCmd;
 use lyon::math::*;
-use lyon::tess2;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
 use std::io;
@@ -25,25 +24,13 @@ pub fn tessellate_path(cmd: TessellateCmd) -> Result<VertexBuffers<Point, u16>, 
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
 
     if let Some(options) = cmd.fill {
-        let ok = match cmd.tessellator {
-            Tessellator::Default => FillTessellator::new()
-                .tessellate_path(
-                    &cmd.path,
-                    &options,
-                    &mut BuffersBuilder::new(&mut buffers, Positions),
-                )
-                .is_ok(),
-            Tessellator::Tess2 => tess2::FillTessellator::new()
-                .tessellate_path(
-                    &cmd.path,
-                    &options,
-                    &mut lyon::tess2::geometry_builder::BuffersBuilder::new(
-                        &mut buffers,
-                        Positions,
-                    ),
-                )
-                .is_ok(),
-        };
+        let ok = FillTessellator::new()
+            .tessellate_path(
+                &cmd.path,
+                &options,
+                &mut BuffersBuilder::new(&mut buffers, Positions),
+            )
+            .is_ok();
 
         if !ok {
             return Err(TessError::Fill);

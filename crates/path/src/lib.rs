@@ -499,4 +499,3 @@ impl<'l> From<Attributes<'l>> for &'l [f32] {
         attr.0
     }
 }
-

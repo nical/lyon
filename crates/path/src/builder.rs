@@ -441,7 +441,6 @@ impl<B: PathBuilder + Default> Default for NoAttributes<B> {
     }
 }
 
-
 /// The base path building interface.
 ///
 /// Unlike `SvgPathBuilder`, this interface strictly requires sub-paths to be manually

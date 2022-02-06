@@ -10,7 +10,7 @@ name = "lyon"
 path = "src/main.rs"
 
 [dependencies]
-lyon = { path = "../crates/lyon", features = ["extra", "libtess2", "debugger"]}
+lyon = { path = "../crates/lyon", features = ["extra", "debugger"]}
 clap = "2.32.0"
 rand = "0.6"
 env_logger = "0.7"

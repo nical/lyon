@@ -2456,8 +2456,8 @@ fn issue_674() {
 
 #[test]
 fn test_triangle_winding() {
-    use crate::math::Point;
     use crate::extra::rust_logo::build_logo_path;
+    use crate::math::Point;
     use crate::GeometryBuilder;
 
     struct Builder {
@@ -2489,5 +2489,12 @@ fn test_triangle_winding() {
     let mut tess = FillTessellator::new();
     let options = FillOptions::tolerance(0.05);
 
-    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() }).unwrap();
+    tess.tessellate(
+        &path,
+        &options,
+        &mut Builder {
+            vertices: Vec::new(),
+        },
+    )
+    .unwrap();
 }

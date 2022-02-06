@@ -18,11 +18,9 @@ path = "src/lib.rs"
 serialization = ["lyon_tessellation/serialization"]
 debugger = ["lyon_tessellation/debugger"]
 extra = ["lyon_extra"]
-libtess2 = ["lyon_tess2"]
 profiling = ["lyon_tessellation/profiling"]
 
 [dependencies]
 lyon_tessellation = { version = "0.17.5", path = "../tessellation/" }
 lyon_algorithms = { version = "0.17.1", path = "../algorithms/" }
 lyon_extra = { version = "0.17.1", optional = true, path = "../extra/" }
-lyon_tess2 = { version = "0.17.1", optional = true, path = "../tess2/" }

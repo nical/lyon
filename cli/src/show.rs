@@ -9,13 +9,12 @@ use wgpu::util::DeviceExt;
 use futures::executor::block_on;
 use std::ops::Rem;
 
-use crate::commands::{AntiAliasing, Background, RenderCmd, TessellateCmd, Tessellator};
+use crate::commands::{AntiAliasing, Background, RenderCmd, TessellateCmd};
 use lyon::algorithms::aabb::bounding_box;
 use lyon::algorithms::hatching::*;
 use lyon::geom::LineSegment;
 use lyon::math::*;
 use lyon::path::Path;
-use lyon::tess2;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator, StrokeTessellator};
@@ -103,37 +102,24 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
     let mut stroke = StrokeTessellator::new();
 
     if let Some(options) = cmd.fill {
-        match cmd.tessellator {
-            Tessellator::Default => {
-                fill.tessellate(
-                    &cmd.path,
-                    &options,
-                    &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id)),
-                )
-                .unwrap();
+        fill.tessellate(
+            &cmd.path,
+            &options,
+            &mut BuffersBuilder::new(&mut geometry, WithId(fill_prim_id)),
+        )
+        .unwrap();
 
-                //for (i, v) in geometry.vertices.iter().enumerate() {
-                //    println!("{}: {:?}", i, v.position);
-                //}
-                //for i in 0..(geometry.indices.len() / 3) {
-                //    println!(
-                //        "{}/{}/{}",
-                //        geometry.indices[i * 3],
-                //        geometry.indices[i * 3 + 1],
-                //        geometry.indices[i * 3 + 2],
-                //    );
-                //}
-            }
-            Tessellator::Tess2 => {
-                tess2::FillTessellator::new()
-                    .tessellate_path(
-                        &cmd.path,
-                        &options,
-                        &mut tess2::geometry_builder::BuffersBuilder::new(&mut geometry, WithId(0)),
-                    )
-                    .unwrap();
-            }
-        }
+        //for (i, v) in geometry.vertices.iter().enumerate() {
+        //    println!("{}: {:?}", i, v.position);
+        //}
+        //for i in 0..(geometry.indices.len() / 3) {
+        //    println!(
+        //        "{}/{}/{}",
+        //        geometry.indices[i * 3],
+        //        geometry.indices[i * 3 + 1],
+        //        geometry.indices[i * 3 + 2],
+        //    );
+        //}
     }
 
     if let Some(options) = cmd.stroke {
@@ -780,18 +766,6 @@ impl FillVertexConstructor<BgVertex> for BgVertexCtor {
     fn new_vertex(&mut self, vertex: tessellation::FillVertex) -> BgVertex {
         BgVertex {
             point: vertex.position().to_array(),
-        }
-    }
-}
-
-impl tess2::geometry_builder::BasicVertexConstructor<GpuVertex> for WithId {
-    fn new_vertex(&mut self, position: Point) -> GpuVertex {
-        debug_assert!(!position.x.is_nan());
-        debug_assert!(!position.y.is_nan());
-        GpuVertex {
-            position: position.to_array(),
-            normal: [0.0, 0.0],
-            prim_id: self.0 as u32,
         }
     }
 }

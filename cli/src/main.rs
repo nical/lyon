@@ -217,7 +217,6 @@ fn main() {
             max_points: fuzz_matches
                 .value_of("MAX_POINTS")
                 .and_then(|str_val| str_val.parse::<u32>().ok()),
-            tessellator: get_tessellator(fuzz_matches),
             ignore_errors: fuzz_matches.is_present("IGNORE_ERRORS"),
         });
     }
@@ -446,8 +445,6 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
             .min(7)
     });
 
-    let tessellator = get_tessellator(command);
-
     TessellateCmd {
         path,
         fill,
@@ -455,7 +452,6 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
         hatch,
         dots,
         float_precision,
-        tessellator,
     }
 }
 
@@ -670,16 +666,4 @@ fn get_output(matches: &ArgMatches) -> Box<dyn Write> {
     }
 
     output
-}
-
-fn get_tessellator(matches: &ArgMatches) -> Tessellator {
-    if let Some(stroke_str) = matches.value_of("TESSELLATOR") {
-        match stroke_str {
-            "default" => Tessellator::Default,
-            "libtess2" => Tessellator::Tess2,
-            _ => Tessellator::Default,
-        }
-    } else {
-        Tessellator::Default
-    }
 }
