@@ -1,4 +1,4 @@
-use crate::commands::{TessellateCmd, Tessellator};
+use crate::commands::TessellateCmd;
 use lyon::path::Path;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillTessellator, StrokeTessellator};
@@ -29,17 +29,10 @@ pub fn reduce_testcase(cmd: TessellateCmd) {
         flattener.extend(cmd.path.iter());
         let path = flattener.build();
 
-        match cmd.tessellator {
-            Tessellator::Default => {
-                lyon::extra::debugging::find_reduced_test_case(path.as_slice(), &|path: Path| {
-                    FillTessellator::new()
-                        .tessellate_path(&path, &options, &mut NoOutput::new())
-                        .is_err()
-                });
-            }
-            Tessellator::Tess2 => {
-                unimplemented!();
-            }
-        }
+        lyon::extra::debugging::find_reduced_test_case(path.as_slice(), &|path: Path| {
+            FillTessellator::new()
+                .tessellate_path(&path, &options, &mut NoOutput::new())
+                .is_err()
+        });
     }
 }

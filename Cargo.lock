@@ -865,7 +865,6 @@ version = "0.17.5"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
- "lyon_tess2",
  "lyon_tessellation",
 ]
 
@@ -916,15 +915,6 @@ version = "0.17.7"
 dependencies = [
  "lyon_geom",
  "serde",
-]
-
-[[package]]
-name = "lyon_tess2"
-version = "0.17.1"
-dependencies = [
- "lyon_tessellation",
- "serde",
- "tess2-sys",
 ]
 
 [[package]]

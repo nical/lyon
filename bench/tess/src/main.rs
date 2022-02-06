@@ -1,8 +1,6 @@
 extern crate lyon;
 #[macro_use]
 extern crate bencher;
-#[cfg(feature = "libtess2")]
-extern crate tess2_sys as tess2;
 
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::Point;
@@ -140,87 +138,6 @@ fn fill_tess_05_logo_no_curve(bench: &mut Bencher) {
     })
 }
 
-#[cfg(feature = "libtess2")]
-fn cmp_01_libtess2_rust_logo(bench: &mut Bencher) {
-    use lyon::path::PathEvent;
-    use std::os::raw::c_void;
-    use std::slice;
-    use tess2::*;
-
-    let mut path = Path::builder().with_svg();
-    build_logo_path(&mut path);
-    let path = path.build();
-
-    let mut contours = Vec::new();
-
-    let tolerance = FillOptions::default().tolerance;
-    for evt in path.iter().flattened(tolerance) {
-        match evt {
-            PathEvent::Begin { at } => {
-                contours.push(vec![at]);
-            }
-            PathEvent::Line { to, .. } => {
-                contours.last_mut().unwrap().push(to);
-            }
-            _ => {}
-        }
-    }
-
-    bench.iter(|| unsafe {
-        let tess = tessNewTess(0 as *mut TESSalloc);
-        for _ in 0..N {
-            for contour in &contours {
-                tessAddContour(
-                    tess,
-                    2,
-                    (&contour[0].x as *const f32) as *const c_void,
-                    8,
-                    contour.len() as i32,
-                );
-            }
-            let res = tessTesselate(
-                tess,
-                TessWindingRule::TESS_WINDING_ODD,
-                TessElementType::TESS_POLYGONS,
-                3,
-                2,
-                0 as *mut TESSreal,
-            );
-            assert!(res == 1);
-
-            let raw_triangle_count = tessGetElementCount(tess);
-            let triangle_count = raw_triangle_count as usize;
-            assert!(triangle_count > 1);
-
-            let _vertex_buffer =
-                slice::from_raw_parts(tessGetVertices(tess), tessGetVertexCount(tess) as usize * 2);
-            let _triangle_buffer = slice::from_raw_parts(tessGetElements(tess), triangle_count * 3);
-        }
-    });
-}
-
-#[cfg(feature = "libtess2")]
-fn cmp_02_lyon_rust_logo(bench: &mut Bencher) {
-    // To get this test case as comparable as possible with the libtess2 one:
-    // - The path is built and pre-flattened beforehand.
-    // - The tessellator and other allocations are not recycled between runs.
-    // - No normals.
-
-    let options = FillOptions::default();
-    let mut path = Path::builder().flattened(options.tolerance).with_svg();
-    build_logo_path(&mut path);
-    let path = path.build();
-
-    bench.iter(|| {
-        for _ in 0..N {
-            let mut tess = FillTessellator::new();
-            let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
-            tess.tessellate(&path, &options, &mut simple_builder(&mut buffers))
-                .unwrap();
-        }
-    })
-}
-
 fn fill_events_01_logo(bench: &mut Bencher) {
     let mut path = Path::builder().with_svg();
     build_logo_path(&mut path);
@@ -328,9 +245,6 @@ benchmark_group!(
     fill_tess_05_logo_no_curve
 );
 
-#[cfg(feature = "libtess2")]
-benchmark_group!(cmp_tess2, cmp_01_libtess2_rust_logo, cmp_02_lyon_rust_logo);
-
 benchmark_group!(
     fill_events,
     fill_events_01_logo,
@@ -344,9 +258,3 @@ benchmark_group!(
     flattening_02_logo_iter,
     flattening_03_logo_builder
 );
-
-#[cfg(feature = "libtess2")]
-benchmark_main!(fill_tess, cmp_tess2, fill_events, stroke_tess, flattening);
-
-#[cfg(not(feature = "libtess2"))]
-benchmark_main!(fill_tess, fill_events, stroke_tess, flattening);

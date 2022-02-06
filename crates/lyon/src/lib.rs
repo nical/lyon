@@ -30,9 +30,6 @@
 //! * [![crate](https://img.shields.io/crates/v/lyon_extra.svg)](https://crates.io/crates/lyon_extra)
 //!   [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
 //!   **lyon_extra** - Additional testing and debugging tools.
-//! * [![crate](https://img.shields.io/crates/v/lyon_tess2.svg)](https://crates.io/crates/lyon_tess2)
-//!   [![doc](https://docs.rs/lyon_tess2/badge.svg)](https://docs.rs/lyon_tess2) -
-//!   **lyon_tess2** - Alternative fill tessellation implementation using [libtess2](https://github.com/memononen/libtess2).
 //!
 //! Each `lyon_<name>` crate is reexported as a `<name>` module in `lyon`. For example:
 //!
@@ -53,9 +50,8 @@
 //! serialization using serde can be enabled on each crate using the
 //! `serialization` feature flag (disabled by default).
 //!
-//! When using the main crate `lyon`, the `lyon_svg`, `lyon_tess2` and
-//! `lyon_extra` dependencies are disabled by default. They can be added
-//! with the feature flags `svg`, `tess2` and `extra`.
+//! When using the main crate `lyon`, `lyon_extra` dependencies is disabled by default.
+//! It can be added with the feature flags `extra`.
 //!
 //! # Additional documentation and links
 //!
@@ -185,19 +181,11 @@
 pub extern crate lyon_algorithms;
 #[cfg(feature = "extra")]
 pub extern crate lyon_extra;
-#[cfg(feature = "svg")]
-pub extern crate lyon_svg;
-#[cfg(feature = "libtess2")]
-pub extern crate lyon_tess2;
 pub extern crate lyon_tessellation;
 
 pub use lyon_algorithms as algorithms;
 #[cfg(feature = "extra")]
 pub use lyon_extra as extra;
-#[cfg(feature = "svg")]
-pub use lyon_svg as svg;
-#[cfg(feature = "libtess2")]
-pub use lyon_tess2 as tess2;
 pub use lyon_tessellation as tessellation;
 pub use tessellation::geom;
 pub use tessellation::path;

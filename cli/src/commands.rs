@@ -3,12 +3,6 @@ use lyon::path::Path;
 use lyon::tessellation::{FillOptions, StrokeOptions};
 use std::io;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Tessellator {
-    Default,
-    Tess2,
-}
-
 #[derive(Clone, Debug)]
 pub struct TessellateCmd {
     pub path: Path,
@@ -17,7 +11,6 @@ pub struct TessellateCmd {
     pub hatch: Option<HatchingParams>,
     pub dots: Option<DotParams>,
     pub float_precision: Option<usize>,
-    pub tessellator: Tessellator,
 }
 
 #[derive(Clone, Debug)]
@@ -60,7 +53,6 @@ pub struct FuzzCmd {
     pub tess: TessellateCmd,
     pub min_points: Option<u32>,
     pub max_points: Option<u32>,
-    pub tessellator: Tessellator,
     pub ignore_errors: bool,
 }
 
