@@ -22,9 +22,9 @@ pub fn fill_rectangle(rect: &Box2D, output: &mut dyn FillGeometryBuilder) -> Tes
     };
 
     let a = vertex(rect.min)?;
-    let b = vertex(bottom_left(&rect))?;
-    let c = vertex(bottom_right(&rect))?;
-    let d = vertex(top_right(&rect))?;
+    let b = vertex(bottom_left(rect))?;
+    let c = vertex(bottom_right(rect))?;
+    let d = vertex(top_right(rect))?;
 
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
@@ -169,7 +169,7 @@ fn fill_border_radius(
 
     let vertex = output.add_fill_vertex(FillVertex {
         position,
-        events: &dummy_queue,
+        events: dummy_queue,
         current_event: INVALID_EVENT_ID,
         attrib_store: None,
         attrib_buffer: &mut [],

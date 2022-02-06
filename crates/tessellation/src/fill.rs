@@ -679,7 +679,7 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let options = options.clone().with_intersections(false);
+        let options = (*options).with_intersections(false);
 
         let mut builder = self.builder(&options, output);
         builder.add_ellipse(center, radii, x_rotation, winding);

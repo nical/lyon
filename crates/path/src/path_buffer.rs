@@ -150,7 +150,7 @@ impl<'l> PathBufferSlice<'l> {
 
     #[inline]
     pub fn iter(&self) -> Iter<'_> {
-        Iter::new(&self.points, &self.verbs, &self.paths)
+        Iter::new(self.points, self.verbs, self.paths)
     }
 
     /// Returns the number of paths in the path buffer.

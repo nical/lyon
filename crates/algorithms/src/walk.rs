@@ -311,7 +311,7 @@ impl<'l> PathBuilder for PathWalker<'l> {
 impl<'l> Build for PathWalker<'l> {
     type PathType = ();
 
-    fn build(self) -> () {}
+    fn build(self) {}
 }
 
 /// A simple pattern that invokes a callback at regular intervals.

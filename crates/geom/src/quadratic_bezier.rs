@@ -364,7 +364,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             callback(self.sample(t), t);
         }
 
-        return true;
+        true
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the

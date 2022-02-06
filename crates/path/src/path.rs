@@ -272,7 +272,7 @@ impl<'l> PathSlice<'l> {
 
     /// Iterates over the entire `Path` with custom attributes.
     pub fn iter_with_attributes(&self) -> IterWithAttributes {
-        IterWithAttributes::new(self.num_attributes(), &self.points[..], &self.verbs[..])
+        IterWithAttributes::new(self.num_attributes(), self.points, self.verbs)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -282,7 +282,7 @@ impl<'l> PathSlice<'l> {
     /// Returns a slice over an endpoint's custom attributes.
     #[inline]
     pub fn attributes(&self, endpoint: EndpointId) -> Attributes {
-        interpolated_attributes(self.num_attributes, &self.points, endpoint)
+        interpolated_attributes(self.num_attributes, self.points, endpoint)
     }
 }
 
@@ -1218,8 +1218,8 @@ fn concatenate_paths(
     points.reserve(np);
 
     for path in paths {
-        verbs.extend_from_slice(&path.verbs);
-        points.extend_from_slice(&path.points);
+        verbs.extend_from_slice(path.verbs);
+        points.extend_from_slice(path.points);
     }
 }
 

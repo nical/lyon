@@ -1,3 +1,6 @@
+// There's a number of cases in this file where this lint just complicates the code.
+#![allow(clippy::needless_range_loop)]
+
 use crate::geom::arrayvec::ArrayVec;
 use crate::geom::utils::tangent;
 use crate::geom::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
@@ -22,6 +25,10 @@ const SIDE_NEGATIVE: usize = 1;
 macro_rules! nan_check {
     ($($v:expr),+) => { $(debug_assert!(!$v.is_nan());)+ };
 }
+
+// TODO: the stroke tessellator's code is has a lot of duplication and a bunch of error prone parts
+// such as having to know at which stage each member of SidePoints is set.
+// It would be good to spend some time simplifying it.
 
 /// A Context object that can tessellate stroke operations for complex paths.
 ///
@@ -1340,7 +1347,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             return Ok(());
         }
 
-        assert!(self.firsts.len() >= 1);
+        assert!(!self.firsts.is_empty());
 
         let p = self.firsts[0];
         if self.options.variable_line_width.is_some() {
@@ -1638,7 +1645,7 @@ impl<'l> StrokeBuilderImpl<'l> {
                 )?;
             } else {
                 compute_join_side_positions_fixed_width(
-                    &prev,
+                    prev,
                     join,
                     &next,
                     self.options.miter_limit,
@@ -2124,12 +2131,8 @@ fn compute_join_side_positions(
     // For concave sides we'll simply connect at the intersection of the two side edges.
     let concave = inward && normal_same_side && !join.fold[side];
 
-    if concave {
-        let p = join.position + normal * join.half_width;
-        join.side_points[side].single_vertex = Some(p);
-    } else if (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-        && !miter_limit_is_exceeded(normal, miter_limit)
-    {
+    if concave || ((join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
+            && !miter_limit_is_exceeded(normal, miter_limit)) {
         let p = join.position + normal * join.half_width;
         join.side_points[side].single_vertex = Some(p);
     } else if join.line_join == LineJoin::MiterClip {

@@ -2,6 +2,7 @@
 #![deny(bare_trait_objects)]
 #![deny(unconditional_recursion)]
 #![allow(clippy::float_cmp)]
+#![allow(clippy::too_many_arguments)]
 // TODO: Tessellation pipeline diagram needs to be updated.
 
 //! Tessellation of 2D fill and stroke operations.
@@ -378,17 +379,11 @@ pub enum VertexSource {
 
 impl VertexSource {
     pub fn is_endpoint(&self) -> bool {
-        match self {
-            VertexSource::Endpoint { .. } => true,
-            _ => false,
-        }
+        matches!(self, VertexSource::Endpoint { .. })
     }
 
     pub fn is_edge(&self) -> bool {
-        match self {
-            VertexSource::Edge { .. } => true,
-            _ => false,
-        }
+        matches!(self, VertexSource::Edge { .. })
     }
 }
 
