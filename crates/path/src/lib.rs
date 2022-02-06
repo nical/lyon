@@ -451,6 +451,11 @@ impl<'l> Attributes<'l> {
     pub const NONE: Attributes<'static> = Attributes(&[]);
 
     #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -489,8 +494,9 @@ impl<'l> From<&'l [f32]> for Attributes<'l> {
     }
 }
 
-impl<'l> Into<&'l [f32]> for Attributes<'l> {
-    fn into(self) -> &'l [f32] {
-        self.0
+impl<'l> From<Attributes<'l>> for &'l [f32] {
+    fn from(attr: Attributes<'l>) -> &'l [f32] {
+        attr.0
     }
 }
+

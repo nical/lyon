@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 // This module contains a few helpers that should not be considered as part of the public API,
 // but are exposed for use by other lyon crates.
 // Changing them doesn't necessarily imply semver breaking bumps.

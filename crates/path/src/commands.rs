@@ -360,7 +360,7 @@ impl<'l, Endpoint, ControlPoint> CommandsPathSlice<'l, Endpoint, ControlPoint> {
     /// and control point references.
     pub fn events(&self) -> Events<Endpoint, ControlPoint> {
         Events {
-            cmds: CmdIter::new(&self.cmds.cmds),
+            cmds: CmdIter::new(self.cmds.cmds),
             first_endpoint: 0,
             prev_endpoint: 0,
             endpoints: self.endpoints,

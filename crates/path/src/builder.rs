@@ -435,6 +435,13 @@ impl<B: PathBuilder + Build> Build for NoAttributes<B> {
     }
 }
 
+impl<B: PathBuilder + Default> Default for NoAttributes<B> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
 /// The base path building interface.
 ///
 /// Unlike `SvgPathBuilder`, this interface strictly requires sub-paths to be manually
