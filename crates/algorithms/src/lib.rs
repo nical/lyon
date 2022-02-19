@@ -17,6 +17,7 @@ pub mod length;
 pub mod raycast;
 pub mod walk;
 pub mod winding;
+pub mod rect;
 
 pub use crate::path::geom;
 pub use crate::path::math;
