@@ -383,7 +383,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         F: FnMut(S),
     {
         let mut t0 = self.local_x_extremum_t();
-        let mut t1 = self.local_x_extremum_t();
+        let mut t1 = self.local_y_extremum_t();
 
         let swap = match (t0, t1) {
             (None, Some(_)) => true,
