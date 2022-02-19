@@ -330,7 +330,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback between each monotonic part of the segment.
-    pub fn for_each_monotonic_t<F>(&self, mut cb: F)
+    fn for_each_monotonic_t<F>(&self, mut cb: F)
     where
         F: FnMut(S),
     {
@@ -371,7 +371,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         }
     }
 
-    /// Invokes a callback for each monotonic part of the segment..
+    /// Invokes a callback for each monotonic part of the segment.
     pub fn for_each_monotonic_range<F>(&self, mut cb: F)
     where
         F: FnMut(Range<S>),
@@ -382,6 +382,89 @@ impl<S: Scalar> CubicBezierSegment<S> {
             t0 = t;
         });
         cb(t0..S::ONE);
+    }
+
+    /// Invokes a callback for each monotonic part of the segment.
+    pub fn for_each_monotonic<F>(&self, cb: &mut F)
+    where
+        F: FnMut(&CubicBezierSegment<S>),
+    {
+        self.for_each_monotonic_range(|range| {
+            let mut sub = self.split_range(range);
+            // Due to finite precision the split may actually result in sub-curves
+            // that are almost but not-quite monotonic. Make sure they actually are.
+            let min_x = sub.from.x.min(sub.to.x);
+            let max_x = sub.from.x.max(sub.to.x);
+            let min_y = sub.from.y.min(sub.to.y);
+            let max_y = sub.from.y.max(sub.to.y);
+            sub.ctrl1.x = sub.ctrl1.x.max(min_x).min(max_x);
+            sub.ctrl1.y = sub.ctrl1.y.max(min_y).min(max_y);
+            sub.ctrl2.x = sub.ctrl2.x.max(min_x).min(max_x);
+            sub.ctrl2.y = sub.ctrl2.y.max(min_y).min(max_y);
+            cb(&sub);
+        });
+    }
+
+    /// Invokes a callback for each y-monotonic part of the segment.
+    pub fn for_each_y_monotonic_range<F>(&self, mut cb: F)
+    where
+        F: FnMut(Range<S>),
+    {
+        let mut t0 = S::ZERO;
+        self.for_each_local_y_extremum_t(&mut |t| {
+            cb(t0 .. t);
+            t0 = t;
+        });
+
+        cb(t0 .. S::ONE);
+    }
+
+    /// Invokes a callback for each y-monotonic part of the segment.
+    pub fn for_each_y_monotonic<F>(&self, mut cb: F)
+    where
+        F: FnMut(&CubicBezierSegment<S>),
+    {
+        self.for_each_y_monotonic_range(|range| {
+            let mut sub = self.split_range(range);
+            // Due to finite precision the split may actually result in sub-curves
+            // that are almost but not-quite monotonic. Make sure they actually are.
+            let min_y = sub.from.y.min(sub.to.y);
+            let max_y = sub.from.y.max(sub.to.y);
+            sub.ctrl1.y = sub.ctrl1.y.max(min_y).min(max_y);
+            sub.ctrl2.y = sub.ctrl2.y.max(min_y).min(max_y);
+            cb(&sub);
+        });
+    }
+
+    /// Invokes a callback for each x-monotonic part of the segment.
+    pub fn for_each_x_monotonic_range<F>(&self, mut cb: F)
+    where
+        F: FnMut(Range<S>),
+    {
+        let mut t0 = S::ZERO;
+        self.for_each_local_x_extremum_t(&mut |t| {
+            cb(t0 .. t);
+            t0 = t;
+        });
+
+        cb(t0 .. S::ONE);
+    }
+
+    /// Invokes a callback for each x-monotonic part of the segment.
+    pub fn for_each_x_monotonic<F>(&self, mut cb: F)
+    where
+        F: FnMut(&CubicBezierSegment<S>),
+    {
+        self.for_each_x_monotonic_range(|range| {
+            let mut sub = self.split_range(range);
+            // Due to finite precision the split may actually result in sub-curves
+            // that are almost but not-quite monotonic. Make sure they actually are.
+            let min_x = sub.from.x.min(sub.to.x);
+            let max_x = sub.from.x.max(sub.to.x);
+            sub.ctrl1.x = sub.ctrl1.x.max(min_x).min(max_x);
+            sub.ctrl2.x = sub.ctrl2.x.max(min_x).min(max_x);
+            cb(&sub);
+        });
     }
 
     /// Approximates the cubic bézier curve with sequence of quadratic ones,

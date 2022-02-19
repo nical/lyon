@@ -377,16 +377,15 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         FlattenedT::new(self, tolerance)
     }
 
-    /// Invokes a callback between each monotonic part of the segment.
-    pub fn for_each_monotonic_t<F>(&self, mut cb: F)
+    /// Invokes a callback for each monotonic part of the segment.
+    pub fn for_each_monotonic_range<F>(&self, mut cb: F)
     where
-        F: FnMut(S),
+        F: FnMut(Range<S>),
     {
         let mut t0 = self.local_x_extremum_t();
         let mut t1 = self.local_y_extremum_t();
 
         let swap = match (t0, t1) {
-            (None, Some(_)) => true,
             (Some(tx), Some(ty)) => tx > ty,
             _ => false,
         };
@@ -395,37 +394,115 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             mem::swap(&mut t0, &mut t1);
         }
 
+        let mut start = S::ZERO;
+
         if let Some(t) = t0 {
-            if t < S::ONE {
-                cb(t);
-            }
+            cb(start .. t);
+            start = t;
         }
 
         if let Some(t) = t1 {
-            if t < S::ONE {
-                cb(t);
+            // In extreme cases the same point can be an x and y inflection point.
+            if t != start {
+                cb(start .. t);
+                start = t
             }
         }
+
+        cb(start .. S::ONE);
     }
 
-    /// Invokes a callback for each monotonic part of the segment..
-    pub fn for_each_monotonic_range<F>(&self, mut cb: F)
-    where
-        F: FnMut(Range<S>),
-    {
-        let mut t0 = S::ZERO;
-        self.for_each_monotonic_t(|t| {
-            cb(t0..t);
-            t0 = t;
-        });
-        cb(t0..S::ONE);
-    }
-
+    /// Invokes a callback for each monotonic part of the segment.
     pub fn for_each_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
     {
-        self.for_each_monotonic_range(|range| cb(&self.split_range(range)));
+        self.for_each_monotonic_range(|range| {
+            let mut sub = self.split_range(range);
+            // Due to finite precision the split may actually result in sub-curves
+            // that are almost but not-quite monotonic. Make sure they actually are.
+            let min_x = sub.from.x.min(sub.to.x);
+            let max_x = sub.from.x.max(sub.to.x);
+            let min_y = sub.from.y.min(sub.to.y);
+            let max_y = sub.from.y.max(sub.to.y);
+            sub.ctrl.x = sub.ctrl.x.max(min_x).min(max_x);
+            sub.ctrl.y = sub.ctrl.y.max(min_y).min(max_y);
+            cb(&sub);
+        });
+    }
+
+    /// Invokes a callback for each y-monotonic part of the segment.
+    pub fn for_each_y_monotonic_range<F>(&self, mut cb: F)
+    where
+        F: FnMut(Range<S>),
+    {
+        match self.local_y_extremum_t() {
+            Some(t) => {
+                cb(S::ZERO .. t);
+                cb(t .. S::ONE);
+            }
+            None => {
+                cb(S::ZERO .. S::ONE);
+            }
+        }
+    }
+
+    /// Invokes a callback for each y-monotonic part of the segment.
+    pub fn for_each_y_monotonic<F>(&self, mut cb: F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>),
+    {
+        match self.local_y_extremum_t() {
+            Some(t) => {
+                let (a, b) = self.split(t);
+                cb(&a);
+                cb(&b);
+            }
+            None => {
+                cb(self);
+            }
+        }
+    }
+
+    /// Invokes a callback for each x-monotonic part of the segment.
+    pub fn for_each_x_monotonic_range<F>(&self, mut cb: F)
+    where
+        F: FnMut(Range<S>),
+    {
+        match self.local_x_extremum_t() {
+            Some(t) => {
+                cb(S::ZERO .. t);
+                cb(t .. S::ONE);
+            }
+            None => {
+                cb(S::ZERO .. S::ONE);
+            }
+        }
+    }
+
+    /// Invokes a callback for each x-monotonic part of the segment.
+    pub fn for_each_x_monotonic<F>(&self, mut cb: F)
+    where
+        F: FnMut(&QuadraticBezierSegment<S>),
+    {
+        match self.local_x_extremum_t() {
+            Some(t) => {
+                let (mut a, mut b) = self.split(t);
+                // Due to finite precision the split may actually result in sub-curves
+                // that are almost but not-quite monotonic. Make sure they actually are.
+                let a_min = a.from.x.min(a.to.x);
+                let a_max = a.from.x.max(a.to.x);
+                let b_min = b.from.x.min(b.to.x);
+                let b_max = b.from.x.max(b.to.x);
+                a.ctrl.x = a.ctrl.x.max(a_min).min(a_max);
+                b.ctrl.x = b.ctrl.x.max(b_min).min(b_max);
+                cb(&a);
+                cb(&b);
+            }
+            None => {
+                cb(self);
+            }
+        }
     }
 
     /// Compute the length of the segment using a flattened approximation.
