@@ -27,11 +27,12 @@
 //!         interval: 3.0,
 //!     };
 //!
-//!     let tolerance = 0.01; // The path flattening tolerance.
+//!     let tolerance = 0.1; // The path flattening tolerance.
 //!     let start_offset = 0.0; // Start walking at the beginning of the path.
 //!     walk_along_path(
-//!         path.iter().flattened(tolerance),
+//!         path.iter(),
 //!         start_offset,
+//!         tolerance,
 //!         &mut pattern
 //!     );
 //! }
@@ -47,11 +48,11 @@ use crate::path::{Attributes, EndpointId, PathEvent};
 use std::f32;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
-pub fn walk_along_path<Iter>(path: Iter, start: f32, pattern: &mut dyn Pattern)
+pub fn walk_along_path<Iter>(path: Iter, start: f32, tolerance: f32, pattern: &mut dyn Pattern)
 where
     Iter: IntoIterator<Item = PathEvent>,
 {
-    let mut walker = PathWalker::new(start, pattern);
+    let mut walker = PathWalker::new(start, tolerance, pattern);
     for evt in path {
         walker.path_event(evt);
         if walker.inner().done {
@@ -100,6 +101,7 @@ pub trait Pattern {
 /// A helper struct to walk along a flattened path using a builder API.
 pub struct PathWalker<'l> {
     prev: Point,
+    tolerance: f32,
     advancement: f32,
     leftover: f32,
     next_distance: f32,
@@ -115,19 +117,21 @@ pub struct PathWalker<'l> {
 }
 
 impl<'l> PathWalker<'l> {
-    pub fn new(start: f32, pattern: &'l mut dyn Pattern) -> NoAttributes<Self> {
-        NoAttributes::wrap(Self::with_attributes(0, start, pattern))
+    pub fn new(start: f32, tolerance: f32, pattern: &'l mut dyn Pattern) -> NoAttributes<Self> {
+        NoAttributes::wrap(Self::with_attributes(0, start, tolerance, pattern))
     }
 
     pub fn with_attributes(
         num_attributes: usize,
         start: f32,
+        tolerance: f32,
         pattern: &'l mut dyn Pattern,
     ) -> Self {
         let start = f32::max(start, 0.0);
         PathWalker {
             prev: point(0.0, 0.0),
             first: point(0.0, 0.0),
+            tolerance,
             advancement: 0.0,
             leftover: 0.0,
             next_distance: start,
@@ -238,7 +242,7 @@ impl<'l> PathWalker<'l> {
             ctrl,
             to,
         };
-        curve.for_each_flattened_with_t(0.01, &mut |p, t| {
+        curve.for_each_flattened_with_t(self.tolerance, &mut |p, t| {
             self.edge(p, t, attributes);
         });
 
@@ -261,7 +265,7 @@ impl<'l> PathWalker<'l> {
             to,
         };
 
-        curve.for_each_flattened_with_t(0.01, &mut |p, t| {
+        curve.for_each_flattened_with_t(self.tolerance, &mut |p, t| {
             self.edge(p, t, attributes);
         });
 
@@ -405,7 +409,7 @@ fn walk_square() {
         },
     };
 
-    let mut walker = PathWalker::new(0.0, &mut pattern);
+    let mut walker = PathWalker::new(0.0, 0.1, &mut pattern);
 
     walker.begin(point(0.0, 0.0));
     walker.line_to(point(6.0, 0.0));
@@ -438,7 +442,7 @@ fn walk_with_leftover() {
         },
     };
 
-    let mut walker = PathWalker::new(1.0, &mut pattern);
+    let mut walker = PathWalker::new(1.0, 0.1, &mut pattern);
 
     walker.begin(point(0.0, 0.0));
     walker.line_to(point(5.0, 0.0));
@@ -452,7 +456,7 @@ fn walk_starting_after() {
     // With a starting distance that is greater than the path, the
     // callback should never be called.
     let cb = &mut |_event: WalkerEvent| -> Option<f32> { panic!() };
-    let mut walker = PathWalker::new(10.0, cb);
+    let mut walker = PathWalker::new(10.0, 0.1, cb);
 
     walker.begin(point(0.0, 0.0));
     walker.line_to(point(5.0, 0.0));
@@ -470,7 +474,7 @@ fn walk_abort_early() {
         },
     };
 
-    let mut walker = PathWalker::new(1.0, &mut pattern);
+    let mut walker = PathWalker::new(1.0, 0.1, &mut pattern);
 
     walker.begin(point(0.0, 0.0));
     walker.line_to(point(100.0, 0.0));
