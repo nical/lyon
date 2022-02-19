@@ -1335,7 +1335,9 @@ impl<'l> StrokeBuilderImpl<'l> {
             return Err(err);
         }
 
-        Ok(self.output.end_geometry())
+        self.output.end_geometry();
+
+        Ok(())
     }
 
     fn close(&mut self, attributes: &dyn AttributeStore) -> Result<(), TessellationError> {
@@ -2676,6 +2678,11 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
         self.0.position_on_path
     }
 
+    /// The line width at this vertex.
+    ///
+    /// If a line width modifier is set via `StrokeOptions::variable_line_width`, the
+    /// returned line width is equal to `StrokeOptions::line_width` multiplied by the
+    /// line width modifier at this vertex.
     #[inline]
     pub fn line_width(&self) -> f32 {
         self.0.half_width * 2.0
@@ -2699,7 +2706,10 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
         self.0.src
     }
 
-    /// Returns the source of this vertex.
+    /// Computes and returns the custom attributes for this vertex.
+    ///
+    /// The attributes are interpolated along the edges on which this vertex is.
+    /// This can include multiple edges if the vertex is at an intersection.
     #[inline]
     pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.0.buffer_is_valid {
