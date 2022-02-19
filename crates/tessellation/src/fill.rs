@@ -800,7 +800,9 @@ impl FillTessellator {
 
         self.fill.spans.clear();
 
-        Ok(builder.end_geometry())
+        builder.end_geometry();
+
+        Ok(())
     }
 
     /// Enable/disable some verbose logging during the tessellation, for

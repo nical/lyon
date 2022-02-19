@@ -29,7 +29,9 @@ pub fn fill_rectangle(rect: &Box2D, output: &mut dyn FillGeometryBuilder) -> Tes
     output.add_triangle(a, b, c);
     output.add_triangle(a, c, d);
 
-    Ok(output.end_geometry())
+    output.end_geometry();
+
+    Ok(())
 }
 
 pub fn fill_circle(
@@ -38,12 +40,12 @@ pub fn fill_circle(
     options: &FillOptions,
     output: &mut dyn FillGeometryBuilder,
 ) -> TessellationResult {
-    output.begin_geometry();
-
     let radius = radius.abs();
     if radius == 0.0 {
-        return Ok(output.end_geometry());
+        return Ok(());
     }
+
+    output.begin_geometry();
 
     let up = vector(0.0, -1.0);
     let down = vector(0.0, 1.0);
@@ -113,7 +115,9 @@ pub fn fill_circle(
         )?;
     }
 
-    Ok(output.end_geometry())
+    output.end_geometry();
+
+    Ok(())
 }
 
 fn bottom_left(rect: &Box2D) -> Point {
