@@ -1,3 +1,4 @@
+
 use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
@@ -69,9 +70,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Return the parameter values corresponding to a given x coordinate.
     pub fn solve_t_for_x(&self, x: S) -> ArrayVec<S, 3> {
-        if self.is_a_point(S::ZERO)
-            || (self.non_point_is_linear(S::ZERO) && self.from.x == self.to.x)
-        {
+        let (min, max) = self.fast_bounding_range_x();
+        if min > x || max < x {
             return ArrayVec::new();
         }
 
@@ -80,9 +80,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Return the parameter values corresponding to a given y coordinate.
     pub fn solve_t_for_y(&self, y: S) -> ArrayVec<S, 3> {
-        if self.is_a_point(S::ZERO)
-            || (self.non_point_is_linear(S::ZERO) && self.from.y == self.to.y)
-        {
+        let (min, max) = self.fast_bounding_range_y();
+        if min > y || max < y {
             return ArrayVec::new();
         }
 
@@ -241,16 +240,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// Returns true if the curve can be approximated with a single line segment, given
     /// a tolerance threshold.
     pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::EPSILON;
-        if (self.from - self.to).square_length() < epsilon {
-            return false;
-        }
-
-        self.non_point_is_linear(tolerance)
-    }
-
-    #[inline]
-    fn non_point_is_linear(&self, tolerance: S) -> bool {
         // Similar to Line::square_distance_to_point, except we keep
         // the sign of c1 and c2 to compute tighter upper bounds as we
         // do in fat_line_min_max.
@@ -274,6 +263,8 @@ impl<S: Scalar> CubicBezierSegment<S> {
         d1 * f2 <= threshold && d2 <= threshold
     }
 
+    /// Returns whether the curve can be approximated with a single point, given
+    /// a tolerance threshold.
     pub(crate) fn is_a_point(&self, tolerance: S) -> bool {
         let tolerance_squared = tolerance * tolerance;
         // Use <= so that tolerance can be zero.
