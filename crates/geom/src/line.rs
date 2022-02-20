@@ -529,14 +529,23 @@ impl<S: Scalar> Line<S> {
         ))
     }
 
-    pub fn signed_distance_to_point(&self, p: &Point<S>) -> S {
-        let v1 = self.point.to_vector();
-        let v2 = v1 + self.vector;
-        (self.vector.cross(p.to_vector()) + v1.cross(v2)) / self.vector.length()
-    }
-
     pub fn distance_to_point(&self, p: &Point<S>) -> S {
         S::abs(self.signed_distance_to_point(p))
+    }
+
+    pub fn signed_distance_to_point(&self, p: &Point<S>) -> S {
+        let v = *p - self.point;
+        self.vector.cross(v) / self.vector.length()
+    }
+
+    /// Returned the squared distance to a point.
+    ///
+    /// Can be useful to avoid a square root when comparing against a
+    /// distance that can be squared instead.
+    pub fn square_distance_to_point(&self, p: Point<S>) -> S {
+        let v = p - self.point;
+        let c = self.vector.cross(v);
+        (c * c) / self.vector.square_length()
     }
 
     pub fn equation(&self) -> LineEquation<S> {
