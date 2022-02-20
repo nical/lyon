@@ -90,8 +90,6 @@ mod segment;
 pub mod arc;
 pub mod cubic_bezier;
 mod cubic_bezier_intersections;
-pub mod cubic_to_quadratic;
-mod flatten_cubic;
 mod line;
 pub mod quadratic_bezier;
 mod triangle;
