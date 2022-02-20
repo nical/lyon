@@ -249,6 +249,8 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
     }
 
+    /// Returns whether the curve can be approximated with a single point, given
+    /// a tolerance threshold.
     pub fn is_a_point(&self, tolerance: S) -> bool {
         let tol2 = tolerance * tolerance;
         (self.from - self.to).square_length() <= tol2
@@ -258,7 +260,13 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Returns true if the curve can be approximated with a single line segment
     /// given a tolerance threshold.
     pub fn is_linear(&self, tolerance: S) -> bool {
-        self.baseline().square_distance_to_point(self.ctrl) <= (tolerance * tolerance * S::FOUR)
+        if self.from == self.to {
+            return true;
+        }
+
+        let d = self.baseline().to_line().square_distance_to_point(self.ctrl);
+
+        d <= (tolerance * tolerance * S::FOUR)
     }
 
     /// Computes a "fat line" of this segment.
@@ -352,10 +360,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     where
         F: FnMut(Point<S>, S),
     {
-        let params = FlatteningParameters::from_curve(self, tolerance);
-        if params.is_point {
-            return false;
-        }
+        let params = FlatteningParameters::new(self, tolerance);
 
         let mut i = S::ONE;
         for _ in 1..params.count.to_u32().unwrap() {
@@ -758,15 +763,11 @@ pub struct FlatteningParameters<S> {
     integral_step: S,
     inv_integral_from: S,
     div_inv_integral_diff: S,
-    is_point: bool,
 }
 
 impl<S: Scalar> FlatteningParameters<S> {
     // See https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
-    // TODO: this does not handle having the control point aligned with the endpoints unless
-    // it is between the endpoints.
-
-    pub fn from_curve(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
+    pub fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
         // Checking for the single segment approximation is much cheaper than evaluating
         // the general flattening approximation.
         if curve.is_linear(tolerance) {
@@ -777,8 +778,6 @@ impl<S: Scalar> FlatteningParameters<S> {
                 integral_step: S::ZERO,
                 inv_integral_from: S::ZERO,
                 div_inv_integral_diff: S::ZERO,
-                // TODO: should probably remove the point special handling.
-                is_point: curve.is_a_point(S::EPSILON),
             };
         }
 
@@ -808,11 +807,9 @@ impl<S: Scalar> FlatteningParameters<S> {
         // We could store this as an integer but the generic code makes that awkward and we'll
         // use it as a scalar again while iterating, so it's kept as a scalar.
         let mut count = (S::HALF * integral_diff.abs() * (scale / tolerance).sqrt()).ceil();
-        let mut is_point = false;
         // If count is NaN the curve can be approximated by a single straight line or a point.
         if !count.is_finite() {
             count = S::ZERO;
-            is_point = (curve.to - curve.from).square_length() < tolerance * tolerance;
         }
 
         let integral_step = integral_diff / count;
@@ -823,7 +820,6 @@ impl<S: Scalar> FlatteningParameters<S> {
             integral_step,
             inv_integral_from,
             div_inv_integral_diff,
-            is_point,
         }
     }
 
@@ -862,14 +858,13 @@ pub struct Flattened<S> {
 impl<S: Scalar> Flattened<S> {
     #[inline]
     pub(crate) fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
-        let params = FlatteningParameters::from_curve(curve, tolerance);
-        let done = params.is_point;
+        let params = FlatteningParameters::new(curve, tolerance);
 
         Flattened {
             curve: *curve,
             params,
             i: S::ONE,
-            done,
+            done: false,
         }
     }
 }
@@ -913,11 +908,11 @@ pub struct FlattenedT<S> {
 impl<S: Scalar> FlattenedT<S> {
     #[inline]
     pub(crate) fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
-        let params = FlatteningParameters::from_curve(curve, tolerance);
+        let params = FlatteningParameters::new(curve, tolerance);
         FlattenedT {
             i: S::ONE,
-            done: params.is_point,
             params,
+            done: false,
         }
     }
 }
@@ -931,7 +926,7 @@ impl<S: Scalar> Iterator for FlattenedT<S> {
             return None;
         }
 
-        if self.i > self.params.count - S::EPSILON {
+        if self.i >= self.params.count - S::EPSILON {
             self.done = true;
             return Some(S::ONE);
         }
@@ -1268,11 +1263,12 @@ fn test_flattening_empty_curve() {
 
     let mut iter = FlattenedT::new(&curve, 0.1);
 
-    assert!(iter.next().is_none());
+    assert_eq!(iter.next(), Some(1.0));
+    assert_eq!(iter.next(), None);
 
     let mut count: u32 = 0;
     curve.for_each_flattened(0.1, &mut |_| count += 1);
-    assert_eq!(count, 0);
+    assert_eq!(count, 1);
 }
 
 #[test]
