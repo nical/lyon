@@ -382,6 +382,7 @@ impl<S: Scalar> LineSegment<S> {
         c >= a && c <= b && d >= a && d <= b
     }
 
+    /// Horizontally clip this segment against a range of the x axis.
     pub fn clipped_x(&self, clip: Range<S>) -> Option<Self> {
         if (self.from.x < clip.start && self.to.x < clip.start)
             || (self.from.x > clip.start && self.to.x > clip.end)
@@ -424,6 +425,7 @@ impl<S: Scalar> LineSegment<S> {
         Some(result)
     }
 
+    /// Vertically clip this segment against a range of the y axis.
     pub fn clipped_y(&self, clip: Range<S>) -> Option<Self> {
         fn transpose<S: Copy>(r: &LineSegment<S>) -> LineSegment<S> {
             LineSegment {
@@ -435,8 +437,34 @@ impl<S: Scalar> LineSegment<S> {
         Some(transpose(&transpose(self).clipped_x(clip)?))
     }
 
+    /// Clip this segment against a rectangle.
     pub fn clipped(&self, clip: &Box2D<S>) -> Option<Self> {
         self.clipped_x(clip.x_range())?.clipped_y(clip.y_range())
+    }
+
+    /// Computes the distance between this segment and a point.
+    #[inline]
+    pub fn distance_to_point(&self, p: Point<S>) -> S {
+        self.square_distance_to_point(p).sqrt()
+    }
+
+    /// Computes the squared distance between this segment and a point.
+    ///
+    /// Can be useful to save a square root and a division when comparing against
+    /// a distance that can be squared.
+    #[inline]
+    pub fn square_distance_to_point(&self, p: Point<S>) -> S {
+        (self.closest_point(p) - p).square_length()
+    }
+
+    /// Computes the closest point on this segment to `p`.
+    #[inline]
+    pub fn closest_point(&self, p: Point<S>) -> Point<S> {
+        let v1 = self.to - self.from;
+        let v2 = p - self.from;
+        let t = S::min(S::max(v2.dot(v1) / v1.dot(v1), S::ZERO), S::ONE);
+
+        self.from + v1 * t
     }
 }
 
