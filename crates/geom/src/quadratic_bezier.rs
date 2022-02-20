@@ -249,14 +249,16 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
     }
 
-    pub fn is_linear(&self, tolerance: S) -> bool {
-        let epsilon = S::EPSILON;
-        if (self.from - self.to).square_length() < epsilon {
-            return false;
-        }
-        let line = self.baseline().to_line().equation();
+    pub fn is_a_point(&self, tolerance: S) -> bool {
+        let tol2 = tolerance * tolerance;
+        (self.from - self.to).square_length() <= tol2
+            && (self.from - self.ctrl).square_length() <= tol2
+    }
 
-        line.distance_to_point(&self.ctrl) < tolerance
+    /// Returns true if the curve can be approximated with a single line segment
+    /// given a tolerance threshold.
+    pub fn is_linear(&self, tolerance: S) -> bool {
+        self.baseline().square_distance_to_point(self.ctrl) <= (tolerance * tolerance * S::FOUR)
     }
 
     /// Computes a "fat line" of this segment.
@@ -765,6 +767,21 @@ impl<S: Scalar> FlatteningParameters<S> {
     // it is between the endpoints.
 
     pub fn from_curve(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
+        // Checking for the single segment approximation is much cheaper than evaluating
+        // the general flattening approximation.
+        if curve.is_linear(tolerance) {
+            return FlatteningParameters {
+                count: S::ZERO,
+                // This are irrelevant as if count is 0.
+                integral_from: S::ZERO,
+                integral_step: S::ZERO,
+                inv_integral_from: S::ZERO,
+                div_inv_integral_diff: S::ZERO,
+                // TODO: should probably remove the point special handling.
+                is_point: curve.is_a_point(S::EPSILON),
+            };
+        }
+
         // Map the quadratic bézier segment to y = x^2 parabola.
         let ddx = S::TWO * curve.ctrl.x - curve.from.x - curve.to.x;
         let ddy = S::TWO * curve.ctrl.y - curve.from.y - curve.to.y;
