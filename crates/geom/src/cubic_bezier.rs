@@ -395,7 +395,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each monotonic part of the segment.
-    pub fn for_each_monotonic_range<F>(&self, mut cb: F)
+    pub fn for_each_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
     {
@@ -420,7 +420,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     where
         F: FnMut(&CubicBezierSegment<S>),
     {
-        self.for_each_monotonic_range(|range| {
+        self.for_each_monotonic_range(&mut |range| {
             let mut sub = self.split_range(range);
             // Due to finite precision the split may actually result in sub-curves
             // that are almost but not-quite monotonic. Make sure they actually are.
@@ -437,7 +437,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
-    pub fn for_each_y_monotonic_range<F>(&self, mut cb: F)
+    pub fn for_each_y_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
     {
@@ -451,11 +451,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
-    pub fn for_each_y_monotonic<F>(&self, mut cb: F)
+    pub fn for_each_y_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&CubicBezierSegment<S>),
     {
-        self.for_each_y_monotonic_range(|range| {
+        self.for_each_y_monotonic_range(&mut |range| {
             let mut sub = self.split_range(range);
             // Due to finite precision the split may actually result in sub-curves
             // that are almost but not-quite monotonic. Make sure they actually are.
@@ -468,7 +468,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
-    pub fn for_each_x_monotonic_range<F>(&self, mut cb: F)
+    pub fn for_each_x_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
     {
@@ -482,11 +482,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
-    pub fn for_each_x_monotonic<F>(&self, mut cb: F)
+    pub fn for_each_x_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&CubicBezierSegment<S>),
     {
-        self.for_each_x_monotonic_range(|range| {
+        self.for_each_x_monotonic_range(&mut |range| {
             let mut sub = self.split_range(range);
             // Due to finite precision the split may actually result in sub-curves
             // that are almost but not-quite monotonic. Make sure they actually are.
@@ -751,8 +751,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         // There are two Real solutions for the equation
         let discriminant_sqrt = discriminant.sqrt();
 
-        let first_extremum = (-b - discriminant_sqrt) / (S::TWO * a);
-        let second_extremum = (-b + discriminant_sqrt) / (S::TWO * a);
+        let mut first_extremum = (-b - discriminant_sqrt) / (S::TWO * a);
+        let mut second_extremum = (-b + discriminant_sqrt) / (S::TWO * a);
+        if first_extremum > second_extremum {
+            std::mem::swap(&mut first_extremum, &mut second_extremum);
+        }
 
         if in_range(first_extremum) {
             cb(first_extremum);

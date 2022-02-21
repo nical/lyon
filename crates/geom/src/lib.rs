@@ -144,6 +144,9 @@ mod scalar {
         const NINE: Self;
         const TEN: Self;
 
+        const MIN: Self;
+        const MAX: Self;
+
         const EPSILON: Self;
         const DIV_EPSILON: Self = Self::EPSILON;
 
@@ -170,6 +173,9 @@ mod scalar {
         const EIGHT: Self = 8.0;
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
+
+        const MIN: Self = std::f32::MIN;
+        const MAX: Self = std::f32::MAX;
 
         const EPSILON: Self = 1e-4;
 
@@ -211,6 +217,9 @@ mod scalar {
         const EIGHT: Self = 8.0;
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
+
+        const MIN: Self = std::f64::MIN;
+        const MAX: Self = std::f64::MAX;
 
         const EPSILON: Self = 1e-8;
 
