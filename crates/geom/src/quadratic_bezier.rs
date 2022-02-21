@@ -385,7 +385,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each monotonic part of the segment.
-    pub fn for_each_monotonic_range<F>(&self, mut cb: F)
+    pub fn for_each_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
     {
@@ -424,7 +424,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     where
         F: FnMut(&QuadraticBezierSegment<S>),
     {
-        self.for_each_monotonic_range(|range| {
+        self.for_each_monotonic_range(&mut |range| {
             let mut sub = self.split_range(range);
             // Due to finite precision the split may actually result in sub-curves
             // that are almost but not-quite monotonic. Make sure they actually are.
@@ -439,7 +439,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
-    pub fn for_each_y_monotonic_range<F>(&self, mut cb: F)
+    pub fn for_each_y_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
     {
@@ -455,7 +455,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
-    pub fn for_each_y_monotonic<F>(&self, mut cb: F)
+    pub fn for_each_y_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
     {
@@ -472,7 +472,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
-    pub fn for_each_x_monotonic_range<F>(&self, mut cb: F)
+    pub fn for_each_x_monotonic_range<F>(&self, cb: &mut F)
     where
         F: FnMut(Range<S>),
     {
@@ -488,7 +488,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
-    pub fn for_each_x_monotonic<F>(&self, mut cb: F)
+    pub fn for_each_x_monotonic<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
     {
@@ -735,6 +735,56 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
 
         result
+    }
+
+    /// Analytic solution to finding the closest point on the curve to `pos`.
+    pub fn closest_point(&self, pos: Point<S>) -> S {
+        // We are looking for the points in the curve where the line passing through pos
+        // and these points are perpendicular to the curve.
+        let a = self.from - pos;
+        let b = self.ctrl - self.from;
+        let c = self.from + self.to.to_vector() - self.ctrl * S::TWO;
+
+        // Polynomial coefficients
+        let c0 = c.dot(c);
+        let c1 = b.dot(c) * S::THREE;
+        let c2 = b.dot(b) * S::TWO + a.dot(c);
+        let c3 = a.dot(b);
+
+        let roots = crate::utils::cubic_polynomial_roots(c0, c1, c2, c3);
+
+        let mut sq_dist = c.square_length();
+        let mut t = S::ZERO;
+        let to_dist = (self.to - pos).square_length();
+        if to_dist < sq_dist {
+            sq_dist = to_dist;
+            t = S::ONE
+        }
+        for root in roots {
+            if root >= S::ZERO && root <= S::ONE {
+                let p = self.sample(root);
+                let d = (pos - p).square_length();
+                if d < sq_dist {
+                    sq_dist = d;
+                    t = root;
+                }
+            }
+        }
+
+        t
+    }
+
+    /// Returns the shortest distance between this segment and a point.
+    pub fn distance_to_point(&self, pos: Point<S>) -> S {
+        (self.sample(self.closest_point(pos)) - pos).length()
+    }
+
+    /// Returns the shortest squared distance between this segment and a point.
+    ///
+    /// May be useful to avoid the cost of a square root when comparing against a distance
+    /// that can be squared instead.
+    pub fn square_distance_to_point(&self, pos: Point<S>) -> S {
+        (self.sample(self.closest_point(pos)) - pos).square_length()
     }
 
     // Returns a quadratic bézier curve built by dragging this curve's point at `t`
