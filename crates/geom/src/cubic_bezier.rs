@@ -1161,6 +1161,42 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
         result
     }
+
+    fn baseline_projection(&self, t: S) -> S {
+        // See https://pomax.github.io/bezierinfo/#abc
+        // We are computing the interpolation factor between
+        // `from` and `to` to get the position of C.
+        let one_t = S::ONE - t;
+        let one_t3 = one_t * one_t * one_t;
+        let t3 = t * t * t;
+
+        one_t3 / (t3 + one_t3)
+    }
+
+    fn abc_ratio(&self, t: S) -> S {
+        let one_t = S::ONE - t;
+        let one_t3 = one_t * one_t * one_t;
+        let t3 = t * t * t;
+
+        ((t3 + one_t3 - S::ONE) / (t3 + one_t3)).abs()
+    }
+
+    pub fn drag(&self, t: S, new_position: Point<S>) -> Self {
+        let c = self.from.lerp(self.to, self.baseline_projection(t));
+        let ratio = self.abc_ratio(t);
+        let old_pos = self.sample(t);
+        let old_a = old_pos + (old_pos - c) / ratio;
+        let new_a = new_position + (new_position - c) / ratio;
+        let a_ctrl1 = self.ctrl1 - old_a;
+        let a_ctrl2 = self.ctrl2 - old_a;
+
+        CubicBezierSegment {
+            from: self.from,
+            ctrl1: new_a + a_ctrl1,
+            ctrl2: new_a + a_ctrl2,
+            to: self.to,
+        }
+    }
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> {

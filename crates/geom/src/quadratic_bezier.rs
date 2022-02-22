@@ -753,7 +753,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 
         let roots = crate::utils::cubic_polynomial_roots(c0, c1, c2, c3);
 
-        let mut sq_dist = c.square_length();
+        let mut sq_dist = a.square_length();
         let mut t = S::ZERO;
         let to_dist = (self.to - pos).square_length();
         if to_dist < sq_dist {
