@@ -788,7 +788,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     }
 
     // Returns a quadratic bézier curve built by dragging this curve's point at `t`
-    // to a new position.
+    // to a new position without moving the endpoints.
     pub fn drag(&self, t: S, new_position: Point<S>) -> Self {
         let t2 = t * t;
         let one_t = S::ONE - t;

@@ -1170,10 +1170,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let one_t3 = one_t * one_t * one_t;
         let t3 = t * t * t;
 
-        one_t3 / (t3 + one_t3)
+        t3 / (t3 + one_t3)
     }
 
     fn abc_ratio(&self, t: S) -> S {
+        // See https://pomax.github.io/bezierinfo/#abc
         let one_t = S::ONE - t;
         let one_t3 = one_t * one_t * one_t;
         let t3 = t * t * t;
@@ -1181,22 +1182,96 @@ impl<S: Scalar> CubicBezierSegment<S> {
         ((t3 + one_t3 - S::ONE) / (t3 + one_t3)).abs()
     }
 
+    // Returns a quadratic bézier curve built by dragging this curve's point at `t`
+    // to a new position, without moving the endpoints.
+    //
+    // The relative effect on control points is chosen to give a similar "feel" to
+    // most vector graphics editors: dragging from near the first endpoint will affect
+    // the first control point more than the second control point, etc.
     pub fn drag(&self, t: S, new_position: Point<S>) -> Self {
+        // A lot of tweaking could go into making the weight feel as natural as possible.
+        let min = S::value(0.1);
+        let max = S::value(0.9);
+        let weight = if t < min {
+            S::ZERO
+        } else if t > max {
+            S::ONE
+        } else {
+            (t - min) / (max - min)
+        };
+
+        self.drag_with_weight(t, new_position, weight)
+    }
+
+    // Returns a quadratic bézier curve built by dragging this curve's point at `t`
+    // to a new position, without moving the endpoints.
+    //
+    // The provided weight specifies the relative effect on control points.
+    //  - with `weight = 0.5`, `ctrl1` and `ctrl2` are equally affected,
+    //  - with `weight = 0.0`, only `ctrl1` is affected,
+    //  - with `weight = 1.0`, only `ctrl2` is affected,
+    //  - etc.
+    pub fn drag_with_weight(&self, t: S, new_position: Point<S>, weight: S) -> Self {
+        // See https://pomax.github.io/bezierinfo/#abc
+        //
+        //   From-----------Ctrl1
+        //    |               \ d1     \
+        //    C-------P--------A        \  d12
+        //    |                 \d2      \
+        //    |                  \        \
+        //    To-----------------Ctrl2
+        //
+        // The ABC relation means we can place the new control points however we like
+        // as long as the ratios CA/CP, d1/d12 and d2/d12 remain constant.
+        //
+        // we use the weight to guide our decisions. A weight of 0.5 would be a uniform
+        // displacement (d1 and d2 do not change and both control points are moved by the
+        // same amount).
+        // The approach is to use the weight interpolate the most constrained control point
+        // between it's old position and the position it would have with uniform displacement.
+        // then we determine the position of the least constrained control point such that
+        // the ratios mentioned earlier remain constant.
+
         let c = self.from.lerp(self.to, self.baseline_projection(t));
-        let ratio = self.abc_ratio(t);
+        let cacp_ratio = self.abc_ratio(t);
+
         let old_pos = self.sample(t);
-        let old_a = old_pos + (old_pos - c) / ratio;
-        let new_a = new_position + (new_position - c) / ratio;
-        let a_ctrl1 = self.ctrl1 - old_a;
-        let a_ctrl2 = self.ctrl2 - old_a;
+        // Construct A before and after drag using the constance ca/cp ratio
+        let old_a = old_pos + (old_pos - c) / cacp_ratio;
+        let new_a = new_position + (new_position - c) / cacp_ratio;
+
+        // Sort ctrl1 and ctrl2 such ctrl1 is the least affected (or most constrained).
+        let mut ctrl1 = self.ctrl1;
+        let mut ctrl2 = self.ctrl2;
+        if t < S::HALF {
+            std::mem::swap(&mut ctrl1, &mut ctrl2);
+        }
+
+        // Move the most constrained control point by a subset of the uniform displacement
+        // depending on the weight.
+        let uniform_displacement = new_a - old_a;
+        let f = if t < S::HALF { S::TWO * weight } else { S::TWO * (S::ONE - weight) };
+        let mut new_ctrl1 = ctrl1 + uniform_displacement * f;
+
+        // Now that the most constrained control point is placed there is only one position
+        // for the least constrained control point that satisfies the constant ratios.
+        let d1_pre = (old_a - ctrl1).length();
+        let d12_pre = (self.ctrl2 - self.ctrl1).length();
+
+        let mut new_ctrl2 = new_ctrl1 + (new_a - new_ctrl1) * (d12_pre / d1_pre);
+
+        if t < S::HALF {
+            std::mem::swap(&mut new_ctrl1, &mut new_ctrl2);
+        }
 
         CubicBezierSegment {
             from: self.from,
-            ctrl1: new_a + a_ctrl1,
-            ctrl2: new_a + a_ctrl2,
+            ctrl1: new_ctrl1,
+            ctrl2: new_ctrl2,
             to: self.to,
         }
     }
+
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> {
