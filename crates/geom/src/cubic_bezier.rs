@@ -592,14 +592,13 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Compute the length of the segment using a flattened approximation.
     pub fn approximate_length(&self, tolerance: S) -> S {
-        let mut from = self.from;
-        let mut len = S::ZERO;
-        self.for_each_flattened(tolerance, &mut |to| {
-            len += (to - from).length();
-            from = to;
+        let mut length = S::ZERO;
+
+        self.for_each_quadratic_bezier(tolerance, &mut|quad| {
+            length += quad.length();
         });
 
-        len
+        length
     }
 
     /// Invokes a callback at each inflection point if any.
@@ -1271,7 +1270,6 @@ impl<S: Scalar> CubicBezierSegment<S> {
             to: self.to,
         }
     }
-
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> {

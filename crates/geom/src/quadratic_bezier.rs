@@ -512,18 +512,6 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         }
     }
 
-    /// Compute the length of the segment using a flattened approximation.
-    pub fn approximate_length(&self, tolerance: S) -> S {
-        let mut from = self.from;
-        let mut len = S::ZERO;
-        self.for_each_flattened(tolerance, &mut |to| {
-            len += (to - from).length();
-            from = to;
-        });
-
-        len
-    }
-
     /// Returns a triangle containing this curve segment.
     pub fn bounding_triangle(&self) -> Triangle<S> {
         Triangle {
@@ -804,6 +792,60 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             ctrl: new_position + (new_position - c) * inv_r,
             to: self.to
         }
+    }
+
+    /// Computes the length of this segment.
+    ///
+    /// Implements Raph Levien's analytical approach described in
+    /// https://raphlinus.github.io/curves/2018/12/28/bezier-arclength.html
+    pub fn length(&self) -> S {
+        // This is ported from kurbo's implementation.
+        // https://github.com/linebender/kurbo/blob/d0b956b47f219ba2303b4e2f2d904ea7b946e783/src/quadbez.rs#L239
+        let d2 = self.from - self.ctrl * S::TWO + self.to.to_vector();
+        let d1 = self.ctrl - self.from;
+        let a = d2.square_length();
+        let c = d1.square_length();
+        if a < S::value(1e-4) * c {
+            // The segment is almost straight.
+            //
+            // Legendre-Gauss quadrature using formula from Behdad
+            // in https://github.com/Pomax/BezierInfo-2/issues/77
+            let v0 = (self.from.to_vector() * S::value(-0.492943519233745)
+                + self.ctrl.to_vector() * S::value(0.430331482911935)
+                + self.to.to_vector() * S::value(0.0626120363218102))
+                .length();
+            let v1 = ((self.to - self.from) * S::value(0.4444444444444444)).length();
+            let v2 = (self.from.to_vector() * S::value(-0.0626120363218102)
+                + self.ctrl.to_vector() * S::value(-0.430331482911935)
+                + self.to.to_vector() * S::value(0.492943519233745))
+                .length();
+            return v0 + v1 + v2;
+        }
+
+        let b = S::TWO * d2.dot(d1);
+
+        let sqr_abc = (a + b + c).sqrt();
+        let a2 = a.powf(-S::HALF);
+        let a32 = a2.powi(3);
+        let c2 = S::TWO * c.sqrt();
+        let ba_c2 = b * a2 + c2;
+
+        let v0 = S::HALF * S::HALF * a2 * a2 * b * (S::TWO * sqr_abc - c2) + sqr_abc;
+
+        if ba_c2 < S::EPSILON {
+            // The curve has a sharp turns.
+            v0
+        } else {
+            v0 + S::HALF * S::HALF
+                * a32
+                * (S::FOUR * c * a - b * b)
+                * (((S::TWO * a + b) * a2 + S::TWO * sqr_abc) / ba_c2).ln()
+        }
+    }
+
+    // This is to conform to the `impl_segment!` macro
+    fn approximate_length(&self, _tolerance: S) -> S {
+        self.length()
     }
 }
 
@@ -1172,21 +1214,20 @@ fn length_straight_line() {
     // that go form (0.0, 0.0) to (2.0, 0.0).
 
     let len = QuadraticBezierSegment {
-        from: Point::new(0.0, 0.0),
+        from: Point::new(0.0f64, 0.0),
         ctrl: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
-    }
-    .approximate_length(0.01);
-    assert_eq!(len, 2.0);
+    }.length();
+    assert!((len - 2.0).abs() < 0.000001);
 
     let len = CubicBezierSegment {
-        from: Point::new(0.0, 0.0),
+        from: Point::new(0.0f64, 0.0),
         ctrl1: Point::new(1.0, 0.0),
         ctrl2: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
     }
-    .approximate_length(0.01);
-    assert_eq!(len, 2.0);
+    .approximate_length(0.0001);
+    assert!((len - 2.0).abs() < 0.000001);
 }
 
 #[test]
@@ -1430,5 +1471,26 @@ fn drag() {
         use euclid::approxeq::ApproxEq;
         let p1 = dragged.sample(t);
         assert!(p1.approx_eq_eps(&target, &point(0.001, 0.001)), "{:?} == {:?}", p1, target);
+    }
+}
+
+#[test]
+fn arc_length() {
+    let curves = [
+        QuadraticBezierSegment { from: point(0.0f64, 0.0), ctrl: point(100.0, 0.0), to: point(0.0, 100.0) },
+        QuadraticBezierSegment { from: point(0.0, 0.0), ctrl: point(100.0, 0.0), to: point(200.0, 0.0) },
+        QuadraticBezierSegment { from: point(100.0, 0.0), ctrl: point(0.0, 0.0), to: point(50.0, 1.0) },
+    ];
+
+    for (idx, curve) in curves.iter().enumerate() {
+        let length = curve.length();
+        let mut from = curve.from;
+        let mut accum = 0.0;
+        curve.for_each_flattened(0.00000001, &mut |to| {
+            accum += (to - from).length();
+            from = to;
+        });
+
+        assert!((length - accum).abs() < 0.00001, "curve {:?}, {:?} == {:?}", idx, length, accum);
     }
 }
