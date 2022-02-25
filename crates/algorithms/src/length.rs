@@ -17,7 +17,7 @@ where
         match evt {
             PathEvent::Line { from, to } => length += LineSegment { from, to }.length(),
             PathEvent::Quadratic { from, ctrl, to } => {
-                length += QuadraticBezierSegment { from, ctrl, to }.approximate_length(tolerance)
+                length += QuadraticBezierSegment { from, ctrl, to }.length()
             }
             PathEvent::Cubic {
                 from,
