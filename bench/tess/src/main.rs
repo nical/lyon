@@ -258,3 +258,5 @@ benchmark_group!(
     flattening_02_logo_iter,
     flattening_03_logo_builder
 );
+
+benchmark_main!(fill_tess, fill_events, stroke_tess, flattening);
