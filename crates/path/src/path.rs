@@ -951,26 +951,24 @@ impl<'l> IterWithAttributes<'l> {
                         ctrl,
                         to: to.0,
                     };
-                    let mut prev_pos = from.0;
                     let mut offset = num_attributes;
                     buffer[0..num_attributes].copy_from_slice(from_attr.as_slice());
-                    curve.for_each_flattened_with_t(tolerance, &mut |pos, t| {
+                    curve.for_each_flattened_with_t(tolerance, &mut |line, t| {
                         for i in 0..num_attributes {
-                            buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
+                            buffer[offset + i] = (1.0 - t.end) * from_attr[i] + t.end * to_attr[i];
                         }
 
                         let next_offset = if offset == 0 { num_attributes } else { 0 };
 
                         callback(&Event::Line {
                             from: (
-                                prev_pos,
+                                line.from,
                                 Attributes(&buffer[next_offset..(next_offset + num_attributes)]),
                             ),
-                            to: (pos, Attributes(&buffer[offset..(offset + num_attributes)])),
+                            to: (line.to, Attributes(&buffer[offset..(offset + num_attributes)])),
                         });
 
                         offset = next_offset;
-                        prev_pos = pos;
                     });
                 }
                 Event::Cubic {
@@ -987,26 +985,24 @@ impl<'l> IterWithAttributes<'l> {
                         ctrl2,
                         to: to.0,
                     };
-                    let mut prev_pos = from.0;
                     let mut offset = num_attributes;
                     buffer[0..num_attributes].copy_from_slice(from_attr.as_slice());
-                    curve.for_each_flattened_with_t(tolerance, &mut |pos, t| {
+                    curve.for_each_flattened_with_t(tolerance, &mut |line, t| {
                         for i in 0..num_attributes {
-                            buffer[offset + i] = (1.0 - t) * from_attr[i] + t * to_attr[i];
+                            buffer[offset + i] = (1.0 - t.end) * from_attr[i] + t.end * to_attr[i];
                         }
 
                         let next_offset = if offset == 0 { num_attributes } else { 0 };
 
                         callback(&Event::Line {
                             from: (
-                                prev_pos,
+                                line.from,
                                 Attributes(&buffer[next_offset..(next_offset + num_attributes)]),
                             ),
-                            to: (pos, Attributes(&buffer[offset..(offset + num_attributes)])),
+                            to: (line.to, Attributes(&buffer[offset..(offset + num_attributes)])),
                         });
 
                         offset = next_offset;
-                        prev_pos = pos;
                     });
                 }
             }

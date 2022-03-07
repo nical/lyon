@@ -1,6 +1,5 @@
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::*;
-use lyon::path::iterator::PathIterator;
 use lyon::path::Path;
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;

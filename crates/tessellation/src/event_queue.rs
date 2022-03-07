@@ -1,5 +1,5 @@
 use crate::fill::{compare_positions, is_after};
-use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, LineSegment};
 use crate::math::{point, Point};
 use crate::path::private::DebugValidator;
 use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
@@ -698,25 +698,23 @@ impl EventQueueBuilder {
     #[allow(clippy::too_many_arguments)]
     fn add_edge(
         &mut self,
-        from: Point,
-        to: Point,
+        edge: &LineSegment<f32>,
         mut winding: i16,
         from_id: EndpointId,
         to_id: EndpointId,
         mut t0: f32,
         mut t1: f32,
     ) {
-        if from == to {
+        if edge.from == edge.to {
             return;
         }
 
-        let mut evt_pos = from;
-        let mut evt_to = to;
-        if is_after(evt_pos, to) {
+        let mut evt_pos = edge.from;
+        let mut evt_to = edge.to;
+        if is_after(evt_pos, edge.to) {
             evt_to = evt_pos;
-            evt_pos = to;
+            evt_pos = edge.to;
             swap(&mut t0, &mut t1);
-            //swap(&mut from_id, &mut to_id);
             winding *= -1;
         }
 
@@ -749,7 +747,7 @@ impl EventQueueBuilder {
             self.second = to;
         }
 
-        self.add_edge(from, to, 1, self.prev_endpoint_id, to_id, t0, t1);
+        self.add_edge(&LineSegment { from, to }, 1, self.prev_endpoint_id, to_id, t0, t1);
 
         self.prev = self.current;
         self.prev_endpoint_id = to_id;
@@ -780,31 +778,27 @@ impl EventQueueBuilder {
             winding = -1;
         }
 
-        let mut t0 = 0.0;
         let mut prev = segment.from;
-        let mut from = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut |to, t1| {
-            if from == to {
+        segment.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+            if line.from == line.to {
                 return;
             }
 
             if first == None {
-                first = Some(to)
+                first = Some(line.to)
             // We can't call vertex(prev, from, to) in the first iteration
             // because if we flipped the curve, we don't have a proper value for
             // the previous vertex yet.
             // We'll handle it after the loop.
-            } else if is_after(from, to) && is_after(from, prev) {
-                self.vertex_event_on_curve(from, t0, self.prev_endpoint_id, to_id);
+            } else if is_after(line.from, line.to) && is_after(line.from, prev) {
+                self.vertex_event_on_curve(line.from, t.start, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(from, to, winding, self.prev_endpoint_id, to_id, t0, t1);
+            self.add_edge(&line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
 
-            t0 = t1;
-            prev = from;
-            from = to;
+            prev = line.from;
         });
 
         if let Some(first) = first {
@@ -860,31 +854,27 @@ impl EventQueueBuilder {
             winding = -1;
         }
 
-        let mut t0 = 0.0;
         let mut prev = segment.from;
-        let mut from = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut |to, t1| {
-            if from == to {
+        segment.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+            if line.from == line.to {
                 return;
             }
 
             if first == None {
-                first = Some(to)
+                first = Some(line.to)
             // We can't call vertex(prev, from, to) in the first iteration
             // because if we flipped the curve, we don't have a proper value for
             // the previous vertex yet.
             // We'll handle it after the loop.
-            } else if is_after(from, to) && is_after(from, prev) {
-                self.vertex_event_on_curve(from, t0, self.prev_endpoint_id, to_id);
+            } else if is_after(line.from, line.to) && is_after(line.from, prev) {
+                self.vertex_event_on_curve(line.from, t.start, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(from, to, winding, self.prev_endpoint_id, to_id, t0, t1);
+            self.add_edge(&line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
 
-            t0 = t1;
-            prev = from;
-            from = to;
+            prev = line.from;
         });
 
         if let Some(first) = first {

@@ -59,15 +59,8 @@ where
                 if min > point.y || max < point.y {
                     continue;
                 }
-                let mut prev = segment.from;
-                segment.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(
-                        *point,
-                        &LineSegment { from: prev, to: p },
-                        &mut winding,
-                        &mut prev_winding,
-                    );
-                    prev = p;
+                segment.for_each_flattened(tolerance, &mut |line| {
+                    test_segment(*point, line, &mut winding, &mut prev_winding);
                 });
             }
             PathEvent::Cubic {
@@ -86,15 +79,8 @@ where
                 if min > point.y || max < point.y {
                     continue;
                 }
-                let mut prev = segment.from;
-                segment.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(
-                        *point,
-                        &LineSegment { from: prev, to: p },
-                        &mut winding,
-                        &mut prev_winding,
-                    );
-                    prev = p;
+                segment.for_each_flattened(tolerance, &mut |line| {
+                    test_segment(*point, line, &mut winding, &mut prev_winding);
                 });
             }
         }

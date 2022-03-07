@@ -535,59 +535,42 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
     /// Compute a flattened approximation of the curve, invoking a callback at
     /// each step.
-    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, callback: &mut F) {
+    pub fn for_each_flattened<F: FnMut(&LineSegment<S>)>(&self, tolerance: S, callback: &mut F) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
         let quadratics_tolerance = tolerance * S::value(0.4);
         let flattening_tolerance = tolerance * S::value(0.8);
 
         self.for_each_quadratic_bezier(quadratics_tolerance, &mut |quad| {
-            quad.for_each_flattened(flattening_tolerance, &mut |point| {
-                callback(point);
+            quad.for_each_flattened(flattening_tolerance, &mut |segment| {
+                callback(segment);
             });
         });
     }
 
     /// Compute a flattened approximation of the curve, invoking a callback at
     /// each step, including the final endpoint.
-    pub fn for_each_flattened_with_t<F: FnMut(Point<S>, S)>(&self, tolerance: S, callback: &mut F) {
+    ///
+    /// The parameter `t` at the final segment is guaranteed to be equal to `1.0`.
+    pub fn for_each_flattened_with_t<F: FnMut(&LineSegment<S>, Range<S>)>(&self, tolerance: S, callback: &mut F) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
         let quadratics_tolerance = tolerance * S::value(0.4);
         let flattening_tolerance = tolerance * S::value(0.8);
 
+        let mut t_from = S::ZERO;
         self.for_each_quadratic_bezier_with_t(quadratics_tolerance, &mut |quad, range| {
+            let last_quad = range.end == S::ONE;
             let range_len = range.end - range.start;
-            quad.for_each_flattened_with_t(flattening_tolerance, &mut |point, t_sub| {
-                let t = t_sub * range_len + range.start;
-                callback(point, t);
+            quad.for_each_flattened_with_t(flattening_tolerance, &mut |segment, range_sub| {
+                let last_seg = range_sub.end == S::ONE;
+                let t = if last_quad && last_seg {
+                    S::ONE
+                } else {
+                    range_sub.end * range_len + range.start
+                };
+                callback(segment, t_from..t);
+                t_from = t;
             });
         });
-    }
-
-    /// Compute a flattened approximation of the curve, invoking a callback at
-    /// each step, excluding the final endpoint.
-    pub fn for_each_flattened_with_t_intermediate<F: FnMut(Point<S>, S)>(&self, tolerance: S, callback: &mut F) {
-        debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
-        let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.8);
-
-        let num_quadratics = self.num_quadratics_impl(quadratics_tolerance);
-        let step = S::ONE / num_quadratics;
-        let n = num_quadratics.to_u32().unwrap_or(1);
-        let mut t0 = S::ZERO;
-        for _ in 0..(n - 1) {
-            let t1 = t0 +  step;
-
-            let quad = self.split_range(t0 .. t1).to_quadratic();
-            quad.for_each_flattened_with_t(flattening_tolerance, &mut |point, t_sub| {
-                let t = t_sub * step + t0;
-                callback(point, t);
-            });
-
-            t0 = t1;
-        }
-
-        let last_quad = self.split_range(t0 .. S::ONE).to_quadratic();
-        last_quad.for_each_flattened_with_t_intermediate(flattening_tolerance, callback);
     }
 
     /// Compute the length of the segment using a flattened approximation.
@@ -1398,8 +1381,8 @@ fn test_iterator_builder_1() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| {
-        builder_points.push(p);
+    c1.for_each_flattened(tolerance, &mut |s| {
+        builder_points.push(s.to);
     });
 
     assert!(iter_points.len() > 2);
@@ -1417,8 +1400,8 @@ fn test_iterator_builder_2() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| {
-        builder_points.push(p);
+    c1.for_each_flattened(tolerance, &mut |s| {
+        builder_points.push(s.to);
     });
 
     assert!(iter_points.len() > 2);
@@ -1436,8 +1419,8 @@ fn test_iterator_builder_3() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| {
-        builder_points.push(p);
+    c1.for_each_flattened(tolerance, &mut |s| {
+        builder_points.push(s.to);
     });
 
     assert!(iter_points.len() > 2);
@@ -1455,8 +1438,8 @@ fn test_issue_19() {
     };
     let iter_points: Vec<Point<f32>> = c1.flattened(tolerance).collect();
     let mut builder_points = Vec::new();
-    c1.for_each_flattened(tolerance, &mut |p| {
-        builder_points.push(p);
+    c1.for_each_flattened(tolerance, &mut |s| {
+        builder_points.push(s.to);
     });
 
     assert_approx_eq(&iter_points[..], &builder_points[..]);
@@ -1474,8 +1457,8 @@ fn test_issue_194() {
     };
 
     let mut points = Vec::new();
-    segment.for_each_flattened(0.1, &mut |p| {
-        points.push(p);
+    segment.for_each_flattened(0.1, &mut |s| {
+        points.push(s.to);
     });
 
     assert!(points.len() > 2);
@@ -1494,22 +1477,27 @@ fn flatten_with_t() {
         let tolerance = *tolerance;
 
         let mut a = Vec::new();
-        segment.for_each_flattened(tolerance, &mut |p| {
-            a.push(p);
+        segment.for_each_flattened(tolerance, &mut |s| {
+            a.push(*s);
         });
 
         let mut b = Vec::new();
         let mut ts = Vec::new();
-        segment.for_each_flattened_with_t(tolerance, &mut |p, t| {
-            b.push(p);
+        segment.for_each_flattened_with_t(tolerance, &mut |s, t| {
+            b.push(*s);
             ts.push(t);
         });
 
         assert_eq!(a, b);
 
         for i in 0..b.len() {
-            let sampled = segment.sample(ts[i]);
-            let point = b[i];
+            let sampled = segment.sample(ts[i].start);
+            let point = b[i].from;
+            let dist = (sampled - point).length();
+            assert!(dist <= tolerance);
+
+            let sampled = segment.sample(ts[i].end);
+            let point = b[i].to;
             let dist = (sampled - point).length();
             assert!(dist <= tolerance);
         }
@@ -1526,8 +1514,8 @@ fn test_flatten_end() {
     };
 
     let mut last = segment.from;
-    segment.for_each_flattened(0.0001, &mut |p| {
-        last = p;
+    segment.for_each_flattened(0.0001, &mut |s| {
+        last = s.to;
     });
 
     assert_eq!(last, segment.to);
@@ -1543,8 +1531,8 @@ fn test_flatten_point() {
     };
 
     let mut last = segment.from;
-    segment.for_each_flattened(0.0001, &mut |p| {
-        last = p;
+    segment.for_each_flattened(0.0001, &mut |s| {
+        last = s.to;
     });
 
     assert_eq!(last, segment.to);

@@ -325,52 +325,46 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
-        F: FnMut(Point<S>),
+        F: FnMut(&LineSegment<S>),
     {
-        self.for_each_flattened_with_t(tolerance, &mut |position, _| callback(position));
+        self.for_each_flattened_with_t(tolerance, &mut |segment, _| callback(segment));
     }
 
     /// Compute a flattened approximation of the curve, invoking a callback at
-    /// each step, including the final endpoint.
+    /// each step.
+    ///
+    /// The parameter `t` at the final segment is guaranteed to be equal to `1.0`.
     ///
     /// This implements the algorithm described by Raph Levien at
     /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened_with_t<F>(&self, tolerance: S, callback: &mut F)
     where
-        F: FnMut(Point<S>, S),
-    {
-        if self.for_each_flattened_with_t_impl(tolerance, callback) {
-            callback(self.to, S::ONE);
-        }
-    }
-
-    /// Compute a flattened approximation of the curve, invoking a callback at
-    /// each step, excluding the final endpoint.
-    ///
-    /// This implements the algorithm described by Raph Levien at
-    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
-    pub fn for_each_flattened_with_t_intermediate<F>(&self, tolerance: S, callback: &mut F)
-    where
-        F: FnMut(Point<S>, S),
-    {
-        self.for_each_flattened_with_t_impl(tolerance, callback);
-    }
-
-    fn for_each_flattened_with_t_impl<F>(&self, tolerance: S, callback: &mut F) -> bool
-    where
-        F: FnMut(Point<S>, S),
+        F: FnMut(&LineSegment<S>, Range<S>),
     {
         let params = FlatteningParameters::new(self, tolerance);
 
         let mut i = S::ONE;
+        let mut from = self.from;
+        let mut t_from = S::ZERO;
         for _ in 1..params.count.to_u32().unwrap() {
             let t = params.t_at_iteration(i);
             i += S::ONE;
+            let s = LineSegment {
+                from,
+                to: self.sample(t),
+            };
 
-            callback(self.sample(t), t);
+            callback(&s, t_from .. t);
+            from = s.to;
+            t_from = t;
         }
 
-        true
+        let s = LineSegment {
+            from,
+            to: self.to,
+        };
+
+        callback(&s, t_from .. S::ONE);
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -1484,11 +1478,9 @@ fn arc_length() {
 
     for (idx, curve) in curves.iter().enumerate() {
         let length = curve.length();
-        let mut from = curve.from;
         let mut accum = 0.0;
-        curve.for_each_flattened(0.00000001, &mut |to| {
-            accum += (to - from).length();
-            from = to;
+        curve.for_each_flattened(0.00000001, &mut |line| {
+            accum += line.length();
         });
 
         assert!((length - accum).abs() < 0.00001, "curve {:?}, {:?} == {:?}", idx, length, accum);

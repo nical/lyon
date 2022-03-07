@@ -78,16 +78,16 @@ pub fn flatten_quadratic_bezier(
     let curve = QuadraticBezierSegment { from, ctrl, to };
     let n = attributes.len();
     let mut id = EndpointId::INVALID;
-    curve.for_each_flattened_with_t(tolerance, &mut |point, t| {
-        let attr = if t == 1.0 {
+    curve.for_each_flattened_with_t(tolerance, &mut |line, t| {
+        let attr = if t.end == 1.0 {
             attributes
         } else {
             for i in 0..n {
-                buffer[i] = prev_attributes[i] * (1.0 - t) + attributes[i] * t;
+                buffer[i] = prev_attributes[i] * (1.0 - t.end) + attributes[i] * t.end;
             }
             Attributes(&buffer[..])
         };
-        id = builder.line_to(point, attr);
+        id = builder.line_to(line.to, attr);
     });
 
     id
@@ -112,16 +112,16 @@ pub fn flatten_cubic_bezier(
     };
     let n = attributes.len();
     let mut id = EndpointId::INVALID;
-    curve.for_each_flattened_with_t(tolerance, &mut |point, t| {
-        let attr = if t == 1.0 {
+    curve.for_each_flattened_with_t(tolerance, &mut |line, t| {
+        let attr = if t.end == 1.0 {
             attributes
         } else {
             for i in 0..n {
-                buffer[i] = prev_attributes[i] * (1.0 - t) + attributes[i] * t;
+                buffer[i] = prev_attributes[i] * (1.0 - t.end) + attributes[i] * t.end;
             }
             Attributes(&buffer[..])
         };
-        id = builder.line_to(point, attr);
+        id = builder.line_to(line.to, attr);
     });
 
     id
