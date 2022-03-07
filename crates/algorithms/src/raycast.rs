@@ -55,10 +55,8 @@ where
                 );
             }
             PathEvent::Quadratic { from, ctrl, to } => {
-                let mut prev = from;
-                QuadraticBezierSegment { from, ctrl, to }.for_each_flattened(tolerance, &mut |p| {
-                    test_segment(&mut state, &LineSegment { from: prev, to: p });
-                    prev = p;
+                QuadraticBezierSegment { from, ctrl, to }.for_each_flattened(tolerance, &mut |line| {
+                    test_segment(&mut state, line);
                 });
             }
             PathEvent::Cubic {
@@ -67,16 +65,14 @@ where
                 ctrl2,
                 to,
             } => {
-                let mut prev = from;
                 CubicBezierSegment {
                     from,
                     ctrl1,
                     ctrl2,
                     to,
                 }
-                .for_each_flattened(tolerance, &mut |p| {
-                    test_segment(&mut state, &LineSegment { from: prev, to: p });
-                    prev = p;
+                .for_each_flattened(tolerance, &mut |line| {
+                    test_segment(&mut state, line);
                 });
             }
         }

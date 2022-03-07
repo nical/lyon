@@ -242,8 +242,8 @@ impl<'l> PathWalker<'l> {
             ctrl,
             to,
         };
-        curve.for_each_flattened_with_t(self.tolerance, &mut |p, t| {
-            self.edge(p, t, attributes);
+        curve.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+            self.edge(line.to, t.end, attributes);
         });
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());
@@ -265,8 +265,8 @@ impl<'l> PathWalker<'l> {
             to,
         };
 
-        curve.for_each_flattened_with_t(self.tolerance, &mut |p, t| {
-            self.edge(p, t, attributes);
+        curve.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+            self.edge(line.to, t.end, attributes);
         });
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());

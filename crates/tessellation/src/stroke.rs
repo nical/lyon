@@ -1030,35 +1030,30 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
-        curve.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+        curve.for_each_flattened_with_t(self.options.tolerance, &mut |line, t| {
+            let is_flattening_step = t.end != 1.0;
+            let src = if is_flattening_step {
+                VertexSource::Edge {
+                    from: from_id,
+                    to: to_id,
+                    t: t.end,
+                }
+            } else {
+                VertexSource::Endpoint { id: to_id }
+            };
+
             self.step(
                 EndpointData {
-                    position,
-                    half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
+                    position: line.to,
+                    half_width: (start_width * (1.0 - t.end) + end_width * t.end) * 0.5,
                     line_join: self.options.line_join,
-                    src: VertexSource::Edge {
-                        from: from_id,
-                        to: to_id,
-                        t,
-                    },
-                    is_flattening_step: true,
+                    src,
+                    is_flattening_step,
                     ..Default::default()
                 },
                 attributes,
             );
-
         });
-
-        self.step(
-            EndpointData {
-                position: curve.to,
-                half_width: end_width * 0.5,
-                line_join: self.options.line_join,
-                src: VertexSource::Endpoint { id: to_id },
-                ..Default::default()
-            },
-            attributes,
-        );
     }
 
     pub(crate) fn begin_fw(
@@ -1141,34 +1136,30 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        curve.for_each_flattened_with_t_intermediate(self.options.tolerance, &mut |position, t| {
+        curve.for_each_flattened_with_t(self.options.tolerance, &mut |line, t| {
+            let is_flattening_step = t.end != 1.0;
+            let src = if is_flattening_step {
+                VertexSource::Edge {
+                    from: from_id,
+                    to: to_id,
+                    t: t.end,
+                }
+            } else {
+                VertexSource::Endpoint { id: to_id }
+            };
+
             self.fixed_width_step(
                 EndpointData {
-                    position,
+                    position: line.to,
                     half_width,
                     line_join: self.options.line_join,
-                    src: VertexSource::Edge {
-                        from: from_id,
-                        to: to_id,
-                        t,
-                    },
-                    is_flattening_step: true,
+                    src,
+                    is_flattening_step,
                     ..Default::default()
                 },
                 attributes,
             );
         });
-
-        self.fixed_width_step(
-            EndpointData {
-                position: curve.to,
-                half_width,
-                line_join: self.options.line_join,
-                src: VertexSource::Endpoint { id: to_id },
-                ..Default::default()
-            },
-            attributes,
-        );
     }
 
     pub(crate) fn end(&mut self, close: bool, attributes: &dyn AttributeStore) {
@@ -2622,26 +2613,23 @@ where
     if let Some(t_split) = find_sharp_turn(curve) {
         let (before, after) = curve.split(t_split);
 
-        before.for_each_flattened_with_t_intermediate(tolerance, &mut |position, t| {
-            let t = t * t_split;
-
-            cb(position, t, true);
+        before.for_each_flattened_with_t(tolerance, &mut |line, t| {
+            let is_flattening_step = t.end != 1.0;
+            let t = t.end * t_split;
+            cb(line.to, t, is_flattening_step);
         });
 
-        cb(curve.sample(t_split), t_split, false);
-
-        after.for_each_flattened_with_t_intermediate(tolerance, &mut |position, t| {
-            let t = t_split + t * (1.0 - t_split);
-            cb(position, t, false);
+        after.for_each_flattened_with_t(tolerance, &mut |line, t| {
+            let is_flattening_step = t.end != 1.0;
+            let t = t_split + t.end * (1.0 - t_split);
+            cb(line.to, t, is_flattening_step);
         });
-
     } else {
-        curve.for_each_flattened_with_t_intermediate(tolerance, &mut |position, t| {
-            cb(position, t, true);
+        curve.for_each_flattened_with_t(tolerance, &mut |line, t| {
+            let is_flattening_step = t.end != 1.0;
+            cb(line.to, t.end, is_flattening_step);
         });
     }
-
-    cb(curve.to, 1.0, false);
 }
 
 #[cfg(test)]
