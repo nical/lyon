@@ -606,7 +606,7 @@ fn main() {
         walk::walk_along_path(
             path.iter(),
             offset,
-            0.01,
+            0.1,
             &mut walk::RepeatedPattern {
                 callback: |event: walk::WalkerEvent| {
                     if arrow_count + num_instances as usize + 1 >= PRIM_BUFFER_LEN {
