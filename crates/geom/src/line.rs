@@ -512,6 +512,10 @@ impl<S: Scalar> Segment for LineSegment<S> {
     fn approximate_length(&self, _tolerance: S) -> S {
         self.length()
     }
+
+    fn for_each_flattened_with_t(&self, _tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
+        callback(self, S::ZERO .. S::ONE);
+    }
 }
 
 impl<S: Scalar> BoundingBox for LineSegment<S> {

@@ -318,8 +318,10 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         t
     }
 
-    /// Compute a flattened approximation of the curve, invoking a callback at
-    /// each step.
+    /// Approximates the curve with sequence of line segments.
+    ///
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
     ///
     /// This implements the algorithm described by Raph Levien at
     /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
@@ -333,7 +335,10 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// Compute a flattened approximation of the curve, invoking a callback at
     /// each step.
     ///
-    /// The parameter `t` at the final segment is guaranteed to be equal to `1.0`.
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
+    ///
+    /// The end of the t parameter range at the final segment is guaranteed to be equal to `1.0`.
     ///
     /// This implements the algorithm described by Raph Levien at
     /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
@@ -1032,6 +1037,10 @@ impl<S: Scalar> Iterator for FlattenedT<S> {
 
 impl<S: Scalar> Segment for QuadraticBezierSegment<S> {
     impl_segment!(S);
+
+    fn for_each_flattened_with_t(&self, tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
+        self.for_each_flattened_with_t(tolerance, &mut|s, t| callback(s, t));
+    }
 }
 
 impl<S: Scalar> BoundingBox for QuadraticBezierSegment<S> {
