@@ -40,12 +40,13 @@
 //! ```
 //!
 
-use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
+use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, LineSegment};
 use crate::math::*;
 use crate::path::builder::*;
 use crate::path::{Attributes, EndpointId, PathEvent};
 
 use std::f32;
+use std::ops::Range;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
 pub fn walk_along_path<Iter>(path: Iter, start: f32, tolerance: f32, pattern: &mut dyn Pattern)
@@ -145,7 +146,7 @@ impl<'l> PathWalker<'l> {
         }
     }
 
-    fn edge(&mut self, to: Point, t: f32, attributes: Attributes) {
+    fn edge(&mut self, to: Point, t: Range<f32>, attributes: Attributes, pos_cb: &dyn Fn(f32) -> (Point, Vector)) {
         debug_assert!(!self.need_moveto);
 
         let v = to - self.prev;
@@ -155,18 +156,20 @@ impl<'l> PathWalker<'l> {
             return;
         }
 
-        let tangent = v / d;
+        let inv_d = 1.0 / d;
 
         let mut distance = self.leftover + d;
+        let mut x = 0.0;
         while distance >= self.next_distance {
             if self.num_attributes > 0 {
-                let t2 = t * self.next_distance / distance;
+                let t2 = t.end * self.next_distance / distance;
                 for i in 0..self.num_attributes {
                     self.attribute_buffer[i] =
                         self.prev_attributes[i] * (1.0 - t2) + attributes[i] * t2;
                 }
             }
-            let position = self.prev + tangent * (self.next_distance - self.leftover);
+            x += (self.next_distance - self.leftover) * inv_d;
+            let (position, tangent) = pos_cb(x);
             self.prev = position;
             self.leftover = 0.0;
             self.advancement += self.next_distance;
@@ -214,7 +217,11 @@ impl<'l> PathWalker<'l> {
     pub fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
         debug_assert!(!self.need_moveto);
 
-        self.edge(to, 1.0, attributes);
+        let from = self.prev;
+        let tangent = (to - from).normalize();
+        self.edge(to, 0.0..1.0, attributes, &|x|
+            (LineSegment { from, to }.sample(x), tangent)
+        );
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());
 
@@ -223,9 +230,13 @@ impl<'l> PathWalker<'l> {
 
     pub fn end(&mut self, close: bool) {
         if close {
-            let first = self.first;
             let attributes = std::mem::take(&mut self.first_attributes);
-            self.edge(first, 1.0, Attributes(&attributes));
+            let first = self.first;
+            let from = self.prev;
+            let tangent = (first - from).normalize();
+            self.edge(first, 0.0..1.0, Attributes(&attributes),
+                &|x| (LineSegment { from, to: first }.sample(x), tangent)
+            );
             self.first_attributes = attributes;
             self.need_moveto = true;
         }
@@ -243,7 +254,10 @@ impl<'l> PathWalker<'l> {
             to,
         };
         curve.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
-            self.edge(line.to, t.end, attributes);
+            self.edge(line.to, t.clone(), attributes, &|x| {
+                let t2 = t.start + x * (t.end - t.start);
+                (curve.sample(t2), curve.derivative(t2).normalize())
+            });
         });
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());
@@ -266,7 +280,10 @@ impl<'l> PathWalker<'l> {
         };
 
         curve.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
-            self.edge(line.to, t.end, attributes);
+            self.edge(line.to, t.clone(), attributes, &|x| {
+                let t2 = t.start + x * (t.end - t.start);
+                (curve.sample(t2), curve.derivative(t2).normalize())
+            });
         });
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());
@@ -401,7 +418,7 @@ fn walk_square() {
     let mut pattern = RegularPattern {
         interval: 2.0,
         callback: |event: WalkerEvent| {
-            assert_eq!(event.position, expected[i].0);
+            assert!((event.position - expected[i].0).length() < 0.000001);
             assert_eq!(event.tangent, expected[i].1);
             assert_eq!(event.distance, expected[i].2);
             i += 1;
@@ -434,7 +451,7 @@ fn walk_with_leftover() {
     let mut pattern = RegularPattern {
         interval: 3.0,
         callback: |event: WalkerEvent| {
-            assert_eq!(event.position, expected[i].0);
+            assert!((event.position - expected[i].0).length() < 0.000001);
             assert_eq!(event.tangent, expected[i].1);
             assert_eq!(event.distance, expected[i].2);
             i += 1;
