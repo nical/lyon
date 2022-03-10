@@ -59,6 +59,18 @@ pub trait Segment: Copy + Sized {
 
     /// Compute the length of the segment using a flattened approximation.
     fn approximate_length(&self, tolerance: Self::Scalar) -> Self::Scalar;
+
+    /// Approximates the curve with sequence of line segments.
+    ///
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
+    ///
+    /// The parameter `t` at the final segment is guaranteed to be equal to `1.0`.
+    fn for_each_flattened_with_t(
+        &self,
+        tolerance: Self::Scalar,
+        callback: &mut dyn FnMut(&LineSegment<Self::Scalar>, Range<Self::Scalar>)
+    );
 }
 
 pub trait BoundingBox {

@@ -5,9 +5,7 @@ use std::ops::Range;
 
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::{BoundingBox, Segment};
-use crate::CubicBezierSegment;
-use crate::Line;
-use crate::QuadraticBezierSegment;
+use crate::{CubicBezierSegment, QuadraticBezierSegment, LineSegment, Line};
 use crate::{point, vector, Angle, Box2D, Point, Rotation, Transform, Vector};
 
 /// An elliptic arc curve segment.
@@ -293,11 +291,15 @@ impl<S: Scalar> Arc<S> {
         arc
     }
 
-    /// Approximates the arc with a sequence of line segments.
+    /// Approximates the curve with sequence of line segments.
+    ///
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
     pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
-        F: FnMut(Point<S>),
+        F: FnMut(&LineSegment<S>),
     {
+        let mut from = self.from();
         let mut iter = *self;
         loop {
             let t = iter.flattening_step(tolerance);
@@ -305,20 +307,27 @@ impl<S: Scalar> Arc<S> {
                 break;
             }
             iter = iter.after_split(t);
-            callback(iter.from());
+            let to = iter.from();
+            callback(&LineSegment { from, to });
+            from = to;
         }
 
-        callback(iter.to());
+        callback(&LineSegment { from, to: self.to() });
     }
 
-    /// Iterates through the curve invoking a callback at each point.
+    /// Approximates the curve with sequence of line segments.
+    ///
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
+    ///
+    /// The end of the t parameter range at the final segment is guaranteed to be equal to `1.0`.
     pub fn for_each_flattened_with_t<F>(&self, tolerance: S, callback: &mut F)
     where
-        F: FnMut(Point<S>, S),
+        F: FnMut(&LineSegment<S>, Range<S>),
     {
-        let end = self.to();
         let mut iter = *self;
         let mut t0 = S::ZERO;
+        let mut from = self.from();
         loop {
             let step = iter.flattening_step(tolerance);
 
@@ -327,11 +336,14 @@ impl<S: Scalar> Arc<S> {
             }
 
             iter = iter.after_split(step);
-            t0 += step * (S::ONE - t0);
-            callback(iter.from(), t0);
+            let t1 = t0 + step * (S::ONE - t0);
+            let to = iter.from();
+            callback(&LineSegment { from, to, }, t0 .. t1);
+            from = to;
+            t0 = t1;
         }
 
-        callback(end, S::ONE);
+        callback(&LineSegment { from, to: self.to() }, t0 .. S::ONE);
     }
 
     /// Finds the interval of the beginning of the curve that can be approximated with a
@@ -465,11 +477,9 @@ impl<S: Scalar> Arc<S> {
     }
 
     pub fn approximate_length(&self, tolerance: S) -> S {
-        let mut from = self.from();
         let mut len = S::ZERO;
-        self.for_each_flattened(tolerance, &mut |to| {
-            len += (to - from).length();
-            from = to;
+        self.for_each_flattened(tolerance, &mut |segment| {
+            len += segment.length();
         });
 
         len
@@ -561,14 +571,32 @@ impl<S: Scalar> SvgArc<S> {
         Arc::from_svg_arc(self).for_each_cubic_bezier(cb);
     }
 
-    /// Approximates the arc with a sequence of line segments.
-    pub fn for_each_flattened<F: FnMut(Point<S>)>(&self, tolerance: S, cb: &mut F) {
+    /// Approximates the curve with sequence of line segments.
+    ///
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
+    pub fn for_each_flattened<F: FnMut(&LineSegment<S>)>(&self, tolerance: S, cb: &mut F) {
         if self.is_straight_line() {
-            cb(self.to);
+            cb(&LineSegment { from: self.from, to: self.to });
             return;
         }
 
         Arc::from_svg_arc(self).for_each_flattened(tolerance, cb);
+    }
+
+    /// Approximates the curve with sequence of line segments.
+    ///
+    /// The `tolerance` parameter defines the maximum distance between the curve and
+    /// its approximation.
+    ///
+    /// The end of the t parameter range at the final segment is guaranteed to be equal to `1.0`.
+    pub fn for_each_flattened_with_t<F: FnMut(&LineSegment<S>, Range<S>)>(&self, tolerance: S, cb: &mut F) {
+        if self.is_straight_line() {
+            cb(&LineSegment { from: self.from, to: self.to }, S::ZERO .. S::ONE);
+            return;
+        }
+
+        Arc::from_svg_arc(self).for_each_flattened_with_t(tolerance, cb);
     }
 }
 
@@ -722,6 +750,10 @@ impl<S: Scalar> Segment for Arc<S> {
     }
     fn approximate_length(&self, tolerance: S) -> S {
         self.approximate_length(tolerance)
+    }
+
+    fn for_each_flattened_with_t(&self, tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
+        self.for_each_flattened_with_t(tolerance, &mut|s, t| callback(s, t));
     }
 }
 
