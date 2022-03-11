@@ -12,7 +12,6 @@
 //! ```
 //! use lyon_path::iterator::*;
 //! use lyon_path::math::{point, vector};
-//! use lyon_path::geom::BezierSegment;
 //! use lyon_path::{Path, PathEvent};
 //!
 //! // Start with a path.
@@ -49,16 +48,6 @@
 //!         _ => { panic!() }
 //!     }
 //! }
-//!
-//! // Sometimes, working with segments directly without dealing with Begin/End events
-//! // can be more convenient:
-//! for segment in path.iter().bezier_segments() {
-//!     match segment {
-//!         BezierSegment::Linear(segment) => { println!("{:?}", segment); }
-//!         BezierSegment::Quadratic(segment) => { println!("{:?}", segment); }
-//!         BezierSegment::Cubic(segment) => { println!("{:?}", segment); }
-//!     }
-//! }
 //! ```
 //!
 //! Chaining the provided iterators allow performing some path manipulations lazily
@@ -83,7 +72,7 @@
 //!
 //!     let transform = Rotation::new(Angle::radians(1.0));
 //!
-//!     for evt in path.iter().transformed(&transform).bezier_segments() {
+//!     for evt in path.iter().transformed(&transform).flattened(0.1) {
 //!         // ...
 //!     }
 //! }
@@ -91,7 +80,7 @@
 
 use crate::geom::traits::Transformation;
 use crate::geom::{
-    cubic_bezier, quadratic_bezier, BezierSegment, CubicBezierSegment, LineSegment,
+    cubic_bezier, quadratic_bezier, CubicBezierSegment,
     QuadraticBezierSegment,
 };
 use crate::math::*;
@@ -107,11 +96,6 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
     /// Returns an iterator applying a 2D transform to all of its events.
     fn transformed<T: Transformation<f32>>(self, mat: &T) -> Transformed<Self, T> {
         Transformed::new(mat, self)
-    }
-
-    /// Returns an iterator of segments.
-    fn bezier_segments(self) -> BezierSegments<Self> {
-        BezierSegments { iter: self }
     }
 }
 
@@ -330,54 +314,6 @@ where
             first: self.first,
             close: self.close,
         })
-    }
-}
-
-/// Turns an iterator of `Event` into an iterator of `BezierSegment<f32>`.
-pub struct BezierSegments<Iter> {
-    iter: Iter,
-}
-
-impl<Iter> Iterator for BezierSegments<Iter>
-where
-    Iter: Iterator<Item = PathEvent>,
-{
-    type Item = BezierSegment<f32>;
-    fn next(&mut self) -> Option<BezierSegment<f32>> {
-        match self.iter.next() {
-            Some(PathEvent::Line { from, to }) => {
-                Some(BezierSegment::Linear(LineSegment { from, to }))
-            }
-            Some(PathEvent::End {
-                last,
-                first,
-                close: true,
-            }) => Some(BezierSegment::Linear(LineSegment {
-                from: last,
-                to: first,
-            })),
-            Some(PathEvent::End { close: false, .. }) => self.next(),
-            Some(PathEvent::Quadratic { from, ctrl, to }) => {
-                Some(BezierSegment::Quadratic(QuadraticBezierSegment {
-                    from,
-                    ctrl,
-                    to,
-                }))
-            }
-            Some(PathEvent::Cubic {
-                from,
-                ctrl1,
-                ctrl2,
-                to,
-            }) => Some(BezierSegment::Cubic(CubicBezierSegment {
-                from,
-                ctrl1,
-                ctrl2,
-                to,
-            })),
-            Some(PathEvent::Begin { .. }) => self.next(),
-            None => None,
-        }
     }
 }
 

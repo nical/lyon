@@ -104,7 +104,7 @@ pub use crate::line::{Line, LineEquation, LineSegment};
 #[doc(inline)]
 pub use crate::quadratic_bezier::QuadraticBezierSegment;
 #[doc(inline)]
-pub use crate::segment::{BezierSegment, Segment};
+pub use crate::segment::Segment;
 #[doc(inline)]
 pub use crate::triangle::Triangle;
 
