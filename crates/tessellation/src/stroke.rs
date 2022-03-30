@@ -1356,6 +1356,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             }
         }
 
+        let mut skip = false;
         if count > 1 {
             let (prev, join) = self.point_buffer.last_two_mut();
             nan_check!(join.advancement);
@@ -1378,7 +1379,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             if fast_path {
                 join.line_join = LineJoin::Miter;
                 // can fast-path.
-                flattened_step(
+                skip = flattened_step(
                     prev,
                     join,
                     &mut next,
@@ -1418,25 +1419,31 @@ impl<'l> StrokeBuilderImpl<'l> {
                 )?;
             }
 
-            if count > 2 {
-                add_edge_triangles(prev, join, self.output);
-            }
+            if !skip {
+                if count > 2 {
+                    add_edge_triangles(prev, join, self.output);
+                }
 
-            tessellate_join(
-                join,
-                &self.options,
-                &mut self.vertex,
-                attributes,
-                self.output,
-            )?;
+                tessellate_join(
+                    join,
+                    &self.options,
+                    &mut self.vertex,
+                    attributes,
+                    self.output,
+                )?;
 
-            if count == 2 {
-                self.firsts.push(*prev);
-                self.firsts.push(*join);
+                if count == 2 {
+                    self.firsts.push(*prev);
+                    self.firsts.push(*join);
+                }
             }
         }
 
-        self.point_buffer.push(next);
+        if skip {
+            self.point_buffer.replace_last(next);
+        } else {
+            self.point_buffer.push(next);
+        }
 
         Ok(())
     }
@@ -1608,7 +1615,7 @@ fn compute_join_side_positions_fixed_width(
         let extruded_normal = front_normal * vertex.half_width;
         let d_next = extruded_normal.dot(-next_tangent) - next_length;
         let d_prev = extruded_normal.dot(prev_tangent) - prev_length;
-        if d_next.max(d_prev) > 0.0 || normal.square_length() < 1e-4 {
+        if d_next.min(d_prev) > 0.0 || normal.square_length() < 1e-5 {
             // Case of an overlapping stroke. In order to prevent the back vertex from creating a
             // spike outside of the stroke, we simply don't create it and we'll "fold" the join
             // instead.
@@ -1650,6 +1657,11 @@ fn compute_join_side_positions_fixed_width(
 
 // A fast path for when we know we are in a flattened curve, taking
 // advantage of knowing that we don't have to handle special joins.
+//
+// Returning Ok(true) means we are in a weird looking case with small edges
+// and varying line width causing the join to fold back. When this is the
+// case we are better off skipping this join.
+// "M 170 150 60 Q 215 120 240 140 2" is an example of this.
 #[cfg_attr(feature = "profiling", inline(never))]
 fn flattened_step(
     prev: &mut EndpointData,
@@ -1658,7 +1670,7 @@ fn flattened_step(
     vertex: &mut StrokeVertexData,
     attributes: &dyn AttributeStore,
     output: &mut dyn StrokeGeometryBuilder,
-) -> Result<(), TessellationError> {
+) -> Result<bool, TessellationError> {
     let prev_edge = join.position - prev.position;
     let prev_length = prev_edge.length();
     let prev_tangent = prev_edge / prev_length;
@@ -1693,6 +1705,12 @@ fn flattened_step(
     join.side_points[SIDE_NEGATIVE].next = p1;
     join.side_points[SIDE_NEGATIVE].single_vertex = Some(p1);
 
+    let v0 = p0 - prev.side_points[SIDE_POSITIVE].next;
+    let v1 = p1 - prev.side_points[SIDE_NEGATIVE].next;
+    if prev_edge.dot(v0) < 0.0 && prev_edge.dot(v1) < 0.0 {
+        return Ok(true);
+    }
+
     vertex.normal = normal;
     vertex.side = Side::Positive;
     let pos_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
@@ -1707,7 +1725,7 @@ fn flattened_step(
     join.side_points[SIDE_NEGATIVE].prev_vertex = neg_vertex;
     join.side_points[SIDE_NEGATIVE].next_vertex = neg_vertex;
 
-    Ok(())
+    Ok(false)
 }
 
 #[cfg_attr(feature = "profiling", inline(never))]
@@ -1985,12 +2003,13 @@ fn compute_join_side_positions(
     if angle_is_sharp {
         // Project the back vertex on the previous and next edges and subtract the edge length
         // to see if the back vertex ends up further than the opposite endpoint of the edge.
-        let extruded_normal = normal * join.half_width * 2.0;
+        let extruded_normal = normal * join.half_width;
         let prev_length = join.advancement - prev.advancement;
         let next_length = next.advancement - join.advancement;
         let d_next = extruded_normal.dot(v1) - next_length;
         let d_prev = extruded_normal.dot(-v0) - prev_length;
-        if d_next.max(d_prev) >= 0.0 || normal.square_length() < 1e-4 {
+
+        if d_next.min(d_prev) >= 0.0 || normal.square_length() < 1e-5 {
             // Case of an overlapping stroke. In order to prevent the back vertex to create a
             // spike outside of the stroke, we simply don't create it and we'll "fold" the join
             // instead.
@@ -2252,6 +2271,14 @@ impl PointBuffer {
         if self.start == 3 {
             self.start = 0;
         }
+    }
+
+    fn replace_last(&mut self, point: EndpointData) {
+        let mut idx = self.start;
+        if idx == 0 {
+            idx = self.count;
+        }
+        self.points[idx - 1] = point;
     }
 
     fn clear(&mut self) {
