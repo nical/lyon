@@ -1199,7 +1199,11 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         assert!(!self.firsts.is_empty());
 
-        let p = self.firsts[0];
+        let mut p = self.firsts[0];
+        // Make sure we re-compute the advancement instead of using the one found at the
+        // beginning of the sub-path.
+        let advancement = p.advancement;
+        p.advancement = std::f32::NAN;
         if self.options.variable_line_width.is_some() {
             self.step_impl(p, attributes)?;
         } else {
@@ -1215,6 +1219,29 @@ impl<'l> StrokeBuilderImpl<'l> {
             }
 
             let (p0, p1) = self.point_buffer.last_two_mut();
+            // TODO: This is hacky: We re-create the first two vertices on the edge towards the second endpoint 
+            // so that they use the advancement value of the start of the sub path instead of the end of the
+            // sub path as computed in the step_impl above.
+            self.vertex.src = p0.src;
+            self.vertex.position_on_path = p0.position;
+            self.vertex.half_width = p0.half_width;
+            self.vertex.advancement = advancement;
+            self.vertex.buffer_is_valid = false;
+            for side in 0..2 {
+                self.vertex.side = if side == SIDE_POSITIVE {
+                    Side::Positive
+                } else {
+                    Side::Negative
+                };
+                self.vertex.normal = if let Some(pos) = p0.side_points[side].single_vertex {
+                    (pos - p0.position) / p0.half_width
+                } else {
+                    (p0.side_points[side].next - p0.position) / p0.half_width
+                };
+
+                let vertex = self.output.add_stroke_vertex(StrokeVertex(&mut self.vertex, attributes))?;
+                p0.side_points[side].next_vertex = vertex;
+            }
 
             add_edge_triangles(p0, p1, self.output);
         }
