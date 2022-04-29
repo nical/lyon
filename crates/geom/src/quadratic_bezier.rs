@@ -60,6 +60,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         self.from.to_vector() * c0 + self.ctrl.to_vector() * c1 + self.to.to_vector() * c2
     }
 
+    pub fn normal(&self, t: S) -> Vector<S> {
+        let d = self.derivative(t);
+        crate::vector(d.x, -d.y).normalize()
+    }
+
     /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
     pub fn dx(&self, t: S) -> S {
         let (c0, c1, c2) = self.derivative_coefficients(t);
@@ -509,6 +514,104 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 cb(self);
             }
         }
+    }
+
+    pub fn offset(&self, d: S) -> Self {
+        let v0 = (self.ctrl - self.from).normalize();
+        let n0 = crate::vector(-v0.y, v0.x);
+        let from = self.from + n0 * d;
+
+        let v1 = (self.to - self.ctrl).normalize();
+        let n1 = crate::vector(-v1.y, v1.x);
+        let to = self.to + n1 * d;
+
+        let v01 = v0 + v1;
+
+        let tangent = v01.normalize();
+        let n = crate::vector(-tangent.y, tangent.x);
+
+        let inv_len = n.dot(n1);
+
+        let d2 = if inv_len != S::ZERO {
+            d / inv_len
+        } else {
+            d
+        };
+
+        let ctrl = self.ctrl + n * d2;
+
+        QuadraticBezierSegment {
+            from, ctrl, to,
+        }
+    }
+
+    pub fn for_each_offset<F>(&self, dist: S, tolerance: S, cb: &mut F)
+    where F: FnMut(&QuadraticBezierSegment<S>) {
+        let tolerance = tolerance.max(S::value(0.001));
+        let cb2 = &mut |mut range: Range<S>| {
+            let end = range.end;
+            while range.start < range.end {
+                let sub_curve = self.split_range(range.clone());
+                let offset = sub_curve.offset(dist);
+
+                let err = if range.end - range.start < S::value(0.1) {
+                    S::ZERO
+                } else {
+                    let d = (sub_curve.sample(S::HALF) - offset.sample(S::HALF)).length();
+                    (d - dist.abs()).abs()
+                };
+
+                if err <= tolerance {
+                    cb(&offset);
+                    range = range.end .. end;
+                } else {
+                    range.end = (range.start + range.end) * S::HALF;
+                }
+            }
+        };
+
+        if let Some(t) = self.find_sharp_turn() {
+            let t0 = t * S::value(0.8);
+            let t1 = t + (S::ONE - t) * S::value(0.8);
+            for range in [S::ZERO..t0, t0..t, t..t1, t1..S::ONE] {
+                cb2(range);
+            }
+        } else {
+            cb2(S::ZERO..S::ONE);
+        }
+    }
+
+    fn find_sharp_turn(&self) -> Option<S> {
+        // TODO: The various thresholds here should take the line width into account.
+        let baseline = self.to - self.from;
+        let v = self.ctrl - self.from;
+        let n = crate::vector(-baseline.y, baseline.x);
+        let v_dot_b = v.dot(baseline);
+        let v_dot_n = v.dot(n);
+
+        // If the projection of the control point on the baseline is between the endpoint, we
+        // can only get a sharp turn with a control point that is very far away.
+        let long_axis = if (v_dot_b >= S::ZERO && v_dot_b <= baseline.dot(baseline)) || v_dot_n.abs() * S::TWO >= v_dot_b.abs() {
+            // The control point is far enough from the endpoints It can cause a sharp turn.
+            if baseline.square_length() * S::value(30.0) > v.square_length() {
+                return None;
+            }
+
+            v
+        } else {
+            baseline
+        };
+
+        // Rotate the curve to find its extremum along the long axis, where we should split to
+        // avoid the sharp turn.
+        let rot = crate::euclid::Rotation2D::new(-long_axis.angle_from_x_axis());
+        let rotated = QuadraticBezierSegment {
+            from: crate::point(S::ZERO, S::ZERO),
+            ctrl: rot.transform_vector(v).to_point(),
+            to: rot.transform_vector(baseline).to_point(),
+        };
+
+        rotated.local_x_extremum_t()
     }
 
     /// Returns a triangle containing this curve segment.
