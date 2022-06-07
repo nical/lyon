@@ -385,7 +385,7 @@ impl<S: Scalar> LineSegment<S> {
     /// Horizontally clip this segment against a range of the x axis.
     pub fn clipped_x(&self, clip: Range<S>) -> Option<Self> {
         if (self.from.x < clip.start && self.to.x < clip.start)
-            || (self.from.x > clip.start && self.to.x > clip.end)
+            || (self.from.x > clip.end && self.to.x > clip.end)
         {
             return None;
         }
