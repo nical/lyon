@@ -157,6 +157,18 @@ impl Path {
         reverse_path(self.as_slice())
     }
 
+    /// Returns the first endpoint and its custom attributes if any.
+    #[inline]
+    pub fn first_endpoint(&self) -> Option<(Point, Attributes)> {
+        self.as_slice().first_endpoint()
+    }
+
+    /// Returns the last endpoint and its custom attributes if any.
+    #[inline]
+    pub fn last_endpoint(&self) -> Option<(Point, Attributes)> {
+        self.as_slice().last_endpoint()
+    }
+
     fn apply_transform<T: Transformation<f32>>(&mut self, transform: &T) {
         let iter = IdIter::new(self.num_attributes, &self.verbs[..]);
 
@@ -260,6 +272,31 @@ impl fmt::Debug for Path {
 
 /// An immutable view over a Path.
 impl<'l> PathSlice<'l> {
+    pub fn first_endpoint(&self) -> Option<(Point, Attributes<'l>)> {
+        if self.points.is_empty() {
+            return None;
+        }
+
+        let pos = self.points[0];
+        let attributes = interpolated_attributes(self.num_attributes, self.points, EndpointId(0));
+
+        Some((pos, attributes))
+    }
+
+    pub fn last_endpoint(&self) -> Option<(Point, Attributes<'l>)> {
+        if self.points.is_empty() {
+            return None;
+        }
+
+        let attrib_stride = (self.num_attributes() + 1) / 2;
+        let offset = self.points.len() - attrib_stride - 1;
+
+        let pos = self.points[offset];
+        let attributes = interpolated_attributes(self.num_attributes, self.points, EndpointId(offset as u32));
+
+        Some((pos, attributes))
+    }
+
     /// Iterates over the path.
     pub fn iter<'a>(&'a self) -> Iter<'l> {
         Iter::new(self.num_attributes, self.points, self.verbs)
@@ -417,6 +454,7 @@ impl<'l> AttributeStore for PathSlice<'l> {
 pub struct BuilderImpl {
     pub(crate) points: Vec<Point>,
     pub(crate) verbs: Vec<Verb>,
+    first: Point,
     validator: DebugValidator,
 }
 
@@ -425,6 +463,7 @@ impl BuilderImpl {
         BuilderImpl {
             points: Vec::new(),
             verbs: Vec::new(),
+            first: point(0.0, 0.0),
             validator: DebugValidator::new(),
         }
     }
@@ -433,6 +472,7 @@ impl BuilderImpl {
         BuilderImpl {
             points: Vec::with_capacity(points),
             verbs: Vec::with_capacity(edges),
+            first: point(0.0, 0.0),
             validator: DebugValidator::new(),
         }
     }
@@ -465,6 +505,8 @@ impl PathBuilder for BuilderImpl {
         nan_check(at);
 
         let id = EndpointId(self.points.len() as u32);
+
+        self.first = at;
         self.points.push(at);
         self.verbs.push(Verb::Begin);
 
@@ -473,6 +515,10 @@ impl PathBuilder for BuilderImpl {
 
     fn end(&mut self, close: bool) {
         self.validator.end();
+
+        if close {
+            self.points.push(self.first);
+        }
 
         self.verbs.push(if close { Verb::Close } else { Verb::End });
     }
@@ -560,6 +606,7 @@ impl Default for BuilderImpl {
 pub struct BuilderWithAttributes {
     pub(crate) builder: BuilderImpl,
     pub(crate) num_attributes: usize,
+    pub(crate) first_attributes: Vec<f32>,
 }
 
 impl BuilderWithAttributes {
@@ -567,6 +614,7 @@ impl BuilderWithAttributes {
         BuilderWithAttributes {
             builder: BuilderImpl::new(),
             num_attributes,
+            first_attributes: vec![0.0; num_attributes],
         }
     }
 
@@ -580,17 +628,22 @@ impl BuilderWithAttributes {
         );
     }
 
-    fn push_attributes(&mut self, attributes: Attributes) {
-        assert_eq!(attributes.len(), self.num_attributes);
-        for i in 0..(self.num_attributes / 2) {
+    #[inline(always)]
+    fn push_attributes_impl(points: &mut Vec<Point>, num_attributes: usize, attributes: Attributes) {
+        assert_eq!(attributes.len(), num_attributes);
+        for i in 0..(num_attributes / 2) {
             let x = attributes[i * 2];
             let y = attributes[i * 2 + 1];
-            self.builder.points.push(point(x, y));
+            points.push(point(x, y));
         }
-        if self.num_attributes % 2 == 1 {
-            let x = attributes[self.num_attributes - 1];
-            self.builder.points.push(point(x, 0.0));
+        if num_attributes % 2 == 1 {
+            let x = attributes[num_attributes - 1];
+            points.push(point(x, 0.0));
         }
+    }
+
+    fn push_attributes(&mut self, attributes: Attributes) {
+        Self::push_attributes_impl(&mut self.builder.points, self.num_attributes, attributes);
     }
 
     #[inline]
@@ -603,12 +656,18 @@ impl BuilderWithAttributes {
         let id = self.builder.begin(at, attributes);
         self.push_attributes(attributes);
 
+        self.first_attributes.copy_from_slice(attributes.0);
+
         id
     }
 
     #[inline]
     pub fn end(&mut self, close: bool) {
         self.builder.end(close);
+
+        if close {
+            Self::push_attributes_impl(&mut self.builder.points, self.num_attributes, Attributes(&self.first_attributes));
+        }
     }
 
     #[inline]
@@ -801,7 +860,8 @@ impl<'l> Iterator for Iter<'l> {
             }
             Some(&Verb::Close) => {
                 let last = self.current;
-                self.current = self.first;
+                let _ = self.points.next();
+                self.skip_attributes();
                 Some(PathEvent::End {
                     last,
                     first: self.first,
@@ -1065,7 +1125,7 @@ impl<'l> Iterator for IterWithAttributes<'l> {
             }
             Some(&Verb::Close) => {
                 let last = self.current;
-                self.current = self.first;
+                self.current = self.pop_endpoint();
                 Some(Event::End {
                     last,
                     first: self.first,
@@ -1152,7 +1212,7 @@ impl<'l> Iterator for IdIter<'l> {
             Some(&Verb::Close) => {
                 let last = EndpointId(self.current);
                 let first = EndpointId(self.first);
-                self.current += self.endpoint_stride;
+                self.current += self.endpoint_stride * 2;
                 self.evt += 1;
                 Some(IdEvent::End {
                     last,
@@ -1223,6 +1283,7 @@ fn reverse_path(path: PathSlice) -> Path {
     let mut builder = Path::builder_with_attributes(path.num_attributes());
 
     let attrib_stride = (path.num_attributes() + 1) / 2;
+    let endpoint_stride = attrib_stride + 1;
     let points = path.points;
     // At each iteration, p points to the first point after the current verb.
     let mut p = points.len();
@@ -1231,26 +1292,30 @@ fn reverse_path(path: PathSlice) -> Path {
     for v in path.verbs.iter().rev().cloned() {
         match v {
             Verb::Close => {
-                let idx = p - 1 - attrib_stride;
                 need_close = true;
+                let idx = p - endpoint_stride;
                 builder.begin(points[idx], path.attributes(EndpointId(idx as u32)));
             }
             Verb::End => {
-                let idx = p - 1 - attrib_stride;
+                let idx = p - endpoint_stride;
                 need_close = false;
                 builder.begin(points[idx], path.attributes(EndpointId(idx as u32)));
             }
             Verb::Begin => {
                 builder.end(need_close);
+                if need_close {
+                    p -= attrib_stride + 1;
+                }
+
                 need_close = false;
             }
             Verb::LineTo => {
-                let idx = p - 2 - attrib_stride * 2;
+                let idx = p - endpoint_stride * 2;
                 builder.line_to(points[idx], path.attributes(EndpointId(idx as u32)));
             }
             Verb::QuadraticTo => {
-                let ctrl_idx = p - attrib_stride - 2;
-                let to_idx = ctrl_idx - attrib_stride - 1;
+                let ctrl_idx = p - endpoint_stride - 1;
+                let to_idx = ctrl_idx - endpoint_stride;
                 builder.quadratic_bezier_to(
                     points[ctrl_idx],
                     points[to_idx],
@@ -1258,9 +1323,9 @@ fn reverse_path(path: PathSlice) -> Path {
                 );
             }
             Verb::CubicTo => {
-                let ctrl1_idx = p - attrib_stride - 2;
+                let ctrl1_idx = p - endpoint_stride - 1;
                 let ctrl2_idx = ctrl1_idx - 1;
-                let to_idx = ctrl2_idx - attrib_stride - 1;
+                let to_idx = ctrl2_idx - endpoint_stride;
                 builder.cubic_bezier_to(
                     points[ctrl1_idx],
                     points[ctrl2_idx],
@@ -1415,7 +1480,14 @@ fn test_reverse_path() {
     assert!(check(
         it.next(),
         Some(Event::Begin {
-            at: (point(10.0, 1.0), Attributes(&[8.0])),
+            at: (point(10.0, 0.0), Attributes(&[5.0])),
+        })
+    ));
+    assert!(check(
+        it.next(),
+        Some(Event::Line {
+            from: (point(10.0, 0.0), Attributes(&[5.0])),
+            to: (point(10.0, 1.0), Attributes(&[8.0])),
         })
     ));
     assert!(check(
@@ -1434,19 +1506,13 @@ fn test_reverse_path() {
     ));
     assert!(check(
         it.next(),
-        Some(Event::Line {
-            from: (point(11.0, 0.0), Attributes(&[6.0])),
-            to: (point(10.0, 0.0), Attributes(&[5.0])),
-        })
-    ));
-    assert!(check(
-        it.next(),
         Some(Event::End {
-            last: (point(10.0, 0.0), Attributes(&[5.0])),
-            first: (point(10.0, 1.0), Attributes(&[8.0])),
+            last: (point(11.0, 0.0), Attributes(&[6.0])),
+            first: (point(10.0, 0.0), Attributes(&[5.0])),
             close: true
         })
     ));
+
 
     assert!(check(
         it.next(),
@@ -1955,4 +2021,65 @@ fn flattened_custom_attributes() {
             assert!(attribute > prev);
             prev = attribute;
         });
+}
+
+#[test]
+fn first_last() {
+    let mut path = Path::builder_with_attributes(1);
+    path.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    path.line_to(point(2.0, 2.0), Attributes(&[3.0]));
+    path.line_to(point(4.0, 4.0), Attributes(&[5.0]));
+    path.end(false);
+    let path = path.build();
+
+    assert_eq!(path.first_endpoint(), Some((point(0.0, 0.0), Attributes(&[1.0]))));
+    assert_eq!(path.last_endpoint(), Some((point(4.0, 4.0), Attributes(&[5.0]))));
+
+    let mut path = Path::builder_with_attributes(1);
+    path.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    path.line_to(point(2.0, 2.0), Attributes(&[3.0]));
+    path.line_to(point(4.0, 4.0), Attributes(&[5.0]));
+    path.end(true);
+    let path = path.build();
+
+    assert_eq!(path.first_endpoint(), Some((point(0.0, 0.0), Attributes(&[1.0]))));
+    assert_eq!(path.last_endpoint(), Some((point(0.0, 0.0), Attributes(&[1.0]))));
+}
+
+#[test]
+fn id_events() {
+    let mut path = Path::builder_with_attributes(1);
+    let e1 = path.begin(point(0.0, 0.0), Attributes(&[1.0]));
+    let e2 = path.line_to(point(2.0, 2.0), Attributes(&[3.0]));
+    let e3 = path.line_to(point(4.0, 4.0), Attributes(&[5.0]));
+    path.end(false);
+
+    let e4 = path.begin(point(6.0, 6.0), Attributes(&[7.0]));
+    let e5 = path.line_to(point(8.0, 8.0), Attributes(&[9.0]));
+    let e6 = path.line_to(point(10.0, 10.0), Attributes(&[11.0]));
+    path.end(true);
+
+    let e7 = path.begin(point(12.0, 12.0), Attributes(&[13.0]));
+    let e8 = path.line_to(point(14.0, 14.0), Attributes(&[15.0]));
+    path.end(false);
+
+    let path = path.build();
+
+    let mut iter = path.id_iter();
+
+    assert_eq!(iter.next().unwrap(), Event::Begin{ at: e1 });
+    assert_eq!(iter.next().unwrap(), Event::Line{ from: e1, to: e2 });
+    assert_eq!(iter.next().unwrap(), Event::Line{ from: e2, to: e3 });
+    assert_eq!(iter.next().unwrap(), Event::End { last: e3, first: e1, close: false });
+
+    assert_eq!(iter.next().unwrap(), Event::Begin{ at: e4 });
+    assert_eq!(iter.next().unwrap(), Event::Line{ from: e4, to: e5 });
+    assert_eq!(iter.next().unwrap(), Event::Line{ from: e5, to: e6 });
+    assert_eq!(iter.next().unwrap(), Event::End { last: e6, first: e4, close: true });
+
+    assert_eq!(iter.next().unwrap(), Event::Begin{ at: e7 });
+    assert_eq!(iter.next().unwrap(), Event::Line{ from: e7, to: e8 });
+    assert_eq!(iter.next().unwrap(), Event::End { last: e8, first: e7, close: false });
+
+    assert_eq!(iter.next(), None);
 }

@@ -219,6 +219,7 @@ impl<'l> Builder<'l> {
             builder: path::BuilderWithAttributes {
                 builder: self.builder.into_inner(),
                 num_attributes,
+                first_attributes: vec![0.0; num_attributes],
             },
             points_start: self.points_start,
             verbs_start: self.verbs_start,
@@ -363,6 +364,7 @@ impl<'l> BuilderWithAttributes<'l> {
             builder: path::BuilderWithAttributes {
                 builder,
                 num_attributes,
+                first_attributes: vec![0.0; num_attributes],
             },
             points_start,
             verbs_start,
