@@ -369,6 +369,12 @@ impl Position for [f32; 2] {
     }
 }
 
+impl<'l, T> Position for (Point, T) {
+    fn position(&self) -> Point {
+        self.0
+    }
+}
+
 /// Interface for objects storing endpoints and control points positions.
 ///
 /// This interface can be implemented by path objects themselves or via external

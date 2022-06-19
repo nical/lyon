@@ -79,12 +79,11 @@
 //! ```
 
 use crate::geom::traits::Transformation;
-use crate::geom::{
-    cubic_bezier, quadratic_bezier, CubicBezierSegment,
-    QuadraticBezierSegment,
-};
+use crate::geom::{cubic_bezier, quadratic_bezier, CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::*;
-use crate::PathEvent;
+use crate::{Attributes, Event, PathEvent};
+
+// TODO: It would be great to add support for attributes in PathItertor.
 
 /// An extension trait for `PathEvent` iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
@@ -100,6 +99,27 @@ pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
 }
 
 impl<Iter> PathIterator for Iter where Iter: Iterator<Item = PathEvent> {}
+
+pub struct NoAttributes<Iter>(pub(crate) Iter);
+
+impl<'l, Iter> NoAttributes<Iter>
+where
+    Iter: Iterator<Item = Event<(Point, Attributes<'l>), Point>>,
+{
+    pub fn with_attributes(self) -> Iter {
+        self.0
+    }
+}
+
+impl<'l, Iter> Iterator for NoAttributes<Iter>
+where
+    Iter: Iterator<Item = Event<(Point, Attributes<'l>), Point>>,
+{
+    type Item = PathEvent;
+    fn next(&mut self) -> Option<PathEvent> {
+        self.0.next().map(|event| event.with_points())
+    }
+}
 
 /// An iterator that consumes `Event` iterator and yields flattend path events (with no curves).
 pub struct Flattened<Iter> {
