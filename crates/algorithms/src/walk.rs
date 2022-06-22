@@ -254,10 +254,12 @@ impl<'l> PathWalker<'l> {
             to,
         };
         curve.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
-            self.edge(line.to, t.clone(), attributes, &|x| {
-                let t2 = t.start + x * (t.end - t.start);
-                (curve.sample(t2), curve.derivative(t2).normalize())
-            });
+            if !self.done {
+                self.edge(line.to, t.clone(), attributes, &|x| {
+                    let t2 = t.start + x * (t.end - t.start);
+                    (curve.sample(t2), curve.derivative(t2).normalize())
+                });
+            }
         });
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());
@@ -280,10 +282,12 @@ impl<'l> PathWalker<'l> {
         };
 
         curve.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
-            self.edge(line.to, t.clone(), attributes, &|x| {
-                let t2 = t.start + x * (t.end - t.start);
-                (curve.sample(t2), curve.derivative(t2).normalize())
-            });
+            if !self.done {
+                self.edge(line.to, t.clone(), attributes, &|x| {
+                    let t2 = t.start + x * (t.end - t.start);
+                    (curve.sample(t2), curve.derivative(t2).normalize())
+                });
+            }
         });
 
         self.prev_attributes.copy_from_slice(attributes.as_slice());
