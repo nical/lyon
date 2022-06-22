@@ -14,6 +14,7 @@ pub mod fit;
 pub mod hatching;
 pub mod hit_test;
 pub mod length;
+pub mod measure;
 pub mod raycast;
 pub mod walk;
 pub mod winding;
