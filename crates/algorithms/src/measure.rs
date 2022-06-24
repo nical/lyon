@@ -39,8 +39,8 @@ use crate::path::{
 use std::ops::Range;
 
 #[doc(hidden)]
-pub struct EmptyAttribtueStore;
-impl AttributeStore for EmptyAttribtueStore {
+pub struct EmptyAttributeStore;
+impl AttributeStore for EmptyAttributeStore {
     fn get(&self, _: EndpointId) -> Attributes {
         Attributes::NONE
     }
@@ -525,16 +525,16 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathMeasure<'l, PS, AS> {
     }
 }
 
-impl<'l, PS: PositionStore> PathMeasure<'l, PS, EmptyAttribtueStore> {
+impl<'l, PS: PositionStore> PathMeasure<'l, PS, EmptyAttributeStore> {
     pub fn new<Iter>(path: Iter, tolerance: f32, points: &'l PS) -> Self
     where
         Iter: IntoIterator<Item = IdEvent>,
     {
-        Self::with_attributes(0, path, tolerance, points, &EmptyAttribtueStore)
+        Self::with_attributes(0, path, tolerance, points, &EmptyAttributeStore)
     }
 }
 
-impl<'l> PathMeasure<'l, Path, EmptyAttribtueStore> {
+impl<'l> PathMeasure<'l, Path, EmptyAttributeStore> {
     #[must_use]
     pub fn from_path(path: &'l Path, tolerance: f32) -> Self {
         Self::new(path.id_iter(), tolerance, path)
@@ -547,7 +547,7 @@ impl<'l> PathMeasure<'l, Path, Path> {
     }
 }
 
-impl<'l> PathMeasure<'l, PathSlice<'l>, EmptyAttribtueStore> {
+impl<'l> PathMeasure<'l, PathSlice<'l>, EmptyAttributeStore> {
     pub fn from_slice(path: &'l PathSlice, tolerance: f32) -> Self {
         Self::new(path.id_iter(), tolerance, path)
     }

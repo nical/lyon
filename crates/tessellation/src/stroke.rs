@@ -413,8 +413,10 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         if let Some(attrib_index) = self.builder.options.variable_line_width {
             let width = self.builder.options.line_width * attributes[attrib_index];
             self.builder.begin(to, id, width, self.attrib_store);
+            self.prev = (to, id, width);
         } else {
             self.builder.begin_fw(to, id, self.attrib_store);
+            self.prev = (to, id, self.builder.options.line_width);
         }
 
         id
