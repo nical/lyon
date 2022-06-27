@@ -86,7 +86,6 @@ use crate::path::Verb;
 use crate::polygon::Polygon;
 use crate::{Attributes, EndpointId, Winding};
 
-use std::iter::IntoIterator;
 use std::marker::Sized;
 
 /// The radius of each corner of a rounded rectangle.
@@ -227,15 +226,6 @@ impl<B: PathBuilder> NoAttributes<B> {
     #[inline]
     pub fn path_event(&mut self, event: PathEvent) {
         self.inner.path_event(event, Attributes::NONE);
-    }
-
-    /// Adds events from an iterator.
-    #[inline]
-    pub fn extend<Evts>(&mut self, events: Evts)
-    where
-        Evts: IntoIterator<Item = PathEvent>,
-    {
-        self.inner.extend(events, Attributes::NONE);
     }
 
     /// Adds a sub-path from a polygon.
@@ -555,16 +545,6 @@ pub trait PathBuilder {
             Event::End { close, .. } => {
                 self.end(close);
             }
-        }
-    }
-
-    /// Adds events from an iterator.
-    fn extend<Evts>(&mut self, events: Evts, attributes: Attributes)
-    where
-        Evts: IntoIterator<Item = PathEvent>,
-    {
-        for evt in events.into_iter() {
-            self.path_event(evt, attributes)
         }
     }
 
