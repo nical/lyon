@@ -340,7 +340,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
             return PathSample {
                 position: point(std::f32::NAN, std::f32::NAN),
                 tangent: vector(std::f32::NAN, std::f32::NAN),
-                attributes: Attributes(attr),
+                attributes: attr,
             }
         }
 
@@ -587,7 +587,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
             return PathSample {
                 position: segment.sample(t),
                 tangent: segment.derivative(t).normalize(),
-                attributes: Attributes(&self.attribute_buffer),
+                attributes: &self.attribute_buffer,
             }
         });
 
@@ -613,7 +613,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
                             self.attributes.get($p.1)
                         } else {
                             self.interpolate_attributes($p.0, $p.1, range.end);
-                            Attributes(&mut self.attribute_buffer)
+                            &mut self.attribute_buffer
                         }
                     }
                     None => self.attributes.get($p.1),
@@ -640,6 +640,9 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
         }
     }
 }
+
+#[cfg(test)]
+fn slice(a: &[f32]) -> &[f32] { a }
 
 #[test]
 fn measure_line() {
@@ -683,18 +686,18 @@ fn measure_square() {
 #[test]
 fn measure_attributes() {
     let mut path = Path::builder_with_attributes(2);
-    path.begin(point(0.0, 0.0), Attributes(&[1.0, 2.0]));
-    path.line_to(point(1.0, 0.0), Attributes(&[2.0, 3.0]));
-    path.line_to(point(1.0, 1.0), Attributes(&[0.0, 0.0]));
+    path.begin(point(0.0, 0.0), &[1.0, 2.0]);
+    path.line_to(point(1.0, 0.0), &[2.0, 3.0]);
+    path.line_to(point(1.0, 1.0), &[0.0, 0.0]);
     path.end(false);
     let path = path.build();
     let measure = PathMeasurements::from_path(&path, 0.01);
     let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Normalized);
 
     for (t, position, attrs) in [
-        (0.25, point(0.5, 0.0), Attributes(&[1.5, 2.5])),
-        (0.5, point(1.0, 0.0), Attributes(&[2.0, 3.0])),
-        (0.75, point(1.0, 0.5), Attributes(&[1.0, 1.5])),
+        (0.25, point(0.5, 0.0), &[1.5, 2.5]),
+        (0.5, point(1.0, 0.0), &[2.0, 3.0]),
+        (0.75, point(1.0, 0.5), &[1.0, 1.5]),
     ] {
         let result = sampler.sample(t);
         assert!((result.position - position).length() < 1e-5);
@@ -814,9 +817,9 @@ fn split_attributes() {
     use crate::path::Event;
 
     let mut path = Path::builder_with_attributes(2);
-    path.begin(point(0.0, 0.0), Attributes(&[1.0, 2.0]));
-    path.line_to(point(1.0, 0.0), Attributes(&[2.0, 3.0]));
-    path.line_to(point(1.0, 1.0), Attributes(&[0.0, 0.0]));
+    path.begin(point(0.0, 0.0), &[1.0, 2.0]);
+    path.line_to(point(1.0, 0.0), &[2.0, 3.0]);
+    path.line_to(point(1.0, 1.0), &[0.0, 0.0]);
     path.end(false);
     let path = path.build();
     let measure = PathMeasurements::from_path(&path, 0.01);
@@ -839,19 +842,19 @@ fn split_attributes() {
         path3.iter_with_attributes().collect::<Vec<_>>(),
         vec![
             Event::Begin {
-                at: (point(0.5, 0.0), Attributes(&[1.5, 2.5]))
+                at: (point(0.5, 0.0), slice(&[1.5, 2.5]))
             },
             Event::Line {
-                from: (point(0.5, 0.0), Attributes(&[1.5, 2.5])),
-                to: (point(1.0, 0.0), Attributes(&[2.0, 3.0])),
+                from: (point(0.5, 0.0), slice(&[1.5, 2.5])),
+                to: (point(1.0, 0.0), slice(&[2.0, 3.0])),
             },
             Event::Line {
-                from: (point(1.0, 0.0), Attributes(&[2.0, 3.0])),
-                to: (point(1.0, 0.5), Attributes(&[1.0, 1.5])),
+                from: (point(1.0, 0.0), slice(&[2.0, 3.0])),
+                to: (point(1.0, 0.5), slice(&[1.0, 1.5])),
             },
             Event::End {
-                last: (point(1.0, 0.5), Attributes(&[1.0, 1.5])),
-                first: (point(0.5, 0.0), Attributes(&[1.5, 2.5])),
+                last: (point(1.0, 0.5), slice(&[1.0, 1.5])),
+                first: (point(0.5, 0.0), slice(&[1.5, 2.5])),
                 close: false
             }
         ]

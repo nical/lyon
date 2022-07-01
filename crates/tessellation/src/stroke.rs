@@ -395,7 +395,7 @@ impl<'l> StrokeBuilder<'l> {
 
     fn get_width(&self, attributes: Attributes) -> f32 {
         if let Some(idx) = self.builder.options.variable_line_width {
-            self.builder.options.line_width * attributes[idx]
+            self.builder.options.line_width * attributes[idx.index()]
         } else {
             self.builder.options.line_width
         }
@@ -411,7 +411,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         self.validator.begin();
         let id = self.attrib_store.add(attributes);
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let width = self.builder.options.line_width * attributes[attrib_index];
+            let width = self.builder.options.line_width * attributes[attrib_index.index()];
             self.builder.begin(to, id, width, self.attrib_store);
             self.prev = (to, id, width);
         } else {
@@ -431,7 +431,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         let id = self.attrib_store.add(attributes);
         self.validator.edge();
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let width = self.builder.options.line_width * attributes[attrib_index];
+            let width = self.builder.options.line_width * attributes[attrib_index.index()];
             self.builder.line_to(to, id, width, self.attrib_store);
             self.prev = (to, id, width);
         } else {
@@ -455,7 +455,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         let curve = QuadraticBezierSegment { from, ctrl, to };
 
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let end_width = self.builder.options.line_width * attributes[attrib_index];
+            let end_width = self.builder.options.line_width * attributes[attrib_index.index()];
             self.builder.quadratic_bezier_to(
                 &curve,
                 from_id,
@@ -495,7 +495,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         };
 
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let end_width = self.builder.options.line_width * attributes[attrib_index];
+            let end_width = self.builder.options.line_width * attributes[attrib_index.index()];
             self.builder.cubic_bezier_to(
                 &curve,
                 from_id,
@@ -653,7 +653,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) -> TessellationResult {
         let base_width = self.options.line_width;
-        let attrib_index = self.options.variable_line_width.unwrap();
+        let attrib_index = self.options.variable_line_width.unwrap().index();
 
         let mut validator = DebugValidator::new();
 
@@ -2637,7 +2637,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
     #[inline]
     pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.0.buffer_is_valid {
-            return Attributes(&self.0.buffer[..]);
+            return &self.0.buffer[..];
         }
 
         match self.0.src {
@@ -2650,7 +2650,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
                 }
                 self.0.buffer_is_valid = true;
 
-                Attributes(&self.0.buffer[..])
+                &self.0.buffer[..]
             }
         }
     }
@@ -2762,16 +2762,16 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
 fn test_square() {
     let mut builder = Path::builder_with_attributes(1);
 
-    builder.begin(point(-1.0, 1.0), Attributes(&[0.3]));
-    builder.line_to(point(1.0, 1.0), Attributes(&[0.3]));
-    builder.line_to(point(1.0, -1.0), Attributes(&[0.3]));
-    builder.line_to(point(-1.0, -1.0), Attributes(&[0.3]));
+    builder.begin(point(-1.0, 1.0), &[0.3]);
+    builder.line_to(point(1.0, 1.0), &[0.3]);
+    builder.line_to(point(1.0, -1.0), &[0.3]);
+    builder.line_to(point(-1.0, -1.0), &[0.3]);
     builder.end(false);
 
-    builder.begin(point(-1.0, -1.0), Attributes(&[0.3]));
-    builder.line_to(point(1.0, -1.0), Attributes(&[0.3]));
-    builder.line_to(point(1.0, 1.0), Attributes(&[0.3]));
-    builder.line_to(point(-1.0, 1.0), Attributes(&[0.3]));
+    builder.begin(point(-1.0, -1.0), &[0.3]);
+    builder.line_to(point(1.0, -1.0), &[0.3]);
+    builder.line_to(point(1.0, 1.0), &[0.3]);
+    builder.line_to(point(-1.0, 1.0), &[0.3]);
     builder.end(false);
 
     let path = builder.build();
@@ -2833,28 +2833,28 @@ fn test_empty_caps() {
     let mut builder = Path::builder_with_attributes(1);
 
     // moveto + close: empty cap.
-    builder.begin(point(1.0, 0.0), Attributes(&[1.0]));
+    builder.begin(point(1.0, 0.0), &[1.0]);
     builder.end(true);
 
     // Only moveto + lineto at same position: empty cap.
-    builder.begin(point(2.0, 0.0), Attributes(&[1.0]));
-    builder.line_to(point(2.0, 0.0), Attributes(&[1.0]));
+    builder.begin(point(2.0, 0.0), &[1.0]);
+    builder.line_to(point(2.0, 0.0), &[1.0]);
     builder.end(false);
 
     // Only moveto + lineto at same position: empty cap.
-    builder.begin(point(3.0, 0.0), Attributes(&[1.0]));
-    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.begin(point(3.0, 0.0), &[1.0]);
+    builder.line_to(point(3.0, 0.0), &[1.0]);
     builder.end(true);
 
     // Only moveto + multiple lineto at same position: empty cap.
-    builder.begin(point(3.0, 0.0), Attributes(&[1.0]));
-    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
-    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
-    builder.line_to(point(3.0, 0.0), Attributes(&[1.0]));
+    builder.begin(point(3.0, 0.0), &[1.0]);
+    builder.line_to(point(3.0, 0.0), &[1.0]);
+    builder.line_to(point(3.0, 0.0), &[1.0]);
+    builder.line_to(point(3.0, 0.0), &[1.0]);
     builder.end(true);
 
     // moveto then end (not closed): no empty cap.
-    builder.begin(point(4.0, 0.0), Attributes(&[1.0]));
+    builder.begin(point(4.0, 0.0), &[1.0]);
     builder.end(false);
 
     let path = builder.build();
@@ -2948,9 +2948,9 @@ fn test_too_many_vertices() {
 #[test]
 fn stroke_vertex_source_01() {
     let mut path = crate::path::Path::builder_with_attributes(1);
-    let a = path.begin(point(0.0, 0.0), Attributes(&[1.0]));
-    let b = path.line_to(point(10.0, 10.0), Attributes(&[2.0]));
-    let c = path.quadratic_bezier_to(point(10.0, 20.0), point(0.0, 20.0), Attributes(&[3.0]));
+    let a = path.begin(point(0.0, 0.0), &[1.0]);
+    let b = path.line_to(point(10.0, 10.0), &[2.0]);
+    let c = path.quadratic_bezier_to(point(10.0, 20.0), point(0.0, 20.0), &[3.0]);
     path.end(true);
 
     let path = path.build();
@@ -3013,11 +3013,11 @@ fn stroke_vertex_source_01() {
 
             let vertex = attr.interpolated_attributes();
             if eq(pos, point(0.0, 0.0)) {
-                assert_eq!(vertex, Attributes(&[1.0]))
+                assert_eq!(vertex, &[1.0])
             } else if eq(pos, point(10.0, 10.0)) {
-                assert_eq!(vertex, Attributes(&[2.0]))
+                assert_eq!(vertex, &[2.0])
             } else if eq(pos, point(0.0, 20.0)) {
-                assert_eq!(vertex, Attributes(&[3.0]))
+                assert_eq!(vertex, &[3.0])
             } else {
                 assert_eq!(vertex.len(), 1);
                 assert!(vertex[0] > 2.0);

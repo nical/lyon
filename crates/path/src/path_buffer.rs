@@ -3,7 +3,7 @@
 use crate::builder::*;
 use crate::math::*;
 use crate::path;
-use crate::{Attributes, EndpointId, PathSlice};
+use crate::{Attributes, EndpointId, PathSlice, NO_ATTRIBUTES};
 
 use std::fmt;
 use std::iter::{FromIterator, FusedIterator, IntoIterator};
@@ -115,7 +115,7 @@ impl<'l> FromIterator<PathSlice<'l>> for PathBuffer {
                 let builder = buffer.builder();
                 path.iter()
                     .fold(builder, |mut builder, event| {
-                        builder.path_event(event, Attributes::NONE);
+                        builder.path_event(event, NO_ATTRIBUTES);
                         builder
                     })
                     .build();
