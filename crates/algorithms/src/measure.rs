@@ -118,7 +118,7 @@ impl<'l> PathSample<'l> {
 ///     println!("Mid-point position: {:?}, tangent: {:?}", sample.position(), sample.tangent());
 ///
 ///     let mut second_half = Path::builder();
-///     sampler.split(0.5..1.0, &mut second_half);
+///     sampler.split_range(0.5..1.0, &mut second_half);
 ///     let second_half = second_half.build();
 ///     assert!((sampler.length() / 2.0 - approximate_length(&second_half, 1e-3)).abs() < 1e-3);
 /// }
@@ -331,7 +331,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 
     /// Sample at a given distance along the path.
     ///
-    /// The path measurements must have beeen initialized with the same path.
+    /// The path measurements must have been initialized with the same path.
     /// The distance is clamped to the beginning and end of the path.
     /// Panics if the path is empty.
     pub fn sample(&mut self, dist: f32) -> PathSample {
@@ -349,11 +349,51 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 
     /// Construct a path for a specific sub-range of the measured path.
     ///
-    /// The path measurements must have beeen initialized with the same path.
+    /// The path measurements must have been initialized with the same path.
     /// The distance is clamped to the beginning and end of the path.
     /// Panics if the path is empty.
-    pub fn split(&mut self, range: Range<f32>, output: &mut dyn PathBuilder) {
-        self.split_impl(range, output)
+    pub fn split_range(&mut self, mut range: Range<f32>, output: &mut dyn PathBuilder) {
+        let length = self.length();
+        if self.sample_type == SampleType::Normalized {
+            range.start *= length;
+            range.end *= length;
+        }
+        range.start = range.start.max(0.0);
+        range.end = range.end.max(range.start);
+        range.start = range.start.min(length);
+        range.end = range.end.min(length);
+
+        if range.is_empty() {
+            return;
+        }
+
+        let result = self.sample_impl(range.start, SampleType::Distance);
+        output.begin(result.position, result.attributes);
+        let (ptr1, seg1) = (self.cursor, self.edges[self.cursor].index);
+        self.move_cursor(range.end);
+        let (ptr2, seg2) = (self.cursor, self.edges[self.cursor].index);
+
+        if seg1 == seg2 {
+            self.cursor = ptr1;
+            let t_begin = self.t(range.start);
+            self.cursor = ptr2;
+            let t_end = self.t(range.end);
+            self.add_segment(
+                seg1,
+                Some(t_begin..t_end),
+                output,
+            );
+        } else {
+            self.cursor = ptr1;
+            self.add_segment(seg1, Some(self.t(range.start)..1.0), output);
+            for seg in (seg1 + 1)..seg2 {
+                self.add_segment(seg, None, output);
+            }
+            self.cursor = ptr2;
+            self.add_segment(seg2, Some(0.0..self.t(range.end)), output);
+        }
+
+        output.end(false);
     }
 
     /// Returns the approximate length of the path.
@@ -599,50 +639,6 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
             _ => {}
         }
     }
-
-    fn split_impl(&mut self, mut range: Range<f32>, output: &mut dyn PathBuilder) {
-        let length = self.length();
-        if self.sample_type == SampleType::Normalized {
-            range.start *= length;
-            range.end *= length;
-        }
-        range.start = range.start.max(0.0);
-        range.end = range.end.max(range.start);
-        range.start = range.start.min(length);
-        range.end = range.end.min(length);
-
-        if range.is_empty() {
-            return;
-        }
-
-        let result = self.sample_impl(range.start, SampleType::Distance);
-        output.begin(result.position, result.attributes);
-        let (ptr1, seg1) = (self.cursor, self.edges[self.cursor].index);
-        self.move_cursor(range.end);
-        let (ptr2, seg2) = (self.cursor, self.edges[self.cursor].index);
-
-        if seg1 == seg2 {
-            self.cursor = ptr1;
-            let t_begin = self.t(range.start);
-            self.cursor = ptr2;
-            let t_end = self.t(range.end);
-            self.add_segment(
-                seg1,
-                Some(t_begin..t_end),
-                output,
-            );
-        } else {
-            self.cursor = ptr1;
-            self.add_segment(seg1, Some(self.t(range.start)..1.0), output);
-            for seg in (seg1 + 1)..seg2 {
-                self.add_segment(seg, None, output);
-            }
-            self.cursor = ptr2;
-            self.add_segment(seg2, Some(0.0..self.t(range.end)), output);
-        }
-
-        output.end(false);
-    }
 }
 
 #[test]
@@ -748,7 +744,7 @@ fn split_square() {
     let measure = PathMeasurements::from_path(&path, 0.01);
     let mut sampler = measure.create_sampler(&path, SampleType::Normalized);
     let mut path2 = Path::builder();
-    sampler.split(0.125..0.625, &mut path2);
+    sampler.split_range(0.125..0.625, &mut path2);
     let path2 = path2.build();
     assert_eq!(
         path2.iter().collect::<Vec<_>>(),
@@ -790,7 +786,7 @@ fn split_bezier_curve() {
     let mut sampler = measure.create_sampler(&path, SampleType::Normalized);
 
     let mut path2 = Path::builder(); 
-    sampler.split(0.5..1.0, &mut path2);
+    sampler.split_range(0.5..1.0, &mut path2);
     let path2 = path2.build();
 
     assert_eq!(
@@ -827,7 +823,7 @@ fn split_attributes() {
     let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Normalized);
 
     let mut path2 = Path::builder_with_attributes(2);
-    sampler.split(0.0..1.0, &mut path2);
+    sampler.split_range(0.0..1.0, &mut path2);
     let path2 = path2.build();
 
     assert_eq!(
@@ -836,7 +832,7 @@ fn split_attributes() {
     );
 
     let mut path3 = Path::builder_with_attributes(2);
-    sampler.split(0.25..0.75, &mut path3);
+    sampler.split_range(0.25..0.75, &mut path3);
     let path3 = path3.build();
 
     assert_eq!(
