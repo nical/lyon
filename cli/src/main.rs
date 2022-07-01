@@ -477,9 +477,7 @@ fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
             options.miter_limit = limit;
         }
         if let Some(var_stroke_str) = matches.value_of("VARIABLE_LINE_WIDTH") {
-            options.variable_line_width = var_stroke_str
-                .parse::<usize>()
-                .ok()
+            options.variable_line_width = var_stroke_str.parse::<usize>().ok()
         }
 
         Some(options)

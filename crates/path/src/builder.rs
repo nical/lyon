@@ -203,8 +203,7 @@ impl<B: PathBuilder> NoAttributes<B> {
     /// A sub-path must be in progress when this method is called.
     #[inline]
     pub fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) -> EndpointId {
-        self.inner
-            .cubic_bezier_to(ctrl1, ctrl2, to, NO_ATTRIBUTES)
+        self.inner.cubic_bezier_to(ctrl1, ctrl2, to, NO_ATTRIBUTES)
     }
 
     /// Hints at the builder that a certain number of endpoints and control
@@ -407,8 +406,7 @@ impl<B: PathBuilder> PathBuilder for NoAttributes<B> {
         to: Point,
         _attributes: Attributes,
     ) -> EndpointId {
-        self.inner
-            .cubic_bezier_to(ctrl1, ctrl2, to, NO_ATTRIBUTES)
+        self.inner.cubic_bezier_to(ctrl1, ctrl2, to, NO_ATTRIBUTES)
     }
 
     #[inline]
@@ -1294,16 +1292,12 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         if self.need_moveto {
             self.move_to(arc_start);
         } else if (arc_start - self.current_position).square_length() < 0.01 {
-            self.builder
-                .line_to(arc_start, &self.attribute_buffer);
+            self.builder.line_to(arc_start, &self.attribute_buffer);
         }
 
         arc.for_each_quadratic_bezier(&mut |curve| {
-            self.builder.quadratic_bezier_to(
-                curve.ctrl,
-                curve.to,
-                &self.attribute_buffer,
-            );
+            self.builder
+                .quadratic_bezier_to(curve.ctrl, curve.to, &self.attribute_buffer);
             self.current_position = curve.to;
         });
     }

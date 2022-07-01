@@ -205,7 +205,7 @@ fn fill_border_radius(
 
 #[test]
 fn basic_shapes() {
-    use crate::{GeometryBuilderError};
+    use crate::GeometryBuilderError;
 
     let mut tess = crate::FillTessellator::new();
 

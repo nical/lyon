@@ -1,5 +1,5 @@
 use crate::scalar::Scalar;
-use crate::{point, Box2D, Point, Vector, LineSegment};
+use crate::{point, Box2D, LineSegment, Point, Vector};
 
 use std::ops::Range;
 
@@ -68,7 +68,7 @@ pub trait Segment: Copy + Sized {
     fn for_each_flattened_with_t(
         &self,
         tolerance: Self::Scalar,
-        callback: &mut dyn FnMut(&LineSegment<Self::Scalar>, Range<Self::Scalar>)
+        callback: &mut dyn FnMut(&LineSegment<Self::Scalar>, Range<Self::Scalar>),
     );
 }
 

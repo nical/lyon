@@ -1,4 +1,3 @@
-
 use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
@@ -407,12 +406,12 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut t0 = S::ZERO;
         for &t in &extrema {
             if t != t0 {
-                cb(t0 .. t);
+                cb(t0..t);
                 t0 = t;
             }
         }
 
-        cb(t0 .. S::ONE);
+        cb(t0..S::ONE);
     }
 
     /// Invokes a callback for each monotonic part of the segment.
@@ -443,11 +442,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
     {
         let mut t0 = S::ZERO;
         self.for_each_local_y_extremum_t(&mut |t| {
-            cb(t0 .. t);
+            cb(t0..t);
             t0 = t;
         });
 
-        cb(t0 .. S::ONE);
+        cb(t0..S::ONE);
     }
 
     /// Invokes a callback for each y-monotonic part of the segment.
@@ -474,11 +473,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
     {
         let mut t0 = S::ZERO;
         self.for_each_local_x_extremum_t(&mut |t| {
-            cb(t0 .. t);
+            cb(t0..t);
             t0 = t;
         });
 
-        cb(t0 .. S::ONE);
+        cb(t0..S::ONE);
     }
 
     /// Invokes a callback for each x-monotonic part of the segment.
@@ -555,7 +554,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// its approximation.
     ///
     /// The end of the t parameter range at the final segment is guaranteed to be equal to `1.0`.
-    pub fn for_each_flattened_with_t<F: FnMut(&LineSegment<S>, Range<S>)>(&self, tolerance: S, callback: &mut F) {
+    pub fn for_each_flattened_with_t<F: FnMut(&LineSegment<S>, Range<S>)>(
+        &self,
+        tolerance: S,
+        callback: &mut F,
+    ) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
         let quadratics_tolerance = tolerance * S::value(0.4);
         let flattening_tolerance = tolerance * S::value(0.8);
@@ -581,7 +584,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn approximate_length(&self, tolerance: S) -> S {
         let mut length = S::ZERO;
 
-        self.for_each_quadratic_bezier(tolerance, &mut|quad| {
+        self.for_each_quadratic_bezier(tolerance, &mut |quad| {
             length += quad.length();
         });
 
@@ -597,8 +600,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         // See www.faculty.idc.ac.il/arik/quality/appendixa.html for an explanation
         // of this approach.
         let pa = self.ctrl1 - self.from;
-        let pb =
-            self.ctrl2.to_vector() - (self.ctrl1.to_vector() * S::TWO) + self.from.to_vector();
+        let pb = self.ctrl2.to_vector() - (self.ctrl1.to_vector() * S::TWO) + self.from.to_vector();
         let pc = self.to.to_vector() - (self.ctrl2.to_vector() * S::THREE)
             + (self.ctrl1.to_vector() * S::THREE)
             - self.from.to_vector();
@@ -1236,7 +1238,11 @@ impl<S: Scalar> CubicBezierSegment<S> {
         // Move the most constrained control point by a subset of the uniform displacement
         // depending on the weight.
         let uniform_displacement = new_a - old_a;
-        let f = if t < S::HALF { S::TWO * weight } else { S::TWO * (S::ONE - weight) };
+        let f = if t < S::HALF {
+            S::TWO * weight
+        } else {
+            S::TWO * (S::ONE - weight)
+        };
         let mut new_ctrl1 = ctrl1 + uniform_displacement * f;
 
         // Now that the most constrained control point is placed there is only one position
@@ -1262,8 +1268,12 @@ impl<S: Scalar> CubicBezierSegment<S> {
 impl<S: Scalar> Segment for CubicBezierSegment<S> {
     impl_segment!(S);
 
-    fn for_each_flattened_with_t(&self, tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
-        self.for_each_flattened_with_t(tolerance, &mut|s, t| callback(s, t));
+    fn for_each_flattened_with_t(
+        &self,
+        tolerance: Self::Scalar,
+        callback: &mut dyn FnMut(&LineSegment<S>, Range<S>),
+    ) {
+        self.for_each_flattened_with_t(tolerance, &mut |s, t| callback(s, t));
     }
 }
 
@@ -1990,7 +2000,6 @@ fn cubic_line_intersection_on_endpoint() {
     assert!(intersections.is_empty());
 }
 
-
 #[test]
 fn test_cubic_to_quadratics() {
     use euclid::approxeq::ApproxEq;
@@ -2003,13 +2012,15 @@ fn test_cubic_to_quadratics() {
 
     let mut count = 0;
     assert_eq!(quadratic.to_cubic().num_quadratics(0.0001), 1);
-    quadratic.to_cubic().for_each_quadratic_bezier(0.0001, &mut |c| {
-        assert!(count == 0);
-        assert!(c.from.approx_eq(&quadratic.from));
-        assert!(c.ctrl.approx_eq(&quadratic.ctrl));
-        assert!(c.to.approx_eq(&quadratic.to));
-        count += 1;
-    });
+    quadratic
+        .to_cubic()
+        .for_each_quadratic_bezier(0.0001, &mut |c| {
+            assert!(count == 0);
+            assert!(c.from.approx_eq(&quadratic.from));
+            assert!(c.ctrl.approx_eq(&quadratic.ctrl));
+            assert!(c.to.approx_eq(&quadratic.to));
+            count += 1;
+        });
 
     let cubic = CubicBezierSegment {
         from: point(1.0f32, 1.0),

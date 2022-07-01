@@ -5,8 +5,8 @@ use std::ops::Range;
 
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::{BoundingBox, Segment};
-use crate::{CubicBezierSegment, QuadraticBezierSegment, LineSegment, Line};
 use crate::{point, vector, Angle, Box2D, Point, Rotation, Transform, Vector};
+use crate::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
 
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -312,7 +312,10 @@ impl<S: Scalar> Arc<S> {
             from = to;
         }
 
-        callback(&LineSegment { from, to: self.to() });
+        callback(&LineSegment {
+            from,
+            to: self.to(),
+        });
     }
 
     /// Approximates the curve with sequence of line segments.
@@ -338,12 +341,18 @@ impl<S: Scalar> Arc<S> {
             iter = iter.after_split(step);
             let t1 = t0 + step * (S::ONE - t0);
             let to = iter.from();
-            callback(&LineSegment { from, to, }, t0 .. t1);
+            callback(&LineSegment { from, to }, t0..t1);
             from = to;
             t0 = t1;
         }
 
-        callback(&LineSegment { from, to: self.to() }, t0 .. S::ONE);
+        callback(
+            &LineSegment {
+                from,
+                to: self.to(),
+            },
+            t0..S::ONE,
+        );
     }
 
     /// Finds the interval of the beginning of the curve that can be approximated with a
@@ -577,7 +586,10 @@ impl<S: Scalar> SvgArc<S> {
     /// its approximation.
     pub fn for_each_flattened<F: FnMut(&LineSegment<S>)>(&self, tolerance: S, cb: &mut F) {
         if self.is_straight_line() {
-            cb(&LineSegment { from: self.from, to: self.to });
+            cb(&LineSegment {
+                from: self.from,
+                to: self.to,
+            });
             return;
         }
 
@@ -590,9 +602,19 @@ impl<S: Scalar> SvgArc<S> {
     /// its approximation.
     ///
     /// The end of the t parameter range at the final segment is guaranteed to be equal to `1.0`.
-    pub fn for_each_flattened_with_t<F: FnMut(&LineSegment<S>, Range<S>)>(&self, tolerance: S, cb: &mut F) {
+    pub fn for_each_flattened_with_t<F: FnMut(&LineSegment<S>, Range<S>)>(
+        &self,
+        tolerance: S,
+        cb: &mut F,
+    ) {
         if self.is_straight_line() {
-            cb(&LineSegment { from: self.from, to: self.to }, S::ZERO .. S::ONE);
+            cb(
+                &LineSegment {
+                    from: self.from,
+                    to: self.to,
+                },
+                S::ZERO..S::ONE,
+            );
             return;
         }
 
@@ -752,8 +774,12 @@ impl<S: Scalar> Segment for Arc<S> {
         self.approximate_length(tolerance)
     }
 
-    fn for_each_flattened_with_t(&self, tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
-        self.for_each_flattened_with_t(tolerance, &mut|s, t| callback(s, t));
+    fn for_each_flattened_with_t(
+        &self,
+        tolerance: Self::Scalar,
+        callback: &mut dyn FnMut(&LineSegment<S>, Range<S>),
+    ) {
+        self.for_each_flattened_with_t(tolerance, &mut |s, t| callback(s, t));
     }
 }
 

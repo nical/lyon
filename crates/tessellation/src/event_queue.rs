@@ -1,5 +1,5 @@
 use crate::fill::{compare_positions, is_after};
-use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, LineSegment};
+use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::{point, Point};
 use crate::path::private::DebugValidator;
 use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
@@ -747,7 +747,14 @@ impl EventQueueBuilder {
             self.second = to;
         }
 
-        self.add_edge(&LineSegment { from, to }, 1, self.prev_endpoint_id, to_id, t0, t1);
+        self.add_edge(
+            &LineSegment { from, to },
+            1,
+            self.prev_endpoint_id,
+            to_id,
+            t0,
+            t1,
+        );
 
         self.prev = self.current;
         self.prev_endpoint_id = to_id;

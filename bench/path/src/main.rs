@@ -7,7 +7,7 @@ use lyon::math::point;
 use lyon::path::commands;
 use lyon::path::traits::*;
 use lyon::path::PathBuffer;
-use lyon::path::{NO_ATTRIBUTES, ControlPointId, EndpointId, Event, IdEvent, Path, PathEvent};
+use lyon::path::{ControlPointId, EndpointId, Event, IdEvent, Path, PathEvent, NO_ATTRIBUTES};
 
 use bencher::Bencher;
 
@@ -242,11 +242,7 @@ fn f32x2_attrib_iter(bench: &mut Bencher) {
                         point(2.0, 2.0),
                         &[0.0, 1.0],
                     );
-                    path.quadratic_bezier_to(
-                        point(2.0, 0.0),
-                        point(2.0, 1.0),
-                        &[0.0, 1.0],
-                    );
+                    path.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0), &[0.0, 1.0]);
                 }
                 path.end(true);
             }
