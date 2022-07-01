@@ -395,7 +395,7 @@ impl<'l> StrokeBuilder<'l> {
 
     fn get_width(&self, attributes: Attributes) -> f32 {
         if let Some(idx) = self.builder.options.variable_line_width {
-            self.builder.options.line_width * attributes[idx.index()]
+            self.builder.options.line_width * attributes[idx]
         } else {
             self.builder.options.line_width
         }
@@ -411,7 +411,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         self.validator.begin();
         let id = self.attrib_store.add(attributes);
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let width = self.builder.options.line_width * attributes[attrib_index.index()];
+            let width = self.builder.options.line_width * attributes[attrib_index];
             self.builder.begin(to, id, width, self.attrib_store);
             self.prev = (to, id, width);
         } else {
@@ -431,7 +431,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         let id = self.attrib_store.add(attributes);
         self.validator.edge();
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let width = self.builder.options.line_width * attributes[attrib_index.index()];
+            let width = self.builder.options.line_width * attributes[attrib_index];
             self.builder.line_to(to, id, width, self.attrib_store);
             self.prev = (to, id, width);
         } else {
@@ -455,7 +455,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         let curve = QuadraticBezierSegment { from, ctrl, to };
 
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let end_width = self.builder.options.line_width * attributes[attrib_index.index()];
+            let end_width = self.builder.options.line_width * attributes[attrib_index];
             self.builder.quadratic_bezier_to(
                 &curve,
                 from_id,
@@ -495,7 +495,7 @@ impl<'l> PathBuilder for StrokeBuilder<'l> {
         };
 
         if let Some(attrib_index) = self.builder.options.variable_line_width {
-            let end_width = self.builder.options.line_width * attributes[attrib_index.index()];
+            let end_width = self.builder.options.line_width * attributes[attrib_index];
             self.builder.cubic_bezier_to(
                 &curve,
                 from_id,
@@ -653,7 +653,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) -> TessellationResult {
         let base_width = self.options.line_width;
-        let attrib_index = self.options.variable_line_width.unwrap().index();
+        let attrib_index = self.options.variable_line_width.unwrap();
 
         let mut validator = DebugValidator::new();
 
@@ -2691,7 +2691,7 @@ where
 #[cfg(test)]
 use crate::geometry_builder::*;
 #[cfg(test)]
-use crate::path::{AttributeIndex, Path};
+use crate::path::Path;
 
 #[cfg(test)]
 fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: Option<u32>) {
@@ -2778,7 +2778,7 @@ fn test_square() {
 
     // Test both with and without the fixed width fast path.
     let options = [
-        StrokeOptions::default().with_variable_line_width(AttributeIndex(0)),
+        StrokeOptions::default().with_variable_line_width(0),
         StrokeOptions::default(),
     ];
 
@@ -2860,7 +2860,7 @@ fn test_empty_caps() {
     let path = builder.build();
 
     let options = [
-        StrokeOptions::default().with_variable_line_width(AttributeIndex(0)),
+        StrokeOptions::default().with_variable_line_width(0),
         StrokeOptions::default(),
     ];
 
@@ -2960,7 +2960,7 @@ fn stroke_vertex_source_01() {
         &mut path.id_iter(),
         &path,
         Some(&path),
-        &StrokeOptions::default().with_variable_line_width(AttributeIndex(0)),
+        &StrokeOptions::default().with_variable_line_width(0),
         &mut CheckVertexSources {
             next_vertex: 0,
             a,
