@@ -478,9 +478,8 @@ fn get_stroke(matches: &ArgMatches) -> Option<StrokeOptions> {
         }
         if let Some(var_stroke_str) = matches.value_of("VARIABLE_LINE_WIDTH") {
             options.variable_line_width = var_stroke_str
-                .parse::<u8>()
+                .parse::<usize>()
                 .ok()
-                .map(|idx| lyon::path::AttributeIndex(idx))
         }
 
         Some(options)

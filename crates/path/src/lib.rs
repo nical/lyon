@@ -446,16 +446,10 @@ impl<'l> AttributeStore for AttributeSlice<'l> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct AttributeIndex(pub u8);
-
-impl AttributeIndex {
-    #[inline]
-    pub fn index(&self) -> usize { self.0 as usize }
-}
-
+/// An alias for `usize`.
+pub type AttributeIndex = usize;
+/// An alias for a slice of `f32` values.
 pub type Attributes<'l> = &'l [f32];
-
+/// An empty attribute slice.
 pub const NO_ATTRIBUTES: Attributes<'static> = &[];
 
