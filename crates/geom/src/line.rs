@@ -513,8 +513,12 @@ impl<S: Scalar> Segment for LineSegment<S> {
         self.length()
     }
 
-    fn for_each_flattened_with_t(&self, _tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
-        callback(self, S::ZERO .. S::ONE);
+    fn for_each_flattened_with_t(
+        &self,
+        _tolerance: Self::Scalar,
+        callback: &mut dyn FnMut(&LineSegment<S>, Range<S>),
+    ) {
+        callback(self, S::ZERO..S::ONE);
     }
 }
 

@@ -343,11 +343,7 @@ impl PathParser {
                             interpolated_attributes[i] = prev_attributes[i] * (1.0 - range.end)
                                 + self.attribute_buffer[i] * range.end;
                         }
-                        output.quadratic_bezier_to(
-                            curve.ctrl,
-                            curve.to,
-                            &interpolated_attributes,
-                        );
+                        output.quadratic_bezier_to(curve.ctrl, curve.to, &interpolated_attributes);
                     });
                 }
                 'm' | 'M' => {

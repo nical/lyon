@@ -40,10 +40,10 @@
 //! ```
 //!
 
-use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, LineSegment};
+use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::{EndpointId, PathEvent, Attributes};
+use crate::path::{Attributes, EndpointId, PathEvent};
 
 use std::f32;
 use std::ops::Range;
@@ -146,7 +146,13 @@ impl<'l> PathWalker<'l> {
         }
     }
 
-    fn edge(&mut self, to: Point, t: Range<f32>, attributes: Attributes, pos_cb: &dyn Fn(f32) -> (Point, Vector)) {
+    fn edge(
+        &mut self,
+        to: Point,
+        t: Range<f32>,
+        attributes: Attributes,
+        pos_cb: &dyn Fn(f32) -> (Point, Vector),
+    ) {
         debug_assert!(!self.need_moveto);
 
         let v = to - self.prev;
@@ -219,9 +225,9 @@ impl<'l> PathWalker<'l> {
 
         let from = self.prev;
         let tangent = (to - from).normalize();
-        self.edge(to, 0.0..1.0, attributes, &|x|
+        self.edge(to, 0.0..1.0, attributes, &|x| {
             (LineSegment { from, to }.sample(x), tangent)
-        );
+        });
 
         self.prev_attributes.copy_from_slice(attributes);
 
@@ -234,9 +240,9 @@ impl<'l> PathWalker<'l> {
             let first = self.first;
             let from = self.prev;
             let tangent = (first - from).normalize();
-            self.edge(first, 0.0..1.0, &attributes,
-                &|x| (LineSegment { from, to: first }.sample(x), tangent)
-            );
+            self.edge(first, 0.0..1.0, &attributes, &|x| {
+                (LineSegment { from, to: first }.sample(x), tangent)
+            });
             self.first_attributes = attributes;
             self.need_moveto = true;
         }

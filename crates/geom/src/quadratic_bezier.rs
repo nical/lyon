@@ -264,7 +264,10 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             return true;
         }
 
-        let d = self.baseline().to_line().square_distance_to_point(self.ctrl);
+        let d = self
+            .baseline()
+            .to_line()
+            .square_distance_to_point(self.ctrl);
 
         d <= (tolerance * tolerance * S::FOUR)
     }
@@ -359,17 +362,14 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
                 to: self.sample(t),
             };
 
-            callback(&s, t_from .. t);
+            callback(&s, t_from..t);
             from = s.to;
             t_from = t;
         }
 
-        let s = LineSegment {
-            from,
-            to: self.to,
-        };
+        let s = LineSegment { from, to: self.to };
 
-        callback(&s, t_from .. S::ONE);
+        callback(&s, t_from..S::ONE);
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -403,19 +403,19 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         let mut start = S::ZERO;
 
         if let Some(t) = t0 {
-            cb(start .. t);
+            cb(start..t);
             start = t;
         }
 
         if let Some(t) = t1 {
             // In extreme cases the same point can be an x and y inflection point.
             if t != start {
-                cb(start .. t);
+                cb(start..t);
                 start = t
             }
         }
 
-        cb(start .. S::ONE);
+        cb(start..S::ONE);
     }
 
     /// Invokes a callback for each monotonic part of the segment.
@@ -444,11 +444,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     {
         match self.local_y_extremum_t() {
             Some(t) => {
-                cb(S::ZERO .. t);
-                cb(t .. S::ONE);
+                cb(S::ZERO..t);
+                cb(t..S::ONE);
             }
             None => {
-                cb(S::ZERO .. S::ONE);
+                cb(S::ZERO..S::ONE);
             }
         }
     }
@@ -477,11 +477,11 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     {
         match self.local_x_extremum_t() {
             Some(t) => {
-                cb(S::ZERO .. t);
-                cb(t .. S::ONE);
+                cb(S::ZERO..t);
+                cb(t..S::ONE);
             }
             None => {
-                cb(S::ZERO .. S::ONE);
+                cb(S::ZERO..S::ONE);
             }
         }
     }
@@ -789,7 +789,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         QuadraticBezierSegment {
             from: self.from,
             ctrl: new_position + (new_position - c) * inv_r,
-            to: self.to
+            to: self.to,
         }
     }
 
@@ -812,12 +812,12 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             let v0 = (self.from.to_vector() * S::value(-0.492943519233745)
                 + self.ctrl.to_vector() * S::value(0.430331482911935)
                 + self.to.to_vector() * S::value(0.0626120363218102))
-                .length();
+            .length();
             let v1 = ((self.to - self.from) * S::value(0.4444444444444444)).length();
             let v2 = (self.from.to_vector() * S::value(-0.0626120363218102)
                 + self.ctrl.to_vector() * S::value(-0.430331482911935)
                 + self.to.to_vector() * S::value(0.492943519233745))
-                .length();
+            .length();
             return v0 + v1 + v2;
         }
 
@@ -835,7 +835,8 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             // The curve has a sharp turns.
             v0
         } else {
-            v0 + S::HALF * S::HALF
+            v0 + S::HALF
+                * S::HALF
                 * a32
                 * (S::FOUR * c * a - b * b)
                 * (((S::TWO * a + b) * a2 + S::TWO * sqr_abc) / ba_c2).ln()
@@ -1038,8 +1039,12 @@ impl<S: Scalar> Iterator for FlattenedT<S> {
 impl<S: Scalar> Segment for QuadraticBezierSegment<S> {
     impl_segment!(S);
 
-    fn for_each_flattened_with_t(&self, tolerance: Self::Scalar, callback: &mut dyn FnMut(&LineSegment<S>, Range<S>)) {
-        self.for_each_flattened_with_t(tolerance, &mut|s, t| callback(s, t));
+    fn for_each_flattened_with_t(
+        &self,
+        tolerance: Self::Scalar,
+        callback: &mut dyn FnMut(&LineSegment<S>, Range<S>),
+    ) {
+        self.for_each_flattened_with_t(tolerance, &mut |s, t| callback(s, t));
     }
 }
 
@@ -1220,7 +1225,8 @@ fn length_straight_line() {
         from: Point::new(0.0f64, 0.0),
         ctrl: Point::new(1.0, 0.0),
         to: Point::new(2.0, 0.0),
-    }.length();
+    }
+    .length();
     assert!((len - 2.0).abs() < 0.000001);
 
     let len = CubicBezierSegment {
@@ -1473,16 +1479,33 @@ fn drag() {
 
         use euclid::approxeq::ApproxEq;
         let p1 = dragged.sample(t);
-        assert!(p1.approx_eq_eps(&target, &point(0.001, 0.001)), "{:?} == {:?}", p1, target);
+        assert!(
+            p1.approx_eq_eps(&target, &point(0.001, 0.001)),
+            "{:?} == {:?}",
+            p1,
+            target
+        );
     }
 }
 
 #[test]
 fn arc_length() {
     let curves = [
-        QuadraticBezierSegment { from: point(0.0f64, 0.0), ctrl: point(100.0, 0.0), to: point(0.0, 100.0) },
-        QuadraticBezierSegment { from: point(0.0, 0.0), ctrl: point(100.0, 0.0), to: point(200.0, 0.0) },
-        QuadraticBezierSegment { from: point(100.0, 0.0), ctrl: point(0.0, 0.0), to: point(50.0, 1.0) },
+        QuadraticBezierSegment {
+            from: point(0.0f64, 0.0),
+            ctrl: point(100.0, 0.0),
+            to: point(0.0, 100.0),
+        },
+        QuadraticBezierSegment {
+            from: point(0.0, 0.0),
+            ctrl: point(100.0, 0.0),
+            to: point(200.0, 0.0),
+        },
+        QuadraticBezierSegment {
+            from: point(100.0, 0.0),
+            ctrl: point(0.0, 0.0),
+            to: point(50.0, 1.0),
+        },
     ];
 
     for (idx, curve) in curves.iter().enumerate() {
@@ -1492,6 +1515,12 @@ fn arc_length() {
             accum += line.length();
         });
 
-        assert!((length - accum).abs() < 0.00001, "curve {:?}, {:?} == {:?}", idx, length, accum);
+        assert!(
+            (length - accum).abs() < 0.00001,
+            "curve {:?}, {:?} == {:?}",
+            idx,
+            length,
+            accum
+        );
     }
 }

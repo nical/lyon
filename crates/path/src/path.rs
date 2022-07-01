@@ -1039,10 +1039,7 @@ impl<'l> IterWithAttributes<'l> {
                                 line.from,
                                 &buffer[next_offset..(next_offset + num_attributes)],
                             ),
-                            to: (
-                                line.to,
-                                &buffer[offset..(offset + num_attributes)],
-                            ),
+                            to: (line.to, &buffer[offset..(offset + num_attributes)]),
                         });
 
                         offset = next_offset;
@@ -1076,10 +1073,7 @@ impl<'l> IterWithAttributes<'l> {
                                 line.from,
                                 &buffer[next_offset..(next_offset + num_attributes)],
                             ),
-                            to: (
-                                line.to,
-                                &buffer[offset..(offset + num_attributes)],
-                            ),
+                            to: (line.to, &buffer[offset..(offset + num_attributes)]),
                         });
 
                         offset = next_offset;
@@ -1446,7 +1440,9 @@ fn n_stored_points(verb: Verb, attrib_stride: usize) -> usize {
 }
 
 #[cfg(test)]
-fn slice(a: &[f32]) -> &[f32] { a }
+fn slice(a: &[f32]) -> &[f32] {
+    a
+}
 
 #[test]
 fn test_reverse_path_simple() {
@@ -1730,12 +1726,7 @@ fn test_path_builder_1() {
     p.line_to(point(2.0, 0.0), &[2.0]);
     p.line_to(point(3.0, 0.0), &[3.0]);
     p.quadratic_bezier_to(point(4.0, 0.0), point(4.0, 1.0), &[4.0]);
-    p.cubic_bezier_to(
-        point(5.0, 0.0),
-        point(5.0, 1.0),
-        point(5.0, 2.0),
-        &[5.0],
-    );
+    p.cubic_bezier_to(point(5.0, 0.0), point(5.0, 1.0), point(5.0, 2.0), &[5.0]);
     p.end(true);
 
     p.begin(point(10.0, 0.0), &[6.0]);
@@ -2075,12 +2066,7 @@ fn flattened_custom_attributes() {
     let mut path = Path::builder_with_attributes(1);
     path.begin(point(0.0, 0.0), &[0.0]);
     path.quadratic_bezier_to(point(1.0, 0.0), point(1.0, 1.0), &[1.0]);
-    path.cubic_bezier_to(
-        point(1.0, 2.0),
-        point(0.0, 2.0),
-        point(0.0, 1.0),
-        &[2.0],
-    );
+    path.cubic_bezier_to(point(1.0, 2.0), point(0.0, 2.0), point(0.0, 1.0), &[2.0]);
     path.end(false);
 
     let path = path.build();
@@ -2127,10 +2113,7 @@ fn first_last() {
         path.first_endpoint(),
         Some((point(0.0, 0.0), slice(&[1.0])))
     );
-    assert_eq!(
-        path.last_endpoint(),
-        Some((point(4.0, 4.0), slice(&[5.0])))
-    );
+    assert_eq!(path.last_endpoint(), Some((point(4.0, 4.0), slice(&[5.0]))));
 
     let mut path = Path::builder_with_attributes(1);
     path.begin(point(0.0, 0.0), &[1.0]);
@@ -2143,10 +2126,7 @@ fn first_last() {
         path.first_endpoint(),
         Some((point(0.0, 0.0), slice(&[1.0])))
     );
-    assert_eq!(
-        path.last_endpoint(),
-        Some((point(0.0, 0.0), slice(&[1.0])))
-    );
+    assert_eq!(path.last_endpoint(), Some((point(0.0, 0.0), slice(&[1.0]))));
 }
 
 #[test]

@@ -169,12 +169,7 @@ impl PathMeasurements {
     }
 
     /// Initialize the path measurements with a path.
-    pub fn initialize<Iter, PS>(
-        &mut self,
-        path: Iter,
-        position_store: &PS,
-        tolerance: f32,
-    )
+    pub fn initialize<Iter, PS>(&mut self, path: Iter, position_store: &PS, tolerance: f32)
     where
         Iter: IntoIterator<Item = IdEvent>,
         PS: PositionStore,
@@ -220,12 +215,22 @@ impl PathMeasurements {
                         });
                     });
                 }
-                IdEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                IdEvent::Cubic {
+                    from,
+                    ctrl1,
+                    ctrl2,
+                    to,
+                } => {
                     let from = position_store.get_endpoint(from);
                     let to = position_store.get_endpoint(to);
                     let ctrl1 = position_store.get_control_point(ctrl1);
                     let ctrl2 = position_store.get_control_point(ctrl2);
-                    let segment = CubicBezierSegment { from, ctrl1, ctrl2, to };
+                    let segment = CubicBezierSegment {
+                        from,
+                        ctrl1,
+                        ctrl2,
+                        to,
+                    };
                     segment.for_each_flattened_with_t(tolerance, &mut |line, t| {
                         distance += line.length();
                         edges.push(Edge {
@@ -235,7 +240,11 @@ impl PathMeasurements {
                         });
                     });
                 }
-                IdEvent::End { last, first, close: true } => {
+                IdEvent::End {
+                    last,
+                    first,
+                    close: true,
+                } => {
                     let last = position_store.get_endpoint(last);
                     let first = position_store.get_endpoint(first);
                     distance += (last - first).length();
@@ -279,7 +288,11 @@ impl PathMeasurements {
     /// Create an object that can perform fast sample queries on a path using the cached measurements.
     ///
     /// The returned sampler does not compute interpolated attributes.
-    pub fn create_sampler<'l ,PS: PositionStore>(&'l self, positions: &'l PS, ty: SampleType) -> PathSampler<'l, PS, ()> {
+    pub fn create_sampler<'l, PS: PositionStore>(
+        &'l self,
+        positions: &'l PS,
+        ty: SampleType,
+    ) -> PathSampler<'l, PS, ()> {
         let attr: &'static () = &();
         PathSampler::new(self, positions, attr, ty)
     }
@@ -287,7 +300,12 @@ impl PathMeasurements {
     /// Create an object that can perform fast sample queries on a path using the cached measurements.
     ///
     /// The returned sampler computes interpolated attributes.
-    pub fn create_sampler_with_attributes<'l, PS, AS>(&'l self, positions: &'l PS, attributes: &'l AS, ty: SampleType) -> PathSampler<'l, PS, AS>
+    pub fn create_sampler_with_attributes<'l, PS, AS>(
+        &'l self,
+        positions: &'l PS,
+        attributes: &'l AS,
+        ty: SampleType,
+    ) -> PathSampler<'l, PS, AS>
     where
         PS: PositionStore,
         AS: AttributeStore,
@@ -304,8 +322,8 @@ impl PathMeasurements {
 /// Reusing a sampler over multiple queries saves a memory allocation if there are custom attributes,
 /// And speeds up queries if they are sequentially ordered along the path.
 pub struct PathSampler<'l, PS, AS> {
-    events: &'l[IdEvent],
-    edges: &'l[Edge],
+    events: &'l [IdEvent],
+    edges: &'l [Edge],
     positions: &'l PS,
     attributes: &'l AS,
     attribute_buffer: Vec<f32>,
@@ -317,7 +335,12 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
     /// Create a sampler.
     ///
     /// The provided positions must be the ones provided when initializing the path measurements.
-    pub fn new(measurements: &'l PathMeasurements, positions: &'l PS, attributes: &'l AS, sample_type: SampleType) -> Self {
+    pub fn new(
+        measurements: &'l PathMeasurements,
+        positions: &'l PS,
+        attributes: &'l AS,
+        sample_type: SampleType,
+    ) -> Self {
         PathSampler {
             events: &measurements.events,
             edges: &measurements.edges,
@@ -336,12 +359,12 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
     /// Panics if the path is empty.
     pub fn sample(&mut self, dist: f32) -> PathSample {
         if self.edges.is_empty() {
-            let attr: &'static[f32] = &[];
+            let attr: &'static [f32] = &[];
             return PathSample {
                 position: point(std::f32::NAN, std::f32::NAN),
                 tangent: vector(std::f32::NAN, std::f32::NAN),
                 attributes: attr,
-            }
+            };
         }
 
         self.sample_impl(dist, self.sample_type)
@@ -378,11 +401,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
             let t_begin = self.t(range.start);
             self.cursor = ptr2;
             let t_end = self.t(range.end);
-            self.add_segment(
-                seg1,
-                Some(t_begin..t_end),
-                output,
-            );
+            self.add_segment(seg1, Some(t_begin..t_end), output);
         } else {
             self.cursor = ptr1;
             self.add_segment(seg1, Some(self.t(range.start)..1.0), output);
@@ -407,54 +426,61 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 
     fn to_segment(&self, event: IdEvent) -> SegmentWrapper {
         match event {
-            IdEvent::Line { from, to } => {
-                SegmentWrapper::Line(
-                    LineSegment {
-                        from: self.positions.get_endpoint(from),
-                        to: self.positions.get_endpoint(to),
-                    },
-                    (from, to)
-                )
-            }
-            IdEvent::Quadratic { from, ctrl, to } => {
-                SegmentWrapper::Quadratic(
-                    QuadraticBezierSegment {
-                        from: self.positions.get_endpoint(from),
-                        to: self.positions.get_endpoint(to),
-                        ctrl: self.positions.get_control_point(ctrl),
-                    },
-                    (from, to)
-                )
-            }
-            IdEvent::Cubic { from, ctrl1, ctrl2, to } => {
-                SegmentWrapper::Cubic(
-                    CubicBezierSegment {
-                        from: self.positions.get_endpoint(from),
-                        to: self.positions.get_endpoint(to),
-                        ctrl1: self.positions.get_control_point(ctrl1),
-                        ctrl2: self.positions.get_control_point(ctrl2),
-                    },
-                    (from, to),
-                )
-            }
-            IdEvent::End { last, first, close: true } => {
-                SegmentWrapper::Line(
-                    LineSegment {
-                        from: self.positions.get_endpoint(last),
-                        to: self.positions.get_endpoint(first),
-                    },
-                    (last, first),
-                )
-            }
+            IdEvent::Line { from, to } => SegmentWrapper::Line(
+                LineSegment {
+                    from: self.positions.get_endpoint(from),
+                    to: self.positions.get_endpoint(to),
+                },
+                (from, to),
+            ),
+            IdEvent::Quadratic { from, ctrl, to } => SegmentWrapper::Quadratic(
+                QuadraticBezierSegment {
+                    from: self.positions.get_endpoint(from),
+                    to: self.positions.get_endpoint(to),
+                    ctrl: self.positions.get_control_point(ctrl),
+                },
+                (from, to),
+            ),
+            IdEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            } => SegmentWrapper::Cubic(
+                CubicBezierSegment {
+                    from: self.positions.get_endpoint(from),
+                    to: self.positions.get_endpoint(to),
+                    ctrl1: self.positions.get_control_point(ctrl1),
+                    ctrl2: self.positions.get_control_point(ctrl2),
+                },
+                (from, to),
+            ),
+            IdEvent::End {
+                last,
+                first,
+                close: true,
+            } => SegmentWrapper::Line(
+                LineSegment {
+                    from: self.positions.get_endpoint(last),
+                    to: self.positions.get_endpoint(first),
+                },
+                (last, first),
+            ),
             _ => SegmentWrapper::Empty,
         }
     }
 
     fn in_bounds(&self, dist: f32) -> bool {
         if self.cursor > 0 {
-            println!("edge dist {} .. {}", self.edges[self.cursor - 1].distance, self.edges[self.cursor].distance);
+            println!(
+                "edge dist {} .. {}",
+                self.edges[self.cursor - 1].distance,
+                self.edges[self.cursor].distance
+            );
         }
-        self.cursor != 0 && self.edges[self.cursor - 1].distance <= dist && dist <= self.edges[self.cursor].distance
+        self.cursor != 0
+            && self.edges[self.cursor - 1].distance <= dist
+            && dist <= self.edges[self.cursor].distance
     }
 
     /// Move the pointer so the given point is on the current segment.
@@ -536,12 +562,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
     }
 
     /// Interpolate the custom attributes.
-    fn interpolate_attributes(
-        &mut self,
-        from: EndpointId,
-        to: EndpointId,
-        t: f32,
-    ) {
+    fn interpolate_attributes(&mut self, from: EndpointId, to: EndpointId, t: f32) {
         let from = self.attributes.get(from);
         let to = self.attributes.get(to);
         for i in 0..self.attribute_buffer.len() {
@@ -594,12 +615,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
         unreachable!();
     }
 
-    fn add_segment(
-        &mut self,
-        ptr: usize,
-        range: Option<Range<f32>>,
-        dest: &mut dyn PathBuilder,
-    ) {
+    fn add_segment(&mut self, ptr: usize, range: Option<Range<f32>>, dest: &mut dyn PathBuilder) {
         let segment = self.to_segment(self.events[ptr]);
         let segment = match range.clone() {
             Some(range) => segment.split(range),
@@ -642,7 +658,9 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 }
 
 #[cfg(test)]
-fn slice(a: &[f32]) -> &[f32] { a }
+fn slice(a: &[f32]) -> &[f32] {
+    a
+}
 
 #[test]
 fn measure_line() {
@@ -788,7 +806,7 @@ fn split_bezier_curve() {
     let measure = PathMeasurements::from_path(&path, 0.01);
     let mut sampler = measure.create_sampler(&path, SampleType::Normalized);
 
-    let mut path2 = Path::builder(); 
+    let mut path2 = Path::builder();
     sampler.split_range(0.5..1.0, &mut path2);
     let path2 = path2.build();
 

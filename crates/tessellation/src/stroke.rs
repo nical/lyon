@@ -998,29 +998,33 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
-        flatten_quad(curve, self.options.tolerance, &mut|position, t, is_flattening_step| {
-            let src = if t == 1.0 {
-                VertexSource::Endpoint { id: to_id }
-            } else {
-                VertexSource::Edge {
-                    from: from_id,
-                    to: to_id,
-                    t,
-                }
-            };
+        flatten_quad(
+            curve,
+            self.options.tolerance,
+            &mut |position, t, is_flattening_step| {
+                let src = if t == 1.0 {
+                    VertexSource::Endpoint { id: to_id }
+                } else {
+                    VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
+                    }
+                };
 
-            self.step(
-                EndpointData {
-                    position,
-                    half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
-                    line_join: self.options.line_join,
-                    src,
-                    is_flattening_step,
-                    ..Default::default()
-                },
-                attributes,
-            );
-        });
+                self.step(
+                    EndpointData {
+                        position,
+                        half_width: (start_width * (1.0 - t) + end_width * t) * 0.5,
+                        line_join: self.options.line_join,
+                        src,
+                        is_flattening_step,
+                        ..Default::default()
+                    },
+                    attributes,
+                );
+            },
+        );
     }
 
     pub(crate) fn cubic_bezier_to(
@@ -1105,29 +1109,33 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        flatten_quad(curve, self.options.tolerance, &mut|position, t, is_flattening_step| {
-            let src = if t == 1.0 {
-                VertexSource::Endpoint { id: to_id }
-            } else {
-                VertexSource::Edge {
-                    from: from_id,
-                    to: to_id,
-                    t,
-                }
-            };
+        flatten_quad(
+            curve,
+            self.options.tolerance,
+            &mut |position, t, is_flattening_step| {
+                let src = if t == 1.0 {
+                    VertexSource::Endpoint { id: to_id }
+                } else {
+                    VertexSource::Edge {
+                        from: from_id,
+                        to: to_id,
+                        t,
+                    }
+                };
 
-            self.fixed_width_step(
-                EndpointData {
-                    position,
-                    half_width,
-                    line_join: self.options.line_join,
-                    src,
-                    is_flattening_step,
-                    ..Default::default()
-                },
-                attributes,
-            );
-        });
+                self.fixed_width_step(
+                    EndpointData {
+                        position,
+                        half_width,
+                        line_join: self.options.line_join,
+                        src,
+                        is_flattening_step,
+                        ..Default::default()
+                    },
+                    attributes,
+                );
+            },
+        );
     }
 
     pub(crate) fn cubic_bezier_to_fw(
@@ -1221,7 +1229,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             }
 
             let (p0, p1) = self.point_buffer.last_two_mut();
-            // TODO: This is hacky: We re-create the first two vertices on the edge towards the second endpoint 
+            // TODO: This is hacky: We re-create the first two vertices on the edge towards the second endpoint
             // so that they use the advancement value of the start of the sub path instead of the end of the
             // sub path as computed in the step_impl above.
             self.vertex.src = p0.src;
@@ -1241,7 +1249,9 @@ impl<'l> StrokeBuilderImpl<'l> {
                     (p0.side_points[side].next - p0.position) / p0.half_width
                 };
 
-                let vertex = self.output.add_stroke_vertex(StrokeVertex(&mut self.vertex, attributes))?;
+                let vertex = self
+                    .output
+                    .add_stroke_vertex(StrokeVertex(&mut self.vertex, attributes))?;
                 p0.side_points[side].next_vertex = vertex;
             }
 
@@ -2049,8 +2059,10 @@ fn compute_join_side_positions(
     // For concave sides we'll simply connect at the intersection of the two side edges.
     let concave = inward && normal_same_side && !join.fold[side];
 
-    if concave || ((join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-            && !miter_limit_is_exceeded(normal, miter_limit)) {
+    if concave
+        || ((join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
+            && !miter_limit_is_exceeded(normal, miter_limit))
+    {
         let p = join.position + normal * join.half_width;
         join.side_points[side].single_vertex = Some(p);
     } else if join.line_join == LineJoin::MiterClip {
@@ -2741,13 +2753,13 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
 
     let mut tess = StrokeTessellator::new();
     tess.tessellate_path(
-            path,
-            &options,
-            &mut TestBuilder {
-                builder: simple_builder(&mut buffers),
-            },
-        )
-        .unwrap();
+        path,
+        &options,
+        &mut TestBuilder {
+            builder: simple_builder(&mut buffers),
+        },
+    )
+    .unwrap();
 
     if let Some(triangles) = expected_triangle_count {
         assert_eq!(
@@ -3095,7 +3107,9 @@ fn find_sharp_turn(curve: &QuadraticBezierSegment<f32>) -> Option<f32> {
 
     // If the projection of the control point on the baseline is between the endpoint, we
     // can only get a sharp turn with a control point that is very far away.
-    let long_axis = if (v_dot_b >= 0.0 && v_dot_b <= baseline.dot(baseline)) || v_dot_n.abs() * 2.0 >= v_dot_b.abs() {
+    let long_axis = if (v_dot_b >= 0.0 && v_dot_b <= baseline.dot(baseline))
+        || v_dot_n.abs() * 2.0 >= v_dot_b.abs()
+    {
         // The control point is far enough from the endpoints It can cause a sharp turn.
         if baseline.square_length() * 30.0 > v.square_length() {
             return None;
@@ -3153,5 +3167,12 @@ fn test_triangle_winding() {
     let mut tess = StrokeTessellator::new();
     let options = StrokeOptions::tolerance(0.05);
 
-    tess.tessellate(&path, &options, &mut Builder { vertices: Vec::new() }).unwrap();
+    tess.tessellate(
+        &path,
+        &options,
+        &mut Builder {
+            vertices: Vec::new(),
+        },
+    )
+    .unwrap();
 }

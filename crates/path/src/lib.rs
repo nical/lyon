@@ -452,4 +452,3 @@ pub type AttributeIndex = usize;
 pub type Attributes<'l> = &'l [f32];
 /// An empty attribute slice.
 pub const NO_ATTRIBUTES: Attributes<'static> = &[];
-

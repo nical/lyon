@@ -1,4 +1,4 @@
-use crate::math::{point, Box2D, Point, Vector, vector};
+use crate::math::{point, vector, Box2D, Point, Vector};
 use crate::path::PathEvent;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -36,7 +36,10 @@ impl ToRectangleOptions {
 }
 
 /// If the input path represents an axis-aligned rectangle, return it.
-pub fn to_axis_aligned_rectangle<P: IntoIterator<Item = PathEvent>>(path: P, options: &ToRectangleOptions) -> Option<Box2D> {
+pub fn to_axis_aligned_rectangle<P: IntoIterator<Item = PathEvent>>(
+    path: P,
+    options: &ToRectangleOptions,
+) -> Option<Box2D> {
     let tolerance = options.tolerance;
     let mut ctx = ToRectangle {
         min: point(0.0, 0.0),
@@ -95,8 +98,13 @@ pub fn to_axis_aligned_rectangle<P: IntoIterator<Item = PathEvent>>(path: P, opt
                 }
 
                 ctx.edge(from, to);
-            } 
-            PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+            }
+            PathEvent::Cubic {
+                from,
+                ctrl1,
+                ctrl2,
+                to,
+            } => {
                 let tol = vector(tolerance, tolerance);
                 let to_axis = (to - from).abs().greater_than(tol);
                 let mut ctrl1_axis = (ctrl1 - from).abs().greater_than(tol);
@@ -114,20 +122,27 @@ pub fn to_axis_aligned_rectangle<P: IntoIterator<Item = PathEvent>>(path: P, opt
                     return None;
                 }
 
-                if to_axis.x && !(is_between(ctrl1.x, from.x, to.x) && is_between(ctrl2.x, from.x, to.x)) {
+                if to_axis.x
+                    && !(is_between(ctrl1.x, from.x, to.x) && is_between(ctrl2.x, from.x, to.x))
+                {
                     return None;
                 }
 
-                if to_axis.y && !(is_between(ctrl1.y, from.y, to.y) && is_between(ctrl2.y, from.y, to.y)) {
+                if to_axis.y
+                    && !(is_between(ctrl1.y, from.y, to.y) && is_between(ctrl2.y, from.y, to.y))
+                {
                     return None;
                 }
 
                 ctx.edge(from, to);
-            } 
+            }
         }
     }
 
-    Some(Box2D { min: ctx.min, max: ctx.max })
+    Some(Box2D {
+        min: ctx.min,
+        max: ctx.max,
+    })
 }
 
 struct ToRectangle {
@@ -239,9 +254,17 @@ fn direction(v: Vector, tolerance: f32) -> Option<Dir> {
     }
 
     let dir = if x {
-        if v.x > 0.0 { Dir::Right } else { Dir::Left }
+        if v.x > 0.0 {
+            Dir::Right
+        } else {
+            Dir::Left
+        }
     } else {
-        if v.y > 0.0 { Dir::Down } else { Dir::Up }
+        if v.y > 0.0 {
+            Dir::Down
+        } else {
+            Dir::Up
+        }
     };
 
     Some(dir)
@@ -266,8 +289,13 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     let r = to_axis_aligned_rectangle(&path, &fill).unwrap();
-    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(10.0, 5.0) }));
-
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(0.0, 0.0),
+            max: point(10.0, 5.0)
+        }
+    ));
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 0.0));
@@ -278,7 +306,13 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     let r = to_axis_aligned_rectangle(&path, &fill).unwrap();
-    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(10.0, 5.0) }));
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(0.0, 0.0),
+            max: point(10.0, 5.0)
+        }
+    ));
     assert!(to_axis_aligned_rectangle(&path, &stroke).is_none());
 
     let mut builder = crate::path::Path::builder();
@@ -294,8 +328,13 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     let r = to_axis_aligned_rectangle(&path, &fill).unwrap();
-    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(10.0, 5.0) }));
-
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(0.0, 0.0),
+            max: point(10.0, 5.0)
+        }
+    ));
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 0.0));
@@ -305,7 +344,6 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     assert!(to_axis_aligned_rectangle(&path, &fill).is_none());
-
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 0.0));
@@ -324,7 +362,6 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     assert!(to_axis_aligned_rectangle(&path, &fill).is_none());
-
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 0.0));
@@ -347,7 +384,13 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     let r = to_axis_aligned_rectangle(&path, &fill).unwrap();
-    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(10.0, 5.0) }));
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(0.0, 0.0),
+            max: point(10.0, 5.0)
+        }
+    ));
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 0.0));
@@ -358,7 +401,6 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     assert!(to_axis_aligned_rectangle(&path, &fill).is_none());
-
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(-1.0, 0.0));
@@ -382,10 +424,13 @@ fn test_to_axis_aligned_rectangle() {
     let path = builder.build();
 
     let r = to_axis_aligned_rectangle(&path, &fill).unwrap();
-    assert!(approx_eq(r, Box2D { min: point(0.0, 0.0), max: point(10.0, 5.0) }));
-
-
-
+    assert!(approx_eq(
+        r,
+        Box2D {
+            min: point(0.0, 0.0),
+            max: point(10.0, 5.0)
+        }
+    ));
 
     let mut builder = crate::path::Path::builder();
     builder.begin(point(0.0, 0.0));

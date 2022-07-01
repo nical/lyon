@@ -2215,8 +2215,7 @@ impl<'l> FillVertex<'l> {
                 let a = store.get(id);
                 assert!(a.len() == num_attributes);
                 assert!(self.attrib_buffer.len() == num_attributes);
-                self.attrib_buffer[..num_attributes]
-                    .clone_from_slice(&a[..num_attributes]);
+                self.attrib_buffer[..num_attributes].clone_from_slice(&a[..num_attributes]);
             }
             VertexSource::Edge { from, to, t } => {
                 let a = store.get(from);
@@ -2711,20 +2710,11 @@ fn fill_vertex_source_01() {
             }
 
             if eq(pos, point(0.0, 0.0)) {
-                assert_eq!(
-                    vertex.interpolated_attributes(),
-                    &[1.0, 0.0, 0.0]
-                )
+                assert_eq!(vertex.interpolated_attributes(), &[1.0, 0.0, 0.0])
             } else if eq(pos, point(1.0, 1.0)) {
-                assert_eq!(
-                    vertex.interpolated_attributes(),
-                    &[0.0, 1.0, 0.0]
-                )
+                assert_eq!(vertex.interpolated_attributes(), &[0.0, 1.0, 0.0])
             } else if eq(pos, point(0.0, 2.0)) {
-                assert_eq!(
-                    vertex.interpolated_attributes(),
-                    &[0.0, 0.0, 1.0]
-                )
+                assert_eq!(vertex.interpolated_attributes(), &[0.0, 0.0, 1.0])
             }
 
             let id = self.next_vertex;
