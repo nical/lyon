@@ -30,7 +30,7 @@ use crate::geom::LineSegment;
 use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::private::DebugValidator;
-use crate::path::{self, Attributes, EndpointId, PathEvent};
+use crate::path::{self, Attributes, EndpointId, PathEvent, NO_ATTRIBUTES};
 use std::marker::PhantomData;
 
 use std::cmp::Ordering;
@@ -548,8 +548,8 @@ impl PathBuilder for EventsBuilder {
             self.current,
             ctrl,
             to,
-            Attributes::NONE,
-            Attributes::NONE,
+            NO_ATTRIBUTES,
+            NO_ATTRIBUTES,
             self,
             &mut [],
         )
@@ -568,8 +568,8 @@ impl PathBuilder for EventsBuilder {
             ctrl1,
             ctrl2,
             to,
-            Attributes::NONE,
-            Attributes::NONE,
+            NO_ATTRIBUTES,
+            NO_ATTRIBUTES,
             self,
             &mut [],
         )
@@ -586,7 +586,7 @@ impl HatchingEvents {
         builder.edges = mem::take(&mut self.edges);
 
         for evt in it {
-            builder.path_event(evt, Attributes::NONE);
+            builder.path_event(evt, NO_ATTRIBUTES);
         }
         mem::swap(self, &mut builder.build());
     }

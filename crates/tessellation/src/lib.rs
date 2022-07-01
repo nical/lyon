@@ -712,7 +712,7 @@ impl path::AttributeStore for SimpleAttributeStore {
     fn get(&self, id: EndpointId) -> Attributes {
         let start = id.0 as usize * self.num_attributes;
         let end = start + self.num_attributes;
-        Attributes(&self.data[start..end])
+        &self.data[start..end]
     }
 
     fn num_attributes(&self) -> usize {
@@ -737,7 +737,7 @@ impl SimpleAttributeStore {
 
     pub fn add(&mut self, attributes: Attributes) -> EndpointId {
         debug_assert_eq!(attributes.len(), self.num_attributes);
-        self.data.extend_from_slice(attributes.as_slice());
+        self.data.extend_from_slice(attributes);
         let id = self.next_id;
         self.next_id.0 += 1;
         id

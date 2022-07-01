@@ -6,7 +6,7 @@ use crate::path::polygon::Polygon;
 use crate::path::traits::{Build, PathBuilder};
 use crate::path::{
     builder::NoAttributes, AttributeStore, Attributes, EndpointId, FillRule, IdEvent, PathEvent,
-    PathSlice, PositionStore, Winding,
+    PathSlice, PositionStore, Winding, NO_ATTRIBUTES,
 };
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
@@ -464,10 +464,10 @@ struct PendingEdge {
 /// # fn main() {
 /// // Create a path with three custom endpoint attributes.
 /// let mut path_builder = Path::builder_with_attributes(3);
-/// path_builder.begin(point(0.0, 0.0), Attributes(&[0.0, 0.1, 0.5]));
-/// path_builder.line_to(point(1.0, 2.0), Attributes(&[1.0, 1.0, 0.1]));
-/// path_builder.line_to(point(2.0, 0.0), Attributes(&[1.0, 0.0, 0.8]));
-/// path_builder.line_to(point(1.0, 1.0), Attributes(&[0.1, 0.3, 0.5]));
+/// path_builder.begin(point(0.0, 0.0), &[0.0, 0.1, 0.5]);
+/// path_builder.line_to(point(1.0, 2.0), &[1.0, 1.0, 0.1]);
+/// path_builder.line_to(point(2.0, 0.0), &[1.0, 0.0, 0.8]);
+/// path_builder.line_to(point(1.0, 1.0), &[0.1, 0.3, 0.5]);
 /// path_builder.end(true);
 /// let path = path_builder.build();
 ///
@@ -2186,7 +2186,7 @@ impl<'l> FillVertex<'l> {
     /// Fetch or interpolate the custom attribute values at this vertex.
     pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.attrib_store.is_none() {
-            return Attributes::NONE;
+            return NO_ATTRIBUTES;
         }
 
         let store = self.attrib_store.unwrap();
@@ -2216,7 +2216,7 @@ impl<'l> FillVertex<'l> {
                 assert!(a.len() == num_attributes);
                 assert!(self.attrib_buffer.len() == num_attributes);
                 self.attrib_buffer[..num_attributes]
-                    .clone_from_slice(&a.as_slice()[..num_attributes]);
+                    .clone_from_slice(&a[..num_attributes]);
             }
             VertexSource::Edge { from, to, t } => {
                 let a = store.get(from);
@@ -2237,7 +2237,7 @@ impl<'l> FillVertex<'l> {
                     let a = store.get(id);
                     assert!(a.len() == num_attributes);
                     assert!(self.attrib_buffer.len() == num_attributes);
-                    for (i, &att) in a.as_slice().iter().enumerate() {
+                    for (i, &att) in a.iter().enumerate() {
                         self.attrib_buffer[i] += att;
                     }
                 }
@@ -2265,7 +2265,7 @@ impl<'l> FillVertex<'l> {
             }
         }
 
-        Attributes(self.attrib_buffer)
+        self.attrib_buffer
     }
 }
 
@@ -2713,17 +2713,17 @@ fn fill_vertex_source_01() {
             if eq(pos, point(0.0, 0.0)) {
                 assert_eq!(
                     vertex.interpolated_attributes(),
-                    Attributes(&[1.0, 0.0, 0.0])
+                    &[1.0, 0.0, 0.0]
                 )
             } else if eq(pos, point(1.0, 1.0)) {
                 assert_eq!(
                     vertex.interpolated_attributes(),
-                    Attributes(&[0.0, 1.0, 0.0])
+                    &[0.0, 1.0, 0.0]
                 )
             } else if eq(pos, point(0.0, 2.0)) {
                 assert_eq!(
                     vertex.interpolated_attributes(),
-                    Attributes(&[0.0, 0.0, 1.0])
+                    &[0.0, 0.0, 1.0]
                 )
             }
 
@@ -2746,15 +2746,15 @@ fn fill_vertex_source_02() {
     //
 
     let mut path = crate::path::Path::builder_with_attributes(3);
-    let a = path.begin(point(1.0, 0.0), Attributes(&[1.0, 0.0, 1.0]));
-    let b = path.line_to(point(2.0, 0.0), Attributes(&[2.0, 0.0, 1.0]));
-    let c = path.line_to(point(2.0, 4.0), Attributes(&[3.0, 0.0, 1.0]));
-    let d = path.line_to(point(1.0, 4.0), Attributes(&[4.0, 0.0, 1.0]));
+    let a = path.begin(point(1.0, 0.0), &[1.0, 0.0, 1.0]);
+    let b = path.line_to(point(2.0, 0.0), &[2.0, 0.0, 1.0]);
+    let c = path.line_to(point(2.0, 4.0), &[3.0, 0.0, 1.0]);
+    let d = path.line_to(point(1.0, 4.0), &[4.0, 0.0, 1.0]);
     path.end(true);
-    let e = path.begin(point(0.0, 1.0), Attributes(&[0.0, 1.0, 2.0]));
-    let f = path.line_to(point(0.0, 3.0), Attributes(&[0.0, 2.0, 2.0]));
-    let g = path.line_to(point(3.0, 3.0), Attributes(&[0.0, 3.0, 2.0]));
-    let h = path.line_to(point(3.0, 1.0), Attributes(&[0.0, 4.0, 2.0]));
+    let e = path.begin(point(0.0, 1.0), &[0.0, 1.0, 2.0]);
+    let f = path.line_to(point(0.0, 3.0), &[0.0, 2.0, 2.0]);
+    let g = path.line_to(point(3.0, 3.0), &[0.0, 3.0, 2.0]);
+    let h = path.line_to(point(3.0, 1.0), &[0.0, 4.0, 2.0]);
     path.end(true);
 
     let path = path.build();
@@ -2858,29 +2858,29 @@ fn fill_vertex_source_02() {
             let pos = vertex.position();
             let attribs = vertex.interpolated_attributes();
             if eq(pos, point(1.0, 0.0)) {
-                assert_attr(attribs, Attributes(&[1.0, 0.0, 1.0]));
+                assert_attr(attribs, &[1.0, 0.0, 1.0]);
             } else if eq(pos, point(2.0, 0.0)) {
-                assert_attr(attribs, Attributes(&[2.0, 0.0, 1.0]));
+                assert_attr(attribs, &[2.0, 0.0, 1.0]);
             } else if eq(pos, point(2.0, 4.0)) {
-                assert_attr(attribs, Attributes(&[3.0, 0.0, 1.0]));
+                assert_attr(attribs, &[3.0, 0.0, 1.0]);
             } else if eq(pos, point(1.0, 4.0)) {
-                assert_attr(attribs, Attributes(&[4.0, 0.0, 1.0]));
+                assert_attr(attribs, &[4.0, 0.0, 1.0]);
             } else if eq(pos, point(0.0, 1.0)) {
-                assert_attr(attribs, Attributes(&[0.0, 1.0, 2.0]));
+                assert_attr(attribs, &[0.0, 1.0, 2.0]);
             } else if eq(pos, point(0.0, 3.0)) {
-                assert_attr(attribs, Attributes(&[0.0, 2.0, 2.0]));
+                assert_attr(attribs, &[0.0, 2.0, 2.0]);
             } else if eq(pos, point(3.0, 3.0)) {
-                assert_attr(attribs, Attributes(&[0.0, 3.0, 2.0]));
+                assert_attr(attribs, &[0.0, 3.0, 2.0]);
             } else if eq(pos, point(3.0, 1.0)) {
-                assert_attr(attribs, Attributes(&[0.0, 4.0, 2.0]));
+                assert_attr(attribs, &[0.0, 4.0, 2.0]);
             } else if eq(pos, point(1.0, 1.0)) {
-                assert_attr(attribs, Attributes(&[0.875, 1.0, 1.5]));
+                assert_attr(attribs, &[0.875, 1.0, 1.5]);
             } else if eq(pos, point(2.0, 1.0)) {
-                assert_attr(attribs, Attributes(&[1.125, 1.5, 1.5]));
+                assert_attr(attribs, &[1.125, 1.5, 1.5]);
             } else if eq(pos, point(1.0, 3.0)) {
-                assert_attr(attribs, Attributes(&[1.625, 1.16666, 1.5]));
+                assert_attr(attribs, &[1.625, 1.16666, 1.5]);
             } else if eq(pos, point(2.0, 3.0)) {
-                assert_attr(attribs, Attributes(&[1.375, 1.33333, 1.5]));
+                assert_attr(attribs, &[1.375, 1.33333, 1.5]);
             }
 
             let id = self.next_vertex;
@@ -2952,10 +2952,10 @@ fn fill_vertex_source_03() {
             mut vertex: FillVertex,
         ) -> Result<VertexId, GeometryBuilderError> {
             if eq(vertex.position(), point(1.0, 1.0)) {
-                assert_eq!(vertex.interpolated_attributes(), Attributes(&[1.5]));
+                assert_eq!(vertex.interpolated_attributes(), &[1.5]);
                 assert_eq!(vertex.sources().count(), 2);
             } else {
-                assert_eq!(vertex.interpolated_attributes(), Attributes(&[0.0]));
+                assert_eq!(vertex.interpolated_attributes(), &[0.0]);
                 assert_eq!(vertex.sources().count(), 1);
             }
 

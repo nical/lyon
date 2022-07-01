@@ -43,7 +43,7 @@
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment, LineSegment};
 use crate::math::*;
 use crate::path::builder::*;
-use crate::path::{Attributes, EndpointId, PathEvent};
+use crate::path::{EndpointId, PathEvent, Attributes};
 
 use std::f32;
 use std::ops::Range;
@@ -179,7 +179,7 @@ impl<'l> PathWalker<'l> {
                 position,
                 tangent,
                 distance: self.advancement,
-                attributes: Attributes(&self.attribute_buffer[..]),
+                attributes: &self.attribute_buffer[..],
             };
             if let Some(distance) = self.pattern.next(event) {
                 self.next_distance = distance;
@@ -208,8 +208,8 @@ impl<'l> PathWalker<'l> {
             self.done = true;
         }
 
-        self.prev_attributes.copy_from_slice(attributes.as_slice());
-        self.first_attributes.copy_from_slice(attributes.as_slice());
+        self.prev_attributes.copy_from_slice(attributes);
+        self.first_attributes.copy_from_slice(attributes);
 
         EndpointId::INVALID
     }
@@ -223,7 +223,7 @@ impl<'l> PathWalker<'l> {
             (LineSegment { from, to }.sample(x), tangent)
         );
 
-        self.prev_attributes.copy_from_slice(attributes.as_slice());
+        self.prev_attributes.copy_from_slice(attributes);
 
         EndpointId::INVALID
     }
@@ -234,7 +234,7 @@ impl<'l> PathWalker<'l> {
             let first = self.first;
             let from = self.prev;
             let tangent = (first - from).normalize();
-            self.edge(first, 0.0..1.0, Attributes(&attributes),
+            self.edge(first, 0.0..1.0, &attributes,
                 &|x| (LineSegment { from, to: first }.sample(x), tangent)
             );
             self.first_attributes = attributes;
@@ -262,7 +262,7 @@ impl<'l> PathWalker<'l> {
             }
         });
 
-        self.prev_attributes.copy_from_slice(attributes.as_slice());
+        self.prev_attributes.copy_from_slice(attributes);
 
         EndpointId::INVALID
     }
@@ -290,7 +290,7 @@ impl<'l> PathWalker<'l> {
             }
         });
 
-        self.prev_attributes.copy_from_slice(attributes.as_slice());
+        self.prev_attributes.copy_from_slice(attributes);
 
         EndpointId::INVALID
     }

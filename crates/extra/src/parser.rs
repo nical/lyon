@@ -2,7 +2,6 @@ use path::{
     geom::{ArcFlags, SvgArc},
     math::{point, vector, Angle, Point},
     traits::PathBuilder,
-    Attributes,
 };
 
 use std::fmt;
@@ -271,7 +270,7 @@ impl PathParser {
             match cmd {
                 'l' | 'L' => {
                     let to = self.parse_endpoint(is_relatve, src)?;
-                    output.line_to(to, Attributes(&self.attribute_buffer));
+                    output.line_to(to, &self.attribute_buffer);
                 }
                 'h' | 'H' => {
                     let mut x = self.parse_number(src)?;
@@ -281,7 +280,7 @@ impl PathParser {
                     let to = point(x, self.current_position.y);
                     self.current_position = to;
                     self.parse_attributes(src)?;
-                    output.line_to(to, Attributes(&self.attribute_buffer));
+                    output.line_to(to, &self.attribute_buffer);
                 }
                 'v' | 'V' => {
                     let mut y = self.parse_number(src)?;
@@ -291,33 +290,33 @@ impl PathParser {
                     let to = point(self.current_position.x, y);
                     self.current_position = to;
                     self.parse_attributes(src)?;
-                    output.line_to(to, Attributes(&self.attribute_buffer));
+                    output.line_to(to, &self.attribute_buffer);
                 }
                 'q' | 'Q' => {
                     let ctrl = self.parse_point(is_relatve, src)?;
                     let to = self.parse_endpoint(is_relatve, src)?;
                     prev_quadratic_ctrl = Some(ctrl);
-                    output.quadratic_bezier_to(ctrl, to, Attributes(&self.attribute_buffer));
+                    output.quadratic_bezier_to(ctrl, to, &self.attribute_buffer);
                 }
                 't' | 'T' => {
                     let ctrl = self.get_smooth_ctrl(prev_quadratic_ctrl);
                     let to = self.parse_endpoint(is_relatve, src)?;
                     prev_quadratic_ctrl = Some(ctrl);
-                    output.quadratic_bezier_to(ctrl, to, Attributes(&self.attribute_buffer));
+                    output.quadratic_bezier_to(ctrl, to, &self.attribute_buffer);
                 }
                 'c' | 'C' => {
                     let ctrl1 = self.parse_point(is_relatve, src)?;
                     let ctrl2 = self.parse_point(is_relatve, src)?;
                     let to = self.parse_endpoint(is_relatve, src)?;
                     prev_cubic_ctrl = Some(ctrl2);
-                    output.cubic_bezier_to(ctrl1, ctrl2, to, Attributes(&self.attribute_buffer));
+                    output.cubic_bezier_to(ctrl1, ctrl2, to, &self.attribute_buffer);
                 }
                 's' | 'S' => {
                     let ctrl1 = self.get_smooth_ctrl(prev_cubic_ctrl);
                     let ctrl2 = self.parse_point(is_relatve, src)?;
                     let to = self.parse_endpoint(is_relatve, src)?;
                     prev_cubic_ctrl = Some(ctrl2);
-                    output.cubic_bezier_to(ctrl1, ctrl2, to, Attributes(&self.attribute_buffer));
+                    output.cubic_bezier_to(ctrl1, ctrl2, to, &self.attribute_buffer);
                 }
                 'a' | 'A' => {
                     let prev_attributes = self.attribute_buffer.clone();
@@ -347,7 +346,7 @@ impl PathParser {
                         output.quadratic_bezier_to(
                             curve.ctrl,
                             curve.to,
-                            Attributes(&interpolated_attributes),
+                            &interpolated_attributes,
                         );
                     });
                 }
@@ -358,7 +357,7 @@ impl PathParser {
 
                     let to = self.parse_endpoint(is_relatve, src)?;
                     first_position = to;
-                    output.begin(to, Attributes(&self.attribute_buffer));
+                    output.begin(to, &self.attribute_buffer);
                     self.need_end = true;
                     need_start = false;
                 }

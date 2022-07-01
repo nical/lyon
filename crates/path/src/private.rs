@@ -85,7 +85,7 @@ pub fn flatten_quadratic_bezier(
             for i in 0..n {
                 buffer[i] = prev_attributes[i] * (1.0 - t.end) + attributes[i] * t.end;
             }
-            Attributes(&buffer[..])
+            &buffer[..]
         };
         id = builder.line_to(line.to, attr);
     });
@@ -119,7 +119,7 @@ pub fn flatten_cubic_bezier(
             for i in 0..n {
                 buffer[i] = prev_attributes[i] * (1.0 - t.end) + attributes[i] * t.end;
             }
-            Attributes(&buffer[..])
+            &buffer[..]
         };
         id = builder.line_to(line.to, attr);
     });
