@@ -1,6 +1,6 @@
 [package]
 name = "lyon_extra"
-version = "0.17.1"
+version = "1.0.0"
 description = "Various optional utilities for the lyon crate."
 authors = [ "Nicolas Silva <nical@fastmail.com>" ]
 repository = "https://github.com/nical/lyon"
@@ -15,4 +15,4 @@ name = "lyon_extra"
 serialization = ["lyon_path/serialization"]
 
 [dependencies]
-lyon_path = { version = "0.17.1", path = "../path" }
+lyon_path = { version = "1.0.0", path = "../path" }
