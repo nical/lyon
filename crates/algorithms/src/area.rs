@@ -1,3 +1,5 @@
+//! Approximate the area of a path.
+
 use crate::geom::vector;
 use crate::path::{iterator::PathIterator, PathEvent};
 

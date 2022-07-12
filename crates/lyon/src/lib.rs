@@ -24,9 +24,6 @@
 //! * [![crate](https://img.shields.io/crates/v/lyon_geom.svg)](https://crates.io/crates/lyon_geom)
 //!   [![doc](https://docs.rs/lyon_geom/badge.svg)](https://docs.rs/lyon_geom) -
 //!   **lyon_geom** - 2d utilities for cubic and quadratic bézier curves, arcs and more.
-//! * [![crate](https://img.shields.io/crates/v/lyon_svg.svg)](https://crates.io/crates/lyon_svg)
-//!   [![doc](https://docs.rs/lyon_svg/badge.svg)](https://docs.rs/lyon_svg) -
-//!   **lyon_svg** - Create paths using SVG's path syntax.
 //! * [![crate](https://img.shields.io/crates/v/lyon_extra.svg)](https://crates.io/crates/lyon_extra)
 //!   [![doc](https://docs.rs/lyon_extra/badge.svg)](https://docs.rs/lyon_extra) -
 //!   **lyon_extra** - Additional testing and debugging tools.
