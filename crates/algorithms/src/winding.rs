@@ -1,3 +1,5 @@
+// Compute the winding of a path.
+
 use crate::geom::vector;
 use crate::path::{PathEvent, Winding};
 

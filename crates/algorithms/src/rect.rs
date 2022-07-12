@@ -1,3 +1,5 @@
+// Determine whether a path has the shape of an axisa-aligned rectangle.
+
 use crate::math::{point, vector, Box2D, Point, Vector};
 use crate::path::PathEvent;
 

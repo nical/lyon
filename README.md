@@ -88,10 +88,6 @@ Although the format of the output of the tessellators is customizable, the algor
 
 There is currently no built-in support for anti-aliasing in the tessellators. Anti-aliasing can still be achieved by users of this crate using techniques commonly employed in video games (msaa, taa, fxaa, etc.).
 
-### What is left to do before lyon 1.0?
-
-See the [1.0 milestone](https://github.com/nical/lyon/milestone/2) on the github repository.
-
 ### I need help!
 
 Don't hesitate to [file an issue](https://github.com/nical/lyon/issues/new), ask questions on [gitter](https://gitter.im/lyon-rs/Lobby), or contact [@nical](https://github.com/nical) by e-mail.

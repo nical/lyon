@@ -252,6 +252,7 @@ pub enum InternalError {
 /// The fill tessellator's error enumeration.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TessellationError {
+    // TODO Paramater typo
     UnsupportedParamater(UnsupportedParamater),
     GeometryBuilder(GeometryBuilderError),
     Internal(InternalError),
