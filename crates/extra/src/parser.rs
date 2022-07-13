@@ -511,13 +511,19 @@ impl PathParser {
     ) -> Result<bool, ParseError> {
         src.skip_whitespace();
         match src.current {
-            '1' => Ok(true),
-            '0' => Ok(false),
+            '1' => {
+                src.advance_one();
+                Ok(true)
+            }
+            '0' => {
+                src.advance_one();
+                Ok(false)
+            }
             _ => Err(ParseError::Flag {
                 src: src.current,
                 line: src.line,
                 column: src.col,
-            }),
+            })
         }
     }
 }
