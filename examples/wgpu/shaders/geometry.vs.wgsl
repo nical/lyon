@@ -1,38 +1,38 @@
 struct Globals {
-    resolution: vec2<f32>;
-    scroll_offset: vec2<f32>;
-    zoom: f32;
+    resolution: vec2<f32>,
+    scroll_offset: vec2<f32>,
+    zoom: f32,
 };
 
 struct Primitive {
-    color: vec4<f32>;
-    translate: vec2<f32>;
-    z_index: i32;
-    width: f32;
-    angle: f32;
-    scale: f32;
-    pad1: i32;
-    pad2: i32;
+    color: vec4<f32>,
+    translate: vec2<f32>,
+    z_index: i32,
+    width: f32,
+    angle: f32,
+    scale: f32,
+    pad1: i32,
+    pad2: i32,
 };
 
 struct Primitives {
-    primitives: [[stride(48)]] array<Primitive, 256>;
+    primitives: array<Primitive, 256>,
 };
 
-[[group(0), binding(0)]] var<uniform> globals: Globals;
-[[group(0), binding(1)]] var<uniform> u_primitives: Primitives;
+@group(0) @binding(0) var<uniform> globals: Globals;
+@group(0) @binding(1) var<uniform> u_primitives: Primitives;
 
 struct VertexOutput {
-    [[location(0)]] v_color: vec4<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) v_color: vec4<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn main(
-    [[location(0)]] a_position: vec2<f32>,
-    [[location(1)]] a_normal: vec2<f32>,
-    [[location(2)]] a_prim_id: u32,
-    [[builtin(instance_index)]] instance_idx: u32
+    @location(0) a_position: vec2<f32>,
+    @location(1) a_normal: vec2<f32>,
+    @location(2) a_prim_id: u32,
+    @builtin(instance_index) instance_idx: u32
 ) -> VertexOutput {
     var prim: Primitive = u_primitives.primitives[a_prim_id + instance_idx];
 

@@ -14,7 +14,7 @@ lyon = { path = "../crates/lyon", features = ["extra", "debugger"]}
 clap = "2.32.0"
 rand = "0.6"
 env_logger = "0.7"
-wgpu = "0.12"
+wgpu = "0.13.1"
 winit = "0.26"
 futures = "0.3.5"
 bytemuck = "1.2.0"
