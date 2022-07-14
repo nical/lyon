@@ -329,22 +329,27 @@ impl PathParser {
                     let large_arc = self.parse_flag(src)?;
                     let sweep = self.parse_flag(src)?;
                     let to = self.parse_endpoint(is_relatve, src)?;
-                    let arc = SvgArc {
+                    let svg_arc = SvgArc {
                         from,
                         to,
                         radii: vector(rx, ry),
                         x_rotation: Angle::degrees(x_rotation),
                         flags: ArcFlags { large_arc, sweep },
-                    }
-                    .to_arc();
+                    };
 
-                    arc.for_each_quadratic_bezier_with_t(&mut |curve, range| {
-                        for i in 0..self.num_attributes {
-                            interpolated_attributes[i] = prev_attributes[i] * (1.0 - range.end)
-                                + self.attribute_buffer[i] * range.end;
-                        }
-                        output.quadratic_bezier_to(curve.ctrl, curve.to, &interpolated_attributes);
-                    });
+                    if svg_arc.is_straight_line() {
+                        output.line_to(to, &self.attribute_buffer[..]);
+                    } else {
+                        let arc = svg_arc.to_arc();
+
+                        arc.for_each_quadratic_bezier_with_t(&mut |curve, range| {
+                            for i in 0..self.num_attributes {
+                                interpolated_attributes[i] = prev_attributes[i] * (1.0 - range.end)
+                                    + self.attribute_buffer[i] * range.end;
+                            }
+                            output.quadratic_bezier_to(curve.ctrl, curve.to, &interpolated_attributes);
+                        });
+                    }
                 }
                 'm' | 'M' => {
                     if self.need_end {
