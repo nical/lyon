@@ -1,19 +1,19 @@
 
 struct Globals {
-    resolution: vec2<f32>;
-    scroll_offset: vec2<f32>;
-    bg_color: vec4<f32>;
-    vignette_color: vec4<f32>;
-    zoom: f32;
+    resolution: vec2<f32>,
+    scroll_offset: vec2<f32>,
+    bg_color: vec4<f32>,
+    vignette_color: vec4<f32>,
+    zoom: f32,
 };
 
-[[group(0), binding(0)]] var<uniform> globals: Globals;
+@group(0) @binding(0) var<uniform> globals: Globals;
 struct Output {
-    [[location(0)]] color: vec4<f32>;
+    @location(0) color: vec4<f32>,
 };
 
-[[stage(fragment)]]
-fn main([[location(0)]] v_position: vec2<f32>) -> Output {
+@fragment
+fn main(@location(0) v_position: vec2<f32>) -> Output {
 
     var invert_y = vec2<f32>(1.0, -1.0);
     var px_position = v_position * invert_y * globals.resolution * 0.5;

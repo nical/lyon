@@ -1,13 +1,13 @@
 struct Output {
-    [[location(0)]] color: vec4<f32>;
+    @location(0) color: vec4<f32>,
 };
 
-[[stage(fragment)]]
+@fragment
 fn main(
-    [[location(0)]] v_position: vec2<f32>,
-    [[location(1), interpolate(flat)]] v_resolution: vec2<f32>,
-    [[location(2), interpolate(flat)]] v_scroll_offset: vec2<f32>,
-    [[location(3), interpolate(flat)]] v_zoom: f32
+    @location(0) v_position: vec2<f32>,
+    @location(1) @interpolate(flat) v_resolution: vec2<f32>,
+    @location(2) @interpolate(flat) v_scroll_offset: vec2<f32>,
+    @location(3) @interpolate(flat) v_zoom: f32
 ) -> Output {
 
     var invert_y = vec2<f32>(1.0, -1.0);

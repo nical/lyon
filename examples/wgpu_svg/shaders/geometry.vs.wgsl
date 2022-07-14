@@ -1,41 +1,41 @@
 struct Globals {
-    u_zoom: vec2<f32>;
-    u_pan: vec2<f32>;
-    u_aspect_ratio: f32;
+    u_zoom: vec2<f32>,
+    u_pan: vec2<f32>,
+    u_aspect_ratio: f32,
 };
 
 struct Primitive {
-    transform: u32;
-    color: u32;
-    pad: vec2<u32>;
+    transform: u32,
+    color: u32,
+    pad: vec2<u32>,
 };
 
 struct Transform {
-    data0: vec4<f32>;
-    data1: vec4<f32>;
+    data0: vec4<f32>,
+    data1: vec4<f32>,
 };
 
 struct Primitives {
-    primitives: [[stride(16)]] array<Primitive>;
+    primitives: array<Primitive>,
 };
 
 struct Transforms {
-    transforms: [[stride(32)]] array<Transform>;
+    transforms: array<Transform>,
 };
 
-[[group(0), binding(0)]] var<uniform> global: Globals;
-[[group(0), binding(1)]] var<storage, read> u_primitives: Primitives;
-[[group(0), binding(2)]] var<storage, read> u_transforms: Transforms;
+@group(0) @binding(0) var<uniform> global: Globals;
+@group(0) @binding(1) var<storage, read> u_primitives: Primitives;
+@group(0) @binding(2) var<storage, read> u_transforms: Transforms;
 
 struct VertexOutput {
-    [[location(0)]] v_color: vec4<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) v_color: vec4<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn main(
-    [[location(0)]] a_position: vec2<f32>,
-    [[location(1)]] a_prim_id: u32
+    @location(0) a_position: vec2<f32>,
+    @location(1) a_prim_id: u32
 ) -> VertexOutput {
     var prim: Primitive = u_primitives.primitives[a_prim_id];
 

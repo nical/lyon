@@ -226,7 +226,7 @@ fn main() {
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
-        present_mode: wgpu::PresentMode::Mailbox,
+        present_mode: wgpu::PresentMode::AutoVsync,
     };
 
     let mut msaa_texture = None;
@@ -272,8 +272,8 @@ fn main() {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    let vs_module = device.create_shader_module(&include_wgsl!("../shaders/geometry.vs.wgsl"));
-    let fs_module = device.create_shader_module(&include_wgsl!("../shaders/geometry.fs.wgsl"));
+    let vs_module = device.create_shader_module(include_wgsl!("../shaders/geometry.vs.wgsl"));
+    let fs_module = device.create_shader_module(include_wgsl!("../shaders/geometry.fs.wgsl"));
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Bind group layout"),
         entries: &[
@@ -361,11 +361,11 @@ fn main() {
         fragment: Some(wgpu::FragmentState {
             module: &fs_module,
             entry_point: "main",
-            targets: &[wgpu::ColorTargetState {
+            targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
                 blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
-            }],
+            })],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -467,7 +467,7 @@ fn main() {
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: msaa_texture.as_ref().unwrap_or(&frame_view),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
@@ -478,7 +478,7 @@ fn main() {
                     } else {
                         None
                     },
-                }],
+                })],
                 depth_stencil_attachment: None,
             });
 

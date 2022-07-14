@@ -320,19 +320,19 @@ fn main() {
         mapped_at_creation: false,
     });
 
-    let vs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+    let vs_module = &device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Geometry vs"),
         source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/geometry.vs.wgsl").into()),
     });
-    let fs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+    let fs_module = &device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Geometry fs"),
         source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/geometry.fs.wgsl").into()),
     });
-    let bg_vs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+    let bg_vs_module = &device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Background vs"),
         source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/background.vs.wgsl").into()),
     });
-    let bg_fs_module = &device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+    let bg_fs_module = &device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Background fs"),
         source: wgpu::ShaderSource::Wgsl(include_str!("./../shaders/background.fs.wgsl").into()),
     });
@@ -427,11 +427,11 @@ fn main() {
         fragment: Some(wgpu::FragmentState {
             module: &fs_module,
             entry_point: "main",
-            targets: &[wgpu::ColorTargetState {
+            targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
                 blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
-            }],
+            })],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -476,11 +476,11 @@ fn main() {
         fragment: Some(wgpu::FragmentState {
             module: &bg_fs_module,
             entry_point: "main",
-            targets: &[wgpu::ColorTargetState {
+            targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
                 blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
-            }],
+            })],
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -507,7 +507,7 @@ fn main() {
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
-        present_mode: wgpu::PresentMode::Mailbox,
+        present_mode: wgpu::PresentMode::AutoVsync,
     };
 
     let mut multisampled_render_target = None;
@@ -671,7 +671,7 @@ fn main() {
 
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
-                color_attachments: &[color_attachment],
+                color_attachments: &[Some(color_attachment)],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: depth_texture_view.as_ref().unwrap(),
                     depth_ops: Some(wgpu::Operations {
