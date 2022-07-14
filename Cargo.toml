@@ -12,6 +12,7 @@ members = [
     "examples/wgpu_svg",
     "bench/tess",
     "bench/path",
+    "bench/geom",
 ]
 
 exclude = [

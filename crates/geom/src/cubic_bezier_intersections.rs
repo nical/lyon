@@ -619,7 +619,9 @@ fn restrict_curve_to_fat_line<S: Scalar>(
     let d_2 = baseline2.signed_distance_to_point(&curve1.ctrl2);
     let d_3 = baseline2.signed_distance_to_point(&curve1.to);
 
-    let (mut top, mut bottom) = convex_hull_of_distance_curve(d_0, d_1, d_2, d_3);
+    let mut top = ArrayVec::new();
+    let mut bottom = ArrayVec::new();
+    convex_hull_of_distance_curve(d_0, d_1, d_2, d_3, &mut top, &mut bottom);
     let (d_min, d_max) = curve2.fat_line_min_max();
 
     clip_convex_hull_to_fat_line(&mut top, &mut bottom, d_min, d_max)
@@ -634,7 +636,12 @@ fn convex_hull_of_distance_curve<S: Scalar>(
     d1: S,
     d2: S,
     d3: S,
-) -> (Vec<Point<S>>, Vec<Point<S>>) {
+    top: &mut ArrayVec<Point<S>, 4>,
+    bottom: &mut ArrayVec<Point<S>, 4>,
+) {
+    debug_assert!(top.is_empty());
+    debug_assert!(bottom.is_empty());
+
     let p0 = point(S::ZERO, d0);
     let p1 = point(S::ONE / S::THREE, d1);
     let p2 = point(S::TWO / S::THREE, d2);
@@ -644,9 +651,10 @@ fn convex_hull_of_distance_curve<S: Scalar>(
     let dist2 = d2 - (d0 + S::TWO * d3) / S::THREE;
 
     // Compute the hull assuming p1 is on top - we'll switch later if needed.
-    let mut hull = if dist1 * dist2 < S::ZERO {
+    if dist1 * dist2 < S::ZERO {
         // p1 and p2 lie on opposite sides of [p0, p3], so the hull is a quadrilateral:
-        (vec![p0, p1, p3], vec![p0, p2, p3])
+        let _ = top.try_extend_from_slice(&[p0, p1, p3]);
+        let _ = bottom.try_extend_from_slice(&[p0, p2, p3]);
     } else {
         // p1 and p2 lie on the same side of [p0, p3]. The hull can be a triangle or a
         // quadrilateral, and [p0, p3] is part of the hull. The hull is a triangle if the vertical
@@ -655,26 +663,27 @@ fn convex_hull_of_distance_curve<S: Scalar>(
         let dist1 = S::abs(dist1);
         let dist2 = S::abs(dist2);
         if dist1 >= S::TWO * dist2 {
-            (vec![p0, p1, p3], vec![p0, p3])
+            let _ = top.try_extend_from_slice(&[p0, p1, p3]);
+            let _ = bottom.try_extend_from_slice(&[p0, p3]);
         } else if dist2 >= S::TWO * dist1 {
-            (vec![p0, p2, p3], vec![p0, p3])
+            let _ = top.try_extend_from_slice(&[p0, p2, p3]);
+            let _ = bottom.try_extend_from_slice(&[p0, p3]);
         } else {
-            (vec![p0, p1, p2, p3], vec![p0, p3])
+            let _ = top.try_extend_from_slice(&[p0, p1, p2, p3]);
+            let _ = bottom.try_extend_from_slice(&[p0, p3]);
         }
-    };
+    }
 
     // Flip the hull if needed:
     if dist1 < S::ZERO || (dist1 == S::ZERO && dist2 < S::ZERO) {
-        hull = (hull.1, hull.0);
+        std::mem::swap(top, bottom);
     }
-
-    hull
 }
 
 // Returns the min and max values at which the convex hull enters the fat line min/max offset lines.
 fn clip_convex_hull_to_fat_line<S: Scalar>(
-    hull_top: &mut Vec<Point<S>>,
-    hull_bottom: &mut Vec<Point<S>>,
+    hull_top: &mut [Point<S>],
+    hull_bottom: &mut [Point<S>],
     d_min: S,
     d_max: S,
 ) -> Option<(S, S)> {
