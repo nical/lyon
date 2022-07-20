@@ -1173,7 +1173,8 @@ impl<'l> StrokeBuilderImpl<'l> {
     }
 
     pub(crate) fn end(&mut self, close: bool, attributes: &dyn AttributeStore) {
-        let e = if close && self.point_buffer.count() > 0 {
+        self.may_need_empty_cap |= close && self.point_buffer.count() == 1;
+        let e = if close && self.point_buffer.count() > 2 {
             self.close(attributes)
         } else {
             self.end_with_caps(attributes)
@@ -1267,7 +1268,6 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) -> Result<(), TessellationError> {
         let point = self.point_buffer.get(0);
-
         self.vertex.advancement = point.advancement;
         self.vertex.src = point.src;
         self.vertex.half_width = point.half_width;
@@ -3175,4 +3175,43 @@ fn test_triangle_winding() {
         },
     )
     .unwrap();
+}
+
+#[test]
+fn single_segment_closed() {
+    let mut path = Path::builder().with_svg();
+    path.move_to(point(0.0, 0.0));
+    path.line_to(point(100.0, 0.0));
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::tolerance(0.05);
+     let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
+    tess.tessellate(
+        &path,
+        &options,
+        &mut simple_builder(&mut output),
+    )
+    .unwrap();
+
+    assert!(output.indices.len() > 0);
+
+
+    let mut path = Path::builder_with_attributes(1);
+    path.begin(point(0.0, 0.0), &[1.0]);
+    path.line_to(point(100.0, 0.0), &[1.0]);
+    path.end(false);
+    let path = path.build();
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::tolerance(0.05);
+     let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
+    tess.tessellate(
+        &path,
+        &options,
+        &mut simple_builder(&mut output),
+    )
+    .unwrap();
+
+    assert!(output.indices.len() > 0);
 }
