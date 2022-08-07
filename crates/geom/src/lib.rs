@@ -157,7 +157,7 @@ mod scalar {
             Self::EPSILON
         }
 
-        fn value(v: f32) -> Self;
+        fn value(v: f64) -> Self;
     }
 
     impl Scalar for f32 {
@@ -180,8 +180,8 @@ mod scalar {
         const EPSILON: Self = 1e-4;
 
         #[inline]
-        fn value(v: f32) -> Self {
-            v
+        fn value(v: f64) -> Self {
+            v as f32
         }
 
         fn epsilon_for(reference: Self) -> Self {
@@ -224,8 +224,8 @@ mod scalar {
         const EPSILON: Self = 1e-8;
 
         #[inline]
-        fn value(v: f32) -> Self {
-            v as f64
+        fn value(v: f64) -> Self {
+            v
         }
 
         fn epsilon_for(reference: Self) -> Self {
