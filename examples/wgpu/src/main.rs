@@ -400,7 +400,7 @@ fn main() {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &vs_module,
+            module: vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
@@ -425,7 +425,7 @@ fn main() {
             }],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &fs_module,
+            module: fs_module,
             entry_point: "main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -461,7 +461,7 @@ fn main() {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &bg_vs_module,
+            module: bg_vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<Point>() as u64,
@@ -474,7 +474,7 @@ fn main() {
             }],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &bg_fs_module,
+            module: bg_fs_module,
             entry_point: "main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -491,7 +491,7 @@ fn main() {
             unclipped_depth: false,
             conservative: false,
         },
-        depth_stencil: depth_stencil_state.clone(),
+        depth_stencil: depth_stencil_state,
         multisample: wgpu::MultisampleState {
             count: sample_count,
             mask: !0,

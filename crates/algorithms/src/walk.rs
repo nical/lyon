@@ -169,10 +169,14 @@ impl<'l> PathWalker<'l> {
         while distance >= self.next_distance {
             if self.num_attributes > 0 {
                 let t2 = t.end * self.next_distance / distance;
-                for i in 0..self.num_attributes {
-                    self.attribute_buffer[i] =
-                        self.prev_attributes[i] * (1.0 - t2) + attributes[i] * t2;
-                }
+                self.attribute_buffer
+                    .iter_mut()
+                    .zip(self.prev_attributes.iter())
+                    .zip(attributes.iter())
+                    .take(self.num_attributes)
+                    .for_each(|((attribute_buffer_i, prev_attribute), attribute)| {
+                        *attribute_buffer_i = prev_attribute * (1.0 - t2) + attribute * t2
+                    });
             }
             x += (self.next_distance - self.leftover) * inv_d;
             let (position, tangent) = pos_cb(x);

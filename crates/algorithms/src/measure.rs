@@ -71,6 +71,7 @@ impl<'l> PathSample<'l> {
     }
 }
 
+#[allow(clippy::needless_doctest_main)]
 /// An acceleration structure for sampling distances along a specific path.
 ///
 /// Building the path measurements can be an expensive operation depending on the complexity of the

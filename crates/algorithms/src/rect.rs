@@ -261,12 +261,10 @@ fn direction(v: Vector, tolerance: f32) -> Option<Dir> {
         } else {
             Dir::Left
         }
+    } else if v.y > 0.0 {
+        Dir::Down
     } else {
-        if v.y > 0.0 {
-            Dir::Down
-        } else {
-            Dir::Up
-        }
+        Dir::Up
     };
 
     Some(dir)

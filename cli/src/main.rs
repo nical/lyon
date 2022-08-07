@@ -161,8 +161,8 @@ fn main() {
         .get_matches();
 
     if let Some(command) = matches.subcommand_matches("tessellate") {
-        let output = get_output(&command);
-        let cmd = get_tess_command(&command, true);
+        let output = get_output(command);
+        let cmd = get_tess_command(command, true);
         let cmd_copy = cmd.clone();
         let float_precision = cmd.float_precision;
 
@@ -198,9 +198,9 @@ fn main() {
 
     if let Some(command) = matches.subcommand_matches("path") {
         let cmd = PathCmd {
-            path: get_path(&command).expect("Need a path to transform"),
+            path: get_path(command).expect("Need a path to transform"),
             output: get_output(command),
-            tolerance: get_tolerance(&command),
+            tolerance: get_tolerance(command),
             count: command.is_present("COUNT"),
             flatten: command.is_present("FLATTEN"),
         };
@@ -389,12 +389,9 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
 
     let mut builder = Path::builder_with_attributes(options.num_attributes);
 
-    match parser.parse(&options, &mut Source::new(path_str.chars()), &mut builder) {
-        Err(e) => {
-            println!("Error while parsing path: {}", path_str);
-            println!("{:?}", e);
-        }
-        _ => {}
+    if let Err(e) = parser.parse(&options, &mut Source::new(path_str.chars()), &mut builder) {
+        println!("Error while parsing path: {}", path_str);
+        println!("{:?}", e);
     }
 
     Some(builder.build())
@@ -431,7 +428,7 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
     let fill =
         if command.is_present("FILL") || (stroke.is_none() && hatch.is_none() && dots.is_none()) {
             Some(
-                FillOptions::tolerance(get_tolerance(&command))
+                FillOptions::tolerance(get_tolerance(command))
                     .with_fill_rule(fill_rule)
                     .with_sweep_orientation(orientation),
             )

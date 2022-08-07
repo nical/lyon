@@ -369,7 +369,7 @@ impl Position for [f32; 2] {
     }
 }
 
-impl<'l, T> Position for (Point, T) {
+impl<T> Position for (Point, T) {
     fn position(&self) -> Point {
         self.0
     }

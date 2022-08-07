@@ -809,14 +809,14 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             //
             // Legendre-Gauss quadrature using formula from Behdad
             // in https://github.com/Pomax/BezierInfo-2/issues/77
-            let v0 = (self.from.to_vector() * S::value(-0.492943519233745)
-                + self.ctrl.to_vector() * S::value(0.430331482911935)
-                + self.to.to_vector() * S::value(0.0626120363218102))
+            let v0 = (self.from.to_vector() * S::value(-0.492_943_53)
+                + self.ctrl.to_vector() * S::value(0.430_331_47)
+                + self.to.to_vector() * S::value(0.062_612_034))
             .length();
-            let v1 = ((self.to - self.from) * S::value(0.4444444444444444)).length();
-            let v2 = (self.from.to_vector() * S::value(-0.0626120363218102)
-                + self.ctrl.to_vector() * S::value(-0.430331482911935)
-                + self.to.to_vector() * S::value(0.492943519233745))
+            let v1 = ((self.to - self.from) * S::value(0.444_444_45)).length();
+            let v2 = (self.from.to_vector() * S::value(-0.062_612_034)
+                + self.ctrl.to_vector() * S::value(-0.430_331_47)
+                + self.to.to_vector() * S::value(0.492_943_53))
             .length();
             return v0 + v1 + v2;
         }

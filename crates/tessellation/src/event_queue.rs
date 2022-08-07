@@ -803,7 +803,7 @@ impl EventQueueBuilder {
                 self.vertex_event_on_curve(line.from, t.start, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(&line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
+            self.add_edge(line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
 
             prev = line.from;
         });
@@ -879,7 +879,7 @@ impl EventQueueBuilder {
                 self.vertex_event_on_curve(line.from, t.start, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(&line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
+            self.add_edge(line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
 
             prev = line.from;
         });

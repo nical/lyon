@@ -2649,7 +2649,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
     #[inline]
     pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.0.buffer_is_valid {
-            return &self.0.buffer[..];
+            return self.0.buffer;
         }
 
         match self.0.src {
@@ -2662,7 +2662,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
                 }
                 self.0.buffer_is_valid = true;
 
-                &self.0.buffer[..]
+                self.0.buffer
             }
         }
     }
@@ -3186,16 +3186,11 @@ fn single_segment_closed() {
 
     let mut tess = StrokeTessellator::new();
     let options = StrokeOptions::tolerance(0.05);
-     let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
-    tess.tessellate(
-        &path,
-        &options,
-        &mut simple_builder(&mut output),
-    )
-    .unwrap();
+    let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
+    tess.tessellate(&path, &options, &mut simple_builder(&mut output))
+        .unwrap();
 
     assert!(output.indices.len() > 0);
-
 
     let mut path = Path::builder_with_attributes(1);
     path.begin(point(0.0, 0.0), &[1.0]);
@@ -3205,13 +3200,9 @@ fn single_segment_closed() {
 
     let mut tess = StrokeTessellator::new();
     let options = StrokeOptions::tolerance(0.05);
-     let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
-    tess.tessellate(
-        &path,
-        &options,
-        &mut simple_builder(&mut output),
-    )
-    .unwrap();
+    let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
+    tess.tessellate(&path, &options, &mut simple_builder(&mut output))
+        .unwrap();
 
     assert!(output.indices.len() > 0);
 }

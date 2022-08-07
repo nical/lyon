@@ -188,6 +188,12 @@ pub struct PathParser {
     need_end: bool,
 }
 
+impl Default for PathParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PathParser {
     pub fn new() -> Self {
         PathParser {
@@ -347,7 +353,11 @@ impl PathParser {
                                 interpolated_attributes[i] = prev_attributes[i] * (1.0 - range.end)
                                     + self.attribute_buffer[i] * range.end;
                             }
-                            output.quadratic_bezier_to(curve.ctrl, curve.to, &interpolated_attributes);
+                            output.quadratic_bezier_to(
+                                curve.ctrl,
+                                curve.to,
+                                &interpolated_attributes,
+                            );
                         });
                     }
                 }
@@ -528,7 +538,7 @@ impl PathParser {
                 src: src.current,
                 line: src.line,
                 column: src.col,
-            })
+            }),
         }
     }
 }
