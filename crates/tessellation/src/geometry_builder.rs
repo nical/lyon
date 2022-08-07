@@ -194,28 +194,16 @@ use crate::{FillVertex, Index, StrokeVertex, VertexId};
 
 use std::convert::From;
 use std::ops::Add;
+use thiserror::Error;
 
 /// An error that can happen while generating geometry.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum GeometryBuilderError {
+    #[error("Invalid vertex")]
     InvalidVertex,
+    #[error("Too many vertices")]
     TooManyVertices,
 }
-
-impl std::fmt::Display for GeometryBuilderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GeometryBuilderError::InvalidVertex => {
-                write!(f, "Invalid vertex")
-            }
-            GeometryBuilderError::TooManyVertices => {
-                write!(f, "Too many vertices")
-            }
-        }
-    }
-}
-
-impl std::error::Error for GeometryBuilderError {}
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
