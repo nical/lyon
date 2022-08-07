@@ -2,10 +2,10 @@ extern crate lyon;
 #[macro_use]
 extern crate bencher;
 
-use lyon::geom::euclid::point2 as point;
-use lyon::geom::euclid::default::Rotation2D;
-use lyon::geom::CubicBezierSegment;
 use bencher::Bencher;
+use lyon::geom::euclid::default::Rotation2D;
+use lyon::geom::euclid::point2 as point;
+use lyon::geom::CubicBezierSegment;
 
 const N: usize = 1000;
 
@@ -20,14 +20,16 @@ fn cubic_intersections(bench: &mut Bencher) {
                 ctrl1: point(100.0, -100.0),
                 ctrl2: point(-100.0, 100.0),
                 to: point(-100.0, 100.0),
-            }.transformed(&Rotation2D::radians(r));
+            }
+            .transformed(&Rotation2D::radians(r));
 
             let curve2 = CubicBezierSegment {
                 from: point(-100.0, -100.0),
                 ctrl1: point(100.0, -100.0),
                 ctrl2: point(-100.0, 100.0),
                 to: point(-100.0, 100.0),
-            }.transformed(&Rotation2D::radians(1.6));
+            }
+            .transformed(&Rotation2D::radians(1.6));
 
             let intersections = curve1.cubic_intersections_t(&curve2);
 
@@ -40,9 +42,6 @@ fn cubic_intersections(bench: &mut Bencher) {
     });
 }
 
-benchmark_group!(
-    cubic,
-    cubic_intersections
-);
+benchmark_group!(cubic, cubic_intersections);
 
 benchmark_main!(cubic);

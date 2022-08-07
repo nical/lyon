@@ -231,6 +231,7 @@ use crate::path::EndpointId;
 
 use std::ops::{Add, Sub};
 use std::u32;
+use thiserror::Error;
 
 /// The fill tessellator's result type.
 pub type TessellationResult = Result<(), TessellationError>;
@@ -239,98 +240,41 @@ pub type TessellationResult = Result<(), TessellationError>;
 ///
 /// If you run into one of these, please consider
 /// [filing an issue](https://github.com/nical/lyon/issues/new).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum InternalError {
+    #[error("Incorrect active edge order ({0})")]
     IncorrectActiveEdgeOrder(i16),
+    #[error("Insufficient number of spans")]
     InsufficientNumberOfSpans,
+    #[error("Insufficient number of edges")]
     InsufficientNumberOfEdges,
+    #[error("Merge vertex is outside of the shape")]
     MergeVertexOutside,
+    #[error("Unexpected number of edges below a vertex")]
     InvalidNumberOfEdgesBelowVertex,
+    #[error("Error code: #{0}")]
     ErrorCode(i16),
 }
 
 /// The fill tessellator's error enumeration.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq)]
 pub enum TessellationError {
     // TODO Paramater typo
+    #[error("Unsupported parameter: {0}")]
     UnsupportedParamater(UnsupportedParamater),
-    GeometryBuilder(GeometryBuilderError),
-    Internal(InternalError),
+    #[error("Geometry builder error: {0}")]
+    GeometryBuilder(#[from] GeometryBuilderError),
+    #[error("Internal error: {0}")]
+    Internal(#[from] InternalError),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq)]
 pub enum UnsupportedParamater {
+    #[error("Position is not a number")]
     PositionIsNaN,
+    #[error("Tolerance threshold is not a number")]
     ToleranceIsNaN,
 }
-
-impl From<GeometryBuilderError> for TessellationError {
-    fn from(e: GeometryBuilderError) -> Self {
-        TessellationError::GeometryBuilder(e)
-    }
-}
-impl From<InternalError> for TessellationError {
-    fn from(e: InternalError) -> Self {
-        TessellationError::Internal(e)
-    }
-}
-
-impl std::fmt::Display for TessellationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TessellationError::UnsupportedParamater(e) => {
-                write!(f, "Unsupported parameter: {}", e)
-            }
-            TessellationError::GeometryBuilder(e) => {
-                write!(f, "Geometry builder error: {}", e)
-            }
-            TessellationError::Internal(e) => {
-                write!(f, "Internal error: {}", e)
-            }
-        }
-    }
-}
-
-impl std::fmt::Display for UnsupportedParamater {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UnsupportedParamater::PositionIsNaN => {
-                write!(f, "Position is not a number")
-            }
-            UnsupportedParamater::ToleranceIsNaN => {
-                write!(f, "Tolerance threshold is not a number")
-            }
-        }
-    }
-}
-
-impl std::fmt::Display for InternalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            InternalError::IncorrectActiveEdgeOrder(i) => {
-                write!(f, "Incorrect active edge order ({})", i)
-            }
-            InternalError::InsufficientNumberOfSpans => {
-                write!(f, "Insufficient number of spans")
-            }
-            InternalError::InsufficientNumberOfEdges => {
-                write!(f, "Insufficient number of edges")
-            }
-            InternalError::MergeVertexOutside => {
-                write!(f, "Merge vertex is outside of the shape")
-            }
-            InternalError::InvalidNumberOfEdgesBelowVertex => {
-                write!(f, "Unexpected number of edges below a vertex")
-            }
-            InternalError::ErrorCode(code) => {
-                write!(f, "Error code #{}", code)
-            }
-        }
-    }
-}
-
-impl std::error::Error for TessellationError {}
-impl std::error::Error for InternalError {}
 
 /// Before or After. Used to describe position relative to a join.
 #[derive(Copy, Clone, Debug, PartialEq)]
