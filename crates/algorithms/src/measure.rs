@@ -471,13 +471,6 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
     }
 
     fn in_bounds(&self, dist: f32) -> bool {
-        if self.cursor > 0 {
-            println!(
-                "edge dist {} .. {}",
-                self.edges[self.cursor - 1].distance,
-                self.edges[self.cursor].distance
-            );
-        }
         self.cursor != 0
             && self.edges[self.cursor - 1].distance <= dist
             && dist <= self.edges[self.cursor].distance
@@ -572,7 +565,6 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 
     /// Returns the relative position (0 ~ 1) of the given point on the current segment.
     fn t(&self, dist: f32) -> f32 {
-        println!("dist {:?} cursor: {:?}", dist, self.cursor);
         debug_assert!(self.in_bounds(dist));
         let prev = &self.edges[self.cursor - 1];
         let cur = &self.edges[self.cursor];
