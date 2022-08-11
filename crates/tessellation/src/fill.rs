@@ -1526,7 +1526,7 @@ impl FillTessellator {
         let from_id = self.current_vertex;
         self.active.edges.splice(
             above,
-            self.edges_below.iter().map(|edge| ActiveEdge {
+            self.edges_below.drain(0..).map(|edge| ActiveEdge {
                 from,
                 to: edge.to,
                 winding: edge.winding,
@@ -1536,8 +1536,6 @@ impl FillTessellator {
                 range_end: edge.range_end,
             }),
         );
-
-        self.edges_below.clear();
     }
 
     fn split_event(&mut self, left_enclosing_edge_idx: ActiveEdgeIdx, left_span_idx: SpanIdx) {
