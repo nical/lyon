@@ -1332,7 +1332,7 @@ impl FillTessellator {
         } else if max_x >= current_x && min_x <= current_x {
             current_x
         } else {
-            active_edge.to.y
+            active_edge.to.x
         };
 
         if (ex - current_x).abs() <= threshold {

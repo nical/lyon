@@ -6,6 +6,7 @@ workspace = "../.."
 
 [[bin]]
 name = "path_bench"
+path = "src/main.rs"
 
 [dependencies]
 lyon = { path = "../../crates/lyon", features = ["extra"] }

@@ -16,3 +16,4 @@ serialization = ["lyon_path/serialization"]
 
 [dependencies]
 lyon_path = { version = "1.0.0", path = "../path" }
+thiserror = "1.0"

@@ -4,74 +4,29 @@ use path::{
     traits::PathBuilder,
 };
 
-use std::fmt;
+extern crate thiserror;
+
+use self::thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Clone, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq)]
 pub enum ParseError {
-    Number {
-        src: String,
-        line: i32,
-        column: i32,
-    },
-    Flag {
-        src: char,
-        line: i32,
-        column: i32,
-    },
+    #[error("Line {line} Column {column}: Expected number, got {src:?}.")]
+    Number { src: String, line: i32, column: i32 },
+    #[error("Line {line} Column {column}: Expected flag (0/1), got {src:?}.")]
+    Flag { src: char, line: i32, column: i32 },
+    #[error("Line {line} Column {column}: Invalid command {command:?}.")]
     Command {
         command: char,
         line: i32,
         column: i32,
     },
+    #[error("Line {line} Column {column}: Expected move-to command, got {command:?}.")]
     MissingMoveTo {
         command: char,
         line: i32,
         column: i32,
     },
-}
-
-impl fmt::Debug for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            ParseError::Number { src, line, column } => {
-                write!(
-                    f,
-                    "Line {} Column {}: Expected number, got {:?}.",
-                    line, column, src
-                )
-            }
-            ParseError::Flag { src, line, column } => {
-                write!(
-                    f,
-                    "Line {} Column {}: Expected flag (0/1), got {:?}.",
-                    line, column, src
-                )
-            }
-            ParseError::Command {
-                command,
-                line,
-                column,
-            } => {
-                write!(
-                    f,
-                    "Line {} Column {}: Invalid command {:?}.",
-                    line, column, command
-                )
-            }
-            ParseError::MissingMoveTo {
-                command,
-                line,
-                column,
-            } => {
-                write!(
-                    f,
-                    "Line {} Column {}: Expected move-to command, got {:?}.",
-                    line, column, command
-                )
-            }
-        }
-    }
 }
 
 #[non_exhaustive]

@@ -907,6 +907,7 @@ name = "lyon_extra"
 version = "1.0.1"
 dependencies = [
  "lyon_path",
+ "thiserror",
 ]
 
 [[package]]
@@ -929,12 +930,13 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "float_next_after",
  "lyon_extra",
  "lyon_path",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
