@@ -1526,7 +1526,7 @@ impl FillTessellator {
         let from_id = self.current_vertex;
         self.active.edges.splice(
             above,
-            self.edges_below.drain(0..).map(|edge| ActiveEdge {
+            self.edges_below.drain(..).map(|edge| ActiveEdge {
                 from,
                 to: edge.to,
                 winding: edge.winding,
