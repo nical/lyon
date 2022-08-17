@@ -27,7 +27,7 @@
 //!
 //! let mut builder = Path::builder();
 //!
-//! // All sub-paths *must* have be contained in a being/end pair.
+//! // All sub-paths *must* have be contained in a begin/end pair.
 //! builder.begin(point(0.0, 0.0));
 //! builder.line_to(point(1.0, 0.0));
 //! builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
@@ -48,7 +48,7 @@
 //! // Use the SVG adapter.
 //! let mut builder = Path::builder().with_svg();
 //!
-//! // All sub-paths *must* have be contained in a being/end pair.
+//! // All sub-paths *must* have be contained in a begin/end pair.
 //! builder.move_to(point(0.0, 0.0));
 //! builder.line_to(point(1.0, 0.0));
 //! builder.quadratic_bezier_to(point(2.0, 0.0), point(2.0, 1.0));
