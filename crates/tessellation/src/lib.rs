@@ -414,38 +414,38 @@ impl StrokeOptions {
     }
 
     #[inline]
-    pub fn with_tolerance(mut self, tolerance: f32) -> Self {
+    pub const fn with_tolerance(mut self, tolerance: f32) -> Self {
         self.tolerance = tolerance;
         self
     }
 
     #[inline]
-    pub fn with_line_cap(mut self, cap: LineCap) -> Self {
+    pub const fn with_line_cap(mut self, cap: LineCap) -> Self {
         self.start_cap = cap;
         self.end_cap = cap;
         self
     }
 
     #[inline]
-    pub fn with_start_cap(mut self, cap: LineCap) -> Self {
+    pub const fn with_start_cap(mut self, cap: LineCap) -> Self {
         self.start_cap = cap;
         self
     }
 
     #[inline]
-    pub fn with_end_cap(mut self, cap: LineCap) -> Self {
+    pub const fn with_end_cap(mut self, cap: LineCap) -> Self {
         self.end_cap = cap;
         self
     }
 
     #[inline]
-    pub fn with_line_join(mut self, join: LineJoin) -> Self {
+    pub const fn with_line_join(mut self, join: LineJoin) -> Self {
         self.line_join = join;
         self
     }
 
     #[inline]
-    pub fn with_line_width(mut self, width: f32) -> Self {
+    pub const fn with_line_width(mut self, width: f32) -> Self {
         self.line_width = width;
         self
     }
@@ -458,7 +458,7 @@ impl StrokeOptions {
     }
 
     #[inline]
-    pub fn with_variable_line_width(mut self, idx: AttributeIndex) -> Self {
+    pub const fn with_variable_line_width(mut self, idx: AttributeIndex) -> Self {
         self.variable_line_width = Some(idx);
         self
     }
@@ -539,25 +539,25 @@ impl FillOptions {
     }
 
     #[inline]
-    pub fn with_tolerance(mut self, tolerance: f32) -> Self {
+    pub const fn with_tolerance(mut self, tolerance: f32) -> Self {
         self.tolerance = tolerance;
         self
     }
 
     #[inline]
-    pub fn with_fill_rule(mut self, rule: FillRule) -> Self {
+    pub const fn with_fill_rule(mut self, rule: FillRule) -> Self {
         self.fill_rule = rule;
         self
     }
 
     #[inline]
-    pub fn with_sweep_orientation(mut self, orientation: Orientation) -> Self {
+    pub const fn with_sweep_orientation(mut self, orientation: Orientation) -> Self {
         self.sweep_orientation = orientation;
         self
     }
 
     #[inline]
-    pub fn with_intersections(mut self, intersections: bool) -> Self {
+    pub const fn with_intersections(mut self, intersections: bool) -> Self {
         self.handle_intersections = intersections;
         self
     }
