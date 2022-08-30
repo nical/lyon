@@ -113,6 +113,15 @@ impl Path {
         }
     }
 
+    #[inline]
+    pub fn with_attributes(num_attributes: usize) -> Path {
+        Path {
+            points: Box::new([]),
+            verbs: Box::new([]),
+            num_attributes,
+        }
+    }
+
     /// Returns a view on this `Path`.
     #[inline]
     pub fn as_slice(&self) -> PathSlice {
