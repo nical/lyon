@@ -1215,10 +1215,22 @@ impl<'l> StrokeBuilderImpl<'l> {
         // beginning of the sub-path.
         let advancement = p.advancement;
         p.advancement = std::f32::NAN;
-        if self.options.variable_line_width.is_some() {
-            self.step_impl(p, attributes)?;
+        let segment_added = if self.options.variable_line_width.is_some() {
+            self.step_impl(p, attributes)?
         } else {
-            self.fixed_width_step_impl(p, attributes)?;
+            self.fixed_width_step_impl(p, attributes)?
+        };
+
+        if !segment_added {
+            // The closing code relies on not skipping the edge from the first to
+            // the second point. In most case this is ensured by points not being
+            // added to self.firsts if they are not far enough apart. However there
+            // could still be a situation where the last point is placed in such
+            // a way that it is within merge range of both the first and second
+            // points.
+            // Fixing the position up ensures that even though we skip the edge to
+            // the first point, we don't skip the edge to the second one.
+            self.point_buffer.last_mut().position = p.position;
         }
 
         if self.firsts.len() >= 2 {
@@ -1365,7 +1377,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         &mut self,
         mut next: EndpointData,
         attributes: &dyn AttributeStore,
-    ) -> Result<(), TessellationError> {
+    ) -> Result<bool, TessellationError> {
         let count = self.point_buffer.count();
 
         debug_assert!(self.options.variable_line_width.is_some());
@@ -1383,7 +1395,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             // - if the join type is round, maybe tessellate a round cap for the largest one
             // TODO: we should make sure that if the next point is an endpoint and the previous
             // is on an edge, we discard the previous instead of the next (to get the correct join)
-            return Ok(());
+            return Ok(false);
         }
 
         if count > 0 {
@@ -1484,7 +1496,7 @@ impl<'l> StrokeBuilderImpl<'l> {
             self.point_buffer.push(next);
         }
 
-        Ok(())
+        Ok(true)
     }
 
     #[cfg_attr(feature = "profiling", inline(never))]
@@ -1498,7 +1510,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         &mut self,
         mut next: EndpointData,
         attributes: &dyn AttributeStore,
-    ) -> Result<(), TessellationError> {
+    ) -> Result<bool, TessellationError> {
         let count = self.point_buffer.count();
 
         debug_assert!(self.options.variable_line_width.is_none());
@@ -1508,7 +1520,7 @@ impl<'l> StrokeBuilderImpl<'l> {
                 if count == 1 {
                     self.may_need_empty_cap = true;
                 }
-                return Ok(());
+                return Ok(false);
             }
 
             if count == 1 {
@@ -1604,7 +1616,7 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         self.point_buffer.push(next);
 
-        Ok(())
+        Ok(true)
     }
 
     #[cfg_attr(feature = "profiling", inline(never))]
@@ -3205,4 +3217,39 @@ fn single_segment_closed() {
         .unwrap();
 
     assert!(output.indices.len() > 0);
+}
+
+#[test]
+fn issue_819() {
+    // In this test case, the last point of the path is within merge range
+    // of both the first and second points while the latters aren't within
+    // merge range of one-another. As a result they are both skipped when
+    // closing the path.
+
+    let mut path = Path::builder();
+    path.begin(point(650.539978027344, 173.559997558594));
+    path.line_to(point(650.609985351562, 173.529998779297));
+    path.line_to(point(650.729980468750, 173.630004882812));
+    path.line_to(point(650.559997558594, 173.570007324219));
+    path.end(true);
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::tolerance(0.1);
+    let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
+    tess.tessellate(&path.build(), &options, &mut simple_builder(&mut output))
+        .unwrap();
+
+
+    let mut path = Path::builder_with_attributes(1);
+    path.begin(point(650.539978027344, 173.559997558594), &[0.0]);
+    path.line_to(point(650.609985351562, 173.529998779297), &[0.0]);
+    path.line_to(point(650.729980468750, 173.630004882812), &[0.0]);
+    path.line_to(point(650.559997558594, 173.570007324219), &[0.0]);
+    path.end(true);
+
+    let mut tess = StrokeTessellator::new();
+    let options = StrokeOptions::tolerance(0.1);
+    let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
+    tess.tessellate(&path.build(), &options, &mut simple_builder(&mut output))
+        .unwrap();
 }
