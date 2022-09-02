@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "lyon_geom",
  "serde",
@@ -930,7 +930,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "float_next_after",
  "lyon_extra",
