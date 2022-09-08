@@ -1454,6 +1454,14 @@ impl<'l> StrokeBuilderImpl<'l> {
                     SIDE_NEGATIVE,
                 );
 
+                // Prevent folding when the other side is concave.
+                if join.side_points[SIDE_POSITIVE].single_vertex.is_some() {
+                    join.fold[SIDE_NEGATIVE] = false;
+                }
+                if join.side_points[SIDE_NEGATIVE].single_vertex.is_some() {
+                    join.fold[SIDE_POSITIVE] = false;
+                }
+
                 add_join_base_vertices(
                     join,
                     &mut self.vertex,
@@ -3251,5 +3259,32 @@ fn issue_819() {
     let options = StrokeOptions::tolerance(0.1);
     let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
     tess.tessellate(&path.build(), &options, &mut simple_builder(&mut output))
+        .unwrap();
+}
+
+#[test]
+fn issue_821() {
+    let mut stroker = StrokeTessellator::new();
+
+    let options = StrokeOptions::default()
+        .with_tolerance(0.001)
+        .with_line_cap(LineCap::Round)
+        .with_variable_line_width(0);
+
+    let mut path = Path::builder_with_attributes(1);
+    path.begin(point(-45.192276, -69.800575), &[1.0]);
+    path.line_to(point(-45.164116, -69.84931), &[1.0]);
+    path.line_to(point(-45.135952, -69.90564), &[1.0]);
+    path.line_to(point(-45.10779, -69.93248), &[1.0]);
+    path.line_to(point(-45.052788, -69.96064), &[1.0]);
+    path.line_to(point(-45.026604, -69.898155), &[1.0]);
+
+    path.end(false);
+
+    let path = path.build();
+    let mut mesh = VertexBuffers::new();
+    let mut builder = simple_builder(&mut mesh);
+    stroker
+        .tessellate_path(&path, &options, &mut builder)
         .unwrap();
 }
