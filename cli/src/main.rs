@@ -35,19 +35,19 @@ fn main() {
                 .about("Tessellates a path")
                 .arg(
                     Arg::with_name("DEBUG")
-                        .short("d")
+                        .short('d')
                         .long("debug")
                         .help("Enable debugging"),
                 )
                 .arg(
                     Arg::with_name("COUNT")
-                        .short("c")
+                        .short('c')
                         .long("count")
                         .help("Prints the number of triangles and vertices"),
                 )
                 .arg(
                     Arg::with_name("OUTPUT")
-                        .short("o")
+                        .short('o')
                         .long("output")
                         .help("Sets the output file to use")
                         .value_name("FILE")
@@ -76,7 +76,7 @@ fn main() {
                 .about("Transforms an SVG path")
                 .arg(
                     Arg::with_name("TOLERANCE")
-                        .short("t")
+                        .short('t')
                         .long("tolerance")
                         .help("Sets the tolerance threshold (0.5 by default)")
                         .value_name("TOLERANCE")
@@ -84,19 +84,19 @@ fn main() {
                 )
                 .arg(
                     Arg::with_name("FLATTEN")
-                        .short("f")
+                        .short('f')
                         .long("flatten")
                         .help("Approximates all curves with line segments"),
                 )
                 .arg(
                     Arg::with_name("COUNT")
-                        .short("c")
+                        .short('c')
                         .long("count")
                         .help("Prints the number of vertices"),
                 )
                 .arg(
                     Arg::with_name("OUTPUT")
-                        .short("o")
+                        .short('o')
                         .long("output")
                         .help("Sets the output file to use")
                         .value_name("FILE")
@@ -233,7 +233,7 @@ fn main() {
     }
 }
 
-fn declare_input_path<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
+fn declare_input_path<'a>(app: App<'a>) -> App<'a> {
     app.arg(
         Arg::with_name("PATH")
             .value_name("PATH")
@@ -243,7 +243,7 @@ fn declare_input_path<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
     )
     .arg(
         Arg::with_name("INPUT")
-            .short("i")
+            .short('i')
             .long("input")
             .help("Sets the input file to use")
             .value_name("FILE")
@@ -252,7 +252,7 @@ fn declare_input_path<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
     )
 }
 
-fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b> {
+fn declare_tess_params<'a>(app: App<'a>, need_path: bool) -> App<'a> {
     if need_path {
         declare_input_path(app)
     } else {
@@ -260,13 +260,13 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b>
     }
     .arg(
         Arg::with_name("FILL")
-            .short("f")
+            .short('f')
             .long("fill")
             .help("Fills the path"),
     )
     .arg(
         Arg::with_name("STROKE")
-            .short("s")
+            .short('s')
             .long("stroke")
             .help("Strokes the path"),
     )
@@ -286,7 +286,7 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b>
     )
     .arg(
         Arg::with_name("TOLERANCE")
-            .short("t")
+            .short('t')
             .long("tolerance")
             .help("Sets the tolerance threshold for flattening (0.5 by default)")
             .value_name("TOLERANCE")
@@ -294,7 +294,7 @@ fn declare_tess_params<'a, 'b>(app: App<'a, 'b>, need_path: bool) -> App<'a, 'b>
     )
     .arg(
         Arg::with_name("LINE_WIDTH")
-            .short("w")
+            .short('w')
             .long("line-width")
             .help("The line width for strokes")
             .value_name("LINE_WIDTH")
@@ -439,11 +439,15 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
             None
         };
 
-    let float_precision = command.value_of("FLOAT_PRECISION").map(|fp| {
-        fp.parse::<usize>()
-            .expect("Precision must be an integer")
-            .min(7)
-    });
+    let float_precision = if command.try_contains_id("FLOAT_PRECISION").is_ok() {
+        command.value_of("FLOAT_PRECISION").map(|fp| {
+            fp.parse::<usize>()
+                .expect("Precision must be an integer")
+                .min(7)
+        })
+    } else {
+        None
+    };
 
     TessellateCmd {
         path,
