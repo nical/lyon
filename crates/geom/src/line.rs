@@ -172,11 +172,22 @@ impl<S: Scalar> LineSegment<S> {
         self.to_vector().length()
     }
 
+    /// Computes the squared length of this segment.
+    #[inline]
+    pub fn square_length(&self) -> S {
+        self.to_vector().square_length()
+    }
+
     /// Changes the segment's length, moving destination point.
     pub fn set_length(&mut self, new_length: S) {
         let v = self.to_vector();
         let old_length = v.length();
         self.to = self.from + v * (new_length / old_length);
+    }
+
+    /// Computes thid mid-point of this segment.
+    pub fn mid_point(&mut self) -> Point<S> {
+        (self.from + self.to.to_vector()) / S::TWO
     }
 
     #[inline]
