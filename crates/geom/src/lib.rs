@@ -50,7 +50,7 @@
 //! </svg>
 //!
 //! The flattening algorithm implemented in this crate is based on the paper
-//! [Fast, Precise Flattening of Cubic Bézier Segment Offset Curves](http://cis.usouthal.edu/~hain/general/Publications/Bezier/Bezier%20Offset%20Curves.pdf).
+//! [Fast, Precise Flattening of Cubic Bézier Segment Offset Curves](http://www.cccg.ca/proceedings/2004/36.pdf).
 //! It tends to produce a better approximations than the usual recursive subdivision approach (or
 //! in other words, it generates less segments for a given tolerance threshold).
 //!
