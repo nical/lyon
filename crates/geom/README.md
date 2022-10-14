@@ -1,6 +1,6 @@
 # lyon::geom
 
-2D geometric primitives on top of [euclid](](https://docs.rs/euclid/).
+2D geometric primitives on top of [euclid](https://docs.rs/euclid/).
 
 <p align="center">
   <a href="https://crates.io/crates/lyon_geom">
