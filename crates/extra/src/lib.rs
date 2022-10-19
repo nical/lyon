@@ -2,6 +2,7 @@
 #![deny(bare_trait_objects)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![forbid(unsafe_code)]
 
 extern crate lyon_path as path;
 

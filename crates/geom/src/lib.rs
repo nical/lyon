@@ -3,6 +3,7 @@
 #![deny(unconditional_recursion)]
 #![allow(clippy::many_single_char_names)]
 #![allow(clippy::let_and_return)]
+#![forbid(unsafe_code)]
 
 //! Simple 2D geometric primitives on top of euclid.
 //!
