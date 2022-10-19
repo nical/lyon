@@ -10,8 +10,8 @@ A path tessellation library written in rust for GPU-based 2D graphics rendering.
   <a href="https://crates.io/crates/lyon">
       <img src="https://img.shields.io/crates/v/lyon.svg" alt="crates.io">
   </a>
-  <a href="https://travis-ci.org/nical/lyon">
-      <img src="https://img.shields.io/travis/nical/lyon/master.svg" alt="Travis Build Status">
+  <a href="https://github.com/nical/lyon/actions">
+      <img src="https://github.com/nical/lyon/actions/workflows/main.yml/badge.svg" alt="Build Status">
   </a>
   <a href="https://docs.rs/lyon">
       <img src="https://docs.rs/lyon/badge.svg" alt="documentation">
