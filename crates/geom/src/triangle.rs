@@ -307,7 +307,7 @@ fn test_bounding_box() {
         max: point(2.0, 5.0),
     };
 
-    let cases = vec![(t1, r1), (t2, r2), (t3, r3)];
+    let cases = std::vec![(t1, r1), (t2, r2), (t3, r3)];
     for &(tri, r) in &cases {
         assert_eq!(tri.bounding_box(), r);
     }

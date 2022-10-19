@@ -7,8 +7,11 @@ use crate::{point, Box2D, Point, Vector};
 use crate::{Line, LineEquation, LineSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
-use std::cmp::Ordering::{Equal, Greater, Less};
-use std::ops::Range;
+use core::cmp::Ordering::{Equal, Greater, Less};
+use core::ops::Range;
+
+#[cfg(test)]
+use std::vec::Vec;
 
 /// A 2d curve segment defined by four points: the beginning of the segment, two control
 /// points and the end of the segment.
@@ -661,7 +664,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut second_inflection = c / q;
 
         if first_inflection > second_inflection {
-            std::mem::swap(&mut first_inflection, &mut second_inflection);
+            core::mem::swap(&mut first_inflection, &mut second_inflection);
         }
 
         if in_range(first_inflection) {
@@ -742,7 +745,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut first_extremum = (-b - discriminant_sqrt) / (S::TWO * a);
         let mut second_extremum = (-b + discriminant_sqrt) / (S::TWO * a);
         if first_extremum > second_extremum {
-            std::mem::swap(&mut first_extremum, &mut second_extremum);
+            core::mem::swap(&mut first_extremum, &mut second_extremum);
         }
 
         if in_range(first_extremum) {
@@ -1232,7 +1235,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut ctrl1 = self.ctrl1;
         let mut ctrl2 = self.ctrl2;
         if t < S::HALF {
-            std::mem::swap(&mut ctrl1, &mut ctrl2);
+            core::mem::swap(&mut ctrl1, &mut ctrl2);
         }
 
         // Move the most constrained control point by a subset of the uniform displacement
@@ -1253,7 +1256,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let mut new_ctrl2 = new_ctrl1 + (new_a - new_ctrl1) * (d12_pre / d1_pre);
 
         if t < S::HALF {
-            std::mem::swap(&mut new_ctrl1, &mut new_ctrl2);
+            core::mem::swap(&mut new_ctrl1, &mut new_ctrl2);
         }
 
         CubicBezierSegment {
@@ -1366,8 +1369,8 @@ impl<S: Scalar> Iterator for Flattened<S> {
 
 #[cfg(test)]
 fn print_arrays(a: &[Point<f32>], b: &[Point<f32>]) {
-    println!("left:  {:?}", a);
-    println!("right: {:?}", b);
+    std::println!("left:  {:?}", a);
+    std::println!("right: {:?}", b);
 }
 
 #[cfg(test)]
@@ -1382,7 +1385,7 @@ fn assert_approx_eq(a: &[Point<f32>], b: &[Point<f32>]) {
         let dy = f32::abs(a[i].y - b[i].y);
         if dx > threshold || dy > threshold {
             print_arrays(a, b);
-            println!("diff = {:?} {:?}", dx, dy);
+            std::println!("diff = {:?} {:?}", dx, dy);
             panic!("The arrays are not equal");
         }
     }
@@ -1824,7 +1827,7 @@ fn test_line_segment_intersections() {
     fn assert_approx_eq(a: ArrayVec<(f32, f32), 3>, b: &[(f32, f32)], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i].0 - b[i].0) > epsilon || f32::abs(a[i].1 - b[i].1) > epsilon {
-                println!("{:?} != {:?}", a, b);
+                std::println!("{:?} != {:?}", a, b);
             }
             assert!((a[i].0 - b[i].0).abs() <= epsilon && (a[i].1 - b[i].1).abs() <= epsilon);
         }
@@ -1874,7 +1877,7 @@ fn test_parameters_for_value() {
     fn assert_approx_eq(a: ArrayVec<f32, 3>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i] - b[i]) > epsilon {
-                println!("{:?} != {:?}", a, b);
+                std::println!("{:?} != {:?}", a, b);
             }
             assert!((a[i] - b[i]).abs() <= epsilon);
         }

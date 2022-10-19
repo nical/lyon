@@ -3,7 +3,7 @@
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::path::PathEvent;
 
-use std::iter::IntoIterator;
+use core::iter::IntoIterator;
 
 pub fn approximate_length<Iter>(path: Iter, tolerance: f32) -> f32
 where

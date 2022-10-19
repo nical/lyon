@@ -6,7 +6,9 @@ use crate::path::{
     builder::PathBuilder, AttributeStore, Attributes, EndpointId, IdEvent, Path, PathSlice,
     PositionStore,
 };
-use std::ops::Range;
+use core::ops::Range;
+
+use alloc::vec::Vec;
 
 /// Whether to measure real or normalized (between 0 and 1) distances.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -175,10 +177,10 @@ impl PathMeasurements {
         PS: PositionStore,
     {
         let tolerance = tolerance.max(1e-4);
-        let mut events = std::mem::take(&mut self.events);
+        let mut events = core::mem::take(&mut self.events);
         events.clear();
         events.extend(path.into_iter());
-        let mut edges = std::mem::take(&mut self.edges);
+        let mut edges = core::mem::take(&mut self.edges);
         edges.clear();
 
         let mut distance = 0.0;
@@ -346,7 +348,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
             edges: &measurements.edges,
             positions,
             attributes,
-            attribute_buffer: vec![0.0; attributes.num_attributes()],
+            attribute_buffer: alloc::vec![0.0; attributes.num_attributes()],
             cursor: 0,
             sample_type,
         }
@@ -361,8 +363,8 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
         if self.edges.is_empty() {
             let attr: &'static [f32] = &[];
             return PathSample {
-                position: point(std::f32::NAN, std::f32::NAN),
-                tangent: vector(std::f32::NAN, std::f32::NAN),
+                position: point(core::f32::NAN, core::f32::NAN),
+                tangent: vector(core::f32::NAN, core::f32::NAN),
                 attributes: attr,
             };
         }
@@ -508,7 +510,7 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
         }
 
         fn floor_log2(num: usize) -> u32 {
-            std::mem::size_of::<usize>() as u32 * 8 - num.leading_zeros() - 1
+            core::mem::size_of::<usize>() as u32 * 8 - num.leading_zeros() - 1
         }
 
         // Here we use a heuristic method combining method 1 & 2
@@ -761,7 +763,7 @@ fn split_square() {
     let path2 = path2.build();
     assert_eq!(
         path2.iter().collect::<Vec<_>>(),
-        vec![
+        alloc::vec![
             Event::Begin {
                 at: point(0.5, 0.0)
             },
@@ -804,7 +806,7 @@ fn split_bezier_curve() {
 
     assert_eq!(
         path2.iter().collect::<Vec<_>>(),
-        vec![
+        alloc::vec![
             Event::Begin {
                 at: point(1.0, 0.5)
             },
@@ -850,7 +852,7 @@ fn split_attributes() {
 
     assert_eq!(
         path3.iter_with_attributes().collect::<Vec<_>>(),
-        vec![
+        alloc::vec![
             Event::Begin {
                 at: (point(0.5, 0.0), slice(&[1.5, 2.5]))
             },

@@ -3,6 +3,8 @@
 use crate::math::{point, vector, Box2D, Point, Vector};
 use crate::path::PathEvent;
 
+use num_traits::Float;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ToRectangleOptions {
     pub tolerance: f32,

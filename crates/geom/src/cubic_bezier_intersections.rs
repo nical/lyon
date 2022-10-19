@@ -10,7 +10,8 @@ use crate::CubicBezierSegment;
 ///! for motivation and details of how the process works.
 use crate::{point, Box2D, Point};
 use arrayvec::ArrayVec;
-use std::ops::Range;
+use core::mem;
+use core::ops::Range;
 
 // Computes the intersections (if any) between two cubic bézier curves in the form of the `t`
 // parameters of each intersection point along the curves.
@@ -676,7 +677,7 @@ fn convex_hull_of_distance_curve<S: Scalar>(
 
     // Flip the hull if needed:
     if dist1 < S::ZERO || (dist1 == S::ZERO && dist2 < S::ZERO) {
-        std::mem::swap(top, bottom);
+        mem::swap(top, bottom);
     }
 }
 

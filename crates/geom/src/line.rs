@@ -3,9 +3,9 @@ use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
 use crate::utils::min_max;
 use crate::{point, vector, Box2D, Point, Vector};
-use std::mem::swap;
+use core::mem::swap;
 
-use std::ops::Range;
+use core::ops::Range;
 
 /// A linear segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -308,7 +308,7 @@ impl<S: Scalar> LineSegment<S> {
         // TODO: is it really useful to swap?
         let swap = a > b;
         if swap {
-            std::mem::swap(&mut a, &mut b);
+            core::mem::swap(&mut a, &mut b);
         }
 
         let d = b - a;
@@ -759,7 +759,7 @@ fn fuzzy_eq_point(a: Point<f32>, b: Point<f32>, epsilon: f32) -> bool {
 
 #[test]
 fn intersection_rotated() {
-    use std::f32::consts::PI;
+    use core::f32::consts::PI;
     let epsilon = 0.0001;
     let count: u32 = 100;
 
@@ -869,7 +869,7 @@ fn bounding_box() {
         max: point(3.0, 5.0),
     };
 
-    let cases = vec![(l1, r1), (l2, r2), (l3, r3)];
+    let cases = std::vec![(l1, r1), (l2, r2), (l3, r3)];
     for &(ls, r) in &cases {
         assert_eq!(ls.bounding_box(), r);
     }
@@ -948,7 +948,7 @@ fn solve_y_for_x() {
     let eqn = line.equation();
 
     if let Some(y) = eqn.solve_y_for_x(line.point.x) {
-        println!("{:?} != {:?}", y, line.point.y);
+        std::println!("{:?} != {:?}", y, line.point.y);
         assert!(f64::abs(y - line.point.y) < 0.000001)
     }
 
@@ -966,7 +966,7 @@ fn solve_y_for_x() {
         let eqn = line.equation();
 
         if let Some(y) = eqn.solve_y_for_x(line.point.x) {
-            println!("{:?} != {:?}", y, line.point.y);
+            std::println!("{:?} != {:?}", y, line.point.y);
             assert!(f64::abs(y - line.point.y) < 0.000001)
         }
 
@@ -1169,7 +1169,7 @@ fn clipped() {
     fn approx_eq(a: LineSegment<f32>, b: LineSegment<f32>) -> bool {
         let ok = a.from.approx_eq(&b.from) && a.to.approx_eq(&b.to);
         if !ok {
-            println!("{:?} != {:?}", a, b);
+            std::println!("{:?} != {:?}", a, b);
         }
 
         ok
