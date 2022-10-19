@@ -3,7 +3,7 @@
 use crate::geom::{CubicBezierSegment, QuadraticBezierSegment};
 use crate::math::{point, Box2D, Point};
 use crate::path::PathEvent;
-use std::f32;
+use core::f32;
 
 /// Computes a conservative axis-aligned rectangle that contains the path.
 ///

@@ -86,7 +86,12 @@ use crate::path::Verb;
 use crate::polygon::Polygon;
 use crate::{Attributes, EndpointId, Winding, NO_ATTRIBUTES};
 
-use std::marker::Sized;
+use core::marker::Sized;
+
+use alloc::vec::Vec;
+use alloc::vec;
+
+use num_traits::Float;
 
 /// The radius of each corner of a rounded rectangle.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
@@ -109,8 +114,8 @@ impl BorderRadii {
     }
 }
 
-impl std::fmt::Display for BorderRadii {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for BorderRadii {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // In the order of a well known convention (CSS) clockwise from top left
         write!(
             f,
@@ -609,7 +614,7 @@ pub trait PathBuilder {
             Winding::Negative => -1.0,
         };
 
-        use std::f32::consts::PI;
+        use core::f32::consts::PI;
         let arc = Arc {
             center,
             radii,
@@ -1770,7 +1775,7 @@ fn svg_builder_arc_to_update_position() {
 
 #[test]
 fn issue_650() {
-    use std::f32::consts::PI;
+    use core::f32::consts::PI;
     let mut builder = crate::path::Path::builder().with_svg();
     builder.arc(
         point(0.0, 0.0),

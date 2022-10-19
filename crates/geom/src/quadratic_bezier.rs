@@ -5,8 +5,8 @@ use crate::{point, Box2D, Point, Vector};
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
 
-use std::mem;
-use std::ops::Range;
+use core::mem;
+use core::ops::Range;
 
 /// A 2d curve segment defined by three points: the beginning of the segment, a control
 /// point and the end of the segment.
@@ -628,7 +628,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             let mut t2 = c / (a * t1);
 
             if t1 > t2 {
-                std::mem::swap(&mut t1, &mut t2);
+                mem::swap(&mut t1, &mut t2);
             }
 
             if t1 >= S::ZERO && t1 <= S::ONE {
@@ -1412,7 +1412,7 @@ fn issue_678() {
     };
 
     let intersections = quadratic.line_intersections(&line);
-    println!("{:?}", intersections);
+    std::println!("{:?}", intersections);
 
     assert_eq!(intersections.len(), 1);
 }

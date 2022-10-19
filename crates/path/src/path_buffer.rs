@@ -5,9 +5,11 @@ use crate::math::*;
 use crate::path;
 use crate::{Attributes, EndpointId, PathSlice, NO_ATTRIBUTES};
 
-use std::fmt;
-use std::iter::{FromIterator, FusedIterator, IntoIterator};
-use std::ops::Range;
+use core::fmt;
+use core::iter::{FromIterator, FusedIterator, IntoIterator};
+use core::ops::Range;
+
+use alloc::vec::Vec;
 
 #[derive(Clone, Debug)]
 struct PathDescriptor {
@@ -198,8 +200,8 @@ impl<'l> Builder<'l> {
     #[inline]
     fn new(buffer: &'l mut PathBuffer) -> Self {
         let mut builder = path::Path::builder();
-        std::mem::swap(&mut buffer.points, &mut builder.inner_mut().points);
-        std::mem::swap(&mut buffer.verbs, &mut builder.inner_mut().verbs);
+        core::mem::swap(&mut buffer.points, &mut builder.inner_mut().points);
+        core::mem::swap(&mut buffer.verbs, &mut builder.inner_mut().verbs);
         let points_start = builder.inner().points.len() as u32;
         let verbs_start = builder.inner().verbs.len() as u32;
         Builder {
@@ -219,7 +221,7 @@ impl<'l> Builder<'l> {
             builder: path::BuilderWithAttributes {
                 builder: self.builder.into_inner(),
                 num_attributes,
-                first_attributes: vec![0.0; num_attributes],
+                first_attributes: alloc::vec![0.0; num_attributes],
             },
             points_start: self.points_start,
             verbs_start: self.verbs_start,
@@ -230,11 +232,11 @@ impl<'l> Builder<'l> {
     pub fn build(mut self) -> usize {
         let points_end = self.builder.inner().points.len() as u32;
         let verbs_end = self.builder.inner().verbs.len() as u32;
-        std::mem::swap(
+        core::mem::swap(
             &mut self.builder.inner_mut().points,
             &mut self.buffer.points,
         );
-        std::mem::swap(&mut self.builder.inner_mut().verbs, &mut self.buffer.verbs);
+        core::mem::swap(&mut self.builder.inner_mut().verbs, &mut self.buffer.verbs);
 
         let index = self.buffer.paths.len();
         self.buffer.paths.push(PathDescriptor {
@@ -355,8 +357,8 @@ impl<'l> BuilderWithAttributes<'l> {
     #[inline]
     pub fn new(buffer: &'l mut PathBuffer, num_attributes: usize) -> Self {
         let mut builder = path::Path::builder().into_inner();
-        std::mem::swap(&mut buffer.points, &mut builder.points);
-        std::mem::swap(&mut buffer.verbs, &mut builder.verbs);
+        core::mem::swap(&mut buffer.points, &mut builder.points);
+        core::mem::swap(&mut buffer.verbs, &mut builder.verbs);
         let points_start = builder.points.len() as u32;
         let verbs_start = builder.verbs.len() as u32;
         BuilderWithAttributes {
@@ -364,7 +366,7 @@ impl<'l> BuilderWithAttributes<'l> {
             builder: path::BuilderWithAttributes {
                 builder,
                 num_attributes,
-                first_attributes: vec![0.0; num_attributes],
+                first_attributes: alloc::vec![0.0; num_attributes],
             },
             points_start,
             verbs_start,
@@ -375,8 +377,8 @@ impl<'l> BuilderWithAttributes<'l> {
     pub fn build(mut self) -> usize {
         let points_end = self.builder.builder.points.len() as u32;
         let verbs_end = self.builder.builder.verbs.len() as u32;
-        std::mem::swap(&mut self.builder.builder.points, &mut self.buffer.points);
-        std::mem::swap(&mut self.builder.builder.verbs, &mut self.buffer.verbs);
+        core::mem::swap(&mut self.builder.builder.points, &mut self.buffer.points);
+        core::mem::swap(&mut self.builder.builder.verbs, &mut self.buffer.verbs);
 
         let index = self.buffer.paths.len();
         self.buffer.paths.push(PathDescriptor {
@@ -501,7 +503,7 @@ impl<'l> Build for BuilderWithAttributes<'l> {
 pub struct Iter<'l> {
     points: &'l [Point],
     verbs: &'l [path::Verb],
-    paths: ::std::slice::Iter<'l, PathDescriptor>,
+    paths: ::core::slice::Iter<'l, PathDescriptor>,
 }
 
 impl<'l> Iter<'l> {

@@ -3,7 +3,7 @@
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::Point;
 use crate::path::{FillRule, PathEvent};
-use std::f32;
+use core::f32;
 
 /// Returns whether the point is inside the path.
 pub fn hit_test_path<Iter>(point: &Point, path: Iter, fill_rule: FillRule, tolerance: f32) -> bool
@@ -192,7 +192,7 @@ fn test_hit_test() {
         FillRule::EvenOdd,
         0.1
     ));
-    println!(
+    std::println!(
         "winding {:?}",
         path_winding_number_at_position(&point(2.0, 0.0), path.iter(), 0.1)
     );

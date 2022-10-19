@@ -1,7 +1,7 @@
 use crate::scalar::Scalar;
 use crate::{point, Box2D, LineSegment, Point, Vector};
 
-use std::ops::Range;
+use core::ops::Range;
 
 /// Common APIs to segment types.
 pub trait Segment: Copy + Sized {

@@ -12,9 +12,13 @@ use crate::{
     PositionStore, NO_ATTRIBUTES,
 };
 
-use std::fmt;
-use std::iter::{FromIterator, IntoIterator};
-use std::u32;
+use core::fmt;
+use core::iter::{FromIterator, IntoIterator};
+use core::u32;
+
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use alloc::vec;
 
 /// Enumeration corresponding to the [Event](https://docs.rs/lyon_core/*/lyon_core/events/enum.Event.html) enum
 /// without the parameters.
@@ -224,14 +228,14 @@ impl FromIterator<PathEvent> for Path {
     }
 }
 
-impl std::ops::Index<EndpointId> for Path {
+impl core::ops::Index<EndpointId> for Path {
     type Output = Point;
     fn index(&self, id: EndpointId) -> &Point {
         &self.points[id.to_usize()]
     }
 }
 
-impl std::ops::Index<ControlPointId> for Path {
+impl core::ops::Index<ControlPointId> for Path {
     type Output = Point;
     fn index(&self, id: ControlPointId) -> &Point {
         &self.points[id.to_usize()]
@@ -409,14 +413,14 @@ impl<'l> fmt::Debug for PathSlice<'l> {
     }
 }
 
-impl<'l> std::ops::Index<EndpointId> for PathSlice<'l> {
+impl<'l> core::ops::Index<EndpointId> for PathSlice<'l> {
     type Output = Point;
     fn index(&self, id: EndpointId) -> &Point {
         &self.points[id.to_usize()]
     }
 }
 
-impl<'l> std::ops::Index<ControlPointId> for PathSlice<'l> {
+impl<'l> core::ops::Index<ControlPointId> for PathSlice<'l> {
     type Output = Point;
     fn index(&self, id: ControlPointId) -> &Point {
         &self.points[id.to_usize()]
@@ -813,7 +817,7 @@ fn nan_check(p: Point) {
 #[derive(Clone)]
 pub struct Iter<'l> {
     points: PointIter<'l>,
-    verbs: ::std::slice::Iter<'l, Verb>,
+    verbs: ::core::slice::Iter<'l, Verb>,
     current: Point,
     first: Point,
     // Number of slots in the points array occupied by the custom attributes.
@@ -914,7 +918,7 @@ impl<'l> Iterator for Iter<'l> {
 struct PointIter<'l> {
     ptr: *const Point,
     end: *const Point,
-    _marker: std::marker::PhantomData<&'l Point>,
+    _marker: core::marker::PhantomData<&'l Point>,
 }
 
 impl<'l> PointIter<'l> {
@@ -924,13 +928,13 @@ impl<'l> PointIter<'l> {
         PointIter {
             ptr,
             end,
-            _marker: std::marker::PhantomData,
+            _marker: core::marker::PhantomData,
         }
     }
 
     #[inline]
     fn remaining_len(&self) -> usize {
-        (self.end as usize - self.ptr as usize) / std::mem::size_of::<Point>()
+        (self.end as usize - self.ptr as usize) / core::mem::size_of::<Point>()
     }
 
     #[inline]
@@ -939,7 +943,7 @@ impl<'l> PointIter<'l> {
         // are always followed by advance_n which will
         // catch the issue and panic.
         if self.ptr >= self.end {
-            return point(std::f32::NAN, std::f32::NAN);
+            return point(core::f32::NAN, core::f32::NAN);
         }
 
         unsafe {
@@ -963,7 +967,7 @@ impl<'l> PointIter<'l> {
 #[derive(Clone)]
 pub struct IterWithAttributes<'l> {
     points: PointIter<'l>,
-    verbs: ::std::slice::Iter<'l, Verb>,
+    verbs: ::core::slice::Iter<'l, Verb>,
     current: (Point, Attributes<'l>),
     first: (Point, Attributes<'l>),
     num_attributes: usize,
@@ -1099,7 +1103,7 @@ impl<'l> IterWithAttributes<'l> {
         self.points.advance_n(self.attrib_stride);
         let attributes = unsafe {
             // SAFETY: advance_n would have panicked if the slice is out of bounds
-            std::slice::from_raw_parts(attributes_ptr, self.num_attributes)
+            core::slice::from_raw_parts(attributes_ptr, self.num_attributes)
         };
 
         (position, attributes)
@@ -1172,7 +1176,7 @@ impl<'l> Iterator for IterWithAttributes<'l> {
 /// An iterator of endpoint and control point ids for `Path` and `PathSlice`.
 #[derive(Clone, Debug)]
 pub struct IdIter<'l> {
-    verbs: ::std::slice::Iter<'l, Verb>,
+    verbs: ::core::slice::Iter<'l, Verb>,
     current: u32,
     first: u32,
     evt: u32,
@@ -1274,7 +1278,7 @@ fn interpolated_attributes(
 
     unsafe {
         let ptr = &points[idx].x as *const f32;
-        std::slice::from_raw_parts(ptr, num_attributes)
+        core::slice::from_raw_parts(ptr, num_attributes)
     }
 }
 
@@ -1304,7 +1308,7 @@ fn concatenate_paths(
 
 /// An iterator of over a `Path` traversing the path in reverse.
 pub struct Reversed<'l> {
-    verbs: std::iter::Rev<std::slice::Iter<'l, Verb>>,
+    verbs: core::iter::Rev<core::slice::Iter<'l, Verb>>,
     path: PathSlice<'l>,
     num_attributes: usize,
     attrib_stride: usize,
@@ -1473,8 +1477,8 @@ fn test_reverse_path_simple() {
         b: Option<Event<(Point, Attributes<'l>), Point>>,
     ) -> bool {
         if a != b {
-            println!("left: {:?}", a);
-            println!("right: {:?}", b);
+            std::println!("left: {:?}", a);
+            std::println!("right: {:?}", b);
         }
 
         a == b
@@ -1548,8 +1552,8 @@ fn test_reverse_path() {
         b: Option<Event<(Point, Attributes<'l>), Point>>,
     ) -> bool {
         if a != b {
-            println!("left: {:?}", a);
-            println!("right: {:?}", b);
+            std::println!("left: {:?}", a);
+            std::println!("right: {:?}", b);
         }
 
         a == b

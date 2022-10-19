@@ -31,11 +31,13 @@ use crate::math::{point, vector, Angle, Point, Rotation, Vector};
 use crate::path::builder::{Build, PathBuilder};
 use crate::path::private::DebugValidator;
 use crate::path::{self, Attributes, EndpointId, PathEvent, NO_ATTRIBUTES};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-use std::cmp::Ordering;
-use std::f32;
-use std::mem;
+use core::cmp::Ordering;
+use core::f32;
+use core::mem;
+
+use alloc::vec::Vec;
 
 /// Parameters for the hatcher.
 #[derive(Copy, Clone, Debug, PartialEq)]

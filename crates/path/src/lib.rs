@@ -2,6 +2,7 @@
 #![deny(bare_trait_objects)]
 #![deny(unconditional_recursion)]
 #![allow(clippy::match_like_matches_macro)]
+#![no_std]
 
 //! Data structures and traits to work with paths (vector graphics).
 //!
@@ -40,6 +41,11 @@
 //! ```
 //!
 
+extern crate alloc;
+
+#[cfg(any(test, feature = "std"))]
+extern crate std;
+
 pub use lyon_geom as geom;
 
 #[cfg(feature = "serialization")]
@@ -69,8 +75,8 @@ pub use crate::path_buffer::{PathBuffer, PathBufferSlice};
 pub use crate::polygon::{IdPolygon, Polygon};
 
 use math::Point;
-use std::fmt;
-use std::u32;
+use core::fmt;
+use core::u32;
 
 pub mod traits {
     //! `lyon_path` traits reexported here for convenience.
@@ -333,7 +339,7 @@ impl fmt::Debug for EndpointId {
 pub struct EventId(#[doc(hidden)] pub u32);
 
 impl EventId {
-    pub const INVALID: Self = EventId(std::u32::MAX);
+    pub const INVALID: Self = EventId(core::u32::MAX);
     pub fn to_usize(self) -> usize {
         self.0 as usize
     }

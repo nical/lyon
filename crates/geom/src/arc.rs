@@ -1,7 +1,7 @@
 //! Elliptic arc related maths and tools.
 
-use std::mem::swap;
-use std::ops::Range;
+use core::mem::swap;
+use core::ops::Range;
 
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::{BoundingBox, Segment};
@@ -1032,7 +1032,7 @@ fn test_bounding_box() {
             || !r1.min.y.approx_eq(&r2.min.y)
             || !r1.max.y.approx_eq(&r2.max.y)
         {
-            println!("\n   left: {:?}\n   right: {:?}", r1, r2);
+            std::println!("\n   left: {:?}\n   right: {:?}", r1, r2);
             return false;
         }
 
@@ -1105,7 +1105,7 @@ fn test_bounding_box() {
 
     let mut angle = Angle::zero();
     for _ in 0..10 {
-        println!("angle: {:?}", angle);
+        std::println!("angle: {:?}", angle);
         let r = Arc {
             center: point(0.0, 0.0),
             radii: vector(4.0, 4.0),
@@ -1126,7 +1126,7 @@ fn test_bounding_box() {
 
     let mut angle = Angle::zero();
     for _ in 0..10 {
-        println!("angle: {:?}", angle);
+        std::println!("angle: {:?}", angle);
         let r = Arc {
             center: point(0.0, 0.0),
             radii: vector(4.0, 4.0),
@@ -1172,7 +1172,7 @@ fn negative_flattening_step() {
         x_rotation: Angle::zero(),
     };
 
-    let flattened: Vec<_> = arc.flattened(0.1).collect();
+    let flattened: std::vec::Vec<_> = arc.flattened(0.1).collect();
 
     assert!(flattened.len() > 1);
 }

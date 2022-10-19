@@ -131,7 +131,7 @@ fn cubic_polynomial() {
     fn assert_approx_eq(a: ArrayVec<f32, 3>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i] - b[i]) > epsilon {
-                println!("{:?} != {:?}", a, b);
+                std::println!("{:?} != {:?}", a, b);
             }
             assert!((a[i] - b[i]).abs() <= epsilon);
         }

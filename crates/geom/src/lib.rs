@@ -3,6 +3,7 @@
 #![deny(unconditional_recursion)]
 #![allow(clippy::many_single_char_names)]
 #![allow(clippy::let_and_return)]
+#![no_std]
 
 //! Simple 2D geometric primitives on top of euclid.
 //!
@@ -72,6 +73,9 @@
 
 //#![allow(needless_return)] // clippy
 
+#[cfg(any(test, feature = "std"))]
+extern crate std;
+
 // Reexport dependencies.
 pub use arrayvec;
 pub use euclid;
@@ -110,8 +114,8 @@ mod scalar {
     pub(crate) use num_traits::cast::cast;
     pub(crate) use num_traits::{Float, FloatConst, NumCast};
 
-    use std::fmt::{Debug, Display};
-    use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+    use core::fmt::{Debug, Display};
+    use core::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
     pub trait Scalar:
         Float
@@ -169,8 +173,8 @@ mod scalar {
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
 
-        const MIN: Self = std::f32::MIN;
-        const MAX: Self = std::f32::MAX;
+        const MIN: Self = core::f32::MIN;
+        const MAX: Self = core::f32::MAX;
 
         const EPSILON: Self = 1e-4;
 
@@ -213,8 +217,8 @@ mod scalar {
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
 
-        const MIN: Self = std::f64::MIN;
-        const MAX: Self = std::f64::MAX;
+        const MIN: Self = core::f64::MIN;
+        const MAX: Self = core::f64::MAX;
 
         const EPSILON: Self = 1e-8;
 

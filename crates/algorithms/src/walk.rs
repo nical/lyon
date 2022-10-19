@@ -45,8 +45,10 @@ use crate::math::*;
 use crate::path::builder::*;
 use crate::path::{Attributes, EndpointId, PathEvent};
 
-use std::f32;
-use std::ops::Range;
+use core::f32;
+use core::ops::Range;
+
+use alloc::vec::Vec;
 
 /// Walks along the path staring at offset `start` and applies a `Pattern`.
 pub fn walk_along_path<Iter>(path: Iter, start: f32, tolerance: f32, pattern: &mut dyn Pattern)
@@ -139,9 +141,9 @@ impl<'l> PathWalker<'l> {
             need_moveto: true,
             done: false,
             pattern,
-            prev_attributes: vec![0.0; num_attributes],
-            attribute_buffer: vec![0.0; num_attributes],
-            first_attributes: vec![0.0; num_attributes],
+            prev_attributes: alloc::vec![0.0; num_attributes],
+            attribute_buffer: alloc::vec![0.0; num_attributes],
+            first_attributes: alloc::vec![0.0; num_attributes],
             num_attributes,
         }
     }
@@ -236,7 +238,7 @@ impl<'l> PathWalker<'l> {
 
     pub fn end(&mut self, close: bool) {
         if close {
-            let attributes = std::mem::take(&mut self.first_attributes);
+            let attributes = core::mem::take(&mut self.first_attributes);
             let first = self.first;
             let from = self.prev;
             let tangent = (first - from).normalize();

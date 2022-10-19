@@ -1,10 +1,16 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
 #![allow(clippy::float_cmp)]
+#![no_std]
 
 //! 2d Path transformation and manipulation algorithms.
 //!
 //! This crate is reexported in [lyon](https://docs.rs/lyon/).
+
+extern crate alloc;
+
+#[cfg(any(test, feature = "std"))]
+extern crate std;
 
 pub extern crate lyon_path as path;
 

@@ -83,7 +83,7 @@ impl<'l, T> Polygon<'l, T> {
     }
 }
 
-impl<'l, T> std::ops::Index<EndpointId> for Polygon<'l, T> {
+impl<'l, T> core::ops::Index<EndpointId> for Polygon<'l, T> {
     type Output = T;
     fn index(&self, id: EndpointId) -> &T {
         &self.points[id.to_usize()]
@@ -132,7 +132,7 @@ impl<'l> IdPolygon<'l> {
 /// An iterator of `Event<EndpointId, ()>`.
 #[derive(Clone)]
 pub struct IdPolygonIter<'l> {
-    points: std::slice::Iter<'l, EndpointId>,
+    points: core::slice::Iter<'l, EndpointId>,
     idx: u32,
     prev: Option<EndpointId>,
     first: EndpointId,
@@ -170,7 +170,7 @@ impl<'l> Iterator for IdPolygonIter<'l> {
 /// An iterator of `Event<&Endpoint, ()>`.
 #[derive(Clone)]
 pub struct PolygonIter<'l, T> {
-    points: std::slice::Iter<'l, T>,
+    points: core::slice::Iter<'l, T>,
     prev: Option<&'l T>,
     first: Option<&'l T>,
     closed: bool,
@@ -205,7 +205,7 @@ impl<'l, T> Iterator for PolygonIter<'l, T> {
 /// An iterator of `PathEvent`.
 #[derive(Clone)]
 pub struct PathEvents<'l, T> {
-    points: std::slice::Iter<'l, T>,
+    points: core::slice::Iter<'l, T>,
     prev: Option<Point>,
     first: Option<Point>,
     closed: bool,
@@ -250,7 +250,7 @@ pub struct PolygonIdIter {
 
 impl PolygonIdIter {
     #[inline]
-    pub fn new(range: std::ops::Range<u32>, closed: bool) -> Self {
+    pub fn new(range: core::ops::Range<u32>, closed: bool) -> Self {
         PolygonIdIter {
             idx: range.start,
             start: range.start,

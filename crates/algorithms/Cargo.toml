@@ -16,8 +16,11 @@ name = "lyon_algorithms"
 path = "src/lib.rs"
 
 [features]
+default = ["std"]
+std = ["lyon_path/std", "num-traits/std"]
 serialization = ["serde", "lyon_path/serialization"]
 
 [dependencies]
-lyon_path = { version = "1.0.0", path = "../path" }
-serde = { version = "1.0", optional = true, features = ["serde_derive"] }
+lyon_path = { version = "1.0.0", path = "../path", default-features = false }
+num-traits = { version = "0.2.15", default-features = false, features = ["libm"] }
+serde = { version = "1.0", optional = true, features = ["serde_derive"], default-features = false }

@@ -876,6 +876,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "292a948cd991e376cf75541fe5b97a1081d713c618b4f1b9500f8844e49eb565"
+
+[[package]]
 name = "lock_api"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -907,6 +913,7 @@ name = "lyon_algorithms"
 version = "1.0.1"
 dependencies = [
  "lyon_path",
+ "num-traits",
  "serde",
 ]
 
@@ -949,6 +956,7 @@ name = "lyon_path"
 version = "1.0.1"
 dependencies = [
  "lyon_geom",
+ "num-traits",
  "serde",
 ]
 
@@ -1170,11 +1178,12 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg 1.0.1",
+ "libm",
 ]
 
 [[package]]

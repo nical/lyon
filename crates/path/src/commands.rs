@@ -60,7 +60,10 @@ use crate::events::{Event, IdEvent, PathEvent};
 use crate::math::Point;
 use crate::{ControlPointId, EndpointId, EventId, Position, PositionStore};
 
-use std::fmt;
+use core::fmt;
+
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 // Note: Tried making the path generic over the integer type used to store
 // the commands to allow u16 and u32, but the performance difference is very
@@ -75,7 +78,7 @@ mod verb {
     pub const END: u32 = 5;
 }
 
-/// Sadly this is very close to std::slice::Iter but reimplementing
+/// Sadly this is very close to core::slice::Iter but reimplementing
 /// it manually to iterate over u32 makes a difference.
 /// It would seem that having next return u32 with a special value
 /// for the end of the iteration instead of Option<u32> should
@@ -85,7 +88,7 @@ mod verb {
 struct CmdIter<'l> {
     ptr: *const u32,
     end: *const u32,
-    _marker: std::marker::PhantomData<&'l u32>,
+    _marker: core::marker::PhantomData<&'l u32>,
 }
 
 impl<'l> CmdIter<'l> {
@@ -95,7 +98,7 @@ impl<'l> CmdIter<'l> {
         CmdIter {
             ptr,
             end,
-            _marker: std::marker::PhantomData,
+            _marker: core::marker::PhantomData,
         }
     }
 
@@ -369,7 +372,7 @@ impl<'l, Endpoint, ControlPoint> CommandsPathSlice<'l, Endpoint, ControlPoint> {
     }
 }
 
-impl<'l, Endpoint, ControlPoint> std::ops::Index<EndpointId>
+impl<'l, Endpoint, ControlPoint> core::ops::Index<EndpointId>
     for CommandsPathSlice<'l, Endpoint, ControlPoint>
 {
     type Output = Endpoint;
@@ -378,7 +381,7 @@ impl<'l, Endpoint, ControlPoint> std::ops::Index<EndpointId>
     }
 }
 
-impl<'l, Endpoint, ControlPoint> std::ops::Index<ControlPointId>
+impl<'l, Endpoint, ControlPoint> core::ops::Index<ControlPointId>
     for CommandsPathSlice<'l, Endpoint, ControlPoint>
 {
     type Output = ControlPoint;
