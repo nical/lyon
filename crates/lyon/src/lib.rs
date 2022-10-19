@@ -6,7 +6,7 @@
 //! ![logo](https://nical.github.io/lyon-doc/lyon-logo.svg)
 //!
 //! [![crate](https://img.shields.io/crates/v/lyon.svg)](https://crates.io/crates/lyon)
-//! [![ci](https://img.shields.io/travis/nical/lyon/master.svg)](https://travis-ci.org/nical/lyon)
+//! [![ci](https://github.com/nical/lyon/actions/workflows/main.yml/badge.svg)](https://github.com/nical/lyon/actions)
 //!
 //! # Crates
 //!
