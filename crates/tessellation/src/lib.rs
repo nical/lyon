@@ -485,7 +485,6 @@ pub struct FillOptions {
     /// Set the fill rule.
     ///
     /// See the [SVG specification](https://www.w3.org/TR/SVG/painting.html#FillRuleProperty).
-    /// Currently, only the `EvenOdd` rule is implemented.
     ///
     /// Default value: `EvenOdd`.
     pub fill_rule: FillRule,
