@@ -49,11 +49,6 @@
 //!   </text>
 //! </svg>
 //!
-//! The flattening algorithm implemented in this crate is based on the paper
-//! [Fast, Precise Flattening of Cubic Bézier Segment Offset Curves](http://www.cccg.ca/proceedings/2004/36.pdf).
-//! It tends to produce a better approximations than the usual recursive subdivision approach (or
-//! in other words, it generates less segments for a given tolerance threshold).
-//!
 //! The tolerance threshold taken as input by the flattening algorithms corresponds
 //! to the maximum distance between the curve and its linear approximation.
 //! The smaller the tolerance is, the more precise the approximation and the more segments
