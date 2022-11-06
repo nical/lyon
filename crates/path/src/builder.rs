@@ -91,6 +91,7 @@ use core::marker::Sized;
 use alloc::vec::Vec;
 use alloc::vec;
 
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 /// The radius of each corner of a rounded rectangle.
