@@ -901,7 +901,7 @@ dependencies = [
 
 [[package]]
 name = "lyon"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
@@ -910,7 +910,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_algorithms"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "lyon_path",
  "num-traits",
@@ -943,7 +943,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "arrayvec 0.7.1",
  "euclid",
@@ -953,7 +953,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "lyon_geom",
  "num-traits",
@@ -962,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "float_next_after",
  "lyon_extra",

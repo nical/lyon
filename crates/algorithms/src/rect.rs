@@ -3,6 +3,7 @@
 use crate::math::{point, vector, Box2D, Point, Vector};
 use crate::path::PathEvent;
 
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
