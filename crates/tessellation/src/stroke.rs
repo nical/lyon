@@ -1898,8 +1898,8 @@ fn tessellate_join(
     output: &mut dyn StrokeGeometryBuilder,
 ) -> Result<(), TessellationError> {
     let side_needs_join = [
-        join.side_points[SIDE_POSITIVE].single_vertex.is_none(),
-        join.side_points[SIDE_NEGATIVE].single_vertex.is_none(),
+        join.side_points[SIDE_POSITIVE].single_vertex.is_none() && !join.fold[SIDE_NEGATIVE],
+        join.side_points[SIDE_NEGATIVE].single_vertex.is_none() && !join.fold[SIDE_POSITIVE],
     ];
 
     if !join.fold[SIDE_POSITIVE] && !join.fold[SIDE_NEGATIVE] {
