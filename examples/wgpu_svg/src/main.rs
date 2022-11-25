@@ -604,7 +604,8 @@ fn update_inputs(
             ..
         } => {
             scene.window_size = size;
-            scene.size_changed = true
+            scene.size_changed = true;
+            redraw = true;
         }
         Event::WindowEvent {
             event:
