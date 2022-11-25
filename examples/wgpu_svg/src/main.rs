@@ -211,7 +211,7 @@ fn main() {
     let (device, queue) = block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
             label: None,
-            features: wgpu::Features::default(),
+            features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE,
             limits: wgpu::Limits::default(),
         },
         // trace_path can be used for API call tracing
@@ -389,7 +389,7 @@ fn main() {
 
     // TODO: this isn't what we want: we'd need the equivalent of VK_POLYGON_MODE_LINE,
     // but it doesn't seem to be exposed by wgpu?
-    render_pipeline_descriptor.primitive.topology = wgpu::PrimitiveTopology::LineList;
+    render_pipeline_descriptor.primitive.polygon_mode = wgpu::PolygonMode::Line;
     let wireframe_render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
 
     queue.write_buffer(&transforms_ssbo, 0, bytemuck::cast_slice(&transforms));
