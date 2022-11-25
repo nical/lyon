@@ -1666,9 +1666,24 @@ fn compute_join_side_positions_fixed_width(
 
     let back_side = 1 - front_side;
 
+    // The folding code path's threshold is a tad too eager when dealing with flattened curves due to
+    // how flattening can create segments that are much smaller than the line width. In practice the
+    // curve tends to cover the spike of the back vertex in a lot of cases. Unfortuenately at the moment
+    // the stroke tessellators force miter joins to be clipped in the folding case. Work around it by
+    // disabling folding when a miter join is not clipped. That's often an indication that the join is not
+    // sharp enough to generate a huge spike, although the spiking artifact will show up in some cases.
+    // Better solutions could involve:
+    //  - Using the distance between the curve control point and endpoint instead of the previous flattened
+    //    segment in the spike detection heuristic.
+    //  - Implement proper miter joins when the folding code is active.
+    //  - Better integrating curves with the tessellator instead of only considering the previous and next
+    //    flattened segment.
+    let unclipped_miter = (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
+        && !miter_limit_is_exceeded(front_normal, miter_limit);
+
     let mut fold = false;
     let angle_is_sharp = next_tangent.dot(prev_tangent) < 0.0;
-    if angle_is_sharp {
+    if !unclipped_miter && angle_is_sharp {
         // Project the back vertex on the previous and next edges and subtract the edge length
         // to see if the back vertex ends up further than the opposite endpoint of the edge.
         let extruded_normal = front_normal * vertex.half_width;
@@ -1697,9 +1712,7 @@ fn compute_join_side_positions_fixed_width(
         ];
 
         join.side_points[back_side].single_vertex = Some(miter_pos[back_side]);
-        if (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-            && !miter_limit_is_exceeded(front_normal, miter_limit)
-        {
+        if unclipped_miter {
             join.side_points[front_side].single_vertex = Some(miter_pos[front_side]);
         } else if join.line_join == LineJoin::MiterClip {
             let n0 = join.side_points[front_side].prev - join.position;
