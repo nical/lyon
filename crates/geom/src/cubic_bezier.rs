@@ -3,13 +3,14 @@ use crate::scalar::Scalar;
 use crate::segment::{BoundingBox, Segment};
 use crate::traits::Transformation;
 use crate::utils::{cubic_polynomial_roots, min_max};
-use crate::{point, Box2D, Point, Vector};
+use crate::{point, Box2D, Point, Vector, line};
 use crate::{Line, LineEquation, LineSegment, QuadraticBezierSegment};
 use arrayvec::ArrayVec;
 
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::ops::Range;
 
+use std::println;
 #[cfg(test)]
 use std::vec::Vec;
 
@@ -246,25 +247,56 @@ impl<S: Scalar> CubicBezierSegment<S> {
         // the sign of c1 and c2 to compute tighter upper bounds as we
         // do in fat_line_min_max.
         let baseline = self.to - self.from;
-        let v1 = self.ctrl1 - self.from;
-        let v2 = self.ctrl2 - self.from;
-        let c1 = baseline.cross(v1);
-        let c2 = baseline.cross(v2);
-        let d1 = (c1 * c1) / baseline.square_length();
-        let d2 = (c2 * c2) / baseline.square_length();
+        let div = S::ONE / baseline.square_length();
+
+        let threshold = tolerance * tolerance;
+
+        let c1 = baseline.cross(self.ctrl1 - self.from);
+        let c2 = baseline.cross(self.ctrl2 - self.from);
 
         let factor = if (c1 * c2) > S::ZERO {
             S::THREE / S::FOUR
         } else {
             S::FOUR / S::NINE
         };
-
         let f2 = factor * factor;
-        let threshold = tolerance * tolerance;
 
-        d1 * f2 <= threshold && d2 <= threshold
+        let d1 = (c1 * c1) * div;
+        if d1 * f2 > threshold {
+            return false;
+        }
+
+        let d2 = (c2 * c2) * div;
+        if d2 * f2 > threshold {
+            return false;
+        }
+
+        // Technically, we only need to do this test if the curve has not been
+        // subdivided, but trying to optimize it away does not make a large difference.
+        //if baseline.dot(v1) < S::ZERO || baseline.dot(self.ctrl2 - self.to) > S::ZERO {
+        //    return false;
+        //}
+
+        //    for i in 1u32..9u32 {
+        //        let t = S::value(i as f32 / 10.0);
+        //        let p = self.sample(t);
+        //        let d = self.baseline().distance_to_point(p);
+        //        assert!(d <= tolerance * S::value(1.1), " curve {:?}, distance {:?} at {:?}", self, d, t);
+        //    }
+        //println!("d1 {:?}, d2 {:?}", d1, d2);
+
+        true
     }
 
+    pub fn is_linear_agg(&self, tolerance: S) -> bool {
+        let baseline = self.to - self.from;
+        let c1 = baseline.cross(self.ctrl1 - self.to);
+        let c2 = baseline.cross(self.ctrl2 - self.to);
+
+        let flat = (c1 + c2) * (c1 + c2) <= tolerance * tolerance * baseline.square_length();
+
+        flat
+    }
     /// Returns whether the curve can be approximated with a single point, given
     /// a tolerance threshold.
     pub(crate) fn is_a_point(&self, tolerance: S) -> bool {
@@ -517,21 +549,27 @@ impl<S: Scalar> CubicBezierSegment<S> {
     {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
+        let poly = self.polynomial_form();
         let num_quadratics = self.num_quadratics_impl(tolerance);
         let step = S::ONE / num_quadratics;
         let n = num_quadratics.to_u32().unwrap_or(1);
         let mut t0 = S::ZERO;
+        let mut from = self.from;
         for _ in 0..(n - 1) {
             let t1 = t0 + step;
-
-            let quad = self.split_range(t0..t1).to_quadratic();
+            let to = poly.sample(t1);
+            let ctrl = from + (self.ctrl1 - self.from).lerp(self.ctrl2 - self.ctrl1, t0) * (t1 - t0);
+            let quad = QuadraticBezierSegment { from, ctrl, to };
             cb(&quad, t0..t1);
 
             t0 = t1;
+            from = to;
         }
 
         // Do the last step manually to make sure we finish at t = 1.0 exactly.
-        let quad = self.split_range(t0..S::ONE).to_quadratic();
+        let to = self.to;
+        let ctrl = from + (self.ctrl1 - self.from).lerp(self.ctrl2 - self.ctrl1, t0) * (S::ONE - t0);
+        let quad = QuadraticBezierSegment { from, ctrl, to };
         cb(&quad, t0..S::ONE)
     }
 
@@ -542,7 +580,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn for_each_flattened<F: FnMut(&LineSegment<S>)>(&self, tolerance: S, callback: &mut F) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
         let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.8);
+        let flattening_tolerance = tolerance * S::value(0.9);
 
         self.for_each_quadratic_bezier(quadratics_tolerance, &mut |quad| {
             quad.for_each_flattened(flattening_tolerance, &mut |segment| {
@@ -564,7 +602,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     ) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
         let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.8);
+        let flattening_tolerance = tolerance * S::value(0.9);
 
         let mut t_from = S::ZERO;
         self.for_each_quadratic_bezier_with_t(quadratics_tolerance, &mut |quad, range| {
@@ -1266,6 +1304,16 @@ impl<S: Scalar> CubicBezierSegment<S> {
             to: self.to,
         }
     }
+
+    #[inline]
+    pub fn polynomial_form(&self) -> CubicBezierPolynomial<S> {
+        CubicBezierPolynomial {
+            a0: self.from.to_vector(),
+            a1: (self.ctrl1 - self.from) * S::THREE,
+            a2: self.from * S::THREE - self.ctrl1 * S::SIX + self.ctrl2.to_vector() * S::THREE,
+            a3: self.to - self.from + (self.ctrl1 - self.ctrl2) * S::THREE
+        }
+    }
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> {
@@ -1293,6 +1341,30 @@ impl<S: Scalar> BoundingBox for CubicBezierSegment<S> {
     }
     fn fast_bounding_range_y(&self) -> (S, S) {
         self.fast_bounding_range_y()
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct CubicBezierPolynomial<S> {
+    pub a0: Vector<S>,
+    pub a1: Vector<S>,
+    pub a2: Vector<S>,
+    pub a3: Vector<S>,
+}
+
+impl<S: Scalar> CubicBezierPolynomial<S> {
+    pub fn sample(&self, t: S) -> Point<S> {
+        // Horner's method.
+        let mut v = self.a0;
+        let mut t2 = t;
+        v += self.a1 * t2;
+        t2 *= t;
+        v += self.a2 * t2;
+        t2 *= t;
+        v += self.a3 * t2;
+
+        v.to_point()
     }
 }
 
@@ -1365,6 +1437,420 @@ impl<S: Scalar> Iterator for Flattened<S> {
             None,
         )
     }
+}
+
+
+// The algorithm is described in detail in the 1995 patent # 5367617 "System and
+// method of hybrid forward differencing to render Bezier splines" to be found
+// on the Microsoft legal dept. web site (LCAWEB).  Additional references are:
+//     Lien, Shantz and Vaughan Pratt, "Adaptive Forward Differencing for
+//     Rendering Curves and Surfaces", Computer Graphics, July 1987
+//     Chang and Shantz, "Rendering Trimmed NURBS with Adaptive Forward
+//         Differencing", Computer Graphics, August 1988
+//     Foley and Van Dam, "Fundamentals of Interactive Computer Graphics"
+//
+// The basic idea is to replace the Bernstein basis (underlying Bezier curves)
+// with the Hybrid Forward Differencing (HFD) basis which is more efficient
+// for flattening.  Each one of the 3 actions - Step, Halve and Double (step
+// size) this basis affords very efficient formulas for computing coefficients
+// for the new interval.
+//
+// The coefficients of the HFD basis are defined in terms of the Bezier
+// coefficients as follows:
+//
+//          e0 = p0, e1 = p3 - p0, e2 = 6(p1 - 2p2 + p3), e3 = 6(p0 - 2p1 + p2),
+//
+// but formulas may be easier to understand by going through the power basis
+// representation:  f(t) = a*t + b*t + c * t^2 + d * t^3.
+//
+//  The conversion is then:
+//                              e0 = a
+//                              e1 = f(1) - f(0) = b + c + d
+//                              e2 = f"(1) = 2c + 6d
+//                              e3 = f"(0) = 2c
+//
+// This is inverted to:
+//                              a = e0
+//                              c = e3 / 2
+//                              d = (e2 - 2c) / 6 = (e2 - e3) / 6
+//                              b = e1 - c - d = e1 - e2 / 6 - e3 / 3
+//
+// a, b, c, d for the new (halved, doubled or forwarded) interval are derived
+// and then converted to e0, e1, e2, e3 using these relationships.
+//
+// This code is an adaptation of a Rust port by Jeff Muizelaar of WPF's C++
+// implementation.
+struct HfdFlattener<S> {
+    current: Vector<S>,
+    v1: Vector<S>,
+    v2: Vector<S>,
+    v3: Vector<S>,
+    steps: u32,
+    step_size: S,
+    t: S,
+    tol: S,
+    quarter_tol: S,
+}
+
+impl<S:Scalar> HfdFlattener<S> {
+    #[inline]
+    fn new(curve: &CubicBezierSegment<S>, tolerance: S) -> Self {
+        let mut flattener = HfdFlattener {
+            current: curve.from.to_vector(),
+            v1: curve.to - curve.from,
+            v2: (curve.ctrl1 - curve.ctrl2 * S::TWO + curve.to.to_vector()) * S::SIX,
+            v3: (curve.from - curve.ctrl1 * S::TWO + curve.ctrl2.to_vector()) * S::SIX,
+            tol: S::SIX * tolerance,
+            quarter_tol:  S::SIX / S::FOUR * tolerance,
+            steps: 1,
+            step_size: S::value(1.0),
+            t: S::ZERO,
+        };
+
+        while approx_norm(&flattener.v2) > flattener.tol || approx_norm(&flattener.v3) > flattener.tol {
+            flattener.halve_step();
+        }
+
+        flattener
+    }
+
+    fn step(&mut self) {
+        self.current += self.v1;
+        let pt = self.v2;
+        self.v1 += self.v2;
+        self.v2 = self.v2 + self.v2 - self.v3;
+        self.v3 = pt;
+
+        self.t += self.step_size;
+
+        self.steps -= 1;
+    }
+
+    fn halve_step(&mut self) {
+        self.v2 = (self.v2 + self.v3) * S::value(0.125);
+        self.v1 = (self.v1 - self.v2) * S::HALF;
+        self.v3 *= S::value(0.25);
+        self.steps *= 2;
+        self.step_size *= S::HALF;
+    }
+
+    fn maybe_double_step(&mut self) -> bool {
+        let tmp = self.v2 * S::TWO - self.v3;
+        let doubled = approx_norm(&self.v3) <= self.quarter_tol && approx_norm(&tmp) <= self.quarter_tol;
+        if doubled {
+            self.v1 = self.v1 * S::TWO + self.v2;
+            self.v3 *= S::FOUR;
+            self.v2 = tmp * S::FOUR;
+            self.steps /= 2;
+            self.step_size *= S::TWO;
+        }
+
+        doubled
+    }
+
+    fn adjust_step(&mut self) {
+        if approx_norm(&self.v2) > self.tol && self.step_size > S::value(1e-3) {
+            // Halving the step once is provably sufficient (see Notes above)...
+            self.halve_step();
+        } else if (self.steps & 1) == 0 {
+            // ...but the step can possibly be more than doubled, hence the while loop.
+            while self.maybe_double_step() {}
+        }
+    }
+}
+
+fn approx_norm<S: Scalar>(v: &Vector<S>) -> S {
+    v.x.abs().max(v.y.abs())
+    //v.length()
+}
+
+pub use crate::flatten_pa::flatten_pa;
+
+/// Flatten using forward difference
+///
+/// This is the simple (non-adaptative) version of the forward difference
+/// algorithm, pre-calculating the number of edges using the formula given
+/// in section 10.6 of CAGD.
+pub fn flatten_fd<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let poly = curve.polynomial_form();
+    let n = num_segments_cagd(curve, tolerance);
+    let dt = S::ONE / n;
+
+    let mut t0 = S::ZERO;
+    let mut t1 = dt;
+    let mut from = curve.from;
+    let mut to = from;
+
+    let mut fd1 = poly.a1 * dt;
+    let mut fd2 = poly.a2 * S::TWO * dt * dt;
+    let fd3 = poly.a3 * S::SIX * dt * dt * dt;
+
+    for _ in 1..n.to_u32().unwrap_or(1) {
+        to += fd1 + fd2 * S::HALF + fd3 / S::SIX;
+        fd1 += fd2 + fd3 * S::HALF;
+        fd2 += fd3;
+
+        callback(&LineSegment { from, to }, t0..t1);
+
+        t0 = t1;
+        t1 += dt;
+        from = to;
+    }
+
+    callback(&LineSegment { from, to: curve.to }, t0..S::ONE);
+}
+
+/// Flatten using the hybrid forward difference algortihm.
+pub fn flatten_hfd<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut flattener = HfdFlattener::new(curve, tolerance);
+
+    let mut prev = curve.from;
+    let mut prev_t = S::ZERO;
+
+    while flattener.steps > 1 {
+        flattener.step();
+
+        let to = flattener.current.to_point();
+        callback(&LineSegment { from: prev, to, }, prev_t..flattener.t);
+        prev = to;
+        prev_t = flattener.t;
+
+        flattener.adjust_step();
+    }
+
+    callback(&LineSegment { from: prev, to: curve.to, }, prev_t..S::ONE);
+}
+
+/// flatness criterion from the hybrid forward difference paper.
+fn hfd_linear<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> bool {
+    let v212 = curve.ctrl1 - curve.from;
+    let v214 = curve.ctrl2 - curve.ctrl1;
+    let v216 = curve.to - curve.ctrl2;
+    let v218 = v214 - v212;
+    let v220 = v216 - v214;
+    approx_norm(&v218).max(approx_norm(&v220)) <= tolerance
+}
+
+/// Just approcimate the curve with a single line segment.
+pub fn flatten_bad<S, F>(curve: &CubicBezierSegment<S>, _tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    callback(&LineSegment { from: curve.from, to: curve.to }, S::ZERO..S::ONE);
+}
+
+/// The Flatten the using a simple recursive algorithm
+pub fn flatten_recursive<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut prev = curve.from;
+    flatten_recursive_impl(curve, tolerance, callback, &mut prev, S::ZERO, S::ONE);
+}
+
+fn flatten_recursive_impl<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F, prev: &mut Point<S>, t0: S, t1: S)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    if curve.is_linear(tolerance) {
+        callback(&LineSegment { from: *prev, to: curve.to }, t0..t1);
+        *prev = curve.to;
+        return;
+    }
+
+    let t = (t0 + t1) * S::HALF;
+    let (c0, c1) = curve.split(S::HALF);
+
+    flatten_recursive_impl(&c0, tolerance, callback, prev, t0, t);
+    flatten_recursive_impl(&c1, tolerance, callback, prev, t, t1);
+}
+
+/// Flatten using a simple recursive algorithm with the flatening criterion
+/// from the hybrid forward difference paper (for comparison purposes).
+pub fn flatten_recursive_hfd<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut prev = curve.from;
+    flatten_recursive_impl_hfd(curve, tolerance, callback, &mut prev, S::ZERO, S::ONE);
+}
+
+fn flatten_recursive_impl_hfd<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F, prev: &mut Point<S>, t0: S, t1: S)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    if hfd_linear(curve, tolerance) {
+        callback(&LineSegment { from: *prev, to: curve.to }, t0..t1);
+        *prev = curve.to;
+        return;
+    }
+
+    let t = (t0 + t1) * S::HALF;
+    let (c0, c1) = curve.split(t);
+
+    flatten_recursive_impl_hfd(&c0, tolerance, callback, prev, t0, t);
+    flatten_recursive_impl_hfd(&c1, tolerance, callback, prev, t, t1);
+}
+
+/// Flatten using a simple recursive algorithm with the flatening criterion
+/// from the antigrain geometry (for comparison purposes).
+pub fn flatten_recursive_agg<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut prev = curve.from;
+    flatten_recursive_impl_agg(curve, tolerance, callback, &mut prev, S::ZERO, S::ONE);
+}
+
+fn flatten_recursive_impl_agg<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F, prev: &mut Point<S>, t0: S, t1: S)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    if curve.is_linear_agg(tolerance) {
+        callback(&LineSegment { from: *prev, to: curve.to }, t0..t1);
+        *prev = curve.to;
+        return;
+    }
+
+    let t = (t0 + t1) * S::HALF;
+    let (c0, c1) = curve.split(t);
+
+    flatten_recursive_impl_agg(&c0, tolerance, callback, prev, t0, t);
+    flatten_recursive_impl_agg(&c1, tolerance, callback, prev, t, t1);
+}
+
+/// A simple iterative flattening algorithm which find a section at the start of the curve
+/// that can be approximated with a line segment, splits it off and starts over until
+/// there is no more curve left to flatten.
+pub fn flatten_linear<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut rem = *curve;
+    let mut from = rem.from;
+    let mut t0 = S::ZERO;
+
+    loop {
+        //if hfd_linear(&rem, tolerance) {
+        if rem.is_linear(tolerance) {
+            callback(&LineSegment { from, to: rem.to }, t0..S::ONE);
+            return;
+        }
+
+        let mut split = S::HALF;
+        loop {
+            let sub = rem.before_split(split);
+            //if hfd_linear(&sub, tolerance) {
+            if sub.is_linear(tolerance) {
+                let t1 = t0 + (S::ONE - t0) * split;
+                callback(&LineSegment { from, to: sub.to }, t0..t1);
+                from = sub.to;
+                t0 = t1;
+                rem = rem.after_split(split);
+                break;
+            }
+            split *= S::HALF;
+        }
+    }
+}
+
+/// Same as `flatten_linear` with an optimization to more quickly find the split point.
+pub fn flatten_linear2<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut rem = *curve;
+    let mut from = rem.from;
+    let mut t0 = S::ZERO;
+
+    let mut split = S::HALF;
+    loop {
+        if rem.is_linear(tolerance) {
+            callback(&LineSegment { from, to: rem.to }, t0..S::ONE);
+            return;
+        }
+
+        loop {
+            let sub = rem.before_split(split);
+            if sub.is_linear(tolerance) {
+                let t1 = t0 + (S::ONE - t0) * split;
+                callback(&LineSegment { from, to: sub.to }, t0..t1);
+                from = sub.to;
+                t0 = t1;
+                rem = rem.after_split(split);
+                let next_split = split * S::TWO;
+                if next_split < S::ONE {
+                    split = next_split;
+                }
+                break;
+            }
+            split *= S::HALF;
+        }
+    }
+}
+
+/// Computes the number of line segments required to build a flattened approximation
+/// of the curve with segments placed at regular `t` intervals.
+pub fn num_segments_cagd<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> S {
+    let from = curve.from.to_vector();
+    let ctrl1 = curve.ctrl1.to_vector();
+    let ctrl2 = curve.ctrl2.to_vector();
+    let to = curve.to.to_vector();
+    let l = (from - ctrl1 * S::TWO + to).max(ctrl1 - ctrl2 * S::TWO + to) * S::SIX;
+    let num_steps = S::sqrt(l.length() / (S::EIGHT * tolerance));
+
+    num_steps.ceil().max(S::ONE)
+}
+
+/// Flatten the curve by precomputing a number of segments and splitting the curve
+/// at regular `t` intervals.
+pub fn flatten_cagd<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+    where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let poly = curve.polynomial_form();
+    let n = num_segments_cagd(curve, tolerance);
+    let step = S::ONE / n;
+    let mut prev = S::ZERO;
+    let mut from = curve.from;
+    for _ in 0..(n.to_u32().unwrap() - 1) {
+        let t = prev + step;
+        let to = poly.sample(t);
+        callback(&mut LineSegment { from, to }, prev..t);
+        from = to;
+        prev = t;
+    }
+
+    let to = curve.to;
+    callback(&mut LineSegment { from, to }, prev..S::ONE);
+}
+
+/// Flatten the curve by apprximating it with quadratic bézier segments and flattening
+/// them using Raph Levien's algorithm.
+pub fn flatten_levien<S, F>(curve: &CubicBezierSegment<S>, tolerance: S, callback: &mut F)
+    where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    curve.for_each_flattened_with_t(tolerance, callback);
 }
 
 #[cfg(test)]
@@ -1803,6 +2289,15 @@ fn is_linear() {
         }
         angle += 0.001;
     }
+
+    let c = CubicBezierSegment {
+        from: point(0.0, 0.0),
+        ctrl1: point(-10.0, 0.005),
+        ctrl2: point(110.0, 0.005),
+        to: point(100.0, 0.0),
+    };
+
+    assert!(!c.is_linear(0.1));
 }
 
 #[test]

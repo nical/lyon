@@ -93,6 +93,7 @@ mod line;
 pub mod quadratic_bezier;
 mod triangle;
 pub mod utils;
+mod flatten_pa;
 
 #[doc(inline)]
 pub use crate::arc::{Arc, ArcFlags, SvgArc};

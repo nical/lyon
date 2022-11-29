@@ -1,3 +1,5 @@
+use lyon_path::geom::cubic_bezier::flatten_hfd;
+
 use crate::fill::{compare_positions, is_after};
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::{point, Point};
@@ -864,7 +866,7 @@ impl EventQueueBuilder {
         let mut prev = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+        flatten_hfd(&segment, self.tolerance, &mut |line, t| {
             if line.from == line.to {
                 return;
             }

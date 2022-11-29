@@ -7,12 +7,12 @@ members = [
     "crates/geom",
     "crates/extra",
     "cli",
+    "tests",
     "wasm_test",
     "examples/wgpu",
     "examples/wgpu_svg",
     "bench/tess",
     "bench/path",
-    "bench/geom",
 ]
 
 exclude = [
@@ -27,5 +27,5 @@ exclude = [
 resolver = "2"
 
 # Uncomment this when profiling.
-#[profile.release]
-#debug = true
+[profile.release]
+debug = true

@@ -1,6 +1,8 @@
 // There's a number of cases in this file where this lint just complicates the code.
 #![allow(clippy::needless_range_loop)]
 
+use lyon_path::geom::cubic_bezier::{*};
+
 use crate::geom::arrayvec::ArrayVec;
 use crate::geom::utils::tangent;
 use crate::geom::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
@@ -1036,7 +1038,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         end_width: f32,
         attributes: &dyn AttributeStore,
     ) {
-        curve.for_each_flattened_with_t(self.options.tolerance, &mut |line, t| {
+        flatten_cagd(curve,  self.options.tolerance, &mut |line, t| {
             let is_flattening_step = t.end != 1.0;
             let src = if is_flattening_step {
                 VertexSource::Edge {
@@ -1146,7 +1148,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         attributes: &dyn AttributeStore,
     ) {
         let half_width = self.options.line_width * 0.5;
-        curve.for_each_flattened_with_t(self.options.tolerance, &mut |line, t| {
+        flatten_fd(curve, self.options.tolerance, &mut |line, t| {
             let is_flattening_step = t.end != 1.0;
             let src = if is_flattening_step {
                 VertexSource::Edge {

@@ -620,6 +620,20 @@ impl<S: Scalar> Line<S> {
 
         diagonal.intersects_line(self)
     }
+
+    pub fn to_f64(self) -> Line<f64> {
+        Line {
+            point: self.point.to_f64(),
+            vector: self.vector.to_f64(),
+        }
+    }
+
+    pub fn to_f32(self) -> Line<f32> {
+        Line {
+            point: self.point.to_f32(),
+            vector: self.vector.to_f32(),
+        }
+    }
 }
 
 /// A line defined by the equation

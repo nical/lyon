@@ -350,6 +350,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         F: FnMut(&LineSegment<S>, Range<S>),
     {
         let params = FlatteningParameters::new(self, tolerance);
+        let poly = self.polynomial_form();
 
         let mut i = S::ONE;
         let mut from = self.from;
@@ -359,7 +360,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             i += S::ONE;
             let s = LineSegment {
                 from,
-                to: self.sample(t),
+                to: poly.sample(t),
             };
 
             callback(&s, t_from..t);
@@ -847,6 +848,18 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     fn approximate_length(&self, _tolerance: S) -> S {
         self.length()
     }
+
+    #[inline]
+    pub fn polynomial_form(&self) -> QuadraticBezierPolynomial<S> {
+        let from = self.from.to_vector();
+        let ctrl = self.ctrl.to_vector();
+        let to = self.to.to_vector();
+        QuadraticBezierPolynomial {
+            a0: from,
+            a1: (ctrl - from) * S::TWO,
+            a2: from + to - ctrl * S::TWO
+        }
+    }
 }
 
 pub struct FlatteningParameters<S> {
@@ -915,6 +928,7 @@ impl<S: Scalar> FlatteningParameters<S> {
         }
     }
 
+    #[inline]
     fn t_at_iteration(&self, iteration: S) -> S {
         let u = approx_parabola_inv_integral(self.integral_from + self.integral_step * iteration);
         let t = (u - self.inv_integral_from) * self.div_inv_integral_diff;
@@ -1068,6 +1082,162 @@ impl<S: Scalar> BoundingBox for QuadraticBezierSegment<S> {
     fn fast_bounding_range_y(&self) -> (S, S) {
         self.fast_bounding_range_y()
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
+pub struct QuadraticBezierPolynomial<S> {
+    pub a0: Vector<S>,
+    pub a1: Vector<S>,
+    pub a2: Vector<S>,
+}
+
+impl<S: Scalar> QuadraticBezierPolynomial<S> {
+    pub fn sample(&self, t: S) -> Point<S> {
+        // Horner's method.
+        let mut v = self.a0;
+        let mut t2 = t;
+        v += self.a1 * t2;
+        t2 *= t;
+        v += self.a2 * t2;
+
+        v.to_point()
+    }
+}
+
+/// The Flatten the using a simple recursive algorithm
+pub fn flatten_recursive<S, F>(curve: &QuadraticBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut prev = curve.from;
+    flatten_recursive_impl(curve, tolerance, callback, &mut prev, S::ZERO, S::ONE);
+}
+
+fn flatten_recursive_impl<S, F>(curve: &QuadraticBezierSegment<S>, tolerance: S, callback: &mut F, prev: &mut Point<S>, t0: S, t1: S)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    if curve.is_linear(tolerance) {
+        callback(&LineSegment { from: *prev, to: curve.to }, t0..t1);
+        *prev = curve.to;
+        return;
+    }
+
+    let t = (t0 + t1) * S::HALF;
+    let (c0, c1) = curve.split(S::HALF);
+
+    flatten_recursive_impl(&c0, tolerance, callback, prev, t0, t);
+    flatten_recursive_impl(&c1, tolerance, callback, prev, t, t1);
+}
+
+pub fn flatten_linear2<S, F>(curve: &QuadraticBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let mut rem = *curve;
+    let mut from = rem.from;
+    let mut t0 = S::ZERO;
+
+    let mut split = S::HALF;
+    loop {
+        if rem.is_linear(tolerance) {
+            callback(&LineSegment { from, to: rem.to }, t0..S::ONE);
+            return;
+        }
+
+        loop {
+            let sub = rem.before_split(split);
+            if sub.is_linear(tolerance) {
+                let t1 = t0 + (S::ONE - t0) * split;
+                callback(&LineSegment { from, to: sub.to }, t0..t1);
+                from = sub.to;
+                t0 = t1;
+                rem = rem.after_split(split);
+                let next_split = split * S::TWO;
+                if next_split < S::ONE {
+                    split = next_split;
+                }
+                break;
+            }
+            split *= S::HALF;
+        }
+    }
+}
+
+/// Computes the number of line segments required to build a flattened approximation
+/// of the curve with segments placed at regular `t` intervals.
+pub fn num_segments_cagd<S: Scalar>(curve: &QuadraticBezierSegment<S>, tolerance: S) -> S {
+    let from = curve.from.to_vector();
+    let ctrl = curve.ctrl.to_vector();
+    let to = curve.to.to_vector();
+    let l = (from - ctrl * S::TWO + to) * S::TWO;
+    let num_steps = S::sqrt(l.length() / (S::EIGHT * tolerance));
+
+    num_steps.ceil().max(S::ONE)
+}
+
+/// Flatten the curve by precomputing a number of segments and splitting the curve
+/// at regular `t` intervals.
+pub fn flatten_cagd<S, F>(curve: &QuadraticBezierSegment<S>, tolerance: S, callback: &mut F)
+    where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let poly = curve.polynomial_form();
+    let n = num_segments_cagd(curve, tolerance);
+    let step = S::ONE / n;
+    let mut prev = S::ZERO;
+    let mut from = curve.from;
+    for _ in 0..(n.to_u32().unwrap() - 1) {
+        let t = prev + step;
+        let to = poly.sample(t);
+        callback(&mut LineSegment { from, to }, prev..t);
+        from = to;
+        prev = t;
+    }
+
+    let to = curve.to;
+    callback(&mut LineSegment { from, to }, prev..S::ONE);
+}
+
+/// Flatten using forward difference
+///
+/// This is the simple (non-adaptative) version of the forward difference
+/// algorithm, pre-calculating the number of edges using the formula given
+/// in section 10.6 of CAGD.
+pub fn flatten_fd<S, F>(curve: &QuadraticBezierSegment<S>, tolerance: S, callback: &mut F)
+where
+    S: Scalar,
+    F:  FnMut(&LineSegment<S>, Range<S>)
+{
+    let poly = curve.polynomial_form();
+    let n = num_segments_cagd(curve, tolerance);
+    let dt = S::ONE / n;
+
+    let mut t0 = S::ZERO;
+    let mut t1 = dt;
+    let mut from = curve.from;
+    let mut to = from;
+
+    let mut fd1 = poly.a1 * dt;
+    let fd2 = poly.a2 * S::TWO * dt * dt;
+
+    for _ in 1..n.to_u32().unwrap_or(1) {
+        to += fd1 + fd2 * S::HALF;
+        fd1 += fd2;
+
+        callback(&LineSegment { from, to }, t0..t1);
+
+        t0 = t1;
+        t1 += dt;
+        from = to;
+    }
+
+    callback(&LineSegment { from, to: curve.to }, t0..S::ONE);
 }
 
 #[test]
