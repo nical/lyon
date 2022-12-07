@@ -1266,6 +1266,24 @@ impl<S: Scalar> CubicBezierSegment<S> {
             to: self.to,
         }
     }
+
+    pub fn to_f32(&self) -> CubicBezierSegment<f32> {
+        CubicBezierSegment {
+            from: self.from.to_f32(),
+            ctrl1: self.ctrl1.to_f32(),
+            ctrl2: self.ctrl2.to_f32(),
+            to: self.to.to_f32(),
+        }
+    }
+
+    pub fn to_f64(&self) -> CubicBezierSegment<f64> {
+        CubicBezierSegment {
+            from: self.from.to_f64(),
+            ctrl1: self.ctrl1.to_f64(),
+            ctrl2: self.ctrl2.to_f64(),
+            to: self.to.to_f64(),
+        }
+    }
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> {

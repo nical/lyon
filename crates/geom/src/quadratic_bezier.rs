@@ -847,6 +847,22 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     fn approximate_length(&self, _tolerance: S) -> S {
         self.length()
     }
+
+    pub fn to_f32(&self) -> QuadraticBezierSegment<f32> {
+        QuadraticBezierSegment {
+            from: self.from.to_f32(),
+            ctrl: self.ctrl.to_f32(),
+            to: self.to.to_f32(),
+        }
+    }
+
+    pub fn to_f64(&self) -> QuadraticBezierSegment<f64> {
+        QuadraticBezierSegment {
+            from: self.from.to_f64(),
+            ctrl: self.ctrl.to_f64(),
+            to: self.to.to_f64(),
+        }
+    }
 }
 
 pub struct FlatteningParameters<S> {
