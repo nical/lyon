@@ -477,6 +477,22 @@ impl<S: Scalar> LineSegment<S> {
 
         self.from + v1 * t
     }
+
+    #[inline]
+    pub fn to_f32(&self) -> LineSegment<f32> {
+        LineSegment {
+            from: self.from.to_f32(),
+            to: self.to.to_f32(),
+        }
+    }
+
+    #[inline]
+    pub fn to_f64(&self) -> LineSegment<f64> {
+        LineSegment {
+            from: self.from.to_f64(),
+            to: self.to.to_f64(),
+        }
+    }
 }
 
 impl<S: Scalar> Segment for LineSegment<S> {
@@ -619,6 +635,22 @@ impl<S: Scalar> Line<S> {
         };
 
         diagonal.intersects_line(self)
+    }
+
+    #[inline]
+    pub fn to_f32(&self) -> Line<f32> {
+        Line {
+            point: self.point.to_f32(),
+            vector: self.vector.to_f32(),
+        }
+    }
+
+    #[inline]
+    pub fn to_f64(&self) -> Line<f64> {
+        Line {
+            point: self.point.to_f64(),
+            vector: self.vector.to_f64(),
+        }
     }
 }
 
