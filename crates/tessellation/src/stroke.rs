@@ -2200,8 +2200,9 @@ fn tessellate_first_edge(
                 vector: side_position - second.side_points[side].prev,
             };
 
-            let intersection = clip_line
-                .intersection(&side_line)
+            let intersection = clip_line.to_f64()
+                .intersection(&side_line.to_f64())
+                .map(|p| p.to_f32())
                 .unwrap_or(first.side_points[side].next);
             side_position = intersection;
         }
@@ -2243,24 +2244,26 @@ fn get_clip_intersections(
     let clip_line = Line {
         point: normal.normalize().to_point() * clip_distance,
         vector: tangent(normal),
-    };
+    }.to_f64();
 
     let prev_line = Line {
         point: previous_normal.to_point(),
         vector: tangent(previous_normal),
-    };
+    }.to_f64();
 
     let next_line = Line {
         point: next_normal.to_point(),
         vector: tangent(next_normal),
-    };
+    }.to_f64();
 
     let i1 = clip_line
         .intersection(&prev_line)
+        .map(|p| p.to_f32())
         .unwrap_or_else(|| normal.to_point())
         .to_vector();
     let i2 = clip_line
         .intersection(&next_line)
+        .map(|p| p.to_f32())
         .unwrap_or_else(|| normal.to_point())
         .to_vector();
 
