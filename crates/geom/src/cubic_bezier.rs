@@ -251,8 +251,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
 
         let threshold = tolerance * tolerance;
 
-        let c1 = baseline.cross(self.ctrl1 - self.from);
-        let c2 = baseline.cross(self.ctrl2 - self.from);
+        let v1 = self.ctrl1 - self.from;
+        let v2 = self.ctrl2 - self.from;
+        let c1 = baseline.cross(v1);
+        let c2 = baseline.cross(v2);
 
         let factor = if (c1 * c2) > S::ZERO {
             S::THREE / S::FOUR
@@ -271,11 +273,10 @@ impl<S: Scalar> CubicBezierSegment<S> {
             return false;
         }
 
-        // Technically, we only need to do this test if the curve has not been
-        // subdivided, but trying to optimize it away does not make a large difference.
-        //if baseline.dot(v1) < S::ZERO || baseline.dot(self.ctrl2 - self.to) > S::ZERO {
-        //    return false;
-        //}
+        // Note: we only need to do this test if the curve has not been subdivided.
+        if baseline.dot(v1) < S::ZERO || baseline.dot(self.ctrl2 - self.to) > S::ZERO {
+            return false;
+        }
 
         //    for i in 1u32..9u32 {
         //        let t = S::value(i as f32 / 10.0);
@@ -580,7 +581,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     pub fn for_each_flattened<F: FnMut(&LineSegment<S>)>(&self, tolerance: S, callback: &mut F) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
         let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.9);
+        let flattening_tolerance = tolerance * S::value(0.8);
 
         self.for_each_quadratic_bezier(quadratics_tolerance, &mut |quad| {
             quad.for_each_flattened(flattening_tolerance, &mut |segment| {
