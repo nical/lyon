@@ -1041,7 +1041,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "float_next_after",
  "lyon_extra",
