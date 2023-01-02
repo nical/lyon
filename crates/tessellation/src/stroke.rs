@@ -1678,15 +1678,15 @@ fn compute_join_side_positions_fixed_width(
     //  - Implement proper miter joins when the folding code is active.
     //  - Better integrating curves with the tessellator instead of only considering the previous and next
     //    flattened segment.
+    let extruded_normal = front_normal * vertex.half_width;
     let unclipped_miter = (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-        && !miter_limit_is_exceeded(front_normal, miter_limit);
+        && !miter_limit_is_exceeded(extruded_normal, miter_limit);
 
     let mut fold = false;
     let angle_is_sharp = next_tangent.dot(prev_tangent) < 0.0;
     if !unclipped_miter && angle_is_sharp {
         // Project the back vertex on the previous and next edges and subtract the edge length
         // to see if the back vertex ends up further than the opposite endpoint of the edge.
-        let extruded_normal = front_normal * vertex.half_width;
         let d_next = extruded_normal.dot(-next_tangent) - next_length;
         let d_prev = extruded_normal.dot(prev_tangent) - prev_length;
         if d_next.min(d_prev) > 0.0 || normal.square_length() < 1e-5 {
@@ -2094,7 +2094,7 @@ fn compute_join_side_positions(
 
     if concave
         || ((join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-            && !miter_limit_is_exceeded(normal, miter_limit))
+            && !miter_limit_is_exceeded(normal * join.half_width, miter_limit))
     {
         let p = join.position + normal * join.half_width;
         join.side_points[side].single_vertex = Some(p);
