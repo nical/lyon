@@ -1,6 +1,6 @@
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::*;
-use lyon::path::Path;
+use lyon::path::{Path, Polygon};
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
@@ -141,16 +141,21 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
+    let arrow_polygon = Polygon {
+        points: &[
+            point(-1.0, -0.3),
+            point(0.0, -0.3),
+            point(0.0, -1.0),
+            point(1.5, 0.0),
+            point(0.0, 1.0),
+            point(0.0, 0.3),
+            point(-1.0, 0.3),
+        ],
+        closed: true,
+    };
     // Build a Path for the arrow.
     let mut builder = Path::builder();
-    builder.begin(point(-1.0, -0.3));
-    builder.line_to(point(0.0, -0.3));
-    builder.line_to(point(0.0, -1.0));
-    builder.line_to(point(1.5, 0.0));
-    builder.line_to(point(0.0, 1.0));
-    builder.line_to(point(0.0, 0.3));
-    builder.line_to(point(-1.0, 0.3));
-    builder.close();
+    builder.add_polygon(arrow_polygon);
     let arrow_path = builder.build();
 
     fill_tess
