@@ -1,12 +1,12 @@
 use lyon::extra::rust_logo::build_logo_path;
 use lyon::math::*;
-use lyon::path::{Path, Polygon};
+use lyon::path::{Path, Polygon, NO_ATTRIBUTES};
 use lyon::tessellation;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator};
 
-use lyon::algorithms::walk;
+use lyon::algorithms::{walk, rounded_polygon};
 
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -155,7 +155,8 @@ fn main() {
     };
     // Build a Path for the arrow.
     let mut builder = Path::builder();
-    builder.add_polygon(arrow_polygon);
+    rounded_polygon::add_rounded_polygon(&mut builder, arrow_polygon, 0.2, true);
+    //builder.add_polygon(arrow_polygon);
     let arrow_path = builder.build();
 
     fill_tess

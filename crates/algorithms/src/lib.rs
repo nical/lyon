@@ -25,6 +25,7 @@ pub mod raycast;
 pub mod rect;
 pub mod walk;
 pub mod winding;
+pub mod rounded_polygon;
 
 pub use crate::path::geom;
 pub use crate::path::math;
