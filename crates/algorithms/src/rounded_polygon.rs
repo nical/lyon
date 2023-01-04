@@ -1,15 +1,15 @@
 use lyon_path::{
     geom::{euclid, Angle, Vector},
-    traits::{PathBuilder},
-    ArcFlags, Attributes, Polygon,
+    traits::PathBuilder,
+    ArcFlags, Attributes, Polygon, Winding,
 };
+
 pub type Point = euclid::default::Point2D<f32>;
 
 pub fn add_rounded_polygon<B: PathBuilder>(
     builder: &mut B,
     polygon: Polygon<Point>,
     radius: f32,
-    clockwise: bool,
     attributes: Attributes,
 ) {
     //p points are original polygon points
@@ -30,15 +30,14 @@ pub fn add_rounded_polygon<B: PathBuilder>(
 
         let (q_current, q_next) = get_line_points(p_current, p_next, radius);
 
-        let is_right_turn = get_direction(p_previous, p_current, p_next) < 0.;
-
+        let turn_winding = get_winding(p_previous, p_current, p_next);
         arc_to(
             builder,
             Vector::new(radius, radius),
             Angle { radians: 0.0 },
             ArcFlags {
                 large_arc: false,
-                sweep: is_right_turn == clockwise,
+                sweep: turn_winding == Winding::Negative,
             },
             q_previous,
             q_current,
@@ -63,8 +62,13 @@ fn get_line_points(p1: Point, p2: Point, radius: f32) -> (Point, Point) {
     (Point::new(r1.x, r1.y), Point::new(r2.x, r2.y))
 }
 
-fn get_direction(p0: Point, p1: Point, p2: Point) -> f32 {
-    (p2 - p0).cross(p1 - p0)
+fn get_winding(p0: Point, p1: Point, p2: Point) -> Winding {
+    let cross = (p2 - p0).cross(p1 - p0);
+    if cross.is_sign_positive() {
+        Winding::Positive
+    } else {
+        Winding::Negative
+    }
 }
 
 fn arc_to<B: PathBuilder>(
@@ -81,16 +85,12 @@ fn arc_to<B: PathBuilder>(
         to,
         radii,
         x_rotation,
-        flags: ArcFlags {
-            large_arc: flags.large_arc,
-            sweep: flags.sweep,
-        },
+        flags,
     };
 
-    if svg_arc.is_straight_line(){
+    if svg_arc.is_straight_line() {
         builder.line_to(to, attributes);
-    }
-    else{
+    } else {
         let geom_arc = svg_arc.to_arc();
         geom_arc.for_each_quadratic_bezier(&mut |curve| {
             builder.quadratic_bezier_to(curve.ctrl, curve.to, attributes);
