@@ -1,57 +1,56 @@
 use lyon_path::{
-    builder::{NoAttributes, WithSvg},
     geom::{euclid, Angle, Vector},
-    path::BuilderImpl,
-    traits::SvgPathBuilder,
-    ArcFlags, Polygon,
+    traits::{PathBuilder},
+    ArcFlags, Attributes, Polygon,
 };
 pub type Point = euclid::default::Point2D<f32>;
 
-pub fn add_rounded_polygon(
-    b: &mut NoAttributes<BuilderImpl>,
+pub fn add_rounded_polygon<B: PathBuilder>(
+    builder: &mut B,
     polygon: Polygon<Point>,
     radius: f32,
     clockwise: bool,
+    attributes: Attributes,
 ) {
-    let builder = NoAttributes::<BuilderImpl>::new();
-    let mut svg_builder = WithSvg::new(builder);
+    //p points are original polygon points
+    //q points are the actual points we will draw lines and arcs between
 
-    let (_, p_last) = get_line_points(
-        polygon.points[polygon.points.len() - 1],
-        polygon.points[0],
-        radius,
-    );
+    let p_last = polygon.points[polygon.points.len() - 1];
 
-    svg_builder.move_to(p_last);
+    let (_, q_last) = get_line_points(p_last, polygon.points[0], radius);
+
+    //We begin with the arc that replaces the first point
+    builder.begin(q_last, attributes);
+
+    let mut q_previous = q_last;
+    let mut p_previous = p_last;
     for index in 0..polygon.points.len() {
-        let (p1, p2) = get_line_points(
-            polygon.points[index],
-            polygon.points[(index + 1) % polygon.points.len()],
-            radius,
-        );
+        let p_current = polygon.points[index];
+        let p_next = polygon.points[(index + 1) % polygon.points.len()];
 
-        let is_right_turn = get_direction(
-            polygon.points[(polygon.points.len() + index - 1) % polygon.points.len()],
-            polygon.points[index],
-            polygon.points[(index + 1) % polygon.points.len()],
-        ) < 0.;
+        let (q_current, q_next) = get_line_points(p_current, p_next, radius);
 
-        svg_builder.arc_to(
+        let is_right_turn = get_direction(p_previous, p_current, p_next) < 0.;
+
+        arc_to(
+            builder,
             Vector::new(radius, radius),
             Angle { radians: 0.0 },
             ArcFlags {
                 large_arc: false,
                 sweep: is_right_turn == clockwise,
             },
-            p1,
+            q_previous,
+            q_current,
+            attributes,
         );
-        svg_builder.line_to(p2);
+
+        builder.line_to(q_next, attributes);
+        q_previous = q_next;
+        p_previous = p_current;
     }
 
-    svg_builder.close();
-
-    let path = svg_builder.build();
-    b.extend_from_paths(&[path.as_slice()]);
+    builder.end(polygon.closed);
 }
 
 fn get_line_points(p1: Point, p2: Point, radius: f32) -> (Point, Point) {
@@ -66,4 +65,35 @@ fn get_line_points(p1: Point, p2: Point, radius: f32) -> (Point, Point) {
 
 fn get_direction(p0: Point, p1: Point, p2: Point) -> f32 {
     (p2 - p0).cross(p1 - p0)
+}
+
+fn arc_to<B: PathBuilder>(
+    builder: &mut B,
+    radii: Vector<f32>,
+    x_rotation: Angle<f32>,
+    flags: ArcFlags,
+    from: Point,
+    to: Point,
+    attributes: Attributes,
+) {
+    let svg_arc = lyon_path::geom::SvgArc {
+        from,
+        to,
+        radii,
+        x_rotation,
+        flags: ArcFlags {
+            large_arc: flags.large_arc,
+            sweep: flags.sweep,
+        },
+    };
+
+    if svg_arc.is_straight_line(){
+        builder.line_to(to, attributes);
+    }
+    else{
+        let geom_arc = svg_arc.to_arc();
+        geom_arc.for_each_quadratic_bezier(&mut |curve| {
+            builder.quadratic_bezier_to(curve.ctrl, curve.to, attributes);
+        });
+    }
 }
