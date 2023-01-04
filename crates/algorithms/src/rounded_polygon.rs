@@ -6,6 +6,10 @@ use lyon_path::{
 
 pub type Point = euclid::default::Point2D<f32>;
 
+/// Adds a sub-path from a polygon but rounds the corners.
+///
+/// There must be no sub-path in progress when this method is called.
+/// No sub-path is in progress after the method is called.
 pub fn add_rounded_polygon<B: PathBuilder>(
     builder: &mut B,
     polygon: Polygon<Point>,
