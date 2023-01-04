@@ -141,21 +141,24 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
+
+    let arrow_points = [
+        point(-1.0, -0.3),
+        point(0.0, -0.3),
+        point(0.0, -1.0),
+        point(1.5, 0.0),
+        point(0.0, 1.0),
+        point(0.0, 0.3),
+        point(-1.0, 0.3),
+    ];
+
     let arrow_polygon = Polygon {
-        points: &[
-            point(-1.0, -0.3),
-            point(0.0, -0.3),
-            point(0.0, -1.0),
-            point(1.5, 0.0),
-            point(0.0, 1.0),
-            point(0.0, 0.3),
-            point(-1.0, 0.3),
-        ],
+        points: &arrow_points,
         closed: true,
     };
     // Build a Path for the arrow.
     let mut builder = Path::builder();
-    rounded_polygon::add_rounded_polygon(&mut builder, arrow_polygon, 0.2, true, NO_ATTRIBUTES);
+    rounded_polygon::add_rounded_polygon(&mut builder, arrow_polygon, 0.2, NO_ATTRIBUTES);
     //builder.add_polygon(arrow_polygon);
     let arrow_path = builder.build();
 
