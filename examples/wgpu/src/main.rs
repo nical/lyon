@@ -155,7 +155,7 @@ fn main() {
     };
     // Build a Path for the arrow.
     let mut builder = Path::builder();
-    rounded_polygon::add_rounded_polygon(&mut builder, arrow_polygon, 0.2, true);
+    rounded_polygon::add_rounded_polygon(&mut builder, arrow_polygon, 0.2, true, NO_ATTRIBUTES);
     //builder.add_polygon(arrow_polygon);
     let arrow_path = builder.build();
 
