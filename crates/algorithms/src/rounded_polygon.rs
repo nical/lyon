@@ -16,54 +16,67 @@ pub fn add_rounded_polygon<B: PathBuilder>(
     radius: f32,
     attributes: Attributes,
 ) {
+    if polygon.points.len() < 2 {
+        return;
+    }
+
     //p points are original polygon points
     //q points are the actual points we will draw lines and arcs between
+    let clamped_radius = clamp_radius(
+        radius,
+        polygon.points[polygon.points.len() - 1],
+        polygon.points[0],
+        polygon.points[1],
+    );
+    let q_first = get_point_between(polygon.points[0], polygon.points[1], clamped_radius);
 
-    let p_last = polygon.points[polygon.points.len() - 1];
+    //We begin on the line just after the first point
+    builder.begin(q_first, attributes);
 
-    let (_, q_last) = get_line_points(p_last, polygon.points[0], radius);
-
-    //We begin with the arc that replaces the first point
-    builder.begin(q_last, attributes);
-
-    let mut q_previous = q_last;
-    let mut p_previous = p_last;
     for index in 0..polygon.points.len() {
         let p_current = polygon.points[index];
         let p_next = polygon.points[(index + 1) % polygon.points.len()];
+        let p_after_next = polygon.points[(index + 2) % polygon.points.len()];
 
-        let (q_current, q_next) = get_line_points(p_current, p_next, radius);
+        let clamped_radius = clamp_radius(radius, p_current, p_next, p_after_next);
 
-        let turn_winding = get_winding(p_previous, p_current, p_next);
+        //q1 is the second point on the line between p_current and p_next
+        let q1 = get_point_between(p_next, p_current, clamped_radius);
+        //q2 is the first point on the line between p_next and p_after_next
+        let q2 = get_point_between(p_next, p_after_next, clamped_radius);
+
+        builder.line_to(q1, attributes);
+        let turn_winding = get_winding(p_current, p_next, p_after_next);
+
+        //Draw the arc near p_next
         arc(
             builder,
-            Vector::new(radius, radius),
+            Vector::new(clamped_radius, clamped_radius),
             Angle { radians: 0.0 },
             ArcFlags {
                 large_arc: false,
                 sweep: turn_winding == Winding::Negative,
             },
-            q_previous,
-            q_current,
+            q1,
+            q2,
             attributes,
         );
-
-        builder.line_to(q_next, attributes);
-        q_previous = q_next;
-        p_previous = p_current;
     }
 
     builder.end(polygon.closed);
 }
 
-fn get_line_points(p1: Point, p2: Point, radius: f32) -> (Point, Point) {
+fn clamp_radius(radius: f32, p_previous: Point, p_current: Point, p_next: Point) -> f32 {
+    let shorter_edge = ((p_current - p_next).length()).min((p_previous - p_current).length());
+    let clamped_radius = radius.min(shorter_edge * 0.5);
+    clamped_radius
+}
+
+fn get_point_between(p1: Point, p2: Point, radius: f32) -> Point {
     let dist = p1.distance_to(p2);
     let ratio = radius / dist;
 
-    let r1 = p1.lerp(p2, ratio);
-    let r2 = p1.lerp(p2, 1. - ratio);
-
-    (Point::new(r1.x, r1.y), Point::new(r2.x, r2.y))
+    p1.lerp(p2, ratio)
 }
 
 fn get_winding(p0: Point, p1: Point, p2: Point) -> Winding {
@@ -127,7 +140,7 @@ fn rounded_polygon() {
     };
 
     let mut builder = lyon_path::Path::builder();
-    add_rounded_polygon(&mut builder, arrow_polygon, 2.0, lyon_path::NO_ATTRIBUTES);
+    add_rounded_polygon(&mut builder, arrow_polygon, 0.2, lyon_path::NO_ATTRIBUTES);
     let arrow_path = builder.build();
 
     //check that we have the right ordering of event types
@@ -158,16 +171,16 @@ fn rounded_polygon() {
         .collect::<alloc::vec::Vec<_>>()
         .concat();
 
-    assert_eq!(actual_event_types, "bqqqlqqlqqlqqlqqlqqlqqle");
+    assert_eq!(actual_event_types, "blqqlqqlqqlqqlqqlqqlqqe");
 
     let expected_lines = std::vec![
-        (point(1.0, -0.3), point(-2.0, -0.3)),
-        (point(0.0, -2.3), point(0.0, 1.0)),
-        (point(1.66, 0.11), point(-0.16, -1.11)),
-        (point(-0.16, 1.11), point(1.66, -0.11)),
-        (point(-0.0, -1.0), point(0.0, 2.3)),
-        (point(-2.0, 0.3), point(1.0, 0.3)),
-        (point(-1.0, -1.7), point(-1.0, 1.7))
+        (point(-0.8, -0.3), point(-0.2, -0.3)),
+        (point(0.0, -0.5), point(0.0, -0.8)),
+        (point(0.166, -0.889), point(1.333, -0.111)),
+        (point(1.334, 0.111), point(0.166, 0.889)),
+        (point(0.0, 0.8), point(0.0, 0.5)),
+        (point(-0.2, 0.3), point(-0.8, 0.3)),
+        (point(-1.0, 0.1), point(-1.0, -0.1))
     ];
 
     //Check that the lines are approximately correct
