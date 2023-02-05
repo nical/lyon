@@ -1680,7 +1680,9 @@ fn compute_join_side_positions_fixed_width(
     //    flattened segment.
     let extruded_normal = front_normal * vertex.half_width;
     let unclipped_miter = (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-        && !miter_limit_is_exceeded(extruded_normal, miter_limit);
+        && !miter_limit_is_exceeded(front_normal, miter_limit);
+
+    println!("join {:?} prev tan {prev_tangent:?} next tan {next_tangent:?} normal {normal:?} miter exceeded: {:?}", join.position, miter_limit_is_exceeded(front_normal, miter_limit));
 
     let mut fold = false;
     let angle_is_sharp = next_tangent.dot(prev_tangent) < 0.0;
@@ -2094,7 +2096,7 @@ fn compute_join_side_positions(
 
     if concave
         || ((join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
-            && !miter_limit_is_exceeded(normal * join.half_width, miter_limit))
+            && !miter_limit_is_exceeded(normal, miter_limit))
     {
         let p = join.position + normal * join.half_width;
         join.side_points[side].single_vertex = Some(p);
@@ -2270,8 +2272,11 @@ fn get_clip_intersections(
     (i1, i2)
 }
 
+// Derived from:
+// miter_limit = miter_length / stroke_width
+// miter_limit = (normal.length() * half_width) / (2.0 * half_width)
 fn miter_limit_is_exceeded(normal: Vector, miter_limit: f32) -> bool {
-    normal.square_length() > miter_limit * miter_limit * 0.25
+    normal.square_length() > miter_limit * miter_limit * 4.0
 }
 
 fn side_sign(side: usize) -> f32 {
