@@ -1682,8 +1682,6 @@ fn compute_join_side_positions_fixed_width(
     let unclipped_miter = (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
         && !miter_limit_is_exceeded(front_normal, miter_limit);
 
-    println!("join {:?} prev tan {prev_tangent:?} next tan {next_tangent:?} normal {normal:?} miter exceeded: {:?}", join.position, miter_limit_is_exceeded(front_normal, miter_limit));
-
     let mut fold = false;
     let angle_is_sharp = next_tangent.dot(prev_tangent) < 0.0;
     if !unclipped_miter && angle_is_sharp {
