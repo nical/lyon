@@ -47,7 +47,7 @@ struct Edge {
 }
 
 /// The result of sampling a path.
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub struct PathSample<'l> {
     position: Point,
     tangent: Vector,
@@ -336,7 +336,7 @@ pub struct PathSampler<'l, PS, AS> {
 impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
     /// Create a sampler.
     ///
-    /// The provided positions must be the ones provided when initializing the path measurements.
+    /// The provided positions must be the ones used when initializing the path measurements.
     pub fn new(
         measurements: &'l PathMeasurements,
         positions: &'l PS,
@@ -356,19 +356,8 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 
     /// Sample at a given distance along the path.
     ///
-    /// The path measurements must have been initialized with the same path.
-    /// The distance is clamped to the beginning and end of the path.
-    /// Panics if the path is empty.
+    /// If the path is empty, the produced sample will contain NaNs.
     pub fn sample(&mut self, dist: f32) -> PathSample {
-        if self.edges.is_empty() {
-            let attr: &'static [f32] = &[];
-            return PathSample {
-                position: point(core::f32::NAN, core::f32::NAN),
-                tangent: vector(core::f32::NAN, core::f32::NAN),
-                attributes: attr,
-            };
-        }
-
         self.sample_impl(dist, self.sample_type)
     }
 
@@ -577,6 +566,9 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 
     fn sample_impl(&mut self, mut dist: f32, sample_type: SampleType) -> PathSample {
         let length = self.length();
+        if length == 0.0 {
+            return self.sample_zero_length();
+        }
         if sample_type == SampleType::Normalized {
             dist *= length;
         }
@@ -607,6 +599,27 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
         });
 
         unreachable!();
+    }
+
+    #[cold]
+    fn sample_zero_length(&mut self) -> PathSample {
+        if let Some(IdEvent::Begin { at }) = self.events.first() {
+            return PathSample {
+                position: self.positions.get_endpoint(*at),
+                tangent: vector(0.0, 0.0),
+                attributes: self.attributes.get(*at),
+            }
+        }
+
+        use std::f32::NAN;
+        for value in &mut self.attribute_buffer {
+            *value = NAN;
+        }
+        return PathSample {
+            position: point(NAN, NAN),
+            tangent: vector(NAN, NAN),
+            attributes: &self.attribute_buffer
+        }
     }
 
     fn add_segment(&mut self, ptr: usize, range: Option<Range<f32>>, dest: &mut dyn PathBuilder) {
@@ -871,4 +884,54 @@ fn split_attributes() {
             }
         ]
     );
+}
+
+#[test]
+fn zero_length() {
+    fn expect_nans(sample: PathSample, num_attribs: usize) {
+        assert!(sample.position.x.is_nan());
+        assert!(sample.position.y.is_nan());
+        assert!(sample.tangent.x.is_nan());
+        assert!(sample.tangent.y.is_nan());
+        for attr in sample.attributes {
+            assert!(attr.is_nan());
+        }
+        assert_eq!(sample.attributes.len(), num_attribs);
+    }
+
+    let mut path = Path::builder_with_attributes(2);
+    path.begin(point(1.0, 2.0), &[3.0, 4.0]);
+    path.end(false);
+    let path = path.build();
+    let measure = PathMeasurements::from_path(&path, 0.01);
+    let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Normalized);
+    let expected = PathSample { position: point(1.0, 2.0), tangent: vector(0.0, 0.0), attributes: &[3.0, 4.0] };
+    assert_eq!(sampler.sample(0.0), expected);
+    assert_eq!(sampler.sample(0.5), expected);
+    assert_eq!(sampler.sample(1.0), expected);
+
+    let mut path = Path::builder_with_attributes(2);
+    path.begin(point(1.0, 2.0), &[3.0, 4.0]);
+    path.end(false);
+    let path = path.build();
+    let measure = PathMeasurements::from_path(&path, 0.01);
+    let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Distance);
+    let expected = PathSample { position: point(1.0, 2.0), tangent: vector(0.0, 0.0), attributes: &[3.0, 4.0] };
+    assert_eq!(sampler.sample(0.0), expected);
+    assert_eq!(sampler.sample(0.5), expected);
+    assert_eq!(sampler.sample(1.0), expected);
+
+    let path = Path::builder_with_attributes(2).build();
+    let measure = PathMeasurements::from_path(&path, 0.01);
+    let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Normalized);
+    expect_nans(sampler.sample(0.0), 2);
+    expect_nans(sampler.sample(0.5), 2);
+    expect_nans(sampler.sample(1.0), 2);
+
+    let path = Path::builder_with_attributes(2).build();
+    let measure = PathMeasurements::from_path(&path, 0.01);
+    let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Distance);
+    expect_nans(sampler.sample(0.0), 2);
+    expect_nans(sampler.sample(0.5), 2);
+    expect_nans(sampler.sample(1.0), 2);
 }
