@@ -24,6 +24,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "227dae7e1a81622241e93a00630c97e041775957c8250d50961ac14cda1f8213"
+dependencies = [
+ "sptr",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1037,12 +1046,14 @@ dependencies = [
  "lyon_geom",
  "num-traits",
  "serde",
+ "shared_vector",
 ]
 
 [[package]]
 name = "lyon_tessellation"
 version = "1.0.10"
 dependencies = [
+ "allocator-api2",
  "float_next_after",
  "lyon_extra",
  "lyon_path",
@@ -1759,6 +1770,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared_vector"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "141e43286093cad63fd02801988258e39875f5ee9bb32da178fc7ce1f512d9ac"
+dependencies = [
+ "allocator-api2",
+]
+
+[[package]]
 name = "simplecss"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1822,6 +1842,12 @@ dependencies = [
  "bitflags",
  "num-traits",
 ]
+
+[[package]]
+name = "sptr"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
 
 [[package]]
 name = "strsim"

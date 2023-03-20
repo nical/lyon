@@ -9,7 +9,9 @@ use core::fmt;
 use core::iter::{FromIterator, FusedIterator, IntoIterator};
 use core::ops::Range;
 
-use alloc::vec::Vec;
+use shared_vector::Vector;
+use shared_vector::alloc::Allocator;
+use shared_vector::alloc::Global;
 
 #[derive(Clone, Debug)]
 struct PathDescriptor {
@@ -19,26 +21,38 @@ struct PathDescriptor {
 }
 
 /// An object that stores multiple paths contiguously.
-#[derive(Clone, Default)]
-pub struct PathBuffer {
-    points: Vec<Point>,
-    verbs: Vec<path::Verb>,
-    paths: Vec<PathDescriptor>,
+#[derive(Clone)]
+pub struct PathBuffer<A: Allocator = Global> {
+    points: Vector<Point, A>,
+    verbs: Vector<path::Verb, A>,
+    paths: Vector<PathDescriptor, A>,
 }
 
-impl PathBuffer {
+impl PathBuffer<Global> {
     #[inline]
     pub fn new() -> Self {
-        PathBuffer {
-            points: Vec::new(),
-            verbs: Vec::new(),
-            paths: Vec::new(),
-        }
+        Self::new_in(Global)
     }
 
     #[inline]
     pub fn with_capacity(endpoints: usize, ctrl_points: usize, paths: usize) -> Self {
-        let mut buffer = PathBuffer::new();
+        Self::with_capacity_in(endpoints, ctrl_points, paths, Global)
+    }
+}
+
+impl<A: Allocator + Clone> PathBuffer<A> {
+    #[inline]
+    pub fn new_in(allocator: A) -> Self {
+        PathBuffer {
+            points: Vector::new_in(allocator.clone()),
+            verbs: Vector::new_in(allocator.clone()),
+            paths: Vector::new_in(allocator),
+        }
+    }
+
+    #[inline]
+    pub fn with_capacity_in(endpoints: usize, ctrl_points: usize, paths: usize, allocator: A) -> Self {
+        let mut buffer = PathBuffer::new_in(allocator);
         buffer.reserve(endpoints, ctrl_points, paths);
 
         buffer
@@ -86,7 +100,7 @@ impl PathBuffer {
     }
 
     #[inline]
-    pub fn builder(&mut self) -> Builder {
+    pub fn builder(&mut self) -> Builder<A> {
         Builder::new(self)
     }
 
@@ -104,16 +118,16 @@ impl PathBuffer {
     }
 }
 
-impl fmt::Debug for PathBuffer {
+impl<A: Allocator + Clone> fmt::Debug for PathBuffer<A> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         self.as_slice().fmt(formatter)
     }
 }
 
-impl<'l> FromIterator<PathSlice<'l>> for PathBuffer {
-    fn from_iter<T: IntoIterator<Item = PathSlice<'l>>>(iter: T) -> PathBuffer {
+impl<'l, A: Allocator + Clone + Default> FromIterator<PathSlice<'l>> for PathBuffer<A> {
+    fn from_iter<T: IntoIterator<Item = PathSlice<'l>>>(iter: T) -> PathBuffer<A> {
         iter.into_iter()
-            .fold(PathBuffer::new(), |mut buffer, path| {
+            .fold(PathBuffer::new_in(A::default()), |mut buffer, path| {
                 let builder = buffer.builder();
                 path.iter()
                     .fold(builder, |mut builder, event| {
@@ -189,17 +203,18 @@ impl<'l> fmt::Debug for PathBufferSlice<'l> {
 /// A Builder that appends a path to an existing PathBuffer.
 ///
 /// Implements the `PathBuilder` trait.
-pub struct Builder<'l> {
-    buffer: &'l mut PathBuffer,
-    builder: path::Builder,
+pub struct Builder<'l, A: Allocator> {
+    buffer: &'l mut PathBuffer<A>,
+    builder: path::Builder<A>,
     points_start: u32,
     verbs_start: u32,
 }
 
-impl<'l> Builder<'l> {
+impl<'l, A: Allocator + Clone> Builder<'l, A> {
     #[inline]
-    fn new(buffer: &'l mut PathBuffer) -> Self {
-        let mut builder = path::Path::builder();
+    fn new(buffer: &'l mut PathBuffer<A>) -> Self {
+        let allocator = buffer.points.allocator().clone();
+        let mut builder = path::Path::builder_in(allocator);
         core::mem::swap(&mut buffer.points, &mut builder.inner_mut().points);
         core::mem::swap(&mut buffer.verbs, &mut builder.inner_mut().verbs);
         let points_start = builder.inner().points.len() as u32;
@@ -213,7 +228,7 @@ impl<'l> Builder<'l> {
     }
 
     #[inline]
-    pub fn with_attributes(self, num_attributes: usize) -> BuilderWithAttributes<'l> {
+    pub fn with_attributes(self, num_attributes: usize) -> BuilderWithAttributes<'l, A> {
         assert_eq!(self.builder.inner().verbs.len(), self.verbs_start as usize);
 
         BuilderWithAttributes {
@@ -290,7 +305,7 @@ impl<'l> Builder<'l> {
     }
 }
 
-impl<'l> PathBuilder for Builder<'l> {
+impl<'l, A: Allocator + Clone> PathBuilder for Builder<'l, A> {
     #[inline]
     fn num_attributes(&self) -> usize {
         0
@@ -338,7 +353,7 @@ impl<'l> PathBuilder for Builder<'l> {
     }
 }
 
-impl<'l> Build for Builder<'l> {
+impl<'l, A: Allocator + Clone> Build for Builder<'l, A> {
     type PathType = usize;
     fn build(self) -> usize {
         self.build()
@@ -346,17 +361,18 @@ impl<'l> Build for Builder<'l> {
 }
 
 /// A Builder that appends a path to an existing PathBuffer, with custom attributes.
-pub struct BuilderWithAttributes<'l> {
-    buffer: &'l mut PathBuffer,
-    builder: path::BuilderWithAttributes,
+pub struct BuilderWithAttributes<'l, A: Allocator> {
+    buffer: &'l mut PathBuffer<A>,
+    builder: path::BuilderWithAttributes<A>,
     points_start: u32,
     verbs_start: u32,
 }
 
-impl<'l> BuilderWithAttributes<'l> {
+impl<'l, A: Allocator + Clone> BuilderWithAttributes<'l, A> {
     #[inline]
-    pub fn new(buffer: &'l mut PathBuffer, num_attributes: usize) -> Self {
-        let mut builder = path::Path::builder().into_inner();
+    pub fn new(buffer: &'l mut PathBuffer<A>, num_attributes: usize) -> Self {
+        let allocator = buffer.points.allocator().clone();
+        let mut builder = path::Path::builder_in(allocator).into_inner();
         core::mem::swap(&mut buffer.points, &mut builder.points);
         core::mem::swap(&mut buffer.verbs, &mut builder.verbs);
         let points_start = builder.points.len() as u32;
@@ -443,7 +459,7 @@ impl<'l> BuilderWithAttributes<'l> {
     }
 }
 
-impl<'l> PathBuilder for BuilderWithAttributes<'l> {
+impl<'l, A: Allocator + Clone> PathBuilder for BuilderWithAttributes<'l, A> {
     #[inline]
     fn num_attributes(&self) -> usize {
         self.builder.num_attributes()
@@ -491,7 +507,7 @@ impl<'l> PathBuilder for BuilderWithAttributes<'l> {
     }
 }
 
-impl<'l> Build for BuilderWithAttributes<'l> {
+impl<'l, A: Allocator + Clone> Build for BuilderWithAttributes<'l, A> {
     type PathType = usize;
     fn build(self) -> usize {
         self.build()

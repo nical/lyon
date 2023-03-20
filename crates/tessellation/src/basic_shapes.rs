@@ -159,7 +159,7 @@ fn fill_border_radius(
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
-    dummy_queue: &EventQueue,
+    dummy_queue: &EventQueue<'static>,
     output: &mut dyn FillGeometryBuilder,
 ) -> Result<(), TessellationError> {
     if num_recursions == 0 {

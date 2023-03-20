@@ -13,6 +13,7 @@ use crate::{
     FillOptions, InternalError, SimpleAttributeStore, TessellationError, TessellationResult,
     UnsupportedParamater, VertexSource,
 };
+use allocator_api2::alloc::Global;
 use float_next_after::NextAfter;
 use std::cmp::Ordering;
 use std::f32;
@@ -21,6 +22,9 @@ use std::ops::Range;
 
 #[cfg(debug_assertions)]
 use std::env;
+
+use allocator_api2::alloc::Allocator;
+use allocator_api2::{vec::Vec, boxed::Box};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Side {
@@ -110,10 +114,10 @@ impl WindingState {
     }
 }
 
-struct ActiveEdgeScan {
-    vertex_events: Vec<(SpanIdx, Side)>,
-    edges_to_split: Vec<ActiveEdgeIdx>,
-    spans_to_end: Vec<SpanIdx>,
+struct ActiveEdgeScan<'a> {
+    vertex_events: Vec<(SpanIdx, Side), &'a dyn Allocator>,
+    edges_to_split: Vec<ActiveEdgeIdx, &'a dyn Allocator>,
+    spans_to_end: Vec<SpanIdx, &'a dyn Allocator>,
     merge_event: bool,
     split_event: bool,
     merge_split_event: bool,
@@ -121,12 +125,12 @@ struct ActiveEdgeScan {
     winding_before_point: WindingState,
 }
 
-impl ActiveEdgeScan {
-    fn new() -> Self {
+impl<'a> ActiveEdgeScan<'a> {
+    fn new_in(allocator: &'a dyn Allocator) -> Self {
         ActiveEdgeScan {
-            vertex_events: Vec::new(),
-            edges_to_split: Vec::new(),
-            spans_to_end: Vec::new(),
+            vertex_events: Vec::new_in(allocator),
+            edges_to_split: Vec::new_in(allocator),
+            spans_to_end: Vec::new_in(allocator),
             merge_event: false,
             split_event: false,
             merge_split_event: false,
@@ -195,17 +199,17 @@ impl ActiveEdge {
     }
 }
 
-struct ActiveEdges {
-    edges: Vec<ActiveEdge>,
+struct ActiveEdges<'a> {
+    edges: Vec<ActiveEdge, &'a dyn Allocator>,
 }
 
-struct Span {
+struct Span<'a> {
     /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
-    tess: Option<Box<MonotoneTessellator>>,
+    tess: Option<Box<MonotoneTessellator, &'a dyn Allocator>>,
 }
 
-impl Span {
+impl<'a> Span<'a> {
     fn tess(&mut self) -> &mut MonotoneTessellator {
         // this should only ever be called on a "live" span.
         match self.tess.as_mut() {
@@ -218,21 +222,21 @@ impl Span {
     }
 }
 
-struct Spans {
-    spans: Vec<Span>,
+struct Spans<'a> {
+    spans: Vec<Span<'a>, &'a dyn Allocator>,
 
     /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     #[allow(clippy::vec_box)]
-    pool: Vec<Box<MonotoneTessellator>>,
+    pool: Vec<Box<MonotoneTessellator, &'a dyn Allocator>, &'a dyn Allocator>,
 }
 
-impl Spans {
+impl<'a> Spans<'a> {
     fn begin_span(&mut self, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
         let mut tess = self
             .pool
             .pop()
-            .unwrap_or_else(|| Box::new(MonotoneTessellator::new()));
+            .unwrap_or_else(|| Box::new_in(MonotoneTessellator::new(), *self.pool.allocator()));
         tess.begin(*position, vertex);
 
         self.spans
@@ -518,33 +522,41 @@ struct PendingEdge {
 ///
 /// # }
 /// ```
-pub struct FillTessellator {
+pub struct FillTessellator<'a> {
     current_position: Point,
     current_vertex: VertexId,
     current_event_id: TessEventId,
-    active: ActiveEdges,
-    edges_below: Vec<PendingEdge>,
+    active: ActiveEdges<'a>,
+    edges_below: Vec<PendingEdge, &'a dyn Allocator>,
     fill_rule: FillRule,
     orientation: Orientation,
     tolerance: f32,
-    fill: Spans,
+    fill: Spans<'a>,
     log: bool,
     assume_no_intersection: bool,
-    attrib_buffer: Vec<f32>,
+    attrib_buffer: Vec<f32, &'a dyn Allocator>,
 
-    scan: ActiveEdgeScan,
-    events: EventQueue,
+    scan: ActiveEdgeScan<'a>,
+    events: EventQueue<'a>,
+
+    allocator: &'a dyn Allocator,
 }
 
-impl Default for FillTessellator {
+impl Default for FillTessellator<'static> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FillTessellator {
-    /// Constructor.
+impl FillTessellator<'static> {
     pub fn new() -> Self {
+        FillTessellator::new_in(&Global as &'static dyn Allocator)
+    }
+}
+
+impl<'a> FillTessellator<'a> {
+    /// Constructor.
+    pub fn new_in(allocator: &'a dyn Allocator) -> Self {
         #[cfg(debug_assertions)]
         let log = env::var("LYON_FORCE_LOGGING").is_ok();
         #[cfg(not(debug_assertions))]
@@ -554,21 +566,23 @@ impl FillTessellator {
             current_position: point(f32::MIN, f32::MIN),
             current_vertex: VertexId::INVALID,
             current_event_id: INVALID_EVENT_ID,
-            active: ActiveEdges { edges: Vec::new() },
-            edges_below: Vec::new(),
+            active: ActiveEdges { edges: Vec::new_in(allocator) },
+            edges_below: Vec::new_in(allocator),
             fill_rule: FillRule::EvenOdd,
             orientation: Orientation::Vertical,
             tolerance: FillOptions::DEFAULT_TOLERANCE,
             fill: Spans {
-                spans: Vec::new(),
-                pool: Vec::new(),
+                spans: Vec::new_in(allocator),
+                pool: Vec::new_in(allocator),
             },
             log,
             assume_no_intersection: false,
-            attrib_buffer: Vec::new(),
+            attrib_buffer: Vec::new_in(allocator),
 
-            scan: ActiveEdgeScan::new(),
-            events: EventQueue::new(),
+            scan: ActiveEdgeScan::new_in(allocator),
+            events: EventQueue::new_in(allocator),
+
+            allocator,
         }
     }
 
@@ -727,7 +741,7 @@ impl FillTessellator {
         &'l mut self,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
-    ) -> NoAttributes<FillBuilder<'l>> {
+    ) -> NoAttributes<FillBuilder<'l, 'a>> {
         NoAttributes::wrap(FillBuilder::new(0, self, options, output))
     }
 
@@ -740,7 +754,7 @@ impl FillTessellator {
         num_attributes: usize,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
-    ) -> FillBuilder<'l> {
+    ) -> FillBuilder<'l, 'a> {
         FillBuilder::new(num_attributes, self, options, output)
     }
 
@@ -771,7 +785,7 @@ impl FillTessellator {
 
         builder.begin_geometry();
 
-        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new());
+        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new_in(self.allocator));
 
         let result = self.tessellator_loop(attrib_store, &mut scan, builder);
 
@@ -1604,7 +1618,7 @@ impl FillTessellator {
         // manually fixing things up if need be and making sure to not break more
         // invariants in doing so.
 
-        let mut edges_below = mem::take(&mut self.edges_below);
+        let mut edges_below = mem::replace(&mut self.edges_below, Vec::new_in(self.allocator));
         for edge_below in &mut edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
             let below_max_x = fmax(self.current_position.x, edge_below.to.x);
@@ -1888,7 +1902,7 @@ impl FillTessellator {
             }
         });
 
-        let mut new_active_edges = Vec::with_capacity(self.active.edges.len());
+        let mut new_active_edges = Vec::with_capacity_in(self.active.edges.len(), self.allocator);
         for &(_, idx) in &keys {
             new_active_edges.push(self.active.edges[idx]);
         }
@@ -2132,15 +2146,15 @@ fn reorient(p: Point) -> Point {
 }
 
 /// Extra vertex information from the `FillTessellator`, accessible when building vertices.
-pub struct FillVertex<'l> {
+pub struct FillVertex<'l, 'a> {
     pub(crate) position: Point,
-    pub(crate) events: &'l EventQueue,
+    pub(crate) events: &'l EventQueue<'a>,
     pub(crate) current_event: TessEventId,
     pub(crate) attrib_buffer: &'l mut [f32],
     pub(crate) attrib_store: Option<&'l dyn AttributeStore>,
 }
 
-impl<'l> FillVertex<'l> {
+impl<'l, 'a> FillVertex<'l, 'a> {
     pub fn position(&self) -> Point {
         self.position
     }
@@ -2269,7 +2283,7 @@ impl<'l> FillVertex<'l> {
 /// An iterator over the sources of a given vertex.
 #[derive(Clone)]
 pub struct VertexSourceIterator<'l> {
-    events: &'l EventQueue,
+    events: &'l EventQueue<'l>,
     id: TessEventId,
     prev: Option<VertexSource>,
 }
@@ -2322,26 +2336,26 @@ fn remap_t_in_range(val: f32, range: Range<f32>) -> f32 {
     }
 }
 
-pub struct FillBuilder<'l> {
-    events: EventQueueBuilder,
+pub struct FillBuilder<'l, 'a> {
+    events: EventQueueBuilder<'a>,
     next_id: EndpointId,
     first_id: EndpointId,
     first_position: Point,
     horizontal_sweep: bool,
     attrib_store: SimpleAttributeStore,
-    tessellator: &'l mut FillTessellator,
+    tessellator: &'l mut FillTessellator<'a>,
     output: &'l mut dyn FillGeometryBuilder,
     options: &'l FillOptions,
 }
 
-impl<'l> FillBuilder<'l> {
+impl<'l, 'a> FillBuilder<'l, 'a> {
     fn new(
         num_attributes: usize,
-        tessellator: &'l mut FillTessellator,
+        tessellator: &'l mut FillTessellator<'a>,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let events = std::mem::replace(&mut tessellator.events, EventQueue::new())
+        let events = std::mem::replace(&mut tessellator.events, EventQueue::new_in(tessellator.allocator))
             .into_builder(options.tolerance);
 
         FillBuilder {
@@ -2523,7 +2537,7 @@ impl<'l> FillBuilder<'l> {
     }
 }
 
-impl<'l> PathBuilder for FillBuilder<'l> {
+impl<'l, 'a> PathBuilder for FillBuilder<'l, 'a> {
     fn num_attributes(&self) -> usize {
         self.attrib_store.num_attributes()
     }
@@ -2568,7 +2582,7 @@ impl<'l> PathBuilder for FillBuilder<'l> {
     }
 }
 
-impl<'l> Build for FillBuilder<'l> {
+impl<'l, 'a> Build for FillBuilder<'l, 'a> {
     type PathType = TessellationResult;
 
     #[inline]

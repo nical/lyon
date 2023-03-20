@@ -12,11 +12,13 @@ use crate::{
     PositionStore, NO_ATTRIBUTES,
 };
 
+use shared_vector::alloc::{Allocator, Global};
+use shared_vector::{Vector, AtomicSharedVector};
+
 use core::fmt;
 use core::iter::{FromIterator, IntoIterator};
 use core::u32;
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use alloc::vec;
 
@@ -71,11 +73,11 @@ pub(crate) enum Verb {
 /// |_________|__________|_________|__________|_________|_________|__________|_
 /// ```
 ///
-#[derive(Clone, Default)]
+#[derive(Clone)]
 #[cfg_attr(feature = "serialization", derive(Serialize, Deserialize))]
-pub struct Path {
-    points: Box<[Point]>,
-    verbs: Box<[Verb]>,
+pub struct Path<A: Allocator = Global> {
+    points: AtomicSharedVector<Point, A>,
+    verbs: AtomicSharedVector<Verb, A>,
     num_attributes: usize,
 }
 
@@ -87,43 +89,58 @@ pub struct PathSlice<'l> {
     pub(crate) num_attributes: usize,
 }
 
-pub type Builder = NoAttributes<BuilderImpl>;
+pub type Builder<A> = NoAttributes<BuilderImpl<A>>;
 
-impl Path {
+impl Path<Global> {
     /// Creates a [Builder](struct.Builder.html) to build a path.
-    pub fn builder() -> Builder {
+    pub fn builder() -> Builder<Global> {
         NoAttributes::wrap(BuilderImpl::new())
     }
 
     /// Creates a [BuilderWithAttributes](struct.BuilderWithAttributes.html) to build a path
     /// with custom attributes.
-    pub fn builder_with_attributes(num_attributes: usize) -> BuilderWithAttributes {
+    pub fn builder_with_attributes(num_attributes: usize) -> BuilderWithAttributes<Global> {
         BuilderWithAttributes::new(num_attributes)
     }
 
     /// Creates an [WithSvg](../builder/struct.WithSvg.html) to build a path
     /// with a rich set of commands.
-    pub fn svg_builder() -> WithSvg<BuilderImpl> {
+    pub fn svg_builder() -> WithSvg<BuilderImpl<Global>> {
         WithSvg::new(BuilderImpl::new())
     }
 
     /// Creates an Empty `Path`.
     #[inline]
-    pub fn new() -> Path {
-        Path {
-            points: Box::new([]),
-            verbs: Box::new([]),
-            num_attributes: 0,
-        }
+    pub fn new() -> Path<Global> {
+        Self::with_attributes(0)
     }
 
     #[inline]
-    pub fn with_attributes(num_attributes: usize) -> Path {
+    pub fn with_attributes(num_attributes: usize) -> Path<Global> {
         Path {
-            points: Box::new([]),
-            verbs: Box::new([]),
+            points: AtomicSharedVector::new(),
+            verbs: AtomicSharedVector::new(),
             num_attributes,
         }
+    }
+}
+
+impl<A: Allocator + Clone> Path<A> {
+    /// Creates a [Builder](struct.Builder.html) to build a path.
+    pub fn builder_in(allocator: A) -> Builder<A> {
+        NoAttributes::wrap(BuilderImpl::new_in(allocator))
+    }
+
+    /// Creates a [BuilderWithAttributes](struct.BuilderWithAttributes.html) to build a path
+    /// with custom attributes.
+    pub fn builder_with_attributes_in(num_attributes: usize, allocator: A) -> BuilderWithAttributes<A> {
+        BuilderWithAttributes::new_in(num_attributes, allocator)
+    }
+
+    /// Creates an [WithSvg](../builder/struct.WithSvg.html) to build a path
+    /// with a rich set of commands.
+    pub fn svg_builder_in(allocator: A) -> WithSvg<BuilderImpl<A>> {
+        WithSvg::new(BuilderImpl::new_in(allocator))
     }
 
     /// Returns a view on this `Path`.
@@ -217,6 +234,12 @@ impl Path {
     }
 }
 
+impl Default for Path<Global> {
+    fn default() -> Self {
+        Path::new()
+    }
+}
+
 impl FromIterator<PathEvent> for Path {
     fn from_iter<T: IntoIterator<Item = PathEvent>>(iter: T) -> Path {
         let mut builder = Path::builder();
@@ -267,7 +290,7 @@ impl PositionStore for Path {
     }
 }
 
-impl AttributeStore for Path {
+impl<A: Allocator> AttributeStore for Path<A> {
     fn get(&self, id: EndpointId) -> Attributes {
         interpolated_attributes(self.num_attributes, &self.points, id)
     }
@@ -277,7 +300,7 @@ impl AttributeStore for Path {
     }
 }
 
-impl fmt::Debug for Path {
+impl<A: Allocator + Clone> fmt::Debug for Path<A> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         self.as_slice().fmt(formatter)
     }
@@ -470,18 +493,18 @@ impl<'l> AttributeStore for PathSlice<'l> {
 
 /// The default builder for `Path`.
 #[derive(Clone)]
-pub struct BuilderImpl {
-    pub(crate) points: Vec<Point>,
-    pub(crate) verbs: Vec<Verb>,
+pub struct BuilderImpl<A: Allocator = Global> {
+    pub(crate) points: Vector<Point, A>,
+    pub(crate) verbs: Vector<Verb, A>,
     first: Point,
     validator: DebugValidator,
 }
 
-impl BuilderImpl {
+impl BuilderImpl<Global> {
     pub fn new() -> Self {
         BuilderImpl {
-            points: Vec::new(),
-            verbs: Vec::new(),
+            points: Vector::new(),
+            verbs: Vector::new(),
             first: point(0.0, 0.0),
             validator: DebugValidator::new(),
         }
@@ -489,8 +512,28 @@ impl BuilderImpl {
 
     pub fn with_capacity(points: usize, edges: usize) -> Self {
         BuilderImpl {
-            points: Vec::with_capacity(points),
-            verbs: Vec::with_capacity(edges),
+            points: Vector::with_capacity(points),
+            verbs: Vector::with_capacity(edges),
+            first: point(0.0, 0.0),
+            validator: DebugValidator::new(),
+        }
+    }
+}
+
+impl<A: Allocator + Clone> BuilderImpl<A> {
+    pub fn new_in(allocator: A) -> Self {
+        BuilderImpl {
+            points: Vector::new_in(allocator.clone()),
+            verbs: Vector::new_in(allocator),
+            first: point(0.0, 0.0),
+            validator: DebugValidator::new(),
+        }
+    }
+
+    pub fn with_capacity_in(points: usize, edges: usize, allocator: A) -> Self {
+        BuilderImpl {
+            points: Vector::with_capacity_in(points, allocator.clone()),
+            verbs: Vector::with_capacity_in(edges, allocator),
             first: point(0.0, 0.0),
             validator: DebugValidator::new(),
         }
@@ -507,14 +550,14 @@ impl BuilderImpl {
     }
 }
 
-impl NoAttributes<BuilderImpl> {
+impl<A: Allocator> NoAttributes<BuilderImpl<A>> {
     #[inline]
     pub fn extend_from_paths(&mut self, paths: &[PathSlice]) {
         concatenate_paths(&mut self.inner.points, &mut self.inner.verbs, paths, 0);
     }
 }
 
-impl PathBuilder for BuilderImpl {
+impl<A: Allocator> PathBuilder for BuilderImpl<A> {
     fn num_attributes(&self) -> usize {
         0
     }
@@ -598,20 +641,20 @@ impl PathBuilder for BuilderImpl {
     }
 }
 
-impl Build for BuilderImpl {
-    type PathType = Path;
+impl<A: Allocator + Clone> Build for BuilderImpl<A> {
+    type PathType = Path<A>;
 
-    fn build(self) -> Path {
+    fn build(self) -> Path<A> {
         self.validator.build();
         Path {
-            points: self.points.into_boxed_slice(),
-            verbs: self.verbs.into_boxed_slice(),
+            points: self.points.into_shared_atomic(),
+            verbs: self.verbs.into_shared_atomic(),
             num_attributes: 0,
         }
     }
 }
 
-impl Default for BuilderImpl {
+impl Default for BuilderImpl<Global> {
     fn default() -> Self {
         BuilderImpl::new()
     }
@@ -622,16 +665,26 @@ impl Default for BuilderImpl {
 /// Custom attributes are a fixed number of `f32` values associated with each endpoint.
 /// All endpoints must have the same number of custom attributes,
 #[derive(Clone)]
-pub struct BuilderWithAttributes {
-    pub(crate) builder: BuilderImpl,
+pub struct BuilderWithAttributes<A: Allocator = Global> {
+    pub(crate) builder: BuilderImpl<A>,
     pub(crate) num_attributes: usize,
     pub(crate) first_attributes: Vec<f32>,
 }
 
-impl BuilderWithAttributes {
+impl BuilderWithAttributes<Global> {
     pub fn new(num_attributes: usize) -> Self {
         BuilderWithAttributes {
             builder: BuilderImpl::new(),
+            num_attributes,
+            first_attributes: vec![0.0; num_attributes],
+        }
+    }
+}
+
+impl<A: Allocator + Clone> BuilderWithAttributes<A> {
+    pub fn new_in(num_attributes: usize, allocator: A) -> Self {
+        BuilderWithAttributes {
+            builder: BuilderImpl::new_in(allocator),
             num_attributes,
             first_attributes: vec![0.0; num_attributes],
         }
@@ -649,7 +702,7 @@ impl BuilderWithAttributes {
 
     #[inline(always)]
     fn push_attributes_impl(
-        points: &mut Vec<Point>,
+        points: &mut Vector<Point, A>,
         num_attributes: usize,
         attributes: Attributes,
     ) {
@@ -741,17 +794,17 @@ impl BuilderWithAttributes {
     }
 
     #[inline]
-    pub fn build(self) -> Path {
+    pub fn build(self) -> Path<A> {
         self.builder.validator.build();
         Path {
-            points: self.builder.points.into_boxed_slice(),
-            verbs: self.builder.verbs.into_boxed_slice(),
+            points: self.builder.points.into_shared_atomic(),
+            verbs: self.builder.verbs.into_shared_atomic(),
             num_attributes: self.num_attributes,
         }
     }
 }
 
-impl PathBuilder for BuilderWithAttributes {
+impl<A: Allocator + Clone> PathBuilder for BuilderWithAttributes<A> {
     #[inline]
     fn num_attributes(&self) -> usize {
         self.num_attributes()
@@ -799,10 +852,10 @@ impl PathBuilder for BuilderWithAttributes {
     }
 }
 
-impl Build for BuilderWithAttributes {
-    type PathType = Path;
+impl<A: Allocator + Clone> Build for BuilderWithAttributes<A> {
+    type PathType = Path<A>;
 
-    fn build(self) -> Path {
+    fn build(self) -> Path<A> {
         self.build()
     }
 }
@@ -1282,9 +1335,9 @@ fn interpolated_attributes(
     }
 }
 
-fn concatenate_paths(
-    points: &mut Vec<Point>,
-    verbs: &mut Vec<Verb>,
+fn concatenate_paths<A: Allocator>(
+    points: &mut Vector<Point, A>,
+    verbs: &mut Vector<Verb, A>,
     paths: &[PathSlice],
     num_attributes: usize,
 ) {
@@ -1333,7 +1386,7 @@ impl<'l> Reversed<'l> {
     /// Builds a `Path` from This iterator.
     ///
     /// The iterator must be at the beginning.
-    pub fn into_path(self) -> Path {
+    pub fn into_path(self) -> Path<Global> {
         let mut builder = Path::builder_with_attributes(self.num_attributes);
         for event in self {
             builder.event(event);

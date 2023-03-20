@@ -1,3 +1,6 @@
+use allocator_api2::alloc::{Allocator, Global};
+use allocator_api2::vec::Vec;
+
 use crate::fill::{compare_positions, is_after};
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::{point, Point};
@@ -37,33 +40,43 @@ pub(crate) struct EdgeData {
 
 #[doc(hidden)]
 /// A queue of sorted events for the fill tessellator's sweep-line algorithm.
-pub struct EventQueue {
-    pub(crate) events: Vec<Event>,
-    pub(crate) edge_data: Vec<EdgeData>,
+pub struct EventQueue<'a> {
+    pub(crate) events: Vec<Event, &'a dyn Allocator>,
+    pub(crate) edge_data: Vec<EdgeData, &'a dyn Allocator>,
     first: TessEventId,
     sorted: bool,
 }
 
-impl Default for EventQueue {
+impl Default for EventQueue<'static> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EventQueue {
+impl EventQueue<'static> {
     pub fn new() -> Self {
+        EventQueue::new_in(&Global as &'static dyn Allocator)
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        EventQueue::with_capacity_in(cap, &Global as &'static dyn Allocator)
+    }
+}
+
+impl<'a> EventQueue<'a> {
+    pub fn new_in(allocator: &'a dyn Allocator) -> Self {
         EventQueue {
-            events: Vec::new(),
-            edge_data: Vec::new(),
+            events: Vec::new_in(allocator),
+            edge_data: Vec::new_in(allocator),
             first: INVALID_EVENT_ID,
             sorted: false,
         }
     }
 
-    pub fn with_capacity(cap: usize) -> Self {
+    pub fn with_capacity_in(cap: usize, allocator: &'a dyn Allocator) -> Self {
         EventQueue {
-            events: Vec::with_capacity(cap),
-            edge_data: Vec::with_capacity(cap),
+            events: Vec::with_capacity_in(cap, allocator),
+            edge_data: Vec::with_capacity_in(cap, allocator),
             first: 0,
             sorted: false,
         }
@@ -113,7 +126,7 @@ impl EventQueue {
         builder.build()
     }
 
-    pub fn into_builder(mut self, tolerance: f32) -> EventQueueBuilder {
+    pub fn into_builder(mut self, tolerance: f32) -> EventQueueBuilder<'a> {
         self.reset();
         EventQueueBuilder {
             queue: self,
@@ -454,18 +467,18 @@ impl EventQueue {
     }
 }
 
-pub struct EventQueueBuilder {
+pub struct EventQueueBuilder<'a> {
     current: Point,
     prev: Point,
     second: Point,
     nth: u32,
-    queue: EventQueue,
+    queue: EventQueue<'a>,
     tolerance: f32,
     prev_endpoint_id: EndpointId,
     validator: DebugValidator,
 }
 
-impl EventQueueBuilder {
+impl EventQueueBuilder<'static> {
     pub fn new(tolerance: f32) -> Self {
         EventQueue::new().into_builder(tolerance)
     }
@@ -473,12 +486,22 @@ impl EventQueueBuilder {
     pub fn with_capacity(cap: usize, tolerance: f32) -> Self {
         EventQueue::with_capacity(cap).into_builder(tolerance)
     }
+}
+
+impl<'a> EventQueueBuilder<'a> {
+    pub fn new_in(tolerance: f32, allocator: &'a dyn Allocator) -> Self {
+        EventQueue::new_in(allocator).into_builder(tolerance)
+    }
+
+    pub fn with_capacity_in(cap: usize, tolerance: f32, allocator: &'a dyn Allocator) -> Self {
+        EventQueue::with_capacity_in(cap, allocator).into_builder(tolerance)
+    }
 
     pub fn set_tolerance(&mut self, tolerance: f32) {
         self.tolerance = tolerance;
     }
 
-    pub fn build(mut self) -> EventQueue {
+    pub fn build(mut self) -> EventQueue<'a> {
         self.validator.build();
 
         self.queue.sort();
