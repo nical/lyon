@@ -1,5 +1,5 @@
 use crate::event_queue::{EventQueue, INVALID_EVENT_ID};
-use crate::math::*;
+use crate::{math::*, EventQueueSlice};
 use crate::{
     FillGeometryBuilder, FillOptions, FillVertex, TessellationError, TessellationResult, VertexId,
 };
@@ -14,7 +14,7 @@ pub fn fill_rectangle(rect: &Box2D, output: &mut dyn FillGeometryBuilder) -> Tes
     let vertex = &mut |position| {
         output.add_fill_vertex(FillVertex {
             position,
-            events: &dummy_queue,
+            events: dummy_queue.as_slice(),
             current_event: INVALID_EVENT_ID,
             attrib_store: None,
             attrib_buffer: &mut [],
@@ -52,7 +52,9 @@ pub fn fill_circle(
     let left = vector(-1.0, 0.0);
     let right = vector(1.0, 0.0);
 
-    let events = &EventQueue::new();
+    let events = EventQueue::new();
+    let events = events.as_slice();
+
     let attrib_store = None;
     let current_event = INVALID_EVENT_ID;
 
@@ -110,7 +112,7 @@ pub fn fill_circle(
             v[i],
             v[(i + 1) % 4],
             num_recursions,
-            events,
+            &events,
             output,
         )?;
     }
@@ -159,7 +161,7 @@ fn fill_border_radius(
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
-    dummy_queue: &EventQueue<'static>,
+    dummy_queue: &EventQueueSlice,
     output: &mut dyn FillGeometryBuilder,
 ) -> Result<(), TessellationError> {
     if num_recursions == 0 {
@@ -173,7 +175,7 @@ fn fill_border_radius(
 
     let vertex = output.add_fill_vertex(FillVertex {
         position,
-        events: dummy_queue,
+        events: *dummy_queue,
         current_event: INVALID_EVENT_ID,
         attrib_store: None,
         attrib_buffer: &mut [],

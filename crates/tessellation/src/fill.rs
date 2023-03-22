@@ -114,10 +114,10 @@ impl WindingState {
     }
 }
 
-struct ActiveEdgeScan<'a> {
-    vertex_events: Vec<(SpanIdx, Side), &'a dyn Allocator>,
-    edges_to_split: Vec<ActiveEdgeIdx, &'a dyn Allocator>,
-    spans_to_end: Vec<SpanIdx, &'a dyn Allocator>,
+struct ActiveEdgeScan<A: Allocator + Clone> {
+    vertex_events: Vec<(SpanIdx, Side), A>,
+    edges_to_split: Vec<ActiveEdgeIdx, A>,
+    spans_to_end: Vec<SpanIdx, A>,
     merge_event: bool,
     split_event: bool,
     merge_split_event: bool,
@@ -125,11 +125,11 @@ struct ActiveEdgeScan<'a> {
     winding_before_point: WindingState,
 }
 
-impl<'a> ActiveEdgeScan<'a> {
-    fn new_in(allocator: &'a dyn Allocator) -> Self {
+impl<A: Allocator + Clone> ActiveEdgeScan<A> {
+    fn new_in(allocator: A) -> Self where A: Clone{
         ActiveEdgeScan {
-            vertex_events: Vec::new_in(allocator),
-            edges_to_split: Vec::new_in(allocator),
+            vertex_events: Vec::new_in(allocator.clone()),
+            edges_to_split: Vec::new_in(allocator.clone()),
             spans_to_end: Vec::new_in(allocator),
             merge_event: false,
             split_event: false,
@@ -199,17 +199,17 @@ impl ActiveEdge {
     }
 }
 
-struct ActiveEdges<'a> {
-    edges: Vec<ActiveEdge, &'a dyn Allocator>,
+struct ActiveEdges<A: Allocator + Clone> {
+    edges: Vec<ActiveEdge, A>,
 }
 
-struct Span<'a> {
+struct Span<A: Allocator + Clone> {
     /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
-    tess: Option<Box<MonotoneTessellator, &'a dyn Allocator>>,
+    tess: Option<Box<MonotoneTessellator, A>>,
 }
 
-impl<'a> Span<'a> {
+impl<A: Allocator + Clone> Span<A> {
     fn tess(&mut self) -> &mut MonotoneTessellator {
         // this should only ever be called on a "live" span.
         match self.tess.as_mut() {
@@ -222,21 +222,21 @@ impl<'a> Span<'a> {
     }
 }
 
-struct Spans<'a> {
-    spans: Vec<Span<'a>, &'a dyn Allocator>,
+struct Spans<A: Allocator + Clone> {
+    spans: Vec<Span<A>, A>,
 
     /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     #[allow(clippy::vec_box)]
-    pool: Vec<Box<MonotoneTessellator, &'a dyn Allocator>, &'a dyn Allocator>,
+    pool: Vec<Box<MonotoneTessellator, A>, A>,
 }
 
-impl<'a> Spans<'a> {
+impl<A: Allocator + Clone> Spans<A> {
     fn begin_span(&mut self, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
         let mut tess = self
             .pool
             .pop()
-            .unwrap_or_else(|| Box::new_in(MonotoneTessellator::new(), *self.pool.allocator()));
+            .unwrap_or_else(|| Box::new_in(MonotoneTessellator::new(), self.pool.allocator().clone()));
         tess.begin(*position, vertex);
 
         self.spans
@@ -522,41 +522,39 @@ struct PendingEdge {
 ///
 /// # }
 /// ```
-pub struct FillTessellator<'a> {
+pub struct FillTessellator<A: Allocator + Clone = Global> {
     current_position: Point,
     current_vertex: VertexId,
     current_event_id: TessEventId,
-    active: ActiveEdges<'a>,
-    edges_below: Vec<PendingEdge, &'a dyn Allocator>,
+    active: ActiveEdges<A>,
+    edges_below: Vec<PendingEdge, A>,
     fill_rule: FillRule,
     orientation: Orientation,
     tolerance: f32,
-    fill: Spans<'a>,
+    fill: Spans<A>,
     log: bool,
     assume_no_intersection: bool,
-    attrib_buffer: Vec<f32, &'a dyn Allocator>,
+    attrib_buffer: Vec<f32, A>,
 
-    scan: ActiveEdgeScan<'a>,
-    events: EventQueue<'a>,
-
-    allocator: &'a dyn Allocator,
+    scan: ActiveEdgeScan<A>,
+    events: EventQueue<A>,
 }
 
-impl Default for FillTessellator<'static> {
+impl Default for FillTessellator<Global> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FillTessellator<'static> {
+impl FillTessellator<Global> {
     pub fn new() -> Self {
-        FillTessellator::new_in(&Global as &'static dyn Allocator)
+        FillTessellator::new_in(Global)
     }
 }
 
-impl<'a> FillTessellator<'a> {
+impl<A: Allocator + Clone> FillTessellator<A> {
     /// Constructor.
-    pub fn new_in(allocator: &'a dyn Allocator) -> Self {
+    pub fn new_in(allocator: A) -> Self {
         #[cfg(debug_assertions)]
         let log = env::var("LYON_FORCE_LOGGING").is_ok();
         #[cfg(not(debug_assertions))]
@@ -566,23 +564,21 @@ impl<'a> FillTessellator<'a> {
             current_position: point(f32::MIN, f32::MIN),
             current_vertex: VertexId::INVALID,
             current_event_id: INVALID_EVENT_ID,
-            active: ActiveEdges { edges: Vec::new_in(allocator) },
-            edges_below: Vec::new_in(allocator),
+            active: ActiveEdges { edges: Vec::new_in(allocator.clone()) },
+            edges_below: Vec::new_in(allocator.clone()),
             fill_rule: FillRule::EvenOdd,
             orientation: Orientation::Vertical,
             tolerance: FillOptions::DEFAULT_TOLERANCE,
             fill: Spans {
-                spans: Vec::new_in(allocator),
-                pool: Vec::new_in(allocator),
+                spans: Vec::new_in(allocator.clone()),
+                pool: Vec::new_in(allocator.clone()),
             },
             log,
             assume_no_intersection: false,
-            attrib_buffer: Vec::new_in(allocator),
+            attrib_buffer: Vec::new_in(allocator.clone()),
 
-            scan: ActiveEdgeScan::new_in(allocator),
-            events: EventQueue::new_in(allocator),
-
-            allocator,
+            scan: ActiveEdgeScan::new_in(allocator.clone()),
+            events: EventQueue::new_in(allocator.clone()),
         }
     }
 
@@ -593,7 +589,8 @@ impl<'a> FillTessellator<'a> {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
+        let allocator = self.allocator().clone();
+        let event_queue = std::mem::replace(&mut self.events, EventQueue::new_in(allocator));
         let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path(
@@ -618,7 +615,8 @@ impl<'a> FillTessellator<'a> {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
+        let allocator = self.allocator().clone();
+        let event_queue = std::mem::replace(&mut self.events, EventQueue::new_in(allocator));
         let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path_with_ids(
@@ -741,7 +739,7 @@ impl<'a> FillTessellator<'a> {
         &'l mut self,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
-    ) -> NoAttributes<FillBuilder<'l, 'a>> {
+    ) -> NoAttributes<FillBuilder<'l, A>> {
         NoAttributes::wrap(FillBuilder::new(0, self, options, output))
     }
 
@@ -754,8 +752,12 @@ impl<'a> FillTessellator<'a> {
         num_attributes: usize,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
-    ) -> FillBuilder<'l, 'a> {
+    ) -> FillBuilder<'l, A> {
         FillBuilder::new(num_attributes, self, options, output)
+    }
+
+    pub fn allocator(&self) -> &A {
+        self.attrib_buffer.allocator()
     }
 
     fn tessellate_impl(
@@ -785,7 +787,8 @@ impl<'a> FillTessellator<'a> {
 
         builder.begin_geometry();
 
-        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new_in(self.allocator));
+        let allocator = self.allocator().clone();
+        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new_in(allocator));
 
         let result = self.tessellator_loop(attrib_store, &mut scan, builder);
 
@@ -835,7 +838,7 @@ impl<'a> FillTessellator<'a> {
     fn tessellator_loop(
         &mut self,
         attrib_store: Option<&dyn AttributeStore>,
-        scan: &mut ActiveEdgeScan,
+        scan: &mut ActiveEdgeScan<A>,
         output: &mut dyn FillGeometryBuilder,
     ) -> Result<(), TessellationError> {
         log_svg_preamble(self);
@@ -893,7 +896,7 @@ impl<'a> FillTessellator<'a> {
 
         self.current_vertex = output.add_fill_vertex(FillVertex {
             position,
-            events: &self.events,
+            events: self.events.as_slice(),
             current_event,
             attrib_store,
             attrib_buffer: &mut self.attrib_buffer,
@@ -927,7 +930,7 @@ impl<'a> FillTessellator<'a> {
     #[cfg_attr(feature = "profiling", inline(never))]
     fn process_events(
         &mut self,
-        scan: &mut ActiveEdgeScan,
+        scan: &mut ActiveEdgeScan<A>,
         output: &mut dyn FillGeometryBuilder,
     ) -> Result<(), InternalError> {
         tess_log!(self, "<!--");
@@ -1034,7 +1037,7 @@ impl<'a> FillTessellator<'a> {
     /// - 3) Loop over the edges on the right of the current point to detect potential edges that should
     ///      have been handled in the previous phases.
     #[cfg_attr(feature = "profiling", inline(never))]
-    fn scan_active_edges(&self, scan: &mut ActiveEdgeScan) -> Result<(), InternalError> {
+    fn scan_active_edges(&self, scan: &mut ActiveEdgeScan<A>) -> Result<(), InternalError> {
         scan.reset();
 
         let current_x = self.current_position.x;
@@ -1321,7 +1324,7 @@ impl<'a> FillTessellator<'a> {
         &self,
         active_edge: &ActiveEdge,
         active_edge_idx: usize,
-        scan: &mut ActiveEdgeScan,
+        scan: &mut ActiveEdgeScan<A>,
     ) -> Result<bool, InternalError> {
         if points_are_equal(self.current_position, active_edge.to) {
             return Ok(true);
@@ -1372,7 +1375,7 @@ impl<'a> FillTessellator<'a> {
     #[cfg_attr(feature = "profiling", inline(never))]
     fn process_edges_above(
         &mut self,
-        scan: &mut ActiveEdgeScan,
+        scan: &mut ActiveEdgeScan<A>,
         output: &mut dyn FillGeometryBuilder,
     ) {
         for &(span_index, side) in &scan.vertex_events {
@@ -1444,7 +1447,7 @@ impl<'a> FillTessellator<'a> {
     }
 
     #[cfg_attr(feature = "profiling", inline(never))]
-    fn process_edges_below(&mut self, scan: &mut ActiveEdgeScan) {
+    fn process_edges_below(&mut self, scan: &mut ActiveEdgeScan<A>) {
         let mut winding = scan.winding_before_point;
 
         tess_log!(
@@ -1516,7 +1519,7 @@ impl<'a> FillTessellator<'a> {
     }
 
     #[cfg_attr(feature = "profiling", inline(never))]
-    fn update_active_edges(&mut self, scan: &ActiveEdgeScan) {
+    fn update_active_edges(&mut self, scan: &ActiveEdgeScan<A>) {
         let above = scan.above.start..scan.above.end;
 
         tess_log!(
@@ -1618,7 +1621,8 @@ impl<'a> FillTessellator<'a> {
         // manually fixing things up if need be and making sure to not break more
         // invariants in doing so.
 
-        let mut edges_below = mem::replace(&mut self.edges_below, Vec::new_in(self.allocator));
+        let allocator = self.allocator().clone();
+        let mut edges_below = mem::replace(&mut self.edges_below, Vec::new_in(allocator));
         for edge_below in &mut edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
             let below_max_x = fmax(self.current_position.x, edge_below.to.x);
@@ -1902,7 +1906,7 @@ impl<'a> FillTessellator<'a> {
             }
         });
 
-        let mut new_active_edges = Vec::with_capacity_in(self.active.edges.len(), self.allocator);
+        let mut new_active_edges = Vec::with_capacity_in(self.active.edges.len(), self.allocator().clone());
         for &(_, idx) in &keys {
             new_active_edges.push(self.active.edges[idx]);
         }
@@ -2146,15 +2150,15 @@ fn reorient(p: Point) -> Point {
 }
 
 /// Extra vertex information from the `FillTessellator`, accessible when building vertices.
-pub struct FillVertex<'l, 'a> {
+pub struct FillVertex<'l> {
     pub(crate) position: Point,
-    pub(crate) events: &'l EventQueue<'a>,
+    pub(crate) events: EventQueueSlice<'l>,
     pub(crate) current_event: TessEventId,
     pub(crate) attrib_buffer: &'l mut [f32],
     pub(crate) attrib_store: Option<&'l dyn AttributeStore>,
 }
 
-impl<'l, 'a> FillVertex<'l, 'a> {
+impl<'l> FillVertex<'l> {
     pub fn position(&self) -> Point {
         self.position
     }
@@ -2283,7 +2287,7 @@ impl<'l, 'a> FillVertex<'l, 'a> {
 /// An iterator over the sources of a given vertex.
 #[derive(Clone)]
 pub struct VertexSourceIterator<'l> {
-    events: &'l EventQueue<'l>,
+    events: EventQueueSlice<'l>,
     id: TessEventId,
     prev: Option<VertexSource>,
 }
@@ -2336,26 +2340,27 @@ fn remap_t_in_range(val: f32, range: Range<f32>) -> f32 {
     }
 }
 
-pub struct FillBuilder<'l, 'a> {
-    events: EventQueueBuilder<'a>,
+pub struct FillBuilder<'l, A: Allocator + Clone> {
+    events: EventQueueBuilder<A>,
     next_id: EndpointId,
     first_id: EndpointId,
     first_position: Point,
     horizontal_sweep: bool,
     attrib_store: SimpleAttributeStore,
-    tessellator: &'l mut FillTessellator<'a>,
+    tessellator: &'l mut FillTessellator<A>,
     output: &'l mut dyn FillGeometryBuilder,
     options: &'l FillOptions,
 }
 
-impl<'l, 'a> FillBuilder<'l, 'a> {
+impl<'l, A: Allocator + Clone> FillBuilder<'l, A> {
     fn new(
         num_attributes: usize,
-        tessellator: &'l mut FillTessellator<'a>,
+        tessellator: &'l mut FillTessellator<A>,
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let events = std::mem::replace(&mut tessellator.events, EventQueue::new_in(tessellator.allocator))
+        let allocator = tessellator.allocator().clone();
+        let events = std::mem::replace(&mut tessellator.events, EventQueue::new_in(allocator))
             .into_builder(options.tolerance);
 
         FillBuilder {
@@ -2537,7 +2542,7 @@ impl<'l, 'a> FillBuilder<'l, 'a> {
     }
 }
 
-impl<'l, 'a> PathBuilder for FillBuilder<'l, 'a> {
+impl<'l, A: Allocator + Clone> PathBuilder for FillBuilder<'l, A> {
     fn num_attributes(&self) -> usize {
         self.attrib_store.num_attributes()
     }
@@ -2582,7 +2587,7 @@ impl<'l, 'a> PathBuilder for FillBuilder<'l, 'a> {
     }
 }
 
-impl<'l, 'a> Build for FillBuilder<'l, 'a> {
+impl<'l, A: Allocator + Clone> Build for FillBuilder<'l, A> {
     type PathType = TessellationResult;
 
     #[inline]
@@ -2591,7 +2596,7 @@ impl<'l, 'a> Build for FillBuilder<'l, 'a> {
     }
 }
 
-fn log_svg_preamble(_tess: &FillTessellator) {
+fn log_svg_preamble<A: Allocator + Clone>(_tess: &FillTessellator<A>) {
     tess_log!(
         _tess,
         r#"

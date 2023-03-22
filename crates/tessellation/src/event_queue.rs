@@ -40,42 +40,67 @@ pub(crate) struct EdgeData {
 
 #[doc(hidden)]
 /// A queue of sorted events for the fill tessellator's sweep-line algorithm.
-pub struct EventQueue<'a> {
-    pub(crate) events: Vec<Event, &'a dyn Allocator>,
-    pub(crate) edge_data: Vec<EdgeData, &'a dyn Allocator>,
+pub struct EventQueue<A: Allocator> {
+    pub(crate) events: Vec<Event, A>,
+    pub(crate) edge_data: Vec<EdgeData, A>,
     first: TessEventId,
     sorted: bool,
 }
 
-impl Default for EventQueue<'static> {
+impl Default for EventQueue<Global> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EventQueue<'static> {
+impl EventQueue<Global> {
     pub fn new() -> Self {
-        EventQueue::new_in(&Global as &'static dyn Allocator)
+        EventQueue::new_in(Global)
     }
 
     pub fn with_capacity(cap: usize) -> Self {
-        EventQueue::with_capacity_in(cap, &Global as &'static dyn Allocator)
+        EventQueue::with_capacity_in(cap, Global)
+    }
+
+    /// Creates an `EventQueue` from an iterator of path event and a tolerance threshold.
+    ///
+    /// The tolerance threshold is used for curve flattening approximation. See the
+    /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
+    /// crate documentation.
+    pub fn from_path(tolerance: f32, path: impl IntoIterator<Item = PathEvent>) -> Self {
+        EventQueue::from_path_in(tolerance, path, Global)
+    }
+
+    /// Creates an `EventQueue` from an an iterator over endpoint and control
+    /// point ids, storage for the positions and, optionally, storage for
+    /// custom endpoint attributes.
+    ///
+    /// The tolerance threshold is used for curve flattening approximation. See the
+    /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
+    /// crate documentation.
+    pub fn from_path_with_ids(
+        tolerance: f32,
+        sweep_orientation: Orientation,
+        path: impl IntoIterator<Item = IdEvent>,
+        positions: &impl PositionStore,
+    ) -> Self {
+        EventQueue::from_path_with_ids_in(tolerance, sweep_orientation, path, positions, Global)
     }
 }
 
-impl<'a> EventQueue<'a> {
-    pub fn new_in(allocator: &'a dyn Allocator) -> Self {
+impl<A: Allocator> EventQueue<A> {
+    pub fn new_in(allocator: A) -> Self where A: Clone {
         EventQueue {
-            events: Vec::new_in(allocator),
+            events: Vec::new_in(allocator.clone()),
             edge_data: Vec::new_in(allocator),
             first: INVALID_EVENT_ID,
             sorted: false,
         }
     }
 
-    pub fn with_capacity_in(cap: usize, allocator: &'a dyn Allocator) -> Self {
+    pub fn with_capacity_in(cap: usize, allocator: A) -> Self where A: Clone {
         EventQueue {
-            events: Vec::with_capacity_in(cap, allocator),
+            events: Vec::with_capacity_in(cap, allocator.clone()),
             edge_data: Vec::with_capacity_in(cap, allocator),
             first: 0,
             sorted: false,
@@ -94,11 +119,11 @@ impl<'a> EventQueue<'a> {
     /// The tolerance threshold is used for curve flattening approximation. See the
     /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
     /// crate documentation.
-    pub fn from_path(tolerance: f32, path: impl IntoIterator<Item = PathEvent>) -> Self {
+    pub fn from_path_in(tolerance: f32, path: impl IntoIterator<Item = PathEvent>, allocator: A) -> Self where A: Clone {
         let path = path.into_iter();
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
-        let mut builder = EventQueueBuilder::with_capacity(capacity, tolerance);
+        let mut builder = EventQueueBuilder::with_capacity_in(capacity, tolerance, allocator);
         builder.set_path(tolerance, Orientation::Vertical, path);
 
         builder.build()
@@ -111,22 +136,24 @@ impl<'a> EventQueue<'a> {
     /// The tolerance threshold is used for curve flattening approximation. See the
     /// [Flattening and tolerance](index.html#flattening-and-tolerance) section of the
     /// crate documentation.
-    pub fn from_path_with_ids(
+    pub fn from_path_with_ids_in(
         tolerance: f32,
         sweep_orientation: Orientation,
         path: impl IntoIterator<Item = IdEvent>,
         positions: &impl PositionStore,
-    ) -> Self {
+        allocator: A,
+    ) -> Self where A: Clone {
         let path = path.into_iter();
         let (min, max) = path.size_hint();
         let capacity = max.unwrap_or(min);
-        let mut builder = EventQueueBuilder::with_capacity(capacity, tolerance);
+        let mut builder = EventQueueBuilder::with_capacity_in(capacity, tolerance, allocator);
         builder.set_path_with_ids(tolerance, sweep_orientation, path, positions);
 
         builder.build()
     }
 
-    pub fn into_builder(mut self, tolerance: f32) -> EventQueueBuilder<'a> {
+
+    pub fn into_builder(mut self, tolerance: f32) -> EventQueueBuilder<A> {
         self.reset();
         EventQueueBuilder {
             queue: self,
@@ -465,20 +492,45 @@ impl<'a> EventQueue<'a> {
         }
         assert_eq!(n, self.events.len());
     }
+
+    pub fn as_slice(&self) -> EventQueueSlice {
+        EventQueueSlice {
+            events: &self.events,
+            edge_data: &self.edge_data
+        }
+    }
 }
 
-pub struct EventQueueBuilder<'a> {
+#[derive(Copy, Clone)]
+pub struct EventQueueSlice<'l> {
+    pub(crate) events: &'l[Event],
+    pub(crate) edge_data: &'l[EdgeData],
+}
+
+impl<'l> EventQueueSlice<'l> {
+    pub(crate) fn valid_id(&self, id: TessEventId) -> bool {
+        id != INVALID_EVENT_ID
+    }
+
+    /// Returns the ID of the next sibling event after the provided one.
+    pub(crate) fn next_sibling_id(&self, id: TessEventId) -> TessEventId {
+        self.events[id as usize].next_sibling
+    }
+
+}
+
+pub struct EventQueueBuilder<A: Allocator> {
     current: Point,
     prev: Point,
     second: Point,
     nth: u32,
-    queue: EventQueue<'a>,
+    queue: EventQueue<A>,
     tolerance: f32,
     prev_endpoint_id: EndpointId,
     validator: DebugValidator,
 }
 
-impl EventQueueBuilder<'static> {
+impl EventQueueBuilder<Global> {
     pub fn new(tolerance: f32) -> Self {
         EventQueue::new().into_builder(tolerance)
     }
@@ -488,12 +540,12 @@ impl EventQueueBuilder<'static> {
     }
 }
 
-impl<'a> EventQueueBuilder<'a> {
-    pub fn new_in(tolerance: f32, allocator: &'a dyn Allocator) -> Self {
+impl<A: Allocator> EventQueueBuilder<A> {
+    pub fn new_in(tolerance: f32, allocator: A) -> Self where A: Clone {
         EventQueue::new_in(allocator).into_builder(tolerance)
     }
 
-    pub fn with_capacity_in(cap: usize, tolerance: f32, allocator: &'a dyn Allocator) -> Self {
+    pub fn with_capacity_in(cap: usize, tolerance: f32, allocator: A) -> Self where A: Clone {
         EventQueue::with_capacity_in(cap, allocator).into_builder(tolerance)
     }
 
@@ -501,7 +553,7 @@ impl<'a> EventQueueBuilder<'a> {
         self.tolerance = tolerance;
     }
 
-    pub fn build(mut self) -> EventQueue<'a> {
+    pub fn build(mut self) -> EventQueue<A> {
         self.validator.build();
 
         self.queue.sort();
