@@ -1058,6 +1058,7 @@ dependencies = [
  "lyon_extra",
  "lyon_path",
  "serde",
+ "shared_vector",
  "thiserror",
 ]
 
@@ -1771,9 +1772,9 @@ dependencies = [
 
 [[package]]
 name = "shared_vector"
-version = "0.3.1"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "141e43286093cad63fd02801988258e39875f5ee9bb32da178fc7ce1f512d9ac"
+checksum = "fedf3f42342bc599d499101f718082efc026b6df8fb1ea7e6ea2ae19bf389cfd"
 dependencies = [
  "allocator-api2",
 ]

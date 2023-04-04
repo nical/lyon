@@ -29,3 +29,7 @@ resolver = "2"
 # Uncomment this when profiling.
 #[profile.release]
 #debug = true
+
+# Local allocator-api2 checkout with the `assume` performance fix.
+#[patch.crates-io]
+#allocator-api2 = { path = "../../tmp/allocator-api2" }

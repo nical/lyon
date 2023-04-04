@@ -25,6 +25,7 @@ use std::env;
 
 use allocator_api2::alloc::Allocator;
 use allocator_api2::{vec::Vec, boxed::Box};
+use shared_vector::RawVector;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Side {
@@ -114,10 +115,10 @@ impl WindingState {
     }
 }
 
-struct ActiveEdgeScan<'a> {
-    vertex_events: Vec<(SpanIdx, Side), &'a dyn Allocator>,
-    edges_to_split: Vec<ActiveEdgeIdx, &'a dyn Allocator>,
-    spans_to_end: Vec<SpanIdx, &'a dyn Allocator>,
+struct ActiveEdgeScan {
+    vertex_events: RawVector<(SpanIdx, Side)>,
+    edges_to_split: RawVector<ActiveEdgeIdx>,
+    spans_to_end: RawVector<SpanIdx>,
     merge_event: bool,
     split_event: bool,
     merge_split_event: bool,
@@ -125,12 +126,12 @@ struct ActiveEdgeScan<'a> {
     winding_before_point: WindingState,
 }
 
-impl<'a> ActiveEdgeScan<'a> {
-    fn new_in(allocator: &'a dyn Allocator) -> Self {
+impl ActiveEdgeScan {
+    fn new() -> Self {
         ActiveEdgeScan {
-            vertex_events: Vec::new_in(allocator),
-            edges_to_split: Vec::new_in(allocator),
-            spans_to_end: Vec::new_in(allocator),
+            vertex_events: RawVector::new(),
+            edges_to_split: RawVector::new(),
+            spans_to_end: RawVector::new(),
             merge_event: false,
             split_event: false,
             merge_split_event: false,
@@ -199,8 +200,8 @@ impl ActiveEdge {
     }
 }
 
-struct ActiveEdges<'a> {
-    edges: Vec<ActiveEdge, &'a dyn Allocator>,
+struct ActiveEdges {
+    edges: RawVector<ActiveEdge>,
 }
 
 struct Span<'a> {
@@ -223,28 +224,30 @@ impl<'a> Span<'a> {
 }
 
 struct Spans<'a> {
-    spans: Vec<Span<'a>, &'a dyn Allocator>,
+    spans: RawVector<Span<'a>>,
 
     /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     #[allow(clippy::vec_box)]
-    pool: Vec<Box<MonotoneTessellator, &'a dyn Allocator>, &'a dyn Allocator>,
+    pool: RawVector<Box<MonotoneTessellator, &'a dyn Allocator>>,
 }
 
 impl<'a> Spans<'a> {
-    fn begin_span(&mut self, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
+    fn begin_span(&mut self, allocator: &'a dyn Allocator, span_idx: SpanIdx, position: &Point, vertex: VertexId) {
         let mut tess = self
             .pool
             .pop()
-            .unwrap_or_else(|| Box::new_in(MonotoneTessellator::new(), *self.pool.allocator()));
+            .unwrap_or_else(|| Box::new_in(MonotoneTessellator::new(), allocator));
         tess.begin(*position, vertex);
 
-        self.spans
-            .insert(span_idx as usize, Span { tess: Some(tess) });
+        unsafe {
+            self.spans.insert(&allocator, span_idx as usize, Span { tess: Some(tess) });
+        }
     }
 
     fn end_span(
         &mut self,
+        allocator: &dyn Allocator,
         span_idx: SpanIdx,
         position: &Point,
         id: VertexId,
@@ -257,7 +260,7 @@ impl<'a> Spans<'a> {
             tess.end(*position, id);
             tess.flush(output);
             // Recycle the allocations for future use.
-            self.pool.push(tess);
+            unsafe { self.pool.push(&allocator, tess); }
         } else {
             debug_assert!(false);
             unreachable!();
@@ -266,6 +269,7 @@ impl<'a> Spans<'a> {
 
     fn merge_spans(
         &mut self,
+        allocator: &dyn Allocator,
         left_span_idx: SpanIdx,
         current_position: &Point,
         current_vertex: VertexId,
@@ -292,7 +296,7 @@ impl<'a> Spans<'a> {
             Side::Left,
         );
 
-        self.end_span(left_span_idx, current_position, current_vertex, output);
+        self.end_span(allocator, left_span_idx, current_position, current_vertex, output);
     }
 
     fn cleanup_spans(&mut self) {
@@ -526,17 +530,17 @@ pub struct FillTessellator<'a> {
     current_position: Point,
     current_vertex: VertexId,
     current_event_id: TessEventId,
-    active: ActiveEdges<'a>,
-    edges_below: Vec<PendingEdge, &'a dyn Allocator>,
+    active: ActiveEdges,
+    edges_below: RawVector<PendingEdge>,
     fill_rule: FillRule,
     orientation: Orientation,
     tolerance: f32,
     fill: Spans<'a>,
     log: bool,
     assume_no_intersection: bool,
-    attrib_buffer: Vec<f32, &'a dyn Allocator>,
+    attrib_buffer: RawVector<f32>,
 
-    scan: ActiveEdgeScan<'a>,
+    scan: ActiveEdgeScan,
     events: EventQueue<'a>,
 
     allocator: &'a dyn Allocator,
@@ -566,20 +570,20 @@ impl<'a> FillTessellator<'a> {
             current_position: point(f32::MIN, f32::MIN),
             current_vertex: VertexId::INVALID,
             current_event_id: INVALID_EVENT_ID,
-            active: ActiveEdges { edges: Vec::new_in(allocator) },
-            edges_below: Vec::new_in(allocator),
+            active: ActiveEdges { edges: RawVector::new() },
+            edges_below: RawVector::new(),
             fill_rule: FillRule::EvenOdd,
             orientation: Orientation::Vertical,
             tolerance: FillOptions::DEFAULT_TOLERANCE,
             fill: Spans {
-                spans: Vec::new_in(allocator),
-                pool: Vec::new_in(allocator),
+                spans: RawVector::new(),
+                pool: RawVector::new(),
             },
             log,
             assume_no_intersection: false,
-            attrib_buffer: Vec::new_in(allocator),
+            attrib_buffer: RawVector::new(),
 
-            scan: ActiveEdgeScan::new_in(allocator),
+            scan: ActiveEdgeScan::new(),
             events: EventQueue::new_in(allocator),
 
             allocator,
@@ -773,7 +777,12 @@ impl<'a> FillTessellator<'a> {
         self.reset();
 
         if let Some(store) = attrib_store {
-            self.attrib_buffer.resize(store.num_attributes(), 0.0);
+            self.attrib_buffer.clear();
+            let n = store.num_attributes();
+            unsafe { self.attrib_buffer.try_reserve(&self.allocator, n).unwrap(); }
+            for _ in 0..n {
+                self.attrib_buffer.push_within_capacity(0.0).unwrap();
+            }
         } else {
             self.attrib_buffer.clear();
         }
@@ -785,7 +794,7 @@ impl<'a> FillTessellator<'a> {
 
         builder.begin_geometry();
 
-        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new_in(self.allocator));
+        let mut scan = mem::replace(&mut self.scan, ActiveEdgeScan::new());
 
         let result = self.tessellator_loop(attrib_store, &mut scan, builder);
 
@@ -908,13 +917,15 @@ impl<'a> FillTessellator<'a> {
             if edge.is_edge {
                 let to = edge.to;
                 debug_assert!(is_after(to, self.current_position));
-                self.edges_below.push(PendingEdge {
-                    to,
-                    sort_key: slope(to - self.current_position), //.angle_from_x_axis().radians,
-                    src_edge: current_sibling,
-                    winding: edge.winding,
-                    range_end: edge.range.end,
-                });
+                unsafe {
+                    self.edges_below.push(&self.allocator, PendingEdge {
+                        to,
+                        sort_key: slope(to - self.current_position), //.angle_from_x_axis().radians,
+                        src_edge: current_sibling,
+                        winding: edge.winding,
+                        range_end: edge.range.end,
+                    });
+                }
             }
 
             current_sibling = self.events.next_sibling_id(current_sibling);
@@ -1142,9 +1153,10 @@ impl<'a> FillTessellator<'a> {
                 //  ...:...
                 //  ...x...
                 //  ../ \..
-                scan.vertex_events
-                    .push((winding.span_index - 1, Side::Right));
-                scan.vertex_events.push((winding.span_index, Side::Left));
+                unsafe {
+                    scan.vertex_events.push(&self.allocator, (winding.span_index - 1, Side::Right));
+                    scan.vertex_events.push(&self.allocator, (winding.span_index, Side::Left));
+                }
                 scan.merge_split_event = true;
                 tess_log!(self, "split+merge");
             }
@@ -1190,7 +1202,7 @@ impl<'a> FillTessellator<'a> {
                     //  ..\.:...
                     //  ...\:...
                     //  ....X...
-                    scan.spans_to_end.push(winding.span_index);
+                    unsafe { scan.spans_to_end.push(&self.allocator, winding.span_index); }
 
                     // To deal with the right side of the merge, we simply pretend it
                     // transitioned into the shape. Next edge that transitions out (if any)
@@ -1222,7 +1234,7 @@ impl<'a> FillTessellator<'a> {
                     //   \./
                     //    x
                     //
-                    scan.spans_to_end.push(winding.span_index);
+                    unsafe { scan.spans_to_end.push(&self.allocator, winding.span_index); }
                 }
 
                 winding.update(self.fill_rule, active_edge.winding);
@@ -1262,14 +1274,14 @@ impl<'a> FillTessellator<'a> {
                 //   ...x    or   ...x...  (etc.)
                 //   ...|         ...:...
                 let first_span_index = scan.winding_before_point.span_index;
-                scan.vertex_events.push((first_span_index, Side::Right));
+                unsafe { scan.vertex_events.push(&self.allocator, (first_span_index, Side::Right)); }
             }
 
             if in_after_vertex {
                 //    |...        ..\ /..
                 //    x...   or   ...x...  (etc.)
                 //    |...        ...:...
-                scan.vertex_events.push((winding.span_index, Side::Left));
+                unsafe { scan.vertex_events.push(&self.allocator, (winding.span_index, Side::Left)); }
             }
         }
 
@@ -1356,7 +1368,7 @@ impl<'a> FillTessellator<'a> {
                 active_edge.from,
                 active_edge.to
             );
-            scan.edges_to_split.push(active_edge_idx);
+            unsafe { scan.edges_to_split.push(&self.allocator, active_edge_idx); }
             return Ok(true);
         }
 
@@ -1393,6 +1405,7 @@ impl<'a> FillTessellator<'a> {
         for &span_index in &scan.spans_to_end {
             tess_log!(self, "   -> End span {:?}", span_index);
             self.fill.end_span(
+                &self.allocator,
                 span_index,
                 &self.current_position,
                 self.current_vertex,
@@ -1406,13 +1419,15 @@ impl<'a> FillTessellator<'a> {
             let active_edge = &mut self.active.edges[edge_idx];
             let to = active_edge.to;
 
-            self.edges_below.push(PendingEdge {
-                to,
-                sort_key: slope(to - self.current_position),
-                src_edge: active_edge.src_edge,
-                winding: active_edge.winding,
-                range_end: active_edge.range_end,
-            });
+            unsafe {
+                self.edges_below.push(&self.allocator, PendingEdge {
+                    to,
+                    sort_key: slope(to - self.current_position),
+                    src_edge: active_edge.src_edge,
+                    winding: active_edge.winding,
+                    range_end: active_edge.range_end,
+                });
+            }
             tess_log!(
                 self,
                 "split {:?}, add edge below {:?} -> {:?} ({:?})",
@@ -1497,6 +1512,7 @@ impl<'a> FillTessellator<'a> {
                 );
 
                 self.fill.begin_span(
+                    self.allocator,
                     winding.span_index,
                     &self.current_position,
                     self.current_vertex,
@@ -1538,18 +1554,21 @@ impl<'a> FillTessellator<'a> {
 
         let from = self.current_position;
         let from_id = self.current_vertex;
-        self.active.edges.splice(
-            above,
-            self.edges_below.drain(..).map(|edge| ActiveEdge {
-                from,
-                to: edge.to,
-                winding: edge.winding,
-                is_merge: false,
-                from_id,
-                src_edge: edge.src_edge,
-                range_end: edge.range_end,
-            }),
-        );
+        unsafe {
+            self.active.edges.splice(
+                &self.allocator,
+                above,
+                self.edges_below.drain(..).map(|edge| ActiveEdge {
+                    from,
+                    to: edge.to,
+                    winding: edge.winding,
+                    is_merge: false,
+                    from_id,
+                    src_edge: edge.src_edge,
+                    range_end: edge.range_end,
+                }),
+            );
+        }
     }
 
     fn split_event(&mut self, left_enclosing_edge_idx: ActiveEdgeIdx, left_span_idx: SpanIdx) {
@@ -1585,7 +1604,7 @@ impl<'a> FillTessellator<'a> {
         };
 
         self.fill
-            .begin_span(new_span_idx, &upper_position, upper_id);
+            .begin_span(self.allocator, new_span_idx, &upper_position, upper_id);
 
         self.fill.spans[left_span_idx as usize].tess().vertex(
             self.current_position,
@@ -1618,7 +1637,7 @@ impl<'a> FillTessellator<'a> {
         // manually fixing things up if need be and making sure to not break more
         // invariants in doing so.
 
-        let mut edges_below = mem::replace(&mut self.edges_below, Vec::new_in(self.allocator));
+        let mut edges_below = mem::replace(&mut self.edges_below, RawVector::new());
         for edge_below in &mut edges_below {
             let below_min_x = self.current_position.x.min(edge_below.to.x);
             let below_max_x = fmax(self.current_position.x, edge_below.to.x);
@@ -1902,9 +1921,9 @@ impl<'a> FillTessellator<'a> {
             }
         });
 
-        let mut new_active_edges = Vec::with_capacity_in(self.active.edges.len(), self.allocator);
+        let mut new_active_edges = RawVector::try_with_capacity(&self.allocator, self.active.edges.len()).unwrap();
         for &(_, idx) in &keys {
-            new_active_edges.push(self.active.edges[idx]);
+             unsafe { new_active_edges.push(&self.allocator, self.active.edges[idx]); }
         }
 
         self.active.edges = new_active_edges;
@@ -1981,7 +2000,7 @@ impl<'a> FillTessellator<'a> {
 
             if winding.span_index >= self.fill.spans.len() as i32 {
                 self.fill
-                    .begin_span(winding.span_index, &edge.from, edge.from_id);
+                    .begin_span(self.allocator, winding.span_index, &edge.from, edge.from_id);
             }
         }
 
@@ -2102,6 +2121,20 @@ impl<'a> FillTessellator<'a> {
         self.active.edges.clear();
         self.edges_below.clear();
         self.fill.spans.clear();
+    }
+}
+
+impl<'a> Drop for FillTessellator<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            self.attrib_buffer.deallocate(&self.allocator);
+            self.scan.vertex_events.deallocate(&self.allocator);
+            self.scan.edges_to_split.deallocate(&self.allocator);
+            self.scan.spans_to_end.deallocate(&self.allocator);
+            self.active.edges.deallocate(&self.allocator);
+            self.fill.spans.deallocate(&self.allocator);
+            self.fill.pool.deallocate(&self.allocator);
+        }
     }
 }
 
