@@ -19,6 +19,7 @@ serialization = ["lyon_tessellation/serialization"]
 debugger = ["lyon_tessellation/debugger"]
 extra = ["lyon_extra"]
 profiling = ["lyon_tessellation/profiling"]
+nightly = ["lyon_tessellation/nightly"]
 
 [dependencies]
 lyon_tessellation = { version = "1.0.5", path = "../tessellation/" }

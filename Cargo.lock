@@ -25,12 +25,9 @@ dependencies = [
 
 [[package]]
 name = "allocator-api2"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "227dae7e1a81622241e93a00630c97e041775957c8250d50961ac14cda1f8213"
-dependencies = [
- "sptr",
-]
+checksum = "d5862c39930f7733d755b70cbef90cd65dce9e7f51cee234d3b51c60a56a2497"
 
 [[package]]
 name = "android_system_properties"
@@ -1842,12 +1839,6 @@ dependencies = [
  "bitflags",
  "num-traits",
 ]
-
-[[package]]
-name = "sptr"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b9b39299b249ad65f3b7e96443bad61c02ca5cd3589f46cb6d610a0fd6c0d6a"
 
 [[package]]
 name = "strsim"

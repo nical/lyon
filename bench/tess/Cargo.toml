@@ -11,6 +11,7 @@ path = "src/main.rs"
 [features]
 libtess2 = ["tess2-sys"]
 profiling = ["lyon/profiling"]
+nightly = ["lyon/nightly"]
 
 [dependencies]
 lyon = { path = "../../crates/lyon", features = ["extra"] }
