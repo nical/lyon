@@ -169,13 +169,22 @@ impl<'l> PathWalker<'l> {
         let mut distance = self.leftover + d;
         let mut x = 0.0;
         while distance >= self.next_distance {
+            // TODO: the only reason for this if statement right now is if distance is 0 in case num_attributes is 0.
+            //       if distance can never be 0, then this if statement check can be removed
             if self.num_attributes > 0 {
                 let t2 = t.end * self.next_distance / distance;
 
                 // TODO: are these asserts needed?  For now, this simply matches prior code in functionality
+                // TODO: I accidentally forgot to use `take(...)`, but all tests still passed. Is it needed?
                 assert!(self.prev_attributes.len() >= self.num_attributes);
                 assert!(attributes.len() >= self.num_attributes);
-                for (i, (prev, attr)) in self.prev_attributes.iter().zip(attributes).enumerate() {
+                for (i, (prev, attr)) in self
+                    .prev_attributes
+                    .iter()
+                    .take(self.num_attributes)
+                    .zip(attributes)
+                    .enumerate()
+                {
                     self.attribute_buffer[i] = prev * (1.0 - t2) + attr * t2;
                 }
             }
