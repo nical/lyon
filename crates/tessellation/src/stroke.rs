@@ -16,7 +16,6 @@ use crate::{
     LineCap, LineJoin, Side, SimpleAttributeStore, StrokeGeometryBuilder, StrokeOptions,
     TessellationError, TessellationResult, VertexId, VertexSource,
 };
-
 use std::f32::consts::PI;
 
 const SIDE_POSITIVE: usize = 0;
@@ -328,17 +327,17 @@ impl Default for EndpointData {
     fn default() -> Self {
         EndpointData {
             position: Point::zero(),
-            half_width: std::f32::NAN,
-            advancement: std::f32::NAN,
+            half_width: f32::NAN,
+            advancement: f32::NAN,
             line_join: LineJoin::Miter,
             src: VertexSource::Endpoint {
                 id: EndpointId::INVALID,
             },
             side_points: [SidePoints {
-                prev: point(std::f32::NAN, std::f32::NAN),
-                prev_vertex: VertexId(std::u32::MAX),
-                next: point(std::f32::NAN, std::f32::NAN),
-                next_vertex: VertexId(std::u32::MAX),
+                prev: point(f32::NAN, f32::NAN),
+                prev_vertex: VertexId(u32::MAX),
+                next: point(f32::NAN, f32::NAN),
+                next_vertex: VertexId(u32::MAX),
                 single_vertex: None,
             }; 2],
             fold: [false, false],
@@ -657,8 +656,8 @@ impl<'l> StrokeBuilderImpl<'l> {
 
         let mut validator = DebugValidator::new();
 
-        let mut current_endpoint = EndpointId(std::u32::MAX);
-        let mut current_position = point(std::f32::NAN, std::f32::NAN);
+        let mut current_endpoint = EndpointId(u32::MAX);
+        let mut current_position = point(f32::NAN, f32::NAN);
 
         for evt in path.into_iter() {
             match evt {
@@ -770,8 +769,8 @@ impl<'l> StrokeBuilderImpl<'l> {
     ) -> TessellationResult {
         let mut validator = DebugValidator::new();
 
-        let mut current_endpoint = EndpointId(std::u32::MAX);
-        let mut current_position = point(std::f32::NAN, std::f32::NAN);
+        let mut current_endpoint = EndpointId(u32::MAX);
+        let mut current_position = point(f32::NAN, f32::NAN);
 
         let half_width = self.options.line_width * 0.5;
 
@@ -876,7 +875,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         let mut validator = DebugValidator::new();
 
         let mut id = EndpointId(0);
-        let mut current_position = point(std::f32::NAN, std::f32::NAN);
+        let mut current_position = point(f32::NAN, f32::NAN);
 
         for evt in input {
             match evt {
@@ -1214,7 +1213,7 @@ impl<'l> StrokeBuilderImpl<'l> {
         // Make sure we re-compute the advancement instead of using the one found at the
         // beginning of the sub-path.
         let advancement = p.advancement;
-        p.advancement = std::f32::NAN;
+        p.advancement = f32::NAN;
         let segment_added = if self.options.variable_line_width.is_some() {
             self.step_impl(p, attributes)?
         } else {
@@ -2757,9 +2756,9 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
             self.builder.end_geometry();
         }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
-            assert!(a != b);
-            assert!(a != c);
-            assert!(b != c);
+            assert_ne!(a, b);
+            assert_ne!(a, c);
+            assert_ne!(b, c);
             let pa = self.builder.buffers().vertices[a.0 as usize];
             let pb = self.builder.buffers().vertices[b.0 as usize];
             let pc = self.builder.buffers().vertices[c.0 as usize];
@@ -2781,7 +2780,7 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
             assert!(!attributes.position().y.is_nan());
             assert!(!attributes.normal().x.is_nan());
             assert!(!attributes.normal().y.is_nan());
-            assert!(attributes.normal().square_length() != 0.0);
+            assert_ne!(attributes.normal().square_length(), 0.0);
             assert!(!attributes.advancement().is_nan());
             self.builder.add_stroke_vertex(attributes)
         }
@@ -2946,9 +2945,9 @@ fn test_too_many_vertices() {
     impl GeometryBuilder for Builder {
         fn begin_geometry(&mut self) {}
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
-            assert!(a != b);
-            assert!(a != c);
-            assert!(b != c);
+            assert_ne!(a, b);
+            assert_ne!(a, c);
+            assert_ne!(b, c);
         }
         fn end_geometry(&mut self) {
             // Expected to abort the geometry.

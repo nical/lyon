@@ -190,9 +190,9 @@ fn test_segments() {
         c: point(5.0, 6.0),
     };
 
-    assert!(t.ab() == t.ba().flip());
-    assert!(t.ac() == t.ca().flip());
-    assert!(t.bc() == t.cb().flip());
+    assert_eq!(t.ab(), t.ba().flip());
+    assert_eq!(t.ac(), t.ca().flip());
+    assert_eq!(t.bc(), t.cb().flip());
 }
 
 #[test]

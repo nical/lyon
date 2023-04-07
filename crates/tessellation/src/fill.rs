@@ -15,7 +15,7 @@ use crate::{
 };
 use float_next_after::NextAfter;
 use std::cmp::Ordering;
-use std::f32;
+use std::f32::consts::FRAC_1_SQRT_2;
 use std::mem;
 use std::ops::Range;
 
@@ -60,7 +60,7 @@ fn fmax(a: f32, b: f32) -> f32 {
 }
 
 fn slope(v: Vector) -> f32 {
-    v.x / (v.y.max(std::f32::MIN))
+    v.x / (v.y.max(f32::MIN))
 }
 
 #[cfg(debug_assertions)]
@@ -826,7 +826,7 @@ impl FillTessellator {
     ) -> Result<(), TessellationError> {
         log_svg_preamble(self);
 
-        let mut _prev_position = point(std::f32::MIN, std::f32::MIN);
+        let mut _prev_position = point(f32::MIN, f32::MIN);
         self.current_event_id = self.events.first_id();
         while self.events.valid_id(self.current_event_id) {
             self.initialize_events(attrib_store, output)?;
@@ -1702,7 +1702,7 @@ impl FillTessellator {
 
         if !is_after(intersection_position, self.current_position) {
             tess_log!(self, "fixup the intersection");
-            intersection_position.y = self.current_position.y.next_after(std::f32::INFINITY);
+            intersection_position.y = self.current_position.y.next_after(f32::INFINITY);
         }
 
         assert!(
@@ -2211,16 +2211,16 @@ impl<'l> FillVertex<'l> {
         match first {
             VertexSource::Endpoint { id } => {
                 let a = store.get(id);
-                assert!(a.len() == num_attributes);
-                assert!(self.attrib_buffer.len() == num_attributes);
+                assert_eq!(a.len(), num_attributes);
+                assert_eq!(self.attrib_buffer.len(), num_attributes);
                 self.attrib_buffer[..num_attributes].clone_from_slice(&a[..num_attributes]);
             }
             VertexSource::Edge { from, to, t } => {
                 let a = store.get(from);
                 let b = store.get(to);
-                assert!(a.len() == num_attributes);
-                assert!(b.len() == num_attributes);
-                assert!(self.attrib_buffer.len() == num_attributes);
+                assert_eq!(a.len(), num_attributes);
+                assert_eq!(b.len(), num_attributes);
+                assert_eq!(self.attrib_buffer.len(), num_attributes);
                 for i in 0..num_attributes {
                     self.attrib_buffer[i] = a[i] * (1.0 - t) + b[i] * t;
                 }
@@ -2232,8 +2232,8 @@ impl<'l> FillVertex<'l> {
             match next {
                 Some(VertexSource::Endpoint { id }) => {
                     let a = store.get(id);
-                    assert!(a.len() == num_attributes);
-                    assert!(self.attrib_buffer.len() == num_attributes);
+                    assert_eq!(a.len(), num_attributes);
+                    assert_eq!(self.attrib_buffer.len(), num_attributes);
                     for (i, &att) in a.iter().enumerate() {
                         self.attrib_buffer[i] += att;
                     }
@@ -2241,9 +2241,9 @@ impl<'l> FillVertex<'l> {
                 Some(VertexSource::Edge { from, to, t }) => {
                     let a = store.get(from);
                     let b = store.get(to);
-                    assert!(a.len() == num_attributes);
-                    assert!(b.len() == num_attributes);
-                    assert!(self.attrib_buffer.len() == num_attributes);
+                    assert_eq!(a.len(), num_attributes);
+                    assert_eq!(b.len(), num_attributes);
+                    assert_eq!(self.attrib_buffer.len(), num_attributes);
                     for i in 0..num_attributes {
                         self.attrib_buffer[i] += a[i] * (1.0 - t) + b[i] * t;
                     }
@@ -2450,13 +2450,12 @@ impl<'l> FillBuilder<'l> {
         self.reserve(16, 8);
 
         let tan_pi_over_8 = 0.41421357;
-        let cos_pi_over_4 = f32::consts::FRAC_1_SQRT_2;
         let d = radius * tan_pi_over_8;
 
         let start = center + vector(-radius, 0.0);
         self.begin(start, attributes);
         let ctrl_0 = center + vector(-radius, -d * dir);
-        let mid_0 = center + vector(-1.0, -dir) * radius * cos_pi_over_4;
+        let mid_0 = center + vector(-1.0, -dir) * radius * FRAC_1_SQRT_2;
         let ctrl_1 = center + vector(-d, -radius * dir);
         let mid_1 = center + vector(0.0, -radius * dir);
         self.quadratic_bezier_to(ctrl_0, mid_0, attributes);
@@ -2467,7 +2466,7 @@ impl<'l> FillBuilder<'l> {
 
         self.begin(mid_1, attributes);
         let ctrl_0 = center + vector(d, -radius * dir);
-        let mid_2 = center + vector(1.0, -dir) * radius * cos_pi_over_4;
+        let mid_2 = center + vector(1.0, -dir) * radius * FRAC_1_SQRT_2;
         let ctrl_1 = center + vector(radius, -d * dir);
         let mid_3 = center + vector(radius, 0.0);
         self.quadratic_bezier_to(ctrl_0, mid_2, attributes);
@@ -2478,7 +2477,7 @@ impl<'l> FillBuilder<'l> {
 
         self.begin(mid_3, attributes);
         let ctrl_0 = center + vector(radius, d * dir);
-        let mid_4 = center + vector(1.0, dir) * radius * cos_pi_over_4;
+        let mid_4 = center + vector(1.0, dir) * radius * FRAC_1_SQRT_2;
         let ctrl_1 = center + vector(d, radius * dir);
         let mid_5 = center + vector(0.0, radius * dir);
         self.quadratic_bezier_to(ctrl_0, mid_4, attributes);
@@ -2489,7 +2488,7 @@ impl<'l> FillBuilder<'l> {
 
         self.begin(mid_5, attributes);
         let ctrl_0 = center + vector(-d, radius * dir);
-        let mid_6 = center + vector(-1.0, dir) * radius * cos_pi_over_4;
+        let mid_6 = center + vector(-1.0, dir) * radius * FRAC_1_SQRT_2;
         let ctrl_1 = center + vector(-radius, d * dir);
         self.quadratic_bezier_to(ctrl_0, mid_6, attributes);
         self.end(false);

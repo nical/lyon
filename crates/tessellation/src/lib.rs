@@ -230,7 +230,6 @@ pub use crate::path::{AttributeIndex, Attributes, FillRule, LineCap, LineJoin, S
 use crate::path::EndpointId;
 
 use std::ops::{Add, Sub};
-use std::u32;
 use thiserror::Error;
 
 /// The fill tessellator's result type.

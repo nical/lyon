@@ -75,7 +75,6 @@ pub use crate::path_buffer::{PathBuffer, PathBufferSlice};
 pub use crate::polygon::{IdPolygon, Polygon};
 
 use core::fmt;
-use core::u32;
 use math::Point;
 
 pub mod traits {
@@ -339,7 +338,7 @@ impl fmt::Debug for EndpointId {
 pub struct EventId(#[doc(hidden)] pub u32);
 
 impl EventId {
-    pub const INVALID: Self = EventId(core::u32::MAX);
+    pub const INVALID: Self = EventId(u32::MAX);
     pub fn to_usize(self) -> usize {
         self.0 as usize
     }

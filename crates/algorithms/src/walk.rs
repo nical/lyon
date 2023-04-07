@@ -45,7 +45,6 @@ use crate::math::*;
 use crate::path::builder::*;
 use crate::path::{Attributes, EndpointId, PathEvent};
 
-use core::f32;
 use core::ops::Range;
 
 use alloc::vec::Vec;

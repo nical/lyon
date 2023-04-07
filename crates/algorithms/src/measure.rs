@@ -609,13 +609,13 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
             };
         }
 
-        use std::f32::NAN;
         for value in &mut self.attribute_buffer {
-            *value = NAN;
+            *value = f32::NAN;
         }
+
         PathSample {
-            position: point(NAN, NAN),
-            tangent: vector(NAN, NAN),
+            position: point(f32::NAN, f32::NAN),
+            tangent: vector(f32::NAN, f32::NAN),
             attributes: &self.attribute_buffer,
         }
     }

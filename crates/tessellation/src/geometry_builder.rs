@@ -535,7 +535,7 @@ impl GeometryBuilder for NoOutput {
 
 impl FillGeometryBuilder for NoOutput {
     fn add_fill_vertex(&mut self, _vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        if self.next_vertex == std::u32::MAX {
+        if self.next_vertex == u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         self.next_vertex += 1;
@@ -545,7 +545,7 @@ impl FillGeometryBuilder for NoOutput {
 
 impl StrokeGeometryBuilder for NoOutput {
     fn add_stroke_vertex(&mut self, _: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
-        if self.next_vertex == std::u32::MAX {
+        if self.next_vertex == u32::MAX {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         self.next_vertex += 1;
@@ -563,33 +563,33 @@ pub trait MaxIndex {
 }
 
 impl MaxIndex for u8 {
-    const MAX: usize = std::u8::MAX as usize;
+    const MAX: usize = u8::MAX as usize;
 }
 impl MaxIndex for i8 {
-    const MAX: usize = std::i8::MAX as usize;
+    const MAX: usize = i8::MAX as usize;
 }
 impl MaxIndex for u16 {
-    const MAX: usize = std::u16::MAX as usize;
+    const MAX: usize = u16::MAX as usize;
 }
 impl MaxIndex for i16 {
-    const MAX: usize = std::i16::MAX as usize;
+    const MAX: usize = i16::MAX as usize;
 }
 impl MaxIndex for u32 {
-    const MAX: usize = std::u32::MAX as usize;
+    const MAX: usize = u32::MAX as usize;
 }
 impl MaxIndex for i32 {
-    const MAX: usize = std::i32::MAX as usize;
+    const MAX: usize = i32::MAX as usize;
 }
 // The tessellators internally use u32 indices so we can't have more than u32::MAX
 impl MaxIndex for u64 {
-    const MAX: usize = std::u32::MAX as usize;
+    const MAX: usize = u32::MAX as usize;
 }
 impl MaxIndex for i64 {
-    const MAX: usize = std::u32::MAX as usize;
+    const MAX: usize = u32::MAX as usize;
 }
 impl MaxIndex for usize {
-    const MAX: usize = std::u32::MAX as usize;
+    const MAX: usize = u32::MAX as usize;
 }
 impl MaxIndex for isize {
-    const MAX: usize = std::u32::MAX as usize;
+    const MAX: usize = u32::MAX as usize;
 }
