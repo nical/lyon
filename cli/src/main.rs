@@ -21,7 +21,7 @@ use lyon::geom::euclid::Angle;
 use lyon::path::Path;
 use lyon::tessellation::{FillOptions, FillRule, LineCap, LineJoin, Orientation, StrokeOptions};
 use std::fs::File;
-use std::io::{stderr, stdout, Read, Write};
+use std::io::{stdout, Read, Write};
 
 fn main() {
     env_logger::init();
@@ -371,7 +371,7 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
         if let Ok(mut file) = File::open(input_file) {
             file.read_to_string(&mut path_str).unwrap();
         } else {
-            write!(&mut stderr(), "Cannot open file {}", input_file).unwrap();
+            eprintln!("Cannot open file {input_file}");
             return None;
         }
     }
@@ -656,12 +656,11 @@ fn get_hatching_angle(matches: &ArgMatches) -> Angle<f32> {
 }
 
 fn get_output(matches: &ArgMatches) -> Box<dyn Write> {
-    let mut output: Box<dyn Write> = Box::new(stdout());
     if let Some(output_file) = matches.value_of("OUTPUT") {
         if let Ok(file) = File::create(output_file) {
-            output = Box::new(file);
+            return Box::new(file);
         }
     }
 
-    output
+    Box::new(stdout())
 }
