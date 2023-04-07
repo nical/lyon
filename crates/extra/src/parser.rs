@@ -134,6 +134,7 @@ impl<Iter: Iterator<Item = char>> Source<Iter> {
 /// - line to endpoint [3, 3] custom attribute 30.
 ///
 /// Note that only endpoints have custom attributes, control points do not.
+#[derive(Debug, Default)]
 pub struct PathParser {
     attribute_buffer: Vec<f32>,
     float_buffer: String,
@@ -145,14 +146,7 @@ pub struct PathParser {
 
 impl PathParser {
     pub fn new() -> Self {
-        PathParser {
-            attribute_buffer: Vec::new(),
-            float_buffer: String::new(),
-            num_attributes: 0,
-            stop_at: None,
-            current_position: point(0.0, 0.0),
-            need_end: false,
-        }
+        Self::default()
     }
 
     pub fn parse<Iter, Builder>(

@@ -1,8 +1,9 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
 #![deny(unconditional_recursion)]
-#![allow(clippy::many_single_char_names)]
+#![allow(clippy::excessive_precision)]
 #![allow(clippy::let_and_return)]
+#![allow(clippy::many_single_char_names)]
 #![no_std]
 
 //! Simple 2D geometric primitives on top of euclid.

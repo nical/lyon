@@ -171,9 +171,12 @@ impl<'l> PathWalker<'l> {
         while distance >= self.next_distance {
             if self.num_attributes > 0 {
                 let t2 = t.end * self.next_distance / distance;
-                for i in 0..self.num_attributes {
-                    self.attribute_buffer[i] =
-                        self.prev_attributes[i] * (1.0 - t2) + attributes[i] * t2;
+
+                // TODO: are these asserts needed?  For now, this simply matches prior code in functionality
+                assert!(self.prev_attributes.len() >= self.num_attributes);
+                assert!(attributes.len() >= self.num_attributes);
+                for (i, (prev, attr)) in self.prev_attributes.iter().zip(attributes).enumerate() {
+                    self.attribute_buffer[i] = prev * (1.0 - t2) + attr * t2;
                 }
             }
             x += (self.next_distance - self.leftover) * inv_d;

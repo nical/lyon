@@ -85,6 +85,8 @@ pub fn flatten_quadratic_bezier(
             for i in 0..n {
                 buffer[i] = prev_attributes[i] * (1.0 - t.end) + attributes[i] * t.end;
             }
+            // BUG: https://github.com/rust-lang/rust-clippy/issues/10608
+            #[allow(clippy::redundant_slicing)]
             &buffer[..]
         };
         id = builder.line_to(line.to, attr);
@@ -119,6 +121,8 @@ pub fn flatten_cubic_bezier(
             for i in 0..n {
                 buffer[i] = prev_attributes[i] * (1.0 - t.end) + attributes[i] * t.end;
             }
+            // BUG: https://github.com/rust-lang/rust-clippy/issues/10608
+            #[allow(clippy::redundant_slicing)]
             &buffer[..]
         };
         id = builder.line_to(line.to, attr);

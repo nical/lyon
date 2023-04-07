@@ -6,7 +6,7 @@ use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{FillOptions, FillTessellator};
 use lyon::tessellation::{StrokeOptions, StrokeTessellator};
 
-use lyon::algorithms::{walk, rounded_polygon};
+use lyon::algorithms::{rounded_polygon, walk};
 
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -141,7 +141,6 @@ fn main() {
     build_logo_path(&mut builder);
     let path = builder.build();
 
-
     let arrow_points = [
         point(-1.0, -0.3),
         point(0.0, -0.3),
@@ -186,7 +185,7 @@ fn main() {
         .tessellate_path(
             &arrow_path,
             &FillOptions::tolerance(tolerance),
-            &mut BuffersBuilder::new(&mut geometry, WithId(arrows_prim_id as u32)),
+            &mut BuffersBuilder::new(&mut geometry, WithId(arrows_prim_id)),
         )
         .unwrap();
 
@@ -409,7 +408,7 @@ fn main() {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &vs_module,
+            module: vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
@@ -434,7 +433,7 @@ fn main() {
             }],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &fs_module,
+            module: fs_module,
             entry_point: "main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -470,7 +469,7 @@ fn main() {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &bg_vs_module,
+            module: bg_vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<Point>() as u64,
@@ -483,7 +482,7 @@ fn main() {
             }],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &bg_fs_module,
+            module: bg_fs_module,
             entry_point: "main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -500,7 +499,7 @@ fn main() {
             unclipped_depth: false,
             conservative: false,
         },
-        depth_stencil: depth_stencil_state.clone(),
+        depth_stencil: depth_stencil_state,
         multisample: wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
@@ -595,8 +594,8 @@ fn main() {
             label: Some("Encoder"),
         });
 
-        cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
-        cpu_primitives[stroke_prim_id as usize].color = [
+        cpu_primitives[stroke_prim_id].width = scene.stroke_width;
+        cpu_primitives[stroke_prim_id].color = [
             (time_secs * 0.8 - 1.6).sin() * 0.1 + 0.1,
             (time_secs * 0.5 - 1.6).sin() * 0.1 + 0.1,
             (time_secs - 1.6).sin() * 0.1 + 0.1,
@@ -699,7 +698,7 @@ fn main() {
             pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint16);
             pass.set_vertex_buffer(0, vbo.slice(..));
 
-            pass.draw_indexed(fill_range.clone(), 0, 0..(num_instances as u32));
+            pass.draw_indexed(fill_range.clone(), 0, 0..num_instances);
             pass.draw_indexed(stroke_range.clone(), 0, 0..1);
             pass.draw_indexed(arrow_range.clone(), 0, 0..(arrow_count as u32));
 

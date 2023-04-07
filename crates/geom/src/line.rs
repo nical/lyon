@@ -776,7 +776,7 @@ impl<S: Scalar> LineEquation<S> {
 
 #[cfg(test)]
 fn fuzzy_eq_f32(a: f32, b: f32, epsilon: f32) -> bool {
-    return f32::abs(a - b) <= epsilon;
+    f32::abs(a - b) <= epsilon
 }
 
 #[cfg(test)]

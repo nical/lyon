@@ -33,6 +33,18 @@ jobs:
           command: test
           args: --all --verbose --all-features
 
+      - name: Format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Lint
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all --all-targets --all-features -- -D warnings
+
   wasm:
     env:
         RUST_BACKTRACE: 1

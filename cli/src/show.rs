@@ -420,7 +420,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &vs_module,
+            module: vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<GpuVertex>() as u64,
@@ -445,7 +445,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             }],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &fs_module,
+            module: fs_module,
             entry_point: "main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -487,7 +487,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &bg_vs_module,
+            module: bg_vs_module,
             entry_point: "main",
             buffers: &[wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<Point>() as u64,
@@ -500,7 +500,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             }],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &bg_fs_module,
+            module: bg_fs_module,
             entry_point: "main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: wgpu::TextureFormat::Bgra8Unorm,
@@ -517,7 +517,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             unclipped_depth: false,
             conservative: false,
         },
-        depth_stencil: depth_stencil_state.clone(),
+        depth_stencil: depth_stencil_state,
         multisample: wgpu::MultisampleState {
             count: sample_count,
             mask: !0,
@@ -600,8 +600,8 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
             label: Some("Encoder"),
         });
 
-        cpu_primitives[stroke_prim_id as usize].width = scene.stroke_width;
-        cpu_primitives[stroke_prim_id as usize].color = [
+        cpu_primitives[stroke_prim_id].width = scene.stroke_width;
+        cpu_primitives[stroke_prim_id].color = [
             (frame_count * 0.008 - 1.6).sin() * 0.1 + 0.1,
             (frame_count * 0.005 - 1.6).sin() * 0.1 + 0.1,
             (frame_count * 0.01 - 1.6).sin() * 0.1 + 0.1,
@@ -672,16 +672,16 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
                 }),
             });
 
-            let index_range;
-            if scene.show_wireframe {
+            let index_range = if scene.show_wireframe {
                 pass.set_pipeline(&wireframe_render_pipeline);
                 pass.set_index_buffer(wireframe_ibo.slice(..), wgpu::IndexFormat::Uint32);
-                index_range = 0..(wireframe_indices.len() as u32);
+                0..(wireframe_indices.len() as u32)
             } else {
                 pass.set_pipeline(&render_pipeline);
                 pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint32);
-                index_range = 0..(geometry.indices.len() as u32);
-            }
+                0..(geometry.indices.len() as u32)
+            };
+
             pass.set_bind_group(0, &bind_group, &[]);
             pass.set_vertex_buffer(0, vbo.slice(..));
 

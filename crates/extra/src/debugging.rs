@@ -92,9 +92,9 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     for poly in &polygons {
         let mut poly_iter = poly.iter();
         let pos = *poly_iter.next().unwrap();
-        println!("    builder.begin(point({:.}, {:.}));", pos.x, pos.y);
+        println!("    builder.begin(point({}, {}));", pos.x, pos.y);
         for pos in poly_iter {
-            println!("    builder.line_to(point({:.}, {:.}));", pos.x, pos.y);
+            println!("    builder.line_to(point({}, {}));", pos.x, pos.y);
         }
         println!("    builder.close();\n");
     }

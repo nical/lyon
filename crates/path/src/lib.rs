@@ -74,9 +74,9 @@ pub use crate::path_buffer::{PathBuffer, PathBufferSlice};
 #[doc(inline)]
 pub use crate::polygon::{IdPolygon, Polygon};
 
-use math::Point;
 use core::fmt;
 use core::u32;
+use math::Point;
 
 pub mod traits {
     //! `lyon_path` traits reexported here for convenience.
@@ -375,7 +375,7 @@ impl Position for [f32; 2] {
     }
 }
 
-impl<'l, T> Position for (Point, T) {
+impl<T> Position for (Point, T) {
     fn position(&self) -> Point {
         self.0
     }

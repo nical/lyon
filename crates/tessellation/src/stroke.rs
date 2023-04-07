@@ -1679,7 +1679,8 @@ fn compute_join_side_positions_fixed_width(
     //  - Better integrating curves with the tessellator instead of only considering the previous and next
     //    flattened segment.
     let extruded_normal = front_normal * vertex.half_width;
-    let unclipped_miter = (join.line_join == LineJoin::Miter || join.line_join == LineJoin::MiterClip)
+    let unclipped_miter = (join.line_join == LineJoin::Miter
+        || join.line_join == LineJoin::MiterClip)
         && !miter_limit_is_exceeded(front_normal, miter_limit);
 
     let mut fold = false;
@@ -1997,7 +1998,6 @@ fn tessellate_round_join(
 
     crate::stroke::tessellate_arc(
         (start_angle.radians, end_angle.radians),
-        radius,
         start_vertex,
         end_vertex,
         num_subdivisions,
@@ -2200,7 +2200,8 @@ fn tessellate_first_edge(
                 vector: side_position - second.side_points[side].prev,
             };
 
-            let intersection = clip_line.to_f64()
+            let intersection = clip_line
+                .to_f64()
                 .intersection(&side_line.to_f64())
                 .map(|p| p.to_f32())
                 .unwrap_or(first.side_points[side].next);
@@ -2244,17 +2245,20 @@ fn get_clip_intersections(
     let clip_line = Line {
         point: normal.normalize().to_point() * clip_distance,
         vector: tangent(normal),
-    }.to_f64();
+    }
+    .to_f64();
 
     let prev_line = Line {
         point: previous_normal.to_point(),
         vector: tangent(previous_normal),
-    }.to_f64();
+    }
+    .to_f64();
 
     let next_line = Line {
         point: next_normal.to_point(),
         vector: tangent(next_normal),
-    }.to_f64();
+    }
+    .to_f64();
 
     let i1 = clip_line
         .intersection(&prev_line)
@@ -2456,7 +2460,6 @@ pub(crate) fn tessellate_round_cap(
 
     tessellate_arc(
         (start_angle.radians, mid_angle.radians),
-        radius,
         start_vertex,
         mid_vertex,
         num_subdivisions,
@@ -2469,7 +2472,6 @@ pub(crate) fn tessellate_round_cap(
 
     tessellate_arc(
         (mid_angle.radians, end_angle.radians),
-        radius,
         mid_vertex,
         end_vertex,
         num_subdivisions,
@@ -2569,7 +2571,6 @@ pub(crate) fn tessellate_empty_round_cap(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn tessellate_arc(
     angle: (f32, f32),
-    radius: f32,
     va: VertexId,
     vb: VertexId,
     num_recursions: u32,
@@ -2593,7 +2594,6 @@ pub(crate) fn tessellate_arc(
 
     tessellate_arc(
         (angle.0, mid_angle),
-        radius,
         va,
         vertex_id,
         num_recursions - 1,
@@ -2603,7 +2603,6 @@ pub(crate) fn tessellate_arc(
     )?;
     tessellate_arc(
         (mid_angle, angle.1),
-        radius,
         vertex_id,
         vb,
         num_recursions - 1,
@@ -2688,7 +2687,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
     #[inline]
     pub fn interpolated_attributes(&mut self) -> Attributes {
         if self.0.buffer_is_valid {
-            return &self.0.buffer[..];
+            return self.0.buffer;
         }
 
         match self.0.src {
@@ -2701,7 +2700,7 @@ impl<'a, 'b> StrokeVertex<'a, 'b> {
                 }
                 self.0.buffer_is_valid = true;
 
-                &self.0.buffer[..]
+                self.0.buffer
             }
         }
     }
@@ -2793,7 +2792,7 @@ fn test_path(path: PathSlice, options: &StrokeOptions, expected_triangle_count: 
     let mut tess = StrokeTessellator::new();
     tess.tessellate_path(
         path,
-        &options,
+        options,
         &mut TestBuilder {
             builder: simple_builder(&mut buffers),
         },
@@ -3229,7 +3228,7 @@ fn single_segment_closed() {
     tess.tessellate(&path, &options, &mut simple_builder(&mut output))
         .unwrap();
 
-    assert!(output.indices.len() > 0);
+    assert!(!output.indices.is_empty());
 
     let mut path = Path::builder_with_attributes(1);
     path.begin(point(0.0, 0.0), &[1.0]);
@@ -3243,7 +3242,7 @@ fn single_segment_closed() {
     tess.tessellate(&path, &options, &mut simple_builder(&mut output))
         .unwrap();
 
-    assert!(output.indices.len() > 0);
+    assert!(!output.indices.is_empty());
 }
 
 #[test]
@@ -3265,7 +3264,6 @@ fn issue_819() {
     let mut output: VertexBuffers<Point, u16> = VertexBuffers::new();
     tess.tessellate(&path.build(), &options, &mut simple_builder(&mut output))
         .unwrap();
-
 
     let mut path = Path::builder_with_attributes(1);
     path.begin(point(650.539978027344, 173.559997558594), &[0.0]);
