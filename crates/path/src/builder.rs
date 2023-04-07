@@ -845,7 +845,7 @@ pub trait SvgPathBuilder {
 
     /// Adds an horizontal line segment.
     ///
-    /// Corresponding SVG command: `L`.
+    /// Corresponding SVG command: `H`.
     ///
     /// Equivalent to `line_to`, using the y coordinate of the current position.
     fn horizontal_line_to(&mut self, x: f32);
