@@ -56,7 +56,10 @@ pub mod builder;
 pub mod commands;
 mod events;
 pub mod iterator;
+// TODO: remove "pub" on mod path to avoid redundant  "use lyon::path::path::Path" in user code
+//       breaking change would require 1.1 bump?
 pub mod path;
+pub use path::*;
 pub mod path_buffer;
 pub mod polygon;
 
