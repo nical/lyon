@@ -178,7 +178,7 @@ impl<'l> fmt::Debug for PathBufferSlice<'l> {
             self.verbs.len(),
         )?;
         for idx in self.indices() {
-            write!(formatter, "#{:?}: ", idx)?;
+            write!(formatter, "#{idx:?}: ")?;
             self.get(idx).fmt(formatter)?;
             write!(formatter, ", ")?;
         }

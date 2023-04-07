@@ -27,8 +27,7 @@ pub fn path_to_polygons(path: PathSlice) -> Polygons {
             }
             _ => {
                 println!(
-                    " -- path_to_polygons: warning! Unsupported event type {:?}",
-                    evt
+                    " -- path_to_polygons: warning! Unsupported event type {evt:?}"
                 );
             }
         }
@@ -100,7 +99,7 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
     }
     println!("    test_path(builder.build().as_slice());\n");
     println!("    // SVG path syntax:");
-    println!("    // \"{:?}\"", path);
+    println!("    // \"{path:?}\"");
     println!("}}\n\n");
 
     path

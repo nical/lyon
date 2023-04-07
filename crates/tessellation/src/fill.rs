@@ -2834,7 +2834,7 @@ fn fill_vertex_source_02() {
                 for i in 0..a.len() {
                     let are_equal = (a[i] - b[i]).abs() < 0.001;
                     if !are_equal {
-                        println!("{:?} != {:?}", a, b);
+                        println!("{a:?} != {b:?}");
                     }
                     assert!(are_equal);
                 }

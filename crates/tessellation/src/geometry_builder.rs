@@ -454,7 +454,7 @@ where
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
         if a == b || a == c || b == c {
-            println!("bad triangle {:?} {:?} {:?}", a, b, c);
+            println!("bad triangle {a:?} {b:?} {c:?}");
         }
         debug_assert!(a != b);
         debug_assert!(a != c);

@@ -587,7 +587,7 @@ pub fn show_path(cmd: TessellateCmd, render_options: RenderCmd) {
         let frame = match surface.get_current_texture() {
             Ok(frame) => frame,
             Err(e) => {
-                println!("Swap-chain error: {:?}", e);
+                println!("Swap-chain error: {e:?}");
                 return;
             }
         };

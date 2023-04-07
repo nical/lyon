@@ -1032,7 +1032,7 @@ fn test_bounding_box() {
             || !r1.min.y.approx_eq(&r2.min.y)
             || !r1.max.y.approx_eq(&r2.max.y)
         {
-            std::println!("\n   left: {:?}\n   right: {:?}", r1, r2);
+            std::println!("\n   left: {r1:?}\n   right: {r2:?}");
             return false;
         }
 
@@ -1105,7 +1105,7 @@ fn test_bounding_box() {
 
     let mut angle = Angle::zero();
     for _ in 0..10 {
-        std::println!("angle: {:?}", angle);
+        std::println!("angle: {angle:?}");
         let r = Arc {
             center: point(0.0, 0.0),
             radii: vector(4.0, 4.0),
@@ -1126,7 +1126,7 @@ fn test_bounding_box() {
 
     let mut angle = Angle::zero();
     for _ in 0..10 {
-        std::println!("angle: {:?}", angle);
+        std::println!("angle: {angle:?}");
         let r = Arc {
             center: point(0.0, 0.0),
             radii: vector(4.0, 4.0),

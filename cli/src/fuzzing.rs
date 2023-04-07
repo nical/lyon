@@ -56,10 +56,10 @@ pub fn run(cmd: FuzzCmd) -> bool {
         }
     );
     if let Some(num) = cmd.min_points {
-        println!("minimum number of points per path: {}", num);
+        println!("minimum number of points per path: {num}");
     }
     if let Some(num) = cmd.max_points {
-        println!("maximum number of points per path: {}", num);
+        println!("maximum number of points per path: {num}");
     }
     println!("----");
     loop {
@@ -75,7 +75,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
 
             if status.is_err() {
                 println!(" !! Error while tessellating");
-                println!("    Path #{}", i);
+                println!("    Path #{i}");
                 find_reduced_test_case(path.as_slice(), &|path: Path| {
                     FillTessellator::new()
                         .tessellate(&path, &options, &mut NoOutput::new())
@@ -129,7 +129,7 @@ pub fn run(cmd: FuzzCmd) -> bool {
 
         i += 1;
         if i % 500 == 0 {
-            println!(" -- tested {} paths", i);
+            println!(" -- tested {i} paths");
         }
     }
 }

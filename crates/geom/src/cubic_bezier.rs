@@ -1387,8 +1387,8 @@ impl<S: Scalar> Iterator for Flattened<S> {
 
 #[cfg(test)]
 fn print_arrays(a: &[Point<f32>], b: &[Point<f32>]) {
-    std::println!("left:  {:?}", a);
-    std::println!("right: {:?}", b);
+    std::println!("left:  {a:?}");
+    std::println!("right: {b:?}");
 }
 
 #[cfg(test)]
@@ -1403,7 +1403,7 @@ fn assert_approx_eq(a: &[Point<f32>], b: &[Point<f32>]) {
         let dy = f32::abs(a[i].y - b[i].y);
         if dx > threshold || dy > threshold {
             print_arrays(a, b);
-            std::println!("diff = {:?} {:?}", dx, dy);
+            std::println!("diff = {dx:?} {dy:?}");
             panic!("The arrays are not equal");
         }
     }
@@ -1845,7 +1845,7 @@ fn test_line_segment_intersections() {
     fn assert_approx_eq(a: ArrayVec<(f32, f32), 3>, b: &[(f32, f32)], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i].0 - b[i].0) > epsilon || f32::abs(a[i].1 - b[i].1) > epsilon {
-                std::println!("{:?} != {:?}", a, b);
+                std::println!("{a:?} != {b:?}");
             }
             assert!((a[i].0 - b[i].0).abs() <= epsilon && (a[i].1 - b[i].1).abs() <= epsilon);
         }
@@ -1895,7 +1895,7 @@ fn test_parameters_for_value() {
     fn assert_approx_eq(a: ArrayVec<f32, 3>, b: &[f32], epsilon: f32) {
         for i in 0..a.len() {
             if f32::abs(a[i] - b[i]) > epsilon {
-                std::println!("{:?} != {:?}", a, b);
+                std::println!("{a:?} != {b:?}");
             }
             assert!((a[i] - b[i]).abs() <= epsilon);
         }

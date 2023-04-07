@@ -68,7 +68,7 @@ fn simple_fit() {
         use crate::geom::euclid::approxeq::ApproxEq;
         let result = a.min.approx_eq(&b.min) && a.max.approx_eq(&b.max);
         if !result {
-            std::println!("{:?} == {:?}", a, b);
+            std::println!("{a:?} == {b:?}");
         }
         result
     }

@@ -28,15 +28,15 @@ pub fn format_output(
                 }
                 "indices" => {
                     output.push_str(&format_iter(buffers.indices.iter(), sep, pattern, |x| {
-                        format!("{}", x)
+                        format!("{x}")
                     }));
                 }
                 "triangles" => {
                     let triangles: Tuples<_, (_, _, _)> = buffers.indices.iter().tuples();
-                    output.push_str(&format_iter(triangles, sep, pattern, |x| format!("{}", x)));
+                    output.push_str(&format_iter(triangles, sep, pattern, |x| format!("{x}")));
                 }
                 invalid => {
-                    eprintln!("ERROR: `@{}...@` does not name an expansion", invalid);
+                    eprintln!("ERROR: `@{invalid}...@` does not name an expansion");
                     std::process::exit(1);
                 }
             }
@@ -66,7 +66,7 @@ where
                 let replace = Regex::new(&regex_escape_brackets(var)).unwrap();
                 buf = replace.replace_all(&buf, value).to_string();
             } else {
-                eprintln!("ERROR: `{}` does not name a variable", var);
+                eprintln!("ERROR: `{var}` does not name a variable");
                 std::process::exit(1)
             }
         }
@@ -77,9 +77,9 @@ where
 
 fn format_float(value: f32, precision: Option<usize>) -> String {
     if let Some(p) = precision {
-        format!("{0:.1$}", value, p)
+        format!("{value:.p$}")
     } else {
-        format!("{}", value)
+        format!("{value}")
     }
 }
 
