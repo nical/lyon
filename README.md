@@ -86,7 +86,7 @@ Although the format of the output of the tessellators is customizable, the algor
 
 ### Is anti-aliasing supported?
 
-There is currently no built-in support for anti-aliasing in the tessellators. Anti-aliasing can still be achieved by users of this crate using techniques commonly employed in video games (msaa, taa, fxaa, etc.).
+There is currently no built-in support for antialiasing in the tessellators. Antialiasing can still be achieved by users of this crate using techniques commonly employed in video games (msaa, taa, fxaa, etc.).
 
 ### I need help!
 

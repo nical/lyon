@@ -364,7 +364,7 @@ struct PendingEdge {
 ///   from the point of view of the tessellator.
 /// - The tessellator does not handle curves, and uses an approximation that introduces a
 ///   number of line segments and therefore endpoints between the original endpoints of any
-///   quadratic or cubic bézier curve.
+///   quadratic or cubic Bézier curve.
 ///
 /// This complicates the task of adding extra data to vertices without loosing the association
 /// during tessellation.
@@ -1048,7 +1048,7 @@ impl FillTessellator {
                 continue;
             }
 
-            let egde_is_before_current_point =
+            let edge_is_before_current_point =
                 if points_are_equal(self.current_position, active_edge.to) {
                     // We just found our first edge that connects with the current point.
                     // We might find other ones in the next iterations.
@@ -1081,7 +1081,7 @@ impl FillTessellator {
                     }
                 };
 
-            if !egde_is_before_current_point {
+            if !edge_is_before_current_point {
                 break;
             }
 

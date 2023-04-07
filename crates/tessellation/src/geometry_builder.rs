@@ -80,7 +80,7 @@
 //! }
 //!
 //! // The vertex constructor. This is the object that will be used to create the custom
-//! // verticex from the information provided by the tessellators.
+//! // vertices from the information provided by the tessellators.
 //! struct WithColor([f32; 4]);
 //!
 //! impl FillVertexConstructor<MyVertex> for WithColor {

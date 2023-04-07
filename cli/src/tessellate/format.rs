@@ -3,7 +3,7 @@ use lyon::math::Point;
 use lyon::tessellation::geometry_builder::VertexBuffers;
 use regex::Regex;
 
-const DEFAULT_FMT: &str = "vertices: [@vertices{sep=, }{fmt=({position.x}, {position.y})}@]\\nindices: [@indices{sep=, }{fmt={index}}@]";
+const DEFAULT_FMT: &str = r"vertices: [@vertices{sep=, }{fmt=({position.x}, {position.y})}@]\nindices: [@indices{sep=, }{fmt={index}}@]";
 
 pub fn format_output(
     fmt_string: Option<&str>,
@@ -16,11 +16,11 @@ pub fn format_output(
     let mut output = String::with_capacity(buffers.vertices.len() + buffers.indices.len());
     for section in fmt {
         if let Some(capture) = extract.captures(section) {
-            let itername = capture.get(1).map(|m| m.as_str()).unwrap();
+            let iter_name = capture.get(1).map(|m| m.as_str()).unwrap();
             let sep = capture.get(2).map(|m| m.as_str()).unwrap();
             let pattern = capture.get(3).map(|m| m.as_str()).unwrap();
 
-            match itername {
+            match iter_name {
                 "vertices" => {
                     output.push_str(&format_iter(buffers.vertices.iter(), sep, pattern, |x| {
                         format_float(x, precision)

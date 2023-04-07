@@ -132,14 +132,14 @@ fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Opti
     while angle.radians < PI * 2.0 {
         //println!("\n\n ==================== angle = {:?}", angle);
 
-        let tranformed_path = path.clone().transformed(&Rotation::new(angle));
+        let transformed_path = path.clone().transformed(&Rotation::new(angle));
 
         test_path_internal(
-            tranformed_path.as_slice(),
+            transformed_path.as_slice(),
             FillRule::EvenOdd,
             expected_triangle_count,
         );
-        test_path_internal(tranformed_path.as_slice(), FillRule::NonZero, None);
+        test_path_internal(transformed_path.as_slice(), FillRule::NonZero, None);
 
         angle.radians += step;
     }
@@ -678,7 +678,7 @@ fn test_overlapping_with_intersection() {
 #[test]
 fn test_split_with_intersections() {
     // This is a reduced test case that was showing a bug where duplicate intersections
-    // were found during a split event, due to the sweep line beeing into a temporarily
+    // were found during a split event, due to the sweep line being into a temporarily
     // inconsistent state when insert_edge was called.
 
     let mut builder = Path::builder();

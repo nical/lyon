@@ -32,7 +32,7 @@ where
     } else {
         return None;
     };
-    let mut doube_area = 0.0;
+    let mut double_area = 0.0;
     let mut v0 = vector(0.0, 0.0);
 
     for evt in path.flattened(tolerance) {
@@ -42,13 +42,13 @@ where
             }
             PathEvent::End { last, first, .. } => {
                 let v1 = last - first;
-                doube_area += v0.cross(v1);
+                double_area += v0.cross(v1);
 
-                return Some(doube_area * 0.5);
+                return Some(double_area * 0.5);
             }
             PathEvent::Line { to, .. } => {
                 let v1 = to - first;
-                doube_area += v0.cross(v1);
+                double_area += v0.cross(v1);
                 v0 = v1;
             }
             PathEvent::Quadratic { .. } | PathEvent::Cubic { .. } => {

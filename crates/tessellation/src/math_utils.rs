@@ -1,4 +1,4 @@
-//! Various math tools that are mostly usefull for the tessellators.
+//! Various math tools that are mostly useful for the tessellators.
 
 use crate::math::*;
 

@@ -331,7 +331,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         }
     }
 
-    /// Approximate the curve with a single quadratic bézier segment.
+    /// Approximate the curve with a single quadratic Bézier segment.
     ///
     /// This is terrible as a general approximation but works if the cubic
     /// curve does not have inflection points and is "flat" enough. Typically
@@ -354,7 +354,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
             * ((self.to - self.ctrl2 * S::THREE) + (self.ctrl1 * S::THREE - self.from)).length()
     }
 
-    /// Returns true if the curve can be safely approximated with a single quadratic bézier
+    /// Returns true if the curve can be safely approximated with a single quadratic Bézier
     /// segment given the provided tolerance threshold.
     ///
     /// Equivalent to comparing `to_quadratic_error` with the tolerance threshold, avoiding
@@ -366,7 +366,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
             <= tolerance * tolerance
     }
 
-    /// Computes the number of quadratic bézier segments required to approximate this cubic curve
+    /// Computes the number of quadratic Bézier segments required to approximate this cubic curve
     /// given a tolerance threshold.
     ///
     /// Derived by Raph Levien from section 10.6 of Sedeberg's CAGD notes
@@ -500,7 +500,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         });
     }
 
-    /// Approximates the cubic bézier curve with sequence of quadratic ones,
+    /// Approximates the cubic Bézier curve with sequence of quadratic ones,
     /// invoking a callback at each step.
     pub fn for_each_quadratic_bezier<F>(&self, tolerance: S, cb: &mut F)
     where
@@ -509,7 +509,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         self.for_each_quadratic_bezier_with_t(tolerance, &mut |quad, _range| cb(quad));
     }
 
-    /// Approximates the cubic bézier curve with sequence of quadratic ones,
+    /// Approximates the cubic Bézier curve with sequence of quadratic ones,
     /// invoking a callback at each step.
     pub fn for_each_quadratic_bezier_with_t<F>(&self, tolerance: S, cb: &mut F)
     where
@@ -1007,7 +1007,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         result
     }
 
-    /// Computes the intersections (if any) between this segment a quadratic bézier segment.
+    /// Computes the intersections (if any) between this segment a quadratic Bézier segment.
     ///
     /// The result is provided in the form of the `t` parameters of each point along the curves. To
     /// get the intersection points, sample the curves at the corresponding values.
@@ -1023,7 +1023,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         self.cubic_intersections_t(&curve.to_cubic())
     }
 
-    /// Computes the intersection points (if any) between this segment and a quadratic bézier segment.
+    /// Computes the intersection points (if any) between this segment and a quadratic Bézier segment.
     pub fn quadratic_intersections(
         &self,
         curve: &QuadraticBezierSegment<S>,
@@ -1173,7 +1173,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         ((t3 + one_t3 - S::ONE) / (t3 + one_t3)).abs()
     }
 
-    // Returns a quadratic bézier curve built by dragging this curve's point at `t`
+    // Returns a quadratic Bézier curve built by dragging this curve's point at `t`
     // to a new position, without moving the endpoints.
     //
     // The relative effect on control points is chosen to give a similar "feel" to
@@ -1194,7 +1194,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         self.drag_with_weight(t, new_position, weight)
     }
 
-    // Returns a quadratic bézier curve built by dragging this curve's point at `t`
+    // Returns a quadratic Bézier curve built by dragging this curve's point at `t`
     // to a new position, without moving the endpoints.
     //
     // The provided weight specifies the relative effect on control points.

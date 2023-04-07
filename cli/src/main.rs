@@ -124,7 +124,7 @@ fn main() {
                 .arg(
                     Arg::with_name("IGNORE_ERRORS")
                         .long("ignore-errors")
-                        .help("Try to continue when encoutering errors unless it is a panic."),
+                        .help("Try to continue when encountering errors unless it is a panic."),
                 ),
         )
         .subcommand(
@@ -401,7 +401,7 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
     RenderCmd {
         aa: if let Some(aa) = matches.value_of("ANTIALIASING") {
             match aa {
-                // wgpu currently only supports msaa 4 for protability reasons.
+                // wgpu currently only supports msaa 4 for portability reasons.
                 "msaa" => AntiAliasing::Msaa(4),
                 _ => AntiAliasing::None,
             }

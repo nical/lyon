@@ -21,7 +21,7 @@ pub fn normalized_tangent<S: Scalar>(v: Vector<S>) -> Vector<S> {
     tangent(v).normalize()
 }
 
-/// Angle between vectors v1 and v2 (oriented clockwise assyming y points downwards).
+/// Angle between vectors v1 and v2 (oriented clockwise assuming y points downwards).
 /// The result is a number between `0` and `2 * PI`.
 ///
 /// ex: `directed_angle([0,1], [1,0]) = 3/2 Pi rad`

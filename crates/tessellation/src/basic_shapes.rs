@@ -135,7 +135,7 @@ fn bottom_right(rect: &Box2D) -> Point {
 // Returns the maximum length of individual line segments when approximating a
 // circle.
 //
-// From pythagora's theorem:
+// From Pythagorean theorem:
 // r² = (d/2)² + (r - t)²
 // r² = d²/4 + r² + t² - 2 * e * r
 // d² = 4 * (2 * t * r - t²)

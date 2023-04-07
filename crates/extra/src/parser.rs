@@ -214,16 +214,16 @@ impl PathParser {
 
             //println!("{:?} at line {:?} column {:?}", cmd, cmd_line, cmd_col);
 
-            let is_relatve = cmd.is_lowercase();
+            let is_relative = cmd.is_lowercase();
 
             match cmd {
                 'l' | 'L' => {
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     output.line_to(to, &self.attribute_buffer);
                 }
                 'h' | 'H' => {
                     let mut x = self.parse_number(src)?;
-                    if is_relatve {
+                    if is_relative {
                         x += self.current_position.x;
                     }
                     let to = point(x, self.current_position.y);
@@ -233,7 +233,7 @@ impl PathParser {
                 }
                 'v' | 'V' => {
                     let mut y = self.parse_number(src)?;
-                    if is_relatve {
+                    if is_relative {
                         y += self.current_position.y;
                     }
                     let to = point(self.current_position.x, y);
@@ -242,28 +242,28 @@ impl PathParser {
                     output.line_to(to, &self.attribute_buffer);
                 }
                 'q' | 'Q' => {
-                    let ctrl = self.parse_point(is_relatve, src)?;
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let ctrl = self.parse_point(is_relative, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     prev_quadratic_ctrl = Some(ctrl);
                     output.quadratic_bezier_to(ctrl, to, &self.attribute_buffer);
                 }
                 't' | 'T' => {
                     let ctrl = self.get_smooth_ctrl(prev_quadratic_ctrl);
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     prev_quadratic_ctrl = Some(ctrl);
                     output.quadratic_bezier_to(ctrl, to, &self.attribute_buffer);
                 }
                 'c' | 'C' => {
-                    let ctrl1 = self.parse_point(is_relatve, src)?;
-                    let ctrl2 = self.parse_point(is_relatve, src)?;
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let ctrl1 = self.parse_point(is_relative, src)?;
+                    let ctrl2 = self.parse_point(is_relative, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     prev_cubic_ctrl = Some(ctrl2);
                     output.cubic_bezier_to(ctrl1, ctrl2, to, &self.attribute_buffer);
                 }
                 's' | 'S' => {
                     let ctrl1 = self.get_smooth_ctrl(prev_cubic_ctrl);
-                    let ctrl2 = self.parse_point(is_relatve, src)?;
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let ctrl2 = self.parse_point(is_relative, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     prev_cubic_ctrl = Some(ctrl2);
                     output.cubic_bezier_to(ctrl1, ctrl2, to, &self.attribute_buffer);
                 }
@@ -277,7 +277,7 @@ impl PathParser {
                     let x_rotation = self.parse_number(src)?;
                     let large_arc = self.parse_flag(src)?;
                     let sweep = self.parse_flag(src)?;
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     let svg_arc = SvgArc {
                         from,
                         to,
@@ -309,7 +309,7 @@ impl PathParser {
                         output.end(false);
                     }
 
-                    let to = self.parse_endpoint(is_relatve, src)?;
+                    let to = self.parse_endpoint(is_relative, src)?;
                     first_position = to;
                     output.begin(to, &self.attribute_buffer);
                     self.need_end = true;
@@ -367,10 +367,10 @@ impl PathParser {
 
     fn parse_endpoint(
         &mut self,
-        is_relatve: bool,
+        is_relative: bool,
         src: &mut Source<impl Iterator<Item = char>>,
     ) -> Result<Point, ParseError> {
-        let position = self.parse_point(is_relatve, src)?;
+        let position = self.parse_point(is_relative, src)?;
         self.current_position = position;
 
         self.parse_attributes(src)?;
@@ -393,13 +393,13 @@ impl PathParser {
 
     fn parse_point(
         &mut self,
-        is_relatve: bool,
+        is_relative: bool,
         src: &mut Source<impl Iterator<Item = char>>,
     ) -> Result<Point, ParseError> {
         let mut x = self.parse_number(src)?;
         let mut y = self.parse_number(src)?;
 
-        if is_relatve {
+        if is_relative {
             x += self.current_position.x;
             y += self.current_position.y;
         }

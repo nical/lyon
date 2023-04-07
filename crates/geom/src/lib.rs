@@ -15,7 +15,7 @@
 //! This crate implements some of the maths to work with:
 //!
 //! - lines and line segments,
-//! - quadratic and cubic bézier curves,
+//! - quadratic and cubic Bézier curves,
 //! - elliptic arcs,
 //! - triangles.
 //!
