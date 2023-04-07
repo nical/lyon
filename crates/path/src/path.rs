@@ -17,8 +17,8 @@ use core::iter::{FromIterator, IntoIterator};
 use core::u32;
 
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 
 /// Enumeration corresponding to the [Event](https://docs.rs/lyon_core/*/lyon_core/events/enum.Event.html) enum
 /// without the parameters.
@@ -1345,7 +1345,7 @@ impl<'l> Reversed<'l> {
 
 impl<'l> Iterator for Reversed<'l> {
     type Item = Event<(Point, Attributes<'l>), Point>;
-    fn next<'a>(&'a mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<Self::Item> {
         let endpoint_stride = self.attrib_stride + 1;
         let v = self.verbs.next()?;
         let event = match v {
@@ -1437,7 +1437,7 @@ impl<'l> Iterator for Reversed<'l> {
 
         self.p -= n_stored_points(*v, self.attrib_stride);
 
-        return Some(event);
+        Some(event)
     }
 }
 

@@ -68,8 +68,8 @@ pub fn add_rounded_polygon<B: PathBuilder>(
 
 fn clamp_radius(radius: f32, p_previous: Point, p_current: Point, p_next: Point) -> f32 {
     let shorter_edge = ((p_current - p_next).length()).min((p_previous - p_current).length());
-    let clamped_radius = radius.min(shorter_edge * 0.5);
-    clamped_radius
+
+    radius.min(shorter_edge * 0.5)
 }
 
 fn get_point_between(p1: Point, p2: Point, radius: f32) -> Point {

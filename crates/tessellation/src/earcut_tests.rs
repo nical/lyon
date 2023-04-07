@@ -20184,7 +20184,7 @@ fn water_4() {
 fn earcut_test(path: &[&[[i32; 2]]]) {
     let mut builder = Path::builder();
     for &sub_path in path {
-        if sub_path.len() == 0 {
+        if sub_path.is_empty() {
             continue;
         }
         let start = sub_path[0];
@@ -20202,7 +20202,7 @@ fn earcut_test(path: &[&[[i32; 2]]]) {
 fn earcut_test_f32(path: &[&[[f32; 2]]]) {
     let mut builder = Path::builder();
     for &sub_path in path {
-        if sub_path.len() == 0 {
+        if sub_path.is_empty() {
             continue;
         }
         let start = sub_path[0];
@@ -20236,7 +20236,7 @@ fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, 
         tess.tessellate(&builder.build(), &options, &mut vertex_builder)
             .unwrap();
     }
-    return Ok(buffers.indices.len() / 3);
+    Ok(buffers.indices.len() / 3)
 }
 
 #[cfg(test)]

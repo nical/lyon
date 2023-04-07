@@ -775,7 +775,7 @@ fn do_test_once<S: Scalar>(
     curve2: &CubicBezierSegment<S>,
     intersection_count: i32,
 ) {
-    let intersections = cubic_bezier_intersections_t(&curve1, &curve2);
+    let intersections = cubic_bezier_intersections_t(curve1, curve2);
     for intersection in &intersections {
         let p1 = curve1.sample(intersection.0);
         let p2 = curve2.sample(intersection.1);

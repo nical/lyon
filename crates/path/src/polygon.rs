@@ -68,7 +68,7 @@ impl<'l, T> Polygon<'l, T> {
             Event::Begin {
                 at: &self.points[0],
             }
-        } else if idx as usize == self.points.len() - 1 {
+        } else if idx == self.points.len() - 1 {
             Event::End {
                 last: &self.points[self.points.len() - 1],
                 first: &self.points[0],
@@ -114,7 +114,7 @@ impl<'l> IdPolygon<'l> {
         let idx = id.0 as usize;
         if idx == 0 {
             IdEvent::Begin { at: self.points[0] }
-        } else if idx as usize == self.points.len() {
+        } else if idx == self.points.len() {
             IdEvent::End {
                 last: self.points[self.points.len() - 1],
                 first: self.points[0],

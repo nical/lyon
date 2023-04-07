@@ -88,8 +88,8 @@ use crate::{Attributes, EndpointId, Winding, NO_ATTRIBUTES};
 
 use core::marker::Sized;
 
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 
 #[cfg(not(feature = "std"))]
 use num_traits::Float;

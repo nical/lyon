@@ -20,7 +20,7 @@ fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, 
         tess.tessellate(&builder.build(), &options, &mut vertex_builder)
             .unwrap();
     }
-    return Ok(buffers.indices.len() / 3);
+    Ok(buffers.indices.len() / 3)
 }
 
 fn test_path(path: PathSlice) {

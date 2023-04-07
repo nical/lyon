@@ -1737,7 +1737,7 @@ impl FillTessellator {
                 inserted_evt = Some(self.events.insert_sorted(
                     intersection_position,
                     EdgeData {
-                        range: remapped_ta as f32..active_edge.range_end,
+                        range: remapped_ta..active_edge.range_end,
                         winding: active_edge.winding,
                         to: active_edge.to,
                         is_edge: true,
@@ -1751,7 +1751,7 @@ impl FillTessellator {
                 self.events.insert_sorted(
                     active_edge.to,
                     EdgeData {
-                        range: active_edge.range_end..remapped_ta as f32,
+                        range: active_edge.range_end..remapped_ta,
                         winding: -active_edge.winding,
                         to: intersection_position,
                         is_edge: true,
@@ -1772,7 +1772,7 @@ impl FillTessellator {
 
             if is_after(edge_below.to, intersection_position) {
                 let edge_data = EdgeData {
-                    range: remapped_tb as f32..edge_below.range_end,
+                    range: remapped_tb..edge_below.range_end,
                     winding: edge_below.winding,
                     to: edge_below.to,
                     is_edge: true,
@@ -1795,7 +1795,7 @@ impl FillTessellator {
                 self.events.insert_sorted(
                     edge_below.to,
                     EdgeData {
-                        range: edge_below.range_end..remapped_tb as f32,
+                        range: edge_below.range_end..remapped_tb,
                         winding: -edge_below.winding,
                         to: intersection_position,
                         is_edge: true,

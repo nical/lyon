@@ -793,7 +793,7 @@ impl EventQueueBuilder {
                 return;
             }
 
-            if first == None {
+            if first.is_none() {
                 first = Some(line.to)
             // We can't call vertex(prev, from, to) in the first iteration
             // because if we flipped the curve, we don't have a proper value for
@@ -803,7 +803,7 @@ impl EventQueueBuilder {
                 self.vertex_event_on_curve(line.from, t.start, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(&line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
+            self.add_edge(line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
 
             prev = line.from;
         });
@@ -869,7 +869,7 @@ impl EventQueueBuilder {
                 return;
             }
 
-            if first == None {
+            if first.is_none() {
                 first = Some(line.to)
             // We can't call vertex(prev, from, to) in the first iteration
             // because if we flipped the curve, we don't have a proper value for
@@ -879,7 +879,7 @@ impl EventQueueBuilder {
                 self.vertex_event_on_curve(line.from, t.start, self.prev_endpoint_id, to_id);
             }
 
-            self.add_edge(&line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
+            self.add_edge(line, winding, self.prev_endpoint_id, to_id, t.start, t.end);
 
             prev = line.from;
         });

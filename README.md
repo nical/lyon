@@ -46,7 +46,7 @@ fn main() {
     let path = builder.build();
     // Let's use our own custom vertex type instead of the default one.
     #[derive(Copy, Clone, Debug)]
-    struct MyVertex { position: [f32; 2] };
+    struct MyVertex { position: [f32; 2] }
     // Will contain the result of the tessellation.
     let mut geometry: VertexBuffers<MyVertex, u16> = VertexBuffers::new();
     let mut tessellator = FillTessellator::new();

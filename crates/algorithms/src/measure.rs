@@ -105,25 +105,23 @@ impl<'l> PathSample<'l> {
 ///     measure::{PathMeasurements, SampleType},
 /// };
 ///
-/// fn main() {
-///     let mut path = Path::builder();
-///     path.begin(point(0.0, 0.0));
-///     path.quadratic_bezier_to(point(1.0, 1.0), point(2.0, 0.0));
-///     path.end(false);
-///     let path = path.build();
+/// let mut path = Path::builder();
+/// path.begin(point(0.0, 0.0));
+/// path.quadratic_bezier_to(point(1.0, 1.0), point(2.0, 0.0));
+/// path.end(false);
+/// let path = path.build();
 ///
-///     // Build the acceleration structure.
-///     let measurements = PathMeasurements::from_path(&path, 1e-3);
-///     let mut sampler = measurements.create_sampler(&path, SampleType::Normalized);
+/// // Build the acceleration structure.
+/// let measurements = PathMeasurements::from_path(&path, 1e-3);
+/// let mut sampler = measurements.create_sampler(&path, SampleType::Normalized);
 ///
-///     let sample  = sampler.sample(0.5);
-///     println!("Mid-point position: {:?}, tangent: {:?}", sample.position(), sample.tangent());
+/// let sample  = sampler.sample(0.5);
+/// println!("Mid-point position: {:?}, tangent: {:?}", sample.position(), sample.tangent());
 ///
-///     let mut second_half = Path::builder();
-///     sampler.split_range(0.5..1.0, &mut second_half);
-///     let second_half = second_half.build();
-///     assert!((sampler.length() / 2.0 - approximate_length(&second_half, 1e-3)).abs() < 1e-3);
-/// }
+/// let mut second_half = Path::builder();
+/// sampler.split_range(0.5..1.0, &mut second_half);
+/// let second_half = second_half.build();
+/// assert!((sampler.length() / 2.0 - approximate_length(&second_half, 1e-3)).abs() < 1e-3);
 /// ```
 ///
 pub struct PathMeasurements {
@@ -608,17 +606,17 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
                 position: self.positions.get_endpoint(*at),
                 tangent: vector(0.0, 0.0),
                 attributes: self.attributes.get(*at),
-            }
+            };
         }
 
         use std::f32::NAN;
         for value in &mut self.attribute_buffer {
             *value = NAN;
         }
-        return PathSample {
+        PathSample {
             position: point(NAN, NAN),
             tangent: vector(NAN, NAN),
-            attributes: &self.attribute_buffer
+            attributes: &self.attribute_buffer,
         }
     }
 
@@ -905,7 +903,11 @@ fn zero_length() {
     let path = path.build();
     let measure = PathMeasurements::from_path(&path, 0.01);
     let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Normalized);
-    let expected = PathSample { position: point(1.0, 2.0), tangent: vector(0.0, 0.0), attributes: &[3.0, 4.0] };
+    let expected = PathSample {
+        position: point(1.0, 2.0),
+        tangent: vector(0.0, 0.0),
+        attributes: &[3.0, 4.0],
+    };
     assert_eq!(sampler.sample(0.0), expected);
     assert_eq!(sampler.sample(0.5), expected);
     assert_eq!(sampler.sample(1.0), expected);
@@ -916,7 +918,11 @@ fn zero_length() {
     let path = path.build();
     let measure = PathMeasurements::from_path(&path, 0.01);
     let mut sampler = measure.create_sampler_with_attributes(&path, &path, SampleType::Distance);
-    let expected = PathSample { position: point(1.0, 2.0), tangent: vector(0.0, 0.0), attributes: &[3.0, 4.0] };
+    let expected = PathSample {
+        position: point(1.0, 2.0),
+        tangent: vector(0.0, 0.0),
+        attributes: &[3.0, 4.0],
+    };
     assert_eq!(sampler.sample(0.0), expected);
     assert_eq!(sampler.sample(0.5), expected);
     assert_eq!(sampler.sample(1.0), expected);

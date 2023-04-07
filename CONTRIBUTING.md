@@ -31,7 +31,7 @@ of prior knowledge about the project. Most of these issues are labelled
 on their estimated difficulty.
 
 If you are interested in working on the tessellators, the wiki has some information
-about the algortithms that may be useful to you
+about the algorithms that may be useful to you
 
  - [fill tessellator](https://github.com/nical/lyon/wiki/Tessellator)
  - [stroke tessellator](https://github.com/nical/lyon/wiki/Stroke-tessellation)
@@ -45,7 +45,7 @@ about the algortithms that may be useful to you
 - Commits should be as small as possible, while ensuring that each commit is
   correct independently (i.e., each commit should compile and pass tests).
 
-- If your patch is not getting reviewed or you need a specific person to review
+- If your patch is not getting reviewed, or you need a specific person to review
   it, you can @-reply a reviewer asking for a review in the pull request or a
   comment.
 
@@ -55,7 +55,7 @@ For specific git instructions, see [GitHub workflow 101](https://github.com/serv
 
 ## Testing
 
-To run all tests from all of the lyon crates, run `cargo test --all` from the root of the repository.
+To run all tests from all lyon crates, run `cargo test --all` from the root of the repository.
 
 ## Conduct
 
@@ -64,7 +64,7 @@ For escalation or moderation issues, please contact Nical (nical@fastmail.com) i
 
 ## Communication
 
-[Gitter](https://gitter.im/lyon-rs/Lobby) and the [github issues](https://github.com/nical/lyon/issues) are good places to ask questions and more generally talk about about lyon. Some of the lyon contributors also frequent the `#rust` and `#rust-gamedev` channels on [`irc.mozilla.org`](https://wiki.mozilla.org/IRC).
+[Gitter](https://gitter.im/lyon-rs/Lobby) and the [GitHub issues](https://github.com/nical/lyon/issues) are good places to ask questions and more generally talk about lyon. Some of the lyon contributors also frequent the `#rust` and `#rust-gamedev` channels on [`irc.mozilla.org`](https://wiki.mozilla.org/IRC).
 
 ## License
 
@@ -75,5 +75,5 @@ If such a change occurs, it will not affect versions of the project prior to the
 
 ### In other words...
 
-At this time we are not entirely certain which of MPL2 or dual MIT/Apache2 is the best licensing scheme for this project. Both approaches are very permissive and we want to keep the door open to changing to MPL2 in the future.
+At this time we are not entirely certain which of MPL2 or dual MIT/Apache2 is the best licensing scheme for this project. Both approaches are very permissive, and we want to keep the door open to changing to MPL2 in the future.
 This project will remain usable under the MIT/Apache2 license for the foreseeable future. However, by contributing to this project you accept that your contributions may be re-licensed under the Mozilla Public License 2.0 without the MIT and Apache2 options.
