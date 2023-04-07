@@ -122,13 +122,13 @@ impl StrokeTessellator {
     ) -> TessellationResult {
         debug_assert!(
             options.variable_line_width.is_none(),
-            "Varible line width requires custom attributes. Try tessellate_with_ids or tessellate_path",
+            "Variable line width requires custom attributes. Try tessellate_with_ids or tessellate_path",
         );
 
         let mut buffer = Vec::new();
-        let stroker = StrokeBuilderImpl::new(options, &mut buffer, builder);
+        let builder = StrokeBuilderImpl::new(options, &mut buffer, builder);
 
-        stroker.tessellate_fw(input)
+        builder.tessellate_fw(input)
     }
 
     /// Compute the tessellation from a path iterator.
@@ -147,9 +147,9 @@ impl StrokeTessellator {
             self.attrib_buffer.push(0.0);
         }
 
-        let stroker = StrokeBuilderImpl::new(options, &mut self.attrib_buffer, output);
+        let builder = StrokeBuilderImpl::new(options, &mut self.attrib_buffer, output);
 
-        stroker.tessellate_with_ids(path, positions, custom_attributes)
+        builder.tessellate_with_ids(path, positions, custom_attributes)
     }
 
     /// Compute the tessellation from a path slice.
@@ -1667,7 +1667,7 @@ fn compute_join_side_positions_fixed_width(
 
     // The folding code path's threshold is a tad too eager when dealing with flattened curves due to
     // how flattening can create segments that are much smaller than the line width. In practice the
-    // curve tends to cover the spike of the back vertex in a lot of cases. Unfortuenately at the moment
+    // curve tends to cover the spike of the back vertex in a lot of cases. Unfortunately at the moment
     // the stroke tessellators force miter joins to be clipped in the folding case. Work around it by
     // disabling folding when a miter join is not clipped. That's often an indication that the join is not
     // sharp enough to generate a huge spike, although the spiking artifact will show up in some cases.
@@ -1812,7 +1812,7 @@ fn compute_edge_attachment_positions(p0: &mut EndpointData, p1: &mut EndpointDat
     let mut vwidth_angle = sin_vwidth_angle.asin();
     // If the distance between the joins (d) is smaller than either of the half
     // widths, we end up in a situation where sin_vwidth_angle is not in [-1, 1],
-    // which causes vwidth_anfle to be NaN. Prevent that here for safety's sake
+    // which causes vwidth_angle to be NaN. Prevent that here for safety's sake
     // but it would be better to handle that earlier to do something that looks
     // more plausible with round joins.
     if vwidth_angle.is_nan() {
@@ -3247,7 +3247,7 @@ fn single_segment_closed() {
 #[test]
 fn issue_819() {
     // In this test case, the last point of the path is within merge range
-    // of both the first and second points while the latters aren't within
+    // of both the first and second points while the latter ones aren't within
     // merge range of one-another. As a result they are both skipped when
     // closing the path.
 
@@ -3280,7 +3280,7 @@ fn issue_819() {
 
 #[test]
 fn issue_821() {
-    let mut stroker = StrokeTessellator::new();
+    let mut tessellator = StrokeTessellator::new();
 
     let options = StrokeOptions::default()
         .with_tolerance(0.001)
@@ -3300,7 +3300,7 @@ fn issue_821() {
     let path = path.build();
     let mut mesh = VertexBuffers::new();
     let mut builder = simple_builder(&mut mesh);
-    stroker
+    tessellator
         .tessellate_path(&path, &options, &mut builder)
         .unwrap();
 }

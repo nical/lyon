@@ -185,7 +185,7 @@ impl<S: Scalar> LineSegment<S> {
         self.to = self.from + v * (new_length / old_length);
     }
 
-    /// Computes thid mid-point of this segment.
+    /// Computes third mid-point of this segment.
     pub fn mid_point(&mut self) -> Point<S> {
         (self.from + self.to.to_vector()) / S::TWO
     }
@@ -851,7 +851,7 @@ fn intersection_touching() {
 #[test]
 fn intersection_overlap() {
     // It's hard to define the intersection points of two segments that overlap,
-    // (would be a region rather than a point) and more importanly, in practice
+    // (would be a region rather than a point) and more importantly, in practice
     // the algorithms in lyon don't need to consider this special case as an intersection,
     // so we choose to treat overlapping segments as not intersecting.
 

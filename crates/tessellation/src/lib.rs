@@ -144,7 +144,7 @@
 //! generate vertex buffers and index buffers with custom vertex types.
 //!
 //! The structs [VertexBuffers](geometry_builder/struct.VertexBuffers.html) and
-//! [geometry_buider::BuffersBuilder](geometry_builder/struct.BuffersBuilder.html) are provided
+//! [geometry_builder::BuffersBuilder](geometry_builder/struct.BuffersBuilder.html) are provided
 //! for convenience. `VertexBuffers<T>` is contains a `Vec<T>` for the vertices and a `Vec<u16>`
 //! for the indices.
 //!
@@ -163,7 +163,7 @@
 //! ### Flattening and tolerance
 //!
 //! Most tessellators in this crate currently operate on flattened paths (paths or shapes represented
-//! by sequences of line segments). when paths contain bézier curves or arcs, the latter need to be
+//! by sequences of line segments). when paths contain Bézier curves or arcs, the latter need to be
 //! approximated with sequences of line segments. This approximation depends on a `tolerance` parameter
 //! which represents the maximum distance between a curve and its flattened approximation.
 //!

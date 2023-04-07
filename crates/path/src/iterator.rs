@@ -83,7 +83,7 @@ use crate::geom::{cubic_bezier, quadratic_bezier, CubicBezierSegment, QuadraticB
 use crate::math::*;
 use crate::{Attributes, Event, PathEvent};
 
-// TODO: It would be great to add support for attributes in PathItertor.
+// TODO: It would be great to add support for attributes in PathIterator.
 
 /// An extension trait for `PathEvent` iterators.
 pub trait PathIterator: Iterator<Item = PathEvent> + Sized {
@@ -121,7 +121,7 @@ where
     }
 }
 
-/// An iterator that consumes `Event` iterator and yields flattend path events (with no curves).
+/// An iterator that consumes `Event` iterator and yields flattened path events (with no curves).
 pub struct Flattened<Iter> {
     it: Iter,
     current_position: Point,
@@ -207,7 +207,7 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // At minimum, the inner iterator's size hint plus the flattening iterator's size hint can form the lower
+        // At minimum, the inner iterator size hint plus the flattening iterator size hint can form the lower
         // bracket.
         // We can't determine a maximum limit.
         let mut lo = self.it.size_hint().0;

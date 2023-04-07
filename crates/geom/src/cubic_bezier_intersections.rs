@@ -1,6 +1,6 @@
 use crate::scalar::Scalar;
 use crate::CubicBezierSegment;
-///! Computes intersection parameters for two cubic bézier curves using bézier clipping, also known
+///! Computes intersection parameters for two cubic Bézier curves using Bézier clipping, also known
 ///! as fat line clipping.
 ///!
 ///! The implementation here was originally ported from that of paper.js:
@@ -13,7 +13,7 @@ use arrayvec::ArrayVec;
 use core::mem;
 use core::ops::Range;
 
-// Computes the intersections (if any) between two cubic bézier curves in the form of the `t`
+// Computes the intersections (if any) between two cubic Bézier curves in the form of the `t`
 // parameters of each intersection point along the curves.
 //
 // Returns endpoint intersections where an endpoint intersects the interior of the other curve,
@@ -250,12 +250,12 @@ fn line_line_intersections<S: Scalar>(
     result
 }
 
-// This function implements the main bézier clipping algorithm by recursively subdividing curve1 and
+// This function implements the main Bézier clipping algorithm by recursively subdividing curve1 and
 // curve2 in to smaller and smaller portions of the original curves with the property that one of
 // the curves intersects the fat line of the other curve at each stage.
 //
-// curve1 and curve2 at each stage are sub-bézier curves of the original curves; flip tells us
-// whether curve1 at a given stage is a subcurve of the original curve1 or the original curve2;
+// curve1 and curve2 at each stage are sub-Bézier curves of the original curves; flip tells us
+// whether curve1 at a given stage is a sub-curve of the original curve1 or the original curve2;
 // similarly for curve2.  domain1 and domain2 shrink (or stay the same) at each stage and describe
 // which subdomain of an original curve the current curve1 and curve2 correspond to. (The domains of
 // curve1 and curve2 are 0..1 at every stage.)

@@ -79,7 +79,7 @@ impl<'l> PathSample<'l> {
 /// measured path, so it is usually a good idea to cache and reuse it whenever possible.
 ///
 /// Queries on path measurements are made via a sampler object (see `PathSampler`) which can be configured
-/// to measure real distance or normalzied ones (values between 0 and 1 with zero indicating the start
+/// to measure real distance or normalized ones (values between 0 and 1 with zero indicating the start
 /// of the path and 1 indicating the end).
 ///
 /// ## Differences with the `PathWalker`
