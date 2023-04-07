@@ -3,7 +3,6 @@
 use crate::geom::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
 use crate::math::{point, vector, Point, Vector};
 use crate::path::PathEvent;
-use core::f32;
 
 pub struct Ray {
     pub origin: Point,

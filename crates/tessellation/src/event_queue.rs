@@ -8,7 +8,6 @@ use crate::Orientation;
 use std::cmp::Ordering;
 use std::mem::swap;
 use std::ops::Range;
-use std::{f32, u32, usize};
 
 #[inline]
 fn reorient(p: Point) -> Point {
@@ -122,7 +121,7 @@ impl EventQueue {
             second: point(f32::NAN, f32::NAN),
             nth: 0,
             tolerance,
-            prev_endpoint_id: EndpointId(std::u32::MAX),
+            prev_endpoint_id: EndpointId(u32::MAX),
             validator: DebugValidator::new(),
         }
     }
@@ -495,7 +494,7 @@ impl EventQueueBuilder {
         self.reset();
 
         self.tolerance = tolerance;
-        let endpoint_id = EndpointId(std::u32::MAX);
+        let endpoint_id = EndpointId(u32::MAX);
         match sweep_orientation {
             Orientation::Vertical => {
                 for evt in path {

@@ -1613,7 +1613,7 @@ fn fast_bounding_box_for_cubic_bezier_segment() {
 
     let actual_aabb = a.fast_bounding_box();
 
-    assert!(expected_aabb == actual_aabb)
+    assert_eq!(expected_aabb, actual_aabb)
 }
 
 #[test]
@@ -1653,7 +1653,7 @@ fn y_maximum_t_for_simple_cubic_segment() {
 
     let actual_y_maximum = a.y_maximum_t();
 
-    assert!(expected_y_maximum == actual_y_maximum)
+    assert_eq!(expected_y_maximum, actual_y_maximum)
 }
 
 #[test]
@@ -1669,7 +1669,7 @@ fn y_minimum_t_for_simple_cubic_segment() {
 
     let actual_y_minimum = a.y_minimum_t();
 
-    assert!(expected_y_minimum == actual_y_minimum)
+    assert_eq!(expected_y_minimum, actual_y_minimum)
 }
 
 #[test]
@@ -1718,7 +1718,7 @@ fn x_maximum_t_for_simple_cubic_segment() {
 
     let actual_x_maximum = a.x_maximum_t();
 
-    assert!(expected_x_maximum == actual_x_maximum)
+    assert_eq!(expected_x_maximum, actual_x_maximum)
 }
 
 #[test]
@@ -1734,7 +1734,7 @@ fn x_minimum_t_for_simple_cubic_segment() {
 
     let actual_x_minimum = a.x_minimum_t();
 
-    assert!(expected_x_minimum == actual_x_minimum)
+    assert_eq!(expected_x_minimum, actual_x_minimum)
 }
 
 #[test]
@@ -2036,7 +2036,7 @@ fn test_cubic_to_quadratics() {
     quadratic
         .to_cubic()
         .for_each_quadratic_bezier(0.0001, &mut |c| {
-            assert!(count == 0);
+            assert_eq!(count, 0);
             assert!(c.from.approx_eq(&quadratic.from));
             assert!(c.ctrl.approx_eq(&quadratic.ctrl));
             assert!(c.to.approx_eq(&quadratic.to));

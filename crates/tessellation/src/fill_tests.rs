@@ -5,6 +5,7 @@ use crate::path::{Path, PathSlice};
 use crate::{FillOptions, FillRule, FillTessellator, FillVertex, TessellationError, VertexId};
 
 use std::env;
+use std::f32::consts::PI;
 
 fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -127,8 +128,6 @@ fn test_path_internal(
 }
 
 fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Option<usize>) {
-    use std::f32::consts::PI;
-
     let mut angle = Angle::radians(0.0);
     while angle.radians < PI * 2.0 {
         //println!("\n\n ==================== angle = {:?}", angle);

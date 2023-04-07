@@ -34,7 +34,6 @@ use crate::path::{self, Attributes, EndpointId, PathEvent, NO_ATTRIBUTES};
 use core::marker::PhantomData;
 
 use core::cmp::Ordering;
-use core::f32;
 use core::mem;
 
 use alloc::vec::Vec;

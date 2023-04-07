@@ -174,8 +174,8 @@ mod scalar {
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
 
-        const MIN: Self = core::f32::MIN;
-        const MAX: Self = core::f32::MAX;
+        const MIN: Self = f32::MIN;
+        const MAX: Self = f32::MAX;
 
         const EPSILON: Self = 1e-4;
 
@@ -218,8 +218,8 @@ mod scalar {
         const NINE: Self = 9.0;
         const TEN: Self = 10.0;
 
-        const MIN: Self = core::f64::MIN;
-        const MAX: Self = core::f64::MAX;
+        const MIN: Self = f64::MIN;
+        const MAX: Self = f64::MAX;
 
         const EPSILON: Self = 1e-8;
 

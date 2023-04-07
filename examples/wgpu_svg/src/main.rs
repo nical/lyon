@@ -14,8 +14,6 @@ use futures::executor::block_on;
 
 use wgpu::util::DeviceExt;
 
-use std::f64::NAN;
-
 const WINDOW_SIZE: f32 = 800.0;
 
 pub const FALLBACK_COLOR: usvg::Color = usvg::Color {
@@ -86,12 +84,12 @@ fn main() {
     let mut primitives = Vec::new();
 
     let mut prev_transform = usvg::Transform {
-        a: NAN,
-        b: NAN,
-        c: NAN,
-        d: NAN,
-        e: NAN,
-        f: NAN,
+        a: f64::NAN,
+        b: f64::NAN,
+        c: f64::NAN,
+        d: f64::NAN,
+        e: f64::NAN,
+        f: f64::NAN,
     };
     let view_box = rtree.svg_node().view_box;
     for node in rtree.root().descendants() {

@@ -943,7 +943,7 @@ impl<'l> PointIter<'l> {
         // are always followed by advance_n which will
         // catch the issue and panic.
         if self.ptr >= self.end {
-            return point(core::f32::NAN, core::f32::NAN);
+            return point(f32::NAN, f32::NAN);
         }
 
         unsafe {

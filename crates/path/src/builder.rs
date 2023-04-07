@@ -86,6 +86,7 @@ use crate::path::Verb;
 use crate::polygon::Polygon;
 use crate::{Attributes, EndpointId, Winding, NO_ATTRIBUTES};
 
+use core::f32::consts::PI;
 use core::marker::Sized;
 
 use alloc::vec;
@@ -141,7 +142,7 @@ pub struct NoAttributes<B: PathBuilder> {
 impl<B: PathBuilder> NoAttributes<B> {
     #[inline]
     pub fn wrap(inner: B) -> Self {
-        assert!(inner.num_attributes() == 0);
+        assert_eq!(inner.num_attributes(), 0);
         NoAttributes { inner }
     }
 
@@ -615,7 +616,6 @@ pub trait PathBuilder {
             Winding::Negative => -1.0,
         };
 
-        use core::f32::consts::PI;
         let arc = Arc {
             center,
             radii,
@@ -1776,7 +1776,6 @@ fn svg_builder_arc_to_update_position() {
 
 #[test]
 fn issue_650() {
-    use core::f32::consts::PI;
     let mut builder = crate::path::Path::builder().with_svg();
     builder.arc(
         point(0.0, 0.0),

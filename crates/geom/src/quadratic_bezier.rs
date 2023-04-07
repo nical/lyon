@@ -1101,7 +1101,7 @@ fn bounding_box_for_monotonic_quadratic_bezier_segment() {
 
     let actual_aabb = a.bounding_box();
 
-    assert!(expected_aabb == actual_aabb)
+    assert_eq!(expected_aabb, actual_aabb)
 }
 
 #[test]
@@ -1119,7 +1119,7 @@ fn fast_bounding_box_for_quadratic_bezier_segment() {
 
     let actual_aabb = a.fast_bounding_box();
 
-    assert!(expected_aabb == actual_aabb)
+    assert_eq!(expected_aabb, actual_aabb)
 }
 
 #[test]
@@ -1137,7 +1137,7 @@ fn minimum_bounding_box_for_quadratic_bezier_segment() {
 
     let actual_aabb = a.bounding_box();
 
-    assert!(expected_aabb == actual_aabb)
+    assert_eq!(expected_aabb, actual_aabb)
 }
 
 #[test]
@@ -1152,7 +1152,7 @@ fn y_maximum_t_for_simple_segment() {
 
     let actual_y_maximum = a.y_maximum_t();
 
-    assert!(expected_y_maximum == actual_y_maximum)
+    assert_eq!(expected_y_maximum, actual_y_maximum)
 }
 
 #[test]
@@ -1166,7 +1166,7 @@ fn local_y_extremum_for_simple_segment() {
     let expected_y_inflection = 0.5;
 
     match a.local_y_extremum_t() {
-        Some(actual_y_inflection) => assert!(expected_y_inflection == actual_y_inflection),
+        Some(actual_y_inflection) => assert_eq!(expected_y_inflection, actual_y_inflection),
         None => panic!(),
     }
 }
@@ -1183,7 +1183,7 @@ fn y_minimum_t_for_simple_segment() {
 
     let actual_y_minimum = a.y_minimum_t();
 
-    assert!(expected_y_minimum == actual_y_minimum)
+    assert_eq!(expected_y_minimum, actual_y_minimum)
 }
 
 #[test]
@@ -1198,7 +1198,7 @@ fn x_maximum_t_for_simple_segment() {
 
     let actual_x_maximum = a.x_maximum_t();
 
-    assert!(expected_x_maximum == actual_x_maximum)
+    assert_eq!(expected_x_maximum, actual_x_maximum)
 }
 
 #[test]
@@ -1212,7 +1212,7 @@ fn local_x_extremum_for_simple_segment() {
     let expected_x_inflection = 0.5;
 
     match a.local_x_extremum_t() {
-        Some(actual_x_inflection) => assert!(expected_x_inflection == actual_x_inflection),
+        Some(actual_x_inflection) => assert_eq!(expected_x_inflection, actual_x_inflection),
         None => panic!(),
     }
 }
@@ -1229,7 +1229,7 @@ fn x_minimum_t_for_simple_segment() {
 
     let actual_x_minimum = a.x_minimum_t();
 
-    assert!(expected_x_minimum == actual_x_minimum)
+    assert_eq!(expected_x_minimum, actual_x_minimum)
 }
 
 #[test]

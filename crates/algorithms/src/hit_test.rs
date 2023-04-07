@@ -3,7 +3,6 @@
 use crate::geom::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 use crate::math::Point;
 use crate::path::{FillRule, PathEvent};
-use core::f32;
 
 /// Returns whether the point is inside the path.
 pub fn hit_test_path<Iter>(point: &Point, path: Iter, fill_rule: FillRule, tolerance: f32) -> bool
