@@ -1428,7 +1428,7 @@ fn issue_678() {
     };
 
     let intersections = quadratic.line_intersections(&line);
-    std::println!("{:?}", intersections);
+    std::println!("{intersections:?}");
 
     assert_eq!(intersections.len(), 1);
 }

@@ -1477,8 +1477,8 @@ fn test_reverse_path_simple() {
         b: Option<Event<(Point, Attributes<'l>), Point>>,
     ) -> bool {
         if a != b {
-            std::println!("left: {:?}", a);
-            std::println!("right: {:?}", b);
+            std::println!("left: {a:?}");
+            std::println!("right: {b:?}");
         }
 
         a == b
@@ -1552,8 +1552,8 @@ fn test_reverse_path() {
         b: Option<Event<(Point, Attributes<'l>), Point>>,
     ) -> bool {
         if a != b {
-            std::println!("left: {:?}", a);
-            std::println!("right: {:?}", b);
+            std::println!("left: {a:?}");
+            std::println!("right: {b:?}");
         }
 
         a == b

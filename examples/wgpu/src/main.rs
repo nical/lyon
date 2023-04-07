@@ -582,7 +582,7 @@ fn main() {
         let frame = match surface.get_current_texture() {
             Ok(texture) => texture,
             Err(e) => {
-                println!("Swap-chain error: {:?}", e);
+                println!("Swap-chain error: {e:?}");
                 return;
             }
         };
@@ -720,7 +720,7 @@ fn main() {
         let now = Instant::now();
         time_secs = (now - start).as_secs_f32();
         if now >= next_report {
-            println!("{} FPS", frame_count);
+            println!("{frame_count} FPS");
             frame_count = 0;
             next_report = now + Duration::from_secs(1);
         }

@@ -980,7 +980,7 @@ fn solve_y_for_x() {
     let eqn = line.equation();
 
     if let Some(y) = eqn.solve_y_for_x(line.point.x) {
-        std::println!("{:?} != {:?}", y, line.point.y);
+        std::println!("{y:?} != {:?}", line.point.y);
         assert!(f64::abs(y - line.point.y) < 0.000001)
     }
 
@@ -998,7 +998,7 @@ fn solve_y_for_x() {
         let eqn = line.equation();
 
         if let Some(y) = eqn.solve_y_for_x(line.point.x) {
-            std::println!("{:?} != {:?}", y, line.point.y);
+            std::println!("{y:?} != {:?}", line.point.y);
             assert!(f64::abs(y - line.point.y) < 0.000001)
         }
 
@@ -1201,7 +1201,7 @@ fn clipped() {
     fn approx_eq(a: LineSegment<f32>, b: LineSegment<f32>) -> bool {
         let ok = a.from.approx_eq(&b.from) && a.to.approx_eq(&b.to);
         if !ok {
-            std::println!("{:?} != {:?}", a, b);
+            std::println!("{a:?} != {b:?}");
         }
 
         ok

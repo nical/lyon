@@ -329,12 +329,12 @@ impl<'l> fmt::Debug for PathCommandsSlice<'l> {
         write!(f, "\"")?;
         for evt in self.iter() {
             match evt {
-                IdEvent::Line { to, .. } => write!(f, "L {:?}", to),
-                IdEvent::Quadratic { ctrl, to, .. } => write!(f, "Q {:?} {:?} ", ctrl, to),
+                IdEvent::Line { to, .. } => write!(f, "L {to:?}"),
+                IdEvent::Quadratic { ctrl, to, .. } => write!(f, "Q {ctrl:?} {to:?} "),
                 IdEvent::Cubic {
                     ctrl1, ctrl2, to, ..
-                } => write!(f, "C {:?} {:?} {:?} ", ctrl1, ctrl2, to),
-                IdEvent::Begin { at, .. } => write!(f, "M {:?} ", at),
+                } => write!(f, "C {ctrl1:?} {ctrl2:?} {to:?} "),
+                IdEvent::Begin { at, .. } => write!(f, "M {at:?} "),
                 IdEvent::End { close: true, .. } => write!(f, "Z "),
                 IdEvent::End { close: false, .. } => Ok(()),
             }?;
@@ -399,12 +399,12 @@ where
         write!(f, "{{ ")?;
         for evt in self.events() {
             match evt {
-                Event::Line { to, .. } => write!(f, "L {:?}", to),
-                Event::Quadratic { ctrl, to, .. } => write!(f, "Q {:?} {:?} ", ctrl, to),
+                Event::Line { to, .. } => write!(f, "L {to:?}"),
+                Event::Quadratic { ctrl, to, .. } => write!(f, "Q {ctrl:?} {to:?} "),
                 Event::Cubic {
                     ctrl1, ctrl2, to, ..
-                } => write!(f, "C {:?} {:?} {:?} ", ctrl1, ctrl2, to),
-                Event::Begin { at, .. } => write!(f, "M {:?} ", at),
+                } => write!(f, "C {ctrl1:?} {ctrl2:?} {to:?} "),
+                Event::Begin { at, .. } => write!(f, "M {at:?} "),
                 Event::End { close: true, .. } => write!(f, "Z "),
                 Event::End { close: false, .. } => Ok(()),
             }?;

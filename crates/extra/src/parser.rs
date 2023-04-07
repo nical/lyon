@@ -653,7 +653,7 @@ fn bad_numbers() {
         match r {
             Err(ParseError::Number { .. }) => true,
             _ => {
-                println!("{:?}", r);
+                println!("{r:?}");
                 false
             }
         }

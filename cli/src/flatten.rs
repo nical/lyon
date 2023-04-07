@@ -39,8 +39,8 @@ pub fn flatten(mut cmd: PathCmd) -> Result<(), FlattenError> {
             }
         }
 
-        writeln!(&mut *cmd.output, "vertices: {}", num_vertices)?;
-        writeln!(&mut *cmd.output, "paths: {}", num_paths)?;
+        writeln!(&mut *cmd.output, "vertices: {num_vertices}")?;
+        writeln!(&mut *cmd.output, "paths: {num_paths}")?;
 
         return Ok(());
     }
