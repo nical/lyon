@@ -157,7 +157,7 @@
 //! The tessellators produce geometry in the form of vertex and index buffers which are expected
 //! to be rendered using the equivalent of OpenGL's `glDrawElements` with mode `GL_TRIANGLES` available
 //! under various names in the different graphics APIs.
-//! There is an [example](https://github.com/nical/lyon/tree/master/examples/wgpu) showing how
+//! There is an [example](https://github.com/nical/lyon/tree/main/examples/wgpu) showing how
 //! it can be done with wgpu.
 //!
 //! ### Flattening and tolerance

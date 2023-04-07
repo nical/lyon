@@ -52,8 +52,8 @@
 //!
 //! # Additional documentation and links
 //!
-//! * [wgpu example](https://github.com/nical/lyon/tree/master/examples/wgpu).
-//! * [wgpu_svg example](https://github.com/nical/lyon/tree/master/examples/wgpu_svg) similar to the first example,
+//! * [wgpu example](https://github.com/nical/lyon/tree/main/examples/wgpu).
+//! * [wgpu_svg example](https://github.com/nical/lyon/tree/main/examples/wgpu_svg) similar to the first example,
 //!   can render a very small subset of SVG.
 //! * There is some useful documentation on the project's [wiki](https://github.com/nical/lyon/wiki).
 //! * The source code is available on the project's [git repository](https://github.com/nical/lyon).
@@ -171,7 +171,7 @@
 //! Lyon does not provide with any GPU abstraction or rendering backend (for now).
 //! It is up to the user of this crate to decide whether to use OpenGL, vulkan, gfx-rs,
 //! wgpu, glium, or any low level graphics API and how to render it.
-//! The [wgpu example](https://github.com/nical/lyon/tree/master/examples/wgpu)
+//! The [wgpu example](https://github.com/nical/lyon/tree/main/examples/wgpu)
 //! can be used to get an idea of how to render the geometry (in this case
 //! using wgpu).
 

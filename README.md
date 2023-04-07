@@ -94,7 +94,7 @@ Don't hesitate to [file an issue](https://github.com/nical/lyon/issues/new), ask
 
 ### How can I help?
 
-See [CONTRIBUTING.md](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/nical/lyon/blob/main/CONTRIBUTING.md).
 
 ## License
 
@@ -110,4 +110,4 @@ Dual MIT/Apache2 is strictly more permissive
 
 ### Contribution
 
-There is useful information for contributors in the [contribution guidelines](https://github.com/nical/lyon/blob/master/CONTRIBUTING.md).
+There is useful information for contributors in the [contribution guidelines](https://github.com/nical/lyon/blob/main/CONTRIBUTING.md).
