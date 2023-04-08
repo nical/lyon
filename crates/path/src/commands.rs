@@ -62,6 +62,7 @@ use crate::{ControlPointId, EndpointId, EventId, Position, PositionStore};
 
 use core::fmt;
 
+use crate::private::DebugValidator;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
@@ -416,41 +417,29 @@ where
 /// Builds path commands.
 ///
 /// See [`PathCommands`](struct.PathCommands.html).
-#[derive(Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct PathCommandsBuilder {
     cmds: Vec<u32>,
     first_event_index: u32,
-    in_subpath: bool,
-}
-
-impl Default for PathCommandsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+    validator: DebugValidator,
 }
 
 impl PathCommandsBuilder {
     /// Creates a builder without allocating memory.
     pub fn new() -> Self {
-        Self {
-            cmds: Vec::new(),
-            in_subpath: false,
-            first_event_index: 0,
-        }
+        Self::default()
     }
 
     /// Creates a pre-allocated builder.
     pub fn with_capacity(cap: usize) -> Self {
         Self {
             cmds: Vec::with_capacity(cap),
-            in_subpath: false,
-            first_event_index: 0,
+            ..Self::default()
         }
     }
 
     pub fn begin(&mut self, to: EndpointId) -> EventId {
-        debug_assert!(!self.in_subpath);
-        self.in_subpath = true;
+        self.validator.begin();
 
         self.first_event_index = self.cmds.len() as u32;
         let id = EventId(self.cmds.len() as u32);
@@ -461,8 +450,7 @@ impl PathCommandsBuilder {
     }
 
     pub fn end(&mut self, close: bool) -> Option<EventId> {
-        debug_assert!(self.in_subpath);
-        self.in_subpath = false;
+        self.validator.end();
 
         let id = EventId(self.cmds.len() as u32);
         let cmd = if close { verb::CLOSE } else { verb::END };
@@ -473,7 +461,7 @@ impl PathCommandsBuilder {
     }
 
     pub fn line_to(&mut self, to: EndpointId) -> EventId {
-        debug_assert!(self.in_subpath);
+        self.validator.edge();
 
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::LINE);
@@ -483,7 +471,7 @@ impl PathCommandsBuilder {
     }
 
     pub fn quadratic_bezier_to(&mut self, ctrl: ControlPointId, to: EndpointId) -> EventId {
-        debug_assert!(self.in_subpath);
+        self.validator.edge();
 
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::QUADRATIC);
@@ -499,7 +487,7 @@ impl PathCommandsBuilder {
         ctrl2: ControlPointId,
         to: EndpointId,
     ) -> EventId {
-        debug_assert!(self.in_subpath);
+        self.validator.edge();
 
         let id = EventId(self.cmds.len() as u32);
         self.cmds.push(verb::CUBIC);
@@ -512,7 +500,7 @@ impl PathCommandsBuilder {
 
     /// Consumes the builder and returns path commands.
     pub fn build(self) -> PathCommands {
-        debug_assert!(!self.in_subpath);
+        self.validator.build();
 
         PathCommands {
             cmds: self.cmds.into_boxed_slice(),
