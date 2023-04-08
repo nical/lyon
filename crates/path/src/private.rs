@@ -56,6 +56,8 @@ impl DebugValidator {
         }
     }
 
+    /// TODO: this should use `self` to ensure it is dropped after this call
+    /// TODO: also, DebugValidator probably should not be exposed in the public API.
     #[inline(always)]
     pub fn build(&self) {
         #[cfg(debug_assertions)]
