@@ -802,6 +802,8 @@ pub trait SvgPathBuilder {
 
     /// Equivalent to `cubic_bezier_to` in relative coordinates.
     ///
+    /// Corresponding SVG command: `c`.
+    ///
     /// The provided coordinates are offsets relative to the current position of
     /// the builder.
     fn relative_cubic_bezier_to(&mut self, ctrl1: Vector, ctrl2: Vector, to: Vector);
