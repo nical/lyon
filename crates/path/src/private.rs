@@ -9,32 +9,23 @@ pub use crate::math::Point;
 pub use crate::traits::PathBuilder;
 pub use crate::{Attributes, EndpointId};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Default, Copy, Clone, Debug, PartialEq)]
 pub struct DebugValidator {
     #[cfg(debug_assertions)]
     in_subpath: bool,
 }
 
-impl Default for DebugValidator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl DebugValidator {
     #[inline(always)]
     pub fn new() -> Self {
-        DebugValidator {
-            #[cfg(debug_assertions)]
-            in_subpath: false,
-        }
+        Self::default()
     }
 
     #[inline(always)]
     pub fn begin(&mut self) {
         #[cfg(debug_assertions)]
         {
-            assert!(!self.in_subpath);
+            assert!(!self.in_subpath, "multiple begin() calls without end()");
             self.in_subpath = true;
         }
     }
@@ -43,7 +34,7 @@ impl DebugValidator {
     pub fn end(&mut self) {
         #[cfg(debug_assertions)]
         {
-            assert!(self.in_subpath);
+            assert!(self.in_subpath, "end() called without begin()");
             self.in_subpath = false;
         }
     }
@@ -51,19 +42,15 @@ impl DebugValidator {
     #[inline(always)]
     pub fn edge(&self) {
         #[cfg(debug_assertions)]
-        {
-            assert!(self.in_subpath);
-        }
+        assert!(self.in_subpath, "edge operation is made before begin()");
     }
 
-    /// TODO: this should use `self` to ensure it is dropped after this call
+    /// TODO: this should consume `self` to ensure it is dropped after this call
     /// TODO: also, DebugValidator probably should not be exposed in the public API.
     #[inline(always)]
     pub fn build(&self) {
         #[cfg(debug_assertions)]
-        {
-            assert!(!self.in_subpath);
-        }
+        assert!(!self.in_subpath, "build() called before end()");
     }
 }
 
