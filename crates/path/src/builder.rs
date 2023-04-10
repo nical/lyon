@@ -197,7 +197,7 @@ impl<B: PathBuilder> NoAttributes<B> {
         self.inner.line_to(to, NO_ATTRIBUTES)
     }
 
-    /// Adds a quadratic Bézier curve to the current sub-path.
+    /// Adds a quadratic bézier curve to the current sub-path.
     ///
     /// A sub-path must be in progress when this method is called.
     #[inline]
@@ -205,7 +205,7 @@ impl<B: PathBuilder> NoAttributes<B> {
         self.inner.quadratic_bezier_to(ctrl, to, NO_ATTRIBUTES)
     }
 
-    /// Adds a cubic Bézier curve to the current sub-path.
+    /// Adds a cubic bézier curve to the current sub-path.
     ///
     /// A sub-path must be in progress when this method is called.
     #[inline]
@@ -475,7 +475,7 @@ pub trait PathBuilder {
     /// A sub-path must be in progress when this method is called.
     fn line_to(&mut self, to: Point, custom_attributes: Attributes) -> EndpointId;
 
-    /// Adds a quadratic Bézier curve to the current sub-path.
+    /// Adds a quadratic bézier curve to the current sub-path.
     ///
     /// A sub-path must be in progress when this method is called.
     fn quadratic_bezier_to(
@@ -485,7 +485,7 @@ pub trait PathBuilder {
         custom_attributes: Attributes,
     ) -> EndpointId;
 
-    /// Adds a cubic Bézier curve to the current sub-path.
+    /// Adds a cubic bézier curve to the current sub-path.
     ///
     /// A sub-path must be in progress when this method is called.
     fn cubic_bezier_to(
@@ -756,7 +756,7 @@ pub trait SvgPathBuilder {
     /// have a current position), the `line_to` command is replaced with a `move_to(to)`.
     fn line_to(&mut self, to: Point);
 
-    /// Adds a quadratic Bézier segment to the current sub-path.
+    /// Adds a quadratic bézier segment to the current sub-path.
     ///
     /// Corresponding SVG command: `Q`.
     ///
@@ -766,7 +766,7 @@ pub trait SvgPathBuilder {
     /// a `move_to(to)`.
     fn quadratic_bezier_to(&mut self, ctrl: Point, to: Point);
 
-    /// Adds a cubic Bézier segment to the current sub-path.
+    /// Adds a cubic bézier segment to the current sub-path.
     ///
     /// Corresponding SVG command: `C`.
     ///
@@ -813,7 +813,7 @@ pub trait SvgPathBuilder {
     /// The first control point is assumed to be the reflection of the second
     /// control point on the previous command relative to the current point.
     /// If there is no previous command or if the previous command was not a
-    /// cubic Bézier segment, the first control point is coincident with
+    /// cubic bézier segment, the first control point is coincident with
     /// the current position.
     fn smooth_cubic_bezier_to(&mut self, ctrl2: Point, to: Point);
 
@@ -832,7 +832,7 @@ pub trait SvgPathBuilder {
     /// The control point is assumed to be the reflection of the control
     /// point on the previous command relative to the current point.
     /// If there is no previous command or if the previous command was not a
-    /// quadratic Bézier segment, a line segment is added instead.
+    /// quadratic bézier segment, a line segment is added instead.
     fn smooth_quadratic_bezier_to(&mut self, to: Point);
 
     /// Equivalent to `smooth_quadratic_bezier_to` in relative coordinates.
@@ -1217,7 +1217,7 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
             return;
         }
 
-        // Relative path ops tend to accumulate small floating point impressions
+        // Relative path ops tend to accumulate small floating point error,
         // which results in the last segment ending almost but not quite at the
         // start of the sub-path, causing a new edge to be inserted which often
         // intersects with the first or last edge. This can affect algorithms that

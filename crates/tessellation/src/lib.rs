@@ -163,7 +163,7 @@
 //! ### Flattening and tolerance
 //!
 //! Most tessellators in this crate currently operate on flattened paths (paths or shapes represented
-//! by sequences of line segments). when paths contain Bézier curves or arcs, the latter need to be
+//! by sequences of line segments). when paths contain bézier curves or arcs, the latter need to be
 //! approximated with sequences of line segments. This approximation depends on a `tolerance` parameter
 //! which represents the maximum distance between a curve and its flattened approximation.
 //!

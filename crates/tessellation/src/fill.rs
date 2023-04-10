@@ -364,7 +364,7 @@ struct PendingEdge {
 ///   from the point of view of the tessellator.
 /// - The tessellator does not handle curves, and uses an approximation that introduces a
 ///   number of line segments and therefore endpoints between the original endpoints of any
-///   quadratic or cubic Bézier curve.
+///   quadratic or cubic bézier curve.
 ///
 /// This complicates the task of adding extra data to vertices without loosing the association
 /// during tessellation.
