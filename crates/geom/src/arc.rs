@@ -150,7 +150,7 @@ impl<S: Scalar> Arc<S> {
         }
     }
 
-    /// Approximate the arc with a sequence of quadratic Bézier curves.
+    /// Approximate the arc with a sequence of quadratic bézier curves.
     #[inline]
     pub fn for_each_quadratic_bezier<F>(&self, cb: &mut F)
     where
@@ -159,7 +159,7 @@ impl<S: Scalar> Arc<S> {
         arc_to_quadratic_beziers_with_t(self, &mut |curve, _| cb(curve));
     }
 
-    /// Approximate the arc with a sequence of quadratic Bézier curves.
+    /// Approximate the arc with a sequence of quadratic bézier curves.
     #[inline]
     pub fn for_each_quadratic_bezier_with_t<F>(&self, cb: &mut F)
     where
@@ -168,7 +168,7 @@ impl<S: Scalar> Arc<S> {
         arc_to_quadratic_beziers_with_t(self, cb);
     }
 
-    /// Approximate the arc with a sequence of cubic Bézier curves.
+    /// Approximate the arc with a sequence of cubic bézier curves.
     #[inline]
     pub fn for_each_cubic_bezier<F>(&self, cb: &mut F)
     where
@@ -525,7 +525,7 @@ impl<S: Scalar> SvgArc<S> {
             || self.from == self.to
     }
 
-    /// Approximates the arc with a sequence of quadratic Bézier segments.
+    /// Approximates the arc with a sequence of quadratic bézier segments.
     pub fn for_each_quadratic_bezier<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>),
@@ -542,7 +542,7 @@ impl<S: Scalar> SvgArc<S> {
         Arc::from_svg_arc(self).for_each_quadratic_bezier(cb);
     }
 
-    /// Approximates the arc with a sequence of quadratic Bézier segments.
+    /// Approximates the arc with a sequence of quadratic bézier segments.
     pub fn for_each_quadratic_bezier_with_t<F>(&self, cb: &mut F)
     where
         F: FnMut(&QuadraticBezierSegment<S>, Range<S>),
@@ -562,7 +562,7 @@ impl<S: Scalar> SvgArc<S> {
         Arc::from_svg_arc(self).for_each_quadratic_bezier_with_t(cb);
     }
 
-    /// Approximates the arc with a sequence of cubic Bézier segments.
+    /// Approximates the arc with a sequence of cubic bézier segments.
     pub fn for_each_cubic_bezier<F>(&self, cb: &mut F)
     where
         F: FnMut(&CubicBezierSegment<S>),

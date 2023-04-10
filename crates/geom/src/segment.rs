@@ -65,7 +65,7 @@ pub trait Segment: Copy + Sized {
     /// its approximation.
     ///
     /// The parameter `t` at the final segment is guaranteed to be equal to `1.0`.
-    #[allow(clippy::type_complexity)] // <<< FIXME
+    #[allow(clippy::type_complexity)]
     fn for_each_flattened_with_t(
         &self,
         tolerance: Self::Scalar,
