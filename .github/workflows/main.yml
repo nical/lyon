@@ -55,4 +55,7 @@ jobs:
           node-version: 10.5
 
       - name: Compile and test wasm
-        run: cd wasm_test && cargo +nightly build --target wasm32-unknown-unknown && node test.js
+        run: |
+          cd wasm_test
+          cargo +nightly build --target wasm32-unknown-unknown
+          node test.js
