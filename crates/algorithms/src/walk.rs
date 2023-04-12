@@ -312,12 +312,12 @@ impl<'l> PathBuilder for PathWalker<'l> {
         self.begin(to, attributes)
     }
 
-    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
-        self.line_to(to, attributes)
-    }
-
     fn end(&mut self, close: bool) {
         self.end(close)
+    }
+
+    fn line_to(&mut self, to: Point, attributes: Attributes) -> EndpointId {
+        self.line_to(to, attributes)
     }
 
     fn quadratic_bezier_to(

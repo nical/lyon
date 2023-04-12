@@ -415,12 +415,12 @@ pub trait AttributeStore {
 }
 
 impl AttributeStore for () {
-    fn num_attributes(&self) -> usize {
-        0
-    }
-
     fn get(&self, _: EndpointId) -> Attributes {
         NO_ATTRIBUTES
+    }
+
+    fn num_attributes(&self) -> usize {
+        0
     }
 }
 

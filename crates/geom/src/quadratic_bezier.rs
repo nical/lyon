@@ -655,7 +655,7 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
         result
     }
 
-    /// Computes the intersections (if any) between this segment a line segment.
+    /// Computes the intersections (if any) between this segment and a line segment.
     ///
     /// The result is provided in the form of the `t` parameters of each
     /// point along curve and segment. To get the intersection points, sample

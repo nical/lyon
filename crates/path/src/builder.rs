@@ -1391,6 +1391,10 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
         self.move_to(to);
     }
 
+    fn close(&mut self) {
+        self.close();
+    }
+
     fn line_to(&mut self, to: Point) {
         self.line_to(to);
     }
@@ -1401,10 +1405,6 @@ impl<Builder: PathBuilder> SvgPathBuilder for WithSvg<Builder> {
 
     fn cubic_bezier_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
         self.cubic_bezier_to(ctrl1, ctrl2, to);
-    }
-
-    fn close(&mut self) {
-        self.close();
     }
 
     fn relative_move_to(&mut self, to: Vector) {

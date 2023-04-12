@@ -2942,16 +2942,17 @@ fn test_too_many_vertices() {
     struct Builder {
         max_vertices: u32,
     }
+
     impl GeometryBuilder for Builder {
         fn begin_geometry(&mut self) {}
+        fn end_geometry(&mut self) {
+            // Expected to abort the geometry.
+            panic!();
+        }
         fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
             assert_ne!(a, b);
             assert_ne!(a, c);
             assert_ne!(b, c);
-        }
-        fn end_geometry(&mut self) {
-            // Expected to abort the geometry.
-            panic!();
         }
         fn abort_geometry(&mut self) {}
     }
@@ -3027,8 +3028,8 @@ fn stroke_vertex_source_01() {
     }
 
     impl GeometryBuilder for CheckVertexSources {
-        fn abort_geometry(&mut self) {}
         fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+        fn abort_geometry(&mut self) {}
     }
 
     fn eq(a: Point, b: Point) -> bool {

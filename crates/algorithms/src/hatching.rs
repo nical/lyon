@@ -658,11 +658,11 @@ pub struct RegularHatchingPattern<Cb: FnMut(&HatchSegment)> {
 }
 
 impl<Cb: FnMut(&HatchSegment)> HatchBuilder for RegularHatchingPattern<Cb> {
-    fn next_offset(&mut self, _row: u32) -> f32 {
-        self.interval
-    }
     fn add_segment(&mut self, segment: &HatchSegment) {
         (self.callback)(segment)
+    }
+    fn next_offset(&mut self, _row: u32) -> f32 {
+        self.interval
     }
 }
 
@@ -673,13 +673,6 @@ struct HatchesToDots<'l> {
 }
 
 impl<'l> HatchBuilder for HatchesToDots<'l> {
-    fn next_offset(&mut self, row: u32) -> f32 {
-        let val = self.builder.next_row_offset(self.column, row);
-        self.column = 0;
-
-        val
-    }
-
     fn add_segment(&mut self, segment: &HatchSegment) {
         let row = segment.row;
         let mut u = self.builder.first_column_offset(row);
@@ -712,6 +705,13 @@ impl<'l> HatchBuilder for HatchesToDots<'l> {
 
             u += du;
         }
+    }
+
+    fn next_offset(&mut self, row: u32) -> f32 {
+        let val = self.builder.next_row_offset(self.column, row);
+        self.column = 0;
+
+        val
     }
 }
 
