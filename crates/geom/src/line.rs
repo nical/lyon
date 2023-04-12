@@ -521,9 +521,6 @@ impl<S: Scalar> Segment for LineSegment<S> {
     fn dy(&self, _t: S) -> S {
         self.to.y - self.from.y
     }
-    fn split_range(&self, t_range: Range<S>) -> Self {
-        self.split_range(t_range)
-    }
     fn split(&self, t: S) -> (Self, Self) {
         self.split(t)
     }
@@ -532,6 +529,9 @@ impl<S: Scalar> Segment for LineSegment<S> {
     }
     fn after_split(&self, t: S) -> Self {
         self.after_split(t)
+    }
+    fn split_range(&self, t_range: Range<S>) -> Self {
+        self.split_range(t_range)
     }
     fn flip(&self) -> Self {
         self.flip()

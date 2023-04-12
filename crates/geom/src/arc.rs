@@ -755,9 +755,6 @@ impl<S: Scalar> Segment for Arc<S> {
     fn derivative(&self, t: S) -> Vector<S> {
         self.sample_tangent(t)
     }
-    fn split_range(&self, t_range: Range<S>) -> Self {
-        self.split_range(t_range)
-    }
     fn split(&self, t: S) -> (Self, Self) {
         self.split(t)
     }
@@ -766,6 +763,9 @@ impl<S: Scalar> Segment for Arc<S> {
     }
     fn after_split(&self, t: S) -> Self {
         self.after_split(t)
+    }
+    fn split_range(&self, t_range: Range<S>) -> Self {
+        self.split_range(t_range)
     }
     fn flip(&self) -> Self {
         self.flip()

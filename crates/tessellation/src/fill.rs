@@ -2684,8 +2684,8 @@ fn fill_vertex_source_01() {
     }
 
     impl GeometryBuilder for CheckVertexSources {
-        fn abort_geometry(&mut self) {}
         fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+        fn abort_geometry(&mut self) {}
     }
 
     impl FillGeometryBuilder for CheckVertexSources {

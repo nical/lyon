@@ -179,11 +179,6 @@ mod scalar {
 
         const EPSILON: Self = 1e-4;
 
-        #[inline]
-        fn value(v: f32) -> Self {
-            v
-        }
-
         fn epsilon_for(reference: Self) -> Self {
             // The thresholds are chosen by looking at the table at
             // https://blog.demofox.org/2017/11/21/floating-point-precision/ plus a bit
@@ -198,6 +193,11 @@ mod scalar {
                 65536..=8_388_607 => 0.5,
                 _ => 1.0,
             }
+        }
+
+        #[inline]
+        fn value(v: f32) -> Self {
+            v
         }
     }
 
@@ -223,11 +223,6 @@ mod scalar {
 
         const EPSILON: Self = 1e-8;
 
-        #[inline]
-        fn value(v: f32) -> Self {
-            v as f64
-        }
-
         fn epsilon_for(reference: Self) -> Self {
             let magnitude = reference.abs() as i64;
             match magnitude {
@@ -236,6 +231,11 @@ mod scalar {
                 8_388_608..=4_294_967_295 => 1e-3,
                 _ => 1e-1,
             }
+        }
+
+        #[inline]
+        fn value(v: f32) -> Self {
+            v as f64
         }
     }
 }

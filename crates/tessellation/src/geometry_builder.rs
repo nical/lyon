@@ -447,11 +447,6 @@ where
         self.first_index = self.buffers.indices.len() as Index;
     }
 
-    fn abort_geometry(&mut self) {
-        self.buffers.vertices.truncate(self.first_vertex as usize);
-        self.buffers.indices.truncate(self.first_index as usize);
-    }
-
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
         if a == b || a == c || b == c {
             println!("bad triangle {a:?} {b:?} {c:?}");
@@ -465,6 +460,11 @@ where
         self.buffers.indices.push((a + self.vertex_offset).into());
         self.buffers.indices.push((b + self.vertex_offset).into());
         self.buffers.indices.push((c + self.vertex_offset).into());
+    }
+
+    fn abort_geometry(&mut self) {
+        self.buffers.vertices.truncate(self.first_vertex as usize);
+        self.buffers.indices.truncate(self.first_index as usize);
     }
 }
 
