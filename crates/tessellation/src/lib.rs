@@ -258,7 +258,7 @@ pub enum InternalError {
 /// The fill tessellator's error enumeration.
 #[derive(Error, Clone, Debug, PartialEq)]
 pub enum TessellationError {
-    // TODO Paramater typo
+    // TODO Parameter typo
     #[error("Unsupported parameter: {0}")]
     UnsupportedParamater(UnsupportedParamater),
     #[error("Geometry builder error: {0}")]
