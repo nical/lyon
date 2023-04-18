@@ -130,7 +130,7 @@ fn main() {
                             },
                         ),
                     )
-                    .expect("Error during tesselation!");
+                    .expect("Error during tessellation!");
             }
 
             if let Some(ref stroke) = p.stroke {
@@ -159,7 +159,7 @@ fn main() {
     }
 
     println!(
-        "Finished tesselation: {} vertices, {} indices",
+        "Finished tessellation: {} vertices, {} indices",
         mesh.vertices.len(),
         mesh.indices.len()
     );
