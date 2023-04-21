@@ -20,18 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true
       - uses: Swatinem/rust-cache@v1
 
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all --verbose --all-features
+        run: cargo test --all --verbose --all-features
 
   wasm:
     env:
@@ -41,12 +36,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
-          target: "wasm32-unknown-unknown"
+          targets: "wasm32-unknown-unknown"
       - uses: Swatinem/rust-cache@v1
 
       - name: Use Node.js
