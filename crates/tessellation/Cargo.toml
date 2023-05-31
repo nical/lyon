@@ -21,7 +21,7 @@ profiling = []
 
 [dependencies]
 lyon_path = { version = "1.0.3", path = "../path" }
-float_next_after = "0.1.5"
+float_next_after = "1.0.0"
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
 thiserror = "1.0"
 
