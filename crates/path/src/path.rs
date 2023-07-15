@@ -1346,12 +1346,16 @@ impl<'l> Reversed<'l> {
 impl<'l> Iterator for Reversed<'l> {
     type Item = Event<(Point, Attributes<'l>), Point>;
     fn next(&mut self) -> Option<Self::Item> {
+        // At the beginning of each iteration, `self.p` points to the index
+        // directly after the endpoint of the current verb.
         let endpoint_stride = self.attrib_stride + 1;
         let v = self.verbs.next()?;
         let event = match v {
             Verb::Close => {
                 self.need_close = true;
-                let idx = self.p - endpoint_stride;
+                // Close event contain the first endpoint, so skip over that by
+                // offsetting by an extra endpoint stride.
+                let idx = self.p - 2 * endpoint_stride;
                 let first = (
                     self.path.points[idx],
                     self.path.attributes(EndpointId(idx as u32)),
@@ -1360,6 +1364,8 @@ impl<'l> Iterator for Reversed<'l> {
                 Event::Begin { at: first }
             }
             Verb::End => {
+                // End events don't push an endpoint, the current endpoint
+                // is the one of the previous command (or next going in reverse).
                 let idx = self.p - endpoint_stride;
                 self.need_close = false;
                 let first = (
@@ -1373,9 +1379,6 @@ impl<'l> Iterator for Reversed<'l> {
                 let close = self.need_close;
                 self.need_close = false;
                 let idx = self.p - endpoint_stride;
-                if close {
-                    self.p -= endpoint_stride;
-                }
                 Event::End {
                     last: (
                         self.path.points[idx],
@@ -1447,7 +1450,7 @@ fn n_stored_points(verb: Verb, attrib_stride: usize) -> usize {
         Verb::LineTo => attrib_stride + 1,
         Verb::QuadraticTo => attrib_stride + 2,
         Verb::CubicTo => attrib_stride + 3,
-        Verb::Close => 0,
+        Verb::Close => attrib_stride + 1,
         Verb::End => 0,
     }
 }
@@ -1524,7 +1527,7 @@ fn test_reverse_path_simple() {
 }
 
 #[test]
-fn test_reverse_path() {
+fn test_reverse_path_1() {
     let mut builder = Path::builder_with_attributes(1);
     builder.begin(point(0.0, 0.0), &[1.0]);
     builder.line_to(point(1.0, 0.0), &[2.0]);
@@ -1541,6 +1544,10 @@ fn test_reverse_path() {
     builder.begin(point(20.0, 0.0), &[9.0]);
     builder.quadratic_bezier_to(point(21.0, 0.0), point(21.0, 1.0), &[10.0]);
     builder.end(false);
+
+    builder.begin(point(20.0, 0.0), &[9.0]);
+    builder.quadratic_bezier_to(point(21.0, 0.0), point(21.0, 1.0), &[10.0]);
+    builder.end(true);
 
     let p1 = builder.build();
 
@@ -1578,6 +1585,29 @@ fn test_reverse_path() {
         Some(Event::End {
             last: (point(20.0, 0.0), &[9.0]),
             first: (point(21.0, 1.0), &[10.0]),
+            close: true
+        })
+    ));
+
+    assert!(check(
+        it.next(),
+        Some(Event::Begin {
+            at: (point(21.0, 1.0), &[10.0]),
+        })
+    ));
+    assert!(check(
+        it.next(),
+        Some(Event::Quadratic {
+            from: (point(21.0, 1.0), &[10.0]),
+            ctrl: point(21.0, 0.0),
+            to: (point(20.0, 0.0), &[9.0]),
+        })
+    ));
+    assert!(check(
+        it.next(),
+        Some(Event::End {
+            last: (point(20.0, 0.0), &[9.0]),
+            first: (point(21.0, 1.0), &[10.0]),
             close: false
         })
     ));
@@ -1585,14 +1615,7 @@ fn test_reverse_path() {
     assert!(check(
         it.next(),
         Some(Event::Begin {
-            at: (point(10.0, 0.0), &[5.0]),
-        })
-    ));
-    assert!(check(
-        it.next(),
-        Some(Event::Line {
-            from: (point(10.0, 0.0), &[5.0]),
-            to: (point(10.0, 1.0), &[8.0]),
+            at: (point(10.0, 1.0), &[8.0]), // <--
         })
     ));
     assert!(check(
@@ -1611,9 +1634,16 @@ fn test_reverse_path() {
     ));
     assert!(check(
         it.next(),
+        Some(Event::Line {
+            from: (point(11.0, 0.0), &[6.0]),
+            to: (point(10.0, 0.0), &[5.0]),
+        })
+    ));
+    assert!(check(
+        it.next(),
         Some(Event::End {
-            last: (point(11.0, 0.0), &[6.0]),
-            first: (point(10.0, 0.0), &[5.0]),
+            last: (point(10.0, 0.0), &[5.0]),
+            first: (point(10.0, 1.0), &[8.0]),
             close: true
         })
     ));
