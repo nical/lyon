@@ -7,7 +7,7 @@ use crate::path::PathEvent;
 /// Computes a conservative axis-aligned rectangle that contains the path.
 ///
 /// This bounding rectangle approximation is faster but less precise than
-/// [`building_box`](fn.bounding_box.html).
+/// [`bounding_box`](fn.bounding_box.html).
 pub fn fast_bounding_box<Iter, Evt>(path: Iter) -> Box2D
 where
     Iter: IntoIterator<Item = Evt>,
