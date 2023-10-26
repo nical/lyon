@@ -1985,7 +1985,7 @@ impl FillTessellator {
     #[cfg_attr(feature = "profiling", inline(never))]
     fn sort_edges_below(&mut self) {
         self.edges_below
-            .sort_unstable_by(|a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap());
+            .sort_unstable_by(|a, b| a.sort_key.partial_cmp(&b.sort_key).unwrap_or(Ordering::Equal));
     }
 
     #[cfg_attr(feature = "profiling", inline(never))]
