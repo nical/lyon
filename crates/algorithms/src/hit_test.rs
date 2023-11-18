@@ -26,19 +26,15 @@ where
     // winding of all edges intersecting the horizontal line passing through our point which are
     // left of it.
     let mut winding = 0;
-    let mut prev_winding = None;
 
     for evt in path {
         match evt {
-            PathEvent::Begin { .. } => {
-                prev_winding = None;
-            }
+            PathEvent::Begin { .. } => {}
             PathEvent::Line { from, to } => {
                 test_segment(
                     *point,
                     &LineSegment { from, to },
                     &mut winding,
-                    &mut prev_winding,
                 );
             }
             PathEvent::End { last, first, .. } => {
@@ -49,7 +45,6 @@ where
                         to: first,
                     },
                     &mut winding,
-                    &mut prev_winding,
                 );
             }
             PathEvent::Quadratic { from, ctrl, to } => {
@@ -59,7 +54,7 @@ where
                     continue;
                 }
                 segment.for_each_flattened(tolerance, &mut |line| {
-                    test_segment(*point, line, &mut winding, &mut prev_winding);
+                    test_segment(*point, line, &mut winding);
                 });
             }
             PathEvent::Cubic {
@@ -79,7 +74,7 @@ where
                     continue;
                 }
                 segment.for_each_flattened(tolerance, &mut |line| {
-                    test_segment(*point, line, &mut winding, &mut prev_winding);
+                    test_segment(*point, line, &mut winding);
                 });
             }
         }
@@ -92,15 +87,16 @@ fn test_segment(
     point: Point,
     segment: &LineSegment<f32>,
     winding: &mut i32,
-    prev_winding: &mut Option<i32>,
 ) {
     let y0 = segment.from.y;
     let y1 = segment.to.y;
-    if f32::min(y0, y1) > point.y
-        || f32::max(y0, y1) < point.y
+    let min_y = f32::min(y0, y1);
+    let max_y = f32::max(y0, y1);
+
+    if min_y > point.y
+        || max_y <= point.y
         || f32::min(segment.from.x, segment.to.x) > point.x
     {
-        *prev_winding = None;
         return;
     }
 
@@ -110,55 +106,17 @@ fn test_segment(
 
     let d = y1 - y0;
 
+
     let t = (point.y - y0) / d;
     let x = segment.sample(t).x;
 
-    if x < point.x {
-        let w = if segment.to.y > segment.from.y {
-            1
-        } else if segment.to.y < segment.from.y {
-            -1
-        } else if segment.to.x > segment.from.x {
-            1
-        } else {
-            -1
-        };
-
-        // Compare against the previous affecting edge winding to avoid double counting
-        // in cases like:
-        //
-        // ```
-        //   |
-        //   |
-        // --x-------p
-        //   |
-        //   |
-        // ```
-        //
-        //
-        // ```
-        //   |
-        //   x-----x-----p
-        //         |
-        //         |
-        // ```
-        //
-        // ```
-        //   x-----x-----p
-        //   |     |
-        //   |     |
-        // ```
-        //
-        // The main idea is that within a sub-path we can't have consecutive affecting edges
-        // of the same winding sign, so if we find some it means we are double-counting.
-        if *prev_winding != Some(w) {
-            *winding += w;
-        }
-
-        *prev_winding = Some(w);
-    } else {
-        *prev_winding = None;
+    if x > point.x {
+        return;
     }
+
+    let w = if d > 0.0 { 1 } else { -1 };
+
+    *winding += w;
 }
 
 #[test]
@@ -317,4 +275,24 @@ fn hit_test_double_count() {
         path_winding_number_at_position(&point(2.0, 2.0), &path, 0.1),
         1
     );
+}
+
+#[test]
+fn issue_882() {
+    use crate::math::point;
+    use crate::path::Path;
+    let mut pb = Path::builder();
+    pb.begin(point(0.0, 50.0));
+    pb.line_to(point(50.0, 50.0));
+    pb.line_to(point(50.0, 0.0));
+    pb.line_to(point(100.0, 0.0));
+    pb.line_to(point(100.0, 100.0));
+    pb.line_to(point(0.0, 100.0));
+    pb.line_to(point(0.0, 50.0));
+    pb.end(true);
+    let p = pb.build();
+
+    let x = point(55.0, 50.0);
+
+    assert!(hit_test_path(&x, p.iter(), FillRule::EvenOdd, 1.0))
 }
