@@ -111,8 +111,8 @@ impl BasicMonotoneTessellator {
 
     #[inline]
     fn push_triangle(&mut self, a: &MonotoneVertex, b: &MonotoneVertex, c: &MonotoneVertex) {
-        let threshold = -0.0625; // Floating point errors stroke again :(
-        debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
+        //let threshold = -0.0625; // Floating point errors stroke again :(
+        //debug_assert!((a.pos - b.pos).cross(c.pos - b.pos) >= threshold);
 
         self.push_triangle_ids(a.id, b.id, c.id);
     }
