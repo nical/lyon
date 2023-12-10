@@ -11,7 +11,7 @@ use crate::path::{
 use crate::{FillGeometryBuilder, Orientation, VertexId};
 use crate::{
     FillOptions, InternalError, SimpleAttributeStore, TessellationError, TessellationResult,
-    UnsupportedParamater, VertexSource,
+    UnsupportedParameter, VertexSource,
 };
 use float_next_after::NextAfter;
 use std::cmp::Ordering;
@@ -200,7 +200,7 @@ struct ActiveEdges {
 }
 
 struct Span {
-    /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
+    /// We store `MonotoneTessellator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     tess: Option<Box<MonotoneTessellator>>,
 }
@@ -221,7 +221,7 @@ impl Span {
 struct Spans {
     spans: Vec<Span>,
 
-    /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
+    /// We store `MonotoneTessellator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     #[allow(clippy::vec_box)]
     pool: Vec<Box<MonotoneTessellator>>,
@@ -751,8 +751,8 @@ impl FillTessellator {
         builder: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
         if options.tolerance.is_nan() || options.tolerance <= 0.0 {
-            return Err(TessellationError::UnsupportedParamater(
-                UnsupportedParamater::ToleranceIsNaN,
+            return Err(TessellationError::UnsupportedParameter(
+                UnsupportedParameter::ToleranceIsNaN,
             ));
         }
 
@@ -867,8 +867,8 @@ impl FillTessellator {
         self.current_position = self.events.position(current_event);
 
         if self.current_position.x.is_nan() || self.current_position.y.is_nan() {
-            return Err(TessellationError::UnsupportedParamater(
-                UnsupportedParamater::PositionIsNaN,
+            return Err(TessellationError::UnsupportedParameter(
+                UnsupportedParameter::PositionIsNaN,
             ));
         }
 

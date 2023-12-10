@@ -260,7 +260,7 @@ pub enum InternalError {
 pub enum TessellationError {
     // TODO Parameter typo
     #[error("Unsupported parameter: {0}")]
-    UnsupportedParamater(UnsupportedParamater),
+    UnsupportedParameter(UnsupportedParameter),
     #[error("Geometry builder error: {0}")]
     GeometryBuilder(#[from] GeometryBuilderError),
     #[error("Internal error: {0}")]
@@ -268,7 +268,7 @@ pub enum TessellationError {
 }
 
 #[derive(Error, Clone, Debug, PartialEq)]
-pub enum UnsupportedParamater {
+pub enum UnsupportedParameter {
     #[error("Position is not a number")]
     PositionIsNaN,
     #[error("Tolerance threshold is not a number")]

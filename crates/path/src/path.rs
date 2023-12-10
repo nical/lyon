@@ -1474,7 +1474,7 @@ fn test_reverse_path_simple() {
 
     let mut it = p2.iter_with_attributes();
 
-    // Using a function that explicits the argument types works around type inference issue.
+    // Using a function that explicit the argument types works around type inference issue.
     fn check<'l>(
         a: Option<Event<(Point, Attributes<'l>), Point>>,
         b: Option<Event<(Point, Attributes<'l>), Point>>,
@@ -1553,7 +1553,7 @@ fn test_reverse_path_1() {
 
     let mut it = p1.reversed().with_attributes();
 
-    // Using a function that explicits the argument types works around type inference issue.
+    // Using a function that explicit the argument types works around type inference issue.
     fn check<'l>(
         a: Option<Event<(Point, Attributes<'l>), Point>>,
         b: Option<Event<(Point, Attributes<'l>), Point>>,
