@@ -4,7 +4,7 @@ use crate::{
     FillGeometryBuilder, FillOptions, FillVertex, TessellationError, TessellationResult, VertexId,
 };
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 pub fn fill_rectangle(rect: &Box2D, output: &mut dyn FillGeometryBuilder) -> TessellationResult {
     output.begin_geometry();

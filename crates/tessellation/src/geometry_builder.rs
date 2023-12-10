@@ -192,8 +192,9 @@
 use crate::math::Point;
 use crate::{FillVertex, Index, StrokeVertex, VertexId};
 
-use std::convert::From;
-use std::ops::Add;
+use core::convert::From;
+use core::ops::Add;
+use alloc::vec::Vec;
 use thiserror::Error;
 
 /// An error that can happen while generating geometry.
@@ -448,8 +449,9 @@ where
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        #[cfg(feature = "std")]
         if a == b || a == c || b == c {
-            println!("bad triangle {a:?} {b:?} {c:?}");
+            std::println!("bad triangle {a:?} {b:?} {c:?}");
         }
         debug_assert!(a != b);
         debug_assert!(a != c);

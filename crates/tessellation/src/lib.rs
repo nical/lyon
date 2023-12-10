@@ -3,6 +3,8 @@
 #![deny(unconditional_recursion)]
 #![allow(clippy::float_cmp)]
 #![allow(clippy::too_many_arguments)]
+#![no_std]
+
 // TODO: Tessellation pipeline diagram needs to be updated.
 
 //! Tessellation of 2D fill and stroke operations.
@@ -181,6 +183,11 @@
 #![allow(dead_code)]
 //#![allow(needless_return, new_without_default_derive)] // clippy
 
+extern crate alloc;
+
+#[cfg(any(test, feature = "std"))]
+extern crate std;
+
 pub use lyon_path as path;
 
 #[cfg(test)]
@@ -229,7 +236,8 @@ pub use crate::path::{AttributeIndex, Attributes, FillRule, LineCap, LineJoin, S
 
 use crate::path::EndpointId;
 
-use std::ops::{Add, Sub};
+use core::ops::{Add, Sub};
+use alloc::vec::Vec;
 use thiserror::Error;
 
 /// The fill tessellator's result type.

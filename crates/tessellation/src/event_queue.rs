@@ -5,9 +5,10 @@ use crate::path::private::DebugValidator;
 use crate::path::{EndpointId, IdEvent, PathEvent, PositionStore};
 use crate::Orientation;
 
-use std::cmp::Ordering;
-use std::mem::swap;
-use std::ops::Range;
+use core::cmp::Ordering;
+use core::mem::swap;
+use core::ops::Range;
+use alloc::vec::Vec;
 
 #[inline]
 fn reorient(p: Point) -> Point {
@@ -27,7 +28,7 @@ pub(crate) struct Event {
 #[derive(Clone, Debug)]
 pub(crate) struct EdgeData {
     pub to: Point,
-    pub range: std::ops::Range<f32>,
+    pub range: core::ops::Range<f32>,
     pub winding: i16,
     pub is_edge: bool,
     pub from_id: EndpointId,
@@ -412,26 +413,26 @@ impl EventQueue {
         current_sibling
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, feature = "std"))]
     fn log(&self) {
         let mut iter_count = self.events.len() * self.events.len();
 
-        println!("--");
+        std::println!("--");
         let mut current = self.first;
         while (current as usize) < self.events.len() {
             assert!(iter_count > 0);
             iter_count -= 1;
 
-            print!("[");
+            std::print!("[");
             let mut current_sibling = current;
             while (current_sibling as usize) < self.events.len() {
-                print!("{:?},", self.events[current_sibling as usize].position);
+                std::print!("{:?},", self.events[current_sibling as usize].position);
                 current_sibling = self.events[current_sibling as usize].next_sibling;
             }
-            print!("]  ");
+            std::print!("]  ");
             current = self.events[current as usize].next_event;
         }
-        println!("\n--");
+        std::println!("\n--");
     }
 
     fn assert_sorted(&self) {

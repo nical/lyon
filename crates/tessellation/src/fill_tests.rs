@@ -4,8 +4,8 @@ use crate::math::*;
 use crate::path::{Path, PathSlice};
 use crate::{FillOptions, FillRule, FillTessellator, FillVertex, TessellationError, VertexId};
 
-use std::env;
-use std::f32::consts::PI;
+use core::f32::consts::PI;
+use alloc::vec::Vec;
 
 fn tessellate(path: PathSlice, fill_rule: FillRule, log: bool) -> Result<usize, TessellationError> {
     let mut buffers: VertexBuffers<Point, u16> = VertexBuffers::new();
@@ -77,23 +77,26 @@ fn test_too_many_vertices() {
     );
 }
 
+#[cfg(test)]
 fn test_path(path: PathSlice) {
     test_path_internal(path, FillRule::EvenOdd, None);
     test_path_internal(path, FillRule::NonZero, None);
 }
 
+#[cfg(test)]
 fn test_path_and_count_triangles(path: PathSlice, expected_triangle_count: usize) {
     test_path_internal(path, FillRule::EvenOdd, Some(expected_triangle_count));
     test_path_internal(path, FillRule::NonZero, None);
 }
 
+#[cfg(test)]
 fn test_path_internal(
     path: PathSlice,
     fill_rule: FillRule,
     expected_triangle_count: Option<usize>,
 ) {
-    let add_logging = env::var("LYON_ENABLE_LOGGING").is_ok();
-    let find_test_case = env::var("LYON_REDUCED_TESTCASE").is_ok();
+    let add_logging = std::env::var("LYON_ENABLE_LOGGING").is_ok();
+    let find_test_case = std::env::var("LYON_REDUCED_TESTCASE").is_ok();
 
     let res = if find_test_case {
         ::std::panic::catch_unwind(|| tessellate(path, fill_rule, false))
@@ -127,6 +130,7 @@ fn test_path_internal(
     panic!("Test failed with fill rule {:?}.", fill_rule);
 }
 
+#[cfg(test)]
 fn test_path_with_rotations(path: Path, step: f32, expected_triangle_count: Option<usize>) {
     let mut angle = Angle::radians(0.0);
     while angle.radians < PI * 2.0 {
@@ -799,7 +803,7 @@ fn angle_precision() {
 
 #[test]
 fn n_segments_intersecting() {
-    use std::f32::consts::PI;
+    use core::f32::consts::PI;
 
     // This test creates a lot of segments that intersect at the same
     // position (center). Very good at finding precision issues.

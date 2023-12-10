@@ -14,10 +14,12 @@ use crate::{
     UnsupportedParamater, VertexSource,
 };
 use float_next_after::NextAfter;
-use std::cmp::Ordering;
-use std::f32::consts::FRAC_1_SQRT_2;
-use std::mem;
-use std::ops::Range;
+use core::cmp::Ordering;
+use core::f32::consts::FRAC_1_SQRT_2;
+use core::mem;
+use core::ops::Range;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 #[cfg(debug_assertions)]
 use std::env;
@@ -63,21 +65,21 @@ fn slope(v: Vector) -> f32 {
     v.x / (v.y.max(f32::MIN))
 }
 
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "std"))]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => (
         if $obj.log {
-            println!($fmt);
+            std::println!($fmt);
         }
     );
     ($obj:ident, $fmt:expr, $($arg:tt)*) => (
         if $obj.log {
-            println!($fmt, $($arg)*);
+            std::println!($fmt, $($arg)*);
         }
     );
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(not(all(debug_assertions, feature = "std")))]
 macro_rules! tess_log {
     ($obj:ident, $fmt:expr) => {};
     ($obj:ident, $fmt:expr, $($arg:tt)*) => {};
@@ -579,7 +581,7 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
+        let event_queue = core::mem::replace(&mut self.events, EventQueue::new());
         let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path(
@@ -604,7 +606,7 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let event_queue = std::mem::replace(&mut self.events, EventQueue::new());
+        let event_queue = core::mem::replace(&mut self.events, EventQueue::new());
         let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path_with_ids(
@@ -2341,7 +2343,7 @@ impl<'l> FillBuilder<'l> {
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let events = std::mem::replace(&mut tessellator.events, EventQueue::new())
+        let events = core::mem::replace(&mut tessellator.events, EventQueue::new())
             .into_builder(options.tolerance);
 
         FillBuilder {
@@ -2509,7 +2511,7 @@ impl<'l> FillBuilder<'l> {
 
     pub fn build(self) -> TessellationResult {
         let mut event_queue = self.events.build();
-        std::mem::swap(&mut self.tessellator.events, &mut event_queue);
+        core::mem::swap(&mut self.tessellator.events, &mut event_queue);
 
         let attrib_store = if self.attrib_store.num_attributes > 0 {
             Some(&self.attrib_store as &dyn AttributeStore)
@@ -2833,8 +2835,9 @@ fn fill_vertex_source_02() {
             fn assert_attr(a: Attributes, b: Attributes) {
                 for i in 0..a.len() {
                     let are_equal = (a[i] - b[i]).abs() < 0.001;
+                    #[cfg(feature = "std")]
                     if !are_equal {
-                        println!("{a:?} != {b:?}");
+                        std::println!("{a:?} != {b:?}");
                     }
                     assert!(are_equal);
                 }
