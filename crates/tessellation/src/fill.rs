@@ -24,9 +24,6 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-#[cfg(all(debug_assertions, feature = "std"))]
-use std::env;
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Side {
     Left,
@@ -550,8 +547,8 @@ impl Default for FillTessellator {
 impl FillTessellator {
     /// Constructor.
     pub fn new() -> Self {
-        #[cfg(debug_assertions)]
-        let log = env::var("LYON_FORCE_LOGGING").is_ok();
+        #[cfg(all(debug_assertions, feature = "std"))]
+        let log = std::env::var("LYON_FORCE_LOGGING").is_ok();
         #[cfg(not(debug_assertions))]
         let log = false;
 
@@ -813,8 +810,8 @@ impl FillTessellator {
     /// Enable/disable some verbose logging during the tessellation, for
     /// debugging purposes.
     pub fn set_logging(&mut self, is_enabled: bool) {
-        #[cfg(debug_assertions)]
-        let forced = env::var("LYON_FORCE_LOGGING").is_ok();
+        #[cfg(all(debug_assertions, feature = "std"))]
+        let forced = std::env::var("LYON_FORCE_LOGGING").is_ok();
 
         #[cfg(not(debug_assertions))]
         let forced = false;
