@@ -1044,7 +1044,6 @@ dependencies = [
  "lyon_extra",
  "lyon_path",
  "serde",
- "thiserror",
 ]
 
 [[package]]

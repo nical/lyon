@@ -191,20 +191,11 @@
 
 use crate::math::Point;
 use crate::{FillVertex, Index, StrokeVertex, VertexId};
+pub use crate::error::GeometryBuilderError;
 
 use core::convert::From;
 use core::ops::Add;
 use alloc::vec::Vec;
-use thiserror::Error;
-
-/// An error that can happen while generating geometry.
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum GeometryBuilderError {
-    #[error("Invalid vertex")]
-    InvalidVertex,
-    #[error("Too many vertices")]
-    TooManyVertices,
-}
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
