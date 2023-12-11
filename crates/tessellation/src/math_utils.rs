@@ -2,6 +2,9 @@
 
 use crate::math::*;
 
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
+
 /// Compute a normal vector at a point P such that ```x ---e1----> P ---e2---> x```
 ///
 /// The resulting vector is not normalized. The length is such that extruding the shape

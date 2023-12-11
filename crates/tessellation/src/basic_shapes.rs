@@ -6,6 +6,9 @@ use crate::{
 
 use core::f32::consts::PI;
 
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
+
 pub fn fill_rectangle(rect: &Box2D, output: &mut dyn FillGeometryBuilder) -> TessellationResult {
     output.begin_geometry();
 

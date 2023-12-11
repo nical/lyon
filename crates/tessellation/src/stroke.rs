@@ -20,6 +20,9 @@ use crate::{
 use core::f32::consts::PI;
 use alloc::vec::Vec;
 
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
+
 const SIDE_POSITIVE: usize = 0;
 const SIDE_NEGATIVE: usize = 1;
 

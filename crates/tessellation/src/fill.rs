@@ -21,6 +21,9 @@ use core::ops::Range;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
+
 #[cfg(all(debug_assertions, feature = "std"))]
 use std::env;
 
