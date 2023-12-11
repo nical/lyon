@@ -21,7 +21,7 @@ use core::ops::Range;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "std"))]
 use std::env;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
