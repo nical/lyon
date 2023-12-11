@@ -549,7 +549,7 @@ impl FillTessellator {
     pub fn new() -> Self {
         #[cfg(all(debug_assertions, feature = "std"))]
         let log = std::env::var("LYON_FORCE_LOGGING").is_ok();
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(all(debug_assertions, feature = "std")))]
         let log = false;
 
         FillTessellator {
@@ -813,7 +813,7 @@ impl FillTessellator {
         #[cfg(all(debug_assertions, feature = "std"))]
         let forced = std::env::var("LYON_FORCE_LOGGING").is_ok();
 
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(all(debug_assertions, feature = "std")))]
         let forced = false;
 
         self.log = is_enabled || forced;
