@@ -1043,8 +1043,8 @@ dependencies = [
  "float_next_after",
  "lyon_extra",
  "lyon_path",
+ "num-traits",
  "serde",
- "thiserror",
 ]
 
 [[package]]

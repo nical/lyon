@@ -16,7 +16,12 @@ use crate::{
     LineCap, LineJoin, Side, SimpleAttributeStore, StrokeGeometryBuilder, StrokeOptions,
     TessellationError, TessellationResult, VertexId, VertexSource,
 };
-use std::f32::consts::PI;
+
+use core::f32::consts::PI;
+use alloc::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 const SIDE_POSITIVE: usize = 0;
 const SIDE_NEGATIVE: usize = 1;
@@ -1980,8 +1985,8 @@ fn tessellate_round_join(
 
     if side == SIDE_NEGATIVE {
         // Flip to keep consistent winding order.
-        std::mem::swap(&mut start_angle, &mut end_angle);
-        std::mem::swap(&mut start_vertex, &mut end_vertex);
+        core::mem::swap(&mut start_angle, &mut end_angle);
+        core::mem::swap(&mut start_vertex, &mut end_vertex);
     }
 
     // Compute the required number of subdivisions,

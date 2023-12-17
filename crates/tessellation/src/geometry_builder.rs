@@ -191,19 +191,11 @@
 
 use crate::math::Point;
 use crate::{FillVertex, Index, StrokeVertex, VertexId};
+pub use crate::error::GeometryBuilderError;
 
-use std::convert::From;
-use std::ops::Add;
-use thiserror::Error;
-
-/// An error that can happen while generating geometry.
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum GeometryBuilderError {
-    #[error("Invalid vertex")]
-    InvalidVertex,
-    #[error("Too many vertices")]
-    TooManyVertices,
-}
+use core::convert::From;
+use core::ops::Add;
+use alloc::vec::Vec;
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
@@ -448,8 +440,9 @@ where
     }
 
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        #[cfg(feature = "std")]
         if a == b || a == c || b == c {
-            println!("bad triangle {a:?} {b:?} {c:?}");
+            std::println!("bad triangle {a:?} {b:?} {c:?}");
         }
         debug_assert!(a != b);
         debug_assert!(a != c);

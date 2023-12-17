@@ -3,6 +3,8 @@
 #![deny(unconditional_recursion)]
 #![allow(clippy::float_cmp)]
 #![allow(clippy::too_many_arguments)]
+#![no_std]
+
 // TODO: Tessellation pipeline diagram needs to be updated.
 
 //! Tessellation of 2D fill and stroke operations.
@@ -181,6 +183,11 @@
 #![allow(dead_code)]
 //#![allow(needless_return, new_without_default_derive)] // clippy
 
+extern crate alloc;
+
+#[cfg(any(test, feature = "std"))]
+extern crate std;
+
 pub use lyon_path as path;
 
 #[cfg(test)]
@@ -191,6 +198,7 @@ use lyon_extra as extra;
 pub extern crate serde;
 
 mod basic_shapes;
+mod error;
 mod event_queue;
 mod fill;
 pub mod geometry_builder;
@@ -225,55 +233,15 @@ pub use crate::geometry_builder::{
     GeometryBuilderError, StrokeGeometryBuilder, StrokeVertexConstructor, VertexBuffers,
 };
 
+#[doc(inline)]
+pub use crate::error::*;
+
 pub use crate::path::{AttributeIndex, Attributes, FillRule, LineCap, LineJoin, Side};
 
 use crate::path::EndpointId;
 
-use std::ops::{Add, Sub};
-use thiserror::Error;
-
-/// The fill tessellator's result type.
-pub type TessellationResult = Result<(), TessellationError>;
-
-/// Describes an unexpected error happening during tessellation.
-///
-/// If you run into one of these, please consider
-/// [filing an issue](https://github.com/nical/lyon/issues/new).
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum InternalError {
-    #[error("Incorrect active edge order ({0})")]
-    IncorrectActiveEdgeOrder(i16),
-    #[error("Insufficient number of spans")]
-    InsufficientNumberOfSpans,
-    #[error("Insufficient number of edges")]
-    InsufficientNumberOfEdges,
-    #[error("Merge vertex is outside of the shape")]
-    MergeVertexOutside,
-    #[error("Unexpected number of edges below a vertex")]
-    InvalidNumberOfEdgesBelowVertex,
-    #[error("Error code: #{0}")]
-    ErrorCode(i16),
-}
-
-/// The fill tessellator's error enumeration.
-#[derive(Error, Clone, Debug, PartialEq)]
-pub enum TessellationError {
-    // TODO Parameter typo
-    #[error("Unsupported parameter: {0}")]
-    UnsupportedParamater(UnsupportedParamater),
-    #[error("Geometry builder error: {0}")]
-    GeometryBuilder(#[from] GeometryBuilderError),
-    #[error("Internal error: {0}")]
-    Internal(#[from] InternalError),
-}
-
-#[derive(Error, Clone, Debug, PartialEq)]
-pub enum UnsupportedParamater {
-    #[error("Position is not a number")]
-    PositionIsNaN,
-    #[error("Tolerance threshold is not a number")]
-    ToleranceIsNaN,
-}
+use core::ops::{Add, Sub};
+use alloc::vec::Vec;
 
 /// Before or After. Used to describe position relative to a join.
 #[derive(Copy, Clone, Debug, PartialEq)]

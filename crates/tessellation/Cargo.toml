@@ -15,15 +15,17 @@ name = "lyon_tessellation"
 path = "src/lib.rs"
 
 [features]
+default = ["std"]
+std = ["lyon_path/std", "num-traits/std"]
 serialization = ["serde", "lyon_path/serialization"]
 debugger = []
 profiling = []
 
 [dependencies]
-lyon_path = { version = "1.0.3", path = "../path" }
+lyon_path = { version = "1.0.3", path = "../path", default-features = false }
 float_next_after = "1.0.0"
 serde = { version = "1.0", optional = true, features = ["serde_derive"] }
-thiserror = "1.0"
+num-traits = { version = "0.2.15", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
 lyon_extra = { version = "1.0.0", path = "../extra" }
