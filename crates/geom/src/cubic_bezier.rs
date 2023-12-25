@@ -250,8 +250,13 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let v2 = self.ctrl2 - self.from;
         let c1 = baseline.cross(v1);
         let c2 = baseline.cross(v2);
-        let d1 = (c1 * c1) / baseline.square_length();
-        let d2 = (c2 * c2) / baseline.square_length();
+        // TODO: it would be faster to multiply the threshold with baseline_len2
+        // instead of dividing d1 and d2, but it changes the behavior when the
+        // baseline length is zero in ways that breaks some of the cubic intersection
+        // tests.
+        let inv_baseline_len2 = S::ONE / baseline.square_length();
+        let d1 = (c1 * c1) * inv_baseline_len2;
+        let d2 = (c2 * c2) * inv_baseline_len2;
 
         let factor = if (c1 * c2) > S::ZERO {
             S::THREE / S::FOUR
@@ -262,7 +267,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
         let f2 = factor * factor;
         let threshold = tolerance * tolerance;
 
-        d1 * f2 <= threshold && d2 <= threshold
+        d1 * f2 <= threshold && d2 * f2 <= threshold
     }
 
     /// Returns whether the curve can be approximated with a single point, given
