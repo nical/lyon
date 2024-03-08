@@ -93,7 +93,15 @@ fn main() {
         ty: f32::NAN,
     };
     let view_box = rtree.view_box();
-    collect_geom(&rtree.root(), &mut prev_transform, &mut transforms, &mut primitives, &mut fill_tess, &mut mesh, &mut stroke_tess);
+    collect_geom(
+        &rtree.root(),
+        &mut prev_transform,
+        &mut transforms,
+        &mut primitives,
+        &mut fill_tess,
+        &mut mesh,
+        &mut stroke_tess,
+    );
 
     if app.is_present("TESS_ONLY") {
         return;
@@ -438,11 +446,27 @@ fn main() {
     });
 }
 
-fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut Vec<GpuTransform>, primitives: &mut Vec<GpuPrimitive>, fill_tess: &mut FillTessellator, mesh: &mut VertexBuffers<GpuVertex, u32>, stroke_tess: &mut StrokeTessellator) {
+fn collect_geom(
+    group: &Group,
+    prev_transform: &mut Transform,
+    transforms: &mut Vec<GpuTransform>,
+    primitives: &mut Vec<GpuPrimitive>,
+    fill_tess: &mut FillTessellator,
+    mesh: &mut VertexBuffers<GpuVertex, u32>,
+    stroke_tess: &mut StrokeTessellator,
+) {
     for node in group.children() {
         if let usvg::Node::Group(group) = node {
-            collect_geom(group, prev_transform, transforms, primitives, fill_tess, mesh, stroke_tess)
-        } else  if let usvg::Node::Path(ref p) = node {
+            collect_geom(
+                group,
+                prev_transform,
+                transforms,
+                primitives,
+                fill_tess,
+                mesh,
+                stroke_tess,
+            )
+        } else if let usvg::Node::Path(p) = &node {
             let t = node.abs_transform();
             if t != *prev_transform {
                 transforms.push(GpuTransform {
@@ -454,7 +478,7 @@ fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut 
 
             let transform_idx = transforms.len() as u32 - 1;
 
-            if let Some(ref fill) = p.fill() {
+            if let Some( fill) = p.fill() {
                 // fall back to always use color fill
                 // no gradients (yet?)
                 let color = match fill.paint() {
@@ -465,7 +489,7 @@ fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut 
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     color,
-                    fill.opacity().get() as f32,
+                    fill.opacity().get(),
                 ));
 
                 fill_tess
@@ -482,7 +506,7 @@ fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut 
                     .expect("Error during tessellation!");
             }
 
-            if let Some(ref stroke) = p.stroke() {
+            if let Some(stroke) = p.stroke() {
                 let (stroke_color, stroke_opts) = convert_stroke(stroke);
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
@@ -674,13 +698,8 @@ fn update_inputs(
 }
 
 /// Some glue between usvg's iterators and lyon's.
-
-fn point(x: f32, y: f32) -> Point {
-    Point::new(x as f32, y as f32)
-}
-
 pub struct PathConvIter<'a> {
-    iter: tiny_skia_path::PathSegmentsIter::<'a>,
+    iter: tiny_skia_path::PathSegmentsIter<'a>,
     prev: Point,
     first: Point,
     needs_end: bool,
@@ -697,13 +716,11 @@ impl<'l> Iterator for PathConvIter<'l> {
         let next = self.iter.next();
         match next {
             Some(tiny_skia_path::PathSegment::MoveTo(pt)) => {
-                let x = pt.x;
-                let y = pt.y;
                 if self.needs_end {
                     let last = self.prev;
                     let first = self.first;
                     self.needs_end = false;
-                    self.prev = point(x, y);
+                    self.prev = Point::new(pt.x, pt.y);
                     self.deferred = Some(PathEvent::Begin { at: self.prev });
                     self.first = self.prev;
                     Some(PathEvent::End {
@@ -712,48 +729,40 @@ impl<'l> Iterator for PathConvIter<'l> {
                         close: false,
                     })
                 } else {
-                    self.first = point(x, y);
+                    self.first = Point::new(pt.x, pt.y);
                     self.needs_end = true;
                     Some(PathEvent::Begin { at: self.first })
                 }
             }
             Some(tiny_skia_path::PathSegment::LineTo(pt)) => {
-                let x = pt.x;
-                let y = pt.y;
                 self.needs_end = true;
                 let from = self.prev;
-                self.prev = point(x, y);
+                self.prev = Point::new(pt.x, pt.y);
                 Some(PathEvent::Line {
                     from,
                     to: self.prev,
                 })
             }
             Some(tiny_skia_path::PathSegment::CubicTo(p1, p2, p0)) => {
-                let x1=  p1.x;
-                let y1=  p1.y;
-                let x2=  p2.x;
-                let y2=  p2.y;
-                let x=   p0.x;
-                let y =  p0.y;
                 self.needs_end = true;
                 let from = self.prev;
-                self.prev = point(x, y);
+                self.prev = Point::new(p0.x, p0.y);
                 Some(PathEvent::Cubic {
                     from,
-                    ctrl1: point(x1, y1),
-                    ctrl2: point(x2, y2),
+                    ctrl1: Point::new(p1.x, p1.y),
+                    ctrl2: Point::new(p2.x, p2.y),
                     to: self.prev,
                 })
             }
             Some(tiny_skia_path::PathSegment::QuadTo(p1, p0)) => {
-                let x1=  p0.x;
-                let y1=  p0.y;
-                let x=  p1.x;
-                let y=  p1.y;
                 self.needs_end = true;
                 let from = self.prev;
-                self.prev = point(x, y);
-                Some(PathEvent::Quadratic { from, ctrl: point(x1, y1), to: self.prev })
+                self.prev = Point::new(p1.x, p1.y);
+                Some(PathEvent::Quadratic {
+                    from,
+                    ctrl: Point::new(p0.x, p0.y),
+                    to: self.prev,
+                })
             }
             Some(tiny_skia_path::PathSegment::Close) => {
                 self.needs_end = false;
@@ -810,7 +819,7 @@ pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
     };
 
     let opt = StrokeOptions::tolerance(0.01)
-        .with_line_width(s.width().get() as f32)
+        .with_line_width(s.width().get())
         .with_line_cap(linecap)
         .with_line_join(linejoin);
 
