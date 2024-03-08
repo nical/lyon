@@ -3,7 +3,7 @@ use lyon::math::Point;
 use lyon::path::PathEvent;
 use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
-use usvg::prelude::*;
+use usvg::*;
 use wgpu::include_wgsl;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -95,7 +95,7 @@ fn main() {
     let view_box = rtree.svg_node().view_box;
     for node in rtree.root().descendants() {
         if let usvg::NodeKind::Path(ref p) = *node.borrow() {
-            let t = node.transform();
+            let t = NodeExt::transform(&node);
             if t != prev_transform {
                 transforms.push(GpuTransform {
                     data0: [t.a as f32, t.b as f32, t.c as f32, t.d as f32],
