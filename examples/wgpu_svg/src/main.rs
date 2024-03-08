@@ -84,12 +84,12 @@ fn main() {
     let mut primitives = Vec::new();
 
     let mut prev_transform = usvg::Transform {
-        a: f64::NAN,
-        b: f64::NAN,
-        c: f64::NAN,
-        d: f64::NAN,
-        e: f64::NAN,
-        f: f64::NAN,
+        sx: f32::NAN,
+        kx: f32::NAN,
+        ky: f32::NAN,
+        sy: f32::NAN,
+        tx: f32::NAN,
+        ty: f32::NAN,
     };
     let view_box = rtree.view_box;
     for node in rtree.root.descendants() {
@@ -97,8 +97,8 @@ fn main() {
             let t = NodeExt::transform(&node);
             if t != prev_transform {
                 transforms.push(GpuTransform {
-                    data0: [t.a as f32, t.b as f32, t.c as f32, t.d as f32],
-                    data1: [t.e as f32, t.f as f32, 0.0, 0.0],
+                    data0: [t.sx as f32, t.kx as f32, t.ky as f32, t.sy as f32],
+                    data1: [t.tx as f32, t.ty as f32, 0.0, 0.0],
                 });
             }
             prev_transform = t;
@@ -668,12 +668,12 @@ fn update_inputs(
 
 /// Some glue between usvg's iterators and lyon's.
 
-fn point(x: f64, y: f64) -> Point {
+fn point(x: f32, y: f32) -> Point {
     Point::new(x as f32, y as f32)
 }
 
 pub struct PathConvIter<'a> {
-    iter: usvg::PathSegmentsIter<'a>,
+    iter: tiny_skia_path::PathSegmentsIter::<'a>,
     prev: Point,
     first: Point,
     needs_end: bool,
@@ -689,7 +689,9 @@ impl<'l> Iterator for PathConvIter<'l> {
 
         let next = self.iter.next();
         match next {
-            Some(usvg::PathSegment::MoveTo { x, y }) => {
+            Some(tiny_skia_path::PathSegment::MoveTo(pt)) => {
+                let x = pt.x;
+                let y = pt.y;
                 if self.needs_end {
                     let last = self.prev;
                     let first = self.first;
@@ -708,7 +710,9 @@ impl<'l> Iterator for PathConvIter<'l> {
                     Some(PathEvent::Begin { at: self.first })
                 }
             }
-            Some(usvg::PathSegment::LineTo { x, y }) => {
+            Some(tiny_skia_path::PathSegment::LineTo(pt)) => {
+                let x = pt.x;
+                let y = pt.y;
                 self.needs_end = true;
                 let from = self.prev;
                 self.prev = point(x, y);
@@ -717,14 +721,13 @@ impl<'l> Iterator for PathConvIter<'l> {
                     to: self.prev,
                 })
             }
-            Some(usvg::PathSegment::CurveTo {
-                x1,
-                y1,
-                x2,
-                y2,
-                x,
-                y,
-            }) => {
+            Some(tiny_skia_path::PathSegment::CubicTo(p1, p2, p0)) => {
+                let x1=  p1.x;
+                let y1=  p1.y;
+                let x2=  p2.x;
+                let y2=  p2.y;
+                let x=   p0.x;
+                let y =  p0.y;
                 self.needs_end = true;
                 let from = self.prev;
                 self.prev = point(x, y);
@@ -735,7 +738,17 @@ impl<'l> Iterator for PathConvIter<'l> {
                     to: self.prev,
                 })
             }
-            Some(usvg::PathSegment::ClosePath) => {
+            Some(tiny_skia_path::PathSegment::QuadTo(p1, p0)) => {
+                let x1=  p0.x;
+                let y1=  p0.y;
+                let x=  p1.x;
+                let y=  p1.y;
+                self.needs_end = true;
+                let from = self.prev;
+                self.prev = point(x, y);
+                Some(PathEvent::Quadratic { from, ctrl: point(x1, y1), to: self.prev })
+            }
+            Some(tiny_skia_path::PathSegment::Close) => {
                 self.needs_end = false;
                 self.prev = self.first;
                 Some(PathEvent::End {
