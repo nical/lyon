@@ -79,7 +79,7 @@ fn main() {
 
     let opt = usvg::Options::default();
     let file_data = std::fs::read(filename).unwrap();
-    let rtree = usvg::Tree::from_data(&file_data, &opt.to_ref()).unwrap();
+    let rtree = usvg::Tree::from_data(&file_data, &opt).unwrap();
     let mut transforms = Vec::new();
     let mut primitives = Vec::new();
 
