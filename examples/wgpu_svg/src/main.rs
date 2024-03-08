@@ -91,8 +91,8 @@ fn main() {
         e: f64::NAN,
         f: f64::NAN,
     };
-    let view_box = rtree.svg_node().view_box;
-    for node in rtree.root().descendants() {
+    let view_box = rtree.view_box;
+    for node in rtree.root.descendants() {
         if let usvg::NodeKind::Path(ref p) = *node.borrow() {
             let t = NodeExt::transform(&node);
             if t != prev_transform {
@@ -116,7 +116,7 @@ fn main() {
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     color,
-                    fill.opacity.value() as f32,
+                    fill.opacity.get() as f32,
                 ));
 
                 fill_tess
@@ -138,7 +138,7 @@ fn main() {
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     stroke_color,
-                    stroke.opacity.value() as f32,
+                    stroke.opacity.get() as f32,
                 ));
                 let _ = stroke_tess.tessellate(
                     convert_path(p),
@@ -668,12 +668,12 @@ fn update_inputs(
 
 /// Some glue between usvg's iterators and lyon's.
 
-fn point(x: &f64, y: &f64) -> Point {
-    Point::new((*x) as f32, (*y) as f32)
+fn point(x: f64, y: f64) -> Point {
+    Point::new(x as f32, y as f32)
 }
 
 pub struct PathConvIter<'a> {
-    iter: std::slice::Iter<'a, usvg::PathSegment>,
+    iter: usvg::PathSegmentsIter<'a>,
     prev: Point,
     first: Point,
     needs_end: bool,
@@ -764,7 +764,7 @@ impl<'l> Iterator for PathConvIter<'l> {
 
 pub fn convert_path(p: &usvg::Path) -> PathConvIter {
     PathConvIter {
-        iter: p.data.iter(),
+        iter: p.data.segments(),
         first: Point::new(0.0, 0.0),
         prev: Point::new(0.0, 0.0),
         deferred: None,
@@ -789,7 +789,7 @@ pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
     };
 
     let opt = StrokeOptions::tolerance(0.01)
-        .with_line_width(s.width.value() as f32)
+        .with_line_width(s.width.get() as f32)
         .with_line_cap(linecap)
         .with_line_join(linejoin);
 
