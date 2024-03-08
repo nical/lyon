@@ -798,6 +798,7 @@ pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
     };
     let linejoin = match s.linejoin {
         usvg::LineJoin::Miter => tessellation::LineJoin::Miter,
+        usvg::LineJoin::MiterClip => tessellation::LineJoin::MiterClip,
         usvg::LineJoin::Bevel => tessellation::LineJoin::Bevel,
         usvg::LineJoin::Round => tessellation::LineJoin::Round,
     };
