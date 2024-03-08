@@ -20,7 +20,6 @@ pub const FALLBACK_COLOR: usvg::Color = usvg::Color {
     red: 0,
     green: 0,
     blue: 0,
-    alpha: 255,
 };
 
 // This example renders a very tiny subset of SVG (only filled and stroke paths with solid color
