@@ -1734,19 +1734,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1382d1f0a252c4bf97dc20d979a2fdd05b024acd7c2ed0f7595d7817666a157"
 
 [[package]]
-name = "rosvgtree"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad747e7384940e7bf33b15ba433b7bad9f44c0c6d5287a67c2cb22cd1743d497"
-dependencies = [
- "log",
- "roxmltree 0.18.1",
- "simplecss",
- "siphasher",
- "svgtypes",
-]
-
-[[package]]
 name = "roxmltree"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1952,6 +1939,7 @@ dependencies = [
  "env_logger 0.11.3",
  "futures",
  "lyon",
+ "tiny-skia-path 0.10.0",
  "usvg",
  "wgpu",
  "winit",
@@ -2052,7 +2040,7 @@ dependencies = [
  "cfg-if",
  "png",
  "safe_arch",
- "tiny-skia-path",
+ "tiny-skia-path 0.7.0",
 ]
 
 [[package]]
@@ -2063,6 +2051,17 @@ checksum = "c114d32f0c2ee43d585367cb013dfaba967ab9f62b90d9af0d696e955e70fa6c"
 dependencies = [
  "arrayref",
  "bytemuck",
+]
+
+[[package]]
+name = "tiny-skia-path"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f60aa35c89ac2687ace1a2556eaaea68e8c0d47408a2e3e7f5c98a489e7281c"
+dependencies = [
+ "arrayref",
+ "bytemuck",
+ "strict-num",
 ]
 
 [[package]]
@@ -2151,9 +2150,9 @@ checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
 
 [[package]]
 name = "usvg"
-version = "0.33.0"
+version = "0.34.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae32eb823aab35fc343b19c4d354f70e713b442ce34cdfa8497bf6c39af8a342"
+checksum = "d2304b933107198a910c1f3219acb65246f2b148f862703cffd51c6e62156abe"
 dependencies = [
  "base64",
  "log",
@@ -2166,26 +2165,27 @@ dependencies = [
 
 [[package]]
 name = "usvg-parser"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7529174e721c8078d62b08399258469b1d68b4e5f2983b347d6a9d39779366c"
+checksum = "12b940fea80394e3b14cb21c83fa1b8f8a41023c25929bba68bb84a76193ebed"
 dependencies = [
  "data-url",
  "flate2",
  "imagesize",
  "kurbo",
  "log",
- "rosvgtree",
- "strict-num",
+ "roxmltree 0.18.1",
+ "simplecss",
+ "siphasher",
  "svgtypes",
  "usvg-tree",
 ]
 
 [[package]]
 name = "usvg-text-layout"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e672fbc19261c6553113cc04ff2ff38ae52fadbd90f2d814040857795fb5c50"
+checksum = "69dfd6119f431aa7e969b4a69f9cc8b9ae37b8ae85bb26780ccfa3beaf8b71eb"
 dependencies = [
  "fontdb",
  "kurbo",
@@ -2199,14 +2199,14 @@ dependencies = [
 
 [[package]]
 name = "usvg-tree"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a56e9cd3be5eb6d6744477e95b82d52d393fc1dba4b5b090912c33af337c20b"
+checksum = "3185eb13b6e3d3cf1817d29612251cc308d5a7e5e6235362e67efe832435c6d9"
 dependencies = [
- "kurbo",
  "rctree",
  "strict-num",
  "svgtypes",
+ "tiny-skia-path 0.10.0",
 ]
 
 [[package]]
