@@ -79,8 +79,8 @@ fn main() {
 
     let opt = usvg::Options::default();
     let file_data = std::fs::read(filename).unwrap();
-    //let db = usvg::fontdb::Database::new();
-    let rtree = usvg::Tree::from_data(&file_data, &opt).unwrap();
+    let db = usvg::fontdb::Database::new();
+    let rtree = usvg::Tree::from_data(&file_data, &opt, &db).unwrap();
     let mut transforms = Vec::new();
     let mut primitives = Vec::new();
 
@@ -92,8 +92,8 @@ fn main() {
         tx: f32::NAN,
         ty: f32::NAN,
     };
-    let view_box = rtree.view_box;
-    collect_geom(&rtree.root, &mut prev_transform, &mut transforms, &mut primitives, &mut fill_tess, &mut mesh, &mut stroke_tess);
+    let view_box = rtree.view_box();
+    collect_geom(&rtree.root(), &mut prev_transform, &mut transforms, &mut primitives, &mut fill_tess, &mut mesh, &mut stroke_tess);
 
     if app.is_present("TESS_ONLY") {
         return;
@@ -439,7 +439,7 @@ fn main() {
 }
 
 fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut Vec<GpuTransform>, primitives: &mut Vec<GpuPrimitive>, fill_tess: &mut FillTessellator, mesh: &mut VertexBuffers<GpuVertex, u32>, stroke_tess: &mut StrokeTessellator) {
-    for node in &group.children {
+    for node in group.children() {
         if let usvg::Node::Group(group) = node {
             collect_geom(group, prev_transform, transforms, primitives, fill_tess, mesh, stroke_tess)
         } else  if let usvg::Node::Path(ref p) = node {
@@ -454,18 +454,18 @@ fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut 
 
             let transform_idx = transforms.len() as u32 - 1;
 
-            if let Some(ref fill) = p.fill {
+            if let Some(ref fill) = p.fill() {
                 // fall back to always use color fill
                 // no gradients (yet?)
-                let color = match fill.paint {
-                    usvg::Paint::Color(c) => c,
+                let color = match fill.paint() {
+                    usvg::Paint::Color(c) => *c,
                     _ => FALLBACK_COLOR,
                 };
 
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     color,
-                    fill.opacity.get() as f32,
+                    fill.opacity().get() as f32,
                 ));
 
                 fill_tess
@@ -482,12 +482,12 @@ fn collect_geom(group: &Group, prev_transform: &mut Transform, transforms: &mut 
                     .expect("Error during tessellation!");
             }
 
-            if let Some(ref stroke) = p.stroke {
+            if let Some(ref stroke) = p.stroke() {
                 let (stroke_color, stroke_opts) = convert_stroke(stroke);
                 primitives.push(GpuPrimitive::new(
                     transform_idx,
                     stroke_color,
-                    stroke.opacity.get(),
+                    stroke.opacity().get(),
                 ));
                 let _ = stroke_tess.tessellate(
                     convert_path(p),
@@ -784,7 +784,7 @@ impl<'l> Iterator for PathConvIter<'l> {
 
 pub fn convert_path(p: &usvg::Path) -> PathConvIter {
     PathConvIter {
-        iter: p.data.segments(),
+        iter: p.data().segments(),
         first: Point::new(0.0, 0.0),
         prev: Point::new(0.0, 0.0),
         deferred: None,
@@ -793,16 +793,16 @@ pub fn convert_path(p: &usvg::Path) -> PathConvIter {
 }
 
 pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
-    let color = match s.paint {
-        usvg::Paint::Color(c) => c,
+    let color = match s.paint() {
+        usvg::Paint::Color(c) => *c,
         _ => FALLBACK_COLOR,
     };
-    let linecap = match s.linecap {
+    let linecap = match s.linecap() {
         usvg::LineCap::Butt => tessellation::LineCap::Butt,
         usvg::LineCap::Square => tessellation::LineCap::Square,
         usvg::LineCap::Round => tessellation::LineCap::Round,
     };
-    let linejoin = match s.linejoin {
+    let linejoin = match s.linejoin() {
         usvg::LineJoin::Miter => tessellation::LineJoin::Miter,
         usvg::LineJoin::MiterClip => tessellation::LineJoin::MiterClip,
         usvg::LineJoin::Bevel => tessellation::LineJoin::Bevel,
@@ -810,7 +810,7 @@ pub fn convert_stroke(s: &usvg::Stroke) -> (usvg::Color, StrokeOptions) {
     };
 
     let opt = StrokeOptions::tolerance(0.01)
-        .with_line_width(s.width.get() as f32)
+        .with_line_width(s.width().get() as f32)
         .with_line_cap(linecap)
         .with_line_join(linejoin);
 
