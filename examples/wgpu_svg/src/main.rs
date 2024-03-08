@@ -95,11 +95,11 @@ fn main() {
     let view_box = rtree.view_box;
     for node in rtree.root.descendants() {
         if let usvg::NodeKind::Path(ref p) = *node.borrow() {
-            let t = NodeExt::transform(&node);
+            let t = node.abs_transform();
             if t != prev_transform {
                 transforms.push(GpuTransform {
-                    data0: [t.sx as f32, t.kx as f32, t.ky as f32, t.sy as f32],
-                    data1: [t.tx as f32, t.ty as f32, 0.0, 0.0],
+                    data0: [t.sx, t.kx, t.ky, t.sy],
+                    data1: [t.tx, t.ty, 0.0, 0.0],
                 });
             }
             prev_transform = t;
