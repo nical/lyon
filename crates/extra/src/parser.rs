@@ -428,6 +428,16 @@ impl PathParser {
             src.advance_one();
         }
 
+        if src.current == '.' {
+            self.float_buffer.push('.');
+            src.advance_one();
+
+            while src.current.is_numeric() {
+                self.float_buffer.push(src.current);
+                src.advance_one();
+            }
+        }
+
         if src.current == 'e' || src.current == 'E' {
             self.float_buffer.push(src.current);
             src.advance_one();
@@ -441,16 +451,6 @@ impl PathParser {
                 self.float_buffer.push(src.current);
                 src.advance_one();
             }
-        }
-
-        if src.current == '.' {
-            self.float_buffer.push('.');
-            src.advance_one();
-        }
-
-        while src.current.is_numeric() {
-            self.float_buffer.push(src.current);
-            src.advance_one();
         }
 
         match self.float_buffer.parse::<f32>() {
@@ -487,7 +487,7 @@ impl PathParser {
 }
 
 #[cfg(test)]
-use crate::path::{path::BuilderWithAttributes, Path};
+use crate::path::Path;
 
 #[test]
 fn empty() {
@@ -643,7 +643,12 @@ fn bad_numbers() {
     };
     let mut parser = PathParser::new();
 
-    fn bad_number(r: Result<(), ParseError>) -> bool {
+    let bad_number = &mut|src: &str| {
+        let r = parser.parse(
+            &options,
+            &mut Source::new(src.chars()),
+            &mut Path::builder_with_attributes(0)
+        );
         match r {
             Err(ParseError::Number { .. }) => true,
             _ => {
@@ -651,52 +656,15 @@ fn bad_numbers() {
                 false
             }
         }
-    }
+    };
 
-    fn builder(num_attributes: usize) -> BuilderWithAttributes {
-        Path::builder_with_attributes(num_attributes)
-    }
-
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 a".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 --1".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 1ee2".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 1e--1".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 *2".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 e".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 1e".chars()),
-        &mut builder(0)
-    )));
-    assert!(bad_number(parser.parse(
-        &options,
-        &mut Source::new("M 0 +1".chars()),
-        &mut builder(0)
-    )));
+    assert!(bad_number("M 0 --1"));
+    assert!(bad_number("M 0 1ee2"));
+    assert!(bad_number("M 0 1e--1"));
+    assert!(bad_number("M 0 *2"));
+    assert!(bad_number("M 0 e"));
+    assert!(bad_number("M 0 1e"));
+    assert!(bad_number("M 0 +1"));
 }
 
 #[test]
@@ -708,38 +676,18 @@ fn stop() {
     };
     let mut parser = PathParser::new();
 
-    fn builder(num_attributes: usize) -> BuilderWithAttributes {
-        Path::builder_with_attributes(num_attributes)
-    }
+    let parse = &mut |src: &str| {
+        parser.parse(
+            &options,
+            &mut Source::new(src.chars()),
+            &mut Path::builder_with_attributes(0),
+        )
+    };
 
-    parser
-        .parse(
-            &options,
-            &mut Source::new("M 0 0 | xxxxxx".chars()),
-            &mut builder(0),
-        )
-        .unwrap();
-    parser
-        .parse(
-            &options,
-            &mut Source::new("M 0 0| xxxxxx".chars()),
-            &mut builder(0),
-        )
-        .unwrap();
-    parser
-        .parse(
-            &options,
-            &mut Source::new("| xxxxxx".chars()),
-            &mut builder(0),
-        )
-        .unwrap();
-    parser
-        .parse(
-            &options,
-            &mut Source::new("    | xxxxxx".chars()),
-            &mut builder(0),
-        )
-        .unwrap();
+    parse("M 0 0 | xxxxxx").unwrap();
+    parse("M 0 0| xxxxxx").unwrap();
+    parse("| xxxxxx").unwrap();
+    parse("    | xxxxxx").unwrap();
 }
 
 #[test]
@@ -783,4 +731,25 @@ fn need_start() {
             break;
         }
     }
+}
+
+#[test]
+fn issue_895() {
+    let options = ParserOptions::DEFAULT;
+    let mut parser = PathParser::new();
+
+    let parse = &mut |src: &str| {
+        parser.parse(
+            &options,
+            &mut Source::new(src.chars()),
+            &mut Path::builder_with_attributes(0),
+        )
+    };
+
+    parse("M 1e-9 0").unwrap();
+    parse("M -1e-9 0").unwrap();
+    parse("M -1e11 0").unwrap();
+    parse("M 1.e-9 1.4e-4z").unwrap();
+    parse("M 1.6e-9 1.4e-4 z").unwrap();
+    parse("M0 1.6e-9L0 1.4e-4").unwrap();
 }
