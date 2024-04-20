@@ -1889,9 +1889,18 @@ fn add_edge_triangles(
         p1_pos = p1.side_points[SIDE_NEGATIVE].next_vertex;
     }
 
-    output.add_triangle(p0_neg, p0_pos, p1_pos);
+    // TODO: These checks are a temporary workaround, see the issue_894 test below.
+    if p0_neg == p1_pos {
+        return;
+    }
 
-    output.add_triangle(p0_neg, p1_pos, p1_neg);
+    if p0_neg != p0_pos && p0_pos != p1_pos {
+        output.add_triangle(p0_neg, p0_pos, p1_pos);
+    }
+
+    if p0_neg != p1_neg && p1_pos != p1_neg {
+        output.add_triangle(p0_neg, p1_pos, p1_neg);
+    }
 }
 
 #[cfg_attr(feature = "profiling", inline(never))]
@@ -3309,4 +3318,34 @@ fn issue_821() {
     tessellator
         .tessellate_path(&path, &options, &mut builder)
         .unwrap();
+}
+
+#[test]
+fn issue_894() {
+    struct VariableWidthStrokeCtor;
+    impl StrokeVertexConstructor<[f32; 2]> for VariableWidthStrokeCtor {
+        fn new_vertex(&mut self, vertex: StrokeVertex) -> [f32; 2] {
+            vertex.position().to_array()
+        }
+    }
+
+    const STROKE_WIDTH: lyon_path::AttributeIndex = 0;
+
+    let mut builder = Path::builder_with_attributes(1);
+    builder.begin(point(435.72, 368.42), &[38.82]);
+    builder.line_to(point(433.53, 366.06), &[38.82]);
+    builder.quadratic_bezier_to(point(431.35, 363.70), point(430.22, 362.52), &[39.59]);
+    builder.quadratic_bezier_to(point(429.09, 361.34), point(429.05, 362.14), &[41.62]);
+    builder.line_to(point(429.00, 362.95), &[41.63]);
+    builder.end(false);
+    let path = builder.build();
+    let mut stroke_tessellator = StrokeTessellator::new();
+    let mut geometry: crate::VertexBuffers<[f32; 2], u16> = crate::VertexBuffers::new();
+    _ = stroke_tessellator.tessellate_path(
+        &path,
+        &StrokeOptions::tolerance(0.01)
+            .with_line_cap(LineCap::Round)
+            .with_variable_line_width(STROKE_WIDTH),
+        &mut BuffersBuilder::new(&mut geometry, VariableWidthStrokeCtor),
+    );
 }
