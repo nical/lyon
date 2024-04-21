@@ -202,7 +202,7 @@ struct ActiveEdges {
 }
 
 struct Span {
-    /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
+    /// We store `MonotoneTessellator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     tess: Option<Box<MonotoneTessellator>>,
 }
@@ -223,7 +223,7 @@ impl Span {
 struct Spans {
     spans: Vec<Span>,
 
-    /// We store `MonotoneTesselator` behind a `Box` for performance purposes.
+    /// We store `MonotoneTessellator` behind a `Box` for performance purposes.
     /// For more info, see [Issue #621](https://github.com/nical/lyon/pull/621).
     #[allow(clippy::vec_box)]
     pool: Vec<Box<MonotoneTessellator>>,
