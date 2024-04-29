@@ -189,13 +189,13 @@
 //! ```
 //!
 
+pub use crate::error::GeometryBuilderError;
 use crate::math::Point;
 use crate::{FillVertex, Index, StrokeVertex, VertexId};
-pub use crate::error::GeometryBuilderError;
 
+use alloc::vec::Vec;
 use core::convert::From;
 use core::ops::Add;
-use alloc::vec::Vec;
 
 /// An interface separating tessellators and other geometry generation algorithms from the
 /// actual vertex construction.
@@ -276,6 +276,12 @@ impl<OutputVertex, OutputIndex> VertexBuffers<OutputVertex, OutputIndex> {
             vertices: Vec::with_capacity(num_vertices),
             indices: Vec::with_capacity(num_indices),
         }
+    }
+
+    /// Empty the buffers without freeing memory, for reuse without reallocation.
+    pub fn clear(&mut self) {
+        self.vertices.clear();
+        self.indices.clear();
     }
 }
 
