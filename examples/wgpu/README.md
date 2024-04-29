@@ -6,4 +6,4 @@ This program renders the rust logo (fill and stroke). The geometry is tessellate
 
 ## Screenshot
 
-![Screenshot](screenshot.png)
+![Demo GIF](demo_recording.gif)
