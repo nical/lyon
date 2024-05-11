@@ -94,6 +94,7 @@ impl PathBuffer {
     pub fn clear(&mut self) {
         self.points.clear();
         self.verbs.clear();
+        self.paths.clear();
     }
 
     #[inline]
