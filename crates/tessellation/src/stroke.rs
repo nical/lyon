@@ -2148,6 +2148,33 @@ fn tessellate_last_edge(
     let sides = [Side::Positive, Side::Negative];
 
     for side in 0..2 {
+        let side_position = p1.side_points[side].prev;
+        let clip = match options.end_cap {
+            LineCap::Square => Some(p1.half_width),
+            LineCap::Butt => Some(0.0),
+            _ => None,
+        };
+
+        if let Some(clip) = clip {
+            let normal = (p1.position - p0.position).normalize();
+            let clip_line = Line {
+                point: p1.position + normal * clip,
+                vector: tangent(normal),
+            };
+            let side_line = Line {
+                point: side_position,
+                vector: side_position - p0.side_points[side].next,
+            };
+
+            let intersection = clip_line
+                .to_f64()
+                .intersection(&side_line.to_f64())
+                .map(|p| p.to_f32())
+                .unwrap_or(p1.side_points[side].prev);
+
+            p1.side_points[side].prev = intersection;
+        }
+
         vertex.side = sides[side];
         vertex.normal = (p1.side_points[side].prev - p1.position) / p1.half_width;
         let prev_vertex = output.add_stroke_vertex(StrokeVertex(vertex, attributes))?;
