@@ -1600,7 +1600,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "lyon_geom",
  "num-traits",
@@ -1609,7 +1609,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "1.0.14"
+version = "1.0.15"
 dependencies = [
  "float_next_after",
  "lyon_extra",
