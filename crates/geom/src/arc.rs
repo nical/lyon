@@ -3,6 +3,8 @@
 use core::mem::swap;
 use core::ops::Range;
 
+use num_traits::NumCast;
+
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::{BoundingBox, Segment};
 use crate::{point, vector, Angle, Box2D, Point, Rotation, Transform, Vector};
@@ -31,6 +33,16 @@ pub struct SvgArc<S> {
 }
 
 impl<S: Scalar> Arc<S> {
+    pub fn cast<NewS: NumCast>(self) -> Arc<NewS> {
+        Arc {
+            center: self.center.cast(),
+            radii: self.radii.cast(),
+            start_angle: self.start_angle.cast(),
+            sweep_angle: self.sweep_angle.cast(),
+            x_rotation: self.x_rotation.cast(),
+        }
+    }
+
     /// Create simple circle.
     pub fn circle(center: Point<S>, radius: S) -> Self {
         Arc {
