@@ -4,6 +4,7 @@ use crate::traits::Transformation;
 use crate::{point, Box2D, Point, Vector};
 use crate::{CubicBezierSegment, Line, LineEquation, LineSegment, Triangle};
 use arrayvec::ArrayVec;
+use num_traits::NumCast;
 
 use core::mem;
 use core::ops::Range;
@@ -22,6 +23,14 @@ pub struct QuadraticBezierSegment<S> {
 }
 
 impl<S: Scalar> QuadraticBezierSegment<S> {
+    pub fn cast<NewS: NumCast>(self) -> QuadraticBezierSegment<NewS> {
+        QuadraticBezierSegment {
+            from: self.from.cast(),
+            ctrl: self.ctrl.cast(),
+            to: self.to.cast(),
+        }
+    }
+
     /// Sample the curve at t (expecting t between 0 and 1).
     pub fn sample(&self, t: S) -> Point<S> {
         let t2 = t * t;
