@@ -1303,7 +1303,8 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
             self.builder.line_to(arc_start, &self.attribute_buffer);
         }
 
-        arc.for_each_quadratic_bezier(&mut |curve| {
+        arc.cast::<f64>().for_each_quadratic_bezier(&mut |curve| {
+            let curve = curve.cast::<f32>();
             self.builder
                 .quadratic_bezier_to(curve.ctrl, curve.to, &self.attribute_buffer);
             self.current_position = curve.to;
