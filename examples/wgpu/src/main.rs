@@ -520,6 +520,7 @@ impl GfxState {
                         label: None,
                         required_features: wgpu::Features::empty(),
                         required_limits: wgpu::Limits::default(),
+                        memory_hints:wgpu::MemoryHints::MemoryUsage,
                     },
                     None,
                 )
@@ -699,6 +700,7 @@ impl GfxState {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            cache: None,
         };
 
         let geo_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
@@ -750,6 +752,7 @@ impl GfxState {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            cache: None,
         });
 
         Self {
