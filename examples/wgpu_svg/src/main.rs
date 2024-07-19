@@ -5,11 +5,13 @@ use lyon::tessellation::geometry_builder::*;
 use lyon::tessellation::{self, FillOptions, FillTessellator, StrokeOptions, StrokeTessellator};
 use usvg::*;
 use wgpu::include_wgsl;
+use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Window, WindowBuilder};
-
+use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window::{Window, WindowId};
+use std::sync::Arc;
 use futures::executor::block_on;
 
 use wgpu::util::DeviceExt;
@@ -33,12 +35,112 @@ pub const FALLBACK_COLOR: usvg::Color = usvg::Color {
 //
 // Most of the code in this example is related to working with the GPU.
 
+struct App {
+    window: Option<Arc<Window>>,
+    gfx: Option<GfxState>,
+}
+
+pub struct GfxState {
+    scene: SceneGlobals,
+    mesh: VertexBuffers<GpuVertex, u32>,
+    surface_desc: wgpu::SurfaceConfiguration,
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    vbo: wgpu::Buffer,
+    ibo: wgpu::Buffer,
+    globals_ubo: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
+    render_pipeline: wgpu::RenderPipeline,
+    wireframe_render_pipeline: wgpu::RenderPipeline,
+    msaa_texture: Option<wgpu::TextureView>,
+    msaa_samples: u32,
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let win_attrs = Window::default_attributes()
+            .with_title("Basic SVG example");
+        let window = Arc::new(event_loop.create_window(win_attrs).unwrap());
+
+        self.gfx = init(window.clone());
+        self.window = Some(window);
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        let gfx = if let Some(gfx) = &mut self.gfx {
+            gfx
+        } else {
+            event_loop.exit();
+            return;
+        };
+
+        let scene = &mut gfx.scene;
+        let mut should_render = false;
+
+        let initial_pan = scene.pan;
+        let initial_zoom = scene.zoom;
+
+        match event {
+            WindowEvent::RedrawRequested => {
+                should_render = true;
+            }
+            WindowEvent::Destroyed | WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(size) => {
+                scene.window_size = size;
+                scene.size_changed = true;
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(key_code),
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                ..
+            } => match key_code {
+                KeyCode::Escape => event_loop.exit(),
+                KeyCode::PageDown => scene.zoom *= 0.8,
+                KeyCode::PageUp => scene.zoom *= 1.25,
+                KeyCode::ArrowLeft => scene.pan[0] += 50.0 / scene.zoom,
+                KeyCode::ArrowRight => scene.pan[0] -= 50.0 / scene.zoom,
+                KeyCode::ArrowUp => scene.pan[1] -= 50.0 / scene.zoom,
+                KeyCode::ArrowDown => scene.pan[1] += 50.0 / scene.zoom,
+                _key => {}
+            },
+            _evt => {}
+        };
+
+        if event_loop.exiting() {
+            return;
+        }
+
+        should_render |= scene.pan != initial_pan || scene.zoom != initial_zoom;
+
+        if should_render {
+            render(gfx);
+        }
+    }
+}
+
 fn main() {
     // Grab some parameters from the command line.
 
     env_logger::init();
 
-    let app = App::new("Lyon svg_render example")
+    let event_loop = EventLoop::new().unwrap();
+    event_loop.set_control_flow(ControlFlow::Poll);
+
+    let mut app = App {
+        window: None,
+        gfx: None,
+    };
+
+    event_loop.run_app(&mut app).unwrap();
+}
+
+fn init(window: Arc<Window>) -> Option<GfxState> {
+    let args = clap::App::new("Lyon svg_render example")
         .version("0.1")
         .arg(
             Arg::with_name("MSAA")
@@ -67,11 +169,11 @@ fn main() {
         )
         .get_matches();
 
-    let msaa_samples = if app.is_present("MSAA") { 4 } else { 1 };
+    let msaa_samples = if args.is_present("MSAA") { 4 } else { 1 };
 
     // Parse and tessellate the geometry
 
-    let filename = app.value_of("INPUT").unwrap();
+    let filename = args.value_of("INPUT").unwrap();
 
     let mut fill_tess = FillTessellator::new();
     let mut stroke_tess = StrokeTessellator::new();
@@ -103,8 +205,8 @@ fn main() {
         &mut stroke_tess,
     );
 
-    if app.is_present("TESS_ONLY") {
-        return;
+    if args.is_present("TESS_ONLY") {
+        return None;
     }
 
     println!(
@@ -129,22 +231,17 @@ fn main() {
 
     let pan = [vb_width / -2.0, vb_height / -2.0];
     let zoom = 2.0 / f32::max(vb_width, vb_height);
-    let mut scene = SceneGlobals {
+    let scene = SceneGlobals {
         zoom,
         pan,
         window_size: PhysicalSize::new(width as u32, height as u32),
         wireframe: false,
         size_changed: true,
-        render: false,
     };
 
-    let event_loop = EventLoop::new();
-    let window_builder = WindowBuilder::new().with_inner_size(scene.window_size);
-    let window = window_builder.build(&event_loop).unwrap();
+    let instance = wgpu::Instance::default();
 
-    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
-
-    let surface = unsafe { instance.create_surface(&window) };
+    let surface = instance.create_surface(window.clone()).unwrap();
 
     // create an adapter
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -158,8 +255,9 @@ fn main() {
     let (device, queue) = block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
             label: None,
-            features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE,
-            limits: wgpu::Limits::default(),
+            required_features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE,
+            required_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::MemoryUsage,
         },
         // trace_path can be used for API call tracing
         None,
@@ -168,15 +266,17 @@ fn main() {
 
     let size = window.inner_size();
 
-    let mut surface_desc = wgpu::SurfaceConfiguration {
+    let surface_desc = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
         present_mode: wgpu::PresentMode::AutoVsync,
+        // defaults from `surface.get_default_config(...)``
+        desired_maximum_frame_latency: 2,
+        alpha_mode: wgpu::CompositeAlphaMode::Auto,
+        view_formats: vec![],
     };
-
-    let mut msaa_texture = None;
 
     let vbo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
@@ -304,6 +404,7 @@ fn main() {
                     },
                 ],
             }],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {
             module: &fs_module,
@@ -313,6 +414,7 @@ fn main() {
                 blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
             })],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
         }),
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -330,6 +432,7 @@ fn main() {
             alpha_to_coverage_enabled: false,
         },
         multiview: None,
+        cache: None,
     };
 
     let render_pipeline = device.create_render_pipeline(&render_pipeline_descriptor);
@@ -345,105 +448,114 @@ fn main() {
 
     window.request_redraw();
 
-    // The main loop.
+    return Some(GfxState {
+        scene,
+        mesh,
+        device,
+        queue,
+        vbo,
+        ibo,
+        globals_ubo,
+        surface_desc,
+        surface,
+        bind_group,
+        render_pipeline,
+        wireframe_render_pipeline,
+        msaa_samples,
+        msaa_texture: None,
+    });
+}
 
-    event_loop.run(move |event, _, control_flow| {
-        if !update_inputs(event, &window, control_flow, &mut scene) {
-            // keep polling inputs.
+fn render(gfx: &mut GfxState) {
+    if gfx.scene.size_changed {
+        gfx.scene.size_changed = false;
+        let physical = gfx.scene.window_size;
+        gfx.surface_desc.width = physical.width;
+        gfx.surface_desc.height = physical.height;
+        gfx.surface.configure(&gfx.device, &gfx.surface_desc);
+        if gfx.msaa_samples > 1 {
+            gfx.msaa_texture = Some(
+                gfx.device
+                    .create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Multisampled frame descriptor"),
+                        size: wgpu::Extent3d {
+                            width: gfx.surface_desc.width,
+                            height: gfx.surface_desc.height,
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: gfx.msaa_samples,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: gfx.surface_desc.format,
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        view_formats: &[],
+                    })
+                    .create_view(&wgpu::TextureViewDescriptor::default()),
+            );
+        }
+    }
+
+    let frame = match gfx.surface.get_current_texture() {
+        Ok(frame) => frame,
+        Err(e) => {
+            println!("Swap-chain error: {e:?}");
             return;
         }
-        if scene.size_changed {
-            scene.size_changed = false;
-            let physical = scene.window_size;
-            surface_desc.width = physical.width;
-            surface_desc.height = physical.height;
-            surface.configure(&device, &surface_desc);
-            if msaa_samples > 1 {
-                msaa_texture = Some(
-                    device
-                        .create_texture(&wgpu::TextureDescriptor {
-                            label: Some("Multisampled frame descriptor"),
-                            size: wgpu::Extent3d {
-                                width: surface_desc.width,
-                                height: surface_desc.height,
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            sample_count: msaa_samples,
-                            dimension: wgpu::TextureDimension::D2,
-                            format: surface_desc.format,
-                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                        })
-                        .create_view(&wgpu::TextureViewDescriptor::default()),
-                );
-            }
-        }
+    };
 
-        if !scene.render {
-            return;
-        }
-        scene.render = false;
+    let frame_view = frame
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let frame = match surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(e) => {
-                println!("Swap-chain error: {e:?}");
-                return;
-            }
-        };
+    let mut encoder = gfx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Encoder"),
+    });
 
-        let frame_view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+    gfx.queue.write_buffer(
+        &gfx.globals_ubo,
+        0,
+        bytemuck::cast_slice(&[GpuGlobals {
+            aspect_ratio: gfx.scene.window_size.width as f32 / gfx.scene.window_size.height as f32,
+            zoom: [gfx.scene.zoom, gfx.scene.zoom],
+            pan: gfx.scene.pan,
+            _pad: 0.0,
+        }]),
+    );
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Encoder"),
+    {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: gfx.msaa_texture.as_ref().unwrap_or(&frame_view),
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                    store: wgpu::StoreOp::Store,
+                },
+                resolve_target: if gfx.msaa_texture.is_some() {
+                    Some(&frame_view)
+                } else {
+                    None
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
-        queue.write_buffer(
-            &globals_ubo,
-            0,
-            bytemuck::cast_slice(&[GpuGlobals {
-                aspect_ratio: scene.window_size.width as f32 / scene.window_size.height as f32,
-                zoom: [scene.zoom, scene.zoom],
-                pan: scene.pan,
-                _pad: 0.0,
-            }]),
-        );
-
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: msaa_texture.as_ref().unwrap_or(&frame_view),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                        store: true,
-                    },
-                    resolve_target: if msaa_texture.is_some() {
-                        Some(&frame_view)
-                    } else {
-                        None
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-
-            if scene.wireframe {
-                pass.set_pipeline(&wireframe_render_pipeline);
-            } else {
-                pass.set_pipeline(&render_pipeline);
-            }
-            pass.set_bind_group(0, &bind_group, &[]);
-            pass.set_index_buffer(ibo.slice(..), wgpu::IndexFormat::Uint32);
-            pass.set_vertex_buffer(0, vbo.slice(..));
-
-            pass.draw_indexed(0..(mesh.indices.len() as u32), 0, 0..1);
+        if gfx.scene.wireframe {
+            pass.set_pipeline(&gfx.wireframe_render_pipeline);
+        } else {
+            pass.set_pipeline(&gfx.render_pipeline);
         }
+        pass.set_bind_group(0, &gfx.bind_group, &[]);
+        pass.set_index_buffer(gfx.ibo.slice(..), wgpu::IndexFormat::Uint32);
+        pass.set_vertex_buffer(0, gfx.vbo.slice(..));
 
-        queue.submit(Some(encoder.finish()));
-        frame.present();
-    });
+        pass.draw_indexed(0..(gfx.mesh.indices.len() as u32), 0, 0..1);
+    }
+
+    gfx.queue.submit(Some(encoder.finish()));
+    frame.present();
 }
 
 fn collect_geom(
@@ -603,98 +715,6 @@ pub struct SceneGlobals {
     pub window_size: PhysicalSize<u32>,
     pub wireframe: bool,
     pub size_changed: bool,
-    pub render: bool,
-}
-
-fn update_inputs(
-    event: Event<()>,
-    window: &Window,
-    control_flow: &mut ControlFlow,
-    scene: &mut SceneGlobals,
-) -> bool {
-    let mut redraw = false;
-    match event {
-        Event::RedrawRequested(_) => {
-            scene.render = true;
-        }
-        Event::WindowEvent {
-            event: WindowEvent::Destroyed,
-            ..
-        }
-        | Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } => {
-            *control_flow = ControlFlow::Exit;
-            return false;
-        }
-        Event::WindowEvent {
-            event: WindowEvent::Resized(size),
-            ..
-        } => {
-            scene.window_size = size;
-            scene.size_changed = true;
-            redraw = true;
-        }
-        Event::WindowEvent {
-            event:
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(key),
-                            ..
-                        },
-                    ..
-                },
-            ..
-        } => match key {
-            VirtualKeyCode::Escape => {
-                *control_flow = ControlFlow::Exit;
-                return false;
-            }
-            VirtualKeyCode::PageDown => {
-                scene.zoom *= 0.8;
-                redraw = true;
-            }
-            VirtualKeyCode::PageUp => {
-                scene.zoom *= 1.25;
-                redraw = true;
-            }
-            VirtualKeyCode::Left => {
-                scene.pan[0] -= 50.0 / scene.pan[0];
-                redraw = true;
-            }
-            VirtualKeyCode::Right => {
-                scene.pan[0] += 50.0 / scene.pan[0];
-                redraw = true;
-            }
-            VirtualKeyCode::Up => {
-                scene.pan[1] += 50.0 / scene.pan[1];
-                redraw = true;
-            }
-            VirtualKeyCode::Down => {
-                scene.pan[1] -= 50.0 / scene.pan[1];
-                redraw = true;
-            }
-            VirtualKeyCode::W => {
-                scene.wireframe = !scene.wireframe;
-                redraw = true;
-            }
-            _key => {}
-        },
-        _evt => {
-            //println!("{:?}", _evt);
-        }
-    }
-
-    *control_flow = ControlFlow::Poll;
-
-    if redraw {
-        window.request_redraw();
-    }
-
-    true
 }
 
 /// Some glue between usvg's iterators and lyon's.
