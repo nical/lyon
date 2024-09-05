@@ -754,7 +754,7 @@ impl<'l> Iterator for PathConvIter<'l> {
                     to: self.prev,
                 })
             }
-            Some(tiny_skia_path::PathSegment::QuadTo(p1, p0)) => {
+            Some(tiny_skia_path::PathSegment::QuadTo(p0, p1)) => {
                 self.needs_end = true;
                 let from = self.prev;
                 self.prev = Point::new(p1.x, p1.y);
