@@ -15,7 +15,7 @@ name = "lyon_path"
 [features]
 default = ["std"]
 std = ["lyon_geom/std", "num-traits/std"]
-serialization = ["serde", "lyon_geom/serialization"]
+serialization = ["serde/std", "lyon_geom/serialization"]
 
 [dependencies]
 lyon_geom = { version = "1.0.4", path = "../geom", default-features = false }
