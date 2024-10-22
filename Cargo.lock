@@ -1208,7 +1208,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_extra"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "lyon_path",
  "thiserror",
