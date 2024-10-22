@@ -307,6 +307,7 @@ impl PathParser {
                 'm' | 'M' => {
                     if self.need_end {
                         output.end(false);
+                        self.need_end = false;
                     }
 
                     let to = self.parse_endpoint(is_relative, src)?;
@@ -752,4 +753,15 @@ fn issue_895() {
     parse("M 1.e-9 1.4e-4z").unwrap();
     parse("M 1.6e-9 1.4e-4 z").unwrap();
     parse("M0 1.6e-9L0 1.4e-4").unwrap();
+}
+
+#[test]
+fn issue_919() {
+    let mut builder = lyon_path::Path::builder();
+    let mut parser = PathParser::new();
+    let _ = parser.parse(
+        &ParserOptions::DEFAULT,
+        &mut Source::new("0 0M".chars()),
+        &mut builder,
+    );
 }
