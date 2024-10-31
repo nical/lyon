@@ -15,5 +15,5 @@ lyon = { path = "../../crates/lyon", features = ["extra"] }
 bytemuck = { version = "1.15.0", features = ["derive"] }
 env_logger = "0.11.3"
 futures = "0.3.30"
-wgpu = "22.0"
+wgpu = "23.0"
 winit = "0.30.0"
