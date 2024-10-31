@@ -666,7 +666,7 @@ impl GfxState {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: geo_vs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<GpuVertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -676,7 +676,7 @@ impl GfxState {
             },
             fragment: Some(wgpu::FragmentState {
                 module: geo_fs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: None,
@@ -714,7 +714,7 @@ impl GfxState {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: bg_vs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Point>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -728,7 +728,7 @@ impl GfxState {
             },
             fragment: Some(wgpu::FragmentState {
                 module: bg_fs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: None,

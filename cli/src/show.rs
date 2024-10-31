@@ -568,7 +568,7 @@ impl App {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: vs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<GpuVertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -594,7 +594,7 @@ impl App {
             },
             fragment: Some(wgpu::FragmentState {
                 module: fs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: None,
@@ -638,7 +638,7 @@ impl App {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: bg_vs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Point>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -652,7 +652,7 @@ impl App {
             },
             fragment: Some(wgpu::FragmentState {
                 module: bg_fs_module,
-                entry_point: "main",
+                entry_point: Some("main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Bgra8Unorm,
                     blend: None,
