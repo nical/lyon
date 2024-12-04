@@ -980,3 +980,75 @@ fn zero_length() {
     expect_nans(sampler.sample(0.5), 2);
     expect_nans(sampler.sample(1.0), 2);
 }
+
+
+#[test]
+fn multiple_sub_paths() {
+    let mut path = Path::builder();
+
+    path.begin(point(0.0, 0.0));
+    path.line_to(point(10.0, 0.0));
+    path.end(false);
+
+    path.begin(point(10.0, 10.0));
+    path.line_to(point(20.0, 10.0));
+    path.end(false);
+
+    let path = path.build();
+    let measure = PathMeasurements::from_path(&path, 0.01);
+    let mut sampler = measure.create_sampler(&path, SampleType::Normalized);
+
+    let mut dashes = Path::builder();
+    sampler.split_range(0.0 .. 0.25, &mut dashes);
+    sampler.split_range(0.25 .. 0.5, &mut dashes);
+    // Avoid starting subpaths exactly on the join as we may begin with a zero-length subpath
+    sampler.split_range(0.6 .. 0.75, &mut dashes);
+    sampler.split_range(0.75 .. 1.0, &mut dashes);
+    let dashes = dashes.build();
+
+    let mut iter = dashes.iter();
+
+    use crate::path::geom::euclid::approxeq::ApproxEq;
+    fn expect_begin(event: Option<path::PathEvent>, pos: Point) {
+        std::eprintln!("- {:?}", event);
+        if let Some(path::PathEvent::Begin { at }) = event {
+            assert!(at.approx_eq(&pos), "Expected Begin {:?}, got {:?}", pos, at);
+        } else {
+            panic!("Expected begin, got {:?}", event);
+        }    
+    }
+
+    fn expect_end(event: Option<path::PathEvent>, pos: Point) {
+        std::eprintln!("- {:?}", event);
+        if let Some(path::PathEvent::End { last, .. }) = event {
+            assert!(last.approx_eq(&pos), "Expected End {:?}, got {:?}", pos, last);
+        } else {
+            panic!("Expected end, got {:?}", event);
+        }    
+    }
+    fn expect_line(event: Option<path::PathEvent>, expect_from: Point, expect_to: Point) {
+        std::eprintln!("- {:?}", event);
+        if let Some(path::PathEvent::Line { from, to }) = event {
+            assert!(from.approx_eq(&expect_from), "Expected line {:?} {:?}, got {:?} {:?}", expect_from, expect_to, from, to);
+            assert!(to.approx_eq(&expect_to), "Expected line {:?} {:?}, got {:?} {:?}", expect_from, expect_to, from, to);
+        } else {
+            panic!("Expected a line {:?} {:?}, got {:?}", expect_from, expect_to, event);
+        }    
+    }
+
+    expect_begin(iter.next(), point(0.0, 0.0));
+    expect_line(iter.next(), point(0.0, 0.0), point(5.0, 0.0));
+    expect_end(iter.next(), point(5.0, 0.0));
+
+    expect_begin(iter.next(), point(5.0, 0.0));
+    expect_line(iter.next(), point(5.0, 0.0), point(10.0, 0.0));
+    expect_end(iter.next(), point(10.0, 0.0));
+
+    expect_begin(iter.next(), point(12.0, 10.0));
+    expect_line(iter.next(), point(12.0, 10.0), point(15.0, 10.0));
+    expect_end(iter.next(), point(15.0, 10.0));
+
+    expect_begin(iter.next(), point(15.0, 10.0));
+    expect_line(iter.next(), point(15.0, 10.0), point(20.0, 10.0));
+    expect_end(iter.next(), point(20.0, 10.0));
+}
