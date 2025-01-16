@@ -14,7 +14,7 @@ path = "src/main.rs"
 lyon = { path = "../../crates/lyon", features = ["extra"] }
 
 clap = "2.32.0"
-wgpu = "23.0"
+wgpu = "24.0"
 winit = "0.30.0"
 usvg = { version = "0.40", features = []}
 tiny-skia-path = "0.11"
