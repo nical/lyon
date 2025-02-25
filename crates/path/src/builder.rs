@@ -1629,7 +1629,7 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
             builder.cubic_bezier_to(points[1], points[2], points[3], attributes);
         }
         builder.line_to(points[4], attributes);
-        if tl > 0.0 {
+        if tr > 0.0 {
             builder.cubic_bezier_to(points[5], points[6], points[7], attributes);
         }
         builder.line_to(points[8], attributes);
@@ -1650,7 +1650,7 @@ fn add_rounded_rectangle<Builder: PathBuilder>(
             builder.cubic_bezier_to(points[10], points[9], points[8], attributes);
         }
         builder.line_to(points[7], attributes);
-        if tl > 0.0 {
+        if tr > 0.0 {
             builder.cubic_bezier_to(points[6], points[5], points[4], attributes);
         }
         builder.line_to(points[3], attributes);
@@ -1802,4 +1802,22 @@ fn straight_line_arc() {
         ArcFlags::default(),
         point(100.0, 0.0),
     );
+}
+
+#[test]
+fn top_right_rounded_rect() {
+    use crate::{math::*, Path};
+    let mut builder = Path::builder();
+    builder.add_rounded_rectangle(
+        &Box2D::new(point(0., 0.), point(100., 100.)),
+        &BorderRadii {
+            top_right: 2.,
+            ..Default::default()
+        },
+        Winding::Positive,
+    );
+    let path = builder.build();
+    let tr = path.iter().skip(2).next().unwrap();
+    assert_eq!(tr.from(), point(98., 0.));
+    assert_eq!(tr.to(), point(100., 2.));
 }
