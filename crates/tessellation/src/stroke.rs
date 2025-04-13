@@ -3376,3 +3376,40 @@ fn issue_894() {
         &mut BuffersBuilder::new(&mut geometry, VariableWidthStrokeCtor),
     );
 }
+
+#[test]
+fn correct_miter_clip_length() {
+    let path_max_y = 300.0;
+    let line_width = 30.0;
+    let miter_limit = 3.0;
+
+    let mut path = Path::builder();
+    path.begin(point(-70.0, -200.0));
+    path.line_to(point(0.0, path_max_y));
+    path.line_to(point(70.0, -200.0));
+    path.end(false);
+    let path = path.build();
+
+    let mut tessellator = StrokeTessellator::new();
+
+    let options = StrokeOptions::default()
+        .with_line_width(line_width)
+        .with_line_join(LineJoin::MiterClip)
+        .with_miter_limit(miter_limit);
+    
+    let mut mesh = VertexBuffers::new();
+    let mut builder = simple_builder(&mut mesh);
+    tessellator
+        .tessellate_path(&path, &options, &mut builder)
+        .unwrap();
+
+    let max_y = mesh.vertices.iter()
+        .map(|p| p.y)
+        .reduce(|acc, y| acc.max(y))
+        .unwrap();
+
+    // miter_length =  line_width * miter_limit
+    let expected_max_y = path_max_y + line_width * miter_limit;
+
+    assert_eq!(expected_max_y, max_y);
+}
