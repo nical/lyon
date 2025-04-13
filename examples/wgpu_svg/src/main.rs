@@ -258,9 +258,8 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
             required_features: wgpu::Features::default() | wgpu::Features::POLYGON_MODE_LINE,
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::MemoryUsage,
+            trace: wgpu::Trace::Off,
         },
-        // trace_path can be used for API call tracing
-        None,
     ))
     .unwrap();
 

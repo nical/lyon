@@ -441,8 +441,8 @@ impl App {
                 required_features: wgpu::Features::default(),
                 required_limits: wgpu::Limits::default(),
                 memory_hints: wgpu::MemoryHints::MemoryUsage,
+                trace: wgpu::Trace::Off,
             },
-            None,
         ))
         .unwrap();
 
