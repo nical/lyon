@@ -1723,7 +1723,7 @@ fn compute_join_side_positions_fixed_width(
             let n0 = join.side_points[front_side].prev - join.position;
             let n1 = join.side_points[front_side].next - join.position;
             let (prev_normal, next_normal) =
-                get_clip_intersections(n0, n1, front_normal, miter_limit * 2.0 * vertex.half_width);
+                get_clip_intersections(n0, n1, front_normal, miter_limit * vertex.half_width);
             join.side_points[front_side].prev = join.position + prev_normal;
             join.side_points[front_side].next = join.position + next_normal;
         }
@@ -2118,7 +2118,7 @@ fn compute_join_side_positions(
         let n0 = join.side_points[side].prev - join.position;
         let n1 = join.side_points[side].next - join.position;
         let (prev_normal, next_normal) =
-            get_clip_intersections(n0, n1, normal, miter_limit * 2.0 * join.half_width);
+            get_clip_intersections(n0, n1, normal, miter_limit * join.half_width);
         join.side_points[side].prev = join.position + prev_normal;
         join.side_points[side].next = join.position + next_normal;
         nan_check!(n0, n1, prev_normal, next_normal);
@@ -3409,7 +3409,8 @@ fn correct_miter_clip_length() {
         .unwrap();
 
     // miter_length =  line_width * miter_limit
-    let expected_max_y = path_max_y + line_width * miter_limit;
+    // miter_clip = miter_length * 0.5
+    let expected_max_y = path_max_y + line_width * miter_limit * 0.5;
 
     assert_eq!(expected_max_y, max_y);
 }
