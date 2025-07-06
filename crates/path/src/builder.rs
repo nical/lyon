@@ -1140,6 +1140,7 @@ where
 }
 
 /// Implements an SVG-like building interface on top of a PathBuilder.
+#[derive(Clone)]
 pub struct WithSvg<Builder: PathBuilder> {
     builder: Builder,
 
