@@ -1,6 +1,7 @@
 #![doc(html_logo_url = "https://nical.github.io/lyon-doc/lyon-logo.svg")]
 #![deny(bare_trait_objects)]
-#![allow(clippy::float_cmp)]
+#![allow(clippy::float_cmp, clippy::needless_range_loop)]
+#![allow(mismatched_lifetime_syntaxes)]
 #![no_std]
 
 //! 2d Path transformation and manipulation algorithms.

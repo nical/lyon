@@ -2,6 +2,7 @@
 #![deny(bare_trait_objects)]
 #![deny(unconditional_recursion)]
 #![allow(clippy::match_like_matches_macro)]
+#![allow(mismatched_lifetime_syntaxes)]
 #![no_std]
 
 //! Data structures and traits to work with paths (vector graphics).

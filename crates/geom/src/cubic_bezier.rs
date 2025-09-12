@@ -1,6 +1,6 @@
 use crate::cubic_bezier_intersections::cubic_bezier_intersections_t;
 use crate::scalar::Scalar;
-use crate::segment::{BoundingBox, Segment};
+use crate::segment::Segment;
 use crate::traits::Transformation;
 use crate::utils::{cubic_polynomial_roots, min_max};
 use crate::{point, Box2D, Point, Vector};
@@ -1318,22 +1318,6 @@ impl<S: Scalar> Segment for CubicBezierSegment<S> {
         callback: &mut dyn FnMut(&LineSegment<S>, Range<S>),
     ) {
         self.for_each_flattened_with_t(tolerance, &mut |s, t| callback(s, t));
-    }
-}
-
-impl<S: Scalar> BoundingBox for CubicBezierSegment<S> {
-    type Scalar = S;
-    fn bounding_range_x(&self) -> (S, S) {
-        self.bounding_range_x()
-    }
-    fn bounding_range_y(&self) -> (S, S) {
-        self.bounding_range_y()
-    }
-    fn fast_bounding_range_x(&self) -> (S, S) {
-        self.fast_bounding_range_x()
-    }
-    fn fast_bounding_range_y(&self) -> (S, S) {
-        self.fast_bounding_range_y()
     }
 }
 

@@ -3,6 +3,7 @@
 #![deny(unconditional_recursion)]
 #![allow(clippy::float_cmp)]
 #![allow(clippy::too_many_arguments)]
+#![allow(mismatched_lifetime_syntaxes)]
 #![no_std]
 
 // TODO: Tessellation pipeline diagram needs to be updated.

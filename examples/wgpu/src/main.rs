@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::ops::{Range, Rem};
 use std::sync::Arc;
 use std::time::{Duration, Instant};

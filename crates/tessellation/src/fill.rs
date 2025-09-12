@@ -581,13 +581,13 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let event_queue = core::mem::replace(&mut self.events, EventQueue::new());
+        let event_queue = core::mem::take(&mut self.events);
         let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path(
             options.tolerance,
             options.sweep_orientation,
-            path.into_iter(),
+            path,
         );
 
         self.events = queue_builder.build();
@@ -606,13 +606,13 @@ impl FillTessellator {
         options: &FillOptions,
         output: &mut dyn FillGeometryBuilder,
     ) -> TessellationResult {
-        let event_queue = core::mem::replace(&mut self.events, EventQueue::new());
+        let event_queue = core::mem::take(&mut self.events);
         let mut queue_builder = event_queue.into_builder(options.tolerance);
 
         queue_builder.set_path_with_ids(
             options.tolerance,
             options.sweep_orientation,
-            path.into_iter(),
+            path,
             positions,
         );
 
@@ -2343,7 +2343,7 @@ impl<'l> FillBuilder<'l> {
         options: &'l FillOptions,
         output: &'l mut dyn FillGeometryBuilder,
     ) -> Self {
-        let events = core::mem::replace(&mut tessellator.events, EventQueue::new())
+        let events = core::mem::take(&mut tessellator.events)
             .into_builder(options.tolerance);
 
         FillBuilder {

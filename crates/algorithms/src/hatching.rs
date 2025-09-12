@@ -589,7 +589,8 @@ impl HatchingEvents {
         for evt in it {
             builder.path_event(evt, NO_ATTRIBUTES);
         }
-        mem::swap(self, &mut builder.build());
+
+        *self = builder.build();
     }
 }
 

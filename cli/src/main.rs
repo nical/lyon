@@ -144,15 +144,6 @@ fn main() {
                         .help("Change the color of the window's background")
                         .takes_value(true),
                 )
-                .arg(
-                    Arg::with_name("DEBUGGER_2D")
-                        .long("enable-debugger-2d")
-                        .value_name("filter")
-                        .help(
-                            "Install a debugger 2d on the fill tessellator and display its output",
-                        )
-                        .takes_value(true),
-                ),
         )
         .subcommand(
             declare_tess_params(SubCommand::with_name("reduce"), true)
@@ -205,7 +196,9 @@ fn main() {
             flatten: command.is_present("FLATTEN"),
         };
 
-        flatten::flatten(cmd).unwrap();
+        if let Err(e) = flatten::flatten(cmd) {
+            panic!("Error during flattening: {:?}", e);
+        }
     }
 
     if let Some(fuzz_matches) = matches.subcommand_matches("fuzz") {
@@ -409,7 +402,6 @@ fn get_render_params(matches: &ArgMatches) -> RenderCmd {
             AntiAliasing::Msaa(4)
         },
         background: get_background(matches),
-        debugger: get_debugger(matches),
     }
 }
 
@@ -497,18 +489,6 @@ fn get_background(matches: &ArgMatches) -> Background {
         }
     } else {
         Background::Blue
-    }
-}
-
-fn get_debugger(matches: &ArgMatches) -> Option<u32> {
-    if let Some(param) = matches.value_of("DEBUGGER_2D") {
-        match param {
-            "None" => Some(0),
-            "all" => Some(0xfffff),
-            other => other.parse().ok(),
-        }
-    } else {
-        None
     }
 }
 

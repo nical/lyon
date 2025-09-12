@@ -9,14 +9,14 @@ use self::format::format_output;
 
 #[derive(Debug)]
 pub enum TessError {
-    Io(io::Error),
+    Io,
     Fill,
     Stroke,
 }
 
 impl ::std::convert::From<::std::io::Error> for TessError {
-    fn from(err: io::Error) -> Self {
-        TessError::Io(err)
+    fn from(_: io::Error) -> Self {
+        TessError::Io
     }
 }
 

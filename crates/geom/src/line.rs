@@ -1,5 +1,5 @@
 use crate::scalar::Scalar;
-use crate::segment::{BoundingBox, Segment};
+use crate::segment::Segment;
 use crate::traits::Transformation;
 use crate::utils::min_max;
 use crate::{point, vector, Box2D, Point, Vector};
@@ -141,13 +141,14 @@ impl<S: Scalar> LineSegment<S> {
         }
     }
 
+    // TODO: Make these two public?
     #[inline]
-    fn bounding_range_x(&self) -> (S, S) {
+    pub(crate) fn bounding_range_x(&self) -> (S, S) {
         min_max(self.from.x, self.to.x)
     }
 
     #[inline]
-    fn bounding_range_y(&self) -> (S, S) {
+    pub(crate) fn bounding_range_y(&self) -> (S, S) {
         min_max(self.from.y, self.to.y)
     }
 
@@ -546,22 +547,6 @@ impl<S: Scalar> Segment for LineSegment<S> {
         callback: &mut dyn FnMut(&LineSegment<S>, Range<S>),
     ) {
         callback(self, S::ZERO..S::ONE);
-    }
-}
-
-impl<S: Scalar> BoundingBox for LineSegment<S> {
-    type Scalar = S;
-    fn bounding_range_x(&self) -> (S, S) {
-        self.bounding_range_x()
-    }
-    fn bounding_range_y(&self) -> (S, S) {
-        self.bounding_range_y()
-    }
-    fn fast_bounding_range_x(&self) -> (S, S) {
-        self.bounding_range_x()
-    }
-    fn fast_bounding_range_y(&self) -> (S, S) {
-        self.bounding_range_y()
     }
 }
 

@@ -196,7 +196,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
     };
     let view_box = rtree.view_box();
     collect_geom(
-        &rtree.root(),
+        rtree.root(),
         &mut prev_transform,
         &mut transforms,
         &mut primitives,
@@ -447,7 +447,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
 
     window.request_redraw();
 
-    return Some(GfxState {
+    Some(GfxState {
         scene,
         mesh,
         device,
@@ -462,7 +462,7 @@ fn init(window: Arc<Window>) -> Option<GfxState> {
         wireframe_render_pipeline,
         msaa_samples,
         msaa_texture: None,
-    });
+    })
 }
 
 fn render(gfx: &mut GfxState) {
@@ -810,6 +810,7 @@ impl<'l> Iterator for PathConvIter<'l> {
     }
 }
 
+#[allow(mismatched_lifetime_syntaxes)]
 pub fn convert_path(p: &usvg::Path) -> PathConvIter {
     PathConvIter {
         iter: p.data().segments(),

@@ -103,7 +103,7 @@ struct App {
 
 enum AppState {
     Initializing { cmd: TessellateCmd, render_options: RenderCmd },
-    Running(App),
+    Running(Box<App>),
     Closing,
 }
 
@@ -116,7 +116,7 @@ impl ApplicationHandler for AppState {
         match self {
             AppState::Initializing { cmd, render_options } => {
                 if let Some(app) = App::init(window, cmd, render_options) {
-                    *self = AppState::Running(app);
+                    *self = AppState::Running(Box::new(app));
                     return;
                 }
             }
@@ -418,7 +418,6 @@ impl App {
             stroke_width: 1.0,
             target_stroke_width: 1.0,
             draw_background: true,
-            cursor_position: (0.0, 0.0),
             window_size: PhysicalSize::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32),
             size_changed: true,
             render: true,
@@ -962,7 +961,6 @@ struct SceneParams {
     stroke_width: f32,
     target_stroke_width: f32,
     draw_background: bool,
-    cursor_position: (f32, f32),
     window_size: PhysicalSize<u32>,
     size_changed: bool,
     render: bool,
