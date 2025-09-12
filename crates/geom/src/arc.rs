@@ -8,7 +8,7 @@ use num_traits::NumCast;
 use crate::scalar::{cast, Float, Scalar};
 use crate::segment::Segment;
 use crate::{point, vector, Angle, Box2D, Point, Rotation, Transform, Vector};
-use crate::{CubicBezierSegment, Line, LineSegment, QuadraticBezierSegment};
+use crate::{CubicBezierSegment, LineSegment, QuadraticBezierSegment};
 
 /// An elliptic arc curve segment.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -661,6 +661,10 @@ pub struct ArcFlags {
     pub sweep: bool,
 }
 
+// See "Drawing an elliptical arc using polylines, quadratic or cubic Bézier curves"
+// by L. Maisonobe
+// https://web.archive.org/web/20210414175418/http://www.spaceroots.org/documents/ellipse/elliptical-arc.pdf
+
 fn arc_to_quadratic_beziers_with_t<S, F>(arc: &Arc<S>, callback: &mut F)
 where
     S: Scalar,
@@ -675,6 +679,8 @@ where
     let mut t0 = S::ZERO;
     let dt = S::ONE / n_steps;
 
+    let alpha = Float::tan(step.radians * S::HALF);
+
     let n = cast::<S, i32>(n_steps).unwrap();
     for i in 0..n {
         let a1 = arc.start_angle + step * cast(i).unwrap();
@@ -684,15 +690,8 @@ where
         let v2 = sample_ellipse(arc.radii, arc.x_rotation, a2).to_vector();
         let from = arc.center + v1;
         let to = arc.center + v2;
-        let l1 = Line {
-            point: from,
-            vector: arc.tangent_at_angle(a1),
-        };
-        let l2 = Line {
-            point: to,
-            vector: arc.tangent_at_angle(a2),
-        };
-        let ctrl = l2.intersection(&l1).unwrap_or(from);
+
+        let ctrl = from + arc.tangent_at_angle(a1) * alpha;
 
         let t1 = if i + 1 == n { S::ONE } else { t0 + dt };
 
@@ -721,9 +720,8 @@ where
         let from = arc.center + v1;
         let to = arc.center + v2;
 
-        // From http://www.spaceroots.org/documents/ellipse/elliptical-arc.pdf
         // Note that the parameterization used by Arc (see sample_ellipse for
-        // example) is the same as the eta-parameterization used at the link.
+        // example) is the same as the eta-parameterization used at paper.
         let delta_a = a2 - a1;
         let tan_da = Float::tan(delta_a.get() * S::HALF);
         let alpha_sqrt = S::sqrt(S::FOUR + S::THREE * tan_da * tan_da);
