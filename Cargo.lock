@@ -1153,7 +1153,7 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "lyon"
-version = "1.0.1"
+version = "1.0.16"
 dependencies = [
  "lyon_algorithms",
  "lyon_extra",
@@ -1162,7 +1162,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_algorithms"
-version = "1.0.5"
+version = "1.0.16"
 dependencies = [
  "lyon_path",
  "num-traits",
@@ -1195,7 +1195,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "1.0.6"
+version = "1.0.16"
 dependencies = [
  "arrayvec",
  "euclid",
@@ -1205,7 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_path"
-version = "1.0.7"
+version = "1.0.16"
 dependencies = [
  "lyon_geom",
  "num-traits",
@@ -1214,7 +1214,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_tessellation"
-version = "1.0.15"
+version = "1.0.16"
 dependencies = [
  "float_next_after",
  "lyon_extra",
