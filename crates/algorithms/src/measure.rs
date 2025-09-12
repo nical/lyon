@@ -177,7 +177,7 @@ impl PathMeasurements {
         let tolerance = tolerance.max(1e-4);
         let mut events = core::mem::take(&mut self.events);
         events.clear();
-        events.extend(path.into_iter());
+        events.extend(path);
         let mut edges = core::mem::take(&mut self.edges);
         edges.clear();
 
@@ -1015,7 +1015,7 @@ fn multiple_sub_paths() {
             assert!(at.approx_eq(&pos), "Expected Begin {:?}, got {:?}", pos, at);
         } else {
             panic!("Expected begin, got {:?}", event);
-        }    
+        }
     }
 
     fn expect_end(event: Option<path::PathEvent>, pos: Point) {
@@ -1024,7 +1024,7 @@ fn multiple_sub_paths() {
             assert!(last.approx_eq(&pos), "Expected End {:?}, got {:?}", pos, last);
         } else {
             panic!("Expected end, got {:?}", event);
-        }    
+        }
     }
     fn expect_line(event: Option<path::PathEvent>, expect_from: Point, expect_to: Point) {
         std::eprintln!("- {:?}", event);
@@ -1033,7 +1033,7 @@ fn multiple_sub_paths() {
             assert!(to.approx_eq(&expect_to), "Expected line {:?} {:?}, got {:?} {:?}", expect_from, expect_to, from, to);
         } else {
             panic!("Expected a line {:?} {:?}, got {:?}", expect_from, expect_to, event);
-        }    
+        }
     }
 
     expect_begin(iter.next(), point(0.0, 0.0));

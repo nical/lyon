@@ -493,5 +493,4 @@ benchmark_group!(
     //f32x2_commands_iter,
 );
 
-#[cfg(not(feature = "libtess2"))]
 benchmark_main!(builder, iter);

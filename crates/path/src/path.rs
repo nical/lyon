@@ -14,7 +14,6 @@ use crate::{
 
 use core::fmt;
 use core::iter::{FromIterator, IntoIterator};
-use core::u32;
 
 use alloc::boxed::Box;
 use alloc::vec;
@@ -301,7 +300,7 @@ impl<'l> PathSlice<'l> {
             return None;
         }
 
-        let attrib_stride = (self.num_attributes() + 1) / 2;
+        let attrib_stride = self.num_attributes().div_ceil(2);
         let offset = self.points.len() - attrib_stride - 1;
 
         let pos = self.points[offset];
@@ -831,7 +830,7 @@ impl<'l> Iter<'l> {
             verbs: verbs.iter(),
             current: point(0.0, 0.0),
             first: point(0.0, 0.0),
-            attrib_stride: (num_attributes + 1) / 2,
+            attrib_stride: num_attributes.div_ceil(2),
         }
     }
 
@@ -982,7 +981,7 @@ impl<'l> IterWithAttributes<'l> {
             current: (point(0.0, 0.0), NO_ATTRIBUTES),
             first: (point(0.0, 0.0), NO_ATTRIBUTES),
             num_attributes,
-            attrib_stride: (num_attributes + 1) / 2,
+            attrib_stride: num_attributes.div_ceil(2),
         }
     }
 
@@ -1190,7 +1189,7 @@ impl<'l> IdIter<'l> {
             current: 0,
             first: 0,
             evt: 0,
-            endpoint_stride: (num_attributes as u32 + 1) / 2 + 1,
+            endpoint_stride: (num_attributes as u32).div_ceil(2) + 1,
         }
     }
 }
@@ -1274,7 +1273,7 @@ fn interpolated_attributes(
     }
 
     let idx = endpoint.0 as usize + 1;
-    assert!(idx + (num_attributes + 1) / 2 <= points.len());
+    assert!(idx + num_attributes.div_ceil(2) <= points.len());
 
     unsafe {
         let ptr = &points[idx].x as *const f32;
@@ -1322,7 +1321,7 @@ impl<'l> Reversed<'l> {
         Reversed {
             verbs: path.verbs.iter().rev(),
             num_attributes: path.num_attributes(),
-            attrib_stride: (path.num_attributes() + 1) / 2,
+            attrib_stride: path.num_attributes().div_ceil(2),
             path,
             p: path.points.len(),
             need_close: false,

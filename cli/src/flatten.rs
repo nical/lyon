@@ -5,12 +5,12 @@ use std::io;
 
 #[derive(Debug)]
 pub enum FlattenError {
-    Io(io::Error),
+    Io,
 }
 
 impl ::std::convert::From<::std::io::Error> for FlattenError {
-    fn from(err: io::Error) -> Self {
-        FlattenError::Io(err)
+    fn from(_: io::Error) -> Self {
+        FlattenError::Io
     }
 }
 

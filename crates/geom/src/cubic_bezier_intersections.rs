@@ -1,13 +1,14 @@
+//! Computes intersection parameters for two cubic bézier curves using bézier clipping, also known
+//! as fat line clipping.
+//!
+//! The implementation here was originally ported from that of paper.js:
+//! https://github.com/paperjs/paper.js/blob/0deddebb2c83ea2a0c848f7c8ba5e22fa7562a4e/src/path/Curve.js#L2008
+//! See "bézier Clipping method" in
+//! https://scholarsarchive.byu.edu/facpub/1/
+//! for motivation and details of how the process works.
+
 use crate::scalar::Scalar;
 use crate::CubicBezierSegment;
-///! Computes intersection parameters for two cubic bézier curves using bézier clipping, also known
-///! as fat line clipping.
-///!
-///! The implementation here was originally ported from that of paper.js:
-///! https://github.com/paperjs/paper.js/blob/0deddebb2c83ea2a0c848f7c8ba5e22fa7562a4e/src/path/Curve.js#L2008
-///! See "bézier Clipping method" in
-///! https://scholarsarchive.byu.edu/facpub/1/
-///! for motivation and details of how the process works.
 use crate::{point, Box2D, Point};
 use arrayvec::ArrayVec;
 use core::mem;

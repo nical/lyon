@@ -1,5 +1,5 @@
 use crate::scalar::Scalar;
-use crate::{point, Box2D, LineSegment, Point, Vector};
+use crate::{LineSegment, Point, Vector};
 
 use core::ops::Range;
 
@@ -71,46 +71,6 @@ pub trait Segment: Copy + Sized {
         tolerance: Self::Scalar,
         callback: &mut dyn FnMut(&LineSegment<Self::Scalar>, Range<Self::Scalar>),
     );
-}
-
-pub trait BoundingBox {
-    type Scalar: Scalar;
-
-    /// Returns the smallest rectangle that contains the curve.
-    fn bounding_box(&self) -> Box2D<Self::Scalar> {
-        let (min_x, max_x) = self.bounding_range_x();
-        let (min_y, max_y) = self.bounding_range_y();
-
-        Box2D {
-            min: point(min_x, min_y),
-            max: point(max_x, max_y),
-        }
-    }
-
-    /// Returns a conservative rectangle that contains the curve.
-    ///
-    /// This does not necessarily return the smallest possible bounding rectangle.
-    fn fast_bounding_box(&self) -> Box2D<Self::Scalar> {
-        let (min_x, max_x) = self.fast_bounding_range_x();
-        let (min_y, max_y) = self.fast_bounding_range_y();
-
-        Box2D {
-            min: point(min_x, min_y),
-            max: point(max_x, max_y),
-        }
-    }
-
-    /// Returns a range of x values that contains the curve.
-    fn bounding_range_x(&self) -> (Self::Scalar, Self::Scalar);
-
-    /// Returns a range of y values that contains the curve.
-    fn bounding_range_y(&self) -> (Self::Scalar, Self::Scalar);
-
-    /// Returns a range of x values that contains the curve.
-    fn fast_bounding_range_x(&self) -> (Self::Scalar, Self::Scalar);
-
-    /// Returns a range of y values that contains the curve.
-    fn fast_bounding_range_y(&self) -> (Self::Scalar, Self::Scalar);
 }
 
 macro_rules! impl_segment {
