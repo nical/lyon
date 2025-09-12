@@ -546,14 +546,23 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// its approximation.
     pub fn for_each_flattened<F: FnMut(&LineSegment<S>)>(&self, tolerance: S, callback: &mut F) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
-        let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.8);
 
-        self.for_each_quadratic_bezier(quadratics_tolerance, &mut |quad| {
-            quad.for_each_flattened(flattening_tolerance, &mut |segment| {
-                callback(segment);
-            });
-        });
+        let n = flattened_segments_wang(self, tolerance);
+        let step = S::ONE / n;
+        let mut t = step;
+
+        let curve = self.polynomial_form();
+
+        let n = n.to_u32().unwrap_or(1) - 1;
+        let mut from = self.from;
+        for _ in 0..n {
+            let to = curve.sample(t);
+            callback(&LineSegment { from, to });
+            from = to;
+            t += step;
+        }
+
+        callback(&LineSegment { from, to: self.to });
     }
 
     /// Approximates the curve with sequence of line segments.
@@ -568,24 +577,24 @@ impl<S: Scalar> CubicBezierSegment<S> {
         callback: &mut F,
     ) {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
-        let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.8);
 
-        let mut t_from = S::ZERO;
-        self.for_each_quadratic_bezier_with_t(quadratics_tolerance, &mut |quad, range| {
-            let last_quad = range.end == S::ONE;
-            let range_len = range.end - range.start;
-            quad.for_each_flattened_with_t(flattening_tolerance, &mut |segment, range_sub| {
-                let last_seg = range_sub.end == S::ONE;
-                let t = if last_quad && last_seg {
-                    S::ONE
-                } else {
-                    range_sub.end * range_len + range.start
-                };
-                callback(segment, t_from..t);
-                t_from = t;
-            });
-        });
+        let n = flattened_segments_wang(self, tolerance);
+        let step = S::ONE / n;
+        let mut t0 = S::ZERO;
+
+        let curve = self.polynomial_form();
+
+        let n = n.to_u32().unwrap_or(1) - 1;
+        let mut from = self.from;
+        for _ in 0..n {
+            let t1 = t0 + step;
+            let to = curve.sample(t1);
+            callback(&LineSegment { from, to }, t0..t1);
+            from = to;
+            t0 = t1;
+        }
+
+        callback(&LineSegment { from, to: self.to }, t0..S::ONE);
     }
 
     /// Compute the length of the segment using a flattened approximation.
@@ -1289,6 +1298,15 @@ impl<S: Scalar> CubicBezierSegment<S> {
             to: self.to.to_f64(),
         }
     }
+
+    pub fn polynomial_form(&self) -> CubicBezierPolynomial<S> {
+        CubicBezierPolynomial {
+            a0: self.from.to_vector(),
+            a1: (self.ctrl1 - self.from) * S::THREE,
+            a2: self.from * S::THREE - self.ctrl1 * S::SIX + self.ctrl2.to_vector() * S::THREE,
+            a3: self.to - self.from + (self.ctrl1 - self.ctrl2) * S::THREE
+        }
+    }
 }
 
 impl<S: Scalar> Segment for CubicBezierSegment<S> {
@@ -1319,38 +1337,66 @@ impl<S: Scalar> BoundingBox for CubicBezierSegment<S> {
     }
 }
 
-use crate::quadratic_bezier::FlattenedT as FlattenedQuadraticSegment;
+pub struct CubicBezierPolynomial<S> {
+    pub a0: Vector<S>,
+    pub a1: Vector<S>,
+    pub a2: Vector<S>,
+    pub a3: Vector<S>,
+}
+
+impl<S: Scalar> CubicBezierPolynomial<S> {
+    #[inline(always)]
+    pub fn sample(&self, t: S) -> Point<S> {
+        // Horner's method.
+        let mut v = self.a0;
+        let mut t2 = t;
+        v += self.a1 * t2;
+        t2 *= t;
+        v += self.a2 * t2;
+        t2 *= t;
+        v += self.a3 * t2;
+
+        v.to_point()
+    }
+}
+
+/// Computes the number of line segments required to build a flattened approximation
+/// of the curve with segments placed at regular `t` intervals.
+fn flattened_segments_wang<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: S) -> S {
+    let from = curve.from.to_vector();
+    let ctrl1 = curve.ctrl1.to_vector();
+    let ctrl2 = curve.ctrl2.to_vector();
+    let to = curve.to.to_vector();
+    let v1 = (from - ctrl1 * S::TWO + ctrl2) * S::SIX;
+    let v2 = (ctrl1 - ctrl2 * S::TWO + to) * S::SIX;
+    let l = v1.dot(v1).max(v2.dot(v2));
+    let num_steps = S::sqrt(S::sqrt(l) / (S::EIGHT * tolerance));
+
+    num_steps.ceil().max(S::ONE)
+}
 
 pub struct Flattened<S: Scalar> {
-    curve: CubicBezierSegment<S>,
-    current_curve: FlattenedQuadraticSegment<S>,
-    remaining_sub_curves: i32,
-    tolerance: S,
-    range_step: S,
-    range_start: S,
+    curve: CubicBezierPolynomial<S>,
+    to: Point<S>,
+    segments: u32,
+    step: S,
+    t: S,
 }
 
 impl<S: Scalar> Flattened<S> {
     pub(crate) fn new(curve: &CubicBezierSegment<S>, tolerance: S) -> Self {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
-        let quadratics_tolerance = tolerance * S::value(0.4);
-        let flattening_tolerance = tolerance * S::value(0.8);
+        let n = flattened_segments_wang(curve, tolerance);
 
-        let num_quadratics = curve.num_quadratics_impl(quadratics_tolerance);
-
-        let range_step = S::ONE / num_quadratics;
-
-        let quadratic = curve.split_range(S::ZERO..range_step).to_quadratic();
-        let current_curve = FlattenedQuadraticSegment::new(&quadratic, flattening_tolerance);
+        let step = S::ONE / n;
 
         Flattened {
-            curve: *curve,
-            current_curve,
-            remaining_sub_curves: num_quadratics.to_i32().unwrap() - 1,
-            tolerance: flattening_tolerance,
-            range_start: S::ZERO,
-            range_step,
+            curve: curve.polynomial_form(),
+            to: curve.to,
+            segments: n.to_u32().unwrap_or(1),
+            step,
+            t: step
         }
     }
 }
@@ -1359,34 +1405,24 @@ impl<S: Scalar> Iterator for Flattened<S> {
     type Item = Point<S>;
 
     fn next(&mut self) -> Option<Point<S>> {
-        if let Some(t_inner) = self.current_curve.next() {
-            let t = self.range_start + t_inner * self.range_step;
-            return Some(self.curve.sample(t));
-        }
-
-        if self.remaining_sub_curves <= 0 {
+        if self.segments == 0 {
             return None;
         }
 
-        self.range_start += self.range_step;
-        let t0 = self.range_start;
-        let t1 = self.range_start + self.range_step;
-        self.remaining_sub_curves -= 1;
+        self.segments -= 1;
+        if self.segments == 0 {
+            return Some(self.to)
+        }
 
-        let quadratic = self.curve.split_range(t0..t1).to_quadratic();
-        self.current_curve = FlattenedQuadraticSegment::new(&quadratic, self.tolerance);
+        let p = self.curve.sample(self.t);
+        self.t += self.step;
 
-        let t_inner = self.current_curve.next().unwrap_or(S::ONE);
-        let t = t0 + t_inner * self.range_step;
-
-        Some(self.curve.sample(t))
+        Some(p)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (
-            self.remaining_sub_curves as usize * self.current_curve.size_hint().0,
-            None,
-        )
+        let n = self.segments as usize;
+        (n, Some(n))
     }
 }
 
