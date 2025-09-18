@@ -378,21 +378,37 @@ impl<S: Scalar> CubicBezierSegment<S> {
     /// <https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#section.10.6>
     /// and the error metric from the caffein owl blog post <http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html>
     pub fn num_quadratics(&self, tolerance: S) -> u32 {
-        self.num_quadratics_impl(tolerance).to_u32().unwrap_or(1)
+        self.num_quadratics_impl(tolerance)
     }
 
-    fn num_quadratics_impl(&self, tolerance: S) -> S {
+    fn num_quadratics_impl(&self, tolerance: S) -> u32 {
         debug_assert!(tolerance > S::ZERO);
 
         let x = self.from.x - S::THREE * self.ctrl1.x + S::THREE * self.ctrl2.x - self.to.x;
         let y = self.from.y - S::THREE * self.ctrl1.y + S::THREE * self.ctrl2.y - self.to.y;
 
-        let err = x * x + y * y;
+        let err = ((x * x + y * y) / (S::value(432.0) * tolerance * tolerance)).to_f32().unwrap_or(1.0);
 
-        (err / (S::value(432.0) * tolerance * tolerance))
-            .powf(S::ONE / S::SIX)
-            .ceil()
-            .max(S::ONE)
+        // Avoid computing powf(1/6).ceil() using a lookup table that contains
+        // i^6 for i in 1..25.
+        const MAX_QUADS: usize = 16;
+        const LUT: [f32; MAX_QUADS] = [
+            1.0, 64.0, 729.0, 4096.0, 15625.0, 46656.0, 117649.0, 262144.0, 531441.0, 1000000.0,
+            1771561.0, 2985984.0, 4826809.0, 7529536.0, 11390625.0, 16777216.0,
+        ];
+
+        if err <= 16777216.0 {
+            #[allow(clippy::needless_range_loop)]
+            for i in 0..MAX_QUADS {
+                if err <= LUT[i] {
+                    return (i + 1) as u32;
+                }
+            }
+        }
+
+        // If the number of quads does not fit in the LUT, fall back to the
+        // expensive computation.
+        S::from(err).unwrap().powf(S::ONE / S::SIX).ceil().max(S::ONE).to_u32().unwrap_or(1)
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -522,7 +538,7 @@ impl<S: Scalar> CubicBezierSegment<S> {
     {
         debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
-        let num_quadratics = self.num_quadratics_impl(tolerance);
+        let num_quadratics = S::from(self.num_quadratics_impl(tolerance)).unwrap();
         let step = S::ONE / num_quadratics;
         let n = num_quadratics.to_u32().unwrap_or(1);
         let mut t0 = S::ZERO;
@@ -1354,9 +1370,32 @@ fn flattened_segments_wang<S: Scalar>(curve: &CubicBezierSegment<S>, tolerance: 
     let v1 = (from - ctrl1 * S::TWO + ctrl2) * S::SIX;
     let v2 = (ctrl1 - ctrl2 * S::TWO + to) * S::SIX;
     let l = v1.dot(v1).max(v2.dot(v2));
-    let num_steps = S::sqrt(S::sqrt(l) / (S::EIGHT * tolerance));
+    let d = S::ONE / (S::EIGHT * tolerance);
+    let err4 = l * d * d;
+    let err4_f32 = err4.to_f32().unwrap_or(1.0);
 
-    num_steps.ceil().max(S::ONE)
+    // Avoid two square roots using a lookup table that contains
+    // i^4 for  i in 1..25.
+    const N: usize = 24;
+    const LUT: [f32; N] = [
+        1.0, 16.0, 81.0, 256.0, 625.0, 1296.0, 2401.0, 4096.0, 6561.0,
+        10000.0, 14641.0, 20736.0, 28561.0, 38416.0, 50625.0, 65536.0,
+        83521.0, 104976.0, 130321.0, 160000.0, 194481.0, 234256.0,
+        279841.0, 331776.0
+    ];
+
+    // If the value we are looking for is within the LUT, take the fast path
+    if err4_f32 <= 331776.0 {
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..N {
+            if err4_f32 <= LUT[i] {
+                return S::from(i + 1).unwrap_or(S::ONE);
+            }
+        }
+    }
+
+    // Otherwise fall back to computing via two square roots.
+    err4.sqrt().sqrt().max(S::ONE)
 }
 
 pub struct Flattened<S: Scalar> {
