@@ -1195,7 +1195,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_geom"
-version = "1.0.16"
+version = "1.0.17"
 dependencies = [
  "arrayvec",
  "euclid",
