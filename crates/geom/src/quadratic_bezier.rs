@@ -334,14 +334,28 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     ///
     /// The `tolerance` parameter defines the maximum distance between the curve and
     /// its approximation.
-    ///
-    /// This implements the algorithm described by Raph Levien at
-    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(&LineSegment<S>),
     {
-        self.for_each_flattened_with_t(tolerance, &mut |segment, _| callback(segment));
+        debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
+
+        let n = flattened_segments_wang(self, tolerance);
+        let step = S::ONE / n;
+        let mut t = step;
+
+        let curve = self.polynomial_form();
+
+        let n = n.to_u32().unwrap_or(1) - 1;
+        let mut from = self.from;
+        for _ in 0..n {
+            let to = curve.sample(t);
+            callback(&LineSegment { from, to });
+            from = to;
+            t += step;
+        }
+
+        callback(&LineSegment { from, to: self.to });
     }
 
     /// Compute a flattened approximation of the curve, invoking a callback at
@@ -351,34 +365,29 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
     /// its approximation.
     ///
     /// The end of the t parameter range at the final segment is guaranteed to be equal to `1.0`.
-    ///
-    /// This implements the algorithm described by Raph Levien at
-    /// <https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html>
     pub fn for_each_flattened_with_t<F>(&self, tolerance: S, callback: &mut F)
     where
         F: FnMut(&LineSegment<S>, Range<S>),
     {
-        let params = FlatteningParameters::new(self, tolerance);
+        debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
 
-        let mut i = S::ONE;
+        let n = flattened_segments_wang(self, tolerance);
+        let step = S::ONE / n;
+        let mut t0 = S::ZERO;
+
+        let curve = self.polynomial_form();
+
+        let n = n.to_u32().unwrap_or(1) - 1;
         let mut from = self.from;
-        let mut t_from = S::ZERO;
-        for _ in 1..params.count.to_u32().unwrap() {
-            let t = params.t_at_iteration(i);
-            i += S::ONE;
-            let s = LineSegment {
-                from,
-                to: self.sample(t),
-            };
-
-            callback(&s, t_from..t);
-            from = s.to;
-            t_from = t;
+        for _ in 0..n {
+            let t1 = t0 + step;
+            let to = curve.sample(t1);
+            callback(&LineSegment { from, to }, t0..t1);
+            from = to;
+            t0 = t1;
         }
 
-        let s = LineSegment { from, to: self.to };
-
-        callback(&s, t_from..S::ONE);
+        callback(&LineSegment { from, to: self.to }, t0..S::ONE);
     }
 
     /// Returns the flattened representation of the curve as an iterator, starting *after* the
@@ -872,116 +881,119 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
             to: self.to.to_f64(),
         }
     }
+
+    #[inline]
+    pub fn polynomial_form(&self) -> QuadraticBezierPolynomial<S> {
+        let from = self.from.to_vector();
+        let ctrl = self.ctrl.to_vector();
+        let to = self.to.to_vector();
+        QuadraticBezierPolynomial {
+            a0: from,
+            a1: (ctrl - from) * S::TWO,
+            a2: from + to - ctrl * S::TWO,
+        }
+    }
 }
 
+// TODO(breaking change): This should not have been a public struct.
+// It's not useful to users of the crate but removing it is a breaking change so it
+// stays empty for now.
 pub struct FlatteningParameters<S> {
-    count: S,
-    integral_from: S,
-    integral_step: S,
-    inv_integral_from: S,
-    div_inv_integral_diff: S,
+    _marker: std::marker::PhantomData<S>
 }
 
 impl<S: Scalar> FlatteningParameters<S> {
-    // See https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html
-    pub fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
-        // Checking for the single segment approximation is much cheaper than evaluating
-        // the general flattening approximation.
-        if curve.is_linear(tolerance) {
-            return FlatteningParameters {
-                count: S::ZERO,
-                // This are irrelevant as if count is 0.
-                integral_from: S::ZERO,
-                integral_step: S::ZERO,
-                inv_integral_from: S::ZERO,
-                div_inv_integral_diff: S::ZERO,
-            };
-        }
-
-        // Map the quadratic bézier segment to y = x^2 parabola.
-        let ddx = S::TWO * curve.ctrl.x - curve.from.x - curve.to.x;
-        let ddy = S::TWO * curve.ctrl.y - curve.from.y - curve.to.y;
-        let cross = (curve.to.x - curve.from.x) * ddy - (curve.to.y - curve.from.y) * ddx;
-        let inv_cross = S::ONE / cross;
-        let parabola_from =
-            ((curve.ctrl.x - curve.from.x) * ddx + (curve.ctrl.y - curve.from.y) * ddy) * inv_cross;
-        let parabola_to =
-            ((curve.to.x - curve.ctrl.x) * ddx + (curve.to.y - curve.ctrl.y) * ddy) * inv_cross;
-        // Note, scale can be NaN, for example with straight lines. When it happens the NaN will
-        // propagate to other parameters. We catch it all by setting the iteration count to zero
-        // and leave the rest as garbage.
-        let scale =
-            cross.abs() / (S::sqrt(ddx * ddx + ddy * ddy) * (parabola_to - parabola_from).abs());
-
-        let integral_from = approx_parabola_integral(parabola_from);
-        let integral_to = approx_parabola_integral(parabola_to);
-        let integral_diff = integral_to - integral_from;
-
-        let inv_integral_from = approx_parabola_inv_integral(integral_from);
-        let inv_integral_to = approx_parabola_inv_integral(integral_to);
-        let div_inv_integral_diff = S::ONE / (inv_integral_to - inv_integral_from);
-
-        // We could store this as an integer but the generic code makes that awkward and we'll
-        // use it as a scalar again while iterating, so it's kept as a scalar.
-        let mut count = (S::HALF * integral_diff.abs() * (scale / tolerance).sqrt()).ceil();
-        // If count is NaN the curve can be approximated by a single straight line or a point.
-        if !count.is_finite() {
-            count = S::ZERO;
-        }
-
-        let integral_step = integral_diff / count;
-
-        FlatteningParameters {
-            count,
-            integral_from,
-            integral_step,
-            inv_integral_from,
-            div_inv_integral_diff,
-        }
-    }
-
-    fn t_at_iteration(&self, iteration: S) -> S {
-        let u = approx_parabola_inv_integral(self.integral_from + self.integral_step * iteration);
-        let t = (u - self.inv_integral_from) * self.div_inv_integral_diff;
-
-        t
+    pub fn new(_curve: &QuadraticBezierSegment<S>, _tolerance: S) -> Self {
+        Self { _marker: std::marker::PhantomData }
     }
 }
 
-/// Compute an approximation to integral (1 + 4x^2) ^ -0.25 dx used in the flattening code.
-fn approx_parabola_integral<S: Scalar>(x: S) -> S {
-    let d = S::value(0.67);
-    let quarter = S::HALF * S::HALF;
-    x / (S::ONE - d + (d.powi(4) + quarter * x * x).sqrt().sqrt())
+/// The polynomial form of a quadratic bézier segment.
+///
+/// The `sample` implementation uses Horner's method and tends to be faster than
+/// `QuadraticBezierSegment::sample`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct QuadraticBezierPolynomial<S> {
+    pub a0: Vector<S>,
+    pub a1: Vector<S>,
+    pub a2: Vector<S>,
 }
 
-/// Approximate the inverse of the function above.
-fn approx_parabola_inv_integral<S: Scalar>(x: S) -> S {
-    let b = S::value(0.39);
-    let quarter = S::HALF * S::HALF;
-    x * (S::ONE - b + (b * b + quarter * x * x).sqrt())
+impl<S: Scalar> QuadraticBezierPolynomial<S> {
+    #[inline(always)]
+    pub fn sample(&self, t: S) -> Point<S> {
+        // Horner's method.
+        let mut v = self.a0;
+        let mut t2 = t;
+        v += self.a1 * t2;
+        t2 *= t;
+        v += self.a2 * t2;
+
+        v.to_point()
+    }
+}
+
+/// Computes the number of line segments required to build a flattened approximation
+/// of the curve with segments placed at regular `t` intervals.
+fn flattened_segments_wang<S: Scalar>(curve: &QuadraticBezierSegment<S>, tolerance: S) -> S {
+    let from = curve.from.to_vector();
+    let ctrl = curve.ctrl.to_vector();
+    let to = curve.to.to_vector();
+    let l = (from - ctrl * S::TWO + to) * S::TWO;
+    let d = S::ONE / (S::EIGHT * tolerance);
+    let err4 = l.dot(l) * d * d;
+    let err4_f32 = err4.to_f32().unwrap_or(1.0);
+
+    // Avoid two square roots using a lookup table that contains
+    // i^4 for  i in 1..25.
+    const N: usize = 24;
+    const LUT: [f32; N] = [
+        1.0, 16.0, 81.0, 256.0, 625.0, 1296.0, 2401.0, 4096.0, 6561.0,
+        10000.0, 14641.0, 20736.0, 28561.0, 38416.0, 50625.0, 65536.0,
+        83521.0, 104976.0, 130321.0, 160000.0, 194481.0, 234256.0,
+        279841.0, 331776.0
+    ];
+
+    // If the value we are looking for is within the LUT, take the fast path
+    if err4_f32 <= 331776.0 {
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..N {
+            if err4_f32 <= LUT[i] {
+                return S::from(i + 1).unwrap_or(S::ONE);
+            }
+        }
+    }
+
+    // Otherwise fall back to computing via two square roots.
+    err4.sqrt().sqrt().max(S::ONE)
 }
 
 /// A flattening iterator for quadratic bézier segments.
 ///
 /// Yields points at each iteration.
 pub struct Flattened<S> {
-    curve: QuadraticBezierSegment<S>,
-    params: FlatteningParameters<S>,
-    i: S,
-    done: bool,
+    curve: QuadraticBezierPolynomial<S>,
+    to: Point<S>,
+    segments: u32,
+    step: S,
+    t: S,
 }
 
 impl<S: Scalar> Flattened<S> {
     #[inline]
     pub(crate) fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
-        let params = FlatteningParameters::new(curve, tolerance);
+        debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
+
+        let n = flattened_segments_wang(curve, tolerance);
+
+        let step = S::ONE / n;
 
         Flattened {
-            curve: *curve,
-            params,
-            i: S::ONE,
-            done: false,
+            curve: curve.polynomial_form(),
+            to: curve.to,
+            segments: n.to_u32().unwrap_or(1),
+            step,
+            t: step
         }
     }
 }
@@ -991,45 +1003,52 @@ impl<S: Scalar> Iterator for Flattened<S> {
 
     #[inline]
     fn next(&mut self) -> Option<Point<S>> {
-        if self.done {
+        if self.segments == 0 {
             return None;
         }
 
-        if self.i >= self.params.count - S::EPSILON {
-            self.done = true;
-            return Some(self.curve.to);
+        self.segments -= 1;
+        if self.segments == 0 {
+            return Some(self.to)
         }
 
-        let t = self.params.t_at_iteration(self.i);
-        self.i += S::ONE;
+        let p = self.curve.sample(self.t);
+        self.t += self.step;
 
-        Some(self.curve.sample(t))
+        Some(p)
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let count = (self.params.count + S::ONE - self.i).to_usize().unwrap();
-        (count, Some(count))
+        let n = self.segments as usize;
+        (n, Some(n))
     }
 }
 
+// TODO(breaking change): is this useful? Either remove
+// it or add the equivalent for cubic curves.
 /// A flattening iterator for quadratic bézier segments.
 ///
 /// Yields the curve parameter at each iteration.
 pub struct FlattenedT<S> {
-    params: FlatteningParameters<S>,
-    i: S,
-    done: bool,
+    segments: u32,
+    step: S,
+    t: S,
 }
 
 impl<S: Scalar> FlattenedT<S> {
     #[inline]
     pub(crate) fn new(curve: &QuadraticBezierSegment<S>, tolerance: S) -> Self {
-        let params = FlatteningParameters::new(curve, tolerance);
+        debug_assert!(tolerance >= S::EPSILON * S::EPSILON);
+
+        let n = flattened_segments_wang(curve, tolerance);
+
+        let step = S::ONE / n;
+
         FlattenedT {
-            i: S::ONE,
-            params,
-            done: false,
+            segments: n.to_u32().unwrap_or(1),
+            step,
+            t: step
         }
     }
 }
@@ -1039,25 +1058,24 @@ impl<S: Scalar> Iterator for FlattenedT<S> {
 
     #[inline]
     fn next(&mut self) -> Option<S> {
-        if self.done {
+        if self.segments == 0 {
             return None;
         }
 
-        if self.i >= self.params.count - S::EPSILON {
-            self.done = true;
-            return Some(S::ONE);
+        self.segments -= 1;
+        if self.segments == 0 {
+            return Some(S::ONE)
         }
 
-        let t = self.params.t_at_iteration(self.i);
-        self.i += S::ONE;
+        self.t += self.step;
 
-        Some(t)
+        Some(self.t)
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let count = (self.params.count + S::ONE - self.i).to_usize().unwrap();
-        (count, Some(count))
+        let n = self.segments as usize;
+        (n, Some(n))
     }
 }
 
