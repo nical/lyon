@@ -702,6 +702,9 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
 }
 
 #[cfg(test)]
+use path::geom::euclid::approxeq::ApproxEq;
+
+#[cfg(test)]
 fn slice(a: &[f32]) -> &[f32] {
     a
 }
@@ -783,7 +786,7 @@ fn measure_bezier_curve() {
 
     for t in [0.25, 0.75] {
         let result = sampler.sample(t);
-        assert_eq!(result.tangent, vector(1.0, 0.0));
+        assert!(result.tangent.approx_eq(&vector(1.0, 0.0)));
     }
     for (t, position) in [
         (0.0, point(0.0, 0.0)),
@@ -791,7 +794,7 @@ fn measure_bezier_curve() {
         (1.0, point(2.0, 0.0)),
     ] {
         let result = sampler.sample(t);
-        assert_eq!(result.position, position);
+        assert!(result.position.approx_eq(&position));
     }
 }
 

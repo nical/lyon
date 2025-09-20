@@ -1337,6 +1337,10 @@ impl<S: Scalar> Segment for CubicBezierSegment<S> {
     }
 }
 
+/// The polynomial form of a cubic bézier segment.
+///
+/// The `sample` implementation uses Horner's method and tends to be faster than
+/// `CubicBezierSegment::sample`.
 pub struct CubicBezierPolynomial<S> {
     pub a0: Vector<S>,
     pub a1: Vector<S>,
