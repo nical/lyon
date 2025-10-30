@@ -899,12 +899,12 @@ impl<S: Scalar> QuadraticBezierSegment<S> {
 // It's not useful to users of the crate but removing it is a breaking change so it
 // stays empty for now.
 pub struct FlatteningParameters<S> {
-    _marker: std::marker::PhantomData<S>
+    _marker: core::marker::PhantomData<S>
 }
 
 impl<S: Scalar> FlatteningParameters<S> {
     pub fn new(_curve: &QuadraticBezierSegment<S>, _tolerance: S) -> Self {
-        Self { _marker: std::marker::PhantomData }
+        Self { _marker: core::marker::PhantomData }
     }
 }
 
