@@ -2,6 +2,8 @@ use path::math::Point;
 use path::PathEvent;
 use path::{Path, PathSlice};
 
+use std::{println, vec::Vec, panic};
+
 pub type Polygons = Vec<Vec<Point>>;
 pub type PolygonsRef<'a> = &'a [Vec<Point>];
 
@@ -104,8 +106,6 @@ pub fn find_reduced_test_case<F: Fn(Path) -> bool + panic::UnwindSafe + panic::R
 
     path
 }
-
-use std::panic;
 
 fn find_reduced_test_case_sp<F>(mut polygons: Polygons, cb: &F) -> Polygons
 where
