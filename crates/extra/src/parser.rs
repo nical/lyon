@@ -3,10 +3,12 @@ use path::{
     math::{point, vector, Angle, Point},
     traits::PathBuilder,
 };
+use core::{mem};
 
-extern crate thiserror;
+extern crate alloc;
+use alloc::{string::String, vec::Vec};
 
-use self::thiserror::Error;
+use thiserror::Error;
 
 #[non_exhaustive]
 #[derive(Error, Clone, Debug, PartialEq)]
@@ -457,7 +459,7 @@ impl PathParser {
         match self.float_buffer.parse::<f32>() {
             Ok(val) => Ok(val),
             Err(_) => Err(ParseError::Number {
-                src: std::mem::take(&mut self.float_buffer),
+                src: mem::take(&mut self.float_buffer),
                 line,
                 column,
             }),
