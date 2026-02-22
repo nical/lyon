@@ -557,8 +557,8 @@ impl StrokeGeometryBuilder for NoOutput {
 /// Provides the maximum value of an index.
 ///
 /// This should be the maximum value representable by the index type up
-/// to u32::MAX because the tessellators can't internally represent more
-/// than u32::MAX indices.
+/// to `u32::MAX - 1` because the tessellators can't internally represent more
+/// than `u32::MAX - 1` indices.
 pub trait MaxIndex {
     const MAX: usize;
 }
@@ -576,23 +576,30 @@ impl MaxIndex for i16 {
     const MAX: usize = i16::MAX as usize;
 }
 impl MaxIndex for u32 {
-    const MAX: usize = u32::MAX as usize;
+    // u32::MAX is reserved as VertexId::INVALID
+    const MAX: usize = (u32::MAX - 1) as usize;
 }
 impl MaxIndex for i32 {
     const MAX: usize = i32::MAX as usize;
 }
-// The tessellators internally use u32 indices so we can't have more than u32::MAX
 impl MaxIndex for u64 {
-    const MAX: usize = u32::MAX as usize;
+    // The tessellators internally use u32 indices so we can't have more than for u32
+    const MAX: usize = <u32 as MaxIndex>::MAX;
 }
 impl MaxIndex for i64 {
-    const MAX: usize = u32::MAX as usize;
+    const MAX: usize = <u32 as MaxIndex>::MAX;
 }
 impl MaxIndex for usize {
-    const MAX: usize = u32::MAX as usize;
+    #[cfg(target_pointer_width = "64")]
+    const MAX: usize = <u64 as MaxIndex>::MAX;
+    #[cfg(target_pointer_width = "32")]
+    const MAX: usize = <u32 as MaxIndex>::MAX;
 }
 impl MaxIndex for isize {
-    const MAX: usize = u32::MAX as usize;
+    #[cfg(target_pointer_width = "64")]
+    const MAX: usize = <i64 as MaxIndex>::MAX;
+    #[cfg(target_pointer_width = "32")]
+    const MAX: usize = <i32 as MaxIndex>::MAX;
 }
 
 #[cfg(test)]
