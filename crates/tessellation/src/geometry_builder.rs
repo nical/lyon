@@ -334,6 +334,20 @@ impl<'l, OutputVertex: 'l, OutputIndex: 'l, Ctor>
     pub fn buffers<'a, 'b: 'a>(&'b self) -> &'a VertexBuffers<OutputVertex, OutputIndex> {
         self.buffers
     }
+
+    fn add_vertex_impl(&mut self, vertex: OutputVertex) -> Result<VertexId, GeometryBuilderError>
+    where
+        OutputIndex: MaxIndex
+    {
+        let len = self.buffers.vertices.len();
+        let id = len
+            .checked_add(self.vertex_offset as usize)
+            .filter(|i| *i <= OutputIndex::MAX)
+            .ok_or(GeometryBuilderError::TooManyVertices)?;
+
+        self.buffers.vertices.push(vertex);
+        Ok(VertexId(id as Index))
+    }
 }
 
 /// A wrapper for stroke and fill geometry builders that inverts the triangle face winding.
@@ -456,9 +470,9 @@ where
         debug_assert!(a != VertexId::INVALID);
         debug_assert!(b != VertexId::INVALID);
         debug_assert!(c != VertexId::INVALID);
-        self.buffers.indices.push((a + self.vertex_offset).into());
-        self.buffers.indices.push((b + self.vertex_offset).into());
-        self.buffers.indices.push((c + self.vertex_offset).into());
+        self.buffers.indices.push(a.into());
+        self.buffers.indices.push(b.into());
+        self.buffers.indices.push(c.into());
     }
 
     fn abort_geometry(&mut self) {
@@ -474,15 +488,9 @@ where
     OutputIndex: Add + From<VertexId> + MaxIndex,
     Ctor: FillVertexConstructor<OutputVertex>,
 {
-    fn add_fill_vertex(&mut self, vertex: FillVertex) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers
-            .vertices
-            .push(self.vertex_constructor.new_vertex(vertex));
-        let len = self.buffers.vertices.len();
-        if len > OutputIndex::MAX {
-            return Err(GeometryBuilderError::TooManyVertices);
-        }
-        Ok(VertexId((len - 1) as Index))
+    fn add_fill_vertex(&mut self, v: FillVertex) -> Result<VertexId, GeometryBuilderError> {
+        let v = self.vertex_constructor.new_vertex(v);
+        self.add_vertex_impl(v)
     }
 }
 
@@ -494,14 +502,8 @@ where
     Ctor: StrokeVertexConstructor<OutputVertex>,
 {
     fn add_stroke_vertex(&mut self, v: StrokeVertex) -> Result<VertexId, GeometryBuilderError> {
-        self.buffers
-            .vertices
-            .push(self.vertex_constructor.new_vertex(v));
-        let len = self.buffers.vertices.len();
-        if len > OutputIndex::MAX {
-            return Err(GeometryBuilderError::TooManyVertices);
-        }
-        Ok(VertexId((len - 1) as Index))
+        let v = self.vertex_constructor.new_vertex(v);
+        self.add_vertex_impl(v)
     }
 }
 
@@ -591,4 +593,32 @@ impl MaxIndex for usize {
 }
 impl MaxIndex for isize {
     const MAX: usize = u32::MAX as usize;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overflow_with_vertex_offset() {
+        let mut buffers = VertexBuffers::default();
+        let mut builder = simple_builder(&mut buffers).with_vertex_offset(65534);
+        let builder = &mut builder as &mut dyn FillGeometryBuilder;
+
+        let dummy_queue = crate::event_queue::EventQueue::new();
+        let vertex = || crate::fill::FillVertex {
+            position: Point::new(0.0, 0.0),
+            events: &dummy_queue,
+            current_event: crate::event_queue::INVALID_EVENT_ID,
+            attrib_buffer: &mut [],
+            attrib_store: None,
+        };
+
+        builder.begin_geometry();
+        assert_eq!(builder.add_fill_vertex(vertex()), Ok(VertexId(65534)));
+        assert_eq!(builder.add_fill_vertex(vertex()), Ok(VertexId(65535)));
+        assert_eq!(builder.add_fill_vertex(vertex()), Err(GeometryBuilderError::TooManyVertices));
+        builder.abort_geometry();
+        assert!(buffers.vertices.is_empty() && buffers.indices.is_empty());
+    }
 }
