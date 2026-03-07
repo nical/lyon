@@ -187,12 +187,12 @@ impl<S: Scalar> LineSegment<S> {
     }
 
     /// Computes third mid-point of this segment.
-    pub fn mid_point(&mut self) -> Point<S> {
+    pub fn mid_point(&self) -> Point<S> {
         (self.from + self.to.to_vector()) / S::TWO
     }
 
     #[inline]
-    pub fn translate(&mut self, by: Vector<S>) -> Self {
+    pub fn translate(&self, by: Vector<S>) -> Self {
         LineSegment {
             from: self.from + by,
             to: self.to + by,
