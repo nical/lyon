@@ -203,7 +203,7 @@ fn rounded_polygon() {
     let mut previous = actual_events[0].to();
 
     for e in actual_events {
-        e.from().approx_eq(&previous);
+        assert!(e.from().approx_eq(&previous));
         previous = e.to();
     }
 }
