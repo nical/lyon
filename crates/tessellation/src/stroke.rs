@@ -2094,7 +2094,7 @@ fn compute_join_side_positions(
         let d_next = extruded_normal.dot(v1) - next_length;
         let d_prev = extruded_normal.dot(-v0) - prev_length;
 
-        if d_next.min(d_prev) >= 0.0 || normal.square_length() < 1e-5 {
+        if d_next.min(d_prev) > 0.0 || normal.square_length() < 1e-5 {
             // Case of an overlapping stroke. In order to prevent the back vertex to create a
             // spike outside of the stroke, we simply don't create it and we'll "fold" the join
             // instead.
@@ -3396,7 +3396,7 @@ fn correct_miter_clip_length() {
         .with_line_width(line_width)
         .with_line_join(LineJoin::MiterClip)
         .with_miter_limit(miter_limit);
-    
+
     let mut mesh = VertexBuffers::new();
     let mut builder = simple_builder(&mut mesh);
     tessellator
