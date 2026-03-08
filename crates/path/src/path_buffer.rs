@@ -385,7 +385,7 @@ impl<'l> BuilderWithAttributes<'l> {
         self.buffer.paths.push(PathDescriptor {
             points: (self.points_start, points_end),
             verbs: (self.verbs_start, verbs_end),
-            num_attributes: 0,
+            num_attributes: self.builder.num_attributes() as u32,
         });
 
         index
