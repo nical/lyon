@@ -961,6 +961,7 @@ impl<Builder: PathBuilder> PathBuilder for Flattened<Builder> {
 
     fn begin(&mut self, at: Point, attributes: Attributes) -> EndpointId {
         self.current_position = at;
+        self.prev_attributes.copy_from_slice(attributes);
         self.builder.begin(at, attributes)
     }
 
