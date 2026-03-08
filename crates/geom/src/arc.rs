@@ -469,10 +469,10 @@ impl<S: Scalar> Arc<S> {
             }
         } else {
             if a1 > two_pi - abs_sweep {
-                cb(a1 / abs_sweep);
+                cb((two_pi - a1) / abs_sweep);
             }
             if a2 > two_pi - abs_sweep {
-                cb(a2 / abs_sweep);
+                cb((two_pi - a2) / abs_sweep);
             }
         }
     }
@@ -1138,6 +1138,70 @@ fn test_bounding_box() {
         ));
         angle += Angle::pi() * 2.0 / 10.0;
     }
+}
+
+#[test]
+fn test_bounding_box_negative_sweep() {
+    use euclid::approxeq::ApproxEq;
+
+    // An arc from angle 0 sweeping +pi (upper half-circle) should have the
+    // same bounding box as an arc from angle pi sweeping -pi (same upper
+    // half-circle traversed in the opposite direction).
+    let positive_sweep = Arc {
+        center: point(0.0f32, 0.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::pi(),
+        x_rotation: Angle::zero(),
+    };
+
+    let negative_sweep = Arc {
+        center: point(0.0f32, 0.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::pi(),
+        sweep_angle: -Angle::pi(),
+        x_rotation: Angle::zero(),
+    };
+
+    let r_pos = positive_sweep.bounding_box();
+    let r_neg = negative_sweep.bounding_box();
+
+    assert!(
+        r_pos.min.x.approx_eq(&r_neg.min.x)
+            && r_pos.max.x.approx_eq(&r_neg.max.x)
+            && r_pos.min.y.approx_eq(&r_neg.min.y)
+            && r_pos.max.y.approx_eq(&r_neg.max.y),
+        "Bounding boxes should match for equivalent arcs with opposite sweep.\n  positive: {:?}\n  negative: {:?}", r_pos, r_neg
+    );
+
+    // A 270-degree arc: positive sweep from 0 to 3*pi/2 vs negative sweep
+    // from 3*pi/2 to 0. This arc contains internal extrema at pi/2 and pi.
+    let positive_sweep = Arc {
+        center: point(0.0f32, 0.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::radians(0.0),
+        sweep_angle: Angle::radians(std::f32::consts::PI * 1.5),
+        x_rotation: Angle::zero(),
+    };
+
+    let negative_sweep = Arc {
+        center: point(0.0f32, 0.0),
+        radii: vector(1.0, 1.0),
+        start_angle: Angle::radians(std::f32::consts::PI * 1.5),
+        sweep_angle: Angle::radians(-std::f32::consts::PI * 1.5),
+        x_rotation: Angle::zero(),
+    };
+
+    let r_pos = positive_sweep.bounding_box();
+    let r_neg = negative_sweep.bounding_box();
+
+    assert!(
+        r_pos.min.x.approx_eq(&r_neg.min.x)
+            && r_pos.max.x.approx_eq(&r_neg.max.x)
+            && r_pos.min.y.approx_eq(&r_neg.min.y)
+            && r_pos.max.y.approx_eq(&r_neg.max.y),
+        "Bounding boxes should match for 270-degree arcs with opposite sweep.\n  positive: {:?}\n  negative: {:?}", r_pos, r_neg
+    );
 }
 
 #[test]
