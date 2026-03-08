@@ -1299,7 +1299,7 @@ impl<Builder: PathBuilder> WithSvg<Builder> {
         let arc_start = arc.from();
         if self.need_moveto {
             self.move_to(arc_start);
-        } else if (arc_start - self.current_position).square_length() < 0.01 {
+        } else if (arc_start - self.current_position).square_length() > 0.01 {
             self.builder.line_to(arc_start, &self.attribute_buffer);
         }
 
