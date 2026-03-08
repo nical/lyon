@@ -1072,9 +1072,10 @@ impl<S: Scalar> Iterator for FlattenedT<S> {
             return Some(S::ONE)
         }
 
+        let t = self.t;
         self.t += self.step;
 
-        Some(self.t)
+        Some(t)
     }
 
     #[inline]
@@ -1415,6 +1416,48 @@ fn test_flattening_straight_line() {
     let mut count: u32 = 0;
     curve.for_each_flattened(0.1, &mut |_| count += 1);
     assert_eq!(count, 1);
+}
+
+#[test]
+fn test_flattened_t_values_are_monotonic() {
+    use crate::point;
+
+    // A curve with enough curvature to require several segments.
+    let curve = QuadraticBezierSegment {
+        from: point(0.0f32, 0.0),
+        ctrl: point(50.0, 100.0),
+        to: point(100.0, 0.0),
+    };
+
+    let iter = FlattenedT::new(&curve, 0.01);
+    let count = iter.segments;
+    assert!(count >= 3, "need at least 3 segments for this test, got {}", count);
+
+    let step = 1.0 / count as f32;
+    let mut iter = FlattenedT::new(&curve, 0.01);
+    let mut prev = 0.0f32;
+    let mut n = 0u32;
+
+    while let Some(t) = iter.next() {
+        // Values must be strictly monotonically increasing.
+        assert!(t > prev, "t values must be strictly increasing: {} <= {}", t, prev);
+        prev = t;
+        n += 1;
+    }
+
+    // Must produce exactly `count` values.
+    assert_eq!(n, count);
+
+    // First value must be close to 1/count (not 2/count).
+    let first = FlattenedT::new(&curve, 0.01).next().unwrap();
+    assert!(
+        (first - step).abs() < 1e-3,
+        "first t value should be ~{}, got {}",
+        step, first,
+    );
+
+    // Last value must be exactly 1.0.
+    assert_eq!(prev, 1.0);
 }
 
 #[test]
