@@ -273,12 +273,6 @@ impl EventQueue {
         self.events[prev as usize].next_event = idx;
     }
 
-    pub(crate) fn clear(&mut self) {
-        self.events.clear();
-        self.first = INVALID_EVENT_ID;
-        self.sorted = false;
-    }
-
     /// Returns the ID of the first event in the queue.
     pub(crate) fn first_id(&self) -> TessEventId {
         self.first
