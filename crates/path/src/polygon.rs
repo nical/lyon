@@ -68,7 +68,7 @@ impl<'l, T> Polygon<'l, T> {
             Event::Begin {
                 at: &self.points[0],
             }
-        } else if idx == self.points.len() - 1 {
+        } else if idx == self.points.len() {
             Event::End {
                 last: &self.points[self.points.len() - 1],
                 first: &self.points[0],
