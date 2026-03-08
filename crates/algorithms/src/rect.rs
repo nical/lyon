@@ -102,7 +102,7 @@ pub fn to_axis_aligned_rectangle<P: IntoIterator<Item = PathEvent>>(
                     }
                 }
 
-                ctx.edge(from, to);
+                ctx.edge(from, to)?;
             }
             PathEvent::Cubic {
                 from,
@@ -139,7 +139,7 @@ pub fn to_axis_aligned_rectangle<P: IntoIterator<Item = PathEvent>>(
                     return None;
                 }
 
-                ctx.edge(from, to);
+                ctx.edge(from, to)?;
             }
         }
     }
