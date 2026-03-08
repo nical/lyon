@@ -64,7 +64,7 @@ impl EventQueue {
         EventQueue {
             events: Vec::with_capacity(cap),
             edge_data: Vec::with_capacity(cap),
-            first: 0,
+            first: INVALID_EVENT_ID,
             sorted: false,
         }
     }
