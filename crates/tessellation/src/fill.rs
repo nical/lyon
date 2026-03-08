@@ -62,7 +62,7 @@ fn fmax(a: f32, b: f32) -> f32 {
 }
 
 fn slope(v: Vector) -> f32 {
-    v.x / (v.y.max(f32::MIN))
+    v.x / (v.y.max(f32::MIN_POSITIVE))
 }
 
 #[cfg(all(debug_assertions, feature = "std"))]
