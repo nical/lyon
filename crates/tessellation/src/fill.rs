@@ -791,6 +791,13 @@ impl FillTessellator {
             debug_assert!(self.fill.spans.is_empty());
         }
 
+        if self.assume_no_intersection && (!self.active.edges.is_empty() | !self.fill.spans.is_empty()) {
+            tess_log!(self, "Tessellation failed with TessellatorOptions::handle_intersections = false. ");
+            builder.abort_geometry();
+
+            return Err(InternalError::intersections_disabled().into());
+        }
+
         // There shouldn't be any span left after the tessellation ends.
         // If for whatever reason (bug) there are, flush them so that we don't
         // miss the triangles they contain.
@@ -987,6 +994,13 @@ impl FillTessellator {
 
     #[cfg(debug_assertions)]
     fn check_active_edges(&self) {
+        if self.assume_no_intersection {
+            // Invariants can break in an uncontrollable ways if we try to tessellate
+            // a self-intersecting polygon without intersection checks, so we only
+            // try to avoid panicking in this case.
+            return;
+        }
+
         let mut winding = WindingState::new();
         for (idx, edge) in self.active.edges.iter().enumerate() {
             winding.update(self.fill_rule, edge.winding);
@@ -1917,7 +1931,7 @@ impl FillTessellator {
                 let mut w = winding_number;
                 tess_log!(self, "Fixing up merge vertex after sort.");
                 let mut idx = i;
-                loop {
+                while idx > 0 {
                     // Roll back previous edge winding and swap.
                     w -= self.active.edges[idx - 1].winding;
                     self.active.edges.swap(idx, idx - 1);
@@ -1938,12 +1952,14 @@ impl FillTessellator {
 
         self.sort_active_edges();
 
-        debug_assert!(self
-            .active
-            .edges
-            .first()
-            .map(|e| !e.is_merge)
-            .unwrap_or(true));
+        if !self.assume_no_intersection {
+            debug_assert!(self
+                .active
+                .edges
+                .first()
+                .map(|e| !e.is_merge)
+                .unwrap_or(true));
+        }
         // This can only happen if we ignore self-intersections,
         // so we are in a pretty broken state already.
         // There isn't a fully correct solution for this (other

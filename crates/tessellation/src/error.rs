@@ -36,7 +36,16 @@ pub enum InternalError {
     InsufficientNumberOfEdges,
     MergeVertexOutside,
     InvalidNumberOfEdgesBelowVertex,
+    // TODO: ErrorCode(1) is used to signal that something unexpected happened
+    // while tessellating with handle_intersections = false. Add a proper error
+    // variant for this for the next major release.
     ErrorCode(i16),
+}
+
+impl InternalError {
+    pub(crate) fn intersections_disabled() -> Self {
+        InternalError::ErrorCode(1)
+    }
 }
 
 #[cfg(feature = "std")]
