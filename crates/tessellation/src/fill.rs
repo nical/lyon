@@ -768,8 +768,14 @@ impl FillTessellator {
 
         self.fill_rule = options.fill_rule;
         self.orientation = options.sweep_orientation;
-        self.tolerance = options.tolerance * 0.5;
         self.assume_no_intersection = !options.handle_intersections;
+        self.tolerance = if true || options.handle_intersections {
+            options.tolerance * 0.5
+        } else {
+            // The tolerance theshold allows the tessellator to simplify geometry by collapsing
+            // nearby vertices. This can cause a non-self-intersecting path to self-intersect.
+            f32::EPSILON
+        };
 
         builder.begin_geometry();
 
