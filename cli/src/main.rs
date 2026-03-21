@@ -144,6 +144,12 @@ fn main() {
                         .help("Change the color of the window's background")
                         .takes_value(true),
                 )
+                .arg(
+                    Arg::with_name("ASSUME_NO_INTERSECTION")
+                        .long("assume-no-intersection")
+                        .help("Run the tessellation algorithm without intersection checks")
+                        .required(false),
+                )
         )
         .subcommand(
             declare_tess_params(SubCommand::with_name("reduce"), true)
@@ -384,7 +390,7 @@ fn get_path(matches: &ArgMatches) -> Option<Path> {
 
     if let Err(e) = parser.parse(&options, &mut Source::new(path_str.chars()), &mut builder) {
         println!("Error while parsing path: {}", path_str);
-        println!("{:?}", e);
+        println!("{}", e);
     }
 
     Some(builder.build())
@@ -417,12 +423,15 @@ fn get_tess_command(command: &ArgMatches, need_path: bool) -> TessellateCmd {
     let dots = get_dots(command);
     let fill_rule = get_fill_rule(command);
     let orientation = get_orientation(command);
+    let assume_no_intersection = command.is_present("ASSUME_NO_INTERSECTION");
+
     let fill =
         if command.is_present("FILL") || (stroke.is_none() && hatch.is_none() && dots.is_none()) {
             Some(
                 FillOptions::tolerance(get_tolerance(command))
                     .with_fill_rule(fill_rule)
-                    .with_sweep_orientation(orientation),
+                    .with_sweep_orientation(orientation)
+                    .with_intersections(!assume_no_intersection)
             )
         } else {
             None
