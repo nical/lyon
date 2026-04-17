@@ -568,9 +568,15 @@ impl<'l, PS: PositionStore, AS: AttributeStore> PathSampler<'l, PS, AS> {
         debug_assert!(self.in_bounds(dist));
         let prev = &self.edges[self.cursor - 1];
         let cur = &self.edges[self.cursor];
+
+        let length = cur.distance - prev.distance;
+        if length == 0.0 {
+            return 0.0;
+        }
+
         let t_begin = if prev.index == cur.index { prev.t } else { 0.0 };
         let t_end = cur.t;
-        t_begin + (t_end - t_begin) * ((dist - prev.distance) / (cur.distance - prev.distance))
+        t_begin + (t_end - t_begin) * ((dist - prev.distance) / length)
     }
 
     fn sample_impl(&mut self, mut dist: f32, sample_type: SampleType) -> PathSample {
@@ -984,7 +990,6 @@ fn zero_length() {
     expect_nans(sampler.sample(1.0), 2);
 }
 
-
 #[test]
 fn multiple_sub_paths() {
     let mut path = Path::builder();
@@ -1002,11 +1007,11 @@ fn multiple_sub_paths() {
     let mut sampler = measure.create_sampler(&path, SampleType::Normalized);
 
     let mut dashes = Path::builder();
-    sampler.split_range(0.0 .. 0.25, &mut dashes);
-    sampler.split_range(0.25 .. 0.5, &mut dashes);
+    sampler.split_range(0.0..0.25, &mut dashes);
+    sampler.split_range(0.25..0.5, &mut dashes);
     // Avoid starting subpaths exactly on the join as we may begin with a zero-length subpath
-    sampler.split_range(0.6 .. 0.75, &mut dashes);
-    sampler.split_range(0.75 .. 1.0, &mut dashes);
+    sampler.split_range(0.6..0.75, &mut dashes);
+    sampler.split_range(0.75..1.0, &mut dashes);
     let dashes = dashes.build();
 
     let mut iter = dashes.iter();
@@ -1024,7 +1029,12 @@ fn multiple_sub_paths() {
     fn expect_end(event: Option<path::PathEvent>, pos: Point) {
         std::eprintln!("- {:?}", event);
         if let Some(path::PathEvent::End { last, .. }) = event {
-            assert!(last.approx_eq(&pos), "Expected End {:?}, got {:?}", pos, last);
+            assert!(
+                last.approx_eq(&pos),
+                "Expected End {:?}, got {:?}",
+                pos,
+                last
+            );
         } else {
             panic!("Expected end, got {:?}", event);
         }
@@ -1032,10 +1042,27 @@ fn multiple_sub_paths() {
     fn expect_line(event: Option<path::PathEvent>, expect_from: Point, expect_to: Point) {
         std::eprintln!("- {:?}", event);
         if let Some(path::PathEvent::Line { from, to }) = event {
-            assert!(from.approx_eq(&expect_from), "Expected line {:?} {:?}, got {:?} {:?}", expect_from, expect_to, from, to);
-            assert!(to.approx_eq(&expect_to), "Expected line {:?} {:?}, got {:?} {:?}", expect_from, expect_to, from, to);
+            assert!(
+                from.approx_eq(&expect_from),
+                "Expected line {:?} {:?}, got {:?} {:?}",
+                expect_from,
+                expect_to,
+                from,
+                to
+            );
+            assert!(
+                to.approx_eq(&expect_to),
+                "Expected line {:?} {:?}, got {:?} {:?}",
+                expect_from,
+                expect_to,
+                from,
+                to
+            );
         } else {
-            panic!("Expected a line {:?} {:?}, got {:?}", expect_from, expect_to, event);
+            panic!(
+                "Expected a line {:?} {:?}, got {:?}",
+                expect_from, expect_to, event
+            );
         }
     }
 
@@ -1054,4 +1081,47 @@ fn multiple_sub_paths() {
     expect_begin(iter.next(), point(15.0, 10.0));
     expect_line(iter.next(), point(15.0, 10.0), point(20.0, 10.0));
     expect_end(iter.next(), point(20.0, 10.0));
+}
+
+#[test]
+fn zero_length_when_first_2_points_are_same() {
+    use crate::path::Event;
+
+    let mut path = Path::builder();
+
+    path.begin(point(0.0, 0.0));
+    path.line_to(point(0.0, 0.0));
+    path.line_to(point(1.0, 0.0));
+    path.end(false);
+
+    let path = path.build();
+    let measure = PathMeasurements::from_path(&path, 0.01);
+    let mut sampler = measure.create_sampler(&path, SampleType::Normalized);
+
+    let mut dashes = Path::builder();
+
+    sampler.split_range(0.0..1.0, &mut dashes);
+    let dashes = dashes.build();
+
+    assert_eq!(
+        dashes.iter_with_attributes().collect::<Vec<_>>(),
+        alloc::vec![
+            Event::Begin {
+                at: (point(0.0, 0.0), slice(&[]))
+            },
+            Event::Line {
+                from: (point(0.0, 0.0), slice(&[])),
+                to: (point(0.0, 0.0), slice(&[])),
+            },
+            Event::Line {
+                from: (point(0.0, 0.0), slice(&[])),
+                to: (point(1.0, 0.0), slice(&[])),
+            },
+            Event::End {
+                last: (point(1.0, 0.0), slice(&[])),
+                first: (point(0.0, 0.0), slice(&[])),
+                close: false
+            }
+        ]
+    );
 }
