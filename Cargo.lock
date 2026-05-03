@@ -1162,7 +1162,7 @@ dependencies = [
 
 [[package]]
 name = "lyon_algorithms"
-version = "1.0.19"
+version = "1.0.20"
 dependencies = [
  "lyon_path",
  "num-traits",
