@@ -782,9 +782,14 @@ impl EventQueueBuilder {
         let mut prev = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+        segment.for_each_flattened_with_t(self.tolerance, &mut |line, mut t| {
             if line.from == line.to {
                 return;
+            }
+
+            if needs_swap {
+                t.start = 1.0 - t.start;
+                t.end = 1.0 - t.end;
             }
 
             if first.is_none() {
@@ -858,9 +863,14 @@ impl EventQueueBuilder {
         let mut prev = segment.from;
         let mut first = None;
         let is_first_edge = self.nth == 0;
-        segment.for_each_flattened_with_t(self.tolerance, &mut |line, t| {
+        segment.for_each_flattened_with_t(self.tolerance, &mut |line, mut t| {
             if line.from == line.to {
                 return;
+            }
+
+            if needs_swap {
+                t.start = 1.0 - t.start;
+                t.end = 1.0 - t.end;
             }
 
             if first.is_none() {
