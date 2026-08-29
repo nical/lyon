@@ -3027,3 +3027,67 @@ fn fill_builder_vertex_source() {
         }
     }
 }
+
+#[test]
+fn fill_bezier_attributes() {
+    // Check attribute values along subdivized bezier curves.
+    //
+    //  *--*   *--*
+    // /    \ /    \
+    // \    / \    /
+    //  *--*   *--*
+    //
+    // attr = 5 * y + 10
+
+    let mut path = crate::path::Path::builder_with_attributes(1);
+    let _ = path.begin(point(1.0, 0.0), &[10.0]);
+    let _ = path.quadratic_bezier_to(point(0.0, 1.5), point(1.0, 3.0), &[25.0]);
+    let _ = path.line_to(point(2.0, 3.0), &[25.0]);
+    let _ = path.quadratic_bezier_to(point(3.0, 1.5), point(2.0, 0.0), &[10.0]);
+    path.end(true);
+    let _ = path.begin(point(5.0, 0.0), &[10.0]);
+    let _ = path.cubic_bezier_to(point(4.0, 1.0), point(4.0, 2.0), point(5.0, 3.0), &[25.0]);
+    let _ = path.line_to(point(6.0, 3.0), &[25.0]);
+    let _ = path.cubic_bezier_to(point(7.0, 2.0), point(7.0, 1.0), point(6.0, 0.0), &[10.0]);
+    path.end(true);
+
+    let path = path.build();
+
+    let mut tess = FillTessellator::new();
+    tess.tessellate_with_ids(
+        path.id_iter(),
+        &path,
+        Some(&path),
+        &FillOptions::default(),
+        &mut CheckAttributes { next_vertex: 0 },
+    )
+    .unwrap();
+
+    struct CheckAttributes {
+        next_vertex: u32,
+    }
+
+    impl GeometryBuilder for CheckAttributes {
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    impl FillGeometryBuilder for CheckAttributes {
+        fn add_fill_vertex(
+            &mut self,
+            mut vertex: FillVertex,
+        ) -> Result<VertexId, GeometryBuilderError> {
+            let pos = vertex.position();
+
+            let expected = 5.0 * pos.y + 10.0;
+            let actual = vertex.interpolated_attributes()[0];
+            if (actual - expected).abs() > 0.0001 {
+                panic!("at pos {:?}, expected = {}, actual = {}", pos, expected, actual);
+            }
+
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+    }
+}
