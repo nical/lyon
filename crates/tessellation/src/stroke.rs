@@ -1999,9 +1999,7 @@ fn tessellate_round_join(
     }
 
     // Compute the required number of subdivisions,
-    let step = circle_flattening_step(radius, options.tolerance);
-    let num_segments = (diff.radians.abs() / step).ceil();
-    let num_subdivisions = num_segments.log2().round() as u32;
+    let num_subdivisions = num_arc_subdivisions(radius, options.tolerance, diff.radians);
 
     vertex.side = if side == SIDE_POSITIVE {
         Side::Positive
@@ -2485,9 +2483,7 @@ pub(crate) fn tessellate_round_cap(
     let end_angle = mid_angle + diff;
 
     // Compute the required number of subdivisions on each side,
-    let step = circle_flattening_step(radius, options.tolerance);
-    let num_segments = (diff.radians.abs() / step).ceil();
-    let num_subdivisions = num_segments.log2().round() as u32;
+    let num_subdivisions = num_arc_subdivisions(radius, options.tolerance, diff.radians);
 
     vertex.position_on_path = center;
     vertex.half_width = radius;
@@ -2750,6 +2746,21 @@ pub(crate) fn circle_flattening_step(radius: f32, mut tolerance: f32) -> f32 {
     // Don't allow high tolerance values (compared to the radius) to avoid edge cases.
     tolerance = f32::min(tolerance, radius);
     2.0 * ((radius - tolerance) / radius).acos()
+}
+
+// Upper bound on the recursion depth of `tessellate_arc`.
+//
+// Each level of recursion doubles the number of segments, so 16 already stands for
+// 65536 segments per arc, which is finer than anything that can be displayed.
+const MAX_ARC_SUBDIVISIONS: u32 = 16;
+
+fn num_arc_subdivisions(radius: f32, tolerance: f32, angle: f32) -> u32 {
+    let step = circle_flattening_step(radius, tolerance);
+    let num_segments = (angle.abs() / step).ceil();
+    // Casting a float to an integer saturates and maps NaN to zero, so infinite and
+    // NaN segment counts (respectively a zero step, and a zero step with a zero
+    // angle) both land in range here.
+    (num_segments.log2().round() as u32).min(MAX_ARC_SUBDIVISIONS)
 }
 
 fn flatten_quad<F>(curve: &QuadraticBezierSegment<f32>, tolerance: f32, cb: &mut F)
@@ -3375,6 +3386,32 @@ fn issue_894() {
             .with_variable_line_width(STROKE_WIDTH),
         &mut BuffersBuilder::new(&mut geometry, VariableWidthStrokeCtor),
     );
+}
+
+#[test]
+fn issue_959() {
+    let mut builder = Path::builder();
+    builder.begin(point(10.0, 10.0));
+    builder.line_to(point(50.0, 10.0));
+    builder.line_to(point(50.0, 50.0));
+    builder.end(false);
+    let path = builder.build();
+
+    let mut tessellator = StrokeTessellator::new();
+
+    for line_width in [1e10, 1e20, 1e30, f32::MAX] {
+        let options = StrokeOptions::default()
+            .with_line_width(line_width)
+            .with_line_cap(LineCap::Round)
+            .with_line_join(LineJoin::Round);
+
+        let mut mesh: VertexBuffers<Point, u32> = VertexBuffers::new();
+        tessellator.tessellate_path(
+            &path,
+            &options,
+            &mut BuffersBuilder::new(&mut mesh, |v: StrokeVertex| v.position()),
+        ).unwrap();
+    }
 }
 
 #[test]
