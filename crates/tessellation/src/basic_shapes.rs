@@ -103,7 +103,11 @@ pub fn fill_circle(
     let arc_len = 0.5 * PI * radius;
     let step = circle_flattening_step(radius, options.tolerance);
     let num_segments = (arc_len / step).ceil();
-    let num_recursions = num_segments.log2() as u32;
+    // `fill_border_radius` doubles its output at every level, so 16 recursions already
+    // stand for 65536 segments per quadrant. The cap keeps very large radii, for which
+    // the tolerance target is out of reach in f32, from recursing until the stack or
+    // the allocator gives out.
+    let num_recursions = (num_segments.log2() as u32).min(16);
 
     for i in 0..4 {
         fill_border_radius(
@@ -204,6 +208,42 @@ fn fill_border_radius(
         dummy_queue,
         output,
     )
+}
+
+#[test]
+fn huge_circle() {
+    use crate::GeometryBuilderError;
+
+    // Radii large enough that the tolerance threshold used to bound the recursion in
+    // `fill_border_radius` cannot be met.
+    struct Builder {
+        next_vertex: u32,
+    }
+
+    impl crate::GeometryBuilder for Builder {
+        fn add_triangle(&mut self, _: VertexId, _: VertexId, _: VertexId) {}
+    }
+
+    impl crate::FillGeometryBuilder for Builder {
+        fn add_fill_vertex(&mut self, _: FillVertex) -> Result<VertexId, GeometryBuilderError> {
+            let id = self.next_vertex;
+            self.next_vertex += 1;
+
+            Ok(VertexId(id))
+        }
+    }
+
+    let mut tess = crate::FillTessellator::new();
+
+    for radius in [1e10, 1e20, 1e30, f32::MAX] {
+        tess.tessellate_circle(
+            point(1.0, 2.0),
+            radius,
+            &FillOptions::DEFAULT,
+            &mut Builder { next_vertex: 0 },
+        )
+        .unwrap();
+    }
 }
 
 #[test]
