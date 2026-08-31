@@ -85,7 +85,9 @@ pub trait Pattern {
     /// This method is invoked at each step along the path.
     ///
     /// If this method returns None, path walking stops. Otherwise the returned
-    /// value is the distance along the path to the next element in the pattern.
+    /// value is the distance along the path to the next element in the pattern,
+    /// and must be strictly positive: a step that does not move forward also
+    /// stops the walk.
     fn next(&mut self, event: WalkerEvent) -> Option<f32>;
 
     /// Invoked at the start each sub-path.
@@ -188,11 +190,17 @@ impl<'l> PathWalker<'l> {
                 distance: self.advancement,
                 attributes: &self.attribute_buffer[..],
             };
-            if let Some(distance) = self.pattern.next(event) {
-                self.next_distance = distance;
-            } else {
-                self.done = true;
-                return;
+            match self.pattern.next(event) {
+                // Only a strictly positive step advances the loop. Zero, negative and
+                // NaN steps would leave `distance` at or above `next_distance` forever,
+                // so they end the walk like `None` does.
+                Some(distance) if distance > 0.0 => {
+                    self.next_distance = distance;
+                }
+                _ => {
+                    self.done = true;
+                    return;
+                }
             }
         }
 
@@ -508,4 +516,29 @@ fn walk_abort_early() {
     walker.line_to(point(100.0, 0.0));
 
     assert_eq!(callback_counter, 1);
+}
+
+#[test]
+fn walk_non_advancing_interval() {
+    // A step that does not move forward leaves the walker at the same position, so it
+    // has to end the walk instead of stepping in place until the caller runs out of
+    // memory.
+    for interval in [0.0, -1.0, -0.0, f32::NAN] {
+        let mut callback_counter = 0;
+        let mut pattern = RegularPattern {
+            interval,
+            callback: |_event: WalkerEvent| {
+                callback_counter += 1;
+                assert!(callback_counter < 1000, "walker did not terminate");
+                true
+            },
+        };
+
+        let mut walker = PathWalker::new(0.0, 0.1, &mut pattern);
+
+        walker.begin(point(0.0, 0.0));
+        walker.line_to(point(100.0, 0.0));
+        walker.line_to(point(100.0, 100.0));
+        walker.end(true);
+    }
 }
